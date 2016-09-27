@@ -1,0 +1,10 @@
+flags: {}
+extra-package-dbs: []
+packages:
+- '.'
+extra-deps:
+- dice-entropy-conduit-1.0.0.1
+- finite-field-0.8.0
+- polynomial-0.7.2
+- secret-sharing-1.0.0.3
+resolver: lts-6.15

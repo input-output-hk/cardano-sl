@@ -1,0 +1,25 @@
+name:                pos
+version:             0.1.0.0
+synopsis:            Proof-of-stake
+description:         Please see README.md
+license:             BSD3
+license-file:        LICENSE
+author:              Artyom
+maintainer:          yom@artyom.me
+copyright:           2016 Artyom
+category:            Currency
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+executable pos
+  hs-source-dirs:      src
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , base-prelude
+                     , cryptonite
+                     , secret-sharing
+                     , slave-thread
+                     , time
+  default-language:    Haskell2010

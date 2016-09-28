@@ -23,6 +23,9 @@ executable pos
                      , bytestring
                      , containers
                      , cryptonite
+                     , data-default
+                     , lens
+                     , mtl
                      , random
                      , secret-sharing
                      , slave-thread

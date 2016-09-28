@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -19,14 +20,51 @@ import System.Random
 import qualified Data.Binary as Bin
 import qualified Data.Set as Set
 import Data.Set (Set)
+import Data.Map (Map)
+import Data.Default
+import Control.Lens
+import Control.Monad.State
 
-main :: IO ()
--- Here's how to run a simple system with two nodes pinging each other:
--- main = runNodes [node_ping 1, node_ping 0]
-main = return ()
 
 type NodeId = Int
 type Hash = Digest SHA256
+
+----------------------------------------------------------------------------
+-- Logging
+----------------------------------------------------------------------------
+
+logChan :: Chan String
+logChan = unsafePerformIO newChan
+{-# NOINLINE logChan #-}
+
+runLogPrinting :: IO ()
+runLogPrinting = void $ Slave.fork $
+  forever (putStrLn =<< readChan logChan)
+
+logInfo :: NodeId -> String -> IO ()
+logInfo nid s = logRaw (printf "[%d] %s" nid s)
+
+logRaw :: String -> IO ()
+logRaw = writeChan logChan
+
+----------------------------------------------------------------------------
+-- Constants
+----------------------------------------------------------------------------
+
+n :: Integral a => a
+n = 3
+
+t :: Integral a => a
+t = 0
+
+k :: Integral a => a
+k = 3
+
+slotDuration :: Num a => a
+slotDuration = 2  -- seconds
+
+epochSlots :: Integral a => a
+epochSlots = 6*k
 
 ----------------------------------------------------------------------------
 -- Transactions, blocks
@@ -77,8 +115,8 @@ displayEntry (ETx tx) =
   "transaction " ++ show tx
 displayEntry (EUHash nid h) =
   printf "[%d]'s commitment = %s" nid (show h)
-displayEntry (EUShare from to share) =
-  printf "[%d]'s share for [%d] = %s" from to (show share)
+displayEntry (EUShare n_from n_to share) =
+  printf "[%d]'s share for [%d] = %s" n_from n_to (show share)
 displayEntry (ELeaders epoch leaders) =
   printf "leaders for epoch %d = %s" epoch (show leaders)
 
@@ -134,12 +172,12 @@ node_ping pingNum = \myNum sendTo -> do
   void $ Slave.fork $ inSlot $ \_epoch _slot -> do
     logInfo myNum (printf "pinging [%d]" pingNum)
     sendTo pingNum MPing
-  return $ \from msg -> do
+  return $ \n_from msg -> do
     case msg of
       MPing -> do
-        logInfo myNum (printf "pinged by [%d]" from)
+        logInfo myNum (printf "pinged by [%d]" n_from)
       _ -> do
-        logInfo myNum (printf "unknown message from [%d]" from)
+        logInfo myNum (printf "unknown message from [%d]" n_from)
 
 runNodes :: [Node] -> IO ()
 runNodes nodes = do
@@ -152,7 +190,7 @@ runNodes nodes = do
       when (slot == 0) $ logRaw (printf "====== EPOCH %d ======" epoch)
       logRaw (printf "--- slot %d ---" slot)
     nodeCallbacks <-
-      let send from to msg = (nodeCallbacks !! to) from msg
+      let send n_from n_to msg = (nodeCallbacks !! n_to) n_from msg
       in  sequence [node nid (send nid) | (nid, node) <- zip [0..] nodes]
     forever $ threadDelay 1000000
   forever (threadDelay 1000000) `onException` killThread tid
@@ -191,22 +229,59 @@ inSlot' f = do
     f epoch slot
 
 {-
-If some node becomes inactive, other nodes will be able to recover its `u` by exchanging decrypted pieces of secret-shared `u` they've been sent.
+If some node becomes inactive, other nodes will be able to recover its U by exchanging decrypted pieces of secret-shared U they've been sent.
 
-After K slots all nodes are guaranteed to have a common prefix; each node computes the random satoshi index from all available `u`s to find out who has won the leader election and can generate the next block.
+After K slots all nodes are guaranteed to have a common prefix; each node computes the random satoshi index from all available Us to find out who has won the leader election and can generate the next block.
 -}
+
+{- TODO
+
+* Create a typo synonym for epoch number?
+
+* Off-by-one errors: should we trust blocks that are K slots old (or older), or only ones that are K+1 slots old or older?
+
+* Blocks should build on each other. We should discard shorter histories.
+
+* We should be able to query blocks from other nodes, like in Bitcoin (if e.g. we've been offline for several slots or even epochs) but this isn't implemented yet. In fact, most stuff from Bitcoin isn't implemented.
+
+-}
+
+data FullNodeState = FullNodeState {
+  -- | List of entries that the node has received but that aren't included
+  -- into any block yet
+  _pendingEntries :: Set Entry,
+  -- | Leaders for epochs (currently it just stores leaders for all epochs,
+  -- but we really only need the leader list for this epoch and the next
+  -- epoch)
+  _epochLeaders :: Map Int [NodeId],
+  -- | Blocks that are younger than K slots, as well as their age. We don't
+  -- trust them yet and don't use info from them.
+  _newBlocks :: [(Int, Block)],
+  -- | Trusted blocks (ones that are K slots old, or older). We trust info
+  -- from them.
+  _blocks :: [Block] }
+
+makeLenses ''FullNodeState
+
+instance Default FullNodeState where
+  def = FullNodeState {
+    _pendingEntries = mempty,
+    _epochLeaders = mempty,
+    _newBlocks = [],
+    _blocks = [] }
 
 fullNode :: Node
 fullNode = \myId sendTo -> do
-  -- The node maintains a list of entries that aren't included into any block
-  -- yet
-  entries <- newIORef (mempty :: Set Entry)
-  let createEntry x = modifyIORef' entries (Set.insert x)
+  nodeState <- newIORef (def :: FullNodeState)
+  let withNodeState act = atomicModifyIORef' nodeState (swap . runState act)
 
+  -- Empty the list of pending entries and create a block
   let createBlock :: IO Block
-      createBlock = Set.toList <$>
-        atomicModifyIORef' entries (\es -> (mempty, es))
+      createBlock = withNodeState $ do
+        es <- pendingEntries <<.= mempty
+        return (Set.toList es)
 
+  -- This will run at the beginning of each slot:
   void $ Slave.fork $ inSlot $ \epoch slot -> do
     -- For now we just send messages to everyone instead of letting them
     -- propagate, implementing peers, etc.
@@ -219,24 +294,25 @@ fullNode = \myId sendTo -> do
     when (myId == 0 && epoch == 0) $ do
       when (slot == 0) $ do
         leaders <- replicateM epochSlots (randomRIO (0, n-1))
-        createEntry $ ELeaders (epoch+1) leaders
+        withNodeState $ do
+          pendingEntries %= Set.insert (ELeaders (epoch+1) leaders)
         logInfo myId "generated random leaders for epoch 1 (as master node)"
       blk <- createBlock
       sendEveryone (MBlock blk)
       if null blk then
-        logInfo myId "created a block (empty)"
+        logInfo myId "created an empty block"
       else do
         logInfo myId "created a block:"
         for_ blk $ \e -> logInfo myId ("  * " ++ displayEntry e)
 
     -- When the epoch starts, we do the following:
-    --   • generate U, a random bitvector that will be used as a seed to
+    --   * generate U, a random bitvector that will be used as a seed to
     --     the PRNG that will choose leaders (nodes who will mine each block
     --     in the next epoch). For now the seed is actually just a Word64.
-    --   • secret-share U and encrypt each piece with corresponding
+    --   * secret-share U and encrypt each piece with corresponding
     --     node's pubkey; the secret can be recovered with at least
     --     N−T available pieces
-    --   • post encrypted shares and a commitment to U to the blockchain
+    --   * post encrypted shares and a commitment to U to the blockchain
     --     (so that later on we wouldn't be able to cheat by using
     --     a different U)
     when (slot == 0) $ do
@@ -245,6 +321,8 @@ fullNode = \myId sendTo -> do
       for_ (zip shares [0..]) $ \(share, i) ->
         sendEveryone (MEntry (EUShare myId i (encrypt i share)))
       sendEveryone (MEntry (EUHash myId (hashlazy (Bin.encode u))))
+
+    -- If we are the epoch leader, we should generate a block.
 
     -- According to @gromak (who isn't sure about this, but neither am I):
     -- https://input-output-rnd.slack.com/archives/paper-pos/p1474991379000006
@@ -257,43 +335,33 @@ fullNode = \myId sendTo -> do
     --
     -- So, what happens now is that we 
 
-  return $ \from msg -> do
-    return ()
-    -- logInfo myId (printf "message from [%d]: %s" from (displayMessage msg))
+  return $ \n_from msg -> do
+    case msg of
+
+      -- An entry has been received, add it to the list of unprocessed entries
+      MEntry e -> do
+        -- TODO: validate entry
+        -- TODO: what to do about extremely delayed entries that are
+        -- the same as ones we already received before (but already included
+        -- into one of the previous blocks?) How does Bitcoin deal with it?)
+        withNodeState $ do
+          pendingEntries %= Set.insert e
+
+      -- A block has been received, remove all pending entries we have that
+      -- are in this block
+      MBlock es -> do
+        -- TODO: validate block
+        withNodeState $ do
+          pendingEntries %= (Set.\\ Set.fromList es)
+
+      -- We were pinged
+      MPing -> logInfo myId (printf "received a ping from [%d]" n_from)
 
 ----------------------------------------------------------------------------
--- Constants
+-- Main
 ----------------------------------------------------------------------------
 
-n :: Integral a => a
-n = 3
-
-t :: Integral a => a
-t = 0
-
-k :: Integral a => a
-k = 3
-
-slotDuration :: Num a => a
-slotDuration = 2  -- seconds
-
-epochSlots :: Integral a => a
-epochSlots = 6*k
-
-----------------------------------------------------------------------------
--- Logging
-----------------------------------------------------------------------------
-
-logChan :: Chan String
-logChan = unsafePerformIO newChan
-{-# NOINLINE logChan #-}
-
-runLogPrinting :: IO ()
-runLogPrinting = void $ Slave.fork $
-  forever (putStrLn =<< readChan logChan)
-
-logInfo :: NodeId -> String -> IO ()
-logInfo nid s = logRaw (printf "[%d] %s" nid s)
-
-logRaw :: String -> IO ()
-logRaw = writeChan logChan
+main :: IO ()
+-- Here's how to run a simple system with two nodes pinging each other:
+-- main = runNodes [node_ping 1, node_ping 0]
+main = runNodes [fullNode, fullNode, fullNode]

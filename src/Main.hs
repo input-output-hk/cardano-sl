@@ -2,34 +2,32 @@
 {-# LANGUAGE NoImplicitPrelude          #-}
 {-# LANGUAGE RecursiveDo                #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
 
 module Main where
 
 
-import           Control.Lens                  (at, ix, makeLenses, preuse, use, (%=),
-                                                (.=), (<<.=))
-import           Crypto.Hash                   (Digest, SHA256, hashlazy)
-import qualified Crypto.SecretSharing.Internal as Secret (ByteShare (..), Share (..),
-                                                          encode)
-import qualified Data.Binary                   as Bin (encode)
-import           Data.Default                  (Default, def)
-import           Data.Fixed                    (div', mod')
-import           Data.IORef                    (IORef, atomicModifyIORef', newIORef,
-                                                readIORef, writeIORef)
-import qualified Data.Set                      as Set (fromList, insert, toList, (\\))
-import           Data.Time                     (UTCTime, addUTCTime, diffUTCTime,
-                                                getCurrentTime)
-import           Formatting                    (Format, int, sformat, shown, stext, (%))
+import           Control.Lens        (at, ix, makeLenses, preuse, use, (%=), (.=), (<<.=))
+import           Crypto.Hash         (Digest, SHA256, hashlazy)
+import qualified Data.Binary         as Bin (encode)
+import           Data.Default        (Default, def)
+import           Data.Fixed          (div', mod')
+import           Data.IORef          (IORef, atomicModifyIORef', newIORef, readIORef,
+                                      writeIORef)
+import qualified Data.Set            as Set (fromList, insert, toList, (\\))
+import qualified Data.Text.Buildable as Buildable
+import           Data.Time           (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
+import           Formatting          (Format, bprint, build, int, sformat, shown, stext,
+                                      (%))
 import qualified Prelude
-import           Protolude                     hiding ((%))
-import qualified SlaveThread                   as Slave (fork)
-import           System.IO.Unsafe              (unsafePerformIO)
-import           System.Random                 (randomIO, randomRIO)
-import           Unsafe                        (unsafeIndex)
+import           Protolude           hiding ((%))
+import qualified SlaveThread         as Slave (fork)
+import           System.IO.Unsafe    (unsafePerformIO)
+import           System.Random       (randomIO, randomRIO)
+import           Unsafe              (unsafeIndex)
 
+import           SecretSharing
 
 ----------------------------------------------------------------------------
 -- Utility types
@@ -118,14 +116,11 @@ data Entry
     | EUHash NodeId Hash
       -- | An encrypted piece of secret-shared U that the first node sent to
       -- the second node (and encrypted with the second node's pubkey)
-    | EUShare NodeId NodeId (Encrypted Secret.Share)
+    | EUShare NodeId NodeId (Encrypted Share)
       -- | Leaders for a specific epoch
     | ELeaders Int [NodeId]
 
     deriving (Eq, Ord, Show)
-
-deriving instance Ord Secret.ByteShare
-deriving instance Ord Secret.Share
 
 -- | Block
 type Block = [Entry]
@@ -136,7 +131,7 @@ displayEntry (ETx tx) =
 displayEntry (EUHash nid h) =
     sformat (node%"'s commitment = "%shown) nid h
 displayEntry (EUShare n_from n_to share) =
-    sformat (node%"'s share for "%node%" = "%shown) n_from n_to share
+    sformat (node%"'s share for "%node%" = "%build) n_from n_to share
 displayEntry (ELeaders epoch leaders) =
     sformat ("leaders for epoch "%int%" = "%shown) epoch leaders
 
@@ -146,6 +141,9 @@ displayEntry (ELeaders epoch leaders) =
 
 data Encrypted a = Enc NodeId a
     deriving (Eq, Ord, Show)
+
+instance Buildable.Buildable a => Buildable.Buildable (Encrypted a) where
+    build (Enc nid a) = bprint ("Enc "%node%" "%build) nid a
 
 -- | “Encrypt” data with node's pubkey
 encrypt :: NodeId -> a -> Encrypted a
@@ -368,7 +366,7 @@ fullNode = \myId sendTo -> do
         --     a different U)
         when (slot == 0) $ do
             u <- randomIO :: IO Word64
-            shares <- Secret.encode (n-t) n (Bin.encode u)
+            let shares = shareSecret n (n-t) (toS (Bin.encode u))
             for_ (zip shares [NodeId 0..]) $ \(share, i) ->
                 sendEveryone (MEntry (EUShare myId i (encrypt i share)))
             sendEveryone (MEntry (EUHash myId (hashlazy (Bin.encode u))))

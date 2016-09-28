@@ -9,4 +9,4 @@ packages:
     commit: 1cb06305292cb01719251891365496de2c20b850
   extra-dep: true
 
-resolver: lts-6.15
+resolver: lts-7.1

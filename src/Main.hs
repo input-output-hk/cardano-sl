@@ -35,8 +35,9 @@ import           SecretSharing
 
 type Hash = Digest SHA256
 
-newtype NodeId = NodeId {getNodeId :: Int}
-    deriving (Eq, Ord, Enum)
+newtype NodeId = NodeId
+    { getNodeId :: Int
+    } deriving (Eq, Ord, Enum)
 
 instance Prelude.Show NodeId where
     show (NodeId x) = "#" ++ show x
@@ -89,10 +90,10 @@ epochSlots = 6*k
 ----------------------------------------------------------------------------
 
 -- | Transaction input
-data TxIn = TxIn {
-    txInHash  :: Hash,       -- ^ Which transaction's output is used
-    txInIndex :: Int }       -- ^ Index of the output in transaction's outputs
-    deriving (Eq, Ord, Show)
+data TxIn = TxIn
+    { txInHash  :: Hash -- ^ Which transaction's output is used
+    , txInIndex :: Int -- ^ Index of the output in transaction's outputs
+    } deriving (Eq, Ord, Show)
 
 -- | Transaction output
 data TxOut = TxOut {
@@ -100,11 +101,11 @@ data TxOut = TxOut {
     deriving (Eq, Ord, Show)
 
 -- | Transaction
-data Tx = Tx {
-    txInputs  :: [TxIn],
-    txOutputs :: [TxOut],
-    txHash    :: Hash }      -- ^ Hash of the transaction
-    deriving (Eq, Ord, Show)
+data Tx = Tx
+    { txInputs  :: [TxIn]
+    , txOutputs :: [TxOut]
+    , txHash    :: Hash -- ^ Hash of the transaction
+    } deriving (Eq, Ord, Show)
 
 -- | An entry in a block
 data Entry
@@ -178,7 +179,8 @@ A node is given:
 * Its ID
 * A function to send messages
 
-A node also provides a callback which can be used to send messages to the node (and the callback knows who sent it a message).
+A node also provides a callback which can be used to send messages to the
+node (and the callback knows who sent it a message).
 -}
 type Node
     =  NodeId
@@ -223,11 +225,14 @@ systemStart = unsafePerformIO $ newIORef undefined
 {-# NOINLINE systemStart #-}
 
 {- |
-Run something at the beginning of every slot. The first parameter is epoch number (starting from 0) and the second parameter is slot number in the epoch (from 0 to epochLen-1).
+Run something at the beginning of every slot. The first parameter is epoch
+number (starting from 0) and the second parameter is slot number in the epoch
+(from 0 to epochLen-1).
 
 It loops, so you might want to use 'Slave.fork' with it.
 
-There's a slight delay so that messages from nodes wouldn't interfere with slot and epoch delimiters:
+There's a slight delay so that messages from nodes wouldn't interfere with
+slot and epoch delimiters:
 
     --- slot 0 ---
 
@@ -257,15 +262,29 @@ inSlot' f = do
 Timing issues
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* What to do about blocks delivered a bit late? E.g. let's assume that a block was generated in slot X, but received by another node in slot Y. What are the conditions on Y under which the block should (and shouldn't) be accepted?
+* What to do about blocks delivered a bit late? E.g. let's assume that a
+  block was generated in slot X, but received by another node in slot Y. What
+  are the conditions on Y under which the block should (and shouldn't) be
+  accepted?
 
-* What to do about extremely delayed entries that are the same as ones we already received before (but already included into one of the previous blocks?) How does Bitcoin deal with it?
+* What to do about extremely delayed entries that are the same as ones we
+  already received before (but already included into one of the previous
+  blocks?) How does Bitcoin deal with it?
 
-* We should distinguish between new blocks and old blocks; new blocks aren't trusted, old blocks are.
+* We should distinguish between new blocks and old blocks; new blocks aren't
+  trusted, old blocks are.
 
-* Off-by-one errors: should we trust blocks that are K slots old (or older), or only ones that are K+1 slots old or older?
+* Off-by-one errors: should we trust blocks that are K slots old (or older),
+  or only ones that are K+1 slots old or older?
 
-* Let's say that we receive a transaction, and then we receive a block containing that transaction. We remove the transaction from our list of pending transactions. Later (before K slots pass) it turns out that that block was bad, and we discard it; then we should add the transaction back. Right? If this is how it works, then it means that somebody can prevent the transaction from being included into the blockchain for the duration of K−1 slots – right? How easy/probable/important is it in practice?
+* Let's say that we receive a transaction, and then we receive a block
+  containing that transaction. We remove the transaction from our list of
+  pending transactions. Later (before K slots pass) it turns out that that
+  block was bad, and we discard it; then we should add the transaction
+  back. Right? If this is how it works, then it means that somebody can
+  prevent the transaction from being included into the blockchain for the
+  duration of K−1 slots – right? How easy/probable/important is it in
+  practice?
 
 Validation issues
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -274,40 +293,50 @@ Validation issues
 
 * We should validate entries that we receive
 
-* We should validate blocks that we receive; in particular, we should check that blocks we receive are generated by nodes who had the right to generate them
+* We should validate blocks that we receive; in particular, we should check
+  that blocks we receive are generated by nodes who had the right to generate
+  them
 
 Other issues
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * Create a typo synonym for epoch number?
 
-* We should be able to query blocks from other nodes, like in Bitcoin (if e.g. we've been offline for several slots or even epochs) but this isn't implemented yet. In fact, most stuff from Bitcoin isn't implemented.
+* We should be able to query blocks from other nodes, like in Bitcoin (if
+  e.g. we've been offline for several slots or even epochs) but this isn't
+  implemented yet. In fact, most stuff from Bitcoin isn't implemented.
 
 -}
 
-data FullNodeState = FullNodeState {
-    -- | List of entries that the node has received but that aren't included
-    -- into any block yet
-    _pendingEntries :: Set Entry,
-    -- | Leaders for epochs (currently it just stores leaders for all epochs,
-    -- but we really only need the leader list for this epoch and the next
-    -- epoch)
-    _epochLeaders   :: Map Int [NodeId],
-    -- | Blocks
-    _blocks         :: [Block] }
+data FullNodeState = FullNodeState
+    { -- | List of entries that the node has received but that aren't included
+      -- into any block yet
+      _pendingEntries :: Set Entry
+      -- | Leaders for epochs (currently it just stores leaders for all
+      -- epochs, but we really only need the leader list for this epoch and
+      -- the next epoch)
+    , _epochLeaders   :: Map Int [NodeId]
+      -- | Blocks
+    , _blocks         :: [Block]
+    }
 
 makeLenses ''FullNodeState
 
 instance Default FullNodeState where
-    def = FullNodeState {
-        _pendingEntries = mempty,
-        _epochLeaders = mempty,
-        _blocks = [] }
+    def =
+        FullNodeState
+        { _pendingEntries = mempty
+        , _epochLeaders = mempty
+        , _blocks = []
+        }
 
 {-
-If some node becomes inactive, other nodes will be able to recover its U by exchanging decrypted pieces of secret-shared U they've been sent.
+If some node becomes inactive, other nodes will be able to recover its U by
+exchanging decrypted pieces of secret-shared U they've been sent.
 
-After K slots all nodes are guaranteed to have a common prefix; each node computes the random satoshi index from all available Us to find out who has won the leader election and can generate the next block.
+After K slots all nodes are guaranteed to have a common prefix; each node
+computes the random satoshi index from all available Us to find out who has
+won the leader election and can generate the next block.
 -}
 
 fullNode :: Node

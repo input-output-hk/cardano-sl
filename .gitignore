@@ -20,3 +20,6 @@ TAGS
 .DS_Store
 *~
 *#
+.hindent.yaml
+.stylish-haskell.yaml
+.dir-locals.el

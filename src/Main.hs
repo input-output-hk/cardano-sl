@@ -1,8 +1,10 @@
-{-# LANGUAGE NoImplicitPrelude   #-}
-{-# LANGUAGE RecursiveDo         #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving  #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE NoImplicitPrelude          #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RecursiveDo                #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TemplateHaskell            #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -10,32 +12,48 @@
 module Main where
 
 
-import           BasePrelude
 import           Control.Lens                  (at, ix, makeLenses, preuse, use, (%=),
                                                 (.=), (<<.=))
-import           Control.Monad.State           (runState)
 import           Crypto.Hash                   (Digest, SHA256, hashlazy)
 import qualified Crypto.SecretSharing.Internal as Secret (ByteShare (..), Share (..),
                                                           encode)
 import qualified Data.Binary                   as Bin (encode)
 import           Data.Default                  (Default, def)
-import           Data.Map                      (Map)
-import           Data.Set                      (Set)
+import           Data.Fixed                    (div', mod')
+import           Data.IORef                    (IORef, atomicModifyIORef', newIORef,
+                                                readIORef, writeIORef)
 import qualified Data.Set                      as Set (fromList, insert, toList, (\\))
 import           Data.Time                     (UTCTime, addUTCTime, diffUTCTime,
                                                 getCurrentTime)
+import           Formatting                    (Format, int, sformat, shown, stext, (%))
+import qualified Prelude
+import           Protolude                     hiding ((%))
 import qualified SlaveThread                   as Slave (fork)
+import           System.IO.Unsafe              (unsafePerformIO)
 import           System.Random                 (randomIO, randomRIO)
+import           Unsafe                        (unsafeIndex)
 
 
-type NodeId = Int
+----------------------------------------------------------------------------
+-- Utility types
+----------------------------------------------------------------------------
+
 type Hash = Digest SHA256
+
+newtype NodeId = NodeId {getNodeId :: Int}
+    deriving (Eq, Ord, Enum)
+
+instance Prelude.Show NodeId where
+    show (NodeId x) = "#" ++ show x
 
 ----------------------------------------------------------------------------
 -- Logging
 ----------------------------------------------------------------------------
 
-logChan :: Chan String
+node :: Format r (NodeId -> r)
+node = shown
+
+logChan :: Chan Text
 logChan = unsafePerformIO newChan
 {-# NOINLINE logChan #-}
 
@@ -43,13 +61,13 @@ runLogPrinting :: IO ()
 runLogPrinting = void $ Slave.fork $
     forever (putStrLn =<< readChan logChan)
 
-logInfo :: NodeId -> String -> IO ()
-logInfo nid s = logRaw (printf "[%d] %s" nid s)
+logInfo :: NodeId -> Text -> IO ()
+logInfo nid s = logRaw (sformat (node%" "%stext) nid s)
 
-logError :: NodeId -> String -> IO ()
-logError nid s = logRaw (printf "[%d] ERROR: %s" nid s)
+logError :: NodeId -> Text -> IO ()
+logError nid s = logRaw (sformat (node%" ERROR: "%stext) nid s)
 
-logRaw :: String -> IO ()
+logRaw :: Text -> IO ()
 logRaw = writeChan logChan
 
 ----------------------------------------------------------------------------
@@ -115,15 +133,15 @@ deriving instance Ord Secret.Share
 -- | Block
 type Block = [Entry]
 
-displayEntry :: Entry -> String
+displayEntry :: Entry -> Text
 displayEntry (ETx tx) =
-    "transaction " ++ show tx
+    "transaction " <> show tx
 displayEntry (EUHash nid h) =
-    printf "[%d]'s commitment = %s" nid (show h)
+    sformat (node%"'s commitment = "%shown) nid h
 displayEntry (EUShare n_from n_to share) =
-    printf "[%d]'s share for [%d] = %s" n_from n_to (show share)
+    sformat (node%"'s share for "%node%" = "%shown) n_from n_to share
 displayEntry (ELeaders epoch leaders) =
-    printf "leaders for epoch %d = %s" epoch (show leaders)
+    sformat ("leaders for epoch "%int%" = "%shown) epoch leaders
 
 ----------------------------------------------------------------------------
 -- Very advanced crypto
@@ -150,10 +168,10 @@ data Message
     | MPing
     deriving (Eq, Ord, Show)
 
-displayMessage :: Message -> String
+displayMessage :: Message -> Text
 displayMessage MPing       = "ping"
 displayMessage (MEntry e)  = displayEntry e
-displayMessage (MBlock es) = printf "block with %d entries" (length es)
+displayMessage (MBlock es) = sformat ("block with "%int%" entries") (length es)
 
 ----------------------------------------------------------------------------
 -- Network simulation
@@ -172,31 +190,36 @@ type Node
     -> (NodeId -> Message -> IO ())
     -> IO (NodeId -> Message -> IO ())
 
-node_ping :: Int -> Node
+node_ping :: NodeId -> Node
 node_ping pingNum = \myNum sendTo -> do
     void $ Slave.fork $ inSlot $ \_epoch _slot -> do
-        logInfo myNum (printf "pinging [%d]" pingNum)
+        logInfo myNum (sformat ("pinging "%node) pingNum)
         sendTo pingNum MPing
-    return $ \n_from msg -> do
-        case msg of
+    return $ \n_from message -> do
+        case message of
             MPing -> do
-                logInfo myNum (printf "pinged by [%d]" n_from)
+                logInfo myNum (sformat ("pinged by "%node) n_from)
             _ -> do
-                logInfo myNum (printf "unknown message from [%d]" n_from)
+                logInfo myNum (sformat ("unknown message from "%node) n_from)
 
 runNodes :: [Node] -> IO ()
 runNodes nodes = do
     -- The system shall start working in a bit of time (not exactly right now
     -- – due to the way inSlot implemented, it'd be nice to wait a bit)
     writeIORef systemStart . (addUTCTime (slotDuration/2)) =<< getCurrentTime
-    tid <- Slave.fork $ mdo
+    tid <- Slave.fork $ do
         runLogPrinting
         void $ Slave.fork $ inSlot' $ \epoch slot -> do
-            when (slot == 0) $ logRaw (printf "====== EPOCH %d ======" epoch)
-            logRaw (printf "--- slot %d ---" slot)
-        nodeCallbacks <-
-            let send n_from n_to msg = (nodeCallbacks !! n_to) n_from msg
-            in  sequence [node i (send i) | (i, node) <- zip [0..] nodes]
+            when (slot == 0) $
+                logRaw (sformat ("====== EPOCH "%int%" ======") epoch)
+            logRaw (sformat ("--- slot "%int%" ---") slot)
+        rec nodeCallbacks <-
+                let send n_from n_to message = do
+                        let f = unsafeIndex nodeCallbacks (getNodeId n_to)
+                        f n_from message
+                in  sequence [nodeFun nid (send nid)
+                               | (i, nodeFun) <- zip [0..] nodes
+                               , let nid = NodeId i]
         forever $ threadDelay 1000000
     forever (threadDelay 1000000) `onException` killThread tid
 
@@ -307,7 +330,8 @@ fullNode = \myId sendTo -> do
     void $ Slave.fork $ inSlot $ \epoch slot -> do
         -- For now we just send messages to everyone instead of letting them
         -- propagate, implementing peers, etc.
-        let sendEveryone x = for_ [0..n-1] $ \i -> sendTo i x
+        let sendEveryone x = for_ [NodeId 0 .. NodeId (n-1)] $ \i ->
+                                 sendTo i x
 
         -- Create a block and send it to everyone
         let createAndSendBlock = do
@@ -317,16 +341,17 @@ fullNode = \myId sendTo -> do
                     logInfo myId "created an empty block"
                 else do
                     logInfo myId "created a block:"
-                    for_ blk $ \e -> logInfo myId ("  * " ++ displayEntry e)
+                    for_ blk $ \e -> logInfo myId ("  * " <> displayEntry e)
 
         -- If this is the first epoch ever, we haven't agreed on who will
         -- mine blocks in this epoch, so let's just say that the 0th node is
         -- the master node. In slot 0, node 0 will announce who will mine
         -- blocks in the next epoch; in other slots it will just mine new
         -- blocks.
-        when (myId == 0 && epoch == 0) $ do
+        when (myId == NodeId 0 && epoch == 0) $ do
             when (slot == 0) $ do
-                leaders <- replicateM epochSlots (randomRIO (0, n-1))
+                leaders <- map NodeId <$>
+                           replicateM epochSlots (randomRIO (0, n-1))
                 withNodeState $ do
                     pendingEntries %= Set.insert (ELeaders (epoch+1) leaders)
                 logInfo myId "generated random leaders for epoch 1 \
@@ -347,7 +372,7 @@ fullNode = \myId sendTo -> do
         when (slot == 0) $ do
             u <- randomIO :: IO Word64
             shares <- Secret.encode (n-t) n (Bin.encode u)
-            for_ (zip shares [0..]) $ \(share, i) ->
+            for_ (zip shares [NodeId 0..]) $ \(share, i) ->
                 sendEveryone (MEntry (EUShare myId i (encrypt i share)))
             sendEveryone (MEntry (EUHash myId (hashlazy (Bin.encode u))))
 
@@ -368,7 +393,7 @@ fullNode = \myId sendTo -> do
         -- blocks.
 
     -- This is our message handling function:
-    return $ \n_from msg -> case msg of
+    return $ \n_from message -> case message of
         -- An entry has been received: add it to the list of unprocessed
         -- entries
         MEntry e -> do
@@ -391,16 +416,15 @@ fullNode = \myId sendTo -> do
                         Nothing -> withNodeState $
                                      epochLeaders . at epoch .= Just leaders
                         Just _  -> logError myId $
-                          printf "we already know leaders for epoch %d, \
-                                 \but we received a block with ELeaders \
-                                 \for the same epoch"
-                            epoch
+                          "we already know leaders for epoch " <> show epoch
+                          <> "but we received a block with ELeaders "
+                          <> "for the same epoch"
                     withNodeState $ epochLeaders . at epoch .= Just leaders
                 -- TODO: process other types of entries
                 _ -> return ()
 
         -- We were pinged
-        MPing -> logInfo myId (printf "received a ping from [%d]" n_from)
+        MPing -> logInfo myId (sformat ("received a ping from "%node) n_from)
 
 ----------------------------------------------------------------------------
 -- Main

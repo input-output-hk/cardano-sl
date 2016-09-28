@@ -1,10 +1,18 @@
 flags: {}
+
 extra-package-dbs: []
+
 packages:
 - '.'
+- location:
+    git: https://github.com/serokell/protolude
+    commit: 1cb06305292cb01719251891365496de2c20b850
+  extra-dep: true
+
 extra-deps:
 - dice-entropy-conduit-1.0.0.1
 - finite-field-0.8.0
 - polynomial-0.7.2
 - secret-sharing-1.0.0.3
+
 resolver: lts-6.15

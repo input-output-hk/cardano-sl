@@ -18,14 +18,15 @@ executable pos
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
                        -Wall
   build-depends:       base
-                     , base-prelude
                      , binary
                      , bytestring
                      , containers
                      , cryptonite
                      , data-default
+                     , formatting
                      , lens
                      , mtl
+                     , protolude
                      , random
                      , secret-sharing
                      , slave-thread

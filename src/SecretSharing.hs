@@ -1,6 +1,3 @@
-{-# LANGUAGE NoImplicitPrelude #-}
-
-
 module SecretSharing
        ( Share
        , shareSecret

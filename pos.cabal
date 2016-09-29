@@ -43,4 +43,5 @@ executable pos
   default-extensions:  OverloadedStrings
                      , RecordWildCards
                      , DeriveDataTypeable
+                     , NoImplicitPrelude
                      , GeneralizedNewtypeDeriving

@@ -8,5 +8,20 @@ packages:
     git: https://github.com/serokell/protolude
     commit: 1cb06305292cb01719251891365496de2c20b850
   extra-dep: true
+- location:
+    git: https://github.com/serokell/time-warp.git
+    commit: c37a6450b87253e40e57aedb2829f05d172d34ab
+  extra-dep: true
+- location:
+    git: https://github.com/serokell/serokell-core.git
+    commit: 604a363ee18da91d0a07385ee543597ac963e2ec
+  extra-dep: true
+
+extra-deps:
+- binary-0.7.6.1
+- msgpack-1.0.0
+- msgpack-rpc-1.0.0
+- pqueue-1.3.2
+- time-units-1.0.0
 
 resolver: lts-7.1

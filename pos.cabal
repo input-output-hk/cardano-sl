@@ -24,14 +24,17 @@ executable pos
                      , containers
                      , cryptonite
                      , data-default
+                     , exceptions
                      , formatting
                      , lens
                      , mtl
                      , protolude
                      , random
-                     , slave-thread
+                     , serokell-core
+                     , text
                      , text-format
                      , time
+                     , time-warp
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall

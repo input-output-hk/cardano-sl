@@ -1,36 +1,44 @@
+{-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
-{-# LANGUAGE RecursiveDo                #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
 
 module Main where
 
 
-import           Control.Lens        (at, ix, makeLenses, preuse, use, (%=), (.=), (<<.=))
-import           Crypto.Hash         (Digest, SHA256, hashlazy)
-import qualified Data.Binary         as Bin (encode)
-import           Data.Default        (Default, def)
-import           Data.Fixed          (div', mod')
-import           Data.IORef          (IORef, atomicModifyIORef', newIORef, readIORef,
-                                      writeIORef)
-import qualified Data.Set            as Set (fromList, insert, toList, (\\))
-import qualified Data.Text.Buildable as Buildable
-import           Data.Time           (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
-import           Formatting          (Format, bprint, build, int, sformat, shown, stext,
-                                      (%))
+import           Control.Lens             (at, ix, makeLenses, preuse, use, (%=), (.=),
+                                           (<<.=))
+import           Control.Monad.Catch      (MonadCatch)
+import           Crypto.Hash              (Digest, SHA256, hashlazy)
+import qualified Data.Binary              as Bin (encode)
+import           Data.Default             (Default, def)
+import           Data.Fixed               (div')
+import           Data.IORef               (IORef, atomicModifyIORef', modifyIORef',
+                                           newIORef, readIORef, writeIORef)
+import qualified Data.Map                 as Map
+import qualified Data.Set                 as Set (fromList, insert, toList, (\\))
+import qualified Data.Text                as T
+import qualified Data.Text.Buildable      as Buildable
+import           Formatting               (Format, bprint, build, int, sformat, shown,
+                                           (%))
 import qualified Prelude
-import           Protolude           hiding ((%))
-import qualified SlaveThread         as Slave (fork)
-import           System.IO.Unsafe    (unsafePerformIO)
-import           System.Random       (randomIO, randomRIO)
-import           Unsafe              (unsafeIndex)
+import           Protolude                hiding (for, wait, (%))
+import           System.IO.Unsafe         (unsafePerformIO)
+import           System.Random            (randomIO, randomRIO)
+
+import           Control.TimeWarp.Logging (LoggerName (..), Severity (..),
+                                           WithNamedLogger, initLogging, logError,
+                                           logInfo, setLoggerName, usingLoggerName)
+import           Control.TimeWarp.Timed   (Microsecond, MonadTimed, for, fork, ms,
+                                           repeatForever, runTimedIO, sec, sleepForever,
+                                           till, virtualTime, wait)
+import           Serokell.Util            ()
 
 import           SecretSharing
 
 ----------------------------------------------------------------------------
--- Utility types
+-- Utility types and functions
 ----------------------------------------------------------------------------
 
 type Hash = Digest SHA256
@@ -42,29 +50,14 @@ newtype NodeId = NodeId
 instance Prelude.Show NodeId where
     show (NodeId x) = "#" ++ show x
 
-----------------------------------------------------------------------------
--- Logging
-----------------------------------------------------------------------------
-
 node :: Format r (NodeId -> r)
 node = shown
 
-logChan :: Chan Text
-logChan = unsafePerformIO newChan
-{-# NOINLINE logChan #-}
-
-runLogPrinting :: IO ()
-runLogPrinting = void $ Slave.fork $
-    forever (putStrLn =<< readChan logChan)
-
-logInfo :: NodeId -> Text -> IO ()
-logInfo nid s = logRaw (sformat (node%" "%stext) nid s)
-
-logError :: NodeId -> Text -> IO ()
-logError nid s = logRaw (sformat (node%" ERROR: "%stext) nid s)
-
-logRaw :: Text -> IO ()
-logRaw = writeChan logChan
+type WorkMode m
+    = ( WithNamedLogger m
+      , MonadTimed m
+      , MonadCatch m
+      , MonadIO m)
 
 ----------------------------------------------------------------------------
 -- Constants
@@ -79,8 +72,8 @@ t = 0
 k :: Integral a => a
 k = 3
 
-slotDuration :: Fractional a => a
-slotDuration = 1  -- seconds
+slotDuration :: Microsecond
+slotDuration = sec 1
 
 epochSlots :: Integral a => a
 epochSlots = 6*k
@@ -182,45 +175,45 @@ A node is given:
 A node also provides a callback which can be used to send messages to the
 node (and the callback knows who sent it a message).
 -}
-type Node
-    =  NodeId
-    -> (NodeId -> Message -> IO ())
-    -> IO (NodeId -> Message -> IO ())
+type Node m =
+       NodeId
+    -> (NodeId -> Message -> m ())
+    -> m (NodeId -> Message -> m ())
 
-node_ping :: NodeId -> Node
-node_ping pingNum = \myNum sendTo -> do
-    void $ Slave.fork $ inSlot $ \_epoch _slot -> do
-        logInfo myNum (sformat ("pinging "%node) pingNum)
-        sendTo pingNum MPing
-    return $ \n_from message -> do
-        case message of
-            MPing -> do
-                logInfo myNum (sformat ("pinged by "%node) n_from)
-            _ -> do
-                logInfo myNum (sformat ("unknown message from "%node) n_from)
+node_ping :: WorkMode m => NodeId -> Node m
+node_ping pingId = \_self sendTo -> do
+    inSlot True $ \_epoch _slot -> do
+        logInfo $ sformat ("pinging "%node) pingId
+        sendTo pingId MPing
+    return $ \n_from message -> case message of
+        MPing -> do
+            logInfo $ sformat ("pinged by "%node) n_from
+        _ -> do
+            logInfo $ sformat ("unknown message from "%node) n_from
 
-runNodes :: [Node] -> IO ()
-runNodes nodes = do
-    -- The system shall start working in a bit of time (not exactly right now
-    -- – due to the way inSlot implemented, it'd be nice to wait a bit)
-    writeIORef systemStart . (addUTCTime (slotDuration/2)) =<< getCurrentTime
-    tid <- Slave.fork $ do
-        runLogPrinting
-        void $ Slave.fork $ inSlot' $ \epoch slot -> do
-            when (slot == 0) $
-                logRaw (sformat ("====== EPOCH "%int%" ======") epoch)
-            logRaw (sformat ("--- slot "%int%" ---") slot)
-        rec nodeCallbacks <-
-                let send n_from n_to message = do
-                        let f = unsafeIndex nodeCallbacks (getNodeId n_to)
-                        f n_from message
-                in  sequence [nodeFun nid (send nid)
-                               | (i, nodeFun) <- zip [0..] nodes
-                               , let nid = NodeId i]
-        forever $ threadDelay 1000000
-    forever (threadDelay 1000000) `onException` killThread tid
+runNodes :: WorkMode m => [Node m] -> m ()
+runNodes nodes = setLoggerName "xx" $ do
+    -- The system shall start working in a bit of time. Not exactly right now
+    -- because due to the way inSlot implemented, it'd be nice to wait a bit
+    -- – if we start right now then all nodes will miss the first slot of the
+    -- first epoch.
+    now <- virtualTime
+    liftIO $ writeIORef systemStart (now + slotDuration `div` 2)
+    inSlot False $ \epoch slot -> do
+        when (slot == 0) $
+            logInfo $ sformat ("========== EPOCH "%int%" ==========") epoch
+        logInfo $ sformat ("---------- slot "%int%" ----------") slot
+    nodeCallbacks <- liftIO $ newIORef mempty
+    let send n_from n_to message = do
+            f <- (Map.! n_to) <$> liftIO (readIORef nodeCallbacks)
+            f n_from message
+    for_ (zip [0..] nodes) $ \(i, nodeFun) -> do
+        let nid = NodeId i
+        f <- nodeFun nid (send nid)
+        liftIO $ modifyIORef' nodeCallbacks (Map.insert nid f)
+    sleepForever
 
-systemStart :: IORef UTCTime
+systemStart :: IORef Microsecond
 systemStart = unsafePerformIO $ newIORef undefined
 {-# NOINLINE systemStart #-}
 
@@ -229,33 +222,34 @@ Run something at the beginning of every slot. The first parameter is epoch
 number (starting from 0) and the second parameter is slot number in the epoch
 (from 0 to epochLen-1).
 
-It loops, so you might want to use 'Slave.fork' with it.
-
-There's a slight delay so that messages from nodes wouldn't interfere with
-slot and epoch delimiters:
-
-    --- slot 0 ---
-
-    ====== EPOCH 0 ======
-
-The version without delay is called inSlot'.
+The 'Bool' parameter says whether a delay should be introduced. It's useful for nodes (so that node logging messages would come after “EPOCH n” logging messages).
 -}
-inSlot :: (Int -> Int -> IO ()) -> IO ()
-inSlot f = inSlot' (\x y -> threadDelay 20000 >> f x y)
-
-inSlot' :: (Int -> Int -> IO ()) -> IO ()
-inSlot' f = do
-    start <- readIORef systemStart
-    forever $ do
-        -- Wait until the next slot begins
-        now <- getCurrentTime
-        let untilNext = slotDuration
-                      - mod' (diffUTCTime now start) slotDuration
-        let currentAbsoluteSlot = div' (diffUTCTime now start) slotDuration
-        threadDelay (ceiling (untilNext * 1000000))
-        -- Do stuff
-        let (epoch, slot) = (currentAbsoluteSlot+1) `divMod` epochSlots
+inSlot :: WorkMode m => Bool -> (Int -> Int -> m ()) -> m ()
+inSlot delay f = void $ fork $ do
+    start <- liftIO $ readIORef systemStart
+    let getAbsoluteSlot :: WorkMode m => m Int
+        getAbsoluteSlot = do
+            now <- virtualTime
+            return (div' (now - start) slotDuration)
+    -- Wait until the next slot begins
+    nextSlotStart <- do
+        absoluteSlot <- getAbsoluteSlot
+        return (start + fromIntegral (absoluteSlot+1) * slotDuration)
+    -- Now that we're synchronised with slots, start repeating
+    -- forever. 'repeatForever' has slight precision problems, so we delay
+    -- everything by 50ms.
+    wait (till nextSlotStart)
+    repeatForever slotDuration handler $ do
+        when delay $ wait (for 50 ms)
+        wait (for 50 ms)
+        absoluteSlot <- getAbsoluteSlot
+        let (epoch, slot) = absoluteSlot `divMod` epochSlots
         f epoch slot
+  where
+    handler e = do
+        logError $ sformat
+            ("error was caught, restarting in 5 seconds: "%build) e
+        return $ sec 5
 
 {- ==================== TODO ====================
 
@@ -339,19 +333,20 @@ computes the random satoshi index from all available Us to find out who has
 won the leader election and can generate the next block.
 -}
 
-fullNode :: Node
-fullNode = \myId sendTo -> do
-    nodeState <- newIORef (def :: FullNodeState)
-    let withNodeState act = atomicModifyIORef' nodeState (swap . runState act)
+fullNode :: WorkMode m => Node m
+fullNode = \self sendTo -> setLoggerName (LoggerName (show self)) $ do
+    nodeState <- liftIO $ newIORef (def :: FullNodeState)
+    let withNodeState act = liftIO $
+            atomicModifyIORef' nodeState (swap . runState act)
 
     -- Empty the list of pending entries and create a block
-    let createBlock :: IO Block
+    let createBlock :: WorkMode m => m Block
         createBlock = withNodeState $ do
             es <- pendingEntries <<.= mempty
             return (Set.toList es)
 
     -- This will run at the beginning of each slot:
-    void $ Slave.fork $ inSlot $ \epoch slot -> do
+    inSlot True $ \epoch slot -> do
         -- For now we just send messages to everyone instead of letting them
         -- propagate, implementing peers, etc.
         let sendEveryone x = for_ [NodeId 0 .. NodeId (n-1)] $ \i ->
@@ -362,24 +357,25 @@ fullNode = \myId sendTo -> do
                 blk <- createBlock
                 sendEveryone (MBlock blk)
                 if null blk then
-                    logInfo myId "created an empty block"
-                else do
-                    logInfo myId "created a block:"
-                    for_ blk $ \e -> logInfo myId ("  * " <> displayEntry e)
+                    logInfo "created an empty block"
+                else
+                    logInfo $ T.intercalate "\n" $
+                        "created a block:" :
+                        map (\e -> "  * " <> displayEntry e) blk
 
         -- If this is the first epoch ever, we haven't agreed on who will
         -- mine blocks in this epoch, so let's just say that the 0th node is
         -- the master node. In slot 0, node 0 will announce who will mine
         -- blocks in the next epoch; in other slots it will just mine new
         -- blocks.
-        when (myId == NodeId 0 && epoch == 0) $ do
+        when (self == NodeId 0 && epoch == 0) $ do
             when (slot == 0) $ do
                 leaders <- map NodeId <$>
-                           replicateM epochSlots (randomRIO (0, n-1))
+                           replicateM epochSlots (liftIO $ randomRIO (0, n-1))
                 withNodeState $ do
                     pendingEntries %= Set.insert (ELeaders (epoch+1) leaders)
-                logInfo myId "generated random leaders for epoch 1 \
-                             \(as master node)"
+                logInfo "generated random leaders for epoch 1 \
+                        \(as master node)"
             createAndSendBlock
 
         -- When the epoch starts, we do the following:
@@ -394,20 +390,20 @@ fullNode = \myId sendTo -> do
         --     (so that later on we wouldn't be able to cheat by using
         --     a different U)
         when (slot == 0) $ do
-            u <- randomIO :: IO Word64
+            u <- liftIO (randomIO :: IO Word64)
             let shares = shareSecret n (n-t) (toS (Bin.encode u))
             for_ (zip shares [NodeId 0..]) $ \(share, i) ->
-                sendEveryone (MEntry (EUShare myId i (encrypt i share)))
-            sendEveryone (MEntry (EUHash myId (hashlazy (Bin.encode u))))
+                sendEveryone (MEntry (EUShare self i (encrypt i share)))
+            sendEveryone (MEntry (EUHash self (hashlazy (Bin.encode u))))
 
         -- If we are the epoch leader, we should generate a block
         do leader <- withNodeState $
-                       preuse (epochLeaders . ix epoch . ix slot)
-           when (leader == Just myId) $
+                         preuse (epochLeaders . ix epoch . ix slot)
+           when (leader == Just self) $
                createAndSendBlock
 
         -- According to @gromak (who isn't sure about this, but neither am I):
-        -- https://input-output-rnd.slack.com/archives/paper-pos/p1474991379000006
+        -- input-output-rnd.slack.com/archives/paper-pos/p1474991379000006
         --
         -- > We send commitments during the first slot and they are put into
         -- the first block. Then we wait for K periods so that all nodes
@@ -439,16 +435,17 @@ fullNode = \myId sendTo -> do
                     case mbLeaders of
                         Nothing -> withNodeState $
                                      epochLeaders . at epoch .= Just leaders
-                        Just _  -> logError myId $
-                          "we already know leaders for epoch " <> show epoch
-                          <> "but we received a block with ELeaders "
-                          <> "for the same epoch"
+                        Just _  -> logError $ sformat
+                            (node%" we already know leaders for epoch "%int
+                                 %"but we received a block with ELeaders "
+                                 %"for the same epoch") self epoch
                     withNodeState $ epochLeaders . at epoch .= Just leaders
                 -- TODO: process other types of entries
                 _ -> return ()
 
         -- We were pinged
-        MPing -> logInfo myId (sformat ("received a ping from "%node) n_from)
+        MPing -> logInfo $ sformat
+                     ("received a ping from "%node) n_from
 
 ----------------------------------------------------------------------------
 -- Main
@@ -456,5 +453,9 @@ fullNode = \myId sendTo -> do
 
 main :: IO ()
 -- Here's how to run a simple system with two nodes pinging each other:
--- main = runNodes [node_ping 1, node_ping 0]
-main = runNodes [fullNode, fullNode, fullNode]
+-- runNodes [node_ping 1, node_ping 0]
+main = do
+    let loggers = "xx" : map (LoggerName . show) [NodeId 0 .. NodeId (n-1)]
+    initLogging loggers Info
+    runTimedIO . usingLoggerName mempty $
+        runNodes [fullNode, fullNode, fullNode]

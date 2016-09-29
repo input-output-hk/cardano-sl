@@ -223,10 +223,12 @@ Run something at the beginning of every slot. The first parameter is epoch
 number (starting from 0) and the second parameter is slot number in the epoch
 (from 0 to epochLen-1).
 
-The 'Bool' parameter says whether a delay should be introduced. It's useful for nodes (so that node logging messages would come after “EPOCH n” logging messages).
+The 'Bool' parameter says whether a delay should be introduced. It's useful
+for nodes (so that node logging messages would come after “EPOCH n” logging
+messages).
 -}
 inSlot :: WorkMode m => Bool -> (Int -> Int -> m ()) -> m ()
-inSlot delay f = void $ fork $ do
+inSlot extraDelay f = void $ fork $ do
     start <- liftIO $ readIORef systemStart
     let getAbsoluteSlot :: WorkMode m => m Int
         getAbsoluteSlot = do
@@ -241,8 +243,8 @@ inSlot delay f = void $ fork $ do
     -- everything by 50ms.
     wait (till nextSlotStart)
     repeatForever slotDuration handler $ do
-        when delay $ wait (for 50 ms)
         wait (for 50 ms)
+        when extraDelay $ wait (for 50 ms)
         absoluteSlot <- getAbsoluteSlot
         let (epoch, slot) = absoluteSlot `divMod` epochSlots
         f epoch slot
@@ -261,16 +263,6 @@ Timing issues
   block was generated in slot X, but received by another node in slot Y. What
   are the conditions on Y under which the block should (and shouldn't) be
   accepted?
-
-* What to do about extremely delayed entries that are the same as ones we
-  already received before (but already included into one of the previous
-  blocks?) How does Bitcoin deal with it?
-
-* We should distinguish between new blocks and old blocks; new blocks aren't
-  trusted, old blocks are.
-
-* Off-by-one errors: should we trust blocks that are K slots old (or older),
-  or only ones that are K+1 slots old or older?
 
 * Let's say that we receive a transaction, and then we receive a block
   containing that transaction. We remove the transaction from our list of
@@ -300,6 +292,10 @@ Other issues
 * We should be able to query blocks from other nodes, like in Bitcoin (if
   e.g. we've been offline for several slots or even epochs) but this isn't
   implemented yet. In fact, most stuff from Bitcoin isn't implemented.
+
+* We should exclude extremely delayed entries that are the same as ones we
+  already received before, but already included into one of the previous
+  blocks.
 
 -}
 

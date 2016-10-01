@@ -14,12 +14,12 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:      Pos.Launcher
-  other-modules:        Pos.Constants
-                        Pos.Crypto
+                        Pos.Constants
+                        Pos.Types.Types
+  other-modules:        Pos.Crypto
                         Pos.Crypto.Hashing
                         Pos.Crypto.Pki
                         Pos.Crypto.SecretSharing
-                        Pos.Types.Types
                         Pos.WorkMode
   build-depends:        base
                       , binary
@@ -49,25 +49,12 @@ library
                       , NoImplicitPrelude
                       , GeneralizedNewtypeDeriving
 
-executable pos
-  hs-source-dirs:      src
+executable pos-node
+  hs-source-dirs:      src/node
   main-is:             Main.hs
   build-depends:       base
-                     , binary
-                     , bytestring
-                     , containers
-                     , cryptonite
-                     , data-default
-                     , exceptions
-                     , formatting
-                     , lens
-                     , mtl
+                     , pos
                      , protolude
-                     , random
-                     , serokell-core
-                     , text
-                     , text-format
-                     , time
                      , time-warp
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts

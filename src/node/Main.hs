@@ -6,12 +6,7 @@ module Main where
 
 import           Protolude                hiding (for, wait, (%))
 
-import           Control.TimeWarp.Logging (LoggerName (..), Severity (..),
-                                           WithNamedLogger, initLogging, logError,
-                                           logInfo, setLoggerName, usingLoggerName)
-import           Control.TimeWarp.Timed   (Microsecond, MonadTimed, for, fork, ms,
-                                           repeatForever, runTimedIO, sec, sleepForever,
-                                           till, virtualTime, wait)
+import           Control.TimeWarp.Logging (LoggerName (..), Severity (Info), initLogging)
 
 import           Pos.Constants            (n)
 import           Pos.Launcher             (fullNode, runNodesReal)

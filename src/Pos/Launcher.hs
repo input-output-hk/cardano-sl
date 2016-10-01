@@ -11,8 +11,7 @@ module Pos.Launcher
 
 import           Control.Lens             (at, ix, makeLenses, preuse, use, (%=), (.=),
                                            (<<.=))
-import           Control.Monad.Catch      (MonadCatch)
-import           Crypto.Hash              (Digest, SHA256, hashlazy)
+import           Crypto.Hash              (hashlazy)
 import qualified Data.Binary              as Bin (encode)
 import           Data.Default             (Default, def)
 import           Data.Fixed               (div')
@@ -21,18 +20,16 @@ import           Data.IORef               (IORef, atomicModifyIORef', modifyIORe
 import qualified Data.Map                 as Map
 import qualified Data.Set                 as Set (fromList, insert, toList, (\\))
 import qualified Data.Text                as T
-import qualified Data.Text.Buildable      as Buildable
-import           Formatting               (Format, bprint, build, int, sformat, shown,
+import           Formatting               (build, int, sformat,
                                            (%))
-import qualified Prelude
 import           Protolude                hiding (for, wait, (%))
 import           System.IO.Unsafe         (unsafePerformIO)
 import           System.Random            (randomIO, randomRIO)
 
-import           Control.TimeWarp.Logging (LoggerName (..), Severity (..),
-                                           WithNamedLogger, initLogging, logError,
+import           Control.TimeWarp.Logging (LoggerName (..),
+                                           logError,
                                            logInfo, setLoggerName, usingLoggerName)
-import           Control.TimeWarp.Timed   (Microsecond, MonadTimed, for, fork, ms,
+import           Control.TimeWarp.Timed   (Microsecond, for, fork, ms,
                                            repeatForever, runTimedIO, sec, sleepForever,
                                            till, virtualTime, wait)
 import           Serokell.Util            ()

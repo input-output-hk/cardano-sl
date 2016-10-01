@@ -12,12 +12,46 @@ build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
 
+library
+  exposed-modules:      Pos.Launcher
+  other-modules:        Pos.Constants
+                        Pos.Crypto
+                        Pos.Crypto.Hashing
+                        Pos.Crypto.Pki
+                        Pos.Crypto.SecretSharing
+                        Pos.Types.Types
+                        Pos.WorkMode
+  build-depends:        base
+                      , binary
+                      , bytestring
+                      , containers
+                      , cryptonite
+                      , data-default
+                      , exceptions
+                      , formatting
+                      , lens
+                      , mtl
+                      , protolude
+                      , random
+                      , serokell-core
+                      , text
+                      , text-format
+                      , time
+                      , time-warp
+  hs-source-dirs:       src
+  default-language:     Haskell2010
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2
+  default-extensions:   RecordWildCards
+                      , OverloadedStrings
+                      , DeriveDataTypeable
+                      , NoImplicitPrelude
+                      , GeneralizedNewtypeDeriving
+
 executable pos
   hs-source-dirs:      src
   main-is:             Main.hs
-  other-modules:       SecretSharing
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-                       -Wall
   build-depends:       base
                      , binary
                      , bytestring

@@ -1,4 +1,6 @@
-module SecretSharing
+-- | Dummy implementation of VSS.
+
+module Pos.Crypto.SecretSharing
        ( Share
        , shareSecret
        , recoverSecret

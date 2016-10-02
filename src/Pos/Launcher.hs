@@ -7,18 +7,17 @@
 module Pos.Launcher
        ( runNodesReal
        , fullNode
+       , node_ping
        ) where
 
-import           Control.Lens             (at, ix, makeLenses, preuse, use, (%=), (.=),
-                                           (<<.=))
 import           Crypto.Hash              (hashlazy)
 import qualified Data.Binary              as Bin (encode)
-import           Data.Default             (Default, def)
+
 import           Data.Fixed               (div')
-import           Data.IORef               (IORef, atomicModifyIORef', modifyIORef',
-                                           newIORef, readIORef, writeIORef)
+import           Data.IORef               (IORef, modifyIORef', newIORef, readIORef,
+                                           writeIORef)
 import qualified Data.Map                 as Map
-import qualified Data.Set                 as Set (fromList, insert, toList, (\\))
+
 import qualified Data.Text                as T
 import           Formatting               (build, int, sformat, (%))
 import           Protolude                hiding (for, wait, (%))
@@ -34,9 +33,9 @@ import           Serokell.Util            ()
 
 import           Pos.Constants            (epochSlots, n, slotDuration, t)
 import           Pos.Crypto               (encrypt, shareSecret)
-import           Pos.State.Storage        (addLeaders, blocks, createBlock, epochLeaders,
-                                           getLeader, pendingEntries, withNodeState)
-import           Pos.Types.Types          (Block, Entry (..), Message (..), NodeId (..),
+import           Pos.State.Operations     (addEntry, addLeaders, adoptBlock, createBlock,
+                                           getLeader, getLeaders, mkNodeState, setLeaders)
+import           Pos.Types.Types          (Entry (..), Message (..), NodeId (..),
                                            displayEntry, node)
 import           Pos.WorkMode             (RealMode, WorkMode)
 
@@ -190,7 +189,7 @@ won the leader election and can generate the next block.
 
 fullNode :: WorkMode m => Node m
 fullNode = \self sendTo -> setLoggerName (LoggerName (show self)) $ do
-    nodeState <- liftIO $ newIORef def
+    nodeState <- mkNodeState
 
     -- This will run at the beginning of each slot:
     inSlot True $ \epoch slot -> do
@@ -261,30 +260,24 @@ fullNode = \self sendTo -> setLoggerName (LoggerName (show self)) $ do
     return $ \n_from message -> case message of
         -- An entry has been received: add it to the list of unprocessed
         -- entries
-        MEntry e -> do
-            withNodeState nodeState $ do
-                pendingEntries %= Set.insert e
+        MEntry e -> addEntry nodeState e
 
         -- A block has been received: remove all pending entries we have
         -- that are in this block, then add the block to our local
         -- blockchain and use info from the block
         MBlock es -> do
-            withNodeState nodeState $ do
-                pendingEntries %= (Set.\\ Set.fromList es)
-                blocks %= (es:)
+            adoptBlock nodeState es
             -- TODO: using withNodeState several times here might break
             -- atomicity, I dunno
             for_ es $ \e -> case e of
                 ELeaders epoch leaders -> do
-                    mbLeaders <- withNodeState nodeState $ use (epochLeaders . at epoch)
+                    mbLeaders <- getLeaders nodeState epoch
                     case mbLeaders of
-                        Nothing -> withNodeState nodeState $
-                                     epochLeaders . at epoch .= Just leaders
+                        Nothing -> setLeaders nodeState epoch leaders
                         Just _  -> logError $ sformat
                             (node%" we already know leaders for epoch "%int
                                  %"but we received a block with ELeaders "
                                  %"for the same epoch") self epoch
-                    withNodeState nodeState $ epochLeaders . at epoch .= Just leaders
                 -- TODO: process other types of entries
                 _ -> return ()
 

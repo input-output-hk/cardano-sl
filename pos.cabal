@@ -20,6 +20,7 @@ library
                         Pos.Crypto.Hashing
                         Pos.Crypto.Pki
                         Pos.Crypto.SecretSharing
+                        Pos.State.Operations
                         Pos.State.Storage
                         Pos.WorkMode
   build-depends:        base

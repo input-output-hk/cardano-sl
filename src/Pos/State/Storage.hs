@@ -1,51 +1,33 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE TemplateHaskell       #-}
 
 -- | Storage with node local state.
 
 module Pos.State.Storage
        (
          Storage
-       , State
-       , pendingEntries
-       , epochLeaders
-       , blocks
 
        , Update
+       , addEntry
        , addLeaders
+       , adoptBlock
        , createBlock
        , getLeader
-
-       , withNodeState
+       , getLeaders
+       , setLeaders
        ) where
 
-import           Control.Lens             (at, ix, makeLenses, preuse, use, (%=), (.=),
-                                           (<<.=))
-import           Crypto.Hash              (hashlazy)
-import qualified Data.Binary              as Bin (encode)
-import           Data.Default             (Default, def)
-import           Data.Fixed               (div')
-import           Data.IORef               (IORef, atomicModifyIORef', modifyIORef',
-                                           newIORef, readIORef, writeIORef)
-import qualified Data.Map                 as Map
-import qualified Data.Set                 as Set (fromList, insert, toList, (\\))
-import qualified Data.Text                as T
-import           Formatting               (build, int, sformat, (%))
-import           Protolude                hiding (for, wait, (%))
-import           System.IO.Unsafe         (unsafePerformIO)
-import           System.Random            (randomIO, randomRIO)
+import           Control.Lens    (at, ix, makeLenses, preuse, use, (%=), (.=), (<<.=))
+import           Data.Default    (Default, def)
+import qualified Data.Set        as Set (fromList, insert, toList, (\\))
+import           Protolude       hiding (for, wait, (%))
 
-import           Control.TimeWarp.Logging (LoggerName (..), logError, logInfo,
-                                           setLoggerName, usingLoggerName)
-import           Control.TimeWarp.Timed   (Microsecond, for, fork, ms, repeatForever,
-                                           runTimedIO, sec, sleepForever, till,
-                                           virtualTime, wait)
-import           Serokell.Util            ()
+import           Serokell.Util   ()
 
-import           Pos.Constants            (epochSlots, n, slotDuration, t)
-import           Pos.Crypto               (encrypt, shareSecret)
-import           Pos.Types.Types          (Block, Entry (..), Message (..), NodeId (..),
-                                           displayEntry, node)
-import           Pos.WorkMode             (RealMode, WorkMode)
+import           Pos.Types.Types (Block, Entry (..), NodeId (..))
+
 
 data Storage = Storage
     { -- | List of entries that the node has received but that aren't included
@@ -69,26 +51,31 @@ instance Default Storage where
         , _blocks = mempty
         }
 
-type NodeState = IORef Storage
-
-type Update = State Storage
-
-withNodeState :: MonadIO m => NodeState -> Update a -> m a
-withNodeState nodeState act =
-    liftIO $ atomicModifyIORef' nodeState (swap . runState act)
+type Update a = forall m . MonadState Storage m => m a
 
 -- Empty the list of pending entries and create a block
-createBlock :: MonadIO m => NodeState -> m Block
-createBlock nodeState =
-    withNodeState nodeState $
-    do es <- pendingEntries <<.= mempty
-       return (Set.toList es)
+createBlock :: Update Block
+createBlock = do
+    es <- pendingEntries <<.= mempty
+    return (Set.toList es)
 
-addLeaders :: MonadIO m => NodeState -> Int -> [NodeId] -> m ()
-addLeaders nodeState epoch leaders =
-    withNodeState nodeState $
+addLeaders :: Int -> [NodeId] -> Update ()
+addLeaders epoch leaders =
     pendingEntries %= Set.insert (ELeaders (epoch + 1) leaders)
 
-getLeader :: MonadIO m => NodeState -> Int -> Int -> m (Maybe NodeId)
-getLeader nodeState epoch slot =
-    withNodeState nodeState $ preuse (epochLeaders . ix epoch . ix slot)
+getLeader :: Int -> Int -> Update (Maybe NodeId)
+getLeader epoch slot = preuse (epochLeaders . ix epoch . ix slot)
+
+getLeaders :: Int -> Update (Maybe [NodeId])
+getLeaders epoch = use (epochLeaders . at epoch)
+
+addEntry :: Entry -> Update ()
+addEntry e = pendingEntries %= Set.insert e
+
+adoptBlock :: Block -> Update ()
+adoptBlock es = do
+    pendingEntries %= (Set.\\ Set.fromList es)
+    blocks %= (es :)
+
+setLeaders :: Int -> [NodeId] -> Update ()
+setLeaders epoch leaders = epochLeaders . at epoch .= Just leaders

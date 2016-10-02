@@ -144,7 +144,7 @@ won the leader election and can generate the next block.
 
 fullNode :: WorkMode m => Node m
 fullNode = \self _key keys sendTo ->
-  setLoggerName (LoggerName (show self)) $ do
+  setLoggerName (LoggerName (toS (sformat nodeF self))) $ do
     nodeState <- mkNodeState
 
     -- This will run at the beginning of each slot:

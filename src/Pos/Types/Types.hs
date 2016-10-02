@@ -22,6 +22,7 @@ module Pos.Types.Types
        , displayEntry
        ) where
 
+import qualified Data.Text           as T (unwords)
 import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Data.Word           (Word32)
@@ -129,4 +130,6 @@ displayEntry (EUHash nid h) =
 displayEntry (EUShare n_from n_to share) =
     sformat (nodeF%"'s share for "%nodeF%" = "%build) n_from n_to share
 displayEntry (ELeaders epoch leaders) =
-    sformat ("leaders for epoch "%int%" = "%shown) epoch leaders
+    sformat ("leaders for epoch "%int%" = "%build)
+            epoch
+            (T.unwords (map (toS . sformat nodeF) leaders))

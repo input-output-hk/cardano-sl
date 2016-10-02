@@ -59,6 +59,7 @@ executable pos-node
   hs-source-dirs:      src/node
   main-is:             Main.hs
   build-depends:       base
+                     , formatting
                      , pos
                      , protolude
                      , time-warp

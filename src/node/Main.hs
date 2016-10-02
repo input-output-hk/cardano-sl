@@ -10,7 +10,7 @@ import           Control.TimeWarp.Logging (LoggerName (..), Severity (Info), ini
 
 import           Pos.Constants            (n)
 import           Pos.Launcher             (fullNode, runNodesReal)
-import           Pos.Types.Types          (NodeId (..))
+import           Pos.Types                (NodeId (..))
 
 main :: IO ()
 -- Here's how to run a simple system with two nodes pinging each other:

@@ -20,24 +20,23 @@ import           Data.IORef               (IORef, atomicModifyIORef', modifyIORe
 import qualified Data.Map                 as Map
 import qualified Data.Set                 as Set (fromList, insert, toList, (\\))
 import qualified Data.Text                as T
-import           Formatting               (build, int, sformat,
-                                           (%))
+import           Formatting               (build, int, sformat, (%))
 import           Protolude                hiding (for, wait, (%))
 import           System.IO.Unsafe         (unsafePerformIO)
 import           System.Random            (randomIO, randomRIO)
 
-import           Control.TimeWarp.Logging (LoggerName (..),
-                                           logError,
-                                           logInfo, setLoggerName, usingLoggerName)
-import           Control.TimeWarp.Timed   (Microsecond, for, fork, ms,
-                                           repeatForever, runTimedIO, sec, sleepForever,
-                                           till, virtualTime, wait)
+import           Control.TimeWarp.Logging (LoggerName (..), logError, logInfo,
+                                           setLoggerName, usingLoggerName)
+import           Control.TimeWarp.Timed   (Microsecond, for, fork, ms, repeatForever,
+                                           runTimedIO, sec, sleepForever, till,
+                                           virtualTime, wait)
 import           Serokell.Util            ()
 
-import Pos.WorkMode (WorkMode, RealMode)
-import Pos.Crypto (shareSecret, encrypt)
-import Pos.Types.Types (NodeId (..), Message (..), Block, Entry (..), node, displayEntry)
-import Pos.Constants (slotDuration, t, n, epochSlots)
+import           Pos.Constants            (epochSlots, n, slotDuration, t)
+import           Pos.Crypto               (encrypt, shareSecret)
+import           Pos.Types.Types          (Block, Entry (..), Message (..), NodeId (..),
+                                           displayEntry, node)
+import           Pos.WorkMode             (RealMode, WorkMode)
 
 ----------------------------------------------------------------------------
 -- Network simulation
@@ -267,7 +266,7 @@ fullNode = \self sendTo -> setLoggerName (LoggerName (show self)) $ do
         --     a different U)
         when (slot == 0) $ do
             u <- liftIO (randomIO :: IO Word64)
-            let shares = shareSecret n (n-t) (toS (Bin.encode u))
+            let shares = shareSecret n (n - t) (toS (Bin.encode u))
             for_ (zip shares [NodeId 0..]) $ \(share, i) ->
                 sendEveryone (MEntry (EUShare self i (encrypt share)))
             sendEveryone (MEntry (EUHash self (hashlazy (Bin.encode u))))

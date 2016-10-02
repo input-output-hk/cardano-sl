@@ -1,8 +1,18 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 -- | Definitions of the most fundamental types.
 
 module Pos.Types.Types
-       ( NodeId (..)
-       , node
+       (
+         NodeId (..)
+       , nodeF
+
+       , Coin (..)
+       , coinF
+
+       , Address (..)
+       , addressF
+
        , TxIn (..)
        , TxOut (..)
        , Tx (..)
@@ -12,46 +22,85 @@ module Pos.Types.Types
        , displayEntry
        ) where
 
+import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
+import           Data.Word           (Word32)
 import           Formatting          (Format, bprint, build, int, sformat, shown, (%))
-import           Pos.Crypto          (Encrypted, Hash, Share)
 import           Protolude           hiding (for, wait, (%))
 
+import           Pos.Crypto          (Encrypted, Hash, Share)
+
 ----------------------------------------------------------------------------
--- Node
+-- Node. TODO: do we need it?
 ----------------------------------------------------------------------------
 
 newtype NodeId = NodeId
     { getNodeId :: Int
     } deriving (Show, Eq, Ord, Enum)
 
-instance Buildable.Buildable NodeId where
+instance Buildable NodeId where
     build = bprint ("#"%int) . getNodeId
 
-node :: Format r (NodeId -> r)
-node = build
+nodeF :: Format r (NodeId -> r)
+nodeF = build
 
 ----------------------------------------------------------------------------
--- Transactions, blocks
+-- Coin
 ----------------------------------------------------------------------------
 
--- | Transaction input
+-- | Coin is the least possible unit of currency.
+newtype Coin = Coin
+    { getCoin :: Int64
+    } deriving (Num, Enum, Integral, Show, Ord, Real, Generic, Eq)
+
+instance Buildable Coin where
+    build = bprint (int%" coin(s)")
+
+-- | Coin formatter which restricts type.
+coinF :: Format r (Coin -> r)
+coinF = build
+
+----------------------------------------------------------------------------
+-- Address
+----------------------------------------------------------------------------
+
+instance Buildable () where
+    build () = "patak"  -- TODO: remove
+
+-- | Address is where you can send coins.
+newtype Address = Address
+    { getAddress :: ()  -- ^ TODO
+    } deriving (Show, Eq, Generic, Buildable, Ord)
+
+addressF :: Format r (Address -> r)
+addressF = build
+
+----------------------------------------------------------------------------
+-- Transaction
+----------------------------------------------------------------------------
+
+-- | Transaction input.
 data TxIn = TxIn
-    { txInHash  :: Hash -- ^ Which transaction's output is used
-    , txInIndex :: Int -- ^ Index of the output in transaction's outputs
-    } deriving (Eq, Ord, Show)
+    { txInHash  :: !Hash    -- ^ Which transaction's output is used
+    , txInIndex :: !Word32  -- ^ Index of the output in transaction's outputs
+    } deriving (Eq, Ord, Show, Generic)
 
--- | Transaction output
-data TxOut = TxOut {
-    txOutValue :: Word64 }   -- ^ Output value
-    deriving (Eq, Ord, Show)
+-- | Transaction output.
+data TxOut = TxOut
+    { txOutAddress :: !Address
+    , txOutValue   :: !Coin
+    } deriving (Eq, Ord, Show, Generic)
 
--- | Transaction
+-- | Transaction.
 data Tx = Tx
-    { txInputs  :: [TxIn]
-    , txOutputs :: [TxOut]
-    , txHash    :: Hash -- ^ Hash of the transaction
-    } deriving (Eq, Ord, Show)
+    { txInputs  :: ![TxIn]   -- ^ Inputs of transaction.
+    , txOutputs :: ![TxOut]  -- ^ Outputs of transaction.
+    } deriving (Eq, Ord, Show, Generic)
+
+
+----------------------------------------------------------------------------
+-- Block. TODO: rework.
+----------------------------------------------------------------------------
 
 -- | An entry in a block
 data Entry
@@ -76,8 +125,8 @@ displayEntry :: Entry -> Text
 displayEntry (ETx tx) =
     "transaction " <> show tx
 displayEntry (EUHash nid h) =
-    sformat (node%"'s commitment = "%shown) nid h
+    sformat (nodeF%"'s commitment = "%shown) nid h
 displayEntry (EUShare n_from n_to share) =
-    sformat (node%"'s share for "%node%" = "%build) n_from n_to share
+    sformat (nodeF%"'s share for "%nodeF%" = "%build) n_from n_to share
 displayEntry (ELeaders epoch leaders) =
     sformat ("leaders for epoch "%int%" = "%shown) epoch leaders

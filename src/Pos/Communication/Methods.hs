@@ -29,7 +29,7 @@ import           Pos.Constants            (epochSlots, n, slotDuration, t)
 import           Pos.Crypto               (encrypt, shareSecret)
 import           Pos.State.Operations     (addEntry, addLeaders, adoptBlock, createBlock,
                                            getLeader, getLeaders, mkNodeState, setLeaders)
-import           Pos.Types.Types          (Entry (..), NodeId (..), displayEntry, node)
+import           Pos.Types.Types          (Entry (..), NodeId (..), displayEntry, nodeF)
 import           Pos.WorkMode             (WorkMode)
 
 ----------------------------------------------------------------------------
@@ -39,13 +39,13 @@ import           Pos.WorkMode             (WorkMode)
 node_ping :: WorkMode m => NodeId -> Node m
 node_ping pingId = \_self sendTo -> do
     inSlot True $ \_epoch _slot -> do
-        logInfo $ sformat ("pinging "%node) pingId
+        logInfo $ sformat ("pinging "%nodeF) pingId
         sendTo pingId MPing
     return $ \n_from message -> case message of
         MPing -> do
-            logInfo $ sformat ("pinged by "%node) n_from
+            logInfo $ sformat ("pinged by "%nodeF) n_from
         _ -> do
-            logInfo $ sformat ("unknown message from "%node) n_from
+            logInfo $ sformat ("unknown message from "%nodeF) n_from
 
 systemStart :: IORef Microsecond
 systemStart = unsafePerformIO $ newIORef undefined
@@ -229,12 +229,12 @@ fullNode = \self sendTo -> setLoggerName (LoggerName (show self)) $ do
                     case mbLeaders of
                         Nothing -> setLeaders nodeState epoch leaders
                         Just _  -> logError $ sformat
-                            (node%" we already know leaders for epoch "%int
-                                 %"but we received a block with ELeaders "
-                                 %"for the same epoch") self epoch
+                            (nodeF%" we already know leaders for epoch "%int
+                                  %"but we received a block with ELeaders "
+                                  %"for the same epoch") self epoch
                 -- TODO: process other types of entries
                 _ -> return ()
 
         -- We were pinged
         MPing -> logInfo $ sformat
-                     ("received a ping from "%node) n_from
+                     ("received a ping from "%nodeF) n_from

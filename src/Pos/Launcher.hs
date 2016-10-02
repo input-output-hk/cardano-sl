@@ -34,6 +34,8 @@ import           Serokell.Util            ()
 
 import           Pos.Constants            (epochSlots, n, slotDuration, t)
 import           Pos.Crypto               (encrypt, shareSecret)
+import           Pos.State.Storage        (addLeaders, blocks, createBlock, epochLeaders,
+                                           getLeader, pendingEntries, withNodeState)
 import           Pos.Types.Types          (Block, Entry (..), Message (..), NodeId (..),
                                            displayEntry, node)
 import           Pos.WorkMode             (RealMode, WorkMode)
@@ -177,28 +179,6 @@ Other issues
 
 -}
 
-data FullNodeState = FullNodeState
-    { -- | List of entries that the node has received but that aren't included
-      -- into any block yet
-      _pendingEntries :: Set Entry
-      -- | Leaders for epochs (currently it just stores leaders for all
-      -- epochs, but we really only need the leader list for this epoch and
-      -- the next epoch)
-    , _epochLeaders   :: Map Int [NodeId]
-      -- | Blocks
-    , _blocks         :: [Block]
-    }
-
-makeLenses ''FullNodeState
-
-instance Default FullNodeState where
-    def =
-        FullNodeState
-        { _pendingEntries = mempty
-        , _epochLeaders = mempty
-        , _blocks = []
-        }
-
 {-
 If some node becomes inactive, other nodes will be able to recover its U by
 exchanging decrypted pieces of secret-shared U they've been sent.
@@ -210,15 +190,7 @@ won the leader election and can generate the next block.
 
 fullNode :: WorkMode m => Node m
 fullNode = \self sendTo -> setLoggerName (LoggerName (show self)) $ do
-    nodeState <- liftIO $ newIORef (def :: FullNodeState)
-    let withNodeState act = liftIO $
-            atomicModifyIORef' nodeState (swap . runState act)
-
-    -- Empty the list of pending entries and create a block
-    let createBlock :: WorkMode m => m Block
-        createBlock = withNodeState $ do
-            es <- pendingEntries <<.= mempty
-            return (Set.toList es)
+    nodeState <- liftIO $ newIORef def
 
     -- This will run at the beginning of each slot:
     inSlot True $ \epoch slot -> do
@@ -229,7 +201,7 @@ fullNode = \self sendTo -> setLoggerName (LoggerName (show self)) $ do
 
         -- Create a block and send it to everyone
         let createAndSendBlock = do
-                blk <- createBlock
+                blk <- createBlock nodeState
                 sendEveryone (MBlock blk)
                 if null blk then
                     logInfo "created an empty block"
@@ -247,8 +219,7 @@ fullNode = \self sendTo -> setLoggerName (LoggerName (show self)) $ do
             when (slot == 0) $ do
                 leaders <- map NodeId <$>
                            replicateM epochSlots (liftIO $ randomRIO (0, n-1))
-                withNodeState $ do
-                    pendingEntries %= Set.insert (ELeaders (epoch+1) leaders)
+                addLeaders nodeState epoch leaders
                 logInfo "generated random leaders for epoch 1 \
                         \(as master node)"
             createAndSendBlock
@@ -272,8 +243,7 @@ fullNode = \self sendTo -> setLoggerName (LoggerName (show self)) $ do
             sendEveryone (MEntry (EUHash self (hashlazy (Bin.encode u))))
 
         -- If we are the epoch leader, we should generate a block
-        do leader <- withNodeState $
-                         preuse (epochLeaders . ix epoch . ix slot)
+        do leader <- getLeader nodeState epoch slot
            when (leader == Just self) $
                createAndSendBlock
 
@@ -292,29 +262,29 @@ fullNode = \self sendTo -> setLoggerName (LoggerName (show self)) $ do
         -- An entry has been received: add it to the list of unprocessed
         -- entries
         MEntry e -> do
-            withNodeState $ do
+            withNodeState nodeState $ do
                 pendingEntries %= Set.insert e
 
         -- A block has been received: remove all pending entries we have
         -- that are in this block, then add the block to our local
         -- blockchain and use info from the block
         MBlock es -> do
-            withNodeState $ do
+            withNodeState nodeState $ do
                 pendingEntries %= (Set.\\ Set.fromList es)
                 blocks %= (es:)
             -- TODO: using withNodeState several times here might break
             -- atomicity, I dunno
             for_ es $ \e -> case e of
                 ELeaders epoch leaders -> do
-                    mbLeaders <- withNodeState $ use (epochLeaders . at epoch)
+                    mbLeaders <- withNodeState nodeState $ use (epochLeaders . at epoch)
                     case mbLeaders of
-                        Nothing -> withNodeState $
+                        Nothing -> withNodeState nodeState $
                                      epochLeaders . at epoch .= Just leaders
                         Just _  -> logError $ sformat
                             (node%" we already know leaders for epoch "%int
                                  %"but we received a block with ELeaders "
                                  %"for the same epoch") self epoch
-                    withNodeState $ epochLeaders . at epoch .= Just leaders
+                    withNodeState nodeState $ epochLeaders . at epoch .= Just leaders
                 -- TODO: process other types of entries
                 _ -> return ()
 

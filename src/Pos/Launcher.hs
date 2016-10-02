@@ -17,12 +17,15 @@ import           Protolude                hiding (for, wait, (%))
 import           Serokell.Util            ()
 
 import           Pos.Communication        (Node, inSlot, systemStart)
-import           Pos.Constants            (slotDuration)
+import           Pos.Constants            (n, slotDuration)
+import           Pos.Crypto               (keyGen)
 import           Pos.Types.Types          (NodeId (..))
 import           Pos.WorkMode             (RealMode, WorkMode)
 
 runNodes :: WorkMode m => [Node m] -> m ()
 runNodes nodes = setLoggerName "xx" $ do
+    keys <- Map.fromList . zip [NodeId 0 .. NodeId (n-1)] <$>
+                replicateM n keyGen
     -- The system shall start working in a bit of time. Not exactly right now
     -- because due to the way inSlot implemented, it'd be nice to wait a bit
     -- – if we start right now then all nodes will miss the first slot of the
@@ -39,7 +42,7 @@ runNodes nodes = setLoggerName "xx" $ do
             f n_from message
     for_ (zip [0..] nodes) $ \(i, nodeFun) -> do
         let nid = NodeId i
-        f <- nodeFun nid (send nid)
+        f <- nodeFun nid (keys Map.! nid) (fmap fst keys) (send nid)
         liftIO $ modifyIORef' nodeCallbacks (Map.insert nid f)
     sleepForever
 

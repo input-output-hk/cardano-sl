@@ -10,12 +10,14 @@ module Pos.Communication.Types
 import           Formatting (int, sformat, (%))
 import           Protolude  hiding ((%))
 
+import           Pos.Crypto (PrivateKey, PublicKey)
 import           Pos.Types  (Block, Entry, NodeId, displayEntry)
 
 {- |
 A node is given:
 
-* Its ID
+* Its ID and keypair
+* Public keys of other nodes
 * A function to send messages
 
 A node also provides a callback which can be used to send messages to the
@@ -23,6 +25,8 @@ node (and the callback knows who sent it a message).
 -}
 type Node m =
        NodeId
+    -> (PublicKey, PrivateKey)
+    -> Map NodeId PublicKey
     -> (NodeId -> Message -> m ())
     -> m (NodeId -> Message -> m ())
 

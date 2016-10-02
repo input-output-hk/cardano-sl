@@ -12,6 +12,7 @@ import qualified Data.Binary              as Bin (encode)
 
 import           Data.Fixed               (div')
 import           Data.IORef               (IORef, newIORef, readIORef)
+import qualified Data.Map                 as Map ((!))
 import qualified Data.Text                as T
 import           Formatting               (build, int, sformat, (%))
 import           Protolude                hiding (for, wait, (%))
@@ -26,7 +27,7 @@ import           Serokell.Util            ()
 
 import           Pos.Communication.Types  (Message (..), Node)
 import           Pos.Constants            (epochSlots, n, slotDuration, t)
-import           Pos.Crypto               (encrypt, shareSecret)
+import           Pos.Crypto               (encryptConvert, shareSecret)
 import           Pos.State.Operations     (addEntry, addLeaders, adoptBlock, createBlock,
                                            getLeader, getLeaders, mkNodeState, setLeaders)
 import           Pos.Types.Types          (Entry (..), NodeId (..), displayEntry, nodeF)
@@ -37,7 +38,7 @@ import           Pos.WorkMode             (WorkMode)
 ----------------------------------------------------------------------------
 
 node_ping :: WorkMode m => NodeId -> Node m
-node_ping pingId = \_self sendTo -> do
+node_ping pingId = \_self _keypair _keys sendTo -> do
     inSlot True $ \_epoch _slot -> do
         logInfo $ sformat ("pinging "%nodeF) pingId
         sendTo pingId MPing
@@ -142,7 +143,8 @@ won the leader election and can generate the next block.
 -}
 
 fullNode :: WorkMode m => Node m
-fullNode = \self sendTo -> setLoggerName (LoggerName (show self)) $ do
+fullNode = \self _key keys sendTo ->
+  setLoggerName (LoggerName (show self)) $ do
     nodeState <- mkNodeState
 
     -- This will run at the beginning of each slot:
@@ -191,8 +193,9 @@ fullNode = \self sendTo -> setLoggerName (LoggerName (show self)) $ do
         when (slot == 0) $ do
             u <- liftIO (randomIO :: IO Word64)
             let shares = shareSecret n (n - t) (toS (Bin.encode u))
-            for_ (zip shares [NodeId 0..]) $ \(share, i) ->
-                sendEveryone (MEntry (EUShare self i (encrypt share)))
+            for_ (zip shares [NodeId 0..]) $ \(share, i) -> do
+                encShare <- encryptConvert (keys Map.! i) share
+                sendEveryone (MEntry (EUShare self i encShare))
             sendEveryone (MEntry (EUHash self (hashlazy (Bin.encode u))))
 
         -- If we are the epoch leader, we should generate a block

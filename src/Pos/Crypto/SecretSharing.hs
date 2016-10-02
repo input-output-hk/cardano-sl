@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
+
 -- | Dummy implementation of VSS.
 
 module Pos.Crypto.SecretSharing
@@ -7,17 +10,17 @@ module Pos.Crypto.SecretSharing
        ) where
 
 
+import           Data.Binary         (Binary)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, int, (%))
 import           Protolude           hiding ((%))
-
 
 data Share = Share {
     share       :: ByteString,
     shareIndex  :: Int,
     totalShares :: Int,
     minNeeded   :: Int }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic, Binary)
 
 instance Buildable.Buildable Share where
     build Share{..} = bprint ("share "%int%"/"%int) shareIndex totalShares

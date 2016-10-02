@@ -14,10 +14,13 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:      Pos.Crypto
+                        Pos.Communication
                         Pos.Constants
                         Pos.Launcher
                         Pos.Types
-  other-modules:        Pos.Crypto.Hashing
+  other-modules:        Pos.Communication.Methods
+                        Pos.Communication.Types
+                        Pos.Crypto.Hashing
                         Pos.Crypto.Pki
                         Pos.Crypto.SecretSharing
                         Pos.State.Operations

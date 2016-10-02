@@ -8,8 +8,9 @@ import           Protolude                hiding (for, wait, (%))
 
 import           Control.TimeWarp.Logging (LoggerName (..), Severity (Info), initLogging)
 
+import           Pos.Communication        (fullNode)
 import           Pos.Constants            (n)
-import           Pos.Launcher             (fullNode, runNodesReal)
+import           Pos.Launcher             (runNodesReal)
 import           Pos.Types                (NodeId (..))
 
 main :: IO ()

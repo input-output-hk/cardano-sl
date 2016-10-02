@@ -1,4 +1,4 @@
--- | TODO: decide structure of this part.
+-- | Definitions of the most fundamental types.
 
 module Pos.Types.Types
        ( NodeId (..)
@@ -8,10 +8,8 @@ module Pos.Types.Types
        , Tx (..)
        , Entry (..)
        , Block
-       , Message (..)
 
        , displayEntry
-       , displayMessage
        ) where
 
 import qualified Data.Text.Buildable as Buildable
@@ -83,18 +81,3 @@ displayEntry (EUShare n_from n_to share) =
     sformat (node%"'s share for "%node%" = "%build) n_from n_to share
 displayEntry (ELeaders epoch leaders) =
     sformat ("leaders for epoch "%int%" = "%shown) epoch leaders
-
-----------------------------------------------------------------------------
--- Messages that nodes send to each other
-----------------------------------------------------------------------------
-
-data Message
-    = MEntry Entry
-    | MBlock Block
-    | MPing
-    deriving (Eq, Ord, Show)
-
-displayMessage :: Message -> Text
-displayMessage MPing       = "ping"
-displayMessage (MEntry e)  = displayEntry e
-displayMessage (MBlock es) = sformat ("block with "%int%" entries") (length es)

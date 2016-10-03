@@ -163,6 +163,7 @@ type family Proof payload :: *
 -- | Header of block contains all the information necessary to
 -- validate consensus algorithm. It also contains proof of payload
 -- associated with it.
+-- TODO: add MPC-types.
 -- TODO: should we put public key here?
 data BlockHeader proof = BlockHeader
     { bhPrevHash     :: !(Hash (BlockHeader proof))  -- ^ Hash of the previous

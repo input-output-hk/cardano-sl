@@ -21,8 +21,8 @@ import           Universum
 
 import           Control.TimeWarp.Logging (LoggerName (..), logError, logInfo,
                                            setLoggerName)
-import           Control.TimeWarp.Timed   (Microsecond, for, fork, ms, repeatForever, sec,
-                                           till, virtualTime, wait)
+import           Control.TimeWarp.Timed   (Microsecond, for, fork_, ms, repeatForever,
+                                           sec, till, virtualTime, wait)
 import           Serokell.Util            ()
 
 import           Pos.Communication.Types  (Message (..), Node)
@@ -63,7 +63,7 @@ for nodes (so that node logging messages would come after “EPOCH n” logging
 messages).
 -}
 inSlot :: WorkMode m => Bool -> (Int -> Int -> m ()) -> m ()
-inSlot extraDelay f = void $ fork $ do
+inSlot extraDelay f = fork_ $ do
     start <- liftIO $ readIORef systemStart
     let getAbsoluteSlot :: WorkMode m => m Int
         getAbsoluteSlot = do

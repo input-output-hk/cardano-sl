@@ -49,7 +49,8 @@ node_ping pingId = \_self _keypair _keys sendTo -> do
             logInfo $ sformat ("unknown message from "%nodeF) n_from
 
 systemStart :: IORef Microsecond
-systemStart = unsafePerformIO $ newIORef undefined
+systemStart = unsafePerformIO $
+    newIORef (panic "systemStart: accessed before it was written")
 {-# NOINLINE systemStart #-}
 
 {- |

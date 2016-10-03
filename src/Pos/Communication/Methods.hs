@@ -26,7 +26,7 @@ import           Control.TimeWarp.Timed   (Microsecond, for, fork_, ms, repeatFo
 import           Serokell.Util            ()
 
 import           Pos.Communication.Types  (Message (..), Node)
-import           Pos.Constants            (epochSlots, n, slotDuration, t)
+import           Pos.Constants            (epochSlots, slotDuration, t)
 import           Pos.Crypto               (encryptConvert, shareSecret)
 import           Pos.State.Operations     (addEntry, addLeaders, adoptBlock, createBlock,
                                            getLeader, getLeaders, mkNodeState, setLeaders)
@@ -38,7 +38,7 @@ import           Pos.WorkMode             (WorkMode)
 ----------------------------------------------------------------------------
 
 node_ping :: WorkMode m => NodeId -> Node m
-node_ping pingId = \_self _keypair _keys sendTo -> do
+node_ping pingId = \_self _keypair _n _keys sendTo -> do
     inSlot True $ \_epoch _slot -> do
         logInfo $ sformat ("pinging "%nodeF) pingId
         sendTo pingId MPing
@@ -144,7 +144,7 @@ won the leader election and can generate the next block.
 -}
 
 fullNode :: WorkMode m => Node m
-fullNode = \self _key keys sendTo ->
+fullNode = \self _key n keys sendTo ->
   setLoggerName (LoggerName (toS (sformat nodeF self))) $ do
     nodeState <- mkNodeState
 

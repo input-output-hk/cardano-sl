@@ -18,13 +18,14 @@ import           Universum
 import           Serokell.Util            ()
 
 import           Pos.Communication        (Node, inSlot, systemStart)
-import           Pos.Constants            (n, slotDuration)
+import           Pos.Constants            (slotDuration)
 import           Pos.Crypto               (keyGen)
 import           Pos.Types.Types          (NodeId (..))
 import           Pos.WorkMode             (RealMode, WorkMode)
 
 runNodes :: WorkMode m => [Node m] -> m ()
 runNodes nodes = setLoggerName "xx" $ do
+    let n = length nodes
     keys <- Map.fromList . zip [NodeId 0 .. NodeId (n-1)] <$>
                 replicateM n keyGen
     -- The system shall start working in a bit of time. Not exactly right now
@@ -43,7 +44,7 @@ runNodes nodes = setLoggerName "xx" $ do
             f n_from message
     for_ (zip [0..] nodes) $ \(i, nodeFun) -> do
         let nid = NodeId i
-        f <- nodeFun nid (keys Map.! nid) (fmap fst keys) (send nid)
+        f <- nodeFun nid (keys Map.! nid) n (fmap fst keys) (send nid)
         liftIO $ modifyIORef' nodeCallbacks (Map.insert nid f)
     sleepForever
 

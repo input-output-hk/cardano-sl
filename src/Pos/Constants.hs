@@ -1,8 +1,7 @@
 -- | Several constants used by algorithm.
 
 module Pos.Constants
-       ( n
-       , t
+       ( t
        , k
        , slotDuration
        , epochSlots
@@ -12,12 +11,12 @@ import           Universum
 
 import           Control.TimeWarp.Timed (Microsecond, sec)
 
-n :: Integral a => a
-n = 3
-
+-- |
 t :: Integral a => a
 t = 0
 
+-- | Consensus guarantee (i.e. after what amount of blocks can we consider
+-- blocks stable?).
 k :: Integral a => a
 k = 3
 

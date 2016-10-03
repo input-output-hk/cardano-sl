@@ -17,6 +17,7 @@ import           Pos.Types  (Block, Entry, NodeId, displayEntry)
 A node is given:
 
 * Its ID and keypair
+* Total amount of nodes
 * Public keys of other nodes
 * A function to send messages
 
@@ -26,6 +27,7 @@ node (and the callback knows who sent it a message).
 type Node m =
        NodeId
     -> (PublicKey, PrivateKey)
+    -> Int
     -> Map NodeId PublicKey
     -> (NodeId -> Message -> m ())
     -> m (NodeId -> Message -> m ())

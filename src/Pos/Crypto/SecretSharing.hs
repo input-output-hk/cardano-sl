@@ -1,5 +1,4 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric  #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 -- | Dummy implementation of VSS.
 
@@ -17,14 +16,18 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, int, (%))
 import           Universum
 
-data Share = Share {
-    share       :: ByteString,
-    shareIndex  :: Int,
-    totalShares :: Int,
-    minNeeded   :: Int }
-  deriving (Eq, Ord, Show, Generic, Binary)
+data Share = Share
+    { share       :: ByteString
+    , shareIndex  :: Int
+    , totalShares :: Int
+    , minNeeded   :: Int
+    } deriving (Eq, Ord, Show, Generic)
 
-newtype SecretProof = SecretProof ByteString
+instance Binary Share
+
+newtype SecretProof =
+    SecretProof ByteString
+    deriving (Show, Eq, Generic)
 
 instance Buildable.Buildable Share where
     build Share{..} = bprint ("share "%int%"/"%int) shareIndex totalShares

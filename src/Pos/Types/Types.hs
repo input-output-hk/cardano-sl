@@ -7,6 +7,10 @@ module Pos.Types.Types
          NodeId (..)
        , nodeF
 
+       , EpochIndex
+       , LocalSlotIndex
+       , SlotId (..)
+
        , Coin (..)
        , coinF
 
@@ -25,7 +29,7 @@ module Pos.Types.Types
 import qualified Data.Text           as T (unwords)
 import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
-import           Data.Word           (Word32)
+import           Data.Word           (Word32, Word64)
 import           Formatting          (Format, bprint, build, int, sformat, shown, (%))
 import           Universum
 
@@ -45,6 +49,23 @@ instance Buildable NodeId where
 
 nodeF :: Format r (NodeId -> r)
 nodeF = build
+
+----------------------------------------------------------------------------
+-- Slotting
+----------------------------------------------------------------------------
+
+-- | Index of epoch.
+type EpochIndex = Word64
+
+-- | Index of slot inside a concrete epoch.
+type LocalSlotIndex = Word32
+
+-- | Slot is identified by index of epoch and local index of slot in
+-- this epoch. This is a global index
+data SlotId = SlotId
+    { siEpoch :: !EpochIndex
+    , siSlot  :: !LocalSlotIndex
+    } deriving (Show, Generic)
 
 ----------------------------------------------------------------------------
 -- Coin

@@ -23,7 +23,7 @@ import           Universum
 import           Serokell.Util     ()
 
 import qualified Pos.State.Storage as S
-import           Pos.Types.Types   (Block, Entry (..), NodeId (..))
+import           Pos.Types.Types   (Blockkk, Entry (..), NodeId (..))
 
 type NodeState = IORef S.Storage
 type Update = State S.Storage
@@ -36,7 +36,7 @@ withNodeState nodeState act =
     liftIO $ atomicModifyIORef' nodeState (swap . runState act)
 
 -- Empty the list of pending entries and create a block
-createBlock :: MonadIO m => NodeState -> m Block
+createBlock :: MonadIO m => NodeState -> m Blockkk
 createBlock nodeState = withNodeState nodeState S.createBlock
 
 addLeaders :: MonadIO m => NodeState -> Int -> [NodeId] -> m ()
@@ -51,7 +51,7 @@ getLeaders nodeState = withNodeState nodeState . S.getLeaders
 addEntry :: MonadIO m => NodeState -> Entry -> m ()
 addEntry nodeState = withNodeState nodeState . S.addEntry
 
-adoptBlock :: MonadIO m => NodeState -> Block -> m ()
+adoptBlock :: MonadIO m => NodeState -> Blockkk -> m ()
 adoptBlock nodeState = withNodeState nodeState . S.adoptBlock
 
 setLeaders :: MonadIO m => NodeState -> Int -> [NodeId] -> m ()

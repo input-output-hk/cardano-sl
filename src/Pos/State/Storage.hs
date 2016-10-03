@@ -26,7 +26,7 @@ import           Universum
 
 import           Serokell.Util   ()
 
-import           Pos.Types.Types (Block, Entry (..), NodeId (..))
+import           Pos.Types.Types (Blockkk, Entry (..), NodeId (..))
 
 
 data Storage = Storage
@@ -38,7 +38,7 @@ data Storage = Storage
       -- the next epoch)
     , _epochLeaders   :: Map Int [NodeId]
       -- | Blocks
-    , _blocks         :: [Block]
+    , _blocks         :: [Blockkk]
     }
 
 makeLenses ''Storage
@@ -54,7 +54,7 @@ instance Default Storage where
 type Update a = forall m . MonadState Storage m => m a
 
 -- Empty the list of pending entries and create a block
-createBlock :: Update Block
+createBlock :: Update Blockkk
 createBlock = do
     es <- pendingEntries <<.= mempty
     return (Set.toList es)
@@ -72,7 +72,7 @@ getLeaders epoch = use (epochLeaders . at epoch)
 addEntry :: Entry -> Update ()
 addEntry e = pendingEntries %= Set.insert e
 
-adoptBlock :: Block -> Update ()
+adoptBlock :: Blockkk -> Update ()
 adoptBlock es = do
     pendingEntries %= (Set.\\ Set.fromList es)
     blocks %= (es :)

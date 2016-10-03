@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TypeFamilies  #-}
 
 -- | Definitions of the most fundamental types.
 
@@ -20,9 +21,16 @@ module Pos.Types.Types
        , TxIn (..)
        , TxOut (..)
        , Tx (..)
-       , Entry (..)
+
+       , BlockHeader (..)
+       , SignedBlockHeader (..)
+       , GenericBlock (..)
+       , TxsPayload
+       , TxsProof (..)
        , Block
 
+       , Entry (..)
+       , Blockkk
        , displayEntry
        ) where
 
@@ -33,7 +41,7 @@ import           Data.Word           (Word32, Word64)
 import           Formatting          (Format, bprint, build, int, sformat, shown, (%))
 import           Universum
 
-import           Pos.Crypto          (Encrypted, Hash, Share)
+import           Pos.Crypto          (Encrypted, Hash, Share, Signature)
 import           Pos.Util            (Raw)
 
 ----------------------------------------------------------------------------
@@ -65,7 +73,7 @@ type LocalSlotIndex = Word32
 data SlotId = SlotId
     { siEpoch :: !EpochIndex
     , siSlot  :: !LocalSlotIndex
-    } deriving (Show, Generic)
+    } deriving (Show, Eq, Generic)
 
 ----------------------------------------------------------------------------
 -- Coin
@@ -121,9 +129,53 @@ data Tx = Tx
     , txOutputs :: ![TxOut]  -- ^ Outputs of transaction.
     } deriving (Eq, Ord, Show, Generic)
 
+----------------------------------------------------------------------------
+-- Block
+----------------------------------------------------------------------------
+
+type family Proof payload :: *
+
+-- | Header of block contains all the information necessary to
+-- validate consensus algorithm. It also contains proof of payload
+-- associated with it.
+-- TODO: should we put public key here?
+data BlockHeader proof = BlockHeader
+    { bhPrevHash     :: !(Hash (BlockHeader proof))  -- ^ Hash of the previous
+                                             -- block's header.
+    , bhPayloadProof :: !proof               -- ^ Proof of payload.
+    , bhSlot         :: !SlotId              -- ^ Id of slot for which
+                                             -- block was generated.
+    } deriving (Show, Eq, Generic)
+
+-- | SignedBlockHeader consists of BlockHeader and its signature.
+-- TODO: or maybe we should put public key here?
+data SignedBlockHeader proof = SignedBlockHeader
+    { sbhHeader    :: !(BlockHeader proof)
+    , sbhSignature :: !(Signature (BlockHeader proof))
+    } deriving (Show, Eq, Generic)
+
+-- | In general Block consists of some payload and header associated
+-- with it.
+data GenericBlock payload = GenericBlock
+    { gbHeader  :: !(SignedBlockHeader (Proof payload))
+    , gbPayload :: !payload
+    } deriving (Generic)
+
+-- | In our crypto-currency payload is a list of transactions.
+type TxsPayload = [Tx]
+
+-- | Proof of transactions list.
+data TxsProof = TxsProof
+    { tpNumber :: !Word32  -- ^ Number of transactions.
+    , tpRoot   :: !()      -- ^ TODO: it should be root of Merkle tree.
+    } deriving (Show, Eq, Generic)
+
+type instance Proof TxsPayload = TxsProof
+
+type Block = GenericBlock TxsPayload
 
 ----------------------------------------------------------------------------
--- Block. TODO: rework.
+-- Block. Leftover.
 ----------------------------------------------------------------------------
 
 -- | An entry in a block
@@ -143,7 +195,7 @@ data Entry
     deriving (Eq, Ord, Show)
 
 -- | Block
-type Block = [Entry]
+type Blockkk = [Entry]
 
 displayEntry :: Entry -> Text
 displayEntry (ETx tx) =

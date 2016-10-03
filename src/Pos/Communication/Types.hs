@@ -11,7 +11,7 @@ import           Formatting (int, sformat, (%))
 import           Universum
 
 import           Pos.Crypto (PrivateKey, PublicKey)
-import           Pos.Types  (Block, Entry, NodeId, displayEntry)
+import           Pos.Types  (Blockkk, Entry, NodeId, displayEntry)
 
 {- |
 A node is given:
@@ -38,9 +38,9 @@ type Node m =
 
 data Message
     = MEntry Entry
-    | MBlock Block
+    | MBlock Blockkk
     | MPing
-    deriving (Eq, Ord, Show)
+    deriving (Eq)
 
 displayMessage :: Message -> Text
 displayMessage MPing       = "ping"

@@ -15,9 +15,9 @@ import           Data.IORef               (IORef, newIORef, readIORef)
 import qualified Data.Map                 as Map ((!))
 import qualified Data.Text                as T
 import           Formatting               (build, int, sformat, (%))
-import           Protolude                hiding (for, wait, (%))
 import           System.IO.Unsafe         (unsafePerformIO)
 import           System.Random            (randomIO, randomRIO)
+import           Universum
 
 import           Control.TimeWarp.Logging (LoggerName (..), logError, logInfo,
                                            setLoggerName)

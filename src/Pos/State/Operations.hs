@@ -18,7 +18,8 @@ module Pos.State.Operations
 
 import           Data.Default      (def)
 import           Data.IORef        (IORef, atomicModifyIORef', newIORef)
-import           Protolude         hiding (for, wait, (%))
+import           Universum
+
 import           Serokell.Util     ()
 
 import qualified Pos.State.Storage as S

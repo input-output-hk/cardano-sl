@@ -37,13 +37,13 @@ library
                       , formatting
                       , lens
                       , mtl
-                      , protolude
                       , random
                       , serokell-core
                       , text
                       , text-format
                       , time
                       , time-warp
+                      , universum
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:         -Wall
@@ -61,8 +61,8 @@ executable pos-node
   build-depends:       base
                      , formatting
                      , pos
-                     , protolude
                      , time-warp
+                     , universum
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -82,7 +82,7 @@ test-suite pos-test
   build-depends:       base
                      , hspec
                      , pos
-                     , protolude
+                     , universum
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded

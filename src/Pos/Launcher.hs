@@ -13,7 +13,8 @@ import           Control.TimeWarp.Timed   (runTimedIO, sleepForever, virtualTime
 import           Data.IORef               (modifyIORef', newIORef, readIORef, writeIORef)
 import qualified Data.Map                 as Map
 import           Formatting               (int, sformat, (%))
-import           Protolude                hiding (for, wait, (%))
+import           Universum
+
 import           Serokell.Util            ()
 
 import           Pos.Communication        (Node, inSlot, systemStart)

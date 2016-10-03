@@ -6,7 +6,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/serokell/universum
-    commit: 1cb06305292cb01719251891365496de2c20b850
+    commit: 113a99252d2684a6d4e9db6359790debb48eadbb
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp.git

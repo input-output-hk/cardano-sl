@@ -1,11 +1,10 @@
-{-# LANGUAGE RecursiveDo         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
 module Main where
 
 import           Formatting               (sformat)
-import           Protolude                hiding (for, wait, (%))
+import           Universum
 
 import           Control.TimeWarp.Logging (LoggerName (..), Severity (Info), initLogging)
 

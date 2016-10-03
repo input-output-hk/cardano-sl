@@ -22,7 +22,7 @@ module Pos.State.Storage
 import           Control.Lens    (at, ix, makeLenses, preuse, use, (%=), (.=), (<<.=))
 import           Data.Default    (Default, def)
 import qualified Data.Set        as Set (fromList, insert, toList, (\\))
-import           Protolude       hiding (for, wait, (%))
+import           Universum
 
 import           Serokell.Util   ()
 

@@ -8,8 +8,9 @@ module Pos.Constants
        , epochSlots
        ) where
 
+import           Universum
+
 import           Control.TimeWarp.Timed (Microsecond, sec)
-import           Protolude              hiding (for, wait, (%))
 
 n :: Integral a => a
 n = 3

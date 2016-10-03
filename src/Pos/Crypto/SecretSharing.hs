@@ -13,7 +13,7 @@ module Pos.Crypto.SecretSharing
 import           Data.Binary         (Binary)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, int, (%))
-import           Protolude           hiding ((%))
+import           Universum
 
 data Share = Share {
     share       :: ByteString,

@@ -8,7 +8,7 @@ module Pos.Communication.Types
        ) where
 
 import           Formatting (int, sformat, (%))
-import           Protolude  hiding ((%))
+import           Universum
 
 import           Pos.Crypto (PrivateKey, PublicKey)
 import           Pos.Types  (Block, Entry, NodeId, displayEntry)

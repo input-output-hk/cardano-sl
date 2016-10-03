@@ -49,7 +49,7 @@ import qualified Data.Binary             as Binary
 import qualified Data.ByteString.Lazy    as BSL
 import           Data.Coerce             (coerce)
 import qualified Data.Text.Buildable     as Buildable
-import           Protolude               hiding (for, wait, (%))
+import           Universum
 
 -- | Generate a key pair.
 keyGen :: MonadIO m => m (PublicKey, PrivateKey)

@@ -27,7 +27,7 @@ import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Data.Word           (Word32)
 import           Formatting          (Format, bprint, build, int, sformat, shown, (%))
-import           Protolude           hiding (for, wait, (%))
+import           Universum
 
 import           Pos.Crypto          (Encrypted, Hash, Share)
 

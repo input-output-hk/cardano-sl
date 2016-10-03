@@ -4,8 +4,8 @@ module Test.Pos.CryptoSpec
        ( spec
        ) where
 
-import           Protolude
 import           Test.Hspec (Spec, describe)
+import           Universum
 
 import           Pos.Crypto ()
 

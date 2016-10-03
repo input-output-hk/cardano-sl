@@ -2,9 +2,19 @@
 
 module Pos.Crypto.Hashing
        ( Hash
-       , hashlazy
+       , hashConvert
+       , hash
        ) where
 
-import           Crypto.Hash (Digest, SHA256, hashlazy)
+import qualified Crypto.Hash as Hash (Digest, SHA256, hash, hashlazy)
+import           Data.Binary (Binary)
+import qualified Data.Binary as Binary
+import           Universum
 
-type Hash = Digest SHA256
+type Hash = Hash.Digest Hash.SHA256
+
+hashConvert :: Binary a => a -> Hash
+hashConvert = Hash.hashlazy . Binary.encode
+
+hash :: ByteString -> Hash
+hash = Hash.hash

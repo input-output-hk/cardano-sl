@@ -192,7 +192,7 @@ fullNode = \self _key n keys sendTo ->
         --     a different U)
         when (slot == 0) $ do
             u <- liftIO (randomIO :: IO Word64)
-            let shares = shareSecret n (n - t) (toS (Bin.encode u))
+            let (_, shares) = shareSecret n (n - t) (toS (Bin.encode u))
             for_ (zip shares [NodeId 0..]) $ \(share, i) -> do
                 encShare <- encrypt (keys Map.! i) share
                 sendEveryone (MEntry (EUShare self i encShare))

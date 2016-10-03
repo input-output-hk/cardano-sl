@@ -7,7 +7,6 @@ module Pos.Communication.Methods
        , systemStart
        ) where
 
-import           Crypto.Hash              (hashlazy)
 import qualified Data.Binary              as Bin (encode)
 
 import           Data.Fixed               (div')
@@ -27,7 +26,7 @@ import           Serokell.Util            ()
 
 import           Pos.Communication.Types  (Message (..), Node)
 import           Pos.Constants            (epochSlots, slotDuration, t)
-import           Pos.Crypto               (encryptConvert, shareSecret)
+import           Pos.Crypto               (encryptConvert, hash, shareSecret)
 import           Pos.State.Operations     (addEntry, addLeaders, adoptBlock, createBlock,
                                            getLeader, getLeaders, mkNodeState, setLeaders)
 import           Pos.Types.Types          (Entry (..), NodeId (..), displayEntry, nodeF)
@@ -197,7 +196,7 @@ fullNode = \self _key n keys sendTo ->
             for_ (zip shares [NodeId 0..]) $ \(share, i) -> do
                 encShare <- encryptConvert (keys Map.! i) share
                 sendEveryone (MEntry (EUShare self i encShare))
-            sendEveryone (MEntry (EUHash self (hashlazy (Bin.encode u))))
+            sendEveryone (MEntry $ EUHash self $ hash $ toS $ Bin.encode u)
 
         -- If we are the epoch leader, we should generate a block
         do leader <- getLeader nodeState epoch slot

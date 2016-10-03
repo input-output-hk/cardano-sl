@@ -6,15 +6,21 @@ module Pos.Crypto.Hashing
        , hash
        ) where
 
-import qualified Crypto.Hash as Hash (Digest, SHA256, hash, hashlazy)
-import           Data.Binary (Binary)
-import qualified Data.Binary as Binary
+import qualified Crypto.Hash         as Hash (Digest, SHA256, hash, hashlazy)
+import           Data.Binary         (Binary)
+import qualified Data.Binary         as Binary
+import qualified Data.Text.Buildable as Buildable
+import           Formatting          (bprint, shown)
 import           Universum
 
-type Hash = Hash.Digest Hash.SHA256
+newtype Hash = Hash (Hash.Digest Hash.SHA256)
+    deriving (Eq, Ord, Show)
+
+instance Buildable.Buildable Hash where
+    build (Hash x) = bprint shown x
 
 hashConvert :: Binary a => a -> Hash
-hashConvert = Hash.hashlazy . Binary.encode
+hashConvert = Hash . Hash.hashlazy . Binary.encode
 
 hash :: ByteString -> Hash
-hash = Hash.hash
+hash = Hash . Hash.hash

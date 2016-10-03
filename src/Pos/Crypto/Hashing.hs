@@ -4,6 +4,7 @@ module Pos.Crypto.Hashing
        ( Hash
        , hash
        , hashRaw
+       , unsafeHash
        ) where
 
 import qualified Crypto.Hash         as Hash (Digest, SHA256, hash, hashlazy)
@@ -22,7 +23,10 @@ instance Buildable.Buildable (Hash a) where
     build (Hash x) = bprint shown x
 
 hash :: Binary a => a -> Hash a
-hash = Hash . Hash.hashlazy . Binary.encode
+hash = unsafeHash
 
 hashRaw :: ByteString -> Hash Raw
 hashRaw = Hash . Hash.hash
+
+unsafeHash :: Binary a => a -> Hash b
+unsafeHash = Hash . Hash.hashlazy . Binary.encode

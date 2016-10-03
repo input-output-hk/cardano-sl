@@ -25,17 +25,19 @@ module Pos.Crypto.Pki
        -- * Encryption and decryption
        , Encrypted
        , DecryptionError (..)
-       , encryptConvert
        , encrypt
-       , decryptConvert
        , decrypt
 
        -- * Signing and verification
        , Signature
-       , signConvert
        , sign
-       , verifyConvert
        , verify
+
+       -- * Versions for raw bytestrings
+       , encryptRaw
+       , decryptRaw
+       , signRaw
+       , verifyRaw
        ) where
 
 import           Crypto.Hash             as Crypto (SHA256 (..))
@@ -51,6 +53,8 @@ import           Data.Coerce             (coerce)
 import qualified Data.Text.Buildable     as Buildable
 import           Universum
 
+import           Pos.Util                (Raw)
+
 -- | Generate a key pair.
 keyGen :: MonadIO m => m (PublicKey, PrivateKey)
 keyGen = liftIO $ RSA.generate 256 0x10001
@@ -62,19 +66,18 @@ instance Buildable.Buildable (Encrypted a) where
     build _ = "<encrypted>"
 
 -- | Encode something with 'Binary' and encrypt it.
-encryptConvert
+encrypt
     :: (MonadIO m, Binary a)
     => PublicKey -> a -> m (Encrypted a)
-encryptConvert k = fmap coerce . encrypt k . toS . Binary.encode
+encrypt k = fmap coerce . encryptRaw k . toS . Binary.encode
 
--- | Encrypt a bytestring.
-encrypt :: MonadIO m => PublicKey -> ByteString -> m (Encrypted ByteString)
-encrypt k bs = do
+encryptRaw :: MonadIO m => PublicKey -> ByteString -> m (Encrypted Raw)
+encryptRaw k bs = do
     res <- liftIO $ RSA.encrypt (RSA.defaultOAEPParams Crypto.SHA256) k bs
     case res of
         Right enc -> return (Encrypted enc)
         -- should never happen really
-        Left err  -> panic ("encrypt: " <> show err)
+        Left err  -> panic ("encryptRaw: " <> show err)
 
 data DecryptionError
     = MessageSizeIncorrect
@@ -82,11 +85,11 @@ data DecryptionError
     | BinaryUnparseable
 
 -- | Decrypt something and decode it with 'Binary'.
-decryptConvert
+decrypt
     :: (MonadIO m, Binary a)
     => PrivateKey -> Encrypted a -> m (Either DecryptionError a)
-decryptConvert k x = do
-    res <- liftIO $ decrypt k (coerce x)
+decrypt k x = do
+    res <- liftIO $ decryptRaw k (coerce x)
     return $
         case res of
             Left err -> Left err
@@ -97,13 +100,12 @@ decryptConvert k x = do
                         | BSL.null unconsumed -> Right a
                         | otherwise -> Left BinaryUnparseable
 
--- | Decrypt a bytestring.
-decrypt
+decryptRaw
     :: MonadIO m
     => PrivateKey
-    -> Encrypted ByteString
+    -> Encrypted Raw
     -> m (Either DecryptionError ByteString)
-decrypt k (Encrypted x) = do
+decryptRaw k (Encrypted x) = do
     res <- liftIO $ RSA.decryptSafer (RSA.defaultOAEPParams Crypto.SHA256) k x
     return $
         case res of
@@ -120,23 +122,20 @@ instance Buildable.Buildable (Signature a) where
     build _ = "<signature>"
 
 -- | Encode something with 'Binary' and sign it.
-signConvert
-    :: (MonadIO m, Binary a)
-    => PrivateKey -> a -> m (Signature a)
-signConvert k = fmap coerce . sign k . toS . Binary.encode
+sign :: (MonadIO m, Binary a) => PrivateKey -> a -> m (Signature a)
+sign k = fmap coerce . signRaw k . toS . Binary.encode
 
--- | Sign a bytestring.
-sign :: MonadIO m => PrivateKey -> ByteString -> m (Signature ByteString)
-sign k x = do
+signRaw :: MonadIO m => PrivateKey -> ByteString -> m (Signature Raw)
+signRaw k x = do
     res <- liftIO $ RSA.signSafer (RSA.defaultPSSParams Crypto.SHA256) k x
     case res of
         Right enc -> return (Signature enc)
         Left err  -> panic ("sign: " <> show err)
 
 -- | Verify a signature.
-verifyConvert :: Binary a => PublicKey -> a -> Signature a -> Bool
-verifyConvert k x s = verify k (toS (Binary.encode x)) (coerce s)
+verify :: Binary a => PublicKey -> a -> Signature a -> Bool
+verify k x s = verifyRaw k (toS (Binary.encode x)) (coerce s)
 
-verify :: PublicKey -> ByteString -> Signature ByteString -> Bool
-verify k x (Signature s) =
+verifyRaw :: PublicKey -> ByteString -> Signature Raw -> Bool
+verifyRaw k x (Signature s) =
     RSA.verify (RSA.defaultPSSParams Crypto.SHA256) k x s

@@ -2,8 +2,8 @@
 
 module Pos.Crypto.Hashing
        ( Hash
-       , hashConvert
        , hash
+       , hashRaw
        ) where
 
 import qualified Crypto.Hash         as Hash (Digest, SHA256, hash, hashlazy)
@@ -13,14 +13,16 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, shown)
 import           Universum
 
-newtype Hash = Hash (Hash.Digest Hash.SHA256)
+import           Pos.Util            (Raw)
+
+newtype Hash a = Hash (Hash.Digest Hash.SHA256)
     deriving (Eq, Ord, Show)
 
-instance Buildable.Buildable Hash where
+instance Buildable.Buildable (Hash a) where
     build (Hash x) = bprint shown x
 
-hashConvert :: Binary a => a -> Hash
-hashConvert = Hash . Hash.hashlazy . Binary.encode
+hash :: Binary a => a -> Hash a
+hash = Hash . Hash.hashlazy . Binary.encode
 
-hash :: ByteString -> Hash
-hash = Hash . Hash.hash
+hashRaw :: ByteString -> Hash Raw
+hashRaw = Hash . Hash.hash

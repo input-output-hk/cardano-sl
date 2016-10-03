@@ -26,7 +26,7 @@ import           Serokell.Util            ()
 
 import           Pos.Communication.Types  (Message (..), Node)
 import           Pos.Constants            (epochSlots, slotDuration, t)
-import           Pos.Crypto               (encryptConvert, hash, shareSecret)
+import           Pos.Crypto               (encrypt, hashRaw, shareSecret)
 import           Pos.State.Operations     (addEntry, addLeaders, adoptBlock, createBlock,
                                            getLeader, getLeaders, mkNodeState, setLeaders)
 import           Pos.Types.Types          (Entry (..), NodeId (..), displayEntry, nodeF)
@@ -194,9 +194,9 @@ fullNode = \self _key n keys sendTo ->
             u <- liftIO (randomIO :: IO Word64)
             let shares = shareSecret n (n - t) (toS (Bin.encode u))
             for_ (zip shares [NodeId 0..]) $ \(share, i) -> do
-                encShare <- encryptConvert (keys Map.! i) share
+                encShare <- encrypt (keys Map.! i) share
                 sendEveryone (MEntry (EUShare self i encShare))
-            sendEveryone (MEntry $ EUHash self $ hash $ toS $ Bin.encode u)
+            sendEveryone (MEntry $ EUHash self $ hashRaw $ toS $ Bin.encode u)
 
         -- If we are the epoch leader, we should generate a block
         do leader <- getLeader nodeState epoch slot

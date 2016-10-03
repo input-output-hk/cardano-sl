@@ -30,6 +30,7 @@ import           Formatting          (Format, bprint, build, int, sformat, shown
 import           Universum
 
 import           Pos.Crypto          (Encrypted, Hash, Share)
+import           Pos.Util            (Raw)
 
 ----------------------------------------------------------------------------
 -- Node. TODO: do we need it?
@@ -82,8 +83,9 @@ addressF = build
 
 -- | Transaction input.
 data TxIn = TxIn
-    { txInHash  :: !Hash    -- ^ Which transaction's output is used
-    , txInIndex :: !Word32  -- ^ Index of the output in transaction's outputs
+    { txInHash  :: !(Hash Tx)  -- ^ Which transaction's output is used
+    , txInIndex :: !Word32     -- ^ Index of the output in transaction's
+                               -- outputs
     } deriving (Eq, Ord, Show, Generic)
 
 -- | Transaction output.
@@ -110,7 +112,7 @@ data Entry
     = ETx Tx
 
       -- | Hash of random string U that a node has committed to
-    | EUHash NodeId Hash
+    | EUHash NodeId (Hash Raw)
       -- | An encrypted piece of secret-shared U that the first node sent to
       -- the second node (and encrypted with the second node's pubkey)
     | EUShare NodeId NodeId (Encrypted Share)

@@ -2,6 +2,7 @@
 
 module Pos.Crypto.Hashing
        ( Hash
+       , hashHexF
        , hash
        , hashRaw
        , unsafeHash
@@ -11,7 +12,7 @@ import qualified Crypto.Hash         as Hash (Digest, SHA256, hash, hashlazy)
 import           Data.Binary         (Binary)
 import qualified Data.Binary         as Binary
 import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, shown)
+import           Formatting          (Format, bprint, later, shown)
 import           Universum
 
 import           Pos.Util            (Raw)
@@ -30,3 +31,6 @@ hashRaw = Hash . Hash.hash
 
 unsafeHash :: Binary a => a -> Hash b
 unsafeHash = Hash . Hash.hashlazy . Binary.encode
+
+hashHexF :: Format r (Hash a -> r)
+hashHexF = later $ \(Hash x) -> Buildable.build (show x :: Text)

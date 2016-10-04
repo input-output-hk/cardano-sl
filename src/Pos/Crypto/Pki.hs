@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
 {- | Convenient wrappers over public key crypto (RSA at the moment).
 
 TODO:
@@ -41,7 +44,8 @@ module Pos.Crypto.Pki
        ) where
 
 import           Crypto.Hash             as Crypto (SHA256 (..))
-import qualified Crypto.PubKey.RSA       as RSA (PrivateKey, PublicKey, generate)
+import qualified Crypto.PubKey.RSA       as RSA (PrivateKey (..), PublicKey (..),
+                                                 generate)
 import qualified Crypto.PubKey.RSA.OAEP  as RSA (decryptSafer, defaultOAEPParams, encrypt)
 import qualified Crypto.PubKey.RSA.PSS   as RSA (defaultPSSParams, signSafer, verify)
 import qualified Crypto.PubKey.RSA.Types as RSA (Error (MessageSizeIncorrect, SignatureTooLong))
@@ -50,12 +54,36 @@ import qualified Data.Binary             as Binary
 import qualified Data.ByteString.Lazy    as BSL
 import           Data.Coerce             (coerce)
 import qualified Data.Text.Buildable     as Buildable
+import           Formatting              (bprint, fitLeft, (%), (%.))
 import           Universum
 
+import           Pos.Crypto.Hashing      (hash, hashHexF)
 import           Pos.Util                (Raw)
 
+-- Some orphan instances
+deriving instance Ord RSA.PublicKey
+deriving instance Ord RSA.PrivateKey
+
+deriving instance Generic RSA.PublicKey
+deriving instance Generic RSA.PrivateKey
+
+instance Binary RSA.PublicKey
+instance Binary RSA.PrivateKey
+
 newtype PublicKey = PublicKey RSA.PublicKey
+    deriving (Eq, Ord, Show, Binary)
 newtype SecretKey = SecretKey RSA.PrivateKey
+    deriving (Eq, Ord, Show, Binary)
+
+instance Buildable.Buildable PublicKey where
+    -- Hash the key, take first 8 chars (that's how GPG does fingerprinting,
+    -- except that their binary representation of the key is different)
+    build (PublicKey x) =
+        bprint ("pub:" % fitLeft 8 %. hashHexF) (hash x)
+
+instance Buildable.Buildable SecretKey where
+    build (SecretKey x) =
+        bprint ("sec:" % fitLeft 8 %. hashHexF) (hash (RSA.private_pub x))
 
 -- | Generate a key pair.
 keyGen :: MonadIO m => m (PublicKey, SecretKey)

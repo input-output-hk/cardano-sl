@@ -14,7 +14,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/serokell-core.git
-    commit: bed778711b7912cc2f2189e092c50363a9c133e3
+    commit: a2711a163577165c6a15895239d88c6a53dd6bd2
   extra-dep: true
 
 extra-deps:

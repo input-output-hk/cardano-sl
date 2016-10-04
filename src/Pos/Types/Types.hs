@@ -48,20 +48,21 @@ module Pos.Types.Types
        , displayEntry
        ) where
 
-import           Data.Binary         (Binary)
-import           Data.Binary.Orphans ()
-import qualified Data.Text           as T (unwords)
-import           Data.Text.Buildable (Buildable)
-import qualified Data.Text.Buildable as Buildable
-import           Data.Vector         (Vector)
-import           Data.Word           (Word32, Word64)
-import           Formatting          (Format, bprint, build, int, sformat, shown, (%))
+import           Data.Binary          (Binary)
+import           Data.Binary.Orphans  ()
+import qualified Data.Text            as T (unwords)
+import           Data.Text.Buildable  (Buildable)
+import qualified Data.Text.Buildable  as Buildable
+import           Data.Vector          (Vector)
+import           Data.Word            (Word32, Word64)
+import           Formatting           (Format, bprint, build, int, sformat, shown, (%))
+import qualified Serokell.Util.Base16 as B16
 import           Universum
 
-import           Pos.Crypto          (Encrypted, Hash, PublicKey, SecretProof, Share,
-                                      Signature)
-import           Pos.Merkle          (MerkleRoot)
-import           Pos.Util            (Raw)
+import           Pos.Crypto           (Encrypted, Hash, PublicKey, SecretProof, Share,
+                                       Signature)
+import           Pos.Merkle           (MerkleRoot)
+import           Pos.Util             (Raw)
 
 ----------------------------------------------------------------------------
 -- Node. TODO: do we need it?
@@ -139,6 +140,9 @@ data TxIn = TxIn
 
 instance Binary TxIn
 
+instance Buildable TxIn where
+    build TxIn {..} = bprint ("TxIn ("%build%", "%int%")") txInHash txInIndex
+
 -- | Transaction output.
 data TxOut = TxOut
     { txOutAddress :: !Address
@@ -146,6 +150,10 @@ data TxOut = TxOut
     } deriving (Eq, Ord, Show, Generic)
 
 instance Binary TxOut
+
+instance Buildable TxOut where
+    build TxOut {..} =
+        bprint ("TxOut ("%build%", "%coinF%")") txOutAddress txOutValue
 
 -- | Transaction.
 data Tx = Tx
@@ -164,6 +172,9 @@ newtype RandomSecret = RandomSecret
     { getRandomSecret :: ByteString
     } deriving (Show, Eq, Generic, Binary)
 
+instance Buildable RandomSecret where
+    build = B16.formatBase16 . getRandomSecret
+
 -- | Commitment is a message generated during the first stage of
 -- MPC. It contains encrypted shares and proof of secret.
 data Commitment = Commitment
@@ -177,7 +188,7 @@ instance Binary Commitment
 -- Maybe we'll need to add something here.
 newtype Opening = Opening
     { getOpening :: RandomSecret
-    } deriving (Show, Eq, Generic, Binary)
+    } deriving (Show, Eq, Generic, Binary, Buildable)
 
 ----------------------------------------------------------------------------
 -- Block

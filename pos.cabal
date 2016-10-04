@@ -24,6 +24,7 @@ library
                         Pos.Crypto.Pki
                         Pos.Crypto.SecretSharing
                         Pos.Merkle
+                        Pos.Slotting
                         Pos.State.Operations
                         Pos.State.Storage
                         Pos.Types.Block

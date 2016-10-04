@@ -18,16 +18,19 @@ import           Control.TimeWarp.Logging (LoggerName, LoggerNameBox,
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId, TimedIO, runTimedIO)
 import           Universum                hiding (ThreadId)
 
+import           Pos.Slotting             (MonadSlots (..), Timestamp)
+
 type WorkMode m
     = ( WithNamedLogger m
       , MonadTimed m
       , MonadCatch m
-      , MonadIO m)
+      , MonadIO m
+      , MonadSlots m)
 
 -- | NodeContext contains runtime parameters of node.
 data NodeContext = NodeContext
     { -- | Time when system started working.
-      ncSystemStart :: !()  -- TODO
+      ncSystemStart :: !Timestamp  -- TODO
     } deriving (Show)
 
 newtype ContextHolder m a = ContextHolder
@@ -35,6 +38,10 @@ newtype ContextHolder m a = ContextHolder
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch, MonadIO, WithNamedLogger)
 
 type instance ThreadId (ContextHolder m) = ThreadId m
+
+instance Monad m => MonadSlots (ContextHolder m) where
+    getSystemStartTime = ContextHolder $ asks ncSystemStart
+    getCurrentTime = notImplemented
 
 type RealMode = ContextHolder (LoggerNameBox TimedIO)
 

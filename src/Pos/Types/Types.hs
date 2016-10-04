@@ -45,7 +45,8 @@ import           Data.Word           (Word32, Word64)
 import           Formatting          (Format, bprint, build, int, sformat, shown, (%))
 import           Universum
 
-import           Pos.Crypto          (Encrypted, Hash, SecretProof, Share, Signature)
+import           Pos.Crypto          (Encrypted, Hash, PublicKey, SecretProof, Share,
+                                      Signature)
 import           Pos.Util            (Raw)
 
 ----------------------------------------------------------------------------
@@ -99,12 +100,9 @@ coinF = build
 -- Address
 ----------------------------------------------------------------------------
 
-instance Buildable () where
-    build () = "patak"  -- TODO: remove
-
 -- | Address is where you can send coins.
 newtype Address = Address
-    { getAddress :: ()  -- ^ TODO
+    { getAddress :: PublicKey
     } deriving (Show, Eq, Generic, Buildable, Ord)
 
 addressF :: Format r (Address -> r)

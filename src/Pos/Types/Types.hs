@@ -24,7 +24,7 @@ module Pos.Types.Types
 
        , RandomSecret (..)
        , Commitment (..)
-       , Openning (..)
+       , Opening (..)
 
        , BlockHeader (..)
        , SignedBlockHeader (..)
@@ -150,8 +150,8 @@ data Commitment = Commitment
     } deriving (Show, Eq, Generic)
 
 -- | Maybe we'll need to add something here.
-newtype Openning = Openning
-    { getOpenning :: RandomSecret
+newtype Opening = Opening
+    { getOpening :: RandomSecret
     }
 
 ----------------------------------------------------------------------------

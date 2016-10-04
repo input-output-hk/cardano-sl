@@ -24,6 +24,10 @@ module Pos.Crypto.Pki
          PublicKey
        , SecretKey
        , keyGen
+       , toPublic
+       , formatFullPublicKey
+       , fullPublicKeyF
+       , parseFullPublicKey
 
        -- * Encryption and decryption
        , Encrypted
@@ -54,13 +58,19 @@ import qualified Data.Binary             as Binary
 import qualified Data.ByteString.Lazy    as BSL
 import           Data.Coerce             (coerce)
 import qualified Data.Text.Buildable     as Buildable
-import           Formatting              (bprint, fitLeft, (%), (%.))
+import           Data.Text.Lazy.Builder  (Builder)
+import           Formatting              (Format, bprint, fitLeft, later, (%), (%.))
 import           Universum
+
+import qualified Serokell.Util.Base64    as Base64 (decode, encode)
 
 import           Pos.Crypto.Hashing      (hash, hashHexF)
 import           Pos.Util                (Raw)
 
+----------------------------------------------------------------------------
 -- Some orphan instances
+----------------------------------------------------------------------------
+
 deriving instance Ord RSA.PublicKey
 deriving instance Ord RSA.PrivateKey
 
@@ -70,20 +80,43 @@ deriving instance Generic RSA.PrivateKey
 instance Binary RSA.PublicKey
 instance Binary RSA.PrivateKey
 
+----------------------------------------------------------------------------
+-- Keys, key generation & printing & decoding
+----------------------------------------------------------------------------
+
 newtype PublicKey = PublicKey RSA.PublicKey
     deriving (Eq, Ord, Show, Binary)
 newtype SecretKey = SecretKey RSA.PrivateKey
     deriving (Eq, Ord, Show, Binary)
 
+-- | Generate a public key from a secret key. It's fast, since a secret key
+-- actually holds a copy of the public key.
+toPublic :: SecretKey -> PublicKey
+toPublic (SecretKey k) = PublicKey (RSA.private_pub k)
+
 instance Buildable.Buildable PublicKey where
     -- Hash the key, take first 8 chars (that's how GPG does fingerprinting,
     -- except that their binary representation of the key is different)
-    build (PublicKey x) =
-        bprint ("pub:" % fitLeft 8 %. hashHexF) (hash x)
+    build = bprint ("pub:" % fitLeft 8 %. hashHexF) . hash
 
 instance Buildable.Buildable SecretKey where
-    build (SecretKey x) =
-        bprint ("sec:" % fitLeft 8 %. hashHexF) (hash (RSA.private_pub x))
+    build = bprint ("sec:" % fitLeft 8 %. hashHexF) . hash . toPublic
+
+formatFullPublicKey :: PublicKey -> Builder
+formatFullPublicKey = Buildable.build . Base64.encode . toS . Binary.encode
+
+fullPublicKeyF :: Format r (PublicKey -> r)
+fullPublicKeyF = later formatFullPublicKey
+
+parseFullPublicKey :: Text -> Maybe PublicKey
+parseFullPublicKey s =
+    case Base64.decode s of
+        Left _  -> Nothing
+        Right b -> case Binary.decodeOrFail (toS b) of
+            Left _ -> Nothing
+            Right (unconsumed, _, a)
+                | BSL.null unconsumed -> Just a
+                | otherwise -> Nothing
 
 -- | Generate a key pair.
 keyGen :: MonadIO m => m (PublicKey, SecretKey)

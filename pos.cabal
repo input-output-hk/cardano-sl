@@ -31,7 +31,13 @@ library
                       , binary
                       , bytestring
                       , containers
-                      , cryptonite == 0.20.*
+                      -- When you bump this constraint, first make sure that
+                      -- representations of PrivateKey and PublicKey in
+                      -- Crypto.PubKey.RSA haven't changed (even field order
+                      -- is important) – we use automatically derived Binary
+                      -- instances for them so if they change, our data won't
+                      -- load anymore.
+                      , cryptonite >= 0.19 && < 0.21
                       , data-default
                       , exceptions
                       , formatting

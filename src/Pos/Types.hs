@@ -5,4 +5,5 @@ module Pos.Types
          module Types
        ) where
 
+import           Pos.Types.Block as Types
 import           Pos.Types.Types as Types

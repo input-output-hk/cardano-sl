@@ -45,6 +45,7 @@ import           Data.Binary             (Binary)
 import qualified Data.Binary             as Binary
 import qualified Data.ByteString.Lazy    as BSL
 import           Data.Coerce             (coerce)
+import           Data.Hashable           (Hashable)
 import qualified Data.Text.Buildable     as Buildable
 import           Data.Text.Lazy.Builder  (Builder)
 import           Formatting              (Format, bprint, fitLeft, later, (%), (%.))
@@ -65,6 +66,9 @@ deriving instance Ord RSA.PrivateKey
 deriving instance Generic RSA.PublicKey
 deriving instance Generic RSA.PrivateKey
 
+instance Hashable RSA.PublicKey
+instance Hashable RSA.PrivateKey
+
 instance Binary RSA.PublicKey
 instance Binary RSA.PrivateKey
 
@@ -73,9 +77,10 @@ instance Binary RSA.PrivateKey
 ----------------------------------------------------------------------------
 
 newtype PublicKey = PublicKey RSA.PublicKey
-    deriving (Eq, Ord, Show, Binary)
+    deriving (Eq, Ord, Show, Binary, Hashable)
+
 newtype SecretKey = SecretKey RSA.PrivateKey
-    deriving (Eq, Ord, Show, Binary)
+    deriving (Eq, Ord, Show, Binary, Hashable)
 
 -- | Generate a public key from a secret key. It's fast, since a secret key
 -- actually holds a copy of the public key.

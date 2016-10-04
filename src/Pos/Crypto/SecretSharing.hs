@@ -27,7 +27,7 @@ instance Binary Share
 
 newtype SecretProof =
     SecretProof ByteString
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq, Generic, Binary)
 
 instance Buildable.Buildable Share where
     build Share{..} = bprint ("share "%int%"/"%int) shareIndex totalShares

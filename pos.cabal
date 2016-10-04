@@ -26,10 +26,12 @@ library
                         Pos.Merkle
                         Pos.State.Operations
                         Pos.State.Storage
+                        Pos.Types.Block
                         Pos.Types.Types
                         Pos.WorkMode
   build-depends:        base
                       , binary
+                      , binary-orphans
                       , bytestring
                       , containers
                       -- When you bump this constraint, first make sure that
@@ -41,6 +43,7 @@ library
                       , cryptonite >= 0.19 && < 0.21
                       , data-default
                       , exceptions
+                      , hashable
                       , formatting
                       , lens
                       , mtl

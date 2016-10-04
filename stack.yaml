@@ -14,7 +14,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/serokell-core.git
-    commit: 604a363ee18da91d0a07385ee543597ac963e2ec
+    commit: bed778711b7912cc2f2189e092c50363a9c133e3
   extra-dep: true
 
 extra-deps:
@@ -23,5 +23,7 @@ extra-deps:
 - msgpack-rpc-1.0.0
 - pqueue-1.3.2
 - time-units-1.0.0
+- aeson-extra-0.4.0.0
+- recursion-schemes-5
 
 resolver: lts-7.1

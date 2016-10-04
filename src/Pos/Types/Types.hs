@@ -47,6 +47,7 @@ import           Universum
 
 import           Pos.Crypto          (Encrypted, Hash, PublicKey, SecretProof, Share,
                                       Signature)
+import           Pos.Merkle          (MerkleRoot)
 import           Pos.Util            (Raw)
 
 ----------------------------------------------------------------------------
@@ -190,8 +191,8 @@ type TxsPayload = [Tx]
 
 -- | Proof of transactions list.
 data TxsProof = TxsProof
-    { tpNumber :: !Word32  -- ^ Number of transactions.
-    , tpRoot   :: !()      -- ^ TODO: it should be root of Merkle tree.
+    { tpNumber :: !Word32          -- ^ Number of transactions.
+    , tpRoot   :: !(MerkleRoot Tx) -- ^ Root of Merkle tree containing txs
     } deriving (Show, Eq, Generic)
 
 type instance Proof TxsPayload = TxsProof

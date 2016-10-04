@@ -19,7 +19,7 @@ module Pos.Crypto.Pki
        (
        -- * Keys
          PublicKey
-       , PrivateKey
+       , SecretKey
        , keyGen
 
        -- * Encryption and decryption
@@ -41,8 +41,7 @@ module Pos.Crypto.Pki
        ) where
 
 import           Crypto.Hash             as Crypto (SHA256 (..))
-import           Crypto.PubKey.RSA       (PrivateKey, PublicKey)
-import qualified Crypto.PubKey.RSA       as RSA (generate)
+import qualified Crypto.PubKey.RSA       as RSA (PrivateKey, PublicKey, generate)
 import qualified Crypto.PubKey.RSA.OAEP  as RSA (decryptSafer, defaultOAEPParams, encrypt)
 import qualified Crypto.PubKey.RSA.PSS   as RSA (defaultPSSParams, signSafer, verify)
 import qualified Crypto.PubKey.RSA.Types as RSA (Error (MessageSizeIncorrect, SignatureTooLong))
@@ -55,9 +54,12 @@ import           Universum
 
 import           Pos.Util                (Raw)
 
+newtype PublicKey = PublicKey RSA.PublicKey
+newtype SecretKey = SecretKey RSA.PrivateKey
+
 -- | Generate a key pair.
-keyGen :: MonadIO m => m (PublicKey, PrivateKey)
-keyGen = liftIO $ RSA.generate 256 0x10001
+keyGen :: MonadIO m => m (PublicKey, SecretKey)
+keyGen = fmap (bimap PublicKey SecretKey) $ liftIO $ RSA.generate 256 0x10001
 
 newtype Encrypted a = Encrypted ByteString
     deriving (Eq, Ord, Show, NFData, Binary)
@@ -72,7 +74,7 @@ encrypt
 encrypt k = fmap coerce . encryptRaw k . toS . Binary.encode
 
 encryptRaw :: MonadIO m => PublicKey -> ByteString -> m (Encrypted Raw)
-encryptRaw k bs = do
+encryptRaw (PublicKey k) bs = do
     res <- liftIO $ RSA.encrypt (RSA.defaultOAEPParams Crypto.SHA256) k bs
     case res of
         Right enc -> return (Encrypted enc)
@@ -87,7 +89,7 @@ data DecryptionError
 -- | Decrypt something and decode it with 'Binary'.
 decrypt
     :: (MonadIO m, Binary a)
-    => PrivateKey -> Encrypted a -> m (Either DecryptionError a)
+    => SecretKey -> Encrypted a -> m (Either DecryptionError a)
 decrypt k x = do
     res <- liftIO $ decryptRaw k (coerce x)
     return $
@@ -102,10 +104,10 @@ decrypt k x = do
 
 decryptRaw
     :: MonadIO m
-    => PrivateKey
+    => SecretKey
     -> Encrypted Raw
     -> m (Either DecryptionError ByteString)
-decryptRaw k (Encrypted x) = do
+decryptRaw (SecretKey k) (Encrypted x) = do
     res <- liftIO $ RSA.decryptSafer (RSA.defaultOAEPParams Crypto.SHA256) k x
     return $
         case res of
@@ -122,11 +124,11 @@ instance Buildable.Buildable (Signature a) where
     build _ = "<signature>"
 
 -- | Encode something with 'Binary' and sign it.
-sign :: (MonadIO m, Binary a) => PrivateKey -> a -> m (Signature a)
+sign :: (MonadIO m, Binary a) => SecretKey -> a -> m (Signature a)
 sign k = fmap coerce . signRaw k . toS . Binary.encode
 
-signRaw :: MonadIO m => PrivateKey -> ByteString -> m (Signature Raw)
-signRaw k x = do
+signRaw :: MonadIO m => SecretKey -> ByteString -> m (Signature Raw)
+signRaw (SecretKey k) x = do
     res <- liftIO $ RSA.signSafer (RSA.defaultPSSParams Crypto.SHA256) k x
     case res of
         Right enc -> return (Signature enc)
@@ -137,5 +139,5 @@ verify :: Binary a => PublicKey -> a -> Signature a -> Bool
 verify k x s = verifyRaw k (toS (Binary.encode x)) (coerce s)
 
 verifyRaw :: PublicKey -> ByteString -> Signature Raw -> Bool
-verifyRaw k x (Signature s) =
+verifyRaw (PublicKey k) x (Signature s) =
     RSA.verify (RSA.defaultPSSParams Crypto.SHA256) k x s

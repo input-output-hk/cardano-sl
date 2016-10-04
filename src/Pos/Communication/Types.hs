@@ -10,7 +10,7 @@ module Pos.Communication.Types
 import           Formatting (int, sformat, (%))
 import           Universum
 
-import           Pos.Crypto (PrivateKey, PublicKey)
+import           Pos.Crypto (PublicKey, SecretKey)
 import           Pos.Types  (Blockkk, Entry, NodeId, displayEntry)
 
 {- |
@@ -26,7 +26,7 @@ node (and the callback knows who sent it a message).
 -}
 type Node m =
        NodeId
-    -> (PublicKey, PrivateKey)
+    -> (PublicKey, SecretKey)
     -> Int
     -> Map NodeId PublicKey
     -> (NodeId -> Message -> m ())

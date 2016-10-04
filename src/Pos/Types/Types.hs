@@ -20,6 +20,7 @@ module Pos.Types.Types
        , Address (..)
        , addressF
 
+       , TxId
        , TxIn (..)
        , TxOut (..)
        , Tx (..)
@@ -127,9 +128,11 @@ addressF = build
 -- Transaction
 ----------------------------------------------------------------------------
 
+type TxId = Hash Tx
+
 -- | Transaction input.
 data TxIn = TxIn
-    { txInHash  :: !(Hash Tx)  -- ^ Which transaction's output is used
+    { txInHash  :: !TxId  -- ^ Which transaction's output is used
     , txInIndex :: !Word32     -- ^ Index of the output in transaction's
                                -- outputs
     } deriving (Eq, Ord, Show, Generic)

@@ -32,6 +32,7 @@ module Pos.Types.Types
        , Payload (..)
        , CommitmentsMap
        , OpeningsMap
+       , SharesMap
        , HeaderHash
        , BlockHeader (..)
        , SignedBlockHeader (..)
@@ -189,26 +190,27 @@ class Payload p where
     checkProof :: p -> Proof p -> Bool
 
 type CommitmentsMap = HashMap PublicKey Commitment
-
 type OpeningsMap = HashMap PublicKey Opening
+type SharesMap = HashMap PublicKey Share
 
 type HeaderHash proof = Hash (SignedBlockHeader proof)
 
 -- | Header of block contains all the information necessary to
 -- validate consensus algorithm. It also contains proof of payload
 -- associated with it.
--- TODO: add MPC-types.
 data BlockHeader proof = BlockHeader
     { -- | Hash of the previous block's header.
       bhPrevHash     :: !(HeaderHash proof)
     , -- | Id of the slot for which this block was generated.
       bhSlot         :: !SlotId
-    , -- | Public key of slot leader.
+    , -- | Public key of slot leader. Maybe later we'll see it is redundant.
       bhLeaderKey    :: !PublicKey
     , -- | Commitments are added during the first phase of epoch.
       bhCommitments  :: !CommitmentsMap
     , -- | Openings are added during the second phase of epoch.
       bhOpenings     :: !OpeningsMap
+    , -- | Decrypted shares to be used in the second phase.
+      bhShares       :: !SharesMap
     , -- | Difficulty of chain ending in this block.
       bhDifficulty   :: !ChainDifficulty
     , -- | Proof of payload.
@@ -218,7 +220,6 @@ data BlockHeader proof = BlockHeader
 instance Binary p => Binary (BlockHeader p)
 
 -- | SignedBlockHeader consists of BlockHeader and its signature.
--- TODO: or maybe we should put public key here?
 data SignedBlockHeader proof = SignedBlockHeader
     { sbhHeader    :: !(BlockHeader proof)
     , sbhSignature :: !(Signature (BlockHeader proof))

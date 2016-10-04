@@ -14,8 +14,8 @@ import           Universum
 
 import           Pos.Crypto           (PublicKey, hash, unsafeHash, verify)
 import           Pos.Types.Types      (BlockHeader (..), ChainDifficulty, CommitmentsMap,
-                                       HeaderHash, OpeningsMap, SignedBlockHeader (..),
-                                       SlotId)
+                                       HeaderHash, OpeningsMap, SharesMap,
+                                       SignedBlockHeader (..), SlotId)
 
 genesisHash :: HeaderHash p
 genesisHash = unsafeHash ("patak" :: Text)
@@ -30,16 +30,18 @@ mkBlockHeader
     -> PublicKey
     -> CommitmentsMap
     -> OpeningsMap
+    -> SharesMap
     -> ChainDifficulty
     -> p
     -> BlockHeader p
-mkBlockHeader prevHeader slotId pk comms opens difficulty proof =
+mkBlockHeader prevHeader slotId pk comms opens shares difficulty proof =
     BlockHeader
     { bhPrevHash = maybe genesisHash hash prevHeader
     , bhSlot = slotId
     , bhLeaderKey = pk
     , bhCommitments = comms
     , bhOpenings = opens
+    , bhShares = shares
     , bhDifficulty = difficulty
     , bhPayloadProof = proof
     }

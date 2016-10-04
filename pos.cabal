@@ -36,6 +36,7 @@ library
                       , binary-orphans
                       , bytestring
                       , containers
+                      , memory
                       -- When you bump this constraint, first make sure that
                       -- representations of PrivateKey and PublicKey in
                       -- Crypto.PubKey.RSA haven't changed (even field order

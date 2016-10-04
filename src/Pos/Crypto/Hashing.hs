@@ -8,22 +8,32 @@ module Pos.Crypto.Hashing
        , unsafeHash
        ) where
 
-import qualified Crypto.Hash         as Hash (Digest, SHA256, hash, hashlazy)
+import           Crypto.Hash         (Digest, SHA256, digestFromByteString)
+import qualified Crypto.Hash         as Hash (hash, hashlazy)
 import           Data.Binary         (Binary (..))
 import qualified Data.Binary         as Binary
+import qualified Data.Binary.Get     as Binary (getByteString)
+import qualified Data.Binary.Put     as Binary (putByteString)
+import qualified Data.ByteArray      as ByteArray
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (Format, bprint, later, shown)
 import           Universum
 
 import           Pos.Util            (Raw)
 
-newtype Hash a = Hash (Hash.Digest Hash.SHA256)
+newtype Hash a = Hash (Digest SHA256)
     deriving (Show, Eq, Ord)
 
 instance Binary (Hash a) where
-    -- TODO (cc @neongreen)
-    get = undefined
-    put = undefined
+    get = do
+        bs <- Binary.getByteString (256 `div` 8)
+        case digestFromByteString bs of
+            -- It's impossible because getByteString will already fail if
+            -- there weren't enough bytes available
+            Nothing -> panic "Pos.Crypto.Hashing.get: impossible"
+            Just x  -> return (Hash x)
+    put (Hash h) =
+        Binary.putByteString (ByteArray.convert h)
 
 instance Buildable.Buildable (Hash a) where
     build (Hash x) = bprint shown x

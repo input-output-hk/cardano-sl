@@ -3,20 +3,8 @@
 
 {- | Convenient wrappers over public key crypto (RSA at the moment).
 
-TODO:
-
-1. We use SHA256 in this module. According to
-   <http://security.stackexchange.com/a/112032>, we could've used SHA1 and
-   save a bit on message size. I'm not a crypto expert so I'm leaving SHA256.
-
-2. We use blinders everywhere. Again, no idea whether they're needed in our
-   case or not.
-
-3. We use 2048-bit keys. Is it too much? Too little? Do we need “security
-   past 2030” (i.e. what Wikipedia says about longer keys)?
-
-4. Do we want to store type info in 'Binary' instance of 'Encrypted' (so that
-   type mismatch when decoding 'Encrypted' would be caught)?
+TODO: Do we want to store type info in 'Binary' instance of 'Encrypted' (so
+that type mismatch when decoding 'Encrypted' would be caught)?
 -}
 module Pos.Crypto.Pki
        (

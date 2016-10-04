@@ -228,8 +228,7 @@ instance Binary p => Binary (SignedBlockHeader p)
 
 -- | In general Block consists of some payload and header associated
 -- with it.
-data Payload payload =>
-     GenericBlock payload = GenericBlock
+data GenericBlock payload = GenericBlock
     { gbHeader  :: !(SignedBlockHeader (Proof payload))
     , gbPayload :: !payload
     }

@@ -29,7 +29,9 @@ library
                         Pos.Types.Block
                         Pos.Types.Types
                         Pos.WorkMode
-  build-depends:        base
+                        Pos.Util
+  build-depends:        QuickCheck
+                      , base
                       , binary
                       , binary-orphans
                       , bytestring
@@ -90,7 +92,11 @@ test-suite pos-test
   other-modules:       Spec
                      , Test.Pos.CryptoSpec
   type:                exitcode-stdio-1.0
-  build-depends:       base
+  build-depends:       QuickCheck
+                     , base
+                     , binary
+                     , bytestring
+                     , formatting
                      , hspec
                      , pos
                      , universum

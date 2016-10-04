@@ -25,5 +25,6 @@ extra-deps:
 - time-units-1.0.0
 - aeson-extra-0.4.0.0
 - recursion-schemes-5
+- QuickCheck-2.9.2
 
 resolver: lts-7.1

@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeApplications   #-}
 
 {- | Convenient wrappers over public key crypto (RSA at the moment).
 
@@ -35,26 +36,34 @@ module Pos.Crypto.Pki
        , verifyRaw
        ) where
 
-import           Crypto.Hash             as Crypto (SHA256 (..))
-import qualified Crypto.PubKey.RSA       as RSA (PrivateKey (..), PublicKey (..),
-                                                 generate)
-import qualified Crypto.PubKey.RSA.OAEP  as RSA (decryptSafer, defaultOAEPParams, encrypt)
-import qualified Crypto.PubKey.RSA.PSS   as RSA (defaultPSSParams, signSafer, verify)
-import qualified Crypto.PubKey.RSA.Types as RSA (Error (MessageSizeIncorrect, SignatureTooLong))
-import           Data.Binary             (Binary)
-import qualified Data.Binary             as Binary
-import qualified Data.ByteString.Lazy    as BSL
-import           Data.Coerce             (coerce)
-import           Data.Hashable           (Hashable)
-import qualified Data.Text.Buildable     as Buildable
-import           Data.Text.Lazy.Builder  (Builder)
-import           Formatting              (Format, bprint, fitLeft, later, (%), (%.))
+import           Crypto.Cipher.AES
+import           Crypto.Cipher.Types
+import           Crypto.Error
+import           Crypto.Hash               (SHA256 (..))
+import qualified Crypto.PubKey.RSA         as RSA (PrivateKey (..), PublicKey (..),
+                                                   generate)
+import qualified Crypto.PubKey.RSA.OAEP    as RSA (decryptSafer, defaultOAEPParams,
+                                                   encrypt)
+import qualified Crypto.PubKey.RSA.PSS     as RSA (defaultPSSParams, signSafer, verify)
+import qualified Crypto.PubKey.RSA.Types   as RSA (Error (MessageSizeIncorrect, SignatureTooLong))
+import           Crypto.Random             (MonadRandom, drgNewTest, getRandomBytes,
+                                            withDRG)
+import           Data.Binary               (Binary)
+import qualified Data.Binary               as Binary
+import qualified Data.ByteString.Lazy      as BSL
+import           Data.Coerce               (coerce)
+import           Data.Hashable             (Hashable)
+import qualified Data.Text.Buildable       as Buildable
+import           Data.Text.Lazy.Builder    (Builder)
+import           Formatting                (Format, bprint, fitLeft, later, (%), (%.))
+import           Test.QuickCheck.Arbitrary (Arbitrary (..))
+import           Test.QuickCheck.Gen       (chooseAny)
 import           Universum
 
-import qualified Serokell.Util.Base64    as Base64 (decode, encode)
+import qualified Serokell.Util.Base64      as Base64 (decode, encode)
 
-import           Pos.Crypto.Hashing      (hash, hashHexF)
-import           Pos.Util                (Raw)
+import           Pos.Crypto.Hashing        (hash, hashHexF)
+import           Pos.Util                  (Raw)
 
 ----------------------------------------------------------------------------
 -- Some orphan instances
@@ -113,15 +122,61 @@ parseFullPublicKey s =
 
 -- | Generate a key pair.
 keyGen :: MonadIO m => m (PublicKey, SecretKey)
-keyGen = fmap (bimap PublicKey SecretKey) $ liftIO $ RSA.generate 256 0x10001
+keyGen = liftIO keyGen'
 
-newtype Encrypted a = Encrypted ByteString
-    deriving (Eq, Ord, Show, NFData, Binary)
+-- | Generate a key pair in a 'MonadRandom' monad.
+keyGen' :: MonadRandom m => m (PublicKey, SecretKey)
+keyGen' = bimap PublicKey SecretKey <$> RSA.generate 256 0x10001
+
+instance Arbitrary SecretKey where
+    arbitrary = do
+        drg <- fmap drgNewTest $
+               (,,,,) <$> chooseAny
+                      <*> chooseAny
+                      <*> chooseAny
+                      <*> chooseAny
+                      <*> chooseAny
+        let (_pk, sk) = fst (withDRG drg keyGen')
+        return sk
+
+----------------------------------------------------------------------------
+-- AES encryption
+----------------------------------------------------------------------------
+
+generateAES256Key :: MonadRandom m => m ByteString
+generateAES256Key = getRandomBytes (256 `div` 8)
+
+-- | Encrypt data with AES (taken from Crypto.Tutorial).
+encryptAES256 :: ByteString -> ByteString -> Either CryptoError ByteString
+encryptAES256 key bs = case cipherInit @AES256 key of
+    CryptoPassed ctx -> Right (ctrCombine ctx nullIV bs)
+    CryptoFailed err -> Left err
+
+-- | Decrypt data with AES.
+decryptAES256 :: ByteString -> ByteString -> Either CryptoError ByteString
+decryptAES256 = encryptAES256
+
+----------------------------------------------------------------------------
+-- Encryption and decryption
+----------------------------------------------------------------------------
+
+data Encrypted a = Encrypted
+    { encAESKey :: ByteString
+    , encData   :: ByteString
+    } deriving (Eq, Ord, Show, Generic)
+
+instance NFData (Encrypted a)
+instance Binary (Encrypted a)
 
 instance Buildable.Buildable (Encrypted a) where
     build _ = "<encrypted>"
 
 -- | Encode something with 'Binary' and encrypt it.
+--
+-- TODO: since RSA is very slow, we generate a random AES256 key, encrypt it,
+-- and encrypt data with the key. It's what people do (according to Google),
+-- but we still violate “never roll your own crypto” badly. If we don't
+-- switch to elliptic curve crypto, we should at least switch to HsOpenSSL.
 encrypt
     :: (MonadIO m, Binary a)
     => PublicKey -> a -> m (Encrypted a)
@@ -129,16 +184,26 @@ encrypt k = fmap coerce . encryptRaw k . toS . Binary.encode
 
 encryptRaw :: MonadIO m => PublicKey -> ByteString -> m (Encrypted Raw)
 encryptRaw (PublicKey k) bs = do
-    res <- liftIO $ RSA.encrypt (RSA.defaultOAEPParams Crypto.SHA256) k bs
-    case res of
-        Right enc -> return (Encrypted enc)
-        -- should never happen really
-        Left err  -> panic ("encryptRaw: " <> show err)
+    -- Generate random AES256 key
+    aesKey <- liftIO generateAES256Key
+    -- Encrypt it with RSA
+    encAESKey <- do
+        res <- liftIO $ RSA.encrypt (RSA.defaultOAEPParams SHA256) k aesKey
+        case res of
+            Right enc -> return enc
+            -- should never happen really
+            Left err  -> panic ("encryptRaw: " <> show err)
+    -- Encrypt the data with the AES key
+    let encData = case encryptAES256 aesKey bs of
+            Left err -> panic ("encryptRaw: " <> show err)
+            Right x  -> x
+    return Encrypted{..}
 
 data DecryptionError
     = MessageSizeIncorrect
     | SignatureTooLong
     | BinaryUnparseable
+    deriving (Eq, Ord, Show)
 
 -- | Decrypt something and decode it with 'Binary'.
 decrypt
@@ -161,15 +226,22 @@ decryptRaw
     => SecretKey
     -> Encrypted Raw
     -> m (Either DecryptionError ByteString)
-decryptRaw (SecretKey k) (Encrypted x) = do
-    res <- liftIO $ RSA.decryptSafer (RSA.defaultOAEPParams Crypto.SHA256) k x
-    return $
-        case res of
-            Left RSA.MessageSizeIncorrect -> Left MessageSizeIncorrect
-            Left RSA.SignatureTooLong     -> Left SignatureTooLong
-            -- again, should never happen
-            Left err                      -> panic ("decrypt: " <> show err)
-            Right bs                      -> Right bs
+decryptRaw (SecretKey k) Encrypted{..} = do
+    mbAesKey <- liftIO $ RSA.decryptSafer (RSA.defaultOAEPParams SHA256)
+                                          k encAESKey
+    case mbAesKey of
+        Left RSA.MessageSizeIncorrect -> return (Left MessageSizeIncorrect)
+        Left RSA.SignatureTooLong     -> return (Left SignatureTooLong)
+        -- again, should never happen
+        Left err                      -> panic ("decryptRaw: " <> show err)
+        Right aesKey -> do
+            case decryptAES256 aesKey encData of
+                Left err -> panic ("decryptRaw: " <> show err)
+                Right d  -> return (Right d)
+
+----------------------------------------------------------------------------
+-- Signatures
+----------------------------------------------------------------------------
 
 newtype Signature a = Signature ByteString
     deriving (Eq, Ord, Show, NFData, Binary)
@@ -183,7 +255,7 @@ sign k = fmap coerce . signRaw k . toS . Binary.encode
 
 signRaw :: MonadIO m => SecretKey -> ByteString -> m (Signature Raw)
 signRaw (SecretKey k) x = do
-    res <- liftIO $ RSA.signSafer (RSA.defaultPSSParams Crypto.SHA256) k x
+    res <- liftIO $ RSA.signSafer (RSA.defaultPSSParams SHA256) k x
     case res of
         Right enc -> return (Signature enc)
         Left err  -> panic ("sign: " <> show err)
@@ -194,4 +266,4 @@ verify k x s = verifyRaw k (toS (Binary.encode x)) (coerce s)
 
 verifyRaw :: PublicKey -> ByteString -> Signature Raw -> Bool
 verifyRaw (PublicKey k) x (Signature s) =
-    RSA.verify (RSA.defaultPSSParams Crypto.SHA256) k x s
+    RSA.verify (RSA.defaultPSSParams SHA256) k x s

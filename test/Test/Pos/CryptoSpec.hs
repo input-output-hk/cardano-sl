@@ -7,6 +7,7 @@ module Test.Pos.CryptoSpec
        ) where
 
 import           Data.Binary              (Binary)
+import qualified Data.Binary              as Binary (decode, encode)
 import qualified Data.ByteString          as BS
 import           Data.String              (String)
 import           Formatting               (build, sformat)
@@ -17,13 +18,18 @@ import           Test.QuickCheck          (Gen, Property, Testable, forAll, vect
 import           Test.QuickCheck.Property (again, ioProperty)
 import           Universum
 
-import           Pos.Crypto               (SecretKey, decrypt, decryptRaw, encrypt,
-                                           encryptRaw, fullPublicKeyF, hash, keyGen,
+import           Pos.Crypto               (Hash, PublicKey, SecretKey, decrypt,
+                                           decryptRaw, encrypt, encryptRaw,
+                                           fullPublicKeyF, hash, keyGen,
                                            parseFullPublicKey, sign, toPublic, verify)
 
 spec :: Spec
 spec = describe "Crypto" $ do
     describe "hashing" $ do
+        describe "Hash instances" $ do
+            prop
+                "Binary"
+                (binaryEncodeDecode @(Hash Int))
         describe "hashes of different values are different" $ do
             prop
                 "Bool"
@@ -45,6 +51,13 @@ spec = describe "Crypto" $ do
         -- Generating keys is expensive, so let's say 5 passed test cases for
         -- each property is enough
         modifyMaxSuccess (const 5) $ do
+            describe "Binary instances" $ do
+                prop
+                    "SecretKey"
+                    (binaryEncodeDecode @SecretKey)
+                prop
+                    "PublicKey"
+                    (binaryEncodeDecode @PublicKey)
             describe "keys" $ do
                 prop
                     "derived pubkey equals to generated pubkey"
@@ -80,6 +93,9 @@ prop1 s t = modifyMaxSuccess (const 1) $ prop s t
 randomBS :: Int -> Gen ByteString
 randomBS n = BS.pack <$> vector n
 
+binaryEncodeDecode :: (Show a, Eq a, Binary a) => a -> Property
+binaryEncodeDecode a = Binary.decode (Binary.encode a) === a
+
 hashInequality :: (Eq a, Binary a) => a -> a -> Property
 hashInequality a b = a /= b ==> hash a /= hash b
 
@@ -91,9 +107,8 @@ keyDerivation = again $ ioProperty $ do
     (pk, sk) <- keyGen
     return (pk === toPublic sk)
 
-keyParsing :: SecretKey -> Property
-keyParsing sk = ioProperty $ do
-    let pk = toPublic sk
+keyParsing :: PublicKey -> Property
+keyParsing pk = ioProperty $ do
     return (parseFullPublicKey (sformat fullPublicKeyF pk) === Just pk)
 
 encryptThenDecrypt
@@ -119,9 +134,9 @@ signThenVerify sk a = ioProperty $
 
 signThenVerifyDifferentKey
     :: Binary a
-    => SecretKey -> SecretKey -> a -> Property
-signThenVerifyDifferentKey sk1 sk2 a = ioProperty $ do
-    not . verify (toPublic sk2) a <$> sign sk1 a
+    => SecretKey -> PublicKey -> a -> Property
+signThenVerifyDifferentKey sk1 pk2 a = ioProperty $ do
+    not . verify pk2 a <$> sign sk1 a
 
 signThenVerifyDifferentData
     :: (Eq a, Binary a)

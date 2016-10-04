@@ -17,6 +17,7 @@ import qualified Data.Binary.Put     as Binary (putByteString)
 import qualified Data.ByteArray      as ByteArray
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (Format, bprint, later, shown)
+import           Test.QuickCheck     (Arbitrary (..))
 import           Universum
 
 import           Pos.Util            (Raw)
@@ -37,6 +38,9 @@ instance Binary (Hash a) where
 
 instance Buildable.Buildable (Hash a) where
     build (Hash x) = bprint shown x
+
+instance (Arbitrary a, Binary a) => Arbitrary (Hash a) where
+    arbitrary = hash <$> arbitrary
 
 hash :: Binary a => a -> Hash a
 hash = unsafeHash

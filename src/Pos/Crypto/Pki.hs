@@ -36,9 +36,9 @@ module Pos.Crypto.Pki
        , verifyRaw
        ) where
 
-import           Crypto.Cipher.AES
-import           Crypto.Cipher.Types
-import           Crypto.Error
+import           Crypto.Cipher.AES         (AES256)
+import           Crypto.Cipher.Types       (cipherInit, ctrCombine, nullIV)
+import           Crypto.Error              (CryptoError (..), CryptoFailable (..))
 import           Crypto.Hash               (SHA256 (..))
 import qualified Crypto.PubKey.RSA         as RSA (PrivateKey (..), PublicKey (..),
                                                    generate)
@@ -46,8 +46,8 @@ import qualified Crypto.PubKey.RSA.OAEP    as RSA (decryptSafer, defaultOAEPPara
                                                    encrypt)
 import qualified Crypto.PubKey.RSA.PSS     as RSA (defaultPSSParams, signSafer, verify)
 import qualified Crypto.PubKey.RSA.Types   as RSA (Error (MessageSizeIncorrect, SignatureTooLong))
-import           Crypto.Random             (MonadRandom, drgNewTest, getRandomBytes,
-                                            withDRG)
+import           Crypto.Random             (ChaChaDRG, MonadRandom, drgNewTest,
+                                            getRandomBytes, withDRG)
 import           Data.Binary               (Binary)
 import qualified Data.Binary               as Binary
 import qualified Data.ByteString.Lazy      as BSL
@@ -57,7 +57,7 @@ import qualified Data.Text.Buildable       as Buildable
 import           Data.Text.Lazy.Builder    (Builder)
 import           Formatting                (Format, bprint, fitLeft, later, (%), (%.))
 import           Test.QuickCheck.Arbitrary (Arbitrary (..))
-import           Test.QuickCheck.Gen       (chooseAny)
+import           Test.QuickCheck.Gen       (Gen, chooseAny)
 import           Universum
 
 import qualified Serokell.Util.Base64      as Base64 (decode, encode)
@@ -128,16 +128,25 @@ keyGen = liftIO keyGen'
 keyGen' :: MonadRandom m => m (PublicKey, SecretKey)
 keyGen' = bimap PublicKey SecretKey <$> RSA.generate 256 0x10001
 
+genDrg :: Gen ChaChaDRG
+genDrg = fmap drgNewTest $
+         (,,,,) <$> chooseAny
+                <*> chooseAny
+                <*> chooseAny
+                <*> chooseAny
+                <*> chooseAny
+
 instance Arbitrary SecretKey where
     arbitrary = do
-        drg <- fmap drgNewTest $
-               (,,,,) <$> chooseAny
-                      <*> chooseAny
-                      <*> chooseAny
-                      <*> chooseAny
-                      <*> chooseAny
+        drg <- genDrg
         let (_pk, sk) = fst (withDRG drg keyGen')
         return sk
+
+instance Arbitrary PublicKey where
+    arbitrary = do
+        drg <- genDrg
+        let (pk, _sk) = fst (withDRG drg keyGen')
+        return pk
 
 ----------------------------------------------------------------------------
 -- AES encryption

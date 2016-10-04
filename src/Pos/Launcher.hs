@@ -8,8 +8,8 @@ module Pos.Launcher
        ( runNodesReal
        ) where
 
-import           Control.TimeWarp.Logging (logInfo, setLoggerName, usingLoggerName)
-import           Control.TimeWarp.Timed   (runTimedIO, sleepForever, virtualTime)
+import           Control.TimeWarp.Logging (logInfo, setLoggerName)
+import           Control.TimeWarp.Timed   (sleepForever, virtualTime)
 import           Data.IORef               (modifyIORef', newIORef, readIORef, writeIORef)
 import qualified Data.Map                 as Map
 import           Formatting               (int, sformat, (%))
@@ -21,7 +21,8 @@ import           Pos.Communication        (Node, inSlot, systemStart)
 import           Pos.Constants            (slotDuration)
 import           Pos.Crypto               (keyGen)
 import           Pos.Types.Types          (NodeId (..))
-import           Pos.WorkMode             (RealMode, WorkMode)
+import           Pos.WorkMode             (NodeContext (..), RealMode, WorkMode,
+                                           runRealMode)
 
 runNodes :: WorkMode m => [Node m] -> m ()
 runNodes nodes = setLoggerName "xx" $ do
@@ -49,4 +50,6 @@ runNodes nodes = setLoggerName "xx" $ do
     sleepForever
 
 runNodesReal :: [Node RealMode] -> IO ()
-runNodesReal = runTimedIO . usingLoggerName mempty . runNodes
+runNodesReal = runRealMode ctx . runNodes
+  where
+    ctx = NodeContext ()

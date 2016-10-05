@@ -12,9 +12,9 @@ import qualified Data.HashSet        as HS (difference, fromMap, member)
 import           Data.List           (foldl1')
 import           Universum
 
-import           Pos.Crypto          (PublicKey, recoverSecret, verifyProof)
+import           Pos.Crypto          (PublicKey, Secret (..), recoverSecret, verifyProof)
 import           Pos.Types           (Commitment (..), CommitmentsMap, OpeningsMap,
-                                      RandomSecret (..), SharesMap, getOpening)
+                                      SharesMap, getOpening)
 
 newtype Rho = Rho ByteString
 
@@ -65,13 +65,12 @@ calculateRho commitments openings shares = do
         mustBeRecovered = HS.difference participants (getKeys openings)
     -- Secrets recovered from actual share lists (but only those we need –
     -- i.e. ones which are in mustBeRecovered)
-    let recovered :: HashMap PublicKey (Maybe ByteString)
+    let recovered :: HashMap PublicKey (Maybe Secret)
         recovered = fmap (recoverSecret . toList) $
             HM.filterWithKey (\k _ -> k `HS.member` mustBeRecovered) shares
     -- All secrets, both recovered and from openings
-    let secrets :: HashMap PublicKey ByteString
-        secrets = fmap (getRandomSecret . getOpening) openings <>
-                  HM.mapMaybe identity recovered
+    let secrets :: HashMap PublicKey Secret
+        secrets = fmap getOpening openings <> HM.mapMaybe identity recovered
 
     -- Now that we have the secrets, we can check whether the commitments
     -- actually match the secrets, and whether a secret has been recovered
@@ -89,4 +88,5 @@ calculateRho commitments openings shares = do
              panic "calculateRho: there were some participants \
                    \but they produced no secrets somehow"
        | null secrets -> Left NoParticipants
-       | otherwise    -> Right (Rho (foldl1' xorBS (toList secrets)))
+       | otherwise    -> Right $
+                         Rho $ foldl1' xorBS (map getSecret (toList secrets))

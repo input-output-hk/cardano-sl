@@ -30,8 +30,7 @@ type WorkMode m
 
 -- | NodeContext contains runtime parameters of node.
 data NodeContext = NodeContext
-    { -- | Time when system started working.
-      ncSystemStart :: !Timestamp  -- TODO
+    {
     } deriving (Show)
 
 newtype ContextHolder m a = ContextHolder
@@ -40,10 +39,10 @@ newtype ContextHolder m a = ContextHolder
 
 type instance ThreadId (ContextHolder m) = ThreadId m
 
-instance MonadIO m => MonadSlots (ContextHolder m) where
-    getSystemStartTime = ContextHolder $ asks ncSystemStart
+instance MonadTimed m => MonadSlots m where
+    getSystemStartTime = startTime
     -- it won't make sense in emulation mode
-    getCurrentTime = Timestamp . round . ( * 1000000) <$> liftIO getPOSIXTime
+    getCurrentTime = Timestamp <$> currentTime
 
 -- | RealMode is an instance of WorkMode which can be used to really run system.
 type RealMode = ContextHolder (LoggerNameBox TimedIO)

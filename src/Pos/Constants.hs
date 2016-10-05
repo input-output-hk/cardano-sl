@@ -5,6 +5,7 @@ module Pos.Constants
        , k
        , slotDuration
        , epochSlots
+       , epochDuration
        ) where
 
 import           Universum
@@ -25,3 +26,6 @@ slotDuration = sec 1
 
 epochSlots :: Integral a => a
 epochSlots = 6 * k
+
+epochDuration :: Microsecond
+epochDuration = epochSlots * slotDuration

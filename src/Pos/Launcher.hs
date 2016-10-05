@@ -52,4 +52,4 @@ runNodes nodes = setLoggerName "xx" $ do
 runNodesReal :: [Node RealMode] -> IO ()
 runNodesReal = runRealMode ctx . runNodes
   where
-    ctx = NodeContext mempty
+    ctx = NodeContext 0

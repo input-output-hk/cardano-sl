@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 
--- | Dummy implementation of VSS.
+-- | Dummy implementation of VSS. It doesn't have any logic now.
 
 module Pos.Crypto.SecretSharing
        ( VssPublicKey
@@ -48,14 +48,14 @@ vssKeyGen = pure (VssPublicKey (), VssSecretKey ())
 -- | Secret can be split into encrypted shares to be reconstructed later.
 newtype Secret = Secret
     { getSecret :: ByteString
-    } deriving (Show, Eq, Binary)
+    } deriving (Show, Eq, Ord, Binary)
 
 instance Buildable Secret where
     build = B16.formatBase16 . getSecret
 
 -- | Shares can be used to reconstruct Secret.
 newtype Share = Share
-    { getShare :: ByteString
+    { getShare :: Secret
     } deriving (Eq, Ord, Show, Binary)
 
 instance Buildable Share where
@@ -63,7 +63,7 @@ instance Buildable Share where
 
 -- | Encrypted share which needs to be decrypted using VssSecretKey first.
 newtype EncShare = EncShare
-    { getEncShare :: ByteString
+    { getEncShare :: Secret
     } deriving (Show, Eq, Ord, Binary)
 
 instance Buildable EncShare where
@@ -80,7 +80,7 @@ encryptShare _ = EncShare . getShare
 -- | This proof may be used to check that particular given secret has
 -- been generated.
 newtype SecretProof =
-    SecretProof ByteString
+    SecretProof Secret
     deriving (Show, Eq, Generic, Binary)
 
 shareSecret
@@ -88,11 +88,11 @@ shareSecret
     -> Int             -- ^ How many parts should be enough
     -> Secret          -- ^ Secret to share
     -> (SecretProof, [EncShare])  -- ^ i-th share is encrypted using i-th key
-shareSecret keys _ (Secret s) = (SecretProof s, map mkShare keys)
+shareSecret keys _ s = (SecretProof s, map mkShare keys)
   where
     mkShare key = encryptShare key (Share s)
 
-recoverSecret :: [Share] -> Maybe ByteString
+recoverSecret :: [Share] -> Maybe Secret
 recoverSecret [] = Nothing
 recoverSecret (x:xs) = do
     guard (all (== x) xs)
@@ -100,4 +100,4 @@ recoverSecret (x:xs) = do
     return (getShare x)
 
 verifyProof :: SecretProof -> Secret -> Bool
-verifyProof (SecretProof p) (Secret s) = p == s
+verifyProof (SecretProof p) s = p == s

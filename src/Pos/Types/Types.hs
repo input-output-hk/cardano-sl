@@ -13,6 +13,7 @@ module Pos.Types.Types
        , EpochIndex
        , LocalSlotIndex
        , SlotId (..)
+       , FlatSlotId
 
        , Coin (..)
        , coinF
@@ -86,7 +87,7 @@ nodeF = build
 type EpochIndex = Word64
 
 -- | Index of slot inside a concrete epoch.
-type LocalSlotIndex = Word32
+type LocalSlotIndex = Word16
 
 -- | Slot is identified by index of epoch and local index of slot in
 -- this epoch. This is a global index
@@ -96,6 +97,9 @@ data SlotId = SlotId
     } deriving (Show, Eq, Generic)
 
 instance Binary SlotId
+
+-- | FlatSlotId is a flat version of SlotId
+type FlatSlotId = Word64
 
 ----------------------------------------------------------------------------
 -- Coin

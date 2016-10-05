@@ -1,16 +1,20 @@
+{-# LANGUAGE ViewPatterns #-}
+
 -- | Slotting functionality.
 
 module Pos.Slotting
        ( Timestamp (..)
        , MonadSlots (..)
        , getCurrentSlot
+       , flattenSlotId
+       , unflattenSlotId
        ) where
 
 import           Control.TimeWarp.Timed (Microsecond)
 import           Universum
 
-import           Pos.Constants          (epochDuration, slotDuration)
-import           Pos.Types              (SlotId (..))
+import           Pos.Constants          (epochSlots, slotDuration)
+import           Pos.Types              (FlatSlotId, SlotId (..))
 
 -- | Timestamp is a number which represents some point in time. It is
 -- used in MonadSlots and its meaning is up to implementation of this
@@ -32,8 +36,17 @@ getCurrentSlot =
     f . getTimestamp <$> ((-) <$> getCurrentTime <*> getSystemStartTime)
   where
     f :: Microsecond -> SlotId
-    f t =
-        SlotId
-        { siEpoch = fromIntegral $ t `div` epochDuration
-        , siSlot = fromIntegral $ t `mod` epochDuration `div` slotDuration
-        }
+    f t = unflattenSlotId (fromIntegral $ t `div` slotDuration)
+
+-- | Flatten SlotId (which is basically pair of integers) into a single number.
+flattenSlotId :: SlotId -> FlatSlotId
+flattenSlotId SlotId {..} = siEpoch * epochSlots + fromIntegral siSlot
+
+-- | Construct SlotId from a flattened variant.
+-- TODO: what is antonym of word `flatten`?
+unflattenSlotId :: FlatSlotId -> SlotId
+unflattenSlotId n =
+    let (siEpoch, fromIntegral -> siSlot) = n `divMod` epochSlots
+    in SlotId
+       { ..
+       }

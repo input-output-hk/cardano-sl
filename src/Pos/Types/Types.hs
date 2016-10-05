@@ -204,7 +204,12 @@ class Payload p where
 
 type CommitmentsMap = HashMap PublicKey Commitment
 type OpeningsMap = HashMap PublicKey Opening
-type SharesMap = HashMap PublicKey Share
+
+-- | For each node which generated a 'RandomSecret', the shares map gives us
+-- keys and corresponding shares sent to those keys. Specifically, if node X
+-- has generated a secret and sent a share to node Y, here's how to get this
+-- share: @sharesMap ! X ! Y@.
+type SharesMap = HashMap PublicKey (HashMap PublicKey Share)
 
 type HeaderHash proof = Hash (SignedBlockHeader proof)
 

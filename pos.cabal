@@ -23,6 +23,7 @@ library
                         Pos.Crypto.Hashing
                         Pos.Crypto.Pki
                         Pos.Crypto.SecretSharing
+                        Pos.FollowTheSatoshi
                         Pos.Merkle
                         Pos.Slotting
                         Pos.State.Operations
@@ -38,6 +39,7 @@ library
                       , bytestring
                       , containers
                       , memory
+                      , unordered-containers
                       -- When you bump this constraint, first make sure that
                       -- representations of PrivateKey and PublicKey in
                       -- Crypto.PubKey.RSA haven't changed (even field order

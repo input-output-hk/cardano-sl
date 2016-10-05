@@ -7,15 +7,12 @@ module Pos.Communication.Methods
        , systemStart
        ) where
 
-import qualified Data.Binary              as Bin (encode)
-
 import           Data.Fixed               (div')
 import           Data.IORef               (IORef, newIORef, readIORef)
-import qualified Data.Map                 as Map ((!))
 import qualified Data.Text                as T
 import           Formatting               (build, int, sformat, (%))
 import           System.IO.Unsafe         (unsafePerformIO)
-import           System.Random            (randomIO, randomRIO)
+import           System.Random            (randomRIO)
 import           Universum
 
 import           Control.TimeWarp.Logging (LoggerName (..), logError, logInfo,
@@ -25,8 +22,7 @@ import           Control.TimeWarp.Timed   (Microsecond, for, fork_, ms, repeatFo
 import           Serokell.Util            ()
 
 import           Pos.Communication.Types  (Message (..), Node)
-import           Pos.Constants            (epochSlots, slotDuration, t)
-import           Pos.Crypto               (encrypt, hashRaw, shareSecret)
+import           Pos.Constants            (epochSlots, slotDuration)
 import           Pos.State.Operations     (addEntry, addLeaders, adoptBlock, createBlock,
                                            getLeader, getLeaders, mkNodeState, setLeaders)
 import           Pos.Types.Types          (Entry (..), NodeId (..), displayEntry, nodeF)
@@ -143,7 +139,7 @@ won the leader election and can generate the next block.
 -}
 
 fullNode :: WorkMode m => Node m
-fullNode = \self _key n keys sendTo ->
+fullNode = \self _key n _ sendTo ->
   setLoggerName (LoggerName (toS (sformat nodeF self))) $ do
     nodeState <- mkNodeState
 
@@ -191,12 +187,14 @@ fullNode = \self _key n keys sendTo ->
         --     (so that later on we wouldn't be able to cheat by using
         --     a different U)
         when (slot == 0) $ do
-            u <- liftIO (randomIO :: IO Word64)
-            let (_, shares) = shareSecret n (n - t) (toS (Bin.encode u))
-            for_ (zip shares [NodeId 0..]) $ \(share, i) -> do
-                encShare <- encrypt (keys Map.! i) share
-                sendEveryone (MEntry (EUShare self i encShare))
-            sendEveryone (MEntry $ EUHash self $ hashRaw $ toS $ Bin.encode u)
+            -- u <- liftIO (randomIO :: IO Word64)
+            return ()
+            -- let pk = VssPublicKey ()
+            -- let (_, shares) = shareSecret (replicate n pk) t (Secret $ toS (Bin.encode u))
+            -- for_ (zip shares [NodeId 0..]) $ \(share, i) -> do
+            --     encShare <- pure share
+            --     sendEveryone (MEntry (EUShare self i encShare))
+            -- sendEveryone (MEntry $ EUHash self $ hashRaw $ toS $ Bin.encode u)
 
         -- If we are the epoch leader, we should generate a block
         do leader <- getLeader nodeState epoch slot

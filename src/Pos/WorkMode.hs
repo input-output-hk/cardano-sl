@@ -12,13 +12,14 @@ module Pos.WorkMode
        ) where
 
 import           Control.Monad.Catch      (MonadCatch, MonadThrow)
-import           Control.Monad.Trans      (MonadIO)
+import           Control.Monad.Trans      (MonadIO (liftIO))
 import           Control.TimeWarp.Logging (LoggerName, LoggerNameBox,
                                            WithNamedLogger (..), usingLoggerName)
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId, TimedIO, runTimedIO)
+import           Data.Time.Clock.POSIX    (getPOSIXTime)
 import           Universum                hiding (ThreadId)
 
-import           Pos.Slotting             (MonadSlots (..), Timestamp)
+import           Pos.Slotting             (MonadSlots (..), Timestamp (..))
 
 type WorkMode m
     = ( WithNamedLogger m
@@ -39,10 +40,12 @@ newtype ContextHolder m a = ContextHolder
 
 type instance ThreadId (ContextHolder m) = ThreadId m
 
-instance Monad m => MonadSlots (ContextHolder m) where
+instance MonadIO m => MonadSlots (ContextHolder m) where
     getSystemStartTime = ContextHolder $ asks ncSystemStart
-    getCurrentTime = notImplemented
+    -- it won't make sense in emulation mode
+    getCurrentTime = Timestamp . round . ( * 1000000) <$> liftIO getPOSIXTime
 
+-- | RealMode is an instance of WorkMode which can be used to really run system.
 type RealMode = ContextHolder (LoggerNameBox TimedIO)
 
 defaultLoggerName :: LoggerName

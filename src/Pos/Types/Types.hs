@@ -26,6 +26,9 @@ module Pos.Types.Types
        , TxOut (..)
        , Tx (..)
 
+       , Utxo
+       , AddrId
+
        , RandomSecret
        , Commitment (..)
        , Opening (..)
@@ -165,6 +168,18 @@ data Tx = Tx
     } deriving (Eq, Ord, Show, Generic)
 
 instance Binary Tx
+
+----------------------------------------------------------------------------
+-- UTXO
+----------------------------------------------------------------------------
+
+-- | Unspent transaction outputs.
+type Utxo = HashMap AddrId Address
+
+-- | 'AddrId' identifies usage of address as output of transaction.
+-- Basically, it is tuple of transaction identifier, index in list of outputs
+-- and associated value.
+type AddrId = (TxId, Int, Coin)
 
 ----------------------------------------------------------------------------
 -- MPC

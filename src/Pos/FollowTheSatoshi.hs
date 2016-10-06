@@ -4,18 +4,23 @@ module Pos.FollowTheSatoshi
        ( Rho(..)
        , RhoError(..)
        , calculateRho
+       , followTheSatoshi
        ) where
 
 import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM (filterWithKey, lookup, mapMaybe, toList)
 import qualified Data.HashSet        as HS (difference, fromMap, member)
-import           Data.List           (foldl1')
+import           Data.List           (foldl1', scanl1)
 import           Universum
 
-import           Pos.Crypto          (PublicKey, Secret (..), recoverSecret, verifyProof)
-import           Pos.Types           (Commitment (..), CommitmentsMap, OpeningsMap,
-                                      SharesMap, getOpening)
+import           Pos.Crypto          (PublicKey, Secret (..), recoverSecret,
+                                      secureRandomNumber, verifyProof)
+import           Pos.Types           (Address, Coin (..), Commitment (..), CommitmentsMap,
+                                      OpeningsMap, SharesMap, Utxo, getOpening)
 
+-- | A random shared bytestring that all nodes agree on. Must be 40 bytes
+-- long (since it's going to be used as input for the ChaCha random number
+-- generator, which uses a 40-byte seed).
 newtype Rho = Rho ByteString
 
 data RhoError
@@ -90,3 +95,26 @@ calculateRho commitments openings shares = do
        | null secrets -> Left NoParticipants
        | otherwise    -> Right $
                          Rho $ foldl1' xorBS (map getSecret (toList secrets))
+
+-- | Choose a random stakeholder. The probability that a stakeholder will be
+-- chosen is proportional to the number of coins this stakeholder holds.
+--
+-- We sort all unspent outputs in a deterministic way (lexicographically) and
+-- have an ordered sequence of pairs @(Address, Coin)@. We choose a random i
+-- between 1 and amount of satoshi in the system; to find owner of i-th coin
+-- we find the lowest x such that sum of all coins in this list up to i-th is
+-- not less than i (and then x-th address is the owner).
+followTheSatoshi :: Rho -> Utxo -> Maybe Address
+followTheSatoshi (Rho seed) utxo
+    | null outputs = Nothing
+    | otherwise    = fmap fst $ find ((>= coinIndex) . snd) $
+                     scanl1 (\(_,c1) (a,c2) -> (a, c1+c2)) outputs
+  where
+    outputs :: [(Address, Coin)]
+    outputs = sort [(addr, coin) | ((_, _, coin), addr) <- HM.toList utxo]
+    -- TODO: not sure that 'sum' will use strict foldl' here, because 'sum'
+    -- is only specialised for some types
+    totalCoins, coinIndex :: Coin
+    totalCoins = sum (map snd outputs)
+    coinIndex = fromInteger $
+                1 + secureRandomNumber seed (toInteger totalCoins)

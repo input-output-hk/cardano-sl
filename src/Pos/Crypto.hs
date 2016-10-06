@@ -7,4 +7,5 @@ module Pos.Crypto
 
 import           Pos.Crypto.Hashing       as Crypto
 import           Pos.Crypto.Pki           as Crypto
+import           Pos.Crypto.Random        as Crypto
 import           Pos.Crypto.SecretSharing as Crypto

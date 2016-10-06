@@ -1,5 +1,7 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | WorkMode constraint.
 
@@ -12,11 +14,9 @@ module Pos.WorkMode
        ) where
 
 import           Control.Monad.Catch      (MonadCatch, MonadThrow)
-import           Control.Monad.Trans      (MonadIO (liftIO))
 import           Control.TimeWarp.Logging (LoggerName, LoggerNameBox,
                                            WithNamedLogger (..), usingLoggerName)
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId, TimedIO, runTimedIO)
-import           Data.Time.Clock.POSIX    (getPOSIXTime)
 import           Universum                hiding (ThreadId)
 
 import           Pos.Slotting             (MonadSlots (..), Timestamp (..))
@@ -39,8 +39,8 @@ newtype ContextHolder m a = ContextHolder
 
 type instance ThreadId (ContextHolder m) = ThreadId m
 
-instance MonadTimed m => MonadSlots m where
-    getSystemStartTime = startTime
+instance (MonadTimed m, Monad m) => MonadSlots m where
+    getSystemStartTime = Timestamp <$> startTime
     -- it won't make sense in emulation mode
     getCurrentTime = Timestamp <$> currentTime
 

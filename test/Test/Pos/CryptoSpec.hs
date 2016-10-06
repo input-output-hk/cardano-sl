@@ -11,11 +11,12 @@ import qualified Data.Binary              as Binary (decode, encode)
 import qualified Data.ByteString          as BS
 import           Data.String              (String)
 import           Formatting               (build, sformat)
+import           System.IO.Unsafe         (unsafePerformIO)
 import           Test.Hspec               (Expectation, Spec, describe, shouldBe, specify)
 import           Test.Hspec.QuickCheck    (modifyMaxSuccess, prop)
-import           Test.QuickCheck          (Gen, Property, Testable, forAll, vector, (===),
-                                           (==>))
-import           Test.QuickCheck.Property (again, ioProperty)
+import           Test.QuickCheck          (Arbitrary (..), Gen, Property, Testable,
+                                           elements, forAll, vector, (===), (==>))
+import           Test.QuickCheck.Property (ioProperty)
 import           Universum
 
 import           Pos.Crypto               (Hash, PublicKey, SecretKey, decrypt,
@@ -48,43 +49,40 @@ spec = describe "Crypto" $ do
                     \f534f9b74eb5b89819ec509083d00a50"
 
     describe "PKI" $ do
-        -- Generating keys is expensive, so let's say 5 passed test cases for
-        -- each property is enough
-        modifyMaxSuccess (const 5) $ do
-            describe "Binary instances" $ do
-                prop
-                    "SecretKey"
-                    (binaryEncodeDecode @SecretKey)
-                prop
-                    "PublicKey"
-                    (binaryEncodeDecode @PublicKey)
-            describe "keys" $ do
-                prop
-                    "derived pubkey equals to generated pubkey"
-                    keyDerivation
-                prop
-                    "formatted key can be parsed back"
-                    keyParsing
-            describe "encryption" $ do
-                prop
-                    "encrypted data can be decrypted successfully"
-                    (encryptThenDecrypt @[Int])
-                prop1
-                    "long data (100kB) can be encrypted"
-                    (forAll (randomBS 100000) (flip encryptThenDecrypt))
-                prop1
-                    "zero-length data can be encrypted"
-                    (forAll (return mempty) (flip encryptThenDecryptRaw))
-            describe "signing" $ do
-                prop
-                    "signed data can be verified successfully"
-                    (signThenVerify @[Int])
-                prop
-                    "signed data can't be verified by a different key"
-                    (signThenVerifyDifferentKey @[Int])
-                prop
-                    "modified data can't be verified"
-                    (signThenVerifyDifferentData @[Int])
+        describe "Binary instances" $ do
+            prop
+                "SecretKey"
+                (binaryEncodeDecode @SecretKey)
+            prop
+                "PublicKey"
+                (binaryEncodeDecode @PublicKey)
+        describe "keys" $ do
+            prop
+                "derived pubkey equals to generated pubkey"
+                keyDerivation
+            prop
+                "formatted key can be parsed back"
+                keyParsing
+        describe "encryption" $ do
+            prop
+                "encrypted data can be decrypted successfully"
+                (encryptThenDecrypt @[Int])
+            prop1
+                "long data (100kB) can be encrypted"
+                (forAll (randomBS 100000) (flip encryptThenDecrypt))
+            prop1
+                "zero-length data can be encrypted"
+                (forAll (return mempty) (flip encryptThenDecryptRaw))
+        describe "signing" $ do
+            prop
+                "signed data can be verified successfully"
+                (signThenVerify @[Int])
+            prop
+                "signed data can't be verified by a different key"
+                (signThenVerifyDifferentKey @[Int])
+            prop
+                "modified data can't be verified"
+                (signThenVerifyDifferentData @[Int])
 
 -- Test a property only once.
 prop1 :: Testable a => String -> a -> Spec
@@ -102,10 +100,8 @@ hashInequality a b = a /= b ==> hash a /= hash b
 checkHash :: Binary a => a -> Text -> Expectation
 checkHash x s = sformat build (hash x) `shouldBe` s
 
-keyDerivation :: Property
-keyDerivation = again $ ioProperty $ do
-    (pk, sk) <- keyGen
-    return (pk === toPublic sk)
+keyDerivation :: KeyPair -> Property
+keyDerivation kp = getPub kp === toPublic (getSec kp)
 
 keyParsing :: PublicKey -> Property
 keyParsing pk = ioProperty $ do
@@ -135,8 +131,9 @@ signThenVerify sk a = ioProperty $
 signThenVerifyDifferentKey
     :: Binary a
     => SecretKey -> PublicKey -> a -> Property
-signThenVerifyDifferentKey sk1 pk2 a = ioProperty $ do
-    not . verify pk2 a <$> sign sk1 a
+signThenVerifyDifferentKey sk1 pk2 a =
+    (toPublic sk1 /= pk2) ==> ioProperty (
+        not . verify pk2 a <$> sign sk1 a)
 
 signThenVerifyDifferentData
     :: (Eq a, Binary a)
@@ -144,3 +141,28 @@ signThenVerifyDifferentData
 signThenVerifyDifferentData sk a b =
     (a /= b) ==> ioProperty (
         not . verify (toPublic sk) b <$> sign sk a)
+
+----------------------------------------------------------------------------
+-- Arbitrary keys
+----------------------------------------------------------------------------
+
+data KeyPair = KeyPair {getPub :: PublicKey, getSec :: SecretKey}
+    deriving (Eq, Ord, Show)
+
+-- | We can't make an 'Arbitrary' instance for keys, because generating a key
+-- safely requires randomness which must come from IO. So, we just generate
+-- lots of keys with 'unsafePerformIO' and use them for everything.
+keys :: [KeyPair]
+keys = unsafePerformIO $ do
+    putText "[generating keys for tests...]"
+    replicateM 50 (uncurry KeyPair <$> keyGen)
+{-# NOINLINE keys #-}
+
+instance Arbitrary KeyPair where
+    arbitrary = elements keys
+
+instance Arbitrary PublicKey where
+    arbitrary = getPub <$> arbitrary
+
+instance Arbitrary SecretKey where
+    arbitrary = getSec <$> arbitrary

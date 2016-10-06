@@ -22,6 +22,7 @@ library
                         Pos.Communication.Types
                         Pos.Crypto.Hashing
                         Pos.Crypto.Pki
+                        Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.FollowTheSatoshi
                         Pos.Merkle
@@ -32,7 +33,8 @@ library
                         Pos.Types.Types
                         Pos.WorkMode
                         Pos.Util
-  build-depends:        QuickCheck
+  build-depends:        HsOpenSSL
+                      , QuickCheck
                       , base
                       , binary
                       , binary-orphans

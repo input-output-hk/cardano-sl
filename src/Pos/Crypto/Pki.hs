@@ -36,34 +36,30 @@ module Pos.Crypto.Pki
        , verifyRaw
        ) where
 
-import           Crypto.Cipher.AES         (AES256)
-import           Crypto.Cipher.Types       (cipherInit, ctrCombine, nullIV)
-import           Crypto.Error              (CryptoError (..), CryptoFailable (..))
-import           Crypto.Hash               (SHA256 (..))
-import qualified Crypto.PubKey.RSA         as RSA (PrivateKey (..), PublicKey (..),
-                                                   generate)
-import qualified Crypto.PubKey.RSA.OAEP    as RSA (decryptSafer, defaultOAEPParams,
-                                                   encrypt)
-import qualified Crypto.PubKey.RSA.PSS     as RSA (defaultPSSParams, signSafer, verify)
-import qualified Crypto.PubKey.RSA.Types   as RSA (Error (MessageSizeIncorrect, SignatureTooLong))
-import           Crypto.Random             (ChaChaDRG, MonadRandom, drgNewTest,
-                                            getRandomBytes, withDRG)
-import           Data.Binary               (Binary)
-import qualified Data.Binary               as Binary
-import qualified Data.ByteString.Lazy      as BSL
-import           Data.Coerce               (coerce)
-import           Data.Hashable             (Hashable)
-import qualified Data.Text.Buildable       as Buildable
-import           Data.Text.Lazy.Builder    (Builder)
-import           Formatting                (Format, bprint, fitLeft, later, (%), (%.))
-import           Test.QuickCheck.Arbitrary (Arbitrary (..))
-import           Test.QuickCheck.Gen       (Gen, chooseAny)
+import           Crypto.Cipher.AES       (AES256)
+import           Crypto.Cipher.Types     (cipherInit, ctrCombine, nullIV)
+import           Crypto.Error            (CryptoError (..), CryptoFailable (..))
+import           Crypto.Hash             (SHA256 (..))
+import qualified Crypto.PubKey.RSA       as RSA (PrivateKey (..), PublicKey (..),
+                                                 generate)
+import qualified Crypto.PubKey.RSA.OAEP  as RSA (decryptSafer, defaultOAEPParams, encrypt)
+import qualified Crypto.PubKey.RSA.PSS   as RSA (defaultPSSParams, signSafer, verify)
+import qualified Crypto.PubKey.RSA.Types as RSA (Error (MessageSizeIncorrect, SignatureTooLong))
+import           Data.Binary             (Binary)
+import qualified Data.Binary             as Binary
+import qualified Data.ByteString.Lazy    as BSL
+import           Data.Coerce             (coerce)
+import           Data.Hashable           (Hashable)
+import qualified Data.Text.Buildable     as Buildable
+import           Data.Text.Lazy.Builder  (Builder)
+import           Formatting              (Format, bprint, fitLeft, later, (%), (%.))
 import           Universum
 
-import qualified Serokell.Util.Base64      as Base64 (decode, encode)
+import qualified Serokell.Util.Base64    as Base64 (decode, encode)
 
-import           Pos.Crypto.Hashing        (hash, hashHexF)
-import           Pos.Util                  (Raw)
+import           Pos.Crypto.Hashing      (hash, hashHexF)
+import           Pos.Crypto.Random       (runSecureRandom, secureRandomBS)
+import           Pos.Util                (Raw)
 
 ----------------------------------------------------------------------------
 -- Some orphan instances
@@ -122,38 +118,15 @@ parseFullPublicKey s =
 
 -- | Generate a key pair.
 keyGen :: MonadIO m => m (PublicKey, SecretKey)
-keyGen = liftIO keyGen'
-
--- | Generate a key pair in a 'MonadRandom' monad.
-keyGen' :: MonadRandom m => m (PublicKey, SecretKey)
-keyGen' = bimap PublicKey SecretKey <$> RSA.generate 256 0x10001
-
-genDrg :: Gen ChaChaDRG
-genDrg = fmap drgNewTest $
-         (,,,,) <$> chooseAny
-                <*> chooseAny
-                <*> chooseAny
-                <*> chooseAny
-                <*> chooseAny
-
-instance Arbitrary SecretKey where
-    arbitrary = do
-        drg <- genDrg
-        let (_pk, sk) = fst (withDRG drg keyGen')
-        return sk
-
-instance Arbitrary PublicKey where
-    arbitrary = do
-        drg <- genDrg
-        let (pk, _sk) = fst (withDRG drg keyGen')
-        return pk
+keyGen = liftIO . runSecureRandom $
+    bimap PublicKey SecretKey <$> RSA.generate 256 0x10001
 
 ----------------------------------------------------------------------------
 -- AES encryption
 ----------------------------------------------------------------------------
 
-generateAES256Key :: MonadRandom m => m ByteString
-generateAES256Key = getRandomBytes (256 `div` 8)
+generateAES256Key :: MonadIO m => m ByteString
+generateAES256Key = liftIO $ secureRandomBS (256 `div` 8)
 
 -- | Encrypt data with AES (taken from Crypto.Tutorial).
 encryptAES256 :: ByteString -> ByteString -> Either CryptoError ByteString
@@ -194,7 +167,7 @@ encrypt k = fmap coerce . encryptRaw k . toS . Binary.encode
 encryptRaw :: MonadIO m => PublicKey -> ByteString -> m (Encrypted Raw)
 encryptRaw (PublicKey k) bs = do
     -- Generate random AES256 key
-    aesKey <- liftIO generateAES256Key
+    aesKey <- generateAES256Key
     -- Encrypt it with RSA
     encAESKey <- do
         res <- liftIO $ RSA.encrypt (RSA.defaultOAEPParams SHA256) k aesKey

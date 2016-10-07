@@ -30,8 +30,8 @@ module Pos.Types.Types
        , TxOut (..)
        , Tx (..)
 
-       , Utxo
        , AddrId
+       , Utxo
 
        , FtsSeed (..)
        , Commitment (..)
@@ -187,13 +187,13 @@ instance Binary Tx
 -- UTXO
 ----------------------------------------------------------------------------
 
--- | Unspent transaction outputs.
-type Utxo = HashMap AddrId Address
-
 -- | 'AddrId' identifies usage of address as output of transaction.
 -- Basically, it is tuple of transaction identifier, index in list of outputs
 -- and associated value.
-type AddrId = (TxId, Int, Coin)
+type AddrId = (TxId, Word32, Coin)
+
+-- | Unspent transaction outputs.
+type Utxo = Map AddrId Address
 
 ----------------------------------------------------------------------------
 -- MPC

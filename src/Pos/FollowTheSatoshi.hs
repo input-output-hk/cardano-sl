@@ -12,6 +12,7 @@ import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM (filterWithKey, lookup, mapMaybe, toList)
 import qualified Data.HashSet        as HS (difference, fromMap, member)
 import           Data.List           (foldl1', scanl1)
+import qualified Data.Map.Strict     as M
 import           Universum
 
 import           Pos.Constants       (epochSlots)
@@ -115,7 +116,7 @@ followTheSatoshi (FtsSeed seed) utxo
                     findLeaders (sortOn fst $ zip coinIndices [1..]) sums
   where
     outputs :: [(Address, Coin)]
-    outputs = sort [(addr, coin) | ((_, _, coin), addr) <- HM.toList utxo]
+    outputs = [(addr, coin) | ((_, _, coin), addr) <- M.toList utxo]
 
     -- TODO: not sure that 'sum' will use strict foldl' here, because 'sum'
     -- is only specialised for some types

@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiWayIf #-}
 
--- | Everything related to _follow-the-satoshi_ procedure.
+-- | Everything related to /follow-the-satoshi/ procedure.
 
 module Pos.FollowTheSatoshi
        ( FtsError(..)

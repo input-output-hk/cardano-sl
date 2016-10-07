@@ -9,10 +9,12 @@ module Pos.Util.NotImplemented
        ) where
 
 import           Data.Binary   (Binary)
+import           Data.Hashable (Hashable)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Universum
 
 
 instance Binary NotImplemented
+instance Hashable NotImplemented
 
 deriveSafeCopySimple 0 'base ''NotImplemented

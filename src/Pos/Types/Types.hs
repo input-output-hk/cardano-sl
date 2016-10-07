@@ -72,7 +72,7 @@ import qualified Serokell.Util.Base16 as B16
 import           Universum
 
 import           Pos.Crypto           (EncShare, Hash, PublicKey, SecretProof, Share,
-                                       Signature, hash)
+                                       Signature, VssPublicKey, hash)
 import           Pos.Merkle           (MerkleRoot)
 import           Pos.Util             (Raw)
 
@@ -214,7 +214,7 @@ instance Buildable FtsSeed where
 -- MPC. It contains encrypted shares and proof of secret.
 data Commitment = Commitment
     { commProof  :: !SecretProof
-    , commShares :: !(HashMap PublicKey (EncShare))
+    , commShares :: !(HashMap VssPublicKey (EncShare))
     } deriving (Show, Eq, Generic)
 
 instance Binary Commitment
@@ -238,14 +238,14 @@ class Payload p where
 
     checkProof :: p -> Proof p -> Bool
 
-type CommitmentsMap = HashMap PublicKey Commitment
-type OpeningsMap = HashMap PublicKey Opening
+type CommitmentsMap = HashMap VssPublicKey Commitment
+type OpeningsMap = HashMap VssPublicKey Opening
 
 -- | For each node which generated a 'RandomSecret', the shares map gives us
 -- keys and corresponding shares sent to those keys. Specifically, if node X
 -- has generated a secret and sent a share to node Y, here's how to get this
 -- share: @sharesMap ! X ! Y@.
-type SharesMap = HashMap PublicKey (HashMap PublicKey Share)
+type SharesMap = HashMap VssPublicKey (HashMap VssPublicKey Share)
 
 type AnyBlockHeader proof = Either (GenesisBlockHeader proof) (SignedBlockHeader proof)
 type HeaderHash proof = Hash (AnyBlockHeader proof)

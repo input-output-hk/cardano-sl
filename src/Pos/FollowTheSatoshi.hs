@@ -15,24 +15,24 @@ import           Data.List           (foldl1', scanl1)
 import           Universum
 
 import           Pos.Constants       (epochSlots)
-import           Pos.Crypto          (PublicKey, Secret (..), deterministic, randomNumber,
-                                      recoverSecret, verifyProof)
+import           Pos.Crypto          (Secret (..), VssPublicKey, deterministic,
+                                      randomNumber, recoverSecret, verifyProof)
 import           Pos.Types           (Address, Coin (..), Commitment (..), CommitmentsMap,
                                       FtsSeed (..), OpeningsMap, SharesMap, Utxo,
                                       getOpening)
 
 data FtsError
     -- | Some nodes in the 'OpeningsMap' aren't in the set of participants
-    = ExtraneousOpenings (HashSet PublicKey)
+    = ExtraneousOpenings (HashSet VssPublicKey)
     -- | Some nodes in the 'SharesMap' aren't in the set of participants
-    | ExtraneousShares (HashSet PublicKey)
+    | ExtraneousShares (HashSet VssPublicKey)
     -- | There were no participants so a random string couldn't be generated
     | NoParticipants
     -- | Commitment didn't match secret (either recovered or in openings)
-    | BrokenCommitment PublicKey
+    | BrokenCommitment VssPublicKey
     -- | Secret couldn't be recovered, or wasn't found in either
     -- 'OpeningsMap' or 'SharesMap'
-    | NoSecretFound PublicKey
+    | NoSecretFound VssPublicKey
 
 getKeys :: HashMap k v -> HashSet k
 getKeys = HS.fromMap . void
@@ -50,7 +50,7 @@ calculateSeed commitments openings shares = do
     let participants = getKeys commitments
 
     -- First let's do some sanity checks.
-    let extraOpenings, extraShares :: HashSet PublicKey
+    let extraOpenings, extraShares :: HashSet VssPublicKey
         extraOpenings = HS.difference (getKeys openings) participants
         extraShares =
             let xs = getKeys shares <> mconcat (map getKeys (toList shares))
@@ -64,15 +64,15 @@ calculateSeed commitments openings shares = do
     -- secrets (if corresponding openings weren't posted)
 
     -- Participants for whom we have to recover the secret
-    let mustBeRecovered :: HashSet PublicKey
+    let mustBeRecovered :: HashSet VssPublicKey
         mustBeRecovered = HS.difference participants (getKeys openings)
     -- Secrets recovered from actual share lists (but only those we need –
     -- i.e. ones which are in mustBeRecovered)
-    let recovered :: HashMap PublicKey (Maybe Secret)
+    let recovered :: HashMap VssPublicKey (Maybe Secret)
         recovered = fmap (recoverSecret . toList) $
             HM.filterWithKey (\k _ -> k `HS.member` mustBeRecovered) shares
     -- All secrets, both recovered and from openings
-    let secrets :: HashMap PublicKey Secret
+    let secrets :: HashMap VssPublicKey Secret
         secrets = fmap (Secret . getFtsSeed . getOpening) openings <>
                   HM.mapMaybe identity recovered
 

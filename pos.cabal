@@ -29,6 +29,7 @@ library
                         Pos.Slotting
                         Pos.State.Acidic
                         Pos.State.Storage
+                        Pos.Types.Arbitrary
                         Pos.Types.Block
                         Pos.Types.FtsSeed
                         Pos.Types.Types
@@ -61,6 +62,7 @@ library
                       , formatting
                       , lens
                       , mtl
+                      , quickcheck-instances
                       , random
                       , serokell-core
                       , text
@@ -103,6 +105,8 @@ test-suite pos-test
   main-is:             Test.hs
   other-modules:       Spec
                      , Test.Pos.CryptoSpec
+                     , Test.Pos.Types.BlockSpec
+                     , Test.Pos.Types.UtxoSpec
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
                      , base

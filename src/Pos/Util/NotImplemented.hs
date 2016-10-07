@@ -8,13 +8,17 @@ module Pos.Util.NotImplemented
        (
        ) where
 
-import           Data.Binary   (Binary)
-import           Data.Hashable (Hashable)
-import           Data.SafeCopy (base, deriveSafeCopySimple)
+import           Data.Binary     (Binary)
+import           Data.Hashable   (Hashable)
+import           Data.SafeCopy   (base, deriveSafeCopySimple)
+import           Test.QuickCheck (Arbitrary (..))
 import           Universum
 
 
 instance Binary NotImplemented
 instance Hashable NotImplemented
+
+instance Arbitrary NotImplemented where
+    arbitrary = pure NotImplemented
 
 deriveSafeCopySimple 0 'base ''NotImplemented

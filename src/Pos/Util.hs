@@ -8,18 +8,20 @@ module Pos.Util
        , putCopyBinary
        ) where
 
-import           Control.Monad.Fail   (fail)
-import           Data.Binary          (Binary)
-import qualified Data.Binary          as Binary (encode)
-import           Data.Hashable        (Hashable)
-import qualified Data.HashMap.Strict  as HM
-import           Data.SafeCopy        (Contained, SafeCopy (..), contain, safeGet,
-                                       safePut)
-import qualified Data.Serialize       as Cereal (Get, Put)
-import           Data.String          (String)
+import           Control.Monad.Fail      (fail)
+import           Data.Binary             (Binary)
+import qualified Data.Binary             as Binary (encode)
+import           Data.Hashable           (Hashable)
+import qualified Data.HashMap.Strict     as HM
+import           Data.SafeCopy           (Contained, SafeCopy (..), contain, safeGet,
+                                          safePut)
+import qualified Data.Serialize          as Cereal (Get, Put)
+import           Data.String             (String)
 import           Universum
 
-import           Serokell.Util.Binary as Binary (decodeFull)
+import           Serokell.Util.Binary    as Binary (decodeFull)
+
+import           Pos.Util.NotImplemented ()
 
 -- | A wrapper over 'ByteString' for adding type safety to
 -- 'Pos.Crypto.Pki.encryptRaw' and friends.

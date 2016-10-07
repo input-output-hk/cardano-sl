@@ -12,8 +12,10 @@ import           Data.Binary   (Binary)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Universum
 
+import           Pos.Util      ()
+
 newtype MerkleRoot a = MerkleRoot
-    { getMerkleRoot :: ()
+    { getMerkleRoot :: NotImplemented
     } deriving (Show, Eq, Ord, Generic, Binary)
 
 deriveSafeCopySimple 0 'base ''MerkleRoot

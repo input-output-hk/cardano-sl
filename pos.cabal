@@ -34,6 +34,7 @@ library
                         Pos.Types.Types
                         Pos.WorkMode
                         Pos.Util
+                        Pos.Util.NotImplemented
   build-depends:        HsOpenSSL
                       , QuickCheck
                       , base

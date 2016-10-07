@@ -19,8 +19,8 @@ import           OpenSSL.Random          (randBytes)
 import           Universum
 
 -- | Generate a cryptographically random 'ByteString' of specific length.
-secureRandomBS :: Int -> IO ByteString
-secureRandomBS = randBytes
+secureRandomBS :: MonadIO m => Int -> m ByteString
+secureRandomBS = liftIO . randBytes
 
 -- | You can use 'runSecureRandom' on any 'MonadRandom' computation to make
 -- it use a Really Secure™ randomness source (that is, OpenSSL).

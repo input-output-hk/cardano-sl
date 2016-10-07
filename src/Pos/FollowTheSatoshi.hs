@@ -1,9 +1,11 @@
 {-# LANGUAGE MultiWayIf #-}
 
+-- | Everything related to _follow-the-satoshi_ procedure.
+
 module Pos.FollowTheSatoshi
-       ( Rho(..)
-       , RhoError(..)
-       , calculateRho
+       ( FtsError(..)
+       , genFtsSeed
+       , calculateSeed
        , followTheSatoshi
        ) where
 
@@ -14,16 +16,12 @@ import           Data.List           (foldl1', scanl1)
 import           Universum
 
 import           Pos.Crypto          (PublicKey, Secret (..), deterministic, randomNumber,
-                                      recoverSecret, verifyProof)
+                                      recoverSecret, secureRandomBS, verifyProof)
 import           Pos.Types           (Address, Coin (..), Commitment (..), CommitmentsMap,
-                                      OpeningsMap, SharesMap, Utxo, getOpening)
+                                      FtsSeed (..), OpeningsMap, SharesMap, Utxo,
+                                      getOpening)
 
--- | A random shared bytestring that all nodes agree on. Must be 40 bytes
--- long (since it's going to be used as input for the ChaCha random number
--- generator, which uses a 40-byte seed).
-newtype Rho = Rho ByteString
-
-data RhoError
+data FtsError
     -- | Some nodes in the 'OpeningsMap' aren't in the set of participants
     = ExtraneousOpenings (HashSet PublicKey)
     -- | Some nodes in the 'SharesMap' aren't in the set of participants
@@ -36,6 +34,10 @@ data RhoError
     -- 'OpeningsMap' or 'SharesMap'
     | NoSecretFound PublicKey
 
+-- | Generate securely random FtsSeed.
+genFtsSeed :: MonadIO m => m FtsSeed
+genFtsSeed = FtsSeed <$> secureRandomBS 40
+
 getKeys :: HashMap k v -> HashSet k
 getKeys = HS.fromMap . void
 
@@ -43,12 +45,12 @@ getKeys = HS.fromMap . void
 -- together and agree on.
 --
 -- TODO: do we need to check secrets' lengths? Probably not.
-calculateRho
+calculateSeed
     :: CommitmentsMap        -- ^ All participating nodes
     -> OpeningsMap
     -> SharesMap
-    -> Either RhoError Rho
-calculateRho commitments openings shares = do
+    -> Either FtsError FtsSeed
+calculateSeed commitments openings shares = do
     let participants = getKeys commitments
 
     -- First let's do some sanity checks.
@@ -75,7 +77,8 @@ calculateRho commitments openings shares = do
             HM.filterWithKey (\k _ -> k `HS.member` mustBeRecovered) shares
     -- All secrets, both recovered and from openings
     let secrets :: HashMap PublicKey Secret
-        secrets = fmap getOpening openings <> HM.mapMaybe identity recovered
+        secrets = fmap (Secret . getFtsSeed . getOpening) openings <>
+                  HM.mapMaybe identity recovered
 
     -- Now that we have the secrets, we can check whether the commitments
     -- actually match the secrets, and whether a secret has been recovered
@@ -94,7 +97,7 @@ calculateRho commitments openings shares = do
                    \but they produced no secrets somehow"
        | null secrets -> Left NoParticipants
        | otherwise    -> Right $
-                         Rho $ foldl1' xorBS (map getSecret (toList secrets))
+                         FtsSeed $ foldl1' xorBS (map getSecret (toList secrets))
 
 -- | Choose several random stakeholders. The probability that a stakeholder
 -- will be chosen is proportional to the number of coins this stakeholder
@@ -106,8 +109,8 @@ calculateRho commitments openings shares = do
 -- owner of 'i'th coin we find the lowest x such that sum of all coins in
 -- this list up to 'i'th is not less than 'i' (and then 'x'th address is the
 -- owner).
-followTheSatoshi :: Int -> Rho -> Utxo -> [Address]
-followTheSatoshi k (Rho seed) utxo
+followTheSatoshi :: Int -> FtsSeed -> Utxo -> [Address]
+followTheSatoshi k (FtsSeed seed) utxo
     | null outputs = panic "followTheSatoshi: utxo is empty"
     | otherwise    = map fst $ sortOn snd $
                     findLeaders (sortOn fst $ zip coinIndices [1..]) sums

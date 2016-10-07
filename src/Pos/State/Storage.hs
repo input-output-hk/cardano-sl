@@ -9,6 +9,7 @@ module Pos.State.Storage
        (
          Storage
 
+       , Query
        , Update
        , addEntry
        , addLeaders
@@ -19,7 +20,8 @@ module Pos.State.Storage
        , setLeaders
        ) where
 
-import           Control.Lens    (at, ix, makeLenses, preuse, use, (%=), (.=), (<<.=))
+import           Control.Lens    (at, ix, makeLenses, preview, view, (%=), (.=), (<<.=))
+import           Data.Acid       ()
 import           Data.Default    (Default, def)
 import           Data.SafeCopy   (base, deriveSafeCopySimple)
 import qualified Data.Set        as Set (fromList, insert, toList, (\\))
@@ -29,6 +31,9 @@ import           Serokell.Util   ()
 
 import           Pos.Types.Types (Blockkk, Entry (..), NodeId (..))
 
+
+type Query  a = forall m . MonadReader Storage m => m a
+type Update a = forall m . MonadState Storage m => m a
 
 data Storage = Storage
     { -- | List of entries that the node has received but that aren't included
@@ -53,8 +58,6 @@ instance Default Storage where
         , _blocks = mempty
         }
 
-type Update a = forall m . MonadState Storage m => m a
-
 -- Empty the list of pending entries and create a block
 createBlock :: Update Blockkk
 createBlock = do
@@ -65,11 +68,11 @@ addLeaders :: Int -> [NodeId] -> Update ()
 addLeaders epoch leaders =
     pendingEntries %= Set.insert (ELeaders (epoch + 1) leaders)
 
-getLeader :: Int -> Int -> Update (Maybe NodeId)
-getLeader epoch slot = preuse (epochLeaders . ix epoch . ix slot)
+getLeader :: Int -> Int -> Query (Maybe NodeId)
+getLeader epoch slot = preview (epochLeaders . ix epoch . ix slot)
 
-getLeaders :: Int -> Update (Maybe [NodeId])
-getLeaders epoch = use (epochLeaders . at epoch)
+getLeaders :: Int -> Query (Maybe [NodeId])
+getLeaders epoch = view (epochLeaders . at epoch)
 
 addEntry :: Entry -> Update ()
 addEntry e = pendingEntries %= Set.insert e

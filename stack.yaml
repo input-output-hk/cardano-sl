@@ -23,6 +23,10 @@ packages:
   subdirs:
     - msgpack
     - msgpack-rpc
+- location:
+    git: https://github.com/serokell/acid-state.git
+    commit: 26c93399fe7b42e28ed173526487afcbcb026390
+  extra-dep: true
 
 extra-deps:
 - binary-0.7.6.1

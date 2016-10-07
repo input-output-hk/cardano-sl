@@ -23,8 +23,10 @@ import           Serokell.Util            ()
 
 import           Pos.Communication.Types  (Message (..), Node)
 import           Pos.Constants            (epochSlots, slotDuration)
-import           Pos.State.Operations     (addEntry, addLeaders, adoptBlock, createBlock,
-                                           getLeader, getLeaders, mkNodeState, setLeaders)
+import           Pos.State.Acidic         (AddEntry (..), AddLeaders (..),
+                                           AdoptBlock (..), CreateBlock (..),
+                                           GetLeader (..), GetLeaders (..), NodeState,
+                                           SetLeaders (..), openMemState, query, update)
 import           Pos.Types.Types          (Entry (..), NodeId (..), displayEntry, nodeF)
 import           Pos.WorkMode             (WorkMode)
 
@@ -138,11 +140,16 @@ computes the random satoshi index from all available Us to find out who has
 won the leader election and can generate the next block.
 -}
 
-fullNode :: WorkMode m => Node m
-fullNode = \self _key n _ sendTo ->
-  setLoggerName (LoggerName (toS (sformat nodeF self))) $ do
-    nodeState <- mkNodeState
+-- | Set up logger, open state.
+fullNodeWrapper :: WorkMode m => (NodeState -> Node m) -> Node m
+fullNodeWrapper nf =
+    \self key n pkeys sendTo ->
+        setLoggerName (LoggerName (toS (sformat nodeF self))) $ do
+            st <- openMemState
+            nf st self key n pkeys sendTo
 
+fullNode :: WorkMode m => Node m
+fullNode = fullNodeWrapper $ \st self _key n _pkeys sendTo -> do
     -- This will run at the beginning of each slot:
     inSlot True $ \epoch slot -> do
         -- For now we just send messages to everyone instead of letting them
@@ -152,7 +159,7 @@ fullNode = \self _key n _ sendTo ->
 
         -- Create a block and send it to everyone
         let createAndSendBlock = do
-                blk <- createBlock nodeState
+                blk <- update st CreateBlock
                 sendEveryone (MBlock blk)
                 if null blk then
                     logInfo "created an empty block"
@@ -170,7 +177,7 @@ fullNode = \self _key n _ sendTo ->
             when (slot == 0) $ do
                 leaders <- liftIO $ map NodeId <$>
                            replicateM epochSlots (randomRIO (0, n - 1))
-                addLeaders nodeState epoch leaders
+                update st $ AddLeaders epoch leaders
                 logInfo "generated random leaders for epoch 1 \
                         \(as master node)"
             createAndSendBlock
@@ -197,7 +204,7 @@ fullNode = \self _key n _ sendTo ->
             -- sendEveryone (MEntry $ EUHash self $ hashRaw $ toS $ Bin.encode u)
 
         -- If we are the epoch leader, we should generate a block
-        do leader <- getLeader nodeState epoch slot
+        do leader <- query st $ GetLeader epoch slot
            when (leader == Just self) $
                createAndSendBlock
 
@@ -215,20 +222,20 @@ fullNode = \self _key n _ sendTo ->
     return $ \n_from message -> case message of
         -- An entry has been received: add it to the list of unprocessed
         -- entries
-        MEntry e -> addEntry nodeState e
+        MEntry e -> update st $ AddEntry e
 
         -- A block has been received: remove all pending entries we have
         -- that are in this block, then add the block to our local
         -- blockchain and use info from the block
         MBlock es -> do
-            adoptBlock nodeState es
+            update st $ AdoptBlock es
             -- TODO: using withNodeState several times here might break
             -- atomicity, I dunno
             for_ es $ \e -> case e of
                 ELeaders epoch leaders -> do
-                    mbLeaders <- getLeaders nodeState epoch
+                    mbLeaders <- query st $ GetLeaders epoch
                     case mbLeaders of
-                        Nothing -> setLeaders nodeState epoch leaders
+                        Nothing -> update st $ SetLeaders epoch leaders
                         Just _  -> logError $ sformat
                             (nodeF%" we already know leaders for epoch "%int
                                   %"but we received a block with ELeaders "

@@ -27,7 +27,7 @@ library
                         Pos.FollowTheSatoshi
                         Pos.Merkle
                         Pos.Slotting
-                        Pos.State.Operations
+                        Pos.State.Acidic
                         Pos.State.Storage
                         Pos.Types.Block
                         Pos.Types.FtsSeed
@@ -38,6 +38,7 @@ library
                         Pos.Util.NotImplemented
   build-depends:        HsOpenSSL
                       , QuickCheck
+                      , acid-state
                       , base
                       , binary
                       , binary-orphans

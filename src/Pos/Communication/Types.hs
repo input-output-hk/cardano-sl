@@ -25,12 +25,12 @@ A node also provides a callback which can be used to send messages to the
 node (and the callback knows who sent it a message).
 -}
 type Node m =
-       NodeId
-    -> (PublicKey, SecretKey)
-    -> Int
-    -> Map NodeId PublicKey
-    -> (NodeId -> Message -> m ())
-    -> m (NodeId -> Message -> m ())
+       NodeId                           -- node's ID
+    -> (PublicKey, SecretKey)           -- node's keypair
+    -> Int                              -- total amount of nodes
+    -> Map NodeId PublicKey             -- other nodes' keys
+    -> (NodeId -> Message -> m ())      -- function to send messages to nodes
+    -> m (NodeId -> Message -> m ())    -- callback
 
 ----------------------------------------------------------------------------
 -- Messages that nodes send to each other

@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 -- | Hashing capabilities.
 
 module Pos.Crypto.Hashing

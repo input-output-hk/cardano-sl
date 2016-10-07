@@ -14,6 +14,7 @@ import qualified Data.HashSet        as HS (difference, fromMap, member)
 import           Data.List           (foldl1', scanl1)
 import           Universum
 
+import           Pos.Constants       (epochSlots)
 import           Pos.Crypto          (PublicKey, Secret (..), deterministic, randomNumber,
                                       recoverSecret, verifyProof)
 import           Pos.Types           (Address, Coin (..), Commitment (..), CommitmentsMap,
@@ -94,18 +95,21 @@ calculateSeed commitments openings shares = do
        | otherwise    -> Right $
                          FtsSeed $ foldl1' xorBS (map getSecret (toList secrets))
 
--- | Choose several random stakeholders. The probability that a stakeholder
--- will be chosen is proportional to the number of coins this stakeholder
--- holds. The same stakeholder can be picked more than once.
+-- | Choose several random stakeholders (specifically, their amount is
+-- currently hardcoded in 'Pos.Constants.epochSlots').
 --
--- We sort all unspent outputs in a deterministic way (lexicographically) and
--- have an ordered sequence of pairs @(Address, Coin)@. Then we choose
--- several random 'i's between 1 and amount of satoshi in the system; to find
--- owner of 'i'th coin we find the lowest x such that sum of all coins in
--- this list up to 'i'th is not less than 'i' (and then 'x'th address is the
--- owner).
-followTheSatoshi :: Int -> FtsSeed -> Utxo -> [Address]
-followTheSatoshi k (FtsSeed seed) utxo
+-- The probability that a stakeholder will be chosen is proportional to the
+-- number of coins this stakeholder holds. The same stakeholder can be picked
+-- more than once.
+--
+-- How the algorithm works: wWe sort all unspent outputs in a deterministic
+-- way (lexicographically) and have an ordered sequence of pairs @(Address,
+-- Coin)@. Then we choose several random 'i's between 1 and amount of satoshi
+-- in the system; to find owner of 'i'th coin we find the lowest x such that
+-- sum of all coins in this list up to 'i'th is not less than 'i' (and then
+-- 'x'th address is the owner).
+followTheSatoshi :: FtsSeed -> Utxo -> [Address]
+followTheSatoshi (FtsSeed seed) utxo
     | null outputs = panic "followTheSatoshi: utxo is empty"
     | otherwise    = map fst $ sortOn snd $
                     findLeaders (sortOn fst $ zip coinIndices [1..]) sums
@@ -121,7 +125,7 @@ followTheSatoshi k (FtsSeed seed) utxo
     coinIndices :: [Coin]
     coinIndices = map (fromInteger . (+1)) $
                   deterministic seed $
-                  replicateM k (randomNumber (toInteger totalCoins))
+                  replicateM epochSlots (randomNumber (toInteger totalCoins))
 
     sums :: [(Address, Coin)]
     sums = scanl1 (\(_,c1) (a,c2) -> (a, c1 + c2)) outputs

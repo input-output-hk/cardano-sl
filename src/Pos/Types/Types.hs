@@ -41,14 +41,17 @@ module Pos.Types.Types
        , CommitmentsMap
        , OpeningsMap
        , SharesMap
+       , AnyBlockHeader
        , HeaderHash
        , BlockHeader (..)
        , SignedBlockHeader (..)
        , GenericBlock (..)
        , TxsPayload
        , TxsProof (..)
+       , TxsBlock
+       , GenesisBlockHeader (..)
+       , GenesisBlock
        , Block
-       , GenesisBlock (..)
 
        , Entry (..)
        , Blockkk
@@ -69,7 +72,7 @@ import qualified Serokell.Util.Base16 as B16
 import           Universum
 
 import           Pos.Crypto           (EncShare, Hash, PublicKey, SecretProof, Share,
-                                       Signature)
+                                       Signature, hash)
 import           Pos.Merkle           (MerkleRoot)
 import           Pos.Util             (Raw)
 
@@ -239,7 +242,8 @@ type OpeningsMap = HashMap PublicKey Opening
 -- share: @sharesMap ! X ! Y@.
 type SharesMap = HashMap PublicKey (HashMap PublicKey Share)
 
-type HeaderHash proof = Hash (SignedBlockHeader proof)
+type AnyBlockHeader proof = Either (GenesisBlockHeader proof) (SignedBlockHeader proof)
+type HeaderHash proof = Hash (AnyBlockHeader proof)
 
 -- | Header of block contains all the information necessary to
 -- validate consensus algorithm. It also contains proof of payload
@@ -275,12 +279,14 @@ instance Binary p => Binary (SignedBlockHeader p)
 
 -- | In general Block consists of some payload and header associated
 -- with it.
-data GenericBlock payload = GenericBlock
-    { gbHeader  :: !(SignedBlockHeader (Proof payload))
+data GenericBlock header payload = GenericBlock
+    { gbHeader  :: !(header (Proof payload))
     , gbPayload :: !payload
     }
 
 -- | In our cryptocurrency, payload is a list of transactions.
+-- TODO: consider using Vector or something. Not sure if it will be better.
+-- TODO: probably it should be Merkle tree, not just list.
 type TxsPayload = [Tx]
 
 -- | Proof of transactions list.
@@ -295,15 +301,36 @@ instance Payload TxsPayload where
 
 instance Binary TxsProof
 
-type Block = GenericBlock TxsPayload
+-- | TxsBlock is a block whose payload consists of transactions.
+type TxsBlock = GenericBlock SignedBlockHeader TxsPayload
 
--- | Genesis block doesn't have any payload and is not strictly
--- necessary. However, it is good idea to store list of leaders
--- somewhere instead of calculating it every time. If we decide to
--- make it part of blockchain, we will need to store hash also.
-data GenesisBlock = GenesisBlock
-    { gbLeaders :: !(Vector PublicKey)
+-- | Genesis block doesn't have any special payload and is not
+-- strictly necessary. However, it is good idea to store list of
+-- leaders explicitely, because calculating it may be expensive
+-- operation. For example, it is useful for SPV-clients. Header of
+-- genesis block is a simplified version of BlockHeader. It is not
+-- signed.
+data GenesisBlockHeader proof = GenesisBlockHeader
+    { -- | Hash of the previous block's header.
+      gbhPrevHash     :: !(HeaderHash proof)
+    , -- | Index of the slot for which this genesis block is relevant.
+      gbhEpoch        :: !EpochIndex
+    , -- | Proof of payload.
+      gbhPayloadProof :: !proof
     } deriving (Generic)
+
+instance Binary proof => Binary (GenesisBlockHeader proof)
+
+type LeadersPayload = Vector PublicKey
+
+instance Payload LeadersPayload where
+    -- TODO: consider using Merkle tree as well
+    type Proof LeadersPayload = Hash LeadersPayload
+    checkProof leaders h = hash leaders == h
+
+type GenesisBlock = GenericBlock GenesisBlockHeader LeadersPayload
+
+type Block = Either GenesisBlock TxsBlock
 
 ----------------------------------------------------------------------------
 -- Block. Leftover.
@@ -363,8 +390,8 @@ deriveSafeCopySimple 0 'base ''SignedBlockHeader
 
 -- This instance can't be derived because 'deriveSafeCopySimple' is not
 -- clever enough to add a “SafeCopy (Proof payload) =>” constaint.
-instance (SafeCopy (Proof payload), SafeCopy payload) =>
-         SafeCopy (GenericBlock payload) where
+instance (SafeCopy (header (Proof payload)), SafeCopy payload) =>
+         SafeCopy (GenericBlock header payload) where
     getCopy = contain $ do
         gbHeader <- safeGet
         gbPayload <- safeGet
@@ -374,5 +401,5 @@ instance (SafeCopy (Proof payload), SafeCopy payload) =>
         safePut gbPayload
 
 deriveSafeCopySimple 0 'base ''TxsProof
-deriveSafeCopySimple 0 'base ''GenesisBlock
+deriveSafeCopySimple 0 'base ''GenesisBlockHeader
 deriveSafeCopySimple 0 'base ''Entry

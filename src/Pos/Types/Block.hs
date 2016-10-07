@@ -13,19 +13,19 @@ import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum
 
 import           Pos.Crypto           (PublicKey, hash, unsafeHash, verify)
-import           Pos.Types.Types      (BlockHeader (..), ChainDifficulty, CommitmentsMap,
-                                       HeaderHash, OpeningsMap, SharesMap,
+import           Pos.Types.Types      (AnyBlockHeader, BlockHeader (..), ChainDifficulty,
+                                       CommitmentsMap, HeaderHash, OpeningsMap, SharesMap,
                                        SignedBlockHeader (..), SlotId)
 
 genesisHash :: HeaderHash p
 genesisHash = unsafeHash ("patak" :: Text)
 
-hashPrev :: Binary p => Maybe (SignedBlockHeader p) -> HeaderHash p
+hashPrev :: Binary p => Maybe (AnyBlockHeader p) -> HeaderHash p
 hashPrev = maybe genesisHash hash
 
 mkBlockHeader
     :: Binary p
-    => Maybe (SignedBlockHeader p)
+    => Maybe (AnyBlockHeader p)
     -> SlotId
     -> PublicKey
     -> CommitmentsMap
@@ -36,7 +36,7 @@ mkBlockHeader
     -> BlockHeader p
 mkBlockHeader prevHeader slotId pk comms opens shares difficulty proof =
     BlockHeader
-    { bhPrevHash = maybe genesisHash hash prevHeader
+    { bhPrevHash = hashPrev prevHeader
     , bhSlot = slotId
     , bhLeaderKey = pk
     , bhCommitments = comms
@@ -51,7 +51,7 @@ mkBlockHeader prevHeader slotId pk comms opens shares difficulty proof =
 -- TODO: extend.
 verifyHeader
     :: Binary p
-    => Maybe (SignedBlockHeader p) -> BlockHeader p -> VerificationRes
+    => Maybe (AnyBlockHeader p) -> BlockHeader p -> VerificationRes
 verifyHeader prevHeader BlockHeader {..} =
     verifyGeneric
         [ ( bhPrevHash == prevHash
@@ -64,7 +64,7 @@ verifyHeader prevHeader BlockHeader {..} =
 
 verifySignedHeader
     :: Binary p
-    => Maybe (SignedBlockHeader p) -> SignedBlockHeader p -> VerificationRes
+    => Maybe (AnyBlockHeader p) -> SignedBlockHeader p -> VerificationRes
 verifySignedHeader prevHeader SignedBlockHeader {..} =
     mconcat
         [ verifyGeneric

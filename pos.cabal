@@ -32,6 +32,7 @@ library
                         Pos.Types.Block
                         Pos.Types.FtsSeed
                         Pos.Types.Types
+                        Pos.Types.Utxo
                         Pos.WorkMode
                         Pos.Util
                         Pos.Util.NotImplemented

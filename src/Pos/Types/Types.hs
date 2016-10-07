@@ -119,7 +119,7 @@ type FlatSlotId = Word64
 -- | Coin is the least possible unit of currency.
 newtype Coin = Coin
     { getCoin :: Int64
-    } deriving (Num, Enum, Integral, Show, Ord, Real, Generic, Eq, Binary)
+    } deriving (Num, Enum, Integral, Show, Ord, Real, Generic, Eq, Binary, Bounded)
 
 instance Buildable Coin where
     build = bprint (int%" coin(s)")

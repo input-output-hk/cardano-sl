@@ -24,6 +24,7 @@ module Pos.Types.Types
        , Address (..)
        , addressF
 
+       , TxSig
        , TxId
        , TxIn (..)
        , TxOut (..)
@@ -66,7 +67,6 @@ import qualified Data.Text            as T (unwords)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
-import           Data.Word            (Word32, Word64)
 import           Formatting           (Format, bprint, build, int, sformat, shown, (%))
 import qualified Serokell.Util.Base16 as B16
 import           Universum
@@ -146,11 +146,16 @@ addressF = build
 
 type TxId = Hash Tx
 
+type TxSig = Signature [TxOut]
+
 -- | Transaction input.
 data TxIn = TxIn
-    { txInHash  :: !TxId  -- ^ Which transaction's output is used
-    , txInIndex :: !Word32     -- ^ Index of the output in transaction's
-                               -- outputs
+    { txInHash  :: !TxId    -- ^ Which transaction's output is used
+    , txInIndex :: !Word32  -- ^ Index of the output in transaction's
+                            -- outputs
+    , txInSig   :: !TxSig   -- ^ Signature given by public key
+                            -- corresponding to address referenced by
+                            -- this input.
     } deriving (Eq, Ord, Show, Generic)
 
 instance Binary TxIn

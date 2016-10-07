@@ -67,7 +67,7 @@ inSlot extraDelay f = fork_ $ do
     -- Wait until the next slot begins
     nextSlotStart <- do
         absoluteSlot <- getAbsoluteSlot
-        return (start + fromIntegral (absoluteSlot+1) * slotDuration)
+        return (start + fromIntegral (absoluteSlot + 1) * slotDuration)
     -- Now that we're synchronised with slots, start repeating
     -- forever. 'repeatForever' has slight precision problems, so we delay
     -- everything by 50ms.
@@ -147,7 +147,7 @@ fullNode = \self _key n _ sendTo ->
     inSlot True $ \epoch slot -> do
         -- For now we just send messages to everyone instead of letting them
         -- propagate, implementing peers, etc.
-        let sendEveryone x = for_ [NodeId 0 .. NodeId (n-1)] $ \i ->
+        let sendEveryone x = for_ [NodeId 0 .. NodeId (n - 1)] $ \i ->
                                  sendTo i x
 
         -- Create a block and send it to everyone
@@ -168,8 +168,8 @@ fullNode = \self _key n _ sendTo ->
         -- blocks.
         when (self == NodeId 0 && epoch == 0) $ do
             when (slot == 0) $ do
-                leaders <- map NodeId <$>
-                           replicateM epochSlots (liftIO $ randomRIO (0, n-1))
+                leaders <- liftIO $ map NodeId <$>
+                           replicateM epochSlots (randomRIO (0, n - 1))
                 addLeaders nodeState epoch leaders
                 logInfo "generated random leaders for epoch 1 \
                         \(as master node)"

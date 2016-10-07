@@ -126,7 +126,7 @@ followTheSatoshi k (Rho seed) utxo
                   replicateM k (randomNumber (toInteger totalCoins))
 
     sums :: [(Address, Coin)]
-    sums = scanl1 (\(_,c1) (a,c2) -> (a, c1+c2)) outputs
+    sums = scanl1 (\(_,c1) (a,c2) -> (a, c1 + c2)) outputs
 
     -- The coin indices have to be sorted by amount, but we want to produce
     -- addresses in the same order as 'secureRandomNumbers' produced the coin

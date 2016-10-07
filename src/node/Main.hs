@@ -18,6 +18,6 @@ main :: IO ()
 main = do
     let n = 3
     let loggers = "xx" : map (LoggerName . toS . sformat nodeF)
-                             [NodeId 0 .. NodeId (n-1)]
+                             [NodeId 0 .. NodeId (n - 1)]
     initLogging loggers Info
     runNodesReal (replicate n fullNode)

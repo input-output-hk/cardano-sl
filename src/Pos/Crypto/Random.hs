@@ -50,11 +50,11 @@ deterministic seed gen
 -- be divisible by n, and thus applying 'mod' to it will be safe.
 randomNumber :: MonadRandom m => Integer -> m Integer
 randomNumber n
-    | n <= 0 = panic "randomNumber: n<=0"
+    | n <= 0 = panic "randomNumber: n <= 0"
     | otherwise = gen
   where
-    size = max 4 (numBytes n)         -- size of integers, in bytes
-    rangeMod = 2^(size*8) `rem` n     -- 2^x mod n
+    size = max 4 (numBytes n)             -- size of integers, in bytes
+    rangeMod = 2 ^ (size * 8) `rem` n     -- 2^x mod n
     gen = do
         x <- os2ip @ByteString <$> getRandomBytes size
         if x < rangeMod then gen else return (x `rem` n)

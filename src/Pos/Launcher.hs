@@ -27,7 +27,7 @@ import           Pos.WorkMode             (NodeContext (..), RealMode, WorkMode,
 runNodes :: WorkMode m => [Node m] -> m ()
 runNodes nodes = setLoggerName "xx" $ do
     let n = length nodes
-    keys <- Map.fromList . zip [NodeId 0 .. NodeId (n-1)] <$>
+    keys <- Map.fromList . zip [NodeId 0 .. NodeId (n - 1)] <$>
                 replicateM n keyGen
     -- The system shall start working in a bit of time. Not exactly right now
     -- because due to the way inSlot implemented, it'd be nice to wait a bit

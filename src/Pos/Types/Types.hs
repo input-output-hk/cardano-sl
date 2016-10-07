@@ -1,7 +1,10 @@
 {-# LANGUAGE DeriveGeneric        #-}
+{-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Definitions of the most fundamental types.
 
@@ -54,6 +57,8 @@ module Pos.Types.Types
 
 import           Data.Binary         (Binary)
 import           Data.Binary.Orphans ()
+import           Data.SafeCopy       (SafeCopy (..), base, contain, deriveSafeCopySimple,
+                                      safeGet, safePut)
 import qualified Data.Text           as T (unwords)
 import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
@@ -326,3 +331,39 @@ displayEntry (ELeaders epoch leaders) =
     sformat ("leaders for epoch "%int%" = "%build)
             epoch
             (T.unwords (map (toS . sformat nodeF) leaders))
+
+----------------------------------------------------------------------------
+-- SafeCopy instances
+----------------------------------------------------------------------------
+
+-- These instances are all gathered at the end because otherwise we'd have to
+-- sort types topologically
+
+deriveSafeCopySimple 0 'base ''NodeId
+deriveSafeCopySimple 0 'base ''SlotId
+deriveSafeCopySimple 0 'base ''Coin
+deriveSafeCopySimple 0 'base ''Address
+deriveSafeCopySimple 0 'base ''TxIn
+deriveSafeCopySimple 0 'base ''TxOut
+deriveSafeCopySimple 0 'base ''Tx
+deriveSafeCopySimple 0 'base ''Commitment
+deriveSafeCopySimple 0 'base ''Opening
+deriveSafeCopySimple 0 'base ''ChainDifficulty
+deriveSafeCopySimple 0 'base ''BlockHeader
+deriveSafeCopySimple 0 'base ''SignedBlockHeader
+
+-- This instance can't be derived because 'deriveSafeCopySimple' is not
+-- clever enough to add a “SafeCopy (Proof payload) =>” constaint.
+instance (SafeCopy (Proof payload), SafeCopy payload) =>
+         SafeCopy (GenericBlock payload) where
+    getCopy = contain $ do
+        gbHeader <- safeGet
+        gbPayload <- safeGet
+        return GenericBlock{..}
+    putCopy GenericBlock{..} = contain $ do
+        safePut gbHeader
+        safePut gbPayload
+
+deriveSafeCopySimple 0 'base ''TxsProof
+deriveSafeCopySimple 0 'base ''GenesisBlock
+deriveSafeCopySimple 0 'base ''Entry

@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 -- | Hashing capabilities.
 
 module Pos.Crypto.Hashing
@@ -15,15 +17,20 @@ import qualified Data.Binary         as Binary
 import qualified Data.Binary.Get     as Binary (getByteString)
 import qualified Data.Binary.Put     as Binary (putByteString)
 import qualified Data.ByteArray      as ByteArray
+import           Data.SafeCopy       (SafeCopy (..))
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (Format, bprint, later, shown)
 import           Test.QuickCheck     (Arbitrary (..))
 import           Universum
 
-import           Pos.Util            (Raw)
+import           Pos.Util            (Raw, getCopyBinary, putCopyBinary)
 
 newtype Hash a = Hash (Digest SHA256)
     deriving (Show, Eq, Ord)
+
+instance SafeCopy (Hash a) where
+    putCopy = putCopyBinary
+    getCopy = getCopyBinary "Hash"
 
 instance Binary (Hash a) where
     get = do

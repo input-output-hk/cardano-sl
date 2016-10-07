@@ -39,8 +39,10 @@ library
                       , binary
                       , binary-orphans
                       , bytestring
+                      , cereal
                       , containers
                       , memory
+                      , safecopy
                       , unordered-containers
                       -- When you bump this constraint, first make sure that
                       -- representations of PrivateKey and PublicKey in

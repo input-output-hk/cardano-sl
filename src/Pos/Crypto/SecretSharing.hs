@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | Dummy implementation of VSS. It doesn't have any logic now.
 
@@ -22,6 +23,7 @@ module Pos.Crypto.SecretSharing
        ) where
 
 import           Data.Binary          (Binary)
+import           Data.SafeCopy        (base, deriveSafeCopySimple)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import qualified Serokell.Util.Base16 as B16
@@ -101,3 +103,14 @@ recoverSecret (x:xs) = do
 
 verifyProof :: SecretProof -> Secret -> Bool
 verifyProof (SecretProof p) s = p == s
+
+----------------------------------------------------------------------------
+-- SafeCopy instances
+----------------------------------------------------------------------------
+
+deriveSafeCopySimple 0 'base ''VssPublicKey
+deriveSafeCopySimple 0 'base ''VssSecretKey
+deriveSafeCopySimple 0 'base ''EncShare
+deriveSafeCopySimple 0 'base ''Secret
+deriveSafeCopySimple 0 'base ''SecretProof
+deriveSafeCopySimple 0 'base ''Share

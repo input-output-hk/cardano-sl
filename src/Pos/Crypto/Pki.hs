@@ -50,6 +50,7 @@ import qualified Data.Binary             as Binary
 import qualified Data.ByteString.Lazy    as BSL
 import           Data.Coerce             (coerce)
 import           Data.Hashable           (Hashable)
+import           Data.SafeCopy           (SafeCopy (..))
 import qualified Data.Text.Buildable     as Buildable
 import           Data.Text.Lazy.Builder  (Builder)
 import           Formatting              (Format, bprint, fitLeft, later, (%), (%.))
@@ -59,7 +60,7 @@ import qualified Serokell.Util.Base64    as Base64 (decode, encode)
 
 import           Pos.Crypto.Hashing      (hash, hashHexF)
 import           Pos.Crypto.Random       (runSecureRandom, secureRandomBS)
-import           Pos.Util                (Raw)
+import           Pos.Util                (Raw, getCopyBinary, putCopyBinary)
 
 ----------------------------------------------------------------------------
 -- Some orphan instances
@@ -86,6 +87,14 @@ newtype PublicKey = PublicKey RSA.PublicKey
 
 newtype SecretKey = SecretKey RSA.PrivateKey
     deriving (Eq, Ord, Show, Binary, Hashable)
+
+instance SafeCopy PublicKey where
+    putCopy = putCopyBinary
+    getCopy = getCopyBinary "PublicKey"
+
+instance SafeCopy SecretKey where
+    putCopy = putCopyBinary
+    getCopy = getCopyBinary "SecretKey"
 
 -- | Generate a public key from a secret key. It's fast, since a secret key
 -- actually holds a copy of the public key.
@@ -227,6 +236,10 @@ decryptRaw (SecretKey k) Encrypted{..} = do
 
 newtype Signature a = Signature ByteString
     deriving (Eq, Ord, Show, NFData, Binary)
+
+instance SafeCopy (Signature a) where
+    putCopy = putCopyBinary
+    getCopy = getCopyBinary "Signature"
 
 instance Buildable.Buildable (Signature a) where
     build _ = "<signature>"

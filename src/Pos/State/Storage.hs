@@ -21,6 +21,7 @@ module Pos.State.Storage
 
 import           Control.Lens    (at, ix, makeLenses, preuse, use, (%=), (.=), (<<.=))
 import           Data.Default    (Default, def)
+import           Data.SafeCopy   (base, deriveSafeCopySimple)
 import qualified Data.Set        as Set (fromList, insert, toList, (\\))
 import           Universum
 
@@ -42,6 +43,7 @@ data Storage = Storage
     }
 
 makeLenses ''Storage
+deriveSafeCopySimple 0 'base ''Storage
 
 instance Default Storage where
     def =

@@ -29,6 +29,11 @@ module Pos.Crypto.Pki
        , sign
        , verify
 
+       , Signed
+       , mkSigned
+       , signedValue
+       , signedSig
+
        -- * Versions for raw bytestrings
        , encryptRaw
        , decryptRaw
@@ -262,3 +267,14 @@ verify k x s = verifyRaw k (toS (Binary.encode x)) (coerce s)
 verifyRaw :: PublicKey -> ByteString -> Signature Raw -> Bool
 verifyRaw (PublicKey k) x (Signature s) =
     RSA.verify (RSA.defaultPSSParams SHA256) k x s
+
+-- | Value and signature for this value.
+data Signed a = Signed
+    { signedValue :: !a
+    , signedSig   :: !(Signature a)
+    } deriving (Eq, Ord, Generic)
+
+instance Binary a => Binary (Signed a)
+
+mkSigned :: (MonadIO m, Binary a) => SecretKey -> a -> m (Signed a)
+mkSigned sk x = Signed x <$> sign sk x

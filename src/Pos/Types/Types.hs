@@ -72,7 +72,7 @@ import qualified Serokell.Util.Base16 as B16
 import           Universum
 
 import           Pos.Crypto           (EncShare, Hash, PublicKey, SecretProof, Share,
-                                       Signature, VssPublicKey, hash)
+                                       Signature, Signed, VssPublicKey, hash)
 import           Pos.Merkle           (MerkleRoot)
 import           Pos.Util             (Raw)
 
@@ -238,14 +238,14 @@ class Payload p where
 
     checkProof :: p -> Proof p -> Bool
 
-type CommitmentsMap = HashMap VssPublicKey Commitment
-type OpeningsMap = HashMap VssPublicKey Opening
+type CommitmentsMap = HashMap PublicKey (Signed Commitment)
+type OpeningsMap = HashMap PublicKey (Signed Opening)
 
--- | For each node which generated a 'RandomSecret', the shares map gives us
--- keys and corresponding shares sent to those keys. Specifically, if node X
--- has generated a secret and sent a share to node Y, here's how to get this
--- share: @sharesMap ! X ! Y@.
-type SharesMap = HashMap VssPublicKey (HashMap VssPublicKey Share)
+-- | For each node which generated a 'FtsSeed', the shares map gives
+-- us keys and corresponding shares sent to those keys. Specifically, if
+-- node identified by PublicKey X has received a share from node
+-- identified by PublicKey Y, here's how to get this share: @sharesMap ! X ! Y@.
+type SharesMap = HashMap PublicKey (Signed (HashMap PublicKey Share))
 
 type AnyBlockHeader proof = Either (GenesisBlockHeader proof) (SignedBlockHeader proof)
 type HeaderHash proof = Hash (AnyBlockHeader proof)
@@ -264,7 +264,7 @@ data BlockHeader proof = BlockHeader
       bhCommitments  :: !CommitmentsMap
     , -- | Openings are added during the second phase of epoch.
       bhOpenings     :: !OpeningsMap
-    , -- | Decrypted shares to be used in the second phase.
+    , -- | Decrypted shares to be used in the third phase.
       bhShares       :: !SharesMap
     , -- | Difficulty of chain ending in this block.
       bhDifficulty   :: !ChainDifficulty

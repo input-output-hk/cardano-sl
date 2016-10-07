@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell    #-}
 {-# LANGUAGE TypeApplications   #-}
 
 {- | Convenient wrappers over public key crypto (RSA at the moment).
@@ -55,6 +56,7 @@ import qualified Data.Binary             as Binary
 import qualified Data.ByteString.Lazy    as BSL
 import           Data.Coerce             (coerce)
 import           Data.Hashable           (Hashable)
+import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Data.SafeCopy           (SafeCopy (..))
 import qualified Data.Text.Buildable     as Buildable
 import           Data.Text.Lazy.Builder  (Builder)
@@ -272,9 +274,11 @@ verifyRaw (PublicKey k) x (Signature s) =
 data Signed a = Signed
     { signedValue :: !a
     , signedSig   :: !(Signature a)
-    } deriving (Eq, Ord, Generic)
+    } deriving (Show, Eq, Ord, Generic)
 
 instance Binary a => Binary (Signed a)
 
 mkSigned :: (MonadIO m, Binary a) => SecretKey -> a -> m (Signed a)
 mkSigned sk x = Signed x <$> sign sk x
+
+deriveSafeCopySimple 0 'base ''Signed

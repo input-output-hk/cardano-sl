@@ -15,7 +15,7 @@ import           Data.List           (foldl1', scanl1)
 import           Universum
 
 import           Pos.Constants       (epochSlots)
-import           Pos.Crypto          (Secret (..), VssPublicKey, deterministic,
+import           Pos.Crypto          (PublicKey, Secret (..), VssPublicKey, deterministic,
                                       randomNumber, recoverSecret, verifyProof)
 import           Pos.Types           (Address, Coin (..), Commitment (..), CommitmentsMap,
                                       FtsSeed (..), OpeningsMap, SharesMap, Utxo,
@@ -23,16 +23,16 @@ import           Pos.Types           (Address, Coin (..), Commitment (..), Commi
 
 data FtsError
     -- | Some nodes in the 'OpeningsMap' aren't in the set of participants
-    = ExtraneousOpenings (HashSet VssPublicKey)
+    = ExtraneousOpenings (HashSet PublicKey)
     -- | Some nodes in the 'SharesMap' aren't in the set of participants
-    | ExtraneousShares (HashSet VssPublicKey)
+    | ExtraneousShares (HashSet PublicKey)
     -- | There were no participants so a random string couldn't be generated
     | NoParticipants
     -- | Commitment didn't match secret (either recovered or in openings)
-    | BrokenCommitment VssPublicKey
+    | BrokenCommitment PublicKey
     -- | Secret couldn't be recovered, or wasn't found in either
     -- 'OpeningsMap' or 'SharesMap'
-    | NoSecretFound VssPublicKey
+    | NoSecretFound PublicKey
 
 getKeys :: HashMap k v -> HashSet k
 getKeys = HS.fromMap . void
@@ -50,50 +50,50 @@ calculateSeed commitments openings shares = do
     let participants = getKeys commitments
 
     -- First let's do some sanity checks.
-    let extraOpenings, extraShares :: HashSet VssPublicKey
+    let extraOpenings, extraShares :: HashSet PublicKey
         extraOpenings = HS.difference (getKeys openings) participants
-        extraShares =
-            let xs = getKeys shares <> mconcat (map getKeys (toList shares))
-            in  HS.difference xs participants
+        extraShares = HS.difference (getKeys shares) participants
     unless (null extraOpenings) $
         Left (ExtraneousOpenings extraOpenings)
     unless (null extraShares) $
         Left (ExtraneousShares extraShares)
 
-    -- Then we can start calculating rho, but first we have to recover some
-    -- secrets (if corresponding openings weren't posted)
+    undefined
 
-    -- Participants for whom we have to recover the secret
-    let mustBeRecovered :: HashSet VssPublicKey
-        mustBeRecovered = HS.difference participants (getKeys openings)
-    -- Secrets recovered from actual share lists (but only those we need –
-    -- i.e. ones which are in mustBeRecovered)
-    let recovered :: HashMap VssPublicKey (Maybe Secret)
-        recovered = fmap (recoverSecret . toList) $
-            HM.filterWithKey (\k _ -> k `HS.member` mustBeRecovered) shares
-    -- All secrets, both recovered and from openings
-    let secrets :: HashMap VssPublicKey Secret
-        secrets = fmap (Secret . getFtsSeed . getOpening) openings <>
-                  HM.mapMaybe identity recovered
+    -- -- Then we can start calculating seed, but first we have to recover some
+    -- -- secrets (if corresponding openings weren't posted)
 
-    -- Now that we have the secrets, we can check whether the commitments
-    -- actually match the secrets, and whether a secret has been recovered
-    -- for each participant.
-    for_ (HM.toList commitments) $ \(key, commitment) -> do
-        secret <- case HM.lookup key secrets of
-            Nothing -> Left (NoSecretFound key)
-            Just sc -> return sc
-        unless (verifyProof (commProof commitment) secret) $
-            Left (BrokenCommitment key)
+    -- -- Participants for whom we have to recover the secret
+    -- let mustBeRecovered :: HashSet PublicKey
+    --     mustBeRecovered = HS.difference participants (getKeys openings)
+    -- -- Secrets recovered from actual share lists (but only those we need –
+    -- -- i.e. ones which are in mustBeRecovered)
+    -- let recovered :: HashMap VssPublicKey (Maybe Secret)
+    --     recovered = fmap (recoverSecret . toList) $
+    --         HM.filterWithKey (\k _ -> k `HS.member` mustBeRecovered) shares
+    -- -- All secrets, both recovered and from openings
+    -- let secrets :: HashMap VssPublicKey Secret
+    --     secrets = fmap (Secret . getFtsSeed . getOpening) openings <>
+    --               HM.mapMaybe identity recovered
 
-    -- Finally we just XOR all secrets together
-    let xorBS a b = BS.pack (BS.zipWith xor a b)  -- fast due to rewrite rules
-    if | null secrets && not (null participants) ->
-             panic "calculateRho: there were some participants \
-                   \but they produced no secrets somehow"
-       | null secrets -> Left NoParticipants
-       | otherwise    -> Right $
-                         FtsSeed $ foldl1' xorBS (map getSecret (toList secrets))
+    -- -- Now that we have the secrets, we can check whether the commitments
+    -- -- actually match the secrets, and whether a secret has been recovered
+    -- -- for each participant.
+    -- for_ (HM.toList commitments) $ \(key, commitment) -> do
+    --     secret <- case HM.lookup key secrets of
+    --         Nothing -> Left (NoSecretFound key)
+    --         Just sc -> return sc
+    --     unless (verifyProof (commProof commitment) secret) $
+    --         Left (BrokenCommitment key)
+
+    -- -- Finally we just XOR all secrets together
+    -- let xorBS a b = BS.pack (BS.zipWith xor a b)  -- fast due to rewrite rules
+    -- if | null secrets && not (null participants) ->
+    --          panic "calculateSeed: there were some participants \
+    --                \but they produced no secrets somehow"
+    --    | null secrets -> Left NoParticipants
+    --    | otherwise    -> Right $
+    --                      FtsSeed $ foldl1' xorBS (map getSecret (toList secrets))
 
 -- | Choose several random stakeholders (specifically, their amount is
 -- currently hardcoded in 'Pos.Constants.epochSlots').

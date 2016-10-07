@@ -4,7 +4,6 @@
 
 module Pos.FollowTheSatoshi
        ( FtsError(..)
-       , genFtsSeed
        , calculateSeed
        , followTheSatoshi
        ) where
@@ -16,7 +15,7 @@ import           Data.List           (foldl1', scanl1)
 import           Universum
 
 import           Pos.Crypto          (PublicKey, Secret (..), deterministic, randomNumber,
-                                      recoverSecret, secureRandomBS, verifyProof)
+                                      recoverSecret, verifyProof)
 import           Pos.Types           (Address, Coin (..), Commitment (..), CommitmentsMap,
                                       FtsSeed (..), OpeningsMap, SharesMap, Utxo,
                                       getOpening)
@@ -33,10 +32,6 @@ data FtsError
     -- | Secret couldn't be recovered, or wasn't found in either
     -- 'OpeningsMap' or 'SharesMap'
     | NoSecretFound PublicKey
-
--- | Generate securely random FtsSeed.
-genFtsSeed :: MonadIO m => m FtsSeed
-genFtsSeed = FtsSeed <$> secureRandomBS 40
 
 getKeys :: HashMap k v -> HashSet k
 getKeys = HS.fromMap . void

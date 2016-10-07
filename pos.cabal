@@ -30,6 +30,7 @@ library
                         Pos.State.Operations
                         Pos.State.Storage
                         Pos.Types.Block
+                        Pos.Types.FtsSeed
                         Pos.Types.Types
                         Pos.WorkMode
                         Pos.Util

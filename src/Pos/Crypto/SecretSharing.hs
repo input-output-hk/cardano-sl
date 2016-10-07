@@ -87,7 +87,7 @@ newtype SecretProof =
 
 shareSecret
     :: [VssPublicKey]  -- ^ Public keys of parties
-    -> Int             -- ^ How many parts should be enough
+    -> Word            -- ^ How many parts should be enough
     -> Secret          -- ^ Secret to share
     -> (SecretProof, [EncShare])  -- ^ i-th share is encrypted using i-th key
 shareSecret keys _ s = (SecretProof s, map mkShare keys)

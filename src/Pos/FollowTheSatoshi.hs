@@ -16,7 +16,7 @@ import qualified Data.Map.Strict     as M
 import           Universum
 
 import           Pos.Constants       (epochSlots)
-import           Pos.Crypto          (PublicKey, Secret (..), VssPublicKey, deterministic,
+import           Pos.Crypto          (PublicKey, Secret (..), Signed (..), deterministic,
                                       randomNumber, recoverSecret, verifyProof)
 import           Pos.Types           (Address, Coin (..), Commitment (..), CommitmentsMap,
                                       FtsSeed (..), OpeningsMap, SharesMap, Utxo,
@@ -59,42 +59,41 @@ calculateSeed commitments openings shares = do
     unless (null extraShares) $
         Left (ExtraneousShares extraShares)
 
-    undefined
+    -- Then we can start calculating seed, but first we have to recover some
+    -- secrets (if corresponding openings weren't posted)
 
-    -- -- Then we can start calculating seed, but first we have to recover some
-    -- -- secrets (if corresponding openings weren't posted)
+    -- Participants for whom we have to recover the secret
+    let mustBeRecovered :: HashSet PublicKey
+        mustBeRecovered = HS.difference participants (getKeys openings)
+    -- Secrets recovered from actual share lists (but only those we need –
+    -- i.e. ones which are in mustBeRecovered)
+    let recovered :: HashMap PublicKey (Maybe Secret)
+        recovered = fmap (recoverSecret . toList . signedValue) $
+            HM.filterWithKey (\k _ -> k `HS.member` mustBeRecovered) shares
+    -- All secrets, both recovered and from openings
+    let openingToSecret = Secret . getFtsSeed . getOpening
+    let secrets :: HashMap PublicKey Secret
+        secrets = fmap (openingToSecret . signedValue) openings <>
+                  HM.mapMaybe identity recovered
 
-    -- -- Participants for whom we have to recover the secret
-    -- let mustBeRecovered :: HashSet PublicKey
-    --     mustBeRecovered = HS.difference participants (getKeys openings)
-    -- -- Secrets recovered from actual share lists (but only those we need –
-    -- -- i.e. ones which are in mustBeRecovered)
-    -- let recovered :: HashMap VssPublicKey (Maybe Secret)
-    --     recovered = fmap (recoverSecret . toList) $
-    --         HM.filterWithKey (\k _ -> k `HS.member` mustBeRecovered) shares
-    -- -- All secrets, both recovered and from openings
-    -- let secrets :: HashMap VssPublicKey Secret
-    --     secrets = fmap (Secret . getFtsSeed . getOpening) openings <>
-    --               HM.mapMaybe identity recovered
+    -- Now that we have the secrets, we can check whether the commitments
+    -- actually match the secrets, and whether a secret has been recovered
+    -- for each participant.
+    for_ (HM.toList commitments) $ \(key, commitment) -> do
+        secret <- case HM.lookup key secrets of
+            Nothing -> Left (NoSecretFound key)
+            Just sc -> return sc
+        unless (verifyProof (commProof (signedValue commitment)) secret) $
+            Left (BrokenCommitment key)
 
-    -- -- Now that we have the secrets, we can check whether the commitments
-    -- -- actually match the secrets, and whether a secret has been recovered
-    -- -- for each participant.
-    -- for_ (HM.toList commitments) $ \(key, commitment) -> do
-    --     secret <- case HM.lookup key secrets of
-    --         Nothing -> Left (NoSecretFound key)
-    --         Just sc -> return sc
-    --     unless (verifyProof (commProof commitment) secret) $
-    --         Left (BrokenCommitment key)
-
-    -- -- Finally we just XOR all secrets together
-    -- let xorBS a b = BS.pack (BS.zipWith xor a b)  -- fast due to rewrite rules
-    -- if | null secrets && not (null participants) ->
-    --          panic "calculateSeed: there were some participants \
-    --                \but they produced no secrets somehow"
-    --    | null secrets -> Left NoParticipants
-    --    | otherwise    -> Right $
-    --                      FtsSeed $ foldl1' xorBS (map getSecret (toList secrets))
+    -- Finally we just XOR all secrets together
+    let xorBS a b = BS.pack (BS.zipWith xor a b)  -- fast due to rewrite rules
+    if | null secrets && not (null participants) ->
+             panic "calculateSeed: there were some participants \
+                   \but they produced no secrets somehow"
+       | null secrets -> Left NoParticipants
+       | otherwise    -> Right $
+                         FtsSeed $ foldl1' xorBS (map getSecret (toList secrets))
 
 -- | Choose several random stakeholders (specifically, their amount is
 -- currently hardcoded in 'Pos.Constants.epochSlots').

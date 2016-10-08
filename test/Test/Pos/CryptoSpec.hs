@@ -6,24 +6,21 @@ module Test.Pos.CryptoSpec
        ( spec
        ) where
 
-import           Data.Binary              (Binary)
-import qualified Data.Binary              as Binary (decode, encode)
-import qualified Data.ByteString          as BS
-import           Data.String              (String)
-import           Formatting               (build, sformat)
-import           System.IO.Unsafe         (unsafePerformIO)
-import           Test.Hspec               (Expectation, Spec, describe, shouldBe, specify)
-import           Test.Hspec.QuickCheck    (modifyMaxSuccess, prop)
-import           Test.QuickCheck          (Arbitrary (..), Gen, Property, Testable,
-                                           elements, forAll, vector, (===), (==>))
-import           Test.QuickCheck.Property (ioProperty)
+import           Data.Binary           (Binary)
+import qualified Data.Binary           as Binary (decode, encode)
+import qualified Data.ByteString       as BS
+import           Data.String           (String)
+import           Formatting            (build, sformat)
+import           System.IO.Unsafe      (unsafePerformIO)
+import           Test.Hspec            (Expectation, Spec, describe, shouldBe, specify)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.QuickCheck       (Arbitrary (..), Gen, Property, Testable, elements,
+                                        forAll, vector, (===), (==>))
 import           Universum
 
-import           Pos.Crypto               (Hash, PublicKey, SecretKey, decrypt,
-                                           decryptRaw, deterministic, encrypt, encryptRaw,
-                                           fullPublicKeyF, hash, keyGen,
-                                           parseFullPublicKey, randomNumber, sign,
-                                           toPublic, verify)
+import           Pos.Crypto            (Hash, PublicKey, SecretKey, deterministic,
+                                        fullPublicKeyF, hash, keyGen, parseFullPublicKey,
+                                        randomNumber, sign, toPublic, verify)
 
 spec :: Spec
 spec = describe "Crypto" $ do
@@ -62,7 +59,7 @@ spec = describe "Crypto" $ do
                     "cd2662154e6d76b2b2b92e70c0cac3cc\
                     \f534f9b74eb5b89819ec509083d00a50"
 
-    describe "PKI" $ do
+    describe "Signing" $ do
         describe "Binary instances" $ do
             prop
                 "SecretKey"
@@ -77,16 +74,6 @@ spec = describe "Crypto" $ do
             prop
                 "formatted key can be parsed back"
                 keyParsing
-        describe "encryption" $ do
-            prop
-                "encrypted data can be decrypted successfully"
-                (encryptThenDecrypt @[Int])
-            prop1
-                "long data (100kB) can be encrypted"
-                (forAll (randomBS 100000) (flip encryptThenDecrypt))
-            prop1
-                "zero-length data can be encrypted"
-                (forAll (return mempty) (flip encryptThenDecryptRaw))
         describe "signing" $ do
             prop
                 "signed data can be verified successfully"
@@ -97,10 +84,6 @@ spec = describe "Crypto" $ do
             prop
                 "modified data can't be verified"
                 (signThenVerifyDifferentData @[Int])
-
--- Test a property only once.
-prop1 :: Testable a => String -> a -> Spec
-prop1 s t = modifyMaxSuccess (const 1) $ prop s t
 
 randomBS :: Int -> Gen ByteString
 randomBS n = BS.pack <$> vector n
@@ -118,43 +101,24 @@ keyDerivation :: KeyPair -> Property
 keyDerivation kp = getPub kp === toPublic (getSec kp)
 
 keyParsing :: PublicKey -> Property
-keyParsing pk = ioProperty $ do
-    return (parseFullPublicKey (sformat fullPublicKeyF pk) === Just pk)
-
-encryptThenDecrypt
-    :: (Eq a, Show a, Binary a)
-    => SecretKey -> a -> Property
-encryptThenDecrypt sk a = ioProperty $ do
-    enc <- encrypt (toPublic sk) a
-    dec <- decrypt sk enc
-    return (dec === Right a)
-
-encryptThenDecryptRaw
-    :: SecretKey -> ByteString -> Property
-encryptThenDecryptRaw sk a = ioProperty $ do
-    enc <- encryptRaw (toPublic sk) a
-    dec <- decryptRaw sk enc
-    return (dec === Right a)
+keyParsing pk = parseFullPublicKey (sformat fullPublicKeyF pk) === Just pk
 
 signThenVerify
     :: Binary a
-    => SecretKey -> a -> Property
-signThenVerify sk a = ioProperty $
-    verify (toPublic sk) a <$> sign sk a
+    => SecretKey -> a -> Bool
+signThenVerify sk a = verify (toPublic sk) a $ sign sk a
 
 signThenVerifyDifferentKey
     :: Binary a
     => SecretKey -> PublicKey -> a -> Property
 signThenVerifyDifferentKey sk1 pk2 a =
-    (toPublic sk1 /= pk2) ==> ioProperty (
-        not . verify pk2 a <$> sign sk1 a)
+    (toPublic sk1 /= pk2) ==> not (verify pk2 a $ sign sk1 a)
 
 signThenVerifyDifferentData
     :: (Eq a, Binary a)
     => SecretKey -> a -> a -> Property
 signThenVerifyDifferentData sk a b =
-    (a /= b) ==> ioProperty (
-        not . verify (toPublic sk) b <$> sign sk a)
+    (a /= b) ==> not (verify (toPublic sk) b $ sign sk a)
 
 ----------------------------------------------------------------------------
 -- Arbitrary keys

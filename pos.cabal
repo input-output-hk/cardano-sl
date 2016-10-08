@@ -21,9 +21,9 @@ library
   other-modules:        Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Crypto.Hashing
-                        Pos.Crypto.Pki
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
+                        Pos.Crypto.Signing
                         Pos.FollowTheSatoshi
                         Pos.Merkle
                         Pos.Slotting
@@ -46,15 +46,10 @@ library
                       , bytestring
                       , cereal
                       , containers
+                      , ed25519
                       , memory
                       , safecopy
                       , unordered-containers
-                      -- When you bump this constraint, first make sure that
-                      -- representations of PrivateKey and PublicKey in
-                      -- Crypto.PubKey.RSA haven't changed (even field order
-                      -- is important) – we use automatically derived Binary
-                      -- instances for them so if they change, our data won't
-                      -- load anymore.
                       , cryptonite >= 0.19 && < 0.21
                       , data-default
                       , exceptions

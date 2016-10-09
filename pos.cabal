@@ -18,6 +18,7 @@ library
                         Pos.Constants
                         Pos.FollowTheSatoshi
                         Pos.Launcher
+                        Pos.Slotting
                         Pos.Types
   other-modules:        Pos.Communication.Methods
                         Pos.Communication.Types
@@ -26,7 +27,6 @@ library
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
                         Pos.Merkle
-                        Pos.Slotting
                         Pos.State.Acidic
                         Pos.State.Storage
                         Pos.Types.Arbitrary
@@ -99,8 +99,9 @@ executable pos-node
 test-suite pos-test
   main-is:             Test.hs
   other-modules:       Spec
-                     , Test.Pos.FollowTheSatoshiSpec
                      , Test.Pos.CryptoSpec
+                     , Test.Pos.FollowTheSatoshiSpec
+                     , Test.Pos.SlottingSpec
                      , Test.Pos.Types.BlockSpec
                      , Test.Pos.Types.UtxoSpec
                      , Test.Pos.Util

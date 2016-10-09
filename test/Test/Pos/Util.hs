@@ -6,12 +6,13 @@ module Test.Pos.Util
        ) where
 
 import           System.IO.Unsafe (unsafePerformIO)
-import           Test.QuickCheck  (Arbitrary (..), Gen, elements, shuffle)
+import           Test.QuickCheck  (Arbitrary (..), Gen, choose, elements, shuffle)
 import           Universum
 
+import           Pos.Constants    (epochSlots)
 import           Pos.Crypto       (PublicKey, SecretKey, VssPublicKey, VssSecretKey,
                                    keyGen, vssKeyGen)
-import           Pos.Types        (FtsSeed, genFtsSeed)
+import           Pos.Types        (FtsSeed, SlotId (SlotId), genFtsSeed)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -111,3 +112,14 @@ instance Nonrepeating VssPublicKey where
     nonrepeating n = map getVssPub <$> nonrepeating n
 instance Nonrepeating VssSecretKey where
     nonrepeating n = map getVssSec <$> nonrepeating n
+
+----------------------------------------------------------------------------
+-- Arbitrary core types
+----------------------------------------------------------------------------
+
+maxReasonableEpoch :: Integral a => a
+maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not
+
+instance Arbitrary SlotId where
+    arbitrary =
+        SlotId <$> choose (0, maxReasonableEpoch) <*> choose (0, epochSlots - 1)

@@ -10,7 +10,7 @@ module Test.Pos.SlottingSpec
 import           Control.TimeWarp.Timed  (MonadTimed (currentTime), TimedT, for,
                                           runTimedT, wait)
 import           Data.Time.Units         (fromMicroseconds, toMicroseconds)
-import           Test.Hspec              (Spec, describe)
+import           Test.Hspec              (Spec, describe, it, shouldBe)
 import           Test.Hspec.QuickCheck   (prop)
 import           Test.QuickCheck         (Property, choose, ioProperty, (===))
 import           Test.QuickCheck.Monadic (PropertyM, assert, monadic, pick, run)
@@ -26,6 +26,21 @@ import           Test.Pos.Util           ()
 spec :: Spec
 spec = describe "Slotting" $ do
     describe "getCurrentSlot" $ do
+        it "returns `SlotId 0 0` at the very beginning" $ do
+            runTimedT getCurrentSlot >>= (`shouldBe` SlotId 0 0)
+
+        it "returns `SlotId 1 0` after epochDuration" $ do
+            slId <- runTimedT (wait (for epochDuration) *> getCurrentSlot)
+            slId `shouldBe` SlotId 1 0
+
+        it "returns `SlotId 1 0` after epochDuration \
+           \and then `SlotId 1 1` after slotDuration" $ do
+            slIds <- runTimedT (
+                (,) <$>
+                (wait (for epochDuration) *> getCurrentSlot) <*>
+                (wait (for slotDuration) *> getCurrentSlot))
+            slIds `shouldBe` (SlotId 1 0, SlotId 1 1)
+
         prop (mconcat ["for any (a, b) if one waits for "
                       , "`a * epochDuration + b * slotDuration + k`, "
                       , "where k is less than slotDuration, "

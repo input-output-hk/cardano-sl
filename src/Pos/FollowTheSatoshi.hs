@@ -53,7 +53,10 @@ calculateSeed commitments openings shares = do
     -- First let's do some sanity checks.
     let extraOpenings, extraShares :: HashSet PublicKey
         extraOpenings = HS.difference (getKeys openings) participants
-        extraShares = HS.difference (getKeys shares) participants
+        extraShares =
+            let xs = getKeys shares <>
+                     mconcat (map (getKeys . signedValue) (toList shares))
+            in  HS.difference xs participants
     unless (null extraOpenings) $
         Left (ExtraneousOpenings extraOpenings)
     unless (null extraShares) $

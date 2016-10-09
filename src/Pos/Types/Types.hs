@@ -13,8 +13,8 @@ module Pos.Types.Types
          NodeId (..)
        , nodeF
 
-       , EpochIndex
-       , LocalSlotIndex
+       , EpochIndex (..)
+       , LocalSlotIndex (..)
        , SlotId (..)
        , FlatSlotId
 
@@ -61,6 +61,7 @@ module Pos.Types.Types
 
 import           Data.Binary          (Binary)
 import           Data.Binary.Orphans  ()
+import           Data.Hashable        (Hashable)
 import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeCopySimple,
                                        safeGet, safePut)
 import qualified Data.Text            as T (unwords)
@@ -95,10 +96,14 @@ nodeF = build
 ----------------------------------------------------------------------------
 
 -- | Index of epoch.
-type EpochIndex = Word64
+newtype EpochIndex = EpochIndex
+    { getEpochIndex :: Word64
+    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Binary, Hashable, Buildable)
 
 -- | Index of slot inside a concrete epoch.
-type LocalSlotIndex = Word16
+newtype LocalSlotIndex = LocalSlotIndex
+    { getSlotIndex :: Word16
+    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Binary, Hashable, Buildable)
 
 -- | Slot is identified by index of epoch and local index of slot in
 -- this epoch. This is a global index
@@ -380,6 +385,8 @@ displayEntry (ELeaders epoch leaders) =
 -- sort types topologically
 
 deriveSafeCopySimple 0 'base ''NodeId
+deriveSafeCopySimple 0 'base ''EpochIndex
+deriveSafeCopySimple 0 'base ''LocalSlotIndex
 deriveSafeCopySimple 0 'base ''SlotId
 deriveSafeCopySimple 0 'base ''Coin
 deriveSafeCopySimple 0 'base ''Address

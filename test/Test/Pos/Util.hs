@@ -1,3 +1,5 @@
+{-# LANGUAGE StandaloneDeriving #-}
+
 module Test.Pos.Util
        ( Nonrepeating(..)
 
@@ -6,13 +8,16 @@ module Test.Pos.Util
        ) where
 
 import           System.IO.Unsafe (unsafePerformIO)
+import           System.Random    (Random)
 import           Test.QuickCheck  (Arbitrary (..), Gen, choose, elements, shuffle)
 import           Universum
 
 import           Pos.Constants    (epochSlots)
 import           Pos.Crypto       (PublicKey, SecretKey, VssPublicKey, VssSecretKey,
                                    keyGen, vssKeyGen)
-import           Pos.Types        (FtsSeed, SlotId (SlotId), genFtsSeed)
+import           Pos.Types        (EpochIndex (EpochIndex), FtsSeed,
+                                   LocalSlotIndex (LocalSlotIndex), SlotId (SlotId),
+                                   genFtsSeed)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -120,6 +125,15 @@ instance Nonrepeating VssSecretKey where
 maxReasonableEpoch :: Integral a => a
 maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not
 
+deriving instance Random EpochIndex
+
+instance Arbitrary EpochIndex where
+    arbitrary = choose (0, maxReasonableEpoch)
+
+deriving instance Random LocalSlotIndex
+
+instance Arbitrary LocalSlotIndex where
+    arbitrary = choose (0, epochSlots - 1)
+
 instance Arbitrary SlotId where
-    arbitrary =
-        SlotId <$> choose (0, maxReasonableEpoch) <*> choose (0, epochSlots - 1)
+    arbitrary = SlotId <$> arbitrary <*> arbitrary

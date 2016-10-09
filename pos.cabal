@@ -113,6 +113,9 @@ test-suite pos-test
                      , formatting
                      , hspec
                      , pos
+                     , random
+                     , time-units
+                     , time-warp
                      , universum
                      , unordered-containers
   hs-source-dirs:      test

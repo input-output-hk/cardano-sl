@@ -40,13 +40,12 @@ getCurrentSlot =
 
 -- | Flatten SlotId (which is basically pair of integers) into a single number.
 flattenSlotId :: SlotId -> FlatSlotId
-flattenSlotId SlotId {..} = siEpoch * epochSlots + fromIntegral siSlot
+flattenSlotId SlotId {..} = fromIntegral siEpoch * epochSlots + fromIntegral siSlot
 
 -- | Construct SlotId from a flattened variant.
 -- TODO: what is antonym of word `flatten`?
 unflattenSlotId :: FlatSlotId -> SlotId
 unflattenSlotId n =
-    let (siEpoch, fromIntegral -> siSlot) = n `divMod` epochSlots
-    in SlotId
-       { ..
-       }
+    let (fromIntegral -> siEpoch, fromIntegral -> siSlot) =
+            n `divMod` epochSlots
+    in SlotId {..}

@@ -9,18 +9,17 @@ module Test.Pos.CryptoSpec
 import           Data.Binary           (Binary)
 import qualified Data.Binary           as Binary (decode, encode)
 import qualified Data.ByteString       as BS
-import           Data.String           (String)
 import           Formatting            (build, sformat)
-import           System.IO.Unsafe      (unsafePerformIO)
 import           Test.Hspec            (Expectation, Spec, describe, shouldBe, specify)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck       (Arbitrary (..), Gen, Property, Testable, elements,
-                                        forAll, vector, (===), (==>))
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
 import           Pos.Crypto            (Hash, PublicKey, SecretKey, deterministic,
-                                        fullPublicKeyF, hash, keyGen, parseFullPublicKey,
+                                        fullPublicKeyF, hash, parseFullPublicKey,
                                         randomNumber, sign, toPublic, verify)
+
+import           Test.Pos.Util
 
 spec :: Spec
 spec = describe "Crypto" $ do
@@ -85,9 +84,6 @@ spec = describe "Crypto" $ do
                 "modified data can't be verified"
                 (signThenVerifyDifferentData @[Int])
 
-randomBS :: Int -> Gen ByteString
-randomBS n = BS.pack <$> vector n
-
 binaryEncodeDecode :: (Show a, Eq a, Binary a) => a -> Property
 binaryEncodeDecode a = Binary.decode (Binary.encode a) === a
 
@@ -119,28 +115,3 @@ signThenVerifyDifferentData
     => SecretKey -> a -> a -> Property
 signThenVerifyDifferentData sk a b =
     (a /= b) ==> not (verify (toPublic sk) b $ sign sk a)
-
-----------------------------------------------------------------------------
--- Arbitrary keys
-----------------------------------------------------------------------------
-
-data KeyPair = KeyPair {getPub :: PublicKey, getSec :: SecretKey}
-    deriving (Eq, Ord, Show)
-
--- | We can't make an 'Arbitrary' instance for keys, because generating a key
--- safely requires randomness which must come from IO. So, we just generate
--- lots of keys with 'unsafePerformIO' and use them for everything.
-keys :: [KeyPair]
-keys = unsafePerformIO $ do
-    putText "[generating keys for tests...]"
-    replicateM 50 (uncurry KeyPair <$> keyGen)
-{-# NOINLINE keys #-}
-
-instance Arbitrary KeyPair where
-    arbitrary = elements keys
-
-instance Arbitrary PublicKey where
-    arbitrary = getPub <$> arbitrary
-
-instance Arbitrary SecretKey where
-    arbitrary = getSec <$> arbitrary

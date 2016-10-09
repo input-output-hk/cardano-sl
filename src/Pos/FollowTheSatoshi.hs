@@ -34,6 +34,7 @@ data FtsError
     -- | Secret couldn't be recovered, or wasn't found in either
     -- 'OpeningsMap' or 'SharesMap'
     | NoSecretFound PublicKey
+    deriving (Eq, Show)
 
 getKeys :: HashMap k v -> HashSet k
 getKeys = HS.fromMap . void
@@ -115,7 +116,7 @@ followTheSatoshi :: FtsSeed -> Utxo -> [Address]
 followTheSatoshi (FtsSeed seed) utxo
     | null outputs = panic "followTheSatoshi: utxo is empty"
     | otherwise    = map fst $ sortOn snd $
-                    findLeaders (sortOn fst $ zip coinIndices [1..]) sums
+                     findLeaders (sortOn fst $ zip coinIndices [1..]) sums
   where
     outputs :: [(Address, Coin)]
     outputs = [(addr, coin) | ((_, _, coin), addr) <- M.toList utxo]

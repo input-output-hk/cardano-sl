@@ -12,12 +12,6 @@ import           Test.QuickCheck.Instances ()
 import           Universum
 
 import           Pos.Types.FtsSeed         (ftsSeedLength)
-import           Pos.Types.Types           (Coin (Coin), FtsSeed (FtsSeed),
-                                            Opening (Opening))
+import           Pos.Types.Types           (Coin (Coin))
 
 deriving instance Arbitrary Coin
-
-instance Arbitrary FtsSeed where
-    arbitrary = FtsSeed . BS.pack <$> vector ftsSeedLength
-
-deriving instance Arbitrary Opening

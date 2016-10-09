@@ -16,6 +16,7 @@ library
   exposed-modules:      Pos.Crypto
                         Pos.Communication
                         Pos.Constants
+                        Pos.FollowTheSatoshi
                         Pos.Launcher
                         Pos.Types
   other-modules:        Pos.Communication.Methods
@@ -24,7 +25,6 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
-                        Pos.FollowTheSatoshi
                         Pos.Merkle
                         Pos.Slotting
                         Pos.State.Acidic
@@ -99,9 +99,11 @@ executable pos-node
 test-suite pos-test
   main-is:             Test.hs
   other-modules:       Spec
+                     , Test.Pos.FollowTheSatoshiSpec
                      , Test.Pos.CryptoSpec
                      , Test.Pos.Types.BlockSpec
                      , Test.Pos.Types.UtxoSpec
+                     , Test.Pos.Util
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
                      , base
@@ -111,6 +113,7 @@ test-suite pos-test
                      , hspec
                      , pos
                      , universum
+                     , unordered-containers
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded

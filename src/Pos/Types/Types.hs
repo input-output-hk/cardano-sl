@@ -67,11 +67,17 @@ module Pos.Types.Types
        , Block
 
        -- * Lenses
-       , blockDifficulty
+       , HasDifficulty (..)
+
        , blockLeaderKey
        , blockSignature
        , blockSlot
-       , headerDifficulty
+       , gbBody
+       , gbExtra
+       , gcbDifficulty
+       , gcbEpoch
+       , gbhExtra
+       , gbhPrevBlock
        , headerSlot
        , headerLeaderKey
        , headerSignature
@@ -94,7 +100,7 @@ module Pos.Types.Types
        , displayEntry
        ) where
 
-import           Control.Lens         (Lens', makeLenses, (^.))
+import           Control.Lens         (Lens', makeLenses, view, (^.))
 import           Data.Binary          (Binary)
 import           Data.Binary.Orphans  ()
 import           Data.Hashable        (Hashable)
@@ -364,7 +370,7 @@ type MainBlockHeader = GenericBlockHeader MainBlockchain
 -- chain. In the simplest case it can be number of blocks in chain.
 newtype ChainDifficulty = ChainDifficulty
     { getChainDifficulty :: Word64
-    } deriving (Show, Eq, Ord, Num, Binary)
+    } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Binary)
 
 type MainToSign = (HeaderHash, BodyProof MainBlockchain, SlotId, ChainDifficulty)
 
@@ -435,7 +441,9 @@ instance Blockchain GenesisBlockchain where
         deriving (Eq, Generic)
     data ConsensusData GenesisBlockchain = GenesisConsensusData
         { -- | Index of the slot for which this genesis block is relevant.
-        gcdEpoch :: !EpochIndex
+          _gcdEpoch :: !EpochIndex
+        , -- | Difficulty of the chain ending in this genesis block.
+          _gcdDifficulty :: !ChainDifficulty
         } deriving (Generic)
     type BBlockHeader GenesisBlockchain = BlockHeader
 
@@ -470,6 +478,7 @@ type Block = Either GenesisBlock MainBlock
 makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock
 -- makeLenses ''(ConsensusData MainBlockchain)
+-- makeLenses ''(ConsensusData GenesisBlockchain)
 
 mcdSlot :: Lens' (ConsensusData MainBlockchain) SlotId
 mcdSlot = notImplemented
@@ -483,8 +492,11 @@ mcdDifficulty = notImplemented
 mcdSignature :: Lens' (ConsensusData MainBlockchain) (Signature MainToSign)
 mcdSignature = notImplemented
 
-headerDifficulty :: Lens' MainBlockHeader ChainDifficulty
-headerDifficulty = gbhConsensus . mcdDifficulty
+gcbEpoch :: Lens' (ConsensusData GenesisBlockchain) EpochIndex
+gcbEpoch = notImplemented
+
+gcbDifficulty :: Lens' (ConsensusData GenesisBlockchain) ChainDifficulty
+gcbDifficulty = notImplemented
 
 headerSlot :: Lens' MainBlockHeader SlotId
 headerSlot = gbhConsensus . mcdSlot
@@ -495,8 +507,34 @@ headerLeaderKey = gbhConsensus . mcdLeaderKey
 headerSignature :: Lens' MainBlockHeader (Signature MainToSign)
 headerSignature = gbhConsensus . mcdSignature
 
-blockDifficulty :: Lens' MainBlock ChainDifficulty
-blockDifficulty = gbHeader . headerDifficulty
+class HasDifficulty a where
+    difficultyL :: Lens' a ChainDifficulty
+
+instance HasDifficulty (ConsensusData MainBlockchain) where
+    difficultyL = mcdDifficulty
+
+instance HasDifficulty (ConsensusData GenesisBlockchain) where
+    difficultyL = gcbDifficulty
+
+instance HasDifficulty MainBlockHeader where
+    difficultyL = gbhConsensus . difficultyL
+
+instance HasDifficulty GenesisBlockHeader where
+    difficultyL = gbhConsensus . difficultyL
+
+instance HasDifficulty BlockHeader where
+    difficultyL f (Left h)  = Left <$> difficultyL f h
+    difficultyL f (Right h) = Right <$> difficultyL f h
+
+instance HasDifficulty MainBlock where
+    difficultyL = gbHeader . difficultyL
+
+instance HasDifficulty GenesisBlock where
+    difficultyL = gbHeader . difficultyL
+
+instance HasDifficulty Block where
+    difficultyL f (Left b)  = Left <$> difficultyL f b
+    difficultyL f (Right b) = Right <$> difficultyL f b
 
 blockSlot :: Lens' MainBlock SlotId
 blockSlot = gbHeader . headerSlot
@@ -617,13 +655,21 @@ verifyGenericHeader prevHeader GenericBlockHeader {..} =
 -- header itself and previous header.
 verifyHeader :: Maybe BlockHeader -> BlockHeader -> VerificationRes
 verifyHeader prevHeader h =
-    mconcat [verifyConsensusLocal h, verifyCommon]
+    mconcat [verifyConsensusLocal h, verifyCommon, verifyDifficulty]
   where
     verifyCommon =
         either
             (verifyGenericHeader prevHeader)
             (verifyGenericHeader prevHeader)
             h
+    expectedDifficulty = succ $ maybe 0 (view difficultyL) prevHeader
+    actualDifficulty = h ^. difficultyL
+    verifyDifficulty =
+        verifyGeneric
+            [ ( expectedDifficulty == actualDifficulty
+              , sformat ("incorrect difficulty (expected "%int%", found "%int%")")
+                expectedDifficulty actualDifficulty)
+            ]
 
 ----------------------------------------------------------------------------
 -- Block. Leftover.

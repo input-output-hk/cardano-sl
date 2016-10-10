@@ -13,7 +13,10 @@ import qualified Data.HashMap.Strict as HM (fromList, lookup, mapMaybe, toList)
 import qualified Data.HashSet        as HS (difference, fromMap)
 import           Data.List           (foldl1', scanl1)
 import qualified Data.Map.Strict     as M
+import           Data.Text.Buildable (Buildable (..))
 import           Universum
+
+import           Serokell.Util       (listBuilderJSON)
 
 import           Pos.Constants       (epochSlots)
 import           Pos.Crypto          (PublicKey, Secret (..), Signed (..), deterministic,
@@ -35,6 +38,18 @@ data FtsError
     -- 'OpeningsMap' or 'SharesMap'
     | NoSecretFound PublicKey
     deriving (Eq, Show)
+
+instance Buildable FtsError where
+    build (ExtraneousOpenings ks) =
+        "ExtraneousOpenings " <> listBuilderJSON ks
+    build (ExtraneousShares ks) =
+        "ExtraneousShares " <> listBuilderJSON ks
+    build NoParticipants =
+        "NoParticipants"
+    build (BrokenCommitment k) =
+        "BrokenCommitment " <> build k
+    build (NoSecretFound k) =
+        "NoSecretFound " <> build k
 
 getKeys :: HashMap k v -> HashSet k
 getKeys = HS.fromMap . void

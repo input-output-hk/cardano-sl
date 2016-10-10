@@ -46,25 +46,26 @@ library
                       , bytestring
                       , cereal
                       , containers
-                      , ed25519
-                      , memory
-                      , safecopy
-                      , unordered-containers
                       , cryptonite >= 0.19 && < 0.21
                       , data-default
+                      , ed25519
                       , exceptions
-                      , hashable
                       , formatting
+                      , hashable
                       , lens
+                      , memory
                       , mtl
                       , quickcheck-instances
                       , random
+                      , safecopy
                       , serokell-core
+                      , template-haskell
                       , text
                       , text-format
                       , time
                       , time-warp
                       , universum
+                      , unordered-containers
                       , vector
   hs-source-dirs:       src
   default-language:     Haskell2010

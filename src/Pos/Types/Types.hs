@@ -76,10 +76,11 @@ module Pos.Types.Types
        , blockSlot
        , gbBody
        , gbExtra
-       , gcbDifficulty
-       , gcbEpoch
+       , gcdDifficulty
+       , gcdEpoch
        , gbhExtra
        , gbhPrevBlock
+       , gbhBodyProof
        , headerSlot
        , headerLeaderKey
        , headerSignature
@@ -122,7 +123,7 @@ import           Pos.Crypto           (EncShare, Hash, PublicKey, SecretKey, Sec
                                        Share, Signature, Signed, VssPublicKey, hash, sign,
                                        toPublic, unsafeHash, verify)
 import           Pos.Merkle           (MerkleRoot)
-import           Pos.Util             (Raw)
+import           Pos.Util             (Raw, makeLensesData)
 
 ----------------------------------------------------------------------------
 -- Node. TODO: do we need it?
@@ -506,26 +507,8 @@ type Block = Either GenesisBlock MainBlock
 
 makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock
--- makeLenses ''(ConsensusData MainBlockchain)
--- makeLenses ''(ConsensusData GenesisBlockchain)
-
-mcdSlot :: Lens' (ConsensusData MainBlockchain) SlotId
-mcdSlot = notImplemented
-
-mcdLeaderKey :: Lens' (ConsensusData MainBlockchain) PublicKey
-mcdLeaderKey = notImplemented
-
-mcdDifficulty :: Lens' (ConsensusData MainBlockchain) ChainDifficulty
-mcdDifficulty = notImplemented
-
-mcdSignature :: Lens' (ConsensusData MainBlockchain) (Signature MainToSign)
-mcdSignature = notImplemented
-
-gcbEpoch :: Lens' (ConsensusData GenesisBlockchain) EpochIndex
-gcbEpoch = notImplemented
-
-gcbDifficulty :: Lens' (ConsensusData GenesisBlockchain) ChainDifficulty
-gcbDifficulty = notImplemented
+makeLensesData ''ConsensusData ''MainBlockchain
+makeLensesData ''ConsensusData ''GenesisBlockchain
 
 headerSlot :: Lens' MainBlockHeader SlotId
 headerSlot = gbhConsensus . mcdSlot
@@ -543,7 +526,7 @@ instance HasDifficulty (ConsensusData MainBlockchain) where
     difficultyL = mcdDifficulty
 
 instance HasDifficulty (ConsensusData GenesisBlockchain) where
-    difficultyL = gcbDifficulty
+    difficultyL = gcdDifficulty
 
 instance HasDifficulty MainBlockHeader where
     difficultyL = gbhConsensus . difficultyL

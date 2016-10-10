@@ -42,6 +42,10 @@ getCopyBinary typeName = contain $ do
         Left err -> fail ("getCopy@" ++ typeName ++ ": " ++ err)
         Right x  -> return x
 
+----------------------------------------------------------------------------
+-- Orphan instances
+----------------------------------------------------------------------------
+
 instance (Eq a, Hashable a, SafeCopy a, SafeCopy b) =>
          SafeCopy (HashMap a b) where
     getCopy = contain $ fmap HM.fromList safeGet

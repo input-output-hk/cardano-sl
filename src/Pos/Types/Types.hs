@@ -272,10 +272,12 @@ newtype Opening = Opening
 type CommitmentsMap = HashMap PublicKey (Signed Commitment)
 type OpeningsMap = HashMap PublicKey (Signed Opening)
 
--- | For each node which generated a 'FtsSeed', the shares map gives
--- us keys and corresponding shares sent to those keys. Specifically, if
--- node identified by PublicKey X has received a share from node
--- identified by PublicKey Y, here's how to get this share: @sharesMap ! X ! Y@.
+-- | Each node generates a 'FtsSeed', breaks it into 'Share's, and sends
+-- those encrypted shares to other nodes. In a 'SharesMap', for each node we
+-- collect shares which said node has received and decrypted.
+--
+-- Specifically, if node identified by 'PublicKey' X has received a share
+-- from node identified by key Y, this share will be at @sharesMap ! X ! Y@.
 type SharesMap = HashMap PublicKey (Signed (HashMap PublicKey Share))
 
 ----------------------------------------------------------------------------

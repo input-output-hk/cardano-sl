@@ -376,10 +376,14 @@ type MainToSign = (HeaderHash, BodyProof MainBlockchain, SlotId, ChainDifficulty
 
 instance Blockchain MainBlockchain where
     -- | Proof of transactions list.
-    -- TODO: add proof of other stuff.
+    -- We can use ADS for commitments, opennings, shares as well,
+    -- if we find it necessary.
     data BodyProof MainBlockchain = MainProof
         { mpNumber :: !Word32
         , mpRoot   :: !(MerkleRoot Tx)
+        , mpCommitmentsHash :: !(Hash CommitmentsMap)
+        , mpOpeningsHash :: !(Hash OpeningsMap)
+        , mpSharesHash :: !(Hash SharesMap)
         } deriving (Show, Eq, Generic)
     data ConsensusData MainBlockchain = MainConsensusData
         { -- | Id of the slot for which this block was generated.
@@ -410,7 +414,13 @@ instance Blockchain MainBlockchain where
     type BBlock MainBlockchain = Block
 
     mkBodyProof MainBody {..} =
-        MainProof { mpNumber = genericLength mbTxs, mpRoot = undefined }
+        MainProof
+        { mpNumber = genericLength mbTxs
+        , mpRoot = undefined
+        , mpCommitmentsHash = hash mbCommitments
+        , mpOpeningsHash = hash mbOpenings
+        , mpSharesHash = hash mbShares
+        }
 
 instance Binary (BodyProof MainBlockchain)
 instance Binary (ConsensusData MainBlockchain)

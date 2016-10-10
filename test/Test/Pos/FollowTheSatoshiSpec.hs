@@ -1,5 +1,4 @@
 {-# LANGUAGE MultiWayIf          #-}
-{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Specification of Pos.FollowTheSatoshi
@@ -104,7 +103,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = property $ do
     let openings = HM.fromList $ do
             (KeyPair pk sk, seed) <- zip keys seeds
             guard (KeyPair pk sk `elem` haveSentOpening)
-            return (pk, mkSigned sk (Opening seed))
+            return (pk, Opening seed)
     -- @generatedShares ! X@ = shares that X generated and sent to others
     let generatedShares :: HashMap PublicKey (HashMap PublicKey Share)
         generatedShares = HM.fromList $ do
@@ -117,13 +116,13 @@ recoverSecretsProp n n_openings n_shares n_overlap = property $ do
             return (pk, HM.fromList (zip (map getPub keys) decryptedShares))
     -- @shares ! X@ = shares that X received from others
     let shares = HM.fromList $ do
-            KeyPair pk sk <- keys
+            KeyPair pk _ <- keys
             let receivedShares = HM.fromList $ do
                     (sender, senderShares) <- HM.toList generatedShares
                     case HM.lookup pk senderShares of
                         Nothing -> []
                         Just s  -> return (sender, s)
-            return (pk, mkSigned sk receivedShares)
+            return (pk, receivedShares)
 
     let shouldSucceed = n_openings + n_shares - n_overlap >= n
     let result = calculateSeed commitments openings shares

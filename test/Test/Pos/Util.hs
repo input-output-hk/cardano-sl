@@ -2,6 +2,7 @@
 
 module Test.Pos.Util
        ( Nonrepeating(..)
+       , sublistN
 
        , KeyPair(..)
        , VssKeyPair(..)
@@ -30,6 +31,13 @@ production and in tests?). So, we just generate lots of keys and seeds with
 'unsafePerformIO' and use them for everything.
 -}
 
+-- | Choose a random (shuffled) subset of length n. Throws an error if
+-- there's not enough elements.
+sublistN :: Int -> [a] -> Gen [a]
+sublistN n xs
+    | length xs < n = panic "sublistN: not enough elements"
+    | otherwise     = take n <$> shuffle xs
+
 class Nonrepeating a where
     nonrepeating :: Int -> Gen [a]
 
@@ -47,9 +55,7 @@ instance Arbitrary FtsSeed where
     arbitrary = elements ftsSeeds
 
 instance Nonrepeating FtsSeed where
-    nonrepeating n
-        | n > length keys = panic "nonrepeating: not enough seeds"
-        | otherwise = take n <$> shuffle ftsSeeds
+    nonrepeating n = sublistN n ftsSeeds
 
 ----------------------------------------------------------------------------
 -- Arbitrary signing keys
@@ -75,9 +81,7 @@ instance Arbitrary SecretKey where
     arbitrary = getSec <$> arbitrary
 
 instance Nonrepeating KeyPair where
-    nonrepeating n
-        | n > length keys = panic "nonrepeating: not enough keys"
-        | otherwise = take n <$> shuffle keys
+    nonrepeating n = sublistN n keys
 
 instance Nonrepeating PublicKey where
     nonrepeating n = map getPub <$> nonrepeating n
@@ -109,9 +113,7 @@ instance Arbitrary VssSecretKey where
     arbitrary = getVssSec <$> arbitrary
 
 instance Nonrepeating VssKeyPair where
-    nonrepeating n
-        | n > length vssKeys = panic "nonrepeating: not enough keys"
-        | otherwise = take n <$> shuffle vssKeys
+    nonrepeating n = sublistN n vssKeys
 
 instance Nonrepeating VssPublicKey where
     nonrepeating n = map getVssPub <$> nonrepeating n

@@ -196,7 +196,7 @@ addressF = build
 
 type TxId = Hash Tx
 
-type TxSig = Signature [TxOut]
+type TxSig = Signature (TxId, Word32, [TxOut])
 
 -- | Transaction input.
 data TxIn = TxIn

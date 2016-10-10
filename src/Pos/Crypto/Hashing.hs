@@ -1,3 +1,6 @@
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 -- | Hashing capabilities.
 
 module Pos.Crypto.Hashing
@@ -6,6 +9,8 @@ module Pos.Crypto.Hashing
        , hash
        , hashRaw
        , unsafeHash
+
+       , CastHash (castHash)
        ) where
 
 import           Crypto.Hash         (Digest, SHA256, digestFromByteString)
@@ -58,3 +63,12 @@ unsafeHash = Hash . Hash.hashlazy . Binary.encode
 
 hashHexF :: Format r (Hash a -> r)
 hashHexF = later $ \(Hash x) -> Buildable.build (show x :: Text)
+
+-- | Type class for unsafe cast between hashes.
+-- You must ensure that types have identical Binary instances.
+class CastHash a b where
+    castHash :: Hash a -> Hash b
+    castHash (Hash x) = Hash x
+
+instance CastHash a a where
+    castHash = identity

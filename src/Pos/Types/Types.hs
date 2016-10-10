@@ -1,10 +1,15 @@
-{-# LANGUAGE DeriveGeneric        #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE UndecidableInstances #-}
+-- {-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 -- | Definitions of the most fundamental types.
 
@@ -36,23 +41,39 @@ module Pos.Types.Types
        , FtsSeed (..)
        , Commitment (..)
        , Opening (..)
-
-       , ChainDifficulty (..)
-       , Payload (..)
        , CommitmentsMap
        , OpeningsMap
        , SharesMap
-       , AnyBlockHeader
-       , HeaderHash
-       , BlockHeader (..)
-       , SignedBlockHeader (..)
+
+       , Blockchain (..)
+       , BodyProof (..)
+       , ConsensusData (..)
+       , Body (..)
+       , GenericBlockHeader (..)
        , GenericBlock (..)
-       , TxsPayload
-       , TxsProof (..)
-       , TxsBlock
-       , GenesisBlockHeader (..)
+
+       , MainBlockchain
+       , MainBlockHeader
+       , ChainDifficulty (..)
+       , MainToSign
+       , MainBlock
+
+       , GenesisBlockchain
+       , GenesisBlockHeader
        , GenesisBlock
+
+       , BlockHeader
+       , HeaderHash
        , Block
+
+       -- TODO: move it from here to Block.hs
+       , mkGenericHeader
+       , mkGenericBlock
+       , mkMainHeader
+       , mkMainBlock
+
+       , verifyGenericHeader
+       , verifyHeader
 
        , Entry (..)
        , Blockkk
@@ -62,18 +83,21 @@ module Pos.Types.Types
 import           Data.Binary          (Binary)
 import           Data.Binary.Orphans  ()
 import           Data.Hashable        (Hashable)
+import           Data.List            (genericLength)
 import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeCopySimple,
-                                       safeGet, safePut)
+                                       deriveSafeCopySimpleIndexedType, safeGet, safePut)
 import qualified Data.Text            as T (unwords)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
 import           Formatting           (Format, bprint, build, int, sformat, shown, (%))
 import qualified Serokell.Util.Base16 as B16
+import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum
 
-import           Pos.Crypto           (EncShare, Hash, PublicKey, SecretProof, Share,
-                                       Signature, Signed, VssPublicKey, hash)
+import           Pos.Crypto           (EncShare, Hash, PublicKey, SecretKey, SecretProof,
+                                       Share, Signature, Signed, VssPublicKey, hash, sign,
+                                       toPublic, unsafeHash, verify)
 import           Pos.Merkle           (MerkleRoot)
 import           Pos.Util             (Raw)
 
@@ -230,19 +254,6 @@ newtype Opening = Opening
     { getOpening :: FtsSeed
     } deriving (Show, Eq, Generic, Binary, Buildable)
 
-----------------------------------------------------------------------------
--- Block
-----------------------------------------------------------------------------
-
-newtype ChainDifficulty = ChainDifficulty
-    { getChainDifficulty :: Word64
-    } deriving (Show, Eq, Ord, Num, Binary)
-
-class Payload p where
-    type Proof p :: *
-
-    checkProof :: p -> Proof p -> Bool
-
 type CommitmentsMap = HashMap PublicKey (Signed Commitment)
 type OpeningsMap = HashMap PublicKey (Signed Opening)
 
@@ -252,95 +263,305 @@ type OpeningsMap = HashMap PublicKey (Signed Opening)
 -- identified by PublicKey Y, here's how to get this share: @sharesMap ! X ! Y@.
 type SharesMap = HashMap PublicKey (Signed (HashMap PublicKey Share))
 
-type AnyBlockHeader proof = Either (GenesisBlockHeader proof) (SignedBlockHeader proof)
-type HeaderHash proof = Hash (AnyBlockHeader proof)
+----------------------------------------------------------------------------
+-- GenericBlock
+----------------------------------------------------------------------------
 
--- | Header of block contains all the information necessary to
--- validate consensus algorithm. It also contains proof of payload
--- associated with it.
-data BlockHeader proof = BlockHeader
-    { -- | Hash of the previous block's header.
-      bhPrevHash     :: !(HeaderHash proof)
-    , -- | Id of the slot for which this block was generated.
-      bhSlot         :: !SlotId
-    , -- | Public key of slot leader. Maybe later we'll see it is redundant.
-      bhLeaderKey    :: !PublicKey
-    , -- | Commitments are added during the first phase of epoch.
-      bhCommitments  :: !CommitmentsMap
-    , -- | Openings are added during the second phase of epoch.
-      bhOpenings     :: !OpeningsMap
-    , -- | Decrypted shares to be used in the third phase.
-      bhShares       :: !SharesMap
-    , -- | Difficulty of chain ending in this block.
-      bhDifficulty   :: !ChainDifficulty
-    , -- | Proof of payload.
-      bhPayloadProof :: !proof
-    } deriving (Show, Eq, Generic)
+-- | Blockchain type class generalizes some functionality common for
+-- different blockchains.
+class Blockchain p where
+    -- | Proof of data stored in the body. Ensures immutability.
+    data BodyProof p :: *
+    -- | Consensus data which can be used to check consensus properties.
+    data ConsensusData p :: *
+    -- | Whatever extra data.
+    type ExtraHeaderData p :: *
+    type ExtraHeaderData p = ()
+    -- | Block header used in this blockchain.
+    type BBlockHeader p :: *
+    type BBlockHeader p = GenericBlockHeader p
 
-instance Binary p => Binary (BlockHeader p)
+    -- | Body contains payload and other heavy data.
+    data Body p :: *
+    -- | Whatever extra data.
+    type ExtraBodyData p :: *
+    type ExtraBodyData p = ()
+    -- | Block used in this blockchain.
+    type BBlock p :: *
+    type BBlock p = GenericBlock p
 
--- | SignedBlockHeader consists of BlockHeader and its signature.
-data SignedBlockHeader proof = SignedBlockHeader
-    { sbhHeader    :: !(BlockHeader proof)
-    , sbhSignature :: !(Signature (BlockHeader proof))
-    } deriving (Show, Eq, Generic)
+    mkBodyProof :: Body p -> BodyProof p
+    checkBodyProof :: Body p -> BodyProof p -> Bool
+    default checkBodyProof :: Eq (BodyProof p) => Body p -> BodyProof p -> Bool
+    checkBodyProof body proof = mkBodyProof body == proof
 
-instance Binary p => Binary (SignedBlockHeader p)
-
--- | In general Block consists of some payload and header associated
--- with it.
-data GenericBlock header payload = GenericBlock
-    { gbHeader  :: !(header (Proof payload))
-    , gbPayload :: !payload
-    }
-
--- | In our cryptocurrency, payload is a list of transactions.
--- TODO: consider using Vector or something. Not sure if it will be better.
--- TODO: probably it should be Merkle tree, not just list.
-type TxsPayload = [Tx]
-
--- | Proof of transactions list.
-data TxsProof = TxsProof
-    { tpNumber :: !Word32
-    , tpRoot   :: !(MerkleRoot Tx)
-    } deriving (Show, Eq, Generic)
-
-instance Payload TxsPayload where
-    type Proof TxsPayload = TxsProof
-    checkProof _ _ = True
-
-instance Binary TxsProof
-
--- | TxsBlock is a block whose payload consists of transactions.
-type TxsBlock = GenericBlock SignedBlockHeader TxsPayload
-
--- | Genesis block doesn't have any special payload and is not
--- strictly necessary. However, it is good idea to store list of
--- leaders explicitely, because calculating it may be expensive
--- operation. For example, it is useful for SPV-clients. Header of
--- genesis block is a simplified version of BlockHeader. It is not
--- signed.
-data GenesisBlockHeader proof = GenesisBlockHeader
-    { -- | Hash of the previous block's header.
-      gbhPrevHash     :: !(HeaderHash proof)
-    , -- | Index of the slot for which this genesis block is relevant.
-      gbhEpoch        :: !EpochIndex
-    , -- | Proof of payload.
-      gbhPayloadProof :: !proof
+-- | Header of block contains some kind of summary. There are various
+-- benefits which people get by separating header from other data.
+data GenericBlockHeader b = GenericBlockHeader
+    { -- | Pointer to the header of the previous block.
+      gbhPrevBlock :: !(Hash (BBlockHeader b))
+    , -- | Proof of body.
+      gbhBodyProof :: !(BodyProof b)
+    , -- | Consensus data to verify consensus algorithm.
+      gbhConsensus :: !(ConsensusData b)
+    , -- | Any extra data.
+      gbhExtra     :: !(ExtraHeaderData b)
     } deriving (Generic)
 
-instance Binary proof => Binary (GenesisBlockHeader proof)
+deriving instance
+         (Show (BodyProof b), Show (ConsensusData b),
+          Show (ExtraHeaderData b)) =>
+         Show (GenericBlockHeader b)
 
-type LeadersPayload = Vector PublicKey
+deriving instance
+         (Eq (BodyProof b), Eq (ConsensusData b),
+          Eq (ExtraHeaderData b)) =>
+         Eq (GenericBlockHeader b)
 
-instance Payload LeadersPayload where
-    -- TODO: consider using Merkle tree as well
-    type Proof LeadersPayload = Hash LeadersPayload
-    checkProof leaders h = hash leaders == h
+instance ( Binary (BodyProof b)
+         , Binary (ConsensusData b)
+         , Binary (ExtraHeaderData b)
+         ) =>
+         Binary (GenericBlockHeader b)
 
-type GenesisBlock = GenericBlock GenesisBlockHeader LeadersPayload
+-- | In general Block consists of header and body. It may contain
+-- extra data as well.
+data GenericBlock b = GenericBlock
+    { gbHeader :: !(GenericBlockHeader b)
+    , gbBody   :: !(Body b)
+    , gbExtra  :: !(ExtraBodyData b)
+    }
 
-type Block = Either GenesisBlock TxsBlock
+----------------------------------------------------------------------------
+-- MainBlock
+----------------------------------------------------------------------------
+
+-- | Represents blockchain consisting of main blocks, i. e. blocks
+-- with transactions and MPC messages.
+data MainBlockchain
+
+type MainBlockHeader = GenericBlockHeader MainBlockchain
+
+-- | Chain difficulty represents necessary effort to generate a
+-- chain. In the simplest case it can be number of blocks in chain.
+newtype ChainDifficulty = ChainDifficulty
+    { getChainDifficulty :: Word64
+    } deriving (Show, Eq, Ord, Num, Binary)
+
+type MainToSign = (HeaderHash, BodyProof MainBlockchain, SlotId, ChainDifficulty)
+
+instance Blockchain MainBlockchain where
+    -- | Proof of transactions list.
+    -- TODO: add proof of other stuff.
+    data BodyProof MainBlockchain = MainProof
+        { mpNumber :: !Word32
+        , mpRoot   :: !(MerkleRoot Tx)
+        } deriving (Show, Eq, Generic)
+    data ConsensusData MainBlockchain = MainConsensusData
+        { -- | Id of the slot for which this block was generated.
+        mcdSlot       :: !SlotId
+        , -- | Public key of slot leader. Maybe later we'll see it is redundant.
+        mcdLeaderKey  :: !PublicKey
+        , -- | Difficulty of chain ending in this block.
+        mcdDifficulty :: !ChainDifficulty
+        , -- | Signature given by slot leader.
+        mcdSignature  :: !(Signature MainToSign)
+        } deriving (Generic)
+    type BBlockHeader MainBlockchain = BlockHeader
+
+    -- | In our cryptocurrency, body consists of a list of transactions
+    -- and MPC messages.
+    data Body MainBlockchain = MainBody
+        { -- | Transactions are the main payload.
+        -- TODO: consider using Vector or something. Not sure if it will be better.
+        -- TODO: probably it should be Merkle tree, not just list.
+        mbTxs         :: ![Tx]
+        , -- | Commitments are added during the first phase of epoch.
+        mbCommitments :: !CommitmentsMap
+        , -- | Openings are added during the second phase of epoch.
+        mbOpenings    :: !OpeningsMap
+        , -- | Decrypted shares to be used in the third phase.
+        mbShares      :: !SharesMap
+        } deriving (Generic)
+    type BBlock MainBlockchain = Block
+
+    mkBodyProof MainBody {..} =
+        MainProof { mpNumber = genericLength mbTxs, mpRoot = undefined }
+
+instance Binary (BodyProof MainBlockchain)
+instance Binary (ConsensusData MainBlockchain)
+instance Binary (Body MainBlockchain)
+
+-- | MainBlock is a block with transactions and MPC messages. It's the
+-- main part of our consensus algorithm.
+type MainBlock = GenericBlock MainBlockchain
+
+----------------------------------------------------------------------------
+-- GenesisBlock
+----------------------------------------------------------------------------
+
+-- | Represents blockchain consisting of genesis blocks.  Genesis
+-- block doesn't have any special payload and is not strictly
+-- necessary. However, it is good idea to store list of leaders
+-- explicitely, because calculating it may be expensive operation. For
+-- example, it is useful for SPV-clients.
+data GenesisBlockchain
+
+type GenesisBlockHeader = GenericBlockHeader GenesisBlockchain
+
+instance Blockchain GenesisBlockchain where
+    -- | Proof of GenesisBody is just a hash of slot leaders list.
+    -- TODO: do we need a Merkle tree? This list probably won't be large.
+    data BodyProof GenesisBlockchain = GenesisProof
+        !(Hash (Vector PublicKey))
+        deriving (Eq, Generic)
+    data ConsensusData GenesisBlockchain = GenesisConsensusData
+        { -- | Index of the slot for which this genesis block is relevant.
+        gcdEpoch :: !EpochIndex
+        } deriving (Generic)
+    type BBlockHeader GenesisBlockchain = BlockHeader
+
+    -- | Body of genesis block consists of slot leaders for epoch
+    -- associated with this block.
+    data Body GenesisBlockchain = GenesisBody
+        { gbLeaders :: !(Vector PublicKey)
+        } deriving (Show, Generic)
+    type BBlock GenesisBlockchain = Block
+
+    mkBodyProof = GenesisProof . hash . gbLeaders
+
+instance Binary (BodyProof GenesisBlockchain)
+instance Binary (ConsensusData GenesisBlockchain)
+instance Binary (Body GenesisBlockchain)
+
+type GenesisBlock = GenericBlock GenesisBlockchain
+
+----------------------------------------------------------------------------
+-- GenesisBlock ∪ MainBlock
+----------------------------------------------------------------------------
+
+type BlockHeader = Either GenesisBlockHeader MainBlockHeader
+type HeaderHash = Hash BlockHeader
+
+type Block = Either GenesisBlock MainBlock
+
+verifyConsensusLocal :: BlockHeader -> VerificationRes
+verifyConsensusLocal (Left _)       = mempty
+verifyConsensusLocal (Right header) =
+    verifyGeneric
+        [ ( verify pk (gbhPrevBlock, gbhBodyProof, slotId, d) sig
+          , "can't verify signature")
+        ]
+  where
+    GenericBlockHeader {gbhConsensus = consensus, ..} = header
+    pk = mcdLeaderKey consensus
+    slotId = mcdSlot consensus
+    d = mcdDifficulty consensus
+    sig = mcdSignature consensus
+
+----------------------------------------------------------------------------
+-- Block.hs. TODO: move it into Block.hs.
+-- These functions are here because of GHC bug (trac 12127).
+----------------------------------------------------------------------------
+
+genesisHash :: Hash a
+genesisHash = unsafeHash ("patak" :: Text)
+{-# INLINE genesisHash #-}
+
+mkGenericHeader
+    :: forall b.
+       (Binary (BBlockHeader b), Blockchain b)
+    => Maybe (BBlockHeader b)
+    -> Body b
+    -> (Hash (BBlockHeader b) -> BodyProof b -> ConsensusData b)
+    -> ExtraHeaderData b
+    -> GenericBlockHeader b
+mkGenericHeader prevHeader body consensus extra =
+    GenericBlockHeader
+    { gbhPrevBlock = h
+    , gbhBodyProof = proof
+    , gbhConsensus = consensus h proof
+    , gbhExtra = extra
+    }
+  where
+    h :: Hash (BBlockHeader b)
+    h = maybe genesisHash hash prevHeader
+    proof = mkBodyProof body
+
+mkGenericBlock
+    :: forall b.
+       (Binary (BBlockHeader b), Blockchain b)
+    => Maybe (BBlockHeader b)
+    -> Body b
+    -> (Hash (BBlockHeader b) -> BodyProof b -> ConsensusData b)
+    -> ExtraHeaderData b
+    -> ExtraBodyData b
+    -> GenericBlock b
+mkGenericBlock prevHeader body consensus extraH extraB =
+    GenericBlock {gbHeader = header, gbBody = body, gbExtra = extraB}
+  where
+    header = mkGenericHeader prevHeader body consensus extraH
+
+mkMainHeader
+    :: Maybe BlockHeader
+    -> SlotId
+    -> SecretKey
+    -> ChainDifficulty
+    -> Body MainBlockchain
+    -> MainBlockHeader
+mkMainHeader prevHeader slotId sk difficulty body =
+    mkGenericHeader prevHeader body consensus ()
+  where
+    signature prevHash proof = sign sk (prevHash, proof, slotId, difficulty)
+    consensus prevHash proof =
+        MainConsensusData
+        { mcdSlot = slotId
+        , mcdLeaderKey = toPublic sk
+        , mcdDifficulty = difficulty
+        , mcdSignature = signature prevHash proof
+        }
+
+mkMainBlock
+    :: Maybe BlockHeader
+    -> SlotId
+    -> SecretKey
+    -> ChainDifficulty
+    -> Body MainBlockchain
+    -> MainBlock
+mkMainBlock prevHeader slotId sk difficulty body =
+    GenericBlock
+    { gbHeader = mkMainHeader prevHeader slotId sk difficulty body
+    , gbBody = body
+    , gbExtra = ()
+    }
+
+-- | Perform cheap checks of GenericBlockHeader, which can be done using only
+-- header itself and previous header.
+verifyGenericHeader
+    :: forall b.
+       (Binary (BBlockHeader b))
+    => Maybe (BBlockHeader b) -> GenericBlockHeader b -> VerificationRes
+verifyGenericHeader prevHeader GenericBlockHeader {..} =
+    verifyGeneric [verifyHash]
+  where
+    prevHash = maybe genesisHash hash prevHeader
+    verifyHash =
+        ( gbhPrevBlock == prevHash
+        , sformat
+              ("inconsistent previous hash (expected "%build%", found"%build%")")
+              gbhPrevBlock prevHash)
+
+-- | Perform cheap checks of BlockHeader, which can be done using only
+-- header itself and previous header.
+verifyHeader :: Maybe BlockHeader -> BlockHeader -> VerificationRes
+verifyHeader prevHeader h =
+    mconcat [verifyConsensusLocal h, verifyCommon]
+  where
+    verifyCommon =
+        either
+            (verifyGenericHeader prevHeader)
+            (verifyGenericHeader prevHeader)
+            h
 
 ----------------------------------------------------------------------------
 -- Block. Leftover.
@@ -396,22 +617,52 @@ deriveSafeCopySimple 0 'base ''Tx
 deriveSafeCopySimple 0 'base ''FtsSeed
 deriveSafeCopySimple 0 'base ''Commitment
 deriveSafeCopySimple 0 'base ''Opening
+
+-- Manually written instances can't be derived because
+-- 'deriveSafeCopySimple' is not clever enough to add
+-- “SafeCopy (Whatever a) =>” constaints.
+instance ( SafeCopy (BodyProof b)
+         , SafeCopy (ConsensusData b)
+         , SafeCopy (ExtraHeaderData b)
+         ) =>
+         SafeCopy (GenericBlockHeader b) where
+    getCopy =
+        contain $
+        do gbhPrevBlock <- safeGet
+           gbhBodyProof <- safeGet
+           gbhConsensus <- safeGet
+           gbhExtra <- safeGet
+           return $! GenericBlockHeader {..}
+    putCopy GenericBlockHeader {..} =
+        contain $
+        do safePut gbhPrevBlock
+           safePut gbhBodyProof
+           safePut gbhConsensus
+           safePut gbhExtra
+
+instance ( SafeCopy (BodyProof b)
+         , SafeCopy (ConsensusData b)
+         , SafeCopy (ExtraHeaderData b)
+         , SafeCopy (Body b)
+         , SafeCopy (ExtraBodyData b)
+         ) =>
+         SafeCopy (GenericBlock b) where
+    getCopy =
+        contain $
+        do gbHeader <- safeGet
+           gbBody <- safeGet
+           gbExtra <- safeGet
+           return $! GenericBlock {..}
+    putCopy GenericBlock {..} =
+        contain $
+        do safePut gbHeader
+           safePut gbBody
+           safePut gbExtra
+
 deriveSafeCopySimple 0 'base ''ChainDifficulty
-deriveSafeCopySimple 0 'base ''BlockHeader
-deriveSafeCopySimple 0 'base ''SignedBlockHeader
+deriveSafeCopySimpleIndexedType 0 'base ''BodyProof [''MainBlockchain, ''GenesisBlockchain]
+deriveSafeCopySimpleIndexedType 0 'base ''ConsensusData [''MainBlockchain, ''GenesisBlockchain]
+deriveSafeCopySimpleIndexedType 0 'base ''Body [''MainBlockchain, ''GenesisBlockchain]
 
--- This instance can't be derived because 'deriveSafeCopySimple' is not
--- clever enough to add a “SafeCopy (Proof payload) =>” constaint.
-instance (SafeCopy (header (Proof payload)), SafeCopy payload) =>
-         SafeCopy (GenericBlock header payload) where
-    getCopy = contain $ do
-        gbHeader <- safeGet
-        gbPayload <- safeGet
-        return GenericBlock{..}
-    putCopy GenericBlock{..} = contain $ do
-        safePut gbHeader
-        safePut gbPayload
-
-deriveSafeCopySimple 0 'base ''TxsProof
-deriveSafeCopySimple 0 'base ''GenesisBlockHeader
+-- Obsolete
 deriveSafeCopySimple 0 'base ''Entry

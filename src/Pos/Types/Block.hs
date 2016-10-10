@@ -1,75 +1,29 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Block related functions.
 
 module Pos.Types.Block
-       ( mkBlockHeader
+       ( mkGenericHeader
+       , mkGenericBlock
+       , mkMainHeader
+       , mkMainBlock
 
+       , verifyGenericHeader
        , verifyHeader
-       , verifySignedHeader
        ) where
 
-import           Data.Binary          (Binary)
-import           Formatting           (build, sformat, (%))
-import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
-import           Universum
+-- import           Data.Binary          (Binary)
+-- import           Formatting           (build, sformat, (%))
+-- import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
+-- import           Universum
 
-import           Pos.Crypto           (PublicKey, hash, unsafeHash, verify)
-import           Pos.Types.Types      (AnyBlockHeader, BlockHeader (..), ChainDifficulty,
-                                       CommitmentsMap, HeaderHash, OpeningsMap, SharesMap,
-                                       SignedBlockHeader (..), SlotId)
-
-genesisHash :: HeaderHash p
-genesisHash = unsafeHash ("patak" :: Text)
-
-hashPrev :: Binary p => Maybe (AnyBlockHeader p) -> HeaderHash p
-hashPrev = maybe genesisHash hash
-
-mkBlockHeader
-    :: Binary p
-    => Maybe (AnyBlockHeader p)
-    -> SlotId
-    -> PublicKey
-    -> CommitmentsMap
-    -> OpeningsMap
-    -> SharesMap
-    -> ChainDifficulty
-    -> p
-    -> BlockHeader p
-mkBlockHeader prevHeader slotId pk comms opens shares difficulty proof =
-    BlockHeader
-    { bhPrevHash = hashPrev prevHeader
-    , bhSlot = slotId
-    , bhLeaderKey = pk
-    , bhCommitments = comms
-    , bhOpenings = opens
-    , bhShares = shares
-    , bhDifficulty = difficulty
-    , bhPayloadProof = proof
-    }
-
--- | Perform cheap checks of BlockHeader, which can be done using only
--- header itself and previous header.
--- TODO: extend.
-verifyHeader
-    :: Binary p
-    => Maybe (AnyBlockHeader p) -> BlockHeader p -> VerificationRes
-verifyHeader prevHeader BlockHeader {..} =
-    verifyGeneric
-        [ ( bhPrevHash == prevHash
-          , sformat
-                ("inconsistent previous hash (expected "%build% ", found"%build%")")
-                prevHash bhPrevHash)
-        ]
-  where
-    prevHash = hashPrev prevHeader
-
-verifySignedHeader
-    :: Binary p
-    => Maybe (AnyBlockHeader p) -> SignedBlockHeader p -> VerificationRes
-verifySignedHeader prevHeader SignedBlockHeader {..} =
-    mconcat
-        [ verifyGeneric
-              [ ( verify (bhLeaderKey sbhHeader) sbhHeader sbhSignature
-                , "signature is incorrect")
-              ]
-        , verifyHeader prevHeader sbhHeader
-        ]
+-- import           Pos.Crypto           (Hash, PublicKey, SecretKey, hash, sign, toPublic,
+--                                        unsafeHash, verify)
+-- import           Pos.Types.Types      (BlockHeader, Blockchain (..), ChainDifficulty,
+--                                        GenericBlock (..), GenericBlockHeader (..),
+--                                        HeaderHash, MainBlock, MainBlockHeader,
+--                                        MainBody (..), SlotId)
+import           Pos.Types.Types (mkGenericBlock, mkGenericHeader, mkMainBlock,
+                                  mkMainHeader, verifyGenericHeader, verifyHeader)

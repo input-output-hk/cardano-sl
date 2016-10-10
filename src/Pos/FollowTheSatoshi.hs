@@ -9,8 +9,8 @@ module Pos.FollowTheSatoshi
        ) where
 
 import qualified Data.ByteString     as BS (pack, zipWith)
-import qualified Data.HashMap.Strict as HM (filterWithKey, lookup, mapMaybe, toList)
-import qualified Data.HashSet        as HS (difference, fromMap, member)
+import qualified Data.HashMap.Strict as HM (fromList, lookup, mapMaybe, toList)
+import qualified Data.HashSet        as HS (difference, fromMap)
 import           Data.List           (foldl1', scanl1)
 import qualified Data.Map.Strict     as M
 import           Universum
@@ -72,8 +72,14 @@ calculateSeed commitments openings shares = do
     -- Secrets recovered from actual share lists (but only those we need –
     -- i.e. ones which are in mustBeRecovered)
     let recovered :: HashMap PublicKey (Maybe Secret)
-        recovered = fmap (recoverSecret . toList . signedValue) $
-            HM.filterWithKey (\k _ -> k `HS.member` mustBeRecovered) shares
+        recovered = HM.fromList $ do
+            -- We are now trying to recover a secret for key 'k'
+            k <- toList mustBeRecovered
+            -- We collect all secrets that 'k' has sent to other nodes
+            let secrets = mapMaybe (HM.lookup k . signedValue) (toList shares)
+            -- Then we try to recover the secret
+            return (k, recoverSecret secrets)
+
     -- All secrets, both recovered and from openings
     let openingToSecret = Secret . getFtsSeed . getOpening
     let secrets :: HashMap PublicKey Secret

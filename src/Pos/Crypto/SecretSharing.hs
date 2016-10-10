@@ -60,28 +60,32 @@ instance Buildable Secret where
     build = B16.formatBase16 . getSecret
 
 -- | Shares can be used to reconstruct Secret.
-newtype Share = Share
-    { getShare :: Secret
-    } deriving (Eq, Ord, Show, Binary)
+data Share = Share
+    { getShare   :: Secret
+    , minNeeded  :: Word
+    , shareIndex :: Word
+    } deriving (Eq, Ord, Show, Generic)
+
+instance Binary Share
 
 instance Buildable Share where
     build _ = "share ¯\\_(ツ)_/¯"
 
 -- | Encrypted share which needs to be decrypted using VssSecretKey first.
 newtype EncShare = EncShare
-    { getEncShare :: Secret
-    } deriving (Show, Eq, Ord, Binary)
+    { getEncShare :: Share
+    } deriving (Show, Eq, Ord, Generic, Binary)
 
 instance Buildable EncShare where
     build _ = "encrypted share ¯\\_(ツ)_/¯"
 
 -- | Decrypt share using secret key.
 decryptShare :: VssSecretKey -> EncShare -> Share
-decryptShare _ = Share . getEncShare
+decryptShare _ = getEncShare
 
 -- | Encrypt share using public key.
 encryptShare :: VssPublicKey -> Share -> EncShare
-encryptShare _ = EncShare . getShare
+encryptShare _ = EncShare
 
 -- | This proof may be used to check that particular given secret has
 -- been generated.
@@ -94,15 +98,16 @@ shareSecret
     -> Word            -- ^ How many parts should be enough
     -> Secret          -- ^ Secret to share
     -> (SecretProof, [EncShare])  -- ^ i-th share is encrypted using i-th key
-shareSecret keys _ s = (SecretProof s, map mkShare keys)
+shareSecret keys k s = (SecretProof s, zipWith mkShare [0..] keys)
   where
-    mkShare key = encryptShare key (Share s)
+    mkShare i key = encryptShare key (Share s k i)
 
 recoverSecret :: [Share] -> Maybe Secret
 recoverSecret [] = Nothing
 recoverSecret (x:xs) = do
-    guard (all (== x) xs)
-    -- guard (length (ordNub (map shareIndex (x:xs))) >= minNeeded x)
+    guard (all (== getShare x) (map getShare xs))
+    guard (length (ordNub (map shareIndex (x:xs))) >=
+           fromIntegral (minNeeded x))
     return (getShare x)
 
 verifyProof :: SecretProof -> Secret -> Bool

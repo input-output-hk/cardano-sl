@@ -71,7 +71,7 @@ calculateSeed commitments openings shares = do
         extraOpenings = HS.difference (getKeys openings) participants
         extraShares =
             let xs = getKeys shares <>
-                     mconcat (map (getKeys . signedValue) (toList shares))
+                     mconcat (map getKeys (toList shares))
             in  HS.difference xs participants
     unless (null extraOpenings) $
         Left (ExtraneousOpenings extraOpenings)
@@ -91,14 +91,14 @@ calculateSeed commitments openings shares = do
             -- We are now trying to recover a secret for key 'k'
             k <- toList mustBeRecovered
             -- We collect all secrets that 'k' has sent to other nodes
-            let secrets = mapMaybe (HM.lookup k . signedValue) (toList shares)
+            let secrets = mapMaybe (HM.lookup k) (toList shares)
             -- Then we try to recover the secret
             return (k, recoverSecret secrets)
 
     -- All secrets, both recovered and from openings
     let openingToSecret = Secret . getFtsSeed . getOpening
     let secrets :: HashMap PublicKey Secret
-        secrets = fmap (openingToSecret . signedValue) openings <>
+        secrets = fmap openingToSecret openings <>
                   HM.mapMaybe identity recovered
 
     -- Now that we have the secrets, we can check whether the commitments

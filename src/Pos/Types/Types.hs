@@ -276,7 +276,7 @@ newtype Opening = Opening
     } deriving (Show, Eq, Generic, Binary, Buildable)
 
 type CommitmentsMap = HashMap PublicKey (Signed Commitment)
-type OpeningsMap = HashMap PublicKey (Signed Opening)
+type OpeningsMap = HashMap PublicKey Opening
 
 -- | Each node generates a 'FtsSeed', breaks it into 'Share's, and sends
 -- those encrypted shares to other nodes. In a 'SharesMap', for each node we
@@ -284,7 +284,7 @@ type OpeningsMap = HashMap PublicKey (Signed Opening)
 --
 -- Specifically, if node identified by 'PublicKey' X has received a share
 -- from node identified by key Y, this share will be at @sharesMap ! X ! Y@.
-type SharesMap = HashMap PublicKey (Signed (HashMap PublicKey Share))
+type SharesMap = HashMap PublicKey (HashMap PublicKey Share)
 
 ----------------------------------------------------------------------------
 -- GenericBlock

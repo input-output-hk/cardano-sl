@@ -66,6 +66,20 @@ module Pos.Types.Types
        , HeaderHash
        , Block
 
+       -- * Lenses
+       , blockDifficulty
+       , blockLeaderKey
+       , blockSignature
+       , blockSlot
+       , headerDifficulty
+       , headerSlot
+       , headerLeaderKey
+       , headerSignature
+       , mcdSlot
+       , mcdLeaderKey
+       , mcdDifficulty
+       , mcdSignature
+
        -- TODO: move it from here to Block.hs
        , mkGenericHeader
        , mkGenericBlock
@@ -80,6 +94,7 @@ module Pos.Types.Types
        , displayEntry
        ) where
 
+import           Control.Lens         (Lens', makeLenses, (^.))
 import           Data.Binary          (Binary)
 import           Data.Binary.Orphans  ()
 import           Data.Hashable        (Hashable)
@@ -299,14 +314,15 @@ class Blockchain p where
 -- benefits which people get by separating header from other data.
 data GenericBlockHeader b = GenericBlockHeader
     { -- | Pointer to the header of the previous block.
-      gbhPrevBlock :: !(Hash (BBlockHeader b))
+      _gbhPrevBlock :: !(Hash (BBlockHeader b))
     , -- | Proof of body.
-      gbhBodyProof :: !(BodyProof b)
+      _gbhBodyProof :: !(BodyProof b)
     , -- | Consensus data to verify consensus algorithm.
-      gbhConsensus :: !(ConsensusData b)
+      _gbhConsensus :: !(ConsensusData b)
     , -- | Any extra data.
-      gbhExtra     :: !(ExtraHeaderData b)
+      _gbhExtra     :: !(ExtraHeaderData b)
     } deriving (Generic)
+
 
 deriving instance
          (Show (BodyProof b), Show (ConsensusData b),
@@ -327,9 +343,9 @@ instance ( Binary (BodyProof b)
 -- | In general Block consists of header and body. It may contain
 -- extra data as well.
 data GenericBlock b = GenericBlock
-    { gbHeader :: !(GenericBlockHeader b)
-    , gbBody   :: !(Body b)
-    , gbExtra  :: !(ExtraBodyData b)
+    { _gbHeader :: !(GenericBlockHeader b)
+    , _gbBody   :: !(Body b)
+    , _gbExtra  :: !(ExtraBodyData b)
     }
 
 ----------------------------------------------------------------------------
@@ -359,13 +375,13 @@ instance Blockchain MainBlockchain where
         } deriving (Show, Eq, Generic)
     data ConsensusData MainBlockchain = MainConsensusData
         { -- | Id of the slot for which this block was generated.
-        mcdSlot       :: !SlotId
+        _mcdSlot       :: !SlotId
         , -- | Public key of slot leader. Maybe later we'll see it is redundant.
-        mcdLeaderKey  :: !PublicKey
+        _mcdLeaderKey  :: !PublicKey
         , -- | Difficulty of chain ending in this block.
-        mcdDifficulty :: !ChainDifficulty
+        _mcdDifficulty :: !ChainDifficulty
         , -- | Signature given by slot leader.
-        mcdSignature  :: !(Signature MainToSign)
+        _mcdSignature  :: !(Signature MainToSign)
         } deriving (Generic)
     type BBlockHeader MainBlockchain = BlockHeader
 
@@ -445,19 +461,49 @@ type HeaderHash = Hash BlockHeader
 
 type Block = Either GenesisBlock MainBlock
 
-verifyConsensusLocal :: BlockHeader -> VerificationRes
-verifyConsensusLocal (Left _)       = mempty
-verifyConsensusLocal (Right header) =
-    verifyGeneric
-        [ ( verify pk (gbhPrevBlock, gbhBodyProof, slotId, d) sig
-          , "can't verify signature")
-        ]
-  where
-    GenericBlockHeader {gbhConsensus = consensus, ..} = header
-    pk = mcdLeaderKey consensus
-    slotId = mcdSlot consensus
-    d = mcdDifficulty consensus
-    sig = mcdSignature consensus
+----------------------------------------------------------------------------
+-- Lenses. TODO: move to Block.hs or leave them here?
+----------------------------------------------------------------------------
+
+makeLenses ''GenericBlockHeader
+makeLenses ''GenericBlock
+-- makeLenses ''(ConsensusData MainBlockchain)
+
+mcdSlot :: Lens' (ConsensusData MainBlockchain) SlotId
+mcdSlot = notImplemented
+
+mcdLeaderKey :: Lens' (ConsensusData MainBlockchain) PublicKey
+mcdLeaderKey = notImplemented
+
+mcdDifficulty :: Lens' (ConsensusData MainBlockchain) ChainDifficulty
+mcdDifficulty = notImplemented
+
+mcdSignature :: Lens' (ConsensusData MainBlockchain) (Signature MainToSign)
+mcdSignature = notImplemented
+
+headerDifficulty :: Lens' MainBlockHeader ChainDifficulty
+headerDifficulty = gbhConsensus . mcdDifficulty
+
+headerSlot :: Lens' MainBlockHeader SlotId
+headerSlot = gbhConsensus . mcdSlot
+
+headerLeaderKey :: Lens' MainBlockHeader PublicKey
+headerLeaderKey = gbhConsensus . mcdLeaderKey
+
+headerSignature :: Lens' MainBlockHeader (Signature MainToSign)
+headerSignature = gbhConsensus . mcdSignature
+
+blockDifficulty :: Lens' MainBlock ChainDifficulty
+blockDifficulty = gbHeader . headerDifficulty
+
+blockSlot :: Lens' MainBlock SlotId
+blockSlot = gbHeader . headerSlot
+
+blockLeaderKey :: Lens' MainBlock PublicKey
+blockLeaderKey = gbHeader . headerLeaderKey
+
+blockSignature :: Lens' MainBlock (Signature MainToSign)
+blockSignature = gbHeader . headerSignature
 
 ----------------------------------------------------------------------------
 -- Block.hs. TODO: move it into Block.hs.
@@ -478,10 +524,10 @@ mkGenericHeader
     -> GenericBlockHeader b
 mkGenericHeader prevHeader body consensus extra =
     GenericBlockHeader
-    { gbhPrevBlock = h
-    , gbhBodyProof = proof
-    , gbhConsensus = consensus h proof
-    , gbhExtra = extra
+    { _gbhPrevBlock = h
+    , _gbhBodyProof = proof
+    , _gbhConsensus = consensus h proof
+    , _gbhExtra = extra
     }
   where
     h :: Hash (BBlockHeader b)
@@ -498,7 +544,7 @@ mkGenericBlock
     -> ExtraBodyData b
     -> GenericBlock b
 mkGenericBlock prevHeader body consensus extraH extraB =
-    GenericBlock {gbHeader = header, gbBody = body, gbExtra = extraB}
+    GenericBlock {_gbHeader = header, _gbBody = body, _gbExtra = extraB}
   where
     header = mkGenericHeader prevHeader body consensus extraH
 
@@ -515,10 +561,10 @@ mkMainHeader prevHeader slotId sk difficulty body =
     signature prevHash proof = sign sk (prevHash, proof, slotId, difficulty)
     consensus prevHash proof =
         MainConsensusData
-        { mcdSlot = slotId
-        , mcdLeaderKey = toPublic sk
-        , mcdDifficulty = difficulty
-        , mcdSignature = signature prevHash proof
+        { _mcdSlot = slotId
+        , _mcdLeaderKey = toPublic sk
+        , _mcdDifficulty = difficulty
+        , _mcdSignature = signature prevHash proof
         }
 
 mkMainBlock
@@ -530,10 +576,24 @@ mkMainBlock
     -> MainBlock
 mkMainBlock prevHeader slotId sk difficulty body =
     GenericBlock
-    { gbHeader = mkMainHeader prevHeader slotId sk difficulty body
-    , gbBody = body
-    , gbExtra = ()
+    { _gbHeader = mkMainHeader prevHeader slotId sk difficulty body
+    , _gbBody = body
+    , _gbExtra = ()
     }
+
+verifyConsensusLocal :: BlockHeader -> VerificationRes
+verifyConsensusLocal (Left _)       = mempty
+verifyConsensusLocal (Right header) =
+    verifyGeneric
+        [ ( verify pk (_gbhPrevBlock, _gbhBodyProof, slotId, d) sig
+          , "can't verify signature")
+        ]
+  where
+    GenericBlockHeader {_gbhConsensus = consensus, ..} = header
+    pk = consensus ^. mcdLeaderKey
+    slotId = consensus ^. mcdSlot
+    d = consensus ^. mcdDifficulty
+    sig = consensus ^. mcdSignature
 
 -- | Perform cheap checks of GenericBlockHeader, which can be done using only
 -- header itself and previous header.
@@ -546,10 +606,10 @@ verifyGenericHeader prevHeader GenericBlockHeader {..} =
   where
     prevHash = maybe genesisHash hash prevHeader
     verifyHash =
-        ( gbhPrevBlock == prevHash
+        ( _gbhPrevBlock == prevHash
         , sformat
               ("inconsistent previous hash (expected "%build%", found"%build%")")
-              gbhPrevBlock prevHash)
+              _gbhPrevBlock prevHash)
 
 -- | Perform cheap checks of BlockHeader, which can be done using only
 -- header itself and previous header.
@@ -628,17 +688,17 @@ instance ( SafeCopy (BodyProof b)
          SafeCopy (GenericBlockHeader b) where
     getCopy =
         contain $
-        do gbhPrevBlock <- safeGet
-           gbhBodyProof <- safeGet
-           gbhConsensus <- safeGet
-           gbhExtra <- safeGet
+        do _gbhPrevBlock <- safeGet
+           _gbhBodyProof <- safeGet
+           _gbhConsensus <- safeGet
+           _gbhExtra <- safeGet
            return $! GenericBlockHeader {..}
     putCopy GenericBlockHeader {..} =
         contain $
-        do safePut gbhPrevBlock
-           safePut gbhBodyProof
-           safePut gbhConsensus
-           safePut gbhExtra
+        do safePut _gbhPrevBlock
+           safePut _gbhBodyProof
+           safePut _gbhConsensus
+           safePut _gbhExtra
 
 instance ( SafeCopy (BodyProof b)
          , SafeCopy (ConsensusData b)
@@ -649,15 +709,15 @@ instance ( SafeCopy (BodyProof b)
          SafeCopy (GenericBlock b) where
     getCopy =
         contain $
-        do gbHeader <- safeGet
-           gbBody <- safeGet
-           gbExtra <- safeGet
+        do _gbHeader <- safeGet
+           _gbBody <- safeGet
+           _gbExtra <- safeGet
            return $! GenericBlock {..}
     putCopy GenericBlock {..} =
         contain $
-        do safePut gbHeader
-           safePut gbBody
-           safePut gbExtra
+        do safePut _gbHeader
+           safePut _gbBody
+           safePut _gbExtra
 
 deriveSafeCopySimple 0 'base ''ChainDifficulty
 deriveSafeCopySimpleIndexedType 0 'base ''BodyProof [''MainBlockchain, ''GenesisBlockchain]

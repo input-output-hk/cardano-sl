@@ -114,6 +114,7 @@ test-suite pos-test
                      , hspec
                      , pos
                      , random
+                     , serokell-core
                      , time-units
                      , time-warp
                      , universum

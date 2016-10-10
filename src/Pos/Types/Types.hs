@@ -44,6 +44,8 @@ module Pos.Types.Types
        , CommitmentsMap
        , OpeningsMap
        , SharesMap
+       , VssCertificate
+       , VssCertificatesMap
 
        , Blockchain (..)
        , BodyProof (..)
@@ -246,7 +248,7 @@ type AddrId = (TxId, Word32, Coin)
 type Utxo = Map AddrId Address
 
 ----------------------------------------------------------------------------
--- MPC
+-- MPC. It means multi-party computation, btw
 ----------------------------------------------------------------------------
 
 -- | This is a random 40-bytes seed used for follow-the-satoshi. This
@@ -285,6 +287,18 @@ type OpeningsMap = HashMap PublicKey Opening
 -- Specifically, if node identified by 'PublicKey' X has received a share
 -- from node identified by key Y, this share will be at @sharesMap ! X ! Y@.
 type SharesMap = HashMap PublicKey (HashMap PublicKey Share)
+
+-- | VssCertificate allows VssPublicKey to participate in MPC.
+-- Each stakeholder should create a Vss keypair, sign public key with signing
+-- key and send it into blockchain.
+--
+-- Other nodes accept this certificate if it is valid and if node really
+-- has some stake.
+type VssCertificate = Signed VssPublicKey
+
+-- | VssCertificatesMap contains all valid certificates collected
+-- during some period of time.
+type VssCertificatesMap = HashMap PublicKey VssCertificate
 
 ----------------------------------------------------------------------------
 -- GenericBlock
@@ -379,11 +393,12 @@ instance Blockchain MainBlockchain where
     -- We can use ADS for commitments, opennings, shares as well,
     -- if we find it necessary.
     data BodyProof MainBlockchain = MainProof
-        { mpNumber :: !Word32
-        , mpRoot   :: !(MerkleRoot Tx)
-        , mpCommitmentsHash :: !(Hash CommitmentsMap)
-        , mpOpeningsHash :: !(Hash OpeningsMap)
-        , mpSharesHash :: !(Hash SharesMap)
+        { mpNumber              :: !Word32
+        , mpRoot                :: !(MerkleRoot Tx)
+        , mpCommitmentsHash     :: !(Hash CommitmentsMap)
+        , mpOpeningsHash        :: !(Hash OpeningsMap)
+        , mpSharesHash          :: !(Hash SharesMap)
+        , mpVssCertificatesHash :: !(Hash VssCertificatesMap)
         } deriving (Show, Eq, Generic)
     data ConsensusData MainBlockchain = MainConsensusData
         { -- | Id of the slot for which this block was generated.
@@ -410,6 +425,9 @@ instance Blockchain MainBlockchain where
         mbOpenings    :: !OpeningsMap
         , -- | Decrypted shares to be used in the third phase.
         mbShares      :: !SharesMap
+        , -- | Vss certificates are added at any time if they are valid and
+          -- recieved from stakeholders.
+        mbVssCertificates :: !VssCertificatesMap
         } deriving (Generic)
     type BBlock MainBlockchain = Block
 
@@ -420,6 +438,7 @@ instance Blockchain MainBlockchain where
         , mpCommitmentsHash = hash mbCommitments
         , mpOpeningsHash = hash mbOpenings
         , mpSharesHash = hash mbShares
+        , mpVssCertificatesHash = hash mbVssCertificates
         }
 
 instance Binary (BodyProof MainBlockchain)

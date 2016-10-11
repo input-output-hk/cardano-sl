@@ -76,12 +76,3 @@ makeLensesData familyName typeParamName = do
     decToType (NewtypeD _ n _ _ _ _) = return (ConT n)
     decToType other                      =
         fail ("makeLensesIndexed: decToType failed on: " ++ show other)
-
-----------------------------------------------------------------------------
--- Orphan instances
-----------------------------------------------------------------------------
-
-instance (Eq a, Hashable a, SafeCopy a, SafeCopy b) =>
-         SafeCopy (HashMap a b) where
-    getCopy = contain $ fmap HM.fromList safeGet
-    putCopy = contain . safePut . HM.toList

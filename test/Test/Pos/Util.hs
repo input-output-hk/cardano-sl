@@ -16,7 +16,7 @@ import           Universum
 import           Pos.Constants    (epochSlots)
 import           Pos.Crypto       (PublicKey, SecretKey, VssPublicKey, VssSecretKey,
                                    keyGen, vssKeyGen)
-import           Pos.Types        (EpochIndex (EpochIndex), FtsSeed,
+import           Pos.Types        (Coin (..), EpochIndex (EpochIndex), FtsSeed,
                                    LocalSlotIndex (LocalSlotIndex), SlotId (SlotId),
                                    genFtsSeed)
 

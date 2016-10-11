@@ -3,14 +3,17 @@
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TemplateHaskell       #-}
 
--- | Storage with node local state.
+-- | Storage with node local state which should be persistent.
 
 module Pos.State.Storage
        (
          Storage
 
        , Query
+       , getLeaders
+
        , Update
+       , addTx
        -- , addEntry
        -- , addLeaders
        -- , adoptBlock
@@ -20,17 +23,19 @@ module Pos.State.Storage
        -- , setLeaders
        ) where
 
-import           Control.Lens       (at, ix, makeLenses, preview, view, (%=), (.=),
+import           Control.Lens       (at, ix, makeLenses, preview, views, (%=), (.=),
                                      (<<.=))
 import           Data.Acid          ()
 import           Data.Default       (Default, def)
 import           Data.SafeCopy      (base, deriveSafeCopySimple)
 import qualified Data.Set           as Set (fromList, insert, toList, (\\))
+import           Safe               (atMay)
 import           Serokell.AcidState ()
 import           Universum
 
+import           Pos.Crypto         (PublicKey)
 import           Pos.Slotting       (unflattenSlotId)
-import           Pos.Types          (Block, HeaderHash, SlotId, Tx, Utxo)
+import           Pos.Types          (Block, EpochIndex, HeaderHash, SlotId, Tx, Utxo)
 
 type Query  a = forall m . MonadReader Storage m => m a
 type Update a = forall m . MonadState Storage m => m a
@@ -67,6 +72,16 @@ instance Default Storage where
         , _txs = mempty
         }
 
+-- | Get list of slot leaders for the given epoch. Empty list is returned
+-- if no information is available.
+getLeaders :: EpochIndex -> Query [PublicKey]
+getLeaders _ = pure []
+
+-- | Add transaction to storage if it is fully valid. Returns True iff
+-- transaction has been added.
+addTx :: Tx -> Update Bool
+addTx _ = pure False
+
 -- createBlock :: Update Blockkk
 -- createBlock = do
 --     es <- pendingEntries <<.= mempty
@@ -78,9 +93,6 @@ instance Default Storage where
 
 -- getLeader :: Int -> Int -> Query (Maybe NodeId)
 -- getLeader epoch slot = preview (epochLeaders . ix epoch . ix slot)
-
--- getLeaders :: Int -> Query (Maybe [NodeId])
--- getLeaders epoch = view (epochLeaders . at epoch)
 
 -- addEntry :: Entry -> Update ()
 -- addEntry e = pendingEntries %= Set.insert e

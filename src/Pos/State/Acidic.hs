@@ -13,26 +13,25 @@ module Pos.State.Acidic
        , query
        , update
 
-       , CreateBlock (..)
+       , GetLeaders (..)
+
+       , AddTx (..)
        -- , AddLeaders (..)
        -- , GetLeader (..)
-       -- , GetLeaders (..)
        -- , AddEntry (..)
        -- , AdoptBlock (..)
        -- , SetLeaders (..)
        ) where
 
-import           Data.Acid          ()
-import           Universum
-
 import           Data.Acid          (EventResult, EventState, Query, QueryEvent, Update,
                                      UpdateEvent, makeAcidic)
 import           Data.Default       (def)
-
 import           Serokell.AcidState (ExtendedState, closeExtendedState,
                                      openLocalExtendedState, openMemoryExtendedState,
                                      queryExtended, tidyExtendedState, updateExtended)
+import           Universum
 
+import           Pos.Crypto         (PublicKey)
 import           Pos.State.Storage  (Storage)
 import qualified Pos.State.Storage  as S
 import           Pos.Types
@@ -75,17 +74,17 @@ tidyState = tidyExtendedState
 -- so it fits). Hence we have to redefine all operations in order to be able
 -- to use 'makeAcidic' on them.
 
-createBlock :: Update Storage Blockkk
-createBlock = undefined -- S.createBlock
+getLeaders :: EpochIndex -> Query Storage [PublicKey]
+getLeaders = S.getLeaders
+
+addTx :: Tx -> Update Storage Bool
+addTx = S.addTx
 
 -- addLeaders :: Int -> [NodeId] -> Update Storage ()
 -- addLeaders = S.addLeaders
 
 -- getLeader :: Int -> Int -> Query Storage (Maybe NodeId)
 -- getLeader = S.getLeader
-
--- getLeaders :: Int -> Query Storage (Maybe [NodeId])
--- getLeaders = S.getLeaders
 
 -- addEntry :: Entry -> Update Storage ()
 -- addEntry = S.addEntry
@@ -97,10 +96,10 @@ createBlock = undefined -- S.createBlock
 -- setLeaders = S.setLeaders
 
 makeAcidic ''Storage
-    [ 'createBlock
+    [ 'getLeaders
+    , 'addTx
     -- , 'addLeaders
     -- , 'getLeader
-    -- , 'getLeaders
     -- , 'addEntry
     -- , 'adoptBlock
     -- , 'setLeaders

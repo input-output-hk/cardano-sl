@@ -30,7 +30,7 @@ import           Universum
 import           Pos.Util            (Raw, getCopyBinary, putCopyBinary)
 
 newtype Hash a = Hash (Digest SHA256)
-    deriving (Show, Eq, Ord)
+    deriving (Show, Eq, Ord, ByteArray.ByteArrayAccess)
 
 instance Hashable (Hash a) where
     hashWithSalt s (Hash x) = hashWithSalt s $ ByteArray.unpack x

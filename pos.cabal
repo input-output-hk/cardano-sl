@@ -18,6 +18,7 @@ library
                         Pos.Constants
                         Pos.FollowTheSatoshi
                         Pos.Launcher
+                        Pos.Merkle
                         Pos.Slotting
                         Pos.State
                         Pos.Types
@@ -27,7 +28,6 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
-                        Pos.Merkle
                         Pos.State.Acidic
                         Pos.State.Memory
                         Pos.State.State
@@ -105,6 +105,7 @@ test-suite pos-test
   other-modules:       Spec
                      , Test.Pos.CryptoSpec
                      , Test.Pos.FollowTheSatoshiSpec
+                     , Test.Pos.MerkleSpec
                      , Test.Pos.SlottingSpec
                      , Test.Pos.Types.BlockSpec
                      , Test.Pos.Types.UtxoSpec

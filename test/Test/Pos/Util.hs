@@ -124,6 +124,8 @@ instance Nonrepeating VssSecretKey where
 -- Arbitrary core types
 ----------------------------------------------------------------------------
 
+deriving instance Arbitrary Coin
+
 maxReasonableEpoch :: Integral a => a
 maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not
 

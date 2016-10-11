@@ -15,10 +15,7 @@ import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import           Control.Monad.Fail            (fail)
 import           Data.Binary                   (Binary)
 import qualified Data.Binary                   as Binary (encode)
-import           Data.Hashable                 (Hashable)
-import qualified Data.HashMap.Strict           as HM
-import           Data.SafeCopy                 (Contained, SafeCopy (..), contain,
-                                                safeGet, safePut)
+import           Data.SafeCopy                 (Contained, contain, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (String)
 import           Language.Haskell.TH

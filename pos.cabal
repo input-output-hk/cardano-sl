@@ -32,7 +32,6 @@ library
                         Pos.State.Memory
                         Pos.State.State
                         Pos.State.Storage
-                        Pos.Types.Arbitrary
                         Pos.Types.Block
                         Pos.Types.FtsSeed
                         Pos.Types.Types

@@ -174,7 +174,7 @@ keyGen = liftIO $ do
 ----------------------------------------------------------------------------
 
 newtype Signature a = Signature Ed25519.Signature
-    deriving (Eq, Ord, Show, NFData, Binary)
+    deriving (Eq, Ord, Show, NFData, Binary, Hashable)
 
 instance SafeCopy (Signature a) where
     putCopy = putCopyBinary

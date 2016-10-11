@@ -172,7 +172,7 @@ type FlatSlotId = Word64
 -- | Coin is the least possible unit of currency.
 newtype Coin = Coin
     { getCoin :: Int64
-    } deriving (Num, Enum, Integral, Show, Ord, Real, Generic, Eq, Binary, Bounded)
+    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Binary, Hashable)
 
 instance Buildable Coin where
     build = bprint (int%" coin(s)")
@@ -188,7 +188,7 @@ coinF = build
 -- | Address is where you can send coins.
 newtype Address = Address
     { getAddress :: PublicKey
-    } deriving (Show, Eq, Generic, Buildable, Ord, Binary)
+    } deriving (Show, Eq, Generic, Buildable, Ord, Binary, Hashable)
 
 addressF :: Format r (Address -> r)
 addressF = build
@@ -212,6 +212,7 @@ data TxIn = TxIn
     } deriving (Eq, Ord, Show, Generic)
 
 instance Binary TxIn
+instance Hashable TxIn
 
 instance Buildable TxIn where
     build TxIn {..} = bprint ("TxIn ("%build%", "%int%")") txInHash txInIndex
@@ -223,6 +224,7 @@ data TxOut = TxOut
     } deriving (Eq, Ord, Show, Generic)
 
 instance Binary TxOut
+instance Hashable TxOut
 
 instance Buildable TxOut where
     build TxOut {..} =
@@ -235,6 +237,7 @@ data Tx = Tx
     } deriving (Eq, Ord, Show, Generic)
 
 instance Binary Tx
+instance Hashable Tx
 
 ----------------------------------------------------------------------------
 -- UTXO

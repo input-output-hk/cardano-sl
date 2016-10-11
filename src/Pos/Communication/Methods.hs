@@ -23,10 +23,7 @@ import           Serokell.Util            ()
 
 import           Pos.Communication.Types  (Message (..), Node)
 import           Pos.Constants            (epochSlots, slotDuration)
-import           Pos.State.Acidic         (AddEntry (..), AddLeaders (..),
-                                           AdoptBlock (..), CreateBlock (..),
-                                           GetLeader (..), GetLeaders (..), NodeState,
-                                           SetLeaders (..), openMemState, query, update)
+import           Pos.State                (NodeState, openMemState)
 import           Pos.Types.Types          (Entry (..), NodeId (..), displayEntry, nodeF)
 import           Pos.WorkMode             (WorkMode)
 
@@ -150,99 +147,100 @@ fullNodeWrapper nf =
 
 fullNode :: WorkMode m => Node m
 fullNode = fullNodeWrapper $ \st self _key n _pkeys sendTo -> do
+    undefined
     -- This will run at the beginning of each slot:
-    inSlot True $ \epoch slot -> do
-        -- For now we just send messages to everyone instead of letting them
-        -- propagate, implementing peers, etc.
-        let sendEveryone x = for_ [NodeId 0 .. NodeId (n - 1)] $ \i ->
-                                 sendTo i x
+    -- inSlot True $ \epoch slot -> do
+    --     -- For now we just send messages to everyone instead of letting them
+    --     -- propagate, implementing peers, etc.
+    --     let sendEveryone x = for_ [NodeId 0 .. NodeId (n - 1)] $ \i ->
+    --                              sendTo i x
 
-        -- Create a block and send it to everyone
-        let createAndSendBlock = do
-                blk <- update st CreateBlock
-                sendEveryone (MBlock blk)
-                if null blk then
-                    logInfo "created an empty block"
-                else
-                    logInfo $ T.intercalate "\n" $
-                        "created a block:" :
-                        map (\e -> "  * " <> displayEntry e) blk
+    --     -- Create a block and send it to everyone
+    --     let createAndSendBlock = do
+    --             blk <- update st CreateBlock
+    --             sendEveryone (MBlock blk)
+    --             if null blk then
+    --                 logInfo "created an empty block"
+    --             else
+    --                 logInfo $ T.intercalate "\n" $
+    --                     "created a block:" :
+    --                     map (\e -> "  * " <> displayEntry e) blk
 
-        -- If this is the first epoch ever, we haven't agreed on who will
-        -- mine blocks in this epoch, so let's just say that the 0th node is
-        -- the master node. In slot 0, node 0 will announce who will mine
-        -- blocks in the next epoch; in other slots it will just mine new
-        -- blocks.
-        when (self == NodeId 0 && epoch == 0) $ do
-            when (slot == 0) $ do
-                leaders <- liftIO $ map NodeId <$>
-                           replicateM epochSlots (randomRIO (0, n - 1))
-                update st $ AddLeaders epoch leaders
-                logInfo "generated random leaders for epoch 1 \
-                        \(as master node)"
-            createAndSendBlock
+    --     -- If this is the first epoch ever, we haven't agreed on who will
+    --     -- mine blocks in this epoch, so let's just say that the 0th node is
+    --     -- the master node. In slot 0, node 0 will announce who will mine
+    --     -- blocks in the next epoch; in other slots it will just mine new
+    --     -- blocks.
+    --     when (self == NodeId 0 && epoch == 0) $ do
+    --         when (slot == 0) $ do
+    --             leaders <- liftIO $ map NodeId <$>
+    --                        replicateM epochSlots (randomRIO (0, n - 1))
+    --             update st $ AddLeaders epoch leaders
+    --             logInfo "generated random leaders for epoch 1 \
+    --                     \(as master node)"
+    --         createAndSendBlock
 
-        -- When the epoch starts, we do the following:
-        --   * generate U, a random bitvector that will be used as a seed to
-        --     the PRNG that will choose leaders (nodes who will mine each
-        --     block in the next epoch). For now the seed is actually just a
-        --     Word64.
-        --   * secret-share U and encrypt each piece with corresponding
-        --     node's pubkey; the secret can be recovered with at least
-        --     N−T available pieces
-        --   * post encrypted shares and a commitment to U to the blockchain
-        --     (so that later on we wouldn't be able to cheat by using
-        --     a different U)
-        when (slot == 0) $ do
-            -- u <- liftIO (randomIO :: IO Word64)
-            return ()
-            -- let pk = VssPublicKey ()
-            -- let (_, shares) = shareSecret (replicate n pk) t (Secret $ toS (Bin.encode u))
-            -- for_ (zip shares [NodeId 0..]) $ \(share, i) -> do
-            --     encShare <- pure share
-            --     sendEveryone (MEntry (EUShare self i encShare))
-            -- sendEveryone (MEntry $ EUHash self $ hashRaw $ toS $ Bin.encode u)
+    --     -- When the epoch starts, we do the following:
+    --     --   * generate U, a random bitvector that will be used as a seed to
+    --     --     the PRNG that will choose leaders (nodes who will mine each
+    --     --     block in the next epoch). For now the seed is actually just a
+    --     --     Word64.
+    --     --   * secret-share U and encrypt each piece with corresponding
+    --     --     node's pubkey; the secret can be recovered with at least
+    --     --     N−T available pieces
+    --     --   * post encrypted shares and a commitment to U to the blockchain
+    --     --     (so that later on we wouldn't be able to cheat by using
+    --     --     a different U)
+    --     when (slot == 0) $ do
+    --         -- u <- liftIO (randomIO :: IO Word64)
+    --         return ()
+    --         -- let pk = VssPublicKey ()
+    --         -- let (_, shares) = shareSecret (replicate n pk) t (Secret $ toS (Bin.encode u))
+    --         -- for_ (zip shares [NodeId 0..]) $ \(share, i) -> do
+    --         --     encShare <- pure share
+    --         --     sendEveryone (MEntry (EUShare self i encShare))
+    --         -- sendEveryone (MEntry $ EUHash self $ hashRaw $ toS $ Bin.encode u)
 
-        -- If we are the epoch leader, we should generate a block
-        do leader <- query st $ GetLeader epoch slot
-           when (leader == Just self) $
-               createAndSendBlock
+    --     -- If we are the epoch leader, we should generate a block
+    --     do leader <- query st $ GetLeader epoch slot
+    --        when (leader == Just self) $
+    --            createAndSendBlock
 
-        -- According to @gromak (who isn't sure about this, but neither am I):
-        -- input-output-rnd.slack.com/archives/paper-pos/p1474991379000006
-        --
-        -- > We send commitments during the first slot and they are put into
-        -- the first block. Then we wait for K periods so that all nodes
-        -- agree upon the same first block. But we see that it’s not enough
-        -- because they can agree upon dishonest block. That’s why we need to
-        -- wait for K more blocks. So all this *commitment* phase takes 2K
-        -- blocks.
+    --     -- According to @gromak (who isn't sure about this, but neither am I):
+    --     -- input-output-rnd.slack.com/archives/paper-pos/p1474991379000006
+    --     --
+    --     -- > We send commitments during the first slot and they are put into
+    --     -- the first block. Then we wait for K periods so that all nodes
+    --     -- agree upon the same first block. But we see that it’s not enough
+    --     -- because they can agree upon dishonest block. That’s why we need to
+    --     -- wait for K more blocks. So all this *commitment* phase takes 2K
+    --     -- blocks.
 
-    -- This is our message handling function:
-    return $ \n_from message -> case message of
-        -- An entry has been received: add it to the list of unprocessed
-        -- entries
-        MEntry e -> update st $ AddEntry e
+    -- -- This is our message handling function:
+    -- return $ \n_from message -> case message of
+    --     -- An entry has been received: add it to the list of unprocessed
+    --     -- entries
+    --     MEntry e -> update st $ AddEntry e
 
-        -- A block has been received: remove all pending entries we have
-        -- that are in this block, then add the block to our local
-        -- blockchain and use info from the block
-        MBlock es -> do
-            update st $ AdoptBlock es
-            -- TODO: using withNodeState several times here might break
-            -- atomicity, I dunno
-            for_ es $ \e -> case e of
-                ELeaders epoch leaders -> do
-                    mbLeaders <- query st $ GetLeaders epoch
-                    case mbLeaders of
-                        Nothing -> update st $ SetLeaders epoch leaders
-                        Just _  -> logError $ sformat
-                            (nodeF%" we already know leaders for epoch "%int
-                                  %"but we received a block with ELeaders "
-                                  %"for the same epoch") self epoch
-                -- TODO: process other types of entries
-                _ -> return ()
+    --     -- A block has been received: remove all pending entries we have
+    --     -- that are in this block, then add the block to our local
+    --     -- blockchain and use info from the block
+    --     MBlock es -> do
+    --         update st $ AdoptBlock es
+    --         -- TODO: using withNodeState several times here might break
+    --         -- atomicity, I dunno
+    --         for_ es $ \e -> case e of
+    --             ELeaders epoch leaders -> do
+    --                 mbLeaders <- query st $ GetLeaders epoch
+    --                 case mbLeaders of
+    --                     Nothing -> update st $ SetLeaders epoch leaders
+    --                     Just _  -> logError $ sformat
+    --                         (nodeF%" we already know leaders for epoch "%int
+    --                               %"but we received a block with ELeaders "
+    --                               %"for the same epoch") self epoch
+    --             -- TODO: process other types of entries
+    --             _ -> return ()
 
-        -- We were pinged
-        MPing -> logInfo $ sformat
-                     ("received a ping from "%nodeF) n_from
+    --     -- We were pinged
+    --     MPing -> logInfo $ sformat
+    --                  ("received a ping from "%nodeF) n_from

@@ -19,6 +19,7 @@ library
                         Pos.FollowTheSatoshi
                         Pos.Launcher
                         Pos.Slotting
+                        Pos.State
                         Pos.Types
   other-modules:        Pos.Communication.Methods
                         Pos.Communication.Types
@@ -28,6 +29,8 @@ library
                         Pos.Crypto.Signing
                         Pos.Merkle
                         Pos.State.Acidic
+                        Pos.State.Memory
+                        Pos.State.State
                         Pos.State.Storage
                         Pos.Types.Arbitrary
                         Pos.Types.Block

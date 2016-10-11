@@ -115,6 +115,7 @@ import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
 import           Formatting           (Format, bprint, build, int, sformat, shown, (%))
+import           Serokell.AcidState   ()
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum

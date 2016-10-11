@@ -4,7 +4,7 @@
 -- | Acid-state wrapped operations.
 
 module Pos.State.Acidic
-       ( NodeState
+       ( DiskState
        , closeState
        , openState
        , openMemState
@@ -14,12 +14,12 @@ module Pos.State.Acidic
        , update
 
        , CreateBlock (..)
-       , AddLeaders (..)
-       , GetLeader (..)
-       , GetLeaders (..)
-       , AddEntry (..)
-       , AdoptBlock (..)
-       , SetLeaders (..)
+       -- , AddLeaders (..)
+       -- , GetLeader (..)
+       -- , GetLeaders (..)
+       -- , AddEntry (..)
+       -- , AdoptBlock (..)
+       -- , SetLeaders (..)
        ) where
 
 import           Data.Acid          ()
@@ -41,28 +41,28 @@ import           Pos.Types
 -- Acid-state things
 ----------------------------------------------------------------------------
 
-type NodeState = ExtendedState Storage
+type DiskState = ExtendedState Storage
 
 query
     :: (EventState event ~ Storage, QueryEvent event, MonadIO m)
-    => NodeState -> event -> m (EventResult event)
+    => DiskState -> event -> m (EventResult event)
 query = queryExtended
 
 update
     :: (EventState event ~ Storage, UpdateEvent event, MonadIO m)
-    => NodeState -> event -> m (EventResult event)
+    => DiskState -> event -> m (EventResult event)
 update = updateExtended
 
-openState :: MonadIO m => Bool -> FilePath -> m NodeState
+openState :: MonadIO m => Bool -> FilePath -> m DiskState
 openState deleteIfExists fp = openLocalExtendedState deleteIfExists fp def
 
-openMemState :: MonadIO m => m NodeState
+openMemState :: MonadIO m => m DiskState
 openMemState = openMemoryExtendedState def
 
-closeState :: MonadIO m => NodeState -> m ()
+closeState :: MonadIO m => DiskState -> m ()
 closeState = closeExtendedState
 
-tidyState :: MonadIO m => NodeState -> m ()
+tidyState :: MonadIO m => DiskState -> m ()
 tidyState = tidyExtendedState
 
 ----------------------------------------------------------------------------
@@ -76,32 +76,32 @@ tidyState = tidyExtendedState
 -- to use 'makeAcidic' on them.
 
 createBlock :: Update Storage Blockkk
-createBlock = S.createBlock
+createBlock = undefined -- S.createBlock
 
-addLeaders :: Int -> [NodeId] -> Update Storage ()
-addLeaders = S.addLeaders
+-- addLeaders :: Int -> [NodeId] -> Update Storage ()
+-- addLeaders = S.addLeaders
 
-getLeader :: Int -> Int -> Query Storage (Maybe NodeId)
-getLeader = S.getLeader
+-- getLeader :: Int -> Int -> Query Storage (Maybe NodeId)
+-- getLeader = S.getLeader
 
-getLeaders :: Int -> Query Storage (Maybe [NodeId])
-getLeaders = S.getLeaders
+-- getLeaders :: Int -> Query Storage (Maybe [NodeId])
+-- getLeaders = S.getLeaders
 
-addEntry :: Entry -> Update Storage ()
-addEntry = S.addEntry
+-- addEntry :: Entry -> Update Storage ()
+-- addEntry = S.addEntry
 
-adoptBlock :: Blockkk -> Update Storage ()
-adoptBlock = S.adoptBlock
+-- adoptBlock :: Blockkk -> Update Storage ()
+-- adoptBlock = S.adoptBlock
 
-setLeaders :: Int -> [NodeId] -> Update Storage ()
-setLeaders = S.setLeaders
+-- setLeaders :: Int -> [NodeId] -> Update Storage ()
+-- setLeaders = S.setLeaders
 
 makeAcidic ''Storage
     [ 'createBlock
-    , 'addLeaders
-    , 'getLeader
-    , 'getLeaders
-    , 'addEntry
-    , 'adoptBlock
-    , 'setLeaders
+    -- , 'addLeaders
+    -- , 'getLeader
+    -- , 'getLeaders
+    -- , 'addEntry
+    -- , 'adoptBlock
+    -- , 'setLeaders
     ]

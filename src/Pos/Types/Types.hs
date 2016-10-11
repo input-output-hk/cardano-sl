@@ -123,7 +123,7 @@ import           Universum
 import           Pos.Crypto           (EncShare, Hash, PublicKey, SecretKey, SecretProof,
                                        Share, Signature, Signed, VssPublicKey, hash, sign,
                                        toPublic, unsafeHash, verify)
-import           Pos.Merkle           (MerkleRoot)
+import           Pos.Merkle           (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Util             (Raw, makeLensesData)
 
 ----------------------------------------------------------------------------
@@ -423,7 +423,7 @@ instance Blockchain MainBlockchain where
         { -- | Transactions are the main payload.
         -- TODO: consider using Vector or something. Not sure if it will be better.
         -- TODO: probably it should be Merkle tree, not just list.
-        mbTxs         :: ![Tx]
+        mbTxs         :: !(MerkleTree Tx)
         , -- | Commitments are added during the first phase of epoch.
         mbCommitments :: !CommitmentsMap
         , -- | Openings are added during the second phase of epoch.
@@ -438,8 +438,8 @@ instance Blockchain MainBlockchain where
 
     mkBodyProof MainBody {..} =
         MainProof
-        { mpNumber = genericLength mbTxs
-        , mpRoot = undefined
+        { mpNumber = mtSize mbTxs
+        , mpRoot = mtRoot mbTxs
         , mpCommitmentsHash = hash mbCommitments
         , mpOpeningsHash = hash mbOpenings
         , mpSharesHash = hash mbShares

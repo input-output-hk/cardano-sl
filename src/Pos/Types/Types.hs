@@ -783,9 +783,12 @@ instance ( SafeCopy (BodyProof b)
            safePut _gbExtra
 
 deriveSafeCopySimple 0 'base ''ChainDifficulty
-deriveSafeCopySimpleIndexedType 0 'base ''BodyProof [''MainBlockchain, ''GenesisBlockchain]
-deriveSafeCopySimpleIndexedType 0 'base ''ConsensusData [''MainBlockchain, ''GenesisBlockchain]
-deriveSafeCopySimpleIndexedType 0 'base ''Body [''MainBlockchain, ''GenesisBlockchain]
+deriveSafeCopySimpleIndexedType 0 'base ''BodyProof [''MainBlockchain]
+deriveSafeCopySimpleIndexedType 0 'base ''BodyProof [''GenesisBlockchain]
+deriveSafeCopySimpleIndexedType 0 'base ''ConsensusData [''MainBlockchain]
+deriveSafeCopySimpleIndexedType 0 'base ''ConsensusData [''GenesisBlockchain]
+deriveSafeCopySimpleIndexedType 0 'base ''Body [''MainBlockchain]
+deriveSafeCopySimpleIndexedType 0 'base ''Body [''GenesisBlockchain]
 
 -- Obsolete
 deriveSafeCopySimple 0 'base ''Entry

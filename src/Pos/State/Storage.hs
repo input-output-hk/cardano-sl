@@ -29,7 +29,6 @@ import           Data.Acid             ()
 import           Data.Default          (Default, def)
 import           Data.SafeCopy         (base, deriveSafeCopySimple)
 import qualified Data.Set              as Set (fromList, insert, toList, (\\))
-import           Safe                  (atMay)
 import           Serokell.AcidState    ()
 import           Universum
 

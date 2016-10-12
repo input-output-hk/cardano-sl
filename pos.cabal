@@ -60,7 +60,6 @@ library
                       , mtl
                       , quickcheck-instances
                       , random
-                      , safe
                       , safecopy
                       , serokell-core
                       , template-haskell

@@ -109,6 +109,7 @@ test-suite pos-test
                      , Test.Pos.MerkleSpec
                      , Test.Pos.SlottingSpec
                      , Test.Pos.Types.BlockSpec
+                     , Test.Pos.Types.SlotIdSpec
                      , Test.Pos.Types.UtxoSpec
                      , Test.Pos.Util
   type:                exitcode-stdio-1.0

@@ -12,14 +12,13 @@ import           Control.TimeWarp.Timed  (MonadTimed (currentTime), TimedT, for,
 import           Data.Time.Units         (fromMicroseconds, toMicroseconds)
 import           Test.Hspec              (Spec, describe, it, shouldBe)
 import           Test.Hspec.QuickCheck   (prop)
-import           Test.QuickCheck         (Property, choose, ioProperty, (===))
+import           Test.QuickCheck         (Property, choose, ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, assert, monadic, pick, run)
 import           Universum
 
 import           Pos.Constants           (epochDuration, slotDuration)
 import           Pos.Slotting            (MonadSlots (..), Timestamp (..), getCurrentSlot)
-import           Pos.Types               (EpochIndex, LocalSlotIndex, SlotId (..),
-                                          flattenSlotId, unflattenSlotId)
+import           Pos.Types               (EpochIndex, LocalSlotIndex, SlotId (..))
 
 import           Test.Pos.Util           ()
 
@@ -47,13 +46,6 @@ spec = describe "Slotting" $ do
                       , "getCurrentSlot will return `SlotId a b`"
                       ])
             waitForSlot
-
-    describe "flattening" $ do
-        prop "unflattening after flattening returns original SlotId"
-            flattenThenUnflatten
-
-flattenThenUnflatten :: SlotId -> Property
-flattenThenUnflatten si = si === unflattenSlotId (flattenSlotId si)
 
 waitForSlot :: EpochIndex -> LocalSlotIndex -> Property
 waitForSlot epoch = monadic (ioProperty . runTimedT) . waitForSlotScenario epoch

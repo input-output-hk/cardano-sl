@@ -159,7 +159,7 @@ newtype LocalSlotIndex = LocalSlotIndex
 data SlotId = SlotId
     { siEpoch :: !EpochIndex
     , siSlot  :: !LocalSlotIndex
-    } deriving (Show, Eq, Generic)
+    } deriving (Show, Eq, Ord, Generic)
 
 instance Binary SlotId
 

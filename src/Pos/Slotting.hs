@@ -1,16 +1,19 @@
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 -- | Slotting functionality.
 
 module Pos.Slotting
        ( Timestamp (..)
        , MonadSlots (..)
-       , getCurrentSlot
        , flattenSlotId
+       , getCurrentSlot
+       , getCurrentSlotFlat
+       , onNewSlot
        , unflattenSlotId
        ) where
 
-import           Control.TimeWarp.Timed (Microsecond)
+import           Control.TimeWarp.Timed (Microsecond, MonadTimed, for, fork_, wait)
 import           Universum
 
 import           Pos.Constants          (epochSlots, slotDuration)
@@ -38,6 +41,10 @@ getCurrentSlot =
     f :: Microsecond -> SlotId
     f t = unflattenSlotId (fromIntegral $ t `div` slotDuration)
 
+-- | Get flat id of current slot based on MonadSlots.
+getCurrentSlotFlat :: MonadSlots m => m FlatSlotId
+getCurrentSlotFlat = flattenSlotId <$> getCurrentSlot
+
 -- | Flatten SlotId (which is basically pair of integers) into a single number.
 flattenSlotId :: SlotId -> FlatSlotId
 flattenSlotId SlotId {..} = fromIntegral siEpoch * epochSlots + fromIntegral siSlot
@@ -49,3 +56,36 @@ unflattenSlotId n =
     let (fromIntegral -> siEpoch, fromIntegral -> siSlot) =
             n `divMod` epochSlots
     in SlotId {..}
+
+instance Enum SlotId where
+    toEnum = unflattenSlotId . fromIntegral
+    fromEnum = fromIntegral . flattenSlotId
+
+-- | Run given action as soon as new slot starts, passing SlotId to
+-- it.  This function uses MonadTimed and assumes consistency between
+-- MonadSlots and MonadTimed implementations.
+--
+-- TODO: think about exceptions.
+onNewSlot
+    :: (MonadTimed m, MonadSlots m)
+    => Bool -> (SlotId -> m ()) -> m a
+onNewSlot = onNewSlotDo Nothing
+
+onNewSlotDo
+    :: (MonadTimed m, MonadSlots m)
+    => Maybe SlotId -> Bool -> (SlotId -> m ()) -> m a
+onNewSlotDo expectedSlotId startImmediately action = do
+    waitUntilPredicate
+        (maybe (const True) (<=) expectedSlotId <$> getCurrentSlot)
+    curSlot <- getCurrentSlot
+    -- fork is necessary because action can take more time than slotDuration
+    when startImmediately $ fork_ $ action curSlot
+    Timestamp curTime <- getCurrentTime
+    let timeToWait = slotDuration - curTime `mod` slotDuration
+    wait $ for timeToWait
+    onNewSlotDo (Just $ succ curSlot) True action
+  where
+    waitUntilPredicate predicate =
+        unlessM predicate (shortWait >> waitUntilPredicate predicate)
+    shortWaitTime = (10 :: Microsecond) `max` (slotDuration `div` 10000)
+    shortWait = wait $ for shortWaitTime

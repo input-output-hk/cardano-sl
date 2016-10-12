@@ -23,25 +23,32 @@ module Pos.State.Storage
        -- , setLeaders
        ) where
 
-import           Control.Lens       (at, ix, makeLenses, preview, views, (%=), (.=),
-                                     (<<.=))
-import           Data.Acid          ()
-import           Data.Default       (Default, def)
-import           Data.SafeCopy      (base, deriveSafeCopySimple)
-import qualified Data.Set           as Set (fromList, insert, toList, (\\))
-import           Safe               (atMay)
-import           Serokell.AcidState ()
+import           Control.Lens          (at, ix, makeClassy, preview, views, (%=), (.=),
+                                        (<<.=))
+import           Data.Acid             ()
+import           Data.Default          (Default, def)
+import           Data.SafeCopy         (base, deriveSafeCopySimple)
+import qualified Data.Set              as Set (fromList, insert, toList, (\\))
+import           Safe                  (atMay)
+import           Serokell.AcidState    ()
 import           Universum
 
-import           Pos.Crypto         (PublicKey)
-import           Pos.Slotting       (unflattenSlotId)
-import           Pos.Types          (Block, EpochIndex, HeaderHash, SlotId, Tx, Utxo)
+import           Pos.Crypto            (PublicKey)
+import           Pos.Slotting          (unflattenSlotId)
+import           Pos.State.Storage.Mpc (HasMpcStorage (mpcStorage), MpcStorage,
+                                        getLeaders)
+import           Pos.State.Storage.Tx  (HasTxStorage (txStorage), TxStorage, addTx)
+import           Pos.Types             (Block, HeaderHash, SlotId, Utxo)
 
 type Query  a = forall m . MonadReader Storage m => m a
 type Update a = forall m . MonadState Storage m => m a
 
 data Storage = Storage
-    { -- | Id of last seen slot.
+    { -- | State of MPC
+      __mpcStorage :: !MpcStorage
+    , -- | State of transaction-handling worker
+      __txStorage  :: !TxStorage
+    , -- | Id of last seen slot.
       _slotId      :: !SlotId
     , -- | The best valid blockchain known to the node. We should take
       -- into account that we are dealing with tree, not list. This list
@@ -53,34 +60,26 @@ data Storage = Storage
     , -- | Set of unspent transaction outputs. It is need to check new
       -- transactions and run follow-the-satoshi, for example.
       _utxo        :: !Utxo
-    , -- | Local set of transactions. These are valid (with respect to
-      -- utxo) transactions which are known to the node and are not
-      -- included in the blockchain store by the node.
-      _txs         :: !(HashSet Tx)
     }
 
-makeLenses ''Storage
+makeClassy ''Storage
 deriveSafeCopySimple 0 'base ''Storage
+
+instance HasMpcStorage Storage where
+    mpcStorage = _mpcStorage
+instance HasTxStorage Storage where
+    txStorage = _txStorage
 
 instance Default Storage where
     def =
         Storage
-        { _slotId = unflattenSlotId 0
+        { __mpcStorage = def
+        , __txStorage = def
+        , _slotId = unflattenSlotId 0
         , _blocks = mempty
         , _extraBlocks = mempty
         , _utxo = mempty
-        , _txs = mempty
         }
-
--- | Get list of slot leaders for the given epoch. Empty list is returned
--- if no information is available.
-getLeaders :: EpochIndex -> Query [PublicKey]
-getLeaders _ = pure []
-
--- | Add transaction to storage if it is fully valid. Returns True iff
--- transaction has been added.
-addTx :: Tx -> Update Bool
-addTx _ = pure False
 
 -- createBlock :: Update Blockkk
 -- createBlock = do

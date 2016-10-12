@@ -29,7 +29,6 @@ library
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
                         Pos.State.Acidic
-                        Pos.State.Memory
                         Pos.State.State
                         Pos.State.Storage
                         Pos.Types.Block

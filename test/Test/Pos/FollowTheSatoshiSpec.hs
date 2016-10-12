@@ -19,7 +19,7 @@ import           Test.QuickCheck          (Gen, Property, choose, counterexample
 import           Test.QuickCheck.Property (failed, succeeded)
 import           Universum
 
-import           Pos.Crypto               (PublicKey, Share, decryptShare, mkSigned)
+import           Pos.Crypto               (PublicKey, Share, decryptShare, sign)
 import           Pos.FollowTheSatoshi     (FtsError (..), calculateSeed)
 import           Pos.Types                (Commitment (..), CommitmentsMap, FtsSeed (..),
                                            Opening (..), shareFtsSeed)
@@ -184,7 +184,9 @@ mkCommitmentsMap keys vssKeys seeds =
                 { commProof  = proof
                 , commShares = HM.fromList (zip vssPubKeys shares)
                 }
-        return (pk, mkSigned sk comm)
+        let epochIdx = 0  -- we don't care here
+        let sig = sign sk (epochIdx, comm)
+        return (pk, (comm, sig))
 
 xorSeed :: FtsSeed -> FtsSeed -> FtsSeed
 xorSeed (FtsSeed a) (FtsSeed b) = FtsSeed $ BS.pack (BS.zipWith xor a b)

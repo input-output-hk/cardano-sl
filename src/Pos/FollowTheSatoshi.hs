@@ -1,4 +1,5 @@
-{-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE MultiWayIf   #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- | Everything related to /follow-the-satoshi/ procedure.
 
@@ -104,11 +105,11 @@ calculateSeed commitments openings shares = do
     -- Now that we have the secrets, we can check whether the commitments
     -- actually match the secrets, and whether a secret has been recovered
     -- for each participant.
-    for_ (HM.toList commitments) $ \(key, commitment) -> do
+    for_ (HM.toList commitments) $ \(key, fst -> commitment) -> do
         secret <- case HM.lookup key secrets of
             Nothing -> Left (NoSecretFound key)
             Just sc -> return sc
-        unless (verifyProof (commProof (signedValue commitment)) secret) $
+        unless (verifyProof (commProof commitment) secret) $
             Left (BrokenCommitment key)
 
     -- Finally we just XOR all secrets together

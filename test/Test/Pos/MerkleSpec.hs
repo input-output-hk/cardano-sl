@@ -24,7 +24,7 @@ spec = describe "Merkle" $ do
         (sizeProp @Int)
 
 generateAndFoldProp :: (Eq a, Show a, Binary a) => [a] -> Property
-generateAndFoldProp xs = maybe [] toList (mkMerkleTree xs) === xs
+generateAndFoldProp xs = toList (mkMerkleTree xs) === xs
 
 sizeProp :: (Binary a) => [a] -> Property
-sizeProp xs = maybe 0 mtSize (mkMerkleTree xs) === fromIntegral (length xs)
+sizeProp xs = mtSize (mkMerkleTree xs) === fromIntegral (length xs)

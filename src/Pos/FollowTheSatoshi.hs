@@ -20,8 +20,8 @@ import           Universum
 import           Serokell.Util       (listBuilderJSON)
 
 import           Pos.Constants       (epochSlots)
-import           Pos.Crypto          (PublicKey, Secret (..), Signed (..), deterministic,
-                                      randomNumber, recoverSecret, verifyProof)
+import           Pos.Crypto          (PublicKey, Secret (..), deterministic, randomNumber,
+                                      recoverSecret, verifyProof)
 import           Pos.Types           (Address, Coin (..), Commitment (..), CommitmentsMap,
                                       FtsSeed (..), OpeningsMap, SharesMap, Utxo,
                                       getOpening)

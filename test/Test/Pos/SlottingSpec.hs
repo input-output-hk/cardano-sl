@@ -17,9 +17,9 @@ import           Test.QuickCheck.Monadic (PropertyM, assert, monadic, pick, run)
 import           Universum
 
 import           Pos.Constants           (epochDuration, slotDuration)
-import           Pos.Slotting            (MonadSlots (..), Timestamp (..), flattenSlotId,
-                                          getCurrentSlot, unflattenSlotId)
-import           Pos.Types               (EpochIndex, LocalSlotIndex, SlotId (..))
+import           Pos.Slotting            (MonadSlots (..), Timestamp (..), getCurrentSlot)
+import           Pos.Types               (EpochIndex, LocalSlotIndex, SlotId (..),
+                                          flattenSlotId, unflattenSlotId)
 
 import           Test.Pos.Util           ()
 

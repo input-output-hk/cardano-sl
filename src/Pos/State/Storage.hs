@@ -33,11 +33,10 @@ import           Serokell.AcidState    ()
 import           Universum
 
 import           Pos.Crypto            (PublicKey)
-import           Pos.Slotting          (unflattenSlotId)
 import           Pos.State.Storage.Mpc (HasMpcStorage (mpcStorage), MpcStorage,
                                         getLeaders)
 import           Pos.State.Storage.Tx  (HasTxStorage (txStorage), TxStorage, addTx)
-import           Pos.Types             (Block, HeaderHash, SlotId, Utxo)
+import           Pos.Types             (Block, HeaderHash, SlotId, Utxo, unflattenSlotId)
 
 type Query  a = forall m . MonadReader Storage m => m a
 type Update a = forall m . MonadState Storage m => m a

@@ -96,6 +96,8 @@ module Pos.Types.Types
        , mkGenericBlock
        , mkMainHeader
        , mkMainBlock
+       , mkGenesisHeader
+       , mkGenesisBlock
 
        , verifyGenericHeader
        , verifyHeader
@@ -642,6 +644,27 @@ mkMainBlock prevHeader slotId sk body =
     , _gbBody = body
     , _gbExtra = ()
     }
+
+mkGenesisHeader :: Maybe BlockHeader
+                -> EpochIndex
+                -> Body GenesisBlockchain
+                -> GenesisBlockHeader
+mkGenesisHeader prevHeader epoch body =
+    mkGenericHeader prevHeader body consensus ()
+  where
+    difficulty = maybe 0 (succ . view difficultyL) prevHeader
+    consensus _ _ =
+        GenesisConsensusData {_gcdEpoch = epoch, _gcdDifficulty = difficulty}
+
+mkGenesisBlock :: Maybe BlockHeader -> EpochIndex -> SlotLeaders -> GenesisBlock
+mkGenesisBlock prevHeader epoch leaders =
+    GenericBlock
+    { _gbHeader = mkGenesisHeader prevHeader epoch body
+    , _gbBody = body
+    , _gbExtra = ()
+    }
+  where
+    body = GenesisBody leaders
 
 verifyConsensusLocal :: BlockHeader -> VerificationRes
 verifyConsensusLocal (Left _)       = mempty

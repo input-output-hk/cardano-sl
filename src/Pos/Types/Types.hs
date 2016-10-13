@@ -47,6 +47,7 @@ module Pos.Types.Types
        , SharesMap
        , VssCertificate
        , VssCertificatesMap
+       , SlotLeaders
 
        , Blockchain (..)
        , BodyProof (..)
@@ -309,6 +310,8 @@ type VssCertificate = Signed VssPublicKey
 -- during some period of time.
 type VssCertificatesMap = HashMap PublicKey VssCertificate
 
+type SlotLeaders = Vector PublicKey
+
 ----------------------------------------------------------------------------
 -- GenericBlock
 ----------------------------------------------------------------------------
@@ -488,7 +491,7 @@ instance Blockchain GenesisBlockchain where
     -- | Body of genesis block consists of slot leaders for epoch
     -- associated with this block.
     data Body GenesisBlockchain = GenesisBody
-        { gbLeaders :: !(Vector PublicKey)
+        { gbLeaders :: !SlotLeaders
         } deriving (Show, Generic)
     type BBlock GenesisBlockchain = Block
 

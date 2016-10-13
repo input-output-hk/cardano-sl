@@ -9,6 +9,7 @@ module Pos.Crypto.Signing
          PublicKey
        , SecretKey
        , keyGen
+       , deterministicKeyGen
        , toPublic
        , formatFullPublicKey
        , fullPublicKeyF
@@ -168,6 +169,11 @@ keyGen = liftIO $ do
         Nothing -> panic "Pos.Crypto.Signing.keyGen:\
                          \ createKeypairFromSeed_ failed"
         Just (pk, sk) -> return (PublicKey pk, SecretKey sk)
+
+-- | Create key pair deterministically from 32 bytes.
+deterministicKeyGen :: BS.ByteString -> Maybe (PublicKey, SecretKey)
+deterministicKeyGen seed =
+    bimap PublicKey SecretKey <$> Ed25519.createKeypairFromSeed_ seed
 
 ----------------------------------------------------------------------------
 -- Signatures

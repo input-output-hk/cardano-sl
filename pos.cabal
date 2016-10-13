@@ -17,6 +17,7 @@ library
                         Pos.Communication
                         Pos.Constants
                         Pos.FollowTheSatoshi
+                        Pos.Genesis
                         Pos.Launcher
                         Pos.Merkle
                         Pos.Slotting

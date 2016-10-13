@@ -10,6 +10,7 @@ module Pos.Crypto.SecretSharing
        , getVssSecretKey
        , deriveVssPublicKey
        , vssKeyGen
+       , deterministicVssKeyGen
 
        , EncShare
        , Secret (..)
@@ -50,6 +51,9 @@ deriveVssPublicKey _ = VssPublicKey NotImplemented
 
 vssKeyGen :: MonadIO m => m (VssPublicKey, VssSecretKey)
 vssKeyGen = pure (VssPublicKey NotImplemented, VssSecretKey NotImplemented)
+
+deterministicVssKeyGen :: ByteString -> (VssPublicKey, VssSecretKey)
+deterministicVssKeyGen _ = (VssPublicKey NotImplemented, VssSecretKey NotImplemented)
 
 -- | Secret can be split into encrypted shares to be reconstructed later.
 newtype Secret = Secret

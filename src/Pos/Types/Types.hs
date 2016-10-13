@@ -107,7 +107,7 @@ module Pos.Types.Types
        , displayEntry
        ) where
 
-import           Control.Lens         (Lens', makeLenses, view, (^.))
+import           Control.Lens         (Lens', choosing, makeLenses, view, (^.))
 import           Data.Binary          (Binary)
 import           Data.Binary.Orphans  ()
 import           Data.Hashable        (Hashable)
@@ -548,8 +548,7 @@ instance HasDifficulty GenesisBlockHeader where
     difficultyL = gbhConsensus . difficultyL
 
 instance HasDifficulty BlockHeader where
-    difficultyL f (Left h)  = Left <$> difficultyL f h
-    difficultyL f (Right h) = Right <$> difficultyL f h
+    difficultyL = choosing difficultyL difficultyL
 
 instance HasDifficulty MainBlock where
     difficultyL = gbHeader . difficultyL
@@ -558,8 +557,7 @@ instance HasDifficulty GenesisBlock where
     difficultyL = gbHeader . difficultyL
 
 instance HasDifficulty Block where
-    difficultyL f (Left b)  = Left <$> difficultyL f b
-    difficultyL f (Right b) = Right <$> difficultyL f b
+    difficultyL = choosing difficultyL difficultyL
 
 blockSlot :: Lens' MainBlock SlotId
 blockSlot = gbHeader . headerSlot

@@ -16,14 +16,12 @@ module Pos.State.Storage.Tx
 import           Control.Lens  (makeClassy, use, (%=))
 import           Data.Default  (Default, def)
 import qualified Data.HashSet  as HS
-import qualified Data.Map      as M
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Serokell.Util (isVerSuccess)
 import           Universum
 
-import           Pos.Crypto    (hash)
 import           Pos.Genesis   (genesisUtxo)
-import           Pos.Types     (Tx (..), TxOut (..), Utxo, deleteTxIn, verifyTxUtxo)
+import           Pos.Types     (Tx (..), Utxo, applyTxToUtxo, verifyTxUtxo)
 
 data TxStorage = TxStorage
     { -- | Local set of transactions. These are valid (with respect to
@@ -59,10 +57,4 @@ addTx tx = do
 applyTx :: Tx -> Update ()
 applyTx tx@Tx {..} = do
     txLocalTxns %= HS.insert tx
-    mapM_ applyInput txInputs
-    mapM_ applyOutput $ zip [0 ..] txOutputs
-  where
-    h = hash tx
-    applyInput txIn = txUtxo %= deleteTxIn txIn
-    applyOutput (idx, TxOut {..}) =
-        txUtxo %= M.insert (h, idx, txOutValue) txOutAddress
+    txUtxo %= applyTxToUtxo tx

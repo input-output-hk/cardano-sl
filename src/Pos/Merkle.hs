@@ -15,16 +15,17 @@ module Pos.Merkle
        , mkMerkleTree
        ) where
 
-import           Data.Binary     (Binary, get, getWord8, put, putWord8)
-import qualified Data.Binary     as Binary (encode)
-import qualified Data.ByteString as BS
-import           Data.Coerce     (coerce)
-import           Data.SafeCopy   (base, deriveSafeCopySimple)
+import           Control.Monad.Fail (fail)
+import           Data.Binary        (Binary, get, getWord8, put, putWord8)
+import qualified Data.Binary        as Binary (encode)
+import qualified Data.ByteString    as BS
+import           Data.Coerce        (coerce)
+import           Data.SafeCopy      (base, deriveSafeCopySimple)
 import           Universum
 
-import           Data.ByteArray  (ByteArrayAccess, convert)
-import           Pos.Crypto      (Hash, hashRaw)
-import           Pos.Util        (Raw)
+import           Data.ByteArray     (ByteArrayAccess, convert)
+import           Pos.Crypto         (Hash, hashRaw)
+import           Pos.Util           (Raw)
 
 -- TODO: This uses SHA256 (i.e. Hash). Bitcoin uses double SHA256 to protect
 -- against some attacks that don't exist yet. It'd likely be nice to use
@@ -63,6 +64,7 @@ instance Binary a => Binary (MerkleNode a) where
         case tag of
             0 -> mkBranch <$> get <*> get
             1 -> mkLeaf <$> get
+            _ -> fail ("get@MerkleNode: invalid tag: " ++ show tag)
     put x = case x of
         MerkleBranch{..} -> putWord8 0 >> put mLeft >> put mRight
         MerkleLeaf{..}   -> putWord8 1 >> put mVal

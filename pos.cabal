@@ -38,6 +38,7 @@ library
                         Pos.Types.Block
                         Pos.Types.FtsSeed
                         Pos.Types.SlotId
+                        Pos.Types.Tx
                         Pos.Types.Types
                         Pos.Types.Utxo
                         Pos.WorkMode

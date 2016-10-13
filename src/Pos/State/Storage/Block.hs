@@ -16,10 +16,10 @@ module Pos.State.Storage.Block
        , getLeaders
        ) where
 
-import           Control.Lens  (makeClassy, views, (^.))
+import           Control.Lens  (ix, makeClassy, preview, views, (^.))
 import           Data.Default  (Default, def)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import           Data.Vector   (Vector, (!?))
+import           Data.Vector   (Vector)
 import           Universum
 
 import           Pos.Genesis   (genesisLeaders)
@@ -63,7 +63,7 @@ getBlock (fromIntegral -> i) =
 -- if no information is available.
 getLeaders :: EpochIndex -> Query SlotLeaders
 getLeaders (fromIntegral -> epoch) = do
-    blkIdx <- views blkGenesisIndices (!? epoch)
+    blkIdx <- preview (blkGenesisIndices . ix epoch)
     maybe (pure mempty) (fmap leadersFromBlock . getBlock) blkIdx
   where
     leadersFromBlock (Just (Left genBlock)) = genBlock ^. blockLeaders

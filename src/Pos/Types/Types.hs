@@ -440,7 +440,7 @@ instance Blockchain MainBlockchain where
         , -- | Decrypted shares to be used in the third phase.
         mbShares      :: !SharesMap
         , -- | Vss certificates are added at any time if they are valid and
-          -- recieved from stakeholders.
+          -- received from stakeholders.
         mbVssCertificates :: !VssCertificatesMap
         } deriving (Generic)
     type BBlock MainBlockchain = Block
@@ -470,7 +470,7 @@ type MainBlock = GenericBlock MainBlockchain
 -- | Represents blockchain consisting of genesis blocks.  Genesis
 -- block doesn't have any special payload and is not strictly
 -- necessary. However, it is good idea to store list of leaders
--- explicitely, because calculating it may be expensive operation. For
+-- explicitly, because calculating it may be expensive operation. For
 -- example, it is useful for SPV-clients.
 data GenesisBlockchain
 

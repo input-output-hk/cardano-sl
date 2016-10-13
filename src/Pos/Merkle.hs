@@ -15,7 +15,7 @@ module Pos.Merkle
        , mkMerkleTree
        ) where
 
-import           Data.Binary     (Binary)
+import           Data.Binary     (Binary, get, getWord8, put, putWord8)
 import qualified Data.Binary     as Binary (encode)
 import qualified Data.ByteString as BS
 import           Data.Coerce     (coerce)
@@ -55,7 +55,18 @@ instance Foldable MerkleNode where
 deriveSafeCopySimple 0 'base ''MerkleNode
 deriveSafeCopySimple 0 'base ''MerkleTree
 
-instance Binary a => Binary (MerkleNode a)
+-- This instance is both faster and more space-efficient (as confirmed by a
+-- benchmark). Hashing turns out to be faster than decoding extra data.
+instance Binary a => Binary (MerkleNode a) where
+    get = do
+        tag <- getWord8
+        case tag of
+            0 -> mkBranch <$> get <*> get
+            1 -> mkLeaf <$> get
+    put x = case x of
+        MerkleBranch{..} -> putWord8 0 >> put mLeft >> put mRight
+        MerkleLeaf{..}   -> putWord8 1 >> put mVal
+
 instance Binary a => Binary (MerkleTree a)
 
 mkLeaf :: Binary a => a -> MerkleNode a

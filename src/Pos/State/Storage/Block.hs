@@ -16,7 +16,8 @@ import           Data.Default  (Default, def)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Universum
 
-import           Pos.Types     (Block, HeaderHash)
+import           Pos.Genesis   (genesisLeaders)
+import           Pos.Types     (Block, HeaderHash, mkGenesisBlock)
 
 data BlockStorage = BlockStorage
     { -- | The best valid blockchain known to the node. We should take
@@ -34,7 +35,7 @@ deriveSafeCopySimple 0 'base ''BlockStorage
 instance Default BlockStorage where
     def =
         BlockStorage
-        { _blkBlocks = undefined
+        { _blkBlocks = [Left (mkGenesisBlock Nothing 0 genesisLeaders)]
         , _blkExtraBlocks = mempty
         }
 

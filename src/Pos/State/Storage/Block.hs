@@ -13,6 +13,7 @@ module Pos.State.Storage.Block
        , HasBlockStorage (blockStorage)
 
        , getBlock
+       , getBlockByIndex
        , getLeaders
        ) where
 
@@ -53,10 +54,14 @@ instance Default BlockStorage where
 type Query a = forall m x. (HasBlockStorage x, MonadReader x m) => m a
 type Update a = forall m x. (HasBlockStorage x, MonadState x m) => m a
 
+-- | Get block by hash of its header.
+getBlock :: HeaderHash -> Query (Maybe Block)
+getBlock _ = notImplemented
+
 -- | Get i-th block from the best know chain. 0-th block is genesis
 -- block for 0-th epoch.
-getBlock :: Word -> Query (Maybe Block)
-getBlock (fromIntegral -> i) =
+getBlockByIndex :: Word -> Query (Maybe Block)
+getBlockByIndex (fromIntegral -> i) =
     views blkBlocks (\b -> b `atMay` (length b - i - 1))
 
 -- | Get list of slot leaders for the given epoch. Empty list is returned
@@ -64,7 +69,7 @@ getBlock (fromIntegral -> i) =
 getLeaders :: EpochIndex -> Query SlotLeaders
 getLeaders (fromIntegral -> epoch) = do
     blkIdx <- preview (blkGenesisIndices . ix epoch)
-    maybe (pure mempty) (fmap leadersFromBlock . getBlock) blkIdx
+    maybe (pure mempty) (fmap leadersFromBlock . getBlockByIndex) blkIdx
   where
     leadersFromBlock (Just (Left genBlock)) = genBlock ^. blockLeaders
     leadersFromBlock _                      = mempty

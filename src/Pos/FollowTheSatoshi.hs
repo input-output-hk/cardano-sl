@@ -128,7 +128,7 @@ calculateSeed commitments openings shares = do
 -- number of coins this stakeholder holds. The same stakeholder can be picked
 -- more than once.
 --
--- How the algorithm works: wWe sort all unspent outputs in a deterministic
+-- How the algorithm works: we sort all unspent outputs in a deterministic
 -- way (lexicographically) and have an ordered sequence of pairs @(Address,
 -- Coin)@. Then we choose several random 'i's between 1 and amount of satoshi
 -- in the system; to find owner of 'i'th coin we find the lowest x such that

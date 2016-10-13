@@ -74,6 +74,7 @@ module Pos.Types.Types
        , HasDifficulty (..)
 
        , blockLeaderKey
+       , blockLeaders
        , blockSignature
        , blockSlot
        , gbBody
@@ -493,11 +494,11 @@ instance Blockchain GenesisBlockchain where
     -- | Body of genesis block consists of slot leaders for epoch
     -- associated with this block.
     data Body GenesisBlockchain = GenesisBody
-        { gbLeaders :: !SlotLeaders
+        { _gbLeaders :: !SlotLeaders
         } deriving (Show, Generic)
     type BBlock GenesisBlockchain = Block
 
-    mkBodyProof = GenesisProof . hash . gbLeaders
+    mkBodyProof = GenesisProof . hash . _gbLeaders
 
 instance Binary (BodyProof GenesisBlockchain)
 instance Binary (ConsensusData GenesisBlockchain)
@@ -522,6 +523,7 @@ makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock
 makeLensesData ''ConsensusData ''MainBlockchain
 makeLensesData ''ConsensusData ''GenesisBlockchain
+makeLensesData ''Body ''GenesisBlockchain
 
 headerSlot :: Lens' MainBlockHeader SlotId
 headerSlot = gbhConsensus . mcdSlot
@@ -567,6 +569,9 @@ blockLeaderKey = gbHeader . headerLeaderKey
 
 blockSignature :: Lens' MainBlock (Signature MainToSign)
 blockSignature = gbHeader . headerSignature
+
+blockLeaders :: Lens' GenesisBlock SlotLeaders
+blockLeaders = gbBody . gbLeaders
 
 ----------------------------------------------------------------------------
 -- Block.hs. TODO: move it into Block.hs.

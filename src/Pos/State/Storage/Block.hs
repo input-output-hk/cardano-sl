@@ -9,6 +9,8 @@ module Pos.State.Storage.Block
        (
          BlockStorage
        , HasBlockStorage (blockStorage)
+
+       , getLeaders
        ) where
 
 import           Control.Lens  (makeClassy)
@@ -17,7 +19,8 @@ import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Universum
 
 import           Pos.Genesis   (genesisLeaders)
-import           Pos.Types     (Block, HeaderHash, mkGenesisBlock)
+import           Pos.Types     (Block, EpochIndex, HeaderHash, SlotLeaders,
+                                mkGenesisBlock)
 
 data BlockStorage = BlockStorage
     { -- | The best valid blockchain known to the node. We should take
@@ -41,3 +44,8 @@ instance Default BlockStorage where
 
 type Query a = forall m x. (HasBlockStorage x, MonadReader x m) => m a
 type Update a = forall m x. (HasBlockStorage x, MonadState x m) => m a
+
+-- | Get list of slot leaders for the given epoch. Empty list is returned
+-- if no information is available.
+getLeaders :: EpochIndex -> Query SlotLeaders
+getLeaders _ = pure mempty

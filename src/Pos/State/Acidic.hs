@@ -31,7 +31,6 @@ import           Serokell.AcidState (ExtendedState, closeExtendedState,
                                      queryExtended, tidyExtendedState, updateExtended)
 import           Universum
 
-import           Pos.Crypto         (PublicKey)
 import           Pos.State.Storage  (Storage)
 import qualified Pos.State.Storage  as S
 import           Pos.Types
@@ -74,7 +73,7 @@ tidyState = tidyExtendedState
 -- so it fits). Hence we have to redefine all operations in order to be able
 -- to use 'makeAcidic' on them.
 
-getLeaders :: EpochIndex -> Query Storage [PublicKey]
+getLeaders :: EpochIndex -> Query Storage SlotLeaders
 getLeaders = S.getLeaders
 
 addTx :: Tx -> Update Storage Bool

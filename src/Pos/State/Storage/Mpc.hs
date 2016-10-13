@@ -11,8 +11,6 @@ module Pos.State.Storage.Mpc
        (
          MpcStorage
        , HasMpcStorage(mpcStorage)
-
-       , getLeaders
        ) where
 
 import           Control.Lens  (makeClassy)
@@ -48,8 +46,3 @@ instance Default MpcStorage where
 
 type Update a = forall m x. (HasMpcStorage x, MonadState x m) => m a
 type Query a = forall m x. (HasMpcStorage x, MonadReader x m) => m a
-
--- | Get list of slot leaders for the given epoch. Empty list is returned
--- if no information is available.
-getLeaders :: EpochIndex -> Query [PublicKey]
-getLeaders _ = pure []

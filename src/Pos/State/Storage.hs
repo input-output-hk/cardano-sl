@@ -33,9 +33,9 @@ import           Serokell.AcidState      ()
 import           Universum
 
 import           Pos.Crypto              (PublicKey)
-import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage))
-import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage,
+import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
                                           getLeaders)
+import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, addTx)
 import           Pos.Types               (Block, HeaderHash, SlotId, Utxo,
                                           unflattenSlotId)

@@ -23,7 +23,7 @@ import           Pos.Slotting      (MonadSlots, getCurrentSlot)
 import           Pos.State.Acidic  (DiskState)
 import qualified Pos.State.Acidic  as A
 import           Pos.State.Storage (Storage)
-import           Pos.Types         (EpochIndex, Tx)
+import           Pos.Types         (EpochIndex, SlotLeaders, Tx)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState
@@ -57,7 +57,7 @@ updateDisk = A.update
 
 -- | Get list of slot leaders for the given epoch. Empty list is returned
 -- if no information is available.
-getLeaders :: MonadIO m => NodeState -> EpochIndex -> m [PublicKey]
+getLeaders :: MonadIO m => NodeState -> EpochIndex -> m SlotLeaders
 getLeaders ns = queryDisk ns . A.GetLeaders
 
 -- | Add transaction to state if it is fully valid. Returns True iff

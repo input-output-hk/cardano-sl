@@ -14,6 +14,7 @@ module Pos.State.Storage
 
        , Update
        , addTx
+       , processNewSlot
        -- , addEntry
        -- , addLeaders
        -- , adoptBlock
@@ -23,22 +24,18 @@ module Pos.State.Storage
        -- , setLeaders
        ) where
 
-import           Control.Lens            (at, ix, makeClassy, preview, views, (%=), (.=),
-                                          (<<.=))
+import           Control.Lens            (makeClassy, use, (.=))
 import           Data.Acid               ()
 import           Data.Default            (Default, def)
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
-import qualified Data.Set                as Set (fromList, insert, toList, (\\))
 import           Serokell.AcidState      ()
 import           Universum
 
-import           Pos.Crypto              (PublicKey)
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
                                           getLeaders)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, addTx)
-import           Pos.Types               (Block, HeaderHash, SlotId, Utxo,
-                                          unflattenSlotId)
+import           Pos.Types               (SlotId, unflattenSlotId)
 
 type Query  a = forall m . MonadReader Storage m => m a
 type Update a = forall m . MonadState Storage m => m a
@@ -72,6 +69,16 @@ instance Default Storage where
         , __blockStorage = def
         , _slotId = unflattenSlotId 0
         }
+
+-- | Do all necessary changes when new slot starts.
+processNewSlot :: SlotId -> Update ()
+processNewSlot sId = do
+    knownSlot <- use slotId
+    when (sId > knownSlot) $ processNewSlotDo sId
+
+-- TODO
+processNewSlotDo :: SlotId -> Update ()
+processNewSlotDo sId = slotId .= sId
 
 -- createBlock :: Update Blockkk
 -- createBlock = do

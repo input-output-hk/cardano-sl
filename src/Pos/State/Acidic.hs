@@ -16,6 +16,7 @@ module Pos.State.Acidic
        , GetLeaders (..)
 
        , AddTx (..)
+       , ProcessNewSlot (..)
        -- , AddLeaders (..)
        -- , GetLeader (..)
        -- , AddEntry (..)
@@ -33,7 +34,7 @@ import           Universum
 
 import           Pos.State.Storage  (Storage)
 import qualified Pos.State.Storage  as S
-import           Pos.Types
+import           Pos.Types.Types
 
 ----------------------------------------------------------------------------
 -- Acid-state things
@@ -79,6 +80,9 @@ getLeaders = S.getLeaders
 addTx :: Tx -> Update Storage Bool
 addTx = S.addTx
 
+processNewSlot :: SlotId -> Update Storage ()
+processNewSlot = S.processNewSlot
+
 -- addLeaders :: Int -> [NodeId] -> Update Storage ()
 -- addLeaders = S.addLeaders
 
@@ -97,6 +101,7 @@ addTx = S.addTx
 makeAcidic ''Storage
     [ 'getLeaders
     , 'addTx
+    , 'processNewSlot
     -- , 'addLeaders
     -- , 'getLeader
     -- , 'addEntry

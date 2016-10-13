@@ -18,12 +18,11 @@ module Pos.State.State
 import           Data.Acid         (EventResult, EventState, QueryEvent, UpdateEvent)
 import           Universum
 
-import           Pos.Crypto        (PublicKey)
 import           Pos.Slotting      (MonadSlots, getCurrentSlot)
-import           Pos.State.Acidic  (DiskState)
+import           Pos.State.Acidic  (DiskState, tidyState)
 import qualified Pos.State.Acidic  as A
 import           Pos.State.Storage (Storage)
-import           Pos.Types         (EpochIndex, SlotLeaders, Tx)
+import           Pos.Types         (EpochIndex, SlotId, SlotLeaders, Tx)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState
@@ -39,7 +38,10 @@ openMemState = openStateDo A.openMemState
 
 -- TODO: get current slot and do some update before proceeding.
 openStateDo :: (MonadIO m, MonadSlots m) => m DiskState -> m NodeState
-openStateDo openDiskState = openDiskState
+openStateDo openDiskState = do
+    st <- openDiskState
+    processNewSlot st =<< getCurrentSlot
+    st <$ tidyState st
 
 -- | Safely close NodeState.
 closeState :: MonadIO m => NodeState -> m ()
@@ -64,3 +66,7 @@ getLeaders ns = queryDisk ns . A.GetLeaders
 -- transaction has been added.
 addTx :: MonadIO m => NodeState -> Tx -> m Bool
 addTx ns = updateDisk ns . A.AddTx
+
+-- | Notify NodeState about beginning of new slot.
+processNewSlot :: MonadIO m => NodeState -> SlotId -> m ()
+processNewSlot ns = updateDisk ns . A.ProcessNewSlot

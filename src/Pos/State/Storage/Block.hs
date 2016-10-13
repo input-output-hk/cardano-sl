@@ -15,6 +15,8 @@ module Pos.State.Storage.Block
        , getBlock
        , getBlockByIndex
        , getLeaders
+
+       , blkRollback
        ) where
 
 import           Control.Lens  (ix, makeClassy, preview, views, (^.))
@@ -73,3 +75,8 @@ getLeaders (fromIntegral -> epoch) = do
   where
     leadersFromBlock (Just (Left genBlock)) = genBlock ^. blockLeaders
     leadersFromBlock _                      = mempty
+
+-- | Rollback last `n` blocks. `blk` prefix is used, because rollback
+-- may happen in other storages as well.
+blkRollback :: Int -> Update ()
+blkRollback _ = pure ()

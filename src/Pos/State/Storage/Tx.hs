@@ -13,13 +13,17 @@ module Pos.State.Storage.Tx
        , addTx
        ) where
 
-import           Control.Lens  (makeClassy)
+import           Control.Lens  (makeClassy, use, (%=))
 import           Data.Default  (Default, def)
+import qualified Data.HashSet  as HS
+import qualified Data.Map      as M
 import           Data.SafeCopy (base, deriveSafeCopySimple)
+import           Serokell.Util (isVerSuccess)
 import           Universum
 
+import           Pos.Crypto    (hash)
 import           Pos.Genesis   (genesisUtxo)
-import           Pos.Types     (Tx, Utxo)
+import           Pos.Types     (Tx (..), TxOut (..), Utxo, deleteTxIn, verifyTxUtxo)
 
 data TxStorage = TxStorage
     { -- | Local set of transactions. These are valid (with respect to
@@ -47,4 +51,18 @@ type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
 -- | Add transaction to storage if it is fully valid. Returns True iff
 -- transaction has been added.
 addTx :: Tx -> Update Bool
-addTx _ = pure False
+addTx tx = do
+    u <- use txUtxo
+    let good = isVerSuccess $ verifyTxUtxo u tx
+    good <$ when good (applyTx tx)
+
+applyTx :: Tx -> Update ()
+applyTx tx@Tx {..} = do
+    txLocalTxns %= HS.insert tx
+    mapM_ applyInput txInputs
+    mapM_ applyOutput $ zip [0 ..] txOutputs
+  where
+    h = hash tx
+    applyInput txIn = txUtxo %= deleteTxIn txIn
+    applyOutput (idx, TxOut {..}) =
+        txUtxo %= M.insert (h, idx, txOutValue) txOutAddress

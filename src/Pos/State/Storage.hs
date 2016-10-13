@@ -55,9 +55,6 @@ data Storage = Storage
       _blocks      :: [Block]
     , -- | Extra blocks from alternative chains. It serves as cache basically.
       _extraBlocks :: !(HashMap HeaderHash Block)
-    , -- | Set of unspent transaction outputs. It is need to check new
-      -- transactions and run follow-the-satoshi, for example.
-      _utxo        :: !Utxo
     }
 
 makeClassy ''Storage
@@ -76,7 +73,6 @@ instance Default Storage where
         , _slotId = unflattenSlotId 0
         , _blocks = mempty
         , _extraBlocks = mempty
-        , _utxo = mempty
         }
 
 -- createBlock :: Update Blockkk

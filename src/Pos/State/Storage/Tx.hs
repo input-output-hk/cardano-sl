@@ -18,13 +18,18 @@ import           Data.Default  (Default, def)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Universum
 
-import           Pos.Types     (Tx)
+import           Pos.Genesis   (genesisUtxo)
+import           Pos.Types     (Tx, Utxo)
 
 data TxStorage = TxStorage
     { -- | Local set of transactions. These are valid (with respect to
       -- utxo) transactions which are known to the node and are not
       -- included in the blockchain store by the node.
-      _txLocalTxns :: !(HashSet Tx) }
+      _txLocalTxns :: !(HashSet Tx)
+    , -- | Set of unspent transaction outputs. It is need to check new
+      -- transactions and run follow-the-satoshi, for example.
+      _txUtxo      :: !Utxo
+    }
 
 makeClassy ''TxStorage
 deriveSafeCopySimple 0 'base ''TxStorage
@@ -33,6 +38,7 @@ instance Default TxStorage where
     def =
         TxStorage
         { _txLocalTxns = mempty
+        , _txUtxo = genesisUtxo
         }
 
 type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a

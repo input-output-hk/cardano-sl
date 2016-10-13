@@ -615,12 +615,12 @@ mkMainHeader
     :: Maybe BlockHeader
     -> SlotId
     -> SecretKey
-    -> ChainDifficulty
     -> Body MainBlockchain
     -> MainBlockHeader
-mkMainHeader prevHeader slotId sk difficulty body =
+mkMainHeader prevHeader slotId sk body =
     mkGenericHeader prevHeader body consensus ()
   where
+    difficulty = maybe 0 (succ . view difficultyL) prevHeader
     signature prevHash proof = sign sk (prevHash, proof, slotId, difficulty)
     consensus prevHash proof =
         MainConsensusData
@@ -634,12 +634,11 @@ mkMainBlock
     :: Maybe BlockHeader
     -> SlotId
     -> SecretKey
-    -> ChainDifficulty
     -> Body MainBlockchain
     -> MainBlock
-mkMainBlock prevHeader slotId sk difficulty body =
+mkMainBlock prevHeader slotId sk body =
     GenericBlock
-    { _gbHeader = mkMainHeader prevHeader slotId sk difficulty body
+    { _gbHeader = mkMainHeader prevHeader slotId sk body
     , _gbBody = body
     , _gbExtra = ()
     }

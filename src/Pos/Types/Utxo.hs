@@ -1,7 +1,8 @@
 -- | Utxo related operations.
 
 module Pos.Types.Utxo
-       ( findTxIn
+       ( deleteTxIn
+       , findTxIn
        , verifyTxUtxo
        ) where
 
@@ -21,6 +22,13 @@ findTxIn utxo TxIn {..} =
     convertRes ((txId, idx, c), addr)
         | txInHash == txId && txInIndex == idx = pure (addr, c)
         | otherwise = Nothing
+
+-- | Delete given TxIn from Utxo if any.
+deleteTxIn :: TxIn -> Utxo -> Utxo
+deleteTxIn txIn@TxIn {..} utxo =
+    case findTxIn utxo txIn of
+        Nothing     -> utxo
+        Just (_, c) -> M.delete (txInHash, txInIndex, c) utxo
 
 -- | Verify Tx using Utxo as TxIn resolver.
 verifyTxUtxo :: Utxo -> Tx -> VerificationRes

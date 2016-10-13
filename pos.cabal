@@ -32,6 +32,7 @@ library
                         Pos.State.Acidic
                         Pos.State.State
                         Pos.State.Storage
+                        Pos.State.Storage.Block
                         Pos.State.Storage.Mpc
                         Pos.State.Storage.Tx
                         Pos.Types.Block

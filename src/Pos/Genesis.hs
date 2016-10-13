@@ -26,7 +26,7 @@ import           Pos.Constants       (epochSlots)
 import           Pos.Crypto          (PublicKey, SecretKey, VssPublicKey, VssSecretKey,
                                       deterministicKeyGen, deterministicVssKeyGen,
                                       mkSigned, unsafeHash)
-import           Pos.Types           (Address (Address), SlotLeaders, Utxo,
+import           Pos.Types           (Address (Address), SlotLeaders, TxOut (..), Utxo,
                                       VssCertificatesMap)
 
 ----------------------------------------------------------------------------
@@ -51,7 +51,7 @@ genesisAddresses = map Address genesisPublicKeys
 
 genesisUtxo :: Utxo
 genesisUtxo =
-    M.fromList $ map (\a -> ((unsafeHash a, 0, 100), a)) genesisAddresses
+    M.fromList $ map (\a -> ((unsafeHash a, 0), TxOut a 100)) genesisAddresses
 
 ----------------------------------------------------------------------------
 -- MPC, leaders

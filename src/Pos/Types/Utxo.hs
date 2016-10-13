@@ -13,36 +13,26 @@ import           Universum
 
 import           Pos.Crypto      (hash)
 import           Pos.Types.Tx    (verifyTx)
-import           Pos.Types.Types (AddrId, Address, Coin, Tx (..), TxIn (..), TxOut (..),
-                                  Utxo)
+import           Pos.Types.Types (Tx (..), TxIn (..), TxOut (..), Utxo)
 
 -- | Find transaction input in Utxo assuming it is valid.
-findTxIn :: Utxo -> TxIn -> Maybe (Address, Coin)
-findTxIn utxo TxIn {..} =
-    M.lookupLE (txInHash, txInIndex, maxBound) utxo >>= convertRes
-  where
-    convertRes :: (AddrId, Address) -> Maybe (Address, Coin)
-    convertRes ((txId, idx, c), addr)
-        | txInHash == txId && txInIndex == idx = pure (addr, c)
-        | otherwise = Nothing
+findTxIn :: TxIn -> Utxo -> Maybe TxOut
+findTxIn TxIn{..} = M.lookup (txInHash, txInIndex)
 
 -- | Delete given TxIn from Utxo if any.
 deleteTxIn :: TxIn -> Utxo -> Utxo
-deleteTxIn txIn@TxIn {..} utxo =
-    case findTxIn utxo txIn of
-        Nothing     -> utxo
-        Just (_, c) -> M.delete (txInHash, txInIndex, c) utxo
+deleteTxIn TxIn{..} = M.delete (txInHash, txInIndex)
 
 -- | Verify Tx using Utxo as TxIn resolver.
 verifyTxUtxo :: Utxo -> Tx -> VerificationRes
-verifyTxUtxo utxo = verifyTx (findTxIn utxo)
+verifyTxUtxo utxo = verifyTx (`findTxIn` utxo)
 
 -- | Remove unspent outputs used in given transaction, add new unspent outputs.
 applyTxToUtxo :: Tx -> Utxo -> Utxo
 applyTxToUtxo tx@Tx {..} =
     foldl' (.) identity
-        (map applyInput txInputs ++ map applyOutput (zip [0 ..] txOutputs))
+        (map applyInput txInputs ++ zipWith applyOutput [0..] txOutputs)
   where
     h = hash tx
     applyInput txIn = deleteTxIn txIn
-    applyOutput (idx, TxOut {..}) = M.insert (h, idx, txOutValue) txOutAddress
+    applyOutput idx txOut = M.insert (h, idx) txOut

@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 
 -- | Transaction related functions.
 
@@ -7,7 +8,6 @@ module Pos.Types.Tx
        , verifyTx
        ) where
 
-import           Control.Lens    (view, _3)
 import           Formatting      (build, int, sformat, (%))
 import           Serokell.Util   (VerificationRes, verifyGeneric)
 import           Universum
@@ -28,11 +28,11 @@ verifyTxAlone Tx {..} =
         , verifyOutputs
         ]
   where
-    verifyOutputs = verifyGeneric $ map outputPredicate $ zip [0 ..] txOutputs
-    outputPredicate (i :: Word, TxOut {..}) =
+    verifyOutputs = verifyGeneric $ zipWith outputPredicate [0..] txOutputs
+    outputPredicate (i :: Word) TxOut{..} =
         ( txOutValue > 0
         , sformat
-              ("output #" %int% " has non-positive value: "%coinF) i txOutValue)
+              ("output #"%int%" has non-positive value: "%coinF) i txOutValue)
 
 -- | Verify Tx correctness using magic function which resolves input
 -- into Address and Coin. It does checks from verifyTxAlone and the
@@ -41,17 +41,17 @@ verifyTxAlone Tx {..} =
 -- ★ sum of inputs ≥ sum of outputs;
 -- ★ every input is signed properly;
 -- ★ every input is a known unspent output.
-verifyTx :: (TxIn -> Maybe (Address, Coin)) -> Tx -> VerificationRes
+verifyTx :: (TxIn -> Maybe TxOut) -> Tx -> VerificationRes
 verifyTx inputResolver tx@Tx {..} =
     mconcat [verifyTxAlone tx, verifySum, verifyInputs]
   where
     outSum :: Coin
     outSum = sum $ map txOutValue txOutputs
-    extendedInputs :: [Maybe (TxIn, Address, Coin)]
+    extendedInputs :: [Maybe (TxIn, TxOut)]
     extendedInputs = fmap extendInput txInputs
-    extendInput txIn = (\(a, c) -> (txIn, a, c)) <$> inputResolver txIn
+    extendInput txIn = (txIn,) <$> inputResolver txIn
     inpSum :: Coin
-    inpSum = sum $ map (view _3) $ catMaybes extendedInputs
+    inpSum = sum $ map (txOutValue . snd) $ catMaybes extendedInputs
     verifySum =
         verifyGeneric
             [ ( inpSum >= outSum
@@ -61,12 +61,16 @@ verifyTx inputResolver tx@Tx {..} =
                     outSum inpSum)
             ]
     verifyInputs =
-        verifyGeneric $ foldMap inputPredicates $ zip [0 ..] extendedInputs
-    inputPredicates (i, Nothing) =
-        [(False, sformat ("input #" %int % " is not an unspent output: ") i)]
-    inputPredicates (i :: Word, Just (txIn@TxIn {..}, Address pk, _)) =
-        [ ( verify pk (txInHash, txInIndex, txOutputs) txInSig
-          , sformat
-                ("input #"%int%" is not signed properly: ("%build%")") i txIn
+        verifyGeneric $ concat $ zipWith inputPredicates [0..] extendedInputs
+
+    inputPredicates :: Word -> Maybe (TxIn, TxOut) -> [(Bool, Text)]
+    inputPredicates i Nothing =
+        [(False, sformat ("input #" %int% " is not an unspent output: ") i)]
+    inputPredicates i (Just (txIn@TxIn{..}, TxOut{..})) =
+        [ ( verify (getAddress txOutAddress)
+                   (txInHash, txInIndex, txOutputs)
+                   txInSig
+          , sformat ("input #"%int%" is not signed properly: ("%build%")")
+                    i txIn
           )
         ]

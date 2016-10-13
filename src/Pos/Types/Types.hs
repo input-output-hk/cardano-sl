@@ -35,7 +35,6 @@ module Pos.Types.Types
        , TxOut (..)
        , Tx (..)
 
-       , AddrId
        , Utxo
 
        , FtsSeed (..)
@@ -248,13 +247,11 @@ instance Hashable Tx
 -- UTXO
 ----------------------------------------------------------------------------
 
--- | 'AddrId' identifies usage of address as output of transaction.
--- Basically, it is tuple of transaction identifier, index in list of outputs
--- and associated value.
-type AddrId = (TxId, Word32, Coin)
-
 -- | Unspent transaction outputs.
-type Utxo = Map AddrId Address
+--
+-- Transaction inputs are identified by (transaction ID, index in list of
+-- output) pairs.
+type Utxo = Map (TxId, Word32) TxOut
 
 ----------------------------------------------------------------------------
 -- MPC. It means multi-party computation, btw

@@ -13,7 +13,6 @@ import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM (fromList, lookup, mapMaybe, toList)
 import qualified Data.HashSet        as HS (difference, fromMap)
 import           Data.List           (foldl1', scanl1)
-import qualified Data.Map.Strict     as M
 import           Data.Text.Buildable (Buildable (..))
 import           Universum
 
@@ -23,8 +22,8 @@ import           Pos.Constants       (epochSlots)
 import           Pos.Crypto          (PublicKey, Secret (..), deterministic, randomNumber,
                                       recoverSecret, verifyProof)
 import           Pos.Types           (Address, Coin (..), Commitment (..), CommitmentsMap,
-                                      FtsSeed (..), OpeningsMap, SharesMap, Utxo,
-                                      getOpening)
+                                      FtsSeed (..), OpeningsMap, SharesMap, TxOut (..),
+                                      Utxo, getOpening)
 
 data FtsError
     -- | Some nodes in the 'OpeningsMap' aren't in the set of participants
@@ -141,7 +140,7 @@ followTheSatoshi (FtsSeed seed) utxo
                      findLeaders (sortOn fst $ zip coinIndices [1..]) sums
   where
     outputs :: [(Address, Coin)]
-    outputs = [(addr, coin) | ((_, _, coin), addr) <- M.toList utxo]
+    outputs = [(txOutAddress, txOutValue) | TxOut{..} <- toList utxo]
 
     -- TODO: not sure that 'sum' will use strict foldl' here, because 'sum'
     -- is only specialised for some types

@@ -27,10 +27,14 @@ data TxStorage = TxStorage
     { -- | Local set of transactions. These are valid (with respect to
       -- utxo) transactions which are known to the node and are not
       -- included in the blockchain store by the node.
-      _txLocalTxns :: !(HashSet Tx)
+      _txLocalTxns   :: !(HashSet Tx)
     , -- | Set of unspent transaction outputs. It is need to check new
       -- transactions and run follow-the-satoshi, for example.
-      _txUtxo      :: !Utxo
+      _txUtxo        :: !Utxo
+    , -- | History of Utxo. May be necessary in case of
+      -- reorganization. Also it is needed for MPC. Head of this list
+      -- is utxo corresponding to last known block.
+      _txUtxoHistory :: ![Utxo]
     }
 
 makeClassy ''TxStorage
@@ -41,6 +45,7 @@ instance Default TxStorage where
         TxStorage
         { _txLocalTxns = mempty
         , _txUtxo = genesisUtxo
+        , _txUtxoHistory = [genesisUtxo]
         }
 
 type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a

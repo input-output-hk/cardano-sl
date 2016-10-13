@@ -11,9 +11,10 @@ module Pos.State.Storage.Tx
        , HasTxStorage(txStorage)
 
        , addTx
+       , txRollback
        ) where
 
-import           Control.Lens  (makeClassy, use, (%=))
+import           Control.Lens  (makeClassy, use, uses, (%=), (.=), (<~))
 import           Data.Default  (Default, def)
 import qualified Data.HashSet  as HS
 import           Data.SafeCopy (base, deriveSafeCopySimple)
@@ -55,11 +56,30 @@ type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
 -- transaction has been added.
 addTx :: Tx -> Update Bool
 addTx tx = do
-    u <- use txUtxo
-    let good = isVerSuccess $ verifyTxUtxo u tx
+    good <- verifyTx tx
     good <$ when good (applyTx tx)
+
+verifyTx :: Tx -> Update Bool
+verifyTx tx = isVerSuccess . flip verifyTxUtxo tx <$> use txUtxo
 
 applyTx :: Tx -> Update ()
 applyTx tx@Tx {..} = do
     txLocalTxns %= HS.insert tx
     txUtxo %= applyTxToUtxo tx
+
+-- | Rollback last `n` blocks. `tx` prefix is used, because rollback
+-- may happen in other storages as well.
+txRollback :: Int -> Update ()
+txRollback n = do
+    utxoToSet <- fromMaybe onError . (`atMay` n) <$> use txUtxoHistory
+    txUtxo .= utxoToSet
+    txUtxoHistory %= drop n
+    filterLocalTxns
+  where
+    -- Consider using `MonadError` and throwing `InternalError`.
+    onError = (panic "attempt to rollback to too old or non-existing block")
+
+filterLocalTxns :: Update ()
+filterLocalTxns = do
+    txs <- uses txLocalTxns toList
+    txLocalTxns <~ HS.fromList <$> filterM verifyTx txs

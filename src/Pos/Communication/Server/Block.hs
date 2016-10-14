@@ -20,5 +20,5 @@ blockHandlers = []
 
 getBlock
     :: WorkMode m
-    => St.NodeState -> HeaderHash -> m (Maybe Block)
-getBlock st = St.getBlock st
+    => HeaderHash -> m (Maybe Block)
+getBlock = St.getBlock

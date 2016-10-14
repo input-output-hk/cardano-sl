@@ -20,13 +20,33 @@ import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId, TimedIO, r
 import           Universum                hiding (ThreadId)
 
 import           Pos.Slotting             (MonadSlots (..), Timestamp (..))
+import           Pos.State                (MonadDB (..), NodeState, openState)
 
 type WorkMode m
     = ( WithNamedLogger m
       , MonadTimed m
       , MonadCatch m
       , MonadIO m
-      , MonadSlots m)
+      , MonadSlots m
+      , MonadDB m)
+
+----------------------------------------------------------------------------
+-- MonadDB
+----------------------------------------------------------------------------
+
+newtype DBHolder m a = DBHolder
+    { getDBHolder :: ReaderT NodeState m a
+    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch, MonadIO, WithNamedLogger)
+
+type instance ThreadId (DBHolder m) = ThreadId m
+
+instance (Monad m) =>
+         MonadDB (DBHolder m) where
+    getNodeState = DBHolder ask
+
+----------------------------------------------------------------------------
+-- NodeContext
+----------------------------------------------------------------------------
 
 -- | NodeContext contains runtime parameters of node.
 data NodeContext = NodeContext
@@ -36,7 +56,7 @@ data NodeContext = NodeContext
 
 newtype ContextHolder m a = ContextHolder
     { getContextHolder :: ReaderT NodeContext m a
-    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch, MonadIO, WithNamedLogger)
+    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch, MonadIO, WithNamedLogger, MonadDB)
 
 type instance ThreadId (ContextHolder m) = ThreadId m
 
@@ -45,12 +65,26 @@ instance (MonadTimed m, Monad m) =>
     getSystemStartTime = ContextHolder $ asks ncSystemStart
     getCurrentTime = Timestamp <$> currentTime
 
+----------------------------------------------------------------------------
+-- Concrete types
+----------------------------------------------------------------------------
+
 -- | RealMode is an instance of WorkMode which can be used to really run system.
-type RealMode = ContextHolder (LoggerNameBox TimedIO)
+type RealMode = ContextHolder (DBHolder (LoggerNameBox TimedIO))
 
 defaultLoggerName :: LoggerName
 defaultLoggerName = "node"
 
-runRealMode :: NodeContext -> RealMode a -> IO a
-runRealMode ctx =
-    runTimedIO . usingLoggerName defaultLoggerName . flip runReaderT ctx . getContextHolder
+-- TODO: use bracket
+runRealMode :: FilePath -> NodeContext -> RealMode a -> IO a
+runRealMode dbPath ctx action = do
+    db <-
+        runTimedIO .
+        usingLoggerName defaultLoggerName .
+        flip runReaderT ctx . getContextHolder $
+        openState False dbPath
+    runTimedIO .
+        usingLoggerName defaultLoggerName .
+        flip runReaderT db .
+        getDBHolder . flip runReaderT ctx . getContextHolder $
+        action

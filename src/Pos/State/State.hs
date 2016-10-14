@@ -1,9 +1,11 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 -- | This module adds extra ecapsulation by hiding acid-state.
 
 module Pos.State.State
        ( NodeState
+       , MonadDB (getNodeState)
        , openState
        , openMemState
        , closeState
@@ -30,6 +32,15 @@ import           Pos.Types         (Block, EpochIndex, HeaderHash, SlotId, SlotL
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState
 
+-- | Convenient type class to avoid passing NodeState throughout the code.
+class MonadDB m where
+    getNodeState :: m NodeState
+
+instance (Monad m, MonadDB m) => MonadDB (ReaderT r m) where
+    getNodeState = lift getNodeState
+
+type WorkModeDB m = (MonadIO m, MonadDB m)
+
 -- | Open NodeState, reading existing state from disk (if any).
 openState :: (MonadIO m, MonadSlots m) => Bool -> FilePath -> m NodeState
 openState deleteIfExists fp = openStateDo (A.openState deleteIfExists fp)
@@ -43,7 +54,7 @@ openMemState = openStateDo A.openMemState
 openStateDo :: (MonadIO m, MonadSlots m) => m DiskState -> m NodeState
 openStateDo openDiskState = do
     st <- openDiskState
-    processNewSlot st =<< getCurrentSlot
+    A.update st . A.ProcessNewSlot =<< getCurrentSlot
     st <$ tidyState st
 
 -- | Safely close NodeState.
@@ -51,29 +62,29 @@ closeState :: MonadIO m => NodeState -> m ()
 closeState = A.closeState
 
 queryDisk
-    :: (EventState event ~ Storage, QueryEvent event, MonadIO m)
-    => NodeState -> event -> m (EventResult event)
-queryDisk = A.query
+    :: (EventState event ~ Storage, QueryEvent event, WorkModeDB m)
+    => event -> m (EventResult event)
+queryDisk e = flip A.query e =<< getNodeState
 
 updateDisk
-    :: (EventState event ~ Storage, UpdateEvent event, MonadIO m)
-    => NodeState -> event -> m (EventResult event)
-updateDisk = A.update
+    :: (EventState event ~ Storage, UpdateEvent event, WorkModeDB m)
+    => event -> m (EventResult event)
+updateDisk e = flip A.update e =<< getNodeState
 
 -- | Get list of slot leaders for the given epoch. Empty list is returned
 -- if no information is available.
-getLeaders :: MonadIO m => NodeState -> EpochIndex -> m SlotLeaders
-getLeaders ns = queryDisk ns . A.GetLeaders
+getLeaders :: WorkModeDB m => EpochIndex -> m SlotLeaders
+getLeaders = queryDisk . A.GetLeaders
 
 -- | Get Block by hash.
-getBlock :: MonadIO m => NodeState -> HeaderHash -> m (Maybe Block)
-getBlock ns = queryDisk ns . A.GetBlock
+getBlock :: WorkModeDB m => HeaderHash -> m (Maybe Block)
+getBlock = queryDisk . A.GetBlock
 
 -- | Add transaction to state if it is fully valid. Returns True iff
 -- transaction has been added.
-addTx :: MonadIO m => NodeState -> Tx -> m Bool
-addTx ns = updateDisk ns . A.AddTx
+addTx :: WorkModeDB m => Tx -> m Bool
+addTx = updateDisk . A.AddTx
 
 -- | Notify NodeState about beginning of new slot.
-processNewSlot :: MonadIO m => NodeState -> SlotId -> m ()
-processNewSlot ns = updateDisk ns . A.ProcessNewSlot
+processNewSlot :: WorkModeDB m => SlotId -> m ()
+processNewSlot = updateDisk . A.ProcessNewSlot

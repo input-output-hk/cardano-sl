@@ -50,6 +50,6 @@ runNodes nodes = setLoggerName "xx" $ do
     sleepForever
 
 runNodesReal :: [Node RealMode] -> IO ()
-runNodesReal = runRealMode ctx . runNodes
+runNodesReal = runRealMode "tmp" ctx . runNodes
   where
     ctx = NodeContext 0

@@ -18,7 +18,7 @@ module Pos.State.Storage.Block
        , blkRollback
        ) where
 
-import           Control.Lens  (at, ix, makeClassy, preview, view, views, (^.))
+import           Control.Lens  (at, ix, makeClassy, preview, view, (^.))
 import           Data.Default  (Default, def)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Data.Vector   (Vector)

@@ -9,10 +9,8 @@ module Pos.Communication.Methods
 
 import           Data.Fixed               (div')
 import           Data.IORef               (IORef, newIORef, readIORef)
-import qualified Data.Text                as T
-import           Formatting               (build, int, sformat, (%))
+import           Formatting               (build, sformat, (%))
 import           System.IO.Unsafe         (unsafePerformIO)
-import           System.Random            (randomRIO)
 import           Universum
 
 import           Control.TimeWarp.Logging (LoggerName (..), logError, logInfo,

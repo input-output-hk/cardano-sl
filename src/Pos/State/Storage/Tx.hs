@@ -50,7 +50,7 @@ instance Default TxStorage where
         }
 
 type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
-type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
+-- type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
 
 -- | Add transaction to storage if it is fully valid. Returns True iff
 -- transaction has been added.

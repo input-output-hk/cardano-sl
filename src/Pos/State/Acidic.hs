@@ -19,15 +19,10 @@ module Pos.State.Acidic
 
        , AddTx (..)
        , ProcessNewSlot (..)
-       -- , AddLeaders (..)
-       -- , GetLeader (..)
-       -- , AddEntry (..)
-       -- , AdoptBlock (..)
-       -- , SetLeaders (..)
        ) where
 
-import           Data.Acid          (EventResult, EventState, Query, QueryEvent, Update,
-                                     UpdateEvent, makeAcidic)
+import           Data.Acid          (EventResult, EventState, QueryEvent, UpdateEvent,
+                                     makeAcidic)
 import           Data.Default       (def)
 import           Serokell.AcidState (ExtendedState, closeExtendedState,
                                      openLocalExtendedState, openMemoryExtendedState,
@@ -36,7 +31,6 @@ import           Universum
 
 import           Pos.State.Storage  (Storage)
 import qualified Pos.State.Storage  as S
-import           Pos.Types.Types
 
 ----------------------------------------------------------------------------
 -- Acid-state things
@@ -70,9 +64,4 @@ makeAcidic ''Storage
     [ 'S.getLeaders
     , 'S.addTx
     , 'S.processNewSlot
-    -- , 'addLeaders
-    -- , 'getLeader
-    -- , 'addEntry
-    -- , 'adoptBlock
-    -- , 'setLeaders
     ]

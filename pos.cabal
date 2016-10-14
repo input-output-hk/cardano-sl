@@ -25,6 +25,8 @@ library
                         Pos.Types
   other-modules:        Pos.Communication.Methods
                         Pos.Communication.Types
+                        Pos.Communication.Server
+                        Pos.Communication.Server.Block
                         Pos.Crypto.Hashing
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing

@@ -10,6 +10,7 @@ module Pos.State.Storage
          Storage
 
        , Query
+       , getBlock
        , getLeaders
 
        , Update
@@ -32,7 +33,7 @@ import           Serokell.AcidState      ()
 import           Universum
 
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
-                                          getLeaders)
+                                          getBlock, getLeaders)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, addTx)
 import           Pos.Types               (SlotId, unflattenSlotId)

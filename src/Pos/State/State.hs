@@ -10,9 +10,11 @@ module Pos.State.State
 
        -- * Simple getters.
        , getLeaders
+       , getBlock
 
        -- * Operations with effects.
        , addTx
+       , processNewSlot
        ) where
 
 import           Data.Acid         (EventResult, EventState, QueryEvent, UpdateEvent)
@@ -22,7 +24,8 @@ import           Pos.Slotting      (MonadSlots, getCurrentSlot)
 import           Pos.State.Acidic  (DiskState, tidyState)
 import qualified Pos.State.Acidic  as A
 import           Pos.State.Storage (Storage)
-import           Pos.Types         (EpochIndex, SlotId, SlotLeaders, Tx)
+import           Pos.Types         (Block, EpochIndex, HeaderHash, SlotId, SlotLeaders,
+                                    Tx)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState
@@ -61,6 +64,10 @@ updateDisk = A.update
 -- if no information is available.
 getLeaders :: MonadIO m => NodeState -> EpochIndex -> m SlotLeaders
 getLeaders ns = queryDisk ns . A.GetLeaders
+
+-- | Get Block by hash.
+getBlock :: MonadIO m => NodeState -> HeaderHash -> m (Maybe Block)
+getBlock ns = queryDisk ns . A.GetBlock
 
 -- | Add transaction to state if it is fully valid. Returns True iff
 -- transaction has been added.

@@ -10,18 +10,21 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp.git
-    commit: f20cd0df61364def94ac2c77822ea8b68fc803d6
+    commit: 46a8a927f4723fa2f75fdff55d7f04201e192850
   extra-dep: true
 - location:
     git: https://github.com/serokell/serokell-core.git
-    commit: 4109abf141d427a4b741e42947dd3ab14a3ce5b4
+    commit: 41ec01b73d9d69936fa896217a822165d2b63397
+  extra-dep: true
+- location:
+    git: https://github.com/TokTok/hs-msgpack.git
+    commit: d4abb4a320250047f512f2b3860fa051f9b530ac
   extra-dep: true
 - location:
     git: https://github.com/serokell/msgpack-haskell.git
-    commit: d0dc2d7bdeef569d1fe6cf876d04046e0845e796
+    commit: 1bef097a0458768997ddb0a40793463f443c6a7e
   extra-dep: true
   subdirs:
-    - msgpack
     - msgpack-rpc
 - location:
     git: https://github.com/serokell/acid-state.git

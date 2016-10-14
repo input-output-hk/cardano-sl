@@ -50,7 +50,6 @@ openState deleteIfExists fp = openStateDo (A.openState deleteIfExists fp)
 openMemState :: (MonadIO m, MonadSlots m) => m NodeState
 openMemState = openStateDo A.openMemState
 
--- TODO: get current slot and do some update before proceeding.
 openStateDo :: (MonadIO m, MonadSlots m) => m DiskState -> m NodeState
 openStateDo openDiskState = do
     st <- openDiskState

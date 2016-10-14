@@ -1,5 +1,7 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Acid-state wrapped operations.
 
@@ -64,44 +66,10 @@ closeState = closeExtendedState
 tidyState :: MonadIO m => DiskState -> m ()
 tidyState = tidyExtendedState
 
-----------------------------------------------------------------------------
--- Redeclarations of operations
-----------------------------------------------------------------------------
-
--- 'makeAcidic' demands that operations use Update and Query from acid-state,
--- even if our Update and Query are supersets of those (i.e. our Update is
--- “MonadState m => m a” and acid-state's Update is an instance of MonadState
--- so it fits). Hence we have to redefine all operations in order to be able
--- to use 'makeAcidic' on them.
-
-getLeaders :: EpochIndex -> Query Storage SlotLeaders
-getLeaders = S.getLeaders
-
-addTx :: Tx -> Update Storage Bool
-addTx = S.addTx
-
-processNewSlot :: SlotId -> Update Storage ()
-processNewSlot = S.processNewSlot
-
--- addLeaders :: Int -> [NodeId] -> Update Storage ()
--- addLeaders = S.addLeaders
-
--- getLeader :: Int -> Int -> Query Storage (Maybe NodeId)
--- getLeader = S.getLeader
-
--- addEntry :: Entry -> Update Storage ()
--- addEntry = S.addEntry
-
--- adoptBlock :: Blockkk -> Update Storage ()
--- adoptBlock = S.adoptBlock
-
--- setLeaders :: Int -> [NodeId] -> Update Storage ()
--- setLeaders = S.setLeaders
-
 makeAcidic ''Storage
-    [ 'getLeaders
-    , 'addTx
-    , 'processNewSlot
+    [ 'S.getLeaders
+    , 'S.addTx
+    , 'S.processNewSlot
     -- , 'addLeaders
     -- , 'getLeader
     -- , 'addEntry

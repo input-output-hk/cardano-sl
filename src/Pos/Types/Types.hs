@@ -72,6 +72,7 @@ module Pos.Types.Types
        -- * Lenses
        , HasDifficulty (..)
 
+       , blockHeader
        , blockLeaderKey
        , blockLeaders
        , blockSignature
@@ -83,6 +84,7 @@ module Pos.Types.Types
        , gbhExtra
        , gbhPrevBlock
        , gbhBodyProof
+       , getBlockHeader
        , headerSlot
        , headerLeaderKey
        , headerSignature
@@ -107,7 +109,8 @@ module Pos.Types.Types
        , displayEntry
        ) where
 
-import           Control.Lens         (Lens', choosing, makeLenses, view, (^.))
+import           Control.Lens         (Getter, Lens', choosing, makeLenses, to, view,
+                                       (^.))
 import           Data.Binary          (Binary)
 import           Data.Binary.Orphans  ()
 import           Data.Hashable        (Hashable)
@@ -569,6 +572,12 @@ blockSignature = gbHeader . headerSignature
 
 blockLeaders :: Lens' GenesisBlock SlotLeaders
 blockLeaders = gbBody . gbLeaders
+
+blockHeader :: Getter Block BlockHeader
+blockHeader = to getBlockHeader
+
+getBlockHeader :: Block -> BlockHeader
+getBlockHeader = bimap (view gbHeader) (view gbHeader)
 
 ----------------------------------------------------------------------------
 -- Block.hs. TODO: move it into Block.hs.

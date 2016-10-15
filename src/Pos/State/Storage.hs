@@ -12,17 +12,14 @@ module Pos.State.Storage
        , Query
        , getBlock
        , getLeaders
+       , mayBlockBeUseful
+
+       , ProcessBlocksRes (..)
 
        , Update
        , addTx
+       , processNewBlocks
        , processNewSlot
-       -- , addEntry
-       -- , addLeaders
-       -- , adoptBlock
-       -- , createBlock
-       -- , getLeader
-       -- , getLeaders
-       -- , setLeaders
        ) where
 
 import           Control.Lens            (makeClassy, use, (.=))
@@ -33,10 +30,11 @@ import           Serokell.AcidState      ()
 import           Universum
 
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
-                                          getBlock, getLeaders)
+                                          ProcessBlocksRes (..), blkProcessNewBlocks,
+                                          getBlock, getLeaders, mayBlockBeUseful)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, addTx)
-import           Pos.Types               (SlotId, unflattenSlotId)
+import           Pos.Types               (Block, SlotId, unflattenSlotId)
 
 type Query  a = forall m . MonadReader Storage m => m a
 type Update a = forall m . MonadState Storage m => m a
@@ -71,6 +69,10 @@ instance Default Storage where
         , _slotId = unflattenSlotId 0
         }
 
+-- | Do all necessary changes when new blocks arrive.
+processNewBlocks :: [Block] -> Update ProcessBlocksRes
+processNewBlocks = blkProcessNewBlocks
+
 -- | Do all necessary changes when new slot starts.
 processNewSlot :: SlotId -> Update ()
 processNewSlot sId = do
@@ -80,26 +82,3 @@ processNewSlot sId = do
 -- TODO
 processNewSlotDo :: SlotId -> Update ()
 processNewSlotDo sId = slotId .= sId
-
--- createBlock :: Update Blockkk
--- createBlock = do
---     es <- pendingEntries <<.= mempty
---     return (Set.toList es)
-
--- addLeaders :: Int -> [NodeId] -> Update ()
--- addLeaders epoch leaders =
---     pendingEntries %= Set.insert (ELeaders (epoch + 1) leaders)
-
--- getLeader :: Int -> Int -> Query (Maybe NodeId)
--- getLeader epoch slot = preview (epochLeaders . ix epoch . ix slot)
-
--- addEntry :: Entry -> Update ()
--- addEntry e = pendingEntries %= Set.insert e
-
--- adoptBlock :: Blockkk -> Update ()
--- adoptBlock es = do
---     pendingEntries %= (Set.\\ Set.fromList es)
---     blocks %= (es :)
-
--- setLeaders :: Int -> [NodeId] -> Update ()
--- setLeaders epoch leaders = epochLeaders . at epoch .= Just leaders

@@ -13,9 +13,12 @@ module Pos.State.State
        -- * Simple getters.
        , getLeaders
        , getBlock
+       , mayBlockBeUseful
 
        -- * Operations with effects.
+       , ProcessBlocksRes (..)
        , addTx
+       , processNewBlocks
        , processNewSlot
        ) where
 
@@ -25,9 +28,9 @@ import           Universum
 import           Pos.Slotting      (MonadSlots, getCurrentSlot)
 import           Pos.State.Acidic  (DiskState, tidyState)
 import qualified Pos.State.Acidic  as A
-import           Pos.State.Storage (Storage)
-import           Pos.Types         (Block, EpochIndex, HeaderHash, SlotId, SlotLeaders,
-                                    Tx)
+import           Pos.State.Storage (ProcessBlocksRes (..), Storage)
+import           Pos.Types         (Block, EpochIndex, HeaderHash, MainBlockHeader,
+                                    SlotId, SlotLeaders, Tx)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState
@@ -79,6 +82,9 @@ getLeaders = queryDisk . A.GetLeaders
 getBlock :: WorkModeDB m => HeaderHash -> m (Maybe Block)
 getBlock = queryDisk . A.GetBlock
 
+mayBlockBeUseful :: WorkModeDB m => MainBlockHeader -> m Bool
+mayBlockBeUseful = queryDisk . A.MayBlockBeUseful
+
 -- | Add transaction to state if it is fully valid. Returns True iff
 -- transaction has been added.
 addTx :: WorkModeDB m => Tx -> m Bool
@@ -87,3 +93,7 @@ addTx = updateDisk . A.AddTx
 -- | Notify NodeState about beginning of new slot.
 processNewSlot :: WorkModeDB m => SlotId -> m ()
 processNewSlot = updateDisk . A.ProcessNewSlot
+
+-- | Notify NodeState about beginning of new slot.
+processNewBlocks :: WorkModeDB m => [Block] -> m ProcessBlocksRes
+processNewBlocks = updateDisk . A.ProcessNewBlocks

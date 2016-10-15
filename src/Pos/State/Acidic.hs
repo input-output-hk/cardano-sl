@@ -17,8 +17,10 @@ module Pos.State.Acidic
 
        , GetLeaders (..)
        , GetBlock (..)
+       , MayBlockBeUseful (..)
 
        , AddTx (..)
+       , ProcessNewBlocks (..)
        , ProcessNewSlot (..)
        ) where
 
@@ -64,6 +66,8 @@ tidyState = tidyExtendedState
 makeAcidic ''Storage
     [ 'S.getLeaders
     , 'S.getBlock
+    , 'S.mayBlockBeUseful
     , 'S.addTx
+    , 'S.processNewBlocks
     , 'S.processNewSlot
     ]

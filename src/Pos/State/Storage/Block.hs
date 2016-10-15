@@ -14,7 +14,10 @@ module Pos.State.Storage.Block
 
        , getBlock
        , getLeaders
+       , mayBlockBeUseful
 
+       , ProcessBlocksRes (..)
+       , blkProcessNewBlocks
        , blkRollback
        ) where
 
@@ -26,8 +29,8 @@ import           Universum
 
 import           Pos.Crypto    (hash)
 import           Pos.Genesis   (genesisLeaders)
-import           Pos.Types     (Block, EpochIndex, HeaderHash, SlotLeaders, blockHeader,
-                                blockLeaders, mkGenesisBlock)
+import           Pos.Types     (Block, EpochIndex, HeaderHash, MainBlockHeader,
+                                SlotLeaders, blockHeader, blockLeaders, mkGenesisBlock)
 
 data BlockStorage = BlockStorage
     { -- | All blocks known to the node. Blocks have pointers to other
@@ -70,7 +73,27 @@ getLeaders (fromIntegral -> epoch) = do
     leadersFromBlock (Just (Left genBlock)) = genBlock ^. blockLeaders
     leadersFromBlock _                      = mempty
 
--- | Rollback last `n` blocks. `blk` prefix is used, because rollback
--- may happen in other storages as well.
+-- | Check that block header is correct and claims to represent block
+-- which may become part of blockchain.
+mayBlockBeUseful :: MainBlockHeader -> Query Bool
+mayBlockBeUseful _ = pure True
+
+-- | Result of processNewBlocks.
+data ProcessBlocksRes
+    = -- | Blocks may be useful, but can't be adopted without getting
+      -- more blocks. Hash of required block is returned.
+      PBRmore HeaderHash
+    | -- | Blocks have been adopted.
+      PBRdone
+    | -- | Blocks are invalid.
+      PBRabort
+
+deriveSafeCopySimple 0 'base ''ProcessBlocksRes
+
+-- | Process new received blocks. This is interactive process.
+blkProcessNewBlocks :: [Block] -> Update ProcessBlocksRes
+blkProcessNewBlocks _ = pure PBRabort
+
+-- | Rollback last `n` blocks.
 blkRollback :: Int -> Update ()
 blkRollback _ = pure ()

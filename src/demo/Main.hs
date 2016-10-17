@@ -13,7 +13,7 @@ runSingleNode i = runNodeReal params
         { npDbPath = Just ("node-db-" ++ show i)
         , npRebuildDb = True
         , npSystemStart = Nothing
-        , npLoggerName = "node" `mappend` fromString (show i)
+        , npLoggerName = "node" <> fromString (show i)
         }
 
 main :: IO ()

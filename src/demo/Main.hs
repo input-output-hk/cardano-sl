@@ -1,18 +1,19 @@
 module Main where
 
+import           Data.String  (fromString)
 import           Universum
 
-import           Data.String  (fromString)
-import           Pos.Launcher (NodeParams (..), runNodeReal)
+import           Pos.Launcher (NodeParams (..), getCurTimestamp, runNodeReal)
+import           Pos.Slotting (Timestamp)
 
-runSingleNode :: Word -> IO ()
-runSingleNode i = runNodeReal params
+runSingleNode :: Timestamp -> Word -> IO ()
+runSingleNode start i = runNodeReal params
   where
     params =
         NodeParams
         { npDbPath = Just ("node-db-" ++ show i)
         , npRebuildDb = True
-        , npSystemStart = Nothing
+        , npSystemStart = Just start
         , npLoggerName = "node" <> fromString (show i)
         }
 
@@ -22,4 +23,5 @@ main = do
     -- let loggers = "xx" : map (LoggerName . toS . sformat nodeF)
     --                         [NodeId 0 .. NodeId (n - 1)]
     -- initLogging loggers Info
-    mapM_ runSingleNode [0 .. n - 1]
+    systemStart <- getCurTimestamp
+    mapM_ (runSingleNode systemStart) [0 .. n - 1]

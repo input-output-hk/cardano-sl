@@ -2,23 +2,33 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
--- | Launcher of node.
+-- | Launcher of full node or simple operations.
 
 module Pos.Launcher
        ( NodeParams (..)
+       , getCurTimestamp
        , runNode
        , runNodeReal
        ) where
 
+import           Control.TimeWarp.Timed (currentTime, runTimedIO)
 import           Universum
 
-import           Pos.Communication (serve)
-import           Pos.WorkMode      (NodeParams (..), WorkMode, runRealMode)
+import           Pos.Communication      (serve)
+import           Pos.Slotting           (Timestamp (Timestamp))
+import           Pos.WorkMode           (NodeParams (..), WorkMode, runRealMode)
 
+-- | Get current time as Timestamp. It is intended to be used when you
+-- launch the first node. It doesn't make sense in emulation mode.
+getCurTimestamp :: IO Timestamp
+getCurTimestamp = Timestamp <$> runTimedIO currentTime
+
+-- | Run full node in any WorkMode.
 runNode :: WorkMode m => m ()
 runNode = do
     serve
 
+-- | Run full node in real mode.
 runNodeReal :: NodeParams -> IO ()
 runNodeReal p = runRealMode p runNode
 

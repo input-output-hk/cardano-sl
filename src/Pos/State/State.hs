@@ -93,6 +93,10 @@ getBlock = queryDisk . A.GetBlock
 mayBlockBeUseful :: WorkModeDB m => MainBlockHeader -> m Bool
 mayBlockBeUseful = queryDisk . A.MayBlockBeUseful
 
+-- TODO: should 'addTx', 'processOpening', and 'processCommitment' return
+-- True if the thing was valid but we already knew about it? Also, we should
+-- probably agree on more consistent naming
+
 -- | Add transaction to state if it is fully valid. Returns True iff
 -- transaction has been added.
 addTx :: WorkModeDB m => Tx -> m Bool

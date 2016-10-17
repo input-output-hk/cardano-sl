@@ -1,7 +1,10 @@
--- | Methods which use communication.
+-- | Wrappers on top of communication methods.
 
 module Pos.Communication.Methods
-       ( fullNode
+       ( getBlock
+
+         -- * Legacy
+       , fullNode
        , inSlot
        , node_ping
        , systemStart
@@ -22,10 +25,18 @@ import           Serokell.Util            ()
 import           Pos.Communication.Types  (Message (..), Node)
 import           Pos.Constants            (epochSlots, slotDuration)
 import           Pos.State                (NodeState, openMemState)
-import           Pos.Types.Types          (Entry (..), NodeId (..), displayEntry, nodeF)
+import           Pos.Types.Types          (Block, HeaderHash, NodeId (..), nodeF)
 import           Pos.WorkMode             (WorkMode)
 
+-- | Request Block with given hash from some node.
+getBlock :: WorkMode m => NodeId -> HeaderHash -> m Block
+getBlock = notImplemented
+
 ----------------------------------------------------------------------------
+-- Legacy
+--
+----------------------------------------------------------------------------
+--
 -- Network simulation
 ----------------------------------------------------------------------------
 

@@ -17,9 +17,10 @@ import           Control.Monad.Catch      (MonadCatch, MonadThrow)
 import           Control.TimeWarp.Logging (LoggerName, LoggerNameBox,
                                            WithNamedLogger (..), usingLoggerName)
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId, TimedIO, runTimedIO)
+import           Formatting               (sformat, (%))
 import           Universum                hiding (ThreadId)
 
-import           Pos.Slotting             (MonadSlots (..), Timestamp (..))
+import           Pos.Slotting             (MonadSlots (..), Timestamp (..), timestampF)
 import           Pos.State                (MonadDB (..), NodeState, openMemState,
                                            openState)
 
@@ -74,7 +75,7 @@ instance (MonadTimed m, Monad m) =>
 data NodeParams = NodeParams
     { npDbPath      :: !(Maybe FilePath)
     , npRebuildDb   :: !Bool
-    , npSystemStart :: !Timestamp
+    , npSystemStart :: !(Maybe Timestamp)
     , npLoggerName  :: !LoggerName
     } deriving (Show)
 
@@ -88,13 +89,21 @@ type RealMode = ContextHolder (DBHolder (LoggerNameBox TimedIO))
 -- TODO: use bracket
 runRealMode :: NodeParams -> RealMode a -> IO a
 runRealMode NodeParams {..} action = do
-    db <- (runTimed . runCH) openDb
-    (runTimed . runDH db . runCH) action
+    startTime <- getStartTime
+    db <- (runTimed . runCH startTime) openDb
+    (runTimed . runDH db . runCH startTime) action
   where
+    getStartTime =
+        case npSystemStart of
+            Just t -> pure t
+            Nothing ->
+                runTimed $
+                do t <- Timestamp <$> currentTime
+                   t <$ putText (sformat ("System start: " %timestampF) t)
     openDb = maybe openMemState (openState npRebuildDb) npDbPath
-    ctx = NodeContext {ncSystemStart = npSystemStart}
-    runCH :: ContextHolder m a -> m a
-    runCH = flip runReaderT ctx . getContextHolder
+    ctx startTime = NodeContext {ncSystemStart = startTime}
+    runCH :: Timestamp -> ContextHolder m a -> m a
+    runCH startTime = flip runReaderT (ctx startTime) . getContextHolder
     runTimed :: LoggerNameBox TimedIO a -> IO a
     runTimed = runTimedIO . usingLoggerName npLoggerName
     runDH :: NodeState -> DBHolder m a -> m a

@@ -17,7 +17,7 @@ main
             NodeParams
             { npDbPath = Just "node-db"
             , npRebuildDb = True
-            , npSystemStart = 0
+            , npSystemStart = Nothing
             , npLoggerName = "node"
             }
     runNodeReal params

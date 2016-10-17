@@ -4,6 +4,8 @@
 
 module Pos.Slotting
        ( Timestamp (..)
+       , timestampF
+
        , MonadSlots (..)
        , getCurrentSlot
        , getCurrentSlotFlat
@@ -12,6 +14,9 @@ module Pos.Slotting
 
 import           Control.TimeWarp.Rpc   (ResponseT)
 import           Control.TimeWarp.Timed (Microsecond, MonadTimed, for, fork_, wait)
+import           Data.Text.Buildable    (Buildable)
+import qualified Data.Text.Buildable    as Buildable
+import           Formatting             (Format, build)
 import           Universum
 
 import           Pos.Constants          (slotDuration)
@@ -25,6 +30,12 @@ import           Pos.Types              (FlatSlotId, SlotId (..), flattenSlotId,
 newtype Timestamp = Timestamp
     { getTimestamp :: Microsecond
     } deriving (Show, Num)
+
+instance Buildable Timestamp where
+    build = Buildable.build . (fromIntegral :: Microsecond -> Integer) . getTimestamp
+
+timestampF :: Format r (Timestamp -> r)
+timestampF = build
 
 -- | Type class providing information about time when system started
 -- functioning.

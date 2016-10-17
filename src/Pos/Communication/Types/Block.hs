@@ -15,7 +15,7 @@ import           Data.Binary          (Binary)
 import           Data.MessagePack     (MessagePack)
 import           Universum
 
-import           Pos.Types            (Block, BlockHeader, HeaderHash)
+import           Pos.Types            (Block, HeaderHash, MainBlockHeader)
 
 -- | Message: some node has sent a Block.
 data SendBlock =
@@ -24,7 +24,7 @@ data SendBlock =
 
 -- | Message: some node has sent a BlockHeader.
 data SendBlockHeader =
-    SendBlockHeader !BlockHeader
+    SendBlockHeader !MainBlockHeader
     deriving (Generic)
 
 -- | Message: some node has requested a Block with given HeaderHash.

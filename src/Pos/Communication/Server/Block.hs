@@ -1,32 +1,41 @@
 -- | Server which handles blocks.
 
 module Pos.Communication.Server.Block
-       ( blockHandlers
-
-       -- * Shouldn't be exported
-       , getBlock
-       , processNewBlock
+       ( blockListeners
        ) where
 
+import           Control.TimeWarp.Rpc    (Listener (..))
 import           Universum
 
--- import           Pos.Crypto   (hash)
-import qualified Pos.State    as St
-import           Pos.Types    (Block, HeaderHash, MainBlockHeader)
-import           Pos.WorkMode (WorkMode)
+import           Pos.Communication.Types (RequestBlock (..), SendBlock (..),
+                                          SendBlockHeader (..))
+import           Pos.Crypto              (hash)
+import qualified Pos.State               as St
+import           Pos.WorkMode            (WorkMode)
 
--- | Handlers for requests related to blocks processing.
--- TODO
-blockHandlers :: [a]
-blockHandlers = []
+-- | Listeners for requests related to blocks processing.
+blockListeners :: WorkMode m => [Listener m]
+blockListeners =
+    [Listener handleBlock, Listener handleBlockHeader, Listener handleBlockRequest]
 
-getBlock
+handleBlock :: WorkMode m => SendBlock -> m ()
+handleBlock (SendBlock block) = do
+    _ <- St.processBlock block
+    notImplemented
+
+handleBlockHeader
     :: WorkMode m
-    => HeaderHash -> m (Maybe Block)
-getBlock = St.getBlock
-
-processNewBlock :: WorkMode m => MainBlockHeader -> m ()
-processNewBlock header = whenM (St.mayBlockBeUseful header) $ do
-    -- blk <- undefined (hash $ Right header)  -- request block from node who sent it
+    => SendBlockHeader -> m ()
+handleBlockHeader (SendBlockHeader header) = whenM (St.mayBlockBeUseful header) $ do
+    -- let h = hash $ Right header
+    -- reply (RequestBlock h)
     -- _ <- St.processNewBlocks [blk]
-    pure ()
+    notImplemented
+
+handleBlockRequest
+    :: WorkMode m
+    => RequestBlock -> m ()
+handleBlockRequest (RequestBlock h) = do
+    _ <- St.getBlock h
+    -- reply (SendBlock blk)
+    notImplemented

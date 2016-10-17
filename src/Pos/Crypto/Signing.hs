@@ -39,6 +39,8 @@ import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Coerce            (coerce)
 import           Data.Hashable          (Hashable)
+import           Data.MessagePack       (MessagePack)
+import qualified Data.MessagePack       as MP (fromObject, toObject)
 import           Data.SafeCopy          (base, deriveSafeCopySimple)
 import           Data.SafeCopy          (SafeCopy (..))
 import qualified Data.Serialize         as Cereal
@@ -116,21 +118,39 @@ instance Cereal.Serialize Ed25519.Signature where
         Cereal.putByteString s
     get = Ed25519.Signature <$> Cereal.getByteString signatureLength
 
+-- MessagePack
+
+instance MessagePack Ed25519.PublicKey where
+    toObject (Ed25519.PublicKey k) = MP.toObject k
+    fromObject = fmap Ed25519.PublicKey . MP.fromObject
+
+instance MessagePack Ed25519.SecretKey where
+    toObject (Ed25519.SecretKey k) = MP.toObject k
+    fromObject = fmap Ed25519.SecretKey . MP.fromObject
+
+instance MessagePack Ed25519.Signature where
+    toObject (Ed25519.Signature s) = MP.toObject s
+    fromObject = fmap Ed25519.Signature . MP.fromObject
+
 ----------------------------------------------------------------------------
 -- Keys, key generation & printing & decoding
 ----------------------------------------------------------------------------
 
 newtype PublicKey = PublicKey Ed25519.PublicKey
-    deriving (Eq, Ord, Show, Binary, Cereal.Serialize, NFData, Hashable)
+    deriving (Eq, Ord, Show, Generic, NFData,
+              Binary, Cereal.Serialize, Hashable)
 
 newtype SecretKey = SecretKey Ed25519.SecretKey
-    deriving (Eq, Ord, Show, Binary, Cereal.Serialize, NFData, Hashable)
+    deriving (Eq, Ord, Show, Generic, NFData,
+              Binary, Cereal.Serialize, Hashable)
+
+instance MessagePack PublicKey
+instance MessagePack SecretKey
 
 instance SafeCopy PublicKey where
-    -- will use Cereal.Serialize instance by default
-
+    -- an empty declaration uses Cereal.Serialize instance by default
 instance SafeCopy SecretKey where
-    -- will use Cereal.Serialize instance by default
+    -- an empty declaration uses Cereal.Serialize instance by default
 
 -- | Generate a public key from a secret key. Fast (it just drops some bytes
 -- off the secret key).
@@ -180,7 +200,9 @@ deterministicKeyGen seed =
 ----------------------------------------------------------------------------
 
 newtype Signature a = Signature Ed25519.Signature
-    deriving (Eq, Ord, Show, NFData, Binary, Hashable)
+    deriving (Eq, Ord, Show, Generic, NFData, Binary, Hashable)
+
+instance MessagePack (Signature a)
 
 instance SafeCopy (Signature a) where
     putCopy = putCopyBinary

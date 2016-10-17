@@ -114,13 +114,14 @@ import           Control.Lens         (Getter, Lens', choosing, makeLenses, to, 
 import           Data.Binary          (Binary)
 import           Data.Binary.Orphans  ()
 import           Data.Hashable        (Hashable)
-import           Data.MessagePack     (MessagePack)
+import           Data.MessagePack     (MessagePack (..))
 import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeCopySimple,
                                        deriveSafeCopySimpleIndexedType, safeGet, safePut)
 import qualified Data.Text            as T (unwords)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
+import qualified Data.Vector          as V
 import           Formatting           (Format, bprint, build, int, sformat, shown, (%))
 import           Serokell.AcidState   ()
 import qualified Serokell.Util.Base16 as B16
@@ -154,12 +155,16 @@ nodeF = build
 -- | Index of epoch.
 newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Binary, Hashable, Buildable)
+    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Binary, Hashable, Buildable)
+
+instance MessagePack EpochIndex
 
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex
     { getSlotIndex :: Word16
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Binary, Hashable, Buildable)
+    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Binary, Hashable, Buildable)
+
+instance MessagePack LocalSlotIndex
 
 -- | Slot is identified by index of epoch and local index of slot in
 -- this epoch. This is a global index
@@ -169,6 +174,7 @@ data SlotId = SlotId
     } deriving (Show, Eq, Ord, Generic)
 
 instance Binary SlotId
+instance MessagePack SlotId
 
 -- | FlatSlotId is a flat version of SlotId
 type FlatSlotId = Word64
@@ -180,7 +186,9 @@ type FlatSlotId = Word64
 -- | Coin is the least possible unit of currency.
 newtype Coin = Coin
     { getCoin :: Int64
-    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Binary, Hashable)
+    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Binary, Hashable)
+
+instance MessagePack Coin
 
 instance Buildable Coin where
     build = bprint (int%" coin(s)")
@@ -197,6 +205,8 @@ coinF = build
 newtype Address = Address
     { getAddress :: PublicKey
     } deriving (Show, Eq, Generic, Buildable, Ord, Binary, Hashable)
+
+instance MessagePack Address
 
 addressF :: Format r (Address -> r)
 addressF = build
@@ -221,6 +231,7 @@ data TxIn = TxIn
 
 instance Binary TxIn
 instance Hashable TxIn
+instance MessagePack TxIn
 
 instance Buildable TxIn where
     build TxIn {..} = bprint ("TxIn ("%build%", "%int%")") txInHash txInIndex
@@ -233,6 +244,7 @@ data TxOut = TxOut
 
 instance Binary TxOut
 instance Hashable TxOut
+instance MessagePack TxOut
 
 instance Buildable TxOut where
     build TxOut {..} =
@@ -246,6 +258,7 @@ data Tx = Tx
 
 instance Binary Tx
 instance Hashable Tx
+instance MessagePack Tx
 
 ----------------------------------------------------------------------------
 -- UTXO
@@ -366,7 +379,6 @@ data GenericBlockHeader b = GenericBlockHeader
       _gbhExtra     :: !(ExtraHeaderData b)
     } deriving (Generic)
 
-
 deriving instance
          (Show (BodyProof b), Show (ConsensusData b),
           Show (ExtraHeaderData b)) =>
@@ -383,13 +395,40 @@ instance ( Binary (BodyProof b)
          ) =>
          Binary (GenericBlockHeader b)
 
+instance ( MessagePack (BodyProof b)
+         , MessagePack (ConsensusData b)
+         , MessagePack (ExtraHeaderData b)
+         ) =>
+         MessagePack (GenericBlockHeader b)
+
 -- | In general Block consists of header and body. It may contain
 -- extra data as well.
 data GenericBlock b = GenericBlock
     { _gbHeader :: !(GenericBlockHeader b)
     , _gbBody   :: !(Body b)
     , _gbExtra  :: !(ExtraBodyData b)
-    }
+    } deriving (Generic)
+
+deriving instance
+         (Eq (BodyProof b), Eq (ConsensusData b), Eq (ExtraHeaderData b),
+          Eq (Body b), Eq (ExtraBodyData b)) =>
+         Eq (GenericBlock b)
+
+instance ( Binary (BodyProof b)
+         , Binary (ConsensusData b)
+         , Binary (ExtraHeaderData b)
+         , Binary (Body b)
+         , Binary (ExtraBodyData b)
+         ) =>
+         Binary (GenericBlock b)
+
+instance ( MessagePack (BodyProof b)
+         , MessagePack (ConsensusData b)
+         , MessagePack (ExtraHeaderData b)
+         , MessagePack (Body b)
+         , MessagePack (ExtraBodyData b)
+         ) =>
+         MessagePack (GenericBlock b)
 
 ----------------------------------------------------------------------------
 -- MainBlock
@@ -405,7 +444,9 @@ type MainBlockHeader = GenericBlockHeader MainBlockchain
 -- chain. In the simplest case it can be number of blocks in chain.
 newtype ChainDifficulty = ChainDifficulty
     { getChainDifficulty :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Binary)
+    } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Binary)
+
+instance MessagePack ChainDifficulty
 
 type MainToSign = (HeaderHash, BodyProof MainBlockchain, SlotId, ChainDifficulty)
 
@@ -466,6 +507,10 @@ instance Binary (BodyProof MainBlockchain)
 instance Binary (ConsensusData MainBlockchain)
 instance Binary (Body MainBlockchain)
 
+instance MessagePack (BodyProof MainBlockchain)
+instance MessagePack (ConsensusData MainBlockchain)
+instance MessagePack (Body MainBlockchain)
+
 -- | MainBlock is a block with transactions and MPC messages. It's the
 -- main part of our consensus algorithm.
 type MainBlock = GenericBlock MainBlockchain
@@ -509,6 +554,15 @@ instance Blockchain GenesisBlockchain where
 instance Binary (BodyProof GenesisBlockchain)
 instance Binary (ConsensusData GenesisBlockchain)
 instance Binary (Body GenesisBlockchain)
+
+-- TODO: move somewhere maybe?
+instance MessagePack a => MessagePack (Vector a) where
+    toObject = toObject . toList
+    fromObject = fmap V.fromList . fromObject
+
+instance MessagePack (BodyProof GenesisBlockchain)
+instance MessagePack (ConsensusData GenesisBlockchain)
+instance MessagePack (Body GenesisBlockchain)
 
 type GenesisBlock = GenericBlock GenesisBlockchain
 

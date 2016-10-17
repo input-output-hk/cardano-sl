@@ -9,14 +9,16 @@ module Pos.Communication.Types
        -- * Request types
        , SendOpening (..)
        , SendCommitment (..)
+       , module Block
        ) where
 
-import           Formatting                  (int, sformat, (%))
+import           Formatting                    (int, sformat, (%))
 import           Universum
 
-import           Pos.Communication.Types.Mpc (SendCommitment (..), SendOpening (..))
-import           Pos.Crypto                  (PublicKey, SecretKey)
-import           Pos.Types                   (Blockkk, Entry, NodeId, displayEntry)
+import           Pos.Communication.Types.Block as Block
+import           Pos.Communication.Types.Mpc   (SendCommitment (..), SendOpening (..))
+import           Pos.Crypto                    (PublicKey, SecretKey)
+import           Pos.Types                     (Blockkk, Entry, NodeId, displayEntry)
 
 {- |
 A node is given:

@@ -20,6 +20,7 @@ import           Data.Binary        (Binary, get, getWord8, put, putWord8)
 import qualified Data.Binary        as Binary (encode)
 import qualified Data.ByteString    as BS
 import           Data.Coerce        (coerce)
+import           Data.MessagePack   (MessagePack)
 import           Data.SafeCopy      (base, deriveSafeCopySimple)
 import           Universum
 
@@ -34,10 +35,15 @@ newtype MerkleRoot a = MerkleRoot
     { getMerkleRoot :: Hash Raw
     } deriving (Show, Eq, Ord, Generic, Binary, ByteArrayAccess)
 
+instance MessagePack (MerkleRoot a)
+
 deriveSafeCopySimple 0 'base ''MerkleRoot
 
 data MerkleTree a = MerkleEmpty | MerkleTree Word32 (MerkleNode a)
     deriving (Eq, Show, Generic, Foldable)
+
+-- TODO: MessagePack instances can be more efficient.
+instance MessagePack a => MessagePack (MerkleTree a)
 
 data MerkleNode a
     = MerkleBranch { mRoot  :: MerkleRoot a
@@ -46,6 +52,8 @@ data MerkleNode a
     | MerkleLeaf { mRoot :: MerkleRoot a
                  , mVal  :: a}
     deriving (Eq, Show, Generic)
+
+instance MessagePack a => MessagePack (MerkleNode a)
 
 instance Foldable MerkleNode where
     foldMap f x = case x of

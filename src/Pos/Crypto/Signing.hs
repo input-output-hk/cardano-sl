@@ -232,6 +232,7 @@ data Signed a = Signed
     } deriving (Show, Eq, Ord, Generic)
 
 instance Binary a => Binary (Signed a)
+instance MessagePack a => MessagePack (Signed a)
 
 mkSigned :: (Binary a) => SecretKey -> a -> Signed a
 mkSigned sk x = Signed x (sign sk x)

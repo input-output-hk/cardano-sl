@@ -21,6 +21,7 @@ import qualified Data.Binary.Get     as Binary (getByteString)
 import qualified Data.Binary.Put     as Binary (putByteString)
 import qualified Data.ByteArray      as ByteArray
 import           Data.Hashable       (Hashable (hashWithSalt))
+import           Data.MessagePack    (MessagePack (fromObject, toObject))
 import           Data.SafeCopy       (SafeCopy (..))
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (Format, bprint, later, shown)
@@ -34,6 +35,10 @@ newtype Hash a = Hash (Digest SHA256)
 
 instance Hashable (Hash a) where
     hashWithSalt s (Hash x) = hashWithSalt s $ ByteArray.unpack x
+
+instance MessagePack (Hash a) where
+    toObject (Hash x) = toObject . ByteArray.unpack $ x
+    fromObject = undefined
 
 instance SafeCopy (Hash a) where
     putCopy = putCopyBinary

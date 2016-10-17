@@ -8,8 +8,8 @@
 module Pos.WorkMode
        ( WorkMode
        , NodeContext (..)
+       , NodeParams (..)
        , RealMode
-       , defaultLoggerName
        , runRealMode
        ) where
 
@@ -20,7 +20,8 @@ import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId, TimedIO, r
 import           Universum                hiding (ThreadId)
 
 import           Pos.Slotting             (MonadSlots (..), Timestamp (..))
-import           Pos.State                (MonadDB (..), NodeState, openState)
+import           Pos.State                (MonadDB (..), NodeState, openMemState,
+                                           openState)
 
 type WorkMode m
     = ( WithNamedLogger m
@@ -48,7 +49,7 @@ instance (Monad m) =>
 -- NodeContext
 ----------------------------------------------------------------------------
 
--- | NodeContext contains runtime parameters of node.
+-- | NodeContext contains runtime context of node.
 data NodeContext = NodeContext
     { -- | Time when system started working.
       ncSystemStart :: !Timestamp
@@ -66,25 +67,35 @@ instance (MonadTimed m, Monad m) =>
     getCurrentTime = Timestamp <$> currentTime
 
 ----------------------------------------------------------------------------
+-- Parameters
+----------------------------------------------------------------------------
+
+-- | Parameters necessary to run node.
+data NodeParams = NodeParams
+    { npDbPath      :: !(Maybe FilePath)
+    , npRebuildDb   :: !Bool
+    , npSystemStart :: !Timestamp
+    , npLoggerName  :: !LoggerName
+    } deriving (Show)
+
+----------------------------------------------------------------------------
 -- Concrete types
 ----------------------------------------------------------------------------
 
 -- | RealMode is an instance of WorkMode which can be used to really run system.
 type RealMode = ContextHolder (DBHolder (LoggerNameBox TimedIO))
 
-defaultLoggerName :: LoggerName
-defaultLoggerName = "node"
-
 -- TODO: use bracket
-runRealMode :: FilePath -> NodeContext -> RealMode a -> IO a
-runRealMode dbPath ctx action = do
-    db <-
-        runTimedIO .
-        usingLoggerName defaultLoggerName .
-        flip runReaderT ctx . getContextHolder $
-        openState False dbPath
-    runTimedIO .
-        usingLoggerName defaultLoggerName .
-        flip runReaderT db .
-        getDBHolder . flip runReaderT ctx . getContextHolder $
-        action
+runRealMode :: NodeParams -> RealMode a -> IO a
+runRealMode NodeParams {..} action = do
+    db <- (runTimed . runCH) openDb
+    (runTimed . runDH db . runCH) action
+  where
+    openDb = maybe openMemState (openState npRebuildDb) npDbPath
+    ctx = NodeContext {ncSystemStart = npSystemStart}
+    runCH :: ContextHolder m a -> m a
+    runCH = flip runReaderT ctx . getContextHolder
+    runTimed :: LoggerNameBox TimedIO a -> IO a
+    runTimed = runTimedIO . usingLoggerName npLoggerName
+    runDH :: NodeState -> DBHolder m a -> m a
+    runDH db = flip runReaderT db . getDBHolder

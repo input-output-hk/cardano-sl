@@ -29,18 +29,22 @@ import           Data.Acid               ()
 import           Data.Default            (Default, def)
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Serokell.AcidState      ()
+import           Serokell.Util           (isVerSuccess)
 import           Universum
 
 import           Pos.Crypto              (PublicKey)
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
-                                          ProcessBlockRes (..), blkProcessBlock, getBlock,
-                                          getLeaders, mayBlockBeUseful)
+                                          ProcessBlockRes (..), blkProcessBlock,
+                                          blkRollback, blkSetHead, getBlock, getLeaders,
+                                          mayBlockBeUseful)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage,
-                                          mpcProcessCommitment, mpcProcessNewBlock,
-                                          mpcProcessOpening)
+                                          mpcApplyBlocks, mpcProcessCommitment,
+                                          mpcProcessOpening, mpcRollback, mpcVerifyBlock,
+                                          mpcVerifyBlocks)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, addTx)
 import           Pos.Types               (Block, Commitment, CommitmentSignature, Opening,
                                           SlotId, unflattenSlotId)
+import           Pos.Util                (readerToState)
 
 type Query  a = forall m . MonadReader Storage m => m a
 type Update a = forall m . MonadState Storage m => m a
@@ -77,7 +81,36 @@ instance Default Storage where
 
 -- | Do all necessary changes when a block is received.
 processBlock :: Block -> Update ProcessBlockRes
-processBlock = blkProcessBlock
+processBlock blk = do
+    mpcRes <- readerToState $ mpcVerifyBlock blk
+    txRes <- pure mempty
+    let verificationRes = mpcRes <> txRes
+    if isVerSuccess verificationRes
+        then processBlockDo blk
+        else return (PBRabort verificationRes)
+
+processBlockDo :: Block -> Update ProcessBlockRes
+processBlockDo blk = do
+    r <- blkProcessBlock blk
+    case r of
+        PBRgood (toRollback, chain) -> do
+            mpcRes <- readerToState $ mpcVerifyBlocks toRollback chain
+            txRes <- pure mempty
+            let verificationRes = mpcRes <> txRes
+            if isVerSuccess verificationRes
+                then processBlockFinally toRollback chain
+                else return (PBRabort verificationRes)
+        _ -> return r
+
+processBlockFinally :: Int -> [Block] -> Update ProcessBlockRes
+processBlockFinally toRollback blocks = do
+    mpcRollback toRollback
+    mpcApplyBlocks blocks
+    blkRollback toRollback
+    blkSetHead undefined
+    -- txFoo
+    -- txBar
+    return $ PBRgood (toRollback, blocks)
 
 -- | Do all necessary changes when new slot starts.
 processNewSlot :: SlotId -> Update ()

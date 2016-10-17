@@ -14,7 +14,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/serokell-core.git
-    commit: eff46e2379e073cd18de8df124e65eae872233f8
+    commit: 8f95bdb1f9f30a9e90edaf95794c75d9e7fa7d1b
   extra-dep: true
 - location:
     git: https://github.com/TokTok/hs-msgpack.git

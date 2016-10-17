@@ -1,11 +1,14 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE GADTs     #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Pos.Util
        ( Raw
 
        , getCopyBinary
        , putCopyBinary
+
+       , readerToState
 
        , makeLensesData
        ) where
@@ -43,6 +46,11 @@ getCopyBinary typeName = contain $ do
     case Binary.decodeFull bs of
         Left err -> fail ("getCopy@" ++ typeName ++ ": " ++ err)
         Right x  -> return x
+
+readerToState
+    :: MonadState s m
+    => Reader s a -> m a
+readerToState = gets . runReader
 
 ----------------------------------------------------------------------------
 -- Lens utils

@@ -19,12 +19,14 @@ module Pos.State.Storage.Block
        , ProcessBlockRes (..)
        , blkProcessBlock
        , blkRollback
+       , blkSetHead
        ) where
 
-import           Control.Lens  (at, ix, makeClassy, preview, view, (^.))
+import           Control.Lens  (at, ix, makeClassy, preview, view, (.=), (^.))
 import           Data.Default  (Default, def)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Data.Vector   (Vector)
+import           Serokell.Util (VerificationRes)
 import           Universum
 
 import           Pos.Crypto    (hash)
@@ -41,6 +43,7 @@ data BlockStorage = BlockStorage
     , -- | Hash of the head in the __best chain__.
       _blkHead          :: !HeaderHash
     , -- | Alternative chains which can be merged into main chain.
+      -- TODO: consider using modern non-empty lists here and in other places.
       _blkAltChains     :: ![[Block]]
     }
 
@@ -86,16 +89,23 @@ data ProcessBlockRes
     = -- | Block may be useful, but references unknown block. More
       -- blocks are needed to decide.
       PBRmore !HeaderHash
-    | -- | Block has been adopted, head of main chain has been changed.
-      PBRgood
+    | -- | Block has been adopted, head of main chain has been
+      -- changed. Attached data is number of blocks to rollback and
+      -- blocks which should be used instead.
+      PBRgood !(Int, [Block])
     | -- | Block has been discarded because of invalid data.
-      PBRabort
+      PBRabort !VerificationRes
 
+deriveSafeCopySimple 0 'base ''VerificationRes
 deriveSafeCopySimple 0 'base ''ProcessBlockRes
 
 -- | Process received block.
 blkProcessBlock :: Block -> Update ProcessBlockRes
-blkProcessBlock _ = pure PBRabort
+blkProcessBlock _ = pure $ PBRabort mempty
+
+-- | Set head of main blockchain to block which is guaranteed to represent valid chain.
+blkSetHead :: HeaderHash -> Update ()
+blkSetHead = (blkHead .=)
 
 -- | Rollback last `n` blocks.
 blkRollback :: Int -> Update ()

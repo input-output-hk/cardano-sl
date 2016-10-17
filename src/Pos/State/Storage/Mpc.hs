@@ -13,9 +13,13 @@ module Pos.State.Storage.Mpc
        , HasMpcStorage(mpcStorage)
 
        , calculateLeaders
-       , mpcProcessNewBlock
-       , mpcProcessOpening
+       , mpcApplyBlocks
+       , mpcProcessBlock
        , mpcProcessCommitment
+       , mpcProcessOpening
+       , mpcRollback
+       , mpcVerifyBlock
+       , mpcVerifyBlocks
        ) where
 
 import           Control.Lens         (makeClassy, to, view, (%=), (^.))
@@ -24,6 +28,7 @@ import           Data.Hashable        (Hashable)
 import qualified Data.HashMap.Strict  as HM (difference, filter, insert, union, unionWith)
 import           Data.SafeCopy        (base, deriveSafeCopySimple)
 import qualified Data.Vector          as V (fromList)
+import           Serokell.Util.Verify (VerificationRes)
 import           Universum
 
 import           Pos.Crypto           (PublicKey)
@@ -84,6 +89,21 @@ calculateLeaders utxo = do
         Right seed -> Right . V.fromList . map getAddress $
                       followTheSatoshi seed utxo
 
+-- | Verify MPC-related predicates of a single block, also using data
+-- stored in MpcStorage.
+-- The following checks are performed:
+-- 1. Every MPC message is stored in block, whose SlotId permits such message.
+-- 2. Every MPC message in block is correct (this check depends on message and
+-- may be empty).
+mpcVerifyBlock :: Block -> Query VerificationRes
+mpcVerifyBlock = notImplemented
+
+-- | Verify MPC-related predicates of blocks sequence which is about
+-- to be applied. It should check that MPC messages will be consistent
+-- if this blocks are applied (after possible rollback).
+mpcVerifyBlocks :: Int -> [Block] -> Query VerificationRes
+mpcVerifyBlocks toRollback = notImplemented
+
 -- TODO: checks can happen anywhere but we must have a *clear* policy on
 -- where checks are happening, to prevent the situation when they are, well,
 -- not happening anywhere at all.
@@ -99,12 +119,21 @@ mpcProcessCommitment pk c = do
     -- TODO: should it be ignored if it's in mpcGlobalCommitments?
     mpcLocalCommitments %= HM.insert pk c
 
-mpcProcessNewBlock :: Block -> Update ()
+-- | Apply sequence of blocks to state. Sequence must be based on last
+-- applied block and must be valid.
+mpcApplyBlocks :: [Block] -> Update ()
+mpcApplyBlocks = notImplemented
+
+-- | Rollback application of last `n` blocks.
+mpcRollback :: Int -> Update ()
+mpcRollback = notImplemented
+
+mpcProcessBlock :: Block -> Update ()
 -- We don't have to process genesis blocks as full nodes always generate them
 -- by themselves
-mpcProcessNewBlock (Left _) = return ()
+mpcProcessBlock (Left _) = return ()
 -- Main blocks contain commitments, openings, and shares
-mpcProcessNewBlock (Right b) = do
+mpcProcessBlock (Right b) = do
     let blockCommitments = b ^. gbBody . to mbCommitments
         blockOpenings    = b ^. gbBody . to mbOpenings
         blockShares      = b ^. gbBody . to mbShares

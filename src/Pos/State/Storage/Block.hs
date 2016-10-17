@@ -16,8 +16,8 @@ module Pos.State.Storage.Block
        , getLeaders
        , mayBlockBeUseful
 
-       , ProcessBlocksRes (..)
-       , blkProcessNewBlocks
+       , ProcessBlockRes (..)
+       , blkProcessBlock
        , blkRollback
        ) where
 
@@ -40,6 +40,8 @@ data BlockStorage = BlockStorage
       _blkGenesisBlocks :: !(Vector HeaderHash)
     , -- | Hash of the head in the __best chain__.
       _blkHead          :: !HeaderHash
+    , -- | Alternative chains which can be merged into main chain.
+      _blkAltChains     :: ![[Block]]
     }
 
 makeClassy ''BlockStorage
@@ -51,6 +53,7 @@ instance Default BlockStorage where
         { _blkBlocks = [(genesisBlock0Hash, genesisBlock0)]
         , _blkGenesisBlocks = [genesisBlock0Hash]
         , _blkHead = genesisBlock0Hash
+        , _blkAltChains = mempty
         }
       where
         genesisBlock0 = Left (mkGenesisBlock Nothing 0 genesisLeaders)
@@ -78,21 +81,21 @@ getLeaders (fromIntegral -> epoch) = do
 mayBlockBeUseful :: MainBlockHeader -> Query Bool
 mayBlockBeUseful _ = pure True
 
--- | Result of processNewBlocks.
-data ProcessBlocksRes
-    = -- | Blocks may be useful, but can't be adopted without getting
-      -- more blocks. Hash of required block is returned.
-      PBRmore HeaderHash
-    | -- | Blocks have been adopted.
-      PBRdone
-    | -- | Blocks are invalid.
+-- | Result of processNewBlock.
+data ProcessBlockRes
+    = -- | Block may be useful, but references unknown block. More
+      -- blocks are needed to decide.
+      PBRmore !HeaderHash
+    | -- | Block has been adopted, head of main chain has been changed.
+      PBRgood
+    | -- | Block has been discarded because of invalid data.
       PBRabort
 
-deriveSafeCopySimple 0 'base ''ProcessBlocksRes
+deriveSafeCopySimple 0 'base ''ProcessBlockRes
 
--- | Process new received blocks. This is interactive process.
-blkProcessNewBlocks :: [Block] -> Update ProcessBlocksRes
-blkProcessNewBlocks _ = pure PBRabort
+-- | Process received block.
+blkProcessBlock :: Block -> Update ProcessBlockRes
+blkProcessBlock _ = pure PBRabort
 
 -- | Rollback last `n` blocks.
 blkRollback :: Int -> Update ()

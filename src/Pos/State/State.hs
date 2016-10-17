@@ -16,9 +16,9 @@ module Pos.State.State
        , mayBlockBeUseful
 
        -- * Operations with effects.
-       , ProcessBlocksRes (..)
+       , ProcessBlockRes (..)
        , addTx
-       , processNewBlocks
+       , processBlock
        , processNewSlot
        ) where
 
@@ -28,7 +28,7 @@ import           Universum
 import           Pos.Slotting      (MonadSlots, getCurrentSlot)
 import           Pos.State.Acidic  (DiskState, tidyState)
 import qualified Pos.State.Acidic  as A
-import           Pos.State.Storage (ProcessBlocksRes (..), Storage)
+import           Pos.State.Storage (ProcessBlockRes (..), Storage)
 import           Pos.Types         (Block, EpochIndex, HeaderHash, MainBlockHeader,
                                     SlotId, SlotLeaders, Tx)
 
@@ -94,6 +94,6 @@ addTx = updateDisk . A.AddTx
 processNewSlot :: WorkModeDB m => SlotId -> m ()
 processNewSlot = updateDisk . A.ProcessNewSlot
 
--- | Notify NodeState about beginning of new slot.
-processNewBlocks :: WorkModeDB m => [Block] -> m ProcessBlocksRes
-processNewBlocks = updateDisk . A.ProcessNewBlocks
+-- | Process some Block received from the network.
+processBlock :: WorkModeDB m => Block -> m ProcessBlockRes
+processBlock = updateDisk . A.ProcessBlock

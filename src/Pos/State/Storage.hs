@@ -14,11 +14,11 @@ module Pos.State.Storage
        , getLeaders
        , mayBlockBeUseful
 
-       , ProcessBlocksRes (..)
+       , ProcessBlockRes (..)
 
        , Update
        , addTx
-       , processNewBlocks
+       , processBlock
        , processNewSlot
        ) where
 
@@ -30,8 +30,8 @@ import           Serokell.AcidState      ()
 import           Universum
 
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
-                                          ProcessBlocksRes (..), blkProcessNewBlocks,
-                                          getBlock, getLeaders, mayBlockBeUseful)
+                                          ProcessBlockRes (..), blkProcessBlock, getBlock,
+                                          getLeaders, mayBlockBeUseful)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, addTx)
 import           Pos.Types               (Block, SlotId, unflattenSlotId)
@@ -69,9 +69,9 @@ instance Default Storage where
         , _slotId = unflattenSlotId 0
         }
 
--- | Do all necessary changes when new blocks arrive.
-processNewBlocks :: [Block] -> Update ProcessBlocksRes
-processNewBlocks = blkProcessNewBlocks
+-- | Do all necessary changes when a block is received.
+processBlock :: Block -> Update ProcessBlockRes
+processBlock = blkProcessBlock
 
 -- | Do all necessary changes when new slot starts.
 processNewSlot :: SlotId -> Update ()

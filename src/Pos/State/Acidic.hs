@@ -20,7 +20,7 @@ module Pos.State.Acidic
        , MayBlockBeUseful (..)
 
        , AddTx (..)
-       , ProcessNewBlocks (..)
+       , ProcessBlock (..)
        , ProcessNewSlot (..)
        ) where
 
@@ -68,6 +68,6 @@ makeAcidic ''Storage
     , 'S.getBlock
     , 'S.mayBlockBeUseful
     , 'S.addTx
-    , 'S.processNewBlocks
+    , 'S.processBlock
     , 'S.processNewSlot
     ]

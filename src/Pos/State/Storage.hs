@@ -20,6 +20,8 @@ module Pos.State.Storage
        , addTx
        , processBlock
        , processNewSlot
+       , processOpening
+       , processCommitment
        ) where
 
 import           Control.Lens            (makeClassy, use, (.=))
@@ -29,12 +31,16 @@ import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Serokell.AcidState      ()
 import           Universum
 
+import           Pos.Crypto              (PublicKey)
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
                                           ProcessBlockRes (..), blkProcessBlock, getBlock,
                                           getLeaders, mayBlockBeUseful)
-import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage)
+import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage,
+                                          mpcProcessCommitment, mpcProcessNewBlock,
+                                          mpcProcessOpening)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, addTx)
-import           Pos.Types               (Block, SlotId, unflattenSlotId)
+import           Pos.Types               (Block, Commitment, CommitmentSignature, Opening,
+                                          SlotId, unflattenSlotId)
 
 type Query  a = forall m . MonadReader Storage m => m a
 type Update a = forall m . MonadState Storage m => m a
@@ -82,3 +88,9 @@ processNewSlot sId = do
 -- TODO
 processNewSlotDo :: SlotId -> Update ()
 processNewSlotDo sId = slotId .= sId
+
+processOpening :: PublicKey -> Opening -> Update ()
+processOpening = mpcProcessOpening
+
+processCommitment :: PublicKey -> (Commitment, CommitmentSignature) -> Update ()
+processCommitment = mpcProcessCommitment

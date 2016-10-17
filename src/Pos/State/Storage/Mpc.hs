@@ -13,22 +13,25 @@ module Pos.State.Storage.Mpc
        , HasMpcStorage(mpcStorage)
 
        , calculateLeaders
-       , processNewBlock
+       , mpcProcessNewBlock
+       , mpcProcessOpening
+       , mpcProcessCommitment
        ) where
 
 import           Control.Lens         (makeClassy, to, view, (%=), (^.))
 import           Data.Default         (Default, def)
 import           Data.Hashable        (Hashable)
-import qualified Data.HashMap.Strict  as HM (difference, filter, union, unionWith)
+import qualified Data.HashMap.Strict  as HM (difference, filter, insert, union, unionWith)
 import           Data.SafeCopy        (base, deriveSafeCopySimple)
 import qualified Data.Vector          as V (fromList)
 import           Universum
 
+import           Pos.Crypto           (PublicKey)
 import           Pos.FollowTheSatoshi (FtsError, calculateSeed, followTheSatoshi)
-import           Pos.Types            (Address (getAddress), Block, Body (..),
-                                       CommitmentsMap, OpeningsMap, SharesMap,
-                                       SlotLeaders, Utxo, gbBody, mbCommitments,
-                                       mbOpenings, mbShares)
+import           Pos.Types            (Address (getAddress), Block, Body (..), Commitment,
+                                       CommitmentSignature, CommitmentsMap, Opening,
+                                       OpeningsMap, SharesMap, SlotLeaders, Utxo, gbBody,
+                                       mbCommitments, mbOpenings, mbShares)
 
 
 data MpcStorage = MpcStorage
@@ -81,12 +84,27 @@ calculateLeaders utxo = do
         Right seed -> Right . V.fromList . map getAddress $
                       followTheSatoshi seed utxo
 
-processNewBlock :: Block -> Update ()
+-- TODO: checks can happen anywhere but we must have a *clear* policy on
+-- where checks are happening, to prevent the situation when they are, well,
+-- not happening anywhere at all.
+
+mpcProcessOpening :: PublicKey -> Opening -> Update ()
+mpcProcessOpening pk o = do
+    -- TODO: should it be ignored if it's in mpcGlobalOpenings?
+    mpcLocalOpenings %= HM.insert pk o
+
+mpcProcessCommitment
+    :: PublicKey -> (Commitment, CommitmentSignature) -> Update ()
+mpcProcessCommitment pk c = do
+    -- TODO: should it be ignored if it's in mpcGlobalCommitments?
+    mpcLocalCommitments %= HM.insert pk c
+
+mpcProcessNewBlock :: Block -> Update ()
 -- We don't have to process genesis blocks as full nodes always generate them
 -- by themselves
-processNewBlock (Left _) = return ()
+mpcProcessNewBlock (Left _) = return ()
 -- Main blocks contain commitments, openings, and shares
-processNewBlock (Right b) = do
+mpcProcessNewBlock (Right b) = do
     let blockCommitments = b ^. gbBody . to mbCommitments
         blockOpenings    = b ^. gbBody . to mbOpenings
         blockShares      = b ^. gbBody . to mbShares

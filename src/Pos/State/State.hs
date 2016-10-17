@@ -20,17 +20,21 @@ module Pos.State.State
        , addTx
        , processBlock
        , processNewSlot
+       , processOpening
+       , processCommitment
        ) where
 
 import           Data.Acid         (EventResult, EventState, QueryEvent, UpdateEvent)
 import           Universum
 
+import           Pos.Crypto        (PublicKey)
 import           Pos.Slotting      (MonadSlots, getCurrentSlot)
 import           Pos.State.Acidic  (DiskState, tidyState)
 import qualified Pos.State.Acidic  as A
 import           Pos.State.Storage (ProcessBlockRes (..), Storage)
-import           Pos.Types         (Block, EpochIndex, HeaderHash, MainBlockHeader,
-                                    SlotId, SlotLeaders, Tx)
+import           Pos.Types         (Block, Commitment, CommitmentSignature, EpochIndex,
+                                    HeaderHash, MainBlockHeader, Opening, SlotId,
+                                    SlotLeaders, Tx)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState
@@ -97,3 +101,19 @@ processNewSlot = updateDisk . A.ProcessNewSlot
 -- | Process some Block received from the network.
 processBlock :: WorkModeDB m => Block -> m ProcessBlockRes
 processBlock = updateDisk . A.ProcessBlock
+
+-- | Result = whether the opening was valid
+processOpening
+    :: WorkModeDB m
+    => PublicKey -> Opening -> m Bool
+processOpening pk o = do
+    updateDisk $ A.ProcessOpening pk o
+    return True
+
+-- | Result = whether the commitment was valid
+processCommitment
+    :: WorkModeDB m
+    => PublicKey -> (Commitment, CommitmentSignature) -> m Bool
+processCommitment pk c = do
+    updateDisk $ A.ProcessCommitment pk c
+    return True

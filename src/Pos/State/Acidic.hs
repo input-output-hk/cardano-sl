@@ -22,6 +22,8 @@ module Pos.State.Acidic
        , AddTx (..)
        , ProcessBlock (..)
        , ProcessNewSlot (..)
+       , ProcessOpening (..)
+       , ProcessCommitment (..)
        ) where
 
 import           Data.Acid          (EventResult, EventState, QueryEvent, UpdateEvent,
@@ -70,4 +72,6 @@ makeAcidic ''Storage
     , 'S.addTx
     , 'S.processBlock
     , 'S.processNewSlot
+    , 'S.processOpening
+    , 'S.processCommitment
     ]

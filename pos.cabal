@@ -25,6 +25,7 @@ library
                         Pos.Types
   other-modules:        Pos.Communication.Methods
                         Pos.Communication.Types
+                        Pos.Communication.Types.Mpc
                         Pos.Communication.Server
                         Pos.Communication.Server.Block
                         Pos.Communication.Server.Mpc

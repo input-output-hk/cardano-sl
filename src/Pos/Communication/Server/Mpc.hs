@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
 
@@ -10,42 +9,12 @@ module Pos.Communication.Server.Mpc
        , mpcListeners
        ) where
 
-import           Control.TimeWarp.Rpc
-import           Data.Binary          (Binary)
-import           Data.MessagePack     (MessagePack)
+import           Control.TimeWarp.Rpc        (Listener (..))
 import           Universum
 
--- import           Pos.Crypto   (hash)
-import           Pos.Crypto
-import qualified Pos.State            as St
-import           Pos.Types
-import           Pos.WorkMode
-
-----------------------------------------------------------------------------
--- Request types we'll be handling
-----------------------------------------------------------------------------
-
-data SendOpening =
-    SendOpening PublicKey Opening
-    deriving (Show, Generic)
-data SendCommitment =
-    SendCommitment PublicKey (Commitment, CommitmentSignature)
-    deriving (Show, Generic)
-
-instance Binary SendOpening
-instance Binary SendCommitment
-
-instance MessagePack SendOpening
-instance MessagePack SendCommitment
-
-mkMessage ''Void
-
-mkRequest' ''SendOpening ''() ''Void
-mkRequest' ''SendCommitment ''() ''Void
-
-----------------------------------------------------------------------------
--- Actual listeners are here
-----------------------------------------------------------------------------
+import           Pos.Communication.Types.Mpc (SendCommitment (..), SendOpening (..))
+import qualified Pos.State                   as St
+import           Pos.WorkMode                (WorkMode)
 
 mpcListeners :: WorkMode m => [Listener m]
 mpcListeners = [Listener handleCommitment, Listener handleOpening]

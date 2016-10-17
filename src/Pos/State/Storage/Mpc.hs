@@ -14,7 +14,6 @@ module Pos.State.Storage.Mpc
 
        , calculateLeaders
        , mpcApplyBlocks
-       , mpcProcessBlock
        , mpcProcessCommitment
        , mpcProcessOpening
        , mpcRollback

@@ -24,17 +24,18 @@ module Pos.State.State
        , processCommitment
        ) where
 
-import           Data.Acid         (EventResult, EventState, QueryEvent, UpdateEvent)
+import           Control.TimeWarp.Rpc (ResponseT)
+import           Data.Acid            (EventResult, EventState, QueryEvent, UpdateEvent)
 import           Universum
 
-import           Pos.Crypto        (PublicKey)
-import           Pos.Slotting      (MonadSlots, getCurrentSlot)
-import           Pos.State.Acidic  (DiskState, tidyState)
-import qualified Pos.State.Acidic  as A
-import           Pos.State.Storage (ProcessBlockRes (..), Storage)
-import           Pos.Types         (Block, Commitment, CommitmentSignature, EpochIndex,
-                                    HeaderHash, MainBlockHeader, Opening, SlotId,
-                                    SlotLeaders, Tx)
+import           Pos.Crypto           (PublicKey)
+import           Pos.Slotting         (MonadSlots, getCurrentSlot)
+import           Pos.State.Acidic     (DiskState, tidyState)
+import qualified Pos.State.Acidic     as A
+import           Pos.State.Storage    (ProcessBlockRes (..), Storage)
+import           Pos.Types            (Block, Commitment, CommitmentSignature, EpochIndex,
+                                       HeaderHash, MainBlockHeader, Opening, SlotId,
+                                       SlotLeaders, Tx)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState
@@ -44,6 +45,9 @@ class MonadDB m where
     getNodeState :: m NodeState
 
 instance (Monad m, MonadDB m) => MonadDB (ReaderT r m) where
+    getNodeState = lift getNodeState
+
+instance (Monad m, MonadDB m) => MonadDB (ResponseT m) where
     getNodeState = lift getNodeState
 
 type WorkModeDB m = (MonadIO m, MonadDB m)

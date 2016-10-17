@@ -10,6 +10,7 @@ module Pos.Slotting
        , onNewSlot
        ) where
 
+import           Control.TimeWarp.Rpc   (ResponseT)
 import           Control.TimeWarp.Timed (Microsecond, MonadTimed, for, fork_, wait)
 import           Universum
 
@@ -30,6 +31,10 @@ newtype Timestamp = Timestamp
 class Monad m => MonadSlots m where
     getSystemStartTime :: m Timestamp
     getCurrentTime :: m Timestamp
+
+instance MonadSlots m => MonadSlots (ResponseT m) where
+    getSystemStartTime = lift getSystemStartTime
+    getCurrentTime = lift getCurrentTime
 
 -- | Get id of current slot based on MonadSlots.
 getCurrentSlot :: MonadSlots m => m SlotId

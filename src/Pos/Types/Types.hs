@@ -121,7 +121,6 @@ import qualified Data.Text            as T (unwords)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
-import qualified Data.Vector          as V
 import           Formatting           (Format, bprint, build, int, sformat, shown, (%))
 import           Serokell.AcidState   ()
 import qualified Serokell.Util.Base16 as B16
@@ -554,11 +553,6 @@ instance Blockchain GenesisBlockchain where
 instance Binary (BodyProof GenesisBlockchain)
 instance Binary (ConsensusData GenesisBlockchain)
 instance Binary (Body GenesisBlockchain)
-
--- TODO: move somewhere maybe?
-instance MessagePack a => MessagePack (Vector a) where
-    toObject = toObject . toList
-    fromObject = fmap V.fromList . fromObject
 
 instance MessagePack (BodyProof GenesisBlockchain)
 instance MessagePack (ConsensusData GenesisBlockchain)

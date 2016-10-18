@@ -9,12 +9,14 @@ module Pos.Util
        , putCopyBinary
 
        , readerToState
+       , msgpackFail
 
        , makeLensesData
        ) where
 
 import           Control.Lens                  (lensRules)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
+import qualified Control.Monad
 import           Control.Monad.Fail            (fail)
 import           Data.Binary                   (Binary)
 import qualified Data.Binary                   as Binary (encode)
@@ -47,10 +49,15 @@ getCopyBinary typeName = contain $ do
         Left err -> fail ("getCopy@" ++ typeName ++ ": " ++ err)
         Right x  -> return x
 
+-- | Convert (Reader s) to any (MonadState s)
 readerToState
     :: MonadState s m
     => Reader s a -> m a
 readerToState = gets . runReader
+
+-- | Report error in msgpack's fromObject.
+msgpackFail :: Monad m => String -> m a
+msgpackFail = Control.Monad.fail
 
 ----------------------------------------------------------------------------
 -- Lens utils

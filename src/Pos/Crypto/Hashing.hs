@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications      #-}
 
 -- | Hashing capabilities.
 
@@ -21,14 +22,14 @@ import qualified Data.Binary.Get     as Binary (getByteString)
 import qualified Data.Binary.Put     as Binary (putByteString)
 import qualified Data.ByteArray      as ByteArray
 import           Data.Hashable       (Hashable (hashWithSalt))
-import           Data.MessagePack    (MessagePack (fromObject, toObject))
+import           Data.MessagePack    (MessagePack (fromObject, toObject), Object (..))
 import           Data.SafeCopy       (SafeCopy (..))
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (Format, bprint, later, shown)
 import           Test.QuickCheck     (Arbitrary (..))
 import           Universum
 
-import           Pos.Util            (Raw, getCopyBinary, putCopyBinary)
+import           Pos.Util            (Raw, getCopyBinary, msgpackFail, putCopyBinary)
 
 newtype Hash a = Hash (Digest SHA256)
     deriving (Show, Eq, Ord, ByteArray.ByteArrayAccess)
@@ -37,8 +38,12 @@ instance Hashable (Hash a) where
     hashWithSalt s (Hash x) = hashWithSalt s $ ByteArray.unpack x
 
 instance MessagePack (Hash a) where
-    toObject (Hash x) = toObject . ByteArray.unpack $ x
-    fromObject = undefined
+    toObject (Hash x) = toObject @ByteString . ByteArray.convert $ x
+    fromObject (ObjectBin bs) =
+        case digestFromByteString bs of
+            Nothing -> msgpackFail "failed to convert ByteString to Hash"
+            Just x  -> pure $ Hash x
+    fromObject _ = msgpackFail "Hash must be represented as binary"
 
 instance SafeCopy (Hash a) where
     putCopy = putCopyBinary

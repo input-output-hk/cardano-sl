@@ -80,7 +80,8 @@ calculateLeaders
     :: Utxo            -- ^ Utxo at the beginning of the epoch
     -> Query (Either FtsError SlotLeaders)
 calculateLeaders utxo = do
-    mbSeed <- calculateSeed <$> view mpcGlobalCommitments
+    mbSeed <- calculateSeed undefined
+                            <$> view mpcGlobalCommitments
                             <*> view mpcGlobalOpenings
                             <*> view mpcGlobalShares
     return $ case mbSeed of

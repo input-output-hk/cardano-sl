@@ -42,6 +42,7 @@ library
                         Pos.State.Storage.Tx
                         Pos.Types.Block
                         Pos.Types.FtsSeed
+                        Pos.Types.Mpc
                         Pos.Types.SlotId
                         Pos.Types.Tx
                         Pos.Types.Types

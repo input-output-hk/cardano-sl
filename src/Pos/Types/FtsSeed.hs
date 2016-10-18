@@ -8,7 +8,7 @@ module Pos.Types.FtsSeed
 import           Control.Lens    (over, _1)
 import           Universum
 
-import           Pos.Crypto      (EncShare, Secret (..), SecretProof, Threshold,
+import           Pos.Crypto      (EncShare, Secret (..), SecretSharingExtra, Threshold,
                                   VssPublicKey, genSharedSecret, runSecureRandom)
 import           Pos.Types.Types (FtsSeed (..))
 
@@ -20,7 +20,7 @@ ftsSeedLength = 32
 -- | Generate securely random FtsSeed.
 genSharedFtsSeed
     :: MonadIO m
-    => Threshold -> [VssPublicKey] -> m (FtsSeed, SecretProof, [EncShare])
+    => Threshold -> [VssPublicKey] -> m (FtsSeed, SecretSharingExtra, [EncShare])
 genSharedFtsSeed n =
     liftIO .
     runSecureRandom . fmap (over _1 (FtsSeed . getSecret)) . genSharedSecret n

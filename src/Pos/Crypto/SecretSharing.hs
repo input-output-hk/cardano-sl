@@ -13,18 +13,18 @@ module Pos.Crypto.SecretSharing
        , deterministicVssKeyGen
 
          -- * Sharing
-       , Threshold
        , EncShare
        , Secret (..)
-       , SecretProof
+       , SecretSharingExtra
        , Share
+       , Threshold
        , decryptShare
        , genSharedSecret
        , getValidShares
        , recoverSecret
        , unsafeRecoverSecret
        , verifyEncShare
-       , verifyProof
+       , verifyShare
        ) where
 
 import           Crypto.PVSS          (Commitment, DecryptedShare, EncryptedShare,
@@ -124,18 +124,17 @@ instance MessagePack EncShare where
 instance Buildable EncShare where
     build _ = "encrypted share ¯\\_(ツ)_/¯"
 
--- | This proof may be used to check that particular given secret has
--- been generated.
-data SecretProof =
-    SecretProof !ExtraGen
-                ![Commitment]
+-- | This extra data may be used to verify encrypted share.
+data SecretSharingExtra =
+    SecretSharingExtra !ExtraGen
+                       ![Commitment]
     deriving (Show, Eq)
 
-instance Binary SecretProof where
+instance Binary SecretSharingExtra where
     put = notImplemented
     get = notImplemented
 
-instance MessagePack SecretProof where
+instance MessagePack SecretSharingExtra where
     toObject = notImplemented
     fromObject = notImplemented
 
@@ -154,7 +153,7 @@ decryptShare = notImplemented
 -- given public keys.
 genSharedSecret
     :: MonadRandom m
-    => Threshold -> [VssPublicKey] -> m (Secret, SecretProof, [EncShare])
+    => Threshold -> [VssPublicKey] -> m (Secret, SecretSharingExtra, [EncShare])
 genSharedSecret = notImplemented
 
 -- | Recover secret if there are enough correct shares.
@@ -172,12 +171,13 @@ unsafeRecoverSecret = notImplemented
 getValidShares :: Threshold -> [(EncShare, Point, Share)] -> [Share]
 getValidShares = notImplemented
 
--- | Verify an ancrypted share.
-verifyEncShare :: SecretProof -> VssPublicKey -> EncShare -> Bool
+-- | Verify an encrypted share using SecretSharingExtra.
+verifyEncShare :: SecretSharingExtra -> VssPublicKey -> EncShare -> Bool
 verifyEncShare = notImplemented
 
-verifyProof :: Secret -> SecretProof -> Bool
-verifyProof = notImplemented
+-- | Verify that Share has been decrypted correctly.
+verifyShare :: EncShare -> VssPublicKey -> Share -> Bool
+verifyShare = notImplemented
 
 ----------------------------------------------------------------------------
 -- SafeCopy instances
@@ -206,5 +206,5 @@ instance SafeCopy EncryptedShare where
 -- deriveSafeCopySimple 0 'base ''VssPublicKey
 deriveSafeCopySimple 0 'base ''EncShare
 deriveSafeCopySimple 0 'base ''Secret
-deriveSafeCopySimple 0 'base ''SecretProof
+deriveSafeCopySimple 0 'base ''SecretSharingExtra
 deriveSafeCopySimple 0 'base ''Share

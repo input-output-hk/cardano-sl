@@ -7,6 +7,7 @@ module Pos.Types
 
 import           Pos.Types.Block   as Types
 import           Pos.Types.FtsSeed as Types
+import           Pos.Types.Mpc     as Types
 import           Pos.Types.SlotId  as Types
 import           Pos.Types.Tx      as Types
 import           Pos.Types.Types   as Types

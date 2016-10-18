@@ -127,9 +127,10 @@ import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum
 
-import           Pos.Crypto           (EncShare, Hash, PublicKey, SecretKey, SecretProof,
-                                       Share, Signature, Signed, VssPublicKey, hash, sign,
-                                       toPublic, unsafeHash, verify)
+import           Pos.Crypto           (EncShare, Hash, PublicKey, SecretKey,
+                                       SecretSharingExtra, Share, Signature, Signed,
+                                       VssPublicKey, hash, sign, toPublic, unsafeHash,
+                                       verify)
 import           Pos.Merkle           (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Util             (Raw, makeLensesData)
 
@@ -288,7 +289,7 @@ instance Buildable FtsSeed where
 -- | Commitment is a message generated during the first stage of
 -- MPC. It contains encrypted shares and proof of secret.
 data Commitment = Commitment
-    { commProof  :: !SecretProof
+    { commExtra  :: !SecretSharingExtra
     , commShares :: !(HashMap VssPublicKey (EncShare))
     } deriving (Show, Eq, Generic)
 

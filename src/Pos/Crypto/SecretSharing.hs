@@ -48,11 +48,7 @@ import           Pos.Util             ()
 -- | This key is used as public key in VSS.
 newtype VssPublicKey = VssPublicKey
     { getVssPublicKey :: Point
-    } deriving (Show, Eq, Generic)
-
-instance Binary VssPublicKey where
-    put = notImplemented
-    get = notImplemented
+    } deriving (Show, Eq, Binary)
 
 instance Hashable VssPublicKey where
     hashWithSalt = notImplemented
@@ -95,11 +91,7 @@ instance Buildable Secret where
 -- | Shares can be used to reconstruct Secret.
 newtype Share = Share
     { getShare :: DecryptedShare
-    } deriving (Show, Eq, Generic)
-
-instance Binary Share where
-    put = notImplemented
-    get = notImplemented
+    } deriving (Show, Eq, Binary)
 
 instance MessagePack Share where
     toObject = notImplemented
@@ -111,11 +103,7 @@ instance Buildable Share where
 -- | Encrypted share which needs to be decrypted using VssKeyPair first.
 newtype EncShare = EncShare
     { getEncShare :: EncryptedShare
-    } deriving (Show, Eq, Generic)
-
-instance Binary EncShare where
-    put = notImplemented
-    get = notImplemented
+    } deriving (Show, Eq, Binary)
 
 instance MessagePack EncShare where
     toObject = notImplemented
@@ -128,11 +116,9 @@ instance Buildable EncShare where
 data SecretSharingExtra =
     SecretSharingExtra !ExtraGen
                        ![Commitment]
-    deriving (Show, Eq)
+    deriving (Show, Eq, Generic)
 
 instance Binary SecretSharingExtra where
-    put = notImplemented
-    get = notImplemented
 
 instance MessagePack SecretSharingExtra where
     toObject = notImplemented

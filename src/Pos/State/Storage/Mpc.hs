@@ -25,17 +25,20 @@ import           Control.Lens         (makeClassy, to, view, (%=), (^.))
 import           Data.Default         (Default, def)
 import           Data.Hashable        (Hashable)
 import qualified Data.HashMap.Strict  as HM (difference, filter, insert, union, unionWith)
+import           Data.Ix              (inRange)
 import           Data.SafeCopy        (base, deriveSafeCopySimple)
 import qualified Data.Vector          as V (fromList)
-import           Serokell.Util.Verify (VerificationRes)
+import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum
 
+import           Pos.Constants        (k)
 import           Pos.Crypto           (PublicKey)
 import           Pos.FollowTheSatoshi (FtsError, calculateSeed, followTheSatoshi)
 import           Pos.Types            (Address (getAddress), Block, Body (..), Commitment,
                                        CommitmentSignature, CommitmentsMap, Opening,
-                                       OpeningsMap, SharesMap, SlotLeaders, Utxo, gbBody,
-                                       mbCommitments, mbOpenings, mbShares)
+                                       OpeningsMap, SharesMap, SlotLeaders, Utxo,
+                                       blockSlot, gbBody, headerSlot, mbCommitments,
+                                       mbOpenings, mbShares, mcdSlot, siSlot)
 
 
 data MpcStorage = MpcStorage
@@ -88,14 +91,72 @@ calculateLeaders utxo = do
         Right seed -> Right . V.fromList . map getAddress $
                       followTheSatoshi seed utxo
 
--- | Verify MPC-related predicates of a single block, also using data
--- stored in MpcStorage.
--- The following checks are performed:
--- 1. Every MPC message is stored in block, whose SlotId permits such message.
--- 2. Every MPC message in block is correct (this check depends on message and
--- may be empty).
+{- |
+Verify MPC-related predicates of a single block, also using data stored
+in 'MpcStorage'.
+
+For each MPC message we check:
+
+  1. Whether it's stored in the correct block (e.g. commitments have to be in
+     first 2k blocks, etc.)
+
+  2. Whether the message itself is correct (e.g. commitment signature is
+     valid, etc.)
+-}
 mpcVerifyBlock :: Block -> Query VerificationRes
-mpcVerifyBlock = notImplemented
+-- Genesis blocks don't have any MPC messages
+mpcVerifyBlock (Left _) = return VerSuccess
+-- Main blocks have commitments, openings and shares
+mpcVerifyBlock (Right b) = do
+    let slotId = b ^. blockSlot . to siSlot
+    let commitments = b ^. gbBody . to mbCommitments
+        openings    = b ^. gbBody . to mbOpenings
+        shares      = b ^. gbBody . to mbShares
+    -- We disallow blocks from having commitments/openings/shares in blocks
+    -- with wrong slotid (instead of merely discarding such commitments /
+    -- openings / shares) because it's the miner's responsibility not to
+    -- include them into the block if they're late
+    let isComm  = inRange (0, k - 1) slotId
+        isOpen  = inRange (2 * k, 3 * k - 1) slotId
+        isShare = inRange (4 * k, 5 * k - 1) slotId
+    let commChecks =
+            [ (null openings,
+                   "there are openings in a commitment block")
+            , (null shares,
+                   "there are shares in a commitment block")
+            -- TODO: check that commitment signatures are valid
+            -- TODO: check that all committing nodes are known to us?
+            ]
+    let openChecks =
+            [ (null commitments,
+                   "there are commitments in an openings block")
+            , (null shares,
+                   "there are shares in an openings block")
+            -- TODO: check that openings correspond to commitments
+            ]
+    let shareChecks =
+            [ (null commitments,
+                   "there are commitments in a shares block")
+            , (null openings,
+                   "there are openings in a shares block")
+            -- TODO: check that shares correspond to openings
+            ]
+    let otherChecks =
+            [ (null commitments,
+                   "there are commitments in an ordinary block")
+            , (null openings,
+                   "there are openings in an ordinary block")
+            , (null shares,
+                   "there are shares in an ordinary block")
+            , (inRange (0, 6 * k - 1) slotId,
+                   "slot id is outside of [0, 6k)")
+            ]
+    return $ verifyGeneric $ concat $ concat
+        [ [ commChecks  | isComm ]
+        , [ openChecks  | isOpen ]
+        , [ shareChecks | isShare ]
+        , [ otherChecks | all not [isComm, isOpen, isShare] ]
+        ]
 
 -- | Verify MPC-related predicates of blocks sequence which is about
 -- to be applied. It should check that MPC messages will be consistent

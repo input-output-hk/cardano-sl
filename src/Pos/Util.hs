@@ -92,5 +92,5 @@ makeLensesData familyName typeParamName = do
 
     decToType (DataD    _ n _ _ _ _) = return (ConT n)
     decToType (NewtypeD _ n _ _ _ _) = return (ConT n)
-    decToType other                      =
+    decToType other                  =
         fail ("makeLensesIndexed: decToType failed on: " ++ show other)

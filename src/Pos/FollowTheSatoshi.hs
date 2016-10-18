@@ -93,7 +93,7 @@ calculateSeed commitments openings shares = do
             -- We collect all secrets that 'k' has sent to other nodes
             let secrets = mapMaybe (HM.lookup k) (toList shares)
             -- Then we try to recover the secret
-            return (k, recoverSecret secrets)
+            return (k, recoverSecret undefined secrets)
 
     -- All secrets, both recovered and from openings
     let openingToSecret = Secret . getFtsSeed . getOpening

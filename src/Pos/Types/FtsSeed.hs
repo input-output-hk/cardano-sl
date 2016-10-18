@@ -2,24 +2,25 @@
 
 module Pos.Types.FtsSeed
        ( ftsSeedLength
-       , genFtsSeed
-       , shareFtsSeed
+       , genSharedFtsSeed
        ) where
 
+import           Control.Lens    (over, _1)
 import           Universum
 
-import           Pos.Crypto      (EncShare, Secret (..), SecretProof, VssPublicKey,
-                                  secureRandomBS, shareSecret)
+import           Pos.Crypto      (EncShare, Secret (..), SecretProof, Threshold,
+                                  VssPublicKey, genSharedSecret, runSecureRandom)
 import           Pos.Types.Types (FtsSeed (..))
 
 -- | Length of FtsSeed which is currently constant known in compile
 -- time.
 ftsSeedLength :: Integral a => a
-ftsSeedLength = 40
+ftsSeedLength = 32
 
 -- | Generate securely random FtsSeed.
-genFtsSeed :: MonadIO m => m FtsSeed
-genFtsSeed = FtsSeed <$> secureRandomBS ftsSeedLength
-
-shareFtsSeed :: [VssPublicKey] -> Word -> FtsSeed -> (SecretProof, [EncShare])
-shareFtsSeed keys n = shareSecret keys n . Secret . getFtsSeed
+genSharedFtsSeed
+    :: MonadIO m
+    => Threshold -> [VssPublicKey] -> m (FtsSeed, SecretProof, [EncShare])
+genSharedFtsSeed n =
+    liftIO .
+    runSecureRandom . fmap (over _1 (FtsSeed . getSecret)) . genSharedSecret n

@@ -285,7 +285,6 @@ instance MessagePack FtsSeed
 instance Buildable FtsSeed where
     build = B16.formatBase16 . getFtsSeed
 
--- | Shares can be used to reconstruct Secret.
 -- | Commitment is a message generated during the first stage of
 -- MPC. It contains encrypted shares and proof of secret.
 data Commitment = Commitment
@@ -797,7 +796,7 @@ data Entry
       -- | Leaders for a specific epoch
     | ELeaders Int [NodeId]
 
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Show)
 
 -- | Block
 type Blockkk = [Entry]

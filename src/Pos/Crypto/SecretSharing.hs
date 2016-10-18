@@ -28,7 +28,8 @@ module Pos.Crypto.SecretSharing
        ) where
 
 import           Crypto.PVSS          (Commitment, DecryptedShare, EncryptedShare,
-                                       ExtraGen, KeyPair (..), Point, Threshold)
+                                       ExtraGen, KeyPair (..), Point, Threshold,
+                                       keyPairGenerate)
 import           Crypto.Random        (MonadRandom)
 import           Data.Binary          (Binary (..))
 import           Data.Hashable        (Hashable (..))
@@ -39,6 +40,7 @@ import qualified Data.Text.Buildable  as Buildable
 import qualified Serokell.Util.Base16 as B16
 import           Universum
 
+import           Pos.Crypto.Random    (runSecureRandom)
 import           Pos.Util             (getCopyBinary, putCopyBinary)
 
 ----------------------------------------------------------------------------
@@ -68,7 +70,7 @@ toVssPublicKey (VssKeyPair (KeyPair _ p)) = VssPublicKey p
 
 -- | Generate VssKeyPair using Really Secure™ randomness.
 vssKeyGen :: MonadIO m => m VssKeyPair
-vssKeyGen = notImplemented
+vssKeyGen = VssKeyPair <$> liftIO (runSecureRandom keyPairGenerate)
 
 -- | Generate VssKeyPair using given seed.
 deterministicVssKeyGen :: ByteString -> VssKeyPair

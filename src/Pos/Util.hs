@@ -3,25 +3,37 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Pos.Util
-       ( Raw
+       (
+       -- * Various
+         Raw
+       , msgpackFail
+       , readerToState
 
+       -- * SafeCopy
        , getCopyBinary
        , putCopyBinary
 
-       , readerToState
-       , msgpackFail
-
+       -- * Lenses
        , makeLensesData
+       , _neHead
+       , zoom'
+
+       -- * Instances
+       -- ** MessagePack (Vector a)
+       -- ** SafeCopy (NonEmpty a)
        ) where
 
-import           Control.Lens                  (lensRules)
+import           Control.Lens                  (Lens', LensLike', Zoomed, lensRules, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad
 import           Control.Monad.Fail            (fail)
 import           Data.Binary                   (Binary)
 import qualified Data.Binary                   as Binary (encode)
+import           Data.List.NonEmpty            (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty            as NE
 import           Data.MessagePack              (MessagePack (..))
-import           Data.SafeCopy                 (Contained, contain, safeGet, safePut)
+import           Data.SafeCopy                 (Contained, SafeCopy (..), contain,
+                                                safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (String)
 import qualified Data.Vector                   as V
@@ -94,3 +106,36 @@ makeLensesData familyName typeParamName = do
     decToType (NewtypeD _ n _ _ _ _) = return (ConT n)
     decToType other                  =
         fail ("makeLensesIndexed: decToType failed on: " ++ show other)
+
+-- | Lens for the head of 'NonEmpty'.
+--
+-- We can't use '_head' because it doesn't work for 'NonEmpty':
+-- <https://github.com/ekmett/lens/issues/636#issuecomment-213981096>.
+-- Even if we could though, it wouldn't be a lens, only a traversal.
+_neHead :: Lens' (NonEmpty a) a
+_neHead f (x :| xs) = (:| xs) <$> f x
+
+-- TODO: we should try to get this one into safecopy itself though it's
+-- unlikely that they will choose a different implementation (if they do
+-- choose a different implementation we'll have to write a migration)
+instance SafeCopy a => SafeCopy (NonEmpty a) where
+    getCopy = contain $ do
+        xs <- safeGet
+        case NE.nonEmpty xs of
+            Nothing -> fail "getCopy@NonEmpty: list can't be empty"
+            Just xx -> return xx
+    putCopy = contain . safePut . toList
+    errorTypeName _ = "NonEmpty"
+
+-- | A 'zoom' which works in 'MonadState'.
+--
+-- See <https://github.com/ekmett/lens/issues/580>. You might be surprised
+-- but actual 'zoom' doesn't work in any 'MonadState', it only works in a
+-- handful of state monads and their combinations defined by 'Zoom'.
+zoom'
+  :: MonadState s m
+  => LensLike' (Zoomed (State s) a) s t -> StateT t Identity a -> m a
+zoom' l = state . runState . zoom l
+
+-- Monad z => Zoom (StateT s z) (StateT t z) s t
+-- Monad z => Zoom (StateT s z) (StateT t z) s t

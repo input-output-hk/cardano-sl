@@ -627,6 +627,8 @@ blockSignature = gbHeader . headerSignature
 blockLeaders :: Lens' GenesisBlock SlotLeaders
 blockLeaders = gbBody . gbLeaders
 
+-- This gives a “redundant constraint” message warning which will be fixed in
+-- lens-4.15 (not in LTS yet).
 blockHeader :: Getter Block BlockHeader
 blockHeader = to getBlockHeader
 

@@ -15,6 +15,7 @@ module Pos.Crypto.SecretSharing
          -- * Sharing
        , EncShare
        , Secret (..)
+       , SecretProof
        , SecretSharingExtra
        , Share
        , Threshold
@@ -24,6 +25,7 @@ module Pos.Crypto.SecretSharing
        , recoverSecret
        , unsafeRecoverSecret
        , verifyEncShare
+       , verifySecretProof
        , verifyShare
        ) where
 
@@ -128,6 +130,11 @@ instance MessagePack SecretSharingExtra where
     toObject = notImplemented
     fromObject = notImplemented
 
+-- | SecretProof may be used to commit Secret without revealing it.
+newtype SecretProof = SecretProof
+    { getSecretProof :: NotImplemented
+    } deriving (Show, Eq, Binary)
+
 ----------------------------------------------------------------------------
 -- Functions
 ----------------------------------------------------------------------------
@@ -168,6 +175,10 @@ verifyEncShare = notImplemented
 -- | Verify that Share has been decrypted correctly.
 verifyShare :: EncShare -> VssPublicKey -> Share -> Bool
 verifyShare = notImplemented
+
+-- | Verify that SecretProof corresponds to Secret.
+verifySecretProof :: Secret -> SecretProof -> Bool
+verifySecretProof = notImplemented
 
 ----------------------------------------------------------------------------
 -- SafeCopy instances

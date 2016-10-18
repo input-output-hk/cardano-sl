@@ -39,7 +39,7 @@ import qualified Data.Text.Buildable  as Buildable
 import qualified Serokell.Util.Base16 as B16
 import           Universum
 
-import           Pos.Util             ()
+import           Pos.Util             (getCopyBinary, putCopyBinary)
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -169,27 +169,27 @@ verifyShare = notImplemented
 -- SafeCopy instances
 ----------------------------------------------------------------------------
 
-instance SafeCopy VssPublicKey where
-    putCopy = notImplemented
-    getCopy = notImplemented
+instance SafeCopy Point where
+    putCopy = putCopyBinary
+    getCopy = getCopyBinary "Point"
 
 instance SafeCopy DecryptedShare where
-    putCopy = notImplemented
-    getCopy = notImplemented
+    putCopy = putCopyBinary
+    getCopy = getCopyBinary "DecryptedShare"
 
 instance SafeCopy ExtraGen where
-    putCopy = notImplemented
-    getCopy = notImplemented
+    putCopy = putCopyBinary
+    getCopy = getCopyBinary "ExtraGen"
 
 instance SafeCopy Commitment where
-    putCopy = notImplemented
-    getCopy = notImplemented
+    putCopy = putCopyBinary
+    getCopy = getCopyBinary "Commitment"
 
 instance SafeCopy EncryptedShare where
-    putCopy = notImplemented
-    getCopy = notImplemented
+    putCopy = putCopyBinary
+    getCopy = getCopyBinary "EncryptedShare"
 
--- deriveSafeCopySimple 0 'base ''VssPublicKey
+deriveSafeCopySimple 0 'base ''VssPublicKey
 deriveSafeCopySimple 0 'base ''EncShare
 deriveSafeCopySimple 0 'base ''Secret
 deriveSafeCopySimple 0 'base ''SecretSharingExtra

@@ -127,7 +127,7 @@ import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum
 
-import           Pos.Crypto           (EncShare, Hash, PublicKey, SecretKey,
+import           Pos.Crypto           (EncShare, Hash, PublicKey, Secret, SecretKey,
                                        SecretSharingExtra, Share, Signature, Signed,
                                        VssPublicKey, hash, sign, toPublic, unsafeHash,
                                        verify)
@@ -301,9 +301,8 @@ instance MessagePack Commitment
 type CommitmentSignature = Signature (EpochIndex, Commitment)
 
 -- | Opening reveals message.
--- Maybe we'll need to add something here.
 newtype Opening = Opening
-    { getOpening :: FtsSeed
+    { getOpening :: Secret
     } deriving (Show, Eq, Generic, Binary, Buildable)
 
 instance MessagePack Opening

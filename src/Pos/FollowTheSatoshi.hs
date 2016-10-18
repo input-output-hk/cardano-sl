@@ -23,7 +23,7 @@ import           Pos.Crypto          (PublicKey, Secret (..), Threshold, determi
                                       randomNumber, recoverSecret)
 import           Pos.Types           (Address, Coin (..), CommitmentsMap, FtsSeed (..),
                                       OpeningsMap, SharesMap, TxOut (..), Utxo,
-                                      getOpening, verifyOpening)
+                                      getOpening, secretToFtsSeed, verifyOpening)
 
 data FtsError
     -- | Some nodes in the 'OpeningsMap' aren't in the set of participants
@@ -103,9 +103,8 @@ calculateSeed t commitments openings shares = do
             return (k, recoverSecret t (undefined secrets))
 
     -- All secrets, both recovered and from openings
-    let openingToSecret = Secret . getFtsSeed . getOpening
     let secrets :: HashMap PublicKey Secret
-        secrets = fmap openingToSecret openings <>
+        secrets = fmap getOpening openings <>
                   HM.mapMaybe identity recovered
 
     -- Now that we have the secrets, we can check whether the commitments
@@ -117,13 +116,14 @@ calculateSeed t commitments openings shares = do
             Just _  -> pure ()
 
     -- Finally we just XOR all secrets together
-    let xorBS a b = BS.pack (BS.zipWith xor a b)  -- fast due to rewrite rules
+    let xorSeed (FtsSeed a) (FtsSeed b) =
+            FtsSeed $ BS.pack (BS.zipWith xor a b)  -- fast due to rewrite rules
     if | null secrets && not (null participants) ->
              panic "calculateSeed: there were some participants \
                    \but they produced no secrets somehow"
        | null secrets -> Left NoParticipants
        | otherwise    -> Right $
-                         FtsSeed $ foldl1' xorBS (map getSecret (toList secrets))
+                         foldl1' xorSeed (map secretToFtsSeed (toList secrets))
 
 -- | Choose several random stakeholders (specifically, their amount is
 -- currently hardcoded in 'Pos.Constants.epochSlots').

@@ -14,7 +14,7 @@ module Pos.Crypto.SecretSharing
 
          -- * Sharing
        , EncShare
-       , Secret (..)
+       , Secret
        , SecretProof
        , SecretSharingExtra
        , Share

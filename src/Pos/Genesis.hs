@@ -14,7 +14,6 @@ module Pos.Genesis
        , genesisLeaders
        , genesisVssKeyPairs
        , genesisVssPublicKeys
-       , genesisVssSecretKeys
        ) where
 
 import qualified Data.HashMap.Strict as HM
@@ -23,9 +22,9 @@ import qualified Data.Vector         as V
 import           Universum
 
 import           Pos.Constants       (epochSlots)
-import           Pos.Crypto          (PublicKey, SecretKey, VssPublicKey, VssSecretKey,
+import           Pos.Crypto          (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
                                       deterministicKeyGen, deterministicVssKeyGen,
-                                      mkSigned, unsafeHash)
+                                      mkSigned, toVssPublicKey, unsafeHash)
 import           Pos.Types           (Address (Address), SlotLeaders, TxOut (..), Utxo,
                                       VssCertificatesMap)
 
@@ -57,14 +56,11 @@ genesisUtxo =
 -- MPC, leaders
 ----------------------------------------------------------------------------
 
-genesisVssKeyPairs :: [(VssPublicKey, VssSecretKey)]
+genesisVssKeyPairs :: [(VssKeyPair)]
 genesisVssKeyPairs = [deterministicVssKeyGen mempty]
 
-genesisVssSecretKeys :: [VssSecretKey]
-genesisVssSecretKeys = map snd genesisVssKeyPairs
-
 genesisVssPublicKeys :: [VssPublicKey]
-genesisVssPublicKeys = map fst genesisVssKeyPairs
+genesisVssPublicKeys = map toVssPublicKey genesisVssKeyPairs
 
 genesisCertificates :: VssCertificatesMap
 genesisCertificates =

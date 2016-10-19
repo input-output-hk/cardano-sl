@@ -42,7 +42,7 @@ import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Universum
 
-import           Pos.Crypto.Random   (runSecureRandom)
+import           Pos.Crypto.Random   (runPredefinedRandom, runSecureRandom)
 import           Pos.Util            (fromMsgpackBinary, getCopyBinary, putCopyBinary,
                                       toMsgpackBinary)
 
@@ -135,7 +135,8 @@ vssKeyGen = VssKeyPair <$> liftIO (runSecureRandom Pvss.keyPairGenerate)
 
 -- | Generate VssKeyPair using given seed.
 deterministicVssKeyGen :: ByteString -> VssKeyPair
-deterministicVssKeyGen _ = notImplemented
+deterministicVssKeyGen seed =
+    VssKeyPair $ runPredefinedRandom seed Pvss.keyPairGenerate
 
 ----------------------------------------------------------------------------
 -- Types

@@ -35,12 +35,12 @@ import           Universum
 
 import           Pos.Constants        (k)
 import           Pos.Crypto           (PublicKey, verify)
-import           Pos.FollowTheSatoshi (calculateSeed, followTheSatoshi)
+import           Pos.FollowTheSatoshi (FtsError, calculateSeed, followTheSatoshi)
 import           Pos.Types            (Address (getAddress), Block, Body (..),
                                        Commitment (..), CommitmentSignature,
-                                       CommitmentsMap, FtsSeed (..), Opening (..),
-                                       OpeningsMap, SharesMap, SlotId (..), SlotLeaders,
-                                       Utxo, blockSlot, gbBody, mbCommitments, mbOpenings,
+                                       CommitmentsMap, Opening (..), OpeningsMap,
+                                       SharesMap, SlotId (..), SlotLeaders, Utxo,
+                                       blockSlot, gbBody, mbCommitments, mbOpenings,
                                        mbShares, verifyOpening)
 import           Pos.Util             (readerToState, zoom', _neHead)
 

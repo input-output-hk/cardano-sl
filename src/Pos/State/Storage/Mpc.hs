@@ -24,23 +24,24 @@ module Pos.State.Storage.Mpc
 import           Control.Lens         (Lens', makeClassy, to, view, (%=), (^.))
 import           Data.Default         (Default, def)
 import           Data.Hashable        (Hashable)
-import qualified Data.HashMap.Strict  as HM (difference, filter, insert, union, unionWith)
+import qualified Data.HashMap.Strict  as HM
 import           Data.Ix              (inRange)
 import           Data.List.NonEmpty   (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty   as NE
 import           Data.SafeCopy        (base, deriveSafeCopySimple)
-import qualified Data.Vector          as V (fromList)
+import qualified Data.Vector          as V
 import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum
 
 import           Pos.Constants        (k)
-import           Pos.Crypto           (PublicKey)
+import           Pos.Crypto           (PublicKey, Secret (..), verify, verifyProof)
 import           Pos.FollowTheSatoshi (FtsError, calculateSeed, followTheSatoshi)
-import           Pos.Types            (Address (getAddress), Block, Body (..), Commitment,
-                                       CommitmentSignature, CommitmentsMap, Opening,
-                                       OpeningsMap, SharesMap, SlotLeaders, Utxo,
-                                       blockSlot, gbBody, headerSlot, mbCommitments,
-                                       mbOpenings, mbShares, mcdSlot, siSlot)
+import           Pos.Types            (Address (getAddress), Block, Body (..),
+                                       Commitment (..), CommitmentSignature,
+                                       CommitmentsMap, FtsSeed (..), Opening (..),
+                                       OpeningsMap, SharesMap, SlotId (..), SlotLeaders,
+                                       Utxo, blockSlot, gbBody, mbCommitments, mbOpenings,
+                                       mbShares)
 import           Pos.Util             (zoom', _neHead)
 
 
@@ -115,6 +116,12 @@ calculateLeaders utxo = do
         Right seed -> Right . V.fromList . map getAddress $
                       followTheSatoshi seed utxo
 
+checkOpening :: CommitmentsMap -> (PublicKey, Opening) -> Bool
+checkOpening globalCommitments (pk, Opening (FtsSeed x)) =
+    case HM.lookup pk globalCommitments of
+        Nothing        -> False
+        Just (comm, _) -> verifyProof (commProof comm) (Secret x)
+
 {- |
 Verify MPC-related predicates of a single block, also using data stored
 in 'MpcStorage'.
@@ -132,39 +139,79 @@ mpcVerifyBlock :: Block -> Query VerificationRes
 mpcVerifyBlock (Left _) = return VerSuccess
 -- Main blocks have commitments, openings and shares
 mpcVerifyBlock (Right b) = do
-    let slotId = b ^. blockSlot . to siSlot
+    let SlotId{siSlot = slotId, siEpoch = epochId} = b ^. blockSlot
     let commitments = b ^. gbBody . to mbCommitments
         openings    = b ^. gbBody . to mbOpenings
         shares      = b ^. gbBody . to mbShares
-    -- We disallow blocks from having commitments/openings/shares in blocks
-    -- with wrong slotid (instead of merely discarding such commitments /
-    -- openings / shares) because it's the miner's responsibility not to
-    -- include them into the block if they're late
+    globalCommitments <- view (lastVer . mpcGlobalCommitments)
+    globalOpenings    <- view (lastVer . mpcGlobalOpenings)
+    -- Commitment blocks are ones in range [0,k), etc. Mixed blocks aren't
+    -- allowed.
     let isComm  = inRange (0, k - 1) slotId
         isOpen  = inRange (2 * k, 3 * k - 1) slotId
         isShare = inRange (4 * k, 5 * k - 1) slotId
+
+    -- We *forbid* blocks from having commitments/openings/shares in blocks
+    -- with wrong slotId (instead of merely discarding such commitments/etc)
+    -- because it's the miner's responsibility not to include them into the
+    -- block if they're late.
+    --
+    -- For commitments specifically, we also
+    --   * check their signatures (which includes checking that the
+    --     commitment has been generated for this particular epoch)
+    --   * check that the nodes haven't already sent their commitments before
+    --     in some different block
     let commChecks =
             [ (null openings,
                    "there are openings in a commitment block")
             , (null shares,
                    "there are shares in a commitment block")
-            -- TODO: check that commitment signatures are valid
-            -- TODO: check that all committing nodes are known to us?
+            , (let checkSig (pk, (comm, sig)) = verify pk (epochId, comm) sig
+               in all checkSig (HM.toList commitments),
+                   "signature check for some commitments has failed")
+            , (all (not . (`HM.member` globalCommitments))
+                   (HM.keys commitments),
+                   "some nodes have already sent their commitments")
             ]
+
+    -- For openings, we check that
+    --   * there are only openings in the block
+    --   * the opening isn't present in previous blocks (TODO: may this
+    --     check be skipped?)
+    --   * corresponding commitment is present
+    --   * the opening matches the commitment
     let openChecks =
             [ (null commitments,
                    "there are commitments in an openings block")
             , (null shares,
                    "there are shares in an openings block")
-            -- TODO: check that openings correspond to commitments
+            , (all (not . (`HM.member` globalOpenings))
+                   (HM.keys openings),
+                   "some nodes have already sent their openings")
+            , (all (`HM.member` globalCommitments)
+                   (HM.keys openings),
+                   "some openings don't have corresponding commitments")
+            , (all (checkOpening globalCommitments) (HM.toList openings),
+                   "some openings don't match corresponding commitments")
             ]
+
+    -- For shares, we check that
+    --   * there are only shares in the block
+    --   * shares have corresponding commitments
+    -- We don't check whether shares match the openings.
     let shareChecks =
             [ (null commitments,
                    "there are commitments in a shares block")
             , (null openings,
                    "there are openings in a shares block")
-            -- TODO: check that shares correspond to openings
+            , (all (`HM.member` globalCommitments)
+                   (HM.keys shares <> concatMap HM.keys (toList shares)),
+                   "some shares don't have corresponding commitments")
             ]
+
+    -- For all other blocks, we check that
+    --   * there are no commitments, openings or shares
+    --   * slot ID is in range
     let otherChecks =
             [ (null commitments,
                    "there are commitments in an ordinary block")
@@ -175,6 +222,7 @@ mpcVerifyBlock (Right b) = do
             , (inRange (0, 6 * k - 1) slotId,
                    "slot id is outside of [0, 6k)")
             ]
+
     return $ verifyGeneric $ concat $ concat
         [ [ commChecks  | isComm ]
         , [ openChecks  | isOpen ]

@@ -10,7 +10,7 @@ import           Control.Lens    (over, _1)
 import qualified Data.Binary     as Bin
 import           Universum
 
-import           Pos.Crypto      (EncShare, Secret (..), SecretSharingExtra, Threshold,
+import           Pos.Crypto      (EncShare, Secret, SecretSharingExtra, Threshold,
                                   VssPublicKey, genSharedSecret, runSecureRandom)
 import           Pos.Types.Types (FtsSeed (..))
 

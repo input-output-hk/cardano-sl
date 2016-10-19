@@ -150,6 +150,8 @@ followTheSatoshi (FtsSeed seed) utxo
     totalCoins :: Coin
     totalCoins = sum (map snd outputs)
 
+    -- FIXME: current version of `deterministic` can't be used here,
+    -- because seed is not necessary 40 bytes (it's 32 in fact)
     coinIndices :: [Coin]
     coinIndices = map (fromInteger . (+1)) $
                   deterministic seed $

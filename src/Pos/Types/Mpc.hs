@@ -33,9 +33,16 @@ secretToFtsSeed = FtsSeed . toS . Bin.encode
 genCommitmentAndOpening
     :: MonadIO m
     => Threshold -> [VssPublicKey] -> m (Commitment, Opening)
-genCommitmentAndOpening n = notImplemented
-    -- liftIO .
-    -- runSecureRandom . fmap (over _1 secretToFtsSeed) . genSharedSecret n
+genCommitmentAndOpening n pks =
+    liftIO . runSecureRandom . fmap convertRes . genSharedSecret n $ pks
+  where
+    convertRes (extra, secret, proof, shares) =
+        ( Commitment
+          { commExtra = extra
+          , commProof = proof
+          , commShares = HM.fromList $ zip pks shares
+          }
+        , Opening secret)
 
 -- | Verify that Commitment is correct.
 verifyCommitment :: Commitment -> Bool

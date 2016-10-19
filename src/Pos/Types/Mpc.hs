@@ -1,33 +1,25 @@
 -- | Function related to Mpc messages.
 
 module Pos.Types.Mpc
-       ( ftsSeedLength
+       ( genCommitmentAndOpening
        , secretToFtsSeed
-       , genCommitmentAndOpening
        , verifyCommitment
        , verifyOpening
        , xorFtsSeed
        ) where
 
-import qualified Data.Binary         as Bin
 import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM
 import           Universum
 
 import           Pos.Crypto          (Secret, Threshold, VssPublicKey, genSharedSecret,
-                                      runSecureRandom, verifyEncShare, verifySecretProof)
+                                      getDhSecret, runSecureRandom, secretToDhSecret,
+                                      verifyEncShare, verifySecretProof)
 import           Pos.Types.Types     (Commitment (..), FtsSeed (..), Opening (..))
 
--- | Length of FtsSeed which is currently constant known in compile
--- time.
--- FIXME: do something!
-ftsSeedLength :: Integral a => a
-ftsSeedLength = 40
-
 -- | Convert Secret to FtsSeed.
--- FIXME: result is 33 bytes long!
 secretToFtsSeed :: Secret -> FtsSeed
-secretToFtsSeed = FtsSeed . toS . Bin.encode
+secretToFtsSeed = FtsSeed . getDhSecret . secretToDhSecret
 
 -- | Generate securely random FtsSeed.
 genCommitmentAndOpening

@@ -34,16 +34,15 @@ import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess, verif
 import           Universum
 
 import           Pos.Constants        (k)
-import           Pos.Crypto           (PublicKey, Secret (..), verify, verifyProof)
+import           Pos.Crypto           (PublicKey, Secret (..), verify)
 import           Pos.FollowTheSatoshi (FtsError, calculateSeed, followTheSatoshi)
 import           Pos.Types            (Address (getAddress), Block, Body (..),
                                        Commitment (..), CommitmentSignature,
                                        CommitmentsMap, FtsSeed (..), Opening (..),
                                        OpeningsMap, SharesMap, SlotId (..), SlotLeaders,
                                        Utxo, blockSlot, gbBody, mbCommitments, mbOpenings,
-                                       mbShares)
+                                       mbShares, verifyOpening)
 import           Pos.Util             (readerToState, zoom', _neHead)
-
 
 data MpcStorageVersion = MpcStorageVersion
     { -- | Local set of 'Commitment's. These are valid commitments which are
@@ -112,7 +111,8 @@ calculateLeaders
     :: Utxo            -- ^ Utxo at the beginning of the epoch
     -> Query (Either FtsError SlotLeaders)
 calculateLeaders utxo = do
-    mbSeed <- calculateSeed <$> view (lastVer . mpcGlobalCommitments)
+    mbSeed <- calculateSeed undefined
+                            <$> view (lastVer . mpcGlobalCommitments)
                             <*> view (lastVer . mpcGlobalOpenings)
                             <*> view (lastVer . mpcGlobalShares)
     return $ case mbSeed of
@@ -121,10 +121,10 @@ calculateLeaders utxo = do
                       followTheSatoshi seed utxo
 
 checkOpening :: CommitmentsMap -> (PublicKey, Opening) -> Bool
-checkOpening globalCommitments (pk, Opening (FtsSeed x)) =
+checkOpening globalCommitments (pk, opening) =
     case HM.lookup pk globalCommitments of
         Nothing        -> False
-        Just (comm, _) -> verifyProof (commProof comm) (Secret x)
+        Just (comm, _) -> verifyOpening comm opening
 
 {- |
 Verify MPC-related predicates of a single block, also using data stored

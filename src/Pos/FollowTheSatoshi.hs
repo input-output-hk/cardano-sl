@@ -9,7 +9,6 @@ module Pos.FollowTheSatoshi
        , followTheSatoshi
        ) where
 
-import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM (fromList, lookup, mapMaybe, toList)
 import qualified Data.HashSet        as HS (difference, fromMap)
 import           Data.List           (foldl1', scanl1)
@@ -19,11 +18,12 @@ import           Universum
 import           Serokell.Util       (listBuilderJSON)
 
 import           Pos.Constants       (epochSlots)
-import           Pos.Crypto          (PublicKey, Secret (..), deterministic, randomNumber,
-                                      recoverSecret, verifyProof)
-import           Pos.Types           (Address, Coin (..), Commitment (..), CommitmentsMap,
-                                      FtsSeed (..), OpeningsMap, SharesMap, TxOut (..),
-                                      Utxo, getOpening)
+import           Pos.Crypto          (PublicKey, Secret, Threshold, deterministic,
+                                      randomNumber, recoverSecret)
+import           Pos.Types           (Address, Coin (..), CommitmentsMap, FtsSeed (..),
+                                      OpeningsMap, SharesMap, TxOut (..), Utxo,
+                                      getOpening, secretToFtsSeed, verifyOpening,
+                                      xorFtsSeed)
 
 data FtsError
     -- | Some nodes in the 'OpeningsMap' aren't in the set of participants
@@ -59,11 +59,12 @@ getKeys = HS.fromMap . void
 --
 -- TODO: do we need to check secrets' lengths? Probably not.
 calculateSeed
-    :: CommitmentsMap        -- ^ All participating nodes
+    :: Threshold
+    -> CommitmentsMap        -- ^ All participating nodes
     -> OpeningsMap
     -> SharesMap
     -> Either FtsError FtsSeed
-calculateSeed commitments openings shares = do
+calculateSeed t commitments openings shares = do
     let participants = getKeys commitments
 
     -- First let's do some sanity checks.
@@ -77,6 +78,12 @@ calculateSeed commitments openings shares = do
         Left (ExtraneousOpenings extraOpenings)
     unless (null extraShares) $
         Left (ExtraneousShares extraShares)
+
+    -- And let's check openings.
+    for_ (HM.toList commitments) $ \(key, fst -> commitment) -> do
+        whenJust (HM.lookup key openings) $ \opening ->
+            unless (verifyOpening commitment opening) $
+                Left (BrokenCommitment key)
 
     -- Then we can start calculating seed, but first we have to recover some
     -- secrets (if corresponding openings weren't posted)
@@ -93,32 +100,28 @@ calculateSeed commitments openings shares = do
             -- We collect all secrets that 'k' has sent to other nodes
             let secrets = mapMaybe (HM.lookup k) (toList shares)
             -- Then we try to recover the secret
-            return (k, recoverSecret secrets)
+            return (k, recoverSecret t (undefined secrets))
 
     -- All secrets, both recovered and from openings
-    let openingToSecret = Secret . getFtsSeed . getOpening
     let secrets :: HashMap PublicKey Secret
-        secrets = fmap openingToSecret openings <>
+        secrets = fmap getOpening openings <>
                   HM.mapMaybe identity recovered
 
     -- Now that we have the secrets, we can check whether the commitments
     -- actually match the secrets, and whether a secret has been recovered
     -- for each participant.
-    for_ (HM.toList commitments) $ \(key, fst -> commitment) -> do
-        secret <- case HM.lookup key secrets of
+    for_ (HM.toList commitments) $ \(key, fst -> _) -> do
+        case HM.lookup key secrets of
             Nothing -> Left (NoSecretFound key)
-            Just sc -> return sc
-        unless (verifyProof (commProof commitment) secret) $
-            Left (BrokenCommitment key)
+            Just _  -> pure ()
 
     -- Finally we just XOR all secrets together
-    let xorBS a b = BS.pack (BS.zipWith xor a b)  -- fast due to rewrite rules
     if | null secrets && not (null participants) ->
              panic "calculateSeed: there were some participants \
                    \but they produced no secrets somehow"
        | null secrets -> Left NoParticipants
        | otherwise    -> Right $
-                         FtsSeed $ foldl1' xorBS (map getSecret (toList secrets))
+                         foldl1' xorFtsSeed (map secretToFtsSeed (toList secrets))
 
 -- | Choose several random stakeholders (specifically, their amount is
 -- currently hardcoded in 'Pos.Constants.epochSlots').

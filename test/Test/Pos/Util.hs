@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
 module Test.Pos.Util
@@ -5,7 +6,6 @@ module Test.Pos.Util
        , sublistN
 
        , KeyPair(..)
-       , VssKeyPair(..)
        ) where
 
 import           System.IO.Unsafe (unsafePerformIO)
@@ -14,11 +14,11 @@ import           Test.QuickCheck  (Arbitrary (..), Gen, choose, elements, shuffl
 import           Universum
 
 import           Pos.Constants    (epochSlots)
-import           Pos.Crypto       (PublicKey, SecretKey, VssPublicKey, VssSecretKey,
-                                   keyGen, vssKeyGen)
-import           Pos.Types        (Coin (..), EpochIndex (EpochIndex), FtsSeed,
-                                   LocalSlotIndex (LocalSlotIndex), SlotId (SlotId),
-                                   genFtsSeed)
+import           Pos.Crypto       (PublicKey, SecretKey, VssKeyPair, VssPublicKey, keyGen,
+                                   toVssPublicKey, vssKeyGen)
+import           Pos.Types        (Coin (..), Commitment, EpochIndex (EpochIndex),
+                                   FtsSeed, LocalSlotIndex (LocalSlotIndex), Opening,
+                                   SlotId (SlotId), genCommitmentAndOpening)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -42,20 +42,20 @@ class Nonrepeating a where
     nonrepeating :: Int -> Gen [a]
 
 ----------------------------------------------------------------------------
--- Seed
+-- Commitments and openings
 ----------------------------------------------------------------------------
 
-ftsSeeds :: [FtsSeed]
-ftsSeeds = unsafePerformIO $ do
-    putText "[generating FtsSeeds for tests...]"
-    replicateM 50 genFtsSeed
-{-# NOINLINE ftsSeeds #-}
+commitmentsAndOpenings :: [(Commitment, Opening)]
+commitmentsAndOpenings = unsafePerformIO $ do
+    putText "[generating Commitments and Openings for tests...]"
+    replicateM 50 $ genCommitmentAndOpening undefined undefined
+{-# NOINLINE commitmentsAndOpenings #-}
 
-instance Arbitrary FtsSeed where
-    arbitrary = elements ftsSeeds
+instance Arbitrary (Commitment, Opening) where
+    arbitrary = elements commitmentsAndOpenings
 
-instance Nonrepeating FtsSeed where
-    nonrepeating n = sublistN n ftsSeeds
+instance Nonrepeating (Commitment, Opening) where
+    nonrepeating n = sublistN n commitmentsAndOpenings
 
 ----------------------------------------------------------------------------
 -- Arbitrary signing keys
@@ -92,33 +92,23 @@ instance Nonrepeating SecretKey where
 -- Arbitrary VSS keys
 ----------------------------------------------------------------------------
 
-data VssKeyPair = VssKeyPair
-    { getVssPub :: VssPublicKey
-    , getVssSec :: VssSecretKey
-    } deriving (Eq, Ord, Show)
-
 vssKeys :: [VssKeyPair]
 vssKeys = unsafePerformIO $ do
     putText "[generating VSS keys for tests...]"
-    replicateM 50 (uncurry VssKeyPair <$> vssKeyGen)
+    replicateM 50 vssKeyGen
 {-# NOINLINE vssKeys #-}
 
 instance Arbitrary VssKeyPair where
     arbitrary = elements vssKeys
 
 instance Arbitrary VssPublicKey where
-    arbitrary = getVssPub <$> arbitrary
-
-instance Arbitrary VssSecretKey where
-    arbitrary = getVssSec <$> arbitrary
+    arbitrary = toVssPublicKey <$> arbitrary
 
 instance Nonrepeating VssKeyPair where
     nonrepeating n = sublistN n vssKeys
 
 instance Nonrepeating VssPublicKey where
-    nonrepeating n = map getVssPub <$> nonrepeating n
-instance Nonrepeating VssSecretKey where
-    nonrepeating n = map getVssSec <$> nonrepeating n
+    nonrepeating n = map toVssPublicKey <$> nonrepeating n
 
 ----------------------------------------------------------------------------
 -- Arbitrary core types

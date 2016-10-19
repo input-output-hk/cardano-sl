@@ -30,7 +30,7 @@ import           Data.List.NonEmpty   (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty   as NE
 import           Data.SafeCopy        (base, deriveSafeCopySimple)
 import qualified Data.Vector          as V
-import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
+import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess, verifyGeneric)
 import           Universum
 
 import           Pos.Constants        (k)
@@ -42,8 +42,7 @@ import           Pos.Types            (Address (getAddress), Block, Body (..),
                                        OpeningsMap, SharesMap, SlotId (..), SlotLeaders,
                                        Utxo, blockSlot, gbBody, mbCommitments, mbOpenings,
                                        mbShares, verifyOpening)
-import           Pos.Util             (zoom', _neHead)
-
+import           Pos.Util             (readerToState, zoom', _neHead)
 
 data MpcStorageVersion = MpcStorageVersion
     { -- | Local set of 'Commitment's. These are valid commitments which are
@@ -101,6 +100,10 @@ instance Default MpcStorage where
     def = MpcStorage (def :| [])
 
 type Update a = forall m x. (HasMpcStorage x, MonadState x m) => m a
+-- If this type ever changes to include side effects (error reporting, etc)
+-- we might have to change 'mpcVerifyBlock' because currently it works by
+-- simulating block application and we don't want block verification to have
+-- any side effects. The compiler will warn us if it happens, though.
 type Query a = forall m x. (HasMpcStorage x, MonadReader x m) => m a
 
 -- | Calculate leaders for the next epoch.
@@ -234,8 +237,22 @@ mpcVerifyBlock (Right b) = do
 -- | Verify MPC-related predicates of blocks sequence which is about
 -- to be applied. It should check that MPC messages will be consistent
 -- if this blocks are applied (after possible rollback).
+--
+-- TODO:
+--   * possible rollback, or definite rollback? Currently it's the latter.
+--   * should verification messages include e.g. block hash/slotId?
+--   * should we stop at first failing block?
 mpcVerifyBlocks :: Int -> [Block] -> Query VerificationRes
-mpcVerifyBlocks toRollback = notImplemented
+mpcVerifyBlocks toRollback blocks = do
+    curState <- view mpcStorage
+    return $ flip evalState curState $ do
+        mpcRollback toRollback
+        vs <- forM blocks $ \b -> do
+            v <- readerToState $ mpcVerifyBlock b
+            when (isVerSuccess v) $
+                mpcProcessBlock b
+            return v
+        return (mconcat vs)
 
 -- TODO: checks can happen anywhere but we must have a *clear* policy on
 -- where checks are happening, to prevent the situation when they are, well,

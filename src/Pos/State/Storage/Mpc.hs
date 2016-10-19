@@ -34,8 +34,8 @@ import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess, verif
 import           Universum
 
 import           Pos.Constants        (k)
-import           Pos.Crypto           (PublicKey, Secret (..), verify)
-import           Pos.FollowTheSatoshi (FtsError, calculateSeed, followTheSatoshi)
+import           Pos.Crypto           (PublicKey, verify)
+import           Pos.FollowTheSatoshi (calculateSeed, followTheSatoshi)
 import           Pos.Types            (Address (getAddress), Block, Body (..),
                                        Commitment (..), CommitmentSignature,
                                        CommitmentsMap, FtsSeed (..), Opening (..),

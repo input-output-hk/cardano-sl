@@ -9,15 +9,13 @@ module Pos.Types.Mpc
        , xorFtsSeed
        ) where
 
-import           Control.Lens        (over, _1)
 import qualified Data.Binary         as Bin
 import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM
 import           Universum
 
-import           Pos.Crypto          (EncShare, Secret, SecretSharingExtra, Threshold,
-                                      VssPublicKey, genSharedSecret, runSecureRandom,
-                                      verifyEncShare, verifySecretProof)
+import           Pos.Crypto          (Secret, Threshold, VssPublicKey, genSharedSecret,
+                                      runSecureRandom, verifyEncShare, verifySecretProof)
 import           Pos.Types.Types     (Commitment (..), FtsSeed (..), Opening (..))
 
 -- | Length of FtsSeed which is currently constant known in compile

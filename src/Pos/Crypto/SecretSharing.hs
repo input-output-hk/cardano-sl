@@ -35,6 +35,7 @@ import qualified Crypto.PVSS         as Pvss
 import           Crypto.Random       (MonadRandom)
 import           Data.Binary         (Binary (..), encode)
 import           Data.Hashable       (Hashable (..))
+import           Data.List           (genericLength)
 import           Data.MessagePack    (MessagePack (..))
 import           Data.SafeCopy       (SafeCopy (..), base, deriveSafeCopySimple)
 import           Data.Text.Buildable (Buildable)
@@ -162,8 +163,13 @@ genSharedSecret t = fmap convertRes . Pvss.escrow t . map getVssPublicKey
         (SecretSharingExtra g c, Secret s, SecretProof p, map EncShare es)
 
 -- | Recover secret if there are enough correct shares.
-recoverSecret :: Threshold -> [(EncShare, Point, Share)] -> Maybe Secret
-recoverSecret = notImplemented
+recoverSecret :: Threshold -> [(EncShare, VssPublicKey, Share)] -> Maybe Secret
+recoverSecret t = recoverSecretDo t . getValidShares t
+
+recoverSecretDo :: Threshold -> [Share] -> Maybe Secret
+recoverSecretDo t shares
+    | genericLength shares >= t = Just (unsafeRecoverSecret shares)
+    | otherwise = Nothing
 
 -- | Recover Secret from shares. Assumes that number of shares is
 -- enough to do it. Consider using `getValidRecoveryShares` first or
@@ -173,8 +179,10 @@ unsafeRecoverSecret = Secret . Pvss.recover . map getShare
 
 -- | Get #Threshold decrypted shares from given list, or less if there
 -- is not enough.
-getValidShares :: Threshold -> [(EncShare, Point, Share)] -> [Share]
-getValidShares = notImplemented
+getValidShares :: Threshold -> [(EncShare, VssPublicKey, Share)] -> [Share]
+getValidShares t = map Share . Pvss.getValidRecoveryShares t . map convert
+  where
+    convert (EncShare es, VssPublicKey p, Share s) = (es, p, s)
 
 -- | Verify an encrypted share using SecretSharingExtra.
 verifyEncShare :: SecretSharingExtra -> VssPublicKey -> EncShare -> Bool

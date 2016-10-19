@@ -32,7 +32,7 @@ packages:
   extra-dep: true
 - location:
     git: git@github.com:input-output-hk/pvss-haskell.git
-    commit: ccc7c99ce86546b512cc0120c929053a69c7e094
+    commit: 996951c97f97d734ec7cea05e72620eaabfc72f3
   extra-dep: true
 
 extra-deps:

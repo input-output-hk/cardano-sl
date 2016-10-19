@@ -1,7 +1,7 @@
 -- | Wrappers on top of communication methods.
 
 module Pos.Communication.Methods
-       ( getBlock
+       ( requestBlock
 
          -- * Legacy
        , fullNode
@@ -10,27 +10,30 @@ module Pos.Communication.Methods
        , systemStart
        ) where
 
+import           Control.TimeWarp.Logging (LoggerName (..), logError, logInfo,
+                                           setLoggerName)
+import           Control.TimeWarp.Rpc     (NetworkAddress)
+import           Control.TimeWarp.Timed   (Microsecond, for, fork_, ms, repeatForever,
+                                           sec, till, virtualTime, wait)
 import           Data.Fixed               (div')
 import           Data.IORef               (IORef, newIORef, readIORef)
 import           Formatting               (build, sformat, (%))
+import           Serokell.Util            ()
 import           System.IO.Unsafe         (unsafePerformIO)
 import           Universum
-
-import           Control.TimeWarp.Logging (LoggerName (..), logError, logInfo,
-                                           setLoggerName)
-import           Control.TimeWarp.Timed   (Microsecond, for, fork_, ms, repeatForever,
-                                           sec, till, virtualTime, wait)
-import           Serokell.Util            ()
 
 import           Pos.Communication.Types  (Message (..), Node)
 import           Pos.Constants            (epochSlots, slotDuration)
 import           Pos.State                (NodeState, openMemState)
-import           Pos.Types.Types          (Block, HeaderHash, NodeId (..), nodeF)
+import           Pos.Types                (HeaderHash, NodeId (..), nodeF)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Request Block with given hash from some node.
-getBlock :: WorkMode m => NodeId -> HeaderHash -> m Block
-getBlock = notImplemented
+-- TODO: consider using something else instead of NetworkAddress.
+requestBlock
+    :: WorkMode m
+    => NetworkAddress -> HeaderHash -> m ()
+requestBlock = notImplemented
 
 ----------------------------------------------------------------------------
 -- Legacy

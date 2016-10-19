@@ -9,7 +9,7 @@ import           Universum
 
 import           Pos.Communication.Types (RequestBlock (..), SendBlock (..),
                                           SendBlockHeader (..))
-import           Pos.Crypto              (hash)
+-- import           Pos.Crypto              (hash)
 import qualified Pos.State               as St
 import           Pos.WorkMode            (WorkMode)
 

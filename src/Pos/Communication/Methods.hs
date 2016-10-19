@@ -155,7 +155,7 @@ fullNodeWrapper nf =
             nf st self key n pkeys sendTo
 
 fullNode :: WorkMode m => Node m
-fullNode = fullNodeWrapper $ \st self _key n _pkeys sendTo -> do
+fullNode = fullNodeWrapper $ \_ _ _ _ _ _ -> do
     undefined
     -- This will run at the beginning of each slot:
     -- inSlot True $ \epoch slot -> do

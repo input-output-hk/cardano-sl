@@ -6,8 +6,12 @@ module Pos.Util
        (
        -- * Various
          Raw
-       , msgpackFail
        , readerToState
+
+       -- * Msgpack
+       , msgpackFail
+       , toMsgpackBinary
+       , fromMsgpackBinary
 
        -- * SafeCopy
        , getCopyBinary
@@ -32,6 +36,7 @@ import qualified Data.Binary                   as Binary (encode)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty            as NE
 import           Data.MessagePack              (MessagePack (..))
+import qualified Data.MessagePack              as Msgpack
 import           Data.SafeCopy                 (Contained, SafeCopy (..), contain,
                                                 safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
@@ -69,6 +74,10 @@ readerToState
     => Reader s a -> m a
 readerToState = gets . runReader
 
+----------------------------------------------------------------------------
+-- MessagePack
+----------------------------------------------------------------------------
+
 -- | Report error in msgpack's fromObject.
 msgpackFail :: Monad m => String -> m a
 msgpackFail = Control.Monad.fail
@@ -76,6 +85,21 @@ msgpackFail = Control.Monad.fail
 instance MessagePack a => MessagePack (V.Vector a) where
     toObject = toObject . toList
     fromObject = fmap V.fromList . fromObject
+
+-- | Convert instance of Binary into msgpack binary Object.
+toMsgpackBinary :: Binary a => a -> Msgpack.Object
+toMsgpackBinary = toObject . Binary.encode
+
+-- | Extract ByteString from msgpack Object and decode it using Binary
+-- instance.
+fromMsgpackBinary
+    :: (Binary a, Monad m)
+    => String -> Msgpack.Object -> m a
+fromMsgpackBinary typeName obj = do
+    bs <- fromObject obj
+    case Binary.decodeFull bs of
+        Left err -> msgpackFail ("fromObject@" ++ typeName ++ ": " ++ err)
+        Right x  -> return x
 
 ----------------------------------------------------------------------------
 -- Lens utils

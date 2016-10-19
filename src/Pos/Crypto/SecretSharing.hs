@@ -30,7 +30,7 @@ module Pos.Crypto.SecretSharing
        ) where
 
 import           Crypto.PVSS          (Commitment, DecryptedShare, EncryptedShare,
-                                       ExtraGen, KeyPair (..), Point, Threshold,
+                                       ExtraGen, KeyPair (..), Point, Proof, Threshold,
                                        keyPairGenerate)
 import           Crypto.Random        (MonadRandom)
 import           Data.Binary          (Binary (..))
@@ -132,8 +132,12 @@ instance MessagePack SecretSharingExtra where
 
 -- | SecretProof may be used to commit Secret without revealing it.
 newtype SecretProof = SecretProof
-    { getSecretProof :: NotImplemented
+    { getSecretProof :: Proof
     } deriving (Show, Eq, Binary)
+
+instance MessagePack SecretProof where
+    toObject = notImplemented
+    fromObject = notImplemented
 
 ----------------------------------------------------------------------------
 -- Functions

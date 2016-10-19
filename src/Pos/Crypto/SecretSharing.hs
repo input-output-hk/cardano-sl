@@ -181,7 +181,7 @@ verifyShare :: EncShare -> VssPublicKey -> Share -> Bool
 verifyShare = notImplemented
 
 -- | Verify that SecretProof corresponds to Secret.
-verifySecretProof :: Secret -> SecretProof -> Bool
+verifySecretProof :: SecretSharingExtra -> Secret -> SecretProof -> Bool
 verifySecretProof = notImplemented
 
 ----------------------------------------------------------------------------

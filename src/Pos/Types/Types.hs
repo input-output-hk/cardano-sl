@@ -128,9 +128,9 @@ import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum
 
 import           Pos.Crypto           (EncShare, Hash, PublicKey, Secret, SecretKey,
-                                       SecretSharingExtra, Share, Signature, Signed,
-                                       VssPublicKey, hash, sign, toPublic, unsafeHash,
-                                       verify)
+                                       SecretProof, SecretSharingExtra, Share, Signature,
+                                       Signed, VssPublicKey, hash, sign, toPublic,
+                                       unsafeHash, verify)
 import           Pos.Merkle           (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Util             (Raw, makeLensesData)
 
@@ -290,6 +290,7 @@ instance Buildable FtsSeed where
 -- MPC. It contains encrypted shares and proof of secret.
 data Commitment = Commitment
     { commExtra  :: !SecretSharingExtra
+    , commProof  :: !SecretProof
     , commShares :: !(HashMap VssPublicKey (EncShare))
     } deriving (Show, Eq, Generic)
 

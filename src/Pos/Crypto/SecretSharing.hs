@@ -208,8 +208,13 @@ instance SafeCopy EncryptedShare where
     putCopy = putCopyBinary
     getCopy = getCopyBinary "EncryptedShare"
 
+instance SafeCopy Proof where
+    putCopy = putCopyBinary
+    getCopy = getCopyBinary "Proof"
+
 deriveSafeCopySimple 0 'base ''VssPublicKey
-deriveSafeCopySimple 0 'base ''EncShare
 deriveSafeCopySimple 0 'base ''Secret
-deriveSafeCopySimple 0 'base ''SecretSharingExtra
 deriveSafeCopySimple 0 'base ''Share
+deriveSafeCopySimple 0 'base ''EncShare
+deriveSafeCopySimple 0 'base ''SecretSharingExtra
+deriveSafeCopySimple 0 'base ''SecretProof

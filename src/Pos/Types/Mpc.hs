@@ -6,7 +6,9 @@ module Pos.Types.Mpc
 
 import           Universum
 
-import           Pos.Types.Types (Commitment, Opening)
+import           Pos.Crypto      (verifySecretProof)
+import           Pos.Types.Types (Commitment (..), Opening (..))
 
 verifyOpening :: Commitment -> Opening -> Bool
-verifyOpening = notImplemented
+verifyOpening Commitment {..} (Opening secret) =
+    verifySecretProof commExtra secret commProof

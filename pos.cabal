@@ -66,6 +66,7 @@ library
                       , formatting
                       , hashable
                       , lens
+                      , kademlia
                       , memory
                       , mtl
                       , pvss

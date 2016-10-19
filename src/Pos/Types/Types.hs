@@ -114,6 +114,7 @@ import           Control.Lens         (Getter, Lens', choosing, makeLenses, to, 
 import           Data.Binary          (Binary)
 import           Data.Binary.Orphans  ()
 import           Data.Hashable        (Hashable)
+import           Data.Ix              (Ix)
 import           Data.MessagePack     (MessagePack (..))
 import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeCopySimple,
                                        deriveSafeCopySimpleIndexedType, safeGet, safePut)
@@ -162,7 +163,7 @@ instance MessagePack EpochIndex
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex
     { getSlotIndex :: Word16
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Binary, Hashable, Buildable)
+    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Binary, Hashable, Buildable)
 
 instance MessagePack LocalSlotIndex
 
@@ -627,6 +628,8 @@ blockSignature = gbHeader . headerSignature
 blockLeaders :: Lens' GenesisBlock SlotLeaders
 blockLeaders = gbBody . gbLeaders
 
+-- This gives a “redundant constraint” message warning which will be fixed in
+-- lens-4.15 (not in LTS yet).
 blockHeader :: Getter Block BlockHeader
 blockHeader = to getBlockHeader
 

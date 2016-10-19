@@ -37,6 +37,8 @@ newtype MerkleRoot a = MerkleRoot
 
 instance MessagePack (MerkleRoot a)
 
+-- This gives a “redundant constraint” warning due to
+-- https://github.com/acid-state/safecopy/issues/46.
 deriveSafeCopySimple 0 'base ''MerkleRoot
 
 data MerkleTree a = MerkleEmpty | MerkleTree Word32 (MerkleNode a)

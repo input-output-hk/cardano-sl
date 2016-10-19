@@ -154,7 +154,9 @@ decryptShare = notImplemented
 -- given public keys.
 genSharedSecret
     :: MonadRandom m
-    => Threshold -> [VssPublicKey] -> m (Secret, SecretSharingExtra, [EncShare])
+    => Threshold
+    -> [VssPublicKey]
+    -> m (SecretSharingExtra, Secret, SecretProof, [EncShare])
 genSharedSecret = notImplemented
 
 -- | Recover secret if there are enough correct shares.

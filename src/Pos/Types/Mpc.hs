@@ -6,10 +6,12 @@ module Pos.Types.Mpc
        , genCommitmentAndOpening
        , verifyCommitment
        , verifyOpening
+       , xorFtsSeed
        ) where
 
 import           Control.Lens        (over, _1)
 import qualified Data.Binary         as Bin
+import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM
 import           Universum
 
@@ -54,3 +56,7 @@ verifyCommitment Commitment {..} = all verifyCommitmentDo $ HM.toList commShares
 verifyOpening :: Commitment -> Opening -> Bool
 verifyOpening Commitment {..} (Opening secret) =
     verifySecretProof commExtra secret commProof
+
+xorFtsSeed :: FtsSeed -> FtsSeed -> FtsSeed
+xorFtsSeed (FtsSeed a) (FtsSeed b) =
+    FtsSeed $ BS.pack (BS.zipWith xor a b) -- fast due to rewrite rules

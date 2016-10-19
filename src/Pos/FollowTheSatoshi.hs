@@ -9,7 +9,6 @@ module Pos.FollowTheSatoshi
        , followTheSatoshi
        ) where
 
-import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM (fromList, lookup, mapMaybe, toList)
 import qualified Data.HashSet        as HS (difference, fromMap)
 import           Data.List           (foldl1', scanl1)
@@ -23,7 +22,8 @@ import           Pos.Crypto          (PublicKey, Secret, Threshold, deterministi
                                       randomNumber, recoverSecret)
 import           Pos.Types           (Address, Coin (..), CommitmentsMap, FtsSeed (..),
                                       OpeningsMap, SharesMap, TxOut (..), Utxo,
-                                      getOpening, secretToFtsSeed, verifyOpening)
+                                      getOpening, secretToFtsSeed, verifyOpening,
+                                      xorFtsSeed)
 
 data FtsError
     -- | Some nodes in the 'OpeningsMap' aren't in the set of participants
@@ -116,14 +116,12 @@ calculateSeed t commitments openings shares = do
             Just _  -> pure ()
 
     -- Finally we just XOR all secrets together
-    let xorSeed (FtsSeed a) (FtsSeed b) =
-            FtsSeed $ BS.pack (BS.zipWith xor a b)  -- fast due to rewrite rules
     if | null secrets && not (null participants) ->
              panic "calculateSeed: there were some participants \
                    \but they produced no secrets somehow"
        | null secrets -> Left NoParticipants
        | otherwise    -> Right $
-                         foldl1' xorSeed (map secretToFtsSeed (toList secrets))
+                         foldl1' xorFtsSeed (map secretToFtsSeed (toList secrets))
 
 -- | Choose several random stakeholders (specifically, their amount is
 -- currently hardcoded in 'Pos.Constants.epochSlots').

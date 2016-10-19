@@ -22,7 +22,7 @@ import           Universum
 import           Pos.Crypto               (PublicKey, Share, decryptShare, sign)
 import           Pos.FollowTheSatoshi     (FtsError (..), calculateSeed)
 import           Pos.Types                (Commitment (..), CommitmentsMap, FtsSeed (..),
-                                           Opening (..), shareFtsSeed)
+                                           Opening (..), xorFtsSeed)
 import           Test.Pos.Util            (KeyPair (..), VssKeyPair (..), nonrepeating,
                                            sublistN)
 
@@ -90,7 +90,7 @@ recoverSecretsProp n n_openings n_shares n_overlap
 recoverSecretsProp n n_openings n_shares n_overlap = property $ do
     (keys, vssKeys, seeds) <- generateKeysAndSeeds n
     let rightSeed :: FtsSeed
-        rightSeed = foldl1' xorSeed seeds
+        rightSeed = foldl1' xorFtsSeed seeds
     haveSentBoth <-
         sublistN n_overlap keys
     haveSentOpening <-
@@ -187,6 +187,3 @@ mkCommitmentsMap keys vssKeys seeds =
         let epochIdx = 0  -- we don't care here
         let sig = sign sk (epochIdx, comm)
         return (pk, (comm, sig))
-
-xorSeed :: FtsSeed -> FtsSeed -> FtsSeed
-xorSeed (FtsSeed a) (FtsSeed b) = FtsSeed $ BS.pack (BS.zipWith xor a b)

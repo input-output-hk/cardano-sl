@@ -118,7 +118,8 @@ executable pos-node
 executable pos-demo
   hs-source-dirs:      src/demo
   main-is:             Main.hs
-  build-depends:       base
+  build-depends:       async
+                     , base
                      , formatting
                      , pos
                      , time-warp

@@ -1,6 +1,7 @@
 module Main where
 
-import           Control.TimeWarp.Logging (Severity (Info))
+import           Control.Concurrent.Async (mapConcurrently)
+import           Control.TimeWarp.Logging (Severity (Error, Info))
 import           Data.String              (fromString)
 import           Universum
 
@@ -16,7 +17,7 @@ runSingleNode start i = runNodeReal params
         , npRebuildDb = True
         , npSystemStart = Just start
         , npLoggerName = "node" <> fromString (show i)
-        , npLoggingSeverity = Info
+        , npLoggingSeverity = if i == 0 then Info else Error
         }
 
 main :: IO ()
@@ -26,4 +27,4 @@ main = do
     --                         [NodeId 0 .. NodeId (n - 1)]
     -- initLogging loggers Info
     systemStart <- getCurTimestamp
-    mapM_ (runSingleNode systemStart) [0 .. n - 1]
+    () <$ mapConcurrently (runSingleNode systemStart) [0 .. n - 1]

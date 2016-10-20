@@ -133,7 +133,7 @@ in 'MpcStorage'.
 For each MPC message we check:
 
   1. Whether it's stored in the correct block (e.g. commitments have to be in
-     first 2k blocks, etc.)
+     first k blocks, etc.)
 
   2. Whether the message itself is correct (e.g. commitment signature is
      valid, etc.)

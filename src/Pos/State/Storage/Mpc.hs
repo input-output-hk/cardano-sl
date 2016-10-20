@@ -34,35 +34,43 @@ import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess, verif
 import           Universum
 
 import           Pos.Constants        (k)
-import           Pos.Crypto           (PublicKey, verify)
+import           Pos.Crypto           (PublicKey, Share, Signed (signedSig, signedValue),
+                                       verify, verifyShare)
 import           Pos.FollowTheSatoshi (FtsError, calculateSeed, followTheSatoshi)
 import           Pos.Types            (Address (getAddress), Block, Body (..),
                                        Commitment (..), CommitmentSignature,
                                        CommitmentsMap, Opening (..), OpeningsMap,
                                        SharesMap, SlotId (..), SlotLeaders, Utxo,
-                                       blockSlot, gbBody, mbCommitments, mbOpenings,
-                                       mbShares, verifyOpening)
+                                       VssCertificate, VssCertificatesMap, blockSlot,
+                                       gbBody, mbCommitments, mbOpenings, mbShares,
+                                       mbVssCertificates, verifyOpening)
 import           Pos.Util             (readerToState, zoom', _neHead)
 
 data MpcStorageVersion = MpcStorageVersion
     { -- | Local set of 'Commitment's. These are valid commitments which are
       -- known to the node and not stored in blockchain. It is useful only
       -- for the first 'k' slots, after that it should be discarded.
-      _mpcLocalCommitments  :: !CommitmentsMap
+      _mpcLocalCommitments   :: !CommitmentsMap
     , -- | Set of 'Commitment's stored in blocks for current epoch. This can
       -- be calculated by 'mconcat'ing stored commitments, but it would be
       -- inefficient to do it every time we need to know if commitments is
       -- stored in blocks.
-      _mpcGlobalCommitments :: !CommitmentsMap
+      _mpcGlobalCommitments  :: !CommitmentsMap
     , -- | Local set of decrypted shares (encrypted shares are stored in
       -- commitments).
-      _mpcLocalShares       :: !SharesMap
-    , -- | Decrypted shares stored in blocks
-      _mpcGlobalShares      :: !SharesMap
+      _mpcLocalShares        :: !SharesMap
+    , -- | Decrypted shares stored in blocks. These shares are guaranteed to
+      -- match encrypted shares stored in 'mpcGlobalCommitments'.
+      _mpcGlobalShares       :: !SharesMap
     , -- | Local set of openings
-      _mpcLocalOpenings     :: !OpeningsMap
+      _mpcLocalOpenings      :: !OpeningsMap
     , -- | Openings stored in blocks
-      _mpcGlobalOpenings    :: !OpeningsMap }
+      _mpcGlobalOpenings     :: !OpeningsMap
+    , -- | Local set of VSS certificates
+      _mpcLocalCertificates  :: !VssCertificatesMap
+    , -- | VSS certificates stored in blocks (for all time, not just for
+      -- current epoch)
+      _mpcGlobalCertificates :: !VssCertificatesMap }
 
 makeClassy ''MpcStorageVersion
 deriveSafeCopySimple 0 'base ''MpcStorageVersion
@@ -76,6 +84,8 @@ instance Default MpcStorageVersion where
         , _mpcGlobalShares = mempty
         , _mpcLocalOpenings = mempty
         , _mpcGlobalOpenings = mempty
+        , _mpcLocalCertificates = mempty
+        , _mpcGlobalCertificates = mempty
         }
 
 data MpcStorage = MpcStorage
@@ -120,11 +130,34 @@ calculateLeaders utxo = do
         Right seed -> Right . V.fromList . map getAddress $
                       followTheSatoshi seed utxo
 
-checkOpening :: CommitmentsMap -> (PublicKey, Opening) -> Bool
+-- | Check that the secret revealed in the opening matches the secret proof
+-- in the commitment
+checkOpening
+    :: CommitmentsMap -> (PublicKey, Opening) -> Bool
 checkOpening globalCommitments (pk, opening) =
     case HM.lookup pk globalCommitments of
         Nothing        -> False
         Just (comm, _) -> verifyOpening comm opening
+
+-- | Check that the decrypted share matches the encrypted share in the
+-- commitment
+checkShare
+    :: CommitmentsMap
+    -> VssCertificatesMap
+    -> (PublicKey, PublicKey, Share)
+    -> Bool
+checkShare globalCommitments globalCertificates (pkTo, pkFrom, share) =
+    fromMaybe False $ do
+        (comm, _) <- HM.lookup pkFrom globalCommitments
+        vssKey <- signedValue <$> HM.lookup pkTo globalCertificates
+        encShare <- HM.lookup vssKey (commShares comm)
+        return $ verifyShare encShare vssKey share
+
+-- | Check that the VSS certificate is signed properly
+checkCert
+    :: (PublicKey, VssCertificate)
+    -> Bool
+checkCert (pk, cert) = verify pk (signedValue cert) (signedSig cert)
 
 {- |
 Verify MPC-related predicates of a single block, also using data stored
@@ -141,14 +174,16 @@ For each MPC message we check:
 mpcVerifyBlock :: Block -> Query VerificationRes
 -- Genesis blocks don't have any MPC messages
 mpcVerifyBlock (Left _) = return VerSuccess
--- Main blocks have commitments, openings and shares
+-- Main blocks have commitments, openings, shares and VSS certificates
 mpcVerifyBlock (Right b) = do
     let SlotId{siSlot = slotId, siEpoch = epochId} = b ^. blockSlot
-    let commitments = b ^. gbBody . to mbCommitments
-        openings    = b ^. gbBody . to mbOpenings
-        shares      = b ^. gbBody . to mbShares
-    globalCommitments <- view (lastVer . mpcGlobalCommitments)
-    globalOpenings    <- view (lastVer . mpcGlobalOpenings)
+    let commitments  = b ^. gbBody . to mbCommitments
+        openings     = b ^. gbBody . to mbOpenings
+        shares       = b ^. gbBody . to mbShares
+        certificates = b ^. gbBody . to mbVssCertificates
+    globalCommitments  <- view (lastVer . mpcGlobalCommitments)
+    globalOpenings     <- view (lastVer . mpcGlobalOpenings)
+    globalCertificates <- view (lastVer . mpcGlobalCertificates)
     -- Commitment blocks are ones in range [0,k), etc. Mixed blocks aren't
     -- allowed.
     let isComm  = inRange (0, k - 1) slotId
@@ -165,6 +200,7 @@ mpcVerifyBlock (Right b) = do
     --     commitment has been generated for this particular epoch)
     --   * check that the nodes haven't already sent their commitments before
     --     in some different block
+    --   * check that a VSS certificate is present for the committing node
     let commChecks =
             [ (null openings,
                    "there are openings in a commitment block")
@@ -173,6 +209,9 @@ mpcVerifyBlock (Right b) = do
             , (let checkSig (pk, (comm, sig)) = verify pk (epochId, comm) sig
                in all checkSig (HM.toList commitments),
                    "signature check for some commitments has failed")
+            , (all (`HM.member` (certificates <> globalCertificates))
+                   (HM.keys commitments),
+                   "some committing nodes haven't sent a VSS certificate")
             , (all (not . (`HM.member` globalCommitments))
                    (HM.keys commitments),
                    "some nodes have already sent their commitments")
@@ -202,6 +241,8 @@ mpcVerifyBlock (Right b) = do
     -- For shares, we check that
     --   * there are only shares in the block
     --   * shares have corresponding commitments
+    --   * if encrypted shares (in commitments) are decrypted, they match
+    --     decrypted shares
     -- We don't check whether shares match the openings.
     let shareChecks =
             [ (null commitments,
@@ -211,37 +252,54 @@ mpcVerifyBlock (Right b) = do
             , (all (`HM.member` globalCommitments)
                    (HM.keys shares <> concatMap HM.keys (toList shares)),
                    "some shares don't have corresponding commitments")
+            , (let listShares :: [(PublicKey, PublicKey, Share)]
+                   listShares = do
+                       (pk1, ss) <- HM.toList shares
+                       (pk2, sh) <- HM.toList ss
+                       return (pk1, pk2, sh)
+               in all (checkShare globalCommitments globalCertificates)
+                      listShares,
+                   "some decrypted shares don't match encrypted shares \
+                   \in the corresponding commitment")
             ]
 
     -- For all other blocks, we check that
     --   * there are no commitments, openings or shares
-    --   * slot ID is in range
-    let otherChecks =
+    let otherBlockChecks =
             [ (null commitments,
                    "there are commitments in an ordinary block")
             , (null openings,
                    "there are openings in an ordinary block")
             , (null shares,
                    "there are shares in an ordinary block")
-            , (inRange (0, 6 * k - 1) slotId,
+            ]
+
+    -- For all blocks (no matter the type), we check that
+    --   * slot ID is in range
+    --   * VSS certificates are signed properly
+    -- TODO: check that nodes providing their VSS certificates have stake
+    let otherChecks =
+            [ (inRange (0, 6 * k - 1) slotId,
                    "slot id is outside of [0, 6k)")
+            , (all checkCert (HM.toList certificates),
+                   "some VSS certificates aren't signed properly")
             ]
 
     return $ verifyGeneric $ concat $ concat
-        [ [ commChecks  | isComm ]
-        , [ openChecks  | isOpen ]
-        , [ shareChecks | isShare ]
-        , [ otherChecks | all not [isComm, isOpen, isShare] ]
+        [ [ commChecks       | isComm ]
+        , [ openChecks       | isOpen ]
+        , [ shareChecks      | isShare ]
+        , [ otherBlockChecks | all not [isComm, isOpen, isShare] ]
+        , [ otherChecks ]
         ]
 
--- | Verify MPC-related predicates of blocks sequence which is about
--- to be applied. It should check that MPC messages will be consistent
--- if this blocks are applied (after possible rollback).
+-- | Verify MPC-related predicates of blocks sequence which is about to be
+-- applied. It should check that MPC messages will be consistent if this
+-- blocks are applied (after possible rollback if 'toRollback' isn't zero).
 --
 -- TODO:
---   * possible rollback, or definite rollback? Currently it's the latter.
---   * should verification messages include e.g. block hash/slotId?
---   * should we stop at first failing block?
+--   * verification messages should include block hash/slotId
+--   * we should stop at first failing block
 mpcVerifyBlocks :: Int -> [Block] -> Query VerificationRes
 mpcVerifyBlocks toRollback blocks = do
     curState <- view mpcStorage
@@ -269,6 +327,8 @@ mpcProcessCommitment pk c = do
     -- TODO: should it be ignored if it's in mpcGlobalCommitments?
     lastVer . mpcLocalCommitments %= HM.insert pk c
 
+-- TODO: add mpcProcessCertificate
+
 -- | Apply sequence of blocks to state. Sequence must be based on last
 -- applied block and must be valid.
 mpcApplyBlocks :: [Block] -> Update ()
@@ -286,11 +346,12 @@ mpcProcessBlock :: Block -> Update ()
 -- We don't have to process genesis blocks as full nodes always generate them
 -- by themselves
 mpcProcessBlock (Left _) = return ()
--- Main blocks contain commitments, openings, and shares
+-- Main blocks contain commitments, openings, shares, VSS certificates
 mpcProcessBlock (Right b) = do
-    let blockCommitments = b ^. gbBody . to mbCommitments
-        blockOpenings    = b ^. gbBody . to mbOpenings
-        blockShares      = b ^. gbBody . to mbShares
+    let blockCommitments  = b ^. gbBody . to mbCommitments
+        blockOpenings     = b ^. gbBody . to mbOpenings
+        blockShares       = b ^. gbBody . to mbShares
+        blockCertificates = b ^. gbBody . to mbVssCertificates
     zoom' lastVer $ do
         -- commitments
         mpcGlobalCommitments %= HM.union blockCommitments
@@ -301,6 +362,9 @@ mpcProcessBlock (Right b) = do
         -- shares
         mpcGlobalShares %= HM.unionWith HM.union blockShares
         mpcLocalShares  %= (`diffDoubleMap` blockShares)
+        -- VSS certificates
+        mpcGlobalCertificates %= HM.union blockCertificates
+        mpcLocalCertificates  %= (`HM.difference` blockCertificates)
 
 -- | Remove elements in 'b' from 'a'
 diffDoubleMap

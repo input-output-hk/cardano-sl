@@ -180,7 +180,7 @@ instance MessagePack SlotId
 
 instance Buildable SlotId where
     build SlotId {..} =
-        bprint (int%"-th slot of"%int%"-th epoch") siSlot siEpoch
+        bprint (int%"-th slot of "%int%"-th epoch") siSlot siEpoch
 
 slotIdF :: Format r (SlotId -> r)
 slotIdF = build

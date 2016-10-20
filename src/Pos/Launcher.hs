@@ -16,6 +16,7 @@ import           Universum
 
 import           Pos.Communication      (serve)
 import           Pos.Slotting           (Timestamp (Timestamp))
+import           Pos.Worker             (runWorkers)
 import           Pos.WorkMode           (NodeParams (..), WorkMode, runRealMode)
 
 -- | Get current time as Timestamp. It is intended to be used when you
@@ -26,6 +27,7 @@ getCurTimestamp = Timestamp <$> runTimedIO currentTime
 -- | Run full node in any WorkMode.
 runNode :: WorkMode m => m ()
 runNode = do
+    runWorkers
     serve
 
 -- | Run full node in real mode.

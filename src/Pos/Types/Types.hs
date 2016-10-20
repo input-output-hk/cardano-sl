@@ -21,6 +21,7 @@ module Pos.Types.Types
        , EpochIndex (..)
        , LocalSlotIndex (..)
        , SlotId (..)
+       , slotIdF
        , FlatSlotId
 
        , Coin (..)
@@ -176,6 +177,13 @@ data SlotId = SlotId
 
 instance Binary SlotId
 instance MessagePack SlotId
+
+instance Buildable SlotId where
+    build SlotId {..} =
+        bprint (int%"-th slot of"%int%"-th epoch") siSlot siEpoch
+
+slotIdF :: Format r (SlotId -> r)
+slotIdF = build
 
 -- | FlatSlotId is a flat version of SlotId
 type FlatSlotId = Word64

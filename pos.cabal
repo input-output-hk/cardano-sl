@@ -24,6 +24,7 @@ library
                         Pos.Slotting
                         Pos.State
                         Pos.Types
+                        Pos.Worker
   other-modules:        Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
@@ -47,6 +48,7 @@ library
                         Pos.Types.Tx
                         Pos.Types.Types
                         Pos.Types.Utxo
+                        Pos.Worker.Block
                         Pos.WorkMode
                         Pos.Util
                         Pos.Util.NotImplemented

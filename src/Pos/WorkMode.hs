@@ -8,6 +8,8 @@
 module Pos.WorkMode
        ( WorkMode
        , NodeContext (..)
+       , ncPublicKey
+       , ncVssPublicKey
        , NodeParams (..)
        , RealMode
        , runRealMode
@@ -21,6 +23,8 @@ import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId, TimedIO, r
 import           Formatting               (sformat, (%))
 import           Universum                hiding (ThreadId)
 
+import           Pos.Crypto               (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
+                                           toPublic, toVssPublicKey)
 import           Pos.Slotting             (MonadSlots (..), Timestamp (..), timestampF)
 import           Pos.State                (MonadDB (..), NodeState, openMemState,
                                            openState)
@@ -55,7 +59,17 @@ instance (Monad m) =>
 data NodeContext = NodeContext
     { -- | Time when system started working.
       ncSystemStart :: !Timestamp
+    , -- | Secret key used for blocks creation.
+      ncSecretKey   :: !SecretKey
+    , -- | Vss key pair used for MPC.
+      ncVssKeyPair  :: !VssKeyPair
     } deriving (Show)
+
+ncPublicKey :: NodeContext -> PublicKey
+ncPublicKey = toPublic . ncSecretKey
+
+ncVssPublicKey :: NodeContext -> VssPublicKey
+ncVssPublicKey = toVssPublicKey . ncVssKeyPair
 
 newtype ContextHolder m a = ContextHolder
     { getContextHolder :: ReaderT NodeContext m a
@@ -79,6 +93,8 @@ data NodeParams = NodeParams
     , npSystemStart     :: !(Maybe Timestamp)
     , npLoggerName      :: !LoggerName
     , npLoggingSeverity :: !Severity
+    , npSecretKey       :: !SecretKey
+    , npVssKeyPair      :: !VssKeyPair
     } deriving (Show)
 
 ----------------------------------------------------------------------------
@@ -104,7 +120,12 @@ runRealMode NodeParams {..} action = do
                 do t <- Timestamp <$> currentTime
                    t <$ putText (sformat ("System start: " %timestampF) t)
     openDb = maybe openMemState (openState npRebuildDb) npDbPath
-    ctx startTime = NodeContext {ncSystemStart = startTime}
+    ctx startTime =
+        NodeContext
+        { ncSystemStart = startTime
+        , ncSecretKey = npSecretKey
+        , ncVssKeyPair = npVssKeyPair
+        }
     runCH :: Timestamp -> ContextHolder m a -> m a
     runCH startTime = flip runReaderT (ctx startTime) . getContextHolder
     runTimed :: LoggerNameBox TimedIO a -> IO a

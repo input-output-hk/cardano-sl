@@ -3,8 +3,10 @@
 module Main where
 
 import           Control.TimeWarp.Logging (Severity (Info))
+import           Data.List                ((!!))
 import           Universum
 
+import           Pos.Genesis              (genesisSecretKeys, genesisVssKeyPairs)
 import           Pos.Launcher             (NodeParams (..), runNodeReal)
 
 main :: IO ()
@@ -17,4 +19,6 @@ main = runNodeReal params
         , npSystemStart = Nothing
         , npLoggerName = "node"
         , npLoggingSeverity = Info
+        , npSecretKey = genesisSecretKeys !! 0
+        , npVssKeyPair = genesisVssKeyPairs !! 0
         }

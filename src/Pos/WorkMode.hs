@@ -8,6 +8,7 @@
 module Pos.WorkMode
        ( WorkMode
        , NodeContext (..)
+       , WithNodeContext (..)
        , ncPublicKey
        , ncVssPublicKey
        , NodeParams (..)
@@ -19,6 +20,7 @@ import           Control.Monad.Catch      (MonadCatch, MonadThrow)
 import           Control.TimeWarp.Logging (LoggerName, LoggerNameBox, Severity,
                                            WithNamedLogger (..), initLogging,
                                            usingLoggerName)
+import           Control.TimeWarp.Rpc     (ResponseT)
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId, TimedIO, runTimedIO)
 import           Formatting               (sformat, (%))
 import           Universum                hiding (ThreadId)
@@ -35,7 +37,8 @@ type WorkMode m
       , MonadCatch m
       , MonadIO m
       , MonadSlots m
-      , MonadDB m)
+      , MonadDB m
+      , WithNodeContext m)
 
 ----------------------------------------------------------------------------
 -- MonadDB
@@ -71,11 +74,33 @@ ncPublicKey = toPublic . ncSecretKey
 ncVssPublicKey :: NodeContext -> VssPublicKey
 ncVssPublicKey = toVssPublicKey . ncVssKeyPair
 
+class WithNodeContext m where
+    getNodeContext :: m NodeContext
+
+instance (Monad m, WithNodeContext m) =>
+         WithNodeContext (ReaderT a m) where
+    getNodeContext = lift getNodeContext
+
+instance (Monad m, WithNodeContext m) =>
+         WithNodeContext (StateT a m) where
+    getNodeContext = lift getNodeContext
+
+instance (Monad m, WithNodeContext m) =>
+         WithNodeContext (ExceptT e m) where
+    getNodeContext = lift getNodeContext
+
+instance (Monad m, WithNodeContext m) =>
+         WithNodeContext (ResponseT m) where
+    getNodeContext = lift getNodeContext
+
 newtype ContextHolder m a = ContextHolder
     { getContextHolder :: ReaderT NodeContext m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch, MonadIO, WithNamedLogger, MonadDB)
 
 type instance ThreadId (ContextHolder m) = ThreadId m
+
+instance Monad m => WithNodeContext (ContextHolder m) where
+    getNodeContext = ContextHolder ask
 
 instance (MonadTimed m, Monad m) =>
          MonadSlots (ContextHolder m) where

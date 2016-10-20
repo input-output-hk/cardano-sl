@@ -6,6 +6,7 @@ module Pos.Constants
        , slotDuration
        , epochSlots
        , epochDuration
+       , networkDiameter
        ) where
 
 import           Universum
@@ -22,10 +23,15 @@ k :: Integral a => a
 k = 3
 
 slotDuration :: Microsecond
-slotDuration = sec 1
+slotDuration = sec 5
 
 epochSlots :: Integral a => a
 epochSlots = 6 * k
 
 epochDuration :: Microsecond
 epochDuration = epochSlots * slotDuration
+
+-- | Estimated time needed to broadcast message from one node to all
+-- other nodes.
+networkDiameter :: Microsecond
+networkDiameter = sec 1

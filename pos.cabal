@@ -16,6 +16,7 @@ library
   exposed-modules:      Pos.Crypto
                         Pos.Communication
                         Pos.Constants
+                        Pos.DHT
                         Pos.FollowTheSatoshi
                         Pos.Genesis
                         Pos.Launcher

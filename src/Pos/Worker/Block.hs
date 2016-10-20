@@ -5,14 +5,19 @@ module Pos.Worker.Block
        , blkWorkers
        ) where
 
+import           Control.Lens (ix, (^?))
 import           Universum
 
-import           Pos.Types    (SlotId)
+import           Pos.State    (getLeaders)
+import           Pos.Types    (SlotId (..))
 import           Pos.WorkMode (WorkMode)
 
 -- | Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode m => SlotId -> m ()
-blkOnNewSlot = notImplemented  -- generate a block if we are leader
+blkOnNewSlot SlotId {..} = do
+    leaders <- getLeaders siEpoch
+    let _ = leaders ^? ix (fromIntegral siSlot)
+    return ()  -- TODO
 
 -- | All workers specific to block processing.
 -- Exceptions:

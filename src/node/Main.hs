@@ -2,9 +2,10 @@
 
 module Main where
 
+import           Control.TimeWarp.Logging (Severity (Info))
 import           Universum
 
-import           Pos.Launcher (NodeParams (..), runNodeReal)
+import           Pos.Launcher             (NodeParams (..), runNodeReal)
 
 main :: IO ()
 main = runNodeReal params
@@ -15,4 +16,5 @@ main = runNodeReal params
         , npRebuildDb = True
         , npSystemStart = Nothing
         , npLoggerName = "node"
+        , npLoggingSeverity = Info
         }

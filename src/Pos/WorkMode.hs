@@ -14,8 +14,9 @@ module Pos.WorkMode
        ) where
 
 import           Control.Monad.Catch      (MonadCatch, MonadThrow)
-import           Control.TimeWarp.Logging (LoggerName, LoggerNameBox,
-                                           WithNamedLogger (..), usingLoggerName)
+import           Control.TimeWarp.Logging (LoggerName, LoggerNameBox, Severity,
+                                           WithNamedLogger (..), initLogging,
+                                           usingLoggerName)
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId, TimedIO, runTimedIO)
 import           Formatting               (sformat, (%))
 import           Universum                hiding (ThreadId)
@@ -73,10 +74,11 @@ instance (MonadTimed m, Monad m) =>
 
 -- | Parameters necessary to run node.
 data NodeParams = NodeParams
-    { npDbPath      :: !(Maybe FilePath)
-    , npRebuildDb   :: !Bool
-    , npSystemStart :: !(Maybe Timestamp)
-    , npLoggerName  :: !LoggerName
+    { npDbPath          :: !(Maybe FilePath)
+    , npRebuildDb       :: !Bool
+    , npSystemStart     :: !(Maybe Timestamp)
+    , npLoggerName      :: !LoggerName
+    , npLoggingSeverity :: !Severity
     } deriving (Show)
 
 ----------------------------------------------------------------------------
@@ -89,6 +91,7 @@ type RealMode = ContextHolder (DBHolder (LoggerNameBox TimedIO))
 -- TODO: use bracket
 runRealMode :: NodeParams -> RealMode a -> IO a
 runRealMode NodeParams {..} action = do
+    initLogging [npLoggerName] npLoggingSeverity
     startTime <- getStartTime
     db <- (runTimed . runCH startTime) openDb
     (runTimed . runDH db . runCH startTime) action

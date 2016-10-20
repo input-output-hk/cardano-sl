@@ -1,10 +1,11 @@
 module Main where
 
-import           Data.String  (fromString)
+import           Control.TimeWarp.Logging (Severity (Info))
+import           Data.String              (fromString)
 import           Universum
 
-import           Pos.Launcher (NodeParams (..), getCurTimestamp, runNodeReal)
-import           Pos.Slotting (Timestamp)
+import           Pos.Launcher             (NodeParams (..), getCurTimestamp, runNodeReal)
+import           Pos.Slotting             (Timestamp)
 
 runSingleNode :: Timestamp -> Word -> IO ()
 runSingleNode start i = runNodeReal params
@@ -15,6 +16,7 @@ runSingleNode start i = runNodeReal params
         , npRebuildDb = True
         , npSystemStart = Just start
         , npLoggerName = "node" <> fromString (show i)
+        , npLoggingSeverity = Info
         }
 
 main :: IO ()

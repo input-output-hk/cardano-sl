@@ -95,6 +95,7 @@ module Pos.Types.Types
        , mcdSignature
 
        -- TODO: move it from here to Block.hs
+       , blockDifficulty
        , mkGenericHeader
        , mkGenericBlock
        , mkMainHeader
@@ -648,6 +649,11 @@ getBlockHeader = bimap (view gbHeader) (view gbHeader)
 -- Block.hs. TODO: move it into Block.hs.
 -- These functions are here because of GHC bug (trac 12127).
 ----------------------------------------------------------------------------
+
+-- | Difficulty of the Block. 0 for genesis block, 1 for main block.
+blockDifficulty :: Block -> ChainDifficulty
+blockDifficulty (Left _)  = 0
+blockDifficulty (Right _) = 1
 
 genesisHash :: Hash a
 genesisHash = unsafeHash ("patak" :: Text)

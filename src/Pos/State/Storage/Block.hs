@@ -24,26 +24,28 @@ module Pos.State.Storage.Block
        , blkSetHead
        ) where
 
-import           Control.Lens            (at, ix, makeClassy, preview, view, views, (.=),
-                                          (<~), (^.), (^?))
+import           Control.Lens            (at, ix, makeClassy, preview, use, view, views,
+                                          (%=), (.=), (<~), (^.), (^?))
 import           Data.Default            (Default, def)
 import qualified Data.HashMap.Strict     as HM
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Data.Vector             (Vector)
-import           Serokell.Util.Verify    (VerificationRes, verifyGeneric)
+import           Serokell.Util.Verify    (VerificationRes (..), isVerFailure,
+                                          verifyGeneric)
 import           Universum
 
-import           Pos.Constants           (epochSlots, k)
+import           Pos.Constants           (k)
 import           Pos.Crypto              (PublicKey, hash)
 import           Pos.Genesis             (genesisLeaders)
-import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..))
+import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, ChainDifficulty, EpochIndex, HeaderHash,
-                                          MainBlockHeader, SlotId (..), SlotLeaders,
-                                          blockHeader, blockLeaders, difficultyL,
-                                          getBlockHeader, headerLeaderKey, headerSlot,
-                                          mkGenesisBlock, prevBlockL, siEpoch,
-                                          verifyHeader)
+                                          MainBlock, MainBlockHeader, SlotId (..),
+                                          SlotLeaders, VerifyHeaderExtra (..),
+                                          blockHeader, blockLeaders, blockSlot,
+                                          difficultyL, gbHeader, getBlockHeader,
+                                          headerSlot, mkGenesisBlock, prevBlockL, siEpoch,
+                                          verifyBlock, verifyHeader)
 import           Pos.Util                (readerToState)
 
 data BlockStorage = BlockStorage
@@ -119,6 +121,13 @@ getLeaders (fromIntegral -> epoch) = do
     leadersFromBlock (Just (Left genBlock)) = genBlock ^. blockLeaders
     leadersFromBlock _                      = mempty
 
+getLeadersMaybe :: EpochIndex -> Query (Maybe SlotLeaders)
+getLeadersMaybe = fmap f . getLeaders
+  where
+    f v
+        | null v = Nothing
+        | otherwise = Just v
+
 -- | Get leader of the given slot if it's known.
 getLeader :: SlotId -> Query (Maybe PublicKey)
 getLeader SlotId {..} = (^? ix (fromIntegral siSlot)) <$> getLeaders siEpoch
@@ -128,22 +137,17 @@ getLeader SlotId {..} = (^? ix (fromIntegral siSlot)) <$> getLeaders siEpoch
 mayBlockBeUseful :: SlotId -> MainBlockHeader -> Query VerificationRes
 mayBlockBeUseful currentSlotId header = do
     let hSlot = header ^. headerSlot
-    expectedLeader <- getLeader hSlot
+    leaders <- getLeadersMaybe (siEpoch hSlot)
     isInteresting <- isHeaderInteresting header
     isKnown <- views blkBlocks (HM.member (hash $ Right header))
-    let checks =
-            [ ( hSlot < currentSlotId
-              , "block is from slot which hasn't happened yet")
-            , (not isKnown, "block is already known")
-            , ( siSlot hSlot < epochSlots
-              , "slot index is not less than epochSlots")
-            , ( maybe True (== (header ^. headerLeaderKey)) expectedLeader
-              , "block's leader is different from expected one")
+    let vhe = def {vheCurrentSlot = Just currentSlotId, vheLeaders = leaders}
+    let extraChecks =
+            [ (not isKnown, "block is already known")
             , ( isInteresting
               , "block is not more difficult than the best known block and \
                  \can't be appended to alternative chain")
             ]
-    return $ verifyHeader (Right header) <> verifyGeneric checks
+    return $ verifyHeader vhe (Right header) <> verifyGeneric extraChecks
 
 isHeaderInteresting :: MainBlockHeader -> Query Bool
 isHeaderInteresting header = do
@@ -152,8 +156,10 @@ isHeaderInteresting header = do
 
 canContinueAltChain :: AltChain -> MainBlockHeader -> Query Bool
 canContinueAltChain (blk :| _) header
-    | blk ^. prevBlockL /= hash (Right header) = pure False
+    | isVerFailure $ verifyHeader vhe (Right header) = pure False
     | otherwise = (header ^. difficultyL >=) <$> view blkMinDifficulty
+  where
+    vhe = def {vheNextHeader = Just (blk ^. blockHeader)}
 
 isMostDifficult :: MainBlockHeader -> Query Bool
 isMostDifficult (view difficultyL -> difficulty) =
@@ -162,8 +168,54 @@ isMostDifficult (view difficultyL -> difficulty) =
 -- | Process received block, adding it to alternative chain if
 -- necessary. This block won't become part of main chain, the only way
 -- to do it is to use `blkSetHead`.
-blkProcessBlock :: Block -> Update ProcessBlockRes
-blkProcessBlock _ = pure $ PBRabort mempty
+blkProcessBlock :: SlotId -> Block -> Update ProcessBlockRes
+blkProcessBlock currentSlotId blk = do
+    -- First of all we do the simplest general checks.
+    leaders <-
+        either
+            (const $ pure Nothing)
+            (readerToState . getLeadersMaybe . siEpoch . view blockSlot)
+            blk
+    let vhe = def {vheCurrentSlot = Just currentSlotId, vheLeaders = leaders}
+    let header = blk ^. blockHeader
+    isKnown <- readerToState $ views blkBlocks (HM.member (hash header))
+    let verRes =
+            mconcat
+                [ verifyGeneric [(not isKnown, "block is already known")]
+                , verifyHeader vhe header
+                , verifyBlock blk
+                ]
+    case verRes of
+        VerFailure errors -> pure $ mkPBRabort errors
+        VerSuccess        -> blkProcessBlockDo blk
+
+blkProcessBlockDo :: Block -> Update ProcessBlockRes
+blkProcessBlockDo blk = do
+    -- At this point we know that block is good in isolation.
+    -- Our first attempt is to continue the best chain and finish.
+    continuedMain <- tryContinueBestChain blk
+    if continuedMain
+        then return (PBRgood (0, blk :| []))
+        else do
+            -- Our next attempt is to start alternative chain.
+            startedAlternative <- tryStartAltChain blk
+            notImplemented
+
+tryContinueBestChain :: Block -> Update Bool
+tryContinueBestChain = notImplemented
+
+tryStartAltChain :: Block -> Update Bool
+tryStartAltChain (Left _) = pure False
+tryStartAltChain (Right blk) = do
+    isMostDiff <- readerToState $ isMostDifficult (blk ^. gbHeader)
+    continuesMainChain <- (blk ^. prevBlockL ==) <$> use blkHead
+    -- TODO: more checks should be done here probably
+    if isMostDiff && not continuesMainChain
+        then True <$ startAltChain blk
+        else pure False
+
+startAltChain :: MainBlock -> Update ()
+startAltChain blk = blkAltChains %= ((Right blk :| []) :)
 
 -- | Set head of main blockchain to block which is guaranteed to
 -- represent valid chain and be stored in blkBlocks.

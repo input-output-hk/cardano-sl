@@ -29,7 +29,7 @@ import           Data.Acid               ()
 import           Data.Default            (Default, def)
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Serokell.AcidState      ()
-import           Serokell.Util           (isVerSuccess)
+import           Serokell.Util           (VerificationRes (..))
 import           Universum
 
 import           Pos.Crypto              (PublicKey)
@@ -41,7 +41,7 @@ import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage
                                           mpcProcessOpening, mpcRollback, mpcVerifyBlock,
                                           mpcVerifyBlocks)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, addTx)
-import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..))
+import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature, Opening,
                                           SlotId, unflattenSlotId)
 import           Pos.Util                (readerToState)
@@ -80,26 +80,24 @@ instance Default Storage where
         }
 
 -- | Do all necessary changes when a block is received.
-processBlock :: Block -> Update ProcessBlockRes
-processBlock blk = do
+processBlock :: SlotId -> Block -> Update ProcessBlockRes
+processBlock curSlotId blk = do
     mpcRes <- readerToState $ mpcVerifyBlock blk
     txRes <- pure mempty
-    let verificationRes = mpcRes <> txRes
-    if isVerSuccess verificationRes
-        then processBlockDo blk
-        else return (PBRabort verificationRes)
+    case mpcRes <> txRes of
+        VerSuccess        -> processBlockDo curSlotId blk
+        VerFailure errors -> return $ mkPBRabort errors
 
-processBlockDo :: Block -> Update ProcessBlockRes
-processBlockDo blk = do
-    r <- blkProcessBlock blk
+processBlockDo :: SlotId -> Block -> Update ProcessBlockRes
+processBlockDo curSlotId blk = do
+    r <- blkProcessBlock curSlotId blk
     case r of
         PBRgood (toRollback, chain) -> do
             mpcRes <- readerToState $ mpcVerifyBlocks toRollback chain
             txRes <- pure mempty
-            let verificationRes = mpcRes <> txRes
-            if isVerSuccess verificationRes
-                then processBlockFinally toRollback chain
-                else return (PBRabort verificationRes)
+            case mpcRes <> txRes of
+                VerSuccess        -> processBlockFinally toRollback chain
+                VerFailure errors -> return $ mkPBRabort errors
         _ -> return r
 
 processBlockFinally :: Word -> AltChain -> Update ProcessBlockRes

@@ -3,13 +3,14 @@
 module Pos.Communication.Server.Block
        ( blockListeners
 
-       , handleBlockHeader -- tmp
-       , handleBlockRequest -- tmp
+       , handleBlock         -- tmp
+       , handleBlockHeader   -- tmp
+       , handleBlockRequest  -- tmp
        ) where
 
-import           Control.TimeWarp.Logging (logDebug)
+import           Control.TimeWarp.Logging (logDebug, logInfo)
 import           Control.TimeWarp.Rpc     (Listener (..), reply)
-import           Formatting               (build, sformat, (%))
+import           Formatting               (build, sformat, stext, (%))
 import           Serokell.Util            (VerificationRes (..), listBuilderJSON)
 import           Universum
 
@@ -23,15 +24,22 @@ import           Pos.WorkMode             (WorkMode)
 -- | Listeners for requests related to blocks processing.
 blockListeners :: WorkMode m => [Listener m]
 blockListeners =
-    [ Listener handleBlock
+    [ -- Listener handleBlock
     -- , Listener handleBlockHeader
     -- , Listener handleBlockRequest
     ]
 
-handleBlock :: WorkMode m => SendBlock -> m ()
+handleBlock :: ResponseMode m => SendBlock -> m ()
 handleBlock (SendBlock block) = do
-    _ <- St.processBlock block
-    notImplemented
+    slotId <- getCurrentSlot
+    pbr <- St.processBlock slotId block
+    case pbr of
+        St.PBRabort msg -> do
+            let fmt =
+                    "Block processing is aborted for the following reason: "%stext
+            logInfo $ sformat fmt msg
+        St.PBRgood _ -> logInfo $ "Received block has been adopted"
+        St.PBRmore h -> reply $ RequestBlock h
 
 handleBlockHeader
     :: ResponseMode m

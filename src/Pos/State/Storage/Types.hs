@@ -5,14 +5,15 @@
 module Pos.State.Storage.Types
        ( AltChain
        , ProcessBlockRes (..)
+       , mkPBRabort
        ) where
 
-import           Data.List.NonEmpty   (NonEmpty)
-import           Data.SafeCopy        (base, deriveSafeCopySimple)
-import           Serokell.Util.Verify (VerificationRes)
+import           Data.List.NonEmpty (NonEmpty)
+import           Data.SafeCopy      (base, deriveSafeCopySimple)
+import qualified Data.Text          as T
 import           Universum
 
-import           Pos.Types            (Block, HeaderHash)
+import           Pos.Types          (Block, HeaderHash)
 
 -- | Alternative chain is a list of blocks which potentially
 -- represents valid blockchain. Head of this list is the /oldest/ block.
@@ -27,7 +28,14 @@ data ProcessBlockRes
       -- changed. Attached data is number of blocks to rollback and
       -- blocks which should be used instead.
       PBRgood !(Word, AltChain)
-    | -- | Block has been discarded because of invalid data.
-      PBRabort !VerificationRes
+    | -- | Block has been discarded because it's not interesting or invalid.
+      PBRabort !Text
+
+-- | Make `ProcessBlockRes` from list of error messages using
+-- `PBRabort` constructor. Intended to be used with `VerificationRes`.
+-- Note: this version forces computation of all error messages. It can be
+-- made more efficient but less informative by using head, for example.
+mkPBRabort :: [Text] -> ProcessBlockRes
+mkPBRabort = PBRabort . T.intercalate "; "
 
 deriveSafeCopySimple 0 'base ''ProcessBlockRes

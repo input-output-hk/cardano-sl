@@ -81,16 +81,19 @@ module Pos.Types.Types
        , blockSignature
        , blockSlot
        , gbBody
+       , gbBodyProof
        , gbExtra
+       , gbHeader
        , gcdDifficulty
        , gcdEpoch
        , gbhExtra
        , gbhPrevBlock
        , gbhBodyProof
        , getBlockHeader
-       , headerSlot
+       , headerDifficulty
        , headerLeaderKey
        , headerSignature
+       , headerSlot
        , mcdSlot
        , mcdLeaderKey
        , mcdDifficulty
@@ -105,14 +108,18 @@ module Pos.Types.Types
        , mkGenesisHeader
        , mkGenesisBlock
 
+       , VerifyHeaderExtra (..)
+       , verifyBlock
+       , verifyGenericBlock
        -- , verifyGenericHeader
        , verifyHeader
        ) where
 
-import           Control.Lens         (Getter, Lens', choosing, makeLenses, to, view,
-                                       (^.))
+import           Control.Lens         (Getter, Lens', choosing, ix, makeLenses, to, view,
+                                       (^.), (^?))
 import           Data.Binary          (Binary)
 import           Data.Binary.Orphans  ()
+import           Data.Default         (Default (def))
 import           Data.Hashable        (Hashable)
 import           Data.Ix              (Ix)
 import           Data.MessagePack     (MessagePack (..))
@@ -121,12 +128,13 @@ import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeC
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
-import           Formatting           (Format, bprint, build, int, (%))
+import           Formatting           (Format, bprint, build, int, sformat, (%))
 import           Serokell.AcidState   ()
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum
 
+import           Pos.Constants        (epochSlots)
 import           Pos.Crypto           (EncShare, Hash, PublicKey, Secret, SecretKey,
                                        SecretProof, SecretSharingExtra, Share, Signature,
                                        Signed, VssPublicKey, hash, sign, toPublic,
@@ -586,6 +594,9 @@ makeLensesData ''ConsensusData ''MainBlockchain
 makeLensesData ''ConsensusData ''GenesisBlockchain
 makeLensesData ''Body ''GenesisBlockchain
 
+gbBodyProof :: Lens' (GenericBlock b) (BodyProof b)
+gbBodyProof = gbHeader . gbhBodyProof
+
 headerSlot :: Lens' MainBlockHeader SlotId
 headerSlot = gbhConsensus . mcdSlot
 
@@ -662,10 +673,14 @@ getBlockHeader = bimap (view gbHeader) (view gbHeader)
 -- These functions are here because of GHC bug (trac 12127).
 ----------------------------------------------------------------------------
 
--- | Difficulty of the Block. 0 for genesis block, 1 for main block.
+-- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
+headerDifficulty :: BlockHeader -> ChainDifficulty
+headerDifficulty (Left _)  = 0
+headerDifficulty (Right _) = 1
+
+-- | Difficulty of the Block, which is determined from header.
 blockDifficulty :: Block -> ChainDifficulty
-blockDifficulty (Left _)  = 0
-blockDifficulty (Right _) = 1
+blockDifficulty = headerDifficulty . getBlockHeader
 
 genesisHash :: Hash a
 genesisHash = unsafeHash ("patak" :: Text)
@@ -764,6 +779,7 @@ verifyConsensusLocal (Right header) =
     verifyGeneric
         [ ( verify pk (_gbhPrevBlock, _gbhBodyProof, slotId, d) sig
           , "can't verify signature")
+        , (siSlot slotId < epochSlots, "slot index is not less than epochSlots")
         ]
   where
     GenericBlockHeader {_gbhConsensus = consensus, ..} = header
@@ -772,40 +788,92 @@ verifyConsensusLocal (Right header) =
     d = consensus ^. mcdDifficulty
     sig = consensus ^. mcdSignature
 
--- -- | Perform cheap checks of GenericBlockHeader, which can be done using only
--- -- header itself and previous header.
--- verifyGenericHeader
---     :: forall b.
---        (Binary (BBlockHeader b))
---     => Maybe (BBlockHeader b) -> GenericBlockHeader b -> VerificationRes
--- verifyGenericHeader prevHeader GenericBlockHeader {..} =
---     verifyGeneric [verifyHash]
---   where
---     prevHash = maybe genesisHash hash prevHeader
---     verifyHash =
---         ( _gbhPrevBlock == prevHash
---         , sformat
---               ("inconsistent previous hash (expected "%build%", found"%build%")")
---               _gbhPrevBlock prevHash)
+-- | Extra data which may be used by verifyHeader function to do more checks.
+data VerifyHeaderExtra = VerifyHeaderExtra
+    { vhePrevHeader  :: !(Maybe BlockHeader)
+    , vheNextHeader  :: !(Maybe BlockHeader)
+    , vheCurrentSlot :: !(Maybe SlotId)
+    , vheLeaders     :: !(Maybe SlotLeaders)
+    }
 
--- | Perform cheap checks of BlockHeader, which can be done using only
--- header itself.
-verifyHeader :: BlockHeader -> VerificationRes
-verifyHeader h = verifyConsensusLocal h
-  -- where
-  --   verifyCommon =
-  --       either
-  --           (verifyGenericHeader prevHeader)
-  --           (verifyGenericHeader prevHeader)
-  --           h
-  --   expectedDifficulty = succ $ maybe 0 (view difficultyL) prevHeader
-  --   actualDifficulty = h ^. difficultyL
-  --   verifyDifficulty =
-  --       verifyGeneric
-  --           [ ( expectedDifficulty == actualDifficulty
-  --             , sformat ("incorrect difficulty (expected "%int%", found "%int%")")
-  --               expectedDifficulty actualDifficulty)
-  --           ]
+instance Default VerifyHeaderExtra where
+    def =
+        VerifyHeaderExtra
+        { vhePrevHeader = Nothing
+        , vheNextHeader = Nothing
+        , vheCurrentSlot = Nothing
+        , vheLeaders = Nothing
+        }
+
+-- | Check some predicates about BlockHeader. Number of checks depends
+-- on extra data passed to this function. It tries to do as much as
+-- possible.
+verifyHeader :: VerifyHeaderExtra -> BlockHeader -> VerificationRes
+verifyHeader VerifyHeaderExtra {..} h =
+    verifyConsensusLocal h <> verifyGeneric checks
+  where
+    maybe' :: (a -> [b]) -> Maybe a -> [b]
+    maybe' = maybe []
+    checks =
+        mconcat
+            [ maybe' relatedToPrevHeader vhePrevHeader
+            , maybe' relatedToNextHeader vheNextHeader
+            , maybe' relatedToCurrentSlot vheCurrentSlot
+            , maybe' relatedToLeaders vheLeaders
+            ]
+    checkHash expectedHash actualHash =
+        ( expectedHash == actualHash
+        , sformat
+              ("inconsistent hash (expected " %build % ", found" %build % ")")
+              expectedHash
+              actualHash)
+    checkDifficulty expectedDifficulty actualDifficulty =
+        ( expectedDifficulty == actualDifficulty
+        , sformat
+              ("incorrect difficulty (expected " %int % ", found " %int % ")")
+              expectedDifficulty
+              actualDifficulty)
+    relatedToPrevHeader prevHeader =
+        [ checkDifficulty
+              (prevHeader ^. difficultyL + headerDifficulty h)
+              (h ^. difficultyL)
+        , checkHash (hash prevHeader) (h ^. prevBlockL)
+        ]
+    relatedToNextHeader nextHeader =
+        [ checkDifficulty
+              (nextHeader ^. difficultyL - headerDifficulty nextHeader)
+              (h ^. difficultyL)
+        , checkHash (hash h) (nextHeader ^. prevBlockL)
+        ]
+    relatedToCurrentSlot curSlotId =
+        [ ( either (const True) ((<= curSlotId) . view headerSlot) h
+          , "block is from slot which hasn't happened yet")
+        ]
+    relatedToLeaders leaders =
+        case h of
+            Left _ -> []
+            Right mainHeader ->
+                [ ( (Just (mainHeader ^. headerLeaderKey) ==
+                     leaders ^?
+                     ix (fromIntegral $ siSlot $ mainHeader ^. headerSlot))
+                  , "block's leader is different from expected one")
+                ]
+
+-- | Perform cheap checks of GenericBlock, which can be done using
+-- only block itself. Checks which can be done using only header are
+-- ignored here. It is assumed that they will be done separately.
+verifyGenericBlock :: forall b . Blockchain b => GenericBlock b -> VerificationRes
+verifyGenericBlock blk =
+    verifyGeneric
+        [ ( checkBodyProof (blk ^. gbBody) (blk ^. gbBodyProof)
+          , "body proof doesn't prove body")
+        ]
+
+-- | Specialization of verifyGenericBlock for Block.
+verifyBlock :: Block -> VerificationRes
+verifyBlock blk = verifyCommon
+  where
+    verifyCommon = either verifyGenericBlock verifyGenericBlock blk
 
 ----------------------------------------------------------------------------
 -- SafeCopy instances

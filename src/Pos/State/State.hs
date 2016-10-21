@@ -110,8 +110,8 @@ processNewSlot :: WorkModeDB m => SlotId -> m ()
 processNewSlot = updateDisk . A.ProcessNewSlot
 
 -- | Process some Block received from the network.
-processBlock :: WorkModeDB m => Block -> m ProcessBlockRes
-processBlock = updateDisk . A.ProcessBlock
+processBlock :: WorkModeDB m => SlotId -> Block -> m ProcessBlockRes
+processBlock si = updateDisk . A.ProcessBlock si
 
 -- | Result = whether the opening was valid
 processOpening

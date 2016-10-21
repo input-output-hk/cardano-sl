@@ -16,7 +16,7 @@ import qualified Network.Kademlia          as K
 import           Pos.DHT                   (DHTData, DHTException (..), DHTKey,
                                             DHTNode (..), DHTNodeType (..),
                                             MonadDHT (..), Peer (..),
-                                            randomDHTKey)
+                                            dhtNodeType, randomDHTKey)
 import           Universum                 hiding (ThreadId, finally,
                                             fromStrict, toStrict)
 
@@ -71,7 +71,7 @@ instance (MonadIO m, MonadThrow m) => MonadDHT (KademliaDHT m) where
   discoverPeers type_ = do
     inst <- KademliaDHT $ asks fst
     _ <- liftIO $ K.lookup inst =<< randomDHTKey type_
-    getKnownPeers
+    filter (\n -> dhtNodeType (dhtNodeId n) == Just type_) <$> getKnownPeers
 
   getKnownPeers = do
     inst <- KademliaDHT $ asks fst

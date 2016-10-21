@@ -15,6 +15,8 @@ import           Pos.Crypto.Random    (secureRandomBS)
 import           Serokell.Util.Text   (listBuilderJSON)
 import           Universum
 
+import qualified Serokell.Util.Base64 as B64
+
 data Peer = Peer { peerHost :: Text
                  , peerPort :: Word16
                  }
@@ -36,6 +38,14 @@ newtype DHTData = DHTData ()
 newtype DHTKey = DHTKey BS.ByteString
   deriving (Eq, Ord, Binary)
 
+instance Buildable DHTKey where
+  build key@(DHTKey bs) = buildType (dhtNodeType key)
+              `mappend` build ' '
+              `mappend` build (B64.encodeUrl $ BS.tail bs)
+    where
+      buildType Nothing = build ("<Unknown type>" :: Text)
+      buildType (Just s) = build s
+
 -- Node type is determined by first byte of key
 data DHTNodeType
   -- node which participates only in supporting DHT, i.e. not a part of PoS communication
@@ -44,6 +54,10 @@ data DHTNodeType
   | DHTFull
   -- client node (for SPV). Key idea is that clients, being a part of DHT, are rarely queried
   | DHTClient
+  deriving (Eq, Ord, Show)
+
+instance Buildable DHTNodeType where
+  build = build . (show :: DHTNodeType -> Text)
 
 dhtNodeType :: DHTKey -> Maybe DHTNodeType
 dhtNodeType (DHTKey bs) = impl $ BS.head bs
@@ -64,6 +78,16 @@ randomDHTKey type_ = (DHTKey . BS.cons (typeByte type_)) <$> secureRandomBS 19
 data DHTNode = DHTNode { dhtPeer   :: Peer
                        , dhtNodeId :: DHTKey
                        }
+instance Buildable DHTNode where
+  build (DHTNode p key)
+    = build key
+             `mappend` build (" at " :: Text)
+             `mappend` build (peerHost p)
+             `mappend` build ':'
+             `mappend` build (peerPort p)
+
+instance Buildable [DHTNode] where
+  build = listBuilderJSON
 
 data DHTException = IDClash | NodeDown | AllPeersUnavailable
   deriving (Show, Typeable)

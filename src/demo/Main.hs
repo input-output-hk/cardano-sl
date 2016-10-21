@@ -6,10 +6,13 @@ import           Data.List                ((!!))
 import           Data.String              (fromString)
 import           Universum
 
-import           Pos.Genesis              (genesisSecretKeys, genesisVssKeyPairs)
-import           Pos.Launcher             (NodeParams (..), getCurTimestamp, runNodeReal)
+import           Pos.DHT                  (Peer (..))
+import           Pos.Genesis              (genesisSecretKeys,
+                                           genesisVssKeyPairs)
+import           Pos.Launcher             (NodeParams (..), getCurTimestamp,
+                                           runNodeReal)
 import           Pos.Slotting             (Timestamp)
-import           Pos.DHT      (Peer (..))
+
 
 runSingleNode :: Timestamp -> [Peer] -> Word16 -> IO ()
 runSingleNode start peers i = runNodeReal params

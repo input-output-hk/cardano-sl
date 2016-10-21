@@ -22,17 +22,20 @@ import           Control.TimeWarp.Logging (LoggerName, LoggerNameBox, Severity,
                                            WithNamedLogger (..), initLogging,
                                            logInfo, usingLoggerName)
 import           Control.TimeWarp.Rpc     (ResponseT)
-import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId, TimedIO, runTimedIO)
+import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId, TimedIO,
+                                           runTimedIO)
 import           Formatting               (build, sformat, (%))
-import           Universum                hiding (ThreadId, catch)
-import           Pos.Crypto               (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
-                                           toPublic, toVssPublicKey)
+import           Pos.Crypto               (PublicKey, SecretKey, VssKeyPair,
+                                           VssPublicKey, toPublic,
+                                           toVssPublicKey)
 import           Pos.DHT                  (DHTException (..), DHTNodeType (..),
                                            MonadDHT (..), Peer)
 import           Pos.DHT.Real             (KademliaDHT, runKademliaDHT)
-import           Pos.Slotting             (MonadSlots (..), Timestamp (..), timestampF)
-import           Pos.State                (MonadDB (..), NodeState, openMemState,
-                                           openState)
+import           Pos.Slotting             (MonadSlots (..), Timestamp (..),
+                                           timestampF)
+import           Pos.State                (MonadDB (..), NodeState,
+                                           openMemState, openState)
+import           Universum                hiding (ThreadId, catch)
 
 type WorkMode m
     = ( WithNamedLogger m
@@ -135,9 +138,9 @@ data NodeParams = NodeParams
     , npLoggingSeverity :: !Severity
     , npSecretKey       :: !SecretKey
     , npVssKeyPair      :: !VssKeyPair
-    , npPort        :: !Word16
-    , npDHTPort     :: !Word16
-    , npDHTPeers    :: ![Peer]
+    , npPort            :: !Word16
+    , npDHTPort         :: !Word16
+    , npDHTPeers        :: ![Peer]
     } deriving (Show)
 
 ----------------------------------------------------------------------------
@@ -154,6 +157,7 @@ runRealMode NodeParams {..} action = do
     startTime <- getStartTime
     db <- (runTimed . runCH startTime) openDb
     (runTimed . runDH db . runCH startTime . runKademliaDHT DHTFull npDHTPort) $ do
+      logInfo $ sformat ("Started node, joining to DHT network " %build) npDHTPeers
       joinNetwork npDHTPeers `catch` handleJoinE
       action
   where

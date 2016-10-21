@@ -6,10 +6,10 @@ import           Control.TimeWarp.Logging (Severity (Info))
 import           Data.List                ((!!))
 import           Universum
 
-import           Pos.Genesis              (genesisSecretKeys, genesisVssKeyPairs)
+import           Pos.DHT                  (Peer (..))
+import           Pos.Genesis              (genesisSecretKeys,
+                                           genesisVssKeyPairs)
 import           Pos.Launcher             (NodeParams (..), runNodeReal)
-import           Pos.DHT      (Peer (..))
-import           Pos.Launcher (NodeParams (..), runNodeReal)
 
 main :: IO ()
 main = runNodeReal params

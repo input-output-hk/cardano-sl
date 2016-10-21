@@ -1,15 +1,16 @@
 -- {-# LANGUAGE AllowAmbiguousTypes   #-}
-{-# LANGUAGE DefaultSignatures     #-}
-{-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE StandaloneDeriving    #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE DefaultSignatures      #-}
+{-# LANGUAGE DeriveGeneric          #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE StandaloneDeriving     #-}
+{-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE TypeFamilies           #-}
+{-# LANGUAGE TypeSynonymInstances   #-}
+{-# LANGUAGE UndecidableInstances   #-}
 
 -- | Definitions of the most fundamental types.
 
@@ -72,6 +73,7 @@ module Pos.Types.Types
 
        -- * Lenses
        , HasDifficulty (..)
+       , HasPrevBlock (..)
 
        , blockHeader
        , blockLeaderKey
@@ -624,6 +626,21 @@ instance HasDifficulty GenesisBlock where
 
 instance HasDifficulty Block where
     difficultyL = choosing difficultyL difficultyL
+
+class HasPrevBlock s a | s -> a where
+    prevBlockL :: Lens' s (Hash a)
+
+instance (a ~ BBlockHeader b) =>
+         HasPrevBlock (GenericBlockHeader b) a where
+    prevBlockL = gbhPrevBlock
+
+instance (a ~ BBlockHeader b) =>
+         HasPrevBlock (GenericBlock b) a where
+    prevBlockL = gbHeader . gbhPrevBlock
+
+instance (HasPrevBlock s a, HasPrevBlock s' a) =>
+         HasPrevBlock (Either s s') a where
+    prevBlockL = choosing prevBlockL prevBlockL
 
 blockSlot :: Lens' MainBlock SlotId
 blockSlot = gbHeader . headerSlot

@@ -187,6 +187,7 @@ mpcVerifyBlock (Right b) = do
         certificates = b ^. gbBody . to mbVssCertificates
     globalCommitments  <- view (lastVer . mpcGlobalCommitments)
     globalOpenings     <- view (lastVer . mpcGlobalOpenings)
+    globalShares       <- view (lastVer . mpcGlobalShares)
     globalCertificates <- view (lastVer . mpcGlobalCertificates)
     -- Commitment blocks are ones in range [0,k), etc. Mixed blocks aren't
     -- allowed.
@@ -227,8 +228,7 @@ mpcVerifyBlock (Right b) = do
 
     -- For openings, we check that
     --   * there are only openings in the block
-    --   * the opening isn't present in previous blocks (TODO: may this
-    --     check be skipped?)
+    --   * the opening isn't present in previous blocks
     --   * corresponding commitment is present
     --   * the opening matches the commitment
     let openChecks =
@@ -249,6 +249,7 @@ mpcVerifyBlock (Right b) = do
     -- For shares, we check that
     --   * there are only shares in the block
     --   * shares have corresponding commitments
+    --   * these shares weren't sent before
     --   * if encrypted shares (in commitments) are decrypted, they match
     --     decrypted shares
     -- We don't check whether shares match the openings.
@@ -260,6 +261,8 @@ mpcVerifyBlock (Right b) = do
             , (all (`HM.member` globalCommitments)
                    (HM.keys shares <> concatMap HM.keys (toList shares)),
                    "some shares don't have corresponding commitments")
+            , (null (shares `diffDoubleMap` globalShares),
+                   "some shares have already been sent")
             , (let listShares :: [(PublicKey, PublicKey, Share)]
                    listShares = do
                        (pk1, ss) <- HM.toList shares

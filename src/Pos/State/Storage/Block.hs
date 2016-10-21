@@ -41,8 +41,9 @@ import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..))
 import           Pos.Types               (Block, ChainDifficulty, EpochIndex, HeaderHash,
                                           MainBlockHeader, SlotId (..), SlotLeaders,
                                           blockHeader, blockLeaders, difficultyL,
-                                          headerLeaderKey, headerSlot, mkGenesisBlock,
-                                          prevBlockL, siEpoch, verifyHeader)
+                                          getBlockHeader, headerLeaderKey, headerSlot,
+                                          mkGenesisBlock, prevBlockL, siEpoch,
+                                          verifyHeader)
 import           Pos.Util                (readerToState)
 
 data BlockStorage = BlockStorage
@@ -65,6 +66,12 @@ data BlockStorage = BlockStorage
 makeClassy ''BlockStorage
 deriveSafeCopySimple 0 'base ''BlockStorage
 
+genesisBlock0 :: Block
+genesisBlock0 = Left (mkGenesisBlock Nothing 0 genesisLeaders)
+
+genesisBlock0Hash :: HeaderHash
+genesisBlock0Hash = hash $ genesisBlock0 ^. blockHeader
+
 instance Default BlockStorage where
     def =
         BlockStorage
@@ -75,9 +82,6 @@ instance Default BlockStorage where
         , _blkMinDifficulty = genesisBlock0 ^. difficultyL
         }
       where
-        genesisBlock0 :: Block
-        genesisBlock0 = Left (mkGenesisBlock Nothing 0 genesisLeaders)
-        genesisBlock0Hash = hash $ genesisBlock0 ^. blockHeader
 
 type Query a = forall m x. (HasBlockStorage x, MonadReader x m) => m a
 type Update a = forall m x. (HasBlockStorage x, MonadState x m) => m a
@@ -170,5 +174,7 @@ blkSetHead headHash = do
         readerToState (getBlockByDepth k)
 
 -- | Rollback last `n` blocks.
-blkRollback :: Int -> Update ()
-blkRollback _ = pure ()
+blkRollback :: Word -> Update ()
+blkRollback =
+    blkSetHead . maybe genesisBlock0Hash (hash . getBlockHeader) <=<
+    readerToState . getBlockByDepth

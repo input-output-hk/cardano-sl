@@ -102,7 +102,7 @@ processBlockDo blk = do
                 else return (PBRabort verificationRes)
         _ -> return r
 
-processBlockFinally :: Int -> AltChain -> Update ProcessBlockRes
+processBlockFinally :: Word -> AltChain -> Update ProcessBlockRes
 processBlockFinally toRollback blocks = do
     mpcRollback toRollback
     mpcApplyBlocks blocks

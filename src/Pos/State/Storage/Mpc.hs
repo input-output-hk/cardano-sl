@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 -- | Internal state of the MPC algorithm (“multi-party computation”) – the
 -- algorithm which computes a shared seed with other nodes and decides which
@@ -307,7 +308,7 @@ mpcVerifyBlock (Right b) = do
 -- TODO:
 --   * verification messages should include block hash/slotId
 --   * we should stop at first failing block
-mpcVerifyBlocks :: Int -> AltChain -> Query VerificationRes
+mpcVerifyBlocks :: Word -> AltChain -> Query VerificationRes
 mpcVerifyBlocks toRollback blocks = do
     curState <- view mpcStorage
     return $ flip evalState curState $ do
@@ -345,8 +346,8 @@ mpcApplyBlocks = mapM_ mpcProcessBlock
 -- commitments/etc received during that period but not included into
 -- blocks. If there are less blocks than 'n' is, just leaves an empty ('def')
 -- version.
-mpcRollback :: Int -> Update ()
-mpcRollback n = do
+mpcRollback :: Word -> Update ()
+mpcRollback (fromIntegral -> n) = do
     mpcVersioned %= (fromMaybe (def :| []) . NE.nonEmpty . NE.drop n)
 
 mpcProcessBlock :: Block -> Update ()

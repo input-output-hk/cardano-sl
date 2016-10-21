@@ -26,7 +26,7 @@ data ProcessBlockRes
     | -- | Block has been adopted, head of main chain has been
       -- changed. Attached data is number of blocks to rollback and
       -- blocks which should be used instead.
-      PBRgood !(Int, AltChain)
+      PBRgood !(Word, AltChain)
     | -- | Block has been discarded because of invalid data.
       PBRabort !VerificationRes
 

@@ -23,10 +23,8 @@ module Pos.State.Storage.Block
 
 import           Control.Lens            (at, ix, makeClassy, preview, view, (.=), (^.))
 import           Data.Default            (Default, def)
-
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Data.Vector             (Vector)
-import           Serokell.Util           (VerificationRes)
 import           Universum
 
 import           Pos.Crypto              (hash)
@@ -84,9 +82,6 @@ getLeaders (fromIntegral -> epoch) = do
 -- which may become part of blockchain.
 mayBlockBeUseful :: MainBlockHeader -> Query Bool
 mayBlockBeUseful _ = pure True
-
-deriveSafeCopySimple 0 'base ''VerificationRes
-deriveSafeCopySimple 0 'base ''ProcessBlockRes
 
 -- | Process received block.
 blkProcessBlock :: Block -> Update ProcessBlockRes

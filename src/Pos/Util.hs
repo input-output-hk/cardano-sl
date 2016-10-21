@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TemplateHaskell       #-}
 
 module Pos.Util
        (
@@ -37,12 +38,14 @@ import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty            as NE
 import           Data.MessagePack              (MessagePack (..))
 import qualified Data.MessagePack              as Msgpack
+import           Data.SafeCopy                 (base, deriveSafeCopySimple)
 import           Data.SafeCopy                 (Contained, SafeCopy (..), contain,
                                                 safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (String)
 import qualified Data.Vector                   as V
 import           Language.Haskell.TH
+import           Serokell.Util                 (VerificationRes)
 import           Universum
 
 import           Serokell.Util.Binary          as Binary (decodeFull)
@@ -73,6 +76,8 @@ readerToState
     :: MonadState s m
     => Reader s a -> m a
 readerToState = gets . runReader
+
+deriveSafeCopySimple 0 'base ''VerificationRes
 
 ----------------------------------------------------------------------------
 -- MessagePack

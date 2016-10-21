@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | Extra types used in Storage modules.
 
 module Pos.State.Storage.Types
@@ -6,6 +8,7 @@ module Pos.State.Storage.Types
        ) where
 
 import           Data.List.NonEmpty   (NonEmpty)
+import           Data.SafeCopy        (base, deriveSafeCopySimple)
 import           Serokell.Util.Verify (VerificationRes)
 import           Universum
 
@@ -26,3 +29,5 @@ data ProcessBlockRes
       PBRgood !(Int, AltChain)
     | -- | Block has been discarded because of invalid data.
       PBRabort !VerificationRes
+
+deriveSafeCopySimple 0 'base ''ProcessBlockRes

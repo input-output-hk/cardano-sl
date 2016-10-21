@@ -5,7 +5,7 @@ module Pos.Communication.Server
        ) where
 
 import           Control.TimeWarp.Timed         (sleepForever)
-import           Universum
+-- import           Universum
 
 import           Pos.Communication.Server.Block ()
 import           Pos.WorkMode                   (WorkMode)

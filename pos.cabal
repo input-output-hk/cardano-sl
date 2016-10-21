@@ -36,6 +36,7 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
+                        Pos.DHT.Real
                         Pos.State.Acidic
                         Pos.State.State
                         Pos.State.Storage
@@ -56,6 +57,7 @@ library
   build-depends:        HsOpenSSL
                       , QuickCheck
                       , acid-state
+                      , async
                       , base
                       , binary
                       , binary-orphans
@@ -83,6 +85,7 @@ library
                       , text-format
                       , time
                       , time-warp
+                      , transformers
                       , universum
                       , unordered-containers
                       , vector

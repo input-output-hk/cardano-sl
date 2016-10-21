@@ -9,9 +9,10 @@ import           Universum
 import           Pos.Genesis              (genesisSecretKeys, genesisVssKeyPairs)
 import           Pos.Launcher             (NodeParams (..), getCurTimestamp, runNodeReal)
 import           Pos.Slotting             (Timestamp)
+import           Pos.DHT      (Peer (..))
 
-runSingleNode :: Timestamp -> Word -> IO ()
-runSingleNode start i = runNodeReal params
+runSingleNode :: Timestamp -> [Peer] -> Word16 -> IO ()
+runSingleNode start peers i = runNodeReal params
   where
     params =
         NodeParams
@@ -22,13 +23,14 @@ runSingleNode start i = runNodeReal params
         , npLoggingSeverity = if i == 0 then Info else Error
         , npSecretKey = genesisSecretKeys !! 0
         , npVssKeyPair = genesisVssKeyPairs !! 0
+        , npPort = 1000 + i
+        , npDHTPort = 2000 + i
+        , npDHTPeers = peers
         }
 
 main :: IO ()
 main = do
     let n = 3
-    -- let loggers = "xx" : map (LoggerName . toS . sformat nodeF)
-    --                         [NodeId 0 .. NodeId (n - 1)]
-    -- initLogging loggers Info
     systemStart <- getCurTimestamp
-    () <$ mapConcurrently (runSingleNode systemStart) [0 .. n - 1]
+    let peers = (\i -> Peer "127.0.0.1" $ 2000 + i) <$> [0 .. n - 1]
+    () <$ mapConcurrently (runSingleNode systemStart peers) [0 .. n - 1]

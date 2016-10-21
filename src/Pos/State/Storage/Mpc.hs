@@ -21,30 +21,33 @@ module Pos.State.Storage.Mpc
        , mpcVerifyBlocks
        ) where
 
-import           Control.Lens         (Lens', makeClassy, to, view, (%=), (^.))
-import           Data.Default         (Default, def)
-import           Data.Hashable        (Hashable)
-import qualified Data.HashMap.Strict  as HM
-import           Data.Ix              (inRange)
-import           Data.List.NonEmpty   (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty   as NE
-import           Data.SafeCopy        (base, deriveSafeCopySimple)
-import qualified Data.Vector          as V
-import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess, verifyGeneric)
+import           Control.Lens            (Lens', makeClassy, to, view, (%=), (^.))
+import           Data.Default            (Default, def)
+import           Data.Hashable           (Hashable)
+import qualified Data.HashMap.Strict     as HM
+import           Data.Ix                 (inRange)
+import           Data.List.NonEmpty      (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty      as NE
+import           Data.SafeCopy           (base, deriveSafeCopySimple)
+import qualified Data.Vector             as V
+import           Serokell.Util.Verify    (VerificationRes (..), isVerSuccess,
+                                          verifyGeneric)
 import           Universum
 
-import           Pos.Constants        (k)
-import           Pos.Crypto           (PublicKey, Share, Signed (signedSig, signedValue),
-                                       verify, verifyShare)
-import           Pos.FollowTheSatoshi (FtsError, calculateSeed, followTheSatoshi)
-import           Pos.Types            (Address (getAddress), Block, Body (..),
-                                       Commitment (..), CommitmentSignature,
-                                       CommitmentsMap, Opening (..), OpeningsMap,
-                                       SharesMap, SlotId (..), SlotLeaders, Utxo,
-                                       VssCertificate, VssCertificatesMap, blockSlot,
-                                       gbBody, mbCommitments, mbOpenings, mbShares,
-                                       mbVssCertificates, verifyOpening)
-import           Pos.Util             (readerToState, zoom', _neHead)
+import           Pos.Constants           (k)
+import           Pos.Crypto              (PublicKey, Share,
+                                          Signed (signedSig, signedValue), verify,
+                                          verifyShare)
+import           Pos.FollowTheSatoshi    (FtsError, calculateSeed, followTheSatoshi)
+import           Pos.State.Storage.Types (AltChain)
+import           Pos.Types               (Address (getAddress), Block, Body (..),
+                                          Commitment (..), CommitmentSignature,
+                                          CommitmentsMap, Opening (..), OpeningsMap,
+                                          SharesMap, SlotId (..), SlotLeaders, Utxo,
+                                          VssCertificate, VssCertificatesMap, blockSlot,
+                                          gbBody, mbCommitments, mbOpenings, mbShares,
+                                          mbVssCertificates, verifyOpening)
+import           Pos.Util                (readerToState, zoom', _neHead)
 
 data MpcStorageVersion = MpcStorageVersion
     { -- | Local set of 'Commitment's. These are valid commitments which are
@@ -304,7 +307,7 @@ mpcVerifyBlock (Right b) = do
 -- TODO:
 --   * verification messages should include block hash/slotId
 --   * we should stop at first failing block
-mpcVerifyBlocks :: Int -> [Block] -> Query VerificationRes
+mpcVerifyBlocks :: Int -> AltChain -> Query VerificationRes
 mpcVerifyBlocks toRollback blocks = do
     curState <- view mpcStorage
     return $ flip evalState curState $ do
@@ -314,7 +317,7 @@ mpcVerifyBlocks toRollback blocks = do
             when (isVerSuccess v) $
                 mpcProcessBlock b
             return v
-        return (mconcat vs)
+        return (fold vs)
 
 -- TODO: checks can happen anywhere but we must have a *clear* policy on
 -- where checks are happening, to prevent the situation when they are, well,
@@ -335,7 +338,7 @@ mpcProcessCommitment pk c = do
 
 -- | Apply sequence of blocks to state. Sequence must be based on last
 -- applied block and must be valid.
-mpcApplyBlocks :: [Block] -> Update ()
+mpcApplyBlocks :: AltChain -> Update ()
 mpcApplyBlocks = mapM_ mpcProcessBlock
 
 -- | Rollback application of last 'n' blocks. If @n > 0@, also removes all

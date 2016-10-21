@@ -34,14 +34,14 @@ import           Universum
 
 import           Pos.Crypto              (PublicKey)
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
-                                          ProcessBlockRes (..), blkProcessBlock,
-                                          blkRollback, blkSetHead, getBlock, getLeaders,
-                                          mayBlockBeUseful)
+                                          blkProcessBlock, blkRollback, blkSetHead,
+                                          getBlock, getLeaders, mayBlockBeUseful)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage,
                                           mpcApplyBlocks, mpcProcessCommitment,
                                           mpcProcessOpening, mpcRollback, mpcVerifyBlock,
                                           mpcVerifyBlocks)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, addTx)
+import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..))
 import           Pos.Types               (Block, Commitment, CommitmentSignature, Opening,
                                           SlotId, unflattenSlotId)
 import           Pos.Util                (readerToState)
@@ -102,7 +102,7 @@ processBlockDo blk = do
                 else return (PBRabort verificationRes)
         _ -> return r
 
-processBlockFinally :: Int -> [Block] -> Update ProcessBlockRes
+processBlockFinally :: Int -> AltChain -> Update ProcessBlockRes
 processBlockFinally toRollback blocks = do
     mpcRollback toRollback
     mpcApplyBlocks blocks

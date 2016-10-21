@@ -105,7 +105,7 @@ module Pos.Types.Types
        , mkGenesisHeader
        , mkGenesisBlock
 
-       , verifyGenericHeader
+       -- , verifyGenericHeader
        , verifyHeader
 
        , Entry (..)
@@ -777,41 +777,40 @@ verifyConsensusLocal (Right header) =
     d = consensus ^. mcdDifficulty
     sig = consensus ^. mcdSignature
 
--- | Perform cheap checks of GenericBlockHeader, which can be done using only
--- header itself and previous header.
-verifyGenericHeader
-    :: forall b.
-       (Binary (BBlockHeader b))
-    => Maybe (BBlockHeader b) -> GenericBlockHeader b -> VerificationRes
-verifyGenericHeader prevHeader GenericBlockHeader {..} =
-    verifyGeneric [verifyHash]
-  where
-    prevHash = maybe genesisHash hash prevHeader
-    verifyHash =
-        ( _gbhPrevBlock == prevHash
-        , sformat
-              ("inconsistent previous hash (expected "%build%", found"%build%")")
-              _gbhPrevBlock prevHash)
+-- -- | Perform cheap checks of GenericBlockHeader, which can be done using only
+-- -- header itself and previous header.
+-- verifyGenericHeader
+--     :: forall b.
+--        (Binary (BBlockHeader b))
+--     => Maybe (BBlockHeader b) -> GenericBlockHeader b -> VerificationRes
+-- verifyGenericHeader prevHeader GenericBlockHeader {..} =
+--     verifyGeneric [verifyHash]
+--   where
+--     prevHash = maybe genesisHash hash prevHeader
+--     verifyHash =
+--         ( _gbhPrevBlock == prevHash
+--         , sformat
+--               ("inconsistent previous hash (expected "%build%", found"%build%")")
+--               _gbhPrevBlock prevHash)
 
 -- | Perform cheap checks of BlockHeader, which can be done using only
--- header itself and previous header.
-verifyHeader :: Maybe BlockHeader -> BlockHeader -> VerificationRes
-verifyHeader prevHeader h =
-    mconcat [verifyConsensusLocal h, verifyCommon, verifyDifficulty]
-  where
-    verifyCommon =
-        either
-            (verifyGenericHeader prevHeader)
-            (verifyGenericHeader prevHeader)
-            h
-    expectedDifficulty = succ $ maybe 0 (view difficultyL) prevHeader
-    actualDifficulty = h ^. difficultyL
-    verifyDifficulty =
-        verifyGeneric
-            [ ( expectedDifficulty == actualDifficulty
-              , sformat ("incorrect difficulty (expected "%int%", found "%int%")")
-                expectedDifficulty actualDifficulty)
-            ]
+-- header itself.
+verifyHeader :: BlockHeader -> VerificationRes
+verifyHeader h = verifyConsensusLocal h
+  -- where
+  --   verifyCommon =
+  --       either
+  --           (verifyGenericHeader prevHeader)
+  --           (verifyGenericHeader prevHeader)
+  --           h
+  --   expectedDifficulty = succ $ maybe 0 (view difficultyL) prevHeader
+  --   actualDifficulty = h ^. difficultyL
+  --   verifyDifficulty =
+  --       verifyGeneric
+  --           [ ( expectedDifficulty == actualDifficulty
+  --             , sformat ("incorrect difficulty (expected "%int%", found "%int%")")
+  --               expectedDifficulty actualDifficulty)
+  --           ]
 
 ----------------------------------------------------------------------------
 -- Block. Leftover.

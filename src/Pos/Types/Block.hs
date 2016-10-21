@@ -1,16 +1,17 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Block related functions.
 
 module Pos.Types.Block
-       ( mkGenericHeader
+       ( blockDifficulty
+
+       , mkGenericHeader
        , mkGenericBlock
        , mkMainHeader
        , mkMainBlock
 
-       , verifyGenericHeader
+       -- , verifyGenericHeader
        , verifyHeader
        ) where
 
@@ -25,5 +26,5 @@ module Pos.Types.Block
 --                                        GenericBlock (..), GenericBlockHeader (..),
 --                                        HeaderHash, MainBlock, MainBlockHeader,
 --                                        MainBody (..), SlotId)
-import           Pos.Types.Types (mkGenericBlock, mkGenericHeader, mkMainBlock,
-                                  mkMainHeader, verifyGenericHeader, verifyHeader)
+import           Pos.Types.Types (blockDifficulty, mkGenericBlock, mkGenericHeader,
+                                  mkMainBlock, mkMainHeader, verifyHeader)

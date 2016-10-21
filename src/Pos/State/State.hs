@@ -26,6 +26,7 @@ module Pos.State.State
 
 import           Control.TimeWarp.Rpc (ResponseT)
 import           Data.Acid            (EventResult, EventState, QueryEvent, UpdateEvent)
+import           Serokell.Util        (VerificationRes)
 import           Universum
 
 import           Pos.Crypto           (PublicKey)
@@ -90,8 +91,10 @@ getLeaders = queryDisk . A.GetLeaders
 getBlock :: WorkModeDB m => HeaderHash -> m (Maybe Block)
 getBlock = queryDisk . A.GetBlock
 
-mayBlockBeUseful :: WorkModeDB m => MainBlockHeader -> m Bool
-mayBlockBeUseful = queryDisk . A.MayBlockBeUseful
+mayBlockBeUseful
+    :: WorkModeDB m
+    => SlotId -> MainBlockHeader -> m VerificationRes
+mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 
 -- TODO: should 'addTx', 'processOpening', and 'processCommitment' return
 -- True if the thing was valid but we already knew about it? Also, we should

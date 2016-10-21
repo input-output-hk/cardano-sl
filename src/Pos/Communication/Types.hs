@@ -1,3 +1,5 @@
+{-# LANGUAGE ConstraintKinds #-}
+
 -- | Types used for communication.
 
 module Pos.Communication.Types
@@ -6,12 +8,15 @@ module Pos.Communication.Types
        , Message (..)
        , displayMessage
 
+       , ResponseMode
+
        -- * Request types
        , SendOpening (..)
        , SendCommitment (..)
        , module Block
        ) where
 
+import           Control.TimeWarp.Rpc          (MonadDialog, MonadResponse)
 import           Formatting                    (int, sformat, (%))
 import           Universum
 
@@ -19,6 +24,10 @@ import           Pos.Communication.Types.Block as Block
 import           Pos.Communication.Types.Mpc   (SendCommitment (..), SendOpening (..))
 import           Pos.Crypto                    (PublicKey, SecretKey)
 import           Pos.Types                     (Blockkk, Entry, NodeId, displayEntry)
+import           Pos.WorkMode                  (WorkMode)
+
+-- TODO: MonadDialog should be part of WorkMode
+type ResponseMode m = (WorkMode m, MonadResponse m, MonadDialog m)
 
 {- |
 A node is given:

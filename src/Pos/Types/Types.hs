@@ -107,10 +107,6 @@ module Pos.Types.Types
 
        -- , verifyGenericHeader
        , verifyHeader
-
-       , Entry (..)
-       , Blockkk
-       , displayEntry
        ) where
 
 import           Control.Lens         (Getter, Lens', choosing, makeLenses, to, view,
@@ -122,11 +118,10 @@ import           Data.Ix              (Ix)
 import           Data.MessagePack     (MessagePack (..))
 import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeCopySimple,
                                        deriveSafeCopySimpleIndexedType, safeGet, safePut)
-import qualified Data.Text            as T (unwords)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
-import           Formatting           (Format, bprint, build, int, sformat, shown, (%))
+import           Formatting           (Format, bprint, build, int, (%))
 import           Serokell.AcidState   ()
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
@@ -137,7 +132,7 @@ import           Pos.Crypto           (EncShare, Hash, PublicKey, Secret, Secret
                                        Signed, VssPublicKey, hash, sign, toPublic,
                                        unsafeHash, verify)
 import           Pos.Merkle           (MerkleRoot, MerkleTree, mtRoot, mtSize)
-import           Pos.Util             (Raw, makeLensesData)
+import           Pos.Util             (makeLensesData)
 
 ----------------------------------------------------------------------------
 -- Node. TODO: do we need it?
@@ -813,41 +808,6 @@ verifyHeader h = verifyConsensusLocal h
   --           ]
 
 ----------------------------------------------------------------------------
--- Block. Leftover.
-----------------------------------------------------------------------------
-
--- | An entry in a block
-data Entry
-
-      -- | Transaction
-    = ETx Tx
-
-      -- | Hash of random string U that a node has committed to
-    | EUHash NodeId (Hash Raw)
-      -- | An encrypted piece of secret-shared U that the first node sent to
-      -- the second node (and encrypted with the second node's pubkey)
-    | EUShare NodeId NodeId EncShare
-      -- | Leaders for a specific epoch
-    | ELeaders Int [NodeId]
-
-    deriving (Eq, Show)
-
--- | Block
-type Blockkk = [Entry]
-
-displayEntry :: Entry -> Text
-displayEntry (ETx tx) =
-    "transaction " <> show tx
-displayEntry (EUHash nid h) =
-    sformat (nodeF%"'s commitment = "%shown) nid h
-displayEntry (EUShare n_from n_to share) =
-    sformat (nodeF%"'s share for "%nodeF%" = "%build) n_from n_to share
-displayEntry (ELeaders epoch leaders) =
-    sformat ("leaders for epoch "%int%" = "%build)
-            epoch
-            (T.unwords (map (toS . sformat nodeF) leaders))
-
-----------------------------------------------------------------------------
 -- SafeCopy instances
 ----------------------------------------------------------------------------
 
@@ -915,6 +875,3 @@ deriveSafeCopySimpleIndexedType 0 'base ''ConsensusData [''MainBlockchain]
 deriveSafeCopySimpleIndexedType 0 'base ''ConsensusData [''GenesisBlockchain]
 deriveSafeCopySimpleIndexedType 0 'base ''Body [''MainBlockchain]
 deriveSafeCopySimpleIndexedType 0 'base ''Body [''GenesisBlockchain]
-
--- Obsolete
-deriveSafeCopySimple 0 'base ''Entry

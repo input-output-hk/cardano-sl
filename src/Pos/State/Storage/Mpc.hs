@@ -201,6 +201,10 @@ mpcVerifyBlock (Right b) = do
     --   * check that the nodes haven't already sent their commitments before
     --     in some different block
     --   * check that a VSS certificate is present for the committing node
+    -- TODO: we might also check that all share IDs are different, because
+    -- then we would be able to simplify 'calculateSeed' a bit – however,
+    -- it's somewhat complicated because we have encrypted shares, shares in
+    -- commitments, etc.
     let commChecks =
             [ (null openings,
                    "there are openings in a commitment block")

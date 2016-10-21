@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
 
--- | Dummy implementation of VSS. It doesn't have any logic now.
+-- | An implementation of VSS (wrapping over pvss).
 
 module Pos.Crypto.SecretSharing
        (
@@ -14,12 +14,15 @@ module Pos.Crypto.SecretSharing
 
          -- * Sharing
        , DhSecret (..)
+       , ShareId
        , EncShare
        , Secret
        , SecretProof
        , SecretSharingExtra
        , Share
        , Threshold
+       , shareId
+       , encShareId
        , decryptShare
        , genSharedSecret
        , getDhSecret
@@ -34,7 +37,7 @@ module Pos.Crypto.SecretSharing
 
 import           Crypto.PVSS         (Commitment, DecryptedShare, DhSecret (..),
                                       EncryptedShare, ExtraGen, KeyPair (..), Point,
-                                      Proof, Threshold)
+                                      Proof, ShareId, Threshold)
 import qualified Crypto.PVSS         as Pvss
 import           Crypto.Random       (MonadRandom)
 import           Data.Binary         (Binary (..), encode)
@@ -166,15 +169,21 @@ instance MessagePack Share
 instance Buildable Share where
     build _ = "share ¯\\_(ツ)_/¯"
 
+shareId :: Share -> ShareId
+shareId = Pvss.decryptedShareID . getShare
+
 -- | Encrypted share which needs to be decrypted using VssKeyPair first.
-newtype EncShare =
-    EncShare EncryptedShare
-    deriving (Show, Eq, Binary, Generic)
+newtype EncShare = EncShare
+    { getEncShare :: EncryptedShare
+    } deriving (Show, Eq, Binary, Generic)
 
 instance MessagePack EncShare
 
 instance Buildable EncShare where
     build _ = "encrypted share ¯\\_(ツ)_/¯"
+
+encShareId :: EncShare -> ShareId
+encShareId = Pvss.shareID . getEncShare
 
 -- | This extra data may be used to verify encrypted share.
 data SecretSharingExtra =

@@ -9,6 +9,7 @@ module Pos.FollowTheSatoshi
        , followTheSatoshi
        ) where
 
+import           Control.Arrow       ((&&&))
 import qualified Data.HashMap.Strict as HM (fromList, lookup, mapMaybe, toList)
 import qualified Data.HashSet        as HS (difference, fromMap)
 import           Data.List           (foldl1', scanl1)
@@ -18,8 +19,8 @@ import           Universum
 import           Serokell.Util       (listBuilderJSON)
 
 import           Pos.Constants       (epochSlots)
-import           Pos.Crypto          (PublicKey, Secret, Threshold, deterministic,
-                                      randomNumber, recoverSecret)
+import           Pos.Crypto          (PublicKey, Secret, Share, Threshold, deterministic,
+                                      randomNumber, shareId, unsafeRecoverSecret)
 import           Pos.Types           (Address, Coin (..), CommitmentsMap, FtsSeed (..),
                                       OpeningsMap, SharesMap, TxOut (..), Utxo,
                                       getOpening, secretToFtsSeed, verifyOpening,
@@ -62,9 +63,9 @@ calculateSeed
     :: Threshold
     -> CommitmentsMap        -- ^ All participating nodes
     -> OpeningsMap
-    -> SharesMap
+    -> SharesMap             -- ^ Decrypted shares
     -> Either FtsError FtsSeed
-calculateSeed t commitments openings shares = do
+calculateSeed (fromIntegral -> t) commitments openings shares = do
     let participants = getKeys commitments
 
     -- First let's do some sanity checks.
@@ -97,10 +98,19 @@ calculateSeed t commitments openings shares = do
         recovered = HM.fromList $ do
             -- We are now trying to recover a secret for key 'k'
             k <- toList mustBeRecovered
-            -- We collect all secrets that 'k' has sent to other nodes
-            let secrets = mapMaybe (HM.lookup k) (toList shares)
-            -- Then we try to recover the secret
-            return (k, recoverSecret t (undefined secrets))
+            -- We collect all secrets that 'k' has sent to other nodes (and
+            -- remove shares with equal IDs)
+            --
+            -- TODO: can we be sure that here different IDs mean different
+            -- shares? maybe it'd be better to 'assert' it
+            let secrets :: [Share]
+                secrets = toList . HM.fromList $
+                          map (shareId &&& identity) $
+                          mapMaybe (HM.lookup k) (toList shares)
+            -- Then we recover the secret
+            return (k, if length secrets < t
+                         then Nothing
+                         else Just $ unsafeRecoverSecret (take t secrets))
 
     -- All secrets, both recovered and from openings
     let secrets :: HashMap PublicKey Secret

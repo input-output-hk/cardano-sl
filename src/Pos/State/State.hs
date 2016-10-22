@@ -11,8 +11,9 @@ module Pos.State.State
        , closeState
 
        -- * Simple getters.
-       , getLeaders
        , getBlock
+       , getHeadBlock
+       , getLeaders
        , mayBlockBeUseful
 
        -- * Operations with effects.
@@ -90,6 +91,10 @@ getLeaders = queryDisk . A.GetLeaders
 -- | Get Block by hash.
 getBlock :: WorkModeDB m => HeaderHash -> m (Maybe Block)
 getBlock = queryDisk . A.GetBlock
+
+-- | Get block which is the head of the __best chain__.
+getHeadBlock :: WorkModeDB m => m Block
+getHeadBlock = queryDisk A.GetHeadBlock
 
 mayBlockBeUseful
     :: WorkModeDB m

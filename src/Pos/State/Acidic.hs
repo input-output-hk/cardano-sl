@@ -17,6 +17,7 @@ module Pos.State.Acidic
 
        , GetLeaders (..)
        , GetBlock (..)
+       , GetHeadBlock (..)
        , MayBlockBeUseful (..)
 
        , AddTx (..)
@@ -68,6 +69,7 @@ tidyState = tidyExtendedState
 makeAcidic ''Storage
     [ 'S.getLeaders
     , 'S.getBlock
+    , 'S.getHeadBlock
     , 'S.mayBlockBeUseful
     , 'S.addTx
     , 'S.processBlock

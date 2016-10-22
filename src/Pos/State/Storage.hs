@@ -11,6 +11,7 @@ module Pos.State.Storage
 
        , Query
        , getBlock
+       , getHeadBlock
        , getLeaders
        , mayBlockBeUseful
 
@@ -35,7 +36,8 @@ import           Universum
 import           Pos.Crypto              (PublicKey)
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
                                           blkProcessBlock, blkRollback, blkSetHead,
-                                          getBlock, getLeaders, mayBlockBeUseful)
+                                          getBlock, getHeadBlock, getLeaders,
+                                          mayBlockBeUseful)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage,
                                           mpcApplyBlocks, mpcProcessCommitment,
                                           mpcProcessOpening, mpcRollback, mpcVerifyBlock,

@@ -73,6 +73,7 @@ module Pos.Types.Types
 
        -- * Lenses
        , HasDifficulty (..)
+       , HasHeaderHash (..)
        , HasPrevBlock (..)
 
        , blockHeader
@@ -108,6 +109,7 @@ module Pos.Types.Types
        , mkGenesisHeader
        , mkGenesisBlock
 
+       , VerifyBlockParams (..)
        , VerifyHeaderExtra (..)
        , verifyBlock
        , verifyGenericBlock
@@ -648,6 +650,29 @@ instance (HasPrevBlock s a, HasPrevBlock s' a) =>
          HasPrevBlock (Either s s') a where
     prevBlockL = choosing prevBlockL prevBlockL
 
+class HasHeaderHash a where
+    headerHash :: a -> HeaderHash
+    headerHashG :: Getter a HeaderHash
+    headerHashG = to headerHash
+
+instance HasHeaderHash MainBlockHeader where
+    headerHash = hash . Right
+
+instance HasHeaderHash GenesisBlockHeader where
+    headerHash = hash . Left
+
+instance HasHeaderHash BlockHeader where
+    headerHash = hash
+
+instance HasHeaderHash MainBlock where
+    headerHash = hash . Right . view gbHeader
+
+instance HasHeaderHash GenesisBlock where
+    headerHash = hash . Left  . view gbHeader
+
+instance HasHeaderHash Block where
+    headerHash = hash . getBlockHeader
+
 blockSlot :: Lens' MainBlock SlotId
 blockSlot = gbHeader . headerSlot
 
@@ -791,11 +816,13 @@ verifyConsensusLocal (Right header) =
 -- | Extra data which may be used by verifyHeader function to do more checks.
 data VerifyHeaderExtra = VerifyHeaderExtra
     { vhePrevHeader  :: !(Maybe BlockHeader)
+    -- ^ Nothing means that block is unknown, not genesis.
     , vheNextHeader  :: !(Maybe BlockHeader)
     , vheCurrentSlot :: !(Maybe SlotId)
     , vheLeaders     :: !(Maybe SlotLeaders)
     }
 
+-- | By default there is not extra data.
 instance Default VerifyHeaderExtra where
     def =
         VerifyHeaderExtra
@@ -805,6 +832,9 @@ instance Default VerifyHeaderExtra where
         , vheLeaders = Nothing
         }
 
+maybeEmpty :: Monoid m => (a -> m) -> Maybe a -> m
+maybeEmpty = maybe mempty
+
 -- | Check some predicates about BlockHeader. Number of checks depends
 -- on extra data passed to this function. It tries to do as much as
 -- possible.
@@ -812,14 +842,12 @@ verifyHeader :: VerifyHeaderExtra -> BlockHeader -> VerificationRes
 verifyHeader VerifyHeaderExtra {..} h =
     verifyConsensusLocal h <> verifyGeneric checks
   where
-    maybe' :: (a -> [b]) -> Maybe a -> [b]
-    maybe' = maybe []
     checks =
         mconcat
-            [ maybe' relatedToPrevHeader vhePrevHeader
-            , maybe' relatedToNextHeader vheNextHeader
-            , maybe' relatedToCurrentSlot vheCurrentSlot
-            , maybe' relatedToLeaders vheLeaders
+            [ maybeEmpty relatedToPrevHeader vhePrevHeader
+            , maybeEmpty relatedToNextHeader vheNextHeader
+            , maybeEmpty relatedToCurrentSlot vheCurrentSlot
+            , maybeEmpty relatedToLeaders vheLeaders
             ]
     checkHash expectedHash actualHash =
         ( expectedHash == actualHash
@@ -869,11 +897,34 @@ verifyGenericBlock blk =
           , "body proof doesn't prove body")
         ]
 
--- | Specialization of verifyGenericBlock for Block.
-verifyBlock :: Block -> VerificationRes
-verifyBlock blk = verifyCommon
+-- | Parameters of Block verification.
+-- Note: to check that block references previous block and/or is referenced
+-- by next block, use header verification (via vbpVerifyHeader).
+data VerifyBlockParams = VerifyBlockParams
+    { vbpVerifyHeader  :: !(Maybe VerifyHeaderExtra)
+    , vbpVerifyGeneric :: !Bool
+    }
+
+-- | By default nothing is checked.
+instance Default VerifyBlockParams where
+    def =
+        VerifyBlockParams
+        { vbpVerifyHeader = Nothing
+        , vbpVerifyGeneric = False
+        }
+
+-- | Check predicates defined by VerifyBlockParams.
+verifyBlock :: VerifyBlockParams -> Block -> VerificationRes
+verifyBlock VerifyBlockParams {..} blk =
+    mconcat
+        [ verifyG
+        , maybeEmpty (flip verifyHeader (getBlockHeader blk)) vbpVerifyHeader
+        ]
   where
-    verifyCommon = either verifyGenericBlock verifyGenericBlock blk
+    verifyG =
+        if vbpVerifyGeneric
+            then either verifyGenericBlock verifyGenericBlock blk
+            else mempty
 
 ----------------------------------------------------------------------------
 -- SafeCopy instances

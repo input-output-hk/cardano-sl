@@ -4,15 +4,14 @@
 -- | Server which handles MPC-related things.
 
 module Pos.Communication.Server.Mpc
-       ( SendOpening
-       , SendCommitment
+       ( module Mpc
        , mpcListeners
        ) where
 
 import           Control.TimeWarp.Rpc        (Listener (..))
 import           Universum
 
-import           Pos.Communication.Types.Mpc (SendCommitment (..), SendOpening (..))
+import           Pos.Communication.Types.Mpc as Mpc
 import qualified Pos.State                   as St
 import           Pos.WorkMode                (WorkMode)
 

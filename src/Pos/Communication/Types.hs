@@ -11,12 +11,11 @@ module Pos.Communication.Types
        , module Block
        ) where
 
-import           Control.TimeWarp.Rpc          (MonadDialog, MonadResponse)
+import           Control.TimeWarp.Rpc          (MonadResponse)
 -- import           Universum
 
 import           Pos.Communication.Types.Block as Block
 import           Pos.Communication.Types.Mpc   (SendCommitment (..), SendOpening (..))
 import           Pos.WorkMode                  (WorkMode)
 
--- TODO: MonadDialog should be part of WorkMode
-type ResponseMode m = (WorkMode m, MonadResponse m, MonadDialog m)
+type ResponseMode m = (WorkMode m, MonadResponse m)

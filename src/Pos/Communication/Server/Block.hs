@@ -3,9 +3,9 @@
 module Pos.Communication.Server.Block
        ( blockListeners
 
-       , handleBlock         -- tmp
-       , handleBlockHeader   -- tmp
-       , handleBlockRequest  -- tmp
+       , handleBlock
+       , handleBlockHeader
+       , handleBlockRequest
        ) where
 
 import           Control.TimeWarp.Logging (logDebug, logInfo)
@@ -24,9 +24,9 @@ import           Pos.WorkMode             (WorkMode)
 -- | Listeners for requests related to blocks processing.
 blockListeners :: WorkMode m => [Listener m]
 blockListeners =
-    [ -- Listener handleBlock
-    -- , Listener handleBlockHeader
-    -- , Listener handleBlockRequest
+    [ Listener handleBlock
+    , Listener handleBlockHeader
+    , Listener handleBlockRequest
     ]
 
 handleBlock :: ResponseMode m => SendBlock -> m ()

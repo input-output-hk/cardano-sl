@@ -1,14 +1,16 @@
 -- | Wrappers on top of communication methods.
 
 module Pos.Communication.Methods
-       ( requestBlock
+       ( announceBlock
+       , requestBlock
        ) where
 
-import           Control.TimeWarp.Rpc (NetworkAddress)
+import           Control.TimeWarp.Rpc    (NetworkAddress)
 import           Universum
 
-import           Pos.Types            (HeaderHash)
-import           Pos.WorkMode         (WorkMode)
+import           Pos.Communication.Types (SendBlockHeader (..))
+import           Pos.Types               (HeaderHash, MainBlockHeader)
+import           Pos.WorkMode            (WorkMode)
 
 -- | Request Block with given hash from some node.
 -- TODO: consider using something else instead of NetworkAddress.
@@ -16,6 +18,15 @@ requestBlock
     :: WorkMode m
     => NetworkAddress -> HeaderHash -> m ()
 requestBlock = notImplemented
+
+-- | Announce new block to all known peers. Intended to be used when
+-- block is created.
+announceBlock
+    :: WorkMode m
+    => MainBlockHeader -> m ()
+announceBlock = sendToAll . SendBlockHeader
+  where
+    sendToAll = notImplemented
 
 ----------------------------------------------------------------------------
 -- Legacy

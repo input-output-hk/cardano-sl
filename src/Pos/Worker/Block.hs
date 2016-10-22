@@ -5,16 +5,17 @@ module Pos.Worker.Block
        , blkWorkers
        ) where
 
-import           Control.Lens             (ix, (^?))
-import           Control.TimeWarp.Logging (logInfo)
-import           Control.TimeWarp.Timed   (for, wait)
-import           Formatting               (sformat, (%))
+import           Control.Lens              (ix, (^?))
+import           Control.TimeWarp.Logging  (logInfo)
+import           Control.TimeWarp.Timed    (for, wait)
+import           Formatting                (sformat, (%))
 import           Universum
 
-import           Pos.Constants            (networkDiameter, slotDuration)
-import           Pos.State                (getLeaders)
-import           Pos.Types                (SlotId (..), slotIdF)
-import           Pos.WorkMode             (WorkMode, getNodeContext, ncPublicKey)
+import           Pos.Communication.Methods (announceBlock)
+import           Pos.Constants             (networkDiameter, slotDuration)
+import           Pos.State                 (getLeaders)
+import           Pos.Types                 (SlotId (..), slotIdF)
+import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey)
 
 -- | Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode m => SlotId -> m ()
@@ -30,6 +31,7 @@ onNewSlotWhenLeader slotId = do
         sformat ("I am leader of "%slotIdF%", I will create block soon") slotId
     wait $ for (slotDuration - networkDiameter)
     logInfo "It's time to create a block for current slot"
+    announceBlock undefined
     -- TODO
 
 -- | All workers specific to block processing.

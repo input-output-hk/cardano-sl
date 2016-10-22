@@ -32,7 +32,7 @@ import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Data.Vector             (Vector)
 import           Serokell.Util.Verify    (VerificationRes (..), isVerFailure,
-                                          verifyGeneric)
+                                          isVerSuccess, verifyGeneric)
 import           Universum
 
 import           Pos.Constants           (k)
@@ -41,10 +41,11 @@ import           Pos.Genesis             (genesisLeaders)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, ChainDifficulty, EpochIndex, HeaderHash,
                                           MainBlock, MainBlockHeader, SlotId (..),
-                                          SlotLeaders, VerifyHeaderExtra (..),
-                                          blockHeader, blockLeaders, blockSlot,
-                                          difficultyL, gbHeader, getBlockHeader,
-                                          headerSlot, mkGenesisBlock, prevBlockL, siEpoch,
+                                          SlotLeaders, VerifyBlockParams (..),
+                                          VerifyHeaderExtra (..), blockHeader,
+                                          blockLeaders, blockSlot, difficultyL, gbHeader,
+                                          getBlockHeader, headerHash, headerSlot,
+                                          mkGenesisBlock, prevBlockL, siEpoch,
                                           verifyBlock, verifyHeader)
 import           Pos.Util                (readerToState)
 
@@ -165,6 +166,9 @@ isMostDifficult :: MainBlockHeader -> Query Bool
 isMostDifficult (view difficultyL -> difficulty) =
     (difficulty >) . view difficultyL <$> getHeadBlock
 
+insertBlock :: Block -> Update ()
+insertBlock blk = blkBlocks . at (headerHash blk) .= Just blk
+
 -- | Process received block, adding it to alternative chain if
 -- necessary. This block won't become part of main chain, the only way
 -- to do it is to use `blkSetHead`.
@@ -183,7 +187,7 @@ blkProcessBlock currentSlotId blk = do
             mconcat
                 [ verifyGeneric [(not isKnown, "block is already known")]
                 , verifyHeader vhe header
-                , verifyBlock blk
+                , verifyBlock (def {vbpVerifyGeneric = True}) blk
                 ]
     case verRes of
         VerFailure errors -> pure $ mkPBRabort errors
@@ -202,7 +206,17 @@ blkProcessBlockDo blk = do
             notImplemented
 
 tryContinueBestChain :: Block -> Update Bool
-tryContinueBestChain = notImplemented
+-- We don't continue best chain with received genesis block. It is
+-- added automatically when last block in epoch is added.
+-- TODO: it's not done now actually.
+tryContinueBestChain (Left _) = pure False
+tryContinueBestChain blk = do
+    headBlk <- readerToState getHeadBlock
+    -- At this point we only need to check that block references head.
+    let vhe = def {vhePrevHeader = Just $ getBlockHeader headBlk}
+    let vbp = def {vbpVerifyHeader = Just vhe}
+    let ok = isVerSuccess $ verifyBlock vbp blk
+    ok <$ when ok (insertBlock blk >> blkSetHead (headerHash blk))
 
 tryStartAltChain :: Block -> Update Bool
 tryStartAltChain (Left _) = pure False

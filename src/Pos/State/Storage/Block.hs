@@ -24,8 +24,8 @@ module Pos.State.Storage.Block
        , blkSetHead
        ) where
 
-import           Control.Lens            (at, ix, makeClassy, preview, use, view, views,
-                                          (%=), (.=), (<~), (^.), (^?))
+import           Control.Lens            (at, ix, makeClassy, preview, view, views, (%=),
+                                          (.=), (<~), (^.), (^?))
 import           Data.Default            (Default, def)
 import qualified Data.HashMap.Strict     as HM
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
@@ -58,6 +58,8 @@ data BlockStorage = BlockStorage
     , -- | Hash of the head in the __best chain__.
       _blkHead          :: !HeaderHash
     , -- | Alternative chains which can be merged into main chain.
+      -- TODO: storing blocks more than once is inefficient, but we
+      -- don't care now.
       _blkAltChains     :: ![AltChain]
     , -- | Difficulty of the block with depth `k` (or 0 if there are
       -- less than `k` blocks). It doesn't make sense to consider
@@ -171,7 +173,8 @@ insertBlock blk = blkBlocks . at (headerHash blk) .= Just blk
 
 -- | Process received block, adding it to alternative chain if
 -- necessary. This block won't become part of main chain, the only way
--- to do it is to use `blkSetHead`.
+-- to do it is to use `blkSetHead`. This function only caches block if
+-- necessary.
 blkProcessBlock :: SlotId -> Block -> Update ProcessBlockRes
 blkProcessBlock currentSlotId blk = do
     -- First of all we do the simplest general checks.
@@ -197,39 +200,50 @@ blkProcessBlockDo :: Block -> Update ProcessBlockRes
 blkProcessBlockDo blk = do
     -- At this point we know that block is good in isolation.
     -- Our first attempt is to continue the best chain and finish.
-    continuedMain <- tryContinueBestChain blk
-    if continuedMain
-        then return (PBRgood (0, blk :| []))
-        else do
-            -- Our next attempt is to start alternative chain.
-            startedAlternative <- tryStartAltChain blk
-            notImplemented
+    continueMain <- readerToState $ canContinueBestChain blk
+    if continueMain
+        then PBRgood (0, blk :| []) <$ insertBlock blk
+        -- Our next attempt is to start alternative chain.
+        else ifM (tryStartAltChain blk)
+                 (return $ PBRmore $ headerHash blk)
+                 (tryContinueAltChain blk)
 
-tryContinueBestChain :: Block -> Update Bool
+canContinueBestChain :: Block -> Query Bool
 -- We don't continue best chain with received genesis block. It is
 -- added automatically when last block in epoch is added.
 -- TODO: it's not done now actually.
-tryContinueBestChain (Left _) = pure False
-tryContinueBestChain blk = do
-    headBlk <- readerToState getHeadBlock
-    -- At this point we only need to check that block references head.
+canContinueBestChain (Left _) = pure False
+canContinueBestChain blk = do
+    headBlk <- getHeadBlock
+    -- At this point we only need to check that block references head
+    -- and is consistent with it.
     let vhe = def {vhePrevHeader = Just $ getBlockHeader headBlk}
     let vbp = def {vbpVerifyHeader = Just vhe}
-    let ok = isVerSuccess $ verifyBlock vbp blk
-    ok <$ when ok (insertBlock blk >> blkSetHead (headerHash blk))
+    return $ isVerSuccess $ verifyBlock vbp blk
 
 tryStartAltChain :: Block -> Update Bool
 tryStartAltChain (Left _) = pure False
 tryStartAltChain (Right blk) = do
     isMostDiff <- readerToState $ isMostDifficult (blk ^. gbHeader)
-    continuesMainChain <- (blk ^. prevBlockL ==) <$> use blkHead
     -- TODO: more checks should be done here probably
-    if isMostDiff && not continuesMainChain
+    if isMostDiff
         then True <$ startAltChain blk
         else pure False
 
+-- Here we know that block may represent a valid chain which
+-- potentially can become main chain. We put it into map with all
+-- blocks and add new AltChain.
 startAltChain :: MainBlock -> Update ()
-startAltChain blk = blkAltChains %= ((Right blk :| []) :)
+startAltChain blk = do
+    insertBlock $ Right blk
+    blkAltChains %= ((Right blk :| []) :)
+
+-- Here we try to continue one of known alternative chains. It may
+-- happen that common ancestor with main chain will be found. In this
+-- case we return PBRgood and expect `blkRollback` and `blkSetHeader`
+-- to be called.
+tryContinueAltChain :: Block -> Update ProcessBlockRes
+tryContinueAltChain = notImplemented
 
 -- | Set head of main blockchain to block which is guaranteed to
 -- represent valid chain and be stored in blkBlocks.

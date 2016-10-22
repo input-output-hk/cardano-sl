@@ -7,6 +7,7 @@ import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow,
                                             finally, throwM)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.TimeWarp.Logging  (WithNamedLogger, logWarning)
+import           Control.TimeWarp.Rpc      (MonadDialog, MonadTransfer)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Data.Binary               (Binary, decodeOrFail, encode)
 import qualified Data.ByteString           as BS
@@ -42,7 +43,8 @@ type DHTHandle = K.KademliaInstance DHTKey DHTData
 type KademliaDHTContext = (DHTHandle, DHTKey)
 
 newtype KademliaDHT m a = KademliaDHT (ReaderT KademliaDHTContext m a)
-    deriving (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadIO, MonadMask, WithNamedLogger, MonadTimed, MonadTrans)
+    deriving (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadIO,
+             MonadMask, WithNamedLogger, MonadTimed, MonadTrans, MonadTransfer, MonadDialog)
 
 type instance ThreadId (KademliaDHT m) = ThreadId m
 

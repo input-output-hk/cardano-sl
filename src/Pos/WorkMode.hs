@@ -21,7 +21,9 @@ import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow,
 import           Control.TimeWarp.Logging (LoggerName, LoggerNameBox, Severity,
                                            WithNamedLogger (..), initLogging,
                                            logInfo, usingLoggerName)
-import           Control.TimeWarp.Rpc     (ResponseT)
+import           Control.TimeWarp.Rpc     (BinaryDialog, MonadDialog,
+                                           MonadTransfer, ResponseT, Transfer,
+                                           runBinaryDialog, runTransfer)
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId, TimedIO,
                                            runTimedIO)
 import           Formatting               (build, sformat, (%))
@@ -46,6 +48,7 @@ type WorkMode m
       , MonadDB m
       , WithNodeContext m
       , MonadDHT m
+      , MonadDialog m
       )
 
 ----------------------------------------------------------------------------
@@ -54,7 +57,8 @@ type WorkMode m
 
 newtype DBHolder m a = DBHolder
     { getDBHolder :: ReaderT NodeState m a
-    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch, MonadMask, MonadIO, WithNamedLogger)
+    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
+               MonadMask, MonadIO, WithNamedLogger, MonadTransfer, MonadDialog)
 
 type instance ThreadId (DBHolder m) = ThreadId m
 
@@ -109,7 +113,8 @@ instance (Monad m, WithNodeContext m) =>
 
 newtype ContextHolder m a = ContextHolder
     { getContextHolder :: ReaderT NodeContext m a
-    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDB)
+    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow,
+               MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDB, MonadTransfer, MonadDialog)
 
 type instance ThreadId (ContextHolder m) = ThreadId m
 
@@ -148,7 +153,7 @@ data NodeParams = NodeParams
 ----------------------------------------------------------------------------
 
 -- | RealMode is an instance of WorkMode which can be used to really run system.
-type RealMode = KademliaDHT (ContextHolder (DBHolder (LoggerNameBox TimedIO)))
+type RealMode = KademliaDHT (ContextHolder (DBHolder (LoggerNameBox (BinaryDialog Transfer))))
 
 -- TODO: use bracket
 runRealMode :: NodeParams -> RealMode a -> IO a
@@ -181,7 +186,7 @@ runRealMode NodeParams {..} action = do
         }
     runCH :: Timestamp -> ContextHolder m a -> m a
     runCH startTime = flip runReaderT (ctx startTime) . getContextHolder
-    runTimed :: LoggerNameBox TimedIO a -> IO a
-    runTimed = runTimedIO . usingLoggerName npLoggerName
+    runTimed :: LoggerNameBox (BinaryDialog Transfer) a -> IO a
+    runTimed = runTimedIO . runTransfer . runBinaryDialog . usingLoggerName npLoggerName
     runDH :: NodeState -> DBHolder m a -> m a
     runDH db = flip runReaderT db . getDBHolder

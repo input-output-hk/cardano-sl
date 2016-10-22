@@ -1,20 +1,27 @@
 module Main where
 
 import           Control.Concurrent.Async (mapConcurrently)
-import           Control.TimeWarp.Logging (Severity (Error, Info))
+import           Control.TimeWarp.Logging (Severity (Error, Info), initLogging,
+                                           logInfo, usingLoggerName)
+import           Control.TimeWarp.Rpc     (ResponseT)
+import           Control.TimeWarp.Timed   (fork_, repeatForever, runTimedIO,
+                                           sec)
 import           Data.List                ((!!))
 import           Data.String              (fromString)
-import           Universum
-
-import           Pos.DHT                  (Peer (..))
+import           Formatting               (build, sformat, (%))
+import           Pos.DHT                  (DHTNode (..), DHTNodeType (..),
+                                           Peer (..), currentNodeKey,
+                                           getKnownPeers)
+import           Pos.DHT.Real             (KademliaDHT, runKademliaDHT)
 import           Pos.Genesis              (genesisSecretKeys,
                                            genesisVssKeyPairs)
 import           Pos.Launcher             (NodeParams (..), getCurTimestamp,
                                            runNodeReal)
 import           Pos.Slotting             (Timestamp)
+import           Universum
 
 
-runSingleNode :: Timestamp -> [Peer] -> Word16 -> IO ()
+runSingleNode :: Timestamp -> [DHTNode] -> Word16 -> IO ()
 runSingleNode start peers i = runNodeReal params
   where
     params =
@@ -23,17 +30,25 @@ runSingleNode start peers i = runNodeReal params
         , npRebuildDb = True
         , npSystemStart = Just start
         , npLoggerName = "node" <> fromString (show i)
-        , npLoggingSeverity = if i == 0 then Info else Error
-        , npSecretKey = genesisSecretKeys !! 0
-        , npVssKeyPair = genesisVssKeyPairs !! 0
+        , npLoggingSeverity = Info --if i == 0 then Info else Error
+        , npSecretKey = genesisSecretKeys !! (fromInteger . toInteger $ i)
+        , npVssKeyPair = genesisVssKeyPairs !! (fromInteger . toInteger $ i)
         , npPort = 1000 + i
-        , npDHTPort = 2000 + i
+        , npDHTPort = 2001 + i
         , npDHTPeers = peers
         }
 
 main :: IO ()
-main = do
-    let n = 3
-    systemStart <- getCurTimestamp
-    let peers = (\i -> Peer "127.0.0.1" $ 2000 + i) <$> [0 .. n - 1]
-    () <$ mapConcurrently (runSingleNode systemStart peers) [0 .. n - 1]
+main = do initLogging ["supporter"] Info
+          runTimed . runKademliaDHT DHTSupporter 2000 $ currentNodeKey >>= main''
+  where
+    runTimed = runTimedIO . usingLoggerName "supporter"
+    n = 3
+    main'' supporterKey = do
+      fork_ $ repeatForever (sec 30) (const . return $ sec 30) $ do
+        getKnownPeers >>= logInfo . sformat ("Known peers: " % build)
+      liftIO (main' supporterKey)
+    main' supporterKey = do
+      systemStart <- getCurTimestamp
+      let peers = [ DHTNode (Peer "127.0.0.1" 2000) supporterKey ]
+      () <$ mapConcurrently (runSingleNode systemStart peers) [0 .. n - 1]

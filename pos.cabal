@@ -17,6 +17,7 @@ library
                         Pos.Communication
                         Pos.Constants
                         Pos.DHT
+                        Pos.DHT.Real
                         Pos.FollowTheSatoshi
                         Pos.Genesis
                         Pos.Launcher
@@ -36,7 +37,6 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
-                        Pos.DHT.Real
                         Pos.State.Acidic
                         Pos.State.State
                         Pos.State.Storage

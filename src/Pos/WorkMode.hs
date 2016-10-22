@@ -28,8 +28,8 @@ import           Formatting               (build, sformat, (%))
 import           Pos.Crypto               (PublicKey, SecretKey, VssKeyPair,
                                            VssPublicKey, toPublic,
                                            toVssPublicKey)
-import           Pos.DHT                  (DHTException (..), DHTNodeType (..),
-                                           MonadDHT (..), Peer)
+import           Pos.DHT                  (DHTException (..), DHTNode,
+                                           DHTNodeType (..), MonadDHT (..))
 import           Pos.DHT.Real             (KademliaDHT, runKademliaDHT)
 import           Pos.Slotting             (MonadSlots (..), Timestamp (..),
                                            timestampF)
@@ -140,7 +140,7 @@ data NodeParams = NodeParams
     , npVssKeyPair      :: !VssKeyPair
     , npPort            :: !Word16
     , npDHTPort         :: !Word16
-    , npDHTPeers        :: ![Peer]
+    , npDHTPeers        :: ![DHTNode]
     } deriving (Show)
 
 ----------------------------------------------------------------------------

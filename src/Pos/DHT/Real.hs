@@ -6,12 +6,13 @@ module Pos.DHT.Real (KademliaDHT, runKademliaDHT) where
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow,
                                             finally, throwM)
 import           Control.Monad.Trans.Class (MonadTrans)
-import           Control.TimeWarp.Logging  (WithNamedLogger)
+import           Control.TimeWarp.Logging  (WithNamedLogger, logWarning)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Data.Binary               (Binary, decodeOrFail, encode)
 import qualified Data.ByteString           as BS
 import           Data.ByteString.Lazy      (fromStrict, toStrict)
 import           Data.Text                 (pack, unpack)
+import           Formatting                (sformat, shown, (%))
 import qualified Network.Kademlia          as K
 import           Pos.DHT                   (DHTData, DHTException (..), DHTKey,
                                             DHTNode (..), DHTNodeType (..),
@@ -58,15 +59,16 @@ startDHT type_ port = do
   key <- randomDHTKey type_
   liftIO $ (, key) <$> K.create (fromInteger . toInteger $ port) key
 
-instance (MonadIO m, MonadThrow m) => MonadDHT (KademliaDHT m) where
+instance (MonadIO m, MonadThrow m, WithNamedLogger m) => MonadDHT (KademliaDHT m) where
 
-  joinNetwork peers = do
+  joinNetwork [] = throwM AllPeersUnavailable
+  joinNetwork nodes = do
       inst <- KademliaDHT $ asks fst
-      asyncs <- mapM (liftIO . async . joinNetwork' inst) peers
-      liftIO (waitAnyUnexceptional asyncs) >>= handleRes
+      asyncs <- mapM (liftIO . async . joinNetwork' inst) nodes
+      waitAnyUnexceptional asyncs >>= handleRes
     where
       handleRes (Just _) = return ()
-      handleRes _ = throwM $ AllPeersUnavailable
+      handleRes _ = throwM AllPeersUnavailable
 
   discoverPeers type_ = do
     inst <- KademliaDHT $ asks fst
@@ -88,24 +90,25 @@ fromKPeer (K.Peer {..}) = Peer (pack peerHost) (fromInteger . toInteger $ peerPo
 toKPeer :: Peer -> K.Peer
 toKPeer (Peer {..}) = K.Peer (unpack peerHost) (fromInteger . toInteger $ peerPort)
 
--- TODO add logging
-joinNetwork' :: (MonadIO m, MonadThrow m) => DHTHandle -> Peer -> m ()
-joinNetwork' inst peer = do
-  let peer' = toKPeer peer
-  -- kademlia library has a little bit awkward interface, asking to provide Node instead of Peer (which is necessary), so we provide some random id with arbitrary type
-  node <- K.Node peer' <$> randomDHTKey DHTSupporter
-  res <- liftIO $ K.joinNetwork inst node
+-- TODO add TimedIO, WithLoggerName constraints and uncomment logging
+joinNetwork' :: (MonadIO m, MonadThrow m) => DHTHandle -> DHTNode -> m ()
+joinNetwork' inst node = do
+  let node' = K.Node (toKPeer $ dhtPeer node) (dhtNodeId node)
+  res <- liftIO $ K.joinNetwork inst node'
   case res of
     K.JoinSucces -> return ()
     K.NodeDown -> throwM NodeDown
-    K.IDClash -> throwM IDClash
+    K.IDClash -> return () --logInfo $ sformat ("joinNetwork: node " % build % " already contains us") node
+
 
 -- TODO move to serokell-core ?
-waitAnyUnexceptional :: [Async a] -> IO (Maybe (Async a, a))
-waitAnyUnexceptional asyncs = waitAnyCatch asyncs >>= handleRes
+waitAnyUnexceptional :: (MonadIO m, WithNamedLogger m) => [Async a] -> m (Maybe (Async a, a))
+waitAnyUnexceptional asyncs = liftIO (waitAnyCatch asyncs) >>= handleRes
   where
     handleRes (async', Right res) = return $ Just (async', res)
-    handleRes (async', Left _) = if null asyncs'
-                                    then return Nothing
-                                    else waitAnyUnexceptional asyncs'
+    handleRes (async', Left e) = do
+      logWarning $ sformat ("waitAnyUnexceptional: caught error " % shown) e
+      if null asyncs'
+         then return Nothing
+         else waitAnyUnexceptional asyncs'
       where asyncs' = filter (/= async') asyncs

@@ -11,13 +11,17 @@ module Pos.Launcher
        , runNodeReal
        ) where
 
-import           Control.TimeWarp.Timed (currentTime, runTimedIO)
+import           Control.TimeWarp.Timed   (currentTime, runTimedIO)
 import           Universum
 
-import           Pos.Communication      (serve)
-import           Pos.Slotting           (Timestamp (Timestamp))
-import           Pos.Worker             (runWorkers)
-import           Pos.WorkMode           (NodeParams (..), WorkMode, runRealMode)
+import           Control.TimeWarp.Logging (logInfo)
+import           Formatting               (build, sformat, (%))
+import           Pos.Communication        (serve)
+import           Pos.DHT                  (DHTNodeType (..), discoverPeers)
+import           Pos.Slotting             (Timestamp (Timestamp))
+import           Pos.Worker               (runWorkers)
+import           Pos.WorkMode             (NodeParams (..), WorkMode,
+                                           runRealMode)
 
 -- | Get current time as Timestamp. It is intended to be used when you
 -- launch the first node. It doesn't make sense in emulation mode.
@@ -27,6 +31,9 @@ getCurTimestamp = Timestamp <$> runTimedIO currentTime
 -- | Run full node in any WorkMode.
 runNode :: WorkMode m => m ()
 runNode = do
+    peers <- discoverPeers DHTFull
+    logInfo $ sformat ("Known peers: " % build) peers
+
     runWorkers
     serve
 

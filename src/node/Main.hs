@@ -25,7 +25,5 @@ main = runNodeReal params
         , npVssKeyPair = genesisVssKeyPairs !! 0
         , npPort = 1000
         , npDHTPort = 2000
-        , npDHTPeers = [ Peer "127.0.0.1" (2000 :: Word16)
-                       , Peer "127.0.0.1" (2001 :: Word16)
-                       ]
+        , npDHTPeers = []
         }

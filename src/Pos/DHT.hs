@@ -7,15 +7,18 @@ module Pos.DHT (
   randomDHTKey, dhtNodeType
 ) where
 
-import           Control.TimeWarp.Rpc (ResponseT)
-import           Data.Binary          (Binary)
-import qualified Data.ByteString      as BS
-import           Data.Text.Buildable  (Buildable (..))
-import           Pos.Crypto.Random    (secureRandomBS)
-import           Serokell.Util.Text   (listBuilderJSON)
-import           Universum
+import           Control.TimeWarp.Rpc   (ResponseT)
+import           Data.Binary            (Binary)
+import qualified Data.ByteString        as BS
+import           Data.Text.Buildable    (Buildable (..))
+import           Data.Text.Lazy         (unpack)
+import           Data.Text.Lazy.Builder (toLazyText)
+import           Pos.Crypto.Random      (secureRandomBS)
+import           Prelude                (show)
+import           Serokell.Util.Text     (listBuilderJSON)
+import           Universum              hiding (show)
 
-import qualified Serokell.Util.Base64 as B64
+import qualified Serokell.Util.Base64   as B64
 
 data Peer = Peer { peerHost :: Text
                  , peerPort :: Word16
@@ -46,6 +49,9 @@ instance Buildable DHTKey where
       buildType Nothing = build ("<Unknown type>" :: Text)
       buildType (Just s) = build s
 
+instance Show DHTKey where
+  show = unpack . toLazyText . build
+
 -- Node type is determined by first byte of key
 data DHTNodeType
   -- node which participates only in supporting DHT, i.e. not a part of PoS communication
@@ -57,7 +63,7 @@ data DHTNodeType
   deriving (Eq, Ord, Show)
 
 instance Buildable DHTNodeType where
-  build = build . (show :: DHTNodeType -> Text)
+  build = build . show
 
 dhtNodeType :: DHTKey -> Maybe DHTNodeType
 dhtNodeType (DHTKey bs) = impl $ BS.head bs
@@ -78,6 +84,7 @@ randomDHTKey type_ = (DHTKey . BS.cons (typeByte type_)) <$> secureRandomBS 19
 data DHTNode = DHTNode { dhtPeer   :: Peer
                        , dhtNodeId :: DHTKey
                        }
+  deriving Show
 instance Buildable DHTNode where
   build (DHTNode p key)
     = build key
@@ -89,13 +96,13 @@ instance Buildable DHTNode where
 instance Buildable [DHTNode] where
   build = listBuilderJSON
 
-data DHTException = IDClash | NodeDown | AllPeersUnavailable
+data DHTException = NodeDown | AllPeersUnavailable
   deriving (Show, Typeable)
 
 instance Exception DHTException
 
 class Monad m => MonadDHT m where
-  joinNetwork :: [Peer] -> m ()
+  joinNetwork :: [DHTNode] -> m ()
 
   -- Peer discovery: query DHT for random key
   -- Processing request, node will discover few other nodes

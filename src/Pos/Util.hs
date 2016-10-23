@@ -48,6 +48,7 @@ import qualified Data.Vector                   as V
 import           Language.Haskell.TH
 import           Serokell.Util                 (VerificationRes)
 import           Universum
+import           Unsafe                        (unsafeInit, unsafeLast)
 
 import           Serokell.Util.Binary          as Binary (decodeFull)
 
@@ -147,6 +148,10 @@ _neHead f (x :| xs) = (:| xs) <$> f x
 
 _neTail :: Lens' (NonEmpty a) [a]
 _neTail f (x :| xs) = (x :|) <$> f xs
+
+_neLast :: Lens' (NonEmpty a) a
+_neLast f (x :| []) = (:| []) <$> f x
+_neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
 
 -- TODO: we should try to get this one into safecopy itself though it's
 -- unlikely that they will choose a different implementation (if they do

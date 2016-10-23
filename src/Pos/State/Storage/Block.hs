@@ -41,15 +41,15 @@ import           Pos.Constants           (k)
 import           Pos.Crypto              (PublicKey, hash)
 import           Pos.Genesis             (genesisLeaders)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
-import           Pos.Types               (Block, ChainDifficulty, EpochIndex, HeaderHash,
-                                          MainBlock, MainBlockHeader, SlotId (..),
-                                          SlotLeaders, VerifyBlockParams (..),
-                                          VerifyHeaderExtra (..), blockHeader,
-                                          blockLeaders, blockSlot, difficultyL, gbHeader,
-                                          getBlockHeader, headerHash, headerSlot,
-                                          mkGenesisBlock, prevBlockL, siEpoch,
-                                          verifyBlock, verifyHeader)
-import           Pos.Util                (readerToState)
+import           Pos.Types               (Block, BlockHeader, ChainDifficulty, EpochIndex,
+                                          HeaderHash, MainBlock, MainBlockHeader,
+                                          SlotId (..), SlotLeaders,
+                                          VerifyBlockParams (..), VerifyHeaderExtra (..),
+                                          blockHeader, blockLeaders, blockSlot,
+                                          difficultyL, gbHeader, getBlockHeader,
+                                          headerHash, headerSlot, mkGenesisBlock,
+                                          prevBlockL, siEpoch, verifyBlock, verifyHeader)
+import           Pos.Util                (readerToState, _neHead, _neLast)
 
 data BlockStorage = BlockStorage
     { -- | All blocks known to the node. Blocks have pointers to other
@@ -304,7 +304,37 @@ removeIth i xs =
 -- chain. Note that it's only a query, so actual merge won't be
 -- performed.
 tryMergeAltChainDo :: AltChain -> Query (Maybe Word)
-tryMergeAltChainDo = notImplemented
+tryMergeAltChainDo altChain = do
+    let altChainDifficulty = altChain ^. _neLast . difficultyL
+    isHardest <- (altChainDifficulty >) . view difficultyL <$> getHeadBlock
+    if not isHardest
+        then return Nothing
+        else do
+            rollback <- findRollback k (altChain ^. _neHead . prevBlockL)
+            case rollback of
+                Nothing -> return Nothing
+                Just x ->
+                    ifM
+                        (testMergeAltChain x altChain)
+                        (return rollback)
+                        (return Nothing)
+
+findRollback :: Word -> HeaderHash -> Query (Maybe Word)
+findRollback maxDepth neededParent =
+    findRollbackDo 0 . getBlockHeader =<< getHeadBlock
+  where
+    findRollbackDo :: Word -> BlockHeader -> Query (Maybe Word)
+    findRollbackDo res header
+        | res > maxDepth = pure Nothing
+        | headerHash header == neededParent = pure . pure $ res
+        | otherwise =
+            maybe (pure Nothing) (findRollbackDo (res + 1) . getBlockHeader) =<<
+            getBlock (headerHash header)
+
+-- Before reporting that AltChain can be merged, we verify whole
+-- result to be sure that nothing went wrong.
+testMergeAltChain :: Word -> AltChain -> Query Bool
+testMergeAltChain toRollback chain = undefined
 
 -- | Set head of main blockchain to block which is guaranteed to
 -- represent valid chain and be stored in blkBlocks.

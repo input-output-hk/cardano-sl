@@ -19,6 +19,7 @@ module Pos.State.Storage.Block
        , getLeaders
        , mayBlockBeUseful
 
+       , blkCleanUp
        , blkProcessBlock
        , blkRollback
        , blkSetHead
@@ -53,7 +54,6 @@ import           Pos.Util                (readerToState)
 data BlockStorage = BlockStorage
     { -- | All blocks known to the node. Blocks have pointers to other
       -- blocks and can be easily traversed.
-      -- TODO: currently no garbage collection or whatever cleaning is done.
       _blkBlocks        :: !(HashMap HeaderHash Block)
     , -- | Hashes of genesis blocks in the __best chain__.
       _blkGenesisBlocks :: !(Vector HeaderHash)
@@ -319,3 +319,9 @@ blkRollback :: Word -> Update ()
 blkRollback =
     blkSetHead . maybe genesisBlock0Hash (hash . getBlockHeader) <=<
     readerToState . getBlockByDepth
+
+-- | Remove obsolete cached blocks, alternative chains which are
+-- definitely useless, etc.
+-- TODO
+blkCleanUp :: SlotId -> Update ()
+blkCleanUp _ = blkBlocks %= identity

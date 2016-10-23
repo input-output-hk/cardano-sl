@@ -37,8 +37,8 @@ import           Universum
 
 import           Pos.Crypto              (PublicKey, Share)
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
-                                          blkProcessBlock, blkRollback, blkSetHead,
-                                          getBlock, getHeadBlock, getLeaders,
+                                          blkCleanUp, blkProcessBlock, blkRollback,
+                                          blkSetHead, getBlock, getHeadBlock, getLeaders,
                                           mayBlockBeUseful)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage,
                                           mpcApplyBlocks, mpcProcessCommitment,
@@ -123,7 +123,9 @@ processNewSlot sId = do
 
 -- TODO
 processNewSlotDo :: SlotId -> Update ()
-processNewSlotDo sId = slotId .= sId
+processNewSlotDo sId = do
+    slotId .= sId
+    blkCleanUp sId
 
 processCommitment :: PublicKey -> (Commitment, CommitmentSignature) -> Update ()
 processCommitment = mpcProcessCommitment

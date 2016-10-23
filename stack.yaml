@@ -35,6 +35,9 @@ packages:
     commit: 996951c97f97d734ec7cea05e72620eaabfc72f3
   extra-dep: true
 
+nix:
+  enable: false
+  shell-file: shell.nix
 extra-deps:
 - pqueue-1.3.2
 - time-units-1.0.0

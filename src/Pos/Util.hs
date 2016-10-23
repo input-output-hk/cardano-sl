@@ -21,6 +21,7 @@ module Pos.Util
        -- * Lenses
        , makeLensesData
        , _neHead
+       , _neTail
        , zoom'
 
        -- * Instances
@@ -143,6 +144,9 @@ makeLensesData familyName typeParamName = do
 -- Even if we could though, it wouldn't be a lens, only a traversal.
 _neHead :: Lens' (NonEmpty a) a
 _neHead f (x :| xs) = (:| xs) <$> f x
+
+_neTail :: Lens' (NonEmpty a) [a]
+_neTail f (x :| xs) = (x :|) <$> f xs
 
 -- TODO: we should try to get this one into safecopy itself though it's
 -- unlikely that they will choose a different implementation (if they do

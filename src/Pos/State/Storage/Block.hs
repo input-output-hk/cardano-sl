@@ -48,7 +48,8 @@ import           Pos.Types               (Block, BlockHeader, ChainDifficulty, E
                                           blockHeader, blockLeaders, blockSlot,
                                           difficultyL, gbHeader, getBlockHeader,
                                           headerHash, headerSlot, mkGenesisBlock,
-                                          prevBlockL, siEpoch, verifyBlock, verifyHeader)
+                                          prevBlockL, siEpoch, verifyBlock, verifyBlocks,
+                                          verifyHeader)
 import           Pos.Util                (readerToState, _neHead, _neLast)
 
 data BlockStorage = BlockStorage
@@ -334,7 +335,30 @@ findRollback maxDepth neededParent =
 -- Before reporting that AltChain can be merged, we verify whole
 -- result to be sure that nothing went wrong.
 testMergeAltChain :: Word -> AltChain -> Query Bool
-testMergeAltChain toRollback chain = undefined
+testMergeAltChain toRollback altChain =
+    isVerSuccess . verifyBlocks . (++ toList altChain) <$> blocksToTestMerge toRollback
+
+-- This function collects all blocks from main chain which must be
+-- included into sequence of blocks further passed to verifyBlocks.
+-- We need to include genesis block for epoch where merge happens, so that
+-- verification function can check leaders.
+blocksToTestMerge :: Word -> Query [Block]
+blocksToTestMerge toRollback =
+    fmap reverse . blocksToTestMergeDo . fromMaybe doPanic =<<
+    getBlockByDepth toRollback
+  where
+    doPanic = panic "blocksToTestMerge: attempt to rollback too much"
+
+-- We know common ancestor, now we need to reach genesis block.
+blocksToTestMergeDo :: Block -> Query [Block]
+blocksToTestMergeDo commonAncestor =
+    case commonAncestor of
+        Left _ -> pure [commonAncestor]
+        Right _ -> do
+            prevBlock <- getBlock $ commonAncestor ^. prevBlockL
+            case prevBlock of
+                Nothing  -> panic "impossible happened in blocksToTestMergeDo"
+                Just blk -> (commonAncestor :) <$> blocksToTestMergeDo blk
 
 -- | Set head of main blockchain to block which is guaranteed to
 -- represent valid chain and be stored in blkBlocks.

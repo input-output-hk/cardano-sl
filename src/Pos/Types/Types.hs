@@ -112,6 +112,7 @@ module Pos.Types.Types
        , VerifyBlockParams (..)
        , VerifyHeaderExtra (..)
        , verifyBlock
+       , verifyBlocks
        , verifyGenericBlock
        -- , verifyGenericHeader
        , verifyHeader
@@ -925,6 +926,11 @@ verifyBlock VerifyBlockParams {..} blk =
         if vbpVerifyGeneric
             then either verifyGenericBlock verifyGenericBlock blk
             else mempty
+
+-- | Verify sequence of blocks. It is assumed that the leftmost block
+-- is the oldest one.
+verifyBlocks :: Foldable f => f Block -> VerificationRes
+verifyBlocks = const mempty
 
 ----------------------------------------------------------------------------
 -- SafeCopy instances

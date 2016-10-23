@@ -354,4 +354,7 @@ blkRollback =
 -- definitely useless, etc.
 -- TODO
 blkCleanUp :: SlotId -> Update ()
-blkCleanUp _ = blkBlocks %= identity
+blkCleanUp _ = do
+    headDifficulty <- view difficultyL <$> readerToState getHeadBlock
+    blkAltChains %= (filter $ (> headDifficulty) . view (_neLast . difficultyL))
+    blkBlocks %= identity  -- TODO

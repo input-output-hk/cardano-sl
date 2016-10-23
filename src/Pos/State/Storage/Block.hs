@@ -24,11 +24,12 @@ module Pos.State.Storage.Block
        , blkSetHead
        ) where
 
-import           Control.Lens            (at, ix, makeClassy, preview, view, views, (%=),
-                                          (.=), (<~), (^.), (^?))
+import           Control.Lens            (at, ix, makeClassy, preview, use, uses, view,
+                                          views, (%=), (.=), (<~), (^.), (^?))
 import           Data.Default            (Default, def)
 import qualified Data.HashMap.Strict     as HM
-import           Data.List.NonEmpty      (NonEmpty ((:|)))
+import           Data.List               ((!!))
+import           Data.List.NonEmpty      (NonEmpty ((:|)), (<|))
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Data.Vector             (Vector)
 import           Serokell.Util.Verify    (VerificationRes (..), isVerFailure,
@@ -52,6 +53,7 @@ import           Pos.Util                (readerToState)
 data BlockStorage = BlockStorage
     { -- | All blocks known to the node. Blocks have pointers to other
       -- blocks and can be easily traversed.
+      -- TODO: currently no garbage collection or whatever cleaning is done.
       _blkBlocks        :: !(HashMap HeaderHash Block)
     , -- | Hashes of genesis blocks in the __best chain__.
       _blkGenesisBlocks :: !(Vector HeaderHash)
@@ -238,12 +240,71 @@ startAltChain blk = do
     insertBlock $ Right blk
     blkAltChains %= ((Right blk :| []) :)
 
+pbrUseless :: ProcessBlockRes
+pbrUseless = (mkPBRabort ["block can't be added to any chain"])
+
 -- Here we try to continue one of known alternative chains. It may
 -- happen that common ancestor with main chain will be found. In this
 -- case we return PBRgood and expect `blkRollback` and `blkSetHeader`
 -- to be called.
 tryContinueAltChain :: Block -> Update ProcessBlockRes
-tryContinueAltChain = notImplemented
+tryContinueAltChain blk = do
+    n <- length <$> use blkAltChains
+    foldM go pbrUseless ([0 .. n - 1] :: Vector Int)
+  where
+    go :: ProcessBlockRes -> Int -> Update ProcessBlockRes
+    -- PBRgood means that chain can be merged into main chain.
+    -- In this case we stop processing.
+    go good@(PBRgood _) _ = pure good
+    -- PBRmore means that block has been added to at least one
+    -- alternative chain, we return PBRmore, but try to add it to
+    -- other chains as well.
+    go more@(PBRmore _) i =  more <$ tryContinueAltChainDo blk i
+    -- PBRabort means that we didn't add block to alternative
+    -- chains. In this case we just go further and try another chain.
+    go (PBRabort _) i     = tryContinueAltChainDo blk i
+
+-- Here we actually try to continue concrete AltChain (given its index).
+tryContinueAltChainDo :: Block -> Int -> Update ProcessBlockRes
+tryContinueAltChainDo blk i = do
+    -- We only need to check that block can be previous block of the
+    -- head of alternative chain.
+    (altChainBlk :| _) <- uses blkAltChains (!! i)
+    let vhe = def {vheNextHeader = Just $ altChainBlk ^. blockHeader}
+    let vbp = def {vbpVerifyHeader = Just vhe}
+    if isVerSuccess $ verifyBlock vbp blk
+        then continueAltChain blk i
+        else pure pbrUseless
+
+-- Here we know that block is a good continuation of i-th chain.
+continueAltChain :: Block -> Int -> Update ProcessBlockRes
+continueAltChain blk i = do
+    blkAltChains . ix i %= (blk <|)
+    maybe (PBRmore $ headerHash blk) PBRgood <$> tryMergeAltChain i
+
+-- Try to merge alternative chain into the main chain.
+-- On success number of blocks to rollback is returned, as well as chain which can be merged.
+-- Note that it doesn't actually merge chain, more checks are required before merge.
+tryMergeAltChain :: Int -> Update (Maybe (Word, AltChain))
+tryMergeAltChain i = do
+    altChain <- uses blkAltChains (!! i)
+    toRollback <- readerToState $ tryMergeAltChainDo altChain
+    case toRollback of
+        Nothing -> return Nothing
+        -- Note that it's safe to remove i-th element here, because we stop
+        -- at the first `PBRgood`. This is fragile though.
+        Just x  -> Just (x, altChain) <$ (blkAltChains %= removeIth i)
+
+removeIth :: Int -> [x] -> [x]
+removeIth i xs =
+    let (l, (_:r)) = splitAt i xs
+    in l ++ r
+
+-- Here we actually try to merge alternative chain into main
+-- chain. Note that it's only a query, so actual merge won't be
+-- performed.
+tryMergeAltChainDo :: AltChain -> Query (Maybe Word)
+tryMergeAltChainDo = notImplemented
 
 -- | Set head of main blockchain to block which is guaranteed to
 -- represent valid chain and be stored in blkBlocks.

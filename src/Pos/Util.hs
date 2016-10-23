@@ -22,6 +22,7 @@ module Pos.Util
        , makeLensesData
        , _neHead
        , _neTail
+       , _neLast
        , zoom'
 
        -- * Instances

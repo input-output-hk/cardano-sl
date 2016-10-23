@@ -24,7 +24,8 @@ module Pos.State.Storage.Mpc
        , mpcVerifyBlocks
        ) where
 
-import           Control.Lens            (Lens', makeClassy, to, use, view, (%=), (^.))
+import           Control.Lens            (Lens', makeClassy, to, use, view, (%=), (.=),
+                                          (^.))
 import           Data.Default            (Default, def)
 import           Data.Hashable           (Hashable)
 import qualified Data.HashMap.Strict     as HM
@@ -370,28 +371,39 @@ mpcRollback (fromIntegral -> n) = do
     mpcVersioned %= (fromMaybe (def :| []) . NE.nonEmpty . NE.drop n)
 
 mpcProcessBlock :: Block -> Update ()
--- We don't have to process genesis blocks as full nodes always generate them
--- by themselves
-mpcProcessBlock (Left _) = return ()
--- Main blocks contain commitments, openings, shares, VSS certificates
-mpcProcessBlock (Right b) = do
-    let blockCommitments  = b ^. gbBody . to mbCommitments
-        blockOpenings     = b ^. gbBody . to mbOpenings
-        blockShares       = b ^. gbBody . to mbShares
-        blockCertificates = b ^. gbBody . to mbVssCertificates
-    zoom' lastVer $ do
-        -- commitments
-        mpcGlobalCommitments %= HM.union blockCommitments
-        mpcLocalCommitments  %= (`HM.difference` blockCommitments)
-        -- openings
-        mpcGlobalOpenings %= HM.union blockOpenings
-        mpcLocalOpenings  %= (`HM.difference` blockOpenings)
-        -- shares
-        mpcGlobalShares %= HM.unionWith HM.union blockShares
-        mpcLocalShares  %= (`diffDoubleMap` blockShares)
-        -- VSS certificates
-        mpcGlobalCertificates %= HM.union blockCertificates
-        mpcLocalCertificates  %= (`HM.difference` blockCertificates)
+mpcProcessBlock blk = do
+    lv <- use lastVer
+    mpcVersioned %= NE.cons lv
+    case blk of
+        -- Genesis blocks don't contain anything interesting, but when they
+        -- “arrive”, we clear global commitments and other globals. Not
+        -- certificates, though, because we don't want to make nodes resend
+        -- them in each epoch.
+        Left _ -> do
+            zoom' lastVer $ do
+                mpcGlobalCommitments .= mempty
+                mpcGlobalOpenings    .= mempty
+                mpcGlobalShares      .= mempty
+        -- Main blocks contain commitments, openings, shares, VSS certificates
+        Right b -> do
+            let blockCommitments  = b ^. gbBody . to mbCommitments
+                blockOpenings     = b ^. gbBody . to mbOpenings
+                blockShares       = b ^. gbBody . to mbShares
+                blockCertificates = b ^. gbBody . to mbVssCertificates
+            zoom' lastVer $ do
+                -- commitments
+                mpcGlobalCommitments %= HM.union blockCommitments
+                mpcLocalCommitments  %= (`HM.difference` blockCommitments)
+                -- openings
+                mpcGlobalOpenings %= HM.union blockOpenings
+                mpcLocalOpenings  %= (`HM.difference` blockOpenings)
+                -- shares
+                mpcGlobalShares %= HM.unionWith HM.union blockShares
+                mpcLocalShares  %= (`diffDoubleMap` blockShares)
+                -- VSS certificates
+                mpcGlobalCertificates %= HM.union blockCertificates
+                mpcLocalCertificates  %= (`HM.difference` blockCertificates)
+
 
 -- | Remove elements in 'b' from 'a'
 diffDoubleMap

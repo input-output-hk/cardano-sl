@@ -21,8 +21,10 @@ module Pos.State.Storage
        , addTx
        , processBlock
        , processNewSlot
-       , processOpening
        , processCommitment
+       , processOpening
+       , processShares
+       , processVssCertificate
        ) where
 
 import           Control.Lens            (makeClassy, use, (.=))
@@ -33,19 +35,20 @@ import           Serokell.AcidState      ()
 import           Serokell.Util           (VerificationRes (..))
 import           Universum
 
-import           Pos.Crypto              (PublicKey)
+import           Pos.Crypto              (PublicKey, Share)
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
                                           blkProcessBlock, blkRollback, blkSetHead,
                                           getBlock, getHeadBlock, getLeaders,
                                           mayBlockBeUseful)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage,
                                           mpcApplyBlocks, mpcProcessCommitment,
-                                          mpcProcessOpening, mpcRollback, mpcVerifyBlock,
-                                          mpcVerifyBlocks)
+                                          mpcProcessOpening, mpcProcessShares,
+                                          mpcProcessVssCertificate, mpcRollback,
+                                          mpcVerifyBlock, mpcVerifyBlocks)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, addTx)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature, Opening,
-                                          SlotId, unflattenSlotId)
+                                          SlotId, VssCertificate, unflattenSlotId)
 import           Pos.Util                (readerToState)
 
 type Query  a = forall m . MonadReader Storage m => m a
@@ -122,8 +125,14 @@ processNewSlot sId = do
 processNewSlotDo :: SlotId -> Update ()
 processNewSlotDo sId = slotId .= sId
 
+processCommitment :: PublicKey -> (Commitment, CommitmentSignature) -> Update ()
+processCommitment = mpcProcessCommitment
+
 processOpening :: PublicKey -> Opening -> Update ()
 processOpening = mpcProcessOpening
 
-processCommitment :: PublicKey -> (Commitment, CommitmentSignature) -> Update ()
-processCommitment = mpcProcessCommitment
+processShares :: PublicKey -> HashMap PublicKey Share -> Update ()
+processShares = mpcProcessShares
+
+processVssCertificate :: PublicKey -> VssCertificate -> Update ()
+processVssCertificate = mpcProcessVssCertificate

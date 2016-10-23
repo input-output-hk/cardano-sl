@@ -21,8 +21,10 @@ module Pos.State.State
        , addTx
        , processBlock
        , processNewSlot
-       , processOpening
        , processCommitment
+       , processOpening
+       , processShares
+       , processVssCertificate
        ) where
 
 import           Control.TimeWarp.Rpc (ResponseT)
@@ -30,14 +32,14 @@ import           Data.Acid            (EventResult, EventState, QueryEvent, Upda
 import           Serokell.Util        (VerificationRes)
 import           Universum
 
-import           Pos.Crypto           (PublicKey)
+import           Pos.Crypto           (PublicKey, Share)
 import           Pos.Slotting         (MonadSlots, getCurrentSlot)
 import           Pos.State.Acidic     (DiskState, tidyState)
 import qualified Pos.State.Acidic     as A
 import           Pos.State.Storage    (ProcessBlockRes (..), Storage)
 import           Pos.Types            (Block, Commitment, CommitmentSignature, EpochIndex,
                                        HeaderHash, MainBlockHeader, Opening, SlotId,
-                                       SlotLeaders, Tx)
+                                       SlotLeaders, Tx, VssCertificate)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState
@@ -118,18 +120,22 @@ processNewSlot = updateDisk . A.ProcessNewSlot
 processBlock :: WorkModeDB m => SlotId -> Block -> m ProcessBlockRes
 processBlock si = updateDisk . A.ProcessBlock si
 
--- | Result = whether the opening was valid
-processOpening
-    :: WorkModeDB m
-    => PublicKey -> Opening -> m Bool
-processOpening pk o = do
-    updateDisk $ A.ProcessOpening pk o
-    return True
-
--- | Result = whether the commitment was valid
 processCommitment
     :: WorkModeDB m
-    => PublicKey -> (Commitment, CommitmentSignature) -> m Bool
-processCommitment pk c = do
-    updateDisk $ A.ProcessCommitment pk c
-    return True
+    => PublicKey -> (Commitment, CommitmentSignature) -> m ()
+processCommitment pk c = updateDisk $ A.ProcessCommitment pk c
+
+processOpening
+    :: WorkModeDB m
+    => PublicKey -> Opening -> m ()
+processOpening pk o = updateDisk $ A.ProcessOpening pk o
+
+processShares
+    :: WorkModeDB m
+    => PublicKey -> HashMap PublicKey Share -> m ()
+processShares pk s = updateDisk $ A.ProcessShares pk s
+
+processVssCertificate
+    :: WorkModeDB m
+    => PublicKey -> VssCertificate -> m ()
+processVssCertificate pk c = updateDisk $ A.ProcessVssCertificate pk c

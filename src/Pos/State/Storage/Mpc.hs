@@ -17,12 +17,14 @@ module Pos.State.Storage.Mpc
        , mpcApplyBlocks
        , mpcProcessCommitment
        , mpcProcessOpening
+       , mpcProcessShares
+       , mpcProcessVssCertificate
        , mpcRollback
        , mpcVerifyBlock
        , mpcVerifyBlocks
        ) where
 
-import           Control.Lens            (Lens', makeClassy, to, view, (%=), (^.))
+import           Control.Lens            (Lens', makeClassy, to, use, view, (%=), (^.))
 import           Data.Default            (Default, def)
 import           Data.Hashable           (Hashable)
 import qualified Data.HashMap.Strict     as HM
@@ -323,22 +325,36 @@ mpcVerifyBlocks toRollback blocks = do
             return v
         return (fold vs)
 
--- TODO: checks can happen anywhere but we must have a *clear* policy on
--- where checks are happening, to prevent the situation when they are, well,
--- not happening anywhere at all.
-
-mpcProcessOpening :: PublicKey -> Opening -> Update ()
-mpcProcessOpening pk o = do
-    -- TODO: should it be ignored if it's in mpcGlobalOpenings?
-    lastVer . mpcLocalOpenings %= HM.insert pk o
-
 mpcProcessCommitment
     :: PublicKey -> (Commitment, CommitmentSignature) -> Update ()
-mpcProcessCommitment pk c = do
-    -- TODO: should it be ignored if it's in mpcGlobalCommitments?
-    lastVer . mpcLocalCommitments %= HM.insert pk c
+mpcProcessCommitment pk c = zoom' lastVer $ do
+    -- TODO: do I understand correctly that if we receive several different
+    -- commitments from the same node we can just pick one arbitrarily? (Here
+    -- we choose the last one.)
+    unlessM (HM.member pk <$> use mpcGlobalCommitments) $ do
+        mpcLocalCommitments %= HM.insert pk c
 
--- TODO: add mpcProcessCertificate
+mpcProcessOpening :: PublicKey -> Opening -> Update ()
+mpcProcessOpening pk o = zoom' lastVer $ do
+    -- TODO: add 'mpcVerifyOpening' and use it; move the 'unlessM' check there
+    unlessM (HM.member pk <$> use mpcGlobalOpenings) $ do
+        mpcLocalOpenings %= HM.insert pk o
+
+mpcProcessShares :: PublicKey -> HashMap PublicKey Share -> Update ()
+mpcProcessShares pk s = zoom' lastVer $ do
+    -- TODO: we accept shares that we already have (but don't add them to
+    -- local shares) because someone who sent us those shares might not be
+    -- aware of the fact that they are already in the blockchain. On the
+    -- other hand, now nodes can send us huge spammy messages and we can't
+    -- ban them for that. On the third hand, is this a concern?
+    globalSharesForPK <- HM.lookupDefault mempty pk <$> use mpcGlobalShares
+    let s' = s `HM.difference` globalSharesForPK
+    mpcLocalShares %= HM.insertWith HM.union pk s'
+
+mpcProcessVssCertificate :: PublicKey -> VssCertificate -> Update ()
+mpcProcessVssCertificate pk c = zoom' lastVer $ do
+    unlessM (HM.member pk <$> use mpcGlobalCertificates) $ do
+        mpcLocalCertificates %= HM.insert pk c
 
 -- | Apply sequence of blocks to state. Sequence must be based on last
 -- applied block and must be valid.

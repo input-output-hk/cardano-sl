@@ -10,11 +10,11 @@ module Pos.Communication.Types.Block
        , RequestBlock (..)
        ) where
 
-import           Control.TimeWarp.Rpc (mkMessage, mkRequest')
 import           Data.Binary          (Binary)
 import           Data.MessagePack     (MessagePack)
 import           Universum
 
+import           Control.TimeWarp.Rpc (Message (..))
 import           Pos.Types            (Block, HeaderHash, MainBlockHeader)
 
 -- | Message: some node has sent a Block.
@@ -40,9 +40,17 @@ instance MessagePack SendBlock
 instance MessagePack SendBlockHeader
 instance MessagePack RequestBlock
 
--- Currently we use 'Void' as the “exception” type, this should be replaced.
-mkMessage ''Void
+instance Message SendBlock where
+    messageName _ = "SendBlock"
 
+instance Message SendBlockHeader where
+    messageName _ = "SendBlockHeader"
+
+instance Message RequestBlock where
+    messageName _ = "RequestBlock"
+
+{-
 mkRequest' ''SendBlock ''() ''Void
 mkRequest' ''SendBlockHeader ''() ''Void
 mkRequest' ''RequestBlock ''() ''Void
+-}

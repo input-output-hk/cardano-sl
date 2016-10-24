@@ -151,7 +151,7 @@ data NodeParams = NodeParams
 ----------------------------------------------------------------------------
 
 -- | RealMode is an instance of WorkMode which can be used to really run system.
-type RealMode = KademliaDHT (ContextHolder (DBHolder (LoggerNameBox (BinaryDialog Transfer))))
+type RealMode = KademliaDHT (ContextHolder (DBHolder ((BinaryDialog Transfer))))
 
 -- TODO: use bracket
 runRealMode :: NodeParams -> RealMode a -> IO a
@@ -190,7 +190,7 @@ runRealMode NodeParams {..} action = do
         }
     runCH :: Timestamp -> ContextHolder m a -> m a
     runCH startTime = flip runReaderT (ctx startTime) . getContextHolder
-    runTimed :: LoggerNameBox (BinaryDialog Transfer) a -> IO a
-    runTimed = runTimedIO . runTransfer . runBinaryDialog . usingLoggerName npLoggerName
+    runTimed :: BinaryDialog Transfer a -> IO a
+    runTimed = runTimedIO . usingLoggerName npLoggerName . runTransfer . runBinaryDialog
     runDH :: NodeState -> DBHolder m a -> m a
     runDH db = flip runReaderT db . getDBHolder

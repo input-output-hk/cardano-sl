@@ -9,7 +9,7 @@ module Pos.Communication.Types.Tx
        , SendTxs (..)
        ) where
 
-import           Control.TimeWarp.Rpc (Message (messageName), mkMessage)
+import           Control.TimeWarp.Rpc (Message (messageName))
 import           Data.Binary          (Binary)
 import           Data.MessagePack     (MessagePack)
 import           Universum
@@ -32,9 +32,6 @@ data SendTxs =
 instance Binary SendTxs
 
 instance MessagePack SendTxs
-
--- Currently we use 'Void' as the “exception” type, this should be replaced.
-mkMessage ''Void
 
 instance Message SendTx where
     messageName _ = "Send Tx"

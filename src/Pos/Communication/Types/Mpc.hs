@@ -11,11 +11,11 @@ module Pos.Communication.Types.Mpc
        , SendVssCertificate (..)
        ) where
 
-import           Control.TimeWarp.Rpc (mkMessage, mkRequest')
 import           Data.Binary          (Binary)
 import           Data.MessagePack     (MessagePack)
 import           Universum
 
+import           Control.TimeWarp.Rpc (Message (..))
 import           Pos.Crypto           (PublicKey, Share)
 import           Pos.Types            (Commitment, CommitmentSignature, Opening,
                                        VssCertificate)
@@ -50,10 +50,21 @@ instance MessagePack SendOpening
 instance MessagePack SendShares
 instance MessagePack SendVssCertificate
 
--- Currently we use 'Void' as the “exception” type, this should be replaced.
-mkMessage ''Void
+instance Message SendCommitment where
+    messageName _ = "SendCommitment"
 
+instance Message SendOpening where
+    messageName _ = "SendOpening"
+
+instance Message SendShares where
+    messageName _ = "SendShares"
+
+instance Message SendVssCertificate where
+    messageName _ = "SendVssCertificate"
+
+{-
 mkRequest' ''SendCommitment ''() ''Void
 mkRequest' ''SendOpening ''() ''Void
 mkRequest' ''SendShares ''() ''Void
 mkRequest' ''SendVssCertificate ''() ''Void
+-}

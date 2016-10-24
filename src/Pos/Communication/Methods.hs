@@ -7,18 +7,15 @@ module Pos.Communication.Methods
        ) where
 
 import           Control.TimeWarp.Logging (logDebug)
-import           Control.TimeWarp.Rpc     (Message)
 import           Formatting               (build, sformat, (%))
 import           Serokell.Util.Text       (listBuilderJSON)
 import           Universum
 
 import           Pos.Communication.Types  (SendBlockHeader (..), SendTx (..),
                                            SendTxs (..))
+import           Pos.DHT                  (sendBroadcast)
 import           Pos.Types                (MainBlockHeader, Tx)
 import           Pos.WorkMode             (WorkMode)
-
-sendToAll :: (WorkMode m, Message msg) => msg -> m ()
-sendToAll = notImplemented
 
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.
@@ -27,14 +24,14 @@ announceBlock
     => MainBlockHeader -> m ()
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
-    sendToAll . SendBlockHeader $ header
+    sendBroadcast . SendBlockHeader $ header
 
 -- | Announce new transaction to all known peers. Intended to be used when
 -- tx is created.
 announceTx :: WorkMode m => Tx -> m ()
 announceTx tx = do
     logDebug $ sformat ("Announcing tx to others:\n"%build) tx
-    sendToAll . SendTx $ tx
+    sendBroadcast . SendTx $ tx
 
 -- | Announce known transactions to all known peers. Intended to be used
 -- to relay transactions.
@@ -42,7 +39,7 @@ announceTxs :: WorkMode m => [Tx] -> m ()
 announceTxs txs = do
     logDebug $
         sformat ("Announcing txs to others:\n" %build) $ listBuilderJSON txs
-    sendToAll . SendTxs $ txs
+    sendBroadcast . SendTxs $ txs
 
 ----------------------------------------------------------------------------
 -- Legacy

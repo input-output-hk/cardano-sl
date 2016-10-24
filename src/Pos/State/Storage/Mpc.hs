@@ -14,6 +14,7 @@ module Pos.State.Storage.Mpc
        , HasMpcStorage(mpcStorage)
 
        , calculateLeaders
+       , getLocalMpcData
        , mpcApplyBlocks
        , mpcProcessCommitment
        , mpcProcessOpening
@@ -45,11 +46,11 @@ import           Pos.FollowTheSatoshi    (FtsError, calculateSeed, followTheSato
 import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types               (Address (getAddress), Block, Commitment (..),
                                           CommitmentSignature, CommitmentsMap,
-                                          Opening (..), OpeningsMap, SharesMap,
-                                          SlotId (..), SlotLeaders, Utxo, VssCertificate,
-                                          VssCertificatesMap, blockSlot, gbBody,
-                                          mbCommitments, mbOpenings, mbShares,
-                                          mbVssCertificates, verifyOpening)
+                                          MpcData (MpcData), Opening (..), OpeningsMap,
+                                          SharesMap, SlotId (..), SlotLeaders, Utxo,
+                                          VssCertificate, VssCertificatesMap, blockMpc,
+                                          blockSlot, mdCommitments, mdOpenings, mdShares,
+                                          mdVssCertificates, verifyOpening)
 import           Pos.Util                (readerToState, zoom', _neHead)
 
 data MpcStorageVersion = MpcStorageVersion
@@ -122,6 +123,14 @@ type Update a = forall m x. (HasMpcStorage x, MonadState x m) => m a
 -- any side effects. The compiler will warn us if it happens, though.
 type Query a = forall m x. (HasMpcStorage x, MonadReader x m) => m a
 
+getLocalMpcData :: Query MpcData
+getLocalMpcData =
+    -- TODO: eliminate copy-paste
+    MpcData <$> view (lastVer . mpcLocalCommitments) <*>
+    view (lastVer . mpcLocalOpenings) <*>
+    view (lastVer . mpcLocalShares) <*>
+    view (lastVer . mpcLocalCertificates)
+
 -- | Calculate leaders for the next epoch.
 calculateLeaders
     :: Utxo            -- ^ Utxo at the beginning of the epoch
@@ -183,10 +192,10 @@ mpcVerifyBlock (Left _) = return VerSuccess
 -- Main blocks have commitments, openings, shares and VSS certificates
 mpcVerifyBlock (Right b) = do
     let SlotId{siSlot = slotId, siEpoch = epochId} = b ^. blockSlot
-    let commitments  = b ^. gbBody . mbCommitments
-        openings     = b ^. gbBody . mbOpenings
-        shares       = b ^. gbBody . mbShares
-        certificates = b ^. gbBody . mbVssCertificates
+    let commitments  = b ^. blockMpc . mdCommitments
+        openings     = b ^. blockMpc . mdOpenings
+        shares       = b ^. blockMpc . mdShares
+        certificates = b ^. blockMpc . mdVssCertificates
     globalCommitments  <- view (lastVer . mpcGlobalCommitments)
     globalOpenings     <- view (lastVer . mpcGlobalOpenings)
     globalShares       <- view (lastVer . mpcGlobalShares)
@@ -385,10 +394,10 @@ mpcProcessBlock blk = do
                 mpcGlobalShares      .= mempty
         -- Main blocks contain commitments, openings, shares, VSS certificates
         Right b -> do
-            let blockCommitments  = b ^. gbBody . mbCommitments
-                blockOpenings     = b ^. gbBody . mbOpenings
-                blockShares       = b ^. gbBody . mbShares
-                blockCertificates = b ^. gbBody . mbVssCertificates
+            let blockCommitments  = b ^. blockMpc . mdCommitments
+                blockOpenings     = b ^. blockMpc . mdOpenings
+                blockShares       = b ^. blockMpc . mdShares
+                blockCertificates = b ^. blockMpc . mdVssCertificates
             zoom' lastVer $ do
                 -- commitments
                 mpcGlobalCommitments %= HM.union blockCommitments

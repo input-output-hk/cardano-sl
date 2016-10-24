@@ -32,6 +32,7 @@ module Pos.State.Storage
 import           Control.Lens            (makeClassy, use, (.=), (^.))
 import           Data.Acid               ()
 import           Data.Default            (Default, def)
+import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Serokell.AcidState      ()
 import           Serokell.Util           (VerificationRes (..))
@@ -39,14 +40,14 @@ import           Universum
 
 import           Pos.Crypto              (PublicKey, SecretKey, Share)
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
-                                          blkCleanUp, blkProcessBlock, blkRollback,
-                                          blkSetHead, getBlock, getHeadBlock, getLeaders,
-                                          mayBlockBeUseful)
+                                          blkCleanUp, blkCreateNewBlock, blkProcessBlock,
+                                          blkRollback, blkSetHead, getBlock, getHeadBlock,
+                                          getLeaders, mayBlockBeUseful)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage,
-                                          mpcApplyBlocks, mpcProcessCommitment,
-                                          mpcProcessOpening, mpcProcessShares,
-                                          mpcProcessVssCertificate, mpcRollback,
-                                          mpcVerifyBlock, mpcVerifyBlocks)
+                                          getLocalMpcData, mpcApplyBlocks,
+                                          mpcProcessCommitment, mpcProcessOpening,
+                                          mpcProcessShares, mpcProcessVssCertificate,
+                                          mpcRollback, mpcVerifyBlock, mpcVerifyBlocks)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           getLocalTxns, processTx, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
@@ -90,7 +91,15 @@ instance Default Storage where
 
 -- | Create a new block on top of best chain.
 createNewBlock :: SecretKey -> SlotId -> Update MainBlock
-createNewBlock sk blkSlotId = notImplemented
+createNewBlock sk sId = do
+    -- TODO: create genesis block when necessary
+    txs <- readerToState $ toList <$> getLocalTxns
+    mpcData <- readerToState getLocalMpcData
+    blk <- blkCreateNewBlock sk sId txs mpcData
+    let blocks = Right blk :| []
+    mpcApplyBlocks blocks
+    -- txApplyBlock [blk]
+    return blk
 
 -- | Do all necessary changes when a block is received.
 processBlock :: SlotId -> Block -> Update ProcessBlockRes

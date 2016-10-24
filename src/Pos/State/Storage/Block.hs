@@ -20,6 +20,7 @@ module Pos.State.Storage.Block
        , mayBlockBeUseful
 
        , blkCleanUp
+       , blkCreateNewBlock
        , blkProcessBlock
        , blkRollback
        , blkSetHead
@@ -38,18 +39,18 @@ import           Serokell.Util.Verify    (VerificationRes (..), isVerFailure,
 import           Universum
 
 import           Pos.Constants           (k)
-import           Pos.Crypto              (PublicKey, hash)
+import           Pos.Crypto              (PublicKey, SecretKey, hash)
 import           Pos.Genesis             (genesisLeaders)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, BlockHeader, ChainDifficulty, EpochIndex,
-                                          HeaderHash, MainBlock, MainBlockHeader,
-                                          SlotId (..), SlotLeaders,
+                                          HeaderHash, MainBlock, MainBlockHeader, MpcData,
+                                          SlotId (..), SlotLeaders, Tx,
                                           VerifyBlockParams (..), VerifyHeaderExtra (..),
                                           blockHeader, blockLeaders, blockSlot,
                                           difficultyL, gbHeader, getBlockHeader,
                                           headerHash, headerSlot, mkGenesisBlock,
-                                          prevBlockL, siEpoch, verifyBlock, verifyBlocks,
-                                          verifyHeader)
+                                          mkMainBlock, mkMainBody, prevBlockL, siEpoch,
+                                          verifyBlock, verifyBlocks, verifyHeader)
 import           Pos.Util                (readerToState, _neHead, _neLast)
 
 data BlockStorage = BlockStorage
@@ -362,6 +363,16 @@ blocksToTestMergeDo commonAncestor =
             case prevBlock of
                 Nothing  -> panic "impossible happened in blocksToTestMergeDo"
                 Just blk -> (commonAncestor :) <$> blocksToTestMergeDo blk
+
+-- | Create a new block and append it to the best chain.
+-- FIXME: create a genesis block when necessary.
+blkCreateNewBlock :: SecretKey -> SlotId -> [Tx] -> MpcData -> Update MainBlock
+blkCreateNewBlock sk sId txs mpcData = do
+    prevHeader <- readerToState $ getBlockHeader <$> getHeadBlock
+    let body = mkMainBody txs mpcData
+    let blk = mkMainBlock (Just prevHeader) sId sk body
+    insertBlock $ Right blk
+    blk <$ blkSetHead (headerHash blk)
 
 -- | Set head of main blockchain to block which is guaranteed to
 -- represent valid chain and be stored in blkBlocks.

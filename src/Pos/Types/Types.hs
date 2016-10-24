@@ -56,6 +56,7 @@ module Pos.Types.Types
 
        , MainBlockchain
        , MainBlockHeader
+       , MpcData (MpcData)
        , ChainDifficulty (..)
        , MainToSign
        , MainBlock
@@ -76,6 +77,7 @@ module Pos.Types.Types
        , blockHeader
        , blockLeaderKey
        , blockLeaders
+       , blockMpc
        , blockSignature
        , blockSlot
        , blockTxs
@@ -93,10 +95,12 @@ module Pos.Types.Types
        , headerLeaderKey
        , headerSignature
        , headerSlot
-       , mbCommitments
-       , mbOpenings
-       , mbShares
-       , mbVssCertificates
+       , mbMpc
+       , mbTxs
+       , mdCommitments
+       , mdOpenings
+       , mdShares
+       , mdVssCertificates
        , mcdSlot
        , mcdLeaderKey
        , mcdDifficulty
@@ -104,10 +108,11 @@ module Pos.Types.Types
 
        -- TODO: move it from here to Block.hs
        , blockDifficulty
-       , mkGenericHeader
        , mkGenericBlock
-       , mkMainHeader
+       , mkGenericHeader
        , mkMainBlock
+       , mkMainBody
+       , mkMainHeader
        , mkGenesisHeader
        , mkGenesisBlock
 
@@ -146,7 +151,8 @@ import           Pos.Crypto           (EncShare, Hash, PublicKey, Secret, Secret
                                        SecretProof, SecretSharingExtra, Share, Signature,
                                        Signed, VssPublicKey, hash, sign, toPublic,
                                        unsafeHash, verify)
-import           Pos.Merkle           (MerkleRoot, MerkleTree, mtRoot, mtSize)
+import           Pos.Merkle           (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot,
+                                       mtSize)
 import           Pos.Util             (makeLensesData)
 
 ----------------------------------------------------------------------------
@@ -471,6 +477,22 @@ instance MessagePack ChainDifficulty
 
 type MainToSign = (HeaderHash, BodyProof MainBlockchain, SlotId, ChainDifficulty)
 
+-- | MPC-related content of main body.
+data MpcData = MpcData
+    { -- | Commitments are added during the first phase of epoch.
+      _mdCommitments     :: !CommitmentsMap
+      -- | Openings are added during the second phase of epoch.
+    , _mdOpenings        :: !OpeningsMap
+      -- | Decrypted shares to be used in the third phase.
+    , _mdShares          :: !SharesMap
+      -- | Vss certificates are added at any time if they are valid and
+      -- received from stakeholders.
+    , _mdVssCertificates :: !VssCertificatesMap
+    } deriving (Generic)
+
+instance Binary MpcData
+instance MessagePack MpcData
+
 instance Blockchain MainBlockchain where
     -- | Proof of transactions list.
     -- We can use ADS for commitments, opennings, shares as well,
@@ -499,29 +521,22 @@ instance Blockchain MainBlockchain where
     -- and MPC messages.
     data Body MainBlockchain = MainBody
         { -- | Transactions are the main payload.
-        -- TODO: currently we don't know for sure whether it should be
-        -- MerkleTree or something list-like.
-        _mbTxs         :: !(MerkleTree Tx)
-        , -- | Commitments are added during the first phase of epoch.
-        _mbCommitments :: !CommitmentsMap
-        , -- | Openings are added during the second phase of epoch.
-        _mbOpenings    :: !OpeningsMap
-        , -- | Decrypted shares to be used in the third phase.
-        _mbShares      :: !SharesMap
-        , -- | Vss certificates are added at any time if they are valid and
-          -- received from stakeholders.
-        _mbVssCertificates :: !VssCertificatesMap
+          -- TODO: currently we don't know for sure whether it should be
+          -- MerkleTree or something list-like.
+          _mbTxs         :: !(MerkleTree Tx)
+        , -- | Data necessary for MPC.
+          _mbMpc  :: !MpcData
         } deriving (Generic)
     type BBlock MainBlockchain = Block
 
-    mkBodyProof MainBody {..} =
+    mkBodyProof MainBody {_mbMpc = MpcData {..}, ..} =
         MainProof
         { mpNumber = mtSize _mbTxs
         , mpRoot = mtRoot _mbTxs
-        , mpCommitmentsHash = hash _mbCommitments
-        , mpOpeningsHash = hash _mbOpenings
-        , mpSharesHash = hash _mbShares
-        , mpVssCertificatesHash = hash _mbVssCertificates
+        , mpCommitmentsHash = hash _mdCommitments
+        , mpOpeningsHash = hash _mdOpenings
+        , mpSharesHash = hash _mdShares
+        , mpVssCertificatesHash = hash _mdVssCertificates
         }
 
 instance Binary (BodyProof MainBlockchain)
@@ -596,11 +611,12 @@ type HeaderHash = Hash BlockHeader
 type Block = Either GenesisBlock MainBlock
 
 ----------------------------------------------------------------------------
--- Lenses. TODO: move to Block.hs or leave them here?
+-- Lenses. TODO: move to Block.hs and other modules or leave them here?
 ----------------------------------------------------------------------------
 
 makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock
+makeLenses ''MpcData
 makeLensesData ''ConsensusData ''MainBlockchain
 makeLensesData ''ConsensusData ''GenesisBlockchain
 makeLensesData ''Body ''MainBlockchain
@@ -691,6 +707,9 @@ blockLeaderKey = gbHeader . headerLeaderKey
 
 blockSignature :: Lens' MainBlock (Signature MainToSign)
 blockSignature = gbHeader . headerSignature
+
+blockMpc :: Lens' MainBlock MpcData
+blockMpc = gbBody . mbMpc
 
 blockTxs :: Lens' MainBlock (MerkleTree Tx)
 blockTxs = gbBody . mbTxs
@@ -810,6 +829,9 @@ mkGenesisBlock prevHeader epoch leaders =
     }
   where
     body = GenesisBody leaders
+
+mkMainBody :: [Tx] -> MpcData -> Body MainBlockchain
+mkMainBody txs mpc = MainBody {_mbTxs = mkMerkleTree txs, _mbMpc = mpc}
 
 verifyConsensusLocal :: BlockHeader -> VerificationRes
 verifyConsensusLocal (Left _)       = mempty
@@ -1033,6 +1055,7 @@ instance ( SafeCopy (BodyProof b)
            safePut _gbExtra
 
 deriveSafeCopySimple 0 'base ''ChainDifficulty
+deriveSafeCopySimple 0 'base ''MpcData
 deriveSafeCopySimpleIndexedType 0 'base ''BodyProof [''MainBlockchain]
 deriveSafeCopySimpleIndexedType 0 'base ''BodyProof [''GenesisBlockchain]
 deriveSafeCopySimpleIndexedType 0 'base ''ConsensusData [''MainBlockchain]

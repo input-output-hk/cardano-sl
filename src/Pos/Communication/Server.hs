@@ -4,7 +4,7 @@ module Pos.Communication.Server
        ( serve
        ) where
 
-import           Control.TimeWarp.Rpc           (listen)
+import           Control.TimeWarp.Rpc           (Port, listen)
 import           Universum
 
 import           Pos.Communication.Server.Block (blockListeners)
@@ -12,6 +12,6 @@ import           Pos.Communication.Server.Mpc   (mpcListeners)
 import           Pos.Communication.Server.Tx    (txListeners)
 import           Pos.WorkMode                   (WorkMode)
 
--- TODO: not hardcode port.
-serve :: WorkMode m => m ()
-serve = listen 322 $ mconcat [blockListeners, mpcListeners, txListeners]
+-- | Run server with all endpoints (i. e. listeners).
+serve :: WorkMode m => Port -> m ()
+serve port = listen port $ mconcat [blockListeners, mpcListeners, txListeners]

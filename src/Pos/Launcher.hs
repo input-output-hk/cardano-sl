@@ -20,8 +20,7 @@ import           Pos.Communication        (serve)
 import           Pos.DHT                  (DHTNodeType (..), discoverPeers)
 import           Pos.Slotting             (Timestamp (Timestamp))
 import           Pos.Worker               (runWorkers)
-import           Pos.WorkMode             (NodeParams (..), WorkMode,
-                                           runRealMode)
+import           Pos.WorkMode             (NodeParams (..), WorkMode, runRealMode)
 
 -- | Get current time as Timestamp. It is intended to be used when you
 -- launch the first node. It doesn't make sense in emulation mode.
@@ -29,17 +28,17 @@ getCurTimestamp :: IO Timestamp
 getCurTimestamp = Timestamp <$> runTimedIO currentTime
 
 -- | Run full node in any WorkMode.
-runNode :: WorkMode m => m ()
-runNode = do
+runNode :: WorkMode m => NodeParams -> m ()
+runNode NodeParams {..} = do
     peers <- discoverPeers DHTFull
     logInfo $ sformat ("Known peers: " % build) peers
 
     runWorkers
-    serve
+    serve (fromIntegral npPort)
 
 -- | Run full node in real mode.
 runNodeReal :: NodeParams -> IO ()
-runNodeReal p = runRealMode p runNode
+runNodeReal p = runRealMode p $ runNode p
 
 -- runNodes :: WorkMode m => [Node m] -> m ()
 -- runNodes nodes = setLoggerName "xx" $ do

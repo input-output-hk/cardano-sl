@@ -14,11 +14,9 @@ module Pos.Crypto.Random
 import           Crypto.Number.Basic     (numBytes)
 import           Crypto.Number.Serialize (os2ip)
 import           Crypto.Random           (ChaChaDRG, MonadPseudoRandom, MonadRandom,
-                                          drgNewSeed, drgNewTest, getRandomBytes,
-                                          randomBytesGenerate, seedFromInteger, withDRG)
-import qualified Data.Binary             as Binary
+                                          drgNewSeed, getRandomBytes, randomBytesGenerate,
+                                          seedFromInteger, withDRG)
 import qualified Data.ByteArray          as ByteArray (convert)
-import qualified Data.ByteString         as BS
 import           OpenSSL.Random          (randBytes)
 import           Universum
 
@@ -53,13 +51,13 @@ runPredefinedRandom seedBs = flip evalState drg . getPredefinedRandom
 
 -- | You can use 'deterministic' on any 'MonadRandom' computation to make it
 -- use a seed (hopefully produced by a Really Secure™ randomness source). The
--- seed has to be exactly 40 bytes long.
+-- seed has to have enough entropy to make this function secure.
 deterministic :: ByteString -> MonadPseudoRandom ChaChaDRG a -> a
 deterministic seed gen
-    | BS.length seed /= 40 = panic "deterministic: length seed /= 40"
-    | otherwise = fst $ withDRG (drgNewTest chachaSeed) gen
+    -- | BS.length seed /= 40 = panic "deterministic: length seed /= 40"
+    | otherwise = fst $ withDRG chachaSeed gen
   where
-    chachaSeed = Binary.decode (toS seed)
+    chachaSeed = drgNewSeed . seedFromInteger . os2ip $ seed
 
 -- | Generate a random number in range [0, n).
 --

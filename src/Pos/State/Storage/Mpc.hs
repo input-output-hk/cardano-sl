@@ -144,7 +144,7 @@ getLocalMpcData =
 
 -- | Calculate leaders for the next epoch.
 calculateLeaders
-    :: Utxo            -- ^ Utxo at the beginning of the epoch
+    :: Utxo            -- ^ Utxo (k slots before the end of epoch)
     -> Query (Either FtsError SlotLeaders)
 calculateLeaders utxo = do
     mbSeed <- calculateSeed undefined

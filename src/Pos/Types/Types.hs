@@ -124,7 +124,7 @@ module Pos.Types.Types
        ) where
 
 import           Control.Lens         (Getter, Lens', choosing, ix, makeLenses, to, view,
-                                       (^.), (^?))
+                                       (^.), (^?), _3)
 import           Data.Binary          (Binary)
 import           Data.Binary.Orphans  ()
 import           Data.Data            (Data)
@@ -954,8 +954,36 @@ verifyBlock VerifyBlockParams {..} blk =
 
 -- | Verify sequence of blocks. It is assumed that the leftmost block
 -- is the oldest one.
-verifyBlocks :: Foldable f => f Block -> VerificationRes
-verifyBlocks = const mempty
+-- TODO: foldl' is used here which eliminates laziness benefits essential for
+-- VerificationRes. Is it true? Can we do something with it?
+-- Apart from returning Bool.
+verifyBlocks
+    :: Foldable t
+    => Maybe SlotId -> t Block -> VerificationRes
+verifyBlocks curSlotId = (view _3) . foldl' step start
+  where
+    start :: (Maybe SlotLeaders, Maybe BlockHeader, VerificationRes)
+    start = (Nothing, Nothing, mempty)
+    step
+        :: (Maybe SlotLeaders, Maybe BlockHeader, VerificationRes)
+        -> Block
+        -> (Maybe SlotLeaders, Maybe BlockHeader, VerificationRes)
+    step (leaders, prevHeader, res) blk =
+        let newLeaders =
+                case blk of
+                    Left genesisBlock -> Just $ genesisBlock ^. blockLeaders
+                    Right _           -> leaders
+            vhe =
+                VerifyHeaderExtra
+                { vhePrevHeader = prevHeader
+                , vheNextHeader = Nothing
+                , vheLeaders = newLeaders
+                , vheCurrentSlot = curSlotId
+                }
+            vbp =
+                VerifyBlockParams
+                {vbpVerifyHeader = Just vhe, vbpVerifyGeneric = True}
+        in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)
 
 ----------------------------------------------------------------------------
 -- SafeCopy instances

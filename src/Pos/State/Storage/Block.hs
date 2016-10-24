@@ -334,9 +334,12 @@ findRollback maxDepth neededParent =
 
 -- Before reporting that AltChain can be merged, we verify whole
 -- result to be sure that nothing went wrong.
+-- We ignore check related to current slot, because we ensure that no blocks
+-- from non-existing slot can appear in this storage.
 testMergeAltChain :: Word -> AltChain -> Query Bool
 testMergeAltChain toRollback altChain =
-    isVerSuccess . verifyBlocks . (++ toList altChain) <$> blocksToTestMerge toRollback
+    isVerSuccess . verifyBlocks Nothing . (++ toList altChain) <$>
+    blocksToTestMerge toRollback
 
 -- This function collects all blocks from main chain which must be
 -- included into sequence of blocks further passed to verifyBlocks.

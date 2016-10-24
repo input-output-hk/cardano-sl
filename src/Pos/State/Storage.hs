@@ -33,7 +33,7 @@ module Pos.State.Storage
        , processVssCertificate
        ) where
 
-import           Control.Lens            (makeClassy, use, (.=), (^.))
+import           Control.Lens            (makeClassy, use, view, (.=), (^.))
 import           Data.Acid               ()
 import           Data.Default            (Default, def)
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
@@ -98,6 +98,9 @@ instance Default Storage where
         , _slotId = unflattenSlotId 0
         }
 
+getHeadEpoch :: Query EpochIndex
+getHeadEpoch = view epochIndexL <$> getHeadBlock
+
 -- | Create a new block on top of best chain.
 createNewBlock :: SecretKey -> SlotId -> Update MainBlock
 createNewBlock sk sId = do
@@ -143,10 +146,9 @@ processBlockFinally toRollback blocks = do
     txApplyBlocks blocks
     blkRollback toRollback
     blkSetHead (blocks ^. _neHead . headerHashG)
-    headBlock <- readerToState getHeadBlock
-    let headEpoch = headBlock ^. epochIndexL
+    headEpoch <- readerToState getHeadEpoch
     knownEpoch <- use (slotId . epochIndexL)
-    when (headEpoch < knownEpoch) $ createGenesisBlock knownEpoch
+    when (headEpoch + 1 == knownEpoch) $ createGenesisBlock knownEpoch
     return $ PBRgood (toRollback, blocks)
 
 -- | Do all necessary changes when new slot starts.
@@ -163,8 +165,11 @@ processNewSlotDo sId@SlotId {..} = do
 
 createGenesisBlock :: EpochIndex -> Update ()
 createGenesisBlock epoch = do
-    leaders <- notImplemented
-    () <$ blkCreateGenesisBlock epoch leaders
+    headEpoch <- readerToState getHeadEpoch
+    knownEpoch <- use (slotId . epochIndexL)
+    when (headEpoch + 1 == knownEpoch) $
+        do leaders <- notImplemented
+           () <$ blkCreateGenesisBlock epoch leaders
 
 processCommitment :: PublicKey -> (Commitment, CommitmentSignature) -> Update ()
 processCommitment = mpcProcessCommitment

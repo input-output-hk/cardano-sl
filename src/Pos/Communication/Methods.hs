@@ -7,14 +7,14 @@ module Pos.Communication.Methods
        ) where
 
 import           Control.TimeWarp.Logging (logDebug)
-import           Control.TimeWarp.Rpc     (Message, NetworkAddress)
+import           Control.TimeWarp.Rpc     (Message)
 import           Formatting               (build, sformat, (%))
 import           Serokell.Util.Text       (listBuilderJSON)
 import           Universum
 
 import           Pos.Communication.Types  (SendBlockHeader (..), SendTx (..),
                                            SendTxs (..))
-import           Pos.Types                (HeaderHash, MainBlockHeader, Tx)
+import           Pos.Types                (MainBlockHeader, Tx)
 import           Pos.WorkMode             (WorkMode)
 
 sendToAll :: (WorkMode m, Message msg) => msg -> m ()

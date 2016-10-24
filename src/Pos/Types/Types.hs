@@ -122,6 +122,7 @@ import           Control.Lens         (Getter, Lens', choosing, ix, makeLenses, 
                                        (^.), (^?))
 import           Data.Binary          (Binary)
 import           Data.Binary.Orphans  ()
+import           Data.Data            (Data)
 import           Data.Default         (Default (def))
 import           Data.Hashable        (Hashable)
 import           Data.Ix              (Ix)
@@ -204,7 +205,7 @@ type FlatSlotId = Word64
 -- | Coin is the least possible unit of currency.
 newtype Coin = Coin
     { getCoin :: Int64
-    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Binary, Hashable)
+    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Binary, Hashable, Data)
 
 instance MessagePack Coin
 

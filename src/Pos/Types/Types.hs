@@ -57,6 +57,7 @@ module Pos.Types.Types
        , MainBlockchain
        , MainBlockHeader
        , MpcData (MpcData)
+       , MpcProof
        , ChainDifficulty (..)
        , MainToSign
        , MainBlock
@@ -493,17 +494,25 @@ data MpcData = MpcData
 instance Binary MpcData
 instance MessagePack MpcData
 
+-- | Proof of MpcData.
+-- We can use ADS for commitments, opennings, shares as well,
+-- if we find it necessary.
+data MpcProof = MpcProof
+    { mpCommitmentsHash     :: !(Hash CommitmentsMap)
+    , mpOpeningsHash        :: !(Hash OpeningsMap)
+    , mpSharesHash          :: !(Hash SharesMap)
+    , mpVssCertificatesHash :: !(Hash VssCertificatesMap)
+    } deriving (Show, Eq, Generic)
+
+instance Binary MpcProof
+instance MessagePack MpcProof
+
 instance Blockchain MainBlockchain where
-    -- | Proof of transactions list.
-    -- We can use ADS for commitments, opennings, shares as well,
-    -- if we find it necessary.
+    -- | Proof of transactions list and MPC data.
     data BodyProof MainBlockchain = MainProof
-        { mpNumber              :: !Word32
-        , mpRoot                :: !(MerkleRoot Tx)
-        , mpCommitmentsHash     :: !(Hash CommitmentsMap)
-        , mpOpeningsHash        :: !(Hash OpeningsMap)
-        , mpSharesHash          :: !(Hash SharesMap)
-        , mpVssCertificatesHash :: !(Hash VssCertificatesMap)
+        { mpNumber   :: !Word32
+        , mpRoot     :: !(MerkleRoot Tx)
+        , mpMpcProof :: !MpcProof
         } deriving (Show, Eq, Generic)
     data ConsensusData MainBlockchain = MainConsensusData
         { -- | Id of the slot for which this block was generated.
@@ -533,10 +542,13 @@ instance Blockchain MainBlockchain where
         MainProof
         { mpNumber = mtSize _mbTxs
         , mpRoot = mtRoot _mbTxs
-        , mpCommitmentsHash = hash _mdCommitments
-        , mpOpeningsHash = hash _mdOpenings
-        , mpSharesHash = hash _mdShares
-        , mpVssCertificatesHash = hash _mdVssCertificates
+        , mpMpcProof =
+            MpcProof
+            { mpCommitmentsHash = hash _mdCommitments
+            , mpOpeningsHash = hash _mdOpenings
+            , mpSharesHash = hash _mdShares
+            , mpVssCertificatesHash = hash _mdVssCertificates
+            }
         }
 
 instance Binary (BodyProof MainBlockchain)
@@ -1056,6 +1068,7 @@ instance ( SafeCopy (BodyProof b)
 
 deriveSafeCopySimple 0 'base ''ChainDifficulty
 deriveSafeCopySimple 0 'base ''MpcData
+deriveSafeCopySimple 0 'base ''MpcProof
 deriveSafeCopySimpleIndexedType 0 'base ''BodyProof [''MainBlockchain]
 deriveSafeCopySimpleIndexedType 0 'base ''BodyProof [''GenesisBlockchain]
 deriveSafeCopySimpleIndexedType 0 'base ''ConsensusData [''MainBlockchain]

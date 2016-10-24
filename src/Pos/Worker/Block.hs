@@ -14,9 +14,10 @@ import           Universum
 
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
-import           Pos.State                 (getHeadBlock, getLeaders)
-import           Pos.Types                 (SlotId (..), gbHeader, slotIdF)
-import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey)
+import           Pos.State                 (createNewBlock, getHeadBlock, getLeaders)
+import           Pos.Types                 (SlotId (..), gbHeader, gbHeader, slotIdF)
+import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey,
+                                            ncSecretKey)
 
 -- | Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode m => SlotId -> m ()
@@ -32,8 +33,10 @@ onNewSlotWhenLeader slotId = do
         sformat ("I am leader of "%slotIdF%", I will create block soon") slotId
     wait $ for (slotDuration - networkDiameter)
     logInfo "It's time to create a block for current slot"
-    announceBlock undefined
-    -- TODO
+    sk <- ncSecretKey <$> getNodeContext
+    createdBlk <- createNewBlock sk slotId
+    logInfo $ sformat ("Created a new block: "%build) createdBlk
+    announceBlock $ createdBlk ^. gbHeader
 
 -- | All workers specific to block processing.
 -- Exceptions:

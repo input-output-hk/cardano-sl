@@ -553,6 +553,10 @@ instance MessagePack (Body MainBlockchain)
 -- main part of our consensus algorithm.
 type MainBlock = GenericBlock MainBlockchain
 
+-- TODO
+instance Buildable MainBlock where
+    build _ = "MainBlock"
+
 ----------------------------------------------------------------------------
 -- GenesisBlock
 ----------------------------------------------------------------------------

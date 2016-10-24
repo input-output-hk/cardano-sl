@@ -19,6 +19,7 @@ module Pos.State.State
 
        -- * Operations with effects.
        , ProcessBlockRes (..)
+       , createNewBlock
        , processBlock
        , processNewSlot
        , processCommitment
@@ -33,14 +34,14 @@ import           Data.Acid            (EventResult, EventState, QueryEvent, Upda
 import           Serokell.Util        (VerificationRes)
 import           Universum
 
-import           Pos.Crypto           (PublicKey, Share)
+import           Pos.Crypto           (PublicKey, SecretKey, Share)
 import           Pos.Slotting         (MonadSlots, getCurrentSlot)
 import           Pos.State.Acidic     (DiskState, tidyState)
 import qualified Pos.State.Acidic     as A
 import           Pos.State.Storage    (ProcessBlockRes (..), Storage)
 import           Pos.Types            (Block, Commitment, CommitmentSignature, EpochIndex,
-                                       HeaderHash, MainBlockHeader, Opening, SlotId,
-                                       SlotLeaders, Tx, VssCertificate)
+                                       HeaderHash, MainBlock, MainBlockHeader, Opening,
+                                       SlotId, SlotLeaders, Tx, VssCertificate)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState
@@ -107,8 +108,10 @@ mayBlockBeUseful
     => SlotId -> MainBlockHeader -> m VerificationRes
 mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 
--- TODO: should 'processTx', 'processOpening', and 'processCommitment' return
--- True if the thing was valid but we already knew about it?
+-- | Create new block on top of currently known best chain, assuming
+-- we are slot leader.
+createNewBlock :: WorkModeDB m => SecretKey -> SlotId -> m MainBlock
+createNewBlock sk = updateDisk . A.CreateNewBlock sk
 
 -- | Process transaction received from other party.
 processTx :: WorkModeDB m => Tx -> m Bool

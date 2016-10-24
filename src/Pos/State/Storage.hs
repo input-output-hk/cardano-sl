@@ -19,6 +19,7 @@ module Pos.State.Storage
        , ProcessBlockRes (..)
 
        , Update
+       , createNewBlock
        , processBlock
        , processNewSlot
        , processCommitment
@@ -36,7 +37,7 @@ import           Serokell.AcidState      ()
 import           Serokell.Util           (VerificationRes (..))
 import           Universum
 
-import           Pos.Crypto              (PublicKey, Share)
+import           Pos.Crypto              (PublicKey, SecretKey, Share)
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
                                           blkCleanUp, blkProcessBlock, blkRollback,
                                           blkSetHead, getBlock, getHeadBlock, getLeaders,
@@ -49,9 +50,9 @@ import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           getLocalTxns, processTx, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
-import           Pos.Types               (Block, Commitment, CommitmentSignature, Opening,
-                                          SlotId, VssCertificate, blockTxs,
-                                          unflattenSlotId, verifyTxAlone)
+import           Pos.Types               (Block, Commitment, CommitmentSignature,
+                                          MainBlock, Opening, SlotId, VssCertificate,
+                                          blockTxs, unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState)
 
 type Query  a = forall m . MonadReader Storage m => m a
@@ -86,6 +87,10 @@ instance Default Storage where
         , __blockStorage = def
         , _slotId = unflattenSlotId 0
         }
+
+-- | Create a new block on top of best chain.
+createNewBlock :: SecretKey -> SlotId -> Update MainBlock
+createNewBlock sk blkSlotId = notImplemented
 
 -- | Do all necessary changes when a block is received.
 processBlock :: SlotId -> Block -> Update ProcessBlockRes

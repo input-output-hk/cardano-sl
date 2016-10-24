@@ -21,6 +21,7 @@ module Pos.State.Acidic
        , GetLocalTxns (..)
        , MayBlockBeUseful (..)
 
+       , CreateNewBlock (..)
        , ProcessBlock (..)
        , ProcessNewSlot (..)
        , ProcessCommitment (..)
@@ -75,6 +76,7 @@ makeAcidic ''Storage
     , 'S.getLocalTxns
     , 'S.getHeadBlock
     , 'S.mayBlockBeUseful
+    , 'S.createNewBlock
     , 'S.processBlock
     , 'S.processNewSlot
     , 'S.processCommitment

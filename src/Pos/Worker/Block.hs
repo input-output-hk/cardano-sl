@@ -5,16 +5,17 @@ module Pos.Worker.Block
        , blkWorkers
        ) where
 
-import           Control.Lens              (ix, (^?))
-import           Control.TimeWarp.Logging  (logInfo)
-import           Control.TimeWarp.Timed    (for, wait)
-import           Formatting                (sformat, (%))
+import           Control.Lens              (ix, (^.), (^?))
+import           Control.TimeWarp.Logging  (logInfo, logWarning)
+import           Control.TimeWarp.Timed    (Microsecond, for, minute, repeatForever, wait)
+import           Formatting                (build, sformat, (%))
+import           Serokell.Util.Exceptions  ()
 import           Universum
 
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
-import           Pos.State                 (getLeaders)
-import           Pos.Types                 (SlotId (..), slotIdF)
+import           Pos.State                 (getHeadBlock, getLeaders)
+import           Pos.Types                 (SlotId (..), gbHeader, slotIdF)
 import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey)
 
 -- | Action which should be done when new slot starts.
@@ -38,4 +39,19 @@ onNewSlotWhenLeader slotId = do
 -- Exceptions:
 -- 1. Worker which ticks when new slot starts.
 blkWorkers :: WorkMode m => [m ()]
-blkWorkers = []
+blkWorkers = [blocksTransmitter]
+
+blocksTransmitterInterval :: Microsecond
+blocksTransmitterInterval = minute 1
+
+blocksTransmitter :: WorkMode m => m ()
+blocksTransmitter =
+    repeatForever blocksTransmitterInterval onError $
+    do headBlock <- getHeadBlock
+       case headBlock of
+           Left _ -> logWarning "Head block is genesis for some reason, omgwtf!"
+           Right mainBlock -> announceBlock (mainBlock ^. gbHeader)
+  where
+    onError e =
+        blocksTransmitterInterval <$
+        logWarning (sformat ("Error occured in blocksTransmitter: " %build) e)

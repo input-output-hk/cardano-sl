@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE NamedFieldPuns  #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 -- | Merkle tree implementation.
 --

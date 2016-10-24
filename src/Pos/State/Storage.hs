@@ -49,7 +49,7 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
                                           blkCleanUp, blkCreateGenesisBlock,
                                           blkCreateNewBlock, blkProcessBlock, blkRollback,
                                           blkSetHead, getBlock, getHeadBlock, getLeaders,
-                                          mayBlockBeUseful)
+                                          getSlotDepth, mayBlockBeUseful)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage,
                                           calculateLeaders, getLocalMpcData,
                                           getOurCommitment, getOurOpening, getOurShares,
@@ -58,13 +58,14 @@ import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage
                                           mpcProcessVssCertificate, mpcRollback,
                                           mpcVerifyBlock, mpcVerifyBlocks, setSecret)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
-                                          getLocalTxns, getUtxoForSlot, processTx,
+                                          getLocalTxns, getUtxoByDepth, processTx,
                                           txApplyBlocks, txRollback, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
                                           EpochIndex, MainBlock, Opening, SlotId (..),
-                                          VssCertificate, blockTxs, epochIndexL,
-                                          headerHashG, unflattenSlotId, verifyTxAlone)
+                                          SlotLeaders, VssCertificate, blockTxs,
+                                          epochIndexL, headerHashG, unflattenSlotId,
+                                          verifyTxAlone)
 import           Pos.Util                (readerToState, _neHead)
 
 type Query  a = forall m . MonadReader Storage m => m a
@@ -169,14 +170,14 @@ createGenesisBlock :: EpochIndex -> Update ()
 createGenesisBlock epoch = do
     headEpoch <- readerToState getHeadEpoch
     when (headEpoch + 1 == epoch) $
-        do utxo <-
-               readerToState $
-               onErrorGetUtxo <$>
-               getUtxoForSlot SlotId {siEpoch = epoch - 1, siSlot = 5 * k - 1}
-           leaders <-
-               readerToState $
-               either onErrorCalcLeaders identity <$> calculateLeaders utxo
+        do leaders <- readerToState $ calculateLeadersDo epoch
            () <$ blkCreateGenesisBlock epoch leaders
+
+calculateLeadersDo :: EpochIndex -> Query SlotLeaders
+calculateLeadersDo epoch = do
+    depth <- getSlotDepth SlotId {siEpoch = epoch - 1, siSlot = 5 * k - 1}
+    utxo <- onErrorGetUtxo <$> getUtxoByDepth depth
+    either onErrorCalcLeaders identity <$> calculateLeaders utxo
   where
     onErrorGetUtxo =
         panic "Failed to get utxo necessary for leaders calculation"

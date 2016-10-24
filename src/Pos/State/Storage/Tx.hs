@@ -12,7 +12,7 @@ module Pos.State.Storage.Tx
        , HasTxStorage(txStorage)
 
        , getLocalTxns
-       , getUtxoForSlot
+       , getUtxoByDepth
        , txVerifyBlocks
 
        , processTx
@@ -20,7 +20,8 @@ module Pos.State.Storage.Tx
        , txRollback
        ) where
 
-import           Control.Lens            (makeClassy, use, uses, view, (%=), (<~), (^.))
+import           Control.Lens            (ix, makeClassy, preview, use, uses, view, (%=),
+                                          (<~), (^.))
 import           Data.Default            (Default, def)
 import qualified Data.HashSet            as HS
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
@@ -29,8 +30,8 @@ import           Universum
 
 import           Pos.Genesis             (genesisUtxo)
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types               (Block, SlotId, Tx (..), Utxo, applyTxToUtxo,
-                                          blockTxs, verifyTxUtxo)
+import           Pos.Types               (Block, Tx (..), Utxo, applyTxToUtxo, blockTxs,
+                                          verifyTxUtxo)
 
 data TxStorage = TxStorage
     { -- | Local set of transactions. These are valid (with respect to
@@ -72,8 +73,8 @@ txVerifyBlocks = notImplemented
 --
 -- Note: flattenSlotId won't help here, because some slots don't have
 -- blocks.
-getUtxoForSlot :: SlotId -> Query (Maybe Utxo)
-getUtxoForSlot = notImplemented
+getUtxoByDepth :: Word -> Query (Maybe Utxo)
+getUtxoByDepth (fromIntegral -> depth) = preview $ txUtxoHistory . ix depth
 
 type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
 

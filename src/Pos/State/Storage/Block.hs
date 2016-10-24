@@ -17,6 +17,7 @@ module Pos.State.Storage.Block
        , getHeadBlock
        , getLeader
        , getLeaders
+       , getSlotDepth
        , mayBlockBeUseful
 
        , blkCleanUp
@@ -140,6 +141,19 @@ getLeadersMaybe = fmap f . getLeaders
 -- | Get leader of the given slot if it's known.
 getLeader :: SlotId -> Query (Maybe PublicKey)
 getLeader SlotId {..} = (^? ix (fromIntegral siSlot)) <$> getLeaders siEpoch
+
+-- | Get depth of the first main block whose SlotId ≤ given value.
+getSlotDepth :: SlotId -> Query Word
+getSlotDepth slotId = do
+    headBlock <- getHeadBlock
+    getSlotByDepthDo 0 headBlock
+  where
+    getSlotByDepthDo :: Word -> Block -> Query Word
+    getSlotByDepthDo depth (Right blk)
+        | blk ^. blockSlot <= slotId = pure depth
+    getSlotByDepthDo depth blk =
+        maybe (pure depth) (getSlotByDepthDo (depth + 1)) =<<
+        getBlock (headerHash blk)
 
 -- | Check that block header is correct and claims to represent block
 -- which may become part of blockchain.

@@ -19,7 +19,7 @@ module Pos.State.Storage.Tx
        , txRollback
        ) where
 
-import           Control.Lens            (makeClassy, use, uses, view, (%=), (.=), (<~))
+import           Control.Lens            (makeClassy, use, uses, view, (%=), (<~), (^.))
 import           Data.Default            (Default, def)
 import qualified Data.HashSet            as HS
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
@@ -28,7 +28,7 @@ import           Universum
 
 import           Pos.Genesis             (genesisUtxo)
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types               (Block, Tx (..), Utxo, applyTxToUtxo,
+import           Pos.Types               (Block, Tx (..), Utxo, applyTxToUtxo, blockTxs,
                                           verifyTxUtxo)
 
 data TxStorage = TxStorage
@@ -71,37 +71,47 @@ type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
 processTx :: Tx -> Update Bool
 processTx tx = do
     good <- verifyTx tx
-    good <$ when good (applyTx tx)
+    good <$ when good (txLocalTxns %= HS.insert tx >> applyTx tx)
 
 verifyTx :: Tx -> Update Bool
 verifyTx tx = isVerSuccess . flip verifyTxUtxo tx <$> use txUtxo
 
 applyTx :: Tx -> Update ()
-applyTx tx@Tx {..} = do
-    txLocalTxns %= HS.insert tx
-    txUtxo %= applyTxToUtxo tx
+applyTx tx = txUtxo %= applyTxToUtxo tx
+
+removeLocalTx :: Tx -> Update ()
+removeLocalTx tx = txLocalTxns %= HS.delete tx
 
 -- | Apply chain of definitely valid blocks which go right after last
 -- applied block.
 txApplyBlocks :: AltChain -> Update ()
-txApplyBlocks = mapM_ txApplyBlock
+txApplyBlocks blocks = do
+    mapM_ txApplyBlock blocks
+    filterLocalTxs
 
 txApplyBlock :: Block -> Update ()
-txApplyBlock = notImplemented
+txApplyBlock (Left _) = do
+    utxo <- use txUtxo
+    txUtxoHistory %= (utxo:)
+txApplyBlock (Right mainBlock) = do
+    utxo <- use txUtxo
+    let txs = mainBlock ^. blockTxs
+    mapM_ applyTx txs
+    mapM_ removeLocalTx txs
+    txUtxoHistory %= (utxo:)
 
 -- | Rollback last `n` blocks. `tx` prefix is used, because rollback
 -- may happen in other storages as well.
 txRollback :: Word -> Update ()
 txRollback (fromIntegral -> n) = do
-    utxoToSet <- fromMaybe onError . (`atMay` n) <$> use txUtxoHistory
-    txUtxo .= utxoToSet
+    txUtxo <~ fromMaybe onError . (`atMay` n) <$> use txUtxoHistory
     txUtxoHistory %= drop n
-    filterLocalTxns
+    filterLocalTxs
   where
     -- Consider using `MonadError` and throwing `InternalError`.
     onError = (panic "attempt to rollback to too old or non-existing block")
 
-filterLocalTxns :: Update ()
-filterLocalTxns = do
+filterLocalTxs :: Update ()
+filterLocalTxs = do
     txs <- uses txLocalTxns toList
     txLocalTxns <~ HS.fromList <$> filterM verifyTx txs

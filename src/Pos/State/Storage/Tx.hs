@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 -- | Internal state of the transaction-handling worker.
 
@@ -14,6 +15,7 @@ module Pos.State.Storage.Tx
        , txVerifyBlocks
 
        , processTx
+       , txApplyBlocks
        , txRollback
        ) where
 
@@ -26,7 +28,8 @@ import           Universum
 
 import           Pos.Genesis             (genesisUtxo)
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types               (Tx (..), Utxo, applyTxToUtxo, verifyTxUtxo)
+import           Pos.Types               (Block, Tx (..), Utxo, applyTxToUtxo,
+                                          verifyTxUtxo)
 
 data TxStorage = TxStorage
     { -- | Local set of transactions. These are valid (with respect to
@@ -78,10 +81,18 @@ applyTx tx@Tx {..} = do
     txLocalTxns %= HS.insert tx
     txUtxo %= applyTxToUtxo tx
 
+-- | Apply chain of definitely valid blocks which go right after last
+-- applied block.
+txApplyBlocks :: AltChain -> Update ()
+txApplyBlocks = mapM_ txApplyBlock
+
+txApplyBlock :: Block -> Update ()
+txApplyBlock = notImplemented
+
 -- | Rollback last `n` blocks. `tx` prefix is used, because rollback
 -- may happen in other storages as well.
-txRollback :: Int -> Update ()
-txRollback n = do
+txRollback :: Word -> Update ()
+txRollback (fromIntegral -> n) = do
     utxoToSet <- fromMaybe onError . (`atMay` n) <$> use txUtxoHistory
     txUtxo .= utxoToSet
     txUtxoHistory %= drop n

@@ -49,12 +49,14 @@ import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage
                                           mpcProcessShares, mpcProcessVssCertificate,
                                           mpcRollback, mpcVerifyBlock, mpcVerifyBlocks)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
-                                          getLocalTxns, processTx, txVerifyBlocks)
+                                          getLocalTxns, processTx, txApplyBlocks,
+                                          txRollback, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
                                           MainBlock, Opening, SlotId, VssCertificate,
-                                          blockTxs, unflattenSlotId, verifyTxAlone)
-import           Pos.Util                (readerToState)
+                                          blockTxs, headerHashG, unflattenSlotId,
+                                          verifyTxAlone)
+import           Pos.Util                (readerToState, _neHead)
 
 type Query  a = forall m . MonadReader Storage m => m a
 type Update a = forall m . MonadState Storage m => m a
@@ -98,8 +100,7 @@ createNewBlock sk sId = do
     blk <- blkCreateNewBlock sk sId txs mpcData
     let blocks = Right blk :| []
     mpcApplyBlocks blocks
-    -- txApplyBlock [blk]
-    return blk
+    blk <$ txApplyBlocks blocks
 
 -- | Do all necessary changes when a block is received.
 processBlock :: SlotId -> Block -> Update ProcessBlockRes
@@ -126,14 +127,16 @@ processBlockDo curSlotId blk = do
                 VerFailure errors -> return $ mkPBRabort errors
         _ -> return r
 
+-- At this point all checks have been passed and we know that we can
+-- adopt this AltChain.
 processBlockFinally :: Word -> AltChain -> Update ProcessBlockRes
 processBlockFinally toRollback blocks = do
     mpcRollback toRollback
     mpcApplyBlocks blocks
+    txRollback toRollback
+    txApplyBlocks blocks
     blkRollback toRollback
-    blkSetHead undefined
-    -- txFoo
-    -- txBar
+    blkSetHead (blocks ^. _neHead . headerHashG)
     return $ PBRgood (toRollback, blocks)
 
 -- | Do all necessary changes when new slot starts.

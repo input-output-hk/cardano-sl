@@ -12,6 +12,7 @@ module Pos.State.Storage.Tx
        , HasTxStorage(txStorage)
 
        , getLocalTxns
+       , getUtxoForSlot
        , txVerifyBlocks
 
        , processTx
@@ -28,8 +29,8 @@ import           Universum
 
 import           Pos.Genesis             (genesisUtxo)
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types               (Block, Tx (..), Utxo, applyTxToUtxo, blockTxs,
-                                          verifyTxUtxo)
+import           Pos.Types               (Block, SlotId, Tx (..), Utxo, applyTxToUtxo,
+                                          blockTxs, verifyTxUtxo)
 
 data TxStorage = TxStorage
     { -- | Local set of transactions. These are valid (with respect to
@@ -65,6 +66,14 @@ getLocalTxns = view txLocalTxns
 
 txVerifyBlocks :: Word -> AltChain -> Query VerificationRes
 txVerifyBlocks = notImplemented
+
+-- | Get Utxo right after given slot finished. Fails if requested slot
+-- hasn't finished yet.
+--
+-- Note: flattenSlotId won't help here, because some slots don't have
+-- blocks.
+getUtxoForSlot :: SlotId -> Query (Maybe Utxo)
+getUtxoForSlot = notImplemented
 
 type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
 

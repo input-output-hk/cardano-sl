@@ -38,10 +38,12 @@ import           Data.Acid               ()
 import           Data.Default            (Default, def)
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
+import           Formatting              (sformat, shown, (%))
 import           Serokell.AcidState      ()
 import           Serokell.Util           (VerificationRes (..))
 import           Universum
 
+import           Pos.Constants           (k)
 import           Pos.Crypto              (PublicKey, SecretKey, Share)
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
                                           blkCleanUp, blkCreateGenesisBlock,
@@ -49,15 +51,15 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
                                           blkSetHead, getBlock, getHeadBlock, getLeaders,
                                           mayBlockBeUseful)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage,
-                                          getLocalMpcData, getOurCommitment,
-                                          getOurOpening, getOurShares, mpcApplyBlocks,
-                                          mpcProcessCommitment, mpcProcessOpening,
-                                          mpcProcessShares, mpcProcessVssCertificate,
-                                          mpcRollback, mpcVerifyBlock, mpcVerifyBlocks,
-                                          setSecret)
+                                          calculateLeaders, getLocalMpcData,
+                                          getOurCommitment, getOurOpening, getOurShares,
+                                          mpcApplyBlocks, mpcProcessCommitment,
+                                          mpcProcessOpening, mpcProcessShares,
+                                          mpcProcessVssCertificate, mpcRollback,
+                                          mpcVerifyBlock, mpcVerifyBlocks, setSecret)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
-                                          getLocalTxns, processTx, txApplyBlocks,
-                                          txRollback, txVerifyBlocks)
+                                          getLocalTxns, getUtxoForSlot, processTx,
+                                          txApplyBlocks, txRollback, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
                                           EpochIndex, MainBlock, Opening, SlotId (..),
@@ -166,10 +168,20 @@ processNewSlotDo sId@SlotId {..} = do
 createGenesisBlock :: EpochIndex -> Update ()
 createGenesisBlock epoch = do
     headEpoch <- readerToState getHeadEpoch
-    knownEpoch <- use (slotId . epochIndexL)
-    when (headEpoch + 1 == knownEpoch) $
-        do leaders <- notImplemented
+    when (headEpoch + 1 == epoch) $
+        do utxo <-
+               readerToState $
+               onErrorGetUtxo <$>
+               getUtxoForSlot SlotId {siEpoch = epoch - 1, siSlot = 5 * k - 1}
+           leaders <-
+               readerToState $
+               either onErrorCalcLeaders identity <$> calculateLeaders utxo
            () <$ blkCreateGenesisBlock epoch leaders
+  where
+    onErrorGetUtxo =
+        panic "Failed to get utxo necessary for leaders calculation"
+    onErrorCalcLeaders e =
+        panic (sformat ("Leaders calculation reported error: " % shown) e)
 
 processCommitment :: PublicKey -> (Commitment, CommitmentSignature) -> Update ()
 processCommitment = mpcProcessCommitment

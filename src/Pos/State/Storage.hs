@@ -27,7 +27,7 @@ module Pos.State.Storage
        , processVssCertificate
        ) where
 
-import           Control.Lens            (makeClassy, use, (.=))
+import           Control.Lens            (makeClassy, use, (.=), (^.))
 import           Data.Acid               ()
 import           Data.Default            (Default, def)
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
@@ -49,8 +49,8 @@ import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, p
                                           txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature, Opening,
-                                          SlotId, Tx, VssCertificate, unflattenSlotId,
-                                          verifyTxAlone)
+                                          SlotId, VssCertificate, blockTxs,
+                                          unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState)
 
 type Query  a = forall m . MonadReader Storage m => m a
@@ -90,8 +90,10 @@ instance Default Storage where
 processBlock :: SlotId -> Block -> Update ProcessBlockRes
 processBlock curSlotId blk = do
     mpcRes <- readerToState $ mpcVerifyBlock blk
-    let txs :: [Tx]
-        txs = []  -- TODO: put txs here!!!
+    let txs =
+            case blk of
+                Left _        -> []
+                Right mainBlk -> toList $ mainBlk ^. blockTxs
     let txRes = foldMap verifyTxAlone txs
     case mpcRes <> txRes of
         VerSuccess        -> processBlockDo curSlotId blk

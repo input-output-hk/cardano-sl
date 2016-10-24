@@ -16,10 +16,7 @@
 
 module Pos.Types.Types
        (
-         NodeId (..)
-       , nodeF
-
-       , EpochIndex (..)
+         EpochIndex (..)
        , LocalSlotIndex (..)
        , SlotId (..)
        , slotIdF
@@ -151,20 +148,6 @@ import           Pos.Crypto           (EncShare, Hash, PublicKey, Secret, Secret
                                        unsafeHash, verify)
 import           Pos.Merkle           (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Util             (makeLensesData)
-
-----------------------------------------------------------------------------
--- Node. TODO: do we need it?
-----------------------------------------------------------------------------
-
-newtype NodeId = NodeId
-    { getNodeId :: Int
-    } deriving (Show, Eq, Ord, Enum, Binary)
-
-instance Buildable NodeId where
-    build = bprint ("#"%int) . getNodeId
-
-nodeF :: Format r (NodeId -> r)
-nodeF = build
 
 ----------------------------------------------------------------------------
 -- Slotting
@@ -996,7 +979,6 @@ verifyBlocks curSlotId = (view _3) . foldl' step start
 -- These instances are all gathered at the end because otherwise we'd have to
 -- sort types topologically
 
-deriveSafeCopySimple 0 'base ''NodeId
 deriveSafeCopySimple 0 'base ''EpochIndex
 deriveSafeCopySimple 0 'base ''LocalSlotIndex
 deriveSafeCopySimple 0 'base ''SlotId

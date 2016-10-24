@@ -18,12 +18,12 @@ module Pos.State.Storage
        , ProcessBlockRes (..)
 
        , Update
-       , addTx
        , processBlock
        , processNewSlot
        , processCommitment
        , processOpening
        , processShares
+       , processTx
        , processVssCertificate
        ) where
 
@@ -45,7 +45,7 @@ import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage
                                           mpcProcessOpening, mpcProcessShares,
                                           mpcProcessVssCertificate, mpcRollback,
                                           mpcVerifyBlock, mpcVerifyBlocks)
-import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, addTx)
+import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, processTx)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature, Opening,
                                           SlotId, VssCertificate, unflattenSlotId)

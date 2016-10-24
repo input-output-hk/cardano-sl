@@ -20,12 +20,12 @@ module Pos.State.Acidic
        , GetHeadBlock (..)
        , MayBlockBeUseful (..)
 
-       , AddTx (..)
        , ProcessBlock (..)
        , ProcessNewSlot (..)
        , ProcessCommitment (..)
        , ProcessOpening (..)
        , ProcessShares (..)
+       , ProcessTx (..)
        , ProcessVssCertificate (..)
        ) where
 
@@ -73,11 +73,11 @@ makeAcidic ''Storage
     , 'S.getBlock
     , 'S.getHeadBlock
     , 'S.mayBlockBeUseful
-    , 'S.addTx
     , 'S.processBlock
     , 'S.processNewSlot
     , 'S.processCommitment
     , 'S.processOpening
     , 'S.processShares
+    , 'S.processTx
     , 'S.processVssCertificate
     ]

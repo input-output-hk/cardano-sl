@@ -18,12 +18,12 @@ module Pos.State.State
 
        -- * Operations with effects.
        , ProcessBlockRes (..)
-       , addTx
        , processBlock
        , processNewSlot
        , processCommitment
        , processOpening
        , processShares
+       , processTx
        , processVssCertificate
        ) where
 
@@ -103,14 +103,12 @@ mayBlockBeUseful
     => SlotId -> MainBlockHeader -> m VerificationRes
 mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 
--- TODO: should 'addTx', 'processOpening', and 'processCommitment' return
--- True if the thing was valid but we already knew about it? Also, we should
--- probably agree on more consistent naming
+-- TODO: should 'processTx', 'processOpening', and 'processCommitment' return
+-- True if the thing was valid but we already knew about it?
 
--- | Add transaction to state if it is fully valid. Returns True iff
--- transaction has been added.
-addTx :: WorkModeDB m => Tx -> m Bool
-addTx = updateDisk . A.AddTx
+-- | Process transaction received from other party.
+processTx :: WorkModeDB m => Tx -> m Bool
+processTx = updateDisk . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot.
 processNewSlot :: WorkModeDB m => SlotId -> m ()

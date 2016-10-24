@@ -135,6 +135,7 @@ import           Data.Vector          (Vector)
 import           Formatting           (Format, bprint, build, int, sformat, (%))
 import           Serokell.AcidState   ()
 import qualified Serokell.Util.Base16 as B16
+import           Serokell.Util.Text   (listBuilderJSON)
 import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum
 
@@ -278,6 +279,13 @@ data Tx = Tx
 instance Binary Tx
 instance Hashable Tx
 instance MessagePack Tx
+
+instance Buildable Tx where
+    build Tx {..} =
+        bprint
+            ("Transaction with inputs "%build%", outputs: "%build)
+            (listBuilderJSON txInputs)
+            (listBuilderJSON txOutputs)
 
 ----------------------------------------------------------------------------
 -- UTXO

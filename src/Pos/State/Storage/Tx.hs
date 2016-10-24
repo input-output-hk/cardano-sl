@@ -10,7 +10,7 @@ module Pos.State.Storage.Tx
          TxStorage
        , HasTxStorage(txStorage)
 
-       , addTx
+       , processTx
        , txRollback
        ) where
 
@@ -54,8 +54,8 @@ type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
 
 -- | Add transaction to storage if it is fully valid. Returns True iff
 -- transaction has been added.
-addTx :: Tx -> Update Bool
-addTx tx = do
+processTx :: Tx -> Update Bool
+processTx tx = do
     good <- verifyTx tx
     good <$ when good (applyTx tx)
 

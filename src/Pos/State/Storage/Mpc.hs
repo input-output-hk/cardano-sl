@@ -30,8 +30,7 @@ module Pos.State.Storage.Mpc
        , mpcVerifyBlocks
        ) where
 
-import           Control.Lens            (Lens', makeClassy, to, use, view, (%=), (.=),
-                                          (^.))
+import           Control.Lens            (Lens', makeClassy, use, view, (%=), (.=), (^.))
 import           Crypto.Random           (drgNewSeed, seedFromInteger, withDRG)
 import           Data.Default            (Default, def)
 import           Data.Hashable           (Hashable)

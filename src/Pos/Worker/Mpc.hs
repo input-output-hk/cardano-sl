@@ -52,5 +52,5 @@ mpcOnNewSlot SlotId {..} = do
 -- | All workers specific to MPC processing.
 -- Exceptions:
 -- 1. Worker which ticks when new slot starts.
-mpcWorkers :: WorkMode m => [m ()]
+mpcWorkers :: [a]
 mpcWorkers = []

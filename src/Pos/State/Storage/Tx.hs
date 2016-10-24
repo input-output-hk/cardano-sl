@@ -10,19 +10,22 @@ module Pos.State.Storage.Tx
          TxStorage
        , HasTxStorage(txStorage)
 
+       , txVerifyBlocks
+
        , processTx
        , txRollback
        ) where
 
-import           Control.Lens  (makeClassy, use, uses, (%=), (.=), (<~))
-import           Data.Default  (Default, def)
-import qualified Data.HashSet  as HS
-import           Data.SafeCopy (base, deriveSafeCopySimple)
-import           Serokell.Util (isVerSuccess)
+import           Control.Lens            (makeClassy, use, uses, (%=), (.=), (<~))
+import           Data.Default            (Default, def)
+import qualified Data.HashSet            as HS
+import           Data.SafeCopy           (base, deriveSafeCopySimple)
+import           Serokell.Util           (VerificationRes, isVerSuccess)
 import           Universum
 
-import           Pos.Genesis   (genesisUtxo)
-import           Pos.Types     (Tx (..), Utxo, applyTxToUtxo, verifyTxUtxo)
+import           Pos.Genesis             (genesisUtxo)
+import           Pos.State.Storage.Types (AltChain)
+import           Pos.Types               (Tx (..), Utxo, applyTxToUtxo, verifyTxUtxo)
 
 data TxStorage = TxStorage
     { -- | Local set of transactions. These are valid (with respect to
@@ -49,8 +52,12 @@ instance Default TxStorage where
         , _txUtxoHistory = [genesisUtxo]
         }
 
+type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
+
+txVerifyBlocks :: Word -> AltChain -> Query VerificationRes
+txVerifyBlocks = notImplemented
+
 type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
--- type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
 
 -- | Add transaction to storage if it is fully valid. Returns True iff
 -- transaction has been added.

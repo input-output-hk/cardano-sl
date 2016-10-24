@@ -45,10 +45,12 @@ import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage
                                           mpcProcessOpening, mpcProcessShares,
                                           mpcProcessVssCertificate, mpcRollback,
                                           mpcVerifyBlock, mpcVerifyBlocks)
-import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, processTx)
+import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, processTx,
+                                          txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature, Opening,
-                                          SlotId, VssCertificate, unflattenSlotId)
+                                          SlotId, Tx, VssCertificate, unflattenSlotId,
+                                          verifyTxAlone)
 import           Pos.Util                (readerToState)
 
 type Query  a = forall m . MonadReader Storage m => m a
@@ -88,7 +90,9 @@ instance Default Storage where
 processBlock :: SlotId -> Block -> Update ProcessBlockRes
 processBlock curSlotId blk = do
     mpcRes <- readerToState $ mpcVerifyBlock blk
-    txRes <- pure mempty
+    let txs :: [Tx]
+        txs = []  -- TODO: put txs here!!!
+    let txRes = foldMap verifyTxAlone txs
     case mpcRes <> txRes of
         VerSuccess        -> processBlockDo curSlotId blk
         VerFailure errors -> return $ mkPBRabort errors
@@ -99,7 +103,7 @@ processBlockDo curSlotId blk = do
     case r of
         PBRgood (toRollback, chain) -> do
             mpcRes <- readerToState $ mpcVerifyBlocks toRollback chain
-            txRes <- pure mempty
+            txRes <- readerToState $ txVerifyBlocks toRollback chain
             case mpcRes <> txRes of
                 VerSuccess        -> processBlockFinally toRollback chain
                 VerFailure errors -> return $ mkPBRabort errors

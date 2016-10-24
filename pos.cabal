@@ -34,6 +34,7 @@ library
                         Pos.Communication.Server
                         Pos.Communication.Server.Block
                         Pos.Communication.Server.Mpc
+                        Pos.Communication.Server.Tx
                         Pos.Crypto.Hashing
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing

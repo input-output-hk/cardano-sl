@@ -81,6 +81,7 @@ module Pos.Types.Types
        , blockLeaders
        , blockSignature
        , blockSlot
+       , blockTxs
        , gbBody
        , gbBodyProof
        , gbExtra
@@ -95,6 +96,10 @@ module Pos.Types.Types
        , headerLeaderKey
        , headerSignature
        , headerSlot
+       , mbCommitments
+       , mbOpenings
+       , mbShares
+       , mbVssCertificates
        , mcdSlot
        , mcdLeaderKey
        , mcdDifficulty
@@ -513,27 +518,27 @@ instance Blockchain MainBlockchain where
         { -- | Transactions are the main payload.
         -- TODO: currently we don't know for sure whether it should be
         -- MerkleTree or something list-like.
-        mbTxs         :: !(MerkleTree Tx)
+        _mbTxs         :: !(MerkleTree Tx)
         , -- | Commitments are added during the first phase of epoch.
-        mbCommitments :: !CommitmentsMap
+        _mbCommitments :: !CommitmentsMap
         , -- | Openings are added during the second phase of epoch.
-        mbOpenings    :: !OpeningsMap
+        _mbOpenings    :: !OpeningsMap
         , -- | Decrypted shares to be used in the third phase.
-        mbShares      :: !SharesMap
+        _mbShares      :: !SharesMap
         , -- | Vss certificates are added at any time if they are valid and
           -- received from stakeholders.
-        mbVssCertificates :: !VssCertificatesMap
+        _mbVssCertificates :: !VssCertificatesMap
         } deriving (Generic)
     type BBlock MainBlockchain = Block
 
     mkBodyProof MainBody {..} =
         MainProof
-        { mpNumber = mtSize mbTxs
-        , mpRoot = mtRoot mbTxs
-        , mpCommitmentsHash = hash mbCommitments
-        , mpOpeningsHash = hash mbOpenings
-        , mpSharesHash = hash mbShares
-        , mpVssCertificatesHash = hash mbVssCertificates
+        { mpNumber = mtSize _mbTxs
+        , mpRoot = mtRoot _mbTxs
+        , mpCommitmentsHash = hash _mbCommitments
+        , mpOpeningsHash = hash _mbOpenings
+        , mpSharesHash = hash _mbShares
+        , mpVssCertificatesHash = hash _mbVssCertificates
         }
 
 instance Binary (BodyProof MainBlockchain)
@@ -611,6 +616,7 @@ makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock
 makeLensesData ''ConsensusData ''MainBlockchain
 makeLensesData ''ConsensusData ''GenesisBlockchain
+makeLensesData ''Body ''MainBlockchain
 makeLensesData ''Body ''GenesisBlockchain
 
 gbBodyProof :: Lens' (GenericBlock b) (BodyProof b)
@@ -698,6 +704,9 @@ blockLeaderKey = gbHeader . headerLeaderKey
 
 blockSignature :: Lens' MainBlock (Signature MainToSign)
 blockSignature = gbHeader . headerSignature
+
+blockTxs :: Lens' MainBlock (MerkleTree Tx)
+blockTxs = gbBody . mbTxs
 
 blockLeaders :: Lens' GenesisBlock SlotLeaders
 blockLeaders = gbBody . gbLeaders

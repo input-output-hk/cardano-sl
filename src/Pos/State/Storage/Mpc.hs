@@ -24,8 +24,7 @@ module Pos.State.Storage.Mpc
        , mpcVerifyBlocks
        ) where
 
-import           Control.Lens            (Lens', makeClassy, to, use, view, (%=), (.=),
-                                          (^.))
+import           Control.Lens            (Lens', makeClassy, use, view, (%=), (.=), (^.))
 import           Data.Default            (Default, def)
 import           Data.Hashable           (Hashable)
 import qualified Data.HashMap.Strict     as HM
@@ -44,12 +43,12 @@ import           Pos.Crypto              (PublicKey, Share,
                                           verifyShare)
 import           Pos.FollowTheSatoshi    (FtsError, calculateSeed, followTheSatoshi)
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types               (Address (getAddress), Block, Body (..),
-                                          Commitment (..), CommitmentSignature,
-                                          CommitmentsMap, Opening (..), OpeningsMap,
-                                          SharesMap, SlotId (..), SlotLeaders, Utxo,
-                                          VssCertificate, VssCertificatesMap, blockSlot,
-                                          gbBody, mbCommitments, mbOpenings, mbShares,
+import           Pos.Types               (Address (getAddress), Block, Commitment (..),
+                                          CommitmentSignature, CommitmentsMap,
+                                          Opening (..), OpeningsMap, SharesMap,
+                                          SlotId (..), SlotLeaders, Utxo, VssCertificate,
+                                          VssCertificatesMap, blockSlot, gbBody,
+                                          mbCommitments, mbOpenings, mbShares,
                                           mbVssCertificates, verifyOpening)
 import           Pos.Util                (readerToState, zoom', _neHead)
 
@@ -184,10 +183,10 @@ mpcVerifyBlock (Left _) = return VerSuccess
 -- Main blocks have commitments, openings, shares and VSS certificates
 mpcVerifyBlock (Right b) = do
     let SlotId{siSlot = slotId, siEpoch = epochId} = b ^. blockSlot
-    let commitments  = b ^. gbBody . to mbCommitments
-        openings     = b ^. gbBody . to mbOpenings
-        shares       = b ^. gbBody . to mbShares
-        certificates = b ^. gbBody . to mbVssCertificates
+    let commitments  = b ^. gbBody . mbCommitments
+        openings     = b ^. gbBody . mbOpenings
+        shares       = b ^. gbBody . mbShares
+        certificates = b ^. gbBody . mbVssCertificates
     globalCommitments  <- view (lastVer . mpcGlobalCommitments)
     globalOpenings     <- view (lastVer . mpcGlobalOpenings)
     globalShares       <- view (lastVer . mpcGlobalShares)
@@ -386,10 +385,10 @@ mpcProcessBlock blk = do
                 mpcGlobalShares      .= mempty
         -- Main blocks contain commitments, openings, shares, VSS certificates
         Right b -> do
-            let blockCommitments  = b ^. gbBody . to mbCommitments
-                blockOpenings     = b ^. gbBody . to mbOpenings
-                blockShares       = b ^. gbBody . to mbShares
-                blockCertificates = b ^. gbBody . to mbVssCertificates
+            let blockCommitments  = b ^. gbBody . mbCommitments
+                blockOpenings     = b ^. gbBody . mbOpenings
+                blockShares       = b ^. gbBody . mbShares
+                blockCertificates = b ^. gbBody . mbVssCertificates
             zoom' lastVer $ do
                 -- commitments
                 mpcGlobalCommitments %= HM.union blockCommitments

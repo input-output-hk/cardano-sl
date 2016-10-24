@@ -52,7 +52,7 @@ blocksTransmitter =
     repeatForever blocksTransmitterInterval onError $
     do headBlock <- getHeadBlock
        case headBlock of
-           Left _ -> logWarning "Head block is genesis for some reason, omgwtf!"
+           Left _ -> logWarning "Head block is genesis block ⇒ no announcement"
            Right mainBlock -> announceBlock (mainBlock ^. gbHeader)
   where
     onError e =

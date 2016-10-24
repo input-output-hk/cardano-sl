@@ -365,7 +365,6 @@ blocksToTestMergeDo commonAncestor =
                 Just blk -> (commonAncestor :) <$> blocksToTestMergeDo blk
 
 -- | Create a new block and append it to the best chain.
--- FIXME: create a genesis block when necessary.
 blkCreateNewBlock :: SecretKey -> SlotId -> [Tx] -> MpcData -> Update MainBlock
 blkCreateNewBlock sk sId txs mpcData = do
     prevHeader <- readerToState $ getBlockHeader <$> getHeadBlock

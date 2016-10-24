@@ -53,9 +53,9 @@ import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           txRollback, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
-                                          MainBlock, Opening, SlotId, VssCertificate,
-                                          blockTxs, headerHashG, unflattenSlotId,
-                                          verifyTxAlone)
+                                          EpochIndex, MainBlock, Opening, SlotId (..),
+                                          VssCertificate, blockTxs, epochIndexL,
+                                          headerHashG, unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState, _neHead)
 
 type Query  a = forall m . MonadReader Storage m => m a
@@ -94,7 +94,6 @@ instance Default Storage where
 -- | Create a new block on top of best chain.
 createNewBlock :: SecretKey -> SlotId -> Update MainBlock
 createNewBlock sk sId = do
-    -- TODO: create genesis block when necessary
     txs <- readerToState $ toList <$> getLocalTxns
     mpcData <- readerToState getLocalMpcData
     blk <- blkCreateNewBlock sk sId txs mpcData
@@ -137,6 +136,10 @@ processBlockFinally toRollback blocks = do
     txApplyBlocks blocks
     blkRollback toRollback
     blkSetHead (blocks ^. _neHead . headerHashG)
+    headBlock <- readerToState getHeadBlock
+    let headEpoch = headBlock ^. epochIndexL
+    knownEpoch <- use (slotId . epochIndexL)
+    when (headEpoch < knownEpoch) $ createGenesisBlock knownEpoch
     return $ PBRgood (toRollback, blocks)
 
 -- | Do all necessary changes when new slot starts.
@@ -145,11 +148,14 @@ processNewSlot sId = do
     knownSlot <- use slotId
     when (sId > knownSlot) $ processNewSlotDo sId
 
--- TODO
 processNewSlotDo :: SlotId -> Update ()
-processNewSlotDo sId = do
+processNewSlotDo sId@SlotId {..} = do
     slotId .= sId
+    when (siSlot == 0) $ createGenesisBlock siEpoch
     blkCleanUp sId
+
+createGenesisBlock :: EpochIndex -> Update ()
+createGenesisBlock = notImplemented
 
 processCommitment :: PublicKey -> (Commitment, CommitmentSignature) -> Update ()
 processCommitment = mpcProcessCommitment

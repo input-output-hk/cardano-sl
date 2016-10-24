@@ -1,22 +1,18 @@
 module Main where
 
 import           Control.Concurrent.Async (mapConcurrently)
-import           Control.TimeWarp.Logging (Severity (Error, Info), initLogging,
-                                           logInfo, usingLoggerName)
+import           Control.TimeWarp.Logging (Severity (Debug, Info), initLogging, logInfo,
+                                           usingLoggerName)
 import           Control.TimeWarp.Rpc     (ResponseT)
-import           Control.TimeWarp.Timed   (fork_, repeatForever, runTimedIO,
-                                           sec)
+import           Control.TimeWarp.Timed   (fork_, repeatForever, runTimedIO, sec)
 import           Data.List                ((!!))
 import           Data.String              (fromString)
 import           Formatting               (build, sformat, (%))
-import           Pos.DHT                  (DHTNode (..), DHTNodeType (..),
-                                           Peer (..), currentNodeKey,
-                                           getKnownPeers)
+import           Pos.DHT                  (DHTNode (..), DHTNodeType (..), Peer (..),
+                                           currentNodeKey, getKnownPeers)
 import           Pos.DHT.Real             (KademliaDHT, runKademliaDHT)
-import           Pos.Genesis              (genesisSecretKeys,
-                                           genesisVssKeyPairs)
-import           Pos.Launcher             (NodeParams (..), getCurTimestamp,
-                                           runNodeReal)
+import           Pos.Genesis              (genesisSecretKeys, genesisVssKeyPairs)
+import           Pos.Launcher             (NodeParams (..), getCurTimestamp, runNodeReal)
 import           Pos.Slotting             (Timestamp)
 import           Universum
 
@@ -30,7 +26,7 @@ runSingleNode start peers i = runNodeReal params
         , npRebuildDb = True
         , npSystemStart = Just start
         , npLoggerName = "node" <> fromString (show i)
-        , npLoggingSeverity = Info --if i == 0 then Info else Error
+        , npLoggingSeverity = Debug --if i == 0 then Info else Error
         , npSecretKey = genesisSecretKeys !! (fromInteger . toInteger $ i)
         , npVssKeyPair = genesisVssKeyPairs !! (fromInteger . toInteger $ i)
         , npPort = 1000 + i

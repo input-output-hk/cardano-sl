@@ -2,13 +2,12 @@
 
 module Main where
 
-import           Control.TimeWarp.Logging (Severity (Info))
+import           Control.TimeWarp.Logging (Severity (Debug))
 import           Data.List                ((!!))
 import           Universum
 
 import           Pos.DHT                  (Peer (..))
-import           Pos.Genesis              (genesisSecretKeys,
-                                           genesisVssKeyPairs)
+import           Pos.Genesis              (genesisSecretKeys, genesisVssKeyPairs)
 import           Pos.Launcher             (NodeParams (..), runNodeReal)
 
 main :: IO ()
@@ -20,7 +19,7 @@ main = runNodeReal params
         , npRebuildDb = True
         , npSystemStart = Nothing
         , npLoggerName = "node"
-        , npLoggingSeverity = Info
+        , npLoggingSeverity = Debug
         , npSecretKey = genesisSecretKeys !! 0
         , npVssKeyPair = genesisVssKeyPairs !! 0
         , npPort = 1000

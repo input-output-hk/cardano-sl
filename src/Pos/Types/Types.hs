@@ -511,8 +511,8 @@ instance Blockchain MainBlockchain where
     -- and MPC messages.
     data Body MainBlockchain = MainBody
         { -- | Transactions are the main payload.
-        -- TODO: consider using Vector or something. Not sure if it will be better.
-        -- TODO: probably it should be Merkle tree, not just list.
+        -- TODO: currently we don't know for sure whether it should be
+        -- MerkleTree or something list-like.
         mbTxs         :: !(MerkleTree Tx)
         , -- | Commitments are added during the first phase of epoch.
         mbCommitments :: !CommitmentsMap

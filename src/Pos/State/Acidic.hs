@@ -15,9 +15,10 @@ module Pos.State.Acidic
        , query
        , update
 
-       , GetLeaders (..)
        , GetBlock (..)
        , GetHeadBlock (..)
+       , GetLeaders (..)
+       , GetLocalTxns (..)
        , MayBlockBeUseful (..)
 
        , ProcessBlock (..)
@@ -69,8 +70,9 @@ tidyState :: MonadIO m => DiskState -> m ()
 tidyState = tidyExtendedState
 
 makeAcidic ''Storage
-    [ 'S.getLeaders
-    , 'S.getBlock
+    [ 'S.getBlock
+    , 'S.getLeaders
+    , 'S.getLocalTxns
     , 'S.getHeadBlock
     , 'S.mayBlockBeUseful
     , 'S.processBlock

@@ -13,6 +13,7 @@ module Pos.State.Storage
        , getBlock
        , getHeadBlock
        , getLeaders
+       , getLocalTxns
        , mayBlockBeUseful
 
        , ProcessBlockRes (..)
@@ -45,8 +46,8 @@ import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage
                                           mpcProcessOpening, mpcProcessShares,
                                           mpcProcessVssCertificate, mpcRollback,
                                           mpcVerifyBlock, mpcVerifyBlocks)
-import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, processTx,
-                                          txVerifyBlocks)
+import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
+                                          getLocalTxns, processTx, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature, Opening,
                                           SlotId, VssCertificate, blockTxs,

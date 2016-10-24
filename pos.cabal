@@ -54,6 +54,7 @@ library
                         Pos.Types.Utxo
                         Pos.Worker.Block
                         Pos.Worker.Mpc
+                        Pos.Worker.Tx
                         Pos.WorkMode
                         Pos.Util
                         Pos.Util.NotImplemented

@@ -14,6 +14,7 @@ module Pos.State.State
        , getBlock
        , getHeadBlock
        , getLeaders
+       , getLocalTxns
        , mayBlockBeUseful
 
        -- * Operations with effects.
@@ -97,6 +98,9 @@ getBlock = queryDisk . A.GetBlock
 -- | Get block which is the head of the __best chain__.
 getHeadBlock :: WorkModeDB m => m Block
 getHeadBlock = queryDisk A.GetHeadBlock
+
+getLocalTxns :: WorkModeDB m => m (HashSet Tx)
+getLocalTxns = queryDisk A.GetLocalTxns
 
 mayBlockBeUseful
     :: WorkModeDB m

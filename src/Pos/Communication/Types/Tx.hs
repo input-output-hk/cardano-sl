@@ -6,6 +6,7 @@
 
 module Pos.Communication.Types.Tx
        ( SendTx (..)
+       , SendTxs (..)
        ) where
 
 import           Control.TimeWarp.Rpc (Message (messageName), mkMessage)
@@ -24,8 +25,19 @@ instance Binary SendTx
 
 instance MessagePack SendTx
 
+data SendTxs =
+    SendTxs ![Tx]
+    deriving (Generic)
+
+instance Binary SendTxs
+
+instance MessagePack SendTxs
+
 -- Currently we use 'Void' as the “exception” type, this should be replaced.
 mkMessage ''Void
 
 instance Message SendTx where
     messageName _ = "Send Tx"
+
+instance Message SendTxs where
+    messageName _ = "Send Txs"

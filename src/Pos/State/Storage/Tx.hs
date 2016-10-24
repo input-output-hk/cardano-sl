@@ -10,13 +10,14 @@ module Pos.State.Storage.Tx
          TxStorage
        , HasTxStorage(txStorage)
 
+       , getLocalTxns
        , txVerifyBlocks
 
        , processTx
        , txRollback
        ) where
 
-import           Control.Lens            (makeClassy, use, uses, (%=), (.=), (<~))
+import           Control.Lens            (makeClassy, use, uses, view, (%=), (.=), (<~))
 import           Data.Default            (Default, def)
 import qualified Data.HashSet            as HS
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
@@ -53,6 +54,9 @@ instance Default TxStorage where
         }
 
 type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
+
+getLocalTxns :: Query (HashSet Tx)
+getLocalTxns = view txLocalTxns
 
 txVerifyBlocks :: Word -> AltChain -> Query VerificationRes
 txVerifyBlocks = notImplemented

@@ -68,11 +68,8 @@ getLocalTxns = view txLocalTxns
 txVerifyBlocks :: Word -> AltChain -> Query VerificationRes
 txVerifyBlocks = notImplemented
 
--- | Get Utxo right after given slot finished. Fails if requested slot
--- hasn't finished yet.
---
--- Note: flattenSlotId won't help here, because some slots don't have
--- blocks.
+-- | Get Utxo corresponding to state right after block with given
+-- depth has been applied.
 getUtxoByDepth :: Word -> Query (Maybe Utxo)
 getUtxoByDepth (fromIntegral -> depth) = preview $ txUtxoHistory . ix depth
 

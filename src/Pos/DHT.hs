@@ -1,9 +1,10 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ConstrainedClassMethods #-}
+{-# LANGUAGE FlexibleInstances       #-}
 -- | Peer discovery
 
 module Pos.DHT (
   DHTException (..), DHTKey, DHTData, DHTNode (..), Peer (..), DHTNodeType (..),
-  MonadDHT (..),
+  MonadDHT (..), MonadBroadcast (..),
   randomDHTKey, dhtNodeType
 ) where
 
@@ -13,12 +14,36 @@ import qualified Data.ByteString        as BS
 import           Data.Text.Buildable    (Buildable (..))
 import           Data.Text.Lazy         (unpack)
 import           Data.Text.Lazy.Builder (toLazyText)
+import           Formatting             (bprint, (%))
+import qualified Formatting             as F
 import           Pos.Crypto.Random      (secureRandomBS)
 import           Prelude                (show)
 import           Serokell.Util.Text     (listBuilderJSON)
 import           Universum              hiding (show)
 
+import           Control.TimeWarp.Rpc   (Message)
+
 import qualified Serokell.Util.Base64   as B64
+
+
+
+
+class Monad m => MonadDHT m where
+  joinNetwork :: [DHTNode] -> m ()
+
+  -- Peer discovery: query DHT for random key
+  -- Processing request, node will discover few other nodes
+  -- We return these newly discovered nodes among with already known
+  -- (List of known nodes is updated as well)
+  discoverPeers :: DHTNodeType -> m [DHTNode]
+
+  getKnownPeers :: m [DHTNode]
+
+  currentNodeKey :: m DHTKey
+
+class MonadDHT m => MonadBroadcast m where
+
+  sendBroadcast :: Message r => r -> m ()
 
 data Peer = Peer { peerHost :: Text
                  , peerPort :: Word16
@@ -26,9 +51,9 @@ data Peer = Peer { peerHost :: Text
   deriving Show
 
 instance Buildable Peer where
-  build p = build ("Peer " :: Text)
+  build p = "Peer "
              `mappend` build (peerHost p)
-             `mappend` build ':'
+             `mappend` ":"
              `mappend` build (peerPort p)
 
 instance Buildable [Peer] where
@@ -46,7 +71,7 @@ instance Buildable DHTKey where
               `mappend` build ' '
               `mappend` build (B64.encodeUrl $ BS.tail bs)
     where
-      buildType Nothing = build ("<Unknown type>" :: Text)
+      buildType Nothing  = "<Unknown type>"
       buildType (Just s) = build s
 
 instance Show DHTKey where
@@ -71,12 +96,12 @@ dhtNodeType (DHTKey bs) = impl $ BS.head bs
     impl 0x00 = Just DHTSupporter
     impl 0x30 = Just DHTFull
     impl 0xF0 = Just DHTSupporter
-    impl _ = Nothing
+    impl _    = Nothing
 
 typeByte :: DHTNodeType -> Word8
 typeByte DHTSupporter = 0x00
-typeByte DHTFull = 0x30
-typeByte DHTClient = 0xF0
+typeByte DHTFull      = 0x30
+typeByte DHTClient    = 0xF0
 
 randomDHTKey :: MonadIO m => DHTNodeType -> m DHTKey
 randomDHTKey type_ = (DHTKey . BS.cons (typeByte type_)) <$> secureRandomBS 19
@@ -87,11 +112,10 @@ data DHTNode = DHTNode { dhtPeer   :: Peer
   deriving Show
 instance Buildable DHTNode where
   build (DHTNode p key)
-    = build key
-             `mappend` build (" at " :: Text)
-             `mappend` build (peerHost p)
-             `mappend` build ':'
-             `mappend` build (peerPort p)
+    = bprint (F.build % " at " % F.build % ":" % F.build)
+             key
+             (peerHost p)
+             (peerPort p)
 
 instance Buildable [DHTNode] where
   build = listBuilderJSON
@@ -101,21 +125,11 @@ data DHTException = NodeDown | AllPeersUnavailable
 
 instance Exception DHTException
 
-class Monad m => MonadDHT m where
-  joinNetwork :: [DHTNode] -> m ()
-
-  -- Peer discovery: query DHT for random key
-  -- Processing request, node will discover few other nodes
-  -- We return these newly discovered nodes among with already known
-  -- (List of known nodes is updated as well)
-  discoverPeers :: DHTNodeType -> m [DHTNode]
-
-  getKnownPeers :: m [DHTNode]
-
-  currentNodeKey :: m DHTKey
-
 instance MonadDHT m => MonadDHT (ResponseT m) where
   discoverPeers = lift . discoverPeers
   getKnownPeers = lift getKnownPeers
   currentNodeKey = lift currentNodeKey
   joinNetwork = lift . joinNetwork
+
+instance MonadBroadcast m => MonadBroadcast (ResponseT m) where
+  sendBroadcast = lift . sendBroadcast

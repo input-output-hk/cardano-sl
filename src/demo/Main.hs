@@ -35,8 +35,14 @@ runSingleNode start peers i = runNodeReal params
 
 main :: IO ()
 main = do initLogging ["supporter"] Info
-          runTimed . runKademliaDHT DHTSupporter 2000 $ currentNodeKey >>= main''
+          runTimed . runKademliaDHT supporterKadConfig $ currentNodeKey >>= main''
   where
+    supporterKadConfig = KademliaDHTConfig
+                  { kdcType = DHTFull
+                  , kdcPort = npDHTPort
+                  , kdcListeners = []
+                  , kdcMessageCacheSize = 1000000
+                  }
     runTimed = runTimedIO . usingLoggerName "supporter"
     n = 3
     main'' supporterKey = do

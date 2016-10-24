@@ -29,8 +29,9 @@ import           Formatting               (build, sformat, (%))
 import           Pos.Crypto               (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
                                            toPublic, toVssPublicKey)
 import           Pos.DHT                  (DHTException (..), DHTNode, DHTNodeType (..),
-                                           MonadDHT (..))
-import           Pos.DHT.Real             (KademliaDHT, runKademliaDHT)
+                                           MonadBroadcast (..), MonadDHT (..))
+import           Pos.DHT.Real             (KademliaDHT, KademliaDHTConfig (..),
+                                           runKademliaDHT)
 import           Pos.Slotting             (MonadSlots (..), Timestamp (..), timestampF)
 import           Pos.State                (MonadDB (..), NodeState, openMemState,
                                            openState)
@@ -44,7 +45,7 @@ type WorkMode m
       , MonadSlots m
       , MonadDB m
       , WithNodeContext m
-      , MonadDHT m
+      , MonadBroadcast m
       , MonadDialog m
       )
 
@@ -158,11 +159,17 @@ runRealMode NodeParams {..} action = do
     initLogging [npLoggerName] npLoggingSeverity
     startTime <- getStartTime
     db <- (runTimed . runCH startTime) openDb
-    (runTimed . runDH db . runCH startTime . runKademliaDHT DHTFull npDHTPort) $ do
+    (runTimed . runDH db . runCH startTime . runKademliaDHT kadConfig) $ do
       logInfo $ sformat ("Started node, joining to DHT network " %build) npDHTPeers
       joinNetwork npDHTPeers `catch` handleJoinE
       action
   where
+    kadConfig = KademliaDHTConfig
+                  { kdcType = DHTFull
+                  , kdcPort = npDHTPort
+                  , kdcListeners = []
+                  , kdcMessageCacheSize = 1000000
+                  }
     handleJoinE AllPeersUnavailable
       = logInfo $ sformat ("Not connected to any of peers "%build) npDHTPeers
     handleJoinE e = throwM e

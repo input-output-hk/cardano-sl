@@ -76,6 +76,7 @@ library
                       , formatting
                       , hashable
                       , lens
+                      , lrucache
                       , kademlia
                       , memory
                       , mtl
@@ -84,6 +85,7 @@ library
                       , random
                       , safecopy
                       , serokell-core
+                      , stm
                       , template-haskell
                       , text
                       , text-format

@@ -16,27 +16,24 @@ module Pos.WorkMode
        , runRealMode
        ) where
 
-import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow,
-                                           catch, throwM)
+import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow, catch,
+                                           throwM)
 import           Control.TimeWarp.Logging (LoggerName, LoggerNameBox, Severity,
-                                           WithNamedLogger (..), initLogging,
-                                           logInfo, usingLoggerName)
-import           Control.TimeWarp.Rpc     (BinaryDialog, MonadDialog,
-                                           MonadTransfer, ResponseT, Transfer,
-                                           runBinaryDialog, runTransfer)
-import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId, TimedIO,
-                                           runTimedIO)
+                                           WithNamedLogger (..), initLogging, logInfo,
+                                           usingLoggerName)
+import           Control.TimeWarp.Rpc     (BinaryDialog, MonadDialog, MonadTransfer,
+                                           ResponseT, Transfer, runBinaryDialog,
+                                           runTransfer)
+import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId, runTimedIO)
 import           Formatting               (build, sformat, (%))
-import           Pos.Crypto               (PublicKey, SecretKey, VssKeyPair,
-                                           VssPublicKey, toPublic,
-                                           toVssPublicKey)
-import           Pos.DHT                  (DHTException (..), DHTNode,
-                                           DHTNodeType (..), MonadDHT (..))
+import           Pos.Crypto               (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
+                                           toPublic, toVssPublicKey)
+import           Pos.DHT                  (DHTException (..), DHTNode, DHTNodeType (..),
+                                           MonadDHT (..))
 import           Pos.DHT.Real             (KademliaDHT, runKademliaDHT)
-import           Pos.Slotting             (MonadSlots (..), Timestamp (..),
-                                           timestampF)
-import           Pos.State                (MonadDB (..), NodeState,
-                                           openMemState, openState)
+import           Pos.Slotting             (MonadSlots (..), Timestamp (..), timestampF)
+import           Pos.State                (MonadDB (..), NodeState, openMemState,
+                                           openState)
 import           Universum                hiding (ThreadId, catch)
 
 type WorkMode m

@@ -6,7 +6,6 @@ import           Control.TimeWarp.Logging (Severity (Debug))
 import           Data.List                ((!!))
 import           Universum
 
-import           Pos.DHT                  (Peer (..))
 import           Pos.Genesis              (genesisSecretKeys, genesisVssKeyPairs)
 import           Pos.Launcher             (NodeParams (..), runNodeReal)
 

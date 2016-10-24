@@ -4,11 +4,10 @@ module Pos.Communication.Methods
        ( announceBlock
        , announceTx
        , announceTxs
-       , requestBlock
        ) where
 
 import           Control.TimeWarp.Logging (logDebug)
-import           Control.TimeWarp.Rpc     (NetworkAddress)
+import           Control.TimeWarp.Rpc     (Message, NetworkAddress)
 import           Formatting               (build, sformat, (%))
 import           Serokell.Util.Text       (listBuilderJSON)
 import           Universum
@@ -18,12 +17,8 @@ import           Pos.Communication.Types  (SendBlockHeader (..), SendTx (..),
 import           Pos.Types                (HeaderHash, MainBlockHeader, Tx)
 import           Pos.WorkMode             (WorkMode)
 
--- | Request Block with given hash from some node.
--- TODO: consider using something else instead of NetworkAddress.
-requestBlock
-    :: WorkMode m
-    => NetworkAddress -> HeaderHash -> m ()
-requestBlock = notImplemented
+sendToAll :: (WorkMode m, Message msg) => msg -> m ()
+sendToAll = notImplemented
 
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.
@@ -33,8 +28,6 @@ announceBlock
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     sendToAll . SendBlockHeader $ header
-  where
-    sendToAll = notImplemented
 
 -- | Announce new transaction to all known peers. Intended to be used when
 -- tx is created.
@@ -42,8 +35,6 @@ announceTx :: WorkMode m => Tx -> m ()
 announceTx tx = do
     logDebug $ sformat ("Announcing tx to others:\n"%build) tx
     sendToAll . SendTx $ tx
-  where
-    sendToAll = notImplemented
 
 -- | Announce known transactions to all known peers. Intended to be used
 -- to relay transactions.
@@ -52,8 +43,6 @@ announceTxs txs = do
     logDebug $
         sformat ("Announcing txs to others:\n" %build) $ listBuilderJSON txs
     sendToAll . SendTxs $ txs
-  where
-    sendToAll = notImplemented
 
 ----------------------------------------------------------------------------
 -- Legacy

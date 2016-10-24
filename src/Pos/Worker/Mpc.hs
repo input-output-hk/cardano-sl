@@ -5,16 +5,12 @@ module Pos.Worker.Mpc
        , mpcWorkers
        ) where
 
-import           Control.Lens              (ix, (^?))
-import           Control.TimeWarp.Logging  (logInfo)
-import           Control.TimeWarp.Timed    (for, wait)
-import           Formatting                (sformat, (%))
 import           Universum
 
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (k, networkDiameter, slotDuration)
 import           Pos.State                 (getLeaders)
-import           Pos.Types                 (SlotId (..), slotIdF)
+import           Pos.Types                 (SlotId (..))
 import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey)
 
 -- | Action which should be done when new slot starts.

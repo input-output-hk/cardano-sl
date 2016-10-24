@@ -9,7 +9,7 @@ module Pos.Communication.Server.Mpc
        ) where
 
 import           Control.TimeWarp.Rpc        (Listener (..))
-import           Universum
+-- import           Universum
 
 import           Pos.Communication.Types.Mpc as Mpc
 import qualified Pos.State                   as St

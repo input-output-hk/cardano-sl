@@ -3,14 +3,13 @@ module Main where
 import           Control.Concurrent.Async (mapConcurrently)
 import           Control.TimeWarp.Logging (Severity (Debug, Info), initLogging, logInfo,
                                            usingLoggerName)
-import           Control.TimeWarp.Rpc     (ResponseT)
 import           Control.TimeWarp.Timed   (fork_, repeatForever, runTimedIO, sec)
 import           Data.List                ((!!))
 import           Data.String              (fromString)
 import           Formatting               (build, sformat, (%))
 import           Pos.DHT                  (DHTNode (..), DHTNodeType (..), Peer (..),
                                            currentNodeKey, getKnownPeers)
-import           Pos.DHT.Real             (KademliaDHT, runKademliaDHT)
+import           Pos.DHT.Real             (runKademliaDHT)
 import           Pos.Genesis              (genesisSecretKeys, genesisVssKeyPairs)
 import           Pos.Launcher             (NodeParams (..), getCurTimestamp, runNodeReal)
 import           Pos.Slotting             (Timestamp)

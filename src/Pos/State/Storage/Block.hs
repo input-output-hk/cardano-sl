@@ -20,6 +20,7 @@ module Pos.State.Storage.Block
        , mayBlockBeUseful
 
        , blkCleanUp
+       , blkCreateGenesisBlock
        , blkCreateNewBlock
        , blkProcessBlock
        , blkRollback
@@ -43,14 +44,15 @@ import           Pos.Crypto              (PublicKey, SecretKey, hash)
 import           Pos.Genesis             (genesisLeaders)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, BlockHeader, ChainDifficulty, EpochIndex,
-                                          HeaderHash, MainBlock, MainBlockHeader, MpcData,
-                                          SlotId (..), SlotLeaders, Tx,
-                                          VerifyBlockParams (..), VerifyHeaderExtra (..),
-                                          blockHeader, blockLeaders, blockSlot,
-                                          difficultyL, gbHeader, getBlockHeader,
-                                          headerHash, headerSlot, mkGenesisBlock,
-                                          mkMainBlock, mkMainBody, prevBlockL, siEpoch,
-                                          verifyBlock, verifyBlocks, verifyHeader)
+                                          GenesisBlock, HeaderHash, MainBlock,
+                                          MainBlockHeader, MpcData, SlotId (..),
+                                          SlotLeaders, Tx, VerifyBlockParams (..),
+                                          VerifyHeaderExtra (..), blockHeader,
+                                          blockLeaders, blockSlot, difficultyL, gbHeader,
+                                          getBlockHeader, headerHash, headerSlot,
+                                          mkGenesisBlock, mkMainBlock, mkMainBody,
+                                          prevBlockL, siEpoch, verifyBlock, verifyBlocks,
+                                          verifyHeader)
 import           Pos.Util                (readerToState, _neHead, _neLast)
 
 data BlockStorage = BlockStorage
@@ -371,6 +373,13 @@ blkCreateNewBlock sk sId txs mpcData = do
     let body = mkMainBody txs mpcData
     let blk = mkMainBlock (Just prevHeader) sId sk body
     insertBlock $ Right blk
+    blk <$ blkSetHead (headerHash blk)
+
+blkCreateGenesisBlock :: EpochIndex -> SlotLeaders -> Update GenesisBlock
+blkCreateGenesisBlock epoch leaders = do
+    prevHeader <- readerToState $ getBlockHeader <$> getHeadBlock
+    let blk = mkGenesisBlock (Just prevHeader) epoch leaders
+    insertBlock $ Left blk
     blk <$ blkSetHead (headerHash blk)
 
 -- | Set head of main blockchain to block which is guaranteed to

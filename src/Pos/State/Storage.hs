@@ -44,9 +44,10 @@ import           Universum
 
 import           Pos.Crypto              (PublicKey, SecretKey, Share)
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
-                                          blkCleanUp, blkCreateNewBlock, blkProcessBlock,
-                                          blkRollback, blkSetHead, getBlock, getHeadBlock,
-                                          getLeaders, mayBlockBeUseful)
+                                          blkCleanUp, blkCreateGenesisBlock,
+                                          blkCreateNewBlock, blkProcessBlock, blkRollback,
+                                          blkSetHead, getBlock, getHeadBlock, getLeaders,
+                                          mayBlockBeUseful)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage,
                                           getLocalMpcData, getOurCommitment,
                                           getOurOpening, getOurShares, mpcApplyBlocks,
@@ -57,8 +58,6 @@ import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           getLocalTxns, processTx, txApplyBlocks,
                                           txRollback, txVerifyBlocks)
-import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, processTx,
-                                          txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
                                           EpochIndex, MainBlock, Opening, SlotId (..),
@@ -163,7 +162,9 @@ processNewSlotDo sId@SlotId {..} = do
     blkCleanUp sId
 
 createGenesisBlock :: EpochIndex -> Update ()
-createGenesisBlock = notImplemented
+createGenesisBlock epoch = do
+    leaders <- notImplemented
+    () <$ blkCreateGenesisBlock epoch leaders
 
 processCommitment :: PublicKey -> (Commitment, CommitmentSignature) -> Update ()
 processCommitment = mpcProcessCommitment

@@ -20,6 +20,9 @@ module Pos.State.Acidic
        , GetHeadBlock (..)
        , GetLeaders (..)
        , GetLocalTxns (..)
+       , GetOurCommitment (..)
+       , GetOurOpening (..)
+       , GetOurShares (..)
        , MayBlockBeUseful (..)
 
        , CreateNewBlock (..)
@@ -30,6 +33,7 @@ module Pos.State.Acidic
        , ProcessShares (..)
        , ProcessTx (..)
        , ProcessVssCertificate (..)
+       , SetSecret (..)
        ) where
 
 import           Data.Acid          (EventResult, EventState, QueryEvent, UpdateEvent,
@@ -76,6 +80,9 @@ makeAcidic ''Storage
     , 'S.getLeaders
     , 'S.getLocalTxns
     , 'S.getHeadBlock
+    , 'S.getOurCommitment
+    , 'S.getOurOpening
+    , 'S.getOurShares
     , 'S.mayBlockBeUseful
     , 'S.createNewBlock
     , 'S.processBlock
@@ -85,4 +92,5 @@ makeAcidic ''Storage
     , 'S.processShares
     , 'S.processTx
     , 'S.processVssCertificate
+    , 'S.setSecret
     ]

@@ -73,6 +73,18 @@ instance MessagePack Pvss.Secret where
     toObject = toMsgpackBinary
     fromObject = fromMsgpackBinary "Pvss.Secret"
 
+-- TODO: this one should be in pvss-haskell
+instance Binary KeyPair
+
+instance SafeCopy KeyPair where
+    putCopy = putCopyBinary
+    getCopy = getCopyBinary "KeyPair"
+
+-- If this instance is used, something is likely wrong
+-- instance MessagePack KeyPair where
+--     toObject = toMsgpackBinary
+--     fromObject = fromMsgpackBinary "KeyPair"
+
 instance SafeCopy DecryptedShare where
     putCopy = putCopyBinary
     getCopy = getCopyBinary "DecryptedShare"
@@ -274,6 +286,7 @@ verifySecretProof (SecretSharingExtra e c) (Secret s) (SecretProof p) =
 ----------------------------------------------------------------------------
 
 deriveSafeCopySimple 0 'base ''VssPublicKey
+deriveSafeCopySimple 0 'base ''VssKeyPair
 deriveSafeCopySimple 0 'base ''Secret
 deriveSafeCopySimple 0 'base ''Share
 deriveSafeCopySimple 0 'base ''EncShare

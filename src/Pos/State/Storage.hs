@@ -14,12 +14,16 @@ module Pos.State.Storage
        , getHeadBlock
        , getLeaders
        , getLocalTxns
+       , getOurCommitment
+       , getOurOpening
+       , getOurShares
        , mayBlockBeUseful
 
        , ProcessBlockRes (..)
 
        , Update
        , createNewBlock
+       , setSecret
        , processBlock
        , processNewSlot
        , processCommitment
@@ -44,13 +48,17 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
                                           blkRollback, blkSetHead, getBlock, getHeadBlock,
                                           getLeaders, mayBlockBeUseful)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage,
-                                          getLocalMpcData, mpcApplyBlocks,
+                                          getLocalMpcData, getOurCommitment,
+                                          getOurOpening, getOurShares, mpcApplyBlocks,
                                           mpcProcessCommitment, mpcProcessOpening,
                                           mpcProcessShares, mpcProcessVssCertificate,
-                                          mpcRollback, mpcVerifyBlock, mpcVerifyBlocks)
+                                          mpcRollback, mpcVerifyBlock, mpcVerifyBlocks,
+                                          setSecret)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           getLocalTxns, processTx, txApplyBlocks,
                                           txRollback, txVerifyBlocks)
+import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage, processTx,
+                                          txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
                                           EpochIndex, MainBlock, Opening, SlotId (..),
@@ -168,3 +176,6 @@ processShares = mpcProcessShares
 
 processVssCertificate :: PublicKey -> VssCertificate -> Update ()
 processVssCertificate = mpcProcessVssCertificate
+
+-- TODO: just use qualified imports for importing all that stuff from
+-- Pos.State.Storage.Mpc and Pos.State.Storage.Block

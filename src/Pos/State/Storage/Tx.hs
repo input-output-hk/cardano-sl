@@ -35,6 +35,8 @@ data TxStorage = TxStorage
     { -- | Local set of transactions. These are valid (with respect to
       -- utxo) transactions which are known to the node and are not
       -- included in the blockchain store by the node.
+      --
+      -- TODO: rename to '_txLocalTxs'
       _txLocalTxns   :: !(HashSet Tx)
     , -- | Set of unspent transaction outputs. It is need to check new
       -- transactions and run follow-the-satoshi, for example.

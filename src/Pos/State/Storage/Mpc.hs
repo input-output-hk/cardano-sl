@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE ViewPatterns          #-}
 
 -- | Internal state of the MPC algorithm (“multi-party computation”) – the
@@ -15,6 +16,10 @@ module Pos.State.Storage.Mpc
 
        , calculateLeaders
        , getLocalMpcData
+       , getOurCommitment
+       , getOurOpening
+       , getOurShares
+       , setSecret
        , mpcApplyBlocks
        , mpcProcessCommitment
        , mpcProcessOpening
@@ -25,7 +30,9 @@ module Pos.State.Storage.Mpc
        , mpcVerifyBlocks
        ) where
 
-import           Control.Lens            (Lens', makeClassy, use, view, (%=), (.=), (^.))
+import           Control.Lens            (Lens', makeClassy, to, use, view, (%=), (.=),
+                                          (^.))
+import           Crypto.Random           (drgNewSeed, seedFromInteger, withDRG)
 import           Data.Default            (Default, def)
 import           Data.Hashable           (Hashable)
 import qualified Data.HashMap.Strict     as HM
@@ -40,7 +47,8 @@ import           Universum
 
 import           Pos.Constants           (k)
 import           Pos.Crypto              (PublicKey, Share,
-                                          Signed (signedSig, signedValue), verify,
+                                          Signed (signedSig, signedValue), VssKeyPair,
+                                          decryptShare, toVssPublicKey, verify,
                                           verifyShare)
 import           Pos.FollowTheSatoshi    (FtsError, calculateSeed, followTheSatoshi)
 import           Pos.State.Storage.Types (AltChain)
@@ -54,7 +62,9 @@ import           Pos.Types               (Address (getAddress), Block, Commitmen
 import           Pos.Util                (readerToState, zoom', _neHead)
 
 data MpcStorageVersion = MpcStorageVersion
-    { -- | Local set of 'Commitment's. These are valid commitments which are
+    { -- | Secret that we are using for the current epoch.
+      _mpcCurrentSecret      :: !(Maybe (Commitment, Opening))
+    , -- | Local set of 'Commitment's. These are valid commitments which are
       -- known to the node and not stored in blockchain. It is useful only
       -- for the first 'k' slots, after that it should be discarded.
       _mpcLocalCommitments   :: !CommitmentsMap
@@ -85,7 +95,8 @@ deriveSafeCopySimple 0 'base ''MpcStorageVersion
 instance Default MpcStorageVersion where
     def =
         MpcStorageVersion
-        { _mpcLocalCommitments = mempty
+        { _mpcCurrentSecret = Nothing
+        , _mpcLocalCommitments = mempty
         , _mpcGlobalCommitments = mempty
         , _mpcLocalShares = mempty
         , _mpcGlobalShares = mempty
@@ -392,6 +403,7 @@ mpcProcessBlock blk = do
                 mpcGlobalCommitments .= mempty
                 mpcGlobalOpenings    .= mempty
                 mpcGlobalShares      .= mempty
+                mpcCurrentSecret     .= Nothing
         -- Main blocks contain commitments, openings, shares, VSS certificates
         Right b -> do
             let blockCommitments  = b ^. blockMpc . mdCommitments
@@ -412,6 +424,42 @@ mpcProcessBlock blk = do
                 mpcGlobalCertificates %= HM.union blockCertificates
                 mpcLocalCertificates  %= (`HM.difference` blockCertificates)
 
+-- | Set FTS seed (and shares) to be used in this epoch. If the seed wasn't
+-- cleared before (it's cleared whenever a genesis block is received), it
+-- will fail.
+setSecret :: (Commitment, Opening) -> Update ()
+setSecret secret = do
+    s <- use (lastVer . mpcCurrentSecret)
+    case s of
+        Just _  -> panic "setSecret: a secret was already present"
+        Nothing -> lastVer . mpcCurrentSecret .= Just secret
+
+getOurCommitment :: Query (Maybe Commitment)
+getOurCommitment = fmap fst <$> view (lastVer . mpcCurrentSecret)
+
+getOurOpening :: Query (Maybe Opening)
+getOurOpening = fmap snd <$> view (lastVer . mpcCurrentSecret)
+
+-- | Decrypt shares (in commitments) that we can decrypt.
+getOurShares
+    :: VssKeyPair                           -- ^ Our VSS key
+    -> Integer                              -- ^ Random generator seed
+                                            -- (needed for 'decryptShare')
+    -> Query (HashMap PublicKey Share)
+getOurShares ourKey seed = do
+    let drg = drgNewSeed (seedFromInteger seed)
+    comms <- view (lastVer . mpcGlobalCommitments)
+    return $ fst $ withDRG drg $
+        fmap (HM.fromList . catMaybes) $
+            forM (HM.toList comms) $ \(theirPK, (Commitment{..}, _)) -> do
+                let mbEncShare = HM.lookup (toVssPublicKey ourKey) commShares
+                case mbEncShare of
+                    Nothing       -> return Nothing
+                    Just encShare -> Just . (theirPK,) <$>
+                                     decryptShare ourKey encShare
+                -- TODO: do we need to verify shares with 'verifyEncShare'
+                -- here?  Or do we need to verify them earlier (i.e. at the
+                -- stage of commitment verification)?
 
 -- | Remove elements in 'b' from 'a'
 diffDoubleMap

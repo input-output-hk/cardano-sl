@@ -15,6 +15,9 @@ module Pos.State.State
        , getHeadBlock
        , getLeaders
        , getLocalTxns
+       , getOurCommitment
+       , getOurOpening
+       , getOurShares
        , mayBlockBeUseful
 
        -- * Operations with effects.
@@ -27,21 +30,24 @@ module Pos.State.State
        , processShares
        , processTx
        , processVssCertificate
+       , generateNewSecret
        ) where
 
 import           Control.TimeWarp.Rpc (ResponseT)
+import           Crypto.Random        (seedNew, seedToInteger)
 import           Data.Acid            (EventResult, EventState, QueryEvent, UpdateEvent)
 import           Serokell.Util        (VerificationRes)
 import           Universum
 
-import           Pos.Crypto           (PublicKey, SecretKey, Share)
+import           Pos.Crypto           (PublicKey, SecretKey, Share, VssKeyPair)
 import           Pos.Slotting         (MonadSlots, getCurrentSlot)
 import           Pos.State.Acidic     (DiskState, tidyState)
 import qualified Pos.State.Acidic     as A
 import           Pos.State.Storage    (ProcessBlockRes (..), Storage)
 import           Pos.Types            (Block, Commitment, CommitmentSignature, EpochIndex,
                                        HeaderHash, MainBlock, MainBlockHeader, Opening,
-                                       SlotId, SlotLeaders, Tx, VssCertificate)
+                                       SlotId, SlotLeaders, Tx, VssCertificate,
+                                       genCommitmentAndOpening)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState
@@ -144,3 +150,25 @@ processVssCertificate
     :: WorkModeDB m
     => PublicKey -> VssCertificate -> m ()
 processVssCertificate pk c = updateDisk $ A.ProcessVssCertificate pk c
+
+-- | Generate new commitment and opening and use them for the current
+-- epoch. Assumes that the genesis block has already been generated and
+-- processed by MPC (will fail otherwise because the old commitment/opening
+-- will still be lingering there in MPC storage).
+generateNewSecret :: WorkModeDB m => m ()
+generateNewSecret = do
+    secret <- genCommitmentAndOpening
+                  undefined  -- TODO: threshold
+                  undefined  -- TODO: VSS keys of participating nodes
+    updateDisk $ A.SetSecret secret
+
+getOurCommitment :: WorkModeDB m => m (Maybe Commitment)
+getOurCommitment = queryDisk A.GetOurCommitment
+
+getOurOpening :: WorkModeDB m => m (Maybe Opening)
+getOurOpening = queryDisk A.GetOurOpening
+
+getOurShares :: WorkModeDB m => VssKeyPair -> m (HashMap PublicKey Share)
+getOurShares ourKey = do
+    randSeed <- liftIO seedNew
+    queryDisk $ A.GetOurShares ourKey (seedToInteger randSeed)

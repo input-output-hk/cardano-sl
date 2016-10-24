@@ -3,13 +3,14 @@ module Main where
 import           Control.Concurrent.Async (mapConcurrently)
 import           Control.TimeWarp.Logging (Severity (Debug, Info), initLogging, logInfo,
                                            usingLoggerName)
+import           Control.TimeWarp.Rpc     (runBinaryDialog, runTransfer)
 import           Control.TimeWarp.Timed   (fork_, repeatForever, runTimedIO, sec)
 import           Data.List                ((!!))
 import           Data.String              (fromString)
 import           Formatting               (build, sformat, (%))
 import           Pos.DHT                  (DHTNode (..), DHTNodeType (..), Peer (..),
                                            currentNodeKey, getKnownPeers)
-import           Pos.DHT.Real             (runKademliaDHT)
+import           Pos.DHT.Real             (KademliaDHTConfig (..), runKademliaDHT)
 import           Pos.Genesis              (genesisSecretKeys, genesisVssKeyPairs)
 import           Pos.Launcher             (NodeParams (..), getCurTimestamp, runNodeReal)
 import           Pos.Slotting             (Timestamp)
@@ -39,11 +40,11 @@ main = do initLogging ["supporter"] Info
   where
     supporterKadConfig = KademliaDHTConfig
                   { kdcType = DHTFull
-                  , kdcPort = npDHTPort
+                  , kdcPort = 2000
                   , kdcListeners = []
                   , kdcMessageCacheSize = 1000000
                   }
-    runTimed = runTimedIO . usingLoggerName "supporter"
+    runTimed = runTimedIO . runTransfer . runBinaryDialog . usingLoggerName "supporter"
     n = 3
     main'' supporterKey = do
       fork_ $ repeatForever (sec 30) (const . return $ sec 30) $ do

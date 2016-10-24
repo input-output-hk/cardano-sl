@@ -457,6 +457,13 @@ data MainBlockchain
 
 type MainBlockHeader = GenericBlockHeader MainBlockchain
 
+instance Buildable MainBlockHeader where
+    -- TODO: add more info
+    build header =
+        bprint
+            ("MainBlockHeader:\n" % "  previous block: " % build)
+            (_gbhPrevBlock header)
+
 -- | Chain difficulty represents necessary effort to generate a
 -- chain. In the simplest case it can be number of blocks in chain.
 newtype ChainDifficulty = ChainDifficulty

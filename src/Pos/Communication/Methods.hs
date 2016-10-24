@@ -5,12 +5,14 @@ module Pos.Communication.Methods
        , requestBlock
        ) where
 
-import           Control.TimeWarp.Rpc    (NetworkAddress)
+import           Control.TimeWarp.Logging (logDebug)
+import           Control.TimeWarp.Rpc     (NetworkAddress)
+import           Formatting               (build, sformat, (%))
 import           Universum
 
-import           Pos.Communication.Types (SendBlockHeader (..))
-import           Pos.Types               (HeaderHash, MainBlockHeader)
-import           Pos.WorkMode            (WorkMode)
+import           Pos.Communication.Types  (SendBlockHeader (..))
+import           Pos.Types                (HeaderHash, MainBlockHeader)
+import           Pos.WorkMode             (WorkMode)
 
 -- | Request Block with given hash from some node.
 -- TODO: consider using something else instead of NetworkAddress.
@@ -24,7 +26,9 @@ requestBlock = notImplemented
 announceBlock
     :: WorkMode m
     => MainBlockHeader -> m ()
-announceBlock = sendToAll . SendBlockHeader
+announceBlock header = do
+    logDebug $ sformat ("Announcing header to others:\n"%build) header
+    sendToAll . SendBlockHeader $ header
   where
     sendToAll = notImplemented
 

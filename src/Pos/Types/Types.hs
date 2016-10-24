@@ -72,6 +72,7 @@ module Pos.Types.Types
 
        -- * Lenses
        , HasDifficulty (..)
+       , HasEpochIndex (..)
        , HasHeaderHash (..)
        , HasPrevBlock (..)
 
@@ -710,6 +711,22 @@ instance HasHeaderHash GenesisBlock where
 
 instance HasHeaderHash Block where
     headerHash = hash . getBlockHeader
+
+class HasEpochIndex a where
+    epochIndexL :: Lens' a EpochIndex
+
+instance HasEpochIndex SlotId where
+    epochIndexL f SlotId {..} = (\a -> SlotId {siEpoch = a, ..}) <$> f siEpoch
+
+instance HasEpochIndex MainBlock where
+    epochIndexL = gbHeader . gbhConsensus . mcdSlot . epochIndexL
+
+instance HasEpochIndex GenesisBlock where
+    epochIndexL = gbHeader . gbhConsensus . gcdEpoch
+
+instance (HasEpochIndex a, HasEpochIndex b) =>
+         HasEpochIndex (Either a b) where
+    epochIndexL = choosing epochIndexL epochIndexL
 
 blockSlot :: Lens' MainBlock SlotId
 blockSlot = gbHeader . headerSlot

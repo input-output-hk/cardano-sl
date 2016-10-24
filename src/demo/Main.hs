@@ -44,7 +44,7 @@ main = do initLogging ["supporter"] Info
                   , kdcListeners = []
                   , kdcMessageCacheSize = 1000000
                   }
-    runTimed = runTimedIO . runTransfer . runBinaryDialog . usingLoggerName "supporter"
+    runTimed = runTimedIO . usingLoggerName "supported" . runTransfer . runBinaryDialog
     n = 3
     main'' supporterKey = do
       fork_ $ repeatForever (sec 30) (const . return $ sec 30) $ do

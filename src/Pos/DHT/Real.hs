@@ -8,7 +8,7 @@ import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, f
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.TimeWarp.Logging  (WithNamedLogger, logWarning)
 import           Control.TimeWarp.Rpc      (Listener (..), Message, MonadDialog,
-                                            MonadTransfer, listen, send)
+                                            MonadTransfer, listen, send, Binding (..))
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId, fork, killThread)
 import           Data.Binary               (Binary, decodeOrFail, encode)
 import qualified Data.ByteString           as BS
@@ -83,7 +83,7 @@ startDHT (KademliaDHTConfig {..}) = do
   kdcKey <- randomDHTKey kdcType
   kdcHandle <- liftIO $ K.create (fromInteger . toInteger $ kdcPort) kdcKey
   kdcMsgCache <- liftIO . atomically $ newTVar (LRU.newLRU (Just $ toInteger kdcMessageCacheSize) :: LRU.LRU Int ())
-  kdcMsgThreadId <- fork $ listen (fromInteger . toInteger $ kdcPort) []
+  kdcMsgThreadId <- fork $ listen (AtPort kdcPort) []
   return $ KademliaDHTContext {..}
 
 --msgListeners :: (MonadTimed m, MonadDialog m, MonadIO m, MonadBroadcast m) => TVar (LRU.LRU Int ()) -> [Listener m] -> [Listener m]

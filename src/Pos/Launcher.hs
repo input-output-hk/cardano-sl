@@ -15,12 +15,10 @@ module Pos.Launcher
 
 import           Control.TimeWarp.Logging (logInfo)
 import           Control.TimeWarp.Rpc     (NetworkAddress)
-import           Control.TimeWarp.Timed   (currentTime, runTimedIO)
+import           Control.TimeWarp.Timed   (currentTime, runTimedIO, sleepForever)
 import           Formatting               (build, sformat, (%))
 import           Universum
 
-import           Control.TimeWarp.Logging (logInfo)
-import           Formatting               (build, sformat, (%))
 import           Pos.Communication        (allListeners, sendTx)
 import           Pos.Crypto               (hash, sign)
 import           Pos.DHT                  (DHTNodeType (..), discoverPeers)
@@ -43,6 +41,7 @@ runNode NodeParams {..} = do
     logInfo $ sformat ("Known peers: " % build) peers
 
     runWorkers
+    sleepForever
 
 -- | Run full node in real mode.
 runNodeReal :: NodeParams -> IO ()

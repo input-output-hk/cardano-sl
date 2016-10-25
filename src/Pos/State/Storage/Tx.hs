@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE ViewPatterns          #-}
 
 -- | Internal state of the transaction-handling worker.
@@ -69,19 +70,24 @@ txVerifyBlocks (fromIntegral -> toRollback) newChain = do
     mUtxo <- (`atMay` toRollback) <$> view txUtxoHistory
     return $ case mUtxo of
       Nothing ->
-        VerFailure [sformat ("Can't rollback on " % int % " blocks") toRollback]
+        VerFailure [sformat ("Can't rollback on "%int%" blocks") toRollback]
       Just utxo ->
         case foldM verifyDo utxo newChainTxs of
           Right _ -> VerSuccess
           Left es -> VerFailure es
   where
-    newChainTxs = mconcat . fmap (\b -> fmap ((,) $ b ^. blockSlot) . toList $ b ^. blockTxs) . reverse . rights $ NE.toList newChain
+    newChainTxs =
+        mconcat .
+        fmap (\b -> fmap (b ^. blockSlot,) . toList $ b ^. blockTxs) . rights $
+        NE.toList newChain
     verifyDo :: Utxo -> (SlotId, Tx) -> Either [Text] Utxo
     verifyDo utxo (slotId, tx) =
-      case verifyTxUtxo utxo tx of
-          VerSuccess    -> Right $ applyTxToUtxo tx utxo
-          VerFailure es -> Left  $ map (sformat eFormat tx slotId) es
-    eFormat = "Failed to apply transaction (" % build % ") on block from slot " % slotIdF % ", error: " % build
+        case verifyTxUtxo utxo tx of
+            VerSuccess    -> Right $ applyTxToUtxo tx utxo
+            VerFailure es -> Left $ map (sformat eFormat tx slotId) es
+    eFormat =
+        "Failed to apply transaction ("%build%") on block from slot " %
+        slotIdF%", error: "%build
 
 -- | Get Utxo corresponding to state right after block with given
 -- depth has been applied.

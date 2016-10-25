@@ -29,7 +29,7 @@ runSingleNode start peers i = runNodeReal params
         , npLoggingSeverity = Debug --if i == 0 then Info else Error
         , npSecretKey = genesisSecretKeys !! (fromInteger . toInteger $ i)
         , npVssKeyPair = genesisVssKeyPairs !! (fromInteger . toInteger $ i)
-        , npPort = 1000 + i
+        , npPort = 3000 + i
         , npDHTPort = 2001 + i
         , npDHTPeers = peers
         }

@@ -21,7 +21,7 @@ main = runNodeReal params
         , npLoggingSeverity = Debug
         , npSecretKey = genesisSecretKeys !! 0
         , npVssKeyPair = genesisVssKeyPairs !! 0
-        , npPort = 1000
+        , npPort = 3000
         , npDHTPort = 2000
         , npDHTPeers = []
         }

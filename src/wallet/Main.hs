@@ -70,7 +70,7 @@ main = do
                     , npLoggingSeverity = Debug
                     , npSecretKey = genesisSecretKeys !! i
                     , npVssKeyPair = genesisVssKeyPairs !! i
-                    , npPort = 1000
+                    , npPort = 3000
                     , npDHTPort = 2000
                     , npDHTPeers = []
                     }

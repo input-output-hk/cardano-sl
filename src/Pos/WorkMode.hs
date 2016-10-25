@@ -18,9 +18,8 @@ module Pos.WorkMode
 
 import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow, catch,
                                            throwM)
-import           Control.TimeWarp.Logging (LoggerName, LoggerNameBox, Severity,
-                                           WithNamedLogger (..), initLogging, logInfo,
-                                           usingLoggerName)
+import           Control.TimeWarp.Logging (LoggerName, Severity, WithNamedLogger (..),
+                                           initLogging, logInfo, usingLoggerName)
 import           Control.TimeWarp.Rpc     (BinaryDialog, MonadDialog, MonadTransfer,
                                            ResponseT, Transfer, runBinaryDialog,
                                            runTransfer)

@@ -11,7 +11,7 @@ import           Serokell.Util.Exceptions  ()
 import           Universum
 
 import           Pos.Communication.Methods (announceTxs)
-import           Pos.State                 (getLocalTxns)
+import           Pos.State                 (getLocalTxs)
 import           Pos.WorkMode              (WorkMode)
 
 -- | All workers specific to tx processing.
@@ -26,7 +26,7 @@ txsTransmitterInterval = minute 1
 txsTransmitter :: WorkMode m => m ()
 txsTransmitter =
     repeatForever txsTransmitterInterval onError $
-    do localTxs <- getLocalTxns
+    do localTxs <- getLocalTxs
        announceTxs $ toList localTxs
   where
     onError e =

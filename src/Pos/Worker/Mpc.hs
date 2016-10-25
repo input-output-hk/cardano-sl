@@ -31,7 +31,6 @@ mpcOnNewSlot SlotId {..} = do
     when (siSlot == 0) $ do
         generateNewSecret siEpoch
         mbComm <- getOurCommitment
-        -- whenJust should always succeed here, btw
         case mbComm of
             Nothing -> logDebug "either 'generateNewSecret' didn't generate \
                                 \a commitment or 'getOurCommitment' failed"

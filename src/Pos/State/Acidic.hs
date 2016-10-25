@@ -19,7 +19,7 @@ module Pos.State.Acidic
        , GetBlock (..)
        , GetHeadBlock (..)
        , GetLeaders (..)
-       , GetLocalTxns (..)
+       , GetLocalTxs (..)
        , GetOurCommitment (..)
        , GetOurOpening (..)
        , GetOurShares (..)
@@ -80,7 +80,7 @@ tidyState = tidyExtendedState
 makeAcidic ''Storage
     [ 'S.getBlock
     , 'S.getLeaders
-    , 'S.getLocalTxns
+    , 'S.getLocalTxs
     , 'S.getHeadBlock
     , 'S.getOurCommitment
     , 'S.getOurOpening

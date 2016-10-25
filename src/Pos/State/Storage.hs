@@ -13,7 +13,7 @@ module Pos.State.Storage
        , getBlock
        , getHeadBlock
        , getLeaders
-       , getLocalTxns
+       , getLocalTxs
        , getOurCommitment
        , getOurOpening
        , getOurShares
@@ -63,7 +63,7 @@ import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage
                                           mpcRollback, mpcVerifyBlock, mpcVerifyBlocks,
                                           setSecret)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
-                                          getLocalTxns, getUtxoByDepth, processTx,
+                                          getLocalTxs, getUtxoByDepth, processTx,
                                           txApplyBlocks, txRollback, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
@@ -113,7 +113,7 @@ getHeadEpoch = view epochIndexL <$> getHeadBlock
 -- | Create a new block on top of best chain.
 createNewBlock :: SecretKey -> SlotId -> Update MainBlock
 createNewBlock sk sId = do
-    txs <- readerToState $ toList <$> getLocalTxns
+    txs <- readerToState $ toList <$> getLocalTxs
     mpcData <- readerToState getLocalMpcData
     blk <- blkCreateNewBlock sk sId txs mpcData
     let blocks = Right blk :| []

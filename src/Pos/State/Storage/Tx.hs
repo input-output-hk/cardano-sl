@@ -11,7 +11,7 @@ module Pos.State.Storage.Tx
          TxStorage
        , HasTxStorage(txStorage)
 
-       , getLocalTxns
+       , getLocalTxs
        , getUtxoByDepth
        , txVerifyBlocks
 
@@ -38,9 +38,7 @@ data TxStorage = TxStorage
     { -- | Local set of transactions. These are valid (with respect to
       -- utxo) transactions which are known to the node and are not
       -- included in the blockchain store by the node.
-      --
-      -- TODO: rename to '_txLocalTxs'
-      _txLocalTxns   :: !(HashSet Tx)
+      _txLocalTxs    :: !(HashSet Tx)
     , -- | Set of unspent transaction outputs. It is need to check new
       -- transactions and run follow-the-satoshi, for example.
       _txUtxo        :: !Utxo
@@ -56,15 +54,15 @@ deriveSafeCopySimple 0 'base ''TxStorage
 instance Default TxStorage where
     def =
         TxStorage
-        { _txLocalTxns = mempty
+        { _txLocalTxs = mempty
         , _txUtxo = genesisUtxo
         , _txUtxoHistory = [genesisUtxo]
         }
 
 type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
 
-getLocalTxns :: Query (HashSet Tx)
-getLocalTxns = view txLocalTxns
+getLocalTxs :: Query (HashSet Tx)
+getLocalTxs = view txLocalTxs
 
 txVerifyBlocks :: Word -> AltChain -> Query VerificationRes
 txVerifyBlocks (fromIntegral -> toRollback) newChain = do
@@ -97,7 +95,7 @@ type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
 processTx :: Tx -> Update Bool
 processTx tx = do
     good <- verifyTx tx
-    good <$ when good (txLocalTxns %= HS.insert tx >> applyTx tx)
+    good <$ when good (txLocalTxs %= HS.insert tx >> applyTx tx)
 
 verifyTx :: Tx -> Update Bool
 verifyTx tx = isVerSuccess . flip verifyTxUtxo tx <$> use txUtxo
@@ -106,7 +104,7 @@ applyTx :: Tx -> Update ()
 applyTx tx = txUtxo %= applyTxToUtxo tx
 
 removeLocalTx :: Tx -> Update ()
-removeLocalTx tx = txLocalTxns %= HS.delete tx
+removeLocalTx tx = txLocalTxs %= HS.delete tx
 
 -- | Apply chain of definitely valid blocks which go right after last
 -- applied block.
@@ -139,5 +137,5 @@ txRollback (fromIntegral -> n) = do
 
 filterLocalTxs :: Update ()
 filterLocalTxs = do
-    txs <- uses txLocalTxns toList
-    txLocalTxns <~ HS.fromList <$> filterM verifyTx txs
+    txs <- uses txLocalTxs toList
+    txLocalTxs <~ HS.fromList <$> filterM verifyTx txs

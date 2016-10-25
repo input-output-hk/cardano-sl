@@ -14,7 +14,7 @@ module Pos.State.State
        , getBlock
        , getHeadBlock
        , getLeaders
-       , getLocalTxns
+       , getLocalTxs
        , getOurCommitment
        , getOurOpening
        , getOurShares
@@ -106,8 +106,8 @@ getBlock = queryDisk . A.GetBlock
 getHeadBlock :: WorkModeDB m => m Block
 getHeadBlock = queryDisk A.GetHeadBlock
 
-getLocalTxns :: WorkModeDB m => m (HashSet Tx)
-getLocalTxns = queryDisk A.GetLocalTxns
+getLocalTxs :: WorkModeDB m => m (HashSet Tx)
+getLocalTxs = queryDisk A.GetLocalTxs
 
 mayBlockBeUseful
     :: WorkModeDB m

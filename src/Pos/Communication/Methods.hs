@@ -4,9 +4,11 @@ module Pos.Communication.Methods
        ( announceBlock
        , announceTx
        , announceTxs
+       , sendTx
        ) where
 
 import           Control.TimeWarp.Logging (logDebug)
+import           Control.TimeWarp.Rpc     (NetworkAddress, send)
 import           Formatting               (build, sformat, (%))
 import           Serokell.Util.Text       (listBuilderJSON)
 import           Universum
@@ -40,6 +42,10 @@ announceTxs txs = do
     logDebug $
         sformat ("Announcing txs to others:\n" %build) $ listBuilderJSON txs
     sendBroadcast . SendTxs $ txs
+
+-- | Send Tx to given address.
+sendTx :: WorkMode m => NetworkAddress -> Tx -> m ()
+sendTx addr = send addr . SendTx
 
 ----------------------------------------------------------------------------
 -- Legacy

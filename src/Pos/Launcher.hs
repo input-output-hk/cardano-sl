@@ -14,11 +14,12 @@ module Pos.Launcher
        ) where
 
 import           Control.TimeWarp.Logging (logInfo)
+import           Control.TimeWarp.Rpc     (NetworkAddress)
 import           Control.TimeWarp.Timed   (currentTime, runTimedIO)
 import           Formatting               (build, sformat, (%))
 import           Universum
 
-import           Pos.Communication        (announceTx, serve)
+import           Pos.Communication        (sendTx, serve)
 import           Pos.Crypto               (hash, sign)
 import           Pos.DHT                  (DHTNodeType (..), discoverPeers)
 import           Pos.Slotting             (Timestamp (Timestamp))
@@ -47,9 +48,9 @@ runNodeReal :: NodeParams -> IO ()
 runNodeReal p = runRealMode p $ runNode p
 
 -- | Construct Tx with a single input and single output and send it to
--- the network.
-submitTx :: WorkMode m => (TxId, Word32) -> (Address, Coin) -> m ()
-submitTx (txInHash, txInIndex) (txOutAddress, txOutValue) = do
+-- the given network addresses.
+submitTx :: WorkMode m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m ()
+submitTx na (txInHash, txInIndex) (txOutAddress, txOutValue) = do
     sk <- ncSecretKey <$> getNodeContext
     let txOuts = [TxOut {..}]
         txIns = [TxIn {txInSig = sign sk (txInHash, txInIndex, txOuts), ..}]
@@ -57,8 +58,12 @@ submitTx (txInHash, txInIndex) (txOutAddress, txOutValue) = do
         txId = hash tx
     logInfo $ sformat ("Submitting transaction: "%txF) tx
     logInfo $ sformat ("Transaction id: "%build) txId
-    announceTx tx
+    mapM_ (flip sendTx tx) na
 
 -- | Submit tx in real mode.
-submitTxReal :: NodeParams -> (TxId, Word32) -> (Address, Coin) -> IO ()
-submitTxReal p inp = runRealMode p . submitTx inp
+submitTxReal :: NodeParams
+             -> [NetworkAddress]
+             -> (TxId, Word32)
+             -> (Address, Coin)
+             -> IO ()
+submitTxReal p na inp = runRealMode p . submitTx na inp

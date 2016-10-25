@@ -20,7 +20,7 @@ import           Universum
 import           Pos.Constants    (epochSlots)
 import           Pos.Crypto       (PublicKey, SecretKey, Signature, Signed, VssKeyPair,
                                    VssPublicKey, keyGen, mkSigned, sign, toVssPublicKey,
-                                   vssKeyGen)
+                                   unsafeHash, vssKeyGen)
 import           Pos.Types        (Address (Address), Coin (..), Commitment,
                                    EpochIndex (EpochIndex), FtsSeed,
                                    LocalSlotIndex (LocalSlotIndex), Opening,
@@ -154,7 +154,12 @@ instance Arbitrary SlotId where
     arbitrary = SlotId <$> arbitrary <*> arbitrary
 
 instance Arbitrary TxIn where
-    arbitrary = TxIn <$> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = do
+        let txId = unsafeHash ()
+        txIdx <- arbitrary
+        sk <- arbitrary
+        let signature = sign sk (txId, txIdx, [])
+        return $ TxIn txId txIdx signature
 
 instance Arbitrary TxOut where
     arbitrary = TxOut <$> arbitrary <*> arbitrary

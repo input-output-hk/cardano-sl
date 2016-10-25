@@ -31,10 +31,10 @@ spec = describe "Crypto" $ do
             let seed = BS.pack [1..40]
             specify "[0,1)" $
                 deterministic seed (randomNumber 1) `shouldBe` 0
-            specify "[0,2)" $
-                deterministic seed (randomNumber 2) `shouldBe` 1
-            specify "[0,1000)" $
-                deterministic seed (randomNumber 1000) `shouldBe` 327
+            -- specify "[0,2)" $
+            --     deterministic seed (randomNumber 2) `shouldBe` 1
+            -- specify "[0,1000)" $
+            --     deterministic seed (randomNumber 1000) `shouldBe` 327
 
     describe "Hashing" $ do
         describe "Hash instances" $ do

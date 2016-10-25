@@ -3,24 +3,29 @@
 
 module Test.Pos.Util
        ( Nonrepeating(..)
+       , binaryEncodeDecode
        , sublistN
 
        , KeyPair(..)
        ) where
 
 import           Data.Binary      (Binary)
+import qualified Data.Binary      as Binary (decode, encode)
 import           System.IO.Unsafe (unsafePerformIO)
 import           System.Random    (Random)
-import           Test.QuickCheck  (Arbitrary (..), Gen, choose, elements, shuffle)
+import           Test.QuickCheck  (Arbitrary (..), Gen, Property, choose, elements,
+                                   shuffle, (===))
 import           Universum
 
 import           Pos.Constants    (epochSlots)
 import           Pos.Crypto       (PublicKey, SecretKey, Signature, Signed, VssKeyPair,
                                    VssPublicKey, keyGen, mkSigned, sign, toVssPublicKey,
                                    vssKeyGen)
-import           Pos.Types        (Coin (..), Commitment, EpochIndex (EpochIndex),
-                                   FtsSeed, LocalSlotIndex (LocalSlotIndex), Opening,
-                                   SlotId (SlotId), genCommitmentAndOpening)
+import           Pos.Types        (Address (Address), Coin (..), Commitment,
+                                   EpochIndex (EpochIndex), FtsSeed,
+                                   LocalSlotIndex (LocalSlotIndex), Opening,
+                                   SlotId (SlotId), Tx (..), TxIn (..), TxOut (..),
+                                   genCommitmentAndOpening)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -42,6 +47,9 @@ sublistN n xs
 
 class Nonrepeating a where
     nonrepeating :: Int -> Gen [a]
+
+binaryEncodeDecode :: (Show a, Eq a, Binary a) => a -> Property
+binaryEncodeDecode a = Binary.decode (Binary.encode a) === a
 
 ----------------------------------------------------------------------------
 -- Commitments and openings
@@ -127,6 +135,7 @@ instance (Binary a, Arbitrary a) => Arbitrary (Signed a) where
 ----------------------------------------------------------------------------
 
 deriving instance Arbitrary Coin
+deriving instance Arbitrary Address
 
 maxReasonableEpoch :: Integral a => a
 maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not
@@ -143,3 +152,12 @@ instance Arbitrary LocalSlotIndex where
 
 instance Arbitrary SlotId where
     arbitrary = SlotId <$> arbitrary <*> arbitrary
+
+instance Arbitrary TxIn where
+    arbitrary = TxIn <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary TxOut where
+    arbitrary = TxOut <$> arbitrary <*> arbitrary
+
+instance Arbitrary Tx where
+    arbitrary = Tx <$> arbitrary <*> arbitrary

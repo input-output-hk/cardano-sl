@@ -7,7 +7,6 @@ module Test.Pos.CryptoSpec
        ) where
 
 import           Data.Binary           (Binary)
-import qualified Data.Binary           as Binary (decode, encode)
 import qualified Data.ByteString       as BS
 import           Formatting            (build, sformat)
 import           Test.Hspec            (Expectation, Spec, describe, shouldBe, specify)
@@ -20,7 +19,7 @@ import           Pos.Crypto            (Hash, PublicKey, SecretKey, Signature, S
                                         parseFullPublicKey, randomNumber, sign, toPublic,
                                         verify)
 
-import           Test.Pos.Util
+import           Test.Pos.Util         (KeyPair (..), binaryEncodeDecode)
 
 spec :: Spec
 spec = describe "Crypto" $ do
@@ -90,9 +89,6 @@ spec = describe "Crypto" $ do
             prop
                 "modified data can't be verified"
                 (signThenVerifyDifferentData @[Int])
-
-binaryEncodeDecode :: (Show a, Eq a, Binary a) => a -> Property
-binaryEncodeDecode a = Binary.decode (Binary.encode a) === a
 
 hashInequality :: (Eq a, Binary a) => a -> a -> Property
 hashInequality a b = a /= b ==> hash a /= hash b

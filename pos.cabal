@@ -172,6 +172,7 @@ test-suite pos-test
                      , Test.Pos.FollowTheSatoshiSpec
                      , Test.Pos.MerkleSpec
                      , Test.Pos.SlottingSpec
+                     , Test.Pos.Types.BinarySpec
                      , Test.Pos.Types.BlockSpec
                      , Test.Pos.Types.SlotIdSpec
                      , Test.Pos.Types.UtxoSpec

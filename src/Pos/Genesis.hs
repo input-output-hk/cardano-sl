@@ -18,16 +18,17 @@ module Pos.Genesis
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict     as M
+import qualified Data.Text           as T
 import qualified Data.Vector         as V
+import           Formatting          (int, sformat, (%))
 import           Universum
 
 import           Pos.Constants       (epochSlots)
-import           Pos.Crypto          (PublicKey, SecretKey, VssKeyPair,
-                                      VssPublicKey, deterministicKeyGen,
-                                      deterministicVssKeyGen, mkSigned,
-                                      toVssPublicKey, unsafeHash)
-import           Pos.Types           (Address (Address), SlotLeaders,
-                                      TxOut (..), Utxo, VssCertificatesMap)
+import           Pos.Crypto          (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
+                                      deterministicKeyGen, deterministicVssKeyGen,
+                                      mkSigned, toVssPublicKey, unsafeHash)
+import           Pos.Types           (Address (Address), SlotLeaders, TxOut (..), Utxo,
+                                      VssCertificatesMap)
 
 ----------------------------------------------------------------------------
 -- Static state
@@ -36,17 +37,14 @@ import           Pos.Types           (Address (Address), SlotLeaders,
 -- TODO get rid of this hardcode !!
 -- Secret keys of genesis block participants shouldn't obviously be widely known
 genesisKeyPairs :: [(PublicKey, SecretKey)]
-genesisKeyPairs =
-    [ fromMaybe
-          (panic "deterministicKeyGen failed in Genesis")
-          (deterministicKeyGen "My awesome 32-byte seed #1      ")
-    , fromMaybe
-          (panic "deterministicKeyGen failed in Genesis")
-          (deterministicKeyGen "My awesome 32-byte seed #2      ")
-    , fromMaybe
-          (panic "deterministicKeyGen failed in Genesis")
-          (deterministicKeyGen "My awesome 32-byte seed #3      ")
-    ]
+genesisKeyPairs = map gen [0 .. 41]
+  where
+    gen :: Int -> (PublicKey, SecretKey)
+    gen =
+        fromMaybe (panic "deterministicKeyGen failed in Genesis") .
+        deterministicKeyGen .
+        toS .
+        T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")
 
 genesisSecretKeys :: [SecretKey]
 genesisSecretKeys = map snd genesisKeyPairs
@@ -66,11 +64,14 @@ genesisUtxo =
 ----------------------------------------------------------------------------
 
 genesisVssKeyPairs :: [(VssKeyPair)]
-genesisVssKeyPairs =
-    [ deterministicVssKeyGen "My awesome 32-byte seed #1 (VSS)"
-    , deterministicVssKeyGen "My awesome 32-byte seed #2 (VSS)"
-    , deterministicVssKeyGen "My awesome 32-byte seed #3 (VSS)"
-    ]
+genesisVssKeyPairs = map gen [0 .. 42]
+  where
+    gen :: Int -> VssKeyPair
+    gen =
+        deterministicVssKeyGen .
+        toS .
+        T.take 32 .
+        sformat ("My awesome 32-byte seed :) #" %int % "             ")
 
 genesisVssPublicKeys :: [VssPublicKey]
 genesisVssPublicKeys = map toVssPublicKey genesisVssKeyPairs

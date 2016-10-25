@@ -23,6 +23,8 @@ module Pos.State.Acidic
        , GetOurCommitment (..)
        , GetOurOpening (..)
        , GetOurShares (..)
+       , GetThreshold (..)
+       , GetParticipants (..)
        , MayBlockBeUseful (..)
 
        , CreateNewBlock (..)
@@ -83,6 +85,8 @@ makeAcidic ''Storage
     , 'S.getOurCommitment
     , 'S.getOurOpening
     , 'S.getOurShares
+    , 'S.getThreshold
+    , 'S.getParticipants
     , 'S.mayBlockBeUseful
     , 'S.createNewBlock
     , 'S.processBlock

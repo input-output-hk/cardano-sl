@@ -16,6 +16,7 @@ module Pos.State.Storage.Mpc
 
        , calculateLeaders
        , getLocalMpcData
+       , getGlobalMpcDataByDepth
        , getOurCommitment
        , getOurOpening
        , getOurShares
@@ -30,7 +31,8 @@ module Pos.State.Storage.Mpc
        , mpcVerifyBlocks
        ) where
 
-import           Control.Lens            (Lens', makeClassy, use, view, (%=), (.=), (^.))
+import           Control.Lens            (Lens', ix, makeClassy, preview, to, use, view,
+                                          (%=), (.=), (^.))
 import           Crypto.Random           (drgNewSeed, seedFromInteger, withDRG)
 import           Data.Default            (Default, def)
 import           Data.Hashable           (Hashable)
@@ -46,14 +48,14 @@ import           Universum
 
 import           Pos.Constants           (k)
 import           Pos.Crypto              (PublicKey, Share,
-                                          Signed (signedSig, signedValue), VssKeyPair,
-                                          decryptShare, toVssPublicKey, verify,
-                                          verifyShare)
+                                          Signed (signedSig, signedValue), Threshold,
+                                          VssKeyPair, decryptShare, toVssPublicKey,
+                                          verify, verifyShare)
 import           Pos.FollowTheSatoshi    (FtsError, calculateSeed, followTheSatoshi)
 import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types               (Address (getAddress), Block, Commitment (..),
                                           CommitmentSignature, CommitmentsMap,
-                                          MpcData (MpcData), Opening (..), OpeningsMap,
+                                          MpcData (..), Opening (..), OpeningsMap,
                                           SharesMap, SlotId (..), SlotLeaders, Utxo,
                                           VssCertificate, VssCertificatesMap, blockMpc,
                                           blockSlot, mdCommitments, mdOpenings, mdShares,
@@ -141,12 +143,29 @@ getLocalMpcData =
     view (lastVer . mpcLocalShares) <*>
     view (lastVer . mpcLocalCertificates)
 
+-- TODO: check for off-by-one errors!!!!111
+--
+-- specifically, I'm not sure whether versioning here and versioning in .Tx
+-- are the same versionings
+getGlobalMpcDataByDepth :: Word -> Query (Maybe MpcData)
+getGlobalMpcDataByDepth (fromIntegral -> depth) =
+    preview $ mpcVersioned . ix depth . to mkGlobalMpcData
+  where
+    mkGlobalMpcData MpcStorageVersion {..} =
+        MpcData
+        { _mdCommitments = _mpcGlobalCommitments
+        , _mdOpenings = _mpcGlobalOpenings
+        , _mdShares = _mpcGlobalShares
+        , _mdVssCertificates = _mpcGlobalCertificates
+        }
+
 -- | Calculate leaders for the next epoch.
 calculateLeaders
     :: Utxo            -- ^ Utxo (k slots before the end of epoch)
+    -> Threshold
     -> Query (Either FtsError SlotLeaders)
-calculateLeaders utxo = do
-    mbSeed <- calculateSeed undefined
+calculateLeaders utxo threshold = do
+    mbSeed <- calculateSeed threshold
                             <$> view (lastVer . mpcGlobalCommitments)
                             <*> view (lastVer . mpcGlobalOpenings)
                             <*> view (lastVer . mpcGlobalShares)
@@ -457,7 +476,7 @@ getOurShares ourKey seed = do
                     Just encShare -> Just . (theirPK,) <$>
                                      decryptShare ourKey encShare
                 -- TODO: do we need to verify shares with 'verifyEncShare'
-                -- here?  Or do we need to verify them earlier (i.e. at the
+                -- here? Or do we need to verify them earlier (i.e. at the
                 -- stage of commitment verification)?
 
 -- | Remove elements in 'b' from 'a'

@@ -29,7 +29,7 @@ mpcOnNewSlot SlotId {..} = do
 
     -- Generate a new commitment and opening for MPC; send the commitment.
     when (siSlot == 0) $ do
-        generateNewSecret
+        generateNewSecret siEpoch
         mbComm <- getOurCommitment
         -- whenJust should always succeed here, btw
         case mbComm of

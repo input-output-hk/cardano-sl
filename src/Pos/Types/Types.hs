@@ -56,7 +56,7 @@ module Pos.Types.Types
 
        , MainBlockchain
        , MainBlockHeader
-       , MpcData (MpcData)
+       , MpcData (..)
        , MpcProof
        , ChainDifficulty (..)
        , MainToSign

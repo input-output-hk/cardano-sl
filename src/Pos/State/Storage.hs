@@ -17,6 +17,8 @@ module Pos.State.Storage
        , getOurCommitment
        , getOurOpening
        , getOurShares
+       , getParticipants
+       , getThreshold
        , mayBlockBeUseful
 
        , ProcessBlockRes (..)
@@ -36,6 +38,7 @@ module Pos.State.Storage
 import           Control.Lens            (makeClassy, use, view, (.=), (^.))
 import           Data.Acid               ()
 import           Data.Default            (Default, def)
+import qualified Data.HashMap.Strict     as HM
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Formatting              (sformat, shown, (%))
@@ -44,19 +47,21 @@ import           Serokell.Util           (VerificationRes (..))
 import           Universum
 
 import           Pos.Constants           (k)
-import           Pos.Crypto              (PublicKey, SecretKey, Share)
+import           Pos.Crypto              (PublicKey, SecretKey, Share, Threshold,
+                                          VssPublicKey, signedValue)
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
                                           blkCleanUp, blkCreateGenesisBlock,
                                           blkCreateNewBlock, blkProcessBlock, blkRollback,
                                           blkSetHead, getBlock, getHeadBlock, getLeaders,
                                           getSlotDepth, mayBlockBeUseful)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage,
-                                          calculateLeaders, getLocalMpcData,
-                                          getOurCommitment, getOurOpening, getOurShares,
-                                          mpcApplyBlocks, mpcProcessCommitment,
-                                          mpcProcessOpening, mpcProcessShares,
-                                          mpcProcessVssCertificate, mpcRollback,
-                                          mpcVerifyBlock, mpcVerifyBlocks, setSecret)
+                                          calculateLeaders, getGlobalMpcDataByDepth,
+                                          getLocalMpcData, getOurCommitment,
+                                          getOurOpening, getOurShares, mpcApplyBlocks,
+                                          mpcProcessCommitment, mpcProcessOpening,
+                                          mpcProcessShares, mpcProcessVssCertificate,
+                                          mpcRollback, mpcVerifyBlock, mpcVerifyBlocks,
+                                          setSecret)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           getLocalTxns, getUtxoByDepth, processTx,
                                           txApplyBlocks, txRollback, txVerifyBlocks)
@@ -64,8 +69,9 @@ import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRa
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
                                           EpochIndex, MainBlock, Opening, SlotId (..),
                                           SlotLeaders, VssCertificate, blockTxs,
-                                          epochIndexL, headerHashG, unflattenSlotId,
-                                          verifyTxAlone)
+                                          epochIndexL, getAddress, headerHashG,
+                                          mdVssCertificates, txOutAddress,
+                                          unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState, _neHead)
 
 type Query  a = forall m . MonadReader Storage m => m a
@@ -176,13 +182,40 @@ createGenesisBlock epoch = do
 calculateLeadersDo :: EpochIndex -> Query SlotLeaders
 calculateLeadersDo epoch = do
     depth <- getSlotDepth SlotId {siEpoch = epoch - 1, siSlot = 5 * k - 1}
-    utxo <- onErrorGetUtxo <$> getUtxoByDepth depth
-    either onErrorCalcLeaders identity <$> calculateLeaders utxo
+    utxo <- fromMaybe onErrorGetUtxo <$> getUtxoByDepth depth
+    -- TODO: overall 'calculateLeadersDo' gets utxo twice, could be optimised
+    threshold <- getThreshold epoch
+    either onErrorCalcLeaders identity <$> calculateLeaders utxo threshold
   where
     onErrorGetUtxo =
         panic "Failed to get utxo necessary for leaders calculation"
     onErrorCalcLeaders e =
         panic (sformat ("Leaders calculation reported error: " % shown) e)
+
+-- | Get keys of nodes participating in an epoch. A node participates if,
+-- when there were 'k' slots left before the end of the previous epoch, both
+-- of these were true:
+--
+--   1. it was a stakeholder
+--   2. it had already sent us its VSS key by that time
+getParticipants :: EpochIndex -> Query [VssPublicKey]
+getParticipants epoch = do
+    depth <- getSlotDepth SlotId {siEpoch = epoch - 1, siSlot = 5 * k - 1}
+    utxo <- fromMaybe onErrorGetUtxo <$> getUtxoByDepth depth
+    keymap <- maybe onErrorGetKeymap (view mdVssCertificates) <$>
+              getGlobalMpcDataByDepth depth
+    let stakeholders = map (getAddress . txOutAddress) (toList utxo)
+    return $ map signedValue $ mapMaybe (`HM.lookup` keymap) stakeholders
+  where
+    onErrorGetUtxo =
+        panic "Failed to get utxo necessary to enumerate participants"
+    onErrorGetKeymap =
+        panic "Failed to get utxo necessary to enumerate participants"
+
+getThreshold :: EpochIndex -> Query Threshold
+getThreshold epoch = do
+    ps <- getParticipants epoch
+    return (toInteger (length ps `div` 2))
 
 processCommitment :: PublicKey -> (Commitment, CommitmentSignature) -> Update ()
 processCommitment = mpcProcessCommitment

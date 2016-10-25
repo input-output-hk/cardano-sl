@@ -155,11 +155,15 @@ processVssCertificate pk c = updateDisk $ A.ProcessVssCertificate pk c
 -- epoch. Assumes that the genesis block has already been generated and
 -- processed by MPC (will fail otherwise because the old commitment/opening
 -- will still be lingering there in MPC storage).
-generateNewSecret :: WorkModeDB m => m ()
-generateNewSecret = do
-    secret <- genCommitmentAndOpening
-                  undefined  -- TODO: threshold
-                  undefined  -- TODO: VSS keys of participating nodes
+--
+-- It has to be passed the current epoch.
+generateNewSecret :: WorkModeDB m => EpochIndex -> m ()
+generateNewSecret epoch = do
+    -- TODO: I think it's safe here to perform 3 operations which aren't
+    -- grouped into a single transaction here, but I'm still a bit nervous.
+    threshold <- queryDisk (A.GetThreshold epoch)
+    participants <- queryDisk (A.GetParticipants epoch)
+    secret <- genCommitmentAndOpening threshold participants
     updateDisk $ A.SetSecret secret
 
 getOurCommitment :: WorkModeDB m => m (Maybe Commitment)

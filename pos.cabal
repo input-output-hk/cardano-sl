@@ -125,6 +125,26 @@ executable pos-node
                      , NoImplicitPrelude
                      , GeneralizedNewtypeDeriving
 
+executable pos-wallet
+  hs-source-dirs:      src/wallet
+  main-is:             Main.hs
+  build-depends:       base
+                     , formatting
+                     , optparse-applicative
+                     , pos
+                     , time-warp
+                     , universum
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , NoImplicitPrelude
+                     , GeneralizedNewtypeDeriving
+
 executable pos-demo
   hs-source-dirs:      src/demo
   main-is:             Main.hs

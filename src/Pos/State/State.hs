@@ -33,21 +33,21 @@ module Pos.State.State
        , generateNewSecret
        ) where
 
-import           Control.TimeWarp.Rpc (ResponseT)
-import           Crypto.Random        (seedNew, seedToInteger)
-import           Data.Acid            (EventResult, EventState, QueryEvent, UpdateEvent)
-import           Serokell.Util        (VerificationRes)
+import           Crypto.Random     (seedNew, seedToInteger)
+import           Data.Acid         (EventResult, EventState, QueryEvent, UpdateEvent)
+import           Pos.DHT           (DHTResponseT)
+import           Serokell.Util     (VerificationRes)
 import           Universum
 
-import           Pos.Crypto           (PublicKey, SecretKey, Share, VssKeyPair)
-import           Pos.Slotting         (MonadSlots, getCurrentSlot)
-import           Pos.State.Acidic     (DiskState, tidyState)
-import qualified Pos.State.Acidic     as A
-import           Pos.State.Storage    (ProcessBlockRes (..), Storage)
-import           Pos.Types            (Block, Commitment, CommitmentSignature, EpochIndex,
-                                       HeaderHash, MainBlock, MainBlockHeader, Opening,
-                                       SlotId, SlotLeaders, Tx, VssCertificate,
-                                       genCommitmentAndOpening)
+import           Pos.Crypto        (PublicKey, SecretKey, Share, VssKeyPair)
+import           Pos.Slotting      (MonadSlots, getCurrentSlot)
+import           Pos.State.Acidic  (DiskState, tidyState)
+import qualified Pos.State.Acidic  as A
+import           Pos.State.Storage (ProcessBlockRes (..), Storage)
+import           Pos.Types         (Block, Commitment, CommitmentSignature, EpochIndex,
+                                    HeaderHash, MainBlock, MainBlockHeader, Opening,
+                                    SlotId, SlotLeaders, Tx, VssCertificate,
+                                    genCommitmentAndOpening)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState
@@ -59,7 +59,7 @@ class MonadDB m where
 instance (Monad m, MonadDB m) => MonadDB (ReaderT r m) where
     getNodeState = lift getNodeState
 
-instance (Monad m, MonadDB m) => MonadDB (ResponseT m) where
+instance (Monad m, MonadDB m) => MonadDB (DHTResponseT m) where
     getNodeState = lift getNodeState
 
 type WorkModeDB m = (MonadIO m, MonadDB m)

@@ -5,19 +5,20 @@ module Pos.Communication.Server.Tx
        ) where
 
 import           Control.TimeWarp.Logging (logInfo)
-import           Control.TimeWarp.Rpc     (Listener (..))
 import           Formatting               (build, sformat, (%))
+import           Pos.DHT                  (ListenerDHT (..))
 import           Universum
 
+import           Control.TimeWarp.Rpc     (MonadDialog)
 import           Pos.Communication.Types  (ResponseMode, SendTx (..), SendTxs (..))
 import           Pos.State                (processTx)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
-txListeners :: WorkMode m => [Listener m]
+txListeners :: (MonadDialog m, WorkMode m) => [ListenerDHT m]
 txListeners =
-    [ Listener handleTx
-    , Listener handleTxs
+    [ ListenerDHT handleTx
+    , ListenerDHT handleTxs
     ]
 
 handleTx

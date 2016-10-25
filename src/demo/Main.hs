@@ -8,8 +8,8 @@ import           Control.TimeWarp.Timed   (fork_, repeatForever, runTimedIO, sec
 import           Data.List                ((!!))
 import           Data.String              (fromString)
 import           Formatting               (build, sformat, (%))
-import           Pos.DHT                  (DHTNode (..), DHTNodeType (..), Peer (..),
-                                           currentNodeKey, getKnownPeers)
+import           Pos.DHT                  (DHTNode (..), DHTNodeType (..), currentNodeKey,
+                                           getKnownPeers)
 import           Pos.DHT.Real             (KademliaDHTConfig (..), runKademliaDHT)
 import           Pos.Genesis              (genesisSecretKeys, genesisVssKeyPairs)
 import           Pos.Launcher             (NodeParams (..), getCurTimestamp, runNodeReal)
@@ -30,7 +30,6 @@ runSingleNode start peers i = runNodeReal params
         , npSecretKey = genesisSecretKeys !! (fromInteger . toInteger $ i)
         , npVssKeyPair = genesisVssKeyPairs !! (fromInteger . toInteger $ i)
         , npPort = 3000 + i
-        , npDHTPort = 2001 + i
         , npDHTPeers = peers
         }
 
@@ -43,6 +42,7 @@ main = do initLogging ["supporter"] Info
                   , kdcPort = 2000
                   , kdcListeners = []
                   , kdcMessageCacheSize = 1000000
+                  , kdcEnableBroadcast = False
                   }
     runTimed = runTimedIO . usingLoggerName "supported" . runTransfer . runBinaryDialog
     n = 3
@@ -52,5 +52,5 @@ main = do initLogging ["supporter"] Info
       liftIO (main' supporterKey)
     main' supporterKey = do
       systemStart <- getCurTimestamp
-      let peers = [ DHTNode (Peer "127.0.0.1" 2000) supporterKey ]
+      let peers = [ DHTNode ("127.0.0.1", 2000) supporterKey ]
       () <$ mapConcurrently (runSingleNode systemStart peers) [0 .. n - 1]

@@ -12,7 +12,7 @@ import           Pos.Communication.Types  (SendCommitment (..), SendOpening (..)
                                            SendShares (..))
 import           Pos.Constants            (k)
 import           Pos.Crypto               (sign)
-import           Pos.DHT                  (sendBroadcast)
+import           Pos.DHT                  (sendToNeighbors)
 import           Pos.State                (generateNewSecret, getOurCommitment,
                                            getOurOpening, getOurShares)
 import           Pos.Types                (SlotId (..))
@@ -36,17 +36,17 @@ mpcOnNewSlot SlotId {..} = do
                                 \a commitment or 'getOurCommitment' failed"
             Just comm -> do
                 let csig = sign ourSk (siEpoch, comm)
-                sendBroadcast $ SendCommitment ourPk (comm, csig)
+                void . sendToNeighbors $ SendCommitment ourPk (comm, csig)
     -- Send the opening
     when (siSlot == 2 * k) $ do
         mbOpen <- getOurOpening
         whenJust mbOpen $ \open ->
-            sendBroadcast $ SendOpening ourPk open
+            void . sendToNeighbors $ SendOpening ourPk open
     -- Send decrypted shares that others have sent us
     when (siSlot == 4 * k) $ do
         ourVss <- ncVssKeyPair <$> getNodeContext
         shares <- getOurShares ourVss
-        sendBroadcast $ SendShares ourPk shares
+        void . sendToNeighbors $ SendShares ourPk shares
 
 -- | All workers specific to MPC processing.
 -- Exceptions:

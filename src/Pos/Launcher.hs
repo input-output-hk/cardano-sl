@@ -19,7 +19,9 @@ import           Control.TimeWarp.Timed   (currentTime, runTimedIO)
 import           Formatting               (build, sformat, (%))
 import           Universum
 
-import           Pos.Communication        (sendTx, serve)
+import           Control.TimeWarp.Logging (logInfo)
+import           Formatting               (build, sformat, (%))
+import           Pos.Communication        (allListeners, sendTx)
 import           Pos.Crypto               (hash, sign)
 import           Pos.DHT                  (DHTNodeType (..), discoverPeers)
 import           Pos.Slotting             (Timestamp (Timestamp))
@@ -41,11 +43,10 @@ runNode NodeParams {..} = do
     logInfo $ sformat ("Known peers: " % build) peers
 
     runWorkers
-    serve (fromIntegral npPort)
 
 -- | Run full node in real mode.
 runNodeReal :: NodeParams -> IO ()
-runNodeReal p = runRealMode p $ runNode p
+runNodeReal p = runRealMode p allListeners $ runNode p
 
 -- | Construct Tx with a single input and single output and send it to
 -- the given network addresses.
@@ -66,4 +67,4 @@ submitTxReal :: NodeParams
              -> (TxId, Word32)
              -> (Address, Coin)
              -> IO ()
-submitTxReal p na inp = runRealMode p . submitTx na inp
+submitTxReal p na inp = runRealMode p [] . submitTx na inp

@@ -8,14 +8,14 @@ module Pos.Communication.Methods
        ) where
 
 import           Control.TimeWarp.Logging (logDebug)
-import           Control.TimeWarp.Rpc     (NetworkAddress, send)
+import           Control.TimeWarp.Rpc     (NetworkAddress)
 import           Formatting               (build, sformat, (%))
 import           Serokell.Util.Text       (listBuilderJSON)
 import           Universum
 
 import           Pos.Communication.Types  (SendBlockHeader (..), SendTx (..),
                                            SendTxs (..))
-import           Pos.DHT                  (sendBroadcast)
+import           Pos.DHT                  (sendToNeighbors, sendToNode)
 import           Pos.Types                (MainBlockHeader, Tx)
 import           Pos.WorkMode             (WorkMode)
 
@@ -26,14 +26,14 @@ announceBlock
     => MainBlockHeader -> m ()
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
-    sendBroadcast . SendBlockHeader $ header
+    void . sendToNeighbors . SendBlockHeader $ header
 
 -- | Announce new transaction to all known peers. Intended to be used when
 -- tx is created.
 announceTx :: WorkMode m => Tx -> m ()
 announceTx tx = do
     logDebug $ sformat ("Announcing tx to others:\n"%build) tx
-    sendBroadcast . SendTx $ tx
+    void . sendToNeighbors . SendTx $ tx
 
 -- | Announce known transactions to all known peers. Intended to be used
 -- to relay transactions.
@@ -41,11 +41,11 @@ announceTxs :: WorkMode m => [Tx] -> m ()
 announceTxs txs = do
     logDebug $
         sformat ("Announcing txs to others:\n" %build) $ listBuilderJSON txs
-    sendBroadcast . SendTxs $ txs
+    void . sendToNeighbors . SendTxs $ txs
 
 -- | Send Tx to given address.
 sendTx :: WorkMode m => NetworkAddress -> Tx -> m ()
-sendTx addr = send addr . SendTx
+sendTx addr = sendToNode addr . SendTx
 
 ----------------------------------------------------------------------------
 -- Legacy

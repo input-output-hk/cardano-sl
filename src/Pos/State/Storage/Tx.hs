@@ -67,7 +67,7 @@ getLocalTxs = view txLocalTxs
 
 txVerifyBlocks :: Word -> AltChain -> Query VerificationRes
 txVerifyBlocks (fromIntegral -> toRollback) newChain = do
-    mUtxo <- (`atMay` toRollback) <$> view txUtxoHistory
+    mUtxo <- preview (txUtxoHistory . ix toRollback)
     return $ case mUtxo of
       Nothing ->
         VerFailure [sformat ("Can't rollback on "%int%" blocks") toRollback]

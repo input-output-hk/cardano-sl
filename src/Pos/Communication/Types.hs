@@ -11,12 +11,12 @@ module Pos.Communication.Types
        , module Tx
        ) where
 
-import           Control.TimeWarp.Rpc          (MonadResponse)
 -- import           Universum
 
 import           Pos.Communication.Types.Block as Block
 import           Pos.Communication.Types.Mpc   as Mpc
 import           Pos.Communication.Types.Tx    as Tx
+import           Pos.DHT                       (MonadResponseDHT)
 import           Pos.WorkMode                  (WorkMode)
 
-type ResponseMode m = (WorkMode m, MonadResponse m)
+type ResponseMode m = (WorkMode m, MonadResponseDHT m)

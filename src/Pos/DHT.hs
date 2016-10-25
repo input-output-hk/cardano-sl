@@ -1,29 +1,49 @@
-{-# LANGUAGE ConstrainedClassMethods #-}
-{-# LANGUAGE FlexibleInstances       #-}
+{-# LANGUAGE ConstrainedClassMethods   #-}
+{-# LANGUAGE DefaultSignatures         #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE TypeFamilies              #-}
 -- | Peer discovery
 
 module Pos.DHT (
-  DHTException (..), DHTKey, DHTData, DHTNode (..), Peer (..), DHTNodeType (..),
-  MonadDHT (..), MonadBroadcast (..),
-  randomDHTKey, dhtNodeType
+  DHTException (..),
+  DHTKey,
+  DHTData,
+  DHTNode (..),
+  DHTNodeType (..),
+  MonadDHT (..),
+  MonadMessageDHT (..),
+  MonadResponseDHT (..),
+  DHTResponseT,
+  getDHTResponseT,
+  randomDHTKey,
+  dhtNodeType,
+  WithDefaultMsgHeader (..),
+  ListenerDHT (..)
 ) where
 
-import           Control.TimeWarp.Rpc   (ResponseT)
-import           Data.Binary            (Binary)
-import qualified Data.ByteString        as BS
-import           Data.Text.Buildable    (Buildable (..))
-import           Data.Text.Lazy         (unpack)
-import           Data.Text.Lazy.Builder (toLazyText)
-import           Formatting             (bprint, (%))
-import qualified Formatting             as F
-import           Pos.Crypto.Random      (secureRandomBS)
-import           Prelude                (show)
-import           Serokell.Util.Text     (listBuilderJSON)
-import           Universum              hiding (show)
+import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, catch)
+import           Control.Monad.Trans.Class (MonadTrans)
+import           Control.TimeWarp.Logging  (WithNamedLogger, logInfo, logWarning)
+import           Control.TimeWarp.Rpc      (Message, MonadDialog, MonadTransfer,
+                                            NetworkAddress, ResponseT, replyH, sendH)
+import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
+import           Data.Binary               (Binary, Put)
+import qualified Data.ByteString           as BS
+import           Data.Text.Buildable       (Buildable (..))
+import           Data.Text.Lazy            (unpack)
+import           Data.Text.Lazy.Builder    (toLazyText)
+import           Formatting                (bprint, int, sformat, shown, (%))
+import qualified Formatting                as F
+import           Pos.Crypto.Random         (secureRandomBS)
+import           Prelude                   (show)
+import           Serokell.Util.Text        (listBuilderJSON)
+import           Universum                 hiding (ThreadId, catch, show)
 
-import           Control.TimeWarp.Rpc   (Message)
+import           Pos.Constants             (neighborsSendThreshold)
 
-import qualified Serokell.Util.Base64   as B64
+import qualified Serokell.Util.Base64      as B64
 
 
 
@@ -41,23 +61,52 @@ class Monad m => MonadDHT m where
 
   currentNodeKey :: m DHTKey
 
-class MonadDHT m => MonadBroadcast m where
+class WithDefaultMsgHeader m where
+  defaultMsgHeader :: Message r => r -> m Put
 
-  sendBroadcast :: Message r => r -> m ()
+class MonadDHT m => MonadMessageDHT m where
 
-data Peer = Peer { peerHost :: Text
-                 , peerPort :: Word16
-                 }
-  deriving Show
+  sendToNetwork :: Message r => r -> m ()
 
-instance Buildable Peer where
-  build p = "Peer "
-             `mappend` build (peerHost p)
-             `mappend` ":"
-             `mappend` build (peerPort p)
+  sendToNode :: Message r => NetworkAddress -> r -> m ()
 
-instance Buildable [Peer] where
-  build = listBuilderJSON
+  sendToNeighbors :: Message r => r -> m Int
+
+  default sendToNode :: (Message r, WithDefaultMsgHeader m, MonadDialog m) => NetworkAddress -> r -> m ()
+  sendToNode addr msg = do
+    header <- defaultMsgHeader msg
+    sendH addr header msg
+
+  default sendToNeighbors :: (Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
+  sendToNeighbors = defaultSendToNeighbors
+
+class MonadMessageDHT m => MonadResponseDHT m where
+
+  replyToNode :: Message r => r -> m ()
+
+data ListenerDHT m =
+    forall r . Message r => ListenerDHT (r -> DHTResponseT m ())
+
+defaultSendToNeighbors :: (MonadMessageDHT m, Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
+defaultSendToNeighbors msg = do
+    nodes <- getKnownPeers
+    succeed <- sendToNodes nodes
+    succeed' <- if succeed < neighborsSendThreshold
+                   then (+) succeed <$> do
+                     nodes' <- discoverPeers DHTFull
+                     sendToNodes $ filter (isJust . flip find nodes . (==)) nodes'
+                   else return succeed
+    when (succeed' < neighborsSendThreshold) $
+      logWarning $ sformat ("Send to only " % int % " nodes out, threshold is " % int) succeed' neighborsSendThreshold
+    return succeed'
+  where
+    -- TODO make this function asynchronous after presenting some `MonadAsync` constraint
+    sendToNodes nodes = length . filter identity <$> mapM send' nodes
+    send' node = (sendToNode (dhtAddr node) msg >> return True) `catch` handleE
+      where
+        handleE (e :: SomeException) = do
+          logInfo $ sformat ("Error sending message to " % F.build % ": " % shown) node e
+          return False
 
 newtype DHTData = DHTData ()
   deriving (Eq, Ord, Binary)
@@ -67,12 +116,12 @@ newtype DHTKey = DHTKey BS.ByteString
   deriving (Eq, Ord, Binary)
 
 instance Buildable DHTKey where
-  build key@(DHTKey bs) = buildType (dhtNodeType key)
-              `mappend` build ' '
-              `mappend` build (B64.encodeUrl $ BS.tail bs)
-    where
-      buildType Nothing  = "<Unknown type>"
-      buildType (Just s) = build s
+    build key@(DHTKey bs) = buildType (dhtNodeType key)
+                `mappend` build ' '
+                `mappend` build (B64.encode $ BS.tail bs)
+      where
+        buildType Nothing  = "<Unknown type>"
+        buildType (Just s) = build s
 
 instance Show DHTKey where
   show = unpack . toLazyText . build
@@ -106,19 +155,19 @@ typeByte DHTClient    = 0xF0
 randomDHTKey :: MonadIO m => DHTNodeType -> m DHTKey
 randomDHTKey type_ = (DHTKey . BS.cons (typeByte type_)) <$> secureRandomBS 19
 
-data DHTNode = DHTNode { dhtPeer   :: Peer
+data DHTNode = DHTNode { dhtAddr   :: NetworkAddress
                        , dhtNodeId :: DHTKey
                        }
-  deriving Show
+  deriving (Eq, Ord, Show)
 instance Buildable DHTNode where
-  build (DHTNode p key)
-    = bprint (F.build % " at " % F.build % ":" % F.build)
-             key
-             (peerHost p)
-             (peerPort p)
+    build (DHTNode (peerHost, peerPort) key)
+      = bprint (F.build % " at " % F.build % ":" % F.build)
+               key
+               (toS peerHost :: Text)
+               peerPort
 
 instance Buildable [DHTNode] where
-  build = listBuilderJSON
+    build = listBuilderJSON
 
 data DHTException = NodeDown | AllPeersUnavailable
   deriving (Show, Typeable)
@@ -126,10 +175,29 @@ data DHTException = NodeDown | AllPeersUnavailable
 instance Exception DHTException
 
 instance MonadDHT m => MonadDHT (ResponseT m) where
-  discoverPeers = lift . discoverPeers
-  getKnownPeers = lift getKnownPeers
-  currentNodeKey = lift currentNodeKey
-  joinNetwork = lift . joinNetwork
+    discoverPeers = lift . discoverPeers
+    getKnownPeers = lift getKnownPeers
+    currentNodeKey = lift currentNodeKey
+    joinNetwork = lift . joinNetwork
 
-instance MonadBroadcast m => MonadBroadcast (ResponseT m) where
-  sendBroadcast = lift . sendBroadcast
+instance MonadMessageDHT m => MonadMessageDHT (ResponseT m) where
+    sendToNetwork = lift . sendToNetwork
+    sendToNode node = lift . sendToNode node
+    sendToNeighbors = lift . sendToNeighbors
+
+instance (Monad m, WithDefaultMsgHeader m) => WithDefaultMsgHeader (ResponseT m) where
+  defaultMsgHeader = lift . defaultMsgHeader
+
+newtype DHTResponseT m a = DHTResponseT { getDHTResponseT :: (ResponseT m a) }
+    deriving (Functor, Applicative, Monad, MonadIO, MonadTrans,
+                MonadThrow, MonadCatch, MonadMask,
+                MonadState s, WithDefaultMsgHeader,
+                WithNamedLogger, MonadTimed, MonadTransfer, MonadDHT, MonadMessageDHT)
+
+type instance ThreadId (DHTResponseT m) = ThreadId m
+
+instance (WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog m, MonadIO m) => MonadResponseDHT (DHTResponseT m) where
+  replyToNode msg = do
+    header <- defaultMsgHeader msg
+    DHTResponseT $ replyH header msg
+

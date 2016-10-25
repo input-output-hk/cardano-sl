@@ -1,17 +1,17 @@
 -- | Server part.
 
 module Pos.Communication.Server
-       ( serve
+       ( allListeners
        ) where
 
-import           Control.TimeWarp.Rpc           (Port, listen, Binding (AtPort))
 import           Universum
 
+import           Control.TimeWarp.Rpc           (MonadDialog)
 import           Pos.Communication.Server.Block (blockListeners)
 import           Pos.Communication.Server.Mpc   (mpcListeners)
 import           Pos.Communication.Server.Tx    (txListeners)
+import           Pos.DHT                        (ListenerDHT)
 import           Pos.WorkMode                   (WorkMode)
 
--- | Run server with all endpoints (i. e. listeners).
-serve :: WorkMode m => Port -> m ()
-serve port = listen (AtPort port) $ mconcat [blockListeners, mpcListeners, txListeners]
+allListeners :: (MonadDialog m, WorkMode m) => [ListenerDHT m]
+allListeners = mconcat [blockListeners, mpcListeners, txListeners]

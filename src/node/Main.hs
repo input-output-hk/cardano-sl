@@ -22,6 +22,5 @@ main = runNodeReal params
         , npSecretKey = genesisSecretKeys !! 0
         , npVssKeyPair = genesisVssKeyPairs !! 0
         , npPort = 3000
-        , npDHTPort = 2000
         , npDHTPeers = []
         }

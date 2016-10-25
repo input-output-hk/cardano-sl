@@ -8,19 +8,20 @@ module Pos.Communication.Server.Mpc
        , mpcListeners
        ) where
 
-import           Control.TimeWarp.Rpc        (Listener (..))
 -- import           Universum
 
+import           Control.TimeWarp.Rpc        (MonadDialog)
 import           Pos.Communication.Types.Mpc as Mpc
+import           Pos.DHT                     (ListenerDHT (..))
 import qualified Pos.State                   as St
 import           Pos.WorkMode                (WorkMode)
 
-mpcListeners :: WorkMode m => [Listener m]
+mpcListeners :: (MonadDialog m, WorkMode m) => [ListenerDHT m]
 mpcListeners =
-    [ Listener handleCommitment
-    , Listener handleOpening
-    , Listener handleShares
-    , Listener handleVssCertificate ]
+    [ ListenerDHT handleCommitment
+    , ListenerDHT handleOpening
+    , ListenerDHT handleShares
+    , ListenerDHT handleVssCertificate ]
 
 handleCommitment :: WorkMode m => SendCommitment -> m ()
 handleCommitment (SendCommitment pk c) = do

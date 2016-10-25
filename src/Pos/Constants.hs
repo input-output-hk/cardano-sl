@@ -5,6 +5,7 @@ module Pos.Constants
        , slotDuration
        , epochSlots
        , epochDuration
+       , neighborsSendThreshold
        , networkDiameter
        ) where
 
@@ -30,3 +31,6 @@ epochDuration = epochSlots * slotDuration
 -- other nodes.
 networkDiameter :: Microsecond
 networkDiameter = sec 1
+
+neighborsSendThreshold :: Int
+neighborsSendThreshold = 6

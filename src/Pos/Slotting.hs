@@ -12,11 +12,11 @@ module Pos.Slotting
        , onNewSlot
        ) where
 
-import           Control.TimeWarp.Rpc   (ResponseT)
 import           Control.TimeWarp.Timed (Microsecond, MonadTimed, for, fork_, wait)
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
 import           Formatting             (Format, build)
+import           Pos.DHT                (DHTResponseT)
 import           Universum
 
 import           Pos.Constants          (slotDuration)
@@ -43,7 +43,7 @@ class Monad m => MonadSlots m where
     getSystemStartTime :: m Timestamp
     getCurrentTime :: m Timestamp
 
-instance MonadSlots m => MonadSlots (ResponseT m) where
+instance MonadSlots m => MonadSlots (DHTResponseT m) where
     getSystemStartTime = lift getSystemStartTime
     getCurrentTime = lift getCurrentTime
 

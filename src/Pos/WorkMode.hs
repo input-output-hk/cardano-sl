@@ -20,15 +20,16 @@ import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow, ca
                                            throwM)
 import           Control.TimeWarp.Logging (LoggerName, Severity, WithNamedLogger (..),
                                            initLogging, logInfo, usingLoggerName)
-import           Control.TimeWarp.Rpc     (BinaryDialog, MonadDialog, MonadTransfer,
-                                           ResponseT, Transfer, runBinaryDialog,
+import           Control.TimeWarp.Rpc     (BinaryDialog, MonadDialog, MonadResponse,
+                                           MonadTransfer, Transfer, runBinaryDialog,
                                            runTransfer)
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId, runTimedIO)
 import           Formatting               (build, sformat, (%))
 import           Pos.Crypto               (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
                                            toPublic, toVssPublicKey)
 import           Pos.DHT                  (DHTException (..), DHTNode, DHTNodeType (..),
-                                           MonadBroadcast (..), MonadDHT (..))
+                                           DHTResponseT, ListenerDHT, MonadDHT (..),
+                                           MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real             (KademliaDHT, KademliaDHTConfig (..),
                                            runKademliaDHT)
 import           Pos.Slotting             (MonadSlots (..), Timestamp (..), timestampF)
@@ -44,8 +45,8 @@ type WorkMode m
       , MonadSlots m
       , MonadDB m
       , WithNodeContext m
-      , MonadBroadcast m
-      , MonadDialog m
+      , MonadMessageDHT m
+      , WithDefaultMsgHeader m
       )
 
 ----------------------------------------------------------------------------
@@ -55,7 +56,7 @@ type WorkMode m
 newtype DBHolder m a = DBHolder
     { getDBHolder :: ReaderT NodeState m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, WithNamedLogger, MonadTransfer, MonadDialog)
+               MonadMask, MonadIO, WithNamedLogger, MonadTransfer, MonadDialog, MonadResponse)
 
 type instance ThreadId (DBHolder m) = ThreadId m
 
@@ -105,13 +106,13 @@ instance (Monad m, WithNodeContext m) =>
     getNodeContext = lift getNodeContext
 
 instance (Monad m, WithNodeContext m) =>
-         WithNodeContext (ResponseT m) where
+         WithNodeContext (DHTResponseT m) where
     getNodeContext = lift getNodeContext
 
 newtype ContextHolder m a = ContextHolder
     { getContextHolder :: ReaderT NodeContext m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow,
-               MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDB, MonadTransfer, MonadDialog)
+               MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDB, MonadTransfer, MonadDialog, MonadResponse)
 
 type instance ThreadId (ContextHolder m) = ThreadId m
 
@@ -141,7 +142,6 @@ data NodeParams = NodeParams
     , npSecretKey       :: !SecretKey
     , npVssKeyPair      :: !VssKeyPair
     , npPort            :: !Word16
-    , npDHTPort         :: !Word16
     , npDHTPeers        :: ![DHTNode]
     } deriving (Show)
 
@@ -153,8 +153,8 @@ data NodeParams = NodeParams
 type RealMode = KademliaDHT (ContextHolder (DBHolder ((BinaryDialog Transfer))))
 
 -- TODO: use bracket
-runRealMode :: NodeParams -> RealMode a -> IO a
-runRealMode NodeParams {..} action = do
+runRealMode :: NodeParams -> [ListenerDHT RealMode] -> RealMode a -> IO a
+runRealMode NodeParams {..} listeners action = do
     initLogging [npLoggerName] npLoggingSeverity
     startTime <- getStartTime
     db <- (runTimed . runCH startTime) openDb
@@ -165,9 +165,10 @@ runRealMode NodeParams {..} action = do
   where
     kadConfig = KademliaDHTConfig
                   { kdcType = DHTFull
-                  , kdcPort = npDHTPort
-                  , kdcListeners = []
+                  , kdcPort = npPort
+                  , kdcListeners = listeners
                   , kdcMessageCacheSize = 1000000
+                  , kdcEnableBroadcast = False
                   }
     handleJoinE AllPeersUnavailable
       = logInfo $ sformat ("Not connected to any of peers "%build) npDHTPeers

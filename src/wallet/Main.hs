@@ -71,7 +71,7 @@ main = do
                     , npSecretKey = genesisSecretKeys !! i
                     , npVssKeyPair = genesisVssKeyPairs !! i
                     , npPort = 3000
-                    , npDHTPort = 2000
+                    , npDHTPort = 34789
                     , npDHTPeers = []
                     }
             let na = (localhost, stPort)

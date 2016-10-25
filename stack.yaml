@@ -17,10 +17,6 @@ packages:
     commit: 8f95bdb1f9f30a9e90edaf95794c75d9e7fa7d1b
   extra-dep: true
 - location:
-    git: https://github.com/TokTok/hs-msgpack.git
-    commit: d4abb4a320250047f512f2b3860fa051f9b530ac
-  extra-dep: true
-- location:
     git: https://github.com/serokell/msgpack-haskell.git
     commit: 1bef097a0458768997ddb0a40793463f443c6a7e
   extra-dep: true
@@ -40,6 +36,7 @@ nix:
   shell-file: shell.nix
 extra-deps:
 - pqueue-1.3.2
+- data-msgpack-0.0.6
 - time-units-1.0.0
 - aeson-extra-0.4.0.0
 - recursion-schemes-5

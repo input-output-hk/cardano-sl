@@ -8,14 +8,16 @@ module Test.Pos.Util
        , KeyPair(..)
        ) where
 
+import           Data.Binary      (Binary)
 import           System.IO.Unsafe (unsafePerformIO)
 import           System.Random    (Random)
 import           Test.QuickCheck  (Arbitrary (..), Gen, choose, elements, shuffle)
 import           Universum
 
 import           Pos.Constants    (epochSlots)
-import           Pos.Crypto       (PublicKey, SecretKey, VssKeyPair, VssPublicKey, keyGen,
-                                   toVssPublicKey, vssKeyGen)
+import           Pos.Crypto       (PublicKey, SecretKey, Signature, Signed, VssKeyPair,
+                                   VssPublicKey, keyGen, mkSigned, sign, toVssPublicKey,
+                                   vssKeyGen)
 import           Pos.Types        (Coin (..), Commitment, EpochIndex (EpochIndex),
                                    FtsSeed, LocalSlotIndex (LocalSlotIndex), Opening,
                                    SlotId (SlotId), genCommitmentAndOpening)
@@ -109,6 +111,16 @@ instance Nonrepeating VssKeyPair where
 
 instance Nonrepeating VssPublicKey where
     nonrepeating n = map toVssPublicKey <$> nonrepeating n
+
+----------------------------------------------------------------------------
+-- Arbitrary signatures
+----------------------------------------------------------------------------
+
+instance (Binary a, Arbitrary a) => Arbitrary (Signature a) where
+    arbitrary = sign <$> arbitrary <*> arbitrary
+
+instance (Binary a, Arbitrary a) => Arbitrary (Signed a) where
+    arbitrary = mkSigned <$> arbitrary <*> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary core types

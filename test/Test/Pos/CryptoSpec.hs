@@ -15,9 +15,10 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
-import           Pos.Crypto            (Hash, PublicKey, SecretKey, deterministic,
-                                        fullPublicKeyF, hash, parseFullPublicKey,
-                                        randomNumber, sign, toPublic, verify)
+import           Pos.Crypto            (Hash, PublicKey, SecretKey, Signature, Signed,
+                                        deterministic, fullPublicKeyF, hash,
+                                        parseFullPublicKey, randomNumber, sign, toPublic,
+                                        verify)
 
 import           Test.Pos.Util
 
@@ -66,6 +67,12 @@ spec = describe "Crypto" $ do
             prop
                 "PublicKey"
                 (binaryEncodeDecode @PublicKey)
+            prop
+                "Signature"
+                (binaryEncodeDecode @(Signature ()))
+            prop
+                "Signed"
+                (binaryEncodeDecode @(Signed Bool))
         describe "keys" $ do
             prop
                 "derived pubkey equals to generated pubkey"

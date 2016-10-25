@@ -17,12 +17,6 @@ packages:
     commit: 8f95bdb1f9f30a9e90edaf95794c75d9e7fa7d1b
   extra-dep: true
 - location:
-    git: https://github.com/serokell/msgpack-haskell.git
-    commit: 1bef097a0458768997ddb0a40793463f443c6a7e
-  extra-dep: true
-  subdirs:
-    - msgpack-rpc
-- location:
     git: https://github.com/serokell/acid-state.git
     commit: dea606c78d9ecd22247e3c90dcf12c6b4b0458fc
   extra-dep: true

@@ -202,3 +202,24 @@ test-suite pos-test
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
                      , NoImplicitPrelude
+
+benchmark pos-bench-criterion
+  hs-source-dirs:      bench
+  main-is:             Local/Criterion.hs
+  other-modules:       Bench.Pos.Criterion.FollowTheSatoshiBench
+  type:                exitcode-stdio-1.0
+  build-depends:       base
+                     , criterion
+                     , pos
+                     , universum
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -with-rtsopts=-N
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , GeneralizedNewtypeDeriving
+                     , NoImplicitPrelude

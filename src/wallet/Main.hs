@@ -70,7 +70,7 @@ main = do
                     , npLoggingSeverity = Debug
                     , npSecretKey = genesisSecretKeys !! i
                     , npVssKeyPair = genesisVssKeyPairs !! i
-                    , npPort = 3000
+                    , npPort = 24962
                     , npDHTPeers = []
                     }
             let na = (localhost, stPort)

@@ -19,13 +19,14 @@ import           Formatting               (build, sformat, (%))
 import           Universum
 
 import           Pos.Communication        (announceTx, serve)
-import           Pos.Crypto               (SecretKey, hash, sign)
+import           Pos.Crypto               (hash, sign)
 import           Pos.DHT                  (DHTNodeType (..), discoverPeers)
 import           Pos.Slotting             (Timestamp (Timestamp))
 import           Pos.Types                (Address, Coin, Tx (..), TxId, TxIn (..),
                                            TxOut (..), txF)
 import           Pos.Worker               (runWorkers)
-import           Pos.WorkMode             (NodeParams (..), WorkMode, runRealMode)
+import           Pos.WorkMode             (NodeParams (..), WorkMode, getNodeContext,
+                                           ncSecretKey, runRealMode)
 
 -- | Get current time as Timestamp. It is intended to be used when you
 -- launch the first node. It doesn't make sense in emulation mode.
@@ -47,8 +48,9 @@ runNodeReal p = runRealMode p $ runNode p
 
 -- | Construct Tx with a single input and single output and send it to
 -- the network.
-submitTx :: WorkMode m => SecretKey -> (TxId, Word32) -> (Address, Coin) -> m ()
-submitTx sk (txInHash, txInIndex) (txOutAddress, txOutValue) = do
+submitTx :: WorkMode m => (TxId, Word32) -> (Address, Coin) -> m ()
+submitTx (txInHash, txInIndex) (txOutAddress, txOutValue) = do
+    sk <- ncSecretKey <$> getNodeContext
     let txOuts = [TxOut {..}]
         txIns = [TxIn {txInSig = sign sk (txInHash, txInIndex, txOuts), ..}]
         tx = Tx {txInputs = txIns, txOutputs = txOuts}
@@ -58,5 +60,5 @@ submitTx sk (txInHash, txInIndex) (txOutAddress, txOutValue) = do
     announceTx tx
 
 -- | Submit tx in real mode.
-submitTxReal :: NodeParams -> SecretKey -> (TxId, Word32) -> (Address, Coin) -> IO ()
-submitTxReal p sk inp = runRealMode p . submitTx sk inp
+submitTxReal :: NodeParams -> (TxId, Word32) -> (Address, Coin) -> IO ()
+submitTxReal p inp = runRealMode p . submitTx inp

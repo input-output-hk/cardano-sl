@@ -33,6 +33,7 @@ module Pos.Types.Types
        , TxIn (..)
        , TxOut (..)
        , Tx (..)
+       , txF
 
        , Utxo
 
@@ -282,6 +283,9 @@ instance Buildable Tx where
             ("Transaction with inputs "%build%", outputs: "%build)
             (listBuilderJSON txInputs)
             (listBuilderJSON txOutputs)
+
+txF :: Format r (Tx -> r)
+txF = build
 
 ----------------------------------------------------------------------------
 -- UTXO

@@ -24,14 +24,15 @@ import           Control.Lens            (ix, makeClassy, preview, use, uses, vi
                                           (<~), (^.))
 import           Data.Default            (Default, def)
 import qualified Data.HashSet            as HS
+import qualified Data.List.NonEmpty      as NE
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
-import           Serokell.Util           (VerificationRes, isVerSuccess)
-import           Universum
-
+import           Formatting              (build, int, sformat, (%))
 import           Pos.Genesis             (genesisUtxo)
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types               (Block, Tx (..), Utxo, applyTxToUtxo, blockTxs,
-                                          verifyTxUtxo)
+import           Pos.Types               (Block, SlotId, Tx (..), Utxo, applyTxToUtxo,
+                                          blockSlot, blockTxs, slotIdF, verifyTxUtxo)
+import           Serokell.Util           (VerificationRes (..), isVerSuccess)
+import           Universum
 
 data TxStorage = TxStorage
     { -- | Local set of transactions. These are valid (with respect to
@@ -66,7 +67,23 @@ getLocalTxns :: Query (HashSet Tx)
 getLocalTxns = view txLocalTxns
 
 txVerifyBlocks :: Word -> AltChain -> Query VerificationRes
-txVerifyBlocks = notImplemented
+txVerifyBlocks (fromIntegral -> toRollback) newChain = do
+    mUtxo <- (`atMay` toRollback) <$> view txUtxoHistory
+    return $ case mUtxo of
+      Nothing ->
+        VerFailure [sformat ("Can't rollback on " % int % " blocks") toRollback]
+      Just utxo ->
+        case foldM verifyDo utxo newChainTxs of
+          Right _ -> VerSuccess
+          Left es -> VerFailure es
+  where
+    newChainTxs = mconcat . fmap (\b -> fmap ((,) $ b ^. blockSlot) . toList $ b ^. blockTxs) . reverse . rights $ NE.toList newChain
+    verifyDo :: Utxo -> (SlotId, Tx) -> Either [Text] Utxo
+    verifyDo utxo (slotId, tx) =
+      case verifyTxUtxo utxo tx of
+          VerSuccess    -> Right $ applyTxToUtxo tx utxo
+          VerFailure es -> Left  $ map (sformat eFormat tx slotId) es
+    eFormat = "Failed to apply transaction (" % build % ") on block from slot " % slotIdF % ", error: " % build
 
 -- | Get Utxo corresponding to state right after block with given
 -- depth has been applied.

@@ -5,7 +5,7 @@ module Pos.Worker.Tx
        ) where
 
 import           Control.TimeWarp.Logging  (logWarning)
-import           Control.TimeWarp.Timed    (Microsecond, minute, repeatForever)
+import           Control.TimeWarp.Timed    (Microsecond, repeatForever, sec)
 import           Formatting                (build, sformat, (%))
 import           Serokell.Util.Exceptions  ()
 import           Universum
@@ -21,7 +21,7 @@ txWorkers :: WorkMode m => [m ()]
 txWorkers = [txsTransmitter]
 
 txsTransmitterInterval :: Microsecond
-txsTransmitterInterval = minute 1
+txsTransmitterInterval = sec 2
 
 txsTransmitter :: WorkMode m => m ()
 txsTransmitter =

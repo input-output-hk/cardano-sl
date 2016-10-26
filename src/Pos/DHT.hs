@@ -142,7 +142,7 @@ newtype DHTKey = DHTKey { dhtKeyBytes :: BS.ByteString }
 instance Buildable DHTKey where
     build key@(DHTKey bs) = buildType (dhtNodeType key)
                 `mappend` build ' '
-                `mappend` build (B64.encode $ BS.tail bs)
+                `mappend` build (B64.encodeUrl bs)
       where
         buildType Nothing  = "<Unknown type>"
         buildType (Just s) = build s

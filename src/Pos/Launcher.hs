@@ -25,14 +25,12 @@ import           Control.TimeWarp.Timed   (currentTime, repeatForever, runTimedI
                                            sleepForever)
 import           Data.Default             (Default (def))
 import           Formatting               (build, sformat, (%))
-import           Serokell.Util.Base64     (base64F)
 import           Universum                hiding (catch)
 
 import           Pos.Communication        (allListeners, sendTx)
 import           Pos.Crypto               (SecretKey, VssKeyPair, hash, sign)
 import           Pos.DHT                  (DHTException (..), DHTKey, DHTNode,
-                                           DHTNodeType (..), ListenerDHT, MonadDHT (..),
-                                           dhtKeyBytes)
+                                           DHTNodeType (..), ListenerDHT, MonadDHT (..))
 import           Pos.DHT.Real             (KademliaDHTConfig (..), runKademliaDHT)
 import           Pos.Slotting             (Timestamp (Timestamp), timestampF)
 import           Pos.State                (NodeState, openMemState, openState)
@@ -65,7 +63,7 @@ runSupporterReal npPort lp npDHTKeyOrType = do
     runTimed = runTimedIO . usingLoggerName (lpRootLogger lp) . runTransfer . runBinaryDialog
     main' = do
         supporterKey <- currentNodeKey
-        logInfo $ sformat ("Supporter key: " % base64F) (dhtKeyBytes supporterKey)
+        logInfo $ sformat ("Supporter key: " % build) supporterKey
         repeatForever (sec 30) (const . return $ sec 30) $ do
           getKnownPeers >>= logInfo . sformat ("Known peers: " % build)
     supporterKadConfig = KademliaDHTConfig

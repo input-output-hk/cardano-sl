@@ -1,6 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE ViewPatterns        #-}
 
 -- | Launcher of full node or simple operations.
 
@@ -16,9 +15,8 @@ module Pos.Launcher
        ) where
 
 import           Control.Monad.Catch      (catch, throwM)
-import           Control.TimeWarp.Logging (LoggerName, Severity (Warning),
-                                           initLoggerByName, initLogging, logInfo,
-                                           usingLoggerName)
+import           Control.TimeWarp.Logging (LoggerName, Severity (Warning), initLogging,
+                                           logInfo, usingLoggerName)
 import           Control.TimeWarp.Rpc     (BinaryDialog, NetworkAddress, Transfer,
                                            runBinaryDialog, runTransfer)
 import           Control.TimeWarp.Timed   (currentTime, repeatForever, runTimedIO, sec,
@@ -57,7 +55,7 @@ runNode NodeParams {..} = do
 
 runSupporterReal :: Word16 -> LoggingParams -> Either DHTKey DHTNodeType -> IO ()
 runSupporterReal npPort lp npDHTKeyOrType = do
-    setupLogging lp
+    setupLoggingReal lp
     runTimed . runKademliaDHT supporterKadConfig $ main'
   where
     runTimed = runTimedIO . usingLoggerName (lpRootLogger lp) . runTransfer . runBinaryDialog
@@ -141,12 +139,12 @@ data NodeParams = NodeParams
 -- TODO: use bracket
 runRealMode :: NodeParams -> [ListenerDHT RealMode] -> RealMode a -> IO a
 runRealMode NodeParams {..} listeners action = do
-    setupLogging npLogging
+    setupLoggingReal npLogging
     startTime <- getStartTime
     db <- (runTimed . runCH startTime) openDb
     let onStartMsg =
             sformat ("Started node, joining to DHT network "%build) npDHTPeers
-    (runTimed . runDH db . runCH startTime . runKademliaDHT kadConfig) $
+    runTimed . runDH db . runCH startTime . runKademliaDHT kadConfig $
         do logInfo onStartMsg
            joinNetwork npDHTPeers `catch` handleJoinE
            action
@@ -185,10 +183,10 @@ runRealMode NodeParams {..} listeners action = do
     runDH :: NodeState -> DBHolder m a -> m a
     runDH db = flip runReaderT db . getDBHolder
 
-setupLogging :: LoggingParams -> IO ()
-setupLogging LoggingParams {..} = do
-    let setSeverityMaybe (mappend lpRootLogger -> name) sev = do
-            print (sev, name)
-            whenJust sev $ flip initLoggerByName name
-    initLogging [lpRootLogger] lpMainSeverity
-    setSeverityMaybe (dhtLoggerName (Proxy :: Proxy RealMode)) lpDhtSeverity
+setupLoggingReal :: LoggingParams -> IO ()
+setupLoggingReal LoggingParams {..} = do
+    initLogging
+        [ (lpRootLogger, Just lpMainSeverity)
+        , ((dhtLoggerName (Proxy :: Proxy RealMode)), lpDhtSeverity)
+        ]
+        lpMainSeverity

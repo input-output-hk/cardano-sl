@@ -1,7 +1,7 @@
 module Main where
 
 import           Control.Concurrent.Async (mapConcurrently)
-import           Control.TimeWarp.Logging (Severity (..), initLogging, logInfo,
+import           Control.TimeWarp.Logging (Severity (..), initLoggingDefault, logInfo,
                                            usingLoggerName)
 import           Control.TimeWarp.Rpc     (runBinaryDialog, runTransfer)
 import           Control.TimeWarp.Timed   (fork_, repeatForever, runTimedIO, sec)
@@ -46,7 +46,7 @@ runSingleNode start peers i = runNodeReal params
         }
 
 main :: IO ()
-main = do initLogging ["supporter"] Info
+main = do initLoggingDefault ["supporter"] Info
           runTimed . runKademliaDHT supporterKadConfig $ currentNodeKey >>= main''
   where
     supporterKadConfig = KademliaDHTConfig

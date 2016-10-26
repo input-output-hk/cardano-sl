@@ -26,7 +26,7 @@ runSingleNode start peers i = runNodeReal params
         , npRebuildDb = True
         , npSystemStart = Just start
         , npLoggerName = "node" <> fromString (show i)
-        , npLoggingSeverity = Debug --if i == 0 then Info else Error
+        , npLoggingSeverity = if i == 0 then Debug else Info
         , npSecretKey = genesisSecretKeys !! (fromInteger . toInteger $ i)
         , npVssKeyPair = genesisVssKeyPairs !! (fromInteger . toInteger $ i)
         , npPort = 3000 + i

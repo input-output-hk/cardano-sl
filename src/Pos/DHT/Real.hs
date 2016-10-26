@@ -9,7 +9,8 @@ module Pos.DHT.Real (KademliaDHT, runKademliaDHT, KademliaDHTConfig (..)) where
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, finally,
                                             throwM)
 import           Control.Monad.Trans.Class (MonadTrans)
-import           Control.TimeWarp.Logging  (WithNamedLogger, logDebug, logWarning)
+import           Control.TimeWarp.Logging  (WithNamedLogger, logDebug, logWarning,
+                                            modifyLoggerName)
 import           Control.TimeWarp.Rpc      (Binding (..), ListenerH (..), MonadDialog,
                                             MonadResponse, MonadTransfer, NetworkAddress,
                                             RawData, listenR, sendH, sendR)
@@ -18,7 +19,6 @@ import           Data.Binary               (Binary, Put, decodeOrFail, encode, g
 import qualified Data.ByteString           as BS
 import           Data.ByteString.Lazy      (fromStrict, toStrict)
 import           Data.Hashable             (hash)
-import           Data.Text                 (pack, unpack)
 import           Formatting                (int, sformat, shown, (%))
 import qualified Network.Kademlia          as K
 import           Pos.DHT                   (DHTData, DHTException (..), DHTKey,
@@ -109,18 +109,20 @@ startDHT (KademliaDHTConfig {..}) = do
     kdcMsgThreadId <- liftIO . atomically $ newTVar Nothing
     return $ KademliaDHTContext {..}
 
-rawListener :: (MonadIO m, MonadDHT m, MonadDialog m, WithNamedLogger m) => Bool -> TVar (LRU.LRU Int ()) -> (DHTMsgHeader, RawData) -> m Bool
-rawListener enableBroadcast cache (h, rawData) = do
-  let mHash = hash $ encode rawData
-  logDebug $ sformat ("Received message (" % shown % ", hash=" % int) h mHash
-  wasInCache <- liftIO . atomically $ updCache cache mHash
-  if wasInCache
-     then return False
-     else do
-       case h of
-         BroadcastHeader -> when enableBroadcast $ sendToNetworkR rawData
-         SimpleHeader    -> pure ()
-       return True
+rawListener
+    :: (MonadIO m, MonadDHT m, MonadDialog m, WithNamedLogger m)
+    => Bool -> TVar (LRU.LRU Int ()) -> (DHTMsgHeader, RawData) -> m Bool
+rawListener enableBroadcast cache (h, rawData) =
+    modifyLoggerName (<> "raw-listener") $
+    do let mHash = hash $ encode rawData
+       logDebug $
+           sformat ("Received message (" % shown % ", hash=" % int) h mHash
+       wasInCache <- liftIO . atomically $ updCache cache mHash
+       wasInCache <$
+           (unless wasInCache $
+            case h of
+                BroadcastHeader -> when enableBroadcast $ sendToNetworkR rawData
+                SimpleHeader    -> pure ())
 
 updCache :: TVar (LRU.LRU Int ()) -> Int -> STM Bool
 updCache cacheTV dataHash = do

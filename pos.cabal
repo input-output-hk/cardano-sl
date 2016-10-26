@@ -208,8 +208,14 @@ benchmark pos-bench-criterion
   main-is:             Local/Criterion.hs
   other-modules:       Bench.Pos.Criterion.FollowTheSatoshiBench
   type:                exitcode-stdio-1.0
-  build-depends:       base
+  build-depends:       QuickCheck
+                     , base
+                     , binary
+                     , bytestring
+                     , containers
                      , criterion
+                     , derive
+                     , formatting
                      , pos
                      , universum
   default-language:    Haskell2010

@@ -1,3 +1,5 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications      #-}
@@ -32,7 +34,7 @@ import           Universum
 import           Pos.Util            (Raw, getCopyBinary, msgpackFail, putCopyBinary)
 
 newtype Hash a = Hash (Digest SHA256)
-    deriving (Show, Eq, Ord, ByteArray.ByteArrayAccess)
+    deriving (Show, Eq, Ord, ByteArray.ByteArrayAccess, Generic, NFData)
 
 instance Hashable (Hash a) where
     hashWithSalt s (Hash x) = hashWithSalt s $ ByteArray.unpack x

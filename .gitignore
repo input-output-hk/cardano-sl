@@ -24,3 +24,4 @@ TAGS
 .stylish-haskell.yaml
 .dir-locals.el
 node-db*
+*.html

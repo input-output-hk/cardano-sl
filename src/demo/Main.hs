@@ -5,6 +5,7 @@ import           Control.TimeWarp.Logging (Severity (Debug, Info), initLogging, 
                                            usingLoggerName)
 import           Control.TimeWarp.Rpc     (runBinaryDialog, runTransfer)
 import           Control.TimeWarp.Timed   (fork_, repeatForever, runTimedIO, sec)
+import           Data.Default             (def)
 import           Data.List                ((!!))
 import           Data.String              (fromString)
 import           Formatting               (build, sformat, (%))
@@ -12,7 +13,8 @@ import           Pos.DHT                  (DHTNode (..), DHTNodeType (..), curre
                                            getKnownPeers)
 import           Pos.DHT.Real             (KademliaDHTConfig (..), runKademliaDHT)
 import           Pos.Genesis              (genesisSecretKeys, genesisVssKeyPairs)
-import           Pos.Launcher             (NodeParams (..), getCurTimestamp, runNodeReal)
+import           Pos.Launcher             (LoggingParams (..), NodeParams (..),
+                                           getCurTimestamp, runNodeReal)
 import           Pos.Slotting             (Timestamp)
 import           Universum
 
@@ -20,13 +22,20 @@ import           Universum
 runSingleNode :: Timestamp -> [DHTNode] -> Word16 -> IO ()
 runSingleNode start peers i = runNodeReal params
   where
+    loggingParams =
+        def
+        { lpRootLogger = "node" <> fromString (show i)
+        , lpMainSeverity =
+              if i == 0
+                  then Debug
+                  else Info
+        }
     params =
         NodeParams
         { npDbPath = Just ("node-db-" ++ show i)
         , npRebuildDb = True
         , npSystemStart = Just start
-        , npLoggerName = "node" <> fromString (show i)
-        , npLoggingSeverity = if i == 0 then Debug else Info
+        , npLogging = loggingParams
         , npSecretKey = genesisSecretKeys !! (fromInteger . toInteger $ i)
         , npVssKeyPair = genesisVssKeyPairs !! (fromInteger . toInteger $ i)
         , npPort = 3000 + i

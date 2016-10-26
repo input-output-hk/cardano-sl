@@ -4,6 +4,7 @@ module Main where
 
 import           Control.TimeWarp.Logging (Severity (Debug))
 import           Control.TimeWarp.Rpc     (localhost)
+import           Data.Default             (def)
 import           Data.List                ((!!))
 import qualified Options.Applicative      as Opts
 import           Universum
@@ -11,7 +12,8 @@ import           Universum
 import           Pos.Crypto               (unsafeHash)
 import           Pos.Genesis              (genesisAddresses, genesisSecretKeys,
                                            genesisVssKeyPairs)
-import           Pos.Launcher             (NodeParams (..), submitTxReal)
+import           Pos.Launcher             (LoggingParams (..), NodeParams (..),
+                                           submitTxReal)
 
 data WalletCommand = SubmitTx
     { stGenesisIdx :: !Word   -- ^ Index in genesis key pairs.
@@ -66,8 +68,7 @@ main = do
                     { npDbPath = Nothing
                     , npRebuildDb = False
                     , npSystemStart = Nothing
-                    , npLoggerName = "wallet"
-                    , npLoggingSeverity = Debug
+                    , npLogging = def { lpMainSeverity = Debug }
                     , npSecretKey = genesisSecretKeys !! i
                     , npVssKeyPair = genesisVssKeyPairs !! i
                     , npPort = 24962

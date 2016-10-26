@@ -110,6 +110,7 @@ executable pos-node
   hs-source-dirs:      src/node
   main-is:             Main.hs
   build-depends:       base
+                     , data-default
                      , formatting
                      , pos
                      , time-warp
@@ -129,6 +130,7 @@ executable pos-wallet
   hs-source-dirs:      src/wallet
   main-is:             Main.hs
   build-depends:       base
+                     , data-default
                      , formatting
                      , optparse-applicative
                      , pos
@@ -150,6 +152,7 @@ executable pos-demo
   main-is:             Main.hs
   build-depends:       async
                      , base
+                     , data-default
                      , formatting
                      , pos
                      , time-warp

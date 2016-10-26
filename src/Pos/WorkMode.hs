@@ -7,35 +7,29 @@
 
 module Pos.WorkMode
        ( WorkMode
+       , DBHolder (..)
        , NodeContext (..)
        , WithNodeContext (..)
+       , ContextHolder (..)
        , ncPublicKey
        , ncVssPublicKey
-       , NodeParams (..)
        , RealMode
-       , runRealMode
        ) where
 
-import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow, catch,
-                                           throwM)
-import           Control.TimeWarp.Logging (LoggerName, Severity, WithNamedLogger (..),
-                                           initLogging, logInfo, usingLoggerName)
+import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow)
+import           Control.TimeWarp.Logging (WithNamedLogger (..))
 import           Control.TimeWarp.Rpc     (BinaryDialog, MonadDialog, MonadResponse,
-                                           MonadTransfer, Transfer, runBinaryDialog,
-                                           runTransfer)
-import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId, runTimedIO)
-import           Formatting               (build, sformat, (%))
+                                           MonadTransfer, Transfer)
+import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
+import           Universum                hiding (ThreadId, catch)
+
 import           Pos.Crypto               (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
                                            toPublic, toVssPublicKey)
-import           Pos.DHT                  (DHTException (..), DHTNode, DHTNodeType (..),
-                                           DHTResponseT, ListenerDHT, MonadDHT (..),
-                                           MonadMessageDHT (..), WithDefaultMsgHeader)
-import           Pos.DHT.Real             (KademliaDHT, KademliaDHTConfig (..),
-                                           runKademliaDHT)
-import           Pos.Slotting             (MonadSlots (..), Timestamp (..), timestampF)
-import           Pos.State                (MonadDB (..), NodeState, openMemState,
-                                           openState)
-import           Universum                hiding (ThreadId, catch)
+import           Pos.DHT                  (DHTResponseT, MonadMessageDHT (..),
+                                           WithDefaultMsgHeader)
+import           Pos.DHT.Real             (KademliaDHT)
+import           Pos.Slotting             (MonadSlots (..), Timestamp (..))
+import           Pos.State                (MonadDB (..), NodeState)
 
 type WorkMode m
     = ( WithNamedLogger m
@@ -129,68 +123,8 @@ instance (MonadTimed m, Monad m) =>
     getCurrentTime = Timestamp <$> currentTime
 
 ----------------------------------------------------------------------------
--- Parameters
-----------------------------------------------------------------------------
-
--- | Parameters necessary to run node.
-data NodeParams = NodeParams
-    { npDbPath          :: !(Maybe FilePath)
-    , npRebuildDb       :: !Bool
-    , npSystemStart     :: !(Maybe Timestamp)
-    , npLoggerName      :: !LoggerName
-    , npLoggingSeverity :: !Severity
-    , npSecretKey       :: !SecretKey
-    , npVssKeyPair      :: !VssKeyPair
-    , npPort            :: !Word16
-    , npDHTPeers        :: ![DHTNode]
-    } deriving (Show)
-
-----------------------------------------------------------------------------
 -- Concrete types
 ----------------------------------------------------------------------------
 
 -- | RealMode is an instance of WorkMode which can be used to really run system.
 type RealMode = KademliaDHT (ContextHolder (DBHolder ((BinaryDialog Transfer))))
-
--- TODO: use bracket
-runRealMode :: NodeParams -> [ListenerDHT RealMode] -> RealMode a -> IO a
-runRealMode NodeParams {..} listeners action = do
-    initLogging [npLoggerName] npLoggingSeverity
-    startTime <- getStartTime
-    db <- (runTimed . runCH startTime) openDb
-    (runTimed . runDH db . runCH startTime . runKademliaDHT kadConfig) $ do
-      logInfo $ sformat ("Started node, joining to DHT network " %build) npDHTPeers
-      joinNetwork npDHTPeers `catch` handleJoinE
-      action
-  where
-    kadConfig = KademliaDHTConfig
-                  { kdcType = DHTFull
-                  , kdcPort = npPort
-                  , kdcListeners = listeners
-                  , kdcMessageCacheSize = 1000000
-                  , kdcEnableBroadcast = False
-                  }
-    handleJoinE AllPeersUnavailable
-      = logInfo $ sformat ("Not connected to any of peers "%build) npDHTPeers
-    handleJoinE e = throwM e
-
-    getStartTime =
-        case npSystemStart of
-            Just t -> pure t
-            Nothing ->
-                runTimed $
-                do t <- Timestamp <$> currentTime
-                   t <$ putText (sformat ("System start: " %timestampF) t)
-    openDb = maybe openMemState (openState npRebuildDb) npDbPath
-    ctx startTime =
-        NodeContext
-        { ncSystemStart = startTime
-        , ncSecretKey = npSecretKey
-        , ncVssKeyPair = npVssKeyPair
-        }
-    runCH :: Timestamp -> ContextHolder m a -> m a
-    runCH startTime = flip runReaderT (ctx startTime) . getContextHolder
-    runTimed :: BinaryDialog Transfer a -> IO a
-    runTimed = runTimedIO . usingLoggerName npLoggerName . runTransfer . runBinaryDialog
-    runDH :: NodeState -> DBHolder m a -> m a
-    runDH db = flip runReaderT db . getDBHolder

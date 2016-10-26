@@ -1,11 +1,11 @@
-{-# LANGUAGE RecursiveDo         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
 -- | Launcher of full node or simple operations.
 
 module Pos.Launcher
-       ( NodeParams (..)
+       ( LoggingParams (..)
+       , NodeParams (..)
        , getCurTimestamp
        , runNode
        , runNodeReal
@@ -13,21 +13,29 @@ module Pos.Launcher
        , submitTxReal
        ) where
 
-import           Control.TimeWarp.Logging (logInfo)
-import           Control.TimeWarp.Rpc     (NetworkAddress)
+import           Control.Monad.Catch      (catch, throwM)
+import           Control.TimeWarp.Logging (LoggerName, Severity (Warning), initLogging,
+                                           logInfo, usingLoggerName)
+import           Control.TimeWarp.Rpc     (BinaryDialog (runBinaryDialog), NetworkAddress,
+                                           Transfer, runTransfer)
 import           Control.TimeWarp.Timed   (currentTime, runTimedIO, sleepForever)
+import           Data.Default             (Default (def))
 import           Formatting               (build, sformat, (%))
-import           Universum
+import           Universum                hiding (catch)
 
 import           Pos.Communication        (allListeners, sendTx)
-import           Pos.Crypto               (hash, sign)
-import           Pos.DHT                  (DHTNodeType (..), discoverPeers)
-import           Pos.Slotting             (Timestamp (Timestamp))
+import           Pos.Crypto               (SecretKey, VssKeyPair, hash, sign)
+import           Pos.DHT                  (DHTException (..), DHTNode, DHTNodeType (..),
+                                           ListenerDHT, MonadDHT (..))
+import           Pos.DHT.Real             (KademliaDHTConfig (..), runKademliaDHT)
+import           Pos.Slotting             (Timestamp (Timestamp), timestampF)
+import           Pos.State                (NodeState, openMemState, openState)
 import           Pos.Types                (Address, Coin, Tx (..), TxId, TxIn (..),
                                            TxOut (..), txF)
 import           Pos.Worker               (runWorkers)
-import           Pos.WorkMode             (NodeParams (..), WorkMode, getNodeContext,
-                                           ncSecretKey, runRealMode)
+import           Pos.WorkMode             (ContextHolder (..), DBHolder (..),
+                                           NodeContext (..), RealMode, WorkMode,
+                                           getNodeContext, ncSecretKey)
 
 -- | Get current time as Timestamp. It is intended to be used when you
 -- launch the first node. It doesn't make sense in emulation mode.
@@ -67,3 +75,93 @@ submitTxReal :: NodeParams
              -> (Address, Coin)
              -> IO ()
 submitTxReal p na inp = runRealMode p [] . submitTx na inp
+
+----------------------------------------------------------------------------
+-- Parameters
+----------------------------------------------------------------------------
+
+data LoggingParams = LoggingParams
+    { lpRootLogger     :: !LoggerName
+    , lpMainSeverity   :: !Severity
+    , lpDhtSeverity    :: !(Maybe Severity)
+    , lpServerSeverity :: !(Maybe Severity)
+    , lpWorkerSeverity :: !(Maybe Severity)
+    } deriving (Show)
+
+instance Default LoggingParams where
+    def =
+        LoggingParams
+        { lpRootLogger = mempty
+        , lpMainSeverity = Warning
+        , lpDhtSeverity = Nothing
+        , lpServerSeverity = Nothing
+        , lpWorkerSeverity = Nothing
+        }
+
+setupLogging :: LoggingParams -> IO ()
+setupLogging LoggingParams {..} = do
+    initLogging [lpRootLogger] lpMainSeverity
+    -- TODO
+
+-- | Parameters necessary to run node.
+data NodeParams = NodeParams
+    { npDbPath      :: !(Maybe FilePath)
+    , npRebuildDb   :: !Bool
+    , npSystemStart :: !(Maybe Timestamp)
+    , npLogging     :: !LoggingParams
+    , npSecretKey   :: !SecretKey
+    , npVssKeyPair  :: !VssKeyPair
+    , npPort        :: !Word16
+    , npDHTPeers    :: ![DHTNode]
+    } deriving (Show)
+
+----------------------------------------------------------------------------
+-- WorkMode implementations
+----------------------------------------------------------------------------
+
+-- TODO: use bracket
+runRealMode :: NodeParams -> [ListenerDHT RealMode] -> RealMode a -> IO a
+runRealMode NodeParams {..} listeners action = do
+    setupLogging npLogging
+    startTime <- getStartTime
+    db <- (runTimed . runCH startTime) openDb
+    let onStartMsg =
+            sformat ("Started node, joining to DHT network "%build) npDHTPeers
+    (runTimed . runDH db . runCH startTime . runKademliaDHT kadConfig) $
+        do logInfo onStartMsg
+           joinNetwork npDHTPeers `catch` handleJoinE
+           action
+  where
+    kadConfig =
+        KademliaDHTConfig
+        { kdcType = DHTFull
+        , kdcPort = npPort
+        , kdcListeners = listeners
+        , kdcMessageCacheSize = 1000000
+        , kdcEnableBroadcast = False
+        }
+    handleJoinE AllPeersUnavailable =
+        logInfo $ sformat ("Not connected to any of peers " %build) npDHTPeers
+    handleJoinE e = throwM e
+    getStartTime =
+        case npSystemStart of
+            Just t -> pure t
+            Nothing ->
+                runTimed $
+                do t <- Timestamp <$> currentTime
+                   t <$ putText (sformat ("System start: " %timestampF) t)
+    openDb = maybe openMemState (openState npRebuildDb) npDbPath
+    ctx startTime =
+        NodeContext
+        { ncSystemStart = startTime
+        , ncSecretKey = npSecretKey
+        , ncVssKeyPair = npVssKeyPair
+        }
+    runCH :: Timestamp -> ContextHolder m a -> m a
+    runCH startTime = flip runReaderT (ctx startTime) . getContextHolder
+    runTimed :: BinaryDialog Transfer a -> IO a
+    runTimed =
+        runTimedIO .
+        usingLoggerName (lpRootLogger npLogging) . runTransfer . runBinaryDialog
+    runDH :: NodeState -> DBHolder m a -> m a
+    runDH db = flip runReaderT db . getDBHolder

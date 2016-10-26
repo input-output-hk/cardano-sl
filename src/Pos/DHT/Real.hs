@@ -79,7 +79,9 @@ instance MonadTrans KademliaDHT where
 
 type instance ThreadId (KademliaDHT m) = ThreadId m
 
-runKademliaDHT :: (WithNamedLogger m, MonadIO m, MonadTimed m, MonadDialog m, MonadMask m) => KademliaDHTConfig m -> KademliaDHT m a -> m a
+runKademliaDHT
+    :: (WithNamedLogger m, MonadIO m, MonadTimed m, MonadDialog m, MonadMask m)
+    => KademliaDHTConfig m -> KademliaDHT m a -> m a
 runKademliaDHT kdc@(KademliaDHTConfig {..}) action = do
     ctx <- startDHT kdc
     runReaderT (unKademliaDHT $ action' ctx) ctx

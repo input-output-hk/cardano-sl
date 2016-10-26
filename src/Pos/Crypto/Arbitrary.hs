@@ -3,19 +3,20 @@
 -- | `Arbitrary` instances for using in tests and benchmarks
 
 module Pos.Crypto.Arbitrary
-  ( KeyPair(..)
-  ) where
+    ( KeyPair(..)
+    ) where
 
-import           Data.Binary               (Binary)
-import           Test.QuickCheck           (Arbitrary (..), elements)
+import           Data.Binary                 (Binary)
+import           Test.QuickCheck             (Arbitrary (..), elements)
 import           Universum
 
-import           Pos.Crypto.Arbitrary.Hash ()
-import           Pos.Crypto.SecretSharing  (VssKeyPair, VssPublicKey, toVssPublicKey,
-                                            vssKeyGen)
-import           Pos.Crypto.Signing        (PublicKey, SecretKey, Signature, Signed,
-                                            keyGen, mkSigned, sign)
-import           Pos.Util.Arbitrary        (Nonrepeating (..), sublistN, unsafeMakePool)
+import           Pos.Crypto.Arbitrary.Hash   ()
+import           Pos.Crypto.Arbitrary.Unsafe ()
+import           Pos.Crypto.SecretSharing    (VssKeyPair, VssPublicKey, toVssPublicKey,
+                                              vssKeyGen)
+import           Pos.Crypto.Signing          (PublicKey, SecretKey, Signature, Signed,
+                                              keyGen, mkSigned, sign)
+import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakePool)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

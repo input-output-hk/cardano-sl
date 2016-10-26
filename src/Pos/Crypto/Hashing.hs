@@ -28,7 +28,6 @@ import           Data.MessagePack    (MessagePack (fromObject, toObject), Object
 import           Data.SafeCopy       (SafeCopy (..))
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (Format, bprint, later, shown)
-import           Test.QuickCheck     (Arbitrary (..))
 import           Universum
 
 import           Pos.Util            (Raw, getCopyBinary, msgpackFail, putCopyBinary)

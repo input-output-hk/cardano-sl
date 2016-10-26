@@ -9,6 +9,7 @@ module Pos.Communication.Methods
 
 import           Control.TimeWarp.Logging (logDebug)
 import           Control.TimeWarp.Rpc     (NetworkAddress)
+import           Data.List.NonEmpty       (NonEmpty ((:|)))
 import           Formatting               (build, sformat, (%))
 import           Serokell.Util.Text       (listBuilderJSON)
 import           Universum
@@ -38,10 +39,11 @@ announceTx tx = do
 -- | Announce known transactions to all known peers. Intended to be used
 -- to relay transactions.
 announceTxs :: WorkMode m => [Tx] -> m ()
-announceTxs txs = do
+announceTxs [] = pure ()
+announceTxs (tx:txs) = do
     logDebug $
         sformat ("Announcing txs to others:\n" %build) $ listBuilderJSON txs
-    void . sendToNeighbors . SendTxs $ txs
+    void . sendToNeighbors . SendTxs $ tx :| txs
 
 -- | Send Tx to given address.
 sendTx :: WorkMode m => NetworkAddress -> Tx -> m ()

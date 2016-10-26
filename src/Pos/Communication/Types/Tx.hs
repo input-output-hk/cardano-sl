@@ -11,6 +11,7 @@ module Pos.Communication.Types.Tx
 
 import           Control.TimeWarp.Rpc (Message (messageName))
 import           Data.Binary          (Binary)
+import           Data.List.NonEmpty   (NonEmpty)
 import           Data.MessagePack     (MessagePack)
 import           Universum
 
@@ -26,7 +27,7 @@ instance Binary SendTx
 instance MessagePack SendTx
 
 data SendTxs =
-    SendTxs ![Tx]
+    SendTxs !(NonEmpty Tx)
     deriving (Generic)
 
 instance Binary SendTxs

@@ -94,6 +94,15 @@ instance MessagePack a => MessagePack (V.Vector a) where
     toObject = toObject . toList
     fromObject = fmap V.fromList . fromObject
 
+-- TODO: pull request to data-messagepack
+instance MessagePack a =>
+         MessagePack (NonEmpty a) where
+    toObject = toObject . toList
+    fromObject = maybeToMsgpack errMsg . NE.nonEmpty <=< fromObject
+      where
+        errMsg = "Non-empty list is expected, but it's empty"
+        maybeToMsgpack msg = maybe (msgpackFail msg) pure
+
 -- | Convert instance of Binary into msgpack binary Object.
 toMsgpackBinary :: Binary a => a -> Msgpack.Object
 toMsgpackBinary = toObject . Binary.encode

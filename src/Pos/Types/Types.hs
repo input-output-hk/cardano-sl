@@ -133,6 +133,7 @@ import           Data.Binary          (Binary)
 import           Data.Binary.Orphans  ()
 import           Data.Data            (Data)
 import           Data.Default         (Default (def))
+import           Data.DeriveTH        (derive, makeNFData)
 import           Data.Hashable        (Hashable)
 import           Data.Ix              (Ix)
 import           Data.MessagePack     (MessagePack (..))
@@ -201,8 +202,8 @@ type FlatSlotId = Word64
 
 -- | Coin is the least possible unit of currency.
 newtype Coin = Coin
-    { getCoin :: Int64
-    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Binary, Hashable, Data)
+    { getCoin :: Word64
+    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Binary, Hashable, Data, NFData)
 
 instance MessagePack Coin
 
@@ -220,7 +221,7 @@ coinF = build
 -- | Address is where you can send coins.
 newtype Address = Address
     { getAddress :: PublicKey
-    } deriving (Show, Eq, Generic, Buildable, Ord, Binary, Hashable)
+    } deriving (Show, Eq, Generic, Buildable, Ord, Binary, Hashable, NFData)
 
 instance MessagePack Address
 
@@ -304,7 +305,7 @@ type Utxo = Map (TxId, Word32) TxOut
 -- same value.
 newtype FtsSeed = FtsSeed
     { getFtsSeed :: ByteString
-    } deriving (Show, Eq, Ord, Generic, Binary)
+    } deriving (Show, Eq, Ord, Generic, Binary, NFData)
 
 instance MessagePack FtsSeed
 
@@ -1112,3 +1113,9 @@ deriveSafeCopySimpleIndexedType 0 'base ''ConsensusData [''MainBlockchain]
 deriveSafeCopySimpleIndexedType 0 'base ''ConsensusData [''GenesisBlockchain]
 deriveSafeCopySimpleIndexedType 0 'base ''Body [''MainBlockchain]
 deriveSafeCopySimpleIndexedType 0 'base ''Body [''GenesisBlockchain]
+
+----------------------------------------------------------------------------
+-- Other derived instances
+----------------------------------------------------------------------------
+
+derive makeNFData ''TxOut

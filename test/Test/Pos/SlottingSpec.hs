@@ -20,8 +20,6 @@ import           Pos.Constants           (epochDuration, slotDuration)
 import           Pos.Slotting            (MonadSlots (..), Timestamp (..), getCurrentSlot)
 import           Pos.Types               (EpochIndex, LocalSlotIndex, SlotId (..))
 
-import           Test.Pos.Util           ()
-
 spec :: Spec
 spec = describe "Slotting" $ do
     describe "getCurrentSlot" $ do

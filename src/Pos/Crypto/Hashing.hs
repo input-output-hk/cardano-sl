@@ -1,8 +1,8 @@
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE TypeApplications           #-}
 
 -- | Hashing capabilities.
 
@@ -64,9 +64,6 @@ instance Binary (Hash a) where
 
 instance Buildable.Buildable (Hash a) where
     build (Hash x) = bprint shown x
-
-instance (Arbitrary a, Binary a) => Arbitrary (Hash a) where
-    arbitrary = hash <$> arbitrary
 
 hash :: Binary a => a -> Hash a
 hash = unsafeHash

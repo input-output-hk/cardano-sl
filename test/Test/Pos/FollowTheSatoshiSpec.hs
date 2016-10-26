@@ -19,12 +19,12 @@ import           Test.QuickCheck          (Gen, Property, choose, counterexample
 import           Test.QuickCheck.Property (failed, succeeded)
 import           Universum
 
-import           Pos.Crypto               (PublicKey, Share, VssKeyPair, decryptShare,
-                                           sign)
+import           Pos.Crypto               (KeyPair (..), PublicKey, Share, VssKeyPair,
+                                           decryptShare, sign)
 import           Pos.FollowTheSatoshi     (FtsError (..), calculateSeed)
 import           Pos.Types                (Commitment (..), CommitmentsMap, FtsSeed (..),
                                            Opening (..), secretToFtsSeed, xorFtsSeed)
-import           Test.Pos.Util            (KeyPair (..), nonrepeating, sublistN)
+import           Pos.Util                 (nonrepeating, sublistN)
 
 spec :: Spec
 spec = describe "FollowTheSatoshi" $ do

@@ -14,12 +14,12 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
-import           Pos.Crypto            (Hash, PublicKey, SecretKey, Signature, Signed,
-                                        deterministic, fullPublicKeyF, hash,
-                                        parseFullPublicKey, randomNumber, sign, toPublic,
-                                        verify)
+import           Pos.Crypto            (Hash, KeyPair (..), PublicKey, SecretKey,
+                                        Signature, Signed, deterministic, fullPublicKeyF,
+                                        hash, parseFullPublicKey, randomNumber, sign,
+                                        toPublic, verify)
 
-import           Test.Pos.Util         (KeyPair (..), binaryEncodeDecode)
+import           Test.Pos.Util         (binaryEncodeDecode)
 
 spec :: Spec
 spec = describe "Crypto" $ do

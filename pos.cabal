@@ -25,6 +25,7 @@ library
                         Pos.Slotting
                         Pos.State
                         Pos.Types
+                        Pos.Util
                         Pos.Worker
   other-modules:        Pos.Communication.Methods
                         Pos.Communication.Types
@@ -35,6 +36,8 @@ library
                         Pos.Communication.Server.Block
                         Pos.Communication.Server.Mpc
                         Pos.Communication.Server.Tx
+                        Pos.Crypto.Arbitrary
+                        Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Hashing
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
@@ -46,6 +49,7 @@ library
                         Pos.State.Storage.Mpc
                         Pos.State.Storage.Types
                         Pos.State.Storage.Tx
+                        Pos.Types.Arbitrary
                         Pos.Types.Block
                         Pos.Types.Mpc
                         Pos.Types.SlotId
@@ -56,7 +60,7 @@ library
                         Pos.Worker.Mpc
                         Pos.Worker.Tx
                         Pos.WorkMode
-                        Pos.Util
+                        Pos.Util.Arbitrary
                         Pos.Util.NotImplemented
   build-depends:        HsOpenSSL
                       , QuickCheck
@@ -71,6 +75,7 @@ library
                       , cryptonite >= 0.19 && < 0.21
                       , data-default
                       , data-msgpack
+                      , derive
                       , ed25519
                       , exceptions
                       , formatting
@@ -225,7 +230,6 @@ benchmark pos-bench-criterion
                      , bytestring
                      , containers
                      , criterion
-                     , derive
                      , formatting
                      , pos
                      , universum

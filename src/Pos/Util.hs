@@ -5,8 +5,11 @@
 
 module Pos.Util
        (
+       -- * Stuff for testing and benchmarking
+         module UtilArbitrary
+
        -- * Various
-         Raw
+       , Raw
        , readerToState
 
        -- * Msgpack
@@ -40,9 +43,8 @@ import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty            as NE
 import           Data.MessagePack              (MessagePack (..))
 import qualified Data.MessagePack              as Msgpack
-import           Data.SafeCopy                 (base, deriveSafeCopySimple)
-import           Data.SafeCopy                 (Contained, SafeCopy (..), contain,
-                                                safeGet, safePut)
+import           Data.SafeCopy                 (Contained, SafeCopy (..), base, contain,
+                                                deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (String)
 import qualified Data.Vector                   as V
@@ -53,6 +55,7 @@ import           Unsafe                        (unsafeInit, unsafeLast)
 
 import           Serokell.Util.Binary          as Binary (decodeFull)
 
+import           Pos.Util.Arbitrary            as UtilArbitrary
 import           Pos.Util.NotImplemented       ()
 
 -- | A wrapper over 'ByteString' for adding type safety to

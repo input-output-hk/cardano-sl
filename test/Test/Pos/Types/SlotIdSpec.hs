@@ -11,8 +11,6 @@ import           Universum
 
 import           Pos.Types             (SlotId, flattenSlotId, unflattenSlotId)
 
-import           Test.Pos.Util         ()
-
 spec :: Spec
 spec = describe "SlotId" $ do
     describe "Ord" $ do

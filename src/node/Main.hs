@@ -2,35 +2,31 @@
 
 module Main where
 
-import           Data.Default                       (def)
+import           Data.Default               (def)
 
-import           Control.Applicative                (empty)
-import           Control.TimeWarp.Logging           (Severity (Debug))
-import           Data.List                          ((!!))
-import           Data.Monoid                        ((<>))
-import           Options.Applicative.Simple         (Parser, auto, help, long, many,
-                                                     metavar, option, showDefault,
-                                                     simpleOptions, strOption, switch,
-                                                     value)
-import           Pos.Slotting                       (Timestamp (..))
-import           Serokell.Util.OptParse             (fromParsec)
-import qualified Serokell.Util.Parse                as P
-import qualified Text.ParserCombinators.Parsec.Char as P
-import           Universum                          hiding ((<>))
+import           Control.Applicative        (empty)
+import           Control.TimeWarp.Logging   (Severity (Debug))
+import           Data.List                  ((!!))
+import           Data.Monoid                ((<>))
+import           Options.Applicative.Simple (Parser, auto, help, long, many, metavar,
+                                             option, showDefault, simpleOptions,
+                                             strOption, switch, value)
+import           Pos.Slotting               (Timestamp (..))
+import           Universum                  hiding ((<>))
 
-import           Control.Monad                      (fail)
-import           Data.Binary                        (Binary, decode, encode)
-import qualified Data.ByteString.Lazy               as LBS
-import           Pos.Crypto                         (keyGen, vssKeyGen)
-import           Pos.DHT                            (DHTKey, DHTNode (..),
-                                                     DHTNodeType (..), bytesToDHTKey,
-                                                     dhtNodeType)
-import           Pos.Genesis                        (genesisSecretKeys,
-                                                     genesisVssKeyPairs)
-import           Pos.Launcher                       (LoggingParams (..), NodeParams (..),
-                                                     runNodeReal, runSupporterReal)
-import           System.Directory                   (createDirectoryIfMissing)
-import           System.FilePath                    ((</>))
+import           Control.Monad              (fail)
+import           Data.Binary                (Binary, decode, encode)
+import qualified Data.ByteString.Lazy       as LBS
+import           Pos.CLI                    (dhtKeyParser, dhtNodeParser)
+import           Pos.Crypto                 (keyGen, vssKeyGen)
+import           Pos.DHT                    (DHTKey, DHTNode, DHTNodeType (..),
+                                             dhtNodeType)
+import           Pos.Genesis                (genesisSecretKeys, genesisVssKeyPairs)
+import           Pos.Launcher               (LoggingParams (..), NodeParams (..),
+                                             runNodeReal, runSupporterReal)
+import           Serokell.Util.OptParse     (fromParsec)
+import           System.Directory           (createDirectoryIfMissing)
+import           System.FilePath            ((</>))
 
 data Args = Args
     { dbPath             :: FilePath
@@ -70,7 +66,7 @@ argsParser =
         (long "port" <> metavar "INTEGER" <> value 3000 <> showDefault <>
          help "Port to work on") <*>
     many
-        (option (fromParsec parseDHTNode) $
+        (option (fromParsec dhtNodeParser) $
          long "peer" <> metavar "HOST:PORT/HOST_ID" <>
          help peerHelpMsg) <*>
     optional (
@@ -79,15 +75,10 @@ argsParser =
          help "Start time")) <*>
     switch (long "supporter" <> help "Launch DHT supporter instead of full node") <*>
     optional
-        (option (fromParsec dhtKeyP) $
+        (option (fromParsec dhtKeyParser) $
          long "dht-key" <> metavar "HOST_ID" <>
          help "DHT key in base64-url")
   where
-    dhtKeyP = P.base64Url >>= toDHTKey
-    parseDHTNode = (\host port id -> DHTNode (toS host, port) id) <$> P.host <*> (P.char ':' *> P.port) <*> (P.char '/' *> dhtKeyP)
-    toDHTKey bytes = case bytesToDHTKey bytes of
-                       Left e    -> fail e
-                       Right key -> return key
     peerHelpMsg = "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""
 
 getKey :: Binary key => (Maybe key) -> Maybe FilePath -> FilePath -> IO key -> IO key

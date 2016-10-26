@@ -13,7 +13,8 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:      Pos.Crypto
+  exposed-modules:      Pos.CLI
+                        Pos.Crypto
                         Pos.Communication
                         Pos.Constants
                         Pos.DHT
@@ -85,6 +86,7 @@ library
                       , kademlia
                       , memory
                       , mtl
+                      , parsec
                       , pvss
                       , quickcheck-instances
                       , random
@@ -145,7 +147,9 @@ executable pos-wallet
                      , data-default
                      , formatting
                      , optparse-applicative
+                     , parsec
                      , pos
+                     , serokell-core
                      , time-warp
                      , universum
   default-language:    Haskell2010

@@ -29,7 +29,7 @@ import           Universum                hiding (catch)
 
 import           Pos.Communication        (allListeners, sendTx)
 import           Pos.Crypto               (SecretKey, VssKeyPair, hash, sign)
-import           Pos.DHT                  (DHTException (..), DHTKey, DHTNode,
+import           Pos.DHT                  (DHTException (..), DHTKey, DHTNode (dhtAddr),
                                            DHTNodeType (..), ListenerDHT, MonadDHT (..))
 import           Pos.DHT.Real             (KademliaDHTConfig (..), runKademliaDHT)
 import           Pos.Slotting             (Timestamp (Timestamp), timestampF)
@@ -93,11 +93,11 @@ submitTx na (txInHash, txInIndex) (txOutAddress, txOutValue) = do
 
 -- | Submit tx in real mode.
 submitTxReal :: NodeParams
-             -> [NetworkAddress]
              -> (TxId, Word32)
              -> (Address, Coin)
              -> IO ()
-submitTxReal p na inp = runRealMode p [] . submitTx na inp
+submitTxReal p input addrCoin = runRealMode p [] $
+    fmap dhtAddr <$> getKnownPeers >>= \na -> submitTx na input addrCoin
 
 ----------------------------------------------------------------------------
 -- Parameters

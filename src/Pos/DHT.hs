@@ -24,7 +24,8 @@ module Pos.DHT (
     dhtNodeType,
     WithDefaultMsgHeader (..),
     ListenerDHT (..),
-    withDhtLogger
+    withDhtLogger,
+    filterByNodeType
 ) where
 
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, catch)
@@ -113,7 +114,7 @@ defaultSendToNeighbors
        )
     => r -> m Int
 defaultSendToNeighbors msg = do
-    nodes <- getKnownPeers
+    nodes <- filterByNodeType DHTFull <$> getKnownPeers
     succeed <- sendToNodes nodes
     succeed' <- if succeed < neighborsSendThreshold
                    then (+) succeed <$> do
@@ -230,3 +231,7 @@ instance (WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog m, MonadIO m) =
   replyToNode msg = do
     header <- defaultMsgHeader msg
     DHTResponseT $ replyH header msg
+
+filterByNodeType :: DHTNodeType -> [DHTNode] -> [DHTNode]
+filterByNodeType type_ = filter (\n -> dhtNodeType (dhtNodeId n) == Just type_)
+

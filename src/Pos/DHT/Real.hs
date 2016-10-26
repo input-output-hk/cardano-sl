@@ -28,7 +28,7 @@ import           Pos.DHT                   (DHTData, DHTException (..), DHTKey,
                                             DHTNode (..), DHTNodeType (..),
                                             ListenerDHT (..), MonadDHT (..),
                                             MonadMessageDHT (..),
-                                            WithDefaultMsgHeader (..), dhtNodeType,
+                                            WithDefaultMsgHeader (..), filterByNodeType,
                                             getDHTResponseT, randomDHTKey, withDhtLogger)
 import           Universum                 hiding (ThreadId, finally, fromStrict,
                                             killThread, toStrict)
@@ -165,7 +165,7 @@ instance (MonadIO m, MonadThrow m, WithNamedLogger m) => MonadDHT (KademliaDHT m
   discoverPeers type_ = do
     inst <- KademliaDHT $ asks kdcHandle
     _ <- liftIO $ K.lookup inst =<< randomDHTKey type_
-    filter (\n -> dhtNodeType (dhtNodeId n) == Just type_) <$> getKnownPeers
+    filterByNodeType type_ <$> getKnownPeers
 
   getKnownPeers = do
     inst <- KademliaDHT $ asks kdcHandle

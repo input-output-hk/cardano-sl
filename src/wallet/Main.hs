@@ -3,22 +3,25 @@
 module Main where
 
 import           Control.TimeWarp.Logging (Severity (Debug))
-import           Control.TimeWarp.Rpc     (localhost)
 import           Data.Default             (def)
 import           Data.List                ((!!))
 import qualified Options.Applicative      as Opts
-import           Universum
+import           Universum                hiding ((<>))
 
+import           Data.Monoid              ((<>))
+
+import           Pos.CLI                  (dhtNodeParser)
 import           Pos.Crypto               (unsafeHash)
-import           Pos.DHT                  (DHTNodeType (..))
+import           Pos.DHT                  (DHTNode, DHTNodeType (..))
 import           Pos.Genesis              (genesisAddresses, genesisSecretKeys,
                                            genesisVssKeyPairs)
 import           Pos.Launcher             (LoggingParams (..), NodeParams (..),
                                            submitTxReal)
+import           Serokell.Util.OptParse   (fromParsec)
 
 data WalletCommand = SubmitTx
     { stGenesisIdx :: !Word   -- ^ Index in genesis key pairs.
-    , stPort       :: !Word16 -- ^ Port where pos-node is running.
+    , stDHTPeers   :: ![DHTNode]
     }
 
 commandParser :: Opts.Parser WalletCommand
@@ -38,14 +41,11 @@ commandParser =
                  , Opts.metavar "INT"
                  , Opts.help "Index in list of genesis key pairs"
                  ]) <*>
-        Opts.option
-            Opts.auto
-            (mconcat
-                 [ Opts.short 'p'
-                 , Opts.long "port"
-                 , Opts.metavar "PORT"
-                 , Opts.help "Port where pos-node is running"
-                 ])
+        Opts.many
+            (Opts.option (fromParsec dhtNodeParser) $
+             Opts.long "peer" <> Opts.metavar "HOST:PORT/HOST_ID" <>
+             Opts.help peerHelpMsg)
+    peerHelpMsg = "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""
 
 data WalletOptions = WalletOptions
     { woCommand :: !WalletCommand
@@ -73,10 +73,9 @@ main = do
                     , npSecretKey = genesisSecretKeys !! i
                     , npVssKeyPair = genesisVssKeyPairs !! i
                     , npPort = 24962
-                    , npDHTPeers = []
+                    , npDHTPeers = stDHTPeers
                     , npDHTKeyOrType = Right DHTClient
                     }
-            let na = (localhost, stPort)
             let addr = genesisAddresses !! i
             let txId = unsafeHash addr
-            submitTxReal params [na] (txId, 0) (addr, 10)
+            submitTxReal params (txId, 0) (addr, 10)

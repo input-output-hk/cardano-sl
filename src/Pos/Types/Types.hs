@@ -1,4 +1,3 @@
--- {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE DefaultSignatures      #-}
 {-# LANGUAGE DeriveGeneric          #-}
 {-# LANGUAGE FlexibleContexts       #-}
@@ -145,15 +144,15 @@ import           Data.Vector          (Vector)
 import           Formatting           (Format, bprint, build, int, sformat, (%))
 import           Serokell.AcidState   ()
 import qualified Serokell.Util.Base16 as B16
-import           Serokell.Util.Text   (listBuilderJSON)
+import           Serokell.Util.Text   (listJson)
 import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum
 
 import           Pos.Constants        (epochSlots)
 import           Pos.Crypto           (EncShare, Hash, PublicKey, Secret, SecretKey,
                                        SecretProof, SecretSharingExtra, Share, Signature,
-                                       Signed, VssPublicKey, hash, sign, toPublic,
-                                       unsafeHash, verify)
+                                       Signed, VssPublicKey, hash, hashHexF, sign,
+                                       toPublic, unsafeHash, verify)
 import           Pos.Merkle           (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot,
                                        mtSize)
 import           Pos.Util             (makeLensesData)
@@ -280,9 +279,8 @@ instance MessagePack Tx
 instance Buildable Tx where
     build Tx {..} =
         bprint
-            ("Transaction with inputs "%build%", outputs: "%build)
-            (listBuilderJSON txInputs)
-            (listBuilderJSON txOutputs)
+            ("Transaction with inputs "%listJson%", outputs: "%listJson)
+            txInputs txOutputs
 
 txF :: Format r (Tx -> r)
 txF = build
@@ -464,20 +462,11 @@ instance ( MessagePack (BodyProof b)
 -- with transactions and MPC messages.
 data MainBlockchain
 
-type MainBlockHeader = GenericBlockHeader MainBlockchain
-
-instance Buildable MainBlockHeader where
-    -- TODO: add more info
-    build header =
-        bprint
-            ("MainBlockHeader:\n" % "  previous block: " % build)
-            (_gbhPrevBlock header)
-
 -- | Chain difficulty represents necessary effort to generate a
 -- chain. In the simplest case it can be number of blocks in chain.
 newtype ChainDifficulty = ChainDifficulty
     { getChainDifficulty :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Binary)
+    } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Binary, Buildable)
 
 instance MessagePack ChainDifficulty
 
@@ -564,13 +553,40 @@ instance MessagePack (BodyProof MainBlockchain)
 instance MessagePack (ConsensusData MainBlockchain)
 instance MessagePack (Body MainBlockchain)
 
+type MainBlockHeader = GenericBlockHeader MainBlockchain
+
+instance Buildable MainBlockHeader where
+    build GenericBlockHeader {..} =
+        bprint
+            ("MainBlockHeader:\n"%
+             "    previous block: "%hashHexF%"\n"%
+             "    slot: "%slotIdF%"\n"%
+             "    leader: "%build%"\n"%
+             "    difficulty: "%int%"\n"
+            )
+            _gbhPrevBlock
+            _mcdSlot
+            _mcdLeaderKey
+            _mcdDifficulty
+      where
+        MainConsensusData {..} = _gbhConsensus
+
 -- | MainBlock is a block with transactions and MPC messages. It's the
 -- main part of our consensus algorithm.
 type MainBlock = GenericBlock MainBlockchain
 
 -- TODO
 instance Buildable MainBlock where
-    build _ = "MainBlock"
+    build GenericBlock {..} =
+        bprint
+            ("MainBlock:\n"%
+             "  "%build%
+             "  transactions: "%listJson%"\n"
+            )
+            _gbHeader
+            _mbTxs
+      where
+        MainBody {..} = _gbBody
 
 ----------------------------------------------------------------------------
 -- GenesisBlock

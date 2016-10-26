@@ -55,6 +55,7 @@ main = do initLoggingDefault ["supporter"] Info
                   , kdcListeners = []
                   , kdcMessageCacheSize = 1000000
                   , kdcEnableBroadcast = False
+                  , kdcInitialPeers = []
                   }
     runTimed = runTimedIO . usingLoggerName "supporter" . runTransfer . runBinaryDialog
     n = 3

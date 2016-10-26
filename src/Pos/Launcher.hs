@@ -6,6 +6,7 @@
 module Pos.Launcher
        ( LoggingParams (..)
        , NodeParams (..)
+       , SupporterParams (..)
        , getCurTimestamp
        , runNode
        , runNodeReal
@@ -14,9 +15,8 @@ module Pos.Launcher
        , runSupporterReal
        ) where
 
-import           Control.Monad.Catch      (catch, throwM)
 import           Control.TimeWarp.Logging (LoggerName, Severity (Warning), initLogging,
-                                           logInfo, usingLoggerName)
+                                           logError, logInfo, usingLoggerName)
 import           Control.TimeWarp.Rpc     (BinaryDialog, NetworkAddress, Transfer,
                                            runBinaryDialog, runTransfer)
 import           Control.TimeWarp.Timed   (currentTime, repeatForever, runTimedIO, sec,
@@ -27,8 +27,8 @@ import           Universum                hiding (catch)
 
 import           Pos.Communication        (allListeners, sendTx)
 import           Pos.Crypto               (SecretKey, VssKeyPair, hash, sign)
-import           Pos.DHT                  (DHTException (..), DHTKey, DHTNode (dhtAddr),
-                                           DHTNodeType (..), ListenerDHT, MonadDHT (..))
+import           Pos.DHT                  (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
+                                           ListenerDHT, MonadDHT (..), filterByNodeType)
 import           Pos.DHT.Real             (KademliaDHTConfig (..), runKademliaDHT)
 import           Pos.Slotting             (Timestamp (Timestamp), timestampF)
 import           Pos.State                (NodeState, openMemState, openState)
@@ -53,23 +53,31 @@ runNode NodeParams {..} = do
     runWorkers
     sleepForever
 
-runSupporterReal :: Word16 -> LoggingParams -> Either DHTKey DHTNodeType -> IO ()
-runSupporterReal npPort lp npDHTKeyOrType = do
-    setupLoggingReal lp
+data SupporterParams = SupporterParams
+    { spLogging      :: !LoggingParams
+    , spPort         :: !Word16
+    , spDHTPeers     :: ![DHTNode]
+    , spDHTKeyOrType :: Either DHTKey DHTNodeType
+    } deriving (Show)
+
+runSupporterReal :: SupporterParams -> IO ()
+runSupporterReal SupporterParams {..} = do
+    setupLoggingReal spLogging
     runTimed . runKademliaDHT supporterKadConfig $ main'
   where
-    runTimed = runTimedIO . usingLoggerName (lpRootLogger lp) . runTransfer . runBinaryDialog
+    runTimed = runTimedIO . usingLoggerName (lpRootLogger spLogging) . runTransfer . runBinaryDialog
     main' = do
         supporterKey <- currentNodeKey
         logInfo $ sformat ("Supporter key: " % build) supporterKey
-        repeatForever (sec 30) (const . return $ sec 30) $ do
+        repeatForever (sec 5) (const . return $ sec 5) $ do
           getKnownPeers >>= logInfo . sformat ("Known peers: " % build)
     supporterKadConfig = KademliaDHTConfig
-                  { kdcKeyOrType = npDHTKeyOrType
-                  , kdcPort = npPort
+                  { kdcKeyOrType = spDHTKeyOrType
+                  , kdcPort = spPort
                   , kdcListeners = []
                   , kdcMessageCacheSize = 1000000
                   , kdcEnableBroadcast = False
+                  , kdcInitialPeers = spDHTPeers
                   }
 
 -- | Run full node in real mode.
@@ -79,15 +87,18 @@ runNodeReal p = runRealMode p allListeners $ runNode p
 -- | Construct Tx with a single input and single output and send it to
 -- the given network addresses.
 submitTx :: WorkMode m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m ()
-submitTx na (txInHash, txInIndex) (txOutAddress, txOutValue) = do
-    sk <- ncSecretKey <$> getNodeContext
-    let txOuts = [TxOut {..}]
-        txIns = [TxIn {txInSig = sign sk (txInHash, txInIndex, txOuts), ..}]
-        tx = Tx {txInputs = txIns, txOutputs = txOuts}
-        txId = hash tx
-    logInfo $ sformat ("Submitting transaction: "%txF) tx
-    logInfo $ sformat ("Transaction id: "%build) txId
-    mapM_ (flip sendTx tx) na
+submitTx na (txInHash, txInIndex) (txOutAddress, txOutValue) =
+    if null na
+      then logError "No addresses to send"
+      else do
+        sk <- ncSecretKey <$> getNodeContext
+        let txOuts = [TxOut {..}]
+            txIns = [TxIn {txInSig = sign sk (txInHash, txInIndex, txOuts), ..}]
+            tx = Tx {txInputs = txIns, txOutputs = txOuts}
+            txId = hash tx
+        logInfo $ sformat ("Submitting transaction: "%txF) tx
+        logInfo $ sformat ("Transaction id: "%build) txId
+        mapM_ (flip sendTx tx) na
 
 -- | Submit tx in real mode.
 submitTxReal :: NodeParams
@@ -95,7 +106,7 @@ submitTxReal :: NodeParams
              -> (Address, Coin)
              -> IO ()
 submitTxReal p input addrCoin = runRealMode p [] $
-    fmap dhtAddr <$> getKnownPeers >>= \na -> submitTx na input addrCoin
+    (fmap dhtAddr . filterByNodeType DHTFull) <$> getKnownPeers >>= \na -> submitTx na input addrCoin
 
 ----------------------------------------------------------------------------
 -- Parameters
@@ -132,6 +143,7 @@ data NodeParams = NodeParams
     , npDHTKeyOrType :: Either DHTKey DHTNodeType
     } deriving (Show)
 
+
 ----------------------------------------------------------------------------
 -- WorkMode implementations
 ----------------------------------------------------------------------------
@@ -146,7 +158,6 @@ runRealMode NodeParams {..} listeners action = do
             sformat ("Started node, joining to DHT network "%build) npDHTPeers
     runTimed . runDH db . runCH startTime . runKademliaDHT kadConfig $
         do logInfo onStartMsg
-           joinNetwork npDHTPeers `catch` handleJoinE
            action
   where
     kadConfig =
@@ -156,10 +167,8 @@ runRealMode NodeParams {..} listeners action = do
       , kdcListeners = listeners
       , kdcMessageCacheSize = 1000000
       , kdcEnableBroadcast = False
+      , kdcInitialPeers = npDHTPeers
       }
-    handleJoinE AllPeersUnavailable =
-        logInfo $ sformat ("Not connected to any of peers " %build) npDHTPeers
-    handleJoinE e = throwM e
     getStartTime =
         case npSystemStart of
             Just t -> pure t

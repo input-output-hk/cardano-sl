@@ -1,8 +1,9 @@
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TupleSections     #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 module Pos.DHT.Real
        ( KademliaDHT
@@ -29,7 +30,8 @@ import           Pos.DHT                   (DHTData, DHTException (..), DHTKey,
                                             ListenerDHT (..), MonadDHT (..),
                                             MonadMessageDHT (..),
                                             WithDefaultMsgHeader (..), filterByNodeType,
-                                            getDHTResponseT, randomDHTKey, withDhtLogger)
+                                            getDHTResponseT, joinNetworkNoThrow,
+                                            randomDHTKey, withDhtLogger)
 import           Universum                 hiding (ThreadId, finally, fromStrict,
                                             killThread, toStrict)
 --import Data.Data (Data)
@@ -60,6 +62,7 @@ type DHTHandle = K.KademliaInstance DHTKey DHTData
 data KademliaDHTContext m = KademliaDHTContext { kdcHandle      :: DHTHandle
                                                , kdcKey         :: DHTKey
                                                , kdcMsgThreadId :: TVar (Maybe (ThreadId (KademliaDHT m)))
+                                               , kdcInitialPeers_ :: [DHTNode]
                                                }
 
 data KademliaDHTConfig m = KademliaDHTConfig
@@ -68,6 +71,7 @@ data KademliaDHTConfig m = KademliaDHTConfig
                             , kdcMessageCacheSize :: Int
                             , kdcEnableBroadcast  :: Bool
                             , kdcKeyOrType        :: Either DHTKey DHTNodeType
+                            , kdcInitialPeers     :: [DHTNode]
                             }
 
 newtype KademliaDHT m a = KademliaDHT { unKademliaDHT :: ReaderT (KademliaDHTContext m) m a }
@@ -89,7 +93,10 @@ runKademliaDHT kdc@(KademliaDHTConfig {..}) action = do
     ctx <- startDHT kdc
     runReaderT (unKademliaDHT $ action' ctx) ctx
   where
-    action' ctx = (startMsgThread (kdcMsgThreadId ctx) >> action) `finally` stopDHT ctx
+    action' ctx = (startMsgThread (kdcMsgThreadId ctx) >> action'') `finally` stopDHT ctx
+    action'' = do
+      joinNetworkNoThrow kdcInitialPeers
+      action
     startMsgThread tvar = do
       msgCache <- liftIO . atomically $ newTVar (LRU.newLRU (Just $ toInteger kdcMessageCacheSize) :: LRU.LRU Int ())
       tId <- fork $ listenR (AtPort kdcPort) get (convert <$> kdcListeners) (rawListener kdcEnableBroadcast msgCache)
@@ -112,6 +119,7 @@ startDHT (KademliaDHTConfig {..}) = do
     kdcKey <- either return randomDHTKey kdcKeyOrType
     kdcHandle <- liftIO $ K.create (fromInteger . toInteger $ kdcPort) kdcKey
     kdcMsgThreadId <- liftIO . atomically $ newTVar Nothing
+    let kdcInitialPeers_ = kdcInitialPeers
     return $ KademliaDHTContext {..}
 
 rawListener
@@ -151,7 +159,7 @@ instance Binary DHTMsgHeader
 instance (MonadDialog m, WithNamedLogger m, MonadCatch m, MonadIO m) => MonadMessageDHT (KademliaDHT m) where
   sendToNetwork = sendToNetworkImpl sendH
 
-instance (MonadIO m, MonadThrow m, WithNamedLogger m) => MonadDHT (KademliaDHT m) where
+instance (MonadIO m, MonadCatch m, WithNamedLogger m) => MonadDHT (KademliaDHT m) where
 
   joinNetwork [] = throwM AllPeersUnavailable
   joinNetwork nodes = do
@@ -164,12 +172,18 @@ instance (MonadIO m, MonadThrow m, WithNamedLogger m) => MonadDHT (KademliaDHT m
 
   discoverPeers type_ = do
     inst <- KademliaDHT $ asks kdcHandle
+    peers <- getKnownPeers
+    when (null peers) $ do
+      logWarning "Empty known peer list"
+      init <- KademliaDHT $ asks kdcInitialPeers_
+      joinNetworkNoThrow init
     _ <- liftIO $ K.lookup inst =<< randomDHTKey type_
     filterByNodeType type_ <$> getKnownPeers
 
   getKnownPeers = do
+    myId <- currentNodeKey
     inst <- KademliaDHT $ asks kdcHandle
-    fmap toDHTNode <$> liftIO (K.dumpPeers inst)
+    filter (\n -> dhtNodeId n /= myId) . fmap toDHTNode <$> liftIO (K.dumpPeers inst)
 
   currentNodeKey = KademliaDHT $ asks kdcKey
 
@@ -193,7 +207,6 @@ joinNetwork' inst node = do
     K.JoinSucces -> return ()
     K.NodeDown   -> throwM NodeDown
     K.IDClash    -> return () --logInfo $ sformat ("joinNetwork: node " % build % " already contains us") node
-
 
 -- TODO move to serokell-core ?
 waitAnyUnexceptional :: (MonadIO m, WithNamedLogger m) => [Async a] -> m (Maybe (Async a, a))

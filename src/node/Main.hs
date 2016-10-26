@@ -23,7 +23,8 @@ import           Pos.DHT                    (DHTKey, DHTNode, DHTNodeType (..),
                                              dhtNodeType)
 import           Pos.Genesis                (genesisSecretKeys, genesisVssKeyPairs)
 import           Pos.Launcher               (LoggingParams (..), NodeParams (..),
-                                             runNodeReal, runSupporterReal)
+                                             SupporterParams (..), runNodeReal,
+                                             runSupporterReal)
 import           Serokell.Util.OptParse     (fromParsec)
 import           System.Directory           (createDirectoryIfMissing)
 import           System.FilePath            ((</>))
@@ -41,6 +42,7 @@ data Args = Args
     , supporterNode      :: !Bool
     , dhtKey             :: !(Maybe DHTKey)
     }
+    deriving Show
 
 argsParser :: Parser Args
 argsParser =
@@ -110,7 +112,7 @@ main = do
                  _           -> fail "Id of unknown type supplied"
       _ -> return ()
     if supporterNode
-       then runSupporterReal port (loggingParams "supporter") (maybe (Right DHTSupporter) Left dhtKey)
+       then runSupporterReal (supporterParams args)
        else do
           spendingSK <- getKey ((genesisSecretKeys !!) <$> spendingGenesisI) spendingSecretPath "spending" (snd <$> keyGen)
           vssSK <- getKey ((genesisVssKeyPairs !!) <$> vssGenesisI) vssSecretPath "vss.keypair" vssKeyGen
@@ -120,6 +122,13 @@ main = do
         def
         { lpRootLogger = logger
         , lpMainSeverity = Debug
+        }
+    supporterParams (Args {..}) =
+        SupporterParams
+        { spLogging = loggingParams "supporter"
+        , spPort = port
+        , spDHTPeers = dhtPeers
+        , spDHTKeyOrType = maybe (Right DHTSupporter) Left dhtKey
         }
     params (Args {..}) spendingSK vssSK =
         NodeParams
@@ -131,7 +140,5 @@ main = do
         , npVssKeyPair = vssSK
         , npPort = port
         , npDHTPeers = dhtPeers
-        , npDHTKeyOrType = case dhtKey of
-                          Just key -> Left key
-                          _        -> Right DHTFull
+        , npDHTKeyOrType = maybe (Right DHTFull) Left dhtKey
         }

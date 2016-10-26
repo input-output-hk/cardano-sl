@@ -25,10 +25,12 @@ module Pos.DHT (
     WithDefaultMsgHeader (..),
     ListenerDHT (..),
     withDhtLogger,
-    filterByNodeType
+    filterByNodeType,
+    joinNetworkNoThrow
 ) where
 
-import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, catch)
+import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, catch,
+                                            throwM)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.TimeWarp.Logging  (LoggerName,
                                             WithNamedLogger (modifyLoggerName), logInfo,
@@ -234,4 +236,11 @@ instance (WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog m, MonadIO m) =
 
 filterByNodeType :: DHTNodeType -> [DHTNode] -> [DHTNode]
 filterByNodeType type_ = filter (\n -> dhtNodeType (dhtNodeId n) == Just type_)
+
+joinNetworkNoThrow :: (MonadDHT m, MonadCatch m, MonadIO m, WithNamedLogger m) => [DHTNode] -> m ()
+joinNetworkNoThrow peers = joinNetwork peers `catch` handleJoinE
+  where
+    handleJoinE AllPeersUnavailable =
+        logInfo $ sformat ("Not connected to any of peers " % F.build) peers
+    handleJoinE e = throwM e
 

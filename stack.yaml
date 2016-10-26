@@ -14,7 +14,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/serokell-core.git
-    commit: 7a06aef92d9cc6a2ce91bd65dd579f4f391ae59e
+    commit: 7e9cc7f44dccda2736735b24d84b5437899352d3
   extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git
@@ -24,9 +24,6 @@ packages:
     git: git@github.com:input-output-hk/pvss-haskell.git
     commit: 996951c97f97d734ec7cea05e72620eaabfc72f3
   extra-dep: true
-
-nix:
-  shell-file: shell.nix
 
 extra-deps:
 - pqueue-1.3.2

@@ -111,8 +111,15 @@ executable pos-node
   main-is:             Main.hs
   build-depends:       base
                      , data-default
+                     , binary
+                     , bytestring
+                     , directory
+                     , filepath
                      , formatting
+                     , optparse-simple
+                     , parsec
                      , pos
+                     , serokell-core
                      , time-warp
                      , universum
   default-language:    Haskell2010
@@ -155,6 +162,7 @@ executable pos-demo
                      , data-default
                      , formatting
                      , pos
+                     , serokell-core
                      , time-warp
                      , universum
   default-language:    Haskell2010

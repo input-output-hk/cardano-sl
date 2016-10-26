@@ -25,11 +25,16 @@ import           Universum                hiding (ThreadId, catch)
 
 import           Pos.Crypto               (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
                                            toPublic, toVssPublicKey)
-import           Pos.DHT                  (DHTResponseT, MonadMessageDHT (..),
+import           Pos.DHT                  (DHTException (..), DHTKey, DHTNode,
+                                           DHTNodeType (..), DHTResponseT, ListenerDHT,
+                                           MonadDHT (..), MonadMessageDHT (..),
                                            WithDefaultMsgHeader)
-import           Pos.DHT.Real             (KademliaDHT)
-import           Pos.Slotting             (MonadSlots (..), Timestamp (..))
-import           Pos.State                (MonadDB (..), NodeState)
+import           Pos.DHT.Real             (KademliaDHT, KademliaDHTConfig (..),
+                                           runKademliaDHT)
+import           Pos.Slotting             (MonadSlots (..), Timestamp (..), timestampF)
+import           Pos.State                (MonadDB (..), NodeState, openMemState,
+                                           openState)
+import           Universum                hiding (ThreadId, catch)
 
 type WorkMode m
     = ( WithNamedLogger m

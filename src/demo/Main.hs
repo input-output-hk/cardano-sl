@@ -10,12 +10,13 @@ import           Data.List                ((!!))
 import           Data.String              (fromString)
 import           Formatting               (build, sformat, (%))
 import           Pos.DHT                  (DHTNode (..), DHTNodeType (..), currentNodeKey,
-                                           getKnownPeers)
+                                           dhtKeyBytes, getKnownPeers)
 import           Pos.DHT.Real             (KademliaDHTConfig (..), runKademliaDHT)
 import           Pos.Genesis              (genesisSecretKeys, genesisVssKeyPairs)
 import           Pos.Launcher             (LoggingParams (..), NodeParams (..),
                                            getCurTimestamp, runNodeReal)
 import           Pos.Slotting             (Timestamp)
+import           Serokell.Util.Base64     (base64F)
 import           Universum
 
 
@@ -41,6 +42,7 @@ runSingleNode start peers i = runNodeReal params
         , npVssKeyPair = genesisVssKeyPairs !! (fromInteger . toInteger $ i)
         , npPort = 3000 + i
         , npDHTPeers = peers
+        , npDHTKeyOrType = Right DHTFull
         }
 
 main :: IO ()
@@ -48,15 +50,16 @@ main = do initLogging ["supporter"] Info
           runTimed . runKademliaDHT supporterKadConfig $ currentNodeKey >>= main''
   where
     supporterKadConfig = KademliaDHTConfig
-                  { kdcType = DHTFull
+                  { kdcKeyOrType = Right DHTSupporter
                   , kdcPort = 2000
                   , kdcListeners = []
                   , kdcMessageCacheSize = 1000000
                   , kdcEnableBroadcast = False
                   }
-    runTimed = runTimedIO . usingLoggerName "supported" . runTransfer . runBinaryDialog
+    runTimed = runTimedIO . usingLoggerName "supporter" . runTransfer . runBinaryDialog
     n = 3
     main'' supporterKey = do
+      logInfo $ sformat ("Supporter key: " % base64F) (dhtKeyBytes supporterKey)
       fork_ $ repeatForever (sec 30) (const . return $ sec 30) $ do
         getKnownPeers >>= logInfo . sformat ("Known peers: " % build)
       liftIO (main' supporterKey)

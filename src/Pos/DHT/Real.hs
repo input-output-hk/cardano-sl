@@ -63,11 +63,11 @@ data KademliaDHTContext m = KademliaDHTContext { kdcHandle      :: DHTHandle
                                                }
 
 data KademliaDHTConfig m = KademliaDHTConfig
-                            { kdcType             :: DHTNodeType
-                            , kdcPort             :: Word16
+                            { kdcPort             :: Word16
                             , kdcListeners        :: [ListenerDHT (KademliaDHT m)]
                             , kdcMessageCacheSize :: Int
                             , kdcEnableBroadcast  :: Bool
+                            , kdcKeyOrType        :: Either DHTKey DHTNodeType
                             }
 
 newtype KademliaDHT m a = KademliaDHT { unKademliaDHT :: ReaderT (KademliaDHTContext m) m a }
@@ -109,7 +109,7 @@ stopDHT ctx = do
 
 startDHT :: (MonadTimed m, MonadIO m) => KademliaDHTConfig m -> m (KademliaDHTContext m)
 startDHT (KademliaDHTConfig {..}) = do
-    kdcKey <- randomDHTKey kdcType
+    kdcKey <- either return randomDHTKey kdcKeyOrType
     kdcHandle <- liftIO $ K.create (fromInteger . toInteger $ kdcPort) kdcKey
     kdcMsgThreadId <- liftIO . atomically $ newTVar Nothing
     return $ KademliaDHTContext {..}

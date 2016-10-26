@@ -12,23 +12,27 @@ module Pos.Launcher
        , runNodeReal
        , submitTx
        , submitTxReal
+       , runSupporterReal
        ) where
 
 import           Control.Monad.Catch      (catch, throwM)
 import           Control.TimeWarp.Logging (LoggerName, Severity (Warning),
                                            initLoggerByName, initLogging, logInfo,
                                            usingLoggerName)
-import           Control.TimeWarp.Rpc     (BinaryDialog (runBinaryDialog), NetworkAddress,
-                                           Transfer, runTransfer)
-import           Control.TimeWarp.Timed   (currentTime, runTimedIO, sleepForever)
+import           Control.TimeWarp.Rpc     (BinaryDialog, NetworkAddress, Transfer,
+                                           runBinaryDialog, runTransfer)
+import           Control.TimeWarp.Timed   (currentTime, repeatForever, runTimedIO, sec,
+                                           sleepForever)
 import           Data.Default             (Default (def))
 import           Formatting               (build, sformat, (%))
+import           Serokell.Util.Base64     (base64F)
 import           Universum                hiding (catch)
 
 import           Pos.Communication        (allListeners, sendTx)
 import           Pos.Crypto               (SecretKey, VssKeyPair, hash, sign)
-import           Pos.DHT                  (DHTException (..), DHTNode, DHTNodeType (..),
-                                           ListenerDHT, MonadDHT (..))
+import           Pos.DHT                  (DHTException (..), DHTKey, DHTNode,
+                                           DHTNodeType (..), ListenerDHT, MonadDHT (..),
+                                           dhtKeyBytes)
 import           Pos.DHT.Real             (KademliaDHTConfig (..), runKademliaDHT)
 import           Pos.Slotting             (Timestamp (Timestamp), timestampF)
 import           Pos.State                (NodeState, openMemState, openState)
@@ -52,6 +56,25 @@ runNode NodeParams {..} = do
 
     runWorkers
     sleepForever
+
+runSupporterReal :: Word16 -> LoggingParams -> Either DHTKey DHTNodeType -> IO ()
+runSupporterReal npPort lp npDHTKeyOrType = do
+    setupLogging lp
+    runTimed . runKademliaDHT supporterKadConfig $ main'
+  where
+    runTimed = runTimedIO . usingLoggerName (lpRootLogger lp) . runTransfer . runBinaryDialog
+    main' = do
+        supporterKey <- currentNodeKey
+        logInfo $ sformat ("Supporter key: " % base64F) (dhtKeyBytes supporterKey)
+        repeatForever (sec 30) (const . return $ sec 30) $ do
+          getKnownPeers >>= logInfo . sformat ("Known peers: " % build)
+    supporterKadConfig = KademliaDHTConfig
+                  { kdcKeyOrType = npDHTKeyOrType
+                  , kdcPort = npPort
+                  , kdcListeners = []
+                  , kdcMessageCacheSize = 1000000
+                  , kdcEnableBroadcast = False
+                  }
 
 -- | Run full node in real mode.
 runNodeReal :: NodeParams -> IO ()
@@ -102,14 +125,15 @@ instance Default LoggingParams where
 
 -- | Parameters necessary to run node.
 data NodeParams = NodeParams
-    { npDbPath      :: !(Maybe FilePath)
-    , npRebuildDb   :: !Bool
-    , npSystemStart :: !(Maybe Timestamp)
-    , npLogging     :: !LoggingParams
-    , npSecretKey   :: !SecretKey
-    , npVssKeyPair  :: !VssKeyPair
-    , npPort        :: !Word16
-    , npDHTPeers    :: ![DHTNode]
+    { npDbPath       :: !(Maybe FilePath)
+    , npRebuildDb    :: !Bool
+    , npSystemStart  :: !(Maybe Timestamp)
+    , npLogging      :: !LoggingParams
+    , npSecretKey    :: !SecretKey
+    , npVssKeyPair   :: !VssKeyPair
+    , npPort         :: !Word16
+    , npDHTPeers     :: ![DHTNode]
+    , npDHTKeyOrType :: Either DHTKey DHTNodeType
     } deriving (Show)
 
 ----------------------------------------------------------------------------
@@ -130,13 +154,13 @@ runRealMode NodeParams {..} listeners action = do
            action
   where
     kadConfig =
-        KademliaDHTConfig
-        { kdcType = DHTFull
-        , kdcPort = npPort
-        , kdcListeners = listeners
-        , kdcMessageCacheSize = 1000000
-        , kdcEnableBroadcast = False
-        }
+      KademliaDHTConfig
+      { kdcKeyOrType = npDHTKeyOrType
+      , kdcPort = npPort
+      , kdcListeners = listeners
+      , kdcMessageCacheSize = 1000000
+      , kdcEnableBroadcast = False
+      }
     handleJoinE AllPeersUnavailable =
         logInfo $ sformat ("Not connected to any of peers " %build) npDHTPeers
     handleJoinE e = throwM e
@@ -162,10 +186,11 @@ runRealMode NodeParams {..} listeners action = do
         usingLoggerName (lpRootLogger npLogging) . runTransfer . runBinaryDialog
     runDH :: NodeState -> DBHolder m a -> m a
     runDH db = flip runReaderT db . getDBHolder
-    setupLogging :: LoggingParams -> IO ()
-    setupLogging lp@LoggingParams {..} = do
-        let setSeverityMaybe (mappend lpRootLogger -> name) sev = do
-                print (sev, name)
-                whenJust sev $ flip initLoggerByName name
-        initLogging [lpRootLogger] lpMainSeverity
-        setSeverityMaybe (dhtLoggerName (Proxy :: Proxy RealMode)) lpDhtSeverity
+
+setupLogging :: LoggingParams -> IO ()
+setupLogging LoggingParams {..} = do
+    let setSeverityMaybe (mappend lpRootLogger -> name) sev = do
+            print (sev, name)
+            whenJust sev $ flip initLoggerByName name
+    initLogging [lpRootLogger] lpMainSeverity
+    setSeverityMaybe (dhtLoggerName (Proxy :: Proxy RealMode)) lpDhtSeverity

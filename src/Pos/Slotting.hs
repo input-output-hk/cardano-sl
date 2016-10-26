@@ -29,7 +29,7 @@ import           Pos.Types              (FlatSlotId, SlotId (..), flattenSlotId,
 -- timestamps is microsecond. Hence underlying type is Microsecond.
 newtype Timestamp = Timestamp
     { getTimestamp :: Microsecond
-    } deriving (Show, Num)
+    } deriving (Show, Num, Read)
 
 instance Buildable Timestamp where
     build = Buildable.build . (fromIntegral :: Microsecond -> Integer) . getTimestamp

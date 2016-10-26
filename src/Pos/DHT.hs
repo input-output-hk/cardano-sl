@@ -8,21 +8,23 @@
 -- | Peer discovery
 
 module Pos.DHT (
-  DHTException (..),
-  DHTKey,
-  DHTData,
-  DHTNode (..),
-  DHTNodeType (..),
-  MonadDHT (..),
-  MonadMessageDHT (..),
-  MonadResponseDHT (..),
-  DHTResponseT,
-  getDHTResponseT,
-  randomDHTKey,
-  dhtNodeType,
-  WithDefaultMsgHeader (..),
-  ListenerDHT (..),
-  withDhtLogger
+    DHTException (..),
+    DHTKey,
+    dhtKeyBytes,
+    DHTData,
+    DHTNode (..),
+    DHTNodeType (..),
+    MonadDHT (..),
+    MonadMessageDHT (..),
+    MonadResponseDHT (..),
+    DHTResponseT,
+    getDHTResponseT,
+    randomDHTKey,
+    bytesToDHTKey,
+    dhtNodeType,
+    WithDefaultMsgHeader (..),
+    ListenerDHT (..),
+    withDhtLogger
 ) where
 
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, catch)
@@ -134,7 +136,7 @@ newtype DHTData = DHTData ()
   deriving (Eq, Ord, Binary)
 
 -- DHTKey should be strictly 20-byte long
-newtype DHTKey = DHTKey BS.ByteString
+newtype DHTKey = DHTKey { dhtKeyBytes :: BS.ByteString }
   deriving (Eq, Ord, Binary)
 
 instance Buildable DHTKey where
@@ -173,6 +175,11 @@ typeByte :: DHTNodeType -> Word8
 typeByte DHTSupporter = 0x00
 typeByte DHTFull      = 0x30
 typeByte DHTClient    = 0xF0
+
+bytesToDHTKey :: IsString s => BS.ByteString -> Either s DHTKey
+bytesToDHTKey bs = if BS.length bs /= 20
+                      then Left "Key ength must be exactly 20 bytes"
+                      else Right $ DHTKey bs
 
 randomDHTKey :: MonadIO m => DHTNodeType -> m DHTKey
 randomDHTKey type_ = (DHTKey . BS.cons (typeByte type_)) <$> secureRandomBS 19

@@ -10,6 +10,7 @@ import qualified Options.Applicative      as Opts
 import           Universum
 
 import           Pos.Crypto               (unsafeHash)
+import           Pos.DHT                  (DHTNodeType (..))
 import           Pos.Genesis              (genesisAddresses, genesisSecretKeys,
                                            genesisVssKeyPairs)
 import           Pos.Launcher             (LoggingParams (..), NodeParams (..),
@@ -73,6 +74,7 @@ main = do
                     , npVssKeyPair = genesisVssKeyPairs !! i
                     , npPort = 24962
                     , npDHTPeers = []
+                    , npDHTKeyOrType = Right DHTClient
                     }
             let na = (localhost, stPort)
             let addr = genesisAddresses !! i

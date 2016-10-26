@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TypeFamilies              #-}
+
 -- | Peer discovery
 
 module Pos.DHT (
@@ -20,17 +21,21 @@ module Pos.DHT (
   randomDHTKey,
   dhtNodeType,
   WithDefaultMsgHeader (..),
-  ListenerDHT (..)
+  ListenerDHT (..),
+  withDhtLogger
 ) where
 
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, catch)
 import           Control.Monad.Trans.Class (MonadTrans)
-import           Control.TimeWarp.Logging  (WithNamedLogger, logInfo, logWarning)
+import           Control.TimeWarp.Logging  (LoggerName,
+                                            WithNamedLogger (modifyLoggerName), logInfo,
+                                            logWarning)
 import           Control.TimeWarp.Rpc      (Message, MonadDialog, MonadTransfer,
                                             NetworkAddress, ResponseT, replyH, sendH)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Data.Binary               (Binary, Put)
 import qualified Data.ByteString           as BS
+import           Data.Proxy                (Proxy (Proxy))
 import           Data.Text.Buildable       (Buildable (..))
 import           Data.Text.Lazy            (unpack)
 import           Data.Text.Lazy.Builder    (toLazyText)
@@ -45,40 +50,50 @@ import           Pos.Constants             (neighborsSendThreshold)
 
 import qualified Serokell.Util.Base64      as B64
 
-
-
-
 class Monad m => MonadDHT m where
-  joinNetwork :: [DHTNode] -> m ()
+    joinNetwork :: [DHTNode] -> m ()
 
   -- Peer discovery: query DHT for random key
   -- Processing request, node will discover few other nodes
   -- We return these newly discovered nodes among with already known
   -- (List of known nodes is updated as well)
-  discoverPeers :: DHTNodeType -> m [DHTNode]
+    discoverPeers :: DHTNodeType -> m [DHTNode]
 
-  getKnownPeers :: m [DHTNode]
+    getKnownPeers :: m [DHTNode]
 
-  currentNodeKey :: m DHTKey
+    currentNodeKey :: m DHTKey
+
+    dhtLoggerName :: Proxy m -> LoggerName
+    -- dhtLoggerName Proxy = "MonadDHT"
+
+dhtLoggerNameM :: forall m . MonadDHT m => m LoggerName
+dhtLoggerNameM = pure $ dhtLoggerName (Proxy :: Proxy m)
+
+withDhtLogger
+    :: (WithNamedLogger m, MonadDHT m)
+    => m a -> m a
+withDhtLogger action = do
+    subName <- dhtLoggerNameM
+    modifyLoggerName (<> subName) action
 
 class WithDefaultMsgHeader m where
   defaultMsgHeader :: Message r => r -> m Put
 
 class MonadDHT m => MonadMessageDHT m where
 
-  sendToNetwork :: Message r => r -> m ()
+    sendToNetwork :: Message r => r -> m ()
 
-  sendToNode :: Message r => NetworkAddress -> r -> m ()
+    sendToNode :: Message r => NetworkAddress -> r -> m ()
 
-  sendToNeighbors :: Message r => r -> m Int
+    sendToNeighbors :: Message r => r -> m Int
 
-  default sendToNode :: (Message r, WithDefaultMsgHeader m, MonadDialog m) => NetworkAddress -> r -> m ()
-  sendToNode addr msg = do
-    header <- defaultMsgHeader msg
-    sendH addr header msg
+    default sendToNode :: (Message r, WithDefaultMsgHeader m, MonadDialog m) => NetworkAddress -> r -> m ()
+    sendToNode addr msg = do
+        header <- defaultMsgHeader msg
+        sendH addr header msg
 
-  default sendToNeighbors :: (Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
-  sendToNeighbors = defaultSendToNeighbors
+    default sendToNeighbors :: (Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
+    sendToNeighbors = defaultSendToNeighbors
 
 class MonadMessageDHT m => MonadResponseDHT m where
 
@@ -87,7 +102,14 @@ class MonadMessageDHT m => MonadResponseDHT m where
 data ListenerDHT m =
     forall r . Message r => ListenerDHT (r -> DHTResponseT m ())
 
-defaultSendToNeighbors :: (MonadMessageDHT m, Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
+defaultSendToNeighbors
+    :: ( MonadMessageDHT m
+       , Message r
+       , WithNamedLogger m
+       , MonadCatch m
+       , MonadIO m
+       )
+    => r -> m Int
 defaultSendToNeighbors msg = do
     nodes <- getKnownPeers
     succeed <- sendToNodes nodes
@@ -179,6 +201,7 @@ instance MonadDHT m => MonadDHT (ResponseT m) where
     getKnownPeers = lift getKnownPeers
     currentNodeKey = lift currentNodeKey
     joinNetwork = lift . joinNetwork
+    dhtLoggerName _ = dhtLoggerName (Proxy :: Proxy m)
 
 instance MonadMessageDHT m => MonadMessageDHT (ResponseT m) where
     sendToNetwork = lift . sendToNetwork
@@ -200,4 +223,3 @@ instance (WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog m, MonadIO m) =
   replyToNode msg = do
     header <- defaultMsgHeader msg
     DHTResponseT $ replyH header msg
-

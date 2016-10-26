@@ -1,7 +1,7 @@
 module Main where
 
 import           Control.Concurrent.Async (mapConcurrently)
-import           Control.TimeWarp.Logging (Severity (Debug, Info), initLogging, logInfo,
+import           Control.TimeWarp.Logging (Severity (..), initLogging, logInfo,
                                            usingLoggerName)
 import           Control.TimeWarp.Rpc     (runBinaryDialog, runTransfer)
 import           Control.TimeWarp.Timed   (fork_, repeatForever, runTimedIO, sec)
@@ -29,6 +29,7 @@ runSingleNode start peers i = runNodeReal params
               if i == 0
                   then Debug
                   else Info
+        , lpDhtSeverity = Just Warning
         }
     params =
         NodeParams

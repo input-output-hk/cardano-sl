@@ -1,5 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 -- | Launcher of full node or simple operations.
 
@@ -14,8 +15,9 @@ module Pos.Launcher
        ) where
 
 import           Control.Monad.Catch      (catch, throwM)
-import           Control.TimeWarp.Logging (LoggerName, Severity (Warning), initLogging,
-                                           logInfo, usingLoggerName)
+import           Control.TimeWarp.Logging (LoggerName, Severity (Warning),
+                                           initLoggerByName, initLogging, logInfo,
+                                           usingLoggerName)
 import           Control.TimeWarp.Rpc     (BinaryDialog (runBinaryDialog), NetworkAddress,
                                            Transfer, runTransfer)
 import           Control.TimeWarp.Timed   (currentTime, runTimedIO, sleepForever)
@@ -98,11 +100,6 @@ instance Default LoggingParams where
         , lpWorkerSeverity = Nothing
         }
 
-setupLogging :: LoggingParams -> IO ()
-setupLogging LoggingParams {..} = do
-    initLogging [lpRootLogger] lpMainSeverity
-    -- TODO
-
 -- | Parameters necessary to run node.
 data NodeParams = NodeParams
     { npDbPath      :: !(Maybe FilePath)
@@ -165,3 +162,10 @@ runRealMode NodeParams {..} listeners action = do
         usingLoggerName (lpRootLogger npLogging) . runTransfer . runBinaryDialog
     runDH :: NodeState -> DBHolder m a -> m a
     runDH db = flip runReaderT db . getDBHolder
+    setupLogging :: LoggingParams -> IO ()
+    setupLogging lp@LoggingParams {..} = do
+        let setSeverityMaybe (mappend lpRootLogger -> name) sev = do
+                print (sev, name)
+                whenJust sev $ flip initLoggerByName name
+        initLogging [lpRootLogger] lpMainSeverity
+        setSeverityMaybe (dhtLoggerName (Proxy :: Proxy RealMode)) lpDhtSeverity

@@ -6,7 +6,7 @@ module Pos.Worker.Block
        ) where
 
 import           Control.Lens              (ix, (^.), (^?))
-import           Control.TimeWarp.Logging  (logInfo, logWarning)
+import           Control.TimeWarp.Logging  (logDebug, logInfo, logWarning)
 import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, sec, wait)
 import           Formatting                (build, sformat, (%))
 import           Serokell.Util.Exceptions  ()
@@ -52,7 +52,7 @@ blocksTransmitter =
     repeatForever blocksTransmitterInterval onError $
     do headBlock <- getHeadBlock
        case headBlock of
-           Left _ -> logWarning "Head block is genesis block ⇒ no announcement"
+           Left _          -> logDebug "Head block is genesis block ⇒ no announcement"
            Right mainBlock -> announceBlock (mainBlock ^. gbHeader)
   where
     onError e =

@@ -198,8 +198,10 @@ test-suite pos-test
                      , base
                      , binary
                      , bytestring
+                     , cryptonite
                      , formatting
                      , hspec
+                     , memory
                      , pos
                      , random
                      , serokell-core

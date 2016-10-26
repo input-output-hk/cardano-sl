@@ -215,7 +215,8 @@ getParticipants epoch = do
 getThreshold :: EpochIndex -> Query Threshold
 getThreshold epoch = do
     ps <- getParticipants epoch
-    return (toInteger (length ps `div` 2))
+    let len = length ps
+    return (toInteger (len `div` 2 + len `mod` 2))
 
 processCommitment :: PublicKey -> (Commitment, CommitmentSignature) -> Update ()
 processCommitment = mpcProcessCommitment

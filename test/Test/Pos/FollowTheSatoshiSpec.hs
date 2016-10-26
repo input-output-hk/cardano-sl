@@ -7,28 +7,32 @@ module Test.Pos.FollowTheSatoshiSpec
        ( spec
        ) where
 
-import qualified Data.ByteString          as BS
+import           Crypto.Random            (MonadRandom)
 import qualified Data.HashMap.Strict      as HM
-import           Data.List                (foldl1', (\\))
-import           Formatting               (build, int, later, sformat, (%))
-import           Serokell.Util            (listBuilderJSON)
+import           Data.List                (foldl1', unzip, (\\))
+import           Formatting               (build, int, sformat, (%))
+import           Serokell.Util            (listJson)
 import           Test.Hspec               (Spec, describe, pending)
-import           Test.Hspec.QuickCheck    (modifyMaxSize, prop)
-import           Test.QuickCheck          (Gen, Property, choose, counterexample,
-                                           property, sized, (===))
+import           Test.Hspec.QuickCheck    (modifyMaxSize, modifyMaxSuccess, prop)
+import           Test.QuickCheck          (Property, choose, counterexample, generate,
+                                           ioProperty, property, sized, (===))
 import           Test.QuickCheck.Property (failed, succeeded)
 import           Universum
 
-import           Pos.Crypto               (KeyPair (..), PublicKey, Share, VssKeyPair,
-                                           decryptShare, sign)
+import           Pos.Crypto               (KeyPair (..), Share, Threshold, VssKeyPair,
+                                           decryptShare, sign, toVssPublicKey)
 import           Pos.FollowTheSatoshi     (FtsError (..), calculateSeed)
 import           Pos.Types                (Commitment (..), CommitmentsMap, FtsSeed (..),
-                                           Opening (..), secretToFtsSeed, xorFtsSeed)
+                                           Opening (..), genCommitmentAndOpening,
+                                           secretToFtsSeed, xorFtsSeed)
 import           Pos.Util                 (nonrepeating, sublistN)
 
 spec :: Spec
 spec = describe "FollowTheSatoshi" $ do
-    describe "calculateSeed" $ modifyMaxSize (const 40) $ do
+    -- note that we can't make max size larger than 50 without changing it in
+    -- Test.Pos.Util as well
+    let smaller = modifyMaxSize (const 40) . modifyMaxSuccess (const 30)
+    describe "calculateSeed" $ smaller $ do
         prop
             "finds the seed when all openings are present" $
             do n <- sized $ \size -> choose (1, max size 1)
@@ -87,107 +91,120 @@ recoverSecretsProp n n_openings n_shares n_overlap
     -- openings=2, shares=2, then overlap must be at least 1)
     | n - n_openings - n_shares + n_overlap < 0 = panic "overlap condition"
 
-recoverSecretsProp n n_openings n_shares n_overlap = property $ do
-    (keys, vssKeys, commitmentsAndOpenings) <- generateKeysAndMpc n
+recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
+    let threshold = pickThreshold n
+    (keys, vssKeys, comms, opens) <- generateKeysAndMpc threshold n
     let seeds :: [FtsSeed]
-        seeds = map (secretToFtsSeed . getOpening . snd) commitmentsAndOpenings
-    let rightSeed :: FtsSeed
-        rightSeed = foldl1' xorFtsSeed seeds
-    haveSentBoth <-
+        seeds = map (secretToFtsSeed . getOpening) opens
+    let expectedSharedSeed :: FtsSeed
+        expectedSharedSeed = foldl1' xorFtsSeed seeds
+    haveSentBoth <- generate $
         sublistN n_overlap keys
-    haveSentOpening <-
+    haveSentOpening <- generate $
         (haveSentBoth ++) <$>
         sublistN (n_openings - n_overlap) (keys \\ haveSentBoth)
-    haveSentShares <-
+    haveSentShares <- generate $
         (haveSentBoth ++) <$>
         sublistN (n_shares - n_overlap) (keys \\ haveSentOpening)
-    return $ property succeeded
-    -- TODO
-    -- let commitments = mkCommitmentsMap keys vssKeys seeds
-    -- let openings = HM.fromList $ do
-    --         (KeyPair pk sk, seed) <- zip keys seeds
-    --         guard (KeyPair pk sk `elem` haveSentOpening)
-    --         return (pk, Opening seed)
-    -- -- @generatedShares ! X@ = shares that X generated and sent to others
-    -- let generatedShares :: HashMap PublicKey (HashMap PublicKey Share)
-    --     generatedShares = HM.fromList $ do
-    --         (KeyPair pk sk, seed) <- zip keys seeds
-    --         guard (KeyPair pk sk `elem` haveSentShares)
-    --         let vssPubKeys = map getVssPub vssKeys
-    --             vssSecKeys = map getVssSec vssKeys
-    --         let (_, shares) = shareFtsSeed vssPubKeys (fromIntegral n) seed
-    --         let decryptedShares = zipWith decryptShare vssSecKeys shares
-    --         return (pk, HM.fromList (zip (map getPub keys) decryptedShares))
-    -- -- @shares ! X@ = shares that X received from others
-    -- let shares = HM.fromList $ do
-    --         KeyPair pk _ <- keys
-    --         let receivedShares = HM.fromList $ do
-    --                 (sender, senderShares) <- HM.toList generatedShares
-    --                 case HM.lookup pk senderShares of
-    --                     Nothing -> []
-    --                     Just s  -> return (sender, s)
-    --         return (pk, receivedShares)
+    let commitmentsMap = mkCommitmentsMap keys comms
+    let openingsMap = HM.fromList
+            [(getPub k, o)
+              | (k, o) <- zip keys opens
+              , k `elem` haveSentOpening]
+    -- @generatedShares ! X@ = shares that X generated and sent to others
+    -- generatedShares :: HashMap PublicKey (HashMap PublicKey Share)
+    generatedShares <- do
+        let sentShares (kp, _) = kp `elem` haveSentShares
+        fmap HM.fromList $ forM (filter sentShares (zip keys comms)) $
+            \(kp, comm) -> do
+                let KeyPair pk _ = kp
+                decShares <- getDecryptedShares vssKeys comm
+                return (pk, HM.fromList (zip (map getPub keys) decShares))
+    -- @sharesMap ! X@ = shares that X received from others
+    let sharesMap = HM.fromList $ do
+             KeyPair pk _ <- keys
+             let receivedShares = HM.fromList $ do
+                     (sender, senderShares) <- HM.toList generatedShares
+                     case HM.lookup pk senderShares of
+                         Nothing -> []
+                         Just s  -> return (sender, s)
+             return (pk, receivedShares)
 
-    -- let shouldSucceed = n_openings + n_shares - n_overlap >= n
-    -- let result = calculateSeed commitments openings shares
-    -- let debugInfo = sformat ("n = "%int%", n_openings = "%int%", "%
-    --                          "n_shares = "%int%", n_overlap = "%int%
-    --                          "\n"%
-    --                          "these keys have sent openings:\n"%
-    --                          "  "%later listBuilderJSON%"\n"%
-    --                          "these keys have sent shares they got:\n"%
-    --                          "  "%later listBuilderJSON)
-    --                     n n_openings n_shares n_overlap
-    --                     (map getPub haveSentOpening)
-    --                     (map getPub haveSentShares)
-    -- return $ counterexample (toS debugInfo) $ case (shouldSucceed, result) of
-    --     -- we were supposed to find the seed
-    --     (True, Right foundSeed) ->
-    --         foundSeed === rightSeed
-    --     (True, Left ftsErr) ->
-    --         let err = sformat ("calculateSeed didn't find the seed (but "%
-    --                            "should've) and failed with error:\n"%
-    --                            "  "%build)
-    --                           ftsErr
-    --         in counterexample (toS err) failed
-    --     -- we weren't supposed to find the seed
-    --     (False, Left (NoSecretFound _)) ->
-    --         property succeeded
-    --     (False, Left ftsErr) ->
-    --         let err = sformat ("calculateSeed failed with error "%build%" "%
-    --                            "instead of NoSecretFound")
-    --                           ftsErr
-    --         in counterexample (toS err) failed
-    --     (False, Right foundSeed) ->
-    --         let err = sformat ("calculateSeed succeeded, "%
-    --                            "even though it couldn't\n"%
-    --                            "  found seed: "%build%"\n"%
-    --                            "  right seed: "%build)
-    --                           foundSeed rightSeed
-    --         in counterexample (toS err) failed
+    let shouldSucceed = n_openings + n_shares - n_overlap >= n
+    let result = calculateSeed threshold commitmentsMap openingsMap sharesMap
+    let debugInfo = sformat ("n = "%int%", n_openings = "%int%", "%
+                             "n_shares = "%int%", n_overlap = "%int%
+                             "\n"%
+                             "these keys have sent openings:\n"%
+                             "  "%listJson%"\n"%
+                             "these keys have sent shares they got:\n"%
+                             "  "%listJson)
+                        n n_openings n_shares n_overlap
+                        (map getPub haveSentOpening)
+                        (map getPub haveSentShares)
+    return $ counterexample (toS debugInfo) $ case (shouldSucceed, result) of
+        -- we were supposed to find the seed
+        (True, Right sharedSeed) ->
+            sharedSeed === expectedSharedSeed
+        (True, Left ftsErr) ->
+            let err = sformat ("calculateSeed didn't find the seed (but "%
+                               "should've) and failed with error:\n"%
+                               "  "%build)
+                              ftsErr
+            in counterexample (toS err) failed
+        -- we weren't supposed to find the seed
+        (False, Left (NoSecretFound _)) ->
+            property succeeded
+        (False, Left ftsErr) ->
+            let err = sformat ("calculateSeed failed with error "%build%" "%
+                               "instead of NoSecretFound")
+                              ftsErr
+            in counterexample (toS err) failed
+        (False, Right sharedSeed) ->
+            let err = sformat ("calculateSeed succeeded, "%
+                               "even though it couldn't\n"%
+                               "  found seed: "%build%"\n"%
+                               "  right seed: "%build)
+                              sharedSeed expectedSharedSeed
+            in counterexample (toS err <> "\n\n" <> show (n, threshold) <> "\n\n" <> show commitmentsMap <> "\n\n" <> show openingsMap <> "\n\n" <> show sharesMap) failed
 
 ----------------------------------------------------------------------------
 -- Helper functions
 ----------------------------------------------------------------------------
 
-generateKeysAndMpc :: Int -> Gen ([KeyPair], [VssKeyPair], [(Commitment, Opening)])
-generateKeysAndMpc n = do
-    keys    <- nonrepeating n
-    vssKeys <- nonrepeating n
-    mpc     <- nonrepeating n
-    return (keys, vssKeys, mpc)
+generateKeysAndMpc
+    :: Threshold
+    -> Int
+    -> IO ([KeyPair], [VssKeyPair], [Commitment], [Opening])
+-- genCommitmentAndOpening fails on 0
+generateKeysAndMpc _         0 = return ([], [], [], [])
+generateKeysAndMpc threshold n = do
+    keys           <- generate $ nonrepeating n
+    vssKeys        <- generate $ nonrepeating n
+    let vssPubKeys = map toVssPublicKey vssKeys
+    (comms, opens) <-
+        unzip <$> replicateM n (genCommitmentAndOpening threshold vssPubKeys)
+    return (keys, vssKeys, comms, opens)
 
--- mkCommitmentsMap :: [KeyPair] -> [VssKeyPair] -> [FtsSeed] -> CommitmentsMap
--- mkCommitmentsMap keys vssKeys seeds =
---     HM.fromList $ do
---         let vssPubKeys = map getVssPub vssKeys
---         let n = fromIntegral (length vssKeys)
---         (KeyPair pk sk, seed) <- zip keys seeds
---         let (proof, shares) = shareFtsSeed vssPubKeys n seed
---         let comm = Commitment
---                 { commProof  = proof
---                 , commShares = HM.fromList (zip vssPubKeys shares)
---                 }
---         let epochIdx = 0  -- we don't care here
---         let sig = sign sk (epochIdx, comm)
---         return (pk, (comm, sig))
+mkCommitmentsMap :: [KeyPair] -> [Commitment] -> CommitmentsMap
+mkCommitmentsMap keys comms =
+    HM.fromList $ do
+        (KeyPair pk sk, comm) <- zip keys comms
+        let epochIdx = 0  -- we don't care here
+        let sig = sign sk (epochIdx, comm)
+        return (pk, (comm, sig))
+
+getDecryptedShares
+    :: MonadRandom m
+    => [VssKeyPair] -> Commitment -> m [Share]
+getDecryptedShares vssKeys comm =
+    forM (HM.toList (commShares comm)) $ \(pubKey, encShare) -> do
+        let secKey = case find ((== pubKey) . toVssPublicKey) vssKeys of
+                Just k  -> k
+                Nothing -> panic $
+                    sformat ("getDecryptedShares: counldn't \
+                             \find key "%build) pubKey
+        decryptShare secKey encShare
+
+pickThreshold :: Int -> Threshold
+pickThreshold n = fromIntegral (n `div` 2 + n `mod` 2)

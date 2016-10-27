@@ -16,8 +16,8 @@ module Pos.Launcher
        ) where
 
 import           Control.TimeWarp.Logging (LoggerName, Severity (Warning), initLogging,
-                                           logError, logInfo, setSeverityMaybe,
-                                           usingLoggerName)
+                                           logError, logInfo, setSeverity,
+                                           setSeverityMaybe, usingLoggerName)
 import           Control.TimeWarp.Rpc     (BinaryDialog, NetworkAddress, Transfer,
                                            runBinaryDialog, runTransfer)
 import           Control.TimeWarp.Timed   (currentTime, repeatForever, runTimedIO, sec,
@@ -196,7 +196,8 @@ runRealMode NodeParams {..} listeners action = do
 
 setupLoggingReal :: LoggingParams -> IO ()
 setupLoggingReal LoggingParams {..} = do
-    initLogging lpMainSeverity
+    initLogging Warning
+    setSeverity lpRootLogger lpMainSeverity
     setSeverityMaybe
         (lpRootLogger <> dhtLoggerName (Proxy :: Proxy RealMode))
         lpDhtSeverity

@@ -29,6 +29,10 @@ packages:
     commit: e7d3bb93ece3302438117e6742475b4d0a7b8575
   extra-dep: true
 
+# don't remove it pls
+nix:
+  shell-file: shell.nix
+
 extra-deps:
 - pqueue-1.3.2
 - data-msgpack-0.0.6

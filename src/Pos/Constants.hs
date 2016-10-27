@@ -32,5 +32,5 @@ epochDuration = epochSlots * slotDuration
 networkDiameter :: Microsecond
 networkDiameter = sec 1
 
-neighborsSendThreshold :: Int
-neighborsSendThreshold = 6
+neighborsSendThreshold :: Integral a => a
+neighborsSendThreshold = 4

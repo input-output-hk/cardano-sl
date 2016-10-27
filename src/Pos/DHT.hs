@@ -49,7 +49,7 @@ import qualified Formatting                as F
 import           Pos.Crypto.Random         (secureRandomBS)
 import           Prelude                   (show)
 import           Serokell.Util.Text        (listBuilderJSON)
-import           Universum                 hiding (ThreadId, catch, show)
+import           Universum                 hiding (catch, show)
 
 import           Pos.Constants             (neighborsSendThreshold)
 
@@ -118,13 +118,19 @@ defaultSendToNeighbors
 defaultSendToNeighbors msg = do
     nodes <- filterByNodeType DHTFull <$> getKnownPeers
     succeed <- sendToNodes nodes
-    succeed' <- if succeed < neighborsSendThreshold
-                   then (+) succeed <$> do
-                     nodes' <- discoverPeers DHTFull
-                     sendToNodes $ filter (isJust . flip find nodes . (==)) nodes'
-                   else return succeed
+    succeed' <-
+        if succeed < neighborsSendThreshold
+            then (+) succeed <$>
+                 do nodes' <- discoverPeers DHTFull
+                    sendToNodes $
+                        filter (isJust . flip find nodes . (==)) nodes'
+            else return succeed
     when (succeed' < neighborsSendThreshold) $
-      logWarning $ sformat ("Send to only " % int % " nodes out, threshold is " % int) succeed' neighborsSendThreshold
+        logWarning $
+        sformat
+            ("Send to only " % int % " nodes out, threshold is " % int)
+            succeed'
+            (neighborsSendThreshold :: Int)
     return succeed'
   where
     -- TODO make this function asynchronous after presenting some `MonadAsync` constraint
@@ -243,4 +249,3 @@ joinNetworkNoThrow peers = joinNetwork peers `catch` handleJoinE
     handleJoinE AllPeersUnavailable =
         logInfo $ sformat ("Not connected to any of peers " % F.build) peers
     handleJoinE e = throwM e
-

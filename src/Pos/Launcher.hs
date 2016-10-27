@@ -200,4 +200,6 @@ setupLoggingReal LoggingParams {..} = do
     setSeverityMaybe
         (lpRootLogger <> dhtLoggerName (Proxy :: Proxy RealMode))
         lpDhtSeverity
+    -- TODO: `comm` shouldn't be hardcoded, it should be taken
+    -- from MonadTransfer or something
     setSeverityMaybe ("comm" <> lpRootLogger) lpCommSeverity

@@ -26,7 +26,7 @@ packages:
   extra-dep: true
 - location:
     git: git@github.com:serokell/kademlia.git
-    commit: b476678ea52114cdec8231c76577ae1caf2664d5
+    commit: e7d3bb93ece3302438117e6742475b4d0a7b8575
   extra-dep: true
 
 extra-deps:

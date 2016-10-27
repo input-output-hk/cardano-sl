@@ -19,7 +19,7 @@ k :: Integral a => a
 k = 2
 
 slotDuration :: Microsecond
-slotDuration = sec 4
+slotDuration = sec 15
 
 epochSlots :: Integral a => a
 epochSlots = 6 * k

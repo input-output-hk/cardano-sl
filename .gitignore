@@ -24,4 +24,6 @@ TAGS
 .stylish-haskell.yaml
 .dir-locals.el
 node-db*
+pos-db*
 *.html
+pos-keys

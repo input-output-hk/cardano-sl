@@ -43,6 +43,7 @@ data Args = Args
     , dhtKey             :: !(Maybe DHTKey)
     , mainLogSeverity    :: Severity
     , dhtLogSeverity     :: Severity
+    , commLogSeverity    :: !(Maybe Severity)
     }
     deriving Show
 
@@ -87,8 +88,13 @@ argsParser =
          help "Main log severity, one of Info, Debug, Warning, Error") <*>
     option auto
         (long "dht-log" <> metavar "SEVERITY" <> value Info <> showDefault <>
-         help "DHT log severity, one of Info, Debug, Warning, Error")
-
+         help "DHT log severity, one of Info, Debug, Warning, Error") <*>
+    optional
+        (option auto $ mconcat
+        [long "comm-log",
+         metavar "SEVERITY",
+         help "DHT log severity, one of Info, Debug, Warning, Error"
+        ])
   where
     peerHelpMsg = "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""
 
@@ -132,6 +138,7 @@ main = do
         { lpRootLogger = logger
         , lpMainSeverity = mainLogSeverity
         , lpDhtSeverity = Just dhtLogSeverity
+        , lpCommSeverity = commLogSeverity
         }
     supporterParams args@(Args {..}) =
         SupporterParams

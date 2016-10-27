@@ -5,7 +5,7 @@ module Main where
 import           Data.Default               (def)
 
 import           Control.Applicative        (empty)
-import           Control.TimeWarp.Logging   (Severity (Debug))
+import           Control.TimeWarp.Logging   (Severity (Debug, Info))
 import           Data.List                  ((!!))
 import           Data.Monoid                ((<>))
 import           Options.Applicative.Simple (Parser, auto, help, long, many, metavar,
@@ -122,7 +122,7 @@ main = do
         def
         { lpRootLogger = logger
         , lpMainSeverity = Debug
-        , lpDhtSeverity = Just Debug
+        , lpDhtSeverity = Just Info
         }
     supporterParams (Args {..}) =
         SupporterParams

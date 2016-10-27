@@ -24,10 +24,7 @@ packages:
     git: git@github.com:input-output-hk/pvss-haskell.git
     commit: 996951c97f97d734ec7cea05e72620eaabfc72f3
   extra-dep: true
-- location:
-    git: git@github.com:serokell/kademlia.git
-    commit: a3363c00a7785608dd4ce7b386a3f03fa9f4dc74
-  extra-dep: true
+- location: ../kademlia
 
 extra-deps:
 - pqueue-1.3.2

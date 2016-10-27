@@ -1,5 +1,7 @@
 #!/bin/sh
 
+mkdir -p logs
+
 i=$1
 
 if [[ $i -lt 10 ]]; then
@@ -8,4 +10,6 @@ else
   port="30$i"
 fi
 
-stack exec -- pos-node --db-path pos-db$i --rebuild-db --vss-genesis $i --spending-genesis $i --port $port --peer '127.0.0.1:2000/ABOtPlQMv123_4wzfgjAzvsT2LE='
+stack exec -- pos-node --db-path pos-db$i --rebuild-db --vss-genesis $i \
+  --spending-genesis $i --port $port --peer '127.0.0.1:2000/ABOtPlQMv123_4wzfgjAzvsT2LE=' \
+  | tee logs/node-$i-`date '+%F_%H%M%S'`.log

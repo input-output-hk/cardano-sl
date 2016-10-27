@@ -122,6 +122,7 @@ main = do
         def
         { lpRootLogger = logger
         , lpMainSeverity = Debug
+        , lpDhtSeverity = Just Debug
         }
     supporterParams (Args {..}) =
         SupporterParams

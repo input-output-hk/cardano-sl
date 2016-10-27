@@ -197,5 +197,6 @@ setupLoggingReal LoggingParams {..} = do
     initLogging
         [ (lpRootLogger, Just lpMainSeverity)
         , ((dhtLoggerName (Proxy :: Proxy RealMode)), lpDhtSeverity)
+        , ((dhtLoggerName (Proxy :: Proxy RealMode)) <> "instance", lpDhtSeverity)
         ]
         lpMainSeverity

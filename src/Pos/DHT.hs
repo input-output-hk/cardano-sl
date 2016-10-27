@@ -136,7 +136,7 @@ defaultSendToNeighbors msg = do
           return False
 
 newtype DHTData = DHTData ()
-  deriving (Eq, Ord, Binary)
+  deriving (Eq, Ord, Binary, Show)
 
 -- DHTKey should be strictly 20-byte long
 newtype DHTKey = DHTKey { dhtKeyBytes :: BS.ByteString }
@@ -171,7 +171,7 @@ dhtNodeType (DHTKey bs) = impl $ BS.head bs
   where
     impl 0x00 = Just DHTSupporter
     impl 0x30 = Just DHTFull
-    impl 0xF0 = Just DHTSupporter
+    impl 0xF0 = Just DHTClient
     impl _    = Nothing
 
 typeByte :: DHTNodeType -> Word8

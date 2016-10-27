@@ -14,7 +14,9 @@ module Pos.DHT.Real
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, finally,
                                             throwM)
 import           Control.Monad.Trans.Class (MonadTrans)
-import           Control.TimeWarp.Logging  (WithNamedLogger, logDebug, logWarning)
+import           Control.TimeWarp.Logging  (WithNamedLogger (getLoggerName), logDebug,
+                                            logError, logInfo, logWarning,
+                                            usingLoggerName)
 import           Control.TimeWarp.Rpc      (Binding (..), ListenerH (..), MonadDialog,
                                             MonadResponse, MonadTransfer, NetworkAddress,
                                             RawData, listenR, sendH, sendR)
@@ -114,13 +116,15 @@ stopDHT ctx = do
       Just tid -> killThread tid
       _        -> return ()
 
-startDHT :: (MonadTimed m, MonadIO m) => KademliaDHTConfig m -> m (KademliaDHTContext m)
+startDHT :: (MonadTimed m, MonadIO m, WithNamedLogger m) => KademliaDHTConfig m -> m (KademliaDHTContext m)
 startDHT (KademliaDHTConfig {..}) = do
     kdcKey <- either return randomDHTKey kdcKeyOrType
-    kdcHandle <- liftIO $ K.create (fromInteger . toInteger $ kdcPort) kdcKey
+    kdcHandle <- liftIO $ K.create (fromInteger . toInteger $ kdcPort) kdcKey (log' logDebug) (log' logError)
     kdcMsgThreadId <- liftIO . atomically $ newTVar Nothing
     let kdcInitialPeers_ = kdcInitialPeers
     return $ KademliaDHTContext {..}
+  where
+    log' log =  usingLoggerName ("kademlia" <> "instance") . log . toS
 
 rawListener
     :: (MonadIO m, MonadDHT m, MonadDialog m, WithNamedLogger m)

@@ -142,7 +142,7 @@ import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeC
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
-import           Formatting           (Format, bprint, build, int, sformat, (%))
+import           Formatting           (Format, bprint, build, int, ords, sformat, (%))
 import           Serokell.AcidState   ()
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Text   (listJson)
@@ -188,7 +188,7 @@ instance MessagePack SlotId
 
 instance Buildable SlotId where
     build SlotId {..} =
-        bprint (int%"-th slot of "%int%"-th epoch") siSlot siEpoch
+        bprint (ords%" slot of "%ords%" epoch") siSlot siEpoch
 
 slotIdF :: Format r (SlotId -> r)
 slotIdF = build

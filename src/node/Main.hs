@@ -41,6 +41,8 @@ data Args = Args
     , systemStart        :: !(Maybe Timestamp)
     , supporterNode      :: !Bool
     , dhtKey             :: !(Maybe DHTKey)
+    , mainLogSeverity    :: Severity
+    , dhtLogSeverity     :: Severity
     }
     deriving Show
 
@@ -79,7 +81,14 @@ argsParser =
     optional
         (option (fromParsec dhtKeyParser) $
          long "dht-key" <> metavar "HOST_ID" <>
-         help "DHT key in base64-url")
+         help "DHT key in base64-url") <*>
+    option auto
+        (long "main-log" <> metavar "SEVERITY" <> value Debug <> showDefault <>
+         help "Main log severity, one of Info, Debug, Warning, Error") <*>
+    option auto
+        (long "dht-log" <> metavar "SEVERITY" <> value Info <> showDefault <>
+         help "DHT log severity, one of Info, Debug, Warning, Error")
+
   where
     peerHelpMsg = "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""
 
@@ -118,25 +127,25 @@ main = do
           vssSK <- getKey ((genesisVssKeyPairs !!) <$> vssGenesisI) vssSecretPath "vss.keypair" vssKeyGen
           runNodeReal $ params args spendingSK vssSK
   where
-    loggingParams logger =
+    loggingParams logger (Args {..}) =
         def
         { lpRootLogger = logger
-        , lpMainSeverity = Debug
-        , lpDhtSeverity = Just Info
+        , lpMainSeverity = mainLogSeverity
+        , lpDhtSeverity = Just dhtLogSeverity
         }
-    supporterParams (Args {..}) =
+    supporterParams args@(Args {..}) =
         SupporterParams
-        { spLogging = loggingParams "supporter"
+        { spLogging = loggingParams "supporter" args
         , spPort = port
         , spDHTPeers = dhtPeers
         , spDHTKeyOrType = maybe (Right DHTSupporter) Left dhtKey
         }
-    params (Args {..}) spendingSK vssSK =
+    params args@(Args {..}) spendingSK vssSK =
         NodeParams
         { npDbPath = Just dbPath
         , npRebuildDb = rebuildDB
         , npSystemStart = systemStart
-        , npLogging = loggingParams "node"
+        , npLogging = loggingParams "node" args
         , npSecretKey = spendingSK
         , npVssKeyPair = vssSK
         , npPort = port

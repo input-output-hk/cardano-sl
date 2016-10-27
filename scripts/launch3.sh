@@ -9,14 +9,16 @@ tmux split-window -v
 
 startTime=`date +%s`$((`date +%N`/1000))
 
+envs="MAIN_LOG=$MAIN_LOG DHT_LOG=$DHT_LOG "
+
 tmux select-pane -t 0
-tmux send-keys "./scripts/runSupporter.sh" C-m
+tmux send-keys "$envs ./scripts/runSupporter.sh" C-m
 
 tmux select-pane -t 1
-tmux send-keys "./scripts/runNode.sh 0 $startTime" C-m
+tmux send-keys "$envs ./scripts/runNode.sh 0 $startTime" C-m
 
 tmux select-pane -t 2
-tmux send-keys "./scripts/runNode.sh 1 $startTime" C-m
+tmux send-keys "$envs ./scripts/runNode.sh 1 $startTime" C-m
 
 tmux select-pane -t 3
-tmux send-keys "./scripts/runNode.sh 2 $startTime" C-m
+tmux send-keys "$envs ./scripts/runNode.sh 2 $startTime" C-m

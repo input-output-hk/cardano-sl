@@ -17,7 +17,8 @@ import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
 import           Formatting             (Format, build)
 import           Pos.DHT                (DHTResponseT)
-import           Universum
+import           Prelude                (Read (..), Show (..))
+import           Universum              hiding (show)
 
 import           Pos.Constants          (slotDuration)
 import           Pos.Types              (FlatSlotId, SlotId (..), flattenSlotId,
@@ -29,7 +30,13 @@ import           Pos.Types              (FlatSlotId, SlotId (..), flattenSlotId,
 -- timestamps is microsecond. Hence underlying type is Microsecond.
 newtype Timestamp = Timestamp
     { getTimestamp :: Microsecond
-    } deriving (Show, Num, Read)
+    } deriving (Num)
+
+instance Show Timestamp where
+  show = show . getTimestamp
+
+instance Read Timestamp where
+  readsPrec i = fmap (\(a, s) -> (Timestamp a, s)) . readsPrec i
 
 instance Buildable Timestamp where
     build = Buildable.build . (fromIntegral :: Microsecond -> Integer) . getTimestamp

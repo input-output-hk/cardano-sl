@@ -73,7 +73,7 @@ argsParser =
          help peerHelpMsg) <*>
     optional (
       option auto
-        (long "start-time" <> metavar "TMESTAMP" <>
+        (long "start-time" <> metavar "TIMESTAMP" <>
          help "Start time")) <*>
     switch (long "supporter" <> help "Launch DHT supporter instead of full node") <*>
     optional

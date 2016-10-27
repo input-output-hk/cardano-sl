@@ -202,4 +202,4 @@ setupLoggingReal LoggingParams {..} = do
         lpDhtSeverity
     -- TODO: `comm` shouldn't be hardcoded, it should be taken
     -- from MonadTransfer or something
-    setSeverityMaybe ("comm" <> lpRootLogger) lpCommSeverity
+    setSeverityMaybe (lpRootLogger <> "comm") lpCommSeverity

@@ -41,7 +41,7 @@ import           Data.Default            (Default, def)
 import qualified Data.HashMap.Strict     as HM
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
-import           Formatting              (sformat, shown, (%))
+import           Formatting              (build, sformat, (%))
 import           Serokell.AcidState      ()
 import           Serokell.Util           (VerificationRes (..))
 import           Universum
@@ -190,7 +190,7 @@ calculateLeadersDo epoch = do
     onErrorGetUtxo =
         panic "Failed to get utxo necessary for leaders calculation"
     onErrorCalcLeaders e =
-        panic (sformat ("Leaders calculation reported error: " % shown) e)
+        panic (sformat ("Leaders calculation reported error: " % build) e)
 
 -- | Get keys of nodes participating in an epoch. A node participates if,
 -- when there were 'k' slots left before the end of the previous epoch, both

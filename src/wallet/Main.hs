@@ -69,7 +69,7 @@ main = do
                     { npDbPath = Nothing
                     , npRebuildDb = False
                     , npSystemStart = Nothing
-                    , npLogging = def { lpMainSeverity = Debug }
+                    , npLogging = def { lpMainSeverity = Debug, lpRootLogger = "wallet" }
                     , npSecretKey = genesisSecretKeys !! i
                     , npVssKeyPair = genesisVssKeyPairs !! i
                     , npPort = 24962

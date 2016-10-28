@@ -40,10 +40,10 @@ announceTx tx = do
 -- to relay transactions.
 announceTxs :: WorkMode m => [Tx] -> m ()
 announceTxs [] = pure ()
-announceTxs (tx:txs) = do
+announceTxs txs@(tx:txs') = do
     logDebug $
         sformat ("Announcing txs to others:\n" %build) $ listBuilderJSON txs
-    void . sendToNeighbors . SendTxs $ tx :| txs
+    void . sendToNeighbors . SendTxs $ tx :| txs'
 
 -- | Send Tx to given address.
 sendTx :: WorkMode m => NetworkAddress -> Tx -> m ()

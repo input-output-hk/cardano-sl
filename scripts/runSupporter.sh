@@ -13,5 +13,7 @@ if [[ "$COMM_LOG" != "" ]]; then
   logs="$logs --comm-log $COMM_LOG"
 fi
 
-stack exec -- pos-node --supporter --port 2000 --dht-key 'ABOtPlQMv123_4wzfgjAzvsT2LE='\
+bin=$(stack path --local-install-root)/bin
+
+$bin/pos-node --supporter --port 2000 --dht-key 'ABOtPlQMv123_4wzfgjAzvsT2LE='\
   $logs | tee logs/supporter-`date '+%F_%H%M%S'`.log

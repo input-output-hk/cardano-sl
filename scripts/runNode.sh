@@ -26,7 +26,10 @@ fi
 if [[ "$COMM_LOG" != "" ]]; then
   logs="$logs --comm-log $COMM_LOG"
 fi
-stack exec -- pos-node --db-path pos-db$i --rebuild-db --vss-genesis $i \
+
+bin=$(stack path --local-install-root)/bin
+
+$bin/pos-node --db-path pos-db$i --rebuild-db --vss-genesis $i \
   --spending-genesis $i --port $port --peer '127.0.0.1:2000/ABOtPlQMv123_4wzfgjAzvsT2LE=' \
   $logs $st \
   | tee logs/node-$i-`date '+%F_%H%M%S'`.log

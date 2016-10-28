@@ -26,7 +26,9 @@ module Pos.DHT (
     ListenerDHT (..),
     withDhtLogger,
     filterByNodeType,
-    joinNetworkNoThrow
+    joinNetworkNoThrow,
+    defaultSendToNeighbors,
+    defaultSendToNode
 ) where
 
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, catch,
@@ -93,9 +95,7 @@ class MonadDHT m => MonadMessageDHT m where
     sendToNeighbors :: Message r => r -> m Int
 
     default sendToNode :: (Message r, WithDefaultMsgHeader m, MonadDialog m) => NetworkAddress -> r -> m ()
-    sendToNode addr msg = do
-        header <- defaultMsgHeader msg
-        sendH addr header msg
+    sendToNode = defaultSendToNode
 
     default sendToNeighbors :: (Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
     sendToNeighbors = defaultSendToNeighbors
@@ -106,6 +106,17 @@ class MonadMessageDHT m => MonadResponseDHT m where
 
 data ListenerDHT m =
     forall r . Message r => ListenerDHT (r -> DHTResponseT m ())
+
+defaultSendToNode
+    :: ( MonadMessageDHT m
+       , Message r
+       , WithDefaultMsgHeader m
+       , MonadDialog m
+       )
+    => NetworkAddress -> r -> m ()
+defaultSendToNode addr msg = do
+    header <- defaultMsgHeader msg
+    sendH addr header msg
 
 defaultSendToNeighbors
     :: ( MonadMessageDHT m
@@ -128,7 +139,7 @@ defaultSendToNeighbors msg = do
     when (succeed' < neighborsSendThreshold) $
         logWarning $
         sformat
-            ("Send to only " % int % " nodes out, threshold is " % int)
+            ("Send to only " % int % " nodes, threshold is " % int)
             succeed'
             (neighborsSendThreshold :: Int)
     return succeed'
@@ -197,6 +208,7 @@ data DHTNode = DHTNode { dhtAddr   :: NetworkAddress
                        , dhtNodeId :: DHTKey
                        }
   deriving (Eq, Ord, Show)
+
 instance Buildable DHTNode where
     build (DHTNode (peerHost, peerPort) key)
       = bprint (F.build % " at " % F.build % ":" % F.build)

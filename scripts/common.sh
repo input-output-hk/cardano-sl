@@ -1,6 +1,7 @@
 
 function find_binary {
-	echo $(stack path --local-install-root)/bin/$1
+	binpath=`find .stack-work/install -type d -name bin | head -n1`
+	echo "$binpath"/$1
 }
 
 function ensure_logs {

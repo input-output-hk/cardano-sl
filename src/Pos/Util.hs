@@ -93,9 +93,9 @@ deriveSafeCopySimple 0 'base ''VerificationRes
 msgpackFail :: Monad m => String -> m a
 msgpackFail = Control.Monad.fail
 
-instance MessagePack a => MessagePack (V.Vector a) where
-    toObject = toObject . toList
-    fromObject = fmap V.fromList . fromObject
+--instance MessagePack a => MessagePack (V.Vector a) where
+--    toObject = toObject . toList
+--    fromObject = fmap V.fromList . fromObject
 
 -- TODO: pull request to data-messagepack
 instance MessagePack a =>

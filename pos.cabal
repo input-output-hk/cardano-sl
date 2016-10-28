@@ -77,7 +77,7 @@ library
                       , containers
                       , cryptonite >= 0.19 && < 0.21
                       , data-default
-                      , data-msgpack >= 0.0.6
+                      , data-msgpack >= 0.0.8
                       , derive
                       , ed25519
                       , exceptions

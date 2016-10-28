@@ -23,7 +23,7 @@ runWorkers :: WorkMode m => m ()
 runWorkers = mapM_ fork_ (onNewSlotWorker : blkWorkers ++ mpcWorkers ++ txWorkers)
 
 onNewSlotWorker :: WorkMode m => m ()
-onNewSlotWorker = onNewSlot False onNewSlotWorkerImpl
+onNewSlotWorker = onNewSlot True onNewSlotWorkerImpl
 
 onNewSlotWorkerImpl :: WorkMode m => SlotId -> m ()
 onNewSlotWorkerImpl slotId = do

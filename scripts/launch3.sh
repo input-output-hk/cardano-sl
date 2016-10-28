@@ -11,6 +11,10 @@ startTime=`date +%s`$((`date +%N`/1000))
 
 envs="MAIN_LOG=$MAIN_LOG DHT_LOG=$DHT_LOG COMM_LOG=$COMM_LOG "
 
+# to prevent all stacks from updating git at the same time and messing up
+# each other
+stack exec echo
+
 tmux select-pane -t 0
 tmux send-keys "$envs ./scripts/runSupporter.sh" C-m
 

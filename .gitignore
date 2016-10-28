@@ -16,6 +16,9 @@ cabal-dev
 .cabal-sandbox/
 cabal.sandbox.config
 cabal.config
+GTAGS
+GRTAGS
+GPATH
 TAGS
 .DS_Store
 *~

@@ -132,6 +132,8 @@ startDHT (KademliaDHTConfig{..}) = do
   where
     log' logF = usingLoggerName ("kademlia" <> "instance") . logF . toS
 
+-- | Return 'True' if the message should be processed, 'False' if only
+-- broadcasted
 rawListener
     :: (MonadIO m, MonadDHT m, MonadDialog m, WithNamedLogger m)
     => Bool -> TVar (LRU.LRU Int ()) -> (DHTMsgHeader, RawData) -> m Bool
@@ -140,11 +142,15 @@ rawListener enableBroadcast cache (h, rawData) = withDhtLogger $ do
     logDebug $
         sformat ("Received message (" % shown % ", hash=" % int) h mHash
     wasInCache <- liftIO . atomically $ updCache cache mHash
-    wasInCache <$
-        (unless wasInCache $
+    -- If the message is in cache, we have already broadcasted it before, no
+    -- need to do it twice
+    when (not wasInCache && enableBroadcast) $
         case h of
-            BroadcastHeader -> when enableBroadcast $ sendToNetworkR rawData
-            SimpleHeader    -> pure ())
+            BroadcastHeader -> sendToNetworkR rawData
+            SimpleHeader    -> pure ()
+    -- If the message wasn't in the cache, we want to process it too (not
+    -- simply broadcast it)
+    return (not wasInCache)
 
 updCache :: TVar (LRU.LRU Int ()) -> Int -> STM Bool
 updCache cacheTV dataHash = do

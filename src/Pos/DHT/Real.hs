@@ -60,20 +60,21 @@ instance K.Serialize DHTKey where
 
 type DHTHandle = K.KademliaInstance DHTKey DHTData
 
-data KademliaDHTContext m = KademliaDHTContext { kdcHandle      :: DHTHandle
-                                               , kdcKey         :: DHTKey
-                                               , kdcMsgThreadId :: TVar (Maybe (ThreadId (KademliaDHT m)))
-                                               , kdcInitialPeers_ :: [DHTNode]
-                                               }
+data KademliaDHTContext m = KademliaDHTContext
+    { kdcHandle        :: DHTHandle
+    , kdcKey           :: DHTKey
+    , kdcMsgThreadId   :: TVar (Maybe (ThreadId (KademliaDHT m)))
+    , kdcInitialPeers_ :: [DHTNode]
+    }
 
 data KademliaDHTConfig m = KademliaDHTConfig
-                            { kdcPort             :: Word16
-                            , kdcListeners        :: [ListenerDHT (KademliaDHT m)]
-                            , kdcMessageCacheSize :: Int
-                            , kdcEnableBroadcast  :: Bool
-                            , kdcKeyOrType        :: Either DHTKey DHTNodeType
-                            , kdcInitialPeers     :: [DHTNode]
-                            }
+    { kdcPort             :: Word16
+    , kdcListeners        :: [ListenerDHT (KademliaDHT m)]
+    , kdcMessageCacheSize :: Int
+    , kdcEnableBroadcast  :: Bool
+    , kdcKeyOrType        :: Either DHTKey DHTNodeType
+    , kdcInitialPeers     :: [DHTNode]
+    }
 
 newtype KademliaDHT m a = KademliaDHT { unKademliaDHT :: ReaderT (KademliaDHTContext m) m a }
     deriving (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadIO,
@@ -110,20 +111,26 @@ stopDHT ctx = do
     mThreadId <- liftIO . atomically $ do
       tId <- readTVar $ kdcMsgThreadId ctx
       writeTVar (kdcMsgThreadId ctx) Nothing
-      return tId
+      pure tId
     case mThreadId of
       Just tid -> killThread tid
-      _        -> return ()
+      _        -> pure ()
 
 startDHT :: (MonadTimed m, MonadIO m) => KademliaDHTConfig m -> m (KademliaDHTContext m)
-startDHT (KademliaDHTConfig {..}) = do
-    kdcKey <- either return randomDHTKey kdcKeyOrType
-    kdcHandle <- liftIO $ K.create (fromInteger . toInteger $ kdcPort) kdcKey (log' logDebug) (log' logError)
+startDHT (KademliaDHTConfig{..}) = do
+    kdcKey <- either pure randomDHTKey kdcKeyOrType
+    kdcHandle <-
+        liftIO $
+        K.createL
+            (fromInteger . toInteger $ kdcPort)
+            kdcKey
+            (log' logDebug)
+            (log' logError)
     kdcMsgThreadId <- liftIO . atomically $ newTVar Nothing
     let kdcInitialPeers_ = kdcInitialPeers
-    return $ KademliaDHTContext {..}
+    pure $ KademliaDHTContext {..}
   where
-    log' logF =  usingLoggerName ("kademlia" <> "instance") . logF . toS
+    log' logF = usingLoggerName ("kademlia" <> "instance") . logF . toS
 
 rawListener
     :: (MonadIO m, MonadDHT m, MonadDialog m, WithNamedLogger m)
@@ -144,13 +151,15 @@ updCache cacheTV dataHash = do
     cache <- readTVar cacheTV
     let (cache', mP) = dataHash `LRU.lookup` cache
     case mP of
-      Just _ -> writeTVar cacheTV cache' >> return True
-      _      -> writeTVar cacheTV (LRU.insert dataHash () cache') >> return False
+      Just _ -> writeTVar cacheTV cache' >> pure True
+      _      -> writeTVar cacheTV (LRU.insert dataHash () cache') >> pure False
 
 sendToNetworkR :: (MonadDialog m, MonadDHT m) => RawData -> m ()
 sendToNetworkR = sendToNetworkImpl sendR
 
-sendToNetworkImpl :: (MonadDialog m, MonadDHT m) => (NetworkAddress -> Put -> msg -> m ()) -> msg -> m ()
+sendToNetworkImpl
+    :: (MonadDialog m, MonadDHT m)
+    => (NetworkAddress -> Put -> msg -> m ()) -> msg -> m ()
 sendToNetworkImpl = notImplemented
 
 data DHTMsgHeader = BroadcastHeader
@@ -159,8 +168,9 @@ data DHTMsgHeader = BroadcastHeader
 
 instance Binary DHTMsgHeader
 
-instance (MonadDialog m, WithNamedLogger m, MonadCatch m, MonadIO m) => MonadMessageDHT (KademliaDHT m) where
-  sendToNetwork = sendToNetworkImpl sendH
+instance (MonadDialog m, WithNamedLogger m, MonadCatch m, MonadIO m) =>
+         MonadMessageDHT (KademliaDHT m) where
+    sendToNetwork = sendToNetworkImpl sendH
 
 instance (MonadIO m, MonadCatch m, WithNamedLogger m) => MonadDHT (KademliaDHT m) where
 
@@ -170,7 +180,7 @@ instance (MonadIO m, MonadCatch m, WithNamedLogger m) => MonadDHT (KademliaDHT m
       asyncs <- mapM (liftIO . async . joinNetwork' inst) nodes
       waitAnyUnexceptional asyncs >>= handleRes
     where
-      handleRes (Just _) = return ()
+      handleRes (Just _) = pure ()
       handleRes _        = throwM AllPeersUnavailable
 
   discoverPeers type_ = do
@@ -207,18 +217,18 @@ joinNetwork' inst node = do
   let node' = K.Node (toKPeer $ dhtAddr node) (dhtNodeId node)
   res <- liftIO $ K.joinNetwork inst node'
   case res of
-    K.JoinSucces -> return ()
+    K.JoinSucces -> pure ()
     K.NodeDown   -> throwM NodeDown
-    K.IDClash    -> return () --logInfo $ sformat ("joinNetwork: node " % build % " already contains us") node
+    K.IDClash    -> pure () --logInfo $ sformat ("joinNetwork: node " % build % " already contains us") node
 
 -- TODO move to serokell-core ?
 waitAnyUnexceptional :: (MonadIO m, WithNamedLogger m) => [Async a] -> m (Maybe (Async a, a))
 waitAnyUnexceptional asyncs = liftIO (waitAnyCatch asyncs) >>= handleRes
   where
-    handleRes (async', Right res) = return $ Just (async', res)
+    handleRes (async', Right res) = pure $ Just (async', res)
     handleRes (async', Left e) = do
       logWarning $ sformat ("waitAnyUnexceptional: caught error " % shown) e
       if null asyncs'
-         then return Nothing
+         then pure Nothing
          else waitAnyUnexceptional asyncs'
       where asyncs' = filter (/= async') asyncs

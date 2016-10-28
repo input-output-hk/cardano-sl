@@ -1,6 +1,6 @@
 
 function find_binary {
-	binpath=`find .stack-work/install -type d -name bin | head -n1`
+	binpath=`find .stack-work/install -type d -name bin | sort | tail -n1`
 	echo "$binpath"/$1
 }
 

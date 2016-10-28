@@ -1,7 +1,8 @@
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications      #-}
 
 -- | Common things used in `Pos.Crypto.Arbitrary` and `Pos.Util.Arbitrary`
 
@@ -14,8 +15,9 @@ module Pos.Util.Arbitrary
     ) where
 
 import           Data.ByteString  (pack)
+import           Data.MessagePack ()
 import           System.IO.Unsafe (unsafePerformIO)
-import           Test.QuickCheck  (Arbitrary (..), Gen, shuffle, vector, listOf)
+import           Test.QuickCheck  (Arbitrary (..), Gen, listOf, shuffle, vector)
 import           Universum
 
 -- | Choose a random (shuffled) subset of length n. Throws an error if
@@ -48,22 +50,20 @@ not to mimic real data as presisely as possible (using OpenSSL random), but
 rather to be simple and efficient.
 
 This is especially useful for benchmarking.
+
+TODO: embrace some generics to derive `ArbitraryUnsafe` automagically
 -}
 
 class ArbitraryUnsafe a where
     arbitraryUnsafe :: Gen a
 
-instance ArbitraryUnsafe Word16 where
+    default arbitraryUnsafe :: Arbitrary a => Gen a
     arbitraryUnsafe = arbitrary
 
-instance ArbitraryUnsafe Word32 where
-    arbitraryUnsafe = arbitrary
-
-instance ArbitraryUnsafe Word64 where
-    arbitraryUnsafe = arbitrary
-
-instance ArbitraryUnsafe ByteString where
-    arbitraryUnsafe = pack <$> arbitrary
+instance ArbitraryUnsafe Word16
+instance ArbitraryUnsafe Word32
+instance ArbitraryUnsafe Word64
+instance ArbitraryUnsafe ByteString
 
 instance ArbitraryUnsafe a => ArbitraryUnsafe [a] where
     arbitraryUnsafe = listOf arbitraryUnsafe

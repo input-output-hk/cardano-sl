@@ -4,9 +4,9 @@ synopsis:            Proof-of-stake
 description:         Please see README.md
 license:             BSD3
 license-file:        LICENSE
-author:              Artyom Kazak, Ivan Gromakovskii
+author:              Serokell OU
 maintainer:          hi@serokell.io
-copyright:           2016 Serokell
+copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
 -- extra-source-files:

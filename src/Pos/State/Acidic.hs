@@ -36,6 +36,9 @@ module Pos.State.Acidic
        , ProcessTx (..)
        , ProcessVssCertificate (..)
        , SetSecret (..)
+
+       , AddStatRecord (..)
+       , GetStatRecords (..)
        ) where
 
 import           Data.Acid          (EventResult, EventState, QueryEvent, UpdateEvent,
@@ -97,4 +100,6 @@ makeAcidic ''Storage
     , 'S.processTx
     , 'S.processVssCertificate
     , 'S.setSecret
+    , 'S.addStatRecord
+    , 'S.getStatRecords
     ]

@@ -19,6 +19,8 @@ module Pos.DHT (
     MonadResponseDHT (..),
     DHTResponseT,
     getDHTResponseT,
+    mapDHTResponseT,
+    mapListenerDHT,
     randomDHTKey,
     bytesToDHTKey,
     dhtNodeType,
@@ -31,15 +33,15 @@ module Pos.DHT (
     defaultSendToNode
 ) where
 
-import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow,
-                                            catch, throwM)
+import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, catch,
+                                            throwM)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.TimeWarp.Logging  (LoggerName,
-                                            WithNamedLogger (modifyLoggerName),
-                                            logInfo, logWarning)
+                                            WithNamedLogger (modifyLoggerName), logInfo,
+                                            logWarning)
 import           Control.TimeWarp.Rpc      (Message, MonadDialog, MonadTransfer,
-                                            NetworkAddress, ResponseT, replyH,
-                                            sendH)
+                                            NetworkAddress, ResponseT, mapResponseT,
+                                            replyH, sendH)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Data.Binary               (Binary, Put)
 import qualified Data.ByteString           as BS
@@ -240,8 +242,9 @@ instance MonadMessageDHT m => MonadMessageDHT (ResponseT m) where
 instance (Monad m, WithDefaultMsgHeader m) => WithDefaultMsgHeader (ResponseT m) where
   defaultMsgHeader = lift . defaultMsgHeader
 
-newtype DHTResponseT m a = DHTResponseT { getDHTResponseT :: (ResponseT m a) }
-    deriving (Functor, Applicative, Monad, MonadIO, MonadTrans,
+newtype DHTResponseT m a = DHTResponseT
+    { getDHTResponseT :: ResponseT m a
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans,
                 MonadThrow, MonadCatch, MonadMask,
                 MonadState s, WithDefaultMsgHeader,
                 WithNamedLogger, MonadTimed, MonadTransfer, MonadDHT, MonadMessageDHT)
@@ -252,6 +255,13 @@ instance (WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog m, MonadIO m) =
   replyToNode msg = do
     header <- defaultMsgHeader msg
     DHTResponseT $ replyH header msg
+
+mapDHTResponseT :: (m a -> n b) -> DHTResponseT m a -> DHTResponseT n b
+mapDHTResponseT how = DHTResponseT . mapResponseT how . getDHTResponseT
+
+-- | Helper for substituting inner monad stack in `ListenerDHT`
+mapListenerDHT :: (m () -> n ()) -> ListenerDHT m -> ListenerDHT n
+mapListenerDHT how (ListenerDHT listen) = ListenerDHT $ mapDHTResponseT how . listen
 
 filterByNodeType :: DHTNodeType -> [DHTNode] -> [DHTNode]
 filterByNodeType type_ = filter (\n -> dhtNodeType (dhtNodeId n) == Just type_)

@@ -15,14 +15,14 @@
 
 module Pos.Types.Types
        (
-         EpochIndex (..)
+         Coin (..)
+       , coinF
+
+       , EpochIndex (..)
        , LocalSlotIndex (..)
        , SlotId (..)
-       , slotIdF
        , FlatSlotId
-
-       , Coin (..)
-       , coinF
+       , slotIdF
 
        , Address (..)
        , addressF
@@ -159,6 +159,24 @@ import           Pos.Merkle           (MerkleRoot, MerkleTree, mkMerkleTree, mtR
 import           Pos.Util             (makeLensesData)
 
 ----------------------------------------------------------------------------
+-- Coin
+----------------------------------------------------------------------------
+
+-- | Coin is the least possible unit of currency.
+newtype Coin = Coin
+    { getCoin :: Word64
+    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Binary, Hashable, Data, NFData)
+
+instance MessagePack Coin
+
+instance Buildable Coin where
+    build = bprint (int%" coin(s)")
+
+-- | Coin formatter which restricts type.
+coinF :: Format r (Coin -> r)
+coinF = build
+
+----------------------------------------------------------------------------
 -- Slotting
 ----------------------------------------------------------------------------
 
@@ -195,24 +213,6 @@ slotIdF = build
 
 -- | FlatSlotId is a flat version of SlotId
 type FlatSlotId = Word64
-
-----------------------------------------------------------------------------
--- Coin
-----------------------------------------------------------------------------
-
--- | Coin is the least possible unit of currency.
-newtype Coin = Coin
-    { getCoin :: Word64
-    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Binary, Hashable, Data, NFData)
-
-instance MessagePack Coin
-
-instance Buildable Coin where
-    build = bprint (int%" coin(s)")
-
--- | Coin formatter which restricts type.
-coinF :: Format r (Coin -> r)
-coinF = build
 
 ----------------------------------------------------------------------------
 -- Address
@@ -435,6 +435,11 @@ data GenericBlock b = GenericBlock
     } deriving (Generic)
 
 deriving instance
+         (Show (GenericBlockHeader b), Show (Body b),
+          Show (ExtraBodyData b)) =>
+         Show (GenericBlock b)
+
+deriving instance
          (Eq (BodyProof b), Eq (ConsensusData b), Eq (ExtraHeaderData b),
           Eq (Body b), Eq (ExtraBodyData b)) =>
          Eq (GenericBlock b)
@@ -484,7 +489,7 @@ data MpcData = MpcData
       -- | Vss certificates are added at any time if they are valid and
       -- received from stakeholders.
     , _mdVssCertificates :: !VssCertificatesMap
-    } deriving (Show, Generic)
+    } deriving (Generic, Show)
 
 instance Binary MpcData
 instance MessagePack MpcData
@@ -518,7 +523,7 @@ instance Blockchain MainBlockchain where
         _mcdDifficulty :: !ChainDifficulty
         , -- | Signature given by slot leader.
         _mcdSignature  :: !(Signature MainToSign)
-        } deriving (Generic)
+        } deriving (Generic, Show)
     type BBlockHeader MainBlockchain = BlockHeader
 
     -- | In our cryptocurrency, body consists of a list of transactions
@@ -530,7 +535,7 @@ instance Blockchain MainBlockchain where
           _mbTxs         :: !(MerkleTree Tx)
         , -- | Data necessary for MPC.
           _mbMpc  :: !MpcData
-        } deriving (Generic)
+        } deriving (Generic, Show)
     type BBlock MainBlockchain = Block
 
     mkBodyProof MainBody {_mbMpc = MpcData {..}, ..} =
@@ -576,18 +581,26 @@ instance Buildable MainBlockHeader where
 -- main part of our consensus algorithm.
 type MainBlock = GenericBlock MainBlockchain
 
--- TODO
 instance Buildable MainBlock where
     build GenericBlock {..} =
         bprint
             ("MainBlock:\n"%
              "  "%build%
-             "  transactions: "%listJson%"\n"
+             "  transactions: "%listJson%"\n"%
+             "  number of commitments: "%int%", "%
+             "openings: "%int%", "%
+             "shares: "%int%", "%
+             "certificates: "%int%"\n"
             )
             _gbHeader
             _mbTxs
+            (length _mdCommitments)
+            (length _mdOpenings)
+            (length _mdShares)
+            (length _mdVssCertificates)
       where
         MainBody {..} = _gbBody
+        MpcData {..} = _mbMpc
 
 ----------------------------------------------------------------------------
 -- GenesisBlock
@@ -607,13 +620,13 @@ instance Blockchain GenesisBlockchain where
     -- TODO: do we need a Merkle tree? This list probably won't be large.
     data BodyProof GenesisBlockchain = GenesisProof
         !(Hash (Vector PublicKey))
-        deriving (Eq, Generic)
+        deriving (Eq, Generic, Show)
     data ConsensusData GenesisBlockchain = GenesisConsensusData
         { -- | Index of the slot for which this genesis block is relevant.
           _gcdEpoch :: !EpochIndex
         , -- | Difficulty of the chain ending in this genesis block.
           _gcdDifficulty :: !ChainDifficulty
-        } deriving (Generic)
+        } deriving (Generic, Show)
     type BBlockHeader GenesisBlockchain = BlockHeader
 
     -- | Body of genesis block consists of slot leaders for epoch

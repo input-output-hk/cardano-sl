@@ -107,12 +107,12 @@ getBlock h = view (blkBlocks . at h)
 getBlockByDepth :: Word -> Query (Maybe Block)
 getBlockByDepth i = do
     headHash <- view blkHead
-    getBlockByHeadDo i headHash
+    getBlockByDepthDo i headHash
 
-getBlockByHeadDo :: Word -> HeaderHash -> Query (Maybe Block)
-getBlockByHeadDo 0 h = getBlock h
-getBlockByHeadDo i h =
-    maybe (pure Nothing) (getBlockByHeadDo (i - 1) . view prevBlockL) =<<
+getBlockByDepthDo :: Word -> HeaderHash -> Query (Maybe Block)
+getBlockByDepthDo 0 h = getBlock h
+getBlockByDepthDo i h =
+    maybe (pure Nothing) (getBlockByDepthDo (i - 1) . view prevBlockL) =<<
     getBlock h
 
 -- | Get block which is the head of the __best chain__.
@@ -143,17 +143,19 @@ getLeader :: SlotId -> Query (Maybe PublicKey)
 getLeader SlotId {..} = (^? ix (fromIntegral siSlot)) <$> getLeaders siEpoch
 
 -- | Get depth of the first main block whose SlotId ≤ given value.
+-- Depth of the deepest (i. e. 0-th genesis) block is returned if
+-- there is no such block.
 getSlotDepth :: SlotId -> Query Word
 getSlotDepth slotId = do
     headBlock <- getHeadBlock
-    getSlotByDepthDo 0 headBlock
+    getSlotDepthDo 0 headBlock
   where
-    getSlotByDepthDo :: Word -> Block -> Query Word
-    getSlotByDepthDo depth (Right blk)
+    getSlotDepthDo :: Word -> Block -> Query Word
+    getSlotDepthDo depth (Right blk)
         | blk ^. blockSlot <= slotId = pure depth
-    getSlotByDepthDo depth blk =
-        maybe (pure depth) (getSlotByDepthDo (depth + 1)) =<<
-        getBlock (headerHash blk)
+    getSlotDepthDo depth blk =
+        maybe (pure depth) (getSlotDepthDo (depth + 1)) =<<
+        getBlock (blk ^. prevBlockL)
 
 -- | Check that block header is correct and claims to represent block
 -- which may become part of blockchain.

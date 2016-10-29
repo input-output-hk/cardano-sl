@@ -104,6 +104,7 @@ instance Binary Ed25519.Signature where
 instance Cereal.Serialize Ed25519.PublicKey where
     put (Ed25519.PublicKey k) = do
         putAssertLength "PublicKey" publicKeyLength k
+        Cereal.putByteString k
     get = Ed25519.PublicKey <$> Cereal.getByteString publicKeyLength
 
 instance Cereal.Serialize Ed25519.SecretKey where

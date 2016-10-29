@@ -48,7 +48,7 @@ mpcOnNewSlot SlotId {..} = do
         shares <- getOurShares ourVss
         void . sendToNeighbors $ SendShares ourPk shares
 
--- | All workers specific to MPC processing.
+    -- | All workers specific to MPC processing.
 -- Exceptions:
 -- 1. Worker which ticks when new slot starts.
 mpcWorkers :: [a]

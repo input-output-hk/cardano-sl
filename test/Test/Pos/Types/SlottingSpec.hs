@@ -1,6 +1,6 @@
--- | Specification of Pos.Types.SlotId.
+-- | Specification of Pos.Types.SlottingSpec.
 
-module Test.Pos.Types.SlotIdSpec
+module Test.Pos.Types.SlottingSpec
        ( spec
        ) where
 

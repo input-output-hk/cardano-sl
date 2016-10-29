@@ -21,7 +21,7 @@ data FullNodeConfig = FullNodeConfig
 
 data SupporterConfig = SupporterConfig
     { scPort   :: !Word16
-    , scDHTKey :: !Text
+    , scDhtKey :: !Text
     }
 
 deriveJSON defaultOptions ''FullNodeConfig

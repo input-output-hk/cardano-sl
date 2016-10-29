@@ -32,10 +32,12 @@ library
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
                         Pos.Communication.Types.Mpc
+                        Pos.Communication.Types.SysStart
                         Pos.Communication.Types.Tx
                         Pos.Communication.Server
                         Pos.Communication.Server.Block
                         Pos.Communication.Server.Mpc
+                        Pos.Communication.Server.SysStart
                         Pos.Communication.Server.Tx
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
@@ -49,13 +51,15 @@ library
                         Pos.State.Storage
                         Pos.State.Storage.Block
                         Pos.State.Storage.Mpc
+                        Pos.State.Storage.Stats
                         Pos.State.Storage.Types
                         Pos.State.Storage.Tx
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block
                         Pos.Types.Mpc
-                        Pos.Types.SlotId
+                        Pos.Types.Slotting
+                        Pos.Types.Timestamp
                         Pos.Types.Tx
                         Pos.Types.Types
                         Pos.Types.Utxo
@@ -167,28 +171,6 @@ executable pos-wallet
                      , NoImplicitPrelude
                      , GeneralizedNewtypeDeriving
 
-executable pos-demo
-  hs-source-dirs:      src/demo
-  main-is:             Main.hs
-  build-depends:       async
-                     , base
-                     , data-default
-                     , formatting
-                     , pos
-                     , serokell-core
-                     , time-warp
-                     , universum
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
-
 test-suite pos-test
   main-is:             Test.hs
   other-modules:       Spec
@@ -276,6 +258,7 @@ benchmark pos-bench-remote
                      , parsec
                      , pos
                      , serokell-core
+                     , time-warp
                      , universum
                      , yaml
   default-language:    Haskell2010

@@ -36,9 +36,11 @@ onNewSlotWhenLeader slotId = do
     wait $ for (slotDuration - networkDiameter)
     logInfo "It's time to create a block for current slot"
     sk <- ncSecretKey <$> getNodeContext
-    createdBlk <- createNewBlock sk slotId
-    logInfo $ sformat ("Created a new block: "%build) createdBlk
-    announceBlock $ createdBlk ^. gbHeader
+    let whenCreated createdBlk = do
+            logInfo $ sformat ("Created a new block: "%build) createdBlk
+            announceBlock $ createdBlk ^. gbHeader
+    let whenNotCreated = logInfo "I couldn't create a new block"
+    maybe whenNotCreated whenCreated =<< createNewBlock sk slotId
 
 -- | All workers specific to block processing.
 -- Exceptions:

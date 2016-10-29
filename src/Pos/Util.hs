@@ -29,7 +29,6 @@ module Pos.Util
        , zoom'
 
        -- * Instances
-       -- ** MessagePack (Vector a)
        -- ** SafeCopy (NonEmpty a)
        ) where
 
@@ -47,7 +46,6 @@ import           Data.SafeCopy                 (Contained, SafeCopy (..), base, 
                                                 deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (String)
-import qualified Data.Vector                   as V
 import           Language.Haskell.TH
 import           Serokell.Util                 (VerificationRes)
 import           Universum
@@ -92,10 +90,6 @@ deriveSafeCopySimple 0 'base ''VerificationRes
 -- | Report error in msgpack's fromObject.
 msgpackFail :: Monad m => String -> m a
 msgpackFail = Control.Monad.fail
-
---instance MessagePack a => MessagePack (V.Vector a) where
---    toObject = toObject . toList
---    fromObject = fmap V.fromList . fromObject
 
 -- TODO: pull request to data-messagepack
 instance MessagePack a =>

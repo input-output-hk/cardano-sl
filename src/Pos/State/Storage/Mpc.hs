@@ -52,6 +52,7 @@ import           Pos.Crypto              (PublicKey, Share,
                                           VssKeyPair, decryptShare, toVssPublicKey,
                                           verify, verifyShare)
 import           Pos.FollowTheSatoshi    (FtsError, calculateSeed, followTheSatoshi)
+import           Pos.Genesis             (genesisCertificates)
 import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types               (Address (getAddress), Block, Commitment (..),
                                           CommitmentSignature, CommitmentsMap,
@@ -104,7 +105,7 @@ instance Default MpcStorageVersion where
         , _mpcLocalOpenings = mempty
         , _mpcGlobalOpenings = mempty
         , _mpcLocalCertificates = mempty
-        , _mpcGlobalCertificates = mempty
+        , _mpcGlobalCertificates = genesisCertificates
         }
 
 data MpcStorage = MpcStorage
@@ -165,6 +166,7 @@ calculateLeaders
     -> Threshold
     -> Query (Either FtsError SlotLeaders)
 calculateLeaders utxo threshold = do
+    --identity $! traceM . show =<< (,,) <$> view (lastVer . mpcGlobalCommitments) <*> view (lastVer . mpcGlobalOpenings) <*> view (lastVer . mpcGlobalShares)
     mbSeed <- calculateSeed threshold
                             <$> view (lastVer . mpcGlobalCommitments)
                             <*> view (lastVer . mpcGlobalOpenings)
@@ -409,6 +411,7 @@ mpcRollback (fromIntegral -> n) = do
 
 mpcProcessBlock :: Block -> Update ()
 mpcProcessBlock blk = do
+    --identity $! traceM . ("Processing block: " <>) . show $ blk
     lv <- use lastVer
     mpcVersioned %= NE.cons lv
     case blk of

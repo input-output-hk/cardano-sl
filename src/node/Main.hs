@@ -5,47 +5,47 @@ module Main where
 import           Data.Default               (def)
 
 import           Control.Applicative        (empty)
+import           Control.Monad              (fail)
 import           Control.TimeWarp.Logging   (Severity (Debug, Info))
+import           Data.Binary                (Binary, decode, encode)
+import qualified Data.ByteString.Lazy       as LBS
 import           Data.List                  ((!!))
 import           Data.Monoid                ((<>))
 import           Options.Applicative.Simple (Parser, auto, help, long, many, metavar,
                                              option, showDefault, simpleOptions,
                                              strOption, switch, value)
-import           Pos.Slotting               (Timestamp (..))
-import           Universum                  hiding ((<>))
-
-import           Control.Monad              (fail)
-import           Data.Binary                (Binary, decode, encode)
-import qualified Data.ByteString.Lazy       as LBS
 import           Pos.CLI                    (dhtKeyParser, dhtNodeParser)
+import           Pos.Constants              (RunningMode (..), runningMode)
 import           Pos.Crypto                 (keyGen, vssKeyGen)
 import           Pos.DHT                    (DHTKey, DHTNode, DHTNodeType (..),
                                              dhtNodeType)
 import           Pos.Genesis                (genesisSecretKeys, genesisVssKeyPairs)
-import           Pos.Launcher               (LoggingParams (..), NodeParams (..),
-                                             SupporterParams (..), runNodeReal,
-                                             runSupporterReal)
+import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
+                                             NodeParams (..), runNodeReal,
+                                             runSupporterReal, runTimeLordReal,
+                                             runTimeSlaveReal)
 import           Serokell.Util.OptParse     (fromParsec)
 import           System.Directory           (createDirectoryIfMissing)
 import           System.FilePath            ((</>))
+import           Universum                  hiding ((<>))
 
 data Args = Args
-    { dbPath             :: FilePath
-    , rebuildDB          :: Bool
-    , spendingGenesisI   :: Maybe Int
-    , vssGenesisI        :: Maybe Int
-    , spendingSecretPath :: Maybe FilePath
-    , vssSecretPath      :: Maybe FilePath
-    , port               :: Word16
-    , dhtPeers           :: [DHTNode]
-    , systemStart        :: !(Maybe Timestamp)
+    { dbPath             :: !FilePath
+    , rebuildDB          :: !Bool
+    , spendingGenesisI   :: !(Maybe Int)
+    , vssGenesisI        :: !(Maybe Int)
+    , spendingSecretPath :: !(Maybe FilePath)
+    , vssSecretPath      :: !(Maybe FilePath)
+    , port               :: !Word16
+    , dhtPeers           :: ![DHTNode]
     , supporterNode      :: !Bool
     , dhtKey             :: !(Maybe DHTKey)
-    , mainLogSeverity    :: Severity
-    , dhtLogSeverity     :: Severity
+    , mainLogSeverity    :: !Severity
+    , dhtLogSeverity     :: !Severity
     , commLogSeverity    :: !(Maybe Severity)
+    , timeLord           :: !Bool
     }
-    deriving Show
+  deriving Show
 
 argsParser :: Parser Args
 argsParser =
@@ -74,10 +74,6 @@ argsParser =
         (option (fromParsec dhtNodeParser) $
          long "peer" <> metavar "HOST:PORT/HOST_ID" <>
          help peerHelpMsg) <*>
-    optional (
-      option auto
-        (long "start-time" <> metavar "TIMESTAMP" <>
-         help "Start time")) <*>
     switch (long "supporter" <> help "Launch DHT supporter instead of full node") <*>
     optional
         (option (fromParsec dhtKeyParser) $
@@ -94,7 +90,8 @@ argsParser =
         [long "comm-log",
          metavar "SEVERITY",
          help "DHT log severity, one of Info, Debug, Warning, Error"
-        ])
+        ]) <*>
+    switch (long "time-lord" <> help "Peer is time lord, i.e. one responsible for system start time decision & propagation (used only in development)")
   where
     peerHelpMsg = "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""
 
@@ -127,12 +124,19 @@ main = do
                  _           -> fail "Id of unknown type supplied"
       _ -> return ()
     if supporterNode
-       then runSupporterReal (supporterParams args)
+       then runSupporterReal (baseParams "supporter" args)
        else do
           spendingSK <- getKey ((genesisSecretKeys !!) <$> spendingGenesisI) spendingSecretPath "spending" (snd <$> keyGen)
           vssSK <- getKey ((genesisVssKeyPairs !!) <$> vssGenesisI) vssSecretPath "vss.keypair" vssKeyGen
-          runNodeReal $ params args spendingSK vssSK
+          systemStart <- getSystemStart args
+          runNodeReal $ params args spendingSK vssSK systemStart
   where
+    getSystemStart args =
+      case runningMode of
+        Development -> if timeLord args
+                          then runTimeLordReal (loggingParams "time-lord" args)
+                          else runTimeSlaveReal (baseParams "time-slave" args)
+        Production systemStart -> return systemStart
     loggingParams logger (Args {..}) =
         def
         { lpRootLogger = logger
@@ -140,22 +144,21 @@ main = do
         , lpDhtSeverity = Just dhtLogSeverity
         , lpCommSeverity = commLogSeverity
         }
-    supporterParams args@(Args {..}) =
-        SupporterParams
-        { spLogging = loggingParams "supporter" args
-        , spPort = port
-        , spDHTPeers = dhtPeers
-        , spDHTKeyOrType = maybe (Right DHTSupporter) Left dhtKey
+    baseParams logger args@(Args {..}) =
+        BaseParams
+        { bpLogging = loggingParams logger args
+        , bpPort = port
+        , bpDHTPeers = dhtPeers
+        , bpDHTKeyOrType = if supporterNode
+                              then maybe (Right DHTSupporter) Left dhtKey
+                              else maybe (Right DHTFull) Left dhtKey
         }
-    params args@(Args {..}) spendingSK vssSK =
+    params args@(Args {..}) spendingSK vssSK systemStart =
         NodeParams
         { npDbPath = Just dbPath
         , npRebuildDb = rebuildDB
         , npSystemStart = systemStart
-        , npLogging = loggingParams "node" args
         , npSecretKey = spendingSK
         , npVssKeyPair = vssSK
-        , npPort = port
-        , npDHTPeers = dhtPeers
-        , npDHTKeyOrType = maybe (Right DHTFull) Left dhtKey
+        , npBaseParams = baseParams "node" args
         }

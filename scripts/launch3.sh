@@ -15,10 +15,10 @@ tmux select-pane -t 0
 tmux send-keys "$envs ./scripts/runSupporter.sh" C-m
 
 tmux select-pane -t 1
-tmux send-keys "$envs ./scripts/runNode.sh 0 $startTime" C-m
+tmux send-keys "$envs TIME_LORD=1 ./scripts/runNode.sh 0" C-m
 
 tmux select-pane -t 2
-tmux send-keys "$envs ./scripts/runNode.sh 1 $startTime" C-m
+tmux send-keys "$envs ./scripts/runNode.sh 1" C-m
 
 tmux select-pane -t 3
-tmux send-keys "$envs ./scripts/runNode.sh 2 $startTime" C-m
+tmux send-keys "$envs ./scripts/runNode.sh 2" C-m

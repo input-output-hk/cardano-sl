@@ -7,11 +7,15 @@ module Pos.Constants
        , epochDuration
        , neighborsSendThreshold
        , networkDiameter
+       , RunningMode (..)
+       , runningMode
+       , isDevelopment
        ) where
 
 import           Universum
 
 import           Control.TimeWarp.Timed (Microsecond, sec)
+import           Pos.Types.Timestamp    (Timestamp)
 
 -- | Consensus guarantee (i.e. after what amount of blocks can we consider
 -- blocks stable?).
@@ -34,3 +38,18 @@ networkDiameter = sec 1
 
 neighborsSendThreshold :: Integral a => a
 neighborsSendThreshold = 4
+
+
+data RunningMode = Development
+                 | Production
+                    { rmSystemStart :: !Timestamp
+                    }
+
+-- TODO switch between Development/Production via `stack` flag
+runningMode :: RunningMode
+runningMode = Development
+
+isDevelopment :: Bool
+isDevelopment = case runningMode of
+                  Development -> True
+                  _           -> False

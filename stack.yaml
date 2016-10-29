@@ -10,7 +10,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp.git
-    commit: 3b86097ddd4d7015e284860d61bf858a0d2f47bb
+    commit: cd14897e63e0efea535059402d39e9796e5d51c6
   extra-dep: true
 - location:
     git: https://github.com/serokell/serokell-core.git
@@ -22,17 +22,15 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/pvss-haskell.git
-    commit: 996951c97f97d734ec7cea05e72620eaabfc72f3
+    commit: 9d19e375c5438b4941dc378512adf6d062d24722
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
-    commit: d3d6d62fc248156320ec92c730a38f483500edd5
+    commit: fd18875c31e0f351733099bd632d5898dcf5840d
   extra-dep: true
 
-# don't remove it pls
 nix:
   shell-file: shell.nix
-  enable: false
 
 extra-deps:
 - pqueue-1.3.2

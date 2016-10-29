@@ -211,7 +211,7 @@ instance MonadTrans NoBenchmarkT where
 instance MonadTransfer m => MonadTransfer (NoBenchmarkT m) where
     sendRaw addr req = lift $ sendRaw addr req
     listenRaw binding sink =
-        NoBenchmarkT $ listenRaw binding $ hoistRespCond runNoBenchmarksT sink
+        NoBenchmarkT $ listenRaw binding $ hoistRespCond getNoBenchmarkT sink
     close = lift . close
 
 instance Monad m => MonadBenchmark (NoBenchmarkT m) where
@@ -232,7 +232,7 @@ instance MonadTrans BenchmarkT where
 instance MonadTransfer m => MonadTransfer (BenchmarkT m) where
     sendRaw addr req = lift $ sendRaw addr req
     listenRaw binding sink =
-        BenchmarkT $ listenRaw binding $ hoistRespCond runBenchmarkT sink
+        BenchmarkT $ listenRaw binding $ hoistRespCond getBenchmarkT sink
     close = lift . close
 
 instance (MonadIO m, MonadDB m) => MonadBenchmark (BenchmarkT m) where
@@ -248,7 +248,7 @@ instance (MonadIO m, MonadDB m) => MonadBenchmark (BenchmarkT m) where
 type RealMode = KademliaDHT (ContextHolder (DBHolder (Dialog BinaryP Transfer)))
 
 -- | ServiceMode is the mode in which support nodes work
-type ServiceMode = KademliaDHT (BinaryDialog Transfer)
+type ServiceMode = KademliaDHT (Dialog BinaryP Transfer)
 
 -- | ProductionMode is an instance of WorkMode which is used (unsurprisingly) in production.
 type ProductionMode = NoBenchmarkT RealMode

@@ -15,7 +15,7 @@ module Pos.Communication.Types
 
 -- import           Universum
 
-import           Control.TimeWarp.Rpc             (Message (messageName))
+import           Control.TimeWarp.Rpc             (Message (messageName), MessageName)
 import           Data.Proxy                       (Proxy (..))
 import           Universum
 
@@ -28,7 +28,7 @@ import           Pos.WorkMode                     (WorkMode)
 
 type ResponseMode m = (WorkMode m, MonadResponseDHT m)
 
-noCacheMessageNames :: [[Char]]
+noCacheMessageNames :: [MessageName]
 noCacheMessageNames =
   [ messageName (Proxy :: Proxy Block.RequestBlock)
   , messageName (Proxy :: Proxy SysStart.SysStartRequest)

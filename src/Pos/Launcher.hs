@@ -191,7 +191,6 @@ runNodeBench :: NodeParams -> IO ()
 runNodeBench np = runRealMode np benchListeners $ getBenchmarkT runNode
   where benchListeners = map (mapListenerDHT getBenchmarkT) allListeners
 
-
 ----------------------------------------------------------------------------
 -- Real mode runners
 ----------------------------------------------------------------------------

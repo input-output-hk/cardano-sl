@@ -103,13 +103,9 @@ instance MonadTransfer m => MonadTransfer (KademliaDHT m) where
 instance (MonadIO m, WithNamedLogger m) => WithDefaultMsgHeader (KademliaDHT m) where
   defaultMsgHeader msg = do
       noCacheNames <- KademliaDHT $ asks kdcNoCacheMessageNames_
-<<<<<<< HEAD
-      pure . SimpleHeader . isJust . find ((==) . messageName $ proxyOf msg) $ noCacheNames
-=======
       let header = SimpleHeader . isJust . find ((==) . messageName $ proxyOf msg) $ noCacheNames
       logDebug $ sformat ("Preparing message " % shown % ": header " % shown) (messageName $ proxyOf msg) header
-      pure $ put header
->>>>>>> [POS-31] Add RequestBlock to nonCache message names + improve logging
+      pure header
 
 proxyOf :: a -> Proxy a
 proxyOf _ = Proxy
@@ -170,12 +166,8 @@ startDHT KademliaDHTConfig {..} = do
     let kdcListenByBinding =
           \binding -> do
                 logInfo $ sformat ("Listening on binding " % shown) binding
-<<<<<<< HEAD
-                listenR binding (convert <$> kdcListeners) (rawListener kdcEnableBroadcast msgCache)
-=======
-                listenR binding get (convert <$> kdcListeners) (convert' $ rawListener kdcEnableBroadcast msgCache kdcStopped)
+                listenR binding (convert <$> kdcListeners) (convert' $ rawListener kdcEnableBroadcast msgCache kdcStopped)
     logInfo $ sformat ("Launching Kademlia, noCacheMessageNames=" % shown) kdcNoCacheMessageNames
->>>>>>> [POS-31] Add RequestBlock to nonCache message names + improve logging
     let kdcNoCacheMessageNames_ = kdcNoCacheMessageNames
     pure $ KademliaDHTContext {..}
   where
@@ -187,7 +179,7 @@ startDHT KademliaDHTConfig {..} = do
 -- | Return 'True' if the message should be processed, 'False' if only
 -- broadcasted
 rawListener
-    :: (WithDefaultMsgHeader m, MonadIO m, MonadThrow m, MonadDialog m, WithNamedLogger m, MonadMessageDHT m)
+    :: (WithDefaultMsgHeader m, MonadIO m, MonadThrow m, MonadDialog BinaryP m, WithNamedLogger m, MonadMessageDHT m)
     => Bool -> TVar (LRU.LRU Int ()) -> TVar Bool -> (DHTMsgHeader, RawData) -> DHTResponseT m Bool
 rawListener enableBroadcast cache kdcStopped (h, rawData@(RawData raw)) = withDhtLogger $ do
     isStopped <- liftIO . atomically $ readTVar kdcStopped
@@ -205,7 +197,7 @@ rawListener enableBroadcast cache kdcStopped (h, rawData@(RawData raw)) = withDh
                 sformat ("Ignoring message " % shown % ", hash=" % int) h mHash
        else return ()
        -- Uncomment to dump messages:
-       -- else logDebug $ sformat ("Message: hash=" % int % " bytes=" % base64F) mHash (toStrict $ encode rawData)
+       -- else logDebug $ sformat ("Message: hash=" % int % " bytes=" % base64F) mHash raw
 
 
     -- If the message is in cache, we have already broadcasted it before, no

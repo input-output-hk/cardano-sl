@@ -45,11 +45,11 @@ import           Control.TimeWarp.Logging  (LoggerName,
                                             WithNamedLogger (modifyLoggerName), logInfo,
                                             logWarning)
 import           Control.TimeWarp.Rpc      (BinaryP, HeaderNContentData, Message,
-                                            MonadDialog, MonadTransfer, NetworkAddress,
-                                            ResponseT, Unpackable,
+                                            MonadDialog, MonadTransfer (..),
+                                            NetworkAddress, ResponseT, Unpackable,
                                             WithNamedLogger (modifyLoggerName), closeR,
-                                            logInfo, logWarning, mapResponseT, replyH,
-                                            sendH)
+                                            hoistRespCond, logInfo, logWarning,
+                                            mapResponseT, replyH, sendH)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Data.Binary               (Binary)
 import qualified Data.ByteString           as BS
@@ -264,7 +264,12 @@ newtype DHTResponseT m a = DHTResponseT
     } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans,
                 MonadThrow, MonadCatch, MonadMask,
                 MonadState s, WithDefaultMsgHeader,
-                WithNamedLogger, MonadTimed, MonadDialog, MonadDHT, MonadMessageDHT)
+                WithNamedLogger, MonadTimed, MonadDialog t, MonadDHT, MonadMessageDHT)
+
+instance MonadTransfer m => MonadTransfer (DHTResponseT m) where
+    sendRaw addr p = DHTResponseT $ sendRaw addr p
+    listenRaw binding sink = DHTResponseT $ listenRaw binding (hoistRespCond getDHTResponseT sink)
+    close = DHTResponseT . close
 
 type instance ThreadId (DHTResponseT m) = ThreadId m
 

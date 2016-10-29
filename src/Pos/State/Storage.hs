@@ -41,7 +41,7 @@ import           Data.Default            (Default, def)
 import qualified Data.HashMap.Strict     as HM
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
-import           Formatting              (sformat, shown, (%))
+import           Formatting              (build, sformat, (%))
 import           Serokell.AcidState      ()
 import           Serokell.Util           (VerificationRes (..))
 import           Universum
@@ -181,7 +181,7 @@ createGenesisBlock epoch = do
 
 calculateLeadersDo :: EpochIndex -> Query SlotLeaders
 calculateLeadersDo epoch = do
-    depth <- getSlotDepth SlotId {siEpoch = epoch - 1, siSlot = 5 * k - 1}
+    depth <- getSlotDepth $ mpcCrucialSlot epoch
     utxo <- fromMaybe onErrorGetUtxo <$> getUtxoByDepth depth
     -- TODO: overall 'calculateLeadersDo' gets utxo twice, could be optimised
     threshold <- getThreshold epoch
@@ -190,7 +190,7 @@ calculateLeadersDo epoch = do
     onErrorGetUtxo =
         panic "Failed to get utxo necessary for leaders calculation"
     onErrorCalcLeaders e =
-        panic (sformat ("Leaders calculation reported error: " % shown) e)
+        panic (sformat ("Leaders calculation reported error: " % build) e)
 
 -- | Get keys of nodes participating in an epoch. A node participates if,
 -- when there were 'k' slots left before the end of the previous epoch, both
@@ -200,7 +200,7 @@ calculateLeadersDo epoch = do
 --   2. it had already sent us its VSS key by that time
 getParticipants :: EpochIndex -> Query [VssPublicKey]
 getParticipants epoch = do
-    depth <- getSlotDepth SlotId {siEpoch = epoch - 1, siSlot = 5 * k - 1}
+    depth <- getSlotDepth $ mpcCrucialSlot epoch
     utxo <- fromMaybe onErrorGetUtxo <$> getUtxoByDepth depth
     keymap <- maybe onErrorGetKeymap (view mdVssCertificates) <$>
               getGlobalMpcDataByDepth depth
@@ -211,6 +211,11 @@ getParticipants epoch = do
         panic "Failed to get utxo necessary to enumerate participants"
     onErrorGetKeymap =
         panic "Failed to get utxo necessary to enumerate participants"
+
+-- slot such that data after it is used for MPC in given epoch
+mpcCrucialSlot :: EpochIndex -> SlotId
+mpcCrucialSlot 0     = SlotId {siEpoch = 0, siSlot = 0}
+mpcCrucialSlot epoch = SlotId {siEpoch = epoch - 1, siSlot = 5 * k - 1}
 
 getThreshold :: EpochIndex -> Query Threshold
 getThreshold epoch = do

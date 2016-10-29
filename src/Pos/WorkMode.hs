@@ -23,7 +23,7 @@ import           Control.TimeWarp.Rpc     (BinaryDialog, MonadDialog,
                                            MonadResponse, MonadTransfer,
                                            Transfer)
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
-import           Universum                hiding (ThreadId, catch)
+import           Universum                hiding (catch)
 
 import           Pos.Crypto               (PublicKey, SecretKey, VssKeyPair,
                                            VssPublicKey, toPublic,

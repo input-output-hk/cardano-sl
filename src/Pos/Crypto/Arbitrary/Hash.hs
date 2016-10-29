@@ -14,6 +14,9 @@ import           Test.QuickCheck    (Arbitrary (..))
 import           Universum
 
 import           Pos.Crypto.Hashing (Hash, unsafeHash)
+import           Pos.Util.Arbitrary (ArbitraryUnsafe)
 
 instance Binary a => Arbitrary (Hash a) where
     arbitrary = unsafeHash @ByteString <$> arbitrary
+
+instance Binary a => ArbitraryUnsafe (Hash a)

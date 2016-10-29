@@ -16,7 +16,8 @@ module Pos.Launcher
        ) where
 
 import           Control.TimeWarp.Logging (LoggerName, Severity (Warning), initLogging,
-                                           logError, logInfo, usingLoggerName)
+                                           logError, logInfo, setSeverity,
+                                           setSeverityMaybe, usingLoggerName)
 import           Control.TimeWarp.Rpc     (BinaryDialog, NetworkAddress, Transfer,
                                            runBinaryDialog, runTransfer)
 import           Control.TimeWarp.Timed   (currentTime, repeatForever, runTimedIO, sec,
@@ -117,16 +118,18 @@ data LoggingParams = LoggingParams
     , lpMainSeverity   :: !Severity
     , lpDhtSeverity    :: !(Maybe Severity)
     , lpServerSeverity :: !(Maybe Severity)
+    , lpCommSeverity   :: !(Maybe Severity)
     , lpWorkerSeverity :: !(Maybe Severity)
     } deriving (Show)
 
 instance Default LoggingParams where
     def =
         LoggingParams
-        { lpRootLogger = mempty
-        , lpMainSeverity = Warning
-        , lpDhtSeverity = Nothing
+        { lpRootLogger     = mempty
+        , lpMainSeverity   = Warning
+        , lpDhtSeverity    = Nothing
         , lpServerSeverity = Nothing
+        , lpCommSeverity   = Nothing
         , lpWorkerSeverity = Nothing
         }
 
@@ -142,7 +145,6 @@ data NodeParams = NodeParams
     , npDHTPeers     :: ![DHTNode]
     , npDHTKeyOrType :: Either DHTKey DHTNodeType
     } deriving (Show)
-
 
 ----------------------------------------------------------------------------
 -- WorkMode implementations
@@ -194,9 +196,11 @@ runRealMode NodeParams {..} listeners action = do
 
 setupLoggingReal :: LoggingParams -> IO ()
 setupLoggingReal LoggingParams {..} = do
-    initLogging
-        [ (lpRootLogger, Just lpMainSeverity)
-        , ((dhtLoggerName (Proxy :: Proxy RealMode)), lpDhtSeverity)
-        , ((dhtLoggerName (Proxy :: Proxy RealMode)) <> "instance", lpDhtSeverity)
-        ]
-        lpMainSeverity
+    initLogging Warning
+    setSeverity lpRootLogger lpMainSeverity
+    setSeverityMaybe
+        (lpRootLogger <> dhtLoggerName (Proxy :: Proxy RealMode))
+        lpDhtSeverity
+    -- TODO: `comm` shouldn't be hardcoded, it should be taken
+    -- from MonadTransfer or something
+    setSeverityMaybe (lpRootLogger <> "comm") lpCommSeverity

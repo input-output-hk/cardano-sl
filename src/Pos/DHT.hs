@@ -26,7 +26,9 @@ module Pos.DHT (
     ListenerDHT (..),
     withDhtLogger,
     filterByNodeType,
-    joinNetworkNoThrow
+    joinNetworkNoThrow,
+    defaultSendToNeighbors,
+    defaultSendToNode
 ) where
 
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow,
@@ -50,7 +52,7 @@ import qualified Formatting                as F
 import           Pos.Crypto.Random         (secureRandomBS)
 import           Prelude                   (show)
 import           Serokell.Util.Text        (listBuilderJSON)
-import           Universum                 hiding (ThreadId, catch, show)
+import           Universum                 hiding (catch, show)
 
 import           Pos.Constants             (neighborsSendThreshold)
 
@@ -94,9 +96,7 @@ class MonadDHT m => MonadMessageDHT m where
     sendToNeighbors :: Message r => r -> m Int
 
     default sendToNode :: (Message r, WithDefaultMsgHeader m, MonadDialog m) => NetworkAddress -> r -> m ()
-    sendToNode addr msg = do
-        header <- defaultMsgHeader msg
-        sendH addr header msg
+    sendToNode = defaultSendToNode
 
     default sendToNeighbors :: (Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
     sendToNeighbors = defaultSendToNeighbors
@@ -107,6 +107,17 @@ class MonadMessageDHT m => MonadResponseDHT m where
 
 data ListenerDHT m =
     forall r . Message r => ListenerDHT (r -> DHTResponseT m ())
+
+defaultSendToNode
+    :: ( MonadMessageDHT m
+       , Message r
+       , WithDefaultMsgHeader m
+       , MonadDialog m
+       )
+    => NetworkAddress -> r -> m ()
+defaultSendToNode addr msg = do
+    header <- defaultMsgHeader msg
+    sendH addr header msg
 
 defaultSendToNeighbors
     :: ( MonadMessageDHT m
@@ -119,13 +130,19 @@ defaultSendToNeighbors
 defaultSendToNeighbors msg = do
     nodes <- filterByNodeType DHTFull <$> getKnownPeers
     succeed <- sendToNodes nodes
-    succeed' <- if succeed < neighborsSendThreshold
-                   then (+) succeed <$> do
-                     nodes' <- discoverPeers DHTFull
-                     sendToNodes $ filter (isJust . flip find nodes . (==)) nodes'
-                   else return succeed
+    succeed' <-
+        if succeed < neighborsSendThreshold
+            then (+) succeed <$>
+                 do nodes' <- discoverPeers DHTFull
+                    sendToNodes $
+                        filter (isJust . flip find nodes . (==)) nodes'
+            else return succeed
     when (succeed' < neighborsSendThreshold) $
-      logWarning $ sformat ("Send to only " % int % " nodes out, threshold is " % int) succeed' neighborsSendThreshold
+        logWarning $
+        sformat
+            ("Send to only " % int % " nodes, threshold is " % int)
+            succeed'
+            (neighborsSendThreshold :: Int)
     return succeed'
   where
     -- TODO make this function asynchronous after presenting some `MonadAsync` constraint
@@ -192,6 +209,7 @@ data DHTNode = DHTNode { dhtAddr   :: NetworkAddress
                        , dhtNodeId :: DHTKey
                        }
   deriving (Eq, Ord, Show)
+
 instance Buildable DHTNode where
     build (DHTNode (peerHost, peerPort) key)
       = bprint (F.build % " at " % F.build % ":" % F.build)

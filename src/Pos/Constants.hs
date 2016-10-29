@@ -19,7 +19,7 @@ k :: Integral a => a
 k = 2
 
 slotDuration :: Microsecond
-slotDuration = sec 4
+slotDuration = sec 15
 
 epochSlots :: Integral a => a
 epochSlots = 6 * k
@@ -32,5 +32,5 @@ epochDuration = epochSlots * slotDuration
 networkDiameter :: Microsecond
 networkDiameter = sec 1
 
-neighborsSendThreshold :: Int
-neighborsSendThreshold = 6
+neighborsSendThreshold :: Integral a => a
+neighborsSendThreshold = 4

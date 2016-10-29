@@ -167,9 +167,21 @@ processBlockFinally toRollback blocks = do
     txApplyBlocks blocks
     blkRollback toRollback
     blkSetHead (blocks ^. _neHead . headerHashG)
-    headEpoch <- readerToState getHeadEpoch
     knownEpoch <- use (slotId . epochIndexL)
-    when (headEpoch + 1 == knownEpoch) $ createGenesisBlock knownEpoch $> ()
+    -- When we adopt alternative chain, it may revert genesis block
+    -- already created for current epoch. And we will be in situation
+    -- where best chain doesn't have genesis block for current epoch.
+    -- If then we need to create block in current epoch, it will be
+    -- definitely invalid. To prevent it we create genesis block after
+    -- possible revert. Note that createGenesisBlock function will
+    -- create block only for epoch which is one more than epoch of
+    -- head, so we don't perform such check here.  Also note that it
+    -- won't be necessary after we introduce `canCreateBlock` (or
+    -- maybe we already did and this comment is outdated then), but it
+    -- still will be good as an optimization. Even if later we see
+    -- that there were other valid blocks in old epoch, we will
+    -- replace chain and everything will be fine.
+    createGenesisBlock knownEpoch $> ()
     return $ PBRgood (toRollback, blocks)
 
 -- | Do all necessary changes when new slot starts.

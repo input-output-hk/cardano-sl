@@ -57,7 +57,7 @@ module Pos.Types.Types
        , MainBlockchain
        , MainBlockHeader
        , MpcData (..)
-       , MpcProof
+       , MpcProof (..)
        , ChainDifficulty (..)
        , MainToSign
        , MainBlock
@@ -484,7 +484,7 @@ data MpcData = MpcData
       -- | Vss certificates are added at any time if they are valid and
       -- received from stakeholders.
     , _mdVssCertificates :: !VssCertificatesMap
-    } deriving (Generic)
+    } deriving (Show, Generic)
 
 instance Binary MpcData
 instance MessagePack MpcData

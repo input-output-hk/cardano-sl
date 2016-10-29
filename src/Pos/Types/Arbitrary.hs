@@ -10,17 +10,20 @@ import           Data.DeriveTH              (derive, makeArbitrary)
 import           Pos.Constants              (epochSlots)
 import           Pos.Crypto.Signing         (sign)
 import           Pos.Types.Mpc              (genCommitmentAndOpening)
-import           Pos.Types.Types            (Address (..), Coin (..), Commitment,
+import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
+                                             Coin (..), Commitment (..),
                                              EpochIndex (..), FtsSeed (..),
-                                             LocalSlotIndex (..), Opening, SlotId (..),
-                                             Tx (..), TxIn (..), TxOut (..))
+                                             LocalSlotIndex (..), MpcProof (..),
+                                             Opening (..), SlotId (..), Tx (..),
+                                             TxIn (..), TxOut (..))
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), choose, elements)
 import           Universum
 
 import           Pos.Crypto.Arbitrary       ()
 import           Pos.Types.Arbitrary.Unsafe ()
-import           Pos.Util.Arbitrary         (Nonrepeating (..), sublistN, unsafeMakePool)
+import           Pos.Util.Arbitrary         (Nonrepeating (..), sublistN,
+                                             unsafeMakePool)
 
 ----------------------------------------------------------------------------
 -- Commitments and openings
@@ -46,10 +49,13 @@ instance Nonrepeating (Commitment, Opening) where
 deriving instance Arbitrary Coin
 deriving instance Arbitrary Address
 deriving instance Arbitrary FtsSeed
+deriving instance Arbitrary Opening
+deriving instance Arbitrary ChainDifficulty
 
 derive makeArbitrary ''SlotId
 derive makeArbitrary ''TxOut
 derive makeArbitrary ''Tx
+derive makeArbitrary ''MpcProof
 
 maxReasonableEpoch :: Integral a => a
 maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not

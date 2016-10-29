@@ -29,14 +29,15 @@ module Pos.DHT (
     joinNetworkNoThrow
 ) where
 
-import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, catch,
-                                            throwM)
+import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow,
+                                            catch, throwM)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.TimeWarp.Logging  (LoggerName,
-                                            WithNamedLogger (modifyLoggerName), logInfo,
-                                            logWarning)
+                                            WithNamedLogger (modifyLoggerName),
+                                            logInfo, logWarning)
 import           Control.TimeWarp.Rpc      (Message, MonadDialog, MonadTransfer,
-                                            NetworkAddress, ResponseT, replyH, sendH)
+                                            NetworkAddress, ResponseT, replyH,
+                                            sendH)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Data.Binary               (Binary, Put)
 import qualified Data.ByteString           as BS
@@ -195,7 +196,7 @@ instance Buildable DHTNode where
     build (DHTNode (peerHost, peerPort) key)
       = bprint (F.build % " at " % F.build % ":" % F.build)
                key
-               (toS peerHost :: Text)
+               (show peerHost)
                peerPort
 
 instance Buildable [DHTNode] where
@@ -243,4 +244,3 @@ joinNetworkNoThrow peers = joinNetwork peers `catch` handleJoinE
     handleJoinE AllPeersUnavailable =
         logInfo $ sformat ("Not connected to any of peers " % F.build) peers
     handleJoinE e = throwM e
-

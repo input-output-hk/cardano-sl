@@ -194,8 +194,10 @@ test-suite pos-test
                      , Test.Pos.FollowTheSatoshiSpec
                      , Test.Pos.MerkleSpec
                      , Test.Pos.SlottingSpec
-                     , Test.Pos.Types.BinarySpec
                      , Test.Pos.Types.BlockSpec
+                     , Test.Pos.Types.Identity.BinarySpec
+                     , Test.Pos.Types.Identity.MessagePackSpec
+                     , Test.Pos.Types.Identity.SafeCopySpec
                      , Test.Pos.Types.SlotIdSpec
                      , Test.Pos.Types.UtxoSpec
                      , Test.Pos.Util
@@ -204,12 +206,15 @@ test-suite pos-test
                      , base
                      , binary
                      , bytestring
+                     , cereal
                      , cryptonite
+                     , data-msgpack
                      , formatting
                      , hspec
                      , memory
                      , pos
                      , random
+                     , safecopy
                      , serokell-core
                      , time-units
                      , time-warp

@@ -24,11 +24,12 @@ import           Formatting          (int, sformat, (%))
 import           Universum
 
 import           Pos.Constants       (epochSlots)
-import           Pos.Crypto          (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
-                                      deterministicKeyGen, deterministicVssKeyGen,
-                                      mkSigned, toVssPublicKey, unsafeHash)
-import           Pos.Types           (Address (Address), SlotLeaders, TxOut (..), Utxo,
-                                      VssCertificatesMap)
+import           Pos.Crypto          (PublicKey, SecretKey, VssKeyPair,
+                                      VssPublicKey, deterministicKeyGen,
+                                      deterministicVssKeyGen, mkSigned,
+                                      toVssPublicKey, unsafeHash)
+import           Pos.Types           (Address (Address), SlotLeaders,
+                                      TxOut (..), Utxo, VssCertificatesMap)
 
 ----------------------------------------------------------------------------
 -- Static state
@@ -43,7 +44,7 @@ genesisKeyPairs = map gen [0 .. 41]
     gen =
         fromMaybe (panic "deterministicKeyGen failed in Genesis") .
         deterministicKeyGen .
-        toS .
+        encodeUtf8 .
         T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")
 
 genesisSecretKeys :: [SecretKey]
@@ -63,13 +64,13 @@ genesisUtxo =
 -- MPC, leaders
 ----------------------------------------------------------------------------
 
-genesisVssKeyPairs :: [(VssKeyPair)]
+genesisVssKeyPairs :: [VssKeyPair]
 genesisVssKeyPairs = map gen [0 .. 42]
   where
     gen :: Int -> VssKeyPair
     gen =
         deterministicVssKeyGen .
-        toS .
+        encodeUtf8 .
         T.take 32 .
         sformat ("My awesome 32-byte seed :) #" %int % "             ")
 

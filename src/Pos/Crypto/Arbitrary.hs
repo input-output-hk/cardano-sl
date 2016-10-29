@@ -12,11 +12,13 @@ import           Universum
 
 import           Pos.Crypto.Arbitrary.Hash   ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
-import           Pos.Crypto.SecretSharing    (VssKeyPair, VssPublicKey, toVssPublicKey,
-                                              vssKeyGen)
-import           Pos.Crypto.Signing          (PublicKey, SecretKey, Signature, Signed,
-                                              keyGen, mkSigned, sign)
-import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakePool)
+import           Pos.Crypto.SecretSharing    (EncShare, Secret, VssKeyPair,
+                                              VssPublicKey, genSharedSecret,
+                                              toVssPublicKey, vssKeyGen)
+import           Pos.Crypto.Signing          (PublicKey, SecretKey, Signature,
+                                              Signed, keyGen, mkSigned, sign)
+import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN,
+                                              unsafeMakeList, unsafeMakePool)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -87,3 +89,29 @@ instance (Binary a, Arbitrary a) => Arbitrary (Signature a) where
 
 instance (Binary a, Arbitrary a) => Arbitrary (Signed a) where
     arbitrary = mkSigned <$> arbitrary <*> arbitrary
+
+----------------------------------------------------------------------------
+-- Arbitrary secrets
+----------------------------------------------------------------------------
+
+secrets :: [Secret]
+secrets =
+    unsafeMakePool "[generating shares for tests...]" 50 $
+    do
+        (_, s, _, _) <- genSharedSecret 1000 (map toVssPublicKey vssKeys)
+        return s
+{-# NOINLINE secrets #-}
+
+instance Arbitrary Secret where
+    arbitrary = elements secrets
+
+encShares :: [EncShare]
+encShares =
+    unsafeMakeList "[generating shares for tests...]" $
+    do
+        (_, _, _, l) <- genSharedSecret 1000 (map toVssPublicKey vssKeys)
+        return l
+{-# NOINLINE encShares #-}
+
+instance Arbitrary EncShare where
+    arbitrary = elements encShares

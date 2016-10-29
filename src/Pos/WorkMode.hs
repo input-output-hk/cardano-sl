@@ -7,7 +7,6 @@
 
 module Pos.WorkMode
        ( WorkMode
-       , WorkIOMode
        , MinWorkMode
        , DBHolder (..)
        , NodeContext (..)
@@ -18,10 +17,10 @@ module Pos.WorkMode
        , NoBenchmarkT (..)
        , ncPublicKey
        , ncVssPublicKey
-       , SemiRealMode
        , RealMode
+       , SupportMode
        , BenchMode
-       , RealWithoutNetwork
+       , ProductionMode
        ) where
 
 import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow)
@@ -43,15 +42,11 @@ import           Pos.State                (MonadDB (..), NodeState, addStatRecor
                                            getStatRecords)
 import           Pos.Types                (Timestamp (..))
 
-type WorkIOMode m
+type WorkMode m
     = ( WithNamedLogger m
       , MonadIO m
       , MonadTimed m
       , MonadMask m
-      )
-
-type WorkMode m
-    = ( WorkIOMode m
       , MonadSlots m
       , MonadDB m
       , WithNodeContext m
@@ -190,7 +185,7 @@ type instance ThreadId (NoBenchmarkT m) = ThreadId m
 type instance ThreadId (BenchmarkT m) = ThreadId m
 
 newtype NoBenchmarkT m a = NoBenchmarkT
-    { runNoBenchmarksT :: m a
+    { getNoBenchmarkT :: m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                MonadMask, MonadIO, MonadDB, WithNamedLogger, MonadTransfer, MonadDialog,
                MonadDHT, MonadMessageDHT, MonadResponse, MonadSlots, WithDefaultMsgHeader,
@@ -205,7 +200,7 @@ instance Monad m => MonadBenchmark (NoBenchmarkT m) where
     getMeasures _ = pure $ pure []
 
 newtype BenchmarkT m a = BenchmarkT
-    { runBenchmarkT :: m a
+    { getBenchmarkT :: m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                MonadMask, MonadIO, MonadDB, WithNamedLogger, MonadTransfer, MonadDialog,
                MonadDHT, MonadMessageDHT, MonadResponse, MonadSlots, WithDefaultMsgHeader,
@@ -223,16 +218,14 @@ instance (MonadIO m, MonadDB m) => MonadBenchmark (BenchmarkT m) where
 -- Concrete types
 ----------------------------------------------------------------------------
 
--- | Type alias to for part of RealMode without network
-type RealWithoutNetwork = ContextHolder (DBHolder (BinaryDialog Transfer))
+-- | RealMode is a basis for `WorkMode`s used to really run system.
+type RealMode = KademliaDHT (ContextHolder (DBHolder (BinaryDialog Transfer)))
 
--- | SemiRealMode is a WorkMode which allows us to choose benchmarking mode.
--- TODO: Such disposition of transformers is required by code in `Pos.DHT.Real`.
--- This leads to uglyness, thus it should be refactored later
-type SemiRealMode m = KademliaDHT (m RealWithoutNetwork)
+-- | SupportMode is the mode in which support nodes work
+type SupportMode = KademliaDHT (BinaryDialog Transfer)
 
--- | RealMode is an instance of WorkMode which can be used to really run system.
-type RealMode = SemiRealMode NoBenchmarkT
+-- | ProductionMode is an instance of WorkMode which is used (unsurprisingly) in production.
+type ProductionMode = NoBenchmarkT RealMode
 
 -- | BenchMode is used for remote benchmarking
-type BenchMode = SemiRealMode BenchmarkT
+type BenchMode = BenchmarkT RealMode

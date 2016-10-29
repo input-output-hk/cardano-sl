@@ -76,8 +76,8 @@ import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRa
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
                                           EpochIndex, GenesisBlock, MainBlock, Opening,
                                           SlotId (..), SlotLeaders, VssCertificate,
-                                          blockTxs, epochIndexL, getAddress, headerHashG,
-                                          mdVssCertificates, txOutAddress,
+                                          blockSlot, blockTxs, epochIndexL, getAddress,
+                                          headerHashG, mdVssCertificates, txOutAddress,
                                           unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState, _neHead)
 
@@ -119,8 +119,8 @@ instance Default Storage where
         , __statsData = def
         }
 
-getHeadEpoch :: Query EpochIndex
-getHeadEpoch = view epochIndexL <$> getHeadBlock
+getHeadSlot :: Query (Either EpochIndex SlotId)
+getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock
 
 -- | Create a new block on top of best chain.
 createNewBlock :: SecretKey -> SlotId -> Update MainBlock
@@ -198,14 +198,29 @@ processNewSlotDo sId@SlotId {..} = do
         maybe (pure ()) (mpcApplyBlocks . pure . Left)
     blkCleanUp sId
 
+-- We create genesis block for i-th epoch when head of currently known
+-- best chain is MainBlock corresponding to one of last `k` slots of
+-- (i - 1)-th epoch. Main check is that epoch is (last stored epoch +
+-- 1), but we also don't want to create genesis block on top of blocks
+-- from previous epoch which are not from last k slots, because it's
+-- practically impossible for them to be valid.
+shouldCreateGenesisBlock :: EpochIndex -> Query Bool
+-- Genesis block for 0-th epoch is hardcoded.
+shouldCreateGenesisBlock 0 = pure False
+shouldCreateGenesisBlock epoch = either (const False) doCheck <$> getHeadSlot
+  where
+    doCheck si = si > SlotId {siEpoch = epoch - 1, siSlot = 5 * k}
+
 createGenesisBlock :: EpochIndex -> Update (Maybe GenesisBlock)
-createGenesisBlock epoch = do
-    headEpoch <- readerToState getHeadEpoch
-    if (headEpoch + 1 == epoch)
-        then do
-            leaders <- readerToState $ calculateLeadersDo epoch
-            Just <$> blkCreateGenesisBlock epoch leaders
-        else return Nothing
+createGenesisBlock epoch =
+    ifM (readerToState $ shouldCreateGenesisBlock epoch)
+        (Just <$> createGenesisBlockDo epoch)
+        (pure Nothing)
+
+createGenesisBlockDo :: EpochIndex -> Update GenesisBlock
+createGenesisBlockDo epoch = do
+    leaders <- readerToState $ calculateLeadersDo epoch
+    blkCreateGenesisBlock epoch leaders
 
 calculateLeadersDo :: EpochIndex -> Query SlotLeaders
 calculateLeadersDo epoch = do

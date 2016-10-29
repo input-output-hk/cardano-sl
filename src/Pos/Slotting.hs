@@ -1,13 +1,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
 
 -- | Slotting functionality.
 
 module Pos.Slotting
-       ( Timestamp (..)
-       , timestampF
-
-       , MonadSlots (..)
+       (MonadSlots (..)
        , getCurrentSlot
        , getCurrentSlotFlat
        , onNewSlot
@@ -16,37 +12,14 @@ module Pos.Slotting
 import           Control.Monad.Catch      (MonadCatch, catch)
 import           Control.TimeWarp.Logging (WithNamedLogger, logError)
 import           Control.TimeWarp.Timed   (Microsecond, MonadTimed, for, fork_, wait)
-import           Data.Text.Buildable      (Buildable)
-import qualified Data.Text.Buildable      as Buildable
-import           Formatting               (Format, build, sformat, (%))
-import           Prelude                  (Read (..), Show (..))
+import           Formatting               (build, sformat, (%))
 import           Serokell.Util.Exceptions ()
-import           Universum                hiding (catch, show)
+import           Universum                hiding (catch)
 
 import           Pos.Constants            (slotDuration)
 import           Pos.DHT                  (DHTResponseT)
-import           Pos.Types                (FlatSlotId, SlotId (..), flattenSlotId,
-                                           unflattenSlotId)
-
--- | Timestamp is a number which represents some point in time. It is
--- used in MonadSlots and its meaning is up to implementation of this
--- type class. The only necessary knowledge is that difference between
--- timestamps is microsecond. Hence underlying type is Microsecond.
-newtype Timestamp = Timestamp
-    { getTimestamp :: Microsecond
-    } deriving (Num, Eq, Ord, Enum, Real, Integral)
-
-instance Show Timestamp where
-  show = show . getTimestamp
-
-instance Read Timestamp where
-  readsPrec i = fmap (first Timestamp) . readsPrec i
-
-instance Buildable Timestamp where
-    build = Buildable.build @Integer . fromIntegral
-
-timestampF :: Format r (Timestamp -> r)
-timestampF = build
+import           Pos.Types                (FlatSlotId, SlotId (..), Timestamp (..),
+                                           flattenSlotId, unflattenSlotId)
 
 -- | Type class providing information about time when system started
 -- functioning.

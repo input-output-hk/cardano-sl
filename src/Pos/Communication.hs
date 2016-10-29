@@ -6,5 +6,5 @@ module Pos.Communication
        ) where
 
 import           Pos.Communication.Methods as Communication
-import           Pos.Communication.Server  as Communication (allListeners)
+import           Pos.Communication.Server  as Communication
 import           Pos.Communication.Types   as Communication

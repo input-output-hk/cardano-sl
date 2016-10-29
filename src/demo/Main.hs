@@ -13,9 +13,9 @@ import           Pos.DHT                  (DHTNode (..), DHTNodeType (..), curre
                                            dhtKeyBytes, getKnownPeers)
 import           Pos.DHT.Real             (KademliaDHTConfig (..), runKademliaDHT)
 import           Pos.Genesis              (genesisSecretKeys, genesisVssKeyPairs)
-import           Pos.Launcher             (LoggingParams (..), NodeParams (..),
-                                           getCurTimestamp, runNodeReal)
-import           Pos.Slotting             (Timestamp)
+import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
+                                           NodeParams (..), getCurTimestamp, runNodeReal)
+import           Pos.Types                (Timestamp)
 import           Serokell.Util.Base64     (base64F)
 import           Universum
 
@@ -36,13 +36,15 @@ runSingleNode start peers i = runNodeReal params
         NodeParams
         { npDbPath = Just ("node-db-" ++ show i)
         , npRebuildDb = True
-        , npSystemStart = Just start
-        , npLogging = loggingParams
+        , npSystemStart = start
         , npSecretKey = genesisSecretKeys !! (fromInteger . toInteger $ i)
         , npVssKeyPair = genesisVssKeyPairs !! (fromInteger . toInteger $ i)
-        , npPort = 3000 + i
-        , npDHTPeers = peers
-        , npDHTKeyOrType = Right DHTFull
+        , npBaseParams = BaseParams
+            { bpLogging = loggingParams
+            , bpPort = 3000 + i
+            , bpDHTPeers = peers
+            , bpDHTKeyOrType = Right DHTFull
+            }
         }
 
 main :: IO ()

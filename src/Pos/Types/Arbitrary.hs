@@ -10,10 +10,11 @@ import           Data.DeriveTH              (derive, makeArbitrary)
 import           Pos.Constants              (epochSlots)
 import           Pos.Crypto.Signing         (sign)
 import           Pos.Types.Mpc              (genCommitmentAndOpening)
+import           Pos.Types.Slotting         (EpochIndex (..), LocalSlotIndex (..),
+                                             SlotId (..))
 import           Pos.Types.Types            (Address (..), Coin (..), Commitment,
-                                             EpochIndex (..), FtsSeed (..),
-                                             LocalSlotIndex (..), Opening, SlotId (..),
-                                             Tx (..), TxIn (..), TxOut (..))
+                                             FtsSeed (..), Opening, Tx (..), TxIn (..),
+                                             TxOut (..))
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), choose, elements)
 import           Universum

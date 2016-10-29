@@ -3,9 +3,10 @@
 module Pos.Types.Arbitrary.Unsafe () where
 
 import           Pos.Crypto.Arbitrary.Unsafe ()
-import           Pos.Types.Types             (Address (..), Coin (..), EpochIndex (..),
-                                              FtsSeed (..), LocalSlotIndex (..),
-                                              SlotId (..), TxOut (..))
+import           Pos.Types.Slotting          (EpochIndex (..), LocalSlotIndex (..),
+                                              SlotId (..))
+import           Pos.Types.Types             (Address (..), Coin (..), FtsSeed (..),
+                                              TxOut (..))
 import           Pos.Util.Arbitrary          (ArbitraryUnsafe (..))
 import           Universum
 

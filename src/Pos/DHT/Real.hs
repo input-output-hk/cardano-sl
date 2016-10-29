@@ -11,6 +11,8 @@ module Pos.DHT.Real
        , KademliaDHTConfig(..)
        ) where
 
+import           Control.Concurrent.STM    (STM, TVar, atomically, newTVar, readTVar,
+                                            writeTVar)
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, finally,
                                             throwM)
 import           Control.Monad.Trans.Class (MonadTrans)
@@ -23,6 +25,7 @@ import           Control.TimeWarp.Timed    (MonadTimed, ThreadId, fork, killThre
 import           Data.Binary               (Binary, Put, decodeOrFail, encode, get, put)
 import qualified Data.ByteString           as BS
 import           Data.ByteString.Lazy      (fromStrict, toStrict)
+import qualified Data.Cache.LRU            as LRU
 import           Data.Hashable             (hash)
 import           Formatting                (int, sformat, shown, (%))
 import qualified ListT                     as ListT
@@ -38,12 +41,6 @@ import           Pos.DHT                   (DHTData, DHTException (..), DHTKey,
 import qualified STMContainers.Map         as STM
 import           Universum                 hiding (finally, fromStrict, killThread,
                                             toStrict)
---import Data.Data (Data)
--- import Data.Hashable (hash)
-
-import           Control.Concurrent.STM    (STM, TVar, atomically, newTVar, readTVar,
-                                            writeTVar)
-import qualified Data.Cache.LRU            as LRU
 
 toBSBinary :: Binary b => b -> BS.ByteString
 toBSBinary = toStrict . encode
@@ -68,9 +65,9 @@ data KademliaDHTContext m = KademliaDHTContext
     , kdcKey               :: DHTKey
     , kdcMsgThreadId       :: TVar (Maybe (ThreadId (KademliaDHT m)))
     , kdcInitialPeers_     :: [DHTNode]
+    , kdcListenByBinding   :: Binding -> KademliaDHT m ()
     -- TODO temporary code, to remove (after TW-47)
     , kdcOutboundListeners :: STM.Map NetworkAddress (ThreadId (KademliaDHT m))
-    , kdcListenByBinding   :: Binding -> KademliaDHT m ()
     }
 
 data KademliaDHTConfig m = KademliaDHTConfig

@@ -8,6 +8,7 @@
 module Pos.WorkMode
        ( WorkMode
        , WorkIOMode
+       , MinWorkMode
        , DBHolder (..)
        , NodeContext (..)
        , WithNodeContext (..)
@@ -37,9 +38,11 @@ import           Pos.Crypto               (PublicKey, SecretKey, VssKeyPair, Vss
 import           Pos.DHT                  (DHTResponseT, MonadDHT, MonadMessageDHT (..),
                                            WithDefaultMsgHeader)
 import           Pos.DHT.Real             (KademliaDHT)
-import           Pos.Slotting             (MonadSlots (..), Timestamp (..))
+import           Pos.Slotting             (MonadSlots (..))
 import           Pos.State                (MonadDB (..), NodeState, addStatRecord,
                                            getStatRecords)
+import           Pos.State                (MonadDB (..), NodeState)
+import           Pos.Types                (Timestamp (..))
 
 type WorkIOMode m
     = ( WithNamedLogger m
@@ -56,6 +59,15 @@ type WorkMode m
       , MonadMessageDHT m
       , WithDefaultMsgHeader m
       , MonadBenchmark m
+      )
+
+type MinWorkMode m
+    = ( WithNamedLogger m
+      , MonadTimed m
+      , MonadMask m
+      , MonadIO m
+      , MonadMessageDHT m
+      , WithDefaultMsgHeader m
       )
 
 ----------------------------------------------------------------------------

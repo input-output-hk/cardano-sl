@@ -46,13 +46,13 @@ import           Serokell.Util     (VerificationRes)
 import           Universum
 
 import           Pos.Crypto        (PublicKey, SecretKey, Share, VssKeyPair)
-import           Pos.Slotting      (MonadSlots, Timestamp, getCurrentSlot)
+import           Pos.Slotting      (MonadSlots, getCurrentSlot)
 import           Pos.State.Acidic  (DiskState, tidyState)
 import qualified Pos.State.Acidic  as A
 import           Pos.State.Storage (IdTimestamp (..), ProcessBlockRes (..), Storage)
 import           Pos.Types         (Block, Commitment, CommitmentSignature, EpochIndex,
                                     HeaderHash, MainBlock, MainBlockHeader, Opening,
-                                    SlotId, SlotLeaders, Tx, VssCertificate,
+                                    SlotId, SlotLeaders, Timestamp, Tx, VssCertificate,
                                     genCommitmentAndOpening)
 
 -- | NodeState encapsulates all the state stored by node.

@@ -12,9 +12,8 @@ else
   port="30$i"
 fi
 
-st=$2
-if [[ $st != "" ]]; then
-  st=" --start-time "$st"µs"
+if [[ $TIME_LORD != "" ]]; then
+  st=" --time-lord"
 fi
 
 

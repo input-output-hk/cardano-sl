@@ -32,10 +32,12 @@ library
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
                         Pos.Communication.Types.Mpc
+                        Pos.Communication.Types.SysStart
                         Pos.Communication.Types.Tx
                         Pos.Communication.Server
                         Pos.Communication.Server.Block
                         Pos.Communication.Server.Mpc
+                        Pos.Communication.Server.SysStart
                         Pos.Communication.Server.Tx
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
@@ -56,7 +58,8 @@ library
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block
                         Pos.Types.Mpc
-                        Pos.Types.SlotId
+                        Pos.Types.Slotting
+                        Pos.Types.Timestamp
                         Pos.Types.Tx
                         Pos.Types.Types
                         Pos.Types.Utxo

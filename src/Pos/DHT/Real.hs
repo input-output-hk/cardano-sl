@@ -147,7 +147,7 @@ startDHT KademliaDHTConfig {..} = do
     let kdcListenByBinding =
           \binding -> do
                 logInfo $ sformat ("Listening on binding " % shown) binding
-                listenR binding get (convert <$> kdcListeners) (rawListener kdcEnableBroadcast kdcNoCacheMessageNames msgCache)
+                listenR binding get (convert <$> kdcListeners) (rawListener kdcEnableBroadcast msgCache)
     let kdcNoCacheMessageNames_ = kdcNoCacheMessageNames
     pure $ KademliaDHTContext {..}
   where
@@ -158,19 +158,24 @@ startDHT KademliaDHTConfig {..} = do
 -- broadcasted
 rawListener
     :: (MonadIO m, MonadDHT m, MonadDialog m, WithNamedLogger m)
-    => Bool -> [[Char]] -> TVar (LRU.LRU Int ()) -> (DHTMsgHeader, RawData) -> m Bool
-rawListener enableBroadcast noCacheNames cache (h, rawData) = withDhtLogger $ do
+    => Bool -> TVar (LRU.LRU Int ()) -> (DHTMsgHeader, RawData) -> m Bool
+rawListener enableBroadcast cache (h, rawData) = withDhtLogger $ do
     let mHash = hash $ encode rawData
     logDebug $
-        sformat ("Received message (" % shown % ", hash=" % int) h mHash
+        sformat ("Received message " % shown % ", hash=" % int) h mHash
     ignoreMsg <- case h of
                    SimpleHeader True -> return False
                    _                 -> liftIO . atomically $ updCache cache mHash
+    when ignoreMsg . logDebug $
+        sformat ("Ignoring message " % shown % ", hash=" % int) h mHash
     -- If the message is in cache, we have already broadcasted it before, no
     -- need to do it twice
     when (not ignoreMsg && enableBroadcast) $
         case h of
-            BroadcastHeader -> sendToNetworkR rawData
+            BroadcastHeader -> do
+              logDebug $
+                sformat ("Broadcasting message " % shown % ", hash=" % int) h mHash
+              sendToNetworkR rawData
             SimpleHeader _  -> pure ()
     -- If the message wasn't in the cache, we want to process it too (not
     -- simply broadcast it)

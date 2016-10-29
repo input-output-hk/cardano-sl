@@ -41,7 +41,6 @@ import           Pos.DHT.Real             (KademliaDHT)
 import           Pos.Slotting             (MonadSlots (..))
 import           Pos.State                (MonadDB (..), NodeState, addStatRecord,
                                            getStatRecords)
-import           Pos.State                (MonadDB (..), NodeState)
 import           Pos.Types                (Timestamp (..))
 
 type WorkIOMode m

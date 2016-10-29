@@ -18,10 +18,10 @@ spec :: Spec
 spec = describe "Types" $ do
     describe "SafeCopy instances" $ do
         prop "Epochindex" (safeCopyEncodeDecode @T.EpochIndex)
-        prop "Localslotindex" (safeCopyEncodeDecode @T.LocalSlotIndex)
+        prop "LocalSlotindex" (safeCopyEncodeDecode @T.LocalSlotIndex)
         prop "SlotId" (safeCopyEncodeDecode @T.SlotId)
         prop "Coin" (safeCopyEncodeDecode @T.Coin)
-        prop "Address" (safeCopyEncodeDecode @T.Address) -- FatalError
+        prop "Address" (safeCopyEncodeDecode @T.Address)
         prop "TxIn" (safeCopyEncodeDecode @T.TxIn)
         prop "TxOut" (safeCopyEncodeDecode @T.TxOut)
         prop "Tx" (safeCopyEncodeDecode @T.Tx)

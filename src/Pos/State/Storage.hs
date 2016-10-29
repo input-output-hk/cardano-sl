@@ -44,7 +44,7 @@ import           Data.Acid               ()
 import           Data.Default            (Default, def)
 import qualified Data.HashMap.Strict     as HM
 import           Data.List               (nub)
-import           Data.List.NonEmpty      (NonEmpty ((:|)), span)
+import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Formatting              (build, sformat, (%))
 import           Serokell.AcidState      ()
@@ -161,27 +161,16 @@ processBlockDo curSlotId blk = do
 -- adopt this AltChain.
 processBlockFinally :: Word -> AltChain -> Update ProcessBlockRes
 processBlockFinally toRollback blocks = do
-    -- we split block processing in two phases, cause processing genesis block (by `mpcApplyBlocks`)
-    --    erases MPC data, which is needed for createGenesisBlock function
-    let (prevEBlocks, newEBlocks) = span isRight blocks
     mpcRollback toRollback
+    mpcApplyBlocks blocks
     txRollback toRollback
+    txApplyBlocks blocks
     blkRollback toRollback
-    case prevEBlocks of
-      []       -> return ()
-      (f:rest) -> processDo $ f :| rest
-    case newEBlocks of
-      [] -> return ()
-      (genB:rest) -> do
-          headEpoch <- readerToState getHeadEpoch
-          createGenesisBlock $ headEpoch + 1
-          processDo $ genB :| rest
+    blkSetHead (blocks ^. _neHead . headerHashG)
+    headEpoch <- readerToState getHeadEpoch
+    knownEpoch <- use (slotId . epochIndexL)
+    when (headEpoch + 1 == knownEpoch) $ createGenesisBlock knownEpoch
     return $ PBRgood (toRollback, blocks)
-  where
-    processDo blocks' = do
-        mpcApplyBlocks blocks'
-        txApplyBlocks blocks'
-        blkSetHead (blocks' ^. _neHead . headerHashG)
 
 -- | Do all necessary changes when new slot starts.
 processNewSlot :: SlotId -> Update ()

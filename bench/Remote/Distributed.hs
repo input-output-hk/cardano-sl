@@ -53,10 +53,10 @@ optParser = RBO
                 <> command "supporter" (info supporterParser $ progDesc "Run supporter node"))
 
     <*> strOption (long "config"
-                  <> short 'c'
-                  <> metavar "PATH_TO_CONFIG"
-                  <> value "remote.yaml"
-                  <> help "Path to YAML config file")
+                <> short 'c'
+                <> metavar "PATH_TO_CONFIG"
+                <> value "remote.yaml"
+                <> help "Path to YAML config file")
 
 parseOptions :: ParserInfo RemoteBenchOptions
 parseOptions = info (helper <*> optParser) $ fullDesc

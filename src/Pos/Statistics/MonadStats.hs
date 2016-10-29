@@ -1,10 +1,13 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds  #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies     #-}
 
 -- | Monadic layer for collecting stats
 
 module Pos.Statistics.MonadStats
        ( MonadStats (..)
        , NoStatsT
+       , CounterLabel
        , getNoStatsT
        , StatsT
        , getStatsT
@@ -16,6 +19,8 @@ import           Control.Monad.Trans      (MonadTrans)
 import           Control.TimeWarp.Logging (WithNamedLogger (..))
 import           Control.TimeWarp.Rpc     (MonadDialog, MonadResponse, MonadTransfer)
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
+import           Data.Binary              (Binary)
+import           Data.MessagePack         (MessagePack)
 import           Pos.DHT                  (DHTResponseT, MonadDHT, MonadMessageDHT (..),
                                            WithDefaultMsgHeader)
 import           Pos.DHT.Real             (KademliaDHT)
@@ -27,8 +32,13 @@ import           Universum
 
 
 type CounterLabel = Text
+type GoodStatEntry a
+    = ( Typeable a
+      , Binary a
+      , MessagePack a
+      )
 
-class Monad m => MonadStats m where
+class (Monad m, GoodStatEntry (StatEntry m)) => MonadStats m where
     type StatEntry m :: *
 
     logStat :: CounterLabel -> StatEntry m -> m ()

@@ -33,8 +33,8 @@ import           Formatting               (build, sformat, (%))
 import           Universum                hiding (catch, killThread)
 
 import           Pos.Communication        (SysStartRequest (..), allListeners, sendTx,
-                                           sysStartMessageNames, sysStartReqListener,
-                                           sysStartRespListener)
+                                           statsListener, sysStartMessageNames,
+                                           sysStartReqListener, sysStartRespListener)
 import           Pos.Constants            (RunningMode (..), isDevelopment, runningMode)
 import           Pos.Crypto               (SecretKey, VssKeyPair, hash, sign)
 import           Pos.DHT                  (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
@@ -187,7 +187,8 @@ runNodeReal np@NodeParams {..} = runRealMode np listeners $ getNoStatsT runNode
 -- TODO: spawn here additional listener, which would accept stat queries
 runNodeStats :: NodeParams -> IO ()
 runNodeStats np = runRealMode np statsListeners $ getStatsT runNode
-  where statsListeners = map (mapListenerDHT getStatsT) allListeners
+  where statsListeners = map (mapListenerDHT getStatsT) listeners
+        listeners = statsListener : allListeners
 
 ----------------------------------------------------------------------------
 -- Real mode runners

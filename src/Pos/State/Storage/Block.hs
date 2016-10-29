@@ -143,6 +143,8 @@ getLeader :: SlotId -> Query (Maybe PublicKey)
 getLeader SlotId {..} = (^? ix (fromIntegral siSlot)) <$> getLeaders siEpoch
 
 -- | Get depth of the first main block whose SlotId ≤ given value.
+-- Depth of the deepest (i. e. 0-th genesis) block is returned if
+-- there is no such block.
 getSlotDepth :: SlotId -> Query Word
 getSlotDepth slotId = do
     headBlock <- getHeadBlock
@@ -153,7 +155,7 @@ getSlotDepth slotId = do
         | blk ^. blockSlot <= slotId = pure depth
     getSlotDepthDo depth blk =
         maybe (pure depth) (getSlotDepthDo (depth + 1)) =<<
-        getBlock (headerHash blk)
+        getBlock (blk ^. prevBlockL)
 
 -- | Check that block header is correct and claims to represent block
 -- which may become part of blockchain.

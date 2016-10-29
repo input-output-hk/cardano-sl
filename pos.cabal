@@ -57,7 +57,9 @@ library
                         Pos.State.Storage.Stats
                         Pos.State.Storage.Types
                         Pos.State.Storage.Tx
+                        Pos.Statistics.Block
                         Pos.Statistics.MonadStats
+                        Pos.Statistics.Tx
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block

@@ -6,6 +6,7 @@
 
 module Pos.Statistics.MonadStats
        ( MonadStats (..)
+       , StatEntry
        , NoStatsT
        , CounterLabel
        , getNoStatsT
@@ -19,8 +20,9 @@ import           Control.Monad.Trans      (MonadTrans)
 import           Control.TimeWarp.Logging (WithNamedLogger (..))
 import           Control.TimeWarp.Rpc     (MonadDialog, MonadResponse, MonadTransfer)
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
-import           Data.Binary              (Binary)
 import           Data.MessagePack         (MessagePack)
+import           Universum
+
 import           Pos.DHT                  (DHTResponseT, MonadDHT, MonadMessageDHT (..),
                                            WithDefaultMsgHeader)
 import           Pos.DHT.Real             (KademliaDHT)
@@ -28,45 +30,37 @@ import           Pos.Slotting             (MonadSlots (..))
 import           Pos.State                (MonadDB (..), NodeState, addStatRecord,
                                            getStatRecords)
 import           Pos.Types                (Timestamp (..))
-import           Universum
-
 
 type CounterLabel = Text
-type GoodStatEntry a
-    = ( Typeable a
-      , Binary a
-      , MessagePack a
-      )
+type StatEntry = (LByteString, Timestamp)
 
-class (Monad m, GoodStatEntry (StatEntry m)) => MonadStats m where
-    type StatEntry m :: *
+class Monad m => MonadStats m where
+    logStat :: CounterLabel -> StatEntry -> m ()
+    getStats :: CounterLabel -> m (Maybe [StatEntry])
 
-    logStat :: CounterLabel -> StatEntry m -> m ()
-    getStats :: CounterLabel -> m (Maybe [StatEntry m])
+    -- | Default convenience method, which we can override
+    -- (to truly do nothing in `NoStatsT`, for example)
+    logStatM :: CounterLabel -> m StatEntry -> m ()
+    logStatM label action = action >>= logStat label
 
 -- TODO: is there a way to avoid such boilerplate for transformers?
 instance MonadStats m => MonadStats (KademliaDHT m) where
-    type StatEntry (KademliaDHT m) = StatEntry m
     logStat label = lift . logStat label
     getStats = lift . getStats
 
 instance MonadStats m => MonadStats (ReaderT a m) where
-    type StatEntry (ReaderT a m) = StatEntry m
     logStat label = lift . logStat label
     getStats = lift . getStats
 
 instance MonadStats m => MonadStats (StateT a m) where
-    type StatEntry (StateT a m) = StatEntry m
     logStat label = lift . logStat label
     getStats = lift . getStats
 
 instance MonadStats m => MonadStats (ExceptT e m) where
-    type StatEntry (ExceptT e m) = StatEntry m
     logStat label = lift . logStat label
     getStats = lift . getStats
 
 instance MonadStats m => MonadStats (DHTResponseT m) where
-    type StatEntry (DHTResponseT m) = StatEntry m
     logStat label = lift . logStat label
     getStats = lift . getStats
 
@@ -83,9 +77,9 @@ instance MonadTrans NoStatsT where
     lift = NoStatsT
 
 instance Monad m => MonadStats (NoStatsT m) where
-    type StatEntry (NoStatsT m) = ()
     logStat _ _ = pure ()
     getStats _ = pure $ pure []
+    logStatM _ _ = pure ()
 
 newtype StatsT m a = StatsT
     { getStatsT :: m a
@@ -97,6 +91,5 @@ instance MonadTrans StatsT where
     lift = StatsT
 
 instance (MonadIO m, MonadDB m) => MonadStats (StatsT m) where
-    type StatEntry (StatsT m) = (ByteString, Timestamp)
     logStat label = lift . uncurry (addStatRecord label)
     getStats = lift . getStatRecords

@@ -20,23 +20,23 @@ module Pos.WorkMode
        , ProductionMode
        ) where
 
-import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Except     (ExceptT)
-import           Control.TimeWarp.Logging (WithNamedLogger (..))
-import           Control.TimeWarp.Rpc     (BinaryDialog, MonadDialog, MonadResponse,
-                                           MonadTransfer, Transfer)
-import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
-import           Universum                hiding (catch)
+import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Except      (ExceptT)
+import           Control.TimeWarp.Logging  (WithNamedLogger (..))
+import           Control.TimeWarp.Rpc      (BinaryDialog, MonadDialog, MonadResponse,
+                                            MonadTransfer, Transfer)
+import           Control.TimeWarp.Timed    (MonadTimed (..), ThreadId)
+import           Universum                 hiding (catch)
 
-import           Pos.Crypto               (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
-                                           toPublic, toVssPublicKey)
-import           Pos.DHT                  (DHTResponseT, MonadMessageDHT (..),
-                                           WithDefaultMsgHeader)
-import           Pos.DHT.Real             (KademliaDHT)
-import           Pos.Slotting             (MonadSlots (..))
-import           Pos.State                (MonadDB (..), NodeState)
-import           Pos.Statistics           (MonadStats, NoStatsT, StatsT)
-import           Pos.Types                (Timestamp (..))
+import           Pos.Crypto                (PublicKey, SecretKey, VssKeyPair,
+                                            VssPublicKey, toPublic, toVssPublicKey)
+import           Pos.DHT                   (DHTResponseT, MonadMessageDHT (..),
+                                            WithDefaultMsgHeader)
+import           Pos.DHT.Real              (KademliaDHT)
+import           Pos.Slotting              (MonadSlots (..))
+import           Pos.State                 (MonadDB (..), NodeState)
+import           Pos.Statistics.MonadStats (MonadStats, NoStatsT, StatsT)
+import           Pos.Types                 (Timestamp (..))
 
 type WorkMode m
     = ( WithNamedLogger m

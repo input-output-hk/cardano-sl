@@ -12,6 +12,7 @@ import           Universum
 import           Control.TimeWarp.Rpc     (MonadDialog)
 import           Pos.Communication.Types  (ResponseMode, SendTx (..), SendTxs (..))
 import           Pos.State                (processTx)
+import           Pos.Statistics           (logReceivedTx)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
@@ -24,9 +25,10 @@ txListeners =
 handleTx
     :: ResponseMode m
     => SendTx -> m ()
-handleTx (SendTx tx) =
+handleTx (SendTx tx) = do
+    logReceivedTx tx
     whenM (processTx tx) $
-    logInfo (sformat ("Transaction has been added to storage: "%build) tx)
+        logInfo (sformat ("Transaction has been added to storage: "%build) tx)
 
 handleTxs
     :: ResponseMode m

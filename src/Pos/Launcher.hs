@@ -24,8 +24,9 @@ import           Control.TimeWarp.Logging (LoggerName, Severity (Warning),
                                            WithNamedLogger, initLogging, logError,
                                            logInfo, logWarning, setSeverity,
                                            setSeverityMaybe, usingLoggerName)
-import           Control.TimeWarp.Rpc     (BinaryDialog, MonadDialog, NetworkAddress,
-                                           Transfer, runBinaryDialog, runTransfer)
+import           Control.TimeWarp.Rpc     (BinaryP (..), Dialog, MonadDialog,
+                                           NetworkAddress, Transfer, runDialog,
+                                           runTransfer)
 import           Control.TimeWarp.Timed   (MonadTimed, currentTime, fork, killThread,
                                            repeatForever, runTimedIO, sec, sleepForever)
 import           Data.Default             (Default (def))
@@ -186,7 +187,7 @@ runNodeReal np@(NodeParams {..}) = runRealMode np listeners runNode
 
 type BenchRunner m a = m RealWithoutNetwork a -> RealWithoutNetwork a
 
-runSemiRealMode :: (WorkIOMode (m RealWithoutNetwork), MonadDialog (m RealWithoutNetwork))
+runSemiRealMode :: (WorkIOMode (m RealWithoutNetwork), MonadDialog BinaryP (m RealWithoutNetwork))
                 => BenchRunner m a
                 -> NodeParams -> [ListenerDHT (SemiRealMode m)]
                 -> SemiRealMode m a
@@ -216,7 +217,7 @@ openDb p@(NodeParams {..}) = runTimed (lpRootLogger . bpLogging $ npBaseParams) 
 
 
 -- TODO: use bracket
-runRealMode' :: (WithNamedLogger m, MonadIO m, MonadTimed m, MonadMask m, MonadDialog m) => BaseParams -> (m a -> IO (BinaryDialog Transfer a)) -> [ListenerDHT (KademliaDHT m)] -> KademliaDHT m a -> IO a
+runRealMode' :: (WithNamedLogger m, MonadIO m, MonadTimed m, MonadMask m, MonadDialog BinaryP m) => BaseParams -> (m a -> IO (Dialog BinaryP Transfer a)) -> [ListenerDHT (KademliaDHT m)] -> KademliaDHT m a -> IO a
 runRealMode' BaseParams {..} mModifier listeners action = do
     setupLoggingReal bpLogging
     runTimed (lpRootLogger bpLogging)
@@ -236,10 +237,10 @@ runRealMode' BaseParams {..} mModifier listeners action = do
                                     else []
       }
 
-runTimed :: LoggerName -> BinaryDialog Transfer a -> IO a
+runTimed :: LoggerName -> Dialog BinaryP Transfer a -> IO a
 runTimed loggerName =
     runTimedIO .
-    usingLoggerName loggerName . runTransfer . runBinaryDialog
+    usingLoggerName loggerName . runTransfer . runDialog BinaryP
 
 runRealMode :: NodeParams -> [ListenerDHT RealMode] -> RealMode a -> IO a
 runRealMode = runSemiRealMode runNoBenchmarksT

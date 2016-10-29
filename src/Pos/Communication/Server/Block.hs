@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 -- | Server which handles blocks.
 
 module Pos.Communication.Server.Block
@@ -14,7 +16,7 @@ import           Pos.DHT                  (ListenerDHT (..), replyToNode)
 import           Serokell.Util            (VerificationRes (..), listBuilderJSON)
 import           Universum
 
-import           Control.TimeWarp.Rpc     (MonadDialog)
+import           Control.TimeWarp.Rpc     (BinaryP, MonadDialog)
 import           Pos.Communication.Types  (RequestBlock (..), ResponseMode,
                                            SendBlock (..), SendBlockHeader (..))
 import           Pos.Crypto               (hash)
@@ -23,7 +25,7 @@ import qualified Pos.State                as St
 import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
-blockListeners :: (MonadDialog m, WorkMode m) => [ListenerDHT m]
+blockListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
 blockListeners =
     [ ListenerDHT handleBlock
     , ListenerDHT handleBlockHeader

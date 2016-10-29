@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
 
@@ -10,13 +11,13 @@ module Pos.Communication.Server.Mpc
 
 -- import           Universum
 
-import           Control.TimeWarp.Rpc        (MonadDialog)
+import           Control.TimeWarp.Rpc        (BinaryP, MonadDialog)
 import           Pos.Communication.Types.Mpc as Mpc
 import           Pos.DHT                     (ListenerDHT (..))
 import qualified Pos.State                   as St
 import           Pos.WorkMode                (WorkMode)
 
-mpcListeners :: (MonadDialog m, WorkMode m) => [ListenerDHT m]
+mpcListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
 mpcListeners =
     [ ListenerDHT handleCommitment
     , ListenerDHT handleOpening

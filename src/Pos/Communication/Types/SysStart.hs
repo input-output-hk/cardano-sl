@@ -11,10 +11,10 @@ import           Data.Binary          (Binary)
 import           Data.MessagePack     (MessagePack)
 import           Universum
 
-import           Control.TimeWarp.Rpc (Message (..))
+import           Control.TimeWarp.Rpc (Message (..), MessageName)
 import           Pos.Types            (Timestamp)
 
-sysStartMessageNames :: [[Char]]
+sysStartMessageNames :: [MessageName]
 sysStartMessageNames = [ sysStartReqMessageName, sysStartRespMessageName ]
 
 data SysStartRequest = SysStartRequest
@@ -29,10 +29,10 @@ instance Binary SysStartResponse
 instance MessagePack SysStartRequest
 instance MessagePack SysStartResponse
 
-sysStartReqMessageName :: [Char]
+sysStartReqMessageName :: MessageName
 sysStartReqMessageName = "SysStartRequest"
 
-sysStartRespMessageName :: [Char]
+sysStartRespMessageName :: MessageName
 sysStartRespMessageName = "SysStartResponse"
 
 instance Message SysStartRequest where

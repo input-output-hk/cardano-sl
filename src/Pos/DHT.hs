@@ -1,9 +1,12 @@
 {-# LANGUAGE ConstrainedClassMethods   #-}
 {-# LANGUAGE DefaultSignatures         #-}
+{-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE UndecidableInstances      #-}
 
 -- | Peer discovery
 
@@ -14,6 +17,7 @@ module Pos.DHT (
     DHTData,
     DHTNode (..),
     DHTNodeType (..),
+    DHTMsgHeader (..),
     MonadDHT (..),
     MonadMessageDHT (..),
     MonadResponseDHT (..),
@@ -37,10 +41,11 @@ import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.TimeWarp.Logging  (LoggerName,
                                             WithNamedLogger (modifyLoggerName), logInfo,
                                             logWarning)
-import           Control.TimeWarp.Rpc      (Message, MonadDialog, MonadTransfer,
-                                            NetworkAddress, ResponseT, replyH, sendH)
+import           Control.TimeWarp.Rpc      (BinaryP, Message, MonadDialog,
+                                            NetworkAddress, ResponseT, replyH, sendH,
+                                            HeaderNContentData, Unpackable)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
-import           Data.Binary               (Binary, Put)
+import           Data.Binary               (Binary)
 import qualified Data.ByteString           as BS
 import           Data.Proxy                (Proxy (Proxy))
 import           Data.Text.Buildable       (Buildable (..))
@@ -83,35 +88,43 @@ withDhtLogger action = do
     subName <- dhtLoggerNameM
     modifyLoggerName (<> subName) action
 
+data DHTMsgHeader = BroadcastHeader
+                  | SimpleHeader { dmhNoCache :: Bool }
+  deriving (Generic, Show)
+
+instance Binary DHTMsgHeader
+
 class WithDefaultMsgHeader m where
-  defaultMsgHeader :: Message r => r -> m Put
+    defaultMsgHeader :: Message r => r -> m DHTMsgHeader
 
 class MonadDHT m => MonadMessageDHT m where
 
-    sendToNetwork :: Message r => r -> m ()
+    sendToNetwork :: (Binary r, Message r) => r -> m ()
 
-    sendToNode :: Message r => NetworkAddress -> r -> m ()
+    sendToNode :: (Binary r, Message r) => NetworkAddress -> r -> m ()
 
-    sendToNeighbors :: Message r => r -> m Int
+    sendToNeighbors :: (Binary r, Message r) => r -> m Int
 
-    default sendToNode :: (Message r, WithDefaultMsgHeader m, MonadDialog m) => NetworkAddress -> r -> m ()
+    default sendToNode :: (Binary r, Message r, WithDefaultMsgHeader m, MonadDialog BinaryP m) => NetworkAddress -> r -> m ()
     sendToNode = defaultSendToNode
 
-    default sendToNeighbors :: (Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
+    default sendToNeighbors :: (Binary r, Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
     sendToNeighbors = defaultSendToNeighbors
 
 class MonadMessageDHT m => MonadResponseDHT m where
 
-  replyToNode :: Message r => r -> m ()
+  replyToNode :: (Binary r, Message r) => r -> m ()
 
 data ListenerDHT m =
-    forall r . Message r => ListenerDHT (r -> DHTResponseT m ())
+    forall r . (Unpackable BinaryP (HeaderNContentData DHTMsgHeader r), Message r)
+            => ListenerDHT (r -> DHTResponseT m ())
 
 defaultSendToNode
     :: ( MonadMessageDHT m
+       , Binary r
        , Message r
        , WithDefaultMsgHeader m
-       , MonadDialog m
+       , MonadDialog BinaryP m
        )
     => NetworkAddress -> r -> m ()
 defaultSendToNode addr msg = do
@@ -120,6 +133,7 @@ defaultSendToNode addr msg = do
 
 defaultSendToNeighbors
     :: ( MonadMessageDHT m
+       , Binary r
        , Message r
        , WithNamedLogger m
        , MonadCatch m
@@ -243,11 +257,11 @@ newtype DHTResponseT m a = DHTResponseT { getDHTResponseT :: (ResponseT m a) }
     deriving (Functor, Applicative, Monad, MonadIO, MonadTrans,
                 MonadThrow, MonadCatch, MonadMask,
                 MonadState s, WithDefaultMsgHeader,
-                WithNamedLogger, MonadTimed, MonadTransfer, MonadDHT, MonadMessageDHT)
+                WithNamedLogger, MonadTimed, MonadDHT, MonadMessageDHT)
 
 type instance ThreadId (DHTResponseT m) = ThreadId m
 
-instance (WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog m, MonadIO m) => MonadResponseDHT (DHTResponseT m) where
+instance (WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog BinaryP m, MonadIO m) => MonadResponseDHT (DHTResponseT m) where
   replyToNode msg = do
     header <- defaultMsgHeader msg
     DHTResponseT $ replyH header msg

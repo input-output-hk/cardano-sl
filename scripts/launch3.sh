@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 tmux new-window -n "pos-demo-"`date +%F_%H%M%S`
 

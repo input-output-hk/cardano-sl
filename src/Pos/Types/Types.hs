@@ -18,6 +18,12 @@ module Pos.Types.Types
          Coin (..)
        , coinF
 
+       , EpochIndex (..)
+       , LocalSlotIndex (..)
+       , SlotId (..)
+       , FlatSlotId
+       , slotIdF
+
        , Address (..)
        , addressF
 
@@ -129,13 +135,14 @@ import           Data.Data            (Data)
 import           Data.Default         (Default (def))
 import           Data.DeriveTH        (derive, makeNFData)
 import           Data.Hashable        (Hashable)
+import           Data.Ix              (Ix)
 import           Data.MessagePack     (MessagePack (..))
 import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeCopySimple,
                                        deriveSafeCopySimpleIndexedType, safeGet, safePut)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
-import           Formatting           (Format, bprint, build, int, sformat, (%))
+import           Formatting           (Format, bprint, build, int, ords, sformat, (%))
 import           Serokell.AcidState   ()
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Text   (listJson)
@@ -149,8 +156,6 @@ import           Pos.Crypto           (EncShare, Hash, PublicKey, Secret, Secret
                                        toPublic, unsafeHash, verify)
 import           Pos.Merkle           (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot,
                                        mtSize)
-import           Pos.Types.Slotting   (EpochIndex (..), LocalSlotIndex (..), SlotId (..),
-                                       slotIdF)
 import           Pos.Util             (makeLensesData)
 
 ----------------------------------------------------------------------------
@@ -170,6 +175,44 @@ instance Buildable Coin where
 -- | Coin formatter which restricts type.
 coinF :: Format r (Coin -> r)
 coinF = build
+
+----------------------------------------------------------------------------
+-- Slotting
+----------------------------------------------------------------------------
+
+-- | Index of epoch.
+newtype EpochIndex = EpochIndex
+    { getEpochIndex :: Word64
+    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Binary, Hashable, Buildable)
+
+instance MessagePack EpochIndex
+
+-- | Index of slot inside a concrete epoch.
+newtype LocalSlotIndex = LocalSlotIndex
+    { getSlotIndex :: Word16
+    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Binary, Hashable, Buildable)
+
+instance MessagePack LocalSlotIndex
+
+-- | Slot is identified by index of epoch and local index of slot in
+-- this epoch. This is a global index
+data SlotId = SlotId
+    { siEpoch :: !EpochIndex
+    , siSlot  :: !LocalSlotIndex
+    } deriving (Show, Eq, Ord, Generic)
+
+instance Binary SlotId
+instance MessagePack SlotId
+
+instance Buildable SlotId where
+    build SlotId {..} =
+        bprint (ords%" slot of "%ords%" epoch") siSlot siEpoch
+
+slotIdF :: Format r (SlotId -> r)
+slotIdF = build
+
+-- | FlatSlotId is a flat version of SlotId
+type FlatSlotId = Word64
 
 ----------------------------------------------------------------------------
 -- Address

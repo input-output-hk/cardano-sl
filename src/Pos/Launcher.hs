@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
@@ -10,6 +11,7 @@ module Pos.Launcher
        , getCurTimestamp
        , runNode
        , runNodeReal
+       , runNodeBench
        , submitTx
        , submitTxReal
        , runSupporterReal
@@ -18,8 +20,8 @@ module Pos.Launcher
 import           Control.TimeWarp.Logging (LoggerName, Severity (Warning), initLogging,
                                            logError, logInfo, setSeverity,
                                            setSeverityMaybe, usingLoggerName)
-import           Control.TimeWarp.Rpc     (BinaryDialog, NetworkAddress, Transfer,
-                                           runBinaryDialog, runTransfer)
+import           Control.TimeWarp.Rpc     (BinaryDialog, MonadDialog, NetworkAddress,
+                                           Transfer, runBinaryDialog, runTransfer)
 import           Control.TimeWarp.Timed   (currentTime, repeatForever, runTimedIO, sec,
                                            sleepForever)
 import           Data.Default             (Default (def))
@@ -36,8 +38,10 @@ import           Pos.State                (NodeState, openMemState, openState)
 import           Pos.Types                (Address, Coin, Tx (..), TxId, TxIn (..),
                                            TxOut (..), txF)
 import           Pos.Worker               (runWorkers)
-import           Pos.WorkMode             (ContextHolder (..), DBHolder (..),
-                                           NodeContext (..), RealMode, WorkMode,
+import           Pos.WorkMode             (BenchMode, BenchmarkT (..), ContextHolder (..),
+                                           DBHolder (..), NoBenchmarkT (..),
+                                           NodeContext (..), RealMode, RealWithoutNetwork,
+                                           SemiRealMode, WorkIOMode, WorkMode,
                                            getNodeContext, ncSecretKey)
 
 -- | Get current time as Timestamp. It is intended to be used when you
@@ -84,6 +88,11 @@ runSupporterReal SupporterParams {..} = do
 -- | Run full node in real mode.
 runNodeReal :: NodeParams -> IO ()
 runNodeReal p = runRealMode p allListeners $ runNode p
+
+-- | Run full node in benchmarking node
+-- TODO: spawn here additional listener, which would accept stat queries
+runNodeBench :: NodeParams -> IO ()
+runNodeBench p = runBenchMode p allListeners $ runNode p
 
 -- | Construct Tx with a single input and single output and send it to
 -- the given network addresses.
@@ -150,15 +159,23 @@ data NodeParams = NodeParams
 -- WorkMode implementations
 ----------------------------------------------------------------------------
 
+type BenchRunner m a = m RealWithoutNetwork a -> RealWithoutNetwork a
+
 -- TODO: use bracket
-runRealMode :: NodeParams -> [ListenerDHT RealMode] -> RealMode a -> IO a
-runRealMode NodeParams {..} listeners action = do
+-- TODO: This is sooo ugly. It's absolutely necessary to come up with
+-- a generic way to decompose specific `WorkMode` runners
+runSemiRealMode :: (WorkMode (SemiRealMode m), WorkIOMode (m RealWithoutNetwork), MonadDialog (m RealWithoutNetwork))
+                => BenchRunner m a
+                -> NodeParams -> [ListenerDHT (SemiRealMode m)]
+                -> SemiRealMode m a
+                -> IO a
+runSemiRealMode runBench NodeParams {..} listeners action = do
     setupLoggingReal npLogging
     startTime <- getStartTime
     db <- (runTimed . runCH startTime) openDb
     let onStartMsg =
             sformat ("Started node, joining to DHT network "%build) npDHTPeers
-    runTimed . runDH db . runCH startTime . runKademliaDHT kadConfig $
+    runTimed . runDH db . runCH startTime . runBench . runKademliaDHT kadConfig  $
         do logInfo onStartMsg
            action
   where
@@ -193,6 +210,12 @@ runRealMode NodeParams {..} listeners action = do
         usingLoggerName (lpRootLogger npLogging) . runTransfer . runBinaryDialog
     runDH :: NodeState -> DBHolder m a -> m a
     runDH db = flip runReaderT db . getDBHolder
+
+runRealMode :: NodeParams -> [ListenerDHT RealMode] -> RealMode a -> IO a
+runRealMode = runSemiRealMode runNoBenchmarksT
+
+runBenchMode :: NodeParams -> [ListenerDHT BenchMode] -> BenchMode a -> IO a
+runBenchMode = runSemiRealMode runBenchmarkT
 
 setupLoggingReal :: LoggingParams -> IO ()
 setupLoggingReal LoggingParams {..} = do

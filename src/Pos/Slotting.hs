@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
 
 -- | Slotting functionality.
 
@@ -33,16 +34,16 @@ import           Pos.Types                (FlatSlotId, SlotId (..), flattenSlotI
 -- timestamps is microsecond. Hence underlying type is Microsecond.
 newtype Timestamp = Timestamp
     { getTimestamp :: Microsecond
-    } deriving (Num)
+    } deriving (Num, Eq, Ord, Enum, Real, Integral)
 
 instance Show Timestamp where
   show = show . getTimestamp
 
 instance Read Timestamp where
-  readsPrec i = fmap (\(a, s) -> (Timestamp a, s)) . readsPrec i
+  readsPrec i = fmap (first Timestamp) . readsPrec i
 
 instance Buildable Timestamp where
-    build = Buildable.build . (fromIntegral :: Microsecond -> Integer) . getTimestamp
+    build = Buildable.build @Integer . fromIntegral
 
 timestampF :: Format r (Timestamp -> r)
 timestampF = build

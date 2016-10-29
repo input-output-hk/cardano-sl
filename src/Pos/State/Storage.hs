@@ -33,6 +33,10 @@ module Pos.State.Storage
        , processShares
        , processTx
        , processVssCertificate
+
+       , IdTimestamp (..)
+       , addStatRecord
+       , getStatRecords
        ) where
 
 import           Control.Lens            (makeClassy, use, view, (.=), (^.))
@@ -62,6 +66,8 @@ import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage
                                           mpcProcessShares, mpcProcessVssCertificate,
                                           mpcRollback, mpcVerifyBlock, mpcVerifyBlocks,
                                           setSecret)
+import           Pos.State.Storage.Stats (HasStatsData (statsData), IdTimestamp (..),
+                                          StatsData, addStatRecord, getStatRecords)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           getLocalTxs, getUtxoByDepth, processTx,
                                           txApplyBlocks, txRollback, txVerifyBlocks)
@@ -86,6 +92,8 @@ data Storage = Storage
       __blockStorage :: !BlockStorage
     , -- | Id of last seen slot.
       _slotId        :: !SlotId
+    , -- | Statistical data
+      __statsData    :: !StatsData
     }
 
 makeClassy ''Storage
@@ -97,6 +105,8 @@ instance HasTxStorage Storage where
     txStorage = _txStorage
 instance HasBlockStorage Storage where
     blockStorage = _blockStorage
+instance HasStatsData Storage where
+    statsData = _statsData
 
 instance Default Storage where
     def =
@@ -105,6 +115,7 @@ instance Default Storage where
         , __txStorage = def
         , __blockStorage = def
         , _slotId = unflattenSlotId 0
+        , __statsData = def
         }
 
 getHeadEpoch :: Query EpochIndex

@@ -49,6 +49,7 @@ library
                         Pos.State.Storage
                         Pos.State.Storage.Block
                         Pos.State.Storage.Mpc
+                        Pos.State.Storage.Stats
                         Pos.State.Storage.Types
                         Pos.State.Storage.Tx
                         Pos.Types.Arbitrary

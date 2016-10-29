@@ -30,3 +30,4 @@ node-db*
 pos-db*
 *.html
 pos-keys
+nohup.out

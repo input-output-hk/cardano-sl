@@ -1,22 +1,24 @@
-import           Data.Default            (def)
-import           Data.List               ((!!))
-import           Data.Monoid             ((<>))
-import           Formatting              (int, sformat, stext, (%))
-import           Options.Applicative     (Parser, ParserInfo, auto, command, execParser,
-                                          fullDesc, header, help, helper, info, long,
-                                          metavar, option, progDesc, short, strOption,
-                                          subparser, value)
-import           Text.Parsec             (parse)
-import           Universum               hiding ((<>))
+import           Control.TimeWarp.Logging (LoggerName(..))
+import           Data.Default             (def)
+import           Data.List                ((!!))
+import           Data.Monoid              ((<>))
+import           Formatting               (int, sformat, stext, (%))
+import           Options.Applicative      (Parser, ParserInfo, auto, command, execParser,
+                                           fullDesc, header, help, helper, info, long,
+                                           metavar, option, progDesc, short, strOption,
+                                           subparser, value)
+import           Text.Parsec              (parse)
+import           Universum                hiding ((<>))
 
-import           Pos.CLI                 (dhtKeyParser, dhtNodeParser)
-import           Pos.DHT                 (DHTNodeType (..), dhtNodeType)
-import           Pos.Genesis             (genesisSecretKeys, genesisVssKeyPairs)
-import           Pos.Launcher            (NodeParams (..), SupporterParams (..),
-                                          runNodeReal, runSupporterReal)
+import           Pos.CLI                  (dhtKeyParser, dhtNodeParser)
+import           Pos.DHT                  (DHTNodeType (..), dhtNodeType)
+import           Pos.Genesis              (genesisSecretKeys, genesisVssKeyPairs)
+import           Pos.Launcher             (NodeParams (..), SupporterParams (..),
+                                           runNodeReal, runSupporterReal,
+                                           LoggingParams(..))
 
-import           Bench.Pos.Remote.Config (FullNodeConfig (..), SupporterConfig (..),
-                                          readRemoteConfig)
+import           Bench.Pos.Remote.Config  (FullNodeConfig (..), SupporterConfig (..),
+                                           readRemoteConfig)
 
 -- TODO: move to some util library (e. g. `serokell-core`)
 eitherPanic :: Show a => Text -> Either a b -> b
@@ -66,14 +68,15 @@ startSupporter :: FilePath -> IO ()
 startSupporter config = do
     SupporterConfig {..} <- readRemoteConfig config
 
-    let dhtKey = eitherPanic "Invalid DHT key: " $ parse dhtKeyParser "" $ toS scDHTKey
+    let dhtKey = eitherPanic "Invalid DHT key: " $ parse dhtKeyParser "" $ toS scDhtKey
         keyType = dhtNodeType dhtKey
 
     when (keyType /= Just DHTSupporter) $
         panic $ sformat ("Invalid type of DHT key: "%stext%" (should be `Just DHTSupporter`)") $ show keyType
 
-    let params = SupporterParams
-                 { spLogging = def
+    let logging = def { lpRootLogger = "supporter" }
+        params = SupporterParams
+                 { spLogging = logging
                  , spPort = scPort
                  , spDHTPeers = []
                  , spDHTKeyOrType = Left dhtKey
@@ -89,11 +92,12 @@ startFullNode config nodeNumber = do
     FullNodeConfig {..} <- readRemoteConfig config
 
     let dhtSupporter = eitherPanic "Invalid supporter address: " $ parse dhtNodeParser "" $ toS fncSupporterAddr
+        logging = def { lpRootLogger = LoggerName ("fullnode." ++ show nodeNumber) }
         params = NodeParams
                  { npDbPath       = fncDbPath
                  , npRebuildDb    = True             -- always start with a fresh database (maybe will change later)
                  , npSystemStart  = fromIntegral <$> fncStartTime
-                 , npLogging      = def              -- change later
+                 , npLogging      = logging
                  , npSecretKey    = genesisSecretKeys !! nodeNumber
                  , npVssKeyPair   = genesisVssKeyPairs !! nodeNumber
                  , npPort         = fncPort

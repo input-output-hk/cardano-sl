@@ -272,6 +272,7 @@ benchmark pos-bench-remote
                      , parsec
                      , pos
                      , serokell-core
+                     , time-warp
                      , universum
                      , yaml
   default-language:    Haskell2010

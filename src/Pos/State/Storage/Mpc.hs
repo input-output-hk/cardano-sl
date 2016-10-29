@@ -52,6 +52,7 @@ import           Pos.Crypto              (PublicKey, Share,
                                           VssKeyPair, decryptShare, toVssPublicKey,
                                           verify, verifyShare)
 import           Pos.FollowTheSatoshi    (FtsError, calculateSeed, followTheSatoshi)
+import           Pos.Genesis             (genesisCertificates)
 import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types               (Address (getAddress), Block, Commitment (..),
                                           CommitmentSignature, CommitmentsMap,
@@ -104,7 +105,7 @@ instance Default MpcStorageVersion where
         , _mpcLocalOpenings = mempty
         , _mpcGlobalOpenings = mempty
         , _mpcLocalCertificates = mempty
-        , _mpcGlobalCertificates = mempty
+        , _mpcGlobalCertificates = genesisCertificates
         }
 
 data MpcStorage = MpcStorage

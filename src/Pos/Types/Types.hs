@@ -538,18 +538,26 @@ instance Buildable MainBlockHeader where
 -- main part of our consensus algorithm.
 type MainBlock = GenericBlock MainBlockchain
 
--- TODO
 instance Buildable MainBlock where
     build GenericBlock {..} =
         bprint
             ("MainBlock:\n"%
              "  "%build%
-             "  transactions: "%listJson%"\n"
+             "  transactions: "%listJson%"\n"%
+             "  number of commitments: "%int%", "%
+             "openings: "%int%", "%
+             "shares: "%int%", "%
+             "certificates: "%int%"\n"
             )
             _gbHeader
             _mbTxs
+            (length _mdCommitments)
+            (length _mdOpenings)
+            (length _mdShares)
+            (length _mdVssCertificates)
       where
         MainBody {..} = _gbBody
+        MpcData {..} = _mbMpc
 
 ----------------------------------------------------------------------------
 -- GenesisBlock

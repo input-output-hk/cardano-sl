@@ -5,7 +5,6 @@ module Main where
 import           Data.Default               (def)
 
 import           Control.Applicative        (empty)
-import           Control.Concurrent         (threadDelay)
 import           Control.Monad              (fail)
 import           Control.TimeWarp.Logging   (Severity (Debug, Info))
 import           Data.Binary                (Binary, decode, encode)

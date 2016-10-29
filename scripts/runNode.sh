@@ -20,4 +20,4 @@ fi
 $(find_binary pos-node) --db-path pos-db$i --rebuild-db --vss-genesis $i \
   --spending-genesis $i --port $port --peer '127.0.0.1:2000/ABOtPlQMv123_4wzfgjAzvsT2LE=' \
   $logs $st \
-  | tee logs/node-$i-`date '+%F_%H%M%S'`.log
+  2>&1 | tee logs/node-$i-`date '+%F_%H%M%S'`.log

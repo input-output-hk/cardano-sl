@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 -- | Storage with node local state which should be persistent.
 
@@ -76,9 +77,9 @@ import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRa
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
                                           EpochIndex, GenesisBlock, MainBlock, Opening,
                                           SlotId (..), SlotLeaders, VssCertificate,
-                                          blockSlot, blockTxs, epochIndexL, getAddress,
-                                          headerHashG, mdVssCertificates, txOutAddress,
-                                          unflattenSlotId, verifyTxAlone)
+                                          blockSlot, blockTxs, epochIndexL, flattenSlotId,
+                                          getAddress, headerHashG, mdVssCertificates,
+                                          txOutAddress, unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState, _neHead)
 
 type Query  a = forall m . MonadReader Storage m => m a
@@ -122,15 +123,32 @@ instance Default Storage where
 getHeadSlot :: Query (Either EpochIndex SlotId)
 getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock
 
--- | Create a new block on top of best chain.
-createNewBlock :: SecretKey -> SlotId -> Update MainBlock
+
+-- | Create a new block on top of best chain if possible.
+-- Block can be created if:
+-- • we know genesis block for epoch from given SlotId
+-- • last known block is not more than k slots away from
+-- given SlotId
+createNewBlock :: SecretKey -> SlotId -> Update (Maybe MainBlock)
 createNewBlock sk sId = do
+    ifM (readerToState (canCreateBlock sId))
+        (Just <$> createNewBlockDo sk sId)
+        (pure Nothing)
+
+createNewBlockDo :: SecretKey -> SlotId -> Update MainBlock
+createNewBlockDo sk sId = do
     txs <- readerToState $ toList <$> getLocalTxs
     mpcData <- readerToState getLocalMpcData
     blk <- blkCreateNewBlock sk sId txs mpcData
     let blocks = Right blk :| []
     mpcApplyBlocks blocks
     blk <$ txApplyBlocks blocks
+
+canCreateBlock :: SlotId -> Query Bool
+canCreateBlock (flattenSlotId -> flatSlotId) = (flatSlotId <) <$> canCreateBlockMax
+  where
+    canCreateBlockMax = addKSafe . either (`SlotId` 0) identity <$> getHeadSlot
+    addKSafe si = flattenSlotId $ si {siSlot = min (5 * k - 1) (siSlot si)}
 
 -- | Do all necessary changes when a block is received.
 processBlock :: SlotId -> Block -> Update ProcessBlockRes

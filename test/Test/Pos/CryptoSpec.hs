@@ -15,9 +15,12 @@ import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
 import           Pos.Crypto            (Hash, KeyPair (..), PublicKey, SecretKey,
-                                        Signature, Signed, deterministic, fullPublicKeyF,
-                                        hash, parseFullPublicKey, randomNumber, sign,
-                                        toPublic, verify)
+                                        SecretProof, SecretSharingExtra, Signature,
+                                        Signed, VssPublicKey, deterministic,
+                                        fullPublicKeyF, hash, parseFullPublicKey,
+                                        randomNumber, sign, toPublic, verify)
+-- FIXME: it's bad :(
+import           Pos.Types             ()
 
 import           Test.Pos.Util         (binaryEncodeDecode)
 
@@ -72,6 +75,15 @@ spec = describe "Crypto" $ do
             prop
                 "Signed"
                 (binaryEncodeDecode @(Signed Bool))
+            prop
+                "VssPublicKey"
+                (binaryEncodeDecode @VssPublicKey)
+            prop
+                "SecretProof"
+                (binaryEncodeDecode @SecretProof)
+            prop
+                "SecretSharingExtra"
+                (binaryEncodeDecode @SecretSharingExtra)
         describe "keys" $ do
             prop
                 "derived pubkey equals to generated pubkey"

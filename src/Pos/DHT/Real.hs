@@ -20,13 +20,14 @@ import           Control.TimeWarp.Logging  (WithNamedLogger, logDebug, logError,
                                             logWarning, usingLoggerName)
 import           Control.TimeWarp.Rpc      (Binding (..), ListenerH (..), MonadDialog,
                                             MonadResponse, MonadTransfer, NetworkAddress,
-                                            RawData, listenR, sendH, sendR)
+                                            RawData, listenR, messageName, sendH, sendR)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId, fork, killThread)
 import           Data.Binary               (Binary, Put, decodeOrFail, encode, get, put)
 import qualified Data.ByteString           as BS
 import           Data.ByteString.Lazy      (fromStrict, toStrict)
 import qualified Data.Cache.LRU            as LRU
 import           Data.Hashable             (hash)
+import           Data.Proxy                (Proxy (..))
 import           Formatting                (int, sformat, shown, (%))
 import qualified ListT                     as ListT
 import qualified Network.Kademlia          as K
@@ -61,30 +62,37 @@ instance K.Serialize DHTKey where
 type DHTHandle = K.KademliaInstance DHTKey DHTData
 
 data KademliaDHTContext m = KademliaDHTContext
-    { kdcHandle            :: DHTHandle
-    , kdcKey               :: DHTKey
-    , kdcMsgThreadId       :: TVar (Maybe (ThreadId (KademliaDHT m)))
-    , kdcInitialPeers_     :: [DHTNode]
-    , kdcListenByBinding   :: Binding -> KademliaDHT m ()
+    { kdcHandle               :: DHTHandle
+    , kdcKey                  :: DHTKey
+    , kdcMsgThreadId          :: TVar (Maybe (ThreadId (KademliaDHT m)))
+    , kdcInitialPeers_        :: [DHTNode]
+    , kdcListenByBinding      :: Binding -> KademliaDHT m ()
     -- TODO temporary code, to remove (after TW-47)
-    , kdcOutboundListeners :: STM.Map NetworkAddress (ThreadId (KademliaDHT m))
+    , kdcOutboundListeners    :: STM.Map NetworkAddress (ThreadId (KademliaDHT m))
+    , kdcNoCacheMessageNames_ :: [[Char]]
     }
 
 data KademliaDHTConfig m = KademliaDHTConfig
-    { kdcPort             :: Word16
-    , kdcListeners        :: [ListenerDHT (KademliaDHT m)]
-    , kdcMessageCacheSize :: Int
-    , kdcEnableBroadcast  :: Bool
-    , kdcKeyOrType        :: Either DHTKey DHTNodeType
-    , kdcInitialPeers     :: [DHTNode]
+    { kdcPort                :: Word16
+    , kdcListeners           :: [ListenerDHT (KademliaDHT m)]
+    , kdcMessageCacheSize    :: Int
+    , kdcEnableBroadcast     :: Bool
+    , kdcKeyOrType           :: Either DHTKey DHTNodeType
+    , kdcInitialPeers        :: [DHTNode]
+    , kdcNoCacheMessageNames :: [[Char]]
     }
 
 newtype KademliaDHT m a = KademliaDHT { unKademliaDHT :: ReaderT (KademliaDHTContext m) m a }
     deriving (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadIO,
              MonadMask, WithNamedLogger, MonadTimed, MonadTransfer, MonadDialog, MonadResponse)
 
-instance Applicative m => WithDefaultMsgHeader (KademliaDHT m) where
-  defaultMsgHeader _ = pure $ put SimpleHeader
+instance Monad m => WithDefaultMsgHeader (KademliaDHT m) where
+  defaultMsgHeader msg = do
+      noCacheNames <- KademliaDHT $ asks kdcNoCacheMessageNames_
+      pure . put . SimpleHeader . isJust . find ((==) . messageName $ proxyOf msg) $ noCacheNames
+
+proxyOf :: a -> Proxy a
+proxyOf _ = Proxy
 
 instance MonadTrans KademliaDHT where
   lift = KademliaDHT . lift
@@ -123,7 +131,7 @@ stopDHT = do
     mapM_ killThread $ map snd outThreads
 
 startDHT :: (MonadTimed m, MonadIO m, MonadDialog m, WithNamedLogger m, MonadCatch m) => KademliaDHTConfig m -> m (KademliaDHTContext m)
-startDHT (KademliaDHTConfig{..}) = do
+startDHT KademliaDHTConfig {..} = do
     kdcKey <- either pure randomDHTKey kdcKeyOrType
     kdcHandle <-
         liftIO $
@@ -139,7 +147,8 @@ startDHT (KademliaDHTConfig{..}) = do
     let kdcListenByBinding =
           \binding -> do
                 logInfo $ sformat ("Listening on binding " % shown) binding
-                listenR binding get (convert <$> kdcListeners) (rawListener kdcEnableBroadcast msgCache)
+                listenR binding get (convert <$> kdcListeners) (rawListener kdcEnableBroadcast kdcNoCacheMessageNames msgCache)
+    let kdcNoCacheMessageNames_ = kdcNoCacheMessageNames
     pure $ KademliaDHTContext {..}
   where
     log' logF = usingLoggerName ("kademlia" <> "instance") . logF . toS
@@ -149,21 +158,23 @@ startDHT (KademliaDHTConfig{..}) = do
 -- broadcasted
 rawListener
     :: (MonadIO m, MonadDHT m, MonadDialog m, WithNamedLogger m)
-    => Bool -> TVar (LRU.LRU Int ()) -> (DHTMsgHeader, RawData) -> m Bool
-rawListener enableBroadcast cache (h, rawData) = withDhtLogger $ do
+    => Bool -> [[Char]] -> TVar (LRU.LRU Int ()) -> (DHTMsgHeader, RawData) -> m Bool
+rawListener enableBroadcast noCacheNames cache (h, rawData) = withDhtLogger $ do
     let mHash = hash $ encode rawData
     logDebug $
         sformat ("Received message (" % shown % ", hash=" % int) h mHash
-    wasInCache <- liftIO . atomically $ updCache cache mHash
+    ignoreMsg <- case h of
+                   SimpleHeader True -> return False
+                   _                 -> liftIO . atomically $ updCache cache mHash
     -- If the message is in cache, we have already broadcasted it before, no
     -- need to do it twice
-    when (not wasInCache && enableBroadcast) $
+    when (not ignoreMsg && enableBroadcast) $
         case h of
             BroadcastHeader -> sendToNetworkR rawData
-            SimpleHeader    -> pure ()
+            SimpleHeader _  -> pure ()
     -- If the message wasn't in the cache, we want to process it too (not
     -- simply broadcast it)
-    return (not wasInCache)
+    return (not ignoreMsg)
 
 updCache :: TVar (LRU.LRU Int ()) -> Int -> STM Bool
 updCache cacheTV dataHash = do
@@ -196,7 +207,7 @@ sendToNetworkImpl
 sendToNetworkImpl = notImplemented
 
 data DHTMsgHeader = BroadcastHeader
-                  | SimpleHeader
+                  | SimpleHeader { dmhNoCache :: Bool }
   deriving (Generic, Show)
 
 instance Binary DHTMsgHeader

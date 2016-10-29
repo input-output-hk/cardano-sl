@@ -171,28 +171,6 @@ executable pos-wallet
                      , NoImplicitPrelude
                      , GeneralizedNewtypeDeriving
 
-executable pos-demo
-  hs-source-dirs:      src/demo
-  main-is:             Main.hs
-  build-depends:       async
-                     , base
-                     , data-default
-                     , formatting
-                     , pos
-                     , serokell-core
-                     , time-warp
-                     , universum
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
-
 test-suite pos-test
   main-is:             Test.hs
   other-modules:       Spec

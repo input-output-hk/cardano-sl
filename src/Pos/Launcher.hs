@@ -33,7 +33,8 @@ import           Formatting               (build, sformat, (%))
 import           Universum                hiding (catch, killThread)
 
 import           Pos.Communication        (SysStartRequest (..), allListeners, sendTx,
-                                           sysStartReqListener, sysStartRespListener)
+                                           sysStartMessageNames, sysStartReqListener,
+                                           sysStartRespListener)
 import           Pos.Constants            (RunningMode (..), isDevelopment, runningMode)
 import           Pos.Crypto               (SecretKey, VssKeyPair, hash, sign)
 import           Pos.DHT                  (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
@@ -150,11 +151,12 @@ runTimeSlaveReal bp = do
            t <- liftIO $ takeMVar mvar
            killThread tId
            t <$ logInfo (sformat ("[Time slave] adopted system start " % timestampF) t)
-         Production ts -> logWarning "Time slave launched in Production" >> return ts
+         Production ts -> logWarning "Time slave launched in Production" $> ts
   where
-    listeners mvar = if isDevelopment
-                   then [sysStartReqListener Nothing, sysStartRespListener mvar]
-                   else []
+    listeners mvar =
+      if isDevelopment
+         then [sysStartReqListener Nothing, sysStartRespListener mvar]
+         else []
 
 runTimeLordReal :: LoggingParams -> IO Timestamp
 runTimeLordReal lp = do
@@ -229,6 +231,9 @@ runRealMode' BaseParams {..} mModifier listeners action = do
       , kdcMessageCacheSize = 1000000
       , kdcEnableBroadcast = False
       , kdcInitialPeers = bpDHTPeers
+      , kdcNoCacheMessageNames = if isDevelopment
+                                    then sysStartMessageNames
+                                    else []
       }
 
 runTimed :: LoggerName -> BinaryDialog Transfer a -> IO a

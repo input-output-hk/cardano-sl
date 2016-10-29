@@ -4,6 +4,7 @@
 module Pos.Communication.Types.SysStart
        ( SysStartRequest (..)
        , SysStartResponse (..)
+       , sysStartMessageNames
        ) where
 
 import           Data.Binary          (Binary)
@@ -12,6 +13,9 @@ import           Universum
 
 import           Control.TimeWarp.Rpc (Message (..))
 import           Pos.Types            (Timestamp)
+
+sysStartMessageNames :: [[Char]]
+sysStartMessageNames = [ sysStartReqMessageName, sysStartRespMessageName ]
 
 data SysStartRequest = SysStartRequest
     deriving (Generic)
@@ -25,8 +29,14 @@ instance Binary SysStartResponse
 instance MessagePack SysStartRequest
 instance MessagePack SysStartResponse
 
+sysStartReqMessageName :: [Char]
+sysStartReqMessageName = "SysStartRequest"
+
+sysStartRespMessageName :: [Char]
+sysStartRespMessageName = "SysStartResponse"
+
 instance Message SysStartRequest where
-    messageName _ = "SysStartRequest"
+    messageName _ = sysStartReqMessageName
 
 instance Message SysStartResponse where
-    messageName _ = "SysStartResponse"
+    messageName _ = sysStartRespMessageName

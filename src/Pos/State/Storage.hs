@@ -74,9 +74,9 @@ import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           txApplyBlocks, txRollback, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
-                                          EpochIndex, MainBlock, Opening, SlotId (..),
-                                          SlotLeaders, VssCertificate, blockTxs,
-                                          epochIndexL, getAddress, headerHashG,
+                                          EpochIndex, GenesisBlock, MainBlock, Opening,
+                                          SlotId (..), SlotLeaders, VssCertificate,
+                                          blockTxs, epochIndexL, getAddress, headerHashG,
                                           mdVssCertificates, txOutAddress,
                                           unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState, _neHead)
@@ -169,7 +169,7 @@ processBlockFinally toRollback blocks = do
     blkSetHead (blocks ^. _neHead . headerHashG)
     headEpoch <- readerToState getHeadEpoch
     knownEpoch <- use (slotId . epochIndexL)
-    when (headEpoch + 1 == knownEpoch) $ createGenesisBlock knownEpoch
+    when (headEpoch + 1 == knownEpoch) $ createGenesisBlock knownEpoch $> ()
     return $ PBRgood (toRollback, blocks)
 
 -- | Do all necessary changes when new slot starts.
@@ -181,15 +181,18 @@ processNewSlot sId = do
 processNewSlotDo :: SlotId -> Update ()
 processNewSlotDo sId@SlotId {..} = do
     slotId .= sId
-    when (siSlot == 0) $ createGenesisBlock siEpoch
+    when (siSlot == 0) $
+      createGenesisBlock siEpoch >>= maybe (pure ()) (mpcApplyBlocks . pure . Left)
     blkCleanUp sId
 
-createGenesisBlock :: EpochIndex -> Update ()
+createGenesisBlock :: EpochIndex -> Update (Maybe GenesisBlock)
 createGenesisBlock epoch = do
     headEpoch <- readerToState getHeadEpoch
-    when (headEpoch + 1 == epoch) $
-        do leaders <- readerToState $ calculateLeadersDo epoch
-           () <$ blkCreateGenesisBlock epoch leaders
+    if (headEpoch + 1 == epoch)
+       then do
+         leaders <- readerToState $ calculateLeadersDo epoch
+         Just <$> blkCreateGenesisBlock epoch leaders
+       else return Nothing
 
 calculateLeadersDo :: EpochIndex -> Query SlotLeaders
 calculateLeadersDo epoch = do

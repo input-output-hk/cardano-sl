@@ -43,6 +43,7 @@ import           Control.Lens            (makeClassy, use, view, (.=), (^.))
 import           Data.Acid               ()
 import           Data.Default            (Default, def)
 import qualified Data.HashMap.Strict     as HM
+import           Data.List               (nub)
 import           Data.List.NonEmpty      (NonEmpty ((:|)), span)
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Formatting              (build, sformat, (%))
@@ -226,13 +227,13 @@ getParticipants epoch = do
     utxo <- fromMaybe onErrorGetUtxo <$> getUtxoByDepth depth
     keymap <- maybe onErrorGetKeymap (view mdVssCertificates) <$>
               getGlobalMpcDataByDepth depth
-    let stakeholders = map (getAddress . txOutAddress) (toList utxo)
+    let stakeholders = nub $ map (getAddress . txOutAddress) (toList utxo)
     return $ map signedValue $ mapMaybe (`HM.lookup` keymap) stakeholders
   where
     onErrorGetUtxo =
         panic "Failed to get utxo necessary to enumerate participants"
     onErrorGetKeymap =
-        panic "Failed to get utxo necessary to enumerate participants"
+        panic "Failed to get certificates necessary to enumerate participants"
 
 -- slot such that data after it is used for MPC in given epoch
 mpcCrucialSlot :: EpochIndex -> SlotId

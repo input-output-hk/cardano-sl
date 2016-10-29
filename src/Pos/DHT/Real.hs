@@ -43,6 +43,7 @@ import           Pos.DHT                   (DHTData, DHTException (..), DHTKey,
                                             filterByNodeType, getDHTResponseT,
                                             joinNetworkNoThrow, randomDHTKey,
                                             withDhtLogger)
+import           Serokell.Util.Base64      (base64F)
 import qualified STMContainers.Map         as STM
 import           Universum                 hiding (finally, fromStrict, killThread,
                                             toStrict)
@@ -177,8 +178,14 @@ rawListener enableBroadcast cache (h, rawData@(RawData raw)) = withDhtLogger $ d
     ignoreMsg <- case h of
                    SimpleHeader True -> return False
                    _                 -> liftIO . atomically $ updCache cache mHash
-    when ignoreMsg . logDebug $
-        sformat ("Ignoring message " % shown % ", hash=" % int) h mHash
+    if ignoreMsg
+       then logDebug $
+                sformat ("Ignoring message " % shown % ", hash=" % int) h mHash
+       else return ()
+       -- Uncomment to dump messages:
+       -- else logDebug $ sformat ("Message: hash=" % int % " bytes=" % base64F) mHash (toStrict $ encode rawData)
+
+
     -- If the message is in cache, we have already broadcasted it before, no
     -- need to do it twice
     when (not ignoreMsg && enableBroadcast) $

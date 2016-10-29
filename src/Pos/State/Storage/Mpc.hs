@@ -166,6 +166,7 @@ calculateLeaders
     -> Threshold
     -> Query (Either FtsError SlotLeaders)
 calculateLeaders utxo threshold = do
+    --identity $! traceM . show =<< (,,) <$> view (lastVer . mpcGlobalCommitments) <*> view (lastVer . mpcGlobalOpenings) <*> view (lastVer . mpcGlobalShares)
     mbSeed <- calculateSeed threshold
                             <$> view (lastVer . mpcGlobalCommitments)
                             <*> view (lastVer . mpcGlobalOpenings)
@@ -410,6 +411,7 @@ mpcRollback (fromIntegral -> n) = do
 
 mpcProcessBlock :: Block -> Update ()
 mpcProcessBlock blk = do
+    --identity $! traceM . ("Processing block: " <>) . show $ blk
     lv <- use lastVer
     mpcVersioned %= NE.cons lv
     case blk of

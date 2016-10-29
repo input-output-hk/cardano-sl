@@ -5,6 +5,7 @@ module Main where
 import           Data.Default               (def)
 
 import           Control.Applicative        (empty)
+import           Control.Concurrent         (threadDelay)
 import           Control.Monad              (fail)
 import           Control.TimeWarp.Logging   (Severity (Debug, Info))
 import           Data.Binary                (Binary, decode, encode)
@@ -134,8 +135,8 @@ main = do
     getSystemStart args =
       case runningMode of
         Development -> if timeLord args
-                          then runTimeLordReal $ loggingParams "time-lord" args
-                          else runTimeSlaveReal $ baseParams "time-slave" args
+                          then runTimeLordReal (loggingParams "time-lord" args)
+                          else runTimeSlaveReal (baseParams "time-slave" args)
         Production systemStart -> return systemStart
     loggingParams logger (Args {..}) =
         def

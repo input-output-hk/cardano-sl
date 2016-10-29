@@ -24,10 +24,10 @@ packages:
     git: https://github.com/input-output-hk/pvss-haskell.git
     commit: 996951c97f97d734ec7cea05e72620eaabfc72f3
   extra-dep: true
-- location:
-    git: https://github.com/serokell/kademlia.git
-    commit: d3d6d62fc248156320ec92c730a38f483500edd5
-  extra-dep: true
+- location: kademlia
+      git: https://github.com/serokell/kademlia.git
+      commit: fd18875c31e0f351733099bd632d5898dcf5840d
+    extra-dep: true
 
 # don't remove it pls
 nix:

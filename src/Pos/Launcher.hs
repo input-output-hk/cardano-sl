@@ -50,7 +50,7 @@ import           Pos.Types                (Address, Coin, Timestamp (Timestamp),
 import           Pos.Worker               (runWorkers)
 import           Pos.WorkMode             (BenchmarkT (..), ContextHolder (..),
                                            DBHolder (..), NoBenchmarkT (..),
-                                           NodeContext (..), RealMode, SupportMode,
+                                           NodeContext (..), RealMode, ServiceMode,
                                            WorkMode, getNodeContext, ncSecretKey)
 
 -- | Get current time as Timestamp. It is intended to be used when you
@@ -223,7 +223,7 @@ runRealMode NodeParams {..} listeners action = do
               , ncVssKeyPair = npVssKeyPair
               }
 
-runServiceMode :: BaseParams -> [ListenerDHT SupportMode] -> SupportMode a -> IO a
+runServiceMode :: BaseParams -> [ListenerDHT ServiceMode] -> ServiceMode a -> IO a
 runServiceMode bp@BaseParams {..} listeners action = do
     setupLoggingReal bpLogging
     runTimed (lpRootLogger bpLogging) . runKDHT bp listeners $

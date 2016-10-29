@@ -18,7 +18,7 @@ module Pos.WorkMode
        , ncPublicKey
        , ncVssPublicKey
        , RealMode
-       , SupportMode
+       , ServiceMode
        , BenchMode
        , ProductionMode
        ) where
@@ -247,8 +247,8 @@ instance (MonadIO m, MonadDB m) => MonadBenchmark (BenchmarkT m) where
 -- | RealMode is a basis for `WorkMode`s used to really run system.
 type RealMode = KademliaDHT (ContextHolder (DBHolder (Dialog BinaryP Transfer)))
 
--- | SupportMode is the mode in which support nodes work
-type SupportMode = KademliaDHT (BinaryDialog Transfer)
+-- | ServiceMode is the mode in which support nodes work
+type ServiceMode = KademliaDHT (BinaryDialog Transfer)
 
 -- | ProductionMode is an instance of WorkMode which is used (unsurprisingly) in production.
 type ProductionMode = NoBenchmarkT RealMode

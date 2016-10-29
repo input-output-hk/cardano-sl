@@ -8,7 +8,7 @@ module Pos.Types.Arbitrary () where
 
 import           Data.DeriveTH              (derive, makeArbitrary)
 import           Pos.Constants              (epochSlots)
-import           Pos.Crypto.Signing         (sign)
+import           Pos.Crypto                 (deterministicVssKeyGen, sign, toVssPublicKey)
 import           Pos.Types.Mpc              (genCommitmentAndOpening)
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              Coin (..), Commitment (..), EpochIndex (..),
@@ -27,18 +27,33 @@ import           Pos.Util.Arbitrary         (Nonrepeating (..), sublistN, unsafe
 -- Commitments and openings
 ----------------------------------------------------------------------------
 
+data CommitmentOpening = CommitmentOpening
+    { coCommitment :: !Commitment
+    , coOpening    :: !Opening
+    }
+
 -- | Generate 50 commitment/opening pairs in advance
 -- (see `Pos.Crypto.Arbitrary` for explanations)
-commitmentsAndOpenings :: [(Commitment, Opening)]
-commitmentsAndOpenings = unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $
-                         genCommitmentAndOpening undefined undefined
+commitmentsAndOpenings :: [CommitmentOpening]
+commitmentsAndOpenings =
+    map (uncurry CommitmentOpening) $
+    unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $
+    genCommitmentAndOpening
+        1
+        [toVssPublicKey $ deterministicVssKeyGen "aaaaaaaaaaaaaaaaaaaaaassss"]
 {-# NOINLINE commitmentsAndOpenings #-}
 
-instance Arbitrary (Commitment, Opening) where
+instance Arbitrary CommitmentOpening where
     arbitrary = elements commitmentsAndOpenings
 
-instance Nonrepeating (Commitment, Opening) where
+instance Nonrepeating CommitmentOpening where
     nonrepeating n = sublistN n commitmentsAndOpenings
+
+instance Arbitrary Commitment where
+    arbitrary = coCommitment <$> arbitrary
+
+instance Arbitrary Opening where
+    arbitrary = coOpening <$> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary core types
@@ -47,7 +62,6 @@ instance Nonrepeating (Commitment, Opening) where
 deriving instance Arbitrary Coin
 deriving instance Arbitrary Address
 deriving instance Arbitrary FtsSeed
-deriving instance Arbitrary Opening
 deriving instance Arbitrary ChainDifficulty
 
 derive makeArbitrary ''SlotId

@@ -21,10 +21,10 @@ spec = describe "Types" $ do
         prop "Localslotindex" (safeCopyEncodeDecode @T.LocalSlotIndex)
         prop "SlotId" (safeCopyEncodeDecode @T.SlotId)
         prop "Coin" (safeCopyEncodeDecode @T.Coin)
---        prop "Address" (safeCopyEncodeDecode @T.Address) FatalError
+        prop "Address" (safeCopyEncodeDecode @T.Address) -- FatalError
         prop "TxIn" (safeCopyEncodeDecode @T.TxIn)
---        prop "TxOut" (safeCopyEncodeDecode @T.TxOut)
---        prop "Tx" (safeCopyEncodeDecode @T.Tx)
+        prop "TxOut" (safeCopyEncodeDecode @T.TxOut)
+        prop "Tx" (safeCopyEncodeDecode @T.Tx)
         prop "FtsSeed" (safeCopyEncodeDecode @T.FtsSeed)
         prop "Opening" (safeCopyEncodeDecode @T.Opening)
         prop "Chaindifficulty" (safeCopyEncodeDecode @T.ChainDifficulty)

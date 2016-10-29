@@ -271,7 +271,7 @@ fromKPeer :: K.Peer -> NetworkAddress
 fromKPeer (K.Peer {..}) = (show peerHost, fromIntegral peerPort)
 
 toKPeer :: NetworkAddress -> K.Peer
-toKPeer (peerHost, peerPort) = K.Peer (show peerHost) (fromIntegral peerPort)
+toKPeer (peerHost, peerPort) = K.Peer (decodeUtf8 peerHost) (fromIntegral peerPort)
 
 -- TODO add TimedIO, WithLoggerName constraints and uncomment logging
 joinNetwork' :: (MonadIO m, MonadThrow m) => DHTHandle -> DHTNode -> m ()

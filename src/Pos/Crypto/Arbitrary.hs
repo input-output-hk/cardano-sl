@@ -6,19 +6,19 @@ module Pos.Crypto.Arbitrary
     ( KeyPair(..)
     ) where
 
+import           Control.Lens                (view, _2, _4)
 import           Data.Binary                 (Binary)
 import           Test.QuickCheck             (Arbitrary (..), elements)
 import           Universum
 
 import           Pos.Crypto.Arbitrary.Hash   ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
-import           Pos.Crypto.SecretSharing    (EncShare, Secret, VssKeyPair,
-                                              VssPublicKey, genSharedSecret,
-                                              toVssPublicKey, vssKeyGen)
-import           Pos.Crypto.Signing          (PublicKey, SecretKey, Signature,
-                                              Signed, keyGen, mkSigned, sign)
-import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN,
-                                              unsafeMakeList, unsafeMakePool)
+import           Pos.Crypto.SecretSharing    (EncShare, Secret, VssKeyPair, VssPublicKey,
+                                              genSharedSecret, toVssPublicKey, vssKeyGen)
+import           Pos.Crypto.Signing          (PublicKey, SecretKey, Signature, Signed,
+                                              keyGen, mkSigned, sign)
+import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakeList,
+                                              unsafeMakePool)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -97,9 +97,7 @@ instance (Binary a, Arbitrary a) => Arbitrary (Signed a) where
 secrets :: [Secret]
 secrets =
     unsafeMakePool "[generating shares for tests...]" 50 $
-    do
-        (_, s, _, _) <- genSharedSecret 1000 (map toVssPublicKey vssKeys)
-        return s
+        view _2 <$> genSharedSecret 1000 (map toVssPublicKey vssKeys)
 {-# NOINLINE secrets #-}
 
 instance Arbitrary Secret where
@@ -108,9 +106,7 @@ instance Arbitrary Secret where
 encShares :: [EncShare]
 encShares =
     unsafeMakeList "[generating shares for tests...]" $
-    do
-        (_, _, _, l) <- genSharedSecret 1000 (map toVssPublicKey vssKeys)
-        return l
+        view _4 <$> genSharedSecret 1000 (map toVssPublicKey vssKeys)
 {-# NOINLINE encShares #-}
 
 instance Arbitrary EncShare where

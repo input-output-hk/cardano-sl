@@ -25,6 +25,7 @@ library
                         Pos.Merkle
                         Pos.Slotting
                         Pos.State
+                        Pos.Statistics
                         Pos.Types
                         Pos.Util
                         Pos.Worker
@@ -54,6 +55,7 @@ library
                         Pos.State.Storage.Stats
                         Pos.State.Storage.Types
                         Pos.State.Storage.Tx
+                        Pos.Statistics.MonadStats
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block

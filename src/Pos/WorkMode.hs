@@ -12,20 +12,16 @@ module Pos.WorkMode
        , NodeContext (..)
        , WithNodeContext (..)
        , ContextHolder (..)
-       , MonadBenchmark (..)
-       , BenchmarkT (..)
-       , NoBenchmarkT (..)
        , ncPublicKey
        , ncVssPublicKey
        , RealMode
        , SupportMode
-       , BenchMode
+       , StatsMode
        , ProductionMode
        ) where
 
 import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Except     (ExceptT)
-import           Control.Monad.Trans      (MonadTrans)
 import           Control.TimeWarp.Logging (WithNamedLogger (..))
 import           Control.TimeWarp.Rpc     (BinaryDialog, MonadDialog, MonadResponse,
                                            MonadTransfer, Transfer)
@@ -34,12 +30,12 @@ import           Universum                hiding (catch)
 
 import           Pos.Crypto               (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
                                            toPublic, toVssPublicKey)
-import           Pos.DHT                  (DHTResponseT, MonadDHT, MonadMessageDHT (..),
+import           Pos.DHT                  (DHTResponseT, MonadMessageDHT (..),
                                            WithDefaultMsgHeader)
 import           Pos.DHT.Real             (KademliaDHT)
 import           Pos.Slotting             (MonadSlots (..))
-import           Pos.State                (MonadDB (..), NodeState, addStatRecord,
-                                           getStatRecords)
+import           Pos.State                (MonadDB (..), NodeState)
+import           Pos.Statistics           (MonadStats, NoStatsT, StatsT)
 import           Pos.Types                (Timestamp (..))
 
 type WorkMode m
@@ -52,7 +48,7 @@ type WorkMode m
       , WithNodeContext m
       , MonadMessageDHT m
       , WithDefaultMsgHeader m
-      , MonadBenchmark m
+      , MonadStats m
       )
 
 type MinWorkMode m
@@ -124,6 +120,14 @@ instance (Monad m, WithNodeContext m) =>
          WithNodeContext (DHTResponseT m) where
     getNodeContext = lift getNodeContext
 
+instance (Monad m, WithNodeContext m) =>
+         WithNodeContext (StatsT m) where
+    getNodeContext = lift getNodeContext
+
+instance (Monad m, WithNodeContext m) =>
+         WithNodeContext (NoStatsT m) where
+    getNodeContext = lift getNodeContext
+
 newtype ContextHolder m a = ContextHolder
     { getContextHolder :: ReaderT NodeContext m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow,
@@ -144,77 +148,6 @@ instance (MonadTimed m, Monad m) =>
     getCurrentTime = Timestamp <$> currentTime
 
 ----------------------------------------------------------------------------
--- Benchmarking
-----------------------------------------------------------------------------
-
-type CounterLabel = Text
-
-class Monad m => MonadBenchmark m where
-    type Measure m :: *
-
-    logMeasure :: CounterLabel -> Measure m -> m ()
-    getMeasures :: CounterLabel -> m (Maybe [Measure m])
-
--- TODO: is there a way to avoid such boilerplate for transformers?
-instance MonadBenchmark m => MonadBenchmark (KademliaDHT m) where
-    type Measure (KademliaDHT m) = Measure m
-    logMeasure label = lift . logMeasure label
-    getMeasures = lift . getMeasures
-
-instance MonadBenchmark m => MonadBenchmark (ReaderT a m) where
-    type Measure (ReaderT a m) = Measure m
-    logMeasure label = lift . logMeasure label
-    getMeasures = lift . getMeasures
-
-instance MonadBenchmark m => MonadBenchmark (StateT a m) where
-    type Measure (StateT a m) = Measure m
-    logMeasure label = lift . logMeasure label
-    getMeasures = lift . getMeasures
-
-instance MonadBenchmark m => MonadBenchmark (ExceptT e m) where
-    type Measure (ExceptT e m) = Measure m
-    logMeasure label = lift . logMeasure label
-    getMeasures = lift . getMeasures
-
-instance MonadBenchmark m => MonadBenchmark (DHTResponseT m) where
-    type Measure (DHTResponseT m) = Measure m
-    logMeasure label = lift . logMeasure label
-    getMeasures = lift . getMeasures
-
-type instance ThreadId (NoBenchmarkT m) = ThreadId m
-type instance ThreadId (BenchmarkT m) = ThreadId m
-
-newtype NoBenchmarkT m a = NoBenchmarkT
-    { getNoBenchmarkT :: m a
-    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, MonadDB, WithNamedLogger, MonadTransfer, MonadDialog,
-               MonadDHT, MonadMessageDHT, MonadResponse, MonadSlots, WithDefaultMsgHeader,
-               WithNodeContext)
-
-instance MonadTrans NoBenchmarkT where
-    lift = NoBenchmarkT
-
-instance Monad m => MonadBenchmark (NoBenchmarkT m) where
-    type Measure (NoBenchmarkT m) = ()
-    logMeasure _ _ = pure ()
-    getMeasures _ = pure $ pure []
-
-newtype BenchmarkT m a = BenchmarkT
-    { getBenchmarkT :: m a
-    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, MonadDB, WithNamedLogger, MonadTransfer, MonadDialog,
-               MonadDHT, MonadMessageDHT, MonadResponse, MonadSlots, WithDefaultMsgHeader,
-               WithNodeContext)
-
-instance MonadTrans BenchmarkT where
-    lift = BenchmarkT
-
-instance (MonadIO m, MonadDB m) => MonadBenchmark (BenchmarkT m) where
-    type Measure (BenchmarkT m) = (ByteString, Timestamp)
-    logMeasure label = lift . uncurry (addStatRecord label)
-    getMeasures = lift . getStatRecords
-
-----------------------------------------------------------------------------
 -- Concrete types
 ----------------------------------------------------------------------------
 
@@ -225,7 +158,7 @@ type RealMode = KademliaDHT (ContextHolder (DBHolder (BinaryDialog Transfer)))
 type SupportMode = KademliaDHT (BinaryDialog Transfer)
 
 -- | ProductionMode is an instance of WorkMode which is used (unsurprisingly) in production.
-type ProductionMode = NoBenchmarkT RealMode
+type ProductionMode = NoStatsT RealMode
 
--- | BenchMode is used for remote benchmarking
-type BenchMode = BenchmarkT RealMode
+-- | StatsMode is used for remote benchmarking
+type StatsMode = StatsT RealMode

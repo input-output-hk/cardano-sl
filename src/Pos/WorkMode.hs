@@ -15,7 +15,7 @@ module Pos.WorkMode
        , ncPublicKey
        , ncVssPublicKey
        , RealMode
-       , SupportMode
+       , ServiceMode
        , StatsMode
        , ProductionMode
        ) where
@@ -154,8 +154,8 @@ instance (MonadTimed m, Monad m) =>
 -- | RealMode is a basis for `WorkMode`s used to really run system.
 type RealMode = KademliaDHT (ContextHolder (DBHolder (BinaryDialog Transfer)))
 
--- | SupportMode is the mode in which support nodes work
-type SupportMode = KademliaDHT (BinaryDialog Transfer)
+-- | ServiceMode is the mode in which support nodes work
+type ServiceMode = KademliaDHT (BinaryDialog Transfer)
 
 -- | ProductionMode is an instance of WorkMode which is used (unsurprisingly) in production.
 type ProductionMode = NoStatsT RealMode

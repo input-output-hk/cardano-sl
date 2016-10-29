@@ -29,6 +29,10 @@ onNewSlotWorkerImpl :: WorkMode m => SlotId -> m ()
 onNewSlotWorkerImpl slotId = do
     logInfo $ sformat ("New slot has just started: "%slotIdF) slotId
     -- TODO: what should be the order here?
+    -- NOTE: currently it's important that `processNewSlot` is before
+    -- `mpcOnNewSlot`, because `processNewSlot` may generate a new genesis
+    -- which will reset secret set by `mpcOnNewSlot`.
+    -- However, there are other problems, see YT.
     processNewSlot slotId
     mpcOnNewSlot slotId
     blkOnNewSlot slotId

@@ -44,7 +44,7 @@ import           Data.Acid               ()
 import           Data.Default            (Default, def)
 import qualified Data.HashMap.Strict     as HM
 import           Data.List               (nub)
-import           Data.List.NonEmpty      (NonEmpty ((:|)), span)
+import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Formatting              (build, sformat, (%))
 import           Serokell.AcidState      ()
@@ -74,9 +74,9 @@ import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           txApplyBlocks, txRollback, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
-                                          EpochIndex, MainBlock, Opening, SlotId (..),
-                                          SlotLeaders, VssCertificate, blockTxs,
-                                          epochIndexL, getAddress, headerHashG,
+                                          EpochIndex, GenesisBlock, MainBlock, Opening,
+                                          SlotId (..), SlotLeaders, VssCertificate,
+                                          blockTxs, epochIndexL, getAddress, headerHashG,
                                           mdVssCertificates, txOutAddress,
                                           unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState, _neHead)
@@ -161,27 +161,28 @@ processBlockDo curSlotId blk = do
 -- adopt this AltChain.
 processBlockFinally :: Word -> AltChain -> Update ProcessBlockRes
 processBlockFinally toRollback blocks = do
-    -- we split block processing in two phases, cause processing genesis block (by `mpcApplyBlocks`)
-    --    erases MPC data, which is needed for createGenesisBlock function
-    let (prevEBlocks, newEBlocks) = span isRight blocks
     mpcRollback toRollback
+    mpcApplyBlocks blocks
     txRollback toRollback
+    txApplyBlocks blocks
     blkRollback toRollback
-    case prevEBlocks of
-      []       -> return ()
-      (f:rest) -> processDo $ f :| rest
-    case newEBlocks of
-      [] -> return ()
-      (genB:rest) -> do
-          headEpoch <- readerToState getHeadEpoch
-          createGenesisBlock $ headEpoch + 1
-          processDo $ genB :| rest
+    blkSetHead (blocks ^. _neHead . headerHashG)
+    knownEpoch <- use (slotId . epochIndexL)
+    -- When we adopt alternative chain, it may revert genesis block
+    -- already created for current epoch. And we will be in situation
+    -- where best chain doesn't have genesis block for current epoch.
+    -- If then we need to create block in current epoch, it will be
+    -- definitely invalid. To prevent it we create genesis block after
+    -- possible revert. Note that createGenesisBlock function will
+    -- create block only for epoch which is one more than epoch of
+    -- head, so we don't perform such check here.  Also note that it
+    -- won't be necessary after we introduce `canCreateBlock` (or
+    -- maybe we already did and this comment is outdated then), but it
+    -- still will be good as an optimization. Even if later we see
+    -- that there were other valid blocks in old epoch, we will
+    -- replace chain and everything will be fine.
+    createGenesisBlock knownEpoch $> ()
     return $ PBRgood (toRollback, blocks)
-  where
-    processDo blocks' = do
-        mpcApplyBlocks blocks'
-        txApplyBlocks blocks'
-        blkSetHead (blocks' ^. _neHead . headerHashG)
 
 -- | Do all necessary changes when new slot starts.
 processNewSlot :: SlotId -> Update ()
@@ -192,15 +193,19 @@ processNewSlot sId = do
 processNewSlotDo :: SlotId -> Update ()
 processNewSlotDo sId@SlotId {..} = do
     slotId .= sId
-    when (siSlot == 0) $ createGenesisBlock siEpoch
+    when (siSlot == 0) $
+        createGenesisBlock siEpoch >>=
+        maybe (pure ()) (mpcApplyBlocks . pure . Left)
     blkCleanUp sId
 
-createGenesisBlock :: EpochIndex -> Update ()
+createGenesisBlock :: EpochIndex -> Update (Maybe GenesisBlock)
 createGenesisBlock epoch = do
     headEpoch <- readerToState getHeadEpoch
-    when (headEpoch + 1 == epoch) $
-        do leaders <- readerToState $ calculateLeadersDo epoch
-           () <$ blkCreateGenesisBlock epoch leaders
+    if (headEpoch + 1 == epoch)
+        then do
+            leaders <- readerToState $ calculateLeadersDo epoch
+            Just <$> blkCreateGenesisBlock epoch leaders
+        else return Nothing
 
 calculateLeadersDo :: EpochIndex -> Query SlotLeaders
 calculateLeadersDo epoch = do

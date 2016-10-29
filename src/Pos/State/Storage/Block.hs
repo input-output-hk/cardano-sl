@@ -107,7 +107,7 @@ getBlock h = view (blkBlocks . at h)
 getBlockByDepth :: Word -> Query (Maybe Block)
 getBlockByDepth i = do
     headHash <- view blkHead
-    getBlockByHeadDo i headHash
+    getBlockByDepthDo i headHash
 
 getBlockByDepthDo :: Word -> HeaderHash -> Query (Maybe Block)
 getBlockByDepthDo 0 h = getBlock h

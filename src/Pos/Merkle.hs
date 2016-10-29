@@ -23,7 +23,8 @@ import qualified Data.ByteString    as BS
 import           Data.Coerce        (coerce)
 import           Data.MessagePack   (MessagePack)
 import           Data.SafeCopy      (base, deriveSafeCopySimple)
-import           Universum
+import           Prelude            (Show (..))
+import           Universum          hiding (show)
 
 import           Data.ByteArray     (ByteArrayAccess, convert)
 import           Pos.Crypto         (Hash, hashRaw)
@@ -43,7 +44,10 @@ instance MessagePack (MerkleRoot a)
 deriveSafeCopySimple 0 'base ''MerkleRoot
 
 data MerkleTree a = MerkleEmpty | MerkleTree Word32 (MerkleNode a)
-    deriving (Eq, Show, Generic, Foldable)
+    deriving (Eq, Generic, Foldable)
+
+instance Show a => Show (MerkleTree a) where
+  show tree = "Merkle tree: " <> show (toList tree)
 
 -- TODO: MessagePack instances can be more efficient.
 instance MessagePack a => MessagePack (MerkleTree a)

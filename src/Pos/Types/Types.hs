@@ -392,6 +392,11 @@ data GenericBlock b = GenericBlock
     } deriving (Generic)
 
 deriving instance
+         (Show (GenericBlockHeader b), Show (Body b),
+          Show (ExtraBodyData b)) =>
+         Show (GenericBlock b)
+
+deriving instance
          (Eq (BodyProof b), Eq (ConsensusData b), Eq (ExtraHeaderData b),
           Eq (Body b), Eq (ExtraBodyData b)) =>
          Eq (GenericBlock b)
@@ -441,7 +446,7 @@ data MpcData = MpcData
       -- | Vss certificates are added at any time if they are valid and
       -- received from stakeholders.
     , _mdVssCertificates :: !VssCertificatesMap
-    } deriving (Generic)
+    } deriving (Generic, Show)
 
 instance Binary MpcData
 instance MessagePack MpcData
@@ -475,7 +480,7 @@ instance Blockchain MainBlockchain where
         _mcdDifficulty :: !ChainDifficulty
         , -- | Signature given by slot leader.
         _mcdSignature  :: !(Signature MainToSign)
-        } deriving (Generic)
+        } deriving (Generic, Show)
     type BBlockHeader MainBlockchain = BlockHeader
 
     -- | In our cryptocurrency, body consists of a list of transactions
@@ -487,7 +492,7 @@ instance Blockchain MainBlockchain where
           _mbTxs         :: !(MerkleTree Tx)
         , -- | Data necessary for MPC.
           _mbMpc  :: !MpcData
-        } deriving (Generic)
+        } deriving (Generic, Show)
     type BBlock MainBlockchain = Block
 
     mkBodyProof MainBody {_mbMpc = MpcData {..}, ..} =
@@ -564,13 +569,13 @@ instance Blockchain GenesisBlockchain where
     -- TODO: do we need a Merkle tree? This list probably won't be large.
     data BodyProof GenesisBlockchain = GenesisProof
         !(Hash (Vector PublicKey))
-        deriving (Eq, Generic)
+        deriving (Eq, Generic, Show)
     data ConsensusData GenesisBlockchain = GenesisConsensusData
         { -- | Index of the slot for which this genesis block is relevant.
           _gcdEpoch :: !EpochIndex
         , -- | Difficulty of the chain ending in this genesis block.
           _gcdDifficulty :: !ChainDifficulty
-        } deriving (Generic)
+        } deriving (Generic, Show)
     type BBlockHeader GenesisBlockchain = BlockHeader
 
     -- | Body of genesis block consists of slot leaders for epoch

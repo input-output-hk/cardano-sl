@@ -13,17 +13,21 @@ import           Data.List                (foldl1', unzip, (\\))
 import           Formatting               (build, int, sformat, (%))
 import           Serokell.Util            (listJson)
 import           Test.Hspec               (Spec, describe, pending)
-import           Test.Hspec.QuickCheck    (modifyMaxSize, modifyMaxSuccess, prop)
-import           Test.QuickCheck          (Property, choose, counterexample, generate,
-                                           ioProperty, property, sized, (===))
+import           Test.Hspec.QuickCheck    (modifyMaxSize, modifyMaxSuccess,
+                                           prop)
+import           Test.QuickCheck          (Property, choose, counterexample,
+                                           generate, ioProperty, property,
+                                           sized, (===))
 import           Test.QuickCheck.Property (failed, succeeded)
 import           Universum
 
-import           Pos.Crypto               (KeyPair (..), Share, Threshold, VssKeyPair,
-                                           decryptShare, sign, toVssPublicKey)
+import           Pos.Crypto               (KeyPair (..), Share, Threshold,
+                                           VssKeyPair, decryptShare, sign,
+                                           toVssPublicKey)
 import           Pos.FollowTheSatoshi     (FtsError (..), calculateSeed)
-import           Pos.Types                (Commitment (..), CommitmentsMap, FtsSeed (..),
-                                           Opening (..), genCommitmentAndOpening,
+import           Pos.Types                (Commitment (..), CommitmentsMap,
+                                           FtsSeed (..), Opening (..),
+                                           genCommitmentAndOpening,
                                            secretToFtsSeed, xorFtsSeed)
 import           Pos.Util                 (nonrepeating, sublistN)
 
@@ -142,7 +146,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
                         n n_openings n_shares n_overlap
                         (map getPub haveSentOpening)
                         (map getPub haveSentShares)
-    return $ counterexample (toS debugInfo) $ case (shouldSucceed, result) of
+    return $ counterexample (toString debugInfo) $ case (shouldSucceed, result) of
         -- we were supposed to find the seed
         (True, Right sharedSeed) ->
             sharedSeed === expectedSharedSeed
@@ -151,7 +155,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
                                "should've) and failed with error:\n"%
                                "  "%build)
                               ftsErr
-            in counterexample (toS err) failed
+            in counterexample (toString err) failed
         -- we weren't supposed to find the seed
         (False, Left (NoSecretFound _)) ->
             property succeeded
@@ -159,14 +163,14 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
             let err = sformat ("calculateSeed failed with error "%build%" "%
                                "instead of NoSecretFound")
                               ftsErr
-            in counterexample (toS err) failed
+            in counterexample (toString err) failed
         (False, Right sharedSeed) ->
             let err = sformat ("calculateSeed succeeded, "%
                                "even though it couldn't\n"%
                                "  found seed: "%build%"\n"%
                                "  right seed: "%build)
                               sharedSeed expectedSharedSeed
-            in counterexample (toS err <> "\n\n" <> show (n, threshold) <> "\n\n" <> show commitmentsMap <> "\n\n" <> show openingsMap <> "\n\n" <> show sharesMap) failed
+            in counterexample (toString err <> "\n\n" <> show (n, threshold) <> "\n\n" <> show commitmentsMap <> "\n\n" <> show openingsMap <> "\n\n" <> show sharesMap) failed
 
 ----------------------------------------------------------------------------
 -- Helper functions

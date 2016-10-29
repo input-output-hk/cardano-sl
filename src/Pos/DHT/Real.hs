@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
@@ -20,9 +21,9 @@ import           Control.TimeWarp.Logging  (WithNamedLogger, logDebug, logError,
                                             logWarning, usingLoggerName)
 import           Control.TimeWarp.Rpc      (BinaryP (..), Binding (..), ListenerH (..),
                                             MonadDialog, MonadResponse,
-                                            MonadTransfer (..), NetworkAddress, RawData (..),
-                                            hoistRespCond, listenR, messageName, sendH,
-                                            sendR)
+                                            MonadTransfer (..), NetworkAddress,
+                                            RawData (..), hoistRespCond, listenR,
+                                            messageName, sendH, sendR)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId, fork, killThread)
 import           Data.Binary               (Binary, decodeOrFail, encode)
 import qualified Data.ByteString           as BS
@@ -160,9 +161,9 @@ startDHT KademliaDHTConfig {..} = do
     let kdcNoCacheMessageNames_ = kdcNoCacheMessageNames
     pure $ KademliaDHTContext {..}
   where
-    log' logF = usingLoggerName ("kademlia" <> "instance") . logF . toS
     convert :: ListenerDHT m -> ListenerH BinaryP DHTMsgHeader m
     convert (ListenerDHT f) = ListenerH $ \(_, m) -> getDHTResponseT $ f m
+    log' log =  usingLoggerName ("kademlia" <> "instance") . log . toText
 
 -- | Return 'True' if the message should be processed, 'False' if only
 -- broadcasted
@@ -260,10 +261,10 @@ toDHTNode :: K.Node DHTKey -> DHTNode
 toDHTNode n = DHTNode (fromKPeer . K.peer $ n) $ K.nodeId n
 
 fromKPeer :: K.Peer -> NetworkAddress
-fromKPeer (K.Peer {..}) = (toS peerHost, fromIntegral peerPort)
+fromKPeer (K.Peer {..}) = (show peerHost, fromIntegral peerPort)
 
 toKPeer :: NetworkAddress -> K.Peer
-toKPeer (peerHost, peerPort) = K.Peer (toS peerHost) (fromIntegral peerPort)
+toKPeer (peerHost, peerPort) = K.Peer (show peerHost) (fromIntegral peerPort)
 
 -- TODO add TimedIO, WithLoggerName constraints and uncomment logging
 joinNetwork' :: (MonadIO m, MonadThrow m) => DHTHandle -> DHTNode -> m ()

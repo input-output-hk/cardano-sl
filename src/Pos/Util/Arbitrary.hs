@@ -10,14 +10,18 @@ module Pos.Util.Arbitrary
     ( Nonrepeating (..)
     , ArbitraryUnsafe (..)
     , sublistN
+    , unsafeMakeList
     , unsafeMakePool
     , arbitrarySizedS
+    , arbitrarySizedSL
     ) where
 
-import           Data.ByteString  (pack)
-import           Data.MessagePack ()
-import           System.IO.Unsafe (unsafePerformIO)
-import           Test.QuickCheck  (Arbitrary (..), Gen, listOf, shuffle, vector)
+import           Data.ByteString      (pack)
+import qualified Data.ByteString.Lazy as BL (ByteString, pack)
+import           Data.MessagePack     ()
+import           System.IO.Unsafe     (unsafePerformIO)
+import           Test.QuickCheck      (Arbitrary (..), Gen, listOf, shuffle, vector)
+import           Test.QuickCheck      (Arbitrary (..), Gen, listOf, shuffle, vector)
 import           Universum
 
 -- | Choose a random (shuffled) subset of length n. Throws an error if
@@ -37,9 +41,21 @@ unsafeMakePool msg n action = unsafePerformIO $ do
     putText msg
     replicateM n action
 
+-- | Unsafely create list of `n` random values to be picked
+-- (see note in `Pos.Crypto.Arbitrary` for explanation)
+-- Used because genSharedSecret already returns a list
+-- of EncShares, making the 'replicateM' unneeded.
+unsafeMakeList :: Text -> IO [a] -> [a]
+unsafeMakeList msg action = unsafePerformIO $ do
+    putText msg
+    action
+
 -- | Make arbitrary `ByteString` of given length
-arbitrarySizedS :: StringConv ByteString s => Int -> Gen s
-arbitrarySizedS n = toS . pack <$> vector n
+arbitrarySizedS :: Int -> Gen ByteString
+arbitrarySizedS n = pack <$> vector n
+
+arbitrarySizedSL :: Int -> Gen BL.ByteString
+arbitrarySizedSL n = BL.pack <$> vector n
 
 {- ArbitraryUnsafe class
 ~~~~~~~~~~~~~~~~~~~~~~~~

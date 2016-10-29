@@ -10,11 +10,11 @@ import           Data.DeriveTH              (derive, makeArbitrary)
 import           Pos.Constants              (epochSlots)
 import           Pos.Crypto.Signing         (sign)
 import           Pos.Types.Mpc              (genCommitmentAndOpening)
-import           Pos.Types.Slotting         (EpochIndex (..), LocalSlotIndex (..),
-                                             SlotId (..))
-import           Pos.Types.Types            (Address (..), Coin (..), Commitment,
-                                             FtsSeed (..), Opening, Tx (..), TxIn (..),
-                                             TxOut (..))
+import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
+                                             Coin (..), Commitment (..), EpochIndex (..),
+                                             FtsSeed (..), LocalSlotIndex (..),
+                                             MpcProof (..), Opening (..), SlotId (..),
+                                             Tx (..), TxIn (..), TxOut (..))
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), choose, elements)
 import           Universum
@@ -47,10 +47,13 @@ instance Nonrepeating (Commitment, Opening) where
 deriving instance Arbitrary Coin
 deriving instance Arbitrary Address
 deriving instance Arbitrary FtsSeed
+deriving instance Arbitrary Opening
+deriving instance Arbitrary ChainDifficulty
 
 derive makeArbitrary ''SlotId
 derive makeArbitrary ''TxOut
 derive makeArbitrary ''Tx
+derive makeArbitrary ''MpcProof
 
 maxReasonableEpoch :: Integral a => a
 maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not

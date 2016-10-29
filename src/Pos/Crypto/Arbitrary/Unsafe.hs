@@ -12,20 +12,28 @@ import           Pos.Crypto.SecretSharing (VssKeyPair, VssPublicKey,
                                            deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Crypto.Signing       (PublicKey, SecretKey, Signature, Signed,
                                            mkSigned)
+import           Pos.Crypto.Signing       (PublicKey, SecretKey, Signature, Signed,
+                                           mkSigned)
 import           Pos.Util.Arbitrary       (ArbitraryUnsafe (..), arbitrarySizedS)
+import           Pos.Util.Arbitrary       (ArbitraryUnsafe (..), arbitrarySizedSL)
 
 instance ArbitraryUnsafe PublicKey where
-    arbitraryUnsafe = Binary.decode <$> arbitrarySizedS 32
+    arbitraryUnsafe = Binary.decode <$> arbitrarySizedSL 32
 
 instance ArbitraryUnsafe SecretKey where
-    arbitraryUnsafe = Binary.decode <$> arbitrarySizedS 64
+    arbitraryUnsafe = Binary.decode <$> arbitrarySizedSL 64
 
 instance ArbitraryUnsafe (Signature a) where
-    arbitraryUnsafe = Binary.decode <$> arbitrarySizedS 64
+    arbitraryUnsafe = Binary.decode <$> arbitrarySizedSL 64
 
 -- Generating invalid `Signed` objects doesn't make sense even in benchmarks
 instance (Binary a, ArbitraryUnsafe a) => ArbitraryUnsafe (Signed a) where
     arbitraryUnsafe = mkSigned <$> arbitraryUnsafe <*> arbitraryUnsafe
+
+-- TODO: It *seems* to be that PVSS public key is indeed 32 bytes long,
+-- but it's better to check
+instance ArbitraryUnsafe VssPublicKey where
+    arbitraryUnsafe = Binary.decode <$> arbitrarySizedSL 32
 
 -- Again, no sense in generating invalid data, but in benchmarks
 -- we don't need Really Secure™ randomness

@@ -4,6 +4,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE UndecidableInstances      #-}
@@ -41,9 +42,11 @@ import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.TimeWarp.Logging  (LoggerName,
                                             WithNamedLogger (modifyLoggerName), logInfo,
                                             logWarning)
-import           Control.TimeWarp.Rpc      (BinaryP, Message, MonadDialog,
-                                            NetworkAddress, ResponseT, replyH, sendH,
-                                            HeaderNContentData, Unpackable)
+import           Control.TimeWarp.Rpc      (BinaryP, HeaderNContentData, Message,
+                                            MonadDialog, MonadTransfer, NetworkAddress,
+                                            ResponseT, Unpackable,
+                                            WithNamedLogger (modifyLoggerName), logInfo,
+                                            logWarning, replyH, sendH)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Data.Binary               (Binary)
 import qualified Data.ByteString           as BS
@@ -227,7 +230,7 @@ instance Buildable DHTNode where
     build (DHTNode (peerHost, peerPort) key)
       = bprint (F.build % " at " % F.build % ":" % F.build)
                key
-               (toS peerHost :: Text)
+               (show peerHost)
                peerPort
 
 instance Buildable [DHTNode] where

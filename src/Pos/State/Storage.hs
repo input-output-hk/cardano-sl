@@ -182,17 +182,18 @@ processNewSlotDo :: SlotId -> Update ()
 processNewSlotDo sId@SlotId {..} = do
     slotId .= sId
     when (siSlot == 0) $
-      createGenesisBlock siEpoch >>= maybe (pure ()) (mpcApplyBlocks . pure . Left)
+        createGenesisBlock siEpoch >>=
+        maybe (pure ()) (mpcApplyBlocks . pure . Left)
     blkCleanUp sId
 
 createGenesisBlock :: EpochIndex -> Update (Maybe GenesisBlock)
 createGenesisBlock epoch = do
     headEpoch <- readerToState getHeadEpoch
     if (headEpoch + 1 == epoch)
-       then do
-         leaders <- readerToState $ calculateLeadersDo epoch
-         Just <$> blkCreateGenesisBlock epoch leaders
-       else return Nothing
+        then do
+            leaders <- readerToState $ calculateLeadersDo epoch
+            Just <$> blkCreateGenesisBlock epoch leaders
+        else return Nothing
 
 calculateLeadersDo :: EpochIndex -> Query SlotLeaders
 calculateLeadersDo epoch = do

@@ -122,7 +122,7 @@ mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 
 -- | Create new block on top of currently known best chain, assuming
 -- we are slot leader.
-createNewBlock :: WorkModeDB m => SecretKey -> SlotId -> m MainBlock
+createNewBlock :: WorkModeDB m => SecretKey -> SlotId -> m (Maybe MainBlock)
 createNewBlock sk = updateDisk . A.CreateNewBlock sk
 
 -- | Process transaction received from other party.

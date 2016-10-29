@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 -- | Storage with node local state which should be persistent.
 
@@ -76,9 +77,9 @@ import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRa
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
                                           EpochIndex, GenesisBlock, MainBlock, Opening,
                                           SlotId (..), SlotLeaders, VssCertificate,
-                                          blockTxs, epochIndexL, getAddress, headerHashG,
-                                          mdVssCertificates, txOutAddress,
-                                          unflattenSlotId, verifyTxAlone)
+                                          blockSlot, blockTxs, epochIndexL, flattenSlotId,
+                                          getAddress, headerHashG, mdVssCertificates,
+                                          txOutAddress, unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState, _neHead)
 
 type Query  a = forall m . MonadReader Storage m => m a
@@ -119,18 +120,34 @@ instance Default Storage where
         , __statsData = def
         }
 
-getHeadEpoch :: Query EpochIndex
-getHeadEpoch = view epochIndexL <$> getHeadBlock
+getHeadSlot :: Query (Either EpochIndex SlotId)
+getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock
 
--- | Create a new block on top of best chain.
-createNewBlock :: SecretKey -> SlotId -> Update MainBlock
+-- | Create a new block on top of best chain if possible.
+-- Block can be created if:
+-- • we know genesis block for epoch from given SlotId
+-- • last known block is not more than k slots away from
+-- given SlotId
+createNewBlock :: SecretKey -> SlotId -> Update (Maybe MainBlock)
 createNewBlock sk sId = do
+    ifM (readerToState (canCreateBlock sId))
+        (Just <$> createNewBlockDo sk sId)
+        (pure Nothing)
+
+createNewBlockDo :: SecretKey -> SlotId -> Update MainBlock
+createNewBlockDo sk sId = do
     txs <- readerToState $ toList <$> getLocalTxs
     mpcData <- readerToState getLocalMpcData
     blk <- blkCreateNewBlock sk sId txs mpcData
     let blocks = Right blk :| []
     mpcApplyBlocks blocks
     blk <$ txApplyBlocks blocks
+
+canCreateBlock :: SlotId -> Query Bool
+canCreateBlock (flattenSlotId -> flatSlotId) = (flatSlotId <) <$> canCreateBlockMax
+  where
+    canCreateBlockMax = addKSafe . either (`SlotId` 0) identity <$> getHeadSlot
+    addKSafe si = flattenSlotId $ si {siSlot = min (5 * k - 1) (siSlot si + k)}
 
 -- | Do all necessary changes when a block is received.
 processBlock :: SlotId -> Block -> Update ProcessBlockRes
@@ -198,14 +215,29 @@ processNewSlotDo sId@SlotId {..} = do
         maybe (pure ()) (mpcApplyBlocks . pure . Left)
     blkCleanUp sId
 
+-- We create genesis block for i-th epoch when head of currently known
+-- best chain is MainBlock corresponding to one of last `k` slots of
+-- (i - 1)-th epoch. Main check is that epoch is (last stored epoch +
+-- 1), but we also don't want to create genesis block on top of blocks
+-- from previous epoch which are not from last k slots, because it's
+-- practically impossible for them to be valid.
+shouldCreateGenesisBlock :: EpochIndex -> Query Bool
+-- Genesis block for 0-th epoch is hardcoded.
+shouldCreateGenesisBlock 0 = pure False
+shouldCreateGenesisBlock epoch = either (const False) doCheck <$> getHeadSlot
+  where
+    doCheck si = si > SlotId {siEpoch = epoch - 1, siSlot = 5 * k}
+
 createGenesisBlock :: EpochIndex -> Update (Maybe GenesisBlock)
-createGenesisBlock epoch = do
-    headEpoch <- readerToState getHeadEpoch
-    if (headEpoch + 1 == epoch)
-        then do
-            leaders <- readerToState $ calculateLeadersDo epoch
-            Just <$> blkCreateGenesisBlock epoch leaders
-        else return Nothing
+createGenesisBlock epoch =
+    ifM (readerToState $ shouldCreateGenesisBlock epoch)
+        (Just <$> createGenesisBlockDo epoch)
+        (pure Nothing)
+
+createGenesisBlockDo :: EpochIndex -> Update GenesisBlock
+createGenesisBlockDo epoch = do
+    leaders <- readerToState $ calculateLeadersDo epoch
+    blkCreateGenesisBlock epoch leaders
 
 calculateLeadersDo :: EpochIndex -> Query SlotLeaders
 calculateLeadersDo epoch = do

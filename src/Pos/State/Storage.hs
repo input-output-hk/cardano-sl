@@ -123,7 +123,6 @@ instance Default Storage where
 getHeadSlot :: Query (Either EpochIndex SlotId)
 getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock
 
-
 -- | Create a new block on top of best chain if possible.
 -- Block can be created if:
 -- • we know genesis block for epoch from given SlotId
@@ -148,7 +147,7 @@ canCreateBlock :: SlotId -> Query Bool
 canCreateBlock (flattenSlotId -> flatSlotId) = (flatSlotId <) <$> canCreateBlockMax
   where
     canCreateBlockMax = addKSafe . either (`SlotId` 0) identity <$> getHeadSlot
-    addKSafe si = flattenSlotId $ si {siSlot = min (5 * k - 1) (siSlot si)}
+    addKSafe si = flattenSlotId $ si {siSlot = min (5 * k - 1) (siSlot si + k)}
 
 -- | Do all necessary changes when a block is received.
 processBlock :: SlotId -> Block -> Update ProcessBlockRes

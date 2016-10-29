@@ -22,7 +22,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/pvss-haskell.git
-    commit: ec1f50c60feab9c7441f01aa94a006b40972acc6
+    commit: 9d19e375c5438b4941dc378512adf6d062d24722
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git

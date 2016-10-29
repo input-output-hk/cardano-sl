@@ -8,7 +8,8 @@ module Pos.Types.Arbitrary () where
 
 import           Data.DeriveTH              (derive, makeArbitrary)
 import           Pos.Constants              (epochSlots)
-import           Pos.Crypto                 (deterministicVssKeyGen, sign, toVssPublicKey)
+import           Pos.Crypto                 (SecretProof, SecretSharingExtra,
+                                             deterministicVssKeyGen, sign, toVssPublicKey)
 import           Pos.Types.Mpc              (genCommitmentAndOpening)
 import           Pos.Types.Types            (Address (..), Coin (..), Commitment,
                                              EpochIndex (..), FtsSeed (..),
@@ -53,6 +54,14 @@ instance Arbitrary Commitment where
 
 instance Arbitrary Opening where
     arbitrary = coOpening <$> arbitrary
+
+-- TODO: these types are not in Pos.Types actually, but they are
+-- needed and it's not so easy to do it better
+instance Arbitrary SecretSharingExtra where
+    arbitrary = commExtra <$> arbitrary
+
+instance Arbitrary SecretProof where
+    arbitrary = commProof <$> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary core types

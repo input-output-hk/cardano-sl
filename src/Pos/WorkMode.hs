@@ -25,17 +25,31 @@ module Pos.WorkMode
 
 import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Except     (ExceptT)
+<<<<<<< HEAD
 import           Control.Monad.Trans      (MonadTrans)
 import           Control.TimeWarp.Logging (WithNamedLogger (..))
 import           Control.TimeWarp.Rpc     (BinaryP (..), Dialog, MonadDialog,
                                            MonadResponse, MonadTransfer (..), Transfer,
                                            hoistRespCond)
+=======
+import           Control.TimeWarp.Logging (WithNamedLogger (..))
+import           Control.TimeWarp.Rpc     (BinaryDialog, MonadDialog,
+                                           MonadResponse, MonadTransfer,
+                                           Transfer)
+>>>>>>> [POS-22] Add identity testing for serialization
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
 import           Universum                hiding (catch)
 
+<<<<<<< HEAD
 import           Pos.Crypto               (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
                                            toPublic, toVssPublicKey)
 import           Pos.DHT                  (DHTResponseT, MonadDHT, MonadMessageDHT (..),
+=======
+import           Pos.Crypto               (PublicKey, SecretKey, VssKeyPair,
+                                           VssPublicKey, toPublic,
+                                           toVssPublicKey)
+import           Pos.DHT                  (DHTResponseT, MonadMessageDHT (..),
+>>>>>>> [POS-22] Add identity testing for serialization
                                            WithDefaultMsgHeader)
 import           Pos.DHT.Real             (KademliaDHT)
 import           Pos.Slotting             (MonadSlots (..))

@@ -21,7 +21,6 @@ import qualified Data.ByteString.Lazy as BL (ByteString, pack)
 import           Data.MessagePack     ()
 import           System.IO.Unsafe     (unsafePerformIO)
 import           Test.QuickCheck      (Arbitrary (..), Gen, listOf, shuffle, vector)
-import           Test.QuickCheck      (Arbitrary (..), Gen, listOf, shuffle, vector)
 import           Universum
 
 -- | Choose a random (shuffled) subset of length n. Throws an error if

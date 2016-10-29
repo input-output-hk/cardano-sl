@@ -14,8 +14,8 @@ import           Pos.Types.Mpc              (genCommitmentAndOpening)
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              Coin (..), Commitment (..), EpochIndex (..),
                                              FtsSeed (..), LocalSlotIndex (..),
-                                             MpcProof (..), Opening, SlotId (..), Tx (..),
-                                             TxIn (..), TxOut (..))
+                                             MpcProof (..), Opening (..), SlotId (..),
+                                             Tx (..), TxIn (..), TxOut (..))
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), choose, elements)
 import           Universum
@@ -71,6 +71,7 @@ instance Arbitrary SecretProof where
 deriving instance Arbitrary Coin
 deriving instance Arbitrary Address
 deriving instance Arbitrary FtsSeed
+deriving instance Arbitrary Opening
 deriving instance Arbitrary ChainDifficulty
 
 derive makeArbitrary ''SlotId

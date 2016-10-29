@@ -20,6 +20,9 @@ instance ArbitraryUnsafe PublicKey where
 instance ArbitraryUnsafe SecretKey where
     arbitraryUnsafe = Binary.decode <$> arbitrarySizedSL 64
 
+instance Arbitrary (Hash a) => ArbitraryUnsafe (Hash a) where
+    arbitraryUnsafe = arbitrary
+
 instance ArbitraryUnsafe (Signature a) where
     arbitraryUnsafe = Binary.decode <$> arbitrarySizedSL 64
 

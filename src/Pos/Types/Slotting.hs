@@ -10,15 +10,10 @@ module Pos.Types.Slotting
        , unflattenSlotId
        ) where
 
-import           Data.Binary         (Binary)
-import           Data.Hashable       (Hashable)
-import           Data.MessagePack    (MessagePack)
-import           Data.Text.Buildable (Buildable)
-import qualified Data.Text.Buildable as Buildable
 import           Universum
 
-import           Pos.Constants       (epochSlots)
-import           Pos.Types.Types     (FlatSlotId, SlotId (..))
+import           Pos.Constants   (epochSlots)
+import           Pos.Types.Types (FlatSlotId, SlotId (..))
 
 -- | Flatten SlotId (which is basically pair of integers) into a single number.
 flattenSlotId :: SlotId -> FlatSlotId

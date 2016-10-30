@@ -10,7 +10,7 @@ import           Data.Binary          (Binary)
 import           Data.MessagePack     (MessagePack)
 import           Universum
 
-import           Control.TimeWarp.Rpc (Message (..))
+import           Control.TimeWarp.Rpc (Message (..), MessageName)
 import           Pos.Types            (Timestamp)
 
 data SysStartRequest = SysStartRequest

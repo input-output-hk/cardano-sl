@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 -- | Server part.
 
 module Pos.Communication.Server
@@ -8,14 +10,13 @@ module Pos.Communication.Server
 
 import           Universum
 
-import           Control.TimeWarp.Rpc                (MonadDialog)
-import           Pos.Communication.Server.Block      (blockListeners)
-import           Pos.Communication.Server.Mpc        (mpcListeners)
-import           Pos.Communication.Server.Statistics as Statistics
-import           Pos.Communication.Server.SysStart   as SysStart
-import           Pos.Communication.Server.Tx         (txListeners)
-import           Pos.DHT                             (ListenerDHT)
-import           Pos.WorkMode                        (WorkMode)
+import           Control.TimeWarp.Rpc              (BinaryP, MonadDialog)
+import           Pos.Communication.Server.Block    (blockListeners)
+import           Pos.Communication.Server.Mpc      (mpcListeners)
+import           Pos.Communication.Server.SysStart as SysStart
+import           Pos.Communication.Server.Tx       (txListeners)
+import           Pos.DHT                           (ListenerDHT)
+import           Pos.WorkMode                      (WorkMode)
 
-allListeners :: (MonadDialog m, WorkMode m) => [ListenerDHT m]
+allListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
 allListeners = mconcat [blockListeners, mpcListeners, txListeners]

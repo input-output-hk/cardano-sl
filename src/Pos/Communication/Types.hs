@@ -17,7 +17,6 @@ module Pos.Communication.Types
 
 import           Control.TimeWarp.Rpc             (Message (messageName), MessageName)
 import           Data.Proxy                       (Proxy (..))
-import           Universum
 
 import           Pos.Communication.Types.Block    as Block
 import           Pos.Communication.Types.Mpc      as Mpc

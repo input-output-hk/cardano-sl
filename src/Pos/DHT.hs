@@ -46,10 +46,8 @@ import           Control.TimeWarp.Logging  (LoggerName,
                                             logWarning)
 import           Control.TimeWarp.Rpc      (BinaryP, HeaderNContentData, Message,
                                             MonadDialog, MonadTransfer (..),
-                                            NetworkAddress, ResponseT, Unpackable,
-                                            WithNamedLogger (modifyLoggerName), closeR,
-                                            hoistRespCond, logInfo, logWarning,
-                                            mapResponseT, replyH, sendH)
+                                            NetworkAddress, ResponseT, Unpackable, closeR,
+                                            hoistRespCond, mapResponseT, replyH, sendH)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Data.Binary               (Binary)
 import qualified Data.ByteString           as BS

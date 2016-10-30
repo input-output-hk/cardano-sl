@@ -9,12 +9,9 @@ import           Test.QuickCheck          (Arbitrary (..))
 import           Universum
 
 import           Pos.Crypto.SecretSharing (VssKeyPair, VssPublicKey,
-                                           deterministicVssKeyGen, toVssPublicKey)
+                                           deterministicVssKeyGen)
 import           Pos.Crypto.Signing       (PublicKey, SecretKey, Signature, Signed,
                                            mkSigned)
-import           Pos.Crypto.Signing       (PublicKey, SecretKey, Signature, Signed,
-                                           mkSigned)
-import           Pos.Util.Arbitrary       (ArbitraryUnsafe (..), arbitrarySizedS)
 import           Pos.Util.Arbitrary       (ArbitraryUnsafe (..), arbitrarySizedSL)
 
 instance ArbitraryUnsafe PublicKey where
@@ -39,9 +36,3 @@ instance ArbitraryUnsafe VssPublicKey where
 -- we don't need Really Secure™ randomness
 instance ArbitraryUnsafe VssKeyPair where
     arbitraryUnsafe = deterministicVssKeyGen <$> arbitrary
-
--- Unfortunately (or fortunately?), we cannot make `VssPublicKey` from random `ByteString`,
--- because its underlying `Binary` instance requires `ByteString` to be a valid representation
--- of a point on a elliptic curve. So we'll stick with taking key out of the valid keypair.
-instance ArbitraryUnsafe VssPublicKey where
-    arbitraryUnsafe = toVssPublicKey <$> arbitraryUnsafe

@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Launcher of full node or simple operations.
 
@@ -26,14 +25,14 @@ import           Control.TimeWarp.Logging (LoggerName, Severity (Warning),
                                            setSeverityMaybe, usingLoggerName)
 import           Control.TimeWarp.Rpc     (BinaryDialog, MonadDialog, NetworkAddress,
                                            Transfer, runBinaryDialog, runTransfer)
-import           Control.TimeWarp.Timed   (MonadTimed, currentTime, fork, killThread,
+import           Control.TimeWarp.Timed   (MonadTimed, currentTime, fork, killThread, ms,
                                            repeatForever, runTimedIO, sec, sleepForever)
 import           Data.Default             (Default (def))
 import           Formatting               (build, sformat, (%))
 import           Universum                hiding (catch, killThread)
 
-import           Pos.Communication        (SysStartRequest (..), allListeners, sendTx,
-                                           statsListener, sysStartMessageNames,
+import           Pos.Communication        (SysStartRequest (..), allListeners,
+                                           noCacheMessageNames, sendTx, statsListener,
                                            sysStartReqListener, sysStartRespListener)
 import           Pos.Constants            (RunningMode (..), isDevelopment, runningMode)
 import           Pos.Crypto               (SecretKey, VssKeyPair, hash, sign)
@@ -143,7 +142,7 @@ runTimeSlaveReal bp = do
       case runningMode of
          Development -> do
            tId <- fork $
-             repeatForever (sec 5) (const . return $ sec 5) $ do
+             repeatForever (ms 100) (const . return $ ms 100) $ do
                logInfo "Asking neighbors for system start"
                void $ sendToNeighbors SysStartRequest
            t <- liftIO $ takeMVar mvar
@@ -243,9 +242,7 @@ runKDHT BaseParams {..} listeners = runKademliaDHT kadConfig
       , kdcMessageCacheSize = 1000000
       , kdcEnableBroadcast = False
       , kdcInitialPeers = bpDHTPeers
-      , kdcNoCacheMessageNames = if isDevelopment
-                                 then sysStartMessageNames
-                                    else []
+      , kdcNoCacheMessageNames = noCacheMessageNames
       }
 
 runTimed :: LoggerName -> BinaryDialog Transfer a -> IO a

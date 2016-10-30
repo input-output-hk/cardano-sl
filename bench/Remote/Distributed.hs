@@ -69,7 +69,7 @@ startSupporter :: FilePath -> IO ()
 startSupporter config = do
     SupporterConfig {..} <- readRemoteConfig config
 
-    let dhtKey = eitherPanic "Invalid DHT key: " $ parse dhtKeyParser "" $ toS scDhtKey
+    let dhtKey = eitherPanic "Invalid DHT key: " $ parse dhtKeyParser "" $ toString scDhtKey
         keyType = dhtNodeType dhtKey
 
     when (keyType /= Just DHTSupporter) $
@@ -95,7 +95,7 @@ startFullNode config nodeNumber = do
     curTime <- getCurTimestamp
     let startTime = fromJust $ fromIntegral <$> fncStartTime <|> Just curTime
 
-    let dhtSupporter = eitherPanic "Invalid supporter address: " $ parse dhtNodeParser "" $ toS fncSupporterAddr
+    let dhtSupporter = eitherPanic "Invalid supporter address: " $ parse dhtNodeParser "" $ toString fncSupporterAddr
         logging = def { lpRootLogger = LoggerName ("fullnode." ++ show nodeNumber) }
         baseParams =
             BaseParams

@@ -14,7 +14,6 @@ import           Universum
 import           Control.TimeWarp.Rpc      (Message (..))
 
 import           Pos.Statistics.MonadStats (CounterLabel)
-import           Pos.Types                 (Timestamp (..))
 
 -- | Message: someone requested a stat
 data RequestStat =

@@ -20,15 +20,13 @@ import           Control.Monad.Trans      (MonadTrans)
 import           Control.TimeWarp.Logging (WithNamedLogger (..))
 import           Control.TimeWarp.Rpc     (MonadDialog, MonadResponse, MonadTransfer)
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
-import           Data.MessagePack         (MessagePack)
 import           Universum
 
 import           Pos.DHT                  (DHTResponseT, MonadDHT, MonadMessageDHT (..),
                                            WithDefaultMsgHeader)
 import           Pos.DHT.Real             (KademliaDHT)
 import           Pos.Slotting             (MonadSlots (..))
-import           Pos.State                (MonadDB (..), NodeState, addStatRecord,
-                                           getStatRecords)
+import           Pos.State                (MonadDB (..), addStatRecord, getStatRecords)
 import           Pos.Types                (Timestamp (..))
 
 type CounterLabel = Text

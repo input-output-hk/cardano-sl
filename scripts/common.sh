@@ -17,4 +17,7 @@ function ensure_logs {
 	if [[ "$COMM_LOG" != "" ]]; then
 	  logs="$logs --comm-log $COMM_LOG"
 	fi
+	if [[ "$SERVER_LOG" != "" ]]; then
+	  logs="$logs --server-log $SERVER_LOG"
+	fi
 }

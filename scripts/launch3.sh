@@ -9,7 +9,7 @@ tmux split-window -v
 
 startTime="$(date +%s)$(date +%N | sed 's/...$//')"
 
-envs="MAIN_LOG=$MAIN_LOG DHT_LOG=$DHT_LOG COMM_LOG=$COMM_LOG "
+envs="MAIN_LOG=$MAIN_LOG DHT_LOG=$DHT_LOG COMM_LOG=$COMM_LOG SERVER_LOG=$SERVER_LOG"
 
 tmux select-pane -t 0
 tmux send-keys "$envs ./scripts/runSupporter.sh" C-m

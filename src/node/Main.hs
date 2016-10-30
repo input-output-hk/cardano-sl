@@ -149,6 +149,7 @@ main = do
         { lpRootLogger = logger
         , lpMainSeverity = mainLogSeverity
         , lpDhtSeverity = Just dhtLogSeverity
+        , lpServerSeverity = serverLogSeverity
         , lpCommSeverity = commLogSeverity
         }
     baseParams logger args@(Args {..}) =

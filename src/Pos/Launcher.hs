@@ -32,7 +32,7 @@ import           Control.TimeWarp.Timed   (MonadTimed, currentTime, fork, killTh
                                            repeatForever, runTimedIO, sec, sleepForever)
 import           Data.Default             (Default (def))
 import           Formatting               (build, sformat, (%))
-import           Universum                hiding (catch, killThread)
+import           Universum                hiding (killThread)
 
 import           Pos.Communication        (SysStartRequest (..), allListeners,
                                            noCacheMessageNames, sendTx, serverLoggerName,

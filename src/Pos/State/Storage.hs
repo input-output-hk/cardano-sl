@@ -226,7 +226,11 @@ shouldCreateGenesisBlock :: EpochIndex -> Query Bool
 shouldCreateGenesisBlock 0 = pure False
 shouldCreateGenesisBlock epoch = either (const False) doCheck <$> getHeadSlot
   where
-    doCheck si = si > SlotId {siEpoch = epoch - 1, siSlot = 5 * k}
+    -- doCheck si = si > SlotId {siEpoch = epoch - 1, siSlot = 5 * k}
+    -- While we are in process of active development, practically impossible
+    -- situations can happen, so we take them into account. We will think about
+    -- this check later.
+    doCheck si = si > SlotId {siEpoch = epoch - 1, siSlot = 0}
 
 createGenesisBlock :: EpochIndex -> Update (Maybe GenesisBlock)
 createGenesisBlock epoch =

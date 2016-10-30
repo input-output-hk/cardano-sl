@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 -- | Listener for stats delivery
 
 module Pos.Communication.Server.Statistics
@@ -5,7 +7,7 @@ module Pos.Communication.Server.Statistics
        ) where
 
 import           Control.TimeWarp.Logging  (logInfo)
-import           Control.TimeWarp.Rpc      (MonadDialog)
+import           Control.TimeWarp.Rpc      (BinaryP, MonadDialog)
 import           Formatting                (sformat, stext, (%))
 import           Universum
 
@@ -15,7 +17,7 @@ import           Pos.DHT                   (ListenerDHT (..), replyToNode)
 import           Pos.Statistics.MonadStats (getStats)
 import           Pos.WorkMode              (WorkMode)
 
-statsListener :: (MonadDialog m, WorkMode m) => ListenerDHT m
+statsListener :: (MonadDialog BinaryP m, WorkMode m) => ListenerDHT m
 statsListener = ListenerDHT handleStatsRequests
 
 handleStatsRequests :: ResponseMode m => RequestStat -> m ()

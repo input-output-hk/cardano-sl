@@ -35,7 +35,7 @@ import           Formatting               (build, sformat, (%))
 import           Universum                hiding (catch, killThread)
 
 import           Pos.Communication        (SysStartRequest (..), allListeners,
-                                           noCacheMessageNames, sendTx,
+                                           noCacheMessageNames, sendTx, statsListener,
                                            sysStartReqListener, sysStartRespListener)
 import           Pos.Constants            (RunningMode (..), isDevelopment, runningMode)
 import           Pos.Crypto               (SecretKey, VssKeyPair, hash, sign)
@@ -49,8 +49,7 @@ import           Pos.Statistics           (getNoStatsT, getStatsT)
 import           Pos.Types                (Address, Coin, Timestamp (Timestamp), Tx (..),
                                            TxId, TxIn (..), TxOut (..), timestampF, txF)
 import           Pos.Worker               (runWorkers)
-import           Pos.WorkMode             (BenchmarkT (..), ContextHolder (..),
-                                           DBHolder (..), NoBenchmarkT (..),
+import           Pos.WorkMode             (ContextHolder (..), DBHolder (..),
                                            NodeContext (..), RealMode, ServiceMode,
                                            WorkMode, getNodeContext, ncSecretKey)
 
@@ -92,7 +91,7 @@ submitTxReal :: NodeParams
 submitTxReal np input addrCoin = runRealMode np [] $ do
     peers <- getKnownPeers
     let na = dhtAddr <$> filterByNodeType DHTFull peers
-    getNoBenchmarkT $ submitTx na input addrCoin
+    getNoStatsT $ submitTx na input addrCoin
 
 ----------------------------------------------------------------------------
 -- Parameters
@@ -179,18 +178,19 @@ runSupporterReal bp = runServiceMode bp [] $ do
 
 -- | Run full node in real mode.
 runNodeReal :: NodeParams -> IO ()
-runNodeReal np@NodeParams {..} = runRealMode np listeners $ getNoBenchmarkT runNode
+runNodeReal np@NodeParams {..} = runRealMode np listeners $ getNoStatsT runNode
   where
     listeners = if isDevelopment
-                then sysStartReqListener (Just npSystemStart) : noBenchListeners
-                else noBenchListeners
-    noBenchListeners = map (mapListenerDHT getNoBenchmarkT) allListeners
+                then sysStartReqListener (Just npSystemStart) : noStatsListeners
+                else noStatsListeners
+    noStatsListeners = map (mapListenerDHT getNoStatsT) allListeners
 
 -- | Run full node in benchmarking node
 -- TODO: spawn here additional listener, which would accept stat queries
-runNodeBench :: NodeParams -> IO ()
-runNodeBench np = runRealMode np benchListeners $ getBenchmarkT runNode
-  where benchListeners = map (mapListenerDHT getBenchmarkT) allListeners
+runNodeStats :: NodeParams -> IO ()
+runNodeStats np = runRealMode np statsListeners $ getStatsT runNode
+  where statsListeners = map (mapListenerDHT getStatsT) listeners
+        listeners = statsListener : allListeners
 
 ----------------------------------------------------------------------------
 -- Real mode runners

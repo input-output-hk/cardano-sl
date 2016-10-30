@@ -18,7 +18,8 @@ import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Except     (ExceptT)
 import           Control.Monad.Trans      (MonadTrans)
 import           Control.TimeWarp.Logging (WithNamedLogger (..))
-import           Control.TimeWarp.Rpc     (MonadDialog, MonadResponse, MonadTransfer)
+import           Control.TimeWarp.Rpc     (MonadDialog, MonadResponse, MonadTransfer (..),
+                                           hoistRespCond)
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
 import           Universum
 
@@ -68,8 +69,13 @@ type instance ThreadId (StatsT m) = ThreadId m
 newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, MonadDB, WithNamedLogger, MonadTransfer, MonadDialog,
+               MonadMask, MonadIO, MonadDB, WithNamedLogger, MonadDialog p,
                MonadDHT, MonadMessageDHT, MonadResponse, MonadSlots, WithDefaultMsgHeader)
+
+instance MonadTransfer m => MonadTransfer (NoStatsT m) where
+    sendRaw addr p = NoStatsT $ sendRaw addr p
+    listenRaw binding sink = NoStatsT $ listenRaw binding (hoistRespCond getNoStatsT sink)
+    close = NoStatsT . close
 
 instance MonadTrans NoStatsT where
     lift = NoStatsT
@@ -82,8 +88,13 @@ instance Monad m => MonadStats (NoStatsT m) where
 newtype StatsT m a = StatsT
     { getStatsT :: m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, MonadDB, WithNamedLogger, MonadTransfer, MonadDialog,
+               MonadMask, MonadIO, MonadDB, WithNamedLogger, MonadDialog p,
                MonadDHT, MonadMessageDHT, MonadResponse, MonadSlots, WithDefaultMsgHeader)
+
+instance MonadTransfer m => MonadTransfer (StatsT m) where
+    sendRaw addr p = StatsT $ sendRaw addr p
+    listenRaw binding sink = StatsT $ listenRaw binding (hoistRespCond getStatsT sink)
+    close = StatsT . close
 
 instance MonadTrans StatsT where
     lift = StatsT

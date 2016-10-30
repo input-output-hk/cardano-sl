@@ -17,6 +17,7 @@ import           Universum
 import           Pos.Communication.Types  (SendBlockHeader (..), SendTx (..),
                                            SendTxs (..))
 import           Pos.DHT                  (sendToNeighbors, sendToNode)
+import           Pos.Statistics           (logSentBlockHeader, logSentTx)
 import           Pos.Types                (MainBlockHeader, Tx)
 import           Pos.WorkMode             (WorkMode)
 
@@ -27,6 +28,7 @@ announceBlock
     => MainBlockHeader -> m ()
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
+    logSentBlockHeader $ Right header
     void . sendToNeighbors . SendBlockHeader $ header
 
 -- | Announce new transaction to all known peers. Intended to be used when
@@ -34,6 +36,7 @@ announceBlock header = do
 announceTx :: WorkMode m => Tx -> m ()
 announceTx tx = do
     logDebug $ sformat ("Announcing tx to others:\n"%build) tx
+    logSentTx tx
     void . sendToNeighbors . SendTx $ tx
 
 -- | Announce known transactions to all known peers. Intended to be used
@@ -43,6 +46,7 @@ announceTxs [] = pure ()
 announceTxs txs@(tx:txs') = do
     logDebug $
         sformat ("Announcing txs to others:\n" %build) $ listBuilderJSON txs
+    mapM_ logSentTx txs
     void . sendToNeighbors . SendTxs $ tx :| txs'
 
 -- | Send Tx to given address.

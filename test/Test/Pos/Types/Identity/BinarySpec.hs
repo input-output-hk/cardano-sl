@@ -27,9 +27,13 @@ spec = describe "Types" $ do
         prop "Tx" (binaryEncodeDecode @T.Tx)
         prop "FtsSeed" (binaryEncodeDecode @T.FtsSeed)
 <<<<<<< HEAD
+<<<<<<< HEAD
         prop "Commitment" (binaryEncodeDecode @T.Commitment)
 =======
 >>>>>>> [POS-22] Add identity testing for serialization
+=======
+        prop "Commitment" (binaryEncodeDecode @T.Commitment)
+>>>>>>> feature/pos39-benchmarks
         prop "Opening" (binaryEncodeDecode @T.Opening)
         prop "Chaindifficulty" (binaryEncodeDecode @T.ChainDifficulty)
         prop "MpcProof" (binaryEncodeDecode @T.MpcProof)

@@ -3,10 +3,14 @@
 -- | This module tests SafeCopy instances.
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 module Test.Pos.Types.Identity.SafeCopySpec
 =======
 module Test.Pos.Types.SafeCopySpec
 >>>>>>> [POS-22] Add identity testing for serialization
+=======
+module Test.Pos.Types.Identity.SafeCopySpec
+>>>>>>> feature/pos39-benchmarks
        ( spec
        ) where
 
@@ -23,6 +27,9 @@ spec = describe "Types" $ do
     describe "SafeCopy instances" $ do
         prop "Epochindex" (safeCopyEncodeDecode @T.EpochIndex)
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> feature/pos39-benchmarks
         prop "LocalSlotindex" (safeCopyEncodeDecode @T.LocalSlotIndex)
         prop "SlotId" (safeCopyEncodeDecode @T.SlotId)
         prop "Coin" (safeCopyEncodeDecode @T.Coin)
@@ -30,6 +37,7 @@ spec = describe "Types" $ do
         prop "TxIn" (safeCopyEncodeDecode @T.TxIn)
         prop "TxOut" (safeCopyEncodeDecode @T.TxOut)
         prop "Tx" (safeCopyEncodeDecode @T.Tx)
+<<<<<<< HEAD
 =======
         prop "Localslotindex" (safeCopyEncodeDecode @T.LocalSlotIndex)
         prop "SlotId" (safeCopyEncodeDecode @T.SlotId)
@@ -39,6 +47,8 @@ spec = describe "Types" $ do
 --        prop "TxOut" (safeCopyEncodeDecode @T.TxOut)
 --        prop "Tx" (safeCopyEncodeDecode @T.Tx)
 >>>>>>> [POS-22] Add identity testing for serialization
+=======
+>>>>>>> feature/pos39-benchmarks
         prop "FtsSeed" (safeCopyEncodeDecode @T.FtsSeed)
         prop "Opening" (safeCopyEncodeDecode @T.Opening)
         prop "Chaindifficulty" (safeCopyEncodeDecode @T.ChainDifficulty)

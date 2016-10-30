@@ -98,6 +98,7 @@ secrets :: [Secret]
 secrets =
     unsafeMakePool "[generating shares for tests...]" 50 $
         view _2 <$> genSharedSecret 1000 (map toVssPublicKey vssKeys)
+{-# NOINLINE secrets #-}
 
 instance Arbitrary Secret where
     arbitrary = elements secrets

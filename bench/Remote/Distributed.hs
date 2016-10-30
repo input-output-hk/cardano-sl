@@ -1,6 +1,7 @@
-import           Control.TimeWarp.Logging (LoggerName(..))
+import           Control.TimeWarp.Logging (LoggerName (..))
 import           Data.Default             (def)
 import           Data.List                ((!!))
+import           Data.Maybe               (fromJust)
 import           Data.Monoid              ((<>))
 import           Formatting               (int, sformat, stext, (%))
 import           Options.Applicative      (Parser, ParserInfo, auto, command, execParser,
@@ -13,9 +14,9 @@ import           Universum                hiding ((<>))
 import           Pos.CLI                  (dhtKeyParser, dhtNodeParser)
 import           Pos.DHT                  (DHTNodeType (..), dhtNodeType)
 import           Pos.Genesis              (genesisSecretKeys, genesisVssKeyPairs)
-import           Pos.Launcher             (NodeParams (..), SupporterParams (..),
-                                           runNodeReal, runSupporterReal,
-                                           LoggingParams(..))
+import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
+                                           NodeParams (..), getCurTimestamp, runNodeStats,
+                                           runSupporterReal)
 
 import           Bench.Pos.Remote.Config  (FullNodeConfig (..), SupporterConfig (..),
                                            readRemoteConfig)
@@ -53,10 +54,10 @@ optParser = RBO
                 <> command "supporter" (info supporterParser $ progDesc "Run supporter node"))
 
     <*> strOption (long "config"
-                  <> short 'c'
-                  <> metavar "PATH_TO_CONFIG"
-                  <> value "remote.yaml"
-                  <> help "Path to YAML config file")
+                <> short 'c'
+                <> metavar "PATH_TO_CONFIG"
+                <> value "remote.yaml"
+                <> help "Path to YAML config file")
 
 parseOptions :: ParserInfo RemoteBenchOptions
 parseOptions = info (helper <*> optParser) $ fullDesc
@@ -68,18 +69,18 @@ startSupporter :: FilePath -> IO ()
 startSupporter config = do
     SupporterConfig {..} <- readRemoteConfig config
 
-    let dhtKey = eitherPanic "Invalid DHT key: " $ parse dhtKeyParser "" $ toS scDhtKey
+    let dhtKey = eitherPanic "Invalid DHT key: " $ parse dhtKeyParser "" $ toString scDhtKey
         keyType = dhtNodeType dhtKey
 
     when (keyType /= Just DHTSupporter) $
         panic $ sformat ("Invalid type of DHT key: "%stext%" (should be `Just DHTSupporter`)") $ show keyType
 
     let logging = def { lpRootLogger = "supporter" }
-        params = SupporterParams
-                 { spLogging = logging
-                 , spPort = scPort
-                 , spDHTPeers = []
-                 , spDHTKeyOrType = Left dhtKey
+        params = BaseParams
+                 { bpLogging = logging
+                 , bpPort = scPort
+                 , bpDHTPeers = []
+                 , bpDHTKeyOrType = Left dhtKey
                  }
 
     runSupporterReal params
@@ -91,22 +92,29 @@ startFullNode config nodeNumber = do
 
     FullNodeConfig {..} <- readRemoteConfig config
 
-    let dhtSupporter = eitherPanic "Invalid supporter address: " $ parse dhtNodeParser "" $ toS fncSupporterAddr
-        logging = def { lpRootLogger = LoggerName ("fullnode." ++ show nodeNumber) }
-        params = NodeParams
-                 { npDbPath       = fncDbPath
-                 , npRebuildDb    = True             -- always start with a fresh database (maybe will change later)
-                 , npSystemStart  = fromIntegral <$> fncStartTime
-                 , npLogging      = logging
-                 , npSecretKey    = genesisSecretKeys !! nodeNumber
-                 , npVssKeyPair   = genesisVssKeyPairs !! nodeNumber
-                 , npPort         = fncPort
-                 , npDHTPeers     = [dhtSupporter]
-                 , npDHTKeyOrType = Right DHTFull    -- TODO: ask @georgeee about what's that
-                 }
+    curTime <- getCurTimestamp
+    let startTime = fromJust $ fromIntegral <$> fncStartTime <|> Just curTime
 
-    -- TODO: change to `runNodeBenchmark`, when it's ready
-    runNodeReal params
+    let dhtSupporter = eitherPanic "Invalid supporter address: " $ parse dhtNodeParser "" $ toString fncSupporterAddr
+        logging = def { lpRootLogger = LoggerName ("fullnode." ++ show nodeNumber) }
+        baseParams =
+            BaseParams
+            { bpLogging      = logging
+            , bpPort         = fncPort
+            , bpDHTPeers     = [dhtSupporter]
+            , bpDHTKeyOrType = Right DHTFull
+            }
+        params =
+            NodeParams
+            { npDbPath       = fncDbPath
+            , npRebuildDb    = True             -- always start with a fresh database (maybe will change later)
+            , npSystemStart  = startTime
+            , npSecretKey    = genesisSecretKeys !! nodeNumber
+            , npVssKeyPair   = genesisVssKeyPairs !! nodeNumber
+            , npBaseParams   = baseParams
+            }
+
+    runNodeStats params
 
 
 main :: IO ()

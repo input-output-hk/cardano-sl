@@ -71,7 +71,6 @@ instance Arbitrary SecretProof where
 deriving instance Arbitrary Coin
 deriving instance Arbitrary Address
 deriving instance Arbitrary FtsSeed
-deriving instance Arbitrary Opening
 deriving instance Arbitrary ChainDifficulty
 
 derive makeArbitrary ''SlotId

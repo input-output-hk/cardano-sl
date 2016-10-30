@@ -44,16 +44,10 @@ import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.TimeWarp.Logging  (LoggerName,
                                             WithNamedLogger (modifyLoggerName), logInfo,
                                             logWarning)
-<<<<<<< HEAD
 import           Control.TimeWarp.Rpc      (BinaryP, HeaderNContentData, Message,
                                             MonadDialog, MonadTransfer (..),
                                             NetworkAddress, ResponseT, Unpackable, closeR,
                                             hoistRespCond, mapResponseT, replyH, sendH)
-=======
-import           Control.TimeWarp.Rpc      (Message, MonadDialog, MonadTransfer,
-                                            NetworkAddress, ResponseT, mapResponseT,
-                                            replyH, sendH)
->>>>>>> Make `Pos.Launcher` not so ugly
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Data.Binary               (Binary)
 import qualified Data.ByteString           as BS
@@ -235,9 +229,9 @@ data DHTNode = DHTNode { dhtAddr   :: NetworkAddress
 
 instance Buildable DHTNode where
     build (DHTNode (peerHost, peerPort) key)
-      = bprint (F.build % " at " % F.build % ":" % F.build)
+      = bprint (F.build % " at " % F.stext % ":" % F.build)
                key
-               (show peerHost)
+               (decodeUtf8 peerHost)
                peerPort
 
 instance Buildable [DHTNode] where
@@ -282,13 +276,6 @@ instance (WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog BinaryP m, Mona
     header <- defaultMsgHeader msg
     DHTResponseT $ replyH header msg
   closeResponse = DHTResponseT closeR
-
-mapDHTResponseT :: (m a -> n b) -> DHTResponseT m a -> DHTResponseT n b
-mapDHTResponseT how = DHTResponseT . mapResponseT how . getDHTResponseT
-
--- | Helper for substituting inner monad stack in `ListenerDHT`
-mapListenerDHT :: (m () -> n ()) -> ListenerDHT m -> ListenerDHT n
-mapListenerDHT how (ListenerDHT listen) = ListenerDHT $ mapDHTResponseT how . listen
 
 mapDHTResponseT :: (m a -> n b) -> DHTResponseT m a -> DHTResponseT n b
 mapDHTResponseT how = DHTResponseT . mapResponseT how . getDHTResponseT

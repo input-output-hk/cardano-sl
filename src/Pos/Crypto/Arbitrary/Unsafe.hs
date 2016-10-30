@@ -8,6 +8,7 @@ import qualified Data.Binary              as Binary
 import           Test.QuickCheck          (Arbitrary (..))
 import           Universum
 
+import           Pos.Crypto.Hashing       (Hash)
 import           Pos.Crypto.SecretSharing (VssKeyPair, VssPublicKey,
                                            deterministicVssKeyGen)
 import           Pos.Crypto.Signing       (PublicKey, SecretKey, Signature, Signed,

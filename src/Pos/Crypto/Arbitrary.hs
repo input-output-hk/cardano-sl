@@ -13,22 +13,12 @@ import           Universum
 
 import           Pos.Crypto.Arbitrary.Hash   ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
-<<<<<<< HEAD
 import           Pos.Crypto.SecretSharing    (EncShare, Secret, VssKeyPair, VssPublicKey,
                                               genSharedSecret, toVssPublicKey, vssKeyGen)
 import           Pos.Crypto.Signing          (PublicKey, SecretKey, Signature, Signed,
                                               keyGen, mkSigned, sign)
 import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakeList,
                                               unsafeMakePool)
-=======
-import           Pos.Crypto.SecretSharing    (EncShare, Secret, VssKeyPair,
-                                              VssPublicKey, genSharedSecret,
-                                              toVssPublicKey, vssKeyGen)
-import           Pos.Crypto.Signing          (PublicKey, SecretKey, Signature,
-                                              Signed, keyGen, mkSigned, sign)
-import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN,
-                                              unsafeMakeList, unsafeMakePool)
->>>>>>> [POS-22] Add identity testing for serialization
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -107,14 +97,7 @@ instance (Binary a, Arbitrary a) => Arbitrary (Signed a) where
 secrets :: [Secret]
 secrets =
     unsafeMakePool "[generating shares for tests...]" 50 $
-<<<<<<< HEAD
         view _2 <$> genSharedSecret 1000 (map toVssPublicKey vssKeys)
-=======
-    do
-        (_, s, _, _) <- genSharedSecret 1000 (map toVssPublicKey vssKeys)
-        return s
->>>>>>> [POS-22] Add identity testing for serialization
-{-# NOINLINE secrets #-}
 
 instance Arbitrary Secret where
     arbitrary = elements secrets
@@ -122,13 +105,7 @@ instance Arbitrary Secret where
 encShares :: [EncShare]
 encShares =
     unsafeMakeList "[generating shares for tests...]" $
-<<<<<<< HEAD
         view _4 <$> genSharedSecret 1000 (map toVssPublicKey vssKeys)
-=======
-    do
-        (_, _, _, l) <- genSharedSecret 1000 (map toVssPublicKey vssKeys)
-        return l
->>>>>>> [POS-22] Add identity testing for serialization
 {-# NOINLINE encShares #-}
 
 instance Arbitrary EncShare where

@@ -25,6 +25,7 @@ library
                         Pos.Merkle
                         Pos.Slotting
                         Pos.State
+                        Pos.Statistics
                         Pos.Types
                         Pos.Util
                         Pos.Worker
@@ -32,11 +33,13 @@ library
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
                         Pos.Communication.Types.Mpc
+                        Pos.Communication.Types.Statistics
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Types.Tx
                         Pos.Communication.Server
                         Pos.Communication.Server.Block
                         Pos.Communication.Server.Mpc
+                        Pos.Communication.Server.Statistics
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Server.Tx
                         Pos.Crypto.Arbitrary
@@ -54,6 +57,9 @@ library
                         Pos.State.Storage.Stats
                         Pos.State.Storage.Types
                         Pos.State.Storage.Tx
+                        Pos.Statistics.Block
+                        Pos.Statistics.MonadStats
+                        Pos.Statistics.Tx
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block

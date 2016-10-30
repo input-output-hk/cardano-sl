@@ -20,6 +20,8 @@ import           Pos.Communication.Types  (RequestBlock (..), ResponseMode,
 import           Pos.Crypto               (hash)
 import           Pos.Slotting             (getCurrentSlot)
 import qualified Pos.State                as St
+import           Pos.Statistics           (logReceivedBlock, logReceivedBlockHeader,
+                                           logSentBlock)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
@@ -32,6 +34,7 @@ blockListeners =
 
 handleBlock :: ResponseMode m => SendBlock -> m ()
 handleBlock (SendBlock block) = do
+    logReceivedBlock block
     slotId <- getCurrentSlot
     pbr <- St.processBlock slotId block
     case pbr of
@@ -45,10 +48,12 @@ handleBlock (SendBlock block) = do
 handleBlockHeader
     :: ResponseMode m
     => SendBlockHeader -> m ()
-handleBlockHeader (SendBlockHeader header) =
+handleBlockHeader (SendBlockHeader header) = do
+    logReceivedBlockHeader header'
     whenM checkUsefulness $ replyToNode (RequestBlock h)
   where
-    h = hash $ Right header
+    header' = Right header
+    h = hash header'
     checkUsefulness = do
         slotId <- getCurrentSlot
         verRes <- St.mayBlockBeUseful slotId header
@@ -68,4 +73,8 @@ handleBlockRequest
     :: ResponseMode m
     => RequestBlock -> m ()
 handleBlockRequest (RequestBlock h) =
-    maybe (pure ()) (replyToNode . SendBlock) =<< St.getBlock h
+    maybe (pure ()) sendBlockBack =<< St.getBlock h
+  where
+    sendBlockBack block = do
+        logSentBlock block
+        replyToNode $ SendBlock block

@@ -23,7 +23,7 @@ import           Universum              hiding (show)
 -- timestamps is microsecond. Hence underlying type is Microsecond.
 newtype Timestamp = Timestamp
     { getTimestamp :: Microsecond
-    } deriving (Num, Eq, Ord, Enum, Real, Integral)
+    } deriving (Num, Eq, Ord, Enum, Real, Integral, Typeable)
 
 instance Show Timestamp where
   show = show . getTimestamp

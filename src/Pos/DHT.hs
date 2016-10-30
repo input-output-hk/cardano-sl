@@ -216,7 +216,7 @@ instance Buildable DHTNode where
     build (DHTNode (peerHost, peerPort) key)
       = bprint (F.build % " at " % F.build % ":" % F.build)
                key
-               (toS peerHost :: Text)
+               (show peerHost)
                peerPort
 
 instance Buildable [DHTNode] where

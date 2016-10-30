@@ -16,4 +16,4 @@ dhtKeyParser = P.base64Url >>= toDHTKey
     toDHTKey = either fail return . bytesToDHTKey
 
 dhtNodeParser :: P.Parser DHTNode
-dhtNodeParser = (\host port id -> DHTNode (toS host, port) id) <$> P.host <*> (P.char ':' *> P.port) <*> (P.char '/' *> dhtKeyParser)
+dhtNodeParser = (\host port id -> DHTNode (encodeUtf8 host, port) id) <$> P.host <*> (P.char ':' *> P.port) <*> (P.char '/' *> dhtKeyParser)

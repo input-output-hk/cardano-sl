@@ -157,7 +157,7 @@ startDHT KademliaDHTConfig {..} = do
     let kdcNoCacheMessageNames_ = kdcNoCacheMessageNames
     pure $ KademliaDHTContext {..}
   where
-    log' logF = usingLoggerName ("kademlia" <> "instance") . logF . toS
+    log' log =  usingLoggerName ("kademlia" <> "instance") . log . toText
     convert (ListenerDHT f) = ListenerH $ \(_, m) -> getDHTResponseT $ f m
     convert' handler = getDHTResponseT . handler
 
@@ -275,10 +275,10 @@ toDHTNode :: K.Node DHTKey -> DHTNode
 toDHTNode n = DHTNode (fromKPeer . K.peer $ n) $ K.nodeId n
 
 fromKPeer :: K.Peer -> NetworkAddress
-fromKPeer (K.Peer {..}) = (toS peerHost, fromIntegral peerPort)
+fromKPeer (K.Peer {..}) = (show peerHost, fromIntegral peerPort)
 
 toKPeer :: NetworkAddress -> K.Peer
-toKPeer (peerHost, peerPort) = K.Peer (toS peerHost) (fromIntegral peerPort)
+toKPeer (peerHost, peerPort) = K.Peer (decodeUtf8 peerHost) (fromIntegral peerPort)
 
 -- TODO add TimedIO, WithLoggerName constraints and uncomment logging
 joinNetwork' :: (MonadIO m, MonadThrow m) => DHTHandle -> DHTNode -> m ()

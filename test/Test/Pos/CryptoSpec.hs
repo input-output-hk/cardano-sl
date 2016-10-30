@@ -15,11 +15,15 @@ import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
 import           Pos.Crypto            (Hash, KeyPair (..), PublicKey, SecretKey,
-                                        Signature, Signed, deterministic, fullPublicKeyF,
-                                        hash, parseFullPublicKey, randomNumber, sign,
-                                        toPublic, verify)
+                                        SecretProof, SecretSharingExtra, Signature,
+                                        Signed, VssPublicKey, deterministic,
+                                        fullPublicKeyF, hash, parseFullPublicKey,
+                                        randomNumber, sign, toPublic, verify)
+-- FIXME: it's bad :(
+import           Pos.Types             ()
 
-import           Test.Pos.Util         (binaryEncodeDecode)
+import           Test.Pos.Util         (binaryEncodeDecode, msgPackEncodeDecode,
+                                        safeCopyEncodeDecode)
 
 spec :: Spec
 spec = describe "Crypto" $ do
@@ -41,6 +45,12 @@ spec = describe "Crypto" $ do
             prop
                 "Binary"
                 (binaryEncodeDecode @(Hash Int))
+            prop
+                "MessagePack"
+                (msgPackEncodeDecode @(Hash Int))
+            prop
+                "SafeCopy"
+                (safeCopyEncodeDecode @(Hash Int))
         describe "hashes of different values are different" $ do
             prop
                 "Bool"
@@ -59,19 +69,29 @@ spec = describe "Crypto" $ do
                     \f534f9b74eb5b89819ec509083d00a50"
 
     describe "Signing" $ do
-        describe "Binary instances" $ do
-            prop
-                "SecretKey"
-                (binaryEncodeDecode @SecretKey)
-            prop
-                "PublicKey"
-                (binaryEncodeDecode @PublicKey)
-            prop
-                "Signature"
-                (binaryEncodeDecode @(Signature ()))
-            prop
-                "Signed"
-                (binaryEncodeDecode @(Signed Bool))
+        describe "Identity testing" $ do
+            describe "Binary instances" $ do
+                prop "SecretKey" (binaryEncodeDecode @SecretKey)
+                prop "PublicKey" (binaryEncodeDecode @PublicKey)
+                prop "Signature" (binaryEncodeDecode @(Signature ()))
+                prop "Signed"    (binaryEncodeDecode @(Signed Bool))
+                prop "VssPublicKey" (binaryEncodeDecode @VssPublicKey)
+                prop "SecretProof"  (binaryEncodeDecode @SecretProof)
+                prop "SecretSharingExtra" (binaryEncodeDecode @SecretSharingExtra)
+            describe "MessagePack instances" $ do
+                prop "SecretKey" (msgPackEncodeDecode @SecretKey)
+                prop "PublicKey" (msgPackEncodeDecode @PublicKey)
+                prop "Signature" (msgPackEncodeDecode @(Signature ()))
+                prop "Signed"    (msgPackEncodeDecode @(Signed Bool))
+                prop "VssPublicKey" (msgPackEncodeDecode @VssPublicKey)
+                prop "SecretProof"  (msgPackEncodeDecode @SecretProof)
+            describe "SafeCopy instances" $ do
+                prop "SecretKey" (safeCopyEncodeDecode @SecretKey)
+                prop "PublicKey" (safeCopyEncodeDecode @PublicKey)
+                prop "Signature" (safeCopyEncodeDecode @(Signature ()))
+                prop "Signed"    (safeCopyEncodeDecode @(Signed Bool))
+                prop "VssPublicKey" (safeCopyEncodeDecode @VssPublicKey)
+                prop "SecretProof"  (safeCopyEncodeDecode @SecretProof)
         describe "keys" $ do
             prop
                 "derived pubkey equals to generated pubkey"

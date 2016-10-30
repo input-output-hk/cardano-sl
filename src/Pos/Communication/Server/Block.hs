@@ -1,4 +1,5 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -- | Server which handles blocks.
 
@@ -12,14 +13,15 @@ module Pos.Communication.Server.Block
 
 import           Control.TimeWarp.Logging (logDebug, logInfo)
 import           Formatting               (build, sformat, stext, (%))
-import           Pos.DHT                  (ListenerDHT (..), replyToNode)
 import           Serokell.Util            (VerificationRes (..), listBuilderJSON)
 import           Universum
 
 import           Control.TimeWarp.Rpc     (BinaryP, MonadDialog)
 import           Pos.Communication.Types  (RequestBlock (..), ResponseMode,
                                            SendBlock (..), SendBlockHeader (..))
+import           Pos.Communication.Util   (modifyListenerLogger)
 import           Pos.Crypto               (hash)
+import           Pos.DHT                  (ListenerDHT (..), replyToNode)
 import           Pos.Slotting             (getCurrentSlot)
 import qualified Pos.State                as St
 import           Pos.Statistics           (logReceivedBlock, logReceivedBlockHeader,
@@ -29,10 +31,11 @@ import           Pos.WorkMode             (WorkMode)
 -- | Listeners for requests related to blocks processing.
 blockListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
 blockListeners =
-    [ ListenerDHT handleBlock
-    , ListenerDHT handleBlockHeader
-    , ListenerDHT handleBlockRequest
-    ]
+    map (modifyListenerLogger "block")
+        [ ListenerDHT handleBlock
+        , ListenerDHT handleBlockHeader
+        , ListenerDHT handleBlockRequest
+        ]
 
 handleBlock :: ResponseMode m => SendBlock -> m ()
 handleBlock (SendBlock block) = do

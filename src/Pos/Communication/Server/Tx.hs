@@ -1,4 +1,5 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -- | Server which handles transactions.
 
@@ -7,12 +8,13 @@ module Pos.Communication.Server.Tx
        ) where
 
 import           Control.TimeWarp.Logging (logInfo)
+import           Control.TimeWarp.Rpc     (BinaryP, MonadDialog)
 import           Formatting               (build, sformat, (%))
-import           Pos.DHT                  (ListenerDHT (..))
 import           Universum
 
-import           Control.TimeWarp.Rpc     (BinaryP, MonadDialog)
 import           Pos.Communication.Types  (ResponseMode, SendTx (..), SendTxs (..))
+import           Pos.Communication.Util   (modifyListenerLogger)
+import           Pos.DHT                  (ListenerDHT (..))
 import           Pos.State                (processTx)
 import           Pos.Statistics           (logReceivedTx)
 import           Pos.WorkMode             (WorkMode)
@@ -20,6 +22,7 @@ import           Pos.WorkMode             (WorkMode)
 -- | Listeners for requests related to blocks processing.
 txListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
 txListeners =
+    map (modifyListenerLogger "tx")
     [ ListenerDHT handleTx
     , ListenerDHT handleTxs
     ]

@@ -1,6 +1,7 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 -- | Server which handles MPC-related things.
 
@@ -9,16 +10,18 @@ module Pos.Communication.Server.Mpc
        , mpcListeners
        ) where
 
--- import           Universum
-
 import           Control.TimeWarp.Rpc        (BinaryP, MonadDialog)
+import           Universum
+
 import           Pos.Communication.Types.Mpc as Mpc
+import           Pos.Communication.Util      (modifyListenerLogger)
 import           Pos.DHT                     (ListenerDHT (..))
 import qualified Pos.State                   as St
 import           Pos.WorkMode                (WorkMode)
 
 mpcListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
 mpcListeners =
+    map (modifyListenerLogger "tx")
     [ ListenerDHT handleCommitment
     , ListenerDHT handleOpening
     , ListenerDHT handleShares

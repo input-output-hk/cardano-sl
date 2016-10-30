@@ -89,10 +89,12 @@ newtype KademliaDHT m a = KademliaDHT { unKademliaDHT :: ReaderT (KademliaDHTCon
     deriving (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadIO,
              MonadMask, WithNamedLogger, MonadTimed, MonadTransfer, MonadDialog, MonadResponse)
 
-instance Monad m => WithDefaultMsgHeader (KademliaDHT m) where
+instance (MonadIO m, WithNamedLogger m) => WithDefaultMsgHeader (KademliaDHT m) where
   defaultMsgHeader msg = do
       noCacheNames <- KademliaDHT $ asks kdcNoCacheMessageNames_
-      pure . put . SimpleHeader . isJust . find ((==) . messageName $ proxyOf msg) $ noCacheNames
+      let header = SimpleHeader . isJust . find ((==) . messageName $ proxyOf msg) $ noCacheNames
+      logDebug $ sformat ("Preparing message " % shown % ": header " % shown) (messageName $ proxyOf msg) header
+      pure $ put header
 
 proxyOf :: a -> Proxy a
 proxyOf _ = Proxy
@@ -154,6 +156,7 @@ startDHT KademliaDHTConfig {..} = do
           \binding -> do
                 logInfo $ sformat ("Listening on binding " % shown) binding
                 listenR binding get (convert <$> kdcListeners) (convert' $ rawListener kdcEnableBroadcast msgCache kdcStopped)
+    logInfo $ sformat ("Launching Kademlia, noCacheMessageNames=" % shown) kdcNoCacheMessageNames
     let kdcNoCacheMessageNames_ = kdcNoCacheMessageNames
     pure $ KademliaDHTContext {..}
   where

@@ -59,8 +59,9 @@ import           Pos.Types               (Address (getAddress), Block, Commitmen
                                           MpcData (..), Opening (..), OpeningsMap,
                                           SharesMap, SlotId (..), SlotLeaders, Utxo,
                                           VssCertificate, VssCertificatesMap, blockMpc,
-                                          blockSlot, mdCommitments, mdOpenings, mdShares,
-                                          mdVssCertificates, verifyOpening)
+                                          blockSlot, epochIndexL, mdCommitments,
+                                          mdOpenings, mdShares, mdVssCertificates,
+                                          verifyOpening)
 import           Pos.Util                (readerToState, zoom', _neHead)
 
 data MpcStorageVersion = MpcStorageVersion
@@ -137,12 +138,14 @@ type Update a = forall m x. (HasMpcStorage x, MonadState x m) => m a
 type Query a = forall m x. (HasMpcStorage x, MonadReader x m) => m a
 
 getLocalMpcData :: Query MpcData
-getLocalMpcData =
-    -- TODO: eliminate copy-paste
-    MpcData <$> view (lastVer . mpcLocalCommitments) <*>
-    view (lastVer . mpcLocalOpenings) <*>
-    view (lastVer . mpcLocalShares) <*>
-    view (lastVer . mpcLocalCertificates)
+getLocalMpcData = do
+    commitments <- view' mpcLocalCommitments
+    MpcData commitments
+      <$> ((`HM.intersection` commitments) <$> view' mpcLocalOpenings)
+      <*> ((`HM.intersection` commitments) <$> view' mpcLocalShares)
+      <*> view' mpcLocalCertificates
+  where
+    view' l = view (lastVer . l)
 
 -- TODO: check for off-by-one errors!!!!111
 --
@@ -411,7 +414,7 @@ mpcRollback (fromIntegral -> n) = do
 
 mpcProcessBlock :: Block -> Update ()
 mpcProcessBlock blk = do
-    --identity $! traceM . ("Processing block: " <>) . show $ blk
+    --identity $! traceM . (<>) ("Processing " <> (either (const "genesis") (const "main") blk) <> " block for epoch: ") . pretty $ blk ^. epochIndexL
     lv <- use lastVer
     mpcVersioned %= NE.cons lv
     case blk of

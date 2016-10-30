@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 base=$(dirname "$0")
 . "$base"/common.sh

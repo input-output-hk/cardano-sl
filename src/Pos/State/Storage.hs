@@ -193,9 +193,9 @@ processBlockFinally toRollback blocks = do
     -- possible revert. Note that createGenesisBlock function will
     -- create block only for epoch which is one more than epoch of
     -- head, so we don't perform such check here.  Also note that it
-    -- won't be necessary after we introduce `canCreateBlock` (or
-    -- maybe we already did and this comment is outdated then), but it
-    -- still will be good as an optimization. Even if later we see
+    -- is not strictly necessary, because we have `canCreateBlock`
+    -- which prevents us from creating block when we are not ready,
+    -- but it is still good as an optimization. Even if later we see
     -- that there were other valid blocks in old epoch, we will
     -- replace chain and everything will be fine.
     createGenesisBlock knownEpoch $> ()

@@ -47,8 +47,9 @@ import           Control.TimeWarp.Logging  (LoggerName,
 import           Control.TimeWarp.Rpc      (BinaryP, HeaderNContentData, Message,
                                             MonadDialog, MonadTransfer, NetworkAddress,
                                             ResponseT, Unpackable,
-                                            WithNamedLogger (modifyLoggerName), logInfo,
-                                            logWarning, mapResponseT, replyH, sendH)
+                                            WithNamedLogger (modifyLoggerName), closeR,
+                                            logInfo, logWarning, mapResponseT, replyH,
+                                            sendH)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Data.Binary               (Binary)
 import qualified Data.ByteString           as BS
@@ -117,8 +118,8 @@ class MonadDHT m => MonadMessageDHT m where
     sendToNeighbors = defaultSendToNeighbors
 
 class MonadMessageDHT m => MonadResponseDHT m where
-
   replyToNode :: (Binary r, Message r) => r -> m ()
+  closeResponse :: m ()
 
 data ListenerDHT m =
     forall r . (Unpackable BinaryP (HeaderNContentData DHTMsgHeader r), Message r)
@@ -263,7 +264,7 @@ newtype DHTResponseT m a = DHTResponseT
     } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans,
                 MonadThrow, MonadCatch, MonadMask,
                 MonadState s, WithDefaultMsgHeader,
-                WithNamedLogger, MonadTimed, MonadDHT, MonadMessageDHT)
+                WithNamedLogger, MonadTimed, MonadDialog, MonadDHT, MonadMessageDHT)
 
 type instance ThreadId (DHTResponseT m) = ThreadId m
 
@@ -271,6 +272,7 @@ instance (WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog BinaryP m, Mona
   replyToNode msg = do
     header <- defaultMsgHeader msg
     DHTResponseT $ replyH header msg
+  closeResponse = DHTResponseT closeR
 
 mapDHTResponseT :: (m a -> n b) -> DHTResponseT m a -> DHTResponseT n b
 mapDHTResponseT how = DHTResponseT . mapResponseT how . getDHTResponseT

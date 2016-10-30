@@ -28,7 +28,7 @@ import           Control.TimeWarp.Logging (LoggerName, Severity (Warning),
 import           Control.TimeWarp.Rpc     (BinaryP (..), Dialog, MonadDialog,
                                            NetworkAddress, Transfer, runDialog,
                                            runTransfer)
-import           Control.TimeWarp.Timed   (MonadTimed, currentTime, fork, killThread,
+import           Control.TimeWarp.Timed   (MonadTimed, currentTime, fork, killThread, ms,
                                            repeatForever, runTimedIO, sec, sleepForever)
 import           Data.Default             (Default (def))
 import           Formatting               (build, sformat, (%))
@@ -145,7 +145,7 @@ runTimeSlaveReal bp = do
       case runningMode of
          Development -> do
            tId <- fork $
-             repeatForever (sec 5) (const . return $ sec 5) $ do
+             repeatForever (ms 100) (const . return $ ms 100) $ do
                logInfo "Asking neighbors for system start"
                void $ sendToNeighbors SysStartRequest
            t <- liftIO $ takeMVar mvar

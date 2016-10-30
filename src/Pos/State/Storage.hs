@@ -147,7 +147,7 @@ canCreateBlock :: SlotId -> Query Bool
 canCreateBlock (flattenSlotId -> flatSlotId) = (flatSlotId <) <$> canCreateBlockMax
   where
     canCreateBlockMax = addKSafe . either (`SlotId` 0) identity <$> getHeadSlot
-    addKSafe si = flattenSlotId $ si {siSlot = min (5 * k - 1) (siSlot si + k)}
+    addKSafe si = flattenSlotId $ si {siSlot = min (6 * k - 1) (siSlot si + k)}
 
 -- | Do all necessary changes when a block is received.
 processBlock :: SlotId -> Block -> Update ProcessBlockRes
@@ -198,7 +198,7 @@ processBlockFinally toRollback blocks = do
     -- but it is still good as an optimization. Even if later we see
     -- that there were other valid blocks in old epoch, we will
     -- replace chain and everything will be fine.
-    createGenesisBlock knownEpoch $> ()
+    createGenesisBlock knownEpoch
     return $ PBRgood (toRollback, blocks)
 
 -- | Do all necessary changes when new slot starts.
@@ -211,8 +211,7 @@ processNewSlotDo :: SlotId -> Update ()
 processNewSlotDo sId@SlotId {..} = do
     slotId .= sId
     when (siSlot == 0) $
-        createGenesisBlock siEpoch >>=
-        maybe (pure ()) (mpcApplyBlocks . pure . Left)
+        createGenesisBlock siEpoch
     blkCleanUp sId
 
 -- We create genesis block for i-th epoch when head of currently known
@@ -224,24 +223,28 @@ processNewSlotDo sId@SlotId {..} = do
 shouldCreateGenesisBlock :: EpochIndex -> Query Bool
 -- Genesis block for 0-th epoch is hardcoded.
 shouldCreateGenesisBlock 0 = pure False
-shouldCreateGenesisBlock epoch = either (const False) doCheck <$> getHeadSlot
+shouldCreateGenesisBlock epoch = either (const False) doCheckSoft <$> getHeadSlot
   where
-    -- doCheck si = si > SlotId {siEpoch = epoch - 1, siSlot = 5 * k}
     -- While we are in process of active development, practically impossible
     -- situations can happen, so we take them into account. We will think about
     -- this check later.
-    doCheck si = si > SlotId {siEpoch = epoch - 1, siSlot = 0}
+    doCheckSoft si = si > SlotId {siEpoch = epoch - 1, siSlot = 0}
+    -- TODO add logWarning on `doCheckStrict` failing
+    -- doCheckStrict si = si > SlotId {siEpoch = epoch - 1, siSlot = 5 * k}
 
-createGenesisBlock :: EpochIndex -> Update (Maybe GenesisBlock)
+createGenesisBlock :: EpochIndex -> Update ()
 createGenesisBlock epoch =
     ifM (readerToState $ shouldCreateGenesisBlock epoch)
-        (Just <$> createGenesisBlockDo epoch)
-        (pure Nothing)
+        (createGenesisBlockDo epoch)
+        (pure ())
 
-createGenesisBlockDo :: EpochIndex -> Update GenesisBlock
+createGenesisBlockDo :: EpochIndex -> Update ()
 createGenesisBlockDo epoch = do
     leaders <- readerToState $ calculateLeadersDo epoch
-    blkCreateGenesisBlock epoch leaders
+    genBlock <- Left <$> blkCreateGenesisBlock epoch leaders
+    -- Genesis block contains no transactions,
+    --    so we should update only MPC
+    mpcApplyBlocks $ genBlock :| []
 
 calculateLeadersDo :: EpochIndex -> Query SlotLeaders
 calculateLeadersDo epoch = do

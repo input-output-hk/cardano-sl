@@ -8,6 +8,7 @@ module Pos.Worker.Mpc
 import           Control.TimeWarp.Logging (logDebug)
 import           Universum
 
+import           Formatting               (build, sformat, (%))
 import           Pos.Communication.Types  (SendCommitment (..), SendOpening (..),
                                            SendShares (..))
 import           Pos.Constants            (k)
@@ -29,6 +30,7 @@ mpcOnNewSlot SlotId {..} = do
 
     -- Generate a new commitment and opening for MPC; send the commitment.
     when (siSlot == 0) $ do
+        logDebug $ sformat ("Generating secret for " % build % "th epoch") siEpoch
         generateNewSecret siEpoch
         mbComm <- getOurCommitment
         case mbComm of

@@ -34,9 +34,9 @@ import           Data.Default             (Default (def))
 import           Formatting               (build, sformat, (%))
 import           Universum                hiding (catch, killThread)
 
-import           Pos.Communication        (SysStartRequest (..), allListeners, sendTx,
-                                           sysStartMessageNames, sysStartReqListener,
-                                           sysStartRespListener)
+import           Pos.Communication        (SysStartRequest (..), allListeners,
+                                           noCacheMessageNames, sendTx,
+                                           sysStartReqListener, sysStartRespListener)
 import           Pos.Constants            (RunningMode (..), isDevelopment, runningMode)
 import           Pos.Crypto               (SecretKey, VssKeyPair, hash, sign)
 import           Pos.DHT                  (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
@@ -245,9 +245,7 @@ runKDHT BaseParams {..} listeners = runKademliaDHT kadConfig
       , kdcMessageCacheSize = 1000000
       , kdcEnableBroadcast = False
       , kdcInitialPeers = bpDHTPeers
-      , kdcNoCacheMessageNames = if isDevelopment
-                                 then sysStartMessageNames
-                                    else []
+      , kdcNoCacheMessageNames = noCacheMessageNames
       }
 
 runTimed :: LoggerName -> Dialog BinaryP Transfer a -> IO a

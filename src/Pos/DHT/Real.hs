@@ -100,10 +100,16 @@ instance MonadTransfer m => MonadTransfer (KademliaDHT m) where
         KademliaDHT $ listenRaw binding $ hoistRespCond unKademliaDHT sink
     close = lift . close
 
-instance Monad m => WithDefaultMsgHeader (KademliaDHT m) where
+instance (MonadIO m, WithNamedLogger m) => WithDefaultMsgHeader (KademliaDHT m) where
   defaultMsgHeader msg = do
       noCacheNames <- KademliaDHT $ asks kdcNoCacheMessageNames_
+<<<<<<< HEAD
       pure . SimpleHeader . isJust . find ((==) . messageName $ proxyOf msg) $ noCacheNames
+=======
+      let header = SimpleHeader . isJust . find ((==) . messageName $ proxyOf msg) $ noCacheNames
+      logDebug $ sformat ("Preparing message " % shown % ": header " % shown) (messageName $ proxyOf msg) header
+      pure $ put header
+>>>>>>> [POS-31] Add RequestBlock to nonCache message names + improve logging
 
 proxyOf :: a -> Proxy a
 proxyOf _ = Proxy
@@ -164,7 +170,12 @@ startDHT KademliaDHTConfig {..} = do
     let kdcListenByBinding =
           \binding -> do
                 logInfo $ sformat ("Listening on binding " % shown) binding
+<<<<<<< HEAD
                 listenR binding (convert <$> kdcListeners) (rawListener kdcEnableBroadcast msgCache)
+=======
+                listenR binding get (convert <$> kdcListeners) (convert' $ rawListener kdcEnableBroadcast msgCache kdcStopped)
+    logInfo $ sformat ("Launching Kademlia, noCacheMessageNames=" % shown) kdcNoCacheMessageNames
+>>>>>>> [POS-31] Add RequestBlock to nonCache message names + improve logging
     let kdcNoCacheMessageNames_ = kdcNoCacheMessageNames
     pure $ KademliaDHTContext {..}
   where

@@ -61,7 +61,10 @@ handleBlockHeader (SendBlockHeader header) =
                         " for the following reasons: "%build
                 let msg = sformat fmt h (listBuilderJSON errors)
                 False <$ logDebug msg
-            VerSuccess -> pure True
+            VerSuccess -> do
+                let fmt = "Block header " % build % " considered useful"
+                    msg = sformat fmt h
+                True <$ logDebug msg
 
 handleBlockRequest
     :: ResponseMode m

@@ -32,7 +32,7 @@ import qualified Data.Cache.LRU            as LRU
 import           Data.Hashable             (hash)
 import           Data.Proxy                (Proxy (..))
 import           Data.Text                 (Text)
-import           Formatting                (int, sformat, shown, (%))
+import           Formatting                (int, sformat, shown, stext, (%))
 import qualified ListT                     as ListT
 import qualified Network.Kademlia          as K
 import           Pos.DHT                   (DHTData, DHTException (..), DHTKey,
@@ -45,7 +45,6 @@ import           Pos.DHT                   (DHTData, DHTException (..), DHTKey,
                                             WithDefaultMsgHeader (..), defaultSendToNode,
                                             filterByNodeType, joinNetworkNoThrow,
                                             randomDHTKey, withDhtLogger)
-import           Serokell.Util.Base64      (base64F)
 import qualified STMContainers.Map         as STM
 import           Universum                 hiding (finally, fromStrict, killThread,
                                             toStrict)
@@ -100,12 +99,20 @@ instance MonadTransfer m => MonadTransfer (KademliaDHT m) where
         KademliaDHT $ listenRaw binding $ hoistRespCond unKademliaDHT sink
     close = lift . close
 
-instance (MonadIO m, WithNamedLogger m) => WithDefaultMsgHeader (KademliaDHT m) where
-  defaultMsgHeader msg = do
-      noCacheNames <- KademliaDHT $ asks kdcNoCacheMessageNames_
-      let header = SimpleHeader . isJust . find ((==) . messageName $ proxyOf msg) $ noCacheNames
-      logDebug $ sformat ("Preparing message " % shown % ": header " % shown) (messageName $ proxyOf msg) header
-      pure header
+instance (MonadIO m, WithNamedLogger m, MonadCatch m) =>
+         WithDefaultMsgHeader (KademliaDHT m) where
+    defaultMsgHeader msg = do
+        noCacheNames <- KademliaDHT $ asks kdcNoCacheMessageNames_
+        let header =
+                SimpleHeader . isJust . find ((==) . messageName $ proxyOf msg) $
+                noCacheNames
+        withDhtLogger $
+            logDebug $
+            sformat
+                ("Preparing message " % stext % ": header " % shown)
+                (messageName $ proxyOf msg)
+                header
+        pure header
 
 proxyOf :: a -> Proxy a
 proxyOf _ = Proxy

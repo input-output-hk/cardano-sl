@@ -1,7 +1,9 @@
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 -- | Acid-state wrapped operations.
@@ -38,16 +40,22 @@ module Pos.State.Acidic
        , SetSecret (..)
        ) where
 
-import           Data.Acid          (EventResult, EventState, QueryEvent, UpdateEvent,
-                                     makeAcidic)
-import           Data.Default       (def)
-import           Serokell.AcidState (ExtendedState, closeExtendedState,
-                                     openLocalExtendedState, openMemoryExtendedState,
-                                     queryExtended, tidyExtendedState, updateExtended)
+import           Data.Acid                  (EventResult, EventState, QueryEvent,
+                                             UpdateEvent, makeAcidic)
+import qualified Data.Acid                  as Acid (Query)
+import           Data.Default               (def)
+import           Serokell.AcidState         (ExtendedState, closeExtendedState,
+                                             openLocalExtendedState,
+                                             openMemoryExtendedState, queryExtended,
+                                             tidyExtendedState, updateExtended)
+import           Serokell.Util              (VerificationRes)
 import           Universum
 
-import           Pos.State.Storage  (Storage)
-import qualified Pos.State.Storage  as S
+import           Pos.Ssc.DynamicState.Types (SscDynamicState)
+import           Pos.State.Storage          (Storage)
+import qualified Pos.State.Storage          as S
+import           Pos.Types.Types            (Block, EpochIndex, HeaderHash,
+                                             MainBlockHeader, SlotId, SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- Acid-state things
@@ -77,17 +85,34 @@ closeState = closeExtendedState
 tidyState :: MonadIO m => DiskState -> m ()
 tidyState = tidyExtendedState
 
+-- TODO: get rid of these (they are only needed temporarily)
+
+getBlock :: HeaderHash SscDynamicState
+         -> Acid.Query Storage (Maybe (Block SscDynamicState))
+getBlock = S.getBlock
+
+getLeaders :: EpochIndex -> Acid.Query Storage SlotLeaders
+getLeaders = S.getLeaders
+
+getHeadBlock :: Acid.Query Storage (Block SscDynamicState)
+getHeadBlock = S.getHeadBlock
+
+mayBlockBeUseful :: SlotId
+                 -> MainBlockHeader SscDynamicState
+                 -> Acid.Query Storage VerificationRes
+mayBlockBeUseful = S.mayBlockBeUseful
+
 makeAcidic ''Storage
-    [ 'S.getBlock
-    , 'S.getLeaders
+    [ 'getBlock
+    , 'getLeaders
     , 'S.getLocalTxs
-    , 'S.getHeadBlock
+    , 'getHeadBlock
     , 'S.getOurCommitment
     , 'S.getOurOpening
     , 'S.getOurShares
     , 'S.getThreshold
     , 'S.getParticipants
-    , 'S.mayBlockBeUseful
+    , 'mayBlockBeUseful
     , 'S.createNewBlock
     , 'S.processBlock
     , 'S.processNewSlot

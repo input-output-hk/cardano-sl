@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                    #-}
 {-# LANGUAGE DefaultSignatures      #-}
 {-# LANGUAGE DeriveGeneric          #-}
 {-# LANGUAGE FlexibleContexts       #-}
@@ -7,6 +8,7 @@
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE StandaloneDeriving     #-}
 {-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE TypeApplications       #-}
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE TypeSynonymInstances   #-}
 {-# LANGUAGE UndecidableInstances   #-}
@@ -56,8 +58,6 @@ module Pos.Types.Types
 
        , MainBlockchain
        , MainBlockHeader
-       , MpcData (..)
-       , MpcProof
        , ChainDifficulty (..)
        , MainToSign
        , MainBlock
@@ -99,10 +99,6 @@ module Pos.Types.Types
        , headerSlot
        , mbMpc
        , mbTxs
-       , mdCommitments
-       , mdOpenings
-       , mdShares
-       , mdVssCertificates
        , mcdSlot
        , mcdLeaderKey
        , mcdDifficulty
@@ -138,7 +134,8 @@ import           Data.Hashable        (Hashable)
 import           Data.Ix              (Ix)
 import           Data.MessagePack     (MessagePack (..))
 import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeCopySimple,
-                                       deriveSafeCopySimpleIndexedType, safeGet, safePut)
+                                       safeGet, safePut)
+import           Data.Tagged          (untag)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
@@ -156,7 +153,7 @@ import           Pos.Crypto           (EncShare, Hash, PublicKey, Secret, Secret
                                        toPublic, unsafeHash, verify)
 import           Pos.Merkle           (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot,
                                        mtSize)
-import           Pos.Util             (makeLensesData)
+import           Pos.Ssc.Class.Types  (SscTypes (..))
 
 ----------------------------------------------------------------------------
 -- Slotting
@@ -461,7 +458,7 @@ instance ( MessagePack (BodyProof b)
 
 -- | Represents blockchain consisting of main blocks, i. e. blocks
 -- with transactions and MPC messages.
-data MainBlockchain
+data MainBlockchain ssc
 
 -- | Chain difficulty represents necessary effort to generate a
 -- chain. In the simplest case it can be number of blocks in chain.
@@ -471,45 +468,16 @@ newtype ChainDifficulty = ChainDifficulty
 
 instance MessagePack ChainDifficulty
 
-type MainToSign = (HeaderHash, BodyProof MainBlockchain, SlotId, ChainDifficulty)
+type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
 
--- | MPC-related content of main body.
-data MpcData = MpcData
-    { -- | Commitments are added during the first phase of epoch.
-      _mdCommitments     :: !CommitmentsMap
-      -- | Openings are added during the second phase of epoch.
-    , _mdOpenings        :: !OpeningsMap
-      -- | Decrypted shares to be used in the third phase.
-    , _mdShares          :: !SharesMap
-      -- | Vss certificates are added at any time if they are valid and
-      -- received from stakeholders.
-    , _mdVssCertificates :: !VssCertificatesMap
-    } deriving (Generic)
-
-instance Binary MpcData
-instance MessagePack MpcData
-
--- | Proof of MpcData.
--- We can use ADS for commitments, opennings, shares as well,
--- if we find it necessary.
-data MpcProof = MpcProof
-    { mpCommitmentsHash     :: !(Hash CommitmentsMap)
-    , mpOpeningsHash        :: !(Hash OpeningsMap)
-    , mpSharesHash          :: !(Hash SharesMap)
-    , mpVssCertificatesHash :: !(Hash VssCertificatesMap)
-    } deriving (Show, Eq, Generic)
-
-instance Binary MpcProof
-instance MessagePack MpcProof
-
-instance Blockchain MainBlockchain where
+instance SscTypes ssc => Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
-    data BodyProof MainBlockchain = MainProof
+    data BodyProof (MainBlockchain ssc) = MainProof
         { mpNumber   :: !Word32
         , mpRoot     :: !(MerkleRoot Tx)
-        , mpMpcProof :: !MpcProof
-        } deriving (Show, Eq, Generic)
-    data ConsensusData MainBlockchain = MainConsensusData
+        , mpMpcProof :: !(SscProof ssc)
+        } deriving (Generic)
+    data ConsensusData (MainBlockchain ssc) = MainConsensusData
         { -- | Id of the slot for which this block was generated.
         _mcdSlot       :: !SlotId
         , -- | Public key of slot leader. Maybe later we'll see it is redundant.
@@ -517,46 +485,42 @@ instance Blockchain MainBlockchain where
         , -- | Difficulty of chain ending in this block.
         _mcdDifficulty :: !ChainDifficulty
         , -- | Signature given by slot leader.
-        _mcdSignature  :: !(Signature MainToSign)
+        _mcdSignature  :: !(Signature (MainToSign ssc))
         } deriving (Generic)
-    type BBlockHeader MainBlockchain = BlockHeader
+    type BBlockHeader (MainBlockchain ssc) = BlockHeader ssc
 
     -- | In our cryptocurrency, body consists of a list of transactions
     -- and MPC messages.
-    data Body MainBlockchain = MainBody
+    data Body (MainBlockchain ssc) = MainBody
         { -- | Transactions are the main payload.
           -- TODO: currently we don't know for sure whether it should be
           -- MerkleTree or something list-like.
           _mbTxs         :: !(MerkleTree Tx)
         , -- | Data necessary for MPC.
-          _mbMpc  :: !MpcData
+          _mbMpc  :: !(SscPayload ssc)
         } deriving (Generic)
-    type BBlock MainBlockchain = Block
+    type BBlock (MainBlockchain ssc) = Block ssc
 
-    mkBodyProof MainBody {_mbMpc = MpcData {..}, ..} =
+    mkBodyProof MainBody {..} =
         MainProof
         { mpNumber = mtSize _mbTxs
         , mpRoot = mtRoot _mbTxs
-        , mpMpcProof =
-            MpcProof
-            { mpCommitmentsHash = hash _mdCommitments
-            , mpOpeningsHash = hash _mdOpenings
-            , mpSharesHash = hash _mdShares
-            , mpVssCertificatesHash = hash _mdVssCertificates
-            }
+        , mpMpcProof = untag @ssc mkSscProof _mbMpc
         }
 
-instance Binary (BodyProof MainBlockchain)
-instance Binary (ConsensusData MainBlockchain)
-instance Binary (Body MainBlockchain)
+deriving instance SscTypes ssc => Eq (BodyProof (MainBlockchain ssc))
 
-instance MessagePack (BodyProof MainBlockchain)
-instance MessagePack (ConsensusData MainBlockchain)
-instance MessagePack (Body MainBlockchain)
+instance SscTypes ssc => Binary (BodyProof (MainBlockchain ssc))
+instance SscTypes ssc => Binary (ConsensusData (MainBlockchain ssc))
+instance SscTypes ssc => Binary (Body (MainBlockchain ssc))
 
-type MainBlockHeader = GenericBlockHeader MainBlockchain
+instance SscTypes ssc => MessagePack (BodyProof (MainBlockchain ssc))
+instance SscTypes ssc => MessagePack (ConsensusData (MainBlockchain ssc))
+instance SscTypes ssc => MessagePack (Body (MainBlockchain ssc))
 
-instance Buildable MainBlockHeader where
+type MainBlockHeader ssc = GenericBlockHeader (MainBlockchain ssc)
+
+instance Buildable (MainBlockHeader ssc) where
     build GenericBlockHeader {..} =
         bprint
             ("MainBlockHeader:\n"%
@@ -574,10 +538,10 @@ instance Buildable MainBlockHeader where
 
 -- | MainBlock is a block with transactions and MPC messages. It's the
 -- main part of our consensus algorithm.
-type MainBlock = GenericBlock MainBlockchain
+type MainBlock ssc = GenericBlock (MainBlockchain ssc)
 
 -- TODO
-instance Buildable MainBlock where
+instance Buildable (MainBlock ssc) where
     build GenericBlock {..} =
         bprint
             ("MainBlock:\n"%
@@ -598,51 +562,51 @@ instance Buildable MainBlock where
 -- necessary. However, it is good idea to store list of leaders
 -- explicitly, because calculating it may be expensive operation. For
 -- example, it is useful for SPV-clients.
-data GenesisBlockchain
+data GenesisBlockchain ssc
 
-type GenesisBlockHeader = GenericBlockHeader GenesisBlockchain
+type GenesisBlockHeader ssc = GenericBlockHeader (GenesisBlockchain ssc)
 
-instance Blockchain GenesisBlockchain where
+instance Blockchain (GenesisBlockchain ssc) where
     -- | Proof of GenesisBody is just a hash of slot leaders list.
     -- TODO: do we need a Merkle tree? This list probably won't be large.
-    data BodyProof GenesisBlockchain = GenesisProof
+    data BodyProof (GenesisBlockchain ssc) = GenesisProof
         !(Hash (Vector PublicKey))
         deriving (Eq, Generic)
-    data ConsensusData GenesisBlockchain = GenesisConsensusData
+    data ConsensusData (GenesisBlockchain ssc) = GenesisConsensusData
         { -- | Index of the slot for which this genesis block is relevant.
           _gcdEpoch :: !EpochIndex
         , -- | Difficulty of the chain ending in this genesis block.
           _gcdDifficulty :: !ChainDifficulty
         } deriving (Generic)
-    type BBlockHeader GenesisBlockchain = BlockHeader
+    type BBlockHeader (GenesisBlockchain ssc) = BlockHeader ssc
 
     -- | Body of genesis block consists of slot leaders for epoch
     -- associated with this block.
-    data Body GenesisBlockchain = GenesisBody
+    data Body (GenesisBlockchain ssc) = GenesisBody
         { _gbLeaders :: !SlotLeaders
         } deriving (Show, Generic)
-    type BBlock GenesisBlockchain = Block
+    type BBlock (GenesisBlockchain ssc) = Block ssc
 
     mkBodyProof = GenesisProof . hash . _gbLeaders
 
-instance Binary (BodyProof GenesisBlockchain)
-instance Binary (ConsensusData GenesisBlockchain)
-instance Binary (Body GenesisBlockchain)
+instance Binary (BodyProof (GenesisBlockchain ssc))
+instance Binary (ConsensusData (GenesisBlockchain ssc))
+instance Binary (Body (GenesisBlockchain ssc))
 
-instance MessagePack (BodyProof GenesisBlockchain)
-instance MessagePack (ConsensusData GenesisBlockchain)
-instance MessagePack (Body GenesisBlockchain)
+instance MessagePack (BodyProof (GenesisBlockchain ssc))
+instance MessagePack (ConsensusData (GenesisBlockchain ssc))
+instance MessagePack (Body (GenesisBlockchain ssc))
 
-type GenesisBlock = GenericBlock GenesisBlockchain
+type GenesisBlock ssc = GenericBlock (GenesisBlockchain ssc)
 
 ----------------------------------------------------------------------------
 -- GenesisBlock ∪ MainBlock
 ----------------------------------------------------------------------------
 
-type BlockHeader = Either GenesisBlockHeader MainBlockHeader
-type HeaderHash = Hash BlockHeader
+type BlockHeader ssc = Either (GenesisBlockHeader ssc) (MainBlockHeader ssc)
+type HeaderHash ssc = Hash (BlockHeader ssc)
 
-type Block = Either GenesisBlock MainBlock
+type Block ssc = Either (GenesisBlock ssc) (MainBlock ssc)
 
 ----------------------------------------------------------------------------
 -- Lenses. TODO: move to Block.hs and other modules or leave them here?
@@ -650,49 +614,85 @@ type Block = Either GenesisBlock MainBlock
 
 makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock
-makeLenses ''MpcData
-makeLensesData ''ConsensusData ''MainBlockchain
-makeLensesData ''ConsensusData ''GenesisBlockchain
-makeLensesData ''Body ''MainBlockchain
-makeLensesData ''Body ''GenesisBlockchain
+
+-- TODO: 'makeLensesData' doesn't work with types with parameters. I don't
+-- know how to design a 'makeLensesData' which would work with them (in fact,
+-- I don't even know how an invocation of 'makeLensesData' would look like)
+
+#define MAKE_LENS(l, field) l f s = (\y -> s {field = y}) <$> f (field s)
+
+-- makeLensesData ''ConsensusData ''(MainBlockchain ssc)
+
+mcdSlot :: Lens' (ConsensusData (MainBlockchain ssc)) SlotId
+MAKE_LENS(mcdSlot, _mcdSlot)
+
+mcdLeaderKey :: Lens' (ConsensusData (MainBlockchain ssc)) PublicKey
+MAKE_LENS(mcdLeaderKey, _mcdLeaderKey)
+
+mcdDifficulty :: Lens' (ConsensusData (MainBlockchain ssc)) ChainDifficulty
+MAKE_LENS(mcdDifficulty, _mcdDifficulty)
+
+mcdSignature :: Lens' (ConsensusData (MainBlockchain ssc)) (Signature (MainToSign ssc))
+MAKE_LENS(mcdSignature, _mcdSignature)
+
+-- makeLensesData ''ConsensusData ''(GenesisBlockchain ssc)
+
+gcdEpoch :: Lens' (ConsensusData (GenesisBlockchain ssc)) EpochIndex
+MAKE_LENS(gcdEpoch, _gcdEpoch)
+
+gcdDifficulty :: Lens' (ConsensusData (GenesisBlockchain ssc)) ChainDifficulty
+MAKE_LENS(gcdDifficulty, _gcdDifficulty)
+
+-- makeLensesData ''Body ''(MainBlockchain ssc)
+
+mbTxs :: Lens' (Body (MainBlockchain ssc)) (MerkleTree Tx)
+MAKE_LENS(mbTxs, _mbTxs)
+
+mbMpc :: Lens' (Body (MainBlockchain ssc)) (SscPayload ssc)
+MAKE_LENS(mbMpc, _mbMpc)
+
+-- makeLensesData ''Body ''(GenesisBlockchain ssc)
+
+gbLeaders :: Lens' (Body (GenesisBlockchain ssc)) SlotLeaders
+MAKE_LENS(gbLeaders, _gbLeaders)
 
 gbBodyProof :: Lens' (GenericBlock b) (BodyProof b)
 gbBodyProof = gbHeader . gbhBodyProof
 
-headerSlot :: Lens' MainBlockHeader SlotId
+headerSlot :: Lens' (MainBlockHeader ssc) SlotId
 headerSlot = gbhConsensus . mcdSlot
 
-headerLeaderKey :: Lens' MainBlockHeader PublicKey
+headerLeaderKey :: Lens' (MainBlockHeader ssc) PublicKey
 headerLeaderKey = gbhConsensus . mcdLeaderKey
 
-headerSignature :: Lens' MainBlockHeader (Signature MainToSign)
+headerSignature :: Lens' (MainBlockHeader ssc) (Signature (MainToSign ssc))
 headerSignature = gbhConsensus . mcdSignature
 
 class HasDifficulty a where
     difficultyL :: Lens' a ChainDifficulty
 
-instance HasDifficulty (ConsensusData MainBlockchain) where
+instance HasDifficulty (ConsensusData (MainBlockchain ssc)) where
     difficultyL = mcdDifficulty
 
-instance HasDifficulty (ConsensusData GenesisBlockchain) where
+instance HasDifficulty (ConsensusData (GenesisBlockchain ssc)) where
     difficultyL = gcdDifficulty
 
-instance HasDifficulty MainBlockHeader where
+instance HasDifficulty (MainBlockHeader ssc) where
     difficultyL = gbhConsensus . difficultyL
 
-instance HasDifficulty GenesisBlockHeader where
+instance HasDifficulty (GenesisBlockHeader ssc) where
     difficultyL = gbhConsensus . difficultyL
 
-instance HasDifficulty BlockHeader where
+instance HasDifficulty (BlockHeader ssc) where
     difficultyL = choosing difficultyL difficultyL
 
-instance HasDifficulty MainBlock where
+instance HasDifficulty (MainBlock ssc) where
     difficultyL = gbHeader . difficultyL
 
-instance HasDifficulty GenesisBlock where
+instance HasDifficulty (GenesisBlock ssc) where
     difficultyL = gbHeader . difficultyL
 
-instance HasDifficulty Block where
+instance HasDifficulty (Block ssc) where
     difficultyL = choosing difficultyL difficultyL
 
 class HasPrevBlock s a | s -> a where
@@ -710,27 +710,27 @@ instance (HasPrevBlock s a, HasPrevBlock s' a) =>
          HasPrevBlock (Either s s') a where
     prevBlockL = choosing prevBlockL prevBlockL
 
-class HasHeaderHash a where
-    headerHash :: a -> HeaderHash
-    headerHashG :: Getter a HeaderHash
+class HasHeaderHash a ssc where
+    headerHash :: a -> HeaderHash ssc
+    headerHashG :: Getter a (HeaderHash ssc)
     headerHashG = to headerHash
 
-instance HasHeaderHash MainBlockHeader where
+instance SscTypes ssc => HasHeaderHash (MainBlockHeader ssc) ssc where
     headerHash = hash . Right
 
-instance HasHeaderHash GenesisBlockHeader where
+instance SscTypes ssc => HasHeaderHash (GenesisBlockHeader ssc) ssc where
     headerHash = hash . Left
 
-instance HasHeaderHash BlockHeader where
+instance SscTypes ssc => HasHeaderHash (BlockHeader ssc) ssc where
     headerHash = hash
 
-instance HasHeaderHash MainBlock where
+instance SscTypes ssc => HasHeaderHash (MainBlock ssc) ssc where
     headerHash = hash . Right . view gbHeader
 
-instance HasHeaderHash GenesisBlock where
+instance SscTypes ssc => HasHeaderHash (GenesisBlock ssc) ssc where
     headerHash = hash . Left  . view gbHeader
 
-instance HasHeaderHash Block where
+instance SscTypes ssc => HasHeaderHash (Block ssc) ssc where
     headerHash = hash . getBlockHeader
 
 class HasEpochIndex a where
@@ -739,40 +739,40 @@ class HasEpochIndex a where
 instance HasEpochIndex SlotId where
     epochIndexL f SlotId {..} = (\a -> SlotId {siEpoch = a, ..}) <$> f siEpoch
 
-instance HasEpochIndex MainBlock where
+instance HasEpochIndex (MainBlock ssc) where
     epochIndexL = gbHeader . gbhConsensus . mcdSlot . epochIndexL
 
-instance HasEpochIndex GenesisBlock where
+instance HasEpochIndex (GenesisBlock ssc) where
     epochIndexL = gbHeader . gbhConsensus . gcdEpoch
 
 instance (HasEpochIndex a, HasEpochIndex b) =>
          HasEpochIndex (Either a b) where
     epochIndexL = choosing epochIndexL epochIndexL
 
-blockSlot :: Lens' MainBlock SlotId
+blockSlot :: Lens' (MainBlock ssc) SlotId
 blockSlot = gbHeader . headerSlot
 
-blockLeaderKey :: Lens' MainBlock PublicKey
+blockLeaderKey :: Lens' (MainBlock ssc) PublicKey
 blockLeaderKey = gbHeader . headerLeaderKey
 
-blockSignature :: Lens' MainBlock (Signature MainToSign)
+blockSignature :: Lens' (MainBlock ssc) (Signature (MainToSign ssc))
 blockSignature = gbHeader . headerSignature
 
-blockMpc :: Lens' MainBlock MpcData
+blockMpc :: Lens' (MainBlock ssc) (SscPayload ssc)
 blockMpc = gbBody . mbMpc
 
-blockTxs :: Lens' MainBlock (MerkleTree Tx)
+blockTxs :: Lens' (MainBlock ssc) (MerkleTree Tx)
 blockTxs = gbBody . mbTxs
 
-blockLeaders :: Lens' GenesisBlock SlotLeaders
+blockLeaders :: Lens' (GenesisBlock ssc) SlotLeaders
 blockLeaders = gbBody . gbLeaders
 
 -- This gives a “redundant constraint” message warning which will be fixed in
 -- lens-4.15 (not in LTS yet).
-blockHeader :: Getter Block BlockHeader
+blockHeader :: Getter (Block ssc) (BlockHeader ssc)
 blockHeader = to getBlockHeader
 
-getBlockHeader :: Block -> BlockHeader
+getBlockHeader :: Block ssc -> BlockHeader ssc
 getBlockHeader = bimap (view gbHeader) (view gbHeader)
 
 ----------------------------------------------------------------------------
@@ -781,12 +781,12 @@ getBlockHeader = bimap (view gbHeader) (view gbHeader)
 ----------------------------------------------------------------------------
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
-headerDifficulty :: BlockHeader -> ChainDifficulty
+headerDifficulty :: BlockHeader ssc -> ChainDifficulty
 headerDifficulty (Left _)  = 0
 headerDifficulty (Right _) = 1
 
 -- | Difficulty of the Block, which is determined from header.
-blockDifficulty :: Block -> ChainDifficulty
+blockDifficulty :: Block ssc -> ChainDifficulty
 blockDifficulty = headerDifficulty . getBlockHeader
 
 genesisHash :: Hash a
@@ -828,11 +828,12 @@ mkGenericBlock prevHeader body consensus extraH extraB =
     header = mkGenericHeader prevHeader body consensus extraH
 
 mkMainHeader
-    :: Maybe BlockHeader
+    :: SscTypes ssc
+    => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
-    -> Body MainBlockchain
-    -> MainBlockHeader
+    -> Body (MainBlockchain ssc)
+    -> MainBlockHeader ssc
 mkMainHeader prevHeader slotId sk body =
     mkGenericHeader prevHeader body consensus ()
   where
@@ -847,11 +848,12 @@ mkMainHeader prevHeader slotId sk body =
         }
 
 mkMainBlock
-    :: Maybe BlockHeader
+    :: SscTypes ssc
+    => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
-    -> Body MainBlockchain
-    -> MainBlock
+    -> Body (MainBlockchain ssc)
+    -> MainBlock ssc
 mkMainBlock prevHeader slotId sk body =
     GenericBlock
     { _gbHeader = mkMainHeader prevHeader slotId sk body
@@ -859,10 +861,12 @@ mkMainBlock prevHeader slotId sk body =
     , _gbExtra = ()
     }
 
-mkGenesisHeader :: Maybe BlockHeader
-                -> EpochIndex
-                -> Body GenesisBlockchain
-                -> GenesisBlockHeader
+mkGenesisHeader
+    :: SscTypes ssc
+    => Maybe (BlockHeader ssc)
+    -> EpochIndex
+    -> Body (GenesisBlockchain ssc)
+    -> GenesisBlockHeader ssc
 mkGenesisHeader prevHeader epoch body =
     mkGenericHeader prevHeader body consensus ()
   where
@@ -870,7 +874,12 @@ mkGenesisHeader prevHeader epoch body =
     consensus _ _ =
         GenesisConsensusData {_gcdEpoch = epoch, _gcdDifficulty = difficulty}
 
-mkGenesisBlock :: Maybe BlockHeader -> EpochIndex -> SlotLeaders -> GenesisBlock
+mkGenesisBlock
+    :: SscTypes ssc
+    => Maybe (BlockHeader ssc)
+    -> EpochIndex
+    -> SlotLeaders
+    -> GenesisBlock ssc
 mkGenesisBlock prevHeader epoch leaders =
     GenericBlock
     { _gbHeader = mkGenesisHeader prevHeader epoch body
@@ -880,10 +889,10 @@ mkGenesisBlock prevHeader epoch leaders =
   where
     body = GenesisBody leaders
 
-mkMainBody :: [Tx] -> MpcData -> Body MainBlockchain
+mkMainBody :: [Tx] -> SscPayload ssc -> Body (MainBlockchain ssc)
 mkMainBody txs mpc = MainBody {_mbTxs = mkMerkleTree txs, _mbMpc = mpc}
 
-verifyConsensusLocal :: BlockHeader -> VerificationRes
+verifyConsensusLocal :: SscTypes ssc => BlockHeader ssc -> VerificationRes
 verifyConsensusLocal (Left _)       = mempty
 verifyConsensusLocal (Right header) =
     verifyGeneric
@@ -899,16 +908,16 @@ verifyConsensusLocal (Right header) =
     sig = consensus ^. mcdSignature
 
 -- | Extra data which may be used by verifyHeader function to do more checks.
-data VerifyHeaderExtra = VerifyHeaderExtra
-    { vhePrevHeader  :: !(Maybe BlockHeader)
+data VerifyHeaderExtra ssc = VerifyHeaderExtra
+    { vhePrevHeader  :: !(Maybe (BlockHeader ssc))
     -- ^ Nothing means that block is unknown, not genesis.
-    , vheNextHeader  :: !(Maybe BlockHeader)
+    , vheNextHeader  :: !(Maybe (BlockHeader ssc))
     , vheCurrentSlot :: !(Maybe SlotId)
     , vheLeaders     :: !(Maybe SlotLeaders)
     }
 
 -- | By default there is not extra data.
-instance Default VerifyHeaderExtra where
+instance Default (VerifyHeaderExtra ssc) where
     def =
         VerifyHeaderExtra
         { vhePrevHeader = Nothing
@@ -923,7 +932,9 @@ maybeEmpty = maybe mempty
 -- | Check some predicates about BlockHeader. Number of checks depends
 -- on extra data passed to this function. It tries to do as much as
 -- possible.
-verifyHeader :: VerifyHeaderExtra -> BlockHeader -> VerificationRes
+verifyHeader
+    :: SscTypes ssc
+    => VerifyHeaderExtra ssc -> BlockHeader ssc -> VerificationRes
 verifyHeader VerifyHeaderExtra {..} h =
     verifyConsensusLocal h <> verifyGeneric checks
   where
@@ -985,13 +996,13 @@ verifyGenericBlock blk =
 -- | Parameters of Block verification.
 -- Note: to check that block references previous block and/or is referenced
 -- by next block, use header verification (via vbpVerifyHeader).
-data VerifyBlockParams = VerifyBlockParams
-    { vbpVerifyHeader  :: !(Maybe VerifyHeaderExtra)
+data VerifyBlockParams ssc = VerifyBlockParams
+    { vbpVerifyHeader  :: !(Maybe (VerifyHeaderExtra ssc))
     , vbpVerifyGeneric :: !Bool
     }
 
 -- | By default nothing is checked.
-instance Default VerifyBlockParams where
+instance Default (VerifyBlockParams ssc) where
     def =
         VerifyBlockParams
         { vbpVerifyHeader = Nothing
@@ -999,7 +1010,7 @@ instance Default VerifyBlockParams where
         }
 
 -- | Check predicates defined by VerifyBlockParams.
-verifyBlock :: VerifyBlockParams -> Block -> VerificationRes
+verifyBlock :: SscTypes ssc => VerifyBlockParams ssc -> Block ssc -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
         [ verifyG
@@ -1017,16 +1028,16 @@ verifyBlock VerifyBlockParams {..} blk =
 -- VerificationRes. Is it true? Can we do something with it?
 -- Apart from returning Bool.
 verifyBlocks
-    :: Foldable t
-    => Maybe SlotId -> t Block -> VerificationRes
+    :: forall ssc t. (SscTypes ssc, Foldable t)
+    => Maybe SlotId -> t (Block ssc) -> VerificationRes
 verifyBlocks curSlotId = (view _3) . foldl' step start
   where
-    start :: (Maybe SlotLeaders, Maybe BlockHeader, VerificationRes)
+    start :: (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
     start = (Nothing, Nothing, mempty)
     step
-        :: (Maybe SlotLeaders, Maybe BlockHeader, VerificationRes)
-        -> Block
-        -> (Maybe SlotLeaders, Maybe BlockHeader, VerificationRes)
+        :: (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
+        -> Block ssc
+        -> (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
     step (leaders, prevHeader, res) blk =
         let newLeaders =
                 case blk of
@@ -1105,14 +1116,74 @@ instance ( SafeCopy (BodyProof b)
            safePut _gbExtra
 
 deriveSafeCopySimple 0 'base ''ChainDifficulty
-deriveSafeCopySimple 0 'base ''MpcData
-deriveSafeCopySimple 0 'base ''MpcProof
-deriveSafeCopySimpleIndexedType 0 'base ''BodyProof [''MainBlockchain]
-deriveSafeCopySimpleIndexedType 0 'base ''BodyProof [''GenesisBlockchain]
-deriveSafeCopySimpleIndexedType 0 'base ''ConsensusData [''MainBlockchain]
-deriveSafeCopySimpleIndexedType 0 'base ''ConsensusData [''GenesisBlockchain]
-deriveSafeCopySimpleIndexedType 0 'base ''Body [''MainBlockchain]
-deriveSafeCopySimpleIndexedType 0 'base ''Body [''GenesisBlockchain]
+
+instance SscTypes ssc => SafeCopy (BodyProof (MainBlockchain ssc)) where
+    getCopy =
+        contain $
+        do mpNumber <- safeGet
+           mpRoot <- safeGet
+           mpMpcProof <- safeGet
+           return $! MainProof {..}
+    putCopy MainProof {..} =
+        contain $
+        do safePut mpNumber
+           safePut mpRoot
+           safePut mpMpcProof
+
+instance SafeCopy (BodyProof (GenesisBlockchain ssc)) where
+    getCopy =
+        contain $
+        do x <- safeGet
+           return $! GenesisProof x
+    putCopy (GenesisProof x) =
+        contain $
+        do safePut x
+
+instance SafeCopy (ConsensusData (MainBlockchain ssc)) where
+    getCopy =
+        contain $
+        do _mcdSlot <- safeGet
+           _mcdLeaderKey <- safeGet
+           _mcdDifficulty <- safeGet
+           _mcdSignature <- safeGet
+           return $! MainConsensusData {..}
+    putCopy MainConsensusData {..} =
+        contain $
+        do safePut _mcdSlot
+           safePut _mcdLeaderKey
+           safePut _mcdDifficulty
+           safePut _mcdSignature
+
+instance SafeCopy (ConsensusData (GenesisBlockchain ssc)) where
+    getCopy =
+        contain $
+        do _gcdEpoch <- safeGet
+           _gcdDifficulty <- safeGet
+           return $! GenesisConsensusData {..}
+    putCopy GenesisConsensusData {..} =
+        contain $
+        do safePut _gcdEpoch
+           safePut _gcdDifficulty
+
+instance SscTypes ssc => SafeCopy (Body (MainBlockchain ssc)) where
+    getCopy =
+        contain $
+        do _mbTxs <- safeGet
+           _mbMpc <- safeGet
+           return $! MainBody {..}
+    putCopy MainBody {..} =
+        contain $
+        do safePut _mbTxs
+           safePut _mbMpc
+
+instance SafeCopy (Body (GenesisBlockchain ssc)) where
+    getCopy =
+        contain $
+        do _gbLeaders <- safeGet
+           return $! GenesisBody {..}
+    putCopy GenesisBody {..} =
+        contain $
+        do safePut _gbLeaders
 
 ----------------------------------------------------------------------------
 -- Other derived instances

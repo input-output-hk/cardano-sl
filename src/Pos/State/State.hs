@@ -33,21 +33,24 @@ module Pos.State.State
        , generateNewSecret
        ) where
 
-import           Crypto.Random     (seedNew, seedToInteger)
-import           Data.Acid         (EventResult, EventState, QueryEvent, UpdateEvent)
-import           Pos.DHT           (DHTResponseT)
-import           Serokell.Util     (VerificationRes)
+import           Crypto.Random              (seedNew, seedToInteger)
+import           Data.Acid                  (EventResult, EventState, QueryEvent,
+                                             UpdateEvent)
+import           Pos.DHT                    (DHTResponseT)
+import           Serokell.Util              (VerificationRes)
 import           Universum
 
-import           Pos.Crypto        (PublicKey, SecretKey, Share, VssKeyPair)
-import           Pos.Slotting      (MonadSlots, getCurrentSlot)
-import           Pos.State.Acidic  (DiskState, tidyState)
-import qualified Pos.State.Acidic  as A
-import           Pos.State.Storage (ProcessBlockRes (..), Storage)
-import           Pos.Types         (Block, Commitment, CommitmentSignature, EpochIndex,
-                                    HeaderHash, MainBlock, MainBlockHeader, Opening,
-                                    SlotId, SlotLeaders, Tx, VssCertificate,
-                                    genCommitmentAndOpening)
+import           Pos.Crypto                 (PublicKey, SecretKey, Share, VssKeyPair)
+import           Pos.Slotting               (MonadSlots, getCurrentSlot)
+import           Pos.Ssc.DynamicState.Types (SscDynamicState)
+import           Pos.State.Acidic           (DiskState, tidyState)
+import qualified Pos.State.Acidic           as A
+import           Pos.State.Storage          (ProcessBlockRes (..), Storage)
+import           Pos.Types                  (Block, Commitment, CommitmentSignature,
+                                             EpochIndex, HeaderHash, MainBlock,
+                                             MainBlockHeader, Opening, SlotId,
+                                             SlotLeaders, Tx, VssCertificate,
+                                             genCommitmentAndOpening)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState
@@ -99,11 +102,13 @@ getLeaders :: WorkModeDB m => EpochIndex -> m SlotLeaders
 getLeaders = queryDisk . A.GetLeaders
 
 -- | Get Block by hash.
-getBlock :: WorkModeDB m => HeaderHash -> m (Maybe Block)
+getBlock
+    :: WorkModeDB m
+    => HeaderHash SscDynamicState -> m (Maybe (Block SscDynamicState))
 getBlock = queryDisk . A.GetBlock
 
 -- | Get block which is the head of the __best chain__.
-getHeadBlock :: WorkModeDB m => m Block
+getHeadBlock :: WorkModeDB m => m (Block SscDynamicState)
 getHeadBlock = queryDisk A.GetHeadBlock
 
 getLocalTxs :: WorkModeDB m => m (HashSet Tx)
@@ -111,12 +116,14 @@ getLocalTxs = queryDisk A.GetLocalTxs
 
 mayBlockBeUseful
     :: WorkModeDB m
-    => SlotId -> MainBlockHeader -> m VerificationRes
+    => SlotId -> MainBlockHeader SscDynamicState -> m VerificationRes
 mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 
 -- | Create new block on top of currently known best chain, assuming
 -- we are slot leader.
-createNewBlock :: WorkModeDB m => SecretKey -> SlotId -> m MainBlock
+createNewBlock
+    :: WorkModeDB m
+    => SecretKey -> SlotId -> m (MainBlock SscDynamicState)
 createNewBlock sk = updateDisk . A.CreateNewBlock sk
 
 -- | Process transaction received from other party.
@@ -128,7 +135,9 @@ processNewSlot :: WorkModeDB m => SlotId -> m ()
 processNewSlot = updateDisk . A.ProcessNewSlot
 
 -- | Process some Block received from the network.
-processBlock :: WorkModeDB m => SlotId -> Block -> m ProcessBlockRes
+processBlock
+    :: WorkModeDB m
+    => SlotId -> Block SscDynamicState -> m (ProcessBlockRes SscDynamicState)
 processBlock si = updateDisk . A.ProcessBlock si
 
 processCommitment

@@ -8,19 +8,20 @@ module Pos.Communication.Server.Block
        , handleBlockRequest
        ) where
 
-import           Control.TimeWarp.Logging (logDebug, logInfo)
-import           Formatting               (build, sformat, stext, (%))
-import           Pos.DHT                  (ListenerDHT (..), replyToNode)
-import           Serokell.Util            (VerificationRes (..), listBuilderJSON)
+import           Control.TimeWarp.Logging   (logDebug, logInfo)
+import           Formatting                 (build, sformat, stext, (%))
+import           Pos.DHT                    (ListenerDHT (..), replyToNode)
+import           Serokell.Util              (VerificationRes (..), listBuilderJSON)
 import           Universum
 
-import           Control.TimeWarp.Rpc     (MonadDialog)
-import           Pos.Communication.Types  (RequestBlock (..), ResponseMode,
-                                           SendBlock (..), SendBlockHeader (..))
-import           Pos.Crypto               (hash)
-import           Pos.Slotting             (getCurrentSlot)
-import qualified Pos.State                as St
-import           Pos.WorkMode             (WorkMode)
+import           Control.TimeWarp.Rpc       (MonadDialog)
+import           Pos.Communication.Types    (RequestBlock (..), ResponseMode,
+                                             SendBlock (..), SendBlockHeader (..))
+import           Pos.Crypto                 (hash)
+import           Pos.Slotting               (getCurrentSlot)
+import           Pos.Ssc.DynamicState.Types (SscDynamicState)
+import qualified Pos.State                  as St
+import           Pos.WorkMode               (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
 blockListeners :: (MonadDialog m, WorkMode m) => [ListenerDHT m]
@@ -30,7 +31,7 @@ blockListeners =
     , ListenerDHT handleBlockRequest
     ]
 
-handleBlock :: ResponseMode m => SendBlock -> m ()
+handleBlock :: ResponseMode m => SendBlock SscDynamicState -> m ()
 handleBlock (SendBlock block) = do
     slotId <- getCurrentSlot
     pbr <- St.processBlock slotId block
@@ -44,7 +45,7 @@ handleBlock (SendBlock block) = do
 
 handleBlockHeader
     :: ResponseMode m
-    => SendBlockHeader -> m ()
+    => SendBlockHeader SscDynamicState -> m ()
 handleBlockHeader (SendBlockHeader header) =
     whenM checkUsefulness $ replyToNode (RequestBlock h)
   where
@@ -63,6 +64,6 @@ handleBlockHeader (SendBlockHeader header) =
 
 handleBlockRequest
     :: ResponseMode m
-    => RequestBlock -> m ()
+    => RequestBlock SscDynamicState -> m ()
 handleBlockRequest (RequestBlock h) =
     maybe (pure ()) (replyToNode . SendBlock) =<< St.getBlock h

@@ -44,6 +44,8 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
+                        Pos.Ssc.Class.Types
+                        Pos.Ssc.DynamicState.Types
                         Pos.State.Acidic
                         Pos.State.State
                         Pos.State.Storage
@@ -83,9 +85,9 @@ library
                       , exceptions
                       , formatting
                       , hashable
+                      , kademlia
                       , lens
                       , lrucache
-                      , kademlia
                       , memory
                       , mtl
                       , parsec
@@ -95,6 +97,7 @@ library
                       , safecopy
                       , serokell-core
                       , stm
+                      , tagged
                       , template-haskell
                       , text
                       , text-format

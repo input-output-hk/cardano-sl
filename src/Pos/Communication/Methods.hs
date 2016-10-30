@@ -17,14 +17,15 @@ import           Universum
 import           Pos.Communication.Types  (SendBlockHeader (..), SendTx (..),
                                            SendTxs (..))
 import           Pos.DHT                  (sendToNeighbors, sendToNode)
+import           Pos.Ssc.Class.Types      (SscTypes)
 import           Pos.Types                (MainBlockHeader, Tx)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.
 announceBlock
-    :: WorkMode m
-    => MainBlockHeader -> m ()
+    :: (SscTypes ssc, WorkMode m)
+    => MainBlockHeader ssc -> m ()
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     void . sendToNeighbors . SendBlockHeader $ header

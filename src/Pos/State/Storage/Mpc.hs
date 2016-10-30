@@ -31,36 +31,36 @@ module Pos.State.Storage.Mpc
        , mpcVerifyBlocks
        ) where
 
-import           Control.Lens            (Lens', ix, makeClassy, preview, to, use, view,
-                                          (%=), (.=), (^.))
-import           Crypto.Random           (drgNewSeed, seedFromInteger, withDRG)
-import           Data.Default            (Default, def)
-import           Data.Hashable           (Hashable)
-import qualified Data.HashMap.Strict     as HM
-import           Data.Ix                 (inRange)
-import           Data.List.NonEmpty      (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty      as NE
-import           Data.SafeCopy           (base, deriveSafeCopySimple)
-import qualified Data.Vector             as V
-import           Serokell.Util.Verify    (VerificationRes (..), isVerSuccess,
-                                          verifyGeneric)
+import           Control.Lens               (Lens', ix, makeClassy, preview, to, use,
+                                             view, (%=), (.=), (^.))
+import           Crypto.Random              (drgNewSeed, seedFromInteger, withDRG)
+import           Data.Default               (Default, def)
+import           Data.Hashable              (Hashable)
+import qualified Data.HashMap.Strict        as HM
+import           Data.Ix                    (inRange)
+import           Data.List.NonEmpty         (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty         as NE
+import           Data.SafeCopy              (base, deriveSafeCopySimple)
+import qualified Data.Vector                as V
+import           Serokell.Util.Verify       (VerificationRes (..), isVerSuccess,
+                                             verifyGeneric)
 import           Universum
 
-import           Pos.Constants           (k)
-import           Pos.Crypto              (PublicKey, Share,
-                                          Signed (signedSig, signedValue), Threshold,
-                                          VssKeyPair, decryptShare, toVssPublicKey,
-                                          verify, verifyShare)
-import           Pos.FollowTheSatoshi    (FtsError, calculateSeed, followTheSatoshi)
-import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types               (Address (getAddress), Block, Commitment (..),
-                                          CommitmentSignature, CommitmentsMap,
-                                          MpcData (..), Opening (..), OpeningsMap,
-                                          SharesMap, SlotId (..), SlotLeaders, Utxo,
-                                          VssCertificate, VssCertificatesMap, blockMpc,
-                                          blockSlot, mdCommitments, mdOpenings, mdShares,
-                                          mdVssCertificates, verifyOpening)
-import           Pos.Util                (readerToState, zoom', _neHead)
+import           Pos.Constants              (k)
+import           Pos.Crypto                 (PublicKey, Share,
+                                             Signed (signedSig, signedValue), Threshold,
+                                             VssKeyPair, decryptShare, toVssPublicKey,
+                                             verify, verifyShare)
+import           Pos.FollowTheSatoshi       (FtsError, calculateSeed, followTheSatoshi)
+import           Pos.Ssc.DynamicState.Types (DSPayload (..), SscDynamicState)
+import           Pos.State.Storage.Types    (AltChain)
+import           Pos.Types                  (Address (getAddress), Block, Commitment (..),
+                                             CommitmentSignature, CommitmentsMap,
+                                             Opening (..), OpeningsMap, SharesMap,
+                                             SlotId (..), SlotLeaders, Utxo,
+                                             VssCertificate, VssCertificatesMap, blockMpc,
+                                             blockSlot, verifyOpening)
+import           Pos.Util                   (readerToState, zoom', _neHead)
 
 data MpcStorageVersion = MpcStorageVersion
     { -- | Secret that we are using for the current epoch.
@@ -135,10 +135,11 @@ type Update a = forall m x. (HasMpcStorage x, MonadState x m) => m a
 -- any side effects. The compiler will warn us if it happens, though.
 type Query a = forall m x. (HasMpcStorage x, MonadReader x m) => m a
 
-getLocalMpcData :: Query MpcData
+-- TODO: this should return something other than DSPayload
+getLocalMpcData :: Query DSPayload
 getLocalMpcData =
     -- TODO: eliminate copy-paste
-    MpcData <$> view (lastVer . mpcLocalCommitments) <*>
+    DSPayload <$> view (lastVer . mpcLocalCommitments) <*>
     view (lastVer . mpcLocalOpenings) <*>
     view (lastVer . mpcLocalShares) <*>
     view (lastVer . mpcLocalCertificates)
@@ -147,12 +148,12 @@ getLocalMpcData =
 --
 -- specifically, I'm not sure whether versioning here and versioning in .Tx
 -- are the same versionings
-getGlobalMpcDataByDepth :: Word -> Query (Maybe MpcData)
+getGlobalMpcDataByDepth :: Word -> Query (Maybe DSPayload)
 getGlobalMpcDataByDepth (fromIntegral -> depth) =
     preview $ mpcVersioned . ix depth . to mkGlobalMpcData
   where
     mkGlobalMpcData MpcStorageVersion {..} =
-        MpcData
+        DSPayload
         { _mdCommitments = _mpcGlobalCommitments
         , _mdOpenings = _mpcGlobalOpenings
         , _mdShares = _mpcGlobalShares
@@ -215,16 +216,16 @@ For each MPC message we check:
   2. Whether the message itself is correct (e.g. commitment signature is
      valid, etc.)
 -}
-mpcVerifyBlock :: Block -> Query VerificationRes
+mpcVerifyBlock :: Block SscDynamicState -> Query VerificationRes
 -- Genesis blocks don't have any MPC messages
 mpcVerifyBlock (Left _) = return VerSuccess
 -- Main blocks have commitments, openings, shares and VSS certificates
 mpcVerifyBlock (Right b) = do
     let SlotId{siSlot = slotId, siEpoch = epochId} = b ^. blockSlot
-    let commitments  = b ^. blockMpc . mdCommitments
-        openings     = b ^. blockMpc . mdOpenings
-        shares       = b ^. blockMpc . mdShares
-        certificates = b ^. blockMpc . mdVssCertificates
+    let commitments  = b ^. blockMpc . to _mdCommitments
+        openings     = b ^. blockMpc . to _mdOpenings
+        shares       = b ^. blockMpc . to _mdShares
+        certificates = b ^. blockMpc . to _mdVssCertificates
     globalCommitments  <- view (lastVer . mpcGlobalCommitments)
     globalOpenings     <- view (lastVer . mpcGlobalOpenings)
     globalShares       <- view (lastVer . mpcGlobalShares)
@@ -351,7 +352,7 @@ mpcVerifyBlock (Right b) = do
 -- TODO:
 --   * verification messages should include block hash/slotId
 --   * we should stop at first failing block
-mpcVerifyBlocks :: Word -> AltChain -> Query VerificationRes
+mpcVerifyBlocks :: Word -> AltChain SscDynamicState -> Query VerificationRes
 mpcVerifyBlocks toRollback blocks = do
     curState <- view mpcStorage
     return $ flip evalState curState $ do
@@ -396,7 +397,7 @@ mpcProcessVssCertificate pk c = zoom' lastVer $ do
 
 -- | Apply sequence of blocks to state. Sequence must be based on last
 -- applied block and must be valid.
-mpcApplyBlocks :: AltChain -> Update ()
+mpcApplyBlocks :: AltChain SscDynamicState -> Update ()
 mpcApplyBlocks = mapM_ mpcProcessBlock
 
 -- | Rollback application of last 'n' blocks. If @n > 0@, also removes all
@@ -407,7 +408,7 @@ mpcRollback :: Word -> Update ()
 mpcRollback (fromIntegral -> n) = do
     mpcVersioned %= (fromMaybe (def :| []) . NE.nonEmpty . NE.drop n)
 
-mpcProcessBlock :: Block -> Update ()
+mpcProcessBlock :: Block SscDynamicState -> Update ()
 mpcProcessBlock blk = do
     lv <- use lastVer
     mpcVersioned %= NE.cons lv
@@ -424,10 +425,10 @@ mpcProcessBlock blk = do
                 mpcCurrentSecret     .= Nothing
         -- Main blocks contain commitments, openings, shares, VSS certificates
         Right b -> do
-            let blockCommitments  = b ^. blockMpc . mdCommitments
-                blockOpenings     = b ^. blockMpc . mdOpenings
-                blockShares       = b ^. blockMpc . mdShares
-                blockCertificates = b ^. blockMpc . mdVssCertificates
+            let blockCommitments  = b ^. blockMpc . to _mdCommitments
+                blockOpenings     = b ^. blockMpc . to _mdOpenings
+                blockShares       = b ^. blockMpc . to _mdShares
+                blockCertificates = b ^. blockMpc . to _mdVssCertificates
             zoom' lastVer $ do
                 -- commitments
                 mpcGlobalCommitments %= HM.union blockCommitments

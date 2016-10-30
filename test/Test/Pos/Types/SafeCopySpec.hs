@@ -2,7 +2,7 @@
 
 -- | This module tests SafeCopy instances.
 
-module Test.Pos.Types.Identity.SafeCopySpec
+module Test.Pos.Types.SafeCopySpec
        ( spec
        ) where
 

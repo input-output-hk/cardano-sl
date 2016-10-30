@@ -40,8 +40,8 @@ import           Control.TimeWarp.Logging  (LoggerName,
                                             WithNamedLogger (modifyLoggerName), logInfo,
                                             logWarning)
 import           Control.TimeWarp.Rpc      (Message, MonadDialog, MonadTransfer,
-                                            NetworkAddress, ResponseT, mapResponseT,
-                                            replyH, sendH)
+                                            NetworkAddress, ResponseT, closeR,
+                                            mapResponseT, replyH, sendH)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Data.Binary               (Binary, Put)
 import qualified Data.ByteString           as BS
@@ -104,8 +104,8 @@ class MonadDHT m => MonadMessageDHT m where
     sendToNeighbors = defaultSendToNeighbors
 
 class MonadMessageDHT m => MonadResponseDHT m where
-
   replyToNode :: Message r => r -> m ()
+  closeResponse :: m ()
 
 data ListenerDHT m =
     forall r . Message r => ListenerDHT (r -> DHTResponseT m ())
@@ -247,7 +247,7 @@ newtype DHTResponseT m a = DHTResponseT
     } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans,
                 MonadThrow, MonadCatch, MonadMask,
                 MonadState s, WithDefaultMsgHeader,
-                WithNamedLogger, MonadTimed, MonadTransfer, MonadDHT, MonadMessageDHT)
+                WithNamedLogger, MonadTimed, MonadTransfer, MonadDialog, MonadDHT, MonadMessageDHT)
 
 type instance ThreadId (DHTResponseT m) = ThreadId m
 
@@ -255,6 +255,7 @@ instance (WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog m, MonadIO m) =
   replyToNode msg = do
     header <- defaultMsgHeader msg
     DHTResponseT $ replyH header msg
+  closeResponse = DHTResponseT closeR
 
 mapDHTResponseT :: (m a -> n b) -> DHTResponseT m a -> DHTResponseT n b
 mapDHTResponseT how = DHTResponseT . mapResponseT how . getDHTResponseT

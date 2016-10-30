@@ -33,12 +33,13 @@ import qualified ListT                     as ListT
 import qualified Network.Kademlia          as K
 import           Pos.DHT                   (DHTData, DHTException (..), DHTKey,
                                             DHTNode (..), DHTNodeType (..),
+                                            DHTResponseT (getDHTResponseT),
                                             ListenerDHT (..), MonadDHT (..),
                                             MonadMessageDHT (..),
+                                            MonadResponseDHT (closeResponse),
                                             WithDefaultMsgHeader (..), defaultSendToNode,
-                                            filterByNodeType, getDHTResponseT,
-                                            joinNetworkNoThrow, randomDHTKey,
-                                            withDhtLogger)
+                                            filterByNodeType, joinNetworkNoThrow,
+                                            randomDHTKey, withDhtLogger)
 import           Serokell.Util.Base64      (base64F)
 import qualified STMContainers.Map         as STM
 import           Universum                 hiding (finally, fromStrict, killThread,
@@ -68,6 +69,7 @@ data KademliaDHTContext m = KademliaDHTContext
     , kdcMsgThreadId          :: TVar (Maybe (ThreadId (KademliaDHT m)))
     , kdcInitialPeers_        :: [DHTNode]
     , kdcListenByBinding      :: Binding -> KademliaDHT m ()
+    , kdcStopped              :: TVar Bool
     -- TODO temporary code, to remove (after TW-47)
     , kdcOutboundListeners    :: STM.Map NetworkAddress (ThreadId (KademliaDHT m))
     , kdcNoCacheMessageNames_ :: [[Char]]
@@ -116,10 +118,12 @@ runKademliaDHT kdc@(KademliaDHTConfig {..}) action = startDHT kdc >>= runReaderT
 
 stopDHT :: (MonadTimed m, MonadIO m) => KademliaDHT m ()
 stopDHT = do
-    (kdcH, threadTV, outMap) <- KademliaDHT $ (,,)
+    (kdcH, threadTV, outMap, stoppedTV) <- KademliaDHT $ (,,,)
             <$> asks kdcHandle
             <*> asks kdcMsgThreadId
             <*> asks kdcOutboundListeners
+            <*> asks kdcStopped
+    liftIO . atomically $ writeTVar stoppedTV True
     liftIO $ K.close kdcH
     mThreadId <- liftIO . atomically $ do
       tId <- readTVar threadTV
@@ -141,6 +145,7 @@ startDHT KademliaDHTConfig {..} = do
             kdcKey
             (log' logDebug)
             (log' logError)
+    kdcStopped <- liftIO . atomically $ newTVar False
     kdcMsgThreadId <- liftIO . atomically $ newTVar Nothing
     let kdcInitialPeers_ = kdcInitialPeers
     kdcOutboundListeners <- liftIO STM.newIO
@@ -148,19 +153,24 @@ startDHT KademliaDHTConfig {..} = do
     let kdcListenByBinding =
           \binding -> do
                 logInfo $ sformat ("Listening on binding " % shown) binding
-                listenR binding get (convert <$> kdcListeners) (rawListener kdcEnableBroadcast msgCache)
+                listenR binding get (convert <$> kdcListeners) (convert' $ rawListener kdcEnableBroadcast msgCache kdcStopped)
     let kdcNoCacheMessageNames_ = kdcNoCacheMessageNames
     pure $ KademliaDHTContext {..}
   where
     log' logF = usingLoggerName ("kademlia" <> "instance") . logF . toS
     convert (ListenerDHT f) = ListenerH $ \(_, m) -> getDHTResponseT $ f m
+    convert' handler = getDHTResponseT . handler
 
 -- | Return 'True' if the message should be processed, 'False' if only
 -- broadcasted
 rawListener
-    :: (MonadIO m, MonadDHT m, MonadDialog m, WithNamedLogger m)
-    => Bool -> TVar (LRU.LRU Int ()) -> (DHTMsgHeader, RawData) -> m Bool
-rawListener enableBroadcast cache (h, rawData) = withDhtLogger $ do
+    :: (WithDefaultMsgHeader m, MonadIO m, MonadThrow m, MonadDialog m, WithNamedLogger m, MonadMessageDHT m)
+    => Bool -> TVar (LRU.LRU Int ()) -> TVar Bool -> (DHTMsgHeader, RawData) -> DHTResponseT m Bool
+rawListener enableBroadcast cache kdcStopped (h, rawData) = withDhtLogger $ do
+    isStopped <- liftIO . atomically $ readTVar kdcStopped
+    when isStopped $ do
+        closeResponse
+        throwM $ FatalError "KademliaDHT stopped"
     let mHash = hash $ encode rawData
     logDebug $
         sformat ("Received message " % shown % ", hash=" % int) h mHash

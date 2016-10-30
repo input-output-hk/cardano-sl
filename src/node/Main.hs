@@ -43,6 +43,7 @@ data Args = Args
     , mainLogSeverity    :: !Severity
     , dhtLogSeverity     :: !Severity
     , commLogSeverity    :: !(Maybe Severity)
+    , serverLogSeverity  :: !(Maybe Severity)
     , timeLord           :: !Bool
     }
   deriving Show
@@ -89,7 +90,13 @@ argsParser =
         (option auto $ mconcat
         [long "comm-log",
          metavar "SEVERITY",
-         help "DHT log severity, one of Info, Debug, Warning, Error"
+         help "Comm (time-warp) log severity"
+        ]) <*>
+    optional
+        (option auto $ mconcat
+        [long "server-log",
+         metavar "SEVERITY",
+         help "Server log severity"
         ]) <*>
     switch (long "time-lord" <> help "Peer is time lord, i.e. one responsible for system start time decision & propagation (used only in development)")
   where

@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE TypeSynonymInstances   #-}
 {-# LANGUAGE UndecidableInstances   #-}
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 -- | Definitions of the most fundamental types.
 

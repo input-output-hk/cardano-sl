@@ -135,6 +135,7 @@ import           Data.Data            (Data)
 import           Data.Default         (Default (def))
 import           Data.DeriveTH        (derive, makeNFData)
 import           Data.Hashable        (Hashable)
+import qualified Data.HashMap.Strict  as HM
 import           Data.Ix              (Ix)
 import           Data.MessagePack     (MessagePack (..))
 import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeCopySimple,
@@ -142,7 +143,8 @@ import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeC
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
-import           Formatting           (Format, bprint, build, int, ords, sformat, (%))
+import           Formatting           (Format, bprint, build, int, ords, sformat, stext,
+                                       (%))
 import           Serokell.AcidState   ()
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Text   (listJson)
@@ -587,20 +589,29 @@ instance Buildable MainBlock where
             ("MainBlock:\n"%
              "  "%build%
              "  transactions: "%listJson%"\n"%
-             "  number of commitments: "%int%", "%
-             "openings: "%int%", "%
-             "shares: "%int%", "%
-             "certificates: "%int%"\n"
+             stext
             )
             _gbHeader
             _mbTxs
-            (length _mdCommitments)
-            (length _mdOpenings)
-            (length _mdShares)
-            (length _mdVssCertificates)
+            formatMpc
       where
         MainBody {..} = _gbBody
         MpcData {..} = _mbMpc
+        formatMpc =
+            mconcat [ formatCommitments
+                    , formatOpenings
+                    , formatShares
+                    , formatCertificates
+                    ]
+        formatIfNotNull formatter l = if null l then mempty else sformat formatter l
+        formatCommitments = formatIfNotNull
+            ("  commitments from: "%listJson%"\n") (HM.keys _mdCommitments)
+        formatOpenings = formatIfNotNull
+            ("  openings from: "%listJson%"\n") (HM.keys _mdOpenings)
+        formatShares = formatIfNotNull
+            ("  shares from: "%listJson%"\n") (HM.keys _mdShares)
+        formatCertificates = formatIfNotNull
+            ("  certificates from: "%listJson%"\n") (HM.keys _mdVssCertificates)
 
 ----------------------------------------------------------------------------
 -- GenesisBlock

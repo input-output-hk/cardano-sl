@@ -29,6 +29,7 @@ module Pos.State.Storage.Mpc
        , mpcRollback
        , mpcVerifyBlock
        , mpcVerifyBlocks
+       --, traceMpcLastVer
        ) where
 
 import           Control.Lens            (Lens', ix, makeClassy, preview, to, use, view,
@@ -91,6 +92,7 @@ data MpcStorageVersion = MpcStorageVersion
     , -- | VSS certificates stored in blocks (for all time, not just for
       -- current epoch)
       _mpcGlobalCertificates :: !VssCertificatesMap }
+      deriving Show
 
 makeClassy ''MpcStorageVersion
 deriveSafeCopySimple 0 'base ''MpcStorageVersion
@@ -137,12 +139,27 @@ type Update a = forall m x. (HasMpcStorage x, MonadState x m) => m a
 -- any side effects. The compiler will warn us if it happens, though.
 type Query a = forall m x. (HasMpcStorage x, MonadReader x m) => m a
 
+--traceMpcLastVer :: Update ()
+--traceMpcLastVer = do
+--    hasSecret <- isJust <$> use (lastVer . mpcCurrentSecret)
+--    localCommKeys <- keys' <$> use (lastVer . mpcLocalCommitments)
+--    globalCommKeys <- keys' <$> use (lastVer . mpcGlobalCommitments)
+--    localOpenKeys <- keys' <$> use (lastVer . mpcLocalOpenings)
+--    globalOpenKeys <- keys' <$> use (lastVer . mpcGlobalOpenings)
+--    localShareKeys <- keys' <$> use (lastVer . mpcLocalShares)
+--    globalShareKeys <- keys' <$> use (lastVer . mpcGlobalShares)
+--    identity $! traceM $ "[~~~~~~] mpcState: hasSecret=" <> show hasSecret
+--                          <> " comms=" <> show (localCommKeys, globalCommKeys)
+--                          <> " opens=" <> show (localOpenKeys, globalOpenKeys)
+--                          <> " shares=" <> show (localShareKeys, globalShareKeys)
+--  where keys' = fmap pretty . HM.keys
+
 getLocalMpcData :: Query MpcData
 getLocalMpcData = do
-    commitments <- view' mpcLocalCommitments
-    MpcData commitments
-      <$> ((`HM.intersection` commitments) <$> view' mpcLocalOpenings)
-      <*> ((`HM.intersection` commitments) <$> view' mpcLocalShares)
+    MpcData
+      <$> view' mpcLocalCommitments
+      <*> view' mpcLocalOpenings
+      <*> view' mpcLocalShares
       <*> view' mpcLocalCertificates
   where
     view' l = view (lastVer . l)
@@ -169,7 +186,6 @@ calculateLeaders
     -> Threshold
     -> Query (Either FtsError SlotLeaders)
 calculateLeaders utxo threshold = do
-    --identity $! traceM . show =<< (,,) <$> view (lastVer . mpcGlobalCommitments) <*> view (lastVer . mpcGlobalOpenings) <*> view (lastVer . mpcGlobalShares)
     mbSeed <- calculateSeed threshold
                             <$> view (lastVer . mpcGlobalCommitments)
                             <*> view (lastVer . mpcGlobalOpenings)
@@ -378,21 +394,32 @@ mpcProcessCommitment pk c = zoom' lastVer $ do
         mpcLocalCommitments %= HM.insert pk c
 
 mpcProcessOpening :: PublicKey -> Opening -> Update ()
-mpcProcessOpening pk o = zoom' lastVer $ do
+mpcProcessOpening pk o =
     -- TODO: add 'mpcVerifyOpening' and use it; move the 'unlessM' check there
-    unlessM (HM.member pk <$> use mpcGlobalOpenings) $ do
+    whenM (checkPkInCommitments pk) $ zoom' lastVer $ do
         mpcLocalOpenings %= HM.insert pk o
 
+checkPkInCommitments :: PublicKey -> Update Bool
+checkPkInCommitments pk = zoom' lastVer $ all identity <$> sequence checks
+  where
+    checks = [ not . HM.member pk <$> use mpcGlobalOpenings
+             , any identity <$> sequence
+                  [ HM.member pk <$> use mpcGlobalCommitments
+                  , HM.member pk <$> use mpcLocalCommitments
+                  ]
+             ]
+
 mpcProcessShares :: PublicKey -> HashMap PublicKey Share -> Update ()
-mpcProcessShares pk s = zoom' lastVer $ do
-    -- TODO: we accept shares that we already have (but don't add them to
-    -- local shares) because someone who sent us those shares might not be
-    -- aware of the fact that they are already in the blockchain. On the
-    -- other hand, now nodes can send us huge spammy messages and we can't
-    -- ban them for that. On the third hand, is this a concern?
-    globalSharesForPK <- HM.lookupDefault mempty pk <$> use mpcGlobalShares
-    let s' = s `HM.difference` globalSharesForPK
-    mpcLocalShares %= HM.insertWith HM.union pk s'
+mpcProcessShares pk s =
+    whenM (checkPkInCommitments pk) $ zoom' lastVer $ do
+        -- TODO: we accept shares that we already have (but don't add them to
+        -- local shares) because someone who sent us those shares might not be
+        -- aware of the fact that they are already in the blockchain. On the
+        -- other hand, now nodes can send us huge spammy messages and we can't
+        -- ban them for that. On the third hand, is this a concern?
+        globalSharesForPK <- HM.lookupDefault mempty pk <$> use mpcGlobalShares
+        let s' = s `HM.difference` globalSharesForPK
+        mpcLocalShares %= HM.insertWith HM.union pk s'
 
 mpcProcessVssCertificate :: PublicKey -> VssCertificate -> Update ()
 mpcProcessVssCertificate pk c = zoom' lastVer $ do
@@ -414,7 +441,7 @@ mpcRollback (fromIntegral -> n) = do
 
 mpcProcessBlock :: Block -> Update ()
 mpcProcessBlock blk = do
-    --identity $! traceM . (<>) ("Processing " <> (either (const "genesis") (const "main") blk) <> " block for epoch: ") . pretty $ blk ^. epochIndexL
+    --identity $! traceM . (<>) ("[~~~~~~] Processing " <> (either (const "genesis") (const "main") blk) <> " block for epoch: ") . pretty $ blk ^. epochIndexL
     lv <- use lastVer
     mpcVersioned %= NE.cons lv
     case blk of

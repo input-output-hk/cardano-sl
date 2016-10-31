@@ -391,6 +391,8 @@ mpcVerifyBlock (Right b) = do
             , (all (`HM.member` globalCommitments)
                    (HM.keys shares <> concatMap HM.keys (toList shares)),
                    "some shares don't have corresponding commitments")
+            -- TODO: use intersectionDoubleMap or something to allow spliting
+            -- shares into multiple messages
             , (null (shares `HM.intersection` globalShares),
                    "some shares have already been sent")
             , (all (uncurry (checkShares globalCommitments globalOpenings

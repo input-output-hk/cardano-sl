@@ -56,27 +56,33 @@ getSlotStart (flattenSlotId -> slotId) =
 onNewSlot
     :: (MonadIO m, MonadTimed m, MonadSlots m, MonadCatch m, WithNamedLogger m)
     => Bool -> (SlotId -> m ()) -> m a
-onNewSlot = onNewSlotDo Nothing
+onNewSlot startImmediately action =
+    onNewSlotDo Nothing startImmediately actionWithCatch
+  where
+    -- TODO: think about exceptions more carefully.
+    actionWithCatch s = action s `catch` handler
+    handler :: (MonadIO m, WithNamedLogger m) => SomeException -> m ()
+    handler = logError . sformat ("Error occurred: "%build)
 
 onNewSlotDo
     :: (MonadIO m, MonadTimed m, MonadSlots m, MonadCatch m, WithNamedLogger m)
     => Maybe SlotId -> Bool -> (SlotId -> m ()) -> m a
 onNewSlotDo expectedSlotId startImmediately action = do
+    -- here we wait for short intervals to be sure that expected slot
+    -- has really started, taking into account possible inaccuracies
     waitUntilPredicate
         (maybe (const True) (<=) expectedSlotId <$> getCurrentSlot)
     curSlot <- getCurrentSlot
     -- fork is necessary because action can take more time than slotDuration
-    when startImmediately $ fork_ $ actionWithCatch curSlot
+    when startImmediately $ fork_ $ action curSlot
     Timestamp curTime <- getCurrentTime
-    let timeToWait = slotDuration - curTime `mod` slotDuration
+    let nextSlot = succ curSlot
+    Timestamp nextSlotStart <- getSlotStart nextSlot
+    let timeToWait = nextSlotStart - curTime
     wait $ for timeToWait
-    onNewSlotDo (Just $ succ curSlot) True actionWithCatch
+    onNewSlotDo (Just nextSlot) True action
   where
     waitUntilPredicate predicate =
         unlessM predicate (shortWait >> waitUntilPredicate predicate)
     shortWaitTime = (10 :: Microsecond) `max` (slotDuration `div` 10000)
     shortWait = wait $ for shortWaitTime
-    -- TODO: think about exceptions more carefully.
-    actionWithCatch s = action s `catch` handler
-    handler :: (MonadIO m, WithNamedLogger m) => SomeException -> m ()
-    handler = logError . sformat ("Error occurred: "%build)

@@ -37,7 +37,7 @@ onNewSlotWhenLeader slotId = do
     logInfo "It's time to create a block for current slot"
     sk <- ncSecretKey <$> getNodeContext
     let whenCreated createdBlk = do
-            logInfo $ sformat ("Created a new block: "%build) createdBlk
+            logInfo $ sformat ("Created a new block:\n"%build) createdBlk
             announceBlock $ createdBlk ^. gbHeader
     let whenNotCreated = logInfo "I couldn't create a new block"
     maybe whenNotCreated whenCreated =<< createNewBlock sk slotId

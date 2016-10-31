@@ -12,8 +12,8 @@ module Pos.DHT.Real
        , KademliaDHTConfig(..)
        ) where
 
-import           Control.Concurrent.STM    (STM, TVar, atomically, newTVar, readTVar,
-                                            writeTVar)
+import           Control.Concurrent.STM    (STM, TVar, atomically, modifyTVar, newTVar,
+                                            readTVar, writeTVar)
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, finally,
                                             throwM)
 import           Control.Monad.Trans.Class (MonadTrans)
@@ -70,7 +70,7 @@ type DHTHandle = K.KademliaInstance DHTKey DHTData
 data KademliaDHTContext m = KademliaDHTContext
     { kdcHandle               :: DHTHandle
     , kdcKey                  :: DHTKey
-    , kdcMsgThreadId          :: TVar (Maybe (ThreadId (KademliaDHT m)))
+    , kdcMsgThreadIds         :: TVar ([ThreadId (KademliaDHT m)])
     , kdcInitialPeers_        :: [DHTNode]
     , kdcListenByBinding      :: Binding -> KademliaDHT m ()
     , kdcStopped              :: TVar Bool
@@ -127,25 +127,20 @@ runKademliaDHT kdc@(KademliaDHTConfig {..}) action = startDHT kdc >>= runReaderT
       joinNetworkNoThrow kdcInitialPeers
       action
     startMsgThread = do
-      (tvar, listenByBinding) <- KademliaDHT $ (,) <$> asks kdcMsgThreadId <*> asks kdcListenByBinding
+      (tvar, listenByBinding) <- KademliaDHT $ (,) <$> asks kdcMsgThreadIds <*> asks kdcListenByBinding
       tId <- fork . listenByBinding $ AtPort kdcPort
-      liftIO . atomically $ writeTVar tvar (Just tId)
+      liftIO . atomically $ modifyTVar tvar (tId:)
 
 stopDHT :: (MonadTimed m, MonadIO m) => KademliaDHT m ()
 stopDHT = do
-    (kdcH, threadTV, stoppedTV) <- KademliaDHT $ (,,)
+    (kdcH, threadsTV, stoppedTV) <- KademliaDHT $ (,,)
             <$> asks kdcHandle
-            <*> asks kdcMsgThreadId
+            <*> asks kdcMsgThreadIds
             <*> asks kdcStopped
     liftIO . atomically $ writeTVar stoppedTV True
     liftIO $ K.close kdcH
-    mThreadId <- liftIO . atomically $ do
-      tId <- readTVar threadTV
-      writeTVar threadTV Nothing
-      pure tId
-    case mThreadId of
-      Just tid -> killThread tid
-      _        -> pure ()
+    threadIds <- liftIO . atomically $ readTVar threadsTV <* writeTVar threadsTV []
+    mapM_ killThread threadIds
 
 startDHT :: (MonadTimed m, MonadIO m, MonadDialog BinaryP m, WithNamedLogger m, MonadCatch m) => KademliaDHTConfig m -> m (KademliaDHTContext m)
 startDHT KademliaDHTConfig {..} = do
@@ -158,7 +153,7 @@ startDHT KademliaDHTConfig {..} = do
             (log' logDebug)
             (log' logError)
     kdcStopped <- liftIO . atomically $ newTVar False
-    kdcMsgThreadId <- liftIO . atomically $ newTVar Nothing
+    kdcMsgThreadIds <- liftIO . atomically $ newTVar []
     let kdcInitialPeers_ = kdcInitialPeers
     msgCache <- liftIO . atomically $ newTVar (LRU.newLRU (Just $ toInteger kdcMessageCacheSize) :: LRU.LRU Int ())
     let kdcListenByBinding =
@@ -231,13 +226,15 @@ instance (MonadDialog BinaryP m, WithNamedLogger m, MonadCatch m, MonadIO m, Mon
     sendToNetwork = sendToNetworkImpl sendH
     sendToNode addr msg = do
         defaultSendToNode addr msg
-        listenOutbound
+        fork listenOutbound >>= updateTIds
       where
         -- TODO [CSL-4] temporary code, to refactor to subscriptions (after TW-47)
         listenOutboundDo = KademliaDHT (asks kdcListenByBinding) >>= ($ AtConnTo addr)
         listenOutbound = listenOutboundDo `catch` handleTE
         handleTE (AlreadyListeningOutbound _) = return ()
         handleTE e = logDebug $ sformat ("Error listening outbound connection to " % shown % ": " % build) addr e
+        updateTIds tid = KademliaDHT (asks kdcMsgThreadIds)
+                            >>= \tvar -> (liftIO . atomically $ modifyTVar tvar (tid:))
 
 instance (MonadIO m, MonadCatch m, WithNamedLogger m) => MonadDHT (KademliaDHT m) where
 

@@ -31,16 +31,20 @@ mpcOnNewSlot SlotId {..} = do
         logDebug $ sformat ("Generating secret for " % build % "th epoch") siEpoch
         (comm, _) <- generateNewSecret ourSk siEpoch
         () <$ sendToNeighbors (SendCommitment ourPk comm)
+        logDebug "Sent commitment to neighbors"
     -- Send the opening
     when (siSlot == 2 * k) $ do
         mbOpen <- getOurOpening
-        whenJust mbOpen $ \open ->
+        whenJust mbOpen $ \open -> do
             void . sendToNeighbors $ SendOpening ourPk open
+            logDebug "Sent opening to neighbors"
     -- Send decrypted shares that others have sent us
     when (siSlot == 4 * k) $ do
         ourVss <- ncVssKeyPair <$> getNodeContext
         shares <- getOurShares ourVss
-        void . sendToNeighbors $ SendShares ourPk shares
+        unless (null shares) $ do
+            void . sendToNeighbors $ SendShares ourPk shares
+            logDebug "Sent shares to neighbors"
 
     -- | All workers specific to MPC processing.
 -- Exceptions:

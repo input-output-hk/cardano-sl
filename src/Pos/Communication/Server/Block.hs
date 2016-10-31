@@ -11,7 +11,7 @@ module Pos.Communication.Server.Block
        , handleBlockRequest
        ) where
 
-import           Control.TimeWarp.Logging (logDebug, logInfo)
+import           Control.TimeWarp.Logging (logDebug, logInfo, logWarning)
 import           Formatting               (build, sformat, stext, (%))
 import           Serokell.Util            (VerificationRes (..), listBuilderJSON)
 import           Universum
@@ -46,7 +46,7 @@ handleBlock (SendBlock block) = do
         St.PBRabort msg -> do
             let fmt =
                     "Block processing is aborted for the following reason: "%stext
-            logInfo $ sformat fmt msg
+            logWarning $ sformat fmt msg
         St.PBRgood _ -> logInfo $ "Received block has been adopted"
         St.PBRmore h -> replyToNode $ RequestBlock h
 

@@ -1,10 +1,10 @@
 -- | Helpers for benchmarking blocks distribution
 
 module Pos.Statistics.Block
-       ( logReceivedBlockHeader
-       , logSentBlockHeader
-       , logReceivedBlock
-       , logSentBlock
+       ( statlogReceivedBlockHeader
+       , statlogSentBlockHeader
+       , statlogReceivedBlock
+       , statlogSentBlock
        ) where
 
 import           Control.TimeWarp.Timed    (currentTime, runTimedIO)
@@ -22,13 +22,13 @@ logBlockHeader header = do
     ts <- Timestamp <$> liftIO (runTimedIO currentTime)
     return (Binary.encode $ hash header, ts)
 
-logReceivedBlockHeader, logSentBlockHeader :: WorkMode m => BlockHeader -> m ()
-logReceivedBlockHeader = logStatM "received_block_header" . logBlockHeader
-logSentBlockHeader = logStatM "sent_block_header" . logBlockHeader
+statlogReceivedBlockHeader, statlogSentBlockHeader :: WorkMode m => BlockHeader -> m ()
+statlogReceivedBlockHeader = logStatM "received_block_header" . logBlockHeader
+statlogSentBlockHeader = logStatM "sent_block_header" . logBlockHeader
 
 logBlock :: WorkMode m => Block -> m StatEntry
 logBlock = logBlockHeader . getBlockHeader
 
-logReceivedBlock, logSentBlock :: WorkMode m => Block -> m ()
-logReceivedBlock = logStatM "received_block_body" . logBlock
-logSentBlock = logStatM "sent_log_body" . logBlock
+statlogReceivedBlock, statlogSentBlock :: WorkMode m => Block -> m ()
+statlogReceivedBlock = logStatM "received_block_body" . logBlock
+statlogSentBlock = logStatM "sent_log_body" . logBlock

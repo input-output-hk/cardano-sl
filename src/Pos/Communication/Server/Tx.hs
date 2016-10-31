@@ -16,7 +16,7 @@ import           Pos.Communication.Types  (ResponseMode, SendTx (..), SendTxs (.
 import           Pos.Communication.Util   (modifyListenerLogger)
 import           Pos.DHT                  (ListenerDHT (..))
 import           Pos.State                (processTx)
-import           Pos.Statistics           (logReceivedTx)
+import           Pos.Statistics           (statlogReceivedTx)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
@@ -31,7 +31,7 @@ handleTx
     :: ResponseMode m
     => SendTx -> m ()
 handleTx (SendTx tx) = do
-    logReceivedTx tx
+    statlogReceivedTx tx
     whenM (processTx tx) $
         logInfo (sformat ("Transaction has been added to storage: "%build) tx)
 

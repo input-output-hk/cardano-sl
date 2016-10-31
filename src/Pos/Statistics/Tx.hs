@@ -1,8 +1,8 @@
 -- | Helpers for benchmarking transactions
 
 module Pos.Statistics.Tx
-       ( logReceivedTx
-       , logSentTx
+       ( statlogReceivedTx
+       , statlogSentTx
        ) where
 
 import           Control.TimeWarp.Timed    (currentTime, runTimedIO)
@@ -19,6 +19,6 @@ logTx tx = do
     ts <- Timestamp <$> liftIO (runTimedIO currentTime)
     return (Binary.encode $ hash tx, ts)
 
-logReceivedTx, logSentTx :: WorkMode m => Tx -> m ()
-logReceivedTx = logStatM "received_transaction" . logTx
-logSentTx = logStatM "sent_transaction" . logTx
+statlogReceivedTx, statlogSentTx :: WorkMode m => Tx -> m ()
+statlogReceivedTx = logStatM "received_transaction" . logTx
+statlogSentTx = logStatM "sent_transaction" . logTx

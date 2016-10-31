@@ -16,7 +16,9 @@ module Pos.State.Storage.Mpc
 
        , calculateLeaders
        , getLocalMpcData
+       , getGlobalMpcData
        , getGlobalMpcDataByDepth
+       , getOurCommitment
        , getOurOpening
        , getOurShares
        , getSecret
@@ -34,7 +36,7 @@ module Pos.State.Storage.Mpc
        ) where
 
 import           Control.Lens            (Lens', at, ix, makeClassy, preview, to, use,
-                                          view, (%=), (.=), (.~), (^.), _3)
+                                          view, (%=), (.=), (.~), (^.), _2, _3)
 import           Crypto.Random           (drgNewSeed, seedFromInteger, withDRG)
 import           Data.Default            (Default, def)
 import           Data.Hashable           (Hashable)
@@ -162,8 +164,8 @@ type Query a = forall m x. (HasMpcStorage x, MonadReader x m) => m a
 --                          <> " shares=" <> show (localShareKeys, globalShareKeys)
 --  where keys' = fmap pretty . HM.keys
 
-getLastGlobalMpcData :: Query MpcData
-getLastGlobalMpcData =
+getGlobalMpcData :: Query MpcData
+getGlobalMpcData =
     fromMaybe (panic "No global MPC data for depth 0") <$>
     getGlobalMpcDataByDepth 0
 
@@ -177,7 +179,7 @@ getLocalMpcData =
 
 ensureOwnMpc :: MpcData -> Query MpcData
 ensureOwnMpc md = do
-    globalMpc <- getLastGlobalMpcData
+    globalMpc <- getGlobalMpcData
     -- ourShares <- getOurShares
     ourComm <- view mpcCurrentSecret
     slotId <- view mpcLastProcessedSlot
@@ -564,6 +566,9 @@ setSecret ourPk (comm, op) = do
 
 getSecret :: Query (Maybe (PublicKey, SignedCommitment, Opening))
 getSecret = view mpcCurrentSecret
+
+getOurCommitment :: Query (Maybe SignedCommitment)
+getOurCommitment = fmap (view _2) <$> view mpcCurrentSecret
 
 getOurOpening :: Query (Maybe Opening)
 getOurOpening = fmap (view _3) <$> view mpcCurrentSecret

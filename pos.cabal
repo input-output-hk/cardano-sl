@@ -248,9 +248,9 @@ benchmark pos-bench-criterion
                      , GeneralizedNewtypeDeriving
                      , NoImplicitPrelude
 
-benchmark pos-bench-remote
+benchmark pos-bench-remote-single
   hs-source-dirs:      bench
-  main-is:             Remote/Distributed.hs
+  main-is:             Remote/Single.hs
   other-modules:       Bench.Pos.Remote.Config
                        Bench.Pos.Remote.Launcher
   type:                exitcode-stdio-1.0

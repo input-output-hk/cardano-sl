@@ -408,7 +408,7 @@ mpcProcessOpening pk o =
 -- it's relevant only to opening processing, not shares processing
 -- (for the same reason).
 checkPkInCommitments :: PublicKey -> Update Bool
-checkPkInCommitments pk = zoom' lastVer $ or <$> sequence checks
+checkPkInCommitments pk = zoom' lastVer $ and <$> sequence checks
   where
     member = HM.member pk
     checks =

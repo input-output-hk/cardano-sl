@@ -7,7 +7,7 @@ module Pos.Worker.Block
 
 import           Control.Lens              (ix, (^.), (^?))
 import           Control.TimeWarp.Logging  (logDebug, logInfo, logWarning)
-import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, sec, wait)
+import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, wait)
 import           Formatting                (build, sformat, (%))
 import           Serokell.Util.Exceptions  ()
 import           Serokell.Util.Text        (listJson)
@@ -49,7 +49,7 @@ blkWorkers :: WorkMode m => [m ()]
 blkWorkers = [blocksTransmitter]
 
 blocksTransmitterInterval :: Microsecond
-blocksTransmitterInterval = sec 3
+blocksTransmitterInterval = slotDuration `div` 2
 
 blocksTransmitter :: WorkMode m => m ()
 blocksTransmitter =

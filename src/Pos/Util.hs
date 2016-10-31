@@ -29,6 +29,10 @@ module Pos.Util
        , _neLast
        , zoom'
 
+       -- * Prettification
+       , Color (..)
+       , colorize
+
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
        ) where
@@ -50,6 +54,9 @@ import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (String)
 import           Language.Haskell.TH
 import           Serokell.Util                 (VerificationRes)
+import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
+                                                ConsoleLayer (Foreground),
+                                                SGR (Reset, SetColor), setSGRCode)
 import           Universum
 import           Unsafe                        (unsafeInit, unsafeLast)
 
@@ -192,3 +199,15 @@ magnify' l = reader . runReader . magnify l
 
 -- Monad z => Zoom (StateT s z) (StateT t z) s t
 -- Monad z => Zoom (StateT s z) (StateT t z) s t
+
+----------------------------------------------------------------------------
+-- Prettification.
+----------------------------------------------------------------------------
+
+colorize :: Color -> Text -> Text
+colorize color msg =
+    mconcat
+        [ toText (setSGRCode [SetColor Foreground Vivid color])
+        , msg
+        , toText (setSGRCode [Reset])
+        ]

@@ -79,6 +79,7 @@ library
   build-depends:        HsOpenSSL
                       , QuickCheck
                       , acid-state
+                      , ansi-terminal
                       , async
                       , base
                       , binary

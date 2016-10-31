@@ -158,7 +158,7 @@ import           Pos.Crypto           (EncShare, Hash, PublicKey, Secret, Secret
                                        toPublic, unsafeHash, verify)
 import           Pos.Merkle           (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot,
                                        mtSize)
-import           Pos.Util             (makeLensesData)
+import           Pos.Util             (Color (Magenta), colorize, makeLensesData)
 
 ----------------------------------------------------------------------------
 -- Coin
@@ -590,11 +590,12 @@ type MainBlock = GenericBlock MainBlockchain
 instance Buildable MainBlock where
     build GenericBlock {..} =
         bprint
-            ("MainBlock:\n"%
+            (stext%":\n"%
              "  "%build%
              "  transactions: "%listJson%"\n"%
              stext
             )
+            (colorize Magenta "MainBlock")
             _gbHeader
             _mbTxs
             formatMpc

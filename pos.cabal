@@ -252,6 +252,7 @@ benchmark pos-bench-remote
   hs-source-dirs:      bench
   main-is:             Remote/Distributed.hs
   other-modules:       Bench.Pos.Remote.Config
+                       Bench.Pos.Remote.Launcher
   type:                exitcode-stdio-1.0
   build-depends:       aeson
                      , base

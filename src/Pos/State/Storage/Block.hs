@@ -29,13 +29,14 @@ module Pos.State.Storage.Block
        ) where
 
 import           Control.Lens            (at, ix, makeClassy, preview, use, uses, view,
-                                          views, (%=), (.=), (<~), (^.), _Just)
+                                          views, (%=), (.=), (.~), (<~), (^.), _Just)
 import           Data.Default            (Default, def)
 import qualified Data.HashMap.Strict     as HM
 import           Data.List               ((!!))
 import           Data.List.NonEmpty      (NonEmpty ((:|)), (<|))
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Data.Vector             (Vector)
+import qualified Data.Vector             as V
 import           Serokell.Util.Verify    (VerificationRes (..), isVerFailure,
                                           isVerSuccess, verifyGeneric)
 import           Universum
@@ -104,6 +105,7 @@ getBlock h = view (blkBlocks . at h)
 
 -- | Get block by its depth, i. e. number of times one needs to use
 -- pointer to previous block.
+-- TODO: optimize using blkGenesisBlocks.
 getBlockByDepth :: Word -> Query (Maybe Block)
 getBlockByDepth i = do
     headHash <- view blkHead
@@ -388,7 +390,25 @@ blkCreateGenesisBlock epoch leaders = do
     prevHeader <- readerToState $ getBlockHeader <$> getHeadBlock
     let blk = mkGenesisBlock (Just prevHeader) epoch leaders
     insertBlock $ Left blk
-    blk <$ blkSetHead (headerHash blk)
+    let h = headerHash blk
+    -- when we create genesis block, two situations are possible:
+    -- • it's created for new epoch, then we append it to blkGenesisBlocks
+    -- • it's created for epoch started earlier because of rollback,
+    -- which means that we replace last element in blkGenesisBlocks.
+    -- Other situations are illegal.
+    -- Note that we don't need to remove last element from blkGenesisBlocks
+    -- when rollback happens, because we ensure that if genesis block was
+    -- created for some epoch, then we'll always have genesis block for
+    -- this epoch.
+    blkGenesisBlocks %= appendOrSet (fromIntegral epoch) h
+    blk <$ blkSetHead h
+
+appendOrSet :: Int -> a -> Vector a -> Vector a
+appendOrSet idx val vec
+    | length vec == idx = vec `V.snoc` val
+    | length vec - 1 == idx = vec & ix idx .~ val
+    | otherwise =
+        panic "appendOrSet: idx is not last and is not right after last"
 
 -- | Set head of main blockchain to block which is guaranteed to
 -- represent valid chain and be stored in blkBlocks.

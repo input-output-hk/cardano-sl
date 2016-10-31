@@ -42,13 +42,19 @@ handleBlock (SendBlock block) = do
     statlogReceivedBlock block
     slotId <- getCurrentSlot
     pbr <- St.processBlock slotId block
+    let blkHash = hash block
     case pbr of
         St.PBRabort msg -> do
             let fmt =
                     "Block processing is aborted for the following reason: "%stext
             logWarning $ sformat fmt msg
-        St.PBRgood _ -> logInfo $ "Received block has been adopted"
-        St.PBRmore h -> replyToNode $ RequestBlock h
+        St.PBRgood _ -> logInfo $
+            sformat ("Received block has been adopted: "%build) blkHash
+        St.PBRmore h -> do
+            logInfo $ sformat
+                ("After processing block "%build%", we need block "%build)
+                blkHash h
+            replyToNode $ RequestBlock h
 
 handleBlockHeader
     :: ResponseMode m

@@ -46,7 +46,7 @@ import qualified Data.HashMap.Strict     as HM
 import           Data.List               (nub)
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
-import           Formatting              (build, sformat, shown, (%))
+import           Formatting              (build, sformat, (%))
 import           Serokell.AcidState      ()
 import           Serokell.Util           (VerificationRes (..))
 import           Universum
@@ -143,10 +143,10 @@ createNewBlockDo sk sId = do
     blk <$ txApplyBlocks blocks
 
 canCreateBlock :: SlotId -> Query Bool
-canCreateBlock slotId = do
-    max <- canCreateBlockMax
+canCreateBlock sId = do
+    maxSlotId <- canCreateBlockMax
     --identity $! traceM $ "[~~~~~~] canCreateBlock: slotId=" <> pretty slotId <> " < max=" <> pretty max <> " = " <> show (flattenSlotId slotId < flattenSlotId max)
-    return (flattenSlotId slotId < flattenSlotId max)
+    return (sId <= maxSlotId)
   where
     canCreateBlockMax = addKSafe . either (`SlotId` 0) identity <$> getHeadSlot
     addKSafe si = si {siSlot = min (6 * k - 1) (siSlot si + k)}

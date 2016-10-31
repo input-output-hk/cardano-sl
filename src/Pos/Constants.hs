@@ -34,7 +34,7 @@ epochDuration = epochSlots * slotDuration
 -- | Estimated time needed to broadcast message from one node to all
 -- other nodes.
 networkDiameter :: Microsecond
-networkDiameter = sec 1
+networkDiameter = sec 3
 
 neighborsSendThreshold :: Integral a => a
 neighborsSendThreshold = 4

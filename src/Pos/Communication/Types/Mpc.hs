@@ -17,12 +17,11 @@ import           Universum
 
 import           Control.TimeWarp.Rpc (Message (..))
 import           Pos.Crypto           (PublicKey, Share)
-import           Pos.Types            (Commitment, CommitmentSignature, Opening,
-                                       VssCertificate)
+import           Pos.Types            (Opening, SignedCommitment, VssCertificate)
 
 -- | Message: some node (identified by a pubkey) has sent a signed commitment.
 data SendCommitment =
-    SendCommitment PublicKey (Commitment, CommitmentSignature)
+    SendCommitment PublicKey SignedCommitment
     deriving (Show, Generic)
 
 -- | Message: some node has sent an opening.

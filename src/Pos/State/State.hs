@@ -15,7 +15,6 @@ module Pos.State.State
        , getHeadBlock
        , getLeaders
        , getLocalTxs
-       , getOurCommitment
        , getOurOpening
        , getOurShares
        , mayBlockBeUseful
@@ -45,15 +44,15 @@ import           Pos.DHT           (DHTResponseT)
 import           Serokell.Util     (VerificationRes)
 import           Universum
 
-import           Pos.Crypto        (PublicKey, SecretKey, Share, VssKeyPair)
+import           Pos.Crypto        (PublicKey, SecretKey, Share, VssKeyPair, toPublic)
 import           Pos.Slotting      (MonadSlots, getCurrentSlot)
 import           Pos.State.Acidic  (DiskState, tidyState)
 import qualified Pos.State.Acidic  as A
 import           Pos.State.Storage (IdTimestamp (..), ProcessBlockRes (..), Storage)
-import           Pos.Types         (Block, Commitment, CommitmentSignature, EpochIndex,
-                                    HeaderHash, MainBlock, MainBlockHeader, Opening,
-                                    SlotId, SlotLeaders, Timestamp, Tx, VssCertificate,
-                                    genCommitmentAndOpening)
+import           Pos.Types         (Block, EpochIndex, HeaderHash, MainBlock,
+                                    MainBlockHeader, Opening, SignedCommitment, SlotId,
+                                    SlotLeaders, Timestamp, Tx, VssCertificate,
+                                    genCommitmentAndOpening, mkSignedCommitment)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState
@@ -139,7 +138,7 @@ processBlock si = updateDisk . A.ProcessBlock si
 
 processCommitment
     :: WorkModeDB m
-    => PublicKey -> (Commitment, CommitmentSignature) -> m ()
+    => PublicKey -> SignedCommitment -> m ()
 processCommitment pk c = updateDisk $ A.ProcessCommitment pk c
 
 processOpening
@@ -163,17 +162,18 @@ processVssCertificate pk c = updateDisk $ A.ProcessVssCertificate pk c
 -- will still be lingering there in MPC storage).
 --
 -- It has to be passed the current epoch.
-generateNewSecret :: WorkModeDB m => EpochIndex -> m ()
-generateNewSecret epoch = do
+generateNewSecret
+    :: WorkModeDB m
+    => SecretKey -> EpochIndex -> m (SignedCommitment, Opening)
+generateNewSecret sk epoch = do
     -- TODO: I think it's safe here to perform 3 operations which aren't
     -- grouped into a single transaction here, but I'm still a bit nervous.
     threshold <- queryDisk (A.GetThreshold epoch)
     participants <- queryDisk (A.GetParticipants epoch)
-    secret <- genCommitmentAndOpening threshold participants
-    updateDisk $ A.SetSecret secret
-
-getOurCommitment :: WorkModeDB m => m (Maybe Commitment)
-getOurCommitment = queryDisk A.GetOurCommitment
+    secret <-
+        first (mkSignedCommitment sk epoch) <$>
+        genCommitmentAndOpening threshold participants
+    secret <$ updateDisk (A.SetSecret (toPublic sk) secret)
 
 getOurOpening :: WorkModeDB m => m (Maybe Opening)
 getOurOpening = queryDisk A.GetOurOpening

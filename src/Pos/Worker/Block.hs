@@ -7,7 +7,7 @@ module Pos.Worker.Block
 
 import           Control.Lens              (ix, (^.), (^?))
 import           Control.TimeWarp.Logging  (logDebug, logInfo, logWarning)
-import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, sec, wait)
+import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, wait)
 import           Formatting                (build, sformat, (%))
 import           Serokell.Util.Exceptions  ()
 import           Serokell.Util.Text        (listJson)
@@ -37,7 +37,7 @@ onNewSlotWhenLeader slotId = do
     logInfo "It's time to create a block for current slot"
     sk <- ncSecretKey <$> getNodeContext
     let whenCreated createdBlk = do
-            logInfo $ sformat ("Created a new block: "%build) createdBlk
+            logInfo $ sformat ("Created a new block:\n"%build) createdBlk
             announceBlock $ createdBlk ^. gbHeader
     let whenNotCreated = logInfo "I couldn't create a new block"
     maybe whenNotCreated whenCreated =<< createNewBlock sk slotId
@@ -49,7 +49,7 @@ blkWorkers :: WorkMode m => [m ()]
 blkWorkers = [blocksTransmitter]
 
 blocksTransmitterInterval :: Microsecond
-blocksTransmitterInterval = sec 3
+blocksTransmitterInterval = slotDuration `div` 2
 
 blocksTransmitter :: WorkMode m => m ()
 blocksTransmitter =

@@ -10,7 +10,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp
-    commit: 3a0a24ca52940b3389ad544af0251d40587a0a1e
+    commit: 15dd68d293db5f0d14e7d78d6cd9ac1f5a526afa
   extra-dep: true
 - location:
     git: https://github.com/serokell/serokell-core.git
@@ -22,7 +22,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/pvss-haskell.git
-    commit: 9d19e375c5438b4941dc378512adf6d062d24722
+    commit: 1b898a222341116d210f2d3a5566028e14a335ae
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git

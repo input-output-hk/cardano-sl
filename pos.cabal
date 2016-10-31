@@ -42,6 +42,7 @@ library
                         Pos.Communication.Server.Statistics
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Server.Tx
+                        Pos.Communication.Util
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
@@ -78,6 +79,7 @@ library
   build-depends:        HsOpenSSL
                       , QuickCheck
                       , acid-state
+                      , ansi-terminal
                       , async
                       , base
                       , binary

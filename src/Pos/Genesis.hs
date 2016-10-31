@@ -24,12 +24,11 @@ import           Formatting          (int, sformat, (%))
 import           Universum
 
 import           Pos.Constants       (epochSlots)
-import           Pos.Crypto          (PublicKey, SecretKey, VssKeyPair,
-                                      VssPublicKey, deterministicKeyGen,
-                                      deterministicVssKeyGen, mkSigned,
-                                      toVssPublicKey, unsafeHash)
-import           Pos.Types           (Address (Address), SlotLeaders,
-                                      TxOut (..), Utxo, VssCertificatesMap)
+import           Pos.Crypto          (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
+                                      deterministicKeyGen, deterministicVssKeyGen,
+                                      mkSigned, toVssPublicKey, unsafeHash)
+import           Pos.Types           (Address (Address), SlotLeaders, TxOut (..), Utxo,
+                                      VssCertificatesMap)
 
 ----------------------------------------------------------------------------
 -- Static state

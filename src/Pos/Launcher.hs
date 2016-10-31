@@ -32,11 +32,12 @@ import           Control.TimeWarp.Timed   (MonadTimed, currentTime, fork, killTh
                                            repeatForever, runTimedIO, sec, sleepForever)
 import           Data.Default             (Default (def))
 import           Formatting               (build, sformat, (%))
-import           Universum                hiding (catch, killThread)
+import           Universum                hiding (killThread)
 
 import           Pos.Communication        (SysStartRequest (..), allListeners,
-                                           noCacheMessageNames, sendTx, statsListener,
-                                           sysStartReqListener, sysStartRespListener)
+                                           noCacheMessageNames, sendTx, serverLoggerName,
+                                           statsListener, sysStartReqListener,
+                                           sysStartRespListener)
 import           Pos.Constants            (RunningMode (..), isDevelopment, runningMode)
 import           Pos.Crypto               (SecretKey, VssKeyPair, hash, sign)
 import           Pos.DHT                  (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
@@ -263,6 +264,7 @@ setupLoggingReal LoggingParams {..} = do
     -- TODO: `comm` shouldn't be hardcoded, it should be taken
     -- from MonadTransfer or something
     setSeverityMaybe (lpRootLogger <> "comm") lpCommSeverity
+    setSeverityMaybe (lpRootLogger <> serverLoggerName) lpServerSeverity
 
 nodeStartMsg :: (WithNamedLogger m, MonadIO m) => BaseParams -> m ()
 nodeStartMsg BaseParams {..} = logInfo msg

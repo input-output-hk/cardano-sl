@@ -2,7 +2,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE ViewPatterns          #-}
 
 -- | Storage with node local state which should be persistent.
 
@@ -15,7 +14,6 @@ module Pos.State.Storage
        , getHeadBlock
        , getLeaders
        , getLocalTxs
-       , getOurCommitment
        , getOurOpening
        , getOurShares
        , getParticipants
@@ -62,9 +60,9 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
                                           getSlotDepth, mayBlockBeUseful)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage,
                                           calculateLeaders, getGlobalMpcDataByDepth,
-                                          getLocalMpcData, getOurCommitment,
-                                          getOurOpening, getOurShares, mpcApplyBlocks,
-                                          mpcProcessCommitment, mpcProcessOpening,
+                                          getLocalMpcData, getOurOpening, getOurShares,
+                                          mpcApplyBlocks, mpcProcessCommitment,
+                                          mpcProcessNewSlot, mpcProcessOpening,
                                           mpcProcessShares, mpcProcessVssCertificate,
                                           mpcRollback, mpcVerifyBlock, mpcVerifyBlocks,
                                           setSecret)
@@ -75,11 +73,11 @@ import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           txApplyBlocks, txRollback, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
-                                          EpochIndex, GenesisBlock, MainBlock, Opening,
-                                          SlotId (..), SlotLeaders, VssCertificate,
-                                          blockSlot, blockTxs, epochIndexL, flattenSlotId,
-                                          getAddress, headerHashG, mdVssCertificates,
-                                          txOutAddress, unflattenSlotId, verifyTxAlone)
+                                          EpochIndex, MainBlock, Opening, SlotId (..),
+                                          SlotLeaders, VssCertificate, blockSlot,
+                                          blockTxs, epochIndexL, getAddress, headerHashG,
+                                          mdVssCertificates, txOutAddress,
+                                          unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState, _neHead)
 
 type Query  a = forall m . MonadReader Storage m => m a
@@ -144,10 +142,13 @@ createNewBlockDo sk sId = do
     blk <$ txApplyBlocks blocks
 
 canCreateBlock :: SlotId -> Query Bool
-canCreateBlock (flattenSlotId -> flatSlotId) = (flatSlotId <) <$> canCreateBlockMax
+canCreateBlock sId = do
+    maxSlotId <- canCreateBlockMax
+    --identity $! traceM $ "[~~~~~~] canCreateBlock: slotId=" <> pretty slotId <> " < max=" <> pretty max <> " = " <> show (flattenSlotId slotId < flattenSlotId max)
+    return (sId <= maxSlotId)
   where
     canCreateBlockMax = addKSafe . either (`SlotId` 0) identity <$> getHeadSlot
-    addKSafe si = flattenSlotId $ si {siSlot = min (5 * k - 1) (siSlot si + k)}
+    addKSafe si = si {siSlot = min (6 * k - 1) (siSlot si + k)}
 
 -- | Do all necessary changes when a block is received.
 processBlock :: SlotId -> Block -> Update ProcessBlockRes
@@ -193,12 +194,12 @@ processBlockFinally toRollback blocks = do
     -- possible revert. Note that createGenesisBlock function will
     -- create block only for epoch which is one more than epoch of
     -- head, so we don't perform such check here.  Also note that it
-    -- won't be necessary after we introduce `canCreateBlock` (or
-    -- maybe we already did and this comment is outdated then), but it
-    -- still will be good as an optimization. Even if later we see
+    -- is not strictly necessary, because we have `canCreateBlock`
+    -- which prevents us from creating block when we are not ready,
+    -- but it is still good as an optimization. Even if later we see
     -- that there were other valid blocks in old epoch, we will
     -- replace chain and everything will be fine.
-    createGenesisBlock knownEpoch $> ()
+    createGenesisBlock knownEpoch
     return $ PBRgood (toRollback, blocks)
 
 -- | Do all necessary changes when new slot starts.
@@ -211,9 +212,9 @@ processNewSlotDo :: SlotId -> Update ()
 processNewSlotDo sId@SlotId {..} = do
     slotId .= sId
     when (siSlot == 0) $
-        createGenesisBlock siEpoch >>=
-        maybe (pure ()) (mpcApplyBlocks . pure . Left)
+        createGenesisBlock siEpoch
     blkCleanUp sId
+    mpcProcessNewSlot sId
 
 -- We create genesis block for i-th epoch when head of currently known
 -- best chain is MainBlock corresponding to one of last `k` slots of
@@ -224,20 +225,32 @@ processNewSlotDo sId@SlotId {..} = do
 shouldCreateGenesisBlock :: EpochIndex -> Query Bool
 -- Genesis block for 0-th epoch is hardcoded.
 shouldCreateGenesisBlock 0 = pure False
-shouldCreateGenesisBlock epoch = either (const False) doCheck <$> getHeadSlot
+shouldCreateGenesisBlock epoch = doCheckSoft . either (`SlotId` 0) identity <$> getHeadSlot
   where
-    doCheck si = si > SlotId {siEpoch = epoch - 1, siSlot = 5 * k}
+    -- While we are in process of active development, practically impossible
+    -- situations can happen, so we take them into account. We will think about
+    -- this check later.
+    doCheckSoft si = si >= SlotId {siEpoch = epoch - 1, siSlot = 0}
+    -- TODO add logWarning on `doCheckStrict` failing
+    -- doCheckStrict si = si > SlotId {siEpoch = epoch - 1, siSlot = 5 * k}
 
-createGenesisBlock :: EpochIndex -> Update (Maybe GenesisBlock)
-createGenesisBlock epoch =
+createGenesisBlock :: EpochIndex -> Update ()
+createGenesisBlock epoch = do
+    --readerToState getHeadSlot >>= \hs ->
+    --  identity $! traceM $ "[~~~~~~] createGenesisBlock: epoch="
+    --                       <> pretty epoch <> ", headSlot=" <> pretty (either (`SlotId` 0) identity hs)
     ifM (readerToState $ shouldCreateGenesisBlock epoch)
-        (Just <$> createGenesisBlockDo epoch)
-        (pure Nothing)
+        (createGenesisBlockDo epoch)
+        (pure ())
 
-createGenesisBlockDo :: EpochIndex -> Update GenesisBlock
+createGenesisBlockDo :: EpochIndex -> Update ()
 createGenesisBlockDo epoch = do
+    --traceMpcLastVer
     leaders <- readerToState $ calculateLeadersDo epoch
-    blkCreateGenesisBlock epoch leaders
+    genBlock <- Left <$> blkCreateGenesisBlock epoch leaders
+    -- Genesis block contains no transactions,
+    --    so we should update only MPC
+    mpcApplyBlocks $ genBlock :| []
 
 calculateLeadersDo :: EpochIndex -> Query SlotLeaders
 calculateLeadersDo epoch = do

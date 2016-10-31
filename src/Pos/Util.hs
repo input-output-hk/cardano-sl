@@ -23,16 +23,22 @@ module Pos.Util
 
        -- * Lenses
        , makeLensesData
+       , magnify'
        , _neHead
        , _neTail
        , _neLast
        , zoom'
 
+       -- * Prettification
+       , Color (..)
+       , colorize
+
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
        ) where
 
-import           Control.Lens                  (Lens', LensLike', Zoomed, lensRules, zoom)
+import           Control.Lens                  (Lens', LensLike', Magnified, Zoomed,
+                                                lensRules, magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad
 import           Control.Monad.Fail            (fail)
@@ -48,6 +54,9 @@ import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (String)
 import           Language.Haskell.TH
 import           Serokell.Util                 (VerificationRes)
+import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
+                                                ConsoleLayer (Foreground),
+                                                SGR (Reset, SetColor), setSGRCode)
 import           Universum
 import           Unsafe                        (unsafeInit, unsafeLast)
 
@@ -178,9 +187,27 @@ instance SafeCopy a => SafeCopy (NonEmpty a) where
 -- but actual 'zoom' doesn't work in any 'MonadState', it only works in a
 -- handful of state monads and their combinations defined by 'Zoom'.
 zoom'
-  :: MonadState s m
-  => LensLike' (Zoomed (State s) a) s t -> StateT t Identity a -> m a
+    :: MonadState s m
+    => LensLike' (Zoomed (State s) a) s t -> StateT t Identity a -> m a
 zoom' l = state . runState . zoom l
+
+-- | A 'magnify' which in 'MonadReader'.
+magnify'
+    :: MonadReader s m
+    => LensLike' (Magnified (Reader s) a) s t -> ReaderT t Identity a -> m a
+magnify' l = reader . runReader . magnify l
 
 -- Monad z => Zoom (StateT s z) (StateT t z) s t
 -- Monad z => Zoom (StateT s z) (StateT t z) s t
+
+----------------------------------------------------------------------------
+-- Prettification.
+----------------------------------------------------------------------------
+
+colorize :: Color -> Text -> Text
+colorize color msg =
+    mconcat
+        [ toText (setSGRCode [SetColor Foreground Vivid color])
+        , msg
+        , toText (setSGRCode [Reset])
+        ]

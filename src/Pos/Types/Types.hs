@@ -38,9 +38,10 @@ module Pos.Types.Types
 
        , FtsSeed (..)
        , Commitment (..)
-       , Opening (..)
        , CommitmentSignature
+       , SignedCommitment
        , CommitmentsMap
+       , Opening (..)
        , OpeningsMap
        , SharesMap
        , VssCertificate
@@ -135,6 +136,7 @@ import           Data.Data            (Data)
 import           Data.Default         (Default (def))
 import           Data.DeriveTH        (derive, makeNFData)
 import           Data.Hashable        (Hashable)
+import qualified Data.HashMap.Strict  as HM
 import           Data.Ix              (Ix)
 import           Data.MessagePack     (MessagePack (..))
 import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeCopySimple,
@@ -142,7 +144,8 @@ import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeC
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
-import           Formatting           (Format, bprint, build, int, ords, sformat, (%))
+import           Formatting           (Format, bprint, build, int, ords, sformat, stext,
+                                       (%))
 import           Serokell.AcidState   ()
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Text   (listJson)
@@ -156,7 +159,7 @@ import           Pos.Crypto           (EncShare, Hash, PublicKey, Secret, Secret
                                        toPublic, unsafeHash, verify)
 import           Pos.Merkle           (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot,
                                        mtSize)
-import           Pos.Util             (makeLensesData)
+import           Pos.Util             (Color (Magenta), colorize, makeLensesData)
 
 ----------------------------------------------------------------------------
 -- Coin
@@ -327,6 +330,10 @@ instance MessagePack Commitment
 -- with given public key for given epoch.
 type CommitmentSignature = Signature (EpochIndex, Commitment)
 
+type SignedCommitment = (Commitment, CommitmentSignature)
+
+type CommitmentsMap = HashMap PublicKey (Commitment, CommitmentSignature)
+
 -- | Opening reveals message.
 newtype Opening = Opening
     { getOpening :: Secret
@@ -334,7 +341,6 @@ newtype Opening = Opening
 
 instance MessagePack Opening
 
-type CommitmentsMap = HashMap PublicKey (Commitment, CommitmentSignature)
 type OpeningsMap = HashMap PublicKey Opening
 
 -- | Each node generates a 'FtsSeed', breaks it into 'Share's, and sends
@@ -562,19 +568,23 @@ instance MessagePack (Body MainBlockchain)
 type MainBlockHeader = GenericBlockHeader MainBlockchain
 
 instance Buildable MainBlockHeader where
-    build GenericBlockHeader {..} =
+    build gbh@GenericBlockHeader {..} =
         bprint
             ("MainBlockHeader:\n"%
+             "    hash: "%hashHexF%"\n"%
              "    previous block: "%hashHexF%"\n"%
              "    slot: "%slotIdF%"\n"%
              "    leader: "%build%"\n"%
              "    difficulty: "%int%"\n"
             )
+            headerHash
             _gbhPrevBlock
             _mcdSlot
             _mcdLeaderKey
             _mcdDifficulty
       where
+        headerHash :: HeaderHash
+        headerHash = hash $ Right gbh
         MainConsensusData {..} = _gbhConsensus
 
 -- | MainBlock is a block with transactions and MPC messages. It's the
@@ -584,23 +594,33 @@ type MainBlock = GenericBlock MainBlockchain
 instance Buildable MainBlock where
     build GenericBlock {..} =
         bprint
-            ("MainBlock:\n"%
+            (stext%":\n"%
              "  "%build%
              "  transactions: "%listJson%"\n"%
-             "  number of commitments: "%int%", "%
-             "openings: "%int%", "%
-             "shares: "%int%", "%
-             "certificates: "%int%"\n"
+             stext
             )
+            (colorize Magenta "MainBlock")
             _gbHeader
             _mbTxs
-            (length _mdCommitments)
-            (length _mdOpenings)
-            (length _mdShares)
-            (length _mdVssCertificates)
+            formatMpc
       where
         MainBody {..} = _gbBody
         MpcData {..} = _mbMpc
+        formatMpc =
+            mconcat [ formatCommitments
+                    , formatOpenings
+                    , formatShares
+                    , formatCertificates
+                    ]
+        formatIfNotNull formatter l = if null l then mempty else sformat formatter l
+        formatCommitments = formatIfNotNull
+            ("  commitments from: "%listJson%"\n") (HM.keys _mdCommitments)
+        formatOpenings = formatIfNotNull
+            ("  openings from: "%listJson%"\n") (HM.keys _mdOpenings)
+        formatShares = formatIfNotNull
+            ("  shares from: "%listJson%"\n") (HM.keys _mdShares)
+        formatCertificates = formatIfNotNull
+            ("  certificates from: "%listJson%"\n") (HM.keys _mdVssCertificates)
 
 ----------------------------------------------------------------------------
 -- GenesisBlock

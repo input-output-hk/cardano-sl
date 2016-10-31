@@ -14,7 +14,6 @@ module Pos.State.Storage
        , getHeadBlock
        , getLeaders
        , getLocalTxs
-       , getOurCommitment
        , getOurOpening
        , getOurShares
        , getParticipants
@@ -61,12 +60,12 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
                                           getSlotDepth, mayBlockBeUseful)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage,
                                           calculateLeaders, getGlobalMpcDataByDepth,
-                                          getLocalMpcData, getOurCommitment,
-                                          getOurOpening, getOurShares, mpcApplyBlocks,
-                                          mpcProcessCommitment, mpcProcessNewSlot,
-                                          mpcProcessOpening, mpcProcessShares,
-                                          mpcProcessVssCertificate, mpcRollback,
-                                          mpcVerifyBlock, mpcVerifyBlocks, setSecret)
+                                          getLocalMpcData, getOurOpening, getOurShares,
+                                          mpcApplyBlocks, mpcProcessCommitment,
+                                          mpcProcessNewSlot, mpcProcessOpening,
+                                          mpcProcessShares, mpcProcessVssCertificate,
+                                          mpcRollback, mpcVerifyBlock, mpcVerifyBlocks,
+                                          setSecret)
 import           Pos.State.Storage.Stats (HasStatsData (statsData), IdTimestamp (..),
                                           StatsData, addStatRecord, getStatRecords)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,

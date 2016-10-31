@@ -17,7 +17,6 @@ module Pos.State.Storage.Mpc
        , calculateLeaders
        , getLocalMpcData
        , getGlobalMpcDataByDepth
-       , getOurCommitment
        , getOurOpening
        , getOurShares
        , setSecret
@@ -33,8 +32,8 @@ module Pos.State.Storage.Mpc
        --, traceMpcLastVer
        ) where
 
-import           Control.Lens            (Lens', ix, makeClassy, preview, to, use, view,
-                                          (%=), (.=), (^.))
+import           Control.Lens            (Lens', at, ix, makeClassy, preview, to, use,
+                                          view, (%=), (.=), (^.))
 import           Crypto.Random           (drgNewSeed, seedFromInteger, withDRG)
 import           Data.Default            (Default, def)
 import           Data.Hashable           (Hashable)
@@ -59,10 +58,11 @@ import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types               (Address (getAddress), Block, Commitment (..),
                                           CommitmentSignature, CommitmentsMap,
                                           MpcData (..), Opening (..), OpeningsMap,
-                                          SharesMap, SlotId (..), SlotLeaders, Utxo,
-                                          VssCertificate, VssCertificatesMap, blockMpc,
-                                          blockSlot, blockSlot, mdCommitments, mdOpenings,
-                                          mdShares, mdVssCertificates, unflattenSlotId,
+                                          SharesMap, SignedCommitment, SlotId (..),
+                                          SlotLeaders, Utxo, VssCertificate,
+                                          VssCertificatesMap, blockMpc, blockSlot,
+                                          blockSlot, mdCommitments, mdOpenings, mdShares,
+                                          mdVssCertificates, unflattenSlotId,
                                           verifyOpening)
 import           Pos.Util                (magnify', readerToState, zoom', _neHead)
 
@@ -521,15 +521,17 @@ mpcProcessBlock blk = do
 -- | Set FTS seed (and shares) to be used in this epoch. If the seed
 -- wasn't cleared before (it's cleared whenever new epoch is processed
 -- by mpcProcessNewSlot), it will fail.
-setSecret :: (Commitment, Opening) -> Update ()
-setSecret secret = do
+setSecret :: PublicKey -> (SignedCommitment, Opening) -> Update ()
+setSecret ourPk secret = do
     s <- use mpcCurrentSecret
     case s of
         Just _  -> panic "setSecret: a secret was already present"
-        Nothing -> mpcCurrentSecret .= Just secret
+        Nothing -> setSecretDo ourPk secret
 
-getOurCommitment :: Query (Maybe Commitment)
-getOurCommitment = fmap fst <$> view mpcCurrentSecret
+setSecretDo :: PublicKey -> (SignedCommitment, Opening) -> Update ()
+setSecretDo ourPk secret = do
+    mpcCurrentSecret .= Just (first fst secret)
+    zoom' lastVer $ mpcLocalCommitments . at ourPk .= Just (fst secret)
 
 getOurOpening :: Query (Maybe Opening)
 getOurOpening = fmap snd <$> view mpcCurrentSecret

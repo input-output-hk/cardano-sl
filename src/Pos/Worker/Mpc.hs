@@ -12,10 +12,8 @@ import           Formatting               (build, sformat, (%))
 import           Pos.Communication.Types  (SendCommitment (..), SendOpening (..),
                                            SendShares (..))
 import           Pos.Constants            (k)
-import           Pos.Crypto               (sign)
 import           Pos.DHT                  (sendToNeighbors)
-import           Pos.State                (generateNewSecret, getOurCommitment,
-                                           getOurOpening, getOurShares)
+import           Pos.State                (generateNewSecret, getOurOpening, getOurShares)
 import           Pos.Types                (SlotId (..))
 import           Pos.WorkMode             (WorkMode, getNodeContext, ncPublicKey,
                                            ncSecretKey, ncVssKeyPair)
@@ -31,14 +29,8 @@ mpcOnNewSlot SlotId {..} = do
     -- Generate a new commitment and opening for MPC; send the commitment.
     when (siSlot == 0) $ do
         logDebug $ sformat ("Generating secret for " % build % "th epoch") siEpoch
-        generateNewSecret siEpoch
-        mbComm <- getOurCommitment
-        case mbComm of
-            Nothing -> logDebug "either 'generateNewSecret' didn't generate \
-                                \a commitment or 'getOurCommitment' failed"
-            Just comm -> do
-                let csig = sign ourSk (siEpoch, comm)
-                void . sendToNeighbors $ SendCommitment ourPk (comm, csig)
+        (comm, _) <- generateNewSecret ourSk siEpoch
+        () <$ sendToNeighbors (SendCommitment ourPk comm)
     -- Send the opening
     when (siSlot == 2 * k) $ do
         mbOpen <- getOurOpening

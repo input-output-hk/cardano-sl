@@ -38,9 +38,10 @@ module Pos.Types.Types
 
        , FtsSeed (..)
        , Commitment (..)
-       , Opening (..)
        , CommitmentSignature
+       , SignedCommitment
        , CommitmentsMap
+       , Opening (..)
        , OpeningsMap
        , SharesMap
        , VssCertificate
@@ -329,6 +330,10 @@ instance MessagePack Commitment
 -- with given public key for given epoch.
 type CommitmentSignature = Signature (EpochIndex, Commitment)
 
+type SignedCommitment = (Commitment, CommitmentSignature)
+
+type CommitmentsMap = HashMap PublicKey (Commitment, CommitmentSignature)
+
 -- | Opening reveals message.
 newtype Opening = Opening
     { getOpening :: Secret
@@ -336,7 +341,6 @@ newtype Opening = Opening
 
 instance MessagePack Opening
 
-type CommitmentsMap = HashMap PublicKey (Commitment, CommitmentSignature)
 type OpeningsMap = HashMap PublicKey Opening
 
 -- | Each node generates a 'FtsSeed', breaks it into 'Share's, and sends

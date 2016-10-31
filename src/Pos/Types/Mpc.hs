@@ -2,6 +2,7 @@
 
 module Pos.Types.Mpc
        ( genCommitmentAndOpening
+       , mkSignedCommitment
        , secretToFtsSeed
        , verifyCommitment
        , verifyOpening
@@ -12,10 +13,12 @@ import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM
 import           Universum
 
-import           Pos.Crypto          (Secret, Threshold, VssPublicKey, genSharedSecret,
-                                      getDhSecret, runSecureRandom, secretToDhSecret,
-                                      verifyEncShare, verifySecretProof)
-import           Pos.Types.Types     (Commitment (..), FtsSeed (..), Opening (..))
+import           Pos.Crypto          (Secret, SecretKey, Threshold, VssPublicKey,
+                                      genSharedSecret, getDhSecret, runSecureRandom,
+                                      secretToDhSecret, sign, verifyEncShare,
+                                      verifySecretProof)
+import           Pos.Types.Types     (Commitment (..), EpochIndex, FtsSeed (..),
+                                      Opening (..), SignedCommitment)
 
 -- | Convert Secret to FtsSeed.
 secretToFtsSeed :: Secret -> FtsSeed
@@ -50,3 +53,7 @@ verifyOpening Commitment {..} (Opening secret) =
 xorFtsSeed :: FtsSeed -> FtsSeed -> FtsSeed
 xorFtsSeed (FtsSeed a) (FtsSeed b) =
     FtsSeed $ BS.pack (BS.zipWith xor a b) -- fast due to rewrite rules
+
+-- | Make signed commitment from commitment and epoch index using secret key.
+mkSignedCommitment :: SecretKey -> EpochIndex -> Commitment -> SignedCommitment
+mkSignedCommitment sk i c = (c, sign sk (i, c))

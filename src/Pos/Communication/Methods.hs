@@ -16,10 +16,9 @@ import           Universum
 
 import           Pos.Communication.Types  (SendBlockHeader (..), SendTx (..),
                                            SendTxs (..))
-import           Pos.Crypto               (hash)
 import           Pos.DHT                  (sendToNeighbors, sendToNode)
 import           Pos.Statistics           (statlogSentBlockHeader, statlogSentTx)
-import           Pos.Types                (HeaderHash, MainBlockHeader, Tx)
+import           Pos.Types                (MainBlockHeader, Tx)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Announce new block to all known peers. Intended to be used when
@@ -28,10 +27,7 @@ announceBlock
     :: WorkMode m
     => MainBlockHeader -> m ()
 announceBlock header = do
-    let headerHash :: HeaderHash
-        headerHash = hash $ Right header
-    logDebug $ sformat ("Announcing header to others:\n"%build%"Hash: "%build)
-        header headerHash
+    logDebug $ sformat ("Announcing header to others:\n"%build) header
     statlogSentBlockHeader $ Right header
     void . sendToNeighbors . SendBlockHeader $ header
 

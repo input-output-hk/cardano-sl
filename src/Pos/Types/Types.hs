@@ -564,19 +564,23 @@ instance MessagePack (Body MainBlockchain)
 type MainBlockHeader = GenericBlockHeader MainBlockchain
 
 instance Buildable MainBlockHeader where
-    build GenericBlockHeader {..} =
+    build gbh@GenericBlockHeader {..} =
         bprint
             ("MainBlockHeader:\n"%
+             "    hash: "%hashHexF%"\n"%
              "    previous block: "%hashHexF%"\n"%
              "    slot: "%slotIdF%"\n"%
              "    leader: "%build%"\n"%
              "    difficulty: "%int%"\n"
             )
+            headerHash
             _gbhPrevBlock
             _mcdSlot
             _mcdLeaderKey
             _mcdDifficulty
       where
+        headerHash :: HeaderHash
+        headerHash = hash $ Right gbh
         MainConsensusData {..} = _gbhConsensus
 
 -- | MainBlock is a block with transactions and MPC messages. It's the

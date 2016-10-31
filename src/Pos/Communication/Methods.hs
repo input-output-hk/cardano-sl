@@ -5,20 +5,27 @@ module Pos.Communication.Methods
        , announceTx
        , announceTxs
        , sendTx
+       , announceCommitment
+       , announceOpening
+       , announceShares
+       , announceVssCertificate
        ) where
 
 import           Control.TimeWarp.Logging (logDebug)
 import           Control.TimeWarp.Rpc     (NetworkAddress)
 import           Data.List.NonEmpty       (NonEmpty ((:|)))
 import           Formatting               (build, sformat, (%))
-import           Serokell.Util.Text       (listBuilderJSON)
+import           Serokell.Util.Text       (listBuilderJSON, mapJson)
 import           Universum
 
-import           Pos.Communication.Types  (SendBlockHeader (..), SendTx (..),
-                                           SendTxs (..))
+import           Pos.Communication.Types  (SendBlockHeader (..), SendCommitment (..),
+                                           SendOpening (..), SendShares (..), SendTx (..),
+                                           SendTxs (..), SendVssCertificate (..))
+import           Pos.Crypto               (PublicKey, Share)
 import           Pos.DHT                  (sendToNeighbors, sendToNode)
 import           Pos.Statistics           (statlogSentBlockHeader, statlogSentTx)
-import           Pos.Types                (MainBlockHeader, Tx)
+import           Pos.Types                (MainBlockHeader, Opening, SignedCommitment, Tx,
+                                           VssCertificate)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Announce new block to all known peers. Intended to be used when
@@ -52,6 +59,38 @@ announceTxs txs@(tx:txs') = do
 -- | Send Tx to given address.
 sendTx :: WorkMode m => NetworkAddress -> Tx -> m ()
 sendTx addr = sendToNode addr . SendTx
+
+----------------------------------------------------------------------------
+-- Relaying MPC messages
+----------------------------------------------------------------------------
+
+-- TODO: add statlogging for everything, see e.g. announceTxs
+
+announceCommitment :: WorkMode m => PublicKey -> SignedCommitment -> m ()
+announceCommitment pk comm = do
+    -- TODO: show the commitment
+    logDebug $ sformat
+        ("Announcing "%build%"'s commitment to others: <TODO SHOW COMM>\n") pk
+    void . sendToNeighbors $ SendCommitment pk comm
+
+announceOpening :: WorkMode m => PublicKey -> Opening -> m ()
+announceOpening pk open = do
+    logDebug $ sformat
+        ("Announcing "%build%"'s opening to others:\n"%build) pk open
+    void . sendToNeighbors $ SendOpening pk open
+
+announceShares :: WorkMode m => PublicKey -> HashMap PublicKey Share -> m ()
+announceShares pk shares = do
+    logDebug $ sformat
+        ("Announcing "%build%"'s shares to others:\n"%mapJson) pk shares
+    void . sendToNeighbors $ SendShares pk shares
+
+announceVssCertificate :: WorkMode m => PublicKey -> VssCertificate -> m ()
+announceVssCertificate pk cert = do
+    -- TODO: show the certificate
+    logDebug $ sformat
+        ("Announcing "%build%"'s VSS certificate to others: <TODO SHOW CERT>\n") pk
+    void . sendToNeighbors $ SendVssCertificate pk cert
 
 ----------------------------------------------------------------------------
 -- Legacy

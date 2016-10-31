@@ -15,6 +15,7 @@ module Pos.State.State
        , getHeadBlock
        , getLeaders
        , getLocalTxs
+       , getLocalMpcData
        , getOurOpening
        , getOurShares
        , mayBlockBeUseful
@@ -50,8 +51,8 @@ import           Pos.State.Acidic  (DiskState, tidyState)
 import qualified Pos.State.Acidic  as A
 import           Pos.State.Storage (IdTimestamp (..), ProcessBlockRes (..), Storage)
 import           Pos.Types         (Block, EpochIndex, HeaderHash, MainBlock,
-                                    MainBlockHeader, Opening, SignedCommitment, SlotId,
-                                    SlotLeaders, Timestamp, Tx, VssCertificate,
+                                    MainBlockHeader, MpcData, Opening, SignedCommitment,
+                                    SlotId, SlotLeaders, Timestamp, Tx, VssCertificate,
                                     genCommitmentAndOpening, mkSignedCommitment)
 
 -- | NodeState encapsulates all the state stored by node.
@@ -113,6 +114,9 @@ getHeadBlock = queryDisk A.GetHeadBlock
 
 getLocalTxs :: WorkModeDB m => m (HashSet Tx)
 getLocalTxs = queryDisk A.GetLocalTxs
+
+getLocalMpcData :: WorkModeDB m => m MpcData
+getLocalMpcData = queryDisk A.GetLocalMpcData
 
 mayBlockBeUseful
     :: WorkModeDB m

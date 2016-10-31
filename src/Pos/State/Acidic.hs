@@ -20,6 +20,7 @@ module Pos.State.Acidic
        , GetHeadBlock (..)
        , GetLeaders (..)
        , GetLocalTxs (..)
+       , GetLocalMpcData (..)
        , GetOurOpening (..)
        , GetOurShares (..)
        , GetThreshold (..)
@@ -83,6 +84,7 @@ makeAcidic ''Storage
     [ 'S.getBlock
     , 'S.getLeaders
     , 'S.getLocalTxs
+    , 'S.getLocalMpcData
     , 'S.getHeadBlock
     , 'S.getOurOpening
     , 'S.getOurShares

@@ -100,10 +100,13 @@ instance MonadTransfer m => MonadTransfer (KademliaDHT m) where
 instance (MonadIO m, WithNamedLogger m, MonadCatch m) =>
          WithDefaultMsgHeader (KademliaDHT m) where
     defaultMsgHeader msg = do
-        noCacheNames <- KademliaDHT $ asks kdcNoCacheMessageNames_
-        let header =
-                SimpleHeader . isJust . find (== messageName' msg) $
-                noCacheNames
+        -- *-- Caches are disabled now for non-broadcast messages
+        --     uncomment lines below to enable them
+        --noCacheNames <- KademliaDHT $ asks kdcNoCacheMessageNames_
+        --let header =
+        --        SimpleHeader . isJust . find (== messageName' msg) $
+        --        noCacheNames
+        let header = SimpleHeader True
         withDhtLogger $
             logDebug $
             sformat

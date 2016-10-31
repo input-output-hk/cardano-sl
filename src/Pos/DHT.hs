@@ -47,7 +47,8 @@ import           Control.TimeWarp.Logging  (LoggerName,
 import           Control.TimeWarp.Rpc      (BinaryP, HeaderNContentData, Message,
                                             MonadDialog, MonadTransfer (..),
                                             NetworkAddress, ResponseT, Unpackable, closeR,
-                                            hoistRespCond, mapResponseT, replyH, sendH)
+                                            hoistRespCond, mapResponseT, peerAddr, replyH,
+                                            sendH)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Data.Binary               (Binary)
 import qualified Data.ByteString           as BS
@@ -280,8 +281,9 @@ type instance ThreadId (DHTResponseT m) = ThreadId m
 
 instance (WithNamedLogger m, WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog BinaryP m, MonadIO m) => MonadResponseDHT (DHTResponseT m) where
   replyToNode msg = do
+    addr <- DHTResponseT $ peerAddr
     withDhtLogger $
-      logDebug $ sformat ("Replying with message " % F.build) (messageName' msg)
+      logDebug $ sformat ("Replying with message " % F.build % " to " % F.build) (messageName' msg) addr
     header <- defaultMsgHeader msg
     DHTResponseT $ replyH header msg
   closeResponse = DHTResponseT closeR

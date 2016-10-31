@@ -1,11 +1,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 -- | Slotting functionality.
 
 module Pos.Slotting
-       (MonadSlots (..)
+       ( MonadSlots (..)
        , getCurrentSlot
        , getCurrentSlotFlat
+       , getSlotStart
        , onNewSlot
        ) where
 
@@ -42,6 +44,11 @@ getCurrentSlot =
 -- | Get flat id of current slot based on MonadSlots.
 getCurrentSlotFlat :: MonadSlots m => m FlatSlotId
 getCurrentSlotFlat = flattenSlotId <$> getCurrentSlot
+
+-- | Get timestamp when given slot starts.
+getSlotStart :: MonadSlots m => SlotId -> m Timestamp
+getSlotStart (flattenSlotId -> slotId) =
+    (Timestamp (fromIntegral slotId * slotDuration) +) <$> getSystemStartTime
 
 -- | Run given action as soon as new slot starts, passing SlotId to
 -- it.  This function uses MonadTimed and assumes consistency between

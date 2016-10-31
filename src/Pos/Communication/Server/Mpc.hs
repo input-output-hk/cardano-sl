@@ -10,9 +10,9 @@ module Pos.Communication.Server.Mpc
        , mpcListeners
        ) where
 
-import           Control.TimeWarp.Logging    (logDebug)
+import           Control.TimeWarp.Logging    (logDebug, logInfo)
 import           Control.TimeWarp.Rpc        (BinaryP, MonadDialog)
-import           Formatting                  (build, sformat, (%))
+import           Formatting                  (build, sformat, stext, (%))
 import           Universum
 
 import           Pos.Communication.Types.Mpc as Mpc
@@ -33,9 +33,10 @@ handleCommitment :: WorkMode m => SendCommitment -> m ()
 handleCommitment (SendCommitment pk c) = do
     -- TODO: actually check the commitment
     added <- St.processCommitment pk c
-    when added $
-        logDebug $
-        sformat ("Commitment from "%build%" has been added to local storage") pk
+    let msgAction = if added then "added to local storage" else "ignored"
+    let msg = sformat ("Commitment from "%build%" has been "%stext) pk msgAction
+    let logAction = if added then logInfo else logDebug
+    logAction msg
 
 -- TODO: I don't like that these are in "Server.Mpc" but use 'processOpening'
 -- instead of 'mpcProcessOpening' – the idea is that 'mpcProcessOpening' does
@@ -45,16 +46,18 @@ handleCommitment (SendCommitment pk c) = do
 handleOpening :: WorkMode m => SendOpening -> m ()
 handleOpening (SendOpening pk o) = do
     added <- St.processOpening pk o
-    when added $
-        logDebug $
-        sformat ("Opening from "%build%" has been added to local storage") pk
+    let msgAction = if added then "added to local storage" else "ignored"
+    let msg = sformat ("Opening from "%build%" has been "%stext) pk msgAction
+    let logAction = if added then logInfo else logDebug
+    logAction msg
 
 handleShares :: WorkMode m => SendShares -> m ()
 handleShares (SendShares pk s) = do
     added <- St.processShares pk s
-    when added $
-        logDebug $
-        sformat ("Share from "%build%" has been added to local storage") pk
+    let msgAction = if added then "added to local storage" else "ignored"
+    let msg = sformat ("Shares from "%build%" have been "%stext) pk msgAction
+    let logAction = if added then logInfo else logDebug
+    logAction msg
 
 handleVssCertificate :: WorkMode m => SendVssCertificate -> m ()
 handleVssCertificate (SendVssCertificate pk c) = do

@@ -5,6 +5,12 @@ module Pos.Types.Mpc
        , hasCommitment
        , hasOpening
        , hasShares
+       , isCommitmentId
+       , isCommitmentIdx
+       , isOpeningId
+       , isOpeningIdx
+       , isSharesId
+       , isSharesIdx
        , mkSignedCommitment
        , secretToFtsSeed
        , verifyCommitment
@@ -15,15 +21,18 @@ module Pos.Types.Mpc
 import           Control.Lens        ((^.))
 import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM
+import           Data.Ix             (inRange)
 import           Data.List.NonEmpty  (NonEmpty)
 import           Universum
 
+import           Pos.Constants       (k)
 import           Pos.Crypto          (PublicKey, Secret, SecretKey, Threshold,
                                       VssPublicKey, genSharedSecret, getDhSecret,
                                       runSecureRandom, secretToDhSecret, sign,
                                       verifyEncShare, verifySecretProof)
-import           Pos.Types.Types     (Commitment (..), EpochIndex, FtsSeed (..), MpcData,
-                                      Opening (..), SignedCommitment, mdCommitments,
+import           Pos.Types.Types     (Commitment (..), EpochIndex, FtsSeed (..),
+                                      LocalSlotIndex, MpcData, Opening (..),
+                                      SignedCommitment, SlotId (..), mdCommitments,
                                       mdOpenings, mdShares)
 
 -- | Convert Secret to FtsSeed.
@@ -72,3 +81,21 @@ hasOpening pk md = HM.member pk (md ^. mdOpenings)
 
 hasShares :: PublicKey -> MpcData -> Bool
 hasShares pk md = HM.member pk (md ^. mdShares)
+
+isCommitmentIdx :: LocalSlotIndex -> Bool
+isCommitmentIdx = inRange (0, k)
+
+isOpeningIdx :: LocalSlotIndex -> Bool
+isOpeningIdx = inRange (2 * k, 3 * k - 1)
+
+isSharesIdx :: LocalSlotIndex -> Bool
+isSharesIdx = inRange (4 * k, 5 * k - 1)
+
+isCommitmentId :: SlotId -> Bool
+isCommitmentId = isCommitmentIdx . siSlot
+
+isOpeningId :: SlotId -> Bool
+isOpeningId = isOpeningIdx . siSlot
+
+isSharesId :: SlotId -> Bool
+isSharesId = isSharesIdx . siSlot

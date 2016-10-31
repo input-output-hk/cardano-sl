@@ -62,7 +62,7 @@ import           Pos.Types               (Address (getAddress), Block, Commitmen
                                           VssCertificate, VssCertificatesMap, blockMpc,
                                           blockSlot, mdCommitments, mdOpenings, mdShares,
                                           mdVssCertificates, verifyOpening)
-import           Pos.Util                (readerToState, zoom', _neHead)
+import           Pos.Util                (magnify', readerToState, zoom', _neHead)
 
 data MpcStorageVersion = MpcStorageVersion
     { -- | Secret that we are using for the current epoch.
@@ -154,14 +154,12 @@ type Query a = forall m x. (HasMpcStorage x, MonadReader x m) => m a
 --  where keys' = fmap pretty . HM.keys
 
 getLocalMpcData :: Query MpcData
-getLocalMpcData = do
+getLocalMpcData = magnify' lastVer $ do
     MpcData
-      <$> view' mpcLocalCommitments
-      <*> view' mpcLocalOpenings
-      <*> view' mpcLocalShares
-      <*> view' mpcLocalCertificates
-  where
-    view' l = view (lastVer . l)
+      <$> view mpcLocalCommitments
+      <*> view mpcLocalOpenings
+      <*> view mpcLocalShares
+      <*> view mpcLocalCertificates
 
 -- TODO: check for off-by-one errors!!!!111
 --
@@ -203,6 +201,12 @@ checkOpening globalCommitments (pk, opening) =
         Nothing        -> False
         Just (comm, _) -> verifyOpening comm opening
 
+-- Apply checkOpening using last version.
+checkOpeningLastVer :: PublicKey -> Opening -> Query Bool
+checkOpeningLastVer pk opening =
+    magnify' lastVer $
+    flip checkOpening (pk, opening) <$> view mpcGlobalCommitments
+
 -- | Check that the decrypted share matches the encrypted share in the
 -- commitment
 checkShare
@@ -216,6 +220,27 @@ checkShare globalCommitments globalCertificates (pkTo, pkFrom, share) =
         vssKey <- signedValue <$> HM.lookup pkTo globalCertificates
         encShare <- HM.lookup vssKey (commShares comm)
         return $ verifyShare encShare vssKey share
+
+-- Apply checkShare to all shares in map.
+checkShares
+    :: CommitmentsMap
+    -> VssCertificatesMap
+    -> PublicKey
+    -> HashMap PublicKey Share
+    -> Bool
+checkShares globalCommitments globalCertificates pkTo shares =
+    let listShares :: [(PublicKey, PublicKey, Share)]
+        listShares = map convert $ HM.toList shares
+        convert (pkFrom, share) = (pkTo, pkFrom, share)
+    in all (checkShare globalCommitments globalCertificates) listShares
+
+-- Apply checkShares using last version.
+checkSharesLastVer :: PublicKey -> HashMap PublicKey Share -> Query Bool
+checkSharesLastVer pk shares =
+    magnify' lastVer $
+    (\comms certs -> checkShares comms certs pk shares) <$>
+    view mpcGlobalCommitments <*>
+    view mpcGlobalCertificates
 
 -- | Check that the VSS certificate is signed properly
 checkCert
@@ -323,6 +348,7 @@ mpcVerifyBlock (Right b) = do
                    "some shares don't have corresponding commitments")
             , (null (shares `diffDoubleMap` globalShares),
                    "some shares have already been sent")
+            -- TODO: use checkShares here
             , (let listShares :: [(PublicKey, PublicKey, Share)]
                    listShares = do
                        (pk1, ss) <- HM.toList shares
@@ -394,39 +420,31 @@ mpcProcessCommitment pk c = zoom' lastVer $ do
 
 mpcProcessOpening :: PublicKey -> Opening -> Update ()
 mpcProcessOpening pk o =
-    -- TODO: add 'mpcVerifyOpening' and use it; move the 'unlessM' check there
-    whenM (checkPkInCommitments pk) $ zoom' lastVer $ do
-        mpcLocalOpenings %= HM.insert pk o
-
--- This function checks that opening/shares message received from node
--- identified with given public key is applicable, i. e. there is
--- corresponding commitment in global commitments for current epoch
--- and there is no opening in global openings for current epoch. Note
--- that it doesn't make sense to check local commitments, because when
--- we process opening/shares, current slot is more than `k`, which
--- means local commitments must be empty. Regarding local openings:
--- it's relevant only to opening processing, not shares processing
--- (for the same reason).
-checkPkInCommitments :: PublicKey -> Update Bool
-checkPkInCommitments pk = zoom' lastVer $ and <$> sequence checks
+    whenM (readerToState $ and <$> sequence checks) $
+    zoom' lastVer $ mpcLocalOpenings %= HM.insert pk o
   where
-    member = HM.member pk
-    checks =
-        [ not . member <$> use mpcGlobalOpenings
-        , member <$> use mpcGlobalCommitments
-        ]
+    checks = [checkOpeningAbsence pk, checkOpeningLastVer pk o]
+
+-- Check that there is no opening from given public key in blocks. It is useful
+-- in opening/shares processing.
+checkOpeningAbsence :: PublicKey -> Query Bool
+checkOpeningAbsence pk =
+    magnify' lastVer $ not . HM.member pk <$> view mpcGlobalOpenings
 
 mpcProcessShares :: PublicKey -> HashMap PublicKey Share -> Update ()
 mpcProcessShares pk s =
-    whenM (checkPkInCommitments pk) $ zoom' lastVer $ do
-        -- TODO: we accept shares that we already have (but don't add them to
-        -- local shares) because someone who sent us those shares might not be
-        -- aware of the fact that they are already in the blockchain. On the
-        -- other hand, now nodes can send us huge spammy messages and we can't
-        -- ban them for that. On the third hand, is this a concern?
-        globalSharesForPK <- HM.lookupDefault mempty pk <$> use mpcGlobalShares
-        let s' = s `HM.difference` globalSharesForPK
-        mpcLocalShares %= HM.insertWith HM.union pk s'
+    whenM (readerToState $ and <$> sequence checks) $
+    zoom' lastVer $
+    -- TODO: we accept shares that we already have (but don't add them to
+    -- local shares) because someone who sent us those shares might not be
+    -- aware of the fact that they are already in the blockchain. On the
+    -- other hand, now nodes can send us huge spammy messages and we can't
+    -- ban them for that. On the third hand, is this a concern?
+    do globalSharesForPK <- HM.lookupDefault mempty pk <$> use mpcGlobalShares
+       let s' = s `HM.difference` globalSharesForPK
+       mpcLocalShares %= HM.insertWith HM.union pk s'
+  where
+    checks = [checkOpeningAbsence pk, checkSharesLastVer pk s]
 
 mpcProcessVssCertificate :: PublicKey -> VssCertificate -> Update ()
 mpcProcessVssCertificate pk c = zoom' lastVer $ do

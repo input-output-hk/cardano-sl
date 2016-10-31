@@ -472,19 +472,20 @@ checkOpeningAbsence pk =
     magnify' lastVer $ not . HM.member pk <$> view mpcGlobalOpenings
 
 mpcProcessShares :: PublicKey -> HashMap PublicKey Share -> Update ()
-mpcProcessShares pk s =
-    whenM (readerToState $ and <$> sequence checks) $
-    zoom' lastVer $
-    -- TODO: we accept shares that we already have (but don't add them to
-    -- local shares) because someone who sent us those shares might not be
-    -- aware of the fact that they are already in the blockchain. On the
-    -- other hand, now nodes can send us huge spammy messages and we can't
-    -- ban them for that. On the third hand, is this a concern?
-    do globalSharesForPK <- HM.lookupDefault mempty pk <$> use mpcGlobalShares
-       let s' = s `HM.difference` globalSharesForPK
-       mpcLocalShares %= HM.insertWith HM.union pk s'
-  where
-    checks = [checkSharesLastVer pk s]
+mpcProcessShares pk s
+    | null s = pass
+    | otherwise =
+        whenM (readerToState $ checkSharesLastVer pk s) $
+        zoom' lastVer $
+        -- TODO: we accept shares that we already have (but don't add them to
+        -- local shares) because someone who sent us those shares might not be
+        -- aware of the fact that they are already in the blockchain. On the
+        -- other hand, now nodes can send us huge spammy messages and we can't
+        -- ban them for that. On the third hand, is this a concern?
+        do globalSharesForPK <-
+               HM.lookupDefault mempty pk <$> use mpcGlobalShares
+           let s' = s `HM.difference` globalSharesForPK
+           unlessM (null s') $ mpcLocalShares %= HM.insertWith HM.union pk s'
 
 mpcProcessVssCertificate :: PublicKey -> VssCertificate -> Update ()
 mpcProcessVssCertificate pk c = zoom' lastVer $ do

@@ -217,12 +217,15 @@ checkOpeningLastVer pk opening =
 
 -- | Check that the decrypted share matches the encrypted share in the
 -- commitment
+-- TODO: check that there is no opening for share, but only after fixing
+-- getOurShares!!1!1
 checkShare
     :: CommitmentsMap
+    -> OpeningsMap
     -> VssCertificatesMap
     -> (PublicKey, PublicKey, Share)
     -> Bool
-checkShare globalCommitments globalCertificates (pkTo, pkFrom, share) =
+checkShare globalCommitments _ globalCertificates (pkTo, pkFrom, share) =
     fromMaybe False $ do
         (comm, _) <- HM.lookup pkFrom globalCommitments
         vssKey <- signedValue <$> HM.lookup pkTo globalCertificates
@@ -232,22 +235,26 @@ checkShare globalCommitments globalCertificates (pkTo, pkFrom, share) =
 -- Apply checkShare to all shares in map.
 checkShares
     :: CommitmentsMap
+    -> OpeningsMap
     -> VssCertificatesMap
     -> PublicKey
     -> HashMap PublicKey Share
     -> Bool
-checkShares globalCommitments globalCertificates pkTo shares =
+checkShares globalCommitments globalOpenings globalCertificates pkTo shares =
     let listShares :: [(PublicKey, PublicKey, Share)]
         listShares = map convert $ HM.toList shares
         convert (pkFrom, share) = (pkTo, pkFrom, share)
-    in all (checkShare globalCommitments globalCertificates) listShares
+    in all
+           (checkShare globalCommitments globalOpenings globalCertificates)
+           listShares
 
 -- Apply checkShares using last version.
 checkSharesLastVer :: PublicKey -> HashMap PublicKey Share -> Query Bool
 checkSharesLastVer pk shares =
     magnify' lastVer $
-    (\comms certs -> checkShares comms certs pk shares) <$>
+    (\comms openings certs -> checkShares comms openings certs pk shares) <$>
     view mpcGlobalCommitments <*>
+    view mpcGlobalOpenings <*>
     view mpcGlobalCertificates
 
 -- | Check that the VSS certificate is signed properly
@@ -357,13 +364,9 @@ mpcVerifyBlock (Right b) = do
             , (null (shares `diffDoubleMap` globalShares),
                    "some shares have already been sent")
             -- TODO: use checkShares here
-            , (let listShares :: [(PublicKey, PublicKey, Share)]
-                   listShares = do
-                       (pk1, ss) <- HM.toList shares
-                       (pk2, sh) <- HM.toList ss
-                       return (pk1, pk2, sh)
-               in all (checkShare globalCommitments globalCertificates)
-                      listShares,
+            , (all (uncurry (checkShares globalCommitments globalOpenings
+                             globalCertificates)) $
+                     HM.toList shares,
                    "some decrypted shares don't match encrypted shares \
                    \in the corresponding commitment")
             ]
@@ -434,7 +437,7 @@ mpcProcessOpening pk o =
     checks = [checkOpeningAbsence pk, checkOpeningLastVer pk o]
 
 -- Check that there is no opening from given public key in blocks. It is useful
--- in opening/shares processing.
+-- in opening processing.
 checkOpeningAbsence :: PublicKey -> Query Bool
 checkOpeningAbsence pk =
     magnify' lastVer $ not . HM.member pk <$> view mpcGlobalOpenings
@@ -452,7 +455,7 @@ mpcProcessShares pk s =
        let s' = s `HM.difference` globalSharesForPK
        mpcLocalShares %= HM.insertWith HM.union pk s'
   where
-    checks = [checkOpeningAbsence pk, checkSharesLastVer pk s]
+    checks = [checkSharesLastVer pk s]
 
 mpcProcessVssCertificate :: PublicKey -> VssCertificate -> Update ()
 mpcProcessVssCertificate pk c = zoom' lastVer $ do
@@ -532,6 +535,7 @@ getOurOpening :: Query (Maybe Opening)
 getOurOpening = fmap snd <$> view mpcCurrentSecret
 
 -- | Decrypt shares (in commitments) that we can decrypt.
+-- TODO: do not decrypt shares for which we know openings!
 getOurShares
     :: VssKeyPair                           -- ^ Our VSS key
     -> Integer                              -- ^ Random generator seed

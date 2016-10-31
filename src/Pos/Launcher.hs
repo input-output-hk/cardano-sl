@@ -18,6 +18,8 @@ module Pos.Launcher
        , runSupporterReal
        , runTimeSlaveReal
        , runTimeLordReal
+       -- Export this for custom usage in CLI utils
+       , runServiceMode
        ) where
 
 import           Control.Concurrent.MVar  (newEmptyMVar, takeMVar)

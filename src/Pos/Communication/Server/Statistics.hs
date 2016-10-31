@@ -21,7 +21,7 @@ statsListener :: (MonadDialog BinaryP m, WorkMode m) => ListenerDHT m
 statsListener = ListenerDHT handleStatsRequests
 
 handleStatsRequests :: ResponseMode m => RequestStat -> m ()
-handleStatsRequests (RequestStat label) = do
+handleStatsRequests (RequestStat id label) = do
     logInfo $ sformat ("Requested statistical data with label "%stext) label
     stats <- getStats label
-    replyToNode $ ResponseStat stats
+    replyToNode $ ResponseStat id label stats

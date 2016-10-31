@@ -216,7 +216,7 @@ typeByte DHTClient    = 0xF0
 
 bytesToDHTKey :: IsString s => BS.ByteString -> Either s DHTKey
 bytesToDHTKey bs = if BS.length bs /= 20
-                      then Left "Key ength must be exactly 20 bytes"
+                      then Left "Key length must be exactly 20 bytes"
                       else Right $ DHTKey bs
 
 randomDHTKey :: MonadIO m => DHTNodeType -> m DHTKey

@@ -1,9 +1,12 @@
 module Bench.Pos.Remote.Launcher
        ( startSupporter
        , startFullNode
+       , startCollector
        , NodeNumber
        ) where
 
+import           Control.Concurrent.Chan  (Chan)
+import qualified Control.Concurrent.Chan  as C
 import           Control.TimeWarp.Logging (LoggerName (..), Severity (Debug))
 import           Data.Default             (def)
 import           Data.List                ((!!))
@@ -13,18 +16,21 @@ import           Formatting               (int, sformat, stext, (%))
 import           Text.Parsec              (parse)
 import           Universum
 
-import           Bench.Pos.Remote.Config  (FullNodeConfig (..), SupporterConfig (..),
-                                           readRemoteConfig)
-import           Pos.CLI                  (dhtKeyParser, dhtNodeParser)
+import           Pos.CLI                  (addrParser, dhtKeyParser, dhtNodeParser)
+import           Pos.Communication        (RequestStat (..), ResponseStat (..))
 import           Pos.Crypto               (unsafeHash)
-import           Pos.DHT                  (DHTNodeType (..), dhtNodeType)
+import           Pos.DHT                  (DHTNodeType (..), ListenerDHT (..),
+                                           dhtNodeType, sendToNode)
 import           Pos.Genesis              (genesisAddresses, genesisSecretKeys,
                                            genesisVssKeyPairs)
 import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
                                            NodeParams (..), getCurTimestamp, runNodeStats,
-                                           runSupporterReal)
+                                           runServiceMode, runSupporterReal)
+import           Pos.Statistics           (StatEntry)
 import           Pos.Types                (TxOut (..), Utxo)
 
+import           Bench.Pos.Remote.Config  (CollectorConfig (..), FullNodeConfig (..),
+                                           SupporterConfig (..), readRemoteConfig)
 
 type NodeNumber = Int
 
@@ -97,3 +103,36 @@ startFullNode config nodeNumber = do
             }
 
     runNodeStats params
+
+collectorListener :: MonadIO m => Chan (ResponseStat StatEntry) -> ResponseStat StatEntry -> m ()
+collectorListener channel res = liftIO $ writeChan channel res
+
+startCollector :: FilePath -> IO ()
+startCollector config = do
+    CollectorConfig {..} <- readRemoteConfig config
+
+    let addrs = eitherPanic "Invalid address: " $ mapM (parse addrParser "" . toString) ccNodes
+        enumAddrs = zip [0..] addrs
+        params =
+            BaseParams
+            { bpLogging = def
+            , bpPort = 8095
+            , bpDHTPeers = []
+            , bpDHTKeyOrType = Right DHTClient
+            }
+
+    ch <- C.newChan
+    runServiceMode params [ListenerDHT $ collectorListener ch] $ do
+        forM_ enumAddrs $ \(idx, addr) -> do
+            sendToNode addr (RequestStat idx "received_transaction")
+            sendToNode addr (RequestStat idx "sent_transaction")
+            sendToNode addr (RequestStat idx "received_block_header")
+            sendToNode addr (RequestStat idx "sent_block_header")
+            sendToNode addr (RequestStat idx "received_block_body")
+            sendToNode addr (RequestStat idx "sent_block_body")
+
+        forM_ [0 .. 6 * length addrs] $ \_ -> liftIO $ do
+           (ResponseStat id label res) <- readChan ch
+           print id
+           print label
+           print res

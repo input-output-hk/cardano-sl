@@ -15,14 +15,20 @@ import           Control.TimeWarp.Rpc      (Message (..))
 
 import           Pos.Statistics.MonadStats (CounterLabel)
 
+{-
+`RequestStat` and `Response` need to carry message ids
+so stats collector can match answers with queries.
+TODO: remove after `ListenerDHT` is able to know sender's address
+-}
+
 -- | Message: someone requested a stat
 data RequestStat =
-    RequestStat !CounterLabel
+    RequestStat !Word64 !CounterLabel
     deriving (Generic)
 
 -- | Message: send the list with stats back
 data ResponseStat a =
-    ResponseStat !(Maybe [a])
+    ResponseStat !Word64 !CounterLabel !(Maybe [a])
     deriving (Generic)
 
 instance Binary RequestStat

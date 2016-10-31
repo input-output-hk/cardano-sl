@@ -9,7 +9,6 @@ import           Universum                 hiding ((<>))
 
 import           Bench.Pos.Remote.Launcher (NodeNumber, startFullNode, startSupporter)
 
-
 data RemoteBenchOptions = RBO
     { nodeSpecificOptions :: NodeSpecificOptions
     , configFilePath      :: FilePath
@@ -44,8 +43,8 @@ optParser = RBO
 
 parseOptions :: ParserInfo RemoteBenchOptions
 parseOptions = info (helper <*> optParser) $ fullDesc
-    <> header   "pos-bench-remote - distributed benchmarks for Cardano PoS"
-    <> progDesc "Runs PoS full node and starts benchmarking transactions"
+    <> header   "pos-bench-singlr - run single node for benchmarking remotely"
+    <> progDesc "Runs PoS node with statlogs enabled"
 
 main :: IO ()
 main = do

@@ -1,9 +1,11 @@
-module Pos.CLI (
-  dhtKeyParser,
-  dhtNodeParser
-) where
+module Pos.CLI
+       ( dhtKeyParser
+       , addrParser
+       , dhtNodeParser
+       ) where
 
 import           Control.Monad                      (fail)
+import           Control.TimeWarp.Rpc               (NetworkAddress)
 import           Data.Either                        (either)
 import           Pos.DHT                            (DHTKey, DHTNode (..), bytesToDHTKey)
 import qualified Serokell.Util.Parse                as P
@@ -15,5 +17,9 @@ dhtKeyParser = P.base64Url >>= toDHTKey
   where
     toDHTKey = either fail return . bytesToDHTKey
 
+addrParser :: P.Parser NetworkAddress
+addrParser = (,) <$> (encodeUtf8 <$> P.host) <*> (P.char ':' *> P.port)
+
 dhtNodeParser :: P.Parser DHTNode
-dhtNodeParser = (\host port id -> DHTNode (encodeUtf8 host, port) id) <$> P.host <*> (P.char ':' *> P.port) <*> (P.char '/' *> dhtKeyParser)
+dhtNodeParser = DHTNode <$> addrParser <*> (P.char '/' *> dhtKeyParser)
+

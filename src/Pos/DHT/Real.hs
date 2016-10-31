@@ -107,12 +107,12 @@ instance (MonadIO m, WithNamedLogger m, MonadCatch m) =>
         --        SimpleHeader . isJust . find (== messageName' msg) $
         --        noCacheNames
         let header = SimpleHeader True
-        withDhtLogger $
-            logDebug $
-            sformat
-                ("Preparing message " % stext % ": header " % shown)
-                (messageName' msg)
-                header
+        --withDhtLogger $
+        --    logDebug $
+        --    sformat
+        --        ("Preparing message " % stext % ": header " % shown)
+        --        (messageName' msg)
+        --        header
         pure header
 
 instance MonadTrans KademliaDHT where
@@ -183,8 +183,8 @@ rawListener enableBroadcast cache kdcStopped (h, rawData@(RawData raw)) = withDh
         closeResponse
         throwM $ FatalError "KademliaDHT stopped"
     let mHash = hash raw
-    logDebug $
-        sformat ("Received message " % shown % ", hash=" % int) h mHash
+    --logDebug $
+    --    sformat ("Received message " % shown % ", hash=" % int) h mHash
     ignoreMsg <- case h of
                    SimpleHeader True -> return False
                    _                 -> liftIO . atomically $ updCache cache mHash

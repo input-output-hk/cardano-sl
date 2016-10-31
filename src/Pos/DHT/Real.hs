@@ -23,8 +23,7 @@ import           Control.TimeWarp.Rpc      (BinaryP (..), Binding (..), Listener
                                             MonadDialog, MonadResponse,
                                             MonadTransfer (..), NetworkAddress,
                                             RawData (..), TransferException (..),
-                                            hoistRespCond, listenR, messageName, sendH,
-                                            sendR)
+                                            hoistRespCond, listenR, sendH, sendR)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId, fork, killThread)
 import           Data.Binary               (Binary, decodeOrFail, encode)
 import qualified Data.ByteString           as BS
@@ -42,9 +41,11 @@ import           Pos.DHT                   (DHTData, DHTException (..), DHTKey,
                                             ListenerDHT (..), MonadDHT (..),
                                             MonadMessageDHT (..),
                                             MonadResponseDHT (closeResponse),
-                                            WithDefaultMsgHeader (..), defaultSendToNode,
+                                            WithDefaultMsgHeader (..),
+                                            defaultSendToNeighbors, defaultSendToNode,
                                             filterByNodeType, joinNetworkNoThrow,
                                             randomDHTKey, withDhtLogger)
+import           Pos.Util                  (messageName')
 import           Universum                 hiding (finally, fromStrict, killThread,
                                             toStrict)
 
@@ -101,18 +102,15 @@ instance (MonadIO m, WithNamedLogger m, MonadCatch m) =>
     defaultMsgHeader msg = do
         noCacheNames <- KademliaDHT $ asks kdcNoCacheMessageNames_
         let header =
-                SimpleHeader . isJust . find ((==) . messageName $ proxyOf msg) $
+                SimpleHeader . isJust . find (== messageName' msg) $
                 noCacheNames
         withDhtLogger $
             logDebug $
             sformat
                 ("Preparing message " % stext % ": header " % shown)
-                (messageName $ proxyOf msg)
+                (messageName' msg)
                 header
         pure header
-
-proxyOf :: a -> Proxy a
-proxyOf _ = Proxy
 
 instance MonadTrans KademliaDHT where
   lift = KademliaDHT . lift

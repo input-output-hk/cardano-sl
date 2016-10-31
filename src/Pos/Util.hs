@@ -33,6 +33,9 @@ module Pos.Util
        , Color (..)
        , colorize
 
+       -- * TimeWarp helpers
+       , messageName'
+
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
        ) where
@@ -42,6 +45,7 @@ import           Control.Lens                  (Lens', LensLike', Magnified, Zoo
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad
 import           Control.Monad.Fail            (fail)
+import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
 import           Data.Binary                   (Binary)
 import qualified Data.Binary                   as Binary (encode)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
@@ -211,3 +215,6 @@ colorize color msg =
         , msg
         , toText (setSGRCode [Reset])
         ]
+
+messageName' :: Message r => r -> MessageName
+messageName' = messageName . (const Proxy :: a -> Proxy a)

@@ -2,7 +2,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE ViewPatterns          #-}
 
 -- | Storage with node local state which should be persistent.
 
@@ -47,7 +46,7 @@ import qualified Data.HashMap.Strict     as HM
 import           Data.List               (nub)
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
-import           Formatting              (build, sformat, (%))
+import           Formatting              (build, sformat, shown, (%))
 import           Serokell.AcidState      ()
 import           Serokell.Util           (VerificationRes (..))
 import           Universum
@@ -144,10 +143,13 @@ createNewBlockDo sk sId = do
     blk <$ txApplyBlocks blocks
 
 canCreateBlock :: SlotId -> Query Bool
-canCreateBlock (flattenSlotId -> flatSlotId) = (flatSlotId <) <$> canCreateBlockMax
+canCreateBlock slotId = do
+    max <- canCreateBlockMax
+    --identity $! traceM $ "[~~~~~~] canCreateBlock: slotId=" <> pretty slotId <> " < max=" <> pretty max <> " = " <> show (flattenSlotId slotId < flattenSlotId max)
+    return (flattenSlotId slotId < flattenSlotId max)
   where
     canCreateBlockMax = addKSafe . either (`SlotId` 0) identity <$> getHeadSlot
-    addKSafe si = flattenSlotId $ si {siSlot = min (6 * k - 1) (siSlot si + k)}
+    addKSafe si = si {siSlot = min (6 * k - 1) (siSlot si + k)}
 
 -- | Do all necessary changes when a block is received.
 processBlock :: SlotId -> Block -> Update ProcessBlockRes
@@ -223,23 +225,27 @@ processNewSlotDo sId@SlotId {..} = do
 shouldCreateGenesisBlock :: EpochIndex -> Query Bool
 -- Genesis block for 0-th epoch is hardcoded.
 shouldCreateGenesisBlock 0 = pure False
-shouldCreateGenesisBlock epoch = either (const False) doCheckSoft <$> getHeadSlot
+shouldCreateGenesisBlock epoch = doCheckSoft . either (`SlotId` 0) identity <$> getHeadSlot
   where
     -- While we are in process of active development, practically impossible
     -- situations can happen, so we take them into account. We will think about
     -- this check later.
-    doCheckSoft si = si > SlotId {siEpoch = epoch - 1, siSlot = 0}
+    doCheckSoft si = si >= SlotId {siEpoch = epoch - 1, siSlot = 0}
     -- TODO add logWarning on `doCheckStrict` failing
     -- doCheckStrict si = si > SlotId {siEpoch = epoch - 1, siSlot = 5 * k}
 
 createGenesisBlock :: EpochIndex -> Update ()
-createGenesisBlock epoch =
+createGenesisBlock epoch = do
+    --readerToState getHeadSlot >>= \hs ->
+    --  identity $! traceM $ "[~~~~~~] createGenesisBlock: epoch="
+    --                       <> pretty epoch <> ", headSlot=" <> pretty (either (`SlotId` 0) identity hs)
     ifM (readerToState $ shouldCreateGenesisBlock epoch)
         (createGenesisBlockDo epoch)
         (pure ())
 
 createGenesisBlockDo :: EpochIndex -> Update ()
 createGenesisBlockDo epoch = do
+    --traceMpcLastVer
     leaders <- readerToState $ calculateLeadersDo epoch
     genBlock <- Left <$> blkCreateGenesisBlock epoch leaders
     -- Genesis block contains no transactions,

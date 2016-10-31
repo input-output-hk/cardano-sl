@@ -74,7 +74,7 @@ data KademliaDHTContext m = KademliaDHTContext
     , kdcInitialPeers_        :: [DHTNode]
     , kdcListenByBinding      :: Binding -> KademliaDHT m ()
     , kdcStopped              :: TVar Bool
-    -- TODO temporary code, to remove (after TW-47)
+    -- TODO [CSL-4] temporary code, to remove (after TW-47)
     , kdcOutboundListeners    :: STM.Map NetworkAddress (ThreadId (KademliaDHT m))
     , kdcNoCacheMessageNames_ :: [Text]
     }
@@ -228,7 +228,7 @@ updCache cacheTV dataHash = do
       Just _ -> writeTVar cacheTV cache' >> pure True
       _      -> writeTVar cacheTV (LRU.insert dataHash () cache') >> pure False
 
--- TODO remove this code after TW-47 is done (!!)
+-- TODO [CSL-4] remove this code after TW-47 is done (!!)
 registerOutboundHandler :: (MonadTimed m, MonadIO m) => NetworkAddress -> KademliaDHT m ()
 registerOutboundHandler addr = do
     m <- KademliaDHT $ asks kdcOutboundListeners

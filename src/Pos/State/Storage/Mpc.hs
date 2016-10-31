@@ -60,7 +60,8 @@ import           Pos.Types               (Address (getAddress), Block, Commitmen
                                           MpcData (..), Opening (..), OpeningsMap,
                                           SharesMap, SlotId (..), SlotLeaders, Utxo,
                                           VssCertificate, VssCertificatesMap, blockMpc,
-                                          blockSlot, mdCommitments, mdOpenings, mdShares,
+                                          blockSlot, blockSlot, epochIndexL,
+                                          mdCommitments, mdOpenings, mdShares,
                                           mdVssCertificates, verifyOpening)
 import           Pos.Util                (magnify', readerToState, zoom', _neHead)
 
@@ -466,7 +467,7 @@ mpcRollback (fromIntegral -> n) = do
 
 mpcProcessBlock :: Block -> Update ()
 mpcProcessBlock blk = do
-    --identity $! traceM . (<>) ("[~~~~~~] Processing " <> (either (const "genesis") (const "main") blk) <> " block for epoch: ") . pretty $ blk ^. epochIndexL
+    --identity $! traceM . (<>) ("[~~~~~~] MPC Processing " <> (either (const "genesis") (const "main") blk) <> " block for epoch: ") . pretty $ blk ^. epochIndexL
     lv <- use lastVer
     mpcVersioned %= NE.cons lv
     case blk of

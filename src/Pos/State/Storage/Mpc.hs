@@ -392,7 +392,6 @@ mpcVerifyBlock (Right b) = do
                    "some shares don't have corresponding commitments")
             , (null (shares `diffDoubleMap` globalShares),
                    "some shares have already been sent")
-            -- TODO: use checkShares here
             , (all (uncurry (checkShares globalCommitments globalOpenings
                              globalCertificates)) $
                      HM.toList shares,

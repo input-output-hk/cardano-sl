@@ -33,7 +33,7 @@ module Pos.State.Storage.Mpc
        ) where
 
 import           Control.Lens            (Lens', at, ix, makeClassy, preview, to, use,
-                                          view, (%=), (.=), (^.))
+                                          view, (%=), (.=), (.~), (^.), _3)
 import           Crypto.Random           (drgNewSeed, seedFromInteger, withDRG)
 import           Data.Default            (Default, def)
 import           Data.Hashable           (Hashable)
@@ -61,7 +61,8 @@ import           Pos.Types               (Address (getAddress), Block, Commitmen
                                           SharesMap, SignedCommitment, SlotId (..),
                                           SlotLeaders, Utxo, VssCertificate,
                                           VssCertificatesMap, blockMpc, blockSlot,
-                                          blockSlot, mdCommitments, mdOpenings, mdShares,
+                                          blockSlot, hasCommitment, hasOpening, hasShares,
+                                          mdCommitments, mdOpenings, mdShares,
                                           mdVssCertificates, unflattenSlotId,
                                           verifyOpening)
 import           Pos.Util                (magnify', readerToState, zoom', _neHead)
@@ -119,7 +120,7 @@ data MpcStorage = MpcStorage
       -- deltas for maps in 'MpcStorageVersion'.
       _mpcVersioned         :: NonEmpty MpcStorageVersion
     , -- | Secret that we are using for the current epoch.
-      _mpcCurrentSecret     :: !(Maybe (Commitment, Opening))
+      _mpcCurrentSecret     :: !(Maybe (PublicKey, SignedCommitment, Opening))
     , -- | Last slot we are aware of.
       _mpcLastProcessedSlot :: !SlotId
     }
@@ -161,13 +162,42 @@ type Query a = forall m x. (HasMpcStorage x, MonadReader x m) => m a
 --                          <> " shares=" <> show (localShareKeys, globalShareKeys)
 --  where keys' = fmap pretty . HM.keys
 
+getLastGlobalMpcData :: Query MpcData
+getLastGlobalMpcData =
+    fromMaybe (panic "No global MPC data for depth 0") <$>
+    getGlobalMpcDataByDepth 0
+
 getLocalMpcData :: Query MpcData
-getLocalMpcData = magnify' lastVer $ do
-    MpcData
-      <$> view mpcLocalCommitments
-      <*> view mpcLocalOpenings
-      <*> view mpcLocalShares
-      <*> view mpcLocalCertificates
+getLocalMpcData =
+    (magnify' lastVer $
+     MpcData <$> (view mpcLocalCommitments) <*> (view mpcLocalOpenings) <*>
+     view mpcLocalShares <*>
+     view mpcLocalCertificates) >>=
+    ensureOwnMpc
+
+ensureOwnMpc :: MpcData -> Query MpcData
+ensureOwnMpc md = do
+    globalMpc <- getLastGlobalMpcData
+    -- ourShares <- getOurShares
+    ourComm <- view mpcCurrentSecret
+    slotId <- view mpcLastProcessedSlot
+    return $ maybe identity (ensureOwnMpcDo globalMpc slotId) ourComm md
+
+ensureOwnMpcDo
+    :: MpcData
+    -> SlotId
+    -- -> (HashMap PublicKey Share)
+    -> (PublicKey, SignedCommitment, Opening)
+    -> MpcData
+    -> MpcData
+ensureOwnMpcDo globalMpcData (siSlot -> slotId) (pk, comm, opening) md
+    | slotId < k && (not $ hasCommitment pk globalMpcData) =
+        md & mdCommitments . at pk .~ Just comm
+    | inRange (2 * k, 3 * k - 1) slotId && (not $ hasOpening pk globalMpcData) =
+        md & mdOpenings . at pk .~ Just opening
+    | inRange (5 * k, 6 * k - 1) slotId && (not $ hasShares pk globalMpcData) =
+        md   -- TODO: set our shares, but it's not so easy :(
+    | otherwise = md
 
 -- TODO: check for off-by-one errors!!!!111
 --
@@ -522,19 +552,14 @@ mpcProcessBlock blk = do
 -- wasn't cleared before (it's cleared whenever new epoch is processed
 -- by mpcProcessNewSlot), it will fail.
 setSecret :: PublicKey -> (SignedCommitment, Opening) -> Update ()
-setSecret ourPk secret = do
+setSecret ourPk (comm, op) = do
     s <- use mpcCurrentSecret
     case s of
         Just _  -> panic "setSecret: a secret was already present"
-        Nothing -> setSecretDo ourPk secret
-
-setSecretDo :: PublicKey -> (SignedCommitment, Opening) -> Update ()
-setSecretDo ourPk secret = do
-    mpcCurrentSecret .= Just (first fst secret)
-    zoom' lastVer $ mpcLocalCommitments . at ourPk .= Just (fst secret)
+        Nothing -> mpcCurrentSecret .= Just (ourPk, comm, op)
 
 getOurOpening :: Query (Maybe Opening)
-getOurOpening = fmap snd <$> view mpcCurrentSecret
+getOurOpening = fmap (view _3) <$> view mpcCurrentSecret
 
 -- | Decrypt shares (in commitments) that we can decrypt.
 -- TODO: do not decrypt shares for which we know openings!

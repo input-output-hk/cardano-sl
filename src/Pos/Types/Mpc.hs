@@ -2,6 +2,9 @@
 
 module Pos.Types.Mpc
        ( genCommitmentAndOpening
+       , hasCommitment
+       , hasOpening
+       , hasShares
        , mkSignedCommitment
        , secretToFtsSeed
        , verifyCommitment
@@ -9,16 +12,18 @@ module Pos.Types.Mpc
        , xorFtsSeed
        ) where
 
+import           Control.Lens        ((^.))
 import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM
 import           Universum
 
-import           Pos.Crypto          (Secret, SecretKey, Threshold, VssPublicKey,
-                                      genSharedSecret, getDhSecret, runSecureRandom,
-                                      secretToDhSecret, sign, verifyEncShare,
-                                      verifySecretProof)
-import           Pos.Types.Types     (Commitment (..), EpochIndex, FtsSeed (..),
-                                      Opening (..), SignedCommitment)
+import           Pos.Crypto          (PublicKey, Secret, SecretKey, Threshold,
+                                      VssPublicKey, genSharedSecret, getDhSecret,
+                                      runSecureRandom, secretToDhSecret, sign,
+                                      verifyEncShare, verifySecretProof)
+import           Pos.Types.Types     (Commitment (..), EpochIndex, FtsSeed (..), MpcData,
+                                      Opening (..), SignedCommitment, mdCommitments,
+                                      mdOpenings, mdShares)
 
 -- | Convert Secret to FtsSeed.
 secretToFtsSeed :: Secret -> FtsSeed
@@ -57,3 +62,12 @@ xorFtsSeed (FtsSeed a) (FtsSeed b) =
 -- | Make signed commitment from commitment and epoch index using secret key.
 mkSignedCommitment :: SecretKey -> EpochIndex -> Commitment -> SignedCommitment
 mkSignedCommitment sk i c = (c, sign sk (i, c))
+
+hasCommitment :: PublicKey -> MpcData -> Bool
+hasCommitment pk md = HM.member pk (md ^. mdCommitments)
+
+hasOpening :: PublicKey -> MpcData -> Bool
+hasOpening pk md = HM.member pk (md ^. mdOpenings)
+
+hasShares :: PublicKey -> MpcData -> Bool
+hasShares pk md = HM.member pk (md ^. mdShares)

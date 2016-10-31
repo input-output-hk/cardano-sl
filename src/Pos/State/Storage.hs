@@ -75,9 +75,9 @@ import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           txApplyBlocks, txRollback, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
-                                          EpochIndex, GenesisBlock, MainBlock, Opening,
-                                          SlotId (..), SlotLeaders, VssCertificate,
-                                          blockSlot, blockTxs, epochIndexL, flattenSlotId,
+                                          EpochIndex, MainBlock, Opening, SlotId (..),
+                                          SlotLeaders, VssCertificate, blockSlot,
+                                          blockTxs, epochIndexL, flattenSlotId,
                                           getAddress, headerHashG, mdVssCertificates,
                                           txOutAddress, unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState, _neHead)

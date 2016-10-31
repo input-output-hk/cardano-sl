@@ -30,6 +30,9 @@ import           Pos.Crypto          (PublicKey, SecretKey, VssKeyPair, VssPubli
 import           Pos.Types           (Address (Address), SlotLeaders, TxOut (..), Utxo,
                                       VssCertificatesMap)
 
+genesisN :: Integral i => i
+genesisN = 3
+
 ----------------------------------------------------------------------------
 -- Static state
 ----------------------------------------------------------------------------
@@ -37,7 +40,7 @@ import           Pos.Types           (Address (Address), SlotLeaders, TxOut (..)
 -- TODO get rid of this hardcode !!
 -- Secret keys of genesis block participants shouldn't obviously be widely known
 genesisKeyPairs :: [(PublicKey, SecretKey)]
-genesisKeyPairs = map gen [0 .. 41]
+genesisKeyPairs = map gen [1 .. genesisN]
   where
     gen :: Int -> (PublicKey, SecretKey)
     gen =
@@ -64,7 +67,7 @@ genesisUtxo =
 ----------------------------------------------------------------------------
 
 genesisVssKeyPairs :: [VssKeyPair]
-genesisVssKeyPairs = map gen [0 .. 42]
+genesisVssKeyPairs = map gen [1 .. genesisN]
   where
     gen :: Int -> VssKeyPair
     gen =

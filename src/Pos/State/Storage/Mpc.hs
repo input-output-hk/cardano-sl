@@ -60,9 +60,8 @@ import           Pos.Types               (Address (getAddress), Block, Commitmen
                                           MpcData (..), Opening (..), OpeningsMap,
                                           SharesMap, SlotId (..), SlotLeaders, Utxo,
                                           VssCertificate, VssCertificatesMap, blockMpc,
-                                          blockSlot, epochIndexL, mdCommitments,
-                                          mdOpenings, mdShares, mdVssCertificates,
-                                          verifyOpening)
+                                          blockSlot, mdCommitments, mdOpenings, mdShares,
+                                          mdVssCertificates, verifyOpening)
 import           Pos.Util                (readerToState, zoom', _neHead)
 
 data MpcStorageVersion = MpcStorageVersion
@@ -399,15 +398,23 @@ mpcProcessOpening pk o =
     whenM (checkPkInCommitments pk) $ zoom' lastVer $ do
         mpcLocalOpenings %= HM.insert pk o
 
+-- This function checks that opening/shares message received from node
+-- identified with given public key is applicable, i. e. there is
+-- corresponding commitment in global commitments for current epoch
+-- and there is no opening in global openings for current epoch. Note
+-- that it doesn't make sense to check local commitments, because when
+-- we process opening/shares, current slot is more than `k`, which
+-- means local commitments must be empty. Regarding local openings:
+-- it's relevant only to opening processing, not shares processing
+-- (for the same reason).
 checkPkInCommitments :: PublicKey -> Update Bool
-checkPkInCommitments pk = zoom' lastVer $ all identity <$> sequence checks
+checkPkInCommitments pk = zoom' lastVer $ or <$> sequence checks
   where
-    checks = [ not . HM.member pk <$> use mpcGlobalOpenings
-             , any identity <$> sequence
-                  [ HM.member pk <$> use mpcGlobalCommitments
-                  , HM.member pk <$> use mpcLocalCommitments
-                  ]
-             ]
+    member = HM.member pk
+    checks =
+        [ not . member <$> use mpcGlobalOpenings
+        , member <$> use mpcGlobalCommitments
+        ]
 
 mpcProcessShares :: PublicKey -> HashMap PublicKey Share -> Update ()
 mpcProcessShares pk s =

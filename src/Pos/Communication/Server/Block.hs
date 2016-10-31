@@ -24,8 +24,8 @@ import           Pos.Crypto               (hash)
 import           Pos.DHT                  (ListenerDHT (..), replyToNode)
 import           Pos.Slotting             (getCurrentSlot)
 import qualified Pos.State                as St
-import           Pos.Statistics           (statlogReceivedBlock, statlogReceivedBlockHeader,
-                                           statlogSentBlock)
+import           Pos.Statistics           (statlogReceivedBlock,
+                                           statlogReceivedBlockHeader, statlogSentBlock)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
@@ -77,9 +77,12 @@ handleBlockHeader (SendBlockHeader header) = do
 handleBlockRequest
     :: ResponseMode m
     => RequestBlock -> m ()
-handleBlockRequest (RequestBlock h) =
-    maybe (pure ()) sendBlockBack =<< St.getBlock h
+handleBlockRequest (RequestBlock h) = do
+    logDebug $ sformat ("Block "%build%" is requested") h
+    maybe logNotFound sendBlockBack =<< St.getBlock h
   where
+    logNotFound = logDebug $ sformat ("Block "%build%" wasn't found") h
     sendBlockBack block = do
         statlogSentBlock block
+        logDebug $ sformat ("Sending block "%build%" in reply") h
         replyToNode $ SendBlock block

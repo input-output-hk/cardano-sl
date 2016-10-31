@@ -899,7 +899,7 @@ mkGenesisHeader :: Maybe BlockHeader
 mkGenesisHeader prevHeader epoch body =
     mkGenericHeader prevHeader body consensus ()
   where
-    difficulty = maybe 0 (succ . view difficultyL) prevHeader
+    difficulty = maybe 0 (view difficultyL) prevHeader
     consensus _ _ =
         GenesisConsensusData {_gcdEpoch = epoch, _gcdDifficulty = difficulty}
 

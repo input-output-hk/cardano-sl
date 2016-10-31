@@ -40,7 +40,7 @@ genesisN = 3
 -- TODO get rid of this hardcode !!
 -- Secret keys of genesis block participants shouldn't obviously be widely known
 genesisKeyPairs :: [(PublicKey, SecretKey)]
-genesisKeyPairs = map gen [1 .. genesisN]
+genesisKeyPairs = map gen [0 .. genesisN - 1]
   where
     gen :: Int -> (PublicKey, SecretKey)
     gen =
@@ -67,7 +67,7 @@ genesisUtxo =
 ----------------------------------------------------------------------------
 
 genesisVssKeyPairs :: [VssKeyPair]
-genesisVssKeyPairs = map gen [1 .. genesisN]
+genesisVssKeyPairs = map gen [0 .. genesisN - 1]
   where
     gen :: Int -> VssKeyPair
     gen =

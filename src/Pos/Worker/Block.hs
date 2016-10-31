@@ -15,8 +15,10 @@ import           Universum
 
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
+import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
 import           Pos.State                 (createNewBlock, getHeadBlock, getLeaders)
-import           Pos.Types                 (SlotId (..), gbHeader, gbHeader, slotIdF)
+import           Pos.Types                 (SlotId (..), Timestamp (Timestamp), gbHeader,
+                                            gbHeader, slotIdF)
 import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey,
                                             ncSecretKey)
 
@@ -35,12 +37,19 @@ blkOnNewSlot slotId@SlotId {..} = do
 onNewSlotWhenLeader :: WorkMode m => SlotId -> m ()
 onNewSlotWhenLeader slotId = do
     logInfo $
-        sformat ("I am leader of "%slotIdF%", I will create block soon") slotId
-    wait $ for (slotDuration - networkDiameter)
+        sformat
+            ("I am leader of " %slotIdF % ", I will create block soon")
+            slotId
+    nextSlotStart <- getSlotStart (succ slotId)
+    currentTime <- getCurrentTime
+    let timeToCreate =
+            max currentTime (nextSlotStart - Timestamp networkDiameter)
+        Timestamp timeToWait = timeToCreate - currentTime
+    wait (for timeToWait)
     logInfo "It's time to create a block for current slot"
     sk <- ncSecretKey <$> getNodeContext
     let whenCreated createdBlk = do
-            logInfo $ sformat ("Created a new block:\n"%build) createdBlk
+            logInfo $ sformat ("Created a new block:\n" %build) createdBlk
             announceBlock $ createdBlk ^. gbHeader
     let whenNotCreated = logInfo "I couldn't create a new block"
     maybe whenNotCreated whenCreated =<< createNewBlock sk slotId

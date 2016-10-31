@@ -70,13 +70,18 @@ instance (Monad m, MonadDB m) => MonadDB (DHTResponseT m) where
 type WorkModeDB m = (MonadIO m, MonadDB m)
 
 -- | Open NodeState, reading existing state from disk (if any).
-openState :: (MonadIO m, MonadSlots m) => Bool -> FilePath -> m NodeState
-openState deleteIfExists fp = openStateDo (A.openState deleteIfExists fp)
+openState
+    :: (MonadIO m, MonadSlots m)
+    => Maybe Storage -> Bool -> FilePath -> m NodeState
+openState storage deleteIfExists fp =
+    openStateDo $ maybe (A.openState deleteIfExists fp)
+                        (\s -> A.openStateCustom s deleteIfExists fp)
+                        storage
 
 -- | Open NodeState which doesn't store anything on disk. Everything
 -- is stored in memory and will be lost after shutdown.
-openMemState :: (MonadIO m, MonadSlots m) => m NodeState
-openMemState = openStateDo A.openMemState
+openMemState :: (MonadIO m, MonadSlots m) => Maybe Storage -> m NodeState
+openMemState = openStateDo . maybe A.openMemState A.openMemStateCustom
 
 openStateDo :: (MonadIO m, MonadSlots m) => m DiskState -> m NodeState
 openStateDo openDiskState = do

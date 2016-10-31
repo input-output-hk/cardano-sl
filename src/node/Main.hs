@@ -102,7 +102,7 @@ argsParser =
   where
     peerHelpMsg = "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""
 
-getKey :: Binary key => (Maybe key) -> Maybe FilePath -> FilePath -> IO key -> IO key
+getKey :: Binary key => Maybe key -> Maybe FilePath -> FilePath -> IO key -> IO key
 getKey (Just key) _ _ _ = return key
 getKey _ (Just path) _ _ = decode' path
 getKey _ _ fpath gen = do
@@ -120,7 +120,8 @@ decode' fpath = either fail' return . decode =<< LBS.readFile fpath
 
 main :: IO ()
 main = do
-    (args@(Args {..}),()) <- simpleOptions "pos-node" "PoS prototype node" "Use it!" argsParser empty
+    (args@Args {..},()) <-
+        simpleOptions "pos-node" "PoS prototype node" "Use it!" argsParser empty
     case dhtKey of
       Just key -> do
         let type_ = dhtNodeType key
@@ -144,7 +145,7 @@ main = do
                           then runTimeLordReal (loggingParams "time-lord" args)
                           else runTimeSlaveReal (baseParams "time-slave" args)
         Production systemStart -> return systemStart
-    loggingParams logger (Args {..}) =
+    loggingParams logger Args{..} =
         def
         { lpRootLogger = logger
         , lpMainSeverity = mainLogSeverity
@@ -152,7 +153,7 @@ main = do
         , lpServerSeverity = serverLogSeverity
         , lpCommSeverity = commLogSeverity
         }
-    baseParams logger args@(Args {..}) =
+    baseParams logger args@Args{..} =
         BaseParams
         { bpLogging = loggingParams logger args
         , bpPort = port
@@ -161,7 +162,7 @@ main = do
                               then maybe (Right DHTSupporter) Left dhtKey
                               else maybe (Right DHTFull) Left dhtKey
         }
-    params args@(Args {..}) spendingSK vssSK systemStart =
+    params args@Args{..} spendingSK vssSK systemStart =
         NodeParams
         { npDbPath = Just dbPath
         , npRebuildDb = rebuildDB
@@ -169,4 +170,5 @@ main = do
         , npSecretKey = spendingSK
         , npVssKeyPair = vssSK
         , npBaseParams = baseParams "node" args
+        , npCustomUtxo = Nothing
         }

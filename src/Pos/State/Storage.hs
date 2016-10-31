@@ -8,6 +8,7 @@
 module Pos.State.Storage
        (
          Storage
+       , storageFromUtxo
 
        , Query
        , getBlock
@@ -70,11 +71,12 @@ import           Pos.State.Storage.Stats (HasStatsData (statsData), IdTimestamp 
                                           StatsData, addStatRecord, getStatRecords)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           getLocalTxs, getUtxoByDepth, processTx,
-                                          txApplyBlocks, txRollback, txVerifyBlocks)
+                                          txApplyBlocks, txRollback, txStorageFromUtxo,
+                                          txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
                                           EpochIndex, MainBlock, Opening, SlotId (..),
-                                          SlotLeaders, VssCertificate, blockSlot,
+                                          SlotLeaders, Utxo, VssCertificate, blockSlot,
                                           blockTxs, epochIndexL, getAddress, headerHashG,
                                           mdVssCertificates, txOutAddress,
                                           unflattenSlotId, verifyTxAlone)
@@ -118,6 +120,10 @@ instance Default Storage where
         , __statsData = def
         }
 
+-- | Create default storage with specified utxo
+storageFromUtxo :: Utxo -> Storage
+storageFromUtxo u = Storage def (txStorageFromUtxo u) def (unflattenSlotId 0) def
+
 getHeadSlot :: Query (Either EpochIndex SlotId)
 getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock
 
@@ -127,7 +133,7 @@ getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock
 -- • last known block is not more than k slots away from
 -- given SlotId
 createNewBlock :: SecretKey -> SlotId -> Update (Maybe MainBlock)
-createNewBlock sk sId = do
+createNewBlock sk sId =
     ifM (readerToState (canCreateBlock sId))
         (Just <$> createNewBlockDo sk sId)
         (pure Nothing)

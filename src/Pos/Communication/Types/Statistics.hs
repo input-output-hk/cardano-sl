@@ -34,5 +34,5 @@ instance MessagePack a => MessagePack (ResponseStat a)
 instance Message RequestStat where
     messageName _ = "RequestStat"
 
-instance (Binary a, Typeable a) => Message (ResponseStat a) where
+instance (Typeable a) => Message (ResponseStat a) where
     messageName _ = "ResponseStat"

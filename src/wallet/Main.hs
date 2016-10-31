@@ -77,6 +77,7 @@ main = do
                                       , bpDHTPeers = stDHTPeers
                                       , bpDHTKeyOrType = Right DHTClient
                                       }
+                    , npCustomUtxo = Nothing
                     }
             let addr = genesisAddresses !! i
             let txId = unsafeHash addr

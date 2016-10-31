@@ -11,6 +11,7 @@ module Pos.State.Storage.Tx
        (
          TxStorage
        , HasTxStorage(txStorage)
+       , txStorageFromUtxo
 
        , getLocalTxs
        , getUtxoByDepth
@@ -59,6 +60,10 @@ instance Default TxStorage where
         , _txUtxo = genesisUtxo
         , _txUtxoHistory = [genesisUtxo]
         }
+
+-- | Generate TxStorage from non-default utxo
+txStorageFromUtxo :: Utxo -> TxStorage
+txStorageFromUtxo u = TxStorage mempty u [u]
 
 type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
 

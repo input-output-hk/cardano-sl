@@ -1,16 +1,20 @@
-import           Data.Monoid              ((<>))
-import           Options.Applicative      (Parser, ParserInfo, auto, command, execParser,
-                                           fullDesc, header, help, helper, info, long,
-                                           metavar, option, progDesc, short, strOption,
-                                           subparser, value)
-import           Universum                hiding ((<>))
+module Main (main) where
 
-import Bench.Pos.Remote.Launcher (startFullNode, startSupporter, NodeNumber)
+import           Data.Monoid               ((<>))
+import           Options.Applicative       (Parser, ParserInfo, auto, command, execParser,
+                                            fullDesc, header, help, helper, info, long,
+                                            metavar, option, progDesc, short, strOption,
+                                            subparser, value)
+import           Universum                 hiding ((<>))
+
+import           Bench.Pos.Remote.Launcher (NodeNumber, startFullNode, startSupporter)
+
 
 data RemoteBenchOptions = RBO
     { nodeSpecificOptions :: NodeSpecificOptions
     , configFilePath      :: FilePath
     }
+
 
 data NodeSpecificOptions = FullNodeOptions { nodeNumber :: NodeNumber }
                          | SupporterOptions

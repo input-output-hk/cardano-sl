@@ -46,9 +46,11 @@ import           Pos.DHT                  (DHTKey, DHTNode (dhtAddr), DHTNodeTyp
 import           Pos.DHT.Real             (KademliaDHT, KademliaDHTConfig (..),
                                            runKademliaDHT)
 import           Pos.State                (NodeState, openMemState, openState)
+import           Pos.State.Storage        (storageFromUtxo)
 import           Pos.Statistics           (getNoStatsT, getStatsT)
 import           Pos.Types                (Address, Coin, Timestamp (Timestamp), Tx (..),
-                                           TxId, TxIn (..), TxOut (..), timestampF, txF)
+                                           TxId, TxIn (..), TxOut (..), Utxo, timestampF,
+                                           txF)
 import           Pos.Worker               (runWorkers)
 import           Pos.WorkMode             (ContextHolder (..), DBHolder (..),
                                            NodeContext (..), RealMode, ServiceMode,
@@ -126,6 +128,7 @@ data NodeParams = NodeParams
     , npVssKeyPair  :: !VssKeyPair
     , npBaseParams  :: !BaseParams
     , npSystemStart :: !Timestamp
+    , npCustomUtxo  :: !(Maybe Utxo)
     } deriving (Show)
 
 data BaseParams = BaseParams
@@ -207,10 +210,13 @@ runRealMode NodeParams {..} listeners action = do
   where
     logParams  = bpLogging npBaseParams
     loggerName = lpRootLogger logParams
+    mStorage = storageFromUtxo <$> npCustomUtxo
 
     openDb :: IO NodeState
     openDb = runTimed loggerName . runCH $
-         maybe openMemState (openState npRebuildDb) npDbPath
+         maybe (openMemState mStorage)
+               (openState mStorage npRebuildDb)
+               npDbPath
 
     runDBH :: NodeState -> DBHolder m a -> m a
     runDBH db = flip runReaderT db . getDBHolder

@@ -12,6 +12,7 @@ module Pos.State.Acidic
        , openState
        , openStateCustom
        , openMemState
+       , openMemStateCustom
        , tidyState
 
        , query
@@ -77,7 +78,10 @@ openState :: MonadIO m => Bool -> FilePath -> m DiskState
 openState = openStateCustom def
 
 openMemState :: MonadIO m => m DiskState
-openMemState = openMemoryExtendedState def
+openMemState = openMemStateCustom def
+
+openMemStateCustom :: MonadIO m => Storage -> m DiskState
+openMemStateCustom = openMemoryExtendedState
 
 closeState :: MonadIO m => DiskState -> m ()
 closeState = closeExtendedState

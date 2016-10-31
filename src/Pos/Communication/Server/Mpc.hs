@@ -23,7 +23,7 @@ import           Pos.WorkMode                (WorkMode)
 
 mpcListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
 mpcListeners =
-    map (modifyListenerLogger "tx")
+    map (modifyListenerLogger "mpc")
     [ ListenerDHT handleCommitment
     , ListenerDHT handleOpening
     , ListenerDHT handleShares

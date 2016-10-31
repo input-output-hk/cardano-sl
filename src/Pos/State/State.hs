@@ -100,7 +100,7 @@ updateDisk e = flip A.update e =<< getNodeState
 
 -- | Get list of slot leaders for the given epoch. Empty list is returned
 -- if no information is available.
-getLeaders :: WorkModeDB m => EpochIndex -> m SlotLeaders
+getLeaders :: WorkModeDB m => EpochIndex -> m (Maybe SlotLeaders)
 getLeaders = queryDisk . A.GetLeaders
 
 -- | Get Block by hash.
@@ -169,7 +169,8 @@ generateNewSecret sk epoch = do
     -- TODO: I think it's safe here to perform 3 operations which aren't
     -- grouped into a single transaction here, but I'm still a bit nervous.
     threshold <- queryDisk (A.GetThreshold epoch)
-    participants <- queryDisk (A.GetParticipants epoch)
+    -- FIXME
+    participants <- fromMaybe undefined <$> queryDisk (A.GetParticipants epoch)
     secret <-
         first (mkSignedCommitment sk epoch) <$>
         genCommitmentAndOpening threshold participants

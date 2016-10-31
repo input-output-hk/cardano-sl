@@ -29,7 +29,7 @@ module Pos.State.Storage.Block
        ) where
 
 import           Control.Lens            (at, ix, makeClassy, preview, use, uses, view,
-                                          views, (%=), (.=), (<~), (^.), (^?))
+                                          views, (%=), (.=), (<~), (^.), _Just)
 import           Data.Default            (Default, def)
 import qualified Data.HashMap.Strict     as HM
 import           Data.List               ((!!))
@@ -121,26 +121,18 @@ getHeadBlock = fromMaybe reportError <$> getBlockByDepth 0
   where
     reportError = panic "blkHead is not found in storage"
 
--- | Get list of slot leaders for the given epoch. Empty list is returned
--- if no information is available.
-getLeaders :: EpochIndex -> Query SlotLeaders
+-- | Get list of slot leaders for the given epoch if it is known.
+getLeaders :: EpochIndex -> Query (Maybe SlotLeaders)
 getLeaders (fromIntegral -> epoch) = do
     blkIdx <- preview (blkGenesisBlocks . ix epoch)
-    maybe (pure mempty) (fmap leadersFromBlock . getBlock) blkIdx
+    maybe (pure Nothing) (fmap leadersFromBlock . getBlock) blkIdx
   where
-    leadersFromBlock (Just (Left genBlock)) = genBlock ^. blockLeaders
-    leadersFromBlock _                      = mempty
-
-getLeadersMaybe :: EpochIndex -> Query (Maybe SlotLeaders)
-getLeadersMaybe = fmap f . getLeaders
-  where
-    f v
-        | null v = Nothing
-        | otherwise = Just v
+    leadersFromBlock (Just (Left genBlock)) = Just $ genBlock ^. blockLeaders
+    leadersFromBlock _                      = Nothing
 
 -- | Get leader of the given slot if it's known.
 getLeader :: SlotId -> Query (Maybe PublicKey)
-getLeader SlotId {..} = (^? ix (fromIntegral siSlot)) <$> getLeaders siEpoch
+getLeader SlotId {..} = (preview $ _Just . ix (fromIntegral siSlot)) <$> getLeaders siEpoch
 
 -- | Get depth of the first main block whose SlotId ≤ given value.
 -- Depth of the deepest (i. e. 0-th genesis) block is returned if
@@ -162,7 +154,7 @@ getSlotDepth slotId = do
 mayBlockBeUseful :: SlotId -> MainBlockHeader -> Query VerificationRes
 mayBlockBeUseful currentSlotId header = do
     let hSlot = header ^. headerSlot
-    leaders <- getLeadersMaybe (siEpoch hSlot)
+    leaders <- getLeaders (siEpoch hSlot)
     isInteresting <- isHeaderInteresting header
     isKnown <- views blkBlocks (HM.member (hash $ Right header))
     let vhe = def {vheCurrentSlot = Just currentSlotId, vheLeaders = leaders}
@@ -203,7 +195,7 @@ blkProcessBlock currentSlotId blk = do
     leaders <-
         either
             (const $ pure Nothing)
-            (readerToState . getLeadersMaybe . siEpoch . view blockSlot)
+            (readerToState . getLeaders . siEpoch . view blockSlot)
             blk
     let vhe = def {vheCurrentSlot = Just currentSlotId, vheLeaders = leaders}
     let header = blk ^. blockHeader

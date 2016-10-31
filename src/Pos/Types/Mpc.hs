@@ -15,6 +15,7 @@ module Pos.Types.Mpc
 import           Control.Lens        ((^.))
 import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM
+import           Data.List.NonEmpty  (NonEmpty)
 import           Universum
 
 import           Pos.Crypto          (PublicKey, Secret, SecretKey, Threshold,
@@ -32,7 +33,7 @@ secretToFtsSeed = FtsSeed . getDhSecret . secretToDhSecret
 -- | Generate securely random FtsSeed.
 genCommitmentAndOpening
     :: MonadIO m
-    => Threshold -> [VssPublicKey] -> m (Commitment, Opening)
+    => Threshold -> NonEmpty VssPublicKey -> m (Commitment, Opening)
 genCommitmentAndOpening n pks =
     liftIO . runSecureRandom . fmap convertRes . genSharedSecret n $ pks
   where
@@ -40,7 +41,7 @@ genCommitmentAndOpening n pks =
         ( Commitment
           { commExtra = extra
           , commProof = proof
-          , commShares = HM.fromList $ zip pks shares
+          , commShares = HM.fromList $ zip (toList pks) shares
           }
         , Opening secret)
 

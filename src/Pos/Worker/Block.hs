@@ -23,11 +23,14 @@ import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKe
 -- | Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode m => SlotId -> m ()
 blkOnNewSlot slotId@SlotId {..} = do
-    leaders <- getLeaders siEpoch
-    logDebug (sformat ("Slot leaders: "%listJson) leaders)
-    ourPk <- ncPublicKey <$> getNodeContext
-    let leader = leaders ^? ix (fromIntegral siSlot)
-    when (leader == Just ourPk) $ onNewSlotWhenLeader slotId
+    leadersMaybe <- getLeaders siEpoch
+    case leadersMaybe of
+        Nothing -> logWarning "Leaders are not known for new slot"
+        Just leaders -> do
+            logDebug (sformat ("Slot leaders: " %listJson) leaders)
+            ourPk <- ncPublicKey <$> getNodeContext
+            let leader = leaders ^? ix (fromIntegral siSlot)
+            when (leader == Just ourPk) $ onNewSlotWhenLeader slotId
 
 onNewSlotWhenLeader :: WorkMode m => SlotId -> m ()
 onNewSlotWhenLeader slotId = do

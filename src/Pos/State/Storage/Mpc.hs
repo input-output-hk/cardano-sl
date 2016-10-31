@@ -42,7 +42,6 @@ import           Data.Ix                 (inRange)
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty      as NE
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
-import qualified Data.Vector             as V
 import           Serokell.Util.Verify    (VerificationRes (..), isVerSuccess,
                                           verifyGeneric)
 import           Universum
@@ -227,8 +226,7 @@ calculateLeaders utxo threshold = do
                             <*> view (lastVer . mpcGlobalShares)
     return $ case mbSeed of
         Left e     -> Left e
-        Right seed -> Right . V.fromList . map getAddress $
-                      followTheSatoshi seed utxo
+        Right seed -> Right $ fmap getAddress $ followTheSatoshi seed utxo
 
 -- | Check that the secret revealed in the opening matches the secret proof
 -- in the commitment

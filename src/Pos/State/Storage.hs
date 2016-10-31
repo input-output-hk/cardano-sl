@@ -43,7 +43,7 @@ import           Data.Acid               ()
 import           Data.Default            (Default, def)
 import qualified Data.HashMap.Strict     as HM
 import           Data.List               (nub)
-import           Data.List.NonEmpty      (NonEmpty ((:|)))
+import           Data.List.NonEmpty      (NonEmpty ((:|)), nonEmpty)
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Formatting              (build, sformat, (%))
 import           Serokell.AcidState      ()
@@ -271,14 +271,14 @@ calculateLeadersDo epoch = do
 --
 --   1. it was a stakeholder
 --   2. it had already sent us its VSS key by that time
-getParticipants :: EpochIndex -> Query [VssPublicKey]
+getParticipants :: EpochIndex -> Query (Maybe (NonEmpty VssPublicKey))
 getParticipants epoch = do
     depth <- getSlotDepth $ mpcCrucialSlot epoch
     utxo <- fromMaybe onErrorGetUtxo <$> getUtxoByDepth depth
     keymap <- maybe onErrorGetKeymap (view mdVssCertificates) <$>
               getGlobalMpcDataByDepth depth
     let stakeholders = nub $ map (getAddress . txOutAddress) (toList utxo)
-    return $ map signedValue $ mapMaybe (`HM.lookup` keymap) stakeholders
+    return $ nonEmpty $ map signedValue $ mapMaybe (`HM.lookup` keymap) stakeholders
   where
     onErrorGetUtxo =
         panic "Failed to get utxo necessary to enumerate participants"

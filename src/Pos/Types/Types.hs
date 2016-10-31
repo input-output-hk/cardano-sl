@@ -138,12 +138,12 @@ import           Data.DeriveTH        (derive, makeNFData)
 import           Data.Hashable        (Hashable)
 import qualified Data.HashMap.Strict  as HM
 import           Data.Ix              (Ix)
+import           Data.List.NonEmpty   (NonEmpty)
 import           Data.MessagePack     (MessagePack (..))
 import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeCopySimple,
                                        deriveSafeCopySimpleIndexedType, safeGet, safePut)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
-import           Data.Vector          (Vector)
 import           Formatting           (Format, bprint, build, int, ords, sformat, stext,
                                        (%))
 import           Serokell.AcidState   ()
@@ -363,7 +363,7 @@ type VssCertificate = Signed VssPublicKey
 -- during some period of time.
 type VssCertificatesMap = HashMap PublicKey VssCertificate
 
-type SlotLeaders = Vector PublicKey
+type SlotLeaders = NonEmpty PublicKey
 
 ----------------------------------------------------------------------------
 -- GenericBlock
@@ -639,7 +639,7 @@ instance Blockchain GenesisBlockchain where
     -- | Proof of GenesisBody is just a hash of slot leaders list.
     -- TODO: do we need a Merkle tree? This list probably won't be large.
     data BodyProof GenesisBlockchain = GenesisProof
-        !(Hash (Vector PublicKey))
+        !(Hash SlotLeaders)
         deriving (Eq, Generic, Show)
     data ConsensusData GenesisBlockchain = GenesisConsensusData
         { -- | Index of the slot for which this genesis block is relevant.

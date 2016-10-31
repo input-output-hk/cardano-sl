@@ -17,9 +17,9 @@ module Pos.Genesis
        ) where
 
 import qualified Data.HashMap.Strict as HM
+import qualified Data.List.NonEmpty  as NE
 import qualified Data.Map.Strict     as M
 import qualified Data.Text           as T
-import qualified Data.Vector         as V
 import           Formatting          (int, sformat, (%))
 import           Universum
 
@@ -85,7 +85,7 @@ genesisCertificates =
         genesisVssPublicKeys
 
 genesisLeaders :: SlotLeaders
-genesisLeaders = V.replicate epochSlots pk
+genesisLeaders = NE.fromList $ replicate epochSlots pk
   where
     pk =
         fromMaybe (panic "genesisPublicKeys is empty") $

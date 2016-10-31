@@ -83,7 +83,7 @@ hasShares :: PublicKey -> MpcData -> Bool
 hasShares pk md = HM.member pk (md ^. mdShares)
 
 isCommitmentIdx :: LocalSlotIndex -> Bool
-isCommitmentIdx = inRange (0, k)
+isCommitmentIdx = inRange (0, k - 1)
 
 isOpeningIdx :: LocalSlotIndex -> Bool
 isOpeningIdx = inRange (2 * k, 3 * k - 1)

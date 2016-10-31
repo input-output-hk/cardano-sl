@@ -16,7 +16,9 @@ module Pos.State.State
        , getLeaders
        , getLocalTxs
        , getLocalMpcData
+       , getGlobalMpcData
        , getSecret
+       , getOurCommitment
        , getOurOpening
        , getOurShares
        , mayBlockBeUseful
@@ -119,6 +121,9 @@ getLocalTxs = queryDisk A.GetLocalTxs
 getLocalMpcData :: WorkModeDB m => m MpcData
 getLocalMpcData = queryDisk A.GetLocalMpcData
 
+getGlobalMpcData :: WorkModeDB m => m MpcData
+getGlobalMpcData = queryDisk A.GetGlobalMpcData
+
 mayBlockBeUseful
     :: WorkModeDB m
     => SlotId -> MainBlockHeader -> m VerificationRes
@@ -184,6 +189,9 @@ generateNewSecret sk epoch = do
 
 getSecret :: WorkModeDB m => m (Maybe (PublicKey, SignedCommitment, Opening))
 getSecret = queryDisk A.GetSecret
+
+getOurCommitment :: WorkModeDB m => m (Maybe SignedCommitment)
+getOurCommitment = queryDisk A.GetOurCommitment
 
 getOurOpening :: WorkModeDB m => m (Maybe Opening)
 getOurOpening = queryDisk A.GetOurOpening

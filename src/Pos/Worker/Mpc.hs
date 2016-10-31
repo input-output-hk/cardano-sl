@@ -5,6 +5,7 @@ module Pos.Worker.Mpc
        , mpcWorkers
        ) where
 
+import           Control.Lens              (at, view)
 import           Control.TimeWarp.Logging  (logDebug)
 import           Control.TimeWarp.Logging  (logWarning)
 import           Control.TimeWarp.Timed    (Microsecond, repeatForever, sec)
@@ -19,9 +20,12 @@ import           Pos.Communication.Types   (SendCommitment (..), SendOpening (..
                                             SendShares (..))
 import           Pos.Constants             (k)
 import           Pos.DHT                   (sendToNeighbors)
-import           Pos.State                 (generateNewSecret, getLocalMpcData,
+import           Pos.State                 (generateNewSecret, getGlobalMpcData,
+                                            getLocalMpcData, getOurCommitment,
                                             getOurOpening, getOurShares, getSecret)
-import           Pos.Types                 (MpcData (..), SlotId (..), isCommitmentIdx)
+import           Pos.Types                 (MpcData (..), SlotId (..), isCommitmentIdx,
+                                            isOpeningIdx, isSharesIdx, mdCommitments,
+                                            mdOpenings, mdShares)
 import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey,
                                             ncSecretKey, ncVssKeyPair)
 
@@ -42,16 +46,33 @@ mpcOnNewSlot SlotId {..} = do
         logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
         (comm, _) <- generateNewSecret ourSk siEpoch
         logDebug $ sformat ("Generated secret for "%ords%" epoch") siEpoch
-        () <$ sendToNeighbors (SendCommitment ourPk comm)
-        logDebug "Sent commitment to neighbors"
+    shouldSendCommitment <- do
+        commitmentInBlockchain <-
+            isJust . view (mdCommitments . at ourPk) <$> getGlobalMpcData
+        return $ isCommitmentIdx siSlot && not commitmentInBlockchain
+    when shouldSendCommitment $ do
+        mbComm <- getOurCommitment
+        whenJust mbComm $ \comm -> do
+            void . sendToNeighbors $ SendCommitment ourPk comm
+            logDebug "Sent commitment to neighbors"
     -- Send the opening
-    when (siSlot == 2 * k) $ do
+    shouldSendOpening <- do
+        openingInBlockchain <-
+            isJust . view (mdOpenings . at ourPk) <$> getGlobalMpcData
+        return $ isOpeningIdx siSlot && not openingInBlockchain
+    when shouldSendOpening $ do
         mbOpen <- getOurOpening
         whenJust mbOpen $ \open -> do
             void . sendToNeighbors $ SendOpening ourPk open
             logDebug "Sent opening to neighbors"
     -- Send decrypted shares that others have sent us
-    when (siSlot == 4 * k) $ do
+    shouldSendShares <- do
+        -- TODO: here we assume that all shares are always sent as a whole
+        -- package.
+        sharesInBlockchain <-
+            isJust . view (mdShares . at ourPk) <$> getGlobalMpcData
+        return $ isSharesIdx siSlot && not sharesInBlockchain
+    when shouldSendShares $ do
         ourVss <- ncVssKeyPair <$> getNodeContext
         shares <- getOurShares ourVss
         unless (null shares) $ do

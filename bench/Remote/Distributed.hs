@@ -8,6 +8,7 @@ import           Options.Applicative      (Parser, ParserInfo, auto, command, ex
                                            fullDesc, header, help, helper, info, long,
                                            metavar, option, progDesc, short, strOption,
                                            subparser, value)
+import           Control.TimeWarp.Logging (Severity (Debug))
 import           Text.Parsec              (parse)
 import           Universum                hiding ((<>))
 
@@ -75,7 +76,10 @@ startSupporter config = do
     when (keyType /= Just DHTSupporter) $
         panic $ sformat ("Invalid type of DHT key: "%stext%" (should be `Just DHTSupporter`)") $ show keyType
 
-    let logging = def { lpRootLogger = "supporter" }
+    let logging = def
+                  { lpRootLogger = "supporter"
+                  , lpMainSeverity = Debug
+                  }
         params = BaseParams
                  { bpLogging = logging
                  , bpPort = scPort
@@ -96,7 +100,10 @@ startFullNode config nodeNumber = do
     let startTime = fromJust $ fromIntegral <$> fncStartTime <|> Just curTime
 
     let dhtSupporter = eitherPanic "Invalid supporter address: " $ parse dhtNodeParser "" $ toString fncSupporterAddr
-        logging = def { lpRootLogger = LoggerName ("fullnode." ++ show nodeNumber) }
+        logging = def
+                  { lpRootLogger = LoggerName ("fullnode." ++ show nodeNumber)
+                  , lpMainSeverity = Debug
+                  }
         baseParams =
             BaseParams
             { bpLogging      = logging
@@ -115,7 +122,6 @@ startFullNode config nodeNumber = do
             }
 
     runNodeStats params
-
 
 main :: IO ()
 main = do

@@ -20,8 +20,8 @@ import           Pos.Communication.Types   (SendCommitment (..), SendOpening (..
 import           Pos.Constants             (k)
 import           Pos.DHT                   (sendToNeighbors)
 import           Pos.State                 (generateNewSecret, getLocalMpcData,
-                                            getOurOpening, getOurShares)
-import           Pos.Types                 (MpcData (..), SlotId (..))
+                                            getOurOpening, getOurShares, getSecret)
+import           Pos.Types                 (MpcData (..), SlotId (..), isCommitmentIdx)
 import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey,
                                             ncSecretKey, ncVssKeyPair)
 
@@ -33,8 +33,12 @@ mpcOnNewSlot SlotId {..} = do
     -- TODO: should we randomise sending times to avoid the situation when
     -- the network becomes overwhelmed with everyone's messages?
 
-    -- Generate a new commitment and opening for MPC; send the commitment.
-    when (siSlot == 0) $ do
+    -- If we haven't yet, generate a new commitment and opening for MPC; send
+    -- the commitment.
+    shouldCreateCommitment <- do
+        secret <- getSecret
+        return $ isCommitmentIdx siSlot && isNothing secret
+    when shouldCreateCommitment $ do
         logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
         (comm, _) <- generateNewSecret ourSk siEpoch
         logDebug $ sformat ("Generated secret for "%ords%" epoch") siEpoch

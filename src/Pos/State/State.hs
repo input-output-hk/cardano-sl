@@ -16,6 +16,7 @@ module Pos.State.State
        , getLeaders
        , getLocalTxs
        , getLocalMpcData
+       , getSecret
        , getOurOpening
        , getOurShares
        , mayBlockBeUseful
@@ -162,13 +163,14 @@ processVssCertificate pk c = updateDisk $ A.ProcessVssCertificate pk c
 
 -- | Generate new commitment and opening and use them for the current
 -- epoch. Assumes that the genesis block has already been generated and
--- processed by MPC (will fail otherwise because the old commitment/opening
--- will still be lingering there in MPC storage).
---
--- It has to be passed the current epoch.
+-- processed by MPC (when the genesis block is processed, the secret is
+-- cleared) (otherwise 'generateNewSecret' will fail because 'A.SetSecret'
+-- won't set the secret if there's one already).
 generateNewSecret
     :: WorkModeDB m
-    => SecretKey -> EpochIndex -> m (SignedCommitment, Opening)
+    => SecretKey
+    -> EpochIndex                         -- ^ Current epoch
+    -> m (SignedCommitment, Opening)
 generateNewSecret sk epoch = do
     -- TODO: I think it's safe here to perform 3 operations which aren't
     -- grouped into a single transaction here, but I'm still a bit nervous.
@@ -179,6 +181,9 @@ generateNewSecret sk epoch = do
         first (mkSignedCommitment sk epoch) <$>
         genCommitmentAndOpening threshold participants
     secret <$ updateDisk (A.SetSecret (toPublic sk) secret)
+
+getSecret :: WorkModeDB m => m (Maybe (PublicKey, SignedCommitment, Opening))
+getSecret = queryDisk A.GetSecret
 
 getOurOpening :: WorkModeDB m => m (Maybe Opening)
 getOurOpening = queryDisk A.GetOurOpening

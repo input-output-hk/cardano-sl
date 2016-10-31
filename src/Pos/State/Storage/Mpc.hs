@@ -255,6 +255,7 @@ checkShare
     -> Bool
 checkShare globalCommitments _ globalCertificates (pkTo, pkFrom, share) =
     fromMaybe False $ do
+        guard $ HM.member pkTo globalCommitments
         (comm, _) <- HM.lookup pkFrom globalCommitments
         vssKey <- signedValue <$> HM.lookup pkTo globalCertificates
         encShare <- HM.lookup vssKey (commShares comm)

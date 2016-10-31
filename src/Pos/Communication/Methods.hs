@@ -70,13 +70,13 @@ announceCommitment :: WorkMode m => PublicKey -> SignedCommitment -> m ()
 announceCommitment pk comm = do
     -- TODO: show the commitment
     logDebug $ sformat
-        ("Announcing "%build%"'s commitment to others: <TODO SHOW COMM>\n") pk
+        ("Announcing "%build%"'s commitment to others: <TODO SHOW COMM>") pk
     void . sendToNeighbors $ SendCommitment pk comm
 
 announceOpening :: WorkMode m => PublicKey -> Opening -> m ()
 announceOpening pk open = do
     logDebug $ sformat
-        ("Announcing "%build%"'s opening to others:\n"%build) pk open
+        ("Announcing "%build%"'s opening to others: "%build) pk open
     void . sendToNeighbors $ SendOpening pk open
 
 announceShares :: WorkMode m => PublicKey -> HashMap PublicKey Share -> m ()
@@ -89,7 +89,7 @@ announceVssCertificate :: WorkMode m => PublicKey -> VssCertificate -> m ()
 announceVssCertificate pk cert = do
     -- TODO: show the certificate
     logDebug $ sformat
-        ("Announcing "%build%"'s VSS certificate to others: <TODO SHOW CERT>\n") pk
+        ("Announcing "%build%"'s VSS certificate to others: <TODO SHOW CERT>") pk
     void . sendToNeighbors $ SendVssCertificate pk cert
 
 ----------------------------------------------------------------------------

@@ -14,6 +14,7 @@ module Pos.State.Storage
        , getHeadBlock
        , getLeaders
        , getLocalTxs
+       , getLocalMpcData
        , getOurOpening
        , getOurShares
        , getParticipants

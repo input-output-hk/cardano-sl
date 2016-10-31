@@ -5,18 +5,25 @@ module Pos.Worker.Mpc
        , mpcWorkers
        ) where
 
-import           Control.TimeWarp.Logging (logDebug)
+import           Control.TimeWarp.Logging  (logDebug)
+import           Control.TimeWarp.Logging  (logWarning)
+import           Control.TimeWarp.Timed    (Microsecond, repeatForever, sec)
+import qualified Data.HashMap.Strict       as HM (toList)
+import           Formatting                (build, ords, sformat, (%))
+import           Serokell.Util.Exceptions  ()
 import           Universum
 
-import           Formatting               (ords, sformat, (%))
-import           Pos.Communication.Types  (SendCommitment (..), SendOpening (..),
-                                           SendShares (..))
-import           Pos.Constants            (k)
-import           Pos.DHT                  (sendToNeighbors)
-import           Pos.State                (generateNewSecret, getOurOpening, getOurShares)
-import           Pos.Types                (SlotId (..))
-import           Pos.WorkMode             (WorkMode, getNodeContext, ncPublicKey,
-                                           ncSecretKey, ncVssKeyPair)
+import           Pos.Communication.Methods (announceCommitment, announceOpening,
+                                            announceShares, announceVssCertificate)
+import           Pos.Communication.Types   (SendCommitment (..), SendOpening (..),
+                                            SendShares (..))
+import           Pos.Constants             (k)
+import           Pos.DHT                   (sendToNeighbors)
+import           Pos.State                 (generateNewSecret, getLocalMpcData,
+                                            getOurOpening, getOurShares)
+import           Pos.Types                 (MpcData (..), SlotId (..))
+import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey,
+                                            ncSecretKey, ncVssKeyPair)
 
 -- | Action which should be done when new slot starts.
 mpcOnNewSlot :: WorkMode m => SlotId -> m ()
@@ -47,8 +54,25 @@ mpcOnNewSlot SlotId {..} = do
             void . sendToNeighbors $ SendShares ourPk shares
             logDebug "Sent shares to neighbors"
 
-    -- | All workers specific to MPC processing.
+-- | All workers specific to MPC processing.
 -- Exceptions:
 -- 1. Worker which ticks when new slot starts.
-mpcWorkers :: [a]
-mpcWorkers = []
+mpcWorkers :: WorkMode m => [m ()]
+mpcWorkers = [mpcTransmitter]
+
+mpcTransmitterInterval :: Microsecond
+mpcTransmitterInterval = sec 2
+
+mpcTransmitter :: WorkMode m => m ()
+mpcTransmitter =
+    repeatForever mpcTransmitterInterval onError $
+    do MpcData{..} <- getLocalMpcData
+       mapM_ (uncurry announceCommitment) $ HM.toList _mdCommitments
+       mapM_ (uncurry announceOpening) $ HM.toList _mdOpenings
+       mapM_ (uncurry announceShares) $ HM.toList _mdShares
+       mapM_ (uncurry announceVssCertificate) $ HM.toList _mdVssCertificates
+  where
+    onError e =
+        mpcTransmitterInterval <$
+        logWarning (sformat ("Error occured in mpcTransmitter: "%build) e)
+

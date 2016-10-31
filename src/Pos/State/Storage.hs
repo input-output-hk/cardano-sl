@@ -296,13 +296,13 @@ getThreshold epoch = do
     let len = length ps
     return (toInteger (len `div` 2 + len `mod` 2))
 
-processCommitment :: PublicKey -> (Commitment, CommitmentSignature) -> Update ()
+processCommitment :: PublicKey -> (Commitment, CommitmentSignature) -> Update Bool
 processCommitment = mpcProcessCommitment
 
-processOpening :: PublicKey -> Opening -> Update ()
+processOpening :: PublicKey -> Opening -> Update Bool
 processOpening = mpcProcessOpening
 
-processShares :: PublicKey -> HashMap PublicKey Share -> Update ()
+processShares :: PublicKey -> HashMap PublicKey Share -> Update Bool
 processShares = mpcProcessShares
 
 processVssCertificate :: PublicKey -> VssCertificate -> Update ()

@@ -450,18 +450,18 @@ mpcVerifyBlocks toRollback blocks = do
         return (fold vs)
 
 mpcProcessCommitment
-    :: PublicKey -> (Commitment, CommitmentSignature) -> Update ()
+    :: PublicKey -> (Commitment, CommitmentSignature) -> Update Bool
 mpcProcessCommitment pk c = zoom' lastVer $ do
     -- TODO: do I understand correctly that if we receive several different
     -- commitments from the same node we can just pick one arbitrarily? (Here
     -- we choose the last one.)
-    unlessM (HM.member pk <$> use mpcGlobalCommitments) $ do
-        mpcLocalCommitments %= HM.insert pk c
+    ok <- not . HM.member pk <$> use mpcGlobalCommitments
+    ok <$ when ok (mpcLocalCommitments %= HM.insert pk c)
 
-mpcProcessOpening :: PublicKey -> Opening -> Update ()
-mpcProcessOpening pk o =
-    whenM (readerToState $ and <$> sequence checks) $
-    zoom' lastVer $ mpcLocalOpenings %= HM.insert pk o
+mpcProcessOpening :: PublicKey -> Opening -> Update Bool
+mpcProcessOpening pk o = do
+    ok <- readerToState $ and <$> sequence checks
+    ok <$ when ok (zoom' lastVer $ mpcLocalOpenings %= HM.insert pk o)
   where
     checks = [checkOpeningAbsence pk, checkOpeningLastVer pk o]
 
@@ -471,21 +471,23 @@ checkOpeningAbsence :: PublicKey -> Query Bool
 checkOpeningAbsence pk =
     magnify' lastVer $ not . HM.member pk <$> view mpcGlobalOpenings
 
-mpcProcessShares :: PublicKey -> HashMap PublicKey Share -> Update ()
+mpcProcessShares :: PublicKey -> HashMap PublicKey Share -> Update Bool
 mpcProcessShares pk s
-    | null s = pass
-    | otherwise =
-        whenM (readerToState $ checkSharesLastVer pk s) $
-        zoom' lastVer $
+    | null s = pure False
+    | otherwise = do
         -- TODO: we accept shares that we already have (but don't add them to
         -- local shares) because someone who sent us those shares might not be
         -- aware of the fact that they are already in the blockchain. On the
         -- other hand, now nodes can send us huge spammy messages and we can't
         -- ban them for that. On the third hand, is this a concern?
-        do globalSharesForPK <-
-               HM.lookupDefault mempty pk <$> use mpcGlobalShares
-           let s' = s `HM.difference` globalSharesForPK
-           unlessM (null s') $ mpcLocalShares %= HM.insertWith HM.union pk s'
+        ok <- (readerToState $ checkSharesLastVer pk s)
+        let mpcProcessSharesDo = do
+                globalSharesForPK <-
+                    HM.lookupDefault mempty pk <$> use mpcGlobalShares
+                let s' = s `HM.difference` globalSharesForPK
+                unless (null s') $
+                    mpcLocalShares %= HM.insertWith HM.union pk s'
+        ok <$ (when ok $ zoom' lastVer $ mpcProcessSharesDo)
 
 mpcProcessVssCertificate :: PublicKey -> VssCertificate -> Update ()
 mpcProcessVssCertificate pk c = zoom' lastVer $ do

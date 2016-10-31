@@ -138,17 +138,17 @@ processBlock si = updateDisk . A.ProcessBlock si
 
 processCommitment
     :: WorkModeDB m
-    => PublicKey -> SignedCommitment -> m ()
+    => PublicKey -> SignedCommitment -> m Bool
 processCommitment pk c = updateDisk $ A.ProcessCommitment pk c
 
 processOpening
     :: WorkModeDB m
-    => PublicKey -> Opening -> m ()
+    => PublicKey -> Opening -> m Bool
 processOpening pk o = updateDisk $ A.ProcessOpening pk o
 
 processShares
     :: WorkModeDB m
-    => PublicKey -> HashMap PublicKey Share -> m ()
+    => PublicKey -> HashMap PublicKey Share -> m Bool
 processShares pk s = updateDisk $ A.ProcessShares pk s
 
 processVssCertificate

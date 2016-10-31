@@ -10,7 +10,9 @@ module Pos.Communication.Server.Mpc
        , mpcListeners
        ) where
 
+import           Control.TimeWarp.Logging    (logDebug)
 import           Control.TimeWarp.Rpc        (BinaryP, MonadDialog)
+import           Formatting                  (build, sformat, (%))
 import           Universum
 
 import           Pos.Communication.Types.Mpc as Mpc
@@ -30,7 +32,10 @@ mpcListeners =
 handleCommitment :: WorkMode m => SendCommitment -> m ()
 handleCommitment (SendCommitment pk c) = do
     -- TODO: actually check the commitment
-    St.processCommitment pk c
+    added <- St.processCommitment pk c
+    when added $
+        logDebug $
+        sformat ("Commitment from "%build%" has been added to local storage") pk
 
 -- TODO: I don't like that these are in "Server.Mpc" but use 'processOpening'
 -- instead of 'mpcProcessOpening' – the idea is that 'mpcProcessOpening' does
@@ -39,11 +44,17 @@ handleCommitment (SendCommitment pk c) = do
 -- just move all handlers into "Pos.Communication.Server". — @neongreen
 handleOpening :: WorkMode m => SendOpening -> m ()
 handleOpening (SendOpening pk o) = do
-    St.processOpening pk o
+    added <- St.processOpening pk o
+    when added $
+        logDebug $
+        sformat ("Opening from "%build%" has been added to local storage") pk
 
 handleShares :: WorkMode m => SendShares -> m ()
 handleShares (SendShares pk s) = do
-    St.processShares pk s
+    added <- St.processShares pk s
+    when added $
+        logDebug $
+        sformat ("Share from "%build%" has been added to local storage") pk
 
 handleVssCertificate :: WorkMode m => SendVssCertificate -> m ()
 handleVssCertificate (SendVssCertificate pk c) = do

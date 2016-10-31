@@ -19,6 +19,7 @@ module Pos.State.Storage.Mpc
        , getGlobalMpcDataByDepth
        , getOurOpening
        , getOurShares
+       , getSecret
        , setSecret
        , mpcApplyBlocks
        , mpcProcessCommitment
@@ -559,6 +560,9 @@ setSecret ourPk (comm, op) = do
     case s of
         Just _  -> panic "setSecret: a secret was already present"
         Nothing -> mpcCurrentSecret .= Just (ourPk, comm, op)
+
+getSecret :: Query (Maybe (PublicKey, SignedCommitment, Opening))
+getSecret = view mpcCurrentSecret
 
 getOurOpening :: Query (Maybe Opening)
 getOurOpening = fmap (view _3) <$> view mpcCurrentSecret

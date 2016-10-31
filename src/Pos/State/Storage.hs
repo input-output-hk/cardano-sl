@@ -63,10 +63,10 @@ import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage
                                           calculateLeaders, getGlobalMpcDataByDepth,
                                           getLocalMpcData, getOurCommitment,
                                           getOurOpening, getOurShares, mpcApplyBlocks,
-                                          mpcProcessCommitment, mpcProcessOpening,
-                                          mpcProcessShares, mpcProcessVssCertificate,
-                                          mpcRollback, mpcVerifyBlock, mpcVerifyBlocks,
-                                          setSecret)
+                                          mpcProcessCommitment, mpcProcessNewSlot,
+                                          mpcProcessOpening, mpcProcessShares,
+                                          mpcProcessVssCertificate, mpcRollback,
+                                          mpcVerifyBlock, mpcVerifyBlocks, setSecret)
 import           Pos.State.Storage.Stats (HasStatsData (statsData), IdTimestamp (..),
                                           StatsData, addStatRecord, getStatRecords)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
@@ -76,9 +76,9 @@ import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRa
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
                                           EpochIndex, MainBlock, Opening, SlotId (..),
                                           SlotLeaders, VssCertificate, blockSlot,
-                                          blockTxs, epochIndexL, flattenSlotId,
-                                          getAddress, headerHashG, mdVssCertificates,
-                                          txOutAddress, unflattenSlotId, verifyTxAlone)
+                                          blockTxs, epochIndexL, getAddress, headerHashG,
+                                          mdVssCertificates, txOutAddress,
+                                          unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState, _neHead)
 
 type Query  a = forall m . MonadReader Storage m => m a
@@ -215,6 +215,7 @@ processNewSlotDo sId@SlotId {..} = do
     when (siSlot == 0) $
         createGenesisBlock siEpoch
     blkCleanUp sId
+    mpcProcessNewSlot sId
 
 -- We create genesis block for i-th epoch when head of currently known
 -- best chain is MainBlock corresponding to one of last `k` slots of

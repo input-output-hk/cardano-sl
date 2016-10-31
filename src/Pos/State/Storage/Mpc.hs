@@ -23,6 +23,7 @@ module Pos.State.Storage.Mpc
        , setSecret
        , mpcApplyBlocks
        , mpcProcessCommitment
+       , mpcProcessNewSlot
        , mpcProcessOpening
        , mpcProcessShares
        , mpcProcessVssCertificate
@@ -60,15 +61,13 @@ import           Pos.Types               (Address (getAddress), Block, Commitmen
                                           MpcData (..), Opening (..), OpeningsMap,
                                           SharesMap, SlotId (..), SlotLeaders, Utxo,
                                           VssCertificate, VssCertificatesMap, blockMpc,
-                                          blockSlot, blockSlot, epochIndexL,
-                                          mdCommitments, mdOpenings, mdShares,
-                                          mdVssCertificates, verifyOpening)
+                                          blockSlot, blockSlot, mdCommitments, mdOpenings,
+                                          mdShares, mdVssCertificates, unflattenSlotId,
+                                          verifyOpening)
 import           Pos.Util                (magnify', readerToState, zoom', _neHead)
 
 data MpcStorageVersion = MpcStorageVersion
-    { -- | Secret that we are using for the current epoch.
-      _mpcCurrentSecret      :: !(Maybe (Commitment, Opening))
-    , -- | Local set of 'Commitment's. These are valid commitments which are
+    { -- | Local set of 'Commitment's. These are valid commitments which are
       -- known to the node and not stored in blockchain. It is useful only
       -- for the first 'k' slots, after that it should be discarded.
       _mpcLocalCommitments   :: !CommitmentsMap
@@ -100,8 +99,7 @@ deriveSafeCopySimple 0 'base ''MpcStorageVersion
 instance Default MpcStorageVersion where
     def =
         MpcStorageVersion
-        { _mpcCurrentSecret = Nothing
-        , _mpcLocalCommitments = mempty
+        { _mpcLocalCommitments = mempty
         , _mpcGlobalCommitments = mempty
         , _mpcLocalShares = mempty
         , _mpcGlobalShares = mempty
@@ -119,7 +117,11 @@ data MpcStorage = MpcStorage
       --
       -- TODO: this is a very naive solution. A better one would be storing
       -- deltas for maps in 'MpcStorageVersion'.
-      _mpcVersioned :: NonEmpty MpcStorageVersion
+      _mpcVersioned         :: NonEmpty MpcStorageVersion
+    , -- | Secret that we are using for the current epoch.
+      _mpcCurrentSecret     :: !(Maybe (Commitment, Opening))
+    , -- | Last slot we are aware of.
+      _mpcLastProcessedSlot :: !SlotId
     }
 
 makeClassy ''MpcStorage
@@ -130,7 +132,12 @@ lastVer :: HasMpcStorage a => Lens' a MpcStorageVersion
 lastVer = mpcVersioned . _neHead
 
 instance Default MpcStorage where
-    def = MpcStorage (def :| [])
+    def =
+        MpcStorage
+        { _mpcVersioned = (def :| [])
+        , _mpcCurrentSecret = Nothing
+        , _mpcLastProcessedSlot = unflattenSlotId 0
+        }
 
 type Update a = forall m x. (HasMpcStorage x, MonadState x m) => m a
 -- If this type ever changes to include side effects (error reporting, etc)
@@ -452,6 +459,14 @@ mpcProcessVssCertificate pk c = zoom' lastVer $ do
     unlessM (HM.member pk <$> use mpcGlobalCertificates) $ do
         mpcLocalCertificates %= HM.insert pk c
 
+-- Should be executed before doing any updates within given slot.
+-- TODO: clean-up commitments, openings, shares.
+mpcProcessNewSlot :: SlotId -> Update ()
+mpcProcessNewSlot si@SlotId {siEpoch = epochIdx} = do
+    whenM ((epochIdx >) . siEpoch <$> use mpcLastProcessedSlot) $
+        mpcCurrentSecret .= Nothing
+    mpcLastProcessedSlot .= si
+
 -- | Apply sequence of blocks to state. Sequence must be based on last
 -- applied block and must be valid.
 mpcApplyBlocks :: AltChain -> Update ()
@@ -480,7 +495,6 @@ mpcProcessBlock blk = do
                 mpcGlobalCommitments .= mempty
                 mpcGlobalOpenings    .= mempty
                 mpcGlobalShares      .= mempty
-                mpcCurrentSecret     .= Nothing
         -- Main blocks contain commitments, openings, shares, VSS certificates
         Right b -> do
             let blockCommitments  = b ^. blockMpc . mdCommitments
@@ -501,21 +515,21 @@ mpcProcessBlock blk = do
                 mpcGlobalCertificates %= HM.union blockCertificates
                 mpcLocalCertificates  %= (`HM.difference` blockCertificates)
 
--- | Set FTS seed (and shares) to be used in this epoch. If the seed wasn't
--- cleared before (it's cleared whenever a genesis block is received), it
--- will fail.
+-- | Set FTS seed (and shares) to be used in this epoch. If the seed
+-- wasn't cleared before (it's cleared whenever new epoch is processed
+-- by mpcProcessNewSlot), it will fail.
 setSecret :: (Commitment, Opening) -> Update ()
 setSecret secret = do
-    s <- use (lastVer . mpcCurrentSecret)
+    s <- use mpcCurrentSecret
     case s of
         Just _  -> panic "setSecret: a secret was already present"
-        Nothing -> lastVer . mpcCurrentSecret .= Just secret
+        Nothing -> mpcCurrentSecret .= Just secret
 
 getOurCommitment :: Query (Maybe Commitment)
-getOurCommitment = fmap fst <$> view (lastVer . mpcCurrentSecret)
+getOurCommitment = fmap fst <$> view mpcCurrentSecret
 
 getOurOpening :: Query (Maybe Opening)
-getOurOpening = fmap snd <$> view (lastVer . mpcCurrentSecret)
+getOurOpening = fmap snd <$> view mpcCurrentSecret
 
 -- | Decrypt shares (in commitments) that we can decrypt.
 getOurShares

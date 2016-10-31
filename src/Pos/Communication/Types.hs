@@ -14,7 +14,7 @@ module Pos.Communication.Types
        , noCacheMessageNames
        ) where
 
-import           Control.TimeWarp.Rpc               (Message (messageName))
+import           Control.TimeWarp.Rpc               (Message (messageName), MessageName)
 import           Data.Proxy                         (Proxy (..))
 -- import           Universum
 

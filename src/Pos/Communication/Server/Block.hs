@@ -12,11 +12,11 @@ module Pos.Communication.Server.Block
        ) where
 
 import           Control.TimeWarp.Logging (logDebug, logInfo, logWarning)
+import           Control.TimeWarp.Rpc     (BinaryP, MonadDialog)
 import           Formatting               (build, sformat, stext, (%))
 import           Serokell.Util            (VerificationRes (..), listBuilderJSON)
 import           Universum
 
-import           Control.TimeWarp.Rpc     (BinaryP, MonadDialog)
 import           Pos.Communication.Types  (RequestBlock (..), ResponseMode,
                                            SendBlock (..), SendBlockHeader (..))
 import           Pos.Communication.Util   (modifyListenerLogger)
@@ -26,6 +26,7 @@ import           Pos.Slotting             (getCurrentSlot)
 import qualified Pos.State                as St
 import           Pos.Statistics           (statlogReceivedBlock,
                                            statlogReceivedBlockHeader, statlogSentBlock)
+import           Pos.Types                (HeaderHash, headerHash)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
@@ -42,7 +43,8 @@ handleBlock (SendBlock block) = do
     statlogReceivedBlock block
     slotId <- getCurrentSlot
     pbr <- St.processBlock slotId block
-    let blkHash = hash block
+    let blkHash :: HeaderHash
+        blkHash = headerHash block
     case pbr of
         St.PBRabort msg -> do
             let fmt =

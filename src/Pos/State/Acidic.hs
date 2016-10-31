@@ -10,6 +10,7 @@ module Pos.State.Acidic
        ( DiskState
        , closeState
        , openState
+       , openStateCustom
        , openMemState
        , tidyState
 
@@ -67,8 +68,13 @@ update
     => DiskState -> event -> m (EventResult event)
 update = updateExtended
 
+-- | Same as `openState`, but with explicitly specified initial state.
+openStateCustom :: MonadIO m => Storage -> Bool -> FilePath -> m DiskState
+openStateCustom customStorage deleteIfExists fp =
+    openLocalExtendedState deleteIfExists fp customStorage
+
 openState :: MonadIO m => Bool -> FilePath -> m DiskState
-openState deleteIfExists fp = openLocalExtendedState deleteIfExists fp def
+openState = openStateCustom def
 
 openMemState :: MonadIO m => m DiskState
 openMemState = openMemoryExtendedState def

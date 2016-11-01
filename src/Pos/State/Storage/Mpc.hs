@@ -457,9 +457,12 @@ mpcVerifyBlocks toRollback blocks = do
 
 mpcProcessCommitment
     :: PublicKey -> (Commitment, CommitmentSignature) -> Update Bool
-mpcProcessCommitment pk c = zoom' lastVer $ do
-    ok <- not . HM.member pk <$> use mpcGlobalCommitments
-    ok <$ when ok (mpcLocalCommitments %= HM.insert pk c)
+mpcProcessCommitment pk c =
+    zoom' lastVer $
+    do ok <-
+           (&&) <$> (not . HM.member pk <$> use mpcGlobalCommitments) <*>
+           (not . HM.member pk <$> use mpcLocalCommitments)
+       ok <$ when ok (mpcLocalCommitments %= HM.insert pk c)
 
 mpcProcessOpening :: PublicKey -> Opening -> Update Bool
 mpcProcessOpening pk o = do

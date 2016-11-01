@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
@@ -45,6 +46,7 @@ import           Data.Ix                 (inRange)
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty      as NE
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
+import           Formatting              (int, sformat, (%))
 import           Serokell.Util.Verify    (VerificationRes (..), isVerSuccess,
                                           verifyGeneric)
 import           Universum
@@ -65,9 +67,10 @@ import           Pos.Types               (Address (getAddress), Block, Commitmen
                                           VssCertificatesMap, blockMpc, blockSlot,
                                           blockSlot, hasCommitment, hasOpening, hasShares,
                                           mdCommitments, mdOpenings, mdShares,
-                                          mdVssCertificates, unflattenSlotId,
+                                          mdVssCertificates, unflattenSlotId, utxoF,
                                           verifyOpening, verifySignedCommitment)
-import           Pos.Util                (magnify', readerToState, zoom', _neHead)
+import           Pos.Util                (Color (Magenta), colorize, magnify',
+                                          readerToState, zoom', _neHead)
 
 data MpcStorageVersion = MpcStorageVersion
     { -- | Local set of 'Commitment's. These are valid commitments which are
@@ -223,6 +226,7 @@ calculateLeaders
     -> Threshold
     -> Query (Either FtsError SlotLeaders)
 calculateLeaders utxo threshold = do
+    !() <- traceM $ colorize Magenta $ (sformat ("utxo: "%utxoF%", threshold: "%int) utxo threshold)
     mbSeed <- calculateSeed threshold
                             <$> view (lastVer . mpcGlobalCommitments)
                             <*> view (lastVer . mpcGlobalOpenings)

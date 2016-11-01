@@ -227,7 +227,6 @@ blkProcessBlockDo blk = do
 canContinueBestChain :: Block -> Query Bool
 -- We don't continue best chain with received genesis block. It is
 -- added automatically when last block in epoch is added.
--- TODO: it's not done now actually.
 canContinueBestChain (Left _) = pure False
 canContinueBestChain blk = do
     headBlk <- getHeadBlock

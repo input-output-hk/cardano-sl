@@ -35,6 +35,8 @@ module Pos.Types.Types
        , txF
 
        , Utxo
+       , formatUtxo
+       , utxoF
 
        , FtsSeed (..)
        , Commitment (..)
@@ -129,38 +131,41 @@ module Pos.Types.Types
        , verifyHeader
        ) where
 
-import           Control.Lens         (Getter, Lens', choosing, ix, makeLenses, to, view,
-                                       (^.), (^?), _3)
-import           Data.Binary          (Binary)
-import           Data.Binary.Orphans  ()
-import           Data.Data            (Data)
-import           Data.Default         (Default (def))
-import           Data.DeriveTH        (derive, makeNFData)
-import           Data.Hashable        (Hashable)
-import qualified Data.HashMap.Strict  as HM
-import           Data.Ix              (Ix)
-import           Data.List.NonEmpty   (NonEmpty)
-import           Data.MessagePack     (MessagePack (..))
-import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeCopySimple,
-                                       deriveSafeCopySimpleIndexedType, safeGet, safePut)
-import           Data.Text.Buildable  (Buildable)
-import qualified Data.Text.Buildable  as Buildable
-import           Formatting           (Format, bprint, build, int, ords, sformat, stext,
-                                       (%))
-import           Serokell.AcidState   ()
-import qualified Serokell.Util.Base16 as B16
-import           Serokell.Util.Text   (listJson)
-import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
+import           Control.Lens           (Getter, Lens', choosing, ix, makeLenses, to,
+                                         view, (^.), (^?), _3)
+import           Data.Binary            (Binary)
+import           Data.Binary.Orphans    ()
+import           Data.Data              (Data)
+import           Data.Default           (Default (def))
+import           Data.DeriveTH          (derive, makeNFData)
+import           Data.Hashable          (Hashable)
+import qualified Data.HashMap.Strict    as HM
+import           Data.Ix                (Ix)
+import           Data.List.NonEmpty     (NonEmpty)
+import           Data.MessagePack       (MessagePack (..))
+import           Data.SafeCopy          (SafeCopy (..), base, contain,
+                                         deriveSafeCopySimple,
+                                         deriveSafeCopySimpleIndexedType, safeGet,
+                                         safePut)
+import           Data.Text.Buildable    (Buildable)
+import qualified Data.Text.Buildable    as Buildable
+import           Data.Text.Lazy.Builder (Builder)
+import           Formatting             (Format, bprint, build, int, later, ords, sformat,
+                                         stext, (%))
+import           Serokell.AcidState     ()
+import qualified Serokell.Util.Base16   as B16
+import           Serokell.Util.Text     (listJson)
+import           Serokell.Util.Verify   (VerificationRes (..), verifyGeneric)
 import           Universum
 
-import           Pos.Constants        (epochSlots)
-import           Pos.Crypto           (EncShare, Hash, PublicKey, Secret, SecretKey,
-                                       SecretProof, SecretSharingExtra, Share, Signature,
-                                       Signed, VssPublicKey, hash, hashHexF, sign,
-                                       toPublic, unsafeHash, verify)
-import           Pos.Merkle           (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot,
-                                       mtSize)
-import           Pos.Util             (Color (Magenta), colorize, makeLensesData)
+import           Pos.Constants          (epochSlots)
+import           Pos.Crypto             (EncShare, Hash, PublicKey, Secret, SecretKey,
+                                         SecretProof, SecretSharingExtra, Share,
+                                         Signature, Signed, VssPublicKey, hash, hashHexF,
+                                         sign, toPublic, unsafeHash, verify)
+import           Pos.Merkle             (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot,
+                                         mtSize)
+import           Pos.Util               (Color (Magenta), colorize, makeLensesData)
 
 ----------------------------------------------------------------------------
 -- Coin
@@ -299,6 +304,12 @@ txF = build
 -- Transaction inputs are identified by (transaction ID, index in list of
 -- output) pairs.
 type Utxo = Map (TxId, Word32) TxOut
+
+formatUtxo :: Utxo -> Builder
+formatUtxo = undefined
+
+utxoF :: Format r (Utxo -> r)
+utxoF = later formatUtxo
 
 ----------------------------------------------------------------------------
 -- MPC. It means multi-party computation, btw

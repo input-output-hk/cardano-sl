@@ -66,7 +66,7 @@ import           Pos.Types               (Address (getAddress), Block, Commitmen
                                           blockSlot, hasCommitment, hasOpening, hasShares,
                                           mdCommitments, mdOpenings, mdShares,
                                           mdVssCertificates, unflattenSlotId,
-                                          verifyOpening)
+                                          verifyOpening, verifySignedCommitment)
 import           Pos.Util                (magnify', readerToState, zoom', _neHead)
 
 data MpcStorageVersion = MpcStorageVersion
@@ -333,7 +333,8 @@ mpcVerifyBlock (Right b) = do
     -- block if they're late.
     --
     -- For commitments specifically, we also
-    --   * check their signatures (which includes checking that the
+    --   * use verifySignedCommitment, which checks commitments themselves, e. g.
+    --     checks their signatures (which includes checking that the
     --     commitment has been generated for this particular epoch)
     --   * check that the nodes haven't already sent their commitments before
     --     in some different block
@@ -347,9 +348,10 @@ mpcVerifyBlock (Right b) = do
                    "there are openings in a commitment block")
             , (null shares,
                    "there are shares in a commitment block")
-            , (let checkSig (pk, (comm, sig)) = verify pk (epochId, comm) sig
-               in all checkSig (HM.toList commitments),
-                   "signature check for some commitments has failed")
+            , (let checkSignedComm = isVerSuccess .
+                     uncurry (flip verifySignedCommitment epochId)
+               in all checkSignedComm (HM.toList commitments),
+                   "verifySignedCommitment has failed for some commitments")
             , (all (`HM.member` (certificates <> globalCertificates))
                    (HM.keys commitments),
                    "some committing nodes haven't sent a VSS certificate")

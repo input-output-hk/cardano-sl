@@ -63,13 +63,14 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
                                           blkSetHead, getBlock, getHeadBlock, getLeaders,
                                           getSlotDepth, mayBlockBeUseful)
 import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage,
-                                          calculateLeaders, getGlobalMpcData,
-                                          getGlobalMpcDataByDepth, getLocalMpcData,
-                                          getOurCommitment, getOurOpening, getOurShares,
-                                          getSecret, mpcApplyBlocks, mpcProcessCommitment,
+                                          getGlobalMpcData, getGlobalMpcDataByDepth,
+                                          getLocalMpcData, getOurCommitment,
+                                          getOurOpening, getOurShares, getSecret,
+                                          mpcApplyBlocks, mpcProcessCommitment,
                                           mpcProcessNewSlot, mpcProcessOpening,
                                           mpcProcessShares, mpcProcessVssCertificate,
                                           mpcRollback, mpcVerifyBlocks, setSecret)
+import qualified Pos.State.Storage.Mpc   as Mpc
 import           Pos.State.Storage.Stats (HasStatsData (statsData), IdTimestamp (..),
                                           StatsData, addStatRecord, getStatRecords)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
@@ -257,22 +258,24 @@ createGenesisBlock epoch = do
 createGenesisBlockDo :: EpochIndex -> Update ()
 createGenesisBlockDo epoch = do
     --traceMpcLastVer
-    leaders <- readerToState $ calculateLeadersDo epoch
+    leaders <- readerToState $ calculateLeaders epoch
     genBlock <- Left <$> blkCreateGenesisBlock epoch leaders
     -- Genesis block contains no transactions,
     --    so we should update only MPC
     mpcApplyBlocks $ genBlock :| []
 
-calculateLeadersDo :: EpochIndex -> Query SlotLeaders
-calculateLeadersDo epoch = do
+calculateLeaders :: EpochIndex -> Query SlotLeaders
+calculateLeaders epoch = do
     depth <- getSlotDepth $ mpcCrucialSlot epoch
     utxo <- fromMaybe onErrorGetUtxo <$> getUtxoByDepth depth
     -- TODO: overall 'calculateLeadersDo' gets utxo twice, could be optimised
-    threshold <- getThreshold epoch
-    either onErrorCalcLeaders identity <$> calculateLeaders utxo threshold
+    threshold <- fromMaybe onErrorGetThreshold <$> getThreshold epoch
+    either onErrorCalcLeaders identity <$> Mpc.calculateLeaders utxo threshold
   where
     onErrorGetUtxo =
         panic "Failed to get utxo necessary for leaders calculation"
+    onErrorGetThreshold =
+        panic "Failed to get threshold necessary for leaders calculation"
     onErrorCalcLeaders e =
         panic (sformat ("Leaders calculation reported error: " % build) e)
 
@@ -301,11 +304,13 @@ mpcCrucialSlot :: EpochIndex -> SlotId
 mpcCrucialSlot 0     = SlotId {siEpoch = 0, siSlot = 0}
 mpcCrucialSlot epoch = SlotId {siEpoch = epoch - 1, siSlot = 5 * k - 1}
 
-getThreshold :: EpochIndex -> Query Threshold
+getThreshold :: EpochIndex -> Query (Maybe Threshold)
 getThreshold epoch = do
-    ps <- getParticipants epoch
-    let len = length ps
-    return (toInteger (len `div` 2 + len `mod` 2))
+    psMaybe <- getParticipants epoch
+    return $
+        do ps <- psMaybe
+           let len = length ps
+           return (toInteger (len `div` 2 + len `mod` 2))
 
 processCommitment :: PublicKey -> (Commitment, CommitmentSignature) -> Update Bool
 processCommitment = mpcProcessCommitment

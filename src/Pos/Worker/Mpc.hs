@@ -18,7 +18,6 @@ import           Pos.Communication.Methods (announceCommitment, announceOpening,
                                             announceShares, announceVssCertificate)
 import           Pos.Communication.Types   (SendCommitment (..), SendOpening (..),
                                             SendShares (..))
-import           Pos.Constants             (k)
 import           Pos.DHT                   (sendToNeighbors)
 import           Pos.State                 (generateNewSecret, getGlobalMpcData,
                                             getLocalMpcData, getOurCommitment,
@@ -44,8 +43,11 @@ mpcOnNewSlot SlotId {..} = do
         return $ isCommitmentIdx siSlot && isNothing secret
     when shouldCreateCommitment $ do
         logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
-        (comm, _) <- generateNewSecret ourSk siEpoch
-        logDebug $ sformat ("Generated secret for "%ords%" epoch") siEpoch
+        generated <- generateNewSecret ourSk siEpoch
+        case generated of
+            Nothing -> logWarning "I failed to generate secret for Mpc"
+            Just _ -> logDebug $
+                sformat ("Generated secret for "%ords%" epoch") siEpoch
     shouldSendCommitment <- do
         commitmentInBlockchain <-
             isJust . view (mdCommitments . at ourPk) <$> getGlobalMpcData
@@ -100,4 +102,3 @@ mpcTransmitter =
     onError e =
         mpcTransmitterInterval <$
         logWarning (sformat ("Error occured in mpcTransmitter: "%build) e)
-

@@ -235,9 +235,9 @@ shouldCreateGenesisBlock epoch = doCheckSoft . either (`SlotId` 0) identity <$> 
     -- While we are in process of active development, practically impossible
     -- situations can happen, so we take them into account. We will think about
     -- this check later.
-    doCheckSoft si = si >= SlotId {siEpoch = epoch - 1, siSlot = 0}
+    doCheckSoft SlotId {..} = siEpoch == epoch - 1
     -- TODO add logWarning on `doCheckStrict` failing
-    -- doCheckStrict si = si > SlotId {siEpoch = epoch - 1, siSlot = 5 * k}
+    -- doCheckStrict SlotId {..} = siEpoch == epoch - 1 && siSlot >= 5 * k
 
 createGenesisBlock :: EpochIndex -> Update ()
 createGenesisBlock epoch = do

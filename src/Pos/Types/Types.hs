@@ -40,9 +40,10 @@ module Pos.Types.Types
 
        , FtsSeed (..)
        , Commitment (..)
-       , Opening (..)
        , CommitmentSignature
+       , SignedCommitment
        , CommitmentsMap
+       , Opening (..)
        , OpeningsMap
        , SharesMap
        , VssCertificate
@@ -133,13 +134,13 @@ import           Data.DeriveTH        (derive, makeNFData)
 import           Data.Hashable        (Hashable)
 import qualified Data.HashMap.Strict  as HM
 import           Data.Ix              (Ix)
+import           Data.List.NonEmpty   (NonEmpty)
 import           Data.MessagePack     (MessagePack (..))
 import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeCopySimple,
                                        safeGet, safePut)
 import           Data.Tagged          (untag)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
-import           Data.Vector          (Vector)
 import           Formatting           (Format, bprint, build, int, ords, sformat, stext,
                                        (%))
 import           Serokell.AcidState   ()
@@ -327,6 +328,10 @@ instance MessagePack Commitment
 -- with given public key for given epoch.
 type CommitmentSignature = Signature (EpochIndex, Commitment)
 
+type SignedCommitment = (Commitment, CommitmentSignature)
+
+type CommitmentsMap = HashMap PublicKey (Commitment, CommitmentSignature)
+
 -- | Opening reveals message.
 newtype Opening = Opening
     { getOpening :: Secret
@@ -334,7 +339,6 @@ newtype Opening = Opening
 
 instance MessagePack Opening
 
-type CommitmentsMap = HashMap PublicKey (Commitment, CommitmentSignature)
 type OpeningsMap = HashMap PublicKey Opening
 
 -- | Each node generates a 'FtsSeed', breaks it into 'Share's, and sends
@@ -357,7 +361,7 @@ type VssCertificate = Signed VssPublicKey
 -- during some period of time.
 type VssCertificatesMap = HashMap PublicKey VssCertificate
 
-type SlotLeaders = Vector PublicKey
+type SlotLeaders = NonEmpty PublicKey
 
 ----------------------------------------------------------------------------
 -- GenericBlock
@@ -494,7 +498,7 @@ instance SscTypes ssc => Blockchain (MainBlockchain ssc) where
         _mcdDifficulty :: !ChainDifficulty
         , -- | Signature given by slot leader.
         _mcdSignature  :: !(Signature (MainToSign ssc))
-        } deriving (Generic)
+        } deriving (Generic, Show)
     type BBlockHeader (MainBlockchain ssc) = BlockHeader ssc
 
     -- | In our cryptocurrency, body consists of a list of transactions
@@ -517,6 +521,7 @@ instance SscTypes ssc => Blockchain (MainBlockchain ssc) where
         }
 
 deriving instance SscTypes ssc => Eq (BodyProof (MainBlockchain ssc))
+deriving instance SscTypes ssc => Show (Body (MainBlockchain ssc))
 
 instance SscTypes ssc => Binary (BodyProof (MainBlockchain ssc))
 instance SscTypes ssc => Binary (ConsensusData (MainBlockchain ssc))
@@ -584,7 +589,7 @@ instance Blockchain (GenesisBlockchain ssc) where
     -- | Proof of GenesisBody is just a hash of slot leaders list.
     -- TODO: do we need a Merkle tree? This list probably won't be large.
     data BodyProof (GenesisBlockchain ssc) = GenesisProof
-        !(Hash (Vector PublicKey))
+        !(Hash SlotLeaders)
         deriving (Eq, Generic, Show)
     data ConsensusData (GenesisBlockchain ssc) = GenesisConsensusData
         { -- | Index of the slot for which this genesis block is relevant.
@@ -884,7 +889,7 @@ mkGenesisHeader
 mkGenesisHeader prevHeader epoch body =
     mkGenericHeader prevHeader body consensus ()
   where
-    difficulty = maybe 0 (succ . view difficultyL) prevHeader
+    difficulty = maybe 0 (view difficultyL) prevHeader
     consensus _ _ =
         GenesisConsensusData {_gcdEpoch = epoch, _gcdDifficulty = difficulty}
 

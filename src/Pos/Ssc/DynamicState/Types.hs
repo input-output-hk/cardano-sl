@@ -13,10 +13,22 @@ module Pos.Ssc.DynamicState.Types
        , DSPayload(..)
        , DSProof(..)
 
+       -- * Lenses
+       , mdCommitments
+       , mdOpenings
+       , mdShares
+       , mdVssCertificates
+
+       -- * Utilities
+       , hasCommitment
+       , hasOpening
+       , hasShares
+
        -- * Instances
        -- ** instance SscTypes SscDynamicState
        ) where
 
+import           Control.Lens         (makeLenses)
 import           Data.Binary          (Binary)
 import qualified Data.HashMap.Strict  as HM
 import           Data.MessagePack     (MessagePack)
@@ -27,7 +39,7 @@ import           Formatting           (bprint, (%))
 import           Serokell.Util        (listJson)
 import           Universum
 
-import           Pos.Crypto           (Hash, hash)
+import           Pos.Crypto           (Hash, PublicKey, hash)
 import           Pos.FollowTheSatoshi (FtsError)
 import           Pos.Ssc.Class.Types  (SscTypes (..))
 import           Pos.Types.Types      (CommitmentsMap, FtsSeed, OpeningsMap, SharesMap,
@@ -63,7 +75,7 @@ data DSPayload = DSPayload
       -- | Vss certificates are added at any time if they are valid and
       -- received from stakeholders.
     , _mdVssCertificates :: !VssCertificatesMap
-    } deriving (Generic)
+    } deriving (Show, Generic)
 
 instance Binary DSPayload
 instance MessagePack DSPayload
@@ -111,8 +123,23 @@ instance Binary DSProof
 instance MessagePack DSProof
 
 ----------------------------------------------------------------------------
--- TH-derived instances
+-- Utility functions
+----------------------------------------------------------------------------
+
+hasCommitment :: PublicKey -> DSPayload -> Bool
+hasCommitment pk md = HM.member pk (_mdCommitments md)
+
+hasOpening :: PublicKey -> DSPayload -> Bool
+hasOpening pk md = HM.member pk (_mdOpenings md)
+
+hasShares :: PublicKey -> DSPayload -> Bool
+hasShares pk md = HM.member pk (_mdShares md)
+
+----------------------------------------------------------------------------
+-- TH-derived things
 ----------------------------------------------------------------------------
 
 deriveSafeCopySimple 0 'base ''DSPayload
 deriveSafeCopySimple 0 'base ''DSProof
+
+makeLenses ''DSPayload

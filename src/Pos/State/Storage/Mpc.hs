@@ -16,10 +16,12 @@ module Pos.State.Storage.Mpc
 
        , calculateLeaders
        , getLocalMpcData
+       , getGlobalMpcData
        , getGlobalMpcDataByDepth
        , getOurCommitment
        , getOurOpening
        , getOurShares
+       , getSecret
        , setSecret
        , mpcApplyBlocks
        , mpcProcessCommitment
@@ -33,8 +35,8 @@ module Pos.State.Storage.Mpc
        --, traceMpcLastVer
        ) where
 
-import           Control.Lens               (Lens', ix, makeClassy, preview, to, use,
-                                             view, (%=), (.=), (^.))
+import           Control.Lens               (Lens', at, ix, makeClassy, preview, to, use,
+                                             view, (%=), (.=), (.~), (^.), _2, _3)
 import           Crypto.Random              (drgNewSeed, seedFromInteger, withDRG)
 import           Data.Default               (Default, def)
 import           Data.Hashable              (Hashable)
@@ -43,7 +45,6 @@ import           Data.Ix                    (inRange)
 import           Data.List.NonEmpty         (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty         as NE
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
-import qualified Data.Vector                as V
 import           Serokell.Util.Verify       (VerificationRes (..), isVerSuccess,
                                              verifyGeneric)
 import           Universum
@@ -55,14 +56,17 @@ import           Pos.Crypto                 (PublicKey, Share,
                                              verify, verifyShare)
 import           Pos.FollowTheSatoshi       (FtsError, calculateSeed, followTheSatoshi)
 import           Pos.Genesis                (genesisCertificates)
-import           Pos.Ssc.DynamicState.Types (DSPayload (..), SscDynamicState)
+import           Pos.Ssc.DynamicState.Types (DSPayload (..), SscDynamicState,
+                                             hasCommitment, hasOpening, hasShares,
+                                             mdCommitments, mdOpenings)
 import           Pos.State.Storage.Types    (AltChain)
 import           Pos.Types                  (Address (getAddress), Block, Commitment (..),
                                              CommitmentSignature, CommitmentsMap,
                                              Opening (..), OpeningsMap, SharesMap,
-                                             SlotId (..), SlotLeaders, Utxo,
-                                             VssCertificate, VssCertificatesMap, blockMpc,
-                                             blockSlot, unflattenSlotId, verifyOpening)
+                                             SignedCommitment, SlotId (..), SlotLeaders,
+                                             Utxo, VssCertificate, VssCertificatesMap,
+                                             blockMpc, blockSlot, blockSlot,
+                                             unflattenSlotId, verifyOpening)
 import           Pos.Util                   (magnify', readerToState, zoom', _neHead)
 
 data MpcStorageVersion = MpcStorageVersion
@@ -118,7 +122,7 @@ data MpcStorage = MpcStorage
       -- deltas for maps in 'MpcStorageVersion'.
       _mpcVersioned         :: NonEmpty MpcStorageVersion
     , -- | Secret that we are using for the current epoch.
-      _mpcCurrentSecret     :: !(Maybe (Commitment, Opening))
+      _mpcCurrentSecret     :: !(Maybe (PublicKey, SignedCommitment, Opening))
     , -- | Last slot we are aware of.
       _mpcLastProcessedSlot :: !SlotId
     }
@@ -161,13 +165,42 @@ type Query a = forall m x. (HasMpcStorage x, MonadReader x m) => m a
 --  where keys' = fmap pretty . HM.keys
 
 -- TODO: this should return something other than DSPayload
+getGlobalMpcData :: Query DSPayload
+getGlobalMpcData =
+    fromMaybe (panic "No global MPC data for depth 0") <$>
+    getGlobalMpcDataByDepth 0
+
 getLocalMpcData :: Query DSPayload
-getLocalMpcData = magnify' lastVer $ do
-    DSPayload
-      <$> view mpcLocalCommitments
-      <*> view mpcLocalOpenings
-      <*> view mpcLocalShares
-      <*> view mpcLocalCertificates
+getLocalMpcData =
+    (magnify' lastVer $
+     DSPayload <$> (view mpcLocalCommitments) <*> (view mpcLocalOpenings) <*>
+     view mpcLocalShares <*>
+     view mpcLocalCertificates) >>=
+    ensureOwnMpc
+
+ensureOwnMpc :: DSPayload -> Query DSPayload
+ensureOwnMpc md = do
+    globalMpc <- getGlobalMpcData
+    -- ourShares <- getOurShares
+    ourComm <- view mpcCurrentSecret
+    slotId <- view mpcLastProcessedSlot
+    return $ maybe identity (ensureOwnMpcDo globalMpc slotId) ourComm md
+
+ensureOwnMpcDo
+    :: DSPayload
+    -> SlotId
+    -- -> (HashMap PublicKey Share)
+    -> (PublicKey, SignedCommitment, Opening)
+    -> DSPayload
+    -> DSPayload
+ensureOwnMpcDo globalMpcData (siSlot -> slotId) (pk, comm, opening) md
+    | slotId < k && (not $ hasCommitment pk globalMpcData) =
+        md & mdCommitments . at pk .~ Just comm
+    | inRange (2 * k, 3 * k - 1) slotId && (not $ hasOpening pk globalMpcData) =
+        md & mdOpenings . at pk .~ Just opening
+    | inRange (5 * k, 6 * k - 1) slotId && (not $ hasShares pk globalMpcData) =
+        md   -- TODO: set our shares, but it's not so easy :(
+    | otherwise = md
 
 -- TODO: check for off-by-one errors!!!!111
 --
@@ -197,8 +230,7 @@ calculateLeaders utxo threshold = do
                             <*> view (lastVer . mpcGlobalShares)
     return $ case mbSeed of
         Left e     -> Left e
-        Right seed -> Right . V.fromList . map getAddress $
-                      followTheSatoshi seed utxo
+        Right seed -> Right $ fmap getAddress $ followTheSatoshi seed utxo
 
 -- | Check that the secret revealed in the opening matches the secret proof
 -- in the commitment
@@ -227,6 +259,7 @@ checkShare
     -> Bool
 checkShare globalCommitments _ globalCertificates (pkTo, pkFrom, share) =
     fromMaybe False $ do
+        guard $ HM.member pkTo globalCommitments
         (comm, _) <- HM.lookup pkFrom globalCommitments
         vssKey <- signedValue <$> HM.lookup pkTo globalCertificates
         encShare <- HM.lookup vssKey (commShares comm)
@@ -361,9 +394,10 @@ mpcVerifyBlock (Right b) = do
             , (all (`HM.member` globalCommitments)
                    (HM.keys shares <> concatMap HM.keys (toList shares)),
                    "some shares don't have corresponding commitments")
-            , (null (shares `diffDoubleMap` globalShares),
+            -- TODO: use intersectionDoubleMap or something to allow spliting
+            -- shares into multiple messages
+            , (null (shares `HM.intersection` globalShares),
                    "some shares have already been sent")
-            -- TODO: use checkShares here
             , (all (uncurry (checkShares globalCommitments globalOpenings
                              globalCertificates)) $
                      HM.toList shares,
@@ -421,18 +455,18 @@ mpcVerifyBlocks toRollback blocks = do
         return (fold vs)
 
 mpcProcessCommitment
-    :: PublicKey -> (Commitment, CommitmentSignature) -> Update ()
+    :: PublicKey -> (Commitment, CommitmentSignature) -> Update Bool
 mpcProcessCommitment pk c = zoom' lastVer $ do
     -- TODO: do I understand correctly that if we receive several different
     -- commitments from the same node we can just pick one arbitrarily? (Here
     -- we choose the last one.)
-    unlessM (HM.member pk <$> use mpcGlobalCommitments) $ do
-        mpcLocalCommitments %= HM.insert pk c
+    ok <- not . HM.member pk <$> use mpcGlobalCommitments
+    ok <$ when ok (mpcLocalCommitments %= HM.insert pk c)
 
-mpcProcessOpening :: PublicKey -> Opening -> Update ()
-mpcProcessOpening pk o =
-    whenM (readerToState $ and <$> sequence checks) $
-    zoom' lastVer $ mpcLocalOpenings %= HM.insert pk o
+mpcProcessOpening :: PublicKey -> Opening -> Update Bool
+mpcProcessOpening pk o = do
+    ok <- readerToState $ and <$> sequence checks
+    ok <$ when ok (zoom' lastVer $ mpcLocalOpenings %= HM.insert pk o)
   where
     checks = [checkOpeningAbsence pk, checkOpeningLastVer pk o]
 
@@ -442,20 +476,23 @@ checkOpeningAbsence :: PublicKey -> Query Bool
 checkOpeningAbsence pk =
     magnify' lastVer $ not . HM.member pk <$> view mpcGlobalOpenings
 
-mpcProcessShares :: PublicKey -> HashMap PublicKey Share -> Update ()
-mpcProcessShares pk s =
-    whenM (readerToState $ and <$> sequence checks) $
-    zoom' lastVer $
-    -- TODO: we accept shares that we already have (but don't add them to
-    -- local shares) because someone who sent us those shares might not be
-    -- aware of the fact that they are already in the blockchain. On the
-    -- other hand, now nodes can send us huge spammy messages and we can't
-    -- ban them for that. On the third hand, is this a concern?
-    do globalSharesForPK <- HM.lookupDefault mempty pk <$> use mpcGlobalShares
-       let s' = s `HM.difference` globalSharesForPK
-       mpcLocalShares %= HM.insertWith HM.union pk s'
-  where
-    checks = [checkSharesLastVer pk s]
+mpcProcessShares :: PublicKey -> HashMap PublicKey Share -> Update Bool
+mpcProcessShares pk s
+    | null s = pure False
+    | otherwise = do
+        -- TODO: we accept shares that we already have (but don't add them to
+        -- local shares) because someone who sent us those shares might not be
+        -- aware of the fact that they are already in the blockchain. On the
+        -- other hand, now nodes can send us huge spammy messages and we can't
+        -- ban them for that. On the third hand, is this a concern?
+        ok <- (readerToState $ checkSharesLastVer pk s)
+        let mpcProcessSharesDo = do
+                globalSharesForPK <-
+                    HM.lookupDefault mempty pk <$> use mpcGlobalShares
+                let s' = s `HM.difference` globalSharesForPK
+                unless (null s') $
+                    mpcLocalShares %= HM.insertWith HM.union pk s'
+        ok <$ (when ok $ zoom' lastVer $ mpcProcessSharesDo)
 
 mpcProcessVssCertificate :: PublicKey -> VssCertificate -> Update ()
 mpcProcessVssCertificate pk c = zoom' lastVer $ do
@@ -521,18 +558,21 @@ mpcProcessBlock blk = do
 -- | Set FTS seed (and shares) to be used in this epoch. If the seed
 -- wasn't cleared before (it's cleared whenever new epoch is processed
 -- by mpcProcessNewSlot), it will fail.
-setSecret :: (Commitment, Opening) -> Update ()
-setSecret secret = do
+setSecret :: PublicKey -> (SignedCommitment, Opening) -> Update ()
+setSecret ourPk (comm, op) = do
     s <- use mpcCurrentSecret
     case s of
         Just _  -> panic "setSecret: a secret was already present"
-        Nothing -> mpcCurrentSecret .= Just secret
+        Nothing -> mpcCurrentSecret .= Just (ourPk, comm, op)
 
-getOurCommitment :: Query (Maybe Commitment)
-getOurCommitment = fmap fst <$> view mpcCurrentSecret
+getSecret :: Query (Maybe (PublicKey, SignedCommitment, Opening))
+getSecret = view mpcCurrentSecret
+
+getOurCommitment :: Query (Maybe SignedCommitment)
+getOurCommitment = fmap (view _2) <$> view mpcCurrentSecret
 
 getOurOpening :: Query (Maybe Opening)
-getOurOpening = fmap snd <$> view mpcCurrentSecret
+getOurOpening = fmap (view _3) <$> view mpcCurrentSecret
 
 -- | Decrypt shares (in commitments) that we can decrypt.
 -- TODO: do not decrypt shares for which we know openings!

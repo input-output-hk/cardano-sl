@@ -2,6 +2,13 @@
 
 module Pos.Types.Mpc
        ( genCommitmentAndOpening
+       , isCommitmentId
+       , isCommitmentIdx
+       , isOpeningId
+       , isOpeningIdx
+       , isSharesId
+       , isSharesIdx
+       , mkSignedCommitment
        , secretToFtsSeed
        , verifyCommitment
        , verifyOpening
@@ -10,12 +17,18 @@ module Pos.Types.Mpc
 
 import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM
+import           Data.Ix             (inRange)
+import           Data.List.NonEmpty  (NonEmpty)
 import           Universum
 
-import           Pos.Crypto          (Secret, Threshold, VssPublicKey, genSharedSecret,
-                                      getDhSecret, runSecureRandom, secretToDhSecret,
-                                      verifyEncShare, verifySecretProof)
-import           Pos.Types.Types     (Commitment (..), FtsSeed (..), Opening (..))
+import           Pos.Constants       (k)
+import           Pos.Crypto          (Secret, SecretKey, Threshold, VssPublicKey,
+                                      genSharedSecret, getDhSecret, runSecureRandom,
+                                      secretToDhSecret, sign, verifyEncShare,
+                                      verifySecretProof)
+import           Pos.Types.Types     (Commitment (..), EpochIndex, FtsSeed (..),
+                                      LocalSlotIndex, Opening (..), SignedCommitment,
+                                      SlotId (..))
 
 -- | Convert Secret to FtsSeed.
 secretToFtsSeed :: Secret -> FtsSeed
@@ -24,7 +37,7 @@ secretToFtsSeed = FtsSeed . getDhSecret . secretToDhSecret
 -- | Generate securely random FtsSeed.
 genCommitmentAndOpening
     :: MonadIO m
-    => Threshold -> [VssPublicKey] -> m (Commitment, Opening)
+    => Threshold -> NonEmpty VssPublicKey -> m (Commitment, Opening)
 genCommitmentAndOpening n pks =
     liftIO . runSecureRandom . fmap convertRes . genSharedSecret n $ pks
   where
@@ -32,7 +45,7 @@ genCommitmentAndOpening n pks =
         ( Commitment
           { commExtra = extra
           , commProof = proof
-          , commShares = HM.fromList $ zip pks shares
+          , commShares = HM.fromList $ zip (toList pks) shares
           }
         , Opening secret)
 
@@ -50,3 +63,25 @@ verifyOpening Commitment {..} (Opening secret) =
 xorFtsSeed :: FtsSeed -> FtsSeed -> FtsSeed
 xorFtsSeed (FtsSeed a) (FtsSeed b) =
     FtsSeed $ BS.pack (BS.zipWith xor a b) -- fast due to rewrite rules
+
+-- | Make signed commitment from commitment and epoch index using secret key.
+mkSignedCommitment :: SecretKey -> EpochIndex -> Commitment -> SignedCommitment
+mkSignedCommitment sk i c = (c, sign sk (i, c))
+
+isCommitmentIdx :: LocalSlotIndex -> Bool
+isCommitmentIdx = inRange (0, k - 1)
+
+isOpeningIdx :: LocalSlotIndex -> Bool
+isOpeningIdx = inRange (2 * k, 3 * k - 1)
+
+isSharesIdx :: LocalSlotIndex -> Bool
+isSharesIdx = inRange (4 * k, 5 * k - 1)
+
+isCommitmentId :: SlotId -> Bool
+isCommitmentId = isCommitmentIdx . siSlot
+
+isOpeningId :: SlotId -> Bool
+isOpeningId = isOpeningIdx . siSlot
+
+isSharesId :: SlotId -> Bool
+isSharesId = isSharesIdx . siSlot

@@ -15,6 +15,7 @@ import           Universum
 class (Typeable a
       ,Eq (SscProof a)
       ,Show (SscProof a)
+      ,Show (SscPayload a)
       ,Buildable (SscPayload a)
       ,Binary (SscProof a)
       ,Binary (SscPayload a)

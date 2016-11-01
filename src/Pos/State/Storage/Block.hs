@@ -33,13 +33,14 @@ module Pos.State.Storage.Block
        ) where
 
 import           Control.Lens            (at, ix, makeClassy, preview, use, uses, view,
-                                          views, (%=), (.=), (<~), (^.), (^?))
+                                          views, (%=), (.=), (.~), (<~), (^.), _Just)
 import           Data.Default            (Default, def)
 import qualified Data.HashMap.Strict     as HM
 import           Data.List               ((!!))
 import           Data.List.NonEmpty      (NonEmpty ((:|)), (<|))
 import           Data.SafeCopy           (SafeCopy (..), contain, safeGet, safePut)
 import           Data.Vector             (Vector)
+import qualified Data.Vector             as V
 import           Serokell.Util.Verify    (VerificationRes (..), isVerFailure,
                                           isVerSuccess, verifyGeneric)
 import           Universum
@@ -124,6 +125,7 @@ getBlock h = view (blkBlocks . at h)
 
 -- | Get block by its depth, i. e. number of times one needs to use
 -- pointer to previous block.
+-- TODO: optimize using blkGenesisBlocks.
 getBlockByDepth :: Word -> Query ssc (Maybe (Block ssc))
 getBlockByDepth i = do
     headHash <- view blkHead
@@ -141,26 +143,18 @@ getHeadBlock = fromMaybe reportError <$> getBlockByDepth 0
   where
     reportError = panic "blkHead is not found in storage"
 
--- | Get list of slot leaders for the given epoch. Empty list is returned
--- if no information is available.
-getLeaders :: EpochIndex -> Query ssc SlotLeaders
+-- | Get list of slot leaders for the given epoch if it is known.
+getLeaders :: EpochIndex -> Query ssc (Maybe SlotLeaders)
 getLeaders (fromIntegral -> epoch) = do
     blkIdx <- preview (blkGenesisBlocks . ix epoch)
-    maybe (pure mempty) (fmap leadersFromBlock . getBlock) blkIdx
+    maybe (pure Nothing) (fmap leadersFromBlock . getBlock) blkIdx
   where
-    leadersFromBlock (Just (Left genBlock)) = genBlock ^. blockLeaders
-    leadersFromBlock _                      = mempty
-
-getLeadersMaybe :: EpochIndex -> Query ssc (Maybe SlotLeaders)
-getLeadersMaybe = fmap f . getLeaders
-  where
-    f v
-        | null v = Nothing
-        | otherwise = Just v
+    leadersFromBlock (Just (Left genBlock)) = Just $ genBlock ^. blockLeaders
+    leadersFromBlock _                      = Nothing
 
 -- | Get leader of the given slot if it's known.
 getLeader :: SlotId -> Query ssc (Maybe PublicKey)
-getLeader SlotId {..} = (^? ix (fromIntegral siSlot)) <$> getLeaders siEpoch
+getLeader SlotId {..} = (preview $ _Just . ix (fromIntegral siSlot)) <$> getLeaders siEpoch
 
 -- | Get depth of the first main block whose SlotId ≤ given value.
 -- Depth of the deepest (i. e. 0-th genesis) block is returned if
@@ -184,7 +178,7 @@ mayBlockBeUseful
     => SlotId -> MainBlockHeader ssc -> Query ssc VerificationRes
 mayBlockBeUseful currentSlotId header = do
     let hSlot = header ^. headerSlot
-    leaders <- getLeadersMaybe (siEpoch hSlot)
+    leaders <- getLeaders (siEpoch hSlot)
     isInteresting <- isHeaderInteresting header
     isKnown <- views blkBlocks (HM.member (hash $ Right header))
     let vhe = def {vheCurrentSlot = Just currentSlotId, vheLeaders = leaders}
@@ -229,7 +223,7 @@ blkProcessBlock currentSlotId blk = do
     leaders <-
         either
             (const $ pure Nothing)
-            (readerToState . getLeadersMaybe . siEpoch . view blockSlot)
+            (readerToState . getLeaders . siEpoch . view blockSlot)
             blk
     let vhe = def {vheCurrentSlot = Just currentSlotId, vheLeaders = leaders}
     let header = blk ^. blockHeader
@@ -255,7 +249,7 @@ blkProcessBlockDo blk = do
         then PBRgood (0, blk :| []) <$ insertBlock blk
         -- Our next attempt is to start alternative chain.
         else ifM (tryStartAltChain blk)
-                 (return $ PBRmore $ headerHash blk)
+                 (return $ PBRmore $ blk ^. prevBlockL)
                  (tryContinueAltChain blk)
 
 canContinueBestChain :: SscTypes ssc => Block ssc -> Query ssc Bool
@@ -334,7 +328,7 @@ continueAltChain
     => Block ssc -> Int -> Update ssc (ProcessBlockRes ssc)
 continueAltChain blk i = do
     blkAltChains . ix i %= (blk <|)
-    maybe (PBRmore $ headerHash blk) PBRgood <$> tryMergeAltChain i
+    maybe (PBRmore $ blk ^. prevBlockL) PBRgood <$> tryMergeAltChain i
 
 -- Try to merge alternative chain into the main chain.
 -- On success number of blocks to rollback is returned, as well as chain which can be merged.
@@ -440,7 +434,25 @@ blkCreateGenesisBlock epoch leaders = do
     prevHeader <- readerToState $ getBlockHeader <$> getHeadBlock
     let blk = mkGenesisBlock (Just prevHeader) epoch leaders
     insertBlock $ Left blk
-    blk <$ blkSetHead (headerHash blk)
+    let h = headerHash blk
+    -- when we create genesis block, two situations are possible:
+    -- • it's created for new epoch, then we append it to blkGenesisBlocks
+    -- • it's created for epoch started earlier because of rollback,
+    -- which means that we replace last element in blkGenesisBlocks.
+    -- Other situations are illegal.
+    -- Note that we don't need to remove last element from blkGenesisBlocks
+    -- when rollback happens, because we ensure that if genesis block was
+    -- created for some epoch, then we'll always have genesis block for
+    -- this epoch.
+    blkGenesisBlocks %= appendOrSet (fromIntegral epoch) h
+    blk <$ blkSetHead h
+
+appendOrSet :: Int -> a -> Vector a -> Vector a
+appendOrSet idx val vec
+    | length vec == idx = vec `V.snoc` val
+    | length vec - 1 == idx = vec & ix idx .~ val
+    | otherwise =
+        panic "appendOrSet: idx is not last and is not right after last"
 
 -- | Set head of main blockchain to block which is guaranteed to
 -- represent valid chain and be stored in blkBlocks.

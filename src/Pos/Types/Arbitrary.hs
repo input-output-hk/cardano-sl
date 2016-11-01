@@ -7,6 +7,7 @@
 module Pos.Types.Arbitrary () where
 
 import           Data.DeriveTH              (derive, makeArbitrary)
+import           Data.List.NonEmpty         (NonEmpty ((:|)))
 import           Pos.Constants              (epochSlots)
 import           Pos.Crypto                 (SecretProof, SecretSharingExtra,
                                              deterministicVssKeyGen, sign, toVssPublicKey)
@@ -40,9 +41,9 @@ commitmentsAndOpenings :: [CommitmentOpening]
 commitmentsAndOpenings =
     map (uncurry CommitmentOpening) $
     unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $
-    genCommitmentAndOpening
-        1
-        [toVssPublicKey $ deterministicVssKeyGen "aaaaaaaaaaaaaaaaaaaaaassss"]
+    genCommitmentAndOpening 1 (vssPk :| [])
+  where
+    vssPk = toVssPublicKey $ deterministicVssKeyGen "aaaaaaaaaaaaaaaaaaaaaassss"
 {-# NOINLINE commitmentsAndOpenings #-}
 
 instance Arbitrary CommitmentOpening where

@@ -14,6 +14,9 @@ module Pos.State.Storage
        , getHeadBlock
        , getLeaders
        , getLocalTxs
+       , getLocalMpcData
+       , getGlobalMpcData
+       , getSecret
        , getOurCommitment
        , getOurOpening
        , getOurShares
@@ -44,7 +47,7 @@ import           Data.Acid                  ()
 import           Data.Default               (Default, def)
 import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (nub)
-import           Data.List.NonEmpty         (NonEmpty ((:|)))
+import           Data.List.NonEmpty         (NonEmpty ((:|)), nonEmpty)
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import           Formatting                 (build, sformat, (%))
 import           Serokell.AcidState         ()
@@ -62,9 +65,10 @@ import           Pos.State.Storage.Block    (BlockStorage, HasBlockStorage (bloc
                                              getHeadBlock, getLeaders, getSlotDepth,
                                              mayBlockBeUseful)
 import           Pos.State.Storage.Mpc      (HasMpcStorage (mpcStorage), MpcStorage,
-                                             calculateLeaders, getGlobalMpcDataByDepth,
-                                             getLocalMpcData, getOurCommitment,
-                                             getOurOpening, getOurShares, mpcApplyBlocks,
+                                             calculateLeaders, getGlobalMpcData,
+                                             getGlobalMpcDataByDepth, getLocalMpcData,
+                                             getOurCommitment, getOurOpening,
+                                             getOurShares, getSecret, mpcApplyBlocks,
                                              mpcProcessCommitment, mpcProcessNewSlot,
                                              mpcProcessOpening, mpcProcessShares,
                                              mpcProcessVssCertificate, mpcRollback,
@@ -240,9 +244,9 @@ shouldCreateGenesisBlock epoch = doCheckSoft . either (`SlotId` 0) identity <$> 
     -- While we are in process of active development, practically impossible
     -- situations can happen, so we take them into account. We will think about
     -- this check later.
-    doCheckSoft si = si >= SlotId {siEpoch = epoch - 1, siSlot = 0}
+    doCheckSoft SlotId {..} = siEpoch == epoch - 1
     -- TODO add logWarning on `doCheckStrict` failing
-    -- doCheckStrict si = si > SlotId {siEpoch = epoch - 1, siSlot = 5 * k}
+    -- doCheckStrict SlotId {..} = siEpoch == epoch - 1 && siSlot >= 5 * k
 
 createGenesisBlock :: EpochIndex -> Update ()
 createGenesisBlock epoch = do
@@ -281,14 +285,14 @@ calculateLeadersDo epoch = do
 --
 --   1. it was a stakeholder
 --   2. it had already sent us its VSS key by that time
-getParticipants :: EpochIndex -> Query [VssPublicKey]
+getParticipants :: EpochIndex -> Query (Maybe (NonEmpty VssPublicKey))
 getParticipants epoch = do
     depth <- getSlotDepth $ mpcCrucialSlot epoch
     utxo <- fromMaybe onErrorGetUtxo <$> getUtxoByDepth depth
     keymap <- maybe onErrorGetKeymap _mdVssCertificates <$>
               getGlobalMpcDataByDepth depth
     let stakeholders = nub $ map (getAddress . txOutAddress) (toList utxo)
-    return $ map signedValue $ mapMaybe (`HM.lookup` keymap) stakeholders
+    return $ nonEmpty $ map signedValue $ mapMaybe (`HM.lookup` keymap) stakeholders
   where
     onErrorGetUtxo =
         panic "Failed to get utxo necessary to enumerate participants"
@@ -306,13 +310,13 @@ getThreshold epoch = do
     let len = length ps
     return (toInteger (len `div` 2 + len `mod` 2))
 
-processCommitment :: PublicKey -> (Commitment, CommitmentSignature) -> Update ()
+processCommitment :: PublicKey -> (Commitment, CommitmentSignature) -> Update Bool
 processCommitment = mpcProcessCommitment
 
-processOpening :: PublicKey -> Opening -> Update ()
+processOpening :: PublicKey -> Opening -> Update Bool
 processOpening = mpcProcessOpening
 
-processShares :: PublicKey -> HashMap PublicKey Share -> Update ()
+processShares :: PublicKey -> HashMap PublicKey Share -> Update Bool
 processShares = mpcProcessShares
 
 processVssCertificate :: PublicKey -> VssCertificate -> Update ()

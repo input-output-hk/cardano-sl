@@ -22,6 +22,9 @@ module Pos.State.Acidic
        , GetHeadBlock (..)
        , GetLeaders (..)
        , GetLocalTxs (..)
+       , GetLocalMpcData (..)
+       , GetGlobalMpcData (..)
+       , GetSecret (..)
        , GetOurCommitment (..)
        , GetOurOpening (..)
        , GetOurShares (..)
@@ -94,7 +97,7 @@ getBlock :: HeaderHash SscDynamicState
          -> Acid.Query Storage (Maybe (Block SscDynamicState))
 getBlock = S.getBlock
 
-getLeaders :: EpochIndex -> Acid.Query Storage SlotLeaders
+getLeaders :: EpochIndex -> Acid.Query Storage (Maybe SlotLeaders)
 getLeaders = S.getLeaders
 
 getHeadBlock :: Acid.Query Storage (Block SscDynamicState)
@@ -109,7 +112,10 @@ makeAcidic ''Storage
     [ 'getBlock
     , 'getLeaders
     , 'S.getLocalTxs
+    , 'S.getLocalMpcData
+    , 'S.getGlobalMpcData
     , 'getHeadBlock
+    , 'S.getSecret
     , 'S.getOurCommitment
     , 'S.getOurOpening
     , 'S.getOurShares

@@ -11,13 +11,12 @@ module Pos.Communication.Server.Block
        , handleBlockRequest
        ) where
 
-import           Control.TimeWarp.Logging   (logDebug, logInfo)
+import           Control.TimeWarp.Logging   (logDebug, logInfo, logWarning)
+import           Control.TimeWarp.Rpc       (BinaryP, MonadDialog)
 import           Formatting                 (build, sformat, stext, (%))
-import           Pos.DHT                    (ListenerDHT (..), replyToNode)
 import           Serokell.Util              (VerificationRes (..), listBuilderJSON)
 import           Universum
 
-import           Control.TimeWarp.Rpc       (BinaryP, MonadDialog)
 import           Pos.Communication.Types    (RequestBlock (..), ResponseMode,
                                              SendBlock (..), SendBlockHeader (..))
 import           Pos.Communication.Util     (modifyListenerLogger)
@@ -28,6 +27,7 @@ import           Pos.Ssc.DynamicState.Types (SscDynamicState)
 import qualified Pos.State                  as St
 import           Pos.Statistics             (statlogReceivedBlock,
                                              statlogReceivedBlockHeader, statlogSentBlock)
+import           Pos.Types                  (HeaderHash, headerHash)
 import           Pos.WorkMode               (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
@@ -44,13 +44,20 @@ handleBlock (SendBlock block) = do
     statlogReceivedBlock block
     slotId <- getCurrentSlot
     pbr <- St.processBlock slotId block
+    let blkHash :: HeaderHash SscDynamicState
+        blkHash = headerHash block
     case pbr of
         St.PBRabort msg -> do
             let fmt =
                     "Block processing is aborted for the following reason: "%stext
-            logInfo $ sformat fmt msg
-        St.PBRgood _ -> logInfo $ "Received block has been adopted"
-        St.PBRmore h -> replyToNode $ RequestBlock h
+            logWarning $ sformat fmt msg
+        St.PBRgood _ -> logInfo $
+            sformat ("Received block has been adopted: "%build) blkHash
+        St.PBRmore h -> do
+            logInfo $ sformat
+                ("After processing block "%build%", we need block "%build)
+                blkHash h
+            replyToNode $ RequestBlock h
 
 handleBlockHeader
     :: ResponseMode m

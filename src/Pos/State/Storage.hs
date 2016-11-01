@@ -69,8 +69,7 @@ import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage
                                           getSecret, mpcApplyBlocks, mpcProcessCommitment,
                                           mpcProcessNewSlot, mpcProcessOpening,
                                           mpcProcessShares, mpcProcessVssCertificate,
-                                          mpcRollback, mpcVerifyBlock, mpcVerifyBlocks,
-                                          setSecret)
+                                          mpcRollback, mpcVerifyBlocks, setSecret)
 import           Pos.State.Storage.Stats (HasStatsData (statsData), IdTimestamp (..),
                                           StatsData, addStatRecord, getStatRecords)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
@@ -79,10 +78,10 @@ import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
                                           EpochIndex, MainBlock, Opening, SlotId (..),
-                                          SlotLeaders, VssCertificate, blockSlot,
-                                          blockTxs, epochIndexL, getAddress, headerHashG,
-                                          mdVssCertificates, txOutAddress,
-                                          unflattenSlotId, verifyTxAlone)
+                                          SlotLeaders, VssCertificate, blockMpc,
+                                          blockSlot, blockTxs, epochIndexL, getAddress,
+                                          headerHashG, mdVssCertificates, txOutAddress,
+                                          unflattenSlotId, verifyMpcData, verifyTxAlone)
 import           Pos.Util                (readerToState, _neHead)
 
 type Query  a = forall m . MonadReader Storage m => m a
@@ -158,7 +157,10 @@ canCreateBlock sId = do
 -- | Do all necessary changes when a block is received.
 processBlock :: SlotId -> Block -> Update ProcessBlockRes
 processBlock curSlotId blk = do
-    mpcRes <- readerToState $ mpcVerifyBlock blk
+    -- TODO: I guess these checks should be part of block verification actually.
+    let verifyMpc mainBlk =
+            verifyMpcData (mainBlk ^. blockSlot) (mainBlk ^. blockMpc)
+    let mpcRes = either (const mempty) verifyMpc blk
     let txs =
             case blk of
                 Left _        -> []

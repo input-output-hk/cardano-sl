@@ -255,7 +255,8 @@ startAltChain :: MainBlock -> Update ProcessBlockRes
 startAltChain blk = do
     insertBlock $ Right blk
     blkAltChains %= ((Right blk :| []) :)
-    return (PBRmore $ blk ^. prevBlockL)
+    -- 0 is passed here, because we put new chain into head of blkAltChains
+    maybe (PBRmore $ blk ^. prevBlockL) PBRgood <$> tryMergeAltChain 0
 
 pbrUseless :: ProcessBlockRes
 pbrUseless = mkPBRabort ["block can't be added to any chain"]

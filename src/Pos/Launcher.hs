@@ -28,8 +28,9 @@ import           Control.TimeWarp.Logging (LoggerName, Severity (Warning),
 import           Control.TimeWarp.Rpc     (BinaryP (..), Dialog, MonadDialog,
                                            NetworkAddress, Transfer, runDialog,
                                            runTransfer)
-import           Control.TimeWarp.Timed   (MonadTimed, currentTime, fork, killThread, ms,
-                                           repeatForever, runTimedIO, sec, sleepForever)
+import           Control.TimeWarp.Timed   (MonadTimed, currentTime, for, fork, killThread,
+                                           ms, repeatForever, runTimedIO, sec,
+                                           sleepForever, wait)
 import           Data.Default             (Default (def))
 import qualified Data.Time                as Time
 import           Formatting               (build, sformat, shown, (%))
@@ -66,6 +67,7 @@ runNode = do
     peers <- discoverPeers DHTFull
     logInfo $ sformat ("Known peers: " % build) peers
 
+    waitSystemStart
     runWorkers
     sleepForever
 
@@ -94,6 +96,14 @@ submitTxReal np input addrCoin = runRealMode np [] $ do
     peers <- getKnownPeers
     let na = dhtAddr <$> filterByNodeType DHTFull peers
     getNoStatsT $ submitTx na input addrCoin
+
+-- Sanity check in case start time is in future (may happen if clocks
+-- are not accurately synchronized, for example).
+waitSystemStart :: WorkMode m => m ()
+waitSystemStart = do
+    Timestamp start <- ncSystemStart <$> getNodeContext
+    cur <- currentTime
+    when (cur < start) $ wait (for (start - cur))
 
 ----------------------------------------------------------------------------
 -- Parameters

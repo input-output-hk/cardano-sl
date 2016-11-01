@@ -51,7 +51,7 @@ onNewSlotWhenLeader slotId = do
     let whenCreated createdBlk = do
             logInfo $ sformat ("Created a new block:\n" %build) createdBlk
             announceBlock $ createdBlk ^. gbHeader
-    let whenNotCreated = logInfo "I couldn't create a new block"
+    let whenNotCreated = logWarning "I couldn't create a new block"
     maybe whenNotCreated whenCreated =<< createNewBlock sk slotId
 
 -- | All workers specific to block processing.

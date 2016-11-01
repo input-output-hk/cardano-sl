@@ -234,8 +234,16 @@ canContinueBestChain blk = do
     let vbp = def {vbpVerifyHeader = Just vhe}
     return $ isVerSuccess $ verifyBlock vbp blk
 
+-- We know that we can continue best chain, but we also try to merge
+-- alternative chain. If we succeed, we do it, instead of adopting a
+-- single blockl.
 continueBestChain :: Block -> Update ProcessBlockRes
-continueBestChain blk = PBRgood (0, blk :| []) <$ insertBlock blk
+continueBestChain blk = do
+    insertBlock blk
+    decideWhatToDo <$> tryContinueAltChain blk
+  where
+    decideWhatToDo r@(PBRgood _) = r
+    decideWhatToDo _             = PBRgood (0, blk :| [])
 
 -- Possible results are:
 -- • Nothing: can't start alternative chain.

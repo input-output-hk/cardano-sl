@@ -20,10 +20,10 @@ import           Pos.Types.Timestamp    (Timestamp)
 -- | Consensus guarantee (i.e. after what amount of blocks can we consider
 -- blocks stable?).
 k :: Integral a => a
-k = 3
+k = 2
 
 slotDuration :: Microsecond
-slotDuration = sec 20
+slotDuration = sec 15
 
 epochSlots :: Integral a => a
 epochSlots = 6 * k
@@ -34,7 +34,7 @@ epochDuration = epochSlots * slotDuration
 -- | Estimated time needed to broadcast message from one node to all
 -- other nodes.
 networkDiameter :: Microsecond
-networkDiameter = sec 6
+networkDiameter = sec 3
 
 neighborsSendThreshold :: Integral a => a
 neighborsSendThreshold = 4

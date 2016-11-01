@@ -294,7 +294,7 @@ tryContinueAltChainDo blk i = do
 continueAltChain :: Block -> Int -> Update ProcessBlockRes
 continueAltChain blk i = do
     blkAltChains . ix i %= (blk <|)
-    maybe (PBRmore $ headerHash blk) PBRgood <$> tryMergeAltChain i
+    maybe (PBRmore $ blk ^. prevBlockL) PBRgood <$> tryMergeAltChain i
 
 -- Try to merge alternative chain into the main chain.
 -- On success number of blocks to rollback is returned, as well as chain which can be merged.

@@ -70,6 +70,7 @@ module Pos.Types.Types
        , BlockHeader
        , HeaderHash
        , Block
+       , headerHashF
 
        -- * Lenses
        , HasDifficulty (..)
@@ -674,6 +675,9 @@ type GenesisBlock = GenericBlock GenesisBlockchain
 
 type BlockHeader = Either GenesisBlockHeader MainBlockHeader
 type HeaderHash = Hash BlockHeader
+
+headerHashF :: Format r (HeaderHash -> r)
+headerHashF = build
 
 type Block = Either GenesisBlock MainBlock
 

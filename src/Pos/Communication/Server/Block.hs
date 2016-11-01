@@ -48,8 +48,9 @@ handleBlock (SendBlock block) = do
     case pbr of
         St.PBRabort msg -> do
             let fmt =
-                    "Block processing is aborted for the following reason: "%stext
-            logWarning $ sformat fmt msg
+                    "Block "%build%
+                    " processing is aborted for the following reason: "%stext
+            logWarning $ sformat fmt blkHash msg
         St.PBRgood _ -> logInfo $
             sformat ("Received block has been adopted: "%build) blkHash
         St.PBRmore h -> do

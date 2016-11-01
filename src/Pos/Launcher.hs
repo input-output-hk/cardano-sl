@@ -31,7 +31,8 @@ import           Control.TimeWarp.Rpc     (BinaryP (..), Dialog, MonadDialog,
 import           Control.TimeWarp.Timed   (MonadTimed, currentTime, fork, killThread, ms,
                                            repeatForever, runTimedIO, sec, sleepForever)
 import           Data.Default             (Default (def))
-import           Formatting               (build, sformat, (%))
+import qualified Data.Time                as Time
+import           Formatting               (build, sformat, shown, (%))
 import           Universum                hiding (killThread)
 
 import           Pos.Communication        (SysStartRequest (..), allListeners,
@@ -162,9 +163,12 @@ runTimeSlaveReal bp = do
 runTimeLordReal :: LoggingParams -> IO Timestamp
 runTimeLordReal lp = do
     setupLoggingReal lp
-    runTimed (lpRootLogger lp) $ do
-        t <- Timestamp <$> currentTime
-        t <$ logInfo (sformat ("[Time lord] System start: " %timestampF) t)
+    t <- getCurTimestamp
+    t <$ usingLoggerName (lpRootLogger lp) (doLog t)
+  where
+    doLog t = do
+        realTime <- liftIO Time.getZonedTime
+        logInfo (sformat ("[Time lord] System start: " %timestampF%", i. e.: "%shown) t realTime)
 
 runSupporterReal :: BaseParams -> IO ()
 runSupporterReal bp = runServiceMode bp [] $ do

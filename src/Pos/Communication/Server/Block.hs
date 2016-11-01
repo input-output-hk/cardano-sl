@@ -11,10 +11,11 @@ module Pos.Communication.Server.Block
        , handleBlockRequest
        ) where
 
-import           Control.TimeWarp.Logging (logDebug, logInfo, logWarning)
+import           Control.TimeWarp.Logging (logDebug, logInfo, logNotice, logWarning)
 import           Control.TimeWarp.Rpc     (BinaryP, MonadDialog)
-import           Formatting               (build, sformat, stext, (%))
-import           Serokell.Util            (VerificationRes (..), listBuilderJSON)
+import           Data.List.NonEmpty       (NonEmpty ((:|)))
+import           Formatting               (build, int, sformat, stext, (%))
+import           Serokell.Util            (VerificationRes (..), listJson)
 import           Universum
 
 import           Pos.Communication.Types  (RequestBlock (..), ResponseMode,
@@ -51,8 +52,13 @@ handleBlock (SendBlock block) = do
                     "Block "%build%
                     " processing is aborted for the following reason: "%stext
             logWarning $ sformat fmt blkHash msg
-        St.PBRgood _ -> logInfo $
+        St.PBRgood (0, (_:|_)) -> logInfo $
             sformat ("Received block has been adopted: "%build) blkHash
+        St.PBRgood (rollbacked, altChain) -> logNotice $
+            sformat ("As a result of block processing rollback of "%int%
+                     " blocks has been done and alternative chain has been adopted "%
+                     listJson)
+                     rollbacked (fmap headerHash altChain)
         St.PBRmore h -> do
             logInfo $ sformat
                 ("After processing block "%build%", we need block "%build)
@@ -75,8 +81,8 @@ handleBlockHeader (SendBlockHeader header) = do
             VerFailure errors -> do
                 let fmt =
                         "Ignoring header with hash "%build%
-                        " for the following reasons: "%build
-                let msg = sformat fmt h (listBuilderJSON errors)
+                        " for the following reasons: "%listJson
+                let msg = sformat fmt h errors
                 False <$ logDebug msg
             VerSuccess -> do
                 let fmt = "Block header " % build % " considered useful"

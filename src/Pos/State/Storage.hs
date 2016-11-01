@@ -43,6 +43,7 @@ module Pos.State.Storage
        ) where
 
 import           Control.Lens            (makeClassy, use, view, (.=), (^.))
+import           Control.Monad.TM        ((.=<<.))
 import           Data.Acid               ()
 import           Data.Default            (Default, def)
 import qualified Data.HashMap.Strict     as HM
@@ -80,9 +81,10 @@ import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRa
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
                                           EpochIndex, MainBlock, Opening, SlotId (..),
                                           SlotLeaders, VssCertificate, blockMpc,
-                                          blockSlot, blockTxs, epochIndexL, getAddress,
-                                          headerHashG, mdVssCertificates, txOutAddress,
-                                          unflattenSlotId, verifyMpcData, verifyTxAlone)
+                                          blockSlot, blockTxs, epochIndexL, flattenSlotId,
+                                          getAddress, headerHashG, mdVssCertificates,
+                                          txOutAddress, unflattenSlotId, verifyMpcData,
+                                          verifyTxAlone)
 import           Pos.Util                (readerToState, _neHead)
 
 type Query  a = forall m . MonadReader Storage m => m a
@@ -266,12 +268,14 @@ createGenesisBlockDo epoch = do
 
 calculateLeaders :: EpochIndex -> Query SlotLeaders
 calculateLeaders epoch = do
-    depth <- getSlotDepth $ mpcCrucialSlot epoch
+    depth <- fromMaybe onErrorGetDepth <$> getMpcCrucialDepth epoch
     utxo <- fromMaybe onErrorGetUtxo <$> getUtxoByDepth depth
     -- TODO: overall 'calculateLeadersDo' gets utxo twice, could be optimised
     threshold <- fromMaybe onErrorGetThreshold <$> getThreshold epoch
     either onErrorCalcLeaders identity <$> Mpc.calculateLeaders utxo threshold
   where
+    onErrorGetDepth =
+        panic "Depth of MPC crucial slot isn't reasonable"
     onErrorGetUtxo =
         panic "Failed to get utxo necessary for leaders calculation"
     onErrorGetThreshold =
@@ -283,26 +287,34 @@ calculateLeaders epoch = do
 -- when there were 'k' slots left before the end of the previous epoch, both
 -- of these were true:
 --
---   1. it was a stakeholder
---   2. it had already sent us its VSS key by that time
+--   1. It was a stakeholder.
+--   2. It had already sent us its VSS key by that time.
 getParticipants :: EpochIndex -> Query (Maybe (NonEmpty VssPublicKey))
 getParticipants epoch = do
-    depth <- getSlotDepth $ mpcCrucialSlot epoch
-    utxo <- fromMaybe onErrorGetUtxo <$> getUtxoByDepth depth
-    keymap <- maybe onErrorGetKeymap (view mdVssCertificates) <$>
-              getGlobalMpcDataByDepth depth
-    let stakeholders = nub $ map (getAddress . txOutAddress) (toList utxo)
-    return $ nonEmpty $ map signedValue $ mapMaybe (`HM.lookup` keymap) stakeholders
-  where
-    onErrorGetUtxo =
-        panic "Failed to get utxo necessary to enumerate participants"
-    onErrorGetKeymap =
-        panic "Failed to get certificates necessary to enumerate participants"
+    mDepth <- getMpcCrucialDepth epoch
+    mUtxo <- getUtxoByDepth .=<<. mDepth
+    mKeymap <-
+        fmap (view mdVssCertificates) <$> (getGlobalMpcDataByDepth .=<<. mDepth)
+    return $
+        do utxo <- mUtxo
+           keymap <- mKeymap
+           let stakeholders =
+                   nub $ map (getAddress . txOutAddress) (toList utxo)
+           nonEmpty $
+               map signedValue $ mapMaybe (`HM.lookup` keymap) stakeholders
 
 -- slot such that data after it is used for MPC in given epoch
 mpcCrucialSlot :: EpochIndex -> SlotId
 mpcCrucialSlot 0     = SlotId {siEpoch = 0, siSlot = 0}
 mpcCrucialSlot epoch = SlotId {siEpoch = epoch - 1, siSlot = 5 * k - 1}
+
+getMpcCrucialDepth :: EpochIndex -> Query (Maybe Word)
+getMpcCrucialDepth epoch = do
+    let crucialSlot = mpcCrucialSlot epoch
+    (depth, slot) <- getSlotDepth crucialSlot
+    if flattenSlotId slot + 2 * k < flattenSlotId (SlotId epoch 0)
+        then return Nothing
+        else return (Just depth)
 
 getThreshold :: EpochIndex -> Query (Maybe Threshold)
 getThreshold epoch = do

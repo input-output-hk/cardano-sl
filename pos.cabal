@@ -78,6 +78,7 @@ library
                         Pos.Util.NotImplemented
   build-depends:        HsOpenSSL
                       , QuickCheck
+                      , UtilityTM
                       , acid-state
                       , ansi-terminal
                       , async

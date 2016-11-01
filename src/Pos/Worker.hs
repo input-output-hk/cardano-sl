@@ -23,12 +23,13 @@ runWorkers :: WorkMode m => m ()
 runWorkers = mapM_ fork_ (onNewSlotWorker : blkWorkers ++ mpcWorkers ++ txWorkers)
 
 onNewSlotWorker :: WorkMode m => m ()
-onNewSlotWorker = onNewSlot False onNewSlotWorkerImpl
+onNewSlotWorker = onNewSlot True onNewSlotWorkerImpl
 
 onNewSlotWorkerImpl :: WorkMode m => SlotId -> m ()
 onNewSlotWorkerImpl slotId = do
     logInfo $ sformat ("New slot has just started: "%slotIdF) slotId
-    -- TODO: what should be the order here?
+    -- A note about order: currently only one thing is important, that
+    -- `processNewSlot` is executed before everything else
     processNewSlot slotId
     mpcOnNewSlot slotId
     blkOnNewSlot slotId

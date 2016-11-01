@@ -1,8 +1,11 @@
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE ViewPatterns               #-}
 
--- | SlotId related functionality.
+-- | Slotting types.
 
-module Pos.Types.SlotId
+module Pos.Types.Slotting
        ( flattenSlotId
        , unflattenSlotId
        ) where

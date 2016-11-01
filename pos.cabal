@@ -4,9 +4,9 @@ synopsis:            Proof-of-stake
 description:         Please see README.md
 license:             BSD3
 license-file:        LICENSE
-author:              Artyom Kazak, Ivan Gromakovskii
+author:              Serokell OU
 maintainer:          hi@serokell.io
-copyright:           2016 Serokell
+copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
 -- extra-source-files:
@@ -25,6 +25,7 @@ library
                         Pos.Merkle
                         Pos.Slotting
                         Pos.State
+                        Pos.Statistics
                         Pos.Types
                         Pos.Util
                         Pos.Worker
@@ -32,11 +33,16 @@ library
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
                         Pos.Communication.Types.Mpc
+                        Pos.Communication.Types.Statistics
+                        Pos.Communication.Types.SysStart
                         Pos.Communication.Types.Tx
                         Pos.Communication.Server
                         Pos.Communication.Server.Block
                         Pos.Communication.Server.Mpc
+                        Pos.Communication.Server.Statistics
+                        Pos.Communication.Server.SysStart
                         Pos.Communication.Server.Tx
+                        Pos.Communication.Util
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
@@ -51,13 +57,18 @@ library
                         Pos.State.Storage
                         Pos.State.Storage.Block
                         Pos.State.Storage.Mpc
+                        Pos.State.Storage.Stats
                         Pos.State.Storage.Types
                         Pos.State.Storage.Tx
+                        Pos.Statistics.Block
+                        Pos.Statistics.MonadStats
+                        Pos.Statistics.Tx
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block
                         Pos.Types.Mpc
-                        Pos.Types.SlotId
+                        Pos.Types.Slotting
+                        Pos.Types.Timestamp
                         Pos.Types.Tx
                         Pos.Types.Types
                         Pos.Types.Utxo
@@ -70,6 +81,7 @@ library
   build-depends:        HsOpenSSL
                       , QuickCheck
                       , acid-state
+                      , ansi-terminal
                       , async
                       , base
                       , binary
@@ -79,7 +91,7 @@ library
                       , containers
                       , cryptonite >= 0.19 && < 0.21
                       , data-default
-                      , data-msgpack
+                      , data-msgpack >= 0.0.8
                       , derive
                       , ed25519
                       , exceptions
@@ -98,6 +110,7 @@ library
                       , serokell-core
                       , stm
                       , tagged
+                      , stm-containers
                       , template-haskell
                       , text
                       , text-format
@@ -107,6 +120,7 @@ library
                       , universum
                       , unordered-containers
                       , vector
+                      , list-t == 1
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:         -Wall
@@ -168,28 +182,6 @@ executable pos-wallet
                      , NoImplicitPrelude
                      , GeneralizedNewtypeDeriving
 
-executable pos-demo
-  hs-source-dirs:      src/demo
-  main-is:             Main.hs
-  build-depends:       async
-                     , base
-                     , data-default
-                     , formatting
-                     , pos
-                     , serokell-core
-                     , time-warp
-                     , universum
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
-
 test-suite pos-test
   main-is:             Test.hs
   other-modules:       Spec
@@ -197,9 +189,11 @@ test-suite pos-test
                      , Test.Pos.FollowTheSatoshiSpec
                      , Test.Pos.MerkleSpec
                      , Test.Pos.SlottingSpec
-                     , Test.Pos.Types.BinarySpec
                      , Test.Pos.Types.BlockSpec
-                     , Test.Pos.Types.SlotIdSpec
+                     , Test.Pos.Types.Identity.BinarySpec
+                     , Test.Pos.Types.Identity.MessagePackSpec
+                     , Test.Pos.Types.Identity.SafeCopySpec
+                     , Test.Pos.Types.SlottingSpec
                      , Test.Pos.Types.UtxoSpec
                      , Test.Pos.Util
   type:                exitcode-stdio-1.0
@@ -207,12 +201,15 @@ test-suite pos-test
                      , base
                      , binary
                      , bytestring
+                     , cereal
                      , cryptonite
+                     , data-msgpack
                      , formatting
                      , hspec
                      , memory
                      , pos
                      , random
+                     , safecopy
                      , serokell-core
                      , time-units
                      , time-warp
@@ -244,6 +241,37 @@ benchmark pos-bench-criterion
                      , formatting
                      , pos
                      , universum
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -with-rtsopts=-N
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , GeneralizedNewtypeDeriving
+                     , NoImplicitPrelude
+
+benchmark pos-bench-remote
+  hs-source-dirs:      bench
+  main-is:             Remote/Distributed.hs
+  other-modules:       Bench.Pos.Remote.Config
+  type:                exitcode-stdio-1.0
+  build-depends:       aeson
+                     , base
+                     , binary
+                     , bytestring
+                     , containers
+                     , data-default
+                     , formatting
+                     , optparse-applicative
+                     , parsec
+                     , pos
+                     , serokell-core
+                     , time-warp
+                     , universum
+                     , yaml
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -with-rtsopts=-N

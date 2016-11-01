@@ -60,6 +60,14 @@ import           Pos.Util            (fromMsgpackBinary, getCopyBinary, putCopyB
 -- Orphan instances
 ----------------------------------------------------------------------------
 
+instance SafeCopy Pvss.PublicKey where
+    putCopy = putCopyBinary
+    getCopy = getCopyBinary "Pvss.PublicKey"
+
+instance MessagePack Pvss.PublicKey where
+    toObject = toMsgpackBinary
+    fromObject = fromMsgpackBinary "Pvss.PublicKey"
+
 instance SafeCopy Point where
     putCopy = putCopyBinary
     getCopy = getCopyBinary "Point"
@@ -134,7 +142,7 @@ instance MessagePack Proof where
 
 -- | This key is used as public key in VSS.
 newtype VssPublicKey = VssPublicKey
-    { getVssPublicKey :: Point
+    { getVssPublicKey :: Pvss.PublicKey
     } deriving (Show, Eq, Binary, Generic)
 
 instance Hashable VssPublicKey where
@@ -155,7 +163,7 @@ instance Buildable VssKeyPair where
 
 -- | Extract VssPublicKey from VssKeyPair.
 toVssPublicKey :: VssKeyPair -> VssPublicKey
-toVssPublicKey (VssKeyPair (KeyPair _ p)) = VssPublicKey p
+toVssPublicKey (VssKeyPair pair) = VssPublicKey $ Pvss.toPublicKey pair
 
 -- | Generate VssKeyPair using Really Secure™ randomness.
 vssKeyGen :: MonadIO m => m VssKeyPair

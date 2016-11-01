@@ -7,6 +7,7 @@
 
 module Pos.WorkMode
        ( WorkMode
+       , MinWorkMode
        , DBHolder (..)
        , NodeContext (..)
        , WithNodeContext (..)
@@ -14,31 +15,48 @@ module Pos.WorkMode
        , ncPublicKey
        , ncVssPublicKey
        , RealMode
+       , ServiceMode
+       , StatsMode
+       , ProductionMode
        ) where
 
-import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow)
-import           Control.TimeWarp.Logging (WithNamedLogger (..))
-import           Control.TimeWarp.Rpc     (BinaryDialog, MonadDialog, MonadResponse,
-                                           MonadTransfer, Transfer)
-import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
-import           Universum                hiding (ThreadId, catch)
+import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Except      (ExceptT)
+import           Control.Monad.Trans.Class (MonadTrans)
+import           Control.TimeWarp.Logging  (WithNamedLogger (..))
+import           Control.TimeWarp.Rpc      (BinaryP, Dialog, MonadDialog, MonadResponse,
+                                            MonadTransfer (..), Transfer, hoistRespCond)
+import           Control.TimeWarp.Timed    (MonadTimed (..), ThreadId)
+import           Universum                 hiding (catch)
 
-import           Pos.Crypto               (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
-                                           toPublic, toVssPublicKey)
-import           Pos.DHT                  (DHTResponseT, MonadMessageDHT (..),
-                                           WithDefaultMsgHeader)
-import           Pos.DHT.Real             (KademliaDHT)
-import           Pos.Slotting             (MonadSlots (..), Timestamp (..))
-import           Pos.State                (MonadDB (..), NodeState)
+import           Pos.Crypto                (PublicKey, SecretKey, VssKeyPair,
+                                            VssPublicKey, toPublic, toVssPublicKey)
+import           Pos.DHT                   (DHTResponseT, MonadMessageDHT (..),
+                                            WithDefaultMsgHeader)
+import           Pos.DHT.Real              (KademliaDHT)
+import           Pos.Slotting              (MonadSlots (..))
+import           Pos.State                 (MonadDB (..), NodeState)
+import           Pos.Statistics.MonadStats (MonadStats, NoStatsT, StatsT)
+import           Pos.Types                 (Timestamp (..))
 
 type WorkMode m
+    = ( WithNamedLogger m
+      , MonadIO m
+      , MonadTimed m
+      , MonadMask m
+      , MonadSlots m
+      , MonadDB m
+      , WithNodeContext m
+      , MonadMessageDHT m
+      , WithDefaultMsgHeader m
+      , MonadStats m
+      )
+
+type MinWorkMode m
     = ( WithNamedLogger m
       , MonadTimed m
       , MonadMask m
       , MonadIO m
-      , MonadSlots m
-      , MonadDB m
-      , WithNodeContext m
       , MonadMessageDHT m
       , WithDefaultMsgHeader m
       )
@@ -49,10 +67,17 @@ type WorkMode m
 
 newtype DBHolder m a = DBHolder
     { getDBHolder :: ReaderT NodeState m a
-    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, WithNamedLogger, MonadTransfer, MonadDialog, MonadResponse)
+    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
+               MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDialog p,
+               MonadResponse)
 
 type instance ThreadId (DBHolder m) = ThreadId m
+
+instance MonadTransfer m => MonadTransfer (DBHolder m) where
+    sendRaw addr req = lift $ sendRaw addr req
+    listenRaw binding sink =
+        DBHolder $ listenRaw binding $ hoistRespCond getDBHolder sink
+    close = lift . close
 
 instance Monad m => MonadDB (DBHolder m) where
     getNodeState = DBHolder ask
@@ -103,12 +128,26 @@ instance (Monad m, WithNodeContext m) =>
          WithNodeContext (DHTResponseT m) where
     getNodeContext = lift getNodeContext
 
+instance (Monad m, WithNodeContext m) =>
+         WithNodeContext (StatsT m) where
+    getNodeContext = lift getNodeContext
+
+instance (Monad m, WithNodeContext m) =>
+         WithNodeContext (NoStatsT m) where
+    getNodeContext = lift getNodeContext
+
 newtype ContextHolder m a = ContextHolder
     { getContextHolder :: ReaderT NodeContext m a
-    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow,
-               MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDB, MonadTransfer, MonadDialog, MonadResponse)
+    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
+               MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDB, MonadDialog p, MonadResponse)
 
 type instance ThreadId (ContextHolder m) = ThreadId m
+
+instance MonadTransfer m => MonadTransfer (ContextHolder m) where
+    sendRaw addr req = lift $ sendRaw addr req
+    listenRaw binding sink =
+        ContextHolder $ listenRaw binding $ hoistRespCond getContextHolder sink
+    close = lift . close
 
 instance Monad m => WithNodeContext (ContextHolder m) where
     getNodeContext = ContextHolder ask
@@ -126,5 +165,14 @@ instance (MonadTimed m, Monad m) =>
 -- Concrete types
 ----------------------------------------------------------------------------
 
--- | RealMode is an instance of WorkMode which can be used to really run system.
-type RealMode = KademliaDHT (ContextHolder (DBHolder ((BinaryDialog Transfer))))
+-- | RealMode is a basis for `WorkMode`s used to really run system.
+type RealMode = KademliaDHT (ContextHolder (DBHolder (Dialog BinaryP Transfer)))
+
+-- | ServiceMode is the mode in which support nodes work
+type ServiceMode = KademliaDHT (Dialog BinaryP Transfer)
+
+-- | ProductionMode is an instance of WorkMode which is used (unsurprisingly) in production.
+type ProductionMode = NoStatsT RealMode
+
+-- | StatsMode is used for remote benchmarking
+type StatsMode = StatsT RealMode

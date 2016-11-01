@@ -1,3 +1,6 @@
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 -- | Server which handles transactions.
 
 module Pos.Communication.Server.Tx
@@ -5,18 +8,21 @@ module Pos.Communication.Server.Tx
        ) where
 
 import           Control.TimeWarp.Logging (logInfo)
+import           Control.TimeWarp.Rpc     (BinaryP, MonadDialog)
 import           Formatting               (build, sformat, (%))
-import           Pos.DHT                  (ListenerDHT (..))
 import           Universum
 
-import           Control.TimeWarp.Rpc     (MonadDialog)
 import           Pos.Communication.Types  (ResponseMode, SendTx (..), SendTxs (..))
+import           Pos.Communication.Util   (modifyListenerLogger)
+import           Pos.DHT                  (ListenerDHT (..))
 import           Pos.State                (processTx)
+import           Pos.Statistics           (statlogReceivedTx)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
-txListeners :: (MonadDialog m, WorkMode m) => [ListenerDHT m]
+txListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
 txListeners =
+    map (modifyListenerLogger "tx")
     [ ListenerDHT handleTx
     , ListenerDHT handleTxs
     ]
@@ -24,9 +30,10 @@ txListeners =
 handleTx
     :: ResponseMode m
     => SendTx -> m ()
-handleTx (SendTx tx) =
+handleTx (SendTx tx) = do
+    statlogReceivedTx tx
     whenM (processTx tx) $
-    logInfo (sformat ("Transaction has been added to storage: "%build) tx)
+        logInfo (sformat ("Transaction has been added to storage: "%build) tx)
 
 handleTxs
     :: ResponseMode m

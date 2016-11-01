@@ -18,9 +18,13 @@ module Pos.Ssc.DynamicState.Types
        ) where
 
 import           Data.Binary          (Binary)
+import qualified Data.HashMap.Strict  as HM
 import           Data.MessagePack     (MessagePack)
 import           Data.SafeCopy        (base, deriveSafeCopySimple)
 import           Data.Tagged          (Tagged (..))
+import           Data.Text.Buildable  (Buildable (..))
+import           Formatting           (bprint, (%))
+import           Serokell.Util        (listJson)
 import           Universum
 
 import           Pos.Crypto           (Hash, hash)
@@ -63,6 +67,35 @@ data DSPayload = DSPayload
 
 instance Binary DSPayload
 instance MessagePack DSPayload
+
+instance Buildable DSPayload where
+    build DSPayload {..} =
+        mconcat
+            [ formatCommitments
+            , formatOpenings
+            , formatShares
+            , formatCertificates
+            ]
+      where
+        formatIfNotNull formatter l
+            | null l = mempty
+            | otherwise = bprint formatter l
+        formatCommitments =
+            formatIfNotNull
+                ("  commitments from: "%listJson%"\n")
+                (HM.keys _mdCommitments)
+        formatOpenings =
+            formatIfNotNull
+                ("  openings from: "%listJson%"\n")
+                (HM.keys _mdOpenings)
+        formatShares =
+            formatIfNotNull
+                ("  shares from: "%listJson%"\n")
+                (HM.keys _mdShares)
+        formatCertificates =
+            formatIfNotNull
+                ("  certificates from: "%listJson%"\n")
+                (HM.keys _mdVssCertificates)
 
 -- | Proof of MpcData.
 -- We can use ADS for commitments, opennings, shares as well,

@@ -1,14 +1,9 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-mkdir -p logs
+base=$(dirname "$0")
+. "$base"/common.sh
+ensure_logs
 
-logs=''
-if [[ "$DHT_LOG" != "" ]]; then
-  logs="$logs --dht-log $DHT_LOG"
-fi
-if [[ "$MAIN_LOG" != "" ]]; then
-  logs="$logs --main-log $MAIN_LOG"
-fi
 
-stack exec -- pos-node --supporter --port 2000 --dht-key 'ABOtPlQMv123_4wzfgjAzvsT2LE='\
+$(find_binary pos-node) --supporter --port 2000 --dht-key 'ABOtPlQMv123_4wzfgjAzvsT2LE='\
   $logs | tee logs/supporter-`date '+%F_%H%M%S'`.log

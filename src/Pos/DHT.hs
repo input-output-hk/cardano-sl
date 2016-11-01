@@ -1,9 +1,13 @@
 {-# LANGUAGE ConstrainedClassMethods   #-}
 {-# LANGUAGE DefaultSignatures         #-}
+{-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE UndecidableInstances      #-}
 
 -- | Peer discovery
 
@@ -14,11 +18,14 @@ module Pos.DHT (
     DHTData,
     DHTNode (..),
     DHTNodeType (..),
+    DHTMsgHeader (..),
     MonadDHT (..),
     MonadMessageDHT (..),
     MonadResponseDHT (..),
     DHTResponseT,
     getDHTResponseT,
+    mapDHTResponseT,
+    mapListenerDHT,
     randomDHTKey,
     bytesToDHTKey,
     dhtNodeType,
@@ -26,7 +33,9 @@ module Pos.DHT (
     ListenerDHT (..),
     withDhtLogger,
     filterByNodeType,
-    joinNetworkNoThrow
+    joinNetworkNoThrow,
+    defaultSendToNeighbors,
+    defaultSendToNode
 ) where
 
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, catch,
@@ -35,10 +44,12 @@ import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.TimeWarp.Logging  (LoggerName,
                                             WithNamedLogger (modifyLoggerName), logInfo,
                                             logWarning)
-import           Control.TimeWarp.Rpc      (Message, MonadDialog, MonadTransfer,
-                                            NetworkAddress, ResponseT, replyH, sendH)
+import           Control.TimeWarp.Rpc      (BinaryP, HeaderNContentData, Message,
+                                            MonadDialog, MonadTransfer (..),
+                                            NetworkAddress, ResponseT, Unpackable, closeR,
+                                            hoistRespCond, mapResponseT, replyH, sendH)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
-import           Data.Binary               (Binary, Put)
+import           Data.Binary               (Binary)
 import qualified Data.ByteString           as BS
 import           Data.Proxy                (Proxy (Proxy))
 import           Data.Text.Buildable       (Buildable (..))
@@ -49,7 +60,7 @@ import qualified Formatting                as F
 import           Pos.Crypto.Random         (secureRandomBS)
 import           Prelude                   (show)
 import           Serokell.Util.Text        (listBuilderJSON)
-import           Universum                 hiding (ThreadId, catch, show)
+import           Universum                 hiding (catch, show)
 
 import           Pos.Constants             (neighborsSendThreshold)
 
@@ -81,34 +92,52 @@ withDhtLogger action = do
     subName <- dhtLoggerNameM
     modifyLoggerName (<> subName) action
 
+data DHTMsgHeader = BroadcastHeader
+                  | SimpleHeader { dmhNoCache :: Bool }
+  deriving (Generic, Show)
+
+instance Binary DHTMsgHeader
+
 class WithDefaultMsgHeader m where
-  defaultMsgHeader :: Message r => r -> m Put
+    defaultMsgHeader :: Message r => r -> m DHTMsgHeader
 
 class MonadDHT m => MonadMessageDHT m where
 
-    sendToNetwork :: Message r => r -> m ()
+    sendToNetwork :: (Binary r, Message r) => r -> m ()
 
-    sendToNode :: Message r => NetworkAddress -> r -> m ()
+    sendToNode :: (Binary r, Message r) => NetworkAddress -> r -> m ()
 
-    sendToNeighbors :: Message r => r -> m Int
+    sendToNeighbors :: (Binary r, Message r) => r -> m Int
 
-    default sendToNode :: (Message r, WithDefaultMsgHeader m, MonadDialog m) => NetworkAddress -> r -> m ()
-    sendToNode addr msg = do
-        header <- defaultMsgHeader msg
-        sendH addr header msg
+    default sendToNode :: (Binary r, Message r, WithDefaultMsgHeader m, MonadDialog BinaryP m) => NetworkAddress -> r -> m ()
+    sendToNode = defaultSendToNode
 
-    default sendToNeighbors :: (Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
+    default sendToNeighbors :: (Binary r, Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
     sendToNeighbors = defaultSendToNeighbors
 
 class MonadMessageDHT m => MonadResponseDHT m where
-
-  replyToNode :: Message r => r -> m ()
+  replyToNode :: (Binary r, Message r) => r -> m ()
+  closeResponse :: m ()
 
 data ListenerDHT m =
-    forall r . Message r => ListenerDHT (r -> DHTResponseT m ())
+    forall r . (Unpackable BinaryP (HeaderNContentData DHTMsgHeader r), Message r)
+            => ListenerDHT (r -> DHTResponseT m ())
+
+defaultSendToNode
+    :: ( MonadMessageDHT m
+       , Binary r
+       , Message r
+       , WithDefaultMsgHeader m
+       , MonadDialog BinaryP m
+       )
+    => NetworkAddress -> r -> m ()
+defaultSendToNode addr msg = do
+    header <- defaultMsgHeader msg
+    sendH addr header msg
 
 defaultSendToNeighbors
     :: ( MonadMessageDHT m
+       , Binary r
        , Message r
        , WithNamedLogger m
        , MonadCatch m
@@ -118,13 +147,19 @@ defaultSendToNeighbors
 defaultSendToNeighbors msg = do
     nodes <- filterByNodeType DHTFull <$> getKnownPeers
     succeed <- sendToNodes nodes
-    succeed' <- if succeed < neighborsSendThreshold
-                   then (+) succeed <$> do
-                     nodes' <- discoverPeers DHTFull
-                     sendToNodes $ filter (isJust . flip find nodes . (==)) nodes'
-                   else return succeed
+    succeed' <-
+        if succeed < neighborsSendThreshold
+            then (+) succeed <$>
+                 do nodes' <- discoverPeers DHTFull
+                    sendToNodes $
+                        filter (isJust . flip find nodes . (==)) nodes'
+            else return succeed
     when (succeed' < neighborsSendThreshold) $
-      logWarning $ sformat ("Send to only " % int % " nodes out, threshold is " % int) succeed' neighborsSendThreshold
+        logWarning $
+        sformat
+            ("Send to only " % int % " nodes, threshold is " % int)
+            succeed'
+            (neighborsSendThreshold :: Int)
     return succeed'
   where
     -- TODO make this function asynchronous after presenting some `MonadAsync` constraint
@@ -191,11 +226,12 @@ data DHTNode = DHTNode { dhtAddr   :: NetworkAddress
                        , dhtNodeId :: DHTKey
                        }
   deriving (Eq, Ord, Show)
+
 instance Buildable DHTNode where
     build (DHTNode (peerHost, peerPort) key)
-      = bprint (F.build % " at " % F.build % ":" % F.build)
+      = bprint (F.build % " at " % F.stext % ":" % F.build)
                key
-               (toS peerHost :: Text)
+               (decodeUtf8 peerHost)
                peerPort
 
 instance Buildable [DHTNode] where
@@ -221,18 +257,32 @@ instance MonadMessageDHT m => MonadMessageDHT (ResponseT m) where
 instance (Monad m, WithDefaultMsgHeader m) => WithDefaultMsgHeader (ResponseT m) where
   defaultMsgHeader = lift . defaultMsgHeader
 
-newtype DHTResponseT m a = DHTResponseT { getDHTResponseT :: (ResponseT m a) }
-    deriving (Functor, Applicative, Monad, MonadIO, MonadTrans,
+newtype DHTResponseT m a = DHTResponseT
+    { getDHTResponseT :: ResponseT m a
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans,
                 MonadThrow, MonadCatch, MonadMask,
                 MonadState s, WithDefaultMsgHeader,
-                WithNamedLogger, MonadTimed, MonadTransfer, MonadDHT, MonadMessageDHT)
+                WithNamedLogger, MonadTimed, MonadDialog t, MonadDHT, MonadMessageDHT)
+
+instance MonadTransfer m => MonadTransfer (DHTResponseT m) where
+    sendRaw addr p = DHTResponseT $ sendRaw addr p
+    listenRaw binding sink = DHTResponseT $ listenRaw binding (hoistRespCond getDHTResponseT sink)
+    close = DHTResponseT . close
 
 type instance ThreadId (DHTResponseT m) = ThreadId m
 
-instance (WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog m, MonadIO m) => MonadResponseDHT (DHTResponseT m) where
+instance (WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog BinaryP m, MonadIO m) => MonadResponseDHT (DHTResponseT m) where
   replyToNode msg = do
     header <- defaultMsgHeader msg
     DHTResponseT $ replyH header msg
+  closeResponse = DHTResponseT closeR
+
+mapDHTResponseT :: (m a -> n b) -> DHTResponseT m a -> DHTResponseT n b
+mapDHTResponseT how = DHTResponseT . mapResponseT how . getDHTResponseT
+
+-- | Helper for substituting inner monad stack in `ListenerDHT`
+mapListenerDHT :: (m () -> n ()) -> ListenerDHT m -> ListenerDHT n
+mapListenerDHT how (ListenerDHT listen) = ListenerDHT $ mapDHTResponseT how . listen
 
 filterByNodeType :: DHTNodeType -> [DHTNode] -> [DHTNode]
 filterByNodeType type_ = filter (\n -> dhtNodeType (dhtNodeId n) == Just type_)
@@ -243,4 +293,3 @@ joinNetworkNoThrow peers = joinNetwork peers `catch` handleJoinE
     handleJoinE AllPeersUnavailable =
         logInfo $ sformat ("Not connected to any of peers " % F.build) peers
     handleJoinE e = throwM e
-

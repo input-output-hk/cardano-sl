@@ -41,13 +41,13 @@ import           Data.Coerce            (coerce)
 import           Data.Hashable          (Hashable)
 import           Data.MessagePack       (MessagePack)
 import qualified Data.MessagePack       as MP (fromObject, toObject)
-import           Data.SafeCopy          (base, deriveSafeCopySimple)
-import           Data.SafeCopy          (SafeCopy (..))
+import           Data.SafeCopy          (SafeCopy (..), base,
+                                         deriveSafeCopySimple)
 import qualified Data.Serialize         as Cereal
 import qualified Data.Text.Buildable    as Buildable
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (Format, bprint, fitLeft, int, later, sformat,
-                                         stext, (%), (%.))
+import           Formatting             (Format, bprint, fitLeft, int, later,
+                                         sformat, stext, (%), (%.))
 import           Universum
 
 import qualified Serokell.Util.Base64   as Base64 (decode, encode)
@@ -104,6 +104,7 @@ instance Binary Ed25519.Signature where
 instance Cereal.Serialize Ed25519.PublicKey where
     put (Ed25519.PublicKey k) = do
         putAssertLength "PublicKey" publicKeyLength k
+        Cereal.putByteString k
     get = Ed25519.PublicKey <$> Cereal.getByteString publicKeyLength
 
 instance Cereal.Serialize Ed25519.SecretKey where
@@ -166,7 +167,7 @@ instance Buildable.Buildable SecretKey where
     build = bprint ("sec:" % fitLeft 8 %. hashHexF) . hash . toPublic
 
 formatFullPublicKey :: PublicKey -> Builder
-formatFullPublicKey = Buildable.build . Base64.encode . toS . Binary.encode
+formatFullPublicKey = Buildable.build . Base64.encode . BSL.toStrict . Binary.encode
 
 fullPublicKeyF :: Format r (PublicKey -> r)
 fullPublicKeyF = later formatFullPublicKey
@@ -175,7 +176,7 @@ parseFullPublicKey :: Text -> Maybe PublicKey
 parseFullPublicKey s =
     case Base64.decode s of
         Left _  -> Nothing
-        Right b -> case Binary.decodeOrFail (toS b) of
+        Right b -> case Binary.decodeOrFail (BSL.fromStrict b) of
             Left _ -> Nothing
             Right (unconsumed, _, a)
                 | BSL.null unconsumed -> Just a
@@ -213,14 +214,14 @@ instance Buildable.Buildable (Signature a) where
 
 -- | Encode something with 'Binary' and sign it.
 sign :: (Binary a) => SecretKey -> a -> Signature a
-sign k = coerce . signRaw k . toS . Binary.encode
+sign k = coerce . signRaw k . BSL.toStrict . Binary.encode
 
 signRaw :: SecretKey -> ByteString -> Signature Raw
 signRaw (SecretKey k) x = Signature (Ed25519.dsign k x)
 
 -- | Verify a signature.
 verify :: Binary a => PublicKey -> a -> Signature a -> Bool
-verify k x s = verifyRaw k (toS (Binary.encode x)) (coerce s)
+verify k x s = verifyRaw k (BSL.toStrict (Binary.encode x)) (coerce s)
 
 verifyRaw :: PublicKey -> ByteString -> Signature Raw -> Bool
 verifyRaw (PublicKey k) x (Signature s) = Ed25519.dverify k x s

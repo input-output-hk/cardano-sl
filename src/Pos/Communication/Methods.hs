@@ -18,6 +18,7 @@ import           Pos.Communication.Types  (SendBlockHeader (..), SendTx (..),
                                            SendTxs (..))
 import           Pos.DHT                  (sendToNeighbors, sendToNode)
 import           Pos.Ssc.Class.Types      (SscTypes)
+import           Pos.Statistics           (statlogSentBlockHeader, statlogSentTx)
 import           Pos.Types                (MainBlockHeader, Tx)
 import           Pos.WorkMode             (WorkMode)
 
@@ -28,6 +29,7 @@ announceBlock
     => MainBlockHeader ssc -> m ()
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
+    statlogSentBlockHeader $ Right header
     void . sendToNeighbors . SendBlockHeader $ header
 
 -- | Announce new transaction to all known peers. Intended to be used when
@@ -35,16 +37,18 @@ announceBlock header = do
 announceTx :: WorkMode m => Tx -> m ()
 announceTx tx = do
     logDebug $ sformat ("Announcing tx to others:\n"%build) tx
+    statlogSentTx tx
     void . sendToNeighbors . SendTx $ tx
 
 -- | Announce known transactions to all known peers. Intended to be used
 -- to relay transactions.
 announceTxs :: WorkMode m => [Tx] -> m ()
 announceTxs [] = pure ()
-announceTxs (tx:txs) = do
+announceTxs txs@(tx:txs') = do
     logDebug $
         sformat ("Announcing txs to others:\n" %build) $ listBuilderJSON txs
-    void . sendToNeighbors . SendTxs $ tx :| txs
+    mapM_ statlogSentTx txs
+    void . sendToNeighbors . SendTxs $ tx :| txs'
 
 -- | Send Tx to given address.
 sendTx :: WorkMode m => NetworkAddress -> Tx -> m ()

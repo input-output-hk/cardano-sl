@@ -43,7 +43,7 @@ genesisKeyPairs = map gen [0 .. 41]
     gen =
         fromMaybe (panic "deterministicKeyGen failed in Genesis") .
         deterministicKeyGen .
-        toS .
+        encodeUtf8 .
         T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")
 
 genesisSecretKeys :: [SecretKey]
@@ -63,13 +63,13 @@ genesisUtxo =
 -- MPC, leaders
 ----------------------------------------------------------------------------
 
-genesisVssKeyPairs :: [(VssKeyPair)]
+genesisVssKeyPairs :: [VssKeyPair]
 genesisVssKeyPairs = map gen [0 .. 42]
   where
     gen :: Int -> VssKeyPair
     gen =
         deterministicVssKeyGen .
-        toS .
+        encodeUtf8 .
         T.take 32 .
         sformat ("My awesome 32-byte seed :) #" %int % "             ")
 

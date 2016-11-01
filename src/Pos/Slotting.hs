@@ -3,46 +3,23 @@
 -- | Slotting functionality.
 
 module Pos.Slotting
-       ( Timestamp (..)
-       , timestampF
-
-       , MonadSlots (..)
+       (MonadSlots (..)
        , getCurrentSlot
        , getCurrentSlotFlat
        , onNewSlot
        ) where
 
-import           Control.TimeWarp.Timed (Microsecond, MonadTimed, for, fork_, wait)
-import           Data.Text.Buildable    (Buildable)
-import qualified Data.Text.Buildable    as Buildable
-import           Formatting             (Format, build)
-import           Pos.DHT                (DHTResponseT)
-import           Prelude                (Read (..), Show (..))
-import           Universum              hiding (show)
+import           Control.Monad.Catch      (MonadCatch, catch)
+import           Control.TimeWarp.Logging (WithNamedLogger, logError)
+import           Control.TimeWarp.Timed   (Microsecond, MonadTimed, for, fork_, wait)
+import           Formatting               (build, sformat, (%))
+import           Serokell.Util.Exceptions ()
+import           Universum                hiding (catch)
 
-import           Pos.Constants          (slotDuration)
-import           Pos.Types              (FlatSlotId, SlotId (..), flattenSlotId,
-                                         unflattenSlotId)
-
--- | Timestamp is a number which represents some point in time. It is
--- used in MonadSlots and its meaning is up to implementation of this
--- type class. The only necessary knowledge is that difference between
--- timestamps is microsecond. Hence underlying type is Microsecond.
-newtype Timestamp = Timestamp
-    { getTimestamp :: Microsecond
-    } deriving (Num)
-
-instance Show Timestamp where
-  show = show . getTimestamp
-
-instance Read Timestamp where
-  readsPrec i = fmap (\(a, s) -> (Timestamp a, s)) . readsPrec i
-
-instance Buildable Timestamp where
-    build = Buildable.build . (fromIntegral :: Microsecond -> Integer) . getTimestamp
-
-timestampF :: Format r (Timestamp -> r)
-timestampF = build
+import           Pos.Constants            (slotDuration)
+import           Pos.DHT                  (DHTResponseT)
+import           Pos.Types                (FlatSlotId, SlotId (..), Timestamp (..),
+                                           flattenSlotId, unflattenSlotId)
 
 -- | Type class providing information about time when system started
 -- functioning.
@@ -69,28 +46,30 @@ getCurrentSlotFlat = flattenSlotId <$> getCurrentSlot
 -- | Run given action as soon as new slot starts, passing SlotId to
 -- it.  This function uses MonadTimed and assumes consistency between
 -- MonadSlots and MonadTimed implementations.
---
--- TODO: think about exceptions.
 onNewSlot
-    :: (MonadTimed m, MonadSlots m)
+    :: (MonadIO m, MonadTimed m, MonadSlots m, MonadCatch m, WithNamedLogger m)
     => Bool -> (SlotId -> m ()) -> m a
 onNewSlot = onNewSlotDo Nothing
 
 onNewSlotDo
-    :: (MonadTimed m, MonadSlots m)
+    :: (MonadIO m, MonadTimed m, MonadSlots m, MonadCatch m, WithNamedLogger m)
     => Maybe SlotId -> Bool -> (SlotId -> m ()) -> m a
 onNewSlotDo expectedSlotId startImmediately action = do
     waitUntilPredicate
         (maybe (const True) (<=) expectedSlotId <$> getCurrentSlot)
     curSlot <- getCurrentSlot
     -- fork is necessary because action can take more time than slotDuration
-    when startImmediately $ fork_ $ action curSlot
+    when startImmediately $ fork_ $ actionWithCatch curSlot
     Timestamp curTime <- getCurrentTime
     let timeToWait = slotDuration - curTime `mod` slotDuration
     wait $ for timeToWait
-    onNewSlotDo (Just $ succ curSlot) True action
+    onNewSlotDo (Just $ succ curSlot) True actionWithCatch
   where
     waitUntilPredicate predicate =
         unlessM predicate (shortWait >> waitUntilPredicate predicate)
     shortWaitTime = (10 :: Microsecond) `max` (slotDuration `div` 10000)
     shortWait = wait $ for shortWaitTime
+    -- TODO: think about exceptions more carefully.
+    actionWithCatch s = action s `catch` handler
+    handler :: (MonadIO m, WithNamedLogger m) => SomeException -> m ()
+    handler = logError . sformat ("Error occurred: "%build)

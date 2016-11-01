@@ -7,9 +7,10 @@ module Pos.Worker.Block
 
 import           Control.Lens              (ix, (^.), (^?))
 import           Control.TimeWarp.Logging  (logDebug, logInfo, logWarning)
-import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, sec, wait)
+import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, wait)
 import           Formatting                (build, sformat, (%))
 import           Serokell.Util.Exceptions  ()
+import           Serokell.Util.Text        (listJson)
 import           Universum
 
 import           Pos.Communication.Methods (announceBlock)
@@ -23,6 +24,7 @@ import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKe
 blkOnNewSlot :: WorkMode m => SlotId -> m ()
 blkOnNewSlot slotId@SlotId {..} = do
     leaders <- getLeaders siEpoch
+    logDebug (sformat ("Slot leaders: "%listJson) leaders)
     ourPk <- ncPublicKey <$> getNodeContext
     let leader = leaders ^? ix (fromIntegral siSlot)
     when (leader == Just ourPk) $ onNewSlotWhenLeader slotId
@@ -34,9 +36,11 @@ onNewSlotWhenLeader slotId = do
     wait $ for (slotDuration - networkDiameter)
     logInfo "It's time to create a block for current slot"
     sk <- ncSecretKey <$> getNodeContext
-    createdBlk <- createNewBlock sk slotId
-    logInfo $ sformat ("Created a new block: "%build) createdBlk
-    announceBlock $ createdBlk ^. gbHeader
+    let whenCreated createdBlk = do
+            logInfo $ sformat ("Created a new block:\n"%build) createdBlk
+            announceBlock $ createdBlk ^. gbHeader
+    let whenNotCreated = logInfo "I couldn't create a new block"
+    maybe whenNotCreated whenCreated =<< createNewBlock sk slotId
 
 -- | All workers specific to block processing.
 -- Exceptions:
@@ -45,7 +49,7 @@ blkWorkers :: WorkMode m => [m ()]
 blkWorkers = [blocksTransmitter]
 
 blocksTransmitterInterval :: Microsecond
-blocksTransmitterInterval = sec 3
+blocksTransmitterInterval = slotDuration `div` 2
 
 blocksTransmitter :: WorkMode m => m ()
 blocksTransmitter =

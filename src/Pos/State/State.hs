@@ -31,11 +31,17 @@ module Pos.State.State
        , processTx
        , processVssCertificate
        , generateNewSecret
+
+       -- * Stats collecting and fetching
+       , addStatRecord
+       , getStatRecords
        ) where
 
 import           Crypto.Random              (seedNew, seedToInteger)
 import           Data.Acid                  (EventResult, EventState, QueryEvent,
                                              UpdateEvent)
+import           Data.Binary                (Binary)
+import qualified Data.Binary                as Binary
 import           Pos.DHT                    (DHTResponseT)
 import           Serokell.Util              (VerificationRes)
 import           Universum
@@ -45,11 +51,12 @@ import           Pos.Slotting               (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.DynamicState.Types (SscDynamicState)
 import           Pos.State.Acidic           (DiskState, tidyState)
 import qualified Pos.State.Acidic           as A
-import           Pos.State.Storage          (ProcessBlockRes (..), Storage)
+import           Pos.State.Storage          (IdTimestamp (..), ProcessBlockRes (..),
+                                             Storage)
 import           Pos.Types                  (Block, Commitment, CommitmentSignature,
                                              EpochIndex, HeaderHash, MainBlock,
                                              MainBlockHeader, Opening, SlotId,
-                                             SlotLeaders, Tx, VssCertificate,
+                                             SlotLeaders, Timestamp, Tx, VssCertificate,
                                              genCommitmentAndOpening)
 
 -- | NodeState encapsulates all the state stored by node.
@@ -123,7 +130,7 @@ mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 -- we are slot leader.
 createNewBlock
     :: WorkModeDB m
-    => SecretKey -> SlotId -> m (MainBlock SscDynamicState)
+    => SecretKey -> SlotId -> m (Maybe (MainBlock SscDynamicState))
 createNewBlock sk = updateDisk . A.CreateNewBlock sk
 
 -- | Process transaction received from other party.
@@ -185,3 +192,16 @@ getOurShares :: WorkModeDB m => VssKeyPair -> m (HashMap PublicKey Share)
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
     queryDisk $ A.GetOurShares ourKey (seedToInteger randSeed)
+
+-- | Functions for collecting stats (for benchmarking)
+toPair :: Binary a => IdTimestamp -> (a, Timestamp)
+toPair IdTimestamp {..} = (Binary.decode itId, fromIntegral itTimestamp)
+
+fromArgs :: Binary a => a -> Timestamp -> IdTimestamp
+fromArgs id time = IdTimestamp (Binary.encode id) (fromIntegral time)
+
+getStatRecords :: (WorkModeDB m, Binary a) => Text -> m (Maybe [(a, Timestamp)])
+getStatRecords label = fmap (map toPair) <$> queryDisk (A.GetStatRecords label)
+
+addStatRecord :: (WorkModeDB m, Binary a) => Text -> a -> Timestamp -> m ()
+addStatRecord label id time = updateDisk $ A.AddStatRecord label $ fromArgs id time

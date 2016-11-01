@@ -16,18 +16,20 @@ module Pos.Merkle
        , mkMerkleTree
        ) where
 
-import           Control.Monad.Fail (fail)
-import           Data.Binary        (Binary, get, getWord8, put, putWord8)
-import qualified Data.Binary        as Binary (encode)
-import qualified Data.ByteString    as BS
-import           Data.Coerce        (coerce)
-import           Data.MessagePack   (MessagePack)
-import           Data.SafeCopy      (base, deriveSafeCopySimple)
-import           Universum
+import           Control.Monad.Fail   (fail)
+import           Data.Binary          (Binary, get, getWord8, put, putWord8)
+import qualified Data.Binary          as Binary (encode)
+import qualified Data.ByteString      as BS
+import qualified Data.ByteString.Lazy as BL (toStrict)
+import           Data.Coerce          (coerce)
+import           Data.MessagePack     (MessagePack)
+import           Data.SafeCopy        (base, deriveSafeCopySimple)
+import           Prelude              (Show (..))
+import           Universum            hiding (show)
 
-import           Data.ByteArray     (ByteArrayAccess, convert)
-import           Pos.Crypto         (Hash, hashRaw)
-import           Pos.Util           (Raw)
+import           Data.ByteArray       (ByteArrayAccess, convert)
+import           Pos.Crypto           (Hash, hashRaw)
+import           Pos.Util             (Raw)
 
 -- TODO: This uses SHA256 (i.e. Hash). Bitcoin uses double SHA256 to protect
 -- against some attacks that don't exist yet. It'd likely be nice to use
@@ -43,7 +45,10 @@ instance MessagePack (MerkleRoot a)
 deriveSafeCopySimple 0 'base ''MerkleRoot
 
 data MerkleTree a = MerkleEmpty | MerkleTree Word32 (MerkleNode a)
-    deriving (Eq, Show, Generic, Foldable)
+    deriving (Eq, Generic, Foldable)
+
+instance Show a => Show (MerkleTree a) where
+  show tree = "Merkle tree: " <> show (toList tree)
 
 -- TODO: MessagePack instances can be more efficient.
 instance MessagePack a => MessagePack (MerkleTree a)
@@ -87,7 +92,7 @@ mkLeaf a =
     MerkleLeaf
     { mVal  = a
     , mRoot = MerkleRoot $ coerce $
-              hashRaw (BS.singleton 0 <> toS (Binary.encode a))
+              hashRaw (BS.singleton 0 <> BL.toStrict (Binary.encode a))
     }
 
 mkBranch :: MerkleNode a -> MerkleNode a -> MerkleNode a

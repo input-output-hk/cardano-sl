@@ -1,7 +1,8 @@
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications      #-}
 
 -- | Common things used in `Pos.Crypto.Arbitrary` and `Pos.Util.Arbitrary`
 
@@ -9,13 +10,17 @@ module Pos.Util.Arbitrary
     ( Nonrepeating (..)
     , ArbitraryUnsafe (..)
     , sublistN
+    , unsafeMakeList
     , unsafeMakePool
     , arbitrarySizedS
+    , arbitrarySizedSL
     ) where
 
-import           Data.ByteString  (pack)
-import           System.IO.Unsafe (unsafePerformIO)
-import           Test.QuickCheck  (Arbitrary (..), Gen, shuffle, vector, listOf)
+import           Data.ByteString      (pack)
+import qualified Data.ByteString.Lazy as BL (ByteString, pack)
+import           Data.MessagePack     ()
+import           System.IO.Unsafe     (unsafePerformIO)
+import           Test.QuickCheck      (Arbitrary (..), Gen, listOf, shuffle, vector)
 import           Universum
 
 -- | Choose a random (shuffled) subset of length n. Throws an error if
@@ -35,9 +40,21 @@ unsafeMakePool msg n action = unsafePerformIO $ do
     putText msg
     replicateM n action
 
+-- | Unsafely create list of `n` random values to be picked
+-- (see note in `Pos.Crypto.Arbitrary` for explanation)
+-- Used because genSharedSecret already returns a list
+-- of EncShares, making the 'replicateM' unneeded.
+unsafeMakeList :: Text -> IO [a] -> [a]
+unsafeMakeList msg action = unsafePerformIO $ do
+    putText msg
+    action
+
 -- | Make arbitrary `ByteString` of given length
-arbitrarySizedS :: StringConv ByteString s => Int -> Gen s
-arbitrarySizedS n = toS . pack <$> vector n
+arbitrarySizedS :: Int -> Gen ByteString
+arbitrarySizedS n = pack <$> vector n
+
+arbitrarySizedSL :: Int -> Gen BL.ByteString
+arbitrarySizedSL n = BL.pack <$> vector n
 
 {- ArbitraryUnsafe class
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -48,22 +65,20 @@ not to mimic real data as presisely as possible (using OpenSSL random), but
 rather to be simple and efficient.
 
 This is especially useful for benchmarking.
+
+TODO: embrace some generics to derive `ArbitraryUnsafe` automagically
 -}
 
 class ArbitraryUnsafe a where
     arbitraryUnsafe :: Gen a
 
-instance ArbitraryUnsafe Word16 where
+    default arbitraryUnsafe :: Arbitrary a => Gen a
     arbitraryUnsafe = arbitrary
 
-instance ArbitraryUnsafe Word32 where
-    arbitraryUnsafe = arbitrary
-
-instance ArbitraryUnsafe Word64 where
-    arbitraryUnsafe = arbitrary
-
-instance ArbitraryUnsafe ByteString where
-    arbitraryUnsafe = pack <$> arbitrary
+instance ArbitraryUnsafe Word16
+instance ArbitraryUnsafe Word32
+instance ArbitraryUnsafe Word64
+instance ArbitraryUnsafe ByteString
 
 instance ArbitraryUnsafe a => ArbitraryUnsafe [a] where
     arbitraryUnsafe = listOf arbitraryUnsafe

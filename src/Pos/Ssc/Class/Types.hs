@@ -5,15 +5,17 @@ module Pos.Ssc.Class.Types
        ( SscTypes(..)
        ) where
 
-import           Data.Binary      (Binary)
-import           Data.MessagePack (MessagePack)
-import           Data.SafeCopy    (SafeCopy)
-import           Data.Tagged      (Tagged)
+import           Data.Binary         (Binary)
+import           Data.MessagePack    (MessagePack)
+import           Data.SafeCopy       (SafeCopy)
+import           Data.Tagged         (Tagged)
+import           Data.Text.Buildable (Buildable)
 import           Universum
 
 class (Typeable a
       ,Eq (SscProof a)
       ,Show (SscProof a)
+      ,Buildable (SscPayload a)
       ,Binary (SscProof a)
       ,Binary (SscPayload a)
       ,MessagePack (SscProof a)

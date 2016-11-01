@@ -17,14 +17,14 @@
 
 module Pos.Types.Types
        (
-         EpochIndex (..)
+         Coin (..)
+       , coinF
+
+       , EpochIndex (..)
        , LocalSlotIndex (..)
        , SlotId (..)
-       , slotIdF
        , FlatSlotId
-
-       , Coin (..)
-       , coinF
+       , slotIdF
 
        , Address (..)
        , addressF
@@ -131,6 +131,7 @@ import           Data.Data            (Data)
 import           Data.Default         (Default (def))
 import           Data.DeriveTH        (derive, makeNFData)
 import           Data.Hashable        (Hashable)
+import qualified Data.HashMap.Strict  as HM
 import           Data.Ix              (Ix)
 import           Data.MessagePack     (MessagePack (..))
 import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeCopySimple,
@@ -139,7 +140,8 @@ import           Data.Tagged          (untag)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
-import           Formatting           (Format, bprint, build, int, sformat, (%))
+import           Formatting           (Format, bprint, build, int, ords, sformat, stext,
+                                       (%))
 import           Serokell.AcidState   ()
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Text   (listJson)
@@ -154,6 +156,25 @@ import           Pos.Crypto           (EncShare, Hash, PublicKey, Secret, Secret
 import           Pos.Merkle           (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot,
                                        mtSize)
 import           Pos.Ssc.Class.Types  (SscTypes (..))
+import           Pos.Util             (Color (Magenta), colorize, makeLensesData)
+
+----------------------------------------------------------------------------
+-- Coin
+----------------------------------------------------------------------------
+
+-- | Coin is the least possible unit of currency.
+newtype Coin = Coin
+    { getCoin :: Word64
+    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Binary, Hashable, Data, NFData)
+
+instance MessagePack Coin
+
+instance Buildable Coin where
+    build = bprint (int%" coin(s)")
+
+-- | Coin formatter which restricts type.
+coinF :: Format r (Coin -> r)
+coinF = build
 
 ----------------------------------------------------------------------------
 -- Slotting
@@ -185,31 +206,13 @@ instance MessagePack SlotId
 
 instance Buildable SlotId where
     build SlotId {..} =
-        bprint (int%"-th slot of "%int%"-th epoch") siSlot siEpoch
+        bprint (ords%" slot of "%ords%" epoch") siSlot siEpoch
 
 slotIdF :: Format r (SlotId -> r)
 slotIdF = build
 
 -- | FlatSlotId is a flat version of SlotId
 type FlatSlotId = Word64
-
-----------------------------------------------------------------------------
--- Coin
-----------------------------------------------------------------------------
-
--- | Coin is the least possible unit of currency.
-newtype Coin = Coin
-    { getCoin :: Word64
-    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Binary, Hashable, Data, NFData)
-
-instance MessagePack Coin
-
-instance Buildable Coin where
-    build = bprint (int%" coin(s)")
-
--- | Coin formatter which restricts type.
-coinF :: Format r (Coin -> r)
-coinF = build
 
 ----------------------------------------------------------------------------
 -- Address
@@ -432,6 +435,11 @@ data GenericBlock b = GenericBlock
     } deriving (Generic)
 
 deriving instance
+         (Show (GenericBlockHeader b), Show (Body b),
+          Show (ExtraBodyData b)) =>
+         Show (GenericBlock b)
+
+deriving instance
          (Eq (BodyProof b), Eq (ConsensusData b), Eq (ExtraHeaderData b),
           Eq (Body b), Eq (ExtraBodyData b)) =>
          Eq (GenericBlock b)
@@ -520,36 +528,42 @@ instance SscTypes ssc => MessagePack (Body (MainBlockchain ssc))
 
 type MainBlockHeader ssc = GenericBlockHeader (MainBlockchain ssc)
 
-instance Buildable (MainBlockHeader ssc) where
-    build GenericBlockHeader {..} =
+instance SscTypes ssc => Buildable (MainBlockHeader ssc) where
+    build gbh@GenericBlockHeader {..} =
         bprint
             ("MainBlockHeader:\n"%
+             "    hash: "%hashHexF%"\n"%
              "    previous block: "%hashHexF%"\n"%
              "    slot: "%slotIdF%"\n"%
              "    leader: "%build%"\n"%
              "    difficulty: "%int%"\n"
             )
+            headerHash
             _gbhPrevBlock
             _mcdSlot
             _mcdLeaderKey
             _mcdDifficulty
       where
+        headerHash :: HeaderHash ssc
+        headerHash = hash $ Right gbh
         MainConsensusData {..} = _gbhConsensus
 
 -- | MainBlock is a block with transactions and MPC messages. It's the
 -- main part of our consensus algorithm.
 type MainBlock ssc = GenericBlock (MainBlockchain ssc)
 
--- TODO
-instance Buildable (MainBlock ssc) where
+instance SscTypes ssc => Buildable (MainBlock ssc) where
     build GenericBlock {..} =
         bprint
-            ("MainBlock:\n"%
+            (stext%":\n"%
              "  "%build%
-             "  transactions: "%listJson%"\n"
+             "  transactions: "%listJson%"\n"%
+             build
             )
+            (colorize Magenta "MainBlock")
             _gbHeader
             _mbTxs
+            _mbMpc
       where
         MainBody {..} = _gbBody
 
@@ -571,13 +585,13 @@ instance Blockchain (GenesisBlockchain ssc) where
     -- TODO: do we need a Merkle tree? This list probably won't be large.
     data BodyProof (GenesisBlockchain ssc) = GenesisProof
         !(Hash (Vector PublicKey))
-        deriving (Eq, Generic)
+        deriving (Eq, Generic, Show)
     data ConsensusData (GenesisBlockchain ssc) = GenesisConsensusData
         { -- | Index of the slot for which this genesis block is relevant.
           _gcdEpoch :: !EpochIndex
         , -- | Difficulty of the chain ending in this genesis block.
           _gcdDifficulty :: !ChainDifficulty
-        } deriving (Generic)
+        } deriving (Generic, Show)
     type BBlockHeader (GenesisBlockchain ssc) = BlockHeader ssc
 
     -- | Body of genesis block consists of slot leaders for epoch

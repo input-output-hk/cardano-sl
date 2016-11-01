@@ -15,8 +15,8 @@ import           Pos.Crypto               (unsafeHash)
 import           Pos.DHT                  (DHTNode, DHTNodeType (..))
 import           Pos.Genesis              (genesisAddresses, genesisSecretKeys,
                                            genesisVssKeyPairs)
-import           Pos.Launcher             (LoggingParams (..), NodeParams (..),
-                                           submitTxReal)
+import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
+                                           NodeParams (..), submitTxReal)
 import           Serokell.Util.OptParse   (fromParsec)
 
 data WalletCommand = SubmitTx
@@ -68,13 +68,15 @@ main = do
                     NodeParams
                     { npDbPath = Nothing
                     , npRebuildDb = False
-                    , npSystemStart = Nothing
-                    , npLogging = def { lpMainSeverity = Debug }
+                    , npSystemStart = 1477706355381569 --arbitrary value
                     , npSecretKey = genesisSecretKeys !! i
                     , npVssKeyPair = genesisVssKeyPairs !! i
-                    , npPort = 24962
-                    , npDHTPeers = stDHTPeers
-                    , npDHTKeyOrType = Right DHTClient
+                    , npBaseParams = BaseParams
+                                      { bpLogging = def { lpMainSeverity = Debug, lpRootLogger = "wallet" }
+                                      , bpPort = 24962
+                                      , bpDHTPeers = stDHTPeers
+                                      , bpDHTKeyOrType = Right DHTClient
+                                      }
                     }
             let addr = genesisAddresses !! i
             let txId = unsafeHash addr

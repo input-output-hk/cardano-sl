@@ -220,9 +220,7 @@ blkProcessBlockDo blk = do
     if continueMain
         then PBRgood (0, blk :| []) <$ insertBlock blk
         -- Our next attempt is to start alternative chain.
-        else ifM (tryStartAltChain blk)
-                 (return $ PBRmore $ blk ^. prevBlockL)
-                 (tryContinueAltChain blk)
+        else maybe (tryContinueAltChain blk) pure =<< tryStartAltChain blk
 
 canContinueBestChain :: Block -> Query Bool
 -- We don't continue best chain with received genesis block. It is
@@ -236,25 +234,31 @@ canContinueBestChain blk = do
     let vbp = def {vbpVerifyHeader = Just vhe}
     return $ isVerSuccess $ verifyBlock vbp blk
 
-tryStartAltChain :: Block -> Update Bool
-tryStartAltChain (Left _) = pure False
-tryStartAltChain (Right blk) = do
-    isMostDiff <- readerToState $ isMostDifficult (blk ^. gbHeader)
+-- Possible results are:
+-- • Nothing: can't start alternative chain.
+-- • Just PBRgood: started alternative chain and can merge it already.
+-- • Just PBRmore: started alternative chain and want more.
+tryStartAltChain :: Block -> Update (Maybe ProcessBlockRes)
+tryStartAltChain (Left _) = pure Nothing
+tryStartAltChain (Right blk) =
     -- TODO: more checks should be done here probably
-    if isMostDiff
-        then True <$ startAltChain blk
-        else pure False
+    ifM (readerToState $ isMostDifficult (blk ^. gbHeader))
+        (Just <$> startAltChain blk)
+        (pure Nothing)
 
 -- Here we know that block may represent a valid chain which
 -- potentially can become main chain. We put it into map with all
 -- blocks and add new AltChain.
-startAltChain :: MainBlock -> Update ()
+-- PBRgood is returned if chain can already be merged.
+-- PBRmore is returned if more blocks are needed.
+startAltChain :: MainBlock -> Update ProcessBlockRes
 startAltChain blk = do
     insertBlock $ Right blk
     blkAltChains %= ((Right blk :| []) :)
+    return (PBRmore $ blk ^. prevBlockL)
 
 pbrUseless :: ProcessBlockRes
-pbrUseless = (mkPBRabort ["block can't be added to any chain"])
+pbrUseless = mkPBRabort ["block can't be added to any chain"]
 
 -- Here we try to continue one of known alternative chains. It may
 -- happen that common ancestor with main chain will be found. In this

@@ -4,6 +4,11 @@ function find_binary {
 	echo "$binpath"/$1
 }
 
+function find_build_binary {
+    binpath=`find .stack-work/dist -type d -name build | sort | tail -n1`
+    echo "$binpath"/$1/$1
+}
+
 function ensure_logs {
 	mkdir -p logs
 

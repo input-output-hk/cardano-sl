@@ -216,11 +216,11 @@ blkProcessBlockDo :: Block -> Update ProcessBlockRes
 blkProcessBlockDo blk = do
     -- At this point we know that block is good in isolation.
     -- Our first attempt is to continue the best chain and finish.
-    continueMain <- readerToState $ canContinueBestChain blk
-    if continueMain
-        then PBRgood (0, blk :| []) <$ insertBlock blk
+    ifM (readerToState $ canContinueBestChain blk)
+        -- If it's possible, we just do it.
+        (continueBestChain blk)
         -- Our next attempt is to start alternative chain.
-        else maybe (tryContinueAltChain blk) pure =<< tryStartAltChain blk
+        (maybe (tryContinueAltChain blk) pure =<< tryStartAltChain blk)
 
 canContinueBestChain :: Block -> Query Bool
 -- We don't continue best chain with received genesis block. It is
@@ -233,6 +233,9 @@ canContinueBestChain blk = do
     let vhe = def {vhePrevHeader = Just $ getBlockHeader headBlk}
     let vbp = def {vbpVerifyHeader = Just vhe}
     return $ isVerSuccess $ verifyBlock vbp blk
+
+continueBestChain :: Block -> Update ProcessBlockRes
+continueBestChain blk = PBRgood (0, blk :| []) <$ insertBlock blk
 
 -- Possible results are:
 -- • Nothing: can't start alternative chain.

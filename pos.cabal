@@ -190,6 +190,7 @@ test-suite pos-test
                      , Test.Pos.Types.Identity.BinarySpec
                      , Test.Pos.Types.Identity.MessagePackSpec
                      , Test.Pos.Types.Identity.SafeCopySpec
+                     , Test.Pos.Types.SafeCopySpec
                      , Test.Pos.Types.SlottingSpec
                      , Test.Pos.Types.UtxoSpec
                      , Test.Pos.Util

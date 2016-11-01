@@ -221,7 +221,7 @@ blkProcessBlockDo blk = do
         then PBRgood (0, blk :| []) <$ insertBlock blk
         -- Our next attempt is to start alternative chain.
         else ifM (tryStartAltChain blk)
-                 (return $ PBRmore $ headerHash blk)
+                 (return $ PBRmore $ blk ^. prevBlockL)
                  (tryContinueAltChain blk)
 
 canContinueBestChain :: Block -> Query Bool

@@ -178,6 +178,10 @@ processBlockDo curSlotId blk = do
             case mpcRes <> txRes of
                 VerSuccess        -> processBlockFinally toRollback chain
                 VerFailure errors -> return $ mkPBRabort errors
+        -- if we need block which we already know, we just use it
+        PBRmore h ->
+            maybe (pure r) (processBlockDo curSlotId) =<<
+            readerToState (getBlock h)
         _ -> return r
 
 -- At this point all checks have been passed and we know that we can

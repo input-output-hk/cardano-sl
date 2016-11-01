@@ -4,15 +4,16 @@ module Main where
 
 import           Control.TimeWarp.Logging (Severity (Debug), logInfo)
 import           Control.TimeWarp.Rpc     (NetworkAddress)
+import           Control.TimeWarp.Timed   (Millisecond, for, wait)
 import           Data.Default             (def)
 import           Data.List                ((!!))
+import           Data.Monoid              ((<>))
 import           Formatting               (build, sformat, (%))
 import           Options.Applicative      (Parser, ParserInfo, auto, execParser, fullDesc,
                                            help, helper, info, long, metavar, option,
                                            progDesc, short, value)
+import           System.Random            (getStdGen, randomRs)
 import           Universum                hiding ((<>))
-
-import           Data.Monoid              ((<>))
 
 import           Pos.CLI                  (addrParser)
 import           Pos.Communication        (sendTx)
@@ -31,15 +32,17 @@ import           Pos.WorkMode             (RealMode, ServiceMode, WorkMode,
 import           Serokell.Util.OptParse   (fromParsec)
 
 data GenOptions = GenOptions
-    { goGenesisIdx :: !Word   -- ^ Index in genesis key pairs.
-    , goRemoteAddr :: !NetworkAddress -- ^ Remote node address
-    , goTxNum      :: !Word -- ^ Number of tx to send
-    , goRemoteMode :: !RemoteMode
+    { goGenesisIdx  :: !Word           -- ^ Index in genesis key pairs.
+    , goRemoteAddr  :: !NetworkAddress -- ^ Remote node address
+    , goTxNum       :: !Int            -- ^ Number of tx to send
+    , goRemoteMode  :: !RemoteMode     -- ^ Production node or bench mode
+    , goInitBalance :: !Int            -- ^ Total coins in init utxo per address
+    , goDelay       :: !Millisecond    -- ^ Delay between transactions
     }
 
 -- | Determines how to generate initial transaction
-data RemoteMode = Prod      -- ^ as in `genesisUtxo`
-                | Bench Int -- ^ as in `utxoPetty k`
+data RemoteMode = Prod   -- ^ as in `genesisUtxo`
+                | Bench  -- ^ as in `utxoPetty`
                 deriving (Read, Show)
 
 optionsParser :: Parser GenOptions
@@ -65,6 +68,16 @@ optionsParser = GenOptions
           <> long "remote-mode"
           <> value Prod
           <> help "`Prod` if rushing regular node, `Bench <k>` - for benchmark node with `k` coins in genesis utxo")
+    <*> option auto
+            (short 'k'
+          <> long "init-money"
+          <> value 10000
+          <> help "How many coins node has in the beginning")
+    <*> option auto
+            (short 'd'
+          <> long "delay"
+          <> value 500
+          <> help "Delay between transactions in ms")
 
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $
@@ -79,9 +92,28 @@ submitTxRaw na tx = do
     sendTx na tx
 
 generateTxList :: WorkMode m => RemoteMode -> Address -> Int -> m [Tx]
-generateTxList mode addr idx = do
+generateTxList mode addr balance = do
+    gen <- liftIO getStdGen
     sk <- ncSecretKey <$> getNodeContext
-    return []
+
+    -- TODO: genesisN is currently 3, which breaks everything
+    let nodesN = length genesisAddresses
+        -- send everybody per 1 coin randomly
+        recAddrs = take balance $ map (genesisAddresses !!) $ randomRs (0, nodesN - 1) gen
+        makeTx txOutAddress idx =
+            let txOutValue = 1
+                txInHash = initTxId idx
+                txInIndex = 0
+                txOutputs = [TxOut {..}]
+                txInputs = [TxIn { txInSig = sign sk (txInHash, txInIndex, txOutputs), .. }]
+            in Tx {..}
+        txs = zipWith makeTx recAddrs [0..]
+        initTxId :: Int -> TxId
+        initTxId = case mode of
+            Prod  -> \_ -> unsafeHash addr
+            Bench -> \k -> unsafeHash (show addr ++ show k)
+
+    return txs
 
 main :: IO ()
 main = do
@@ -106,6 +138,8 @@ main = do
 
     runRealMode params [] $ getNoStatsT $ do
         txs <- generateTxList goRemoteMode addr i
-        forM_ txs $ \tx -> do
+        logInfo "Generated list of transactions"
+        print $ take 5 txs
+        forM_ (take goTxNum txs) $ \tx -> do
             submitTxRaw goRemoteAddr tx
-            -- delay
+            wait $ for goDelay

@@ -321,6 +321,7 @@ benchmark pos-tx-generator
                      , optparse-applicative
                      , parsec
                      , pos
+                     , random
                      , serokell-core
                      , time-warp
                      , universum

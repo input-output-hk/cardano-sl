@@ -22,6 +22,10 @@ module Pos.State.Acidic
        , GetHeadBlock (..)
        , GetLeaders (..)
        , GetLocalTxs (..)
+       , GetLocalMpcData (..)
+       , GetGlobalMpcData (..)
+       , GetSecret (..)
+       , GetOurCommitment (..)
        , GetOurOpening (..)
        , GetOurShares (..)
        , GetThreshold (..)
@@ -93,7 +97,11 @@ makeAcidic ''Storage
     [ 'S.getBlock
     , 'S.getLeaders
     , 'S.getLocalTxs
+    , 'S.getLocalMpcData
+    , 'S.getGlobalMpcData
     , 'S.getHeadBlock
+    , 'S.getSecret
+    , 'S.getOurCommitment
     , 'S.getOurOpening
     , 'S.getOurShares
     , 'S.getThreshold

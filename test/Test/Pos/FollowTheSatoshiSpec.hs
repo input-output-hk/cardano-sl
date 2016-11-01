@@ -10,24 +10,21 @@ module Test.Pos.FollowTheSatoshiSpec
 import           Crypto.Random            (MonadRandom)
 import qualified Data.HashMap.Strict      as HM
 import           Data.List                (foldl1', unzip, (\\))
+import qualified Data.List.NonEmpty       as NE
 import           Formatting               (build, int, sformat, (%))
 import           Serokell.Util            (listJson)
 import           Test.Hspec               (Spec, describe, pending)
-import           Test.Hspec.QuickCheck    (modifyMaxSize, modifyMaxSuccess,
-                                           prop)
-import           Test.QuickCheck          (Property, choose, counterexample,
-                                           generate, ioProperty, property,
-                                           sized, (===))
+import           Test.Hspec.QuickCheck    (modifyMaxSize, modifyMaxSuccess, prop)
+import           Test.QuickCheck          (Property, choose, counterexample, generate,
+                                           ioProperty, property, sized, (===))
 import           Test.QuickCheck.Property (failed, succeeded)
 import           Universum
 
-import           Pos.Crypto               (KeyPair (..), Share, Threshold,
-                                           VssKeyPair, decryptShare, sign,
-                                           toVssPublicKey)
+import           Pos.Crypto               (KeyPair (..), Share, Threshold, VssKeyPair,
+                                           decryptShare, sign, toVssPublicKey)
 import           Pos.FollowTheSatoshi     (FtsError (..), calculateSeed)
-import           Pos.Types                (Commitment (..), CommitmentsMap,
-                                           FtsSeed (..), Opening (..),
-                                           genCommitmentAndOpening,
+import           Pos.Types                (Commitment (..), CommitmentsMap, FtsSeed (..),
+                                           Opening (..), genCommitmentAndOpening,
                                            secretToFtsSeed, xorFtsSeed)
 import           Pos.Util                 (nonrepeating, sublistN)
 
@@ -87,6 +84,7 @@ recoverSecretsProp
     -> Property
 recoverSecretsProp n n_openings n_shares n_overlap
     | any (< 0) [n, n_openings, n_shares, n_overlap] = panic "negative"
+    | n == 0                 = panic "n == 0"
     | n_overlap > n_openings = panic "n_overlap > n_openings"
     | n_overlap > n_shares   = panic "n_overlap > n_shares"
     | n_openings > n         = panic "n_openings > n"
@@ -179,16 +177,16 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
 generateKeysAndMpc
     :: Threshold
     -> Int
-    -> IO ([KeyPair], [VssKeyPair], [Commitment], [Opening])
+    -> IO ([KeyPair], NE.NonEmpty VssKeyPair, [Commitment], [Opening])
 -- genCommitmentAndOpening fails on 0
-generateKeysAndMpc _         0 = return ([], [], [], [])
+generateKeysAndMpc _         0 = panic "generateKeysAndMpc: 0 is passed"
 generateKeysAndMpc threshold n = do
     keys           <- generate $ nonrepeating n
     vssKeys        <- generate $ nonrepeating n
-    let vssPubKeys = map toVssPublicKey vssKeys
+    let vssPubKeys = NE.fromList $ map toVssPublicKey vssKeys
     (comms, opens) <-
         unzip <$> replicateM n (genCommitmentAndOpening threshold vssPubKeys)
-    return (keys, vssKeys, comms, opens)
+    return (keys, NE.fromList vssKeys, comms, opens)
 
 mkCommitmentsMap :: [KeyPair] -> [Commitment] -> CommitmentsMap
 mkCommitmentsMap keys comms =
@@ -200,7 +198,7 @@ mkCommitmentsMap keys comms =
 
 getDecryptedShares
     :: MonadRandom m
-    => [VssKeyPair] -> Commitment -> m [Share]
+    => NE.NonEmpty VssKeyPair -> Commitment -> m [Share]
 getDecryptedShares vssKeys comm =
     forM (HM.toList (commShares comm)) $ \(pubKey, encShare) -> do
         let secKey = case find ((== pubKey) . toVssPublicKey) vssKeys of

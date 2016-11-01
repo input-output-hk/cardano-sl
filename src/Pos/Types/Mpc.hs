@@ -5,9 +5,17 @@ module Pos.Types.Mpc
        , hasCommitment
        , hasOpening
        , hasShares
+       , isCommitmentId
+       , isCommitmentIdx
+       , isOpeningId
+       , isOpeningIdx
+       , isSharesId
+       , isSharesIdx
        , mkSignedCommitment
        , secretToFtsSeed
        , verifyCommitment
+       , verifyCommitmentSignature
+       , verifySignedCommitment
        , verifyOpening
        , xorFtsSeed
        ) where
@@ -15,14 +23,19 @@ module Pos.Types.Mpc
 import           Control.Lens        ((^.))
 import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM
+import           Data.Ix             (inRange)
+import           Data.List.NonEmpty  (NonEmpty)
+import           Serokell.Util       (VerificationRes, verifyGeneric)
 import           Universum
 
+import           Pos.Constants       (k)
 import           Pos.Crypto          (PublicKey, Secret, SecretKey, Threshold,
                                       VssPublicKey, genSharedSecret, getDhSecret,
-                                      runSecureRandom, secretToDhSecret, sign,
+                                      runSecureRandom, secretToDhSecret, sign, verify,
                                       verifyEncShare, verifySecretProof)
-import           Pos.Types.Types     (Commitment (..), EpochIndex, FtsSeed (..), MpcData,
-                                      Opening (..), SignedCommitment, mdCommitments,
+import           Pos.Types.Types     (Commitment (..), EpochIndex, FtsSeed (..),
+                                      LocalSlotIndex, MpcData, Opening (..),
+                                      SignedCommitment, SlotId (..), mdCommitments,
                                       mdOpenings, mdShares)
 
 -- | Convert Secret to FtsSeed.
@@ -32,7 +45,7 @@ secretToFtsSeed = FtsSeed . getDhSecret . secretToDhSecret
 -- | Generate securely random FtsSeed.
 genCommitmentAndOpening
     :: MonadIO m
-    => Threshold -> [VssPublicKey] -> m (Commitment, Opening)
+    => Threshold -> NonEmpty VssPublicKey -> m (Commitment, Opening)
 genCommitmentAndOpening n pks =
     liftIO . runSecureRandom . fmap convertRes . genSharedSecret n $ pks
   where
@@ -40,7 +53,7 @@ genCommitmentAndOpening n pks =
         ( Commitment
           { commExtra = extra
           , commProof = proof
-          , commShares = HM.fromList $ zip pks shares
+          , commShares = HM.fromList $ zip (toList pks) shares
           }
         , Opening secret)
 
@@ -49,6 +62,21 @@ verifyCommitment :: Commitment -> Bool
 verifyCommitment Commitment {..} = all verifyCommitmentDo $ HM.toList commShares
   where
     verifyCommitmentDo = uncurry (verifyEncShare commExtra)
+
+-- | Verify signature in SignedCommitment using public key and epoch index.
+verifyCommitmentSignature :: PublicKey -> EpochIndex -> SignedCommitment -> Bool
+verifyCommitmentSignature pk epoch (comm, commSig) =
+    verify pk (epoch, comm) commSig
+
+-- | Verify SignedCommitment using public key and epoch index.
+verifySignedCommitment :: PublicKey -> EpochIndex -> SignedCommitment -> VerificationRes
+verifySignedCommitment pk epoch sc =
+    verifyGeneric
+        [ ( verifyCommitmentSignature pk epoch sc
+          , "commitment has bad signature (e. g. for wrong epoch)")
+        , ( verifyCommitment (fst sc)
+          , "commitment itself is bad (e. g. bad shares")
+        ]
 
 -- | Verify that Secret provided with Opening corresponds to given commitment.
 verifyOpening :: Commitment -> Opening -> Bool
@@ -71,3 +99,21 @@ hasOpening pk md = HM.member pk (md ^. mdOpenings)
 
 hasShares :: PublicKey -> MpcData -> Bool
 hasShares pk md = HM.member pk (md ^. mdShares)
+
+isCommitmentIdx :: LocalSlotIndex -> Bool
+isCommitmentIdx = inRange (0, k - 1)
+
+isOpeningIdx :: LocalSlotIndex -> Bool
+isOpeningIdx = inRange (2 * k, 3 * k - 1)
+
+isSharesIdx :: LocalSlotIndex -> Bool
+isSharesIdx = inRange (4 * k, 5 * k - 1)
+
+isCommitmentId :: SlotId -> Bool
+isCommitmentId = isCommitmentIdx . siSlot
+
+isOpeningId :: SlotId -> Bool
+isOpeningId = isOpeningIdx . siSlot
+
+isSharesId :: SlotId -> Bool
+isSharesId = isSharesIdx . siSlot

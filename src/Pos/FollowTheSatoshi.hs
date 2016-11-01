@@ -13,6 +13,7 @@ import           Control.Arrow       ((&&&))
 import qualified Data.HashMap.Strict as HM (fromList, lookup, mapMaybe, toList)
 import qualified Data.HashSet        as HS (difference, fromMap)
 import           Data.List           (foldl1', scanl1)
+import           Data.List.NonEmpty  (NonEmpty, fromList)
 import           Data.Text.Buildable (Buildable (..))
 import           Universum
 
@@ -146,10 +147,10 @@ calculateSeed (fromIntegral -> t) commitments openings shares = do
 -- in the system; to find owner of 'i'th coin we find the lowest x such that
 -- sum of all coins in this list up to 'i'th is not less than 'i' (and then
 -- 'x'th address is the owner).
-followTheSatoshi :: FtsSeed -> Utxo -> [Address]
+followTheSatoshi :: FtsSeed -> Utxo -> NonEmpty Address
 followTheSatoshi (FtsSeed seed) utxo
     | null outputs = panic "followTheSatoshi: utxo is empty"
-    | otherwise    = map fst $ sortOn snd $
+    | otherwise    = fromList $ map fst $ sortOn snd $
                      findLeaders (sortOn fst $ zip coinIndices [1..]) sums
   where
     outputs :: [(Address, Coin)]

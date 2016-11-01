@@ -8,6 +8,7 @@ module Pos.Crypto.Arbitrary
 
 import           Control.Lens                (view, _2, _4)
 import           Data.Binary                 (Binary)
+import           Data.List.NonEmpty          (fromList)
 import           Test.QuickCheck             (Arbitrary (..), elements)
 import           Universum
 
@@ -97,7 +98,7 @@ instance (Binary a, Arbitrary a) => Arbitrary (Signed a) where
 secrets :: [Secret]
 secrets =
     unsafeMakePool "[generating shares for tests...]" 50 $
-        view _2 <$> genSharedSecret 1000 (map toVssPublicKey vssKeys)
+        view _2 <$> genSharedSecret 1000 (map toVssPublicKey $ fromList vssKeys)
 {-# NOINLINE secrets #-}
 
 instance Arbitrary Secret where
@@ -106,7 +107,7 @@ instance Arbitrary Secret where
 encShares :: [EncShare]
 encShares =
     unsafeMakeList "[generating shares for tests...]" $
-        view _4 <$> genSharedSecret 1000 (map toVssPublicKey vssKeys)
+        view _4 <$> genSharedSecret 1000 (map toVssPublicKey $ fromList vssKeys)
 {-# NOINLINE encShares #-}
 
 instance Arbitrary EncShare where

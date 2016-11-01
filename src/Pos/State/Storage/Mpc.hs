@@ -16,9 +16,12 @@ module Pos.State.Storage.Mpc
 
        , calculateLeaders
        , getLocalMpcData
+       , getGlobalMpcData
        , getGlobalMpcDataByDepth
+       , getOurCommitment
        , getOurOpening
        , getOurShares
+       , getSecret
        , setSecret
        , mpcApplyBlocks
        , mpcProcessCommitment
@@ -33,7 +36,7 @@ module Pos.State.Storage.Mpc
        ) where
 
 import           Control.Lens            (Lens', at, ix, makeClassy, preview, to, use,
-                                          view, (%=), (.=), (.~), (^.), _3)
+                                          view, (%=), (.=), (.~), (^.), _2, _3)
 import           Crypto.Random           (drgNewSeed, seedFromInteger, withDRG)
 import           Data.Default            (Default, def)
 import           Data.Hashable           (Hashable)
@@ -42,7 +45,6 @@ import           Data.Ix                 (inRange)
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty      as NE
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
-import qualified Data.Vector             as V
 import           Serokell.Util.Verify    (VerificationRes (..), isVerSuccess,
                                           verifyGeneric)
 import           Universum
@@ -64,7 +66,7 @@ import           Pos.Types               (Address (getAddress), Block, Commitmen
                                           blockSlot, hasCommitment, hasOpening, hasShares,
                                           mdCommitments, mdOpenings, mdShares,
                                           mdVssCertificates, unflattenSlotId,
-                                          verifyOpening)
+                                          verifyOpening, verifySignedCommitment)
 import           Pos.Util                (magnify', readerToState, zoom', _neHead)
 
 data MpcStorageVersion = MpcStorageVersion
@@ -162,8 +164,8 @@ type Query a = forall m x. (HasMpcStorage x, MonadReader x m) => m a
 --                          <> " shares=" <> show (localShareKeys, globalShareKeys)
 --  where keys' = fmap pretty . HM.keys
 
-getLastGlobalMpcData :: Query MpcData
-getLastGlobalMpcData =
+getGlobalMpcData :: Query MpcData
+getGlobalMpcData =
     fromMaybe (panic "No global MPC data for depth 0") <$>
     getGlobalMpcDataByDepth 0
 
@@ -177,7 +179,7 @@ getLocalMpcData =
 
 ensureOwnMpc :: MpcData -> Query MpcData
 ensureOwnMpc md = do
-    globalMpc <- getLastGlobalMpcData
+    globalMpc <- getGlobalMpcData
     -- ourShares <- getOurShares
     ourComm <- view mpcCurrentSecret
     slotId <- view mpcLastProcessedSlot
@@ -227,8 +229,7 @@ calculateLeaders utxo threshold = do
                             <*> view (lastVer . mpcGlobalShares)
     return $ case mbSeed of
         Left e     -> Left e
-        Right seed -> Right . V.fromList . map getAddress $
-                      followTheSatoshi seed utxo
+        Right seed -> Right $ fmap getAddress $ followTheSatoshi seed utxo
 
 -- | Check that the secret revealed in the opening matches the secret proof
 -- in the commitment
@@ -257,6 +258,7 @@ checkShare
     -> Bool
 checkShare globalCommitments _ globalCertificates (pkTo, pkFrom, share) =
     fromMaybe False $ do
+        guard $ HM.member pkTo globalCommitments
         (comm, _) <- HM.lookup pkFrom globalCommitments
         vssKey <- signedValue <$> HM.lookup pkTo globalCertificates
         encShare <- HM.lookup vssKey (commShares comm)
@@ -331,7 +333,8 @@ mpcVerifyBlock (Right b) = do
     -- block if they're late.
     --
     -- For commitments specifically, we also
-    --   * check their signatures (which includes checking that the
+    --   * use verifySignedCommitment, which checks commitments themselves, e. g.
+    --     checks their signatures (which includes checking that the
     --     commitment has been generated for this particular epoch)
     --   * check that the nodes haven't already sent their commitments before
     --     in some different block
@@ -345,9 +348,10 @@ mpcVerifyBlock (Right b) = do
                    "there are openings in a commitment block")
             , (null shares,
                    "there are shares in a commitment block")
-            , (let checkSig (pk, (comm, sig)) = verify pk (epochId, comm) sig
-               in all checkSig (HM.toList commitments),
-                   "signature check for some commitments has failed")
+            , (let checkSignedComm = isVerSuccess .
+                     uncurry (flip verifySignedCommitment epochId)
+               in all checkSignedComm (HM.toList commitments),
+                   "verifySignedCommitment has failed for some commitments")
             , (all (`HM.member` (certificates <> globalCertificates))
                    (HM.keys commitments),
                    "some committing nodes haven't sent a VSS certificate")
@@ -391,9 +395,10 @@ mpcVerifyBlock (Right b) = do
             , (all (`HM.member` globalCommitments)
                    (HM.keys shares <> concatMap HM.keys (toList shares)),
                    "some shares don't have corresponding commitments")
-            , (null (shares `diffDoubleMap` globalShares),
+            -- TODO: use intersectionDoubleMap or something to allow spliting
+            -- shares into multiple messages
+            , (null (shares `HM.intersection` globalShares),
                    "some shares have already been sent")
-            -- TODO: use checkShares here
             , (all (uncurry (checkShares globalCommitments globalOpenings
                              globalCertificates)) $
                      HM.toList shares,
@@ -451,18 +456,22 @@ mpcVerifyBlocks toRollback blocks = do
         return (fold vs)
 
 mpcProcessCommitment
-    :: PublicKey -> (Commitment, CommitmentSignature) -> Update ()
-mpcProcessCommitment pk c = zoom' lastVer $ do
-    -- TODO: do I understand correctly that if we receive several different
-    -- commitments from the same node we can just pick one arbitrarily? (Here
-    -- we choose the last one.)
-    unlessM (HM.member pk <$> use mpcGlobalCommitments) $ do
-        mpcLocalCommitments %= HM.insert pk c
+    :: PublicKey -> (Commitment, CommitmentSignature) -> Update Bool
+mpcProcessCommitment pk c = do
+    epochIdx <- siEpoch <$> use mpcLastProcessedSlot
+    ok <- readerToState $ and <$> magnify' lastVer (sequence $ checks epochIdx)
+    ok <$ when ok (zoom' lastVer $ mpcLocalCommitments %= HM.insert pk c)
+  where
+    checks epochIndex =
+        [ pure . isVerSuccess $ verifySignedCommitment pk epochIndex c
+        , not . HM.member pk <$> view mpcGlobalCommitments
+        , not . HM.member pk <$> view mpcLocalCommitments
+        ]
 
-mpcProcessOpening :: PublicKey -> Opening -> Update ()
-mpcProcessOpening pk o =
-    whenM (readerToState $ and <$> sequence checks) $
-    zoom' lastVer $ mpcLocalOpenings %= HM.insert pk o
+mpcProcessOpening :: PublicKey -> Opening -> Update Bool
+mpcProcessOpening pk o = do
+    ok <- readerToState $ and <$> sequence checks
+    ok <$ when ok (zoom' lastVer $ mpcLocalOpenings %= HM.insert pk o)
   where
     checks = [checkOpeningAbsence pk, checkOpeningLastVer pk o]
 
@@ -472,20 +481,23 @@ checkOpeningAbsence :: PublicKey -> Query Bool
 checkOpeningAbsence pk =
     magnify' lastVer $ not . HM.member pk <$> view mpcGlobalOpenings
 
-mpcProcessShares :: PublicKey -> HashMap PublicKey Share -> Update ()
-mpcProcessShares pk s =
-    whenM (readerToState $ and <$> sequence checks) $
-    zoom' lastVer $
-    -- TODO: we accept shares that we already have (but don't add them to
-    -- local shares) because someone who sent us those shares might not be
-    -- aware of the fact that they are already in the blockchain. On the
-    -- other hand, now nodes can send us huge spammy messages and we can't
-    -- ban them for that. On the third hand, is this a concern?
-    do globalSharesForPK <- HM.lookupDefault mempty pk <$> use mpcGlobalShares
-       let s' = s `HM.difference` globalSharesForPK
-       mpcLocalShares %= HM.insertWith HM.union pk s'
-  where
-    checks = [checkSharesLastVer pk s]
+mpcProcessShares :: PublicKey -> HashMap PublicKey Share -> Update Bool
+mpcProcessShares pk s
+    | null s = pure False
+    | otherwise = do
+        -- TODO: we accept shares that we already have (but don't add them to
+        -- local shares) because someone who sent us those shares might not be
+        -- aware of the fact that they are already in the blockchain. On the
+        -- other hand, now nodes can send us huge spammy messages and we can't
+        -- ban them for that. On the third hand, is this a concern?
+        ok <- (readerToState $ checkSharesLastVer pk s)
+        let mpcProcessSharesDo = do
+                globalSharesForPK <-
+                    HM.lookupDefault mempty pk <$> use mpcGlobalShares
+                let s' = s `HM.difference` globalSharesForPK
+                unless (null s') $
+                    mpcLocalShares %= HM.insertWith HM.union pk s'
+        ok <$ (when ok $ zoom' lastVer $ mpcProcessSharesDo)
 
 mpcProcessVssCertificate :: PublicKey -> VssCertificate -> Update ()
 mpcProcessVssCertificate pk c = zoom' lastVer $ do
@@ -557,6 +569,12 @@ setSecret ourPk (comm, op) = do
     case s of
         Just _  -> panic "setSecret: a secret was already present"
         Nothing -> mpcCurrentSecret .= Just (ourPk, comm, op)
+
+getSecret :: Query (Maybe (PublicKey, SignedCommitment, Opening))
+getSecret = view mpcCurrentSecret
+
+getOurCommitment :: Query (Maybe SignedCommitment)
+getOurCommitment = fmap (view _2) <$> view mpcCurrentSecret
 
 getOurOpening :: Query (Maybe Opening)
 getOurOpening = fmap (view _3) <$> view mpcCurrentSecret

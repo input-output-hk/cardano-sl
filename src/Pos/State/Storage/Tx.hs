@@ -129,15 +129,16 @@ txApplyBlock (Left _) = do
     utxo <- use txUtxo
     txUtxoHistory %= (utxo:)
 txApplyBlock (Right mainBlock) = do
-    utxo <- use txUtxo
     let txs = mainBlock ^. blockTxs
     mapM_ applyTx txs
     mapM_ removeLocalTx txs
+    utxo <- use txUtxo
     txUtxoHistory %= (utxo:)
 
 -- | Rollback last `n` blocks. `tx` prefix is used, because rollback
 -- may happen in other storages as well.
 txRollback :: Word -> Update ()
+txRollback 0 = pass
 txRollback (fromIntegral -> n) = do
     txUtxo <~ fromMaybe onError . (`atMay` n) <$> use txUtxoHistory
     txUtxoHistory %= drop n

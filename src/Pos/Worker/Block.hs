@@ -15,31 +15,43 @@ import           Universum
 
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
+import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
 import           Pos.State                 (createNewBlock, getHeadBlock, getLeaders)
-import           Pos.Types                 (SlotId (..), gbHeader, gbHeader, slotIdF)
+import           Pos.Types                 (SlotId (..), Timestamp (Timestamp), gbHeader,
+                                            gbHeader, slotIdF)
 import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey,
                                             ncSecretKey)
 
 -- | Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode m => SlotId -> m ()
 blkOnNewSlot slotId@SlotId {..} = do
-    leaders <- getLeaders siEpoch
-    logDebug (sformat ("Slot leaders: "%listJson) leaders)
-    ourPk <- ncPublicKey <$> getNodeContext
-    let leader = leaders ^? ix (fromIntegral siSlot)
-    when (leader == Just ourPk) $ onNewSlotWhenLeader slotId
+    leadersMaybe <- getLeaders siEpoch
+    case leadersMaybe of
+        Nothing -> logWarning "Leaders are not known for new slot"
+        Just leaders -> do
+            logDebug (sformat ("Slot leaders: " %listJson) leaders)
+            ourPk <- ncPublicKey <$> getNodeContext
+            let leader = leaders ^? ix (fromIntegral siSlot)
+            when (leader == Just ourPk) $ onNewSlotWhenLeader slotId
 
 onNewSlotWhenLeader :: WorkMode m => SlotId -> m ()
 onNewSlotWhenLeader slotId = do
     logInfo $
-        sformat ("I am leader of "%slotIdF%", I will create block soon") slotId
-    wait $ for (slotDuration - networkDiameter)
+        sformat
+            ("I am leader of " %slotIdF % ", I will create block soon")
+            slotId
+    nextSlotStart <- getSlotStart (succ slotId)
+    currentTime <- getCurrentTime
+    let timeToCreate =
+            max currentTime (nextSlotStart - Timestamp networkDiameter)
+        Timestamp timeToWait = timeToCreate - currentTime
+    wait (for timeToWait)
     logInfo "It's time to create a block for current slot"
     sk <- ncSecretKey <$> getNodeContext
     let whenCreated createdBlk = do
-            logInfo $ sformat ("Created a new block:\n"%build) createdBlk
+            logInfo $ sformat ("Created a new block:\n" %build) createdBlk
             announceBlock $ createdBlk ^. gbHeader
-    let whenNotCreated = logInfo "I couldn't create a new block"
+    let whenNotCreated = logWarning "I couldn't create a new block"
     maybe whenNotCreated whenCreated =<< createNewBlock sk slotId
 
 -- | All workers specific to block processing.

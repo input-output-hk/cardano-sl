@@ -42,12 +42,13 @@ import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, c
                                             throwM)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.TimeWarp.Logging  (LoggerName,
-                                            WithNamedLogger (modifyLoggerName), logInfo,
-                                            logWarning)
+                                            WithNamedLogger (modifyLoggerName), logDebug,
+                                            logInfo, logWarning)
 import           Control.TimeWarp.Rpc      (BinaryP, HeaderNContentData, Message,
                                             MonadDialog, MonadTransfer (..),
                                             NetworkAddress, ResponseT, Unpackable, closeR,
-                                            hoistRespCond, mapResponseT, replyH, sendH)
+                                            hoistRespCond, mapResponseT, peerAddr, replyH,
+                                            sendH)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Data.Binary               (Binary)
 import qualified Data.ByteString           as BS
@@ -58,6 +59,7 @@ import           Data.Text.Lazy.Builder    (toLazyText)
 import           Formatting                (bprint, int, sformat, shown, (%))
 import qualified Formatting                as F
 import           Pos.Crypto.Random         (secureRandomBS)
+import           Pos.Util                  (messageName')
 import           Prelude                   (show)
 import           Serokell.Util.Text        (listBuilderJSON)
 import           Universum                 hiding (catch, show)
@@ -109,7 +111,7 @@ class MonadDHT m => MonadMessageDHT m where
 
     sendToNeighbors :: (Binary r, Message r) => r -> m Int
 
-    default sendToNode :: (Binary r, Message r, WithDefaultMsgHeader m, MonadDialog BinaryP m) => NetworkAddress -> r -> m ()
+    default sendToNode :: (Binary r, Message r, WithNamedLogger m, WithDefaultMsgHeader m, MonadIO m, MonadDialog BinaryP m) => NetworkAddress -> r -> m ()
     sendToNode = defaultSendToNode
 
     default sendToNeighbors :: (Binary r, Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
@@ -128,10 +130,14 @@ defaultSendToNode
        , Binary r
        , Message r
        , WithDefaultMsgHeader m
+       , WithNamedLogger m
        , MonadDialog BinaryP m
+       , MonadIO m
        )
     => NetworkAddress -> r -> m ()
 defaultSendToNode addr msg = do
+    withDhtLogger $
+      logDebug $ sformat ("Sending message " % F.build % " to node " % shown) (messageName' msg) addr
     header <- defaultMsgHeader msg
     sendH addr header msg
 
@@ -145,6 +151,8 @@ defaultSendToNeighbors
        )
     => r -> m Int
 defaultSendToNeighbors msg = do
+    withDhtLogger $
+      logDebug $ sformat ("Sending message " % F.build % " neighbors") (messageName' msg)
     nodes <- filterByNodeType DHTFull <$> getKnownPeers
     succeed <- sendToNodes nodes
     succeed' <-
@@ -271,8 +279,11 @@ instance MonadTransfer m => MonadTransfer (DHTResponseT m) where
 
 type instance ThreadId (DHTResponseT m) = ThreadId m
 
-instance (WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog BinaryP m, MonadIO m) => MonadResponseDHT (DHTResponseT m) where
+instance (WithNamedLogger m, WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog BinaryP m, MonadIO m) => MonadResponseDHT (DHTResponseT m) where
   replyToNode msg = do
+    addr <- DHTResponseT $ peerAddr
+    withDhtLogger $
+      logDebug $ sformat ("Replying with message " % F.build % " to " % F.build) (messageName' msg) addr
     header <- defaultMsgHeader msg
     DHTResponseT $ replyH header msg
   closeResponse = DHTResponseT closeR

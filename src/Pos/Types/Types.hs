@@ -142,6 +142,7 @@ import           Data.Hashable          (Hashable)
 import qualified Data.HashMap.Strict    as HM
 import           Data.Ix                (Ix)
 import           Data.List.NonEmpty     (NonEmpty)
+import qualified Data.Map.Strict        as M
 import           Data.MessagePack       (MessagePack (..))
 import           Data.SafeCopy          (SafeCopy (..), base, contain,
                                          deriveSafeCopySimple,
@@ -154,7 +155,7 @@ import           Formatting             (Format, bprint, build, int, later, ords
                                          stext, (%))
 import           Serokell.AcidState     ()
 import qualified Serokell.Util.Base16   as B16
-import           Serokell.Util.Text     (listJson)
+import           Serokell.Util.Text     (listJson, mapBuilderJson, pairBuilder)
 import           Serokell.Util.Verify   (VerificationRes (..), verifyGeneric)
 import           Universum
 
@@ -306,7 +307,7 @@ txF = build
 type Utxo = Map (TxId, Word32) TxOut
 
 formatUtxo :: Utxo -> Builder
-formatUtxo = undefined
+formatUtxo = mapBuilderJson . map (first pairBuilder) . M.toList
 
 utxoF :: Format r (Utxo -> r)
 utxoF = later formatUtxo

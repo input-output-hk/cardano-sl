@@ -456,9 +456,6 @@ mpcVerifyBlocks toRollback blocks = do
 mpcProcessCommitment
     :: PublicKey -> (Commitment, CommitmentSignature) -> Update Bool
 mpcProcessCommitment pk c = zoom' lastVer $ do
-    -- TODO: do I understand correctly that if we receive several different
-    -- commitments from the same node we can just pick one arbitrarily? (Here
-    -- we choose the last one.)
     ok <- not . HM.member pk <$> use mpcGlobalCommitments
     ok <$ when ok (mpcLocalCommitments %= HM.insert pk c)
 

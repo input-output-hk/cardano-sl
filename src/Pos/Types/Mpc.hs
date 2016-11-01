@@ -14,6 +14,8 @@ module Pos.Types.Mpc
        , mkSignedCommitment
        , secretToFtsSeed
        , verifyCommitment
+       , verifyCommitmentSignature
+       , verifySignedCommitment
        , verifyOpening
        , xorFtsSeed
        ) where
@@ -23,12 +25,13 @@ import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM
 import           Data.Ix             (inRange)
 import           Data.List.NonEmpty  (NonEmpty)
+import           Serokell.Util       (VerificationRes, verifyGeneric)
 import           Universum
 
 import           Pos.Constants       (k)
 import           Pos.Crypto          (PublicKey, Secret, SecretKey, Threshold,
                                       VssPublicKey, genSharedSecret, getDhSecret,
-                                      runSecureRandom, secretToDhSecret, sign,
+                                      runSecureRandom, secretToDhSecret, sign, verify,
                                       verifyEncShare, verifySecretProof)
 import           Pos.Types.Types     (Commitment (..), EpochIndex, FtsSeed (..),
                                       LocalSlotIndex, MpcData, Opening (..),
@@ -59,6 +62,21 @@ verifyCommitment :: Commitment -> Bool
 verifyCommitment Commitment {..} = all verifyCommitmentDo $ HM.toList commShares
   where
     verifyCommitmentDo = uncurry (verifyEncShare commExtra)
+
+-- | Verify signature in SignedCommitment using public key and epoch index.
+verifyCommitmentSignature :: PublicKey -> EpochIndex -> SignedCommitment -> Bool
+verifyCommitmentSignature pk epoch (comm, commSig) =
+    verify pk (epoch, comm) commSig
+
+-- | Verify SignedCommitment using public key and epoch index.
+verifySignedCommitment :: PublicKey -> EpochIndex -> SignedCommitment -> VerificationRes
+verifySignedCommitment pk epoch sc =
+    verifyGeneric
+        [ ( verifyCommitmentSignature pk epoch sc
+          , "commitment has bad signature (e. g. for wrong epoch)")
+        , ( verifyCommitment (fst sc)
+          , "commitment itself is bad (e. g. bad shares")
+        ]
 
 -- | Verify that Secret provided with Opening corresponds to given commitment.
 verifyOpening :: Commitment -> Opening -> Bool

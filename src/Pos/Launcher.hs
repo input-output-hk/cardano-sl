@@ -20,6 +20,7 @@ module Pos.Launcher
        , runTimeLordReal
        -- Export this for custom usage in CLI utils
        , runServiceMode
+       , runRealMode
        ) where
 
 import           Control.Concurrent.MVar  (newEmptyMVar, takeMVar)

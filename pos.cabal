@@ -29,6 +29,7 @@ library
                         Pos.Types
                         Pos.Util
                         Pos.Worker
+                        Pos.WorkMode
   other-modules:        Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
@@ -73,7 +74,6 @@ library
                         Pos.Worker.Block
                         Pos.Worker.Mpc
                         Pos.Worker.Tx
-                        Pos.WorkMode
                         Pos.Util.Arbitrary
                         Pos.Util.NotImplemented
   build-depends:        HsOpenSSL
@@ -311,3 +311,26 @@ benchmark pos-stats-collector
                      , NoImplicitPrelude
                      , GeneralizedNewtypeDeriving
 
+benchmark pos-tx-generator
+  hs-source-dirs:      bench
+  main-is:             Remote/TxGen.hs
+  type:                exitcode-stdio-1.0
+  build-depends:       base
+                     , data-default
+                     , formatting
+                     , optparse-applicative
+                     , parsec
+                     , pos
+                     , serokell-core
+                     , time-warp
+                     , universum
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , NoImplicitPrelude
+                     , GeneralizedNewtypeDeriving

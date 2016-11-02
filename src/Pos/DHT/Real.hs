@@ -51,9 +51,10 @@ toBSBinary :: Binary b => b -> BS.ByteString
 toBSBinary = toStrict . encode
 
 fromBSBinary :: Binary b => BS.ByteString -> Either [Char] (b, BS.ByteString)
-fromBSBinary bs = case decodeOrFail $ fromStrict bs of
-                Left (_, _, errMsg)  -> Left errMsg
-                Right (rest, _, res) -> Right (res, toStrict rest)
+fromBSBinary bs =
+    case decodeOrFail $ fromStrict bs of
+        Left (_, _, errMsg)  -> Left errMsg
+        Right (rest, _, res) -> Right (res, toStrict rest)
 
 instance K.Serialize DHTData where
   toBS = toBSBinary
@@ -68,7 +69,7 @@ type DHTHandle = K.KademliaInstance DHTKey DHTData
 data KademliaDHTContext m = KademliaDHTContext
     { kdcHandle               :: DHTHandle
     , kdcKey                  :: DHTKey
-    , kdcMsgThreadIds         :: TVar ([IO ()])
+    , kdcMsgThreadIds         :: TVar [IO ()]
     , kdcInitialPeers_        :: [DHTNode]
     , kdcListenByBinding      :: Binding -> KademliaDHT m (IO ())
     , kdcStopped              :: TVar Bool
@@ -122,14 +123,19 @@ type instance ThreadId (KademliaDHT m) = ThreadId m
 runKademliaDHT
     :: (WithNamedLogger m, MonadIO m, MonadTimed m, MonadDialog BinaryP m, MonadMask m)
     => KademliaDHTConfig m -> KademliaDHT m a -> m a
-runKademliaDHT kdc@(KademliaDHTConfig {..}) action = startDHT kdc >>= runReaderT (unKademliaDHT action')
+runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
+    startDHT kdc >>= runReaderT (unKademliaDHT action')
   where
-    action' = (startMsgThread >> logDebug "running kademlia" >> action'') `finally` (logDebug "stopping kademlia" >> stopDHT >> logDebug "kademlia stopped")
+    action' =
+        (startMsgThread >> logDebug "running kademlia" >> action'')
+        `finally`
+        (logDebug "stopping kademlia" >> stopDHT >> logDebug "kademlia stopped")
     action'' = do
       joinNetworkNoThrow kdcInitialPeers
       action
     startMsgThread = do
-      (tvar, listenByBinding) <- KademliaDHT $ (,) <$> asks kdcMsgThreadIds <*> asks kdcListenByBinding
+      (tvar, listenByBinding) <-
+          KademliaDHT $ (,) <$> asks kdcMsgThreadIds <*> asks kdcListenByBinding
       tId <- listenByBinding $ AtPort (kdcPort + 1)
       liftIO . atomically $ modifyTVar tvar (tId:)
 
@@ -144,7 +150,13 @@ stopDHT = do
     threadIds <- liftIO . atomically $ readTVar threadsTV <* writeTVar threadsTV []
     liftIO $ sequence_ threadIds
 
-startDHT :: (MonadTimed m, MonadIO m, MonadDialog BinaryP m, WithNamedLogger m, MonadCatch m) => KademliaDHTConfig m -> m (KademliaDHTContext m)
+startDHT
+    :: (MonadTimed m
+       ,MonadIO m
+       ,MonadDialog BinaryP m
+       ,WithNamedLogger m
+       ,MonadCatch m)
+    => KademliaDHTConfig m -> m (KademliaDHTContext m)
 startDHT KademliaDHTConfig {..} = do
     kdcKey <- either pure randomDHTKey kdcKeyOrType
     kdcHandle <-
@@ -154,18 +166,21 @@ startDHT KademliaDHTConfig {..} = do
             kdcKey
             (log' logDebug)
             (log' logError))
-          `catchAll` (\e -> do
-                        logError $ sformat ("Error launching kademlia at port " % int % ": " % shown) kdcPort e
-                        throwM e)
+          `catchAll`
+        (\e ->
+           do logError $ sformat
+                  ("Error launching kademlia at port " % int % ": " % shown) kdcPort e
+              throwM e)
     kdcStopped <- liftIO . atomically $ newTVar False
     kdcMsgThreadIds <- liftIO . atomically $ newTVar []
     let kdcInitialPeers_ = kdcInitialPeers
-    msgCache <- liftIO . atomically $ newTVar (LRU.newLRU (Just $ toInteger kdcMessageCacheSize) :: LRU.LRU Int ())
-    let kdcListenByBinding =
-          \binding -> do
-                closer <- listenR binding (convert <$> kdcListeners) (convert' $ rawListener kdcEnableBroadcast msgCache kdcStopped)
-                logInfo $ sformat ("Listening on binding " % shown) binding
-                return closer
+    msgCache <- liftIO . atomically $
+        newTVar (LRU.newLRU (Just $ toInteger kdcMessageCacheSize) :: LRU.LRU Int ())
+    let kdcListenByBinding binding = do
+            closer <- listenR binding (convert <$> kdcListeners)
+                (convert' $ rawListener kdcEnableBroadcast msgCache kdcStopped)
+            logInfo $ sformat ("Listening on binding " % shown) binding
+            return closer
     logInfo $ sformat ("Launching Kademlia, noCacheMessageNames=" % shown) kdcNoCacheMessageNames
     let kdcNoCacheMessageNames_ = kdcNoCacheMessageNames
     pure $ KademliaDHTContext {..}
@@ -178,8 +193,17 @@ startDHT KademliaDHTConfig {..} = do
 -- | Return 'True' if the message should be processed, 'False' if only
 -- broadcasted
 rawListener
-    :: (WithDefaultMsgHeader m, MonadIO m, MonadThrow m, MonadDialog BinaryP m, WithNamedLogger m, MonadMessageDHT m)
-    => Bool -> TVar (LRU.LRU Int ()) -> TVar Bool -> (DHTMsgHeader, RawData) -> DHTResponseT m Bool
+    :: (WithDefaultMsgHeader m
+       ,MonadIO m
+       ,MonadThrow m
+       ,MonadDialog BinaryP m
+       ,WithNamedLogger m
+       ,MonadMessageDHT m)
+    => Bool
+    -> TVar (LRU.LRU Int ())
+    -> TVar Bool
+    -> (DHTMsgHeader, RawData)
+    -> DHTResponseT m Bool
 rawListener enableBroadcast cache kdcStopped (h, rawData@(RawData raw)) = withDhtLogger $ do
     isStopped <- liftIO . atomically $ readTVar kdcStopped
     when isStopped $ do
@@ -280,7 +304,7 @@ toDHTNode :: K.Node DHTKey -> DHTNode
 toDHTNode n = DHTNode (fromKPeer . K.peer $ n) $ K.nodeId n
 
 fromKPeer :: K.Peer -> NetworkAddress
-fromKPeer (K.Peer {..}) = (encodeUtf8 peerHost, fromIntegral peerPort)
+fromKPeer K.Peer{..} = (encodeUtf8 peerHost, fromIntegral peerPort)
 
 toKPeer :: NetworkAddress -> K.Peer
 toKPeer (peerHost, peerPort) = K.Peer (decodeUtf8 peerHost) (fromIntegral peerPort)

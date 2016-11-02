@@ -1,10 +1,12 @@
--- | Several constants used by algorithm.
+{-# LANGUAGE TemplateHaskell #-}
 
+-- | Constants used by algorithm.
 module Pos.Constants
        ( k
        , slotDuration
        , epochSlots
        , epochDuration
+       , genesisN
        , neighborsSendThreshold
        , networkDiameter
        , RunningMode (..)
@@ -12,18 +14,23 @@ module Pos.Constants
        , isDevelopment
        ) where
 
+import           Control.TimeWarp.Timed (Microsecond, sec)
 import           Universum
 
-import           Control.TimeWarp.Timed (Microsecond, sec)
+import           Pos.CompileConfig      (CompileConfig (..), compileConfig)
 import           Pos.Types.Timestamp    (Timestamp)
+
+
+cast :: Integral a => Int -> a
+cast = fromInteger . toInteger
 
 -- | Consensus guarantee (i.e. after what amount of blocks can we consider
 -- blocks stable?).
 k :: Integral a => a
-k = 2
+k = cast . ccK $ compileConfig
 
 slotDuration :: Microsecond
-slotDuration = sec 15
+slotDuration = sec . ccSlotDurationSec $ compileConfig
 
 epochSlots :: Integral a => a
 epochSlots = 6 * k
@@ -31,19 +38,21 @@ epochSlots = 6 * k
 epochDuration :: Microsecond
 epochDuration = epochSlots * slotDuration
 
+genesisN :: Integral i => i
+genesisN = cast . ccGenesisN $ compileConfig
+
 -- | Estimated time needed to broadcast message from one node to all
 -- other nodes.
 networkDiameter :: Microsecond
-networkDiameter = sec 3
+networkDiameter = sec . ccNetworkDiameter $ compileConfig
 
 neighborsSendThreshold :: Integral a => a
-neighborsSendThreshold = 4
+neighborsSendThreshold =
+    cast . ccNeighboursSendThreshold $ compileConfig
 
-
-data RunningMode = Development
-                 | Production
-                    { rmSystemStart :: !Timestamp
-                    }
+data RunningMode
+    = Development
+    | Production { rmSystemStart :: !Timestamp}
 
 -- TODO switch between Development/Production via `stack` flag
 runningMode :: RunningMode

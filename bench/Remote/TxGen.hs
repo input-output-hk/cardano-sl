@@ -4,7 +4,7 @@ module Main where
 
 import           Control.TimeWarp.Logging (Severity (Debug), logInfo)
 import           Control.TimeWarp.Rpc     (NetworkAddress)
-import           Control.TimeWarp.Timed   (Millisecond, for, wait)
+import           Control.TimeWarp.Timed   (Microsecond, for, ms, wait)
 import           Data.Default             (def)
 import           Data.List                ((!!))
 import           Data.Monoid              ((<>))
@@ -15,30 +15,27 @@ import           Options.Applicative      (Parser, ParserInfo, auto, execParser,
 import           System.Random            (getStdGen, randomRs)
 import           Universum                hiding ((<>))
 
-import           Pos.CLI                  (addrParser, dhtNodeParser)
+import           Pos.CLI                  (dhtNodeParser)
 import           Pos.Communication        (sendTx)
-import           Pos.Crypto               (SecretKey, hash, sign, unsafeHash)
+import           Pos.Crypto               (hash, unsafeHash)
 import           Pos.DHT                  (DHTNode, DHTNodeType (..), dhtAddr,
-                                           discoverPeers, filterByNodeType, getKnownPeers)
+                                           discoverPeers)
 import           Pos.Genesis              (genesisAddresses, genesisSecretKeys,
                                            genesisVssKeyPairs)
 import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
                                            NodeParams (..), runRealMode, submitTx)
 import           Pos.Statistics           (getNoStatsT)
-import           Pos.Types                (Address, Coin, Timestamp (Timestamp), Tx (..),
-                                           TxId, TxIn (..), TxOut (..), Utxo, timestampF,
-                                           txF)
-import           Pos.WorkMode             (RealMode, ServiceMode, WorkMode,
-                                           getNodeContext, ncSecretKey)
+import           Pos.Types                (Tx (..), TxId, txF)
+import           Pos.WorkMode             (WorkMode)
 import           Serokell.Util.OptParse   (fromParsec)
 
 data GenOptions = GenOptions
     { goGenesisIdx  :: !Word           -- ^ Index in genesis key pairs.
     -- , goRemoteAddr  :: !NetworkAddress -- ^ Remote node address
-    , goDHTPeers    :: [DHTNode]       -- ^ Initial DHT nodes
+    , goDHTPeers    :: ![DHTNode]       -- ^ Initial DHT nodes
     , goTxNum       :: !Int            -- ^ Number of tx to send
     , goInitBalance :: !Int            -- ^ Total coins in init utxo per address
-    , goDelay       :: !Millisecond    -- ^ Delay between transactions
+    , goDelay       :: !Microsecond    -- ^ Delay between transactions
     }
 
 optionsParser :: Parser GenOptions
@@ -66,12 +63,13 @@ optionsParser = GenOptions
           <> long "init-money"
           <> value 10000
           <> help "How many coins node has in the beginning")
-    <*> option auto
+    <*> (ms <$>
+         option auto
             (short 'd'
           <> long "delay"
           <> metavar "INT"
           <> value 500
-          <> help "Delay between transactions in ms")
+          <> help "Delay between transactions in ms"))
 
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $
@@ -141,7 +139,7 @@ main = do
         peers <- discoverPeers DHTFull
 
         let na = dhtAddr <$> peers
-        forM_ (zip recAddrs [0..]) $ \(recAddr, idx) -> do
+        forM_ (zip recAddrs [0..(goTxNum-1)]) $ \(recAddr, idx) -> do
             logInfo $ sformat ("Sending transaction #"%int) idx
             logInfo $ sformat ("Recipient address: "%build) recAddr
             submitTx na (initTxId idx, 0) (recAddr, 1)

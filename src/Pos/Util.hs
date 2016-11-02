@@ -35,6 +35,7 @@ module Pos.Util
 
        -- * TimeWarp helpers
        , messageName'
+       , logWarningLongAction
 
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
@@ -45,7 +46,11 @@ import           Control.Lens                  (Lens', LensLike', Magnified, Zoo
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad
 import           Control.Monad.Fail            (fail)
+import           Control.TimeWarp.Logging      (WithNamedLogger, logWarning)
 import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
+import           Control.TimeWarp.Timed        (MonadTimed (fork, wait), Second, for,
+                                                killThread)
+
 import           Data.Binary                   (Binary)
 import qualified Data.Binary                   as Binary (encode)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
@@ -56,12 +61,13 @@ import           Data.SafeCopy                 (Contained, SafeCopy (..), base, 
                                                 deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (String)
+import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
 import           Serokell.Util                 (VerificationRes)
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
                                                 SGR (Reset, SetColor), setSGRCode)
-import           Universum
+import           Universum                     hiding (killThread)
 import           Unsafe                        (unsafeInit, unsafeLast)
 
 import           Serokell.Util.Binary          as Binary (decodeFull)
@@ -216,5 +222,26 @@ colorize color msg =
         , toText (setSGRCode [Reset])
         ]
 
+----------------------------------------------------------------------------
+-- TimeWarp helpers
+----------------------------------------------------------------------------
+
 messageName' :: Message r => r -> MessageName
 messageName' = messageName . (const Proxy :: a -> Proxy a)
+
+-- | Run action and print warning if it takes more time than expected.
+logWarningLongAction
+    :: (MonadIO m, MonadTimed m, WithNamedLogger m)
+    => Text
+    -> Second
+    -> m a
+    -> m a
+logWarningLongAction actionTag timeoutSec action = do
+    logThreadId <- fork $ do
+        wait $ for timeoutSec
+        logWarning $ sformat ("Action "%stext%" took more than "%shown)
+                             actionTag
+                             timeoutSec
+    res <- action
+    killThread logThreadId
+    return res

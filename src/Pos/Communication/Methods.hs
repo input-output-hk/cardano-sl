@@ -12,7 +12,9 @@ module Pos.Communication.Methods
        ) where
 
 import           Control.TimeWarp.Logging (logDebug)
-import           Control.TimeWarp.Rpc     (NetworkAddress)
+import           Control.TimeWarp.Rpc     (Message, NetworkAddress)
+import           Control.TimeWarp.Timed   (fork_)
+import           Data.Binary              (Binary)
 import           Data.List.NonEmpty       (NonEmpty ((:|)))
 import           Formatting               (build, sformat, (%))
 import           Serokell.Util.Text       (listBuilderJSON, mapJson)
@@ -26,7 +28,15 @@ import           Pos.DHT                  (sendToNeighbors, sendToNode)
 import           Pos.Statistics           (statlogSentBlockHeader, statlogSentTx)
 import           Pos.Types                (MainBlockHeader, Opening, SignedCommitment, Tx,
                                            VssCertificate)
+import           Pos.Util                 (logWarningLongAction, messageName')
 import           Pos.WorkMode             (WorkMode)
+
+sendToNeighborsSafe :: (Binary r, Message r, WorkMode m) => r -> m ()
+sendToNeighborsSafe msg = do
+    let msgName = messageName' msg
+    let action = () <$ sendToNeighbors msg
+    fork_ $
+        logWarningLongAction ("Sending " <> msgName <> " to neighbors") 10 action
 
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.
@@ -36,7 +46,7 @@ announceBlock
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     statlogSentBlockHeader $ Right header
-    void . sendToNeighbors . SendBlockHeader $ header
+    sendToNeighborsSafe . SendBlockHeader $ header
 
 -- | Announce new transaction to all known peers. Intended to be used when
 -- tx is created.
@@ -44,7 +54,7 @@ announceTx :: WorkMode m => Tx -> m ()
 announceTx tx = do
     logDebug $ sformat ("Announcing tx to others:\n"%build) tx
     statlogSentTx tx
-    void . sendToNeighbors . SendTx $ tx
+    sendToNeighborsSafe . SendTx $ tx
 
 -- | Announce known transactions to all known peers. Intended to be used
 -- to relay transactions.
@@ -54,7 +64,7 @@ announceTxs txs@(tx:txs') = do
     logDebug $
         sformat ("Announcing txs to others:\n" %build) $ listBuilderJSON txs
     mapM_ statlogSentTx txs
-    void . sendToNeighbors . SendTxs $ tx :| txs'
+    sendToNeighborsSafe . SendTxs $ tx :| txs'
 
 -- | Send Tx to given address.
 sendTx :: WorkMode m => NetworkAddress -> Tx -> m ()
@@ -71,19 +81,19 @@ announceCommitment pk comm = do
     -- TODO: show the commitment
     logDebug $ sformat
         ("Announcing "%build%"'s commitment to others: <TODO SHOW COMM>") pk
-    void . sendToNeighbors $ SendCommitment pk comm
+    sendToNeighborsSafe $ SendCommitment pk comm
 
 announceOpening :: WorkMode m => PublicKey -> Opening -> m ()
 announceOpening pk open = do
     logDebug $ sformat
         ("Announcing "%build%"'s opening to others: "%build) pk open
-    void . sendToNeighbors $ SendOpening pk open
+    sendToNeighborsSafe $ SendOpening pk open
 
 announceShares :: WorkMode m => PublicKey -> HashMap PublicKey Share -> m ()
 announceShares pk shares = do
     logDebug $ sformat
         ("Announcing "%build%"'s shares to others:\n"%mapJson) pk shares
-    void . sendToNeighbors $ SendShares pk shares
+    sendToNeighborsSafe $ SendShares pk shares
 
 announceVssCertificate :: WorkMode m => PublicKey -> VssCertificate -> m ()
 announceVssCertificate pk cert = do

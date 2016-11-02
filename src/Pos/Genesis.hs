@@ -23,15 +23,13 @@ import qualified Data.Text           as T
 import           Formatting          (int, sformat, (%))
 import           Universum
 
-import           Pos.Constants       (epochSlots)
+import           Pos.Constants       (epochSlots, genesisN)
 import           Pos.Crypto          (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
                                       deterministicKeyGen, deterministicVssKeyGen,
                                       mkSigned, toVssPublicKey, unsafeHash)
 import           Pos.Types           (Address (Address), SlotLeaders, TxOut (..), Utxo,
                                       VssCertificatesMap)
 
-genesisN :: Integral i => i
-genesisN = 3
 
 ----------------------------------------------------------------------------
 -- Static state

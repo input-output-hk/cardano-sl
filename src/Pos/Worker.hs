@@ -4,7 +4,7 @@ module Pos.Worker
        ( runWorkers
        ) where
 
-import           Control.TimeWarp.Logging (logNotice)
+import           Control.TimeWarp.Logging (logDebug, logNotice)
 import           Control.TimeWarp.Timed   (fork_)
 import           Formatting               (sformat, (%))
 import           Universum
@@ -12,6 +12,7 @@ import           Universum
 import           Pos.Slotting             (onNewSlot)
 import           Pos.State                (processNewSlot)
 import           Pos.Types                (SlotId, slotIdF)
+import           Pos.Util                 (logWarningLongAction)
 import           Pos.Worker.Block         (blkOnNewSlot, blkWorkers)
 import           Pos.Worker.Mpc           (mpcOnNewSlot, mpcWorkers)
 import           Pos.Worker.Tx            (txWorkers)
@@ -31,5 +32,10 @@ onNewSlotWorkerImpl slotId = do
     -- A note about order: currently only one thing is important, that
     -- `processNewSlot` is executed before everything else
     processNewSlot slotId
-    mpcOnNewSlot slotId
-    blkOnNewSlot slotId
+    logDebug "Finished `processNewSlot`"
+
+    fork_ $ do
+        logWarningLongAction "mpcOnNewSlot" 8 $ mpcOnNewSlot slotId
+        logDebug "Finished `mpcOnNewSlot`"
+    logWarningLongAction "blkOnNewSlot" 8 $ blkOnNewSlot slotId
+    logDebug "Finished `blkOnNewSlot`"

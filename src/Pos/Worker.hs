@@ -4,7 +4,7 @@ module Pos.Worker
        ( runWorkers
        ) where
 
-import           Control.TimeWarp.Logging (logNotice)
+import           Control.TimeWarp.Logging (logDebug, logNotice)
 import           Control.TimeWarp.Timed   (fork_)
 import           Formatting               (sformat, (%))
 import           Universum
@@ -31,5 +31,7 @@ onNewSlotWorkerImpl slotId = do
     -- A note about order: currently only one thing is important, that
     -- `processNewSlot` is executed before everything else
     processNewSlot slotId
-    mpcOnNewSlot slotId
+    logDebug "Finished `processNewSlot`"
+    fork_ $ mpcOnNewSlot slotId >> logDebug "Finished `mpcOnNewSlot`"
     blkOnNewSlot slotId
+    logDebug "Finished `blkOnNewSlot`"

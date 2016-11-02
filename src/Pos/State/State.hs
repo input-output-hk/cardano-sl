@@ -143,7 +143,8 @@ createNewBlock sk = updateDisk . A.CreateNewBlock sk
 processTx :: WorkModeDB m => Tx -> m Bool
 processTx = updateDisk . A.ProcessTx
 
--- | Notify NodeState about beginning of new slot.
+-- | Notify NodeState about beginning of new slot. Ideally it should
+-- be used before all other updates within this slot.
 processNewSlot :: WorkModeDB m => SlotId -> m ()
 processNewSlot = updateDisk . A.ProcessNewSlot
 

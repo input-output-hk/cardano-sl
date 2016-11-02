@@ -242,6 +242,5 @@ logWarningLongAction actionTag timeoutSec action = do
         logWarning $ sformat ("Action "%stext%" took more than "%shown)
                              actionTag
                              timeoutSec
-    res <- action
-    killThread logThreadId
-    return res
+
+    action <* killThread logThreadId

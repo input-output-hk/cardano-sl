@@ -7,7 +7,7 @@ module Pos.Communication.Server.Tx
        ( txListeners
        ) where
 
-import           Control.TimeWarp.Logging (logDebug, logError, logInfo)
+import           Control.TimeWarp.Logging (logDebug, logInfo, logWarning)
 import           Control.TimeWarp.Rpc     (BinaryP, MonadDialog)
 import           Formatting               (build, sformat, stext, (%))
 import           Universum
@@ -39,7 +39,7 @@ handleTx (SendTx tx) = do
             logInfo $
             sformat ("Transaction has been added to storage: " %build) tx
         PTRinvalid msg ->
-            logError $ sformat ("Transaction "%txF%" failed to verify: "%stext) tx msg
+            logWarning $ sformat ("Transaction "%txF%" failed to verify: "%stext) tx msg
         PTRknown ->
             logDebug $ sformat ("Transaction is already known: " %build) tx
 

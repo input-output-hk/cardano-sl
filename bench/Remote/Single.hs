@@ -4,7 +4,7 @@ import           Data.Monoid               ((<>))
 import           Options.Applicative       (Parser, ParserInfo, auto, command, execParser,
                                             fullDesc, header, help, helper, info, long,
                                             metavar, option, progDesc, short, strOption,
-                                            subparser, value)
+                                            subparser, switch, value)
 import           Universum                 hiding ((<>))
 
 import           Bench.Pos.Remote.Launcher (NodeNumber, startFullNode, startSupporter)
@@ -15,7 +15,7 @@ data RemoteBenchOptions = RBO
     }
 
 
-data NodeSpecificOptions = FullNodeOptions { nodeNumber :: NodeNumber }
+data NodeSpecificOptions = FullNodeOptions { nodeNumber :: NodeNumber, isTimeLord :: Bool }
                          | SupporterOptions
 
 fullNodeParser :: Parser NodeSpecificOptions
@@ -24,6 +24,9 @@ fullNodeParser = FullNodeOptions
                   <> short 'n'
                   <> metavar "INDEX"
                   <> help "This node index in the list of nodes (must be in range 0..41)")
+    <*> switch (long "time-lord"
+             <> short 't'
+             <> help "Mark this node as time lord")
 
 -- Leave it like this in case any additional parameters for supporter emerge
 -- (they probably will)
@@ -50,5 +53,5 @@ main :: IO ()
 main = do
     RBO {..} <- execParser parseOptions
     case nodeSpecificOptions of
-        FullNodeOptions {..} -> startFullNode configFilePath nodeNumber
+        FullNodeOptions {..} -> startFullNode configFilePath nodeNumber isTimeLord
         _                    -> startSupporter configFilePath

@@ -7,7 +7,7 @@ module Pos.Communication.Server.Tx
        ( txListeners
        ) where
 
-import           Control.TimeWarp.Logging (logInfo)
+import           Control.TimeWarp.Logging (logError, logInfo)
 import           Control.TimeWarp.Rpc     (BinaryP, MonadDialog)
 import           Formatting               (build, sformat, (%))
 import           Universum
@@ -32,8 +32,10 @@ handleTx
     => SendTx -> m ()
 handleTx (SendTx tx) = do
     statlogReceivedTx tx
-    whenM (processTx tx) $
-        logInfo (sformat ("Transaction has been added to storage: "%build) tx)
+    success <- processTx tx
+    if success
+        then logInfo $ sformat ("Transaction has been added to storage: "%build) tx
+        else logError $ sformat ("Transaction FAILED to verify! "%build) tx
 
 handleTxs
     :: ResponseMode m

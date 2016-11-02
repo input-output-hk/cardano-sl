@@ -197,21 +197,26 @@ runSupporterReal bp = runServiceMode bp [] $ do
 -- Main launchers
 -----------------------------------------------------------------------------
 
+addDevListeners :: NodeParams -> [ListenerDHT RealMode] -> [ListenerDHT RealMode]
+addDevListeners NodeParams {..} ls =
+    if isDevelopment
+    then sysStartReqListener (Just npSystemStart) : ls
+    else ls
+
 -- | Run full node in real mode.
 runNodeReal :: NodeParams -> IO ()
 runNodeReal np@NodeParams {..} = runRealMode np listeners $ getNoStatsT runNode
   where
-    listeners = if isDevelopment
-                then sysStartReqListener (Just npSystemStart) : noStatsListeners
-                else noStatsListeners
+    listeners = addDevListeners np noStatsListeners
     noStatsListeners = map (mapListenerDHT getNoStatsT) allListeners
 
 -- | Run full node in benchmarking node
 -- TODO: spawn here additional listener, which would accept stat queries
 runNodeStats :: NodeParams -> IO ()
-runNodeStats np = runRealMode np statsListeners $ getStatsT runNode
-  where statsListeners = map (mapListenerDHT getStatsT) listeners
-        listeners = statsListener : allListeners
+runNodeStats np = runRealMode np listeners $ getStatsT runNode
+  where
+    listeners = addDevListeners np statsListeners
+    statsListeners = map (mapListenerDHT getStatsT) $ statsListener : allListeners
 
 ----------------------------------------------------------------------------
 -- Real mode runners

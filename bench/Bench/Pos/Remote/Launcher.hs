@@ -7,7 +7,7 @@ module Bench.Pos.Remote.Launcher
 
 import           Control.Concurrent.Chan  (Chan)
 import qualified Control.Concurrent.Chan  as C
-import           Control.TimeWarp.Logging (LoggerName (..), Severity (Debug))
+import           Control.TimeWarp.Logging (LoggerName (..), Severity (..))
 import           Data.Default             (def)
 import           Data.List                ((!!))
 import qualified Data.Map.Strict          as M
@@ -25,7 +25,8 @@ import           Pos.Genesis              (genesisAddresses, genesisSecretKeys,
                                            genesisVssKeyPairs)
 import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
                                            NodeParams (..), getCurTimestamp, runNodeStats,
-                                           runServiceMode, runSupporterReal)
+                                           runServiceMode, runSupporterReal,
+                                           runTimeLordReal, runTimeSlaveReal)
 import           Pos.Statistics           (StatEntry)
 import           Pos.Types                (TxOut (..), Utxo)
 
@@ -45,6 +46,12 @@ utxoPetty k =
 eitherPanic :: Show a => Text -> Either a b -> b
 eitherPanic msgPrefix = either (panic . (msgPrefix <>) . show) identity
 
+benchLogging :: LoggingParams
+benchLogging = def
+    { lpMainSeverity = Debug
+    , lpDhtSeverity = Just Info
+    }
+
 startSupporter :: FilePath -> IO ()
 startSupporter config = do
     SupporterConfig {..} <- readRemoteConfig config
@@ -55,9 +62,8 @@ startSupporter config = do
     when (keyType /= Just DHTSupporter) $
         panic $ sformat ("Invalid type of DHT key: "%stext%" (should be `Just DHTSupporter`)") $ show keyType
 
-    let logging = def
+    let logging = benchLogging
                   { lpRootLogger = "supporter"
-                  , lpMainSeverity = Debug
                   }
         params = BaseParams
                  { bpLogging = logging
@@ -68,20 +74,17 @@ startSupporter config = do
 
     runSupporterReal params
 
-startFullNode :: FilePath -> NodeNumber -> IO ()
-startFullNode config nodeNumber = do
-    when (nodeNumber > 41 || nodeNumber < 0) $
-        panic $ sformat ("Invalid node number "%int%" (should be in range [0..41])") nodeNumber
+startFullNode :: FilePath -> NodeNumber -> Bool -> IO ()
+startFullNode config nodeNumber isTimeLord = do
+    when (nodeNumber >= length genesisAddresses || nodeNumber < 0) $
+        panic $ sformat ("Invalid node number "%int%" (should be in range [0.."%int%"])") nodeNumber $
+        length genesisAddresses - 1
 
     FullNodeConfig {..} <- readRemoteConfig config
 
-    curTime <- getCurTimestamp
-    let startTime = fromJust $ fromIntegral <$> fncStartTime <|> Just curTime
-
     let dhtSupporter = eitherPanic "Invalid supporter address: " $ parse dhtNodeParser "" $ toString fncSupporterAddr
-        logging = def
+        logging = benchLogging
                   { lpRootLogger = LoggerName ("fullnode." ++ show nodeNumber)
-                  , lpMainSeverity = Debug
                   }
         baseParams =
             BaseParams
@@ -90,7 +93,13 @@ startFullNode config nodeNumber = do
             , bpDHTPeers     = [dhtSupporter]
             , bpDHTKeyOrType = Right DHTFull
             }
-        params =
+        -- TODO: refactor =\
+        getSystemStart = if isTimeLord
+                         then runTimeLordReal (benchLogging { lpRootLogger = "time-lord" })
+                         else runTimeSlaveReal (baseParams { bpLogging = benchLogging { lpRootLogger = "time-slave" } })
+
+    startTime <- getSystemStart
+    let params =
             NodeParams
             { npDbPath       = fncDbPath
             -- always start with a fresh database (maybe will change later)

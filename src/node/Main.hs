@@ -111,11 +111,11 @@ getKey :: Binary key => Maybe key -> Maybe FilePath -> FilePath -> IO key -> IO 
 getKey (Just key) _ _ _ = return key
 getKey _ (Just path) _ _ = decode' path
 getKey _ _ fpath gen = do
-    createDirectoryIfMissing True "pos-keys"
-    decode' ("pos-keys" </> fpath) `catch` \(_ :: SomeException) -> do
+    createDirectoryIfMissing True "cardano-keys"
+    decode' ("cardano-keys" </> fpath) `catch` \(_ :: SomeException) -> do
         key <- gen
-        LBS.writeFile ("pos-keys" </> fpath) $ encode key
-        putStrLn $ "Generated key " ++ ("pos-keys" </> fpath)
+        LBS.writeFile ("cardano-keys" </> fpath) $ encode key
+        putStrLn $ "Generated key " ++ ("cardano-keys" </> fpath)
         return key
 
 decode' :: Binary key => FilePath -> IO key
@@ -126,7 +126,7 @@ decode' fpath = either fail' return . decode =<< LBS.readFile fpath
 main :: IO ()
 main = do
     (args@Args {..},()) <-
-        simpleOptions "pos-node" "PoS prototype node" "Use it!" argsParser empty
+        simpleOptions "cardano-node" "PoS prototype node" "Use it!" argsParser empty
     case dhtKey of
       Just key -> do
         let type_ = dhtNodeType key

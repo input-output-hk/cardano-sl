@@ -304,6 +304,7 @@ checkCert (pk, cert) = verify pk (signedValue cert) (signedSig cert)
 FIXME: this function does more than described below!
 Specifically, it uses information about global data assuming that block is
 based on it.
+Note about FIXME: it applies to documentation only!
 
 Verify MPC-related predicates of a single block, also using data stored
 in 'MpcStorage'.

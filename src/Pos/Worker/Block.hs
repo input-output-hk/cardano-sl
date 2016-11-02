@@ -29,7 +29,8 @@ blkOnNewSlot slotId@SlotId {..} = do
     case leadersMaybe of
         Nothing -> logWarning "Leaders are not known for new slot"
         Just leaders -> do
-            logDebug (sformat ("Slot leaders: " %listJson) leaders)
+            let logLeadersF = if siSlot == 0 then logInfo else logDebug
+            logLeadersF (sformat ("Slot leaders: " %listJson) leaders)
             ourPk <- ncPublicKey <$> getNodeContext
             let leader = leaders ^? ix (fromIntegral siSlot)
             when (leader == Just ourPk) $ onNewSlotWhenLeader slotId

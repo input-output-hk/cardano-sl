@@ -144,7 +144,7 @@ main = do
       case runningMode of
         Development -> if timeLord args
                           then runTimeLordReal (loggingParams "time-lord" args)
-                          else runTimeSlaveReal (baseParams "time-slave" args) >> threadDelay (3 * 1000 * 1000)
+                          else runTimeSlaveReal (baseParams "time-slave" args) <* threadDelay (3 * 1000 * 1000)
         Production systemStart -> return systemStart
     loggingParams logger Args{..} =
         def

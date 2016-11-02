@@ -235,12 +235,13 @@ logWarningLongAction
     => Text
     -> Second
     -> m a
-    -> m ()
+    -> m a
 logWarningLongAction actionTag timeoutSec action = do
     logThreadId <- fork $ do
         wait $ for timeoutSec
         logWarning $ sformat ("Action "%stext%" took more than "%shown)
                              actionTag
                              timeoutSec
-    () <$ action  -- ignore result now; TODO: maybe return it later
+    res <- action
     killThread logThreadId
+    return res

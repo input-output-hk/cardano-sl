@@ -1,0 +1,4 @@
+k: 4
+slotDurationSec: 15
+networkDiameter: 3
+neighboursSendThreshold: 4

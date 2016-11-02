@@ -44,6 +44,7 @@ library
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Server.Tx
                         Pos.Communication.Util
+                        Pos.CompileConfig
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
@@ -80,6 +81,7 @@ library
                       , QuickCheck
                       , UtilityTM
                       , acid-state
+                      , aeson >= 0.11.2.1
                       , ansi-terminal
                       , async
                       , base
@@ -94,11 +96,13 @@ library
                       , derive
                       , ed25519
                       , exceptions
+                      , file-embed >= 0.0.10
                       , formatting
                       , hashable
-                      , lens
-                      , lrucache
                       , kademlia
+                      , lens
+                      , list-t == 1
+                      , lrucache
                       , memory
                       , mtl
                       , parsec
@@ -118,7 +122,7 @@ library
                       , universum
                       , unordered-containers
                       , vector
-                      , list-t == 1
+                      , yaml
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:         -Wall

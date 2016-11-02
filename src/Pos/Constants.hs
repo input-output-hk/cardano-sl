@@ -6,6 +6,7 @@ module Pos.Constants
        , slotDuration
        , epochSlots
        , epochDuration
+       , genesisN
        , neighborsSendThreshold
        , networkDiameter
        , RunningMode (..)
@@ -19,10 +20,14 @@ import           Universum
 import           Pos.CompileConfig      (CompileConfig (..), compileConfig)
 import           Pos.Types.Timestamp    (Timestamp)
 
+
+cast :: Integral a => Int -> a
+cast = fromInteger . toInteger
+
 -- | Consensus guarantee (i.e. after what amount of blocks can we consider
 -- blocks stable?).
 k :: Integral a => a
-k = fromInteger . toInteger . ccK $ compileConfig
+k = cast . ccK $ compileConfig
 
 slotDuration :: Microsecond
 slotDuration = sec . ccSlotDurationSec $ compileConfig
@@ -33,6 +38,9 @@ epochSlots = 6 * k
 epochDuration :: Microsecond
 epochDuration = epochSlots * slotDuration
 
+genesisN :: Integral i => i
+genesisN = cast . ccGenesisN $ compileConfig
+
 -- | Estimated time needed to broadcast message from one node to all
 -- other nodes.
 networkDiameter :: Microsecond
@@ -40,7 +48,7 @@ networkDiameter = sec . ccNetworkDiameter $ compileConfig
 
 neighborsSendThreshold :: Integral a => a
 neighborsSendThreshold =
-    fromInteger . toInteger . ccNeighboursSendThreshold $ compileConfig
+    cast . ccNeighboursSendThreshold $ compileConfig
 
 data RunningMode
     = Development

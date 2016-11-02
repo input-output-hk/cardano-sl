@@ -18,6 +18,7 @@ data CompileConfig = CompileConfig
     , ccSlotDurationSec         :: !Int
     , ccNetworkDiameter         :: !Int
     , ccNeighboursSendThreshold :: !Int
+    , ccGenesisN                :: !Int
     } deriving (Show)
 
 $(A.deriveJSON defaultOptions ''CompileConfig)

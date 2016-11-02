@@ -66,7 +66,7 @@ import           Data.SafeCopy                 (Contained, SafeCopy (..), base, 
                                                 deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (String)
-import           Data.Time.Units               (TimeUnit (fromMicroseconds, toMicroseconds))
+import           Data.Time.Units               (convertUnit)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
 import           Serokell.Util                 (VerificationRes)
@@ -272,4 +272,4 @@ logWarningWaitLinear :: CanLogInParallel m => Second -> Text -> m a -> m a
 logWarningWaitLinear = logWarningLongAction . WaitLinear
 
 logWarningWaitInf :: CanLogInParallel m => Second -> Text -> m a -> m a
-logWarningWaitInf = logWarningLongAction . (`WaitGeometric` 1.3) . fromMicroseconds . toMicroseconds
+logWarningWaitInf = logWarningLongAction . (`WaitGeometric` 1.3) . convertUnit

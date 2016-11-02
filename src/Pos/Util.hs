@@ -254,12 +254,13 @@ logWarningLongAction delta actionTag action = do
                                 actionTag
                                 delta
 
-    waitAndWarn   (WaitOnce s)        = wait (for s) >> printWarning
-    waitAndWarn t@(WaitLinear s)      = wait (for s) >> printWarning >> waitAndWarn t
-    waitAndWarn   (WaitGeometric s i) = do
-        wait (for s)
-        printWarning
-        waitAndWarn $ WaitGeometric (s * fromIntegral i) i
+    waitAndWarn (WaitOnce      s)   = wait (for s) >> printWarning
+    waitAndWarn (WaitLinear    s)   = forever $ wait (for s) >> printWarning
+    waitAndWarn (WaitGeometric s i) = let waitLoop t = do
+                                              wait $ for s
+                                              printWarning
+                                              waitLoop (t * fromIntegral i)
+                                      in waitLoop s
 
 {- Helper functions to avoid dealing with data type -}
 

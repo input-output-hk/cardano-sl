@@ -12,7 +12,7 @@ import           Universum
 import           Pos.Slotting             (onNewSlot)
 import           Pos.State                (processNewSlot)
 import           Pos.Types                (SlotId, slotIdF)
-import           Pos.Util                 (logWarningWaitOnce)
+import           Pos.Util                 (logWarningWaitLinear)
 import           Pos.Worker.Block         (blkOnNewSlot, blkWorkers)
 import           Pos.Worker.Mpc           (mpcOnNewSlot, mpcWorkers)
 import           Pos.Worker.Tx            (txWorkers)
@@ -36,7 +36,7 @@ onNewSlotWorkerImpl slotId = do
     logDebug "Finished `processNewSlot`"
 
     fork_ $ do
-        logWarningWaitOnce 8 "mpcOnNewSlot"$ mpcOnNewSlot slotId
+        logWarningWaitLinear 8 "mpcOnNewSlot"$ mpcOnNewSlot slotId
         logDebug "Finished `mpcOnNewSlot`"
     blkOnNewSlot slotId
     logDebug "Finished `blkOnNewSlot`"

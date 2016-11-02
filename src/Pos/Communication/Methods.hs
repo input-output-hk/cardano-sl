@@ -28,7 +28,7 @@ import           Pos.DHT                  (sendToNeighbors, sendToNode)
 import           Pos.Statistics           (statlogSentBlockHeader, statlogSentTx)
 import           Pos.Types                (MainBlockHeader, Opening, SignedCommitment, Tx,
                                            VssCertificate)
-import           Pos.Util                 (logWarningWaitOnce, messageName')
+import           Pos.Util                 (logWarningWaitLinear, messageName')
 import           Pos.WorkMode             (WorkMode)
 
 sendToNeighborsSafe :: (Binary r, Message r, WorkMode m) => r -> m ()
@@ -36,7 +36,7 @@ sendToNeighborsSafe msg = do
     let msgName = messageName' msg
     let action = () <$ sendToNeighbors msg
     fork_ $
-        logWarningWaitOnce 10 ("Sending " <> msgName <> " to neighbors") action
+        logWarningWaitLinear 10 ("Sending " <> msgName <> " to neighbors") action
 
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.

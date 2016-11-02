@@ -21,7 +21,7 @@ import           Pos.Types                 (SlotId (..), Timestamp (Timestamp), 
                                             gbHeader, isCommitmentId, isOpeningId,
                                             isSharesId, mdCommitments, mdOpenings,
                                             mdShares, slotIdF)
-import           Pos.Util                  (logWarningWaitOnce)
+import           Pos.Util                  (logWarningWaitLinear)
 import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey,
                                             ncSecretKey)
 
@@ -87,7 +87,7 @@ onNewSlotWhenLeader slotId = do
                     announceBlock $ createdBlk ^. gbHeader
             let whenNotCreated = logWarning "I couldn't create a new block"
             maybe whenNotCreated whenCreated =<< createNewBlock sk slotId
-    logWarningWaitOnce 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
+    logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
 -- | All workers specific to block processing.
 -- Exceptions:

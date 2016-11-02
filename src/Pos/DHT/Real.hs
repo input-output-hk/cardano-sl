@@ -15,7 +15,8 @@ module Pos.DHT.Real
 import           Control.Concurrent.STM    (STM, TVar, atomically, modifyTVar, newTVar,
                                             readTVar, writeTVar)
 import           Control.Monad.Catch       (Handler (..), MonadCatch, MonadMask,
-                                            MonadThrow, catches, finally, throwM)
+                                            MonadThrow, catchAll, catches, finally,
+                                            throwM)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.TimeWarp.Logging  (WithNamedLogger, logDebug, logError, logInfo,
                                             logWarning, usingLoggerName)
@@ -147,12 +148,15 @@ startDHT :: (MonadTimed m, MonadIO m, MonadDialog BinaryP m, WithNamedLogger m, 
 startDHT KademliaDHTConfig {..} = do
     kdcKey <- either pure randomDHTKey kdcKeyOrType
     kdcHandle <-
-        liftIO $
+        (liftIO $
         K.createL
             (fromInteger . toInteger $ kdcPort)
             kdcKey
             (log' logDebug)
-            (log' logError)
+            (log' logError))
+          `catchAll` (\e -> do
+                        logError $ sformat ("Error launching kademlia at port " % int % ": " % shown) kdcPort e
+                        throwM e)
     kdcStopped <- liftIO . atomically $ newTVar False
     kdcMsgThreadIds <- liftIO . atomically $ newTVar []
     let kdcInitialPeers_ = kdcInitialPeers

@@ -195,12 +195,12 @@ ensureOwnMpcDo
     -> (PublicKey, SignedCommitment, Opening)
     -> MpcData
     -> MpcData
-ensureOwnMpcDo globalMpcData (siSlot -> slotId) (pk, comm, opening) md
-    | slotId < k && (not $ hasCommitment pk globalMpcData) =
+ensureOwnMpcDo globalMpcData (siSlot -> slotIdx) (pk, comm, opening) md
+    | isCommitmentIdx slotIdx && (not $ hasCommitment pk globalMpcData) =
         md & mdCommitments . at pk .~ Just comm
-    | inRange (2 * k, 3 * k - 1) slotId && (not $ hasOpening pk globalMpcData) =
+    | isOpeningIdx slotIdx && (not $ hasOpening pk globalMpcData) =
         md & mdOpenings . at pk .~ Just opening
-    | inRange (5 * k, 6 * k - 1) slotId && (not $ hasShares pk globalMpcData) =
+    | isSharesIdx slotIdx && (not $ hasShares pk globalMpcData) =
         md   -- TODO: set our shares, but it's not so easy :(
     | otherwise = md
 

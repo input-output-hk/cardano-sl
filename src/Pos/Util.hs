@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -34,8 +35,12 @@ module Pos.Util
        , colorize
 
        -- * TimeWarp helpers
+       , WaitingDelta (..)
        , messageName'
        , logWarningLongAction
+       , logWarningWaitOnce
+       , logWarningWaitLinear
+       , logWarningWaitInf
 
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
@@ -229,18 +234,40 @@ colorize color msg =
 messageName' :: Message r => r -> MessageName
 messageName' = messageName . (const Proxy :: a -> Proxy a)
 
--- | Run action and print warning if it takes more time than expected.
-logWarningLongAction
-    :: (MonadIO m, MonadTimed m, WithNamedLogger m)
-    => Text
-    -> Second
-    -> m a
-    -> m a
-logWarningLongAction actionTag timeoutSec action = do
-    logThreadId <- fork $ do
-        wait $ for timeoutSec
-        logWarning $ sformat ("Action "%stext%" took more than "%shown)
-                             actionTag
-                             timeoutSec
+-- | Data type to represent waiting strategy for printing warnings
+-- if action take too much time.
+data WaitingDelta
+    = WaitOnce      Second       -- ^ wait s seconds and stop execution
+    | WaitLinear    Second       -- ^ wait s, s * 2, s * 3, s * 4, ... seconds
+    | WaitGeometric Second Word  -- ^ wait s, s * i, s * i^2, s * i^3, ... seconds
+    deriving (Show)
 
-    action <* killThread logThreadId
+type CanLogInParallel m = (MonadIO m, MonadTimed m, WithNamedLogger m)
+
+-- | Run action and print warning if it takes more time than expected.
+logWarningLongAction :: CanLogInParallel m => WaitingDelta -> Text -> m a -> m a
+logWarningLongAction delta actionTag action = do
+    logThreadId <- fork $ waitAndWarn delta
+    action      <* killThread logThreadId
+  where
+    printWarning = logWarning $ sformat ("Action `"%stext%"` took more than "%shown)
+                                actionTag
+                                delta
+
+    waitAndWarn   (WaitOnce s)        = wait (for s) >> printWarning
+    waitAndWarn t@(WaitLinear s)      = wait (for s) >> printWarning >> waitAndWarn t
+    waitAndWarn   (WaitGeometric s i) = do
+        wait (for s)
+        printWarning
+        waitAndWarn $ WaitGeometric (s * fromIntegral i) i
+
+{- Helper functions to avoid dealing with data type -}
+
+logWarningWaitOnce :: CanLogInParallel m => Second -> Text -> m a -> m a
+logWarningWaitOnce = logWarningLongAction . WaitOnce
+
+logWarningWaitLinear :: CanLogInParallel m => Second -> Text -> m a -> m a
+logWarningWaitLinear = logWarningLongAction . WaitLinear
+
+logWarningWaitInf :: CanLogInParallel m => Second -> Text -> m a -> m a
+logWarningWaitInf = logWarningLongAction . (`WaitGeometric` 2)

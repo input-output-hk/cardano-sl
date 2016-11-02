@@ -29,9 +29,8 @@ module Pos.State.Storage.Block
        ) where
 
 import           Control.Lens            (at, ix, makeClassy, preview, use, uses, view,
-                                          views, (%=), (.=), (.~), (<~), (^.), _Just)
+                                          (%=), (.=), (.~), (<~), (^.), _Just)
 import           Data.Default            (Default, def)
-import qualified Data.HashMap.Strict     as HM
 import           Data.List               ((!!))
 import           Data.List.NonEmpty      (NonEmpty ((:|)), (<|))
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
@@ -161,11 +160,9 @@ mayBlockBeUseful currentSlotId header = do
     let hSlot = header ^. headerSlot
     leaders <- getLeaders (siEpoch hSlot)
     isInteresting <- isHeaderInteresting header
-    isKnown <- views blkBlocks (HM.member (hash $ Right header))
     let vhe = def {vheCurrentSlot = Just currentSlotId, vheLeaders = leaders}
     let extraChecks =
-            [ (not isKnown, "block is already known")
-            , ( isInteresting
+            [ ( isInteresting
               , "block is not more difficult than the best known block and \
                  \can't be appended to alternative chain")
             ]
@@ -204,11 +201,9 @@ blkProcessBlock currentSlotId blk = do
             blk
     let vhe = def {vheCurrentSlot = Just currentSlotId, vheLeaders = leaders}
     let header = blk ^. blockHeader
-    isKnown <- readerToState $ views blkBlocks (HM.member (hash header))
     let verRes =
             mconcat
-                [ verifyGeneric [(not isKnown, "block is already known")]
-                , verifyHeader vhe header
+                [ verifyHeader vhe header
                 , verifyBlock (def {vbpVerifyGeneric = True}) blk
                 ]
     case verRes of

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-tmux new-window -n "pos-demo-"`date +%F_%H%M%S`
+tmux new-window -n "cardano-demo-"`date +%F_%H%M%S`
 
 tmux split-window -h
 tmux split-window -v

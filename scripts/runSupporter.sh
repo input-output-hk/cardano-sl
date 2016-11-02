@@ -5,5 +5,5 @@ base=$(dirname "$0")
 ensure_logs
 
 
-$(find_binary pos-node) --supporter --port 2000 --dht-key 'ABOtPlQMv123_4wzfgjAzvsT2LE='\
+$(find_binary cardano-node) --supporter --port 2000 --dht-key 'ABOtPlQMv123_4wzfgjAzvsT2LE='\
   $logs | tee logs/supporter-`date '+%F_%H%M%S'`.log

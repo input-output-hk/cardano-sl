@@ -29,7 +29,7 @@ function node_cmd {
   TIME_LORD=$3
 
 
-  echo -n "$(find_binary pos-node) --db-path pos-db$i --rebuild-db --vss-genesis $i"
+  echo -n "$(find_binary cardano-node) --db-path cardano-db$i --rebuild-db --vss-genesis $i"
 
   if [[ $TIME_LORD != "" ]]; then
     st=" --time-lord"
@@ -45,7 +45,7 @@ function node_cmd {
   echo ''
 }
 
-tmux new-window -n "pos-demo-"`date +%F_%H%M%S`
+tmux new-window -n "cardano-demo-"`date +%F_%H%M%S`
 
 tmux split-window -h
 tmux split-window -v

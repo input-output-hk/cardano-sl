@@ -12,5 +12,5 @@ if [[ $TIME_LORD != "" ]]; then
   st="--time-lord"
 fi
 
-$(find_build_binary pos-bench-remote-single) full -n $i $st --config $config \
+$(find_build_binary cardano-bench-remote-single) full -n $i $st --config $config \
                                              2>&1 | tee logs/node-bench-$i-`date '+%F_%H%M%S'`.log

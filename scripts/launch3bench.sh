@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-tmux new-window -n "pos-bench-test-"`date +%F_%H%M%S`
+tmux new-window -n "cardano-bench-test-"`date +%F_%H%M%S`
 
 tmux split-window -h
 tmux split-window -v

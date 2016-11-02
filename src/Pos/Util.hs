@@ -49,7 +49,7 @@ import           Control.Monad.Fail            (fail)
 import           Control.TimeWarp.Logging      (WithNamedLogger, logWarning)
 import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
 import           Control.TimeWarp.Timed        (MonadTimed (fork, wait), Second, for,
-                                                killThread, mcs)
+                                                killThread)
 
 import           Data.Binary                   (Binary)
 import qualified Data.Binary                   as Binary (encode)
@@ -61,8 +61,7 @@ import           Data.SafeCopy                 (Contained, SafeCopy (..), base, 
                                                 deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (String)
-import           Data.Time.Units               (toMicroseconds)
-import           Formatting                    (int, sformat, stext, (%))
+import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
 import           Serokell.Util                 (VerificationRes)
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
@@ -237,11 +236,11 @@ logWarningLongAction
     -> Second
     -> m a
     -> m ()
-logWarningLongAction actionTag timeoutMs action = do
-   logThreadId <- fork $ do
-       wait $ for (fromIntegral $ toMicroseconds timeoutMs) mcs  -- so ugly
-       logWarning $ sformat ("Action "%stext%" took more than "%int%" time")
-                            actionTag
-                            timeoutMs
-   () <$ action  -- ignore result now; TODO: maybe return it later
-   killThread logThreadId
+logWarningLongAction actionTag timeoutSec action = do
+    logThreadId <- fork $ do
+        wait $ for timeoutSec
+        logWarning $ sformat ("Action "%stext%" took more than "%shown)
+                             actionTag
+                             timeoutSec
+    () <$ action  -- ignore result now; TODO: maybe return it later
+    killThread logThreadId

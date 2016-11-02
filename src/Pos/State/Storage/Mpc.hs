@@ -65,6 +65,7 @@ import           Pos.Types               (Address (getAddress), Block, Commitmen
                                           SlotLeaders, Utxo, VssCertificate,
                                           VssCertificatesMap, blockMpc, blockSlot,
                                           blockSlot, hasCommitment, hasOpening, hasShares,
+                                          isCommitmentIdx, isOpeningIdx, isSharesIdx,
                                           mdCommitments, mdOpenings, mdShares,
                                           mdVssCertificates, unflattenSlotId, utxoF,
                                           verifyOpening, verifySignedCommitment)
@@ -517,9 +518,12 @@ mpcProcessVssCertificate pk c = zoom' lastVer $ do
         mpcLocalCertificates %= HM.insert pk c
 
 -- Should be executed before doing any updates within given slot.
--- TODO: clean-up commitments, openings, shares.
 mpcProcessNewSlot :: SlotId -> Update ()
-mpcProcessNewSlot si@SlotId {siEpoch = epochIdx} = do
+mpcProcessNewSlot si@SlotId {siEpoch = epochIdx, siSlot = slotIdx} = do
+    zoom' lastVer $ do
+        unless (isCommitmentIdx slotIdx) $ mpcLocalCommitments .= mempty
+        unless (isOpeningIdx slotIdx) $ mpcLocalOpenings .= mempty
+        unless (isSharesIdx slotIdx) $ mpcLocalShares .= mempty
     whenM ((epochIdx >) . siEpoch <$> use mpcLastProcessedSlot) $
         mpcCurrentSecret .= Nothing
     mpcLastProcessedSlot .= si

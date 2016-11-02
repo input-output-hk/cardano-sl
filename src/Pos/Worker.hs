@@ -37,5 +37,5 @@ onNewSlotWorkerImpl slotId = do
     fork_ $ do
         logWarningLongAction "mpcOnNewSlot" 8 $ mpcOnNewSlot slotId
         logDebug "Finished `mpcOnNewSlot`"
-    logWarningLongAction "blkOnNewSlot" 8 $ blkOnNewSlot slotId
+    blkOnNewSlot slotId
     logDebug "Finished `blkOnNewSlot`"

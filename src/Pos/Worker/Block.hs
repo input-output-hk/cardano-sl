@@ -19,6 +19,7 @@ import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlot
 import           Pos.State                 (createNewBlock, getHeadBlock, getLeaders)
 import           Pos.Types                 (SlotId (..), Timestamp (Timestamp), gbHeader,
                                             gbHeader, slotIdF)
+import           Pos.Util                  (logWarningLongAction)
 import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey,
                                             ncSecretKey)
 
@@ -47,13 +48,16 @@ onNewSlotWhenLeader slotId = do
             max currentTime (nextSlotStart - Timestamp networkDiameter)
         Timestamp timeToWait = timeToCreate - currentTime
     wait (for timeToWait)
-    logInfo "It's time to create a block for current slot"
-    sk <- ncSecretKey <$> getNodeContext
-    let whenCreated createdBlk = do
-            logInfo $ sformat ("Created a new block:\n" %build) createdBlk
-            announceBlock $ createdBlk ^. gbHeader
-    let whenNotCreated = logWarning "I couldn't create a new block"
-    maybe whenNotCreated whenCreated =<< createNewBlock sk slotId
+    let onNewSlotWhenLeaderDo = do
+            logInfo "It's time to create a block for current slot"
+            sk <- ncSecretKey <$> getNodeContext
+            let whenCreated createdBlk = do
+                    logInfo $
+                        sformat ("Created a new block:\n" %build) createdBlk
+                    announceBlock $ createdBlk ^. gbHeader
+            let whenNotCreated = logWarning "I couldn't create a new block"
+            maybe whenNotCreated whenCreated =<< createNewBlock sk slotId
+    logWarningLongAction "onNewSlotWhenLeader" 8 onNewSlotWhenLeaderDo
 
 -- | All workers specific to block processing.
 -- Exceptions:

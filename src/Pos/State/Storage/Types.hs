@@ -6,6 +6,8 @@ module Pos.State.Storage.Types
        ( AltChain
        , ProcessBlockRes (..)
        , mkPBRabort
+       , ProcessTxRes (..)
+       , mkPTRinvalid
        ) where
 
 import           Data.List.NonEmpty (NonEmpty)
@@ -40,3 +42,15 @@ mkPBRabort :: [Text] -> ProcessBlockRes
 mkPBRabort = PBRabort . T.intercalate "; "
 
 deriveSafeCopySimple 0 'base ''ProcessBlockRes
+
+data ProcessTxRes
+    = PTRadded
+    | PTRknown
+    | PTRinvalid !Text
+    deriving (Show)
+
+deriveSafeCopySimple 0 'base ''ProcessTxRes
+
+-- | Similar to mkPBRabort
+mkPTRinvalid :: [Text] -> ProcessTxRes
+mkPTRinvalid = PTRinvalid . T.intercalate "; "

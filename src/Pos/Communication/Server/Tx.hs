@@ -7,16 +7,17 @@ module Pos.Communication.Server.Tx
        ( txListeners
        ) where
 
-import           Control.TimeWarp.Logging (logError, logInfo)
+import           Control.TimeWarp.Logging (logDebug, logError, logInfo)
 import           Control.TimeWarp.Rpc     (BinaryP, MonadDialog)
-import           Formatting               (build, sformat, (%))
+import           Formatting               (build, sformat, stext, (%))
 import           Universum
 
 import           Pos.Communication.Types  (ResponseMode, SendTx (..), SendTxs (..))
 import           Pos.Communication.Util   (modifyListenerLogger)
 import           Pos.DHT                  (ListenerDHT (..))
-import           Pos.State                (processTx)
+import           Pos.State                (ProcessTxRes (..), processTx)
 import           Pos.Statistics           (statlogReceivedTx)
+import           Pos.Types                (txF)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
@@ -32,10 +33,15 @@ handleTx
     => SendTx -> m ()
 handleTx (SendTx tx) = do
     statlogReceivedTx tx
-    success <- processTx tx
-    if success
-        then logInfo $ sformat ("Transaction has been added to storage: "%build) tx
-        else logError $ sformat ("Transaction FAILED to verify! "%build) tx
+    res <- processTx tx
+    case res of
+        PTRadded ->
+            logInfo $
+            sformat ("Transaction has been added to storage: " %build) tx
+        PTRinvalid msg ->
+            logError $ sformat ("Transaction "%txF%" failed to verify: "%stext) tx msg
+        PTRknown ->
+            logDebug $ sformat ("Transaction is already known: " %build) tx
 
 handleTxs
     :: ResponseMode m

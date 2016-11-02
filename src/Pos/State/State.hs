@@ -25,6 +25,7 @@ module Pos.State.State
 
        -- * Operations with effects.
        , ProcessBlockRes (..)
+       , ProcessTxRes (..)
        , createNewBlock
        , processBlock
        , processNewSlot
@@ -52,7 +53,8 @@ import           Pos.Crypto        (PublicKey, SecretKey, Share, VssKeyPair, toP
 import           Pos.Slotting      (MonadSlots, getCurrentSlot)
 import           Pos.State.Acidic  (DiskState, tidyState)
 import qualified Pos.State.Acidic  as A
-import           Pos.State.Storage (IdTimestamp (..), ProcessBlockRes (..), Storage)
+import           Pos.State.Storage (IdTimestamp (..), ProcessBlockRes (..),
+                                    ProcessTxRes (..), Storage)
 import           Pos.Types         (Block, EpochIndex, GenesisBlock, HeaderHash,
                                     MainBlock, MainBlockHeader, MpcData, Opening,
                                     SignedCommitment, SlotId, SlotLeaders, Timestamp, Tx,
@@ -91,7 +93,7 @@ openMemState = openStateDo . maybe A.openMemState A.openMemStateCustom
 openStateDo :: (MonadIO m, MonadSlots m) => m DiskState -> m NodeState
 openStateDo openDiskState = do
     st <- openDiskState
-    _ <- A.update st . A.ProcessNewSlot =<< getCurrentSlot
+    A.update st . A.ProcessNewSlot =<< getCurrentSlot
     st <$ tidyState st
 
 -- | Safely close NodeState.
@@ -141,7 +143,7 @@ createNewBlock :: WorkModeDB m => SecretKey -> SlotId -> m (Maybe MainBlock)
 createNewBlock sk = updateDisk . A.CreateNewBlock sk
 
 -- | Process transaction received from other party.
-processTx :: WorkModeDB m => Tx -> m Bool
+processTx :: WorkModeDB m => Tx -> m ProcessTxRes
 processTx = updateDisk . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot. Ideally it should

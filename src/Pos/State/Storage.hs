@@ -26,6 +26,7 @@ module Pos.State.Storage
        , mayBlockBeUseful
 
        , ProcessBlockRes (..)
+       , ProcessTxRes (..)
 
        , Update
        , createNewBlock
@@ -79,7 +80,8 @@ import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           getLocalTxs, getUtxoByDepth, processTx,
                                           txApplyBlocks, txRollback, txStorageFromUtxo,
                                           txVerifyBlocks)
-import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
+import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
+                                          ProcessTxRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
                                           EpochIndex, GenesisBlock, MainBlock, Opening,
                                           SlotId (..), SlotLeaders, Utxo, VssCertificate,

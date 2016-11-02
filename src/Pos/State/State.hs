@@ -176,21 +176,24 @@ processVssCertificate pk c = updateDisk $ A.ProcessVssCertificate pk c
 -- processed by MPC (when the genesis block is processed, the secret is
 -- cleared) (otherwise 'generateNewSecret' will fail because 'A.SetSecret'
 -- won't set the secret if there's one already).
+-- Nothing is returned if node is not ready.
 generateNewSecret
     :: WorkModeDB m
     => SecretKey
     -> EpochIndex                         -- ^ Current epoch
-    -> m (SignedCommitment, Opening)
+    -> m (Maybe (SignedCommitment, Opening))
 generateNewSecret sk epoch = do
     -- TODO: I think it's safe here to perform 3 operations which aren't
     -- grouped into a single transaction here, but I'm still a bit nervous.
     threshold <- queryDisk (A.GetThreshold epoch)
-    -- FIXME
-    participants <- fromMaybe undefined <$> queryDisk (A.GetParticipants epoch)
-    secret <-
-        first (mkSignedCommitment sk epoch) <$>
-        genCommitmentAndOpening threshold participants
-    secret <$ updateDisk (A.SetSecret (toPublic sk) secret)
+    participants <- queryDisk (A.GetParticipants epoch)
+    case (,) <$> threshold <*> participants of
+        Nothing -> return Nothing
+        Just (th, ps) -> do
+            secret <-
+                first (mkSignedCommitment sk epoch) <$>
+                genCommitmentAndOpening th ps
+            Just secret <$ updateDisk (A.SetSecret (toPublic sk) secret)
 
 getSecret :: WorkModeDB m => m (Maybe (PublicKey, SignedCommitment, Opening))
 getSecret = queryDisk A.GetSecret

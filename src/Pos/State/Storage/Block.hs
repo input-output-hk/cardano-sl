@@ -29,9 +29,8 @@ module Pos.State.Storage.Block
        ) where
 
 import           Control.Lens            (at, ix, makeClassy, preview, use, uses, view,
-                                          views, (%=), (.=), (.~), (<~), (^.), _Just)
+                                          (%=), (.=), (.~), (<~), (^.), _Just)
 import           Data.Default            (Default, def)
-import qualified Data.HashMap.Strict     as HM
 import           Data.List               ((!!))
 import           Data.List.NonEmpty      (NonEmpty ((:|)), (<|))
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
@@ -50,11 +49,11 @@ import           Pos.Types               (Block, BlockHeader, ChainDifficulty, E
                                           MainBlockHeader, MpcData, SlotId (..),
                                           SlotLeaders, Tx, VerifyBlockParams (..),
                                           VerifyHeaderExtra (..), blockHeader,
-                                          blockLeaders, blockSlot, difficultyL, gbHeader,
-                                          getBlockHeader, headerHash, headerSlot,
-                                          mkGenesisBlock, mkMainBlock, mkMainBody,
-                                          prevBlockL, siEpoch, verifyBlock, verifyBlocks,
-                                          verifyHeader)
+                                          blockLeaders, blockSlot, difficultyL,
+                                          epochIndexL, gbHeader, getBlockHeader,
+                                          headerHash, headerSlot, mkGenesisBlock,
+                                          mkMainBlock, mkMainBody, prevBlockL, siEpoch,
+                                          verifyBlock, verifyBlocks, verifyHeader)
 import           Pos.Util                (readerToState, _neHead, _neLast)
 
 data BlockStorage = BlockStorage
@@ -139,17 +138,20 @@ getLeader SlotId {..} = (preview $ _Just . ix (fromIntegral siSlot)) <$> getLead
 -- | Get depth of the first main block whose SlotId ≤ given value.
 -- Depth of the deepest (i. e. 0-th genesis) block is returned if
 -- there is no such block.
-getSlotDepth :: SlotId -> Query Word
+-- SlotId of such block is also returned (for genesis block siSlot is set to 0).
+getSlotDepth :: SlotId -> Query (Word, SlotId)
 getSlotDepth slotId = do
     headBlock <- getHeadBlock
     getSlotDepthDo 0 headBlock
   where
-    getSlotDepthDo :: Word -> Block -> Query Word
+    getSlotDepthDo :: Word -> Block -> Query (Word, SlotId)
     getSlotDepthDo depth (Right blk)
-        | blk ^. blockSlot <= slotId = pure depth
+        | blk ^. blockSlot <= slotId = pure (depth, blk ^. blockSlot)
     getSlotDepthDo depth blk =
-        maybe (pure depth) (getSlotDepthDo (depth + 1)) =<<
+        maybe (pure (depth, blkSlot blk)) (getSlotDepthDo (depth + 1)) =<<
         getBlock (blk ^. prevBlockL)
+    blkSlot (Left genBlk)   = SlotId (genBlk ^. epochIndexL) 0
+    blkSlot (Right mainBlk) = mainBlk ^. blockSlot
 
 -- | Check that block header is correct and claims to represent block
 -- which may become part of blockchain.
@@ -158,11 +160,9 @@ mayBlockBeUseful currentSlotId header = do
     let hSlot = header ^. headerSlot
     leaders <- getLeaders (siEpoch hSlot)
     isInteresting <- isHeaderInteresting header
-    isKnown <- views blkBlocks (HM.member (hash $ Right header))
     let vhe = def {vheCurrentSlot = Just currentSlotId, vheLeaders = leaders}
     let extraChecks =
-            [ (not isKnown, "block is already known")
-            , ( isInteresting
+            [ ( isInteresting
               , "block is not more difficult than the best known block and \
                  \can't be appended to alternative chain")
             ]
@@ -201,11 +201,9 @@ blkProcessBlock currentSlotId blk = do
             blk
     let vhe = def {vheCurrentSlot = Just currentSlotId, vheLeaders = leaders}
     let header = blk ^. blockHeader
-    isKnown <- readerToState $ views blkBlocks (HM.member (hash header))
     let verRes =
             mconcat
-                [ verifyGeneric [(not isKnown, "block is already known")]
-                , verifyHeader vhe header
+                [ verifyHeader vhe header
                 , verifyBlock (def {vbpVerifyGeneric = True}) blk
                 ]
     case verRes of

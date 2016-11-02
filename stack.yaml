@@ -40,5 +40,6 @@ extra-deps:
 - recursion-schemes-5
 - QuickCheck-2.9.2
 - cryptonite-openssl-0.2
+- UtilityTM-0.0.4
 
 resolver: lts-7.1

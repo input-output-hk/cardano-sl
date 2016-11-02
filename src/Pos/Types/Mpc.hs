@@ -13,11 +13,14 @@ module Pos.Types.Mpc
        , isSharesIdx
        , mkSignedCommitment
        , secretToFtsSeed
+       , xorFtsSeed
+
+       -- * Verification
        , verifyCommitment
        , verifyCommitmentSignature
        , verifySignedCommitment
        , verifyOpening
-       , xorFtsSeed
+       , verifyMpcData
        ) where
 
 import           Control.Lens        ((^.))
@@ -34,7 +37,7 @@ import           Pos.Crypto          (PublicKey, Secret, SecretKey, Threshold,
                                       runSecureRandom, secretToDhSecret, sign, verify,
                                       verifyEncShare, verifySecretProof)
 import           Pos.Types.Types     (Commitment (..), EpochIndex, FtsSeed (..),
-                                      LocalSlotIndex, MpcData, Opening (..),
+                                      LocalSlotIndex, MpcData (..), Opening (..),
                                       SignedCommitment, SlotId (..), mdCommitments,
                                       mdOpenings, mdShares)
 
@@ -83,6 +86,20 @@ verifyOpening :: Commitment -> Opening -> Bool
 verifyOpening Commitment {..} (Opening secret) =
     verifySecretProof commExtra secret commProof
 
+-- | Verify MpcData using limited data.
+-- TODO: more checks.
+verifyMpcData :: SlotId -> MpcData -> VerificationRes
+verifyMpcData slotId MpcData {..} =
+    verifyGeneric
+        [ ( null _mdCommitments || isCommitmentId slotId
+          , "there are commitments in inappropriate block")
+        , ( null _mdOpenings || isOpeningId slotId
+          , "there are openings in inappropriate block")
+        , ( null _mdShares || isSharesId slotId
+          , "there are shares in inappropriate block")
+        ]
+
+-- | Apply bitwise xor to two FtsSeeds
 xorFtsSeed :: FtsSeed -> FtsSeed -> FtsSeed
 xorFtsSeed (FtsSeed a) (FtsSeed b) =
     FtsSeed $ BS.pack (BS.zipWith xor a b) -- fast due to rewrite rules

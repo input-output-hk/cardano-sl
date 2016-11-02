@@ -30,6 +30,7 @@ data ProcessBlockRes
       PBRgood !(Word, AltChain)
     | -- | Block has been discarded because it's not interesting or invalid.
       PBRabort !Text
+    deriving (Show)
 
 -- | Make `ProcessBlockRes` from list of error messages using
 -- `PBRabort` constructor. Intended to be used with `VerificationRes`.

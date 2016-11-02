@@ -682,6 +682,40 @@ instance MessagePack (Body GenesisBlockchain)
 
 type GenesisBlock = GenericBlock GenesisBlockchain
 
+instance Buildable GenesisBlock where
+    build GenericBlock {..} =
+        bprint
+            (stext%":\n"%
+             "  "%build%
+             stext
+            )
+            (colorize Magenta "GenesisBlock")
+            _gbHeader
+            formatLeaders
+      where
+        GenesisBody {..} = _gbBody
+        formatIfNotNull formatter l = if null l then mempty else sformat formatter l
+        formatLeaders = formatIfNotNull
+            ("  leaders: "%listJson%"\n") _gbLeaders
+
+instance Buildable GenesisBlockHeader where
+    build gbh@GenericBlockHeader {..} =
+        bprint
+            ("GenesisBlockHeader:\n"%
+             "    hash: "%hashHexF%"\n"%
+             "    previous block: "%hashHexF%"\n"%
+             "    epoch: "%build%"\n"%
+             "    difficulty: "%int%"\n"
+            )
+            headerHash
+            _gbhPrevBlock
+            _gcdEpoch
+            _gcdDifficulty
+      where
+        headerHash :: HeaderHash
+        headerHash = hash $ Left gbh
+        GenesisConsensusData {..} = _gbhConsensus
+
 ----------------------------------------------------------------------------
 -- GenesisBlock ∪ MainBlock
 ----------------------------------------------------------------------------

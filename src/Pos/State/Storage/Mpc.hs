@@ -487,7 +487,11 @@ mpcProcessOpening pk o = do
 -- in opening processing.
 checkOpeningAbsence :: PublicKey -> Query Bool
 checkOpeningAbsence pk =
-    magnify' lastVer $ not . HM.member pk <$> view mpcGlobalOpenings
+    magnify' lastVer $
+    (&&) <$> (notMember <$> view mpcGlobalOpenings) <*>
+    (notMember <$> view mpcLocalOpenings)
+  where
+    notMember = not . HM.member pk
 
 mpcProcessShares :: PublicKey -> HashMap PublicKey Share -> Update Bool
 mpcProcessShares pk s
@@ -498,14 +502,14 @@ mpcProcessShares pk s
         -- aware of the fact that they are already in the blockchain. On the
         -- other hand, now nodes can send us huge spammy messages and we can't
         -- ban them for that. On the third hand, is this a concern?
-        ok <- (readerToState $ checkSharesLastVer pk s)
+        preOk <- (readerToState $ checkSharesLastVer pk s)
         let mpcProcessSharesDo = do
                 globalSharesForPK <-
                     HM.lookupDefault mempty pk <$> use mpcGlobalShares
                 let s' = s `HM.difference` globalSharesForPK
-                unless (null s') $
-                    mpcLocalShares %= HM.insertWith HM.union pk s'
-        ok <$ (when ok $ zoom' lastVer $ mpcProcessSharesDo)
+                let ok = preOk && not (null s')
+                ok <$ (when ok $ mpcLocalShares %= HM.insertWith HM.union pk s')
+        zoom' lastVer $ mpcProcessSharesDo
 
 mpcProcessVssCertificate :: PublicKey -> VssCertificate -> Update ()
 mpcProcessVssCertificate pk c = zoom' lastVer $ do

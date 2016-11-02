@@ -116,7 +116,7 @@ instance MonadTransfer m => MonadTransfer (KademliaDHT m) where
 
 instance (MonadIO m, WithNamedLogger m, MonadCatch m) =>
          WithDefaultMsgHeader (KademliaDHT m) where
-    defaultMsgHeader msg = do
+    defaultMsgHeader _ = do
         -- *-- Caches are disabled now for non-broadcast messages
         --     uncomment lines below to enable them
         --noCacheNames <- KademliaDHT $ asks kdcNoCacheMessageNames_

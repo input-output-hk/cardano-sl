@@ -93,7 +93,7 @@ openMemState = openStateDo . maybe A.openMemState A.openMemStateCustom
 openStateDo :: (MonadIO m, MonadSlots m) => m DiskState -> m NodeState
 openStateDo openDiskState = do
     st <- openDiskState
-    A.update st . A.ProcessNewSlot =<< getCurrentSlot
+    _ <- A.update st . A.ProcessNewSlot =<< getCurrentSlot
     st <$ tidyState st
 
 -- | Safely close NodeState.

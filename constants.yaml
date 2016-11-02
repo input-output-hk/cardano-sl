@@ -2,4 +2,4 @@ k: 2
 slotDurationSec: 15
 networkDiameter: 3
 neighboursSendThreshold: 4
-genesisN: 110
+genesisN: 5

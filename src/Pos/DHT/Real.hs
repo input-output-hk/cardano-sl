@@ -5,6 +5,7 @@
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 module Pos.DHT.Real
        ( KademliaDHT
@@ -31,6 +32,7 @@ import qualified Data.ByteString           as BS
 import           Data.ByteString.Lazy      (fromStrict, toStrict)
 import qualified Data.Cache.LRU            as LRU
 import           Data.Hashable             (hash)
+import qualified Data.HashMap.Strict       as HM
 import           Data.Text                 (Text)
 import           Formatting                (build, int, sformat, shown, (%))
 import qualified Network.Kademlia          as K
@@ -84,6 +86,7 @@ data KademliaDHTConfig m = KademliaDHTConfig
     , kdcKeyOrType           :: Either DHTKey DHTNodeType
     , kdcInitialPeers        :: [DHTNode]
     , kdcNoCacheMessageNames :: [Text]
+    , kdcExplicitInitial     :: Bool
     }
 
 newtype KademliaDHT m a = KademliaDHT { unKademliaDHT :: ReaderT (KademliaDHTContext m) m a }
@@ -292,9 +295,18 @@ instance (MonadIO m, MonadCatch m, WithNamedLogger m) => MonadDHT (KademliaDHT m
     filterByNodeType type_ <$> getKnownPeers
 
   getKnownPeers = do
-    myId <- currentNodeKey
-    inst <- KademliaDHT $ asks kdcHandle
-    filter (\n -> dhtNodeId n /= myId) . fmap toDHTNode <$> liftIO (K.dumpPeers inst)
+      myId <- currentNodeKey
+      (inst, initialPeers) <- KademliaDHT $ (,) <$> asks kdcHandle <*> asks kdcInitialPeers_
+      extendPeers myId initialPeers <$> liftIO (K.dumpPeers inst)
+    where
+      extendPeers myId initial
+        = map snd
+        . HM.toList
+        . HM.delete myId
+        . flip (foldr $ \n -> HM.insert (dhtNodeId n) n) initial
+        . HM.fromList
+        . map (\(toDHTNode -> n) -> (dhtNodeId n, n))
+
 
   currentNodeKey = KademliaDHT $ asks kdcKey
 

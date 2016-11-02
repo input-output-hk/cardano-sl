@@ -5,7 +5,6 @@ module Main where
 import           Data.Default               (def)
 
 import           Control.Applicative        (empty)
-import           Control.Concurrent         (threadDelay)
 import           Control.Monad              (fail)
 import           Control.TimeWarp.Logging   (Severity (Debug, Info))
 import           Data.Binary                (Binary, decode, encode)
@@ -46,6 +45,7 @@ data Args = Args
     , commLogSeverity    :: !(Maybe Severity)
     , serverLogSeverity  :: !(Maybe Severity)
     , timeLord           :: !Bool
+    , dhtExplicitInitial :: !Bool
     }
   deriving Show
 
@@ -99,7 +99,8 @@ argsParser =
          metavar "SEVERITY",
          help "Server log severity"
         ]) <*>
-    switch (long "time-lord" <> help "Peer is time lord, i.e. one responsible for system start time decision & propagation (used only in development)")
+    switch (long "time-lord" <> help "Peer is time lord, i.e. one responsible for system start time decision & propagation (used only in development)") <*>
+    switch (long "explicit-initial" <> help "Explicitely contact to initial peers as to neighbors (even if they appeared offline once)")
   where
     peerHelpMsg = "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""
 
@@ -144,7 +145,7 @@ main = do
       case runningMode of
         Development -> if timeLord args
                           then runTimeLordReal (loggingParams "time-lord" args)
-                          else runTimeSlaveReal (baseParams "time-slave" args) <* threadDelay (3 * 1000 * 1000)
+                          else runTimeSlaveReal (baseParams "time-slave" args)
         Production systemStart -> return systemStart
     loggingParams logger Args{..} =
         def
@@ -162,6 +163,7 @@ main = do
         , bpDHTKeyOrType = if supporterNode
                               then maybe (Right DHTSupporter) Left dhtKey
                               else maybe (Right DHTFull) Left dhtKey
+        , bpDHTExplicitInitial = dhtExplicitInitial
         }
     params args@Args{..} spendingSK vssSK systemStart =
         NodeParams

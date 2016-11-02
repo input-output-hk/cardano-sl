@@ -146,10 +146,11 @@ data NodeParams = NodeParams
     } deriving (Show)
 
 data BaseParams = BaseParams
-    { bpLogging      :: !LoggingParams
-    , bpPort         :: !Word16
-    , bpDHTPeers     :: ![DHTNode]
-    , bpDHTKeyOrType :: !(Either DHTKey DHTNodeType)
+    { bpLogging            :: !LoggingParams
+    , bpPort               :: !Word16
+    , bpDHTPeers           :: ![DHTNode]
+    , bpDHTKeyOrType       :: !(Either DHTKey DHTNodeType)
+    , bpDHTExplicitInitial :: !Bool
     } deriving (Show)
 
 ----------------------------------------------------------------------------
@@ -275,6 +276,7 @@ runKDHT BaseParams {..} listeners = runKademliaDHT kadConfig
       , kdcEnableBroadcast = False
       , kdcInitialPeers = bpDHTPeers
       , kdcNoCacheMessageNames = noCacheMessageNames
+      , kdcExplicitInitial = bpDHTExplicitInitial
       }
 
 runTimed :: LoggerName -> Dialog BinaryP Transfer a -> IO a

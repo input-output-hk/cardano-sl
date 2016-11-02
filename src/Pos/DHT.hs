@@ -52,6 +52,7 @@ import           Control.TimeWarp.Rpc      (BinaryP, HeaderNContentData, Message
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Data.Binary               (Binary)
 import qualified Data.ByteString           as BS
+import           Data.Hashable             (Hashable)
 import           Data.Proxy                (Proxy (Proxy))
 import           Data.Text.Buildable       (Buildable (..))
 import           Data.Text.Lazy            (unpack)
@@ -183,7 +184,7 @@ newtype DHTData = DHTData ()
 
 -- DHTKey should be strictly 20-byte long
 newtype DHTKey = DHTKey { dhtKeyBytes :: BS.ByteString }
-  deriving (Eq, Ord, Binary)
+  deriving (Eq, Ord, Binary, Hashable)
 
 instance Buildable DHTKey where
     build key@(DHTKey bs) = buildType (dhtNodeType key)

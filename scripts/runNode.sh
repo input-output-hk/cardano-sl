@@ -5,11 +5,12 @@ base=$(dirname "$0")
 ensure_logs
 
 i=$1
+i2=$((i*2))
 
-if [[ $i -lt 10 ]]; then
-  port="300$i"
+if [[ $i2 -lt 10 ]]; then
+  port="300$i2"
 else
-  port="30$i"
+  port="30$i2"
 fi
 
 if [[ $TIME_LORD != "" ]]; then

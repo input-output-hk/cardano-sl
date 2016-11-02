@@ -4,9 +4,9 @@ module Pos.Worker
        ( runWorkers
        ) where
 
-import           Control.TimeWarp.Logging (logDebug, logNotice)
+import           Control.TimeWarp.Logging (logDebug, logInfo, logNotice)
 import           Control.TimeWarp.Timed   (fork_)
-import           Formatting               (sformat, (%))
+import           Formatting               (build, sformat, shown, (%))
 import           Universum
 
 import           Pos.Slotting             (onNewSlot)
@@ -31,7 +31,8 @@ onNewSlotWorkerImpl slotId = do
     logNotice $ sformat ("New slot has just started: "%slotIdF) slotId
     -- A note about order: currently only one thing is important, that
     -- `processNewSlot` is executed before everything else
-    processNewSlot slotId
+    mGenBlock <- processNewSlot slotId
+    forM_ mGenBlock $ logInfo . sformat ("Created genesis block:\n" %shown)
     logDebug "Finished `processNewSlot`"
 
     fork_ $ do

@@ -81,12 +81,12 @@ import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, Commitment, CommitmentSignature,
-                                          EpochIndex, MainBlock, Opening, SlotId (..),
-                                          SlotLeaders, Utxo, VssCertificate, blockMpc,
-                                          blockSlot, blockTxs, epochIndexL, flattenSlotId,
-                                          getAddress, headerHashG, mdVssCertificates,
-                                          txOutAddress, unflattenSlotId, verifyMpcData,
-                                          verifyTxAlone)
+                                          EpochIndex, GenesisBlock, MainBlock, Opening,
+                                          SlotId (..), SlotLeaders, Utxo, VssCertificate,
+                                          blockMpc, blockSlot, blockTxs, epochIndexL,
+                                          flattenSlotId, getAddress, headerHashG,
+                                          mdVssCertificates, txOutAddress,
+                                          unflattenSlotId, verifyMpcData, verifyTxAlone)
 import           Pos.Util                (readerToState, _neHead)
 
 type Query  a = forall m . MonadReader Storage m => m a
@@ -219,22 +219,26 @@ processBlockFinally toRollback blocks = do
     -- but it is still good as an optimization. Even if later we see
     -- that there were other valid blocks in old epoch, we will
     -- replace chain and everything will be fine.
-    createGenesisBlock knownEpoch
+    _ <- createGenesisBlock knownEpoch
     return $ PBRgood (toRollback, blocks)
 
 -- | Do all necessary changes when new slot starts.
-processNewSlot :: SlotId -> Update ()
+processNewSlot :: SlotId -> Update (Maybe GenesisBlock)
 processNewSlot sId = do
     knownSlot <- use slotId
-    when (sId > knownSlot) $ processNewSlotDo sId
+    if sId > knownSlot
+       then processNewSlotDo sId
+       else pure Nothing
 
-processNewSlotDo :: SlotId -> Update ()
+processNewSlotDo :: SlotId -> Update (Maybe GenesisBlock)
 processNewSlotDo sId@SlotId {..} = do
     slotId .= sId
-    when (siSlot == 0) $
-        createGenesisBlock siEpoch
+    mGenBlock <-
+      if siSlot == 0
+         then createGenesisBlock siEpoch
+         else pure Nothing
     blkCleanUp sId
-    mpcProcessNewSlot sId
+    mpcProcessNewSlot sId $> mGenBlock
 
 -- We create genesis block for i-th epoch when head of currently known
 -- best chain is MainBlock corresponding to one of last `k` slots of
@@ -254,23 +258,24 @@ shouldCreateGenesisBlock epoch = doCheckSoft . either (`SlotId` 0) identity <$> 
     -- TODO add logWarning on `doCheckStrict` failing
     -- doCheckStrict SlotId {..} = siEpoch == epoch - 1 && siSlot >= 5 * k
 
-createGenesisBlock :: EpochIndex -> Update ()
+createGenesisBlock :: EpochIndex -> Update (Maybe GenesisBlock)
 createGenesisBlock epoch = do
     --readerToState getHeadSlot >>= \hs ->
     --  identity $! traceM $ "[~~~~~~] createGenesisBlock: epoch="
     --                       <> pretty epoch <> ", headSlot=" <> pretty (either (`SlotId` 0) identity hs)
     ifM (readerToState $ shouldCreateGenesisBlock epoch)
-        (createGenesisBlockDo epoch)
-        (pure ())
+        (Just <$> createGenesisBlockDo epoch)
+        (pure Nothing)
 
-createGenesisBlockDo :: EpochIndex -> Update ()
+createGenesisBlockDo :: EpochIndex -> Update GenesisBlock
 createGenesisBlockDo epoch = do
     --traceMpcLastVer
     leaders <- readerToState $ calculateLeaders epoch
-    genBlock <- Left <$> blkCreateGenesisBlock epoch leaders
+    genBlock <- blkCreateGenesisBlock epoch leaders
     -- Genesis block contains no transactions,
     --    so we should update only MPC
-    mpcApplyBlocks $ genBlock :| []
+    mpcApplyBlocks $ Left genBlock :| []
+    pure genBlock
 
 calculateLeaders :: EpochIndex -> Query SlotLeaders
 calculateLeaders epoch = do

@@ -53,10 +53,11 @@ import           Pos.Slotting      (MonadSlots, getCurrentSlot)
 import           Pos.State.Acidic  (DiskState, tidyState)
 import qualified Pos.State.Acidic  as A
 import           Pos.State.Storage (IdTimestamp (..), ProcessBlockRes (..), Storage)
-import           Pos.Types         (Block, EpochIndex, HeaderHash, MainBlock,
-                                    MainBlockHeader, MpcData, Opening, SignedCommitment,
-                                    SlotId, SlotLeaders, Timestamp, Tx, VssCertificate,
-                                    genCommitmentAndOpening, mkSignedCommitment)
+import           Pos.Types         (Block, EpochIndex, GenesisBlock, HeaderHash,
+                                    MainBlock, MainBlockHeader, MpcData, Opening,
+                                    SignedCommitment, SlotId, SlotLeaders, Timestamp, Tx,
+                                    VssCertificate, genCommitmentAndOpening,
+                                    mkSignedCommitment)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState
@@ -90,7 +91,7 @@ openMemState = openStateDo . maybe A.openMemState A.openMemStateCustom
 openStateDo :: (MonadIO m, MonadSlots m) => m DiskState -> m NodeState
 openStateDo openDiskState = do
     st <- openDiskState
-    A.update st . A.ProcessNewSlot =<< getCurrentSlot
+    _ <- A.update st . A.ProcessNewSlot =<< getCurrentSlot
     st <$ tidyState st
 
 -- | Safely close NodeState.
@@ -145,7 +146,7 @@ processTx = updateDisk . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot. Ideally it should
 -- be used before all other updates within this slot.
-processNewSlot :: WorkModeDB m => SlotId -> m ()
+processNewSlot :: WorkModeDB m => SlotId -> m (Maybe GenesisBlock)
 processNewSlot = updateDisk . A.ProcessNewSlot
 
 -- | Process some Block received from the network.

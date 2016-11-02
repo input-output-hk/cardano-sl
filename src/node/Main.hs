@@ -19,7 +19,8 @@ import           Pos.Constants              (RunningMode (..), runningMode)
 import           Pos.Crypto                 (keyGen, vssKeyGen)
 import           Pos.DHT                    (DHTKey, DHTNode, DHTNodeType (..),
                                              dhtNodeType)
-import           Pos.Genesis                (genesisSecretKeys, genesisVssKeyPairs)
+import           Pos.Genesis                (genesisSecretKeys, genesisUtxoPetty,
+                                             genesisVssKeyPairs)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), runNodeReal,
                                              runSupporterReal, runTimeLordReal,
@@ -37,6 +38,7 @@ data Args = Args
     , spendingSecretPath :: !(Maybe FilePath)
     , vssSecretPath      :: !(Maybe FilePath)
     , port               :: !Word16
+    , pettyUtxo          :: !Bool
     , dhtPeers           :: ![DHTNode]
     , supporterNode      :: !Bool
     , dhtKey             :: !(Maybe DHTKey)
@@ -72,6 +74,7 @@ argsParser =
         auto
         (long "port" <> metavar "INTEGER" <> value 3000 <> showDefault <>
          help "Port to work on") <*>
+    switch (long "petty-utxo" <> help "Petty utxo (1 coin per transaction, many txs)") <*>
     many
         (option (fromParsec dhtNodeParser) $
          long "peer" <> metavar "HOST:PORT/HOST_ID" <>
@@ -173,5 +176,7 @@ main = do
         , npSecretKey = spendingSK
         , npVssKeyPair = vssSK
         , npBaseParams = baseParams "node" args
-        , npCustomUtxo = Nothing
+        , npCustomUtxo = if pettyUtxo
+                         then Just $ genesisUtxoPetty 20000
+                         else Nothing
         }

@@ -117,6 +117,7 @@ library
                       , text
                       , text-format
                       , time
+                      , time-units
                       , time-warp
                       , transformers
                       , universum

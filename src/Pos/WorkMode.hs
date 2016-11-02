@@ -1,7 +1,9 @@
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 -- | WorkMode constraint.
 
@@ -20,24 +22,29 @@ module Pos.WorkMode
        , ProductionMode
        ) where
 
-import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Except      (ExceptT)
-import           Control.Monad.Trans.Class (MonadTrans)
-import           Control.TimeWarp.Logging  (WithNamedLogger (..))
-import           Control.TimeWarp.Rpc      (BinaryP, Dialog, MonadDialog, MonadResponse,
-                                            MonadTransfer (..), Transfer, hoistRespCond)
-import           Control.TimeWarp.Timed    (MonadTimed (..), ThreadId)
-import           Universum                 hiding (catch)
+import           Control.Monad.Base          (MonadBase (..))
+import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Except        (ExceptT)
+import           Control.Monad.Trans.Class   (MonadTrans)
+import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
+                                              MonadTransControl (..), StM,
+                                              defaultLiftBaseWith, defaultLiftWith,
+                                              defaultRestoreM, defaultRestoreT)
+import           Control.TimeWarp.Logging    (WithNamedLogger (..))
+import           Control.TimeWarp.Rpc        (BinaryP, Dialog, MonadDialog, MonadResponse,
+                                              MonadTransfer (..), Transfer, hoistRespCond)
+import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
+import           Universum                   hiding (catch)
 
-import           Pos.Crypto                (PublicKey, SecretKey, VssKeyPair,
-                                            VssPublicKey, toPublic, toVssPublicKey)
-import           Pos.DHT                   (DHTResponseT, MonadMessageDHT (..),
-                                            WithDefaultMsgHeader)
-import           Pos.DHT.Real              (KademliaDHT)
-import           Pos.Slotting              (MonadSlots (..))
-import           Pos.State                 (MonadDB (..), NodeState)
-import           Pos.Statistics.MonadStats (MonadStats, NoStatsT, StatsT)
-import           Pos.Types                 (Timestamp (..))
+import           Pos.Crypto                  (PublicKey, SecretKey, VssKeyPair,
+                                              VssPublicKey, toPublic, toVssPublicKey)
+import           Pos.DHT                     (DHTResponseT, MonadMessageDHT (..),
+                                              WithDefaultMsgHeader)
+import           Pos.DHT.Real                (KademliaDHT)
+import           Pos.Slotting                (MonadSlots (..))
+import           Pos.State                   (MonadDB (..), NodeState)
+import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
+import           Pos.Types                   (Timestamp (..))
 
 type WorkMode m
     = ( WithNamedLogger m
@@ -70,6 +77,19 @@ newtype DBHolder m a = DBHolder
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
                MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDialog p,
                MonadResponse)
+
+instance MonadBase IO m => MonadBase IO (DBHolder m) where
+    liftBase = lift . liftBase
+
+instance MonadTransControl DBHolder where
+    type StT DBHolder a = StT (ReaderT NodeState) a
+    liftWith = defaultLiftWith DBHolder getDBHolder
+    restoreT = defaultRestoreT DBHolder
+
+instance MonadBaseControl IO m => MonadBaseControl IO (DBHolder m) where
+    type StM (DBHolder m) a = ComposeSt DBHolder m a
+    liftBaseWith     = defaultLiftBaseWith
+    restoreM         = defaultRestoreM
 
 type instance ThreadId (DBHolder m) = ThreadId m
 
@@ -140,6 +160,19 @@ newtype ContextHolder m a = ContextHolder
     { getContextHolder :: ReaderT NodeContext m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
                MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDB, MonadDialog p, MonadResponse)
+
+instance MonadBase IO m => MonadBase IO (ContextHolder m) where
+    liftBase = lift . liftBase
+
+instance MonadTransControl ContextHolder where
+    type StT ContextHolder a = StT (ReaderT NodeContext) a
+    liftWith = defaultLiftWith ContextHolder getContextHolder
+    restoreT = defaultRestoreT ContextHolder
+
+instance MonadBaseControl IO m => MonadBaseControl IO (ContextHolder m) where
+    type StM (ContextHolder m) a = ComposeSt ContextHolder m a
+    liftBaseWith     = defaultLiftBaseWith
+    restoreM         = defaultRestoreM
 
 type instance ThreadId (ContextHolder m) = ThreadId m
 

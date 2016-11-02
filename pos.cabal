@@ -101,9 +101,10 @@ library
                       , hashable
                       , kademlia
                       , lens
-                      , list-t == 1
+                      , lifted-async
                       , lrucache
                       , memory
+                      , monad-control
                       , mtl
                       , parsec
                       , pvss
@@ -120,6 +121,7 @@ library
                       , time-units
                       , time-warp
                       , transformers
+                      , transformers-base
                       , universum
                       , unordered-containers
                       , vector

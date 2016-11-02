@@ -116,7 +116,7 @@ class MonadDHT m => MonadMessageDHT m where
     sendToNode = defaultSendToNode
 
     default sendToNeighbors :: (Binary r, Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
-    sendToNeighbors = defaultSendToNeighbors
+    sendToNeighbors = defaultSendToNeighbors sequence
 
 class MonadMessageDHT m => MonadResponseDHT m where
   replyToNode :: (Binary r, Message r) => r -> m ()
@@ -150,8 +150,8 @@ defaultSendToNeighbors
        , MonadCatch m
        , MonadIO m
        )
-    => r -> m Int
-defaultSendToNeighbors msg = do
+    => ([m Bool] -> m [Bool]) -> r -> m Int
+defaultSendToNeighbors parallelize msg = do
     withDhtLogger $
       logDebug $ sformat ("Sending message " % F.build % " neighbors") (messageName' msg)
     nodes <- filterByNodeType DHTFull <$> getKnownPeers
@@ -172,7 +172,7 @@ defaultSendToNeighbors msg = do
     return succeed'
   where
     -- TODO make this function asynchronous after presenting some `MonadAsync` constraint
-    sendToNodes nodes = length . filter identity <$> mapM send' nodes
+    sendToNodes nodes = length . filter identity <$> parallelize (map send' nodes)
     send' node = (sendToNode (dhtAddr node) msg >> return True) `catch` handleE
       where
         handleE (e :: SomeException) = do

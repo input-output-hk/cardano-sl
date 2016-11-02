@@ -13,41 +13,46 @@ module Pos.DHT.Real
        , KademliaDHTConfig(..)
        ) where
 
-import           Control.Concurrent.STM    (STM, TVar, atomically, modifyTVar, newTVar,
-                                            readTVar, writeTVar)
-import           Control.Monad.Catch       (Handler (..), MonadCatch, MonadMask,
-                                            MonadThrow, catchAll, catches, finally,
-                                            throwM)
-import           Control.Monad.Trans.Class (MonadTrans)
-import           Control.TimeWarp.Logging  (WithNamedLogger, logDebug, logError, logInfo,
-                                            logWarning, usingLoggerName)
-import           Control.TimeWarp.Rpc      (BinaryP (..), Binding (..), ListenerH (..),
-                                            MonadDialog, MonadResponse,
-                                            MonadTransfer (..), NetworkAddress,
-                                            RawData (..), TransferException (..),
-                                            hoistRespCond, listenR, sendH, sendR)
-import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
-import           Data.Binary               (Binary, decodeOrFail, encode)
-import qualified Data.ByteString           as BS
-import           Data.ByteString.Lazy      (fromStrict, toStrict)
-import qualified Data.Cache.LRU            as LRU
-import           Data.Hashable             (hash)
-import qualified Data.HashMap.Strict       as HM
-import           Data.Text                 (Text)
-import           Formatting                (build, int, sformat, shown, (%))
-import qualified Network.Kademlia          as K
-import           Pos.DHT                   (DHTData, DHTException (..), DHTKey,
-                                            DHTMsgHeader (..), DHTNode (..),
-                                            DHTNodeType (..),
-                                            DHTResponseT (getDHTResponseT),
-                                            ListenerDHT (..), MonadDHT (..),
-                                            MonadMessageDHT (..),
-                                            MonadResponseDHT (closeResponse),
-                                            WithDefaultMsgHeader (..), defaultSendToNode,
-                                            filterByNodeType, joinNetworkNoThrow,
-                                            randomDHTKey, withDhtLogger)
-import           Universum                 hiding (Handler, catches, finally, fromStrict,
-                                            toStrict)
+import           Control.Concurrent.Async.Lifted (mapConcurrently)
+import           Control.Concurrent.STM          (STM, TVar, atomically, modifyTVar,
+                                                  newTVar, readTVar, writeTVar)
+import           Control.Monad.Catch             (Handler (..), MonadCatch, MonadMask,
+                                                  MonadThrow, catchAll, catches, finally,
+                                                  throwM)
+import           Control.Monad.Trans.Class       (MonadTrans)
+import           Control.Monad.Trans.Control     (MonadBaseControl)
+import           Control.TimeWarp.Logging        (WithNamedLogger, logDebug, logError,
+                                                  logInfo, logWarning, usingLoggerName)
+import           Control.TimeWarp.Rpc            (BinaryP (..), Binding (..),
+                                                  ListenerH (..), MonadDialog,
+                                                  MonadResponse, MonadTransfer (..),
+                                                  NetworkAddress, RawData (..),
+                                                  TransferException (..), hoistRespCond,
+                                                  listenR, sendH, sendR)
+import           Control.TimeWarp.Timed          (MonadTimed, ThreadId)
+import           Data.Binary                     (Binary, decodeOrFail, encode)
+import qualified Data.ByteString                 as BS
+import           Data.ByteString.Lazy            (fromStrict, toStrict)
+import qualified Data.Cache.LRU                  as LRU
+import           Data.Hashable                   (hash)
+import qualified Data.HashMap.Strict             as HM
+import           Data.Text                       (Text)
+import           Formatting                      (build, int, sformat, shown, (%))
+import qualified Network.Kademlia                as K
+import           Pos.DHT                         (DHTData, DHTException (..), DHTKey,
+                                                  DHTMsgHeader (..), DHTNode (..),
+                                                  DHTNodeType (..),
+                                                  DHTResponseT (getDHTResponseT),
+                                                  ListenerDHT (..), MonadDHT (..),
+                                                  MonadMessageDHT (..),
+                                                  MonadResponseDHT (closeResponse),
+                                                  WithDefaultMsgHeader (..),
+                                                  defaultSendToNeighbors,
+                                                  defaultSendToNode, filterByNodeType,
+                                                  joinNetworkNoThrow, randomDHTKey,
+                                                  withDhtLogger)
+import           Universum                       hiding (Handler, catches, finally,
+                                                  fromStrict, mapConcurrently, toStrict)
 
 toBSBinary :: Binary b => b -> BS.ByteString
 toBSBinary = toStrict . encode
@@ -93,6 +98,16 @@ newtype KademliaDHT m a = KademliaDHT { unKademliaDHT :: ReaderT (KademliaDHTCon
     deriving (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadIO,
              MonadMask, WithNamedLogger, MonadTimed, MonadDialog p, MonadResponse)
 
+--instance MonadTransControl KademliaDHT where
+--    type StT KademliaDHT a = StT (ReaderT (KademliaDHTContext m)) a
+--    liftWith = defaultLiftWith KademliaDHT unKademliaDHT
+--    restoreT = defaultRestoreT KademliaDHT
+--
+--instance MonadBaseControl IO m => MonadBaseControl IO (KademliaDHT m) where
+--    type StM (KademliaDHT m) a = ComposeSt KademliaDHT m a
+--    liftBaseWith     = defaultLiftBaseWith
+--    restoreM         = defaultRestoreM
+
 instance MonadTransfer m => MonadTransfer (KademliaDHT m) where
     sendRaw addr req = lift $ sendRaw addr req
     listenRaw binding sink =
@@ -124,7 +139,7 @@ instance MonadTrans KademliaDHT where
 type instance ThreadId (KademliaDHT m) = ThreadId m
 
 runKademliaDHT
-    :: (WithNamedLogger m, MonadIO m, MonadTimed m, MonadDialog BinaryP m, MonadMask m)
+    :: (WithNamedLogger m, MonadIO m, MonadTimed m, MonadDialog BinaryP m, MonadMask m, MonadBaseControl IO m)
     => KademliaDHTConfig m -> KademliaDHT m a -> m a
 runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
     startDHT kdc >>= runReaderT (unKademliaDHT action')
@@ -154,11 +169,13 @@ stopDHT = do
     liftIO $ sequence_ threadIds
 
 startDHT
-    :: (MonadTimed m
-       ,MonadIO m
-       ,MonadDialog BinaryP m
-       ,WithNamedLogger m
-       ,MonadCatch m)
+    :: ( MonadTimed m
+       , MonadIO m
+       , MonadDialog BinaryP m
+       , WithNamedLogger m
+       , MonadCatch m
+       , MonadBaseControl IO m
+       )
     => KademliaDHTConfig m -> m (KademliaDHTContext m)
 startDHT KademliaDHTConfig {..} = do
     kdcKey <- either pure randomDHTKey kdcKeyOrType
@@ -254,9 +271,10 @@ sendToNetworkR = sendToNetworkImpl sendR
 sendToNetworkImpl :: (NetworkAddress -> DHTMsgHeader -> msg -> m ()) -> msg -> m ()
 sendToNetworkImpl = notImplemented
 
-instance (MonadDialog BinaryP m, WithNamedLogger m, MonadCatch m, MonadIO m, MonadTimed m)
+instance (MonadDialog BinaryP m, WithNamedLogger m, MonadCatch m, MonadIO m, MonadTimed m, MonadBaseControl IO m)
        => MonadMessageDHT (KademliaDHT m) where
     sendToNetwork = sendToNetworkImpl sendH
+    sendToNeighbors = defaultSendToNeighbors (KademliaDHT . mapConcurrently unKademliaDHT)
     sendToNode (host, port) msg = do
         defaultSendToNode addr msg
         listenOutbound >>= updateTIds

@@ -53,8 +53,8 @@ import qualified Control.Monad
 import           Control.Monad.Fail            (fail)
 import           Control.TimeWarp.Logging      (WithNamedLogger, logWarning)
 import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
-import           Control.TimeWarp.Timed        (MonadTimed (fork, wait), Second, for,
-                                                killThread)
+import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
+                                                Second, for, killThread)
 
 import           Data.Binary                   (Binary)
 import qualified Data.Binary                   as Binary (encode)
@@ -66,6 +66,7 @@ import           Data.SafeCopy                 (Contained, SafeCopy (..), base, 
                                                 deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (String)
+import           Data.Time.Units               (TimeUnit (fromMicroseconds, toMicroseconds))
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
 import           Serokell.Util                 (VerificationRes)
@@ -237,9 +238,9 @@ messageName' = messageName . (const Proxy :: a -> Proxy a)
 -- | Data type to represent waiting strategy for printing warnings
 -- if action take too much time.
 data WaitingDelta
-    = WaitOnce      Second       -- ^ wait s seconds and stop execution
-    | WaitLinear    Second       -- ^ wait s, s * 2, s * 3, s * 4, ... seconds
-    | WaitGeometric Second Word  -- ^ wait s, s * i, s * i^2, s * i^3, ... seconds
+    = WaitOnce      Second              -- ^ wait s seconds and stop execution
+    | WaitLinear    Second              -- ^ wait s, s * 2, s * 3  , s * 4  , ...      seconds
+    | WaitGeometric Microsecond Double  -- ^ wait m, m * q, m * q^2, m * q^3, ... microseconds
     deriving (Show)
 
 type CanLogInParallel m = (MonadIO m, MonadTimed m, WithNamedLogger m)
@@ -254,12 +255,12 @@ logWarningLongAction delta actionTag action = do
                                 actionTag
                                 delta
 
-    waitAndWarn (WaitOnce      s)   = wait (for s) >> printWarning
-    waitAndWarn (WaitLinear    s)   = forever $ wait (for s) >> printWarning
-    waitAndWarn (WaitGeometric s i) = let waitLoop t = do
+    waitAndWarn (WaitOnce      s  ) =           wait (for s) >> printWarning
+    waitAndWarn (WaitLinear    s  ) = forever $ wait (for s) >> printWarning
+    waitAndWarn (WaitGeometric s q) = let waitLoop t = do
                                               wait $ for t
                                               printWarning
-                                              waitLoop (t * fromIntegral i)
+                                              waitLoop (round $ fromIntegral t * q)
                                       in waitLoop s
 
 {- Helper functions to avoid dealing with data type -}
@@ -271,4 +272,4 @@ logWarningWaitLinear :: CanLogInParallel m => Second -> Text -> m a -> m a
 logWarningWaitLinear = logWarningLongAction . WaitLinear
 
 logWarningWaitInf :: CanLogInParallel m => Second -> Text -> m a -> m a
-logWarningWaitInf = logWarningLongAction . (`WaitGeometric` 2)
+logWarningWaitInf = logWarningLongAction . (`WaitGeometric` 1.3) . fromMicroseconds . toMicroseconds

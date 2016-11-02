@@ -123,6 +123,7 @@ main = do
                              , bpPort = 24962 + fromIntegral i
                              , bpDHTPeers = goDHTPeers
                              , bpDHTKeyOrType = Right DHTClient
+                             , bpDHTExplicitInitial = False
                              }
             , npCustomUtxo = Nothing
             }

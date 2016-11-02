@@ -70,6 +70,7 @@ startSupporter config = do
                  , bpPort = scPort
                  , bpDHTPeers = []
                  , bpDHTKeyOrType = Left dhtKey
+                 , bpDHTExplicitInitial = False
                  }
 
     runSupporterReal params
@@ -92,6 +93,7 @@ startFullNode config nodeNumber isTimeLord = do
             , bpPort         = fncPort
             , bpDHTPeers     = [dhtSupporter]
             , bpDHTKeyOrType = Right DHTFull
+            , bpDHTExplicitInitial = False
             }
         -- TODO: refactor =\
         getSystemStart = if isTimeLord
@@ -128,6 +130,7 @@ startCollector config = do
             , bpPort = 8095
             , bpDHTPeers = []
             , bpDHTKeyOrType = Right DHTClient
+            , bpDHTExplicitInitial = False
             }
 
     ch <- C.newChan

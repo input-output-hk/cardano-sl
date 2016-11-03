@@ -6,4 +6,4 @@ ensure_logs
 
 
 $(find_binary cardano-node) --supporter --port 2000 --dht-key 'ABOtPlQMv123_4wzfgjAzvsT2LE='\
-  $logs | tee $logs_dir/supporter-`date '+%F_%H%M%S'`.log
+  $logs | tee $logs_dir/supporter.log

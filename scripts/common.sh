@@ -18,7 +18,7 @@ function ensure_run {
 }
 
 function ensure_logs {
-  logs_dir="$base_common/../logs"
+  logs_dir="$base_common/../logs/"`date '+%F_%H%M%S'`
 
 	mkdir -p "$logs_dir"
 
@@ -103,6 +103,6 @@ function node_cmd {
   $dht_cmd
 
   echo -n " --spending-genesis $i --port "`get_port $i`
-  echo -n " $logs $time_lord | tee $logs_dir/node-$i-"`date '+%F_%H%M%S'`".log "
+  echo -n " $logs $time_lord | tee $logs_dir/node-$i.log "
   echo ''
 }

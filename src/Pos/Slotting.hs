@@ -74,7 +74,7 @@ onNewSlotDo expectedSlotId startImmediately action = do
         (maybe (const True) (<=) expectedSlotId <$> getCurrentSlot)
     curSlot <- getCurrentSlot
     -- fork is necessary because action can take more time than slotDuration
-    when startImmediately $ fork_ $ actionWithCatch curSlot
+    when startImmediately $ fork_ $ action curSlot
     Timestamp curTime <- getCurrentTime
     let nextSlot = succ curSlot
     Timestamp nextSlotStart <- getSlotStart nextSlot
@@ -86,7 +86,3 @@ onNewSlotDo expectedSlotId startImmediately action = do
         unlessM predicate (shortWait >> waitUntilPredicate predicate)
     shortWaitTime = (10 :: Microsecond) `max` (slotDuration `div` 10000)
     shortWait = wait $ for shortWaitTime
-    -- TODO: think about exceptions more carefully.
-    actionWithCatch s = action s `catch` handler
-    handler :: (MonadIO m, WithNamedLogger m) => SomeException -> m ()
-    handler = logError . sformat ("Error occurred: "%build)

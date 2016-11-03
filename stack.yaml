@@ -6,11 +6,11 @@ packages:
 - '.'
 - location:
     git: https://github.com/serokell/universum
-    commit: 25623d197c5b6c9ff17e3b955714c65c0da5631b
+    commit: 8e33495fd58c5443e0c2b0f1b6646516a47bd8d6
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp.git
-    commit: cd14897e63e0efea535059402d39e9796e5d51c6
+    commit: 6645c7c99b70b8230a02a102c1ce10701f721f76
   extra-dep: true
 - location:
     git: https://github.com/serokell/serokell-core.git
@@ -22,7 +22,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/pvss-haskell.git
-    commit: 9d19e375c5438b4941dc378512adf6d062d24722
+    commit: 1b898a222341116d210f2d3a5566028e14a335ae
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
@@ -40,5 +40,6 @@ extra-deps:
 - recursion-schemes-5
 - QuickCheck-2.9.2
 - cryptonite-openssl-0.2
+- UtilityTM-0.0.4
 
 resolver: lts-7.1

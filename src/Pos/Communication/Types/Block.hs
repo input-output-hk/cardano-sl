@@ -11,46 +11,36 @@ module Pos.Communication.Types.Block
        ) where
 
 import           Data.Binary          (Binary)
-import           Data.MessagePack     (MessagePack)
 import           Universum
 
 import           Control.TimeWarp.Rpc (Message (..))
+import           Pos.Ssc.Class.Types  (SscTypes)
 import           Pos.Types            (Block, HeaderHash, MainBlockHeader)
 
 -- | Message: some node has sent a Block.
-data SendBlock =
-    SendBlock !Block
+data SendBlock ssc =
+    SendBlock !(Block ssc)
     deriving (Generic)
 
 -- | Message: some node has sent a BlockHeader.
-data SendBlockHeader =
-    SendBlockHeader !MainBlockHeader
+data SendBlockHeader ssc =
+    SendBlockHeader !(MainBlockHeader ssc)
     deriving (Generic)
 
 -- | Message: some node has requested a Block with given HeaderHash.
-data RequestBlock =
-    RequestBlock !HeaderHash
+data RequestBlock ssc =
+    RequestBlock !(HeaderHash ssc)
     deriving (Generic)
 
-instance Binary SendBlock
-instance Binary SendBlockHeader
-instance Binary RequestBlock
+instance SscTypes ssc => Binary (SendBlock ssc)
+instance SscTypes ssc => Binary (SendBlockHeader ssc)
+instance Binary (RequestBlock ssc)
 
-instance MessagePack SendBlock
-instance MessagePack SendBlockHeader
-instance MessagePack RequestBlock
-
-instance Message SendBlock where
+instance (SscTypes ssc) => Message (SendBlock ssc) where
     messageName _ = "SendBlock"
 
-instance Message SendBlockHeader where
+instance (SscTypes ssc) => Message (SendBlockHeader ssc) where
     messageName _ = "SendBlockHeader"
 
-instance Message RequestBlock where
+instance Typeable ssc => Message (RequestBlock ssc) where
     messageName _ = "RequestBlock"
-
-{-
-mkRequest' ''SendBlock ''() ''Void
-mkRequest' ''SendBlockHeader ''() ''Void
-mkRequest' ''RequestBlock ''() ''Void
--}

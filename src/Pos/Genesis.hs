@@ -8,6 +8,7 @@ module Pos.Genesis
        , genesisPublicKeys
        , genesisSecretKeys
        , genesisUtxo
+       , genesisUtxoPetty
 
        -- * MPC
        , genesisCertificates
@@ -17,19 +18,19 @@ module Pos.Genesis
        ) where
 
 import qualified Data.HashMap.Strict as HM
+import qualified Data.List.NonEmpty  as NE
 import qualified Data.Map.Strict     as M
 import qualified Data.Text           as T
-import qualified Data.Vector         as V
 import           Formatting          (int, sformat, (%))
 import           Universum
 
-import           Pos.Constants       (epochSlots)
-import           Pos.Crypto          (PublicKey, SecretKey, VssKeyPair,
-                                      VssPublicKey, deterministicKeyGen,
-                                      deterministicVssKeyGen, mkSigned,
-                                      toVssPublicKey, unsafeHash)
-import           Pos.Types           (Address (Address), SlotLeaders,
-                                      TxOut (..), Utxo, VssCertificatesMap)
+import           Pos.Constants       (epochSlots, genesisN)
+import           Pos.Crypto          (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
+                                      deterministicKeyGen, deterministicVssKeyGen,
+                                      mkSigned, toVssPublicKey, unsafeHash)
+import           Pos.Types.Types     (Address (Address), SlotLeaders, TxOut (..), Utxo,
+                                      VssCertificatesMap)
+
 
 ----------------------------------------------------------------------------
 -- Static state
@@ -38,7 +39,7 @@ import           Pos.Types           (Address (Address), SlotLeaders,
 -- TODO get rid of this hardcode !!
 -- Secret keys of genesis block participants shouldn't obviously be widely known
 genesisKeyPairs :: [(PublicKey, SecretKey)]
-genesisKeyPairs = map gen [0 .. 41]
+genesisKeyPairs = map gen [0 .. genesisN - 1]
   where
     gen :: Int -> (PublicKey, SecretKey)
     gen =
@@ -58,14 +59,22 @@ genesisAddresses = map Address genesisPublicKeys
 
 genesisUtxo :: Utxo
 genesisUtxo =
-    M.fromList $ map (\a -> ((unsafeHash a, 0), TxOut a 10000)) genesisAddresses
+    M.fromList . take 3 $
+    map (\a -> ((unsafeHash a, 0), TxOut a 10000)) genesisAddresses
+
+-- | For every static stakeholder it generates `k` coins, but in `k`
+-- transaction (1 coin each), where `k` is input parameter.
+genesisUtxoPetty :: Int -> Utxo
+genesisUtxoPetty k =
+    M.fromList $ flip concatMap genesisAddresses $ \a ->
+        map (\i -> ((unsafeHash (show a ++ show i), 0), TxOut a 1)) [1..k]
 
 ----------------------------------------------------------------------------
 -- MPC, leaders
 ----------------------------------------------------------------------------
 
 genesisVssKeyPairs :: [VssKeyPair]
-genesisVssKeyPairs = map gen [0 .. 42]
+genesisVssKeyPairs = map gen [0 .. genesisN - 1]
   where
     gen :: Int -> VssKeyPair
     gen =
@@ -86,7 +95,7 @@ genesisCertificates =
         genesisVssPublicKeys
 
 genesisLeaders :: SlotLeaders
-genesisLeaders = V.replicate epochSlots pk
+genesisLeaders = NE.fromList $ replicate epochSlots pk
   where
     pk =
         fromMaybe (panic "genesisPublicKeys is empty") $

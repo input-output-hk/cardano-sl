@@ -9,12 +9,10 @@ import           Test.QuickCheck          (Arbitrary (..))
 import           Universum
 
 import           Pos.Crypto.SecretSharing (VssKeyPair, VssPublicKey,
-                                           deterministicVssKeyGen,
-                                           toVssPublicKey)
-import           Pos.Crypto.Signing       (PublicKey, SecretKey, Signature,
-                                           Signed, mkSigned)
-import           Pos.Util.Arbitrary       (ArbitraryUnsafe (..),
-                                           arbitrarySizedSL)
+                                           deterministicVssKeyGen, toVssPublicKey)
+import           Pos.Crypto.Signing       (PublicKey, SecretKey, Signature, Signed,
+                                           mkSigned)
+import           Pos.Util.Arbitrary       (ArbitraryUnsafe (..), arbitrarySizedSL)
 
 instance ArbitraryUnsafe PublicKey where
     arbitraryUnsafe = Binary.decode <$> arbitrarySizedSL 32

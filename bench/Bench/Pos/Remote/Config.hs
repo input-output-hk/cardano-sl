@@ -3,6 +3,7 @@
 module Bench.Pos.Remote.Config
        ( FullNodeConfig (..)
        , SupporterConfig (..)
+       , CollectorConfig (..)
        , readRemoteConfig
        ) where
 
@@ -24,8 +25,13 @@ data SupporterConfig = SupporterConfig
     , scDhtKey :: !Text
     }
 
+data CollectorConfig = CollectorConfig
+  { ccNodes :: ![Text]
+  }
+
 deriveJSON defaultOptions ''FullNodeConfig
 deriveJSON defaultOptions ''SupporterConfig
+deriveJSON defaultOptions ''CollectorConfig
 
 readRemoteConfig :: FromJSON config => FilePath -> IO config
 readRemoteConfig fp =

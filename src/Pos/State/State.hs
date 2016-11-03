@@ -15,6 +15,9 @@ module Pos.State.State
        , getHeadBlock
        , getLeaders
        , getLocalTxs
+       , getLocalMpcData
+       , getGlobalMpcData
+       , getSecret
        , getOurCommitment
        , getOurOpening
        , getOurShares
@@ -22,6 +25,7 @@ module Pos.State.State
 
        -- * Operations with effects.
        , ProcessBlockRes (..)
+       , ProcessTxRes (..)
        , createNewBlock
        , processBlock
        , processNewSlot
@@ -37,23 +41,29 @@ module Pos.State.State
        , getStatRecords
        ) where
 
-import           Crypto.Random     (seedNew, seedToInteger)
-import           Data.Acid         (EventResult, EventState, QueryEvent, UpdateEvent)
-import           Data.Binary       (Binary)
-import qualified Data.Binary       as Binary
-import           Pos.DHT           (DHTResponseT)
-import           Serokell.Util     (VerificationRes)
+import           Crypto.Random              (seedNew, seedToInteger)
+import           Data.Acid                  (EventResult, EventState, QueryEvent,
+                                             UpdateEvent)
+import           Data.Binary                (Binary)
+import qualified Data.Binary                as Binary
+import           Pos.DHT                    (DHTResponseT)
+import           Serokell.Util              (VerificationRes)
 import           Universum
 
-import           Pos.Crypto        (PublicKey, SecretKey, Share, VssKeyPair)
-import           Pos.Slotting      (MonadSlots, getCurrentSlot)
-import           Pos.State.Acidic  (DiskState, tidyState)
-import qualified Pos.State.Acidic  as A
-import           Pos.State.Storage (IdTimestamp (..), ProcessBlockRes (..), Storage)
-import           Pos.Types         (Block, Commitment, CommitmentSignature, EpochIndex,
-                                    HeaderHash, MainBlock, MainBlockHeader, Opening,
-                                    SlotId, SlotLeaders, Timestamp, Tx, VssCertificate,
-                                    genCommitmentAndOpening)
+import           Pos.Crypto                 (PublicKey, SecretKey, Share, VssKeyPair,
+                                             toPublic)
+import           Pos.Slotting               (MonadSlots, getCurrentSlot)
+import           Pos.Ssc.DynamicState.Types (DSPayload, SscDynamicState)
+import           Pos.State.Acidic           (DiskState, tidyState)
+import qualified Pos.State.Acidic           as A
+import           Pos.State.Storage          (IdTimestamp (..), ProcessBlockRes (..),
+                                             ProcessTxRes (..), Storage)
+import           Pos.Types                  (Block, Commitment, CommitmentSignature,
+                                             EpochIndex, GenesisBlock, HeaderHash,
+                                             MainBlock, MainBlockHeader, Opening,
+                                             SignedCommitment, SlotId, SlotLeaders,
+                                             Timestamp, Tx, VssCertificate,
+                                             genCommitmentAndOpening, mkSignedCommitment)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState
@@ -71,18 +81,23 @@ instance (Monad m, MonadDB m) => MonadDB (DHTResponseT m) where
 type WorkModeDB m = (MonadIO m, MonadDB m)
 
 -- | Open NodeState, reading existing state from disk (if any).
-openState :: (MonadIO m, MonadSlots m) => Bool -> FilePath -> m NodeState
-openState deleteIfExists fp = openStateDo (A.openState deleteIfExists fp)
+openState
+    :: (MonadIO m, MonadSlots m)
+    => Maybe Storage -> Bool -> FilePath -> m NodeState
+openState storage deleteIfExists fp =
+    openStateDo $ maybe (A.openState deleteIfExists fp)
+                        (\s -> A.openStateCustom s deleteIfExists fp)
+                        storage
 
 -- | Open NodeState which doesn't store anything on disk. Everything
 -- is stored in memory and will be lost after shutdown.
-openMemState :: (MonadIO m, MonadSlots m) => m NodeState
-openMemState = openStateDo A.openMemState
+openMemState :: (MonadIO m, MonadSlots m) => Maybe Storage -> m NodeState
+openMemState = openStateDo . maybe A.openMemState A.openMemStateCustom
 
 openStateDo :: (MonadIO m, MonadSlots m) => m DiskState -> m NodeState
 openStateDo openDiskState = do
     st <- openDiskState
-    A.update st . A.ProcessNewSlot =<< getCurrentSlot
+    _ <- A.update st . A.ProcessNewSlot =<< getCurrentSlot
     st <$ tidyState st
 
 -- | Safely close NodeState.
@@ -101,55 +116,70 @@ updateDisk e = flip A.update e =<< getNodeState
 
 -- | Get list of slot leaders for the given epoch. Empty list is returned
 -- if no information is available.
-getLeaders :: WorkModeDB m => EpochIndex -> m SlotLeaders
+getLeaders :: WorkModeDB m => EpochIndex -> m (Maybe SlotLeaders)
 getLeaders = queryDisk . A.GetLeaders
 
 -- | Get Block by hash.
-getBlock :: WorkModeDB m => HeaderHash -> m (Maybe Block)
+getBlock
+    :: WorkModeDB m
+    => HeaderHash SscDynamicState -> m (Maybe (Block SscDynamicState))
 getBlock = queryDisk . A.GetBlock
 
 -- | Get block which is the head of the __best chain__.
-getHeadBlock :: WorkModeDB m => m Block
+getHeadBlock :: WorkModeDB m => m (Block SscDynamicState)
 getHeadBlock = queryDisk A.GetHeadBlock
 
 getLocalTxs :: WorkModeDB m => m (HashSet Tx)
 getLocalTxs = queryDisk A.GetLocalTxs
 
+getLocalMpcData :: WorkModeDB m => m DSPayload
+getLocalMpcData = queryDisk A.GetLocalMpcData
+
+getGlobalMpcData :: WorkModeDB m => m DSPayload
+getGlobalMpcData = queryDisk A.GetGlobalMpcData
+
 mayBlockBeUseful
     :: WorkModeDB m
-    => SlotId -> MainBlockHeader -> m VerificationRes
+    => SlotId -> MainBlockHeader SscDynamicState -> m VerificationRes
 mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 
 -- | Create new block on top of currently known best chain, assuming
 -- we are slot leader.
-createNewBlock :: WorkModeDB m => SecretKey -> SlotId -> m (Maybe MainBlock)
+createNewBlock
+    :: WorkModeDB m
+    => SecretKey -> SlotId -> m (Maybe (MainBlock SscDynamicState))
 createNewBlock sk = updateDisk . A.CreateNewBlock sk
 
 -- | Process transaction received from other party.
-processTx :: WorkModeDB m => Tx -> m Bool
+processTx :: WorkModeDB m => Tx -> m ProcessTxRes
 processTx = updateDisk . A.ProcessTx
 
--- | Notify NodeState about beginning of new slot.
-processNewSlot :: WorkModeDB m => SlotId -> m ()
+-- | Notify NodeState about beginning of new slot. Ideally it should
+-- be used before all other updates within this slot.
+processNewSlot
+    :: WorkModeDB m
+    => SlotId -> m (Maybe (GenesisBlock SscDynamicState))
 processNewSlot = updateDisk . A.ProcessNewSlot
 
 -- | Process some Block received from the network.
-processBlock :: WorkModeDB m => SlotId -> Block -> m ProcessBlockRes
+processBlock
+    :: WorkModeDB m
+    => SlotId -> Block SscDynamicState -> m (ProcessBlockRes SscDynamicState)
 processBlock si = updateDisk . A.ProcessBlock si
 
 processCommitment
     :: WorkModeDB m
-    => PublicKey -> (Commitment, CommitmentSignature) -> m ()
+    => PublicKey -> SignedCommitment -> m Bool
 processCommitment pk c = updateDisk $ A.ProcessCommitment pk c
 
 processOpening
     :: WorkModeDB m
-    => PublicKey -> Opening -> m ()
+    => PublicKey -> Opening -> m Bool
 processOpening pk o = updateDisk $ A.ProcessOpening pk o
 
 processShares
     :: WorkModeDB m
-    => PublicKey -> HashMap PublicKey Share -> m ()
+    => PublicKey -> HashMap PublicKey Share -> m Bool
 processShares pk s = updateDisk $ A.ProcessShares pk s
 
 processVssCertificate
@@ -159,20 +189,32 @@ processVssCertificate pk c = updateDisk $ A.ProcessVssCertificate pk c
 
 -- | Generate new commitment and opening and use them for the current
 -- epoch. Assumes that the genesis block has already been generated and
--- processed by MPC (will fail otherwise because the old commitment/opening
--- will still be lingering there in MPC storage).
---
--- It has to be passed the current epoch.
-generateNewSecret :: WorkModeDB m => EpochIndex -> m ()
-generateNewSecret epoch = do
+-- processed by MPC (when the genesis block is processed, the secret is
+-- cleared) (otherwise 'generateNewSecret' will fail because 'A.SetSecret'
+-- won't set the secret if there's one already).
+-- Nothing is returned if node is not ready.
+generateNewSecret
+    :: WorkModeDB m
+    => SecretKey
+    -> EpochIndex                         -- ^ Current epoch
+    -> m (Maybe (SignedCommitment, Opening))
+generateNewSecret sk epoch = do
     -- TODO: I think it's safe here to perform 3 operations which aren't
     -- grouped into a single transaction here, but I'm still a bit nervous.
     threshold <- queryDisk (A.GetThreshold epoch)
     participants <- queryDisk (A.GetParticipants epoch)
-    secret <- genCommitmentAndOpening threshold participants
-    updateDisk $ A.SetSecret secret
+    case (,) <$> threshold <*> participants of
+        Nothing -> return Nothing
+        Just (th, ps) -> do
+            secret <-
+                first (mkSignedCommitment sk epoch) <$>
+                genCommitmentAndOpening th ps
+            Just secret <$ updateDisk (A.SetSecret (toPublic sk) secret)
 
-getOurCommitment :: WorkModeDB m => m (Maybe Commitment)
+getSecret :: WorkModeDB m => m (Maybe (PublicKey, SignedCommitment, Opening))
+getSecret = queryDisk A.GetSecret
+
+getOurCommitment :: WorkModeDB m => m (Maybe SignedCommitment)
 getOurCommitment = queryDisk A.GetOurCommitment
 
 getOurOpening :: WorkModeDB m => m (Maybe Opening)

@@ -13,6 +13,7 @@ import           Control.Arrow       ((&&&))
 import qualified Data.HashMap.Strict as HM (fromList, lookup, mapMaybe, toList)
 import qualified Data.HashSet        as HS (difference, fromMap)
 import           Data.List           (foldl1', scanl1)
+import           Data.List.NonEmpty  (NonEmpty, fromList)
 import           Data.Text.Buildable (Buildable (..))
 import           Universum
 
@@ -21,10 +22,10 @@ import           Serokell.Util       (listBuilderJSON)
 import           Pos.Constants       (epochSlots)
 import           Pos.Crypto          (PublicKey, Secret, Share, Threshold, deterministic,
                                       randomNumber, shareId, unsafeRecoverSecret)
-import           Pos.Types           (Address, Coin (..), CommitmentsMap, FtsSeed (..),
+import           Pos.Types.Mpc       (secretToFtsSeed, verifyOpening, xorFtsSeed)
+import           Pos.Types.Types     (Address, Coin (..), CommitmentsMap, FtsSeed (..),
                                       OpeningsMap, SharesMap, TxOut (..), Utxo,
-                                      getOpening, secretToFtsSeed, verifyOpening,
-                                      xorFtsSeed)
+                                      getOpening)
 
 data FtsError
     -- | Some nodes in the 'OpeningsMap' aren't in the set of participants
@@ -120,10 +121,11 @@ calculateSeed (fromIntegral -> t) commitments openings shares = do
     -- Now that we have the secrets, we can check whether the commitments
     -- actually match the secrets, and whether a secret has been recovered
     -- for each participant.
-    for_ (HM.toList commitments) $ \(key, fst -> _) -> do
-        case HM.lookup key secrets of
-            Nothing -> Left (NoSecretFound key)
-            Just _  -> pure ()
+    -- TODO: see CSL-50
+    -- for_ (HM.toList commitments) $ \(key, fst -> _) -> do
+    --     case HM.lookup key secrets of
+    --         Nothing -> Left (NoSecretFound key)
+    --         Just _  -> pure ()
 
     -- Finally we just XOR all secrets together
     if | null secrets && not (null participants) ->
@@ -146,10 +148,10 @@ calculateSeed (fromIntegral -> t) commitments openings shares = do
 -- in the system; to find owner of 'i'th coin we find the lowest x such that
 -- sum of all coins in this list up to 'i'th is not less than 'i' (and then
 -- 'x'th address is the owner).
-followTheSatoshi :: FtsSeed -> Utxo -> [Address]
+followTheSatoshi :: FtsSeed -> Utxo -> NonEmpty Address
 followTheSatoshi (FtsSeed seed) utxo
     | null outputs = panic "followTheSatoshi: utxo is empty"
-    | otherwise    = map fst $ sortOn snd $
+    | otherwise    = fromList $ map fst $ sortOn snd $
                      findLeaders (sortOn fst $ zip coinIndices [1..]) sums
   where
     outputs :: [(Address, Coin)]

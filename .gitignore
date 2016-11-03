@@ -28,6 +28,8 @@ TAGS
 .dir-locals.el
 node-db*
 pos-db*
+cardano-db*
 *.html
 pos-keys
 nohup.out
+logs

@@ -7,15 +7,17 @@
 module Pos.Types.Arbitrary () where
 
 import           Data.DeriveTH              (derive, makeArbitrary)
+import           Data.List.NonEmpty         (NonEmpty ((:|)))
 import           Pos.Constants              (epochSlots)
 import           Pos.Crypto                 (SecretProof, SecretSharingExtra,
                                              deterministicVssKeyGen, sign, toVssPublicKey)
+import           Pos.Ssc.DynamicState.Types (DSProof (..))
 import           Pos.Types.Mpc              (genCommitmentAndOpening)
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              Coin (..), Commitment (..), EpochIndex (..),
                                              FtsSeed (..), LocalSlotIndex (..),
-                                             MpcProof (..), Opening (..), SlotId (..),
-                                             Tx (..), TxIn (..), TxOut (..))
+                                             Opening (..), SlotId (..), Tx (..),
+                                             TxIn (..), TxOut (..))
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
                                              NonZero (..), choose, elements)
@@ -40,9 +42,9 @@ commitmentsAndOpenings :: [CommitmentOpening]
 commitmentsAndOpenings =
     map (uncurry CommitmentOpening) $
     unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $
-    genCommitmentAndOpening
-        1
-        [toVssPublicKey $ deterministicVssKeyGen "aaaaaaaaaaaaaaaaaaaaaassss"]
+    genCommitmentAndOpening 1 (vssPk :| [])
+  where
+    vssPk = toVssPublicKey $ deterministicVssKeyGen "aaaaaaaaaaaaaaaaaaaaaassss"
 {-# NOINLINE commitmentsAndOpenings #-}
 
 instance Arbitrary CommitmentOpening where
@@ -75,7 +77,7 @@ deriving instance Arbitrary ChainDifficulty
 
 derive makeArbitrary ''SlotId
 derive makeArbitrary ''TxOut
-derive makeArbitrary ''MpcProof
+derive makeArbitrary ''DSProof
 
 instance Arbitrary Coin where
     arbitrary = Coin . getNonZero <$> (arbitrary :: Gen (NonZero Word64))

@@ -5,36 +5,57 @@ module Pos.Communication.Methods
        , announceTx
        , announceTxs
        , sendTx
+       , announceCommitment
+       , announceOpening
+       , announceShares
+       , announceVssCertificate
        ) where
 
 import           Control.TimeWarp.Logging (logDebug)
-import           Control.TimeWarp.Rpc     (NetworkAddress)
+import           Control.TimeWarp.Rpc     (Message, NetworkAddress)
+import           Control.TimeWarp.Timed   (fork_)
+import           Data.Binary              (Binary)
 import           Data.List.NonEmpty       (NonEmpty ((:|)))
 import           Formatting               (build, sformat, (%))
-import           Serokell.Util.Text       (listBuilderJSON)
+import           Serokell.Util.Text       (listBuilderJSON, mapJson)
 import           Universum
 
-import           Pos.Communication.Types  (SendBlockHeader (..), SendTx (..),
-                                           SendTxs (..))
+import           Pos.Communication.Types  (SendBlockHeader (..), SendCommitment (..),
+                                           SendOpening (..), SendShares (..), SendTx (..),
+                                           SendTxs (..), SendVssCertificate (..))
+import           Pos.Crypto               (PublicKey, Share)
 import           Pos.DHT                  (sendToNeighbors, sendToNode)
-import           Pos.Types                (MainBlockHeader, Tx)
+import           Pos.Ssc.Class.Types      (SscTypes)
+import           Pos.Statistics           (statlogSentBlockHeader, statlogSentTx)
+import           Pos.Types                (MainBlockHeader, Opening, SignedCommitment, Tx,
+                                           VssCertificate)
+import           Pos.Util                 (logWarningWaitLinear, messageName')
 import           Pos.WorkMode             (WorkMode)
+
+sendToNeighborsSafe :: (Binary r, Message r, WorkMode m) => r -> m ()
+sendToNeighborsSafe msg = do
+    let msgName = messageName' msg
+    let action = () <$ sendToNeighbors msg
+    fork_ $
+        logWarningWaitLinear 10 ("Sending " <> msgName <> " to neighbors") action
 
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.
 announceBlock
-    :: WorkMode m
-    => MainBlockHeader -> m ()
+    :: (SscTypes ssc, WorkMode m)
+    => MainBlockHeader ssc -> m ()
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
-    void . sendToNeighbors . SendBlockHeader $ header
+    statlogSentBlockHeader $ Right header
+    sendToNeighborsSafe . SendBlockHeader $ header
 
 -- | Announce new transaction to all known peers. Intended to be used when
 -- tx is created.
 announceTx :: WorkMode m => Tx -> m ()
 announceTx tx = do
     logDebug $ sformat ("Announcing tx to others:\n"%build) tx
-    void . sendToNeighbors . SendTx $ tx
+    statlogSentTx tx
+    sendToNeighborsSafe . SendTx $ tx
 
 -- | Announce known transactions to all known peers. Intended to be used
 -- to relay transactions.
@@ -43,11 +64,44 @@ announceTxs [] = pure ()
 announceTxs txs@(tx:txs') = do
     logDebug $
         sformat ("Announcing txs to others:\n" %build) $ listBuilderJSON txs
-    void . sendToNeighbors . SendTxs $ tx :| txs'
+    mapM_ statlogSentTx txs
+    sendToNeighborsSafe . SendTxs $ tx :| txs'
 
 -- | Send Tx to given address.
 sendTx :: WorkMode m => NetworkAddress -> Tx -> m ()
 sendTx addr = sendToNode addr . SendTx
+
+----------------------------------------------------------------------------
+-- Relaying MPC messages
+----------------------------------------------------------------------------
+
+-- TODO: add statlogging for everything, see e.g. announceTxs
+
+announceCommitment :: WorkMode m => PublicKey -> SignedCommitment -> m ()
+announceCommitment pk comm = do
+    -- TODO: show the commitment
+    logDebug $ sformat
+        ("Announcing "%build%"'s commitment to others: <TODO SHOW COMM>") pk
+    sendToNeighborsSafe $ SendCommitment pk comm
+
+announceOpening :: WorkMode m => PublicKey -> Opening -> m ()
+announceOpening pk open = do
+    logDebug $ sformat
+        ("Announcing "%build%"'s opening to others: "%build) pk open
+    sendToNeighborsSafe $ SendOpening pk open
+
+announceShares :: WorkMode m => PublicKey -> HashMap PublicKey Share -> m ()
+announceShares pk shares = do
+    logDebug $ sformat
+        ("Announcing "%build%"'s shares to others:\n"%mapJson) pk shares
+    sendToNeighborsSafe $ SendShares pk shares
+
+announceVssCertificate :: WorkMode m => PublicKey -> VssCertificate -> m ()
+announceVssCertificate pk cert = do
+    -- TODO: show the certificate
+    logDebug $ sformat
+        ("Announcing "%build%"'s VSS certificate to others: <TODO SHOW CERT>") pk
+    void . sendToNeighbors $ SendVssCertificate pk cert
 
 ----------------------------------------------------------------------------
 -- Legacy
@@ -194,38 +248,3 @@ sendTx addr = sendToNode addr . SendTx
 --         do leader <- query st $ GetLeader epoch slot
 --            when (leader == Just self) $
 --                createAndSendBlock
-
---         -- According to @gromak (who isn't sure about this, but neither am I):
---         -- input-output-rnd.slack.com/archives/paper-pos/p1474991379000006
---         --
---         -- > We send commitments during the first slot and they are put into
---         -- the first block. Then we wait for K periods so that all nodes
---         -- agree upon the same first block. But we see that it’s not enough
---         -- because they can agree upon dishonest block. That’s why we need to
---         -- wait for K more blocks. So all this *commitment* phase takes 2K
---         -- blocks.
-
---     -- This is our message handling function:
---     return $ \n_from message -> case message of
---         -- An entry has been received: add it to the list of unprocessed
---         -- entries
---         MEntry e -> update st $ AddEntry e
-
---         -- A block has been received: remove all pending entries we have
---         -- that are in this block, then add the block to our local
---         -- blockchain and use info from the block
---         MBlock es -> do
---             update st $ AdoptBlock es
---             -- TODO: using withNodeState several times here might break
---             -- atomicity, I dunno
---             for_ es $ \e -> case e of
---                 ELeaders epoch leaders -> do
---                     mbLeaders <- query st $ GetLeaders epoch
---                     case mbLeaders of
---                         Nothing -> update st $ SetLeaders epoch leaders
---                         Just _  -> logError $ sformat
---                             (nodeF%" we already know leaders for epoch "%int
---                                   %"but we received a block with ELeaders "
---                                   %"for the same epoch") self epoch
---                 -- TODO: process other types of entries
---                 _ -> return ()

@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -23,19 +24,38 @@ module Pos.Util
 
        -- * Lenses
        , makeLensesData
+       , magnify'
        , _neHead
        , _neTail
        , _neLast
        , zoom'
 
+       -- * Prettification
+       , Color (..)
+       , colorize
+
+       -- * TimeWarp helpers
+       , WaitingDelta (..)
+       , messageName'
+       , logWarningLongAction
+       , logWarningWaitOnce
+       , logWarningWaitLinear
+       , logWarningWaitInf
+
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
        ) where
 
-import           Control.Lens                  (Lens', LensLike', Zoomed, lensRules, zoom)
+import           Control.Lens                  (Lens', LensLike', Magnified, Zoomed,
+                                                lensRules, magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad
 import           Control.Monad.Fail            (fail)
+import           Control.TimeWarp.Logging      (WithNamedLogger, logWarning)
+import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
+import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
+                                                Second, for, killThread)
+
 import           Data.Binary                   (Binary)
 import qualified Data.Binary                   as Binary (encode)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
@@ -46,9 +66,14 @@ import           Data.SafeCopy                 (Contained, SafeCopy (..), base, 
                                                 deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (String)
+import           Data.Time.Units               (convertUnit)
+import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
 import           Serokell.Util                 (VerificationRes)
-import           Universum
+import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
+                                                ConsoleLayer (Foreground),
+                                                SGR (Reset, SetColor), setSGRCode)
+import           Universum                     hiding (killThread)
 import           Unsafe                        (unsafeInit, unsafeLast)
 
 import           Serokell.Util.Binary          as Binary (decodeFull)
@@ -178,9 +203,73 @@ instance SafeCopy a => SafeCopy (NonEmpty a) where
 -- but actual 'zoom' doesn't work in any 'MonadState', it only works in a
 -- handful of state monads and their combinations defined by 'Zoom'.
 zoom'
-  :: MonadState s m
-  => LensLike' (Zoomed (State s) a) s t -> StateT t Identity a -> m a
+    :: MonadState s m
+    => LensLike' (Zoomed (State s) a) s t -> StateT t Identity a -> m a
 zoom' l = state . runState . zoom l
+
+-- | A 'magnify' which in 'MonadReader'.
+magnify'
+    :: MonadReader s m
+    => LensLike' (Magnified (Reader s) a) s t -> ReaderT t Identity a -> m a
+magnify' l = reader . runReader . magnify l
 
 -- Monad z => Zoom (StateT s z) (StateT t z) s t
 -- Monad z => Zoom (StateT s z) (StateT t z) s t
+
+----------------------------------------------------------------------------
+-- Prettification.
+----------------------------------------------------------------------------
+
+colorize :: Color -> Text -> Text
+colorize color msg =
+    mconcat
+        [ toText (setSGRCode [SetColor Foreground Vivid color])
+        , msg
+        , toText (setSGRCode [Reset])
+        ]
+
+----------------------------------------------------------------------------
+-- TimeWarp helpers
+----------------------------------------------------------------------------
+
+messageName' :: Message r => r -> MessageName
+messageName' = messageName . (const Proxy :: a -> Proxy a)
+
+-- | Data type to represent waiting strategy for printing warnings
+-- if action take too much time.
+data WaitingDelta
+    = WaitOnce      Second              -- ^ wait s seconds and stop execution
+    | WaitLinear    Second              -- ^ wait s, s * 2, s * 3  , s * 4  , ...      seconds
+    | WaitGeometric Microsecond Double  -- ^ wait m, m * q, m * q^2, m * q^3, ... microseconds
+    deriving (Show)
+
+type CanLogInParallel m = (MonadIO m, MonadTimed m, WithNamedLogger m)
+
+-- | Run action and print warning if it takes more time than expected.
+logWarningLongAction :: CanLogInParallel m => WaitingDelta -> Text -> m a -> m a
+logWarningLongAction delta actionTag action = do
+    logThreadId <- fork $ waitAndWarn delta
+    action      <* killThread logThreadId
+  where
+    printWarning = logWarning $ sformat ("Action `"%stext%"` took more than "%shown)
+                                actionTag
+                                delta
+
+    waitAndWarn (WaitOnce      s  ) =           wait (for s) >> printWarning
+    waitAndWarn (WaitLinear    s  ) = forever $ wait (for s) >> printWarning
+    waitAndWarn (WaitGeometric s q) = let waitLoop t = do
+                                              wait $ for t
+                                              printWarning
+                                              waitLoop (round $ fromIntegral t * q)
+                                      in waitLoop s
+
+{- Helper functions to avoid dealing with data type -}
+
+logWarningWaitOnce :: CanLogInParallel m => Second -> Text -> m a -> m a
+logWarningWaitOnce = logWarningLongAction . WaitOnce
+
+logWarningWaitLinear :: CanLogInParallel m => Second -> Text -> m a -> m a
+logWarningWaitLinear = logWarningLongAction . WaitLinear
+
+logWarningWaitInf :: CanLogInParallel m => Second -> Text -> m a -> m a
+logWarningWaitInf = logWarningLongAction . (`WaitGeometric` 1.3) . convertUnit

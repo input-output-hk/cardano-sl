@@ -26,7 +26,7 @@ arbitraryUtxoOfSize n = fromList . take n <$> infiniteListOf arbitraryUnsafe
 ftsBench :: UtxoSize -> Benchmark
 ftsBench n = env genArgs $ bench msg . whnf (uncurry followTheSatoshi)
     where genArgs = generate $ (,) <$> arbitrary <*> arbitraryUtxoOfSize n
-          msg = toS $ sformat ("followTheSatoshi: Utxo of size "%int) n
+          msg = toString $ sformat ("followTheSatoshi: Utxo of size "%int) n
 
 ftsConfig :: Config
 ftsConfig = defaultConfig

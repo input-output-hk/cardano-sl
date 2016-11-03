@@ -12,17 +12,15 @@ module Pos.Communication.Types.Mpc
        ) where
 
 import           Data.Binary          (Binary)
-import           Data.MessagePack     (MessagePack)
 import           Universum
 
 import           Control.TimeWarp.Rpc (Message (..))
 import           Pos.Crypto           (PublicKey, Share)
-import           Pos.Types            (Commitment, CommitmentSignature, Opening,
-                                       VssCertificate)
+import           Pos.Types            (Opening, SignedCommitment, VssCertificate)
 
 -- | Message: some node (identified by a pubkey) has sent a signed commitment.
 data SendCommitment =
-    SendCommitment PublicKey (Commitment, CommitmentSignature)
+    SendCommitment PublicKey SignedCommitment
     deriving (Show, Generic)
 
 -- | Message: some node has sent an opening.
@@ -45,11 +43,6 @@ instance Binary SendOpening
 instance Binary SendShares
 instance Binary SendVssCertificate
 
-instance MessagePack SendCommitment
-instance MessagePack SendOpening
-instance MessagePack SendShares
-instance MessagePack SendVssCertificate
-
 instance Message SendCommitment where
     messageName _ = "SendCommitment"
 
@@ -61,10 +54,3 @@ instance Message SendShares where
 
 instance Message SendVssCertificate where
     messageName _ = "SendVssCertificate"
-
-{-
-mkRequest' ''SendCommitment ''() ''Void
-mkRequest' ''SendOpening ''() ''Void
-mkRequest' ''SendShares ''() ''Void
-mkRequest' ''SendVssCertificate ''() ''Void
--}

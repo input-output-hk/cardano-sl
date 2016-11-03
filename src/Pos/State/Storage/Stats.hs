@@ -49,4 +49,5 @@ getStatRecords label = view (getStatsData . at label)
 addStatRecord :: Text -> IdTimestamp -> Update ()
 addStatRecord label record = do
     mlist <- use $ getStatsData . at label
-    getStatsData . at label ?= (take maxRecordsCount . (record :) . concat . maybeToList) mlist
+    getStatsData . at label ?= update mlist
+  where update = take maxRecordsCount . (record :) . concat . maybeToList

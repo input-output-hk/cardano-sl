@@ -4,14 +4,15 @@ module Pos.Worker
        ( runWorkers
        ) where
 
-import           Control.TimeWarp.Logging (logInfo)
+import           Control.TimeWarp.Logging (logDebug, logInfo, logNotice)
 import           Control.TimeWarp.Timed   (fork_)
-import           Formatting               (sformat, (%))
+import           Formatting               (build, sformat, (%))
 import           Universum
 
 import           Pos.Slotting             (onNewSlot)
 import           Pos.State                (processNewSlot)
 import           Pos.Types                (SlotId, slotIdF)
+import           Pos.Util                 (logWarningWaitLinear)
 import           Pos.Worker.Block         (blkOnNewSlot, blkWorkers)
 import           Pos.Worker.Mpc           (mpcOnNewSlot, mpcWorkers)
 import           Pos.Worker.Tx            (txWorkers)
@@ -27,12 +28,15 @@ onNewSlotWorker = onNewSlot True onNewSlotWorkerImpl
 
 onNewSlotWorkerImpl :: WorkMode m => SlotId -> m ()
 onNewSlotWorkerImpl slotId = do
-    logInfo $ sformat ("New slot has just started: "%slotIdF) slotId
-    -- TODO: what should be the order here?
-    -- NOTE: currently it's important that `processNewSlot` is before
-    -- `mpcOnNewSlot`, because `processNewSlot` may generate a new genesis
-    -- which will reset secret set by `mpcOnNewSlot`.
-    -- However, there are other problems, see YT.
-    processNewSlot slotId
-    mpcOnNewSlot slotId
+    logNotice $ sformat ("New slot has just started: "%slotIdF) slotId
+    -- A note about order: currently only one thing is important, that
+    -- `processNewSlot` is executed before everything else
+    mGenBlock <- processNewSlot slotId
+    forM_ mGenBlock $ logInfo . sformat ("Created genesis block:\n" %build)
+    logDebug "Finished `processNewSlot`"
+
+    fork_ $ do
+        logWarningWaitLinear 8 "mpcOnNewSlot"$ mpcOnNewSlot slotId
+        logDebug "Finished `mpcOnNewSlot`"
     blkOnNewSlot slotId
+    logDebug "Finished `blkOnNewSlot`"

@@ -1,5 +1,7 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 -- | Server which handles MPC-related things.
 
@@ -8,16 +10,20 @@ module Pos.Communication.Server.Mpc
        , mpcListeners
        ) where
 
--- import           Universum
+import           Control.TimeWarp.Logging    (logDebug, logInfo)
+import           Control.TimeWarp.Rpc        (BinaryP, MonadDialog)
+import           Formatting                  (build, sformat, stext, (%))
+import           Universum
 
-import           Control.TimeWarp.Rpc        (MonadDialog)
 import           Pos.Communication.Types.Mpc as Mpc
+import           Pos.Communication.Util      (modifyListenerLogger)
 import           Pos.DHT                     (ListenerDHT (..))
 import qualified Pos.State                   as St
 import           Pos.WorkMode                (WorkMode)
 
-mpcListeners :: (MonadDialog m, WorkMode m) => [ListenerDHT m]
+mpcListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
 mpcListeners =
+    map (modifyListenerLogger "mpc")
     [ ListenerDHT handleCommitment
     , ListenerDHT handleOpening
     , ListenerDHT handleShares
@@ -26,7 +32,11 @@ mpcListeners =
 handleCommitment :: WorkMode m => SendCommitment -> m ()
 handleCommitment (SendCommitment pk c) = do
     -- TODO: actually check the commitment
-    St.processCommitment pk c
+    added <- St.processCommitment pk c
+    let msgAction = if added then "added to local storage" else "ignored"
+    let msg = sformat ("Commitment from "%build%" has been "%stext) pk msgAction
+    let logAction = if added then logInfo else logDebug
+    logAction msg
 
 -- TODO: I don't like that these are in "Server.Mpc" but use 'processOpening'
 -- instead of 'mpcProcessOpening' – the idea is that 'mpcProcessOpening' does
@@ -35,11 +45,21 @@ handleCommitment (SendCommitment pk c) = do
 -- just move all handlers into "Pos.Communication.Server". — @neongreen
 handleOpening :: WorkMode m => SendOpening -> m ()
 handleOpening (SendOpening pk o) = do
-    St.processOpening pk o
+    added <- St.processOpening pk o
+    let msgAction = if added then "added to local storage" else "ignored"
+    let msg = sformat ("Opening from "%build%" has been "%stext) pk msgAction
+    let logAction = if added then logInfo else logDebug
+    logAction msg
 
 handleShares :: WorkMode m => SendShares -> m ()
 handleShares (SendShares pk s) = do
-    St.processShares pk s
+    added <- St.processShares pk s
+    let msgAction = if added then "added to local storage" else "ignored"
+    let msg = sformat ("Shares from "%build%" have been "%stext) pk msgAction
+    -- let logAction = if added then logInfo else logDebug
+    -- TODO: investigate!
+    let logAction = logDebug
+    logAction msg
 
 handleVssCertificate :: WorkMode m => SendVssCertificate -> m ()
 handleVssCertificate (SendVssCertificate pk c) = do

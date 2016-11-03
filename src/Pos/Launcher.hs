@@ -1,6 +1,7 @@
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
 
 -- | Launcher of full node or simple operations.
 
@@ -11,45 +12,58 @@ module Pos.Launcher
        , getCurTimestamp
        , runNode
        , runNodeReal
-       , runNodeBench
+       , runNodeStats
        , submitTx
        , submitTxReal
        , runSupporterReal
        , runTimeSlaveReal
        , runTimeLordReal
+       -- Export this for custom usage in CLI utils
+       , runServiceMode
+       , runRealMode
        ) where
 
-import           Control.Concurrent.MVar  (newEmptyMVar, takeMVar)
-import           Control.TimeWarp.Logging (LoggerName, Severity (Warning),
-                                           WithNamedLogger, initLogging, logError,
-                                           logInfo, logWarning, setSeverity,
-                                           setSeverityMaybe, usingLoggerName)
-import           Control.TimeWarp.Rpc     (BinaryDialog, MonadDialog, NetworkAddress,
-                                           Transfer, runBinaryDialog, runTransfer)
-import           Control.TimeWarp.Timed   (MonadTimed, currentTime, fork, killThread,
-                                           repeatForever, runTimedIO, sec, sleepForever)
-import           Data.Default             (Default (def))
-import           Formatting               (build, sformat, (%))
-import           Universum                hiding (catch, killThread)
 
-import           Pos.Communication        (SysStartRequest (..), allListeners, sendTx,
-                                           sysStartMessageNames, sysStartReqListener,
-                                           sysStartRespListener)
-import           Pos.Constants            (RunningMode (..), isDevelopment, runningMode)
-import           Pos.Crypto               (SecretKey, VssKeyPair, hash, sign)
-import           Pos.DHT                  (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
-                                           ListenerDHT, MonadDHT (..), filterByNodeType,
-                                           mapListenerDHT, sendToNeighbors)
-import           Pos.DHT.Real             (KademliaDHT, KademliaDHTConfig (..),
-                                           runKademliaDHT)
-import           Pos.State                (NodeState, openMemState, openState)
-import           Pos.Types                (Address, Coin, Timestamp (Timestamp), Tx (..),
-                                           TxId, TxIn (..), TxOut (..), timestampF, txF)
-import           Pos.Worker               (runWorkers)
-import           Pos.WorkMode             (BenchmarkT (..), ContextHolder (..),
-                                           DBHolder (..), NoBenchmarkT (..),
-                                           NodeContext (..), RealMode, ServiceMode,
-                                           WorkMode, getNodeContext, ncSecretKey)
+import           Control.Concurrent.MVar     (newEmptyMVar, takeMVar)
+import           Control.Monad.Trans.Control (MonadBaseControl)
+import           Control.TimeWarp.Logging    (LoggerName, Severity (Warning),
+                                              WithNamedLogger, initLogging, logError,
+                                              logInfo, logWarning, setSeverity,
+                                              setSeverityMaybe, usingLoggerName)
+import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, MonadDialog,
+                                              NetworkAddress, Transfer, runDialog,
+                                              runTransfer)
+import           Control.TimeWarp.Timed      (MonadTimed, currentTime, for, fork,
+                                              killThread, ms, repeatForever, runTimedIO,
+                                              sec, sleepForever, wait)
+import           Data.Default                (Default (def))
+import qualified Data.Time                   as Time
+import           Formatting                  (build, sformat, shown, (%))
+import           Universum                   hiding (killThread)
+
+import           Pos.Communication           (SysStartRequest (..), allListeners,
+                                              noCacheMessageNames, sendTx,
+                                              serverLoggerName, statsListener,
+                                              sysStartReqListener, sysStartRespListener)
+import           Pos.Constants               (RunningMode (..), isDevelopment,
+                                              runningMode)
+import           Pos.Crypto                  (SecretKey, VssKeyPair, hash, sign)
+import           Pos.DHT                     (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
+                                              ListenerDHT, MonadDHT (..),
+                                              filterByNodeType, mapListenerDHT,
+                                              sendToNeighbors)
+import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..),
+                                              runKademliaDHT)
+import           Pos.State                   (NodeState, openMemState, openState)
+import           Pos.State.Storage           (storageFromUtxo)
+import           Pos.Statistics              (getNoStatsT, getStatsT)
+import           Pos.Types                   (Address, Coin, Timestamp (Timestamp),
+                                              Tx (..), TxId, TxIn (..), TxOut (..), Utxo,
+                                              timestampF, txF)
+import           Pos.Worker                  (runWorkers)
+import           Pos.WorkMode                (ContextHolder (..), DBHolder (..),
+                                              NodeContext (..), RealMode, ServiceMode,
+                                              WorkMode, getNodeContext, ncSecretKey)
 
 -- | Get current time as Timestamp. It is intended to be used when you
 -- launch the first node. It doesn't make sense in emulation mode.
@@ -62,6 +76,7 @@ runNode = do
     peers <- discoverPeers DHTFull
     logInfo $ sformat ("Known peers: " % build) peers
 
+    waitSystemStart
     runWorkers
     sleepForever
 
@@ -89,7 +104,15 @@ submitTxReal :: NodeParams
 submitTxReal np input addrCoin = runRealMode np [] $ do
     peers <- getKnownPeers
     let na = dhtAddr <$> filterByNodeType DHTFull peers
-    getNoBenchmarkT $ submitTx na input addrCoin
+    getNoStatsT $ submitTx na input addrCoin
+
+-- Sanity check in case start time is in future (may happen if clocks
+-- are not accurately synchronized, for example).
+waitSystemStart :: WorkMode m => m ()
+waitSystemStart = do
+    Timestamp start <- ncSystemStart <$> getNodeContext
+    cur <- currentTime
+    when (cur < start) $ wait (for (start - cur))
 
 ----------------------------------------------------------------------------
 -- Parameters
@@ -123,13 +146,15 @@ data NodeParams = NodeParams
     , npVssKeyPair  :: !VssKeyPair
     , npBaseParams  :: !BaseParams
     , npSystemStart :: !Timestamp
+    , npCustomUtxo  :: !(Maybe Utxo)
     } deriving (Show)
 
 data BaseParams = BaseParams
-    { bpLogging      :: !LoggingParams
-    , bpPort         :: !Word16
-    , bpDHTPeers     :: ![DHTNode]
-    , bpDHTKeyOrType :: !(Either DHTKey DHTNodeType)
+    { bpLogging            :: !LoggingParams
+    , bpPort               :: !Word16
+    , bpDHTPeers           :: ![DHTNode]
+    , bpDHTKeyOrType       :: !(Either DHTKey DHTNodeType)
+    , bpDHTExplicitInitial :: !Bool
     } deriving (Show)
 
 ----------------------------------------------------------------------------
@@ -143,7 +168,7 @@ runTimeSlaveReal bp = do
       case runningMode of
          Development -> do
            tId <- fork $
-             repeatForever (sec 5) (const . return $ sec 5) $ do
+             repeatForever (ms 100) (const . return $ ms 100) $ do
                logInfo "Asking neighbors for system start"
                void $ sendToNeighbors SysStartRequest
            t <- liftIO $ takeMVar mvar
@@ -159,9 +184,12 @@ runTimeSlaveReal bp = do
 runTimeLordReal :: LoggingParams -> IO Timestamp
 runTimeLordReal lp = do
     setupLoggingReal lp
-    runTimed (lpRootLogger lp) $ do
-        t <- Timestamp <$> currentTime
-        t <$ logInfo (sformat ("[Time lord] System start: " %timestampF) t)
+    t <- getCurTimestamp
+    t <$ usingLoggerName (lpRootLogger lp) (doLog t)
+  where
+    doLog t = do
+        realTime <- liftIO Time.getZonedTime
+        logInfo (sformat ("[Time lord] System start: " %timestampF%", i. e.: "%shown) t realTime)
 
 runSupporterReal :: BaseParams -> IO ()
 runSupporterReal bp = runServiceMode bp [] $ do
@@ -174,21 +202,26 @@ runSupporterReal bp = runServiceMode bp [] $ do
 -- Main launchers
 -----------------------------------------------------------------------------
 
+addDevListeners :: NodeParams -> [ListenerDHT RealMode] -> [ListenerDHT RealMode]
+addDevListeners NodeParams {..} ls =
+    if isDevelopment
+    then sysStartReqListener (Just npSystemStart) : ls
+    else ls
+
 -- | Run full node in real mode.
 runNodeReal :: NodeParams -> IO ()
-runNodeReal np@NodeParams {..} = runRealMode np listeners $ getNoBenchmarkT runNode
+runNodeReal np@NodeParams {..} = runRealMode np listeners $ getNoStatsT runNode
   where
-    listeners = if isDevelopment
-                then sysStartReqListener (Just npSystemStart) : noBenchListeners
-                else noBenchListeners
-    noBenchListeners = map (mapListenerDHT getNoBenchmarkT) allListeners
+    listeners = addDevListeners np noStatsListeners
+    noStatsListeners = map (mapListenerDHT getNoStatsT) allListeners
 
 -- | Run full node in benchmarking node
 -- TODO: spawn here additional listener, which would accept stat queries
-runNodeBench :: NodeParams -> IO ()
-runNodeBench np = runRealMode np benchListeners $ getBenchmarkT runNode
-  where benchListeners = map (mapListenerDHT getBenchmarkT) allListeners
-
+runNodeStats :: NodeParams -> IO ()
+runNodeStats np = runRealMode np listeners $ getStatsT runNode
+  where
+    listeners = addDevListeners np statsListeners
+    statsListeners = map (mapListenerDHT getStatsT) $ statsListener : allListeners
 
 ----------------------------------------------------------------------------
 -- Real mode runners
@@ -204,10 +237,13 @@ runRealMode NodeParams {..} listeners action = do
   where
     logParams  = bpLogging npBaseParams
     loggerName = lpRootLogger logParams
+    mStorage = storageFromUtxo <$> npCustomUtxo
 
     openDb :: IO NodeState
     openDb = runTimed loggerName . runCH $
-         maybe openMemState (openState npRebuildDb) npDbPath
+         maybe (openMemState mStorage)
+               (openState mStorage npRebuildDb)
+               npDbPath
 
     runDBH :: NodeState -> DBHolder m a -> m a
     runDBH db = flip runReaderT db . getDBHolder
@@ -231,7 +267,7 @@ runServiceMode bp@BaseParams {..} listeners action = do
 -- Helpers
 ----------------------------------------------------------------------------
 
-runKDHT :: (WithNamedLogger m, MonadIO m, MonadTimed m, MonadMask m, MonadDialog m)
+runKDHT :: (MonadBaseControl IO m, WithNamedLogger m, MonadIO m, MonadTimed m, MonadMask m, MonadDialog BinaryP m)
         => BaseParams -> [ListenerDHT (KademliaDHT m)] -> KademliaDHT m a -> m a
 runKDHT BaseParams {..} listeners = runKademliaDHT kadConfig
   where
@@ -243,15 +279,14 @@ runKDHT BaseParams {..} listeners = runKademliaDHT kadConfig
       , kdcMessageCacheSize = 1000000
       , kdcEnableBroadcast = False
       , kdcInitialPeers = bpDHTPeers
-      , kdcNoCacheMessageNames = if isDevelopment
-                                 then sysStartMessageNames
-                                    else []
+      , kdcNoCacheMessageNames = noCacheMessageNames
+      , kdcExplicitInitial = bpDHTExplicitInitial
       }
 
-runTimed :: LoggerName -> BinaryDialog Transfer a -> IO a
+runTimed :: LoggerName -> Dialog BinaryP Transfer a -> IO a
 runTimed loggerName =
     runTimedIO .
-    usingLoggerName loggerName . runTransfer . runBinaryDialog
+    usingLoggerName loggerName . runTransfer . runDialog BinaryP
 
 setupLoggingReal :: LoggingParams -> IO ()
 setupLoggingReal LoggingParams {..} = do
@@ -263,6 +298,7 @@ setupLoggingReal LoggingParams {..} = do
     -- TODO: `comm` shouldn't be hardcoded, it should be taken
     -- from MonadTransfer or something
     setSeverityMaybe (lpRootLogger <> "comm") lpCommSeverity
+    setSeverityMaybe (lpRootLogger <> serverLoggerName) lpServerSeverity
 
 nodeStartMsg :: (WithNamedLogger m, MonadIO m) => BaseParams -> m ()
 nodeStartMsg BaseParams {..} = logInfo msg

@@ -44,6 +44,7 @@ import           Data.Binary         (Binary (..), encode)
 import           Data.Hashable       (Hashable)
 import qualified Data.Hashable       as Hashable
 import           Data.List           (genericLength)
+import           Data.List.NonEmpty  (NonEmpty)
 import           Data.MessagePack    (MessagePack (..))
 import           Data.SafeCopy       (SafeCopy (..), base, deriveSafeCopySimple)
 import           Data.Text.Buildable (Buildable)
@@ -247,16 +248,17 @@ secretToDhSecret = Pvss.secretToDhSecret . getSecret
 decryptShare
     :: MonadRandom m
     => VssKeyPair -> EncShare -> m Share
-decryptShare (VssKeyPair k) (EncShare encShare) = Share <$> Pvss.shareDecrypt k encShare
+decryptShare (VssKeyPair k) (EncShare encShare) =
+    Share <$> Pvss.shareDecrypt k encShare
 
 -- | Generate random secret using MonadRandom and share it between
 -- given public keys.
 genSharedSecret
     :: MonadRandom m
     => Threshold
-    -> [VssPublicKey]
+    -> NonEmpty VssPublicKey
     -> m (SecretSharingExtra, Secret, SecretProof, [EncShare])
-genSharedSecret t = fmap convertRes . Pvss.escrow t . map getVssPublicKey
+genSharedSecret t = fmap convertRes . Pvss.escrow t . map getVssPublicKey . toList
   where
     convertRes (g, s, p, c, es) =
         (SecretSharingExtra g c, Secret s, SecretProof p, map EncShare es)

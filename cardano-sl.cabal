@@ -122,7 +122,7 @@ library
                       , time-warp
                       , transformers
                       , transformers-base
-                      , universum
+                      , universum >= 0.1.9
                       , unordered-containers
                       , vector
                       , yaml

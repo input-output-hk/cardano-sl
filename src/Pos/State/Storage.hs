@@ -15,10 +15,10 @@ module Pos.State.Storage
        , Query
        , getBlock
        , getHeadBlock
+       , getGlobalSscPayload
        , getLeaders
        , getLocalTxs
        , getLocalSscPayload
-       , getGlobalMpcData
        , getSecret
        , getOurCommitment
        , getOurOpening
@@ -69,8 +69,7 @@ import           Pos.State.Storage.Block    (BlockStorage, HasBlockStorage (bloc
                                              blkRollback, blkSetHead, getBlock,
                                              getHeadBlock, getLeaders, getSlotDepth,
                                              mayBlockBeUseful)
-import           Pos.State.Storage.Mpc      (getGlobalMpcData, getGlobalMpcDataByDepth,
-                                             getOurCommitment, getOurOpening,
+import           Pos.State.Storage.Mpc      (getOurCommitment, getOurOpening,
                                              getOurShares, getSecret, mpcVerifyBlocks,
                                              setSecret)
 import qualified Pos.State.Storage.Mpc      as Mpc (calculateLeaders)
@@ -137,6 +136,9 @@ getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock
 
 getLocalSscPayload :: Query DSPayload
 getLocalSscPayload = sscGetLocalPayload
+
+getGlobalSscPayload :: Query DSPayload
+getGlobalSscPayload = sscGetGlobalPayload
 
 -- | Create a new block on top of best chain if possible.
 -- Block can be created if:
@@ -330,7 +332,7 @@ getParticipants epoch = do
     mDepth <- getMpcCrucialDepth epoch
     mUtxo <- getUtxoByDepth .=<<. mDepth
     mKeymap <-
-        fmap _mdVssCertificates <$> (getGlobalMpcDataByDepth .=<<. mDepth)
+        fmap _mdVssCertificates <$> (sscGetGlobalPayloadByDepth .=<<. mDepth)
     return $
         do utxo <- mUtxo
            keymap <- mKeymap

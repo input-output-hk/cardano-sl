@@ -49,5 +49,7 @@ class SscTypes ssc => SscStorageClass ssc where
     -- period but not included into blocks.
     sscRollback :: Word -> SscUpdate ssc ()
     sscGetLocalPayload :: SscQuery ssc (SscPayload ssc)
+    sscGetGlobalPayload :: SscQuery ssc (SscPayload ssc)
+    sscGetGlobalPayloadByDepth :: Word -> SscQuery ssc (Maybe (SscPayload ssc))
 
     -- TODO: move the rest of methods here

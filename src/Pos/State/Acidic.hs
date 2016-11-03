@@ -21,11 +21,11 @@ module Pos.State.Acidic
        , update
 
        , GetBlock (..)
+       , GetGlobalSscPayload (..)
        , GetHeadBlock (..)
        , GetLeaders (..)
        , GetLocalTxs (..)
        , GetLocalSscPayload (..)
-       , GetGlobalMpcData (..)
        , GetSecret (..)
        , GetOurCommitment (..)
        , GetOurOpening (..)
@@ -117,10 +117,10 @@ mayBlockBeUseful = S.mayBlockBeUseful
 
 makeAcidic ''Storage
     [ 'getBlock
+    , 'S.getGlobalSscPayload
     , 'getLeaders
     , 'S.getLocalSscPayload
     , 'S.getLocalTxs
-    , 'S.getGlobalMpcData
     , 'getHeadBlock
     , 'S.getSecret
     , 'S.getOurCommitment

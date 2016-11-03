@@ -133,7 +133,7 @@ getLocalSscPayload :: WorkModeDB m => m DSPayload
 getLocalSscPayload = queryDisk A.GetLocalSscPayload
 
 getGlobalMpcData :: WorkModeDB m => m DSPayload
-getGlobalMpcData = queryDisk A.GetGlobalMpcData
+getGlobalMpcData = queryDisk A.GetGlobalSscPayload
 
 mayBlockBeUseful
     :: WorkModeDB m

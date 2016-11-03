@@ -17,8 +17,6 @@
 module Pos.State.Storage.Mpc
        (
          calculateLeaders
-       , getGlobalMpcData
-       , getGlobalMpcDataByDepth
        , getOurCommitment
        , getOurOpening
        , getOurShares
@@ -80,12 +78,15 @@ instance HasSscStorage SscDynamicState DSStorage where
 instance SscStorageClass SscDynamicState where
     sscApplyBlocks = mpcApplyBlocks
     sscPrepareToNewSlot = mpcProcessNewSlot
-    sscProcessMessage (DSCommitment pk comm)     = mpcProcessCommitment pk comm
-    sscProcessMessage (DSOpening pk op)          = mpcProcessOpening pk op
-    sscProcessMessage (DSShares pk ss)           = mpcProcessShares pk ss
-    sscProcessMessage (DSVssCertificate pk cert) = mpcProcessVssCertificate pk cert
+    sscProcessMessage (DSCommitment pk comm) = mpcProcessCommitment pk comm
+    sscProcessMessage (DSOpening pk op) = mpcProcessOpening pk op
+    sscProcessMessage (DSShares pk ss) = mpcProcessShares pk ss
+    sscProcessMessage (DSVssCertificate pk cert) =
+        mpcProcessVssCertificate pk cert
     sscRollback = mpcRollback
     sscGetLocalPayload = getLocalPayload
+    sscGetGlobalPayload = getGlobalMpcData
+    sscGetGlobalPayloadByDepth = getGlobalMpcDataByDepth
 
 dsVersioned
     :: HasSscStorage SscDynamicState a
@@ -106,7 +107,6 @@ dsLastProcessedSlot = sscStorage @SscDynamicState . dsLastProcessedSlotL
 lastVer :: HasSscStorage SscDynamicState a => Lens' a DSStorageVersion
 lastVer = dsVersioned . _neHead
 
-
 --traceMpcLastVer :: Update ()
 --traceMpcLastVer = do
 --    hasSecret <- isJust <$> use (lastVer . dsCurrentSecret)
@@ -121,12 +121,6 @@ lastVer = dsVersioned . _neHead
 --                          <> " opens=" <> show (localOpenKeys, globalOpenKeys)
 --                          <> " shares=" <> show (localShareKeys, globalShareKeys)
 --  where keys' = fmap pretty . HM.keys
-
--- TODO: this should return something other than DSPayload
-getGlobalMpcData :: Query DSPayload
-getGlobalMpcData =
-    fromMaybe (panic "No global MPC data for depth 0") <$>
-    getGlobalMpcDataByDepth 0
 
 getLocalPayload :: Query DSPayload
 getLocalPayload =
@@ -159,6 +153,11 @@ ensureOwnMpcDo globalMpcData (siSlot -> slotIdx) (pk, comm, opening) md
     | isSharesIdx slotIdx && (not $ hasShares pk globalMpcData) =
         md   -- TODO: set our shares, but it's not so easy :(
     | otherwise = md
+
+getGlobalMpcData :: Query DSPayload
+getGlobalMpcData =
+    fromMaybe (panic "No global SSC payload for depth 0") <$>
+    getGlobalMpcDataByDepth 0
 
 -- TODO: check for off-by-one errors!!!!111
 --

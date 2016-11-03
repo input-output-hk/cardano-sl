@@ -360,8 +360,10 @@ mpcVerifyBlock (Right b) = do
             , (all (`HM.member` globalCommitments)
                    (HM.keys shares <> concatMap HM.keys (toList shares)),
                    "some shares don't have corresponding commitments")
-            -- TODO: use intersectionDoubleMap or something to allow spliting
-            -- shares into multiple messages
+            -- TODO: here we assume that all shares are always sent as a whole
+            -- package.
+            -- Use intersectionDoubleMap or something to allow spliting
+            -- shares into multiple messages.
             , (null (shares `HM.intersection` globalShares),
                    "some shares have already been sent")
             , (all (uncurry (checkShares globalCommitments globalOpenings
@@ -538,10 +540,10 @@ getSecret :: Query (Maybe (PublicKey, SignedCommitment, Opening))
 getSecret = view dsCurrentSecret
 
 getOurCommitment :: Query (Maybe SignedCommitment)
-getOurCommitment = fmap (view _2) <$> view dsCurrentSecret
+getOurCommitment = fmap (view _2) <$> getSecret
 
 getOurOpening :: Query (Maybe Opening)
-getOurOpening = fmap (view _3) <$> view dsCurrentSecret
+getOurOpening = fmap (view _3) <$> getSecret
 
 -- | Decrypt shares (in commitments) that we can decrypt.
 -- TODO: do not decrypt shares for which we know openings!

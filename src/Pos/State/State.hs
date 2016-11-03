@@ -27,7 +27,7 @@ module Pos.State.State
        , ProcessBlockRes (..)
        , ProcessTxRes (..)
        , createNewBlock
-       , generateNewSecret
+       , generateAndSetNewSecret
        , processBlock
        , processNewSlot
        , processSscMessage
@@ -175,12 +175,12 @@ processSscMessage = updateDisk . A.ProcessSscMessage
 -- cleared) (otherwise 'generateNewSecret' will fail because 'A.SetSecret'
 -- won't set the secret if there's one already).
 -- Nothing is returned if node is not ready.
-generateNewSecret
+generateAndSetNewSecret
     :: WorkModeDB m
     => SecretKey
     -> EpochIndex                         -- ^ Current epoch
     -> m (Maybe (SignedCommitment, Opening))
-generateNewSecret sk epoch = do
+generateAndSetNewSecret sk epoch = do
     -- TODO: I think it's safe here to perform 3 operations which aren't
     -- grouped into a single transaction here, but I'm still a bit nervous.
     threshold <- queryDisk (A.GetThreshold epoch)

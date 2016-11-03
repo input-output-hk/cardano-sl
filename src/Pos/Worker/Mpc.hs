@@ -19,7 +19,7 @@ import           Pos.Communication.Types    (SendSsc (..))
 import           Pos.DHT                    (sendToNeighbors)
 import           Pos.Ssc.DynamicState.Types (DSPayload (..), hasCommitment, hasOpening,
                                              hasShares)
-import           Pos.State                  (generateNewSecret, getGlobalMpcData,
+import           Pos.State                  (generateAndSetNewSecret, getGlobalMpcData,
                                              getLocalSscPayload, getOurCommitment,
                                              getOurOpening, getOurShares, getSecret)
 import           Pos.Types                  (SlotId (..), isCommitmentIdx, isOpeningIdx,
@@ -42,7 +42,7 @@ mpcOnNewSlot SlotId {..} = do
         return $ isCommitmentIdx siSlot && isNothing secret
     when shouldCreateCommitment $ do
         logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
-        generated <- generateNewSecret ourSk siEpoch
+        generated <- generateAndSetNewSecret ourSk siEpoch
         case generated of
             Nothing -> logWarning "I failed to generate secret for Mpc"
             Just _ -> logDebug $
@@ -77,7 +77,7 @@ mpcOnNewSlot SlotId {..} = do
             void . sendToNeighbors $ SendShares ourPk shares
             logDebug "Sent shares to neighbors"
 
-    -- | All workers specific to MPC processing.
+-- | All workers specific to MPC processing.
 -- Exceptions:
 -- 1. Worker which ticks when new slot starts.
 mpcWorkers :: WorkMode m => [m ()]

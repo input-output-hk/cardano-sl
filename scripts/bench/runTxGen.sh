@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 base=$(dirname "$0")
-. "$base"/common.sh
+. "$base"/../common.sh
 ensure_logs
 
 i=$1

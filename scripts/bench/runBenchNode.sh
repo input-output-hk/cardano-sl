@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
 base=$(dirname "$0")
-. "$base"/common.sh
+. "$base"/../common.sh
 ensure_logs
 
 i=$1
-config="$base/../bench/config/fullnode.$i.yaml"
+config="$base/../../bench/config/fullnode.$i.yaml"
 
 st=""
 if [[ $TIME_LORD != "" ]]; then

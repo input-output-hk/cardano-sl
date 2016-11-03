@@ -52,6 +52,9 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
+                        Pos.Ssc.Class.Types
+                        Pos.Ssc.Class.Storage
+                        Pos.Ssc.DynamicState.Types
                         Pos.State.Acidic
                         Pos.State.State
                         Pos.State.Storage
@@ -113,6 +116,7 @@ library
                       , safecopy
                       , serokell-core
                       , stm
+                      , tagged
                       , stm-containers
                       , template-haskell
                       , text

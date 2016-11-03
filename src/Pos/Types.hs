@@ -5,7 +5,8 @@ module Pos.Types
          module Types
        ) where
 
-import           Pos.Types.Arbitrary ()
+-- this leads to import cycles because of SSC
+--import           Pos.Types.Arbitrary ()
 import           Pos.Types.Block     as Types
 import           Pos.Types.Mpc       as Types
 import           Pos.Types.Slotting  as Types

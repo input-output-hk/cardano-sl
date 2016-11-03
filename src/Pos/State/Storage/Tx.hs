@@ -70,7 +70,7 @@ type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
 getLocalTxs :: Query (HashSet Tx)
 getLocalTxs = view txLocalTxs
 
-txVerifyBlocks :: Word -> AltChain -> Query VerificationRes
+txVerifyBlocks :: Word -> AltChain ssc -> Query VerificationRes
 txVerifyBlocks (fromIntegral -> toRollback) newChain = do
     mUtxo <- preview (txUtxoHistory . ix toRollback)
     return $ case mUtxo of
@@ -123,12 +123,12 @@ removeLocalTx tx = txLocalTxs %= HS.delete tx
 
 -- | Apply chain of definitely valid blocks which go right after last
 -- applied block.
-txApplyBlocks :: AltChain -> Update ()
+txApplyBlocks :: AltChain ssc -> Update ()
 txApplyBlocks blocks = do
     mapM_ txApplyBlock blocks
     filterLocalTxs
 
-txApplyBlock :: Block -> Update ()
+txApplyBlock :: Block ssc -> Update ()
 txApplyBlock (Left _) = do
     utxo <- use txUtxo
     txUtxoHistory %= (utxo:)

@@ -11,12 +11,13 @@ import           Data.List.NonEmpty         (NonEmpty ((:|)))
 import           Pos.Constants              (epochSlots)
 import           Pos.Crypto                 (SecretProof, SecretSharingExtra,
                                              deterministicVssKeyGen, sign, toVssPublicKey)
+import           Pos.Ssc.DynamicState.Types (DSProof (..))
 import           Pos.Types.Mpc              (genCommitmentAndOpening)
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              Coin (..), Commitment (..), EpochIndex (..),
                                              FtsSeed (..), LocalSlotIndex (..),
-                                             MpcProof (..), Opening (..), SlotId (..),
-                                             Tx (..), TxIn (..), TxOut (..))
+                                             Opening (..), SlotId (..), Tx (..),
+                                             TxIn (..), TxOut (..))
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), choose, elements)
 import           Universum
@@ -77,7 +78,7 @@ deriving instance Arbitrary ChainDifficulty
 derive makeArbitrary ''SlotId
 derive makeArbitrary ''TxOut
 derive makeArbitrary ''Tx
-derive makeArbitrary ''MpcProof
+derive makeArbitrary ''DSProof
 
 maxReasonableEpoch :: Integral a => a
 maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not

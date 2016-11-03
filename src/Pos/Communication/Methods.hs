@@ -25,6 +25,7 @@ import           Pos.Communication.Types  (SendBlockHeader (..), SendCommitment 
                                            SendTxs (..), SendVssCertificate (..))
 import           Pos.Crypto               (PublicKey, Share)
 import           Pos.DHT                  (sendToNeighbors, sendToNode)
+import           Pos.Ssc.Class.Types      (SscTypes)
 import           Pos.Statistics           (statlogSentBlockHeader, statlogSentTx)
 import           Pos.Types                (MainBlockHeader, Opening, SignedCommitment, Tx,
                                            VssCertificate)
@@ -41,8 +42,8 @@ sendToNeighborsSafe msg = do
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.
 announceBlock
-    :: WorkMode m
-    => MainBlockHeader -> m ()
+    :: (SscTypes ssc, WorkMode m)
+    => MainBlockHeader ssc -> m ()
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     statlogSentBlockHeader $ Right header

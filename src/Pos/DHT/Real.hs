@@ -263,7 +263,6 @@ updCache cacheTV dataHash = do
       Just _ -> writeTVar cacheTV cache' >> pure True
       _      -> writeTVar cacheTV (LRU.insert dataHash () cache') >> pure False
 
-
 sendToNetworkR :: MonadDialog BinaryP m => RawData -> m ()
 sendToNetworkR = sendToNetworkImpl sendR
 

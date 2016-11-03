@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+
 -- | Block processing related workers.
 
 module Pos.Worker.Block
@@ -5,25 +7,26 @@ module Pos.Worker.Block
        , blkWorkers
        ) where
 
-import           Control.Lens              (ix, (^.), (^?))
-import           Control.TimeWarp.Logging  (logDebug, logInfo, logWarning)
-import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, wait)
-import           Formatting                (build, sformat, (%))
-import           Serokell.Util             (VerificationRes (..), listJson, verifyGeneric)
-import           Serokell.Util.Exceptions  ()
+import           Control.Lens               (ix, (^.), (^?))
+import           Control.TimeWarp.Logging   (logDebug, logInfo, logWarning)
+import           Control.TimeWarp.Timed     (Microsecond, for, repeatForever, wait)
+import           Formatting                 (build, sformat, (%))
+import           Serokell.Util              (VerificationRes (..), listJson,
+                                             verifyGeneric)
+import           Serokell.Util.Exceptions   ()
 import           Universum
 
-import           Pos.Communication.Methods (announceBlock)
-import           Pos.Constants             (networkDiameter, slotDuration)
-import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
-import           Pos.State                 (createNewBlock, getHeadBlock, getLeaders)
-import           Pos.Types                 (SlotId (..), Timestamp (Timestamp), blockMpc,
-                                            gbHeader, isCommitmentId, isOpeningId,
-                                            isSharesId, mdCommitments, mdOpenings,
-                                            mdShares, slotIdF)
-import           Pos.Util                  (logWarningWaitLinear)
-import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey,
-                                            ncSecretKey)
+import           Pos.Communication.Methods  (announceBlock)
+import           Pos.Constants              (networkDiameter, slotDuration)
+import           Pos.Slotting               (MonadSlots (getCurrentTime), getSlotStart)
+import           Pos.Ssc.DynamicState.Types (mdCommitments, mdOpenings, mdShares)
+import           Pos.State                  (createNewBlock, getHeadBlock, getLeaders)
+import           Pos.Types                  (SlotId (..), Timestamp (Timestamp), blockMpc,
+                                             gbHeader, isCommitmentId, isOpeningId,
+                                             isSharesId, slotIdF)
+import           Pos.Util                   (logWarningWaitLinear)
+import           Pos.WorkMode               (WorkMode, getNodeContext, ncPublicKey,
+                                             ncSecretKey)
 
 -- | Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode m => SlotId -> m ()

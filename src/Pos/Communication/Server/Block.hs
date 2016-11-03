@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications      #-}
 
 -- | Server which handles blocks.
 
@@ -11,24 +12,25 @@ module Pos.Communication.Server.Block
        , handleBlockRequest
        ) where
 
-import           Control.TimeWarp.Logging (logDebug, logInfo, logNotice, logWarning)
-import           Control.TimeWarp.Rpc     (BinaryP, MonadDialog)
-import           Data.List.NonEmpty       (NonEmpty ((:|)))
-import           Formatting               (build, int, sformat, stext, (%))
-import           Serokell.Util            (VerificationRes (..), listJson)
+import           Control.TimeWarp.Logging   (logDebug, logInfo, logNotice, logWarning)
+import           Control.TimeWarp.Rpc       (BinaryP, MonadDialog)
+import           Data.List.NonEmpty         (NonEmpty ((:|)))
+import           Formatting                 (build, int, sformat, stext, (%))
+import           Serokell.Util              (VerificationRes (..), listJson)
 import           Universum
 
-import           Pos.Communication.Types  (RequestBlock (..), ResponseMode,
-                                           SendBlock (..), SendBlockHeader (..))
-import           Pos.Communication.Util   (modifyListenerLogger)
-import           Pos.Crypto               (hash)
-import           Pos.DHT                  (ListenerDHT (..), replyToNode)
-import           Pos.Slotting             (getCurrentSlot)
-import qualified Pos.State                as St
-import           Pos.Statistics           (statlogReceivedBlock,
-                                           statlogReceivedBlockHeader, statlogSentBlock)
-import           Pos.Types                (HeaderHash, headerHash)
-import           Pos.WorkMode             (WorkMode)
+import           Pos.Communication.Types    (RequestBlock (..), ResponseMode,
+                                             SendBlock (..), SendBlockHeader (..))
+import           Pos.Communication.Util     (modifyListenerLogger)
+import           Pos.Crypto                 (hash)
+import           Pos.DHT                    (ListenerDHT (..), replyToNode)
+import           Pos.Slotting               (getCurrentSlot)
+import           Pos.Ssc.DynamicState.Types (SscDynamicState)
+import qualified Pos.State                  as St
+import           Pos.Statistics             (statlogReceivedBlock,
+                                             statlogReceivedBlockHeader, statlogSentBlock)
+import           Pos.Types                  (HeaderHash, headerHash)
+import           Pos.WorkMode               (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
 blockListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
@@ -39,12 +41,12 @@ blockListeners =
         , ListenerDHT handleBlockRequest
         ]
 
-handleBlock :: ResponseMode m => SendBlock -> m ()
+handleBlock :: ResponseMode m => SendBlock SscDynamicState -> m ()
 handleBlock (SendBlock block) = do
     statlogReceivedBlock block
     slotId <- getCurrentSlot
     pbr <- St.processBlock slotId block
-    let blkHash :: HeaderHash
+    let blkHash :: HeaderHash SscDynamicState
         blkHash = headerHash block
     case pbr of
         St.PBRabort msg -> do
@@ -58,7 +60,8 @@ handleBlock (SendBlock block) = do
             sformat ("As a result of block processing rollback of "%int%
                      " blocks has been done and alternative chain has been adopted "%
                      listJson)
-                     rollbacked (fmap headerHash altChain)
+                     rollbacked (fmap headerHash altChain ::
+                                        NonEmpty (HeaderHash SscDynamicState))
         St.PBRmore h -> do
             logInfo $ sformat
                 ("After processing block "%build%", we need block "%build)
@@ -67,7 +70,7 @@ handleBlock (SendBlock block) = do
 
 handleBlockHeader
     :: ResponseMode m
-    => SendBlockHeader -> m ()
+    => SendBlockHeader SscDynamicState -> m ()
 handleBlockHeader (SendBlockHeader header) = do
     statlogReceivedBlockHeader header'
     whenM checkUsefulness $ replyToNode (RequestBlock h)
@@ -91,7 +94,7 @@ handleBlockHeader (SendBlockHeader header) = do
 
 handleBlockRequest
     :: ResponseMode m
-    => RequestBlock -> m ()
+    => RequestBlock SscDynamicState -> m ()
 handleBlockRequest (RequestBlock h) = do
     logDebug $ sformat ("Block "%build%" is requested") h
     maybe logNotFound sendBlockBack =<< St.getBlock h

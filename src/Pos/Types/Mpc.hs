@@ -2,9 +2,6 @@
 
 module Pos.Types.Mpc
        ( genCommitmentAndOpening
-       , hasCommitment
-       , hasOpening
-       , hasShares
        , isCommitmentId
        , isCommitmentIdx
        , isOpeningId
@@ -20,10 +17,13 @@ module Pos.Types.Mpc
        , verifyCommitmentSignature
        , verifySignedCommitment
        , verifyOpening
-       , verifyMpcData
+       -- , verifyMpcData
+       -- TODO: I moved this to State.Storage to resolve import cycles.
+       -- Don't have time to fix it right now because it prevents a merge
+       -- and nobody can push to develop until the merge is complete. Bad.
+       -- — @neongreen
        ) where
 
-import           Control.Lens        ((^.))
 import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM
 import           Data.Ix             (inRange)
@@ -37,9 +37,8 @@ import           Pos.Crypto          (PublicKey, Secret, SecretKey, Threshold,
                                       runSecureRandom, secretToDhSecret, sign, verify,
                                       verifyEncShare, verifySecretProof)
 import           Pos.Types.Types     (Commitment (..), EpochIndex, FtsSeed (..),
-                                      LocalSlotIndex, MpcData (..), Opening (..),
-                                      SignedCommitment, SlotId (..), mdCommitments,
-                                      mdOpenings, mdShares)
+                                      LocalSlotIndex, Opening (..), SignedCommitment,
+                                      SlotId (..))
 
 -- | Convert Secret to FtsSeed.
 secretToFtsSeed :: Secret -> FtsSeed
@@ -86,19 +85,6 @@ verifyOpening :: Commitment -> Opening -> Bool
 verifyOpening Commitment {..} (Opening secret) =
     verifySecretProof commExtra secret commProof
 
--- | Verify MpcData using limited data.
--- TODO: more checks.
-verifyMpcData :: SlotId -> MpcData -> VerificationRes
-verifyMpcData slotId MpcData {..} =
-    verifyGeneric
-        [ ( null _mdCommitments || isCommitmentId slotId
-          , "there are commitments in inappropriate block")
-        , ( null _mdOpenings || isOpeningId slotId
-          , "there are openings in inappropriate block")
-        , ( null _mdShares || isSharesId slotId
-          , "there are shares in inappropriate block")
-        ]
-
 -- | Apply bitwise xor to two FtsSeeds
 xorFtsSeed :: FtsSeed -> FtsSeed -> FtsSeed
 xorFtsSeed (FtsSeed a) (FtsSeed b) =
@@ -107,15 +93,6 @@ xorFtsSeed (FtsSeed a) (FtsSeed b) =
 -- | Make signed commitment from commitment and epoch index using secret key.
 mkSignedCommitment :: SecretKey -> EpochIndex -> Commitment -> SignedCommitment
 mkSignedCommitment sk i c = (c, sign sk (i, c))
-
-hasCommitment :: PublicKey -> MpcData -> Bool
-hasCommitment pk md = HM.member pk (md ^. mdCommitments)
-
-hasOpening :: PublicKey -> MpcData -> Bool
-hasOpening pk md = HM.member pk (md ^. mdOpenings)
-
-hasShares :: PublicKey -> MpcData -> Bool
-hasShares pk md = HM.member pk (md ^. mdShares)
 
 isCommitmentIdx :: LocalSlotIndex -> Bool
 isCommitmentIdx = inRange (0, k - 1)

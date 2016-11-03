@@ -1,7 +1,9 @@
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 -- | Storage with node local state which should be persistent.
 
@@ -44,63 +46,67 @@ module Pos.State.Storage
        , getStatRecords
        ) where
 
-import           Control.Lens            (makeClassy, use, view, (.=), (^.))
-import           Control.Monad.TM        ((.=<<.))
-import           Data.Acid               ()
-import           Data.Default            (Default, def)
-import qualified Data.HashMap.Strict     as HM
-import           Data.List               (nub)
-import           Data.List.NonEmpty      (NonEmpty ((:|)), nonEmpty)
-import           Data.SafeCopy           (base, deriveSafeCopySimple)
-import           Formatting              (build, sformat, (%))
-import           Serokell.AcidState      ()
-import           Serokell.Util           (VerificationRes (..))
+import           Control.Lens               (makeClassy, use, view, (.=), (^.))
+import           Control.Monad.TM           ((.=<<.))
+import           Data.Acid                  ()
+import           Data.Default               (Default, def)
+import qualified Data.HashMap.Strict        as HM
+import           Data.List                  (nub)
+import           Data.List.NonEmpty         (NonEmpty ((:|)), nonEmpty)
+import           Data.SafeCopy              (base, deriveSafeCopySimple)
+import           Formatting                 (build, sformat, (%))
+import           Serokell.AcidState         ()
+import           Serokell.Util              (VerificationRes (..), verifyGeneric)
 import           Universum
 
-import           Pos.Constants           (k)
-import           Pos.Crypto              (PublicKey, SecretKey, Share, Threshold,
-                                          VssPublicKey, signedValue)
-import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
-                                          blkCleanUp, blkCreateGenesisBlock,
-                                          blkCreateNewBlock, blkProcessBlock, blkRollback,
-                                          blkSetHead, getBlock, getHeadBlock, getLeaders,
-                                          getSlotDepth, mayBlockBeUseful)
-import           Pos.State.Storage.Mpc   (HasMpcStorage (mpcStorage), MpcStorage,
-                                          getGlobalMpcData, getGlobalMpcDataByDepth,
-                                          getLocalMpcData, getOurCommitment,
-                                          getOurOpening, getOurShares, getSecret,
-                                          mpcApplyBlocks, mpcProcessCommitment,
-                                          mpcProcessNewSlot, mpcProcessOpening,
-                                          mpcProcessShares, mpcProcessVssCertificate,
-                                          mpcRollback, mpcVerifyBlocks, setSecret)
-import qualified Pos.State.Storage.Mpc   as Mpc
-import           Pos.State.Storage.Stats (HasStatsData (statsData), IdTimestamp (..),
-                                          StatsData, addStatRecord, getStatRecords)
-import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
-                                          getLocalTxs, getUtxoByDepth, processTx,
-                                          txApplyBlocks, txRollback, txStorageFromUtxo,
-                                          txVerifyBlocks)
-import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
-                                          ProcessTxRes (..), mkPBRabort)
-import           Pos.Types               (Block, Commitment, CommitmentSignature,
-                                          EpochIndex, GenesisBlock, MainBlock, Opening,
-                                          SlotId (..), SlotLeaders, Utxo, VssCertificate,
-                                          blockMpc, blockSlot, blockTxs, epochIndexL,
-                                          flattenSlotId, getAddress, headerHashG,
-                                          mdVssCertificates, txOutAddress,
-                                          unflattenSlotId, verifyMpcData, verifyTxAlone)
-import           Pos.Util                (readerToState, _neHead)
+import           Pos.Constants              (k)
+import           Pos.Crypto                 (PublicKey, SecretKey, Share, Threshold,
+                                             VssPublicKey, signedValue)
+import           Pos.Ssc.Class.Storage      (HasSscStorage (..), SscStorageClass (..))
+import           Pos.Ssc.Class.Types        (SscTypes (..))
+import           Pos.Ssc.DynamicState.Types (DSPayload (..), SscDynamicState,
+                                             _mdVssCertificates)
+import           Pos.State.Storage.Block    (BlockStorage, HasBlockStorage (blockStorage),
+                                             blkCleanUp, blkCreateGenesisBlock,
+                                             blkCreateNewBlock, blkProcessBlock,
+                                             blkRollback, blkSetHead, getBlock,
+                                             getHeadBlock, getLeaders, getSlotDepth,
+                                             mayBlockBeUseful)
+import           Pos.State.Storage.Mpc      (getGlobalMpcData, getGlobalMpcDataByDepth,
+                                             getLocalMpcData, getOurCommitment,
+                                             getOurOpening, getOurShares, getSecret,
+                                             mpcProcessCommitment, mpcProcessOpening,
+                                             mpcProcessShares, mpcProcessVssCertificate,
+                                             mpcRollback, mpcVerifyBlocks, setSecret)
+import qualified Pos.State.Storage.Mpc      as Mpc (calculateLeaders)
+import           Pos.State.Storage.Stats    (HasStatsData (statsData), IdTimestamp (..),
+                                             StatsData, addStatRecord, getStatRecords)
+import           Pos.State.Storage.Tx       (HasTxStorage (txStorage), TxStorage,
+                                             getLocalTxs, getUtxoByDepth, processTx,
+                                             txApplyBlocks, txRollback, txStorageFromUtxo,
+                                             txVerifyBlocks)
+import           Pos.State.Storage.Types    (AltChain, ProcessBlockRes (..),
+                                             ProcessTxRes (..), mkPBRabort)
+import           Pos.Types                  (Block, Commitment, CommitmentSignature,
+                                             EpochIndex, GenesisBlock, MainBlock, Opening,
+                                             SlotId (..), SlotLeaders, Utxo,
+                                             VssCertificate, blockMpc, blockSlot,
+                                             blockTxs, epochIndexL, flattenSlotId,
+                                             getAddress, headerHashG, isCommitmentId,
+                                             isOpeningId, isSharesId, txOutAddress,
+                                             unflattenSlotId, verifyTxAlone)
+import           Pos.Util                   (readerToState, _neHead)
 
-type Query  a = forall m . MonadReader Storage m => m a
-type Update a = forall m . MonadState Storage m => m a
+type Query  a = forall m. MonadReader Storage m => m a
+type Update a = forall m. MonadState Storage m => m a
 
 data Storage = Storage
     { -- | State of MPC.
-      __mpcStorage   :: !MpcStorage
+      __mpcStorage   :: !(SscStorage SscDynamicState)
     , -- | Transactions part of /static-state/.
       __txStorage    :: !TxStorage
     , -- | Blockchain part of /static-state/.
-      __blockStorage :: !BlockStorage
+      __blockStorage :: !(BlockStorage SscDynamicState)
     , -- | Id of last seen slot.
       _slotId        :: !SlotId
     , -- | Statistical data
@@ -110,11 +116,11 @@ data Storage = Storage
 makeClassy ''Storage
 deriveSafeCopySimple 0 'base ''Storage
 
-instance HasMpcStorage Storage where
-    mpcStorage = _mpcStorage
+instance (ssc ~ SscDynamicState) => HasSscStorage ssc Storage where
+    sscStorage = _mpcStorage
 instance HasTxStorage Storage where
     txStorage = _txStorage
-instance HasBlockStorage Storage where
+instance HasBlockStorage Storage SscDynamicState where
     blockStorage = _blockStorage
 instance HasStatsData Storage where
     statsData = _statsData
@@ -141,19 +147,20 @@ getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock
 -- • we know genesis block for epoch from given SlotId
 -- • last known block is not more than k slots away from
 -- given SlotId
-createNewBlock :: SecretKey -> SlotId -> Update (Maybe MainBlock)
-createNewBlock sk sId =
+createNewBlock
+    :: SecretKey -> SlotId -> Update (Maybe (MainBlock SscDynamicState))
+createNewBlock sk sId = do
     ifM (readerToState (canCreateBlock sId))
         (Just <$> createNewBlockDo sk sId)
         (pure Nothing)
 
-createNewBlockDo :: SecretKey -> SlotId -> Update MainBlock
+createNewBlockDo :: SecretKey -> SlotId -> Update (MainBlock SscDynamicState)
 createNewBlockDo sk sId = do
     txs <- readerToState $ toList <$> getLocalTxs
     mpcData <- readerToState getLocalMpcData
     blk <- blkCreateNewBlock sk sId txs mpcData
     let blocks = Right blk :| []
-    mpcApplyBlocks blocks
+    sscApplyBlocks blocks
     blk <$ txApplyBlocks blocks
 
 canCreateBlock :: SlotId -> Query Bool
@@ -166,7 +173,9 @@ canCreateBlock sId = do
     addKSafe si = si {siSlot = min (6 * k - 1) (siSlot si + k)}
 
 -- | Do all necessary changes when a block is received.
-processBlock :: SlotId -> Block -> Update ProcessBlockRes
+processBlock :: SlotId
+             -> Block SscDynamicState
+             -> Update (ProcessBlockRes SscDynamicState)
 processBlock curSlotId blk = do
     -- TODO: I guess these checks should be part of block verification actually.
     let verifyMpc mainBlk =
@@ -181,7 +190,23 @@ processBlock curSlotId blk = do
         VerSuccess        -> processBlockDo curSlotId blk
         VerFailure errors -> return $ mkPBRabort errors
 
-processBlockDo :: SlotId -> Block -> Update ProcessBlockRes
+-- | Verify MpcData using limited data.
+-- TODO: more checks.
+-- TODO: move this somewhere more appropriate
+verifyMpcData :: SlotId -> DSPayload -> VerificationRes
+verifyMpcData slotId DSPayload {..} =
+    verifyGeneric
+        [ ( null _mdCommitments || isCommitmentId slotId
+          , "there are commitments in inappropriate block")
+        , ( null _mdOpenings || isOpeningId slotId
+          , "there are openings in inappropriate block")
+        , ( null _mdShares || isSharesId slotId
+          , "there are shares in inappropriate block")
+        ]
+
+processBlockDo :: SlotId
+               -> Block SscDynamicState
+               -> Update (ProcessBlockRes SscDynamicState)
 processBlockDo curSlotId blk = do
     r <- blkProcessBlock curSlotId blk
     case r of
@@ -199,10 +224,12 @@ processBlockDo curSlotId blk = do
 
 -- At this point all checks have been passed and we know that we can
 -- adopt this AltChain.
-processBlockFinally :: Word -> AltChain -> Update ProcessBlockRes
+processBlockFinally :: Word
+                    -> AltChain SscDynamicState
+                    -> Update (ProcessBlockRes SscDynamicState)
 processBlockFinally toRollback blocks = do
     mpcRollback toRollback
-    mpcApplyBlocks blocks
+    sscApplyBlocks blocks
     txRollback toRollback
     txApplyBlocks blocks
     blkRollback toRollback
@@ -225,14 +252,14 @@ processBlockFinally toRollback blocks = do
     return $ PBRgood (toRollback, blocks)
 
 -- | Do all necessary changes when new slot starts.
-processNewSlot :: SlotId -> Update (Maybe GenesisBlock)
+processNewSlot :: SlotId -> Update (Maybe (GenesisBlock SscDynamicState))
 processNewSlot sId = do
     knownSlot <- use slotId
     if sId > knownSlot
        then processNewSlotDo sId
        else pure Nothing
 
-processNewSlotDo :: SlotId -> Update (Maybe GenesisBlock)
+processNewSlotDo :: SlotId -> Update (Maybe (GenesisBlock SscDynamicState))
 processNewSlotDo sId@SlotId {..} = do
     slotId .= sId
     mGenBlock <-
@@ -240,7 +267,7 @@ processNewSlotDo sId@SlotId {..} = do
          then createGenesisBlock siEpoch
          else pure Nothing
     blkCleanUp sId
-    mpcProcessNewSlot sId $> mGenBlock
+    sscPrepareToNewSlot sId $> mGenBlock
 
 -- We create genesis block for i-th epoch when head of currently known
 -- best chain is MainBlock corresponding to one of last `k` slots of
@@ -260,7 +287,7 @@ shouldCreateGenesisBlock epoch = doCheckSoft . either (`SlotId` 0) identity <$> 
     -- TODO add logWarning on `doCheckStrict` failing
     -- doCheckStrict SlotId {..} = siEpoch == epoch - 1 && siSlot >= 5 * k
 
-createGenesisBlock :: EpochIndex -> Update (Maybe GenesisBlock)
+createGenesisBlock :: EpochIndex -> Update (Maybe (GenesisBlock SscDynamicState))
 createGenesisBlock epoch = do
     --readerToState getHeadSlot >>= \hs ->
     --  identity $! traceM $ "[~~~~~~] createGenesisBlock: epoch="
@@ -269,14 +296,14 @@ createGenesisBlock epoch = do
         (Just <$> createGenesisBlockDo epoch)
         (pure Nothing)
 
-createGenesisBlockDo :: EpochIndex -> Update GenesisBlock
+createGenesisBlockDo :: EpochIndex -> Update (GenesisBlock SscDynamicState)
 createGenesisBlockDo epoch = do
     --traceMpcLastVer
     leaders <- readerToState $ calculateLeaders epoch
     genBlock <- blkCreateGenesisBlock epoch leaders
     -- Genesis block contains no transactions,
     --    so we should update only MPC
-    mpcApplyBlocks $ Left genBlock :| []
+    sscApplyBlocks $ Left genBlock :| []
     pure genBlock
 
 calculateLeaders :: EpochIndex -> Query SlotLeaders
@@ -307,7 +334,7 @@ getParticipants epoch = do
     mDepth <- getMpcCrucialDepth epoch
     mUtxo <- getUtxoByDepth .=<<. mDepth
     mKeymap <-
-        fmap (view mdVssCertificates) <$> (getGlobalMpcDataByDepth .=<<. mDepth)
+        fmap _mdVssCertificates <$> (getGlobalMpcDataByDepth .=<<. mDepth)
     return $
         do utxo <- mUtxo
            keymap <- mKeymap
@@ -348,6 +375,3 @@ processShares = mpcProcessShares
 
 processVssCertificate :: PublicKey -> VssCertificate -> Update ()
 processVssCertificate = mpcProcessVssCertificate
-
--- TODO: just use qualified imports for importing all that stuff from
--- Pos.State.Storage.Mpc and Pos.State.Storage.Block

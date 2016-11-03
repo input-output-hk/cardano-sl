@@ -17,7 +17,7 @@ module Pos.State.Storage
        , getHeadBlock
        , getLeaders
        , getLocalTxs
-       , getLocalMpcData
+       , getLocalSscPayload
        , getGlobalMpcData
        , getSecret
        , getOurCommitment
@@ -70,9 +70,9 @@ import           Pos.State.Storage.Block    (BlockStorage, HasBlockStorage (bloc
                                              getHeadBlock, getLeaders, getSlotDepth,
                                              mayBlockBeUseful)
 import           Pos.State.Storage.Mpc      (getGlobalMpcData, getGlobalMpcDataByDepth,
-                                             getLocalMpcData, getOurCommitment,
-                                             getOurOpening, getOurShares, getSecret,
-                                             mpcVerifyBlocks, setSecret)
+                                             getOurCommitment, getOurOpening,
+                                             getOurShares, getSecret, mpcVerifyBlocks,
+                                             setSecret)
 import qualified Pos.State.Storage.Mpc      as Mpc (calculateLeaders)
 import           Pos.State.Storage.Stats    (HasStatsData (statsData), IdTimestamp (..),
                                              StatsData, addStatRecord, getStatRecords)
@@ -135,6 +135,9 @@ storageFromUtxo u = Storage def (txStorageFromUtxo u) def (unflattenSlotId 0) de
 getHeadSlot :: Query (Either EpochIndex SlotId)
 getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock
 
+getLocalSscPayload :: Query DSPayload
+getLocalSscPayload = sscGetLocalPayload
+
 -- | Create a new block on top of best chain if possible.
 -- Block can be created if:
 -- • we know genesis block for epoch from given SlotId
@@ -150,7 +153,7 @@ createNewBlock sk sId = do
 createNewBlockDo :: SecretKey -> SlotId -> Update (MainBlock SscDynamicState)
 createNewBlockDo sk sId = do
     txs <- readerToState $ toList <$> getLocalTxs
-    mpcData <- readerToState getLocalMpcData
+    mpcData <- readerToState sscGetLocalPayload
     blk <- blkCreateNewBlock sk sId txs mpcData
     let blocks = Right blk :| []
     sscApplyBlocks blocks

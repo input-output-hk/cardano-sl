@@ -17,7 +17,6 @@
 module Pos.State.Storage.Mpc
        (
          calculateLeaders
-       , getLocalMpcData
        , getGlobalMpcData
        , getGlobalMpcDataByDepth
        , getOurCommitment
@@ -86,6 +85,7 @@ instance SscStorageClass SscDynamicState where
     sscProcessMessage (DSShares pk ss)           = mpcProcessShares pk ss
     sscProcessMessage (DSVssCertificate pk cert) = mpcProcessVssCertificate pk cert
     sscRollback = mpcRollback
+    sscGetLocalPayload = getLocalPayload
 
 dsVersioned
     :: HasSscStorage SscDynamicState a
@@ -101,7 +101,6 @@ dsLastProcessedSlot
     :: HasSscStorage SscDynamicState a
     => Lens' a SlotId
 dsLastProcessedSlot = sscStorage @SscDynamicState . dsLastProcessedSlotL
-
 
 -- | A lens to access the last version of DSStorage
 lastVer :: HasSscStorage SscDynamicState a => Lens' a DSStorageVersion
@@ -129,8 +128,8 @@ getGlobalMpcData =
     fromMaybe (panic "No global MPC data for depth 0") <$>
     getGlobalMpcDataByDepth 0
 
-getLocalMpcData :: Query DSPayload
-getLocalMpcData =
+getLocalPayload :: Query DSPayload
+getLocalPayload =
     (magnify' lastVer $
      DSPayload <$> (view dsLocalCommitments) <*> (view dsLocalOpenings) <*>
      view dsLocalShares <*>

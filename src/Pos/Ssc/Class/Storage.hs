@@ -48,5 +48,6 @@ class SscTypes ssc => SscStorageClass ssc where
     -- If @n > 0@, also removes all commitments/etc received during that
     -- period but not included into blocks.
     sscRollback :: Word -> SscUpdate ssc ()
+    sscGetLocalPayload :: SscQuery ssc (SscPayload ssc)
 
     -- TODO: move the rest of methods here

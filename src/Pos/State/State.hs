@@ -15,7 +15,7 @@ module Pos.State.State
        , getHeadBlock
        , getLeaders
        , getLocalTxs
-       , getLocalMpcData
+       , getLocalSscPayload
        , getGlobalMpcData
        , getSecret
        , getOurCommitment
@@ -129,8 +129,8 @@ getHeadBlock = queryDisk A.GetHeadBlock
 getLocalTxs :: WorkModeDB m => m (HashSet Tx)
 getLocalTxs = queryDisk A.GetLocalTxs
 
-getLocalMpcData :: WorkModeDB m => m DSPayload
-getLocalMpcData = queryDisk A.GetLocalMpcData
+getLocalSscPayload :: WorkModeDB m => m DSPayload
+getLocalSscPayload = queryDisk A.GetLocalSscPayload
 
 getGlobalMpcData :: WorkModeDB m => m DSPayload
 getGlobalMpcData = queryDisk A.GetGlobalMpcData

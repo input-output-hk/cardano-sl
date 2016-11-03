@@ -20,7 +20,7 @@ import           Pos.DHT                    (sendToNeighbors)
 import           Pos.Ssc.DynamicState.Types (DSPayload (..), hasCommitment, hasOpening,
                                              hasShares)
 import           Pos.State                  (generateNewSecret, getGlobalMpcData,
-                                             getLocalMpcData, getOurCommitment,
+                                             getLocalSscPayload, getOurCommitment,
                                              getOurOpening, getOurShares, getSecret)
 import           Pos.Types                  (SlotId (..), isCommitmentIdx, isOpeningIdx,
                                              isSharesIdx)
@@ -89,7 +89,7 @@ mpcTransmitterInterval = sec 2
 mpcTransmitter :: WorkMode m => m ()
 mpcTransmitter =
     repeatForever mpcTransmitterInterval onError $
-    do DSPayload{..} <- getLocalMpcData
+    do DSPayload{..} <- getLocalSscPayload
        mapM_ (uncurry announceCommitment) $ HM.toList _mdCommitments
        mapM_ (uncurry announceOpening) $ HM.toList _mdOpenings
        mapM_ (uncurry announceShares) $ HM.toList _mdShares

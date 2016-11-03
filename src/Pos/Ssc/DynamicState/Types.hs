@@ -64,9 +64,9 @@ import           Pos.FollowTheSatoshi (FtsError)
 import           Pos.Genesis          (genesisCertificates)
 import           Pos.Ssc.Class.Types  (SscTypes (..))
 import           Pos.Types.Slotting   (unflattenSlotId)
-import           Pos.Types.Types      (Commitment, CommitmentsMap, Opening, OpeningsMap,
-                                       SharesMap, SignedCommitment, SlotId,
-                                       VssCertificate, VssCertificatesMap)
+import           Pos.Types.Types      (CommitmentsMap, Opening, OpeningsMap, SharesMap,
+                                       SignedCommitment, SlotId, VssCertificate,
+                                       VssCertificatesMap)
 
 ----------------------------------------------------------------------------
 -- SscMessage
@@ -74,7 +74,7 @@ import           Pos.Types.Types      (Commitment, CommitmentsMap, Opening, Open
 
 data DSMessage
     = DSCommitment !PublicKey
-                   !Commitment
+                   !SignedCommitment
     | DSOpening !PublicKey
                 !Opening
     | DSShares !PublicKey
@@ -82,6 +82,8 @@ data DSMessage
     | DSVssCertificate !PublicKey
                        !VssCertificate
     deriving (Show)
+
+deriveSafeCopySimple 0 'base ''DSMessage
 
 ----------------------------------------------------------------------------
 -- SscStorage

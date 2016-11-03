@@ -20,9 +20,8 @@ import           Formatting               (build, sformat, (%))
 import           Serokell.Util.Text       (listBuilderJSON, mapJson)
 import           Universum
 
-import           Pos.Communication.Types  (SendBlockHeader (..), SendCommitment (..),
-                                           SendOpening (..), SendShares (..), SendTx (..),
-                                           SendTxs (..), SendVssCertificate (..))
+import           Pos.Communication.Types  (SendBlockHeader (..), SendSsc (..),
+                                           SendTx (..), SendTxs (..))
 import           Pos.Crypto               (PublicKey, Share)
 import           Pos.DHT                  (sendToNeighbors, sendToNode)
 import           Pos.Ssc.Class.Types      (SscTypes)

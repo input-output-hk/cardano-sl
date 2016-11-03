@@ -37,5 +37,8 @@ class SscTypes ssc => SscStorageClass ssc where
     sscApplyBlocks :: AltChain ssc -> SscUpdate ssc ()
     -- | Should be executed before doing any updates within given slot.
     sscPrepareToNewSlot :: SlotId -> SscUpdate ssc ()
+    -- | Do something with given message, result is whether message
+    -- has been processed successfully (implementation defined).
+    sscProcessMessage :: SscMessage ssc -> SscUpdate ssc Bool
 
     -- TODO: move the rest of methods here

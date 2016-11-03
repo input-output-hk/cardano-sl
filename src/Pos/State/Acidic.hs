@@ -37,11 +37,8 @@ module Pos.State.Acidic
        , CreateNewBlock (..)
        , ProcessBlock (..)
        , ProcessNewSlot (..)
-       , ProcessCommitment (..)
-       , ProcessOpening (..)
-       , ProcessShares (..)
+       , ProcessSscMessage (..)
        , ProcessTx (..)
-       , ProcessVssCertificate (..)
        , SetSecret (..)
 
        , AddStatRecord (..)
@@ -135,11 +132,8 @@ makeAcidic ''Storage
     , 'S.createNewBlock
     , 'S.processBlock
     , 'S.processNewSlot
-    , 'S.processCommitment
-    , 'S.processOpening
-    , 'S.processShares
+    , 'S.processSscMessage
     , 'S.processTx
-    , 'S.processVssCertificate
     , 'S.setSecret
     , 'S.addStatRecord
     , 'S.getStatRecords

@@ -15,8 +15,7 @@ import           Universum
 
 import           Pos.Communication.Methods  (announceCommitment, announceOpening,
                                              announceShares, announceVssCertificate)
-import           Pos.Communication.Types    (SendCommitment (..), SendOpening (..),
-                                             SendShares (..))
+import           Pos.Communication.Types    (SendSsc (..))
 import           Pos.DHT                    (sendToNeighbors)
 import           Pos.Ssc.DynamicState.Types (DSPayload (..), hasCommitment, hasOpening,
                                              hasShares)

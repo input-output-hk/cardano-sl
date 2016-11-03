@@ -25,10 +25,10 @@ module Pos.State.Storage.Mpc
        , getOurShares
        , getSecret
        , setSecret
-       , mpcProcessCommitment
-       , mpcProcessOpening
-       , mpcProcessShares
-       , mpcProcessVssCertificate
+       -- , mpcProcessCommitment
+       -- , mpcProcessOpening
+       -- , mpcProcessShares
+       -- , mpcProcessVssCertificate
        , mpcRollback
        , mpcVerifyBlocks
        --, traceMpcLastVer
@@ -56,7 +56,7 @@ import           Pos.Crypto                 (PublicKey, Share,
 import           Pos.FollowTheSatoshi       (FtsError, calculateSeed, followTheSatoshi)
 import           Pos.Ssc.Class.Storage      (HasSscStorage (..), SscQuery,
                                              SscStorageClass (..), SscUpdate)
-import           Pos.Ssc.DynamicState.Types (DSPayload (..), DSStorage,
+import           Pos.Ssc.DynamicState.Types (DSMessage (..), DSPayload (..), DSStorage,
                                              DSStorageVersion (..), SscDynamicState,
                                              dsCurrentSecretL, dsGlobalCertificates,
                                              dsGlobalCommitments, dsGlobalOpenings,
@@ -86,6 +86,10 @@ instance HasSscStorage SscDynamicState DSStorage where
 instance SscStorageClass SscDynamicState where
     sscApplyBlocks = mpcApplyBlocks
     sscPrepareToNewSlot = mpcProcessNewSlot
+    sscProcessMessage (DSCommitment pk comm)     = mpcProcessCommitment pk comm
+    sscProcessMessage (DSOpening pk op)          = mpcProcessOpening pk op
+    sscProcessMessage (DSShares pk ss)           = mpcProcessShares pk ss
+    sscProcessMessage (DSVssCertificate pk cert) = mpcProcessVssCertificate pk cert
 
 dsVersioned
     :: HasSscStorage SscDynamicState a
@@ -470,10 +474,10 @@ mpcProcessShares pk s
                 ok <$ (when ok $ dsLocalShares %= HM.insertWith HM.union pk s')
         zoom' lastVer $ mpcProcessSharesDo
 
-mpcProcessVssCertificate :: PublicKey -> VssCertificate -> Update ()
+mpcProcessVssCertificate :: PublicKey -> VssCertificate -> Update Bool
 mpcProcessVssCertificate pk c = zoom' lastVer $ do
-    unlessM (HM.member pk <$> use dsGlobalCertificates) $ do
-        dsLocalCertificates %= HM.insert pk c
+    ok <- not . HM.member pk <$> use dsGlobalCertificates
+    ok <$ when ok (dsLocalCertificates %= HM.insert pk c)
 
 -- Should be executed before doing any updates within given slot.
 mpcProcessNewSlot :: SlotId -> Update ()

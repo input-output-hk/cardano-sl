@@ -35,11 +35,8 @@ module Pos.State.Storage
        , setSecret
        , processBlock
        , processNewSlot
-       , processCommitment
-       , processOpening
-       , processShares
+       , processSscMessage
        , processTx
-       , processVssCertificate
 
        , IdTimestamp (..)
        , addStatRecord
@@ -60,8 +57,8 @@ import           Serokell.Util              (VerificationRes (..), verifyGeneric
 import           Universum
 
 import           Pos.Constants              (k)
-import           Pos.Crypto                 (PublicKey, SecretKey, Share, Threshold,
-                                             VssPublicKey, signedValue)
+import           Pos.Crypto                 (SecretKey, Threshold, VssPublicKey,
+                                             signedValue)
 import           Pos.Ssc.Class.Storage      (HasSscStorage (..), SscStorageClass (..))
 import           Pos.Ssc.Class.Types        (SscTypes (..))
 import           Pos.Ssc.DynamicState.Types (DSPayload (..), SscDynamicState,
@@ -75,8 +72,6 @@ import           Pos.State.Storage.Block    (BlockStorage, HasBlockStorage (bloc
 import           Pos.State.Storage.Mpc      (getGlobalMpcData, getGlobalMpcDataByDepth,
                                              getLocalMpcData, getOurCommitment,
                                              getOurOpening, getOurShares, getSecret,
-                                             mpcProcessCommitment, mpcProcessOpening,
-                                             mpcProcessShares, mpcProcessVssCertificate,
                                              mpcRollback, mpcVerifyBlocks, setSecret)
 import qualified Pos.State.Storage.Mpc      as Mpc (calculateLeaders)
 import           Pos.State.Storage.Stats    (HasStatsData (statsData), IdTimestamp (..),
@@ -364,14 +359,5 @@ getThreshold epoch = do
            let len = length ps
            return (toInteger (len `div` 2 + len `mod` 2))
 
-processCommitment :: PublicKey -> (Commitment, CommitmentSignature) -> Update Bool
-processCommitment = mpcProcessCommitment
-
-processOpening :: PublicKey -> Opening -> Update Bool
-processOpening = mpcProcessOpening
-
-processShares :: PublicKey -> HashMap PublicKey Share -> Update Bool
-processShares = mpcProcessShares
-
-processVssCertificate :: PublicKey -> VssCertificate -> Update ()
-processVssCertificate = mpcProcessVssCertificate
+processSscMessage :: SscMessage SscDynamicState -> Update Bool
+processSscMessage = sscProcessMessage

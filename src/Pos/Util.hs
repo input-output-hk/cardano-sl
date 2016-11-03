@@ -73,7 +73,7 @@ import           Serokell.Util                 (VerificationRes)
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
                                                 SGR (Reset, SetColor), setSGRCode)
-import           Universum                     hiding (killThread)
+import           Universum
 import           Unsafe                        (unsafeInit, unsafeLast)
 
 import           Serokell.Util.Binary          as Binary (decodeFull)

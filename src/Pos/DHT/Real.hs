@@ -17,8 +17,7 @@ import           Control.Concurrent.Async.Lifted (mapConcurrently)
 import           Control.Concurrent.STM          (STM, TVar, atomically, modifyTVar,
                                                   newTVar, readTVar, writeTVar)
 import           Control.Monad.Catch             (Handler (..), MonadCatch, MonadMask,
-                                                  MonadThrow, catchAll, catches, finally,
-                                                  throwM)
+                                                  MonadThrow, catchAll, catches, throwM)
 import           Control.Monad.Trans.Class       (MonadTrans)
 import           Control.Monad.Trans.Control     (MonadBaseControl)
 import           Control.TimeWarp.Logging        (WithNamedLogger, logDebug, logError,
@@ -51,8 +50,8 @@ import           Pos.DHT                         (DHTData, DHTException (..), DH
                                                   defaultSendToNode, filterByNodeType,
                                                   joinNetworkNoThrow, randomDHTKey,
                                                   withDhtLogger)
-import           Universum                       hiding (Handler, catches, finally,
-                                                  fromStrict, mapConcurrently, toStrict)
+import           Universum                       hiding (fromStrict, mapConcurrently,
+                                                  toStrict)
 
 toBSBinary :: Binary b => b -> BS.ByteString
 toBSBinary = toStrict . encode

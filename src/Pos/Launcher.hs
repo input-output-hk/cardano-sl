@@ -39,7 +39,7 @@ import           Control.TimeWarp.Timed      (MonadTimed, currentTime, for, fork
 import           Data.Default                (Default (def))
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
-import           Universum                   hiding (killThread)
+import           Universum
 
 import           Pos.Communication           (SysStartRequest (..), allListeners,
                                               noCacheMessageNames, sendTx,

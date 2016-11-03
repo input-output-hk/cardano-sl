@@ -171,7 +171,6 @@ defaultSendToNeighbors parallelize msg = do
             (neighborsSendThreshold :: Int)
     return succeed'
   where
-    -- TODO make this function asynchronous after presenting some `MonadAsync` constraint
     sendToNodes nodes = length . filter identity <$> parallelize (map send' nodes)
     send' node = (sendToNode (dhtAddr node) msg >> return True) `catch` handleE
       where

@@ -132,7 +132,6 @@ import           Data.Data            (Data)
 import           Data.Default         (Default (def))
 import           Data.DeriveTH        (derive, makeNFData)
 import           Data.Hashable        (Hashable)
-import qualified Data.HashMap.Strict  as HM
 import           Data.Ix              (Ix)
 import           Data.List.NonEmpty   (NonEmpty)
 import           Data.MessagePack     (MessagePack (..))
@@ -157,7 +156,7 @@ import           Pos.Crypto           (EncShare, Hash, PublicKey, Secret, Secret
 import           Pos.Merkle           (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot,
                                        mtSize)
 import           Pos.Ssc.Class.Types  (SscTypes (..))
-import           Pos.Util             (Color (Magenta), colorize, makeLensesData)
+import           Pos.Util             (Color (Magenta), colorize)
 
 ----------------------------------------------------------------------------
 -- Coin

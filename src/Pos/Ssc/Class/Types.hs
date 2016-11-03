@@ -12,33 +12,34 @@ import           Data.Tagged         (Tagged)
 import           Data.Text.Buildable (Buildable)
 import           Universum
 
-class (Typeable a
-      ,Eq (SscProof a)
-      ,Show (SscProof a)
-      ,Show (SscPayload a)
-      ,Buildable (SscPayload a)
-      ,Binary (SscProof a)
-      ,Binary (SscPayload a)
-      ,MessagePack (SscProof a)
-      ,MessagePack (SscPayload a)
-      ,SafeCopy (SscProof a)
-      ,SafeCopy (SscPayload a)) =>
-      SscTypes a where
+-- TODO: rename to Ssc?
+class (Typeable ssc
+      ,Eq (SscProof ssc)
+      ,Show (SscProof ssc)
+      ,Show (SscPayload ssc)
+      ,Buildable (SscPayload ssc)
+      ,Binary (SscProof ssc)
+      ,Binary (SscPayload ssc)
+      ,MessagePack (SscProof ssc)
+      ,MessagePack (SscPayload ssc)
+      ,SafeCopy (SscProof ssc)
+      ,SafeCopy (SscPayload ssc)) =>
+      SscTypes ssc where
 
     -- | Internal SSC state
-    type SscInternalState a
+    type SscStorage ssc
     -- | Payload which will be stored in main blocks
-    type SscPayload a
+    type SscPayload ssc
     -- | Proof that SSC payload is correct (it'll be included into block
     -- header)
-    type SscProof a
+    type SscProof ssc
     -- | Messages that nodes send to each other to achieve SSC (this
     -- is going to be an ADT if there are many possible messages)
-    type SscMessage a
+    type SscMessage ssc
     -- | Error that can happen when calculating the seed
-    type SscSeedError a
+    type SscSeedError ssc
 
     -- | Create payload (for inclusion into block) from state
-    mkSscPayload :: Tagged a (SscInternalState a -> SscPayload a)
+    mkSscPayload :: Tagged ssc (SscStorage ssc -> SscPayload ssc)
     -- | Create proof (for inclusion into block header) from payload
-    mkSscProof :: Tagged a (SscPayload a -> SscProof a)
+    mkSscProof :: Tagged ssc (SscPayload ssc -> SscProof ssc)

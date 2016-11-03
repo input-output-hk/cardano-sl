@@ -1,7 +1,9 @@
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 -- | Storage with node local state which should be persistent.
 
@@ -57,6 +59,8 @@ import           Universum
 import           Pos.Constants              (k)
 import           Pos.Crypto                 (PublicKey, SecretKey, Share, Threshold,
                                              VssPublicKey, signedValue)
+import           Pos.Ssc.Class.Storage      (HasSscStorage (..))
+import           Pos.Ssc.Class.Types        (SscTypes (..))
 import           Pos.Ssc.DynamicState.Types (SscDynamicState, _mdVssCertificates)
 import           Pos.State.Storage.Block    (BlockStorage, HasBlockStorage (blockStorage),
                                              blkCleanUp, blkCreateGenesisBlock,
@@ -64,8 +68,7 @@ import           Pos.State.Storage.Block    (BlockStorage, HasBlockStorage (bloc
                                              blkRollback, blkSetHead, getBlock,
                                              getHeadBlock, getLeaders, getSlotDepth,
                                              mayBlockBeUseful)
-import           Pos.State.Storage.Mpc      (HasMpcStorage (mpcStorage), MpcStorage,
-                                             calculateLeaders, getGlobalMpcData,
+import           Pos.State.Storage.Mpc      (calculateLeaders, getGlobalMpcData,
                                              getGlobalMpcDataByDepth, getLocalMpcData,
                                              getOurCommitment, getOurOpening,
                                              getOurShares, getSecret, mpcApplyBlocks,
@@ -92,7 +95,7 @@ type Update a = forall m. MonadState Storage m => m a
 
 data Storage = Storage
     { -- | State of MPC.
-      __mpcStorage   :: !MpcStorage
+      __mpcStorage   :: !(SscStorage SscDynamicState)
     , -- | Transactions part of /static-state/.
       __txStorage    :: !TxStorage
     , -- | Blockchain part of /static-state/.
@@ -106,8 +109,8 @@ data Storage = Storage
 makeClassy ''Storage
 deriveSafeCopySimple 0 'base ''Storage
 
-instance HasMpcStorage Storage where
-    mpcStorage = _mpcStorage
+instance (ssc ~ SscDynamicState) => HasSscStorage ssc Storage where
+    sscStorage = _mpcStorage
 instance HasTxStorage Storage where
     txStorage = _txStorage
 instance HasBlockStorage Storage SscDynamicState where

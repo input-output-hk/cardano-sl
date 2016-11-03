@@ -159,7 +159,7 @@ getLeader SlotId {..} = (preview $ _Just . ix (fromIntegral siSlot)) <$> getLead
 -- | Get depth of the first main block whose SlotId ≤ given value.
 -- Depth of the deepest (i. e. 0-th genesis) block is returned if
 -- there is no such block.
-getSlotDepth :: forall ssc. SscTypes ssc => SlotId -> Query ssc Word
+getSlotDepth :: SlotId -> Query ssc Word
 getSlotDepth slotId = do
     headBlock <- getHeadBlock
     getSlotDepthDo 0 headBlock

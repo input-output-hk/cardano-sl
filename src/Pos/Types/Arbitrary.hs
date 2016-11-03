@@ -69,7 +69,6 @@ instance Arbitrary SecretProof where
 -- Arbitrary core types
 ----------------------------------------------------------------------------
 
---deriving instance Arbitrary Coin
 deriving instance Arbitrary Address
 deriving instance Arbitrary FtsSeed
 deriving instance Arbitrary ChainDifficulty

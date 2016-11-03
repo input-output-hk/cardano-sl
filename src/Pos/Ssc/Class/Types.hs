@@ -6,7 +6,6 @@ module Pos.Ssc.Class.Types
        ) where
 
 import           Data.Binary         (Binary)
-import           Data.MessagePack    (MessagePack)
 import           Data.SafeCopy       (SafeCopy)
 import           Data.Tagged         (Tagged)
 import           Data.Text.Buildable (Buildable)
@@ -20,8 +19,6 @@ class (Typeable ssc
       ,Buildable (SscPayload ssc)
       ,Binary (SscProof ssc)
       ,Binary (SscPayload ssc)
-      ,MessagePack (SscProof ssc)
-      ,MessagePack (SscPayload ssc)
       ,SafeCopy (SscProof ssc)
       ,SafeCopy (SscPayload ssc)) =>
       SscTypes ssc where

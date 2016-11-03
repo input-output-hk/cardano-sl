@@ -12,7 +12,6 @@ module Pos.Communication.Types.Mpc
        ) where
 
 import           Data.Binary          (Binary)
-import           Data.MessagePack     (MessagePack)
 import           Universum
 
 import           Control.TimeWarp.Rpc (Message (..))
@@ -44,11 +43,6 @@ instance Binary SendOpening
 instance Binary SendShares
 instance Binary SendVssCertificate
 
-instance MessagePack SendCommitment
-instance MessagePack SendOpening
-instance MessagePack SendShares
-instance MessagePack SendVssCertificate
-
 instance Message SendCommitment where
     messageName _ = "SendCommitment"
 
@@ -60,10 +54,3 @@ instance Message SendShares where
 
 instance Message SendVssCertificate where
     messageName _ = "SendVssCertificate"
-
-{-
-mkRequest' ''SendCommitment ''() ''Void
-mkRequest' ''SendOpening ''() ''Void
-mkRequest' ''SendShares ''() ''Void
-mkRequest' ''SendVssCertificate ''() ''Void
--}

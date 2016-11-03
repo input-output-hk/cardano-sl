@@ -435,12 +435,6 @@ instance ( Binary (BodyProof b)
          ) =>
          Binary (GenericBlockHeader b)
 
-instance ( MessagePack (BodyProof b)
-         , MessagePack (ConsensusData b)
-         , MessagePack (ExtraHeaderData b)
-         ) =>
-         MessagePack (GenericBlockHeader b)
-
 -- | In general Block consists of header and body. It may contain
 -- extra data as well.
 data GenericBlock b = GenericBlock
@@ -466,14 +460,6 @@ instance ( Binary (BodyProof b)
          , Binary (ExtraBodyData b)
          ) =>
          Binary (GenericBlock b)
-
-instance ( MessagePack (BodyProof b)
-         , MessagePack (ConsensusData b)
-         , MessagePack (ExtraHeaderData b)
-         , MessagePack (Body b)
-         , MessagePack (ExtraBodyData b)
-         ) =>
-         MessagePack (GenericBlock b)
 
 ----------------------------------------------------------------------------
 -- MainBlock
@@ -537,10 +523,6 @@ deriving instance SscTypes ssc => Show (Body (MainBlockchain ssc))
 instance SscTypes ssc => Binary (BodyProof (MainBlockchain ssc))
 instance SscTypes ssc => Binary (ConsensusData (MainBlockchain ssc))
 instance SscTypes ssc => Binary (Body (MainBlockchain ssc))
-
-instance SscTypes ssc => MessagePack (BodyProof (MainBlockchain ssc))
-instance SscTypes ssc => MessagePack (ConsensusData (MainBlockchain ssc))
-instance SscTypes ssc => MessagePack (Body (MainBlockchain ssc))
 
 type MainBlockHeader ssc = GenericBlockHeader (MainBlockchain ssc)
 

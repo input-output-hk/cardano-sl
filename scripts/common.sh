@@ -17,8 +17,10 @@ function ensure_run {
   mkdir -p "$run_dir"
 }
 
+LOGS_TIME=`date '+%F_%H%M%S'`
+
 function ensure_logs {
-  logs_dir="$base_common/../logs/"`date '+%F_%H%M%S'`
+  logs_dir="$base_common/../logs/$LOGS_TIME"
 
 	mkdir -p "$logs_dir"
 

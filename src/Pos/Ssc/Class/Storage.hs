@@ -12,6 +12,7 @@ module Pos.Ssc.Class.Storage
        ) where
 
 import           Control.Lens            (Lens')
+import           Serokell.Util.Verify    (VerificationRes)
 import           Universum
 
 import           Pos.Ssc.Class.Types     (SscTypes (..))
@@ -51,5 +52,10 @@ class SscTypes ssc => SscStorageClass ssc where
     sscGetLocalPayload :: SscQuery ssc (SscPayload ssc)
     sscGetGlobalPayload :: SscQuery ssc (SscPayload ssc)
     sscGetGlobalPayloadByDepth :: Word -> SscQuery ssc (Maybe (SscPayload ssc))
+    -- | Verify Ssc-related predicates of block sequence which is
+    -- about to be applied. It should check that SSC payload will be
+    -- consistent if this blocks are applied (after possible rollback
+    -- if first argument isn't zero).
+    sscVerifyBlocks :: Word -> AltChain ssc -> SscQuery ssc VerificationRes
 
     -- TODO: move the rest of methods here

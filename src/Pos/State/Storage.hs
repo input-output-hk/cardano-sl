@@ -70,8 +70,7 @@ import           Pos.State.Storage.Block    (BlockStorage, HasBlockStorage (bloc
                                              getHeadBlock, getLeaders, getSlotDepth,
                                              mayBlockBeUseful)
 import           Pos.State.Storage.Mpc      (getOurCommitment, getOurOpening,
-                                             getOurShares, getSecret, mpcVerifyBlocks,
-                                             setSecret)
+                                             getOurShares, getSecret, setSecret)
 import qualified Pos.State.Storage.Mpc      as Mpc (calculateLeaders)
 import           Pos.State.Storage.Stats    (HasStatsData (statsData), IdTimestamp (..),
                                              StatsData, addStatRecord, getStatRecords)
@@ -209,7 +208,7 @@ processBlockDo curSlotId blk = do
     r <- blkProcessBlock curSlotId blk
     case r of
         PBRgood (toRollback, chain) -> do
-            mpcRes <- readerToState $ mpcVerifyBlocks toRollback chain
+            mpcRes <- readerToState $ sscVerifyBlocks toRollback chain
             txRes <- readerToState $ txVerifyBlocks toRollback chain
             case mpcRes <> txRes of
                 VerSuccess        -> processBlockFinally toRollback chain

@@ -22,7 +22,6 @@ module Pos.State.Storage.Mpc
        , getOurShares
        , getSecret
        , setSecret
-       , mpcVerifyBlocks
        --, traceMpcLastVer
        ) where
 
@@ -87,6 +86,7 @@ instance SscStorageClass SscDynamicState where
     sscGetLocalPayload = getLocalPayload
     sscGetGlobalPayload = getGlobalMpcData
     sscGetGlobalPayloadByDepth = getGlobalMpcDataByDepth
+    sscVerifyBlocks = mpcVerifyBlocks
 
 dsVersioned
     :: HasSscStorage SscDynamicState a
@@ -401,13 +401,9 @@ mpcVerifyBlock (Right b) = do
         , [ otherChecks ]
         ]
 
--- | Verify MPC-related predicates of blocks sequence which is about to be
--- applied. It should check that MPC messages will be consistent if this
--- blocks are applied (after possible rollback if 'toRollback' isn't zero).
---
 -- TODO:
---   * verification messages should include block hash/slotId
---   * we should stop at first failing block
+--   ★ verification messages should include block hash/slotId
+--   ★ we should stop at first failing block
 mpcVerifyBlocks :: Word -> AltChain SscDynamicState -> Query VerificationRes
 mpcVerifyBlocks toRollback blocks = do
     curState <- view (sscStorage @SscDynamicState)

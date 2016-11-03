@@ -59,7 +59,7 @@ import           Universum
 import           Pos.Constants              (k)
 import           Pos.Crypto                 (PublicKey, SecretKey, Share, Threshold,
                                              VssPublicKey, signedValue)
-import           Pos.Ssc.Class.Storage      (HasSscStorage (..))
+import           Pos.Ssc.Class.Storage      (HasSscStorage (..), SscStorageClass (..))
 import           Pos.Ssc.Class.Types        (SscTypes (..))
 import           Pos.Ssc.DynamicState.Types (SscDynamicState, _mdVssCertificates)
 import           Pos.State.Storage.Block    (BlockStorage, HasBlockStorage (blockStorage),
@@ -71,11 +71,11 @@ import           Pos.State.Storage.Block    (BlockStorage, HasBlockStorage (bloc
 import           Pos.State.Storage.Mpc      (calculateLeaders, getGlobalMpcData,
                                              getGlobalMpcDataByDepth, getLocalMpcData,
                                              getOurCommitment, getOurOpening,
-                                             getOurShares, getSecret, mpcApplyBlocks,
-                                             mpcProcessCommitment, mpcProcessNewSlot,
-                                             mpcProcessOpening, mpcProcessShares,
-                                             mpcProcessVssCertificate, mpcRollback,
-                                             mpcVerifyBlock, mpcVerifyBlocks, setSecret)
+                                             getOurShares, getSecret,
+                                             mpcProcessCommitment, mpcProcessOpening,
+                                             mpcProcessShares, mpcProcessVssCertificate,
+                                             mpcRollback, mpcVerifyBlock, mpcVerifyBlocks,
+                                             setSecret)
 import           Pos.State.Storage.Stats    (HasStatsData (statsData), IdTimestamp (..),
                                              StatsData, addStatRecord, getStatRecords)
 import           Pos.State.Storage.Tx       (HasTxStorage (txStorage), TxStorage,
@@ -149,7 +149,7 @@ createNewBlockDo sk sId = do
     mpcData <- readerToState getLocalMpcData
     blk <- blkCreateNewBlock sk sId txs mpcData
     let blocks = Right blk :| []
-    mpcApplyBlocks blocks
+    sscApplyBlocks blocks
     blk <$ txApplyBlocks blocks
 
 canCreateBlock :: SlotId -> Query Bool
@@ -197,7 +197,7 @@ processBlockFinally :: Word
                     -> Update (ProcessBlockRes SscDynamicState)
 processBlockFinally toRollback blocks = do
     mpcRollback toRollback
-    mpcApplyBlocks blocks
+    sscApplyBlocks blocks
     txRollback toRollback
     txApplyBlocks blocks
     blkRollback toRollback
@@ -231,7 +231,7 @@ processNewSlotDo sId@SlotId {..} = do
     when (siSlot == 0) $
         createGenesisBlock siEpoch
     blkCleanUp sId
-    mpcProcessNewSlot sId
+    sscPrepareToNewSlot sId
 
 -- We create genesis block for i-th epoch when head of currently known
 -- best chain is MainBlock corresponding to one of last `k` slots of
@@ -267,7 +267,7 @@ createGenesisBlockDo epoch = do
     genBlock <- Left <$> blkCreateGenesisBlock epoch leaders
     -- Genesis block contains no transactions,
     --    so we should update only MPC
-    mpcApplyBlocks $ genBlock :| []
+    sscApplyBlocks $ genBlock :| []
 
 calculateLeadersDo :: EpochIndex -> Query SlotLeaders
 calculateLeadersDo epoch = do

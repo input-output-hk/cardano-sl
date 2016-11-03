@@ -24,9 +24,7 @@ module Pos.State.Storage.Mpc
        , getOurShares
        , getSecret
        , setSecret
-       , mpcApplyBlocks
        , mpcProcessCommitment
-       , mpcProcessNewSlot
        , mpcProcessOpening
        , mpcProcessShares
        , mpcProcessVssCertificate

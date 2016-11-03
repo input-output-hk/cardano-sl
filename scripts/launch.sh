@@ -15,7 +15,7 @@ mode=$2
 while [[ $i -lt $n ]]; do
     im=$((i%4))
     ir=$((i/4))
-    if [[ $i == 0 ]]; then
+    if [[ $im == 0 ]]; then
         tmux new-window -n "cardano-demo-"`date +%F_%H%M%S`-"$i"
         tmux split-window -h
         tmux split-window -v

@@ -14,17 +14,21 @@ import qualified Data.List.NonEmpty       as NE
 import           Formatting               (build, int, sformat, (%))
 import           Serokell.Util            (listJson)
 import           Test.Hspec               (Spec, describe, pending)
-import           Test.Hspec.QuickCheck    (modifyMaxSize, modifyMaxSuccess, prop)
-import           Test.QuickCheck          (Property, choose, counterexample, generate,
-                                           ioProperty, property, sized, (===))
+import           Test.Hspec.QuickCheck    (modifyMaxSize, modifyMaxSuccess,
+                                           prop)
+import           Test.QuickCheck          (Property, choose, counterexample,
+                                           generate, ioProperty, property,
+                                           sized, (===))
 import           Test.QuickCheck.Property (failed, succeeded)
 import           Universum
 
-import           Pos.Crypto               (KeyPair (..), Share, Threshold, VssKeyPair,
-                                           decryptShare, sign, toVssPublicKey)
+import           Pos.Crypto               (KeyPair (..), Share, Threshold,
+                                           VssKeyPair, decryptShare, sign,
+                                           toVssPublicKey)
 import           Pos.FollowTheSatoshi     (FtsError (..), calculateSeed)
-import           Pos.Types                (Commitment (..), CommitmentsMap, FtsSeed (..),
-                                           Opening (..), genCommitmentAndOpening,
+import           Pos.Types                (Commitment (..), CommitmentsMap,
+                                           FtsSeed (..), Opening (..),
+                                           genCommitmentAndOpening,
                                            secretToFtsSeed, xorFtsSeed)
 import           Pos.Util                 (nonrepeating, sublistN)
 

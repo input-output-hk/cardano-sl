@@ -1,6 +1,6 @@
-name:                pos
+name:                cardano-sl
 version:             0.1.0.0
-synopsis:            Proof-of-stake
+synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             BSD3
 license-file:        LICENSE
@@ -52,6 +52,9 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
+                        Pos.Ssc.Class.Types
+                        Pos.Ssc.Class.Storage
+                        Pos.Ssc.DynamicState.Types
                         Pos.State.Acidic
                         Pos.State.State
                         Pos.State.Storage
@@ -101,9 +104,10 @@ library
                       , hashable
                       , kademlia
                       , lens
-                      , list-t == 1
+                      , lifted-async
                       , lrucache
                       , memory
+                      , monad-control
                       , mtl
                       , parsec
                       , pvss
@@ -112,6 +116,7 @@ library
                       , safecopy
                       , serokell-core
                       , stm
+                      , tagged
                       , stm-containers
                       , template-haskell
                       , text
@@ -120,7 +125,8 @@ library
                       , time-units
                       , time-warp
                       , transformers
-                      , universum
+                      , transformers-base
+                      , universum >= 0.1.9
                       , unordered-containers
                       , vector
                       , yaml
@@ -135,22 +141,22 @@ library
                       , NoImplicitPrelude
                       , GeneralizedNewtypeDeriving
 
-executable pos-node
+executable cardano-node
   hs-source-dirs:      src/node
   main-is:             Main.hs
   build-depends:       base
                      , data-default
                      , binary
                      , bytestring
+                     , cardano-sl
                      , directory
                      , filepath
                      , formatting
                      , optparse-simple
                      , parsec
-                     , pos
                      , serokell-core
                      , time-warp
-                     , universum
+                     , universum >= 0.1.9
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -162,18 +168,18 @@ executable pos-node
                      , NoImplicitPrelude
                      , GeneralizedNewtypeDeriving
 
-executable pos-wallet
+executable cardano-wallet
   hs-source-dirs:      src/wallet
   main-is:             Main.hs
   build-depends:       base
                      , data-default
+                     , cardano-sl
                      , formatting
                      , optparse-applicative
                      , parsec
-                     , pos
                      , serokell-core
                      , time-warp
-                     , universum
+                     , universum >= 0.1.9
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -185,7 +191,7 @@ executable pos-wallet
                      , NoImplicitPrelude
                      , GeneralizedNewtypeDeriving
 
-test-suite pos-test
+test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec
                      , Test.Pos.CryptoSpec
@@ -205,19 +211,19 @@ test-suite pos-test
                      , base
                      , binary
                      , bytestring
+                     , cardano-sl
                      , cereal
                      , cryptonite
                      , data-msgpack
                      , formatting
                      , hspec
                      , memory
-                     , pos
                      , random
                      , safecopy
                      , serokell-core
                      , time-units
                      , time-warp
-                     , universum
+                     , universum >= 0.1.9
                      , unordered-containers
   hs-source-dirs:      test
   default-language:    Haskell2010
@@ -231,7 +237,7 @@ test-suite pos-test
                      , GeneralizedNewtypeDeriving
                      , NoImplicitPrelude
 
-benchmark pos-bench-criterion
+benchmark cardano-bench-criterion
   hs-source-dirs:      bench
   main-is:             Local/Criterion.hs
   other-modules:       Bench.Pos.Criterion.FollowTheSatoshiBench
@@ -240,11 +246,11 @@ benchmark pos-bench-criterion
                      , base
                      , binary
                      , bytestring
+                     , cardano-sl
                      , containers
                      , criterion
                      , formatting
-                     , pos
-                     , universum
+                     , universum >= 0.1.9
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -with-rtsopts=-N
@@ -257,7 +263,7 @@ benchmark pos-bench-criterion
                      , GeneralizedNewtypeDeriving
                      , NoImplicitPrelude
 
-benchmark pos-bench-remote-single
+benchmark cardano-bench-remote-single
   hs-source-dirs:      bench
   main-is:             Remote/Single.hs
   other-modules:       Bench.Pos.Remote.Config
@@ -267,15 +273,15 @@ benchmark pos-bench-remote-single
                      , base
                      , binary
                      , bytestring
+                     , cardano-sl
                      , containers
                      , data-default
                      , formatting
                      , optparse-applicative
                      , parsec
-                     , pos
                      , serokell-core
                      , time-warp
-                     , universum
+                     , universum >= 0.1.9
                      , yaml
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
@@ -289,7 +295,7 @@ benchmark pos-bench-remote-single
                      , GeneralizedNewtypeDeriving
                      , NoImplicitPrelude
 
-benchmark pos-stats-collector
+benchmark cardano-stats-collector
   hs-source-dirs:      bench
   main-is:             Remote/Collector.hs
   other-modules:       Bench.Pos.Remote.Config
@@ -298,14 +304,14 @@ benchmark pos-stats-collector
   build-depends:       aeson
                      , base
                      , containers
+                     , cardano-sl
                      , data-default
                      , formatting
                      , optparse-applicative
                      , parsec
-                     , pos
                      , serokell-core
                      , time-warp
-                     , universum
+                     , universum >= 0.1.9
                      , yaml
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
@@ -318,20 +324,20 @@ benchmark pos-stats-collector
                      , NoImplicitPrelude
                      , GeneralizedNewtypeDeriving
 
-benchmark pos-tx-generator
+benchmark cardano-tx-generator
   hs-source-dirs:      bench
   main-is:             Remote/TxGen.hs
   type:                exitcode-stdio-1.0
   build-depends:       base
                      , data-default
+                     , cardano-sl
                      , formatting
                      , optparse-applicative
                      , parsec
-                     , pos
                      , random
                      , serokell-core
                      , time-warp
-                     , universum
+                     , universum >= 0.1.9
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall

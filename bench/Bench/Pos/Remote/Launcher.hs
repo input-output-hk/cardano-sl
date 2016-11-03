@@ -65,14 +65,18 @@ startSupporter config = do
             ("Invalid type of DHT key: " %shown %
              " (should be `Just DHTSupporter`)")
             keyType
-    let logging = benchLogging { lpRootLogger = "supporter"}
-        params =
-            BaseParams
-            { bpLogging = logging
-            , bpPort = scPort
-            , bpDHTPeers = []
-            , bpDHTKeyOrType = Left dhtKey
-            }
+
+    let logging = benchLogging
+                  { lpRootLogger = "supporter"
+                  }
+        params = BaseParams
+                 { bpLogging = logging
+                 , bpPort = scPort
+                 , bpDHTPeers = []
+                 , bpDHTKeyOrType = Left dhtKey
+                 , bpDHTExplicitInitial = False
+                 }
+
     runSupporterReal params
 
 startFullNode :: FilePath -> NodeNumber -> Bool -> IO ()
@@ -97,6 +101,7 @@ startFullNode config nodeNumber isTimeLord = do
             , bpPort = fncPort
             , bpDHTPeers = [dhtSupporter]
             , bpDHTKeyOrType = Right DHTFull
+            , bpDHTExplicitInitial = False
             }
         getSystemStart = bool runSlave runLord isTimeLord
         runSlave =
@@ -144,6 +149,7 @@ startCollector config = do
             , bpPort = 8095
             , bpDHTPeers = []
             , bpDHTKeyOrType = Right DHTClient
+            , bpDHTExplicitInitial = False
             }
 
     ch <- C.newChan

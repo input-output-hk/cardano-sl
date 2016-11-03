@@ -52,6 +52,7 @@ import           Control.TimeWarp.Rpc      (BinaryP, HeaderNContentData, Message
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Data.Binary               (Binary)
 import qualified Data.ByteString           as BS
+import           Data.Hashable             (Hashable)
 import           Data.Proxy                (Proxy (Proxy))
 import           Data.Text.Buildable       (Buildable (..))
 import           Data.Text.Lazy            (unpack)
@@ -115,7 +116,7 @@ class MonadDHT m => MonadMessageDHT m where
     sendToNode = defaultSendToNode
 
     default sendToNeighbors :: (Binary r, Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
-    sendToNeighbors = defaultSendToNeighbors
+    sendToNeighbors = defaultSendToNeighbors sequence
 
 class MonadMessageDHT m => MonadResponseDHT m where
   replyToNode :: (Binary r, Message r) => r -> m ()
@@ -149,8 +150,8 @@ defaultSendToNeighbors
        , MonadCatch m
        , MonadIO m
        )
-    => r -> m Int
-defaultSendToNeighbors msg = do
+    => ([m Bool] -> m [Bool]) -> r -> m Int
+defaultSendToNeighbors parallelize msg = do
     withDhtLogger $
       logDebug $ sformat ("Sending message " % F.build % " neighbors") (messageName' msg)
     nodes <- filterByNodeType DHTFull <$> getKnownPeers
@@ -170,8 +171,7 @@ defaultSendToNeighbors msg = do
             (neighborsSendThreshold :: Int)
     return succeed'
   where
-    -- TODO make this function asynchronous after presenting some `MonadAsync` constraint
-    sendToNodes nodes = length . filter identity <$> mapM send' nodes
+    sendToNodes nodes = length . filter identity <$> parallelize (map send' nodes)
     send' node = (sendToNode (dhtAddr node) msg >> return True) `catch` handleE
       where
         handleE (e :: SomeException) = do
@@ -183,7 +183,7 @@ newtype DHTData = DHTData ()
 
 -- DHTKey should be strictly 20-byte long
 newtype DHTKey = DHTKey { dhtKeyBytes :: BS.ByteString }
-  deriving (Eq, Ord, Binary)
+  deriving (Eq, Ord, Binary, Hashable)
 
 instance Buildable DHTKey where
     build key@(DHTKey bs) = buildType (dhtNodeType key)

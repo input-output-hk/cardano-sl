@@ -12,23 +12,30 @@ import qualified Data.Binary               as Binary
 import           Universum
 
 import           Pos.Crypto.Hashing        (hash)
+import           Pos.Ssc.Class.Types       (SscTypes)
 import           Pos.Statistics.MonadStats (MonadStats (..), StatEntry)
 import           Pos.Types                 (Block, BlockHeader, Timestamp (..),
                                             getBlockHeader)
 import           Pos.WorkMode              (WorkMode)
 
-logBlockHeader :: WorkMode m => BlockHeader -> m StatEntry
+logBlockHeader
+    :: (SscTypes ssc, WorkMode m)
+    => BlockHeader ssc -> m StatEntry
 logBlockHeader header = do
     ts <- Timestamp <$> liftIO (runTimedIO currentTime)
     return (Binary.encode $ hash header, ts)
 
-statlogReceivedBlockHeader, statlogSentBlockHeader :: WorkMode m => BlockHeader -> m ()
+statlogReceivedBlockHeader, statlogSentBlockHeader
+    :: (SscTypes ssc, WorkMode m)
+    => BlockHeader ssc -> m ()
 statlogReceivedBlockHeader = logStatM "received_block_header" . logBlockHeader
 statlogSentBlockHeader = logStatM "sent_block_header" . logBlockHeader
 
-logBlock :: WorkMode m => Block -> m StatEntry
+logBlock :: (SscTypes ssc, WorkMode m) => Block ssc -> m StatEntry
 logBlock = logBlockHeader . getBlockHeader
 
-statlogReceivedBlock, statlogSentBlock :: WorkMode m => Block -> m ()
+statlogReceivedBlock, statlogSentBlock
+    :: (SscTypes ssc, WorkMode m)
+    => Block ssc -> m ()
 statlogReceivedBlock = logStatM "received_block_body" . logBlock
 statlogSentBlock = logStatM "sent_log_body" . logBlock

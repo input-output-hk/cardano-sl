@@ -5,7 +5,6 @@ module Main where
 import           Data.Default               (def)
 
 import           Control.Applicative        (empty)
-import           Control.Concurrent         (threadDelay)
 import           Control.Monad              (fail)
 import           Control.TimeWarp.Logging   (Severity (Debug, Info))
 import           Data.Binary                (Binary, decode, encode)
@@ -20,7 +19,8 @@ import           Pos.Constants              (RunningMode (..), runningMode)
 import           Pos.Crypto                 (keyGen, vssKeyGen)
 import           Pos.DHT                    (DHTKey, DHTNode, DHTNodeType (..),
                                              dhtNodeType)
-import           Pos.Genesis                (genesisSecretKeys, genesisVssKeyPairs)
+import           Pos.Genesis                (genesisSecretKeys, genesisUtxoPetty,
+                                             genesisVssKeyPairs)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), runNodeReal,
                                              runSupporterReal, runTimeLordReal,
@@ -38,6 +38,7 @@ data Args = Args
     , spendingSecretPath :: !(Maybe FilePath)
     , vssSecretPath      :: !(Maybe FilePath)
     , port               :: !Word16
+    , pettyUtxo          :: !Bool
     , dhtPeers           :: ![DHTNode]
     , supporterNode      :: !Bool
     , dhtKey             :: !(Maybe DHTKey)
@@ -46,6 +47,7 @@ data Args = Args
     , commLogSeverity    :: !(Maybe Severity)
     , serverLogSeverity  :: !(Maybe Severity)
     , timeLord           :: !Bool
+    , dhtExplicitInitial :: !Bool
     }
   deriving Show
 
@@ -72,6 +74,7 @@ argsParser =
         auto
         (long "port" <> metavar "INTEGER" <> value 3000 <> showDefault <>
          help "Port to work on") <*>
+    switch (long "petty-utxo" <> help "Petty utxo (1 coin per transaction, many txs)") <*>
     many
         (option (fromParsec dhtNodeParser) $
          long "peer" <> metavar "HOST:PORT/HOST_ID" <>
@@ -99,7 +102,8 @@ argsParser =
          metavar "SEVERITY",
          help "Server log severity"
         ]) <*>
-    switch (long "time-lord" <> help "Peer is time lord, i.e. one responsible for system start time decision & propagation (used only in development)")
+    switch (long "time-lord" <> help "Peer is time lord, i.e. one responsible for system start time decision & propagation (used only in development)") <*>
+    switch (long "explicit-initial" <> help "Explicitely contact to initial peers as to neighbors (even if they appeared offline once)")
   where
     peerHelpMsg = "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""
 
@@ -107,11 +111,11 @@ getKey :: Binary key => Maybe key -> Maybe FilePath -> FilePath -> IO key -> IO 
 getKey (Just key) _ _ _ = return key
 getKey _ (Just path) _ _ = decode' path
 getKey _ _ fpath gen = do
-    createDirectoryIfMissing True "pos-keys"
-    decode' ("pos-keys" </> fpath) `catch` \(_ :: SomeException) -> do
+    createDirectoryIfMissing True "cardano-keys"
+    decode' ("cardano-keys" </> fpath) `catch` \(_ :: SomeException) -> do
         key <- gen
-        LBS.writeFile ("pos-keys" </> fpath) $ encode key
-        putStrLn $ "Generated key " ++ ("pos-keys" </> fpath)
+        LBS.writeFile ("cardano-keys" </> fpath) $ encode key
+        putStrLn $ "Generated key " ++ ("cardano-keys" </> fpath)
         return key
 
 decode' :: Binary key => FilePath -> IO key
@@ -122,7 +126,7 @@ decode' fpath = either fail' return . decode =<< LBS.readFile fpath
 main :: IO ()
 main = do
     (args@Args {..},()) <-
-        simpleOptions "pos-node" "PoS prototype node" "Use it!" argsParser empty
+        simpleOptions "cardano-node" "PoS prototype node" "Use it!" argsParser empty
     case dhtKey of
       Just key -> do
         let type_ = dhtNodeType key
@@ -144,7 +148,7 @@ main = do
       case runningMode of
         Development -> if timeLord args
                           then runTimeLordReal (loggingParams "time-lord" args)
-                          else runTimeSlaveReal (baseParams "time-slave" args) <* threadDelay (3 * 1000 * 1000)
+                          else runTimeSlaveReal (baseParams "time-slave" args)
         Production systemStart -> return systemStart
     loggingParams logger Args{..} =
         def
@@ -162,6 +166,7 @@ main = do
         , bpDHTKeyOrType = if supporterNode
                               then maybe (Right DHTSupporter) Left dhtKey
                               else maybe (Right DHTFull) Left dhtKey
+        , bpDHTExplicitInitial = dhtExplicitInitial
         }
     params args@Args{..} spendingSK vssSK systemStart =
         NodeParams
@@ -171,5 +176,7 @@ main = do
         , npSecretKey = spendingSK
         , npVssKeyPair = vssSK
         , npBaseParams = baseParams "node" args
-        , npCustomUtxo = Nothing
+        , npCustomUtxo = if pettyUtxo
+                         then Just $ genesisUtxoPetty 20000
+                         else Nothing
         }

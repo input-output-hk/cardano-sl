@@ -8,6 +8,7 @@ module Pos.Genesis
        , genesisPublicKeys
        , genesisSecretKeys
        , genesisUtxo
+       , genesisUtxoPetty
 
        -- * MPC
        , genesisCertificates
@@ -27,7 +28,7 @@ import           Pos.Constants       (epochSlots, genesisN)
 import           Pos.Crypto          (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
                                       deterministicKeyGen, deterministicVssKeyGen,
                                       mkSigned, toVssPublicKey, unsafeHash)
-import           Pos.Types           (Address (Address), SlotLeaders, TxOut (..), Utxo,
+import           Pos.Types.Types     (Address (Address), SlotLeaders, TxOut (..), Utxo,
                                       VssCertificatesMap)
 
 
@@ -58,7 +59,15 @@ genesisAddresses = map Address genesisPublicKeys
 
 genesisUtxo :: Utxo
 genesisUtxo =
-    M.fromList $ map (\a -> ((unsafeHash a, 0), TxOut a 10000)) genesisAddresses
+    M.fromList . take 3 $
+    map (\a -> ((unsafeHash a, 0), TxOut a 10000)) genesisAddresses
+
+-- | For every static stakeholder it generates `k` coins, but in `k`
+-- transaction (1 coin each), where `k` is input parameter.
+genesisUtxoPetty :: Int -> Utxo
+genesisUtxoPetty k =
+    M.fromList $ flip concatMap genesisAddresses $ \a ->
+        map (\i -> ((unsafeHash (show a ++ show i), 0), TxOut a 1)) [1..k]
 
 ----------------------------------------------------------------------------
 -- MPC, leaders

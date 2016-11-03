@@ -25,10 +25,11 @@ import           Pos.Communication.Types  (SendBlockHeader (..), SendCommitment 
                                            SendTxs (..), SendVssCertificate (..))
 import           Pos.Crypto               (PublicKey, Share)
 import           Pos.DHT                  (sendToNeighbors, sendToNode)
+import           Pos.Ssc.Class.Types      (SscTypes)
 import           Pos.Statistics           (statlogSentBlockHeader, statlogSentTx)
 import           Pos.Types                (MainBlockHeader, Opening, SignedCommitment, Tx,
                                            VssCertificate)
-import           Pos.Util                 (logWarningLongAction, messageName')
+import           Pos.Util                 (logWarningWaitLinear, messageName')
 import           Pos.WorkMode             (WorkMode)
 
 sendToNeighborsSafe :: (Binary r, Message r, WorkMode m) => r -> m ()
@@ -36,13 +37,13 @@ sendToNeighborsSafe msg = do
     let msgName = messageName' msg
     let action = () <$ sendToNeighbors msg
     fork_ $
-        logWarningLongAction ("Sending " <> msgName <> " to neighbors") 10 action
+        logWarningWaitLinear 10 ("Sending " <> msgName <> " to neighbors") action
 
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.
 announceBlock
-    :: WorkMode m
-    => MainBlockHeader -> m ()
+    :: (SscTypes ssc, WorkMode m)
+    => MainBlockHeader ssc -> m ()
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     statlogSentBlockHeader $ Right header

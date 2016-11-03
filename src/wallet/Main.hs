@@ -76,6 +76,7 @@ main = do
                                       , bpPort = 24962
                                       , bpDHTPeers = stDHTPeers
                                       , bpDHTKeyOrType = Right DHTClient
+                                      , bpDHTExplicitInitial = False
                                       }
                     , npCustomUtxo = Nothing
                     }

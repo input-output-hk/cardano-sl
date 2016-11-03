@@ -30,7 +30,7 @@ import qualified Data.List.NonEmpty      as NE
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Formatting              (build, int, sformat, (%))
 import           Pos.Genesis             (genesisUtxo)
-import           Pos.State.Storage.Types (AltChain)
+import           Pos.State.Storage.Types (AltChain, ProcessTxRes (..), mkPTRinvalid)
 import           Pos.Types               (Block, SlotId, Tx (..), Utxo, applyTxToUtxo,
                                           blockSlot, blockTxs, slotIdF, verifyTxUtxo)
 import           Serokell.Util           (VerificationRes (..), isVerSuccess)
@@ -70,7 +70,7 @@ type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
 getLocalTxs :: Query (HashSet Tx)
 getLocalTxs = view txLocalTxs
 
-txVerifyBlocks :: Word -> AltChain -> Query VerificationRes
+txVerifyBlocks :: Word -> AltChain ssc -> Query VerificationRes
 txVerifyBlocks (fromIntegral -> toRollback) newChain = do
     mUtxo <- preview (txUtxoHistory . ix toRollback)
     return $ case mUtxo of
@@ -103,13 +103,17 @@ type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
 
 -- | Add transaction to storage if it is fully valid. Returns True iff
 -- transaction has been added.
-processTx :: Tx -> Update Bool
+processTx :: Tx -> Update ProcessTxRes
 processTx tx = do
-    good <- verifyTx tx
-    good <$ when good (txLocalTxs %= HS.insert tx >> applyTx tx)
+    ifM (HS.member tx <$> use txLocalTxs) (pure PTRknown) $
+        do verRes <- verifyTx tx
+           case verRes of
+               VerSuccess ->
+                   PTRadded <$ (txLocalTxs %= HS.insert tx >> applyTx tx)
+               VerFailure errors -> pure . mkPTRinvalid $ errors
 
-verifyTx :: Tx -> Update Bool
-verifyTx tx = isVerSuccess . flip verifyTxUtxo tx <$> use txUtxo
+verifyTx :: Tx -> Update VerificationRes
+verifyTx tx = flip verifyTxUtxo tx <$> use txUtxo
 
 applyTx :: Tx -> Update ()
 applyTx tx = txUtxo %= applyTxToUtxo tx
@@ -119,12 +123,12 @@ removeLocalTx tx = txLocalTxs %= HS.delete tx
 
 -- | Apply chain of definitely valid blocks which go right after last
 -- applied block.
-txApplyBlocks :: AltChain -> Update ()
+txApplyBlocks :: AltChain ssc -> Update ()
 txApplyBlocks blocks = do
     mapM_ txApplyBlock blocks
     filterLocalTxs
 
-txApplyBlock :: Block -> Update ()
+txApplyBlock :: Block ssc -> Update ()
 txApplyBlock (Left _) = do
     utxo <- use txUtxo
     txUtxoHistory %= (utxo:)
@@ -150,4 +154,4 @@ txRollback (fromIntegral -> n) = do
 filterLocalTxs :: Update ()
 filterLocalTxs = do
     txs <- uses txLocalTxs toList
-    txLocalTxs <~ HS.fromList <$> filterM verifyTx txs
+    txLocalTxs <~ HS.fromList <$> filterM (fmap isVerSuccess . verifyTx) txs

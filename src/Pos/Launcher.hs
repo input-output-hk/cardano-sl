@@ -23,43 +23,47 @@ module Pos.Launcher
        , runRealMode
        ) where
 
-import           Control.Concurrent.MVar  (newEmptyMVar, takeMVar)
-import           Control.TimeWarp.Logging (LoggerName, Severity (Warning),
-                                           WithNamedLogger, initLogging, logError,
-                                           logInfo, logWarning, setSeverity,
-                                           setSeverityMaybe, usingLoggerName)
-import           Control.TimeWarp.Rpc     (BinaryP (..), Dialog, MonadDialog,
-                                           NetworkAddress, Transfer, runDialog,
-                                           runTransfer)
-import           Control.TimeWarp.Timed   (MonadTimed, currentTime, for, fork, killThread,
-                                           ms, repeatForever, runTimedIO, sec,
-                                           sleepForever, wait)
-import           Data.Default             (Default (def))
-import qualified Data.Time                as Time
-import           Formatting               (build, sformat, shown, (%))
-import           Universum                hiding (killThread)
 
-import           Pos.Communication        (SysStartRequest (..), allListeners,
-                                           noCacheMessageNames, sendTx, serverLoggerName,
-                                           statsListener, sysStartReqListener,
-                                           sysStartRespListener)
-import           Pos.Constants            (RunningMode (..), isDevelopment, runningMode)
-import           Pos.Crypto               (SecretKey, VssKeyPair, hash, sign)
-import           Pos.DHT                  (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
-                                           ListenerDHT, MonadDHT (..), filterByNodeType,
-                                           mapListenerDHT, sendToNeighbors)
-import           Pos.DHT.Real             (KademliaDHT, KademliaDHTConfig (..),
-                                           runKademliaDHT)
-import           Pos.State                (NodeState, openMemState, openState)
-import           Pos.State.Storage        (storageFromUtxo)
-import           Pos.Statistics           (getNoStatsT, getStatsT)
-import           Pos.Types                (Address, Coin, Timestamp (Timestamp), Tx (..),
-                                           TxId, TxIn (..), TxOut (..), Utxo, timestampF,
-                                           txF)
-import           Pos.Worker               (runWorkers)
-import           Pos.WorkMode             (ContextHolder (..), DBHolder (..),
-                                           NodeContext (..), RealMode, ServiceMode,
-                                           WorkMode, getNodeContext, ncSecretKey)
+import           Control.Concurrent.MVar     (newEmptyMVar, takeMVar)
+import           Control.Monad.Trans.Control (MonadBaseControl)
+import           Control.TimeWarp.Logging    (LoggerName, Severity (Warning),
+                                              WithNamedLogger, initLogging, logError,
+                                              logInfo, logWarning, setSeverity,
+                                              setSeverityMaybe, usingLoggerName)
+import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, MonadDialog,
+                                              NetworkAddress, Transfer, runDialog,
+                                              runTransfer)
+import           Control.TimeWarp.Timed      (MonadTimed, currentTime, for, fork,
+                                              killThread, ms, repeatForever, runTimedIO,
+                                              sec, sleepForever, wait)
+import           Data.Default                (Default (def))
+import qualified Data.Time                   as Time
+import           Formatting                  (build, sformat, shown, (%))
+import           Universum                   hiding (killThread)
+
+import           Pos.Communication           (SysStartRequest (..), allListeners,
+                                              noCacheMessageNames, sendTx,
+                                              serverLoggerName, statsListener,
+                                              sysStartReqListener, sysStartRespListener)
+import           Pos.Constants               (RunningMode (..), isDevelopment,
+                                              runningMode)
+import           Pos.Crypto                  (SecretKey, VssKeyPair, hash, sign)
+import           Pos.DHT                     (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
+                                              ListenerDHT, MonadDHT (..),
+                                              filterByNodeType, mapListenerDHT,
+                                              sendToNeighbors)
+import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..),
+                                              runKademliaDHT)
+import           Pos.State                   (NodeState, openMemState, openState)
+import           Pos.State.Storage           (storageFromUtxo)
+import           Pos.Statistics              (getNoStatsT, getStatsT)
+import           Pos.Types                   (Address, Coin, Timestamp (Timestamp),
+                                              Tx (..), TxId, TxIn (..), TxOut (..), Utxo,
+                                              timestampF, txF)
+import           Pos.Worker                  (runWorkers)
+import           Pos.WorkMode                (ContextHolder (..), DBHolder (..),
+                                              NodeContext (..), RealMode, ServiceMode,
+                                              WorkMode, getNodeContext, ncSecretKey)
 
 -- | Get current time as Timestamp. It is intended to be used when you
 -- launch the first node. It doesn't make sense in emulation mode.
@@ -146,10 +150,11 @@ data NodeParams = NodeParams
     } deriving (Show)
 
 data BaseParams = BaseParams
-    { bpLogging      :: !LoggingParams
-    , bpPort         :: !Word16
-    , bpDHTPeers     :: ![DHTNode]
-    , bpDHTKeyOrType :: !(Either DHTKey DHTNodeType)
+    { bpLogging            :: !LoggingParams
+    , bpPort               :: !Word16
+    , bpDHTPeers           :: ![DHTNode]
+    , bpDHTKeyOrType       :: !(Either DHTKey DHTNodeType)
+    , bpDHTExplicitInitial :: !Bool
     } deriving (Show)
 
 ----------------------------------------------------------------------------
@@ -262,7 +267,7 @@ runServiceMode bp@BaseParams {..} listeners action = do
 -- Helpers
 ----------------------------------------------------------------------------
 
-runKDHT :: (WithNamedLogger m, MonadIO m, MonadTimed m, MonadMask m, MonadDialog BinaryP m)
+runKDHT :: (MonadBaseControl IO m, WithNamedLogger m, MonadIO m, MonadTimed m, MonadMask m, MonadDialog BinaryP m)
         => BaseParams -> [ListenerDHT (KademliaDHT m)] -> KademliaDHT m a -> m a
 runKDHT BaseParams {..} listeners = runKademliaDHT kadConfig
   where
@@ -275,6 +280,7 @@ runKDHT BaseParams {..} listeners = runKademliaDHT kadConfig
       , kdcEnableBroadcast = False
       , kdcInitialPeers = bpDHTPeers
       , kdcNoCacheMessageNames = noCacheMessageNames
+      , kdcExplicitInitial = bpDHTExplicitInitial
       }
 
 runTimed :: LoggerName -> Dialog BinaryP Transfer a -> IO a

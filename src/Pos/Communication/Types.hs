@@ -30,7 +30,8 @@ type ResponseMode m = (WorkMode m, MonadResponseDHT m)
 
 noCacheMessageNames :: [MessageName]
 noCacheMessageNames =
-    [ messageName (Proxy :: Proxy Block.RequestBlock)
+    [ -- messageName (Proxy :: Proxy Block.RequestBlock)
+      "RequestBlock"
     , messageName (Proxy :: Proxy SysStart.SysStartRequest)
     , messageName (Proxy :: Proxy SysStart.SysStartResponse)
     ]

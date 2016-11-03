@@ -56,7 +56,9 @@ handleShares (SendShares pk s) = do
     added <- St.processShares pk s
     let msgAction = if added then "added to local storage" else "ignored"
     let msg = sformat ("Shares from "%build%" have been "%stext) pk msgAction
-    let logAction = if added then logInfo else logDebug
+    -- let logAction = if added then logInfo else logDebug
+    -- TODO: investigate!
+    let logAction = logDebug
     logAction msg
 
 handleVssCertificate :: WorkMode m => SendVssCertificate -> m ()

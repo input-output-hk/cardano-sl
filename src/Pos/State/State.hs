@@ -25,6 +25,7 @@ module Pos.State.State
 
        -- * Operations with effects.
        , ProcessBlockRes (..)
+       , ProcessTxRes (..)
        , createNewBlock
        , processBlock
        , processNewSlot
@@ -40,23 +41,29 @@ module Pos.State.State
        , getStatRecords
        ) where
 
-import           Crypto.Random     (seedNew, seedToInteger)
-import           Data.Acid         (EventResult, EventState, QueryEvent, UpdateEvent)
-import           Data.Binary       (Binary)
-import qualified Data.Binary       as Binary
-import           Pos.DHT           (DHTResponseT)
-import           Serokell.Util     (VerificationRes)
+import           Crypto.Random              (seedNew, seedToInteger)
+import           Data.Acid                  (EventResult, EventState, QueryEvent,
+                                             UpdateEvent)
+import           Data.Binary                (Binary)
+import qualified Data.Binary                as Binary
+import           Pos.DHT                    (DHTResponseT)
+import           Serokell.Util              (VerificationRes)
 import           Universum
 
-import           Pos.Crypto        (PublicKey, SecretKey, Share, VssKeyPair, toPublic)
-import           Pos.Slotting      (MonadSlots, getCurrentSlot)
-import           Pos.State.Acidic  (DiskState, tidyState)
-import qualified Pos.State.Acidic  as A
-import           Pos.State.Storage (IdTimestamp (..), ProcessBlockRes (..), Storage)
-import           Pos.Types         (Block, EpochIndex, HeaderHash, MainBlock,
-                                    MainBlockHeader, MpcData, Opening, SignedCommitment,
-                                    SlotId, SlotLeaders, Timestamp, Tx, VssCertificate,
-                                    genCommitmentAndOpening, mkSignedCommitment)
+import           Pos.Crypto                 (PublicKey, SecretKey, Share, VssKeyPair,
+                                             toPublic)
+import           Pos.Slotting               (MonadSlots, getCurrentSlot)
+import           Pos.Ssc.DynamicState.Types (DSPayload, SscDynamicState)
+import           Pos.State.Acidic           (DiskState, tidyState)
+import qualified Pos.State.Acidic           as A
+import           Pos.State.Storage          (IdTimestamp (..), ProcessBlockRes (..),
+                                             ProcessTxRes (..), Storage)
+import           Pos.Types                  (Block, Commitment, CommitmentSignature,
+                                             EpochIndex, GenesisBlock, HeaderHash,
+                                             MainBlock, MainBlockHeader, Opening,
+                                             SignedCommitment, SlotId, SlotLeaders,
+                                             Timestamp, Tx, VssCertificate,
+                                             genCommitmentAndOpening, mkSignedCommitment)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState
@@ -90,7 +97,7 @@ openMemState = openStateDo . maybe A.openMemState A.openMemStateCustom
 openStateDo :: (MonadIO m, MonadSlots m) => m DiskState -> m NodeState
 openStateDo openDiskState = do
     st <- openDiskState
-    A.update st . A.ProcessNewSlot =<< getCurrentSlot
+    _ <- A.update st . A.ProcessNewSlot =<< getCurrentSlot
     st <$ tidyState st
 
 -- | Safely close NodeState.
@@ -113,43 +120,51 @@ getLeaders :: WorkModeDB m => EpochIndex -> m (Maybe SlotLeaders)
 getLeaders = queryDisk . A.GetLeaders
 
 -- | Get Block by hash.
-getBlock :: WorkModeDB m => HeaderHash -> m (Maybe Block)
+getBlock
+    :: WorkModeDB m
+    => HeaderHash SscDynamicState -> m (Maybe (Block SscDynamicState))
 getBlock = queryDisk . A.GetBlock
 
 -- | Get block which is the head of the __best chain__.
-getHeadBlock :: WorkModeDB m => m Block
+getHeadBlock :: WorkModeDB m => m (Block SscDynamicState)
 getHeadBlock = queryDisk A.GetHeadBlock
 
 getLocalTxs :: WorkModeDB m => m (HashSet Tx)
 getLocalTxs = queryDisk A.GetLocalTxs
 
-getLocalMpcData :: WorkModeDB m => m MpcData
+getLocalMpcData :: WorkModeDB m => m DSPayload
 getLocalMpcData = queryDisk A.GetLocalMpcData
 
-getGlobalMpcData :: WorkModeDB m => m MpcData
+getGlobalMpcData :: WorkModeDB m => m DSPayload
 getGlobalMpcData = queryDisk A.GetGlobalMpcData
 
 mayBlockBeUseful
     :: WorkModeDB m
-    => SlotId -> MainBlockHeader -> m VerificationRes
+    => SlotId -> MainBlockHeader SscDynamicState -> m VerificationRes
 mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 
 -- | Create new block on top of currently known best chain, assuming
 -- we are slot leader.
-createNewBlock :: WorkModeDB m => SecretKey -> SlotId -> m (Maybe MainBlock)
+createNewBlock
+    :: WorkModeDB m
+    => SecretKey -> SlotId -> m (Maybe (MainBlock SscDynamicState))
 createNewBlock sk = updateDisk . A.CreateNewBlock sk
 
 -- | Process transaction received from other party.
-processTx :: WorkModeDB m => Tx -> m Bool
+processTx :: WorkModeDB m => Tx -> m ProcessTxRes
 processTx = updateDisk . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot. Ideally it should
 -- be used before all other updates within this slot.
-processNewSlot :: WorkModeDB m => SlotId -> m ()
+processNewSlot
+    :: WorkModeDB m
+    => SlotId -> m (Maybe (GenesisBlock SscDynamicState))
 processNewSlot = updateDisk . A.ProcessNewSlot
 
 -- | Process some Block received from the network.
-processBlock :: WorkModeDB m => SlotId -> Block -> m ProcessBlockRes
+processBlock
+    :: WorkModeDB m
+    => SlotId -> Block SscDynamicState -> m (ProcessBlockRes SscDynamicState)
 processBlock si = updateDisk . A.ProcessBlock si
 
 processCommitment

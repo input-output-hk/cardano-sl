@@ -5,6 +5,7 @@
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 module Pos.DHT.Real
        ( KademliaDHT
@@ -12,43 +13,46 @@ module Pos.DHT.Real
        , KademliaDHTConfig(..)
        ) where
 
-import           Control.Concurrent.STM    (STM, TVar, atomically, modifyTVar, newTVar,
-                                            readTVar, writeTVar)
-import           Control.Monad.Catch       (Handler (..), MonadCatch, MonadMask,
-                                            MonadThrow, catchAll, catches, finally,
-                                            throwM)
-import           Control.Monad.Trans.Class (MonadTrans)
-import           Control.TimeWarp.Logging  (WithNamedLogger, logDebug, logError, logInfo,
-                                            logWarning, usingLoggerName)
-import           Control.TimeWarp.Rpc      (BinaryP (..), Binding (..), ListenerH (..),
-                                            MonadDialog, MonadResponse,
-                                            MonadTransfer (..), NetworkAddress,
-                                            RawData (..), TransferException (..),
-                                            hoistRespCond, listenR, sendH, sendR)
-import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
-import           Data.Binary               (Binary, decodeOrFail, encode)
-import qualified Data.ByteString           as BS
-import           Data.ByteString.Lazy      (fromStrict, toStrict)
-import qualified Data.Cache.LRU            as LRU
-import           Data.Hashable             (hash)
-import           Data.Proxy                (Proxy (..))
-import           Data.Text                 (Text)
-import           Formatting                (build, int, sformat, shown, stext, (%))
-import qualified Network.Kademlia          as K
-import           Pos.DHT                   (DHTData, DHTException (..), DHTKey,
-                                            DHTMsgHeader (..), DHTNode (..),
-                                            DHTNodeType (..),
-                                            DHTResponseT (getDHTResponseT),
-                                            ListenerDHT (..), MonadDHT (..),
-                                            MonadMessageDHT (..),
-                                            MonadResponseDHT (closeResponse),
-                                            WithDefaultMsgHeader (..),
-                                            defaultSendToNeighbors, defaultSendToNode,
-                                            filterByNodeType, joinNetworkNoThrow,
-                                            randomDHTKey, withDhtLogger)
-import           Pos.Util                  (messageName')
-import           Universum                 hiding (Handler, catches, finally, fromStrict,
-                                            toStrict)
+import           Control.Concurrent.Async.Lifted (mapConcurrently)
+import           Control.Concurrent.STM          (STM, TVar, atomically, modifyTVar,
+                                                  newTVar, readTVar, writeTVar)
+import           Control.Monad.Catch             (Handler (..), MonadCatch, MonadMask,
+                                                  MonadThrow, catchAll, catches, finally,
+                                                  throwM)
+import           Control.Monad.Trans.Class       (MonadTrans)
+import           Control.Monad.Trans.Control     (MonadBaseControl)
+import           Control.TimeWarp.Logging        (WithNamedLogger, logDebug, logError,
+                                                  logInfo, logWarning, usingLoggerName)
+import           Control.TimeWarp.Rpc            (BinaryP (..), Binding (..),
+                                                  ListenerH (..), MonadDialog,
+                                                  MonadResponse, MonadTransfer (..),
+                                                  NetworkAddress, RawData (..),
+                                                  TransferException (..), hoistRespCond,
+                                                  listenR, sendH, sendR)
+import           Control.TimeWarp.Timed          (MonadTimed, ThreadId)
+import           Data.Binary                     (Binary, decodeOrFail, encode)
+import qualified Data.ByteString                 as BS
+import           Data.ByteString.Lazy            (fromStrict, toStrict)
+import qualified Data.Cache.LRU                  as LRU
+import           Data.Hashable                   (hash)
+import qualified Data.HashMap.Strict             as HM
+import           Data.Text                       (Text)
+import           Formatting                      (build, int, sformat, shown, (%))
+import qualified Network.Kademlia                as K
+import           Pos.DHT                         (DHTData, DHTException (..), DHTKey,
+                                                  DHTMsgHeader (..), DHTNode (..),
+                                                  DHTNodeType (..),
+                                                  DHTResponseT (getDHTResponseT),
+                                                  ListenerDHT (..), MonadDHT (..),
+                                                  MonadMessageDHT (..),
+                                                  MonadResponseDHT (closeResponse),
+                                                  WithDefaultMsgHeader (..),
+                                                  defaultSendToNeighbors,
+                                                  defaultSendToNode, filterByNodeType,
+                                                  joinNetworkNoThrow, randomDHTKey,
+                                                  withDhtLogger)
+import           Universum                       hiding (Handler, catches, finally,
+                                                  fromStrict, mapConcurrently, toStrict)
 
 toBSBinary :: Binary b => b -> BS.ByteString
 toBSBinary = toStrict . encode
@@ -87,11 +91,22 @@ data KademliaDHTConfig m = KademliaDHTConfig
     , kdcKeyOrType           :: Either DHTKey DHTNodeType
     , kdcInitialPeers        :: [DHTNode]
     , kdcNoCacheMessageNames :: [Text]
+    , kdcExplicitInitial     :: Bool
     }
 
 newtype KademliaDHT m a = KademliaDHT { unKademliaDHT :: ReaderT (KademliaDHTContext m) m a }
     deriving (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadIO,
              MonadMask, WithNamedLogger, MonadTimed, MonadDialog p, MonadResponse)
+
+--instance MonadTransControl KademliaDHT where
+--    type StT KademliaDHT a = StT (ReaderT (KademliaDHTContext m)) a
+--    liftWith = defaultLiftWith KademliaDHT unKademliaDHT
+--    restoreT = defaultRestoreT KademliaDHT
+--
+--instance MonadBaseControl IO m => MonadBaseControl IO (KademliaDHT m) where
+--    type StM (KademliaDHT m) a = ComposeSt KademliaDHT m a
+--    liftBaseWith     = defaultLiftBaseWith
+--    restoreM         = defaultRestoreM
 
 instance MonadTransfer m => MonadTransfer (KademliaDHT m) where
     sendRaw addr req = lift $ sendRaw addr req
@@ -101,7 +116,7 @@ instance MonadTransfer m => MonadTransfer (KademliaDHT m) where
 
 instance (MonadIO m, WithNamedLogger m, MonadCatch m) =>
          WithDefaultMsgHeader (KademliaDHT m) where
-    defaultMsgHeader msg = do
+    defaultMsgHeader _ = do
         -- *-- Caches are disabled now for non-broadcast messages
         --     uncomment lines below to enable them
         --noCacheNames <- KademliaDHT $ asks kdcNoCacheMessageNames_
@@ -123,7 +138,7 @@ instance MonadTrans KademliaDHT where
 type instance ThreadId (KademliaDHT m) = ThreadId m
 
 runKademliaDHT
-    :: (WithNamedLogger m, MonadIO m, MonadTimed m, MonadDialog BinaryP m, MonadMask m)
+    :: (WithNamedLogger m, MonadIO m, MonadTimed m, MonadDialog BinaryP m, MonadMask m, MonadBaseControl IO m)
     => KademliaDHTConfig m -> KademliaDHT m a -> m a
 runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
     startDHT kdc >>= runReaderT (unKademliaDHT action')
@@ -136,7 +151,8 @@ runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
       joinNetworkNoThrow kdcInitialPeers
       action
     startMsgThread = do
-      (tvar, listenByBinding) <- KademliaDHT $ (,) <$> asks kdcMsgThreadIds <*> asks kdcListenByBinding
+      (tvar, listenByBinding) <-
+          KademliaDHT $ (,) <$> asks kdcMsgThreadIds <*> asks kdcListenByBinding
       tId <- listenByBinding $ AtPort kdcPort
       liftIO . atomically $ modifyTVar tvar (tId:)
 
@@ -152,11 +168,13 @@ stopDHT = do
     liftIO $ sequence_ threadIds
 
 startDHT
-    :: (MonadTimed m
-       ,MonadIO m
-       ,MonadDialog BinaryP m
-       ,WithNamedLogger m
-       ,MonadCatch m)
+    :: ( MonadTimed m
+       , MonadIO m
+       , MonadDialog BinaryP m
+       , WithNamedLogger m
+       , MonadCatch m
+       , MonadBaseControl IO m
+       )
     => KademliaDHTConfig m -> m (KademliaDHTContext m)
 startDHT KademliaDHTConfig {..} = do
     kdcKey <- either pure randomDHTKey kdcKeyOrType
@@ -245,16 +263,16 @@ updCache cacheTV dataHash = do
       Just _ -> writeTVar cacheTV cache' >> pure True
       _      -> writeTVar cacheTV (LRU.insert dataHash () cache') >> pure False
 
-
 sendToNetworkR :: MonadDialog BinaryP m => RawData -> m ()
 sendToNetworkR = sendToNetworkImpl sendR
 
 sendToNetworkImpl :: (NetworkAddress -> DHTMsgHeader -> msg -> m ()) -> msg -> m ()
 sendToNetworkImpl = notImplemented
 
-instance (MonadDialog BinaryP m, WithNamedLogger m, MonadCatch m, MonadIO m, MonadTimed m)
+instance (MonadDialog BinaryP m, WithNamedLogger m, MonadCatch m, MonadIO m, MonadTimed m, MonadBaseControl IO m)
        => MonadMessageDHT (KademliaDHT m) where
     sendToNetwork = sendToNetworkImpl sendH
+    sendToNeighbors = defaultSendToNeighbors (KademliaDHT . mapConcurrently unKademliaDHT)
     sendToNode addr msg = do
         defaultSendToNode addr msg
         listenOutbound >>= updateTIds
@@ -292,9 +310,18 @@ instance (MonadIO m, MonadCatch m, WithNamedLogger m) => MonadDHT (KademliaDHT m
     filterByNodeType type_ <$> getKnownPeers
 
   getKnownPeers = do
-    myId <- currentNodeKey
-    inst <- KademliaDHT $ asks kdcHandle
-    filter (\n -> dhtNodeId n /= myId) . fmap toDHTNode <$> liftIO (K.dumpPeers inst)
+      myId <- currentNodeKey
+      (inst, initialPeers) <- KademliaDHT $ (,) <$> asks kdcHandle <*> asks kdcInitialPeers_
+      extendPeers myId initialPeers <$> liftIO (K.dumpPeers inst)
+    where
+      extendPeers myId initial
+        = map snd
+        . HM.toList
+        . HM.delete myId
+        . flip (foldr $ \n -> HM.insert (dhtNodeId n) n) initial
+        . HM.fromList
+        . map (\(toDHTNode -> n) -> (dhtNodeId n, n))
+
 
   currentNodeKey = KademliaDHT $ asks kdcKey
 

@@ -5,28 +5,28 @@ module Pos.Worker.Mpc
        , mpcWorkers
        ) where
 
-import           Control.Lens              (at, view)
-import           Control.TimeWarp.Logging  (logDebug)
-import           Control.TimeWarp.Logging  (logWarning)
-import           Control.TimeWarp.Timed    (Microsecond, repeatForever, sec)
-import qualified Data.HashMap.Strict       as HM (toList)
-import           Formatting                (build, ords, sformat, (%))
-import           Serokell.Util.Exceptions  ()
+import           Control.TimeWarp.Logging   (logDebug)
+import           Control.TimeWarp.Logging   (logWarning)
+import           Control.TimeWarp.Timed     (Microsecond, repeatForever, sec)
+import qualified Data.HashMap.Strict        as HM (toList)
+import           Formatting                 (build, ords, sformat, (%))
+import           Serokell.Util.Exceptions   ()
 import           Universum
 
-import           Pos.Communication.Methods (announceCommitment, announceOpening,
-                                            announceShares, announceVssCertificate)
-import           Pos.Communication.Types   (SendCommitment (..), SendOpening (..),
-                                            SendShares (..))
-import           Pos.DHT                   (sendToNeighbors)
-import           Pos.State                 (generateNewSecret, getGlobalMpcData,
-                                            getLocalMpcData, getOurCommitment,
-                                            getOurOpening, getOurShares, getSecret)
-import           Pos.Types                 (MpcData (..), SlotId (..), isCommitmentIdx,
-                                            isOpeningIdx, isSharesIdx, mdCommitments,
-                                            mdOpenings, mdShares)
-import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey,
-                                            ncSecretKey, ncVssKeyPair)
+import           Pos.Communication.Methods  (announceCommitment, announceOpening,
+                                             announceShares, announceVssCertificate)
+import           Pos.Communication.Types    (SendCommitment (..), SendOpening (..),
+                                             SendShares (..))
+import           Pos.DHT                    (sendToNeighbors)
+import           Pos.Ssc.DynamicState.Types (DSPayload (..), hasCommitment, hasOpening,
+                                             hasShares)
+import           Pos.State                  (generateNewSecret, getGlobalMpcData,
+                                             getLocalMpcData, getOurCommitment,
+                                             getOurOpening, getOurShares, getSecret)
+import           Pos.Types                  (SlotId (..), isCommitmentIdx, isOpeningIdx,
+                                             isSharesIdx)
+import           Pos.WorkMode               (WorkMode, getNodeContext, ncPublicKey,
+                                             ncSecretKey, ncVssKeyPair)
 
 -- | Action which should be done when new slot starts.
 mpcOnNewSlot :: WorkMode m => SlotId -> m ()
@@ -49,8 +49,7 @@ mpcOnNewSlot SlotId {..} = do
             Just _ -> logDebug $
                 sformat ("Generated secret for "%ords%" epoch") siEpoch
     shouldSendCommitment <- do
-        commitmentInBlockchain <-
-            isJust . view (mdCommitments . at ourPk) <$> getGlobalMpcData
+        commitmentInBlockchain <- hasCommitment ourPk <$> getGlobalMpcData
         return $ isCommitmentIdx siSlot && not commitmentInBlockchain
     when shouldSendCommitment $ do
         mbComm <- getOurCommitment
@@ -59,8 +58,7 @@ mpcOnNewSlot SlotId {..} = do
             logDebug "Sent commitment to neighbors"
     -- Send the opening
     shouldSendOpening <- do
-        openingInBlockchain <-
-            isJust . view (mdOpenings . at ourPk) <$> getGlobalMpcData
+        openingInBlockchain <- hasOpening ourPk <$> getGlobalMpcData
         return $ isOpeningIdx siSlot && not openingInBlockchain
     when shouldSendOpening $ do
         mbOpen <- getOurOpening
@@ -71,8 +69,7 @@ mpcOnNewSlot SlotId {..} = do
     shouldSendShares <- do
         -- TODO: here we assume that all shares are always sent as a whole
         -- package.
-        sharesInBlockchain <-
-            isJust . view (mdShares . at ourPk) <$> getGlobalMpcData
+        sharesInBlockchain <- hasShares ourPk <$> getGlobalMpcData
         return $ isSharesIdx siSlot && not sharesInBlockchain
     when shouldSendShares $ do
         ourVss <- ncVssKeyPair <$> getNodeContext
@@ -81,7 +78,7 @@ mpcOnNewSlot SlotId {..} = do
             void . sendToNeighbors $ SendShares ourPk shares
             logDebug "Sent shares to neighbors"
 
--- | All workers specific to MPC processing.
+    -- | All workers specific to MPC processing.
 -- Exceptions:
 -- 1. Worker which ticks when new slot starts.
 mpcWorkers :: WorkMode m => [m ()]
@@ -93,7 +90,7 @@ mpcTransmitterInterval = sec 2
 mpcTransmitter :: WorkMode m => m ()
 mpcTransmitter =
     repeatForever mpcTransmitterInterval onError $
-    do MpcData{..} <- getLocalMpcData
+    do DSPayload{..} <- getLocalMpcData
        mapM_ (uncurry announceCommitment) $ HM.toList _mdCommitments
        mapM_ (uncurry announceOpening) $ HM.toList _mdOpenings
        mapM_ (uncurry announceShares) $ HM.toList _mdShares

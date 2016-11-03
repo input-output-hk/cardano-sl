@@ -12,9 +12,10 @@ module Pos.Slotting
        ) where
 
 import           Control.Monad.Catch      (MonadCatch, catch)
-import           Control.TimeWarp.Logging (WithNamedLogger, logError)
+import           Control.TimeWarp.Logging (WithNamedLogger, logError, logInfo,
+                                           modifyLoggerName)
 import           Control.TimeWarp.Timed   (Microsecond, MonadTimed, for, fork_, wait)
-import           Formatting               (build, sformat, (%))
+import           Formatting               (build, sformat, shown, (%))
 import           Serokell.Util.Exceptions ()
 import           Universum                hiding (catch)
 
@@ -79,7 +80,11 @@ onNewSlotDo expectedSlotId startImmediately action = do
     let nextSlot = succ curSlot
     Timestamp nextSlotStart <- getSlotStart nextSlot
     let timeToWait = nextSlotStart - curTime
-    wait $ for timeToWait
+    when (timeToWait > 0) $
+        do modifyLoggerName (<> "slotting") $
+               logInfo $
+               sformat ("Waiting for "%shown%" before new slot") timeToWait
+           wait $ for timeToWait
     onNewSlotDo (Just nextSlot) True action
   where
     waitUntilPredicate predicate =

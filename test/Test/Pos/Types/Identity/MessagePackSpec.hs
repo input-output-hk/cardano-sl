@@ -28,4 +28,5 @@ spec = describe "Types" $ do
         prop "FtsSeed" (msgPackEncodeDecode @T.FtsSeed)
         prop "Opening" (msgPackEncodeDecode @T.Opening)
         prop "Chaindifficulty" (msgPackEncodeDecode @T.ChainDifficulty)
-        prop "MpcProof" (msgPackEncodeDecode @T.MpcProof)
+        -- TODO: There's no such type anymore
+        -- prop "MpcProof" (msgPackEncodeDecode @T.MpcProof)

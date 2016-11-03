@@ -28,4 +28,5 @@ spec = describe "Types" $ do
         prop "FtsSeed" (safeCopyEncodeDecode @T.FtsSeed)
         prop "Opening" (safeCopyEncodeDecode @T.Opening)
         prop "Chaindifficulty" (safeCopyEncodeDecode @T.ChainDifficulty)
-        prop "MpcProof" (safeCopyEncodeDecode @T.MpcProof)
+        -- TODO: there's no such type anymore
+        -- prop "MpcProof" (safeCopyEncodeDecode @T.MpcProof)

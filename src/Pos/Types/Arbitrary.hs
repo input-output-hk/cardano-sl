@@ -17,7 +17,8 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              MpcProof (..), Opening (..), SlotId (..),
                                              Tx (..), TxIn (..), TxOut (..))
 import           System.Random              (Random)
-import           Test.QuickCheck            (Arbitrary (..), choose, elements)
+import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
+                                             NonZero (..), choose, elements)
 import           Universum
 
 import           Pos.Crypto.Arbitrary       ()
@@ -68,15 +69,17 @@ instance Arbitrary SecretProof where
 -- Arbitrary core types
 ----------------------------------------------------------------------------
 
-deriving instance Arbitrary Coin
+--deriving instance Arbitrary Coin
 deriving instance Arbitrary Address
 deriving instance Arbitrary FtsSeed
 deriving instance Arbitrary ChainDifficulty
 
 derive makeArbitrary ''SlotId
 derive makeArbitrary ''TxOut
-derive makeArbitrary ''Tx
 derive makeArbitrary ''MpcProof
+
+instance Arbitrary Coin where
+    arbitrary = Coin . getNonZero <$> (arbitrary :: Gen (NonZero Word64))
 
 maxReasonableEpoch :: Integral a => a
 maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not
@@ -98,3 +101,9 @@ instance Arbitrary TxIn where
         sk <- arbitrary
         let signature = sign sk (txId, txIdx, [])
         return $ TxIn txId txIdx signature
+
+instance Arbitrary Tx where
+    arbitrary = do
+        txIns <- getNonEmpty <$> arbitrary
+        txOuts <- getNonEmpty <$> arbitrary
+        return $ Tx txIns txOuts

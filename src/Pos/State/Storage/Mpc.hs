@@ -25,11 +25,6 @@ module Pos.State.Storage.Mpc
        , getOurShares
        , getSecret
        , setSecret
-       -- , mpcProcessCommitment
-       -- , mpcProcessOpening
-       -- , mpcProcessShares
-       -- , mpcProcessVssCertificate
-       , mpcRollback
        , mpcVerifyBlocks
        --, traceMpcLastVer
        ) where
@@ -90,6 +85,7 @@ instance SscStorageClass SscDynamicState where
     sscProcessMessage (DSOpening pk op)          = mpcProcessOpening pk op
     sscProcessMessage (DSShares pk ss)           = mpcProcessShares pk ss
     sscProcessMessage (DSVssCertificate pk cert) = mpcProcessVssCertificate pk cert
+    sscRollback = mpcRollback
 
 dsVersioned
     :: HasSscStorage SscDynamicState a
@@ -495,10 +491,6 @@ mpcProcessNewSlot si@SlotId {siEpoch = epochIdx, siSlot = slotIdx} = do
 mpcApplyBlocks :: AltChain SscDynamicState -> Update ()
 mpcApplyBlocks = mapM_ mpcProcessBlock
 
--- | Rollback application of last 'n' blocks. If @n > 0@, also removes all
--- commitments/etc received during that period but not included into
--- blocks. If there are less blocks than 'n' is, just leaves an empty ('def')
--- version.
 mpcRollback :: Word -> Update ()
 mpcRollback (fromIntegral -> n) = do
     dsVersioned %= (fromMaybe (def :| []) . NE.nonEmpty . NE.drop n)

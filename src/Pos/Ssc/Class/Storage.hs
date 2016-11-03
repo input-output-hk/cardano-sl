@@ -40,5 +40,13 @@ class SscTypes ssc => SscStorageClass ssc where
     -- | Do something with given message, result is whether message
     -- has been processed successfully (implementation defined).
     sscProcessMessage :: SscMessage ssc -> SscUpdate ssc Bool
+    -- | Rollback application of last 'n' blocks.  blocks. If there
+    -- are less blocks than 'n' is, just leaves an empty ('def')
+    -- version.
+    --
+    -- TODO: there was also such comment.
+    -- If @n > 0@, also removes all commitments/etc received during that
+    -- period but not included into blocks.
+    sscRollback :: Word -> SscUpdate ssc ()
 
     -- TODO: move the rest of methods here

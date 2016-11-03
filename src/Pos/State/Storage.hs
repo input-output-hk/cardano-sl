@@ -72,7 +72,7 @@ import           Pos.State.Storage.Block    (BlockStorage, HasBlockStorage (bloc
 import           Pos.State.Storage.Mpc      (getGlobalMpcData, getGlobalMpcDataByDepth,
                                              getLocalMpcData, getOurCommitment,
                                              getOurOpening, getOurShares, getSecret,
-                                             mpcRollback, mpcVerifyBlocks, setSecret)
+                                             mpcVerifyBlocks, setSecret)
 import qualified Pos.State.Storage.Mpc      as Mpc (calculateLeaders)
 import           Pos.State.Storage.Stats    (HasStatsData (statsData), IdTimestamp (..),
                                              StatsData, addStatRecord, getStatRecords)
@@ -82,14 +82,12 @@ import           Pos.State.Storage.Tx       (HasTxStorage (txStorage), TxStorage
                                              txVerifyBlocks)
 import           Pos.State.Storage.Types    (AltChain, ProcessBlockRes (..),
                                              ProcessTxRes (..), mkPBRabort)
-import           Pos.Types                  (Block, Commitment, CommitmentSignature,
-                                             EpochIndex, GenesisBlock, MainBlock, Opening,
-                                             SlotId (..), SlotLeaders, Utxo,
-                                             VssCertificate, blockMpc, blockSlot,
-                                             blockTxs, epochIndexL, flattenSlotId,
-                                             getAddress, headerHashG, isCommitmentId,
-                                             isOpeningId, isSharesId, txOutAddress,
-                                             unflattenSlotId, verifyTxAlone)
+import           Pos.Types                  (Block, EpochIndex, GenesisBlock, MainBlock,
+                                             SlotId (..), SlotLeaders, Utxo, blockMpc,
+                                             blockSlot, blockTxs, epochIndexL,
+                                             flattenSlotId, getAddress, headerHashG,
+                                             isCommitmentId, isOpeningId, isSharesId,
+                                             txOutAddress, unflattenSlotId, verifyTxAlone)
 import           Pos.Util                   (readerToState, _neHead)
 
 type Query  a = forall m. MonadReader Storage m => m a
@@ -223,7 +221,7 @@ processBlockFinally :: Word
                     -> AltChain SscDynamicState
                     -> Update (ProcessBlockRes SscDynamicState)
 processBlockFinally toRollback blocks = do
-    mpcRollback toRollback
+    sscRollback toRollback
     sscApplyBlocks blocks
     txRollback toRollback
     txApplyBlocks blocks

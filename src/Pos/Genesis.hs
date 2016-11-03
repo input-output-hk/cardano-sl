@@ -28,7 +28,7 @@ import           Pos.Constants       (epochSlots, genesisN)
 import           Pos.Crypto          (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
                                       deterministicKeyGen, deterministicVssKeyGen,
                                       mkSigned, toVssPublicKey, unsafeHash)
-import           Pos.Types           (Address (Address), SlotLeaders, TxOut (..), Utxo,
+import           Pos.Types.Types     (Address (Address), SlotLeaders, TxOut (..), Utxo,
                                       VssCertificatesMap)
 
 

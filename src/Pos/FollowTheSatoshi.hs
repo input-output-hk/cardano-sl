@@ -22,10 +22,10 @@ import           Serokell.Util       (listBuilderJSON)
 import           Pos.Constants       (epochSlots)
 import           Pos.Crypto          (PublicKey, Secret, Share, Threshold, deterministic,
                                       randomNumber, shareId, unsafeRecoverSecret)
-import           Pos.Types           (Address, Coin (..), CommitmentsMap, FtsSeed (..),
+import           Pos.Types.Mpc       (secretToFtsSeed, verifyOpening, xorFtsSeed)
+import           Pos.Types.Types     (Address, Coin (..), CommitmentsMap, FtsSeed (..),
                                       OpeningsMap, SharesMap, TxOut (..), Utxo,
-                                      getOpening, secretToFtsSeed, verifyOpening,
-                                      xorFtsSeed)
+                                      getOpening)
 
 data FtsError
     -- | Some nodes in the 'OpeningsMap' aren't in the set of participants

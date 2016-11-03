@@ -121,10 +121,11 @@ calculateSeed (fromIntegral -> t) commitments openings shares = do
     -- Now that we have the secrets, we can check whether the commitments
     -- actually match the secrets, and whether a secret has been recovered
     -- for each participant.
-    for_ (HM.toList commitments) $ \(key, fst -> _) -> do
-        case HM.lookup key secrets of
-            Nothing -> Left (NoSecretFound key)
-            Just _  -> pure ()
+    -- TODO: see CSL-50
+    -- for_ (HM.toList commitments) $ \(key, fst -> _) -> do
+    --     case HM.lookup key secrets of
+    --         Nothing -> Left (NoSecretFound key)
+    --         Just _  -> pure ()
 
     -- Finally we just XOR all secrets together
     if | null secrets && not (null participants) ->

@@ -14,7 +14,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/serokell-util.git
-    commit: dbdea0cecc280d1703279c94646be013845b1b7c
+    commit: 3fd9a911211276f1f2a2a9fe78bddbb2e1ffd503
   extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git

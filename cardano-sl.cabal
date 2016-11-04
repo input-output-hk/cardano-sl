@@ -114,7 +114,7 @@ library
                       , quickcheck-instances
                       , random
                       , safecopy
-                      , serokell-core
+                      , serokell-util
                       , stm
                       , tagged
                       , stm-containers
@@ -154,7 +154,7 @@ executable cardano-node
                      , formatting
                      , optparse-simple
                      , parsec
-                     , serokell-core
+                     , serokell-util
                      , time-warp
                      , universum >= 0.1.9
   default-language:    Haskell2010
@@ -177,7 +177,7 @@ executable cardano-wallet
                      , formatting
                      , optparse-applicative
                      , parsec
-                     , serokell-core
+                     , serokell-util
                      , time-warp
                      , universum >= 0.1.9
   default-language:    Haskell2010
@@ -220,7 +220,7 @@ test-suite cardano-test
                      , memory
                      , random
                      , safecopy
-                     , serokell-core
+                     , serokell-util
                      , time-units
                      , time-warp
                      , universum >= 0.1.9
@@ -279,7 +279,7 @@ benchmark cardano-bench-remote-single
                      , formatting
                      , optparse-applicative
                      , parsec
-                     , serokell-core
+                     , serokell-util
                      , time-warp
                      , universum >= 0.1.9
                      , yaml
@@ -309,7 +309,7 @@ benchmark cardano-stats-collector
                      , formatting
                      , optparse-applicative
                      , parsec
-                     , serokell-core
+                     , serokell-util
                      , time-warp
                      , universum >= 0.1.9
                      , yaml
@@ -335,7 +335,7 @@ benchmark cardano-tx-generator
                      , optparse-applicative
                      , parsec
                      , random
-                     , serokell-core
+                     , serokell-util
                      , time-warp
                      , universum >= 0.1.9
   default-language:    Haskell2010

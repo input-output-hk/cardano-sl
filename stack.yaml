@@ -10,11 +10,11 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp.git
-    commit: a6159e63b41c5be651033d04eecf917ed76c0968
+    commit: 9e12e96046e9198781c81f8cc711a68acb7fe205
   extra-dep: true
 - location:
-    git: https://github.com/serokell/serokell-core.git
-    commit: 7e9cc7f44dccda2736735b24d84b5437899352d3
+    git: https://github.com/serokell/serokell-util.git
+    commit: dbdea0cecc280d1703279c94646be013845b1b7c
   extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git

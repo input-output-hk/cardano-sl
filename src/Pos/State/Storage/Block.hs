@@ -347,6 +347,7 @@ continueAltChain
     :: SscTypes ssc
     => Block ssc -> Int -> Update ssc (ProcessBlockRes ssc)
 continueAltChain blk i = do
+    insertBlock blk
     blkAltChains . ix i %= (blk <|)
     maybe (PBRmore $ blk ^. prevBlockL) PBRgood <$> tryMergeAltChain i
 

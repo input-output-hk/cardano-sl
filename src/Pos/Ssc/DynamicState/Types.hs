@@ -259,6 +259,7 @@ instance SscTypes SscDynamicState where
     type SscProof     SscDynamicState = DSProof
     type SscMessage   SscDynamicState = DSMessage
     type SscSeedError SscDynamicState = FtsError
+    type SscToken     SscDynamicState = (PublicKey, SignedCommitment, Opening)
 
     mkSscPayload = notImplemented
     mkSscProof = Tagged $

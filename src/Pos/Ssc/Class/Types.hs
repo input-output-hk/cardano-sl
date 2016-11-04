@@ -35,6 +35,8 @@ class (Typeable ssc
     type SscMessage ssc
     -- | Error that can happen when calculating the seed
     type SscSeedError ssc
+    -- | This is BARDAQ needed only for dynamic state implementation.
+    type SscToken ssc
 
     -- | Create payload (for inclusion into block) from state
     mkSscPayload :: Tagged ssc (SscStorage ssc -> SscPayload ssc)

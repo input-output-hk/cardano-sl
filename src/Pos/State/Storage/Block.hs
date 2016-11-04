@@ -395,18 +395,21 @@ tryMergeAltChainDo altChain = do
 
 findRollback
     :: forall ssc. SscTypes ssc
-    => Word -> HeaderHash ssc -> Query ssc (Maybe Word)
-findRollback maxDepth neededParent =
-    findRollbackDo 0 . getBlockHeader =<< getHeadBlock
+    => ChainDifficulty -> HeaderHash ssc -> Query ssc (Maybe Word)
+findRollback maxDifficulty neededParent =
+    findRollbackDo 0 0 . getBlockHeader =<< getHeadBlock
   where
-    findRollbackDo :: Word -> BlockHeader ssc -> Query ssc (Maybe Word)
-    findRollbackDo res header
-        | res > maxDepth = pure Nothing
+    findRollbackDo :: ChainDifficulty
+                   -> Word
+                   -> BlockHeader ssc
+                   -> Query ssc (Maybe Word)
+    findRollbackDo difficulty res header
+        | difficulty > maxDifficulty = pure Nothing
         | headerHash header == neededParent = pure . pure $ res
         | otherwise =
             maybe
                 (pure Nothing)
-                (findRollbackDo (res + fromIntegral (headerDifficulty header)) .
+                (findRollbackDo (difficulty + headerDifficulty header) (res + 1) .
                  getBlockHeader) =<<
             getBlock (header ^. prevBlockL)
 

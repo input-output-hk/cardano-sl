@@ -99,7 +99,7 @@ handleBlockRequest (RequestBlock h) = do
     logDebug $ sformat ("Block "%build%" is requested") h
     maybe logNotFound sendBlockBack =<< St.getBlock h
   where
-    logNotFound = logDebug $ sformat ("Block "%build%" wasn't found") h
+    logNotFound = logWarning $ sformat ("Block "%build%" wasn't found") h
     sendBlockBack block = do
         statlogSentBlock block
         logDebug $ sformat ("Sending block "%build%" in reply") h

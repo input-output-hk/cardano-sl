@@ -15,7 +15,7 @@ module Pos.State.State
        , getHeadBlock
        , getLeaders
        , getLocalTxs
-       , getLocalMpcData
+       , getLocalSscPayload
        , getGlobalMpcData
        , getSecret
        , getOurCommitment
@@ -27,14 +27,11 @@ module Pos.State.State
        , ProcessBlockRes (..)
        , ProcessTxRes (..)
        , createNewBlock
+       , generateAndSetNewSecret
        , processBlock
        , processNewSlot
-       , processCommitment
-       , processOpening
-       , processShares
+       , processSscMessage
        , processTx
-       , processVssCertificate
-       , generateNewSecret
 
        -- * Stats collecting and fetching
        , addStatRecord
@@ -53,17 +50,17 @@ import           Universum
 import           Pos.Crypto                 (PublicKey, SecretKey, Share, VssKeyPair,
                                              toPublic)
 import           Pos.Slotting               (MonadSlots, getCurrentSlot)
+import           Pos.Ssc.Class.Types        (SscTypes (SscMessage))
 import           Pos.Ssc.DynamicState.Types (DSPayload, SscDynamicState)
 import           Pos.State.Acidic           (DiskState, tidyState)
 import qualified Pos.State.Acidic           as A
 import           Pos.State.Storage          (IdTimestamp (..), ProcessBlockRes (..),
                                              ProcessTxRes (..), Storage)
-import           Pos.Types                  (Block, Commitment, CommitmentSignature,
-                                             EpochIndex, GenesisBlock, HeaderHash,
+import           Pos.Types                  (Block, EpochIndex, GenesisBlock, HeaderHash,
                                              MainBlock, MainBlockHeader, Opening,
                                              SignedCommitment, SlotId, SlotLeaders,
-                                             Timestamp, Tx, VssCertificate,
-                                             genCommitmentAndOpening, mkSignedCommitment)
+                                             Timestamp, Tx, genCommitmentAndOpening,
+                                             mkSignedCommitment)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState
@@ -132,11 +129,11 @@ getHeadBlock = queryDisk A.GetHeadBlock
 getLocalTxs :: WorkModeDB m => m (HashSet Tx)
 getLocalTxs = queryDisk A.GetLocalTxs
 
-getLocalMpcData :: WorkModeDB m => m DSPayload
-getLocalMpcData = queryDisk A.GetLocalMpcData
+getLocalSscPayload :: WorkModeDB m => m DSPayload
+getLocalSscPayload = queryDisk A.GetLocalSscPayload
 
 getGlobalMpcData :: WorkModeDB m => m DSPayload
-getGlobalMpcData = queryDisk A.GetGlobalMpcData
+getGlobalMpcData = queryDisk A.GetGlobalSscPayload
 
 mayBlockBeUseful
     :: WorkModeDB m
@@ -167,25 +164,10 @@ processBlock
     => SlotId -> Block SscDynamicState -> m (ProcessBlockRes SscDynamicState)
 processBlock si = updateDisk . A.ProcessBlock si
 
-processCommitment
+processSscMessage
     :: WorkModeDB m
-    => PublicKey -> SignedCommitment -> m Bool
-processCommitment pk c = updateDisk $ A.ProcessCommitment pk c
-
-processOpening
-    :: WorkModeDB m
-    => PublicKey -> Opening -> m Bool
-processOpening pk o = updateDisk $ A.ProcessOpening pk o
-
-processShares
-    :: WorkModeDB m
-    => PublicKey -> HashMap PublicKey Share -> m Bool
-processShares pk s = updateDisk $ A.ProcessShares pk s
-
-processVssCertificate
-    :: WorkModeDB m
-    => PublicKey -> VssCertificate -> m ()
-processVssCertificate pk c = updateDisk $ A.ProcessVssCertificate pk c
+    => SscMessage SscDynamicState -> m Bool
+processSscMessage = updateDisk . A.ProcessSscMessage
 
 -- | Generate new commitment and opening and use them for the current
 -- epoch. Assumes that the genesis block has already been generated and
@@ -193,12 +175,12 @@ processVssCertificate pk c = updateDisk $ A.ProcessVssCertificate pk c
 -- cleared) (otherwise 'generateNewSecret' will fail because 'A.SetSecret'
 -- won't set the secret if there's one already).
 -- Nothing is returned if node is not ready.
-generateNewSecret
+generateAndSetNewSecret
     :: WorkModeDB m
     => SecretKey
     -> EpochIndex                         -- ^ Current epoch
     -> m (Maybe (SignedCommitment, Opening))
-generateNewSecret sk epoch = do
+generateAndSetNewSecret sk epoch = do
     -- TODO: I think it's safe here to perform 3 operations which aren't
     -- grouped into a single transaction here, but I'm still a bit nervous.
     threshold <- queryDisk (A.GetThreshold epoch)

@@ -17,20 +17,11 @@
 module Pos.State.Storage.Mpc
        (
          calculateLeaders
-       , getLocalMpcData
-       , getGlobalMpcData
-       , getGlobalMpcDataByDepth
        , getOurCommitment
        , getOurOpening
        , getOurShares
        , getSecret
        , setSecret
-       , mpcProcessCommitment
-       , mpcProcessOpening
-       , mpcProcessShares
-       , mpcProcessVssCertificate
-       , mpcRollback
-       , mpcVerifyBlocks
        --, traceMpcLastVer
        ) where
 
@@ -56,7 +47,7 @@ import           Pos.Crypto                 (PublicKey, Share,
 import           Pos.FollowTheSatoshi       (FtsError, calculateSeed, followTheSatoshi)
 import           Pos.Ssc.Class.Storage      (HasSscStorage (..), SscQuery,
                                              SscStorageClass (..), SscUpdate)
-import           Pos.Ssc.DynamicState.Types (DSPayload (..), DSStorage,
+import           Pos.Ssc.DynamicState.Types (DSMessage (..), DSPayload (..), DSStorage,
                                              DSStorageVersion (..), SscDynamicState,
                                              dsCurrentSecretL, dsGlobalCertificates,
                                              dsGlobalCommitments, dsGlobalOpenings,
@@ -86,6 +77,16 @@ instance HasSscStorage SscDynamicState DSStorage where
 instance SscStorageClass SscDynamicState where
     sscApplyBlocks = mpcApplyBlocks
     sscPrepareToNewSlot = mpcProcessNewSlot
+    sscProcessMessage (DSCommitment pk comm) = mpcProcessCommitment pk comm
+    sscProcessMessage (DSOpening pk op) = mpcProcessOpening pk op
+    sscProcessMessage (DSShares pk ss) = mpcProcessShares pk ss
+    sscProcessMessage (DSVssCertificate pk cert) =
+        mpcProcessVssCertificate pk cert
+    sscRollback = mpcRollback
+    sscGetLocalPayload = getLocalPayload
+    sscGetGlobalPayload = getGlobalMpcData
+    sscGetGlobalPayloadByDepth = getGlobalMpcDataByDepth
+    sscVerifyBlocks = mpcVerifyBlocks
 
 dsVersioned
     :: HasSscStorage SscDynamicState a
@@ -102,11 +103,9 @@ dsLastProcessedSlot
     => Lens' a SlotId
 dsLastProcessedSlot = sscStorage @SscDynamicState . dsLastProcessedSlotL
 
-
 -- | A lens to access the last version of DSStorage
 lastVer :: HasSscStorage SscDynamicState a => Lens' a DSStorageVersion
 lastVer = dsVersioned . _neHead
-
 
 --traceMpcLastVer :: Update ()
 --traceMpcLastVer = do
@@ -123,14 +122,8 @@ lastVer = dsVersioned . _neHead
 --                          <> " shares=" <> show (localShareKeys, globalShareKeys)
 --  where keys' = fmap pretty . HM.keys
 
--- TODO: this should return something other than DSPayload
-getGlobalMpcData :: Query DSPayload
-getGlobalMpcData =
-    fromMaybe (panic "No global MPC data for depth 0") <$>
-    getGlobalMpcDataByDepth 0
-
-getLocalMpcData :: Query DSPayload
-getLocalMpcData =
+getLocalPayload :: Query DSPayload
+getLocalPayload =
     (magnify' lastVer $
      DSPayload <$> (view dsLocalCommitments) <*> (view dsLocalOpenings) <*>
      view dsLocalShares <*>
@@ -160,6 +153,11 @@ ensureOwnMpcDo globalMpcData (siSlot -> slotIdx) (pk, comm, opening) md
     | isSharesIdx slotIdx && (not $ hasShares pk globalMpcData) =
         md   -- TODO: set our shares, but it's not so easy :(
     | otherwise = md
+
+getGlobalMpcData :: Query DSPayload
+getGlobalMpcData =
+    fromMaybe (panic "No global SSC payload for depth 0") <$>
+    getGlobalMpcDataByDepth 0
 
 -- TODO: check for off-by-one errors!!!!111
 --
@@ -362,8 +360,10 @@ mpcVerifyBlock (Right b) = do
             , (all (`HM.member` globalCommitments)
                    (HM.keys shares <> concatMap HM.keys (toList shares)),
                    "some shares don't have corresponding commitments")
-            -- TODO: use intersectionDoubleMap or something to allow spliting
-            -- shares into multiple messages
+            -- TODO: here we assume that all shares are always sent as a whole
+            -- package.
+            -- Use intersectionDoubleMap or something to allow spliting
+            -- shares into multiple messages.
             , (null (shares `HM.intersection` globalShares),
                    "some shares have already been sent")
             , (all (uncurry (checkShares globalCommitments globalOpenings
@@ -403,13 +403,9 @@ mpcVerifyBlock (Right b) = do
         , [ otherChecks ]
         ]
 
--- | Verify MPC-related predicates of blocks sequence which is about to be
--- applied. It should check that MPC messages will be consistent if this
--- blocks are applied (after possible rollback if 'toRollback' isn't zero).
---
 -- TODO:
---   * verification messages should include block hash/slotId
---   * we should stop at first failing block
+--   ★ verification messages should include block hash/slotId
+--   ★ we should stop at first failing block
 mpcVerifyBlocks :: Word -> AltChain SscDynamicState -> Query VerificationRes
 mpcVerifyBlocks toRollback blocks = do
     curState <- view (sscStorage @SscDynamicState)
@@ -470,10 +466,10 @@ mpcProcessShares pk s
                 ok <$ (when ok $ dsLocalShares %= HM.insertWith HM.union pk s')
         zoom' lastVer $ mpcProcessSharesDo
 
-mpcProcessVssCertificate :: PublicKey -> VssCertificate -> Update ()
+mpcProcessVssCertificate :: PublicKey -> VssCertificate -> Update Bool
 mpcProcessVssCertificate pk c = zoom' lastVer $ do
-    unlessM (HM.member pk <$> use dsGlobalCertificates) $ do
-        dsLocalCertificates %= HM.insert pk c
+    ok <- not . HM.member pk <$> use dsGlobalCertificates
+    ok <$ when ok (dsLocalCertificates %= HM.insert pk c)
 
 -- Should be executed before doing any updates within given slot.
 mpcProcessNewSlot :: SlotId -> Update ()
@@ -491,10 +487,6 @@ mpcProcessNewSlot si@SlotId {siEpoch = epochIdx, siSlot = slotIdx} = do
 mpcApplyBlocks :: AltChain SscDynamicState -> Update ()
 mpcApplyBlocks = mapM_ mpcProcessBlock
 
--- | Rollback application of last 'n' blocks. If @n > 0@, also removes all
--- commitments/etc received during that period but not included into
--- blocks. If there are less blocks than 'n' is, just leaves an empty ('def')
--- version.
 mpcRollback :: Word -> Update ()
 mpcRollback (fromIntegral -> n) = do
     dsVersioned %= (fromMaybe (def :| []) . NE.nonEmpty . NE.drop n)
@@ -548,10 +540,10 @@ getSecret :: Query (Maybe (PublicKey, SignedCommitment, Opening))
 getSecret = view dsCurrentSecret
 
 getOurCommitment :: Query (Maybe SignedCommitment)
-getOurCommitment = fmap (view _2) <$> view dsCurrentSecret
+getOurCommitment = fmap (view _2) <$> getSecret
 
 getOurOpening :: Query (Maybe Opening)
-getOurOpening = fmap (view _3) <$> view dsCurrentSecret
+getOurOpening = fmap (view _3) <$> getSecret
 
 -- | Decrypt shares (in commitments) that we can decrypt.
 -- TODO: do not decrypt shares for which we know openings!

@@ -21,11 +21,11 @@ module Pos.State.Acidic
        , update
 
        , GetBlock (..)
+       , GetGlobalSscPayload (..)
        , GetHeadBlock (..)
        , GetLeaders (..)
        , GetLocalTxs (..)
-       , GetLocalMpcData (..)
-       , GetGlobalMpcData (..)
+       , GetLocalSscPayload (..)
        , GetSecret (..)
        , GetOurCommitment (..)
        , GetOurOpening (..)
@@ -37,11 +37,8 @@ module Pos.State.Acidic
        , CreateNewBlock (..)
        , ProcessBlock (..)
        , ProcessNewSlot (..)
-       , ProcessCommitment (..)
-       , ProcessOpening (..)
-       , ProcessShares (..)
+       , ProcessSscMessage (..)
        , ProcessTx (..)
-       , ProcessVssCertificate (..)
        , SetSecret (..)
 
        , AddStatRecord (..)
@@ -120,10 +117,10 @@ mayBlockBeUseful = S.mayBlockBeUseful
 
 makeAcidic ''Storage
     [ 'getBlock
+    , 'S.getGlobalSscPayload
     , 'getLeaders
+    , 'S.getLocalSscPayload
     , 'S.getLocalTxs
-    , 'S.getLocalMpcData
-    , 'S.getGlobalMpcData
     , 'getHeadBlock
     , 'S.getSecret
     , 'S.getOurCommitment
@@ -135,11 +132,8 @@ makeAcidic ''Storage
     , 'S.createNewBlock
     , 'S.processBlock
     , 'S.processNewSlot
-    , 'S.processCommitment
-    , 'S.processOpening
-    , 'S.processShares
+    , 'S.processSscMessage
     , 'S.processTx
-    , 'S.processVssCertificate
     , 'S.setSecret
     , 'S.addStatRecord
     , 'S.getStatRecords

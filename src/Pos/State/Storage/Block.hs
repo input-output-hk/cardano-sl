@@ -40,6 +40,7 @@ import           Data.List.NonEmpty      (NonEmpty ((:|)), (<|))
 import           Data.SafeCopy           (SafeCopy (..), contain, safeGet, safePut)
 import           Data.Vector             (Vector)
 import qualified Data.Vector             as V
+import           Formatting              (build, sformat, (%))
 import           Serokell.Util.Verify    (VerificationRes (..), isVerFailure,
                                           isVerSuccess, verifyGeneric)
 import           Universum
@@ -55,10 +56,10 @@ import           Pos.Types               (Block, BlockHeader, ChainDifficulty, E
                                           VerifyBlockParams (..), VerifyHeaderExtra (..),
                                           blockHeader, blockLeaders, blockSlot,
                                           difficultyL, epochIndexL, gbHeader,
-                                          getBlockHeader, headerHash, headerSlot,
-                                          mkGenesisBlock, mkMainBlock, mkMainBody,
-                                          prevBlockL, siEpoch, verifyBlock, verifyBlocks,
-                                          verifyHeader)
+                                          getBlockHeader, headerDifficulty, headerHash,
+                                          headerSlot, mkGenesisBlock, mkMainBlock,
+                                          mkMainBody, prevBlockL, siEpoch, verifyBlock,
+                                          verifyBlocks, verifyHeader)
 import           Pos.Util                (readerToState, _neHead, _neLast)
 
 data BlockStorage ssc = BlockStorage
@@ -139,9 +140,11 @@ getBlockByDepthDo i h =
 
 -- | Get block which is the head of the __best chain__.
 getHeadBlock :: Query ssc (Block ssc)
-getHeadBlock = fromMaybe reportError <$> getBlockByDepth 0
-  where
-    reportError = panic "blkHead is not found in storage"
+getHeadBlock = do
+    headHash <- view blkHead
+    let errorMsg =
+            sformat ("blkHead (" %build % " is not found in storage") headHash
+    fromMaybe (panic errorMsg) <$> getBlockByDepth 0
 
 -- | Get list of slot leaders for the given epoch if it is known.
 getLeaders :: EpochIndex -> Query ssc (Maybe SlotLeaders)
@@ -347,6 +350,7 @@ continueAltChain
     :: SscTypes ssc
     => Block ssc -> Int -> Update ssc (ProcessBlockRes ssc)
 continueAltChain blk i = do
+    insertBlock blk
     blkAltChains . ix i %= (blk <|)
     maybe (PBRmore $ blk ^. prevBlockL) PBRgood <$> tryMergeAltChain i
 
@@ -400,8 +404,11 @@ findRollback maxDepth neededParent =
         | res > maxDepth = pure Nothing
         | headerHash header == neededParent = pure . pure $ res
         | otherwise =
-            maybe (pure Nothing) (findRollbackDo (res + 1) . getBlockHeader) =<<
-            getBlock (headerHash header)
+            maybe
+                (pure Nothing)
+                (findRollbackDo (res + fromIntegral (headerDifficulty header)) .
+                 getBlockHeader) =<<
+            getBlock (header ^. prevBlockL)
 
 -- Before reporting that AltChain can be merged, we verify whole
 -- result to be sure that nothing went wrong.

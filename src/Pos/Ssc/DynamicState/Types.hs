@@ -13,6 +13,7 @@ module Pos.Ssc.DynamicState.Types
 
        , DSPayload(..)
        , DSProof(..)
+       , DSMessage(..)
        , DSStorage(..)
        , DSStorageVersion(..)
 
@@ -58,13 +59,31 @@ import           Formatting           (bprint, (%))
 import           Serokell.Util        (listJson)
 import           Universum
 
-import           Pos.Crypto           (Hash, PublicKey, hash)
+import           Pos.Crypto           (Hash, PublicKey, Share, hash)
 import           Pos.FollowTheSatoshi (FtsError)
 import           Pos.Genesis          (genesisCertificates)
 import           Pos.Ssc.Class.Types  (SscTypes (..))
 import           Pos.Types.Slotting   (unflattenSlotId)
 import           Pos.Types.Types      (CommitmentsMap, Opening, OpeningsMap, SharesMap,
-                                       SignedCommitment, SlotId, VssCertificatesMap)
+                                       SignedCommitment, SlotId, VssCertificate,
+                                       VssCertificatesMap)
+
+----------------------------------------------------------------------------
+-- SscMessage
+----------------------------------------------------------------------------
+
+data DSMessage
+    = DSCommitment !PublicKey
+                   !SignedCommitment
+    | DSOpening !PublicKey
+                !Opening
+    | DSShares !PublicKey
+               (HashMap PublicKey Share)
+    | DSVssCertificate !PublicKey
+                       !VssCertificate
+    deriving (Show)
+
+deriveSafeCopySimple 0 'base ''DSMessage
 
 ----------------------------------------------------------------------------
 -- SscStorage
@@ -238,8 +257,7 @@ instance SscTypes SscDynamicState where
     type SscStorage   SscDynamicState = DSStorage
     type SscPayload   SscDynamicState = DSPayload
     type SscProof     SscDynamicState = DSProof
-    --type SscMessage   SscDynamicState = DSMessage
-    type SscMessage   SscDynamicState = NotImplemented
+    type SscMessage   SscDynamicState = DSMessage
     type SscSeedError SscDynamicState = FtsError
 
     mkSscPayload = notImplemented

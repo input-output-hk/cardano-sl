@@ -12,6 +12,7 @@ module Pos.Ssc.Class.Storage
        ) where
 
 import           Control.Lens            (Lens')
+import           Serokell.Util.Verify    (VerificationRes)
 import           Universum
 
 import           Pos.Ssc.Class.Types     (SscTypes (..))
@@ -37,5 +38,24 @@ class SscTypes ssc => SscStorageClass ssc where
     sscApplyBlocks :: AltChain ssc -> SscUpdate ssc ()
     -- | Should be executed before doing any updates within given slot.
     sscPrepareToNewSlot :: SlotId -> SscUpdate ssc ()
+    -- | Do something with given message, result is whether message
+    -- has been processed successfully (implementation defined).
+    sscProcessMessage :: SscMessage ssc -> SscUpdate ssc Bool
+    -- | Rollback application of last 'n' blocks.  blocks. If there
+    -- are less blocks than 'n' is, just leaves an empty ('def')
+    -- version.
+    --
+    -- TODO: there was also such comment.
+    -- If @n > 0@, also removes all commitments/etc received during that
+    -- period but not included into blocks.
+    sscRollback :: Word -> SscUpdate ssc ()
+    sscGetLocalPayload :: SscQuery ssc (SscPayload ssc)
+    sscGetGlobalPayload :: SscQuery ssc (SscPayload ssc)
+    sscGetGlobalPayloadByDepth :: Word -> SscQuery ssc (Maybe (SscPayload ssc))
+    -- | Verify Ssc-related predicates of block sequence which is
+    -- about to be applied. It should check that SSC payload will be
+    -- consistent if this blocks are applied (after possible rollback
+    -- if first argument isn't zero).
+    sscVerifyBlocks :: Word -> AltChain ssc -> SscQuery ssc VerificationRes
 
     -- TODO: move the rest of methods here

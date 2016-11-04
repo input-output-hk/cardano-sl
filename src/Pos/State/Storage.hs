@@ -55,8 +55,8 @@ import           Serokell.Util              (VerificationRes (..), verifyGeneric
 import           Universum
 
 import           Pos.Constants              (k)
-import           Pos.Crypto                 (SecretKey, Threshold, VssPublicKey,
-                                             signedValue)
+import           Pos.Crypto                 (PublicKey, SecretKey, Share, Threshold,
+                                             VssKeyPair, VssPublicKey, signedValue)
 import           Pos.Ssc.Class.Storage      (HasSscStorage (..), SscStorageClass (..))
 import           Pos.Ssc.Class.Types        (SscTypes (..))
 import           Pos.Ssc.DynamicState.Types (DSPayload (..), SscDynamicState,
@@ -67,7 +67,6 @@ import           Pos.State.Storage.Block    (BlockStorage, HasBlockStorage (bloc
                                              blkRollback, blkSetHead, getBlock,
                                              getHeadBlock, getLeaders, getSlotDepth,
                                              mayBlockBeUseful)
-import           Pos.State.Storage.Mpc      (getOurShares)
 import qualified Pos.State.Storage.Mpc      as Mpc (calculateLeaders)
 import           Pos.State.Storage.Stats    (HasStatsData (statsData), IdTimestamp (..),
                                              StatsData, addStatRecord, getStatRecords)
@@ -138,6 +137,12 @@ getGlobalSscPayload = sscGetGlobalPayload
 
 getToken :: Query (Maybe (SscToken SscDynamicState))
 getToken = sscGetToken
+
+getOurShares
+    :: VssKeyPair -- ^ Our VSS key
+    -> Integer -- ^ Random generator seed (needed for 'decryptShare')
+    -> Query (HashMap PublicKey Share)
+getOurShares = sscGetOurShares
 
 -- | Create a new block on top of best chain if possible.
 -- Block can be created if:

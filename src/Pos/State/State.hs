@@ -34,17 +34,16 @@ module Pos.State.State
        , processTx
 
        -- * Stats collecting and fetching
-       , addStatRecord
+       , newStatRecord
        , getStatRecords
        ) where
 
 import           Crypto.Random              (seedNew, seedToInteger)
 import           Data.Acid                  (EventResult, EventState, QueryEvent,
                                              UpdateEvent)
-import           Data.Binary                (Binary)
 import qualified Data.Binary                as Binary
 import           Pos.DHT                    (DHTResponseT)
-import           Serokell.Util              (VerificationRes)
+import           Serokell.Util              (VerificationRes, show')
 import           Universum
 
 import           Pos.Crypto                 (PublicKey, SecretKey, Share, VssKeyPair,
@@ -54,8 +53,9 @@ import           Pos.Ssc.Class.Types        (SscTypes (SscMessage))
 import           Pos.Ssc.DynamicState.Types (DSPayload, SscDynamicState)
 import           Pos.State.Acidic           (DiskState, tidyState)
 import qualified Pos.State.Acidic           as A
-import           Pos.State.Storage          (IdTimestamp (..), ProcessBlockRes (..),
-                                             ProcessTxRes (..), Storage)
+import           Pos.State.Storage          (ProcessBlockRes (..), ProcessTxRes (..),
+                                             Storage)
+import           Pos.Statistics.StatEntry   (StatLabel (..))
 import           Pos.Types                  (Block, EpochIndex, GenesisBlock, HeaderHash,
                                              MainBlock, MainBlockHeader, Opening,
                                              SignedCommitment, SlotId, SlotLeaders,
@@ -208,14 +208,12 @@ getOurShares ourKey = do
     queryDisk $ A.GetOurShares ourKey (seedToInteger randSeed)
 
 -- | Functions for collecting stats (for benchmarking)
-toPair :: Binary a => IdTimestamp -> (a, Timestamp)
-toPair IdTimestamp {..} = (Binary.decode itId, fromIntegral itTimestamp)
+getStatRecords :: (WorkModeDB m, StatLabel l)
+               => l -> m (Maybe [(Timestamp, EntryType l)])
+getStatRecords label = fmap toEntries <$> queryDisk (A.GetStatRecords $ show' label)
+  where toEntries = map $ bimap fromIntegral Binary.decode
 
-fromArgs :: Binary a => a -> Timestamp -> IdTimestamp
-fromArgs id time = IdTimestamp (Binary.encode id) (fromIntegral time)
-
-getStatRecords :: (WorkModeDB m, Binary a) => Text -> m (Maybe [(a, Timestamp)])
-getStatRecords label = fmap (map toPair) <$> queryDisk (A.GetStatRecords label)
-
-addStatRecord :: (WorkModeDB m, Binary a) => Text -> a -> Timestamp -> m ()
-addStatRecord label id time = updateDisk $ A.AddStatRecord label $ fromArgs id time
+newStatRecord :: (WorkModeDB m, StatLabel l)
+              => l -> Timestamp -> EntryType l -> m ()
+newStatRecord label ts entry =
+    updateDisk $ A.NewStatRecord (show' label) (fromIntegral ts) $ Binary.encode entry

@@ -41,7 +41,7 @@ module Pos.State.Acidic
        , ProcessTx (..)
        , SetSecret (..)
 
-       , AddStatRecord (..)
+       , NewStatRecord (..)
        , GetStatRecords (..)
        ) where
 
@@ -135,6 +135,6 @@ makeAcidic ''Storage
     , 'S.processSscMessage
     , 'S.processTx
     , 'S.setSecret
-    , 'S.addStatRecord
+    , 'S.newStatRecord
     , 'S.getStatRecords
     ]

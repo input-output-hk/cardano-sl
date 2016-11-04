@@ -65,6 +65,7 @@ library
                         Pos.State.Storage.Tx
                         Pos.Statistics.Block
                         Pos.Statistics.MonadStats
+                        Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
@@ -101,6 +102,7 @@ library
                       , exceptions
                       , file-embed >= 0.0.10
                       , formatting
+                      , focus
                       , hashable
                       , kademlia
                       , lens
@@ -116,6 +118,7 @@ library
                       , safecopy
                       , serokell-util
                       , stm
+                      , stm-containers
                       , tagged
                       , stm-containers
                       , template-haskell

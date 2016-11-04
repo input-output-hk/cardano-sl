@@ -23,7 +23,8 @@ import           Pos.DHT                  (DHTNode, DHTNodeType (..), dhtAddr,
 import           Pos.Genesis              (genesisAddresses, genesisSecretKeys,
                                            genesisVssKeyPairs)
 import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
-                                           NodeParams (..), runRealMode, submitTx)
+                                           NodeParams (..), bracketDHTInstance,
+                                           runRealMode, submitTx)
 import           Pos.Statistics           (getNoStatsT)
 import           Pos.Types                (Tx (..), TxId, txF)
 import           Pos.WorkMode             (WorkMode)
@@ -111,21 +112,29 @@ main :: IO ()
 main = do
     GenOptions {..} <- execParser optsInfo
     let i = fromIntegral goGenesisIdx
+        logParams =
+            def
+            { lpMainSeverity = Debug
+            , lpRootLogger = "tx-gen"
+            }
+        baseParams =
+            BaseParams
+            { bpLogging            = logParams
+            , bpPort               = 24962 + fromIntegral i
+            , bpDHTPeers           = goDHTPeers
+            , bpDHTKeyOrType       = Right DHTClient
+            , bpDHTExplicitInitial = False
+            }
         params =
             NodeParams
-            { npDbPath = Nothing
-            , npRebuildDb = False
+            { npDbPath      = Nothing
+            , npRebuildDb   = False
             , npSystemStart = 1477706355381569 --arbitrary value
-            , npSecretKey = genesisSecretKeys !! i
-            , npVssKeyPair = genesisVssKeyPairs !! i
-            , npBaseParams = BaseParams
-                             { bpLogging = def { lpMainSeverity = Debug, lpRootLogger = "tx-gen" }
-                             , bpPort = 24962 + fromIntegral i
-                             , bpDHTPeers = goDHTPeers
-                             , bpDHTKeyOrType = Right DHTClient
-                             , bpDHTExplicitInitial = False
-                             }
-            , npCustomUtxo = Nothing
+            , npSecretKey   = genesisSecretKeys !! i
+            , npVssKeyPair  = genesisVssKeyPairs !! i
+            , npBaseParams  = baseParams
+            , npCustomUtxo  = Nothing
+            , npTimeLord    = False
             }
         addr = genesisAddresses !! i
 
@@ -135,13 +144,15 @@ main = do
         initTxId :: Int -> TxId
         initTxId k = unsafeHash (show addr ++ show k)
 
-    runRealMode params [] $ getNoStatsT $ do
-        logInfo "TX GEN RUSHING"
-        peers <- discoverPeers DHTFull
+    bracketDHTInstance baseParams $ \inst -> do
+        runRealMode inst params [] $ getNoStatsT $ do
+            logInfo "TX GEN RUSHING"
+            peers <- discoverPeers DHTFull
 
-        let na = dhtAddr <$> peers
-        forM_ (zip recAddrs [0..(goTxNum-1)]) $ \(recAddr, idx) -> do
-            logInfo $ sformat ("Sending transaction #"%int) idx
-            logInfo $ sformat ("Recipient address: "%build) recAddr
-            submitTx na (initTxId idx, 0) (recAddr, 1)
-            wait $ for goDelay
+            let na = dhtAddr <$> peers
+
+            forM_ (zip recAddrs [0..(goTxNum-1)]) $ \(recAddr, idx) -> do
+                logInfo $ sformat ("Sending transaction #"%int) idx
+                logInfo $ sformat ("Recipient address: "%build) recAddr
+                submitTx na (initTxId idx, 0) (recAddr, 1)
+                wait $ for goDelay

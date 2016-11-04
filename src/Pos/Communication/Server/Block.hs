@@ -27,8 +27,6 @@ import           Pos.DHT                    (ListenerDHT (..), replyToNode)
 import           Pos.Slotting               (getCurrentSlot)
 import           Pos.Ssc.DynamicState.Types (SscDynamicState)
 import qualified Pos.State                  as St
-import           Pos.Statistics             (statlogReceivedBlock,
-                                             statlogReceivedBlockHeader, statlogSentBlock)
 import           Pos.Types                  (HeaderHash, headerHash)
 import           Pos.WorkMode               (WorkMode)
 
@@ -43,7 +41,6 @@ blockListeners =
 
 handleBlock :: ResponseMode m => SendBlock SscDynamicState -> m ()
 handleBlock (SendBlock block) = do
-    statlogReceivedBlock block
     slotId <- getCurrentSlot
     pbr <- St.processBlock slotId block
     let blkHash :: HeaderHash SscDynamicState
@@ -72,7 +69,6 @@ handleBlockHeader
     :: ResponseMode m
     => SendBlockHeader SscDynamicState -> m ()
 handleBlockHeader (SendBlockHeader header) = do
-    statlogReceivedBlockHeader header'
     whenM checkUsefulness $ replyToNode (RequestBlock h)
   where
     header' = Right header
@@ -101,6 +97,5 @@ handleBlockRequest (RequestBlock h) = do
   where
     logNotFound = logWarning $ sformat ("Block "%build%" wasn't found") h
     sendBlockBack block = do
-        statlogSentBlock block
         logDebug $ sformat ("Sending block "%build%" in reply") h
         replyToNode $ SendBlock block

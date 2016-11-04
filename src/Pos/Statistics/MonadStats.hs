@@ -1,14 +1,13 @@
-{-# LANGUAGE ConstraintKinds  #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies     #-}
+{-# LANGUAGE ConstraintKinds   #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies      #-}
 
 -- | Monadic layer for collecting stats
 
 module Pos.Statistics.MonadStats
        ( MonadStats (..)
-       , StatEntry
        , NoStatsT
-       , CounterLabel
        , getNoStatsT
        , StatsT
        , getStatsT
@@ -21,46 +20,50 @@ import           Control.TimeWarp.Logging (WithNamedLogger (..))
 import           Control.TimeWarp.Rpc     (MonadDialog, MonadResponse, MonadTransfer (..),
                                            hoistRespCond)
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
+import qualified Data.Binary              as Binary
+import           Focus                    (alterM)
+import           Serokell.Util            (show')
+import qualified STMContainers.Map        as SM
+import           System.IO.Unsafe         (unsafePerformIO)
 import           Universum
 
 import           Pos.DHT                  (DHTResponseT, MonadDHT, MonadMessageDHT (..),
                                            WithDefaultMsgHeader)
 import           Pos.DHT.Real             (KademliaDHT)
 import           Pos.Slotting             (MonadSlots (..))
-import           Pos.State                (MonadDB (..), addStatRecord, getStatRecords)
+import           Pos.State                (MonadDB (..), getStatRecords)
+import           Pos.Statistics.StatEntry (StatLabel (..))
 import           Pos.Types                (Timestamp (..))
 
-type CounterLabel = Text
-type StatEntry = (LByteString, Timestamp)
-
+-- | `MonadStats` is a monad which has methods for stats collecting
 class Monad m => MonadStats m where
-    logStat :: CounterLabel -> StatEntry -> m ()
-    getStats :: CounterLabel -> m (Maybe [StatEntry])
+    statLog :: StatLabel l => l -> EntryType l -> m ()
+    getStats :: StatLabel l => l -> m (Maybe [(Timestamp, EntryType l)])
 
     -- | Default convenience method, which we can override
     -- (to truly do nothing in `NoStatsT`, for example)
-    logStatM :: CounterLabel -> m StatEntry -> m ()
-    logStatM label action = action >>= logStat label
+    logStatM :: StatLabel l => l -> m (EntryType l) -> m ()
+    logStatM label action = action >>= statLog label
 
 -- TODO: is there a way to avoid such boilerplate for transformers?
 instance MonadStats m => MonadStats (KademliaDHT m) where
-    logStat label = lift . logStat label
+    statLog label = lift . statLog label
     getStats = lift . getStats
 
 instance MonadStats m => MonadStats (ReaderT a m) where
-    logStat label = lift . logStat label
+    statLog label = lift . statLog label
     getStats = lift . getStats
 
 instance MonadStats m => MonadStats (StateT a m) where
-    logStat label = lift . logStat label
+    statLog label = lift . statLog label
     getStats = lift . getStats
 
 instance MonadStats m => MonadStats (ExceptT e m) where
-    logStat label = lift . logStat label
+    statLog label = lift . statLog label
     getStats = lift . getStats
 
 instance MonadStats m => MonadStats (DHTResponseT m) where
-    logStat label = lift . logStat label
+    statLog label = lift . statLog label
     getStats = lift . getStats
 
 type instance ThreadId (NoStatsT m) = ThreadId m
@@ -81,7 +84,7 @@ instance MonadTrans NoStatsT where
     lift = NoStatsT
 
 instance Monad m => MonadStats (NoStatsT m) where
-    logStat _ _ = pure ()
+    statLog _ _ = pure ()
     getStats _ = pure $ pure []
     logStatM _ _ = pure ()
 
@@ -99,6 +102,16 @@ instance MonadTransfer m => MonadTransfer (StatsT m) where
 instance MonadTrans StatsT where
     lift = StatsT
 
+-- TODO: =\
+statsMap :: SM.Map Text LByteString
+statsMap = unsafePerformIO SM.newIO
+
 instance (MonadIO m, MonadDB m) => MonadStats (StatsT m) where
-    logStat label = lift . uncurry (addStatRecord label)
+    statLog label entry = do
+        liftIO $ atomically $ SM.focus update (show' label) statsMap
+        return ()
+      where
+        update = alterM $ \v -> return $ fmap Binary.encode $
+            mappend entry . Binary.decode <$> v <|> Just entry
+
     getStats = lift . getStatRecords

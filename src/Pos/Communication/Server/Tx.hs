@@ -16,7 +16,6 @@ import           Pos.Communication.Types  (ResponseMode, SendTx (..), SendTxs (.
 import           Pos.Communication.Util   (modifyListenerLogger)
 import           Pos.DHT                  (ListenerDHT (..))
 import           Pos.State                (ProcessTxRes (..), processTx)
-import           Pos.Statistics           (statlogReceivedTx)
 import           Pos.Types                (txF)
 import           Pos.WorkMode             (WorkMode)
 
@@ -32,7 +31,6 @@ handleTx
     :: ResponseMode m
     => SendTx -> m ()
 handleTx (SendTx tx) = do
-    statlogReceivedTx tx
     res <- processTx tx
     case res of
         PTRadded ->

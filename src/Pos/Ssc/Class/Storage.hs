@@ -58,4 +58,8 @@ class SscTypes ssc => SscStorageClass ssc where
     -- if first argument isn't zero).
     sscVerifyBlocks :: Word -> AltChain ssc -> SscQuery ssc VerificationRes
 
+    -- | BARDAQ
+    sscGetToken :: SscQuery ssc (Maybe (SscToken ssc))
+    sscSetToken :: SscToken ssc -> SscUpdate ssc ()
+
     -- TODO: move the rest of methods here

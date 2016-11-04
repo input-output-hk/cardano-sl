@@ -17,16 +17,12 @@
 module Pos.State.Storage.Mpc
        (
          calculateLeaders
-       , getOurCommitment
-       , getOurOpening
        , getOurShares
-       , getSecret
-       , setSecret
        --, traceMpcLastVer
        ) where
 
 import           Control.Lens               (Lens', at, ix, preview, to, use, view, (%=),
-                                             (.=), (.~), (^.), _2, _3)
+                                             (.=), (.~), (^.))
 import           Crypto.Random              (drgNewSeed, seedFromInteger, withDRG)
 import           Data.Default               (def)
 import           Data.Hashable              (Hashable)
@@ -87,6 +83,9 @@ instance SscStorageClass SscDynamicState where
     sscGetGlobalPayload = getGlobalMpcData
     sscGetGlobalPayloadByDepth = getGlobalMpcDataByDepth
     sscVerifyBlocks = mpcVerifyBlocks
+
+    sscGetToken = getSecret
+    sscSetToken = setSecret
 
 dsVersioned
     :: HasSscStorage SscDynamicState a
@@ -529,8 +528,8 @@ mpcProcessBlock blk = do
 -- | Set FTS seed (and shares) to be used in this epoch. If the seed
 -- wasn't cleared before (it's cleared whenever new epoch is processed
 -- by mpcProcessNewSlot), it will fail.
-setSecret :: PublicKey -> (SignedCommitment, Opening) -> Update ()
-setSecret ourPk (comm, op) = do
+setSecret :: (PublicKey, SignedCommitment, Opening) -> Update ()
+setSecret (ourPk, comm, op) = do
     s <- use dsCurrentSecret
     case s of
         Just _  -> panic "setSecret: a secret was already present"
@@ -538,12 +537,6 @@ setSecret ourPk (comm, op) = do
 
 getSecret :: Query (Maybe (PublicKey, SignedCommitment, Opening))
 getSecret = view dsCurrentSecret
-
-getOurCommitment :: Query (Maybe SignedCommitment)
-getOurCommitment = fmap (view _2) <$> getSecret
-
-getOurOpening :: Query (Maybe Opening)
-getOurOpening = fmap (view _3) <$> getSecret
 
 -- | Decrypt shares (in commitments) that we can decrypt.
 -- TODO: do not decrypt shares for which we know openings!

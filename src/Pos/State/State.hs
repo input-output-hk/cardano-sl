@@ -38,6 +38,7 @@ module Pos.State.State
        , getStatRecords
        ) where
 
+import           Control.Lens               (view, _2, _3)
 import           Crypto.Random              (seedNew, seedToInteger)
 import           Data.Acid                  (EventResult, EventState, QueryEvent,
                                              UpdateEvent)
@@ -188,19 +189,19 @@ generateAndSetNewSecret sk epoch = do
     case (,) <$> threshold <*> participants of
         Nothing -> return Nothing
         Just (th, ps) -> do
-            secret <-
+            (comm, op) <-
                 first (mkSignedCommitment sk epoch) <$>
                 genCommitmentAndOpening th ps
-            Just secret <$ updateDisk (A.SetSecret (toPublic sk) secret)
+            Just (comm, op) <$ updateDisk (A.SetToken (toPublic sk, comm, op))
 
 getSecret :: WorkModeDB m => m (Maybe (PublicKey, SignedCommitment, Opening))
-getSecret = queryDisk A.GetSecret
+getSecret = queryDisk A.GetToken
 
 getOurCommitment :: WorkModeDB m => m (Maybe SignedCommitment)
-getOurCommitment = queryDisk A.GetOurCommitment
+getOurCommitment = fmap (view _2) <$> getSecret
 
 getOurOpening :: WorkModeDB m => m (Maybe Opening)
-getOurOpening = queryDisk A.GetOurOpening
+getOurOpening = fmap (view _3) <$> getSecret
 
 getOurShares :: WorkModeDB m => VssKeyPair -> m (HashMap PublicKey Share)
 getOurShares ourKey = do

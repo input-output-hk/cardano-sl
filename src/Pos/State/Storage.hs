@@ -19,12 +19,10 @@ module Pos.State.Storage
        , getLeaders
        , getLocalTxs
        , getLocalSscPayload
-       , getSecret
-       , getOurCommitment
-       , getOurOpening
        , getOurShares
        , getParticipants
        , getThreshold
+       , getToken
        , mayBlockBeUseful
 
        , ProcessBlockRes (..)
@@ -32,11 +30,11 @@ module Pos.State.Storage
 
        , Update
        , createNewBlock
-       , setSecret
        , processBlock
        , processNewSlot
        , processSscMessage
        , processTx
+       , setToken
 
        , IdTimestamp (..)
        , addStatRecord
@@ -69,8 +67,7 @@ import           Pos.State.Storage.Block    (BlockStorage, HasBlockStorage (bloc
                                              blkRollback, blkSetHead, getBlock,
                                              getHeadBlock, getLeaders, getSlotDepth,
                                              mayBlockBeUseful)
-import           Pos.State.Storage.Mpc      (getOurCommitment, getOurOpening,
-                                             getOurShares, getSecret, setSecret)
+import           Pos.State.Storage.Mpc      (getOurShares)
 import qualified Pos.State.Storage.Mpc      as Mpc (calculateLeaders)
 import           Pos.State.Storage.Stats    (HasStatsData (statsData), IdTimestamp (..),
                                              StatsData, addStatRecord, getStatRecords)
@@ -138,6 +135,9 @@ getLocalSscPayload = sscGetLocalPayload
 
 getGlobalSscPayload :: Query DSPayload
 getGlobalSscPayload = sscGetGlobalPayload
+
+getToken :: Query (Maybe (SscToken SscDynamicState))
+getToken = sscGetToken
 
 -- | Create a new block on top of best chain if possible.
 -- Block can be created if:
@@ -363,3 +363,6 @@ getThreshold epoch = do
 
 processSscMessage :: SscMessage SscDynamicState -> Update Bool
 processSscMessage = sscProcessMessage
+
+setToken :: SscToken SscDynamicState -> Update ()
+setToken = sscSetToken

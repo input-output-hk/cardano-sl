@@ -36,7 +36,7 @@ import           Control.TimeWarp.Logging    (LoggerName, Severity (Warning),
 import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, MonadDialog,
                                               NetworkAddress, Transfer, runDialog,
                                               runTransfer)
-import           Control.TimeWarp.Timed      (MonadTimed, currentTime, for, fork,
+import           Control.TimeWarp.Timed      (MonadTimed, currentTime, for, fork, fork_,
                                               killThread, ms, repeatForever, runTimedIO,
                                               sec, sleepForever, wait, wait)
 import           Data.Default                (Default (def))
@@ -82,7 +82,7 @@ runNode :: WorkMode m => m ()
 runNode = do
     whenM (ncTimeLord <$> getNodeContext) $
       ncSystemStart <$> getNodeContext
-          >>= \(SysStartResponse . Just -> mT) ->
+          >>= \(SysStartResponse . Just -> mT) -> fork_ $
             runWithRandomIntervals (ms 500) (sec 5) $ do
               logInfo "Broadcasting system start"
               sendToNetwork mT

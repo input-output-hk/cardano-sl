@@ -10,7 +10,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp.git
-    commit: 6645c7c99b70b8230a02a102c1ce10701f721f76
+    commit: a6159e63b41c5be651033d04eecf917ed76c0968
   extra-dep: true
 - location:
     git: https://github.com/serokell/serokell-core.git

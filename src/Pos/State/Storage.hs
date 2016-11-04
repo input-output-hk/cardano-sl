@@ -86,7 +86,7 @@ import           Pos.Types                  (Block, EpochIndex, GenesisBlock, Ma
                                              flattenSlotId, getAddress, headerHashG,
                                              isCommitmentId, isOpeningId, isSharesId,
                                              txOutAddress, unflattenSlotId, verifyTxAlone)
-import           Pos.Util                   (readerToState, _neHead)
+import           Pos.Util                   (readerToState, _neLast)
 
 type Query  a = forall m. MonadReader Storage m => m a
 type Update a = forall m. MonadState Storage m => m a
@@ -230,7 +230,7 @@ processBlockFinally toRollback blocks = do
     txRollback toRollback
     txApplyBlocks blocks
     blkRollback toRollback
-    blkSetHead (blocks ^. _neHead . headerHashG)
+    blkSetHead (blocks ^. _neLast . headerHashG)
     knownEpoch <- use (slotId . epochIndexL)
     -- When we adopt alternative chain, it may revert genesis block
     -- already created for current epoch. And we will be in situation

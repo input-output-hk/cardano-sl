@@ -11,11 +11,15 @@ module Pos.DHT.Real
        ( KademliaDHT
        , runKademliaDHT
        , KademliaDHTConfig(..)
+       , KademliaDHTInstanceConfig(..)
+       , KademliaDHTInstance
+       , startDHTInstance
+       , stopDHTInstance
        ) where
 
 import           Control.Concurrent.Async.Lifted (mapConcurrently)
 import           Control.Concurrent.STM          (STM, TVar, atomically, modifyTVar,
-                                                  newTVar, readTVar, writeTVar)
+                                                  newTVar, readTVar, swapTVar, writeTVar)
 import           Control.Monad.Catch             (Handler (..), MonadCatch, MonadMask,
                                                   MonadThrow, catchAll, catches, throwM)
 import           Control.Monad.Trans.Class       (MonadTrans)
@@ -73,15 +77,19 @@ instance K.Serialize DHTKey where
 
 type DHTHandle = K.KademliaInstance DHTKey DHTData
 
+data KademliaDHTInstance = KademliaDHTInstance
+    { kdiHandle          :: !DHTHandle
+    , kdiKey             :: !DHTKey
+    , kdiInitialPeers    :: ![DHTNode]
+    , kdiExplicitInitial :: !Bool
+    }
+
 data KademliaDHTContext m = KademliaDHTContext
-    { kdcHandle               :: !DHTHandle
-    , kdcKey                  :: !DHTKey
-    , kdcAuxResClosers        :: !(TVar [m ()])
-    , kdcInitialPeers_        :: ![DHTNode]
+    { kdcDHTInstance_         :: !KademliaDHTInstance
+    , kdcAuxClosers           :: !(TVar [m ()])
     , kdcListenByBinding      :: !(Binding -> KademliaDHT m (IO ()))
     , kdcStopped              :: !(TVar Bool)
     , kdcNoCacheMessageNames_ :: ![Text]
-    , kdcExplicitInitial_     :: !Bool
     }
 
 data KademliaDHTConfig m = KademliaDHTConfig
@@ -89,10 +97,14 @@ data KademliaDHTConfig m = KademliaDHTConfig
     , kdcListeners           :: ![ListenerDHT (KademliaDHT m)]
     , kdcMessageCacheSize    :: !Int
     , kdcEnableBroadcast     :: !Bool
-    , kdcKeyOrType           :: !(Either DHTKey DHTNodeType)
-    , kdcInitialPeers        :: ![DHTNode]
     , kdcNoCacheMessageNames :: ![Text]
-    , kdcExplicitInitial     :: !Bool
+    , kdcDHTInstance         :: !KademliaDHTInstance
+    }
+data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
+    { kdcPort            :: !Word16
+    , kdcKeyOrType       :: !(Either DHTKey DHTNodeType)
+    , kdcInitialPeers    :: ![DHTNode]
+    , kdcExplicitInitial :: !Bool
     }
 
 newtype KademliaDHT m a = KademliaDHT { unKademliaDHT :: ReaderT (KademliaDHTContext m) m a }
@@ -144,33 +156,66 @@ runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
     startDHT kdc >>= runReaderT (unKademliaDHT action')
   where
     action' =
-        (startMsgThread >> logDebug "running kademlia" >> action'')
+        (startMsgThread
+          >> logDebug "running kademlia dht messager"
+          >> action'')
         `finally`
-        (logDebug "stopping kademlia" >> stopDHT >> logDebug "kademlia stopped")
+        (logDebug "stopping kademlia messager"
+          >> stopDHT >> logDebug "kademlia messager stopped")
     action'' = do
-      joinNetworkNoThrow kdcInitialPeers
+      joinNetworkNoThrow (kdiInitialPeers $ kdcDHTInstance)
       startRejoinThread
       action
     startRejoinThread = do
-      tvar <- KademliaDHT $ asks kdcAuxResClosers
+      tvar <- KademliaDHT $ asks kdcAuxClosers
       tid <- fork $ runWithRandomIntervals (ms 500) (sec 5) rejoinNetwork
       liftIO . atomically $ modifyTVar tvar (killThread tid:)
     startMsgThread = do
       (tvar, listenByBinding) <-
-          KademliaDHT $ (,) <$> asks kdcAuxResClosers <*> asks kdcListenByBinding
+          KademliaDHT $ (,) <$> asks kdcAuxClosers <*> asks kdcListenByBinding
       closer <- listenByBinding $ AtPort kdcPort
       liftIO . atomically $ modifyTVar tvar (liftIO closer:)
 
 stopDHT :: (MonadTimed m, MonadIO m) => KademliaDHT m ()
 stopDHT = do
-    (kdcH, closersTV, stoppedTV) <- KademliaDHT $ (,,)
-            <$> asks kdcHandle
-            <*> asks kdcAuxResClosers
+    (closersTV, stoppedTV) <- KademliaDHT $ (,)
+            <$> asks kdcAuxClosers
             <*> asks kdcStopped
     liftIO . atomically $ writeTVar stoppedTV True
-    liftIO $ K.close kdcH
-    closers <- liftIO . atomically $ readTVar closersTV <* writeTVar closersTV []
+    closers <- liftIO . atomically $ swapTVar closersTV []
     lift $ sequence_ closers
+
+stopDHTInstance :: (MonadTimed m, MonadIO m) => KademliaDHTInstance -> m ()
+stopDHTInstance KademliaDHTInstance {..} = liftIO $ K.close kdiHandle
+
+startDHTInstance
+    :: ( MonadTimed m
+       , MonadIO m
+       , MonadDialog BinaryP m
+       , WithNamedLogger m
+       , MonadCatch m
+       , MonadBaseControl IO m
+       )
+    => KademliaDHTInstanceConfig -> m KademliaDHTInstance
+startDHTInstance KademliaDHTInstanceConfig {..} = do
+    kdiKey <- either pure randomDHTKey kdcKeyOrType
+    kdiHandle <-
+        (liftIO $
+        K.createL
+            (fromInteger . toInteger $ kdcPort)
+            kdiKey
+            (log' logDebug)
+            (log' logError))
+          `catchAll`
+        (\e ->
+           do logError $ sformat
+                  ("Error launching kademlia at port " % int % ": " % shown) kdcPort e
+              throwM e)
+    let kdiInitialPeers = kdcInitialPeers
+    let kdiExplicitInitial = kdcExplicitInitial
+    pure $ KademliaDHTInstance {..}
+  where
+    log' logF =  usingLoggerName ("kademlia" <> "messager") . logF . toText
 
 startDHT
     :: ( MonadTimed m
@@ -182,22 +227,8 @@ startDHT
        )
     => KademliaDHTConfig m -> m (KademliaDHTContext m)
 startDHT KademliaDHTConfig {..} = do
-    kdcKey <- either pure randomDHTKey kdcKeyOrType
-    kdcHandle <-
-        (liftIO $
-        K.createL
-            (fromInteger . toInteger $ kdcPort)
-            kdcKey
-            (log' logDebug)
-            (log' logError))
-          `catchAll`
-        (\e ->
-           do logError $ sformat
-                  ("Error launching kademlia at port " % int % ": " % shown) kdcPort e
-              throwM e)
     kdcStopped <- liftIO . atomically $ newTVar False
-    kdcAuxResClosers <- liftIO . atomically $ newTVar []
-    let kdcInitialPeers_ = kdcInitialPeers
+    kdcAuxClosers <- liftIO . atomically $ newTVar []
     msgCache <- liftIO . atomically $
         newTVar (LRU.newLRU (Just $ toInteger kdcMessageCacheSize) :: LRU.LRU Int ())
     let kdcListenByBinding binding = do
@@ -207,12 +238,12 @@ startDHT KademliaDHTConfig {..} = do
             return closer
     logInfo $ sformat ("Launching Kademlia, noCacheMessageNames=" % shown) kdcNoCacheMessageNames
     let kdcNoCacheMessageNames_ = kdcNoCacheMessageNames
-    let kdcExplicitInitial_ = kdcExplicitInitial
+    let kdcDHTInstance_ = kdcDHTInstance
     pure $ KademliaDHTContext {..}
   where
     convert :: ListenerDHT m -> ListenerH BinaryP DHTMsgHeader m
     convert (ListenerDHT f) = ListenerH $ \(_, m) -> getDHTResponseT $ f m
-    log' logF =  usingLoggerName ("kademlia" <> "instance") . logF . toText
+    log' logF =  usingLoggerName ("kademlia" <> "messager") . logF . toText
     convert' handler = getDHTResponseT . handler
 
 -- | Return 'True' if the message should be processed, 'False' if only
@@ -306,7 +337,7 @@ instance (MonadDialog BinaryP m, WithNamedLogger m, MonadCatch m, MonadIO m, Mon
             logDebug $ sformat ("Error listening outbound connection to " %
                                 shown % ": " % build) addr e
             return $ pure ()
-        updateClosers closer = KademliaDHT (asks kdcAuxResClosers)
+        updateClosers closer = KademliaDHT (asks kdcAuxClosers)
                             >>= \tvar -> (liftIO . atomically $ modifyTVar tvar (liftIO closer:))
 
 rejoinNetwork :: (MonadIO m, WithNamedLogger m, MonadCatch m) => KademliaDHT m ()
@@ -315,14 +346,14 @@ rejoinNetwork = do
     logDebug $ sformat ("rejoinNetwork: peers " % build) peers
     when (null peers) $ do
       logWarning "Empty known peer list"
-      init <- KademliaDHT $ asks kdcInitialPeers_
+      init <- KademliaDHT $ asks (kdiInitialPeers . kdcDHTInstance_)
       joinNetworkNoThrow init
 
 instance (MonadIO m, MonadCatch m, WithNamedLogger m) => MonadDHT (KademliaDHT m) where
 
   joinNetwork [] = throwM AllPeersUnavailable
   joinNetwork nodes = do
-      inst <- KademliaDHT $ asks kdcHandle
+      inst <- KademliaDHT $ asks (kdiHandle . kdcDHTInstance_)
       asyncs <- mapM (liftIO . async . joinNetwork' inst) nodes
       waitAnyUnexceptional asyncs >>= handleRes
     where
@@ -330,13 +361,16 @@ instance (MonadIO m, MonadCatch m, WithNamedLogger m) => MonadDHT (KademliaDHT m
       handleRes _        = throwM AllPeersUnavailable
 
   discoverPeers type_ = do
-    inst <- KademliaDHT $ asks kdcHandle
+    inst <- KademliaDHT $ asks (kdiHandle . kdcDHTInstance_)
     _ <- liftIO $ K.lookup inst =<< randomDHTKey type_
     filterByNodeType type_ <$> getKnownPeers
 
   getKnownPeers = do
       myId <- currentNodeKey
-      (inst, initialPeers, explicitInitial) <- KademliaDHT $ (,,) <$> asks kdcHandle <*> asks kdcInitialPeers_ <*> asks kdcExplicitInitial_
+      (inst, initialPeers, explicitInitial) <- KademliaDHT $ (,,)
+          <$> asks (kdiHandle . kdcDHTInstance_)
+          <*> asks (kdiInitialPeers . kdcDHTInstance_)
+          <*> asks (kdiExplicitInitial . kdcDHTInstance_)
       extendPeers myId (if explicitInitial then initialPeers else []) <$> liftIO (K.dumpPeers inst)
     where
       extendPeers myId initial
@@ -348,7 +382,7 @@ instance (MonadIO m, MonadCatch m, WithNamedLogger m) => MonadDHT (KademliaDHT m
         . map (\(toDHTNode -> n) -> (dhtNodeId n, n))
 
 
-  currentNodeKey = KademliaDHT $ asks kdcKey
+  currentNodeKey = KademliaDHT $ asks (kdiKey . kdcDHTInstance_)
 
   dhtLoggerName _ = "kademlia"
 

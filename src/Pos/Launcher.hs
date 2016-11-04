@@ -22,10 +22,12 @@ module Pos.Launcher
        -- Export this for custom usage in CLI utils
        , runServiceMode
        , runRealMode
+       , bracketDHTInstance
        ) where
 
 
 import           Control.Concurrent.MVar     (newEmptyMVar, takeMVar)
+import           Control.Monad.Catch         (bracket)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.TimeWarp.Logging    (LoggerName, Severity (Warning),
                                               WithNamedLogger, initLogging, logError,
@@ -54,7 +56,10 @@ import           Pos.DHT                     (DHTKey, DHTNode (dhtAddr), DHTNode
                                               filterByNodeType, mapListenerDHT,
                                               sendToNetwork)
 import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..),
-                                              runKademliaDHT)
+                                              KademliaDHTInstance,
+                                              KademliaDHTInstanceConfig (..),
+                                              runKademliaDHT, startDHTInstance,
+                                              stopDHTInstance)
 import           Pos.State                   (NodeState, openMemState, openState)
 import           Pos.State.Storage           (storageFromUtxo)
 import           Pos.Statistics              (getNoStatsT, getStatsT)
@@ -109,10 +114,12 @@ submitTxReal :: NodeParams
              -> (TxId, Word32)
              -> (Address, Coin)
              -> IO ()
-submitTxReal np input addrCoin = runRealMode np [] $ do
-    peers <- getKnownPeers
-    let na = dhtAddr <$> filterByNodeType DHTFull peers
-    getNoStatsT $ submitTx na input addrCoin
+submitTxReal np input addrCoin = bracketDHTInstance (npBaseParams np) action
+  where
+    action inst = runRealMode inst np [] $ do
+                peers <- getKnownPeers
+                let na = dhtAddr <$> filterByNodeType DHTFull peers
+                getNoStatsT $ submitTx na input addrCoin
 
 -- Sanity check in case start time is in future (may happen if clocks
 -- are not accurately synchronized, for example).
@@ -170,10 +177,10 @@ data BaseParams = BaseParams
 -- Service node runners
 ----------------------------------------------------------------------------
 
-runTimeSlaveReal :: BaseParams -> IO Timestamp
-runTimeSlaveReal bp = do
+runTimeSlaveReal :: KademliaDHTInstance -> BaseParams -> IO Timestamp
+runTimeSlaveReal inst bp = do
     mvar <- liftIO newEmptyMVar
-    runServiceMode bp (listeners mvar) $
+    runServiceMode inst bp (listeners mvar) $
       case runningMode of
          Development -> do
            tId <- fork $
@@ -202,8 +209,8 @@ runTimeLordReal lp = do
         realTime <- liftIO Time.getZonedTime
         logInfo (sformat ("[Time lord] System start: " %timestampF%", i. e.: "%shown) t realTime)
 
-runSupporterReal :: BaseParams -> IO ()
-runSupporterReal bp = runServiceMode bp [] $ do
+runSupporterReal :: KademliaDHTInstance -> BaseParams -> IO ()
+runSupporterReal inst bp = runServiceMode inst bp [] $ do
     supporterKey <- currentNodeKey
     logInfo $ sformat ("Supporter key: " % build) supporterKey
     repeatForever (sec 5) (const . return $ sec 5) $
@@ -220,16 +227,16 @@ addDevListeners NodeParams {..} ls =
     else ls
 
 -- | Run full node in real mode.
-runNodeReal :: NodeParams -> IO ()
-runNodeReal np@NodeParams {..} = runRealMode np listeners $ getNoStatsT runNode
+runNodeReal :: KademliaDHTInstance -> NodeParams -> IO ()
+runNodeReal inst np@NodeParams {..} = runRealMode inst np listeners $ getNoStatsT runNode
   where
     listeners = addDevListeners np noStatsListeners
     noStatsListeners = map (mapListenerDHT getNoStatsT) allListeners
 
 -- | Run full node in benchmarking node
 -- TODO: spawn here additional listener, which would accept stat queries
-runNodeStats :: NodeParams -> IO ()
-runNodeStats np = runRealMode np listeners $ getStatsT runNode
+runNodeStats :: KademliaDHTInstance -> NodeParams -> IO ()
+runNodeStats inst np = runRealMode inst np listeners $ getStatsT runNode
   where
     listeners = addDevListeners np statsListeners
     statsListeners = map (mapListenerDHT getStatsT) $ statsListener : allListeners
@@ -238,12 +245,27 @@ runNodeStats np = runRealMode np listeners $ getStatsT runNode
 -- Real mode runners
 ----------------------------------------------------------------------------
 
+bracketDHTInstance
+    :: BaseParams -> (KademliaDHTInstance -> IO a) -> IO a
+bracketDHTInstance BaseParams {..} = bracket acquire release
+  where
+    logger = lpRootLogger bpLogging
+    acquire = runTimed logger $ startDHTInstance instConfig
+    release = runTimed logger . stopDHTInstance
+    instConfig =
+      KademliaDHTInstanceConfig
+      { kdcKeyOrType = bpDHTKeyOrType
+      , kdcPort = bpPort
+      , kdcInitialPeers = bpDHTPeers
+      , kdcExplicitInitial = bpDHTExplicitInitial
+      }
+
 -- TODO: use bracket
-runRealMode :: NodeParams -> [ListenerDHT RealMode] -> RealMode a -> IO a
-runRealMode NodeParams {..} listeners action = do
+runRealMode :: KademliaDHTInstance -> NodeParams -> [ListenerDHT RealMode] -> RealMode a -> IO a
+runRealMode inst NodeParams {..} listeners action = do
     setupLoggingReal logParams
     db <- openDb
-    runTimed loggerName . runDBH db . runCH . runKDHT npBaseParams listeners $
+    runTimed loggerName . runDBH db . runCH . runKDHT inst npBaseParams listeners $
         nodeStartMsg npBaseParams >> action
   where
     logParams  = bpLogging npBaseParams
@@ -269,10 +291,10 @@ runRealMode NodeParams {..} listeners action = do
               , ncTimeLord = npTimeLord
               }
 
-runServiceMode :: BaseParams -> [ListenerDHT ServiceMode] -> ServiceMode a -> IO a
-runServiceMode bp@BaseParams {..} listeners action = do
+runServiceMode :: KademliaDHTInstance -> BaseParams -> [ListenerDHT ServiceMode] -> ServiceMode a -> IO a
+runServiceMode inst bp@BaseParams {..} listeners action = do
     setupLoggingReal bpLogging
-    runTimed (lpRootLogger bpLogging) . runKDHT bp listeners $
+    runTimed (lpRootLogger bpLogging) . runKDHT inst bp listeners $
         nodeStartMsg bp >> action
 
 ----------------------------------------------------------------------------
@@ -280,19 +302,17 @@ runServiceMode bp@BaseParams {..} listeners action = do
 ----------------------------------------------------------------------------
 
 runKDHT :: (MonadBaseControl IO m, WithNamedLogger m, MonadIO m, MonadTimed m, MonadMask m, MonadDialog BinaryP m)
-        => BaseParams -> [ListenerDHT (KademliaDHT m)] -> KademliaDHT m a -> m a
-runKDHT BaseParams {..} listeners = runKademliaDHT kadConfig
+        => KademliaDHTInstance -> BaseParams -> [ListenerDHT (KademliaDHT m)] -> KademliaDHT m a -> m a
+runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
   where
     kadConfig =
       KademliaDHTConfig
-      { kdcKeyOrType = bpDHTKeyOrType
-      , kdcPort = bpPort
+      { kdcPort = bpPort
       , kdcListeners = listeners
       , kdcMessageCacheSize = 1000000
       , kdcEnableBroadcast = True
-      , kdcInitialPeers = bpDHTPeers
       , kdcNoCacheMessageNames = noCacheMessageNames
-      , kdcExplicitInitial = bpDHTExplicitInitial
+      , kdcDHTInstance = dhtInstance
       }
 
 runTimed :: LoggerName -> Dialog BinaryP Transfer a -> IO a

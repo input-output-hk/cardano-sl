@@ -14,21 +14,17 @@ import qualified Data.List.NonEmpty       as NE
 import           Formatting               (build, int, sformat, (%))
 import           Serokell.Util            (listJson)
 import           Test.Hspec               (Spec, describe, pending)
-import           Test.Hspec.QuickCheck    (modifyMaxSize, modifyMaxSuccess,
-                                           prop)
-import           Test.QuickCheck          (Property, choose, counterexample,
-                                           generate, ioProperty, property,
-                                           sized, (===))
+import           Test.Hspec.QuickCheck    (modifyMaxSize, modifyMaxSuccess, prop)
+import           Test.QuickCheck          (Property, choose, counterexample, generate,
+                                           ioProperty, property, sized, (===))
 import           Test.QuickCheck.Property (failed, succeeded)
 import           Universum
 
-import           Pos.Crypto               (KeyPair (..), Share, Threshold,
-                                           VssKeyPair, decryptShare, sign,
-                                           toVssPublicKey)
+import           Pos.Crypto               (KeyPair (..), Share, Threshold, VssKeyPair,
+                                           decryptShare, sign, toVssPublicKey)
 import           Pos.FollowTheSatoshi     (FtsError (..), calculateSeed)
-import           Pos.Types                (Commitment (..), CommitmentsMap,
-                                           FtsSeed (..), Opening (..),
-                                           genCommitmentAndOpening,
+import           Pos.Types                (Commitment (..), CommitmentsMap, FtsSeed (..),
+                                           Opening (..), genCommitmentAndOpening,
                                            secretToFtsSeed, xorFtsSeed)
 import           Pos.Util                 (nonrepeating, sublistN)
 
@@ -53,15 +49,16 @@ spec = describe "FollowTheSatoshi" $ do
                n_openings <- choose (n_overlap, n)
                let n_shares = n - n_openings + n_overlap
                return $ recoverSecretsProp n n_openings n_shares n_overlap
-        prop
-            "fails to find the seed when some secrets can't be recovered" $
-            do n <- sized $ \size -> choose (1, max size 1)
-               n_overlap <- choose (0, n-1)
-               n_openings <- choose (n_overlap, n-1)
-               n_shares <- choose (n_overlap, n - n_openings + n_overlap - 1)
-               -- to succeed, it must be that
-               -- n_openings + n_shares - n_overlap >= n
-               return $ recoverSecretsProp n n_openings n_shares n_overlap
+        -- TODO: we are in process of thinking about this property, see CSL-50
+        -- prop
+        --     "fails to find the seed when some secrets can't be recovered" $
+        --     do n <- sized $ \size -> choose (1, max size 1)
+        --        n_overlap <- choose (0, n-1)
+        --        n_openings <- choose (n_overlap, n-1)
+        --        n_shares <- choose (n_overlap, n - n_openings + n_overlap - 1)
+        --        -- to succeed, it must be that
+        --        -- n_openings + n_shares - n_overlap >= n
+        --        return $ recoverSecretsProp n n_openings n_shares n_overlap
         prop "secret recovering works" pending
 
 ----------------------------------------------------------------------------

@@ -56,10 +56,10 @@ import           Pos.Types               (Block, BlockHeader, ChainDifficulty, E
                                           VerifyBlockParams (..), VerifyHeaderExtra (..),
                                           blockHeader, blockLeaders, blockSlot,
                                           difficultyL, epochIndexL, gbHeader,
-                                          getBlockHeader, headerHash, headerSlot,
-                                          mkGenesisBlock, mkMainBlock, mkMainBody,
-                                          prevBlockL, siEpoch, verifyBlock, verifyBlocks,
-                                          verifyHeader)
+                                          getBlockHeader, headerDifficulty, headerHash,
+                                          headerSlot, mkGenesisBlock, mkMainBlock,
+                                          mkMainBody, prevBlockL, siEpoch, verifyBlock,
+                                          verifyBlocks, verifyHeader)
 import           Pos.Util                (readerToState, _neHead, _neLast)
 
 data BlockStorage ssc = BlockStorage
@@ -404,7 +404,10 @@ findRollback maxDepth neededParent =
         | res > maxDepth = pure Nothing
         | headerHash header == neededParent = pure . pure $ res
         | otherwise =
-            maybe (pure Nothing) (findRollbackDo (res + 1) . getBlockHeader) =<<
+            maybe
+                (pure Nothing)
+                (findRollbackDo (res + fromIntegral (headerDifficulty header)) .
+                 getBlockHeader) =<<
             getBlock (header ^. prevBlockL)
 
 -- Before reporting that AltChain can be merged, we verify whole

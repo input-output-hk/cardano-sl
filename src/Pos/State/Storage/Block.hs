@@ -40,6 +40,7 @@ import           Data.List.NonEmpty      (NonEmpty ((:|)), (<|))
 import           Data.SafeCopy           (SafeCopy (..), contain, safeGet, safePut)
 import           Data.Vector             (Vector)
 import qualified Data.Vector             as V
+import           Formatting              (build, sformat, (%))
 import           Serokell.Util.Verify    (VerificationRes (..), isVerFailure,
                                           isVerSuccess, verifyGeneric)
 import           Universum
@@ -139,9 +140,11 @@ getBlockByDepthDo i h =
 
 -- | Get block which is the head of the __best chain__.
 getHeadBlock :: Query ssc (Block ssc)
-getHeadBlock = fromMaybe reportError <$> getBlockByDepth 0
-  where
-    reportError = panic "blkHead is not found in storage"
+getHeadBlock = do
+    headHash <- view blkHead
+    let errorMsg =
+            sformat ("blkHead (" %build % " is not found in storage") headHash
+    fromMaybe (panic errorMsg) <$> getBlockByDepth 0
 
 -- | Get list of slot leaders for the given epoch if it is known.
 getLeaders :: EpochIndex -> Query ssc (Maybe SlotLeaders)

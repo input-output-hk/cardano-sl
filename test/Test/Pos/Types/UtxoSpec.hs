@@ -8,8 +8,7 @@ import qualified Data.Map              as M (Map, delete, elems, fromList, inser
 import           Data.Maybe            (isJust, isNothing)
 import           Pos.Crypto            (hash, keyGen, sign, unsafeHash)
 import           Pos.Types             (Tx (..), TxIn (..), TxOut, Utxo, applyTxToUtxo,
-                                        deleteTxIn, findTxIn, verifyTxUtxo)
-import           Serokell.Util.Verify  (isVerFailure, isVerSuccess)
+                                        deleteTxIn, findTxIn)
 import           System.IO.Unsafe      (unsafePerformIO)
 
 import           Test.Hspec            (Spec, describe, it)

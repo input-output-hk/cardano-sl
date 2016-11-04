@@ -117,6 +117,7 @@ data NodeContext = NodeContext
       ncSecretKey   :: !SecretKey
     , -- | Vss key pair used for MPC.
       ncVssKeyPair  :: !VssKeyPair
+    , ncTimeLord    :: !Bool
     } deriving (Show)
 
 ncPublicKey :: NodeContext -> PublicKey

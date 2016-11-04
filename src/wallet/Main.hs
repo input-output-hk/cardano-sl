@@ -79,6 +79,7 @@ main = do
                                       , bpDHTExplicitInitial = False
                                       }
                     , npCustomUtxo = Nothing
+                    , npTimeLord = False
                     }
             let addr = genesisAddresses !! i
             let txId = unsafeHash addr

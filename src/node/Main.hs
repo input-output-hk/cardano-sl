@@ -179,4 +179,5 @@ main = do
         , npCustomUtxo = if pettyUtxo
                          then Just $ genesisUtxoPetty 20000
                          else Nothing
+        , npTimeLord = timeLord
         }

@@ -41,6 +41,7 @@ module Pos.Util
        , logWarningWaitOnce
        , logWarningWaitLinear
        , logWarningWaitInf
+       , runWithRandomIntervals
 
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
@@ -51,7 +52,7 @@ import           Control.Lens                  (Lens', LensLike', Magnified, Zoo
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad
 import           Control.Monad.Fail            (fail)
-import           Control.TimeWarp.Logging      (WithNamedLogger, logWarning)
+import           Control.TimeWarp.Logging      (WithNamedLogger, logDebug, logWarning)
 import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
 import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
                                                 Second, for, killThread)
@@ -78,6 +79,7 @@ import           Unsafe                        (unsafeInit, unsafeLast)
 
 import           Serokell.Util.Binary          as Binary (decodeFull)
 
+import           Pos.Crypto.Random             (randomNumber)
 import           Pos.Util.Arbitrary            as UtilArbitrary
 import           Pos.Util.NotImplemented       ()
 
@@ -273,3 +275,13 @@ logWarningWaitLinear = logWarningLongAction . WaitLinear
 
 logWarningWaitInf :: CanLogInParallel m => Second -> Text -> m a -> m a
 logWarningWaitInf = logWarningLongAction . (`WaitGeometric` 1.3) . convertUnit
+
+runWithRandomIntervals :: (MonadIO m, MonadTimed m, WithNamedLogger m) => Microsecond -> Microsecond -> m () -> m ()
+runWithRandomIntervals minT maxT action = do
+  interval <- (+ minT) . fromIntegral <$> liftIO (randomNumber $ fromIntegral $ maxT - minT)
+  --logDebug $ sformat ("runWithRandomIntervals: waiting for interval " % shown) interval
+  wait $ for interval
+  --logDebug "runWithRandomIntervals: executing action"
+  action
+  runWithRandomIntervals minT maxT action
+

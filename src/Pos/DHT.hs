@@ -22,8 +22,7 @@ module Pos.DHT (
     MonadDHT (..),
     MonadMessageDHT (..),
     MonadResponseDHT (..),
-    DHTResponseT,
-    getDHTResponseT,
+    DHTResponseT (..),
     mapDHTResponseT,
     mapListenerDHT,
     randomDHTKey,
@@ -116,7 +115,7 @@ class MonadDHT m => MonadMessageDHT m where
     sendToNode = defaultSendToNode
 
     default sendToNeighbors :: (Binary r, Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
-    sendToNeighbors = defaultSendToNeighbors sequence
+    sendToNeighbors = defaultSendToNeighbors sequence sendToNode
 
 class MonadMessageDHT m => MonadResponseDHT m where
   replyToNode :: (Binary r, Message r) => r -> m ()
@@ -144,16 +143,14 @@ defaultSendToNode addr msg = do
 
 defaultSendToNeighbors
     :: ( MonadMessageDHT m
-       , Binary r
-       , Message r
        , WithNamedLogger m
        , MonadCatch m
        , MonadIO m
        )
-    => ([m Bool] -> m [Bool]) -> r -> m Int
-defaultSendToNeighbors parallelize msg = do
-    withDhtLogger $
-      logDebug $ sformat ("Sending message " % F.build % " neighbors") (messageName' msg)
+    => ([m Bool] -> m [Bool]) -> (NetworkAddress -> r -> m ()) -> r -> m Int
+defaultSendToNeighbors parallelize sender msg = do
+--    withDhtLogger $
+--      logDebug $ sformat ("Sending message " % F.build % " neighbors") (messageName' msg)
     nodes <- filterByNodeType DHTFull <$> getKnownPeers
     succeed <- sendToNodes nodes
     succeed' <-
@@ -172,7 +169,7 @@ defaultSendToNeighbors parallelize msg = do
     return succeed'
   where
     sendToNodes nodes = length . filter identity <$> parallelize (map send' nodes)
-    send' node = (sendToNode (dhtAddr node) msg >> return True) `catch` handleE
+    send' node = (sender (dhtAddr node) msg >> return True) `catch` handleE
       where
         handleE (e :: SomeException) = do
           logInfo $ sformat ("Error sending message to " % F.build % ": " % shown) node e

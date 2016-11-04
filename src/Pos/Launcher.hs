@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 -- | Launcher of full node or simple operations.
 
@@ -35,13 +36,13 @@ import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, MonadDialog,
                                               runTransfer)
 import           Control.TimeWarp.Timed      (MonadTimed, currentTime, for, fork,
                                               killThread, ms, repeatForever, runTimedIO,
-                                              sec, sleepForever, wait)
+                                              sec, sleepForever, wait, wait)
 import           Data.Default                (Default (def))
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Universum
 
-import           Pos.Communication           (SysStartRequest (..), allListeners,
+import           Pos.Communication           (SysStartResponse (..), allListeners,
                                               noCacheMessageNames, sendTx,
                                               serverLoggerName, statsListener,
                                               sysStartReqListener, sysStartRespListener)
@@ -51,7 +52,7 @@ import           Pos.Crypto                  (SecretKey, VssKeyPair, hash, sign)
 import           Pos.DHT                     (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
                                               ListenerDHT, MonadDHT (..),
                                               filterByNodeType, mapListenerDHT,
-                                              sendToNeighbors)
+                                              sendToNetwork)
 import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..),
                                               runKademliaDHT)
 import           Pos.State                   (NodeState, openMemState, openState)
@@ -60,6 +61,7 @@ import           Pos.Statistics              (getNoStatsT, getStatsT)
 import           Pos.Types                   (Address, Coin, Timestamp (Timestamp),
                                               Tx (..), TxId, TxIn (..), TxOut (..), Utxo,
                                               timestampF, txF)
+import           Pos.Util                    (runWithRandomIntervals)
 import           Pos.Worker                  (runWorkers)
 import           Pos.WorkMode                (ContextHolder (..), DBHolder (..),
                                               NodeContext (..), RealMode, ServiceMode,
@@ -73,6 +75,12 @@ getCurTimestamp = Timestamp <$> runTimedIO currentTime
 -- | Run full node in any WorkMode.
 runNode :: WorkMode m => m ()
 runNode = do
+    whenM (ncTimeLord <$> getNodeContext) $
+      ncSystemStart <$> getNodeContext
+          >>= \(SysStartResponse . Just -> mT) ->
+            runWithRandomIntervals (ms 500) (sec 5) $ do
+              logInfo "Broadcasting system start"
+              sendToNetwork mT
     peers <- discoverPeers DHTFull
     logInfo $ sformat ("Known peers: " % build) peers
 
@@ -147,6 +155,7 @@ data NodeParams = NodeParams
     , npBaseParams  :: !BaseParams
     , npSystemStart :: !Timestamp
     , npCustomUtxo  :: !(Maybe Utxo)
+    , npTimeLord    :: !Bool
     } deriving (Show)
 
 data BaseParams = BaseParams
@@ -168,9 +177,11 @@ runTimeSlaveReal bp = do
       case runningMode of
          Development -> do
            tId <- fork $
-             repeatForever (ms 100) (const . return $ ms 100) $ do
-               logInfo "Asking neighbors for system start"
-               void $ sendToNeighbors SysStartRequest
+             sleepForever
+             --runWithRandomIntervals (sec 2) (sec 10) $ do
+             --  logInfo "Asking neighbors for system start"
+             --  (void $ sendToNeighbors SysStartRequest) `catchAll`
+             --     \e -> logDebug $ sformat ("Error sending SysStartRequest to neighbors: " % shown) e
            t <- liftIO $ takeMVar mvar
            killThread tId
            t <$ logInfo (sformat ("[Time slave] adopted system start " % timestampF) t)
@@ -185,7 +196,7 @@ runTimeLordReal :: LoggingParams -> IO Timestamp
 runTimeLordReal lp = do
     setupLoggingReal lp
     t <- getCurTimestamp
-    t <$ usingLoggerName (lpRootLogger lp) (doLog t)
+    usingLoggerName (lpRootLogger lp) (doLog t) $> t
   where
     doLog t = do
         realTime <- liftIO Time.getZonedTime
@@ -255,6 +266,7 @@ runRealMode NodeParams {..} listeners action = do
               { ncSystemStart = npSystemStart
               , ncSecretKey = npSecretKey
               , ncVssKeyPair = npVssKeyPair
+              , ncTimeLord = npTimeLord
               }
 
 runServiceMode :: BaseParams -> [ListenerDHT ServiceMode] -> ServiceMode a -> IO a
@@ -277,7 +289,7 @@ runKDHT BaseParams {..} listeners = runKademliaDHT kadConfig
       , kdcPort = bpPort
       , kdcListeners = listeners
       , kdcMessageCacheSize = 1000000
-      , kdcEnableBroadcast = False
+      , kdcEnableBroadcast = True
       , kdcInitialPeers = bpDHTPeers
       , kdcNoCacheMessageNames = noCacheMessageNames
       , kdcExplicitInitial = bpDHTExplicitInitial

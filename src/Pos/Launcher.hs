@@ -30,8 +30,8 @@ import           Control.Concurrent.MVar     (newEmptyMVar, takeMVar)
 import           Control.Monad.Catch         (bracket)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.TimeWarp.Logging    (LoggerName, Severity (Warning),
-                                              WithNamedLogger, initLogging, logError,
-                                              logInfo, logWarning, setSeverity,
+                                              WithNamedLogger, initLogging, logDebug,
+                                              logError, logInfo, logWarning, setSeverity,
                                               setSeverityMaybe, usingLoggerName)
 import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, MonadDialog,
                                               NetworkAddress, Transfer, runDialog,
@@ -44,8 +44,8 @@ import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Universum
 
-import           Pos.Communication           (SysStartResponse (..), allListeners,
-                                              noCacheMessageNames, sendTx,
+import           Pos.Communication           (SysStartRequest (..), SysStartResponse (..),
+                                              allListeners, noCacheMessageNames, sendTx,
                                               serverLoggerName, statsListener,
                                               sysStartReqListener, sysStartRespListener)
 import           Pos.Constants               (RunningMode (..), isDevelopment,
@@ -54,7 +54,7 @@ import           Pos.Crypto                  (SecretKey, VssKeyPair, hash, sign)
 import           Pos.DHT                     (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
                                               ListenerDHT, MonadDHT (..),
                                               filterByNodeType, mapListenerDHT,
-                                              sendToNetwork)
+                                              sendToNeighbors, sendToNetwork)
 import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..),
                                               KademliaDHTInstance,
                                               KademliaDHTInstanceConfig (..),
@@ -184,11 +184,10 @@ runTimeSlaveReal inst bp = do
       case runningMode of
          Development -> do
            tId <- fork $
-             sleepForever
-             --runWithRandomIntervals (sec 2) (sec 10) $ do
-             --  logInfo "Asking neighbors for system start"
-             --  (void $ sendToNeighbors SysStartRequest) `catchAll`
-             --     \e -> logDebug $ sformat ("Error sending SysStartRequest to neighbors: " % shown) e
+             runWithRandomIntervals (sec 10) (sec 60) $ do
+               logInfo "Asking neighbors for system start"
+               (void $ sendToNeighbors SysStartRequest) `catchAll`
+                  \e -> logDebug $ sformat ("Error sending SysStartRequest to neighbors: " % shown) e
            t <- liftIO $ takeMVar mvar
            killThread tId
            t <$ logInfo (sformat ("[Time slave] adopted system start " % timestampF) t)

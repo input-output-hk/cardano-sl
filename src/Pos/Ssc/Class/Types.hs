@@ -38,7 +38,5 @@ class (Typeable ssc
     -- | This is BARDAQ needed only for dynamic state implementation.
     type SscToken ssc
 
-    -- | Create payload (for inclusion into block) from state
-    mkSscPayload :: Tagged ssc (SscStorage ssc -> SscPayload ssc)
     -- | Create proof (for inclusion into block header) from payload
     mkSscProof :: Tagged ssc (SscPayload ssc -> SscProof ssc)

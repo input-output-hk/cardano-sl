@@ -261,7 +261,6 @@ instance SscTypes SscDynamicState where
     type SscSeedError SscDynamicState = FtsError
     type SscToken     SscDynamicState = (PublicKey, SignedCommitment, Opening)
 
-    mkSscPayload = notImplemented
     mkSscProof = Tagged $
         \DSPayload {..} -> DSProof
              { mpCommitmentsHash = hash _mdCommitments

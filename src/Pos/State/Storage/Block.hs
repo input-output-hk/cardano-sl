@@ -402,7 +402,7 @@ findRollback maxDepth neededParent =
         | headerHash header == neededParent = pure . pure $ res
         | otherwise =
             maybe (pure Nothing) (findRollbackDo (res + 1) . getBlockHeader) =<<
-            getBlock (headerHash header)
+            getBlock (header ^. prevBlockL)
 
 -- Before reporting that AltChain can be merged, we verify whole
 -- result to be sure that nothing went wrong.

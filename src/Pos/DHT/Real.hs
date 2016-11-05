@@ -156,13 +156,13 @@ runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
     startDHT kdc >>= runReaderT (unKademliaDHT action')
   where
     action' =
-        (startMsgThread
-          >> logDebug "running kademlia dht messager"
-          >> action'')
+        action''
         `finally`
         (logDebug "stopping kademlia messager"
           >> stopDHT >> logDebug "kademlia messager stopped")
     action'' = do
+      startMsgThread
+      logDebug "running kademlia dht messager"
       joinNetworkNoThrow (kdiInitialPeers $ kdcDHTInstance)
       startRejoinThread
       action

@@ -26,7 +26,8 @@ module Pos.Launcher
        ) where
 
 
-import           Control.Concurrent.MVar     (newEmptyMVar, takeMVar)
+import           Control.Concurrent.MVar     (newEmptyMVar, takeMVar, tryReadMVar)
+import           Control.Monad               (fail)
 import           Control.Monad.Catch         (bracket)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.TimeWarp.Logging    (LoggerName, Severity (Warning),
@@ -188,9 +189,13 @@ runTimeSlaveReal inst bp = do
          Development -> do
            tId <- fork $
              runWithRandomIntervals (sec 10) (sec 60) $ do
-               logInfo "Asking neighbors for system start"
-               (void $ sendToNeighbors SysStartRequest) `catchAll`
-                  \e -> logDebug $ sformat ("Error sending SysStartRequest to neighbors: " % shown) e
+               mT <- liftIO $ tryReadMVar mvar
+               case mT of
+                 Nothing -> do
+                    logInfo "Asking neighbors for system start"
+                    (void $ sendToNeighbors SysStartRequest) `catchAll`
+                       \e -> logDebug $ sformat ("Error sending SysStartRequest to neighbors: " % shown) e
+                 Just _ -> fail "Close thread"
            t <- liftIO $ takeMVar mvar
            killThread tId
            t <$ logInfo (sformat ("[Time slave] adopted system start " % timestampF) t)

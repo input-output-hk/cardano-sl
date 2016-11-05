@@ -4,6 +4,7 @@
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 -- | Storage with node local state which should be persistent.
 
@@ -358,11 +359,9 @@ getMpcCrucialDepth epoch = do
 
 getThreshold :: EpochIndex -> Query (Maybe Threshold)
 getThreshold epoch = do
-    psMaybe <- getParticipants epoch
-    return $
-        do ps <- psMaybe
-           let len = length ps
-           return (toInteger (len `div` 2 + len `mod` 2))
+    fmap getThresholdImpl <$> getParticipants epoch
+  where
+    getThresholdImpl (length -> len) = fromIntegral $ len `div` 2 + len `mod` 2
 
 processSscMessage :: SscMessage SscDynamicState -> Update Bool
 processSscMessage = sscProcessMessage

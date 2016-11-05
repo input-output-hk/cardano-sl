@@ -194,6 +194,56 @@ executable cardano-wallet
                      , NoImplicitPrelude
                      , GeneralizedNewtypeDeriving
 
+executable cardano-stats-collector
+  hs-source-dirs:      src/stats-collector
+  main-is:             Main.hs
+  build-depends:       aeson
+                     , base
+                     , containers
+                     , cardano-sl
+                     , data-default
+                     , formatting
+                     , optparse-applicative
+                     , parsec
+                     , serokell-util
+                     , time-warp
+                     , universum >= 0.1.9
+                     , yaml
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , NoImplicitPrelude
+                     , GeneralizedNewtypeDeriving
+
+executable cardano-tx-generator
+  hs-source-dirs:      src/tx-generator
+  main-is:             Main.hs
+  build-depends:       base
+                     , data-default
+                     , cardano-sl
+                     , formatting
+                     , optparse-applicative
+                     , parsec
+                     , random
+                     , serokell-util
+                     , time-warp
+                     , universum >= 0.1.9
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , NoImplicitPrelude
+                     , GeneralizedNewtypeDeriving
+
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec
@@ -265,89 +315,3 @@ benchmark cardano-bench-criterion
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
                      , NoImplicitPrelude
-
-benchmark cardano-bench-remote-single
-  hs-source-dirs:      bench
-  main-is:             Remote/Single.hs
-  other-modules:       Bench.Pos.Remote.Config
-                       Bench.Pos.Remote.Launcher
-  type:                exitcode-stdio-1.0
-  build-depends:       aeson
-                     , base
-                     , binary
-                     , bytestring
-                     , cardano-sl
-                     , containers
-                     , data-default
-                     , formatting
-                     , optparse-applicative
-                     , parsec
-                     , serokell-util
-                     , time-warp
-                     , universum >= 0.1.9
-                     , yaml
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -with-rtsopts=-N
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , GeneralizedNewtypeDeriving
-                     , NoImplicitPrelude
-
-benchmark cardano-stats-collector
-  hs-source-dirs:      bench
-  main-is:             Remote/Collector.hs
-  other-modules:       Bench.Pos.Remote.Config
-                       Bench.Pos.Remote.Launcher
-  type:                exitcode-stdio-1.0
-  build-depends:       aeson
-                     , base
-                     , containers
-                     , cardano-sl
-                     , data-default
-                     , formatting
-                     , optparse-applicative
-                     , parsec
-                     , serokell-util
-                     , time-warp
-                     , universum >= 0.1.9
-                     , yaml
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
-
-benchmark cardano-tx-generator
-  hs-source-dirs:      bench
-  main-is:             Remote/TxGen.hs
-  type:                exitcode-stdio-1.0
-  build-depends:       base
-                     , data-default
-                     , cardano-sl
-                     , formatting
-                     , optparse-applicative
-                     , parsec
-                     , random
-                     , serokell-util
-                     , time-warp
-                     , universum >= 0.1.9
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving

@@ -64,6 +64,7 @@ library
                         Pos.State.Storage.Types
                         Pos.State.Storage.Tx
                         Pos.Statistics.Block
+                        Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
@@ -78,6 +79,7 @@ library
                         Pos.Types.Utxo
                         Pos.Worker.Block
                         Pos.Worker.Mpc
+                        Pos.Worker.Stats
                         Pos.Worker.Tx
                         Pos.Util.Arbitrary
                         Pos.Util.NotImplemented

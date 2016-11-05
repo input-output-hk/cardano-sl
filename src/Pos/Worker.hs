@@ -2,6 +2,7 @@
 
 module Pos.Worker
        ( runWorkers
+       , statsWorker
        ) where
 
 import           Control.TimeWarp.Logging (logDebug, logInfo, logNotice)
@@ -15,6 +16,7 @@ import           Pos.Types                (SlotId, slotIdF)
 import           Pos.Util                 (logWarningWaitLinear)
 import           Pos.Worker.Block         (blkOnNewSlot, blkWorkers)
 import           Pos.Worker.Mpc           (mpcOnNewSlot, mpcWorkers)
+import           Pos.Worker.Stats         (statsWorker)
 import           Pos.Worker.Tx            (txWorkers)
 import           Pos.WorkMode             (WorkMode)
 

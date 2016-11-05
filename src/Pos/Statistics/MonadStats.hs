@@ -21,6 +21,7 @@ import           Control.TimeWarp.Rpc     (MonadDialog, MonadResponse, MonadTran
                                            hoistRespCond)
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
 import qualified Data.Binary              as Binary
+import           Data.Maybe               (fromMaybe)
 import           Focus                    (alterM)
 import           Serokell.Util            (show')
 import qualified STMContainers.Map        as SM
@@ -31,13 +32,14 @@ import           Pos.DHT                  (DHTResponseT, MonadDHT, MonadMessageD
                                            WithDefaultMsgHeader)
 import           Pos.DHT.Real             (KademliaDHT)
 import           Pos.Slotting             (MonadSlots (..))
-import           Pos.State                (MonadDB (..), getStatRecords)
+import           Pos.State                (MonadDB (..), getStatRecords, newStatRecord)
 import           Pos.Statistics.StatEntry (StatLabel (..))
 import           Pos.Types                (Timestamp (..))
 
 -- | `MonadStats` is a monad which has methods for stats collecting
 class Monad m => MonadStats m where
     statLog :: StatLabel l => l -> EntryType l -> m ()
+    resetStat :: StatLabel l => l -> Timestamp -> m ()
     getStats :: StatLabel l => l -> m (Maybe [(Timestamp, EntryType l)])
 
     -- | Default convenience method, which we can override
@@ -48,22 +50,27 @@ class Monad m => MonadStats m where
 -- TODO: is there a way to avoid such boilerplate for transformers?
 instance MonadStats m => MonadStats (KademliaDHT m) where
     statLog label = lift . statLog label
+    resetStat label = lift . resetStat label
     getStats = lift . getStats
 
 instance MonadStats m => MonadStats (ReaderT a m) where
     statLog label = lift . statLog label
+    resetStat label = lift . resetStat label
     getStats = lift . getStats
 
 instance MonadStats m => MonadStats (StateT a m) where
     statLog label = lift . statLog label
+    resetStat label = lift . resetStat label
     getStats = lift . getStats
 
 instance MonadStats m => MonadStats (ExceptT e m) where
     statLog label = lift . statLog label
+    resetStat label = lift . resetStat label
     getStats = lift . getStats
 
 instance MonadStats m => MonadStats (DHTResponseT m) where
     statLog label = lift . statLog label
+    resetStat label = lift . resetStat label
     getStats = lift . getStats
 
 type instance ThreadId (NoStatsT m) = ThreadId m
@@ -86,6 +93,7 @@ instance MonadTrans NoStatsT where
 instance Monad m => MonadStats (NoStatsT m) where
     statLog _ _ = pure ()
     getStats _ = pure $ pure []
+    resetStat _ _ = pure ()
     logStatM _ _ = pure ()
 
 newtype StatsT m a = StatsT
@@ -114,4 +122,8 @@ instance (MonadIO m, MonadDB m) => MonadStats (StatsT m) where
         update = alterM $ \v -> return $ fmap Binary.encode $
             mappend entry . Binary.decode <$> v <|> Just entry
 
+    resetStat label ts = do
+        mval <- liftIO $ atomically $ SM.lookup (show' label) statsMap
+        let val = fromMaybe mempty $ Binary.decode <$> mval
+        lift $ newStatRecord label ts val
     getStats = lift . getStatRecords

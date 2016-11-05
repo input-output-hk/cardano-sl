@@ -74,7 +74,7 @@ main = do
     --     forM_ (take 10 nodeStat) print
 
     let addrs = eitherPanic "Invalid address: " $
-            mapM (\(h,p) -> parse addrParser "" $ toString (h <> show p))
+            mapM (\(h,p) -> parse addrParser "" $ toString (h <> ":" <> show p))
                  ccNodes
         enumAddrs = zip [0..] addrs
         logParams =

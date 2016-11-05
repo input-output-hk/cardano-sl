@@ -70,7 +70,8 @@ import           Pos.Util                    (runWithRandomIntervals)
 import           Pos.Worker                  (runWorkers)
 import           Pos.WorkMode                (ContextHolder (..), DBHolder (..),
                                               NodeContext (..), RealMode, ServiceMode,
-                                              WorkMode, getNodeContext, ncSecretKey)
+                                              WorkMode, getNodeContext, ncPublicKey,
+                                              ncSecretKey)
 
 -- | Get current time as Timestamp. It is intended to be used when you
 -- launch the first node. It doesn't make sense in emulation mode.
@@ -80,6 +81,8 @@ getCurTimestamp = Timestamp <$> runTimedIO currentTime
 -- | Run full node in any WorkMode.
 runNode :: WorkMode m => m ()
 runNode = do
+    pk <- ncPublicKey <$> getNodeContext
+    logInfo $ sformat ("My public key is: "%build) pk
     whenM (ncTimeLord <$> getNodeContext) $
       ncSystemStart <$> getNodeContext
           >>= \(SysStartResponse . Just -> mT) -> fork_ $

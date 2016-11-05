@@ -15,6 +15,7 @@ import           Control.Lens            (Lens')
 import           Serokell.Util.Verify    (VerificationRes)
 import           Universum
 
+import           Pos.Crypto              (PublicKey, Share, VssKeyPair)
 import           Pos.Ssc.Class.Types     (SscTypes (..))
 import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types.Types         (FtsSeed, SlotId)
@@ -57,5 +58,12 @@ class SscTypes ssc => SscStorageClass ssc where
     -- consistent if this blocks are applied (after possible rollback
     -- if first argument isn't zero).
     sscVerifyBlocks :: Word -> AltChain ssc -> SscQuery ssc VerificationRes
+
+    -- | BARDAQ
+    sscGetToken :: SscQuery ssc (Maybe (SscToken ssc))
+    -- | BARDAQ
+    sscSetToken :: SscToken ssc -> SscUpdate ssc ()
+    -- | Even more BARDAQ
+    sscGetOurShares :: VssKeyPair -> Integer -> SscQuery ssc (HashMap PublicKey Share)
 
     -- TODO: move the rest of methods here

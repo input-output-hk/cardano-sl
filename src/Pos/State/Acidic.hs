@@ -26,9 +26,7 @@ module Pos.State.Acidic
        , GetLeaders (..)
        , GetLocalTxs (..)
        , GetLocalSscPayload (..)
-       , GetSecret (..)
-       , GetOurCommitment (..)
-       , GetOurOpening (..)
+       , GetToken (..)
        , GetOurShares (..)
        , GetThreshold (..)
        , GetParticipants (..)
@@ -39,7 +37,7 @@ module Pos.State.Acidic
        , ProcessNewSlot (..)
        , ProcessSscMessage (..)
        , ProcessTx (..)
-       , SetSecret (..)
+       , SetToken (..)
 
        , NewStatRecord (..)
        , GetStatRecords (..)
@@ -122,9 +120,7 @@ makeAcidic ''Storage
     , 'S.getLocalSscPayload
     , 'S.getLocalTxs
     , 'getHeadBlock
-    , 'S.getSecret
-    , 'S.getOurCommitment
-    , 'S.getOurOpening
+    , 'S.getToken
     , 'S.getOurShares
     , 'S.getThreshold
     , 'S.getParticipants
@@ -134,7 +130,7 @@ makeAcidic ''Storage
     , 'S.processNewSlot
     , 'S.processSscMessage
     , 'S.processTx
-    , 'S.setSecret
+    , 'S.setToken
     , 'S.newStatRecord
     , 'S.getStatRecords
     ]

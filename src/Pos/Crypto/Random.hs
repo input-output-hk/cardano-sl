@@ -53,9 +53,7 @@ runPredefinedRandom seedBs = flip evalState drg . getPredefinedRandom
 -- use a seed (hopefully produced by a Really Secure™ randomness source). The
 -- seed has to have enough entropy to make this function secure.
 deterministic :: ByteString -> MonadPseudoRandom ChaChaDRG a -> a
-deterministic seed gen
-    -- azaza | BS.length seed /= 40 = panic "deterministic: length seed /= 40"
-    | otherwise = fst $ withDRG chachaSeed gen
+deterministic seed gen = fst $ withDRG chachaSeed gen  -- TODO: is it secure?
   where
     chachaSeed = drgNewSeed . seedFromInteger . os2ip $ seed
 

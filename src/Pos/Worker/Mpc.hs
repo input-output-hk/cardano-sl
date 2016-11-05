@@ -5,27 +5,27 @@ module Pos.Worker.Mpc
        , mpcWorkers
        ) where
 
-import           Control.TimeWarp.Logging   (logDebug)
-import           Control.TimeWarp.Logging   (logWarning)
-import           Control.TimeWarp.Timed     (Microsecond, repeatForever, sec)
-import qualified Data.HashMap.Strict        as HM (toList)
-import           Formatting                 (build, ords, sformat, (%))
-import           Serokell.Util.Exceptions   ()
+import           Control.TimeWarp.Logging  (logDebug)
+import           Control.TimeWarp.Logging  (logWarning)
+import           Control.TimeWarp.Timed    (Microsecond, repeatForever, sec)
+import qualified Data.HashMap.Strict       as HM (toList)
+import           Formatting                (build, ords, sformat, (%))
+import           Serokell.Util.Exceptions  ()
 import           Universum
 
-import           Pos.Communication.Methods  (announceCommitment, announceOpening,
-                                             announceShares, announceVssCertificate)
-import           Pos.Communication.Types    (SendSsc (..))
-import           Pos.DHT                    (sendToNeighbors)
-import           Pos.Ssc.DynamicState.Types (DSPayload (..), hasCommitment, hasOpening,
-                                             hasShares)
-import           Pos.State                  (generateAndSetNewSecret, getGlobalMpcData,
-                                             getLocalSscPayload, getOurCommitment,
-                                             getOurOpening, getOurShares, getSecret)
-import           Pos.Types                  (SlotId (..), isCommitmentIdx, isOpeningIdx,
-                                             isSharesIdx)
-import           Pos.WorkMode               (WorkMode, getNodeContext, ncPublicKey,
-                                             ncSecretKey, ncVssKeyPair)
+import           Pos.Communication.Methods (announceCommitment, announceOpening,
+                                            announceShares, announceVssCertificate)
+import           Pos.Communication.Types   (SendSsc (..))
+import           Pos.DHT                   (sendToNeighbors)
+import           Pos.Ssc.DynamicState      (DSPayload (..), hasCommitment, hasOpening,
+                                            hasShares, isCommitmentIdx, isOpeningIdx,
+                                            isSharesIdx)
+import           Pos.State                 (generateAndSetNewSecret, getGlobalMpcData,
+                                            getLocalSscPayload, getOurCommitment,
+                                            getOurOpening, getOurShares, getSecret)
+import           Pos.Types                 (SlotId (..))
+import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey,
+                                            ncSecretKey, ncVssKeyPair)
 
 -- | Action which should be done when new slot starts.
 mpcOnNewSlot :: WorkMode m => SlotId -> m ()

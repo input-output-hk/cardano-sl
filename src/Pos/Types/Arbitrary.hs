@@ -11,12 +11,10 @@ import           Data.List.NonEmpty         (NonEmpty ((:|)))
 import           Pos.Constants              (epochSlots)
 import           Pos.Crypto                 (SecretProof, SecretSharingExtra,
                                              deterministicVssKeyGen, sign, toVssPublicKey)
-import           Pos.Ssc.DynamicState.Types (DSProof (..))
-import           Pos.Types.Mpc              (genCommitmentAndOpening)
+-- import           Pos.Ssc.DynamicState.Types (DSProof (..))
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
-                                             Coin (..), Commitment (..), EpochIndex (..),
-                                             FtsSeed (..), LocalSlotIndex (..),
-                                             Opening (..), SlotId (..), Tx (..),
+                                             Coin (..), EpochIndex (..), FtsSeed (..),
+                                             LocalSlotIndex (..), SlotId (..), Tx (..),
                                              TxIn (..), TxOut (..))
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), choose, elements)
@@ -30,41 +28,41 @@ import           Pos.Util.Arbitrary         (Nonrepeating (..), sublistN, unsafe
 -- Commitments and openings
 ----------------------------------------------------------------------------
 
-data CommitmentOpening = CommitmentOpening
-    { coCommitment :: !Commitment
-    , coOpening    :: !Opening
-    }
+-- data CommitmentOpening = CommitmentOpening
+--     { coCommitment :: !Commitment
+--     , coOpening    :: !Opening
+--     }
 
--- | Generate 50 commitment/opening pairs in advance
--- (see `Pos.Crypto.Arbitrary` for explanations)
-commitmentsAndOpenings :: [CommitmentOpening]
-commitmentsAndOpenings =
-    map (uncurry CommitmentOpening) $
-    unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $
-    genCommitmentAndOpening 1 (vssPk :| [])
-  where
-    vssPk = toVssPublicKey $ deterministicVssKeyGen "aaaaaaaaaaaaaaaaaaaaaassss"
-{-# NOINLINE commitmentsAndOpenings #-}
+-- -- | Generate 50 commitment/opening pairs in advance
+-- -- (see `Pos.Crypto.Arbitrary` for explanations)
+-- commitmentsAndOpenings :: [CommitmentOpening]
+-- commitmentsAndOpenings =
+--     map (uncurry CommitmentOpening) $
+--     unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $
+--     genCommitmentAndOpening 1 (vssPk :| [])
+--   where
+--     vssPk = toVssPublicKey $ deterministicVssKeyGen "aaaaaaaaaaaaaaaaaaaaaassss"
+-- {-# NOINLINE commitmentsAndOpenings #-}
 
-instance Arbitrary CommitmentOpening where
-    arbitrary = elements commitmentsAndOpenings
+-- instance Arbitrary CommitmentOpening where
+--     arbitrary = elements commitmentsAndOpenings
 
-instance Nonrepeating CommitmentOpening where
-    nonrepeating n = sublistN n commitmentsAndOpenings
+-- instance Nonrepeating CommitmentOpening where
+--     nonrepeating n = sublistN n commitmentsAndOpenings
 
-instance Arbitrary Commitment where
-    arbitrary = coCommitment <$> arbitrary
+-- instance Arbitrary Commitment where
+--     arbitrary = coCommitment <$> arbitrary
 
-instance Arbitrary Opening where
-    arbitrary = coOpening <$> arbitrary
+-- instance Arbitrary Opening where
+--     arbitrary = coOpening <$> arbitrary
 
--- TODO: these types are not in Pos.Types actually, but they are
--- needed and it's not so easy to do it better
-instance Arbitrary SecretSharingExtra where
-    arbitrary = commExtra <$> arbitrary
+-- -- TODO: these types are not in Pos.Types actually, but they are
+-- -- needed and it's not so easy to do it better
+-- instance Arbitrary SecretSharingExtra where
+--     arbitrary = commExtra <$> arbitrary
 
-instance Arbitrary SecretProof where
-    arbitrary = commProof <$> arbitrary
+-- instance Arbitrary SecretProof where
+--     arbitrary = commProof <$> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary core types
@@ -78,7 +76,7 @@ deriving instance Arbitrary ChainDifficulty
 derive makeArbitrary ''SlotId
 derive makeArbitrary ''TxOut
 derive makeArbitrary ''Tx
-derive makeArbitrary ''DSProof
+-- derive makeArbitrary ''DSProof
 
 maxReasonableEpoch :: Integral a => a
 maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not

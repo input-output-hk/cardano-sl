@@ -20,48 +20,49 @@ module Pos.State.Storage.Mpc
        --, traceMpcLastVer
        ) where
 
-import           Control.Lens               (Lens', at, ix, preview, to, use, view, (%=),
-                                             (.=), (.~), (^.))
-import           Crypto.Random              (drgNewSeed, seedFromInteger, withDRG)
-import           Data.Default               (def)
-import           Data.Hashable              (Hashable)
-import qualified Data.HashMap.Strict        as HM
-import           Data.Ix                    (inRange)
-import           Data.List.NonEmpty         (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty         as NE
-import           Formatting                 (int, sformat, (%))
-import           Serokell.Util.Verify       (VerificationRes (..), isVerSuccess,
-                                             verifyGeneric)
+import           Control.Lens            (Lens', at, ix, preview, to, use, view, (%=),
+                                          (.=), (.~), (^.))
+import           Crypto.Random           (drgNewSeed, seedFromInteger, withDRG)
+import           Data.Default            (def)
+import           Data.Hashable           (Hashable)
+import qualified Data.HashMap.Strict     as HM
+import           Data.Ix                 (inRange)
+import           Data.List.NonEmpty      (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty      as NE
+import           Formatting              (int, sformat, (%))
+import           Serokell.Util.Verify    (VerificationRes (..), isVerSuccess,
+                                          verifyGeneric)
 import           Universum
 
-import           Pos.Constants              (k)
-import           Pos.Crypto                 (PublicKey, Share,
-                                             Signed (signedSig, signedValue), Threshold,
-                                             VssKeyPair, decryptShare, toVssPublicKey,
-                                             verify, verifyShare)
-import           Pos.FollowTheSatoshi       (FtsError, calculateSeed, followTheSatoshi)
-import           Pos.Ssc.Class.Storage      (HasSscStorage (..), SscQuery,
-                                             SscStorageClass (..), SscUpdate)
-import           Pos.Ssc.DynamicState.Types (DSMessage (..), DSPayload (..), DSStorage,
-                                             DSStorageVersion (..), SscDynamicState,
-                                             dsCurrentSecretL, dsGlobalCertificates,
-                                             dsGlobalCommitments, dsGlobalOpenings,
-                                             dsGlobalShares, dsLastProcessedSlotL,
-                                             dsLocalCertificates, dsLocalCommitments,
-                                             dsLocalOpenings, dsLocalShares, dsVersionedL,
-                                             hasCommitment, hasOpening, hasShares,
-                                             mdCommitments, mdOpenings)
-import           Pos.State.Storage.Types    (AltChain)
-import           Pos.Types                  (Address (getAddress), Block, Commitment (..),
-                                             CommitmentSignature, CommitmentsMap,
-                                             Opening (..), OpeningsMap, SignedCommitment,
-                                             SlotId (..), SlotLeaders, Utxo,
-                                             VssCertificate, VssCertificatesMap, blockMpc,
-                                             blockSlot, blockSlot, isCommitmentIdx,
-                                             isOpeningIdx, isSharesIdx, utxoF,
-                                             verifyOpening, verifySignedCommitment)
-import           Pos.Util                   (Color (Magenta), colorize, magnify',
-                                             readerToState, zoom', _neHead)
+import           Pos.Constants           (k)
+import           Pos.Crypto              (PublicKey, Share,
+                                          Signed (signedSig, signedValue), Threshold,
+                                          VssKeyPair, decryptShare, toVssPublicKey,
+                                          verify, verifyShare)
+import           Pos.FollowTheSatoshi    (followTheSatoshi)
+import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscQuery,
+                                          SscStorageClass (..), SscUpdate)
+import           Pos.Ssc.DynamicState    (Commitment (..), CommitmentSignature,
+                                          CommitmentsMap, DSMessage (..), DSPayload (..),
+                                          DSStorage, DSStorageVersion (..), Opening (..),
+                                          OpeningsMap, SeedError, SignedCommitment,
+                                          SscDynamicState, VssCertificate,
+                                          VssCertificatesMap, calculateSeed,
+                                          dsCurrentSecretL, dsGlobalCertificates,
+                                          dsGlobalCommitments, dsGlobalOpenings,
+                                          dsGlobalShares, dsLastProcessedSlotL,
+                                          dsLocalCertificates, dsLocalCommitments,
+                                          dsLocalOpenings, dsLocalShares, dsVersionedL,
+                                          hasCommitment, hasOpening, hasShares,
+                                          isCommitmentIdx, isOpeningIdx, isSharesIdx,
+                                          mdCommitments, mdOpenings, verifyOpening,
+                                          verifySignedCommitment)
+import           Pos.State.Storage.Types (AltChain)
+import           Pos.Types               (Address (getAddress), Block, SlotId (..),
+                                          SlotLeaders, Utxo, blockMpc, blockSlot,
+                                          blockSlot, utxoF)
+import           Pos.Util                (Color (Magenta), colorize, magnify',
+                                          readerToState, zoom', _neHead)
 
 type Query a = SscQuery SscDynamicState a
 type Update a = SscUpdate SscDynamicState a
@@ -178,7 +179,7 @@ getGlobalMpcDataByDepth (fromIntegral -> depth) =
 calculateLeaders
     :: Utxo            -- ^ Utxo (k slots before the end of epoch)
     -> Threshold
-    -> Query (Either FtsError SlotLeaders)
+    -> Query (Either SeedError SlotLeaders)
 calculateLeaders utxo threshold = do
     !() <- traceM $ colorize Magenta $ (sformat ("utxo: "%utxoF%", threshold: "%int) utxo threshold)
     mbSeed <- calculateSeed threshold

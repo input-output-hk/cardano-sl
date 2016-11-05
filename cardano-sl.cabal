@@ -55,6 +55,7 @@ library
                         Pos.Crypto.Signing
                         Pos.Ssc.Class.Types
                         Pos.Ssc.Class.Storage
+                        Pos.Ssc.DynamicState.Arbitrary
                         Pos.Ssc.DynamicState.Base
                         Pos.Ssc.DynamicState.Error
                         Pos.Ssc.DynamicState.Genesis

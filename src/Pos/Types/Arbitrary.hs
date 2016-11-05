@@ -7,62 +7,18 @@
 module Pos.Types.Arbitrary () where
 
 import           Data.DeriveTH              (derive, makeArbitrary)
-import           Data.List.NonEmpty         (NonEmpty ((:|)))
 import           Pos.Constants              (epochSlots)
-import           Pos.Crypto                 (SecretProof, SecretSharingExtra,
-                                             deterministicVssKeyGen, sign, toVssPublicKey)
--- import           Pos.Ssc.DynamicState.Types (DSProof (..))
+import           Pos.Crypto                 (sign)
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              Coin (..), EpochIndex (..), FtsSeed (..),
                                              LocalSlotIndex (..), SlotId (..), Tx (..),
                                              TxIn (..), TxOut (..))
 import           System.Random              (Random)
-import           Test.QuickCheck            (Arbitrary (..), choose, elements)
+import           Test.QuickCheck            (Arbitrary (..), choose)
 import           Universum
 
 import           Pos.Crypto.Arbitrary       ()
 import           Pos.Types.Arbitrary.Unsafe ()
-import           Pos.Util.Arbitrary         (Nonrepeating (..), sublistN, unsafeMakePool)
-
-----------------------------------------------------------------------------
--- Commitments and openings
-----------------------------------------------------------------------------
-
--- data CommitmentOpening = CommitmentOpening
---     { coCommitment :: !Commitment
---     , coOpening    :: !Opening
---     }
-
--- -- | Generate 50 commitment/opening pairs in advance
--- -- (see `Pos.Crypto.Arbitrary` for explanations)
--- commitmentsAndOpenings :: [CommitmentOpening]
--- commitmentsAndOpenings =
---     map (uncurry CommitmentOpening) $
---     unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $
---     genCommitmentAndOpening 1 (vssPk :| [])
---   where
---     vssPk = toVssPublicKey $ deterministicVssKeyGen "aaaaaaaaaaaaaaaaaaaaaassss"
--- {-# NOINLINE commitmentsAndOpenings #-}
-
--- instance Arbitrary CommitmentOpening where
---     arbitrary = elements commitmentsAndOpenings
-
--- instance Nonrepeating CommitmentOpening where
---     nonrepeating n = sublistN n commitmentsAndOpenings
-
--- instance Arbitrary Commitment where
---     arbitrary = coCommitment <$> arbitrary
-
--- instance Arbitrary Opening where
---     arbitrary = coOpening <$> arbitrary
-
--- -- TODO: these types are not in Pos.Types actually, but they are
--- -- needed and it's not so easy to do it better
--- instance Arbitrary SecretSharingExtra where
---     arbitrary = commExtra <$> arbitrary
-
--- instance Arbitrary SecretProof where
---     arbitrary = commProof <$> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary core types

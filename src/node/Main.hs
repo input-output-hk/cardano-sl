@@ -23,7 +23,7 @@ import           Pos.Genesis                (genesisSecretKeys, genesisUtxoPetty
                                              genesisVssKeyPairs)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), bracketDHTInstance,
-                                             runNodeReal, runSupporterReal,
+                                             runNodeReal, runNodeStats, runSupporterReal,
                                              runTimeLordReal, runTimeSlaveReal)
 import           Serokell.Util.OptParse     (fromParsec)
 import           System.Directory           (createDirectoryIfMissing)
@@ -48,6 +48,7 @@ data Args = Args
     , serverLogSeverity  :: !(Maybe Severity)
     , timeLord           :: !Bool
     , dhtExplicitInitial :: !Bool
+    , enableStats        :: !Bool
     }
   deriving Show
 
@@ -102,8 +103,12 @@ argsParser =
          metavar "SEVERITY",
          help "Server log severity"
         ]) <*>
-    switch (long "time-lord" <> help "Peer is time lord, i.e. one responsible for system start time decision & propagation (used only in development)") <*>
-    switch (long "explicit-initial" <> help "Explicitely contact to initial peers as to neighbors (even if they appeared offline once)")
+    switch (long "time-lord"
+         <> help "Peer is time lord, i.e. one responsible for system start time decision & propagation (used only in development)") <*>
+    switch (long "explicit-initial"
+         <> help "Explicitely contact to initial peers as to neighbors (even if they appeared offline once)") <*>
+    switch (long "stats"
+         <> help "Enable stats logging")
   where
     peerHelpMsg = "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""
 
@@ -145,7 +150,12 @@ main = do
               spendingSK <- getKey ((genesisSecretKeys !!) <$> spendingGenesisI) spendingSecretPath "spending" (snd <$> keyGen)
               vssSK <- getKey ((genesisVssKeyPairs !!) <$> vssGenesisI) vssSecretPath "vss.keypair" vssKeyGen
               systemStart <- getSystemStart inst args
-              runNodeReal inst $ params args spendingSK vssSK systemStart
+
+              let currentParams =  params args spendingSK vssSK systemStart
+              if enableStats
+                  then runNodeStats inst currentParams
+                  else runNodeReal inst currentParams
+
     getSystemStart inst args =
       case runningMode of
         Development -> if timeLord args

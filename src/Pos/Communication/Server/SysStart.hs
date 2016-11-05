@@ -28,5 +28,5 @@ sysStartReqListener mSysStart = ListenerDHT $
 sysStartRespListener :: (MonadDialog BinaryP m, MinWorkMode m) => MVar Timestamp -> ListenerDHT m
 sysStartRespListener mvar = ListenerDHT $
     \(SysStartResponse mTs :: SysStartResponse) -> do
-        maybe (return ()) (liftIO . tryPutMVar mvar) mTs
+        maybe (return ()) (liftIO . void . tryPutMVar mvar) mTs
         closeResponse

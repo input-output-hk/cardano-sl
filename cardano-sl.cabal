@@ -197,6 +197,7 @@ executable cardano-wallet
 executable cardano-stats-collector
   hs-source-dirs:      src/stats-collector
   main-is:             Main.hs
+  other-modules:       StatsOptions
   build-depends:       aeson
                      , base
                      , containers

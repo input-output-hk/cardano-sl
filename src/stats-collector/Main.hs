@@ -26,9 +26,12 @@ import           Pos.Statistics          (StatBlockVerifying (..), StatLabel (..
 import           Pos.Types               (Timestamp)
 import           Pos.Util                (eitherPanic)
 
+import qualified StatsOptions            as O
+
 ------------------------------------------------
 -- YAML config
 ------------------------------------------------
+
 readRemoteConfig :: FromJSON config => FilePath -> IO config
 readRemoteConfig fp =
     eitherPanic "[FATAL] Failed to parse config: " <$>
@@ -36,29 +39,10 @@ readRemoteConfig fp =
 
 data CollectorConfig = CollectorConfig
     { ccNodes :: ![Text]
-    }
+    } deriving Show
 
 deriveJSON defaultOptions ''CollectorConfig
 
-------------------------------------------------
--- CLI options
-------------------------------------------------
-data CollectorOptions = CO
-  { coConfigPath :: FilePath
-  }
-
-optParser :: Opts.Parser CollectorOptions
-optParser = CO
-  <$> Opts.strOption (Opts.long "config"
-                   <> Opts.short 'c'
-                   <> Opts.metavar "PATH_TO_CONFIG"
-                   <> Opts.value "collector.yaml"
-                   <> Opts.help "Path to YAML config file")
-
-parseOptions :: Opts.ParserInfo CollectorOptions
-parseOptions = Opts.info (Opts.helper <*> optParser) $ Opts.fullDesc
-    <> Opts.header   "pos-bench-remote - distributed benchmarks for Cardano PoS"
-    <> Opts.progDesc "Runs PoS full node and starts benchmarking transactions"
 
 collectorListener
     :: (StatLabel l, MonadIO m)
@@ -70,11 +54,12 @@ collectorListener channel res = liftIO $ writeChan channel res
 ------------------------------------------------
 -- Main
 ------------------------------------------------
+
 main :: IO ()
 main = do
-    CO {..} <- Opts.execParser parseOptions
-
-    CollectorConfig {..} <- readRemoteConfig coConfigPath
+    opts@O.StatOpts{..} <- O.readOptions
+    CollectorConfig {..} <- readRemoteConfig soConfigPath
+    putText $ "launched with options: " <> show opts
 
     let addrs = eitherPanic "Invalid address: " $
             mapM (parse addrParser "" . toString) ccNodes

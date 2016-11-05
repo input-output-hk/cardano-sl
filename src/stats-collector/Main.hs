@@ -19,9 +19,8 @@ import           Pos.Communication       (RequestStat (..), ResponseStat (..))
 import           Pos.DHT                 (DHTNodeType (..), ListenerDHT (..), dhtNodeType,
                                           sendToNode)
 import           Pos.Launcher            (BaseParams (..), LoggingParams (..),
-                                          NodeParams (..), runNodeStats, runServiceMode,
-                                          runSupporterReal, runTimeLordReal,
-                                          runTimeSlaveReal)
+                                          NodeParams (..), bracketDHTInstance,
+                                          runServiceMode)
 import           Pos.Statistics          (StatBlockVerifying (..), StatLabel (..),
                                           StatProcessTx (..))
 import           Pos.Types               (Timestamp)
@@ -72,8 +71,6 @@ collectorListener channel res = liftIO $ writeChan channel res
 -- Main
 ------------------------------------------------
 main :: IO ()
-main = undefined
-{--
 main = do
     CO {..} <- Opts.execParser parseOptions
 
@@ -93,18 +90,18 @@ main = do
 
     ch1 <- C.newChan
     ch2 <- C.newChan
-    let listeners = [ ListenerDHT $ collectorListener ch1 @StatProcessTx
-                    , ListenerDHT $ collectorListener ch2 @StatBlockVerifying
+    let listeners = [ ListenerDHT $ collectorListener @StatProcessTx ch1
+                    , ListenerDHT $ collectorListener @StatBlockVerifying ch2
                     ]
 
-    runServiceMode params listeners $ do
-        forM_ enumAddrs $ \(idx, addr) -> do
-            sendToNode addr (RequestStat idx StatProcessTx)
-            sendToNode addr (RequestStat idx StatBlockVerifying)
+    bracketDHTInstance params $ \inst -> do
+        runServiceMode inst params listeners $ do
+            forM_ enumAddrs $ \(idx, addr) -> do
+                sendToNode addr (RequestStat idx StatProcessTx)
+                sendToNode addr (RequestStat idx StatBlockVerifying)
 
-        forM_ [0 .. 2 * length addrs] $ \_ -> liftIO $ do
-           (ResponseStat id label res) <- readChan ch1
-           print id
-           print label
-           print res
---}
+            forM_ [0 .. 2 * length addrs] $ \_ -> liftIO $ do
+                (ResponseStat id label res) <- readChan ch1
+                print id
+                print label
+                print res

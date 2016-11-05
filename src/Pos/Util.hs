@@ -52,7 +52,7 @@ import           Control.Lens                  (Lens', LensLike', Magnified, Zoo
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad
 import           Control.Monad.Fail            (fail)
-import           Control.TimeWarp.Logging      (WithNamedLogger, logDebug, logWarning)
+import           Control.TimeWarp.Logging      (WithNamedLogger, logWarning)
 import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
 import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
                                                 Second, for, killThread)
@@ -253,15 +253,20 @@ logWarningLongAction delta actionTag action = do
     logThreadId <- fork $ waitAndWarn delta
     action      <* killThread logThreadId
   where
-    printWarning = logWarning $ sformat ("Action `"%stext%"` took more than "%shown)
-                                actionTag
-                                delta
+    printWarning t = logWarning $ sformat ("Action `"%stext%"` took more than "%shown)
+                                  actionTag
+                                  t
 
-    waitAndWarn (WaitOnce      s  ) =           wait (for s) >> printWarning
-    waitAndWarn (WaitLinear    s  ) = forever $ wait (for s) >> printWarning
+    -- TODO: avoid code duplication somehow
+    waitAndWarn (WaitOnce      s  ) = wait (for s) >> printWarning s
+    waitAndWarn (WaitLinear    s  ) = let waitLoop t = do
+                                              wait $ for t
+                                              printWarning t
+                                              waitLoop (t + s)
+                                      in waitLoop s
     waitAndWarn (WaitGeometric s q) = let waitLoop t = do
                                               wait $ for t
-                                              printWarning
+                                              printWarning (convertUnit t :: Second)
                                               waitLoop (round $ fromIntegral t * q)
                                       in waitLoop s
 
@@ -284,4 +289,3 @@ runWithRandomIntervals minT maxT action = do
   --logDebug "runWithRandomIntervals: executing action"
   action
   runWithRandomIntervals minT maxT action
-

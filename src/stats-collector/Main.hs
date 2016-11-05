@@ -102,11 +102,11 @@ main = do
         runServiceMode inst params listeners $ do
             forM_ enumAddrs $ \(idx, addr) -> do
                 logInfo $ sformat ("Requested stats for node #"%int) idx
-                -- sendToNode addr (RequestStat idx StatProcessTx)
-                sendToNode addr (RequestStat idx StatBlockVerifying)
+                sendToNode addr (RequestStat idx StatProcessTx)
+                -- sendToNode addr (RequestStat idx StatBlockVerifying)
 
             forM_ [0 .. length addrs] $ \_ -> liftIO $ do
-                (ResponseStat id label res) <- readChan ch2
+                (ResponseStat id label res) <- readChan ch1
                 print id
                 print label
                 print res

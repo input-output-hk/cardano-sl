@@ -22,7 +22,7 @@ import           Control.TimeWarp.Rpc     (MonadDialog, MonadResponse, MonadTran
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
 import qualified Data.Binary              as Binary
 import           Data.Maybe               (fromMaybe)
-import           Focus                    (alterM)
+import           Focus                    (Decision (Remove), alterM)
 import           Serokell.Util            (show')
 import qualified STMContainers.Map        as SM
 import           System.IO.Unsafe         (unsafePerformIO)
@@ -123,7 +123,10 @@ instance (MonadIO m, MonadDB m) => MonadStats (StatsT m) where
             mappend entry . Binary.decode <$> v <|> Just entry
 
     resetStat label ts = do
-        mval <- liftIO $ atomically $ SM.lookup (show' label) statsMap
+        mval <- liftIO $ atomically $ SM.focus reset (show' label) statsMap
         let val = fromMaybe mempty $ Binary.decode <$> mval
         lift $ newStatRecord label ts val
+      where
+        reset old = return (old, Remove)
+
     getStats = lift . getStatRecords

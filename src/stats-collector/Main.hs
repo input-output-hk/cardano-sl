@@ -9,7 +9,6 @@ import           Data.Aeson.Types        (FromJSON)
 import           Data.Default            (def)
 import           Data.Monoid             ((<>))
 import qualified Data.Yaml               as Y
-import qualified Options.Applicative     as Opts
 import           Serokell.Aeson.Options  (defaultOptions)
 import           Text.Parsec             (parse)
 import           Universum               hiding ((<>))
@@ -26,6 +25,7 @@ import           Pos.Statistics          (StatBlockVerifying (..), StatLabel (..
 import           Pos.Types               (Timestamp)
 import           Pos.Util                (eitherPanic)
 
+import qualified SarCollector as SAR
 import qualified StatsOptions            as O
 
 ------------------------------------------------
@@ -38,8 +38,8 @@ readRemoteConfig fp =
     Y.decodeFileEither fp
 
 data CollectorConfig = CollectorConfig
-    { ccNodes :: ![Text]
-    } deriving Show
+    { ccNodes :: ![(Text,Int)]
+    } deriving (Show)
 
 deriveJSON defaultOptions ''CollectorConfig
 
@@ -61,8 +61,14 @@ main = do
     CollectorConfig {..} <- readRemoteConfig soConfigPath
     putText $ "launched with options: " <> show opts
 
+    let (m0Host,_) = fromMaybe (panic "ccNodes list is empty") $ head ccNodes
+        mConfig =
+            SAR.MachineConfig m0Host "statReader" "123123123123" "/var/log/saALL"
+    print =<< (take 10 <$> SAR.getNodeStats mConfig)
+
     let addrs = eitherPanic "Invalid address: " $
-            mapM (parse addrParser "" . toString) ccNodes
+            mapM (\(h,p) -> parse addrParser "" $ toString (h <> show p))
+                 ccNodes
         enumAddrs = zip [0..] addrs
         params =
             BaseParams

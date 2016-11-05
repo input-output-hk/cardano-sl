@@ -19,6 +19,7 @@ data StatOpts = StatOpts
     , soConfigPath   :: FilePath
     , soTpsStep      :: Int
     , soTpsMax       :: Int
+    , soSshPassword  :: Text
     } deriving (Show)
 
 argsParser :: Parser StatOpts
@@ -41,7 +42,10 @@ argsParser =
     option
         auto
         (long "tps-max" <> metavar "INTEGER" <> value 50 <> showDefault <>
-         help "Max value of TPS")
+         help "Max value of TPS") <*>
+    (T.pack <$> strOption
+        (long "ssh-passwd" <> metavar "STRING" <>
+         help "Password for ssh node instances"))
 
 readOptions :: IO StatOpts
 readOptions = do

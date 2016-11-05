@@ -27,22 +27,22 @@ argsParser =
     StatOpts <$>
     strOption
         (long "output-dir" <> metavar "FILEPATH" <> value "." <>
-         help "Path to the output directory") <*>
+         showDefault <> help "Path to the output directory") <*>
     (T.pack <$>
      strOption
         (long "output-pref" <> metavar "STRING" <> value "stats-" <>
-         help "Prefix for statistic dir output")) <*>
+         showDefault <> help "Prefix for statistic dir output")) <*>
     strOption
         (long "config" <> metavar "FILEPATH" <> value "stats.yaml" <>
          help "Path to the configuration file (nodes list)") <*>
     option
         auto
-        (long "tps-step" <> metavar "INTEGER" <> value 10 <> showDefault <>
-         help "Step of TPS") <*>
+        (long "tps-step" <> metavar "INTEGER" <> value 10 <>
+         showDefault <> help "Step of TPS") <*>
     option
         auto
-        (long "tps-max" <> metavar "INTEGER" <> value 50 <> showDefault <>
-         help "Max value of TPS") <*>
+        (long "tps-max" <> metavar "INTEGER" <> value 50 <>
+         showDefault <> help "Max value of TPS") <*>
     (T.pack <$> strOption
         (long "ssh-passwd" <> metavar "STRING" <>
          help "Password for ssh node instances"))
@@ -50,8 +50,8 @@ argsParser =
 readOptions :: IO StatOpts
 readOptions = do
     (res,()) <- simpleOptions
-        "stats-collector"
-        "Statistics collecting service"
+        "Check .cabal version"
+        "Statistics collecting & benchmarking service for cardano sl"
         ""
         argsParser
         empty

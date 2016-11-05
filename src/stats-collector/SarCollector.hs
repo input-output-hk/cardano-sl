@@ -1,7 +1,6 @@
 {-# LANGUAGE ViewPatterns #-}
 
 -- | Fetching and accumulating nodes info using sar
-
 module SarCollector
     ( MachineConfig (..)
     , StatisticsEntry (..)
@@ -11,11 +10,12 @@ module SarCollector
 import           Data.Hashable         (Hashable (hashWithSalt))
 import qualified Data.HashMap.Strict   as M
 import           Data.List             (dropWhileEnd)
+import           Data.Maybe            (mapMaybe)
 import qualified Data.Text             as T
 import           Data.Time.Clock       (UTCTime)
 import           Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import           Data.Time.Format      (defaultTimeLocale, parseTimeM)
-import           Formatting            (sformat, stext, (%))
+import           Formatting            (int, sformat, stext, (%))
 import           Turtle                (shellStrict)
 import           Universum
 
@@ -27,7 +27,7 @@ data MachineConfig = MachineConfig
     , mSarFilepath :: Text
     } deriving (Show)
 
--- | Statistic entry
+-- | Statistics entry
 data StatisticsEntry = StatisticsEntry
     { statTimestamp      :: UTCTime
     , cpuLoadUser        :: Double
@@ -38,6 +38,7 @@ data StatisticsEntry = StatisticsEntry
     , netRxKbPerSecond   :: Double
     , netTxKbPerSecond   :: Double
     } deriving (Show)
+
 
 -- mda
 instance Hashable UTCTime where
@@ -77,42 +78,48 @@ parseNet (words -> (d:_:_:_:recv:transm:_)) =
     , readFail "Can't parse txkB/s" transm))
 parseNet _ = panic "parseNet"
 
+-- | Queries the node to get stats from it. Number of requests can be
+-- one in fact, but i didn't figure out how to do that in ~5m. Lazy
+-- evaluation,
 getNodeStats :: (MonadIO m) => MachineConfig -> m [StatisticsEntry]
 getNodeStats MachineConfig{..} = do
+    putText "Querying CPU stats..."
     cpuInfo <- M.fromList . map parseCpu <$> fetchStats ""
+    putText "Querying Mem stats..."
     memInfo <- M.fromList . map parseMem <$> fetchStats "-r"
+    putText "Querying Disk stats..."
     diskInfo <-
         M.fromList . map parseDisk .
-        filter (\x -> let (_:dev:_) = words x in "0" `T.isSuffixOf` dev) <$>
+        filter (\x -> let (_:dev:_) = words x in "0" `T.isSuffixOf` dev) .
+        filter (/= "")<$>
         fetchStats "-d"
+    putText "Querying Net stats..."
     netInfo <-
         M.fromList . map parseNet .
         filter (\x -> let (_:iface:_) = words x in iface /= "lo") <$>
         fetchStats "-n DEV"
-    pure $ (flip map $ M.keys cpuInfo) $ \t ->
-        StatisticsEntry
-          { statTimestamp = t
-          , cpuLoadUser = fst $ cpuInfo M.! t
-          , cpuLoadSystem = snd $ cpuInfo M.! t
-          , memUsed = memInfo M.! t
-          , readSectPerSecond = fst $ diskInfo M.! t
-          , writeSectPerSecond = snd $ diskInfo M.! t
-          , netRxKbPerSecond =  fst $ netInfo M.! t
-          , netTxKbPerSecond =  snd $ netInfo M.! t
-          }
+    pure $ (flip mapMaybe $ sort $ M.keys cpuInfo) $ \t -> do
+        let statTimestamp = t
+        (cpuLoadUser,cpuLoadSystem) <- t `M.lookup` cpuInfo
+        memUsed <- t `M.lookup` memInfo
+        (readSectPerSecond, writeSectPerSecond) <- t `M.lookup` diskInfo
+        (netRxKbPerSecond, netTxKbPerSecond) <- t `M.lookup` netInfo
+        pure $ StatisticsEntry{..}
   where
+    maxItems = 3600
     -- heuristically dropping some lines in the beginning (may be ssh trash..? :))
     -- and average last lines
     fetchStats sarFlag =
-        take (23 * 60 * 60) .
-        dropWhileEnd ("Average:" `T.isPrefixOf`) . drop 3 . T.lines . snd <$>
+        take maxItems .
+        dropWhileEnd ("Average:" `T.isPrefixOf`) .
+        drop 3 . T.lines . T.strip . snd <$>
         shellStrict (sshCommand sarFlag) (return "")
     sshCommandFormat =
         "sshpass -p '"%stext%"' "%
         "ssh -o StrictHostKeyChecking=no "%
         "-o PreferredAuthentications=password "%
         "-o PubkeyAuthentication=no "%
-        stext%"@"%stext%" -- LC_TIME=en_UK.utf8 sar "%stext%" -f "%stext
+        stext%"@"%stext%" -- \"LC_TIME=en_UK.utf8 sar "%stext%" -f "%stext%" | tail -n\""%int
     sshCommand sarFlag =
         sformat sshCommandFormat mPassword
-                mUsername mHost sarFlag mSarFilepath
+                mUsername mHost sarFlag mSarFilepath (maxItems+20)

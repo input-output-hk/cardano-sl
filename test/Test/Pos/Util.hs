@@ -2,6 +2,7 @@ module Test.Pos.Util
        ( binaryEncodeDecode
        , msgPackEncodeDecode
        , safeCopyEncodeDecode
+       , showRead
        ) where
 
 import           Data.Binary      (Binary)
@@ -9,6 +10,7 @@ import qualified Data.Binary      as Binary
 import           Data.MessagePack (MessagePack, pack, unpack)
 import           Data.SafeCopy    (SafeCopy, safeGet, safePut)
 import           Data.Serialize   (runGet, runPut)
+import           Prelude          (read)
 import           Test.QuickCheck  (Property, (===))
 import           Universum
 
@@ -24,3 +26,6 @@ safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
 safeCopyEncodeDecode a =
     either (panic . toText) identity
      (runGet safeGet $ runPut $ safePut a) === a
+
+showRead :: (Show a, Eq a, Read a) => a -> Property
+showRead a = read (show a) === a

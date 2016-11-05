@@ -1,18 +1,24 @@
+{-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell    #-}
 
 -- | `Arbitrary` instances for core types for using in tests and benchmarks
 
-module Pos.Types.Arbitrary () where
+module Pos.Types.Arbitrary
+       ( CommitmentOpening (..)
+       ) where
 
+import qualified Data.ByteString            as BS (pack)
 import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.List.NonEmpty         (NonEmpty ((:|)))
-import           Pos.Constants              (epochSlots)
+import           Data.Time.Units            (Microsecond, fromMicroseconds)
+import           Pos.Constants              (epochSlots, ftsSeedLength)
 import           Pos.Crypto                 (SecretProof, SecretSharingExtra,
                                              deterministicVssKeyGen, sign, toVssPublicKey)
 import           Pos.Ssc.DynamicState.Types (DSProof (..))
 import           Pos.Types.Mpc              (genCommitmentAndOpening)
+import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              Coin (..), Commitment (..), EpochIndex (..),
                                              FtsSeed (..), LocalSlotIndex (..),
@@ -20,7 +26,7 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              TxIn (..), TxOut (..))
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
-                                             NonZero (..), choose, elements)
+                                             NonZero (..), choose, elements, vector)
 import           Universum
 
 import           Pos.Crypto.Arbitrary       ()
@@ -34,7 +40,7 @@ import           Pos.Util.Arbitrary         (Nonrepeating (..), sublistN, unsafe
 data CommitmentOpening = CommitmentOpening
     { coCommitment :: !Commitment
     , coOpening    :: !Opening
-    }
+    } deriving (Show, Generic)
 
 -- | Generate 50 commitment/opening pairs in advance
 -- (see `Pos.Crypto.Arbitrary` for explanations)
@@ -72,7 +78,6 @@ instance Arbitrary SecretProof where
 ----------------------------------------------------------------------------
 
 deriving instance Arbitrary Address
-deriving instance Arbitrary FtsSeed
 deriving instance Arbitrary ChainDifficulty
 
 derive makeArbitrary ''SlotId
@@ -108,3 +113,17 @@ instance Arbitrary Tx where
         txIns <- getNonEmpty <$> arbitrary
         txOuts <- getNonEmpty <$> arbitrary
         return $ Tx txIns txOuts
+
+instance Arbitrary FtsSeed where
+    arbitrary = do
+        bs <- vector ftsSeedLength
+        return $ FtsSeed $ BS.pack bs
+
+----------------------------------------------------------------------------
+-- Arbitrary miscellaneous types
+----------------------------------------------------------------------------
+
+instance Arbitrary Microsecond where
+    arbitrary = fromMicroseconds <$> choose (0, 600 * 1000 * 1000)
+
+deriving instance Arbitrary Timestamp

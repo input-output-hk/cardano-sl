@@ -6,6 +6,7 @@ module Pos.Constants
        , slotDuration
        , epochSlots
        , epochDuration
+       , ftsSeedLength
        , genesisN
        , neighborsSendThreshold
        , networkDiameter
@@ -37,6 +38,9 @@ epochSlots = 6 * k
 
 epochDuration :: Microsecond
 epochDuration = epochSlots * slotDuration
+
+ftsSeedLength :: Int
+ftsSeedLength = 32
 
 genesisN :: Integral i => i
 genesisN = cast . ccGenesisN $ compileConfig

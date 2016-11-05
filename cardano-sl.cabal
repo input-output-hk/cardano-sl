@@ -202,6 +202,8 @@ test-suite cardano-test
                      , Test.Pos.Types.Identity.BinarySpec
                      , Test.Pos.Types.Identity.MessagePackSpec
                      , Test.Pos.Types.Identity.SafeCopySpec
+                     , Test.Pos.Types.Identity.TimestampSpec
+                     , Test.Pos.Types.MpcSpec
                      , Test.Pos.Types.SlottingSpec
                      , Test.Pos.Types.TxSpec
                      , Test.Pos.Types.UtxoSpec

@@ -15,7 +15,7 @@ before_install:
 install:
 - stack --no-terminal --install-ghc test --only-dependencies
 script:
-- stack --no-terminal test --haddock --no-haddock-deps
+- stack --no-terminal build --test --haddock --no-haddock-deps --bench --no-run-benchmarks
 notifications:
   email: false
   slack:

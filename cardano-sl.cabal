@@ -203,11 +203,11 @@ test-suite cardano-test
                      , Test.Pos.FollowTheSatoshiSpec
                      , Test.Pos.MerkleSpec
                      , Test.Pos.SlottingSpec
+                     , Test.Pos.Ssc.DynamicState.Identity.BinarySpec
                      , Test.Pos.Types.BlockSpec
                      , Test.Pos.Types.Identity.BinarySpec
                      , Test.Pos.Types.Identity.MessagePackSpec
                      , Test.Pos.Types.Identity.SafeCopySpec
-                     , Test.Pos.Types.SafeCopySpec
                      , Test.Pos.Types.SlottingSpec
                      , Test.Pos.Types.UtxoSpec
                      , Test.Pos.Util

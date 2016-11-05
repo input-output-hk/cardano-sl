@@ -22,10 +22,11 @@ import           Universum
 
 import           Pos.Crypto               (KeyPair (..), Share, Threshold, VssKeyPair,
                                            decryptShare, sign, toVssPublicKey)
-import           Pos.FollowTheSatoshi     (FtsError (..), calculateSeed)
-import           Pos.Types                (Commitment (..), CommitmentsMap, FtsSeed (..),
-                                           Opening (..), genCommitmentAndOpening,
-                                           secretToFtsSeed, xorFtsSeed)
+import           Pos.Ssc.DynamicState     (Commitment (..), CommitmentsMap, Opening (..),
+                                           SeedError (..), calculateSeed,
+                                           genCommitmentAndOpening, secretToFtsSeed,
+                                           xorFtsSeed)
+import           Pos.Types                (FtsSeed (..))
 import           Pos.Util                 (nonrepeating, sublistN)
 
 spec :: Spec

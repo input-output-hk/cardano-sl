@@ -25,8 +25,10 @@ spec = describe "Types" $ do
         prop "TxIn" (safeCopyEncodeDecode @T.TxIn)
         prop "TxOut" (safeCopyEncodeDecode @T.TxOut)
         prop "Tx" (safeCopyEncodeDecode @T.Tx)
-        prop "FtsSeed" (safeCopyEncodeDecode @T.FtsSeed)
-        prop "Opening" (safeCopyEncodeDecode @T.Opening)
         prop "Chaindifficulty" (safeCopyEncodeDecode @T.ChainDifficulty)
+        prop "FtsSeed" (safeCopyEncodeDecode @T.FtsSeed)
+        -- TODO: this is in Pos.Ssc.DynamicState now
+        -- TODO: where is commitment?
+        -- prop "Opening" (safeCopyEncodeDecode @T.Opening)
         -- TODO: there's no such type anymore
         -- prop "MpcProof" (safeCopyEncodeDecode @T.MpcProof)

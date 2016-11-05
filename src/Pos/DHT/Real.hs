@@ -341,7 +341,7 @@ instance (MonadDialog BinaryP m, WithNamedLogger m, MonadCatch m, MonadIO m, Mon
                             >>= \tvar -> (liftIO . atomically $ modifyTVar tvar (liftIO closer:))
 
 rejoinNetwork :: (MonadIO m, WithNamedLogger m, MonadCatch m) => KademliaDHT m ()
-rejoinNetwork = do
+rejoinNetwork = withDhtLogger $ do
     peers <- getKnownPeers
     logDebug $ sformat ("rejoinNetwork: peers " % build) peers
     when (null peers) $ do

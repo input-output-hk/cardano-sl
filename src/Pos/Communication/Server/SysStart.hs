@@ -12,7 +12,7 @@ module Pos.Communication.Server.SysStart
 import           Pos.DHT                 (ListenerDHT (..), closeResponse, replyToNode)
 import           Universum
 
-import           Control.Concurrent.MVar (MVar, putMVar)
+import           Control.Concurrent.MVar (MVar, tryPutMVar)
 import           Control.TimeWarp.Rpc    (BinaryP, MonadDialog)
 import           Pos.Communication.Types (SysStartRequest (..), SysStartResponse (..))
 import           Pos.Types               (Timestamp)
@@ -28,5 +28,5 @@ sysStartReqListener mSysStart = ListenerDHT $
 sysStartRespListener :: (MonadDialog BinaryP m, MinWorkMode m) => MVar Timestamp -> ListenerDHT m
 sysStartRespListener mvar = ListenerDHT $
     \(SysStartResponse mTs :: SysStartResponse) -> do
-        maybe (return ()) (liftIO . putMVar mvar) mTs
+        maybe (return ()) (liftIO . tryPutMVar mvar) mTs
         closeResponse

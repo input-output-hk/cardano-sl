@@ -14,10 +14,11 @@ module Pos.Statistics.StatEntry
        , ValueStat (..)
        ) where
 
-import           Data.Binary      (Binary (..))
-import           Data.Hashable    (Hashable)
-import           Data.MessagePack (MessagePack (..))
-import           Data.SafeCopy    (SafeCopy (..), base, deriveSafeCopySimple)
+import           Data.Binary         (Binary)
+import           Data.Hashable       (Hashable)
+import           Data.MessagePack    (MessagePack)
+import           Data.SafeCopy       (base, deriveSafeCopySimple)
+import           Data.Text.Buildable (Buildable (..))
 import           Universum
 
 type FullySerializable s
@@ -36,6 +37,7 @@ type StatEntry e
 -- | `StatLabel` is some datatype which determines a single stat
 class (FullySerializable l, Buildable l, Hashable l, StatEntry (EntryType l)) => StatLabel l where
     type EntryType l :: *
+    labelName :: Proxy l -> Text
 
 newtype CountStat = CountStat
     { getCounter :: Word64

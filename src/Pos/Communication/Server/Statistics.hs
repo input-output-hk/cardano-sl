@@ -23,8 +23,8 @@ import           Pos.Statistics.Tx         (StatProcessTx)
 import           Pos.WorkMode              (WorkMode)
 
 statsListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
-statsListeners = [ ListenerDHT $ handleStatsRequests @StatProcessTx
-                 , ListenerDHT $ handleStatsRequests @StatBlockVerifying
+statsListeners = [ ListenerDHT $ handleStatsRequests @StatBlockVerifying
+                 , ListenerDHT $ handleStatsRequests @StatProcessTx
                  ]
 
 handleStatsRequests :: (StatLabel l, ResponseMode m) => RequestStat l -> m ()

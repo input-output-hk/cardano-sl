@@ -1,30 +1,34 @@
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeApplications #-}
+
 -- | Executable for collecting stats data from nodes
 
-import           Control.Concurrent.Chan (Chan)
-import qualified Control.Concurrent.Chan as C
-import           Data.Aeson.TH           (deriveJSON)
-import           Data.Aeson.Types        (FromJSON)
-import           Data.Default            (def)
-import           Data.Monoid             ((<>))
-import qualified Data.Yaml               as Y
-import           Serokell.Aeson.Options  (defaultOptions)
-import           Text.Parsec             (parse)
-import           Universum               hiding ((<>))
+import           Control.Concurrent.Chan  (Chan)
+import qualified Control.Concurrent.Chan  as C
+import           Control.TimeWarp.Logging (Severity (..), WithNamedLogger, logInfo)
+import           Data.Aeson.TH            (deriveJSON)
+import           Data.Aeson.Types         (FromJSON)
+import           Data.Default             (def)
+import           Data.Monoid              ((<>))
+import qualified Data.Yaml                as Y
+import           Formatting               (build, int, sformat, (%))
+import           Serokell.Aeson.Options   (defaultOptions)
+import           Text.Parsec              (parse)
+import           Universum                hiding ((<>))
 
-import           Pos.CLI                 (addrParser)
-import           Pos.Communication       (RequestStat (..), ResponseStat (..))
-import           Pos.DHT                 (DHTNodeType (..), ListenerDHT (..), sendToNode)
-import           Pos.Launcher            (BaseParams (..), bracketDHTInstance,
-                                          runServiceMode)
-import           Pos.Statistics          (StatBlockVerifying (..), StatLabel (..),
-                                          StatProcessTx (..))
-import           Pos.Types               (Timestamp)
-import           Pos.Util                (eitherPanic)
+import           Pos.CLI                  (addrParser)
+import           Pos.Communication        (RequestStat (..), ResponseStat (..))
+import           Pos.DHT                  (DHTNodeType (..), ListenerDHT (..),
+                                           dhtNodeType, sendToNode)
+import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
+                                           bracketDHTInstance, runServiceMode)
+import           Pos.Statistics           (StatBlockVerifying (..), StatLabel (..),
+                                           StatProcessTx (..))
+import           Pos.Types                (Timestamp)
+import           Pos.Util                 (eitherPanic)
 
-import qualified SarCollector            as SAR
-import qualified StatsOptions            as O
+import qualified SarCollector             as SAR
+import qualified StatsOptions             as O
 
 ------------------------------------------------
 -- YAML config
@@ -43,11 +47,13 @@ deriveJSON defaultOptions ''CollectorConfig
 
 
 collectorListener
-    :: (StatLabel l, MonadIO m)
+    :: (StatLabel l, MonadIO m, WithNamedLogger m)
     => Chan (ResponseStat l (Timestamp, EntryType l))
     -> ResponseStat l (Timestamp, EntryType l)
     -> m ()
-collectorListener channel res = liftIO $ writeChan channel res
+collectorListener channel res@(ResponseStat _ l _) = do
+    logInfo $ sformat ("Received stats response: "%build) l
+    liftIO $ writeChan channel res
 
 ------------------------------------------------
 -- Main
@@ -63,34 +69,41 @@ main = do
         mConfig =
             SAR.MachineConfig m0Host "statReader" "123123123123" "/var/log/saALL"
     mapM print =<< (take 10 <$> SAR.getNodeStats mConfig)
-    pure ()
---    let addrs = eitherPanic "Invalid address: " $
---            mapM (\(h,p) -> parse addrParser "" $ toString (h <> show p))
---                 ccNodes
---        enumAddrs = zip [0..] addrs
---        params =
---            BaseParams
---            { bpLogging = def
---            , bpPort = 8095
---            , bpDHTPeers = []
---            , bpDHTKeyOrType = Right DHTClient
---            , bpDHTExplicitInitial = False
---            }
---
---    ch1 <- C.newChan
---    ch2 <- C.newChan
---    let listeners = [ ListenerDHT $ collectorListener @StatProcessTx ch1
---                    , ListenerDHT $ collectorListener @StatBlockVerifying ch2
---                    ]
---
---    bracketDHTInstance params $ \inst -> do
---        runServiceMode inst params listeners $ do
---            forM_ enumAddrs $ \(idx, addr) -> do
---                sendToNode addr (RequestStat idx StatProcessTx)
---                sendToNode addr (RequestStat idx StatBlockVerifying)
---
---            forM_ [0 .. 2 * length addrs] $ \_ -> liftIO $ do
---                (ResponseStat id label res) <- readChan ch1
---                print id
---                print label
---                print res
+
+    let addrs = eitherPanic "Invalid address: " $
+            mapM (\(h,p) -> parse addrParser "" $ toString (h <> show p))
+                 ccNodes
+        enumAddrs = zip [0..] addrs
+        logParams =
+            def
+            { lpRootLogger = "stats-collector"
+            , lpMainSeverity = Debug
+            , lpDhtSeverity = Just Info
+            }
+        params =
+            BaseParams
+            { bpLogging = logParams
+            , bpPort = 8095
+            , bpDHTPeers = []
+            , bpDHTKeyOrType = Right DHTClient
+            , bpDHTExplicitInitial = False
+            }
+
+    ch1 <- C.newChan
+    ch2 <- C.newChan
+    let listeners = [ ListenerDHT $ collectorListener @StatProcessTx ch1
+                    , ListenerDHT $ collectorListener @StatBlockVerifying ch2
+                    ]
+
+    bracketDHTInstance params $ \inst -> do
+        runServiceMode inst params listeners $ do
+            forM_ enumAddrs $ \(idx, addr) -> do
+                logInfo $ sformat ("Requested stats for node #"%int) idx
+                -- sendToNode addr (RequestStat idx StatProcessTx)
+                sendToNode addr (RequestStat idx StatBlockVerifying)
+
+            forM_ [0 .. length addrs] $ \_ -> liftIO $ do
+                (ResponseStat id label res) <- readChan ch2
+                print id
+                print label
+                print res

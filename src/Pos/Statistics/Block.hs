@@ -11,34 +11,46 @@ module Pos.Statistics.Block
        -- , statlogSentBlock
        ) where
 
-import           Control.TimeWarp.Timed    (currentTime, runTimedIO)
-import           Data.Binary               (Binary)
-import qualified Data.Binary               as Binary
-import           Data.Hashable             (Hashable (hashWithSalt))
-import           Data.MessagePack          (MessagePack (fromObject, toObject),
-                                            Object (..))
-import           Data.Text.Buildable       (build)
+import           Control.Monad            (fail)
+import           Data.Binary              (Binary)
+import qualified Data.Binary              as Binary
+import qualified Data.Binary.Get          as Binary (getWord32be)
+import qualified Data.Binary.Put          as Binary (putWord32be)
+import           Data.Hashable            (Hashable (hash, hashWithSalt))
+import           Data.MessagePack         (MessagePack (fromObject, toObject))
+import           Data.Text.Buildable      (build)
 import           Universum
 
-import           Pos.Crypto.Hashing        (hash)
-import           Pos.Ssc.Class.Types       (SscTypes)
-import           Pos.Statistics.MonadStats (MonadStats (..))
-import           Pos.Statistics.StatEntry  (StatEntry, StatLabel (..), ValueStat)
-import           Pos.Types                 (Block, BlockHeader, Timestamp (..),
-                                            getBlockHeader)
-import           Pos.WorkMode              (WorkMode)
+import           Pos.Statistics.StatEntry (StatLabel (..), ValueStat)
+import           Pos.Util                 (fromMsgpackBinary, toMsgpackBinary)
 
 data StatBlockVerifying = StatBlockVerifying deriving (Show, Eq, Generic, Typeable)
 
-instance Binary StatBlockVerifying
-instance MessagePack StatBlockVerifying
-instance Hashable StatBlockVerifying
-
+-- TODO: generate these using TH
 instance Buildable StatBlockVerifying where
-    build _ = "stat_block_verifying"
+    build _ = "StatBlockVerifying"
+
+instance Hashable StatBlockVerifying where
+    hashWithSalt x _ = hashWithSalt x ("StatBlockVerifying" :: ByteString)
+
+hId :: Word32
+hId = fromIntegral $ hash ("StatBlockVerifying" :: ByteString)
+
+instance Binary StatBlockVerifying where
+    get = do
+        w <- Binary.getWord32be
+        when (w /= hId) $
+            fail "Binary.get: StatBlockVerifying fail"
+        return StatBlockVerifying
+    put _ = Binary.putWord32be hId
+
+instance MessagePack StatBlockVerifying where
+    toObject = toMsgpackBinary
+    fromObject = fromMsgpackBinary "StatBlockVerifying"
 
 instance StatLabel StatBlockVerifying where
     type EntryType StatBlockVerifying = ValueStat
+    labelName _ = "StatBlockVerifying"
 
 -- logBlockHeader
 --     :: (SscTypes ssc, WorkMode m)

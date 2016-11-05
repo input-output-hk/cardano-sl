@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Types used for stats requests
 
@@ -13,7 +14,7 @@ import           Universum
 
 import           Control.TimeWarp.Rpc     (Message (..))
 
-import           Pos.Statistics.StatEntry (StatLabel)
+import           Pos.Statistics.StatEntry (StatLabel (..))
 
 {-
 `RequestStat` and `Response` need to carry message ids
@@ -38,7 +39,7 @@ instance StatLabel l => MessagePack (RequestStat l)
 instance (StatLabel l, MessagePack a) => MessagePack (ResponseStat l a)
 
 instance StatLabel l => Message (RequestStat l) where
-    messageName _ = "RequestStat"
+    messageName _ = "RequestStat_" <> labelName (Proxy :: Proxy l)
 
 instance (StatLabel l, Typeable a) => Message (ResponseStat l a) where
-    messageName _ = "ResponseStat"
+    messageName _ = "ResponseStat_" <> labelName (Proxy :: Proxy l)

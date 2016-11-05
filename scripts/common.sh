@@ -120,9 +120,9 @@ function has_nix {
 function stack_build {
     if [[ `has_nix` == 0 ]]; then
         echo "Building with nix-shell"
-        stack --nix build
+        stack --nix build --test --no-run-tests --bench --no-run-benchmarks --fast
     else
         echo "Building normally"
-        stack build
+        stack build --test --no-run-tests --bench --no-run-benchmarks --fast
     fi
 }

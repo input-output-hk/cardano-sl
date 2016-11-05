@@ -1,23 +1,27 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- | Fetching and accumulating nodes info using sar
 module SarCollector
     ( MachineConfig (..)
     , StatisticsEntry (..)
+    , getNodesStats
     , getNodeStats
     ) where
 
-import           Data.Hashable         (Hashable (hashWithSalt))
-import qualified Data.HashMap.Strict   as M
-import           Data.List             (dropWhileEnd)
-import           Data.Maybe            (mapMaybe)
-import qualified Data.Text             as T
-import           Data.Time.Clock       (UTCTime)
-import           Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
-import           Data.Time.Format      (defaultTimeLocale, parseTimeM)
-import           Formatting            (int, sformat, stext, (%))
-import           Turtle                (shellStrict)
-import           Universum
+import           Control.Concurrent.Async.Lifted (mapConcurrently)
+import           Control.Monad.Trans.Control     (MonadBaseControl)
+import           Data.Hashable                   (Hashable (hashWithSalt))
+import qualified Data.HashMap.Strict             as M
+import           Data.List                       (dropWhileEnd)
+import           Data.Maybe                      (mapMaybe)
+import qualified Data.Text                       as T
+import           Data.Time.Clock                 (UTCTime)
+import           Data.Time.Clock.POSIX           (utcTimeToPOSIXSeconds)
+import           Data.Time.Format                (defaultTimeLocale, parseTimeM)
+import           Formatting                      (int, sformat, stext, (%))
+import           Turtle                          (shellStrict)
+import           Universum                       hiding (mapConcurrently)
 
 -- | Basic description of remote machine we're fetching stats from
 data MachineConfig = MachineConfig
@@ -78,6 +82,12 @@ parseNet (words -> (d:_:_:_:recv:transm:_)) =
     , readFail "Can't parse txkB/s" transm))
 parseNet _ = panic "parseNet"
 
+-- | Concurrently get statistics
+getNodesStats
+    :: (MonadIO m, MonadBaseControl IO m)
+    => [MachineConfig] -> m [[StatisticsEntry]]
+getNodesStats = mapConcurrently getNodeStats
+
 -- | Queries the node to get stats from it. Number of requests can be
 -- one in fact, but i didn't figure out how to do that in ~5m. Lazy
 -- evaluation,
@@ -96,7 +106,8 @@ getNodeStats MachineConfig{..} = do
     putText "Querying Net stats..."
     netInfo <-
         M.fromList . map parseNet .
-        filter (\x -> let (_:iface:_) = words x in iface /= "lo") <$>
+        filter (\x -> let (_:iface:_) = words x in iface /= "lo") .
+        filter ((> 2) . length . words) <$>
         fetchStats "-n DEV"
     pure $ (flip mapMaybe $ sort $ M.keys cpuInfo) $ \t -> do
         let statTimestamp = t

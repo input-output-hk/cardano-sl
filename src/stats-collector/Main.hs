@@ -62,13 +62,16 @@ collectorListener channel res@(ResponseStat _ l _) = do
 main :: IO ()
 main = do
     opts@O.StatOpts{..} <- O.readOptions
-    CollectorConfig {..} <- readRemoteConfig soConfigPath
-    putText $ "launched with options: " <> show opts
+    CollectorConfig{..} <- readRemoteConfig soConfigPath
+    putText $ "Launched with options: " <> show opts
 
-    let (m0Host,_) = fromMaybe (panic "ccNodes list is empty") $ head ccNodes
-        mConfig =
-            SAR.MachineConfig m0Host "statReader" "123123123123" "/var/log/saALL"
-    mapM print =<< (take 10 <$> SAR.getNodeStats mConfig)
+    -- let mConfigs =
+    --         flip map ccNodes $ \(host,_) ->
+    --             SAR.MachineConfig
+    --             host "statReader" "123123123123" "/var/log/saALL"
+    -- sarStats <- SAR.getNodesStats mConfigs
+    -- forM_ sarStats $ \nodeStat ->
+    --     forM_ (take 10 nodeStat) print
 
     let addrs = eitherPanic "Invalid address: " $
             mapM (\(h,p) -> parse addrParser "" $ toString (h <> show p))

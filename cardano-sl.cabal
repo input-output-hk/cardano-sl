@@ -206,6 +206,8 @@ executable cardano-stats-collector
                      , data-default
                      , formatting
                      , hashable
+                     , lifted-async
+                     , monad-control
                      , optparse-simple >= 0.0.3
                      , parsec
                      , serokell-util

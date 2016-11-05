@@ -16,6 +16,7 @@ import           Pos.Communication.Types  (ResponseMode, SendTx (..), SendTxs (.
 import           Pos.Communication.Util   (modifyListenerLogger)
 import           Pos.DHT                  (ListenerDHT (..))
 import           Pos.State                (ProcessTxRes (..), processTx)
+import           Pos.Statistics           (StatProcessTx (..), statlogCountEvent)
 import           Pos.Types                (txF)
 import           Pos.WorkMode             (WorkMode)
 
@@ -33,9 +34,9 @@ handleTx
 handleTx (SendTx tx) = do
     res <- processTx tx
     case res of
-        PTRadded ->
-            logInfo $
-            sformat ("Transaction has been added to storage: " %build) tx
+        PTRadded -> do
+            statlogCountEvent StatProcessTx 1
+            logInfo $ sformat ("Transaction has been added to storage: " %build) tx
         PTRinvalid msg ->
             logWarning $ sformat ("Transaction "%txF%" failed to verify: "%stext) tx msg
         PTRknown ->

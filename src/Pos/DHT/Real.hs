@@ -129,7 +129,7 @@ instance MonadTransfer m => MonadTransfer (KademliaDHT m) where
 
 instance Applicative m => WithDefaultMsgHeader (KademliaDHT m) where
     defaultMsgHeader _ = do
-        -- *-- Caches are disabled now for non-broadcast messages
+        --     Caches are disabled now for non-broadcast messages
         --     uncomment lines below to enable them
         --noCacheNames <- KademliaDHT $ asks kdcNoCacheMessageNames_
         --let header =

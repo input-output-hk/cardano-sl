@@ -24,7 +24,7 @@ import           Pos.Communication.Server.Tx         (txListeners)
 import           Pos.Communication.Util              (modifyListenerLogger)
 import           Pos.DHT                             (ListenerDHT)
 import           Pos.Ssc.Class.Listeners             (sscListeners)
-import           Pos.Ssc.DynamicState.Types          (SscDynamicState)
+import           Pos.Ssc.DynamicState                (SscDynamicState)
 import           Pos.WorkMode                        (WorkMode)
 
 allListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]

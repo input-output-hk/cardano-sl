@@ -4,6 +4,7 @@
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 -- | Storage with node local state which should be persistent.
 
@@ -41,48 +42,46 @@ module Pos.State.Storage
        , getStatRecords
        ) where
 
-import           Control.Lens               (makeClassy, use, view, (.=), (^.))
-import           Control.Monad.TM           ((.=<<.))
-import           Data.Acid                  ()
-import           Data.Default               (Default, def)
-import qualified Data.HashMap.Strict        as HM
-import           Data.List                  (nub)
-import           Data.List.NonEmpty         (NonEmpty ((:|)), nonEmpty)
-import           Data.SafeCopy              (base, deriveSafeCopySimple)
-import           Formatting                 (build, sformat, (%))
-import           Serokell.AcidState         ()
-import           Serokell.Util              (VerificationRes (..), verifyGeneric)
+import           Control.Lens            (makeClassy, use, view, (.=), (^.))
+import           Control.Monad.TM        ((.=<<.))
+import           Data.Acid               ()
+import           Data.Default            (Default, def)
+import qualified Data.HashMap.Strict     as HM
+import           Data.List               (nub)
+import           Data.List.NonEmpty      (NonEmpty ((:|)), nonEmpty)
+import           Data.SafeCopy           (base, deriveSafeCopySimple)
+import           Formatting              (build, sformat, (%))
+import           Serokell.AcidState      ()
+import           Serokell.Util           (VerificationRes (..))
 import           Universum
 
-import           Pos.Constants              (k)
-import           Pos.Crypto                 (PublicKey, SecretKey, Share, Threshold,
-                                             VssKeyPair, VssPublicKey, signedValue)
-import           Pos.Ssc.Class.Storage      (HasSscStorage (..), SscStorageClass (..))
-import           Pos.Ssc.Class.Types        (SscTypes (..))
-import           Pos.Ssc.DynamicState.Types (DSPayload (..), SscDynamicState,
-                                             _mdVssCertificates)
-import           Pos.State.Storage.Block    (BlockStorage, HasBlockStorage (blockStorage),
-                                             blkCleanUp, blkCreateGenesisBlock,
-                                             blkCreateNewBlock, blkProcessBlock,
-                                             blkRollback, blkSetHead, getBlock,
-                                             getHeadBlock, getLeaders, getSlotDepth,
-                                             mayBlockBeUseful)
-import qualified Pos.State.Storage.Mpc      as Mpc (calculateLeaders)
-import           Pos.State.Storage.Stats    (HasStatsData (statsData), IdTimestamp (..),
-                                             StatsData, addStatRecord, getStatRecords)
-import           Pos.State.Storage.Tx       (HasTxStorage (txStorage), TxStorage,
-                                             getLocalTxs, getUtxoByDepth, processTx,
-                                             txApplyBlocks, txRollback, txStorageFromUtxo,
-                                             txVerifyBlocks)
-import           Pos.State.Storage.Types    (AltChain, ProcessBlockRes (..),
-                                             ProcessTxRes (..), mkPBRabort)
-import           Pos.Types                  (Block, EpochIndex, GenesisBlock, MainBlock,
-                                             SlotId (..), SlotLeaders, Utxo, blockMpc,
-                                             blockSlot, blockTxs, epochIndexL,
-                                             flattenSlotId, getAddress, headerHashG,
-                                             isCommitmentId, isOpeningId, isSharesId,
-                                             txOutAddress, unflattenSlotId, verifyTxAlone)
-import           Pos.Util                   (readerToState, _neLast)
+import           Pos.Constants           (k)
+import           Pos.Crypto              (PublicKey, SecretKey, Share, Threshold,
+                                          VssKeyPair, VssPublicKey, signedValue)
+import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
+import           Pos.Ssc.Class.Types     (SscTypes (..))
+import           Pos.Ssc.DynamicState    (DSPayload (..), SscDynamicState,
+                                          verifySscPayload, _mdVssCertificates)
+import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
+                                          blkCleanUp, blkCreateGenesisBlock,
+                                          blkCreateNewBlock, blkProcessBlock, blkRollback,
+                                          blkSetHead, getBlock, getHeadBlock, getLeaders,
+                                          getSlotDepth, mayBlockBeUseful)
+import qualified Pos.State.Storage.Mpc   as Mpc (calculateLeaders)
+import           Pos.State.Storage.Stats (HasStatsData (statsData), IdTimestamp (..),
+                                          StatsData, addStatRecord, getStatRecords)
+import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
+                                          getLocalTxs, getUtxoByDepth, processTx,
+                                          txApplyBlocks, txRollback, txStorageFromUtxo,
+                                          txVerifyBlocks)
+import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
+                                          ProcessTxRes (..), mkPBRabort)
+import           Pos.Types               (Block, EpochIndex, GenesisBlock, MainBlock,
+                                          SlotId (..), SlotLeaders, Utxo, blockMpc,
+                                          blockSlot, blockTxs, epochIndexL, flattenSlotId,
+                                          gbHeader, getAddress, headerHashG, txOutAddress,
+                                          unflattenSlotId, verifyTxAlone)
+import           Pos.Util                (readerToState, _neLast)
 
 type Query  a = forall m. MonadReader Storage m => m a
 type Update a = forall m. MonadState Storage m => m a
@@ -181,7 +180,7 @@ processBlock :: SlotId
 processBlock curSlotId blk = do
     -- TODO: I guess these checks should be part of block verification actually.
     let verifyMpc mainBlk =
-            verifyMpcData (mainBlk ^. blockSlot) (mainBlk ^. blockMpc)
+            verifySscPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
     let mpcRes = either (const mempty) verifyMpc blk
     let txs =
             case blk of
@@ -191,20 +190,6 @@ processBlock curSlotId blk = do
     case mpcRes <> txRes of
         VerSuccess        -> processBlockDo curSlotId blk
         VerFailure errors -> return $ mkPBRabort errors
-
--- | Verify MpcData using limited data.
--- TODO: more checks.
--- TODO: move this somewhere more appropriate
-verifyMpcData :: SlotId -> DSPayload -> VerificationRes
-verifyMpcData slotId DSPayload {..} =
-    verifyGeneric
-        [ ( null _mdCommitments || isCommitmentId slotId
-          , "there are commitments in inappropriate block")
-        , ( null _mdOpenings || isOpeningId slotId
-          , "there are openings in inappropriate block")
-        , ( null _mdShares || isSharesId slotId
-          , "there are shares in inappropriate block")
-        ]
 
 processBlockDo :: SlotId
                -> Block SscDynamicState
@@ -360,11 +345,9 @@ getMpcCrucialDepth epoch = do
 
 getThreshold :: EpochIndex -> Query (Maybe Threshold)
 getThreshold epoch = do
-    psMaybe <- getParticipants epoch
-    return $
-        do ps <- psMaybe
-           let len = length ps
-           return (toInteger (len `div` 2 + len `mod` 2))
+    fmap getThresholdImpl <$> getParticipants epoch
+  where
+    getThresholdImpl (length -> len) = fromIntegral $ len `div` 2 + len `mod` 2
 
 processSscMessage :: SscMessage SscDynamicState -> Update Bool
 processSscMessage = sscProcessMessage

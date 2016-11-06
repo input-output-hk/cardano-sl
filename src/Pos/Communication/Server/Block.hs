@@ -12,25 +12,25 @@ module Pos.Communication.Server.Block
        , handleBlockRequest
        ) where
 
-import           Control.TimeWarp.Logging   (logDebug, logInfo, logNotice, logWarning)
-import           Control.TimeWarp.Rpc       (BinaryP, MonadDialog)
-import           Data.List.NonEmpty         (NonEmpty ((:|)))
-import           Formatting                 (build, int, sformat, stext, (%))
-import           Serokell.Util              (VerificationRes (..), listJson)
+import           Control.TimeWarp.Logging (logDebug, logInfo, logNotice, logWarning)
+import           Control.TimeWarp.Rpc     (BinaryP, MonadDialog)
+import           Data.List.NonEmpty       (NonEmpty ((:|)))
+import           Formatting               (build, int, sformat, stext, (%))
+import           Serokell.Util            (VerificationRes (..), listJson)
 import           Universum
 
-import           Pos.Communication.Types    (RequestBlock (..), ResponseMode,
-                                             SendBlock (..), SendBlockHeader (..))
-import           Pos.Communication.Util     (modifyListenerLogger)
-import           Pos.Crypto                 (hash)
-import           Pos.DHT                    (ListenerDHT (..), replyToNode)
-import           Pos.Slotting               (getCurrentSlot)
-import           Pos.Ssc.DynamicState.Types (SscDynamicState)
-import qualified Pos.State                  as St
-import           Pos.Statistics             (statlogReceivedBlock,
-                                             statlogReceivedBlockHeader, statlogSentBlock)
-import           Pos.Types                  (HeaderHash, headerHash)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.Communication.Types  (RequestBlock (..), ResponseMode,
+                                           SendBlock (..), SendBlockHeader (..))
+import           Pos.Communication.Util   (modifyListenerLogger)
+import           Pos.Crypto               (hash)
+import           Pos.DHT                  (ListenerDHT (..), replyToNode)
+import           Pos.Slotting             (getCurrentSlot)
+import           Pos.Ssc.DynamicState     (SscDynamicState)
+import qualified Pos.State                as St
+import           Pos.Statistics           (statlogReceivedBlock,
+                                           statlogReceivedBlockHeader, statlogSentBlock)
+import           Pos.Types                (HeaderHash, headerHash)
+import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
 blockListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]

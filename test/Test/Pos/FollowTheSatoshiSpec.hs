@@ -22,10 +22,10 @@ import           Universum
 
 import           Pos.Crypto               (KeyPair (..), Share, Threshold, VssKeyPair,
                                            decryptShare, sign, toVssPublicKey)
-import           Pos.FollowTheSatoshi     (FtsError (..), calculateSeed)
-import           Pos.Types                (Commitment (..), CommitmentsMap, FtsSeed (..),
-                                           Opening (..), genCommitmentAndOpening,
-                                           secretToFtsSeed, xorFtsSeed)
+import           Pos.Ssc.DynamicState     (Commitment (..), CommitmentsMap, Opening (..),
+                                           SeedError (..), calculateSeed,
+                                           genCommitmentAndOpening, secretToFtsSeed)
+import           Pos.Types                (SharedSeed, xorSharedSeed)
 import           Pos.Util                 (nonrepeating, sublistN)
 
 spec :: Spec
@@ -97,10 +97,10 @@ recoverSecretsProp n n_openings n_shares n_overlap
 recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
     let threshold = pickThreshold n
     (keys, vssKeys, comms, opens) <- generateKeysAndMpc threshold n
-    let seeds :: [FtsSeed]
+    let seeds :: [SharedSeed]
         seeds = map (secretToFtsSeed . getOpening) opens
-    let expectedSharedSeed :: FtsSeed
-        expectedSharedSeed = foldl1' xorFtsSeed seeds
+    let expectedSharedSeed :: SharedSeed
+        expectedSharedSeed = foldl1' xorSharedSeed seeds
     haveSentBoth <- generate $
         sublistN n_overlap keys
     haveSentOpening <- generate $

@@ -9,13 +9,15 @@
 -- Proof-of-Stake Blockchain Protocol”), section 4 for more details.
 
 module Pos.Ssc.DynamicState.Types
-       ( SscDynamicState
-
-       , DSPayload(..)
+       (
+         -- * Instance types
+         DSPayload(..)
        , DSProof(..)
        , DSMessage(..)
        , DSStorage(..)
        , DSStorageVersion(..)
+       , mkDSProof
+       , verifySscPayload
 
        -- * Lenses
        -- ** DSPayload
@@ -46,27 +48,27 @@ module Pos.Ssc.DynamicState.Types
        -- ** instance SscTypes SscDynamicState
        ) where
 
-import           Control.Lens         (makeLenses, makeLensesFor)
-import           Data.Binary          (Binary)
-import           Data.Default         (Default (..))
-import qualified Data.HashMap.Strict  as HM
-import           Data.List.NonEmpty   (NonEmpty (..))
-import           Data.MessagePack     (MessagePack)
-import           Data.SafeCopy        (base, deriveSafeCopySimple)
-import           Data.Tagged          (Tagged (..))
-import           Data.Text.Buildable  (Buildable (..))
-import           Formatting           (bprint, (%))
-import           Serokell.Util        (listJson)
+import           Control.Lens                 (makeLenses, makeLensesFor, (^.))
+import           Data.Binary                  (Binary)
+import           Data.Default                 (Default (..))
+import qualified Data.HashMap.Strict          as HM
+import           Data.List.NonEmpty           (NonEmpty (..))
+import           Data.MessagePack             (MessagePack)
+import           Data.SafeCopy                (base, deriveSafeCopySimple)
+import           Data.Text.Buildable          (Buildable (..))
+import           Formatting                   (bprint, (%))
+import           Serokell.Util                (VerificationRes, listJson, verifyGeneric)
 import           Universum
 
-import           Pos.Crypto           (Hash, PublicKey, Share, hash)
-import           Pos.FollowTheSatoshi (FtsError)
-import           Pos.Genesis          (genesisCertificates)
-import           Pos.Ssc.Class.Types  (SscTypes (..))
-import           Pos.Types.Slotting   (unflattenSlotId)
-import           Pos.Types.Types      (CommitmentsMap, Opening, OpeningsMap, SharesMap,
-                                       SignedCommitment, SlotId, VssCertificate,
-                                       VssCertificatesMap)
+import           Pos.Crypto                   (Hash, PublicKey, Share, hash)
+import           Pos.Ssc.Class.Types          (SscTypes (SscPayload))
+import           Pos.Ssc.DynamicState.Base    (CommitmentsMap, Opening, OpeningsMap,
+                                               SharesMap, SignedCommitment,
+                                               VssCertificate, VssCertificatesMap,
+                                               isCommitmentId, isOpeningId, isSharesId)
+import           Pos.Ssc.DynamicState.Genesis (genesisCertificates)
+import           Pos.Types                    (MainBlockHeader, SlotId, headerSlot,
+                                               unflattenSlotId)
 
 ----------------------------------------------------------------------------
 -- SscMessage
@@ -215,6 +217,23 @@ instance Buildable DSPayload where
                 ("  certificates from: "%listJson%"\n")
                 (HM.keys _mdVssCertificates)
 
+-- | Verify payload using header containing this payload.
+-- TODO: add this function into some class probably.
+verifySscPayload
+    :: (SscPayload ssc ~ DSPayload)
+    => MainBlockHeader ssc -> SscPayload ssc -> VerificationRes
+verifySscPayload header DSPayload {..} =
+    verifyGeneric
+        [ ( null _mdCommitments || isCommitmentId slotId
+          , "there are commitments in inappropriate block")
+        , ( null _mdOpenings || isOpeningId slotId
+          , "there are openings in inappropriate block")
+        , ( null _mdShares || isSharesId slotId
+          , "there are shares in inappropriate block")
+        ]
+  where
+    slotId = header ^. headerSlot
+
 ----------------------------------------------------------------------------
 -- SscProof
 ----------------------------------------------------------------------------
@@ -234,6 +253,15 @@ deriveSafeCopySimple 0 'base ''DSProof
 instance Binary DSProof
 instance MessagePack DSProof
 
+mkDSProof :: DSPayload -> DSProof
+mkDSProof DSPayload {..} =
+    DSProof
+    { mpCommitmentsHash = hash _mdCommitments
+    , mpOpeningsHash = hash _mdOpenings
+    , mpSharesHash = hash _mdShares
+    , mpVssCertificatesHash = hash _mdVssCertificates
+    }
+
 ----------------------------------------------------------------------------
 -- Utility functions
 ----------------------------------------------------------------------------
@@ -246,25 +274,3 @@ hasOpening pk md = HM.member pk (_mdOpenings md)
 
 hasShares :: PublicKey -> DSPayload -> Bool
 hasShares pk md = HM.member pk (_mdShares md)
-
-----------------------------------------------------------------------------
--- 'SscDynamicState' and its instances
-----------------------------------------------------------------------------
-
-data SscDynamicState
-
-instance SscTypes SscDynamicState where
-    type SscStorage   SscDynamicState = DSStorage
-    type SscPayload   SscDynamicState = DSPayload
-    type SscProof     SscDynamicState = DSProof
-    type SscMessage   SscDynamicState = DSMessage
-    type SscSeedError SscDynamicState = FtsError
-    type SscToken     SscDynamicState = (PublicKey, SignedCommitment, Opening)
-
-    mkSscProof = Tagged $
-        \DSPayload {..} -> DSProof
-             { mpCommitmentsHash = hash _mdCommitments
-             , mpOpeningsHash = hash _mdOpenings
-             , mpSharesHash = hash _mdShares
-             , mpVssCertificatesHash = hash _mdVssCertificates
-             }

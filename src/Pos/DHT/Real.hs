@@ -185,13 +185,14 @@ stopDHT = do
     closers <- liftIO . atomically $ swapTVar closersTV []
     lift $ sequence_ closers
 
-stopDHTInstance :: (MonadTimed m, MonadIO m) => KademliaDHTInstance -> m ()
+stopDHTInstance
+    :: MonadIO m
+    => KademliaDHTInstance -> m ()
 stopDHTInstance KademliaDHTInstance {..} = liftIO $ K.close kdiHandle
 
 startDHTInstance
     :: ( MonadTimed m
        , MonadIO m
-       , MonadDialog BinaryP m
        , WithNamedLogger m
        , MonadCatch m
        , MonadBaseControl IO m
@@ -243,7 +244,6 @@ startDHT KademliaDHTConfig {..} = do
   where
     convert :: ListenerDHT m -> ListenerH BinaryP DHTMsgHeader m
     convert (ListenerDHT f) = ListenerH $ \(_, m) -> getDHTResponseT $ f m
-    log' logF =  usingLoggerName ("kademlia" <> "messager") . logF . toText
     convert' handler = getDHTResponseT . handler
 
 -- | Return 'True' if the message should be processed, 'False' if only

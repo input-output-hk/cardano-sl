@@ -18,7 +18,7 @@ import           Universum
 import           Pos.Crypto              (PublicKey, Share, VssKeyPair)
 import           Pos.Ssc.Class.Types     (SscTypes (..))
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types.Types         (FtsSeed, SlotId)
+import           Pos.Types.Types         (SlotId)
 
 type SscUpdate ssc a =
     forall m x. (HasSscStorage ssc x, MonadState x m) => m a

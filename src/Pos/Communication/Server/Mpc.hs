@@ -20,7 +20,7 @@ import qualified Pos.Communication.Types.Mpc as Mpc
 import           Pos.Communication.Util      (modifyListenerLogger)
 import           Pos.DHT                     (ListenerDHT (..))
 import           Pos.Ssc.Class.Listeners     (SscListenersClass (..))
-import           Pos.Ssc.DynamicState.Types  (DSMessage (..), SscDynamicState)
+import           Pos.Ssc.DynamicState        (DSMessage (..), SscDynamicState)
 import qualified Pos.State                   as St
 import           Pos.WorkMode                (WorkMode)
 

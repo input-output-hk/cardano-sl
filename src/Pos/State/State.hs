@@ -38,30 +38,28 @@ module Pos.State.State
        , getStatRecords
        ) where
 
-import           Control.Lens               (view, _2, _3)
-import           Crypto.Random              (seedNew, seedToInteger)
-import           Data.Acid                  (EventResult, EventState, QueryEvent,
-                                             UpdateEvent)
-import           Data.Binary                (Binary)
-import qualified Data.Binary                as Binary
-import           Pos.DHT                    (DHTResponseT)
-import           Serokell.Util              (VerificationRes)
+import           Control.Lens         (view, _2, _3)
+import           Crypto.Random        (seedNew, seedToInteger)
+import           Data.Acid            (EventResult, EventState, QueryEvent, UpdateEvent)
+import           Data.Binary          (Binary)
+import qualified Data.Binary          as Binary
+import           Pos.DHT              (DHTResponseT)
+import           Serokell.Util        (VerificationRes)
 import           Universum
 
-import           Pos.Crypto                 (PublicKey, SecretKey, Share, VssKeyPair,
-                                             toPublic)
-import           Pos.Slotting               (MonadSlots, getCurrentSlot)
-import           Pos.Ssc.Class.Types        (SscTypes (SscMessage))
-import           Pos.Ssc.DynamicState.Types (DSPayload, SscDynamicState)
-import           Pos.State.Acidic           (DiskState, tidyState)
-import qualified Pos.State.Acidic           as A
-import           Pos.State.Storage          (IdTimestamp (..), ProcessBlockRes (..),
-                                             ProcessTxRes (..), Storage)
-import           Pos.Types                  (Block, EpochIndex, GenesisBlock, HeaderHash,
-                                             MainBlock, MainBlockHeader, Opening,
-                                             SignedCommitment, SlotId, SlotLeaders,
-                                             Timestamp, Tx, genCommitmentAndOpening,
-                                             mkSignedCommitment)
+import           Pos.Crypto           (PublicKey, SecretKey, Share, VssKeyPair, toPublic)
+import           Pos.Slotting         (MonadSlots, getCurrentSlot)
+import           Pos.Ssc.Class.Types  (SscTypes (SscMessage))
+import           Pos.Ssc.DynamicState (DSPayload, Opening, SignedCommitment,
+                                       SscDynamicState, genCommitmentAndOpening,
+                                       mkSignedCommitment)
+import           Pos.State.Acidic     (DiskState, tidyState)
+import qualified Pos.State.Acidic     as A
+import           Pos.State.Storage    (IdTimestamp (..), ProcessBlockRes (..),
+                                       ProcessTxRes (..), Storage)
+import           Pos.Types            (Block, EpochIndex, GenesisBlock, HeaderHash,
+                                       MainBlock, MainBlockHeader, SlotId, SlotLeaders,
+                                       Timestamp, Tx)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState = DiskState

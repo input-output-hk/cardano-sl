@@ -6,20 +6,26 @@
 -- | Server which handles MPC-related things.
 
 module Pos.Communication.Server.Mpc
-       ( mpcListeners
+       ( -- * Instances
+         -- ** instance SscListenersClass SscDynamicState
        ) where
 
 import           Control.TimeWarp.Logging    (logDebug, logInfo)
 import           Control.TimeWarp.Rpc        (BinaryP, MonadDialog)
+import           Data.Tagged                 (Tagged (..))
 import           Formatting                  (build, sformat, stext, (%))
 import           Universum
 
 import qualified Pos.Communication.Types.Mpc as Mpc
 import           Pos.Communication.Util      (modifyListenerLogger)
 import           Pos.DHT                     (ListenerDHT (..))
-import           Pos.Ssc.DynamicState.Types  (DSMessage (..))
+import           Pos.Ssc.Class.Listeners     (SscListenersClass (..))
+import           Pos.Ssc.DynamicState.Types  (DSMessage (..), SscDynamicState)
 import qualified Pos.State                   as St
 import           Pos.WorkMode                (WorkMode)
+
+instance SscListenersClass SscDynamicState where
+    sscListeners = Tagged mpcListeners
 
 mpcListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
 mpcListeners = map (modifyListenerLogger "mpc") [ListenerDHT handleSsc]

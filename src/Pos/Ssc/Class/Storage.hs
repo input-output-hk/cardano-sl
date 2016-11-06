@@ -13,6 +13,7 @@ module Pos.Ssc.Class.Storage
 
 import           Control.Lens            (Lens')
 import           Data.List.NonEmpty      (NonEmpty)
+import           Data.Tagged             (Tagged)
 import           Serokell.Util.Verify    (VerificationRes)
 import           Universum
 
@@ -20,7 +21,7 @@ import           Pos.Crypto              (PublicKey, Share, Threshold, VssKeyPai
                                           VssPublicKey)
 import           Pos.Ssc.Class.Types     (SscTypes (..))
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types.Types         (SlotId, SlotLeaders, Utxo)
+import           Pos.Types.Types         (MainBlockHeader, SlotId, SlotLeaders, Utxo)
 
 type SscUpdate ssc a =
     forall m x. (HasSscStorage ssc x, MonadState x m) => m a
@@ -73,3 +74,7 @@ class SscTypes ssc => SscStorageClass ssc where
                           SscQuery ssc (Maybe (NonEmpty VssPublicKey))
     sscCalculateLeaders :: Utxo -> Threshold ->
                            SscQuery ssc (Either (SscSeedError ssc)  SlotLeaders)
+
+    -- TODO: one more BARDAQ. It's not related to Storage, but can't
+    -- be put into SscTypes now :(
+    sscVerifyPayload :: Tagged ssc (MainBlockHeader ssc -> SscPayload ssc -> VerificationRes)

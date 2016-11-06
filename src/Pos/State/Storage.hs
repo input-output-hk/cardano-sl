@@ -52,6 +52,7 @@ import           Data.Acid               ()
 import           Data.Default            (Default, def)
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import           Data.SafeCopy           (SafeCopy (..), contain, safeGet, safePut)
+import           Data.Tagged             (untag)
 import           Formatting              (build, sformat, (%))
 import           Serokell.AcidState      ()
 import           Serokell.Util           (VerificationRes (..))
@@ -62,7 +63,6 @@ import           Pos.Crypto              (PublicKey, SecretKey, Share, Threshold
                                           VssKeyPair, VssPublicKey)
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (SscTypes (..))
-import           Pos.Ssc.DynamicState    (verifySscPayload)
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
                                           blkCleanUp, blkCreateGenesisBlock,
                                           blkCreateNewBlock, blkProcessBlock, blkRollback,
@@ -213,10 +213,8 @@ processBlock
 processBlock curSlotId blk = do
     -- TODO: I guess these checks should be part of block verification actually.
     let verifyMpc mainBlk =
-            verifySscPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
-    -- FIXME!
-    -- let mpcRes = either (const mempty) verifyMpc blk
-    let mpcRes = mempty
+            untag @ssc sscVerifyPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
+    let mpcRes = either (const mempty) verifyMpc blk
     let txs =
             case blk of
                 Left _        -> []

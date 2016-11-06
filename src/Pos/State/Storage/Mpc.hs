@@ -55,8 +55,8 @@ import           Pos.Ssc.DynamicState    (Commitment (..), CommitmentSignature,
                                           dsLocalOpenings, dsLocalShares, dsVersionedL,
                                           hasCommitment, hasOpening, hasShares,
                                           isCommitmentIdx, isOpeningIdx, isSharesIdx,
-                                          mdCommitments, mdOpenings, verifyOpening,
-                                          verifySignedCommitment)
+                                          mdCommitments, mdOpenings, verifyDSPayload,
+                                          verifyOpening, verifySignedCommitment)
 import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types               (Address (getAddress), Block, SlotId (..),
                                           SlotLeaders, Utxo, blockMpc, blockSlot,
@@ -90,6 +90,8 @@ instance SscStorageClass SscDynamicState where
 
     sscGetParticipants = getParticipants
     sscCalculateLeaders = calculateLeaders
+
+    sscVerifyPayload = verifyDSPayload
 
 dsVersioned
     :: HasSscStorage SscDynamicState a

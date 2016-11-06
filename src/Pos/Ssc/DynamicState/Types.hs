@@ -17,7 +17,7 @@ module Pos.Ssc.DynamicState.Types
        , DSStorage(..)
        , DSStorageVersion(..)
        , mkDSProof
-       , verifySscPayload
+       , verifyDSPayload
 
        -- * Lenses
        -- ** DSPayload
@@ -219,10 +219,10 @@ instance Buildable DSPayload where
 
 -- | Verify payload using header containing this payload.
 -- TODO: add this function into some class probably.
-verifySscPayload
+verifyDSPayload
     :: (SscPayload ssc ~ DSPayload)
     => MainBlockHeader ssc -> SscPayload ssc -> VerificationRes
-verifySscPayload header DSPayload {..} =
+verifyDSPayload header DSPayload {..} =
     verifyGeneric
         [ ( null _mdCommitments || isCommitmentId slotId
           , "there are commitments in inappropriate block")

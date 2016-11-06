@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
@@ -44,7 +45,7 @@ module Pos.State.Acidic
        ) where
 
 import           Data.Acid            (EventResult, EventState, QueryEvent, UpdateEvent,
-                                       makeAcidic)
+                                       makeAcidicWithHacks)
 import qualified Data.Acid            as Acid (Query)
 import           Data.Default         (def)
 import           Serokell.AcidState   (ExtendedState, closeExtendedState,
@@ -95,24 +96,7 @@ closeState = closeExtendedState
 tidyState :: MonadIO m => DiskState -> m ()
 tidyState = tidyExtendedState
 
--- TODO: get rid of these (they are only needed temporarily)
-
--- getBlock :: HeaderHash SscDynamicState
---          -> Acid.Query Storage (Maybe (Block SscDynamicState))
--- getBlock = S.getBlock
-
--- getLeaders :: EpochIndex -> Acid.Query Storage (Maybe SlotLeaders)
--- getLeaders = S.getLeaders
-
--- getHeadBlock :: Acid.Query Storage (Block SscDynamicState)
--- getHeadBlock = S.getHeadBlock
-
--- mayBlockBeUseful :: SlotId
---                  -> MainBlockHeader SscDynamicState
---                  -> Acid.Query Storage VerificationRes
--- mayBlockBeUseful = S.mayBlockBeUseful
-
-makeAcidic ''Storage
+makeAcidicWithHacks ''S.Storage ["ssc"]
     [ 'S.getBlock
     , 'S.getGlobalSscPayload
     , 'S.getLeaders

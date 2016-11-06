@@ -117,8 +117,8 @@ instance SscTypes ssc => Default (BlockStorage ssc) where
         , _blkMinDifficulty = (genesisBlock0 @ssc) ^. difficultyL
         }
 
-type Query ssc a = forall m x. (HasBlockStorage x ssc, MonadReader x m) => m a
-type Update ssc a = forall m x. (HasBlockStorage x ssc, MonadState x m) => m a
+type Query ssc a = forall m x. (SscTypes ssc, HasBlockStorage x ssc, MonadReader x m) => m a
+type Update ssc a = forall m x. (SscTypes ssc, HasBlockStorage x ssc, MonadState x m) => m a
 
 -- | Get block by hash of its header.
 getBlock :: HeaderHash ssc -> Query ssc (Maybe (Block ssc))

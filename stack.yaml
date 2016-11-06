@@ -18,7 +18,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git
-    commit: dea606c78d9ecd22247e3c90dcf12c6b4b0458fc
+    commit: 405e41b671d3ffb17a837b45e7d01a2b635c1061
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/pvss-haskell.git

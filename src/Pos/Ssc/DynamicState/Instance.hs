@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -16,7 +17,11 @@ module Pos.Ssc.DynamicState.Instance
        ( SscDynamicState
        ) where
 
+import           Data.SafeCopy                (SafeCopy)
+import           Data.Serialize               (Serialize (..))
 import           Data.Tagged                  (Tagged (..))
+import           GHC.Generics                 (Generic)
+import           Universum
 
 import           Pos.Crypto                   (PublicKey)
 import           Pos.Ssc.Class.Storage        (HasSscStorage (..), SscStorageClass (..))
@@ -65,6 +70,13 @@ import           Pos.Util                     (Color (Magenta), colorize, magnif
                                                readerToState, zoom', _neHead)
 
 data SscDynamicState
+    deriving (Generic)
+
+-- acid-state requires this instance because of a bug
+instance SafeCopy SscDynamicState
+instance Serialize SscDynamicState where
+    put = panic "put@SscDynamicState: can't happen"
+    get = panic "get@SscDynamicState: can't happen"
 
 instance SscTypes SscDynamicState where
     type SscStorage   SscDynamicState = DSStorage

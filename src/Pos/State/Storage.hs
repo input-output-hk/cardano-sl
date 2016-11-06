@@ -83,8 +83,8 @@ import           Pos.Types               (Block, EpochIndex, GenesisBlock, MainB
                                           verifyTxAlone)
 import           Pos.Util                (readerToState, _neLast)
 
-type Query  ssc a = forall m . MonadReader (Storage ssc) m => m a
-type Update ssc a = forall m . MonadState (Storage ssc) m => m a
+type Query  ssc a = forall m . (SscTypes ssc, MonadReader (Storage ssc) m) => m a
+type Update ssc a = forall m . (SscTypes ssc, MonadState (Storage ssc) m) => m a
 
 data Storage ssc = Storage
     { -- | State of MPC.

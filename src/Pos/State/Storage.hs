@@ -1,10 +1,14 @@
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE Rank2Types            #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE ViewPatterns          #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE Rank2Types             #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE TypeApplications       #-}
+{-# LANGUAGE TypeFamilies           #-}
+{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE ViewPatterns           #-}
 
 -- | Storage with node local state which should be persistent.
 
@@ -47,7 +51,7 @@ import           Control.Monad.TM        ((.=<<.))
 import           Data.Acid               ()
 import           Data.Default            (Default, def)
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
-import           Data.SafeCopy           (base, deriveSafeCopySimple)
+import           Data.SafeCopy           (SafeCopy (..), contain, safeGet, safePut)
 import           Formatting              (build, sformat, (%))
 import           Serokell.AcidState      ()
 import           Serokell.Util           (VerificationRes (..))
@@ -58,14 +62,12 @@ import           Pos.Crypto              (PublicKey, SecretKey, Share, Threshold
                                           VssKeyPair, VssPublicKey)
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (SscTypes (..))
-import           Pos.Ssc.DynamicState    (DSPayload (..), SscDynamicState,
-                                          verifySscPayload, _mdVssCertificates)
+import           Pos.Ssc.DynamicState    (verifySscPayload)
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
                                           blkCleanUp, blkCreateGenesisBlock,
                                           blkCreateNewBlock, blkProcessBlock, blkRollback,
                                           blkSetHead, getBlock, getHeadBlock, getLeaders,
                                           getSlotDepth, mayBlockBeUseful)
-import qualified Pos.State.Storage.Mpc   as Mpc
 import           Pos.State.Storage.Stats (HasStatsData (statsData), IdTimestamp (..),
                                           StatsData, addStatRecord, getStatRecords)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
@@ -77,20 +79,20 @@ import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
 import           Pos.Types               (Block, EpochIndex, GenesisBlock, MainBlock,
                                           SlotId (..), SlotLeaders, Utxo, blockMpc,
                                           blockSlot, blockTxs, epochIndexL, flattenSlotId,
-                                          gbHeader, getAddress, headerHashG,
-                                          unflattenSlotId, verifyTxAlone)
+                                          gbHeader, headerHashG, unflattenSlotId,
+                                          verifyTxAlone)
 import           Pos.Util                (readerToState, _neLast)
 
-type Query  a = forall m. MonadReader Storage m => m a
-type Update a = forall m. MonadState Storage m => m a
+type Query  ssc a = forall m . MonadReader (Storage ssc) m => m a
+type Update ssc a = forall m . MonadState (Storage ssc) m => m a
 
-data Storage = Storage
+data Storage ssc = Storage
     { -- | State of MPC.
-      __mpcStorage   :: !(SscStorage SscDynamicState)
+      __mpcStorage   :: !(SscStorage ssc)
     , -- | Transactions part of /static-state/.
       __txStorage    :: !TxStorage
     , -- | Blockchain part of /static-state/.
-      __blockStorage :: !(BlockStorage SscDynamicState)
+      __blockStorage :: !(BlockStorage ssc)
     , -- | Id of last seen slot.
       _slotId        :: !SlotId
     , -- | Statistical data
@@ -98,18 +100,33 @@ data Storage = Storage
     }
 
 makeClassy ''Storage
-deriveSafeCopySimple 0 'base ''Storage
+instance SscTypes ssc => SafeCopy (Storage ssc) where
+    putCopy Storage {..} =
+        contain $
+        do safePut __mpcStorage
+           safePut __txStorage
+           safePut __blockStorage
+           safePut _slotId
+           safePut __statsData
+    getCopy =
+        contain $
+        do __mpcStorage <- safeGet
+           __txStorage <- safeGet
+           __blockStorage <- safeGet
+           _slotId <- safeGet
+           __statsData <- safeGet
+           return $! Storage {..}
 
-instance (ssc ~ SscDynamicState) => HasSscStorage ssc Storage where
+instance HasSscStorage ssc (Storage ssc) where
     sscStorage = _mpcStorage
-instance HasTxStorage Storage where
+instance HasTxStorage (Storage ssc) where
     txStorage = _txStorage
-instance HasBlockStorage Storage SscDynamicState where
+instance HasBlockStorage (Storage ssc) ssc where
     blockStorage = _blockStorage
-instance HasStatsData Storage where
+instance HasStatsData (Storage ssc) where
     statsData = _statsData
 
-instance Default Storage where
+instance (SscTypes ssc, Default (SscStorage ssc)) => Default (Storage ssc) where
     def =
         Storage
         { __mpcStorage = def
@@ -120,26 +137,39 @@ instance Default Storage where
         }
 
 -- | Create default storage with specified utxo
-storageFromUtxo :: Utxo -> Storage
-storageFromUtxo u = Storage def (txStorageFromUtxo u) def (unflattenSlotId 0) def
+storageFromUtxo
+    :: (SscTypes ssc, Default (SscStorage ssc))
+    => Utxo -> (Storage ssc)
+storageFromUtxo u = def {__txStorage = txStorageFromUtxo u}
 
-getHeadSlot :: Query (Either EpochIndex SlotId)
+getHeadSlot :: Query ssc (Either EpochIndex SlotId)
 getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock
 
-getLocalSscPayload :: Query DSPayload
-getLocalSscPayload = sscGetLocalPayload
+getLocalSscPayload
+    :: forall ssc.
+       SscStorageClass ssc
+    => Query ssc (SscPayload ssc)
+getLocalSscPayload = sscGetLocalPayload @ ssc
 
-getGlobalSscPayload :: Query DSPayload
-getGlobalSscPayload = sscGetGlobalPayload
+getGlobalSscPayload
+    :: forall ssc.
+       SscStorageClass ssc
+    => Query ssc (SscPayload ssc)
+getGlobalSscPayload = sscGetGlobalPayload @ ssc
 
-getToken :: Query (Maybe (SscToken SscDynamicState))
-getToken = sscGetToken
+getToken
+    :: forall ssc.
+       SscStorageClass ssc
+    => Query ssc (Maybe (SscToken ssc))
+getToken = sscGetToken @ ssc
 
 getOurShares
-    :: VssKeyPair -- ^ Our VSS key
+    :: forall ssc.
+       SscStorageClass ssc
+    => VssKeyPair -- ^ Our VSS key
     -> Integer -- ^ Random generator seed (needed for 'decryptShare')
-    -> Query (HashMap PublicKey Share)
-getOurShares = sscGetOurShares
+    -> Query ssc (HashMap PublicKey Share)
+getOurShares = sscGetOurShares @ ssc
 
 -- | Create a new block on top of best chain if possible.
 -- Block can be created if:
@@ -147,22 +177,26 @@ getOurShares = sscGetOurShares
 -- • last known block is not more than k slots away from
 -- given SlotId
 createNewBlock
-    :: SecretKey -> SlotId -> Update (Maybe (MainBlock SscDynamicState))
+    :: SscStorageClass ssc
+    => SecretKey -> SlotId -> Update ssc (Maybe (MainBlock ssc))
 createNewBlock sk sId = do
     ifM (readerToState (canCreateBlock sId))
         (Just <$> createNewBlockDo sk sId)
         (pure Nothing)
 
-createNewBlockDo :: SecretKey -> SlotId -> Update (MainBlock SscDynamicState)
+createNewBlockDo
+    :: forall ssc.
+       SscStorageClass ssc
+    => SecretKey -> SlotId -> Update ssc (MainBlock ssc)
 createNewBlockDo sk sId = do
     txs <- readerToState $ toList <$> getLocalTxs
-    mpcData <- readerToState sscGetLocalPayload
+    mpcData <- readerToState (sscGetLocalPayload @ ssc)
     blk <- blkCreateNewBlock sk sId txs mpcData
     let blocks = Right blk :| []
     sscApplyBlocks blocks
     blk <$ txApplyBlocks blocks
 
-canCreateBlock :: SlotId -> Query Bool
+canCreateBlock :: SlotId -> Query ssc Bool
 canCreateBlock sId = do
     maxSlotId <- canCreateBlockMax
     --identity $! traceM $ "[~~~~~~] canCreateBlock: slotId=" <> pretty slotId <> " < max=" <> pretty max <> " = " <> show (flattenSlotId slotId < flattenSlotId max)
@@ -172,14 +206,17 @@ canCreateBlock sId = do
     addKSafe si = si {siSlot = min (6 * k - 1) (siSlot si + k)}
 
 -- | Do all necessary changes when a block is received.
-processBlock :: SlotId
-             -> Block SscDynamicState
-             -> Update (ProcessBlockRes SscDynamicState)
+processBlock
+    :: forall ssc.
+       SscStorageClass ssc
+    => SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
 processBlock curSlotId blk = do
     -- TODO: I guess these checks should be part of block verification actually.
     let verifyMpc mainBlk =
             verifySscPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
-    let mpcRes = either (const mempty) verifyMpc blk
+    -- FIXME!
+    -- let mpcRes = either (const mempty) verifyMpc blk
+    let mpcRes = mempty
     let txs =
             case blk of
                 Left _        -> []
@@ -189,14 +226,15 @@ processBlock curSlotId blk = do
         VerSuccess        -> processBlockDo curSlotId blk
         VerFailure errors -> return $ mkPBRabort errors
 
-processBlockDo :: SlotId
-               -> Block SscDynamicState
-               -> Update (ProcessBlockRes SscDynamicState)
+processBlockDo
+    :: forall ssc.
+       SscStorageClass ssc
+    => SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
 processBlockDo curSlotId blk = do
     r <- blkProcessBlock curSlotId blk
     case r of
         PBRgood (toRollback, chain) -> do
-            mpcRes <- readerToState $ sscVerifyBlocks toRollback chain
+            mpcRes <- readerToState $ (sscVerifyBlocks @ ssc) toRollback chain
             txRes <- readerToState $ txVerifyBlocks toRollback chain
             case mpcRes <> txRes of
                 VerSuccess        -> processBlockFinally toRollback chain
@@ -209,12 +247,12 @@ processBlockDo curSlotId blk = do
 
 -- At this point all checks have been passed and we know that we can
 -- adopt this AltChain.
-processBlockFinally :: Word
-                    -> AltChain SscDynamicState
-                    -> Update (ProcessBlockRes SscDynamicState)
+processBlockFinally :: forall ssc . SscStorageClass ssc => Word
+                    -> AltChain ssc
+                    -> Update ssc (ProcessBlockRes ssc)
 processBlockFinally toRollback blocks = do
-    sscRollback toRollback
-    sscApplyBlocks blocks
+    (sscRollback @ ssc) toRollback
+    (sscApplyBlocks @ ssc) blocks
     txRollback toRollback
     txApplyBlocks blocks
     blkRollback toRollback
@@ -237,22 +275,28 @@ processBlockFinally toRollback blocks = do
     return $ PBRgood (toRollback, blocks)
 
 -- | Do all necessary changes when new slot starts.
-processNewSlot :: SlotId -> Update (Maybe (GenesisBlock SscDynamicState))
+processNewSlot
+    :: forall ssc.
+       SscStorageClass ssc
+    => SlotId -> Update ssc (Maybe (GenesisBlock ssc))
 processNewSlot sId = do
     knownSlot <- use slotId
     if sId > knownSlot
        then processNewSlotDo sId
        else pure Nothing
 
-processNewSlotDo :: SlotId -> Update (Maybe (GenesisBlock SscDynamicState))
+processNewSlotDo
+    :: forall ssc .
+       SscStorageClass ssc
+    => SlotId -> Update ssc (Maybe (GenesisBlock ssc))
 processNewSlotDo sId@SlotId {..} = do
     slotId .= sId
     mGenBlock <-
       if siSlot == 0
-         then createGenesisBlock siEpoch
+         then (createGenesisBlock @ ssc) siEpoch
          else pure Nothing
     blkCleanUp sId
-    sscPrepareToNewSlot sId $> mGenBlock
+    (sscPrepareToNewSlot @ ssc) sId $> mGenBlock
 
 -- We create genesis block for i-th epoch when head of currently known
 -- best chain is MainBlock corresponding to one of last `k` slots of
@@ -260,7 +304,7 @@ processNewSlotDo sId@SlotId {..} = do
 -- 1), but we also don't want to create genesis block on top of blocks
 -- from previous epoch which are not from last k slots, because it's
 -- practically impossible for them to be valid.
-shouldCreateGenesisBlock :: EpochIndex -> Query Bool
+shouldCreateGenesisBlock :: EpochIndex -> Query ssc Bool
 -- Genesis block for 0-th epoch is hardcoded.
 shouldCreateGenesisBlock 0 = pure False
 shouldCreateGenesisBlock epoch = doCheckSoft . either (`SlotId` 0) identity <$> getHeadSlot
@@ -272,7 +316,10 @@ shouldCreateGenesisBlock epoch = doCheckSoft . either (`SlotId` 0) identity <$> 
     -- TODO add logWarning on `doCheckStrict` failing
     -- doCheckStrict SlotId {..} = siEpoch == epoch - 1 && siSlot >= 5 * k
 
-createGenesisBlock :: EpochIndex -> Update (Maybe (GenesisBlock SscDynamicState))
+createGenesisBlock
+    :: forall ssc.
+       SscStorageClass ssc
+    => EpochIndex -> Update ssc (Maybe (GenesisBlock ssc))
 createGenesisBlock epoch = do
     --readerToState getHeadSlot >>= \hs ->
     --  identity $! traceM $ "[~~~~~~] createGenesisBlock: epoch="
@@ -281,7 +328,10 @@ createGenesisBlock epoch = do
         (Just <$> createGenesisBlockDo epoch)
         (pure Nothing)
 
-createGenesisBlockDo :: EpochIndex -> Update (GenesisBlock SscDynamicState)
+createGenesisBlockDo
+    :: forall ssc.
+       SscStorageClass ssc
+    => EpochIndex -> Update ssc (GenesisBlock ssc)
 createGenesisBlockDo epoch = do
     --traceMpcLastVer
     leaders <- readerToState $ calculateLeaders epoch
@@ -291,13 +341,16 @@ createGenesisBlockDo epoch = do
     sscApplyBlocks $ Left genBlock :| []
     pure genBlock
 
-calculateLeaders :: EpochIndex -> Query SlotLeaders
+calculateLeaders
+    :: forall ssc.
+       SscStorageClass ssc
+    => EpochIndex -> Query ssc SlotLeaders
 calculateLeaders epoch = do
     depth <- fromMaybe onErrorGetDepth <$> getMpcCrucialDepth epoch
     utxo <- fromMaybe onErrorGetUtxo <$> getUtxoByDepth depth
     -- TODO: overall 'calculateLeadersDo' gets utxo twice, could be optimised
     threshold <- fromMaybe onErrorGetThreshold <$> getThreshold epoch
-    either onErrorCalcLeaders identity <$> sscCalculateLeaders utxo threshold
+    either onErrorCalcLeaders identity <$> (sscCalculateLeaders @ ssc) utxo threshold
   where
     onErrorGetDepth =
         panic "Depth of MPC crucial slot isn't reasonable"
@@ -314,20 +367,23 @@ calculateLeaders epoch = do
 --
 --   1. It was a stakeholder.
 --   2. It had already sent us its VSS key by that time.
-getParticipants :: EpochIndex -> Query (Maybe (NonEmpty VssPublicKey))
+getParticipants
+    :: forall ssc.
+       SscStorageClass ssc
+    => EpochIndex -> Query ssc (Maybe (NonEmpty VssPublicKey))
 getParticipants epoch = do
     mDepth <- getMpcCrucialDepth epoch
     mUtxo <- getUtxoByDepth .=<<. mDepth
     case (,) <$> mDepth <*> mUtxo of
         Nothing            -> return Nothing
-        Just (depth, utxo) -> sscGetParticipants depth utxo
+        Just (depth, utxo) -> (sscGetParticipants @ ssc) depth utxo
 
 -- slot such that data after it is used for MPC in given epoch
 mpcCrucialSlot :: EpochIndex -> SlotId
 mpcCrucialSlot 0     = SlotId {siEpoch = 0, siSlot = 0}
 mpcCrucialSlot epoch = SlotId {siEpoch = epoch - 1, siSlot = 5 * k - 1}
 
-getMpcCrucialDepth :: EpochIndex -> Query (Maybe Word)
+getMpcCrucialDepth :: EpochIndex -> Query ssc (Maybe Word)
 getMpcCrucialDepth epoch = do
     let crucialSlot = mpcCrucialSlot epoch
     (depth, slot) <- getSlotDepth crucialSlot
@@ -335,14 +391,20 @@ getMpcCrucialDepth epoch = do
         then return Nothing
         else return (Just depth)
 
-getThreshold :: EpochIndex -> Query (Maybe Threshold)
+getThreshold :: forall ssc . SscStorageClass ssc => EpochIndex -> Query ssc (Maybe Threshold)
 getThreshold epoch = do
-    fmap getThresholdImpl <$> getParticipants epoch
+    fmap getThresholdImpl <$> (getParticipants @ ssc) epoch
   where
     getThresholdImpl (length -> len) = fromIntegral $ len `div` 2 + len `mod` 2
 
-processSscMessage :: SscMessage SscDynamicState -> Update Bool
-processSscMessage = sscProcessMessage
+processSscMessage
+    :: forall ssc.
+       SscStorageClass ssc
+    => SscMessage ssc -> Update ssc Bool
+processSscMessage = sscProcessMessage @ ssc
 
-setToken :: SscToken SscDynamicState -> Update ()
-setToken = sscSetToken
+setToken
+    :: forall ssc.
+       SscStorageClass ssc
+    => SscToken ssc -> Update ssc ()
+setToken = sscSetToken @ ssc

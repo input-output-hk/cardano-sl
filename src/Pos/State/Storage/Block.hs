@@ -250,8 +250,9 @@ blkProcessBlockDo blk = do
     ifM (readerToState $ canContinueBestChain blk)
         -- If it's possible, we just do it.
         (continueBestChain blk)
-        -- Our next attempt is to start alternative chain.
-        (maybe (tryContinueAltChain blk) pure =<< tryStartAltChain blk)
+        -- Our next attempt is to start alternative chain or continue
+        -- existing one.
+        (proceedToAltChains blk)
 
 canContinueBestChain :: SscTypes ssc => Block ssc -> Query ssc Bool
 -- We don't continue best chain with received genesis block. It is
@@ -267,7 +268,7 @@ canContinueBestChain blk = do
 
 -- We know that we can continue best chain, but we also try to merge
 -- alternative chain. If we succeed, we do it, instead of adopting a
--- single blockl.
+-- single block.
 continueBestChain
     :: SscTypes ssc
     => Block ssc -> Update ssc (ProcessBlockRes ssc)
@@ -277,6 +278,17 @@ continueBestChain blk = do
   where
     decideWhatToDo r@(PBRgood _) = r
     decideWhatToDo _             = PBRgood (0, blk :| [])
+
+-- Here we try to start alternative chain and/or continue existing one.
+proceedToAltChains
+    :: SscTypes ssc
+    => Block ssc -> Update ssc (ProcessBlockRes ssc)
+proceedToAltChains blk = do
+    tryStartRes <- tryStartAltChain blk
+    case tryStartRes of
+        Just r@(PBRgood _) -> return r
+        Just r@(PBRmore _) -> r <$ tryContinueAltChain blk
+        _                  -> tryContinueAltChain blk
 
 -- Possible results are:
 -- • Nothing: can't start alternative chain.

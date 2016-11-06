@@ -16,7 +16,8 @@
 
 module Pos.State.Storage.Mpc
        (
-         calculateLeaders
+         getParticipants
+       , calculateLeaders
        --, traceMpcLastVer
        ) where
 
@@ -27,6 +28,7 @@ import           Data.Default            (def)
 import           Data.Hashable           (Hashable)
 import qualified Data.HashMap.Strict     as HM
 import           Data.Ix                 (inRange)
+import           Data.List               (nub)
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty      as NE
 import           Formatting              (int, sformat, (%))
@@ -37,8 +39,8 @@ import           Universum
 import           Pos.Constants           (k)
 import           Pos.Crypto              (PublicKey, Share,
                                           Signed (signedSig, signedValue), Threshold,
-                                          VssKeyPair, decryptShare, toVssPublicKey,
-                                          verify, verifyShare)
+                                          VssKeyPair, VssPublicKey, decryptShare,
+                                          toVssPublicKey, verify, verifyShare)
 import           Pos.FollowTheSatoshi    (followTheSatoshi)
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscQuery,
                                           SscStorageClass (..), SscUpdate)
@@ -60,7 +62,7 @@ import           Pos.Ssc.DynamicState    (Commitment (..), CommitmentSignature,
 import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types               (Address (getAddress), Block, SlotId (..),
                                           SlotLeaders, Utxo, blockMpc, blockSlot,
-                                          blockSlot, utxoF)
+                                          blockSlot, txOutAddress, utxoF)
 import           Pos.Util                (Color (Magenta), colorize, magnify',
                                           readerToState, zoom', _neHead)
 
@@ -174,6 +176,22 @@ getGlobalMpcDataByDepth (fromIntegral -> depth) =
         , _mdShares = _dsGlobalShares
         , _mdVssCertificates = _dsGlobalCertificates
         }
+
+-- | Get keys of nodes participating in an epoch. A node participates if,
+-- when there were 'k' slots left before the end of the previous epoch, both
+-- of these were true:
+--
+--   1. It was a stakeholder.
+--   2. It had already sent us its VSS key by that time.
+getParticipants :: Word -> Utxo -> Query (Maybe (NonEmpty VssPublicKey))
+getParticipants depth utxo = do
+    mKeymap <- fmap _mdVssCertificates <$> getGlobalMpcDataByDepth depth
+    return $
+        do keymap <- mKeymap
+           let stakeholders =
+                   nub $ map (getAddress . txOutAddress) (toList utxo)
+           NE.nonEmpty $
+               map signedValue $ mapMaybe (`HM.lookup` keymap) stakeholders
 
 -- | Calculate leaders for the next epoch.
 calculateLeaders

@@ -46,9 +46,7 @@ import           Control.Lens            (makeClassy, use, view, (.=), (^.))
 import           Control.Monad.TM        ((.=<<.))
 import           Data.Acid               ()
 import           Data.Default            (Default, def)
-import qualified Data.HashMap.Strict     as HM
-import           Data.List               (nub)
-import           Data.List.NonEmpty      (NonEmpty ((:|)), nonEmpty)
+import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Formatting              (build, sformat, (%))
 import           Serokell.AcidState      ()
@@ -57,7 +55,7 @@ import           Universum
 
 import           Pos.Constants           (k)
 import           Pos.Crypto              (PublicKey, SecretKey, Share, Threshold,
-                                          VssKeyPair, VssPublicKey, signedValue)
+                                          VssKeyPair, VssPublicKey)
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (SscTypes (..))
 import           Pos.Ssc.DynamicState    (DSPayload (..), SscDynamicState,
@@ -67,7 +65,7 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
                                           blkCreateNewBlock, blkProcessBlock, blkRollback,
                                           blkSetHead, getBlock, getHeadBlock, getLeaders,
                                           getSlotDepth, mayBlockBeUseful)
-import qualified Pos.State.Storage.Mpc   as Mpc (calculateLeaders)
+import qualified Pos.State.Storage.Mpc   as Mpc
 import           Pos.State.Storage.Stats (HasStatsData (statsData), IdTimestamp (..),
                                           StatsData, addStatRecord, getStatRecords)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
@@ -79,7 +77,7 @@ import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
 import           Pos.Types               (Block, EpochIndex, GenesisBlock, MainBlock,
                                           SlotId (..), SlotLeaders, Utxo, blockMpc,
                                           blockSlot, blockTxs, epochIndexL, flattenSlotId,
-                                          gbHeader, getAddress, headerHashG, txOutAddress,
+                                          gbHeader, getAddress, headerHashG,
                                           unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState, _neLast)
 
@@ -320,15 +318,9 @@ getParticipants :: EpochIndex -> Query (Maybe (NonEmpty VssPublicKey))
 getParticipants epoch = do
     mDepth <- getMpcCrucialDepth epoch
     mUtxo <- getUtxoByDepth .=<<. mDepth
-    mKeymap <-
-        fmap _mdVssCertificates <$> (sscGetGlobalPayloadByDepth .=<<. mDepth)
-    return $
-        do utxo <- mUtxo
-           keymap <- mKeymap
-           let stakeholders =
-                   nub $ map (getAddress . txOutAddress) (toList utxo)
-           nonEmpty $
-               map signedValue $ mapMaybe (`HM.lookup` keymap) stakeholders
+    case (,) <$> mDepth <*> mUtxo of
+        Nothing            -> return Nothing
+        Just (depth, utxo) -> Mpc.getParticipants depth utxo
 
 -- slot such that data after it is used for MPC in given epoch
 mpcCrucialSlot :: EpochIndex -> SlotId

@@ -7,5 +7,5 @@ in
      ghc = hsPkgs.ghc;
      buildInputs =
        [ zlib glib git cabal-install openssh autoreconfHook stack openssl
-         sshpass cairo ];
+         sshpass gmp ];
   }

@@ -34,7 +34,7 @@ import qualified StatsOptions             as O
 
 ------------------------------------------------
 -- YAML config
-------------------------------------------------
+-----------------------------------------------
 
 readRemoteConfig :: FromJSON config => FilePath -> IO config
 readRemoteConfig fp =
@@ -70,17 +70,14 @@ main = do
     print startTime
     putText $ "Launched with options: " <> show opts
 
-    let mConfigs =
-            flip map ccNodes $ \(host,_) ->
-                SAR.MachineConfig
-                host "statReader" "123123123123" "/var/log/saALL"
-    stats <- map (filter ((> startTime) . SAR.statTimestamp)) <$> SAR.getNodesStats mConfigs
-    void $ mapConcurrently
-        (\(stat,i) -> perEntryPlots ("./statsNode"<>show i) startTime stat)
-        (stats `zip` [0..])
-
-    forM_ sarStats $ \nodeStat ->
-        forM_ (take 10 nodeStat) print
+--    let mConfigs =
+--            flip map ccNodes $ \(host,_) ->
+--                SAR.MachineConfig
+--                host "statReader" "123123123123" "/var/log/saALL"
+--    stats <- map (filter ((> startTime) . SAR.statTimestamp)) <$> SAR.getNodesStats mConfigs
+--    void $ mapConcurrently
+--        (\(stat,i) -> perEntryPlots ("./statsNode"<>show i) startTime stat)
+--        (stats `zip` [0..])
 
     let addrs = eitherPanic "Invalid address: " $
             mapM (\(h,p) -> parse addrParser "" $ toString (h <> ":" <> show p))

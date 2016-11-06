@@ -7,6 +7,7 @@ module Plotting (perEntryPlots) where
 
 import           Control.Concurrent.Async.Lifted           (mapConcurrently)
 import           Control.Monad.Trans.Control               (MonadBaseControl)
+import           Data.Bifunctor                            (first)
 import           Data.List                                 ((!!))
 import           Data.Time.Clock                           (UTCTime, diffUTCTime)
 import           Graphics.Rendering.Chart.Backend.Diagrams (toFile)
@@ -24,14 +25,15 @@ import           SarCollector                              (StatisticsEntry (..)
 -- | Given the directory, puts 4 graphs into it -- per statistics
 perEntryPlots
     :: (MonadIO m, MonadBaseControl IO m)
-    => FilePath -> UTCTime -> [StatisticsEntry] -> m ()
-perEntryPlots filepath startTime stats = do
+    => FilePath -> UTCTime -> [(UTCTime, Double)] -> [StatisticsEntry] -> m ()
+perEntryPlots filepath startTime tpsStats stats = do
     putText "Plotting..."
     void $ mapConcurrently (\(c,n) -> liftIO $ toFile def (filepath </> n) c) $
         [ (chartCpu, "cpuStats.svg")
         , (chartMem, "memStats.svg")
         , (chartDisk, "diskStats.svg")
         , (chartNet, "netStats.svg")
+        , (chartTps, "tpsStats.svg")
         ]
   where
     smooth xs =
@@ -73,3 +75,8 @@ perEntryPlots filepath startTime stats = do
         plot (line "Network receive (Kb/s)" [netRecv])
         setColors [opaque blue]
         plot (line "Network send (Kb/s)" [netSend])
+    chartTps = do
+        layout_title .= "TPS"
+        setColors [opaque red]
+        plot $ line "Network receive (Kb/s)" $
+            [map (first (\x -> round $ x `diffUTCTime` startTime)) tpsStats]

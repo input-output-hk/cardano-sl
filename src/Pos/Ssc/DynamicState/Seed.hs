@@ -16,16 +16,15 @@ import           Universum
 import           Pos.Crypto                 (PublicKey, Secret, Share, Threshold, shareId,
                                              unsafeRecoverSecret)
 import           Pos.Ssc.DynamicState.Base  (CommitmentsMap, OpeningsMap, SharesMap,
-                                             getOpening, secretToFtsSeed, verifyOpening,
-                                             xorFtsSeed)
+                                             getOpening, secretToFtsSeed, verifyOpening)
 import           Pos.Ssc.DynamicState.Error (SeedError (..))
-import           Pos.Types.Types            (FtsSeed (..))
+import           Pos.Types                  (SharedSeed, xorSharedSeed)
 
 getKeys :: HashMap k v -> HashSet k
 getKeys = HS.fromMap . void
 
--- | Calculate rho. Rho is a random bytestring that all nodes generate
--- together and agree on.
+-- | Calculate SharedSeed. SharedSeed is a random bytestring that all
+-- nodes generate together and agree on.
 --
 -- TODO: do we need to check secrets' lengths? Probably not.
 calculateSeed
@@ -33,7 +32,7 @@ calculateSeed
     -> CommitmentsMap        -- ^ All participating nodes
     -> OpeningsMap
     -> SharesMap             -- ^ Decrypted shares
-    -> Either SeedError FtsSeed
+    -> Either SeedError SharedSeed
 calculateSeed (fromIntegral -> t) commitments openings shares = do
     let participants = getKeys commitments
 
@@ -101,4 +100,4 @@ calculateSeed (fromIntegral -> t) commitments openings shares = do
                    \but they produced no secrets somehow"
        | null secrets -> Left NoParticipants
        | otherwise    -> Right $
-                         foldl1' xorFtsSeed (map secretToFtsSeed (toList secrets))
+                         foldl1' xorSharedSeed (map secretToFtsSeed (toList secrets))

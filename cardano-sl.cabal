@@ -76,6 +76,7 @@ library
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block
                         Pos.Types.Slotting
+                        Pos.Types.Ssc
                         Pos.Types.Timestamp
                         Pos.Types.Tx
                         Pos.Types.Types

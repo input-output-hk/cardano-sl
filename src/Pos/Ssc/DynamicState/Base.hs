@@ -26,7 +26,6 @@ module Pos.Ssc.DynamicState.Base
        , isSharesIdx
        , mkSignedCommitment
        , secretToFtsSeed
-       , xorFtsSeed
 
        -- * Verification
        , verifyCommitment
@@ -37,8 +36,6 @@ module Pos.Ssc.DynamicState.Base
 
 
 import           Data.Binary         (Binary)
-
-import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM
 import           Data.Ix             (inRange)
 import           Data.List.NonEmpty  (NonEmpty (..))
@@ -160,11 +157,6 @@ verifySignedCommitment pk epoch sc =
 verifyOpening :: Commitment -> Opening -> Bool
 verifyOpening Commitment {..} (Opening secret) =
     verifySecretProof commExtra secret commProof
-
--- | Apply bitwise xor to two FtsSeeds
-xorFtsSeed :: FtsSeed -> FtsSeed -> FtsSeed
-xorFtsSeed (FtsSeed a) (FtsSeed b) =
-    FtsSeed $ BS.pack (BS.zipWith xor a b) -- fast due to rewrite rules
 
 -- | Make signed commitment from commitment and epoch index using secret key.
 mkSignedCommitment :: SecretKey -> EpochIndex -> Commitment -> SignedCommitment

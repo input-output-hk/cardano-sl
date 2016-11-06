@@ -11,6 +11,7 @@ import           Data.Aeson.Types         (FromJSON)
 import           Data.Default             (def)
 import           Data.Monoid              ((<>))
 import           Data.Time.Clock          (addUTCTime, getCurrentTime)
+import           Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
 import qualified Data.Yaml                as Y
 import           Formatting               (build, int, sformat, (%))
 import           Serokell.Aeson.Options   (defaultOptions)
@@ -76,7 +77,7 @@ main = do
 --                host "statReader" "123123123123" "/var/log/saALL"
 --    stats <- map (filter ((> startTime) . SAR.statTimestamp)) <$> SAR.getNodesStats mConfigs
 --    void $ mapConcurrently
---        (\(stat,i) -> perEntryPlots ("./statsNode"<>show i) startTime stat)
+--        (\(stat,i) -> perEntryPlots ("./statsNode"<>show i) startTime [] stat)
 --        (stats `zip` [0..])
 
     let addrs = eitherPanic "Invalid address: " $
@@ -111,8 +112,14 @@ main = do
                 sendToNode addr (RequestStat idx StatProcessTx)
                 -- sendToNode addr (RequestStat idx StatBlockVerifying)
 
-            forM_ [0 .. length addrs] $ \_ -> liftIO $ do
-                (ResponseStat id label res) <- readChan ch1
-                print id
-                print label
-                print res
+            forM_ [0 .. length addrs] $ \_ -> do
+                (ResponseStat id _ mres) <- liftIO $ readChan ch1
+                case mres of
+                    Nothing -> logInfo $ sformat ("No stats for node #"%int) id
+                    Just res -> do
+                        logInfo $ sformat ("Got stats for node #"%int%"!") id
+                        let mapper = bimap (posixSecondsToUTCTime . fromIntegral) fromIntegral
+                            timeSeries = map mapper res
+                        perEntryPlots ("./statsNode" <> show id) startTime timeSeries []
+                        logInfo $ sformat ("Plots for node "%int%" are done") id
+

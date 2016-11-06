@@ -41,7 +41,7 @@ class (FullySerializable l, Buildable l, Hashable l, StatEntry (EntryType l)) =>
 
 newtype CountStat = CountStat
     { getCounter :: Word64
-    } deriving (Show, Eq, Ord, Num, Generic, Binary, Typeable)
+    } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Binary, Typeable)
 
 data ValueStat = ValueStat
     { valueCount :: !Word64

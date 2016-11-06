@@ -25,12 +25,12 @@ import           SarCollector                              (StatisticsEntry (..)
 
 -- | Given the directory, puts 4 graphs into it -- per statistics
 perEntryPlots
-    :: (MonadIO m, MonadBaseControl IO m)
+    :: (MonadIO m)
     => FilePath -> UTCTime -> [(UTCTime, Double)] -> [StatisticsEntry] -> m ()
 perEntryPlots filepath startTime tpsStats stats = do
     putText "Plotting..."
     liftIO $ createDirectoryIfMissing True filepath
-    void $ mapConcurrently (\(c,n) -> liftIO $ toFile def (filepath </> n) c) $
+    mapM_ (\(c,n) -> liftIO $ toFile def (filepath </> n) c) $
         [ (chartCpu, "cpuStats.svg")
         , (chartMem, "memStats.svg")
         , (chartDisk, "diskStats.svg")

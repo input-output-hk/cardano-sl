@@ -2,12 +2,12 @@
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE OverloadedLists        #-}
 {-# LANGUAGE Rank2Types             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE TypeApplications       #-}
 {-# LANGUAGE ViewPatterns           #-}
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 -- | Blocks maintenance happens here.
 
@@ -35,6 +35,7 @@ module Pos.State.Storage.Block
 import           Control.Lens            (at, ix, makeClassy, preview, use, uses, view,
                                           (%=), (.=), (.~), (<~), (^.), _Just)
 import           Data.Default            (Default, def)
+import qualified Data.HashMap.Strict     as HM
 import           Data.List               ((!!))
 import           Data.List.NonEmpty      (NonEmpty ((:|)), (<|))
 import           Data.SafeCopy           (SafeCopy (..), contain, safeGet, safePut)
@@ -110,15 +111,15 @@ genesisBlock0Hash = hash $ genesisBlock0 ^. blockHeader
 instance SscTypes ssc => Default (BlockStorage ssc) where
     def =
         BlockStorage
-        { _blkBlocks = [(genesisBlock0Hash, genesisBlock0)]
-        , _blkGenesisBlocks = [genesisBlock0Hash]
+        { _blkBlocks = HM.fromList [(genesisBlock0Hash, genesisBlock0)]
+        , _blkGenesisBlocks = V.fromList [genesisBlock0Hash]
         , _blkHead = genesisBlock0Hash
         , _blkAltChains = mempty
         , _blkMinDifficulty = (genesisBlock0 @ssc) ^. difficultyL
         }
 
-type Query ssc a = forall m x. (HasBlockStorage x ssc, MonadReader x m) => m a
-type Update ssc a = forall m x. (HasBlockStorage x ssc, MonadState x m) => m a
+type Query ssc a = forall m x. (SscTypes ssc, HasBlockStorage x ssc, MonadReader x m) => m a
+type Update ssc a = forall m x. (SscTypes ssc, HasBlockStorage x ssc, MonadState x m) => m a
 
 -- | Get block by hash of its header.
 getBlock :: HeaderHash ssc -> Query ssc (Maybe (Block ssc))
@@ -249,8 +250,9 @@ blkProcessBlockDo blk = do
     ifM (readerToState $ canContinueBestChain blk)
         -- If it's possible, we just do it.
         (continueBestChain blk)
-        -- Our next attempt is to start alternative chain.
-        (maybe (tryContinueAltChain blk) pure =<< tryStartAltChain blk)
+        -- Our next attempt is to start alternative chain or continue
+        -- existing one.
+        (proceedToAltChains blk)
 
 canContinueBestChain :: SscTypes ssc => Block ssc -> Query ssc Bool
 -- We don't continue best chain with received genesis block. It is
@@ -266,7 +268,7 @@ canContinueBestChain blk = do
 
 -- We know that we can continue best chain, but we also try to merge
 -- alternative chain. If we succeed, we do it, instead of adopting a
--- single blockl.
+-- single block.
 continueBestChain
     :: SscTypes ssc
     => Block ssc -> Update ssc (ProcessBlockRes ssc)
@@ -277,19 +279,45 @@ continueBestChain blk = do
     decideWhatToDo r@(PBRgood _) = r
     decideWhatToDo _             = PBRgood (0, blk :| [])
 
+-- Here we try to start alternative chain and/or continue existing one.
+proceedToAltChains
+    :: SscTypes ssc
+    => Block ssc -> Update ssc (ProcessBlockRes ssc)
+proceedToAltChains blk = do
+    tryStartRes <- tryStartAltChain blk
+    case tryStartRes of
+        Just r@(PBRgood _) -> return r
+        Just r@(PBRmore _) -> r <$ tryContinueAltChain blk
+        _                  -> tryContinueAltChain blk
+
 -- Possible results are:
 -- • Nothing: can't start alternative chain.
 -- • Just PBRgood: started alternative chain and can merge it already.
 -- • Just PBRmore: started alternative chain and want more.
+-- Conditions to start alternative chain:
+-- • block is more difficult that head of main chain;
+-- • block is not head of existing alternative chain.
 tryStartAltChain
-    :: SscTypes ssc
+    :: forall ssc.
+       SscTypes ssc
     => Block ssc -> Update ssc (Maybe (ProcessBlockRes ssc))
 tryStartAltChain (Left _) = pure Nothing
-tryStartAltChain (Right blk) =
-    -- TODO: more checks should be done here probably
-    ifM (readerToState $ isMostDifficult (blk ^. gbHeader))
-        (Just <$> startAltChain blk)
-        (pure Nothing)
+tryStartAltChain (Right blk) = do
+    let header = blk ^. gbHeader
+        checks =
+            [ isMostDifficult header
+            , not <$> isHeadOfAlternative @ ssc (Right header)
+            ]
+        chk = and <$> sequence checks
+    ifM (readerToState chk) (Just <$> startAltChain blk) (pure Nothing)
+
+isHeadOfAlternative :: SscTypes ssc => BlockHeader ssc -> Query ssc Bool
+isHeadOfAlternative header = do
+    altChains <- view blkAltChains
+    let isHead i =
+            (hash header ==) . headerHash . view _neLast $ altChains !! i
+    let altChainsNum = length altChains
+    return $ any isHead [0 .. altChainsNum - 1]
 
 -- Here we know that block may represent a valid chain which
 -- potentially can become main chain. We put it into map with all
@@ -317,7 +345,7 @@ tryContinueAltChain
     => Block ssc -> Update ssc (ProcessBlockRes ssc)
 tryContinueAltChain blk = do
     n <- length <$> use blkAltChains
-    foldM go pbrUseless ([0 .. n - 1] :: Vector Int)
+    foldM go pbrUseless [0 .. n - 1]
   where
     go :: ProcessBlockRes ssc -> Int -> Update ssc (ProcessBlockRes ssc)
     -- PBRgood means that chain can be merged into main chain.

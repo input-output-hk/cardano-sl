@@ -82,7 +82,7 @@ type WorkModeDB m = (MonadIO m, MonadDB m)
 -- | Open NodeState, reading existing state from disk (if any).
 openState
     :: (MonadIO m, MonadSlots m)
-    => Maybe Storage -> Bool -> FilePath -> m NodeState
+    => Maybe (Storage SscDynamicState) -> Bool -> FilePath -> m NodeState
 openState storage deleteIfExists fp =
     openStateDo $ maybe (A.openState deleteIfExists fp)
                         (\s -> A.openStateCustom s deleteIfExists fp)
@@ -90,7 +90,7 @@ openState storage deleteIfExists fp =
 
 -- | Open NodeState which doesn't store anything on disk. Everything
 -- is stored in memory and will be lost after shutdown.
-openMemState :: (MonadIO m, MonadSlots m) => Maybe Storage -> m NodeState
+openMemState :: (MonadIO m, MonadSlots m) => Maybe (Storage SscDynamicState) -> m NodeState
 openMemState = openStateDo . maybe A.openMemState A.openMemStateCustom
 
 openStateDo :: (MonadIO m, MonadSlots m) => m DiskState -> m NodeState
@@ -104,12 +104,12 @@ closeState :: MonadIO m => NodeState -> m ()
 closeState = A.closeState
 
 queryDisk
-    :: (EventState event ~ Storage, QueryEvent event, WorkModeDB m)
+    :: (EventState event ~ (Storage SscDynamicState), QueryEvent event, WorkModeDB m)
     => event -> m (EventResult event)
 queryDisk e = flip A.query e =<< getNodeState
 
 updateDisk
-    :: (EventState event ~ Storage, UpdateEvent event, WorkModeDB m)
+    :: (EventState event ~ (Storage SscDynamicState), UpdateEvent event, WorkModeDB m)
     => event -> m (EventResult event)
 updateDisk e = flip A.update e =<< getNodeState
 

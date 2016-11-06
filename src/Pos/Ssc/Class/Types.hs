@@ -13,14 +13,24 @@ import           Universum
 
 -- TODO: rename to Ssc?
 class (Typeable ssc
+      ,Typeable (SscToken ssc)
+      ,Typeable (SscPayload ssc)
+      ,Typeable (SscStorage ssc)
+      ,Typeable (SscProof ssc)
+      ,Typeable (SscMessage ssc)
+      ,Typeable (SscSeedError ssc)
       ,Eq (SscProof ssc)
       ,Show (SscProof ssc)
       ,Show (SscPayload ssc)
       ,Buildable (SscPayload ssc)
+      ,Buildable (SscSeedError ssc)
       ,Binary (SscProof ssc)
       ,Binary (SscPayload ssc)
       ,SafeCopy (SscProof ssc)
-      ,SafeCopy (SscPayload ssc)) =>
+      ,SafeCopy (SscPayload ssc)
+      ,SafeCopy (SscMessage ssc)
+      ,SafeCopy (SscToken ssc)
+      ,SafeCopy (SscStorage ssc)) =>
       SscTypes ssc where
 
     -- | Internal SSC state

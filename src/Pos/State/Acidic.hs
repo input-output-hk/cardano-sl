@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
@@ -44,25 +45,21 @@ module Pos.State.Acidic
        ) where
 
 import           Data.Acid            (EventResult, EventState, QueryEvent, UpdateEvent,
-                                       makeAcidic)
-import qualified Data.Acid            as Acid (Query)
+                                       makeAcidicWithHacks)
 import           Data.Default         (def)
 import           Serokell.AcidState   (ExtendedState, closeExtendedState,
                                        openLocalExtendedState, openMemoryExtendedState,
                                        queryExtended, tidyExtendedState, updateExtended)
-import           Serokell.Util        (VerificationRes)
 import           Universum
 
 import           Pos.Ssc.DynamicState (SscDynamicState)
-import           Pos.State.Storage    (Storage)
 import qualified Pos.State.Storage    as S
-import           Pos.Types.Types      (Block, EpochIndex, HeaderHash, MainBlockHeader,
-                                       SlotId, SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- Acid-state things
 ----------------------------------------------------------------------------
 
+type Storage = S.Storage SscDynamicState
 type DiskState = ExtendedState Storage
 
 query
@@ -95,35 +92,18 @@ closeState = closeExtendedState
 tidyState :: MonadIO m => DiskState -> m ()
 tidyState = tidyExtendedState
 
--- TODO: get rid of these (they are only needed temporarily)
-
-getBlock :: HeaderHash SscDynamicState
-         -> Acid.Query Storage (Maybe (Block SscDynamicState))
-getBlock = S.getBlock
-
-getLeaders :: EpochIndex -> Acid.Query Storage (Maybe SlotLeaders)
-getLeaders = S.getLeaders
-
-getHeadBlock :: Acid.Query Storage (Block SscDynamicState)
-getHeadBlock = S.getHeadBlock
-
-mayBlockBeUseful :: SlotId
-                 -> MainBlockHeader SscDynamicState
-                 -> Acid.Query Storage VerificationRes
-mayBlockBeUseful = S.mayBlockBeUseful
-
-makeAcidic ''Storage
-    [ 'getBlock
+makeAcidicWithHacks ''S.Storage ["ssc"]
+    [ 'S.getBlock
     , 'S.getGlobalSscPayload
-    , 'getLeaders
+    , 'S.getLeaders
     , 'S.getLocalSscPayload
     , 'S.getLocalTxs
-    , 'getHeadBlock
+    , 'S.getHeadBlock
     , 'S.getToken
     , 'S.getOurShares
     , 'S.getThreshold
     , 'S.getParticipants
-    , 'mayBlockBeUseful
+    , 'S.mayBlockBeUseful
     , 'S.createNewBlock
     , 'S.processBlock
     , 'S.processNewSlot

@@ -16,8 +16,6 @@
 
 module Pos.State.Storage.Mpc
        (
-         getParticipants
-       , calculateLeaders
        --, traceMpcLastVer
        ) where
 
@@ -89,6 +87,9 @@ instance SscStorageClass SscDynamicState where
     sscGetToken = getSecret
     sscSetToken = setSecret
     sscGetOurShares = getOurShares
+
+    sscGetParticipants = getParticipants
+    sscCalculateLeaders = calculateLeaders
 
 dsVersioned
     :: HasSscStorage SscDynamicState a

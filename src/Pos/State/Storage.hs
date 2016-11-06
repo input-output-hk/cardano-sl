@@ -297,7 +297,7 @@ calculateLeaders epoch = do
     utxo <- fromMaybe onErrorGetUtxo <$> getUtxoByDepth depth
     -- TODO: overall 'calculateLeadersDo' gets utxo twice, could be optimised
     threshold <- fromMaybe onErrorGetThreshold <$> getThreshold epoch
-    either onErrorCalcLeaders identity <$> Mpc.calculateLeaders utxo threshold
+    either onErrorCalcLeaders identity <$> sscCalculateLeaders utxo threshold
   where
     onErrorGetDepth =
         panic "Depth of MPC crucial slot isn't reasonable"
@@ -320,7 +320,7 @@ getParticipants epoch = do
     mUtxo <- getUtxoByDepth .=<<. mDepth
     case (,) <$> mDepth <*> mUtxo of
         Nothing            -> return Nothing
-        Just (depth, utxo) -> Mpc.getParticipants depth utxo
+        Just (depth, utxo) -> sscGetParticipants depth utxo
 
 -- slot such that data after it is used for MPC in given epoch
 mpcCrucialSlot :: EpochIndex -> SlotId

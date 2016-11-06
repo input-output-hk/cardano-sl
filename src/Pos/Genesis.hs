@@ -54,7 +54,7 @@ genesisAddresses = map Address genesisPublicKeys
 
 genesisUtxo :: Utxo
 genesisUtxo =
-    M.fromList . take 1 $
+    M.fromList . take 3 $
     map (\a -> ((unsafeHash a, 0), TxOut a 10000)) genesisAddresses
 
 -- | For every static stakeholder it generates `k` coins, but in `k`

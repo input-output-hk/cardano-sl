@@ -17,20 +17,6 @@ module Pos.Ssc.DynamicState.Instance
        ( SscDynamicState
        ) where
 
-import           Data.SafeCopy                (SafeCopy)
-import           Data.Serialize               (Serialize (..))
-import           Data.Tagged                  (Tagged (..))
-import           GHC.Generics                 (Generic)
-import           Universum
-
-import           Pos.Crypto                   (PublicKey)
-import           Pos.Ssc.Class.Storage        (HasSscStorage (..), SscStorageClass (..))
-import           Pos.Ssc.Class.Types          (SscTypes (..))
-import           Pos.Ssc.DynamicState.Base    (Opening, SignedCommitment)
-import           Pos.Ssc.DynamicState.Error   (SeedError)
-import           Pos.Ssc.DynamicState.Storage
-import           Pos.Ssc.DynamicState.Types   (DSMessage, DSPayload, DSProof, mkDSProof)
-
 import           Control.Lens                 (Lens', at, ix, preview, to, use, view,
                                                (%=), (.=), (.~), (^.))
 import           Crypto.Random                (drgNewSeed, seedFromInteger, withDRG)
@@ -41,6 +27,9 @@ import           Data.Ix                      (inRange)
 import           Data.List                    (nub)
 import           Data.List.NonEmpty           (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty           as NE
+import           Data.SafeCopy                (SafeCopy)
+import           Data.Serialize               (Serialize (..))
+import           Data.Tagged                  (Tagged (..))
 import           Formatting                   (int, sformat, (%))
 import           Serokell.Util.Verify         (VerificationRes (..), isVerSuccess,
                                                verifyGeneric)
@@ -51,17 +40,30 @@ import           Pos.Crypto                   (Share, Signed (signedSig, signedV
                                                Threshold, VssKeyPair, VssPublicKey,
                                                decryptShare, toVssPublicKey, verify,
                                                verifyShare)
+import           Pos.Crypto                   (PublicKey)
 import           Pos.FollowTheSatoshi         (followTheSatoshi)
 import           Pos.Ssc.Class.Storage        (SscQuery, SscUpdate)
+import           Pos.Ssc.Class.Storage        (HasSscStorage (..), SscStorageClass (..))
+import           Pos.Ssc.Class.Types          (SscTypes (..))
 import           Pos.Ssc.DynamicState.Base    (Commitment (..), CommitmentSignature,
                                                CommitmentsMap, OpeningsMap,
                                                VssCertificate, VssCertificatesMap,
                                                isCommitmentIdx, isOpeningIdx, isSharesIdx,
                                                verifyOpening, verifySignedCommitment)
+import           Pos.Ssc.DynamicState.Base    (Opening, SignedCommitment)
+import           Pos.Ssc.DynamicState.Error   (SeedError)
 import           Pos.Ssc.DynamicState.Seed    (calculateSeed)
-import           Pos.Ssc.DynamicState.Types   (DSMessage (..), DSPayload (..),
+import           Pos.Ssc.DynamicState.Storage (DSStorage, DSStorageVersion (..),
+                                               dsCurrentSecretL, dsGlobalCertificates,
+                                               dsGlobalCommitments, dsGlobalOpenings,
+                                               dsGlobalShares, dsLastProcessedSlotL,
+                                               dsLocalCertificates, dsLocalCommitments,
+                                               dsLocalOpenings, dsLocalShares,
+                                               dsVersionedL)
+import           Pos.Ssc.DynamicState.Types   (DSMessage (..), DSPayload (..), DSProof,
                                                hasCommitment, hasOpening, hasShares,
-                                               mdCommitments, mdOpenings, verifyDSPayload)
+                                               mdCommitments, mdOpenings, mkDSProof,
+                                               verifyDSPayload)
 import           Pos.State.Storage.Types      (AltChain)
 import           Pos.Types                    (Address (getAddress), Block, SlotId (..),
                                                SlotLeaders, Utxo, blockMpc, blockSlot,

@@ -46,18 +46,14 @@ module Pos.State.Acidic
 
 import           Data.Acid            (EventResult, EventState, QueryEvent, UpdateEvent,
                                        makeAcidicWithHacks)
-import qualified Data.Acid            as Acid (Query)
 import           Data.Default         (def)
 import           Serokell.AcidState   (ExtendedState, closeExtendedState,
                                        openLocalExtendedState, openMemoryExtendedState,
                                        queryExtended, tidyExtendedState, updateExtended)
-import           Serokell.Util        (VerificationRes)
 import           Universum
 
 import           Pos.Ssc.DynamicState (SscDynamicState)
 import qualified Pos.State.Storage    as S
-import           Pos.Types.Types      (Block, EpochIndex, HeaderHash, MainBlockHeader,
-                                       SlotId, SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- Acid-state things

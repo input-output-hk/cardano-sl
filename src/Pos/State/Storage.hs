@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE UndecidableInstances   #-}
 {-# LANGUAGE ViewPatterns           #-}
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 -- | Storage with node local state which should be persistent.
 

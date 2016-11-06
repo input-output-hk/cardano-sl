@@ -8,6 +8,7 @@
 {-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE TypeApplications       #-}
 {-# LANGUAGE ViewPatterns           #-}
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 -- | Blocks maintenance happens here.
 

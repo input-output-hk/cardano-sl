@@ -7,10 +7,10 @@ module Test.Pos.Types.MpcSpec
 import qualified Data.ByteString.Char8 as BS (pack)
 import           Pos.Constants         (ftsSeedLength)
 import           Pos.Crypto            (SecretKey, sign, toPublic)
-import           Pos.Types             (Commitment, CommitmentOpening (..), EpochIndex,
-                                        FtsSeed (..), verifyCommitment,
-                                        verifyCommitmentSignature, verifyOpening,
-                                        xorFtsSeed)
+import           Pos.Ssc.DynamicState  (Commitment, CommitmentOpening (..), Opening,
+                                        verifyCommitment, verifyCommitmentSignature,
+                                        verifyOpening, xorFtsSeed)
+import           Pos.Types             (EpochIndex, FtsSeed (..))
 
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)

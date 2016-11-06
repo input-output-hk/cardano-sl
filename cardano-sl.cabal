@@ -20,6 +20,7 @@ library
                         Pos.DHT
                         Pos.DHT.Real
                         Pos.FollowTheSatoshi
+                        Pos.Ssc.DynamicState
                         Pos.Genesis
                         Pos.Launcher
                         Pos.Merkle
@@ -54,6 +55,11 @@ library
                         Pos.Crypto.Signing
                         Pos.Ssc.Class.Types
                         Pos.Ssc.Class.Storage
+                        Pos.Ssc.DynamicState.Arbitrary
+                        Pos.Ssc.DynamicState.Base
+                        Pos.Ssc.DynamicState.Error
+                        Pos.Ssc.DynamicState.Genesis
+                        Pos.Ssc.DynamicState.Seed
                         Pos.Ssc.DynamicState.Types
                         Pos.State.Acidic
                         Pos.State.State
@@ -69,7 +75,6 @@ library
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block
-                        Pos.Types.Mpc
                         Pos.Types.Slotting
                         Pos.Types.Timestamp
                         Pos.Types.Tx
@@ -114,7 +119,7 @@ library
                       , quickcheck-instances
                       , random
                       , safecopy
-                      , serokell-core
+                      , serokell-util
                       , stm
                       , tagged
                       , stm-containers
@@ -154,7 +159,7 @@ executable cardano-node
                      , formatting
                      , optparse-simple
                      , parsec
-                     , serokell-core
+                     , serokell-util
                      , time-warp
                      , universum >= 0.1.9
   default-language:    Haskell2010
@@ -177,7 +182,7 @@ executable cardano-wallet
                      , formatting
                      , optparse-applicative
                      , parsec
-                     , serokell-core
+                     , serokell-util
                      , time-warp
                      , universum >= 0.1.9
   default-language:    Haskell2010
@@ -198,6 +203,10 @@ test-suite cardano-test
                      , Test.Pos.FollowTheSatoshiSpec
                      , Test.Pos.MerkleSpec
                      , Test.Pos.SlottingSpec
+                     , Test.Pos.Ssc.DynamicState.Identity.BinarySpec
+                     , Test.Pos.Ssc.DynamicState.Identity.MessagePackSpec
+                     , Test.Pos.Ssc.DynamicState.Identity.SafeCopySpec
+                     , Test.Pos.Ssc.DynamicState.SeedSpec
                      , Test.Pos.Types.BlockSpec
                      , Test.Pos.Types.Identity.BinarySpec
                      , Test.Pos.Types.Identity.MessagePackSpec
@@ -224,7 +233,7 @@ test-suite cardano-test
                      , memory
                      , random
                      , safecopy
-                     , serokell-core
+                     , serokell-util
                      , time-units
                      , time-warp
                      , universum >= 0.1.9
@@ -283,7 +292,7 @@ benchmark cardano-bench-remote-single
                      , formatting
                      , optparse-applicative
                      , parsec
-                     , serokell-core
+                     , serokell-util
                      , time-warp
                      , universum >= 0.1.9
                      , yaml
@@ -313,7 +322,7 @@ benchmark cardano-stats-collector
                      , formatting
                      , optparse-applicative
                      , parsec
-                     , serokell-core
+                     , serokell-util
                      , time-warp
                      , universum >= 0.1.9
                      , yaml
@@ -339,7 +348,7 @@ benchmark cardano-tx-generator
                      , optparse-applicative
                      , parsec
                      , random
-                     , serokell-core
+                     , serokell-util
                      , time-warp
                      , universum >= 0.1.9
   default-language:    Haskell2010

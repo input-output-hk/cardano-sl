@@ -19,12 +19,12 @@ import           Pos.Constants              (RunningMode (..), runningMode)
 import           Pos.Crypto                 (keyGen, vssKeyGen)
 import           Pos.DHT                    (DHTKey, DHTNode, DHTNodeType (..),
                                              dhtNodeType)
-import           Pos.Genesis                (genesisSecretKeys, genesisUtxoPetty,
-                                             genesisVssKeyPairs)
+import           Pos.Genesis                (genesisSecretKeys, genesisUtxoPetty)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
-                                             NodeParams (..), runNodeReal,
-                                             runSupporterReal, runTimeLordReal,
-                                             runTimeSlaveReal)
+                                             NodeParams (..), bracketDHTInstance,
+                                             runNodeReal, runSupporterReal,
+                                             runTimeLordReal, runTimeSlaveReal)
+import           Pos.Ssc.DynamicState       (genesisVssKeyPairs)
 import           Serokell.Util.OptParse     (fromParsec)
 import           System.Directory           (createDirectoryIfMissing)
 import           System.FilePath            ((</>))
@@ -125,30 +125,32 @@ decode' fpath = either fail' return . decode =<< LBS.readFile fpath
 
 main :: IO ()
 main = do
-    (args@Args {..},()) <-
+    (args,()) <-
         simpleOptions "cardano-node" "PoS prototype node" "Use it!" argsParser empty
-    case dhtKey of
-      Just key -> do
-        let type_ = dhtNodeType key
-        if type_ == Just (if supporterNode then DHTSupporter else DHTFull)
-          then return ()
-          else case type_ of
-                 Just type_' -> fail $ "Id of type " ++ (show type_') ++ " supplied"
-                 _           -> fail "Id of unknown type supplied"
-      _ -> return ()
-    if supporterNode
-       then runSupporterReal (baseParams "supporter" args)
-       else do
-          spendingSK <- getKey ((genesisSecretKeys !!) <$> spendingGenesisI) spendingSecretPath "spending" (snd <$> keyGen)
-          vssSK <- getKey ((genesisVssKeyPairs !!) <$> vssGenesisI) vssSecretPath "vss.keypair" vssKeyGen
-          systemStart <- getSystemStart args
-          runNodeReal $ params args spendingSK vssSK systemStart
+    bracketDHTInstance (baseParams "node" args) (action args)
   where
-    getSystemStart args =
+    action args@Args {..} inst = do
+        case dhtKey of
+          Just key -> do
+            let type_ = dhtNodeType key
+            if type_ == Just (if supporterNode then DHTSupporter else DHTFull)
+              then return ()
+              else case type_ of
+                     Just type_' -> fail $ "Id of type " ++ (show type_') ++ " supplied"
+                     _           -> fail "Id of unknown type supplied"
+          _ -> return ()
+        if supporterNode
+           then runSupporterReal inst (baseParams "supporter" args)
+           else do
+              spendingSK <- getKey ((genesisSecretKeys !!) <$> spendingGenesisI) spendingSecretPath "spending" (snd <$> keyGen)
+              vssSK <- getKey ((genesisVssKeyPairs !!) <$> vssGenesisI) vssSecretPath "vss.keypair" vssKeyGen
+              systemStart <- getSystemStart inst args
+              runNodeReal inst $ params args spendingSK vssSK systemStart
+    getSystemStart inst args =
       case runningMode of
         Development -> if timeLord args
                           then runTimeLordReal (loggingParams "time-lord" args)
-                          else runTimeSlaveReal (baseParams "time-slave" args)
+                          else runTimeSlaveReal inst (baseParams "time-slave" args)
         Production systemStart -> return systemStart
     loggingParams logger Args{..} =
         def
@@ -179,4 +181,5 @@ main = do
         , npCustomUtxo = if pettyUtxo
                          then Just $ genesisUtxoPetty 20000
                          else Nothing
+        , npTimeLord = timeLord
         }

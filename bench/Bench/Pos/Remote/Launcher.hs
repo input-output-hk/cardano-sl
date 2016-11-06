@@ -20,12 +20,12 @@ import           Pos.Communication        (RequestStat (..), ResponseStat (..))
 import           Pos.Crypto               (unsafeHash)
 import           Pos.DHT                  (DHTNodeType (..), ListenerDHT (..),
                                            dhtNodeType, sendToNode)
-import           Pos.Genesis              (genesisAddresses, genesisSecretKeys,
-                                           genesisVssKeyPairs)
+import           Pos.Genesis              (genesisAddresses, genesisSecretKeys)
 import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
                                            NodeParams (..), runNodeStats, runServiceMode,
                                            runSupporterReal, runTimeLordReal,
                                            runTimeSlaveReal)
+import           Pos.Ssc.DynamicState     (genesisVssKeyPairs)
 import           Pos.Statistics           (StatEntry)
 import           Pos.Types                (TxOut (..), Utxo)
 

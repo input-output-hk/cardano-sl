@@ -11,8 +11,10 @@
 module Pos.Ssc.DynamicState.Types
        ( SscDynamicState
 
+       -- * Instance types
        , DSPayload(..)
        , DSProof(..)
+       , DSMessage(..)
        , DSStorage(..)
        , DSStorageVersion(..)
 
@@ -45,26 +47,45 @@ module Pos.Ssc.DynamicState.Types
        -- ** instance SscTypes SscDynamicState
        ) where
 
-import           Control.Lens         (makeLenses, makeLensesFor)
-import           Data.Binary          (Binary)
-import           Data.Default         (Default (..))
-import qualified Data.HashMap.Strict  as HM
-import           Data.List.NonEmpty   (NonEmpty (..))
-import           Data.MessagePack     (MessagePack)
-import           Data.SafeCopy        (base, deriveSafeCopySimple)
-import           Data.Tagged          (Tagged (..))
-import           Data.Text.Buildable  (Buildable (..))
-import           Formatting           (bprint, (%))
-import           Serokell.Util        (listJson)
+import           Control.Lens                 (makeLenses, makeLensesFor)
+import           Data.Binary                  (Binary)
+import           Data.Default                 (Default (..))
+import qualified Data.HashMap.Strict          as HM
+import           Data.List.NonEmpty           (NonEmpty (..))
+import           Data.MessagePack             (MessagePack)
+import           Data.SafeCopy                (base, deriveSafeCopySimple)
+import           Data.Tagged                  (Tagged (..))
+
+import           Data.Text.Buildable          (Buildable (..))
+import           Formatting                   (bprint, (%))
+import           Serokell.Util                (listJson)
 import           Universum
 
-import           Pos.Crypto           (Hash, PublicKey, hash)
-import           Pos.FollowTheSatoshi (FtsError)
-import           Pos.Genesis          (genesisCertificates)
-import           Pos.Ssc.Class.Types  (SscTypes (..))
-import           Pos.Types.Slotting   (unflattenSlotId)
-import           Pos.Types.Types      (CommitmentsMap, Opening, OpeningsMap, SharesMap,
-                                       SignedCommitment, SlotId, VssCertificatesMap)
+import           Pos.Crypto                   (Hash, PublicKey, Share, hash)
+import           Pos.Ssc.Class.Types          (SscTypes (..))
+import           Pos.Ssc.DynamicState.Base    (CommitmentsMap, Opening, OpeningsMap,
+                                               SharesMap, SignedCommitment,
+                                               VssCertificate, VssCertificatesMap)
+import           Pos.Ssc.DynamicState.Error   (SeedError)
+import           Pos.Ssc.DynamicState.Genesis (genesisCertificates)
+import           Pos.Types                    (SlotId, unflattenSlotId)
+
+----------------------------------------------------------------------------
+-- SscMessage
+----------------------------------------------------------------------------
+
+data DSMessage
+    = DSCommitment !PublicKey
+                   !SignedCommitment
+    | DSOpening !PublicKey
+                !Opening
+    | DSShares !PublicKey
+               (HashMap PublicKey Share)
+    | DSVssCertificate !PublicKey
+                       !VssCertificate
+    deriving (Show)
+
+deriveSafeCopySimple 0 'base ''DSMessage
 
 ----------------------------------------------------------------------------
 -- SscStorage
@@ -238,11 +259,10 @@ instance SscTypes SscDynamicState where
     type SscStorage   SscDynamicState = DSStorage
     type SscPayload   SscDynamicState = DSPayload
     type SscProof     SscDynamicState = DSProof
-    --type SscMessage   SscDynamicState = DSMessage
-    type SscMessage   SscDynamicState = NotImplemented
-    type SscSeedError SscDynamicState = FtsError
+    type SscMessage   SscDynamicState = DSMessage
+    type SscSeedError SscDynamicState = SeedError
+    type SscToken     SscDynamicState = (PublicKey, SignedCommitment, Opening)
 
-    mkSscPayload = notImplemented
     mkSscProof = Tagged $
         \DSPayload {..} -> DSProof
              { mpCommitmentsHash = hash _mdCommitments

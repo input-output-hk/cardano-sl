@@ -7,7 +7,6 @@ module Pos.Types
 
 import           Pos.Types.Arbitrary as Types
 import           Pos.Types.Block     as Types
-import           Pos.Types.Mpc       as Types
 import           Pos.Types.Slotting  as Types
 import           Pos.Types.Timestamp as Types
 import           Pos.Types.Tx        as Types

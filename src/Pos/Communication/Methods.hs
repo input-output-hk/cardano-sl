@@ -20,15 +20,14 @@ import           Formatting               (build, sformat, (%))
 import           Serokell.Util.Text       (listBuilderJSON, mapJson)
 import           Universum
 
-import           Pos.Communication.Types  (SendBlockHeader (..), SendCommitment (..),
-                                           SendOpening (..), SendShares (..), SendTx (..),
-                                           SendTxs (..), SendVssCertificate (..))
+import           Pos.Communication.Types  (SendBlockHeader (..), SendSsc (..),
+                                           SendTx (..), SendTxs (..))
 import           Pos.Crypto               (PublicKey, Share)
 import           Pos.DHT                  (sendToNeighbors, sendToNode)
 import           Pos.Ssc.Class.Types      (SscTypes)
+import           Pos.Ssc.DynamicState     (Opening, SignedCommitment, VssCertificate)
 import           Pos.Statistics           (statlogSentBlockHeader, statlogSentTx)
-import           Pos.Types                (MainBlockHeader, Opening, SignedCommitment, Tx,
-                                           VssCertificate)
+import           Pos.Types                (MainBlockHeader, Tx)
 import           Pos.Util                 (logWarningWaitLinear, messageName')
 import           Pos.WorkMode             (WorkMode)
 

@@ -9,14 +9,14 @@
 -- Proof-of-Stake Blockchain Protocol”), section 4 for more details.
 
 module Pos.Ssc.DynamicState.Types
-       ( SscDynamicState
-
-       -- * Instance types
-       , DSPayload(..)
+       (
+         -- * Instance types
+         DSPayload(..)
        , DSProof(..)
        , DSMessage(..)
        , DSStorage(..)
        , DSStorageVersion(..)
+       , mkDSProof
 
        -- * Lenses
        -- ** DSPayload
@@ -54,19 +54,15 @@ import qualified Data.HashMap.Strict          as HM
 import           Data.List.NonEmpty           (NonEmpty (..))
 import           Data.MessagePack             (MessagePack)
 import           Data.SafeCopy                (base, deriveSafeCopySimple)
-import           Data.Tagged                  (Tagged (..))
-
 import           Data.Text.Buildable          (Buildable (..))
 import           Formatting                   (bprint, (%))
 import           Serokell.Util                (listJson)
 import           Universum
 
 import           Pos.Crypto                   (Hash, PublicKey, Share, hash)
-import           Pos.Ssc.Class.Types          (SscTypes (..))
 import           Pos.Ssc.DynamicState.Base    (CommitmentsMap, Opening, OpeningsMap,
                                                SharesMap, SignedCommitment,
                                                VssCertificate, VssCertificatesMap)
-import           Pos.Ssc.DynamicState.Error   (SeedError)
 import           Pos.Ssc.DynamicState.Genesis (genesisCertificates)
 import           Pos.Types                    (SlotId, unflattenSlotId)
 
@@ -236,6 +232,15 @@ deriveSafeCopySimple 0 'base ''DSProof
 instance Binary DSProof
 instance MessagePack DSProof
 
+mkDSProof :: DSPayload -> DSProof
+mkDSProof DSPayload {..} =
+    DSProof
+    { mpCommitmentsHash = hash _mdCommitments
+    , mpOpeningsHash = hash _mdOpenings
+    , mpSharesHash = hash _mdShares
+    , mpVssCertificatesHash = hash _mdVssCertificates
+    }
+
 ----------------------------------------------------------------------------
 -- Utility functions
 ----------------------------------------------------------------------------
@@ -248,25 +253,3 @@ hasOpening pk md = HM.member pk (_mdOpenings md)
 
 hasShares :: PublicKey -> DSPayload -> Bool
 hasShares pk md = HM.member pk (_mdShares md)
-
-----------------------------------------------------------------------------
--- 'SscDynamicState' and its instances
-----------------------------------------------------------------------------
-
-data SscDynamicState
-
-instance SscTypes SscDynamicState where
-    type SscStorage   SscDynamicState = DSStorage
-    type SscPayload   SscDynamicState = DSPayload
-    type SscProof     SscDynamicState = DSProof
-    type SscMessage   SscDynamicState = DSMessage
-    type SscSeedError SscDynamicState = SeedError
-    type SscToken     SscDynamicState = (PublicKey, SignedCommitment, Opening)
-
-    mkSscProof = Tagged $
-        \DSPayload {..} -> DSProof
-             { mpCommitmentsHash = hash _mdCommitments
-             , mpOpeningsHash = hash _mdOpenings
-             , mpSharesHash = hash _mdShares
-             , mpVssCertificatesHash = hash _mdVssCertificates
-             }

@@ -12,6 +12,7 @@ cabal-dev
 .virtualenv
 .hsenv
 .hpc
+*.svg
 .stack-work/
 .cabal-sandbox/
 cabal.sandbox.config

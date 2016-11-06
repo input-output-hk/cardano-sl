@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ViewPatterns #-}
 
@@ -16,7 +17,7 @@ import qualified Data.HashMap.Strict             as M
 import           Data.List                       (dropWhileEnd)
 import           Data.Maybe                      (mapMaybe)
 import qualified Data.Text                       as T
-import           Data.Time.Clock                 (UTCTime)
+import           Data.Time.Clock                 (UTCTime (utctDay), getCurrentTime)
 import           Data.Time.Clock.POSIX           (utcTimeToPOSIXSeconds)
 import           Data.Time.Format                (defaultTimeLocale, parseTimeM)
 import           Formatting                      (int, sformat, stext, (%))
@@ -49,35 +50,37 @@ instance Hashable UTCTime where
     hashWithSalt s t =
         hashWithSalt s $ (show (utcTimeToPOSIXSeconds t) :: Text)
 
-parseDate :: Text -> UTCTime
-parseDate =
-    runIdentity . parseTimeM False defaultTimeLocale "%H:%M:%S" . T.unpack
+parseDate :: (MonadIO m) => Text -> m UTCTime
+parseDate t = liftIO $ do
+    day <- utctDay <$> getCurrentTime
+    parsed <- parseTimeM False defaultTimeLocale "%H:%M:%S" $ T.unpack t
+    pure $ parsed { utctDay = day }
 
 readFail :: Read c => Text -> Text -> c
 readFail msg = fromMaybe (panic msg) . readMaybe . T.unpack
 
-parseCpu :: Text -> (UTCTime, (Double, Double))
+parseCpu :: Text -> (Text, (Double, Double))
 parseCpu (words -> (d:_:cpuUser:_:cpuSystem:_)) =
-    ( parseDate d,
+    ( d,
     ( readFail "Can't parse cpuUser" cpuUser
     , readFail "Can't parse cpuSystem" cpuSystem))
 parseCpu _ = panic "parseCpu"
 
-parseMem :: Text -> (UTCTime, Double)
+parseMem :: Text -> (Text, Double)
 parseMem (words -> (d:_:_:memPercent:_)) =
-    (parseDate d, readFail "Can't parse memPercent" memPercent)
+    (d, readFail "Can't parse memPercent" memPercent)
 parseMem _ = panic "parseMem"
 
-parseDisk :: Text -> (UTCTime, (Double, Double))
+parseDisk :: Text -> (Text, (Double, Double))
 parseDisk (words -> (d:_:_:rd:wt:_)) =
-    ( parseDate d,
+    ( d,
     ( readFail "Can't parse rd_sec/s" rd
     , readFail "Can't parse wt_sec/s" wt))
 parseDisk _ = panic "parseDisk"
 
-parseNet :: Text -> (UTCTime, (Double, Double))
+parseNet :: Text -> (Text, (Double, Double))
 parseNet (words -> (d:_:_:_:recv:transm:_)) =
-    ( parseDate d,
+    ( d,
     ( readFail "Can't parse rxkB/s" recv
     , readFail "Can't parse txkB/s" transm))
 parseNet _ = panic "parseNet"
@@ -91,24 +94,26 @@ getNodesStats = mapConcurrently getNodeStats
 -- | Queries the node to get stats from it. Number of requests can be
 -- one in fact, but i didn't figure out how to do that in ~5m. Lazy
 -- evaluation,
-getNodeStats :: (MonadIO m) => MachineConfig -> m [StatisticsEntry]
+getNodeStats
+    :: (MonadIO m, MonadBaseControl IO m)
+    => MachineConfig -> m [StatisticsEntry]
 getNodeStats MachineConfig{..} = do
-    putText "Querying CPU stats..."
-    cpuInfo <- M.fromList . map parseCpu <$> fetchStats ""
-    putText "Querying Mem stats..."
-    memInfo <- M.fromList . map parseMem <$> fetchStats "-r"
-    putText "Querying Disk stats..."
+    putText "Querying stats..."
+    [cpuInfo0, memInfo0, diskInfo0, netInfo0] <-
+        mapConcurrently fetchStats ["", "-r", "-d", "-n DEV"]
+    putText "Done querying"
+    cpuInfo <- M.fromList <$> fixTime (map parseCpu cpuInfo0)
+    memInfo <- M.fromList <$> fixTime (map parseMem memInfo0)
     diskInfo <-
-        M.fromList . map parseDisk .
-        filter (\x -> let (_:dev:_) = words x in "0" `T.isSuffixOf` dev) .
-        filter (/= "")<$>
-        fetchStats "-d"
-    putText "Querying Net stats..."
+        M.fromList <$> fixTime
+        (map parseDisk $
+         filter (\x -> let (_:dev:_) = words x in "0" `T.isSuffixOf` dev) $
+         filter (/= "") diskInfo0)
     netInfo <-
-        M.fromList . map parseNet .
-        filter (\x -> let (_:iface:_) = words x in iface /= "lo") .
-        filter ((> 2) . length . words) <$>
-        fetchStats "-n DEV"
+        M.fromList <$> fixTime
+        (map parseNet $
+         filter (\x -> let (_:iface:_) = words x in iface /= "lo") $
+         filter ((> 2) . length . words) netInfo0)
     pure $ (flip mapMaybe $ sort $ M.keys cpuInfo) $ \t -> do
         let statTimestamp = t
         (cpuLoadUser,cpuLoadSystem) <- t `M.lookup` cpuInfo
@@ -118,6 +123,7 @@ getNodeStats MachineConfig{..} = do
         pure $ StatisticsEntry{..}
   where
     maxItems = 3600
+    fixTime = mapM (\(t,a) -> (,a) <$> parseDate t)
     -- heuristically dropping some lines in the beginning (may be ssh trash..? :))
     -- and average last lines
     fetchStats sarFlag =

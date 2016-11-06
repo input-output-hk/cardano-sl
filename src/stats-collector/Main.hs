@@ -10,6 +10,7 @@ import           Data.Aeson.TH            (deriveJSON)
 import           Data.Aeson.Types         (FromJSON)
 import           Data.Default             (def)
 import           Data.Monoid              ((<>))
+import           Data.Time.Clock          (addUTCTime, getCurrentTime)
 import qualified Data.Yaml                as Y
 import           Formatting               (build, int, sformat, (%))
 import           Serokell.Aeson.Options   (defaultOptions)
@@ -27,6 +28,7 @@ import           Pos.Statistics           (StatBlockVerifying (..), StatLabel (.
 import           Pos.Types                (Timestamp)
 import           Pos.Util                 (eitherPanic)
 
+import           Plotting                 (perEntryPlots)
 import qualified SarCollector             as SAR
 import qualified StatsOptions             as O
 
@@ -63,15 +65,22 @@ main :: IO ()
 main = do
     opts@O.StatOpts{..} <- O.readOptions
     CollectorConfig{..} <- readRemoteConfig soConfigPath
+    startTime <- ((fromInteger $ - 60) `addUTCTime`) <$> getCurrentTime
+    threadDelay 10
+    print startTime
     putText $ "Launched with options: " <> show opts
 
-    -- let mConfigs =
-    --         flip map ccNodes $ \(host,_) ->
-    --             SAR.MachineConfig
-    --             host "statReader" "123123123123" "/var/log/saALL"
-    -- sarStats <- SAR.getNodesStats mConfigs
-    -- forM_ sarStats $ \nodeStat ->
-    --     forM_ (take 10 nodeStat) print
+    let mConfigs =
+            flip map ccNodes $ \(host,_) ->
+                SAR.MachineConfig
+                host "statReader" "123123123123" "/var/log/saALL"
+    stats <- map (filter ((> startTime) . SAR.statTimestamp)) <$> SAR.getNodesStats mConfigs
+    void $ mapConcurrently
+        (\(stat,i) -> perEntryPlots ("./statsNode"<>show i) startTime stat)
+        (stats `zip` [0..])
+
+    forM_ sarStats $ \nodeStat ->
+        forM_ (take 10 nodeStat) print
 
     let addrs = eitherPanic "Invalid address: " $
             mapM (\(h,p) -> parse addrParser "" $ toString (h <> ":" <> show p))

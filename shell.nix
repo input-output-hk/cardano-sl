@@ -1,7 +1,11 @@
 with import <nixpkgs> { };
-haskell.lib.buildStackProject {
-   ghc = haskell.packages.ghc801.ghc;
-   name = "pos-prototype";
-   buildInputs = [ zlib glib git cabal-install openssh autoreconfHook stack openssl sshpass];
-}
-
+let
+  hsPkgs = haskell.packages.ghc801;
+in
+  haskell.lib.buildStackProject {
+     name = "cardano-sl";
+     ghc = hsPkgs.ghc;
+     buildInputs =
+       [ zlib glib git cabal-install openssh autoreconfHook stack openssl
+         sshpass cairo ];
+  }

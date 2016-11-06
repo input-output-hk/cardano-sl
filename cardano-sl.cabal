@@ -203,10 +203,14 @@ executable cardano-stats-collector
                      , SarCollector
   build-depends:       aeson
                      , base
-                     , containers
                      , cardano-sl
+                     , containers
+                     , Chart
+                     , Chart-diagrams
                      , data-default
+                     , directory
                      , formatting
+                     , filepath
                      , hashable
                      , lifted-async
                      , monad-control

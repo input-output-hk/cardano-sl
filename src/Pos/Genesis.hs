@@ -22,7 +22,8 @@ import           Formatting         (int, sformat, (%))
 import           Universum
 
 import           Pos.Constants      (epochSlots, genesisN)
-import           Pos.Crypto
+import           Pos.Crypto         (PublicKey, SecretKey, deterministicKeyGen,
+                                     unsafeHash)
 import           Pos.Types.Types    (Address (Address), SlotLeaders, TxOut (..), Utxo)
 
 

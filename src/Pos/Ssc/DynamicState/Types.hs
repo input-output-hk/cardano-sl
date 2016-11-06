@@ -63,10 +63,12 @@ import           Universum
 
 import           Pos.Crypto                   (Hash, PublicKey, Share, hash)
 import           Pos.Ssc.Class.Types          (SscTypes (..))
-import           Pos.Ssc.DynamicState.Base
+import           Pos.Ssc.DynamicState.Base    (CommitmentsMap, Opening, OpeningsMap,
+                                               SharesMap, SignedCommitment,
+                                               VssCertificate, VssCertificatesMap)
 import           Pos.Ssc.DynamicState.Error   (SeedError)
 import           Pos.Ssc.DynamicState.Genesis (genesisCertificates)
-import           Pos.Types
+import           Pos.Types                    (SlotId, unflattenSlotId)
 
 ----------------------------------------------------------------------------
 -- SscMessage

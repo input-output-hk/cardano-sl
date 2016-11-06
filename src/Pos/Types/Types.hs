@@ -146,7 +146,8 @@ import           Serokell.Util.Verify   (VerificationRes (..), verifyGeneric)
 import           Universum
 
 import           Pos.Constants          (epochSlots)
-import           Pos.Crypto
+import           Pos.Crypto             (Hash, PublicKey, SecretKey, Signature, hash,
+                                         hashHexF, sign, toPublic, unsafeHash, verify)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot,
                                          mtSize)
 import           Pos.Ssc.Class.Types    (SscTypes (..))

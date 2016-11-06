@@ -10,7 +10,7 @@ import           Data.Text.Buildable (Buildable (..))
 import           Serokell.Util       (listBuilderJSON)
 import           Universum
 
-import           Pos.Crypto
+import           Pos.Crypto          (PublicKey)
 
 data SeedError
     -- | Some nodes in the 'OpeningsMap' aren't in the set of participants

@@ -49,7 +49,11 @@ import           Serokell.Util       (VerificationRes, verifyGeneric)
 import           Universum
 
 import           Pos.Constants       (k)
-import           Pos.Crypto
+import           Pos.Crypto          (EncShare, PublicKey, Secret, SecretKey, SecretProof,
+                                      SecretSharingExtra, SecureRandom (..), Share,
+                                      Signature, Signed, Threshold, VssPublicKey,
+                                      genSharedSecret, getDhSecret, secretToDhSecret,
+                                      sign, verify, verifyEncShare, verifySecretProof)
 import           Pos.Types.Types     (EpochIndex, FtsSeed (..), LocalSlotIndex,
                                       SlotId (..))
 

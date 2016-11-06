@@ -306,14 +306,10 @@ processNewSlotDo sId@SlotId {..} = do
 shouldCreateGenesisBlock :: EpochIndex -> Query ssc Bool
 -- Genesis block for 0-th epoch is hardcoded.
 shouldCreateGenesisBlock 0 = pure False
-shouldCreateGenesisBlock epoch = doCheckSoft . either (`SlotId` 0) identity <$> getHeadSlot
+shouldCreateGenesisBlock epoch =
+    doCheck . either (`SlotId` 0) identity <$> getHeadSlot
   where
-    -- While we are in process of active development, practically impossible
-    -- situations can happen, so we take them into account. We will think about
-    -- this check later.
-    doCheckSoft SlotId {..} = siEpoch == epoch - 1
-    -- TODO add logWarning on `doCheckStrict` failing
-    -- doCheckStrict SlotId {..} = siEpoch == epoch - 1 && siSlot >= 5 * k
+    doCheck SlotId {..} = siEpoch == epoch - 1 && siSlot >= 5 * k
 
 createGenesisBlock
     :: forall ssc.

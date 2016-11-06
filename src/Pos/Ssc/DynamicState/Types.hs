@@ -17,6 +17,7 @@ module Pos.Ssc.DynamicState.Types
        , DSStorage(..)
        , DSStorageVersion(..)
        , mkDSProof
+       , verifySscPayload
 
        -- * Lenses
        -- ** DSPayload
@@ -47,7 +48,7 @@ module Pos.Ssc.DynamicState.Types
        -- ** instance SscTypes SscDynamicState
        ) where
 
-import           Control.Lens                 (makeLenses, makeLensesFor)
+import           Control.Lens                 (makeLenses, makeLensesFor, (^.))
 import           Data.Binary                  (Binary)
 import           Data.Default                 (Default (..))
 import qualified Data.HashMap.Strict          as HM
@@ -56,15 +57,18 @@ import           Data.MessagePack             (MessagePack)
 import           Data.SafeCopy                (base, deriveSafeCopySimple)
 import           Data.Text.Buildable          (Buildable (..))
 import           Formatting                   (bprint, (%))
-import           Serokell.Util                (listJson)
+import           Serokell.Util                (VerificationRes, listJson, verifyGeneric)
 import           Universum
 
 import           Pos.Crypto                   (Hash, PublicKey, Share, hash)
+import           Pos.Ssc.Class.Types          (SscTypes (SscPayload))
 import           Pos.Ssc.DynamicState.Base    (CommitmentsMap, Opening, OpeningsMap,
                                                SharesMap, SignedCommitment,
-                                               VssCertificate, VssCertificatesMap)
+                                               VssCertificate, VssCertificatesMap,
+                                               isCommitmentId, isOpeningId, isSharesId)
 import           Pos.Ssc.DynamicState.Genesis (genesisCertificates)
-import           Pos.Types                    (SlotId, unflattenSlotId)
+import           Pos.Types                    (MainBlockHeader, SlotId, headerSlot,
+                                               unflattenSlotId)
 
 ----------------------------------------------------------------------------
 -- SscMessage
@@ -212,6 +216,23 @@ instance Buildable DSPayload where
             formatIfNotNull
                 ("  certificates from: "%listJson%"\n")
                 (HM.keys _mdVssCertificates)
+
+-- | Verify payload using header containing this payload.
+-- TODO: add this function into some class probably.
+verifySscPayload
+    :: (SscPayload ssc ~ DSPayload)
+    => MainBlockHeader ssc -> SscPayload ssc -> VerificationRes
+verifySscPayload header DSPayload {..} =
+    verifyGeneric
+        [ ( null _mdCommitments || isCommitmentId slotId
+          , "there are commitments in inappropriate block")
+        , ( null _mdOpenings || isOpeningId slotId
+          , "there are openings in inappropriate block")
+        , ( null _mdShares || isSharesId slotId
+          , "there are shares in inappropriate block")
+        ]
+  where
+    slotId = header ^. headerSlot
 
 ----------------------------------------------------------------------------
 -- SscProof

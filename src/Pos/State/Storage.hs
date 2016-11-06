@@ -52,7 +52,7 @@ import           Data.List.NonEmpty      (NonEmpty ((:|)), nonEmpty)
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Formatting              (build, sformat, (%))
 import           Serokell.AcidState      ()
-import           Serokell.Util           (VerificationRes (..), verifyGeneric)
+import           Serokell.Util           (VerificationRes (..))
 import           Universum
 
 import           Pos.Constants           (k)
@@ -60,8 +60,8 @@ import           Pos.Crypto              (PublicKey, SecretKey, Share, Threshold
                                           VssKeyPair, VssPublicKey, signedValue)
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (SscTypes (..))
-import           Pos.Ssc.DynamicState    (DSPayload (..), SscDynamicState, isCommitmentId,
-                                          isOpeningId, isSharesId, _mdVssCertificates)
+import           Pos.Ssc.DynamicState    (DSPayload (..), SscDynamicState,
+                                          verifySscPayload, _mdVssCertificates)
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
                                           blkCleanUp, blkCreateGenesisBlock,
                                           blkCreateNewBlock, blkProcessBlock, blkRollback,
@@ -79,7 +79,7 @@ import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
 import           Pos.Types               (Block, EpochIndex, GenesisBlock, MainBlock,
                                           SlotId (..), SlotLeaders, Utxo, blockMpc,
                                           blockSlot, blockTxs, epochIndexL, flattenSlotId,
-                                          getAddress, headerHashG, txOutAddress,
+                                          gbHeader, getAddress, headerHashG, txOutAddress,
                                           unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState, _neLast)
 
@@ -180,7 +180,7 @@ processBlock :: SlotId
 processBlock curSlotId blk = do
     -- TODO: I guess these checks should be part of block verification actually.
     let verifyMpc mainBlk =
-            verifyMpcData (mainBlk ^. blockSlot) (mainBlk ^. blockMpc)
+            verifySscPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
     let mpcRes = either (const mempty) verifyMpc blk
     let txs =
             case blk of
@@ -190,20 +190,6 @@ processBlock curSlotId blk = do
     case mpcRes <> txRes of
         VerSuccess        -> processBlockDo curSlotId blk
         VerFailure errors -> return $ mkPBRabort errors
-
--- | Verify MpcData using limited data.
--- TODO: more checks.
--- TODO: move this somewhere more appropriate
-verifyMpcData :: SlotId -> DSPayload -> VerificationRes
-verifyMpcData slotId DSPayload {..} =
-    verifyGeneric
-        [ ( null _mdCommitments || isCommitmentId slotId
-          , "there are commitments in inappropriate block")
-        , ( null _mdOpenings || isOpeningId slotId
-          , "there are openings in inappropriate block")
-        , ( null _mdShares || isSharesId slotId
-          , "there are shares in inappropriate block")
-        ]
 
 processBlockDo :: SlotId
                -> Block SscDynamicState

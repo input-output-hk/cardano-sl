@@ -54,8 +54,11 @@ handleBlock (SendBlock block) = do
                     "Block "%build%
                     " processing is aborted for the following reason: "%stext
             logWarning $ sformat fmt blkHash msg
-        St.PBRgood (0, (_:|_)) -> logInfo $
-            sformat ("Received block has been adopted: "%build) blkHash
+        St.PBRgood (0, (blkAdopted:|[])) -> do
+            let adoptedBlkHash :: HeaderHash SscDynamicState
+                adoptedBlkHash = headerHash blkAdopted
+            logInfo $ sformat ("Received block has been adopted: "%build)
+                adoptedBlkHash
         St.PBRgood (rollbacked, altChain) -> logNotice $
             sformat ("As a result of block processing rollback of "%int%
                      " blocks has been done and alternative chain has been adopted "%

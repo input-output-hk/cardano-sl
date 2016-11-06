@@ -16,6 +16,7 @@ import           Graphics.Rendering.Chart.Easy             (blue, def, green,
                                                             layout_y_axis, line, opaque,
                                                             plot, red, scaledAxis,
                                                             setColors, (.=))
+import           System.Directory                          (createDirectoryIfMissing)
 import           System.FilePath                           ((</>))
 import           Universum                                 hiding (mapConcurrently)
 
@@ -28,6 +29,7 @@ perEntryPlots
     => FilePath -> UTCTime -> [(UTCTime, Double)] -> [StatisticsEntry] -> m ()
 perEntryPlots filepath startTime tpsStats stats = do
     putText "Plotting..."
+    liftIO $ createDirectoryIfMissing True filepath
     void $ mapConcurrently (\(c,n) -> liftIO $ toFile def (filepath </> n) c) $
         [ (chartCpu, "cpuStats.svg")
         , (chartMem, "memStats.svg")
@@ -47,8 +49,8 @@ perEntryPlots filepath startTime tpsStats stats = do
     chartCpu = do
         layout_title .= "CPU usage"
         layout_y_axis . laxis_generate .= scaledAxis def (0,100)
-        let cpuLineUser = smooth $ map (fromStamp cpuLoadUser) stats
-        let cpuLineSystem = smooth $ map (fromStamp cpuLoadSystem) stats
+        let cpuLineUser = map (fromStamp cpuLoadUser) stats
+        let cpuLineSystem = map (fromStamp cpuLoadSystem) stats
         setColors [opaque red]
         plot (line "Cpu user (%)" [cpuLineUser])
         setColors [opaque blue]
@@ -57,20 +59,20 @@ perEntryPlots filepath startTime tpsStats stats = do
         layout_title .= "Memory usage"
         layout_y_axis . laxis_generate .= scaledAxis def (0,100)
         setColors [opaque green]
-        let memLine = smooth $ map (fromStamp memUsed) stats
+        let memLine = map (fromStamp memUsed) stats
         plot (line "Memory used (%)" [memLine])
     chartDisk = do
         layout_title .= "Disk usage"
-        let diskRead = smooth $ map (fromStamp readSectPerSecond) stats
-        let diskWrite = smooth $ map (fromStamp writeSectPerSecond) stats
+        let diskRead =  map (fromStamp readSectPerSecond) stats
+        let diskWrite = map (fromStamp writeSectPerSecond) stats
         setColors [opaque red]
         plot (line "Disk read (sect/s)" [diskRead])
         setColors [opaque blue]
         plot (line "Disk write (sect/s)" [diskWrite])
     chartNet = do
         layout_title .= "Networking"
-        let netRecv = smooth $ map (fromStamp netRxKbPerSecond) stats
-        let netSend = smooth $ map (fromStamp netTxKbPerSecond) stats
+        let netRecv = map (fromStamp netRxKbPerSecond) stats
+        let netSend = map (fromStamp netTxKbPerSecond) stats
         setColors [opaque red]
         plot (line "Network receive (Kb/s)" [netRecv])
         setColors [opaque blue]

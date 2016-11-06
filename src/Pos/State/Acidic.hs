@@ -43,22 +43,21 @@ module Pos.State.Acidic
        , GetStatRecords (..)
        ) where
 
-import           Data.Acid                  (EventResult, EventState, QueryEvent,
-                                             UpdateEvent, makeAcidic)
-import qualified Data.Acid                  as Acid (Query)
-import           Data.Default               (def)
-import           Serokell.AcidState         (ExtendedState, closeExtendedState,
-                                             openLocalExtendedState,
-                                             openMemoryExtendedState, queryExtended,
-                                             tidyExtendedState, updateExtended)
-import           Serokell.Util              (VerificationRes)
+import           Data.Acid            (EventResult, EventState, QueryEvent, UpdateEvent,
+                                       makeAcidic)
+import qualified Data.Acid            as Acid (Query)
+import           Data.Default         (def)
+import           Serokell.AcidState   (ExtendedState, closeExtendedState,
+                                       openLocalExtendedState, openMemoryExtendedState,
+                                       queryExtended, tidyExtendedState, updateExtended)
+import           Serokell.Util        (VerificationRes)
 import           Universum
 
-import           Pos.Ssc.DynamicState.Types (SscDynamicState)
-import           Pos.State.Storage          (Storage)
-import qualified Pos.State.Storage          as S
-import           Pos.Types.Types            (Block, EpochIndex, HeaderHash,
-                                             MainBlockHeader, SlotId, SlotLeaders)
+import           Pos.Ssc.DynamicState (SscDynamicState)
+import           Pos.State.Storage    (Storage)
+import qualified Pos.State.Storage    as S
+import           Pos.Types.Types      (Block, EpochIndex, HeaderHash, MainBlockHeader,
+                                       SlotId, SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- Acid-state things

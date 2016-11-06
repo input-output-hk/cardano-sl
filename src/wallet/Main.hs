@@ -13,10 +13,10 @@ import           Data.Monoid              ((<>))
 import           Pos.CLI                  (dhtNodeParser)
 import           Pos.Crypto               (unsafeHash)
 import           Pos.DHT                  (DHTNode, DHTNodeType (..))
-import           Pos.Genesis              (genesisAddresses, genesisSecretKeys,
-                                           genesisVssKeyPairs)
+import           Pos.Genesis              (genesisAddresses, genesisSecretKeys)
 import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
                                            NodeParams (..), submitTxReal)
+import           Pos.Ssc.DynamicState     (genesisVssKeyPairs)
 import           Serokell.Util.OptParse   (fromParsec)
 
 data WalletCommand = SubmitTx

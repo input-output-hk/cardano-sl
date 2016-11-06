@@ -129,7 +129,7 @@ instance MonadTransfer m => MonadTransfer (KademliaDHT m) where
 
 instance Applicative m => WithDefaultMsgHeader (KademliaDHT m) where
     defaultMsgHeader _ = do
-        -- *-- Caches are disabled now for non-broadcast messages
+        --     Caches are disabled now for non-broadcast messages
         --     uncomment lines below to enable them
         --noCacheNames <- KademliaDHT $ asks kdcNoCacheMessageNames_
         --let header =
@@ -156,13 +156,13 @@ runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
     startDHT kdc >>= runReaderT (unKademliaDHT action')
   where
     action' =
-        (startMsgThread
-          >> logDebug "running kademlia dht messager"
-          >> action'')
+        action''
         `finally`
         (logDebug "stopping kademlia messager"
           >> stopDHT >> logDebug "kademlia messager stopped")
     action'' = do
+      startMsgThread
+      logDebug "running kademlia dht messager"
       joinNetworkNoThrow (kdiInitialPeers $ kdcDHTInstance)
       startRejoinThread
       action
@@ -185,13 +185,14 @@ stopDHT = do
     closers <- liftIO . atomically $ swapTVar closersTV []
     lift $ sequence_ closers
 
-stopDHTInstance :: (MonadTimed m, MonadIO m) => KademliaDHTInstance -> m ()
+stopDHTInstance
+    :: MonadIO m
+    => KademliaDHTInstance -> m ()
 stopDHTInstance KademliaDHTInstance {..} = liftIO $ K.close kdiHandle
 
 startDHTInstance
     :: ( MonadTimed m
        , MonadIO m
-       , MonadDialog BinaryP m
        , WithNamedLogger m
        , MonadCatch m
        , MonadBaseControl IO m
@@ -243,7 +244,6 @@ startDHT KademliaDHTConfig {..} = do
   where
     convert :: ListenerDHT m -> ListenerH BinaryP DHTMsgHeader m
     convert (ListenerDHT f) = ListenerH $ \(_, m) -> getDHTResponseT $ f m
-    log' logF =  usingLoggerName ("kademlia" <> "messager") . logF . toText
     convert' handler = getDHTResponseT . handler
 
 -- | Return 'True' if the message should be processed, 'False' if only

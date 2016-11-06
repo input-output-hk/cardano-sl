@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 -- | High level workers.
 
 module Pos.Worker
@@ -7,15 +9,18 @@ module Pos.Worker
 
 import           Control.TimeWarp.Logging (logDebug, logInfo, logNotice)
 import           Control.TimeWarp.Timed   (fork_)
+import           Data.Tagged              (untag)
 import           Formatting               (build, sformat, (%))
 import           Universum
 
 import           Pos.Slotting             (onNewSlot)
+import           Pos.Ssc.Class.Workers    (sscOnNewSlot, sscWorkers)
+import           Pos.Ssc.DynamicState     (SscDynamicState)
 import           Pos.State                (processNewSlot)
 import           Pos.Types                (SlotId, slotIdF)
 import           Pos.Util                 (logWarningWaitLinear)
 import           Pos.Worker.Block         (blkOnNewSlot, blkWorkers)
-import           Pos.Worker.Mpc           (mpcOnNewSlot, mpcWorkers)
+import           Pos.Worker.Mpc           ()
 import           Pos.Worker.Stats         (statsWorker)
 import           Pos.Worker.Tx            (txWorkers)
 import           Pos.WorkMode             (WorkMode)
@@ -23,7 +28,12 @@ import           Pos.WorkMode             (WorkMode)
 -- | Run all necessary workers in separate threads. This call doesn't
 -- block.
 runWorkers :: WorkMode m => m ()
-runWorkers = mapM_ fork_ (onNewSlotWorker : blkWorkers ++ mpcWorkers ++ txWorkers)
+runWorkers = mapM_ fork_ $ concat
+    [ [onNewSlotWorker]
+    , blkWorkers
+    , untag @SscDynamicState sscWorkers
+    , txWorkers
+    ]
 
 onNewSlotWorker :: WorkMode m => m ()
 onNewSlotWorker = onNewSlot True onNewSlotWorkerImpl
@@ -38,7 +48,8 @@ onNewSlotWorkerImpl slotId = do
     logDebug "Finished `processNewSlot`"
 
     fork_ $ do
-        logWarningWaitLinear 8 "mpcOnNewSlot"$ mpcOnNewSlot slotId
+        logWarningWaitLinear 8 "mpcOnNewSlot" $
+            untag @SscDynamicState sscOnNewSlot slotId
         logDebug "Finished `mpcOnNewSlot`"
     blkOnNewSlot slotId
     logDebug "Finished `blkOnNewSlot`"

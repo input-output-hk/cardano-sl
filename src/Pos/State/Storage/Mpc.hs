@@ -16,52 +16,53 @@
 
 module Pos.State.Storage.Mpc
        (
-         calculateLeaders
        --, traceMpcLastVer
        ) where
 
-import           Control.Lens               (Lens', at, ix, preview, to, use, view, (%=),
-                                             (.=), (.~), (^.))
-import           Crypto.Random              (drgNewSeed, seedFromInteger, withDRG)
-import           Data.Default               (def)
-import           Data.Hashable              (Hashable)
-import qualified Data.HashMap.Strict        as HM
-import           Data.Ix                    (inRange)
-import           Data.List.NonEmpty         (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty         as NE
-import           Formatting                 (int, sformat, (%))
-import           Serokell.Util.Verify       (VerificationRes (..), isVerSuccess,
-                                             verifyGeneric)
+import           Control.Lens            (Lens', at, ix, preview, to, use, view, (%=),
+                                          (.=), (.~), (^.))
+import           Crypto.Random           (drgNewSeed, seedFromInteger, withDRG)
+import           Data.Default            (def)
+import           Data.Hashable           (Hashable)
+import qualified Data.HashMap.Strict     as HM
+import           Data.Ix                 (inRange)
+import           Data.List               (nub)
+import           Data.List.NonEmpty      (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty      as NE
+import           Formatting              (int, sformat, (%))
+import           Serokell.Util.Verify    (VerificationRes (..), isVerSuccess,
+                                          verifyGeneric)
 import           Universum
 
-import           Pos.Constants              (k)
-import           Pos.Crypto                 (PublicKey, Share,
-                                             Signed (signedSig, signedValue), Threshold,
-                                             VssKeyPair, decryptShare, toVssPublicKey,
-                                             verify, verifyShare)
-import           Pos.FollowTheSatoshi       (FtsError, calculateSeed, followTheSatoshi)
-import           Pos.Ssc.Class.Storage      (HasSscStorage (..), SscQuery,
-                                             SscStorageClass (..), SscUpdate)
-import           Pos.Ssc.DynamicState.Types (DSMessage (..), DSPayload (..), DSStorage,
-                                             DSStorageVersion (..), SscDynamicState,
-                                             dsCurrentSecretL, dsGlobalCertificates,
-                                             dsGlobalCommitments, dsGlobalOpenings,
-                                             dsGlobalShares, dsLastProcessedSlotL,
-                                             dsLocalCertificates, dsLocalCommitments,
-                                             dsLocalOpenings, dsLocalShares, dsVersionedL,
-                                             hasCommitment, hasOpening, hasShares,
-                                             mdCommitments, mdOpenings)
-import           Pos.State.Storage.Types    (AltChain)
-import           Pos.Types                  (Address (getAddress), Block, Commitment (..),
-                                             CommitmentSignature, CommitmentsMap,
-                                             Opening (..), OpeningsMap, SignedCommitment,
-                                             SlotId (..), SlotLeaders, Utxo,
-                                             VssCertificate, VssCertificatesMap, blockMpc,
-                                             blockSlot, blockSlot, isCommitmentIdx,
-                                             isOpeningIdx, isSharesIdx, utxoF,
-                                             verifyOpening, verifySignedCommitment)
-import           Pos.Util                   (Color (Magenta), colorize, magnify',
-                                             readerToState, zoom', _neHead)
+import           Pos.Constants           (k)
+import           Pos.Crypto              (PublicKey, Share,
+                                          Signed (signedSig, signedValue), Threshold,
+                                          VssKeyPair, VssPublicKey, decryptShare,
+                                          toVssPublicKey, verify, verifyShare)
+import           Pos.FollowTheSatoshi    (followTheSatoshi)
+import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscQuery,
+                                          SscStorageClass (..), SscUpdate)
+import           Pos.Ssc.DynamicState    (Commitment (..), CommitmentSignature,
+                                          CommitmentsMap, DSMessage (..), DSPayload (..),
+                                          DSStorage, DSStorageVersion (..), Opening (..),
+                                          OpeningsMap, SeedError, SignedCommitment,
+                                          SscDynamicState, VssCertificate,
+                                          VssCertificatesMap, calculateSeed,
+                                          dsCurrentSecretL, dsGlobalCertificates,
+                                          dsGlobalCommitments, dsGlobalOpenings,
+                                          dsGlobalShares, dsLastProcessedSlotL,
+                                          dsLocalCertificates, dsLocalCommitments,
+                                          dsLocalOpenings, dsLocalShares, dsVersionedL,
+                                          hasCommitment, hasOpening, hasShares,
+                                          isCommitmentIdx, isOpeningIdx, isSharesIdx,
+                                          mdCommitments, mdOpenings, verifyOpening,
+                                          verifySignedCommitment)
+import           Pos.State.Storage.Types (AltChain)
+import           Pos.Types               (Address (getAddress), Block, SlotId (..),
+                                          SlotLeaders, Utxo, blockMpc, blockSlot,
+                                          blockSlot, txOutAddress, utxoF)
+import           Pos.Util                (Color (Magenta), colorize, magnify',
+                                          readerToState, zoom', _neHead)
 
 type Query a = SscQuery SscDynamicState a
 type Update a = SscUpdate SscDynamicState a
@@ -86,6 +87,9 @@ instance SscStorageClass SscDynamicState where
     sscGetToken = getSecret
     sscSetToken = setSecret
     sscGetOurShares = getOurShares
+
+    sscGetParticipants = getParticipants
+    sscCalculateLeaders = calculateLeaders
 
 dsVersioned
     :: HasSscStorage SscDynamicState a
@@ -174,11 +178,27 @@ getGlobalMpcDataByDepth (fromIntegral -> depth) =
         , _mdVssCertificates = _dsGlobalCertificates
         }
 
+-- | Get keys of nodes participating in an epoch. A node participates if,
+-- when there were 'k' slots left before the end of the previous epoch, both
+-- of these were true:
+--
+--   1. It was a stakeholder.
+--   2. It had already sent us its VSS key by that time.
+getParticipants :: Word -> Utxo -> Query (Maybe (NonEmpty VssPublicKey))
+getParticipants depth utxo = do
+    mKeymap <- fmap _mdVssCertificates <$> getGlobalMpcDataByDepth depth
+    return $
+        do keymap <- mKeymap
+           let stakeholders =
+                   nub $ map (getAddress . txOutAddress) (toList utxo)
+           NE.nonEmpty $
+               map signedValue $ mapMaybe (`HM.lookup` keymap) stakeholders
+
 -- | Calculate leaders for the next epoch.
 calculateLeaders
     :: Utxo            -- ^ Utxo (k slots before the end of epoch)
     -> Threshold
-    -> Query (Either FtsError SlotLeaders)
+    -> Query (Either SeedError SlotLeaders)
 calculateLeaders utxo threshold = do
     !() <- traceM $ colorize Magenta $ (sformat ("utxo: "%utxoF%", threshold: "%int) utxo threshold)
     mbSeed <- calculateSeed threshold

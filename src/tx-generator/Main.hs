@@ -20,11 +20,11 @@ import           Pos.Communication        (sendTx)
 import           Pos.Crypto               (hash, unsafeHash)
 import           Pos.DHT                  (DHTNode, DHTNodeType (..), dhtAddr,
                                            discoverPeers)
-import           Pos.Genesis              (genesisAddresses, genesisSecretKeys,
-                                           genesisVssKeyPairs)
+import           Pos.Genesis              (genesisAddresses, genesisSecretKeys)
 import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
                                            NodeParams (..), bracketDHTInstance,
                                            runRealMode, submitTx)
+import           Pos.Ssc.DynamicState     (genesisVssKeyPairs)
 import           Pos.Statistics           (getNoStatsT)
 import           Pos.Types                (Tx (..), TxId, txF)
 import           Pos.WorkMode             (WorkMode)

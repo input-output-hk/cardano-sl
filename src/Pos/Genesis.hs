@@ -10,26 +10,21 @@ module Pos.Genesis
        , genesisUtxo
        , genesisUtxoPetty
 
-       -- * MPC
-       , genesisCertificates
+       -- * Ssc
        , genesisLeaders
-       , genesisVssKeyPairs
-       , genesisVssPublicKeys
        ) where
 
-import qualified Data.HashMap.Strict as HM
-import qualified Data.List.NonEmpty  as NE
-import qualified Data.Map.Strict     as M
-import qualified Data.Text           as T
-import           Formatting          (int, sformat, (%))
+
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Map.Strict    as M
+import qualified Data.Text          as T
+import           Formatting         (int, sformat, (%))
 import           Universum
 
-import           Pos.Constants       (epochSlots, genesisN)
-import           Pos.Crypto          (PublicKey, SecretKey, VssKeyPair, VssPublicKey,
-                                      deterministicKeyGen, deterministicVssKeyGen,
-                                      mkSigned, toVssPublicKey, unsafeHash)
-import           Pos.Types.Types     (Address (Address), SlotLeaders, TxOut (..), Utxo,
-                                      VssCertificatesMap)
+import           Pos.Constants      (epochSlots, genesisN)
+import           Pos.Crypto         (PublicKey, SecretKey, deterministicKeyGen,
+                                     unsafeHash)
+import           Pos.Types.Types    (Address (Address), SlotLeaders, TxOut (..), Utxo)
 
 
 ----------------------------------------------------------------------------
@@ -76,29 +71,8 @@ genesisUtxoPetty k =
         else [((unsafeHash a, 0), TxOut a (fromIntegral $ k nodei))]
 
 ----------------------------------------------------------------------------
--- MPC, leaders
+-- Slot leaders
 ----------------------------------------------------------------------------
-
-genesisVssKeyPairs :: [VssKeyPair]
-genesisVssKeyPairs = map gen [0 .. genesisN - 1]
-  where
-    gen :: Int -> VssKeyPair
-    gen =
-        deterministicVssKeyGen .
-        encodeUtf8 .
-        T.take 32 .
-        sformat ("My awesome 32-byte seed :) #" %int % "             ")
-
-genesisVssPublicKeys :: [VssPublicKey]
-genesisVssPublicKeys = map toVssPublicKey genesisVssKeyPairs
-
-genesisCertificates :: VssCertificatesMap
-genesisCertificates =
-    HM.fromList $
-    zipWith
-        (\(pk, sk) vssPk -> (pk, mkSigned sk vssPk))
-        genesisKeyPairs
-        genesisVssPublicKeys
 
 genesisLeaders :: SlotLeaders
 genesisLeaders = NE.fromList $ replicate epochSlots pk

@@ -13,7 +13,7 @@ import           Universum
 
 import           Control.TimeWarp.Rpc (Message (..))
 import           Pos.Crypto           (PublicKey, Share)
-import           Pos.Types            (Opening, SignedCommitment, VssCertificate)
+import           Pos.Ssc.DynamicState (Opening, SignedCommitment, VssCertificate)
 
 -- | Message: some node has sent SscMessage
 data SendSsc

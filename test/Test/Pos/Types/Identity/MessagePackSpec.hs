@@ -26,7 +26,9 @@ spec = describe "Types" $ do
         prop "TxOut" (msgPackEncodeDecode @T.TxOut)
         prop "Tx" (msgPackEncodeDecode @T.Tx)
         prop "FtsSeed" (msgPackEncodeDecode @T.FtsSeed)
-        prop "Opening" (msgPackEncodeDecode @T.Opening)
         prop "Chaindifficulty" (msgPackEncodeDecode @T.ChainDifficulty)
+        -- TODO: this is in Pos.Ssc.DynamicState now
+        -- TODO: where is commitment?
+        -- prop "Opening" (msgPackEncodeDecode @T.Opening)
         -- TODO: There's no such type anymore
         -- prop "MpcProof" (msgPackEncodeDecode @T.MpcProof)

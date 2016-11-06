@@ -19,12 +19,12 @@ import           Pos.Constants              (RunningMode (..), runningMode)
 import           Pos.Crypto                 (keyGen, vssKeyGen)
 import           Pos.DHT                    (DHTKey, DHTNode, DHTNodeType (..),
                                              dhtNodeType)
-import           Pos.Genesis                (genesisSecretKeys, genesisUtxoPetty,
-                                             genesisVssKeyPairs)
+import           Pos.Genesis                (genesisSecretKeys, genesisUtxoPetty)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), bracketDHTInstance,
                                              runNodeReal, runNodeStats, runSupporterReal,
                                              runTimeLordReal, runTimeSlaveReal)
+import           Pos.Ssc.DynamicState       (genesisVssKeyPairs)
 import           Serokell.Util.OptParse     (fromParsec)
 import           System.Directory           (createDirectoryIfMissing)
 import           System.FilePath            ((</>))

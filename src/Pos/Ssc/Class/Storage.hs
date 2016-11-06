@@ -12,13 +12,15 @@ module Pos.Ssc.Class.Storage
        ) where
 
 import           Control.Lens            (Lens')
+import           Data.List.NonEmpty      (NonEmpty)
 import           Serokell.Util.Verify    (VerificationRes)
 import           Universum
 
-import           Pos.Crypto              (PublicKey, Share, VssKeyPair)
+import           Pos.Crypto              (PublicKey, Share, Threshold, VssKeyPair,
+                                          VssPublicKey)
 import           Pos.Ssc.Class.Types     (SscTypes (..))
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types.Types         (FtsSeed, SlotId)
+import           Pos.Types.Types         (SlotId, SlotLeaders, Utxo)
 
 type SscUpdate ssc a =
     forall m x. (HasSscStorage ssc x, MonadState x m) => m a
@@ -66,4 +68,8 @@ class SscTypes ssc => SscStorageClass ssc where
     -- | Even more BARDAQ
     sscGetOurShares :: VssKeyPair -> Integer -> SscQuery ssc (HashMap PublicKey Share)
 
-    -- TODO: move the rest of methods here
+    -- TODO: yet another BARDAQ
+    sscGetParticipants :: Word -> Utxo ->
+                          SscQuery ssc (Maybe (NonEmpty VssPublicKey))
+    sscCalculateLeaders :: Utxo -> Threshold ->
+                           SscQuery ssc (Either (SscSeedError ssc)  SlotLeaders)

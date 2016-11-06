@@ -54,6 +54,7 @@ library
                         Pos.Crypto.Signing
                         Pos.Ssc.Class.Types
                         Pos.Ssc.Class.Storage
+                        Pos.Ssc.Class.Workers
                         Pos.Ssc.DynamicState.Types
                         Pos.State.Acidic
                         Pos.State.State

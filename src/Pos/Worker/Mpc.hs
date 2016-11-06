@@ -1,14 +1,16 @@
 -- | MPC processing related workers.
 
 module Pos.Worker.Mpc
-       ( mpcOnNewSlot
-       , mpcWorkers
+       (
+         -- * Instances
+         -- ** instance SscWorkersClass SscDynamicState
        ) where
 
 import           Control.TimeWarp.Logging   (logDebug)
 import           Control.TimeWarp.Logging   (logWarning)
 import           Control.TimeWarp.Timed     (Microsecond, repeatForever, sec)
 import qualified Data.HashMap.Strict        as HM (toList)
+import           Data.Tagged                (Tagged (..))
 import           Formatting                 (build, ords, sformat, (%))
 import           Serokell.Util.Exceptions   ()
 import           Universum
@@ -17,8 +19,9 @@ import           Pos.Communication.Methods  (announceCommitment, announceOpening
                                              announceShares, announceVssCertificate)
 import           Pos.Communication.Types    (SendSsc (..))
 import           Pos.DHT                    (sendToNeighbors)
-import           Pos.Ssc.DynamicState.Types (DSPayload (..), hasCommitment, hasOpening,
-                                             hasShares)
+import           Pos.Ssc.Class.Workers      (SscWorkersClass (..))
+import           Pos.Ssc.DynamicState.Types (DSPayload (..), SscDynamicState,
+                                             hasCommitment, hasOpening, hasShares)
 import           Pos.State                  (generateAndSetNewSecret, getGlobalMpcData,
                                              getLocalSscPayload, getOurCommitment,
                                              getOurOpening, getOurShares, getSecret)
@@ -26,6 +29,10 @@ import           Pos.Types                  (SlotId (..), isCommitmentIdx, isOpe
                                              isSharesIdx)
 import           Pos.WorkMode               (WorkMode, getNodeContext, ncPublicKey,
                                              ncSecretKey, ncVssKeyPair)
+
+instance SscWorkersClass SscDynamicState where
+    sscOnNewSlot = Tagged mpcOnNewSlot
+    sscWorkers = Tagged mpcWorkers
 
 -- | Action which should be done when new slot starts.
 mpcOnNewSlot :: WorkMode m => SlotId -> m ()

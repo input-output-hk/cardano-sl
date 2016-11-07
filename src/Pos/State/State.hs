@@ -42,7 +42,6 @@ import           Control.Lens             (view, _2, _3)
 import           Crypto.Random            (seedNew, seedToInteger)
 import           Data.Acid                (EventResult, EventState, QueryEvent,
                                            UpdateEvent)
-import           Data.Binary              (Binary)
 import qualified Data.Binary              as Binary
 import           Pos.DHT                  (DHTResponseT)
 import           Serokell.Util            (VerificationRes, show')

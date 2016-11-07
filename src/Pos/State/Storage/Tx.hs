@@ -10,7 +10,7 @@
 module Pos.State.Storage.Tx
        (
          TxStorage
-       , HasTxStorage(txStorage)
+       , HasTxStorage (txStorage)
        , txStorageFromUtxo
 
        , getLocalTxs
@@ -24,12 +24,10 @@ module Pos.State.Storage.Tx
 
 import           Control.Lens            (ix, makeClassy, preview, use, uses, view, (%=),
                                           (<~), (^.))
-import           Data.Default            (Default, def)
 import qualified Data.HashSet            as HS
 import qualified Data.List.NonEmpty      as NE
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Formatting              (build, int, sformat, (%))
-import           Pos.Genesis             (genesisUtxo)
 import           Pos.State.Storage.Types (AltChain, ProcessTxRes (..), mkPTRinvalid)
 import           Pos.Types               (Block, SlotId, Tx (..), Utxo, applyTxToUtxo,
                                           blockSlot, blockTxs, slotIdF, verifyTxUtxo)
@@ -52,14 +50,6 @@ data TxStorage = TxStorage
 
 makeClassy ''TxStorage
 deriveSafeCopySimple 0 'base ''TxStorage
-
-instance Default TxStorage where
-    def =
-        TxStorage
-        { _txLocalTxs = mempty
-        , _txUtxo = genesisUtxo
-        , _txUtxoHistory = [genesisUtxo]
-        }
 
 -- | Generate TxStorage from non-default utxo
 txStorageFromUtxo :: Utxo -> TxStorage

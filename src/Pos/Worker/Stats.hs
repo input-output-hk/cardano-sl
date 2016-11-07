@@ -2,19 +2,18 @@ module Pos.Worker.Stats
        ( statsWorkers
        ) where
 
-import           Control.TimeWarp.Logging  (logWarning)
-import           Control.TimeWarp.Timed    (Microsecond, MonadTimed, currentTime,
-                                            repeatForever, runTimedIO, sec)
-import           Formatting                (build, sformat, (%))
-import           Serokell.Util.Exceptions  ()
+import           Control.TimeWarp.Logging (logWarning)
+import           Control.TimeWarp.Timed   (Microsecond, MonadTimed, currentTime,
+                                           repeatForever, runTimedIO, sec)
+import           Formatting               (build, sformat, (%))
+import           Serokell.Util.Exceptions ()
 import           Universum
 
-import           Pos.Communication.Methods (announceTxs)
-import           Pos.Constants             (slotDuration)
-import           Pos.Statistics            (StatBlockCreated (..), StatProcessTx (..),
-                                            resetStat)
-import           Pos.Types                 (Timestamp (..))
-import           Pos.WorkMode              (WorkMode)
+import           Pos.Constants            (slotDuration)
+import           Pos.Statistics           (StatBlockCreated (..), StatProcessTx (..),
+                                           resetStat)
+import           Pos.Types                (Timestamp (..))
+import           Pos.WorkMode             (WorkMode)
 
 txStatsRefreshInterval :: Microsecond
 txStatsRefreshInterval = sec 1
@@ -42,4 +41,3 @@ blockStatsWorker =
   where
     onError e = slotDuration <$
                 logWarning (sformat ("Error occured in blockStatsWorker: "%build) e)
-

@@ -4,7 +4,7 @@
 -- | Helpers for benchmarking blocks distribution
 
 module Pos.Statistics.Block
-       ( StatBlockVerifying (..)
+       ( StatBlockCreated (..)
        -- , statlogReceivedBlockHeader
        -- , statlogSentBlockHeader
        -- , statlogReceivedBlock
@@ -21,36 +21,36 @@ import           Data.MessagePack         (MessagePack (fromObject, toObject))
 import           Data.Text.Buildable      (build)
 import           Universum
 
-import           Pos.Statistics.StatEntry (StatLabel (..), ValueStat)
+import           Pos.Statistics.StatEntry (CountStat, StatLabel (..))
 import           Pos.Util                 (fromMsgpackBinary, toMsgpackBinary)
 
-data StatBlockVerifying = StatBlockVerifying deriving (Show, Eq, Generic, Typeable)
+data StatBlockCreated = StatBlockCreated deriving (Show, Eq, Generic, Typeable)
 
 -- TODO: generate these using TH
-instance Buildable StatBlockVerifying where
-    build _ = "StatBlockVerifying"
+instance Buildable StatBlockCreated where
+    build _ = "StatBlockCreated"
 
-instance Hashable StatBlockVerifying where
-    hashWithSalt x _ = hashWithSalt x ("StatBlockVerifying" :: ByteString)
+instance Hashable StatBlockCreated where
+    hashWithSalt x _ = hashWithSalt x ("StatBlockCreated" :: ByteString)
 
 hId :: Word32
-hId = fromIntegral $ hash ("StatBlockVerifying" :: ByteString)
+hId = fromIntegral $ hash ("StatBlockCreated" :: ByteString)
 
-instance Binary StatBlockVerifying where
+instance Binary StatBlockCreated where
     get = do
         w <- Binary.getWord32be
         when (w /= hId) $
-            fail "Binary.get: StatBlockVerifying fail"
-        return StatBlockVerifying
+            fail "Binary.get: StatBlockCreated fail"
+        return StatBlockCreated
     put _ = Binary.putWord32be hId
 
-instance MessagePack StatBlockVerifying where
+instance MessagePack StatBlockCreated where
     toObject = toMsgpackBinary
-    fromObject = fromMsgpackBinary "StatBlockVerifying"
+    fromObject = fromMsgpackBinary "StatBlockCreated"
 
-instance StatLabel StatBlockVerifying where
-    type EntryType StatBlockVerifying = ValueStat
-    labelName _ = "StatBlockVerifying"
+instance StatLabel StatBlockCreated where
+    type EntryType StatBlockCreated = CountStat
+    labelName _ = "StatBlockCreated"
 
 -- logBlockHeader
 --     :: (SscTypes ssc, WorkMode m)

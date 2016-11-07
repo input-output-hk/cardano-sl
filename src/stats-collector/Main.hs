@@ -24,7 +24,7 @@ import           Pos.DHT                  (DHTNodeType (..), ListenerDHT (..),
                                            dhtNodeType, sendToNode)
 import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
                                            bracketDHTInstance, runServiceMode)
-import           Pos.Statistics           (StatBlockVerifying (..), StatLabel (..),
+import           Pos.Statistics           (StatBlockCreated (..), StatLabel (..),
                                            StatProcessTx (..))
 import           Pos.Types                (Timestamp)
 import           Pos.Util                 (eitherPanic)
@@ -102,7 +102,7 @@ main = do
     ch1 <- C.newChan
     ch2 <- C.newChan
     let listeners = [ ListenerDHT $ collectorListener @StatProcessTx ch1
-                    , ListenerDHT $ collectorListener @StatBlockVerifying ch2
+                    , ListenerDHT $ collectorListener @StatBlockCreated ch2
                     ]
 
     bracketDHTInstance params $ \inst -> do
@@ -110,7 +110,7 @@ main = do
             forM_ enumAddrs $ \(idx, addr) -> do
                 logInfo $ sformat ("Requested stats for node #"%int) idx
                 sendToNode addr (RequestStat idx StatProcessTx)
-                -- sendToNode addr (RequestStat idx StatBlockVerifying)
+                -- sendToNode addr (RequestStat idx StatBlockCreated)
 
             forM_ [0 .. length addrs] $ \_ -> do
                 (ResponseStat id _ mres) <- liftIO $ readChan ch1

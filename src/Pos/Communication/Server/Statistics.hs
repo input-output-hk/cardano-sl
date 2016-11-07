@@ -16,14 +16,14 @@ import           Universum
 import           Pos.Communication.Types   (RequestStat (..), ResponseMode,
                                             ResponseStat (..))
 import           Pos.DHT                   (ListenerDHT (..), replyToNode)
-import           Pos.Statistics.Block      (StatBlockVerifying)
+import           Pos.Statistics.Block      (StatBlockCreated)
 import           Pos.Statistics.MonadStats (getStats)
 import           Pos.Statistics.StatEntry  (StatLabel (..))
 import           Pos.Statistics.Tx         (StatProcessTx)
 import           Pos.WorkMode              (WorkMode)
 
 statsListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
-statsListeners = [ ListenerDHT $ handleStatsRequests @StatBlockVerifying
+statsListeners = [ ListenerDHT $ handleStatsRequests @StatBlockCreated
                  , ListenerDHT $ handleStatsRequests @StatProcessTx
                  ]
 

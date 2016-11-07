@@ -1,14 +1,18 @@
+{-# LANGUAGE ViewPatterns #-}
+
 -- | Specification of Pos.Types.Utxo.
 
 module Test.Pos.Types.UtxoSpec
        ( spec
        ) where
 
+import           Control.Lens          (view, _1)
 import qualified Data.Map              as M (Map, delete, elems, fromList, insert, keys)
 import           Data.Maybe            (isJust, isNothing)
 import           Pos.Crypto            (hash, keyGen, sign, unsafeHash)
-import           Pos.Types             (Tx (..), TxIn (..), TxOut, Utxo, applyTxToUtxo,
-                                        deleteTxIn, findTxIn)
+import           Pos.Types             (GoodTx (..), Tx (..), TxIn (..), TxOut, Utxo,
+                                        applyTxToUtxo, deleteTxIn, findTxIn, verifyTxUtxo)
+import           Serokell.Util.Verify  (isVerSuccess)
 import           System.IO.Unsafe      (unsafePerformIO)
 
 import           Test.Hspec            (Spec, describe, it)
@@ -23,17 +27,27 @@ spec = describe "Types.Utxo" $ do
         prop description_findTxInUtxo findTxInUtxo
     describe "deleteTxIn" $ do
         prop description_deleteTxInUtxo deleteTxInUtxo
+    describe "verifyTxUtxo" $ do
+        prop description_verifyTxInUtxo verifyTxInUtxo
+    describe "applyTxToUtxo" $ do
+        prop description_applyTxToUtxoGood applyTxToUtxoGood
   where
     myTx = (TxIn myHash 0 mySig)
     myHash = unsafeHash (0 :: Int)
     mySig = sign mySK (myHash, 0, [])
     mySK = unsafePerformIO $ snd <$> keyGen
     description_findTxInUtxo =
-        "correctly finds the TxOut corresponding to (txHash, txIndex) when the key " ++
-        "is in the Utxo map, and doesn't find it otherwise"
+        "correctly finds the TxOut corresponding to (txHash, txIndex) when the key is in \
+        \ the Utxo map, and doesn't find it otherwise"
     description_deleteTxInUtxo =
-        "deleting a (txHash, txIndex) key from a Utxo map where it is present " ++
-        "returns the map without that key, and if it's not present it does nothing"
+        "deleting a (txHash, txIndex) key from a Utxo map where it is present returns \
+        \ the map without that key, and if it's not present it does nothing"
+    description_applyTxToUtxoGood =
+        "correctly removes spent outputs used as inputs in given transaction and \
+        \ successfully adds this transaction's outputs to the utxo map"
+    description_verifyTxInUtxo =
+        "successfully verifies a transaction whose inputs are all present in the utxo \
+        \ map"
 
 findTxInUtxo :: TxIn -> TxOut -> Utxo -> Bool
 findTxInUtxo t@TxIn{..} txO utxo =
@@ -49,16 +63,12 @@ deleteTxInUtxo t@TxIn{..} txO utxo =
         newUtxo = M.insert key txO utxo
     in (utxo' == deleteTxIn t newUtxo) && (utxo' == deleteTxIn t utxo')
 
-{-verifyTxInUtxo :: Tx -> Utxo -> Bool
-verifyTxInUtxo Tx{..} utxo =
-    let utxo' = foldr (flip M.delete utxo) $
-            map (\TxIn th ti _ -> (th, ti)) txInputs
-        key = (txInHash, txInIndex)
-        utxo' = M.delete key utxo
-        fun Tx{..} utxo = M.insert (txInHash, txInIndex) utxo
-        newUtxo = foldr fun txInputs
-    in (isVerSuccess == verifyTxUtxo newUtxo tx) &&
-       (isVerFailure == verifyTxUtxo utxo' tx)-}
+verifyTxInUtxo :: GoodTx -> Bool
+verifyTxInUtxo (getGoodTx -> ls) =
+    let txs = fmap (view _1) ls
+        newTx = uncurry Tx $ unzip $ map (\(_, tIs, tOs) -> (tIs, tOs)) ls
+        utxo = foldr applyTxToUtxo mempty txs
+    in isVerSuccess $ verifyTxUtxo utxo newTx
 
 applyTxToUtxoGood :: M.Map TxIn TxOut -> [TxOut] -> Bool
 applyTxToUtxoGood txMap txOuts =

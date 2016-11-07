@@ -5,13 +5,16 @@
 
 -- | `Arbitrary` instances for core types for using in tests and benchmarks
 
-module Pos.Types.Arbitrary () where
+module Pos.Types.Arbitrary
+       ( GoodTx (..)
+       ) where
 
+import           Control.Lens               (view, _3)
 import qualified Data.ByteString            as BS (pack)
 import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           Pos.Constants              (epochSlots, ftsSeedLength)
-import           Pos.Crypto                 (sign)
+import           Pos.Crypto                 (SecretKey, hash, sign, toPublic)
 import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              Coin (..), EpochIndex (..), FtsSeed (..),
@@ -64,6 +67,26 @@ instance Arbitrary Tx where
         txIns <- getNonEmpty <$> arbitrary
         txOuts <- getNonEmpty <$> arbitrary
         return $ Tx txIns txOuts
+
+newtype GoodTx = GoodTx
+    { getGoodTx ::[(Tx, TxIn, TxOut)]
+    } deriving (Show)
+
+instance Arbitrary GoodTx where
+    arbitrary = GoodTx <$> do
+        ls <- getNonEmpty <$>
+            (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
+        let fun (Tx txIn txOut, fromSk, toSk, c) =
+                (Tx txIn $ (txO fromSk c) : txOut, fromSk, txO toSk c)
+            txList = fmap fun ls
+            thisTxOutputs = fmap (view _3) txList
+            newTx (tx, fromSk, txOutput) =
+                let txHash = hash $ tx
+                    txIn = TxIn txHash 0 (sign fromSk (txHash, 0, thisTxOutputs))
+                in (tx, txIn, txOutput)
+            txO s c = TxOut (Address $ toPublic s) c
+            goodTx = fmap newTx txList
+        return goodTx
 
 instance Arbitrary FtsSeed where
     arbitrary = do

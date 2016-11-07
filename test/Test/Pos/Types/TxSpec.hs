@@ -6,23 +6,27 @@ module Test.Pos.Types.TxSpec
        ( spec
        ) where
 
-import           Pos.Crypto            (sign, toPublic)
-import           Pos.Types             (Address (..), Tx (..), TxIn (..), TxOut (..),
-                                        verifyTxAlone)
+import           Control.Lens          (view, _2, _3)
+import           Control.Monad         (join)
+import           Data.List             (lookup)
+import           Pos.Types             (GoodTx (..), Tx (..), TxIn (..), TxOut (..),
+                                        verifyTx, verifyTxAlone)
 import           Serokell.Util.Verify  (isVerFailure, isVerSuccess)
 
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Arbitrary (..), NonEmptyList (..))
 import           Universum
 
 spec :: Spec
 spec = describe "Types.Tx" $ do
     describe "verifyTx" $ do
         prop description_invalidateBadTx invalidateBadTx
+        prop description_validateGoodTx validateGoodTx
   where
     description_invalidateBadTx =
         "invalidates Txs with negative coins or empty inputs/outputs"
+    description_validateGoodTx =
+        "validates a transaction whose inputs and well-formed transaction outputs"
 
 invalidateBadTx :: Tx -> Bool
 invalidateBadTx tx@Tx{..} =
@@ -34,23 +38,10 @@ invalidateBadTx tx@Tx{..} =
   where
     negOutputs = fmap (\(TxOut a c) -> TxOut a (negate c)) txOutputs
 
-{-newtype GoodTx = GoodTx
-    { getGoodTx ::[(TxIn, TxOut)]
-    } deriving (Show)
-
-instance Arbitrary GoodTx where
-    arbitrary = GoodTx <$> do
-        ls <- getNonEmpty <$> arbitrary-- :: Gen (NonEmptyList (TxId, Word32, SecretKey, Coin))
-        let txIns = fmap fun ls
-            fun (tid, ix, sk, c) = (TxIn tid ix $ sign sk (tid, ix, [txOut sk c]), txOut sk c)
-            txOut s c = TxOut (Address $ toPublic s) c
-        return txIns
-
-verifyGoodTx :: GoodTx -> Bool
-verifyGoodTx (getGoodTx -> list) =
-    let txouts = fmap snd list
-        txinps = fmap fst list
+validateGoodTx :: GoodTx -> Bool
+validateGoodTx (getGoodTx -> ls) =
+    let txOutputs = fmap (view _3) ls
+        txInputs = fmap (view _2) ls
         inpResolver :: TxIn -> Maybe TxOut
-        inpResolver = flip lookup list
-    in isVerSuccess $ verifyTx inpResolver $ Tx txinps txouts
--}
+        inpResolver = join . flip lookup (map (\(Tx _ o, ti, _) -> (ti, head o)) ls)
+    in isVerSuccess $ verifyTx inpResolver $ Tx{..}

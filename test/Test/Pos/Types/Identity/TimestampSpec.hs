@@ -12,8 +12,7 @@ import           Universum
 
 import           Pos.Types             (Timestamp)
 
-import           Test.Pos.Util         (binaryEncodeDecode, msgPackEncodeDecode,
-                                        safeCopyEncodeDecode, showRead)
+import           Test.Pos.Util         (binaryEncodeDecode, msgPackEncodeDecode, showRead)
 
 spec :: Spec
 spec = describe "Timestamp" $ do

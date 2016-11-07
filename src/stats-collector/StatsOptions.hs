@@ -9,7 +9,8 @@ import           Control.Applicative        (empty)
 import           Data.Monoid                ((<>))
 import qualified Data.Text                  as T
 import           Options.Applicative.Simple (Parser, auto, help, long, metavar, option,
-                                             showDefault, simpleOptions, strOption, value)
+                                             showDefault, simpleOptions, strOption,
+                                             switch, value)
 import           Universum                  hiding ((<>))
 
 
@@ -17,6 +18,7 @@ data StatOpts = StatOpts
     { soOutputDir    :: FilePath
     , soOutputPrefix :: [Char]
     , soInterval     :: Integer -- seconds
+    , soLoop         :: Bool
     , soConfigPath   :: FilePath
     , soSshPassword  :: Text
     } deriving (Show)
@@ -31,8 +33,9 @@ argsParser =
         (long "output-pref" <> metavar "STRING" <> value "stats-node-" <>
          showDefault <> help "Prefix for statistic dir output")) <*>
     option auto (long "interval" <> metavar "SECONDS" <>
-                 help "Interval to collect data from" <>
+                 help "Interval to collect data since. In loop mode -- delay." <>
                  value 90 <> showDefault) <*>
+    switch (long "loop" <> help "Loop collecting (every interval, from start)") <*>
     strOption
         (long "config" <> metavar "FILEPATH" <> value "stats.yaml" <>
          help "Path to the configuration file (nodes list)") <*>

@@ -36,6 +36,7 @@ data GenOptions = GenOptions
     -- , goRemoteAddr  :: !NetworkAddress -- ^ Remote node address
     , goDHTPeers    :: ![DHTNode]         -- ^ Initial DHT nodes
     , goTxNum       :: !Int               -- ^ Number of tx to send
+    , goTxFrom      :: !Int               -- ^ Start from UTXO transaction #x
     , goInitBalance :: !Int               -- ^ Total coins in init utxo per address
     , goTPS         :: !Double            -- ^ TPS rate
     }
@@ -58,12 +59,14 @@ optionsParser = GenOptions
     <*> option auto
             (short 'n'
           <> long "tx-number"
-          <> value 10000
           <> help "Num of transactions (def 10000)")
-   <*> option auto
+    <*> option auto
+            (long "tx-from-n"
+          <> value 0
+          <> help "From which transaction in utxo to start")
+    <*> option auto
             (short 'k'
           <> long "init-money"
-          <> value 10000
           <> help "How many coins node has in the beginning")
     <*> (option auto
             (short 't'
@@ -152,11 +155,17 @@ main = do
 
             let na = dhtAddr <$> peers
 
+            beginT <- getPosixMs
             forM_ (zip recAddrs [0..(goTxNum-1)]) $ \(recAddr, idx) -> do
                 startT <- getPosixMs
                 logInfo $ sformat ("Sending transaction #"%int) idx
                 logInfo $ sformat ("Recipient address: "%build) recAddr
-                submitTx na (initTxId idx, 0) (recAddr, 1)
+                submitTx na (initTxId (idx + goTxFrom), 0) (recAddr, 1)
                 endT <- getPosixMs
                 let runDelta = endT - startT
                 wait $ for $ ms (max 0 $ tpsDelta - runDelta)
+            finishT <- getPosixMs
+            let globalTime = (fromIntegral (finishT - beginT)) / 1000
+                realTPS = (fromIntegral goTxNum) / globalTime
+            putText $ "Sending transactions took (s): " <> show globalTime
+            putText $ "So real tps was: " <> show realTPS

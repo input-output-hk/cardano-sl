@@ -67,8 +67,8 @@ genesisUtxoPetty :: (Int -> Int) -> Utxo
 genesisUtxoPetty k =
     M.fromList $ flip concatMap (genesisAddresses `zip` [0..]) $ \(a,nodei) ->
         if nodei == 0
-        then map (\i -> ((unsafeHash (show a ++ show i), 0), TxOut a 1)) [1..(k 0)]
-        else [((unsafeHash a, 0), TxOut a (fromIntegral $ k nodei))]
+        then map (\i -> ((unsafeHash (show a ++ show i), 1), TxOut a 1)) [1..(k 0)]
+        else [((unsafeHash a, (fromIntegral $ k nodei)), TxOut a 1)]
 
 ----------------------------------------------------------------------------
 -- Slot leaders

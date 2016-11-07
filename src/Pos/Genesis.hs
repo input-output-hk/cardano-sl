@@ -17,7 +17,7 @@ module Pos.Genesis
 
 
 import           Data.Default       (Default (def))
-import           Data.List          (genericLength, genericReplicate)
+import           Data.List          (genericLength, genericReplicate, (!!))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict    as M
 import qualified Data.Text          as T
@@ -66,6 +66,10 @@ data StakeDistribution
     | BitcoinStakes !Word  -- number of stakeholders
                     !Coin  -- total number of coins
 
+sdStakeHolders :: StakeDistribution -> Word
+sdStakeHolders (FlatStakes n _)    = n
+sdStakeHolders (BitcoinStakes n _) = n
+
 instance Default StakeDistribution where
     def = FlatStakes 3 30000
 
@@ -113,18 +117,21 @@ genesisUtxo sd =
   where
     zipF coin addr = ((unsafeHash addr, 0), TxOut addr coin)
 
--- | For every static stakeholder it generates `k` coins, but in `k`
--- transaction (1 coin each), where `k` is input parameter (depends on
--- node index).
---
--- Node 0 gets (k 0) coins one-by-one, everybody else (k
--- i) in one transaction.
-genesisUtxoPetty :: (Int -> Int) -> Utxo
-genesisUtxoPetty k =
-    M.fromList $ flip concatMap (genesisAddresses `zip` [0..]) $ \(a,nodei) ->
-        if nodei == 0
-        then map (\i -> ((unsafeHash (show a ++ show i), 0), TxOut a 1)) [1..(k 0)]
-        else [((unsafeHash a, 0), TxOut a (fromIntegral $ k nodei))]
+-- | Each utxo is split into many utxos, each containing 1 coin. Only
+-- for 0-th node.
+genesisUtxoPetty :: StakeDistribution -> Utxo
+genesisUtxoPetty sd =
+    M.fromList $
+    flip concatMap (genesisAddresses `zip` [0 .. sdStakeHolders sd - 1]) $
+    \(a, nodei) ->
+         let c = coinsDistr !! fromIntegral nodei
+         in if nodei == 0
+                then map
+                         (\i -> ((unsafeHash (show a ++ show i), 0), TxOut a 1))
+                         [1 .. c]
+                else [((unsafeHash a, 0), TxOut a (fromIntegral c))]
+  where
+    coinsDistr = stakeDistribution sd
 
 ----------------------------------------------------------------------------
 -- Slot leaders

@@ -47,7 +47,7 @@ import           Universum
 
 import           Pos.Communication           (SysStartRequest (..), SysStartResponse (..),
                                               allListeners, noCacheMessageNames, sendTx,
-                                              serverLoggerName, statsListener,
+                                              serverLoggerName, statsListeners,
                                               sysStartReqListener, sysStartRespListener)
 import           Pos.Constants               (RunningMode (..), isDevelopment,
                                               runningMode)
@@ -68,7 +68,7 @@ import           Pos.Types                   (Address, Coin, Timestamp (Timestam
                                               Tx (..), TxId, TxIn (..), TxOut (..), Utxo,
                                               timestampF, txF)
 import           Pos.Util                    (runWithRandomIntervals)
-import           Pos.Worker                  (runWorkers)
+import           Pos.Worker                  (runWorkers, statsWorkers)
 import           Pos.WorkMode                (ContextHolder (..), DBHolder (..),
                                               NodeContext (..), RealMode, ServiceMode,
                                               WorkMode, getNodeContext, ncPublicKey,
@@ -243,10 +243,12 @@ runNodeReal inst np@NodeParams {..} = runRealMode inst np listeners $ getNoStats
 -- | Run full node in benchmarking node
 -- TODO: spawn here additional listener, which would accept stat queries
 runNodeStats :: KademliaDHTInstance -> NodeParams -> IO ()
-runNodeStats inst np = runRealMode inst np listeners $ getStatsT runNode
+runNodeStats inst np = runRealMode inst np listeners $ getStatsT $ do
+    mapM_ fork_ statsWorkers
+    runNode
   where
-    listeners = addDevListeners np statsListeners
-    statsListeners = map (mapListenerDHT getStatsT) $ statsListener : allListeners
+    listeners = addDevListeners np sListeners
+    sListeners = map (mapListenerDHT getStatsT) $ statsListeners ++ allListeners
 
 ----------------------------------------------------------------------------
 -- Real mode runners

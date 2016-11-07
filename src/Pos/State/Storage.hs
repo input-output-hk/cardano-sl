@@ -42,8 +42,7 @@ module Pos.State.Storage
        , processTx
        , setToken
 
-       , IdTimestamp (..)
-       , addStatRecord
+       , newStatRecord
        , getStatRecords
        ) where
 
@@ -69,8 +68,8 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
                                           blkCreateNewBlock, blkProcessBlock, blkRollback,
                                           blkSetHead, getBlock, getHeadBlock, getLeaders,
                                           getSlotDepth, mayBlockBeUseful)
-import           Pos.State.Storage.Stats (HasStatsData (statsData), IdTimestamp (..),
-                                          StatsData, addStatRecord, getStatRecords)
+import           Pos.State.Storage.Stats (HasStatsData (statsData), StatsData,
+                                          getStatRecords, newStatRecord)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           getLocalTxs, getUtxoByDepth, processTx,
                                           txApplyBlocks, txRollback, txStorageFromUtxo,

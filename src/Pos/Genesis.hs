@@ -58,11 +58,17 @@ genesisUtxo =
     map (\a -> ((unsafeHash a, 0), TxOut a 10000)) genesisAddresses
 
 -- | For every static stakeholder it generates `k` coins, but in `k`
--- transaction (1 coin each), where `k` is input parameter.
-genesisUtxoPetty :: Int -> Utxo
+-- transaction (1 coin each), where `k` is input parameter (depends on
+-- node index).
+--
+-- Node 0 gets (k 0) coins one-by-one, everybody else (k
+-- i) in one transaction.
+genesisUtxoPetty :: (Int -> Int) -> Utxo
 genesisUtxoPetty k =
-    M.fromList $ flip concatMap genesisAddresses $ \a ->
-        map (\i -> ((unsafeHash (show a ++ show i), 0), TxOut a 1)) [1..k]
+    M.fromList $ flip concatMap (genesisAddresses `zip` [0..]) $ \(a,nodei) ->
+        if nodei == 0
+        then map (\i -> ((unsafeHash (show a ++ show i), 0), TxOut a 1)) [1..(k 0)]
+        else [((unsafeHash a, 0), TxOut a (fromIntegral $ k nodei))]
 
 ----------------------------------------------------------------------------
 -- Slot leaders

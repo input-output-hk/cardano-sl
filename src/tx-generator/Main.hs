@@ -8,6 +8,7 @@ import           Control.TimeWarp.Timed   (Microsecond, for, ms, wait)
 import           Data.Default             (def)
 import           Data.List                ((!!))
 import           Data.Monoid              ((<>))
+import           Data.Time.Clock.POSIX    (getPOSIXTime)
 import           Formatting               (build, int, sformat, (%))
 import           Options.Applicative      (Parser, ParserInfo, auto, execParser, fullDesc,
                                            help, helper, info, long, many, metavar,
@@ -31,12 +32,12 @@ import           Pos.WorkMode             (WorkMode)
 import           Serokell.Util.OptParse   (fromParsec)
 
 data GenOptions = GenOptions
-    { goGenesisIdx  :: !Word           -- ^ Index in genesis key pairs.
+    { goGenesisIdx  :: !Word              -- ^ Index in genesis key pairs.
     -- , goRemoteAddr  :: !NetworkAddress -- ^ Remote node address
-    , goDHTPeers    :: ![DHTNode]       -- ^ Initial DHT nodes
-    , goTxNum       :: !Int            -- ^ Number of tx to send
-    , goInitBalance :: !Int            -- ^ Total coins in init utxo per address
-    , goDelay       :: !Microsecond    -- ^ Delay between transactions
+    , goDHTPeers    :: ![DHTNode]         -- ^ Initial DHT nodes
+    , goTxNum       :: !Int               -- ^ Number of tx to send
+    , goInitBalance :: !Int               -- ^ Total coins in init utxo per address
+    , goTPS         :: !Double            -- ^ TPS rate
     }
 
 optionsParser :: Parser GenOptions
@@ -64,13 +65,11 @@ optionsParser = GenOptions
           <> long "init-money"
           <> value 10000
           <> help "How many coins node has in the beginning")
-    <*> (ms <$>
-         option auto
-            (short 'd'
-          <> long "delay"
-          <> metavar "INT"
-          <> value 500
-          <> help "Delay between transactions in ms"))
+    <*> (option auto
+            (short 't'
+          <> long "tps"
+          <> metavar "DOUBLE"
+          <> help "TPS (transactions per second)"))
 
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $
@@ -144,6 +143,8 @@ main = do
         initTxId :: Int -> TxId
         initTxId k = unsafeHash (show addr ++ show k)
 
+    let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
+        tpsDelta = round $ 1000 / goTPS
     bracketDHTInstance baseParams $ \inst -> do
         runRealMode inst params [] $ getNoStatsT $ do
             logInfo "TX GEN RUSHING"
@@ -152,7 +153,10 @@ main = do
             let na = dhtAddr <$> peers
 
             forM_ (zip recAddrs [0..(goTxNum-1)]) $ \(recAddr, idx) -> do
+                startT <- getPosixMs
                 logInfo $ sformat ("Sending transaction #"%int) idx
                 logInfo $ sformat ("Recipient address: "%build) recAddr
                 submitTx na (initTxId idx, 0) (recAddr, 1)
-                wait $ for goDelay
+                endT <- getPosixMs
+                let runDelta = endT - startT
+                wait $ for $ ms (max 0 $ tpsDelta - runDelta)

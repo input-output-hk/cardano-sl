@@ -77,4 +77,5 @@ class SscTypes ssc => SscStorageClass ssc where
 
     -- TODO: one more BARDAQ. It's not related to Storage, but can't
     -- be put into SscTypes now :(
+    -- | Verify payload using header containing this payload.
     sscVerifyPayload :: Tagged ssc (MainBlockHeader ssc -> SscPayload ssc -> VerificationRes)

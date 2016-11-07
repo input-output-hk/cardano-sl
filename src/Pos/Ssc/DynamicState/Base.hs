@@ -28,6 +28,7 @@ module Pos.Ssc.DynamicState.Base
        , secretToFtsSeed
 
        -- * Verification
+       , checkCert
        , verifyCommitment
        , verifyCommitmentSignature
        , verifySignedCommitment
@@ -48,7 +49,7 @@ import           Universum
 import           Pos.Constants       (k)
 import           Pos.Crypto          (EncShare, PublicKey, Secret, SecretKey, SecretProof,
                                       SecretSharingExtra, SecureRandom (..), Share,
-                                      Signature, Signed, Threshold, VssPublicKey,
+                                      Signature, Signed (..), Threshold, VssPublicKey,
                                       genSharedSecret, getDhSecret, secretToDhSecret,
                                       sign, verify, verifyEncShare, verifySecretProof)
 import           Pos.Types.Types     (EpochIndex, FtsSeed (..), LocalSlotIndex,
@@ -157,6 +158,12 @@ verifySignedCommitment pk epoch sc =
 verifyOpening :: Commitment -> Opening -> Bool
 verifyOpening Commitment {..} (Opening secret) =
     verifySecretProof commExtra secret commProof
+
+-- | Check that the VSS certificate is signed properly
+checkCert
+    :: (PublicKey, VssCertificate)
+    -> Bool
+checkCert (pk, cert) = verify pk (signedValue cert) (signedSig cert)
 
 -- | Make signed commitment from commitment and epoch index using secret key.
 mkSignedCommitment :: SecretKey -> EpochIndex -> Commitment -> SignedCommitment

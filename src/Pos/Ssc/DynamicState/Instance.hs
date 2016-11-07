@@ -63,7 +63,7 @@ import           Pos.Ssc.DynamicState.Types   (DSMessage (..), DSPayload (..), D
 import           Pos.State.Storage.Types      (AltChain)
 import           Pos.Types                    (Address (getAddress), Block, SlotId (..),
                                                SlotLeaders, Utxo, blockMpc, blockSlot,
-                                               blockSlot, txOutAddress)
+                                               blockSlot, gbHeader, txOutAddress)
 import           Pos.Util                     (magnify', readerToState, zoom', _neHead)
 
 data SscDynamicState
@@ -293,7 +293,7 @@ checkSharesLastVer pk shares =
 -- remain consistent with respect to SSC-related data.
 -- TODO: check that nodes providing their VSS certificates have stake.
 mpcVerifyBlock
-    :: (SscPayload ssc ~ DSPayload)
+    :: forall ssc . (SscPayload ssc ~ DSPayload)
     => Block ssc -> Query VerificationRes
 -- Genesis blocks don't have any SSC data.
 mpcVerifyBlock (Left _) = return VerSuccess
@@ -302,10 +302,11 @@ mpcVerifyBlock (Left _) = return VerSuccess
 -- global data to make more checks using this data.
 mpcVerifyBlock (Right b) = magnify' lastVer $ do
     let SlotId{siSlot = slotId} = b ^. blockSlot
-    let commitments  = b ^. blockMpc . mdCommitments
-        openings     = b ^. blockMpc . mdOpenings
-        shares       = b ^. blockMpc . mdShares
-        certificates = b ^. blockMpc . mdVssCertificates
+    let payload      = b ^. blockMpc
+    let commitments  = payload ^. mdCommitments
+        openings     = payload ^. mdOpenings
+        shares       = payload ^. mdShares
+        certificates = payload ^. mdVssCertificates
     globalCommitments  <- view dsGlobalCommitments
     globalOpenings     <- view dsGlobalOpenings
     globalShares       <- view dsGlobalShares
@@ -369,11 +370,13 @@ mpcVerifyBlock (Right b) = magnify' lastVer $ do
                    \in the corresponding commitment")
             ]
 
-    return $ verifyGeneric $ concat $ concat
-        [ [ commChecks       | isComm ]
-        , [ openChecks       | isOpen ]
-        , [ shareChecks      | isShare ]
-        ]
+    let ourRes = verifyGeneric $ concat $ concat
+            [ [ commChecks       | isComm ]
+            , [ openChecks       | isOpen ]
+            , [ shareChecks      | isShare ]
+            ]
+
+    return (verifyDSPayload @ssc (b ^. gbHeader) payload <> ourRes)
 
 -- TODO:
 --   ★ verification messages should include block hash/slotId

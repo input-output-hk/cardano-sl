@@ -159,6 +159,7 @@ library
 executable cardano-node
   hs-source-dirs:      src/node
   main-is:             Main.hs
+  other-modules:       NodeOptions
   build-depends:       base
                      , data-default
                      , binary

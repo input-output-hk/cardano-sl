@@ -3,7 +3,8 @@
 module Pos.Genesis
        (
        -- * Static state
-         genesisAddresses
+         StakeDistribution (..)
+       , genesisAddresses
        , genesisKeyPairs
        , genesisPublicKeys
        , genesisSecretKeys
@@ -15,6 +16,8 @@ module Pos.Genesis
        ) where
 
 
+import           Data.Default       (Default (def))
+import           Data.List          (genericTake)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict    as M
 import qualified Data.Text          as T
@@ -24,7 +27,8 @@ import           Universum
 import           Pos.Constants      (epochSlots, genesisN)
 import           Pos.Crypto         (PublicKey, SecretKey, deterministicKeyGen,
                                      unsafeHash)
-import           Pos.Types.Types    (Address (Address), SlotLeaders, TxOut (..), Utxo)
+import           Pos.Types.Types    (Address (Address), Coin, SlotLeaders, TxOut (..),
+                                     Utxo)
 
 
 ----------------------------------------------------------------------------
@@ -52,10 +56,25 @@ genesisPublicKeys = map fst genesisKeyPairs
 genesisAddresses :: [Address]
 genesisAddresses = map Address genesisPublicKeys
 
-genesisUtxo :: Utxo
-genesisUtxo =
-    M.fromList . take 3 $
-    map (\a -> ((unsafeHash a, 0), TxOut a 10000)) genesisAddresses
+-- | Stake distribution in genesis block.
+-- FlatStakes is a flat distribution, i. e. each node has the same amount of coins.
+-- BitcoinStakes is a Bitcoin mining pool-style ditribution.
+data StakeDistribution
+    = FlatStakes !Word     -- number of stakeholders
+                 !Coin     -- total number of coins
+    | BitcoinStakes !Word  -- number of stakeholders
+                    !Coin  -- total number of coins
+
+instance Default StakeDistribution where
+    def = FlatStakes 3 30000
+
+genesisUtxo :: StakeDistribution -> Utxo
+genesisUtxo (FlatStakes stakeholders coins) =
+    M.fromList . genericTake stakeholders $
+    map (\a -> ((unsafeHash a, 0), TxOut a val)) genesisAddresses
+  where
+    val = coins `div` fromIntegral stakeholders
+genesisUtxo (BitcoinStakes _ _) = notImplemented
 
 -- | For every static stakeholder it generates `k` coins, but in `k`
 -- transaction (1 coin each), where `k` is input parameter (depends on

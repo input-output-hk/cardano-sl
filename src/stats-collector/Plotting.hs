@@ -93,5 +93,5 @@ plotTPS filepath startTime tpsStats = do
     chartTps = do
         layout_title .= "TPS"
         setColors [opaque red]
-        plot $ line "Network receive (Kb/s)" $
+        plot $ line "Transactions per second" $
             [map (first (\x -> round (x `diffUTCTime` startTime) :: Int)) tpsStats]

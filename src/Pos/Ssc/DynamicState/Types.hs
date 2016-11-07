@@ -14,6 +14,7 @@ module Pos.Ssc.DynamicState.Types
          DSPayload(..)
        , DSProof(..)
        , DSMessage(..)
+       , filterDSPayload
        , mkDSProof
        , verifyDSPayload
 
@@ -46,7 +47,7 @@ import           Pos.Ssc.DynamicState.Base (CommitmentsMap, Opening, OpeningsMap
                                             SharesMap, SignedCommitment, VssCertificate,
                                             VssCertificatesMap, isCommitmentId,
                                             isOpeningId, isSharesId)
-import           Pos.Types                 (MainBlockHeader, headerSlot)
+import           Pos.Types                 (MainBlockHeader, SlotId, headerSlot)
 
 ----------------------------------------------------------------------------
 -- SscMessage
@@ -118,7 +119,7 @@ instance Buildable DSPayload where
                 (HM.keys _mdVssCertificates)
 
 -- | Verify payload using header containing this payload.
--- TODO: add this function into some class probably.
+-- TODO: add more checks here.
 verifyDSPayload
     :: (SscPayload ssc ~ DSPayload)
     => MainBlockHeader ssc -> SscPayload ssc -> VerificationRes
@@ -133,6 +134,26 @@ verifyDSPayload header DSPayload {..} =
         ]
   where
     slotId = header ^. headerSlot
+
+-- | Remove messages irrelevant to given slot id from payload.
+filterDSPayload :: SlotId -> DSPayload -> DSPayload
+filterDSPayload slotId DSPayload {..} =
+    DSPayload
+    { _mdCommitments = filteredCommitments
+    , _mdOpenings = filteredOpenings
+    , _mdShares = filteredShares
+    , ..
+    }
+  where
+    filteredCommitments = filterDo isCommitmentId _mdCommitments
+    filteredOpenings = filterDo isOpeningId _mdOpenings
+    filteredShares = filterDo isSharesId _mdShares
+    filterDo
+        :: Monoid container
+        => (SlotId -> Bool) -> container -> container
+    filterDo checker container
+        | checker slotId = container
+        | otherwise = mempty
 
 ----------------------------------------------------------------------------
 -- SscProof

@@ -61,9 +61,9 @@ import           Pos.Ssc.DynamicState.Storage (DSStorage, DSStorageVersion (..),
                                                dsLocalOpenings, dsLocalShares,
                                                dsVersionedL)
 import           Pos.Ssc.DynamicState.Types   (DSMessage (..), DSPayload (..), DSProof,
-                                               hasCommitment, hasOpening, hasShares,
-                                               mdCommitments, mdOpenings, mkDSProof,
-                                               verifyDSPayload)
+                                               filterDSPayload, hasCommitment, hasOpening,
+                                               hasShares, mdCommitments, mdOpenings,
+                                               mkDSProof, verifyDSPayload)
 import           Pos.State.Storage.Types      (AltChain)
 import           Pos.Types                    (Address (getAddress), Block, SlotId (..),
                                                SlotLeaders, Utxo, blockMpc, blockSlot,
@@ -153,21 +153,21 @@ lastVer = dsVersioned . _neHead
 --                          <> " shares=" <> show (localShareKeys, globalShareKeys)
 --  where keys' = fmap pretty . HM.keys
 
-getLocalPayload :: Query DSPayload
-getLocalPayload =
-    (magnify' lastVer $
-     DSPayload <$> (view dsLocalCommitments) <*> (view dsLocalOpenings) <*>
-     view dsLocalShares <*>
-     view dsLocalCertificates) >>=
-    ensureOwnMpc
+getLocalPayload :: SlotId -> Query DSPayload
+getLocalPayload slotId =
+    (filterDSPayload slotId <$> getStoredLocalPayload) >>= ensureOwnMpc slotId
 
-ensureOwnMpc :: DSPayload -> Query DSPayload
-ensureOwnMpc md = do
+getStoredLocalPayload :: Query DSPayload
+getStoredLocalPayload =
+    magnify' lastVer $
+    DSPayload <$> view dsLocalCommitments <*> view dsLocalOpenings <*>
+    view dsLocalShares <*> view dsLocalCertificates
+
+ensureOwnMpc :: SlotId -> DSPayload -> Query DSPayload
+ensureOwnMpc slotId payload = do
     globalMpc <- getGlobalMpcData
-    -- ourShares <- getOurShares
-    ourComm <- view dsCurrentSecret
-    slotId <- view dsLastProcessedSlot
-    return $ maybe identity (ensureOwnMpcDo globalMpc slotId) ourComm md
+    ourSecret <- view dsCurrentSecret
+    return $ maybe identity (ensureOwnMpcDo globalMpc slotId) ourSecret payload
 
 ensureOwnMpcDo
     :: DSPayload

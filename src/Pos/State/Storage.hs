@@ -149,7 +149,7 @@ getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock
 getLocalSscPayload
     :: forall ssc.
        SscStorageClass ssc
-    => Query ssc (SscPayload ssc)
+    => SlotId -> Query ssc (SscPayload ssc)
 getLocalSscPayload = sscGetLocalPayload @ ssc
 
 getGlobalSscPayload
@@ -191,7 +191,7 @@ createNewBlockDo
     => SecretKey -> SlotId -> Update ssc (MainBlock ssc)
 createNewBlockDo sk sId = do
     txs <- readerToState $ toList <$> getLocalTxs
-    mpcData <- readerToState (sscGetLocalPayload @ ssc)
+    mpcData <- readerToState (sscGetLocalPayload @ssc sId)
     blk <- blkCreateNewBlock sk sId txs mpcData
     let blocks = Right blk :| []
     sscApplyBlocks blocks

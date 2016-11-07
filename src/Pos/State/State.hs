@@ -128,8 +128,8 @@ getHeadBlock = queryDisk A.GetHeadBlock
 getLocalTxs :: WorkModeDB m => m (HashSet Tx)
 getLocalTxs = queryDisk A.GetLocalTxs
 
-getLocalSscPayload :: WorkModeDB m => m DSPayload
-getLocalSscPayload = queryDisk A.GetLocalSscPayload
+getLocalSscPayload :: WorkModeDB m => SlotId -> m DSPayload
+getLocalSscPayload = queryDisk . A.GetLocalSscPayload
 
 getGlobalMpcData :: WorkModeDB m => m DSPayload
 getGlobalMpcData = queryDisk A.GetGlobalSscPayload

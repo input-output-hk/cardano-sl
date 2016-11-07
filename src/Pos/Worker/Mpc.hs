@@ -19,6 +19,7 @@ import           Pos.Communication.Methods (announceCommitment, announceOpening,
                                             announceShares, announceVssCertificate)
 import           Pos.Communication.Types   (SendSsc (..))
 import           Pos.DHT                   (sendToNeighbors)
+import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class.Workers     (SscWorkersClass (..))
 import           Pos.Ssc.DynamicState      (DSPayload (..), SscDynamicState,
                                             hasCommitment, hasOpening, hasShares,
@@ -96,7 +97,7 @@ mpcTransmitterInterval = sec 2
 mpcTransmitter :: WorkMode m => m ()
 mpcTransmitter =
     repeatForever mpcTransmitterInterval onError $
-    do DSPayload{..} <- getLocalSscPayload
+    do DSPayload{..} <- getLocalSscPayload =<< getCurrentSlot
        mapM_ (uncurry announceCommitment) $ HM.toList _mdCommitments
        mapM_ (uncurry announceOpening) $ HM.toList _mdOpenings
        mapM_ (uncurry announceShares) $ HM.toList _mdShares

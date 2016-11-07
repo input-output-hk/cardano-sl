@@ -10,10 +10,9 @@ import           Control.TimeWarp.Logging (Severity (..), WithNamedLogger, logIn
 import           Data.Aeson.TH            (deriveJSON)
 import           Data.Aeson.Types         (FromJSON)
 import           Data.Default             (def)
-import System.Exit (exitSuccess)
 import           Data.Monoid              ((<>))
 import qualified Data.Text.IO             as TIO
-import           Data.Time.Clock          (addUTCTime, getCurrentTime)
+import           Data.Time.Clock          (addUTCTime, getCurrentTime, UTCTime)
 import           Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
 import qualified Data.Yaml                as Y
 import           Formatting               (build, int, sformat, (%))
@@ -70,7 +69,7 @@ main :: IO ()
 main = do
     opts@O.StatOpts{..} <- O.readOptions
     CollectorConfig{..} <- readRemoteConfig soConfigPath
-    startTime <- ((fromInteger $ - 200) `addUTCTime`) <$> getCurrentTime
+    startTime <- ((fromInteger $ - soInterval) `addUTCTime`) <$> getCurrentTime
     print startTime
     putText $ "Launched with options: " <> show opts
     putText $ "Current time is: " <> show startTime
@@ -88,6 +87,10 @@ main = do
         perEntryPlots foldername startTime stat
         TIO.writeFile (foldername </> "data.log") $ SAR.statsToText stat
 
+    let endTime :: UTCTime
+        endTime =
+            maximum $ map SAR.statTimestamp $
+            fromMaybe (panic "stats null") $ head stats
     let addrs = eitherPanic "Invalid address: " $
             mapM (\(h,p) -> parse addrParser "" $ toString (h <> ":" <> show p))
                  ccNodes
@@ -130,7 +133,10 @@ main = do
                                            fromIntegral
                             timeSeries = map mapper res
                             foldername = soOutputDir </> (soOutputPrefix ++ show id)
-                        plotTPS foldername startTime $ filter ((> startTime) . fst) timeSeries
+                        plotTPS foldername startTime $
+                            filter ((> startTime) . fst) $
+                            filter ((< endTime) . fst) $
+                            timeSeries
                         logInfo $ sformat ("Plots for node "%int%" are done") id
 
             --res <- (flip mapM [0..(length addrs)-1]) $ \_ -> liftIO $ do

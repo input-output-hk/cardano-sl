@@ -86,7 +86,6 @@ plotTPS
     => FilePath -> UTCTime -> [(UTCTime, Double)] -> m ()
 plotTPS filepath startTime tpsStats = do
     putStrLn $ "Plotting tps for " <> filepath
-    traceShowM $ take 5 tpsStats
     liftIO $ createDirectoryIfMissing True filepath
     void $ liftIO $ toFile def (filepath </> "dpsStats.svg") chartTps
   where

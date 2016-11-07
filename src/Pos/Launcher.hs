@@ -68,7 +68,7 @@ import           Pos.Types                   (Address, Coin, Timestamp (Timestam
                                               Tx (..), TxId, TxIn (..), TxOut (..), Utxo,
                                               timestampF, txF)
 import           Pos.Util                    (runWithRandomIntervals)
-import           Pos.Worker                  (runWorkers, statsWorker)
+import           Pos.Worker                  (runWorkers, statsWorkers)
 import           Pos.WorkMode                (ContextHolder (..), DBHolder (..),
                                               NodeContext (..), RealMode, ServiceMode,
                                               WorkMode, getNodeContext, ncPublicKey,
@@ -244,7 +244,7 @@ runNodeReal inst np@NodeParams {..} = runRealMode inst np listeners $ getNoStats
 -- TODO: spawn here additional listener, which would accept stat queries
 runNodeStats :: KademliaDHTInstance -> NodeParams -> IO ()
 runNodeStats inst np = runRealMode inst np listeners $ getStatsT $ do
-    fork_ statsWorker
+    mapM_ fork_ statsWorkers
     runNode
   where
     listeners = addDevListeners np sListeners

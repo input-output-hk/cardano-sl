@@ -16,7 +16,8 @@ import           Universum                  hiding ((<>))
 import           Pos.Constants              (RunningMode (..), runningMode)
 import           Pos.Crypto                 (keyGen, vssKeyGen)
 import           Pos.DHT                    (DHTNodeType (..), dhtNodeType)
-import           Pos.Genesis                (genesisSecretKeys, genesisUtxoPetty)
+import           Pos.Genesis                (StakeDistribution (..), genesisSecretKeys,
+                                             genesisUtxo, genesisUtxoPetty)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), bracketDHTInstance,
                                              runNodeReal, runNodeStats, runSupporterReal,
@@ -43,39 +44,59 @@ decode' fpath = either fail' return . decode =<< LBS.readFile fpath
 
 main :: IO ()
 main = do
-    (args,()) <-
-        simpleOptions "cardano-node" "PoS prototype node" "Use it!" argsParser empty
+    (args, ()) <-
+        simpleOptions
+            "cardano-node"
+            "PoS prototype node"
+            "Use it!"
+            argsParser
+            empty
     bracketDHTInstance (baseParams "node" args) (action args)
   where
     action args@Args {..} inst = do
         case dhtKey of
-          Just key -> do
-            let type_ = dhtNodeType key
-            if type_ == Just (if supporterNode then DHTSupporter else DHTFull)
-              then return ()
-              else case type_ of
-                     Just type_' -> fail $ "Id of type " ++ (show type_') ++ " supplied"
-                     _           -> fail "Id of unknown type supplied"
-          _ -> return ()
+            Just key -> do
+                let type_ = dhtNodeType key
+                if type_ ==
+                   Just
+                       (if supporterNode
+                            then DHTSupporter
+                            else DHTFull)
+                    then return ()
+                    else case type_ of
+                             Just type_' ->
+                                 fail $
+                                 "Id of type " ++ (show type_') ++ " supplied"
+                             _ -> fail "Id of unknown type supplied"
+            _ -> return ()
         if supporterNode
-           then runSupporterReal inst (baseParams "supporter" args)
-           else do
-              spendingSK <- getKey ((genesisSecretKeys !!) <$> spendingGenesisI) spendingSecretPath "spending" (snd <$> keyGen)
-              vssSK <- getKey ((genesisVssKeyPairs !!) <$> vssGenesisI) vssSecretPath "vss.keypair" vssKeyGen
-              systemStart <- getSystemStart inst args
-
-              let currentParams =  params args spendingSK vssSK systemStart
-              if enableStats
-                  then runNodeStats inst currentParams
-                  else runNodeReal inst currentParams
-
+            then runSupporterReal inst (baseParams "supporter" args)
+            else do
+                spendingSK <-
+                    getKey
+                        ((genesisSecretKeys !!) <$> spendingGenesisI)
+                        spendingSecretPath
+                        "spending"
+                        (snd <$> keyGen)
+                vssSK <-
+                    getKey
+                        ((genesisVssKeyPairs !!) <$> vssGenesisI)
+                        vssSecretPath
+                        "vss.keypair"
+                        vssKeyGen
+                systemStart <- getSystemStart inst args
+                let currentParams = params args spendingSK vssSK systemStart
+                if enableStats
+                    then runNodeStats inst currentParams
+                    else runNodeReal inst currentParams
     getSystemStart inst args =
-      case runningMode of
-        Development -> if timeLord args
-                          then runTimeLordReal (loggingParams "time-lord" args)
-                          else runTimeSlaveReal inst (baseParams "time-slave" args)
-        Production systemStart -> return systemStart
-    loggingParams logger Args{..} =
+        case runningMode of
+            Development ->
+                if timeLord args
+                    then runTimeLordReal (loggingParams "time-lord" args)
+                    else runTimeSlaveReal inst (baseParams "time-slave" args)
+            Production systemStart -> return systemStart
+    loggingParams logger Args {..} =
         def
         { lpRootLogger = logger
         , lpMainSeverity = mainLogSeverity
@@ -83,17 +104,18 @@ main = do
         , lpServerSeverity = serverLogSeverity
         , lpCommSeverity = commLogSeverity
         }
-    baseParams logger args@Args{..} =
+    baseParams logger args@Args {..} =
         BaseParams
         { bpLogging = loggingParams logger args
         , bpPort = port
         , bpDHTPeers = dhtPeers
-        , bpDHTKeyOrType = if supporterNode
-                              then maybe (Right DHTSupporter) Left dhtKey
-                              else maybe (Right DHTFull) Left dhtKey
+        , bpDHTKeyOrType =
+              if supporterNode
+                  then maybe (Right DHTSupporter) Left dhtKey
+                  else maybe (Right DHTFull) Left dhtKey
         , bpDHTExplicitInitial = dhtExplicitInitial
         }
-    params args@Args{..} spendingSK vssSK systemStart =
+    params args@Args {..} spendingSK vssSK systemStart =
         NodeParams
         { npDbPath = Just dbPath
         , npRebuildDb = rebuildDB
@@ -101,8 +123,20 @@ main = do
         , npSecretKey = spendingSK
         , npVssKeyPair = vssSK
         , npBaseParams = baseParams "node" args
-        , npCustomUtxo = if pettyUtxo
-                         then Just $ genesisUtxoPetty def
-                         else Nothing
+        , npCustomUtxo =
+              Just .
+              (if pettyUtxo
+                   then genesisUtxoPetty
+                   else genesisUtxo) $
+              stakesDistr args
         , npTimeLord = timeLord
         }
+    stakesDistr Args {..} =
+        case (flatDistr, bitcoinDistr) of
+            (Nothing, Nothing) -> def
+            (Just _, Just _) ->
+                panic "flat-distr and bitcoin distr are conflicting options"
+            (Just (nodes, coins), Nothing) ->
+                FlatStakes (fromIntegral nodes) (fromIntegral coins)
+            (Nothing, Just (nodes, coins)) ->
+                BitcoinStakes (fromIntegral nodes) (fromIntegral coins)

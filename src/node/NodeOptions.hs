@@ -28,6 +28,8 @@ data Args = Args
     , vssSecretPath      :: !(Maybe FilePath)
     , port               :: !Word16
     , pettyUtxo          :: !Bool
+    , flatDistr          :: !(Maybe (Int, Int))
+    , bitcoinDistr       :: !(Maybe (Int, Int))
     , dhtPeers           :: ![DHTNode]
     , supporterNode      :: !Bool
     , dhtKey             :: !(Maybe DHTKey)
@@ -75,6 +77,22 @@ argsParser =
     switch
         (long "petty-utxo" <>
          help "Petty utxo (1 coin per transaction, many txs)") <*>
+    optional
+        (option auto $
+         mconcat
+             [ long "flat-distr"
+             , metavar "(INT,INT)"
+             , help
+                   "Use flat stake distribution with given parameters (nodes, coins)"
+             ]) <*>
+    optional
+        (option auto $
+         mconcat
+             [ long "bitcoin-distr"
+             , metavar "(INT,INT)"
+             , help
+                   "Use bitcoin stake distribution with given parameters (nodes, coins)"
+             ]) <*>
     many
         (option (fromParsec dhtNodeParser) $
          long "peer" <> metavar "HOST:PORT/HOST_ID" <> help peerHelpMsg) <*>

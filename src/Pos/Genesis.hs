@@ -64,6 +64,7 @@ data StakeDistribution
     = FlatStakes !Word     -- number of stakeholders
                  !Coin     -- total number of coins
     | BitcoinStakes !Word  -- number of stakeholders
+                    !Coin  -- total number of coins
 
 instance Default StakeDistribution where
     def = FlatStakes 3 30000
@@ -76,7 +77,13 @@ stakeDistribution (FlatStakes stakeholders coins) =
     genericReplicate stakeholders val
   where
     val = coins `div` fromIntegral stakeholders
-stakeDistribution (BitcoinStakes stakeholders)
+stakeDistribution (BitcoinStakes stakeholders coins) =
+    map normalize $ bitcoinDistribution1000Coins stakeholders
+  where
+    normalize x = x * coins `div` 1000
+
+bitcoinDistribution1000Coins :: Word -> [Coin]
+bitcoinDistribution1000Coins stakeholders
     | stakeholders < 20 = stakeDistribution (FlatStakes stakeholders 1000)
     | stakeholders == 20 = bitcoinDistribution20
     | otherwise =

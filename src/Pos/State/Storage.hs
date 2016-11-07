@@ -62,6 +62,7 @@ import           Universum
 import           Pos.Constants           (k)
 import           Pos.Crypto              (PublicKey, SecretKey, Share, Threshold,
                                           VssKeyPair, VssPublicKey)
+import           Pos.Genesis             (genesisUtxo)
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (SscTypes (..))
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
@@ -128,20 +129,20 @@ instance HasStatsData (Storage ssc) where
     statsData = _statsData
 
 instance (SscTypes ssc, Default (SscStorage ssc)) => Default (Storage ssc) where
-    def =
-        Storage
-        { __mpcStorage = def
-        , __txStorage = def
-        , __blockStorage = def
-        , _slotId = unflattenSlotId 0
-        , __statsData = def
-        }
+    def = storageFromUtxo $ genesisUtxo def
 
 -- | Create default storage with specified utxo
 storageFromUtxo
     :: (SscTypes ssc, Default (SscStorage ssc))
     => Utxo -> (Storage ssc)
-storageFromUtxo u = def {__txStorage = txStorageFromUtxo u}
+storageFromUtxo u =
+    Storage
+    { __mpcStorage = def
+    , __txStorage = txStorageFromUtxo u
+    , __blockStorage = def
+    , _slotId = unflattenSlotId 0
+    , __statsData = def
+    }
 
 getHeadSlot :: Query ssc (Either EpochIndex SlotId)
 getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock

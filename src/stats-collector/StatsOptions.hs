@@ -8,17 +8,15 @@ module StatsOptions
 import           Control.Applicative        (empty)
 import           Data.Monoid                ((<>))
 import qualified Data.Text                  as T
-import           Options.Applicative.Simple (Parser, auto, help, long, metavar, option,
-                                             showDefault, simpleOptions, strOption, value)
+import           Options.Applicative.Simple (Parser, help, long, metavar, showDefault,
+                                             simpleOptions, strOption, value)
 import           Universum                  hiding ((<>))
 
 
 data StatOpts = StatOpts
     { soOutputDir    :: FilePath
-    , soOutputPrefix :: Text
+    , soOutputPrefix :: [Char]
     , soConfigPath   :: FilePath
-    , soTpsStep      :: Int
-    , soTpsMax       :: Int
     , soSshPassword  :: Text
     } deriving (Show)
 
@@ -28,21 +26,12 @@ argsParser =
     strOption
         (long "output-dir" <> metavar "FILEPATH" <> value "." <>
          showDefault <> help "Path to the output directory") <*>
-    (T.pack <$>
-     strOption
-        (long "output-pref" <> metavar "STRING" <> value "stats-" <>
+    (strOption
+        (long "output-pref" <> metavar "STRING" <> value "stats-node-" <>
          showDefault <> help "Prefix for statistic dir output")) <*>
     strOption
         (long "config" <> metavar "FILEPATH" <> value "stats.yaml" <>
          help "Path to the configuration file (nodes list)") <*>
-    option
-        auto
-        (long "tps-step" <> metavar "INTEGER" <> value 10 <>
-         showDefault <> help "Step of TPS") <*>
-    option
-        auto
-        (long "tps-max" <> metavar "INTEGER" <> value 50 <>
-         showDefault <> help "Max value of TPS") <*>
     (T.pack <$> strOption
         (long "ssh-passwd" <> metavar "STRING" <>
          help "Password for ssh node instances"))

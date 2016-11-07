@@ -3,7 +3,10 @@
 
 -- | Generating plots from statistics
 
-module Plotting (perEntryPlots) where
+module Plotting
+    ( perEntryPlots
+    , plotTPS
+    ) where
 
 import           Control.Concurrent.Async.Lifted           (mapConcurrently)
 import           Control.Monad.Trans.Control               (MonadBaseControl)
@@ -22,28 +25,27 @@ import           Universum                                 hiding (mapConcurrent
 
 import           SarCollector                              (StatisticsEntry (..))
 
+smooth :: [(a, Double)] -> [(a,Double)]
+smooth xs = map (\i -> let m2 = snd $ xs !! (max 0 $ i-2)
+                           m1 = snd $ xs !! (max 0 $ i-1)
+                           (t,m0) = xs !! max 0 i
+                       in (t,(m0+m2+m1)/3))
+                [0..length xs-1]
+
 
 -- | Given the directory, puts 4 graphs into it -- per statistics
 perEntryPlots
-    :: (MonadIO m)
-    => FilePath -> UTCTime -> [(UTCTime, Double)] -> [StatisticsEntry] -> m ()
-perEntryPlots filepath startTime tpsStats stats = do
-    putText "Plotting..."
+    :: (MonadIO m, MonadBaseControl IO m)
+    => FilePath -> UTCTime -> [StatisticsEntry] -> m ()
+perEntryPlots filepath startTime stats = do
     liftIO $ createDirectoryIfMissing True filepath
-    mapM_ (\(c,n) -> liftIO $ toFile def (filepath </> n) c) $
+    void $ mapConcurrently (\(c,n) -> liftIO $ toFile def (filepath </> n) c) $
         [ (chartCpu, "cpuStats.svg")
         , (chartMem, "memStats.svg")
         , (chartDisk, "diskStats.svg")
         , (chartNet, "netStats.svg")
-        , (chartTps, "tpsStats.svg")
         ]
   where
-    smooth xs =
-        map (\i -> let m2 = snd $ xs !! (max 0 $ i-2)
-                       m1 = snd $ xs !! (max 0 $ i-1)
-                       (t,m0) = xs !! max 0 i
-                   in (t,(m0+m2+m1)/3))
-        [0..length xs-1]
     fromStamp :: (StatisticsEntry -> b) -> StatisticsEntry -> (Integer, b)
     fromStamp foo x = (round $ statTimestamp x `diffUTCTime` startTime, foo x)
     chartCpu = do
@@ -77,8 +79,17 @@ perEntryPlots filepath startTime tpsStats stats = do
         plot (line "Network receive (Kb/s)" [netRecv])
         setColors [opaque blue]
         plot (line "Network send (Kb/s)" [netSend])
+
+plotTPS
+    :: (MonadIO m)
+    => FilePath -> UTCTime -> [(UTCTime, Double)] -> m ()
+plotTPS filepath startTime tpsStats = do
+    putText "Plotting tps..."
+    liftIO $ createDirectoryIfMissing True filepath
+    void $ liftIO $ toFile def (filepath </> "dpsStats.svg") chartTps
+  where
     chartTps = do
         layout_title .= "TPS"
         setColors [opaque red]
         plot $ line "Network receive (Kb/s)" $
-            [map (first (\x -> round $ x `diffUTCTime` startTime)) tpsStats]
+            [map (first (\x -> round (x `diffUTCTime` startTime) :: Int)) tpsStats]

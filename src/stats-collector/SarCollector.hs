@@ -6,6 +6,7 @@
 module SarCollector
     ( MachineConfig (..)
     , StatisticsEntry (..)
+    , statsToText
     , getNodesStats
     , getNodeStats
     ) where
@@ -20,7 +21,7 @@ import qualified Data.Text                       as T
 import           Data.Time.Clock                 (UTCTime (utctDay), getCurrentTime)
 import           Data.Time.Clock.POSIX           (utcTimeToPOSIXSeconds)
 import           Data.Time.Format                (defaultTimeLocale, parseTimeM)
-import           Formatting                      (int, sformat, stext, (%))
+import           Formatting                      (int, sformat, stext, (%), shown, fixed)
 import           Turtle                          (shellStrict)
 import           Universum                       hiding (mapConcurrently)
 
@@ -34,16 +35,36 @@ data MachineConfig = MachineConfig
 
 -- | Statistics entry
 data StatisticsEntry = StatisticsEntry
-    { statTimestamp      :: UTCTime
-    , cpuLoadUser        :: Double
-    , cpuLoadSystem      :: Double
-    , memUsed            :: Double
-    , readSectPerSecond  :: Double
-    , writeSectPerSecond :: Double
-    , netRxKbPerSecond   :: Double
-    , netTxKbPerSecond   :: Double
+    { statTimestamp      :: !UTCTime
+    , cpuLoadUser        :: !Double
+    , cpuLoadSystem      :: !Double
+    , memUsed            :: !Double
+    , readSectPerSecond  :: !Double
+    , writeSectPerSecond :: !Double
+    , netRxKbPerSecond   :: !Double
+    , netTxKbPerSecond   :: !Double
     } deriving (Show)
 
+statsToText :: [StatisticsEntry] -> Text
+statsToText entries =
+    header <> "\n" <>
+    mconcat
+        (map (\StatisticsEntry{..} ->
+           sformat formatter
+                   statTimestamp
+                   cpuLoadUser
+                   cpuLoadSystem
+                   memUsed
+                   readSectPerSecond
+                   writeSectPerSecond
+                   netRxKbPerSecond
+                   netTxKbPerSecond)
+        entries)
+  where
+    fixd = fixed 2
+    formatter =
+        shown%" "%fixd%" "%fixd%" "%fixd%" "%fixd%" "%fixd%" "%fixd%" "%fixd%"\n"
+    header = "UTCTime cpuUser cpuSystem mem diskReadSect/s diskWriteSect/s netRcvKbps netSendKbps"
 
 -- mda
 instance Hashable UTCTime where

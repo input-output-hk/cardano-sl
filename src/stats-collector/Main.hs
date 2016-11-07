@@ -1,5 +1,6 @@
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeApplications    #-}
 
 -- | Executable for collecting stats data from nodes
 
@@ -9,19 +10,22 @@ import           Control.TimeWarp.Logging (Severity (..), WithNamedLogger, logIn
 import           Data.Aeson.TH            (deriveJSON)
 import           Data.Aeson.Types         (FromJSON)
 import           Data.Default             (def)
+import System.Exit (exitSuccess)
 import           Data.Monoid              ((<>))
+import qualified Data.Text.IO             as TIO
 import           Data.Time.Clock          (addUTCTime, getCurrentTime)
 import           Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
 import qualified Data.Yaml                as Y
 import           Formatting               (build, int, sformat, (%))
 import           Serokell.Aeson.Options   (defaultOptions)
+import           System.FilePath          ((</>))
 import           Text.Parsec              (parse)
 import           Universum                hiding ((<>))
 
 import           Pos.CLI                  (addrParser)
 import           Pos.Communication        (RequestStat (..), ResponseStat (..))
 import           Pos.DHT                  (DHTNodeType (..), ListenerDHT (..),
-                                           dhtNodeType, sendToNode)
+                                           sendToNode)
 import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
                                            bracketDHTInstance, runServiceMode)
 import           Pos.Statistics           (StatBlockCreated (..), StatLabel (..),
@@ -29,7 +33,7 @@ import           Pos.Statistics           (StatBlockCreated (..), StatLabel (..)
 import           Pos.Types                (Timestamp)
 import           Pos.Util                 (eitherPanic)
 
-import           Plotting                 (perEntryPlots)
+import           Plotting                 (perEntryPlots, plotTPS)
 import qualified SarCollector             as SAR
 import qualified StatsOptions             as O
 
@@ -67,18 +71,20 @@ main = do
     opts@O.StatOpts{..} <- O.readOptions
     CollectorConfig{..} <- readRemoteConfig soConfigPath
     startTime <- ((fromInteger $ - 60) `addUTCTime`) <$> getCurrentTime
-    threadDelay 10
     print startTime
     putText $ "Launched with options: " <> show opts
 
---    let mConfigs =
---            flip map ccNodes $ \(host,_) ->
---                SAR.MachineConfig
---                host "statReader" "123123123123" "/var/log/saALL"
---    stats <- map (filter ((> startTime) . SAR.statTimestamp)) <$> SAR.getNodesStats mConfigs
---    void $ mapConcurrently
---        (\(stat,i) -> perEntryPlots ("./statsNode"<>show i) startTime [] stat)
---        (stats `zip` [0..])
+    let mConfigs =
+            flip map ccNodes $ \(host,_) ->
+                SAR.MachineConfig
+                host "statReader" "123123123123" "/var/log/saALL"
+    stats <-
+        map (filter ((> startTime) . SAR.statTimestamp)) <$>
+        SAR.getNodesStats mConfigs
+    void $ flip mapM (stats `zip` [0..]) $ \(stat,i::Int) -> do
+        let foldername = soOutputDir </> (soOutputPrefix ++ show i)
+        perEntryPlots foldername startTime stat
+        TIO.writeFile (foldername </> "data.log") $ SAR.statsToText stat
 
     let addrs = eitherPanic "Invalid address: " $
             mapM (\(h,p) -> parse addrParser "" $ toString (h <> ":" <> show p))
@@ -112,7 +118,7 @@ main = do
                 sendToNode addr (RequestStat idx StatProcessTx)
                 -- sendToNode addr (RequestStat idx StatBlockCreated)
 
-            forM_ [0 .. length addrs] $ \_ -> do
+            forM_ [0 .. (length addrs)-1] $ \_ -> do
                 (ResponseStat id _ mres) <- liftIO $ readChan ch1
                 case mres of
                     Nothing -> logInfo $ sformat ("No stats for node #"%int) id
@@ -120,6 +126,15 @@ main = do
                         logInfo $ sformat ("Got stats for node #"%int%"!") id
                         let mapper = bimap (posixSecondsToUTCTime . fromIntegral) fromIntegral
                             timeSeries = map mapper res
-                        perEntryPlots ("./statsNode" <> show id) startTime timeSeries []
+                            foldername = soOutputDir </> (soOutputPrefix ++ show id)
+                        plotTPS foldername startTime timeSeries
                         logInfo $ sformat ("Plots for node "%int%" are done") id
 
+            --res <- (flip mapM [0..(length addrs)-1]) $ \_ -> liftIO $ do
+            --    (ResponseStat id label res) <- readChan ch1
+            --    putText $ "Id: " <> show id
+            --    putText $ "Label: " <> show label
+            --    putText $ "Length: " <> show (length res)
+            --    pure (id,res)
+            --putText $ "Results: " <> show res
+            --liftIO exitSuccess

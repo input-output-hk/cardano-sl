@@ -8,6 +8,7 @@ import           Control.TimeWarp.Timed   (Microsecond, for, ms, wait)
 import           Data.Default             (def)
 import           Data.List                ((!!))
 import           Data.Monoid              ((<>))
+import           Data.Time.Clock.POSIX    (getPOSIXTime)
 import           Formatting               (build, int, sformat, (%))
 import           Options.Applicative      (Parser, ParserInfo, auto, execParser, fullDesc,
                                            help, helper, info, long, many, metavar,
@@ -20,22 +21,24 @@ import           Pos.Communication        (sendTx)
 import           Pos.Crypto               (hash, unsafeHash)
 import           Pos.DHT                  (DHTNode, DHTNodeType (..), dhtAddr,
                                            discoverPeers)
-import           Pos.Genesis              (genesisAddresses, genesisSecretKeys,
-                                           genesisVssKeyPairs)
+import           Pos.Genesis              (genesisAddresses, genesisSecretKeys)
 import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
-                                           NodeParams (..), runRealMode, submitTx)
+                                           NodeParams (..), bracketDHTInstance,
+                                           runRealMode, submitTx)
+import           Pos.Ssc.DynamicState     (genesisVssKeyPairs)
 import           Pos.Statistics           (getNoStatsT)
 import           Pos.Types                (Tx (..), TxId, txF)
 import           Pos.WorkMode             (WorkMode)
 import           Serokell.Util.OptParse   (fromParsec)
 
 data GenOptions = GenOptions
-    { goGenesisIdx  :: !Word           -- ^ Index in genesis key pairs.
+    { goGenesisIdx  :: !Word              -- ^ Index in genesis key pairs.
     -- , goRemoteAddr  :: !NetworkAddress -- ^ Remote node address
-    , goDHTPeers    :: ![DHTNode]       -- ^ Initial DHT nodes
-    , goTxNum       :: !Int            -- ^ Number of tx to send
-    , goInitBalance :: !Int            -- ^ Total coins in init utxo per address
-    , goDelay       :: !Microsecond    -- ^ Delay between transactions
+    , goDHTPeers    :: ![DHTNode]         -- ^ Initial DHT nodes
+    , goTxNum       :: !Int               -- ^ Number of tx to send
+    , goTxFrom      :: !Int               -- ^ Start from UTXO transaction #x
+    , goInitBalance :: !Int               -- ^ Total coins in init utxo per address
+    , goTPS         :: !Double            -- ^ TPS rate
     }
 
 optionsParser :: Parser GenOptions
@@ -56,20 +59,20 @@ optionsParser = GenOptions
     <*> option auto
             (short 'n'
           <> long "tx-number"
-          <> value 10000
           <> help "Num of transactions (def 10000)")
-   <*> option auto
+    <*> option auto
+            (long "tx-from-n"
+          <> value 0
+          <> help "From which transaction in utxo to start")
+    <*> option auto
             (short 'k'
           <> long "init-money"
-          <> value 10000
           <> help "How many coins node has in the beginning")
-    <*> (ms <$>
-         option auto
-            (short 'd'
-          <> long "delay"
-          <> metavar "INT"
-          <> value 500
-          <> help "Delay between transactions in ms"))
+    <*> (option auto
+            (short 't'
+          <> long "tps"
+          <> metavar "DOUBLE"
+          <> help "TPS (transactions per second)"))
 
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $
@@ -111,21 +114,29 @@ main :: IO ()
 main = do
     GenOptions {..} <- execParser optsInfo
     let i = fromIntegral goGenesisIdx
+        logParams =
+            def
+            { lpMainSeverity = Debug
+            , lpRootLogger = "tx-gen"
+            }
+        baseParams =
+            BaseParams
+            { bpLogging            = logParams
+            , bpPort               = 24962 + fromIntegral i
+            , bpDHTPeers           = goDHTPeers
+            , bpDHTKeyOrType       = Right DHTClient
+            , bpDHTExplicitInitial = False
+            }
         params =
             NodeParams
-            { npDbPath = Nothing
-            , npRebuildDb = False
+            { npDbPath      = Nothing
+            , npRebuildDb   = False
             , npSystemStart = 1477706355381569 --arbitrary value
-            , npSecretKey = genesisSecretKeys !! i
-            , npVssKeyPair = genesisVssKeyPairs !! i
-            , npBaseParams = BaseParams
-                             { bpLogging = def { lpMainSeverity = Debug, lpRootLogger = "tx-gen" }
-                             , bpPort = 24962 + fromIntegral i
-                             , bpDHTPeers = goDHTPeers
-                             , bpDHTKeyOrType = Right DHTClient
-                             , bpDHTExplicitInitial = False
-                             }
-            , npCustomUtxo = Nothing
+            , npSecretKey   = genesisSecretKeys !! i
+            , npVssKeyPair  = genesisVssKeyPairs !! i
+            , npBaseParams  = baseParams
+            , npCustomUtxo  = Nothing
+            , npTimeLord    = False
             }
         addr = genesisAddresses !! i
 
@@ -135,13 +146,26 @@ main = do
         initTxId :: Int -> TxId
         initTxId k = unsafeHash (show addr ++ show k)
 
-    runRealMode params [] $ getNoStatsT $ do
-        logInfo "TX GEN RUSHING"
-        peers <- discoverPeers DHTFull
+    let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
+        tpsDelta = round $ 1000 / goTPS
+    bracketDHTInstance baseParams $ \inst -> do
+        runRealMode inst params [] $ getNoStatsT $ do
+            logInfo "TX GEN RUSHING"
+            peers <- discoverPeers DHTFull
 
-        let na = dhtAddr <$> peers
-        forM_ (zip recAddrs [0..(goTxNum-1)]) $ \(recAddr, idx) -> do
-            logInfo $ sformat ("Sending transaction #"%int) idx
-            logInfo $ sformat ("Recipient address: "%build) recAddr
-            submitTx na (initTxId idx, 0) (recAddr, 1)
-            wait $ for goDelay
+            let na = dhtAddr <$> peers
+
+            beginT <- getPosixMs
+            forM_ (zip recAddrs [0..(goTxNum-1)]) $ \(recAddr, idx) -> do
+                startT <- getPosixMs
+                logInfo $ sformat ("Sending transaction #"%int) idx
+                logInfo $ sformat ("Recipient address: "%build) recAddr
+                submitTx na (initTxId (idx + goTxFrom), 0) (recAddr, 1)
+                endT <- getPosixMs
+                let runDelta = endT - startT
+                wait $ for $ ms (max 0 $ tpsDelta - runDelta)
+            finishT <- getPosixMs
+            let globalTime = (fromIntegral (finishT - beginT)) / 1000
+                realTPS = (fromIntegral goTxNum) / globalTime
+            putText $ "Sending transactions took (s): " <> show globalTime
+            putText $ "So real tps was: " <> show realTPS

@@ -12,6 +12,7 @@ module Pos.Util
        -- * Various
        , Raw
        , readerToState
+       , eitherPanic
 
        -- * Msgpack
        , msgpackFail
@@ -109,6 +110,10 @@ readerToState
 readerToState = gets . runReader
 
 deriveSafeCopySimple 0 'base ''VerificationRes
+
+-- | A helper for simple error handling in executables
+eitherPanic :: Show a => Text -> Either a b -> b
+eitherPanic msgPrefix = either (panic . (msgPrefix <>) . show) identity
 
 ----------------------------------------------------------------------------
 -- MessagePack

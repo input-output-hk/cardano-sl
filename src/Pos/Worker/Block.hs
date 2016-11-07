@@ -23,6 +23,7 @@ import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlot
 import           Pos.Ssc.Class             (sscVerifyPayload)
 import           Pos.Ssc.DynamicState      (SscDynamicState)
 import           Pos.State                 (createNewBlock, getHeadBlock, getLeaders)
+import           Pos.Statistics            (StatBlockCreated (..), statlogCountEvent)
 import           Pos.Types                 (SlotId (..), Timestamp (Timestamp), blockMpc,
                                             gbHeader, slotIdF)
 import           Pos.Util                  (logWarningWaitLinear)
@@ -62,6 +63,7 @@ onNewSlotWhenLeader slotId = do
             logInfo "It's time to create a block for current slot"
             sk <- ncSecretKey <$> getNodeContext
             let whenCreated createdBlk = do
+                    statlogCountEvent StatBlockCreated 1
                     logInfo $
                         sformat ("Created a new block:\n" %build) createdBlk
                     case verifyCreatedBlock createdBlk of

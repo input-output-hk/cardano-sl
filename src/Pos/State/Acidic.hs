@@ -40,7 +40,7 @@ module Pos.State.Acidic
        , ProcessTx (..)
        , SetToken (..)
 
-       , AddStatRecord (..)
+       , NewStatRecord (..)
        , GetStatRecords (..)
        ) where
 
@@ -110,6 +110,6 @@ makeAcidicWithHacks ''S.Storage ["ssc"]
     , 'S.processSscMessage
     , 'S.processTx
     , 'S.setToken
-    , 'S.addStatRecord
+    , 'S.newStatRecord
     , 'S.getStatRecords
     ]

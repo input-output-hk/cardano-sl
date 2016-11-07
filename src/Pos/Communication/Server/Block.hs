@@ -27,8 +27,7 @@ import           Pos.DHT                  (ListenerDHT (..), replyToNode)
 import           Pos.Slotting             (getCurrentSlot)
 import           Pos.Ssc.DynamicState     (SscDynamicState)
 import qualified Pos.State                as St
-import           Pos.Statistics           (statlogReceivedBlock,
-                                           statlogReceivedBlockHeader, statlogSentBlock)
+import           Pos.Statistics           (StatBlockCreated (..), statlogCountEvent)
 import           Pos.Types                (HeaderHash, headerHash)
 import           Pos.WorkMode             (WorkMode)
 
@@ -43,7 +42,6 @@ blockListeners =
 
 handleBlock :: ResponseMode m => SendBlock SscDynamicState -> m ()
 handleBlock (SendBlock block) = do
-    statlogReceivedBlock block
     slotId <- getCurrentSlot
     pbr <- St.processBlock slotId block
     let blkHash :: HeaderHash SscDynamicState
@@ -55,16 +53,19 @@ handleBlock (SendBlock block) = do
                     " processing is aborted for the following reason: "%stext
             logWarning $ sformat fmt blkHash msg
         St.PBRgood (0, (blkAdopted:|[])) -> do
+            statlogCountEvent StatBlockCreated 1
             let adoptedBlkHash :: HeaderHash SscDynamicState
                 adoptedBlkHash = headerHash blkAdopted
             logInfo $ sformat ("Received block has been adopted: "%build)
                 adoptedBlkHash
-        St.PBRgood (rollbacked, altChain) -> logNotice $
-            sformat ("As a result of block processing rollback of "%int%
-                     " blocks has been done and alternative chain has been adopted "%
-                     listJson)
-                     rollbacked (fmap headerHash altChain ::
-                                        NonEmpty (HeaderHash SscDynamicState))
+        St.PBRgood (rollbacked, altChain) -> do
+            statlogCountEvent StatBlockCreated 1
+            logNotice $
+                sformat ("As a result of block processing rollback of "%int%
+                         " blocks has been done and alternative chain has been adopted "%
+                         listJson)
+                rollbacked (fmap headerHash altChain ::
+                                   NonEmpty (HeaderHash SscDynamicState))
         St.PBRmore h -> do
             logInfo $ sformat
                 ("After processing block "%build%", we need block "%build)
@@ -75,7 +76,6 @@ handleBlockHeader
     :: ResponseMode m
     => SendBlockHeader SscDynamicState -> m ()
 handleBlockHeader (SendBlockHeader header) = do
-    statlogReceivedBlockHeader header'
     whenM checkUsefulness $ replyToNode (RequestBlock h)
   where
     header' = Right header
@@ -104,6 +104,5 @@ handleBlockRequest (RequestBlock h) = do
   where
     logNotFound = logWarning $ sformat ("Block "%build%" wasn't found") h
     sendBlockBack block = do
-        statlogSentBlock block
         logDebug $ sformat ("Sending block "%build%" in reply") h
         replyToNode $ SendBlock block

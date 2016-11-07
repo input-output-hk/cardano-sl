@@ -87,11 +87,14 @@ main = do
         perEntryPlots foldername startTime stat
         TIO.writeFile (foldername </> "data.log") $ SAR.statsToText stat
 
-    let endTime :: UTCTime
-        endTime =
-            maximum $ map SAR.statTimestamp $
-            fromMaybe (panic "stats null") $ head stats
-    let addrs = eitherPanic "Invalid address: " $
+    curTime <- getCurrentTime
+    let sarTimestamps = map SAR.statTimestamp $
+                        fromMaybe (panic "stats null") $ head stats
+        endTime :: UTCTime
+        endTime = if null sarTimestamps
+                  then curTime
+                  else maximum sarTimestamps
+        addrs = eitherPanic "Invalid address: " $
             mapM (\(h,p) -> parse addrParser "" $ toString (h <> ":" <> show p))
                  ccNodes
         enumAddrs = zip [0..] addrs

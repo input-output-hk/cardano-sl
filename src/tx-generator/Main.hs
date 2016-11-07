@@ -6,6 +6,7 @@ import           Control.TimeWarp.Logging (Severity (Debug), logInfo)
 import           Control.TimeWarp.Rpc     (NetworkAddress)
 import           Control.TimeWarp.Timed   (Microsecond, for, ms, wait)
 import           Data.Default             (def)
+import           Data.IORef               (modifyIORef, newIORef, readIORef)
 import           Data.List                ((!!))
 import           Data.Monoid              ((<>))
 import           Data.Time.Clock.POSIX    (getPOSIXTime)
@@ -32,13 +33,13 @@ import           Pos.WorkMode             (WorkMode)
 import           Serokell.Util.OptParse   (fromParsec)
 
 data GenOptions = GenOptions
-    { goGenesisIdx  :: !Word              -- ^ Index in genesis key pairs.
+    { goGenesisIdx    :: !Word       -- ^ Index in genesis key pairs.
     -- , goRemoteAddr  :: !NetworkAddress -- ^ Remote node address
-    , goDHTPeers    :: ![DHTNode]         -- ^ Initial DHT nodes
-    , goTxNum       :: !Int               -- ^ Number of tx to send
-    , goTxFrom      :: !Int               -- ^ Start from UTXO transaction #x
-    , goInitBalance :: !Int               -- ^ Total coins in init utxo per address
-    , goTPSs        :: ![Double]          -- ^ TPS rate
+    , goDHTPeers      :: ![DHTNode]  -- ^ Initial DHT nodes
+    , goRoundDuration :: !Double     -- ^ Number of seconds per round
+    , goTxFrom        :: !Int        -- ^ Start from UTXO transaction #x
+    , goInitBalance   :: !Int        -- ^ Total coins in init utxo per address
+    , goTPSs          :: ![Double]   -- ^ TPS rate
     }
 
 optionsParser :: Parser GenOptions
@@ -57,9 +58,9 @@ optionsParser = GenOptions
           <> metavar "HOST:PORT/HOST_ID"
           <> help "Initial DHT peer (may be many)")
     <*> option auto
-            (short 'n'
-          <> long "tx-number"
-          <> help "Num of transactions")
+            (short 'd'
+          <> long "round-duration"
+          <> help "Duration of one testing round")
     <*> option auto
             (long "tx-from-n"
           <> value 0
@@ -149,6 +150,8 @@ main = do
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         totalRounds = length goTPSs
 
+    curRoundOffset <- newIORef 0
+
     bracketDHTInstance baseParams $ \inst -> do
         runRealMode inst params [] $ getNoStatsT $ do
             logInfo "TX GEN RUSHING"
@@ -160,10 +163,17 @@ main = do
                 logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)
                     roundNum totalRounds goTPS
 
+                roundOffset <- liftIO $ readIORef curRoundOffset
+
                 let tpsDelta = round $ 1000 / goTPS
+                    txNum = round $ goRoundDuration * goTPS
+                    indices = [roundOffset .. roundOffset + txNum - 1]
+                    curRecAddrs = take txNum $ drop roundOffset recAddrs
+
+                liftIO $ modifyIORef curRoundOffset (+ txNum)
 
                 beginT <- getPosixMs
-                forM_ (zip recAddrs [0..(goTxNum-1)]) $ \(recAddr, idx) -> do
+                forM_ (zip curRecAddrs indices) $ \(recAddr, idx) -> do
                     startT <- getPosixMs
                     logInfo $ sformat ("Sending transaction #"%int) idx
                     logInfo $ sformat ("Recipient address: "%build) recAddr
@@ -174,7 +184,7 @@ main = do
                 finishT <- getPosixMs
 
                 let globalTime = (fromIntegral (finishT - beginT)) / 1000
-                    realTPS = (fromIntegral goTxNum) / globalTime
+                    realTPS = (fromIntegral txNum) / globalTime
 
                 putText $ "Sending transactions took (s): " <> show globalTime
                 putText $ "So real tps was: " <> show realTPS

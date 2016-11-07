@@ -34,3 +34,4 @@ cardano-db*
 pos-keys
 nohup.out
 logs
+stats-node-*

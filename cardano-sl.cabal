@@ -256,6 +256,7 @@ executable cardano-tx-generator
                      , parsec
                      , random
                      , serokell-util
+                     , time
                      , time-warp
                      , universum >= 0.1.9
   default-language:    Haskell2010

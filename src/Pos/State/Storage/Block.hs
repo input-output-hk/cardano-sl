@@ -325,13 +325,18 @@ isHeadOfAlternative header = do
 -- PBRgood is returned if chain can already be merged.
 -- PBRmore is returned if more blocks are needed.
 startAltChain
-    :: SscTypes ssc
+    :: forall ssc.
+       SscTypes ssc
     => MainBlock ssc -> Update ssc (ProcessBlockRes ssc)
 startAltChain blk = do
     insertBlock $ Right blk
-    blkAltChains %= ((Right blk :| []) :)
-    -- 0 is passed here, because we put new chain into head of blkAltChains
-    maybe (PBRmore $ blk ^. prevBlockL) PBRgood <$> tryMergeAltChain 0
+    n <- length <$> use blkAltChains
+    -- We put new chain into the end mostly as hack.  The reason is
+    -- that earlier chains are usually bigger, so we want to try to
+    -- merge them first.
+    blkAltChains %= (++ [(Right blk :| [])])
+    -- n is passed here, because we put new chain into the end of blkAltChains
+    maybe (PBRmore $ blk ^. prevBlockL) PBRgood <$> tryMergeAltChain n
 
 pbrUseless :: ProcessBlockRes ssc
 pbrUseless = mkPBRabort ["block can't be added to any chain"]

@@ -148,7 +148,7 @@ getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock
 getLocalSscPayload
     :: forall ssc.
        SscStorageClass ssc
-    => Query ssc (SscPayload ssc)
+    => SlotId -> Query ssc (SscPayload ssc)
 getLocalSscPayload = sscGetLocalPayload @ ssc
 
 getGlobalSscPayload
@@ -190,7 +190,7 @@ createNewBlockDo
     => SecretKey -> SlotId -> Update ssc (MainBlock ssc)
 createNewBlockDo sk sId = do
     txs <- readerToState $ toList <$> getLocalTxs
-    mpcData <- readerToState (sscGetLocalPayload @ ssc)
+    mpcData <- readerToState (sscGetLocalPayload @ssc sId)
     blk <- blkCreateNewBlock sk sId txs mpcData
     let blocks = Right blk :| []
     sscApplyBlocks blocks
@@ -305,14 +305,10 @@ processNewSlotDo sId@SlotId {..} = do
 shouldCreateGenesisBlock :: EpochIndex -> Query ssc Bool
 -- Genesis block for 0-th epoch is hardcoded.
 shouldCreateGenesisBlock 0 = pure False
-shouldCreateGenesisBlock epoch = doCheckSoft . either (`SlotId` 0) identity <$> getHeadSlot
+shouldCreateGenesisBlock epoch =
+    doCheck . either (`SlotId` 0) identity <$> getHeadSlot
   where
-    -- While we are in process of active development, practically impossible
-    -- situations can happen, so we take them into account. We will think about
-    -- this check later.
-    doCheckSoft SlotId {..} = siEpoch == epoch - 1
-    -- TODO add logWarning on `doCheckStrict` failing
-    -- doCheckStrict SlotId {..} = siEpoch == epoch - 1 && siSlot >= 5 * k
+    doCheck SlotId {..} = siEpoch == epoch - 1 && siSlot >= 5 * k
 
 createGenesisBlock
     :: forall ssc.

@@ -53,7 +53,7 @@ class SscTypes ssc => SscStorageClass ssc where
     -- If @n > 0@, also removes all commitments/etc received during that
     -- period but not included into blocks.
     sscRollback :: Word -> SscUpdate ssc ()
-    sscGetLocalPayload :: SscQuery ssc (SscPayload ssc)
+    sscGetLocalPayload :: SlotId -> SscQuery ssc (SscPayload ssc)
     sscGetGlobalPayload :: SscQuery ssc (SscPayload ssc)
     sscGetGlobalPayloadByDepth :: Word -> SscQuery ssc (Maybe (SscPayload ssc))
     -- | Verify Ssc-related predicates of block sequence which is
@@ -77,4 +77,5 @@ class SscTypes ssc => SscStorageClass ssc where
 
     -- TODO: one more BARDAQ. It's not related to Storage, but can't
     -- be put into SscTypes now :(
+    -- | Verify payload using header containing this payload.
     sscVerifyPayload :: Tagged ssc (MainBlockHeader ssc -> SscPayload ssc -> VerificationRes)

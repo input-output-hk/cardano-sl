@@ -20,6 +20,7 @@ library
                         Pos.DHT
                         Pos.DHT.Real
                         Pos.FollowTheSatoshi
+                        Pos.Ssc.Class
                         Pos.Ssc.DynamicState
                         Pos.Genesis
                         Pos.Launcher

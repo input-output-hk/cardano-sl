@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
@@ -30,7 +29,6 @@ import qualified Data.List.NonEmpty           as NE
 import           Data.SafeCopy                (SafeCopy)
 import           Data.Serialize               (Serialize (..))
 import           Data.Tagged                  (Tagged (..))
-import           Formatting                   (int, sformat, (%))
 import           Serokell.Util.Verify         (VerificationRes (..), isVerSuccess,
                                                verifyGeneric)
 import           Universum
@@ -67,9 +65,8 @@ import           Pos.Ssc.DynamicState.Types   (DSMessage (..), DSPayload (..), D
 import           Pos.State.Storage.Types      (AltChain)
 import           Pos.Types                    (Address (getAddress), Block, SlotId (..),
                                                SlotLeaders, Utxo, blockMpc, blockSlot,
-                                               blockSlot, txOutAddress, utxoF)
-import           Pos.Util                     (Color (Magenta), colorize, magnify',
-                                               readerToState, zoom', _neHead)
+                                               blockSlot, txOutAddress)
+import           Pos.Util                     (magnify', readerToState, zoom', _neHead)
 
 data SscDynamicState
     deriving (Generic)
@@ -228,7 +225,6 @@ calculateLeaders
     -> Threshold
     -> Query (Either SeedError SlotLeaders)
 calculateLeaders utxo threshold = do
-    !() <- traceM $ colorize Magenta $ (sformat ("utxo: "%utxoF%", threshold: "%int) utxo threshold)
     mbSeed <- calculateSeed threshold
                             <$> view (lastVer . dsGlobalCommitments)
                             <*> view (lastVer . dsGlobalOpenings)

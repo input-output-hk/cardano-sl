@@ -10,14 +10,13 @@ module NodeOptions
 import           Control.TimeWarp.Logging   (Severity (Debug, Info))
 import           Data.Monoid                ((<>))
 import           Options.Applicative.Simple (Parser, auto, help, long, many, metavar,
-                                             option, showDefault, simpleOptions,
-                                             strOption, switch, value)
+                                             option, showDefault, strOption, switch,
+                                             value)
 import           Serokell.Util.OptParse     (fromParsec)
 import           Universum                  hiding ((<>))
 
 import           Pos.CLI                    (dhtKeyParser, dhtNodeParser)
-import           Pos.DHT                    (DHTKey, DHTNode, DHTNodeType (..),
-                                             dhtNodeType)
+import           Pos.DHT                    (DHTKey, DHTNode)
 
 data Args = Args
     { dbPath             :: !FilePath

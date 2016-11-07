@@ -38,6 +38,7 @@ perEntryPlots
     :: (MonadIO m, MonadBaseControl IO m)
     => FilePath -> UTCTime -> [StatisticsEntry] -> m ()
 perEntryPlots filepath startTime stats = do
+    putStrLn $ "Plotting to " <> filepath
     liftIO $ createDirectoryIfMissing True filepath
     void $ mapConcurrently (\(c,n) -> liftIO $ toFile def (filepath </> n) c) $
         [ (chartCpu, "cpuStats.svg")
@@ -84,7 +85,8 @@ plotTPS
     :: (MonadIO m)
     => FilePath -> UTCTime -> [(UTCTime, Double)] -> m ()
 plotTPS filepath startTime tpsStats = do
-    putText "Plotting tps..."
+    putStrLn $ "Plotting tps for " <> filepath
+    traceShowM $ take 5 tpsStats
     liftIO $ createDirectoryIfMissing True filepath
     void $ liftIO $ toFile def (filepath </> "dpsStats.svg") chartTps
   where

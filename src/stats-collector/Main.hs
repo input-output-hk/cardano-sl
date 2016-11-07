@@ -70,9 +70,10 @@ main :: IO ()
 main = do
     opts@O.StatOpts{..} <- O.readOptions
     CollectorConfig{..} <- readRemoteConfig soConfigPath
-    startTime <- ((fromInteger $ - 60) `addUTCTime`) <$> getCurrentTime
+    startTime <- ((fromInteger $ - 120) `addUTCTime`) <$> getCurrentTime
     print startTime
     putText $ "Launched with options: " <> show opts
+    putText $ "Current time is: " <> show startTime
 
     let mConfigs =
             flip map ccNodes $ \(host,_) ->
@@ -81,6 +82,7 @@ main = do
     stats <-
         map (filter ((> startTime) . SAR.statTimestamp)) <$>
         SAR.getNodesStats mConfigs
+
     void $ flip mapM (stats `zip` [0..]) $ \(stat,i::Int) -> do
         let foldername = soOutputDir </> (soOutputPrefix ++ show i)
         perEntryPlots foldername startTime stat
@@ -124,10 +126,11 @@ main = do
                     Nothing -> logInfo $ sformat ("No stats for node #"%int) id
                     Just res -> do
                         logInfo $ sformat ("Got stats for node #"%int%"!") id
-                        let mapper = bimap (posixSecondsToUTCTime . fromIntegral) fromIntegral
+                        let mapper = bimap (posixSecondsToUTCTime . fromIntegral . (`div` 100000))
+                                           fromIntegral
                             timeSeries = map mapper res
                             foldername = soOutputDir </> (soOutputPrefix ++ show id)
-                        plotTPS foldername startTime timeSeries
+                        plotTPS foldername startTime $ filter ((> startTime) . fst) timeSeries
                         logInfo $ sformat ("Plots for node "%int%" are done") id
 
             --res <- (flip mapM [0..(length addrs)-1]) $ \_ -> liftIO $ do

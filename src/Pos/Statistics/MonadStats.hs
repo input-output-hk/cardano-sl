@@ -35,6 +35,7 @@ import           Pos.Slotting             (MonadSlots (..))
 import           Pos.State                (MonadDB (..), getStatRecords, newStatRecord)
 import           Pos.Statistics.StatEntry (StatLabel (..))
 import           Pos.Types                (Timestamp (..))
+import           Pos.Util.JsonLog         (MonadJL)
 
 -- | `MonadStats` is a monad which has methods for stats collecting
 class Monad m => MonadStats m where
@@ -80,7 +81,8 @@ newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                MonadMask, MonadIO, MonadDB, WithNamedLogger, MonadDialog p,
-               MonadDHT, MonadMessageDHT, MonadResponse, MonadSlots, WithDefaultMsgHeader)
+               MonadDHT, MonadMessageDHT, MonadResponse, MonadSlots, WithDefaultMsgHeader,
+               MonadJL)
 
 instance MonadTransfer m => MonadTransfer (NoStatsT m) where
     sendRaw addr p = NoStatsT $ sendRaw addr p
@@ -100,7 +102,8 @@ newtype StatsT m a = StatsT
     { getStatsT :: m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                MonadMask, MonadIO, MonadDB, WithNamedLogger, MonadDialog p,
-               MonadDHT, MonadMessageDHT, MonadResponse, MonadSlots, WithDefaultMsgHeader)
+               MonadDHT, MonadMessageDHT, MonadResponse, MonadSlots, WithDefaultMsgHeader,
+               MonadJL)
 
 instance MonadTransfer m => MonadTransfer (StatsT m) where
     sendRaw addr p = StatsT $ sendRaw addr p

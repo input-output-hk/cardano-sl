@@ -26,7 +26,8 @@ module Pos.Launcher
        ) where
 
 
-import           Control.Concurrent.MVar     (newEmptyMVar, takeMVar, tryReadMVar)
+import           Control.Concurrent.MVar     (newEmptyMVar, newMVar, takeMVar,
+                                              tryReadMVar)
 import           Control.Monad               (fail)
 import           Control.Monad.Catch         (bracket)
 import           Control.Monad.Trans.Control (MonadBaseControl)
@@ -71,8 +72,7 @@ import           Pos.Util                    (runWithRandomIntervals)
 import           Pos.Worker                  (runWorkers, statsWorkers)
 import           Pos.WorkMode                (ContextHolder (..), DBHolder (..),
                                               NodeContext (..), RealMode, ServiceMode,
-                                              WorkMode, getNodeContext, ncPublicKey,
-                                              ncSecretKey)
+                                              WorkMode, getNodeContext, ncPublicKey)
 
 -- | Get current time as Timestamp. It is intended to be used when you
 -- launch the first node. It doesn't make sense in emulation mode.
@@ -167,6 +167,7 @@ data NodeParams = NodeParams
     , npSystemStart :: !Timestamp
     , npCustomUtxo  :: !(Maybe Utxo)
     , npTimeLord    :: !Bool
+    , npJLFile      :: !(Maybe FilePath)
     } deriving (Show)
 
 data BaseParams = BaseParams
@@ -290,14 +291,17 @@ runRealMode inst NodeParams {..} listeners action = do
     runDBH :: NodeState -> DBHolder m a -> m a
     runDBH db = flip runReaderT db . getDBHolder
 
-    runCH :: ContextHolder m a -> m a
-    runCH = flip runReaderT ctx . getContextHolder
+    runCH :: MonadIO m => ContextHolder m a -> m a
+    runCH act = runReaderT (getContextHolder act) . ctx
+                  =<< maybe (pure Nothing) (fmap Just . liftIO . newMVar) npJLFile
       where
-        ctx = NodeContext
+        ctx jlFile =
+          NodeContext
               { ncSystemStart = npSystemStart
               , ncSecretKey = npSecretKey
               , ncVssKeyPair = npVssKeyPair
               , ncTimeLord = npTimeLord
+              , ncJLFile = jlFile
               }
 
 runServiceMode :: KademliaDHTInstance -> BaseParams -> [ListenerDHT ServiceMode] -> ServiceMode a -> IO a

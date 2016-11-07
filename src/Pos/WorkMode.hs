@@ -22,6 +22,7 @@ module Pos.WorkMode
        , ProductionMode
        ) where
 
+import           Control.Concurrent.MVar     (withMVar)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Except        (ExceptT)
@@ -45,6 +46,7 @@ import           Pos.Slotting                (MonadSlots (..))
 import           Pos.State                   (MonadDB (..), NodeState)
 import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
 import           Pos.Types                   (Timestamp (..))
+import           Pos.Util.JsonLog            (MonadJL (..), appendJL)
 
 type WorkMode m
     = ( WithNamedLogger m
@@ -57,6 +59,7 @@ type WorkMode m
       , MonadMessageDHT m
       , WithDefaultMsgHeader m
       , MonadStats m
+      , MonadJL m
       )
 
 type MinWorkMode m
@@ -118,7 +121,8 @@ data NodeContext = NodeContext
     , -- | Vss key pair used for MPC.
       ncVssKeyPair  :: !VssKeyPair
     , ncTimeLord    :: !Bool
-    } deriving (Show)
+    , ncJLFile      :: !(Maybe (MVar FilePath))
+    }
 
 ncPublicKey :: NodeContext -> PublicKey
 ncPublicKey = toPublic . ncSecretKey
@@ -186,6 +190,9 @@ instance MonadTransfer m => MonadTransfer (ContextHolder m) where
 instance Monad m => WithNodeContext (ContextHolder m) where
     getNodeContext = ContextHolder ask
 
+instance MonadJL m => MonadJL (KademliaDHT m) where
+    jlLog = lift . jlLog
+
 instance MonadSlots m => MonadSlots (KademliaDHT m) where
     getSystemStartTime = lift getSystemStartTime
     getCurrentTime = lift getCurrentTime
@@ -194,6 +201,10 @@ instance (MonadTimed m, Monad m) =>
          MonadSlots (ContextHolder m) where
     getSystemStartTime = ContextHolder $ asks ncSystemStart
     getCurrentTime = Timestamp <$> currentTime
+
+instance (MonadIO m) => MonadJL (ContextHolder m) where
+    jlLog ev = ContextHolder (asks ncJLFile)
+                  >>= maybe (pure ()) (liftIO . flip withMVar (flip appendJL ev))
 
 ----------------------------------------------------------------------------
 -- Concrete types

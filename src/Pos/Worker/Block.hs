@@ -27,6 +27,7 @@ import           Pos.Statistics            (StatBlockCreated (..), statlogCountE
 import           Pos.Types                 (SlotId (..), Timestamp (Timestamp), blockMpc,
                                             gbHeader, slotIdF)
 import           Pos.Util                  (logWarningWaitLinear)
+import           Pos.Util.JsonLog          (jlCreatedBlock, jlLog)
 import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey,
                                             ncSecretKey)
 
@@ -66,6 +67,7 @@ onNewSlotWhenLeader slotId = do
                     statlogCountEvent StatBlockCreated 1
                     logInfo $
                         sformat ("Created a new block:\n" %build) createdBlk
+                    jlLog $ jlCreatedBlock createdBlk
                     case verifyCreatedBlock createdBlk of
                         VerSuccess -> return ()
                         VerFailure warnings -> logWarning $ sformat

@@ -92,6 +92,7 @@ library
                         Pos.Worker.Stats
                         Pos.Worker.Tx
                         Pos.Util.Arbitrary
+                        Pos.Util.JsonLog
                         Pos.Util.NotImplemented
   build-depends:        HsOpenSSL
                       , QuickCheck

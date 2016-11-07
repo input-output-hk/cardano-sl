@@ -80,6 +80,7 @@ main = do
                                       }
                     , npCustomUtxo = Nothing
                     , npTimeLord = False
+                    , npJLFile = Nothing
                     }
             let addr = genesisAddresses !! i
             let txId = unsafeHash addr

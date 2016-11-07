@@ -130,6 +130,7 @@ main = do
                    else genesisUtxo) $
               stakesDistr args
         , npTimeLord = timeLord
+        , npJLFile = jlPath
         }
     stakesDistr Args {..} =
         case (flatDistr, bitcoinDistr) of

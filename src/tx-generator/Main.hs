@@ -9,7 +9,7 @@ import           Data.Default             (def)
 import           Data.List                ((!!))
 import           Data.Monoid              ((<>))
 import           Data.Time.Clock.POSIX    (getPOSIXTime)
-import           Formatting               (build, int, sformat, (%))
+import           Formatting               (build, float, int, sformat, (%))
 import           Options.Applicative      (Parser, ParserInfo, auto, execParser, fullDesc,
                                            help, helper, info, long, many, metavar,
                                            option, progDesc, short, value)
@@ -38,7 +38,7 @@ data GenOptions = GenOptions
     , goTxNum       :: !Int               -- ^ Number of tx to send
     , goTxFrom      :: !Int               -- ^ Start from UTXO transaction #x
     , goInitBalance :: !Int               -- ^ Total coins in init utxo per address
-    , goTPS         :: !Double            -- ^ TPS rate
+    , goTPSs        :: ![Double]          -- ^ TPS rate
     }
 
 optionsParser :: Parser GenOptions
@@ -59,7 +59,7 @@ optionsParser = GenOptions
     <*> option auto
             (short 'n'
           <> long "tx-number"
-          <> help "Num of transactions (def 10000)")
+          <> help "Num of transactions")
     <*> option auto
             (long "tx-from-n"
           <> value 0
@@ -68,11 +68,11 @@ optionsParser = GenOptions
             (short 'k'
           <> long "init-money"
           <> help "How many coins node has in the beginning")
-    <*> (option auto
-            (short 't'
+    <*> many (option auto $
+             short 't'
           <> long "tps"
           <> metavar "DOUBLE"
-          <> help "TPS (transactions per second)"))
+          <> help "TPS (transactions per second)")
 
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $
@@ -147,7 +147,8 @@ main = do
         initTxId k = unsafeHash (show addr ++ show k)
 
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
-        tpsDelta = round $ 1000 / goTPS
+        totalRounds = length goTPSs
+
     bracketDHTInstance baseParams $ \inst -> do
         runRealMode inst params [] $ getNoStatsT $ do
             logInfo "TX GEN RUSHING"
@@ -155,17 +156,25 @@ main = do
 
             let na = dhtAddr <$> peers
 
-            beginT <- getPosixMs
-            forM_ (zip recAddrs [0..(goTxNum-1)]) $ \(recAddr, idx) -> do
-                startT <- getPosixMs
-                logInfo $ sformat ("Sending transaction #"%int) idx
-                logInfo $ sformat ("Recipient address: "%build) recAddr
-                submitTx na (initTxId (idx + goTxFrom), 0) (recAddr, 1)
-                endT <- getPosixMs
-                let runDelta = endT - startT
-                wait $ for $ ms (max 0 $ tpsDelta - runDelta)
-            finishT <- getPosixMs
-            let globalTime = (fromIntegral (finishT - beginT)) / 1000
-                realTPS = (fromIntegral goTxNum) / globalTime
-            putText $ "Sending transactions took (s): " <> show globalTime
-            putText $ "So real tps was: " <> show realTPS
+            forM_ (zip [1..] goTPSs) $ \(roundNum :: Int, goTPS) -> do
+                logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)
+                    roundNum totalRounds goTPS
+
+                let tpsDelta = round $ 1000 / goTPS
+
+                beginT <- getPosixMs
+                forM_ (zip recAddrs [0..(goTxNum-1)]) $ \(recAddr, idx) -> do
+                    startT <- getPosixMs
+                    logInfo $ sformat ("Sending transaction #"%int) idx
+                    logInfo $ sformat ("Recipient address: "%build) recAddr
+                    submitTx na (initTxId (idx + goTxFrom), 0) (recAddr, 1)
+                    endT <- getPosixMs
+                    let runDelta = endT - startT
+                    wait $ for $ ms (max 0 $ tpsDelta - runDelta)
+                finishT <- getPosixMs
+
+                let globalTime = (fromIntegral (finishT - beginT)) / 1000
+                    realTPS = (fromIntegral goTxNum) / globalTime
+
+                putText $ "Sending transactions took (s): " <> show globalTime
+                putText $ "So real tps was: " <> show realTPS

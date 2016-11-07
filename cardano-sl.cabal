@@ -321,6 +321,7 @@ benchmark cardano-bench-criterion
   hs-source-dirs:      bench
   main-is:             Local/Criterion.hs
   other-modules:       Bench.Pos.Criterion.FollowTheSatoshiBench
+                       Bench.Pos.Criterion.TxSigningBench
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
                      , base

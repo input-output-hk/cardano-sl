@@ -102,7 +102,7 @@ main = do
         , npVssKeyPair = vssSK
         , npBaseParams = baseParams "node" args
         , npCustomUtxo = if pettyUtxo
-                         then Just $ genesisUtxoPetty (const 50000)
+                         then Just $ genesisUtxoPetty def
                          else Nothing
         , npTimeLord = timeLord
         }

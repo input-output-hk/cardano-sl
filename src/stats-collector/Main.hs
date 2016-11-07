@@ -70,7 +70,7 @@ main :: IO ()
 main = do
     opts@O.StatOpts{..} <- O.readOptions
     CollectorConfig{..} <- readRemoteConfig soConfigPath
-    startTime <- ((fromInteger $ - 120) `addUTCTime`) <$> getCurrentTime
+    startTime <- ((fromInteger $ - 200) `addUTCTime`) <$> getCurrentTime
     print startTime
     putText $ "Launched with options: " <> show opts
     putText $ "Current time is: " <> show startTime

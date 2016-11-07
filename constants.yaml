@@ -3,3 +3,4 @@ slotDurationSec: 15
 networkDiameter: 3
 neighboursSendThreshold: 4
 genesisN: 12
+maxLocalTxs: 10000

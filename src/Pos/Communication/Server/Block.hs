@@ -29,6 +29,7 @@ import           Pos.Ssc.DynamicState     (SscDynamicState)
 import qualified Pos.State                as St
 import           Pos.Statistics           (StatBlockCreated (..), statlogCountEvent)
 import           Pos.Types                (HeaderHash, headerHash)
+import           Pos.Util.JsonLog         (jlAdoptedBlock, jlLog)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
@@ -56,6 +57,7 @@ handleBlock (SendBlock block) = do
             statlogCountEvent StatBlockCreated 1
             let adoptedBlkHash :: HeaderHash SscDynamicState
                 adoptedBlkHash = headerHash blkAdopted
+            jlLog $ jlAdoptedBlock blkAdopted
             logInfo $ sformat ("Received block has been adopted: "%build)
                 adoptedBlkHash
         St.PBRgood (rollbacked, altChain) -> do

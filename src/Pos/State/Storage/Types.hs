@@ -71,6 +71,7 @@ data ProcessTxRes
     = PTRadded
     | PTRknown
     | PTRinvalid !Text
+    | PTRoverwhelmed
     deriving (Show)
 
 deriveSafeCopySimple 0 'base ''ProcessTxRes

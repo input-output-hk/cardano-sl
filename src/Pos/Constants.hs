@@ -7,6 +7,7 @@ module Pos.Constants
        , epochSlots
        , epochDuration
        , genesisN
+       , maxLocalTxs
        , neighborsSendThreshold
        , networkDiameter
        , RunningMode (..)
@@ -21,13 +22,10 @@ import           Pos.CompileConfig      (CompileConfig (..), compileConfig)
 import           Pos.Types.Timestamp    (Timestamp)
 
 
-cast :: Integral a => Int -> a
-cast = fromInteger . toInteger
-
 -- | Consensus guarantee (i.e. after what amount of blocks can we consider
 -- blocks stable?).
 k :: Integral a => a
-k = cast . ccK $ compileConfig
+k = fromIntegral . ccK $ compileConfig
 
 slotDuration :: Microsecond
 slotDuration = sec . ccSlotDurationSec $ compileConfig
@@ -39,7 +37,10 @@ epochDuration :: Microsecond
 epochDuration = epochSlots * slotDuration
 
 genesisN :: Integral i => i
-genesisN = cast . ccGenesisN $ compileConfig
+genesisN = fromIntegral . ccGenesisN $ compileConfig
+
+maxLocalTxs :: Integral i => i
+maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
 
 -- | Estimated time needed to broadcast message from one node to all
 -- other nodes.
@@ -48,7 +49,7 @@ networkDiameter = sec . ccNetworkDiameter $ compileConfig
 
 neighborsSendThreshold :: Integral a => a
 neighborsSendThreshold =
-    cast . ccNeighboursSendThreshold $ compileConfig
+    fromIntegral . ccNeighboursSendThreshold $ compileConfig
 
 data RunningMode
     = Development

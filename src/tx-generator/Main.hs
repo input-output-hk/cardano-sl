@@ -138,6 +138,7 @@ main = do
             , npBaseParams  = baseParams
             , npCustomUtxo  = Nothing
             , npTimeLord    = False
+            , npJLFile      = Nothing
             }
         addr = genesisAddresses !! i
 

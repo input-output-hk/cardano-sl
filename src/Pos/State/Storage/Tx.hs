@@ -28,11 +28,13 @@ import qualified Data.HashSet            as HS
 import qualified Data.List.NonEmpty      as NE
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Formatting              (build, int, sformat, (%))
+import           Serokell.Util           (VerificationRes (..), isVerSuccess)
+import           Universum
+
+import           Pos.Constants           (maxLocalTxs)
 import           Pos.State.Storage.Types (AltChain, ProcessTxRes (..), mkPTRinvalid)
 import           Pos.Types               (Block, SlotId, Tx (..), Utxo, applyTxToUtxo,
                                           blockSlot, blockTxs, slotIdF, verifyTxUtxo)
-import           Serokell.Util           (VerificationRes (..), isVerSuccess)
-import           Universum
 
 data TxStorage = TxStorage
     { -- | Local set of transactions. These are valid (with respect to
@@ -95,6 +97,13 @@ type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
 -- transaction has been added.
 processTx :: Tx -> Update ProcessTxRes
 processTx tx = do
+    localSetSize <- length <$> use txLocalTxs
+    if localSetSize < maxLocalTxs
+        then processTxDo tx
+        else return PTRoverwhelmed
+
+processTxDo :: Tx -> Update ProcessTxRes
+processTxDo tx =
     ifM (HS.member tx <$> use txLocalTxs) (pure PTRknown) $
         do verRes <- verifyTx tx
            case verRes of

@@ -113,7 +113,9 @@ function node_cmd {
   $dht_cmd
 
   echo -n " --spending-genesis $i --port "`get_port $i`
-  echo -n " $petty $logs $time_lord $stats | tee $logs_dir/node-$i.log "
+  echo -n " $petty $logs $time_lord $stats"
+  echo -n " --json-log=$logs_dir/node-$i.json "
+  echo -n "| tee $logs_dir/node-$i.log "
   echo ''
 }
 

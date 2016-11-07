@@ -36,11 +36,15 @@ handleTx (SendTx tx) = do
     case res of
         PTRadded -> do
             statlogCountEvent StatProcessTx 1
-            logInfo $ sformat ("Transaction has been added to storage: " %build) tx
+            logInfo $
+                sformat ("Transaction has been added to storage: "%build) tx
         PTRinvalid msg ->
-            logWarning $ sformat ("Transaction "%txF%" failed to verify: "%stext) tx msg
+            logWarning $
+            sformat ("Transaction "%txF%" failed to verify: "%stext) tx msg
         PTRknown ->
-            logDebug $ sformat ("Transaction is already known: " %build) tx
+            logDebug $ sformat ("Transaction is already known: "%build) tx
+        PTRoverwhelmed ->
+            logInfo $ sformat ("Node is overwhelmed, can't add tx: "%build) tx
 
 handleTxs
     :: ResponseMode m

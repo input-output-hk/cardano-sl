@@ -19,6 +19,7 @@ data CompileConfig = CompileConfig
     , ccNetworkDiameter         :: !Int
     , ccNeighboursSendThreshold :: !Int
     , ccGenesisN                :: !Int
+    , ccMaxLocalTxs             :: !Word
     } deriving (Show)
 
 $(A.deriveJSON defaultOptions ''CompileConfig)

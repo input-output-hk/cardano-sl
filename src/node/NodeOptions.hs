@@ -39,6 +39,7 @@ data Args = Args
     , timeLord           :: !Bool
     , dhtExplicitInitial :: !Bool
     , enableStats        :: !Bool
+    , jlPath             :: !(Maybe FilePath)
     }
   deriving Show
 
@@ -127,7 +128,11 @@ argsParser =
         (long "explicit-initial" <>
          help
              "Explicitely contact to initial peers as to neighbors (even if they appeared offline once)") <*>
-    switch (long "stats" <> help "Enable stats logging")
+    switch (long "stats" <> help "Enable stats logging") <*>
+    optional
+        (strOption
+        (long "json-log" <> metavar "FILEPATH" <>
+         help "Path to json log file"))
   where
     peerHelpMsg =
         "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""

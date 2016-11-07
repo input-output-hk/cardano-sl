@@ -10,7 +10,7 @@ module Pos.Communication.Server.Statistics
 
 import           Control.TimeWarp.Logging  (logInfo)
 import           Control.TimeWarp.Rpc      (BinaryP, MonadDialog)
-import           Formatting                (build, sformat, stext, (%))
+import           Formatting                (build, sformat, (%))
 import           Universum
 
 import           Pos.Communication.Types   (RequestStat (..), ResponseMode,

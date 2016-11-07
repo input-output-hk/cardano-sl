@@ -3,8 +3,8 @@ module Pos.Worker.Stats
        ) where
 
 import           Control.TimeWarp.Logging (logWarning)
-import           Control.TimeWarp.Timed   (Microsecond, MonadTimed, currentTime,
-                                           repeatForever, runTimedIO, sec)
+import           Control.TimeWarp.Timed   (Microsecond, currentTime, repeatForever,
+                                           runTimedIO, sec)
 import           Formatting               (build, sformat, (%))
 import           Serokell.Util.Exceptions ()
 import           Universum
@@ -18,7 +18,7 @@ import           Pos.WorkMode             (WorkMode)
 txStatsRefreshInterval :: Microsecond
 txStatsRefreshInterval = sec 1
 
-curTime :: (MonadIO m, MonadTimed m) => m Timestamp
+curTime :: (MonadIO m) => m Timestamp
 curTime = liftIO $ Timestamp <$> runTimedIO currentTime
 
 statsWorkers :: WorkMode m => [m ()]

@@ -126,7 +126,7 @@ main = do
                     Nothing -> logInfo $ sformat ("No stats for node #"%int) id
                     Just res -> do
                         logInfo $ sformat ("Got stats for node #"%int%"!") id
-                        let mapper = bimap (posixSecondsToUTCTime . fromIntegral . (`div` 100000))
+                        let mapper = bimap (posixSecondsToUTCTime . fromIntegral . (`div` 1000000))
                                            fromIntegral
                             timeSeries = map mapper res
                             foldername = soOutputDir </> (soOutputPrefix ++ show id)

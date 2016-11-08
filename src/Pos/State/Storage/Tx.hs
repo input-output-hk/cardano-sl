@@ -24,6 +24,7 @@ module Pos.State.Storage.Tx
 
 import           Control.Lens            (ix, makeClassy, preview, use, uses, view, (%=),
                                           (<~), (^.))
+import qualified Data.Cache.LRU          as LRU
 import qualified Data.HashSet            as HS
 import qualified Data.List.NonEmpty      as NE
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
@@ -32,9 +33,12 @@ import           Serokell.Util           (VerificationRes (..), isVerSuccess)
 import           Universum
 
 import           Pos.Constants           (maxLocalTxs)
+import           Pos.Crypto              (hash)
 import           Pos.State.Storage.Types (AltChain, ProcessTxRes (..), mkPTRinvalid)
-import           Pos.Types               (Block, SlotId, Tx (..), Utxo, applyTxToUtxo,
-                                          blockSlot, blockTxs, slotIdF, verifyTxUtxo)
+import           Pos.Types               (Block, SlotId, Tx (..), TxId, Utxo,
+                                          applyTxToUtxo, blockSlot, blockTxs, slotIdF,
+                                          verifyTxUtxo)
+import           Pos.Util                (clearLRU)
 
 data TxStorage = TxStorage
     { -- | Local set of transactions. These are valid (with respect to
@@ -48,6 +52,8 @@ data TxStorage = TxStorage
       -- reorganization. Also it is needed for MPC. Head of this list
       -- is utxo corresponding to last known block.
       _txUtxoHistory :: ![Utxo]
+    , -- | Transactions recently added to blocks.
+      _txFilterCache :: !(LRU.LRU TxId ())
     }
 
 makeClassy ''TxStorage
@@ -55,7 +61,13 @@ deriveSafeCopySimple 0 'base ''TxStorage
 
 -- | Generate TxStorage from non-default utxo
 txStorageFromUtxo :: Utxo -> TxStorage
-txStorageFromUtxo u = TxStorage mempty u [u]
+txStorageFromUtxo u =
+    TxStorage
+    { _txLocalTxs = mempty
+    , _txUtxo = u
+    , _txUtxoHistory = [u]
+    , _txFilterCache = LRU.newLRU (Just 10000)
+    }
 
 type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
 
@@ -104,12 +116,18 @@ processTx tx = do
 
 processTxDo :: Tx -> Update ProcessTxRes
 processTxDo tx =
-    ifM (HS.member tx <$> use txLocalTxs) (pure PTRknown) $
-        do verRes <- verifyTx tx
-           case verRes of
-               VerSuccess ->
-                   PTRadded <$ (txLocalTxs %= HS.insert tx >> applyTx tx)
-               VerFailure errors -> pure . mkPTRinvalid $ errors
+    ifM isKnown (pure PTRknown) $
+    do verRes <- verifyTx tx
+       case verRes of
+           VerSuccess        -> PTRadded <$ (txLocalTxs %= HS.insert tx >> applyTx tx)
+           VerFailure errors -> pure . mkPTRinvalid $ errors
+  where
+    isKnown =
+        or <$>
+        sequence
+            [ HS.member tx <$> use txLocalTxs
+            , isJust . snd . LRU.lookup (hash tx) <$> use txFilterCache
+            ]
 
 verifyTx :: Tx -> Update VerificationRes
 verifyTx tx = flip verifyTxUtxo tx <$> use txUtxo
@@ -119,6 +137,10 @@ applyTx tx = txUtxo %= applyTxToUtxo tx
 
 removeLocalTx :: Tx -> Update ()
 removeLocalTx tx = txLocalTxs %= HS.delete tx
+
+-- Put tx which is in block into filter cache.
+cacheTx :: Tx -> Update ()
+cacheTx (hash -> txId) = txFilterCache %= LRU.insert txId ()
 
 -- | Apply chain of definitely valid blocks which go right after last
 -- applied block.
@@ -135,6 +157,7 @@ txApplyBlock (Right mainBlock) = do
     let txs = mainBlock ^. blockTxs
     mapM_ applyTx txs
     mapM_ removeLocalTx txs
+    mapM_ cacheTx txs
     utxo <- use txUtxo
     txUtxoHistory %= (utxo:)
 
@@ -146,6 +169,7 @@ txRollback (fromIntegral -> n) = do
     txUtxo <~ fromMaybe onError . (`atMay` n) <$> use txUtxoHistory
     txUtxoHistory %= drop n
     filterLocalTxs
+    invalidateCache
   where
     -- Consider using `MonadError` and throwing `InternalError`.
     onError = (panic "attempt to rollback to too old or non-existing block")
@@ -154,3 +178,6 @@ filterLocalTxs :: Update ()
 filterLocalTxs = do
     txs <- uses txLocalTxs toList
     txLocalTxs <~ HS.fromList <$> filterM (fmap isVerSuccess . verifyTx) txs
+
+invalidateCache :: Update ()
+invalidateCache = txFilterCache %= clearLRU

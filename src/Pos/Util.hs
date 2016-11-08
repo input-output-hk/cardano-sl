@@ -44,6 +44,9 @@ module Pos.Util
        , logWarningWaitInf
        , runWithRandomIntervals
 
+       -- * LRU
+       , clearLRU
+
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
        ) where
@@ -57,6 +60,7 @@ import           Control.TimeWarp.Logging      (WithNamedLogger, logWarning)
 import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
 import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
                                                 Second, for, killThread)
+import qualified Data.Cache.LRU                as LRU
 
 import           Data.Binary                   (Binary)
 import qualified Data.Binary                   as Binary (encode)
@@ -72,13 +76,12 @@ import           Data.Time.Units               (convertUnit)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
 import           Serokell.Util                 (VerificationRes)
+import           Serokell.Util.Binary          as Binary (decodeFull)
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
                                                 SGR (Reset, SetColor), setSGRCode)
 import           Universum
 import           Unsafe                        (unsafeInit, unsafeLast)
-
-import           Serokell.Util.Binary          as Binary (decodeFull)
 
 import           Pos.Crypto.Random             (randomNumber)
 import           Pos.Util.Arbitrary            as UtilArbitrary
@@ -294,3 +297,20 @@ runWithRandomIntervals minT maxT action = do
   --logDebug "runWithRandomIntervals: executing action"
   action
   runWithRandomIntervals minT maxT action
+
+----------------------------------------------------------------------------
+-- LRU cache
+----------------------------------------------------------------------------
+
+-- | Remove all items from LRU, retaining maxSize property.
+clearLRU :: Ord k => LRU.LRU k v -> LRU.LRU k v
+clearLRU = LRU.newLRU . LRU.maxSize
+
+instance (Ord k, SafeCopy k, SafeCopy v) =>
+         SafeCopy (LRU.LRU k v) where
+    getCopy = contain $ LRU.fromList <$> safeGet <*> safeGet
+    putCopy lru =
+        contain $
+        do safePut $ LRU.maxSize lru
+           safePut $ LRU.toList lru
+    errorTypeName _ = "LRU"

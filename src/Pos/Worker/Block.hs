@@ -67,7 +67,7 @@ onNewSlotWhenLeader slotId = do
                     statlogCountEvent StatBlockCreated 1
                     logInfo $
                         sformat ("Created a new block:\n" %build) createdBlk
-                    jlLog $ jlCreatedBlock createdBlk
+                    jlLog $ jlCreatedBlock (Right createdBlk)
                     case verifyCreatedBlock createdBlk of
                         VerSuccess -> return ()
                         VerFailure warnings -> logWarning $ sformat

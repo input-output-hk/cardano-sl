@@ -7,19 +7,21 @@ module Pos.Util.JsonLog
     , jlAdoptedBlock
     , MonadJL (..)
     , appendJL
+    , fromJLSlotId
     ) where
 
-import           Control.Lens           ((^.))
+import           Control.Lens           (view, (^.))
 import           Control.TimeWarp.Timed (currentTime, runTimedIO)
 import           Data.Aeson             (encode)
 import           Data.Aeson.TH          (deriveJSON)
 import qualified Data.ByteString.Lazy   as LBS
-import           Pos.Crypto             (hash)
+import           Formatting             (sformat)
+import           Pos.Crypto             (Hash, hash, hashHexF)
 import           Pos.DHT                (DHTResponseT)
 import           Pos.Ssc.Class.Types    (SscTypes)
 import           Pos.Types              (Block, HeaderHash, MainBlock, SlotId (..),
-                                         gbBody, gbHeader, gbhPrevBlock, headerHash,
-                                         headerSlot, mbTxs)
+                                         blockHeader, blockTxs, epochIndexL, gbHeader,
+                                         gbhPrevBlock, headerHash, headerSlot)
 import           Serokell.Aeson.Options (defaultOptions)
 import           Universum
 
@@ -29,20 +31,26 @@ type JLSlotId = (Word64, Word16)
 
 data JLBlock =
   JLBlock
-    { jlBlock     :: BlockId
+    { jlHash      :: BlockId
     , jlPrevBlock :: BlockId
     , jlTxs       :: [TxId]
     , jlSlot      :: JLSlotId
     }
+  deriving Show
 
-data JLEvent = JLCreated JLBlock
-             | JLAdopted BlockId
+fromJLSlotId :: JLSlotId -> SlotId
+fromJLSlotId (ep, sl) = SlotId (fromIntegral ep) (fromIntegral sl)
+
+data JLEvent = JLCreatedBlock JLBlock
+             | JLAdoptedBlock BlockId
+  deriving Show
 
 data JLTimedEvent =
   JLTimedEvent
     { jlTimestamp :: Integer
     , jlEvent     :: JLEvent
     }
+  deriving Show
 
 $(deriveJSON defaultOptions ''JLBlock)
 $(deriveJSON defaultOptions ''JLEvent)
@@ -51,21 +59,24 @@ $(deriveJSON defaultOptions ''JLTimedEvent)
 headerHashB :: SscTypes ssc => Block ssc -> HeaderHash ssc
 headerHashB = headerHash
 
-headerHashMB :: SscTypes ssc => MainBlock ssc -> HeaderHash ssc
-headerHashMB = headerHash
-
-jlCreatedBlock :: SscTypes ssc => MainBlock ssc -> JLEvent
-jlCreatedBlock block = JLCreated $ JLBlock {..}
+jlCreatedBlock :: SscTypes ssc => Block ssc -> JLEvent
+jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
   where
-    jlBlock = show $ headerHashMB block
-    jlPrevBlock = show $ block ^. gbHeader . gbhPrevBlock
+    jlHash = showHash $ headerHashB block
+    jlPrevBlock = showHash $ either (view gbhPrevBlock) (view gbhPrevBlock) (block ^. blockHeader)
     jlSlot = (fromIntegral $ siEpoch slot, fromIntegral $ siSlot slot)
-    jlTxs = map fromTx . toList $ block ^. gbBody . mbTxs
-    slot = block ^. gbHeader . headerSlot
-    fromTx = show . hash
+    jlTxs = case block of
+              Left _   -> []
+              Right mB -> map fromTx . toList $ mB ^. blockTxs
+    slot :: SlotId
+    slot = either (\h -> SlotId (h ^. epochIndexL) 0) (view $ gbHeader . headerSlot) $ block
+    fromTx = showHash . hash
+
+showHash :: Hash a -> Text
+showHash = sformat hashHexF
 
 jlAdoptedBlock :: SscTypes ssc => Block ssc -> JLEvent
-jlAdoptedBlock = JLAdopted . show . headerHashB
+jlAdoptedBlock = JLAdoptedBlock . showHash . headerHashB
 
 appendJL :: MonadIO m => FilePath -> JLEvent -> m ()
 appendJL path ev = liftIO $ do

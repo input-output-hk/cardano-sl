@@ -19,6 +19,7 @@ import           Pos.Ssc.DynamicState     (SscDynamicState)
 import           Pos.State                (processNewSlot)
 import           Pos.Types                (SlotId, slotIdF)
 import           Pos.Util                 (logWarningWaitLinear)
+import           Pos.Util.JsonLog         (jlCreatedBlock, jlLog)
 import           Pos.Worker.Block         (blkOnNewSlot, blkWorkers)
 import           Pos.Worker.Mpc           ()
 import           Pos.Worker.Stats         (statsWorkers)
@@ -44,7 +45,9 @@ onNewSlotWorkerImpl slotId = do
     -- A note about order: currently only one thing is important, that
     -- `processNewSlot` is executed before everything else
     mGenBlock <- processNewSlot slotId
-    forM_ mGenBlock $ logInfo . sformat ("Created genesis block:\n" %build)
+    forM_ mGenBlock $ \createdBlk -> do
+      logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
+      jlLog $ jlCreatedBlock (Left createdBlk)
     logDebug "Finished `processNewSlot`"
 
     fork_ $ do

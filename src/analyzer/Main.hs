@@ -48,7 +48,8 @@ getTxAcceptTimeAvgs fileEvsMap = result
     adPerFile m fp = foldl' (addAdopted fp) m . reverse
 
     adoptedAvgs :: HM.HashMap BlockId Integer
-    adoptedAvgs = (\m -> sum m `div` fromIntegral (HM.size m)) <$> HM.filter (\m -> HM.size m >= n - 1) adopted
+    adoptedAvgs = maximum <$> HM.filter (\m -> HM.size m >= n - 1) adopted
+    -- avg = (\m -> sum m `div` fromIntegral (HM.size m))
 
     result :: HM.HashMap TxId Integer
     result = HM.foldlWithKey' impl mempty adoptedAvgs

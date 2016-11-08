@@ -23,7 +23,7 @@ module Pos.State.Storage.Tx
        ) where
 
 import           Control.Lens            (ix, makeClassy, preview, use, uses, view, (%=),
-                                          (<~), (^.))
+                                          (+=), (-=), (.=), (<~), (^.))
 import qualified Data.Cache.LRU          as LRU
 import qualified Data.HashSet            as HS
 import qualified Data.List.NonEmpty      as NE
@@ -44,16 +44,18 @@ data TxStorage = TxStorage
     { -- | Local set of transactions. These are valid (with respect to
       -- utxo) transactions which are known to the node and are not
       -- included in the blockchain store by the node.
-      _txLocalTxs    :: !(HashSet Tx)
+      _txLocalTxs     :: !(HashSet Tx)
+      -- | 'length' is O(n) for 'HashSet' so we store it explicitly.
+    , _txLocalTxsSize :: !Int
     , -- | Set of unspent transaction outputs. It is need to check new
       -- transactions and run follow-the-satoshi, for example.
-      _txUtxo        :: !Utxo
+      _txUtxo         :: !Utxo
     , -- | History of Utxo. May be necessary in case of
       -- reorganization. Also it is needed for MPC. Head of this list
       -- is utxo corresponding to last known block.
-      _txUtxoHistory :: ![Utxo]
+      _txUtxoHistory  :: ![Utxo]
     , -- | Transactions recently added to blocks.
-      _txFilterCache :: !(LRU.LRU TxId ())
+      _txFilterCache  :: !(LRU.LRU TxId ())
     }
 
 makeClassy ''TxStorage
@@ -64,6 +66,7 @@ txStorageFromUtxo :: Utxo -> TxStorage
 txStorageFromUtxo u =
     TxStorage
     { _txLocalTxs = mempty
+    , _txLocalTxsSize = 0
     , _txUtxo = u
     , _txUtxoHistory = [u]
     , _txFilterCache = LRU.newLRU (Just 10000)
@@ -109,7 +112,7 @@ type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
 -- transaction has been added.
 processTx :: Tx -> Update ProcessTxRes
 processTx tx = do
-    localSetSize <- length <$> use txLocalTxs
+    localSetSize <- use txLocalTxsSize
     if localSetSize < maxLocalTxs
         then processTxDo tx
         else return PTRoverwhelmed
@@ -119,8 +122,13 @@ processTxDo tx =
     ifM isKnown (pure PTRknown) $
     do verRes <- verifyTx tx
        case verRes of
-           VerSuccess        -> PTRadded <$ (txLocalTxs %= HS.insert tx >> applyTx tx)
-           VerFailure errors -> pure . mkPTRinvalid $ errors
+           VerSuccess -> do
+               txLocalTxs %= HS.insert tx
+               txLocalTxsSize += 1
+               applyTx tx
+               pure PTRadded
+           VerFailure errors ->
+               pure (mkPTRinvalid errors)
   where
     isKnown =
         or <$>
@@ -136,7 +144,11 @@ applyTx :: Tx -> Update ()
 applyTx tx = txUtxo %= applyTxToUtxo tx
 
 removeLocalTx :: Tx -> Update ()
-removeLocalTx tx = txLocalTxs %= HS.delete tx
+removeLocalTx tx = do
+    present <- HS.member tx <$> use txLocalTxs
+    when present $ do
+        txLocalTxs %= HS.delete tx
+        txLocalTxsSize -= 1
 
 -- Put tx which is in block into filter cache.
 cacheTx :: Tx -> Update ()
@@ -176,8 +188,10 @@ txRollback (fromIntegral -> n) = do
 
 filterLocalTxs :: Update ()
 filterLocalTxs = do
-    txs <- uses txLocalTxs toList
-    txLocalTxs <~ HS.fromList <$> filterM (fmap isVerSuccess . verifyTx) txs
+    txs  <- uses txLocalTxs toList
+    txs' <- HS.fromList <$> filterM (fmap isVerSuccess . verifyTx) txs
+    txLocalTxs     .= txs'
+    txLocalTxsSize .= length txs'
 
 invalidateCache :: Update ()
 invalidateCache = txFilterCache %= clearLRU

@@ -4,8 +4,11 @@ module Main where
 
 import           Control.TimeWarp.Logging (Severity (Debug), logInfo)
 import           Control.TimeWarp.Rpc     (NetworkAddress)
-import           Control.TimeWarp.Timed   (Microsecond, for, ms, wait)
+import           Control.TimeWarp.Timed   (for, ms, wait)
+import           Data.Aeson               (encode)
+import qualified Data.ByteString.Lazy     as LBS
 import           Data.Default             (def)
+import qualified Data.HashMap.Strict      as M
 import           Data.IORef               (modifyIORef, newIORef, readIORef)
 import           Data.List                ((!!))
 import           Data.Monoid              ((<>))
@@ -29,6 +32,7 @@ import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
 import           Pos.Ssc.DynamicState     (genesisVssKeyPairs)
 import           Pos.Statistics           (getNoStatsT)
 import           Pos.Types                (Tx (..), TxId, txF)
+import           Pos.Util.JsonLog         ()
 import           Pos.WorkMode             (WorkMode)
 import           Serokell.Util.OptParse   (fromParsec)
 
@@ -174,18 +178,34 @@ main = do
                 liftIO $ modifyIORef curRoundOffset (+ txNum)
 
                 beginT <- getPosixMs
-                forM_ (zip curRecAddrs indices) $ \(recAddr, idx) -> do
-                    startT <- getPosixMs
-                    logInfo $ sformat ("Sending transaction #"%int) idx
-                    logInfo $ sformat ("Recipient address: "%build) recAddr
-                    submitTx na (initTxId (idx + goTxFrom), 0) (recAddr, 1)
-                    endT <- getPosixMs
-                    let runDelta = endT - startT
-                    wait $ for $ ms (max 0 $ tpsDelta - runDelta)
+                resMap <- foldrM
+                    (\(recAddr, idx) curmap -> do
+                        startT <- getPosixMs
+
+                        logInfo $ sformat ("Sending transaction #"%int) idx
+                        logInfo $ sformat ("Recipient address: "%build) recAddr
+                        tx <- submitTx na (initTxId (idx + goTxFrom), 0) (recAddr, 1)
+                        -- sometimes nodes fail so we never write timestamps...
+                        when (idx `mod` 271 == 0) $ void $ liftIO $ forkIO $
+                            LBS.writeFile "timestampsTxSender.json" $
+                                encode $ M.toList curmap
+
+                        endT <- getPosixMs
+                        let runDelta = endT - startT
+                        wait $ for $ ms (max 0 $ tpsDelta - runDelta)
+
+                        pure $ M.insert (pretty $ hash tx) startT curmap)
+                    (M.empty :: M.HashMap Text Int) -- TxId Int
+                    (zip curRecAddrs indices)
                 finishT <- getPosixMs
 
-                let globalTime = (fromIntegral (finishT - beginT)) / 1000
+                let globalTime, realTPS :: Double
+                    globalTime = (fromIntegral (finishT - beginT)) / 1000
                     realTPS = (fromIntegral txNum) / globalTime
 
+                putText "----------------------------------------"
+                putText "wrote json to ./timestampsTxSender.json"
+                liftIO $ LBS.writeFile "timestampsTxSender.json" $
+                    encode $ M.toList resMap
                 putText $ "Sending transactions took (s): " <> show globalTime
                 putText $ "So real tps was: " <> show realTPS

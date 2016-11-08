@@ -276,6 +276,8 @@ executable cardano-tx-generator
   hs-source-dirs:      src/tx-generator
   main-is:             Main.hs
   build-depends:       base
+                     , aeson
+                     , bytestring
                      , data-default
                      , cardano-sl
                      , formatting
@@ -286,6 +288,7 @@ executable cardano-tx-generator
                      , time
                      , time-warp
                      , universum >= 0.1.9
+                     , unordered-containers
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -357,6 +360,7 @@ benchmark cardano-bench-criterion
                      , containers
                      , criterion
                      , formatting
+                     , hashtables
                      , universum >= 0.1.9
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts

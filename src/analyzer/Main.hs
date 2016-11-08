@@ -4,12 +4,13 @@ module Main where
 
 import           Control.Applicative        (empty)
 import           Control.Monad              (fail)
-import           Data.Aeson                 (encode, fromJSON, json')
+import           Data.Aeson                 (decode, encode, fromJSON, json')
 import qualified Data.Aeson                 as A
 import           Data.Attoparsec.ByteString (eitherResult, many', parseWith)
 import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Lazy       as LBS
 import qualified Data.HashMap.Strict        as HM
+import qualified Data.List                  as L
 import           Options.Applicative.Simple (simpleOptions)
 import           Universum                  hiding ((<>))
 import           Unsafe                     (unsafeFromJust)
@@ -20,6 +21,9 @@ import           Pos.Types                  (flattenSlotId, unflattenSlotId)
 import           Pos.Util.JsonLog           (JLBlock (..), JLEvent (..),
                                              JLTimedEvent (..), fromJLSlotId)
 
+type TxId = Text
+type BlockId = Text
+
 main :: IO ()
 main = do
     (Args {..}, ()) <-
@@ -29,12 +33,24 @@ main = do
             "Use it!"
             argsParser
             empty
+    (txSenderMap :: HashMap TxId Integer) <-
+        HM.fromList .
+        fromMaybe (panic "failed to read txSenderMap") . decode <$>
+        LBS.readFile txFile
     logs <- parseFiles files
-    LBS.putStr . encode $ getTxAcceptTimeAvgs logs
-
-
-type TxId = Text
-type BlockId = Text
+    let txConfTimes :: HM.HashMap TxId Integer
+        txConfTimes = getTxAcceptTimeAvgs logs
+        common = HM.intersectionWith (-) txConfTimes txSenderMap
+        average :: Double
+        average = fromIntegral (sum (take 10000 (HM.elems common))) / 1000
+    traceShowM $ HM.size txSenderMap
+    traceShowM $ take 10 $ HM.toList txSenderMap
+    traceShowM $ HM.size txConfTimes
+    traceShowM $ take 10 $ HM.toList txConfTimes
+    traceShowM $ length $ (HM.keys txConfTimes) `L.intersect` (HM.keys txSenderMap)
+    traceShowM $ take 10 $ HM.toList common
+    --LBS.putStr . encode $ getTxAcceptTimeAvgs logs
+    print average
 
 getTxAcceptTimeAvgs :: HM.HashMap FilePath [JLTimedEvent] -> HM.HashMap TxId Integer
 getTxAcceptTimeAvgs fileEvsMap = result

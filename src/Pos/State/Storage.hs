@@ -68,7 +68,7 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
                                           blkCleanUp, blkCreateGenesisBlock,
                                           blkCreateNewBlock, blkProcessBlock, blkRollback,
                                           blkSetHead, getBlock, getHeadBlock, getLeaders,
-                                          getSlotDepth, mayBlockBeUseful)
+                                          getSlotDepth, mayBlockBeUseful, mkBlockStorage)
 import           Pos.State.Storage.Stats (HasStatsData (statsData), StatsData,
                                           getStatRecords, newStatRecord)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
@@ -138,7 +138,7 @@ storageFromUtxo u =
     Storage
     { __mpcStorage = def
     , __txStorage = txStorageFromUtxo u
-    , __blockStorage = def
+    , __blockStorage = mkBlockStorage u
     , _slotId = unflattenSlotId 0
     , __statsData = def
     }

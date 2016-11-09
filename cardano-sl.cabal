@@ -252,6 +252,7 @@ executable cardano-stats-collector
                      , lifted-async
                      , monad-control
                      , optparse-simple >= 0.0.3
+                     , transformers
                      , parsec
                      , serokell-util
                      , time >= 1.2.2.1

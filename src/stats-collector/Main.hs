@@ -7,10 +7,13 @@
 import           Control.Concurrent       (forkIO)
 import           Control.Concurrent.Chan  (Chan)
 import qualified Control.Concurrent.Chan  as C
+import           Control.Concurrent.MVar  (newEmptyMVar, putMVar, tryTakeMVar)
 import           Control.TimeWarp.Logging (Severity (..), WithNamedLogger, logInfo)
+import           Control.TimeWarp.Timed   (for, fork_, ms, wait)
 import           Data.Aeson.TH            (deriveJSON)
 import           Data.Aeson.Types         (FromJSON)
 import           Data.Default             (def)
+import           Data.Maybe               (catMaybes)
 import           Data.Monoid              ((<>))
 import qualified Data.Text                as T
 import qualified Data.Text.IO             as TIO
@@ -110,7 +113,7 @@ main = do
             }
         worker dirPath = do
             stats <-
-                map (filter ((> startTime) . SAR.statTimestamp)) <$>
+                map (filter ((> startTime) . SAR.statTimestamp)) . catMaybes <$>
                 SAR.getNodesStats mConfigs
 
             void $ flip mapM (stats `zip` [0..]) $ \(stat,i::Int) -> do
@@ -121,7 +124,7 @@ main = do
 
             curTime <- getCurrentTime
             let sarTimestamps = map SAR.statTimestamp $
-                                fromMaybe (panic "stats null") $ head stats
+                                fromMaybe [] $ head stats
                 endTime :: UTCTime
                 endTime = if null sarTimestamps
                           then curTime
@@ -142,7 +145,17 @@ main = do
                         -- sendToNode addr (RequestStat idx StatBlockCreated)
 
                     forM_ [0 .. (length addrs)-1] $ \_ -> do
+                        timeoutLock <- liftIO $ newEmptyMVar
+                        fork_ $ do
+                            wait $ for $ ms 3000
+                            mlock <- liftIO $ tryTakeMVar timeoutLock
+                            case mlock of
+                                Nothing -> liftIO $ writeChan ch1 (ResponseStat 0 StatProcessTx Nothing)
+                                Just _ -> return ()
+
                         (ResponseStat id _ mres) <- liftIO $ readChan ch1
+                        liftIO $ putMVar timeoutLock ()
+
                         case mres of
                             Nothing -> logInfo $ sformat ("No stats for node #"%int) id
                             Just res -> do

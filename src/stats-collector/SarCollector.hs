@@ -63,8 +63,8 @@ statsToText entries =
   where
     fixd = fixed 2
     formatter =
-        shown%" "%fixd%" "%fixd%" "%fixd%" "%fixd%" "%fixd%" "%fixd%" "%fixd%"\n"
-    header = "UTCTime cpuUser cpuSystem mem diskReadSect/s diskWriteSect/s netRcvKbps netSendKbps"
+        shown%","%fixd%","%fixd%","%fixd%","%fixd%","%fixd%","%fixd%","%fixd%"\n"
+    header = "UTCTime,cpuUser,cpuSystem,mem,diskReadSect/s,diskWriteSect/s,netRcvKbps,netSendKbps"
 
 -- mda
 instance Hashable UTCTime where

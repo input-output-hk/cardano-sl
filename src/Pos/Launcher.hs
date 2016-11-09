@@ -99,10 +99,10 @@ runNode = do
 
 -- | Construct Tx with a single input and single output and send it to
 -- the given network addresses.
-submitTx :: WorkMode m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m ()
+submitTx :: WorkMode m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m Tx
 submitTx na (txInHash, txInIndex) (txOutAddress, txOutValue) =
     if null na
-      then logError "No addresses to send"
+      then logError "No addresses to send" >> panic "submitTx failed"
       else do
         sk <- ncSecretKey <$> getNodeContext
         let txOuts = [TxOut {..}]
@@ -112,6 +112,7 @@ submitTx na (txInHash, txInIndex) (txOutAddress, txOutValue) =
         logInfo $ sformat ("Submitting transaction: "%txF) tx
         logInfo $ sformat ("Transaction id: "%build) txId
         mapM_ (`sendTx` tx) na
+        pure tx
 
 -- | Submit tx in real mode.
 submitTxReal :: NodeParams
@@ -121,9 +122,9 @@ submitTxReal :: NodeParams
 submitTxReal np input addrCoin = bracketDHTInstance (npBaseParams np) action
   where
     action inst = runRealMode inst np [] $ do
-                peers <- getKnownPeers
-                let na = dhtAddr <$> filterByNodeType DHTFull peers
-                getNoStatsT $ submitTx na input addrCoin
+        peers <- getKnownPeers
+        let na = dhtAddr <$> filterByNodeType DHTFull peers
+        void $ getNoStatsT $ submitTx na input addrCoin
 
 -- Sanity check in case start time is in future (may happen if clocks
 -- are not accurately synchronized, for example).

@@ -88,4 +88,3 @@ class Monad m => MonadJL m where
 
 instance MonadJL m => MonadJL (DHTResponseT m) where
     jlLog = lift . jlLog
-

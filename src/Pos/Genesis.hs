@@ -71,7 +71,7 @@ sdStakeHolders (FlatStakes n _)    = n
 sdStakeHolders (BitcoinStakes n _) = n
 
 instance Default StakeDistribution where
-    def = FlatStakes 3 30000
+    def = FlatStakes genesisN (genesisN * 10000)
 
 bitcoinDistribution20 :: [Coin]
 bitcoinDistribution20 = [200, 163, 120, 105, 78, 76, 57, 50, 46, 31, 26, 13, 11, 11, 7, 4, 2, 0, 0, 0]
@@ -128,8 +128,8 @@ genesisUtxoPetty sd =
          in if nodei == 0
                 then map
                          (\i -> ((unsafeHash (show a ++ show i), 0), TxOut a 1))
-                         [1 .. c]
-                else [((unsafeHash a, 0), TxOut a (fromIntegral c))]
+                         [1 .. fromIntegral c :: Int]
+                else [((unsafeHash a, 0), TxOut a c)]
   where
     coinsDistr = stakeDistribution sd
 

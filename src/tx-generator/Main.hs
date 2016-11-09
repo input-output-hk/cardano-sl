@@ -4,12 +4,16 @@ module Main where
 
 import           Control.TimeWarp.Logging (Severity (Debug), logInfo)
 import           Control.TimeWarp.Rpc     (NetworkAddress)
-import           Control.TimeWarp.Timed   (Microsecond, for, ms, wait)
+import           Control.TimeWarp.Timed   (for, ms, wait)
+import           Data.Aeson               (encode)
+import qualified Data.ByteString.Lazy     as LBS
 import           Data.Default             (def)
+import qualified Data.HashMap.Strict      as M
+import           Data.IORef               (modifyIORef, newIORef, readIORef)
 import           Data.List                ((!!))
 import           Data.Monoid              ((<>))
 import           Data.Time.Clock.POSIX    (getPOSIXTime)
-import           Formatting               (build, int, sformat, (%))
+import           Formatting               (build, float, int, sformat, (%))
 import           Options.Applicative      (Parser, ParserInfo, auto, execParser, fullDesc,
                                            help, helper, info, long, many, metavar,
                                            option, progDesc, short, value)
@@ -28,17 +32,18 @@ import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
 import           Pos.Ssc.DynamicState     (genesisVssKeyPairs)
 import           Pos.Statistics           (getNoStatsT)
 import           Pos.Types                (Tx (..), TxId, txF)
+import           Pos.Util.JsonLog         ()
 import           Pos.WorkMode             (WorkMode)
 import           Serokell.Util.OptParse   (fromParsec)
 
 data GenOptions = GenOptions
-    { goGenesisIdx  :: !Word              -- ^ Index in genesis key pairs.
+    { goGenesisIdx    :: !Word       -- ^ Index in genesis key pairs.
     -- , goRemoteAddr  :: !NetworkAddress -- ^ Remote node address
-    , goDHTPeers    :: ![DHTNode]         -- ^ Initial DHT nodes
-    , goTxNum       :: !Int               -- ^ Number of tx to send
-    , goTxFrom      :: !Int               -- ^ Start from UTXO transaction #x
-    , goInitBalance :: !Int               -- ^ Total coins in init utxo per address
-    , goTPS         :: !Double            -- ^ TPS rate
+    , goDHTPeers      :: ![DHTNode]  -- ^ Initial DHT nodes
+    , goRoundDuration :: !Double     -- ^ Number of seconds per round
+    , goTxFrom        :: !Int        -- ^ Start from UTXO transaction #x
+    , goInitBalance   :: !Int        -- ^ Total coins in init utxo per address
+    , goTPSs          :: ![Double]   -- ^ TPS rate
     }
 
 optionsParser :: Parser GenOptions
@@ -57,9 +62,9 @@ optionsParser = GenOptions
           <> metavar "HOST:PORT/HOST_ID"
           <> help "Initial DHT peer (may be many)")
     <*> option auto
-            (short 'n'
-          <> long "tx-number"
-          <> help "Num of transactions (def 10000)")
+            (short 'd'
+          <> long "round-duration"
+          <> help "Duration of one testing round")
     <*> option auto
             (long "tx-from-n"
           <> value 0
@@ -68,11 +73,11 @@ optionsParser = GenOptions
             (short 'k'
           <> long "init-money"
           <> help "How many coins node has in the beginning")
-    <*> (option auto
-            (short 't'
+    <*> many (option auto $
+             short 't'
           <> long "tps"
           <> metavar "DOUBLE"
-          <> help "TPS (transactions per second)"))
+          <> help "TPS (transactions per second)")
 
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $
@@ -148,7 +153,10 @@ main = do
         initTxId k = unsafeHash (show addr ++ show k)
 
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
-        tpsDelta = round $ 1000 / goTPS
+        totalRounds = length goTPSs
+
+    curRoundOffset <- newIORef 0
+
     bracketDHTInstance baseParams $ \inst -> do
         runRealMode inst params [] $ getNoStatsT $ do
             logInfo "TX GEN RUSHING"
@@ -156,17 +164,48 @@ main = do
 
             let na = dhtAddr <$> peers
 
-            beginT <- getPosixMs
-            forM_ (zip recAddrs [0..(goTxNum-1)]) $ \(recAddr, idx) -> do
-                startT <- getPosixMs
-                logInfo $ sformat ("Sending transaction #"%int) idx
-                logInfo $ sformat ("Recipient address: "%build) recAddr
-                submitTx na (initTxId (idx + goTxFrom), 0) (recAddr, 1)
-                endT <- getPosixMs
-                let runDelta = endT - startT
-                wait $ for $ ms (max 0 $ tpsDelta - runDelta)
-            finishT <- getPosixMs
-            let globalTime = (fromIntegral (finishT - beginT)) / 1000
-                realTPS = (fromIntegral goTxNum) / globalTime
-            putText $ "Sending transactions took (s): " <> show globalTime
-            putText $ "So real tps was: " <> show realTPS
+            forM_ (zip [1..] goTPSs) $ \(roundNum :: Int, goTPS) -> do
+                logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)
+                    roundNum totalRounds goTPS
+
+                roundOffset <- liftIO $ readIORef curRoundOffset
+
+                let tpsDelta = round $ 1000 / goTPS
+                    txNum = round $ goRoundDuration * goTPS
+                    indices = [roundOffset .. roundOffset + txNum - 1]
+                    curRecAddrs = take txNum $ drop roundOffset recAddrs
+
+                liftIO $ modifyIORef curRoundOffset (+ txNum)
+
+                beginT <- getPosixMs
+                resMap <- foldrM
+                    (\(recAddr, idx) curmap -> do
+                        startT <- getPosixMs
+
+                        logInfo $ sformat ("Sending transaction #"%int) idx
+                        logInfo $ sformat ("Recipient address: "%build) recAddr
+                        tx <- submitTx na (initTxId (idx + goTxFrom), 0) (recAddr, 1)
+                        -- sometimes nodes fail so we never write timestamps...
+                        when (idx `mod` 271 == 0) $ void $ liftIO $ forkIO $
+                            LBS.writeFile "timestampsTxSender.json" $
+                                encode $ M.toList curmap
+
+                        endT <- getPosixMs
+                        let runDelta = endT - startT
+                        wait $ for $ ms (max 0 $ tpsDelta - runDelta)
+
+                        pure $ M.insert (pretty $ hash tx) startT curmap)
+                    (M.empty :: M.HashMap Text Int) -- TxId Int
+                    (zip curRecAddrs indices)
+                finishT <- getPosixMs
+
+                let globalTime, realTPS :: Double
+                    globalTime = (fromIntegral (finishT - beginT)) / 1000
+                    realTPS = (fromIntegral txNum) / globalTime
+
+                putText "----------------------------------------"
+                putText "wrote json to ./timestampsTxSender.json"
+                liftIO $ LBS.writeFile "timestampsTxSender.json" $
+                    encode $ M.toList resMap
+                putText $ "Sending transactions took (s): " <> show globalTime
+                putText $ "So real tps was: " <> show realTPS

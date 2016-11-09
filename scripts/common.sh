@@ -91,6 +91,7 @@ function node_cmd {
   local time_lord=$2
   local dht_cmd=$3
   local is_stat=$4
+  local stake_distr=$5
   local st=''
   local reb=''
 
@@ -115,6 +116,7 @@ function node_cmd {
   echo -n " --spending-genesis $i --port "`get_port $i`
   echo -n " $petty $logs $time_lord $stats"
   echo -n " --json-log=$logs_dir/node-$i.json "
+  echo -n " $stake_distr "
   echo -n "| tee $logs_dir/node-$i.log "
   echo ''
 }

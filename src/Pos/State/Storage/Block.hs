@@ -15,6 +15,7 @@ module Pos.State.Storage.Block
        (
          BlockStorage
        , HasBlockStorage (blockStorage)
+       , mkBlockStorage
 
        , getBlock
        , getBlockByDepth
@@ -34,7 +35,7 @@ module Pos.State.Storage.Block
 
 import           Control.Lens            (at, ix, makeClassy, preview, use, uses, view,
                                           (%=), (.=), (.~), (<~), (^.), _Just)
-import           Data.Default            (Default, def)
+import           Data.Default            (def)
 import qualified Data.HashMap.Strict     as HM
 import           Data.List               ((!!))
 import           Data.List.NonEmpty      (NonEmpty ((:|)), (<|))
@@ -54,13 +55,14 @@ import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRa
 import           Pos.Types               (Block, BlockHeader, ChainDifficulty, EpochIndex,
                                           GenesisBlock, HeaderHash, MainBlock,
                                           MainBlockHeader, SlotId (..), SlotLeaders, Tx,
-                                          VerifyBlockParams (..), VerifyHeaderExtra (..),
-                                          blockHeader, blockLeaders, blockSlot,
-                                          difficultyL, epochIndexL, gbHeader,
-                                          getBlockHeader, headerDifficulty, headerHash,
-                                          headerSlot, mkGenesisBlock, mkMainBlock,
-                                          mkMainBody, prevBlockL, siEpoch, verifyBlock,
-                                          verifyBlocks, verifyHeader)
+                                          Utxo, VerifyBlockParams (..),
+                                          VerifyHeaderExtra (..), blockHeader,
+                                          blockLeaders, blockSlot, difficultyL,
+                                          epochIndexL, gbHeader, getBlockHeader,
+                                          headerDifficulty, headerHash, headerSlot,
+                                          mkGenesisBlock, mkMainBlock, mkMainBody,
+                                          prevBlockL, siEpoch, verifyBlock, verifyBlocks,
+                                          verifyHeader)
 import           Pos.Util                (readerToState, _neHead, _neLast)
 
 data BlockStorage ssc = BlockStorage
@@ -102,21 +104,23 @@ instance SscTypes ssc => SafeCopy (BlockStorage ssc) where
            safePut _blkAltChains
            safePut _blkMinDifficulty
 
-genesisBlock0 :: SscTypes ssc => Block ssc
-genesisBlock0 = Left (mkGenesisBlock Nothing 0 genesisLeaders)
+genesisBlock0 :: SscTypes ssc => SlotLeaders -> Block ssc
+genesisBlock0 = Left . mkGenesisBlock Nothing 0
 
-genesisBlock0Hash :: SscTypes ssc => HeaderHash ssc
-genesisBlock0Hash = hash $ genesisBlock0 ^. blockHeader
+genesisBlock0Hash :: SscTypes ssc => SlotLeaders -> HeaderHash ssc
+genesisBlock0Hash leaders = hash $ genesisBlock0 leaders ^. blockHeader
 
-instance SscTypes ssc => Default (BlockStorage ssc) where
-    def =
-        BlockStorage
-        { _blkBlocks = HM.fromList [(genesisBlock0Hash, genesisBlock0)]
-        , _blkGenesisBlocks = V.fromList [genesisBlock0Hash]
-        , _blkHead = genesisBlock0Hash
-        , _blkAltChains = mempty
-        , _blkMinDifficulty = (genesisBlock0 @ssc) ^. difficultyL
-        }
+mkBlockStorage :: forall ssc . SscTypes ssc => Utxo -> BlockStorage ssc
+mkBlockStorage utxo =
+    BlockStorage
+    { _blkBlocks = HM.fromList [(genesisBlock0Hash leaders, genesisBlock0 leaders)]
+    , _blkGenesisBlocks = V.fromList [genesisBlock0Hash leaders]
+    , _blkHead = genesisBlock0Hash leaders
+    , _blkAltChains = mempty
+    , _blkMinDifficulty = (genesisBlock0 @ssc leaders) ^. difficultyL
+    }
+  where
+    leaders = genesisLeaders utxo
 
 type Query ssc a = forall m x. (SscTypes ssc, HasBlockStorage x ssc, MonadReader x m) => m a
 type Update ssc a = forall m x. (SscTypes ssc, HasBlockStorage x ssc, MonadState x m) => m a
@@ -528,8 +532,10 @@ blkSetHead headHash = do
 -- | Rollback last `n` blocks.
 blkRollback :: SscTypes ssc => Word -> Update ssc ()
 blkRollback =
-    blkSetHead . maybe genesisBlock0Hash (hash . getBlockHeader) <=<
+    blkSetHead . maybe onError (hash . getBlockHeader) <=<
     readerToState . getBlockByDepth
+  where
+    onError = panic "Attempt to rollback too many blocks"
 
 -- | Remove obsolete cached blocks, alternative chains which are
 -- definitely useless, etc.

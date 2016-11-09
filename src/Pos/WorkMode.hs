@@ -24,17 +24,18 @@ module Pos.WorkMode
 
 import           Control.Concurrent.MVar     (withMVar)
 import           Control.Monad.Base          (MonadBase (..))
-import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow, catchAll)
 import           Control.Monad.Except        (ExceptT)
 import           Control.Monad.Trans.Class   (MonadTrans)
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Logging    (WithNamedLogger (..))
+import           Control.TimeWarp.Logging    (WithNamedLogger (..), logWarning)
 import           Control.TimeWarp.Rpc        (BinaryP, Dialog, MonadDialog, MonadResponse,
                                               MonadTransfer (..), Transfer, hoistRespCond)
 import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
+import           Formatting                  (sformat, shown, (%))
 import           Universum                   hiding (catch)
 
 import           Pos.Crypto                  (PublicKey, SecretKey, VssKeyPair,
@@ -202,9 +203,13 @@ instance (MonadTimed m, Monad m) =>
     getSystemStartTime = ContextHolder $ asks ncSystemStart
     getCurrentTime = Timestamp <$> currentTime
 
-instance (MonadIO m) => MonadJL (ContextHolder m) where
-    jlLog ev = ContextHolder (asks ncJLFile)
-                  >>= maybe (pure ()) (liftIO . flip withMVar (flip appendJL ev))
+instance (MonadIO m, WithNamedLogger m, MonadCatch m) => MonadJL (ContextHolder m) where
+    jlLog ev = ContextHolder (asks ncJLFile) >>= maybe (pure ()) doLog
+      where
+        doLog logFileMV =
+          (liftIO . withMVar logFileMV $ flip appendJL ev)
+            `catchAll` \e -> logWarning $ sformat ("Can't write to json log: " % shown) e
+
 
 ----------------------------------------------------------------------------
 -- Concrete types

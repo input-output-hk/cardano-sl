@@ -43,6 +43,8 @@ main = do
         common = HM.intersectionWith (-) txConfTimes txSenderMap
         average :: Double
         average = fromIntegral (sum (take 10000 (HM.elems common))) / 1000
+    traceShowM $ HM.size logs
+    traceShowM $ take 10 $ HM.toList logs
     traceShowM $ HM.size txSenderMap
     traceShowM $ take 10 $ HM.toList txSenderMap
     traceShowM $ HM.size txConfTimes

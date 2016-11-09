@@ -16,20 +16,20 @@ module Pos.Genesis
        ) where
 
 
-import           Data.Default         (Default (def))
-import           Data.List            (genericLength, genericReplicate, (!!))
-import qualified Data.Map.Strict      as M
-import qualified Data.Text            as T
-import           Formatting           (int, sformat, (%))
-import           Serokell.Util        (enumerate)
+import           Data.Default       (Default (def))
+import           Data.List          (genericLength, genericReplicate, (!!))
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Map.Strict    as M
+import qualified Data.Text          as T
+import           Formatting         (int, sformat, (%))
+import           Serokell.Util      (enumerate)
 import           Universum
 
-import           Pos.Constants        (genesisN)
-import           Pos.Crypto           (PublicKey, SecretKey, deterministicKeyGen,
-                                       unsafeHash)
-import           Pos.FollowTheSatoshi (followTheSatoshi)
-import           Pos.Types            (Address (..), Coin, FtsSeed (FtsSeed), SlotLeaders,
-                                       TxOut (..), Utxo)
+import           Pos.Constants      (epochSlots, genesisN)
+import           Pos.Crypto         (PublicKey, SecretKey, deterministicKeyGen,
+                                     unsafeHash)
+import           Pos.Types.Types    (Address (Address), Coin, SlotLeaders, TxOut (..),
+                                     Utxo)
 
 
 ----------------------------------------------------------------------------
@@ -137,8 +137,9 @@ genesisUtxoPetty sd =
 -- Slot leaders
 ----------------------------------------------------------------------------
 
-genesisSeed :: FtsSeed
-genesisSeed = FtsSeed "vasa opasa skovoroda Ggurda boroda provoda"
-
-genesisLeaders :: Utxo -> SlotLeaders
-genesisLeaders = fmap getAddress . followTheSatoshi genesisSeed
+genesisLeaders :: SlotLeaders
+genesisLeaders = NE.fromList $ replicate epochSlots pk
+  where
+    pk =
+        fromMaybe (panic "genesisPublicKeys is empty") $
+        headMay genesisPublicKeys

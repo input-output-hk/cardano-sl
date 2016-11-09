@@ -24,13 +24,14 @@ import           System.FilePath          ((</>))
 import           Text.Parsec              (parse)
 import           Universum                hiding ((<>))
 
+import           Formatting               (fixed, sformat, shown, (%))
 import           Pos.CLI                  (addrParser)
 import           Pos.Communication        (RequestStat (..), ResponseStat (..))
 import           Pos.DHT                  (DHTNodeType (..), ListenerDHT (..), sendToNode)
 import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
                                            bracketDHTInstance, runServiceMode)
-import           Pos.Statistics           (StatBlockCreated (..), StatLabel (..),
-                                           StatProcessTx (..))
+import           Pos.Statistics           (CountStat (..), StatBlockCreated (..),
+                                           StatLabel (..), StatProcessTx (..))
 import           Pos.Types                (Timestamp)
 import           Pos.Util                 (eitherPanic)
 
@@ -55,14 +56,20 @@ deriveJSON defaultOptions ''CollectorConfig
 
 
 collectorListener
-    :: (StatLabel l, MonadIO m, WithNamedLogger m)
-    => Chan (ResponseStat l (Timestamp, EntryType l))
-    -> ResponseStat l (Timestamp, EntryType l)
+    :: (MonadIO m, WithNamedLogger m)
+    => Chan (ResponseStat StatProcessTx (Timestamp, CountStat))
+    -> ResponseStat StatProcessTx (Timestamp, CountStat)
     -> m ()
 collectorListener channel res@(ResponseStat _ l _) = do
     logInfo $ sformat ("Received stats response: "%build) l
     liftIO $ writeChan channel res
 
+tpsToCsv :: [(UTCTime, Double)] -> Text
+tpsToCsv entries =
+    "time,tps\n" <>
+    mconcat (map formatter entries)
+  where
+    formatter (time, tps) = sformat (shown%","%fixed 2%"\n") time tps
 ------------------------------------------------
 -- Main
 ------------------------------------------------
@@ -108,8 +115,9 @@ main = do
 
             void $ flip mapM (stats `zip` [0..]) $ \(stat,i::Int) -> do
                 let foldername = dirPath </> (soOutputPrefix ++ show i)
-                perEntryPlots foldername startTime stat
-                TIO.writeFile (foldername </> "data.log") $ SAR.statsToText stat
+                -- perEntryPlots foldername startTime stat
+                createDirectoryIfMissing True foldername
+                TIO.writeFile (foldername </> "sysstat.csv") $ SAR.statsToText stat
 
             curTime <- getCurrentTime
             let sarTimestamps = map SAR.statTimestamp $
@@ -124,10 +132,7 @@ main = do
                 enumAddrs = zip [0..] addrs
 
             ch1 <- C.newChan
-            ch2 <- C.newChan
-            let listeners =
-                    [ ListenerDHT $ collectorListener @StatProcessTx ch1
-                    , ListenerDHT $ collectorListener @StatBlockCreated ch2 ]
+            let listeners = [ListenerDHT $ collectorListener ch1]
 
             bracketDHTInstance params $ \inst -> do
                 runServiceMode inst params listeners $ do
@@ -147,11 +152,15 @@ main = do
                                                    fromIntegral
                                     timeSeries = map mapper res
                                     foldername = dirPath </> (soOutputPrefix ++ show id)
-                                plotTPS foldername startTime $
-                                    filter ((> startTime) . fst) $
-                                    filter ((< endTime) . fst) $
-                                    timeSeries
-                                logInfo $ sformat ("Plots for node "%int%" are done") id
+                                    curSeries = filter ((> startTime) . fst) $
+                                                filter ((< endTime) . fst) $
+                                                timeSeries
+                                liftIO $ do
+                                    createDirectoryIfMissing True foldername
+                                    TIO.writeFile (foldername </> "tps.csv") $ tpsToCsv curSeries
+                                -- plotTPS foldername startTime
+                                logInfo $ sformat ("TPS stats for node "%int%" are done") id
+
     when soLoop $ forM_ [1..] $ \(i ::Int) -> do
         threadDelay $ (fromIntegral soInterval) * 1000 * 1000
         forkIO $ worker $ soOutputDir </> ("run" <> show i)

@@ -11,6 +11,8 @@ module SarCollector
     , getNodeStats
     ) where
 
+import Control.Monad (fail)
+import Control.Monad.Trans.Maybe (MaybeT, runMaybeT)
 import           Control.Concurrent.Async.Lifted (mapConcurrently)
 import           Control.Monad.Trans.Control     (MonadBaseControl)
 import           Data.Hashable                   (Hashable (hashWithSalt))
@@ -109,15 +111,15 @@ parseNet _ = panic "parseNet"
 -- | Concurrently get statistics
 getNodesStats
     :: (MonadIO m, MonadBaseControl IO m)
-    => [MachineConfig] -> m [[StatisticsEntry]]
-getNodesStats = mapConcurrently getNodeStats
+    => [MachineConfig] -> m [Maybe [StatisticsEntry]]
+getNodesStats = mapConcurrently (runMaybeT . getNodeStats)
 
 -- | Queries the node to get stats from it. Number of requests can be
 -- one in fact, but i didn't figure out how to do that in ~5m. Lazy
 -- evaluation,
 getNodeStats
     :: (MonadIO m, MonadBaseControl IO m)
-    => MachineConfig -> m [StatisticsEntry]
+    => MachineConfig -> MaybeT m [StatisticsEntry]
 getNodeStats MachineConfig{..} = do
     putText "Querying stats..."
     [cpuInfo0, memInfo0, diskInfo0, netInfo0] <-
@@ -147,11 +149,18 @@ getNodeStats MachineConfig{..} = do
     fixTime = mapM (\(t,a) -> (,a) <$> parseDate t)
     -- heuristically dropping some lines in the beginning (may be ssh trash..? :))
     -- and average last lines
+    fetchStats :: MonadIO m => Text -> MaybeT m [Text]
     fetchStats sarFlag =
         take maxItems .
         dropWhileEnd ("Average:" `T.isPrefixOf`) .
-        drop 3 . T.lines . T.strip . snd <$>
-        shellStrict (sshCommand sarFlag) (return "")
+        drop 3 . T.lines . T.strip <$> shellResult
+      where
+        shellResult = do
+            (status, res) <- shellStrict (sshCommand sarFlag) (return "")
+            if status == ExitSuccess
+                then return res
+                else fail "Shell error"
+
     sshCommandFormat =
         "sshpass -p '"%stext%"' "%
         "ssh -o StrictHostKeyChecking=no "%

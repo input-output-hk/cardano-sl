@@ -124,7 +124,7 @@ main = do
 
             curTime <- getCurrentTime
             let sarTimestamps = map SAR.statTimestamp $
-                                fromMaybe (panic "stats null") $ head stats
+                                fromMaybe [] $ head stats
                 endTime :: UTCTime
                 endTime = if null sarTimestamps
                           then curTime

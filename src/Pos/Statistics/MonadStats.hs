@@ -87,7 +87,7 @@ newtype NoStatsT m a = NoStatsT
 
 instance MonadTransfer m => MonadTransfer (NoStatsT m) where
     sendRaw addr p = NoStatsT $ sendRaw addr (hoist getNoStatsT p)
-    listenRaw binding sink = NoStatsT $ listenRaw binding (hoistRespCond getNoStatsT sink)
+    listenRaw binding sink = NoStatsT $ fmap NoStatsT $ listenRaw binding (hoistRespCond getNoStatsT sink)
     close = NoStatsT . close
 
 instance MonadResponse m => MonadResponse (NoStatsT m) where
@@ -114,7 +114,7 @@ newtype StatsT m a = StatsT
 
 instance MonadTransfer m => MonadTransfer (StatsT m) where
     sendRaw addr p = StatsT $ sendRaw addr (hoist getStatsT p)
-    listenRaw binding sink = StatsT $ listenRaw binding (hoistRespCond getStatsT sink)
+    listenRaw binding sink = StatsT $ fmap StatsT $ listenRaw binding (hoistRespCond getStatsT sink)
     close = StatsT . close
 
 instance MonadResponse m => MonadResponse (StatsT m) where

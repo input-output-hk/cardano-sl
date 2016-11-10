@@ -16,6 +16,7 @@ library
   exposed-modules:      Pos.CLI
                         Pos.Crypto
                         Pos.Communication
+                        Pos.CompileConfig
                         Pos.Constants
                         Pos.DHT
                         Pos.DHT.Real
@@ -47,7 +48,8 @@ library
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Server.Tx
                         Pos.Communication.Util
-                        Pos.CompileConfig
+                        Pos.CompileConfig.Parser
+                        Pos.CompileConfig.Type
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe

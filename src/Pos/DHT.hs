@@ -280,7 +280,7 @@ newtype DHTResponseT m a = DHTResponseT
 
 instance MonadTransfer m => MonadTransfer (DHTResponseT m) where
     sendRaw addr p = DHTResponseT $ sendRaw addr (hoist getDHTResponseT p)
-    listenRaw binding sink = DHTResponseT $ listenRaw binding (hoistRespCond getDHTResponseT sink)
+    listenRaw binding sink = DHTResponseT $ fmap DHTResponseT $ listenRaw binding (hoistRespCond getDHTResponseT sink)
     close = DHTResponseT . close
 
 type instance ThreadId (DHTResponseT m) = ThreadId m

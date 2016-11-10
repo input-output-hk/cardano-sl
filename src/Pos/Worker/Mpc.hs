@@ -8,7 +8,7 @@ module Pos.Worker.Mpc
 
 import           Control.TimeWarp.Logging  (logDebug)
 import           Control.TimeWarp.Logging  (logWarning)
-import           Control.TimeWarp.Timed    (Microsecond, repeatForever, sec)
+import           Control.TimeWarp.Timed    (repeatForever)
 import qualified Data.HashMap.Strict       as HM (toList)
 import           Data.List.NonEmpty        (nonEmpty)
 import           Data.Tagged               (Tagged (..))
@@ -20,6 +20,7 @@ import           Pos.Communication.Methods (announceCommitment, announceCommitme
                                             announceOpening, announceOpenings,
                                             announceShares, announceSharesMulti,
                                             announceVssCertificates)
+import           Pos.Constants             (mpcTransmitterInterval)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class.Workers     (SscWorkersClass (..))
 import           Pos.Ssc.DynamicState      (DSPayload (..), SscDynamicState,
@@ -91,9 +92,6 @@ mpcOnNewSlot SlotId {..} = do
 -- 1. Worker which ticks when new slot starts.
 mpcWorkers :: WorkMode m => [m ()]
 mpcWorkers = [mpcTransmitter]
-
-mpcTransmitterInterval :: Microsecond
-mpcTransmitterInterval = sec 5
 
 mpcTransmitter :: WorkMode m => m ()
 mpcTransmitter =

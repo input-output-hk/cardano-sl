@@ -8,10 +8,10 @@ module Pos.CompileConfig
 
 import qualified Data.Aeson.TH          as A
 import           Data.FileEmbed         (embedFile, makeRelativeToProject)
-import           Data.Maybe             (fromMaybe)
-import           Data.Yaml              (decode)
 import           Serokell.Aeson.Options (defaultOptions)
 import           Universum
+
+import           Pos.Util               (parseConf)
 
 data CompileConfig = CompileConfig
     { ccK                       :: !Int
@@ -25,11 +25,5 @@ data CompileConfig = CompileConfig
 
 $(A.deriveJSON defaultOptions ''CompileConfig)
 
-compileConfigStr :: ByteString
-compileConfigStr = $(makeRelativeToProject "constants.yaml" >>= embedFile)
-
--- | Reading configuration from `rscoin.yaml` file and return it in data type.
 compileConfig :: CompileConfig
-compileConfig =
-    fromMaybe (panic $ "FATAL: failed to parse constants.yaml") $
-    decode compileConfigStr
+compileConfig = parseConf $((makeRelativeToProject "constants.yaml" >>= embedFile))

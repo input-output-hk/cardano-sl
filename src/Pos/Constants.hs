@@ -39,8 +39,8 @@ epochSlots = 6 * k
 epochDuration :: Microsecond
 epochDuration = epochSlots * slotDuration
 
-ftsSeedLength :: Integral a => a
-ftsSeedLength = cast 32
+ftsSeedLength :: Int
+ftsSeedLength = 32
 
 genesisN :: Integral i => i
 genesisN = cast . ccGenesisN $ compileConfig

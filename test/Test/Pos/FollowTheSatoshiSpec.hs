@@ -12,24 +12,33 @@ module Test.Pos.FollowTheSatoshiSpec
 
 import           Data.List.NonEmpty    (NonEmpty ((:|)))
 import qualified Data.Map              as M (elems, findMin, fromList)
-import qualified Data.Set              as S (delete, deleteFindMin, fromList, size,
+import qualified Data.Set              as S (Set, delete, deleteFindMin, fromList, size,
                                              toList)
+import           Pos.Constants         (epochSlots)
 import           Pos.FollowTheSatoshi  (followTheSatoshi)
 import           Pos.Types             (Address, Coin (..), FtsSeed, TxId, TxOut (..),
                                         Utxo)
 
 import           Test.Hspec            (Spec, describe)
-import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Arbitrary (..), NonEmptyList (..), infiniteListOf)
+import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess, prop)
+import           Test.QuickCheck       (Arbitrary (..), Gen, NonEmptyList (..), resize,
+                                        sized, suchThat)
 import           Universum
 
 spec :: Spec
-spec = describe "FollowTheSatoshi" $ do
-    describe "followTheSatoshi" $ do
-        prop description_ftsNoStake ftsNoStake
-        prop description_ftsAllStake ftsAllStake
-        prop description_ftsReasonableStake ftsReasonableStake
+spec = do
+    let smaller = modifyMaxSize (const 10) . modifyMaxSuccess (const 2)
+    describe "FollowTheSatoshi" $ do
+        describe "followTheSatoshi" $ do
+            describe "deterministic" $ do
+                prop description_ftsListLength ftsListLength
+                prop description_ftsNoStake ftsNoStake
+                prop description_ftsAllStake ftsAllStake
+            describe "probabilistic" $ smaller $ do
+                prop description_ftsReasonableStake ftsReasonableStake
   where
+    description_ftsListLength =
+        "the amount of stakeholders is the same as the number of slots in an epoch"
     description_ftsNoStake =
         "a stakeholder with 0% stake won't ever be selected as slot leader"
     description_ftsAllStake =
@@ -44,25 +53,30 @@ newtype StakeAndHolder = StakeAndHolder
 
 instance Arbitrary StakeAndHolder where
     arbitrary = StakeAndHolder <$> do
-        l1 <- getNonEmpty <$> arbitrary
-        l2 <- getNonEmpty <$> arbitrary
+        adr1 <- arbitrary
+        adr2 <- arbitrary `suchThat` ((/=) adr1)
+        listAdr <- arbitrary
         txId <- arbitrary
-        coins <- arbitrary
-        let setAdr = S.fromList $ l1 ++ l2
-            (newAdr, setUtxo) = S.deleteFindMin setAdr
+        coins <- (arbitrary :: Gen Coin)
+        let setAdr = S.fromList $ adr1 : adr2 : listAdr
+            (myAdr, setUtxo) = S.deleteFindMin setAdr
             nAdr = S.size setUtxo
             values = replicate nAdr coins
             utxoList =
                 (replicate nAdr txId `zip` [0 .. fromIntegral nAdr]) `zip`
                 (zipWith (flip TxOut) values $ S.toList setUtxo)
-        return (newAdr, M.fromList utxoList)
+        return (myAdr, M.fromList utxoList)
 
 newtype FtsStream = Stream
-    { getStream :: [FtsSeed]
+    { getStream :: S.Set FtsSeed
     } deriving Show
 
 instance Arbitrary FtsStream where
-    arbitrary = Stream <$> infiniteListOf arbitrary
+    arbitrary = Stream <$> (sized $ const $ resize 1001 arbitrary)
+
+ftsListLength :: FtsSeed -> StakeAndHolder -> Bool
+ftsListLength fts (getNoStake -> (_, utxo)) =
+    (length $ followTheSatoshi fts utxo) == epochSlots
 
 ftsNoStake
     :: FtsSeed
@@ -78,24 +92,25 @@ ftsAllStake
     -> Bool
 ftsAllStake fts (key, t@TxOut{..}) =
     let utxo = M.fromList [(key, t)]
-        nonEmpty@(_ :| l) = followTheSatoshi fts utxo
-    in (elem txOutAddress nonEmpty) &&
-       (null $ S.delete txOutAddress $ S.fromList $ l)
+    in all (== txOutAddress) $ followTheSatoshi fts utxo
 
 ftsReasonableStake
     :: FtsStream
     -> StakeAndHolder
     -> Bool
-ftsReasonableStake (getStream -> ftsList) (getNoStake -> (_, utxo)) =
+ftsReasonableStake (getStream -> ftsSet) (getNoStake -> (_, utxo)) =
     let res = go (0,0) ftsList
-    in (abs $ res - stakeProbability) < 5.0
+    in (abs $ res - stakeProbability) < 90.0
   where
+    ftsList = S.toList ftsSet
     totalStake = fromIntegral $ sum $ map (getCoin . txOutValue) $ M.elems utxo
     TxOut adr (Coin coin) = snd $ M.findMin utxo
     stakeProbability = fromIntegral (coin * 100) / totalStake
     go :: (Int, Int) -> [FtsSeed] -> Double
-    go (pres, 1000) _ = fromIntegral (pres * 100) / fromIntegral 1000
-    go (!present, !total) (fts : next) =
-        if elem adr (followTheSatoshi fts utxo)
-            then go (1+present, 1+total) next
-            else go (present, 1+total) next
+    go (!p, !t) [] = fromIntegral (p * 100) / fromIntegral t
+    go (!present, !total) (fts : next)
+        | total < 1000 =
+            if elem adr (followTheSatoshi fts utxo)
+                then go (1+present, 1+total) next
+                else go (present, 1+total) next
+        | otherwise = fromIntegral (present * 100) / fromIntegral total

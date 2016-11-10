@@ -92,7 +92,7 @@ mpcWorkers :: WorkMode m => [m ()]
 mpcWorkers = [mpcTransmitter]
 
 mpcTransmitterInterval :: Microsecond
-mpcTransmitterInterval = sec 2
+mpcTransmitterInterval = sec 5
 
 mpcTransmitter :: WorkMode m => m ()
 mpcTransmitter =

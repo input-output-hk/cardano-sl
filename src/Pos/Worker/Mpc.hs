@@ -8,7 +8,7 @@ module Pos.Worker.Mpc
 
 import           Control.TimeWarp.Logging  (logDebug)
 import           Control.TimeWarp.Logging  (logWarning)
-import           Control.TimeWarp.Timed    (Microsecond, repeatForever, sec)
+import           Control.TimeWarp.Timed    (repeatForever)
 import qualified Data.HashMap.Strict       as HM (toList)
 import           Data.List.NonEmpty        (nonEmpty)
 import           Data.Tagged               (Tagged (..))

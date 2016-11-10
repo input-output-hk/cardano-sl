@@ -12,25 +12,27 @@ module Pos.Communication.Server.Block
        , handleBlockRequest
        ) where
 
-import           Control.TimeWarp.Logging   (logDebug, logInfo, logNotice, logWarning)
-import           Control.TimeWarp.Rpc       (BinaryP, MonadDialog)
-import           Data.List.NonEmpty         (NonEmpty ((:|)))
-import           Formatting                 (build, int, sformat, stext, (%))
-import           Serokell.Util              (VerificationRes (..), listJson)
+import           Control.TimeWarp.Logging  (logDebug, logInfo, logNotice, logWarning)
+import           Control.TimeWarp.Rpc      (BinaryP, MonadDialog)
+import           Data.List.NonEmpty        (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty        as NE
+import           Formatting                (build, int, sformat, stext, (%))
+import           Serokell.Util             (VerificationRes (..), listJson)
 import           Universum
 
-import           Pos.Communication.Types    (RequestBlock (..), ResponseMode,
-                                             SendBlock (..), SendBlockHeader (..))
-import           Pos.Communication.Util     (modifyListenerLogger)
-import           Pos.Crypto                 (hash)
-import           Pos.DHT                    (ListenerDHT (..), replyToNode)
-import           Pos.Slotting               (getCurrentSlot)
-import           Pos.Ssc.DynamicState.Types (SscDynamicState)
-import qualified Pos.State                  as St
-import           Pos.Statistics             (statlogReceivedBlock,
-                                             statlogReceivedBlockHeader, statlogSentBlock)
-import           Pos.Types                  (HeaderHash, headerHash)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.Communication.Methods (announceBlock)
+import           Pos.Communication.Types   (RequestBlock (..), ResponseMode,
+                                            SendBlock (..), SendBlockHeader (..))
+import           Pos.Communication.Util    (modifyListenerLogger)
+import           Pos.Crypto                (hash)
+import           Pos.DHT                   (ListenerDHT (..), replyToNode)
+import           Pos.Slotting              (getCurrentSlot)
+import           Pos.Ssc.DynamicState      (SscDynamicState)
+import qualified Pos.State                 as St
+import           Pos.Statistics            (StatBlockCreated (..), statlogCountEvent)
+import           Pos.Types                 (HeaderHash, getBlockHeader, headerHash)
+import           Pos.Util.JsonLog          (jlAdoptedBlock, jlLog)
+import           Pos.WorkMode              (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
 blockListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
@@ -43,7 +45,6 @@ blockListeners =
 
 handleBlock :: ResponseMode m => SendBlock SscDynamicState -> m ()
 handleBlock (SendBlock block) = do
-    statlogReceivedBlock block
     slotId <- getCurrentSlot
     pbr <- St.processBlock slotId block
     let blkHash :: HeaderHash SscDynamicState
@@ -54,25 +55,40 @@ handleBlock (SendBlock block) = do
                     "Block "%build%
                     " processing is aborted for the following reason: "%stext
             logWarning $ sformat fmt blkHash msg
-        St.PBRgood (0, (_:|_)) -> logInfo $
-            sformat ("Received block has been adopted: "%build) blkHash
-        St.PBRgood (rollbacked, altChain) -> logNotice $
-            sformat ("As a result of block processing rollback of "%int%
-                     " blocks has been done and alternative chain has been adopted "%
-                     listJson)
-                     rollbacked (fmap headerHash altChain ::
-                                        NonEmpty (HeaderHash SscDynamicState))
+        St.PBRgood (0, (blkAdopted:|[])) -> do
+            statlogCountEvent StatBlockCreated 1
+            let adoptedBlkHash :: HeaderHash SscDynamicState
+                adoptedBlkHash = headerHash blkAdopted
+            jlLog $ jlAdoptedBlock blkAdopted
+            logInfo $ sformat ("Received block has been adopted: "%build)
+                adoptedBlkHash
+        St.PBRgood (rollbacked, altChain) -> do
+            statlogCountEvent StatBlockCreated 1
+            logNotice $
+                sformat ("As a result of block processing rollback of "%int%
+                         " blocks has been done and alternative chain has been adopted "%
+                         listJson)
+                rollbacked (fmap headerHash altChain ::
+                                   NonEmpty (HeaderHash SscDynamicState))
         St.PBRmore h -> do
             logInfo $ sformat
                 ("After processing block "%build%", we need block "%build)
                 blkHash h
             replyToNode $ RequestBlock h
+    propagateBlock pbr
+
+propagateBlock :: WorkMode m => St.ProcessBlockRes SscDynamicState -> m ()
+propagateBlock (St.PBRgood (_, blocks)) =
+    either (const pass) announceBlock header
+  where
+    blk = NE.last blocks
+    header = getBlockHeader blk
+propagateBlock _ = pass
 
 handleBlockHeader
     :: ResponseMode m
     => SendBlockHeader SscDynamicState -> m ()
 handleBlockHeader (SendBlockHeader header) = do
-    statlogReceivedBlockHeader header'
     whenM checkUsefulness $ replyToNode (RequestBlock h)
   where
     header' = Right header
@@ -101,6 +117,5 @@ handleBlockRequest (RequestBlock h) = do
   where
     logNotFound = logWarning $ sformat ("Block "%build%" wasn't found") h
     sendBlockBack block = do
-        statlogSentBlock block
         logDebug $ sformat ("Sending block "%build%" in reply") h
         replyToNode $ SendBlock block

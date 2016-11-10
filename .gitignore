@@ -12,6 +12,7 @@ cabal-dev
 .virtualenv
 .hsenv
 .hpc
+*.svg
 .stack-work/
 .cabal-sandbox/
 cabal.sandbox.config
@@ -33,3 +34,8 @@ cardano-db*
 pos-keys
 nohup.out
 logs
+stats-node-*
+.ipynb_checkpoints
+*.json
+*.ipynb
+testRun

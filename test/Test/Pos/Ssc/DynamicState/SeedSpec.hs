@@ -21,9 +21,8 @@ import           Pos.Crypto               (KeyPair (..), Share, Threshold, VssKe
                                            decryptShare, sign, toVssPublicKey)
 import           Pos.Ssc.DynamicState     (Commitment (..), CommitmentsMap, Opening (..),
                                            SeedError (..), calculateSeed,
-                                           genCommitmentAndOpening, secretToFtsSeed,
-                                           xorFtsSeed)
-import           Pos.Types                (FtsSeed (..))
+                                           genCommitmentAndOpening, secretToFtsSeed)
+import           Pos.Types                (FtsSeed (..), xorSharedSeed)
 import           Pos.Util                 (nonrepeating, sublistN)
 
 spec :: Spec
@@ -98,7 +97,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
     let seeds :: [FtsSeed]
         seeds = map (secretToFtsSeed . getOpening) opens
     let expectedSharedSeed :: FtsSeed
-        expectedSharedSeed = foldl1' xorFtsSeed seeds
+        expectedSharedSeed = foldl1' xorSharedSeed seeds
     haveSentBoth <- generate $
         sublistN n_overlap keys
     haveSentOpening <- generate $

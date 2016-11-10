@@ -22,13 +22,14 @@ import           Control.Concurrent.STM          (STM, TVar, atomically, modifyT
                                                   newTVar, readTVar, swapTVar, writeTVar)
 import           Control.Monad.Catch             (Handler (..), MonadCatch, MonadMask,
                                                   MonadThrow, catchAll, catches, throwM)
+import           Control.Monad.Morph             (hoist)
 import           Control.Monad.Trans.Class       (MonadTrans)
 import           Control.Monad.Trans.Control     (MonadBaseControl)
 import           Control.TimeWarp.Logging        (WithNamedLogger, logDebug, logError,
                                                   logInfo, logWarning, usingLoggerName)
 import           Control.TimeWarp.Rpc            (BinaryP (..), Binding (..),
                                                   ListenerH (..), MonadDialog,
-                                                  MonadResponse, MonadTransfer (..),
+                                                  MonadResponse (..), MonadTransfer (..),
                                                   NetworkAddress, RawData (..),
                                                   TransferException (..), hoistRespCond,
                                                   listenR, sendH, sendR)
@@ -109,7 +110,12 @@ data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
 
 newtype KademliaDHT m a = KademliaDHT { unKademliaDHT :: ReaderT (KademliaDHTContext m) m a }
     deriving (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadIO,
-             MonadMask, WithNamedLogger, MonadTimed, MonadDialog p, MonadResponse)
+             MonadMask, WithNamedLogger, MonadTimed, MonadDialog p)
+
+instance MonadResponse m => MonadResponse (KademliaDHT m) where
+    replyRaw dat = KademliaDHT $ replyRaw (hoist unKademliaDHT dat)
+    closeR = lift closeR
+    peerAddr = lift peerAddr
 
 --instance MonadTransControl KademliaDHT where
 --    type StT KademliaDHT a = StT (ReaderT (KademliaDHTContext m)) a
@@ -122,7 +128,7 @@ newtype KademliaDHT m a = KademliaDHT { unKademliaDHT :: ReaderT (KademliaDHTCon
 --    restoreM         = defaultRestoreM
 
 instance MonadTransfer m => MonadTransfer (KademliaDHT m) where
-    sendRaw addr req = lift $ sendRaw addr req
+    sendRaw addr req = KademliaDHT $ sendRaw addr (hoist unKademliaDHT req)
     listenRaw binding sink =
         KademliaDHT $ listenRaw binding $ hoistRespCond unKademliaDHT sink
     close = lift . close
@@ -185,13 +191,14 @@ stopDHT = do
     closers <- liftIO . atomically $ swapTVar closersTV []
     lift $ sequence_ closers
 
-stopDHTInstance :: (MonadTimed m, MonadIO m) => KademliaDHTInstance -> m ()
+stopDHTInstance
+    :: MonadIO m
+    => KademliaDHTInstance -> m ()
 stopDHTInstance KademliaDHTInstance {..} = liftIO $ K.close kdiHandle
 
 startDHTInstance
     :: ( MonadTimed m
        , MonadIO m
-       , MonadDialog BinaryP m
        , WithNamedLogger m
        , MonadCatch m
        , MonadBaseControl IO m
@@ -222,7 +229,7 @@ startDHT
        , MonadIO m
        , MonadDialog BinaryP m
        , WithNamedLogger m
-       , MonadCatch m
+       , MonadMask m
        , MonadBaseControl IO m
        )
     => KademliaDHTConfig m -> m (KademliaDHTContext m)
@@ -243,14 +250,13 @@ startDHT KademliaDHTConfig {..} = do
   where
     convert :: ListenerDHT m -> ListenerH BinaryP DHTMsgHeader m
     convert (ListenerDHT f) = ListenerH $ \(_, m) -> getDHTResponseT $ f m
-    log' logF =  usingLoggerName ("kademlia" <> "messager") . logF . toText
     convert' handler = getDHTResponseT . handler
 
 -- | Return 'True' if the message should be processed, 'False' if only
 -- broadcasted
 rawListener
     :: ( MonadBaseControl IO m
-       , MonadCatch m
+       , MonadMask m
        , MonadDialog BinaryP m
        , MonadIO m
        , MonadTimed m

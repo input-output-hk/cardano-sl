@@ -9,8 +9,8 @@ import           Pos.Constants         (ftsSeedLength)
 import           Pos.Crypto            (SecretKey, sign, toPublic)
 import           Pos.Ssc.DynamicState  (Commitment, CommitmentOpening (..),
                                         verifyCommitment, verifyCommitmentSignature,
-                                        verifyOpening, xorFtsSeed)
-import           Pos.Types             (EpochIndex, FtsSeed (..))
+                                        verifyOpening)
+import           Pos.Types             (EpochIndex, FtsSeed (..), xorSharedSeed)
 
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
@@ -24,7 +24,7 @@ spec = describe "Types.Mpc" $ do
         prop description_verifiesOkCommSig verifiesOkCommSig
     describe "verifyOpening" $ do
         prop description_verifiesOkOpening verifiesOkOpening
-    describe "xorFtsSeed" $ do
+    describe "xorSharedSeed" $ do
         prop description_xorFormsAbelianGroup xorFormsAbelianGroup
   where
     description_verifiesOkComm =
@@ -55,7 +55,7 @@ verifiesOkOpening CommitmentOpening{..} =
 
 xorFormsAbelianGroup :: FtsSeed -> FtsSeed -> FtsSeed -> Bool
 xorFormsAbelianGroup fts1 fts2 fts3 =
-    let op = xorFtsSeed
+    let op = xorSharedSeed
         isAssociative =
             let assoc1 = (fts1 `op` fts2) `op` fts3
                 assoc2 = fts1 `op` (fts2 `op` fts3)

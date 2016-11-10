@@ -26,7 +26,8 @@ module Pos.Launcher
        ) where
 
 
-import           Control.Concurrent.MVar     (newEmptyMVar, takeMVar, tryReadMVar)
+import           Control.Concurrent.MVar     (newEmptyMVar, newMVar, takeMVar,
+                                              tryReadMVar)
 import           Control.Monad               (fail)
 import           Control.Monad.Catch         (bracket)
 import           Control.Monad.Trans.Control (MonadBaseControl)
@@ -47,7 +48,7 @@ import           Universum
 
 import           Pos.Communication           (SysStartRequest (..), SysStartResponse (..),
                                               allListeners, noCacheMessageNames, sendTx,
-                                              serverLoggerName, statsListener,
+                                              serverLoggerName, statsListeners,
                                               sysStartReqListener, sysStartRespListener)
 import           Pos.Constants               (RunningMode (..), isDevelopment,
                                               runningMode)
@@ -68,11 +69,11 @@ import           Pos.Types                   (Address, Coin, Timestamp (Timestam
                                               Tx (..), TxId, TxIn (..), TxOut (..), Utxo,
                                               timestampF, txF)
 import           Pos.Util                    (runWithRandomIntervals)
-import           Pos.Worker                  (runWorkers)
+import           Pos.Worker                  (runWorkers, statsWorkers)
 import           Pos.WorkMode                (ContextHolder (..), DBHolder (..),
                                               NodeContext (..), RealMode, ServiceMode,
                                               WorkMode, getNodeContext, ncPublicKey,
-                                              ncSecretKey)
+                                              runContextHolder, runDBHolder)
 
 -- | Get current time as Timestamp. It is intended to be used when you
 -- launch the first node. It doesn't make sense in emulation mode.
@@ -99,10 +100,10 @@ runNode = do
 
 -- | Construct Tx with a single input and single output and send it to
 -- the given network addresses.
-submitTx :: WorkMode m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m ()
+submitTx :: WorkMode m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m Tx
 submitTx na (txInHash, txInIndex) (txOutAddress, txOutValue) =
     if null na
-      then logError "No addresses to send"
+      then logError "No addresses to send" >> panic "submitTx failed"
       else do
         sk <- ncSecretKey <$> getNodeContext
         let txOuts = [TxOut {..}]
@@ -112,6 +113,7 @@ submitTx na (txInHash, txInIndex) (txOutAddress, txOutValue) =
         logInfo $ sformat ("Submitting transaction: "%txF) tx
         logInfo $ sformat ("Transaction id: "%build) txId
         mapM_ (`sendTx` tx) na
+        pure tx
 
 -- | Submit tx in real mode.
 submitTxReal :: NodeParams
@@ -121,9 +123,9 @@ submitTxReal :: NodeParams
 submitTxReal np input addrCoin = bracketDHTInstance (npBaseParams np) action
   where
     action inst = runRealMode inst np [] $ do
-                peers <- getKnownPeers
-                let na = dhtAddr <$> filterByNodeType DHTFull peers
-                getNoStatsT $ submitTx na input addrCoin
+        peers <- getKnownPeers
+        let na = dhtAddr <$> filterByNodeType DHTFull peers
+        void $ getNoStatsT $ submitTx na input addrCoin
 
 -- Sanity check in case start time is in future (may happen if clocks
 -- are not accurately synchronized, for example).
@@ -167,6 +169,7 @@ data NodeParams = NodeParams
     , npSystemStart :: !Timestamp
     , npCustomUtxo  :: !(Maybe Utxo)
     , npTimeLord    :: !Bool
+    , npJLFile      :: !(Maybe FilePath)
     } deriving (Show)
 
 data BaseParams = BaseParams
@@ -243,10 +246,12 @@ runNodeReal inst np@NodeParams {..} = runRealMode inst np listeners $ getNoStats
 -- | Run full node in benchmarking node
 -- TODO: spawn here additional listener, which would accept stat queries
 runNodeStats :: KademliaDHTInstance -> NodeParams -> IO ()
-runNodeStats inst np = runRealMode inst np listeners $ getStatsT runNode
+runNodeStats inst np = runRealMode inst np listeners $ getStatsT $ do
+    mapM_ fork_ statsWorkers
+    runNode
   where
-    listeners = addDevListeners np statsListeners
-    statsListeners = map (mapListenerDHT getStatsT) $ statsListener : allListeners
+    listeners = addDevListeners np sListeners
+    sListeners = map (mapListenerDHT getStatsT) $ statsListeners ++ allListeners
 
 ----------------------------------------------------------------------------
 -- Real mode runners
@@ -272,7 +277,7 @@ runRealMode :: KademliaDHTInstance -> NodeParams -> [ListenerDHT RealMode] -> Re
 runRealMode inst NodeParams {..} listeners action = do
     setupLoggingReal logParams
     db <- openDb
-    runTimed loggerName . runDBH db . runCH . runKDHT inst npBaseParams listeners $
+    runTimed loggerName . runDBHolder db . runCH . runKDHT inst npBaseParams listeners $
         nodeStartMsg npBaseParams >> action
   where
     logParams  = bpLogging npBaseParams
@@ -285,17 +290,17 @@ runRealMode inst NodeParams {..} listeners action = do
                (openState mStorage npRebuildDb)
                npDbPath
 
-    runDBH :: NodeState -> DBHolder m a -> m a
-    runDBH db = flip runReaderT db . getDBHolder
-
-    runCH :: ContextHolder m a -> m a
-    runCH = flip runReaderT ctx . getContextHolder
+    runCH :: MonadIO m => ContextHolder m a -> m a
+    runCH act = flip runContextHolder act . ctx
+                  =<< maybe (pure Nothing) (fmap Just . liftIO . newMVar) npJLFile
       where
-        ctx = NodeContext
+        ctx jlFile =
+          NodeContext
               { ncSystemStart = npSystemStart
               , ncSecretKey = npSecretKey
               , ncVssKeyPair = npVssKeyPair
               , ncTimeLord = npTimeLord
+              , ncJLFile = jlFile
               }
 
 runServiceMode :: KademliaDHTInstance -> BaseParams -> [ListenerDHT ServiceMode] -> ServiceMode a -> IO a

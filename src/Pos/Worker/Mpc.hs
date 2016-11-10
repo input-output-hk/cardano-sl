@@ -1,14 +1,16 @@
 -- | MPC processing related workers.
 
 module Pos.Worker.Mpc
-       ( mpcOnNewSlot
-       , mpcWorkers
+       (
+         -- * Instances
+         -- ** instance SscWorkersClass SscDynamicState
        ) where
 
 import           Control.TimeWarp.Logging  (logDebug)
 import           Control.TimeWarp.Logging  (logWarning)
 import           Control.TimeWarp.Timed    (Microsecond, repeatForever, sec)
 import qualified Data.HashMap.Strict       as HM (toList)
+import           Data.Tagged               (Tagged (..))
 import           Formatting                (build, ords, sformat, (%))
 import           Serokell.Util.Exceptions  ()
 import           Universum
@@ -17,15 +19,21 @@ import           Pos.Communication.Methods (announceCommitment, announceOpening,
                                             announceShares, announceVssCertificate)
 import           Pos.Communication.Types   (SendSsc (..))
 import           Pos.DHT                   (sendToNeighbors)
-import           Pos.Ssc.DynamicState      (DSPayload (..), hasCommitment, hasOpening,
-                                            hasShares, isCommitmentIdx, isOpeningIdx,
-                                            isSharesIdx)
+import           Pos.Slotting              (getCurrentSlot)
+import           Pos.Ssc.Class.Workers     (SscWorkersClass (..))
+import           Pos.Ssc.DynamicState      (DSPayload (..), SscDynamicState,
+                                            hasCommitment, hasOpening, hasShares,
+                                            isCommitmentIdx, isOpeningIdx, isSharesIdx)
 import           Pos.State                 (generateAndSetNewSecret, getGlobalMpcData,
                                             getLocalSscPayload, getOurCommitment,
                                             getOurOpening, getOurShares, getSecret)
 import           Pos.Types                 (SlotId (..))
 import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey,
                                             ncSecretKey, ncVssKeyPair)
+
+instance SscWorkersClass SscDynamicState where
+    sscOnNewSlot = Tagged mpcOnNewSlot
+    sscWorkers = Tagged mpcWorkers
 
 -- | Action which should be done when new slot starts.
 mpcOnNewSlot :: WorkMode m => SlotId -> m ()
@@ -89,7 +97,7 @@ mpcTransmitterInterval = sec 2
 mpcTransmitter :: WorkMode m => m ()
 mpcTransmitter =
     repeatForever mpcTransmitterInterval onError $
-    do DSPayload{..} <- getLocalSscPayload
+    do DSPayload{..} <- getLocalSscPayload =<< getCurrentSlot
        mapM_ (uncurry announceCommitment) $ HM.toList _mdCommitments
        mapM_ (uncurry announceOpening) $ HM.toList _mdOpenings
        mapM_ (uncurry announceShares) $ HM.toList _mdShares

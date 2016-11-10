@@ -16,7 +16,7 @@ import           Pos.Communication.Types  (ResponseMode, SendTx (..), SendTxs (.
 import           Pos.Communication.Util   (modifyListenerLogger)
 import           Pos.DHT                  (ListenerDHT (..))
 import           Pos.State                (ProcessTxRes (..), processTx)
-import           Pos.Statistics           (statlogReceivedTx)
+import           Pos.Statistics           (StatProcessTx (..), statlogCountEvent)
 import           Pos.Types                (txF)
 import           Pos.WorkMode             (WorkMode)
 
@@ -32,16 +32,19 @@ handleTx
     :: ResponseMode m
     => SendTx -> m ()
 handleTx (SendTx tx) = do
-    statlogReceivedTx tx
     res <- processTx tx
     case res of
-        PTRadded ->
+        PTRadded -> do
+            statlogCountEvent StatProcessTx 1
             logInfo $
-            sformat ("Transaction has been added to storage: " %build) tx
+                sformat ("Transaction has been added to storage: "%build) tx
         PTRinvalid msg ->
-            logWarning $ sformat ("Transaction "%txF%" failed to verify: "%stext) tx msg
+            logWarning $
+            sformat ("Transaction "%txF%" failed to verify: "%stext) tx msg
         PTRknown ->
-            logDebug $ sformat ("Transaction is already known: " %build) tx
+            logDebug $ sformat ("Transaction is already known: "%build) tx
+        PTRoverwhelmed ->
+            logInfo $ sformat ("Node is overwhelmed, can't add tx: "%build) tx
 
 handleTxs
     :: ResponseMode m

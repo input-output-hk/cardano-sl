@@ -39,6 +39,7 @@ module Pos.DHT (
 
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, catch,
                                             throwM)
+import           Control.Monad.Morph       (hoist)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.TimeWarp.Logging  (LoggerName,
                                             WithNamedLogger (modifyLoggerName), logDebug,
@@ -111,7 +112,14 @@ class MonadDHT m => MonadMessageDHT m where
 
     sendToNeighbors :: (Binary r, Message r) => r -> m Int
 
-    default sendToNode :: (Binary r, Message r, WithNamedLogger m, WithDefaultMsgHeader m, MonadIO m, MonadDialog BinaryP m) => NetworkAddress -> r -> m ()
+    default sendToNode :: ( Binary r
+                          , Message r
+                          , WithNamedLogger m
+                          , WithDefaultMsgHeader m
+                          , MonadIO m
+                          , MonadDialog BinaryP m
+                          , MonadThrow m
+                          ) => NetworkAddress -> r -> m ()
     sendToNode = defaultSendToNode
 
     default sendToNeighbors :: (Binary r, Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
@@ -132,6 +140,7 @@ defaultSendToNode
        , WithDefaultMsgHeader m
        , WithNamedLogger m
        , MonadDialog BinaryP m
+       , MonadThrow m
        , MonadIO m
        )
     => NetworkAddress -> r -> m ()
@@ -270,13 +279,13 @@ newtype DHTResponseT m a = DHTResponseT
                 WithNamedLogger, MonadTimed, MonadDialog t, MonadDHT, MonadMessageDHT)
 
 instance MonadTransfer m => MonadTransfer (DHTResponseT m) where
-    sendRaw addr p = DHTResponseT $ sendRaw addr p
+    sendRaw addr p = DHTResponseT $ sendRaw addr (hoist getDHTResponseT p)
     listenRaw binding sink = DHTResponseT $ listenRaw binding (hoistRespCond getDHTResponseT sink)
     close = DHTResponseT . close
 
 type instance ThreadId (DHTResponseT m) = ThreadId m
 
-instance (WithNamedLogger m, WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog BinaryP m, MonadIO m) => MonadResponseDHT (DHTResponseT m) where
+instance (WithNamedLogger m, WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog BinaryP m, MonadIO m, MonadMask m) => MonadResponseDHT (DHTResponseT m) where
   replyToNode msg = do
     addr <- DHTResponseT $ peerAddr
     withDhtLogger $

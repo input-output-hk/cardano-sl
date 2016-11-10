@@ -8,6 +8,7 @@ module Pos.Constants
        , epochDuration
        , genesisN
        , maxLocalTxs
+       , mpcTransmitterInterval
        , neighborsSendThreshold
        , networkDiameter
        , RunningMode (..)
@@ -63,3 +64,6 @@ isDevelopment :: Bool
 isDevelopment = case runningMode of
                   Development -> True
                   _           -> False
+
+mpcTransmitterInterval :: Microsecond
+mpcTransmitterInterval = sec . ccMpcRelayInterval $ compileConfig

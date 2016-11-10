@@ -20,6 +20,7 @@ data CompileConfig = CompileConfig
     , ccNeighboursSendThreshold :: !Int
     , ccGenesisN                :: !Int
     , ccMaxLocalTxs             :: !Word
+    , ccMpcRelayInterval        :: !Int
     } deriving (Show)
 
 $(A.deriveJSON defaultOptions ''CompileConfig)

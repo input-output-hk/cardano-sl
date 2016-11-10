@@ -122,6 +122,7 @@ library
                       , lifted-async
                       , lrucache
                       , memory
+                      , mmorph
                       , monad-control
                       , mtl
                       , parsec

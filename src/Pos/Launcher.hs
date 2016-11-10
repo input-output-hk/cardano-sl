@@ -72,7 +72,8 @@ import           Pos.Util                    (runWithRandomIntervals)
 import           Pos.Worker                  (runWorkers, statsWorkers)
 import           Pos.WorkMode                (ContextHolder (..), DBHolder (..),
                                               NodeContext (..), RealMode, ServiceMode,
-                                              WorkMode, getNodeContext, ncPublicKey)
+                                              WorkMode, getNodeContext, ncPublicKey,
+                                              runContextHolder, runDBHolder)
 
 -- | Get current time as Timestamp. It is intended to be used when you
 -- launch the first node. It doesn't make sense in emulation mode.
@@ -276,7 +277,7 @@ runRealMode :: KademliaDHTInstance -> NodeParams -> [ListenerDHT RealMode] -> Re
 runRealMode inst NodeParams {..} listeners action = do
     setupLoggingReal logParams
     db <- openDb
-    runTimed loggerName . runDBH db . runCH . runKDHT inst npBaseParams listeners $
+    runTimed loggerName . runDBHolder db . runCH . runKDHT inst npBaseParams listeners $
         nodeStartMsg npBaseParams >> action
   where
     logParams  = bpLogging npBaseParams
@@ -289,11 +290,8 @@ runRealMode inst NodeParams {..} listeners action = do
                (openState mStorage npRebuildDb)
                npDbPath
 
-    runDBH :: NodeState -> DBHolder m a -> m a
-    runDBH db = flip runReaderT db . getDBHolder
-
     runCH :: MonadIO m => ContextHolder m a -> m a
-    runCH act = runReaderT (getContextHolder act) . ctx
+    runCH act = flip runContextHolder act . ctx
                   =<< maybe (pure Nothing) (fmap Just . liftIO . newMVar) npJLFile
       where
         ctx jlFile =

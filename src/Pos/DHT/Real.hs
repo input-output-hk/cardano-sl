@@ -87,8 +87,8 @@ data KademliaDHTInstance = KademliaDHTInstance
 
 data KademliaDHTContext m = KademliaDHTContext
     { kdcDHTInstance_         :: !KademliaDHTInstance
-    , kdcAuxClosers           :: !(TVar [m ()])
-    , kdcListenByBinding      :: !(Binding -> KademliaDHT m (IO ()))
+    , kdcAuxClosers           :: !(TVar [KademliaDHT m ()])
+    , kdcListenByBinding      :: !(Binding -> KademliaDHT m (KademliaDHT m ()))
     , kdcStopped              :: !(TVar Bool)
     , kdcNoCacheMessageNames_ :: ![Text]
     }
@@ -130,7 +130,7 @@ instance MonadResponse m => MonadResponse (KademliaDHT m) where
 instance MonadTransfer m => MonadTransfer (KademliaDHT m) where
     sendRaw addr req = KademliaDHT $ sendRaw addr (hoist unKademliaDHT req)
     listenRaw binding sink =
-        KademliaDHT $ listenRaw binding $ hoistRespCond unKademliaDHT sink
+        KademliaDHT $ fmap KademliaDHT $ listenRaw binding $ hoistRespCond unKademliaDHT sink
     close = lift . close
 
 instance Applicative m => WithDefaultMsgHeader (KademliaDHT m) where
@@ -180,7 +180,7 @@ runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
       (tvar, listenByBinding) <-
           KademliaDHT $ (,) <$> asks kdcAuxClosers <*> asks kdcListenByBinding
       closer <- listenByBinding $ AtPort kdcPort
-      liftIO . atomically $ modifyTVar tvar (liftIO closer:)
+      liftIO . atomically $ modifyTVar tvar (closer:)
 
 stopDHT :: (MonadTimed m, MonadIO m) => KademliaDHT m ()
 stopDHT = do
@@ -189,7 +189,7 @@ stopDHT = do
             <*> asks kdcStopped
     liftIO . atomically $ writeTVar stoppedTV True
     closers <- liftIO . atomically $ swapTVar closersTV []
-    lift $ sequence_ closers
+    sequence_ closers
 
 stopDHTInstance
     :: MonadIO m
@@ -344,7 +344,7 @@ instance (MonadDialog BinaryP m, WithNamedLogger m, MonadCatch m, MonadIO m, Mon
                                 shown % ": " % build) addr e
             return $ pure ()
         updateClosers closer = KademliaDHT (asks kdcAuxClosers)
-                            >>= \tvar -> (liftIO . atomically $ modifyTVar tvar (liftIO closer:))
+                            >>= \tvar -> (liftIO . atomically $ modifyTVar tvar (closer:))
 
 rejoinNetwork :: (MonadIO m, WithNamedLogger m, MonadCatch m) => KademliaDHT m ()
 rejoinNetwork = withDhtLogger $ do

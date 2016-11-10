@@ -106,7 +106,7 @@ type instance ThreadId (DBHolder m) = ThreadId m
 instance MonadTransfer m => MonadTransfer (DBHolder m) where
     sendRaw addr req = DBHolder ask >>= \ctx -> lift $ sendRaw addr (hoist (runDBHolder ctx) req)
     listenRaw binding sink =
-        DBHolder $ listenRaw binding $ hoistRespCond getDBHolder sink
+        DBHolder $ fmap DBHolder $ listenRaw binding $ hoistRespCond getDBHolder sink
     close = lift . close
 
 instance MonadResponse m => MonadResponse (DBHolder m) where
@@ -199,7 +199,7 @@ type instance ThreadId (ContextHolder m) = ThreadId m
 instance MonadTransfer m => MonadTransfer (ContextHolder m) where
     sendRaw addr req = ContextHolder ask >>= \ctx -> lift $ sendRaw addr (hoist (runContextHolder ctx) req)
     listenRaw binding sink =
-        ContextHolder $ listenRaw binding $ hoistRespCond getContextHolder sink
+        ContextHolder $ fmap ContextHolder $ listenRaw binding $ hoistRespCond getContextHolder sink
     close = lift . close
 
 instance MonadResponse m => MonadResponse (ContextHolder m) where

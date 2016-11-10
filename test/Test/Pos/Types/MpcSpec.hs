@@ -55,23 +55,22 @@ verifiesOkOpening CommitmentOpening{..} =
 
 xorFormsAbelianGroup :: FtsSeed -> FtsSeed -> FtsSeed -> Bool
 xorFormsAbelianGroup fts1 fts2 fts3 =
-    let op = xorSharedSeed
+    let -- | xorFtsSeed is (<>) because of our Monoid instance
         isAssociative =
-            let assoc1 = (fts1 `op` fts2) `op` fts3
-                assoc2 = fts1 `op` (fts2 `op` fts3)
+            let assoc1 = (fts1 <> fts2) <> fts3
+                assoc2 = fts1 <> (fts2 <> fts3)
             in assoc1 == assoc2
         hasIdentity =
-            let id = FtsSeed $ BS.pack $ replicate ftsSeedLength '\NUL'
-                id1 = id `op` fts1
-                id2 = fts1 `op` id
+            let id1 = mempty <> fts1
+                id2 = fts1 <> mempty
             in (fts1 == id1) && (fts1 == id2)
         hasInverses =
-            let inv1 = fts1 `op` fts2
-                inv2 = inv1 `op` fts2
-                inv3 = fts1 `op` inv1
+            let inv1 = fts1 <> fts2
+                inv2 = inv1 <> fts2
+                inv3 = fts1 <> inv1
             in inv2 == fts1 && inv3 == fts2
         isCommutative =
-            let comm1 = fts1 `op` fts2
-                comm2 = fts2 `op` fts1
+            let comm1 = fts1 <> fts2
+                comm2 = fts2 <> fts1
             in comm1 == comm2
     in isAssociative && hasIdentity && hasInverses && isCommutative

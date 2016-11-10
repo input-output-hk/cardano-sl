@@ -124,6 +124,8 @@ import           Control.Lens           (Getter, Lens', choosing, ix, makeLenses
                                          view, (^.), (^?), _3)
 import           Data.Binary            (Binary)
 import           Data.Binary.Orphans    ()
+import qualified Data.ByteString        as BS (pack, zipWith)
+import qualified Data.ByteString.Char8  as BSC (pack)
 import           Data.Data              (Data)
 import           Data.Default           (Default (def))
 import           Data.DeriveTH          (derive, makeNFData)
@@ -146,7 +148,7 @@ import           Serokell.Util.Text     (listJson, mapBuilderJson, pairBuilder)
 import           Serokell.Util.Verify   (VerificationRes (..), verifyGeneric)
 import           Universum
 
-import           Pos.Constants          (epochSlots)
+import           Pos.Constants          (epochSlots, ftsSeedLength)
 import           Pos.Crypto             (Hash, PublicKey, SecretKey, Signature, hash,
                                          hashHexF, sign, toPublic, unsafeHash, verify)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot,
@@ -317,6 +319,14 @@ instance Buildable FtsSeed where
 
 -- TODO: rename completely!
 type SharedSeed = FtsSeed
+
+instance Semigroup FtsSeed where
+    (<>) (FtsSeed a) (FtsSeed b) =
+        FtsSeed $ BS.pack (BS.zipWith xor a b) -- fast due to rewrite rules
+
+instance Monoid FtsSeed where
+    mempty = FtsSeed $ BSC.pack $ replicate ftsSeedLength '\NUL'
+    mappend = (<>)
 
 type SlotLeaders = NonEmpty PublicKey
 

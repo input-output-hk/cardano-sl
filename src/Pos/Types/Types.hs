@@ -327,6 +327,7 @@ instance Semigroup FtsSeed where
 instance Monoid FtsSeed where
     mempty = FtsSeed $ BSC.pack $ replicate ftsSeedLength '\NUL'
     mappend = (<>)
+    mconcat = foldl' (<>) mempty
 
 type SlotLeaders = NonEmpty PublicKey
 

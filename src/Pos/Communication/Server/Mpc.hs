@@ -18,9 +18,11 @@ import           Universum
 
 import qualified Pos.Communication.Types.Mpc as Mpc
 import           Pos.Communication.Util      (modifyListenerLogger)
+import           Pos.Crypto                  (PublicKey, Share)
 import           Pos.DHT                     (ListenerDHT (..))
 import           Pos.Ssc.Class.Listeners     (SscListenersClass (..))
-import           Pos.Ssc.DynamicState        (DSMessage (..), SscDynamicState)
+import           Pos.Ssc.DynamicState        (DSMessage (..), Opening, SignedCommitment,
+                                              SscDynamicState, VssCertificate)
 import qualified Pos.State                   as St
 import           Pos.WorkMode                (WorkMode)
 
@@ -32,25 +34,35 @@ mpcListeners = map (modifyListenerLogger "mpc") [ListenerDHT handleSsc]
 
 -- TODO: refactor, lol! :)
 handleSsc :: WorkMode m => Mpc.SendSsc -> m ()
-handleSsc (Mpc.SendCommitment pk c) =  do
+handleSsc (Mpc.SendCommitments comms)     = mapM_ (uncurry handleCommitment) comms
+handleSsc (Mpc.SendOpenings ops)          = mapM_ (uncurry handleOpening) ops
+handleSsc (Mpc.SendSharesMulti s)         = mapM_ (uncurry handleShares) s
+handleSsc (Mpc.SendVssCertificates certs) = mapM_ (uncurry handleCert) certs
+
+handleCommitment :: WorkMode m => PublicKey -> SignedCommitment -> m ()
+handleCommitment pk c = do
     -- TODO: actually check the commitment
     added <- St.processSscMessage $ DSCommitment pk c
     let msgAction = if added then "added to local storage" else "ignored"
     let msg = sformat ("Commitment from "%build%" has been "%stext) pk msgAction
     let logAction = if added then logInfo else logDebug
     logAction msg
+
 -- TODO: I don't like that these are in "Server.Mpc" but use 'processOpening'
 -- instead of 'mpcProcessOpening' – the idea is that 'mpcProcessOpening' does
 -- the MPC part and 'processOpening' may potentially do more than that, so
 -- it's counterintuitive that 'handleOpening' is in "Server.Mpc". I'd like to
 -- just move all handlers into "Pos.Communication.Server". — @neongreen
-handleSsc (Mpc.SendOpening pk o) = do
+handleOpening :: WorkMode m => PublicKey -> Opening -> m ()
+handleOpening pk o = do
     added <- St.processSscMessage $ DSOpening pk o
     let msgAction = if added then "added to local storage" else "ignored"
     let msg = sformat ("Opening from "%build%" has been "%stext) pk msgAction
     let logAction = if added then logInfo else logDebug
     logAction msg
-handleSsc (Mpc.SendShares pk s) = do
+
+handleShares :: WorkMode m => PublicKey -> HashMap PublicKey Share -> m ()
+handleShares pk s = do
     added <- St.processSscMessage $ DSShares pk s
     let msgAction = if added then "added to local storage" else "ignored"
     let msg = sformat ("Shares from "%build%" have been "%stext) pk msgAction
@@ -58,7 +70,9 @@ handleSsc (Mpc.SendShares pk s) = do
     -- TODO: investigate!
     let logAction = logDebug
     logAction msg
-handleSsc (Mpc.SendVssCertificate pk c) = do
+
+handleCert :: WorkMode m => PublicKey -> VssCertificate -> m ()
+handleCert pk c = do
     added <- St.processSscMessage $ DSVssCertificate pk c
     let msgAction = if added then "added to local storage" else "ignored"
     let msg = sformat ("VssCertificate from "%build%" has been "%stext) pk msgAction

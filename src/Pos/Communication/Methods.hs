@@ -6,9 +6,13 @@ module Pos.Communication.Methods
        , announceTxs
        , sendTx
        , announceCommitment
+       , announceCommitments
        , announceOpening
+       , announceOpenings
        , announceShares
+       , announceSharesMulti
        , announceVssCertificate
+       , announceVssCertificates
        ) where
 
 import           Control.TimeWarp.Logging (logDebug)
@@ -17,7 +21,7 @@ import           Control.TimeWarp.Timed   (fork_)
 import           Data.Binary              (Binary)
 import           Data.List.NonEmpty       (NonEmpty ((:|)))
 import           Formatting               (build, sformat, (%))
-import           Serokell.Util.Text       (listBuilderJSON, mapJson)
+import           Serokell.Util.Text       (listJson)
 import           Universum
 
 import           Pos.Communication.Types  (SendBlockHeader (..), SendSsc (..),
@@ -59,7 +63,7 @@ announceTxs :: WorkMode m => [Tx] -> m ()
 announceTxs [] = pure ()
 announceTxs txs@(tx:txs') = do
     logDebug $
-        sformat ("Announcing txs to others:\n" %build) $ listBuilderJSON txs
+        sformat ("Announcing txs to others:\n" %listJson) txs
     sendToNeighborsSafe . SendTxs $ tx :| txs'
 
 -- | Send Tx to given address.
@@ -73,30 +77,52 @@ sendTx addr = sendToNode addr . SendTx
 -- TODO: add statlogging for everything, see e.g. announceTxs
 
 announceCommitment :: WorkMode m => PublicKey -> SignedCommitment -> m ()
-announceCommitment pk comm = do
-    -- TODO: show the commitment
-    logDebug $ sformat
-        ("Announcing "%build%"'s commitment to others: <TODO SHOW COMM>") pk
-    sendToNeighborsSafe $ SendCommitment pk comm
+announceCommitment pk comm = announceCommitments $ pure (pk, comm)
+
+announceCommitments
+    :: WorkMode m
+    => NonEmpty (PublicKey, SignedCommitment) -> m ()
+announceCommitments comms = do
+    -- TODO: should we show actual commitments?
+    logDebug $
+        sformat ("Announcing commitments from: "%listJson) $ map fst comms
+    sendToNeighborsSafe $ SendCommitments comms
 
 announceOpening :: WorkMode m => PublicKey -> Opening -> m ()
-announceOpening pk open = do
-    logDebug $ sformat
-        ("Announcing "%build%"'s opening to others: "%build) pk open
-    sendToNeighborsSafe $ SendOpening pk open
+announceOpening pk open = announceOpenings $ pure (pk, open)
+
+announceOpenings :: WorkMode m => NonEmpty (PublicKey, Opening) -> m ()
+announceOpenings openings = do
+    -- TODO: should we show actual openings?
+    logDebug $
+        sformat ("Announcing openings from: "%listJson) $ map fst openings
+    sendToNeighborsSafe $ SendOpenings openings
 
 announceShares :: WorkMode m => PublicKey -> HashMap PublicKey Share -> m ()
-announceShares pk shares = do
-    logDebug $ sformat
-        ("Announcing "%build%"'s shares to others:\n"%mapJson) pk shares
-    sendToNeighborsSafe $ SendShares pk shares
+announceShares pk shares = announceSharesMulti $ pure (pk, shares)
 
-announceVssCertificate :: WorkMode m => PublicKey -> VssCertificate -> m ()
-announceVssCertificate pk cert = do
-    -- TODO: show the certificate
+announceSharesMulti
+    :: WorkMode m
+    => NonEmpty (PublicKey, HashMap PublicKey Share) -> m ()
+announceSharesMulti shares = do
+    -- TODO: should we show actual shares?
+    logDebug $
+        sformat ("Announcing shares from: "%listJson) $ map fst shares
+    sendToNeighborsSafe $ SendSharesMulti shares
+
+announceVssCertificate
+    :: WorkMode m
+    => PublicKey -> VssCertificate -> m ()
+announceVssCertificate pk cert = announceVssCertificates $ pure (pk, cert)
+
+announceVssCertificates
+    :: WorkMode m
+    => NonEmpty (PublicKey, VssCertificate) -> m ()
+announceVssCertificates certs = do
+    -- TODO: should we show actual certificates?
     logDebug $ sformat
-        ("Announcing "%build%"'s VSS certificate to others: <TODO SHOW CERT>") pk
-    void . sendToNeighbors $ SendVssCertificate pk cert
+        ("Announcing VSS certificates from: "%listJson) $ map fst certs
+    void . sendToNeighbors $ SendVssCertificates certs
 
 ----------------------------------------------------------------------------
 -- Legacy

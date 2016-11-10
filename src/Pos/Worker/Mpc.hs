@@ -10,15 +10,16 @@ import           Control.TimeWarp.Logging  (logDebug)
 import           Control.TimeWarp.Logging  (logWarning)
 import           Control.TimeWarp.Timed    (Microsecond, repeatForever, sec)
 import qualified Data.HashMap.Strict       as HM (toList)
+import           Data.List.NonEmpty        (nonEmpty)
 import           Data.Tagged               (Tagged (..))
 import           Formatting                (build, ords, sformat, (%))
 import           Serokell.Util.Exceptions  ()
 import           Universum
 
-import           Pos.Communication.Methods (announceCommitment, announceOpening,
-                                            announceShares, announceVssCertificate)
-import           Pos.Communication.Types   (SendSsc (..))
-import           Pos.DHT                   (sendToNeighbors)
+import           Pos.Communication.Methods (announceCommitment, announceCommitments,
+                                            announceOpening, announceOpenings,
+                                            announceShares, announceSharesMulti,
+                                            announceVssCertificates)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class.Workers     (SscWorkersClass (..))
 import           Pos.Ssc.DynamicState      (DSPayload (..), SscDynamicState,
@@ -61,7 +62,7 @@ mpcOnNewSlot SlotId {..} = do
     when shouldSendCommitment $ do
         mbComm <- getOurCommitment
         whenJust mbComm $ \comm -> do
-            void . sendToNeighbors $ SendCommitment ourPk comm
+            announceCommitment ourPk comm
             logDebug "Sent commitment to neighbors"
     -- Send the opening
     shouldSendOpening <- do
@@ -70,7 +71,7 @@ mpcOnNewSlot SlotId {..} = do
     when shouldSendOpening $ do
         mbOpen <- getOurOpening
         whenJust mbOpen $ \open -> do
-            void . sendToNeighbors $ SendOpening ourPk open
+            announceOpening ourPk open
             logDebug "Sent opening to neighbors"
     -- Send decrypted shares that others have sent us
     shouldSendShares <- do
@@ -82,7 +83,7 @@ mpcOnNewSlot SlotId {..} = do
         ourVss <- ncVssKeyPair <$> getNodeContext
         shares <- getOurShares ourVss
         unless (null shares) $ do
-            void . sendToNeighbors $ SendShares ourPk shares
+            announceShares ourPk shares
             logDebug "Sent shares to neighbors"
 
 -- | All workers specific to MPC processing.
@@ -97,12 +98,14 @@ mpcTransmitterInterval = sec 5
 mpcTransmitter :: WorkMode m => m ()
 mpcTransmitter =
     repeatForever mpcTransmitterInterval onError $
-    do DSPayload{..} <- getLocalSscPayload =<< getCurrentSlot
-       mapM_ (uncurry announceCommitment) $ HM.toList _mdCommitments
-       mapM_ (uncurry announceOpening) $ HM.toList _mdOpenings
-       mapM_ (uncurry announceShares) $ HM.toList _mdShares
-       mapM_ (uncurry announceVssCertificate) $ HM.toList _mdVssCertificates
+    do DSPayload {..} <- getLocalSscPayload =<< getCurrentSlot
+       whenJust (nonEmpty $ HM.toList _mdCommitments) announceCommitments
+       whenJust (nonEmpty $ HM.toList _mdOpenings) announceOpenings
+       whenJust (nonEmpty $ HM.toList _mdShares) announceSharesMulti
+       whenJust
+           (nonEmpty $ HM.toList _mdVssCertificates)
+           announceVssCertificates
   where
     onError e =
         mpcTransmitterInterval <$
-        logWarning (sformat ("Error occured in mpcTransmitter: "%build) e)
+        logWarning (sformat ("Error occured in mpcTransmitter: " %build) e)

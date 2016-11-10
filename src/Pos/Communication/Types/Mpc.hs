@@ -9,6 +9,7 @@ module Pos.Communication.Types.Mpc
        ) where
 
 import           Data.Binary          (Binary)
+import           Data.List.NonEmpty   (NonEmpty)
 import           Universum
 
 import           Control.TimeWarp.Rpc (Message (..))
@@ -17,14 +18,10 @@ import           Pos.Ssc.DynamicState (Opening, SignedCommitment, VssCertificate
 
 -- | Message: some node has sent SscMessage
 data SendSsc
-    = SendCommitment PublicKey
-                     SignedCommitment
-    | SendOpening PublicKey
-                  Opening
-    | SendShares PublicKey
-                 (HashMap PublicKey Share)
-    | SendVssCertificate PublicKey
-                         VssCertificate
+    = SendCommitments (NonEmpty (PublicKey, SignedCommitment))
+    | SendOpenings (NonEmpty (PublicKey, Opening))
+    | SendSharesMulti (NonEmpty (PublicKey, (HashMap PublicKey Share)))
+    | SendVssCertificates (NonEmpty (PublicKey, VssCertificate))
     deriving (Show, Generic)
 
 instance Binary SendSsc

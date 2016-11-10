@@ -47,9 +47,6 @@ module Pos.Util
        -- * LRU
        , clearLRU
 
-       -- * GHC Stage Restriction
-       , parseConf
-
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
        ) where
@@ -64,7 +61,6 @@ import           Control.TimeWarp.Rpc          (Message (messageName), MessageNa
 import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
                                                 Second, for, killThread)
 
-import           Data.Aeson                    (FromJSON)
 import           Data.Binary                   (Binary)
 import qualified Data.Binary                   as Binary (encode)
 import qualified Data.Cache.LRU                as LRU
@@ -77,7 +73,6 @@ import           Data.SafeCopy                 (Contained, SafeCopy (..), base, 
 import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (String)
 import           Data.Time.Units               (convertUnit)
-import qualified Data.Yaml                     as Y (decode)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
 import           Serokell.Util                 (VerificationRes)
@@ -319,10 +314,3 @@ instance (Ord k, SafeCopy k, SafeCopy v) =>
         do safePut $ LRU.maxSize lru
            safePut $ LRU.toList lru
     errorTypeName _ = "LRU"
-
-----------------------------------------------------------------------------
--- GHC stage restriction
-----------------------------------------------------------------------------
-
-parseConf :: FromJSON a => ByteString -> a
-parseConf = fromMaybe (panic $ "FATAL: failed to parse constants.yaml") . Y.decode

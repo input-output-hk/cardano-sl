@@ -42,6 +42,7 @@ import           Control.TimeWarp.Timed      (MonadTimed, currentTime, for, fork
                                               killThread, ms, repeatForever, runTimedIO,
                                               sec, sleepForever, wait, wait)
 import           Data.Default                (Default (def))
+import           Data.List                   (nub)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Universum
@@ -268,7 +269,7 @@ bracketDHTInstance BaseParams {..} = bracket acquire release
       KademliaDHTInstanceConfig
       { kdcKeyOrType = bpDHTKeyOrType
       , kdcPort = bpPort
-      , kdcInitialPeers = bpDHTPeers ++ defaultPeers
+      , kdcInitialPeers = nub $ bpDHTPeers ++ defaultPeers
       , kdcExplicitInitial = bpDHTExplicitInitial
       }
 

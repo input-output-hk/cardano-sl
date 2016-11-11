@@ -50,8 +50,8 @@ import           Pos.Communication           (SysStartRequest (..), SysStartResp
                                               allListeners, noCacheMessageNames, sendTx,
                                               serverLoggerName, statsListeners,
                                               sysStartReqListener, sysStartRespListener)
-import           Pos.Constants               (RunningMode (..), isDevelopment,
-                                              runningMode)
+import           Pos.Constants               (RunningMode (..), defaultPeers,
+                                              isDevelopment, runningMode)
 import           Pos.Crypto                  (SecretKey, VssKeyPair, hash, sign)
 import           Pos.DHT                     (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
                                               ListenerDHT, MonadDHT (..),
@@ -268,7 +268,7 @@ bracketDHTInstance BaseParams {..} = bracket acquire release
       KademliaDHTInstanceConfig
       { kdcKeyOrType = bpDHTKeyOrType
       , kdcPort = bpPort
-      , kdcInitialPeers = bpDHTPeers
+      , kdcInitialPeers = bpDHTPeers ++ defaultPeers
       , kdcExplicitInitial = bpDHTExplicitInitial
       }
 

@@ -40,17 +40,17 @@ main = do
     logs <- parseFiles files
     let txConfTimes :: HM.HashMap TxId Integer
         txConfTimes = getTxAcceptTimeAvgs logs
-        common = HM.intersectionWith (-) txConfTimes txSenderMap
+        common = HM.intersectionWith (\a b -> a - b * 1000) txConfTimes txSenderMap
         average :: Double
         average = fromIntegral (sum (take 10000 (HM.elems common))) / 1000
-    traceShowM $ HM.size logs
-    traceShowM $ take 10 $ HM.toList logs
-    traceShowM $ HM.size txSenderMap
-    traceShowM $ take 10 $ HM.toList txSenderMap
-    traceShowM $ HM.size txConfTimes
-    traceShowM $ take 10 $ HM.toList txConfTimes
-    traceShowM $ length $ (HM.keys txConfTimes) `L.intersect` (HM.keys txSenderMap)
-    traceShowM $ take 10 $ HM.toList common
+    -- traceShowM $ HM.size logs
+    -- traceShowM $ take 10 $ HM.toList logs
+    -- traceShowM $ HM.size txSenderMap
+    -- traceShowM $ take 10 $ HM.toList txSenderMap
+    -- traceShowM $ HM.size txConfTimes
+    -- traceShowM $ take 10 $ HM.toList txConfTimes
+    -- traceShowM $ length $ (HM.keys txConfTimes) `L.intersect` (HM.keys txSenderMap)
+    -- traceShowM $ take 10 $ HM.toList common
     --LBS.putStr . encode $ getTxAcceptTimeAvgs logs
     print average
 

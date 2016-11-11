@@ -57,6 +57,7 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
+                        Pos.DHT.Types
                         Pos.Ssc.Class.Types
                         Pos.Ssc.Class.Storage
                         Pos.Ssc.Class.Workers

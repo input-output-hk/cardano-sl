@@ -16,7 +16,7 @@ import           Data.Time.Clock.POSIX    (getPOSIXTime)
 import           Formatting               (build, float, int, sformat, (%))
 import           Options.Applicative      (Parser, ParserInfo, auto, execParser, fullDesc,
                                            help, helper, info, long, many, metavar,
-                                           option, progDesc, short, value)
+                                           option, progDesc, short, switch, value)
 import           System.Random            (getStdGen, randomRs)
 import           Universum                hiding ((<>))
 
@@ -37,13 +37,14 @@ import           Pos.WorkMode             (WorkMode)
 import           Serokell.Util.OptParse   (fromParsec)
 
 data GenOptions = GenOptions
-    { goGenesisIdx    :: !Word       -- ^ Index in genesis key pairs.
+    { goGenesisIdx         :: !Word       -- ^ Index in genesis key pairs.
     -- , goRemoteAddr  :: !NetworkAddress -- ^ Remote node address
-    , goDHTPeers      :: ![DHTNode]  -- ^ Initial DHT nodes
-    , goRoundDuration :: !Double     -- ^ Number of seconds per round
-    , goTxFrom        :: !Int        -- ^ Start from UTXO transaction #x
-    , goInitBalance   :: !Int        -- ^ Total coins in init utxo per address
-    , goTPSs          :: ![Double]   -- ^ TPS rate
+    , goDHTPeers           :: ![DHTNode]  -- ^ Initial DHT nodes
+    , goRoundDuration      :: !Double     -- ^ Number of seconds per round
+    , goTxFrom             :: !Int        -- ^ Start from UTXO transaction #x
+    , goInitBalance        :: !Int        -- ^ Total coins in init utxo per address
+    , goTPSs               :: ![Double]   -- ^ TPS rate
+    , goDhtExplicitInitial :: !Bool
     }
 
 optionsParser :: Parser GenOptions
@@ -78,6 +79,10 @@ optionsParser = GenOptions
           <> long "tps"
           <> metavar "DOUBLE"
           <> help "TPS (transactions per second)")
+    <*> switch
+        (long "explicit-initial" <>
+         help
+             "Explicitely contact to initial peers as to neighbors (even if they appeared offline once)")
 
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $
@@ -130,7 +135,7 @@ main = do
             , bpPort               = 24962 + fromIntegral i
             , bpDHTPeers           = goDHTPeers
             , bpDHTKeyOrType       = Right DHTClient
-            , bpDHTExplicitInitial = False
+            , bpDHTExplicitInitial = goDhtExplicitInitial
             }
         params =
             NodeParams

@@ -11,6 +11,7 @@ import           Data.Attoparsec.ByteString (eitherResult, many', parseWith)
 import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Lazy       as LBS
 import qualified Data.HashMap.Strict        as HM
+import           Formatting                 (int, sformat, (%))
 import           Options.Applicative.Simple (simpleOptions)
 import           Universum                  hiding ((<>))
 import           Unsafe                     (unsafeFromJust)
@@ -33,17 +34,21 @@ main = do
             argsParser
             empty
     (txSenderMap :: HashMap TxId Integer) <-
-        HM.fromList .
-        fromMaybe (panic "failed to read txSenderMap") . decode <$>
+        HM.fromList . fromMaybe (panic "failed to read txSenderMap") . decode <$>
         LBS.readFile txFile
     logs <- parseFiles files
     let txConfTimes :: HM.HashMap TxId Integer
         txConfTimes = getTxAcceptTimeAvgs confirmationParam logs
-        common = HM.intersectionWith (\a b -> a - b * 1000) txConfTimes txSenderMap
+        common =
+            HM.intersectionWith (\a b -> a - b * 1000) txConfTimes txSenderMap
         average :: Double
-        average = fromIntegral (sum (toList common)) / fromIntegral (length common)
+        average =
+            fromIntegral (sum (toList common)) / fromIntegral (length common)
         averageMsec :: Millisecond
         averageMsec = fromInteger . round $ average / 1000
+    print $
+        sformat ("Number of transactions which are sent and accepted: " %int) $
+        length common
     -- traceShowM $ HM.size logs
     -- traceShowM $ take 10 $ HM.toList logs
     -- traceShowM $ HM.size txSenderMap
@@ -51,7 +56,6 @@ main = do
     -- traceShowM $ HM.size txConfTimes
     -- traceShowM $ take 10 $ HM.toList txConfTimes
     -- traceShowM $ length $ (HM.keys txConfTimes) `L.intersect` (HM.keys txSenderMap)
-    -- traceShowM $ take 10 $ HM.toList common
     --LBS.putStr . encode $ getTxAcceptTimeAvgs logs
     print averageMsec
 

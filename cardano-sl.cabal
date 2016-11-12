@@ -198,6 +198,7 @@ executable cardano-analyzer
                      , attoparsec
                      , bytestring
                      , cardano-sl
+                     , formatting
                      , optparse-simple
                      , serokell-util
                      , time-warp

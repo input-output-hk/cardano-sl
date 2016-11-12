@@ -71,9 +71,9 @@ import           Pos.Types                   (Address, Coin, Timestamp (Timestam
                                               timestampF, txF)
 import           Pos.Util                    (runWithRandomIntervals)
 import           Pos.Worker                  (runWorkers, statsWorkers)
-import           Pos.WorkMode                (ContextHolder (..), DBHolder (..),
-                                              NodeContext (..), RealMode, ServiceMode,
-                                              WorkMode, getNodeContext, ncPublicKey,
+import           Pos.WorkMode                (ContextHolder (..), NodeContext (..),
+                                              RealMode, ServiceMode, WorkMode,
+                                              getNodeContext, ncPublicKey,
                                               runContextHolder, runDBHolder)
 
 -- | Get current time as Timestamp. It is intended to be used when you

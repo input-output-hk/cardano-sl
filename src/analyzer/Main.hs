@@ -5,13 +5,12 @@ module Main where
 import           Control.Applicative        (empty)
 import           Control.Monad              (fail)
 import           Control.TimeWarp.Timed     (Millisecond)
-import           Data.Aeson                 (decode, encode, fromJSON, json')
+import           Data.Aeson                 (decode, fromJSON, json')
 import qualified Data.Aeson                 as A
 import           Data.Attoparsec.ByteString (eitherResult, many', parseWith)
 import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Lazy       as LBS
 import qualified Data.HashMap.Strict        as HM
-import qualified Data.List                  as L
 import           Options.Applicative.Simple (simpleOptions)
 import           Universum                  hiding ((<>))
 import           Unsafe                     (unsafeFromJust)
@@ -42,9 +41,9 @@ main = do
         txConfTimes = getTxAcceptTimeAvgs confirmationParam logs
         common = HM.intersectionWith (\a b -> a - b * 1000) txConfTimes txSenderMap
         average :: Double
-        average = fromIntegral (sum (take 10000 (HM.elems common))) / 1000
+        average = fromIntegral (sum (toList common)) / fromIntegral (length common)
         averageMsec :: Millisecond
-        averageMsec = fromIntegral . round $ average / 1000
+        averageMsec = fromInteger . round $ average / 1000
     -- traceShowM $ HM.size logs
     -- traceShowM $ take 10 $ HM.toList logs
     -- traceShowM $ HM.size txSenderMap

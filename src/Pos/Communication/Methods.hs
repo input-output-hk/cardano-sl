@@ -5,10 +5,9 @@ module Pos.Communication.Methods
        , announceTx
        , announceTxs
        , sendTx
-       , announceCommitment
-       , announceOpening
-       , announceShares
-       , announceVssCertificate
+
+       --Worker specific funtions (for MPC)
+       , sendToNeighborsSafe
        ) where
 
 import           Control.TimeWarp.Logging (logDebug)
@@ -17,20 +16,19 @@ import           Control.TimeWarp.Timed   (fork_)
 import           Data.Binary              (Binary)
 import           Data.List.NonEmpty       (NonEmpty ((:|)))
 import           Formatting               (build, sformat, (%))
-import           Serokell.Util.Text       (listBuilderJSON, mapJson)
 import           Universum
 
-import           Pos.Communication.Types  (SendBlockHeader (..), SendSsc (..),
+import           Pos.Communication.Types  (SendBlockHeader (..),
                                            SendTx (..), SendTxs (..))
 import           Pos.Crypto               (PublicKey, Share)
 import           Pos.DHT                  (sendToNeighbors, sendToNode)
 import           Pos.Ssc.Class.Types      (SscTypes)
-import           Pos.Ssc.DynamicState     (Opening, SignedCommitment, VssCertificate)
 import           Pos.Types                (MainBlockHeader, Tx)
 import           Pos.Util                 (logWarningWaitLinear, messageName')
 import           Pos.WorkMode             (WorkMode)
+import           Serokell.Util.Text       (listBuilderJSON)
 
-sendToNeighborsSafe :: (Binary r, Message r, WorkMode m) => r -> m ()
+sendToNeighborsSafe :: (Binary r, Message r, WorkMode ssc m) => r -> m ()
 sendToNeighborsSafe msg = do
     let msgName = messageName' msg
     let action = () <$ sendToNeighbors msg
@@ -40,7 +38,7 @@ sendToNeighborsSafe msg = do
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.
 announceBlock
-    :: (SscTypes ssc, WorkMode m)
+    :: WorkMode ssc m
     => MainBlockHeader ssc -> m ()
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
@@ -48,14 +46,14 @@ announceBlock header = do
 
 -- | Announce new transaction to all known peers. Intended to be used when
 -- tx is created.
-announceTx :: WorkMode m => Tx -> m ()
+announceTx :: WorkMode ssc m => Tx -> m ()
 announceTx tx = do
     logDebug $ sformat ("Announcing tx to others:\n"%build) tx
     sendToNeighborsSafe . SendTx $ tx
 
 -- | Announce known transactions to all known peers. Intended to be used
 -- to relay transactions.
-announceTxs :: WorkMode m => [Tx] -> m ()
+announceTxs :: WorkMode ssc m => [Tx] -> m ()
 announceTxs [] = pure ()
 announceTxs txs@(tx:txs') = do
     logDebug $
@@ -63,40 +61,9 @@ announceTxs txs@(tx:txs') = do
     sendToNeighborsSafe . SendTxs $ tx :| txs'
 
 -- | Send Tx to given address.
-sendTx :: WorkMode m => NetworkAddress -> Tx -> m ()
+sendTx :: WorkMode ssc m => NetworkAddress -> Tx -> m ()
 sendTx addr = sendToNode addr . SendTx
 
-----------------------------------------------------------------------------
--- Relaying MPC messages
-----------------------------------------------------------------------------
-
--- TODO: add statlogging for everything, see e.g. announceTxs
-
-announceCommitment :: WorkMode m => PublicKey -> SignedCommitment -> m ()
-announceCommitment pk comm = do
-    -- TODO: show the commitment
-    logDebug $ sformat
-        ("Announcing "%build%"'s commitment to others: <TODO SHOW COMM>") pk
-    sendToNeighborsSafe $ SendCommitment pk comm
-
-announceOpening :: WorkMode m => PublicKey -> Opening -> m ()
-announceOpening pk open = do
-    logDebug $ sformat
-        ("Announcing "%build%"'s opening to others: "%build) pk open
-    sendToNeighborsSafe $ SendOpening pk open
-
-announceShares :: WorkMode m => PublicKey -> HashMap PublicKey Share -> m ()
-announceShares pk shares = do
-    logDebug $ sformat
-        ("Announcing "%build%"'s shares to others:\n"%mapJson) pk shares
-    sendToNeighborsSafe $ SendShares pk shares
-
-announceVssCertificate :: WorkMode m => PublicKey -> VssCertificate -> m ()
-announceVssCertificate pk cert = do
-    -- TODO: show the certificate
-    logDebug $ sformat
-        ("Announcing "%build%"'s VSS certificate to others: <TODO SHOW CERT>") pk
-    void . sendToNeighbors $ SendVssCertificate pk cert
 
 ----------------------------------------------------------------------------
 -- Legacy

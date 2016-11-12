@@ -132,7 +132,7 @@ instance (SscTypes ssc, Default (SscStorage ssc)) => Default (Storage ssc) where
 
 -- | Create default storage with specified utxo
 storageFromUtxo
-    :: (SscTypes ssc, Default (SscStorage ssc))
+    :: forall ssc . (SscTypes ssc, Default (SscStorage ssc))
     => Utxo -> (Storage ssc)
 storageFromUtxo u =
     Storage

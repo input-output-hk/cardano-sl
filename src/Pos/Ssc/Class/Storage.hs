@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
@@ -9,11 +10,13 @@ module Pos.Ssc.Class.Storage
 
        , SscUpdate
        , SscQuery
+       , SscStorageMode
        ) where
 
 import           Control.Lens            (Lens')
 import           Data.List.NonEmpty      (NonEmpty)
 import           Data.Tagged             (Tagged)
+import           Data.SafeCopy           (SafeCopy)
 import           Serokell.Util.Verify    (VerificationRes)
 import           Universum
 
@@ -79,3 +82,5 @@ class SscTypes ssc => SscStorageClass ssc where
     -- be put into SscTypes now :(
     -- | Verify payload using header containing this payload.
     sscVerifyPayload :: Tagged ssc (MainBlockHeader ssc -> SscPayload ssc -> VerificationRes)
+
+type SscStorageMode ssc = (SscStorageClass ssc, SafeCopy ssc)

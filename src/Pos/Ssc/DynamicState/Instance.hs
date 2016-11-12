@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE ViewPatterns          #-}
+{-# LANGUAGE ConstraintKinds       #-}
 
 -- | Instance of SscTypes.
 
@@ -99,9 +100,9 @@ instance SscStorageClass SscDynamicState where
     sscGetGlobalPayloadByDepth = getGlobalMpcDataByDepth
     sscVerifyBlocks = mpcVerifyBlocks
 
-    sscGetToken = getSecret
+    sscGetToken = getSecret1
     sscSetToken = setSecret
-    sscGetOurShares = getOurShares
+    sscGetOurShares = getOurShares1
 
     sscGetParticipants = getParticipants
     sscCalculateLeaders = calculateLeaders
@@ -515,17 +516,17 @@ setSecret (ourPk, comm, op) = do
         Just _  -> panic "setSecret: a secret was already present"
         Nothing -> dsCurrentSecret .= Just (ourPk, comm, op)
 
-getSecret :: Query (Maybe (PublicKey, SignedCommitment, Opening))
-getSecret = view dsCurrentSecret
+getSecret1 :: Query (Maybe (PublicKey, SignedCommitment, Opening))
+getSecret1 = view dsCurrentSecret
 
 -- | Decrypt shares (in commitments) that we can decrypt.
 -- TODO: do not decrypt shares for which we know openings!
-getOurShares
+getOurShares1
     :: VssKeyPair                           -- ^ Our VSS key
     -> Integer                              -- ^ Random generator seed
                                             -- (needed for 'decryptShare')
     -> Query (HashMap PublicKey Share)
-getOurShares ourKey seed = do
+getOurShares1 ourKey seed = do
     let drg = drgNewSeed (seedFromInteger seed)
     comms <- view (lastVer . dsGlobalCommitments)
     return $ fst $ withDRG drg $
@@ -547,3 +548,4 @@ diffDoubleMap
     -> HashMap k1 (HashMap k2 v)
     -> HashMap k1 (HashMap k2 v)
 diffDoubleMap a b = HM.filter (not . null) $ HM.unionWith HM.difference a b
+

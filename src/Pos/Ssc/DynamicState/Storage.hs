@@ -117,3 +117,4 @@ instance Default DSStorage where
         , _dsCurrentSecret = Nothing
         , _dsLastProcessedSlot = unflattenSlotId 0
         }
+

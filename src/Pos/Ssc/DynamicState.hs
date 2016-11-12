@@ -12,3 +12,5 @@ import           Pos.Ssc.DynamicState.Instance  as DynamicState
 import           Pos.Ssc.DynamicState.Seed      as DynamicState
 import           Pos.Ssc.DynamicState.Storage   ()
 import           Pos.Ssc.DynamicState.Types     as DynamicState
+import           Pos.Ssc.DynamicState.Worker    ()
+import           Pos.Ssc.DynamicState.Communication ()

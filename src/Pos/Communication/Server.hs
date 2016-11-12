@@ -1,7 +1,9 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications      #-}
-
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE Rank2Types             #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
 -- | Server part.
 
 module Pos.Communication.Server
@@ -17,20 +19,19 @@ import           Data.Tagged                         (untag)
 import           Universum
 
 import           Pos.Communication.Server.Block      (blockListeners)
-import           Pos.Communication.Server.Mpc        ()
 import           Pos.Communication.Server.Statistics as Statistics
 import           Pos.Communication.Server.SysStart   as SysStart
 import           Pos.Communication.Server.Tx         (txListeners)
 import           Pos.Communication.Util              (modifyListenerLogger)
 import           Pos.DHT                             (ListenerDHT)
-import           Pos.Ssc.Class.Listeners             (sscListeners)
-import           Pos.Ssc.DynamicState                (SscDynamicState)
+import           Pos.Ssc.Class.Listeners             (SscListenersClass, sscListeners)
 import           Pos.WorkMode                        (WorkMode)
 
-allListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
+allListeners :: forall ssc m . (SscListenersClass ssc, MonadDialog BinaryP m, WorkMode ssc m)
+             => [ListenerDHT m]
 allListeners =
     map (modifyListenerLogger serverLoggerName) $
-    concat [blockListeners, untag @SscDynamicState sscListeners, txListeners]
+    concat [blockListeners @ssc, untag @ssc sscListeners, txListeners @ssc]
 
 serverLoggerName :: LoggerName
 serverLoggerName = "server"

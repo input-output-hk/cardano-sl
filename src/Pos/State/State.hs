@@ -1,14 +1,25 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE TypeApplications       #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE Rank2Types             #-}
+{-# LANGUAGE AllowAmbiguousTypes    #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 -- | This module adds extra ecapsulation by hiding acid-state.
 
 module Pos.State.State
        ( NodeState
        , MonadDB (getNodeState)
+       , WorkModeDB
        , openState
        , openMemState
        , closeState
+       , queryDisk
+       , updateDisk
 
        -- * Simple getters.
        , getBlock
@@ -17,17 +28,17 @@ module Pos.State.State
        , getLocalTxs
        , getLocalSscPayload
        , getGlobalMpcData
-       , getSecret
-       , getOurCommitment
-       , getOurOpening
-       , getOurShares
+       -- , getSecret
+       -- , getOurCommitment
+       -- , getOurOpening
+       -- , getOurShares
        , mayBlockBeUseful
 
        -- * Operations with effects.
        , ProcessBlockRes (..)
        , ProcessTxRes (..)
        , createNewBlock
-       , generateAndSetNewSecret
+       --, generateAndSetNewSecret
        , processBlock
        , processNewSlot
        , processSscMessage
@@ -38,22 +49,18 @@ module Pos.State.State
        , getStatRecords
        ) where
 
-import           Control.Lens             (view, _2, _3)
-import           Crypto.Random            (seedNew, seedToInteger)
 import           Data.Acid                (EventResult, EventState, QueryEvent,
                                            UpdateEvent)
 import qualified Data.Binary              as Binary
+import           Data.Default             (Default)
 import           Pos.DHT                  (DHTResponseT)
 import           Serokell.Util            (VerificationRes, show')
 import           Universum
 
-import           Pos.Crypto               (PublicKey, SecretKey, Share, VssKeyPair,
-                                           toPublic)
+import           Pos.Crypto               (SecretKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
-import           Pos.Ssc.Class.Types      (SscTypes (SscMessage))
-import           Pos.Ssc.DynamicState     (DSPayload, Opening, SignedCommitment,
-                                           SscDynamicState, genCommitmentAndOpening,
-                                           mkSignedCommitment)
+import           Pos.Ssc.Class.Types      (SscTypes (SscMessage, SscStorage, SscPayload))
+import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
 import           Pos.State.Acidic         (DiskState, tidyState)
 import qualified Pos.State.Acidic         as A
 import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (..),
@@ -64,24 +71,26 @@ import           Pos.Types                (Block, EpochIndex, GenesisBlock, Head
                                            SlotLeaders, Timestamp, Tx)
 
 -- | NodeState encapsulates all the state stored by node.
-type NodeState = DiskState
+type NodeState ssc = DiskState ssc
+type QUConstraint ssc m = (SscStorageMode ssc, WorkModeDB ssc m)
 
 -- | Convenient type class to avoid passing NodeState throughout the code.
-class MonadDB m where
-    getNodeState :: m NodeState
+class MonadDB ssc m | m->ssc where
+    getNodeState :: m (NodeState ssc)
 
-instance (Monad m, MonadDB m) => MonadDB (ReaderT r m) where
+instance (Monad m, MonadDB ssc m) => MonadDB ssc (ReaderT r m) where
     getNodeState = lift getNodeState
 
-instance (Monad m, MonadDB m) => MonadDB (DHTResponseT m) where
+instance (Monad m, MonadDB ssc m) => MonadDB ssc (DHTResponseT m) where
     getNodeState = lift getNodeState
 
-type WorkModeDB m = (MonadIO m, MonadDB m)
+type WorkModeDB ssc m = (MonadIO m, MonadDB ssc m)
 
 -- | Open NodeState, reading existing state from disk (if any).
 openState
-    :: (MonadIO m, MonadSlots m)
-    => Maybe (Storage SscDynamicState) -> Bool -> FilePath -> m NodeState
+    :: forall ssc m . (SscStorageMode ssc, Default (SscStorage ssc), 
+        MonadIO m, MonadSlots m)
+    => Maybe (Storage ssc) -> Bool -> FilePath -> m (NodeState ssc)
 openState storage deleteIfExists fp =
     openStateDo $ maybe (A.openState deleteIfExists fp)
                         (\s -> A.openStateCustom s deleteIfExists fp)
@@ -89,132 +98,108 @@ openState storage deleteIfExists fp =
 
 -- | Open NodeState which doesn't store anything on disk. Everything
 -- is stored in memory and will be lost after shutdown.
-openMemState :: (MonadIO m, MonadSlots m) => Maybe (Storage SscDynamicState) -> m NodeState
+openMemState
+    :: forall ssc m . (SscStorageMode ssc, Default (SscStorage ssc),
+        MonadIO m, MonadSlots m)
+    => Maybe (Storage ssc) -> m (NodeState ssc)
 openMemState = openStateDo . maybe A.openMemState A.openMemStateCustom
 
-openStateDo :: (MonadIO m, MonadSlots m) => m DiskState -> m NodeState
+openStateDo :: (MonadIO m, MonadSlots m, SscStorageMode ssc)
+            => m (DiskState ssc) -> m (NodeState ssc)
 openStateDo openDiskState = do
     st <- openDiskState
     _ <- A.update st . A.ProcessNewSlot =<< getCurrentSlot
     st <$ tidyState st
 
 -- | Safely close NodeState.
-closeState :: MonadIO m => NodeState -> m ()
+closeState :: (MonadIO m, SscStorageClass ssc) => NodeState ssc -> m ()
 closeState = A.closeState
 
 queryDisk
-    :: (EventState event ~ (Storage SscDynamicState), QueryEvent event, WorkModeDB m)
+    :: forall ssc event m. (SscStorageClass ssc,
+        EventState event ~ (Storage ssc),
+        QueryEvent event, WorkModeDB ssc m)
     => event -> m (EventResult event)
 queryDisk e = flip A.query e =<< getNodeState
 
 updateDisk
-    :: (EventState event ~ (Storage SscDynamicState), UpdateEvent event, WorkModeDB m)
+    :: forall ssc event m . (SscStorageClass ssc,
+        EventState event ~ (Storage ssc),
+        UpdateEvent event, WorkModeDB ssc m)
     => event -> m (EventResult event)
 updateDisk e = flip A.update e =<< getNodeState
 
 -- | Get list of slot leaders for the given epoch. Empty list is returned
 -- if no information is available.
-getLeaders :: WorkModeDB m => EpochIndex -> m (Maybe SlotLeaders)
-getLeaders = queryDisk . A.GetLeaders
+getLeaders :: forall ssc m. QUConstraint ssc m 
+           => EpochIndex -> m (Maybe SlotLeaders)
+getLeaders = queryDisk @ssc . A.GetLeaders
 
 -- | Get Block by hash.
 getBlock
-    :: WorkModeDB m
-    => HeaderHash SscDynamicState -> m (Maybe (Block SscDynamicState))
+    :: forall ssc m. QUConstraint ssc m
+    => HeaderHash ssc -> m (Maybe (Block ssc))
 getBlock = queryDisk . A.GetBlock
 
 -- | Get block which is the head of the __best chain__.
-getHeadBlock :: WorkModeDB m => m (Block SscDynamicState)
+getHeadBlock :: forall ssc m. QUConstraint ssc m => m (Block ssc)
 getHeadBlock = queryDisk A.GetHeadBlock
 
-getLocalTxs :: WorkModeDB m => m (HashSet Tx)
-getLocalTxs = queryDisk A.GetLocalTxs
+getLocalTxs :: forall ssc m. QUConstraint ssc m
+            => m (HashSet Tx)
+getLocalTxs = queryDisk @ssc A.GetLocalTxs
 
-getLocalSscPayload :: WorkModeDB m => SlotId -> m DSPayload
-getLocalSscPayload = queryDisk . A.GetLocalSscPayload
+getLocalSscPayload :: forall ssc m. QUConstraint ssc m
+                   => SlotId -> m (SscPayload ssc)
+getLocalSscPayload = queryDisk @ssc . A.GetLocalSscPayload
 
-getGlobalMpcData :: WorkModeDB m => m DSPayload
-getGlobalMpcData = queryDisk A.GetGlobalSscPayload
+getGlobalMpcData :: forall ssc m. QUConstraint ssc m
+                 => m (SscPayload ssc)
+getGlobalMpcData = queryDisk @ssc A.GetGlobalSscPayload
 
 mayBlockBeUseful
-    :: WorkModeDB m
-    => SlotId -> MainBlockHeader SscDynamicState -> m VerificationRes
+    :: forall ssc m. QUConstraint ssc m
+    => SlotId -> MainBlockHeader ssc -> m VerificationRes
 mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 
 -- | Create new block on top of currently known best chain, assuming
 -- we are slot leader.
 createNewBlock
-    :: WorkModeDB m
-    => SecretKey -> SlotId -> m (Maybe (MainBlock SscDynamicState))
+    :: forall ssc m. QUConstraint ssc m
+    => SecretKey -> SlotId -> m (Maybe (MainBlock ssc))
 createNewBlock sk = updateDisk . A.CreateNewBlock sk
 
 -- | Process transaction received from other party.
-processTx :: WorkModeDB m => Tx -> m ProcessTxRes
-processTx = updateDisk . A.ProcessTx
+processTx :: forall ssc m. QUConstraint ssc m
+          => Tx -> m ProcessTxRes
+processTx = updateDisk @ssc . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot. Ideally it should
 -- be used before all other updates within this slot.
 processNewSlot
-    :: WorkModeDB m
-    => SlotId -> m (Maybe (GenesisBlock SscDynamicState))
+    :: forall ssc m. QUConstraint ssc m
+    => SlotId -> m (Maybe (GenesisBlock ssc))
 processNewSlot = updateDisk . A.ProcessNewSlot
 
 -- | Process some Block received from the network.
 processBlock
-    :: WorkModeDB m
-    => SlotId -> Block SscDynamicState -> m (ProcessBlockRes SscDynamicState)
+    :: forall ssc m. QUConstraint ssc m
+    => SlotId -> Block ssc -> m (ProcessBlockRes ssc)
 processBlock si = updateDisk . A.ProcessBlock si
 
 processSscMessage
-    :: WorkModeDB m
-    => SscMessage SscDynamicState -> m Bool
-processSscMessage = updateDisk . A.ProcessSscMessage
+    :: forall ssc m. QUConstraint ssc m
+    => SscMessage ssc -> m Bool
+processSscMessage = updateDisk @ssc . A.ProcessSscMessage
 
--- | Generate new commitment and opening and use them for the current
--- epoch. Assumes that the genesis block has already been generated and
--- processed by MPC (when the genesis block is processed, the secret is
--- cleared) (otherwise 'generateNewSecret' will fail because 'A.SetSecret'
--- won't set the secret if there's one already).
--- Nothing is returned if node is not ready.
-generateAndSetNewSecret
-    :: WorkModeDB m
-    => SecretKey
-    -> EpochIndex                         -- ^ Current epoch
-    -> m (Maybe (SignedCommitment, Opening))
-generateAndSetNewSecret sk epoch = do
-    -- TODO: I think it's safe here to perform 3 operations which aren't
-    -- grouped into a single transaction here, but I'm still a bit nervous.
-    threshold <- queryDisk (A.GetThreshold epoch)
-    participants <- queryDisk (A.GetParticipants epoch)
-    case (,) <$> threshold <*> participants of
-        Nothing -> return Nothing
-        Just (th, ps) -> do
-            (comm, op) <-
-                first (mkSignedCommitment sk epoch) <$>
-                genCommitmentAndOpening th ps
-            Just (comm, op) <$ updateDisk (A.SetToken (toPublic sk, comm, op))
-
-getSecret :: WorkModeDB m => m (Maybe (PublicKey, SignedCommitment, Opening))
-getSecret = queryDisk A.GetToken
-
-getOurCommitment :: WorkModeDB m => m (Maybe SignedCommitment)
-getOurCommitment = fmap (view _2) <$> getSecret
-
-getOurOpening :: WorkModeDB m => m (Maybe Opening)
-getOurOpening = fmap (view _3) <$> getSecret
-
-getOurShares :: WorkModeDB m => VssKeyPair -> m (HashMap PublicKey Share)
-getOurShares ourKey = do
-    randSeed <- liftIO seedNew
-    queryDisk $ A.GetOurShares ourKey (seedToInteger randSeed)
 
 -- | Functions for collecting stats (for benchmarking)
-getStatRecords :: (WorkModeDB m, StatLabel l)
+getStatRecords :: forall ssc m l. (QUConstraint ssc m, StatLabel l)
                => l -> m (Maybe [(Timestamp, EntryType l)])
-getStatRecords label = fmap toEntries <$> queryDisk (A.GetStatRecords $ show' label)
+getStatRecords label = fmap toEntries <$> queryDisk @ssc (A.GetStatRecords $ show' label)
   where toEntries = map $ bimap fromIntegral Binary.decode
 
-newStatRecord :: (WorkModeDB m, StatLabel l)
+newStatRecord :: forall ssc m l. (QUConstraint ssc m, StatLabel l)
               => l -> Timestamp -> EntryType l -> m ()
 newStatRecord label ts entry =
-    updateDisk $ A.NewStatRecord (show' label) (fromIntegral ts) $ Binary.encode entry
+    updateDisk @ssc $ A.NewStatRecord (show' label) (fromIntegral ts) $ Binary.encode entry

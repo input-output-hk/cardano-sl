@@ -4,6 +4,7 @@ module Main where
 
 import           Control.Applicative        (empty)
 import           Control.Monad              (fail)
+import           Control.TimeWarp.Timed     (Millisecond)
 import           Data.Aeson                 (decode, encode, fromJSON, json')
 import qualified Data.Aeson                 as A
 import           Data.Attoparsec.ByteString (eitherResult, many', parseWith)
@@ -42,6 +43,8 @@ main = do
         common = HM.intersectionWith (\a b -> a - b * 1000) txConfTimes txSenderMap
         average :: Double
         average = fromIntegral (sum (take 10000 (HM.elems common))) / 1000
+        averageMsec :: Millisecond
+        averageMsec = fromIntegral . round $ average / 1000
     -- traceShowM $ HM.size logs
     -- traceShowM $ take 10 $ HM.toList logs
     -- traceShowM $ HM.size txSenderMap
@@ -51,7 +54,7 @@ main = do
     -- traceShowM $ length $ (HM.keys txConfTimes) `L.intersect` (HM.keys txSenderMap)
     -- traceShowM $ take 10 $ HM.toList common
     --LBS.putStr . encode $ getTxAcceptTimeAvgs logs
-    print average
+    print averageMsec
 
 getTxAcceptTimeAvgs :: Word64 -> HM.HashMap FilePath [JLTimedEvent] -> HM.HashMap TxId Integer
 getTxAcceptTimeAvgs confirmations fileEvsMap = result

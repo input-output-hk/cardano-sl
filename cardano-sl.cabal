@@ -200,6 +200,7 @@ executable cardano-analyzer
                      , cardano-sl
                      , optparse-simple
                      , serokell-util
+                     , time-warp
                      , universum >= 0.1.9
                      , unordered-containers
   default-language:    Haskell2010

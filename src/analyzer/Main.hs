@@ -16,7 +16,6 @@ import           Universum                  hiding ((<>))
 import           Unsafe                     (unsafeFromJust)
 
 import           AnalyzerOptions            (Args (..), argsParser)
-import           Pos.Constants              (k)
 import           Pos.Types                  (flattenSlotId, unflattenSlotId)
 import           Pos.Util.JsonLog           (JLBlock (..), JLEvent (..),
                                              JLTimedEvent (..), fromJLSlotId)
@@ -39,7 +38,7 @@ main = do
         LBS.readFile txFile
     logs <- parseFiles files
     let txConfTimes :: HM.HashMap TxId Integer
-        txConfTimes = getTxAcceptTimeAvgs logs
+        txConfTimes = getTxAcceptTimeAvgs confirmationParam logs
         common = HM.intersectionWith (\a b -> a - b * 1000) txConfTimes txSenderMap
         average :: Double
         average = fromIntegral (sum (take 10000 (HM.elems common))) / 1000
@@ -54,8 +53,8 @@ main = do
     --LBS.putStr . encode $ getTxAcceptTimeAvgs logs
     print average
 
-getTxAcceptTimeAvgs :: HM.HashMap FilePath [JLTimedEvent] -> HM.HashMap TxId Integer
-getTxAcceptTimeAvgs fileEvsMap = result
+getTxAcceptTimeAvgs :: Word64 -> HM.HashMap FilePath [JLTimedEvent] -> HM.HashMap TxId Integer
+getTxAcceptTimeAvgs confirmations fileEvsMap = result
   where
     n = HM.size fileEvsMap
     allEvs = map jlEvent $ mconcat $ HM.elems fileEvsMap
@@ -83,7 +82,7 @@ getTxAcceptTimeAvgs fileEvsMap = result
                   |otherwise     = Nothing
       where
         mInitB = initId `HM.lookup` blocks
-        kSl = unflattenSlotId $ flattenSlotId (fromJLSlotId $ jlSlot $ unsafeFromJust mInitB) - k
+        kSl = unflattenSlotId $ flattenSlotId (fromJLSlotId $ jlSlot $ unsafeFromJust mInitB) - confirmations
         impl id = HM.lookup id blocks >>=
                       \b -> if (fromJLSlotId $ jlSlot b) <= kSl
                                then return b

@@ -7,7 +7,6 @@ module NodeOptions
        , argsParser
        ) where
 
-import           Control.TimeWarp.Logging   (Severity (Debug, Info))
 import           Data.Monoid                ((<>))
 import           Options.Applicative.Simple (Parser, auto, help, long, many, metavar,
                                              option, showDefault, strOption, switch,
@@ -34,10 +33,8 @@ data Args = Args
     , dhtPeers           :: ![DHTNode]
     , supporterNode      :: !Bool
     , dhtKey             :: !(Maybe DHTKey)
-    , mainLogSeverity    :: !Severity
-    , dhtLogSeverity     :: !Severity
-    , commLogSeverity    :: !(Maybe Severity)
-    , serverLogSeverity  :: !(Maybe Severity)
+    , logConfig          :: !(Maybe FilePath)
+    , logsPrefix         :: !(Maybe FilePath)
     , timeLord           :: !Bool
     , dhtExplicitInitial :: !Bool
     , enableStats        :: !Bool
@@ -104,25 +101,14 @@ argsParser =
     optional
         (option (fromParsec dhtKeyParser) $
          long "dht-key" <> metavar "HOST_ID" <> help "DHT key in base64-url") <*>
-    option
-        auto
-        (long "main-log" <> metavar "SEVERITY" <> value Debug <> showDefault <>
-         help "Main log severity, one of Info, Debug, Warning, Error") <*>
-    option
-        auto
-        (long "dht-log" <> metavar "SEVERITY" <> value Info <> showDefault <>
-         help "DHT log severity, one of Info, Debug, Warning, Error") <*>
     optional
         (option auto $
-         mconcat
-             [ long "comm-log"
-             , metavar "SEVERITY"
-             , help "Comm (time-warp) log severity"
-             ]) <*>
+         long "log-config" <> metavar "FILEPATH" <> help "Path to logger configuration")
+    <*>
     optional
         (option auto $
-         mconcat
-             [long "server-log", metavar "SEVERITY", help "Server log severity"]) <*>
+         long "logs-prefix" <> metavar "FILEPATH" <> help "Prefix to logger output path")
+    <*>
     switch
         (long "time-lord" <>
          help

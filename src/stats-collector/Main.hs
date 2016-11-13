@@ -157,3 +157,4 @@ main = do
         threadDelay $ (fromIntegral soInterval) * 1000 * 1000
         forkIO $ worker $ soOutputDir </> ("run" <> show i)
     worker soOutputDir
+

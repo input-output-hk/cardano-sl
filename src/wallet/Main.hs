@@ -2,27 +2,26 @@
 
 module Main where
 
-import           Control.TimeWarp.Logging (Severity (Debug))
-import           Data.Default             (def)
-import           Data.List                ((!!))
-import qualified Options.Applicative      as Opts
-import           Universum                hiding ((<>))
+import           Universum              hiding ((<>))
 
-import           Data.Monoid              ((<>))
+import           Data.List              ((!!))
+import           Data.Monoid            ((<>))
+import qualified Options.Applicative    as Opts
+import           Serokell.Util.OptParse (fromParsec)
 
-import           Pos.CLI                  (dhtNodeParser)
-import           Pos.Crypto               (unsafeHash)
-import           Pos.DHT                  (DHTNode, DHTNodeType (..))
-import           Pos.Genesis              (genesisAddresses, genesisSecretKeys)
-import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
-                                           NodeParams (..), submitTxReal)
-import           Pos.Ssc.DynamicState     (genesisVssKeyPairs)
-import           Pos.Ssc.DynamicState     (SscDynamicState)
-import           Serokell.Util.OptParse   (fromParsec)
+import           Pos.CLI                (dhtNodeParser)
+import           Pos.Crypto             (unsafeHash)
+import           Pos.DHT                (DHTNode, DHTNodeType (..))
+import           Pos.Genesis            (genesisAddresses, genesisSecretKeys)
+import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
+                                         NodeParams (..), submitTxReal)
+import           Pos.Ssc.DynamicState   (SscDynamicState, genesisVssKeyPairs)
 
 data WalletCommand = SubmitTx
     { stGenesisIdx :: !Word   -- ^ Index in genesis key pairs.
     , stDHTPeers   :: ![DHTNode]
+    , stLogConfig  :: !(Maybe FilePath)
+    , stLogsPrefix :: !(Maybe FilePath)
     }
 
 commandParser :: Opts.Parser WalletCommand
@@ -46,6 +45,15 @@ commandParser =
             (Opts.option (fromParsec dhtNodeParser) $
              Opts.long "peer" <> Opts.metavar "HOST:PORT/HOST_ID" <>
              Opts.help peerHelpMsg)
+        <*> optional (Opts.option Opts.auto $
+                     Opts.long "log-config"
+                  <> Opts.metavar "FILEPATH"
+                  <> Opts.help "Path to logger configuration")
+        <*> optional (Opts.option Opts.auto $
+                     Opts.long "logs-prefix"
+                  <> Opts.metavar "FILEPATH"
+                  <> Opts.help "Prefix to logger output path")
+
     peerHelpMsg = "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""
 
 data WalletOptions = WalletOptions
@@ -62,6 +70,7 @@ main = do
         Opts.info
             (Opts.helper <*> optionsParser)
             (Opts.fullDesc `mappend` Opts.progDesc "Stupid wallet")
+
     case woCommand of
         SubmitTx {..} -> do
             let i = fromIntegral stGenesisIdx
@@ -73,7 +82,11 @@ main = do
                     , npSecretKey = genesisSecretKeys !! i
                     , npVssKeyPair = genesisVssKeyPairs !! i
                     , npBaseParams = BaseParams
-                                      { bpLogging = def { lpMainSeverity = Debug, lpRootLogger = "wallet" }
+                                      { bpLoggingParams = LoggingParams
+                                                          { lpRunnerTag     = "wallet"
+                                                          , lpHandlerPrefix = stLogsPrefix
+                                                          , lpConfigPath    = stLogConfig
+                                                          }
                                       , bpPort = 24962
                                       , bpDHTPeers = stDHTPeers
                                       , bpDHTKeyOrType = Right DHTClient

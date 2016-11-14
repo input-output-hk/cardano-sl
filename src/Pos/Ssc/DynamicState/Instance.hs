@@ -290,7 +290,6 @@ checkSharesLastVer pk shares =
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
--- TODO: check that nodes providing their VSS certificates have stake.
 mpcVerifyBlock
     :: forall ssc . (SscPayload ssc ~ DSPayload)
     => Block ssc -> Query VerificationRes

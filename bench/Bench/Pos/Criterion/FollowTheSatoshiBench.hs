@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 module Bench.Pos.Criterion.FollowTheSatoshiBench
     ( runBenchmark
     ) where

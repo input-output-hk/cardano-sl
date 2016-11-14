@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 -- | Slotting functionality.
 
 module Pos.Types.Timestamp

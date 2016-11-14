@@ -155,11 +155,12 @@ library
   ghc-options:         -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:   RecordWildCards
-                      , OverloadedStrings
-                      , DeriveDataTypeable
-                      , NoImplicitPrelude
-                      , GeneralizedNewtypeDeriving
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
 
 executable cardano-node
   hs-source-dirs:      src/node
@@ -183,11 +184,12 @@ executable cardano-node
                        -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
 
 executable cardano-analyzer
   hs-source-dirs:      src/analyzer
@@ -209,11 +211,12 @@ executable cardano-analyzer
                        -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
 
 executable cardano-wallet
   hs-source-dirs:      src/wallet
@@ -232,11 +235,12 @@ executable cardano-wallet
                        -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
 
 executable cardano-stats-collector
   hs-source-dirs:      src/stats-collector
@@ -273,11 +277,12 @@ executable cardano-stats-collector
                        -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
 
 executable cardano-tx-generator
   hs-source-dirs:      src/tx-generator
@@ -301,11 +306,12 @@ executable cardano-tx-generator
                        -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
 
 test-suite cardano-test
   main-is:             Test.hs
@@ -347,11 +353,12 @@ test-suite cardano-test
                        -rtsopts
                        -Wall
                        -fno-warn-orphans
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , GeneralizedNewtypeDeriving
-                     , NoImplicitPrelude
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
 
 benchmark cardano-bench-criterion
   hs-source-dirs:      bench
@@ -375,8 +382,9 @@ benchmark cardano-bench-criterion
                        -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , GeneralizedNewtypeDeriving
-                     , NoImplicitPrelude
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications

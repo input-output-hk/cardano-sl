@@ -5,7 +5,6 @@
 {-# LANGUAGE Rank2Types             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TemplateHaskell        #-}
-{-# LANGUAGE TypeApplications       #-}
 {-# LANGUAGE ViewPatterns           #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 

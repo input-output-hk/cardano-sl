@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies     #-}
 
 -- | Block processing related workers.

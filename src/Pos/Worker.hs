@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 
 -- | High level workers.
 

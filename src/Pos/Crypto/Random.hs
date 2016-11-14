@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 
 module Pos.Crypto.Random
        ( SecureRandom(..)

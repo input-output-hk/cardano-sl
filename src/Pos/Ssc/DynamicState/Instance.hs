@@ -430,13 +430,17 @@ mpcProcessShares pk s
         -- aware of the fact that they are already in the blockchain. On the
         -- other hand, now nodes can send us huge spammy messages and we can't
         -- ban them for that. On the third hand, is this a concern?
-        preOk <- (readerToState $ checkSharesLastVer pk s)
+        preOk <- readerToState $ checkSharesLastVer pk s
         let mpcProcessSharesDo = do
                 globalSharesForPK <-
                     HM.lookupDefault mempty pk <$> use dsGlobalShares
+                localSharesForPk <- HM.lookupDefault mempty pk <$> use dsLocalShares
                 let s' = s `HM.difference` globalSharesForPK
-                let ok = preOk && not (null s')
-                ok <$ (when ok $ dsLocalShares %= HM.insertWith HM.union pk s')
+                let newLocalShares = localSharesForPk `HM.union` s'
+                -- Note: size is O(n), but union is also O(n + m), so
+                -- it doesn't matter.
+                let ok = preOk && (HM.size newLocalShares /= HM.size localSharesForPk)
+                ok <$ (when ok $ dsLocalShares . at pk .= Just newLocalShares)
         zoom' lastVer $ mpcProcessSharesDo
 
 mpcProcessVssCertificate :: PublicKey -> VssCertificate -> Update Bool

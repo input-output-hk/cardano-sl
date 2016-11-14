@@ -19,6 +19,7 @@ import           Universum
 
 import           Pos.Communication.Methods   (announceCommitments,
                                               announceOpenings,
+                                              announceSharesMulti,
                                               announceVssCertificates)
 import qualified Pos.Communication.Types.Mpc as Mpc
 import           Pos.Communication.Util      (modifyListenerLogger)
@@ -40,7 +41,7 @@ mpcListeners = map (modifyListenerLogger "mpc") [ListenerDHT handleSsc]
 handleSsc :: WorkMode m => Mpc.SendSsc -> m ()
 handleSsc (Mpc.SendCommitments comms)     = handleSscDo comms handleCommitment announceCommitments
 handleSsc (Mpc.SendOpenings ops)          = handleSscDo ops handleOpening announceOpenings
-handleSsc (Mpc.SendSharesMulti s)         = mapM_ (uncurry handleShares) s
+handleSsc (Mpc.SendSharesMulti s)         = handleSscDo s handleShares announceSharesMulti
 handleSsc (Mpc.SendVssCertificates certs) = handleSscDo certs handleCert announceVssCertificates
 
 handleSscDo
@@ -77,13 +78,13 @@ handleOpening pk o = do
     let logAction = if added then logInfo else logDebug
     added <$ logAction msg
 
-handleShares :: WorkMode m => PublicKey -> HashMap PublicKey Share -> m ()
+handleShares :: WorkMode m => PublicKey -> HashMap PublicKey Share -> m Bool
 handleShares pk s = do
     added <- St.processSscMessage $ DSShares pk s
     let msgAction = if added then "added to local storage" else "ignored"
     let msg = sformat ("Shares from "%build%" have been "%stext) pk msgAction
     let logAction = if added then logInfo else logDebug
-    logAction msg
+    added <$ logAction msg
 
 handleCert :: WorkMode m => PublicKey -> VssCertificate -> m Bool
 handleCert pk c = do

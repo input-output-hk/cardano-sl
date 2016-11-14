@@ -7,12 +7,13 @@ module Pos.Worker.Tx
        ) where
 
 import           Control.TimeWarp.Logging  (logWarning)
-import           Control.TimeWarp.Timed    (Microsecond, repeatForever, sec)
+import           Control.TimeWarp.Timed    (Microsecond, repeatForever)
 import           Formatting                (build, sformat, (%))
 import           Serokell.Util.Exceptions  ()
 import           Universum
 
 import           Pos.Communication.Methods (announceTxs)
+import           Pos.Constants             (slotDuration)
 import           Pos.State                 (getLocalTxs)
 import           Pos.WorkMode              (WorkMode)
 
@@ -23,7 +24,7 @@ txWorkers :: WorkMode ssc m => [m ()]
 txWorkers = [txsTransmitter]
 
 txsTransmitterInterval :: Microsecond
-txsTransmitterInterval = sec 2
+txsTransmitterInterval = slotDuration
 
 txsTransmitter :: WorkMode ssc m => m ()
 txsTransmitter =

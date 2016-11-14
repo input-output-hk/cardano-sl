@@ -38,8 +38,8 @@ import           Pos.Crypto                   (Share, Signed (signedValue), Thre
                                                toVssPublicKey, verifyShare)
 import           Pos.Crypto                   (PublicKey)
 import           Pos.FollowTheSatoshi         (followTheSatoshi)
-import           Pos.Ssc.Class.Storage        (SscQuery, SscUpdate)
-import           Pos.Ssc.Class.Storage        (HasSscStorage (..), SscStorageClass (..))
+import           Pos.Ssc.Class.Storage        (HasSscStorage (..), SscQuery,
+                                               SscStorageClass (..), SscUpdate)
 import           Pos.Ssc.Class.Types          (SscTypes (..))
 import           Pos.Ssc.DynamicState.Base    (Commitment (..), CommitmentSignature,
                                                CommitmentsMap, OpeningsMap,
@@ -86,14 +86,18 @@ instance SscTypes SscDynamicState where
 
     mkSscProof = Tagged mkDSProof
 
+helper::(a->b->Update Bool)->NonEmpty (a, b)->Update Bool
+helper f ne =
+      foldM (\r a -> (r &&) <$> uncurry f a) True ne
+
 instance SscStorageClass SscDynamicState where
     sscApplyBlocks = mpcApplyBlocks
     sscPrepareToNewSlot = mpcProcessNewSlot
-    sscProcessMessage (DSCommitment pk comm) = mpcProcessCommitment pk comm
-    sscProcessMessage (DSOpening pk op) = mpcProcessOpening pk op
-    sscProcessMessage (DSShares pk ss) = mpcProcessShares pk ss
-    sscProcessMessage (DSVssCertificate pk cert) =
-        mpcProcessVssCertificate pk cert
+    sscProcessMessage (DSCommitments ne)     = helper mpcProcessCommitment ne
+    sscProcessMessage (DSOpenings ne)        = helper mpcProcessOpening ne
+    sscProcessMessage (DSSharesMulti ne)     = helper mpcProcessShares ne
+    sscProcessMessage (DSVssCertificates ne) =
+      helper mpcProcessVssCertificate ne
     sscRollback = mpcRollback
     sscGetLocalPayload = getLocalPayload
     sscGetGlobalPayload = getGlobalMpcData

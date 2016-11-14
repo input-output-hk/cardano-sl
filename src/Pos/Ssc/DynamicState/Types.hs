@@ -33,6 +33,7 @@ module Pos.Ssc.DynamicState.Types
 
 import           Control.Lens              (makeLenses, (^.))
 import           Data.Binary               (Binary)
+import           Data.List.NonEmpty   (NonEmpty)
 import qualified Data.HashMap.Strict       as HM
 import           Data.Ix                   (inRange)
 import           Data.MessagePack          (MessagePack)
@@ -60,20 +61,17 @@ import           Control.TimeWarp.Rpc (Message (..))
 ----------------------------------------------------------------------------
 
 data DSMessage
-    = DSCommitment !PublicKey
-                   !SignedCommitment
-    | DSOpening !PublicKey
-                !Opening
-    | DSShares !PublicKey
-               (HashMap PublicKey Share)
-    | DSVssCertificate !PublicKey
-                       !VssCertificate
+    = DSCommitments     !(NonEmpty (PublicKey, SignedCommitment))
+    | DSOpenings        !(NonEmpty (PublicKey, Opening))
+    | DSSharesMulti     !(NonEmpty (PublicKey, (HashMap PublicKey Share)))
+    | DSVssCertificates !(NonEmpty (PublicKey, VssCertificate))
     deriving (Show, Generic)
 
 instance Binary DSMessage
 
 instance Message DSMessage where
     messageName _ = "DSMessage"
+
 deriveSafeCopySimple 0 'base ''DSMessage
 
 ----------------------------------------------------------------------------

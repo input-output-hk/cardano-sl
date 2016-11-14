@@ -1,9 +1,9 @@
+{-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE Rank2Types             #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
 -- | Server part.
 
 module Pos.Communication.Server

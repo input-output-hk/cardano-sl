@@ -63,7 +63,7 @@ while [[ $i -lt $n ]]; do
     fi
   fi
 
-  stake_distr=" --flat-distr \"($n, 10000000)\" "
+  stake_distr=" --flat-distr \"($n, 100000)\" "
 
   tmux send-keys "$(node_cmd $i "$time_lord" "$dht_conf" "$stats" "$stake_distr")" C-m
   i=$((i+1))

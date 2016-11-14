@@ -39,6 +39,7 @@ module Pos.DHT (
 
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, catch,
                                             throwM)
+import           Control.Monad.Morph       (hoist)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.TimeWarp.Logging  (LoggerName,
                                             WithNamedLogger (modifyLoggerName), logDebug,
@@ -50,23 +51,14 @@ import           Control.TimeWarp.Rpc      (BinaryP, HeaderNContentData, Message
                                             sendH)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Data.Binary               (Binary)
-import qualified Data.ByteString           as BS
-import           Data.Hashable             (Hashable)
 import           Data.Proxy                (Proxy (Proxy))
-import           Data.Text.Buildable       (Buildable (..))
-import           Data.Text.Lazy            (unpack)
-import           Data.Text.Lazy.Builder    (toLazyText)
-import           Formatting                (bprint, int, sformat, shown, (%))
+import           Formatting                (int, sformat, shown, (%))
 import qualified Formatting                as F
-import           Pos.Crypto.Random         (secureRandomBS)
-import           Pos.Util                  (messageName')
-import           Prelude                   (show)
-import           Serokell.Util.Text        (listBuilderJSON)
-import           Universum                 hiding (catch, show)
+import           Universum
 
 import           Pos.Constants             (neighborsSendThreshold)
-
-import qualified Serokell.Util.Base64      as B64
+import           Pos.DHT.Types
+import           Pos.Util                  (messageName')
 
 class Monad m => MonadDHT m where
     joinNetwork :: [DHTNode] -> m ()
@@ -111,7 +103,14 @@ class MonadDHT m => MonadMessageDHT m where
 
     sendToNeighbors :: (Binary r, Message r) => r -> m Int
 
-    default sendToNode :: (Binary r, Message r, WithNamedLogger m, WithDefaultMsgHeader m, MonadIO m, MonadDialog BinaryP m) => NetworkAddress -> r -> m ()
+    default sendToNode :: ( Binary r
+                          , Message r
+                          , WithNamedLogger m
+                          , WithDefaultMsgHeader m
+                          , MonadIO m
+                          , MonadDialog BinaryP m
+                          , MonadThrow m
+                          ) => NetworkAddress -> r -> m ()
     sendToNode = defaultSendToNode
 
     default sendToNeighbors :: (Binary r, Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
@@ -132,6 +131,7 @@ defaultSendToNode
        , WithDefaultMsgHeader m
        , WithNamedLogger m
        , MonadDialog BinaryP m
+       , MonadThrow m
        , MonadIO m
        )
     => NetworkAddress -> r -> m ()
@@ -175,73 +175,6 @@ defaultSendToNeighbors parallelize sender msg = do
           logInfo $ sformat ("Error sending message to " % F.build % ": " % shown) node e
           return False
 
-newtype DHTData = DHTData ()
-  deriving (Eq, Ord, Binary, Show)
-
--- DHTKey should be strictly 20-byte long
-newtype DHTKey = DHTKey { dhtKeyBytes :: BS.ByteString }
-  deriving (Eq, Ord, Binary, Hashable)
-
-instance Buildable DHTKey where
-    build key@(DHTKey bs) = buildType (dhtNodeType key)
-                `mappend` build ' '
-                `mappend` build (B64.encodeUrl bs)
-      where
-        buildType Nothing  = "<Unknown type>"
-        buildType (Just s) = build s
-
-instance Show DHTKey where
-  show = unpack . toLazyText . build
-
--- Node type is determined by first byte of key
-data DHTNodeType
-  -- node which participates only in supporting DHT, i.e. not a part of PoS communication
-  = DHTSupporter
-  -- full node, i.e. fully participating in both DHT supporting and PoS
-  | DHTFull
-  -- client node (for SPV). Key idea is that clients, being a part of DHT, are rarely queried
-  | DHTClient
-  deriving (Eq, Ord, Show)
-
-instance Buildable DHTNodeType where
-  build = build . show
-
-dhtNodeType :: DHTKey -> Maybe DHTNodeType
-dhtNodeType (DHTKey bs) = impl $ BS.head bs
-  where
-    impl 0x00 = Just DHTSupporter
-    impl 0x30 = Just DHTFull
-    impl 0xF0 = Just DHTClient
-    impl _    = Nothing
-
-typeByte :: DHTNodeType -> Word8
-typeByte DHTSupporter = 0x00
-typeByte DHTFull      = 0x30
-typeByte DHTClient    = 0xF0
-
-bytesToDHTKey :: IsString s => BS.ByteString -> Either s DHTKey
-bytesToDHTKey bs = if BS.length bs /= 20
-                      then Left "Key length must be exactly 20 bytes"
-                      else Right $ DHTKey bs
-
-randomDHTKey :: MonadIO m => DHTNodeType -> m DHTKey
-randomDHTKey type_ = (DHTKey . BS.cons (typeByte type_)) <$> secureRandomBS 19
-
-data DHTNode = DHTNode { dhtAddr   :: NetworkAddress
-                       , dhtNodeId :: DHTKey
-                       }
-  deriving (Eq, Ord, Show)
-
-instance Buildable DHTNode where
-    build (DHTNode (peerHost, peerPort) key)
-      = bprint (F.build % " at " % F.stext % ":" % F.build)
-               key
-               (decodeUtf8 peerHost)
-               peerPort
-
-instance Buildable [DHTNode] where
-    build = listBuilderJSON
-
 data DHTException = NodeDown | AllPeersUnavailable
   deriving (Show, Typeable)
 
@@ -270,13 +203,13 @@ newtype DHTResponseT m a = DHTResponseT
                 WithNamedLogger, MonadTimed, MonadDialog t, MonadDHT, MonadMessageDHT)
 
 instance MonadTransfer m => MonadTransfer (DHTResponseT m) where
-    sendRaw addr p = DHTResponseT $ sendRaw addr p
-    listenRaw binding sink = DHTResponseT $ listenRaw binding (hoistRespCond getDHTResponseT sink)
+    sendRaw addr p = DHTResponseT $ sendRaw addr (hoist getDHTResponseT p)
+    listenRaw binding sink = DHTResponseT $ fmap DHTResponseT $ listenRaw binding (hoistRespCond getDHTResponseT sink)
     close = DHTResponseT . close
 
 type instance ThreadId (DHTResponseT m) = ThreadId m
 
-instance (WithNamedLogger m, WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog BinaryP m, MonadIO m) => MonadResponseDHT (DHTResponseT m) where
+instance (WithNamedLogger m, WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog BinaryP m, MonadIO m, MonadMask m) => MonadResponseDHT (DHTResponseT m) where
   replyToNode msg = do
     addr <- DHTResponseT $ peerAddr
     withDhtLogger $

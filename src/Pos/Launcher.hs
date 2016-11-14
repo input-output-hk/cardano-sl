@@ -45,6 +45,7 @@ import           Control.TimeWarp.Timed      (MonadTimed, currentTime, for, fork
                                               killThread, ms, repeatForever, runTimedIO,
                                               sec, sleepForever, wait, wait)
 import           Data.Default                (Default (def))
+import           Data.List                   (nub)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Universum
@@ -53,8 +54,8 @@ import           Pos.Communication           (SysStartRequest (..), SysStartResp
                                               allListeners, noCacheMessageNames, sendTx,
                                               serverLoggerName, statsListeners,
                                               sysStartReqListener, sysStartRespListener)
-import           Pos.Constants               (RunningMode (..), isDevelopment,
-                                              runningMode)
+import           Pos.Constants               (RunningMode (..), defaultPeers,
+                                              isDevelopment, runningMode)
 import           Pos.Crypto                  (SecretKey, VssKeyPair, hash, sign)
 import           Pos.DHT                     (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
                                               ListenerDHT, MonadDHT (..),
@@ -77,9 +78,10 @@ import           Pos.Types                   (Address, Coin, Timestamp (Timestam
                                               timestampF, txF)
 import           Pos.Util                    (runWithRandomIntervals)
 import           Pos.Worker                  (runWorkers, statsWorkers)
-import           Pos.WorkMode                (ContextHolder (..), DBHolder (..),
-                                              NodeContext (..), RealMode, ServiceMode,
-                                              WorkMode, getNodeContext, ncPublicKey)
+import           Pos.WorkMode                (ContextHolder (..), NodeContext (..),
+                                              RealMode, ServiceMode, WorkMode,
+                                              getNodeContext, ncPublicKey,
+                                              runContextHolder, runDBHolder)
 
 type RealModeSscConstraint ssc =
                (SscTypes ssc, Default (SscStorage ssc),
@@ -285,7 +287,7 @@ bracketDHTInstance BaseParams {..} = bracket acquire release
       KademliaDHTInstanceConfig
       { kdcKeyOrType = bpDHTKeyOrType
       , kdcPort = bpPort
-      , kdcInitialPeers = bpDHTPeers
+      , kdcInitialPeers = nub $ bpDHTPeers ++ defaultPeers
       , kdcExplicitInitial = bpDHTExplicitInitial
       }
 
@@ -295,7 +297,7 @@ runRealMode :: forall ssc c . RealModeSscConstraint ssc
 runRealMode inst NodeParams {..} listeners action = do
     setupLoggingReal logParams
     db <- openDb
-    runTimed loggerName . runDBH db. runCH . runKDHT inst npBaseParams listeners $
+    runTimed loggerName . runDBHolder db . runCH . runKDHT inst npBaseParams listeners $
         nodeStartMsg npBaseParams >> action
   where
     logParams  = bpLogging npBaseParams
@@ -308,11 +310,8 @@ runRealMode inst NodeParams {..} listeners action = do
                (openState mStorage npRebuildDb)
                npDbPath
 
-    runDBH :: NodeState ssc -> DBHolder ssc m a -> m a
-    runDBH db = flip runReaderT db . getDBHolder
-
     runCH :: MonadIO m => ContextHolder m a -> m a
-    runCH act = runReaderT (getContextHolder act) . ctx
+    runCH act = flip runContextHolder act . ctx
                   =<< maybe (pure Nothing) (fmap Just . liftIO . newMVar) npJLFile
       where
         ctx jlFile =

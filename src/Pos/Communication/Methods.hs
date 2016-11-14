@@ -1,4 +1,5 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 -- | Wrappers on top of communication methods.
 
 module Pos.Communication.Methods
@@ -17,14 +18,14 @@ import           Data.List.NonEmpty       (NonEmpty ((:|)))
 import           Formatting               (build, sformat, (%))
 import           Universum
 
-import           Pos.Communication.Types  (SendBlockHeader (..),
-                                           SendTx (..), SendTxs (..))
+import           Pos.Communication.Types  (SendBlockHeader (..), SendTx (..),
+                                           SendTxs (..))
 import           Pos.DHT                  (sendToNeighbors, sendToNode)
+import           Pos.Ssc.Class.Types      (SscTypes (SscMessage))
 import           Pos.Types                (MainBlockHeader, Tx)
 import           Pos.Util                 (logWarningWaitLinear, messageName')
 import           Pos.WorkMode             (WorkMode)
-import           Serokell.Util.Text       (listBuilderJSON)
-import           Pos.Ssc.Class.Types      (SscTypes(SscMessage))
+import           Serokell.Util.Text       (listJson)
 
 sendToNeighborsSafe :: (Binary r, Message r, WorkMode ssc m) => r -> m ()
 sendToNeighborsSafe msg = do
@@ -55,14 +56,16 @@ announceTxs :: WorkMode ssc m => [Tx] -> m ()
 announceTxs [] = pure ()
 announceTxs txs@(tx:txs') = do
     logDebug $
-        sformat ("Announcing txs to others:\n" %build) $ listBuilderJSON txs
+        sformat ("Announcing txs to others:\n" %listJson) txs
     sendToNeighborsSafe . SendTxs $ tx :| txs'
 
 -- | Send Tx to given address.
 sendTx :: WorkMode ssc m => NetworkAddress -> Tx -> m ()
 sendTx addr = sendToNode addr . SendTx
 
-
+----------------------------------------------------------------------------
+-- Relaying MPC messages
+----------------------------------------------------------------------------
 -- | Announce ssc message to all known peers. Intended to be used
 -- by SSC algorithm
 announceSsc :: (WorkMode ssc m,

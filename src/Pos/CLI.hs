@@ -7,7 +7,7 @@ module Pos.CLI
 import           Control.Monad                      (fail)
 import           Control.TimeWarp.Rpc               (NetworkAddress)
 import           Data.Either                        (either)
-import           Pos.DHT                            (DHTKey, DHTNode (..), bytesToDHTKey)
+import           Pos.DHT.Types                      (DHTKey, DHTNode (..), bytesToDHTKey)
 import qualified Serokell.Util.Parse                as P
 import qualified Text.ParserCombinators.Parsec.Char as P
 import           Universum
@@ -22,4 +22,3 @@ addrParser = (,) <$> (encodeUtf8 <$> P.host) <*> (P.char ':' *> P.port)
 
 dhtNodeParser :: P.Parser DHTNode
 dhtNodeParser = DHTNode <$> addrParser <*> (P.char '/' *> dhtKeyParser)
-

@@ -19,9 +19,9 @@ import           Formatting             (sformat)
 import           Pos.Crypto             (Hash, hash, hashHexF)
 import           Pos.DHT                (DHTResponseT)
 import           Pos.Ssc.Class.Types    (SscTypes)
-import           Pos.Types              (Block, HeaderHash, MainBlock, SlotId (..),
-                                         blockHeader, blockTxs, epochIndexL, gbHeader,
-                                         gbhPrevBlock, headerHash, headerSlot)
+import           Pos.Types              (Block, HeaderHash, SlotId (..), blockHeader,
+                                         blockTxs, epochIndexL, gbHeader, gbhPrevBlock,
+                                         headerHash, headerSlot)
 import           Serokell.Aeson.Options (defaultOptions)
 import           Universum
 

@@ -112,24 +112,24 @@ main = do
             , bpDHTExplicitInitial = False
             }
         worker dirPath = do
-            stats <-
-                map (filter ((> startTime) . SAR.statTimestamp)) . catMaybes <$>
-                SAR.getNodesStats mConfigs
+            -- stats <-
+            --     map (filter ((> startTime) . SAR.statTimestamp)) . catMaybes <$>
+            --     SAR.getNodesStats mConfigs
 
-            void $ flip mapM (stats `zip` [0..]) $ \(stat,i::Int) -> do
-                let foldername = dirPath </> (soOutputPrefix ++ show i)
-                -- perEntryPlots foldername startTime stat
-                createDirectoryIfMissing True foldername
-                TIO.writeFile (foldername </> "sysstat.csv") $ SAR.statsToText stat
+            -- void $ flip mapM (stats `zip` [0..]) $ \(stat,i::Int) -> do
+            --     let foldername = dirPath </> (soOutputPrefix ++ show i)
+            --     -- perEntryPlots foldername startTime stat
+            --     createDirectoryIfMissing True foldername
+            --     TIO.writeFile (foldername </> "sysstat.csv") $ SAR.statsToText stat
 
-            curTime <- getCurrentTime
-            let sarTimestamps = map SAR.statTimestamp $
-                                fromMaybe [] $ head stats
-                endTime :: UTCTime
-                endTime = if null sarTimestamps
-                          then curTime
-                          else maximum sarTimestamps
-                addrs = eitherPanic "Invalid address: " $
+            endTime <- getCurrentTime
+            -- let sarTimestamps = map SAR.statTimestamp $
+            --                     fromMaybe [] $ head stats
+            --     endTime :: UTCTime
+            --     endTime = if null sarTimestamps
+            --               then curTime
+            --               else maximum sarTimestamps
+            let addrs = eitherPanic "Invalid address: " $
                     mapM (\(h,p) -> parse addrParser "" $ toString (h <> ":" <> show p))
                          ccNodes
                 enumAddrs = zip [0..] addrs

@@ -21,10 +21,11 @@ module Pos.Statistics.MonadStats
 
 import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Except     (ExceptT)
+import           Control.Monad.Morph      (hoist)
 import           Control.Monad.Trans      (MonadTrans)
 import           Control.TimeWarp.Logging (WithNamedLogger (..))
-import           Control.TimeWarp.Rpc     (MonadDialog, MonadResponse, MonadTransfer (..),
-                                           hoistRespCond)
+import           Control.TimeWarp.Rpc     (MonadDialog, MonadResponse (..),
+                                           MonadTransfer (..), hoistRespCond)
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
 import qualified Data.Binary              as Binary
 import           Data.Maybe               (fromMaybe)
@@ -89,13 +90,19 @@ newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                MonadMask, MonadIO, MonadDB ssc, WithNamedLogger, MonadDialog p,
-               MonadDHT, MonadMessageDHT, MonadResponse, MonadSlots, WithDefaultMsgHeader,
+               MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader,
                MonadJL)
 
 instance MonadTransfer m => MonadTransfer (NoStatsT m) where
-    sendRaw addr p = NoStatsT $ sendRaw addr p
-    listenRaw binding sink = NoStatsT $ listenRaw binding (hoistRespCond getNoStatsT sink)
+    sendRaw addr p = NoStatsT $ sendRaw addr (hoist getNoStatsT p)
+    listenRaw binding sink = NoStatsT $ fmap NoStatsT $ listenRaw binding (hoistRespCond getNoStatsT sink)
     close = NoStatsT . close
+
+instance MonadResponse m => MonadResponse (NoStatsT m) where
+    replyRaw dat = NoStatsT $ replyRaw (hoist getNoStatsT dat)
+    closeR = lift closeR
+    peerAddr = lift peerAddr
+
 
 instance MonadTrans NoStatsT where
     lift = NoStatsT
@@ -110,13 +117,18 @@ newtype StatsT m a = StatsT
     { getStatsT :: m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                MonadMask, MonadIO, MonadDB ssc, WithNamedLogger, MonadDialog p,
-               MonadDHT, MonadMessageDHT, MonadResponse, MonadSlots, WithDefaultMsgHeader,
+               MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader,
                MonadJL)
 
 instance MonadTransfer m => MonadTransfer (StatsT m) where
-    sendRaw addr p = StatsT $ sendRaw addr p
-    listenRaw binding sink = StatsT $ listenRaw binding (hoistRespCond getStatsT sink)
+    sendRaw addr p = StatsT $ sendRaw addr (hoist getStatsT p)
+    listenRaw binding sink = StatsT $ fmap StatsT $ listenRaw binding (hoistRespCond getStatsT sink)
     close = StatsT . close
+
+instance MonadResponse m => MonadResponse (StatsT m) where
+    replyRaw dat = StatsT $ replyRaw (hoist getStatsT dat)
+    closeR = lift closeR
+    peerAddr = lift peerAddr
 
 instance MonadTrans StatsT where
     lift = StatsT

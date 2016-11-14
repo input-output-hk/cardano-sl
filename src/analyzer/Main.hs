@@ -4,19 +4,19 @@ module Main where
 
 import           Control.Applicative        (empty)
 import           Control.Monad              (fail)
-import           Data.Aeson                 (decode, encode, fromJSON, json')
+import           Control.TimeWarp.Timed     (Millisecond)
+import           Data.Aeson                 (decode, fromJSON, json')
 import qualified Data.Aeson                 as A
 import           Data.Attoparsec.ByteString (eitherResult, many', parseWith)
 import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Lazy       as LBS
 import qualified Data.HashMap.Strict        as HM
-import qualified Data.List                  as L
+import           Formatting                 (int, sformat, (%))
 import           Options.Applicative.Simple (simpleOptions)
 import           Universum                  hiding ((<>))
 import           Unsafe                     (unsafeFromJust)
 
 import           AnalyzerOptions            (Args (..), argsParser)
-import           Pos.Constants              (k)
 import           Pos.Types                  (flattenSlotId, unflattenSlotId)
 import           Pos.Util.JsonLog           (JLBlock (..), JLEvent (..),
                                              JLTimedEvent (..), fromJLSlotId)
@@ -34,26 +34,33 @@ main = do
             argsParser
             empty
     (txSenderMap :: HashMap TxId Integer) <-
-        HM.fromList .
-        fromMaybe (panic "failed to read txSenderMap") . decode <$>
+        HM.fromList . fromMaybe (panic "failed to read txSenderMap") . decode <$>
         LBS.readFile txFile
     logs <- parseFiles files
     let txConfTimes :: HM.HashMap TxId Integer
-        txConfTimes = getTxAcceptTimeAvgs logs
-        common = HM.intersectionWith (-) txConfTimes txSenderMap
+        txConfTimes = getTxAcceptTimeAvgs confirmationParam logs
+        common =
+            HM.intersectionWith (\a b -> a - b * 1000) txConfTimes txSenderMap
         average :: Double
-        average = fromIntegral (sum (take 10000 (HM.elems common))) / 1000
-    traceShowM $ HM.size txSenderMap
-    traceShowM $ take 10 $ HM.toList txSenderMap
-    traceShowM $ HM.size txConfTimes
-    traceShowM $ take 10 $ HM.toList txConfTimes
-    traceShowM $ length $ (HM.keys txConfTimes) `L.intersect` (HM.keys txSenderMap)
-    traceShowM $ take 10 $ HM.toList common
+        average =
+            fromIntegral (sum (toList common)) / fromIntegral (length common)
+        averageMsec :: Millisecond
+        averageMsec = fromInteger . round $ average / 1000
+    print $
+        sformat ("Number of transactions which are sent and accepted: " %int) $
+        length common
+    -- traceShowM $ HM.size logs
+    -- traceShowM $ take 10 $ HM.toList logs
+    -- traceShowM $ HM.size txSenderMap
+    -- traceShowM $ take 10 $ HM.toList txSenderMap
+    -- traceShowM $ HM.size txConfTimes
+    -- traceShowM $ take 10 $ HM.toList txConfTimes
+    -- traceShowM $ length $ (HM.keys txConfTimes) `L.intersect` (HM.keys txSenderMap)
     --LBS.putStr . encode $ getTxAcceptTimeAvgs logs
-    print average
+    print averageMsec
 
-getTxAcceptTimeAvgs :: HM.HashMap FilePath [JLTimedEvent] -> HM.HashMap TxId Integer
-getTxAcceptTimeAvgs fileEvsMap = result
+getTxAcceptTimeAvgs :: Word64 -> HM.HashMap FilePath [JLTimedEvent] -> HM.HashMap TxId Integer
+getTxAcceptTimeAvgs confirmations fileEvsMap = result
   where
     n = HM.size fileEvsMap
     allEvs = map jlEvent $ mconcat $ HM.elems fileEvsMap
@@ -81,7 +88,7 @@ getTxAcceptTimeAvgs fileEvsMap = result
                   |otherwise     = Nothing
       where
         mInitB = initId `HM.lookup` blocks
-        kSl = unflattenSlotId $ flattenSlotId (fromJLSlotId $ jlSlot $ unsafeFromJust mInitB) - k
+        kSl = unflattenSlotId $ flattenSlotId (fromJLSlotId $ jlSlot $ unsafeFromJust mInitB) - confirmations
         impl id = HM.lookup id blocks >>=
                       \b -> if (fromJLSlotId $ jlSlot b) <= kSl
                                then return b

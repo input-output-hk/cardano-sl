@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 -- | Wrappers on top of communication methods.
 
 module Pos.Communication.Methods
@@ -5,9 +6,7 @@ module Pos.Communication.Methods
        , announceTx
        , announceTxs
        , sendTx
-
-       --Worker specific funtions (for MPC)
-       , sendToNeighborsSafe
+       , announceSsc
        ) where
 
 import           Control.TimeWarp.Logging (logDebug)
@@ -20,13 +19,12 @@ import           Universum
 
 import           Pos.Communication.Types  (SendBlockHeader (..),
                                            SendTx (..), SendTxs (..))
-import           Pos.Crypto               (PublicKey, Share)
 import           Pos.DHT                  (sendToNeighbors, sendToNode)
-import           Pos.Ssc.Class.Types      (SscTypes)
 import           Pos.Types                (MainBlockHeader, Tx)
 import           Pos.Util                 (logWarningWaitLinear, messageName')
 import           Pos.WorkMode             (WorkMode)
 import           Serokell.Util.Text       (listBuilderJSON)
+import           Pos.Ssc.Class.Types      (SscTypes(SscMessage))
 
 sendToNeighborsSafe :: (Binary r, Message r, WorkMode ssc m) => r -> m ()
 sendToNeighborsSafe msg = do
@@ -65,6 +63,12 @@ sendTx :: WorkMode ssc m => NetworkAddress -> Tx -> m ()
 sendTx addr = sendToNode addr . SendTx
 
 
+-- | Announce ssc message to all known peers. Intended to be used
+-- by SSC algorithm
+announceSsc :: (WorkMode ssc m,
+                Binary (SscMessage ssc),
+                Message (SscMessage ssc)) => SscMessage ssc -> m ()
+announceSsc = sendToNeighborsSafe
 ----------------------------------------------------------------------------
 -- Legacy
 --

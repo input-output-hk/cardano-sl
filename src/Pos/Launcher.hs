@@ -1,10 +1,10 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE ViewPatterns          #-}
 
 -- | Launcher of full node or simple operations.
@@ -65,6 +65,10 @@ import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..
                                               KademliaDHTInstanceConfig (..),
                                               runKademliaDHT, startDHTInstance,
                                               stopDHTInstance)
+import           Pos.Ssc.Class.Listeners     (SscListenersClass)
+import           Pos.Ssc.Class.Storage       (SscStorageMode)
+import           Pos.Ssc.Class.Types         (SscStorage, SscTypes)
+import           Pos.Ssc.Class.Workers       (SscWorkersClass)
 import           Pos.State                   (NodeState, openMemState, openState)
 import           Pos.State.Storage           (storageFromUtxo)
 import           Pos.Statistics              (getNoStatsT, getStatsT)
@@ -76,24 +80,20 @@ import           Pos.Worker                  (runWorkers, statsWorkers)
 import           Pos.WorkMode                (ContextHolder (..), DBHolder (..),
                                               NodeContext (..), RealMode, ServiceMode,
                                               WorkMode, getNodeContext, ncPublicKey)
-import           Pos.Ssc.Class.Listeners     (SscListenersClass)
-import           Pos.Ssc.Class.Workers       (SscWorkersClass)
-import           Pos.Ssc.Class.Storage       (SscStorageMode)
-import           Pos.Ssc.Class.Types          (SscTypes, SscStorage)
 
-type RealModeSscConstraint ssc = 
+type RealModeSscConstraint ssc =
                (SscTypes ssc, Default (SscStorage ssc),
                 SscStorageMode ssc,
                 SscListenersClass ssc,
                 SscWorkersClass ssc)
-  
+
 -- | Get current time as Timestamp. It is intended to be used when you
 -- launch the first node. It doesn't make sense in emulation mode.
 getCurTimestamp :: IO Timestamp
 getCurTimestamp = Timestamp <$> runTimedIO currentTime
 
 -- | Run full node in any WorkMode.
-runNode :: forall ssc m . (SscWorkersClass ssc, WorkMode ssc m) => m ()
+runNode :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
 runNode = do
     pk <- ncPublicKey <$> getNodeContext
     logInfo $ sformat ("My public key is: "%build) pk
@@ -107,7 +107,7 @@ runNode = do
     logInfo $ sformat ("Known peers: " % build) peers
 
     waitSystemStart
-    runWorkers @ssc
+    runWorkers
     sleepForever
 
 -- | Construct Tx with a single input and single output and send it to
@@ -303,7 +303,7 @@ runRealMode inst NodeParams {..} listeners action = do
     mStorage = storageFromUtxo @ssc <$> npCustomUtxo
 
     openDb :: IO (NodeState ssc)
-    openDb = runTimed loggerName . runCH $ 
+    openDb = runTimed loggerName . runCH $
          maybe (openMemState mStorage)
                (openState mStorage npRebuildDb)
                npDbPath

@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE Rank2Types             #-}
@@ -37,13 +36,13 @@ import           Pos.Util.JsonLog          (jlAdoptedBlock, jlLog)
 import           Pos.WorkMode              (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
-blockListeners :: forall ssc m . (MonadDialog BinaryP m, WorkMode ssc m)
+blockListeners :: (MonadDialog BinaryP m, WorkMode ssc m)
                => [ListenerDHT m]
 blockListeners =
     map (modifyListenerLogger "block")
-        [ ListenerDHT (handleBlock @ssc)
-        , ListenerDHT (handleBlockHeader @ssc)
-        , ListenerDHT (handleBlockRequest @ssc)
+        [ ListenerDHT handleBlock
+        , ListenerDHT handleBlockHeader
+        , ListenerDHT handleBlockRequest
         ]
 
 handleBlock :: forall ssc m . ResponseMode ssc m

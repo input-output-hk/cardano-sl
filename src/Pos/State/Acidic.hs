@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
@@ -44,18 +43,18 @@ module Pos.State.Acidic
        , GetStatRecords (..)
        ) where
 
-import           Data.Acid            (EventResult, EventState, QueryEvent, UpdateEvent,
-                                       makeAcidicWithHacks)
-import           Data.Default         (Default, def)
-import           Data.SafeCopy        (SafeCopy)
-import           Serokell.AcidState   (ExtendedState, closeExtendedState,
-                                       openLocalExtendedState, openMemoryExtendedState,
-                                       queryExtended, tidyExtendedState, updateExtended)
+import           Data.Acid             (EventResult, EventState, QueryEvent, UpdateEvent,
+                                        makeAcidicWithHacks)
+import           Data.Default          (Default, def)
+import           Data.SafeCopy         (SafeCopy)
+import           Serokell.AcidState    (ExtendedState, closeExtendedState,
+                                        openLocalExtendedState, openMemoryExtendedState,
+                                        queryExtended, tidyExtendedState, updateExtended)
 import           Universum
 
-import qualified Pos.State.Storage    as S
-import           Pos.Ssc.Class.Types (SscTypes (SscStorage))
 import           Pos.Ssc.Class.Storage (SscStorageClass (..))
+import           Pos.Ssc.Class.Types   (SscTypes (SscStorage))
+import qualified Pos.State.Storage     as S
 
 ----------------------------------------------------------------------------
 -- Acid-state things
@@ -79,7 +78,10 @@ update = updateExtended
 
 -- | Same as `openState`, but with explicitly specified initial state.
 openStateCustom :: (SscStorageClass ssc, SafeCopy ssc, MonadIO m)
-                => Storage ssc -> Bool -> FilePath -> m (DiskState ssc)
+                => Storage ssc
+                -> Bool
+                -> FilePath
+                -> m (DiskState ssc)
 openStateCustom customStorage deleteIfExists fp =
     openLocalExtendedState deleteIfExists fp customStorage
 

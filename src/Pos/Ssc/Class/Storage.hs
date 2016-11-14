@@ -1,5 +1,5 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
@@ -15,8 +15,8 @@ module Pos.Ssc.Class.Storage
 
 import           Control.Lens            (Lens')
 import           Data.List.NonEmpty      (NonEmpty)
-import           Data.Tagged             (Tagged)
 import           Data.SafeCopy           (SafeCopy)
+import           Data.Tagged             (Tagged)
 import           Serokell.Util.Verify    (VerificationRes)
 import           Universum
 

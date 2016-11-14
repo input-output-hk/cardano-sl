@@ -1,7 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE Rank2Types             #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -- | High level workers.
 
@@ -29,31 +27,31 @@ import           Pos.WorkMode             (WorkMode)
 
 -- | Run all necessary workers in separate threads. This call doesn't
 -- block.
-runWorkers :: forall ssc m . (SscWorkersClass ssc,  WorkMode ssc m) => m ()
+runWorkers :: (SscWorkersClass ssc,  WorkMode ssc m) => m ()
 runWorkers = mapM_ fork_ $ concat
-    [ [onNewSlotWorker @ssc]
-    , blkWorkers @ssc
-    , untag @ssc sscWorkers
-    , txWorkers @ssc
+    [ [onNewSlotWorker]
+    , blkWorkers
+    , untag sscWorkers
+    , txWorkers
     ]
 
-onNewSlotWorker :: forall ssc m . (SscWorkersClass ssc, WorkMode ssc m) => m ()
-onNewSlotWorker = onNewSlot True (onNewSlotWorkerImpl @ssc)
+onNewSlotWorker :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
+onNewSlotWorker = onNewSlot True onNewSlotWorkerImpl
 
-onNewSlotWorkerImpl :: forall ssc m . (SscWorkersClass ssc, WorkMode ssc m)
+onNewSlotWorkerImpl :: (SscWorkersClass ssc, WorkMode ssc m)
                     => SlotId -> m ()
 onNewSlotWorkerImpl slotId = do
     logNotice $ sformat ("New slot has just started: "%slotIdF) slotId
     -- A note about order: currently only one thing is important, that
     -- `processNewSlot` is executed before everything else
-    mGenBlock <- processNewSlot @ssc slotId
+    mGenBlock <- processNewSlot slotId
     forM_ mGenBlock $ \createdBlk -> do
       logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
       jlLog $ jlCreatedBlock (Left createdBlk)
     logDebug "Finished `processNewSlot`"
 
     fork_ $ do
-        logWarningWaitLinear 8 "mpcOnNewSlot" $ untag @ssc sscOnNewSlot slotId
+        logWarningWaitLinear 8 "mpcOnNewSlot" $ untag sscOnNewSlot slotId
         logDebug "Finished `mpcOnNewSlot`"
-    blkOnNewSlot @ssc slotId
+    blkOnNewSlot slotId
     logDebug "Finished `blkOnNewSlot`"

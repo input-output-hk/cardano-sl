@@ -132,7 +132,7 @@ instance (SscTypes ssc, Default (SscStorage ssc)) => Default (Storage ssc) where
 
 -- | Create default storage with specified utxo
 storageFromUtxo
-    :: forall ssc . (SscTypes ssc, Default (SscStorage ssc))
+    :: (SscTypes ssc, Default (SscStorage ssc))
     => Utxo -> (Storage ssc)
 storageFromUtxo u =
     Storage
@@ -207,14 +207,12 @@ canCreateBlock sId = do
     addKSafe si = si {siSlot = min (6 * k - 1) (siSlot si + k)}
 
 -- | Do all necessary changes when a block is received.
-processBlock
-    :: forall ssc.
-       SscStorageClass ssc
+processBlock :: SscStorageClass ssc
     => SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
 processBlock curSlotId blk = do
     -- TODO: I guess these checks should be part of block verification actually.
     let verifyMpc mainBlk =
-            untag @ssc sscVerifyPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
+            untag sscVerifyPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
     let mpcRes = either (const mempty) verifyMpc blk
     let txs =
             case blk of

@@ -2,10 +2,10 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE TypeApplications       #-}
 
 -- | WorkMode constraint.
 
@@ -46,11 +46,11 @@ import           Pos.DHT                     (DHTResponseT, MonadMessageDHT (..)
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Ssc.Class.Storage       (SscStorageMode)
 import           Pos.State                   (MonadDB (..), NodeState)
 import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
 import           Pos.Types                   (Timestamp (..))
 import           Pos.Util.JsonLog            (MonadJL (..), appendJL)
-import           Pos.Ssc.Class.Storage       (SscStorageMode)
 
 type WorkMode ssc m
     = ( WithNamedLogger m
@@ -108,7 +108,7 @@ instance MonadTransfer m => MonadTransfer (DBHolder ssc m) where
     close = lift . close
 
 instance Monad m => MonadDB ssc (DBHolder ssc m) where
-    getNodeState = (DBHolder @ssc) ask
+    getNodeState = DBHolder ask
 
 instance (MonadDB ssc m, Monad m) => MonadDB ssc (KademliaDHT m) where
     getNodeState = lift getNodeState

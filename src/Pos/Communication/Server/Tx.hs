@@ -1,8 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
 
 -- | Server which handles transactions.
 
@@ -24,19 +22,19 @@ import           Pos.Types                (txF)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
-txListeners :: forall ssc m . (MonadDialog BinaryP m, WorkMode ssc m)
+txListeners :: (MonadDialog BinaryP m, WorkMode ssc m)
             => [ListenerDHT m]
 txListeners =
     map (modifyListenerLogger "tx")
-    [ ListenerDHT (handleTx @ssc)
-    , ListenerDHT (handleTxs @ssc)
+    [ ListenerDHT handleTx
+    , ListenerDHT handleTxs
     ]
 
 handleTx
-    :: forall ssc m . ResponseMode ssc m
+    :: ResponseMode ssc m
     => SendTx -> m ()
 handleTx (SendTx tx) = do
-    res <- processTx @ssc tx
+    res <- processTx tx
     case res of
         PTRadded -> do
             statlogCountEvent StatProcessTx 1
@@ -51,6 +49,6 @@ handleTx (SendTx tx) = do
             logInfo $ sformat ("Node is overwhelmed, can't add tx: "%build) tx
 
 handleTxs
-    :: forall ssc m . (ResponseMode ssc m)
+    :: (ResponseMode ssc m)
     => SendTxs -> m ()
-handleTxs (SendTxs txs) = mapM_ (handleTx @ssc . SendTx) txs
+handleTxs (SendTxs txs) = mapM_ (handleTx . SendTx) txs

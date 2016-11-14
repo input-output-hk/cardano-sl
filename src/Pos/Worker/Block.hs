@@ -1,8 +1,6 @@
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies     #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE Rank2Types             #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 -- | Block processing related workers.
 
@@ -34,9 +32,9 @@ import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKe
                                             ncSecretKey)
 
 -- | Action which should be done when new slot starts.
-blkOnNewSlot :: forall ssc m . WorkMode ssc m => SlotId -> m ()
+blkOnNewSlot :: WorkMode ssc m => SlotId -> m ()
 blkOnNewSlot slotId@SlotId {..} = do
-    leadersMaybe <- getLeaders @ssc siEpoch
+    leadersMaybe <- getLeaders siEpoch
     case leadersMaybe of
         Nothing -> logWarning "Leaders are not known for new slot"
         Just leaders -> do
@@ -44,9 +42,9 @@ blkOnNewSlot slotId@SlotId {..} = do
             logLeadersF (sformat ("Slot leaders: " %listJson) leaders)
             ourPk <- ncPublicKey <$> getNodeContext
             let leader = leaders ^? ix (fromIntegral siSlot)
-            when (leader == Just ourPk) $ onNewSlotWhenLeader @ssc slotId
+            when (leader == Just ourPk) $ onNewSlotWhenLeader slotId
 
-onNewSlotWhenLeader :: forall ssc m . WorkMode ssc m => SlotId -> m ()
+onNewSlotWhenLeader :: WorkMode ssc m => SlotId -> m ()
 onNewSlotWhenLeader slotId = do
     logInfo $
         sformat
@@ -60,7 +58,7 @@ onNewSlotWhenLeader slotId = do
     wait (for timeToWait)
     -- TODO: provide a single function which does all verifications.
     let verifyCreatedBlock blk =
-            untag @ssc sscVerifyPayload
+            untag sscVerifyPayload
             (blk ^. gbHeader) (blk ^. blockMpc)
     let onNewSlotWhenLeaderDo = do
             logInfo "It's time to create a block for current slot"
@@ -83,16 +81,16 @@ onNewSlotWhenLeader slotId = do
 -- | All workers specific to block processing.
 -- Exceptions:
 -- 1. Worker which ticks when new slot starts.
-blkWorkers :: forall ssc m . WorkMode ssc m => [m ()]
-blkWorkers = [blocksTransmitter @ssc]
+blkWorkers :: WorkMode ssc m => [m ()]
+blkWorkers = [blocksTransmitter]
 
 blocksTransmitterInterval :: Microsecond
 blocksTransmitterInterval = slotDuration `div` 2
 
-blocksTransmitter :: forall ssc m . WorkMode ssc m => m ()
+blocksTransmitter :: WorkMode ssc m => m ()
 blocksTransmitter =
     repeatForever blocksTransmitterInterval onError $
-    do headBlock <- getHeadBlock @ssc
+    do headBlock <- getHeadBlock
        case headBlock of
            Left _          -> logDebug "Head block is genesis block ⇒ no announcement"
            Right mainBlock -> announceBlock (mainBlock ^. gbHeader)

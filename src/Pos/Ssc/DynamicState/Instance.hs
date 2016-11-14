@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
@@ -9,7 +10,6 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE ViewPatterns          #-}
-{-# LANGUAGE ConstraintKinds       #-}
 
 -- | Instance of SscTypes.
 
@@ -100,9 +100,9 @@ instance SscStorageClass SscDynamicState where
     sscGetGlobalPayloadByDepth = getGlobalMpcDataByDepth
     sscVerifyBlocks = mpcVerifyBlocks
 
-    sscGetToken = getSecret1
+    sscGetToken = getSecret
     sscSetToken = setSecret
-    sscGetOurShares = getOurShares1
+    sscGetOurShares = getOurShares
 
     sscGetParticipants = getParticipants
     sscCalculateLeaders = calculateLeaders
@@ -516,17 +516,17 @@ setSecret (ourPk, comm, op) = do
         Just _  -> panic "setSecret: a secret was already present"
         Nothing -> dsCurrentSecret .= Just (ourPk, comm, op)
 
-getSecret1 :: Query (Maybe (PublicKey, SignedCommitment, Opening))
-getSecret1 = view dsCurrentSecret
+getSecret :: Query (Maybe (PublicKey, SignedCommitment, Opening))
+getSecret = view dsCurrentSecret
 
 -- | Decrypt shares (in commitments) that we can decrypt.
 -- TODO: do not decrypt shares for which we know openings!
-getOurShares1
+getOurShares
     :: VssKeyPair                           -- ^ Our VSS key
     -> Integer                              -- ^ Random generator seed
                                             -- (needed for 'decryptShare')
     -> Query (HashMap PublicKey Share)
-getOurShares1 ourKey seed = do
+getOurShares ourKey seed = do
     let drg = drgNewSeed (seedFromInteger seed)
     comms <- view (lastVer . dsGlobalCommitments)
     return $ fst $ withDRG drg $

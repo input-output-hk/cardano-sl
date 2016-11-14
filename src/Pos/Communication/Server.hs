@@ -27,11 +27,11 @@ import           Pos.DHT                             (ListenerDHT)
 import           Pos.Ssc.Class.Listeners             (SscListenersClass, sscListeners)
 import           Pos.WorkMode                        (WorkMode)
 
-allListeners :: forall ssc m . (SscListenersClass ssc, MonadDialog BinaryP m, WorkMode ssc m)
+allListeners :: (SscListenersClass ssc, MonadDialog BinaryP m, WorkMode ssc m)
              => [ListenerDHT m]
 allListeners =
     map (modifyListenerLogger serverLoggerName) $
-    concat [blockListeners @ssc, untag @ssc sscListeners, txListeners @ssc]
+    concat [blockListeners,  untag sscListeners, txListeners]
 
 serverLoggerName :: LoggerName
 serverLoggerName = "server"

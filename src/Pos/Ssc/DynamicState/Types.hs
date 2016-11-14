@@ -14,7 +14,6 @@ module Pos.Ssc.DynamicState.Types
          DSPayload(..)
        , DSProof(..)
        , DSMessage(..)
-       , SendSsc(..)
        , filterDSPayload
        , mkDSProof
        , verifyDSPayload
@@ -69,8 +68,12 @@ data DSMessage
                (HashMap PublicKey Share)
     | DSVssCertificate !PublicKey
                        !VssCertificate
-    deriving (Show)
+    deriving (Show, Generic)
 
+instance Binary DSMessage
+
+instance Message DSMessage where
+    messageName _ = "DSMessage"
 deriveSafeCopySimple 0 'base ''DSMessage
 
 ----------------------------------------------------------------------------
@@ -288,22 +291,3 @@ hasOpening pk md = HM.member pk (_mdOpenings md)
 
 hasShares :: PublicKey -> DSPayload -> Bool
 hasShares pk md = HM.member pk (_mdShares md)
-
---Communication
-
--- | Message: some node has sent SscMessage
-data SendSsc
-    = SendCommitment PublicKey
-                     SignedCommitment
-    | SendOpening PublicKey
-                  Opening
-    | SendShares PublicKey
-                 (HashMap PublicKey Share)
-    | SendVssCertificate PublicKey
-                         VssCertificate
-    deriving (Show, Generic)
-
-instance Binary SendSsc
-
-instance Message SendSsc where
-    messageName _ = "SendSsc"

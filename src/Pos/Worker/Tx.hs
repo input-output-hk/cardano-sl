@@ -1,7 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeApplications       #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE Rank2Types             #-}
 
 -- | Tx processing related workers.
 
@@ -22,16 +19,16 @@ import           Pos.WorkMode              (WorkMode)
 -- | All workers specific to tx processing.
 -- Exceptions:
 -- 1. Worker which ticks when new slot starts.
-txWorkers :: forall ssc m . WorkMode ssc m => [m ()]
-txWorkers = [txsTransmitter @ssc]
+txWorkers :: WorkMode ssc m => [m ()]
+txWorkers = [txsTransmitter]
 
 txsTransmitterInterval :: Microsecond
 txsTransmitterInterval = sec 2
 
-txsTransmitter :: forall ssc m . WorkMode ssc m => m ()
+txsTransmitter :: WorkMode ssc m => m ()
 txsTransmitter =
     repeatForever txsTransmitterInterval onError $
-    do localTxs <- getLocalTxs @ssc
+    do localTxs <- getLocalTxs
        announceTxs $ toList localTxs
   where
     onError e =

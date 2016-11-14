@@ -1,11 +1,12 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ConstraintKinds   #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE TypeApplications       #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE Rank2Types             #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 -- | Monadic layer for collecting stats
@@ -29,11 +30,11 @@ import qualified Data.Binary              as Binary
 import           Data.Maybe               (fromMaybe)
 import           Data.SafeCopy            (SafeCopy)
 import           Focus                    (Decision (Remove), alterM)
+import           Pos.Ssc.Class.Storage    (SscStorageClass)
 import           Serokell.Util            (show')
 import qualified STMContainers.Map        as SM
 import           System.IO.Unsafe         (unsafePerformIO)
 import           Universum
-import           Pos.Ssc.Class.Storage   (SscStorageClass)
 
 import           Pos.DHT                  (DHTResponseT, MonadDHT, MonadMessageDHT (..),
                                            WithDefaultMsgHeader)
@@ -43,7 +44,6 @@ import           Pos.State                (MonadDB (..), getStatRecords, newStat
 import           Pos.Statistics.StatEntry (StatLabel (..))
 import           Pos.Types                (Timestamp (..))
 import           Pos.Util.JsonLog         (MonadJL)
-import           Pos.Ssc.Class.Types      (SscTypes)
 
 -- | `MonadStats` is a monad which has methods for stats collecting
 class Monad m => MonadStats m where

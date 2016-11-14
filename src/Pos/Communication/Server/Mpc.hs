@@ -17,15 +17,17 @@ import           Data.Tagged                 (Tagged (..))
 import           Formatting                  (build, sformat, stext, (%))
 import           Universum
 
-import           Pos.Communication.Methods   (announceCommitments, announceOpenings,
+import           Pos.Communication.Methods   (announceCommitments,
+                                              announceOpenings,
                                               announceVssCertificates)
 import qualified Pos.Communication.Types.Mpc as Mpc
 import           Pos.Communication.Util      (modifyListenerLogger)
 import           Pos.Crypto                  (PublicKey, Share)
 import           Pos.DHT                     (ListenerDHT (..))
 import           Pos.Ssc.Class.Listeners     (SscListenersClass (..))
-import           Pos.Ssc.DynamicState        (DSMessage (..), Opening, SignedCommitment,
-                                              SscDynamicState, VssCertificate)
+import           Pos.Ssc.DynamicState        (DSMessage (..), Opening,
+                                              SignedCommitment, SscDynamicState,
+                                              VssCertificate)
 import qualified Pos.State                   as St
 import           Pos.WorkMode                (WorkMode)
 
@@ -80,9 +82,7 @@ handleShares pk s = do
     added <- St.processSscMessage $ DSShares pk s
     let msgAction = if added then "added to local storage" else "ignored"
     let msg = sformat ("Shares from "%build%" have been "%stext) pk msgAction
-    -- let logAction = if added then logInfo else logDebug
-    -- TODO: investigate!
-    let logAction = logDebug
+    let logAction = if added then logInfo else logDebug
     logAction msg
 
 handleCert :: WorkMode m => PublicKey -> VssCertificate -> m Bool

@@ -53,7 +53,7 @@ import           Formatting          (bprint, fitLeft, (%), (%.))
 import           Universum
 
 import           Pos.Crypto.Hashing  (hash, hashHexF)
-import           Pos.Crypto.Random   (runPredefinedRandom, runSecureRandom)
+import           Pos.Crypto.Random   (deterministic, runSecureRandom)
 import           Pos.Util            (fromMsgpackBinary, getCopyBinary, putCopyBinary,
                                       toMsgpackBinary)
 
@@ -173,7 +173,7 @@ vssKeyGen = VssKeyPair <$> liftIO (runSecureRandom Pvss.keyPairGenerate)
 -- | Generate VssKeyPair using given seed.
 deterministicVssKeyGen :: ByteString -> VssKeyPair
 deterministicVssKeyGen seed =
-    VssKeyPair $ runPredefinedRandom seed Pvss.keyPairGenerate
+    VssKeyPair $ deterministic seed Pvss.keyPairGenerate
 
 ----------------------------------------------------------------------------
 -- Types

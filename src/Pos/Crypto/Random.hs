@@ -4,9 +4,6 @@ module Pos.Crypto.Random
        ( SecureRandom(..)
        , secureRandomBS
 
-       , PredefinedRandom
-       , runPredefinedRandom
-
        , deterministic
        , randomNumber
        ) where
@@ -14,8 +11,8 @@ module Pos.Crypto.Random
 import           Crypto.Number.Basic     (numBytes)
 import           Crypto.Number.Serialize (os2ip)
 import           Crypto.Random           (ChaChaDRG, MonadPseudoRandom, MonadRandom,
-                                          drgNewSeed, getRandomBytes, randomBytesGenerate,
-                                          seedFromInteger, withDRG)
+                                          drgNewSeed, getRandomBytes, seedFromInteger,
+                                          withDRG)
 import qualified Data.ByteArray          as ByteArray (convert)
 import           OpenSSL.Random          (randBytes)
 import           Universum
@@ -31,23 +28,6 @@ newtype SecureRandom a = SecureRandom {runSecureRandom :: IO a}
 
 instance MonadRandom SecureRandom where
     getRandomBytes n = SecureRandom (ByteArray.convert <$> secureRandomBS n)
-
--- | PredefinedRandom is an instance of `MonadRandom` which uses given
--- seed as source of randomness.
-newtype PredefinedRandom a = PredefinedRandom
-    { getPredefinedRandom :: State ChaChaDRG a
-    } deriving (Functor, Applicative, Monad)
-
-instance MonadRandom PredefinedRandom where
-    getRandomBytes n = PredefinedRandom $ state $ randomBytesGenerate n
-
--- | Run PredefinedRandom using given seed.
-runPredefinedRandom :: ByteString -> PredefinedRandom a -> a
-runPredefinedRandom seedBs = flip evalState drg . getPredefinedRandom
-  where
-    seedInt = os2ip seedBs
-    seed = seedFromInteger seedInt
-    drg = drgNewSeed seed
 
 -- | You can use 'deterministic' on any 'MonadRandom' computation to make it
 -- use a seed (hopefully produced by a Really Secure™ randomness source). The

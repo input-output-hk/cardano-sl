@@ -1,6 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes   #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-
 -- | High level workers.
 
 module Pos.Worker

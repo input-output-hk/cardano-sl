@@ -201,7 +201,8 @@ main = do
                         let runDelta = endT - startT
                         wait $ for $ ms (max 0 $ tpsDelta - runDelta)
 
-                        pure $ M.insert (pretty $ hash tx) startT curmap)
+                        -- we dump microseconds to be consistent with JSON log
+                        pure $ M.insert (pretty $ hash tx) (startT * 1000) curmap)
                     (M.empty :: M.HashMap Text Int) -- TxId Int
                     (zip curRecAddrs indices)
                 finishT <- getPosixMs

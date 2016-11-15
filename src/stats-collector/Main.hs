@@ -1,6 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TypeApplications    #-}
 
 -- | Executable for collecting stats data from nodes
 
@@ -13,33 +12,29 @@ import           Control.TimeWarp.Timed   (for, fork_, ms, wait)
 import           Data.Aeson.TH            (deriveJSON)
 import           Data.Aeson.Types         (FromJSON)
 import           Data.Default             (def)
-import           Data.Maybe               (catMaybes)
 import           Data.Monoid              ((<>))
-import qualified Data.Text                as T
 import qualified Data.Text.IO             as TIO
 import           Data.Time.Clock          (UTCTime, addUTCTime, getCurrentTime)
 import           Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
 import qualified Data.Yaml                as Y
-import           Formatting               (build, int, sformat, (%))
+import           Formatting               (build, fixed, int, sformat, shown, (%))
 import           Serokell.Aeson.Options   (defaultOptions)
 import           System.Directory         (createDirectoryIfMissing)
 import           System.FilePath          ((</>))
 import           Text.Parsec              (parse)
 import           Universum                hiding ((<>))
 
-import           Formatting               (fixed, sformat, shown, (%))
 import           Pos.CLI                  (addrParser)
 import           Pos.Communication        (RequestStat (..), ResponseStat (..))
 import           Pos.DHT                  (DHTNodeType (..), ListenerDHT (..), sendToNode)
 import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
                                            bracketDHTInstance, runServiceMode)
-import           Pos.Statistics           (CountStat (..), StatBlockCreated (..),
-                                           StatLabel (..), StatProcessTx (..))
+import           Pos.Statistics           (CountStat (..), StatProcessTx (..))
 import           Pos.Types                (Timestamp)
 import           Pos.Util                 (eitherPanic)
 
-import           Plotting                 (perEntryPlots, plotTPS)
-import qualified SarCollector             as SAR
+-- import           Plotting                 (perEntryPlots, plotTPS)
+-- import qualified SarCollector             as SAR
 import qualified StatsOptions             as O
 
 ------------------------------------------------
@@ -92,10 +87,10 @@ main = do
     createDirectoryIfMissing True soOutputDir
     TIO.writeFile (soOutputDir </> "how") $ "StartTime: " <> show startTime
 
-    let mConfigs =
-            flip map ccNodes $ \(host,_) ->
-                SAR.MachineConfig
-                host "statReader" "123123123123" "/var/log/saALL"
+    -- let mConfigs =
+    --         flip map ccNodes $ \(host,_) ->
+    --             SAR.MachineConfig
+    --             host "statReader" "123123123123" "/var/log/saALL"
 
     let logParams =
             def

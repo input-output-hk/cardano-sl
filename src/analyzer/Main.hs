@@ -40,7 +40,7 @@ main = do
     let txConfTimes :: HM.HashMap TxId Integer
         txConfTimes = getTxAcceptTimeAvgs confirmationParam logs
         common =
-            HM.intersectionWith (\a b -> a - b * 1000) txConfTimes txSenderMap
+            HM.intersectionWith (-) txConfTimes txSenderMap
         average :: Double
         average =
             fromIntegral (sum (toList common)) / fromIntegral (length common)

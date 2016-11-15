@@ -11,7 +11,6 @@ import           Data.Tagged         (Tagged)
 import           Data.Text.Buildable (Buildable)
 import           Universum
 
--- TODO: rename to Ssc?
 class (Typeable ssc
       ,Typeable (SscToken ssc)
       ,Typeable (SscPayload ssc)

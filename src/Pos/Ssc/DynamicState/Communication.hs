@@ -11,7 +11,7 @@ module Pos.Ssc.DynamicState.Communication
          -- ** instance SscListenersClass SscDynamicState
        ) where
 
-import           Control.TimeWarp.Logging      (logDebug, logInfo, logWarning)
+import           Control.TimeWarp.Logging      (logDebug, logError, logInfo)
 import           Control.TimeWarp.Rpc          (BinaryP, MonadDialog)
 import           Data.Tagged                   (Tagged (..))
 import           Formatting                    (build, sformat, stext, (%))
@@ -43,7 +43,7 @@ handleSsc m@(DSCommitments comms) = do
     case processed of
         Nothing                     -> call []
         Just (DSCommitments rcomms) -> call $ toList rcomms
-        Just x                      -> wtfWarning m x
+        Just x                      -> distConstrsError m x
 
 handleSsc m@(DSOpenings ops)        = do
     processed <- St.processSscMessage m
@@ -51,7 +51,7 @@ handleSsc m@(DSOpenings ops)        = do
     case processed of
         Nothing                -> call []
         Just (DSOpenings rops) -> call $ toList rops
-        Just x                 -> wtfWarning m x
+        Just x                 -> distConstrsError m x
 
 handleSsc m@(DSSharesMulti s)         = do
     processed <- St.processSscMessage m
@@ -61,7 +61,7 @@ handleSsc m@(DSSharesMulti s)         = do
     case processed of
         Nothing                 -> call []
         Just (DSSharesMulti rs) -> call $ toList rs
-        Just x                  -> wtfWarning m x
+        Just x                  -> distConstrsError m x
 
 handleSsc m@(DSVssCertificates certs) = do
     processed <- St.processSscMessage m
@@ -69,7 +69,7 @@ handleSsc m@(DSVssCertificates certs) = do
     case processed of
         Nothing                         -> call []
         Just (DSVssCertificates rcerts) -> call $ toList rcerts
-        Just x                          -> wtfWarning m x
+        Just x                          -> distConstrsError m x
 
 handleSscDo
     :: (WorkMode SscDynamicState m, Eq a)
@@ -92,9 +92,9 @@ loggerAction dsType added pkeys =
       let logAction = if added then logInfo else logDebug
       logAction msg
 
-wtfWarning :: WorkMode SscDynamicState m => DSMessage -> DSMessage -> m ()
-wtfWarning ex reci = do
-    logWarning $
+distConstrsError :: WorkMode SscDynamicState m => DSMessage -> DSMessage -> m ()
+distConstrsError ex reci = do
+    logError $
             sformat ("Something strange is happened: "%stext%" constructor\
                       \was passed to processSscMessage, but "%stext%" is returned")
             (constrName ex) (constrName reci)

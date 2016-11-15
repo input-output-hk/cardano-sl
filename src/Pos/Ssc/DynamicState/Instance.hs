@@ -24,7 +24,7 @@ import           Data.Default                 (def)
 import           Data.Hashable                (Hashable)
 import qualified Data.HashMap.Strict          as HM
 import           Data.List                    (nub)
-import           Data.List.NonEmpty           (NonEmpty ((:|)))
+import           Data.List.NonEmpty           (NonEmpty ((:|)), fromList)
 import qualified Data.List.NonEmpty           as NE
 import           Data.SafeCopy                (SafeCopy)
 import           Data.Serialize               (Serialize (..))
@@ -86,18 +86,28 @@ instance SscTypes SscDynamicState where
 
     mkSscProof = Tagged mkDSProof
 
-helper::(a->b->Update Bool)->NonEmpty (a, b)->Update Bool
-helper f ne =
-      foldM (\r a -> (r &&) <$> uncurry f a) True ne
+helper :: (NonEmpty (a, b) -> DSMessage)
+       -> (a -> b -> Update Bool)
+       -> NonEmpty (a, b)
+       -> Update (Maybe DSMessage)
+helper c f ne = do
+    res <- toList <$> mapM (uncurry f) ne
+    let updated = map snd . filter fst . zip res . toList $ ne
+    if null updated
+      then return Nothing
+      else return $ Just . c . fromList $ updated
 
 instance SscStorageClass SscDynamicState where
     sscApplyBlocks = mpcApplyBlocks
     sscPrepareToNewSlot = mpcProcessNewSlot
-    sscProcessMessage (DSCommitments ne)     = helper mpcProcessCommitment ne
-    sscProcessMessage (DSOpenings ne)        = helper mpcProcessOpening ne
-    sscProcessMessage (DSSharesMulti ne)     = helper mpcProcessShares ne
+    sscProcessMessage (DSCommitments ne)     =
+        helper DSCommitments mpcProcessCommitment ne
+    sscProcessMessage (DSOpenings ne)        =
+        helper DSOpenings mpcProcessOpening ne
+    sscProcessMessage (DSSharesMulti ne)     =
+        helper DSSharesMulti mpcProcessShares ne
     sscProcessMessage (DSVssCertificates ne) =
-      helper mpcProcessVssCertificate ne
+        helper DSVssCertificates mpcProcessVssCertificate ne
     sscRollback = mpcRollback
     sscGetLocalPayload = getLocalPayload
     sscGetGlobalPayload = getGlobalMpcData

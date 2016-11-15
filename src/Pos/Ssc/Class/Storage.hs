@@ -47,7 +47,7 @@ class SscTypes ssc => SscStorageClass ssc where
     sscPrepareToNewSlot :: SlotId -> SscUpdate ssc ()
     -- | Do something with given message, result is whether message
     -- has been processed successfully (implementation defined).
-    sscProcessMessage :: SscMessage ssc -> SscUpdate ssc Bool
+    sscProcessMessage :: SscMessage ssc -> SscUpdate ssc (Maybe (SscMessage ssc))
     -- | Rollback application of last 'n' blocks.  blocks. If there
     -- are less blocks than 'n' is, just leaves an empty ('def')
     -- version.

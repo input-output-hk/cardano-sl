@@ -196,7 +196,7 @@ processBlock :: QUConstraint ssc m
              -> m (ProcessBlockRes ssc)
 processBlock si = updateDisk . A.ProcessBlock si
 
-processSscMessage :: QUConstraint ssc m => SscMessage ssc -> m Bool
+processSscMessage :: QUConstraint ssc m => SscMessage ssc -> m (Maybe (SscMessage ssc))
 processSscMessage = updateDisk . A.ProcessSscMessage
 
 

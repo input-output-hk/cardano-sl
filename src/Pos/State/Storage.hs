@@ -393,7 +393,7 @@ getThreshold epoch = do
 processSscMessage
     :: forall ssc.
        SscStorageClass ssc
-    => SscMessage ssc -> Update ssc Bool
+    => SscMessage ssc -> Update ssc (Maybe (SscMessage ssc))
 processSscMessage = sscProcessMessage @ ssc
 
 setToken

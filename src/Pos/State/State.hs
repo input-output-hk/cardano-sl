@@ -22,6 +22,7 @@ module Pos.State.State
        -- * Simple getters.
        , getBlock
        , getHeadBlock
+       , getBestChain
        , getLeaders
        , getLocalTxs
        , getLocalSscPayload
@@ -52,16 +53,16 @@ module Pos.State.State
        , getOurShares
        ) where
 
+import           Crypto.Random            (seedNew, seedToInteger)
 import           Data.Acid                (EventResult, EventState, QueryEvent,
                                            UpdateEvent)
 import qualified Data.Binary              as Binary
 import           Data.Default             (Default)
+import           Data.List.NonEmpty       (NonEmpty)
 import           Pos.DHT                  (DHTResponseT)
 import           Serokell.Util            (VerificationRes, show')
 import           Universum
 
-import           Crypto.Random            (seedNew, seedToInteger)
-import           Data.List.NonEmpty       (NonEmpty)
 import           Pos.Crypto               (PublicKey, SecretKey, Share, Threshold,
                                            VssKeyPair, VssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
@@ -152,8 +153,11 @@ getBlock :: QUConstraint ssc m => HeaderHash ssc -> m (Maybe (Block ssc))
 getBlock = queryDisk . A.GetBlock
 
 -- | Get block which is the head of the __best chain__.
-getHeadBlock ::  QUConstraint ssc m => m (Block ssc)
+getHeadBlock :: QUConstraint ssc m => m (Block ssc)
 getHeadBlock = queryDisk A.GetHeadBlock
+
+getBestChain :: QUConstraint ssc m => m (NonEmpty (Block ssc))
+getBestChain = queryDisk A.GetBestChain
 
 getLocalTxs :: QUConstraint ssc m => m (HashSet Tx)
 getLocalTxs = queryDisk A.GetLocalTxs

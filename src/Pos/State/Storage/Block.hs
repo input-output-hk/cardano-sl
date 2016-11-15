@@ -6,6 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE ViewPatterns           #-}
+
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 -- | Blocks maintenance happens here.
@@ -19,6 +20,7 @@ module Pos.State.Storage.Block
        , getBlock
        , getBlockByDepth
        , getHeadBlock
+       , getBestChain
        , getLeader
        , getLeaders
        , getSlotDepth
@@ -34,6 +36,7 @@ module Pos.State.Storage.Block
 
 import           Control.Lens            (at, ix, makeClassy, preview, use, uses, view,
                                           (%=), (.=), (.~), (<~), (^.), _Just)
+import           Control.Monad.Loops     (unfoldrM)
 import           Data.Default            (def)
 import qualified Data.HashMap.Strict     as HM
 import           Data.List               ((!!))
@@ -147,8 +150,26 @@ getHeadBlock :: Query ssc (Block ssc)
 getHeadBlock = do
     headHash <- view blkHead
     let errorMsg =
-            sformat ("blkHead (" %build % " is not found in storage") headHash
+            sformat ("blkHead ("%build%") is not found in storage") headHash
     fromMaybe (panic errorMsg) <$> getBlockByDepth 0
+
+-- | Get the whole best chain.
+getBestChain :: Query ssc (NonEmpty (Block ssc))
+getBestChain = do
+    headHash <- view blkHead
+    firstBlock <- getBlockOrPanic headHash
+    chain <- (`unfoldrM` firstBlock) $ \blk ->
+        if isGenesisBlock blk
+            then return Nothing
+            else do prevBlk <- getBlockOrPanic (blk ^. prevBlockL)
+                    return $ Just (prevBlk, prevBlk)
+    return (firstBlock :| chain)
+  where
+    errorMsg h = sformat ("block ("%build%") is not found in storage") h
+    getBlockOrPanic h = fromMaybe (panic (errorMsg h)) <$> getBlock h
+    isGenesisBlock blk = case blk of
+        Left  gb -> gb ^. epochIndexL == 0
+        Right mb -> mb ^. blockSlot == SlotId 0 0
 
 -- | Get list of slot leaders for the given epoch if it is known.
 getLeaders :: EpochIndex -> Query ssc (Maybe SlotLeaders)

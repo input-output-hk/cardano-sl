@@ -20,6 +20,7 @@ module Pos.State.Storage
        , Query
        , getBlock
        , getHeadBlock
+       , getBestChain
        , getGlobalSscPayload
        , getLeaders
        , getLocalTxs
@@ -66,8 +67,9 @@ import           Pos.Ssc.Class.Types     (SscTypes (..))
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
                                           blkCleanUp, blkCreateGenesisBlock,
                                           blkCreateNewBlock, blkProcessBlock, blkRollback,
-                                          blkSetHead, getBlock, getHeadBlock, getLeaders,
-                                          getSlotDepth, mayBlockBeUseful, mkBlockStorage)
+                                          blkSetHead, getBestChain, getBlock,
+                                          getHeadBlock, getLeaders, getSlotDepth,
+                                          mayBlockBeUseful, mkBlockStorage)
 import           Pos.State.Storage.Stats (HasStatsData (statsData), StatsData,
                                           getStatRecords, newStatRecord)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,

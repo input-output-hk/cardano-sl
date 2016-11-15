@@ -122,8 +122,8 @@ library
                       , ed25519
                       , exceptions
                       , file-embed >= 0.0.10
-                      , formatting
                       , focus
+                      , formatting
                       , hashable
                       , kademlia
                       , lens
@@ -132,6 +132,7 @@ library
                       , memory
                       , mmorph
                       , monad-control
+                      , monad-loops
                       , mtl
                       , parsec
                       , pvss
@@ -141,8 +142,8 @@ library
                       , serokell-util
                       , stm
                       , stm-containers
-                      , tagged
                       , stm-containers
+                      , tagged
                       , template-haskell
                       , text
                       , text-format

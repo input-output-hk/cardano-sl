@@ -13,19 +13,21 @@ module Pos.Ssc.DynamicState.Server
        , announceVssCertificates
        ) where
 
-import           Control.TimeWarp.Logging      (logDebug)
-import           Data.List.NonEmpty            (NonEmpty)
-import           Formatting                    (sformat, (%))
-import           Pos.Communication.Methods     (announceSsc)
-import           Pos.Crypto                    (PublicKey, Share)
-import           Pos.DHT                       (sendToNeighbors)
-import           Pos.Ssc.DynamicState.Base     (Opening, SignedCommitment, VssCertificate)
-import           Pos.Ssc.DynamicState.Instance (SscDynamicState)
-import           Pos.Ssc.DynamicState.Types    (DSMessage (..))
-import           Pos.WorkMode                  (WorkMode)
-import           Serokell.Util.Text            (listJson)
+import           Control.TimeWarp.Logging            (logDebug)
+import           Data.List.NonEmpty                  (NonEmpty)
+import           Formatting                          (sformat, (%))
+import           Serokell.Util.Text                  (listJson)
 import           Universum
 
+import           Pos.Communication.Methods           (announceSsc)
+import           Pos.Crypto                          (PublicKey, Share)
+import           Pos.DHT                             (sendToNeighbors)
+import           Pos.Ssc.DynamicState.Base           (Opening, SignedCommitment,
+                                                      VssCertificate)
+import           Pos.Ssc.DynamicState.Instance.Type  (SscDynamicState)
+import           Pos.Ssc.DynamicState.Instance.Types ()
+import           Pos.Ssc.DynamicState.Types          (DSMessage (..))
+import           Pos.WorkMode                        (WorkMode)
 
 -- TODO: add statlogging for everything, see e.g. announceTxs
 announceCommitment :: WorkMode SscDynamicState m => PublicKey -> SignedCommitment -> m ()

@@ -49,37 +49,32 @@ module Pos.State.State
        -- * SscDynamic state simple getters and setters.
        , setToken
        , getToken
-       , getOurCommitment
-       , getOurOpening
        , getOurShares
        ) where
 
-import           Data.Acid                     (EventResult, EventState, QueryEvent,
-                                                UpdateEvent)
-import qualified Data.Binary                   as Binary
-import           Data.Default                  (Default)
-import           Pos.DHT                       (DHTResponseT)
-import           Serokell.Util                 (VerificationRes, show')
+import           Data.Acid                (EventResult, EventState, QueryEvent,
+                                           UpdateEvent)
+import qualified Data.Binary              as Binary
+import           Data.Default             (Default)
+import           Pos.DHT                  (DHTResponseT)
+import           Serokell.Util            (VerificationRes, show')
 import           Universum
 
-import           Control.Lens                  (view, _2, _3)
-import           Crypto.Random                 (seedNew, seedToInteger)
-import           Data.List.NonEmpty            (NonEmpty)
-import           Pos.Crypto                    (PublicKey, SecretKey, Share, Threshold,
-                                                VssKeyPair, VssPublicKey)
-import           Pos.Slotting                  (MonadSlots, getCurrentSlot)
-import           Pos.Ssc.Class.Storage         (SscStorageClass (..), SscStorageMode)
-import           Pos.Ssc.Class.Types           (SscTypes (SscMessage, SscPayload, SscStorage, SscToken))
-import           Pos.Ssc.DynamicState.Base     (Opening, SignedCommitment)
-import           Pos.Ssc.DynamicState.Instance (SscDynamicState)
-import           Pos.State.Acidic              (DiskState, tidyState)
-import qualified Pos.State.Acidic              as A
-import           Pos.State.Storage             (ProcessBlockRes (..), ProcessTxRes (..),
-                                                Storage)
-import           Pos.Statistics.StatEntry      (StatLabel (..))
-import           Pos.Types                     (Block, EpochIndex, GenesisBlock,
-                                                HeaderHash, MainBlock, MainBlockHeader,
-                                                SlotId, SlotLeaders, Timestamp, Tx)
+import           Crypto.Random            (seedNew, seedToInteger)
+import           Data.List.NonEmpty       (NonEmpty)
+import           Pos.Crypto               (PublicKey, SecretKey, Share, Threshold,
+                                           VssKeyPair, VssPublicKey)
+import           Pos.Slotting             (MonadSlots, getCurrentSlot)
+import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
+import           Pos.Ssc.Class.Types      (SscTypes (SscMessage, SscPayload, SscStorage, SscToken))
+import           Pos.State.Acidic         (DiskState, tidyState)
+import qualified Pos.State.Acidic         as A
+import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (..),
+                                           Storage)
+import           Pos.Statistics.StatEntry (StatLabel (..))
+import           Pos.Types                (Block, EpochIndex, GenesisBlock, HeaderHash,
+                                           MainBlock, MainBlockHeader, SlotId,
+                                           SlotLeaders, Timestamp, Tx)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState ssc = DiskState ssc
@@ -231,21 +226,22 @@ getThreshold = queryDisk . A.GetThreshold
 ----------------------------------------------------------------------------
 -- Functions related to SscDynamicState
 ----------------------------------------------------------------------------
-getToken :: WorkModeDB SscDynamicState m
-         => m (Maybe (SscToken SscDynamicState))
-getToken = queryDisk @SscDynamicState A.GetToken
+getToken
+    :: forall ssc. forall m.
+       QUConstraint ssc m
+    => m (Maybe (SscToken ssc))
+getToken = queryDisk @ssc A.GetToken
 
-setToken :: WorkModeDB SscDynamicState m
-         => SscToken SscDynamicState -> m ()
-setToken = updateDisk @SscDynamicState . A.SetToken
+setToken
+    :: forall ssc. forall m.
+       QUConstraint ssc m
+    => SscToken ssc -> m ()
+setToken = updateDisk @ssc . A.SetToken
 
-getOurCommitment :: WorkModeDB SscDynamicState m => m (Maybe SignedCommitment)
-getOurCommitment = fmap (view _2) <$> getToken
-
-getOurOpening :: WorkModeDB SscDynamicState m => m (Maybe Opening)
-getOurOpening = fmap (view _3) <$> getToken
-
-getOurShares :: WorkModeDB SscDynamicState m => VssKeyPair -> m (HashMap PublicKey Share)
+getOurShares
+    :: forall ssc. forall m.
+       QUConstraint ssc m
+    => VssKeyPair -> m (HashMap PublicKey Share)
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
-    queryDisk @SscDynamicState $ A.GetOurShares ourKey (seedToInteger randSeed)
+    queryDisk @ssc $ A.GetOurShares ourKey (seedToInteger randSeed)

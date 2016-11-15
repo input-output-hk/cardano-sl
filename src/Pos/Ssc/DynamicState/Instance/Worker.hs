@@ -1,50 +1,53 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications      #-}
--- | MPC processing related workers.
 
-module Pos.Ssc.DynamicState.Worker where
+-- | Instance of SscWorkersClass.
 
-import           Control.TimeWarp.Logging      (logDebug)
-import           Control.TimeWarp.Logging      (logWarning)
-import           Control.TimeWarp.Timed        (repeatForever)
-import qualified Data.HashMap.Strict           as HM (toList)
-import           Data.Tagged                   (Tagged (..))
-import           Formatting                    (build, ords, sformat, (%))
-import           Serokell.Util.Exceptions      ()
+module Pos.Ssc.DynamicState.Instance.Worker
+       ( -- * Instances
+         -- ** instance SscWorkersClass SscDynamicState
+       ) where
+
+import           Control.Lens                       (view, _2, _3)
+import           Control.TimeWarp.Logging           (logDebug, logWarning)
+import           Control.TimeWarp.Timed             (repeatForever)
+import qualified Data.HashMap.Strict                as HM (toList)
+import           Data.List.NonEmpty                 (nonEmpty)
+import           Data.Tagged                        (Tagged (..))
+import           Formatting                         (build, ords, sformat, (%))
+import           Serokell.Util.Exceptions           ()
 import           Universum
 
-import           Pos.Crypto                    (SecretKey, toPublic)
-import           Pos.Slotting                  (getCurrentSlot)
-import           Pos.Ssc.Class.Workers         (SscWorkersClass (..))
-import           Pos.Ssc.DynamicState.Base     (genCommitmentAndOpening,
-                                                genCommitmentAndOpening, isCommitmentIdx,
-                                                isOpeningIdx, isSharesIdx,
-                                                mkSignedCommitment)
-import           Pos.Ssc.DynamicState.Base     (Opening, SignedCommitment)
-import           Pos.Ssc.DynamicState.Instance (SscDynamicState)
-import           Pos.Ssc.DynamicState.Server   ()
-import           Pos.Ssc.DynamicState.Server   (announceCommitment, announceCommitments,
-                                                announceOpening, announceOpenings,
-                                                announceShares, announceSharesMulti,
-                                                announceVssCertificates)
-import           Pos.Ssc.DynamicState.Types    (DSPayload (..), hasCommitment, hasOpening,
-                                                hasShares)
-import           Pos.State.State               (getGlobalMpcData, getLocalSscPayload,
-                                                getOurCommitment, getOurOpening,
-                                                getOurShares, getParticipants,
-                                                getThreshold, getToken, setToken)
-import           Pos.Types                     (EpochIndex, SlotId (..))
-import           Pos.WorkMode                  (WorkMode, getNodeContext, ncPublicKey,
-                                                ncSecretKey, ncVssKeyPair)
-
-import           Data.List.NonEmpty            (nonEmpty)
-import           Pos.Constants                 (mpcTransmitterInterval)
+import           Pos.Constants                      (mpcTransmitterInterval)
+import           Pos.Crypto                         (SecretKey, toPublic)
+import           Pos.Slotting                       (getCurrentSlot)
+import           Pos.Ssc.Class.Workers              (SscWorkersClass (..))
+import           Pos.Ssc.DynamicState.Base          (genCommitmentAndOpening,
+                                                     genCommitmentAndOpening,
+                                                     isCommitmentIdx, isOpeningIdx,
+                                                     isSharesIdx, mkSignedCommitment)
+import           Pos.Ssc.DynamicState.Base          (Opening, SignedCommitment)
+import           Pos.Ssc.DynamicState.Instance.Type (SscDynamicState)
+import           Pos.Ssc.DynamicState.Server        ()
+import           Pos.Ssc.DynamicState.Server        (announceCommitment,
+                                                     announceCommitments, announceOpening,
+                                                     announceOpenings, announceShares,
+                                                     announceSharesMulti,
+                                                     announceVssCertificates)
+import           Pos.Ssc.DynamicState.Types         (DSPayload (..), hasCommitment,
+                                                     hasOpening, hasShares)
+import           Pos.State                          (getGlobalMpcData, getLocalSscPayload,
+                                                     getOurShares, getParticipants,
+                                                     getThreshold, getToken, setToken)
+import           Pos.Types                          (EpochIndex, SlotId (..))
+import           Pos.WorkMode                       (WorkMode, getNodeContext,
+                                                     ncPublicKey, ncSecretKey,
+                                                     ncVssKeyPair)
 
 instance SscWorkersClass SscDynamicState where
     sscOnNewSlot = Tagged mpcOnNewSlot
     sscWorkers = Tagged mpcWorkers
-
 
 -- | Generate new commitment and opening and use them for the current
 -- epoch. Assumes that the genesis block has already been generated and
@@ -94,7 +97,7 @@ mpcOnNewSlot SlotId {..} = do
         commitmentInBlockchain <- hasCommitment ourPk <$> getGlobalMpcData
         return $ isCommitmentIdx siSlot && not commitmentInBlockchain
     when shouldSendCommitment $ do
-        mbComm <- getOurCommitment
+        mbComm <- fmap (view _2) <$> getToken
         whenJust mbComm $ \comm -> do
             announceCommitment ourPk comm
             logDebug "Sent commitment to neighbors"
@@ -103,7 +106,7 @@ mpcOnNewSlot SlotId {..} = do
         openingInBlockchain <- hasOpening ourPk <$> getGlobalMpcData
         return $ isOpeningIdx siSlot && not openingInBlockchain
     when shouldSendOpening $ do
-        mbOpen <- getOurOpening
+        mbOpen <- fmap (view _3) <$> getToken
         whenJust mbOpen $ \open -> do
             announceOpening ourPk open
             logDebug "Sent opening to neighbors"

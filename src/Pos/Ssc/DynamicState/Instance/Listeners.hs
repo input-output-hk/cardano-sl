@@ -4,31 +4,32 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 
--- | Server which handles MPC-related things.
+-- | Instance of SscListenersClass
 
-module Pos.Ssc.DynamicState.Communication
+module Pos.Ssc.DynamicState.Instance.Listeners
        ( -- * Instances
          -- ** instance SscListenersClass SscDynamicState
        ) where
 
-import           Control.TimeWarp.Logging      (logDebug, logError, logInfo)
-import           Control.TimeWarp.Rpc          (BinaryP, MonadDialog)
-import           Data.Tagged                   (Tagged (..))
-import           Formatting                    (build, sformat, stext, (%))
+import           Control.TimeWarp.Logging           (logDebug, logError, logInfo)
+import           Control.TimeWarp.Rpc               (BinaryP, MonadDialog)
+import           Data.List                          ((\\))
+import           Data.List.NonEmpty                 (NonEmpty, nonEmpty)
+import           Data.Tagged                        (Tagged (..))
+import           Formatting                         (build, sformat, stext, (%))
 import           Universum
 
-import           Data.List                     ((\\))
-import           Data.List.NonEmpty            (NonEmpty, nonEmpty)
-import           Pos.Communication.Util        (modifyListenerLogger)
-import           Pos.Crypto                    (PublicKey)
-import           Pos.DHT                       (ListenerDHT (..))
-import           Pos.Ssc.Class.Listeners       (SscListenersClass (..))
-import           Pos.Ssc.DynamicState.Instance (SscDynamicState)
-import           Pos.Ssc.DynamicState.Server   (announceCommitments, announceOpenings,
-                                                announceVssCertificates)
-import           Pos.Ssc.DynamicState.Types    (DSMessage (..))
-import qualified Pos.State                     as St
-import           Pos.WorkMode                  (WorkMode)
+import           Pos.Communication.Util             (modifyListenerLogger)
+import           Pos.Crypto                         (PublicKey)
+import           Pos.DHT                            (ListenerDHT (..))
+import           Pos.Ssc.Class.Listeners            (SscListenersClass (..))
+import           Pos.Ssc.DynamicState.Instance.Type (SscDynamicState)
+import           Pos.Ssc.DynamicState.Server        (announceCommitments,
+                                                     announceOpenings,
+                                                     announceVssCertificates)
+import           Pos.Ssc.DynamicState.Types         (DSMessage (..))
+import qualified Pos.State                          as St
+import           Pos.WorkMode                       (WorkMode)
 
 instance SscListenersClass SscDynamicState where
     sscListeners = Tagged mpcListeners
@@ -95,7 +96,7 @@ loggerAction dsType added pkeys =
 distConstrsError :: WorkMode SscDynamicState m => DSMessage -> DSMessage -> m ()
 distConstrsError ex reci = do
     logError $
-            sformat ("Something strange is happened: "%stext%" constructor\
+            sformat ("Internal error: "%stext%" constructor\
                       \was passed to processSscMessage, but "%stext%" is returned")
             (constrName ex) (constrName reci)
     where

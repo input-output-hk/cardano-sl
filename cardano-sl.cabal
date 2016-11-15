@@ -62,15 +62,18 @@ library
                         Pos.Ssc.Class.Listeners
                         Pos.Ssc.DynamicState.Arbitrary
                         Pos.Ssc.DynamicState.Base
-                        Pos.Ssc.DynamicState.Communication
                         Pos.Ssc.DynamicState.Error
                         Pos.Ssc.DynamicState.Genesis
                         Pos.Ssc.DynamicState.Instance
+                        Pos.Ssc.DynamicState.Instance.Listeners
+                        Pos.Ssc.DynamicState.Instance.Storage
+                        Pos.Ssc.DynamicState.Instance.Type
+                        Pos.Ssc.DynamicState.Instance.Types
+                        Pos.Ssc.DynamicState.Instance.Worker
                         Pos.Ssc.DynamicState.Seed
                         Pos.Ssc.DynamicState.Server
                         Pos.Ssc.DynamicState.Storage
                         Pos.Ssc.DynamicState.Types
-                        Pos.Ssc.DynamicState.Worker
                         Pos.State.Acidic
                         Pos.State.State
                         Pos.State.Storage

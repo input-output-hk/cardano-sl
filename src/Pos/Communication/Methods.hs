@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 -- | Wrappers on top of communication methods.
 
 module Pos.Communication.Methods
@@ -5,14 +7,7 @@ module Pos.Communication.Methods
        , announceTx
        , announceTxs
        , sendTx
-       , announceCommitment
-       , announceCommitments
-       , announceOpening
-       , announceOpenings
-       , announceShares
-       , announceSharesMulti
-       , announceVssCertificate
-       , announceVssCertificates
+       , announceSsc
        ) where
 
 import           Control.TimeWarp.Logging (logDebug)
@@ -21,20 +16,18 @@ import           Control.TimeWarp.Timed   (fork_)
 import           Data.Binary              (Binary)
 import           Data.List.NonEmpty       (NonEmpty ((:|)))
 import           Formatting               (build, sformat, (%))
-import           Serokell.Util.Text       (listJson)
 import           Universum
 
-import           Pos.Communication.Types  (SendBlockHeader (..), SendSsc (..),
-                                           SendTx (..), SendTxs (..))
-import           Pos.Crypto               (PublicKey, Share)
+import           Pos.Communication.Types  (SendBlockHeader (..), SendTx (..),
+                                           SendTxs (..))
 import           Pos.DHT                  (sendToNeighbors, sendToNode)
-import           Pos.Ssc.Class.Types      (SscTypes)
-import           Pos.Ssc.DynamicState     (Opening, SignedCommitment, VssCertificate)
+import           Pos.Ssc.Class.Types      (SscTypes (SscMessage))
 import           Pos.Types                (MainBlockHeader, Tx)
 import           Pos.Util                 (logWarningWaitLinear, messageName')
 import           Pos.WorkMode             (WorkMode)
+import           Serokell.Util.Text       (listJson)
 
-sendToNeighborsSafe :: (Binary r, Message r, WorkMode m) => r -> m ()
+sendToNeighborsSafe :: (Binary r, Message r, WorkMode ssc m) => r -> m ()
 sendToNeighborsSafe msg = do
     let msgName = messageName' msg
     let action = () <$ sendToNeighbors msg
@@ -44,7 +37,7 @@ sendToNeighborsSafe msg = do
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.
 announceBlock
-    :: (SscTypes ssc, WorkMode m)
+    :: WorkMode ssc m
     => MainBlockHeader ssc -> m ()
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
@@ -52,14 +45,14 @@ announceBlock header = do
 
 -- | Announce new transaction to all known peers. Intended to be used when
 -- tx is created.
-announceTx :: WorkMode m => Tx -> m ()
+announceTx :: WorkMode ssc m => Tx -> m ()
 announceTx tx = do
     logDebug $ sformat ("Announcing tx to others:\n"%build) tx
     sendToNeighborsSafe . SendTx $ tx
 
 -- | Announce known transactions to all known peers. Intended to be used
 -- to relay transactions.
-announceTxs :: WorkMode m => [Tx] -> m ()
+announceTxs :: WorkMode ssc m => [Tx] -> m ()
 announceTxs [] = pure ()
 announceTxs txs@(tx:txs') = do
     logDebug $
@@ -67,63 +60,18 @@ announceTxs txs@(tx:txs') = do
     sendToNeighborsSafe . SendTxs $ tx :| txs'
 
 -- | Send Tx to given address.
-sendTx :: WorkMode m => NetworkAddress -> Tx -> m ()
+sendTx :: WorkMode ssc m => NetworkAddress -> Tx -> m ()
 sendTx addr = sendToNode addr . SendTx
 
 ----------------------------------------------------------------------------
 -- Relaying MPC messages
 ----------------------------------------------------------------------------
-
--- TODO: add statlogging for everything, see e.g. announceTxs
-
-announceCommitment :: WorkMode m => PublicKey -> SignedCommitment -> m ()
-announceCommitment pk comm = announceCommitments $ pure (pk, comm)
-
-announceCommitments
-    :: WorkMode m
-    => NonEmpty (PublicKey, SignedCommitment) -> m ()
-announceCommitments comms = do
-    -- TODO: should we show actual commitments?
-    logDebug $
-        sformat ("Announcing commitments from: "%listJson) $ map fst comms
-    sendToNeighborsSafe $ SendCommitments comms
-
-announceOpening :: WorkMode m => PublicKey -> Opening -> m ()
-announceOpening pk open = announceOpenings $ pure (pk, open)
-
-announceOpenings :: WorkMode m => NonEmpty (PublicKey, Opening) -> m ()
-announceOpenings openings = do
-    -- TODO: should we show actual openings?
-    logDebug $
-        sformat ("Announcing openings from: "%listJson) $ map fst openings
-    sendToNeighborsSafe $ SendOpenings openings
-
-announceShares :: WorkMode m => PublicKey -> HashMap PublicKey Share -> m ()
-announceShares pk shares = announceSharesMulti $ pure (pk, shares)
-
-announceSharesMulti
-    :: WorkMode m
-    => NonEmpty (PublicKey, HashMap PublicKey Share) -> m ()
-announceSharesMulti shares = do
-    -- TODO: should we show actual shares?
-    logDebug $
-        sformat ("Announcing shares from: "%listJson) $ map fst shares
-    sendToNeighborsSafe $ SendSharesMulti shares
-
-announceVssCertificate
-    :: WorkMode m
-    => PublicKey -> VssCertificate -> m ()
-announceVssCertificate pk cert = announceVssCertificates $ pure (pk, cert)
-
-announceVssCertificates
-    :: WorkMode m
-    => NonEmpty (PublicKey, VssCertificate) -> m ()
-announceVssCertificates certs = do
-    -- TODO: should we show actual certificates?
-    logDebug $ sformat
-        ("Announcing VSS certificates from: "%listJson) $ map fst certs
-    void . sendToNeighbors $ SendVssCertificates certs
-
+-- | Announce ssc message to all known peers. Intended to be used
+-- by SSC algorithm
+announceSsc :: (WorkMode ssc m,
+                Binary (SscMessage ssc),
+                Message (SscMessage ssc)) => SscMessage ssc -> m ()
+announceSsc = sendToNeighborsSafe
 ----------------------------------------------------------------------------
 -- Legacy
 --

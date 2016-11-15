@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
 
 module Main where
 
@@ -25,6 +26,7 @@ import           Pos.Launcher               (BaseParams (..), LoggingParams (..)
 import           Pos.Ssc.DynamicState       (genesisVssKeyPairs)
 
 import           NodeOptions                (Args (..), argsParser)
+import           Pos.Ssc.DynamicState       (SscDynamicState)
 
 getKey :: Binary key => Maybe key -> Maybe FilePath -> FilePath -> IO key -> IO key
 getKey (Just key) _ _ _ = return key
@@ -87,8 +89,8 @@ main = do
                 systemStart <- getSystemStart inst args
                 let currentParams = params args spendingSK vssSK systemStart
                 if enableStats
-                    then runNodeStats inst currentParams
-                    else runNodeReal inst currentParams
+                    then runNodeStats @SscDynamicState inst currentParams
+                    else runNodeReal @SscDynamicState inst currentParams
     getSystemStart inst args =
         case runningMode of
             Development ->

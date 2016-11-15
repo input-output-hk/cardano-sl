@@ -9,5 +9,5 @@ import           Pos.Types.Types     (SlotId)
 import           Pos.WorkMode        (WorkMode)
 
 class SscTypes ssc => SscWorkersClass ssc where
-    sscOnNewSlot :: WorkMode m => Tagged ssc (SlotId -> m ())
-    sscWorkers :: WorkMode m => Tagged ssc [m ()]
+    sscOnNewSlot :: WorkMode ssc m => Tagged ssc (SlotId -> m ())
+    sscWorkers :: WorkMode ssc m => Tagged ssc [m ()]

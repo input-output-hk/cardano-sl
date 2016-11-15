@@ -1,3 +1,5 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
 -- | Tx processing related workers.
 
 module Pos.Worker.Tx
@@ -18,13 +20,13 @@ import           Pos.WorkMode              (WorkMode)
 -- | All workers specific to tx processing.
 -- Exceptions:
 -- 1. Worker which ticks when new slot starts.
-txWorkers :: WorkMode m => [m ()]
+txWorkers :: WorkMode ssc m => [m ()]
 txWorkers = [txsTransmitter]
 
 txsTransmitterInterval :: Microsecond
 txsTransmitterInterval = slotDuration
 
-txsTransmitter :: WorkMode m => m ()
+txsTransmitter :: WorkMode ssc m => m ()
 txsTransmitter =
     repeatForever txsTransmitterInterval onError $
     do localTxs <- getLocalTxs

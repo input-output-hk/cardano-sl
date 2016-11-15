@@ -1,7 +1,13 @@
-{-# LANGUAGE ConstraintKinds   #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 -- | Monadic layer for collecting stats
 
@@ -23,7 +29,9 @@ import           Control.TimeWarp.Rpc     (MonadDialog, MonadResponse (..),
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
 import qualified Data.Binary              as Binary
 import           Data.Maybe               (fromMaybe)
+import           Data.SafeCopy            (SafeCopy)
 import           Focus                    (Decision (Remove), alterM)
+import           Pos.Ssc.Class.Storage    (SscStorageClass)
 import           Serokell.Util            (show')
 import qualified STMContainers.Map        as SM
 import           System.IO.Unsafe         (unsafePerformIO)
@@ -81,7 +89,7 @@ type instance ThreadId (StatsT m) = ThreadId m
 newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, MonadDB, WithNamedLogger, MonadDialog p,
+               MonadMask, MonadIO, MonadDB ssc, WithNamedLogger, MonadDialog p,
                MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader,
                MonadJL)
 
@@ -108,7 +116,7 @@ instance Monad m => MonadStats (NoStatsT m) where
 newtype StatsT m a = StatsT
     { getStatsT :: m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, MonadDB, WithNamedLogger, MonadDialog p,
+               MonadMask, MonadIO, MonadDB ssc, WithNamedLogger, MonadDialog p,
                MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader,
                MonadJL)
 
@@ -129,7 +137,7 @@ instance MonadTrans StatsT where
 statsMap :: SM.Map Text LByteString
 statsMap = unsafePerformIO SM.newIO
 
-instance (MonadIO m, MonadDB m) => MonadStats (StatsT m) where
+instance (SscStorageClass ssc, SafeCopy ssc, MonadIO m, MonadDB ssc m) => MonadStats (StatsT m) where
     statLog label entry = do
         liftIO $ atomically $ SM.focus update (show' label) statsMap
         return ()
@@ -140,8 +148,8 @@ instance (MonadIO m, MonadDB m) => MonadStats (StatsT m) where
     resetStat label ts = do
         mval <- liftIO $ atomically $ SM.focus reset (show' label) statsMap
         let val = fromMaybe mempty $ Binary.decode <$> mval
-        lift $ newStatRecord label ts val
+        lift $ newStatRecord @ssc label ts val
       where
         reset old = return (old, Remove)
 
-    getStats = lift . getStatRecords
+    getStats = lift . getStatRecords @ssc

@@ -13,5 +13,5 @@ import           Pos.Ssc.Class.Types  (SscTypes (..))
 import           Pos.WorkMode         (WorkMode)
 
 class SscTypes ssc => SscListenersClass ssc  where
-    sscListeners :: (MonadDialog BinaryP m, WorkMode m)
+    sscListeners :: (MonadDialog BinaryP m, WorkMode ssc m)
                  => Tagged ssc [ListenerDHT m]

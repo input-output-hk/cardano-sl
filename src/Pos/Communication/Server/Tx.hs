@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
@@ -22,7 +23,8 @@ import           Pos.Types                 (txF)
 import           Pos.WorkMode              (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
-txListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
+txListeners :: (MonadDialog BinaryP m, WorkMode ssc m)
+            => [ListenerDHT m]
 txListeners =
     map (modifyListenerLogger "tx")
     [ ListenerDHT (void . handleTx)
@@ -30,7 +32,7 @@ txListeners =
     ]
 
 handleTx
-    :: ResponseMode m
+    :: ResponseMode ssc m
     => SendTx -> m Bool
 handleTx (SendTx tx) = do
     res <- processTx tx
@@ -49,7 +51,7 @@ handleTx (SendTx tx) = do
     return (res == PTRadded)
 
 handleTxs
-    :: ResponseMode m
+    :: (ResponseMode ssc m)
     => SendTxs -> m ()
 handleTxs (SendTxs txs) = do
     added <- toList <$> mapM (handleTx . SendTx) txs

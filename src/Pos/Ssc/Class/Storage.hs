@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
@@ -9,10 +10,12 @@ module Pos.Ssc.Class.Storage
 
        , SscUpdate
        , SscQuery
+       , SscStorageMode
        ) where
 
 import           Control.Lens            (Lens')
 import           Data.List.NonEmpty      (NonEmpty)
+import           Data.SafeCopy           (SafeCopy)
 import           Data.Tagged             (Tagged)
 import           Serokell.Util.Verify    (VerificationRes)
 import           Universum
@@ -44,7 +47,7 @@ class SscTypes ssc => SscStorageClass ssc where
     sscPrepareToNewSlot :: SlotId -> SscUpdate ssc ()
     -- | Do something with given message, result is whether message
     -- has been processed successfully (implementation defined).
-    sscProcessMessage :: SscMessage ssc -> SscUpdate ssc Bool
+    sscProcessMessage :: SscMessage ssc -> SscUpdate ssc (Maybe (SscMessage ssc))
     -- | Rollback application of last 'n' blocks.  blocks. If there
     -- are less blocks than 'n' is, just leaves an empty ('def')
     -- version.
@@ -79,3 +82,5 @@ class SscTypes ssc => SscStorageClass ssc where
     -- be put into SscTypes now :(
     -- | Verify payload using header containing this payload.
     sscVerifyPayload :: Tagged ssc (MainBlockHeader ssc -> SscPayload ssc -> VerificationRes)
+
+type SscStorageMode ssc = (SscStorageClass ssc, SafeCopy ssc)

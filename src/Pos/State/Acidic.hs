@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
@@ -44,52 +43,72 @@ module Pos.State.Acidic
        , GetStatRecords (..)
        ) where
 
-import           Data.Acid            (EventResult, EventState, QueryEvent, UpdateEvent,
-                                       makeAcidicWithHacks)
-import           Data.Default         (def)
-import           Serokell.AcidState   (ExtendedState, closeExtendedState,
-                                       openLocalExtendedState, openMemoryExtendedState,
-                                       queryExtended, tidyExtendedState, updateExtended)
+import           Data.Acid             (EventResult, EventState, QueryEvent, UpdateEvent,
+                                        makeAcidicWithHacks)
+import           Data.Default          (Default, def)
+import           Data.SafeCopy         (SafeCopy)
+import           Serokell.AcidState    (ExtendedState, closeExtendedState,
+                                        openLocalExtendedState, openMemoryExtendedState,
+                                        queryExtended, tidyExtendedState, updateExtended)
 import           Universum
 
-import           Pos.Ssc.DynamicState (SscDynamicState)
-import qualified Pos.State.Storage    as S
+import           Pos.Ssc.Class.Storage (SscStorageClass (..))
+import           Pos.Ssc.Class.Types   (SscTypes (SscStorage))
+import qualified Pos.State.Storage     as S
 
 ----------------------------------------------------------------------------
 -- Acid-state things
 ----------------------------------------------------------------------------
 
-type Storage = S.Storage SscDynamicState
-type DiskState = ExtendedState Storage
+type Storage ssc = S.Storage ssc
+type DiskState ssc = ExtendedState (Storage ssc)
 
 query
-    :: (EventState event ~ Storage, QueryEvent event, MonadIO m)
-    => DiskState -> event -> m (EventResult event)
+    :: (SscStorageClass ssc, EventState event ~ Storage ssc,
+        QueryEvent event, MonadIO m)
+    => DiskState ssc -> event -> m (EventResult event)
 query = queryExtended
 
 update
-    :: (EventState event ~ Storage, UpdateEvent event, MonadIO m)
-    => DiskState -> event -> m (EventResult event)
+    :: (SscStorageClass ssc, EventState event ~ Storage ssc,
+        UpdateEvent event, MonadIO m)
+    => DiskState ssc -> event -> m (EventResult event)
 update = updateExtended
 
+
 -- | Same as `openState`, but with explicitly specified initial state.
-openStateCustom :: MonadIO m => Storage -> Bool -> FilePath -> m DiskState
+openStateCustom :: (SscStorageClass ssc, SafeCopy ssc, MonadIO m)
+                => Storage ssc
+                -> Bool
+                -> FilePath
+                -> m (DiskState ssc)
 openStateCustom customStorage deleteIfExists fp =
     openLocalExtendedState deleteIfExists fp customStorage
 
-openState :: MonadIO m => Bool -> FilePath -> m DiskState
+openState :: (SscStorageClass ssc,
+              Default (SscStorage ssc),
+              SafeCopy ssc,
+              MonadIO m)
+          => Bool -> FilePath -> m (DiskState ssc)
 openState = openStateCustom def
 
-openMemState :: MonadIO m => m DiskState
+openMemState :: (SscStorageClass ssc,
+                 Default (SscStorage ssc),
+                 SafeCopy ssc,
+                 MonadIO m)
+             => m (DiskState ssc)
 openMemState = openMemStateCustom def
 
-openMemStateCustom :: MonadIO m => Storage -> m DiskState
+openMemStateCustom :: (SscStorageClass ssc,
+                       SafeCopy ssc,
+                       MonadIO m)
+                   => Storage ssc -> m (DiskState ssc)
 openMemStateCustom = openMemoryExtendedState
 
-closeState :: MonadIO m => DiskState -> m ()
+closeState :: (SscStorageClass ssc, MonadIO m) => DiskState ssc -> m ()
 closeState = closeExtendedState
 
-tidyState :: MonadIO m => DiskState -> m ()
+tidyState :: (SscStorageClass ssc, MonadIO m) => DiskState ssc -> m ()
 tidyState = tidyExtendedState
 
 makeAcidicWithHacks ''S.Storage ["ssc"]

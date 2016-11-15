@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
@@ -35,6 +36,7 @@ import           Pos.Types                (Tx (..), TxId, txF)
 import           Pos.Util.JsonLog         ()
 import           Pos.WorkMode             (WorkMode)
 import           Serokell.Util.OptParse   (fromParsec)
+import           Pos.Ssc.DynamicState       (SscDynamicState)
 
 data GenOptions = GenOptions
     { goGenesisIdx         :: !Word       -- ^ Index in genesis key pairs.
@@ -89,7 +91,7 @@ optsInfo = info (helper <*> optionsParser) $
     fullDesc `mappend` progDesc "Stupid transaction generator"
 
 -- | Send the ready-to-use transaction
-submitTxRaw :: WorkMode m => NetworkAddress -> Tx -> m ()
+submitTxRaw :: WorkMode ssc m => NetworkAddress -> Tx -> m ()
 submitTxRaw na tx = do
     let txId = hash tx
     logInfo $ sformat ("Submitting transaction: "%txF) tx
@@ -163,7 +165,7 @@ main = do
     curRoundOffset <- newIORef 0
 
     bracketDHTInstance baseParams $ \inst -> do
-        runRealMode inst params [] $ getNoStatsT $ do
+        runRealMode @SscDynamicState inst params [] $ getNoStatsT $ do
             logInfo "TX GEN RUSHING"
             peers <- discoverPeers DHTFull
 

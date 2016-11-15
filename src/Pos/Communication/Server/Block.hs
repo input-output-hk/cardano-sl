@@ -1,5 +1,8 @@
+{-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 -- | Server which handles blocks.
 
@@ -26,7 +29,6 @@ import           Pos.Communication.Util    (modifyListenerLogger)
 import           Pos.Crypto                (hash)
 import           Pos.DHT                   (ListenerDHT (..), replyToNode)
 import           Pos.Slotting              (getCurrentSlot)
-import           Pos.Ssc.DynamicState      (SscDynamicState)
 import qualified Pos.State                 as St
 import           Pos.Statistics            (StatBlockCreated (..), statlogCountEvent)
 import           Pos.Types                 (HeaderHash, getBlockHeader, headerHash)
@@ -34,7 +36,8 @@ import           Pos.Util.JsonLog          (jlAdoptedBlock, jlLog)
 import           Pos.WorkMode              (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
-blockListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
+blockListeners :: (MonadDialog BinaryP m, WorkMode ssc m)
+               => [ListenerDHT m]
 blockListeners =
     map (modifyListenerLogger "block")
         [ ListenerDHT handleBlock
@@ -42,11 +45,12 @@ blockListeners =
         , ListenerDHT handleBlockRequest
         ]
 
-handleBlock :: ResponseMode m => SendBlock SscDynamicState -> m ()
+handleBlock :: forall ssc m . ResponseMode ssc m
+            => SendBlock ssc -> m ()
 handleBlock (SendBlock block) = do
     slotId <- getCurrentSlot
     pbr <- St.processBlock slotId block
-    let blkHash :: HeaderHash SscDynamicState
+    let blkHash :: HeaderHash ssc
         blkHash = headerHash block
     case pbr of
         St.PBRabort msg -> do
@@ -56,7 +60,7 @@ handleBlock (SendBlock block) = do
             logWarning $ sformat fmt blkHash msg
         St.PBRgood (0, (blkAdopted:|[])) -> do
             statlogCountEvent StatBlockCreated 1
-            let adoptedBlkHash :: HeaderHash SscDynamicState
+            let adoptedBlkHash :: HeaderHash ssc
                 adoptedBlkHash = headerHash blkAdopted
             jlLog $ jlAdoptedBlock blkAdopted
             logInfo $ sformat ("Received block has been adopted: "%build)
@@ -68,7 +72,7 @@ handleBlock (SendBlock block) = do
                          " blocks has been done and alternative chain has been adopted "%
                          listJson)
                 rollbacked (fmap headerHash altChain ::
-                                   NonEmpty (HeaderHash SscDynamicState))
+                                   NonEmpty (HeaderHash ssc))
         St.PBRmore h -> do
             logInfo $ sformat
                 ("After processing block "%build%", we need block "%build)
@@ -76,7 +80,8 @@ handleBlock (SendBlock block) = do
             replyToNode $ RequestBlock h
     propagateBlock pbr
 
-propagateBlock :: WorkMode m => St.ProcessBlockRes SscDynamicState -> m ()
+propagateBlock :: WorkMode ssc m
+               => St.ProcessBlockRes ssc -> m ()
 propagateBlock (St.PBRgood (_, blocks)) =
     either (const pass) announceBlock header
   where
@@ -85,8 +90,9 @@ propagateBlock (St.PBRgood (_, blocks)) =
 propagateBlock _ = pass
 
 handleBlockHeader
-    :: ResponseMode m
-    => SendBlockHeader SscDynamicState -> m ()
+    :: ResponseMode ssc m
+    => SendBlockHeader ssc -> m ()
+
 handleBlockHeader (SendBlockHeader header) = do
     whenM checkUsefulness $ replyToNode (RequestBlock h)
   where
@@ -108,8 +114,8 @@ handleBlockHeader (SendBlockHeader header) = do
                 True <$ logDebug msg
 
 handleBlockRequest
-    :: ResponseMode m
-    => RequestBlock SscDynamicState -> m ()
+    :: ResponseMode ssc m
+    => RequestBlock ssc -> m ()
 handleBlockRequest (RequestBlock h) = do
     logDebug $ sformat ("Block "%build%" is requested") h
     maybe logNotFound sendBlockBack =<< St.getBlock h

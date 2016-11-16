@@ -9,9 +9,7 @@ import           Formatting               (build, sformat, (%))
 import           Serokell.Util.Exceptions ()
 import           Universum
 
-import           Pos.Constants            (slotDuration)
-import           Pos.Statistics           (StatBlockCreated (..), StatProcessTx (..),
-                                           resetStat)
+import           Pos.Statistics           (StatProcessTx (..), resetStat)
 import           Pos.Types                (Timestamp (..))
 import           Pos.WorkMode             (WorkMode)
 
@@ -22,7 +20,7 @@ curTime :: (MonadIO m) => m Timestamp
 curTime = liftIO $ Timestamp <$> runTimedIO currentTime
 
 statsWorkers :: WorkMode ssc m => [m ()]
-statsWorkers = [txStatsWorker, blockStatsWorker]
+statsWorkers = [txStatsWorker]
 
 txStatsWorker :: WorkMode ssc m => m ()
 txStatsWorker =
@@ -32,12 +30,3 @@ txStatsWorker =
   where
     onError e = txStatsRefreshInterval <$
                 logWarning (sformat ("Error occured in txStatsWorker: "%build) e)
-
-blockStatsWorker :: WorkMode ssc m => m ()
-blockStatsWorker =
-    repeatForever slotDuration onError $ do
-        ts <- curTime
-        resetStat StatBlockCreated ts
-  where
-    onError e = slotDuration <$
-                logWarning (sformat ("Error occured in blockStatsWorker: "%build) e)

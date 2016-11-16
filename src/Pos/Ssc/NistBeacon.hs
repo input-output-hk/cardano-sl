@@ -8,8 +8,8 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE ViewPatterns          #-}
--- | Instance of SscTypes.
+
+-- | Simplified NIST beacon implementation of SSC.
 
 module Pos.Ssc.NistBeacon
        ( SscNistBeacon
@@ -25,17 +25,18 @@ import           Data.SafeCopy           (SafeCopy)
 import           Data.Serialize          (Serialize (..))
 import           Data.Tagged             (Tagged (..))
 import           Data.Text.Buildable     (Buildable (build))
-import           Pos.Crypto              (Threshold, deterministicVssKeyGen, toVssPublicKey)
+import           Pos.Crypto              (Threshold, deterministicVssKeyGen,
+                                          toVssPublicKey)
 import           Pos.FollowTheSatoshi    (followTheSatoshi)
+import           Pos.Ssc.Class.Listeners (SscListenersClass (..))
 import           Pos.Ssc.Class.Storage   (SscQuery)
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (SscTypes (..))
+import           Pos.Ssc.Class.Workers   (SscWorkersClass (..))
 import           Pos.Types
 import           Pos.Types               (SlotLeaders, Utxo)
 import           Serokell.Util.Verify    (VerificationRes (..))
 import           Universum
-import           Pos.Ssc.Class.Workers   (SscWorkersClass (..))
-import           Pos.Ssc.Class.Listeners (SscListenersClass (..))
 
 data SscNistBeacon
     deriving (Generic)

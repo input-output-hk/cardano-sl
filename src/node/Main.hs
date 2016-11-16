@@ -48,10 +48,10 @@ decode' fpath = either fail' return . decode =<< LBS.readFile fpath
     fail' e = fail $ "Error reading key from " ++ fpath ++ ": " ++ e
 
 realModeRunner :: Bool -> SscAlgo -> RealModeRunner
-realModeRunner True DynamicStateAlgo  = runNodeReal @SscDynamicState
-realModeRunner False DynamicStateAlgo = runNodeStats @SscDynamicState
-realModeRunner True NistBeaconAlgo    = runNodeReal @SscNistBeacon
-realModeRunner False NistBeaconAlgo   = runNodeStats @SscNistBeacon
+realModeRunner False DynamicStateAlgo = runNodeReal @SscDynamicState
+realModeRunner True DynamicStateAlgo  = runNodeStats @SscDynamicState
+realModeRunner False NistBeaconAlgo   = runNodeReal @SscNistBeacon
+realModeRunner True NistBeaconAlgo    = runNodeStats @SscNistBeacon
 
 main :: IO ()
 main = do

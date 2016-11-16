@@ -14,23 +14,29 @@ module Pos.Communication.Server.Block
        , handleBlockRequest
        ) where
 
-import           Control.TimeWarp.Logging  (logDebug, logInfo, logNotice, logWarning)
+import           Control.Lens              ((^.))
+import           Control.TimeWarp.Logging  (logDebug, logError, logInfo, logNotice,
+                                            logWarning)
 import           Control.TimeWarp.Rpc      (BinaryP, MonadDialog)
+import qualified Data.HashSet              as HS
 import           Data.List.NonEmpty        (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty        as NE
-import           Formatting                (build, int, sformat, stext, (%))
-import           Serokell.Util             (VerificationRes (..), listJson)
+import           Formatting                (bprint, build, int, sformat, stext, (%))
+import           Serokell.Util             (VerificationRes (..), listJson,
+                                            listJsonIndent)
 import           Universum
 
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Communication.Types   (RequestBlock (..), ResponseMode,
                                             SendBlock (..), SendBlockHeader (..))
-import           Pos.Crypto                (hash)
+import           Pos.Crypto                (hash, shortHashF)
 import           Pos.DHT                   (ListenerDHT (..), replyToNode)
 import           Pos.Slotting              (getCurrentSlot)
 import qualified Pos.State                 as St
 import           Pos.Statistics            (StatBlockCreated (..), statlogCountEvent)
-import           Pos.Types                 (HeaderHash, getBlockHeader, headerHash)
+import           Pos.Types                 (HeaderHash, Tx, blockTxs, getBlockHeader,
+                                            headerHash)
+import           Pos.Util                  (inAssertMode)
 import           Pos.Util.JsonLog          (jlAdoptedBlock, jlLog)
 import           Pos.WorkMode              (WorkMode)
 
@@ -66,17 +72,40 @@ handleBlock (SendBlock block) = do
         St.PBRgood (rollbacked, altChain) -> do
             statlogCountEvent StatBlockCreated 1
             logNotice $
-                sformat ("As a result of block processing rollback of "%int%
-                         " blocks has been done and alternative chain has been adopted "%
-                         listJson)
-                rollbacked (fmap headerHash altChain ::
-                                   NonEmpty (HeaderHash ssc))
+                sformat ("As a result of block processing, rollback"%
+                         " of "%int%" blocks has been done and alternative"%
+                         " chain has been adopted "%listJson)
+                rollbacked (fmap (headerHash @_ @ssc) altChain)
         St.PBRmore h -> do
             logInfo $ sformat
                 ("After processing block "%build%", we need block "%build)
                 blkHash h
             replyToNode $ RequestBlock h
     propagateBlock pbr
+
+    -- We assert that the chain is consistent – none of the transactions in a
+    -- block are present in previous blocks. This is an expensive check and
+    -- we only do it when asserts are turned on.
+    inAssertMode $ do
+        let getTxs (Left _)    = mempty
+            getTxs (Right blk) = HS.fromList . toList $ blk ^. blockTxs
+        chain <- St.getBestChain
+        let dups :: [(HeaderHash ssc, HashSet Tx)]
+            dups = go mempty (reverse (toList chain))
+              where
+                go _txs []        = []
+                go txs (blk:blks) =
+                    (headerHash blk, HS.intersection (getTxs blk) txs) :
+                    go (txs <> getTxs blk) blks
+        unless (all (null . snd) dups) $ logError $ sformat
+            ("transactions from some blocks are present in previous blocks;"%
+             " here's the whole blockchain from youngest to oldest block,"%
+             " and duplicating transactions in those blocks: "%
+             listJsonIndent 2)
+            [if null txs
+                 then bprint shortHashF h
+                 else bprint (shortHashF%": "%listJsonIndent 4) h txs
+              | (h, txs) <- reverse dups ]
 
 propagateBlock :: WorkMode ssc m
                => St.ProcessBlockRes ssc -> m ()

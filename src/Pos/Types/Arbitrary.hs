@@ -62,11 +62,23 @@ instance Arbitrary TxIn where
         let signature = sign sk (txId, txIdx, [])
         return $ TxIn txId txIdx signature
 
+-- | Arbitrary transactions generated from this instance will only be valid
+-- with regards to 'verifyTxAlone'
+
 instance Arbitrary Tx where
     arbitrary = do
         txIns <- getNonEmpty <$> arbitrary
         txOuts <- getNonEmpty <$> arbitrary
         return $ Tx txIns txOuts
+
+-- | Type used to generate valid (w.r.t 'verifyTxAlone' and 'verifyTx')
+-- transactions and accompanying input information.
+-- It's not entirely general because it only generates transactions whose
+-- outputs are in the same number as its inputs in a one-to-one correspondence.
+--
+-- The GoodTx type is a list of triples where the third elements are the
+-- transaction's outputs, the second elements are its inputs, and the first are
+-- the transactions from where the tuple's TxIn came from.
 
 newtype GoodTx = GoodTx
     { getGoodTx :: [(Tx, TxIn, TxOut)]

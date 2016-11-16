@@ -21,8 +21,9 @@ import           Universum
 
 spec :: Spec
 spec = describe "Types.Tx" $ do
-    describe "verifyTx" $ do
+    describe "verifyTxAlone" $ do
         prop description_invalidateBadTx invalidateBadTx
+    describe "verifyTx" $ do
         prop description_validateGoodTx validateGoodTx
         prop description_overflowTx overflowTx
   where
@@ -31,7 +32,7 @@ spec = describe "Types.Tx" $ do
     description_validateGoodTx =
         "validates a transaction whose inputs and well-formed transaction outputs"
     description_overflowTx =
-        "a well-formed transaction with input and output sums above maxBound :: Word32 \
+        "a well-formed transaction with input and output sums above maxBound :: Coin \
         \ is validated successfully"
 
 invalidateBadTx :: Tx -> Bool

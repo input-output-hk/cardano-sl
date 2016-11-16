@@ -13,3 +13,4 @@ import           Pos.Types.Types (FtsSeed (..), SharedSeed)
 xorSharedSeed :: SharedSeed -> SharedSeed -> SharedSeed
 xorSharedSeed (FtsSeed a) (FtsSeed b) =
     FtsSeed $ BS.pack (BS.zipWith xor a b) -- fast due to rewrite rules
+

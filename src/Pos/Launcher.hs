@@ -174,9 +174,6 @@ instance Default LoggingParams where
         , lpWorkerSeverity = Nothing
         }
 
--- | Parameters necessary to run node.
---data SscType = DynamicStateSccType deriving (Show)
-
 data NodeParams = NodeParams
     { npDbPath      :: !(Maybe FilePath)
     , npRebuildDb   :: !Bool

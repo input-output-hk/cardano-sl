@@ -24,7 +24,8 @@ import           Pos.Crypto              (PublicKey, Share, Threshold, VssKeyPai
                                           VssPublicKey)
 import           Pos.Ssc.Class.Types     (SscTypes (..))
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types.Types         (MainBlockHeader, SlotId, SlotLeaders, Utxo)
+import           Pos.Types.Types         (EpochIndex, MainBlockHeader, SlotId,
+                                          SlotLeaders, Utxo)
 
 type SscUpdate ssc a =
     forall m x. (HasSscStorage ssc x, MonadState x m) => m a
@@ -75,7 +76,7 @@ class SscTypes ssc => SscStorageClass ssc where
     -- TODO: yet another BARDAQ
     sscGetParticipants :: Word -> Utxo ->
                           SscQuery ssc (Maybe (NonEmpty VssPublicKey))
-    sscCalculateLeaders :: Utxo -> Threshold ->
+    sscCalculateLeaders :: EpochIndex -> Utxo -> Threshold ->
                            SscQuery ssc (Either (SscSeedError ssc)  SlotLeaders)
 
     -- TODO: one more BARDAQ. It's not related to Storage, but can't

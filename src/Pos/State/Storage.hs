@@ -342,7 +342,7 @@ calculateLeaders epoch = do
     utxo <- fromMaybe onErrorGetUtxo <$> getUtxoByDepth depth
     -- TODO: overall 'calculateLeadersDo' gets utxo twice, could be optimised
     threshold <- fromMaybe onErrorGetThreshold <$> getThreshold epoch
-    either onErrorCalcLeaders identity <$> (sscCalculateLeaders @ ssc) utxo threshold
+    either onErrorCalcLeaders identity <$> (sscCalculateLeaders @ ssc) epoch utxo threshold
   where
     onErrorGetDepth =
         panic "Depth of MPC crucial slot isn't reasonable"

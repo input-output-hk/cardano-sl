@@ -27,6 +27,8 @@ import           Pos.Ssc.DynamicState       (genesisVssKeyPairs)
 
 import           NodeOptions                (Args (..), argsParser)
 import           Pos.Ssc.DynamicState       (SscDynamicState)
+import           Pos.Ssc.NistBeacon         (SscNistBeacon)
+import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 
 getKey :: Binary key => Maybe key -> Maybe FilePath -> FilePath -> IO key -> IO key
 getKey (Just key) _ _ _ = return key
@@ -88,9 +90,18 @@ main = do
                         vssKeyGen
                 systemStart <- getSystemStart inst args
                 let currentParams = params args spendingSK vssSK systemStart
-                if enableStats
-                    then runNodeStats @SscDynamicState inst currentParams
-                    else runNodeReal @SscDynamicState inst currentParams
+                if sscAlgo == DynamicStateAlgo then do
+                    putStrLn $ "Running using Dynamic State Algorith" </> ""
+                    if enableStats
+                        then runNodeStats @SscDynamicState inst currentParams
+                        else runNodeReal @SscDynamicState inst currentParams
+                else if sscAlgo == NistBeaconAlgo then do
+                    putStrLn $ "Running using NIST Beacon algorithm" </> ""
+                    if enableStats
+                        then runNodeStats @SscNistBeacon inst currentParams
+                        else runNodeReal @SscNistBeacon inst currentParams
+                else
+                    panic "Unknown SSC algorithm"
     getSystemStart inst args =
         case runningMode of
             Development ->

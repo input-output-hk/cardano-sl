@@ -73,7 +73,7 @@ import           Pos.State.Storage.Types             (AltChain)
 import           Pos.Types                           (Address (getAddress), Block,
                                                       SlotId (..), SlotLeaders, Utxo,
                                                       blockMpc, blockSlot, blockSlot,
-                                                      gbHeader, txOutAddress)
+                                                      gbHeader, txOutAddress, EpochIndex)
 import           Pos.Util                            (magnify', readerToState, zoom',
                                                       _neHead)
 
@@ -231,10 +231,11 @@ getParticipants depth utxo = do
 
 -- | Calculate leaders for the next epoch.
 calculateLeaders
-    :: Utxo            -- ^ Utxo (k slots before the end of epoch)
+    :: EpochIndex
+    -> Utxo            -- ^ Utxo (k slots before the end of epoch)
     -> Threshold
     -> Query (Either SeedError SlotLeaders)
-calculateLeaders utxo threshold = do
+calculateLeaders _ utxo threshold = do --DynamicState doesn't use epoch, but NistBeacon use it
     mbSeed <- calculateSeed threshold
                             <$> view (lastVer . dsGlobalCommitments)
                             <*> view (lastVer . dsGlobalOpenings)

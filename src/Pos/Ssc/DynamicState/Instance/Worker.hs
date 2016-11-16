@@ -75,10 +75,6 @@ generateAndSetNewSecret sk epoch = do
 
 onNewSlot :: WorkMode SscDynamicState m => SlotId -> m ()
 onNewSlot slotId = do
-    -- TODO: should we randomise sending times to avoid the situation when
-    -- the network becomes overwhelmed with everyone's messages?
-    -- If we haven't yet, generate a new commitment and opening for MPC; send
-    -- the commitment.
     onNewSlotCommitment slotId
     onNewSlotOpening slotId
     onNewSlotShares slotId

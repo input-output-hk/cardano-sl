@@ -510,15 +510,17 @@ blkCreateGenesisBlock epoch leaders = do
     -- when rollback happens, because we ensure that if genesis block was
     -- created for some epoch, then we'll always have genesis block for
     -- this epoch.
+    -- Also note that actualizeGenesisBlocks takes care of it, but we won't
+    -- an explicit check here.
     blkGenesisBlocks %= appendOrSet (fromIntegral epoch) h
     blk <$ blkSetHead h
-
-appendOrSet :: Int -> a -> Vector a -> Vector a
-appendOrSet idx val vec
-    | length vec == idx = vec `V.snoc` val
-    | length vec - 1 == idx = vec & ix idx .~ val
-    | otherwise =
-        panic "appendOrSet: idx is not last and is not right after last"
+  where
+    appendOrSet :: Int -> a -> Vector a -> Vector a
+    appendOrSet idx val vec
+        | length vec == idx = vec `V.snoc` val
+        | length vec - 1 == idx = vec & ix idx .~ val
+        | otherwise =
+            panic "appendOrSet: idx is not last and is not right after last"
 
 -- | Set head of main blockchain to block which is guaranteed to
 -- represent valid chain and be stored in blkBlocks.
@@ -527,6 +529,43 @@ blkSetHead headHash = do
     blkHead .= headHash
     blkMinDifficulty <~ maybe 0 (view difficultyL) <$>
         readerToState (getBlockByDepth k)
+    actualizeGenesisBlocks
+
+actualizeGenesisBlocks :: Update ssc ()
+actualizeGenesisBlocks = do
+    lastStoredGenesis <- fromIntegral . pred . V.length <$> use blkGenesisBlocks
+    headBlock <- readerToState getHeadBlock
+    newGenesis <-
+        readerToState $
+        actualizeGenesisBlocksDo lastStoredGenesis headBlock mempty
+    blkGenesisBlocks %= (`mappend` newGenesis)
+  where
+    actualizeGenesisBlocksDo
+        :: EpochIndex
+        -> Block ssc
+        -> Vector (HeaderHash ssc)
+        -> Query ssc (Vector (HeaderHash ssc))
+    actualizeGenesisBlocksDo knownEpoch blk res
+        | blk ^. epochIndexL <= knownEpoch = pure res
+        | otherwise =
+            case blk of
+                Right mainBlk -> do
+                    prevBlk <- getBlockWithPanic (mainBlk ^. prevBlockL)
+                    actualizeGenesisBlocksDo knownEpoch prevBlk res
+                Left genesisBlk ->
+                    let newRes = pure (headerHash genesisBlk) `mappend` res
+                    in if genesisBlk ^. epochIndexL == knownEpoch + 1
+                           then pure newRes
+                           else do
+                               prevBlk <-
+                                   getBlockWithPanic (genesisBlk ^. prevBlockL)
+                               actualizeGenesisBlocksDo
+                                   knownEpoch
+                                   prevBlk
+                                   newRes
+    getBlockWithPanic h =
+        fromMaybe (panic "block not found in actualizeGenesisBlocksDo") <$>
+        getBlock h
 
 -- | Rollback last `n` blocks.
 blkRollback :: SscTypes ssc => Word -> Update ssc ()

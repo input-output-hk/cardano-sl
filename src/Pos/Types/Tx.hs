@@ -1,4 +1,6 @@
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 
 -- | Transaction related functions.
@@ -6,15 +8,21 @@
 module Pos.Types.Tx
        ( verifyTxAlone
        , verifyTx
+       , topsortTransactions
        ) where
 
-import           Formatting      (build, int, sformat, (%))
-import           Serokell.Util   (VerificationRes, verifyGeneric)
+import           Control.Lens        (makeLenses, uses, view, (%=))
+import           Data.Bifunctor      (first)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet        as HS
+import           Data.List           (tail)
+import           Formatting          (build, int, sformat, (%))
+import           Serokell.Util       (VerificationRes, verifyGeneric)
 import           Universum
 
-import           Pos.Crypto      (verify)
-import           Pos.Types.Types (Address (..), Coin (..), Tx (..), TxIn (..), TxOut (..),
-                                  coinF)
+import           Pos.Crypto          (hash, verify)
+import           Pos.Types.Types     (Address (..), Coin (..), Tx (..), TxIn (..),
+                                      TxOut (..), coinF)
 
 -- | Verify that Tx itself is correct. Most likely you will also want
 -- to verify that inputs are legal, signed properly and have enough coins.
@@ -38,9 +46,9 @@ verifyTxAlone Tx {..} =
 -- into Address and Coin. It does checks from verifyTxAlone and the
 -- following:
 --
--- ★ sum of inputs ≥ sum of outputs;
--- ★ every input is signed properly;
--- ★ every input is a known unspent output.
+-- * sum of inputs ≥ sum of outputs;
+-- * every input is signed properly;
+-- * every input is a known unspent output.
 verifyTx :: (TxIn -> Maybe TxOut) -> Tx -> VerificationRes
 verifyTx inputResolver tx@Tx {..} =
     mconcat [verifyTxAlone tx, verifySum, verifyInputs]
@@ -74,3 +82,43 @@ verifyTx inputResolver tx@Tx {..} =
                     i txIn
           )
         ]
+
+data TopsortState = TopsortState
+    { _tsVisited     :: HS.HashSet Tx
+    , _tsUnprocessed :: [Tx]
+    , _tsResult      :: [Tx]
+    }
+
+$(makeLenses ''TopsortState)
+
+-- | Does topological sort on transactions -- backwards dfs from every
+-- node with reverse visiting order recording.
+topsortTransactions :: [Tx] -> [Tx]
+topsortTransactions input = view tsResult $ execState dfs1 initState
+  where
+    dup a = (a,a)
+    txHashes = HM.fromList $ map (first hash . dup) input
+    initState = TopsortState HS.empty input []
+    -- Searches next unprocessed vertix and calls dfs2 for it. Wipes
+    -- visited vertices.
+    dfs1 :: State TopsortState ()
+    dfs1 = do
+        t <- uses tsUnprocessed head
+        whenJust t $ \k -> do
+            ifM (uses tsVisited $ HS.member k)
+                (tsUnprocessed %= tail >> dfs1)
+                (dfs2 HS.empty k)
+    -- Does dfs putting vertices into tsResult in reversed order of
+    -- visiting. visitedThis is map of visited vertices for _this_ dfs
+    -- (cycle detection).
+    dfs2 visitedThis tx@Tx{..} | tx `HS.member` visitedThis =
+          panic "topSortTransactions launched with loop inside"
+    dfs2 visitedThis tx@Tx{..} = do
+        tsVisited %= HS.insert tx
+        let visitedNew = HS.insert tx visitedThis
+            dependsUnfiltered =
+                mapMaybe (\x -> HM.lookup (txInHash x) txHashes) txInputs
+        depends <-
+            filterM (fmap not . uses tsVisited . HS.member) dependsUnfiltered
+        forM_ depends $ dfs2 visitedNew
+        tsResult %= (tx:)

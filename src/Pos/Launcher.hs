@@ -13,6 +13,7 @@ module Pos.Launcher
        ( LoggingParams (..)
        , NodeParams (..)
        , BaseParams (..)
+       , RealModeRunner
        , getCurTimestamp
        , runNode
        , runNodeReal
@@ -88,6 +89,8 @@ type RealModeSscConstraint ssc =
                 SscStorageMode ssc,
                 SscListenersClass ssc,
                 SscWorkersClass ssc)
+
+type RealModeRunner = KademliaDHTInstance -> NodeParams -> IO ()
 
 -- | Get current time as Timestamp. It is intended to be used when you
 -- launch the first node. It doesn't make sense in emulation mode.

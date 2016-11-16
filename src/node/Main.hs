@@ -12,7 +12,7 @@ import           Data.List                  ((!!))
 import           Options.Applicative.Simple (simpleOptions)
 import           System.Directory           (createDirectoryIfMissing)
 import           System.FilePath            ((</>))
-import           Universum                  hiding ((<>))
+import           Universum
 
 import           Pos.Constants              (RunningMode (..), runningMode)
 import           Pos.Crypto                 (keyGen, vssKeyGen)
@@ -20,8 +20,9 @@ import           Pos.DHT                    (DHTNodeType (..), dhtNodeType)
 import           Pos.Genesis                (StakeDistribution (..), genesisSecretKeys,
                                              genesisUtxo, genesisUtxoPetty)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
-                                             NodeParams (..), bracketDHTInstance,
-                                             runNodeReal, runNodeStats, runSupporterReal,
+                                             NodeParams (..), RealModeRunner,
+                                             bracketDHTInstance, runNodeReal,
+                                             runNodeStats, runSupporterReal,
                                              runTimeLordReal, runTimeSlaveReal)
 import           Pos.Ssc.DynamicState       (genesisVssKeyPairs)
 
@@ -45,6 +46,12 @@ decode' :: Binary key => FilePath -> IO key
 decode' fpath = either fail' return . decode =<< LBS.readFile fpath
   where
     fail' e = fail $ "Error reading key from " ++ fpath ++ ": " ++ e
+
+realModeRunner :: Bool -> SscAlgo -> RealModeRunner
+realModeRunner True DynamicStateAlgo  = runNodeReal @SscDynamicState
+realModeRunner False DynamicStateAlgo = runNodeStats @SscDynamicState
+realModeRunner True NistBeaconAlgo    = runNodeReal @SscNistBeacon
+realModeRunner False NistBeaconAlgo   = runNodeStats @SscNistBeacon
 
 main :: IO ()
 main = do
@@ -90,18 +97,8 @@ main = do
                         vssKeyGen
                 systemStart <- getSystemStart inst args
                 let currentParams = params args spendingSK vssSK systemStart
-                if sscAlgo == DynamicStateAlgo then do
-                    putStrLn $ "Running using Dynamic State Algorith" </> ""
-                    if enableStats
-                        then runNodeStats @SscDynamicState inst currentParams
-                        else runNodeReal @SscDynamicState inst currentParams
-                else if sscAlgo == NistBeaconAlgo then do
-                    putStrLn $ "Running using NIST Beacon algorithm" </> ""
-                    if enableStats
-                        then runNodeStats @SscNistBeacon inst currentParams
-                        else runNodeReal @SscNistBeacon inst currentParams
-                else
-                    panic "Unknown SSC algorithm"
+                putText $ "Running using " <> show sscAlgo
+                realModeRunner enableStats sscAlgo inst currentParams
     getSystemStart inst args =
         case runningMode of
             Development ->

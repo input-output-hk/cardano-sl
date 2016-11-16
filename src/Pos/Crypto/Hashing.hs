@@ -8,6 +8,7 @@
 module Pos.Crypto.Hashing
        ( Hash
        , hashHexF
+       , shortHashF
        , hash
        , hashRaw
        , unsafeHash
@@ -26,7 +27,7 @@ import           Data.Hashable       (Hashable (hashWithSalt))
 import           Data.MessagePack    (MessagePack (fromObject, toObject), Object (..))
 import           Data.SafeCopy       (SafeCopy (..))
 import qualified Data.Text.Buildable as Buildable
-import           Formatting          (Format, bprint, later, shown)
+import           Formatting          (Format, bprint, fitLeft, later, shown, (%.))
 import           Universum
 
 import           Pos.Util            (Raw, getCopyBinary, msgpackFail, putCopyBinary)
@@ -74,6 +75,9 @@ unsafeHash = Hash . Hash.hashlazy . Binary.encode
 
 hashHexF :: Format r (Hash a -> r)
 hashHexF = later $ \(Hash x) -> Buildable.build (show x :: Text)
+
+shortHashF :: Format r (Hash a -> r)
+shortHashF = fitLeft 8 %. hashHexF
 
 -- | Type class for unsafe cast between hashes.
 -- You must ensure that types have identical Binary instances.

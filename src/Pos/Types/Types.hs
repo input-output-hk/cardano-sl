@@ -147,7 +147,8 @@ import           Universum
 
 import           Pos.Constants          (epochSlots)
 import           Pos.Crypto             (Hash, PublicKey, SecretKey, Signature, hash,
-                                         hashHexF, sign, toPublic, unsafeHash, verify)
+                                         hashHexF, shortHashF, sign, toPublic, unsafeHash,
+                                         verify)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot,
                                          mtSize)
 import           Pos.Ssc.Class.Types    (SscTypes (..))
@@ -246,7 +247,7 @@ instance Hashable TxIn
 instance MessagePack TxIn
 
 instance Buildable TxIn where
-    build TxIn {..} = bprint ("TxIn ("%build%", "%int%")") txInHash txInIndex
+    build TxIn {..} = bprint ("TxIn "%shortHashF%" #"%int) txInHash txInIndex
 
 -- | Transaction output.
 data TxOut = TxOut
@@ -260,7 +261,7 @@ instance MessagePack TxOut
 
 instance Buildable TxOut where
     build TxOut {..} =
-        bprint ("TxOut ("%build%", "%coinF%")") txOutAddress txOutValue
+        bprint ("TxOut "%coinF%" -> "%build) txOutValue txOutAddress
 
 -- | Transaction.
 data Tx = Tx

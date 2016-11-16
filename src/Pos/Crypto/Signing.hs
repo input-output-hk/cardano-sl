@@ -41,18 +41,16 @@ import           Data.Coerce            (coerce)
 import           Data.Hashable          (Hashable)
 import           Data.MessagePack       (MessagePack)
 import qualified Data.MessagePack       as MP (fromObject, toObject)
-import           Data.SafeCopy          (SafeCopy (..), base,
-                                         deriveSafeCopySimple)
+import           Data.SafeCopy          (SafeCopy (..), base, deriveSafeCopySimple)
 import qualified Data.Serialize         as Cereal
 import qualified Data.Text.Buildable    as Buildable
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (Format, bprint, fitLeft, int, later,
-                                         sformat, stext, (%), (%.))
+import           Formatting             (Format, bprint, int, later, sformat, stext, (%))
 import           Universum
 
 import qualified Serokell.Util.Base64   as Base64 (decode, encode)
 
-import           Pos.Crypto.Hashing     (hash, hashHexF)
+import           Pos.Crypto.Hashing     (hash, shortHashF)
 import           Pos.Crypto.Random      (secureRandomBS)
 import           Pos.Util               (Raw, getCopyBinary, putCopyBinary)
 
@@ -161,10 +159,10 @@ toPublic (SecretKey k) = PublicKey (Ed25519.toPublicKey k)
 instance Buildable.Buildable PublicKey where
     -- Hash the key, take first 8 chars (that's how GPG does fingerprinting,
     -- except that their binary representation of the key is different)
-    build = bprint ("pub:" % fitLeft 8 %. hashHexF) . hash
+    build = bprint ("pub:"%shortHashF) . hash
 
 instance Buildable.Buildable SecretKey where
-    build = bprint ("sec:" % fitLeft 8 %. hashHexF) . hash . toPublic
+    build = bprint ("sec:"%shortHashF) . hash . toPublic
 
 formatFullPublicKey :: PublicKey -> Builder
 formatFullPublicKey = Buildable.build . Base64.encode . BSL.toStrict . Binary.encode

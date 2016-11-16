@@ -43,6 +43,7 @@ fromJLSlotId (ep, sl) = SlotId (fromIntegral ep) (fromIntegral sl)
 
 data JLEvent = JLCreatedBlock JLBlock
              | JLAdoptedBlock BlockId
+             | JLTpsStat Int
   deriving Show
 
 data JLTimedEvent =

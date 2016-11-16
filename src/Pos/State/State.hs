@@ -38,10 +38,6 @@ module Pos.State.State
        , processSscMessage
        , processTx
 
-       -- * Stats collecting and fetching.
-       , newStatRecord
-       , getStatRecords
-
        -- * Functions for generating seed by SSC algorithm.
        , getThreshold
        , getParticipants
@@ -54,10 +50,9 @@ module Pos.State.State
 
 import           Data.Acid                (EventResult, EventState, QueryEvent,
                                            UpdateEvent)
-import qualified Data.Binary              as Binary
 import           Data.Default             (Default)
 import           Pos.DHT                  (DHTResponseT)
-import           Serokell.Util            (VerificationRes, show')
+import           Serokell.Util            (VerificationRes)
 import           Universum
 
 import           Crypto.Random            (seedNew, seedToInteger)
@@ -71,10 +66,9 @@ import           Pos.State.Acidic         (DiskState, tidyState)
 import qualified Pos.State.Acidic         as A
 import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (..),
                                            Storage)
-import           Pos.Statistics.StatEntry (StatLabel (..))
 import           Pos.Types                (Block, EpochIndex, GenesisBlock, HeaderHash,
                                            MainBlock, MainBlockHeader, SlotId,
-                                           SlotLeaders, Timestamp, Tx)
+                                           SlotLeaders, Tx)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState ssc = DiskState ssc
@@ -193,22 +187,6 @@ processBlock si = updateDisk . A.ProcessBlock si
 
 processSscMessage :: QUConstraint ssc m => SscMessage ssc -> m (Maybe (SscMessage ssc))
 processSscMessage = updateDisk . A.ProcessSscMessage
-
-
--- | Functions for collecting stats (for benchmarking)
-getStatRecords :: (QUConstraint ssc m, StatLabel l)
-               => l
-               -> m (Maybe [(Timestamp, EntryType l)])
-getStatRecords label = fmap toEntries <$> queryDisk (A.GetStatRecords $ show' label)
-  where toEntries = map $ bimap fromIntegral Binary.decode
-
-newStatRecord :: (QUConstraint ssc m, StatLabel l)
-              => l
-              -> Timestamp
-              -> EntryType l
-              -> m ()
-newStatRecord label ts entry =
-    updateDisk $ A.NewStatRecord (show' label) (fromIntegral ts) $ Binary.encode entry
 
 -- | Functions for generating seed by SSC algorithm
 getParticipants

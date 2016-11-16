@@ -21,6 +21,7 @@ import           Universum
 
 import           Pos.Statistics.StatEntry (CountStat, StatLabel (..))
 import           Pos.Util                 (fromMsgpackBinary, toMsgpackBinary)
+import           Pos.Util.JsonLog         (JLEvent (..))
 
 data StatProcessTx = StatProcessTx deriving (Show, Eq, Generic, Typeable)
 
@@ -49,6 +50,7 @@ instance Hashable StatProcessTx where
 instance StatLabel StatProcessTx where
     type EntryType StatProcessTx = CountStat
     labelName _ = "StatProcessTx"
+    toJLEvent _ val = JLTpsStat $ fromIntegral val
 
 -- logTx :: WorkMode m => Tx -> m StatEntry
 -- logTx tx = do

@@ -41,15 +41,15 @@ import           Pos.DHT                  (DHTResponseT, MonadDHT, MonadMessageD
                                            WithDefaultMsgHeader)
 import           Pos.DHT.Real             (KademliaDHT)
 import           Pos.Slotting             (MonadSlots (..))
-import           Pos.State                (MonadDB (..), getStatRecords, newStatRecord)
+import           Pos.State                (MonadDB)
 import           Pos.Statistics.StatEntry (StatLabel (..))
 import           Pos.Types                (Timestamp (..))
-import           Pos.Util.JsonLog         (MonadJL)
+import           Pos.Util.JsonLog         (MonadJL (..))
 
 -- | `MonadStats` is a monad which has methods for stats collecting
 class Monad m => MonadStats m where
     statLog :: StatLabel l => l -> EntryType l -> m ()
-    resetStat :: StatLabel l => l -> Timestamp -> m ()
+    resetStat :: StatLabel l => l -> m ()
     getStats :: StatLabel l => l -> m (Maybe [(Timestamp, EntryType l)])
 
     -- | Default convenience method, which we can override
@@ -60,27 +60,27 @@ class Monad m => MonadStats m where
 -- TODO: is there a way to avoid such boilerplate for transformers?
 instance MonadStats m => MonadStats (KademliaDHT m) where
     statLog label = lift . statLog label
-    resetStat label = lift . resetStat label
+    resetStat = lift . resetStat
     getStats = lift . getStats
 
 instance MonadStats m => MonadStats (ReaderT a m) where
     statLog label = lift . statLog label
-    resetStat label = lift . resetStat label
+    resetStat = lift . resetStat
     getStats = lift . getStats
 
 instance MonadStats m => MonadStats (StateT a m) where
     statLog label = lift . statLog label
-    resetStat label = lift . resetStat label
+    resetStat = lift . resetStat
     getStats = lift . getStats
 
 instance MonadStats m => MonadStats (ExceptT e m) where
     statLog label = lift . statLog label
-    resetStat label = lift . resetStat label
+    resetStat = lift . resetStat
     getStats = lift . getStats
 
 instance MonadStats m => MonadStats (DHTResponseT m) where
     statLog label = lift . statLog label
-    resetStat label = lift . resetStat label
+    resetStat = lift . resetStat
     getStats = lift . getStats
 
 type instance ThreadId (NoStatsT m) = ThreadId m
@@ -110,7 +110,7 @@ instance MonadTrans NoStatsT where
 instance Monad m => MonadStats (NoStatsT m) where
     statLog _ _ = pure ()
     getStats _ = pure $ pure []
-    resetStat _ _ = pure ()
+    resetStat _ = pure ()
     logStatM _ _ = pure ()
 
 newtype StatsT m a = StatsT
@@ -137,7 +137,7 @@ instance MonadTrans StatsT where
 statsMap :: SM.Map Text LByteString
 statsMap = unsafePerformIO SM.newIO
 
-instance (SscStorageClass ssc, SafeCopy ssc, MonadIO m, MonadDB ssc m) => MonadStats (StatsT m) where
+instance (SscStorageClass ssc, SafeCopy ssc, MonadIO m, MonadJL m, MonadDB ssc m) => MonadStats (StatsT m) where
     statLog label entry = do
         liftIO $ atomically $ SM.focus update (show' label) statsMap
         return ()
@@ -145,11 +145,12 @@ instance (SscStorageClass ssc, SafeCopy ssc, MonadIO m, MonadDB ssc m) => MonadS
         update = alterM $ \v -> return $ fmap Binary.encode $
             mappend entry . Binary.decode <$> v <|> Just entry
 
-    resetStat label ts = do
+    resetStat label = do
         mval <- liftIO $ atomically $ SM.focus reset (show' label) statsMap
         let val = fromMaybe mempty $ Binary.decode <$> mval
-        lift $ newStatRecord @ssc label ts val
+        lift $ jlLog $ toJLEvent label val
       where
         reset old = return (old, Remove)
 
-    getStats = lift . getStatRecords @ssc
+    -- TODO: do we need getStats at all?
+    getStats _ = pure $ pure []

@@ -40,9 +40,6 @@ module Pos.State.Storage
        , processSscMessage
        , processTx
        , setToken
-
-       , newStatRecord
-       , getStatRecords
        ) where
 
 import           Control.Lens            (makeClassy, use, view, (.=), (^.))
@@ -68,8 +65,6 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
                                           blkCreateNewBlock, blkProcessBlock, blkRollback,
                                           blkSetHead, getBlock, getHeadBlock, getLeaders,
                                           getSlotDepth, mayBlockBeUseful, mkBlockStorage)
-import           Pos.State.Storage.Stats (HasStatsData (statsData), StatsData,
-                                          getStatRecords, newStatRecord)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           getLocalTxs, getUtxoByDepth, processTx,
                                           txApplyBlocks, txRollback, txStorageFromUtxo,
@@ -95,8 +90,6 @@ data Storage ssc = Storage
       __blockStorage :: !(BlockStorage ssc)
     , -- | Id of last seen slot.
       _slotId        :: !SlotId
-    , -- | Statistical data
-      __statsData    :: !StatsData
     }
 
 makeClassy ''Storage
@@ -107,14 +100,12 @@ instance SscTypes ssc => SafeCopy (Storage ssc) where
            safePut __txStorage
            safePut __blockStorage
            safePut _slotId
-           safePut __statsData
     getCopy =
         contain $
         do __mpcStorage <- safeGet
            __txStorage <- safeGet
            __blockStorage <- safeGet
            _slotId <- safeGet
-           __statsData <- safeGet
            return $! Storage {..}
 
 instance HasSscStorage ssc (Storage ssc) where
@@ -123,8 +114,6 @@ instance HasTxStorage (Storage ssc) where
     txStorage = _txStorage
 instance HasBlockStorage (Storage ssc) ssc where
     blockStorage = _blockStorage
-instance HasStatsData (Storage ssc) where
-    statsData = _statsData
 
 instance (SscTypes ssc, Default (SscStorage ssc)) => Default (Storage ssc) where
     def = storageFromUtxo $ genesisUtxo def
@@ -139,7 +128,6 @@ storageFromUtxo u =
     , __txStorage = txStorageFromUtxo u
     , __blockStorage = mkBlockStorage u
     , _slotId = unflattenSlotId 0
-    , __statsData = def
     }
 
 getHeadSlot :: Query ssc (Either EpochIndex SlotId)

@@ -148,8 +148,8 @@ instance (SscStorageClass ssc, SafeCopy ssc, MonadIO m, MonadDB ssc m) => MonadS
     resetStat label ts = do
         mval <- liftIO $ atomically $ SM.focus reset (show' label) statsMap
         let val = fromMaybe mempty $ Binary.decode <$> mval
-        lift $ newStatRecord @ssc label ts val
+        lift $ newStatRecord label ts val
       where
         reset old = return (old, Remove)
 
-    getStats = lift . getStatRecords @ssc
+    getStats = lift . getStatRecords

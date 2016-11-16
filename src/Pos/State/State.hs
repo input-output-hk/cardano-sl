@@ -231,21 +231,18 @@ getThreshold = queryDisk . A.GetThreshold
 -- Functions related to SscDynamicState
 ----------------------------------------------------------------------------
 getToken
-    :: forall ssc. forall m.
-       QUConstraint ssc m
+    :: QUConstraint ssc m
     => m (Maybe (SscToken ssc))
-getToken = queryDisk @ssc A.GetToken
+getToken = queryDisk A.GetToken
 
 setToken
-    :: forall ssc. forall m.
-       QUConstraint ssc m
+    :: QUConstraint ssc m
     => SscToken ssc -> m ()
-setToken = updateDisk @ssc . A.SetToken
+setToken = updateDisk . A.SetToken
 
 getOurShares
-    :: forall ssc. forall m.
-       QUConstraint ssc m
+    :: QUConstraint ssc m
     => VssKeyPair -> m (HashMap PublicKey Share)
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
-    queryDisk @ssc $ A.GetOurShares ourKey (seedToInteger randSeed)
+    queryDisk $ A.GetOurShares ourKey (seedToInteger randSeed)

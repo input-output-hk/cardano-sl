@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TemplateHaskell       #-}
@@ -23,7 +24,7 @@ module Pos.State.Storage.Tx
        ) where
 
 import           Control.Lens            (ix, makeClassy, preview, use, uses, view, (%=),
-                                          (+=), (-=), (.=), (<~), (^.))
+                                          (+=), (-=), (.=), (<&>), (<~), (^.))
 import qualified Data.Cache.LRU          as LRU
 import qualified Data.HashSet            as HS
 import qualified Data.List.NonEmpty      as NE
@@ -79,14 +80,12 @@ getLocalTxs = view txLocalTxs
 
 txVerifyBlocks :: Word -> AltChain ssc -> Query VerificationRes
 txVerifyBlocks (fromIntegral -> toRollback) newChain = do
-    mUtxo <- preview (txUtxoHistory . ix toRollback)
-    return $ case mUtxo of
-      Nothing ->
-        VerFailure [sformat ("Can't rollback on "%int%" blocks") toRollback]
-      Just utxo ->
-        case foldM verifyDo utxo newChainTxs of
-          Right _ -> VerSuccess
-          Left es -> VerFailure es
+    (preview (txUtxoHistory . ix toRollback)) <&> \case
+        Nothing ->
+            VerFailure [sformat ("Can't rollback on "%int%" blocks") toRollback]
+        Just utxo -> case foldM verifyDo utxo newChainTxs of
+            Right _ -> VerSuccess
+            Left es -> VerFailure es
   where
     newChainTxs =
         mconcat .
@@ -120,15 +119,14 @@ processTx tx = do
 processTxDo :: Tx -> Update ProcessTxRes
 processTxDo tx =
     ifM isKnown (pure PTRknown) $
-    do verRes <- verifyTx tx
-       case verRes of
-           VerSuccess -> do
-               txLocalTxs %= HS.insert tx
-               txLocalTxsSize += 1
-               applyTx tx
-               pure PTRadded
-           VerFailure errors ->
-               pure (mkPTRinvalid errors)
+    verifyTx tx >>= \case
+        VerSuccess -> do
+            txLocalTxs %= HS.insert tx
+            txLocalTxsSize += 1
+            applyTx tx
+            pure PTRadded
+        VerFailure errors ->
+            pure (mkPTRinvalid errors)
   where
     isKnown =
         or <$>

@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
@@ -208,13 +209,12 @@ runTimeSlaveReal inst bp = do
       case runningMode of
          Development -> do
            tId <- fork $
-             runWithRandomIntervals (sec 10) (sec 60) $ do
-               mT <- liftIO $ tryReadMVar mvar
-               case mT of
+             runWithRandomIntervals (sec 10) (sec 60) $ liftIO (tryReadMVar mvar) >>= \case
                  Nothing -> do
                     logInfo "Asking neighbors for system start"
                     (void $ sendToNeighbors SysStartRequest) `catchAll`
-                       \e -> logDebug $ sformat ("Error sending SysStartRequest to neighbors: " % shown) e
+                       \e -> logDebug $ sformat
+                       ("Error sending SysStartRequest to neighbors: " % shown) e
                  Just _ -> fail "Close thread"
            t <- liftIO $ takeMVar mvar
            killThread tId
@@ -292,8 +292,14 @@ bracketDHTInstance BaseParams {..} = bracket acquire release
       }
 
 -- TODO: use bracket
-runRealMode :: forall ssc c . RealModeSscConstraint ssc
-            => KademliaDHTInstance -> NodeParams -> [ListenerDHT (RealMode ssc)] -> RealMode ssc c -> IO c
+runRealMode
+    :: forall ssc c.
+       RealModeSscConstraint ssc
+    => KademliaDHTInstance
+    -> NodeParams
+    -> [ListenerDHT (RealMode ssc)]
+    -> RealMode ssc c
+    -> IO c
 runRealMode inst NodeParams {..} listeners action = do
     setupLoggingReal logParams
     db <- openDb
@@ -323,7 +329,12 @@ runRealMode inst NodeParams {..} listeners action = do
               , ncJLFile = jlFile
               }
 
-runServiceMode :: KademliaDHTInstance -> BaseParams -> [ListenerDHT ServiceMode] -> ServiceMode a -> IO a
+runServiceMode
+    :: KademliaDHTInstance
+    -> BaseParams
+    -> [ListenerDHT ServiceMode]
+    -> ServiceMode a
+    -> IO a
 runServiceMode inst bp@BaseParams {..} listeners action = do
     setupLoggingReal bpLogging
     runTimed (lpRootLogger bpLogging) . runKDHT inst bp listeners $
@@ -333,8 +344,18 @@ runServiceMode inst bp@BaseParams {..} listeners action = do
 -- Helpers
 ----------------------------------------------------------------------------
 
-runKDHT :: (MonadBaseControl IO m, WithNamedLogger m, MonadIO m, MonadTimed m, MonadMask m, MonadDialog BinaryP m)
-        => KademliaDHTInstance -> BaseParams -> [ListenerDHT (KademliaDHT m)] -> KademliaDHT m a -> m a
+runKDHT
+    :: (MonadBaseControl IO m
+       ,WithNamedLogger m
+       ,MonadIO m
+       ,MonadTimed m
+       ,MonadMask m
+       ,MonadDialog BinaryP m)
+    => KademliaDHTInstance
+    -> BaseParams
+    -> [ListenerDHT (KademliaDHT m)]
+    -> KademliaDHT m a
+    -> m a
 runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
   where
     kadConfig =

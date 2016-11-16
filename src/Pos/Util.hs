@@ -1,8 +1,8 @@
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds       #-}
+{-# LANGUAGE GADTs           #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Pos.Util
        (
@@ -13,6 +13,7 @@ module Pos.Util
        , Raw
        , readerToState
        , eitherPanic
+       , inAssertMode
 
        -- * Msgpack
        , msgpackFail
@@ -117,6 +118,15 @@ deriveSafeCopySimple 0 'base ''VerificationRes
 -- | A helper for simple error handling in executables
 eitherPanic :: Show a => Text -> Either a b -> b
 eitherPanic msgPrefix = either (panic . (msgPrefix <>) . show) identity
+
+#ifdef ASSERTS_ON
+inAssertMode :: Applicative m => m a -> m ()
+inAssertMode = void
+#else
+inAssertMode :: Applicative m => a -> m ()
+inAssertMode _ = pure ()
+#endif
+{-# INLINE inAssertMode #-}
 
 ----------------------------------------------------------------------------
 -- MessagePack

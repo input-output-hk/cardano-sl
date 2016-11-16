@@ -12,6 +12,10 @@ build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
 
+flag asserts
+  default: True
+  manual: True
+
 library
   exposed-modules:      Pos.CLI
                         Pos.Crypto
@@ -167,6 +171,8 @@ library
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+  if flag(asserts)
+    cpp-options: -DASSERTS_ON
 
 executable cardano-node
   hs-source-dirs:      src/node

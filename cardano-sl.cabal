@@ -23,6 +23,8 @@ library
                         Pos.FollowTheSatoshi
                         Pos.Ssc.Class
                         Pos.Ssc.DynamicState
+                        Pos.Ssc.NistBeacon
+                        Pos.Ssc.SscAlgo
                         Pos.Genesis
                         Pos.Launcher
                         Pos.Merkle

@@ -34,11 +34,12 @@ import           Pos.Ssc.DynamicState.Server        (announceCommitment,
                                                      announceOpenings, announceShares,
                                                      announceSharesMulti,
                                                      announceVssCertificates)
-import           Pos.Ssc.DynamicState.Types         (DSPayload (..), hasCommitment,
-                                                     hasOpening, hasShares)
+import           Pos.Ssc.DynamicState.Types         (DSMessage (..), DSPayload (..),
+                                                     hasCommitment, hasOpening, hasShares)
 import           Pos.State                          (getGlobalMpcData, getLocalSscPayload,
                                                      getOurShares, getParticipants,
-                                                     getThreshold, getToken, setToken)
+                                                     getThreshold, getToken,
+                                                     processSscMessage, setToken)
 import           Pos.Types                          (EpochIndex, SlotId (..))
 import           Pos.WorkMode                       (WorkMode, getNodeContext,
                                                      ncPublicKey, ncSecretKey,
@@ -102,6 +103,7 @@ onNewSlotCommitment SlotId {..} = do
         whenJust mbComm $ \comm -> do
             announceCommitment ourPk comm
             logDebug "Sent commitment to neighbors"
+            () <$ processSscMessage (DSCommitments $ pure (ourPk, comm))
 
 -- Openings-related part of new slot processing
 onNewSlotOpening :: WorkMode SscDynamicState m => SlotId -> m ()
@@ -115,6 +117,7 @@ onNewSlotOpening SlotId {..} = do
         whenJust mbOpen $ \open -> do
             announceOpening ourPk open
             logDebug "Sent opening to neighbors"
+            () <$ processSscMessage (DSOpenings $ pure (ourPk, open))
 
 -- Shares-related part of new slot processing
 onNewSlotShares :: WorkMode SscDynamicState m => SlotId -> m ()
@@ -132,6 +135,7 @@ onNewSlotShares SlotId {..} = do
         unless (null shares) $ do
             announceShares ourPk shares
             logDebug "Sent shares to neighbors"
+            () <$ processSscMessage (DSSharesMulti $ pure (ourPk, shares))
 
 sscTransmitter :: WorkMode SscDynamicState m => m ()
 sscTransmitter =

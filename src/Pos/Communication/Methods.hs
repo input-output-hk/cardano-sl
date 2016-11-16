@@ -70,7 +70,6 @@ sendTx addr = sendToNode addr . SendTx
 -- | Announce ssc message to all known peers. Intended to be used
 -- by SSC algorithm
 announceSsc :: (WorkMode ssc m,
-                Binary (SscMessage ssc),
                 Message (SscMessage ssc)) => SscMessage ssc -> m ()
 announceSsc = sendToNeighborsSafe
 

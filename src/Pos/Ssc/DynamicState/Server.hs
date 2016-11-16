@@ -21,7 +21,6 @@ import           Universum
 
 import           Pos.Communication.Methods           (announceSsc)
 import           Pos.Crypto                          (PublicKey, Share)
-import           Pos.DHT                             (sendToNeighbors)
 import           Pos.Ssc.DynamicState.Base           (Opening, SignedCommitment,
                                                       VssCertificate)
 import           Pos.Ssc.DynamicState.Instance.Type  (SscDynamicState)
@@ -76,4 +75,4 @@ announceVssCertificates certs = do
     -- TODO: should we show actual certificates?
     logDebug $ sformat
         ("Announcing VSS certificates from: "%listJson) $ map fst certs
-    void . sendToNeighbors $ DSVssCertificates certs
+    announceSsc $ DSVssCertificates certs

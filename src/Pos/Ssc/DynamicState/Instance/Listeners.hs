@@ -11,85 +11,76 @@ module Pos.Ssc.DynamicState.Instance.Listeners
          -- ** instance SscListenersClass SscDynamicState
        ) where
 
-import           Control.TimeWarp.Logging           (logDebug, logError, logInfo)
-import           Control.TimeWarp.Rpc               (BinaryP, MonadDialog)
-import           Data.List                          ((\\))
-import           Data.List.NonEmpty                 (NonEmpty, nonEmpty)
-import           Data.Tagged                        (Tagged (..))
-import           Formatting                         (build, sformat, stext, (%))
+import           Control.TimeWarp.Logging            (logDebug, logError, logInfo)
+import           Data.List                           ((\\))
+import           Data.Tagged                         (Tagged (..))
+import           Formatting                          (build, sformat, stext, (%))
+import           Serokell.Util.Text                  (listJson)
 import           Universum
 
-import           Pos.Crypto                         (PublicKey)
-import           Pos.DHT                            (ListenerDHT (..))
-import           Pos.Ssc.Class.Listeners            (SscListenersClass (..))
-import           Pos.Ssc.DynamicState.Instance.Type (SscDynamicState)
-import           Pos.Ssc.DynamicState.Server        (announceCommitments,
-                                                     announceOpenings,
-                                                     announceSharesMulti,
-                                                     announceVssCertificates)
-import           Pos.Ssc.DynamicState.Types         (DSMessage (..))
-import qualified Pos.State                          as St
-import           Pos.WorkMode                       (WorkMode)
+import           Pos.Communication.Methods           (announceSsc)
+import           Pos.Crypto                          (PublicKey)
+import           Pos.DHT                             (ListenerDHT (..))
+import           Pos.Ssc.Class.Listeners             (SscListenersClass (..))
+import           Pos.Ssc.DynamicState.Instance.Type  (SscDynamicState)
+import           Pos.Ssc.DynamicState.Instance.Types ()
+import           Pos.Ssc.DynamicState.Types          (DSMessage (..))
+import qualified Pos.State                           as St
+import           Pos.WorkMode                        (WorkMode)
 
 instance SscListenersClass SscDynamicState where
-    sscListeners = Tagged mpcListeners
-
-mpcListeners :: (MonadDialog BinaryP m, WorkMode SscDynamicState m) => [ListenerDHT m]
-mpcListeners = [ListenerDHT handleSsc]
+    sscListeners = Tagged [ListenerDHT handleSsc]
 
 handleSsc :: WorkMode SscDynamicState m => DSMessage -> m ()
-handleSsc m@(DSCommitments comms) = do
+handleSsc m = do
     processed <- St.processSscMessage m
-    let call = handleSscDo "Commitment" announceCommitments comms
-    case processed of
-        Nothing                     -> call []
-        Just (DSCommitments rcomms) -> call $ toList rcomms
-        Just x                      -> distConstrsError m x
+    let msgName = dsMessageName m
+    let (added, ignored) = getAddedAndIgnored m processed
+    loggerAction msgName True added
+    loggerAction msgName False ignored
+    let call p
+            | checkSameConstrs m p = announceSsc p
+            | otherwise = distConstrsError m p
+    whenJust processed call
 
-handleSsc m@(DSOpenings ops)        = do
-    processed <- St.processSscMessage m
-    let call = handleSscDo "Opening" announceOpenings ops
-    case processed of
-        Nothing                -> call []
-        Just (DSOpenings rops) -> call $ toList rops
-        Just x                 -> distConstrsError m x
+dsMessageName :: DSMessage -> Text
+dsMessageName (DSCommitments _)     = "commitments"
+dsMessageName (DSOpenings _)        = "openings"
+dsMessageName (DSSharesMulti _)     = "shares"
+dsMessageName (DSVssCertificates _) = "VSS certificates"
 
-handleSsc m@(DSSharesMulti s)         = do
-    processed <- St.processSscMessage m
-    let call = handleSscDo "Shares" announceSharesMulti s
-    case processed of
-        Nothing                 -> call []
-        Just (DSSharesMulti rs) -> call $ toList rs
-        Just x                  -> distConstrsError m x
+checkSameConstrs :: DSMessage -> DSMessage -> Bool
+checkSameConstrs (DSCommitments _) (DSCommitments _)         = True
+checkSameConstrs (DSOpenings _) (DSOpenings _)               = True
+checkSameConstrs (DSSharesMulti _) (DSSharesMulti _)         = True
+checkSameConstrs (DSVssCertificates _) (DSVssCertificates _) = True
+checkSameConstrs _ _                                         = False
 
-handleSsc m@(DSVssCertificates certs) = do
-    processed <- St.processSscMessage m
-    let call = handleSscDo "VssCertificate" announceVssCertificates certs
-    case processed of
-        Nothing                         -> call []
-        Just (DSVssCertificates rcerts) -> call $ toList rcerts
-        Just x                          -> distConstrsError m x
+getMessageKeys :: DSMessage -> [PublicKey]
+getMessageKeys (DSCommitments l)     = map fst . toList $ l
+getMessageKeys (DSOpenings l)        = map fst . toList $ l
+getMessageKeys (DSSharesMulti l)     = map fst . toList $ l
+getMessageKeys (DSVssCertificates l) = map fst . toList $ l
 
-handleSscDo
-    :: (WorkMode SscDynamicState m, Eq a)
-    => Text
-    -> (NonEmpty (PublicKey, a) -> m ()) --Announce
-    -> NonEmpty (PublicKey, a) --NE from DSMessage
-    -> [(PublicKey, a)]        --List is returned from sscProcessMessage
-    -> m ()
-handleSscDo logMsg announce msgs processed = do
-    loggerAction logMsg True . map fst $ processed
-    loggerAction logMsg False . map fst $ (toList msgs) \\ processed
-    whenJust (nonEmpty  processed) announce
+getAddedAndIgnored :: DSMessage -> Maybe DSMessage -> ([PublicKey], [PublicKey])
+getAddedAndIgnored before after = (added, ignored)
+  where
+    beforeKeys = getMessageKeys before
+    afterKeys = maybe [] getMessageKeys after
+    added = afterKeys
+    ignored = beforeKeys \\ added
 
 loggerAction :: WorkMode SscDynamicState m
              => Text -> Bool -> [PublicKey] -> m ()
-loggerAction dsType added pkeys =
-    forM_ pkeys $ \pk -> do
-      let msgAction = if added then "added to local storage" else "ignored"
-      let msg = sformat (build%" from "%build%" has been "%stext) dsType pk msgAction
-      let logAction = if added then logInfo else logDebug
-      logAction msg
+loggerAction _ _ [] = pass
+loggerAction dsType added pkeys = logAction msg
+  where
+      msgAction | added = "added to local storage"
+                | otherwise = "ignored"
+      msg = sformat (build%" from "%listJson%" have been "%stext)
+          dsType pkeys msgAction
+      logAction | added = logInfo
+                | otherwise = logDebug
 
 distConstrsError :: WorkMode SscDynamicState m => DSMessage -> DSMessage -> m ()
 distConstrsError ex reci = do
@@ -98,7 +89,7 @@ distConstrsError ex reci = do
                       \was passed to processSscMessage, but "%stext%" is returned")
             (constrName ex) (constrName reci)
     where
-        --TODO holyshit probably, DSMessage must derive Data
+        -- Better aprooach is to derive Data.Data instance
         constrName (DSCommitments _)     = "DSCommitments"
         constrName (DSOpenings _)        = "DSOpenings"
         constrName (DSSharesMulti _)     = "DSSharesMulti"

@@ -26,6 +26,7 @@ import           Pos.Ssc.Class.Listeners            (SscListenersClass (..))
 import           Pos.Ssc.DynamicState.Instance.Type (SscDynamicState)
 import           Pos.Ssc.DynamicState.Server        (announceCommitments,
                                                      announceOpenings,
+                                                     announceSharesMulti,
                                                      announceVssCertificates)
 import           Pos.Ssc.DynamicState.Types         (DSMessage (..))
 import qualified Pos.State                          as St
@@ -56,9 +57,7 @@ handleSsc m@(DSOpenings ops)        = do
 
 handleSsc m@(DSSharesMulti s)         = do
     processed <- St.processSscMessage m
-    let call p = do
-          loggerAction "Shares" True . map fst $ p
-          loggerAction "Shares" False . map fst $ (toList s) \\ p
+    let call = handleSscDo "Shares" announceSharesMulti s
     case processed of
         Nothing                 -> call []
         Just (DSSharesMulti rs) -> call $ toList rs

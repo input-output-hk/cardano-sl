@@ -69,16 +69,16 @@ instance Arbitrary Tx where
         return $ Tx txIns txOuts
 
 newtype GoodTx = GoodTx
-    { getGoodTx ::[(Tx, TxIn, TxOut)]
+    { getGoodTx :: [(Tx, TxIn, TxOut)]
     } deriving (Show)
 
 instance Arbitrary GoodTx where
     arbitrary = GoodTx <$> do
-        ls <- getNonEmpty <$>
+        txsList <- getNonEmpty <$>
             (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
         let fun (Tx txIn txOut, fromSk, toSk, c) =
                 (Tx txIn $ (txO fromSk c) : txOut, fromSk, txO toSk c)
-            txList = fmap fun ls
+            txList = fmap fun txsList
             thisTxOutputs = fmap (view _3) txList
             newTx (tx, fromSk, txOutput) =
                 let txHash = hash $ tx

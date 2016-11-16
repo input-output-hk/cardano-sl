@@ -330,7 +330,7 @@ tryStartAltChain (Right blk) = do
     let header = blk ^. gbHeader
         checks =
             [ isMostDifficult header
-            , not <$> isHeadOfAlternative @ ssc (Right header)
+            , not <$> isHeadOfAlternative @ssc (Right header)
             ]
         chk = and <$> sequence checks
     ifM (readerToState chk) (Just <$> startAltChain blk) (pure Nothing)

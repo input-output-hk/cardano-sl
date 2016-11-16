@@ -15,7 +15,6 @@ import           Universum
 
 import           Pos.Communication.Methods (announceTxs)
 import           Pos.Communication.Types   (ResponseMode, SendTx (..), SendTxs (..))
-import           Pos.Communication.Util    (modifyListenerLogger)
 import           Pos.DHT                   (ListenerDHT (..))
 import           Pos.State                 (ProcessTxRes (..), processTx)
 import           Pos.Statistics            (StatProcessTx (..), statlogCountEvent)
@@ -25,11 +24,7 @@ import           Pos.WorkMode              (WorkMode)
 -- | Listeners for requests related to blocks processing.
 txListeners :: (MonadDialog BinaryP m, WorkMode ssc m)
             => [ListenerDHT m]
-txListeners =
-    map (modifyListenerLogger "tx")
-    [ ListenerDHT (void . handleTx)
-    , ListenerDHT handleTxs
-    ]
+txListeners = [ListenerDHT (void . handleTx), ListenerDHT handleTxs]
 
 handleTx
     :: ResponseMode ssc m

@@ -25,7 +25,6 @@ import           Universum
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Communication.Types   (RequestBlock (..), ResponseMode,
                                             SendBlock (..), SendBlockHeader (..))
-import           Pos.Communication.Util    (modifyListenerLogger)
 import           Pos.Crypto                (hash)
 import           Pos.DHT                   (ListenerDHT (..), replyToNode)
 import           Pos.Slotting              (getCurrentSlot)
@@ -39,11 +38,10 @@ import           Pos.WorkMode              (WorkMode)
 blockListeners :: (MonadDialog BinaryP m, WorkMode ssc m)
                => [ListenerDHT m]
 blockListeners =
-    map (modifyListenerLogger "block")
-        [ ListenerDHT handleBlock
-        , ListenerDHT handleBlockHeader
-        , ListenerDHT handleBlockRequest
-        ]
+    [ ListenerDHT handleBlock
+    , ListenerDHT handleBlockHeader
+    , ListenerDHT handleBlockRequest
+    ]
 
 handleBlock :: forall ssc m . ResponseMode ssc m
             => SendBlock ssc -> m ()

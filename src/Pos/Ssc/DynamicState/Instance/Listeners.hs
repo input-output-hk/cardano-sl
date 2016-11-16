@@ -19,7 +19,6 @@ import           Data.Tagged                        (Tagged (..))
 import           Formatting                         (build, sformat, stext, (%))
 import           Universum
 
-import           Pos.Communication.Util             (modifyListenerLogger)
 import           Pos.Crypto                         (PublicKey)
 import           Pos.DHT                            (ListenerDHT (..))
 import           Pos.Ssc.Class.Listeners            (SscListenersClass (..))
@@ -36,7 +35,7 @@ instance SscListenersClass SscDynamicState where
     sscListeners = Tagged mpcListeners
 
 mpcListeners :: (MonadDialog BinaryP m, WorkMode SscDynamicState m) => [ListenerDHT m]
-mpcListeners = map (modifyListenerLogger "mpc") [ListenerDHT handleSsc]
+mpcListeners = [ListenerDHT handleSsc]
 
 handleSsc :: WorkMode SscDynamicState m => DSMessage -> m ()
 handleSsc m@(DSCommitments comms) = do

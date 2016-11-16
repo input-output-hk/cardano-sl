@@ -29,7 +29,11 @@ allListeners :: (SscListenersClass ssc, MonadDialog BinaryP m, WorkMode ssc m)
              => [ListenerDHT m]
 allListeners =
     map (modifyListenerLogger serverLoggerName) $
-    concat [blockListeners,  untag sscListeners, txListeners]
+    concat
+        [ map (modifyListenerLogger "block") blockListeners
+        , map (modifyListenerLogger "ssc") $ untag sscListeners
+        , map (modifyListenerLogger "tx") txListeners
+        ]
 
 serverLoggerName :: LoggerName
 serverLoggerName = "server"

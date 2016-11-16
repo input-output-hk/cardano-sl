@@ -8,7 +8,7 @@ module Pos.Constants
        , epochDuration
        , genesisN
        , maxLocalTxs
-       , mpcTransmitterInterval
+       , sscTransmitterInterval
        , neighborsSendThreshold
        , networkDiameter
        , RunningMode (..)
@@ -68,8 +68,8 @@ isDevelopment = case runningMode of
                   Development -> True
                   _           -> False
 
-mpcTransmitterInterval :: Microsecond
-mpcTransmitterInterval = sec . ccMpcRelayInterval $ compileConfig
+sscTransmitterInterval :: Microsecond
+sscTransmitterInterval = sec . ccMpcRelayInterval $ compileConfig
 
 defaultPeers :: [DHTNode]
 defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig

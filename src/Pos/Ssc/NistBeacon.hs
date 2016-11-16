@@ -34,7 +34,8 @@ import           Pos.Ssc.Class.Storage   (SscQuery)
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (SscTypes (..))
 import           Pos.Ssc.Class.Workers   (SscWorkersClass (..))
-import           Pos.Types               (SlotLeaders, Utxo)
+import           Pos.Types               (EpochIndex, FtsSeed (..), SlotLeaders, Utxo,
+                                          getAddress)
 import           Serokell.Util.Verify    (VerificationRes (..))
 import           Universum
 

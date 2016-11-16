@@ -54,8 +54,7 @@ handleBlock :: forall ssc m . ResponseMode ssc m
 handleBlock (SendBlock block) = do
     slotId <- getCurrentSlot
     pbr <- St.processBlock slotId block
-    let blkHash :: HeaderHash ssc
-        blkHash = headerHash block
+    let blkHash = headerHash block
     case pbr of
         St.PBRabort msg -> do
             let fmt =
@@ -64,8 +63,7 @@ handleBlock (SendBlock block) = do
             logWarning $ sformat fmt blkHash msg
         St.PBRgood (0, (blkAdopted:|[])) -> do
             statlogCountEvent StatBlockCreated 1
-            let adoptedBlkHash :: HeaderHash ssc
-                adoptedBlkHash = headerHash blkAdopted
+            let adoptedBlkHash = headerHash blkAdopted
             jlLog $ jlAdoptedBlock blkAdopted
             logInfo $ sformat ("Received block has been adopted: "%build)
                 adoptedBlkHash
@@ -75,7 +73,7 @@ handleBlock (SendBlock block) = do
                 sformat ("As a result of block processing, rollback"%
                          " of "%int%" blocks has been done and alternative"%
                          " chain has been adopted "%listJson)
-                rollbacked (fmap (headerHash @_ @ssc) altChain)
+                rollbacked (fmap headerHash altChain)
         St.PBRmore h -> do
             logInfo $ sformat
                 ("After processing block "%build%", we need block "%build)

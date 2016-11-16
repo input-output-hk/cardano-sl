@@ -705,7 +705,7 @@ instance (HasPrevBlock s a, HasPrevBlock s' a) =>
          HasPrevBlock (Either s s') a where
     prevBlockL = choosing prevBlockL prevBlockL
 
-class HasHeaderHash a ssc where
+class HasHeaderHash a ssc | a -> ssc where
     headerHash :: a -> HeaderHash ssc
     headerHashG :: Getter a (HeaderHash ssc)
     headerHashG = to headerHash

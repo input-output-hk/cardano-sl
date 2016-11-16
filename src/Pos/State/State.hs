@@ -82,7 +82,7 @@ type NodeState ssc = DiskState ssc
 type QUConstraint ssc m = (SscStorageMode ssc, WorkModeDB ssc m)
 
 -- | Convenient type class to avoid passing NodeState throughout the code.
-class MonadDB ssc m | m->ssc where
+class MonadDB ssc m | m -> ssc where
     getNodeState :: m (NodeState ssc)
 
 instance (Monad m, MonadDB ssc m) => MonadDB ssc (ReaderT r m) where

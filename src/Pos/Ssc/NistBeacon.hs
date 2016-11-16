@@ -8,6 +8,7 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 -- | Simplified NIST beacon implementation of SSC.
 
@@ -33,7 +34,6 @@ import           Pos.Ssc.Class.Storage   (SscQuery)
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (SscTypes (..))
 import           Pos.Ssc.Class.Workers   (SscWorkersClass (..))
-import           Pos.Types
 import           Pos.Types               (SlotLeaders, Utxo)
 import           Serokell.Util.Verify    (VerificationRes (..))
 import           Universum

@@ -1,9 +1,9 @@
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
 
--- | Base of DynamicState SSC.
+-- | Base of GodTossing SSC.
 
-module Pos.Ssc.DynamicState.Base
+module Pos.Ssc.GodTossing.Base
        (
          -- * Types
          Commitment (..)

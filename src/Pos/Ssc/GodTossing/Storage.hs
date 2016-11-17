@@ -9,7 +9,7 @@
 
 -- | Dynamic State storage.
 
-module Pos.Ssc.DynamicState.Storage
+module Pos.Ssc.GodTossing.Storage
        ( DSStorage (..)
        , DSStorageVersion (..)
 
@@ -37,10 +37,10 @@ import           Data.SafeCopy                (base, deriveSafeCopySimple)
 import           Universum
 
 import           Pos.Crypto                   (PublicKey)
-import           Pos.Ssc.DynamicState.Base    (CommitmentsMap, Opening, OpeningsMap,
+import           Pos.Ssc.GodTossing.Base    (CommitmentsMap, Opening, OpeningsMap,
                                                SharesMap, SignedCommitment,
                                                VssCertificatesMap)
-import           Pos.Ssc.DynamicState.Genesis (genesisCertificates)
+import           Pos.Ssc.GodTossing.Genesis (genesisCertificates)
 import           Pos.Types                    (SlotId, unflattenSlotId)
 
 data DSStorageVersion = DSStorageVersion

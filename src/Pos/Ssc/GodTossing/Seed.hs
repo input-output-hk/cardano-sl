@@ -3,7 +3,7 @@
 
 -- | Actual shared seed calculation.
 
-module Pos.Ssc.DynamicState.Seed
+module Pos.Ssc.GodTossing.Seed
        ( calculateSeed
        ) where
 
@@ -14,9 +14,9 @@ import           Universum
 
 import           Pos.Crypto                 (PublicKey, Secret, Share, Threshold, shareId,
                                              unsafeRecoverSecret)
-import           Pos.Ssc.DynamicState.Base  (CommitmentsMap, OpeningsMap, SharesMap,
+import           Pos.Ssc.GodTossing.Base  (CommitmentsMap, OpeningsMap, SharesMap,
                                              getOpening, secretToFtsSeed, verifyOpening)
-import           Pos.Ssc.DynamicState.Error (SeedError (..))
+import           Pos.Ssc.GodTossing.Error (SeedError (..))
 import           Pos.Types                  (SharedSeed)
 
 getKeys :: HashMap k v -> HashSet k

@@ -137,7 +137,7 @@ argsParser =
         (long "json-log" <> metavar "FILEPATH" <>
          help "Path to json log file")) <*>
     option (fromParsec sscAlgoParser)
-        (long "ssc-algo" <> metavar "ALGO" <> value DynamicStateAlgo <> showDefault <>
+        (long "ssc-algo" <> metavar "ALGO" <> value GodTossingAlgo <> showDefault <>
          help "Shared Seed Calculation algorithm which nodes will use")
   where
     peerHelpMsg =

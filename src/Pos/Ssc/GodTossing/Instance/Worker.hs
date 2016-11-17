@@ -3,49 +3,48 @@
 
 -- | Instance of SscWorkersClass.
 
-module Pos.Ssc.DynamicState.Instance.Worker
+module Pos.Ssc.GodTossing.Instance.Worker
        ( -- * Instances
-         -- ** instance SscWorkersClass SscDynamicState
+         -- ** instance SscWorkersClass SscGodTossing
        ) where
 
-import           Control.Lens                       (view, _2, _3)
-import           Control.TimeWarp.Logging           (logDebug, logWarning)
-import           Control.TimeWarp.Timed             (repeatForever)
-import qualified Data.HashMap.Strict                as HM (toList)
-import           Data.List.NonEmpty                 (nonEmpty)
-import           Data.Tagged                        (Tagged (..))
-import           Formatting                         (build, ords, sformat, (%))
-import           Serokell.Util.Exceptions           ()
+import           Control.Lens                     (view, _2, _3)
+import           Control.TimeWarp.Logging         (logDebug, logWarning)
+import           Control.TimeWarp.Timed           (repeatForever)
+import qualified Data.HashMap.Strict              as HM (toList)
+import           Data.List.NonEmpty               (nonEmpty)
+import           Data.Tagged                      (Tagged (..))
+import           Formatting                       (build, ords, sformat, (%))
+import           Serokell.Util.Exceptions         ()
 import           Universum
 
-import           Pos.Constants                      (sscTransmitterInterval)
-import           Pos.Crypto                         (SecretKey, toPublic)
-import           Pos.Slotting                       (getCurrentSlot)
-import           Pos.Ssc.Class.Workers              (SscWorkersClass (..))
-import           Pos.Ssc.DynamicState.Base          (genCommitmentAndOpening,
-                                                     genCommitmentAndOpening,
-                                                     isCommitmentIdx, isOpeningIdx,
-                                                     isSharesIdx, mkSignedCommitment)
-import           Pos.Ssc.DynamicState.Base          (Opening, SignedCommitment)
-import           Pos.Ssc.DynamicState.Instance.Type (SscDynamicState)
-import           Pos.Ssc.DynamicState.Server        ()
-import           Pos.Ssc.DynamicState.Server        (announceCommitment,
-                                                     announceCommitments, announceOpening,
-                                                     announceOpenings, announceShares,
-                                                     announceSharesMulti,
-                                                     announceVssCertificates)
-import           Pos.Ssc.DynamicState.Types         (DSMessage (..), DSPayload (..),
-                                                     hasCommitment, hasOpening, hasShares)
-import           Pos.State                          (getGlobalMpcData, getLocalSscPayload,
-                                                     getOurShares, getParticipants,
-                                                     getThreshold, getToken,
-                                                     processSscMessage, setToken)
-import           Pos.Types                          (EpochIndex, SlotId (..))
-import           Pos.WorkMode                       (WorkMode, getNodeContext,
-                                                     ncPublicKey, ncSecretKey,
-                                                     ncVssKeyPair)
+import           Pos.Constants                    (sscTransmitterInterval)
+import           Pos.Crypto                       (SecretKey, toPublic)
+import           Pos.Slotting                     (getCurrentSlot)
+import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
+import           Pos.Ssc.GodTossing.Base          (genCommitmentAndOpening,
+                                                   genCommitmentAndOpening,
+                                                   isCommitmentIdx, isOpeningIdx,
+                                                   isSharesIdx, mkSignedCommitment)
+import           Pos.Ssc.GodTossing.Base          (Opening, SignedCommitment)
+import           Pos.Ssc.GodTossing.Instance.Type (SscGodTossing)
+import           Pos.Ssc.GodTossing.Server        ()
+import           Pos.Ssc.GodTossing.Server        (announceCommitment,
+                                                   announceCommitments, announceOpening,
+                                                   announceOpenings, announceShares,
+                                                   announceSharesMulti,
+                                                   announceVssCertificates)
+import           Pos.Ssc.GodTossing.Types         (DSMessage (..), DSPayload (..),
+                                                   hasCommitment, hasOpening, hasShares)
+import           Pos.State                        (getGlobalMpcData, getLocalSscPayload,
+                                                   getOurShares, getParticipants,
+                                                   getThreshold, getToken,
+                                                   processSscMessage, setToken)
+import           Pos.Types                        (EpochIndex, SlotId (..))
+import           Pos.WorkMode                     (WorkMode, getNodeContext, ncPublicKey,
+                                                   ncSecretKey, ncVssKeyPair)
 
-instance SscWorkersClass SscDynamicState where
+instance SscWorkersClass SscGodTossing where
     sscOnNewSlot = Tagged onNewSlot
     sscWorkers = Tagged [sscTransmitter]
 
@@ -56,7 +55,7 @@ instance SscWorkersClass SscDynamicState where
 -- won't set the secret if there's one already).
 -- Nothing is returned if node is not ready.
 generateAndSetNewSecret
-    :: WorkMode SscDynamicState m
+    :: WorkMode SscGodTossing m
     => SecretKey
     -> EpochIndex                         -- ^ Current epoch
     -> m (Maybe (SignedCommitment, Opening))
@@ -74,14 +73,14 @@ generateAndSetNewSecret sk epoch = do
             Just (comm, op) <$ setToken (toPublic sk, comm, op)
 
 
-onNewSlot :: WorkMode SscDynamicState m => SlotId -> m ()
+onNewSlot :: WorkMode SscGodTossing m => SlotId -> m ()
 onNewSlot slotId = do
     onNewSlotCommitment slotId
     onNewSlotOpening slotId
     onNewSlotShares slotId
 
 -- Commitments-related part of new slot processing
-onNewSlotCommitment :: WorkMode SscDynamicState m => SlotId -> m ()
+onNewSlotCommitment :: WorkMode SscGodTossing m => SlotId -> m ()
 onNewSlotCommitment SlotId {..} = do
     ourPk <- ncPublicKey <$> getNodeContext
     ourSk <- ncSecretKey <$> getNodeContext
@@ -106,7 +105,7 @@ onNewSlotCommitment SlotId {..} = do
             () <$ processSscMessage (DSCommitments $ pure (ourPk, comm))
 
 -- Openings-related part of new slot processing
-onNewSlotOpening :: WorkMode SscDynamicState m => SlotId -> m ()
+onNewSlotOpening :: WorkMode SscGodTossing m => SlotId -> m ()
 onNewSlotOpening SlotId {..} = do
     ourPk <- ncPublicKey <$> getNodeContext
     shouldSendOpening <- do
@@ -120,7 +119,7 @@ onNewSlotOpening SlotId {..} = do
             () <$ processSscMessage (DSOpenings $ pure (ourPk, open))
 
 -- Shares-related part of new slot processing
-onNewSlotShares :: WorkMode SscDynamicState m => SlotId -> m ()
+onNewSlotShares :: WorkMode SscGodTossing m => SlotId -> m ()
 onNewSlotShares SlotId {..} = do
     ourPk <- ncPublicKey <$> getNodeContext
     -- Send decrypted shares that others have sent us
@@ -137,7 +136,7 @@ onNewSlotShares SlotId {..} = do
             logDebug "Sent shares to neighbors"
             () <$ processSscMessage (DSSharesMulti $ pure (ourPk, shares))
 
-sscTransmitter :: WorkMode SscDynamicState m => m ()
+sscTransmitter :: WorkMode SscGodTossing m => m ()
 sscTransmitter =
     repeatForever sscTransmitterInterval onError $
     do DSPayload {..} <- getLocalSscPayload =<< getCurrentSlot

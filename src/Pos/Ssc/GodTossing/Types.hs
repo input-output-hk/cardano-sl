@@ -8,7 +8,7 @@
 -- See https://eprint.iacr.org/2015/889.pdf (“A Provably Secure
 -- Proof-of-Stake Blockchain Protocol”), section 4 for more details.
 
-module Pos.Ssc.DynamicState.Types
+module Pos.Ssc.GodTossing.Types
        (
          -- * Instance types
          DSPayload(..)
@@ -47,7 +47,7 @@ import           Universum
 import           Pos.Constants             (k)
 import           Pos.Crypto                (Hash, PublicKey, Share, hash)
 import           Pos.Ssc.Class.Types       (SscTypes (SscPayload))
-import           Pos.Ssc.DynamicState.Base (CommitmentsMap, Opening, OpeningsMap,
+import           Pos.Ssc.GodTossing.Base (CommitmentsMap, Opening, OpeningsMap,
                                             SharesMap, SignedCommitment, VssCertificate,
                                             VssCertificatesMap, checkCert, isCommitmentId,
                                             isOpeningId, isSharesId,

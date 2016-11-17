@@ -1,8 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 
--- | Arbitrary instances for DynamicState types.
+-- | Arbitrary instances for GodTossing types.
 
-module Pos.Ssc.DynamicState.Arbitrary
+module Pos.Ssc.GodTossing.Arbitrary
        ( CommitmentOpening (..)
        ) where
 
@@ -14,9 +14,9 @@ import           Universum
 import           Pos.Crypto                 (SecretProof, SecretSharingExtra,
                                              deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Crypto.Arbitrary       ()
-import           Pos.Ssc.DynamicState.Base  (Commitment (..), Opening,
+import           Pos.Ssc.GodTossing.Base  (Commitment (..), Opening,
                                              genCommitmentAndOpening)
-import           Pos.Ssc.DynamicState.Types (DSProof (..))
+import           Pos.Ssc.GodTossing.Types (DSProof (..))
 import           Pos.Types.Arbitrary.Unsafe ()
 import           Pos.Util.Arbitrary         (Nonrepeating (..), sublistN, unsafeMakePool)
 
@@ -48,7 +48,7 @@ instance Arbitrary Commitment where
 instance Arbitrary Opening where
     arbitrary = coOpening <$> arbitrary
 
--- TODO: these types are not in Pos.Ssc.DynamicState actually, but they are
+-- TODO: these types are not in Pos.Ssc.GodTossing actually, but they are
 -- needed and it's not so easy to do it better
 instance Arbitrary SecretSharingExtra where
     arbitrary = commExtra <$> arbitrary

@@ -12,9 +12,9 @@
 
 -- | Instance of SscStorageClass.
 
-module Pos.Ssc.DynamicState.Instance.Storage
+module Pos.Ssc.GodTossing.Instance.Storage
        ( -- * Instances
-         -- ** instance SscStorageClass SscDynamicState
+         -- ** instance SscStorageClass SscGodTossing
        ) where
 
 import           Control.Lens                        (Lens', at, ix, preview, to, use,
@@ -43,19 +43,19 @@ import           Pos.FollowTheSatoshi                (followTheSatoshi)
 import           Pos.Ssc.Class.Storage               (HasSscStorage (..), SscQuery,
                                                       SscStorageClass (..), SscUpdate)
 import           Pos.Ssc.Class.Types                 (SscTypes (..))
-import           Pos.Ssc.DynamicState.Base           (Commitment (..),
+import           Pos.Ssc.GodTossing.Base           (Commitment (..),
                                                       CommitmentSignature, CommitmentsMap,
                                                       OpeningsMap, VssCertificate,
                                                       VssCertificatesMap, isCommitmentIdx,
                                                       isOpeningIdx, isSharesIdx,
                                                       verifyOpening,
                                                       verifySignedCommitment)
-import           Pos.Ssc.DynamicState.Base           (Opening, SignedCommitment)
-import           Pos.Ssc.DynamicState.Error          (SeedError)
-import           Pos.Ssc.DynamicState.Instance.Type  (SscDynamicState)
-import           Pos.Ssc.DynamicState.Instance.Types ()
-import           Pos.Ssc.DynamicState.Seed           (calculateSeed)
-import           Pos.Ssc.DynamicState.Storage        (DSStorage, DSStorageVersion (..),
+import           Pos.Ssc.GodTossing.Base           (Opening, SignedCommitment)
+import           Pos.Ssc.GodTossing.Error          (SeedError)
+import           Pos.Ssc.GodTossing.Instance.Type  (SscGodTossing)
+import           Pos.Ssc.GodTossing.Instance.Types ()
+import           Pos.Ssc.GodTossing.Seed           (calculateSeed)
+import           Pos.Ssc.GodTossing.Storage        (DSStorage, DSStorageVersion (..),
                                                       dsCurrentSecretL,
                                                       dsGlobalCertificates,
                                                       dsGlobalCommitments,
@@ -64,7 +64,7 @@ import           Pos.Ssc.DynamicState.Storage        (DSStorage, DSStorageVersio
                                                       dsLocalCertificates,
                                                       dsLocalCommitments, dsLocalOpenings,
                                                       dsLocalShares, dsVersionedL)
-import           Pos.Ssc.DynamicState.Types          (DSMessage (..), DSPayload (..),
+import           Pos.Ssc.GodTossing.Types          (DSMessage (..), DSPayload (..),
                                                       filterDSPayload, hasCommitment,
                                                       hasOpening, hasShares,
                                                       mdCommitments, mdOpenings, mdShares,
@@ -79,10 +79,10 @@ import           Pos.Util                            (magnify', readerToState, z
                                                       _neHead)
 
 -- acid-state requires this instance because of a bug
-instance SafeCopy SscDynamicState
-instance Serialize SscDynamicState where
-    put = panic "put@SscDynamicState: can't happen"
-    get = panic "get@SscDynamicState: can't happen"
+instance SafeCopy SscGodTossing
+instance Serialize SscGodTossing where
+    put = panic "put@SscGodTossing: can't happen"
+    get = panic "get@SscGodTossing: can't happen"
 
 helper :: (NonEmpty (a, b) -> DSMessage)
        -> (a -> b -> Update Bool)
@@ -95,7 +95,7 @@ helper c f ne = do
       then return Nothing
       else return $ Just . c . fromList $ updated
 
-instance SscStorageClass SscDynamicState where
+instance SscStorageClass SscGodTossing where
     sscApplyBlocks = mpcApplyBlocks
     sscPrepareToNewSlot = mpcProcessNewSlot
     sscProcessMessage (DSCommitments ne)     =
@@ -121,29 +121,29 @@ instance SscStorageClass SscDynamicState where
 
     sscVerifyPayload = Tagged verifyDSPayload
 
-type Query a = SscQuery SscDynamicState a
-type Update a = SscUpdate SscDynamicState a
+type Query a = SscQuery SscGodTossing a
+type Update a = SscUpdate SscGodTossing a
 
 instance (SscStorage ssc ~ DSStorage) => HasSscStorage ssc DSStorage where
     sscStorage = identity
 
 dsVersioned
-    :: HasSscStorage SscDynamicState a =>
+    :: HasSscStorage SscGodTossing a =>
        Lens' a (NonEmpty DSStorageVersion)
-dsVersioned = sscStorage @SscDynamicState . dsVersionedL
+dsVersioned = sscStorage @SscGodTossing . dsVersionedL
 
 dsCurrentSecret
-    :: HasSscStorage SscDynamicState a =>
+    :: HasSscStorage SscGodTossing a =>
        Lens' a (Maybe (PublicKey, SignedCommitment, Opening))
-dsCurrentSecret = sscStorage @SscDynamicState . dsCurrentSecretL
+dsCurrentSecret = sscStorage @SscGodTossing . dsCurrentSecretL
 
 dsLastProcessedSlot
-    :: HasSscStorage SscDynamicState a
+    :: HasSscStorage SscGodTossing a
     => Lens' a SlotId
-dsLastProcessedSlot = sscStorage @SscDynamicState . dsLastProcessedSlotL
+dsLastProcessedSlot = sscStorage @SscGodTossing . dsLastProcessedSlotL
 
 -- | A lens to access the last version of DSStorage
-lastVer :: HasSscStorage SscDynamicState a => Lens' a DSStorageVersion
+lastVer :: HasSscStorage SscGodTossing a => Lens' a DSStorageVersion
 lastVer = dsVersioned . _neHead
 
 --traceMpcLastVer :: Update ()
@@ -236,7 +236,7 @@ calculateLeaders
     -> Utxo            -- ^ Utxo (k slots before the end of epoch)
     -> Threshold
     -> Query (Either SeedError SlotLeaders)
-calculateLeaders _ utxo threshold = do --DynamicState doesn't use epoch, but NistBeacon use it
+calculateLeaders _ utxo threshold = do --GodTossing doesn't use epoch, but NistBeacon use it
     mbSeed <- calculateSeed threshold
                             <$> view (lastVer . dsGlobalCommitments)
                             <*> view (lastVer . dsGlobalOpenings)
@@ -394,9 +394,9 @@ mpcVerifyBlock (Right b) = magnify' lastVer $ do
 -- TODO:
 --   ★ verification messages should include block hash/slotId
 --   ★ we should stop at first failing block
-mpcVerifyBlocks :: Word -> AltChain SscDynamicState -> Query VerificationRes
+mpcVerifyBlocks :: Word -> AltChain SscGodTossing -> Query VerificationRes
 mpcVerifyBlocks toRollback blocks = do
-    curState <- view (sscStorage @SscDynamicState)
+    curState <- view (sscStorage @SscGodTossing)
     return $ flip evalState curState $ do
         mpcRollback toRollback
         vs <- forM blocks $ \b -> do

@@ -1,6 +1,6 @@
 -- | Genesis values related to Dynamic State SSC.
 
-module Pos.Ssc.DynamicState.Genesis
+module Pos.Ssc.GodTossing.Genesis
        ( genesisVssKeyPairs
        , genesisVssPublicKeys
        , genesisCertificates
@@ -16,7 +16,7 @@ import           Pos.Crypto                (VssKeyPair, VssPublicKey,
                                             deterministicVssKeyGen, mkSigned,
                                             toVssPublicKey)
 import           Pos.Genesis               (genesisKeyPairs)
-import           Pos.Ssc.DynamicState.Base (VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Base (VssCertificatesMap)
 
 genesisVssKeyPairs :: [VssKeyPair]
 genesisVssKeyPairs = map gen [0 .. genesisN - 1]

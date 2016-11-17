@@ -53,7 +53,7 @@ import           Pos.Ssc.GodTossing.Error          (SeedError)
 import           Pos.Ssc.GodTossing.Instance.Type  (SscGodTossing)
 import           Pos.Ssc.GodTossing.Instance.Types ()
 import           Pos.Ssc.GodTossing.Seed           (calculateSeed)
-import           Pos.Ssc.GodTossing.Storage        (DSStorage, DSStorageVersion (..),
+import           Pos.Ssc.GodTossing.Storage        (GtStorage, GtStorageVersion (..),
                                                     dsCurrentSecretL,
                                                     dsGlobalCertificates,
                                                     dsGlobalCommitments, dsGlobalOpenings,
@@ -61,11 +61,11 @@ import           Pos.Ssc.GodTossing.Storage        (DSStorage, DSStorageVersion 
                                                     dsLocalCertificates,
                                                     dsLocalCommitments, dsLocalOpenings,
                                                     dsLocalShares, dsVersionedL)
-import           Pos.Ssc.GodTossing.Types          (DSMessage (..), DSPayload (..),
-                                                    filterDSPayload, hasCommitment,
+import           Pos.Ssc.GodTossing.Types          (GtMessage (..), GtPayload (..),
+                                                    filterGtPayload, hasCommitment,
                                                     hasOpening, hasShares, mdCommitments,
                                                     mdOpenings, mdShares,
-                                                    mdVssCertificates, verifyDSPayload)
+                                                    mdVssCertificates, verifyGtPayload)
 import           Pos.State.Storage.Types           (AltChain)
 import           Pos.Types                         (Address (getAddress), Block,
                                                     EpochIndex, SlotId (..), SlotLeaders,
@@ -80,10 +80,10 @@ instance Serialize SscGodTossing where
     put = panic "put@SscGodTossing: can't happen"
     get = panic "get@SscGodTossing: can't happen"
 
-helper :: (NonEmpty (a, b) -> DSMessage)
+helper :: (NonEmpty (a, b) -> GtMessage)
        -> (a -> b -> Update Bool)
        -> NonEmpty (a, b)
-       -> Update (Maybe DSMessage)
+       -> Update (Maybe GtMessage)
 helper c f ne = do
     res <- toList <$> mapM (uncurry f) ne
     let updated = map snd . filter fst . zip res . toList $ ne
@@ -115,17 +115,17 @@ instance SscStorageClass SscGodTossing where
     sscGetParticipants = getParticipants
     sscCalculateLeaders = calculateLeaders
 
-    sscVerifyPayload = Tagged verifyDSPayload
+    sscVerifyPayload = Tagged verifyGtPayload
 
 type Query a = SscQuery SscGodTossing a
 type Update a = SscUpdate SscGodTossing a
 
-instance (SscStorage ssc ~ DSStorage) => HasSscStorage ssc DSStorage where
+instance (SscStorage ssc ~ GtStorage) => HasSscStorage ssc GtStorage where
     sscStorage = identity
 
 dsVersioned
     :: HasSscStorage SscGodTossing a =>
-       Lens' a (NonEmpty DSStorageVersion)
+       Lens' a (NonEmpty GtStorageVersion)
 dsVersioned = sscStorage @SscGodTossing . dsVersionedL
 
 dsCurrentSecret
@@ -138,8 +138,8 @@ dsLastProcessedSlot
     => Lens' a SlotId
 dsLastProcessedSlot = sscStorage @SscGodTossing . dsLastProcessedSlotL
 
--- | A lens to access the last version of DSStorage
-lastVer :: HasSscStorage SscGodTossing a => Lens' a DSStorageVersion
+-- | A lens to access the last version of GtStorage
+lastVer :: HasSscStorage SscGodTossing a => Lens' a GtStorageVersion
 lastVer = dsVersioned . _neHead
 
 --traceMpcLastVer :: Update ()
@@ -157,29 +157,29 @@ lastVer = dsVersioned . _neHead
 --                          <> " shares=" <> show (localShareKeys, globalShareKeys)
 --  where keys' = fmap pretty . HM.keys
 
-getLocalPayload :: SlotId -> Query DSPayload
+getLocalPayload :: SlotId -> Query GtPayload
 getLocalPayload slotId =
-    (filterDSPayload slotId <$> getStoredLocalPayload) >>= ensureOwnMpc slotId
+    (filterGtPayload slotId <$> getStoredLocalPayload) >>= ensureOwnMpc slotId
 
-getStoredLocalPayload :: Query DSPayload
+getStoredLocalPayload :: Query GtPayload
 getStoredLocalPayload =
     magnify' lastVer $
-    DSPayload <$> view dsLocalCommitments <*> view dsLocalOpenings <*>
+    GtPayload <$> view dsLocalCommitments <*> view dsLocalOpenings <*>
     view dsLocalShares <*> view dsLocalCertificates
 
-ensureOwnMpc :: SlotId -> DSPayload -> Query DSPayload
+ensureOwnMpc :: SlotId -> GtPayload -> Query GtPayload
 ensureOwnMpc slotId payload = do
     globalMpc <- getGlobalMpcData
     ourSecret <- view dsCurrentSecret
     return $ maybe identity (ensureOwnMpcDo globalMpc slotId) ourSecret payload
 
 ensureOwnMpcDo
-    :: DSPayload
+    :: GtPayload
     -> SlotId
     -- -> (HashMap PublicKey Share)
     -> (PublicKey, SignedCommitment, Opening)
-    -> DSPayload
-    -> DSPayload
+    -> GtPayload
+    -> GtPayload
 ensureOwnMpcDo globalMpcData (siSlot -> slotIdx) (pk, comm, opening) md
     | isCommitmentIdx slotIdx && (not $ hasCommitment pk globalMpcData) =
         md & mdCommitments . at pk .~ Just comm
@@ -189,7 +189,7 @@ ensureOwnMpcDo globalMpcData (siSlot -> slotIdx) (pk, comm, opening) md
         md   -- TODO: set our shares, but it's not so easy :(
     | otherwise = md
 
-getGlobalMpcData :: Query DSPayload
+getGlobalMpcData :: Query GtPayload
 getGlobalMpcData =
     fromMaybe (panic "No global SSC payload for depth 0") <$>
     getGlobalMpcDataByDepth 0
@@ -198,12 +198,12 @@ getGlobalMpcData =
 --
 -- specifically, I'm not sure whether versioning here and versioning in .Tx
 -- are the same versionings
-getGlobalMpcDataByDepth :: Word -> Query (Maybe DSPayload)
+getGlobalMpcDataByDepth :: Word -> Query (Maybe GtPayload)
 getGlobalMpcDataByDepth (fromIntegral -> depth) =
     preview $ dsVersioned . ix depth . to mkGlobalMpcData
   where
-    mkGlobalMpcData DSStorageVersion {..} =
-        DSPayload
+    mkGlobalMpcData GtStorageVersion {..} =
+        GtPayload
         { _mdCommitments = _dsGlobalCommitments
         , _mdOpenings = _dsGlobalOpenings
         , _mdShares = _dsGlobalShares
@@ -302,12 +302,12 @@ checkSharesLastVer pk shares =
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
 mpcVerifyBlock
-    :: forall ssc . (SscPayload ssc ~ DSPayload)
+    :: forall ssc . (SscPayload ssc ~ GtPayload)
     => Block ssc -> Query VerificationRes
 -- Genesis blocks don't have any SSC data.
 mpcVerifyBlock (Left _) = return VerSuccess
 -- Main blocks have commitments, openings, shares and VSS certificates.
--- We use verifyDSPayload to make the most general checks and also use
+-- We use verifyGtPayload to make the most general checks and also use
 -- global data to make more checks using this data.
 mpcVerifyBlock (Right b) = magnify' lastVer $ do
     let SlotId{siSlot = slotId} = b ^. blockSlot
@@ -385,7 +385,7 @@ mpcVerifyBlock (Right b) = magnify' lastVer $ do
             , [ shareChecks      | isShare ]
             ]
 
-    return (verifyDSPayload @ssc (b ^. gbHeader) payload <> ourRes)
+    return (verifyGtPayload @ssc (b ^. gbHeader) payload <> ourRes)
 
 -- TODO:
 --   ★ verification messages should include block hash/slotId
@@ -473,7 +473,7 @@ mpcProcessNewSlot si@SlotId {siEpoch = epochIdx, siSlot = slotIdx} = do
 -- | Apply sequence of blocks to state. Sequence must be based on last
 -- applied block and must be valid.
 mpcApplyBlocks
-    :: (SscPayload ssc ~ DSPayload)
+    :: (SscPayload ssc ~ GtPayload)
     => AltChain ssc -> Update ()
 mpcApplyBlocks = mapM_ mpcProcessBlock
 
@@ -482,7 +482,7 @@ mpcRollback (fromIntegral -> n) = do
     dsVersioned %= (fromMaybe (def :| []) . NE.nonEmpty . NE.drop n)
 
 mpcProcessBlock
-    :: (SscPayload ssc ~ DSPayload)
+    :: (SscPayload ssc ~ GtPayload)
     => Block ssc -> Update ()
 mpcProcessBlock blk = do
     --identity $! traceM . (<>) ("[~~~~~~] MPC Processing " <> (either (const "genesis") (const "main") blk) <> " block for epoch: ") . pretty $ blk ^. epochIndexL

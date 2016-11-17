@@ -23,14 +23,14 @@ import           Pos.DHT                           (ListenerDHT (..))
 import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
 import           Pos.Ssc.GodTossing.Instance.Type  (SscGodTossing)
 import           Pos.Ssc.GodTossing.Instance.Types ()
-import           Pos.Ssc.GodTossing.Types          (DSMessage (..))
+import           Pos.Ssc.GodTossing.Types          (GtMessage (..))
 import qualified Pos.State                         as St
 import           Pos.WorkMode                      (WorkMode)
 
 instance SscListenersClass SscGodTossing where
     sscListeners = Tagged [ListenerDHT handleSsc]
 
-handleSsc :: WorkMode SscGodTossing m => DSMessage -> m ()
+handleSsc :: WorkMode SscGodTossing m => GtMessage -> m ()
 handleSsc m = do
     processed <- St.processSscMessage m
     let msgName = dsMessageName m
@@ -42,26 +42,26 @@ handleSsc m = do
             | otherwise = distConstrsError m p
     whenJust processed call
 
-dsMessageName :: DSMessage -> Text
+dsMessageName :: GtMessage -> Text
 dsMessageName (DSCommitments _)     = "commitments"
 dsMessageName (DSOpenings _)        = "openings"
 dsMessageName (DSSharesMulti _)     = "shares"
 dsMessageName (DSVssCertificates _) = "VSS certificates"
 
-checkSameConstrs :: DSMessage -> DSMessage -> Bool
+checkSameConstrs :: GtMessage -> GtMessage -> Bool
 checkSameConstrs (DSCommitments _) (DSCommitments _)         = True
 checkSameConstrs (DSOpenings _) (DSOpenings _)               = True
 checkSameConstrs (DSSharesMulti _) (DSSharesMulti _)         = True
 checkSameConstrs (DSVssCertificates _) (DSVssCertificates _) = True
 checkSameConstrs _ _                                         = False
 
-getMessageKeys :: DSMessage -> [PublicKey]
+getMessageKeys :: GtMessage -> [PublicKey]
 getMessageKeys (DSCommitments l)     = map fst . toList $ l
 getMessageKeys (DSOpenings l)        = map fst . toList $ l
 getMessageKeys (DSSharesMulti l)     = map fst . toList $ l
 getMessageKeys (DSVssCertificates l) = map fst . toList $ l
 
-getAddedAndIgnored :: DSMessage -> Maybe DSMessage -> ([PublicKey], [PublicKey])
+getAddedAndIgnored :: GtMessage -> Maybe GtMessage -> ([PublicKey], [PublicKey])
 getAddedAndIgnored before after = (added, ignored)
   where
     beforeKeys = getMessageKeys before
@@ -81,7 +81,7 @@ loggerAction dsType added pkeys = logAction msg
       logAction | added = logInfo
                 | otherwise = logDebug
 
-distConstrsError :: WorkMode SscGodTossing m => DSMessage -> DSMessage -> m ()
+distConstrsError :: WorkMode SscGodTossing m => GtMessage -> GtMessage -> m ()
 distConstrsError ex reci = do
     logError $
             sformat ("Internal error: "%stext%" constructor\

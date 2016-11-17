@@ -34,7 +34,7 @@ import           Pos.Ssc.GodTossing.Server        (announceCommitment,
                                                    announceOpenings, announceShares,
                                                    announceSharesMulti,
                                                    announceVssCertificates)
-import           Pos.Ssc.GodTossing.Types         (DSMessage (..), DSPayload (..),
+import           Pos.Ssc.GodTossing.Types         (GtMessage (..), GtPayload (..),
                                                    hasCommitment, hasOpening, hasShares)
 import           Pos.State                        (getGlobalMpcData, getLocalSscPayload,
                                                    getOurShares, getParticipants,
@@ -139,7 +139,7 @@ onNewSlotShares SlotId {..} = do
 sscTransmitter :: WorkMode SscGodTossing m => m ()
 sscTransmitter =
     repeatForever sscTransmitterInterval onError $
-    do DSPayload {..} <- getLocalSscPayload =<< getCurrentSlot
+    do GtPayload {..} <- getLocalSscPayload =<< getCurrentSlot
        whenJust (nonEmpty $ HM.toList _mdCommitments) announceCommitments
        whenJust (nonEmpty $ HM.toList _mdOpenings) announceOpenings
        whenJust (nonEmpty $ HM.toList _mdShares) announceSharesMulti

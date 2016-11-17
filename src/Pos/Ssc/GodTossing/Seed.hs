@@ -7,17 +7,17 @@ module Pos.Ssc.GodTossing.Seed
        ( calculateSeed
        ) where
 
-import           Control.Arrow              ((&&&))
-import qualified Data.HashMap.Strict        as HM (fromList, lookup, mapMaybe, toList)
-import qualified Data.HashSet               as HS (difference, fromMap)
+import           Control.Arrow            ((&&&))
+import qualified Data.HashMap.Strict      as HM (fromList, lookup, mapMaybe, toList)
+import qualified Data.HashSet             as HS (difference, fromMap)
 import           Universum
 
-import           Pos.Crypto                 (PublicKey, Secret, Share, Threshold, shareId,
-                                             unsafeRecoverSecret)
+import           Pos.Crypto               (PublicKey, Secret, Share, Threshold, shareId,
+                                           unsafeRecoverSecret)
 import           Pos.Ssc.GodTossing.Base  (CommitmentsMap, OpeningsMap, SharesMap,
-                                             getOpening, secretToFtsSeed, verifyOpening)
+                                           getOpening, secretToSharedSeed, verifyOpening)
 import           Pos.Ssc.GodTossing.Error (SeedError (..))
-import           Pos.Types                  (SharedSeed)
+import           Pos.Types                (SharedSeed)
 
 getKeys :: HashMap k v -> HashSet k
 getKeys = HS.fromMap . void
@@ -99,4 +99,4 @@ calculateSeed (fromIntegral -> t) commitments openings shares = do
                    \but they produced no secrets somehow"
        | null secrets -> Left NoParticipants
        | otherwise    -> Right $
-                         mconcat $ map secretToFtsSeed (toList secrets)
+                         mconcat $ map secretToSharedSeed (toList secrets)

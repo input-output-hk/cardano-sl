@@ -14,9 +14,9 @@ import           Universum
 import           Pos.Crypto                 (SecretProof, SecretSharingExtra,
                                              deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Crypto.Arbitrary       ()
-import           Pos.Ssc.GodTossing.Base  (Commitment (..), Opening,
+import           Pos.Ssc.GodTossing.Base    (Commitment (..), Opening,
                                              genCommitmentAndOpening)
-import           Pos.Ssc.GodTossing.Types (DSProof (..))
+import           Pos.Ssc.GodTossing.Types   (GtProof (..))
 import           Pos.Types.Arbitrary.Unsafe ()
 import           Pos.Util.Arbitrary         (Nonrepeating (..), sublistN, unsafeMakePool)
 
@@ -56,4 +56,4 @@ instance Arbitrary SecretSharingExtra where
 instance Arbitrary SecretProof where
     arbitrary = commProof <$> arbitrary
 
-derive makeArbitrary ''DSProof
+derive makeArbitrary ''GtProof

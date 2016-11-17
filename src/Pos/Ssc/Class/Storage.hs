@@ -41,7 +41,7 @@ class HasSscStorage ssc a where
     sscStorage :: Lens' a (SscStorage ssc)
 
 class Ssc ssc => SscStorageClass ssc where
-    -- sscCalculateSeed :: SscQuery ssc (Either (SscSeedError ssc) FtsSeed)
+    -- sscCalculateSeed :: SscQuery ssc (Either (SscSeedError ssc) SharedSeed)
 
     sscApplyBlocks :: AltChain ssc -> SscUpdate ssc ()
     -- | Should be executed before doing any updates within given slot.

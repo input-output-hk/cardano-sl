@@ -21,8 +21,8 @@ import           Pos.Crypto               (KeyPair (..), Share, Threshold, VssKe
                                            decryptShare, sign, toVssPublicKey)
 import           Pos.Ssc.DynamicState     (Commitment (..), CommitmentsMap, Opening (..),
                                            SeedError (..), calculateSeed,
-                                           genCommitmentAndOpening, secretToFtsSeed)
-import           Pos.Types                (FtsSeed (..))
+                                           genCommitmentAndOpening, secretToSharedSeed)
+import           Pos.Types                (SharedSeed (..))
 import           Pos.Util                 (nonrepeating, sublistN)
 
 spec :: Spec
@@ -94,9 +94,9 @@ recoverSecretsProp n n_openings n_shares n_overlap
 recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
     let threshold = pickThreshold n
     (keys, vssKeys, comms, opens) <- generateKeysAndMpc threshold n
-    let seeds :: [FtsSeed]
-        seeds = map (secretToFtsSeed . getOpening) opens
-    let expectedSharedSeed :: FtsSeed
+    let seeds :: [SharedSeed]
+        seeds = map (secretToSharedSeed . getOpening) opens
+    let expectedSharedSeed :: SharedSeed
         expectedSharedSeed = mconcat seeds
     haveSentBoth <- generate $
         sublistN n_overlap keys

@@ -6,16 +6,16 @@ module Pos.Ssc.GodTossing.Genesis
        , genesisCertificates
        ) where
 
-import qualified Data.HashMap.Strict       as HM
-import qualified Data.Text                 as T
-import           Formatting                (int, sformat, (%))
+import qualified Data.HashMap.Strict     as HM
+import qualified Data.Text               as T
+import           Formatting              (int, sformat, (%))
 import           Universum
 
-import           Pos.Constants             (genesisN)
-import           Pos.Crypto                (VssKeyPair, VssPublicKey,
-                                            deterministicVssKeyGen, mkSigned,
-                                            toVssPublicKey)
-import           Pos.Genesis               (genesisKeyPairs)
+import           Pos.Constants           (genesisN)
+import           Pos.Crypto              (VssKeyPair, VssPublicKey,
+                                          deterministicVssKeyGen, mkSigned,
+                                          toVssPublicKey)
+import           Pos.Genesis             (genesisKeyPairs)
 import           Pos.Ssc.GodTossing.Base (VssCertificatesMap)
 
 genesisVssKeyPairs :: [VssKeyPair]

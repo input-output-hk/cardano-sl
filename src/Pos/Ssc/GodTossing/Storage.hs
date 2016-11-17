@@ -10,15 +10,15 @@
 -- | Dynamic State storage.
 
 module Pos.Ssc.GodTossing.Storage
-       ( DSStorage (..)
-       , DSStorageVersion (..)
+       ( GtStorage (..)
+       , GtStorageVersion (..)
 
        -- * Lenses
-       -- ** DSStorage
+       -- ** GtStorage
        , dsVersionedL
        , dsCurrentSecretL
        , dsLastProcessedSlotL
-       -- ** DSStorageVersion
+       -- ** GtStorageVersion
        , dsLocalCommitments
        , dsGlobalCommitments
        , dsLocalShares
@@ -29,21 +29,21 @@ module Pos.Ssc.GodTossing.Storage
        , dsGlobalCertificates
        ) where
 
-import           Control.Lens                 (makeLenses, makeLensesFor)
-import           Data.Default                 (Default (..))
-import           Data.List.NonEmpty           (NonEmpty (..))
-import           Data.List.NonEmpty           (NonEmpty ((:|)))
-import           Data.SafeCopy                (base, deriveSafeCopySimple)
+import           Control.Lens               (makeLenses, makeLensesFor)
+import           Data.Default               (Default (..))
+import           Data.List.NonEmpty         (NonEmpty (..))
+import           Data.List.NonEmpty         (NonEmpty ((:|)))
+import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import           Universum
 
-import           Pos.Crypto                   (PublicKey)
+import           Pos.Crypto                 (PublicKey)
 import           Pos.Ssc.GodTossing.Base    (CommitmentsMap, Opening, OpeningsMap,
-                                               SharesMap, SignedCommitment,
-                                               VssCertificatesMap)
+                                             SharesMap, SignedCommitment,
+                                             VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Genesis (genesisCertificates)
-import           Pos.Types                    (SlotId, unflattenSlotId)
+import           Pos.Types                  (SlotId, unflattenSlotId)
 
-data DSStorageVersion = DSStorageVersion
+data GtStorageVersion = GtStorageVersion
     { -- | Local set of 'Commitment's. These are valid commitments which are
       -- known to the node and not stored in blockchain. It is useful only
       -- for the first 'k' slots, after that it should be discarded.
@@ -70,12 +70,12 @@ data DSStorageVersion = DSStorageVersion
       _dsGlobalCertificates :: !VssCertificatesMap }
       deriving Show
 
-makeLenses ''DSStorageVersion
-deriveSafeCopySimple 0 'base ''DSStorageVersion
+makeLenses ''GtStorageVersion
+deriveSafeCopySimple 0 'base ''GtStorageVersion
 
-instance Default DSStorageVersion where
+instance Default GtStorageVersion where
     def =
-        DSStorageVersion
+        GtStorageVersion
         { _dsLocalCommitments = mempty
         , _dsGlobalCommitments = mempty
         , _dsLocalShares = mempty
@@ -86,32 +86,32 @@ instance Default DSStorageVersion where
         , _dsGlobalCertificates = genesisCertificates
         }
 
-data DSStorage = DSStorage
+data GtStorage = GtStorage
     { -- | Last several versions of MPC storage, a version for each received
       -- block. To bring storage to the state as it was just before the last
       -- block arrived, just remove the head. All incoming commitments/etc
       -- which aren't parts of blocks are applied to the head, too.
       --
       -- TODO: this is a very naive solution. A better one would be storing
-      -- deltas for maps which are in 'DSStorageVersion', see [POS-25] for
+      -- deltas for maps which are in 'GtStorageVersion', see [POS-25] for
       -- the explanation of deltas.
-      _dsVersioned         :: NonEmpty DSStorageVersion
+      _dsVersioned         :: NonEmpty GtStorageVersion
     , -- | Secret that we are using for the current epoch.
       _dsCurrentSecret     :: !(Maybe (PublicKey, SignedCommitment, Opening))
     , -- | Last slot we are aware of.
       _dsLastProcessedSlot :: !SlotId
     }
 
-flip makeLensesFor ''DSStorage
+flip makeLensesFor ''GtStorage
     [ ("_dsVersioned", "dsVersionedL")
     , ("_dsCurrentSecret", "dsCurrentSecretL")
     , ("_dsLastProcessedSlot", "dsLastProcessedSlotL")
     ]
-deriveSafeCopySimple 0 'base ''DSStorage
+deriveSafeCopySimple 0 'base ''GtStorage
 
-instance Default DSStorage where
+instance Default GtStorage where
     def =
-        DSStorage
+        GtStorage
         { _dsVersioned = (def :| [])
         , _dsCurrentSecret = Nothing
         , _dsLastProcessedSlot = unflattenSlotId 0

@@ -24,5 +24,5 @@ spec = describe "Types" $ do
         prop "TxIn" (safeCopyEncodeDecode @T.TxIn)
         prop "TxOut" (safeCopyEncodeDecode @T.TxOut)
         prop "Tx" (safeCopyEncodeDecode @T.Tx)
-        prop "FtsSeed" (safeCopyEncodeDecode @T.FtsSeed)
+        prop "SharedSeed" (safeCopyEncodeDecode @T.SharedSeed)
         prop "Chaindifficulty" (safeCopyEncodeDecode @T.ChainDifficulty)

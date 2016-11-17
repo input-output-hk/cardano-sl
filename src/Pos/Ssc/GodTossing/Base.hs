@@ -25,7 +25,7 @@ module Pos.Ssc.GodTossing.Base
        , isSharesId
        , isSharesIdx
        , mkSignedCommitment
-       , secretToFtsSeed
+       , secretToSharedSeed
 
        -- * Verification
        , checkCert
@@ -52,7 +52,7 @@ import           Pos.Crypto          (EncShare, PublicKey, Secret, SecretKey, Se
                                       Signature, Signed (..), Threshold, VssPublicKey,
                                       genSharedSecret, getDhSecret, secretToDhSecret,
                                       sign, verify, verifyEncShare, verifySecretProof)
-import           Pos.Types.Types     (EpochIndex, FtsSeed (..), LocalSlotIndex,
+import           Pos.Types.Types     (EpochIndex, LocalSlotIndex, SharedSeed (..),
                                       SlotId (..))
 
 ----------------------------------------------------------------------------
@@ -87,7 +87,7 @@ instance MessagePack Opening
 
 type OpeningsMap = HashMap PublicKey Opening
 
--- | Each node generates a 'FtsSeed', breaks it into 'Share's, and sends
+-- | Each node generates a 'SharedSeed', breaks it into 'Share's, and sends
 -- those encrypted shares to other nodes. In a 'SharesMap', for each node we
 -- collect shares which said node has received and decrypted.
 --
@@ -114,11 +114,11 @@ deriveSafeCopySimple 0 'base ''Commitment
 -- Functions
 ----------------------------------------------------------------------------
 
--- | Convert Secret to FtsSeed.
-secretToFtsSeed :: Secret -> FtsSeed
-secretToFtsSeed = FtsSeed . getDhSecret . secretToDhSecret
+-- | Convert Secret to SharedSeed.
+secretToSharedSeed :: Secret -> SharedSeed
+secretToSharedSeed = SharedSeed . getDhSecret . secretToDhSecret
 
--- | Generate securely random FtsSeed.
+-- | Generate securely random SharedSeed.
 genCommitmentAndOpening
     :: MonadIO m
     => Threshold -> NonEmpty VssPublicKey -> m (Commitment, Opening)

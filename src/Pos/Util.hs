@@ -119,11 +119,10 @@ deriveSafeCopySimple 0 'base ''VerificationRes
 eitherPanic :: Show a => Text -> Either a b -> b
 eitherPanic msgPrefix = either (panic . (msgPrefix <>) . show) identity
 
-#ifdef ASSERTS_ON
 inAssertMode :: Applicative m => m a -> m ()
-inAssertMode = void
+#ifdef ASSERTS_ON
+inAssertMode x = x *> pure ()
 #else
-inAssertMode :: Applicative m => a -> m ()
 inAssertMode _ = pure ()
 #endif
 {-# INLINE inAssertMode #-}
@@ -208,6 +207,9 @@ _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
 -- TODO: we should try to get this one into safecopy itself though it's
 -- unlikely that they will choose a different implementation (if they do
 -- choose a different implementation we'll have to write a migration)
+--
+-- update: made a PR <https://github.com/acid-state/safecopy/pull/47>;
+-- remove this instance when the pull request is merged
 instance SafeCopy a => SafeCopy (NonEmpty a) where
     getCopy = contain $ do
         xs <- safeGet

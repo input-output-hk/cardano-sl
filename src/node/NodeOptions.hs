@@ -102,11 +102,11 @@ argsParser =
         (option (fromParsec dhtKeyParser) $
          long "dht-key" <> metavar "HOST_ID" <> help "DHT key in base64-url") <*>
     optional
-        (option auto $
+        (strOption $
          long "log-config" <> metavar "FILEPATH" <> help "Path to logger configuration")
     <*>
     optional
-        (option auto $
+        (strOption $
          long "logs-prefix" <> metavar "FILEPATH" <> help "Prefix to logger output path")
     <*>
     switch

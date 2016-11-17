@@ -23,14 +23,17 @@ import           Universum
 spec :: Spec
 spec = describe "Types.Tx" $ do
     describe "verifyTxAlone" $ do
-        prop description_invalidateBadTx invalidateBadTx
+        prop description_validateGoodTxAlone validateGoodTxAlone
+        prop description_invalidateBadTxAlone invalidateBadTxAlone
     describe "verifyTx" $ do
         prop description_validateGoodTx validateGoodTx
         prop description_overflowTx overflowTx
         prop description_badSigsTx badSigsTx
   where
-    description_invalidateBadTx =
-        "invalidates Txs with negative coins or empty inputs/outputs"
+    description_validateGoodTxAlone =
+        "validates Txs with positive coins and non-empty inputs and outputs"
+    description_invalidateBadTxAlone =
+        "invalidates Txs with non-positive coins or empty inputs/outputs"
     description_validateGoodTx =
         "validates a transaction whose inputs and well-formed transaction outputs"
     description_overflowTx =
@@ -39,15 +42,16 @@ spec = describe "Types.Tx" $ do
     description_badSigsTx =
         "a transaction with inputs improperly signed is never validated"
 
-invalidateBadTx :: Tx -> Bool
-invalidateBadTx tx@Tx{..} =
-    (isVerFailure $ mconcat $ fmap (verifyTxAlone . uncurry Tx) $
-    [ ([], outputs) | outputs <- [[], negOutputs, txOutputs]] ++
-    [ (inputs, outputs) | inputs <- [[], txInputs]
-                        , outputs <- [[], negOutputs]]) &&
-    (isVerSuccess $ verifyTxAlone tx)
+validateGoodTxAlone :: Tx -> Bool
+validateGoodTxAlone tx = isVerSuccess $ verifyTxAlone tx
+
+invalidateBadTxAlone :: Tx -> Bool
+invalidateBadTxAlone Tx {..} = all (isVerFailure . verifyTxAlone) badTxs
   where
-    negOutputs = fmap (\(TxOut a c) -> TxOut a (negate c)) txOutputs
+    zeroOutputs = fmap (\(TxOut a _) -> TxOut a (negate 0)) txOutputs
+    badTxs =
+        map (uncurry Tx) $
+        [([], txOutputs), (txInputs, []), (txInputs, zeroOutputs)]
 
 type TxVerifyingTools = (Tx, TxIn -> Maybe TxOut, [Maybe (TxIn, TxOut)])
 

@@ -10,22 +10,22 @@ module Pos.Ssc.GodTossing.Instance.Listeners
          -- ** instance SscListenersClass SscGodTossing
        ) where
 
-import           Control.TimeWarp.Logging            (logDebug, logError, logInfo)
-import           Data.List                           ((\\))
-import           Data.Tagged                         (Tagged (..))
-import           Formatting                          (build, sformat, stext, (%))
-import           Serokell.Util.Text                  (listJson)
+import           Control.TimeWarp.Logging          (logDebug, logError, logInfo)
+import           Data.List                         ((\\))
+import           Data.Tagged                       (Tagged (..))
+import           Formatting                        (build, sformat, stext, (%))
+import           Serokell.Util.Text                (listJson)
 import           Universum
 
-import           Pos.Communication.Methods           (announceSsc)
-import           Pos.Crypto                          (PublicKey)
-import           Pos.DHT                             (ListenerDHT (..))
-import           Pos.Ssc.Class.Listeners             (SscListenersClass (..))
+import           Pos.Communication.Methods         (announceSsc)
+import           Pos.Crypto                        (PublicKey)
+import           Pos.DHT                           (ListenerDHT (..))
+import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
 import           Pos.Ssc.GodTossing.Instance.Type  (SscGodTossing)
 import           Pos.Ssc.GodTossing.Instance.Types ()
 import           Pos.Ssc.GodTossing.Types          (DSMessage (..))
-import qualified Pos.State                           as St
-import           Pos.WorkMode                        (WorkMode)
+import qualified Pos.State                         as St
+import           Pos.WorkMode                      (WorkMode)
 
 instance SscListenersClass SscGodTossing where
     sscListeners = Tagged [ListenerDHT handleSsc]

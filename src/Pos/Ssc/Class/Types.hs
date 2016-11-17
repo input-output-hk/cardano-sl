@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeFamilies     #-}
 
 module Pos.Ssc.Class.Types
-       ( SscTypes(..)
+       ( Ssc(..)
        ) where
 
 import           Data.Binary         (Binary)
@@ -31,7 +31,7 @@ class (Typeable ssc
       ,SafeCopy (SscMessage ssc)
       ,SafeCopy (SscToken ssc)
       ,SafeCopy (SscStorage ssc)) =>
-      SscTypes ssc where
+      Ssc ssc where
 
     -- | Internal SSC state
     type SscStorage ssc

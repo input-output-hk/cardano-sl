@@ -32,7 +32,7 @@ import           Pos.FollowTheSatoshi    (followTheSatoshi)
 import           Pos.Ssc.Class.Listeners (SscListenersClass (..))
 import           Pos.Ssc.Class.Storage   (SscQuery)
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
-import           Pos.Ssc.Class.Types     (SscTypes (..))
+import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Ssc.Class.Workers   (SscWorkersClass (..))
 import           Pos.Types               (EpochIndex, FtsSeed (..), SlotLeaders, Utxo,
                                           getAddress)
@@ -51,7 +51,7 @@ instance Serialize SscNistBeacon where
 instance Buildable () where
     build _ = "()"
 
-instance SscTypes SscNistBeacon where
+instance Ssc SscNistBeacon where
     type SscStorage   SscNistBeacon = ()
     type SscPayload   SscNistBeacon = ()
     type SscProof     SscNistBeacon = ()

@@ -66,7 +66,7 @@ import           Pos.Crypto               (PublicKey, SecretKey, Share, Threshol
                                            VssKeyPair, VssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
-import           Pos.Ssc.Class.Types      (SscTypes (SscMessage, SscPayload, SscStorage, SscToken))
+import           Pos.Ssc.Class.Types      (Ssc (SscMessage, SscPayload, SscStorage, SscToken))
 import           Pos.State.Acidic         (DiskState, tidyState)
 import qualified Pos.State.Acidic         as A
 import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (..),

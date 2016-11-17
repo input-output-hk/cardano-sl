@@ -21,7 +21,7 @@ import qualified Data.Serialize      as Cereal (getWord8, putWord8)
 import qualified Data.Text           as T
 import           Universum
 
-import           Pos.Ssc.Class.Types (SscTypes)
+import           Pos.Ssc.Class.Types (Ssc)
 import           Pos.Types           (Block, BodyProof, HeaderHash, MainBlockchain)
 
 -- | Alternative chain is a list of blocks which potentially
@@ -41,7 +41,7 @@ data ProcessBlockRes ssc
       PBRabort !Text
 
 deriving instance
-         (SscTypes ssc, Show (BodyProof (MainBlockchain ssc))) =>
+         (Ssc ssc, Show (BodyProof (MainBlockchain ssc))) =>
          Show (ProcessBlockRes ssc)
 
 -- | Make `ProcessBlockRes` from list of error messages using
@@ -51,7 +51,7 @@ deriving instance
 mkPBRabort :: [Text] -> ProcessBlockRes ssc
 mkPBRabort = PBRabort . T.intercalate "; "
 
-instance SscTypes ssc => SafeCopy (ProcessBlockRes ssc) where
+instance Ssc ssc => SafeCopy (ProcessBlockRes ssc) where
     getCopy =
         contain $
         do t <- Cereal.getWord8

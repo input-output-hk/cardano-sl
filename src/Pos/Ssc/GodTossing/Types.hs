@@ -46,7 +46,7 @@ import           Universum
 
 import           Pos.Constants             (k)
 import           Pos.Crypto                (Hash, PublicKey, Share, hash)
-import           Pos.Ssc.Class.Types       (SscTypes (SscPayload))
+import           Pos.Ssc.Class.Types       (Ssc (SscPayload))
 import           Pos.Ssc.GodTossing.Base (CommitmentsMap, Opening, OpeningsMap,
                                             SharesMap, SignedCommitment, VssCertificate,
                                             VssCertificatesMap, checkCert, isCommitmentId,

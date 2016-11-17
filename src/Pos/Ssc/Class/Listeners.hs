@@ -9,9 +9,9 @@ import           Control.TimeWarp.Rpc (BinaryP, MonadDialog)
 import           Data.Tagged          (Tagged)
 
 import           Pos.DHT              (ListenerDHT (..))
-import           Pos.Ssc.Class.Types  (SscTypes (..))
+import           Pos.Ssc.Class.Types  (Ssc (..))
 import           Pos.WorkMode         (WorkMode)
 
-class SscTypes ssc => SscListenersClass ssc  where
+class Ssc ssc => SscListenersClass ssc  where
     sscListeners :: (MonadDialog BinaryP m, WorkMode ssc m)
                  => Tagged ssc [ListenerDHT m]

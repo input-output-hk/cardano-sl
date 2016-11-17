@@ -153,7 +153,7 @@ import           Pos.Crypto             (Hash, PublicKey, SecretKey, Signature, 
                                          verify)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot,
                                          mtSize)
-import           Pos.Ssc.Class.Types    (SscTypes (..))
+import           Pos.Ssc.Class.Types    (Ssc (..))
 import           Pos.Util               (Color (Magenta), colorize)
 
 ----------------------------------------------------------------------------
@@ -436,7 +436,7 @@ instance MessagePack ChainDifficulty
 
 type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
 
-instance SscTypes ssc => Blockchain (MainBlockchain ssc) where
+instance Ssc ssc => Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
     data BodyProof (MainBlockchain ssc) = MainProof
         { mpNumber   :: !Word32
@@ -474,16 +474,16 @@ instance SscTypes ssc => Blockchain (MainBlockchain ssc) where
         , mpMpcProof = untag @ssc mkSscProof _mbMpc
         }
 
-deriving instance SscTypes ssc => Eq (BodyProof (MainBlockchain ssc))
-deriving instance SscTypes ssc => Show (Body (MainBlockchain ssc))
+deriving instance Ssc ssc => Eq (BodyProof (MainBlockchain ssc))
+deriving instance Ssc ssc => Show (Body (MainBlockchain ssc))
 
-instance SscTypes ssc => Binary (BodyProof (MainBlockchain ssc))
-instance SscTypes ssc => Binary (ConsensusData (MainBlockchain ssc))
-instance SscTypes ssc => Binary (Body (MainBlockchain ssc))
+instance Ssc ssc => Binary (BodyProof (MainBlockchain ssc))
+instance Ssc ssc => Binary (ConsensusData (MainBlockchain ssc))
+instance Ssc ssc => Binary (Body (MainBlockchain ssc))
 
 type MainBlockHeader ssc = GenericBlockHeader (MainBlockchain ssc)
 
-instance SscTypes ssc => Buildable (MainBlockHeader ssc) where
+instance Ssc ssc => Buildable (MainBlockHeader ssc) where
     build gbh@GenericBlockHeader {..} =
         bprint
             ("MainBlockHeader:\n"%
@@ -507,7 +507,7 @@ instance SscTypes ssc => Buildable (MainBlockHeader ssc) where
 -- main part of our consensus algorithm.
 type MainBlock ssc = GenericBlock (MainBlockchain ssc)
 
-instance SscTypes ssc => Buildable (MainBlock ssc) where
+instance Ssc ssc => Buildable (MainBlock ssc) where
     build GenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -568,7 +568,7 @@ instance MessagePack (Body (GenesisBlockchain ssc))
 
 type GenesisBlock ssc = GenericBlock (GenesisBlockchain ssc)
 
-instance SscTypes ssc => Buildable (GenesisBlock ssc) where
+instance Ssc ssc => Buildable (GenesisBlock ssc) where
     build GenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -584,7 +584,7 @@ instance SscTypes ssc => Buildable (GenesisBlock ssc) where
         formatLeaders = formatIfNotNull
             ("  leaders: "%listJson%"\n") _gbLeaders
 
-instance SscTypes ssc => Buildable (GenesisBlockHeader ssc) where
+instance Ssc ssc => Buildable (GenesisBlockHeader ssc) where
     build gbh@GenericBlockHeader {..} =
         bprint
             ("GenesisBlockHeader:\n"%
@@ -721,22 +721,22 @@ class HasHeaderHash a ssc | a -> ssc where
     headerHashG :: Getter a (HeaderHash ssc)
     headerHashG = to headerHash
 
-instance SscTypes ssc => HasHeaderHash (MainBlockHeader ssc) ssc where
+instance Ssc ssc => HasHeaderHash (MainBlockHeader ssc) ssc where
     headerHash = hash . Right
 
-instance SscTypes ssc => HasHeaderHash (GenesisBlockHeader ssc) ssc where
+instance Ssc ssc => HasHeaderHash (GenesisBlockHeader ssc) ssc where
     headerHash = hash . Left
 
-instance SscTypes ssc => HasHeaderHash (BlockHeader ssc) ssc where
+instance Ssc ssc => HasHeaderHash (BlockHeader ssc) ssc where
     headerHash = hash
 
-instance SscTypes ssc => HasHeaderHash (MainBlock ssc) ssc where
+instance Ssc ssc => HasHeaderHash (MainBlock ssc) ssc where
     headerHash = hash . Right . view gbHeader
 
-instance SscTypes ssc => HasHeaderHash (GenesisBlock ssc) ssc where
+instance Ssc ssc => HasHeaderHash (GenesisBlock ssc) ssc where
     headerHash = hash . Left  . view gbHeader
 
-instance SscTypes ssc => HasHeaderHash (Block ssc) ssc where
+instance Ssc ssc => HasHeaderHash (Block ssc) ssc where
     headerHash = hash . getBlockHeader
 
 class HasEpochIndex a where
@@ -834,7 +834,7 @@ mkGenericBlock prevHeader body consensus extraH extraB =
     header = mkGenericHeader prevHeader body consensus extraH
 
 mkMainHeader
-    :: SscTypes ssc
+    :: Ssc ssc
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
@@ -854,7 +854,7 @@ mkMainHeader prevHeader slotId sk body =
         }
 
 mkMainBlock
-    :: SscTypes ssc
+    :: Ssc ssc
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
@@ -868,7 +868,7 @@ mkMainBlock prevHeader slotId sk body =
     }
 
 mkGenesisHeader
-    :: SscTypes ssc
+    :: Ssc ssc
     => Maybe (BlockHeader ssc)
     -> EpochIndex
     -> Body (GenesisBlockchain ssc)
@@ -881,7 +881,7 @@ mkGenesisHeader prevHeader epoch body =
         GenesisConsensusData {_gcdEpoch = epoch, _gcdDifficulty = difficulty}
 
 mkGenesisBlock
-    :: SscTypes ssc
+    :: Ssc ssc
     => Maybe (BlockHeader ssc)
     -> EpochIndex
     -> SlotLeaders
@@ -898,7 +898,7 @@ mkGenesisBlock prevHeader epoch leaders =
 mkMainBody :: [Tx] -> SscPayload ssc -> Body (MainBlockchain ssc)
 mkMainBody txs mpc = MainBody {_mbTxs = mkMerkleTree txs, _mbMpc = mpc}
 
-verifyConsensusLocal :: SscTypes ssc => BlockHeader ssc -> VerificationRes
+verifyConsensusLocal :: Ssc ssc => BlockHeader ssc -> VerificationRes
 verifyConsensusLocal (Left _)       = mempty
 verifyConsensusLocal (Right header) =
     verifyGeneric
@@ -939,7 +939,7 @@ maybeEmpty = maybe mempty
 -- on extra data passed to this function. It tries to do as much as
 -- possible.
 verifyHeader
-    :: SscTypes ssc
+    :: Ssc ssc
     => VerifyHeaderExtra ssc -> BlockHeader ssc -> VerificationRes
 verifyHeader VerifyHeaderExtra {..} h =
     verifyConsensusLocal h <> verifyGeneric checks
@@ -1016,7 +1016,7 @@ instance Default (VerifyBlockParams ssc) where
         }
 
 -- | Check predicates defined by VerifyBlockParams.
-verifyBlock :: SscTypes ssc => VerifyBlockParams ssc -> Block ssc -> VerificationRes
+verifyBlock :: Ssc ssc => VerifyBlockParams ssc -> Block ssc -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
         [ verifyG
@@ -1034,7 +1034,7 @@ verifyBlock VerifyBlockParams {..} blk =
 -- VerificationRes. Is it true? Can we do something with it?
 -- Apart from returning Bool.
 verifyBlocks
-    :: forall ssc t. (SscTypes ssc, Foldable t)
+    :: forall ssc t. (Ssc ssc, Foldable t)
     => Maybe SlotId -> t (Block ssc) -> VerificationRes
 verifyBlocks curSlotId = (view _3) . foldl' step start
   where
@@ -1121,7 +1121,7 @@ instance ( SafeCopy (BodyProof b)
 
 deriveSafeCopySimple 0 'base ''ChainDifficulty
 
-instance SscTypes ssc => SafeCopy (BodyProof (MainBlockchain ssc)) where
+instance Ssc ssc => SafeCopy (BodyProof (MainBlockchain ssc)) where
     getCopy =
         contain $
         do mpNumber <- safeGet
@@ -1169,7 +1169,7 @@ instance SafeCopy (ConsensusData (GenesisBlockchain ssc)) where
         do safePut _gcdEpoch
            safePut _gcdDifficulty
 
-instance SscTypes ssc => SafeCopy (Body (MainBlockchain ssc)) where
+instance Ssc ssc => SafeCopy (Body (MainBlockchain ssc)) where
     getCopy =
         contain $
         do _mbTxs <- safeGet

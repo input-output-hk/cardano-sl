@@ -7,18 +7,18 @@ module Pos.Ssc.GodTossing.Instance.Types
          -- ** instance SscTypes SscGodTossing
        ) where
 
-import           Data.Tagged                        (Tagged (Tagged))
+import           Data.Tagged                      (Tagged (Tagged))
 
-import           Pos.Crypto                         (PublicKey)
-import           Pos.Ssc.Class.Types                (SscTypes (..))
+import           Pos.Crypto                       (PublicKey)
+import           Pos.Ssc.Class.Types              (Ssc (..))
 import           Pos.Ssc.GodTossing.Base          (Opening, SignedCommitment)
 import           Pos.Ssc.GodTossing.Error         (SeedError)
 import           Pos.Ssc.GodTossing.Instance.Type (SscGodTossing)
 import           Pos.Ssc.GodTossing.Storage       (DSStorage)
 import           Pos.Ssc.GodTossing.Types         (DSMessage, DSPayload, DSProof,
-                                                     mkDSProof)
+                                                   mkDSProof)
 
-instance SscTypes SscGodTossing where
+instance Ssc SscGodTossing where
     type SscStorage   SscGodTossing = DSStorage
     type SscPayload   SscGodTossing = DSPayload
     type SscProof     SscGodTossing = DSProof

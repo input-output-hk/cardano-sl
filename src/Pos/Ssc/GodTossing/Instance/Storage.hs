@@ -17,66 +17,62 @@ module Pos.Ssc.GodTossing.Instance.Storage
          -- ** instance SscStorageClass SscGodTossing
        ) where
 
-import           Control.Lens                        (Lens', at, ix, preview, to, use,
-                                                      view, (%=), (.=), (.~), (^.))
-import           Crypto.Random                       (drgNewSeed, seedFromInteger,
-                                                      withDRG)
-import           Data.Default                        (def)
-import           Data.Hashable                       (Hashable)
-import qualified Data.HashMap.Strict                 as HM
-import           Data.List                           (nub)
-import           Data.List.NonEmpty                  (NonEmpty ((:|)), fromList)
-import qualified Data.List.NonEmpty                  as NE
-import           Data.SafeCopy                       (SafeCopy)
-import           Data.Serialize                      (Serialize (..))
-import           Data.Tagged                         (Tagged (..))
-import           Serokell.Util.Verify                (VerificationRes (..), isVerSuccess,
-                                                      verifyGeneric)
+import           Control.Lens                      (Lens', at, ix, preview, to, use, view,
+                                                    (%=), (.=), (.~), (^.))
+import           Crypto.Random                     (drgNewSeed, seedFromInteger, withDRG)
+import           Data.Default                      (def)
+import           Data.Hashable                     (Hashable)
+import qualified Data.HashMap.Strict               as HM
+import           Data.List                         (nub)
+import           Data.List.NonEmpty                (NonEmpty ((:|)), fromList)
+import qualified Data.List.NonEmpty                as NE
+import           Data.SafeCopy                     (SafeCopy)
+import           Data.Serialize                    (Serialize (..))
+import           Data.Tagged                       (Tagged (..))
+import           Serokell.Util.Verify              (VerificationRes (..), isVerSuccess,
+                                                    verifyGeneric)
 import           Universum
 
-import           Pos.Crypto                          (Share, Signed (signedValue),
-                                                      Threshold, VssKeyPair, VssPublicKey,
-                                                      decryptShare, toVssPublicKey,
-                                                      verifyShare)
-import           Pos.Crypto                          (PublicKey)
-import           Pos.FollowTheSatoshi                (followTheSatoshi)
-import           Pos.Ssc.Class.Storage               (HasSscStorage (..), SscQuery,
-                                                      SscStorageClass (..), SscUpdate)
-import           Pos.Ssc.Class.Types                 (SscTypes (..))
-import           Pos.Ssc.GodTossing.Base           (Commitment (..),
-                                                      CommitmentSignature, CommitmentsMap,
-                                                      OpeningsMap, VssCertificate,
-                                                      VssCertificatesMap, isCommitmentIdx,
-                                                      isOpeningIdx, isSharesIdx,
-                                                      verifyOpening,
-                                                      verifySignedCommitment)
+import           Pos.Crypto                        (Share, Signed (signedValue),
+                                                    Threshold, VssKeyPair, VssPublicKey,
+                                                    decryptShare, toVssPublicKey,
+                                                    verifyShare)
+import           Pos.Crypto                        (PublicKey)
+import           Pos.FollowTheSatoshi              (followTheSatoshi)
+import           Pos.Ssc.Class.Storage             (HasSscStorage (..), SscQuery,
+                                                    SscStorageClass (..), SscUpdate)
+import           Pos.Ssc.Class.Types               (Ssc (..))
+import           Pos.Ssc.GodTossing.Base           (Commitment (..), CommitmentSignature,
+                                                    CommitmentsMap, OpeningsMap,
+                                                    VssCertificate, VssCertificatesMap,
+                                                    isCommitmentIdx, isOpeningIdx,
+                                                    isSharesIdx, verifyOpening,
+                                                    verifySignedCommitment)
 import           Pos.Ssc.GodTossing.Base           (Opening, SignedCommitment)
 import           Pos.Ssc.GodTossing.Error          (SeedError)
 import           Pos.Ssc.GodTossing.Instance.Type  (SscGodTossing)
 import           Pos.Ssc.GodTossing.Instance.Types ()
 import           Pos.Ssc.GodTossing.Seed           (calculateSeed)
 import           Pos.Ssc.GodTossing.Storage        (DSStorage, DSStorageVersion (..),
-                                                      dsCurrentSecretL,
-                                                      dsGlobalCertificates,
-                                                      dsGlobalCommitments,
-                                                      dsGlobalOpenings, dsGlobalShares,
-                                                      dsLastProcessedSlotL,
-                                                      dsLocalCertificates,
-                                                      dsLocalCommitments, dsLocalOpenings,
-                                                      dsLocalShares, dsVersionedL)
+                                                    dsCurrentSecretL,
+                                                    dsGlobalCertificates,
+                                                    dsGlobalCommitments, dsGlobalOpenings,
+                                                    dsGlobalShares, dsLastProcessedSlotL,
+                                                    dsLocalCertificates,
+                                                    dsLocalCommitments, dsLocalOpenings,
+                                                    dsLocalShares, dsVersionedL)
 import           Pos.Ssc.GodTossing.Types          (DSMessage (..), DSPayload (..),
-                                                      filterDSPayload, hasCommitment,
-                                                      hasOpening, hasShares,
-                                                      mdCommitments, mdOpenings, mdShares,
-                                                      mdVssCertificates, verifyDSPayload)
-import           Pos.State.Storage.Types             (AltChain)
-import           Pos.Types                           (Address (getAddress), Block,
-                                                      EpochIndex, SlotId (..),
-                                                      SlotLeaders, Utxo, blockMpc,
-                                                      blockSlot, blockSlot, gbHeader,
-                                                      txOutAddress)
-import           Pos.Util                            (magnify', readerToState, zoom',
-                                                      _neHead)
+                                                    filterDSPayload, hasCommitment,
+                                                    hasOpening, hasShares, mdCommitments,
+                                                    mdOpenings, mdShares,
+                                                    mdVssCertificates, verifyDSPayload)
+import           Pos.State.Storage.Types           (AltChain)
+import           Pos.Types                         (Address (getAddress), Block,
+                                                    EpochIndex, SlotId (..), SlotLeaders,
+                                                    Utxo, blockMpc, blockSlot, blockSlot,
+                                                    gbHeader, txOutAddress)
+import           Pos.Util                          (magnify', readerToState, zoom',
+                                                    _neHead)
 
 -- acid-state requires this instance because of a bug
 instance SafeCopy SscGodTossing

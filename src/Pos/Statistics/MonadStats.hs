@@ -1,7 +1,12 @@
-{-# LANGUAGE ConstraintKinds   #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 -- | Monadic layer for collecting stats
 
@@ -23,7 +28,9 @@ import           Control.TimeWarp.Rpc     (MonadDialog, MonadResponse (..),
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
 import qualified Data.Binary              as Binary
 import           Data.Maybe               (fromMaybe)
+import           Data.SafeCopy            (SafeCopy)
 import           Focus                    (Decision (Remove), alterM)
+import           Pos.Ssc.Class.Storage    (SscStorageClass)
 import           Serokell.Util            (show')
 import qualified STMContainers.Map        as SM
 import           System.IO.Unsafe         (unsafePerformIO)
@@ -81,13 +88,13 @@ type instance ThreadId (StatsT m) = ThreadId m
 newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, MonadDB, WithNamedLogger, MonadDialog p,
+               MonadMask, MonadIO, MonadDB ssc, WithNamedLogger, MonadDialog p,
                MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader,
                MonadJL)
 
 instance MonadTransfer m => MonadTransfer (NoStatsT m) where
     sendRaw addr p = NoStatsT $ sendRaw addr (hoist getNoStatsT p)
-    listenRaw binding sink = NoStatsT $ listenRaw binding (hoistRespCond getNoStatsT sink)
+    listenRaw binding sink = NoStatsT $ fmap NoStatsT $ listenRaw binding (hoistRespCond getNoStatsT sink)
     close = NoStatsT . close
 
 instance MonadResponse m => MonadResponse (NoStatsT m) where
@@ -108,13 +115,13 @@ instance Monad m => MonadStats (NoStatsT m) where
 newtype StatsT m a = StatsT
     { getStatsT :: m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, MonadDB, WithNamedLogger, MonadDialog p,
+               MonadMask, MonadIO, MonadDB ssc, WithNamedLogger, MonadDialog p,
                MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader,
                MonadJL)
 
 instance MonadTransfer m => MonadTransfer (StatsT m) where
     sendRaw addr p = StatsT $ sendRaw addr (hoist getStatsT p)
-    listenRaw binding sink = StatsT $ listenRaw binding (hoistRespCond getStatsT sink)
+    listenRaw binding sink = StatsT $ fmap StatsT $ listenRaw binding (hoistRespCond getStatsT sink)
     close = StatsT . close
 
 instance MonadResponse m => MonadResponse (StatsT m) where
@@ -129,7 +136,7 @@ instance MonadTrans StatsT where
 statsMap :: SM.Map Text LByteString
 statsMap = unsafePerformIO SM.newIO
 
-instance (MonadIO m, MonadDB m) => MonadStats (StatsT m) where
+instance (SscStorageClass ssc, SafeCopy ssc, MonadIO m, MonadDB ssc m) => MonadStats (StatsT m) where
     statLog label entry = do
         liftIO $ atomically $ SM.focus update (show' label) statsMap
         return ()

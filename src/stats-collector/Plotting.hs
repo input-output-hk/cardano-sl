@@ -25,13 +25,12 @@ import           Universum                                 hiding (mapConcurrent
 
 import           SarCollector                              (StatisticsEntry (..))
 
-smooth :: [(a, Double)] -> [(a,Double)]
-smooth xs = map (\i -> let m2 = snd $ xs !! (max 0 $ i-2)
-                           m1 = snd $ xs !! (max 0 $ i-1)
-                           (t,m0) = xs !! max 0 i
-                       in (t,(m0+m2+m1)/3))
-                [0..length xs-1]
-
+-- smooth :: [(a, Double)] -> [(a,Double)]
+-- smooth xs = map (\i -> let m2 = snd $ xs !! (max 0 $ i-2)
+--                            m1 = snd $ xs !! (max 0 $ i-1)
+--                            (t,m0) = xs !! max 0 i
+--                        in (t,(m0+m2+m1)/3))
+--                 [0..length xs-1]
 
 -- | Given the directory, puts 4 graphs into it -- per statistics
 perEntryPlots

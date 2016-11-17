@@ -16,7 +16,7 @@ import           Data.Time.Clock.POSIX    (getPOSIXTime)
 import           Formatting               (build, float, int, sformat, (%))
 import           Options.Applicative      (Parser, ParserInfo, auto, execParser, fullDesc,
                                            help, helper, info, long, many, metavar,
-                                           option, progDesc, short, value)
+                                           option, progDesc, short, switch, value)
 import           System.Random            (getStdGen, randomRs)
 import           Universum                hiding ((<>))
 
@@ -30,6 +30,7 @@ import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
                                            NodeParams (..), bracketDHTInstance,
                                            runRealMode, submitTx)
 import           Pos.Ssc.DynamicState     (genesisVssKeyPairs)
+import           Pos.Ssc.DynamicState     (SscDynamicState)
 import           Pos.Statistics           (getNoStatsT)
 import           Pos.Types                (Tx (..), TxId, txF)
 import           Pos.Util.JsonLog         ()
@@ -37,13 +38,14 @@ import           Pos.WorkMode             (WorkMode)
 import           Serokell.Util.OptParse   (fromParsec)
 
 data GenOptions = GenOptions
-    { goGenesisIdx    :: !Word       -- ^ Index in genesis key pairs.
+    { goGenesisIdx         :: !Word       -- ^ Index in genesis key pairs.
     -- , goRemoteAddr  :: !NetworkAddress -- ^ Remote node address
-    , goDHTPeers      :: ![DHTNode]  -- ^ Initial DHT nodes
-    , goRoundDuration :: !Double     -- ^ Number of seconds per round
-    , goTxFrom        :: !Int        -- ^ Start from UTXO transaction #x
-    , goInitBalance   :: !Int        -- ^ Total coins in init utxo per address
-    , goTPSs          :: ![Double]   -- ^ TPS rate
+    , goDHTPeers           :: ![DHTNode]  -- ^ Initial DHT nodes
+    , goRoundDuration      :: !Double     -- ^ Number of seconds per round
+    , goTxFrom             :: !Int        -- ^ Start from UTXO transaction #x
+    , goInitBalance        :: !Int        -- ^ Total coins in init utxo per address
+    , goTPSs               :: ![Double]   -- ^ TPS rate
+    , goDhtExplicitInitial :: !Bool
     }
 
 optionsParser :: Parser GenOptions
@@ -78,13 +80,17 @@ optionsParser = GenOptions
           <> long "tps"
           <> metavar "DOUBLE"
           <> help "TPS (transactions per second)")
+    <*> switch
+        (long "explicit-initial" <>
+         help
+             "Explicitely contact to initial peers as to neighbors (even if they appeared offline once)")
 
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $
     fullDesc `mappend` progDesc "Stupid transaction generator"
 
 -- | Send the ready-to-use transaction
-submitTxRaw :: WorkMode m => NetworkAddress -> Tx -> m ()
+submitTxRaw :: WorkMode ssc m => NetworkAddress -> Tx -> m ()
 submitTxRaw na tx = do
     let txId = hash tx
     logInfo $ sformat ("Submitting transaction: "%txF) tx
@@ -130,7 +136,7 @@ main = do
             , bpPort               = 24962 + fromIntegral i
             , bpDHTPeers           = goDHTPeers
             , bpDHTKeyOrType       = Right DHTClient
-            , bpDHTExplicitInitial = False
+            , bpDHTExplicitInitial = goDhtExplicitInitial
             }
         params =
             NodeParams
@@ -158,7 +164,7 @@ main = do
     curRoundOffset <- newIORef 0
 
     bracketDHTInstance baseParams $ \inst -> do
-        runRealMode inst params [] $ getNoStatsT $ do
+        runRealMode @SscDynamicState inst params [] $ getNoStatsT $ do
             logInfo "TX GEN RUSHING"
             peers <- discoverPeers DHTFull
 
@@ -194,7 +200,8 @@ main = do
                         let runDelta = endT - startT
                         wait $ for $ ms (max 0 $ tpsDelta - runDelta)
 
-                        pure $ M.insert (pretty $ hash tx) startT curmap)
+                        -- we dump microseconds to be consistent with JSON log
+                        pure $ M.insert (pretty $ hash tx) (startT * 1000) curmap)
                     (M.empty :: M.HashMap Text Int) -- TxId Int
                     (zip curRecAddrs indices)
                 finishT <- getPosixMs

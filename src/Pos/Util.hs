@@ -1,8 +1,8 @@
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds       #-}
+{-# LANGUAGE GADTs           #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Pos.Util
        (
@@ -13,6 +13,7 @@ module Pos.Util
        , Raw
        , readerToState
        , eitherPanic
+       , inAssertMode
 
        -- * Msgpack
        , msgpackFail
@@ -60,10 +61,10 @@ import           Control.TimeWarp.Logging      (WithNamedLogger, logWarning)
 import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
 import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
                                                 Second, for, killThread)
-import qualified Data.Cache.LRU                as LRU
 
 import           Data.Binary                   (Binary)
 import qualified Data.Binary                   as Binary (encode)
+import qualified Data.Cache.LRU                as LRU
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty            as NE
 import           Data.MessagePack              (MessagePack (..))
@@ -117,6 +118,14 @@ deriveSafeCopySimple 0 'base ''VerificationRes
 -- | A helper for simple error handling in executables
 eitherPanic :: Show a => Text -> Either a b -> b
 eitherPanic msgPrefix = either (panic . (msgPrefix <>) . show) identity
+
+inAssertMode :: Applicative m => m a -> m ()
+#ifdef ASSERTS_ON
+inAssertMode x = x *> pure ()
+#else
+inAssertMode _ = pure ()
+#endif
+{-# INLINE inAssertMode #-}
 
 ----------------------------------------------------------------------------
 -- MessagePack
@@ -198,6 +207,9 @@ _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
 -- TODO: we should try to get this one into safecopy itself though it's
 -- unlikely that they will choose a different implementation (if they do
 -- choose a different implementation we'll have to write a migration)
+--
+-- update: made a PR <https://github.com/acid-state/safecopy/pull/47>;
+-- remove this instance when the pull request is merged
 instance SafeCopy a => SafeCopy (NonEmpty a) where
     getCopy = contain $ do
         xs <- safeGet

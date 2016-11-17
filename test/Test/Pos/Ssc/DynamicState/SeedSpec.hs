@@ -6,7 +6,7 @@ module Test.Pos.Ssc.DynamicState.SeedSpec
 
 import           Crypto.Random            (MonadRandom)
 import qualified Data.HashMap.Strict      as HM
-import           Data.List                (foldl1', unzip, (\\))
+import           Data.List                (unzip, (\\))
 import qualified Data.List.NonEmpty       as NE
 import           Formatting               (build, int, sformat, (%))
 import           Serokell.Util            (listJson)

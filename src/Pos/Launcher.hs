@@ -1,3 +1,5 @@
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -10,6 +12,7 @@ module Pos.Launcher
        ( LoggingParams (..)
        , NodeParams (..)
        , BaseParams (..)
+       , RealModeRunner
        , getCurTimestamp
        , runNode
        , runNodeReal
@@ -42,6 +45,7 @@ import           Control.TimeWarp.Timed      (MonadTimed, currentTime, for, fork
                                               killThread, ms, repeatForever, runTimedIO,
                                               sec, sleepForever, wait, wait)
 import           Data.Default                (Default (def))
+import           Data.List                   (nub)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Universum
@@ -50,8 +54,8 @@ import           Pos.Communication           (SysStartRequest (..), SysStartResp
                                               allListeners, noCacheMessageNames, sendTx,
                                               serverLoggerName, statsListeners,
                                               sysStartReqListener, sysStartRespListener)
-import           Pos.Constants               (RunningMode (..), isDevelopment,
-                                              runningMode)
+import           Pos.Constants               (RunningMode (..), defaultPeers,
+                                              isDevelopment, runningMode)
 import           Pos.Crypto                  (SecretKey, VssKeyPair, hash, sign)
 import           Pos.DHT                     (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
                                               ListenerDHT, MonadDHT (..),
@@ -62,6 +66,10 @@ import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..
                                               KademliaDHTInstanceConfig (..),
                                               runKademliaDHT, startDHTInstance,
                                               stopDHTInstance)
+import           Pos.Ssc.Class.Listeners     (SscListenersClass)
+import           Pos.Ssc.Class.Storage       (SscStorageMode)
+import           Pos.Ssc.Class.Types         (SscStorage, SscTypes)
+import           Pos.Ssc.Class.Workers       (SscWorkersClass)
 import           Pos.State                   (NodeState, openMemState, openState)
 import           Pos.State.Storage           (storageFromUtxo)
 import           Pos.Statistics              (getNoStatsT, getStatsT)
@@ -70,10 +78,18 @@ import           Pos.Types                   (Address, Coin, Timestamp (Timestam
                                               timestampF, txF)
 import           Pos.Util                    (runWithRandomIntervals)
 import           Pos.Worker                  (runWorkers, statsWorkers)
-import           Pos.WorkMode                (ContextHolder (..), DBHolder (..),
-                                              NodeContext (..), RealMode, ServiceMode,
-                                              WorkMode, getNodeContext, ncPublicKey,
+import           Pos.WorkMode                (ContextHolder (..), NodeContext (..),
+                                              RealMode, ServiceMode, WorkMode,
+                                              getNodeContext, ncPublicKey,
                                               runContextHolder, runDBHolder)
+
+type RealModeSscConstraint ssc =
+               (SscTypes ssc, Default (SscStorage ssc),
+                SscStorageMode ssc,
+                SscListenersClass ssc,
+                SscWorkersClass ssc)
+
+type RealModeRunner = KademliaDHTInstance -> NodeParams -> IO ()
 
 -- | Get current time as Timestamp. It is intended to be used when you
 -- launch the first node. It doesn't make sense in emulation mode.
@@ -81,7 +97,7 @@ getCurTimestamp :: IO Timestamp
 getCurTimestamp = Timestamp <$> runTimedIO currentTime
 
 -- | Run full node in any WorkMode.
-runNode :: WorkMode m => m ()
+runNode :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
 runNode = do
     pk <- ncPublicKey <$> getNodeContext
     logInfo $ sformat ("My public key is: "%build) pk
@@ -100,7 +116,7 @@ runNode = do
 
 -- | Construct Tx with a single input and single output and send it to
 -- the given network addresses.
-submitTx :: WorkMode m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m Tx
+submitTx :: WorkMode ssc m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m Tx
 submitTx na (txInHash, txInIndex) (txOutAddress, txOutValue) =
     if null na
       then logError "No addresses to send" >> panic "submitTx failed"
@@ -116,20 +132,21 @@ submitTx na (txInHash, txInIndex) (txOutAddress, txOutValue) =
         pure tx
 
 -- | Submit tx in real mode.
-submitTxReal :: NodeParams
+submitTxReal :: forall ssc . RealModeSscConstraint ssc
+             => NodeParams
              -> (TxId, Word32)
              -> (Address, Coin)
              -> IO ()
 submitTxReal np input addrCoin = bracketDHTInstance (npBaseParams np) action
   where
-    action inst = runRealMode inst np [] $ do
+    action inst = runRealMode @ssc inst np [] $ do
         peers <- getKnownPeers
         let na = dhtAddr <$> filterByNodeType DHTFull peers
         void $ getNoStatsT $ submitTx na input addrCoin
 
 -- Sanity check in case start time is in future (may happen if clocks
 -- are not accurately synchronized, for example).
-waitSystemStart :: WorkMode m => m ()
+waitSystemStart :: WorkMode ssc m => m ()
 waitSystemStart = do
     Timestamp start <- ncSystemStart <$> getNodeContext
     cur <- currentTime
@@ -159,7 +176,6 @@ instance Default LoggingParams where
         , lpWorkerSeverity = Nothing
         }
 
--- | Parameters necessary to run node.
 data NodeParams = NodeParams
     { npDbPath      :: !(Maybe FilePath)
     , npRebuildDb   :: !Bool
@@ -230,28 +246,30 @@ runSupporterReal inst bp = runServiceMode inst bp [] $ do
 -- Main launchers
 -----------------------------------------------------------------------------
 
-addDevListeners :: NodeParams -> [ListenerDHT RealMode] -> [ListenerDHT RealMode]
+addDevListeners :: NodeParams -> [ListenerDHT (RealMode ssc)] -> [ListenerDHT (RealMode ssc)]
 addDevListeners NodeParams {..} ls =
     if isDevelopment
     then sysStartReqListener (Just npSystemStart) : ls
     else ls
 
 -- | Run full node in real mode.
-runNodeReal :: KademliaDHTInstance -> NodeParams -> IO ()
-runNodeReal inst np@NodeParams {..} = runRealMode inst np listeners $ getNoStatsT runNode
+runNodeReal :: forall ssc . RealModeSscConstraint ssc
+            => KademliaDHTInstance -> NodeParams -> IO ()
+runNodeReal inst np@NodeParams {..} = runRealMode inst np listeners $ getNoStatsT (runNode @ssc)
   where
-    listeners = addDevListeners np noStatsListeners
-    noStatsListeners = map (mapListenerDHT getNoStatsT) allListeners
+    listeners = addDevListeners @ssc np noStatsListeners
+    noStatsListeners = map (mapListenerDHT getNoStatsT) (allListeners @ssc)
 
 -- | Run full node in benchmarking node
 -- TODO: spawn here additional listener, which would accept stat queries
-runNodeStats :: KademliaDHTInstance -> NodeParams -> IO ()
+runNodeStats :: forall ssc . RealModeSscConstraint ssc
+             => KademliaDHTInstance -> NodeParams -> IO ()
 runNodeStats inst np = runRealMode inst np listeners $ getStatsT $ do
     mapM_ fork_ statsWorkers
-    runNode
+    runNode @ssc
   where
-    listeners = addDevListeners np sListeners
-    sListeners = map (mapListenerDHT getStatsT) $ statsListeners ++ allListeners
+    listeners = addDevListeners @ssc np sListeners
+    sListeners = map (mapListenerDHT getStatsT) $ statsListeners ++ (allListeners @ssc)
 
 ----------------------------------------------------------------------------
 -- Real mode runners
@@ -268,12 +286,13 @@ bracketDHTInstance BaseParams {..} = bracket acquire release
       KademliaDHTInstanceConfig
       { kdcKeyOrType = bpDHTKeyOrType
       , kdcPort = bpPort
-      , kdcInitialPeers = bpDHTPeers
+      , kdcInitialPeers = nub $ bpDHTPeers ++ defaultPeers
       , kdcExplicitInitial = bpDHTExplicitInitial
       }
 
 -- TODO: use bracket
-runRealMode :: KademliaDHTInstance -> NodeParams -> [ListenerDHT RealMode] -> RealMode a -> IO a
+runRealMode :: forall ssc c . RealModeSscConstraint ssc
+            => KademliaDHTInstance -> NodeParams -> [ListenerDHT (RealMode ssc)] -> RealMode ssc c -> IO c
 runRealMode inst NodeParams {..} listeners action = do
     setupLoggingReal logParams
     db <- openDb
@@ -282,9 +301,9 @@ runRealMode inst NodeParams {..} listeners action = do
   where
     logParams  = bpLogging npBaseParams
     loggerName = lpRootLogger logParams
-    mStorage = storageFromUtxo <$> npCustomUtxo
+    mStorage = storageFromUtxo @ssc <$> npCustomUtxo
 
-    openDb :: IO NodeState
+    openDb :: IO (NodeState ssc)
     openDb = runTimed loggerName . runCH $
          maybe (openMemState mStorage)
                (openState mStorage npRebuildDb)
@@ -337,7 +356,7 @@ setupLoggingReal LoggingParams {..} = do
     initLogging Warning
     setSeverity lpRootLogger lpMainSeverity
     setSeverityMaybe
-        (lpRootLogger <> dhtLoggerName (Proxy :: Proxy RealMode))
+        (lpRootLogger <> dhtLoggerName (Proxy :: Proxy (RealMode ssc)))
         lpDhtSeverity
     -- TODO: `comm` shouldn't be hardcoded, it should be taken
     -- from MonadTransfer or something

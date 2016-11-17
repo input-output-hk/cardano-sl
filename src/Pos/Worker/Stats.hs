@@ -21,10 +21,10 @@ txStatsRefreshInterval = sec 1
 curTime :: (MonadIO m) => m Timestamp
 curTime = liftIO $ Timestamp <$> runTimedIO currentTime
 
-statsWorkers :: WorkMode m => [m ()]
+statsWorkers :: WorkMode ssc m => [m ()]
 statsWorkers = [txStatsWorker, blockStatsWorker]
 
-txStatsWorker :: WorkMode m => m ()
+txStatsWorker :: WorkMode ssc m => m ()
 txStatsWorker =
     repeatForever txStatsRefreshInterval onError $ do
         ts <- curTime
@@ -33,7 +33,7 @@ txStatsWorker =
     onError e = txStatsRefreshInterval <$
                 logWarning (sformat ("Error occured in txStatsWorker: "%build) e)
 
-blockStatsWorker :: WorkMode m => m ()
+blockStatsWorker :: WorkMode ssc m => m ()
 blockStatsWorker =
     repeatForever slotDuration onError $ do
         ts <- curTime

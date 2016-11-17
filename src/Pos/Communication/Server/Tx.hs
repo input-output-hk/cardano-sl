@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
@@ -7,30 +8,27 @@ module Pos.Communication.Server.Tx
        ( txListeners
        ) where
 
-import           Control.TimeWarp.Logging (logDebug, logInfo, logWarning)
-import           Control.TimeWarp.Rpc     (BinaryP, MonadDialog)
-import           Formatting               (build, sformat, stext, (%))
+import           Control.TimeWarp.Logging  (logDebug, logInfo, logWarning)
+import           Control.TimeWarp.Rpc      (BinaryP, MonadDialog)
+import           Formatting                (build, sformat, stext, (%))
 import           Universum
 
-import           Pos.Communication.Types  (ResponseMode, SendTx (..), SendTxs (..))
-import           Pos.Communication.Util   (modifyListenerLogger)
-import           Pos.DHT                  (ListenerDHT (..))
-import           Pos.State                (ProcessTxRes (..), processTx)
-import           Pos.Statistics           (StatProcessTx (..), statlogCountEvent)
-import           Pos.Types                (txF)
-import           Pos.WorkMode             (WorkMode)
+import           Pos.Communication.Methods (announceTxs)
+import           Pos.Communication.Types   (ResponseMode, SendTx (..), SendTxs (..))
+import           Pos.DHT                   (ListenerDHT (..))
+import           Pos.State                 (ProcessTxRes (..), processTx)
+import           Pos.Statistics            (StatProcessTx (..), statlogCountEvent)
+import           Pos.Types                 (txF)
+import           Pos.WorkMode              (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
-txListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
-txListeners =
-    map (modifyListenerLogger "tx")
-    [ ListenerDHT handleTx
-    , ListenerDHT handleTxs
-    ]
+txListeners :: (MonadDialog BinaryP m, WorkMode ssc m)
+            => [ListenerDHT m]
+txListeners = [ListenerDHT (void . handleTx), ListenerDHT handleTxs]
 
 handleTx
-    :: ResponseMode m
-    => SendTx -> m ()
+    :: ResponseMode ssc m
+    => SendTx -> m Bool
 handleTx (SendTx tx) = do
     res <- processTx tx
     case res of
@@ -45,8 +43,12 @@ handleTx (SendTx tx) = do
             logDebug $ sformat ("Transaction is already known: "%build) tx
         PTRoverwhelmed ->
             logInfo $ sformat ("Node is overwhelmed, can't add tx: "%build) tx
+    return (res == PTRadded)
 
 handleTxs
-    :: ResponseMode m
+    :: (ResponseMode ssc m)
     => SendTxs -> m ()
-handleTxs (SendTxs txs) = mapM_ (handleTx . SendTx) txs
+handleTxs (SendTxs txs) = do
+    added <- toList <$> mapM (handleTx . SendTx) txs
+    let addedItems = map snd . filter fst . zip added . toList $ txs
+    announceTxs addedItems

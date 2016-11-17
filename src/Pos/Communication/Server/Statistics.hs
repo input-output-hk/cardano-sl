@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
 
 -- | Listener for stats delivery
 
@@ -22,12 +21,12 @@ import           Pos.Statistics.StatEntry  (StatLabel (..))
 import           Pos.Statistics.Tx         (StatProcessTx)
 import           Pos.WorkMode              (WorkMode)
 
-statsListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
+statsListeners :: (MonadDialog BinaryP m, WorkMode ssc m) => [ListenerDHT m]
 statsListeners = [ ListenerDHT $ handleStatsRequests @StatBlockCreated
                  , ListenerDHT $ handleStatsRequests @StatProcessTx
                  ]
 
-handleStatsRequests :: (StatLabel l, ResponseMode m) => RequestStat l -> m ()
+handleStatsRequests :: (StatLabel l, ResponseMode ssc m) => RequestStat l -> m ()
 handleStatsRequests (RequestStat id label) = do
     logInfo $ sformat ("Requested statistical data with label "%build) label
     stats <- getStats label

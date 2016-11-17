@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 
 -- | This module tests Binary instances.
 

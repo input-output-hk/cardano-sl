@@ -15,8 +15,10 @@ import           Options.Applicative.Simple (Parser, auto, help, long, many, met
 import           Serokell.Util.OptParse     (fromParsec)
 import           Universum                  hiding ((<>))
 
-import           Pos.CLI                    (dhtKeyParser, dhtNodeParser)
+import           Pos.CLI                    (dhtKeyParser, dhtNodeParser, sscAlgoParser)
 import           Pos.DHT                    (DHTKey, DHTNode)
+import           Pos.Ssc.SscAlgo            (SscAlgo (..))
+
 
 data Args = Args
     { dbPath             :: !FilePath
@@ -40,6 +42,7 @@ data Args = Args
     , dhtExplicitInitial :: !Bool
     , enableStats        :: !Bool
     , jlPath             :: !(Maybe FilePath)
+    , sscAlgo            :: !SscAlgo
     }
   deriving Show
 
@@ -132,7 +135,10 @@ argsParser =
     optional
         (strOption
         (long "json-log" <> metavar "FILEPATH" <>
-         help "Path to json log file"))
+         help "Path to json log file")) <*>
+    option (fromParsec sscAlgoParser)
+        (long "ssc-algo" <> metavar "ALGO" <> value DynamicStateAlgo <> showDefault <>
+         help "Shared Seed Calculation algorithm which nodes will use")
   where
     peerHelpMsg =
         "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""

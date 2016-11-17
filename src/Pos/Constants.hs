@@ -9,19 +9,23 @@ module Pos.Constants
        , ftsSeedLength
        , genesisN
        , maxLocalTxs
+       , sscTransmitterInterval
        , neighborsSendThreshold
        , networkDiameter
        , RunningMode (..)
        , runningMode
        , isDevelopment
+       , defaultPeers
        ) where
 
 import           Control.TimeWarp.Timed (Microsecond, sec)
+import qualified Text.Parsec            as P
 import           Universum
 
+import           Pos.CLI                (dhtNodeParser)
 import           Pos.CompileConfig      (CompileConfig (..), compileConfig)
+import           Pos.DHT.Types          (DHTNode)
 import           Pos.Types.Timestamp    (Timestamp)
-
 
 -- | Consensus guarantee (i.e. after what amount of blocks can we consider
 -- blocks stable?).
@@ -67,3 +71,14 @@ isDevelopment :: Bool
 isDevelopment = case runningMode of
                   Development -> True
                   _           -> False
+
+sscTransmitterInterval :: Microsecond
+sscTransmitterInterval = sec . ccMpcRelayInterval $ compileConfig
+
+defaultPeers :: [DHTNode]
+defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
+  where
+    parsePeer :: [Char] -> DHTNode
+    parsePeer =
+        either (panic . show) identity .
+        P.parse dhtNodeParser "Compile time config"

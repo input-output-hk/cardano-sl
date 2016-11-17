@@ -94,12 +94,16 @@ function node_cmd {
   local stake_distr=$5
   local st=''
   local reb=''
+  local ssc_algo=''
 
   ensure_logs
   ensure_run
 
   if [[ $time_lord != "" ]] && [[ $time_lord != 0 ]]; then
     time_lord=" --time-lord"
+  fi
+  if [[ "$SSC_ALGO" != "" ]]; then
+    ssc_algo=" --ssc-algo $SSC_ALGO "
   fi
   if [[ $NO_REBUILD == "" ]]; then
     reb=" --rebuild-db "
@@ -116,7 +120,7 @@ function node_cmd {
   echo -n " --spending-genesis $i --port "`get_port $i`
   echo -n " $petty $logs $time_lord $stats"
   echo -n " --json-log=$logs_dir/node-$i.json "
-  echo -n " $stake_distr "
+  echo -n " $stake_distr $ssc_algo "
   echo -n "| tee $logs_dir/node-$i.log "
   echo ''
 }

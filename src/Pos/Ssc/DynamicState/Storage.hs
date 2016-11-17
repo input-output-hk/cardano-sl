@@ -5,7 +5,6 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
-{-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 
 -- | Dynamic State storage.
@@ -117,3 +116,4 @@ instance Default DSStorage where
         , _dsCurrentSecret = Nothing
         , _dsLastProcessedSlot = unflattenSlotId 0
         }
+

@@ -1,6 +1,8 @@
+{-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 -- | Server which handles blocks.
 
@@ -12,43 +14,47 @@ module Pos.Communication.Server.Block
        , handleBlockRequest
        ) where
 
-import           Control.TimeWarp.Logging  (logDebug, logInfo, logNotice, logWarning)
+import           Control.Lens              ((^.))
+import           Control.TimeWarp.Logging  (logDebug, logError, logInfo, logNotice,
+                                            logWarning)
 import           Control.TimeWarp.Rpc      (BinaryP, MonadDialog)
+import qualified Data.HashSet              as HS
 import           Data.List.NonEmpty        (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty        as NE
-import           Formatting                (build, int, sformat, stext, (%))
-import           Serokell.Util             (VerificationRes (..), listJson)
+import           Formatting                (bprint, build, int, sformat, stext, (%))
+import           Serokell.Util             (VerificationRes (..), listJson,
+                                            listJsonIndent)
 import           Universum
 
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Communication.Types   (RequestBlock (..), ResponseMode,
                                             SendBlock (..), SendBlockHeader (..))
-import           Pos.Communication.Util    (modifyListenerLogger)
-import           Pos.Crypto                (hash)
+import           Pos.Crypto                (hash, shortHashF)
 import           Pos.DHT                   (ListenerDHT (..), replyToNode)
 import           Pos.Slotting              (getCurrentSlot)
-import           Pos.Ssc.DynamicState      (SscDynamicState)
 import qualified Pos.State                 as St
 import           Pos.Statistics            (StatBlockCreated (..), statlogCountEvent)
-import           Pos.Types                 (HeaderHash, getBlockHeader, headerHash)
+import           Pos.Types                 (HeaderHash, Tx, blockTxs, getBlockHeader,
+                                            headerHash)
+import           Pos.Util                  (inAssertMode)
 import           Pos.Util.JsonLog          (jlAdoptedBlock, jlLog)
 import           Pos.WorkMode              (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
-blockListeners :: (MonadDialog BinaryP m, WorkMode m) => [ListenerDHT m]
+blockListeners :: (MonadDialog BinaryP m, WorkMode ssc m)
+               => [ListenerDHT m]
 blockListeners =
-    map (modifyListenerLogger "block")
-        [ ListenerDHT handleBlock
-        , ListenerDHT handleBlockHeader
-        , ListenerDHT handleBlockRequest
-        ]
+    [ ListenerDHT handleBlock
+    , ListenerDHT handleBlockHeader
+    , ListenerDHT handleBlockRequest
+    ]
 
-handleBlock :: ResponseMode m => SendBlock SscDynamicState -> m ()
+handleBlock :: forall ssc m . ResponseMode ssc m
+            => SendBlock ssc -> m ()
 handleBlock (SendBlock block) = do
     slotId <- getCurrentSlot
     pbr <- St.processBlock slotId block
-    let blkHash :: HeaderHash SscDynamicState
-        blkHash = headerHash block
+    let blkHash = headerHash block
     case pbr of
         St.PBRabort msg -> do
             let fmt =
@@ -57,19 +63,17 @@ handleBlock (SendBlock block) = do
             logWarning $ sformat fmt blkHash msg
         St.PBRgood (0, (blkAdopted:|[])) -> do
             statlogCountEvent StatBlockCreated 1
-            let adoptedBlkHash :: HeaderHash SscDynamicState
-                adoptedBlkHash = headerHash blkAdopted
+            let adoptedBlkHash = headerHash blkAdopted
             jlLog $ jlAdoptedBlock blkAdopted
             logInfo $ sformat ("Received block has been adopted: "%build)
                 adoptedBlkHash
         St.PBRgood (rollbacked, altChain) -> do
             statlogCountEvent StatBlockCreated 1
             logNotice $
-                sformat ("As a result of block processing rollback of "%int%
-                         " blocks has been done and alternative chain has been adopted "%
-                         listJson)
-                rollbacked (fmap headerHash altChain ::
-                                   NonEmpty (HeaderHash SscDynamicState))
+                sformat ("As a result of block processing, rollback"%
+                         " of "%int%" blocks has been done and alternative"%
+                         " chain has been adopted "%listJson)
+                rollbacked (fmap headerHash altChain)
         St.PBRmore h -> do
             logInfo $ sformat
                 ("After processing block "%build%", we need block "%build)
@@ -77,7 +81,32 @@ handleBlock (SendBlock block) = do
             replyToNode $ RequestBlock h
     propagateBlock pbr
 
-propagateBlock :: WorkMode m => St.ProcessBlockRes SscDynamicState -> m ()
+    -- We assert that the chain is consistent – none of the transactions in a
+    -- block are present in previous blocks. This is an expensive check and
+    -- we only do it when asserts are turned on.
+    inAssertMode $ do
+        let getTxs (Left _)    = mempty
+            getTxs (Right blk) = HS.fromList . toList $ blk ^. blockTxs
+        chain <- St.getBestChain
+        let dups :: [(HeaderHash ssc, HashSet Tx)]
+            dups = go mempty (reverse (toList chain))
+              where
+                go _txs []        = []
+                go txs (blk:blks) =
+                    (headerHash blk, HS.intersection (getTxs blk) txs) :
+                    go (txs <> getTxs blk) blks
+        unless (all (null . snd) dups) $ logError $ sformat
+            ("transactions from some blocks are present in previous blocks;"%
+             " here's the whole blockchain from youngest to oldest block,"%
+             " and duplicating transactions in those blocks: "%
+             listJsonIndent 2)
+            [if null txs
+                 then bprint shortHashF h
+                 else bprint (shortHashF%": "%listJsonIndent 4) h txs
+              | (h, txs) <- reverse dups ]
+
+propagateBlock :: WorkMode ssc m
+               => St.ProcessBlockRes ssc -> m ()
 propagateBlock (St.PBRgood (_, blocks)) =
     either (const pass) announceBlock header
   where
@@ -86,8 +115,9 @@ propagateBlock (St.PBRgood (_, blocks)) =
 propagateBlock _ = pass
 
 handleBlockHeader
-    :: ResponseMode m
-    => SendBlockHeader SscDynamicState -> m ()
+    :: ResponseMode ssc m
+    => SendBlockHeader ssc -> m ()
+
 handleBlockHeader (SendBlockHeader header) = do
     whenM checkUsefulness $ replyToNode (RequestBlock h)
   where
@@ -109,8 +139,8 @@ handleBlockHeader (SendBlockHeader header) = do
                 True <$ logDebug msg
 
 handleBlockRequest
-    :: ResponseMode m
-    => RequestBlock SscDynamicState -> m ()
+    :: ResponseMode ssc m
+    => RequestBlock ssc -> m ()
 handleBlockRequest (RequestBlock h) = do
     logDebug $ sformat ("Block "%build%" is requested") h
     maybe logNotFound sendBlockBack =<< St.getBlock h

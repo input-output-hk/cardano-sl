@@ -5,7 +5,6 @@
 {-# LANGUAGE Rank2Types             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TemplateHaskell        #-}
-{-# LANGUAGE TypeApplications       #-}
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE UndecidableInstances   #-}
 {-# LANGUAGE ViewPatterns           #-}
@@ -21,6 +20,7 @@ module Pos.State.Storage
        , Query
        , getBlock
        , getHeadBlock
+       , getBestChain
        , getGlobalSscPayload
        , getLeaders
        , getLocalTxs
@@ -67,8 +67,9 @@ import           Pos.Ssc.Class.Types     (SscTypes (..))
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
                                           blkCleanUp, blkCreateGenesisBlock,
                                           blkCreateNewBlock, blkProcessBlock, blkRollback,
-                                          blkSetHead, getBlock, getHeadBlock, getLeaders,
-                                          getSlotDepth, mayBlockBeUseful, mkBlockStorage)
+                                          blkSetHead, getBestChain, getBlock,
+                                          getHeadBlock, getLeaders, getSlotDepth,
+                                          mayBlockBeUseful, mkBlockStorage)
 import           Pos.State.Storage.Stats (HasStatsData (statsData), StatsData,
                                           getStatRecords, newStatRecord)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
@@ -150,19 +151,19 @@ getLocalSscPayload
     :: forall ssc.
        SscStorageClass ssc
     => SlotId -> Query ssc (SscPayload ssc)
-getLocalSscPayload = sscGetLocalPayload @ ssc
+getLocalSscPayload = sscGetLocalPayload @ssc
 
 getGlobalSscPayload
     :: forall ssc.
        SscStorageClass ssc
     => Query ssc (SscPayload ssc)
-getGlobalSscPayload = sscGetGlobalPayload @ ssc
+getGlobalSscPayload = sscGetGlobalPayload @ssc
 
 getToken
     :: forall ssc.
        SscStorageClass ssc
     => Query ssc (Maybe (SscToken ssc))
-getToken = sscGetToken @ ssc
+getToken = sscGetToken @ssc
 
 getOurShares
     :: forall ssc.
@@ -170,7 +171,7 @@ getOurShares
     => VssKeyPair -- ^ Our VSS key
     -> Integer -- ^ Random generator seed (needed for 'decryptShare')
     -> Query ssc (HashMap PublicKey Share)
-getOurShares = sscGetOurShares @ ssc
+getOurShares = sscGetOurShares @ssc
 
 -- | Create a new block on top of best chain if possible.
 -- Block can be created if:
@@ -207,14 +208,12 @@ canCreateBlock sId = do
     addKSafe si = si {siSlot = min (6 * k - 1) (siSlot si + k)}
 
 -- | Do all necessary changes when a block is received.
-processBlock
-    :: forall ssc.
-       SscStorageClass ssc
+processBlock :: SscStorageClass ssc
     => SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
 processBlock curSlotId blk = do
     -- TODO: I guess these checks should be part of block verification actually.
     let verifyMpc mainBlk =
-            untag @ssc sscVerifyPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
+            untag sscVerifyPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
     let mpcRes = either (const mempty) verifyMpc blk
     let txs =
             case blk of
@@ -233,7 +232,7 @@ processBlockDo curSlotId blk = do
     r <- blkProcessBlock curSlotId blk
     case r of
         PBRgood (toRollback, chain) -> do
-            mpcRes <- readerToState $ (sscVerifyBlocks @ ssc) toRollback chain
+            mpcRes <- readerToState $ sscVerifyBlocks @ssc toRollback chain
             txRes <- readerToState $ txVerifyBlocks toRollback chain
             case mpcRes <> txRes of
                 VerSuccess        -> processBlockFinally toRollback chain
@@ -250,8 +249,8 @@ processBlockFinally :: forall ssc . SscStorageClass ssc => Word
                     -> AltChain ssc
                     -> Update ssc (ProcessBlockRes ssc)
 processBlockFinally toRollback blocks = do
-    (sscRollback @ ssc) toRollback
-    (sscApplyBlocks @ ssc) blocks
+    sscRollback @ssc toRollback
+    sscApplyBlocks @ssc blocks
     txRollback toRollback
     txApplyBlocks blocks
     blkRollback toRollback
@@ -292,10 +291,10 @@ processNewSlotDo sId@SlotId {..} = do
     slotId .= sId
     mGenBlock <-
       if siSlot == 0
-         then (createGenesisBlock @ ssc) siEpoch
+         then createGenesisBlock @ssc siEpoch
          else pure Nothing
     blkCleanUp sId
-    (sscPrepareToNewSlot @ ssc) sId $> mGenBlock
+    sscPrepareToNewSlot @ssc sId $> mGenBlock
 
 -- We create genesis block for i-th epoch when head of currently known
 -- best chain is MainBlock corresponding to one of last `k` slots of
@@ -345,7 +344,7 @@ calculateLeaders epoch = do
     utxo <- fromMaybe onErrorGetUtxo <$> getUtxoByDepth depth
     -- TODO: overall 'calculateLeadersDo' gets utxo twice, could be optimised
     threshold <- fromMaybe onErrorGetThreshold <$> getThreshold epoch
-    either onErrorCalcLeaders identity <$> (sscCalculateLeaders @ ssc) utxo threshold
+    either onErrorCalcLeaders identity <$> sscCalculateLeaders @ssc epoch utxo threshold
   where
     onErrorGetDepth =
         panic "Depth of MPC crucial slot isn't reasonable"
@@ -371,7 +370,7 @@ getParticipants epoch = do
     mUtxo <- getUtxoByDepth .=<<. mDepth
     case (,) <$> mDepth <*> mUtxo of
         Nothing            -> return Nothing
-        Just (depth, utxo) -> (sscGetParticipants @ ssc) depth utxo
+        Just (depth, utxo) -> sscGetParticipants @ssc depth utxo
 
 -- slot such that data after it is used for MPC in given epoch
 mpcCrucialSlot :: EpochIndex -> SlotId
@@ -388,18 +387,18 @@ getMpcCrucialDepth epoch = do
 
 getThreshold :: forall ssc . SscStorageClass ssc => EpochIndex -> Query ssc (Maybe Threshold)
 getThreshold epoch = do
-    fmap getThresholdImpl <$> (getParticipants @ ssc) epoch
+    fmap getThresholdImpl <$> getParticipants @ssc epoch
   where
     getThresholdImpl (length -> len) = fromIntegral $ len `div` 2 + len `mod` 2
 
 processSscMessage
     :: forall ssc.
        SscStorageClass ssc
-    => SscMessage ssc -> Update ssc Bool
-processSscMessage = sscProcessMessage @ ssc
+    => SscMessage ssc -> Update ssc (Maybe (SscMessage ssc))
+processSscMessage = sscProcessMessage @ssc
 
 setToken
     :: forall ssc.
        SscStorageClass ssc
     => SscToken ssc -> Update ssc ()
-setToken = sscSetToken @ ssc
+setToken = sscSetToken @ssc

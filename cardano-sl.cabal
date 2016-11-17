@@ -12,16 +12,23 @@ build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
 
+flag asserts
+  default: True
+  manual: True
+
 library
   exposed-modules:      Pos.CLI
                         Pos.Crypto
                         Pos.Communication
+                        Pos.CompileConfig
                         Pos.Constants
                         Pos.DHT
                         Pos.DHT.Real
                         Pos.FollowTheSatoshi
                         Pos.Ssc.Class
                         Pos.Ssc.DynamicState
+                        Pos.Ssc.NistBeacon
+                        Pos.Ssc.SscAlgo
                         Pos.Genesis
                         Pos.Launcher
                         Pos.Merkle
@@ -36,18 +43,17 @@ library
   other-modules:        Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
-                        Pos.Communication.Types.Mpc
                         Pos.Communication.Types.Statistics
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Types.Tx
                         Pos.Communication.Server
                         Pos.Communication.Server.Block
-                        Pos.Communication.Server.Mpc
                         Pos.Communication.Server.Statistics
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Server.Tx
                         Pos.Communication.Util
-                        Pos.CompileConfig
+                        Pos.CompileConfig.Parser
+                        Pos.CompileConfig.Type
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
@@ -55,6 +61,7 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
+                        Pos.DHT.Types
                         Pos.Ssc.Class.Types
                         Pos.Ssc.Class.Storage
                         Pos.Ssc.Class.Workers
@@ -64,7 +71,13 @@ library
                         Pos.Ssc.DynamicState.Error
                         Pos.Ssc.DynamicState.Genesis
                         Pos.Ssc.DynamicState.Instance
+                        Pos.Ssc.DynamicState.Instance.Listeners
+                        Pos.Ssc.DynamicState.Instance.Storage
+                        Pos.Ssc.DynamicState.Instance.Type
+                        Pos.Ssc.DynamicState.Instance.Types
+                        Pos.Ssc.DynamicState.Instance.Worker
                         Pos.Ssc.DynamicState.Seed
+                        Pos.Ssc.DynamicState.Server
                         Pos.Ssc.DynamicState.Storage
                         Pos.Ssc.DynamicState.Types
                         Pos.State.Acidic
@@ -88,7 +101,6 @@ library
                         Pos.Types.Types
                         Pos.Types.Utxo
                         Pos.Worker.Block
-                        Pos.Worker.Mpc
                         Pos.Worker.Stats
                         Pos.Worker.Tx
                         Pos.Util.Arbitrary
@@ -113,8 +125,8 @@ library
                       , ed25519
                       , exceptions
                       , file-embed >= 0.0.10
-                      , formatting
                       , focus
+                      , formatting
                       , hashable
                       , kademlia
                       , lens
@@ -123,6 +135,7 @@ library
                       , memory
                       , mmorph
                       , monad-control
+                      , monad-loops
                       , mtl
                       , parsec
                       , pvss
@@ -132,8 +145,8 @@ library
                       , serokell-util
                       , stm
                       , stm-containers
-                      , tagged
                       , stm-containers
+                      , tagged
                       , template-haskell
                       , text
                       , text-format
@@ -151,11 +164,14 @@ library
   ghc-options:         -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:   RecordWildCards
-                      , OverloadedStrings
-                      , DeriveDataTypeable
-                      , NoImplicitPrelude
-                      , GeneralizedNewtypeDeriving
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+  if flag(asserts)
+    cpp-options: -DASSERTS_ON
 
 executable cardano-node
   hs-source-dirs:      src/node
@@ -179,11 +195,12 @@ executable cardano-node
                        -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
 
 executable cardano-analyzer
   hs-source-dirs:      src/analyzer
@@ -194,8 +211,10 @@ executable cardano-analyzer
                      , attoparsec
                      , bytestring
                      , cardano-sl
+                     , formatting
                      , optparse-simple
                      , serokell-util
+                     , time-warp
                      , universum >= 0.1.9
                      , unordered-containers
   default-language:    Haskell2010
@@ -203,11 +222,12 @@ executable cardano-analyzer
                        -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
 
 executable cardano-wallet
   hs-source-dirs:      src/wallet
@@ -226,11 +246,12 @@ executable cardano-wallet
                        -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
 
 executable cardano-stats-collector
   hs-source-dirs:      src/stats-collector
@@ -267,11 +288,12 @@ executable cardano-stats-collector
                        -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
 
 executable cardano-tx-generator
   hs-source-dirs:      src/tx-generator
@@ -295,11 +317,12 @@ executable cardano-tx-generator
                        -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
 
 test-suite cardano-test
   main-is:             Test.hs
@@ -349,11 +372,12 @@ test-suite cardano-test
                        -rtsopts
                        -Wall
                        -fno-warn-orphans
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , GeneralizedNewtypeDeriving
-                     , NoImplicitPrelude
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
 
 benchmark cardano-bench-criterion
   hs-source-dirs:      bench
@@ -377,8 +401,9 @@ benchmark cardano-bench-criterion
                        -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , GeneralizedNewtypeDeriving
-                     , NoImplicitPrelude
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications

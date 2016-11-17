@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 -- | High level workers.
 
 module Pos.Worker
@@ -14,32 +12,31 @@ import           Formatting               (build, sformat, (%))
 import           Universum
 
 import           Pos.Slotting             (onNewSlot)
-import           Pos.Ssc.Class.Workers    (sscOnNewSlot, sscWorkers)
-import           Pos.Ssc.DynamicState     (SscDynamicState)
+import           Pos.Ssc.Class.Workers    (SscWorkersClass, sscOnNewSlot, sscWorkers)
 import           Pos.State                (processNewSlot)
 import           Pos.Types                (SlotId, slotIdF)
 import           Pos.Util                 (logWarningWaitLinear)
 import           Pos.Util.JsonLog         (jlCreatedBlock, jlLog)
 import           Pos.Worker.Block         (blkOnNewSlot, blkWorkers)
-import           Pos.Worker.Mpc           ()
 import           Pos.Worker.Stats         (statsWorkers)
 import           Pos.Worker.Tx            (txWorkers)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Run all necessary workers in separate threads. This call doesn't
 -- block.
-runWorkers :: WorkMode m => m ()
+runWorkers :: (SscWorkersClass ssc,  WorkMode ssc m) => m ()
 runWorkers = mapM_ fork_ $ concat
     [ [onNewSlotWorker]
     , blkWorkers
-    , untag @SscDynamicState sscWorkers
+    , untag sscWorkers
     , txWorkers
     ]
 
-onNewSlotWorker :: WorkMode m => m ()
+onNewSlotWorker :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
 onNewSlotWorker = onNewSlot True onNewSlotWorkerImpl
 
-onNewSlotWorkerImpl :: WorkMode m => SlotId -> m ()
+onNewSlotWorkerImpl :: (SscWorkersClass ssc, WorkMode ssc m)
+                    => SlotId -> m ()
 onNewSlotWorkerImpl slotId = do
     logNotice $ sformat ("New slot has just started: "%slotIdF) slotId
     -- A note about order: currently only one thing is important, that
@@ -51,8 +48,7 @@ onNewSlotWorkerImpl slotId = do
     logDebug "Finished `processNewSlot`"
 
     fork_ $ do
-        logWarningWaitLinear 8 "mpcOnNewSlot" $
-            untag @SscDynamicState sscOnNewSlot slotId
+        logWarningWaitLinear 8 "mpcOnNewSlot" $ untag sscOnNewSlot slotId
         logDebug "Finished `mpcOnNewSlot`"
     blkOnNewSlot slotId
     logDebug "Finished `blkOnNewSlot`"

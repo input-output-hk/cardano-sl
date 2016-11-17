@@ -206,6 +206,8 @@ executable cardano-analyzer
                      , formatting
                      , optparse-simple
                      , serokell-util
+                     , text
+                     , time
                      , time-warp
                      , universum >= 0.1.9
                      , unordered-containers

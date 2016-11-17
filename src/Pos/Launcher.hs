@@ -4,7 +4,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE ViewPatterns          #-}
 
 -- | Launcher of full node or simple operations.
 
@@ -42,16 +41,16 @@ import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, MonadDialog,
                                               NetworkAddress, Transfer, runDialog,
                                               runTransfer)
 import           Control.TimeWarp.Timed      (MonadTimed, currentTime, for, fork, fork_,
-                                              killThread, ms, repeatForever, runTimedIO,
-                                              sec, sleepForever, wait, wait)
+                                              killThread, repeatForever, runTimedIO, sec,
+                                              sleepForever, wait, wait)
 import           Data.Default                (Default (def))
 import           Data.List                   (nub)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Universum
 
-import           Pos.Communication           (SysStartRequest (..), SysStartResponse (..),
-                                              allListeners, noCacheMessageNames, sendTx,
+import           Pos.Communication           (SysStartRequest (..), allListeners,
+                                              noCacheMessageNames, sendTx,
                                               serverLoggerName, statsListeners,
                                               sysStartReqListener, sysStartRespListener)
 import           Pos.Constants               (RunningMode (..), defaultPeers,
@@ -60,7 +59,7 @@ import           Pos.Crypto                  (SecretKey, VssKeyPair, hash, sign)
 import           Pos.DHT                     (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
                                               ListenerDHT, MonadDHT (..),
                                               filterByNodeType, mapListenerDHT,
-                                              sendToNeighbors, sendToNetwork)
+                                              sendToNeighbors)
 import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..),
                                               KademliaDHTInstance,
                                               KademliaDHTInstanceConfig (..),
@@ -101,12 +100,6 @@ runNode :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
 runNode = do
     pk <- ncPublicKey <$> getNodeContext
     logInfo $ sformat ("My public key is: "%build) pk
-    whenM (ncTimeLord <$> getNodeContext) $
-      ncSystemStart <$> getNodeContext
-          >>= \(SysStartResponse . Just -> mT) -> fork_ $
-            runWithRandomIntervals (ms 500) (sec 5) $ do
-              logInfo "Broadcasting system start"
-              sendToNetwork mT
     peers <- discoverPeers DHTFull
     logInfo $ sformat ("Known peers: " % build) peers
 

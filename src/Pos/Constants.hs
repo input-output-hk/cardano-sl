@@ -16,6 +16,7 @@ module Pos.Constants
        , runningMode
        , isDevelopment
        , defaultPeers
+       , sysTimeBroadcastSlots
        ) where
 
 import           Control.TimeWarp.Timed (Microsecond, sec)
@@ -49,6 +50,9 @@ genesisN = fromIntegral . ccGenesisN $ compileConfig
 
 maxLocalTxs :: Integral i => i
 maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
+
+sysTimeBroadcastSlots :: Integral i => i
+sysTimeBroadcastSlots = fromIntegral . ccSysTimeBroadcastSlots $ compileConfig
 
 -- | Estimated time needed to broadcast message from one node to all
 -- other nodes.

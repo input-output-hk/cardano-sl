@@ -42,7 +42,7 @@ import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, MonadDialog,
                                               runTransfer)
 import           Control.TimeWarp.Timed      (MonadTimed, currentTime, for, fork, fork_,
                                               killThread, repeatForever, runTimedIO, sec,
-                                              sleepForever, wait, wait)
+                                              sleepForever, wait)
 import           Data.Default                (Default (def))
 import           Data.List                   (nub)
 import qualified Data.Time                   as Time

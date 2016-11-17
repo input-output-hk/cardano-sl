@@ -110,8 +110,9 @@ topsortTxs input =
         t <- uses tsUnprocessed head
         whenJust t $ \k -> do
             ifM (uses tsVisited $ HS.member k)
-                (tsUnprocessed %= tail >> dfs1)
+                (tsUnprocessed %= tail)
                 (dfs2 HS.empty k)
+            dfs1
     -- Does dfs putting vertices into tsResult in reversed order of
     -- visiting. visitedThis is map of visited vertices for _this_ dfs
     -- (cycle detection).

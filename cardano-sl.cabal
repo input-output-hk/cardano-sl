@@ -331,6 +331,7 @@ test-suite cardano-test
                      , Test.Pos.Types.Identity.MessagePackSpec
                      , Test.Pos.Types.Identity.SafeCopySpec
                      , Test.Pos.Types.SlottingSpec
+                     , Test.Pos.Types.TxSpec
                      , Test.Pos.Types.UtxoSpec
                      , Test.Pos.Util
   type:                exitcode-stdio-1.0
@@ -345,6 +346,7 @@ test-suite cardano-test
                      , formatting
                      , hspec
                      , memory
+                     , mtl
                      , random
                      , safecopy
                      , serokell-util

@@ -11,9 +11,9 @@ import           Control.Lens          (view, _2, _3)
 import           Control.Monad         (join)
 import           Data.List             (lookup)
 import           Pos.Crypto            (SecretKey, sign, toPublic, verify)
-import           Pos.Types             (Address (..), GoodTx (..), OverflowTx (..),
-                                        Tx (..), TxId, TxIn (..), TxOut (..), verifyTx,
-                                        verifyTxAlone)
+import           Pos.Types             (Address (..), BadSigsTx (..), GoodTx (..),
+                                        OverflowTx (..), Tx (..), TxId, TxIn (..),
+                                        TxOut (..), verifyTx, verifyTxAlone)
 import           Serokell.Util.Verify  (isVerFailure, isVerSuccess)
 
 import           Test.Hspec            (Spec, describe)
@@ -27,6 +27,7 @@ spec = describe "Types.Tx" $ do
     describe "verifyTx" $ do
         prop description_validateGoodTx validateGoodTx
         prop description_overflowTx overflowTx
+        prop description_badSigsTx badSigsTx
   where
     description_invalidateBadTx =
         "invalidates Txs with negative coins or empty inputs/outputs"
@@ -35,6 +36,8 @@ spec = describe "Types.Tx" $ do
     description_overflowTx =
         "a well-formed transaction with input and output sums above maxBound :: Coin \
         \ is validated successfully"
+    description_badSigsTx =
+        "a transaction with inputs improperly signed is never validated"
 
 invalidateBadTx :: Tx -> Bool
 invalidateBadTx tx@Tx{..} =
@@ -98,3 +101,24 @@ overflowTx (getOverflowTx -> ls) =
         transactionIsNotVerified = isVerFailure $ verifyTx inpResolver Tx{..}
         inpSumLessThanOutSum = not $ txChecksum extendedInputs txOutputs
     in inpSumLessThanOutSum == transactionIsNotVerified
+
+signatureIsNotValid :: [TxOut] -> Maybe (TxIn, TxOut) -> Bool
+signatureIsNotValid txOutputs (Just (TxIn{..}, TxOut{..})) =
+    not $ verify (getAddress txOutAddress)
+        (txInHash, txInIndex, txOutputs)
+        txInSig
+signatureIsNotValid _ _ = False
+
+badSigsTx :: BadSigsTx -> Bool
+badSigsTx (getBadSigsTx -> ls) =
+    let txOutputs = fmap (view _3) ls
+        txInputs = fmap (view _2) ls
+        resolveFun (Tx _ txOut, tInp, _) = (tInp, head txOut)
+        inpResolver :: TxIn -> Maybe TxOut
+        inpResolver = join . flip lookup (map resolveFun ls)
+        extendInput txIn = (txIn,) <$> inpResolver txIn
+        extendedInputs :: [Maybe (TxIn, TxOut)]
+        extendedInputs = fmap extendInput txInputs
+        transactionIsNotVerified = isVerFailure $ verifyTx inpResolver Tx{..}
+        noSignatureIsValid = all (signatureIsNotValid txOutputs) extendedInputs
+    in noSignatureIsValid == transactionIsNotVerified

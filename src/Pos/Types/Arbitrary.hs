@@ -6,11 +6,12 @@
 -- | `Arbitrary` instances for core types for using in tests and benchmarks
 
 module Pos.Types.Arbitrary
-       ( GoodTx (..)
+       ( BadSigsTx (..)
+       , GoodTx (..)
        , OverflowTx (..)
        ) where
 
-import           Control.Lens               (view, _3)
+import           Control.Lens               (over, view, _2, _3)
 import qualified Data.ByteString            as BS (pack)
 import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
@@ -84,6 +85,9 @@ instance Arbitrary Tx where
 -- The OverflowTx type is the same as GoodTx, except its values, both for
 -- inputs as well as outputs, are very close to maxBound :: Coin so as to cause
 -- overflow in the Coin type if they are summed.
+--
+-- The BadSigTx type is also the same as GoodTx, with the difference that all
+-- signatures in the transaction's inputs have been replaced with a bogus one.
 
 buildProperTx
     :: [(Tx, SecretKey, SecretKey, Coin)]
@@ -125,6 +129,17 @@ instance Arbitrary OverflowTx where
             (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
         let halfBound = maxBound `div` 2
         buildProperTx txsList ((halfBound +), (halfBound -))
+
+newtype BadSigsTx = BadSigsTx
+    { getBadSigsTx :: [(Tx, TxIn, TxOut)]
+    } deriving (Show)
+
+instance Arbitrary BadSigsTx where
+    arbitrary = BadSigsTx <$> do
+        goodTxList <- getGoodTx <$> arbitrary
+        badSig <- arbitrary
+        let addBadSig t = t {txInSig = badSig}
+        return $ fmap (over _2 addBadSig) goodTxList
 
 instance Arbitrary FtsSeed where
     arbitrary = do

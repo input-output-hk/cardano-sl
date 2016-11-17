@@ -12,6 +12,10 @@ build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
 
+flag asserts
+  default: True
+  manual: True
+
 library
   exposed-modules:      Pos.CLI
                         Pos.Crypto
@@ -90,7 +94,6 @@ library
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block
                         Pos.Types.Slotting
-                        Pos.Types.Ssc
                         Pos.Types.Timestamp
                         Pos.Types.Tx
                         Pos.Types.Types
@@ -120,8 +123,8 @@ library
                       , ed25519
                       , exceptions
                       , file-embed >= 0.0.10
-                      , formatting
                       , focus
+                      , formatting
                       , hashable
                       , kademlia
                       , lens
@@ -130,6 +133,7 @@ library
                       , memory
                       , mmorph
                       , monad-control
+                      , monad-loops
                       , mtl
                       , parsec
                       , pvss
@@ -139,8 +143,8 @@ library
                       , serokell-util
                       , stm
                       , stm-containers
-                      , tagged
                       , stm-containers
+                      , tagged
                       , template-haskell
                       , text
                       , text-format
@@ -164,6 +168,8 @@ library
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+  if flag(asserts)
+    cpp-options: -DASSERTS_ON
 
 executable cardano-node
   hs-source-dirs:      src/node
@@ -326,11 +332,17 @@ test-suite cardano-test
                      , Test.Pos.MerkleSpec
                      , Test.Pos.SlottingSpec
                      , Test.Pos.Ssc.DynamicState.Identity.BinarySpec
+                     , Test.Pos.Ssc.DynamicState.Identity.MessagePackSpec
+                     , Test.Pos.Ssc.DynamicState.Identity.SafeCopySpec
+                     , Test.Pos.Ssc.DynamicState.SeedSpec
                      , Test.Pos.Types.BlockSpec
                      , Test.Pos.Types.Identity.BinarySpec
                      , Test.Pos.Types.Identity.MessagePackSpec
                      , Test.Pos.Types.Identity.SafeCopySpec
+                     , Test.Pos.Types.Identity.TimestampSpec
+                     , Test.Pos.Types.MpcSpec
                      , Test.Pos.Types.SlottingSpec
+                     , Test.Pos.Types.TxSpec
                      , Test.Pos.Types.UtxoSpec
                      , Test.Pos.Util
   type:                exitcode-stdio-1.0
@@ -340,10 +352,12 @@ test-suite cardano-test
                      , bytestring
                      , cardano-sl
                      , cereal
+                     , containers
                      , cryptonite
                      , data-msgpack
                      , formatting
                      , hspec
+                     , lens
                      , memory
                      , random
                      , safecopy

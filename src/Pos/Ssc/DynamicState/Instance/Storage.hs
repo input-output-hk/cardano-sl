@@ -71,9 +71,10 @@ import           Pos.Ssc.DynamicState.Types          (DSMessage (..), DSPayload 
                                                       mdVssCertificates, verifyDSPayload)
 import           Pos.State.Storage.Types             (AltChain)
 import           Pos.Types                           (Address (getAddress), Block,
-                                                      SlotId (..), SlotLeaders, Utxo,
-                                                      blockMpc, blockSlot, blockSlot,
-                                                      gbHeader, txOutAddress, EpochIndex)
+                                                      EpochIndex, SlotId (..),
+                                                      SlotLeaders, Utxo, blockMpc,
+                                                      blockSlot, blockSlot, gbHeader,
+                                                      txOutAddress)
 import           Pos.Util                            (magnify', readerToState, zoom',
                                                       _neHead)
 
@@ -129,7 +130,7 @@ instance (SscStorage ssc ~ DSStorage) => HasSscStorage ssc DSStorage where
 dsVersioned
     :: HasSscStorage SscDynamicState a =>
        Lens' a (NonEmpty DSStorageVersion)
-dsVersioned = sscStorage @SscDynamicState. dsVersionedL
+dsVersioned = sscStorage @SscDynamicState . dsVersionedL
 
 dsCurrentSecret
     :: HasSscStorage SscDynamicState a =>

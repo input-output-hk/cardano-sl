@@ -6,9 +6,10 @@ module Pos.Constants
        , slotDuration
        , epochSlots
        , epochDuration
+       , ftsSeedLength
        , genesisN
        , maxLocalTxs
-       , mpcTransmitterInterval
+       , sscTransmitterInterval
        , neighborsSendThreshold
        , networkDiameter
        , RunningMode (..)
@@ -40,6 +41,9 @@ epochSlots = 6 * k
 epochDuration :: Microsecond
 epochDuration = epochSlots * slotDuration
 
+ftsSeedLength :: Integral a => a
+ftsSeedLength = 32
+
 genesisN :: Integral i => i
 genesisN = fromIntegral . ccGenesisN $ compileConfig
 
@@ -68,8 +72,8 @@ isDevelopment = case runningMode of
                   Development -> True
                   _           -> False
 
-mpcTransmitterInterval :: Microsecond
-mpcTransmitterInterval = sec . ccMpcRelayInterval $ compileConfig
+sscTransmitterInterval :: Microsecond
+sscTransmitterInterval = sec . ccMpcRelayInterval $ compileConfig
 
 defaultPeers :: [DHTNode]
 defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig

@@ -19,9 +19,9 @@ import           Formatting             (sformat)
 import           Pos.Crypto             (Hash, hash, hashHexF)
 import           Pos.DHT                (DHTResponseT)
 import           Pos.Ssc.Class.Types    (SscTypes)
-import           Pos.Types              (Block, HeaderHash, SlotId (..), blockHeader,
-                                         blockTxs, epochIndexL, gbHeader, gbhPrevBlock,
-                                         headerHash, headerSlot)
+import           Pos.Types              (Block, SlotId (..), blockHeader, blockTxs,
+                                         epochIndexL, gbHeader, gbhPrevBlock, headerHash,
+                                         headerSlot)
 import           Serokell.Aeson.Options (defaultOptions)
 import           Universum
 
@@ -57,13 +57,10 @@ $(deriveJSON defaultOptions ''JLBlock)
 $(deriveJSON defaultOptions ''JLEvent)
 $(deriveJSON defaultOptions ''JLTimedEvent)
 
-headerHashB :: SscTypes ssc => Block ssc -> HeaderHash ssc
-headerHashB = headerHash
-
 jlCreatedBlock :: SscTypes ssc => Block ssc -> JLEvent
 jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
   where
-    jlHash = showHash $ headerHashB block
+    jlHash = showHash $ headerHash block
     jlPrevBlock = showHash $ either (view gbhPrevBlock) (view gbhPrevBlock) (block ^. blockHeader)
     jlSlot = (fromIntegral $ siEpoch slot, fromIntegral $ siSlot slot)
     jlTxs = case block of
@@ -77,7 +74,7 @@ showHash :: Hash a -> Text
 showHash = sformat hashHexF
 
 jlAdoptedBlock :: SscTypes ssc => Block ssc -> JLEvent
-jlAdoptedBlock = JLAdoptedBlock . showHash . headerHashB
+jlAdoptedBlock = JLAdoptedBlock . showHash . headerHash
 
 appendJL :: MonadIO m => FilePath -> JLEvent -> m ()
 appendJL path ev = liftIO $ do

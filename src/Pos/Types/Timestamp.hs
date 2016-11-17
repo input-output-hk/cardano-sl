@@ -48,5 +48,3 @@ instance MessagePack Timestamp where
 
 timestampF :: Format r (Timestamp -> r)
 timestampF = build
-
-

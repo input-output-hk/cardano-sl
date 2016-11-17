@@ -13,8 +13,7 @@ import           Serokell.Util   (VerificationRes, verifyGeneric)
 import           Universum
 
 import           Pos.Crypto      (verify)
-import           Pos.Types.Types (Address (..), Coin (..), Tx (..), TxIn (..), TxOut (..),
-                                  coinF)
+import           Pos.Types.Types (Address (..), Tx (..), TxIn (..), TxOut (..), coinF)
 
 -- | Verify that Tx itself is correct. Most likely you will also want
 -- to verify that inputs are legal, signed properly and have enough coins.
@@ -45,19 +44,19 @@ verifyTx :: (TxIn -> Maybe TxOut) -> Tx -> VerificationRes
 verifyTx inputResolver tx@Tx {..} =
     mconcat [verifyTxAlone tx, verifySum, verifyInputs]
   where
-    outSum :: Coin
-    outSum = sum $ map txOutValue txOutputs
+    outSum :: Integer
+    outSum = sum $ fmap (toInteger . txOutValue) txOutputs
     extendedInputs :: [Maybe (TxIn, TxOut)]
     extendedInputs = fmap extendInput txInputs
     extendInput txIn = (txIn,) <$> inputResolver txIn
-    inpSum :: Coin
-    inpSum = sum $ map (txOutValue . snd) $ catMaybes extendedInputs
+    inpSum :: Integer
+    inpSum = sum $ fmap (toInteger . txOutValue . snd) $ catMaybes extendedInputs
     verifySum =
         verifyGeneric
             [ ( inpSum >= outSum
               , sformat
                     ("sum of outputs is more than sum of inputs ("
-                     %coinF%" > "%coinF%"), maybe some inputs are invalid")
+                     %int%" > "%int%"), maybe some inputs are invalid")
                     outSum inpSum)
             ]
     verifyInputs =

@@ -26,5 +26,3 @@ spec = describe "Types" $ do
         prop "Tx" (binaryEncodeDecode @T.Tx)
         prop "FtsSeed" (binaryEncodeDecode @T.FtsSeed)
         prop "Chaindifficulty" (binaryEncodeDecode @T.ChainDifficulty)
-        -- TODO: There's no such type anymore
-        -- prop "MpcProof" (binaryEncodeDecode @T.MpcProof)

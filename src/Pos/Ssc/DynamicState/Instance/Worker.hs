@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
 
 -- | Instance of SscWorkersClass.
 
@@ -19,7 +18,7 @@ import           Formatting                         (build, ords, sformat, (%))
 import           Serokell.Util.Exceptions           ()
 import           Universum
 
-import           Pos.Constants                      (mpcTransmitterInterval)
+import           Pos.Constants                      (sscTransmitterInterval)
 import           Pos.Crypto                         (SecretKey, toPublic)
 import           Pos.Slotting                       (getCurrentSlot)
 import           Pos.Ssc.Class.Workers              (SscWorkersClass (..))
@@ -35,19 +34,20 @@ import           Pos.Ssc.DynamicState.Server        (announceCommitment,
                                                      announceOpenings, announceShares,
                                                      announceSharesMulti,
                                                      announceVssCertificates)
-import           Pos.Ssc.DynamicState.Types         (DSPayload (..), hasCommitment,
-                                                     hasOpening, hasShares)
+import           Pos.Ssc.DynamicState.Types         (DSMessage (..), DSPayload (..),
+                                                     hasCommitment, hasOpening, hasShares)
 import           Pos.State                          (getGlobalMpcData, getLocalSscPayload,
                                                      getOurShares, getParticipants,
-                                                     getThreshold, getToken, setToken)
+                                                     getThreshold, getToken,
+                                                     processSscMessage, setToken)
 import           Pos.Types                          (EpochIndex, SlotId (..))
 import           Pos.WorkMode                       (WorkMode, getNodeContext,
                                                      ncPublicKey, ncSecretKey,
                                                      ncVssKeyPair)
 
 instance SscWorkersClass SscDynamicState where
-    sscOnNewSlot = Tagged mpcOnNewSlot
-    sscWorkers = Tagged mpcWorkers
+    sscOnNewSlot = Tagged onNewSlot
+    sscWorkers = Tagged [sscTransmitter]
 
 -- | Generate new commitment and opening and use them for the current
 -- epoch. Assumes that the genesis block has already been generated and
@@ -74,15 +74,17 @@ generateAndSetNewSecret sk epoch = do
             Just (comm, op) <$ setToken (toPublic sk, comm, op)
 
 
--- | Action which should be done when new slot starts.
-mpcOnNewSlot :: WorkMode SscDynamicState m => SlotId -> m ()
-mpcOnNewSlot SlotId {..} = do
+onNewSlot :: WorkMode SscDynamicState m => SlotId -> m ()
+onNewSlot slotId = do
+    onNewSlotCommitment slotId
+    onNewSlotOpening slotId
+    onNewSlotShares slotId
+
+-- Commitments-related part of new slot processing
+onNewSlotCommitment :: WorkMode SscDynamicState m => SlotId -> m ()
+onNewSlotCommitment SlotId {..} = do
     ourPk <- ncPublicKey <$> getNodeContext
     ourSk <- ncSecretKey <$> getNodeContext
-    -- TODO: should we randomise sending times to avoid the situation when
-    -- the network becomes overwhelmed with everyone's messages?
-    -- If we haven't yet, generate a new commitment and opening for MPC; send
-    -- the commitment.
     shouldCreateCommitment <- do
         secret <- getToken
         return $ isCommitmentIdx siSlot && isNothing secret
@@ -101,7 +103,12 @@ mpcOnNewSlot SlotId {..} = do
         whenJust mbComm $ \comm -> do
             announceCommitment ourPk comm
             logDebug "Sent commitment to neighbors"
-    -- Send the opening
+            () <$ processSscMessage (DSCommitments $ pure (ourPk, comm))
+
+-- Openings-related part of new slot processing
+onNewSlotOpening :: WorkMode SscDynamicState m => SlotId -> m ()
+onNewSlotOpening SlotId {..} = do
+    ourPk <- ncPublicKey <$> getNodeContext
     shouldSendOpening <- do
         openingInBlockchain <- hasOpening ourPk <$> getGlobalMpcData
         return $ isOpeningIdx siSlot && not openingInBlockchain
@@ -110,6 +117,12 @@ mpcOnNewSlot SlotId {..} = do
         whenJust mbOpen $ \open -> do
             announceOpening ourPk open
             logDebug "Sent opening to neighbors"
+            () <$ processSscMessage (DSOpenings $ pure (ourPk, open))
+
+-- Shares-related part of new slot processing
+onNewSlotShares :: WorkMode SscDynamicState m => SlotId -> m ()
+onNewSlotShares SlotId {..} = do
+    ourPk <- ncPublicKey <$> getNodeContext
     -- Send decrypted shares that others have sent us
     shouldSendShares <- do
         -- TODO: here we assume that all shares are always sent as a whole
@@ -122,16 +135,11 @@ mpcOnNewSlot SlotId {..} = do
         unless (null shares) $ do
             announceShares ourPk shares
             logDebug "Sent shares to neighbors"
+            () <$ processSscMessage (DSSharesMulti $ pure (ourPk, shares))
 
--- | All workers specific to MPC processing.
--- Exceptions:
--- 1. Worker which ticks when new slot starts.
-mpcWorkers :: WorkMode SscDynamicState m => [m ()]
-mpcWorkers = [mpcTransmitter]
-
-mpcTransmitter :: WorkMode SscDynamicState m => m ()
-mpcTransmitter =
-    repeatForever mpcTransmitterInterval onError $
+sscTransmitter :: WorkMode SscDynamicState m => m ()
+sscTransmitter =
+    repeatForever sscTransmitterInterval onError $
     do DSPayload {..} <- getLocalSscPayload =<< getCurrentSlot
        whenJust (nonEmpty $ HM.toList _mdCommitments) announceCommitments
        whenJust (nonEmpty $ HM.toList _mdOpenings) announceOpenings
@@ -141,5 +149,5 @@ mpcTransmitter =
            announceVssCertificates
   where
     onError e =
-        mpcTransmitterInterval <$
-        logWarning (sformat ("Error occured in mpcTransmitter: " %build) e)
+        sscTransmitterInterval <$
+        logWarning (sformat ("Error occured in sscTransmitter: " %build) e)

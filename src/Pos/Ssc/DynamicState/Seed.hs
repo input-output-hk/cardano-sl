@@ -10,7 +10,6 @@ module Pos.Ssc.DynamicState.Seed
 import           Control.Arrow              ((&&&))
 import qualified Data.HashMap.Strict        as HM (fromList, lookup, mapMaybe, toList)
 import qualified Data.HashSet               as HS (difference, fromMap)
-import           Data.List                  (foldl1')
 import           Universum
 
 import           Pos.Crypto                 (PublicKey, Secret, Share, Threshold, shareId,
@@ -18,7 +17,7 @@ import           Pos.Crypto                 (PublicKey, Secret, Share, Threshold
 import           Pos.Ssc.DynamicState.Base  (CommitmentsMap, OpeningsMap, SharesMap,
                                              getOpening, secretToFtsSeed, verifyOpening)
 import           Pos.Ssc.DynamicState.Error (SeedError (..))
-import           Pos.Types                  (SharedSeed, xorSharedSeed)
+import           Pos.Types                  (SharedSeed)
 
 getKeys :: HashMap k v -> HashSet k
 getKeys = HS.fromMap . void
@@ -100,4 +99,4 @@ calculateSeed (fromIntegral -> t) commitments openings shares = do
                    \but they produced no secrets somehow"
        | null secrets -> Left NoParticipants
        | otherwise    -> Right $
-                         foldl1' xorSharedSeed (map secretToFtsSeed (toList secrets))
+                         mconcat $ map secretToFtsSeed (toList secrets)

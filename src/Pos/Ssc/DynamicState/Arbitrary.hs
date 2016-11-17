@@ -1,7 +1,12 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | Arbitrary instances for DynamicState types.
 
-module Pos.Ssc.DynamicState.Arbitrary () where
+module Pos.Ssc.DynamicState.Arbitrary
+       ( CommitmentOpening (..)
+       ) where
 
+import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.List.NonEmpty         (NonEmpty ((:|)))
 import           Test.QuickCheck            (Arbitrary (..), elements)
 import           Universum
@@ -11,13 +16,14 @@ import           Pos.Crypto                 (SecretProof, SecretSharingExtra,
 import           Pos.Crypto.Arbitrary       ()
 import           Pos.Ssc.DynamicState.Base  (Commitment (..), Opening,
                                              genCommitmentAndOpening)
+import           Pos.Ssc.DynamicState.Types (DSProof (..))
 import           Pos.Types.Arbitrary.Unsafe ()
 import           Pos.Util.Arbitrary         (Nonrepeating (..), sublistN, unsafeMakePool)
 
 data CommitmentOpening = CommitmentOpening
     { coCommitment :: !Commitment
     , coOpening    :: !Opening
-    }
+    } deriving Show
 
 -- | Generate 50 commitment/opening pairs in advance
 -- (see `Pos.Crypto.Arbitrary` for explanations)
@@ -49,3 +55,5 @@ instance Arbitrary SecretSharingExtra where
 
 instance Arbitrary SecretProof where
     arbitrary = commProof <$> arbitrary
+
+derive makeArbitrary ''DSProof

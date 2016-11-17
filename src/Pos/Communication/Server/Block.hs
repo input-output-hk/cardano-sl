@@ -33,7 +33,6 @@ import           Pos.Crypto                (hash, shortHashF)
 import           Pos.DHT                   (ListenerDHT (..), replyToNode)
 import           Pos.Slotting              (getCurrentSlot)
 import qualified Pos.State                 as St
-import           Pos.Statistics            (StatBlockCreated (..), statlogCountEvent)
 import           Pos.Types                 (HeaderHash, Tx, blockTxs, getBlockHeader,
                                             headerHash)
 import           Pos.Util                  (inAssertMode)
@@ -62,13 +61,11 @@ handleBlock (SendBlock block) = do
                     " processing is aborted for the following reason: "%stext
             logWarning $ sformat fmt blkHash msg
         St.PBRgood (0, (blkAdopted:|[])) -> do
-            statlogCountEvent StatBlockCreated 1
             let adoptedBlkHash = headerHash blkAdopted
             jlLog $ jlAdoptedBlock blkAdopted
             logInfo $ sformat ("Received block has been adopted: "%build)
                 adoptedBlkHash
         St.PBRgood (rollbacked, altChain) -> do
-            statlogCountEvent StatBlockCreated 1
             logNotice $
                 sformat ("As a result of block processing, rollback"%
                          " of "%int%" blocks has been done and alternative"%

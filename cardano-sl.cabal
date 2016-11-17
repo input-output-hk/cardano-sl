@@ -84,10 +84,8 @@ library
                         Pos.State.State
                         Pos.State.Storage
                         Pos.State.Storage.Block
-                        Pos.State.Storage.Stats
                         Pos.State.Storage.Types
                         Pos.State.Storage.Tx
-                        Pos.Statistics.Block
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
@@ -214,6 +212,8 @@ executable cardano-analyzer
                      , formatting
                      , optparse-simple
                      , serokell-util
+                     , text
+                     , time
                      , time-warp
                      , universum >= 0.1.9
                      , unordered-containers

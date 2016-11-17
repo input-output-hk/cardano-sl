@@ -39,9 +39,6 @@ module Pos.State.Acidic
        , ProcessSscMessage (..)
        , ProcessTx (..)
        , SetToken (..)
-
-       , NewStatRecord (..)
-       , GetStatRecords (..)
        ) where
 
 import           Data.Acid             (EventResult, EventState, QueryEvent, UpdateEvent,
@@ -131,6 +128,4 @@ makeAcidicWithHacks ''S.Storage ["ssc"]
     , 'S.processSscMessage
     , 'S.processTx
     , 'S.setToken
-    , 'S.newStatRecord
-    , 'S.getStatRecords
     ]

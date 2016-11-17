@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 
 -- | `Arbitrary` instances for using in tests and benchmarks
 

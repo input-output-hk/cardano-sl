@@ -17,6 +17,7 @@ import           Pos.Genesis              (genesisAddresses, genesisSecretKeys)
 import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
                                            NodeParams (..), submitTxReal)
 import           Pos.Ssc.DynamicState     (genesisVssKeyPairs)
+import           Pos.Ssc.DynamicState     (SscDynamicState)
 import           Serokell.Util.OptParse   (fromParsec)
 
 data WalletCommand = SubmitTx
@@ -80,7 +81,8 @@ main = do
                                       }
                     , npCustomUtxo = Nothing
                     , npTimeLord = False
+                    , npJLFile = Nothing
                     }
             let addr = genesisAddresses !! i
             let txId = unsafeHash addr
-            submitTxReal params (txId, 0) (addr, 10)
+            submitTxReal @SscDynamicState params (txId, 0) (addr, 10)

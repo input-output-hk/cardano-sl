@@ -10,7 +10,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp.git
-    commit: 7b3d9bd4a9ad5df5feee8b124805df0144304a50
+    commit: 157ae0135c82ceb2fd882ad3729af147b93ae492
   extra-dep: true
 - location:
     git: https://github.com/serokell/serokell-util.git
@@ -18,7 +18,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git
-    commit: dea606c78d9ecd22247e3c90dcf12c6b4b0458fc
+    commit: 95fce1dbada62020a0b2d6aa2dd7e88eadd7214b
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/pvss-haskell.git
@@ -26,7 +26,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
-    commit: fd18875c31e0f351733099bd632d5898dcf5840d
+    commit: 062053ed11b92c8e25d4d61ea943506fd0482fa6
   extra-dep: true
 
 nix:
@@ -41,5 +41,6 @@ extra-deps:
 - QuickCheck-2.9.2
 - cryptonite-openssl-0.2
 - UtilityTM-0.0.4
+- th-expand-syns-0.4.1.0
 
 resolver: lts-7.1

@@ -8,27 +8,29 @@ module Pos.Constants
        , epochDuration
        , ftsSeedLength
        , genesisN
+       , maxLocalTxs
+       , sscTransmitterInterval
        , neighborsSendThreshold
        , networkDiameter
        , RunningMode (..)
        , runningMode
        , isDevelopment
+       , defaultPeers
        ) where
 
 import           Control.TimeWarp.Timed (Microsecond, sec)
+import qualified Text.Parsec            as P
 import           Universum
 
+import           Pos.CLI                (dhtNodeParser)
 import           Pos.CompileConfig      (CompileConfig (..), compileConfig)
+import           Pos.DHT.Types          (DHTNode)
 import           Pos.Types.Timestamp    (Timestamp)
-
-
-cast :: Integral a => Int -> a
-cast = fromInteger . toInteger
 
 -- | Consensus guarantee (i.e. after what amount of blocks can we consider
 -- blocks stable?).
 k :: Integral a => a
-k = cast . ccK $ compileConfig
+k = fromIntegral . ccK $ compileConfig
 
 slotDuration :: Microsecond
 slotDuration = sec . ccSlotDurationSec $ compileConfig
@@ -39,11 +41,14 @@ epochSlots = 6 * k
 epochDuration :: Microsecond
 epochDuration = epochSlots * slotDuration
 
-ftsSeedLength :: Int
+ftsSeedLength :: Integral a => a
 ftsSeedLength = 32
 
 genesisN :: Integral i => i
-genesisN = cast . ccGenesisN $ compileConfig
+genesisN = fromIntegral . ccGenesisN $ compileConfig
+
+maxLocalTxs :: Integral i => i
+maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
 
 -- | Estimated time needed to broadcast message from one node to all
 -- other nodes.
@@ -52,7 +57,7 @@ networkDiameter = sec . ccNetworkDiameter $ compileConfig
 
 neighborsSendThreshold :: Integral a => a
 neighborsSendThreshold =
-    cast . ccNeighboursSendThreshold $ compileConfig
+    fromIntegral . ccNeighboursSendThreshold $ compileConfig
 
 data RunningMode
     = Development
@@ -66,3 +71,14 @@ isDevelopment :: Bool
 isDevelopment = case runningMode of
                   Development -> True
                   _           -> False
+
+sscTransmitterInterval :: Microsecond
+sscTransmitterInterval = sec . ccMpcRelayInterval $ compileConfig
+
+defaultPeers :: [DHTNode]
+defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
+  where
+    parsePeer :: [Char] -> DHTNode
+    parsePeer =
+        either (panic . show) identity .
+        P.parse dhtNodeParser "Compile time config"

@@ -23,6 +23,7 @@ module Pos.State.Acidic
        , GetBlock (..)
        , GetGlobalSscPayload (..)
        , GetHeadBlock (..)
+       , GetBestChain (..)
        , GetLeaders (..)
        , GetLocalTxs (..)
        , GetLocalSscPayload (..)
@@ -39,98 +40,97 @@ module Pos.State.Acidic
        , ProcessTx (..)
        , SetToken (..)
 
-       , AddStatRecord (..)
+       , NewStatRecord (..)
        , GetStatRecords (..)
        ) where
 
-import           Data.Acid                  (EventResult, EventState, QueryEvent,
-                                             UpdateEvent, makeAcidic)
-import qualified Data.Acid                  as Acid (Query)
-import           Data.Default               (def)
-import           Serokell.AcidState         (ExtendedState, closeExtendedState,
-                                             openLocalExtendedState,
-                                             openMemoryExtendedState, queryExtended,
-                                             tidyExtendedState, updateExtended)
-import           Serokell.Util              (VerificationRes)
+import           Data.Acid             (EventResult, EventState, QueryEvent, UpdateEvent,
+                                        makeAcidicWithHacks)
+import           Data.Default          (Default, def)
+import           Data.SafeCopy         (SafeCopy)
+import           Serokell.AcidState    (ExtendedState, closeExtendedState,
+                                        openLocalExtendedState, openMemoryExtendedState,
+                                        queryExtended, tidyExtendedState, updateExtended)
 import           Universum
 
-import           Pos.Ssc.DynamicState.Types (SscDynamicState)
-import           Pos.State.Storage          (Storage)
-import qualified Pos.State.Storage          as S
-import           Pos.Types.Types            (Block, EpochIndex, HeaderHash,
-                                             MainBlockHeader, SlotId, SlotLeaders)
+import           Pos.Ssc.Class.Storage (SscStorageClass (..))
+import           Pos.Ssc.Class.Types   (SscTypes (SscStorage))
+import qualified Pos.State.Storage     as S
 
 ----------------------------------------------------------------------------
 -- Acid-state things
 ----------------------------------------------------------------------------
 
-type DiskState = ExtendedState Storage
+type Storage ssc = S.Storage ssc
+type DiskState ssc = ExtendedState (Storage ssc)
 
 query
-    :: (EventState event ~ Storage, QueryEvent event, MonadIO m)
-    => DiskState -> event -> m (EventResult event)
+    :: (SscStorageClass ssc, EventState event ~ Storage ssc,
+        QueryEvent event, MonadIO m)
+    => DiskState ssc -> event -> m (EventResult event)
 query = queryExtended
 
 update
-    :: (EventState event ~ Storage, UpdateEvent event, MonadIO m)
-    => DiskState -> event -> m (EventResult event)
+    :: (SscStorageClass ssc, EventState event ~ Storage ssc,
+        UpdateEvent event, MonadIO m)
+    => DiskState ssc -> event -> m (EventResult event)
 update = updateExtended
 
+
 -- | Same as `openState`, but with explicitly specified initial state.
-openStateCustom :: MonadIO m => Storage -> Bool -> FilePath -> m DiskState
+openStateCustom :: (SscStorageClass ssc, SafeCopy ssc, MonadIO m)
+                => Storage ssc
+                -> Bool
+                -> FilePath
+                -> m (DiskState ssc)
 openStateCustom customStorage deleteIfExists fp =
     openLocalExtendedState deleteIfExists fp customStorage
 
-openState :: MonadIO m => Bool -> FilePath -> m DiskState
+openState :: (SscStorageClass ssc,
+              Default (SscStorage ssc),
+              SafeCopy ssc,
+              MonadIO m)
+          => Bool -> FilePath -> m (DiskState ssc)
 openState = openStateCustom def
 
-openMemState :: MonadIO m => m DiskState
+openMemState :: (SscStorageClass ssc,
+                 Default (SscStorage ssc),
+                 SafeCopy ssc,
+                 MonadIO m)
+             => m (DiskState ssc)
 openMemState = openMemStateCustom def
 
-openMemStateCustom :: MonadIO m => Storage -> m DiskState
+openMemStateCustom :: (SscStorageClass ssc,
+                       SafeCopy ssc,
+                       MonadIO m)
+                   => Storage ssc -> m (DiskState ssc)
 openMemStateCustom = openMemoryExtendedState
 
-closeState :: MonadIO m => DiskState -> m ()
+closeState :: (SscStorageClass ssc, MonadIO m) => DiskState ssc -> m ()
 closeState = closeExtendedState
 
-tidyState :: MonadIO m => DiskState -> m ()
+tidyState :: (SscStorageClass ssc, MonadIO m) => DiskState ssc -> m ()
 tidyState = tidyExtendedState
 
--- TODO: get rid of these (they are only needed temporarily)
-
-getBlock :: HeaderHash SscDynamicState
-         -> Acid.Query Storage (Maybe (Block SscDynamicState))
-getBlock = S.getBlock
-
-getLeaders :: EpochIndex -> Acid.Query Storage (Maybe SlotLeaders)
-getLeaders = S.getLeaders
-
-getHeadBlock :: Acid.Query Storage (Block SscDynamicState)
-getHeadBlock = S.getHeadBlock
-
-mayBlockBeUseful :: SlotId
-                 -> MainBlockHeader SscDynamicState
-                 -> Acid.Query Storage VerificationRes
-mayBlockBeUseful = S.mayBlockBeUseful
-
-makeAcidic ''Storage
-    [ 'getBlock
+makeAcidicWithHacks ''S.Storage ["ssc"]
+    [ 'S.getBlock
     , 'S.getGlobalSscPayload
-    , 'getLeaders
+    , 'S.getLeaders
     , 'S.getLocalSscPayload
     , 'S.getLocalTxs
-    , 'getHeadBlock
+    , 'S.getHeadBlock
+    , 'S.getBestChain
     , 'S.getToken
     , 'S.getOurShares
     , 'S.getThreshold
     , 'S.getParticipants
-    , 'mayBlockBeUseful
+    , 'S.mayBlockBeUseful
     , 'S.createNewBlock
     , 'S.processBlock
     , 'S.processNewSlot
     , 'S.processSscMessage
     , 'S.processTx
     , 'S.setToken
-    , 'S.addStatRecord
+    , 'S.newStatRecord
     , 'S.getStatRecords
     ]

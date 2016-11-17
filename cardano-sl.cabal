@@ -12,15 +12,23 @@ build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
 
+flag asserts
+  default: True
+  manual: True
+
 library
   exposed-modules:      Pos.CLI
                         Pos.Crypto
                         Pos.Communication
+                        Pos.CompileConfig
                         Pos.Constants
                         Pos.DHT
                         Pos.DHT.Real
                         Pos.FollowTheSatoshi
+                        Pos.Ssc.Class
                         Pos.Ssc.DynamicState
+                        Pos.Ssc.NistBeacon
+                        Pos.Ssc.SscAlgo
                         Pos.Genesis
                         Pos.Launcher
                         Pos.Merkle
@@ -29,23 +37,23 @@ library
                         Pos.Statistics
                         Pos.Types
                         Pos.Util
+                        Pos.Util.JsonLog
                         Pos.Worker
                         Pos.WorkMode
   other-modules:        Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
-                        Pos.Communication.Types.Mpc
                         Pos.Communication.Types.Statistics
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Types.Tx
                         Pos.Communication.Server
                         Pos.Communication.Server.Block
-                        Pos.Communication.Server.Mpc
                         Pos.Communication.Server.Statistics
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Server.Tx
                         Pos.Communication.Util
-                        Pos.CompileConfig
+                        Pos.CompileConfig.Parser
+                        Pos.CompileConfig.Type
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
@@ -53,24 +61,36 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
+                        Pos.DHT.Types
                         Pos.Ssc.Class.Types
                         Pos.Ssc.Class.Storage
+                        Pos.Ssc.Class.Workers
+                        Pos.Ssc.Class.Listeners
                         Pos.Ssc.DynamicState.Arbitrary
                         Pos.Ssc.DynamicState.Base
                         Pos.Ssc.DynamicState.Error
                         Pos.Ssc.DynamicState.Genesis
+                        Pos.Ssc.DynamicState.Instance
+                        Pos.Ssc.DynamicState.Instance.Listeners
+                        Pos.Ssc.DynamicState.Instance.Storage
+                        Pos.Ssc.DynamicState.Instance.Type
+                        Pos.Ssc.DynamicState.Instance.Types
+                        Pos.Ssc.DynamicState.Instance.Worker
                         Pos.Ssc.DynamicState.Seed
+                        Pos.Ssc.DynamicState.Server
+                        Pos.Ssc.DynamicState.Storage
                         Pos.Ssc.DynamicState.Types
                         Pos.State.Acidic
                         Pos.State.State
                         Pos.State.Storage
                         Pos.State.Storage.Block
-                        Pos.State.Storage.Mpc
                         Pos.State.Storage.Stats
                         Pos.State.Storage.Types
                         Pos.State.Storage.Tx
                         Pos.Statistics.Block
+                        Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
+                        Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
@@ -81,7 +101,7 @@ library
                         Pos.Types.Types
                         Pos.Types.Utxo
                         Pos.Worker.Block
-                        Pos.Worker.Mpc
+                        Pos.Worker.Stats
                         Pos.Worker.Tx
                         Pos.Util.Arbitrary
                         Pos.Util.NotImplemented
@@ -105,6 +125,7 @@ library
                       , ed25519
                       , exceptions
                       , file-embed >= 0.0.10
+                      , focus
                       , formatting
                       , hashable
                       , kademlia
@@ -112,7 +133,9 @@ library
                       , lifted-async
                       , lrucache
                       , memory
+                      , mmorph
                       , monad-control
+                      , monad-loops
                       , mtl
                       , parsec
                       , pvss
@@ -121,8 +144,9 @@ library
                       , safecopy
                       , serokell-util
                       , stm
-                      , tagged
                       , stm-containers
+                      , stm-containers
+                      , tagged
                       , template-haskell
                       , text
                       , text-format
@@ -140,15 +164,19 @@ library
   ghc-options:         -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:   RecordWildCards
-                      , OverloadedStrings
-                      , DeriveDataTypeable
-                      , NoImplicitPrelude
-                      , GeneralizedNewtypeDeriving
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+  if flag(asserts)
+    cpp-options: -DASSERTS_ON
 
 executable cardano-node
   hs-source-dirs:      src/node
   main-is:             Main.hs
+  other-modules:       NodeOptions
   build-depends:       base
                      , data-default
                      , binary
@@ -167,11 +195,39 @@ executable cardano-node
                        -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+
+executable cardano-analyzer
+  hs-source-dirs:      src/analyzer
+  main-is:             Main.hs
+  other-modules:       AnalyzerOptions
+  build-depends:       base
+                     , aeson
+                     , attoparsec
+                     , bytestring
+                     , cardano-sl
+                     , formatting
+                     , optparse-simple
+                     , serokell-util
+                     , time-warp
+                     , universum >= 0.1.9
+                     , unordered-containers
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
 
 executable cardano-wallet
   hs-source-dirs:      src/wallet
@@ -190,11 +246,83 @@ executable cardano-wallet
                        -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+
+executable cardano-stats-collector
+  hs-source-dirs:      src/stats-collector
+  main-is:             Main.hs
+  other-modules:       StatsOptions
+                     , SarCollector
+                     , Plotting
+  build-depends:       aeson
+                     , base
+                     , cardano-sl
+                     , containers
+                     , Chart
+                     , Chart-diagrams
+                     , data-default
+                     , directory
+                     , formatting
+                     , filepath
+                     , hashable
+                     , lifted-async
+                     , monad-control
+                     , optparse-simple >= 0.0.3
+                     , transformers
+                     , parsec
+                     , serokell-util
+                     , time >= 1.2.2.1
+                     , time-warp
+                     , text
+                     , turtle
+                     , universum >= 0.1.9
+                     , unordered-containers
+                     , yaml
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+
+executable cardano-tx-generator
+  hs-source-dirs:      src/tx-generator
+  main-is:             Main.hs
+  build-depends:       base
+                     , aeson
+                     , bytestring
+                     , data-default
+                     , cardano-sl
+                     , formatting
+                     , optparse-applicative
+                     , parsec
+                     , random
+                     , serokell-util
+                     , time
+                     , time-warp
+                     , universum >= 0.1.9
+                     , unordered-containers
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
 
 test-suite cardano-test
   main-is:             Test.hs
@@ -244,16 +372,18 @@ test-suite cardano-test
                        -rtsopts
                        -Wall
                        -fno-warn-orphans
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , GeneralizedNewtypeDeriving
-                     , NoImplicitPrelude
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
 
 benchmark cardano-bench-criterion
   hs-source-dirs:      bench
   main-is:             Local/Criterion.hs
   other-modules:       Bench.Pos.Criterion.FollowTheSatoshiBench
+                       Bench.Pos.Criterion.TxSigningBench
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
                      , base
@@ -263,6 +393,7 @@ benchmark cardano-bench-criterion
                      , containers
                      , criterion
                      , formatting
+                     , hashtables
                      , universum >= 0.1.9
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
@@ -270,94 +401,9 @@ benchmark cardano-bench-criterion
                        -Wall
                        -fno-warn-orphans
                        -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , GeneralizedNewtypeDeriving
-                     , NoImplicitPrelude
-
-benchmark cardano-bench-remote-single
-  hs-source-dirs:      bench
-  main-is:             Remote/Single.hs
-  other-modules:       Bench.Pos.Remote.Config
-                       Bench.Pos.Remote.Launcher
-  type:                exitcode-stdio-1.0
-  build-depends:       aeson
-                     , base
-                     , binary
-                     , bytestring
-                     , cardano-sl
-                     , containers
-                     , data-default
-                     , formatting
-                     , optparse-applicative
-                     , parsec
-                     , serokell-util
-                     , time-warp
-                     , universum >= 0.1.9
-                     , yaml
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -with-rtsopts=-N
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , GeneralizedNewtypeDeriving
-                     , NoImplicitPrelude
-
-benchmark cardano-stats-collector
-  hs-source-dirs:      bench
-  main-is:             Remote/Collector.hs
-  other-modules:       Bench.Pos.Remote.Config
-                       Bench.Pos.Remote.Launcher
-  type:                exitcode-stdio-1.0
-  build-depends:       aeson
-                     , base
-                     , containers
-                     , cardano-sl
-                     , data-default
-                     , formatting
-                     , optparse-applicative
-                     , parsec
-                     , serokell-util
-                     , time-warp
-                     , universum >= 0.1.9
-                     , yaml
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
-
-benchmark cardano-tx-generator
-  hs-source-dirs:      bench
-  main-is:             Remote/TxGen.hs
-  type:                exitcode-stdio-1.0
-  build-depends:       base
-                     , data-default
-                     , cardano-sl
-                     , formatting
-                     , optparse-applicative
-                     , parsec
-                     , random
-                     , serokell-util
-                     , time-warp
-                     , universum >= 0.1.9
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
-                     , DeriveDataTypeable
-                     , NoImplicitPrelude
-                     , GeneralizedNewtypeDeriving
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications

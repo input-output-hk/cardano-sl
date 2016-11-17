@@ -26,9 +26,9 @@ module Pos.Ssc.DynamicState.Base
        , isSharesIdx
        , mkSignedCommitment
        , secretToFtsSeed
-       , xorFtsSeed
 
        -- * Verification
+       , checkCert
        , verifyCommitment
        , verifyCommitmentSignature
        , verifySignedCommitment
@@ -37,8 +37,6 @@ module Pos.Ssc.DynamicState.Base
 
 
 import           Data.Binary         (Binary)
-
-import qualified Data.ByteString     as BS (pack, zipWith)
 import qualified Data.HashMap.Strict as HM
 import           Data.Ix             (inRange)
 import           Data.List.NonEmpty  (NonEmpty (..))
@@ -51,7 +49,7 @@ import           Universum
 import           Pos.Constants       (k)
 import           Pos.Crypto          (EncShare, PublicKey, Secret, SecretKey, SecretProof,
                                       SecretSharingExtra, SecureRandom (..), Share,
-                                      Signature, Signed, Threshold, VssPublicKey,
+                                      Signature, Signed (..), Threshold, VssPublicKey,
                                       genSharedSecret, getDhSecret, secretToDhSecret,
                                       sign, verify, verifyEncShare, verifySecretProof)
 import           Pos.Types.Types     (EpochIndex, FtsSeed (..), LocalSlotIndex,
@@ -161,10 +159,11 @@ verifyOpening :: Commitment -> Opening -> Bool
 verifyOpening Commitment {..} (Opening secret) =
     verifySecretProof commExtra secret commProof
 
--- | Apply bitwise xor to two FtsSeeds
-xorFtsSeed :: FtsSeed -> FtsSeed -> FtsSeed
-xorFtsSeed (FtsSeed a) (FtsSeed b) =
-    FtsSeed $ BS.pack (BS.zipWith xor a b) -- fast due to rewrite rules
+-- | Check that the VSS certificate is signed properly
+checkCert
+    :: (PublicKey, VssCertificate)
+    -> Bool
+checkCert (pk, cert) = verify pk (signedValue cert) (signedSig cert)
 
 -- | Make signed commitment from commitment and epoch index using secret key.
 mkSignedCommitment :: SecretKey -> EpochIndex -> Commitment -> SignedCommitment

@@ -90,8 +90,11 @@ function node_cmd {
   local i=$1
   local time_lord=$2
   local dht_cmd=$3
+  local is_stat=$4
+  local stake_distr=$5
   local st=''
   local reb=''
+  local ssc_algo=''
 
   ensure_logs
   ensure_run
@@ -99,8 +102,15 @@ function node_cmd {
   if [[ $time_lord != "" ]] && [[ $time_lord != 0 ]]; then
     time_lord=" --time-lord"
   fi
+  if [[ "$SSC_ALGO" != "" ]]; then
+    ssc_algo=" --ssc-algo $SSC_ALGO "
+  fi
   if [[ $NO_REBUILD == "" ]]; then
     reb=" --rebuild-db "
+  fi
+  if [[ $is_stat != "" ]]; then
+    stats="--stats"
+    petty="--petty-utxo"
   fi
 
   echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $reb --vss-genesis $i"
@@ -108,7 +118,10 @@ function node_cmd {
   $dht_cmd
 
   echo -n " --spending-genesis $i --port "`get_port $i`
-  echo -n " $logs $time_lord | tee $logs_dir/node-$i.log "
+  echo -n " $petty $logs $time_lord $stats"
+  echo -n " --json-log=$logs_dir/node-$i.json "
+  echo -n " $stake_distr $ssc_algo "
+  echo -n "| tee $logs_dir/node-$i.log "
   echo ''
 }
 
@@ -120,9 +133,9 @@ function has_nix {
 function stack_build {
     if [[ `has_nix` == 0 ]]; then
         echo "Building with nix-shell"
-        stack --nix build
+        stack --nix build --test --no-run-tests --bench --no-run-benchmarks --fast
     else
         echo "Building normally"
-        stack build
+        stack build --test --no-run-tests --bench --no-run-benchmarks --fast
     fi
 }

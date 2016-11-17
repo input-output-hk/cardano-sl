@@ -2,12 +2,12 @@
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE OverloadedLists        #-}
 {-# LANGUAGE Rank2Types             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TemplateHaskell        #-}
-{-# LANGUAGE TypeApplications       #-}
 {-# LANGUAGE ViewPatterns           #-}
+
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 -- | Blocks maintenance happens here.
 
@@ -15,10 +15,12 @@ module Pos.State.Storage.Block
        (
          BlockStorage
        , HasBlockStorage (blockStorage)
+       , mkBlockStorage
 
        , getBlock
        , getBlockByDepth
        , getHeadBlock
+       , getBestChain
        , getLeader
        , getLeaders
        , getSlotDepth
@@ -34,7 +36,9 @@ module Pos.State.Storage.Block
 
 import           Control.Lens            (at, ix, makeClassy, preview, use, uses, view,
                                           (%=), (.=), (.~), (<~), (^.), _Just)
-import           Data.Default            (Default, def)
+import           Control.Monad.Loops     (unfoldrM)
+import           Data.Default            (def)
+import qualified Data.HashMap.Strict     as HM
 import           Data.List               ((!!))
 import           Data.List.NonEmpty      (NonEmpty ((:|)), (<|))
 import           Data.SafeCopy           (SafeCopy (..), contain, safeGet, safePut)
@@ -53,13 +57,14 @@ import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRa
 import           Pos.Types               (Block, BlockHeader, ChainDifficulty, EpochIndex,
                                           GenesisBlock, HeaderHash, MainBlock,
                                           MainBlockHeader, SlotId (..), SlotLeaders, Tx,
-                                          VerifyBlockParams (..), VerifyHeaderExtra (..),
-                                          blockHeader, blockLeaders, blockSlot,
-                                          difficultyL, epochIndexL, gbHeader,
-                                          getBlockHeader, headerDifficulty, headerHash,
-                                          headerSlot, mkGenesisBlock, mkMainBlock,
-                                          mkMainBody, prevBlockL, siEpoch, verifyBlock,
-                                          verifyBlocks, verifyHeader)
+                                          Utxo, VerifyBlockParams (..),
+                                          VerifyHeaderExtra (..), blockHeader,
+                                          blockLeaders, blockSlot, difficultyL,
+                                          epochIndexL, gbHeader, getBlockHeader,
+                                          headerDifficulty, headerHash, headerSlot,
+                                          mkGenesisBlock, mkMainBlock, mkMainBody,
+                                          prevBlockL, siEpoch, verifyBlock, verifyBlocks,
+                                          verifyHeader)
 import           Pos.Util                (readerToState, _neHead, _neLast)
 
 data BlockStorage ssc = BlockStorage
@@ -101,24 +106,26 @@ instance SscTypes ssc => SafeCopy (BlockStorage ssc) where
            safePut _blkAltChains
            safePut _blkMinDifficulty
 
-genesisBlock0 :: SscTypes ssc => Block ssc
-genesisBlock0 = Left (mkGenesisBlock Nothing 0 genesisLeaders)
+genesisBlock0 :: SscTypes ssc => SlotLeaders -> Block ssc
+genesisBlock0 = Left . mkGenesisBlock Nothing 0
 
-genesisBlock0Hash :: SscTypes ssc => HeaderHash ssc
-genesisBlock0Hash = hash $ genesisBlock0 ^. blockHeader
+genesisBlock0Hash :: SscTypes ssc => SlotLeaders -> HeaderHash ssc
+genesisBlock0Hash leaders = hash $ genesisBlock0 leaders ^. blockHeader
 
-instance SscTypes ssc => Default (BlockStorage ssc) where
-    def =
-        BlockStorage
-        { _blkBlocks = [(genesisBlock0Hash, genesisBlock0)]
-        , _blkGenesisBlocks = [genesisBlock0Hash]
-        , _blkHead = genesisBlock0Hash
-        , _blkAltChains = mempty
-        , _blkMinDifficulty = (genesisBlock0 @ssc) ^. difficultyL
-        }
+mkBlockStorage :: forall ssc . SscTypes ssc => Utxo -> BlockStorage ssc
+mkBlockStorage utxo =
+    BlockStorage
+    { _blkBlocks = HM.fromList [(genesisBlock0Hash leaders, genesisBlock0 leaders)]
+    , _blkGenesisBlocks = V.fromList [genesisBlock0Hash leaders]
+    , _blkHead = genesisBlock0Hash leaders
+    , _blkAltChains = mempty
+    , _blkMinDifficulty = (genesisBlock0 @ssc leaders) ^. difficultyL
+    }
+  where
+    leaders = genesisLeaders utxo
 
-type Query ssc a = forall m x. (HasBlockStorage x ssc, MonadReader x m) => m a
-type Update ssc a = forall m x. (HasBlockStorage x ssc, MonadState x m) => m a
+type Query ssc a = forall m x. (SscTypes ssc, HasBlockStorage x ssc, MonadReader x m) => m a
+type Update ssc a = forall m x. (SscTypes ssc, HasBlockStorage x ssc, MonadState x m) => m a
 
 -- | Get block by hash of its header.
 getBlock :: HeaderHash ssc -> Query ssc (Maybe (Block ssc))
@@ -143,8 +150,26 @@ getHeadBlock :: Query ssc (Block ssc)
 getHeadBlock = do
     headHash <- view blkHead
     let errorMsg =
-            sformat ("blkHead (" %build % " is not found in storage") headHash
+            sformat ("blkHead ("%build%") is not found in storage") headHash
     fromMaybe (panic errorMsg) <$> getBlockByDepth 0
+
+-- | Get the whole best chain.
+getBestChain :: Query ssc (NonEmpty (Block ssc))
+getBestChain = do
+    headHash <- view blkHead
+    firstBlock <- getBlockOrPanic headHash
+    chain <- (`unfoldrM` firstBlock) $ \blk ->
+        if isGenesisBlock blk
+            then return Nothing
+            else do prevBlk <- getBlockOrPanic (blk ^. prevBlockL)
+                    return $ Just (prevBlk, prevBlk)
+    return (firstBlock :| chain)
+  where
+    errorMsg h = sformat ("block ("%build%") is not found in storage") h
+    getBlockOrPanic h = fromMaybe (panic (errorMsg h)) <$> getBlock h
+    isGenesisBlock blk = case blk of
+        Left  gb -> gb ^. epochIndexL == 0
+        Right mb -> mb ^. blockSlot == SlotId 0 0
 
 -- | Get list of slot leaders for the given epoch if it is known.
 getLeaders :: EpochIndex -> Query ssc (Maybe SlotLeaders)
@@ -249,8 +274,9 @@ blkProcessBlockDo blk = do
     ifM (readerToState $ canContinueBestChain blk)
         -- If it's possible, we just do it.
         (continueBestChain blk)
-        -- Our next attempt is to start alternative chain.
-        (maybe (tryContinueAltChain blk) pure =<< tryStartAltChain blk)
+        -- Our next attempt is to start alternative chain or continue
+        -- existing one.
+        (proceedToAltChains blk)
 
 canContinueBestChain :: SscTypes ssc => Block ssc -> Query ssc Bool
 -- We don't continue best chain with received genesis block. It is
@@ -266,7 +292,7 @@ canContinueBestChain blk = do
 
 -- We know that we can continue best chain, but we also try to merge
 -- alternative chain. If we succeed, we do it, instead of adopting a
--- single blockl.
+-- single block.
 continueBestChain
     :: SscTypes ssc
     => Block ssc -> Update ssc (ProcessBlockRes ssc)
@@ -277,19 +303,45 @@ continueBestChain blk = do
     decideWhatToDo r@(PBRgood _) = r
     decideWhatToDo _             = PBRgood (0, blk :| [])
 
+-- Here we try to start alternative chain and/or continue existing one.
+proceedToAltChains
+    :: SscTypes ssc
+    => Block ssc -> Update ssc (ProcessBlockRes ssc)
+proceedToAltChains blk = do
+    tryStartRes <- tryStartAltChain blk
+    case tryStartRes of
+        Just r@(PBRgood _) -> return r
+        Just r@(PBRmore _) -> r <$ tryContinueAltChain blk
+        _                  -> tryContinueAltChain blk
+
 -- Possible results are:
 -- • Nothing: can't start alternative chain.
 -- • Just PBRgood: started alternative chain and can merge it already.
 -- • Just PBRmore: started alternative chain and want more.
+-- Conditions to start alternative chain:
+-- • block is more difficult that head of main chain;
+-- • block is not head of existing alternative chain.
 tryStartAltChain
-    :: SscTypes ssc
+    :: forall ssc.
+       SscTypes ssc
     => Block ssc -> Update ssc (Maybe (ProcessBlockRes ssc))
 tryStartAltChain (Left _) = pure Nothing
-tryStartAltChain (Right blk) =
-    -- TODO: more checks should be done here probably
-    ifM (readerToState $ isMostDifficult (blk ^. gbHeader))
-        (Just <$> startAltChain blk)
-        (pure Nothing)
+tryStartAltChain (Right blk) = do
+    let header = blk ^. gbHeader
+        checks =
+            [ isMostDifficult header
+            , not <$> isHeadOfAlternative @ssc (Right header)
+            ]
+        chk = and <$> sequence checks
+    ifM (readerToState chk) (Just <$> startAltChain blk) (pure Nothing)
+
+isHeadOfAlternative :: SscTypes ssc => BlockHeader ssc -> Query ssc Bool
+isHeadOfAlternative header = do
+    altChains <- view blkAltChains
+    let isHead i =
+            (hash header ==) . headerHash . view _neLast $ altChains !! i
+    let altChainsNum = length altChains
+    return $ any isHead [0 .. altChainsNum - 1]
 
 -- Here we know that block may represent a valid chain which
 -- potentially can become main chain. We put it into map with all
@@ -297,13 +349,18 @@ tryStartAltChain (Right blk) =
 -- PBRgood is returned if chain can already be merged.
 -- PBRmore is returned if more blocks are needed.
 startAltChain
-    :: SscTypes ssc
+    :: forall ssc.
+       SscTypes ssc
     => MainBlock ssc -> Update ssc (ProcessBlockRes ssc)
 startAltChain blk = do
     insertBlock $ Right blk
-    blkAltChains %= ((Right blk :| []) :)
-    -- 0 is passed here, because we put new chain into head of blkAltChains
-    maybe (PBRmore $ blk ^. prevBlockL) PBRgood <$> tryMergeAltChain 0
+    n <- length <$> use blkAltChains
+    -- We put new chain into the end mostly as hack.  The reason is
+    -- that earlier chains are usually bigger, so we want to try to
+    -- merge them first.
+    blkAltChains %= (++ [(Right blk :| [])])
+    -- n is passed here, because we put new chain into the end of blkAltChains
+    maybe (PBRmore $ blk ^. prevBlockL) PBRgood <$> tryMergeAltChain n
 
 pbrUseless :: ProcessBlockRes ssc
 pbrUseless = mkPBRabort ["block can't be added to any chain"]
@@ -317,7 +374,7 @@ tryContinueAltChain
     => Block ssc -> Update ssc (ProcessBlockRes ssc)
 tryContinueAltChain blk = do
     n <- length <$> use blkAltChains
-    foldM go pbrUseless ([0 .. n - 1] :: Vector Int)
+    foldM go pbrUseless [0 .. n - 1]
   where
     go :: ProcessBlockRes ssc -> Int -> Update ssc (ProcessBlockRes ssc)
     -- PBRgood means that chain can be merged into main chain.
@@ -474,15 +531,17 @@ blkCreateGenesisBlock epoch leaders = do
     -- when rollback happens, because we ensure that if genesis block was
     -- created for some epoch, then we'll always have genesis block for
     -- this epoch.
+    -- Also note that actualizeGenesisBlocks takes care of it, but we won't
+    -- an explicit check here.
     blkGenesisBlocks %= appendOrSet (fromIntegral epoch) h
     blk <$ blkSetHead h
-
-appendOrSet :: Int -> a -> Vector a -> Vector a
-appendOrSet idx val vec
-    | length vec == idx = vec `V.snoc` val
-    | length vec - 1 == idx = vec & ix idx .~ val
-    | otherwise =
-        panic "appendOrSet: idx is not last and is not right after last"
+  where
+    appendOrSet :: Int -> a -> Vector a -> Vector a
+    appendOrSet idx val vec
+        | length vec == idx = vec `V.snoc` val
+        | length vec - 1 == idx = vec & ix idx .~ val
+        | otherwise =
+            panic "appendOrSet: idx is not last and is not right after last"
 
 -- | Set head of main blockchain to block which is guaranteed to
 -- represent valid chain and be stored in blkBlocks.
@@ -491,12 +550,51 @@ blkSetHead headHash = do
     blkHead .= headHash
     blkMinDifficulty <~ maybe 0 (view difficultyL) <$>
         readerToState (getBlockByDepth k)
+    actualizeGenesisBlocks
+
+actualizeGenesisBlocks :: Update ssc ()
+actualizeGenesisBlocks = do
+    lastStoredGenesis <- fromIntegral . pred . V.length <$> use blkGenesisBlocks
+    headBlock <- readerToState getHeadBlock
+    newGenesis <-
+        readerToState $
+        actualizeGenesisBlocksDo lastStoredGenesis headBlock mempty
+    blkGenesisBlocks %= (`mappend` newGenesis)
+  where
+    actualizeGenesisBlocksDo
+        :: EpochIndex
+        -> Block ssc
+        -> Vector (HeaderHash ssc)
+        -> Query ssc (Vector (HeaderHash ssc))
+    actualizeGenesisBlocksDo knownEpoch blk res
+        | blk ^. epochIndexL <= knownEpoch = pure res
+        | otherwise =
+            case blk of
+                Right mainBlk -> do
+                    prevBlk <- getBlockWithPanic (mainBlk ^. prevBlockL)
+                    actualizeGenesisBlocksDo knownEpoch prevBlk res
+                Left genesisBlk ->
+                    let newRes = pure (headerHash genesisBlk) `mappend` res
+                    in if genesisBlk ^. epochIndexL == knownEpoch + 1
+                           then pure newRes
+                           else do
+                               prevBlk <-
+                                   getBlockWithPanic (genesisBlk ^. prevBlockL)
+                               actualizeGenesisBlocksDo
+                                   knownEpoch
+                                   prevBlk
+                                   newRes
+    getBlockWithPanic h =
+        fromMaybe (panic "block not found in actualizeGenesisBlocksDo") <$>
+        getBlock h
 
 -- | Rollback last `n` blocks.
 blkRollback :: SscTypes ssc => Word -> Update ssc ()
 blkRollback =
-    blkSetHead . maybe genesisBlock0Hash (hash . getBlockHeader) <=<
+    blkSetHead . maybe onError (hash . getBlockHeader) <=<
     readerToState . getBlockByDepth
+  where
+    onError = panic "Attempt to rollback too many blocks"
 
 -- | Remove obsolete cached blocks, alternative chains which are
 -- definitely useless, etc.

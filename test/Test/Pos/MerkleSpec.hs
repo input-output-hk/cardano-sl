@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 
 -- | "Pos.Merkle" specification
 

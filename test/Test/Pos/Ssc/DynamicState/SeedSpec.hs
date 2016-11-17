@@ -6,7 +6,7 @@ module Test.Pos.Ssc.DynamicState.SeedSpec
 
 import           Crypto.Random            (MonadRandom)
 import qualified Data.HashMap.Strict      as HM
-import           Data.List                (foldl1', unzip, (\\))
+import           Data.List                (unzip, (\\))
 import qualified Data.List.NonEmpty       as NE
 import           Formatting               (build, int, sformat, (%))
 import           Serokell.Util            (listJson)
@@ -21,8 +21,7 @@ import           Pos.Crypto               (KeyPair (..), Share, Threshold, VssKe
                                            decryptShare, sign, toVssPublicKey)
 import           Pos.Ssc.DynamicState     (Commitment (..), CommitmentsMap, Opening (..),
                                            SeedError (..), calculateSeed,
-                                           genCommitmentAndOpening, secretToFtsSeed,
-                                           xorFtsSeed)
+                                           genCommitmentAndOpening, secretToFtsSeed)
 import           Pos.Types                (FtsSeed (..))
 import           Pos.Util                 (nonrepeating, sublistN)
 
@@ -98,7 +97,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
     let seeds :: [FtsSeed]
         seeds = map (secretToFtsSeed . getOpening) opens
     let expectedSharedSeed :: FtsSeed
-        expectedSharedSeed = foldl1' xorFtsSeed seeds
+        expectedSharedSeed = mconcat seeds
     haveSentBoth <- generate $
         sublistN n_overlap keys
     haveSentOpening <- generate $

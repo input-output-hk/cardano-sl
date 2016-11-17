@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
@@ -14,6 +15,8 @@ module Pos.WorkMode
        , NodeContext (..)
        , WithNodeContext (..)
        , ContextHolder (..)
+       , runDBHolder
+       , runContextHolder
        , ncPublicKey
        , ncVssPublicKey
        , RealMode
@@ -22,18 +25,22 @@ module Pos.WorkMode
        , ProductionMode
        ) where
 
+import           Control.Concurrent.MVar     (withMVar)
 import           Control.Monad.Base          (MonadBase (..))
-import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow, catchAll)
 import           Control.Monad.Except        (ExceptT)
+import           Control.Monad.Morph         (hoist)
 import           Control.Monad.Trans.Class   (MonadTrans)
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Logging    (WithNamedLogger (..))
-import           Control.TimeWarp.Rpc        (BinaryP, Dialog, MonadDialog, MonadResponse,
-                                              MonadTransfer (..), Transfer, hoistRespCond)
+import           Control.TimeWarp.Logging    (WithNamedLogger (..), logWarning)
+import           Control.TimeWarp.Rpc        (BinaryP, Dialog, MonadDialog,
+                                              MonadResponse (..), MonadTransfer (..),
+                                              Transfer, hoistRespCond)
 import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
+import           Formatting                  (sformat, shown, (%))
 import           Universum                   hiding (catch)
 
 import           Pos.Crypto                  (PublicKey, SecretKey, VssKeyPair,
@@ -42,21 +49,25 @@ import           Pos.DHT                     (DHTResponseT, MonadMessageDHT (..)
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Ssc.Class.Storage       (SscStorageMode)
 import           Pos.State                   (MonadDB (..), NodeState)
 import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
 import           Pos.Types                   (Timestamp (..))
+import           Pos.Util.JsonLog            (MonadJL (..), appendJL)
 
-type WorkMode m
+type WorkMode ssc m
     = ( WithNamedLogger m
       , MonadIO m
       , MonadTimed m
       , MonadMask m
       , MonadSlots m
-      , MonadDB m
+      , MonadDB ssc m
+      , SscStorageMode ssc
       , WithNodeContext m
       , MonadMessageDHT m
       , WithDefaultMsgHeader m
       , MonadStats m
+      , MonadJL m
       )
 
 type MinWorkMode m
@@ -72,37 +83,39 @@ type MinWorkMode m
 -- MonadDB
 ----------------------------------------------------------------------------
 
-newtype DBHolder m a = DBHolder
-    { getDBHolder :: ReaderT NodeState m a
+newtype DBHolder ssc m a = DBHolder
+    { getDBHolder :: ReaderT (NodeState ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
-               MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDialog p,
-               MonadResponse)
+               MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDialog p)
 
-instance MonadBase IO m => MonadBase IO (DBHolder m) where
+runDBHolder :: NodeState ssc -> DBHolder ssc m a -> m a
+runDBHolder db = flip runReaderT db . getDBHolder
+
+instance MonadBase IO m => MonadBase IO (DBHolder ssc m) where
     liftBase = lift . liftBase
 
-instance MonadTransControl DBHolder where
-    type StT DBHolder a = StT (ReaderT NodeState) a
+instance MonadTransControl (DBHolder ssc) where
+    type StT (DBHolder ssc) a = StT (ReaderT (NodeState ssc)) a
     liftWith = defaultLiftWith DBHolder getDBHolder
     restoreT = defaultRestoreT DBHolder
 
-instance MonadBaseControl IO m => MonadBaseControl IO (DBHolder m) where
-    type StM (DBHolder m) a = ComposeSt DBHolder m a
+instance MonadBaseControl IO m => MonadBaseControl IO (DBHolder ssc m) where
+    type StM (DBHolder ssc m) a = ComposeSt (DBHolder ssc) m a
     liftBaseWith     = defaultLiftBaseWith
     restoreM         = defaultRestoreM
 
-type instance ThreadId (DBHolder m) = ThreadId m
+type instance ThreadId (DBHolder ssc m) = ThreadId m
 
-instance MonadTransfer m => MonadTransfer (DBHolder m) where
-    sendRaw addr req = lift $ sendRaw addr req
+instance MonadTransfer m => MonadTransfer (DBHolder ssc m) where
+    sendRaw addr req = DBHolder ask >>= \ctx -> lift $ sendRaw addr (hoist (runDBHolder ctx) req)
     listenRaw binding sink =
-        DBHolder $ listenRaw binding $ hoistRespCond getDBHolder sink
+        DBHolder $ fmap DBHolder $ listenRaw binding $ hoistRespCond getDBHolder sink
     close = lift . close
 
-instance Monad m => MonadDB (DBHolder m) where
+instance Monad m => MonadDB ssc (DBHolder ssc m) where
     getNodeState = DBHolder ask
 
-instance (MonadDB m, Monad m) => MonadDB (KademliaDHT m) where
+instance (MonadDB ssc m, Monad m) => MonadDB ssc (KademliaDHT m) where
     getNodeState = lift getNodeState
 
 ----------------------------------------------------------------------------
@@ -118,7 +131,8 @@ data NodeContext = NodeContext
     , -- | Vss key pair used for MPC.
       ncVssKeyPair  :: !VssKeyPair
     , ncTimeLord    :: !Bool
-    } deriving (Show)
+    , ncJLFile      :: !(Maybe (MVar FilePath))
+    }
 
 ncPublicKey :: NodeContext -> PublicKey
 ncPublicKey = toPublic . ncSecretKey
@@ -160,7 +174,10 @@ instance (Monad m, WithNodeContext m) =>
 newtype ContextHolder m a = ContextHolder
     { getContextHolder :: ReaderT NodeContext m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
-               MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDB, MonadDialog p, MonadResponse)
+               MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDB ssc, MonadDialog p)
+
+runContextHolder :: NodeContext -> ContextHolder m a -> m a
+runContextHolder ctx = flip runReaderT ctx . getContextHolder
 
 instance MonadBase IO m => MonadBase IO (ContextHolder m) where
     liftBase = lift . liftBase
@@ -178,13 +195,21 @@ instance MonadBaseControl IO m => MonadBaseControl IO (ContextHolder m) where
 type instance ThreadId (ContextHolder m) = ThreadId m
 
 instance MonadTransfer m => MonadTransfer (ContextHolder m) where
-    sendRaw addr req = lift $ sendRaw addr req
+    sendRaw addr req = ContextHolder ask >>= \ctx -> lift $ sendRaw addr (hoist (runContextHolder ctx) req)
     listenRaw binding sink =
-        ContextHolder $ listenRaw binding $ hoistRespCond getContextHolder sink
+        ContextHolder $ fmap ContextHolder $ listenRaw binding $ hoistRespCond getContextHolder sink
     close = lift . close
+
+instance MonadResponse m => MonadResponse (ContextHolder m) where
+    replyRaw dat = ContextHolder $ replyRaw (hoist getContextHolder dat)
+    closeR = lift closeR
+    peerAddr = lift peerAddr
 
 instance Monad m => WithNodeContext (ContextHolder m) where
     getNodeContext = ContextHolder ask
+
+instance MonadJL m => MonadJL (KademliaDHT m) where
+    jlLog = lift . jlLog
 
 instance MonadSlots m => MonadSlots (KademliaDHT m) where
     getSystemStartTime = lift getSystemStartTime
@@ -195,18 +220,26 @@ instance (MonadTimed m, Monad m) =>
     getSystemStartTime = ContextHolder $ asks ncSystemStart
     getCurrentTime = Timestamp <$> currentTime
 
+instance (MonadIO m, WithNamedLogger m, MonadCatch m) => MonadJL (ContextHolder m) where
+    jlLog ev = ContextHolder (asks ncJLFile) >>= maybe (pure ()) doLog
+      where
+        doLog logFileMV =
+          (liftIO . withMVar logFileMV $ flip appendJL ev)
+            `catchAll` \e -> logWarning $ sformat ("Can't write to json log: " % shown) e
+
+
 ----------------------------------------------------------------------------
 -- Concrete types
 ----------------------------------------------------------------------------
 
 -- | RealMode is a basis for `WorkMode`s used to really run system.
-type RealMode = KademliaDHT (ContextHolder (DBHolder (Dialog BinaryP Transfer)))
+type RealMode ssc = KademliaDHT (ContextHolder (DBHolder ssc (Dialog BinaryP Transfer)))
 
 -- | ServiceMode is the mode in which support nodes work
 type ServiceMode = KademliaDHT (Dialog BinaryP Transfer)
 
 -- | ProductionMode is an instance of WorkMode which is used (unsurprisingly) in production.
-type ProductionMode = NoStatsT RealMode
+type ProductionMode ssc = NoStatsT (RealMode ssc)
 
 -- | StatsMode is used for remote benchmarking
-type StatsMode = StatsT RealMode
+type StatsMode ssc = StatsT (RealMode ssc)

@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
@@ -9,16 +10,22 @@ module Pos.Ssc.Class.Storage
 
        , SscUpdate
        , SscQuery
+       , SscStorageMode
        ) where
 
 import           Control.Lens            (Lens')
+import           Data.List.NonEmpty      (NonEmpty)
+import           Data.SafeCopy           (SafeCopy)
+import           Data.Tagged             (Tagged)
 import           Serokell.Util.Verify    (VerificationRes)
 import           Universum
 
-import           Pos.Crypto              (PublicKey, Share, VssKeyPair)
+import           Pos.Crypto              (PublicKey, Share, Threshold, VssKeyPair,
+                                          VssPublicKey)
 import           Pos.Ssc.Class.Types     (SscTypes (..))
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types.Types         (SlotId)
+import           Pos.Types.Types         (EpochIndex, MainBlockHeader, SlotId,
+                                          SlotLeaders, Utxo)
 
 type SscUpdate ssc a =
     forall m x. (HasSscStorage ssc x, MonadState x m) => m a
@@ -41,7 +48,7 @@ class SscTypes ssc => SscStorageClass ssc where
     sscPrepareToNewSlot :: SlotId -> SscUpdate ssc ()
     -- | Do something with given message, result is whether message
     -- has been processed successfully (implementation defined).
-    sscProcessMessage :: SscMessage ssc -> SscUpdate ssc Bool
+    sscProcessMessage :: SscMessage ssc -> SscUpdate ssc (Maybe (SscMessage ssc))
     -- | Rollback application of last 'n' blocks.  blocks. If there
     -- are less blocks than 'n' is, just leaves an empty ('def')
     -- version.
@@ -50,7 +57,7 @@ class SscTypes ssc => SscStorageClass ssc where
     -- If @n > 0@, also removes all commitments/etc received during that
     -- period but not included into blocks.
     sscRollback :: Word -> SscUpdate ssc ()
-    sscGetLocalPayload :: SscQuery ssc (SscPayload ssc)
+    sscGetLocalPayload :: SlotId -> SscQuery ssc (SscPayload ssc)
     sscGetGlobalPayload :: SscQuery ssc (SscPayload ssc)
     sscGetGlobalPayloadByDepth :: Word -> SscQuery ssc (Maybe (SscPayload ssc))
     -- | Verify Ssc-related predicates of block sequence which is
@@ -66,4 +73,15 @@ class SscTypes ssc => SscStorageClass ssc where
     -- | Even more BARDAQ
     sscGetOurShares :: VssKeyPair -> Integer -> SscQuery ssc (HashMap PublicKey Share)
 
-    -- TODO: move the rest of methods here
+    -- TODO: yet another BARDAQ
+    sscGetParticipants :: Word -> Utxo ->
+                          SscQuery ssc (Maybe (NonEmpty VssPublicKey))
+    sscCalculateLeaders :: EpochIndex -> Utxo -> Threshold ->
+                           SscQuery ssc (Either (SscSeedError ssc)  SlotLeaders)
+
+    -- TODO: one more BARDAQ. It's not related to Storage, but can't
+    -- be put into SscTypes now :(
+    -- | Verify payload using header containing this payload.
+    sscVerifyPayload :: Tagged ssc (MainBlockHeader ssc -> SscPayload ssc -> VerificationRes)
+
+type SscStorageMode ssc = (SscStorageClass ssc, SafeCopy ssc)

@@ -4,10 +4,10 @@ base=$(dirname "$0")
 source "$base"/common.sh
 
 # Make sure we're in a tmux session
-if [[ $TERM != screen* ]]; then
-    echo "ERROR: Must have tmux started!"
-    exit 1
-fi
+# if [[ $TERM != screen* ]]; then
+    # echo "ERROR: Must have tmux started!"
+    # exit 1
+# fi
 
 # If stack-work doesn't exist use function
 if [[ ! -d .stack-work ]]; then
@@ -29,6 +29,9 @@ ensure_logs
 
 # Mode is not mandatory
 mode=$2
+
+# Stats are not mandatory either
+stats=$3
 
 i=0
 while [[ $i -lt $n ]]; do
@@ -60,7 +63,9 @@ while [[ $i -lt $n ]]; do
     fi
   fi
 
-  tmux send-keys "$(node_cmd $i "$time_lord" "$dht_conf")" C-m
+  stake_distr=" --flat-distr \"($n, 100000)\" "
+
+  tmux send-keys "$(node_cmd $i "$time_lord" "$dht_conf" "$stats" "$stake_distr")" C-m
   i=$((i+1))
 done
 

@@ -2,110 +2,33 @@
 
 module Main where
 
-import           Data.Default               (def)
-
 import           Control.Applicative        (empty)
 import           Control.Monad              (fail)
-import           Control.TimeWarp.Logging   (Severity (Debug, Info))
 import           Data.Binary                (Binary, decode, encode)
 import qualified Data.ByteString.Lazy       as LBS
+import           Data.Default               (def)
 import           Data.List                  ((!!))
-import           Data.Monoid                ((<>))
-import           Options.Applicative.Simple (Parser, auto, help, long, many, metavar,
-                                             option, showDefault, simpleOptions,
-                                             strOption, switch, value)
-import           Pos.CLI                    (dhtKeyParser, dhtNodeParser)
-import           Pos.Constants              (RunningMode (..), runningMode)
-import           Pos.Crypto                 (keyGen, vssKeyGen)
-import           Pos.DHT                    (DHTKey, DHTNode, DHTNodeType (..),
-                                             dhtNodeType)
-import           Pos.Genesis                (genesisSecretKeys, genesisUtxoPetty)
-import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
-                                             NodeParams (..), bracketDHTInstance,
-                                             runNodeReal, runSupporterReal,
-                                             runTimeLordReal, runTimeSlaveReal)
-import           Pos.Ssc.DynamicState       (genesisVssKeyPairs)
-import           Serokell.Util.OptParse     (fromParsec)
+import           Options.Applicative.Simple (simpleOptions)
 import           System.Directory           (createDirectoryIfMissing)
 import           System.FilePath            ((</>))
-import           Universum                  hiding ((<>))
+import           Universum
 
-data Args = Args
-    { dbPath             :: !FilePath
-    , rebuildDB          :: !Bool
-    , spendingGenesisI   :: !(Maybe Int)
-    , vssGenesisI        :: !(Maybe Int)
-    , spendingSecretPath :: !(Maybe FilePath)
-    , vssSecretPath      :: !(Maybe FilePath)
-    , port               :: !Word16
-    , pettyUtxo          :: !Bool
-    , dhtPeers           :: ![DHTNode]
-    , supporterNode      :: !Bool
-    , dhtKey             :: !(Maybe DHTKey)
-    , mainLogSeverity    :: !Severity
-    , dhtLogSeverity     :: !Severity
-    , commLogSeverity    :: !(Maybe Severity)
-    , serverLogSeverity  :: !(Maybe Severity)
-    , timeLord           :: !Bool
-    , dhtExplicitInitial :: !Bool
-    }
-  deriving Show
+import           Pos.Constants              (RunningMode (..), runningMode)
+import           Pos.Crypto                 (keyGen, vssKeyGen)
+import           Pos.DHT                    (DHTNodeType (..), dhtNodeType)
+import           Pos.Genesis                (StakeDistribution (..), genesisSecretKeys,
+                                             genesisUtxo, genesisUtxoPetty)
+import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
+                                             NodeParams (..), RealModeRunner,
+                                             bracketDHTInstance, runNodeReal,
+                                             runNodeStats, runSupporterReal,
+                                             runTimeLordReal, runTimeSlaveReal)
+import           Pos.Ssc.DynamicState       (genesisVssKeyPairs)
 
-argsParser :: Parser Args
-argsParser =
-    Args <$>
-    strOption
-        (long "db-path" <> metavar "FILEPATH" <> value "node-db" <>
-         help "Path to the node database") <*>
-    switch (long "rebuild-db" <> help "If we DB already exist, discard it's contents and create new one from scratch") <*>
-    optional (option auto
-        (long "spending-genesis" <> metavar "INT" <>
-         help "Use genesis spending #i")) <*>
-    optional (option auto
-        (long "vss-genesis" <> metavar "INT" <>
-         help "Use genesis vss #i")) <*>
-    optional (strOption
-        (long "spending-sk" <> metavar "FILEPATH" <>
-         help "Path to spending secret key")) <*>
-    optional(strOption
-        (long "vss-sk" <> metavar "FILEPATH" <>
-         help "Path to VSS secret key")) <*>
-    option
-        auto
-        (long "port" <> metavar "INTEGER" <> value 3000 <> showDefault <>
-         help "Port to work on") <*>
-    switch (long "petty-utxo" <> help "Petty utxo (1 coin per transaction, many txs)") <*>
-    many
-        (option (fromParsec dhtNodeParser) $
-         long "peer" <> metavar "HOST:PORT/HOST_ID" <>
-         help peerHelpMsg) <*>
-    switch (long "supporter" <> help "Launch DHT supporter instead of full node") <*>
-    optional
-        (option (fromParsec dhtKeyParser) $
-         long "dht-key" <> metavar "HOST_ID" <>
-         help "DHT key in base64-url") <*>
-    option auto
-        (long "main-log" <> metavar "SEVERITY" <> value Debug <> showDefault <>
-         help "Main log severity, one of Info, Debug, Warning, Error") <*>
-    option auto
-        (long "dht-log" <> metavar "SEVERITY" <> value Info <> showDefault <>
-         help "DHT log severity, one of Info, Debug, Warning, Error") <*>
-    optional
-        (option auto $ mconcat
-        [long "comm-log",
-         metavar "SEVERITY",
-         help "Comm (time-warp) log severity"
-        ]) <*>
-    optional
-        (option auto $ mconcat
-        [long "server-log",
-         metavar "SEVERITY",
-         help "Server log severity"
-        ]) <*>
-    switch (long "time-lord" <> help "Peer is time lord, i.e. one responsible for system start time decision & propagation (used only in development)") <*>
-    switch (long "explicit-initial" <> help "Explicitely contact to initial peers as to neighbors (even if they appeared offline once)")
-  where
-    peerHelpMsg = "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""
+import           NodeOptions                (Args (..), argsParser)
+import           Pos.Ssc.DynamicState       (SscDynamicState)
+import           Pos.Ssc.NistBeacon         (SscNistBeacon)
+import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 
 getKey :: Binary key => Maybe key -> Maybe FilePath -> FilePath -> IO key -> IO key
 getKey (Just key) _ _ _ = return key
@@ -123,36 +46,66 @@ decode' fpath = either fail' return . decode =<< LBS.readFile fpath
   where
     fail' e = fail $ "Error reading key from " ++ fpath ++ ": " ++ e
 
+realModeRunner :: Bool -> SscAlgo -> RealModeRunner
+realModeRunner True DynamicStateAlgo  = runNodeReal @SscDynamicState
+realModeRunner False DynamicStateAlgo = runNodeStats @SscDynamicState
+realModeRunner True NistBeaconAlgo    = runNodeReal @SscNistBeacon
+realModeRunner False NistBeaconAlgo   = runNodeStats @SscNistBeacon
+
 main :: IO ()
 main = do
-    (args,()) <-
-        simpleOptions "cardano-node" "PoS prototype node" "Use it!" argsParser empty
+    (args, ()) <-
+        simpleOptions
+            "cardano-node"
+            "PoS prototype node"
+            "Use it!"
+            argsParser
+            empty
     bracketDHTInstance (baseParams "node" args) (action args)
   where
     action args@Args {..} inst = do
         case dhtKey of
-          Just key -> do
-            let type_ = dhtNodeType key
-            if type_ == Just (if supporterNode then DHTSupporter else DHTFull)
-              then return ()
-              else case type_ of
-                     Just type_' -> fail $ "Id of type " ++ (show type_') ++ " supplied"
-                     _           -> fail "Id of unknown type supplied"
-          _ -> return ()
+            Just key -> do
+                let type_ = dhtNodeType key
+                if type_ ==
+                   Just
+                       (if supporterNode
+                            then DHTSupporter
+                            else DHTFull)
+                    then return ()
+                    else case type_ of
+                             Just type_' ->
+                                 fail $
+                                 "Id of type " ++ (show type_') ++ " supplied"
+                             _ -> fail "Id of unknown type supplied"
+            _ -> return ()
         if supporterNode
-           then runSupporterReal inst (baseParams "supporter" args)
-           else do
-              spendingSK <- getKey ((genesisSecretKeys !!) <$> spendingGenesisI) spendingSecretPath "spending" (snd <$> keyGen)
-              vssSK <- getKey ((genesisVssKeyPairs !!) <$> vssGenesisI) vssSecretPath "vss.keypair" vssKeyGen
-              systemStart <- getSystemStart inst args
-              runNodeReal inst $ params args spendingSK vssSK systemStart
+            then runSupporterReal inst (baseParams "supporter" args)
+            else do
+                spendingSK <-
+                    getKey
+                        ((genesisSecretKeys !!) <$> spendingGenesisI)
+                        spendingSecretPath
+                        "spending"
+                        (snd <$> keyGen)
+                vssSK <-
+                    getKey
+                        ((genesisVssKeyPairs !!) <$> vssGenesisI)
+                        vssSecretPath
+                        "vss.keypair"
+                        vssKeyGen
+                systemStart <- getSystemStart inst args
+                let currentParams = params args spendingSK vssSK systemStart
+                putText $ "Running using " <> show sscAlgo
+                realModeRunner enableStats sscAlgo inst currentParams
     getSystemStart inst args =
-      case runningMode of
-        Development -> if timeLord args
-                          then runTimeLordReal (loggingParams "time-lord" args)
-                          else runTimeSlaveReal inst (baseParams "time-slave" args)
-        Production systemStart -> return systemStart
-    loggingParams logger Args{..} =
+        case runningMode of
+            Development ->
+                if timeLord args
+                    then runTimeLordReal (loggingParams "time-lord" args)
+                    else runTimeSlaveReal inst (baseParams "time-slave" args)
+            Production systemStart -> return systemStart
+    loggingParams logger Args {..} =
         def
         { lpRootLogger = logger
         , lpMainSeverity = mainLogSeverity
@@ -160,17 +113,18 @@ main = do
         , lpServerSeverity = serverLogSeverity
         , lpCommSeverity = commLogSeverity
         }
-    baseParams logger args@Args{..} =
+    baseParams logger args@Args {..} =
         BaseParams
         { bpLogging = loggingParams logger args
         , bpPort = port
         , bpDHTPeers = dhtPeers
-        , bpDHTKeyOrType = if supporterNode
-                              then maybe (Right DHTSupporter) Left dhtKey
-                              else maybe (Right DHTFull) Left dhtKey
+        , bpDHTKeyOrType =
+              if supporterNode
+                  then maybe (Right DHTSupporter) Left dhtKey
+                  else maybe (Right DHTFull) Left dhtKey
         , bpDHTExplicitInitial = dhtExplicitInitial
         }
-    params args@Args{..} spendingSK vssSK systemStart =
+    params args@Args {..} spendingSK vssSK systemStart =
         NodeParams
         { npDbPath = Just dbPath
         , npRebuildDb = rebuildDB
@@ -178,8 +132,21 @@ main = do
         , npSecretKey = spendingSK
         , npVssKeyPair = vssSK
         , npBaseParams = baseParams "node" args
-        , npCustomUtxo = if pettyUtxo
-                         then Just $ genesisUtxoPetty 20000
-                         else Nothing
+        , npCustomUtxo =
+              Just .
+              (if pettyUtxo
+                   then genesisUtxoPetty
+                   else genesisUtxo) $
+              stakesDistr args
         , npTimeLord = timeLord
+        , npJLFile = jlPath
         }
+    stakesDistr Args {..} =
+        case (flatDistr, bitcoinDistr) of
+            (Nothing, Nothing) -> def
+            (Just _, Just _) ->
+                panic "flat-distr and bitcoin distr are conflicting options"
+            (Just (nodes, coins), Nothing) ->
+                FlatStakes (fromIntegral nodes) (fromIntegral coins)
+            (Nothing, Just (nodes, coins)) ->
+                BitcoinStakes (fromIntegral nodes) (fromIntegral coins)

@@ -13,8 +13,7 @@ import           Serokell.Util   (VerificationRes, verifyGeneric)
 import           Universum
 
 import           Pos.Crypto      (verify)
-import           Pos.Types.Types (Address (..), Coin (..), Tx (..), TxIn (..), TxOut (..),
-                                  coinF)
+import           Pos.Types.Types (Address (..), Tx (..), TxIn (..), TxOut (..), coinF)
 
 -- | Verify that Tx itself is correct. Most likely you will also want
 -- to verify that inputs are legal, signed properly and have enough coins.

@@ -1,4 +1,4 @@
--- | Specification of Pos.Types.SlottingSpec.
+-- | Specification of Pos.Types.Slotting.
 
 module Test.Pos.Types.SlottingSpec
        ( spec

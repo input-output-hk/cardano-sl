@@ -6,6 +6,7 @@ module Pos.Constants
        , slotDuration
        , epochSlots
        , epochDuration
+       , ftsSeedLength
        , genesisN
        , maxLocalTxs
        , sscTransmitterInterval
@@ -39,6 +40,9 @@ epochSlots = 6 * k
 
 epochDuration :: Microsecond
 epochDuration = epochSlots * slotDuration
+
+ftsSeedLength :: Integral a => a
+ftsSeedLength = 32
 
 genesisN :: Integral i => i
 genesisN = fromIntegral . ccGenesisN $ compileConfig

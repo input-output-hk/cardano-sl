@@ -7,6 +7,7 @@
 
 module Pos.Types.Arbitrary
        ( GoodTx (..)
+       , OverflowTx (..)
        ) where
 
 import           Control.Lens               (view, _3)
@@ -79,6 +80,30 @@ instance Arbitrary Tx where
 -- The GoodTx type is a list of triples where the third elements are the
 -- transaction's outputs, the second elements are its inputs, and the first are
 -- the transactions from where the tuple's TxIn came from.
+--
+-- The OverflowTx type is the same as GoodTx, except its values, both for
+-- inputs as well as outputs, are very close to maxBound :: Coin so as to cause
+-- overflow in the Coin type if they are summed.
+
+buildProperTx
+    :: [(Tx, SecretKey, SecretKey, Coin)]
+    -> (Coin -> Coin, Coin -> Coin)
+    -> Gen [(Tx, TxIn, TxOut)]
+buildProperTx triplesList (inCoin, outCoin)= do
+        let fun (Tx txIn txOut, fromSk, toSk, c) =
+                let inC = inCoin c
+                    outC = outCoin c
+                    txToBeSpent = Tx txIn $ (makeTxOutput fromSk inC) : txOut
+                in (txToBeSpent, fromSk, makeTxOutput toSk outC)
+            txList = fmap fun triplesList
+            thisTxOutputs = fmap (view _3) txList
+            newTx (tx, fromSk, txOutput) =
+                let txHash = hash tx
+                    txIn = TxIn txHash 0 (sign fromSk (txHash, 0, thisTxOutputs))
+                in (tx, txIn, txOutput)
+            makeTxOutput s c = TxOut (Address $ toPublic s) c
+            goodTx = fmap newTx txList
+        return goodTx
 
 newtype GoodTx = GoodTx
     { getGoodTx :: [(Tx, TxIn, TxOut)]
@@ -88,17 +113,18 @@ instance Arbitrary GoodTx where
     arbitrary = GoodTx <$> do
         txsList <- getNonEmpty <$>
             (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
-        let fun (Tx txIn txOut, fromSk, toSk, c) =
-                (Tx txIn $ (txO fromSk c) : txOut, fromSk, txO toSk c)
-            txList = fmap fun txsList
-            thisTxOutputs = fmap (view _3) txList
-            newTx (tx, fromSk, txOutput) =
-                let txHash = hash $ tx
-                    txIn = TxIn txHash 0 (sign fromSk (txHash, 0, thisTxOutputs))
-                in (tx, txIn, txOutput)
-            txO s c = TxOut (Address $ toPublic s) c
-            goodTx = fmap newTx txList
-        return goodTx
+        buildProperTx txsList (identity, identity)
+
+newtype OverflowTx = OverflowTx
+    { getOverflowTx :: [(Tx, TxIn, TxOut)]
+    } deriving (Show)
+
+instance Arbitrary OverflowTx where
+    arbitrary = OverflowTx <$> do
+        txsList <- getNonEmpty <$>
+            (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
+        let halfBound = maxBound `div` 2
+        buildProperTx txsList ((halfBound +), (halfBound -))
 
 instance Arbitrary FtsSeed where
     arbitrary = do

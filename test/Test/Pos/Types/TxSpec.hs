@@ -10,10 +10,10 @@ module Test.Pos.Types.TxSpec
 import           Control.Lens          (view, _2, _3)
 import           Control.Monad         (join)
 import           Data.List             (lookup)
-import           Pos.Crypto            (SecretKey, sign, toPublic, verify)
+import           Pos.Crypto            (verify)
 import           Pos.Types             (Address (..), BadSigsTx (..), GoodTx (..),
-                                        OverflowTx (..), Tx (..), TxId, TxIn (..),
-                                        TxOut (..), verifyTx, verifyTxAlone)
+                                        OverflowTx (..), Tx (..), TxIn (..), TxOut (..),
+                                        verifyTx, verifyTxAlone)
 import           Serokell.Util.Verify  (isVerFailure, isVerSuccess)
 
 import           Test.Hspec            (Spec, describe)
@@ -87,7 +87,7 @@ txChecksum extendedInputs txOuts =
 -- ★ every input is a known unspent output.
 -- It also checks that it has good structure w.r.t. 'verifyTxAlone'.
 individualTxPropertyVerifier :: TxVerifyingTools -> Bool
-individualTxPropertyVerifier (tx@Tx{..}, inpResolver, extendedInputs) =
+individualTxPropertyVerifier (tx@Tx{..}, _, extendedInputs) =
     let hasGoodSum = txChecksum extendedInputs txOutputs
         hasGoodStructure = isVerSuccess $ verifyTxAlone tx
         mapFun =
@@ -102,8 +102,8 @@ individualTxPropertyVerifier (tx@Tx{..}, inpResolver, extendedInputs) =
     in hasGoodSum && hasGoodStructure && hasGoodInputs
 
 validateGoodTx :: GoodTx -> Bool
-validateGoodTx g@(getGoodTx -> ls) =
-    let triple@(tx, inpResolver, extendedInputs) =
+validateGoodTx (getGoodTx -> ls) =
+    let triple@(tx, inpResolver, _) =
             getTxFromGoodTx ls
         transactionIsVerified = isVerSuccess $ verifyTx inpResolver tx
         transactionReallyIsGood = individualTxPropertyVerifier triple
@@ -129,5 +129,5 @@ badSigsTx (getBadSigsTx -> ls) =
     let (tx@Tx{..}, inpResolver, extendedInputs) =
             getTxFromGoodTx ls
         transactionIsNotVerified = isVerFailure $ verifyTx inpResolver tx
-        noSignatureIsValid = all (signatureIsNotValid txOutputs) extendedInputs
-    in noSignatureIsValid == transactionIsNotVerified
+        notAllSignaturesAreValid = any (signatureIsNotValid txOutputs) extendedInputs
+    in notAllSignaturesAreValid == transactionIsNotVerified

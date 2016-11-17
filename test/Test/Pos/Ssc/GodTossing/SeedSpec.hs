@@ -1,6 +1,6 @@
 -- | Specification of Pos.calculateSeed
 
-module Test.Pos.Ssc.DynamicState.SeedSpec
+module Test.Pos.Ssc.GodTossing.SeedSpec
        ( spec
        ) where
 
@@ -19,7 +19,7 @@ import           Universum
 
 import           Pos.Crypto               (KeyPair (..), Share, Threshold, VssKeyPair,
                                            decryptShare, sign, toVssPublicKey)
-import           Pos.Ssc.DynamicState     (Commitment (..), CommitmentsMap, Opening (..),
+import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Opening (..),
                                            SeedError (..), calculateSeed,
                                            genCommitmentAndOpening, secretToSharedSeed)
 import           Pos.Types                (SharedSeed (..))

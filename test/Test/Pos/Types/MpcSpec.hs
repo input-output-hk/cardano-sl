@@ -5,7 +5,7 @@ module Test.Pos.Types.MpcSpec
        ) where
 
 import           Pos.Crypto            (SecretKey, sign, toPublic)
-import           Pos.Ssc.DynamicState  (Commitment, CommitmentOpening (..),
+import           Pos.Ssc.GodTossing  (Commitment, CommitmentOpening (..),
                                         verifyCommitment, verifyCommitmentSignature,
                                         verifyOpening)
 import           Pos.Types             (EpochIndex, SharedSeed (..))

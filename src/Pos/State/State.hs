@@ -227,7 +227,7 @@ getThreshold = queryDisk . A.GetThreshold
 
 
 ----------------------------------------------------------------------------
--- Functions related to SscDynamicState
+-- Functions related to SscGodTossing
 ----------------------------------------------------------------------------
 getToken
     :: QUConstraint ssc m

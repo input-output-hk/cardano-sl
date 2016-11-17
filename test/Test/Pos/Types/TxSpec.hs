@@ -11,7 +11,7 @@ import           Universum
 
 import           Pos.Crypto            ()
 import           Pos.Types             (Address (..), Tx (..), TxIn (..), TxOut (..),
-                                        topsortTransactions)
+                                        topsortTxs)
 
 -- | Primitive transaction generator with restriction on
 -- inputs/outputs size
@@ -26,7 +26,7 @@ txGen size = do
 
 spec :: Spec
 spec = describe "Transaction topsort" $ do
-    it "Returns [] on []" $ topsortTransactions [] == []
-    prop "Returns x for x" $ forAll (txGen 10) $ \x -> topsortTransactions [x] == [x]
+    it "Returns [] on []" $ topsortTxs [] == (Just [])
+    prop "Returns x for x" $ forAll (txGen 10) $ \x -> topsortTxs [x] == (Just [x])
     it "Doesn't change transaction set in general" $ pendingWith "not implemented"
     it "Does correct topsort for a graph" $ pendingWith "not implemented"

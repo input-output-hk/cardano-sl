@@ -38,7 +38,7 @@ import           Pos.Crypto              (hash)
 import           Pos.State.Storage.Types (AltChain, ProcessTxRes (..), mkPTRinvalid)
 import           Pos.Types               (Block, SlotId, Tx (..), TxId, Utxo,
                                           applyTxToUtxo, blockSlot, blockTxs, slotIdF,
-                                          verifyTxUtxo)
+                                          verifyAndApplyTxs, verifyTxUtxo)
 import           Pos.Util                (clearLRU)
 
 data TxStorage = TxStorage
@@ -78,6 +78,8 @@ type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
 getLocalTxs :: Query (HashSet Tx)
 getLocalTxs = view txLocalTxs
 
+-- | Given number of blocks to rollback and some sidechain to adopt it
+-- checks if it can be done prior to transaction validity.
 txVerifyBlocks :: Word -> AltChain ssc -> Query VerificationRes
 txVerifyBlocks (fromIntegral -> toRollback) newChain = do
     (preview (txUtxoHistory . ix toRollback)) <&> \case
@@ -87,17 +89,17 @@ txVerifyBlocks (fromIntegral -> toRollback) newChain = do
             Right _ -> VerSuccess
             Left es -> VerFailure es
   where
+    newChainTxs :: [(SlotId,[Tx])]
     newChainTxs =
-        mconcat .
-        fmap (\b -> fmap (b ^. blockSlot,) . toList $ b ^. blockTxs) . rights $
+        fmap (\b -> (b ^. blockSlot, toList $ b ^. blockTxs)) . rights $
         NE.toList newChain
-    verifyDo :: Utxo -> (SlotId, Tx) -> Either [Text] Utxo
-    verifyDo utxo (slotId, tx) =
-        case verifyTxUtxo utxo tx of
-            VerSuccess    -> Right $ applyTxToUtxo tx utxo
-            VerFailure es -> Left $ map (sformat eFormat tx slotId) es
+    verifyDo :: Utxo -> (SlotId, [Tx]) -> Either [Text] Utxo
+    verifyDo utxo (slotId, txs) =
+        case verifyAndApplyTxs txs utxo of
+          Left reason     -> Left $ [sformat eFormat slotId reason]
+          Right (_,utxo') -> Right utxo'
     eFormat =
-        "Failed to apply transaction ("%build%") on block from slot " %
+        "Failed to apply transactions on block from slot " %
         slotIdF%", error: "%build
 
 -- | Get Utxo corresponding to state right after block with given

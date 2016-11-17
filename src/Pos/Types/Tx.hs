@@ -8,10 +8,10 @@
 module Pos.Types.Tx
        ( verifyTxAlone
        , verifyTx
-       , topsortTransactions
+       , topsortTxs
        ) where
 
-import           Control.Lens        (makeLenses, uses, view, (%=))
+import           Control.Lens        (makeLenses, use, uses, (%=), (.=), (^.))
 import           Data.Bifunctor      (first)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
@@ -87,22 +87,26 @@ data TopsortState = TopsortState
     { _tsVisited     :: HS.HashSet Tx
     , _tsUnprocessed :: [Tx]
     , _tsResult      :: [Tx]
+    , _tsLoop        :: Bool
     }
 
 $(makeLenses ''TopsortState)
 
 -- | Does topological sort on transactions -- backwards dfs from every
--- node with reverse visiting order recording.
-topsortTransactions :: [Tx] -> [Tx]
-topsortTransactions input = view tsResult $ execState dfs1 initState
+-- node with reverse visiting order recording. Returns nothing on loop
+-- encountered. Return order is head-first.
+topsortTxs :: [Tx] -> Maybe [Tx]
+topsortTxs input =
+    let res = execState dfs1 initState
+    in guard (not $ res ^. tsLoop) >> pure (res ^. tsResult)
   where
     dup a = (a,a)
     txHashes = HM.fromList $ map (first hash . dup) input
-    initState = TopsortState HS.empty input []
+    initState = TopsortState HS.empty input [] False
     -- Searches next unprocessed vertix and calls dfs2 for it. Wipes
     -- visited vertices.
     dfs1 :: State TopsortState ()
-    dfs1 = do
+    dfs1 = unlessM (use tsLoop) $ do
         t <- uses tsUnprocessed head
         whenJust t $ \k -> do
             ifM (uses tsVisited $ HS.member k)
@@ -111,9 +115,8 @@ topsortTransactions input = view tsResult $ execState dfs1 initState
     -- Does dfs putting vertices into tsResult in reversed order of
     -- visiting. visitedThis is map of visited vertices for _this_ dfs
     -- (cycle detection).
-    dfs2 visitedThis tx@Tx{..} | tx `HS.member` visitedThis =
-          panic "topSortTransactions launched with loop inside"
-    dfs2 visitedThis tx@Tx{..} = do
+    dfs2 visitedThis tx@Tx{..} | tx `HS.member` visitedThis = tsLoop .= True
+    dfs2 visitedThis tx@Tx{..} = unlessM (use tsLoop) $ do
         tsVisited %= HS.insert tx
         let visitedNew = HS.insert tx visitedThis
             dependsUnfiltered =

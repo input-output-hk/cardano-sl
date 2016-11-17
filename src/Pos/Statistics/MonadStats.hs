@@ -28,9 +28,7 @@ import           Control.TimeWarp.Rpc     (MonadDialog, MonadResponse (..),
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
 import qualified Data.Binary              as Binary
 import           Data.Maybe               (fromMaybe)
-import           Data.SafeCopy            (SafeCopy)
 import           Focus                    (Decision (Remove), alterM)
-import           Pos.Ssc.Class.Storage    (SscStorageClass)
 import           Serokell.Util            (show')
 import qualified STMContainers.Map        as SM
 import           System.IO.Unsafe         (unsafePerformIO)
@@ -136,7 +134,7 @@ instance MonadTrans StatsT where
 statsMap :: SM.Map Text LByteString
 statsMap = unsafePerformIO SM.newIO
 
-instance (SscStorageClass ssc, SafeCopy ssc, MonadIO m, MonadJL m, MonadDB ssc m) => MonadStats (StatsT m) where
+instance (MonadIO m, MonadJL m) => MonadStats (StatsT m) where
     statLog label entry = do
         liftIO $ atomically $ SM.focus update (show' label) statsMap
         return ()

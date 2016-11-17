@@ -17,4 +17,7 @@ spec :: Spec
 spec = describe "DynamicState" $ do
     describe "Binary instances" $ do
         prop "Commitment" (binaryEncodeDecode @DS.Commitment)
+        prop "CommitmentSignature" (binaryEncodeDecode @DS.CommitmentSignature)
+        prop "SignedCommitment" (binaryEncodeDecode @DS.SignedCommitment)
         prop "Opening" (binaryEncodeDecode @DS.Opening)
+        prop "VssCertificate" (binaryEncodeDecode @DS.VssCertificate)

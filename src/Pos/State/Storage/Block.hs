@@ -6,6 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE ViewPatterns           #-}
+
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 -- | Blocks maintenance happens here.
@@ -19,6 +20,7 @@ module Pos.State.Storage.Block
        , getBlock
        , getBlockByDepth
        , getHeadBlock
+       , getBestChain
        , getLeader
        , getLeaders
        , getSlotDepth
@@ -34,6 +36,7 @@ module Pos.State.Storage.Block
 
 import           Control.Lens            (at, ix, makeClassy, preview, use, uses, view,
                                           (%=), (.=), (.~), (<~), (^.), _Just)
+import           Control.Monad.Loops     (unfoldrM)
 import           Data.Default            (def)
 import qualified Data.HashMap.Strict     as HM
 import           Data.List               ((!!))
@@ -147,8 +150,26 @@ getHeadBlock :: Query ssc (Block ssc)
 getHeadBlock = do
     headHash <- view blkHead
     let errorMsg =
-            sformat ("blkHead (" %build % " is not found in storage") headHash
+            sformat ("blkHead ("%build%") is not found in storage") headHash
     fromMaybe (panic errorMsg) <$> getBlockByDepth 0
+
+-- | Get the whole best chain.
+getBestChain :: Query ssc (NonEmpty (Block ssc))
+getBestChain = do
+    headHash <- view blkHead
+    firstBlock <- getBlockOrPanic headHash
+    chain <- (`unfoldrM` firstBlock) $ \blk ->
+        if isGenesisBlock blk
+            then return Nothing
+            else do prevBlk <- getBlockOrPanic (blk ^. prevBlockL)
+                    return $ Just (prevBlk, prevBlk)
+    return (firstBlock :| chain)
+  where
+    errorMsg h = sformat ("block ("%build%") is not found in storage") h
+    getBlockOrPanic h = fromMaybe (panic (errorMsg h)) <$> getBlock h
+    isGenesisBlock blk = case blk of
+        Left  gb -> gb ^. epochIndexL == 0
+        Right mb -> mb ^. blockSlot == SlotId 0 0
 
 -- | Get list of slot leaders for the given epoch if it is known.
 getLeaders :: EpochIndex -> Query ssc (Maybe SlotLeaders)
@@ -309,7 +330,7 @@ tryStartAltChain (Right blk) = do
     let header = blk ^. gbHeader
         checks =
             [ isMostDifficult header
-            , not <$> isHeadOfAlternative @ ssc (Right header)
+            , not <$> isHeadOfAlternative @ssc (Right header)
             ]
         chk = and <$> sequence checks
     ifM (readerToState chk) (Just <$> startAltChain blk) (pure Nothing)
@@ -510,15 +531,17 @@ blkCreateGenesisBlock epoch leaders = do
     -- when rollback happens, because we ensure that if genesis block was
     -- created for some epoch, then we'll always have genesis block for
     -- this epoch.
+    -- Also note that actualizeGenesisBlocks takes care of it, but we won't
+    -- an explicit check here.
     blkGenesisBlocks %= appendOrSet (fromIntegral epoch) h
     blk <$ blkSetHead h
-
-appendOrSet :: Int -> a -> Vector a -> Vector a
-appendOrSet idx val vec
-    | length vec == idx = vec `V.snoc` val
-    | length vec - 1 == idx = vec & ix idx .~ val
-    | otherwise =
-        panic "appendOrSet: idx is not last and is not right after last"
+  where
+    appendOrSet :: Int -> a -> Vector a -> Vector a
+    appendOrSet idx val vec
+        | length vec == idx = vec `V.snoc` val
+        | length vec - 1 == idx = vec & ix idx .~ val
+        | otherwise =
+            panic "appendOrSet: idx is not last and is not right after last"
 
 -- | Set head of main blockchain to block which is guaranteed to
 -- represent valid chain and be stored in blkBlocks.
@@ -527,6 +550,43 @@ blkSetHead headHash = do
     blkHead .= headHash
     blkMinDifficulty <~ maybe 0 (view difficultyL) <$>
         readerToState (getBlockByDepth k)
+    actualizeGenesisBlocks
+
+actualizeGenesisBlocks :: Update ssc ()
+actualizeGenesisBlocks = do
+    lastStoredGenesis <- fromIntegral . pred . V.length <$> use blkGenesisBlocks
+    headBlock <- readerToState getHeadBlock
+    newGenesis <-
+        readerToState $
+        actualizeGenesisBlocksDo lastStoredGenesis headBlock mempty
+    blkGenesisBlocks %= (`mappend` newGenesis)
+  where
+    actualizeGenesisBlocksDo
+        :: EpochIndex
+        -> Block ssc
+        -> Vector (HeaderHash ssc)
+        -> Query ssc (Vector (HeaderHash ssc))
+    actualizeGenesisBlocksDo knownEpoch blk res
+        | blk ^. epochIndexL <= knownEpoch = pure res
+        | otherwise =
+            case blk of
+                Right mainBlk -> do
+                    prevBlk <- getBlockWithPanic (mainBlk ^. prevBlockL)
+                    actualizeGenesisBlocksDo knownEpoch prevBlk res
+                Left genesisBlk ->
+                    let newRes = pure (headerHash genesisBlk) `mappend` res
+                    in if genesisBlk ^. epochIndexL == knownEpoch + 1
+                           then pure newRes
+                           else do
+                               prevBlk <-
+                                   getBlockWithPanic (genesisBlk ^. prevBlockL)
+                               actualizeGenesisBlocksDo
+                                   knownEpoch
+                                   prevBlk
+                                   newRes
+    getBlockWithPanic h =
+        fromMaybe (panic "block not found in actualizeGenesisBlocksDo") <$>
+        getBlock h
 
 -- | Rollback last `n` blocks.
 blkRollback :: SscTypes ssc => Word -> Update ssc ()

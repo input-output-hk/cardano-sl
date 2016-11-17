@@ -53,19 +53,19 @@ verifyTx :: (TxIn -> Maybe TxOut) -> Tx -> VerificationRes
 verifyTx inputResolver tx@Tx {..} =
     mconcat [verifyTxAlone tx, verifySum, verifyInputs]
   where
-    outSum :: Coin
-    outSum = sum $ map txOutValue txOutputs
+    outSum :: Integer
+    outSum = sum $ fmap (toInteger . txOutValue) txOutputs
     extendedInputs :: [Maybe (TxIn, TxOut)]
     extendedInputs = fmap extendInput txInputs
     extendInput txIn = (txIn,) <$> inputResolver txIn
-    inpSum :: Coin
-    inpSum = sum $ map (txOutValue . snd) $ catMaybes extendedInputs
+    inpSum :: Integer
+    inpSum = sum $ fmap (toInteger . txOutValue . snd) $ catMaybes extendedInputs
     verifySum =
         verifyGeneric
             [ ( inpSum >= outSum
               , sformat
                     ("sum of outputs is more than sum of inputs ("
-                     %coinF%" > "%coinF%"), maybe some inputs are invalid")
+                     %int%" > "%int%"), maybe some inputs are invalid")
                     outSum inpSum)
             ]
     verifyInputs =

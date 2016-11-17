@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
@@ -31,12 +30,12 @@ import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
                                            NodeParams (..), bracketDHTInstance,
                                            runRealMode, submitTx)
 import           Pos.Ssc.DynamicState     (genesisVssKeyPairs)
+import           Pos.Ssc.DynamicState     (SscDynamicState)
 import           Pos.Statistics           (getNoStatsT)
 import           Pos.Types                (Tx (..), TxId, txF)
 import           Pos.Util.JsonLog         ()
 import           Pos.WorkMode             (WorkMode)
 import           Serokell.Util.OptParse   (fromParsec)
-import           Pos.Ssc.DynamicState       (SscDynamicState)
 
 data GenOptions = GenOptions
     { goGenesisIdx         :: !Word       -- ^ Index in genesis key pairs.

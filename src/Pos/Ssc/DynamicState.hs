@@ -4,7 +4,7 @@ module Pos.Ssc.DynamicState
        ( module DynamicState
        ) where
 
-import           Pos.Ssc.DynamicState.Arbitrary ()
+import           Pos.Ssc.DynamicState.Arbitrary as DynamicState
 import           Pos.Ssc.DynamicState.Base      as DynamicState
 import           Pos.Ssc.DynamicState.Error     as DynamicState
 import           Pos.Ssc.DynamicState.Genesis   as DynamicState

@@ -157,8 +157,8 @@ defaultSendToNeighbors parallelize sender msg = do
         if succeed < neighborsSendThreshold
             then (+) succeed <$>
                  do nodes' <- discoverPeers DHTFull
-                    sendToNodes $
-                        filter (isJust . flip find nodes . (==)) nodes'
+                    let newNodes = filter (flip notElem nodes) nodes'
+                    sendToNodes newNodes
             else return succeed
     when (succeed' < neighborsSendThreshold) $
         logWarning $

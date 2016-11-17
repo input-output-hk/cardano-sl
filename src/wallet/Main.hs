@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
@@ -18,8 +17,8 @@ import           Pos.Genesis              (genesisAddresses, genesisSecretKeys)
 import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
                                            NodeParams (..), submitTxReal)
 import           Pos.Ssc.DynamicState     (genesisVssKeyPairs)
-import           Serokell.Util.OptParse   (fromParsec)
 import           Pos.Ssc.DynamicState     (SscDynamicState)
+import           Serokell.Util.OptParse   (fromParsec)
 
 data WalletCommand = SubmitTx
     { stGenesisIdx :: !Word   -- ^ Index in genesis key pairs.

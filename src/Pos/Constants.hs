@@ -6,15 +6,17 @@ module Pos.Constants
        , slotDuration
        , epochSlots
        , epochDuration
+       , ftsSeedLength
        , genesisN
        , maxLocalTxs
-       , mpcTransmitterInterval
+       , sscTransmitterInterval
        , neighborsSendThreshold
        , networkDiameter
        , RunningMode (..)
        , runningMode
        , isDevelopment
        , defaultPeers
+       , sysTimeBroadcastSlots
        ) where
 
 import           Control.TimeWarp.Timed (Microsecond, sec)
@@ -40,11 +42,17 @@ epochSlots = 6 * k
 epochDuration :: Microsecond
 epochDuration = epochSlots * slotDuration
 
+ftsSeedLength :: Integral a => a
+ftsSeedLength = 32
+
 genesisN :: Integral i => i
 genesisN = fromIntegral . ccGenesisN $ compileConfig
 
 maxLocalTxs :: Integral i => i
 maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
+
+sysTimeBroadcastSlots :: Integral i => i
+sysTimeBroadcastSlots = fromIntegral . ccSysTimeBroadcastSlots $ compileConfig
 
 -- | Estimated time needed to broadcast message from one node to all
 -- other nodes.
@@ -68,8 +76,8 @@ isDevelopment = case runningMode of
                   Development -> True
                   _           -> False
 
-mpcTransmitterInterval :: Microsecond
-mpcTransmitterInterval = sec . ccMpcRelayInterval $ compileConfig
+sscTransmitterInterval :: Microsecond
+sscTransmitterInterval = sec . ccMpcRelayInterval $ compileConfig
 
 defaultPeers :: [DHTNode]
 defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig

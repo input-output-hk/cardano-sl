@@ -6,3 +6,4 @@ genesisN: 12
 maxLocalTxs: 10000
 mpcRelayInterval: 16
 defaultPeers: []
+sysTimeBroadcastSlots: 6

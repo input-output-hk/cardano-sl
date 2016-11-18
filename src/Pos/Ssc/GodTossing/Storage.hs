@@ -24,8 +24,10 @@ module Pos.Ssc.GodTossing.Storage
        -- * Lenses
        -- ** GtStorage
        , dsVersionedL
-       , dsCurrentSecretL
        , dsLastProcessedSlotL
+       -- ** GtSecretStorage
+       , dsCurrentSecretL
+       , dsSecLastProcessedSlotL
        -- ** GtStorageVersion
        , dsLocalCommitments
        , dsGlobalCommitments
@@ -120,7 +122,9 @@ type GtSecret = (PublicKey, SignedCommitment, Opening)
 data GtSecretStorage = GtSecretStorage
     {
       -- | Secret that we are using for the current epoch.
-      _dsCurrentSecret :: !(Maybe GtSecret)
+      _dsCurrentSecret        :: !(Maybe GtSecret)
+    , -- | Last slot we are aware of.
+      _dsSecLastProcessedSlot :: !SlotId
     }
 
 class HasGtSecretStorage ss a where
@@ -130,12 +134,14 @@ type SecQuery a = forall m x . (HasGtSecretStorage GtSecretStorage x, MonadReade
 type SecUpdate a = forall m x . (HasGtSecretStorage GtSecretStorage x, MonadState x m) => m a
 
 class GtSecretStorageClass ss where
-    gtGetSecret :: SecQuery (Maybe GtSecret)
-    gtSetSecret :: GtSecret -> SecUpdate ()
+    ssGetSecret :: SecQuery (Maybe GtSecret)
+    ssSetSecret :: GtSecret -> SecUpdate ()
+    ssPrepareToNewSlot :: SlotId -> SecUpdate ()
 
 flip makeLensesFor ''GtSecretStorage
     [
       ("_dsCurrentSecret", "dsCurrentSecretL")
+    , ("_dsSecLastProcessedSlot", "dsSecLastProcessedSlotL")
     ]
 deriveSafeCopySimple 0 'base ''GtSecretStorage
 
@@ -151,5 +157,6 @@ instance Default GtSecretStorage where
         GtSecretStorage
         {
           _dsCurrentSecret = Nothing
+        , _dsSecLastProcessedSlot = unflattenSlotId 0
         }
 

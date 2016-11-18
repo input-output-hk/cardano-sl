@@ -18,7 +18,7 @@ module Pos.Ssc.GodTossing.Instance.Storage
        ) where
 
 import           Control.Lens                      (Lens', at, ix, preview, to, use, view,
-                                                    (%=), (.=), (.~), (^.))
+                                                    (%=), (.=), (^.))
 import           Crypto.Random                     (drgNewSeed, seedFromInteger, withDRG)
 import           Data.Default                      (def)
 import           Data.Hashable                     (Hashable)
@@ -48,15 +48,12 @@ import           Pos.Ssc.GodTossing.Base           (Commitment (..), CommitmentS
                                                     isCommitmentIdx, isOpeningIdx,
                                                     isSharesIdx, verifyOpening,
                                                     verifySignedCommitment)
-import           Pos.Ssc.GodTossing.Base           (Opening, SignedCommitment)
+import           Pos.Ssc.GodTossing.Base           (Opening)
 import           Pos.Ssc.GodTossing.Error          (SeedError)
 import           Pos.Ssc.GodTossing.Instance.Type  (SscGodTossing)
 import           Pos.Ssc.GodTossing.Instance.Types ()
 import           Pos.Ssc.GodTossing.Seed           (calculateSeed)
 import           Pos.Ssc.GodTossing.Storage        (GtStorage, GtStorageVersion (..),
-                                                    GtSecretStorageClass(..), GtSecretStorage,
-                                                    HasGtSecretStorage(..), GtSecret, SecQuery, SecUpdate,
-                                                    dsCurrentSecretL,
                                                     dsGlobalCertificates,
                                                     dsGlobalCommitments, dsGlobalOpenings,
                                                     dsGlobalShares, dsLastProcessedSlotL,
@@ -64,8 +61,7 @@ import           Pos.Ssc.GodTossing.Storage        (GtStorage, GtStorageVersion 
                                                     dsLocalCommitments, dsLocalOpenings,
                                                     dsLocalShares, dsVersionedL)
 import           Pos.Ssc.GodTossing.Types          (GtMessage (..), GtPayload (..),
-                                                    filterGtPayload, hasCommitment,
-                                                    hasOpening, hasShares, mdCommitments,
+                                                    filterGtPayload, mdCommitments,
                                                     mdOpenings, mdShares,
                                                     mdVssCertificates, verifyGtPayload)
 import           Pos.State.Storage.Types           (AltChain)
@@ -117,20 +113,6 @@ instance SscStorageClass SscGodTossing where
 
     sscVerifyPayload = Tagged verifyGtPayload
 
-instance GtSecretStorageClass GtSecretStorage where
-    -- gtSetSecret :: GtSecret -> SecUpdate ()
-    -- gtSetSecret (ourPk, comm, op) = do
-    --     s <- use dsCurrentSecret
-    --     case s of
-    --         Just _  -> panic "setSecret: a secret was already present"
-    --         Nothing -> dsCurrentSecret .= Just (ourPk, comm, op)
-
-    --gtGetSecret :: SecQuery (Maybe GtSecret)
-    gtGetSecret = getSecret
-    gtSetSecret = undefined
-
-getSecret :: SecQuery (Maybe GtSecret)
-getSecret = view dsCurrentSecret
 
 type Query a = SscQuery SscGodTossing a
 type Update a = SscUpdate SscGodTossing a
@@ -138,18 +120,10 @@ type Update a = SscUpdate SscGodTossing a
 instance (SscStorage ssc ~ GtStorage) => HasSscStorage ssc GtStorage where
     sscStorage = identity
 
-instance HasGtSecretStorage GtSecretStorage GtSecretStorage where
-    secretStorage = identity
-
 dsVersioned
     :: HasSscStorage SscGodTossing a =>
        Lens' a (NonEmpty GtStorageVersion)
 dsVersioned = sscStorage @SscGodTossing . dsVersionedL
-
-dsCurrentSecret
-    :: HasGtSecretStorage GtSecretStorage a =>
-       Lens' a (Maybe GtSecret)
-dsCurrentSecret = secretStorage @GtSecretStorage . dsCurrentSecretL
 
 dsLastProcessedSlot
     :: HasSscStorage SscGodTossing a
@@ -162,39 +136,13 @@ lastVer = dsVersioned . _neHead
 
 
 getLocalPayload :: SlotId -> Query GtPayload
-getLocalPayload slotId =
-    (filterGtPayload slotId <$> getStoredLocalPayload) >>= ensureOwnMpc slotId
+getLocalPayload slotId = filterGtPayload slotId <$> getStoredLocalPayload
 
 getStoredLocalPayload :: Query GtPayload
 getStoredLocalPayload =
     magnify' lastVer $
     GtPayload <$> view dsLocalCommitments <*> view dsLocalOpenings <*>
     view dsLocalShares <*> view dsLocalCertificates
-
-
---type Query a = SscQuery SscGodTossing a
---type Update a = SscUpdate SscGodTossing a
-
-ensureOwnMpc :: SlotId -> GtPayload -> Query GtPayload
-ensureOwnMpc slotId payload = do
-    globalMpc <- getGlobalMpcData
-    ourSecret <- view $ undefined --dsCurrentSecret
-    return $ maybe identity (ensureOwnMpcDo globalMpc slotId) ourSecret payload
-
-ensureOwnMpcDo
-    :: GtPayload
-    -> SlotId
-    -> (PublicKey, SignedCommitment, Opening)
-    -> GtPayload
-    -> GtPayload
-ensureOwnMpcDo globalMpcData (siSlot -> slotIdx) (pk, comm, opening) md
-    | isCommitmentIdx slotIdx && (not $ hasCommitment pk globalMpcData) =
-        md & mdCommitments . at pk .~ Just comm
-    | isOpeningIdx slotIdx && (not $ hasOpening pk globalMpcData) =
-        md & mdOpenings . at pk .~ Just opening
-    | isSharesIdx slotIdx && (not $ hasShares pk globalMpcData) =
-        md   -- TODO: set our shares, but it's not so easy :(
-    | otherwise = md
 
 getGlobalMpcData :: Query GtPayload
 getGlobalMpcData =
@@ -468,14 +416,11 @@ mpcProcessVssCertificate pk c = zoom' lastVer $ do
 
 -- Should be executed before doing any updates within given slot.
 mpcProcessNewSlot :: SlotId -> Update ()
-mpcProcessNewSlot si@SlotId {siEpoch = epochIdx, siSlot = slotIdx} = do
+mpcProcessNewSlot si@SlotId {siSlot = slotIdx} = do
     zoom' lastVer $ do
         unless (isCommitmentIdx slotIdx) $ dsLocalCommitments .= mempty
         unless (isOpeningIdx slotIdx) $ dsLocalOpenings .= mempty
         unless (isSharesIdx slotIdx) $ dsLocalShares .= mempty
-    whenM ((epochIdx >) . siEpoch <$> use dsLastProcessedSlot) $
-        undefined
-        --dsCurrentSecret .= Nothing
     dsLastProcessedSlot .= si
 
 -- | Apply sequence of blocks to state. Sequence must be based on last

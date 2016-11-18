@@ -82,6 +82,7 @@ import           Pos.WorkMode                (ContextHolder (..), NodeContext (.
                                               RealMode, ServiceMode, WorkMode,
                                               getNodeContext, ncPublicKey,
                                               runContextHolder, runDBHolder)
+import           System.FilePath             ((</>))
 
 type RealModeSscConstraint ssc =
                (Ssc ssc, Default (SscStorage ssc),
@@ -307,7 +308,7 @@ runRealMode inst NodeParams {..} listeners action = do
     openDb = runTimed loggerName . runCH $
          maybe (openMemState mStorage)
                (openState mStorage npRebuildDb)
-               npDbPath
+               ((</> "main") <$> npDbPath)
 
     runCH :: MonadIO m => ContextHolder m a -> m a
     runCH act = flip runContextHolder act . ctx

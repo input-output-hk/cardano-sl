@@ -72,6 +72,7 @@ library
                         Pos.Ssc.GodTossing.Genesis
                         Pos.Ssc.GodTossing.Instance
                         Pos.Ssc.GodTossing.Instance.Listeners
+                        Pos.Ssc.GodTossing.Instance.SecretStorage
                         Pos.Ssc.GodTossing.Instance.Storage
                         Pos.Ssc.GodTossing.Instance.Type
                         Pos.Ssc.GodTossing.Instance.Types

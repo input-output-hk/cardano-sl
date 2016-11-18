@@ -35,6 +35,7 @@ module Pos.State.Acidic
        , GetLocalSscPayload (..)
        , GetSecret (..)
        , GetOurShares (..)
+       , PrepareSecretToNewSlot (..)
        , GetThreshold (..)
        , GetParticipants (..)
        , MayBlockBeUseful (..)
@@ -173,4 +174,5 @@ makeAcidicWithHacks ''GS.GtSecretStorage []
     [
       'S.getSecret
     , 'S.setSecret
+    , 'S.prepareSecretToNewSlot
     ]

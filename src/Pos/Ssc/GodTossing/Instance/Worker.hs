@@ -39,6 +39,7 @@ import           Pos.Ssc.GodTossing.Types         (GtMessage (..), GtPayload (..
 import           Pos.State                        (getGlobalMpcData, getLocalSscPayload,
                                                    getOurShares, getParticipants,
                                                    getSecret, getThreshold,
+                                                   prepareSecretToNewSlot,
                                                    processSscMessage, setSecret)
 import           Pos.Types                        (EpochIndex, SlotId (..))
 import           Pos.WorkMode                     (WorkMode, getNodeContext, ncDbPath,
@@ -52,6 +53,7 @@ instance SscWorkersClass SscGodTossing where
 
 onNewSlot :: WorkMode SscGodTossing m => SlotId -> m ()
 onNewSlot slotId = do
+    prepareTokenToNewSlot slotId
     onNewSlotCommitment slotId
     onNewSlotOpening slotId
     onNewSlotShares slotId
@@ -162,3 +164,8 @@ getToken :: WorkMode SscGodTossing m => m (Maybe GtSecret)
 getToken = do
     dbPath <- ncDbPath <$> getNodeContext
     getSecret ((</> "secret") <$> dbPath)
+
+prepareTokenToNewSlot :: WorkMode SscGodTossing m => SlotId -> m ()
+prepareTokenToNewSlot slotId = do
+    dbPath <- ncDbPath <$> getNodeContext
+    prepareSecretToNewSlot ((</> "secret") <$> dbPath) slotId

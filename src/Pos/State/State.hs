@@ -49,6 +49,7 @@ module Pos.State.State
        , setSecret
        , getSecret
        , getOurShares
+       , prepareSecretToNewSlot
        ) where
 
 import           Crypto.Random              (seedNew, seedToInteger)
@@ -230,6 +231,13 @@ getThreshold = queryDisk . A.GetThreshold
 -- Related to SscGodTossing
 ----------------------------------------------------------------------------
 
+getOurShares
+    :: QUConstraint ssc m
+    => VssKeyPair -> m (HashMap PublicKey Share)
+getOurShares ourKey = do
+    randSeed <- liftIO seedNew
+    queryDisk $ A.GetOurShares ourKey (seedToInteger randSeed)
+
 getSecret :: MonadIO m => Maybe FilePath -> m (Maybe GtSecret)
 getSecret pathToSecret = do
     curSt <- maybe A.openMemGtSecretState (A.openGtSecretState False) pathToSecret
@@ -243,9 +251,9 @@ setSecret pathToSecret secret = do
     A.updateGtSecret curSt (A.SetSecret secret)
     A.closeGtSecretState curSt
 
-getOurShares
-    :: QUConstraint ssc m
-    => VssKeyPair -> m (HashMap PublicKey Share)
-getOurShares ourKey = do
-    randSeed <- liftIO seedNew
-    queryDisk $ A.GetOurShares ourKey (seedToInteger randSeed)
+prepareSecretToNewSlot :: MonadIO m => Maybe FilePath -> SlotId -> m ()
+prepareSecretToNewSlot pathToSecret slotId = do
+    curSt <- maybe A.openMemGtSecretState (A.openGtSecretState False) pathToSecret
+    A.updateGtSecret curSt (A.PrepareSecretToNewSlot slotId)
+    A.closeGtSecretState curSt
+

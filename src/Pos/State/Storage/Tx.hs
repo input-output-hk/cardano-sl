@@ -116,7 +116,7 @@ processTx tx = do
     localSetSize <- use txLocalTxsSize
     if localSetSize < maxLocalTxs
         then processTxDo tx
-        else return PTRoverwhelmed
+        else pure PTRoverwhelmed
 
 processTxDo :: Tx -> Update ProcessTxRes
 processTxDo tx =
@@ -138,7 +138,7 @@ processTxDo tx =
             ]
 
 verifyTx :: Tx -> Update VerificationRes
-verifyTx tx = flip verifyTxUtxo tx <$> use txUtxo
+verifyTx tx = uses txUtxo $ flip verifyTxUtxo tx
 
 applyTx :: Tx -> Update ()
 applyTx tx = txUtxo %= applyTxToUtxo tx

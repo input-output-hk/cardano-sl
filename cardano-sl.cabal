@@ -125,6 +125,7 @@ library
                       , ed25519
                       , exceptions
                       , file-embed >= 0.0.10
+                      , filepath
                       , focus
                       , formatting
                       , hashable

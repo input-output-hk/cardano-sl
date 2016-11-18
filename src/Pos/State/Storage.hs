@@ -28,7 +28,7 @@ module Pos.State.Storage
        , getOurShares
        , getParticipants
        , getThreshold
-       , getToken
+       , getSecret
        , mayBlockBeUseful
 
        , ProcessBlockRes (..)
@@ -40,50 +40,60 @@ module Pos.State.Storage
        , processNewSlot
        , processSscMessage
        , processTx
-       , setToken
+       , setSecret
 
        , newStatRecord
        , getStatRecords
        ) where
 
-import           Control.Lens            (makeClassy, use, view, (.=), (^.))
-import           Control.Monad.TM        ((.=<<.))
-import           Data.Acid               ()
-import           Data.Default            (Default, def)
-import           Data.List.NonEmpty      (NonEmpty ((:|)))
-import           Data.SafeCopy           (SafeCopy (..), contain, safeGet, safePut)
-import           Data.Tagged             (untag)
-import           Formatting              (build, sformat, (%))
-import           Serokell.AcidState      ()
-import           Serokell.Util           (VerificationRes (..))
+import           Control.Lens                        (makeClassy, use, view, (.=), (^.))
+import           Control.Monad.TM                    ((.=<<.))
+import           Data.Acid                           ()
+import           Data.Default                        (Default, def)
+import           Data.List.NonEmpty                  (NonEmpty ((:|)))
+import           Data.SafeCopy                       (SafeCopy (..), contain, safeGet,
+                                                      safePut)
+import           Data.Tagged                         (untag)
+import           Formatting                          (build, sformat, (%))
+import           Serokell.AcidState                  ()
+import           Serokell.Util                       (VerificationRes (..))
 import           Universum
 
-import           Pos.Constants           (k)
-import           Pos.Crypto              (PublicKey, SecretKey, Share, Threshold,
-                                          VssKeyPair, VssPublicKey)
-import           Pos.Genesis             (genesisUtxo)
-import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
-import           Pos.Ssc.Class.Types     (Ssc (..))
-import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
-                                          blkCleanUp, blkCreateGenesisBlock,
-                                          blkCreateNewBlock, blkProcessBlock, blkRollback,
-                                          blkSetHead, getBestChain, getBlock,
-                                          getHeadBlock, getLeaders, getSlotDepth,
-                                          mayBlockBeUseful, mkBlockStorage)
-import           Pos.State.Storage.Stats (HasStatsData (statsData), StatsData,
-                                          getStatRecords, newStatRecord)
-import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
-                                          getLocalTxs, getUtxoByDepth, processTx,
-                                          txApplyBlocks, txRollback, txStorageFromUtxo,
-                                          txVerifyBlocks)
-import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
-                                          ProcessTxRes (..), mkPBRabort)
-import           Pos.Types               (Block, EpochIndex, GenesisBlock, MainBlock,
-                                          SlotId (..), SlotLeaders, Utxo, blockMpc,
-                                          blockSlot, blockTxs, epochIndexL, flattenSlotId,
-                                          gbHeader, headerHashG, unflattenSlotId,
-                                          verifyTxAlone)
-import           Pos.Util                (readerToState, _neLast)
+import           Pos.Constants                       (k)
+import           Pos.Crypto                          (PublicKey, SecretKey, Share,
+                                                      Threshold, VssKeyPair, VssPublicKey)
+import           Pos.Genesis                         (genesisUtxo)
+import           Pos.Ssc.Class.Storage               (HasSscStorage (..),
+                                                      SscStorageClass (..))
+import           Pos.Ssc.Class.Types                 (Ssc (..))
+import           Pos.Ssc.GodTossing.Instance.Storage ()
+import           Pos.Ssc.GodTossing.Storage          (GtSecret, GtSecretStorage,
+                                                      GtSecretStorageClass (..))
+import           Pos.State.Storage.Block             (BlockStorage,
+                                                      HasBlockStorage (blockStorage),
+                                                      blkCleanUp, blkCreateGenesisBlock,
+                                                      blkCreateNewBlock, blkProcessBlock,
+                                                      blkRollback, blkSetHead,
+                                                      getBestChain, getBlock,
+                                                      getHeadBlock, getLeaders,
+                                                      getSlotDepth, mayBlockBeUseful,
+                                                      mkBlockStorage)
+import           Pos.State.Storage.Stats             (HasStatsData (statsData), StatsData,
+                                                      getStatRecords, newStatRecord)
+import           Pos.State.Storage.Tx                (HasTxStorage (txStorage), TxStorage,
+                                                      getLocalTxs, getUtxoByDepth,
+                                                      processTx, txApplyBlocks,
+                                                      txRollback, txStorageFromUtxo,
+                                                      txVerifyBlocks)
+import           Pos.State.Storage.Types             (AltChain, ProcessBlockRes (..),
+                                                      ProcessTxRes (..), mkPBRabort)
+import           Pos.Types                           (Block, EpochIndex, GenesisBlock,
+                                                      MainBlock, SlotId (..), SlotLeaders,
+                                                      Utxo, blockMpc, blockSlot, blockTxs,
+                                                      epochIndexL, flattenSlotId,
+                                                      gbHeader, headerHashG,
+                                                      unflattenSlotId, verifyTxAlone)
+import           Pos.Util                            (readerToState, _neLast)
 
 type Query  ssc a = forall m . (Ssc ssc, MonadReader (Storage ssc) m) => m a
 type Update ssc a = forall m . (Ssc ssc, MonadState (Storage ssc) m) => m a
@@ -159,19 +169,6 @@ getGlobalSscPayload
     => Query ssc (SscPayload ssc)
 getGlobalSscPayload = sscGetGlobalPayload @ssc
 
-getToken
-    :: forall ssc.
-       SscStorageClass ssc
-    => Query ssc (Maybe (SscToken ssc))
-getToken = sscGetToken @ssc
-
-getOurShares
-    :: forall ssc.
-       SscStorageClass ssc
-    => VssKeyPair -- ^ Our VSS key
-    -> Integer -- ^ Random generator seed (needed for 'decryptShare')
-    -> Query ssc (HashMap PublicKey Share)
-getOurShares = sscGetOurShares @ssc
 
 -- | Create a new block on top of best chain if possible.
 -- Block can be created if:
@@ -397,8 +394,20 @@ processSscMessage
     => SscMessage ssc -> Update ssc (Maybe (SscMessage ssc))
 processSscMessage = sscProcessMessage @ssc
 
-setToken
+getOurShares
     :: forall ssc.
        SscStorageClass ssc
-    => SscToken ssc -> Update ssc ()
-setToken = sscSetToken @ssc
+    => VssKeyPair -- ^ Our VSS key
+    -> Integer -- ^ Random generator seed (needed for 'decryptShare')
+    -> Query ssc (HashMap PublicKey Share)
+getOurShares = sscGetOurShares @ssc
+
+--GodTossing Secret storage
+type SecQuery  a = forall m . MonadReader GtSecretStorage m => m a
+type SecUpdate a = forall m . MonadState GtSecretStorage m => m a
+
+setSecret :: GtSecret -> SecUpdate ()
+setSecret = gtSetSecret @GtSecretStorage
+
+getSecret :: SecQuery (Maybe GtSecret)
+getSecret = gtGetSecret @GtSecretStorage

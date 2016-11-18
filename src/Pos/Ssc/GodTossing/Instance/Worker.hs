@@ -28,50 +28,27 @@ import           Pos.Ssc.GodTossing.Base          (genCommitmentAndOpening,
                                                    isSharesIdx, mkSignedCommitment)
 import           Pos.Ssc.GodTossing.Base          (Opening, SignedCommitment)
 import           Pos.Ssc.GodTossing.Instance.Type (SscGodTossing)
-import           Pos.Ssc.GodTossing.Server        ()
 import           Pos.Ssc.GodTossing.Server        (announceCommitment,
                                                    announceCommitments, announceOpening,
                                                    announceOpenings, announceShares,
                                                    announceSharesMulti,
                                                    announceVssCertificates)
+import           Pos.Ssc.GodTossing.Storage       (GtSecret)
 import           Pos.Ssc.GodTossing.Types         (GtMessage (..), GtPayload (..),
                                                    hasCommitment, hasOpening, hasShares)
 import           Pos.State                        (getGlobalMpcData, getLocalSscPayload,
                                                    getOurShares, getParticipants,
-                                                   getThreshold, getToken,
-                                                   processSscMessage, setToken)
+                                                   getSecret, getThreshold,
+                                                   processSscMessage, setSecret)
 import           Pos.Types                        (EpochIndex, SlotId (..))
-import           Pos.WorkMode                     (WorkMode, getNodeContext, ncPublicKey,
-                                                   ncSecretKey, ncVssKeyPair)
+import           Pos.WorkMode                     (WorkMode, getNodeContext, ncDbPath,
+                                                   ncPublicKey, ncSecretKey, ncVssKeyPair)
+
+import           System.FilePath                  ((</>))
 
 instance SscWorkersClass SscGodTossing where
     sscOnNewSlot = Tagged onNewSlot
     sscWorkers = Tagged [sscTransmitter]
-
--- | Generate new commitment and opening and use them for the current
--- epoch. Assumes that the genesis block has already been generated and
--- processed by MPC (when the genesis block is processed, the secret is
--- cleared) (otherwise 'generateNewSecret' will fail because 'A.SetSecret'
--- won't set the secret if there's one already).
--- Nothing is returned if node is not ready.
-generateAndSetNewSecret
-    :: WorkMode SscGodTossing m
-    => SecretKey
-    -> EpochIndex                         -- ^ Current epoch
-    -> m (Maybe (SignedCommitment, Opening))
-generateAndSetNewSecret sk epoch = do
-    -- TODO: I think it's safe here to perform 3 operations which aren't
-    -- grouped into a single transaction here, but I'm still a bit nervous.
-    threshold <- getThreshold epoch
-    participants <- getParticipants epoch
-    case (,) <$> threshold <*> participants of
-        Nothing -> return Nothing
-        Just (th, ps) -> do
-            (comm, op) <-
-                first (mkSignedCommitment sk epoch) <$>
-                genCommitmentAndOpening th ps
-            Just (comm, op) <$ setToken (toPublic sk, comm, op)
-
 
 onNewSlot :: WorkMode SscGodTossing m => SlotId -> m ()
 onNewSlot slotId = do
@@ -150,3 +127,38 @@ sscTransmitter =
     onError e =
         sscTransmitterInterval <$
         logWarning (sformat ("Error occured in sscTransmitter: " %build) e)
+
+-- | Generate new commitment and opening and use them for the current
+-- epoch. Assumes that the genesis block has already been generated and
+-- processed by MPC (when the genesis block is processed, the secret is
+-- cleared) (otherwise 'generateNewSecret' will fail because 'A.SetSecret'
+-- won't set the secret if there's one already).
+-- Nothing is returned if node is not ready.
+generateAndSetNewSecret
+    :: WorkMode SscGodTossing m
+    => SecretKey
+    -> EpochIndex                         -- ^ Current epoch
+    -> m (Maybe (SignedCommitment, Opening))
+generateAndSetNewSecret sk epoch = do
+    -- TODO: I think it's safe here to perform 3 operations which aren't
+    -- grouped into a single transaction here, but I'm still a bit nervous.
+    threshold <- getThreshold epoch
+    participants <- getParticipants epoch
+    case (,) <$> threshold <*> participants of
+        Nothing -> return Nothing
+        Just (th, ps) -> do
+            (comm, op) <-
+                first (mkSignedCommitment sk epoch) <$>
+                genCommitmentAndOpening th ps
+            Just (comm, op) <$ setToken (toPublic sk, comm, op)
+
+setToken :: WorkMode SscGodTossing m => GtSecret -> m ()
+setToken secret = do
+    dbPath <- ncDbPath <$> getNodeContext
+    setSecret ((</> "secret") <$> dbPath) secret
+
+
+getToken :: WorkMode SscGodTossing m => m (Maybe GtSecret)
+getToken = do
+    dbPath <- ncDbPath <$> getNodeContext
+    getSecret ((</> "secret") <$> dbPath)

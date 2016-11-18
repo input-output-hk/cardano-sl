@@ -320,6 +320,7 @@ runRealMode inst NodeParams {..} listeners action = do
               , ncVssKeyPair = npVssKeyPair
               , ncTimeLord = npTimeLord
               , ncJLFile = jlFile
+              , ncDbPath = npDbPath
               }
 
 runServiceMode :: KademliaDHTInstance -> BaseParams -> [ListenerDHT ServiceMode] -> ServiceMode a -> IO a

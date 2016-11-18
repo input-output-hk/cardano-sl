@@ -1,17 +1,25 @@
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE Rank2Types            #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TupleSections         #-}
-{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE AllowAmbiguousTypes    #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE Rank2Types             #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE TupleSections          #-}
+{-# LANGUAGE TypeFamilies           #-}
 
 -- | Dynamic State storage.
 
 module Pos.Ssc.GodTossing.Storage
        ( GtStorage (..)
+       , HasGtSecretStorage(..)
        , GtStorageVersion (..)
+       , GtSecretStorageClass (..)
+       , GtSecretStorage(..)
+       , GtSecret
+       , SecQuery
+       , SecUpdate
 
        -- * Lenses
        -- ** GtStorage
@@ -29,6 +37,7 @@ module Pos.Ssc.GodTossing.Storage
        , dsGlobalCertificates
        ) where
 
+import           Control.Lens               (Lens')
 import           Control.Lens               (makeLenses, makeLensesFor)
 import           Data.Default               (Default (..))
 import           Data.List.NonEmpty         (NonEmpty (..))
@@ -96,24 +105,51 @@ data GtStorage = GtStorage
       -- deltas for maps which are in 'GtStorageVersion', see [POS-25] for
       -- the explanation of deltas.
       _dsVersioned         :: NonEmpty GtStorageVersion
-    , -- | Secret that we are using for the current epoch.
-      _dsCurrentSecret     :: !(Maybe (PublicKey, SignedCommitment, Opening))
     , -- | Last slot we are aware of.
       _dsLastProcessedSlot :: !SlotId
     }
 
+
 flip makeLensesFor ''GtStorage
     [ ("_dsVersioned", "dsVersionedL")
-    , ("_dsCurrentSecret", "dsCurrentSecretL")
     , ("_dsLastProcessedSlot", "dsLastProcessedSlotL")
     ]
 deriveSafeCopySimple 0 'base ''GtStorage
+
+type GtSecret = (PublicKey, SignedCommitment, Opening)
+data GtSecretStorage = GtSecretStorage
+    {
+      -- | Secret that we are using for the current epoch.
+      _dsCurrentSecret :: !(Maybe GtSecret)
+    }
+
+class HasGtSecretStorage ss a where
+    secretStorage :: Lens' a ss
+
+type SecQuery a = forall m x . (HasGtSecretStorage GtSecretStorage x, MonadReader x m) => m a
+type SecUpdate a = forall m x . (HasGtSecretStorage GtSecretStorage x, MonadState x m) => m a
+
+class GtSecretStorageClass ss where
+    gtGetSecret :: SecQuery (Maybe GtSecret)
+    gtSetSecret :: GtSecret -> SecUpdate ()
+
+flip makeLensesFor ''GtSecretStorage
+    [
+      ("_dsCurrentSecret", "dsCurrentSecretL")
+    ]
+deriveSafeCopySimple 0 'base ''GtSecretStorage
 
 instance Default GtStorage where
     def =
         GtStorage
         { _dsVersioned = (def :| [])
-        , _dsCurrentSecret = Nothing
         , _dsLastProcessedSlot = unflattenSlotId 0
+        }
+
+instance Default GtSecretStorage where
+    def =
+        GtSecretStorage
+        {
+          _dsCurrentSecret = Nothing
         }
 

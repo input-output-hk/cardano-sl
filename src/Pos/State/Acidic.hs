@@ -16,9 +16,15 @@ module Pos.State.Acidic
        , openMemState
        , openMemStateCustom
        , tidyState
+       , openGtSecretState
+       , openMemGtSecretState
+       , closeGtSecretState
 
        , query
        , update
+
+       , queryGtSecret
+       , updateGtSecret
 
        , GetBlock (..)
        , GetGlobalSscPayload (..)
@@ -27,7 +33,7 @@ module Pos.State.Acidic
        , GetLeaders (..)
        , GetLocalTxs (..)
        , GetLocalSscPayload (..)
-       , GetToken (..)
+       , GetSecret (..)
        , GetOurShares (..)
        , GetThreshold (..)
        , GetParticipants (..)
@@ -38,24 +44,26 @@ module Pos.State.Acidic
        , ProcessNewSlot (..)
        , ProcessSscMessage (..)
        , ProcessTx (..)
-       , SetToken (..)
+       , SetSecret (..)
 
        , NewStatRecord (..)
        , GetStatRecords (..)
        ) where
 
-import           Data.Acid             (EventResult, EventState, QueryEvent, UpdateEvent,
-                                        makeAcidicWithHacks)
-import           Data.Default          (Default, def)
-import           Data.SafeCopy         (SafeCopy)
-import           Serokell.AcidState    (ExtendedState, closeExtendedState,
-                                        openLocalExtendedState, openMemoryExtendedState,
-                                        queryExtended, tidyExtendedState, updateExtended)
+import           Data.Acid                  (EventResult, EventState, QueryEvent,
+                                             UpdateEvent, makeAcidicWithHacks)
+import           Data.Default               (Default, def)
+import           Data.SafeCopy              (SafeCopy)
+import           Serokell.AcidState         (ExtendedState, closeExtendedState,
+                                             openLocalExtendedState,
+                                             openMemoryExtendedState, queryExtended,
+                                             tidyExtendedState, updateExtended)
 import           Universum
 
-import           Pos.Ssc.Class.Storage (SscStorageClass (..))
-import           Pos.Ssc.Class.Types   (Ssc (SscStorage))
-import qualified Pos.State.Storage     as S
+import           Pos.Ssc.Class.Storage      (SscStorageClass (..))
+import           Pos.Ssc.Class.Types        (Ssc (SscStorage))
+import qualified Pos.Ssc.GodTossing.Storage as GS
+import qualified Pos.State.Storage          as S
 
 ----------------------------------------------------------------------------
 -- Acid-state things
@@ -120,7 +128,6 @@ makeAcidicWithHacks ''S.Storage ["ssc"]
     , 'S.getLocalTxs
     , 'S.getHeadBlock
     , 'S.getBestChain
-    , 'S.getToken
     , 'S.getOurShares
     , 'S.getThreshold
     , 'S.getParticipants
@@ -130,7 +137,40 @@ makeAcidicWithHacks ''S.Storage ["ssc"]
     , 'S.processNewSlot
     , 'S.processSscMessage
     , 'S.processTx
-    , 'S.setToken
     , 'S.newStatRecord
     , 'S.getStatRecords
+    ]
+
+
+openGtSecretState :: MonadIO m
+                  => Bool
+                  -> FilePath
+                  -> m (ExtendedState GS.GtSecretStorage)
+openGtSecretState deleteIfExists fp =
+    openLocalExtendedState deleteIfExists fp def
+
+
+openMemGtSecretState :: MonadIO m
+             => m (ExtendedState GS.GtSecretStorage)
+openMemGtSecretState = openMemoryExtendedState def
+
+queryGtSecret
+    :: (EventState event ~ GS.GtSecretStorage,
+        QueryEvent event, MonadIO m)
+    => ExtendedState GS.GtSecretStorage -> event -> m (EventResult event)
+queryGtSecret = queryExtended
+
+updateGtSecret
+    :: (EventState event ~ GS.GtSecretStorage,
+        UpdateEvent event, MonadIO m)
+    => ExtendedState GS.GtSecretStorage -> event -> m (EventResult event)
+updateGtSecret = updateExtended
+
+closeGtSecretState :: MonadIO m => ExtendedState GS.GtSecretStorage -> m ()
+closeGtSecretState = closeExtendedState
+
+makeAcidicWithHacks ''GS.GtSecretStorage []
+    [
+      'S.getSecret
+    , 'S.setSecret
     ]

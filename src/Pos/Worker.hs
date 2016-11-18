@@ -1,3 +1,4 @@
+{-# LANGUAGE ViewPatterns #-}
 -- | High level workers.
 
 module Pos.Worker
@@ -6,21 +7,24 @@ module Pos.Worker
        ) where
 
 import           Control.TimeWarp.Logging (logDebug, logInfo, logNotice)
-import           Control.TimeWarp.Timed   (fork_)
+import           Control.TimeWarp.Timed   (fork_, ms)
 import           Data.Tagged              (untag)
 import           Formatting               (build, sformat, (%))
 import           Universum
 
+import           Pos.Communication        (SysStartResponse (..))
+import           Pos.Constants            (slotDuration, sysTimeBroadcastSlots)
+import           Pos.DHT                  (sendToNetwork)
 import           Pos.Slotting             (onNewSlot)
 import           Pos.Ssc.Class.Workers    (SscWorkersClass, sscOnNewSlot, sscWorkers)
 import           Pos.State                (processNewSlot)
-import           Pos.Types                (SlotId, slotIdF)
-import           Pos.Util                 (logWarningWaitLinear)
+import           Pos.Types                (SlotId, flattenSlotId, slotIdF)
+import           Pos.Util                 (waitRandomInterval)
 import           Pos.Util.JsonLog         (jlCreatedBlock, jlLog)
 import           Pos.Worker.Block         (blkOnNewSlot, blkWorkers)
 import           Pos.Worker.Stats         (statsWorkers)
 import           Pos.Worker.Tx            (txWorkers)
-import           Pos.WorkMode             (WorkMode)
+import           Pos.WorkMode             (NodeContext (..), WorkMode, getNodeContext)
 
 -- | Run all necessary workers in separate threads. This call doesn't
 -- block.
@@ -47,8 +51,14 @@ onNewSlotWorkerImpl slotId = do
       jlLog $ jlCreatedBlock (Left createdBlk)
     logDebug "Finished `processNewSlot`"
 
-    fork_ $ do
-        logWarningWaitLinear 8 "mpcOnNewSlot" $ untag sscOnNewSlot slotId
-        logDebug "Finished `mpcOnNewSlot`"
+    when (flattenSlotId slotId <= sysTimeBroadcastSlots) $
+      whenM (ncTimeLord <$> getNodeContext) $ fork_ $ do
+        waitRandomInterval (ms 500) slotDuration
+        ncSystemStart <$> getNodeContext
+            >>= \(SysStartResponse . Just -> mT) -> do
+                logInfo "Broadcasting system start"
+                sendToNetwork mT
+
+    fork_ (untag sscOnNewSlot slotId)
     blkOnNewSlot slotId
     logDebug "Finished `blkOnNewSlot`"

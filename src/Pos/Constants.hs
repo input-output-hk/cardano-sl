@@ -16,6 +16,8 @@ module Pos.Constants
        , runningMode
        , isDevelopment
        , defaultPeers
+       , sysTimeBroadcastSlots
+       , mpcSendInterval
        ) where
 
 import           Control.TimeWarp.Timed (Microsecond, sec)
@@ -50,6 +52,9 @@ genesisN = fromIntegral . ccGenesisN $ compileConfig
 maxLocalTxs :: Integral i => i
 maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
 
+sysTimeBroadcastSlots :: Integral i => i
+sysTimeBroadcastSlots = fromIntegral . ccSysTimeBroadcastSlots $ compileConfig
+
 -- | Estimated time needed to broadcast message from one node to all
 -- other nodes.
 networkDiameter :: Microsecond
@@ -82,3 +87,8 @@ defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
     parsePeer =
         either (panic . show) identity .
         P.parse dhtNodeParser "Compile time config"
+
+-- | Length of interval during which node should send her MPC
+-- message. Relevant only for one SSC implementation.
+mpcSendInterval :: Microsecond
+mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ compileConfig

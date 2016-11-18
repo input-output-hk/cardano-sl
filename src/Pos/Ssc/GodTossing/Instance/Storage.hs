@@ -500,10 +500,10 @@ mpcProcessBlock blk = do
                 dsGlobalShares      .= mempty
         -- Main blocks contain commitments, openings, shares, VSS certificates
         Right b -> do
-            let blockCommitments  = b ^. blockMpc . to _mdCommitments
-                blockOpenings     = b ^. blockMpc . to _mdOpenings
-                blockShares       = b ^. blockMpc . to _mdShares
-                blockCertificates = b ^. blockMpc . to _mdVssCertificates
+            let blockCommitments  = b ^. blockMpc . mdCommitments
+                blockOpenings     = b ^. blockMpc . mdOpenings
+                blockShares       = b ^. blockMpc . mdShares
+                blockCertificates = b ^. blockMpc . mdVssCertificates
             zoom' lastVer $ do
                 -- commitments
                 dsGlobalCommitments %= HM.union blockCommitments

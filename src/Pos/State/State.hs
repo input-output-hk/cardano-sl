@@ -32,7 +32,6 @@ module Pos.State.State
        , ProcessBlockRes (..)
        , ProcessTxRes (..)
        , createNewBlock
-       --, generateAndSetNewSecret
        , processBlock
        , processNewSlot
        , processSscMessage
@@ -42,40 +41,38 @@ module Pos.State.State
        , getThreshold
        , getParticipants
 
-       -- * SscDynamic state simple getters and setters.
-       , setToken
-       , getToken
+       -- * SscGodTossing simple getters and setters.
        , getOurShares
        ) where
 
-import           Crypto.Random         (seedNew, seedToInteger)
-import           Data.Acid             (EventResult, EventState, QueryEvent, UpdateEvent)
-import           Data.Default          (Default)
-import           Data.List.NonEmpty    (NonEmpty)
-import           Pos.DHT               (DHTResponseT)
-import           Serokell.Util         (VerificationRes)
+import           Crypto.Random            (seedNew, seedToInteger)
+import           Data.Acid                (EventResult, EventState, QueryEvent,
+                                           UpdateEvent)
+import           Data.Default             (Default)
+import           Data.List.NonEmpty       (NonEmpty)
+import           Pos.DHT                  (DHTResponseT)
+import           Serokell.Util            (VerificationRes)
 import           Universum
 
-import           Pos.Crypto            (PublicKey, SecretKey, Share, Threshold,
-                                        VssKeyPair, VssPublicKey)
-import           Pos.Slotting          (MonadSlots, getCurrentSlot)
-import           Pos.Ssc.Class.Storage (SscStorageClass (..), SscStorageMode)
-import           Pos.Ssc.Class.Types   (Ssc (SscMessage, SscPayload, SscStorage, SscToken))
-import           Pos.State.Acidic      (DiskState, tidyState)
-import qualified Pos.State.Acidic      as A
-import           Pos.State.Storage     (ProcessBlockRes (..), ProcessTxRes (..), Storage)
-import           Pos.Types             (Block, EpochIndex, GenesisBlock, HeaderHash,
-                                        MainBlock, MainBlockHeader, SlotId, SlotLeaders,
-                                        Tx)
+import           Pos.Crypto               (PublicKey, SecretKey, Share, Threshold,
+                                           VssKeyPair, VssPublicKey)
+import           Pos.Slotting             (MonadSlots, getCurrentSlot)
+import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
+import           Pos.Ssc.Class.Types      (Ssc (SscMessage, SscPayload, SscStorage))
+import           Pos.State.Acidic         (DiskState, tidyState)
+import qualified Pos.State.Acidic         as A
+import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (..),
+                                           Storage)
+import           Pos.Statistics.StatEntry ()
+import           Pos.Types                (Block, EpochIndex, GenesisBlock, HeaderHash,
+                                           MainBlock, MainBlockHeader, SlotId,
+                                           SlotLeaders, Tx)
 
 -- | NodeState encapsulates all the state stored by node.
-type NodeState ssc = DiskState ssc
-type QUConstraint ssc m = (SscStorageMode ssc, WorkModeDB ssc m)
-
--- | Convenient type class to avoid passing NodeState throughout the code.
 class MonadDB ssc m | m -> ssc where
     getNodeState :: m (NodeState ssc)
 
+-- | Convenient type class to avoid passing NodeState throughout the code.
 instance (Monad m, MonadDB ssc m) => MonadDB ssc (ReaderT r m) where
     getNodeState = lift getNodeState
 
@@ -83,6 +80,8 @@ instance (Monad m, MonadDB ssc m) => MonadDB ssc (DHTResponseT m) where
     getNodeState = lift getNodeState
 
 type WorkModeDB ssc m = (MonadIO m, MonadDB ssc m)
+type NodeState ssc = DiskState ssc
+type QUConstraint ssc m = (SscStorageMode ssc, WorkModeDB ssc m)
 
 -- | Open NodeState, reading existing state from disk (if any).
 openState
@@ -96,6 +95,7 @@ openState storage deleteIfExists fp =
     openStateDo $ maybe (A.openState deleteIfExists fp)
                         (\s -> A.openStateCustom s deleteIfExists fp)
                         storage
+
 
 -- | Open NodeState which doesn't store anything on disk. Everything
 -- is stored in memory and will be lost after shutdown.
@@ -203,17 +203,8 @@ getThreshold = queryDisk . A.GetThreshold
 
 
 ----------------------------------------------------------------------------
--- Functions related to SscGodTossing
+-- Related to SscGodTossing
 ----------------------------------------------------------------------------
-getToken
-    :: QUConstraint ssc m
-    => m (Maybe (SscToken ssc))
-getToken = queryDisk A.GetToken
-
-setToken
-    :: QUConstraint ssc m
-    => SscToken ssc -> m ()
-setToken = updateDisk . A.SetToken
 
 getOurShares
     :: QUConstraint ssc m

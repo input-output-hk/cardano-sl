@@ -132,6 +132,7 @@ data NodeContext = NodeContext
       ncVssKeyPair  :: !VssKeyPair
     , ncTimeLord    :: !Bool
     , ncJLFile      :: !(Maybe (MVar FilePath))
+    , ncDbPath      :: !(Maybe FilePath)
     }
 
 ncPublicKey :: NodeContext -> PublicKey

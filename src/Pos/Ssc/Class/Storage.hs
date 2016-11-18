@@ -67,10 +67,6 @@ class Ssc ssc => SscStorageClass ssc where
     sscVerifyBlocks :: Word -> AltChain ssc -> SscQuery ssc VerificationRes
 
     -- | BARDAQ
-    sscGetToken :: SscQuery ssc (Maybe (SscToken ssc))
-    -- | BARDAQ
-    sscSetToken :: SscToken ssc -> SscUpdate ssc ()
-    -- | Even more BARDAQ
     sscGetOurShares :: VssKeyPair -> Integer -> SscQuery ssc (HashMap PublicKey Share)
 
     -- TODO: yet another BARDAQ

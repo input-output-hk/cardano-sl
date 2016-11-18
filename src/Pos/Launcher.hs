@@ -82,6 +82,7 @@ import           Pos.WorkMode                (ContextHolder (..), NodeContext (.
                                               RealMode, ServiceMode, WorkMode,
                                               getNodeContext, ncPublicKey,
                                               runContextHolder, runDBHolder)
+import           System.FilePath             ((</>))
 
 type RealModeSscConstraint ssc =
                (Ssc ssc, Default (SscStorage ssc),
@@ -291,7 +292,7 @@ runRealMode inst NodeParams {..} listeners action = do
     openDb = runTimed lpRunnerTag . runCH $
          maybe (openMemState mStorage)
                (openState mStorage npRebuildDb)
-               npDbPath
+               ((</> "main") <$> npDbPath)
 
     runCH :: MonadIO m => ContextHolder m a -> m a
     runCH act = flip runContextHolder act . ctx
@@ -300,10 +301,11 @@ runRealMode inst NodeParams {..} listeners action = do
         ctx jlFile =
           NodeContext
               { ncSystemStart = npSystemStart
-              , ncSecretKey   = npSecretKey
-              , ncVssKeyPair  = npVssKeyPair
-              , ncTimeLord    = npTimeLord
-              , ncJLFile      = jlFile
+              , ncSecretKey = npSecretKey
+              , ncVssKeyPair = npVssKeyPair
+              , ncTimeLord = npTimeLord
+              , ncJLFile = jlFile
+              , ncDbPath = npDbPath
               }
 
 runServiceMode :: KademliaDHTInstance -> BaseParams -> [ListenerDHT ServiceMode] -> ServiceMode a -> IO a

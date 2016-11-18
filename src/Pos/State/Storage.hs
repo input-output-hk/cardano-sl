@@ -28,7 +28,6 @@ module Pos.State.Storage
        , getOurShares
        , getParticipants
        , getThreshold
-       , getToken
        , mayBlockBeUseful
 
        , ProcessBlockRes (..)
@@ -40,7 +39,6 @@ module Pos.State.Storage
        , processNewSlot
        , processSscMessage
        , processTx
-       , setToken
        ) where
 
 import           Control.Lens            (makeClassy, use, view, (.=), (^.))
@@ -147,19 +145,6 @@ getGlobalSscPayload
     => Query ssc (SscPayload ssc)
 getGlobalSscPayload = sscGetGlobalPayload @ssc
 
-getToken
-    :: forall ssc.
-       SscStorageClass ssc
-    => Query ssc (Maybe (SscToken ssc))
-getToken = sscGetToken @ssc
-
-getOurShares
-    :: forall ssc.
-       SscStorageClass ssc
-    => VssKeyPair -- ^ Our VSS key
-    -> Integer -- ^ Random generator seed (needed for 'decryptShare')
-    -> Query ssc (HashMap PublicKey Share)
-getOurShares = sscGetOurShares @ssc
 
 -- | Create a new block on top of best chain if possible.
 -- Block can be created if:
@@ -385,8 +370,10 @@ processSscMessage
     => SscMessage ssc -> Update ssc (Maybe (SscMessage ssc))
 processSscMessage = sscProcessMessage @ssc
 
-setToken
+getOurShares
     :: forall ssc.
        SscStorageClass ssc
-    => SscToken ssc -> Update ssc ()
-setToken = sscSetToken @ssc
+    => VssKeyPair -- ^ Our VSS key
+    -> Integer -- ^ Random generator seed (needed for 'decryptShare')
+    -> Query ssc (HashMap PublicKey Share)
+getOurShares = sscGetOurShares @ssc

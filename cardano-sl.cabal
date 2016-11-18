@@ -71,7 +71,9 @@ library
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Genesis
                         Pos.Ssc.GodTossing.Instance
+                        Pos.Ssc.GodTossing.Instance.AcidicSecret
                         Pos.Ssc.GodTossing.Instance.Listeners
+                        Pos.Ssc.GodTossing.Instance.SecretStorage
                         Pos.Ssc.GodTossing.Instance.Storage
                         Pos.Ssc.GodTossing.Instance.Type
                         Pos.Ssc.GodTossing.Instance.Types
@@ -123,6 +125,7 @@ library
                       , ed25519
                       , exceptions
                       , file-embed >= 0.0.10
+                      , filepath
                       , focus
                       , formatting
                       , hashable

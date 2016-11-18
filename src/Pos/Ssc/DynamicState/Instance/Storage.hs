@@ -545,17 +545,22 @@ getOurShares
 getOurShares ourKey seed = do
     let drg = drgNewSeed (seedFromInteger seed)
     comms <- view (lastVer . dsGlobalCommitments)
+    opens <- view (lastVer . dsGlobalOpenings)
+    let ourPK = toVssPublicKey ourKey
     return $ fst $ withDRG drg $
         fmap (HM.fromList . catMaybes) $
             forM (HM.toList comms) $ \(theirPK, (Commitment{..}, _)) -> do
-                let mbEncShare = HM.lookup (toVssPublicKey ourKey) commShares
-                case mbEncShare of
-                    Nothing       -> return Nothing
-                    Just encShare -> Just . (theirPK,) <$>
-                                     decryptShare ourKey encShare
-                -- TODO: do we need to verify shares with 'verifyEncShare'
-                -- here? Or do we need to verify them earlier (i.e. at the
-                -- stage of commitment verification)?
+                case HM.lookup theirPK opens of
+                    Just _   -> return Nothing -- if we has opening for that pk, we shouldn't send shares for it
+                    Nothing  -> do
+                        let mbEncShare = HM.lookup ourPK commShares
+                        case mbEncShare of
+                            Nothing       -> return Nothing
+                            Just encShare -> Just . (theirPK,) <$>
+                                            decryptShare ourKey encShare
+                        -- TODO: do we need to verify shares with 'verifyEncShare'
+                        -- here? Or do we need to verify them earlier (i.e. at the
+                        -- stage of commitment verification)?
 
 -- | Remove elements in 'b' from 'a'
 diffDoubleMap

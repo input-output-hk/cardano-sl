@@ -3,7 +3,6 @@
 module Main where
 
 import           Control.TimeWarp.Logging (logInfo)
-import           Control.TimeWarp.Rpc     (NetworkAddress)
 import           Control.TimeWarp.Timed   (for, ms, wait)
 import           Data.Aeson               (encode)
 import qualified Data.ByteString.Lazy     as LBS
@@ -12,27 +11,25 @@ import           Data.IORef               (modifyIORef, newIORef, readIORef)
 import           Data.List                ((!!))
 import           Data.Monoid              ((<>))
 import           Data.Time.Clock.POSIX    (getPOSIXTime)
-import           Formatting               (build, float, int, sformat, (%))
+import           Formatting               (float, int, sformat, (%))
 import           Options.Applicative      (Parser, ParserInfo, auto, execParser, fullDesc,
                                            help, helper, info, long, many, metavar,
                                            option, progDesc, short, switch, value)
 import           Universum                hiding ((<>))
 
 import           Pos.CLI                  (dhtNodeParser)
-import           Pos.Communication        (sendTx)
 import           Pos.Crypto               (hash, unsafeHash, sign)
 import           Pos.DHT                  (DHTNode, DHTNodeType (..), dhtAddr,
                                            discoverPeers)
 import           Pos.Genesis              (genesisAddresses, genesisSecretKeys)
 import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
                                            NodeParams (..), bracketDHTInstance,
-                                           runRealMode)
+                                           runRealMode, submitTxRaw)
 import           Pos.Ssc.DynamicState     (genesisVssKeyPairs)
 import           Pos.Ssc.DynamicState     (SscDynamicState)
 import           Pos.Statistics           (getNoStatsT)
-import           Pos.Types                (Tx (..), TxIn (..), TxOut (..), txF)
+import           Pos.Types                (Tx (..), TxIn (..), TxOut (..))
 import           Pos.Util.JsonLog         ()
-import           Pos.WorkMode             (WorkMode)
 import           Serokell.Util.OptParse   (fromParsec)
 
 data GenOptions = GenOptions
@@ -97,14 +94,6 @@ optionsParser = GenOptions
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $
     fullDesc `mappend` progDesc "Stupid transaction generator"
-
--- | Send the ready-to-use transaction
-submitTxRaw :: WorkMode ssc m => [NetworkAddress] -> Tx -> m ()
-submitTxRaw na tx = do
-    let txId = hash tx
-    logInfo $ sformat ("Submitting transaction: "%txF) tx
-    logInfo $ sformat ("Transaction id: "%build) txId
-    mapM_ (`sendTx` tx) na
 
 txChain :: Int -> [Tx]
 txChain i = genChain $ unsafeHash addr

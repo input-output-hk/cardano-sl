@@ -1,4 +1,4 @@
--- | Genesis values related to Dynamic State SSC.
+-- | Genesis values related to GodTossing SSC.
 
 module Pos.Ssc.GodTossing.Genesis
        ( genesisVssKeyPairs

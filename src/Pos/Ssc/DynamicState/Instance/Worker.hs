@@ -10,17 +10,21 @@ module Pos.Ssc.DynamicState.Instance.Worker
 
 import           Control.Lens                       (view, _2, _3)
 import           Control.TimeWarp.Logging           (logDebug, logWarning)
-import           Control.TimeWarp.Timed             (repeatForever)
+import           Control.TimeWarp.Timed             (Microsecond, currentTime, for,
+                                                     repeatForever, wait)
 import qualified Data.HashMap.Strict                as HM (toList)
 import           Data.List.NonEmpty                 (nonEmpty)
 import           Data.Tagged                        (Tagged (..))
-import           Formatting                         (build, ords, sformat, (%))
+import           Formatting                         (build, ords, sformat, shown, stext,
+                                                     (%))
 import           Serokell.Util.Exceptions           ()
 import           Universum
 
-import           Pos.Constants                      (sscTransmitterInterval)
-import           Pos.Crypto                         (SecretKey, toPublic)
-import           Pos.Slotting                       (getCurrentSlot)
+import           Pos.Constants                      (k, networkDiameter, slotDuration,
+                                                     sscTransmitterInterval)
+import           Pos.Crypto                         (PublicKey, SecretKey, randomNumber,
+                                                     runSecureRandom, toPublic)
+import           Pos.Slotting                       (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.Class.Workers              (SscWorkersClass (..))
 import           Pos.Ssc.DynamicState.Base          (genCommitmentAndOpening,
                                                      genCommitmentAndOpening,
@@ -40,7 +44,8 @@ import           Pos.State                          (getGlobalMpcData, getLocalS
                                                      getOurShares, getParticipants,
                                                      getThreshold, getToken,
                                                      processSscMessage, setToken)
-import           Pos.Types                          (EpochIndex, SlotId (..))
+import           Pos.Types                          (EpochIndex, LocalSlotIndex,
+                                                     SlotId (..), Timestamp (..))
 import           Pos.WorkMode                       (WorkMode, getNodeContext,
                                                      ncPublicKey, ncSecretKey,
                                                      ncVssKeyPair)
@@ -73,12 +78,38 @@ generateAndSetNewSecret sk epoch = do
                 genCommitmentAndOpening th ps
             Just (comm, op) <$ setToken (toPublic sk, comm, op)
 
-
 onNewSlot :: WorkMode SscDynamicState m => SlotId -> m ()
 onNewSlot slotId = do
     onNewSlotCommitment slotId
     onNewSlotOpening slotId
     onNewSlotShares slotId
+
+-- Generate random time relative to beginning of time when we can send
+-- some message. For instance, if we can send some message since time
+-- X, we should send it at time `X + result of this function`.
+randomTimeToSend :: WorkMode SscDynamicState m => m Timestamp
+randomTimeToSend =
+    -- Type applications here ensure that the same time units are used.
+    (Timestamp . fromInteger @Microsecond) <$>
+    liftIO (runSecureRandom (randomNumber n))
+  where
+    n = toInteger @Microsecond (k * slotDuration - networkDiameter)
+
+waitUntilSend
+    :: WorkMode SscDynamicState m
+    => Text -> EpochIndex -> LocalSlotIndex -> m ()
+waitUntilSend msgName epoch kMultiplier = do
+    beginning <-
+        getSlotStart $ SlotId {siEpoch = epoch, siSlot = kMultiplier * k}
+    delta <- randomTimeToSend
+    let Timestamp globalTimeToSend = beginning + delta
+    curTime <- currentTime
+    when (globalTimeToSend > curTime) $
+        do let timeToWait = globalTimeToSend - curTime
+           logDebug $
+               sformat ("Waiting for "%shown%" before sending "%stext)
+                   timeToWait msgName
+           wait $ for timeToWait
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment :: WorkMode SscDynamicState m => SlotId -> m ()
@@ -100,10 +131,17 @@ onNewSlotCommitment SlotId {..} = do
         return $ isCommitmentIdx siSlot && not commitmentInBlockchain
     when shouldSendCommitment $ do
         mbComm <- fmap (view _2) <$> getToken
-        whenJust mbComm $ \comm -> do
-            announceCommitment ourPk comm
-            logDebug "Sent commitment to neighbors"
-            () <$ processSscMessage (DSCommitments $ pure (ourPk, comm))
+        whenJust mbComm $ onSendCommitment siEpoch ourPk
+
+onSendCommitment :: WorkMode SscDynamicState m => EpochIndex -> PublicKey -> SignedCommitment -> m ()
+onSendCommitment epoch ourPk comm = do
+    () <$ processSscMessage (DSCommitments $ pure (ourPk, comm))
+    -- Note: it's not necessary to create a new thread here, because
+    -- in one invocation of onNewSlot we can't process more than one
+    -- type of message.
+    waitUntilSend "commitment" epoch 0
+    announceCommitment ourPk comm
+    logDebug "Sent commitment to neighbors"
 
 -- Openings-related part of new slot processing
 onNewSlotOpening :: WorkMode SscDynamicState m => SlotId -> m ()

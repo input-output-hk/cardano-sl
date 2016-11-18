@@ -22,7 +22,7 @@ import           Formatting                         (build, ords, sformat, shown
 import           Serokell.Util.Exceptions           ()
 import           Universum
 
-import           Pos.Constants                      (k, networkDiameter, slotDuration,
+import           Pos.Constants                      (k, mpcSendInterval,
                                                      sscTransmitterInterval)
 import           Pos.Crypto                         (PublicKey, SecretKey, randomNumber,
                                                      runSecureRandom, toPublic)
@@ -95,7 +95,7 @@ randomTimeToSend =
     (Timestamp . fromInteger @Microsecond) <$>
     liftIO (runSecureRandom (randomNumber n))
   where
-    n = toInteger @Microsecond (k * slotDuration - networkDiameter)
+    n = toInteger @Microsecond mpcSendInterval
 
 waitUntilSend
     :: WorkMode SscDynamicState m

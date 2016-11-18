@@ -10,11 +10,13 @@ module Pos.Ssc.DynamicState.Instance.Worker
 
 import           Control.Lens                       (view, _2, _3)
 import           Control.TimeWarp.Logging           (logDebug, logWarning)
-import           Control.TimeWarp.Timed             (Microsecond, currentTime, for,
-                                                     repeatForever, wait)
+import           Control.TimeWarp.Timed             (Microsecond, Millisecond,
+                                                     currentTime, for, repeatForever,
+                                                     wait)
 import qualified Data.HashMap.Strict                as HM (toList)
 import           Data.List.NonEmpty                 (nonEmpty)
 import           Data.Tagged                        (Tagged (..))
+import           Data.Time.Units                    (convertUnit)
 import           Formatting                         (build, ords, sformat, shown, stext,
                                                      (%))
 import           Serokell.Util.Exceptions           ()
@@ -106,9 +108,11 @@ waitUntilSend msgName epoch kMultiplier = do
     curTime <- currentTime
     when (globalTimeToSend > curTime) $
         do let timeToWait = globalTimeToSend - curTime
+               ttwMillisecond :: Millisecond
+               ttwMillisecond = convertUnit timeToWait
            logDebug $
                sformat ("Waiting for "%shown%" before sending "%stext)
-                   timeToWait msgName
+                   ttwMillisecond msgName
            wait $ for timeToWait
 
 -- Commitments-related part of new slot processing

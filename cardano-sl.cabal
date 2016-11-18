@@ -26,7 +26,7 @@ library
                         Pos.DHT.Real
                         Pos.FollowTheSatoshi
                         Pos.Ssc.Class
-                        Pos.Ssc.DynamicState
+                        Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon
                         Pos.Ssc.SscAlgo
                         Pos.Genesis
@@ -66,20 +66,20 @@ library
                         Pos.Ssc.Class.Storage
                         Pos.Ssc.Class.Workers
                         Pos.Ssc.Class.Listeners
-                        Pos.Ssc.DynamicState.Arbitrary
-                        Pos.Ssc.DynamicState.Base
-                        Pos.Ssc.DynamicState.Error
-                        Pos.Ssc.DynamicState.Genesis
-                        Pos.Ssc.DynamicState.Instance
-                        Pos.Ssc.DynamicState.Instance.Listeners
-                        Pos.Ssc.DynamicState.Instance.Storage
-                        Pos.Ssc.DynamicState.Instance.Type
-                        Pos.Ssc.DynamicState.Instance.Types
-                        Pos.Ssc.DynamicState.Instance.Worker
-                        Pos.Ssc.DynamicState.Seed
-                        Pos.Ssc.DynamicState.Server
-                        Pos.Ssc.DynamicState.Storage
-                        Pos.Ssc.DynamicState.Types
+                        Pos.Ssc.GodTossing.Arbitrary
+                        Pos.Ssc.GodTossing.Base
+                        Pos.Ssc.GodTossing.Error
+                        Pos.Ssc.GodTossing.Genesis
+                        Pos.Ssc.GodTossing.Instance
+                        Pos.Ssc.GodTossing.Instance.Listeners
+                        Pos.Ssc.GodTossing.Instance.Storage
+                        Pos.Ssc.GodTossing.Instance.Type
+                        Pos.Ssc.GodTossing.Instance.Types
+                        Pos.Ssc.GodTossing.Instance.Worker
+                        Pos.Ssc.GodTossing.Seed
+                        Pos.Ssc.GodTossing.Server
+                        Pos.Ssc.GodTossing.Storage
+                        Pos.Ssc.GodTossing.Types
                         Pos.State.Acidic
                         Pos.State.State
                         Pos.State.Storage
@@ -130,6 +130,7 @@ library
                       , kademlia
                       , lens
                       , lifted-async
+                      , log-warper >= 0.1.0
                       , lrucache
                       , memory
                       , mmorph
@@ -184,6 +185,7 @@ executable cardano-node
                      , directory
                      , filepath
                      , formatting
+                     , log-warper >= 0.1.0
                      , optparse-simple
                      , parsec
                      , serokell-util
@@ -212,6 +214,7 @@ executable cardano-analyzer
                      , bytestring
                      , cardano-sl
                      , formatting
+                     , log-warper >= 0.1.0
                      , optparse-simple
                      , serokell-util
                      , text
@@ -239,6 +242,7 @@ executable cardano-wallet
                      , data-default
                      , cardano-sl
                      , formatting
+                     , log-warper >= 0.1.0
                      , optparse-applicative
                      , parsec
                      , serokell-util
@@ -274,6 +278,7 @@ executable cardano-stats-collector
                      , formatting
                      , filepath
                      , hashable
+                     , log-warper >= 0.1.0
                      , lifted-async
                      , monad-control
                      , optparse-simple >= 0.0.3
@@ -309,6 +314,7 @@ executable cardano-tx-generator
                      , data-default
                      , cardano-sl
                      , formatting
+                     , log-warper >= 0.1.0
                      , optparse-applicative
                      , parsec
                      , random
@@ -337,10 +343,10 @@ test-suite cardano-test
                      , Test.Pos.FollowTheSatoshiSpec
                      , Test.Pos.MerkleSpec
                      , Test.Pos.SlottingSpec
-                     , Test.Pos.Ssc.DynamicState.Identity.BinarySpec
-                     , Test.Pos.Ssc.DynamicState.Identity.MessagePackSpec
-                     , Test.Pos.Ssc.DynamicState.Identity.SafeCopySpec
-                     , Test.Pos.Ssc.DynamicState.SeedSpec
+                     , Test.Pos.Ssc.GodTossing.Identity.BinarySpec
+                     , Test.Pos.Ssc.GodTossing.Identity.MessagePackSpec
+                     , Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
+                     , Test.Pos.Ssc.GodTossing.SeedSpec
                      , Test.Pos.Types.BlockSpec
                      , Test.Pos.Types.Identity.BinarySpec
                      , Test.Pos.Types.Identity.MessagePackSpec
@@ -364,6 +370,7 @@ test-suite cardano-test
                      , formatting
                      , hspec
                      , lens
+                     , log-warper >= 0.1.0
                      , memory
                      , mtl
                      , random
@@ -402,6 +409,7 @@ benchmark cardano-bench-criterion
                      , criterion
                      , formatting
                      , hashtables
+                     , log-warper >= 0.1.0
                      , universum >= 0.1.9
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts

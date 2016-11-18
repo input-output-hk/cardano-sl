@@ -10,22 +10,21 @@ module Pos.Communication.Methods
        , announceSsc
        ) where
 
-import           Control.TimeWarp.Logging (logDebug)
-import           Control.TimeWarp.Rpc     (Message, NetworkAddress)
-import           Control.TimeWarp.Timed   (fork_)
-import           Data.Binary              (Binary)
-import           Data.List.NonEmpty       (NonEmpty ((:|)))
-import           Formatting               (build, sformat, (%))
+import           Control.TimeWarp.Rpc    (Message, NetworkAddress)
+import           Control.TimeWarp.Timed  (fork_)
+import           Data.Binary             (Binary)
+import           Data.List.NonEmpty      (NonEmpty ((:|)))
+import           Formatting              (build, sformat, (%))
+import           System.Wlog             (logDebug)
 import           Universum
 
-import           Pos.Communication.Types  (SendBlockHeader (..), SendTx (..),
-                                           SendTxs (..))
-import           Pos.DHT                  (sendToNeighbors, sendToNode)
-import           Pos.Ssc.Class.Types      (SscTypes (SscMessage))
-import           Pos.Types                (MainBlockHeader, Tx)
-import           Pos.Util                 (logWarningWaitLinear, messageName')
-import           Pos.WorkMode             (WorkMode)
-import           Serokell.Util.Text       (listJson)
+import           Pos.Communication.Types (SendBlockHeader (..), SendTx (..), SendTxs (..))
+import           Pos.DHT                 (sendToNeighbors, sendToNode)
+import           Pos.Ssc.Class.Types     (Ssc (SscMessage))
+import           Pos.Types               (MainBlockHeader, Tx)
+import           Pos.Util                (logWarningWaitLinear, messageName')
+import           Pos.WorkMode            (WorkMode)
+import           Serokell.Util.Text      (listJson)
 
 sendToNeighborsSafe :: (Binary r, Message r, WorkMode ssc m) => r -> m ()
 sendToNeighborsSafe msg = do

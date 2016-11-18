@@ -22,7 +22,7 @@ import           Universum
 
 import           Pos.Crypto              (PublicKey, Share, Threshold, VssKeyPair,
                                           VssPublicKey)
-import           Pos.Ssc.Class.Types     (SscTypes (..))
+import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types.Types         (EpochIndex, MainBlockHeader, SlotId,
                                           SlotLeaders, Utxo)
@@ -40,8 +40,8 @@ type SscQuery ssc a =
 class HasSscStorage ssc a where
     sscStorage :: Lens' a (SscStorage ssc)
 
-class SscTypes ssc => SscStorageClass ssc where
-    -- sscCalculateSeed :: SscQuery ssc (Either (SscSeedError ssc) FtsSeed)
+class Ssc ssc => SscStorageClass ssc where
+    -- sscCalculateSeed :: SscQuery ssc (Either (SscSeedError ssc) SharedSeed)
 
     sscApplyBlocks :: AltChain ssc -> SscUpdate ssc ()
     -- | Should be executed before doing any updates within given slot.
@@ -80,7 +80,7 @@ class SscTypes ssc => SscStorageClass ssc where
                            SscQuery ssc (Either (SscSeedError ssc)  SlotLeaders)
 
     -- TODO: one more BARDAQ. It's not related to Storage, but can't
-    -- be put into SscTypes now :(
+    -- be put into Ssc now :(
     -- | Verify payload using header containing this payload.
     sscVerifyPayload :: Tagged ssc (MainBlockHeader ssc -> SscPayload ssc -> VerificationRes)
 

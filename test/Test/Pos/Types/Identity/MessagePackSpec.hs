@@ -24,5 +24,5 @@ spec = describe "Types" $ do
         prop "TxIn" (msgPackEncodeDecode @T.TxIn)
         prop "TxOut" (msgPackEncodeDecode @T.TxOut)
         prop "Tx" (msgPackEncodeDecode @T.Tx)
-        prop "FtsSeed" (msgPackEncodeDecode @T.FtsSeed)
+        prop "SharedSeed" (msgPackEncodeDecode @T.SharedSeed)
         prop "Chaindifficulty" (msgPackEncodeDecode @T.ChainDifficulty)

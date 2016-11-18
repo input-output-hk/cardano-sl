@@ -1,6 +1,6 @@
 -- | Error which can arise during seed calculation.
 
-module Pos.Ssc.DynamicState.Error
+module Pos.Ssc.GodTossing.Error
        ( SeedError (..)
        ) where
 

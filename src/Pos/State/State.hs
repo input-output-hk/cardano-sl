@@ -48,27 +48,25 @@ module Pos.State.State
        , getOurShares
        ) where
 
-import           Crypto.Random            (seedNew, seedToInteger)
-import           Data.Acid                (EventResult, EventState, QueryEvent,
-                                           UpdateEvent)
-import           Data.Default             (Default)
-import           Data.List.NonEmpty       (NonEmpty)
-import           Pos.DHT                  (DHTResponseT)
-import           Serokell.Util            (VerificationRes)
+import           Crypto.Random         (seedNew, seedToInteger)
+import           Data.Acid             (EventResult, EventState, QueryEvent, UpdateEvent)
+import           Data.Default          (Default)
+import           Data.List.NonEmpty    (NonEmpty)
+import           Pos.DHT               (DHTResponseT)
+import           Serokell.Util         (VerificationRes)
 import           Universum
 
-import           Pos.Crypto               (PublicKey, SecretKey, Share, Threshold,
-                                           VssKeyPair, VssPublicKey)
-import           Pos.Slotting             (MonadSlots, getCurrentSlot)
-import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
-import           Pos.Ssc.Class.Types      (SscTypes (SscMessage, SscPayload, SscStorage, SscToken))
-import           Pos.State.Acidic         (DiskState, tidyState)
-import qualified Pos.State.Acidic         as A
-import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (..),
-                                           Storage)
-import           Pos.Types                (Block, EpochIndex, GenesisBlock, HeaderHash,
-                                           MainBlock, MainBlockHeader, SlotId,
-                                           SlotLeaders, Tx)
+import           Pos.Crypto            (PublicKey, SecretKey, Share, Threshold,
+                                        VssKeyPair, VssPublicKey)
+import           Pos.Slotting          (MonadSlots, getCurrentSlot)
+import           Pos.Ssc.Class.Storage (SscStorageClass (..), SscStorageMode)
+import           Pos.Ssc.Class.Types   (Ssc (SscMessage, SscPayload, SscStorage, SscToken))
+import           Pos.State.Acidic      (DiskState, tidyState)
+import qualified Pos.State.Acidic      as A
+import           Pos.State.Storage     (ProcessBlockRes (..), ProcessTxRes (..), Storage)
+import           Pos.Types             (Block, EpochIndex, GenesisBlock, HeaderHash,
+                                        MainBlock, MainBlockHeader, SlotId, SlotLeaders,
+                                        Tx)
 
 -- | NodeState encapsulates all the state stored by node.
 type NodeState ssc = DiskState ssc
@@ -205,7 +203,7 @@ getThreshold = queryDisk . A.GetThreshold
 
 
 ----------------------------------------------------------------------------
--- Functions related to SscDynamicState
+-- Functions related to SscGodTossing
 ----------------------------------------------------------------------------
 getToken
     :: QUConstraint ssc m

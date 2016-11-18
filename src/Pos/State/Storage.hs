@@ -60,7 +60,7 @@ import           Pos.Crypto              (PublicKey, SecretKey, Share, Threshold
                                           VssKeyPair, VssPublicKey)
 import           Pos.Genesis             (genesisUtxo)
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
-import           Pos.Ssc.Class.Types     (SscTypes (..))
+import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
                                           blkCleanUp, blkCreateGenesisBlock,
                                           blkCreateNewBlock, blkProcessBlock, blkRollback,
@@ -80,8 +80,8 @@ import           Pos.Types               (Block, EpochIndex, GenesisBlock, MainB
                                           verifyTxAlone)
 import           Pos.Util                (readerToState, _neLast)
 
-type Query  ssc a = forall m . (SscTypes ssc, MonadReader (Storage ssc) m) => m a
-type Update ssc a = forall m . (SscTypes ssc, MonadState (Storage ssc) m) => m a
+type Query  ssc a = forall m . (Ssc ssc, MonadReader (Storage ssc) m) => m a
+type Update ssc a = forall m . (Ssc ssc, MonadState (Storage ssc) m) => m a
 
 data Storage ssc = Storage
     { -- | State of MPC.
@@ -95,7 +95,7 @@ data Storage ssc = Storage
     }
 
 makeClassy ''Storage
-instance SscTypes ssc => SafeCopy (Storage ssc) where
+instance Ssc ssc => SafeCopy (Storage ssc) where
     putCopy Storage {..} =
         contain $
         do safePut __mpcStorage
@@ -117,12 +117,12 @@ instance HasTxStorage (Storage ssc) where
 instance HasBlockStorage (Storage ssc) ssc where
     blockStorage = _blockStorage
 
-instance (SscTypes ssc, Default (SscStorage ssc)) => Default (Storage ssc) where
+instance (Ssc ssc, Default (SscStorage ssc)) => Default (Storage ssc) where
     def = storageFromUtxo $ genesisUtxo def
 
 -- | Create default storage with specified utxo
 storageFromUtxo
-    :: (SscTypes ssc, Default (SscStorage ssc))
+    :: (Ssc ssc, Default (SscStorage ssc))
     => Utxo -> (Storage ssc)
 storageFromUtxo u =
     Storage

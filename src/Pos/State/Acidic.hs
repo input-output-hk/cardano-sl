@@ -51,7 +51,7 @@ import           Serokell.AcidState    (ExtendedState, closeExtendedState,
 import           Universum
 
 import           Pos.Ssc.Class.Storage (SscStorageClass (..))
-import           Pos.Ssc.Class.Types   (SscTypes (SscStorage))
+import           Pos.Ssc.Class.Types   (Ssc (SscStorage))
 import qualified Pos.State.Storage     as S
 
 ----------------------------------------------------------------------------

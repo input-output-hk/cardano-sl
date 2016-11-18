@@ -15,13 +15,13 @@ import           Control.Lens               (over, view, _2, _3)
 import qualified Data.ByteString            as BS (pack)
 import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
-import           Pos.Constants              (epochSlots, ftsSeedLength)
+import           Pos.Constants              (epochSlots, sharedSeedLength)
 import           Pos.Crypto                 (SecretKey, hash, sign, toPublic)
 import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
-                                             Coin (..), EpochIndex (..), FtsSeed (..),
-                                             LocalSlotIndex (..), SlotId (..), Tx (..),
-                                             TxIn (..), TxOut (..))
+                                             Coin (..), EpochIndex (..),
+                                             LocalSlotIndex (..), SharedSeed (..),
+                                             SlotId (..), Tx (..), TxIn (..), TxOut (..))
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
                                              NonZero (..), choose, vector)
@@ -141,10 +141,10 @@ instance Arbitrary BadSigsTx where
         let addBadSig t = t {txInSig = badSig}
         return $ fmap (over _2 addBadSig) goodTxList
 
-instance Arbitrary FtsSeed where
+instance Arbitrary SharedSeed where
     arbitrary = do
-        bs <- vector ftsSeedLength
-        return $ FtsSeed $ BS.pack bs
+        bs <- vector sharedSeedLength
+        return $ SharedSeed $ BS.pack bs
 
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types

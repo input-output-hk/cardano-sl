@@ -52,7 +52,7 @@ onNewSlotWorkerImpl slotId = do
     logDebug "Finished `processNewSlot`"
 
     when (flattenSlotId slotId <= sysTimeBroadcastSlots) $
-      whenM (ncTimeLord <$> getNodeContext) $ do
+      whenM (ncTimeLord <$> getNodeContext) $ fork_ $ do
         waitRandomInterval (ms 500) slotDuration
         ncSystemStart <$> getNodeContext
             >>= \(SysStartResponse . Just -> mT) -> do

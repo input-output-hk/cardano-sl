@@ -71,6 +71,7 @@ library
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Genesis
                         Pos.Ssc.GodTossing.Instance
+                        Pos.Ssc.GodTossing.Instance.AcidicSecret
                         Pos.Ssc.GodTossing.Instance.Listeners
                         Pos.Ssc.GodTossing.Instance.SecretStorage
                         Pos.Ssc.GodTossing.Instance.Storage

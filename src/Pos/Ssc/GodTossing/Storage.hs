@@ -130,8 +130,8 @@ data GtSecretStorage = GtSecretStorage
 class HasGtSecretStorage ss a where
     secretStorage :: Lens' a ss
 
-type SecQuery a = forall m x . (HasGtSecretStorage GtSecretStorage x, MonadReader x m) => m a
-type SecUpdate a = forall m x . (HasGtSecretStorage GtSecretStorage x, MonadState x m) => m a
+type SecQuery a = forall x m . (HasGtSecretStorage GtSecretStorage x, MonadReader x m) => m a
+type SecUpdate a = forall x m . (HasGtSecretStorage GtSecretStorage x, MonadState x m) => m a
 
 class GtSecretStorageClass ss where
     ssGetSecret :: SecQuery (Maybe GtSecret)

@@ -8,44 +8,52 @@ module Pos.Ssc.GodTossing.Instance.Worker
          -- ** instance SscWorkersClass SscGodTossing
        ) where
 
-import           Control.Lens                     (view, _2, _3)
-import           Control.TimeWarp.Logging         (logDebug, logWarning)
-import           Control.TimeWarp.Timed           (repeatForever)
-import qualified Data.HashMap.Strict              as HM (toList)
-import           Data.List.NonEmpty               (nonEmpty)
-import           Data.Tagged                      (Tagged (..))
-import           Formatting                       (build, ords, sformat, (%))
-import           Serokell.Util.Exceptions         ()
+import           Control.Lens                             (view, _2, _3)
+import           Control.TimeWarp.Logging                 (logDebug, logWarning)
+import           Control.TimeWarp.Timed                   (repeatForever)
+import qualified Data.HashMap.Strict                      as HM (toList)
+import           Data.List.NonEmpty                       (nonEmpty)
+import           Data.Tagged                              (Tagged (..))
+import           Formatting                               (build, ords, sformat, (%))
+import           Serokell.Util.Exceptions                 ()
 import           Universum
 
-import           Pos.Constants                    (sscTransmitterInterval)
-import           Pos.Crypto                       (SecretKey, toPublic)
-import           Pos.Slotting                     (getCurrentSlot)
-import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
-import           Pos.Ssc.GodTossing.Base          (genCommitmentAndOpening,
-                                                   genCommitmentAndOpening,
-                                                   isCommitmentIdx, isOpeningIdx,
-                                                   isSharesIdx, mkSignedCommitment)
-import           Pos.Ssc.GodTossing.Base          (Opening, SignedCommitment)
-import           Pos.Ssc.GodTossing.Instance.Type (SscGodTossing)
-import           Pos.Ssc.GodTossing.Server        (announceCommitment,
-                                                   announceCommitments, announceOpening,
-                                                   announceOpenings, announceShares,
-                                                   announceSharesMulti,
-                                                   announceVssCertificates)
-import           Pos.Ssc.GodTossing.Storage       (GtSecret)
-import           Pos.Ssc.GodTossing.Types         (GtMessage (..), GtPayload (..),
-                                                   hasCommitment, hasOpening, hasShares)
-import           Pos.State                        (getGlobalMpcData, getLocalSscPayload,
-                                                   getOurShares, getParticipants,
-                                                   getSecret, getThreshold,
-                                                   prepareSecretToNewSlot,
-                                                   processSscMessage, setSecret)
-import           Pos.Types                        (EpochIndex, SlotId (..))
-import           Pos.WorkMode                     (WorkMode, getNodeContext, ncDbPath,
-                                                   ncPublicKey, ncSecretKey, ncVssKeyPair)
+import           Pos.Constants                            (sscTransmitterInterval)
+import           Pos.Crypto                               (SecretKey, toPublic)
+import           Pos.Slotting                             (getCurrentSlot)
+import           Pos.Ssc.Class.Workers                    (SscWorkersClass (..))
+import           Pos.Ssc.GodTossing.Base                  (genCommitmentAndOpening,
+                                                           genCommitmentAndOpening,
+                                                           isCommitmentIdx, isOpeningIdx,
+                                                           isSharesIdx,
+                                                           mkSignedCommitment)
+import           Pos.Ssc.GodTossing.Base                  (Opening, SignedCommitment)
+import           Pos.Ssc.GodTossing.Instance.Type         (SscGodTossing)
+import           Pos.Ssc.GodTossing.Server                (announceCommitment,
+                                                           announceCommitments,
+                                                           announceOpening,
+                                                           announceOpenings,
+                                                           announceShares,
+                                                           announceSharesMulti,
+                                                           announceVssCertificates)
+import           Pos.Ssc.GodTossing.Storage               (GtSecret)
+import           Pos.Ssc.GodTossing.Types                 (GtMessage (..), GtPayload (..),
+                                                           hasCommitment, hasOpening,
+                                                           hasShares)
+import           Pos.State                                (getGlobalMpcData,
+                                                           getLocalSscPayload,
+                                                           getOurShares, getParticipants,
+                                                           getThreshold,
+                                                           processSscMessage)
+import           Pos.Types                                (EpochIndex, SlotId (..))
+import           Pos.WorkMode                             (WorkMode, getNodeContext,
+                                                           ncDbPath, ncPublicKey,
+                                                           ncSecretKey, ncVssKeyPair)
 
-import           System.FilePath                  ((</>))
+import           Pos.Ssc.GodTossing.Instance.AcidicSecret (getSecret,
+                                                           prepareSecretToNewSlot,
+                                                           setSecret)
+import           System.FilePath                          ((</>))
 
 instance SscWorkersClass SscGodTossing where
     sscOnNewSlot = Tagged onNewSlot

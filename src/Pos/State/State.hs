@@ -46,36 +46,32 @@ module Pos.State.State
        , getParticipants
 
        -- * SscGodTossing simple getters and setters.
-       , setSecret
-       , getSecret
        , getOurShares
-       , prepareSecretToNewSlot
        ) where
 
-import           Crypto.Random              (seedNew, seedToInteger)
-import           Data.Acid                  (EventResult, EventState, QueryEvent,
-                                             UpdateEvent)
-import qualified Data.Binary                as Binary
-import           Data.Default               (Default)
-import           Data.List.NonEmpty         (NonEmpty)
-import           Pos.DHT                    (DHTResponseT)
-import           Serokell.Util              (VerificationRes, show')
+import           Crypto.Random            (seedNew, seedToInteger)
+import           Data.Acid                (EventResult, EventState, QueryEvent,
+                                           UpdateEvent)
+import qualified Data.Binary              as Binary
+import           Data.Default             (Default)
+import           Data.List.NonEmpty       (NonEmpty)
+import           Pos.DHT                  (DHTResponseT)
+import           Serokell.Util            (VerificationRes, show')
 import           Universum
 
-import           Pos.Crypto                 (PublicKey, SecretKey, Share, Threshold,
-                                             VssKeyPair, VssPublicKey)
-import           Pos.Slotting               (MonadSlots, getCurrentSlot)
-import           Pos.Ssc.Class.Storage      (SscStorageClass (..), SscStorageMode)
-import           Pos.Ssc.Class.Types        (Ssc (SscMessage, SscPayload, SscStorage))
-import           Pos.Ssc.GodTossing.Storage (GtSecret)
-import           Pos.State.Acidic           (DiskState, tidyState)
-import qualified Pos.State.Acidic           as A
-import           Pos.State.Storage          (ProcessBlockRes (..), ProcessTxRes (..),
-                                             Storage)
-import           Pos.Statistics.StatEntry   (StatLabel (..))
-import           Pos.Types                  (Block, EpochIndex, GenesisBlock, HeaderHash,
-                                             MainBlock, MainBlockHeader, SlotId,
-                                             SlotLeaders, Timestamp, Tx)
+import           Pos.Crypto               (PublicKey, SecretKey, Share, Threshold,
+                                           VssKeyPair, VssPublicKey)
+import           Pos.Slotting             (MonadSlots, getCurrentSlot)
+import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
+import           Pos.Ssc.Class.Types      (Ssc (SscMessage, SscPayload, SscStorage))
+import           Pos.State.Acidic         (DiskState, tidyState)
+import qualified Pos.State.Acidic         as A
+import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (..),
+                                           Storage)
+import           Pos.Statistics.StatEntry (StatLabel (..))
+import           Pos.Types                (Block, EpochIndex, GenesisBlock, HeaderHash,
+                                           MainBlock, MainBlockHeader, SlotId,
+                                           SlotLeaders, Timestamp, Tx)
 
 -- | NodeState encapsulates all the state stored by node.
 class MonadDB ssc m | m -> ssc where
@@ -237,23 +233,3 @@ getOurShares
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
     queryDisk $ A.GetOurShares ourKey (seedToInteger randSeed)
-
-getSecret :: MonadIO m => Maybe FilePath -> m (Maybe GtSecret)
-getSecret pathToSecret = do
-    curSt <- maybe A.openMemGtSecretState (A.openGtSecretState False) pathToSecret
-    secret <- A.queryGtSecret curSt A.GetSecret
-    A.closeGtSecretState curSt
-    return secret
-
-setSecret :: MonadIO m => Maybe FilePath -> GtSecret -> m ()
-setSecret pathToSecret secret = do
-    curSt <- maybe A.openMemGtSecretState (A.openGtSecretState False) pathToSecret
-    A.updateGtSecret curSt (A.SetSecret secret)
-    A.closeGtSecretState curSt
-
-prepareSecretToNewSlot :: MonadIO m => Maybe FilePath -> SlotId -> m ()
-prepareSecretToNewSlot pathToSecret slotId = do
-    curSt <- maybe A.openMemGtSecretState (A.openGtSecretState False) pathToSecret
-    A.updateGtSecret curSt (A.PrepareSecretToNewSlot slotId)
-    A.closeGtSecretState curSt
-

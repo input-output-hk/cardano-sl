@@ -4,6 +4,7 @@ module Pos.Ssc.GodTossing.Instance
        ( SscGodTossing
        ) where
 
+import           Pos.Ssc.GodTossing.Instance.AcidicSecret  ()
 import           Pos.Ssc.GodTossing.Instance.Listeners     ()
 import           Pos.Ssc.GodTossing.Instance.SecretStorage ()
 import           Pos.Ssc.GodTossing.Instance.Storage       ()

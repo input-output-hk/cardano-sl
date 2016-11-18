@@ -21,22 +21,44 @@ LOGS_TIME=`date '+%F_%H%M%S'`
 
 function ensure_logs {
   logs_dir="$base_common/../logs/$LOGS_TIME"
-
   mkdir -p "$logs_dir"
+}
 
-  logs=''
-  if [[ "$DHT_LOG" != "" ]]; then
-    logs="$logs --dht-log $DHT_LOG"
-  fi
+function logs {
+  ensure_logs
+
+  local log_file=$1
+  local conf_dir="$logs_dir/conf"
+  local template="$base_common/log-template.yaml"
+
+  mkdir -p "$conf_dir"
+
+  local conf_file="$conf_dir/$log_file.yaml"
+  local main=Info
   if [[ "$MAIN_LOG" != "" ]]; then
-    logs="$logs --main-log $MAIN_LOG"
+    main=$MAIN_LOG
+  fi
+  local dht=$main
+  local comm=$main
+  local server=$main
+  if [[ "$DHT_LOG" != "" ]]; then
+    dht=$DHT_LOG
   fi
   if [[ "$COMM_LOG" != "" ]]; then
-    logs="$logs --comm-log $COMM_LOG"
+    comm=$COMM_LOG
   fi
   if [[ "$SERVER_LOG" != "" ]]; then
-    logs="$logs --server-log $SERVER_LOG"
+    server=$SERVER_LOG
   fi
+  cat "$template" \
+    | sed "s/{{dht}}/$dht/g" \
+    | sed "s/{{main}}/$main/g" \
+    | sed "s/{{server}}/$server/g" \
+    | sed "s/{{comm}}/$comm/g" \
+    | sed "s/{{file}}/$log_file/g" \
+    > "$conf_file"
+  echo -n " --json-log=$logs_dir/node$i.json "
+  echo -n " --logs-prefix $logs_dir --log-config $conf_file "
 }
 
 function get_port {
@@ -96,7 +118,6 @@ function node_cmd {
   local reb=''
   local ssc_algo=''
 
-  ensure_logs
   ensure_run
 
   if [[ $time_lord != "" ]] && [[ $time_lord != 0 ]]; then
@@ -110,7 +131,6 @@ function node_cmd {
   fi
   if [[ $is_stat != "" ]]; then
     stats="--stats"
-    petty="--petty-utxo"
   fi
 
   echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $reb --vss-genesis $i"
@@ -118,10 +138,8 @@ function node_cmd {
   $dht_cmd
 
   echo -n " --spending-genesis $i --port "`get_port $i`
-  echo -n " $petty $logs $time_lord $stats"
-  echo -n " --json-log=$logs_dir/node-$i.json "
+  echo -n " $(logs node$i.log) $time_lord $stats"
   echo -n " $stake_distr $ssc_algo "
-  echo -n "| tee $logs_dir/node-$i.log "
   echo ''
 }
 

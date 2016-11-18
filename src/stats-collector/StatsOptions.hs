@@ -21,6 +21,8 @@ data StatOpts = StatOpts
     , soLoop         :: Bool
     , soConfigPath   :: FilePath
     , soSshPassword  :: Text
+    , soLogConfig    :: !(Maybe FilePath)
+    , soLogsPrefix   :: !(Maybe FilePath)
     } deriving (Show)
 
 argsParser :: Parser StatOpts
@@ -42,6 +44,13 @@ argsParser =
     (T.pack <$> strOption
         (long "ssh-passwd" <> metavar "STRING" <>
          help "Password for ssh node instances"))
+    <*>
+    optional (option auto $
+         long "log-config" <> metavar "FILEPATH" <> help "Path to logger configuration")
+    <*>
+    optional (option auto $
+         long "logs-prefix" <> metavar "FILEPATH" <> help "Prefix to logger output path")
+
 
 readOptions :: IO StatOpts
 readOptions = do

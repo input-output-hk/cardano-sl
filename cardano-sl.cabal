@@ -126,6 +126,7 @@ library
                       , focus
                       , formatting
                       , hashable
+                      , hslogger >= 1.2.10
                       , kademlia
                       , lens
                       , lifted-async
@@ -192,6 +193,7 @@ executable cardano-node
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
+                       -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
                         GeneralizedNewtypeDeriving
@@ -221,6 +223,7 @@ executable cardano-analyzer
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
+                       -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
                         GeneralizedNewtypeDeriving
@@ -245,6 +248,7 @@ executable cardano-wallet
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
+                       -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
                         GeneralizedNewtypeDeriving
@@ -287,6 +291,7 @@ executable cardano-stats-collector
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
+                       -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
                         GeneralizedNewtypeDeriving
@@ -316,6 +321,7 @@ executable cardano-tx-generator
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
+                       -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
                         GeneralizedNewtypeDeriving
@@ -372,7 +378,8 @@ test-suite cardano-test
   ghc-options:         -threaded
                        -rtsopts
                        -Wall
-                       -fno-warn-orphans
+                       -- -fno-warn-orphans
+                       -with-rtsopts=-N
   default-extensions:   DeriveDataTypeable
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude

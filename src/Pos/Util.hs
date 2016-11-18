@@ -44,6 +44,7 @@ module Pos.Util
        , logWarningWaitLinear
        , logWarningWaitInf
        , runWithRandomIntervals
+       , waitRandomInterval
 
        -- * LRU
        , clearLRU
@@ -301,12 +302,18 @@ logWarningWaitLinear = logWarningLongAction . WaitLinear
 logWarningWaitInf :: CanLogInParallel m => Second -> Text -> m a -> m a
 logWarningWaitInf = logWarningLongAction . (`WaitGeometric` 1.3) . convertUnit
 
+waitRandomInterval
+    :: (MonadIO m, MonadTimed m)
+    => Microsecond -> Microsecond -> m ()
+waitRandomInterval minT maxT = do
+    interval <-
+        (+ minT) . fromIntegral <$>
+        liftIO (randomNumber $ fromIntegral $ maxT - minT)
+    wait $ for interval
+
 runWithRandomIntervals :: (MonadIO m, MonadTimed m, WithNamedLogger m) => Microsecond -> Microsecond -> m () -> m ()
 runWithRandomIntervals minT maxT action = do
-  interval <- (+ minT) . fromIntegral <$> liftIO (randomNumber $ fromIntegral $ maxT - minT)
-  --logDebug $ sformat ("runWithRandomIntervals: waiting for interval " % shown) interval
-  wait $ for interval
-  --logDebug "runWithRandomIntervals: executing action"
+  waitRandomInterval minT maxT
   action
   runWithRandomIntervals minT maxT action
 

@@ -17,7 +17,7 @@ import           Pos.Constants              (RunningMode (..), runningMode)
 import           Pos.Crypto                 (keyGen, vssKeyGen)
 import           Pos.DHT                    (DHTNodeType (..), dhtNodeType)
 import           Pos.Genesis                (StakeDistribution (..), genesisSecretKeys,
-                                             genesisUtxo, genesisUtxoPetty)
+                                             genesisUtxo)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), RealModeRunner,
                                              bracketDHTInstance, runNodeReal,
@@ -105,17 +105,15 @@ main = do
                     then runTimeLordReal (loggingParams "time-lord" args)
                     else runTimeSlaveReal inst (baseParams "time-slave" args)
             Production systemStart -> return systemStart
-    loggingParams logger Args {..} =
-        def
-        { lpRootLogger = logger
-        , lpMainSeverity = mainLogSeverity
-        , lpDhtSeverity = Just dhtLogSeverity
-        , lpServerSeverity = serverLogSeverity
-        , lpCommSeverity = commLogSeverity
+    loggingParams lpRunnerTag Args{..} =
+        LoggingParams
+        { lpHandlerPrefix = logsPrefix
+        , lpConfigPath    = logConfig
+        , ..
         }
-    baseParams logger args@Args {..} =
+    baseParams logger args@Args{..} =
         BaseParams
-        { bpLogging = loggingParams logger args
+        { bpLoggingParams = loggingParams logger args
         , bpPort = port
         , bpDHTPeers = dhtPeers
         , bpDHTKeyOrType =
@@ -128,15 +126,12 @@ main = do
         NodeParams
         { npDbPath = Just dbPath
         , npRebuildDb = rebuildDB
-        , npSystemStart = systemStart
         , npSecretKey = spendingSK
+        , npSystemStart = systemStart
         , npVssKeyPair = vssSK
         , npBaseParams = baseParams "node" args
         , npCustomUtxo =
-              Just .
-              (if pettyUtxo
-                   then genesisUtxoPetty
-                   else genesisUtxo) $
+              Just . genesisUtxo $
               stakesDistr args
         , npTimeLord = timeLord
         , npJLFile = jlPath

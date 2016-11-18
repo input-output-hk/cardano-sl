@@ -1,6 +1,6 @@
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE TupleSections    #-}
+{-# LANGUAGE ViewPatterns     #-}
 
 -- | Fetching and accumulating nodes info using sar
 module SarCollector
@@ -11,10 +11,10 @@ module SarCollector
     , getNodeStats
     ) where
 
-import Control.Monad (fail)
-import Control.Monad.Trans.Maybe (MaybeT, runMaybeT)
 import           Control.Concurrent.Async.Lifted (mapConcurrently)
+import           Control.Monad                   (fail)
 import           Control.Monad.Trans.Control     (MonadBaseControl)
+import           Control.Monad.Trans.Maybe       (MaybeT, runMaybeT)
 import           Data.Hashable                   (Hashable (hashWithSalt))
 import qualified Data.HashMap.Strict             as M
 import           Data.List                       (dropWhileEnd)
@@ -23,7 +23,7 @@ import qualified Data.Text                       as T
 import           Data.Time.Clock                 (UTCTime (utctDay), getCurrentTime)
 import           Data.Time.Clock.POSIX           (utcTimeToPOSIXSeconds)
 import           Data.Time.Format                (defaultTimeLocale, parseTimeM)
-import           Formatting                      (int, sformat, stext, (%), shown, fixed)
+import           Formatting                      (fixed, int, sformat, shown, stext, (%))
 import           Turtle                          (shellStrict)
 import           Universum                       hiding (mapConcurrently)
 

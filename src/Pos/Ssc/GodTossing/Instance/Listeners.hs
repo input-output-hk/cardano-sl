@@ -10,11 +10,11 @@ module Pos.Ssc.GodTossing.Instance.Listeners
          -- ** instance SscListenersClass SscGodTossing
        ) where
 
-import           Control.TimeWarp.Logging          (logDebug, logError, logInfo)
 import           Data.List                         ((\\))
 import           Data.Tagged                       (Tagged (..))
 import           Formatting                        (build, sformat, stext, (%))
 import           Serokell.Util.Text                (listJson)
+import           System.Wlog                       (logDebug, logError, logInfo)
 import           Universum
 
 import           Pos.Communication.Methods         (announceSsc)

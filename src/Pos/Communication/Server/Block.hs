@@ -15,8 +15,6 @@ module Pos.Communication.Server.Block
        ) where
 
 import           Control.Lens              ((^.))
-import           Control.TimeWarp.Logging  (logDebug, logError, logInfo, logNotice,
-                                            logWarning)
 import           Control.TimeWarp.Rpc      (BinaryP, MonadDialog)
 import qualified Data.HashSet              as HS
 import           Data.List.NonEmpty        (NonEmpty ((:|)))
@@ -24,6 +22,8 @@ import qualified Data.List.NonEmpty        as NE
 import           Formatting                (bprint, build, int, sformat, stext, (%))
 import           Serokell.Util             (VerificationRes (..), listJson,
                                             listJsonIndent)
+import           System.Wlog               (logDebug, logError, logInfo, logNotice,
+                                            logWarning)
 import           Universum
 
 import           Pos.Communication.Methods (announceBlock)

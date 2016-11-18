@@ -12,11 +12,11 @@ module Pos.Slotting
        ) where
 
 import           Control.Monad.Catch      (MonadCatch, catch)
-import           Control.TimeWarp.Logging (WithNamedLogger, logError, logInfo,
-                                           modifyLoggerName)
 import           Control.TimeWarp.Timed   (Microsecond, MonadTimed, for, fork_, wait)
 import           Formatting               (build, sformat, shown, (%))
 import           Serokell.Util.Exceptions ()
+import           System.Wlog              (WithNamedLogger, logError, logInfo,
+                                           modifyLoggerName)
 import           Universum                hiding (catch)
 
 import           Pos.Constants            (slotDuration)

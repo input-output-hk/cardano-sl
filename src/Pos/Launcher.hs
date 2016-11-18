@@ -35,9 +35,6 @@ import           Control.Concurrent.MVar     (newEmptyMVar, newMVar, takeMVar,
 import           Control.Monad               (fail)
 import           Control.Monad.Catch         (bracket)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Control.TimeWarp.Logging    (LoggerName (..), WithNamedLogger, logDebug,
-                                              logError, logInfo, logWarning,
-                                              traverseLoggerConfig, usingLoggerName)
 import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, MonadDialog,
                                               NetworkAddress, Transfer, commLoggerName,
                                               runDialog, runTransfer)
@@ -49,12 +46,14 @@ import           Data.List                   (nub)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           System.Log.Logger           (removeAllHandlers)
+import           System.Wlog                 (LoggerName (..), WithNamedLogger, logDebug,
+                                              logError, logInfo, logWarning,
+                                              traverseLoggerConfig, usingLoggerName)
 
 import           Pos.CLI                     (readLoggerConfig)
-import           Pos.Communication           (SysStartRequest (..),
-                                              allListeners, noCacheMessageNames, sendTx,
-                                              statsListeners, sysStartReqListener,
-                                              sysStartRespListener)
+import           Pos.Communication           (SysStartRequest (..), allListeners,
+                                              noCacheMessageNames, sendTx, statsListeners,
+                                              sysStartReqListener, sysStartRespListener)
 import           Pos.Constants               (RunningMode (..), defaultPeers,
                                               isDevelopment, runningMode)
 import           Pos.Crypto                  (SecretKey, VssKeyPair, hash, sign)

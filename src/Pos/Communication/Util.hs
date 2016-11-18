@@ -4,10 +4,10 @@ module Pos.Communication.Util
        ( modifyListenerLogger
        ) where
 
-import           Control.TimeWarp.Logging (LoggerName, WithNamedLogger, modifyLoggerName)
+import           System.Wlog (LoggerName, WithNamedLogger, modifyLoggerName)
 import           Universum
 
-import           Pos.DHT                  (ListenerDHT (..))
+import           Pos.DHT     (ListenerDHT (..))
 
 -- | Append given logger name to the name used by listener.
 modifyListenerLogger

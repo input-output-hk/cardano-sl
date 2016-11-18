@@ -10,7 +10,11 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp.git
-    commit: e2b621860f1397b3880bb30610bc6c726c14e078
+    commit: ec011c94b8addccceab7ba3a2be7dd0fa57b04e6
+  extra-dep: true
+- location:
+    git: https://github.com/serokell/log-warper.git
+    commit: 5de577c3ab25e6f9a4350a9646050a88b2b8996e
   extra-dep: true
 - location:
     git: https://github.com/serokell/serokell-util.git
@@ -41,6 +45,5 @@ extra-deps:
 - QuickCheck-2.9.2
 - cryptonite-openssl-0.2
 - UtilityTM-0.0.4
-- th-expand-syns-0.4.1.0
 
-resolver: lts-7.1
+resolver: lts-7.9

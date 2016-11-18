@@ -130,6 +130,7 @@ library
                       , kademlia
                       , lens
                       , lifted-async
+                      , log-warper >= 0.1.0
                       , lrucache
                       , memory
                       , mmorph
@@ -184,6 +185,7 @@ executable cardano-node
                      , directory
                      , filepath
                      , formatting
+                     , log-warper >= 0.1.0
                      , optparse-simple
                      , parsec
                      , serokell-util
@@ -212,6 +214,7 @@ executable cardano-analyzer
                      , bytestring
                      , cardano-sl
                      , formatting
+                     , log-warper >= 0.1.0
                      , optparse-simple
                      , serokell-util
                      , text
@@ -239,6 +242,7 @@ executable cardano-wallet
                      , data-default
                      , cardano-sl
                      , formatting
+                     , log-warper >= 0.1.0
                      , optparse-applicative
                      , parsec
                      , serokell-util
@@ -274,6 +278,7 @@ executable cardano-stats-collector
                      , formatting
                      , filepath
                      , hashable
+                     , log-warper >= 0.1.0
                      , lifted-async
                      , monad-control
                      , optparse-simple >= 0.0.3
@@ -309,6 +314,7 @@ executable cardano-tx-generator
                      , data-default
                      , cardano-sl
                      , formatting
+                     , log-warper >= 0.1.0
                      , optparse-applicative
                      , parsec
                      , random
@@ -364,6 +370,7 @@ test-suite cardano-test
                      , formatting
                      , hspec
                      , lens
+                     , log-warper >= 0.1.0
                      , memory
                      , random
                      , safecopy
@@ -401,6 +408,7 @@ benchmark cardano-bench-criterion
                      , criterion
                      , formatting
                      , hashtables
+                     , log-warper >= 0.1.0
                      , universum >= 0.1.9
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts

@@ -10,12 +10,12 @@ module Pos.Worker.Block
        ) where
 
 import           Control.Lens              (ix, (^.), (^?))
-import           Control.TimeWarp.Logging  (logDebug, logInfo, logWarning)
 import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, wait)
 import           Data.Tagged               (untag)
 import           Formatting                (build, sformat, (%))
 import           Serokell.Util             (VerificationRes (..), listJson)
 import           Serokell.Util.Exceptions  ()
+import           System.Wlog               (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Communication.Methods (announceBlock)

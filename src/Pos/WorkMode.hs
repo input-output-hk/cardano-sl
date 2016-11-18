@@ -35,12 +35,12 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Logging    (WithNamedLogger (..), logWarning)
 import           Control.TimeWarp.Rpc        (BinaryP, Dialog, MonadDialog,
                                               MonadResponse (..), MonadTransfer (..),
                                               Transfer, hoistRespCond)
 import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
 import           Formatting                  (sformat, shown, (%))
+import           System.Wlog                 (WithNamedLogger (..), logWarning)
 import           Universum                   hiding (catch)
 
 import           Pos.Crypto                  (PublicKey, SecretKey, VssKeyPair,

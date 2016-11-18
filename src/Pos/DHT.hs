@@ -41,9 +41,6 @@ import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, c
                                             throwM)
 import           Control.Monad.Morph       (hoist)
 import           Control.Monad.Trans.Class (MonadTrans)
-import           Control.TimeWarp.Logging  (LoggerName,
-                                            WithNamedLogger (modifyLoggerName), logDebug,
-                                            logInfo, logWarning)
 import           Control.TimeWarp.Rpc      (BinaryP, HeaderNContentData, Message,
                                             MonadDialog, MonadTransfer (..),
                                             NetworkAddress, ResponseT, Unpackable, closeR,
@@ -54,6 +51,9 @@ import           Data.Binary               (Binary)
 import           Data.Proxy                (Proxy (Proxy))
 import           Formatting                (int, sformat, shown, (%))
 import qualified Formatting                as F
+import           System.Wlog               (LoggerName,
+                                            WithNamedLogger (modifyLoggerName), logDebug,
+                                            logInfo, logWarning)
 import           Universum
 
 import           Pos.Constants             (neighborsSendThreshold)

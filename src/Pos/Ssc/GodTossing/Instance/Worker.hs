@@ -10,7 +10,6 @@ module Pos.Ssc.GodTossing.Instance.Worker
        ) where
 
 import           Control.Lens                     (view, _2, _3)
-import           Control.TimeWarp.Logging         (logDebug, logWarning)
 import           Control.TimeWarp.Timed           (Microsecond, Millisecond, currentTime,
                                                    for, repeatForever, wait)
 import qualified Data.HashMap.Strict              as HM (toList)
@@ -20,6 +19,7 @@ import           Data.Time.Units                  (convertUnit)
 import           Formatting                       (build, ords, sformat, shown, stext,
                                                    (%))
 import           Serokell.Util.Exceptions         ()
+import           System.Wlog                      (logDebug, logWarning)
 import           Universum
 
 import           Pos.Communication.Methods        (announceSsc)

@@ -16,7 +16,7 @@ module Pos.Genesis
 
 
 import           Data.Default         (Default (def))
-import           Data.List            (genericLength, genericReplicate, (!!))
+import           Data.List            (genericLength, genericReplicate)
 import qualified Data.Map.Strict      as M
 import qualified Data.Text            as T
 import           Formatting           (int, sformat, (%))
@@ -64,10 +64,6 @@ data StakeDistribution
                  !Coin     -- total number of coins
     | BitcoinStakes !Word  -- number of stakeholders
                     !Coin  -- total number of coins
-
-sdStakeHolders :: StakeDistribution -> Word
-sdStakeHolders (FlatStakes n _)    = n
-sdStakeHolders (BitcoinStakes n _) = n
 
 instance Default StakeDistribution where
     def = FlatStakes genesisN (genesisN * 10000)

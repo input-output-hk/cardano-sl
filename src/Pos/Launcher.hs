@@ -17,6 +17,7 @@ module Pos.Launcher
        , runNodeReal
        , runNodeStats
        , submitTx
+       , submitTxRaw
        , submitTxReal
        , runSupporterReal
        , runTimeSlaveReal
@@ -119,11 +120,16 @@ submitTx na (txInHash, txInIndex) (txOutAddress, txOutValue) =
         let txOuts = [TxOut {..}]
             txIns = [TxIn {txInSig = sign sk (txInHash, txInIndex, txOuts), ..}]
             tx = Tx {txInputs = txIns, txOutputs = txOuts}
-            txId = hash tx
-        logInfo $ sformat ("Submitting transaction: "%txF) tx
-        logInfo $ sformat ("Transaction id: "%build) txId
-        mapM_ (`sendTx` tx) na
+        submitTxRaw na tx
         pure tx
+
+-- | Send the ready-to-use transaction
+submitTxRaw :: WorkMode ssc m => [NetworkAddress] -> Tx -> m ()
+submitTxRaw na tx = do
+    let txId = hash tx
+    logInfo $ sformat ("Submitting transaction: "%txF) tx
+    logInfo $ sformat ("Transaction id: "%build) txId
+    mapM_ (`sendTx` tx) na
 
 -- | Submit tx in real mode.
 submitTxReal :: forall ssc . RealModeSscConstraint ssc

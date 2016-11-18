@@ -4,8 +4,8 @@ synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             BSD3
 license-file:        LICENSE
-author:              Serokell OU
-maintainer:          hi@serokell.io
+author:              Serokell
+maintainer:          Serokell <hi@serokell.io>
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple

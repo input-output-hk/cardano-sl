@@ -2,12 +2,11 @@
 
 module Main where
 
-import           Control.TimeWarp.Logging (Severity (Debug), logInfo)
+import           Control.TimeWarp.Logging (logInfo)
 import           Control.TimeWarp.Rpc     (NetworkAddress)
 import           Control.TimeWarp.Timed   (for, ms, wait)
 import           Data.Aeson               (encode)
 import qualified Data.ByteString.Lazy     as LBS
-import           Data.Default             (def)
 import qualified Data.HashMap.Strict      as M
 import           Data.IORef               (modifyIORef, newIORef, readIORef)
 import           Data.List                ((!!))
@@ -46,6 +45,8 @@ data GenOptions = GenOptions
     , goInitBalance        :: !Int        -- ^ Total coins in init utxo per address
     , goTPSs               :: ![Double]   -- ^ TPS rate
     , goDhtExplicitInitial :: !Bool
+    , goLogConfig          :: !(Maybe FilePath)
+    , goLogsPrefix         :: !(Maybe FilePath)
     }
 
 optionsParser :: Parser GenOptions
@@ -84,6 +85,15 @@ optionsParser = GenOptions
         (long "explicit-initial" <>
          help
              "Explicitely contact to initial peers as to neighbors (even if they appeared offline once)")
+    <*> optional (option auto $
+                 long "log-config"
+              <> metavar "FILEPATH"
+              <> help "Path to logger configuration")
+    <*> optional (option auto $
+                 long "logs-prefix"
+              <> metavar "FILEPATH"
+              <> help "Prefix to logger output path")
+
 
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $
@@ -124,15 +134,17 @@ submitTxRaw na tx = do
 main :: IO ()
 main = do
     GenOptions {..} <- execParser optsInfo
+
     let i = fromIntegral goGenesisIdx
         logParams =
-            def
-            { lpMainSeverity = Debug
-            , lpRootLogger = "tx-gen"
+            LoggingParams
+            { lpRunnerTag     = "tx-gen"
+            , lpHandlerPrefix = goLogsPrefix
+            , lpConfigPath    = goLogConfig
             }
         baseParams =
             BaseParams
-            { bpLogging            = logParams
+            { bpLoggingParams      = logParams
             , bpPort               = 24962 + fromIntegral i
             , bpDHTPeers           = goDHTPeers
             , bpDHTKeyOrType       = Right DHTClient

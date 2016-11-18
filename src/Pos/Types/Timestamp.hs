@@ -11,6 +11,7 @@ import           Data.Binary            (Binary (get, put))
 import           Data.MessagePack       (MessagePack (fromObject, toObject))
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
+
 import           Formatting             (Format, build)
 import           Prelude                (Read (..), Show (..))
 import           Universum              hiding (show)

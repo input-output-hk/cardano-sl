@@ -10,7 +10,7 @@ source "$base"/common.sh
 # fi
 
 # If stack-work doesn't exist use function
-if [[ ! -d .stack-work ]]; then
+if [[ ! -d "$base/../.stack-work" ]]; then
     stack_build
     # TODO: Maybe wanna have an option to rebuild?
 fi
@@ -23,9 +23,6 @@ n=$1
 if [[ "$n" == "" ]]; then
   n=$DEFAULT_NODES_N
 fi
-
-# Make sure the logs folder exists
-ensure_logs
 
 # Mode is not mandatory
 mode=$2

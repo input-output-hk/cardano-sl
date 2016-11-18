@@ -131,7 +131,7 @@ function node_cmd {
   fi
   if [[ $is_stat != "" ]]; then
     stats="--stats"
-    petty="--petty-utxo"
+#    petty="--petty-utxo"
   fi
 
   echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $reb --vss-genesis $i"

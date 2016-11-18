@@ -87,34 +87,34 @@ onNewSlot slotId = do
     onNewSlotOpening slotId
     onNewSlotShares slotId
 
--- Generate random time relative to beginning of time when we can send
--- some message. For instance, if we can send some message since time
--- X, we should send it at time `X + result of this function`.
-randomTimeToSend :: WorkMode SscDynamicState m => m Timestamp
-randomTimeToSend =
+randomTimeInInterval
+    :: WorkMode SscDynamicState m
+    => Microsecond -> m Microsecond
+randomTimeInInterval interval =
     -- Type applications here ensure that the same time units are used.
-    (Timestamp . fromInteger @Microsecond) <$>
+    (fromInteger @Microsecond) <$>
     liftIO (runSecureRandom (randomNumber n))
   where
-    n = toInteger @Microsecond mpcSendInterval
+    n = toInteger @Microsecond interval
 
 waitUntilSend
     :: WorkMode SscDynamicState m
     => Text -> EpochIndex -> LocalSlotIndex -> m ()
 waitUntilSend msgName epoch kMultiplier = do
-    beginning <-
+    Timestamp beginning <-
         getSlotStart $ SlotId {siEpoch = epoch, siSlot = kMultiplier * k}
-    delta <- randomTimeToSend
-    let Timestamp globalTimeToSend = beginning + delta
     curTime <- currentTime
-    when (globalTimeToSend > curTime) $
-        do let timeToWait = globalTimeToSend - curTime
-               ttwMillisecond :: Millisecond
-               ttwMillisecond = convertUnit timeToWait
-           logDebug $
-               sformat ("Waiting for "%shown%" before sending "%stext)
-                   ttwMillisecond msgName
-           wait $ for timeToWait
+    let minToSend = curTime
+    let maxToSend = beginning + mpcSendInterval
+    when (minToSend < maxToSend) $ do
+        let delta = maxToSend - minToSend
+        timeToWait <- randomTimeInInterval delta
+        let ttwMillisecond :: Millisecond
+            ttwMillisecond = convertUnit timeToWait
+        logDebug $
+            sformat ("Waiting for "%shown%" before sending "%stext)
+                ttwMillisecond msgName
+        wait $ for timeToWait
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment :: WorkMode SscDynamicState m => SlotId -> m ()

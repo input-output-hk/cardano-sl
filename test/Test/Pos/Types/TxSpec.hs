@@ -11,8 +11,7 @@ module Test.Pos.Types.TxSpec
 import           Control.Lens          (view, _2, _3)
 import           Control.Monad         (join)
 import qualified Data.HashMap.Strict   as HM
-import           Data.List             (lookup)
-import           Data.List             ((\\))
+import           Data.List             (elemIndex, lookup, (\\))
 import           Serokell.Util.Verify  (isVerFailure, isVerSuccess)
 import           Test.Hspec            (Spec, describe, it, pendingWith)
 import           Test.Hspec.QuickCheck (prop)
@@ -20,7 +19,7 @@ import           Test.QuickCheck       (NonNegative (..), Positive (..), arbitra
                                         forAll, resize, shuffle, sized, vectorOf, (.&.),
                                         (===))
 import           Test.QuickCheck.Gen   (Gen)
-import           Universum
+import           Universum             hiding ((.&.))
 
 import           Pos.Crypto            (hash, verify)
 import           Pos.Types             (Address (..), BadSigsTx (..), GoodTx (..),
@@ -43,11 +42,23 @@ spec = describe "Types.Tx" $ do
             forAll (resize 10 $ arbitrary) $ \(NonNegative l) ->
             forAll (vectorOf l (txGen 10)) $ \txs ->
             (sort <$> topsortTxs txs) === Just (sort txs)
-        it "does correct topsort for a acyclic graph" $
-            pendingWith "not implemented"
---            forAll (txAcyclicGen 15) $ \txs ->
---            forAll (shuffle txs) $ \shuffled ->
---            undefined
+        prop "graph generator does not produce loops" $
+--            forAll (resize 10 arbitrary) $ \graphSize ->
+            forAll (txAcyclicGen 20) $ \(txs,_) ->
+            forAll (shuffle txs) $ \shuffled ->
+            isJust $ topsortTxs shuffled
+        prop "does correct topsort for a acyclic graph" $
+            forAll (txAcyclicGen 4) $ \(txs,reach) ->
+            forAll (shuffle txs) $ \shuffled ->
+            let reachables :: [(Tx,Tx)]
+                reachables = [(from,to) | (to,froms) <- HM.toList reach, from <- froms]
+                topsorted = topsortTxs shuffled
+                reaches :: (Tx,Tx) -> Bool
+                reaches (from,to) =
+                    let fromI = elemIndex from =<< topsorted
+                        toI = elemIndex to =<< topsorted
+                    in Just True == ((<=) <$> fromI <*> toI)
+            in isJust topsorted .&. all reaches reachables
   where
     description_validateGoodTxAlone =
         "validates Txs with positive coins and non-empty inputs and outputs"
@@ -161,7 +172,7 @@ txGen size = do
     (Positive outputsN) <- resize size arbitrary
     inputs <- replicateM inputsN $ (\h s -> TxIn h 0 s) <$> arbitrary <*> arbitrary
     outputs <- replicateM outputsN $
-        (\p (Positive c) -> TxOut (Address p) c) <$> arbitrary <*> (resize 100 arbitrary)
+        (\p (Positive c) -> TxOut (Address p) c) <$> arbitrary <*> (resize 1000 arbitrary)
     pure $ Tx inputs outputs
 
 -- | Produces acyclic oriented graph of transactions. It's
@@ -169,23 +180,32 @@ txGen size = do
 -- verify. Transaction balance is bad too (input can be less than
 -- output). These properties are not needed for topsort test. It also
 -- returns reachability map as the second argument (for every key
--- elems are reachable txs).
-txAcyclicGen :: Int -> Gen [Tx]
-txAcyclicGen 0 = pure []
+-- elems from which we can reach key).
+txAcyclicGen :: Int -> Gen ([Tx], HM.HashMap Tx [Tx])
+txAcyclicGen 0 = pure ([], HM.empty)
 txAcyclicGen size = do
-    initVertex <- txGen 10
-    let outputs = (\tx -> map (hash tx,) [0..length (txOutputs tx) - 1]) initVertex
-    continueGraph [initVertex] outputs $ size - 1
+    initVertices <- replicateM (max 1 $ size `div` 4) $ txGen 10
+    let outputs =
+            concatMap (\tx -> map (tx,) [0..length (txOutputs tx) - 1])
+                      initVertices
+        reachable = HM.fromList $ map (\v -> (v, [v])) initVertices
+    continueGraph initVertices outputs reachable $ size - (length initVertices)
   where
-    continueGraph vertices _ 0   = pure vertices
-    continueGraph vertices unusedUtxo k = do
+    continueGraph
+        :: [Tx]
+        -> [(Tx, Int)]
+        -> HM.HashMap Tx [Tx]
+        -> Int
+        -> Gen ([Tx], HM.HashMap Tx [Tx])
+    continueGraph vertices _ reachable 0 = pure (vertices, reachable)
+    continueGraph vertices unusedUtxo reachable k = do
         -- how many nodes to connect to (how many utxo to use)
         (NonNegative depsN) <-
-            resize (max (length unusedUtxo) 3)
+            resize (min (length unusedUtxo) 3)
                    (arbitrary :: Gen (NonNegative Int))
         chosenUtxo <- sublistN depsN unusedUtxo
         -- grab some inputs
-        inputs <- mapM (\(h,i) -> TxIn h (fromIntegral i) <$> arbitrary) chosenUtxo
+        inputs <- mapM (\(h,i) -> TxIn (hash h) (fromIntegral i) <$> arbitrary) chosenUtxo
         (Positive outputsN) <- resize 4 arbitrary
         -- gen some outputs
         outputs <- replicateM outputsN $
@@ -194,7 +214,9 @@ txAcyclicGen size = do
             (resize 100 arbitrary)
         -- calculate new utxo & add vertex
         let tx = Tx inputs outputs
-            producedUtxo = map (hash tx,) $ [0..(length outputs) - 1]
+            producedUtxo = map (tx,) $ [0..(length outputs) - 1]
             newVertices = tx : vertices
             newUtxo = (unusedUtxo \\ chosenUtxo) ++ producedUtxo
-        continueGraph newVertices newUtxo (k-1)
+            newReachableV = concat $ mapMaybe (\(x,_) -> HM.lookup x reachable) chosenUtxo
+            newReachable = HM.insert tx newReachableV reachable
+        continueGraph newVertices newUtxo newReachable (k-1)

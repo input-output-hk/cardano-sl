@@ -27,7 +27,6 @@ data Args = Args
     , spendingSecretPath :: !(Maybe FilePath)
     , vssSecretPath      :: !(Maybe FilePath)
     , port               :: !Word16
-    , pettyUtxo          :: !Bool
     , flatDistr          :: !(Maybe (Int, Int))
     , bitcoinDistr       :: !(Maybe (Int, Int))
     , dhtPeers           :: ![DHTNode]
@@ -74,9 +73,6 @@ argsParser =
         auto
         (long "port" <> metavar "INTEGER" <> value 3000 <> showDefault <>
          help "Port to work on") <*>
-    switch
-        (long "petty-utxo" <>
-         help "Petty utxo (1 coin per transaction, many txs)") <*>
     optional
         (option auto $
          mconcat

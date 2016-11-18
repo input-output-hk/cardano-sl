@@ -17,7 +17,7 @@ import           Pos.Constants              (RunningMode (..), runningMode)
 import           Pos.Crypto                 (keyGen, vssKeyGen)
 import           Pos.DHT                    (DHTNodeType (..), dhtNodeType)
 import           Pos.Genesis                (StakeDistribution (..), genesisSecretKeys,
-                                             genesisUtxo, genesisUtxoPetty)
+                                             genesisUtxo)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), RealModeRunner,
                                              bracketDHTInstance, runNodeReal,
@@ -131,10 +131,7 @@ main = do
         , npVssKeyPair = vssSK
         , npBaseParams = baseParams "node" args
         , npCustomUtxo =
-              Just .
-              (if pettyUtxo
-                   then genesisUtxoPetty
-                   else genesisUtxo) $
+              Just . genesisUtxo $
               stakesDistr args
         , npTimeLord = timeLord
         , npJLFile = jlPath

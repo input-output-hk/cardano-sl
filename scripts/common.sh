@@ -131,7 +131,6 @@ function node_cmd {
   fi
   if [[ $is_stat != "" ]]; then
     stats="--stats"
-#    petty="--petty-utxo"
   fi
 
   echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $reb --vss-genesis $i"
@@ -139,7 +138,7 @@ function node_cmd {
   $dht_cmd
 
   echo -n " --spending-genesis $i --port "`get_port $i`
-  echo -n " $petty $(logs node$i.log) $time_lord $stats"
+  echo -n " $(logs node$i.log) $time_lord $stats"
   echo -n " $stake_distr $ssc_algo "
   echo ''
 }

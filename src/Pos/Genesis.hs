@@ -9,7 +9,6 @@ module Pos.Genesis
        , genesisPublicKeys
        , genesisSecretKeys
        , genesisUtxo
-       , genesisUtxoPetty
 
        -- * Ssc
        , genesisLeaders
@@ -116,22 +115,6 @@ genesisUtxo sd =
     M.fromList . zipWith zipF (stakeDistribution sd) $ genesisAddresses
   where
     zipF coin addr = ((unsafeHash addr, 0), TxOut addr coin)
-
--- | Each utxo is split into many utxos, each containing 1 coin. Only
--- for 0-th node.
-genesisUtxoPetty :: StakeDistribution -> Utxo
-genesisUtxoPetty sd =
-    M.fromList $
-    flip concatMap (genesisAddresses `zip` [0 .. sdStakeHolders sd - 1]) $
-    \(a, nodei) ->
-         let c = coinsDistr !! fromIntegral nodei
-         in if nodei == 0
-                then map
-                         (\i -> ((unsafeHash (show a ++ show i), 0), TxOut a 1))
-                         [1 .. fromIntegral c :: Int]
-                else [((unsafeHash a, 0), TxOut a c)]
-  where
-    coinsDistr = stakeDistribution sd
 
 ----------------------------------------------------------------------------
 -- Slot leaders

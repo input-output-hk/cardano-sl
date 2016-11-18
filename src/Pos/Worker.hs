@@ -7,19 +7,19 @@ module Pos.Worker
        ) where
 
 import           Control.TimeWarp.Logging (logDebug, logInfo, logNotice)
-import           Control.TimeWarp.Timed   (fork_)
+import           Control.TimeWarp.Timed   (fork_, ms)
 import           Data.Tagged              (untag)
 import           Formatting               (build, sformat, (%))
 import           Universum
 
 import           Pos.Communication        (SysStartResponse (..))
-import           Pos.Constants            (sysTimeBroadcastSlots)
+import           Pos.Constants            (slotDuration, sysTimeBroadcastSlots)
 import           Pos.DHT                  (sendToNetwork)
 import           Pos.Slotting             (onNewSlot)
 import           Pos.Ssc.Class.Workers    (SscWorkersClass, sscOnNewSlot, sscWorkers)
 import           Pos.State                (processNewSlot)
 import           Pos.Types                (SlotId, flattenSlotId, slotIdF)
-import           Pos.Util                 (logWarningWaitLinear)
+import           Pos.Util                 (logWarningWaitLinear, waitRandomInterval)
 import           Pos.Util.JsonLog         (jlCreatedBlock, jlLog)
 import           Pos.Worker.Block         (blkOnNewSlot, blkWorkers)
 import           Pos.Worker.Stats         (statsWorkers)
@@ -52,7 +52,8 @@ onNewSlotWorkerImpl slotId = do
     logDebug "Finished `processNewSlot`"
 
     when (flattenSlotId slotId <= sysTimeBroadcastSlots) $
-      whenM (ncTimeLord <$> getNodeContext) $
+      whenM (ncTimeLord <$> getNodeContext) $ do
+        waitRandomInterval (ms 500) slotDuration
         ncSystemStart <$> getNodeContext
             >>= \(SysStartResponse . Just -> mT) -> do
                 logInfo "Broadcasting system start"

@@ -376,7 +376,7 @@ test-suite cardano-test
   ghc-options:         -threaded
                        -rtsopts
                        -Wall
-                       -fno-warn-orphans
+                       -- -fno-warn-orphans
                        -with-rtsopts=-N
   default-extensions:   DeriveDataTypeable
                         GeneralizedNewtypeDeriving

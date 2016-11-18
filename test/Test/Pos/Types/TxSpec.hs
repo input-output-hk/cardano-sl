@@ -10,12 +10,15 @@ module Test.Pos.Types.TxSpec
 
 import           Control.Lens          (view, _2, _3)
 import           Control.Monad         (join)
+import qualified Data.HashMap.Strict   as HM
 import           Data.List             (lookup)
+import           Data.List             ((\\))
 import           Serokell.Util.Verify  (isVerFailure, isVerSuccess)
 import           Test.Hspec            (Spec, describe, it, pendingWith)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (NonNegative (..), Positive (..), arbitrary,
-                                        forAll, resize, sized, vectorOf, (.&.), (===))
+                                        forAll, resize, shuffle, sized, vectorOf, (.&.),
+                                        (===))
 import           Test.QuickCheck.Gen   (Gen)
 import           Universum
 
@@ -23,6 +26,7 @@ import           Pos.Crypto            (hash, verify)
 import           Pos.Types             (Address (..), BadSigsTx (..), GoodTx (..),
                                         OverflowTx (..), Tx (..), TxIn (..), TxOut (..),
                                         topsortTxs, verifyTx, verifyTxAlone)
+import           Pos.Util              (sublistN)
 
 
 spec :: Spec
@@ -39,8 +43,11 @@ spec = describe "Types.Tx" $ do
             forAll (resize 10 $ arbitrary) $ \(NonNegative l) ->
             forAll (vectorOf l (txGen 10)) $ \txs ->
             (sort <$> topsortTxs txs) === Just (sort txs)
-        it "does correct topsort for a acyclic graph" $ pendingWith "not implemented"
-
+        it "does correct topsort for a acyclic graph" $
+            pendingWith "not implemented"
+--            forAll (txAcyclicGen 15) $ \txs ->
+--            forAll (shuffle txs) $ \shuffled ->
+--            undefined
   where
     description_validateGoodTxAlone =
         "validates Txs with positive coins and non-empty inputs and outputs"
@@ -157,23 +164,37 @@ txGen size = do
         (\p (Positive c) -> TxOut (Address p) c) <$> arbitrary <*> (resize 100 arbitrary)
     pure $ Tx inputs outputs
 
--- | Produces acyclic oriented graph of transactions. Shouldn't be
+-- | Produces acyclic oriented graph of transactions. It's
 -- connected. Signatures are faked and thus fail to
 -- verify. Transaction balance is bad too (input can be less than
--- output). These properties are not needed for topsort test.
+-- output). These properties are not needed for topsort test. It also
+-- returns reachability map as the second argument (for every key
+-- elems are reachable txs).
 txAcyclicGen :: Int -> Gen [Tx]
 txAcyclicGen 0 = pure []
 txAcyclicGen size = do
-    initVertices <- replicateM (max 1 $ size `div` 2) (txGen 10)
-    let outputs =
-            concatMap
-            (\tx -> map (hash tx,) $ [0..length (txOutputs tx) - 1])
-            initVertices
-    continueGraph initVertices outputs $ size - length initVertices
+    initVertex <- txGen 10
+    let outputs = (\tx -> map (hash tx,) [0..length (txOutputs tx) - 1]) initVertex
+    continueGraph [initVertex] outputs $ size - 1
   where
     continueGraph vertices _ 0   = pure vertices
-    continueGraph unusedUtxo _ k = do
+    continueGraph vertices unusedUtxo k = do
+        -- how many nodes to connect to (how many utxo to use)
         (NonNegative depsN) <-
             resize (max (length unusedUtxo) 3)
                    (arbitrary :: Gen (NonNegative Int))
-        notImplemented
+        chosenUtxo <- sublistN depsN unusedUtxo
+        -- grab some inputs
+        inputs <- mapM (\(h,i) -> TxIn h (fromIntegral i) <$> arbitrary) chosenUtxo
+        (Positive outputsN) <- resize 4 arbitrary
+        -- gen some outputs
+        outputs <- replicateM outputsN $
+            (\p (Positive c) -> TxOut (Address p) c) <$>
+            arbitrary <*>
+            (resize 100 arbitrary)
+        -- calculate new utxo & add vertex
+        let tx = Tx inputs outputs
+            producedUtxo = map (hash tx,) $ [0..(length outputs) - 1]
+            newVertices = tx : vertices
+            newUtxo = (unusedUtxo \\ chosenUtxo) ++ producedUtxo
+        continueGraph newVertices newUtxo (k-1)

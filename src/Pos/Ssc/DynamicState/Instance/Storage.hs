@@ -262,17 +262,16 @@ checkOpeningLastVer pk opening =
 
 -- | Check that the decrypted share matches the encrypted share in the
 -- commitment
--- TODO: check that there is no opening for share, but only after fixing
--- getOurShares!!1!1
 checkShare
     :: CommitmentsMap
     -> OpeningsMap
     -> VssCertificatesMap
     -> (PublicKey, PublicKey, Share)
     -> Bool
-checkShare globalCommitments _ globalCertificates (pkTo, pkFrom, share) =
+checkShare globalCommitments globalOpening globalCertificates (pkTo, pkFrom, share) =
     fromMaybe False $ do
         guard $ HM.member pkTo globalCommitments
+        guard $ isNothing $ HM.lookup pkFrom globalOpening
         (comm, _) <- HM.lookup pkFrom globalCommitments
         vssKey <- signedValue <$> HM.lookup pkTo globalCertificates
         encShare <- HM.lookup vssKey (commShares comm)

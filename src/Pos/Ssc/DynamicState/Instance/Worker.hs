@@ -24,8 +24,9 @@ import           Universum
 
 import           Pos.Constants                      (k, mpcSendInterval,
                                                      sscTransmitterInterval)
-import           Pos.Crypto                         (PublicKey, SecretKey, randomNumber,
-                                                     runSecureRandom, toPublic)
+import           Pos.Crypto                         (PublicKey, SecretKey, Share,
+                                                     randomNumber, runSecureRandom,
+                                                     toPublic)
 import           Pos.Slotting                       (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.Class.Workers              (SscWorkersClass (..))
 import           Pos.Ssc.DynamicState.Base          (genCommitmentAndOpening,
@@ -137,7 +138,9 @@ onNewSlotCommitment SlotId {..} = do
         mbComm <- fmap (view _2) <$> getToken
         whenJust mbComm $ onSendCommitment siEpoch ourPk
 
-onSendCommitment :: WorkMode SscDynamicState m => EpochIndex -> PublicKey -> SignedCommitment -> m ()
+onSendCommitment
+    :: WorkMode SscDynamicState m
+    => EpochIndex -> PublicKey -> SignedCommitment -> m ()
 onSendCommitment epoch ourPk comm = do
     () <$ processSscMessage (DSCommitments $ pure (ourPk, comm))
     -- Note: it's not necessary to create a new thread here, because
@@ -156,10 +159,16 @@ onNewSlotOpening SlotId {..} = do
         return $ isOpeningIdx siSlot && not openingInBlockchain
     when shouldSendOpening $ do
         mbOpen <- fmap (view _3) <$> getToken
-        whenJust mbOpen $ \open -> do
-            announceOpening ourPk open
-            logDebug "Sent opening to neighbors"
-            () <$ processSscMessage (DSOpenings $ pure (ourPk, open))
+        whenJust mbOpen $ onSendOpening siEpoch ourPk
+
+onSendOpening
+    :: WorkMode SscDynamicState m
+    => EpochIndex -> PublicKey -> Opening -> m ()
+onSendOpening epoch ourPk open = do
+    () <$ processSscMessage (DSOpenings $ pure (ourPk, open))
+    waitUntilSend "opening" epoch 2
+    announceOpening ourPk open
+    logDebug "Sent opening to neighbors"
 
 -- Shares-related part of new slot processing
 onNewSlotShares :: WorkMode SscDynamicState m => SlotId -> m ()
@@ -174,10 +183,16 @@ onNewSlotShares SlotId {..} = do
     when shouldSendShares $ do
         ourVss <- ncVssKeyPair <$> getNodeContext
         shares <- getOurShares ourVss
-        unless (null shares) $ do
-            announceShares ourPk shares
-            logDebug "Sent shares to neighbors"
-            () <$ processSscMessage (DSSharesMulti $ pure (ourPk, shares))
+        unless (null shares) $ onSendShares siEpoch ourPk shares
+
+onSendShares
+    :: WorkMode SscDynamicState m
+    => EpochIndex -> PublicKey -> HashMap PublicKey Share -> m ()
+onSendShares epoch ourPk shares = do
+    () <$ processSscMessage (DSSharesMulti $ pure (ourPk, shares))
+    waitUntilSend "shares" epoch 4
+    announceShares ourPk shares
+    logDebug "Sent shares to neighbors"
 
 sscTransmitter :: WorkMode SscDynamicState m => m ()
 sscTransmitter =

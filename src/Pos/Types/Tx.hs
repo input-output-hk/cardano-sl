@@ -21,8 +21,7 @@ import           Serokell.Util       (VerificationRes, verifyGeneric)
 import           Universum
 
 import           Pos.Crypto          (hash, verify)
-import           Pos.Types.Types     (Address (..), Coin (..), Tx (..), TxIn (..),
-                                      TxOut (..), coinF)
+import           Pos.Types.Types     (Address (..), Tx (..), TxIn (..), TxOut (..), coinF)
 
 -- | Verify that Tx itself is correct. Most likely you will also want
 -- to verify that inputs are legal, signed properly and have enough coins.
@@ -98,7 +97,7 @@ $(makeLenses ''TopsortState)
 topsortTxs :: [Tx] -> Maybe [Tx]
 topsortTxs input =
     let res = execState dfs1 initState
-    in guard (not $ res ^. tsLoop) >> pure (res ^. tsResult)
+    in guard (not $ res ^. tsLoop) >> pure (reverse $ res ^. tsResult)
   where
     dup a = (a,a)
     txHashes = HM.fromList $ map (first hash . dup) input

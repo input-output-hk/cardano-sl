@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TupleSections         #-}
 
 -- | Instance of SscWorkersClass.
 
@@ -9,18 +10,23 @@ module Pos.Ssc.GodTossing.Instance.Worker
        ) where
 
 import           Control.Lens                             (view, _2, _3)
-import           Control.TimeWarp.Logging                 (logDebug, logWarning)
-import           Control.TimeWarp.Timed                   (repeatForever)
+import           Control.TimeWarp.Timed                   (Microsecond, Millisecond,
+                                                           currentTime, for,
+                                                           repeatForever, wait)
 import qualified Data.HashMap.Strict                      as HM (toList)
 import           Data.List.NonEmpty                       (nonEmpty)
 import           Data.Tagged                              (Tagged (..))
-import           Formatting                               (build, ords, sformat, (%))
+import           Formatting                               (build, ords, sformat, shown,
+                                                           stext, (%))
 import           Serokell.Util.Exceptions                 ()
+import           System.Wlog                              (logDebug, logWarning)
 import           Universum
 
-import           Pos.Constants                            (sscTransmitterInterval)
-import           Pos.Crypto                               (SecretKey, toPublic)
-import           Pos.Slotting                             (getCurrentSlot)
+import           Pos.Constants                            (k, mpcSendInterval,
+                                                           sscTransmitterInterval)
+import           Pos.Crypto                               (SecretKey, randomNumber,
+                                                           runSecureRandom, toPublic)
+import           Pos.Slotting                             (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.Class.Workers                    (SscWorkersClass (..))
 import           Pos.Ssc.GodTossing.Base                  (genCommitmentAndOpening,
                                                            genCommitmentAndOpening,
@@ -29,11 +35,8 @@ import           Pos.Ssc.GodTossing.Base                  (genCommitmentAndOpeni
                                                            mkSignedCommitment)
 import           Pos.Ssc.GodTossing.Base                  (Opening, SignedCommitment)
 import           Pos.Ssc.GodTossing.Instance.Type         (SscGodTossing)
-import           Pos.Ssc.GodTossing.Server                (announceCommitment,
-                                                           announceCommitments,
-                                                           announceOpening,
+import           Pos.Ssc.GodTossing.Server                (announceCommitments,
                                                            announceOpenings,
-                                                           announceShares,
                                                            announceSharesMulti,
                                                            announceVssCertificates)
 import           Pos.Ssc.GodTossing.Storage               (GtSecret)
@@ -45,11 +48,14 @@ import           Pos.State                                (getGlobalMpcData,
                                                            getOurShares, getParticipants,
                                                            getThreshold,
                                                            processSscMessage)
-import           Pos.Types                                (EpochIndex, SlotId (..))
+import           Pos.Types                                (EpochIndex, LocalSlotIndex,
+                                                           SlotId (..), Timestamp (..))
 import           Pos.WorkMode                             (WorkMode, getNodeContext,
                                                            ncDbPath, ncPublicKey,
                                                            ncSecretKey, ncVssKeyPair)
 
+import           Data.Time.Units                          (convertUnit)
+import           Pos.Communication.Methods                (announceSsc)
 import           Pos.Ssc.GodTossing.Instance.AcidicSecret (getSecret,
                                                            prepareSecretToNewSlot,
                                                            setSecret)
@@ -65,6 +71,35 @@ onNewSlot slotId = do
     onNewSlotCommitment slotId
     onNewSlotOpening slotId
     onNewSlotShares slotId
+
+randomTimeInInterval
+    :: WorkMode SscGodTossing m
+    => Microsecond -> m Microsecond
+randomTimeInInterval interval =
+    -- Type applications here ensure that the same time units are used.
+    (fromInteger @Microsecond) <$>
+    liftIO (runSecureRandom (randomNumber n))
+  where
+    n = toInteger @Microsecond interval
+
+waitUntilSend
+    :: WorkMode SscGodTossing m
+    => Text -> EpochIndex -> LocalSlotIndex -> m ()
+waitUntilSend msgName epoch kMultiplier = do
+    Timestamp beginning <-
+        getSlotStart $ SlotId {siEpoch = epoch, siSlot = kMultiplier * k}
+    curTime <- currentTime
+    let minToSend = curTime
+    let maxToSend = beginning + mpcSendInterval
+    when (minToSend < maxToSend) $ do
+        let delta = maxToSend - minToSend
+        timeToWait <- randomTimeInInterval delta
+        let ttwMillisecond :: Millisecond
+            ttwMillisecond = convertUnit timeToWait
+        logDebug $
+            sformat ("Waiting for "%shown%" before sending "%stext)
+                ttwMillisecond msgName
+        wait $ for timeToWait
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment :: WorkMode SscGodTossing m => SlotId -> m ()
@@ -86,10 +121,9 @@ onNewSlotCommitment SlotId {..} = do
         return $ isCommitmentIdx siSlot && not commitmentInBlockchain
     when shouldSendCommitment $ do
         mbComm <- fmap (view _2) <$> getToken
-        whenJust mbComm $ \comm -> do
-            announceCommitment ourPk comm
-            logDebug "Sent commitment to neighbors"
-            () <$ processSscMessage (DSCommitments $ pure (ourPk, comm))
+        whenJust mbComm $
+            onSendSomething siEpoch "commitment" 0 .
+            DSCommitments . pure . (ourPk,)
 
 -- Openings-related part of new slot processing
 onNewSlotOpening :: WorkMode SscGodTossing m => SlotId -> m ()
@@ -100,10 +134,8 @@ onNewSlotOpening SlotId {..} = do
         return $ isOpeningIdx siSlot && not openingInBlockchain
     when shouldSendOpening $ do
         mbOpen <- fmap (view _3) <$> getToken
-        whenJust mbOpen $ \open -> do
-            announceOpening ourPk open
-            logDebug "Sent opening to neighbors"
-            () <$ processSscMessage (DSOpenings $ pure (ourPk, open))
+        whenJust mbOpen $
+            onSendSomething siEpoch "opening" 2 . DSOpenings . pure . (ourPk,)
 
 -- Shares-related part of new slot processing
 onNewSlotShares :: WorkMode SscGodTossing m => SlotId -> m ()
@@ -118,10 +150,22 @@ onNewSlotShares SlotId {..} = do
     when shouldSendShares $ do
         ourVss <- ncVssKeyPair <$> getNodeContext
         shares <- getOurShares ourVss
-        unless (null shares) $ do
-            announceShares ourPk shares
-            logDebug "Sent shares to neighbors"
-            () <$ processSscMessage (DSSharesMulti $ pure (ourPk, shares))
+        let msg = DSSharesMulti $ pure (ourPk, shares)
+        unless (null shares) $
+            onSendSomething siEpoch "shares" 4 msg
+
+onSendSomething
+    :: WorkMode SscGodTossing m
+    => EpochIndex -> Text -> LocalSlotIndex -> GtMessage -> m ()
+onSendSomething epoch msgName kMultiplier msg = do
+    () <$ processSscMessage msg
+    -- Note: it's not necessary to create a new thread here, because
+    -- in one invocation of onNewSlot we can't process more than one
+    -- type of message.
+    waitUntilSend msgName epoch kMultiplier
+    logDebug $ "Announcing our " `mappend` msgName
+    announceSsc msg
+    logDebug $ sformat ("Sent our "%stext%" to neighbors") msgName
 
 sscTransmitter :: WorkMode SscGodTossing m => m ()
 sscTransmitter =

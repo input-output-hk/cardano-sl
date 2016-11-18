@@ -2,11 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
 
--- | A “dynamic state” implementation of SSC. Nodes exchange commitments,
--- openings, and shares, and in the end arrive at a shared seed.
---
--- See https://eprint.iacr.org/2015/889.pdf (“A Provably Secure
--- Proof-of-Stake Blockchain Protocol”), section 4 for more details.
+-- | Some types related to GodTossing necessary for Ssc instance.
 
 module Pos.Ssc.GodTossing.Types
        (

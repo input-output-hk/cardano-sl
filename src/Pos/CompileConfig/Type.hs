@@ -21,6 +21,8 @@ data CompileConfig = CompileConfig
     , ccMaxLocalTxs             :: !Word
     , ccMpcRelayInterval        :: !Int
     , ccDefaultPeers            :: ![[Char]]
+    , ccSysTimeBroadcastSlots   :: !Int
+    , ccMpcSendInterval         :: !Word
     } deriving (Show, Lift)
 
 $(A.deriveFromJSON defaultOptions ''CompileConfig)

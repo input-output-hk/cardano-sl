@@ -21,7 +21,6 @@ import           Control.Lens                      (Lens', at, ix, preview, to, 
                                                     (%=), (.=), (^.))
 import           Crypto.Random                     (drgNewSeed, seedFromInteger, withDRG)
 import           Data.Default                      (def)
-import           Data.Hashable                     (Hashable)
 import qualified Data.HashMap.Strict               as HM
 import           Data.List                         (nub)
 import           Data.List.NonEmpty                (NonEmpty ((:|)), fromList)
@@ -69,8 +68,8 @@ import           Pos.Types                         (Address (getAddress), Block,
                                                     EpochIndex, SlotId (..), SlotLeaders,
                                                     Utxo, blockMpc, blockSlot, blockSlot,
                                                     gbHeader, txOutAddress)
-import           Pos.Util                          (magnify', readerToState, zoom',
-                                                    _neHead)
+import           Pos.Util                          (diffDoubleMap, magnify',
+                                                    readerToState, zoom', _neHead)
 
 -- acid-state requires this instance because of a bug
 instance SafeCopy SscGodTossing
@@ -453,10 +452,10 @@ mpcProcessBlock blk = do
                 dsGlobalShares      .= mempty
         -- Main blocks contain commitments, openings, shares, VSS certificates
         Right b -> do
-            let blockCommitments  = b ^. blockMpc . to _mdCommitments
-                blockOpenings     = b ^. blockMpc . to _mdOpenings
-                blockShares       = b ^. blockMpc . to _mdShares
-                blockCertificates = b ^. blockMpc . to _mdVssCertificates
+            let blockCommitments  = b ^. blockMpc . mdCommitments
+                blockOpenings     = b ^. blockMpc . mdOpenings
+                blockShares       = b ^. blockMpc . mdShares
+                blockCertificates = b ^. blockMpc . mdVssCertificates
             zoom' lastVer $ do
                 -- commitments
                 dsGlobalCommitments %= HM.union blockCommitments
@@ -492,30 +491,3 @@ getOurShares ourKey seed = do
                 -- TODO: do we need to verify shares with 'verifyEncShare'
                 -- here? Or do we need to verify them earlier (i.e. at the
                 -- stage of commitment verification)?
-
--- | Set FTS seed (and shares) to be used in this epoch. If the seed
--- wasn't cleared before (it's cleared whenever new epoch is processed
--- by mpcProcessNewSlot), it will fail.
-
--- | Remove elements in 'b' from 'a'
-diffDoubleMap
-    :: (Eq k1, Eq k2, Hashable k1, Hashable k2)
-    => HashMap k1 (HashMap k2 v)
-    -> HashMap k1 (HashMap k2 v)
-    -> HashMap k1 (HashMap k2 v)
-diffDoubleMap a b = HM.filter (not . null) $ HM.unionWith HM.difference a b
-
---traceMpcLastVer :: Update ()
---traceMpcLastVer = do
---    hasSecret <- isJust <$> use (lastVer . dsCurrentSecret)
---    localCommKeys <- keys' <$> use (lastVer . dsLocalCommitments)
---    globalCommKeys <- keys' <$> use (lastVer . dsGlobalCommitments)
---    localOpenKeys <- keys' <$> use (lastVer . dsLocalOpenings)
---    globalOpenKeys <- keys' <$> use (lastVer . dsGlobalOpenings)
---    localShareKeys <- keys' <$> use (lastVer . dsLocalShares)
---    globalShareKeys <- keys' <$> use (lastVer . dsGlobalShares)
---    identity $! traceM $ "[~~~~~~] dsState: hasSecret=" <> show hasSecret
---                          <> " comms=" <> show (localCommKeys, globalCommKeys)
---                          <> " opens=" <> show (localOpenKeys, globalOpenKeys)
---                          <> " shares=" <> show (localShareKeys, globalShareKeys)
---  where keys' = fmap pretty . HM.keys

@@ -9,7 +9,7 @@
 {-# LANGUAGE TupleSections          #-}
 {-# LANGUAGE TypeFamilies           #-}
 
--- | Dynamic State storage.
+-- | GodTossing storage.
 
 module Pos.Ssc.GodTossing.Storage
        ( GtStorage (..)
@@ -159,4 +159,3 @@ instance Default GtSecretStorage where
           _dsCurrentSecret = Nothing
         , _dsSecLastProcessedSlot = unflattenSlotId 0
         }
-

@@ -13,10 +13,10 @@ module Pos.Ssc.GodTossing.Server
        , announceVssCertificates
        ) where
 
-import           Control.TimeWarp.Logging          (logDebug)
 import           Data.List.NonEmpty                (NonEmpty)
 import           Formatting                        (sformat, (%))
 import           Serokell.Util.Text                (listJson)
+import           System.Wlog                       (logDebug)
 import           Universum
 
 import           Pos.Communication.Methods         (announceSsc)

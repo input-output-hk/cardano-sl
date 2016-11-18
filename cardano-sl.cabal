@@ -86,10 +86,8 @@ library
                         Pos.State.State
                         Pos.State.Storage
                         Pos.State.Storage.Block
-                        Pos.State.Storage.Stats
                         Pos.State.Storage.Types
                         Pos.State.Storage.Tx
-                        Pos.Statistics.Block
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
@@ -131,9 +129,11 @@ library
                       , focus
                       , formatting
                       , hashable
+                      , hslogger >= 1.2.10
                       , kademlia
                       , lens
                       , lifted-async
+                      , log-warper >= 0.1.0
                       , lrucache
                       , memory
                       , mmorph
@@ -188,6 +188,7 @@ executable cardano-node
                      , directory
                      , filepath
                      , formatting
+                     , log-warper >= 0.1.0
                      , optparse-simple
                      , parsec
                      , serokell-util
@@ -197,6 +198,7 @@ executable cardano-node
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
+                       -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
                         GeneralizedNewtypeDeriving
@@ -215,8 +217,11 @@ executable cardano-analyzer
                      , bytestring
                      , cardano-sl
                      , formatting
+                     , log-warper >= 0.1.0
                      , optparse-simple
                      , serokell-util
+                     , text
+                     , time
                      , time-warp
                      , universum >= 0.1.9
                      , unordered-containers
@@ -224,6 +229,7 @@ executable cardano-analyzer
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
+                       -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
                         GeneralizedNewtypeDeriving
@@ -239,6 +245,7 @@ executable cardano-wallet
                      , data-default
                      , cardano-sl
                      , formatting
+                     , log-warper >= 0.1.0
                      , optparse-applicative
                      , parsec
                      , serokell-util
@@ -248,6 +255,7 @@ executable cardano-wallet
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
+                       -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
                         GeneralizedNewtypeDeriving
@@ -273,6 +281,7 @@ executable cardano-stats-collector
                      , formatting
                      , filepath
                      , hashable
+                     , log-warper >= 0.1.0
                      , lifted-async
                      , monad-control
                      , optparse-simple >= 0.0.3
@@ -290,6 +299,7 @@ executable cardano-stats-collector
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
+                       -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
                         GeneralizedNewtypeDeriving
@@ -307,6 +317,7 @@ executable cardano-tx-generator
                      , data-default
                      , cardano-sl
                      , formatting
+                     , log-warper >= 0.1.0
                      , optparse-applicative
                      , parsec
                      , random
@@ -319,6 +330,7 @@ executable cardano-tx-generator
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
+                       -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
                         GeneralizedNewtypeDeriving
@@ -361,6 +373,7 @@ test-suite cardano-test
                      , formatting
                      , hspec
                      , lens
+                     , log-warper >= 0.1.0
                      , memory
                      , random
                      , safecopy
@@ -374,7 +387,8 @@ test-suite cardano-test
   ghc-options:         -threaded
                        -rtsopts
                        -Wall
-                       -fno-warn-orphans
+                       -- -fno-warn-orphans
+                       -with-rtsopts=-N
   default-extensions:   DeriveDataTypeable
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
@@ -397,6 +411,7 @@ benchmark cardano-bench-criterion
                      , criterion
                      , formatting
                      , hashtables
+                     , log-warper >= 0.1.0
                      , universum >= 0.1.9
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts

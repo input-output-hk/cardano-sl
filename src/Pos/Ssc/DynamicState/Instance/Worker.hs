@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TupleSections         #-}
 
 -- | Instance of SscWorkersClass.
 
@@ -22,11 +23,11 @@ import           Formatting                         (build, ords, sformat, shown
 import           Serokell.Util.Exceptions           ()
 import           Universum
 
+import           Pos.Communication.Methods          (announceSsc)
 import           Pos.Constants                      (k, mpcSendInterval,
                                                      sscTransmitterInterval)
-import           Pos.Crypto                         (PublicKey, SecretKey, Share,
-                                                     randomNumber, runSecureRandom,
-                                                     toPublic)
+import           Pos.Crypto                         (SecretKey, randomNumber,
+                                                     runSecureRandom, toPublic)
 import           Pos.Slotting                       (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.Class.Workers              (SscWorkersClass (..))
 import           Pos.Ssc.DynamicState.Base          (genCommitmentAndOpening,
@@ -36,9 +37,8 @@ import           Pos.Ssc.DynamicState.Base          (genCommitmentAndOpening,
 import           Pos.Ssc.DynamicState.Base          (Opening, SignedCommitment)
 import           Pos.Ssc.DynamicState.Instance.Type (SscDynamicState)
 import           Pos.Ssc.DynamicState.Server        ()
-import           Pos.Ssc.DynamicState.Server        (announceCommitment,
-                                                     announceCommitments, announceOpening,
-                                                     announceOpenings, announceShares,
+import           Pos.Ssc.DynamicState.Server        (announceCommitments,
+                                                     announceOpenings,
                                                      announceSharesMulti,
                                                      announceVssCertificates)
 import           Pos.Ssc.DynamicState.Types         (DSMessage (..), DSPayload (..),
@@ -136,19 +136,9 @@ onNewSlotCommitment SlotId {..} = do
         return $ isCommitmentIdx siSlot && not commitmentInBlockchain
     when shouldSendCommitment $ do
         mbComm <- fmap (view _2) <$> getToken
-        whenJust mbComm $ onSendCommitment siEpoch ourPk
-
-onSendCommitment
-    :: WorkMode SscDynamicState m
-    => EpochIndex -> PublicKey -> SignedCommitment -> m ()
-onSendCommitment epoch ourPk comm = do
-    () <$ processSscMessage (DSCommitments $ pure (ourPk, comm))
-    -- Note: it's not necessary to create a new thread here, because
-    -- in one invocation of onNewSlot we can't process more than one
-    -- type of message.
-    waitUntilSend "commitment" epoch 0
-    announceCommitment ourPk comm
-    logDebug "Sent commitment to neighbors"
+        whenJust mbComm $
+            onSendSomething siEpoch "commitment" 0 .
+            DSCommitments . pure . (ourPk,)
 
 -- Openings-related part of new slot processing
 onNewSlotOpening :: WorkMode SscDynamicState m => SlotId -> m ()
@@ -159,16 +149,8 @@ onNewSlotOpening SlotId {..} = do
         return $ isOpeningIdx siSlot && not openingInBlockchain
     when shouldSendOpening $ do
         mbOpen <- fmap (view _3) <$> getToken
-        whenJust mbOpen $ onSendOpening siEpoch ourPk
-
-onSendOpening
-    :: WorkMode SscDynamicState m
-    => EpochIndex -> PublicKey -> Opening -> m ()
-onSendOpening epoch ourPk open = do
-    () <$ processSscMessage (DSOpenings $ pure (ourPk, open))
-    waitUntilSend "opening" epoch 2
-    announceOpening ourPk open
-    logDebug "Sent opening to neighbors"
+        whenJust mbOpen $
+            onSendSomething siEpoch "opening" 2 . DSOpenings . pure . (ourPk,)
 
 -- Shares-related part of new slot processing
 onNewSlotShares :: WorkMode SscDynamicState m => SlotId -> m ()
@@ -183,16 +165,22 @@ onNewSlotShares SlotId {..} = do
     when shouldSendShares $ do
         ourVss <- ncVssKeyPair <$> getNodeContext
         shares <- getOurShares ourVss
-        unless (null shares) $ onSendShares siEpoch ourPk shares
+        let msg = DSSharesMulti $ pure (ourPk, shares)
+        unless (null shares) $
+            onSendSomething siEpoch "shares" 4 msg
 
-onSendShares
+onSendSomething
     :: WorkMode SscDynamicState m
-    => EpochIndex -> PublicKey -> HashMap PublicKey Share -> m ()
-onSendShares epoch ourPk shares = do
-    () <$ processSscMessage (DSSharesMulti $ pure (ourPk, shares))
-    waitUntilSend "shares" epoch 4
-    announceShares ourPk shares
-    logDebug "Sent shares to neighbors"
+    => EpochIndex -> Text -> LocalSlotIndex -> DSMessage -> m ()
+onSendSomething epoch msgName kMultiplier msg = do
+    () <$ processSscMessage msg
+    -- Note: it's not necessary to create a new thread here, because
+    -- in one invocation of onNewSlot we can't process more than one
+    -- type of message.
+    waitUntilSend msgName epoch kMultiplier
+    logDebug $ "Announcing our " `mappend` msgName
+    announceSsc msg
+    logDebug $ sformat ("Sent our "%stext%" to neighbors") msgName
 
 sscTransmitter :: WorkMode SscDynamicState m => m ()
 sscTransmitter =

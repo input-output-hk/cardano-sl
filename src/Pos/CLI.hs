@@ -36,7 +36,7 @@ dhtNodeParser :: P.Parser DHTNode
 dhtNodeParser = DHTNode <$> addrParser <*> (P.char '/' *> dhtKeyParser)
 
 sscAlgoParser :: P.Parser SscAlgo
-sscAlgoParser = DynamicStateAlgo <$ (P.string "DynamicState") <|>
+sscAlgoParser = GodTossingAlgo <$ (P.string "GodTossing") <|>
                 NistBeaconAlgo   <$ (P.string "NistBeacon")
 
 -- | Default logger config. Will be used if `--log-config` argument is not passed.

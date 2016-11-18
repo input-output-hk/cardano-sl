@@ -6,13 +6,13 @@ import           Universum
 
 import           Pos.Crypto.Arbitrary.Unsafe ()
 import           Pos.Types.Types             (Address (..), Coin (..), EpochIndex (..),
-                                              FtsSeed (..), LocalSlotIndex (..),
+                                              LocalSlotIndex (..), SharedSeed (..),
                                               SlotId (..), TxOut (..))
 import           Pos.Util.Arbitrary          (ArbitraryUnsafe (..))
 
 deriving instance ArbitraryUnsafe Coin
 deriving instance ArbitraryUnsafe Address
-deriving instance ArbitraryUnsafe FtsSeed
+deriving instance ArbitraryUnsafe SharedSeed
 deriving instance ArbitraryUnsafe EpochIndex
 deriving instance ArbitraryUnsafe LocalSlotIndex
 

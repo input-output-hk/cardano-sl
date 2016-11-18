@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Pos.Ssc.DynamicState.Server
+module Pos.Ssc.GodTossing.Server
        (
          announceCommitment
        , announceCommitments
@@ -13,27 +13,27 @@ module Pos.Ssc.DynamicState.Server
        , announceVssCertificates
        ) where
 
-import           Data.List.NonEmpty                  (NonEmpty)
-import           Formatting                          (sformat, (%))
-import           Serokell.Util.Text                  (listJson)
-import           System.Wlog                         (logDebug)
+import           Data.List.NonEmpty                (NonEmpty)
+import           Formatting                        (sformat, (%))
+import           Serokell.Util.Text                (listJson)
+import           System.Wlog                       (logDebug)
 import           Universum
 
-import           Pos.Communication.Methods           (announceSsc)
-import           Pos.Crypto                          (PublicKey, Share)
-import           Pos.Ssc.DynamicState.Base           (Opening, SignedCommitment,
-                                                      VssCertificate)
-import           Pos.Ssc.DynamicState.Instance.Type  (SscDynamicState)
-import           Pos.Ssc.DynamicState.Instance.Types ()
-import           Pos.Ssc.DynamicState.Types          (DSMessage (..))
-import           Pos.WorkMode                        (WorkMode)
+import           Pos.Communication.Methods         (announceSsc)
+import           Pos.Crypto                        (PublicKey, Share)
+import           Pos.Ssc.GodTossing.Base           (Opening, SignedCommitment,
+                                                    VssCertificate)
+import           Pos.Ssc.GodTossing.Instance.Type  (SscGodTossing)
+import           Pos.Ssc.GodTossing.Instance.Types ()
+import           Pos.Ssc.GodTossing.Types          (GtMessage (..))
+import           Pos.WorkMode                      (WorkMode)
 
 -- TODO: add statlogging for everything, see e.g. announceTxs
-announceCommitment :: WorkMode SscDynamicState m => PublicKey -> SignedCommitment -> m ()
+announceCommitment :: WorkMode SscGodTossing m => PublicKey -> SignedCommitment -> m ()
 announceCommitment pk comm = announceCommitments $ pure (pk, comm)
 
 announceCommitments
-    :: WorkMode SscDynamicState m
+    :: WorkMode SscGodTossing m
     => NonEmpty (PublicKey, SignedCommitment) -> m ()
 announceCommitments comms = do
     -- TODO: should we show actual commitments?
@@ -41,21 +41,21 @@ announceCommitments comms = do
         sformat ("Announcing commitments from: "%listJson) $ map fst comms
     announceSsc $ DSCommitments comms
 
-announceOpening :: WorkMode SscDynamicState m => PublicKey -> Opening -> m ()
+announceOpening :: WorkMode SscGodTossing m => PublicKey -> Opening -> m ()
 announceOpening pk open = announceOpenings $ pure (pk, open)
 
-announceOpenings :: WorkMode SscDynamicState m => NonEmpty (PublicKey, Opening) -> m ()
+announceOpenings :: WorkMode SscGodTossing m => NonEmpty (PublicKey, Opening) -> m ()
 announceOpenings openings = do
     -- TODO: should we show actual openings?
     logDebug $
         sformat ("Announcing openings from: "%listJson) $ map fst openings
     announceSsc $ DSOpenings openings
 
-announceShares :: WorkMode SscDynamicState m => PublicKey -> HashMap PublicKey Share -> m ()
+announceShares :: WorkMode SscGodTossing m => PublicKey -> HashMap PublicKey Share -> m ()
 announceShares pk shares = announceSharesMulti $ pure (pk, shares)
 
 announceSharesMulti
-    :: WorkMode SscDynamicState m
+    :: WorkMode SscGodTossing m
     => NonEmpty (PublicKey, HashMap PublicKey Share) -> m ()
 announceSharesMulti shares = do
     -- TODO: should we show actual shares?
@@ -64,12 +64,12 @@ announceSharesMulti shares = do
     announceSsc $ DSSharesMulti shares
 
 announceVssCertificate
-    :: WorkMode SscDynamicState m
+    :: WorkMode SscGodTossing m
     => PublicKey -> VssCertificate -> m ()
 announceVssCertificate pk cert = announceVssCertificates $ pure (pk, cert)
 
 announceVssCertificates
-    :: WorkMode SscDynamicState m
+    :: WorkMode SscGodTossing m
     => NonEmpty (PublicKey, VssCertificate) -> m ()
 announceVssCertificates certs = do
     -- TODO: should we show actual certificates?

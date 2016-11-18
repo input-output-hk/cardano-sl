@@ -25,8 +25,7 @@ import           Pos.Genesis            (genesisAddresses, genesisSecretKeys)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
                                          NodeParams (..), bracketDHTInstance, runRealMode,
                                          submitTxRaw)
-import           Pos.Ssc.DynamicState   (genesisVssKeyPairs)
-import           Pos.Ssc.DynamicState   (SscDynamicState)
+import           Pos.Ssc.GodTossing     (SscGodTossing, genesisVssKeyPairs)
 import           Pos.Statistics         (getNoStatsT)
 import           Pos.Types              (Tx (..), TxIn (..), TxOut (..))
 import           Pos.Util.JsonLog       ()
@@ -145,7 +144,7 @@ main = do
     leftTxs <- newIORef $ zip [0..] $ txChain i
 
     bracketDHTInstance baseParams $ \inst -> do
-        runRealMode @SscDynamicState inst params [] $ getNoStatsT $ do
+        runRealMode @SscGodTossing inst params [] $ getNoStatsT $ do
             logInfo "TX GEN RUSHING"
             peers <- discoverPeers DHTFull
 

@@ -5,10 +5,10 @@ module Test.Pos.Types.MpcSpec
        ) where
 
 import           Pos.Crypto            (SecretKey, sign, toPublic)
-import           Pos.Ssc.DynamicState  (Commitment, CommitmentOpening (..),
+import           Pos.Ssc.GodTossing  (Commitment, CommitmentOpening (..),
                                         verifyCommitment, verifyCommitmentSignature,
                                         verifyOpening)
-import           Pos.Types             (EpochIndex, FtsSeed (..))
+import           Pos.Types             (EpochIndex, SharedSeed (..))
 
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
@@ -34,7 +34,7 @@ spec = describe "Types.Mpc" $ do
         "successfully verifies that an opening corresponding to the given commitment \
         \ does indeed belong to it"
     description_xorFormsAbelianGroup =
-        "under the xor operation, the set of ftsSeedLength-byte FtsSeeds is an \
+        "under the xor operation, the set of ftsSeedLength-byte SharedSeeds is an \
         \ abelian group"
 
 verifiesOkComm :: CommitmentOpening -> Bool
@@ -51,7 +51,7 @@ verifiesOkOpening :: CommitmentOpening -> Bool
 verifiesOkOpening CommitmentOpening{..} =
     verifyOpening coCommitment coOpening
 
-xorFormsAbelianGroup :: FtsSeed -> FtsSeed -> FtsSeed -> Bool
+xorFormsAbelianGroup :: SharedSeed -> SharedSeed -> SharedSeed -> Bool
 xorFormsAbelianGroup fts1 fts2 fts3 =
     let isAssociative =
             let assoc1 = (fts1 <> fts2) <> fts3

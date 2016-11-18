@@ -4,56 +4,53 @@
 
 -- | Instance of SscWorkersClass.
 
-module Pos.Ssc.DynamicState.Instance.Worker
+module Pos.Ssc.GodTossing.Instance.Worker
        ( -- * Instances
-         -- ** instance SscWorkersClass SscDynamicState
+         -- ** instance SscWorkersClass SscGodTossing
        ) where
 
-import           Control.Lens                       (view, _2, _3)
-import           Control.TimeWarp.Timed             (Microsecond, Millisecond,
-                                                     currentTime, for, repeatForever,
-                                                     wait)
-import qualified Data.HashMap.Strict                as HM (toList)
-import           Data.List.NonEmpty                 (nonEmpty)
-import           Data.Tagged                        (Tagged (..))
-import           Data.Time.Units                    (convertUnit)
-import           Formatting                         (build, ords, sformat, shown, stext,
-                                                     (%))
-import           Serokell.Util.Exceptions           ()
-import           System.Wlog                        (logDebug, logWarning)
+import           Control.Lens                     (view, _2, _3)
+import           Control.TimeWarp.Timed           (Microsecond, Millisecond, currentTime,
+                                                   for, repeatForever, wait)
+import qualified Data.HashMap.Strict              as HM (toList)
+import           Data.List.NonEmpty               (nonEmpty)
+import           Data.Tagged                      (Tagged (..))
+import           Data.Time.Units                  (convertUnit)
+import           Formatting                       (build, ords, sformat, shown, stext,
+                                                   (%))
+import           Serokell.Util.Exceptions         ()
+import           System.Wlog                      (logDebug, logWarning)
 import           Universum
 
-import           Pos.Communication.Methods          (announceSsc)
-import           Pos.Constants                      (k, mpcSendInterval,
-                                                     sscTransmitterInterval)
-import           Pos.Crypto                         (SecretKey, randomNumber,
-                                                     runSecureRandom, toPublic)
-import           Pos.Slotting                       (getCurrentSlot, getSlotStart)
-import           Pos.Ssc.Class.Workers              (SscWorkersClass (..))
-import           Pos.Ssc.DynamicState.Base          (genCommitmentAndOpening,
-                                                     genCommitmentAndOpening,
-                                                     isCommitmentIdx, isOpeningIdx,
-                                                     isSharesIdx, mkSignedCommitment)
-import           Pos.Ssc.DynamicState.Base          (Opening, SignedCommitment)
-import           Pos.Ssc.DynamicState.Instance.Type (SscDynamicState)
-import           Pos.Ssc.DynamicState.Server        ()
-import           Pos.Ssc.DynamicState.Server        (announceCommitments,
-                                                     announceOpenings,
-                                                     announceSharesMulti,
-                                                     announceVssCertificates)
-import           Pos.Ssc.DynamicState.Types         (DSMessage (..), DSPayload (..),
-                                                     hasCommitment, hasOpening, hasShares)
-import           Pos.State                          (getGlobalMpcData, getLocalSscPayload,
-                                                     getOurShares, getParticipants,
-                                                     getThreshold, getToken,
-                                                     processSscMessage, setToken)
-import           Pos.Types                          (EpochIndex, LocalSlotIndex,
-                                                     SlotId (..), Timestamp (..))
-import           Pos.WorkMode                       (WorkMode, getNodeContext,
-                                                     ncPublicKey, ncSecretKey,
-                                                     ncVssKeyPair)
+import           Pos.Communication.Methods        (announceSsc)
+import           Pos.Constants                    (k, mpcSendInterval,
+                                                   sscTransmitterInterval)
+import           Pos.Crypto                       (SecretKey, randomNumber,
+                                                   runSecureRandom, toPublic)
+import           Pos.Slotting                     (getCurrentSlot, getSlotStart)
+import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
+import           Pos.Ssc.GodTossing.Base          (genCommitmentAndOpening,
+                                                   genCommitmentAndOpening,
+                                                   isCommitmentIdx, isOpeningIdx,
+                                                   isSharesIdx, mkSignedCommitment)
+import           Pos.Ssc.GodTossing.Base          (Opening, SignedCommitment)
+import           Pos.Ssc.GodTossing.Instance.Type (SscGodTossing)
+import           Pos.Ssc.GodTossing.Server        ()
+import           Pos.Ssc.GodTossing.Server        (announceCommitments, announceOpenings,
+                                                   announceSharesMulti,
+                                                   announceVssCertificates)
+import           Pos.Ssc.GodTossing.Types         (GtMessage (..), GtPayload (..),
+                                                   hasCommitment, hasOpening, hasShares)
+import           Pos.State                        (getGlobalMpcData, getLocalSscPayload,
+                                                   getOurShares, getParticipants,
+                                                   getThreshold, getToken,
+                                                   processSscMessage, setToken)
+import           Pos.Types                        (EpochIndex, LocalSlotIndex,
+                                                   SlotId (..), Timestamp (..))
+import           Pos.WorkMode                     (WorkMode, getNodeContext, ncPublicKey,
+                                                   ncSecretKey, ncVssKeyPair)
 
-instance SscWorkersClass SscDynamicState where
+instance SscWorkersClass SscGodTossing where
     sscOnNewSlot = Tagged onNewSlot
     sscWorkers = Tagged [sscTransmitter]
 
@@ -64,7 +61,7 @@ instance SscWorkersClass SscDynamicState where
 -- won't set the secret if there's one already).
 -- Nothing is returned if node is not ready.
 generateAndSetNewSecret
-    :: WorkMode SscDynamicState m
+    :: WorkMode SscGodTossing m
     => SecretKey
     -> EpochIndex                         -- ^ Current epoch
     -> m (Maybe (SignedCommitment, Opening))
@@ -81,14 +78,14 @@ generateAndSetNewSecret sk epoch = do
                 genCommitmentAndOpening th ps
             Just (comm, op) <$ setToken (toPublic sk, comm, op)
 
-onNewSlot :: WorkMode SscDynamicState m => SlotId -> m ()
+onNewSlot :: WorkMode SscGodTossing m => SlotId -> m ()
 onNewSlot slotId = do
     onNewSlotCommitment slotId
     onNewSlotOpening slotId
     onNewSlotShares slotId
 
 randomTimeInInterval
-    :: WorkMode SscDynamicState m
+    :: WorkMode SscGodTossing m
     => Microsecond -> m Microsecond
 randomTimeInInterval interval =
     -- Type applications here ensure that the same time units are used.
@@ -98,7 +95,7 @@ randomTimeInInterval interval =
     n = toInteger @Microsecond interval
 
 waitUntilSend
-    :: WorkMode SscDynamicState m
+    :: WorkMode SscGodTossing m
     => Text -> EpochIndex -> LocalSlotIndex -> m ()
 waitUntilSend msgName epoch kMultiplier = do
     Timestamp beginning <-
@@ -117,7 +114,7 @@ waitUntilSend msgName epoch kMultiplier = do
         wait $ for timeToWait
 
 -- Commitments-related part of new slot processing
-onNewSlotCommitment :: WorkMode SscDynamicState m => SlotId -> m ()
+onNewSlotCommitment :: WorkMode SscGodTossing m => SlotId -> m ()
 onNewSlotCommitment SlotId {..} = do
     ourPk <- ncPublicKey <$> getNodeContext
     ourSk <- ncSecretKey <$> getNodeContext
@@ -141,7 +138,7 @@ onNewSlotCommitment SlotId {..} = do
             DSCommitments . pure . (ourPk,)
 
 -- Openings-related part of new slot processing
-onNewSlotOpening :: WorkMode SscDynamicState m => SlotId -> m ()
+onNewSlotOpening :: WorkMode SscGodTossing m => SlotId -> m ()
 onNewSlotOpening SlotId {..} = do
     ourPk <- ncPublicKey <$> getNodeContext
     shouldSendOpening <- do
@@ -153,7 +150,7 @@ onNewSlotOpening SlotId {..} = do
             onSendSomething siEpoch "opening" 2 . DSOpenings . pure . (ourPk,)
 
 -- Shares-related part of new slot processing
-onNewSlotShares :: WorkMode SscDynamicState m => SlotId -> m ()
+onNewSlotShares :: WorkMode SscGodTossing m => SlotId -> m ()
 onNewSlotShares SlotId {..} = do
     ourPk <- ncPublicKey <$> getNodeContext
     -- Send decrypted shares that others have sent us
@@ -170,8 +167,8 @@ onNewSlotShares SlotId {..} = do
             onSendSomething siEpoch "shares" 4 msg
 
 onSendSomething
-    :: WorkMode SscDynamicState m
-    => EpochIndex -> Text -> LocalSlotIndex -> DSMessage -> m ()
+    :: WorkMode SscGodTossing m
+    => EpochIndex -> Text -> LocalSlotIndex -> GtMessage -> m ()
 onSendSomething epoch msgName kMultiplier msg = do
     () <$ processSscMessage msg
     -- Note: it's not necessary to create a new thread here, because
@@ -182,10 +179,10 @@ onSendSomething epoch msgName kMultiplier msg = do
     announceSsc msg
     logDebug $ sformat ("Sent our "%stext%" to neighbors") msgName
 
-sscTransmitter :: WorkMode SscDynamicState m => m ()
+sscTransmitter :: WorkMode SscGodTossing m => m ()
 sscTransmitter =
     repeatForever sscTransmitterInterval onError $
-    do DSPayload {..} <- getLocalSscPayload =<< getCurrentSlot
+    do GtPayload {..} <- getLocalSscPayload =<< getCurrentSlot
        whenJust (nonEmpty $ HM.toList _mdCommitments) announceCommitments
        whenJust (nonEmpty $ HM.toList _mdOpenings) announceOpenings
        whenJust (nonEmpty $ HM.toList _mdShares) announceSharesMulti

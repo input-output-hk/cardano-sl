@@ -68,7 +68,7 @@ import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..
                                               stopDHTInstance)
 import           Pos.Ssc.Class.Listeners     (SscListenersClass)
 import           Pos.Ssc.Class.Storage       (SscStorageMode)
-import           Pos.Ssc.Class.Types         (SscStorage, SscTypes)
+import           Pos.Ssc.Class.Types         (Ssc, SscStorage)
 import           Pos.Ssc.Class.Workers       (SscWorkersClass)
 import           Pos.State                   (NodeState, openMemState, openState)
 import           Pos.State.Storage           (storageFromUtxo)
@@ -84,7 +84,7 @@ import           Pos.WorkMode                (ContextHolder (..), NodeContext (.
                                               runContextHolder, runDBHolder)
 
 type RealModeSscConstraint ssc =
-               (SscTypes ssc, Default (SscStorage ssc),
+               (Ssc ssc, Default (SscStorage ssc),
                 SscStorageMode ssc,
                 SscListenersClass ssc,
                 SscWorkersClass ssc)

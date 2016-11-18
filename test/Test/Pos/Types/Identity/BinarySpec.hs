@@ -24,5 +24,5 @@ spec = describe "Types" $ do
         prop "TxIn" (binaryEncodeDecode @T.TxIn)
         prop "TxOut" (binaryEncodeDecode @T.TxOut)
         prop "Tx" (binaryEncodeDecode @T.Tx)
-        prop "FtsSeed" (binaryEncodeDecode @T.FtsSeed)
+        prop "SharedSeed" (binaryEncodeDecode @T.SharedSeed)
         prop "Chaindifficulty" (binaryEncodeDecode @T.ChainDifficulty)

@@ -20,7 +20,7 @@ import           Universum
 
 import           Pos.Communication.Types (SendBlockHeader (..), SendTx (..), SendTxs (..))
 import           Pos.DHT                 (sendToNeighbors, sendToNode)
-import           Pos.Ssc.Class.Types     (SscTypes (SscMessage))
+import           Pos.Ssc.Class.Types     (Ssc (SscMessage))
 import           Pos.Types               (MainBlockHeader, Tx)
 import           Pos.Util                (logWarningWaitLinear, messageName')
 import           Pos.WorkMode            (WorkMode)

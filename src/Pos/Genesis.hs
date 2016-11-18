@@ -27,8 +27,8 @@ import           Pos.Constants        (genesisN)
 import           Pos.Crypto           (PublicKey, SecretKey, deterministicKeyGen,
                                        unsafeHash)
 import           Pos.FollowTheSatoshi (followTheSatoshi)
-import           Pos.Types            (Address (..), Coin, FtsSeed (FtsSeed), SlotLeaders,
-                                       TxOut (..), Utxo)
+import           Pos.Types            (Address (..), Coin, SharedSeed (SharedSeed),
+                                       SlotLeaders, TxOut (..), Utxo)
 
 
 ----------------------------------------------------------------------------
@@ -116,8 +116,8 @@ genesisUtxo sd =
 -- Slot leaders
 ----------------------------------------------------------------------------
 
-genesisSeed :: FtsSeed
-genesisSeed = FtsSeed "vasa opasa skovoroda Ggurda boroda provoda"
+genesisSeed :: SharedSeed
+genesisSeed = SharedSeed "vasa opasa skovoroda Ggurda boroda provoda"
 
 genesisLeaders :: Utxo -> SlotLeaders
 genesisLeaders = fmap getAddress . followTheSatoshi genesisSeed

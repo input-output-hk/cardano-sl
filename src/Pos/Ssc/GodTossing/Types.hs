@@ -2,24 +2,20 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
 
--- | A “dynamic state” implementation of SSC. Nodes exchange commitments,
--- openings, and shares, and in the end arrive at a shared seed.
---
--- See https://eprint.iacr.org/2015/889.pdf (“A Provably Secure
--- Proof-of-Stake Blockchain Protocol”), section 4 for more details.
+-- | Some types related to GodTossing necessary for Ssc instance.
 
-module Pos.Ssc.DynamicState.Types
+module Pos.Ssc.GodTossing.Types
        (
          -- * Instance types
-         DSPayload(..)
-       , DSProof(..)
-       , DSMessage(..)
-       , filterDSPayload
-       , mkDSProof
-       , verifyDSPayload
+         GtPayload(..)
+       , GtProof(..)
+       , GtMessage(..)
+       , filterGtPayload
+       , mkGtProof
+       , verifyGtPayload
 
        -- * Lenses
-       -- ** DSPayload
+       -- ** GtPayload
        , mdCommitments
        , mdOpenings
        , mdShares
@@ -31,36 +27,35 @@ module Pos.Ssc.DynamicState.Types
        , hasShares
        ) where
 
-import           Control.Lens              (makeLenses, (^.))
-import           Data.Binary               (Binary)
-import qualified Data.HashMap.Strict       as HM
-import           Data.Ix                   (inRange)
-import           Data.List.NonEmpty        (NonEmpty)
-import           Data.MessagePack          (MessagePack)
-import           Data.SafeCopy             (base, deriveSafeCopySimple)
-import           Data.Text.Buildable       (Buildable (..))
-import           Formatting                (bprint, (%))
-import           Serokell.Util             (VerificationRes, isVerSuccess, listJson,
-                                            verifyGeneric)
+import           Control.Lens            (makeLenses, (^.))
+import           Data.Binary             (Binary)
+import qualified Data.HashMap.Strict     as HM
+import           Data.Ix                 (inRange)
+import           Data.List.NonEmpty      (NonEmpty)
+import           Data.MessagePack        (MessagePack)
+import           Data.SafeCopy           (base, deriveSafeCopySimple)
+import           Data.Text.Buildable     (Buildable (..))
+import           Formatting              (bprint, (%))
+import           Serokell.Util           (VerificationRes, isVerSuccess, listJson,
+                                          verifyGeneric)
 import           Universum
 
-import           Pos.Constants             (k)
-import           Pos.Crypto                (Hash, PublicKey, Share, hash)
-import           Pos.Ssc.Class.Types       (SscTypes (SscPayload))
-import           Pos.Ssc.DynamicState.Base (CommitmentsMap, Opening, OpeningsMap,
-                                            SharesMap, SignedCommitment, VssCertificate,
-                                            VssCertificatesMap, checkCert, isCommitmentId,
-                                            isOpeningId, isSharesId,
-                                            verifySignedCommitment)
-import           Pos.Types                 (MainBlockHeader, SlotId (..), headerSlot)
+import           Pos.Constants           (k)
+import           Pos.Crypto              (Hash, PublicKey, Share, hash)
+import           Pos.Ssc.Class.Types     (Ssc (SscPayload))
+import           Pos.Ssc.GodTossing.Base (CommitmentsMap, Opening, OpeningsMap, SharesMap,
+                                          SignedCommitment, VssCertificate,
+                                          VssCertificatesMap, checkCert, isCommitmentId,
+                                          isOpeningId, isSharesId, verifySignedCommitment)
+import           Pos.Types               (MainBlockHeader, SlotId (..), headerSlot)
 
-import           Control.TimeWarp.Rpc      (Message (..))
+import           Control.TimeWarp.Rpc    (Message (..))
 
 ----------------------------------------------------------------------------
 -- SscMessage
 ----------------------------------------------------------------------------
 
-data DSMessage
+data GtMessage
     = DSCommitments     !(NonEmpty (PublicKey, SignedCommitment))
     | DSOpenings        !(NonEmpty (PublicKey, Opening))
     | -- First public key (external) belongs to node who decrypted
@@ -72,19 +67,19 @@ data DSMessage
     | DSVssCertificates !(NonEmpty (PublicKey, VssCertificate))
     deriving (Show, Generic)
 
-instance Binary DSMessage
+instance Binary GtMessage
 
-instance Message DSMessage where
-    messageName _ = "DSMessage"
+instance Message GtMessage where
+    messageName _ = "GtMessage"
 
-deriveSafeCopySimple 0 'base ''DSMessage
+deriveSafeCopySimple 0 'base ''GtMessage
 
 ----------------------------------------------------------------------------
 -- SscPayload
 ----------------------------------------------------------------------------
 
 -- | MPC-related content of main body.
-data DSPayload = DSPayload
+data GtPayload = GtPayload
     { -- | Commitments are added during the first phase of epoch.
       _mdCommitments     :: !CommitmentsMap
       -- | Openings are added during the second phase of epoch.
@@ -96,14 +91,14 @@ data DSPayload = DSPayload
     , _mdVssCertificates :: !VssCertificatesMap
     } deriving (Show, Generic)
 
-deriveSafeCopySimple 0 'base ''DSPayload
-makeLenses ''DSPayload
+deriveSafeCopySimple 0 'base ''GtPayload
+makeLenses ''GtPayload
 
-instance Binary DSPayload
-instance MessagePack DSPayload
+instance Binary GtPayload
+instance MessagePack GtPayload
 
-instance Buildable DSPayload where
-    build DSPayload {..} =
+instance Buildable GtPayload where
+    build GtPayload {..} =
         mconcat
             [ formatCommitments
             , formatOpenings
@@ -145,10 +140,10 @@ For each DS datum we check:
 
 We also do some general sanity checks.
 -}
-verifyDSPayload
-    :: (SscPayload ssc ~ DSPayload)
+verifyGtPayload
+    :: (SscPayload ssc ~ GtPayload)
     => MainBlockHeader ssc -> SscPayload ssc -> VerificationRes
-verifyDSPayload header DSPayload {..} =
+verifyGtPayload header GtPayload {..} =
     verifyGeneric allChecks
   where
     slotId       = header ^. headerSlot
@@ -235,9 +230,9 @@ verifyDSPayload header DSPayload {..} =
 
 
 -- | Remove messages irrelevant to given slot id from payload.
-filterDSPayload :: SlotId -> DSPayload -> DSPayload
-filterDSPayload slotId DSPayload {..} =
-    DSPayload
+filterGtPayload :: SlotId -> GtPayload -> GtPayload
+filterGtPayload slotId GtPayload {..} =
+    GtPayload
     { _mdCommitments = filteredCommitments
     , _mdOpenings = filteredOpenings
     , _mdShares = filteredShares
@@ -261,21 +256,21 @@ filterDSPayload slotId DSPayload {..} =
 -- | Proof of MpcData.
 -- We can use ADS for commitments, opennings, shares as well,
 -- if we find it necessary.
-data DSProof = DSProof
+data GtProof = GtProof
     { mpCommitmentsHash     :: !(Hash CommitmentsMap)
     , mpOpeningsHash        :: !(Hash OpeningsMap)
     , mpSharesHash          :: !(Hash SharesMap)
     , mpVssCertificatesHash :: !(Hash VssCertificatesMap)
     } deriving (Show, Eq, Generic)
 
-deriveSafeCopySimple 0 'base ''DSProof
+deriveSafeCopySimple 0 'base ''GtProof
 
-instance Binary DSProof
-instance MessagePack DSProof
+instance Binary GtProof
+instance MessagePack GtProof
 
-mkDSProof :: DSPayload -> DSProof
-mkDSProof DSPayload {..} =
-    DSProof
+mkGtProof :: GtPayload -> GtProof
+mkGtProof GtPayload {..} =
+    GtProof
     { mpCommitmentsHash = hash _mdCommitments
     , mpOpeningsHash = hash _mdOpenings
     , mpSharesHash = hash _mdShares
@@ -286,11 +281,11 @@ mkDSProof DSPayload {..} =
 -- Utility functions
 ----------------------------------------------------------------------------
 
-hasCommitment :: PublicKey -> DSPayload -> Bool
+hasCommitment :: PublicKey -> GtPayload -> Bool
 hasCommitment pk md = HM.member pk (_mdCommitments md)
 
-hasOpening :: PublicKey -> DSPayload -> Bool
+hasOpening :: PublicKey -> GtPayload -> Bool
 hasOpening pk md = HM.member pk (_mdOpenings md)
 
-hasShares :: PublicKey -> DSPayload -> Bool
+hasShares :: PublicKey -> GtPayload -> Bool
 hasShares pk md = HM.member pk (_mdShares md)

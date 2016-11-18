@@ -1,22 +1,22 @@
--- | Genesis values related to Dynamic State SSC.
+-- | Genesis values related to GodTossing SSC.
 
-module Pos.Ssc.DynamicState.Genesis
+module Pos.Ssc.GodTossing.Genesis
        ( genesisVssKeyPairs
        , genesisVssPublicKeys
        , genesisCertificates
        ) where
 
-import qualified Data.HashMap.Strict       as HM
-import qualified Data.Text                 as T
-import           Formatting                (int, sformat, (%))
+import qualified Data.HashMap.Strict     as HM
+import qualified Data.Text               as T
+import           Formatting              (int, sformat, (%))
 import           Universum
 
-import           Pos.Constants             (genesisN)
-import           Pos.Crypto                (VssKeyPair, VssPublicKey,
-                                            deterministicVssKeyGen, mkSigned,
-                                            toVssPublicKey)
-import           Pos.Genesis               (genesisKeyPairs)
-import           Pos.Ssc.DynamicState.Base (VssCertificatesMap)
+import           Pos.Constants           (genesisN)
+import           Pos.Crypto              (VssKeyPair, VssPublicKey,
+                                          deterministicVssKeyGen, mkSigned,
+                                          toVssPublicKey)
+import           Pos.Genesis             (genesisKeyPairs)
+import           Pos.Ssc.GodTossing.Base (VssCertificatesMap)
 
 genesisVssKeyPairs :: [VssKeyPair]
 genesisVssKeyPairs = map gen [0 .. genesisN - 1]

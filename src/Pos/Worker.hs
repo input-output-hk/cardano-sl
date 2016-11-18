@@ -6,25 +6,25 @@ module Pos.Worker
        , statsWorkers
        ) where
 
-import           Control.TimeWarp.Logging (logDebug, logInfo, logNotice)
-import           Control.TimeWarp.Timed   (fork_, ms)
-import           Data.Tagged              (untag)
-import           Formatting               (build, sformat, (%))
+import           Control.TimeWarp.Timed (fork_, ms)
+import           Data.Tagged            (untag)
+import           Formatting             (build, sformat, (%))
+import           System.Wlog            (logDebug, logInfo, logNotice)
 import           Universum
 
-import           Pos.Communication        (SysStartResponse (..))
-import           Pos.Constants            (slotDuration, sysTimeBroadcastSlots)
-import           Pos.DHT                  (sendToNetwork)
-import           Pos.Slotting             (onNewSlot)
-import           Pos.Ssc.Class.Workers    (SscWorkersClass, sscOnNewSlot, sscWorkers)
-import           Pos.State                (processNewSlot)
-import           Pos.Types                (SlotId, flattenSlotId, slotIdF)
-import           Pos.Util                 (waitRandomInterval)
-import           Pos.Util.JsonLog         (jlCreatedBlock, jlLog)
-import           Pos.Worker.Block         (blkOnNewSlot, blkWorkers)
-import           Pos.Worker.Stats         (statsWorkers)
-import           Pos.Worker.Tx            (txWorkers)
-import           Pos.WorkMode             (NodeContext (..), WorkMode, getNodeContext)
+import           Pos.Communication      (SysStartResponse (..))
+import           Pos.Constants          (slotDuration, sysTimeBroadcastSlots)
+import           Pos.DHT                (sendToNetwork)
+import           Pos.Slotting           (onNewSlot)
+import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscOnNewSlot, sscWorkers)
+import           Pos.State              (processNewSlot)
+import           Pos.Types              (SlotId, flattenSlotId, slotIdF)
+import           Pos.Util               (waitRandomInterval)
+import           Pos.Util.JsonLog       (jlCreatedBlock, jlLog)
+import           Pos.Worker.Block       (blkOnNewSlot, blkWorkers)
+import           Pos.Worker.Stats       (statsWorkers)
+import           Pos.Worker.Tx          (txWorkers)
+import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeContext)
 
 -- | Run all necessary workers in separate threads. This call doesn't
 -- block.

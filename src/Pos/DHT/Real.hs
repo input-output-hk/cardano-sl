@@ -25,8 +25,6 @@ import           Control.Monad.Catch             (Handler (..), MonadCatch, Mona
 import           Control.Monad.Morph             (hoist)
 import           Control.Monad.Trans.Class       (MonadTrans)
 import           Control.Monad.Trans.Control     (MonadBaseControl)
-import           Control.TimeWarp.Logging        (WithNamedLogger, logDebug, logError,
-                                                  logInfo, logWarning, usingLoggerName)
 import           Control.TimeWarp.Rpc            (BinaryP (..), Binding (..),
                                                   ListenerH (..), MonadDialog,
                                                   MonadResponse (..), MonadTransfer (..),
@@ -56,6 +54,8 @@ import           Pos.DHT                         (DHTData, DHTException (..), DH
                                                   joinNetworkNoThrow, randomDHTKey,
                                                   withDhtLogger)
 import           Pos.Util                        (runWithRandomIntervals)
+import           System.Wlog                     (WithNamedLogger, logDebug, logError,
+                                                  logInfo, logWarning, usingLoggerName)
 import           Universum                       hiding (fromStrict, mapConcurrently,
                                                   toStrict)
 

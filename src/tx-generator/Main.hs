@@ -2,35 +2,35 @@
 
 module Main where
 
-import           Control.TimeWarp.Logging (logInfo)
-import           Control.TimeWarp.Timed   (for, ms, wait)
-import           Data.Aeson               (encode)
-import qualified Data.ByteString.Lazy     as LBS
-import qualified Data.HashMap.Strict      as M
-import           Data.IORef               (modifyIORef, newIORef, readIORef)
-import           Data.List                ((!!))
-import           Data.Monoid              ((<>))
-import           Data.Time.Clock.POSIX    (getPOSIXTime)
-import           Formatting               (float, int, sformat, (%))
-import           Options.Applicative      (Parser, ParserInfo, auto, execParser, fullDesc,
-                                           help, helper, info, long, many, metavar,
-                                           option, progDesc, short, switch, value)
-import           Universum                hiding ((<>))
+import           Control.TimeWarp.Timed (for, ms, wait)
+import           Data.Aeson             (encode)
+import qualified Data.ByteString.Lazy   as LBS
+import qualified Data.HashMap.Strict    as M
+import           Data.IORef             (modifyIORef, newIORef, readIORef)
+import           Data.List              ((!!))
+import           Data.Monoid            ((<>))
+import           Data.Time.Clock.POSIX  (getPOSIXTime)
+import           Formatting             (float, int, sformat, (%))
+import           Options.Applicative    (Parser, ParserInfo, auto, execParser, fullDesc,
+                                         help, helper, info, long, many, metavar, option,
+                                         progDesc, short, switch, value)
+import           System.Wlog            (logInfo)
+import           Universum              hiding ((<>))
 
-import           Pos.CLI                  (dhtNodeParser)
-import           Pos.Crypto               (hash, unsafeHash, sign)
-import           Pos.DHT                  (DHTNode, DHTNodeType (..), dhtAddr,
-                                           discoverPeers)
-import           Pos.Genesis              (genesisAddresses, genesisSecretKeys)
-import           Pos.Launcher             (BaseParams (..), LoggingParams (..),
-                                           NodeParams (..), bracketDHTInstance,
-                                           runRealMode, submitTxRaw)
-import           Pos.Ssc.DynamicState     (genesisVssKeyPairs)
-import           Pos.Ssc.DynamicState     (SscDynamicState)
-import           Pos.Statistics           (getNoStatsT)
-import           Pos.Types                (Tx (..), TxIn (..), TxOut (..))
-import           Pos.Util.JsonLog         ()
-import           Serokell.Util.OptParse   (fromParsec)
+import           Pos.CLI                (dhtNodeParser)
+import           Pos.Crypto             (hash, sign, unsafeHash)
+import           Pos.DHT                (DHTNode, DHTNodeType (..), dhtAddr,
+                                         discoverPeers)
+import           Pos.Genesis            (genesisAddresses, genesisSecretKeys)
+import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
+                                         NodeParams (..), bracketDHTInstance, runRealMode,
+                                         submitTxRaw)
+import           Pos.Ssc.DynamicState   (genesisVssKeyPairs)
+import           Pos.Ssc.DynamicState   (SscDynamicState)
+import           Pos.Statistics         (getNoStatsT)
+import           Pos.Types              (Tx (..), TxIn (..), TxOut (..))
+import           Pos.Util.JsonLog       ()
+import           Serokell.Util.OptParse (fromParsec)
 
 data GenOptions = GenOptions
     { goGenesisIdx         :: !Word       -- ^ Index in genesis key pairs.

@@ -8,9 +8,9 @@ module Pos.Communication.Server.Tx
        ( txListeners
        ) where
 
-import           Control.TimeWarp.Logging  (logDebug, logInfo, logWarning)
 import           Control.TimeWarp.Rpc      (BinaryP, MonadDialog)
 import           Formatting                (build, sformat, stext, (%))
+import           System.Wlog               (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Communication.Methods (announceTxs)

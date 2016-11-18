@@ -7,7 +7,7 @@ import           Control.Concurrent     (forkIO)
 -- import           Control.Concurrent.Chan  (Chan)
 -- import qualified Control.Concurrent.Chan  as C
 -- import           Control.Concurrent.MVar  (newEmptyMVar, putMVar, tryTakeMVar)
--- import           Control.TimeWarp.Logging (Severity (..), WithNamedLogger, logInfo)
+-- import           System.Wlog (Severity (..), WithNamedLogger, logInfo)
 -- import           Control.TimeWarp.Timed   (for, fork_, ms, wait)
 import           Data.Aeson.TH          (deriveJSON)
 import           Data.Aeson.Types       (FromJSON)

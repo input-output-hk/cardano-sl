@@ -11,9 +11,9 @@ module Pos.Communication.Server
        , module Statistics
        ) where
 
-import           Control.TimeWarp.Logging            (LoggerName)
 import           Control.TimeWarp.Rpc                (BinaryP, MonadDialog)
 import           Data.Tagged                         (untag)
+import           System.Wlog                         (LoggerName)
 import           Universum
 
 import           Pos.Communication.Server.Block      (blockListeners)

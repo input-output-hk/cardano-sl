@@ -206,18 +206,14 @@ generateAndSetNewSecret sk epoch = do
                 genCommitmentAndOpening th ps
             Just (comm, op) <$ setToken (toPublic sk, comm, op)
 
-setToken :: WorkMode SscGodTossing m => GtSecret -> m ()
-setToken secret = do
-    dbPath <- ncDbPath <$> getNodeContext
-    setSecret ((</> "secret") <$> dbPath) secret
+pathToSecret :: WorkMode SscGodTossing m => m (Maybe FilePath)
+pathToSecret = fmap (</> "secret") <$> (ncDbPath <$> getNodeContext)
 
+setToken :: WorkMode SscGodTossing m => GtSecret -> m ()
+setToken secret = pathToSecret >>= flip setSecret secret
 
 getToken :: WorkMode SscGodTossing m => m (Maybe GtSecret)
-getToken = do
-    dbPath <- ncDbPath <$> getNodeContext
-    getSecret ((</> "secret") <$> dbPath)
+getToken = pathToSecret >>= getSecret
 
 prepareTokenToNewSlot :: WorkMode SscGodTossing m => SlotId -> m ()
-prepareTokenToNewSlot slotId = do
-    dbPath <- ncDbPath <$> getNodeContext
-    prepareSecretToNewSlot ((</> "secret") <$> dbPath) slotId
+prepareTokenToNewSlot slotId = pathToSecret >>= flip prepareSecretToNewSlot slotId

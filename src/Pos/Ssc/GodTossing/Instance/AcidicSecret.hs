@@ -11,9 +11,7 @@ module Pos.Ssc.GodTossing.Instance.AcidicSecret
        ) where
 
 
-import           Data.Acid                                 (EventResult, EventState,
-                                                            QueryEvent, UpdateEvent,
-                                                            makeAcidicWithHacks)
+import           Data.Acid                                 (makeAcidic)
 import           Data.Default                              (def)
 import           Pos.Ssc.GodTossing.Instance.SecretStorage ()
 import           Pos.Ssc.GodTossing.Storage
@@ -38,19 +36,6 @@ openMemGtSecretState :: MonadIO m
              => m (ExtendedState GtSecretStorage)
 openMemGtSecretState = openMemoryExtendedState def
 
-queryGtSecret
-    :: (EventState event ~ GtSecretStorage,
-        QueryEvent event, MonadIO m)
-    => ExtendedState GtSecretStorage -> event -> m (EventResult event)
-queryGtSecret = queryExtended
-
-updateGtSecret
-    :: (EventState event ~ GtSecretStorage,
-        UpdateEvent event, MonadIO m)
-    => ExtendedState GtSecretStorage -> event -> m (EventResult event)
-updateGtSecret = updateExtended
-
-
 type SecQuery'  a = forall m . MonadReader GtSecretStorage m => m a
 type SecUpdate' a = forall m . MonadState GtSecretStorage m => m a
 
@@ -64,7 +49,7 @@ prepareSecretToNewSlot_ :: SlotId -> SecUpdate' ()
 prepareSecretToNewSlot_ = ssPrepareToNewSlot @GtSecretStorage
 
 
-makeAcidicWithHacks ''GtSecretStorage []
+makeAcidic ''GtSecretStorage
     [
       'getSecret_
     , 'setSecret_
@@ -81,14 +66,12 @@ bracket' pathToSecret call =
              call
 
 getSecret :: (MonadMask m, MonadIO m) => Maybe FilePath -> m (Maybe GtSecret)
-getSecret pathToSecret = bracket' pathToSecret $ \storage -> do
-    secret <- queryGtSecret storage GetSecret_
-    return secret
+getSecret pathToSecret = bracket' pathToSecret $ flip queryExtended GetSecret_
 
 setSecret :: (MonadMask m, MonadIO m) => Maybe FilePath -> GtSecret -> m ()
-setSecret pathToSecret secret = bracket' pathToSecret $ \storage -> do
-    updateGtSecret storage (SetSecret_ secret)
+setSecret pathToSecret secret = bracket' pathToSecret $
+    flip updateExtended (SetSecret_ secret)
 
 prepareSecretToNewSlot :: (MonadMask m, MonadIO m) => Maybe FilePath -> SlotId -> m ()
-prepareSecretToNewSlot pathToSecret slotId = bracket' pathToSecret $ \storage -> do
-    updateGtSecret storage (PrepareSecretToNewSlot_ slotId)
+prepareSecretToNewSlot pathToSecret slotId = bracket' pathToSecret $
+    flip updateExtended (PrepareSecretToNewSlot_ slotId)

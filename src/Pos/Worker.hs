@@ -19,7 +19,7 @@ import           Pos.Slotting             (onNewSlot)
 import           Pos.Ssc.Class.Workers    (SscWorkersClass, sscOnNewSlot, sscWorkers)
 import           Pos.State                (processNewSlot)
 import           Pos.Types                (SlotId, flattenSlotId, slotIdF)
-import           Pos.Util                 (logWarningWaitLinear, waitRandomInterval)
+import           Pos.Util                 (waitRandomInterval)
 import           Pos.Util.JsonLog         (jlCreatedBlock, jlLog)
 import           Pos.Worker.Block         (blkOnNewSlot, blkWorkers)
 import           Pos.Worker.Stats         (statsWorkers)
@@ -59,8 +59,6 @@ onNewSlotWorkerImpl slotId = do
                 logInfo "Broadcasting system start"
                 sendToNetwork mT
 
-    fork_ $ do
-        logWarningWaitLinear 8 "mpcOnNewSlot" $ untag sscOnNewSlot slotId
-        logDebug "Finished `mpcOnNewSlot`"
+    fork_ (untag sscOnNewSlot slotId)
     blkOnNewSlot slotId
     logDebug "Finished `blkOnNewSlot`"

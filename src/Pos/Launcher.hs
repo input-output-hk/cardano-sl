@@ -47,6 +47,7 @@ import           Data.Default                (Default)
 import           Data.List                   (nub)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
+import           System.Log.Logger           (removeAllHandlers)
 
 import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication           (SysStartRequest (..),
@@ -206,8 +207,7 @@ runTimeSlaveReal inst bp = do
          else []
 
 runTimeLordReal :: LoggingParams -> IO Timestamp
-runTimeLordReal lp@LoggingParams{..} = do
-    setupLoggers lp
+runTimeLordReal lp@LoggingParams{..} = loggerBracket lp $ do
     t <- getCurTimestamp
     usingLoggerName lpRunnerTag (doLog t) $> t
   where
@@ -302,8 +302,7 @@ runRealMode inst NodeParams {..} listeners action = do
               }
 
 runServiceMode :: KademliaDHTInstance -> BaseParams -> [ListenerDHT ServiceMode] -> ServiceMode a -> IO a
-runServiceMode inst bp@BaseParams{..} listeners action = do
-    setupLoggers bpLoggingParams
+runServiceMode inst bp@BaseParams{..} listeners action = loggerBracket bpLoggingParams $ do
     runTimed (lpRunnerTag bpLoggingParams) . runKDHT inst bp listeners $
         nodeStartMsg bp >> action
 
@@ -324,6 +323,10 @@ runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
       , kdcNoCacheMessageNames = noCacheMessageNames
       , kdcDHTInstance = dhtInstance
       }
+
+-- TODO: move to log-warper and remove hslogger from dependencies?
+loggerBracket :: LoggingParams -> IO a -> IO a
+loggerBracket lp = bracket_ (setupLoggers lp) removeAllHandlers
 
 setupLoggers :: MonadIO m => LoggingParams -> m ()
 setupLoggers LoggingParams{..} = do

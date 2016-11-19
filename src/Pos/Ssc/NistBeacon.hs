@@ -32,9 +32,9 @@ import           Pos.FollowTheSatoshi    (followTheSatoshi)
 import           Pos.Ssc.Class.Listeners (SscListenersClass (..))
 import           Pos.Ssc.Class.Storage   (SscQuery)
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
-import           Pos.Ssc.Class.Types     (SscTypes (..))
+import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Ssc.Class.Workers   (SscWorkersClass (..))
-import           Pos.Types               (EpochIndex, FtsSeed (..), SlotLeaders, Utxo,
+import           Pos.Types               (EpochIndex, SharedSeed (..), SlotLeaders, Utxo,
                                           getAddress)
 import           Serokell.Util.Verify    (VerificationRes (..))
 import           Universum
@@ -51,13 +51,12 @@ instance Serialize SscNistBeacon where
 instance Buildable () where
     build _ = "()"
 
-instance SscTypes SscNistBeacon where
+instance Ssc SscNistBeacon where
     type SscStorage   SscNistBeacon = ()
     type SscPayload   SscNistBeacon = ()
     type SscProof     SscNistBeacon = ()
     type SscMessage   SscNistBeacon = ()
     type SscSeedError SscNistBeacon = ()
-    type SscToken     SscNistBeacon = ()
 
     mkSscProof = Tagged $ const ()
 
@@ -71,8 +70,6 @@ instance SscStorageClass SscNistBeacon where
     sscGetGlobalPayloadByDepth _ = pure Nothing
     sscVerifyBlocks _ _ = pure VerSuccess
 
-    sscGetToken = pure Nothing
-    sscSetToken _ = pass
     sscGetOurShares _ _ = pure HM.empty
 
     sscGetParticipants _ _  = pure $ Just $ pure $ toVssPublicKey $ deterministicVssKeyGen ""

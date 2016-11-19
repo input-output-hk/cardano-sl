@@ -23,10 +23,10 @@ import           Pos.Launcher               (BaseParams (..), LoggingParams (..)
                                              bracketDHTInstance, runNodeReal,
                                              runNodeStats, runSupporterReal,
                                              runTimeLordReal, runTimeSlaveReal)
-import           Pos.Ssc.DynamicState       (genesisVssKeyPairs)
+import           Pos.Ssc.GodTossing         (genesisVssKeyPairs)
 
 import           NodeOptions                (Args (..), argsParser)
-import           Pos.Ssc.DynamicState       (SscDynamicState)
+import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 
@@ -47,10 +47,10 @@ decode' fpath = either fail' return . decode =<< LBS.readFile fpath
     fail' e = fail $ "Error reading key from " ++ fpath ++ ": " ++ e
 
 realModeRunner :: Bool -> SscAlgo -> RealModeRunner
-realModeRunner False DynamicStateAlgo = runNodeReal @SscDynamicState
-realModeRunner True DynamicStateAlgo  = runNodeStats @SscDynamicState
-realModeRunner False NistBeaconAlgo   = runNodeReal @SscNistBeacon
-realModeRunner True NistBeaconAlgo    = runNodeStats @SscNistBeacon
+realModeRunner False GodTossingAlgo = runNodeReal @SscGodTossing
+realModeRunner True GodTossingAlgo  = runNodeStats @SscGodTossing
+realModeRunner False NistBeaconAlgo = runNodeReal @SscNistBeacon
+realModeRunner True NistBeaconAlgo  = runNodeStats @SscNistBeacon
 
 main :: IO ()
 main = do

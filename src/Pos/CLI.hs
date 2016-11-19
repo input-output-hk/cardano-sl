@@ -13,15 +13,15 @@ module Pos.CLI
 import           Universum
 
 import           Control.Monad                      (fail)
-import           Control.TimeWarp.Logging           (LoggerConfig (..),
-                                                     Severity (Info, Warning),
-                                                     parseLoggerConfig)
 import           Control.TimeWarp.Rpc               (NetworkAddress)
 import           Data.Default                       (def)
 import           Data.Either                        (either)
 import           Pos.DHT.Types                      (DHTKey, DHTNode (..), bytesToDHTKey)
 import           Pos.Ssc.SscAlgo                    (SscAlgo (..))
 import qualified Serokell.Util.Parse                as P
+import           System.Wlog                        (LoggerConfig (..),
+                                                     Severity (Info, Warning),
+                                                     parseLoggerConfig)
 import qualified Text.ParserCombinators.Parsec.Char as P
 
 dhtKeyParser :: P.Parser DHTKey
@@ -36,7 +36,7 @@ dhtNodeParser :: P.Parser DHTNode
 dhtNodeParser = DHTNode <$> addrParser <*> (P.char '/' *> dhtKeyParser)
 
 sscAlgoParser :: P.Parser SscAlgo
-sscAlgoParser = DynamicStateAlgo <$ (P.string "DynamicState") <|>
+sscAlgoParser = GodTossingAlgo <$ (P.string "GodTossing") <|>
                 NistBeaconAlgo   <$ (P.string "NistBeacon")
 
 -- | Default logger config. Will be used if `--log-config` argument is not passed.

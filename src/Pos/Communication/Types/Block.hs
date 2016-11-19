@@ -14,7 +14,7 @@ import           Data.Binary          (Binary)
 import           Universum
 
 import           Control.TimeWarp.Rpc (Message (..))
-import           Pos.Ssc.Class.Types  (SscTypes)
+import           Pos.Ssc.Class.Types  (Ssc)
 import           Pos.Types            (Block, HeaderHash, MainBlockHeader)
 
 -- | Message: some node has sent a Block.
@@ -32,14 +32,14 @@ data RequestBlock ssc =
     RequestBlock !(HeaderHash ssc)
     deriving (Generic)
 
-instance SscTypes ssc => Binary (SendBlock ssc)
-instance SscTypes ssc => Binary (SendBlockHeader ssc)
+instance Ssc ssc => Binary (SendBlock ssc)
+instance Ssc ssc => Binary (SendBlockHeader ssc)
 instance Binary (RequestBlock ssc)
 
-instance (SscTypes ssc) => Message (SendBlock ssc) where
+instance (Ssc ssc) => Message (SendBlock ssc) where
     messageName _ = "SendBlock"
 
-instance (SscTypes ssc) => Message (SendBlockHeader ssc) where
+instance (Ssc ssc) => Message (SendBlockHeader ssc) where
     messageName _ = "SendBlockHeader"
 
 instance Typeable ssc => Message (RequestBlock ssc) where

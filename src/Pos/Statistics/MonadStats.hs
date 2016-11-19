@@ -22,7 +22,6 @@ import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Except     (ExceptT)
 import           Control.Monad.Morph      (hoist)
 import           Control.Monad.Trans      (MonadTrans)
-import           Control.TimeWarp.Logging (WithNamedLogger (..))
 import           Control.TimeWarp.Rpc     (MonadDialog, MonadResponse (..),
                                            MonadTransfer (..), hoistRespCond)
 import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
@@ -32,6 +31,7 @@ import           Focus                    (Decision (Remove), alterM)
 import           Serokell.Util            (show')
 import qualified STMContainers.Map        as SM
 import           System.IO.Unsafe         (unsafePerformIO)
+import           System.Wlog              (WithNamedLogger (..))
 import           Universum
 
 import           Pos.DHT                  (DHTResponseT, MonadDHT, MonadMessageDHT (..),

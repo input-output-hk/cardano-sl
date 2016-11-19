@@ -2,10 +2,10 @@ module Pos.Worker.Stats
        ( statsWorkers
        ) where
 
-import           Control.TimeWarp.Logging (logWarning)
 import           Control.TimeWarp.Timed   (Microsecond, repeatForever, sec)
 import           Formatting               (build, sformat, (%))
 import           Serokell.Util.Exceptions ()
+import           System.Wlog              (logWarning)
 import           Universum
 
 import           Pos.Statistics           (StatProcessTx (..), resetStat)

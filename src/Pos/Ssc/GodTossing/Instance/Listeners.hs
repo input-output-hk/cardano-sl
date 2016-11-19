@@ -5,32 +5,32 @@
 
 -- | Instance of SscListenersClass
 
-module Pos.Ssc.DynamicState.Instance.Listeners
+module Pos.Ssc.GodTossing.Instance.Listeners
        ( -- * Instances
-         -- ** instance SscListenersClass SscDynamicState
+         -- ** instance SscListenersClass SscGodTossing
        ) where
 
-import           Control.TimeWarp.Logging            (logDebug, logError, logInfo)
-import           Data.List                           ((\\))
-import           Data.Tagged                         (Tagged (..))
-import           Formatting                          (build, sformat, stext, (%))
-import           Serokell.Util.Text                  (listJson)
+import           Data.List                         ((\\))
+import           Data.Tagged                       (Tagged (..))
+import           Formatting                        (build, sformat, stext, (%))
+import           Serokell.Util.Text                (listJson)
+import           System.Wlog                       (logDebug, logError, logInfo)
 import           Universum
 
-import           Pos.Communication.Methods           (announceSsc)
-import           Pos.Crypto                          (PublicKey)
-import           Pos.DHT                             (ListenerDHT (..))
-import           Pos.Ssc.Class.Listeners             (SscListenersClass (..))
-import           Pos.Ssc.DynamicState.Instance.Type  (SscDynamicState)
-import           Pos.Ssc.DynamicState.Instance.Types ()
-import           Pos.Ssc.DynamicState.Types          (DSMessage (..))
-import qualified Pos.State                           as St
-import           Pos.WorkMode                        (WorkMode)
+import           Pos.Communication.Methods         (announceSsc)
+import           Pos.Crypto                        (PublicKey)
+import           Pos.DHT                           (ListenerDHT (..))
+import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
+import           Pos.Ssc.GodTossing.Instance.Type  (SscGodTossing)
+import           Pos.Ssc.GodTossing.Instance.Types ()
+import           Pos.Ssc.GodTossing.Types          (GtMessage (..))
+import qualified Pos.State                         as St
+import           Pos.WorkMode                      (WorkMode)
 
-instance SscListenersClass SscDynamicState where
+instance SscListenersClass SscGodTossing where
     sscListeners = Tagged [ListenerDHT handleSsc]
 
-handleSsc :: WorkMode SscDynamicState m => DSMessage -> m ()
+handleSsc :: WorkMode SscGodTossing m => GtMessage -> m ()
 handleSsc m = do
     processed <- St.processSscMessage m
     let msgName = dsMessageName m
@@ -42,26 +42,26 @@ handleSsc m = do
             | otherwise = distConstrsError m p
     whenJust processed call
 
-dsMessageName :: DSMessage -> Text
+dsMessageName :: GtMessage -> Text
 dsMessageName (DSCommitments _)     = "commitments"
 dsMessageName (DSOpenings _)        = "openings"
 dsMessageName (DSSharesMulti _)     = "shares"
 dsMessageName (DSVssCertificates _) = "VSS certificates"
 
-checkSameConstrs :: DSMessage -> DSMessage -> Bool
+checkSameConstrs :: GtMessage -> GtMessage -> Bool
 checkSameConstrs (DSCommitments _) (DSCommitments _)         = True
 checkSameConstrs (DSOpenings _) (DSOpenings _)               = True
 checkSameConstrs (DSSharesMulti _) (DSSharesMulti _)         = True
 checkSameConstrs (DSVssCertificates _) (DSVssCertificates _) = True
 checkSameConstrs _ _                                         = False
 
-getMessageKeys :: DSMessage -> [PublicKey]
+getMessageKeys :: GtMessage -> [PublicKey]
 getMessageKeys (DSCommitments l)     = map fst . toList $ l
 getMessageKeys (DSOpenings l)        = map fst . toList $ l
 getMessageKeys (DSSharesMulti l)     = map fst . toList $ l
 getMessageKeys (DSVssCertificates l) = map fst . toList $ l
 
-getAddedAndIgnored :: DSMessage -> Maybe DSMessage -> ([PublicKey], [PublicKey])
+getAddedAndIgnored :: GtMessage -> Maybe GtMessage -> ([PublicKey], [PublicKey])
 getAddedAndIgnored before after = (added, ignored)
   where
     beforeKeys = getMessageKeys before
@@ -69,7 +69,7 @@ getAddedAndIgnored before after = (added, ignored)
     added = afterKeys
     ignored = beforeKeys \\ added
 
-loggerAction :: WorkMode SscDynamicState m
+loggerAction :: WorkMode SscGodTossing m
              => Text -> Bool -> [PublicKey] -> m ()
 loggerAction _ _ [] = pass
 loggerAction dsType added pkeys = logAction msg
@@ -81,7 +81,7 @@ loggerAction dsType added pkeys = logAction msg
       logAction | added = logInfo
                 | otherwise = logDebug
 
-distConstrsError :: WorkMode SscDynamicState m => DSMessage -> DSMessage -> m ()
+distConstrsError :: WorkMode SscGodTossing m => GtMessage -> GtMessage -> m ()
 distConstrsError ex reci = do
     logError $
             sformat ("Internal error: "%stext%" constructor\

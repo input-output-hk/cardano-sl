@@ -12,82 +12,75 @@
 
 -- | Instance of SscStorageClass.
 
-module Pos.Ssc.DynamicState.Instance.Storage
+module Pos.Ssc.GodTossing.Instance.Storage
        ( -- * Instances
-         -- ** instance SscStorageClass SscDynamicState
+         -- ** instance SscStorageClass SscGodTossing
        ) where
 
-import           Control.Lens                        (Lens', at, ix, preview, to, use,
-                                                      view, (%=), (.=), (.~), (^.))
-import           Crypto.Random                       (drgNewSeed, seedFromInteger,
-                                                      withDRG)
-import           Data.Default                        (def)
-import           Data.Hashable                       (Hashable)
-import qualified Data.HashMap.Strict                 as HM
-import           Data.List                           (nub)
-import           Data.List.NonEmpty                  (NonEmpty ((:|)), fromList)
-import qualified Data.List.NonEmpty                  as NE
-import           Data.SafeCopy                       (SafeCopy)
-import           Data.Serialize                      (Serialize (..))
-import           Data.Tagged                         (Tagged (..))
-import           Serokell.Util.Verify                (VerificationRes (..), isVerSuccess,
-                                                      verifyGeneric)
+import           Control.Lens                      (Lens', at, ix, preview, to, use, view,
+                                                    (%=), (.=), (^.))
+import           Crypto.Random                     (drgNewSeed, seedFromInteger, withDRG)
+import           Data.Default                      (def)
+import qualified Data.HashMap.Strict               as HM
+import           Data.List                         (nub)
+import           Data.List.NonEmpty                (NonEmpty ((:|)), fromList)
+import qualified Data.List.NonEmpty                as NE
+import           Data.SafeCopy                     (SafeCopy)
+import           Data.Serialize                    (Serialize (..))
+import           Data.Tagged                       (Tagged (..))
+import           Serokell.Util.Verify              (VerificationRes (..), isVerSuccess,
+                                                    verifyGeneric)
 import           Universum
 
-import           Pos.Crypto                          (Share, Signed (signedValue),
-                                                      Threshold, VssKeyPair, VssPublicKey,
-                                                      decryptShare, toVssPublicKey,
-                                                      verifyShare)
-import           Pos.Crypto                          (PublicKey)
-import           Pos.FollowTheSatoshi                (followTheSatoshi)
-import           Pos.Ssc.Class.Storage               (HasSscStorage (..), SscQuery,
-                                                      SscStorageClass (..), SscUpdate)
-import           Pos.Ssc.Class.Types                 (SscTypes (..))
-import           Pos.Ssc.DynamicState.Base           (Commitment (..),
-                                                      CommitmentSignature, CommitmentsMap,
-                                                      OpeningsMap, VssCertificate,
-                                                      VssCertificatesMap, isCommitmentIdx,
-                                                      isOpeningIdx, isSharesIdx,
-                                                      verifyOpening,
-                                                      verifySignedCommitment)
-import           Pos.Ssc.DynamicState.Base           (Opening, SignedCommitment)
-import           Pos.Ssc.DynamicState.Error          (SeedError)
-import           Pos.Ssc.DynamicState.Instance.Type  (SscDynamicState)
-import           Pos.Ssc.DynamicState.Instance.Types ()
-import           Pos.Ssc.DynamicState.Seed           (calculateSeed)
-import           Pos.Ssc.DynamicState.Storage        (DSStorage, DSStorageVersion (..),
-                                                      dsCurrentSecretL,
-                                                      dsGlobalCertificates,
-                                                      dsGlobalCommitments,
-                                                      dsGlobalOpenings, dsGlobalShares,
-                                                      dsLastProcessedSlotL,
-                                                      dsLocalCertificates,
-                                                      dsLocalCommitments, dsLocalOpenings,
-                                                      dsLocalShares, dsVersionedL)
-import           Pos.Ssc.DynamicState.Types          (DSMessage (..), DSPayload (..),
-                                                      filterDSPayload, hasCommitment,
-                                                      hasOpening, hasShares,
-                                                      mdCommitments, mdOpenings, mdShares,
-                                                      mdVssCertificates, verifyDSPayload)
-import           Pos.State.Storage.Types             (AltChain)
-import           Pos.Types                           (Address (getAddress), Block,
-                                                      EpochIndex, SlotId (..),
-                                                      SlotLeaders, Utxo, blockMpc,
-                                                      blockSlot, blockSlot, gbHeader,
-                                                      txOutAddress)
-import           Pos.Util                            (magnify', readerToState, zoom',
-                                                      _neHead)
+import           Pos.Crypto                        (Share, Signed (signedValue),
+                                                    Threshold, VssKeyPair, VssPublicKey,
+                                                    decryptShare, toVssPublicKey,
+                                                    verifyShare)
+import           Pos.Crypto                        (PublicKey)
+import           Pos.FollowTheSatoshi              (followTheSatoshi)
+import           Pos.Ssc.Class.Storage             (HasSscStorage (..), SscQuery,
+                                                    SscStorageClass (..), SscUpdate)
+import           Pos.Ssc.Class.Types               (Ssc (..))
+import           Pos.Ssc.GodTossing.Base           (Commitment (..), CommitmentSignature,
+                                                    CommitmentsMap, OpeningsMap,
+                                                    VssCertificate, VssCertificatesMap,
+                                                    isCommitmentIdx, isOpeningIdx,
+                                                    isSharesIdx, verifyOpening,
+                                                    verifySignedCommitment)
+import           Pos.Ssc.GodTossing.Base           (Opening)
+import           Pos.Ssc.GodTossing.Error          (SeedError)
+import           Pos.Ssc.GodTossing.Instance.Type  (SscGodTossing)
+import           Pos.Ssc.GodTossing.Instance.Types ()
+import           Pos.Ssc.GodTossing.Seed           (calculateSeed)
+import           Pos.Ssc.GodTossing.Storage        (GtStorage, GtStorageVersion (..),
+                                                    dsGlobalCertificates,
+                                                    dsGlobalCommitments, dsGlobalOpenings,
+                                                    dsGlobalShares, dsLastProcessedSlotL,
+                                                    dsLocalCertificates,
+                                                    dsLocalCommitments, dsLocalOpenings,
+                                                    dsLocalShares, dsVersionedL)
+import           Pos.Ssc.GodTossing.Types          (GtMessage (..), GtPayload (..),
+                                                    filterGtPayload, mdCommitments,
+                                                    mdOpenings, mdShares,
+                                                    mdVssCertificates, verifyGtPayload)
+import           Pos.State.Storage.Types           (AltChain)
+import           Pos.Types                         (Address (getAddress), Block,
+                                                    EpochIndex, SlotId (..), SlotLeaders,
+                                                    Utxo, blockMpc, blockSlot, blockSlot,
+                                                    gbHeader, txOutAddress)
+import           Pos.Util                          (diffDoubleMap, magnify',
+                                                    readerToState, zoom', _neHead)
 
 -- acid-state requires this instance because of a bug
-instance SafeCopy SscDynamicState
-instance Serialize SscDynamicState where
-    put = panic "put@SscDynamicState: can't happen"
-    get = panic "get@SscDynamicState: can't happen"
+instance SafeCopy SscGodTossing
+instance Serialize SscGodTossing where
+    put = panic "put@SscGodTossing: can't happen"
+    get = panic "get@SscGodTossing: can't happen"
 
-helper :: (NonEmpty (a, b) -> DSMessage)
+helper :: (NonEmpty (a, b) -> GtMessage)
        -> (a -> b -> Update Bool)
        -> NonEmpty (a, b)
-       -> Update (Maybe DSMessage)
+       -> Update (Maybe GtMessage)
 helper c f ne = do
     res <- toList <$> mapM (uncurry f) ne
     let updated = map snd . filter fst . zip res . toList $ ne
@@ -95,7 +88,7 @@ helper c f ne = do
       then return Nothing
       else return $ Just . c . fromList $ updated
 
-instance SscStorageClass SscDynamicState where
+instance SscStorageClass SscGodTossing where
     sscApplyBlocks = mpcApplyBlocks
     sscPrepareToNewSlot = mpcProcessNewSlot
     sscProcessMessage (DSCommitments ne)     =
@@ -112,88 +105,45 @@ instance SscStorageClass SscDynamicState where
     sscGetGlobalPayloadByDepth = getGlobalMpcDataByDepth
     sscVerifyBlocks = mpcVerifyBlocks
 
-    sscGetToken = getSecret
-    sscSetToken = setSecret
     sscGetOurShares = getOurShares
 
     sscGetParticipants = getParticipants
     sscCalculateLeaders = calculateLeaders
 
-    sscVerifyPayload = Tagged verifyDSPayload
+    sscVerifyPayload = Tagged verifyGtPayload
 
-type Query a = SscQuery SscDynamicState a
-type Update a = SscUpdate SscDynamicState a
 
-instance (SscStorage ssc ~ DSStorage) => HasSscStorage ssc DSStorage where
+type Query a = SscQuery SscGodTossing a
+type Update a = SscUpdate SscGodTossing a
+
+instance (SscStorage ssc ~ GtStorage) => HasSscStorage ssc GtStorage where
     sscStorage = identity
 
 dsVersioned
-    :: HasSscStorage SscDynamicState a =>
-       Lens' a (NonEmpty DSStorageVersion)
-dsVersioned = sscStorage @SscDynamicState . dsVersionedL
-
-dsCurrentSecret
-    :: HasSscStorage SscDynamicState a =>
-       Lens' a (Maybe (PublicKey, SignedCommitment, Opening))
-dsCurrentSecret = sscStorage @SscDynamicState . dsCurrentSecretL
+    :: HasSscStorage SscGodTossing a =>
+       Lens' a (NonEmpty GtStorageVersion)
+dsVersioned = sscStorage @SscGodTossing . dsVersionedL
 
 dsLastProcessedSlot
-    :: HasSscStorage SscDynamicState a
+    :: HasSscStorage SscGodTossing a
     => Lens' a SlotId
-dsLastProcessedSlot = sscStorage @SscDynamicState . dsLastProcessedSlotL
+dsLastProcessedSlot = sscStorage @SscGodTossing . dsLastProcessedSlotL
 
--- | A lens to access the last version of DSStorage
-lastVer :: HasSscStorage SscDynamicState a => Lens' a DSStorageVersion
+-- | A lens to access the last version of GtStorage
+lastVer :: HasSscStorage SscGodTossing a => Lens' a GtStorageVersion
 lastVer = dsVersioned . _neHead
 
---traceMpcLastVer :: Update ()
---traceMpcLastVer = do
---    hasSecret <- isJust <$> use (lastVer . dsCurrentSecret)
---    localCommKeys <- keys' <$> use (lastVer . dsLocalCommitments)
---    globalCommKeys <- keys' <$> use (lastVer . dsGlobalCommitments)
---    localOpenKeys <- keys' <$> use (lastVer . dsLocalOpenings)
---    globalOpenKeys <- keys' <$> use (lastVer . dsGlobalOpenings)
---    localShareKeys <- keys' <$> use (lastVer . dsLocalShares)
---    globalShareKeys <- keys' <$> use (lastVer . dsGlobalShares)
---    identity $! traceM $ "[~~~~~~] dsState: hasSecret=" <> show hasSecret
---                          <> " comms=" <> show (localCommKeys, globalCommKeys)
---                          <> " opens=" <> show (localOpenKeys, globalOpenKeys)
---                          <> " shares=" <> show (localShareKeys, globalShareKeys)
---  where keys' = fmap pretty . HM.keys
 
-getLocalPayload :: SlotId -> Query DSPayload
-getLocalPayload slotId =
-    (filterDSPayload slotId <$> getStoredLocalPayload) >>= ensureOwnMpc slotId
+getLocalPayload :: SlotId -> Query GtPayload
+getLocalPayload slotId = filterGtPayload slotId <$> getStoredLocalPayload
 
-getStoredLocalPayload :: Query DSPayload
+getStoredLocalPayload :: Query GtPayload
 getStoredLocalPayload =
     magnify' lastVer $
-    DSPayload <$> view dsLocalCommitments <*> view dsLocalOpenings <*>
+    GtPayload <$> view dsLocalCommitments <*> view dsLocalOpenings <*>
     view dsLocalShares <*> view dsLocalCertificates
 
-ensureOwnMpc :: SlotId -> DSPayload -> Query DSPayload
-ensureOwnMpc slotId payload = do
-    globalMpc <- getGlobalMpcData
-    ourSecret <- view dsCurrentSecret
-    return $ maybe identity (ensureOwnMpcDo globalMpc slotId) ourSecret payload
-
-ensureOwnMpcDo
-    :: DSPayload
-    -> SlotId
-    -- -> (HashMap PublicKey Share)
-    -> (PublicKey, SignedCommitment, Opening)
-    -> DSPayload
-    -> DSPayload
-ensureOwnMpcDo globalMpcData (siSlot -> slotIdx) (pk, comm, opening) md
-    | isCommitmentIdx slotIdx && (not $ hasCommitment pk globalMpcData) =
-        md & mdCommitments . at pk .~ Just comm
-    | isOpeningIdx slotIdx && (not $ hasOpening pk globalMpcData) =
-        md & mdOpenings . at pk .~ Just opening
-    | isSharesIdx slotIdx && (not $ hasShares pk globalMpcData) =
-        md   -- TODO: set our shares, but it's not so easy :(
-    | otherwise = md
-
-getGlobalMpcData :: Query DSPayload
+getGlobalMpcData :: Query GtPayload
 getGlobalMpcData =
     fromMaybe (panic "No global SSC payload for depth 0") <$>
     getGlobalMpcDataByDepth 0
@@ -202,12 +152,12 @@ getGlobalMpcData =
 --
 -- specifically, I'm not sure whether versioning here and versioning in .Tx
 -- are the same versionings
-getGlobalMpcDataByDepth :: Word -> Query (Maybe DSPayload)
+getGlobalMpcDataByDepth :: Word -> Query (Maybe GtPayload)
 getGlobalMpcDataByDepth (fromIntegral -> depth) =
     preview $ dsVersioned . ix depth . to mkGlobalMpcData
   where
-    mkGlobalMpcData DSStorageVersion {..} =
-        DSPayload
+    mkGlobalMpcData GtStorageVersion {..} =
+        GtPayload
         { _mdCommitments = _dsGlobalCommitments
         , _mdOpenings = _dsGlobalOpenings
         , _mdShares = _dsGlobalShares
@@ -236,7 +186,7 @@ calculateLeaders
     -> Utxo            -- ^ Utxo (k slots before the end of epoch)
     -> Threshold
     -> Query (Either SeedError SlotLeaders)
-calculateLeaders _ utxo threshold = do --DynamicState doesn't use epoch, but NistBeacon use it
+calculateLeaders _ utxo threshold = do --GodTossing doesn't use epoch, but NistBeacon use it
     mbSeed <- calculateSeed threshold
                             <$> view (lastVer . dsGlobalCommitments)
                             <*> view (lastVer . dsGlobalOpenings)
@@ -305,12 +255,12 @@ checkSharesLastVer pk shares =
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
 mpcVerifyBlock
-    :: forall ssc . (SscPayload ssc ~ DSPayload)
+    :: forall ssc . (SscPayload ssc ~ GtPayload)
     => Block ssc -> Query VerificationRes
 -- Genesis blocks don't have any SSC data.
 mpcVerifyBlock (Left _) = return VerSuccess
 -- Main blocks have commitments, openings, shares and VSS certificates.
--- We use verifyDSPayload to make the most general checks and also use
+-- We use verifyGtPayload to make the most general checks and also use
 -- global data to make more checks using this data.
 mpcVerifyBlock (Right b) = magnify' lastVer $ do
     let SlotId{siSlot = slotId} = b ^. blockSlot
@@ -388,14 +338,14 @@ mpcVerifyBlock (Right b) = magnify' lastVer $ do
             , [ shareChecks      | isShare ]
             ]
 
-    return (verifyDSPayload @ssc (b ^. gbHeader) payload <> ourRes)
+    return (verifyGtPayload @ssc (b ^. gbHeader) payload <> ourRes)
 
 -- TODO:
 --   ★ verification messages should include block hash/slotId
 --   ★ we should stop at first failing block
-mpcVerifyBlocks :: Word -> AltChain SscDynamicState -> Query VerificationRes
+mpcVerifyBlocks :: Word -> AltChain SscGodTossing -> Query VerificationRes
 mpcVerifyBlocks toRollback blocks = do
-    curState <- view (sscStorage @SscDynamicState)
+    curState <- view (sscStorage @SscGodTossing)
     return $ flip evalState curState $ do
         mpcRollback toRollback
         vs <- forM blocks $ \b -> do
@@ -464,19 +414,17 @@ mpcProcessVssCertificate pk c = zoom' lastVer $ do
 
 -- Should be executed before doing any updates within given slot.
 mpcProcessNewSlot :: SlotId -> Update ()
-mpcProcessNewSlot si@SlotId {siEpoch = epochIdx, siSlot = slotIdx} = do
+mpcProcessNewSlot si@SlotId {siSlot = slotIdx} = do
     zoom' lastVer $ do
         unless (isCommitmentIdx slotIdx) $ dsLocalCommitments .= mempty
         unless (isOpeningIdx slotIdx) $ dsLocalOpenings .= mempty
         unless (isSharesIdx slotIdx) $ dsLocalShares .= mempty
-    whenM ((epochIdx >) . siEpoch <$> use dsLastProcessedSlot) $
-        dsCurrentSecret .= Nothing
     dsLastProcessedSlot .= si
 
 -- | Apply sequence of blocks to state. Sequence must be based on last
 -- applied block and must be valid.
 mpcApplyBlocks
-    :: (SscPayload ssc ~ DSPayload)
+    :: (SscPayload ssc ~ GtPayload)
     => AltChain ssc -> Update ()
 mpcApplyBlocks = mapM_ mpcProcessBlock
 
@@ -485,7 +433,7 @@ mpcRollback (fromIntegral -> n) = do
     dsVersioned %= (fromMaybe (def :| []) . NE.nonEmpty . NE.drop n)
 
 mpcProcessBlock
-    :: (SscPayload ssc ~ DSPayload)
+    :: (SscPayload ssc ~ GtPayload)
     => Block ssc -> Update ()
 mpcProcessBlock blk = do
     --identity $! traceM . (<>) ("[~~~~~~] MPC Processing " <> (either (const "genesis") (const "main") blk) <> " block for epoch: ") . pretty $ blk ^. epochIndexL
@@ -503,10 +451,10 @@ mpcProcessBlock blk = do
                 dsGlobalShares      .= mempty
         -- Main blocks contain commitments, openings, shares, VSS certificates
         Right b -> do
-            let blockCommitments  = b ^. blockMpc . to _mdCommitments
-                blockOpenings     = b ^. blockMpc . to _mdOpenings
-                blockShares       = b ^. blockMpc . to _mdShares
-                blockCertificates = b ^. blockMpc . to _mdVssCertificates
+            let blockCommitments  = b ^. blockMpc . mdCommitments
+                blockOpenings     = b ^. blockMpc . mdOpenings
+                blockShares       = b ^. blockMpc . mdShares
+                blockCertificates = b ^. blockMpc . mdVssCertificates
             zoom' lastVer $ do
                 -- commitments
                 dsGlobalCommitments %= HM.union blockCommitments
@@ -521,26 +469,13 @@ mpcProcessBlock blk = do
                 dsGlobalCertificates %= HM.union blockCertificates
                 dsLocalCertificates  %= (`HM.difference` blockCertificates)
 
--- | Set FTS seed (and shares) to be used in this epoch. If the seed
--- wasn't cleared before (it's cleared whenever new epoch is processed
--- by mpcProcessNewSlot), it will fail.
-setSecret :: (PublicKey, SignedCommitment, Opening) -> Update ()
-setSecret (ourPk, comm, op) = do
-    s <- use dsCurrentSecret
-    case s of
-        Just _  -> panic "setSecret: a secret was already present"
-        Nothing -> dsCurrentSecret .= Just (ourPk, comm, op)
-
-getSecret :: Query (Maybe (PublicKey, SignedCommitment, Opening))
-getSecret = view dsCurrentSecret
-
 -- | Decrypt shares (in commitments) that we can decrypt.
--- TODO: do not decrypt shares for which we know openings!
 getOurShares
     :: VssKeyPair                           -- ^ Our VSS key
     -> Integer                              -- ^ Random generator seed
                                             -- (needed for 'decryptShare')
     -> Query (HashMap PublicKey Share)
+-- | TODO: do not decrypt shares for which we know openings!
 getOurShares ourKey seed = do
     let drg = drgNewSeed (seedFromInteger seed)
     comms <- view (lastVer . dsGlobalCommitments)
@@ -559,11 +494,3 @@ getOurShares ourKey seed = do
                         -- here? Or do we need to verify them earlier (i.e. at the
                         -- stage of commitment verification)?
                  else return Nothing -- if we have opening for theirPK, we shouldn't send shares for it
-
--- | Remove elements in 'b' from 'a'
-diffDoubleMap
-    :: (Eq k1, Eq k2, Hashable k1, Hashable k2)
-    => HashMap k1 (HashMap k2 v)
-    -> HashMap k1 (HashMap k2 v)
-    -> HashMap k1 (HashMap k2 v)
-diffDoubleMap a b = HM.filter (not . null) $ HM.unionWith HM.difference a b

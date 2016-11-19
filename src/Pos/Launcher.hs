@@ -35,9 +35,6 @@ import           Control.Concurrent.MVar     (newEmptyMVar, newMVar, takeMVar,
 import           Control.Monad               (fail)
 import           Control.Monad.Catch         (bracket)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Control.TimeWarp.Logging    (LoggerName (..), WithNamedLogger, logDebug,
-                                              logError, logInfo, logWarning,
-                                              traverseLoggerConfig, usingLoggerName)
 import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, MonadDialog,
                                               NetworkAddress, Transfer, commLoggerName,
                                               runDialog, runTransfer)
@@ -49,12 +46,14 @@ import           Data.List                   (nub)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           System.Log.Logger           (removeAllHandlers)
+import           System.Wlog                 (LoggerName (..), WithNamedLogger, logDebug,
+                                              logError, logInfo, logWarning,
+                                              traverseLoggerConfig, usingLoggerName)
 
 import           Pos.CLI                     (readLoggerConfig)
-import           Pos.Communication           (SysStartRequest (..),
-                                              allListeners, noCacheMessageNames, sendTx,
-                                              statsListeners, sysStartReqListener,
-                                              sysStartRespListener)
+import           Pos.Communication           (SysStartRequest (..), allListeners,
+                                              noCacheMessageNames, sendTx, statsListeners,
+                                              sysStartReqListener, sysStartRespListener)
 import           Pos.Constants               (RunningMode (..), defaultPeers,
                                               isDevelopment, runningMode)
 import           Pos.Crypto                  (SecretKey, VssKeyPair, hash, sign)
@@ -69,7 +68,7 @@ import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..
                                               stopDHTInstance)
 import           Pos.Ssc.Class.Listeners     (SscListenersClass)
 import           Pos.Ssc.Class.Storage       (SscStorageMode)
-import           Pos.Ssc.Class.Types         (SscStorage, SscTypes)
+import           Pos.Ssc.Class.Types         (Ssc, SscStorage)
 import           Pos.Ssc.Class.Workers       (SscWorkersClass)
 import           Pos.State                   (NodeState, openMemState, openState)
 import           Pos.State.Storage           (storageFromUtxo)
@@ -83,9 +82,10 @@ import           Pos.WorkMode                (ContextHolder (..), NodeContext (.
                                               RealMode, ServiceMode, WorkMode,
                                               getNodeContext, ncPublicKey,
                                               runContextHolder, runDBHolder)
+import           System.FilePath             ((</>))
 
 type RealModeSscConstraint ssc =
-               (SscTypes ssc, Default (SscStorage ssc),
+               (Ssc ssc, Default (SscStorage ssc),
                 SscStorageMode ssc,
                 SscListenersClass ssc,
                 SscWorkersClass ssc)
@@ -292,7 +292,7 @@ runRealMode inst NodeParams {..} listeners action = do
     openDb = runTimed lpRunnerTag . runCH $
          maybe (openMemState mStorage)
                (openState mStorage npRebuildDb)
-               npDbPath
+               ((</> "main") <$> npDbPath)
 
     runCH :: MonadIO m => ContextHolder m a -> m a
     runCH act = flip runContextHolder act . ctx
@@ -301,10 +301,11 @@ runRealMode inst NodeParams {..} listeners action = do
         ctx jlFile =
           NodeContext
               { ncSystemStart = npSystemStart
-              , ncSecretKey   = npSecretKey
-              , ncVssKeyPair  = npVssKeyPair
-              , ncTimeLord    = npTimeLord
-              , ncJLFile      = jlFile
+              , ncSecretKey = npSecretKey
+              , ncVssKeyPair = npVssKeyPair
+              , ncTimeLord = npTimeLord
+              , ncJLFile = jlFile
+              , ncDbPath = npDbPath
               }
 
 runServiceMode :: KademliaDHTInstance -> BaseParams -> [ListenerDHT ServiceMode] -> ServiceMode a -> IO a

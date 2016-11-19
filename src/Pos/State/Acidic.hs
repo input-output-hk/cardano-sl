@@ -27,7 +27,6 @@ module Pos.State.Acidic
        , GetLeaders (..)
        , GetLocalTxs (..)
        , GetLocalSscPayload (..)
-       , GetToken (..)
        , GetOurShares (..)
        , GetThreshold (..)
        , GetParticipants (..)
@@ -38,7 +37,7 @@ module Pos.State.Acidic
        , ProcessNewSlot (..)
        , ProcessSscMessage (..)
        , ProcessTx (..)
-       , SetToken (..)
+
        ) where
 
 import           Data.Acid             (EventResult, EventState, QueryEvent, UpdateEvent,
@@ -51,7 +50,7 @@ import           Serokell.AcidState    (ExtendedState, closeExtendedState,
 import           Universum
 
 import           Pos.Ssc.Class.Storage (SscStorageClass (..))
-import           Pos.Ssc.Class.Types   (SscTypes (SscStorage))
+import           Pos.Ssc.Class.Types   (Ssc (SscStorage))
 import qualified Pos.State.Storage     as S
 
 ----------------------------------------------------------------------------
@@ -117,7 +116,6 @@ makeAcidicWithHacks ''S.Storage ["ssc"]
     , 'S.getLocalTxs
     , 'S.getHeadBlock
     , 'S.getBestChain
-    , 'S.getToken
     , 'S.getOurShares
     , 'S.getThreshold
     , 'S.getParticipants
@@ -127,5 +125,4 @@ makeAcidicWithHacks ''S.Storage ["ssc"]
     , 'S.processNewSlot
     , 'S.processSscMessage
     , 'S.processTx
-    , 'S.setToken
     ]

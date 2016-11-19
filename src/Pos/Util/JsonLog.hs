@@ -18,7 +18,7 @@ import qualified Data.ByteString.Lazy   as LBS
 import           Formatting             (sformat)
 import           Pos.Crypto             (Hash, hash, hashHexF)
 import           Pos.DHT                (DHTResponseT)
-import           Pos.Ssc.Class.Types    (SscTypes)
+import           Pos.Ssc.Class.Types    (Ssc)
 import           Pos.Types              (Block, SlotId (..), blockHeader, blockTxs,
                                          epochIndexL, gbHeader, gbhPrevBlock, headerHash,
                                          headerSlot)
@@ -57,7 +57,7 @@ $(deriveJSON defaultOptions ''JLBlock)
 $(deriveJSON defaultOptions ''JLEvent)
 $(deriveJSON defaultOptions ''JLTimedEvent)
 
-jlCreatedBlock :: SscTypes ssc => Block ssc -> JLEvent
+jlCreatedBlock :: Ssc ssc => Block ssc -> JLEvent
 jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
   where
     jlHash = showHash $ headerHash block
@@ -73,7 +73,7 @@ jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
 showHash :: Hash a -> Text
 showHash = sformat hashHexF
 
-jlAdoptedBlock :: SscTypes ssc => Block ssc -> JLEvent
+jlAdoptedBlock :: Ssc ssc => Block ssc -> JLEvent
 jlAdoptedBlock = JLAdoptedBlock . showHash . headerHash
 
 appendJL :: MonadIO m => FilePath -> JLEvent -> m ()

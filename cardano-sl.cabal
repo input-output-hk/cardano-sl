@@ -122,6 +122,7 @@ library
                       , data-default
                       , data-msgpack >= 0.0.8
                       , derive
+                      , directory
                       , ed25519
                       , exceptions
                       , file-embed >= 0.0.10

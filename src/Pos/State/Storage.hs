@@ -222,7 +222,7 @@ processBlockDo curSlotId blk = do
         PBRgood (toRollback, chain) -> do
             mpcRes <- readerToState $ sscVerifyBlocks @ssc toRollback chain
             txRes <- readerToState $ txVerifyBlocks toRollback chain
-            case mpcRes <> txRes of
+            case mpcRes <> eitherToVerResult txRes of
                 VerSuccess        -> processBlockFinally toRollback chain
                 VerFailure errors -> return $ mkPBRabort errors
         -- if we need block which we already know, we just use it
@@ -230,6 +230,8 @@ processBlockDo curSlotId blk = do
             maybe (pure r) (processBlockDo curSlotId) =<<
             readerToState (getBlock h)
         _ -> return r
+  where
+    eitherToVerResult = either (VerFailure . (:[])) (const VerSuccess)
 
 -- At this point all checks have been passed and we know that we can
 -- adopt this AltChain.

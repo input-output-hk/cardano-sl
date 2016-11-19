@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE ViewPatterns          #-}
@@ -30,15 +31,16 @@ import qualified Data.HashSet            as HS
 import qualified Data.List.NonEmpty      as NE
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Formatting              (build, int, sformat, (%))
-import           Serokell.Util           (VerificationRes (..), isVerSuccess)
+import           Serokell.Util           (VerificationRes (..))
 import           Universum
 
 import           Pos.Constants           (maxLocalTxs)
 import           Pos.Crypto              (hash)
 import           Pos.State.Storage.Types (AltChain, ProcessTxRes (..), mkPTRinvalid)
 import           Pos.Types               (Block, SlotId, Tx (..), TxId, Utxo,
-                                          applyTxToUtxo, blockSlot, blockTxs, slotIdF,
-                                          verifyAndApplyTxs, verifyTxUtxo)
+                                          applyTxToUtxo, blockSlot, blockTxs,
+                                          normalizeTxs, slotIdF, verifyAndApplyTxs,
+                                          verifyTxUtxo)
 import           Pos.Util                (clearLRU)
 
 data TxStorage = TxStorage
@@ -48,8 +50,9 @@ data TxStorage = TxStorage
       _txLocalTxs     :: !(HashSet Tx)
       -- | 'length' is O(n) for 'HashSet' so we store it explicitly.
     , _txLocalTxsSize :: !Int
-    , -- | Set of unspent transaction outputs. It is need to check new
-      -- transactions and run follow-the-satoshi, for example.
+    , -- | Set of unspent transaction outputs formed by applying
+      -- txLocalTxs to the head of txUtxoHistory. It is need to check
+      -- new transactions and run follow-the-satoshi, for example.
       _txUtxo         :: !Utxo
     , -- | History of Utxo. May be necessary in case of
       -- reorganization. Also it is needed for MPC. Head of this list
@@ -79,25 +82,24 @@ getLocalTxs :: Query (HashSet Tx)
 getLocalTxs = view txLocalTxs
 
 -- | Given number of blocks to rollback and some sidechain to adopt it
--- checks if it can be done prior to transaction validity.
-txVerifyBlocks :: Word -> AltChain ssc -> Query VerificationRes
+-- checks if it can be done prior to transaction validity. Returns a
+-- list of topsorted transactions, head ~ deepest block on success.
+txVerifyBlocks :: Word -> AltChain ssc -> Query (Either Text [[Tx]])
 txVerifyBlocks (fromIntegral -> toRollback) newChain = do
     (preview (txUtxoHistory . ix toRollback)) <&> \case
         Nothing ->
-            VerFailure [sformat ("Can't rollback on "%int%" blocks") toRollback]
-        Just utxo -> case foldM verifyDo utxo newChainTxs of
-            Right _ -> VerSuccess
-            Left es -> VerFailure es
+            Left $ sformat ("Can't rollback on "%int%" blocks") toRollback
+        Just utxo -> reverse . snd <$> foldM verifyDo (utxo, []) newChainTxs
   where
     newChainTxs :: [(SlotId,[Tx])]
     newChainTxs =
         fmap (\b -> (b ^. blockSlot, toList $ b ^. blockTxs)) . rights $
         NE.toList newChain
-    verifyDo :: Utxo -> (SlotId, [Tx]) -> Either [Text] Utxo
-    verifyDo utxo (slotId, txs) =
+    verifyDo :: (Utxo,[[Tx]]) -> (SlotId, [Tx]) -> Either Text (Utxo, [[Tx]])
+    verifyDo (utxo,accTxs) (slotId, txs) =
         case verifyAndApplyTxs txs utxo of
-          Left reason     -> Left $ [sformat eFormat slotId reason]
-          Right (_,utxo') -> Right utxo'
+          Left reason        -> Left $ sformat eFormat slotId reason
+          Right (txs',utxo') -> Right (utxo',txs':accTxs)
     eFormat =
         "Failed to apply transactions on block from slot " %
         slotIdF%", error: "%build
@@ -154,22 +156,40 @@ removeLocalTx tx = do
 cacheTx :: Tx -> Update ()
 cacheTx (hash -> txId) = txFilterCache %= LRU.insert txId ()
 
--- | Apply chain of definitely valid blocks which go right after last
--- applied block.
+-- | Apply chain of /definitely/ valid blocks which go right after
+-- last applied block. If invalid block is passed, this function will
+-- panic.
 txApplyBlocks :: AltChain ssc -> Update ()
 txApplyBlocks blocks = do
-    mapM_ txApplyBlock blocks
-    filterLocalTxs
+    verdict <- runReaderT (txVerifyBlocks 0 blocks) =<< use txStorage
+    case verdict of
+        -- TODO Consider using `MonadError` and throwing `InternalError`.
+        Left _ -> panic "Attempted to apply blocks that don't pass txVerifyBlocks"
+        Right txs -> do
+            -- Reset utxo to the last block's utxo. Doesn't change
+            -- localTxs
+            resetLocalUtxo
+            -- Apply all the blocks' transactions
+            mapM_ txApplyBlock (NE.toList blocks `zip` txs)
+            -- It also can be that both transaction X ∈ localStorage
+            -- and Y ∈ block spend output A, so we must filter local
+            -- transactions that became invalid after block
+            -- application and regenerate local utxo with them
+            overrideWithLocalTxs
 
-txApplyBlock :: Block ssc -> Update ()
-txApplyBlock (Left _) = do
+txApplyBlock :: (Block ssc, [Tx]) -> Update ()
+txApplyBlock (Left _, _) = do
     utxo <- use txUtxo
     txUtxoHistory %= (utxo:)
-txApplyBlock (Right mainBlock) = do
-    let txs = mainBlock ^. blockTxs
+txApplyBlock (_, txs) = do
     mapM_ applyTx txs
-    mapM_ removeLocalTx txs
+    -- As far as cache contains only those transactions that were
+    -- included into local transactions set, even in case we delete
+    -- more transactions from local storage then txs (see
+    -- overrideWithLocalTxs usage in txApplyBlocks), it should be okay
+    -- not to invalidate them because their inputs are used already.
     mapM_ cacheTx txs
+    mapM_ removeLocalTx txs
     utxo <- use txUtxo
     txUtxoHistory %= (utxo:)
 
@@ -180,18 +200,39 @@ txRollback 0 = pass
 txRollback (fromIntegral -> n) = do
     txUtxo <~ fromMaybe onError . (`atMay` n) <$> use txUtxoHistory
     txUtxoHistory %= drop n
-    filterLocalTxs
+    overrideWithLocalTxs
     invalidateCache
   where
-    -- Consider using `MonadError` and throwing `InternalError`.
+    -- TODO Consider using `MonadError` and throwing `InternalError`.
     onError = (panic "attempt to rollback to too old or non-existing block")
 
-filterLocalTxs :: Update ()
+-- | Normalize local transaction list -- throw away all transactions
+-- that don't make sense anymore (e.g. after block application that
+-- spends utxo we were counting on). Returns new transaction list,
+-- sorted.
+filterLocalTxs :: Update [Tx]
 filterLocalTxs = do
-    txs  <- uses txLocalTxs toList
-    txs' <- HS.fromList <$> filterM (fmap isVerSuccess . verifyTx) txs
-    txLocalTxs     .= txs'
+    txs <- uses txLocalTxs toList
+    utxo <- use txUtxo
+    let txs' = normalizeTxs txs utxo
+    txLocalTxs .= HS.fromList txs'
     txLocalTxsSize .= length txs'
+    pure txs'
+
+-- | Takes the utxo we have now, reset it to head of utxo history and
+-- apply all localtransactions we have. It applies @filterLocalTxs@
+-- inside, because we can't apply transactions that don't apply.
+overrideWithLocalTxs :: Update ()
+overrideWithLocalTxs = do
+    resetLocalUtxo
+    txs <- filterLocalTxs
+    forM_ txs applyTx
+
+-- | Erases local utxo and puts utxo of the last block on it's place.
+resetLocalUtxo :: Update ()
+resetLocalUtxo = do
+    headUtxo <- uses txUtxoHistory head
+    whenJust headUtxo $ \h -> txUtxo .= h
 
 invalidateCache :: Update ()
 invalidateCache = txFilterCache %= clearLRU

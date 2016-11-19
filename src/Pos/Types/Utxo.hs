@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns  #-}
 {-# LANGUAGE TupleSections #-}
 -- | Utxo related operations.
 
@@ -7,8 +8,10 @@ module Pos.Types.Utxo
        , findTxIn
        , verifyTxUtxo
        , verifyAndApplyTxs
+       , normalizeTxs
        ) where
 
+import           Data.List       ((\\))
 import qualified Data.Map.Strict as M
 import           Serokell.Util   (VerificationRes (..))
 import           Universum
@@ -60,8 +63,31 @@ verifyAndApplyTxs txs utxo =
     applyAll (tx:xs) = do
         curUtxo <- applyAll xs
         case verifyTxUtxo curUtxo tx of
-            VerSuccess          -> pure $ applyTxToUtxo tx curUtxo
+            VerSuccess          -> pure $ tx `applyTxToUtxo` curUtxo
             (VerFailure reason) ->
                 Left $ fromMaybe "Transaction application failed, reason not specified" $
                 head reason
     topsorted = reverse <$> topsortTxs txs -- head is the last one to check
+
+
+-- | Takes the set of transactions and utxo, returns only those
+-- transactions that can be applied inside. Bonus -- returns them
+-- sorted (topographically).
+normalizeTxs :: [Tx] -> Utxo -> [Tx]
+normalizeTxs = normGo []
+  where
+-- checks if transaction can be applied, adds it to first arg and
+-- to utxo if ok, does nothing otherwise
+    canApply :: Tx -> ([Tx], Utxo) -> ([Tx], Utxo)
+    canApply tx prev@(txs, utxo) =
+        case verifyTxUtxo utxo tx of
+            VerFailure _ -> prev
+            VerSuccess   -> (tx : txs, tx `applyTxToUtxo` utxo)
+    normGo :: [Tx] -> [Tx] -> Utxo -> [Tx]
+    normGo result pending curUtxo =
+        let !(!canBeApplied, !newUtxo) = foldr' canApply ([], curUtxo) pending
+            newPending = pending \\ canBeApplied
+            newResult = result ++ canBeApplied
+        in if null canBeApplied
+               then result
+               else normGo newResult newPending newUtxo

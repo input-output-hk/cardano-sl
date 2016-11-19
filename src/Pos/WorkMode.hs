@@ -6,7 +6,10 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
--- | WorkMode constraint.
+{-| 'WorkMode' constraint. It is widely used in almost every our code.
+    Simple alias for bunch of useful constraints. This module also
+    contains new monads to extend functional capabilities inside do-block.
+-}
 
 module Pos.WorkMode
        ( WorkMode

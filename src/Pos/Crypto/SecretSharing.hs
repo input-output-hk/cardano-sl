@@ -1,7 +1,10 @@
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
 
--- | An implementation of VSS (wrapping over pvss).
+{-| An implementation of VSS (wrapping over pvss).
+    For more details see <https://github.com/input-output-hk/pvss-haskell>.
+-}
+
 
 module Pos.Crypto.SecretSharing
        (

@@ -32,7 +32,7 @@ import           Pos.Crypto.Random    (secureRandomBS)
 newtype DHTData = DHTData ()
   deriving (Eq, Ord, Binary, Show)
 
--- DHTKey should be strictly 20-byte long
+-- | DHTKey should be strictly 20-byte long.
 newtype DHTKey = DHTKey { dhtKeyBytes :: BS.ByteString }
   deriving (Eq, Ord, Binary, Hashable)
 
@@ -47,13 +47,13 @@ instance Buildable DHTKey where
 instance Show DHTKey where
   show = toString . pretty
 
--- Node type is determined by first byte of key
+-- | Node type is determined by first byte of key.
 data DHTNodeType
-  -- node which participates only in supporting DHT, i.e. not a part of PoS communication
+  -- | Node which participates only in supporting DHT, i.e. not a part of PoS communication.
   = DHTSupporter
-  -- full node, i.e. fully participating in both DHT supporting and PoS
+  -- | Full node, i.e. fully participating in both DHT supporting and PoS.
   | DHTFull
-  -- client node (for SPV). Key idea is that clients, being a part of DHT, are rarely queried
+  -- | Client node (for SPV). Key idea is that clients, being a part of DHT, are rarely queried.
   | DHTClient
   deriving (Eq, Ord, Show)
 

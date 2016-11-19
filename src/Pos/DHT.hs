@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE UndecidableInstances      #-}
 
--- | Peer discovery
+-- | Distributed Hash Table for peer discovery.
 
 module Pos.DHT (
     DHTException (..),

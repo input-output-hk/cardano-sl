@@ -31,6 +31,7 @@ import           Universum
 
 import           Pos.Util            (Raw, getCopyBinary, msgpackFail, putCopyBinary)
 
+-- | Hash wrapper with phantom type for more type-safety.
 newtype Hash a = Hash (Digest SHA256)
     deriving (Show, Eq, Ord, ByteArray.ByteArrayAccess, Generic, NFData)
 

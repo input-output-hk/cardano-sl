@@ -35,6 +35,7 @@ addrParser = (,) <$> (encodeUtf8 <$> P.host) <*> (P.char ':' *> P.port)
 dhtNodeParser :: P.Parser DHTNode
 dhtNodeParser = DHTNode <$> addrParser <*> (P.char '/' *> dhtKeyParser)
 
+-- | Decides which secret-sharing algorithm to use.
 sscAlgoParser :: P.Parser SscAlgo
 sscAlgoParser = GodTossingAlgo <$ (P.string "GodTossing") <|>
                 NistBeaconAlgo   <$ (P.string "NistBeacon")
@@ -61,6 +62,6 @@ defaultLoggerConfig = def { lcSubloggers = defSubloggers }
                       )
                     ]
 
--- | Reads logger config from given path. By default return 'defaultLoggerConfig'.
+-- | Reads logger config from given path. By default return @defaultLoggerConfig@.
 readLoggerConfig :: MonadIO m => Maybe FilePath -> m LoggerConfig
 readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig

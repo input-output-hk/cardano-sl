@@ -1,3 +1,5 @@
+-- | Workers for collecting transaction statistics.
+
 module Pos.Worker.Stats
        ( statsWorkers
        ) where

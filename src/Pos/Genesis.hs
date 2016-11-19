@@ -1,4 +1,8 @@
--- | Blockchain genesis. Not to be confused with genesis block in epoch.
+{-| Blockchain genesis. Not to be confused with genesis block in epoch.
+    Blockchain genesis means genesis values which are hardcoded in advance
+    (before system starts doing anything). Genesis block in epoch exists
+    in every epoch and it's not known in advance.
+-}
 
 module Pos.Genesis
        (

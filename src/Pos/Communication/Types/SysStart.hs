@@ -11,12 +11,12 @@ import           Data.MessagePack     (MessagePack)
 import           Universum
 
 import           Control.TimeWarp.Rpc (Message (..))
-import           Pos.Types            (Timestamp)
+import           Pos.Types            (SlotId, Timestamp)
 
 data SysStartRequest = SysStartRequest
     deriving (Generic)
 
-data SysStartResponse = SysStartResponse !(Maybe Timestamp)
+data SysStartResponse = SysStartResponse !Timestamp !(Maybe SlotId)
     deriving (Generic)
 
 instance Binary SysStartRequest

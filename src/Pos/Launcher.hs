@@ -55,7 +55,9 @@ import           System.Wlog                 (LoggerName (..), WithNamedLogger, 
 import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication           (SysStartRequest (..), allListeners,
                                               noCacheMessageNames, sendTx, statsListeners,
-                                              sysStartReqListener, sysStartRespListener)
+                                              sysStartReqListener,
+                                              sysStartReqListenerSlave,
+                                              sysStartRespListener)
 import           Pos.Constants               (RunningMode (..), defaultPeers,
                                               isDevelopment, runningMode)
 import           Pos.Crypto                  (SecretKey, VssKeyPair, hash, sign)
@@ -211,7 +213,7 @@ runTimeSlaveReal inst bp = do
   where
     listeners mvar =
       if isDevelopment
-         then [sysStartReqListener Nothing, sysStartRespListener mvar]
+         then [sysStartReqListenerSlave, sysStartRespListener mvar]
          else []
 
 runTimeLordReal :: LoggingParams -> IO Timestamp
@@ -237,7 +239,7 @@ runSupporterReal inst bp = runServiceMode inst bp [] $ do
 addDevListeners :: NodeParams -> [ListenerDHT (RealMode ssc)] -> [ListenerDHT (RealMode ssc)]
 addDevListeners NodeParams{..} ls =
     if isDevelopment
-    then sysStartReqListener (Just npSystemStart) : ls
+    then sysStartReqListener npSystemStart : ls
     else ls
 
 -- | Run full node in real mode.

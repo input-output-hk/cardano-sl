@@ -130,8 +130,12 @@ onNewSlotOpening :: WorkMode SscGodTossing m => SlotId -> m ()
 onNewSlotOpening SlotId {..} = do
     ourPk <- ncPublicKey <$> getNodeContext
     shouldSendOpening <- do
-        openingInBlockchain <- hasOpening ourPk <$> getGlobalMpcData
-        return $ isOpeningIdx siSlot && not openingInBlockchain
+        globalData <- getGlobalMpcData
+        let openingInBlockchain = hasOpening ourPk globalData
+        let commitmentInBlockchain = hasCommitment ourPk globalData
+        return $ and [ isOpeningIdx siSlot
+                     , not openingInBlockchain
+                     , commitmentInBlockchain]
     when shouldSendOpening $ do
         mbOpen <- fmap (view _3) <$> getToken
         whenJust mbOpen $

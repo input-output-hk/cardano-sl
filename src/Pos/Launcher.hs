@@ -45,6 +45,8 @@ import           Data.Default                (Default)
 import           Data.List                   (nub)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
+import           System.Directory            (doesDirectoryExist,
+                                              removeDirectoryRecursive)
 import           System.Log.Logger           (removeAllHandlers)
 import           System.Wlog                 (LoggerName (..), WithNamedLogger, logDebug,
                                               logError, logInfo, logWarning,
@@ -289,10 +291,16 @@ runRealMode inst NodeParams {..} listeners action = do
     mStorage = storageFromUtxo <$> npCustomUtxo
 
     openDb :: IO (NodeState ssc)
-    openDb = runTimed lpRunnerTag . runCH $
-         maybe (openMemState mStorage)
-               (openState mStorage npRebuildDb)
-               ((</> "main") <$> npDbPath)
+    openDb = do
+         -- we rebuild DB manually, because we need to remove
+         -- everything in npDbPath
+         let rebuild fp = whenM ((npRebuildDb &&) <$> doesDirectoryExist fp) $
+                 removeDirectoryRecursive fp
+         whenJust npDbPath rebuild
+         runTimed lpRunnerTag . runCH $
+             maybe (openMemState mStorage)
+                 (openState mStorage False)
+                 ((</> "main") <$> npDbPath)
 
     runCH :: MonadIO m => ContextHolder m a -> m a
     runCH act = flip runContextHolder act . ctx

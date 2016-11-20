@@ -9,77 +9,65 @@ module Pos.Ssc.GodTossing.Instance.Worker
          -- ** instance SscWorkersClass SscGodTossing
        ) where
 
-import           Control.Lens                     (view, _2, _3)
-import           Control.TimeWarp.Timed           (Microsecond, Millisecond, currentTime,
-                                                   for, repeatForever, wait)
-import qualified Data.HashMap.Strict              as HM (toList)
-import           Data.List.NonEmpty               (nonEmpty)
-import           Data.Tagged                      (Tagged (..))
-import           Data.Time.Units                  (convertUnit)
-import           Formatting                       (build, ords, sformat, shown, stext,
-                                                   (%))
-import           Serokell.Util.Exceptions         ()
-import           System.Wlog                      (logDebug, logWarning)
+import           Control.Lens                             (view, _2, _3)
+import           Control.TimeWarp.Timed                   (Microsecond, Millisecond,
+                                                           currentTime, for,
+                                                           repeatForever, wait)
+import qualified Data.HashMap.Strict                      as HM (toList)
+import           Data.List.NonEmpty                       (nonEmpty)
+import           Data.Tagged                              (Tagged (..))
+import           Formatting                               (build, ords, sformat, shown,
+                                                           stext, (%))
+import           Serokell.Util.Exceptions                 ()
+import           System.Wlog                              (logDebug, logWarning)
 import           Universum
 
-import           Pos.Communication.Methods        (announceSsc)
-import           Pos.Constants                    (k, mpcSendInterval,
-                                                   sscTransmitterInterval)
-import           Pos.Crypto                       (SecretKey, randomNumber,
-                                                   runSecureRandom, toPublic)
-import           Pos.Slotting                     (getCurrentSlot, getSlotStart)
-import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
-import           Pos.Ssc.GodTossing.Base          (genCommitmentAndOpening,
-                                                   genCommitmentAndOpening,
-                                                   isCommitmentIdx, isOpeningIdx,
-                                                   isSharesIdx, mkSignedCommitment)
-import           Pos.Ssc.GodTossing.Base          (Opening, SignedCommitment)
-import           Pos.Ssc.GodTossing.Instance.Type (SscGodTossing)
-import           Pos.Ssc.GodTossing.Server        ()
-import           Pos.Ssc.GodTossing.Server        (announceCommitments, announceOpenings,
-                                                   announceSharesMulti,
-                                                   announceVssCertificates)
-import           Pos.Ssc.GodTossing.Types         (GtMessage (..), GtPayload (..),
-                                                   hasCommitment, hasOpening, hasShares)
-import           Pos.State                        (getGlobalMpcData, getLocalSscPayload,
-                                                   getOurShares, getParticipants,
-                                                   getThreshold, getToken,
-                                                   processSscMessage, setToken)
-import           Pos.Types                        (EpochIndex, LocalSlotIndex,
-                                                   SlotId (..), Timestamp (..))
-import           Pos.WorkMode                     (WorkMode, getNodeContext, ncPublicKey,
-                                                   ncSecretKey, ncVssKeyPair)
+import           Pos.Constants                            (k, mpcSendInterval,
+                                                           sscTransmitterInterval)
+import           Pos.Crypto                               (SecretKey, randomNumber,
+                                                           runSecureRandom, toPublic)
+import           Pos.Slotting                             (getCurrentSlot, getSlotStart)
+import           Pos.Ssc.Class.Workers                    (SscWorkersClass (..))
+import           Pos.Ssc.GodTossing.Base                  (genCommitmentAndOpening,
+                                                           genCommitmentAndOpening,
+                                                           isCommitmentIdx, isOpeningIdx,
+                                                           isSharesIdx,
+                                                           mkSignedCommitment)
+import           Pos.Ssc.GodTossing.Base                  (Opening, SignedCommitment)
+import           Pos.Ssc.GodTossing.Instance.Type         (SscGodTossing)
+import           Pos.Ssc.GodTossing.Server                (announceCommitments,
+                                                           announceOpenings,
+                                                           announceSharesMulti,
+                                                           announceVssCertificates)
+import           Pos.Ssc.GodTossing.Storage               (GtSecret)
+import           Pos.Ssc.GodTossing.Types                 (GtMessage (..), GtPayload (..),
+                                                           hasCommitment, hasOpening,
+                                                           hasShares)
+import           Pos.State                                (getGlobalMpcData,
+                                                           getLocalSscPayload,
+                                                           getOurShares, getParticipants,
+                                                           getThreshold,
+                                                           processSscMessage)
+import           Pos.Types                                (EpochIndex, LocalSlotIndex,
+                                                           SlotId (..), Timestamp (..))
+import           Pos.WorkMode                             (WorkMode, getNodeContext,
+                                                           ncDbPath, ncPublicKey,
+                                                           ncSecretKey, ncVssKeyPair)
+
+import           Data.Time.Units                          (convertUnit)
+import           Pos.Communication.Methods                (announceSsc)
+import           Pos.Ssc.GodTossing.Instance.AcidicSecret (getSecret,
+                                                           prepareSecretToNewSlot,
+                                                           setSecret)
+import           System.FilePath                          ((</>))
 
 instance SscWorkersClass SscGodTossing where
     sscOnNewSlot = Tagged onNewSlot
     sscWorkers = Tagged [sscTransmitter]
 
--- | Generate new commitment and opening and use them for the current
--- epoch. Assumes that the genesis block has already been generated and
--- processed by MPC (when the genesis block is processed, the secret is
--- cleared) (otherwise 'generateNewSecret' will fail because 'A.SetSecret'
--- won't set the secret if there's one already).
--- Nothing is returned if node is not ready.
-generateAndSetNewSecret
-    :: WorkMode SscGodTossing m
-    => SecretKey
-    -> EpochIndex                         -- ^ Current epoch
-    -> m (Maybe (SignedCommitment, Opening))
-generateAndSetNewSecret sk epoch = do
-    -- TODO: I think it's safe here to perform 3 operations which aren't
-    -- grouped into a single transaction here, but I'm still a bit nervous.
-    threshold <- getThreshold epoch
-    participants <- getParticipants epoch
-    case (,) <$> threshold <*> participants of
-        Nothing -> return Nothing
-        Just (th, ps) -> do
-            (comm, op) <-
-                first (mkSignedCommitment sk epoch) <$>
-                genCommitmentAndOpening th ps
-            Just (comm, op) <$ setToken (toPublic sk, comm, op)
-
 onNewSlot :: WorkMode SscGodTossing m => SlotId -> m ()
 onNewSlot slotId = do
+    prepareTokenToNewSlot slotId
     onNewSlotCommitment slotId
     onNewSlotOpening slotId
     onNewSlotShares slotId
@@ -142,8 +130,12 @@ onNewSlotOpening :: WorkMode SscGodTossing m => SlotId -> m ()
 onNewSlotOpening SlotId {..} = do
     ourPk <- ncPublicKey <$> getNodeContext
     shouldSendOpening <- do
-        openingInBlockchain <- hasOpening ourPk <$> getGlobalMpcData
-        return $ isOpeningIdx siSlot && not openingInBlockchain
+        globalData <- getGlobalMpcData
+        let openingInBlockchain = hasOpening ourPk globalData
+        let commitmentInBlockchain = hasCommitment ourPk globalData
+        return $ and [ isOpeningIdx siSlot
+                     , not openingInBlockchain
+                     , commitmentInBlockchain]
     when shouldSendOpening $ do
         mbOpen <- fmap (view _3) <$> getToken
         whenJust mbOpen $
@@ -193,3 +185,39 @@ sscTransmitter =
     onError e =
         sscTransmitterInterval <$
         logWarning (sformat ("Error occured in sscTransmitter: " %build) e)
+
+-- | Generate new commitment and opening and use them for the current
+-- epoch. Assumes that the genesis block has already been generated and
+-- processed by MPC (when the genesis block is processed, the secret is
+-- cleared) (otherwise 'generateNewSecret' will fail because 'A.SetSecret'
+-- won't set the secret if there's one already).
+-- Nothing is returned if node is not ready.
+generateAndSetNewSecret
+    :: WorkMode SscGodTossing m
+    => SecretKey
+    -> EpochIndex                         -- ^ Current epoch
+    -> m (Maybe (SignedCommitment, Opening))
+generateAndSetNewSecret sk epoch = do
+    -- TODO: I think it's safe here to perform 3 operations which aren't
+    -- grouped into a single transaction here, but I'm still a bit nervous.
+    threshold <- getThreshold epoch
+    participants <- getParticipants epoch
+    case (,) <$> threshold <*> participants of
+        Nothing -> return Nothing
+        Just (th, ps) -> do
+            (comm, op) <-
+                first (mkSignedCommitment sk epoch) <$>
+                genCommitmentAndOpening th ps
+            Just (comm, op) <$ setToken (toPublic sk, comm, op)
+
+pathToSecret :: WorkMode SscGodTossing m => m (Maybe FilePath)
+pathToSecret = fmap (</> "secret") <$> (ncDbPath <$> getNodeContext)
+
+setToken :: WorkMode SscGodTossing m => GtSecret -> m ()
+setToken secret = pathToSecret >>= flip setSecret secret
+
+getToken :: WorkMode SscGodTossing m => m (Maybe GtSecret)
+getToken = pathToSecret >>= getSecret
+
+prepareTokenToNewSlot :: WorkMode SscGodTossing m => SlotId -> m ()
+prepareTokenToNewSlot slotId = pathToSecret >>= flip prepareSecretToNewSlot slotId

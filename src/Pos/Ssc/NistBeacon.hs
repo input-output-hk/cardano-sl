@@ -57,7 +57,6 @@ instance Ssc SscNistBeacon where
     type SscProof     SscNistBeacon = ()
     type SscMessage   SscNistBeacon = ()
     type SscSeedError SscNistBeacon = ()
-    type SscToken     SscNistBeacon = ()
 
     mkSscProof = Tagged $ const ()
 
@@ -71,8 +70,6 @@ instance SscStorageClass SscNistBeacon where
     sscGetGlobalPayloadByDepth _ = pure Nothing
     sscVerifyBlocks _ _ = pure VerSuccess
 
-    sscGetToken = pure Nothing
-    sscSetToken _ = pass
     sscGetOurShares _ _ = pure HM.empty
 
     sscGetParticipants _ _  = pure $ Just $ pure $ toVssPublicKey $ deterministicVssKeyGen ""

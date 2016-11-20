@@ -46,6 +46,8 @@ import           Data.Default                (Default)
 import           Data.List                   (nub)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
+import           System.Directory            (doesDirectoryExist,
+                                              removeDirectoryRecursive)
 import           System.Log.Logger           (removeAllHandlers)
 import           System.Wlog                 (LoggerName (..), WithNamedLogger, logDebug,
                                               logError, logInfo, logWarning,
@@ -54,7 +56,9 @@ import           System.Wlog                 (LoggerName (..), WithNamedLogger, 
 import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication           (SysStartRequest (..), allListeners,
                                               noCacheMessageNames, sendTx, statsListeners,
-                                              sysStartReqListener, sysStartRespListener)
+                                              sysStartReqListener,
+                                              sysStartReqListenerSlave,
+                                              sysStartRespListener)
 import           Pos.Constants               (RunningMode (..), defaultPeers,
                                               isDevelopment, runningMode)
 import           Pos.Crypto                  (SecretKey, VssKeyPair, hash, sign)
@@ -83,6 +87,7 @@ import           Pos.WorkMode                (ContextHolder (..), NodeContext (.
                                               RealMode, ServiceMode, WorkMode,
                                               getNodeContext, ncPublicKey,
                                               runContextHolder, runDBHolder)
+import           System.FilePath             ((</>))
 
 type RealModeSscConstraint ssc =
                (Ssc ssc, Default (SscStorage ssc),
@@ -208,7 +213,7 @@ runTimeSlaveReal inst bp = do
   where
     listeners mvar =
       if isDevelopment
-         then [sysStartReqListener Nothing, sysStartRespListener mvar]
+         then [sysStartReqListenerSlave, sysStartRespListener mvar]
          else []
 
 runTimeLordReal :: LoggingParams -> IO Timestamp
@@ -234,7 +239,7 @@ runSupporterReal inst bp = runServiceMode inst bp [] $ do
 addDevListeners :: NodeParams -> [ListenerDHT (RealMode ssc)] -> [ListenerDHT (RealMode ssc)]
 addDevListeners NodeParams{..} ls =
     if isDevelopment
-    then sysStartReqListener (Just npSystemStart) : ls
+    then sysStartReqListener npSystemStart : ls
     else ls
 
 -- | Run full node in real mode.
@@ -294,10 +299,16 @@ runRealMode inst NodeParams {..} listeners action = do
     mStorage = storageFromUtxo <$> npCustomUtxo
 
     openDb :: IO (NodeState ssc)
-    openDb = runTimed lpRunnerTag . runCH $
-         maybe (openMemState mStorage)
-               (openState mStorage npRebuildDb)
-               npDbPath
+    openDb = do
+         -- we rebuild DB manually, because we need to remove
+         -- everything in npDbPath
+         let rebuild fp = whenM ((npRebuildDb &&) <$> doesDirectoryExist fp) $
+                 removeDirectoryRecursive fp
+         whenJust npDbPath rebuild
+         runTimed lpRunnerTag . runCH $
+             maybe (openMemState mStorage)
+                 (openState mStorage False)
+                 ((</> "main") <$> npDbPath)
 
     runCH :: MonadIO m => ContextHolder m a -> m a
     runCH act = flip runContextHolder act . ctx
@@ -306,10 +317,11 @@ runRealMode inst NodeParams {..} listeners action = do
         ctx jlFile =
           NodeContext
               { ncSystemStart = npSystemStart
-              , ncSecretKey   = npSecretKey
-              , ncVssKeyPair  = npVssKeyPair
-              , ncTimeLord    = npTimeLord
-              , ncJLFile      = jlFile
+              , ncSecretKey = npSecretKey
+              , ncVssKeyPair = npVssKeyPair
+              , ncTimeLord = npTimeLord
+              , ncJLFile = jlFile
+              , ncDbPath = npDbPath
               }
 
 runServiceMode

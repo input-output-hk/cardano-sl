@@ -346,6 +346,7 @@ executable cardano-smart-generator
   build-depends:       QuickCheck
                      , base
                      , aeson
+                     , array
                      , bytestring
                      , data-default
                      , cardano-sl

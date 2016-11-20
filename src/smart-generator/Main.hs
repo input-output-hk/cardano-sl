@@ -8,9 +8,8 @@ import           Data.Array.IO          (IOArray)
 import           Data.Array.MArray      (MArray (..), newListArray, readArray, writeArray)
 import qualified Data.ByteString.Lazy   as LBS
 import qualified Data.HashMap.Strict    as M
-import           Data.IORef             (IORef, modifyIORef, newIORef, readIORef,
-                                         writeIORef)
-import           Data.List              (tail)
+import           Data.IORef             (IORef, modifyIORef', newIORef, readIORef)
+import           Data.List              (head, tail)
 import           Data.List              ((!!))
 import           Data.Monoid            ((<>))
 import           Data.Time.Clock.POSIX  (getPOSIXTime)
@@ -21,7 +20,7 @@ import           Options.Applicative    (Parser, ParserInfo, auto, execParser, f
 import           Serokell.Util.OptParse (fromParsec)
 import           System.Wlog            (logInfo)
 import           Test.QuickCheck        (arbitrary, generate)
-import           Universum              hiding ((<>))
+import           Universum              hiding (head, (<>))
 
 import           Pos.CLI                (dhtNodeParser)
 import           Pos.Constants          (k, slotDuration)
@@ -33,9 +32,11 @@ import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
                                          NodeParams (..), bracketDHTInstance, runNode,
                                          runRealMode, submitTxRaw)
 import           Pos.Ssc.GodTossing     (SscGodTossing)
+import           Pos.State              (isTxVerified)
 import           Pos.Statistics         (getNoStatsT)
 import           Pos.Types              (Address, Tx (..), TxId, TxIn (..), TxOut (..))
 import           Pos.Util.JsonLog       ()
+import           Pos.WorkMode           (WorkMode)
 
 data GenOptions = GenOptions
     { goGenesisIdx         :: !Word       -- ^ Index in genesis key pairs.
@@ -45,7 +46,6 @@ data GenOptions = GenOptions
     , goTxFrom             :: !Int        -- ^ Start from UTXO transaction #x
     , goInitBalance        :: !Int        -- ^ Total coins in init utxo per address
     , goTPSs               :: ![Double]   -- ^ TPS rate
-    , goAlgoK              :: !Int
     , goPropThreshold      :: !Int
     , goSingleRecipient    :: !Bool       -- ^ Send to only 1 node if flag is set
     , goDhtExplicitInitial :: !Bool
@@ -84,11 +84,6 @@ optionsParser = GenOptions
           <> long "tps"
           <> metavar "DOUBLE"
           <> help "TPS (transactions per second)")
-    <*> option auto
-            (short 'k'
-          <> long "verify-k"
-          <> value k
-          <> help "Number of blocks to consider transaction verified")
     <*> option auto
             (short 'P'
           <> long "propagate-threshold"
@@ -134,7 +129,7 @@ genChain secretKey addr txInHash txInIndex =
 initTransaction :: GenOptions -> Tx
 initTransaction GenOptions {..} =
     let maxTps = round $ maximum goTPSs
-        n' = maxTps * (goAlgoK + goPropThreshold) * fromIntegral (slotDuration `div` sec 1)
+        n' = maxTps * (k + goPropThreshold) * fromIntegral (slotDuration `div` sec 1)
         n = min n' goInitBalance
         i = fromIntegral goGenesisIdx
         txOutAddress = genesisAddresses !! i
@@ -154,16 +149,40 @@ data BambooPool = BambooPool
 createBambooPool :: SecretKey -> Address -> Tx -> IO BambooPool
 createBambooPool sk addr tx = BambooPool <$> newListArray (0, outputsN - 1) bamboos <*> newIORef 0
     where outputsN = length $ txOutputs tx
-          bamboos = map (genChain sk addr (hash tx) . fromIntegral) [0 .. outputsN - 1]
+          bamboos = map (tx :) $
+                    map (genChain sk addr (hash tx) . fromIntegral) [0 .. outputsN - 1]
 
-fetchTx :: BambooPool -> IO Tx
-fetchTx BambooPool {..} = do
+shiftTx :: BambooPool -> IO ()
+shiftTx BambooPool {..} = do
     idx <- readIORef bpCurIdx
-    lastChainIdx <- snd <$> getBounds bpChains
     chain <- readArray bpChains idx
     writeArray bpChains idx $ tail chain
-    writeIORef bpCurIdx $ (idx + 1) `mod` (lastChainIdx + 1)
-    return $ chain !! 0
+
+nextBamboo :: BambooPool -> IO ()
+nextBamboo BambooPool {..} = do
+    lastChainIdx <- snd <$> getBounds bpChains
+    modifyIORef' bpCurIdx $ \idx ->
+        (idx + 1) `mod` (lastChainIdx + 1)
+
+peekTx :: BambooPool -> IO Tx
+peekTx BambooPool {..} =
+    readIORef bpCurIdx >>=
+    fmap head . readArray bpChains
+
+nextValidTx :: WorkMode ssc m => BambooPool -> Int -> m Tx
+nextValidTx bp tpsDelta = do
+    parentTx <- liftIO $ peekTx bp
+    isVer <- isTxVerified parentTx
+    if isVer
+    then liftIO $ do
+        shiftTx bp
+        resTx <- peekTx bp
+        nextBamboo bp
+        return resTx
+    else do
+        liftIO $ nextBamboo bp
+        wait $ for $ ms tpsDelta
+        nextValidTx bp tpsDelta
 
 main :: IO ()
 main = do
@@ -225,8 +244,8 @@ main = do
 
             logInfo "Issuing seed transaction"
             submitTxRaw na initTx
-            -- logInfo "Waiting for verifying period..."
-            -- wait $ for $ fromIntegral (goAlgoK + goPropThreshold) * slotDuration
+            logInfo "Waiting for verifying period..."
+            wait $ for $ fromIntegral (k + goPropThreshold) * slotDuration
 
             forM_ (zip [1..] goTPSs) $ \(roundNum :: Int, goTPS) -> do
                 logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)
@@ -238,9 +257,9 @@ main = do
                 beginT <- getPosixMs
                 resMap <- foldM
                     (\curmap (idx :: Int) -> do
-                        startT <- getPosixMs
+                        transaction <- nextValidTx bambooPool tpsDelta
 
-                        transaction <- liftIO $ fetchTx bambooPool
+                        startT <- getPosixMs
                         logInfo $ sformat ("Sending transaction #"%int) idx
                         submitTxRaw na transaction
 

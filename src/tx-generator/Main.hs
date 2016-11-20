@@ -39,6 +39,7 @@ data GenOptions = GenOptions
     , goTxFrom             :: !Int        -- ^ Start from chain transaction #NUM
     , goInitBalance        :: !Int        -- ^ Total coins in init utxo per address
     , goTPSs               :: ![Double]   -- ^ TPS rate
+    , goSingleRecipient    :: !Bool       -- ^ Send to only 1 node if flag is set
     , goDhtExplicitInitial :: !Bool
     , goLogConfig          :: !(Maybe FilePath)
     , goLogsPrefix         :: !(Maybe FilePath)
@@ -76,6 +77,9 @@ optionsParser = GenOptions
           <> long "tps"
           <> metavar "DOUBLE"
           <> help "TPS (transactions per second)")
+    <*> switch
+        (long "single-recipient" <>
+         help "Send transactions only to one of nodes")
     <*> switch
         (long "explicit-initial" <>
          help
@@ -148,7 +152,10 @@ main = do
             logInfo "TX GEN RUSHING"
             peers <- discoverPeers DHTFull
 
-            let na = dhtAddr <$> peers
+            let na' = dhtAddr <$> peers
+                na = if goSingleRecipient
+                     then take 1 na'
+                     else na'
 
             forM_ (zip [1..] goTPSs) $ \(roundNum :: Int, goTPS) -> do
                 logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)

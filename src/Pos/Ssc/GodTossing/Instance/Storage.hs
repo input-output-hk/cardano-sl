@@ -18,10 +18,9 @@ module Pos.Ssc.GodTossing.Instance.Storage
        ) where
 
 import           Control.Lens                      (Lens', at, ix, preview, to, use, view,
-                                                    (%=), (.=), (.~), (^.))
+                                                    (%=), (.=), (^.))
 import           Crypto.Random                     (drgNewSeed, seedFromInteger, withDRG)
 import           Data.Default                      (def)
-import           Data.Hashable                     (Hashable)
 import qualified Data.HashMap.Strict               as HM
 import           Data.List                         (nub)
 import           Data.List.NonEmpty                (NonEmpty ((:|)), fromList)
@@ -48,13 +47,12 @@ import           Pos.Ssc.GodTossing.Base           (Commitment (..), CommitmentS
                                                     isCommitmentIdx, isOpeningIdx,
                                                     isSharesIdx, verifyOpening,
                                                     verifySignedCommitment)
-import           Pos.Ssc.GodTossing.Base           (Opening, SignedCommitment)
+import           Pos.Ssc.GodTossing.Base           (Opening)
 import           Pos.Ssc.GodTossing.Error          (SeedError)
 import           Pos.Ssc.GodTossing.Instance.Type  (SscGodTossing)
 import           Pos.Ssc.GodTossing.Instance.Types ()
 import           Pos.Ssc.GodTossing.Seed           (calculateSeed)
 import           Pos.Ssc.GodTossing.Storage        (GtStorage, GtStorageVersion (..),
-                                                    dsCurrentSecretL,
                                                     dsGlobalCertificates,
                                                     dsGlobalCommitments, dsGlobalOpenings,
                                                     dsGlobalShares, dsLastProcessedSlotL,
@@ -62,8 +60,7 @@ import           Pos.Ssc.GodTossing.Storage        (GtStorage, GtStorageVersion 
                                                     dsLocalCommitments, dsLocalOpenings,
                                                     dsLocalShares, dsVersionedL)
 import           Pos.Ssc.GodTossing.Types          (GtMessage (..), GtPayload (..),
-                                                    filterGtPayload, hasCommitment,
-                                                    hasOpening, hasShares, mdCommitments,
+                                                    filterGtPayload, mdCommitments,
                                                     mdOpenings, mdShares,
                                                     mdVssCertificates, verifyGtPayload)
 import           Pos.State.Storage.Types           (AltChain)
@@ -71,8 +68,8 @@ import           Pos.Types                         (Address (getAddress), Block,
                                                     EpochIndex, SlotId (..), SlotLeaders,
                                                     Utxo, blockMpc, blockSlot, blockSlot,
                                                     gbHeader, txOutAddress)
-import           Pos.Util                          (magnify', readerToState, zoom',
-                                                    _neHead)
+import           Pos.Util                          (diffDoubleMap, magnify',
+                                                    readerToState, zoom', _neHead)
 
 -- acid-state requires this instance because of a bug
 instance SafeCopy SscGodTossing
@@ -108,14 +105,13 @@ instance SscStorageClass SscGodTossing where
     sscGetGlobalPayloadByDepth = getGlobalMpcDataByDepth
     sscVerifyBlocks = mpcVerifyBlocks
 
-    sscGetToken = getSecret
-    sscSetToken = setSecret
     sscGetOurShares = getOurShares
 
     sscGetParticipants = getParticipants
     sscCalculateLeaders = calculateLeaders
 
     sscVerifyPayload = Tagged verifyGtPayload
+
 
 type Query a = SscQuery SscGodTossing a
 type Update a = SscUpdate SscGodTossing a
@@ -128,11 +124,6 @@ dsVersioned
        Lens' a (NonEmpty GtStorageVersion)
 dsVersioned = sscStorage @SscGodTossing . dsVersionedL
 
-dsCurrentSecret
-    :: HasSscStorage SscGodTossing a =>
-       Lens' a (Maybe (PublicKey, SignedCommitment, Opening))
-dsCurrentSecret = sscStorage @SscGodTossing . dsCurrentSecretL
-
 dsLastProcessedSlot
     :: HasSscStorage SscGodTossing a
     => Lens' a SlotId
@@ -142,52 +133,15 @@ dsLastProcessedSlot = sscStorage @SscGodTossing . dsLastProcessedSlotL
 lastVer :: HasSscStorage SscGodTossing a => Lens' a GtStorageVersion
 lastVer = dsVersioned . _neHead
 
---traceMpcLastVer :: Update ()
---traceMpcLastVer = do
---    hasSecret <- isJust <$> use (lastVer . dsCurrentSecret)
---    localCommKeys <- keys' <$> use (lastVer . dsLocalCommitments)
---    globalCommKeys <- keys' <$> use (lastVer . dsGlobalCommitments)
---    localOpenKeys <- keys' <$> use (lastVer . dsLocalOpenings)
---    globalOpenKeys <- keys' <$> use (lastVer . dsGlobalOpenings)
---    localShareKeys <- keys' <$> use (lastVer . dsLocalShares)
---    globalShareKeys <- keys' <$> use (lastVer . dsGlobalShares)
---    identity $! traceM $ "[~~~~~~] dsState: hasSecret=" <> show hasSecret
---                          <> " comms=" <> show (localCommKeys, globalCommKeys)
---                          <> " opens=" <> show (localOpenKeys, globalOpenKeys)
---                          <> " shares=" <> show (localShareKeys, globalShareKeys)
---  where keys' = fmap pretty . HM.keys
 
 getLocalPayload :: SlotId -> Query GtPayload
-getLocalPayload slotId =
-    (filterGtPayload slotId <$> getStoredLocalPayload) >>= ensureOwnMpc slotId
+getLocalPayload slotId = filterGtPayload slotId <$> getStoredLocalPayload
 
 getStoredLocalPayload :: Query GtPayload
 getStoredLocalPayload =
     magnify' lastVer $
     GtPayload <$> view dsLocalCommitments <*> view dsLocalOpenings <*>
     view dsLocalShares <*> view dsLocalCertificates
-
-ensureOwnMpc :: SlotId -> GtPayload -> Query GtPayload
-ensureOwnMpc slotId payload = do
-    globalMpc <- getGlobalMpcData
-    ourSecret <- view dsCurrentSecret
-    return $ maybe identity (ensureOwnMpcDo globalMpc slotId) ourSecret payload
-
-ensureOwnMpcDo
-    :: GtPayload
-    -> SlotId
-    -- -> (HashMap PublicKey Share)
-    -> (PublicKey, SignedCommitment, Opening)
-    -> GtPayload
-    -> GtPayload
-ensureOwnMpcDo globalMpcData (siSlot -> slotIdx) (pk, comm, opening) md
-    | isCommitmentIdx slotIdx && (not $ hasCommitment pk globalMpcData) =
-        md & mdCommitments . at pk .~ Just comm
-    | isOpeningIdx slotIdx && (not $ hasOpening pk globalMpcData) =
-        md & mdOpenings . at pk .~ Just opening
-    | isSharesIdx slotIdx && (not $ hasShares pk globalMpcData) =
-        md   -- TODO: set our shares, but it's not so easy :(
-    | otherwise = md
 
 getGlobalMpcData :: Query GtPayload
 getGlobalMpcData =
@@ -461,13 +415,11 @@ mpcProcessVssCertificate pk c = zoom' lastVer $ do
 
 -- Should be executed before doing any updates within given slot.
 mpcProcessNewSlot :: SlotId -> Update ()
-mpcProcessNewSlot si@SlotId {siEpoch = epochIdx, siSlot = slotIdx} = do
+mpcProcessNewSlot si@SlotId {siSlot = slotIdx} = do
     zoom' lastVer $ do
         unless (isCommitmentIdx slotIdx) $ dsLocalCommitments .= mempty
         unless (isOpeningIdx slotIdx) $ dsLocalOpenings .= mempty
         unless (isSharesIdx slotIdx) $ dsLocalShares .= mempty
-    whenM ((epochIdx >) . siEpoch <$> use dsLastProcessedSlot) $
-        dsCurrentSecret .= Nothing
     dsLastProcessedSlot .= si
 
 -- | Apply sequence of blocks to state. Sequence must be based on last
@@ -500,10 +452,10 @@ mpcProcessBlock blk = do
                 dsGlobalShares      .= mempty
         -- Main blocks contain commitments, openings, shares, VSS certificates
         Right b -> do
-            let blockCommitments  = b ^. blockMpc . to _mdCommitments
-                blockOpenings     = b ^. blockMpc . to _mdOpenings
-                blockShares       = b ^. blockMpc . to _mdShares
-                blockCertificates = b ^. blockMpc . to _mdVssCertificates
+            let blockCommitments  = b ^. blockMpc . mdCommitments
+                blockOpenings     = b ^. blockMpc . mdOpenings
+                blockShares       = b ^. blockMpc . mdShares
+                blockCertificates = b ^. blockMpc . mdVssCertificates
             zoom' lastVer $ do
                 -- commitments
                 dsGlobalCommitments %= HM.union blockCommitments
@@ -518,26 +470,13 @@ mpcProcessBlock blk = do
                 dsGlobalCertificates %= HM.union blockCertificates
                 dsLocalCertificates  %= (`HM.difference` blockCertificates)
 
--- | Set FTS seed (and shares) to be used in this epoch. If the seed
--- wasn't cleared before (it's cleared whenever new epoch is processed
--- by mpcProcessNewSlot), it will fail.
-setSecret :: (PublicKey, SignedCommitment, Opening) -> Update ()
-setSecret (ourPk, comm, op) = do
-    s <- use dsCurrentSecret
-    case s of
-        Just _  -> panic "setSecret: a secret was already present"
-        Nothing -> dsCurrentSecret .= Just (ourPk, comm, op)
-
-getSecret :: Query (Maybe (PublicKey, SignedCommitment, Opening))
-getSecret = view dsCurrentSecret
-
 -- | Decrypt shares (in commitments) that we can decrypt.
--- TODO: do not decrypt shares for which we know openings!
 getOurShares
     :: VssKeyPair                           -- ^ Our VSS key
     -> Integer                              -- ^ Random generator seed
                                             -- (needed for 'decryptShare')
     -> Query (HashMap PublicKey Share)
+-- | TODO: do not decrypt shares for which we know openings!
 getOurShares ourKey seed = do
     let drg = drgNewSeed (seedFromInteger seed)
     comms <- view (lastVer . dsGlobalCommitments)
@@ -548,15 +487,7 @@ getOurShares ourKey seed = do
                 case mbEncShare of
                     Nothing       -> return Nothing
                     Just encShare -> Just . (theirPK,) <$>
-                                     decryptShare ourKey encShare
+                                    decryptShare ourKey encShare
                 -- TODO: do we need to verify shares with 'verifyEncShare'
                 -- here? Or do we need to verify them earlier (i.e. at the
                 -- stage of commitment verification)?
-
--- | Remove elements in 'b' from 'a'
-diffDoubleMap
-    :: (Eq k1, Eq k2, Hashable k1, Hashable k2)
-    => HashMap k1 (HashMap k2 v)
-    -> HashMap k1 (HashMap k2 v)
-    -> HashMap k1 (HashMap k2 v)
-diffDoubleMap a b = HM.filter (not . null) $ HM.unionWith HM.difference a b

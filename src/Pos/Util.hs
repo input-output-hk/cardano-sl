@@ -1,8 +1,10 @@
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE GADTs           #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 module Pos.Util
        (
@@ -14,6 +16,7 @@ module Pos.Util
        , readerToState
        , eitherPanic
        , inAssertMode
+       , diffDoubleMap
 
        -- * Msgpack
        , msgpackFail
@@ -61,11 +64,11 @@ import           Control.Monad.Fail            (fail)
 import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
 import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
                                                 Second, for, killThread)
-import           System.Wlog                   (WithNamedLogger, logWarning)
-
 import           Data.Binary                   (Binary)
 import qualified Data.Binary                   as Binary (encode)
 import qualified Data.Cache.LRU                as LRU
+import           Data.Hashable                 (Hashable)
+import qualified Data.HashMap.Strict           as HM
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty            as NE
 import           Data.MessagePack              (MessagePack (..))
@@ -82,6 +85,7 @@ import           Serokell.Util.Binary          as Binary (decodeFull)
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
                                                 SGR (Reset, SetColor), setSGRCode)
+import           System.Wlog                   (WithNamedLogger, logWarning)
 import           Universum
 import           Unsafe                        (unsafeInit, unsafeLast)
 
@@ -127,6 +131,28 @@ inAssertMode x = x *> pure ()
 inAssertMode _ = pure ()
 #endif
 {-# INLINE inAssertMode #-}
+
+-- | Remove elements which are in 'b' from 'a'
+diffDoubleMap
+    :: forall k1 k2 v.
+       (Eq k1, Eq k2, Hashable k1, Hashable k2)
+    => HashMap k1 (HashMap k2 v)
+    -> HashMap k1 (HashMap k2 v)
+    -> HashMap k1 (HashMap k2 v)
+diffDoubleMap a b = HM.foldlWithKey' go mempty a
+  where
+    go :: HashMap k1 (HashMap k2 v)
+       -> k1
+       -> HashMap k2 v
+       -> HashMap k1 (HashMap k2 v)
+    go res extKey internalMap =
+        case HM.lookup extKey b of
+            Nothing -> HM.insert extKey internalMap res
+            Just internalMapB ->
+                let diff = internalMap `HM.difference` internalMapB
+                in if null diff
+                       then res
+                       else HM.insert extKey diff res
 
 ----------------------------------------------------------------------------
 -- MessagePack
@@ -311,7 +337,9 @@ waitRandomInterval minT maxT = do
         liftIO (randomNumber $ fromIntegral $ maxT - minT)
     wait $ for interval
 
-runWithRandomIntervals :: (MonadIO m, MonadTimed m, WithNamedLogger m) => Microsecond -> Microsecond -> m () -> m ()
+runWithRandomIntervals
+    :: (MonadIO m, MonadTimed m, WithNamedLogger m)
+    => Microsecond -> Microsecond -> m () -> m ()
 runWithRandomIntervals minT maxT action = do
   waitRandomInterval minT maxT
   action

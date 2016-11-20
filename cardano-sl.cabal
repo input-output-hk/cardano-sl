@@ -4,8 +4,8 @@ synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             BSD3
 license-file:        LICENSE
-author:              Serokell OU
-maintainer:          hi@serokell.io
+author:              Serokell
+maintainer:          Serokell <hi@serokell.io>
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
@@ -71,7 +71,9 @@ library
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Genesis
                         Pos.Ssc.GodTossing.Instance
+                        Pos.Ssc.GodTossing.Instance.AcidicSecret
                         Pos.Ssc.GodTossing.Instance.Listeners
+                        Pos.Ssc.GodTossing.Instance.SecretStorage
                         Pos.Ssc.GodTossing.Instance.Storage
                         Pos.Ssc.GodTossing.Instance.Type
                         Pos.Ssc.GodTossing.Instance.Types
@@ -120,9 +122,11 @@ library
                       , data-default
                       , data-msgpack >= 0.0.8
                       , derive
+                      , directory
                       , ed25519
                       , exceptions
                       , file-embed >= 0.0.10
+                      , filepath
                       , focus
                       , formatting
                       , hashable
@@ -405,6 +409,7 @@ test-suite cardano-test
                      , lens
                      , log-warper >= 0.1.0
                      , memory
+                     , mtl
                      , random
                      , safecopy
                      , serokell-util

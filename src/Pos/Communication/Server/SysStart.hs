@@ -6,6 +6,7 @@
 
 module Pos.Communication.Server.SysStart
        ( sysStartReqListener
+       , sysStartReqListenerSlave
        , sysStartRespListener
        ) where
 
@@ -19,14 +20,17 @@ import           Pos.Types               (Timestamp)
 import           Pos.WorkMode            (MinWorkMode)
 
 
-sysStartReqListener :: (MonadDialog BinaryP m, MinWorkMode m) => Maybe (Timestamp) -> ListenerDHT m
-sysStartReqListener mSysStart = ListenerDHT $
+sysStartReqListenerSlave :: (MonadDialog BinaryP m, MinWorkMode m) => ListenerDHT m
+sysStartReqListenerSlave = ListenerDHT $ \(_ :: SysStartRequest) -> return ()
+
+sysStartReqListener :: (MonadDialog BinaryP m, MinWorkMode m) => Timestamp -> ListenerDHT m
+sysStartReqListener sysStart = ListenerDHT $
     \(_ :: SysStartRequest) -> do
-        replyToNode $ SysStartResponse mSysStart
+        replyToNode $ SysStartResponse sysStart Nothing
         closeResponse
 
 sysStartRespListener :: (MonadDialog BinaryP m, MinWorkMode m) => MVar Timestamp -> ListenerDHT m
 sysStartRespListener mvar = ListenerDHT $
-    \(SysStartResponse mTs :: SysStartResponse) -> do
-        maybe (return ()) (liftIO . void . tryPutMVar mvar) mTs
+    \(SysStartResponse ts _ :: SysStartResponse) -> do
+        liftIO . void . tryPutMVar mvar $ ts
         closeResponse

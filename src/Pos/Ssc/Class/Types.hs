@@ -12,7 +12,7 @@ import           Data.Text.Buildable (Buildable)
 import           Universum
 
 class (Typeable ssc
-      ,Typeable (SscToken ssc)
+--      ,Typeable (SscToken ssc)
       ,Typeable (SscPayload ssc)
       ,Typeable (SscStorage ssc)
       ,Typeable (SscProof ssc)
@@ -29,7 +29,7 @@ class (Typeable ssc
       ,SafeCopy (SscProof ssc)
       ,SafeCopy (SscPayload ssc)
       ,SafeCopy (SscMessage ssc)
-      ,SafeCopy (SscToken ssc)
+--      ,SafeCopy (SscToken ssc)
       ,SafeCopy (SscStorage ssc)) =>
       Ssc ssc where
 
@@ -45,8 +45,6 @@ class (Typeable ssc
     type SscMessage ssc
     -- | Error that can happen when calculating the seed
     type SscSeedError ssc
-    -- | This is BARDAQ needed only for GodTossing.
-    type SscToken ssc
 
     -- | Create proof (for inclusion into block header) from payload
     mkSscProof :: Tagged ssc (SscPayload ssc -> SscProof ssc)

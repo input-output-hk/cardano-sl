@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
@@ -45,6 +46,8 @@ import           Data.Default                (Default)
 import           Data.List                   (nub)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
+import           System.Directory            (doesDirectoryExist,
+                                              removeDirectoryRecursive)
 import           System.Log.Logger           (removeAllHandlers)
 import           System.Wlog                 (LoggerName (..), WithNamedLogger, logDebug,
                                               logError, logInfo, logWarning,
@@ -53,7 +56,9 @@ import           System.Wlog                 (LoggerName (..), WithNamedLogger, 
 import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication           (SysStartRequest (..), allListeners,
                                               noCacheMessageNames, sendTx, statsListeners,
-                                              sysStartReqListener, sysStartRespListener)
+                                              sysStartReqListener,
+                                              sysStartReqListenerSlave,
+                                              sysStartRespListener)
 import           Pos.Constants               (RunningMode (..), defaultPeers,
                                               isDevelopment, runningMode)
 import           Pos.Crypto                  (SecretKey, VssKeyPair, hash, sign)
@@ -82,6 +87,7 @@ import           Pos.WorkMode                (ContextHolder (..), NodeContext (.
                                               RealMode, ServiceMode, WorkMode,
                                               getNodeContext, ncPublicKey,
                                               runContextHolder, runDBHolder)
+import           System.FilePath             ((</>))
 
 type RealModeSscConstraint ssc =
                (Ssc ssc, Default (SscStorage ssc),
@@ -193,13 +199,12 @@ runTimeSlaveReal inst bp = do
       case runningMode of
          Development -> do
            tId <- fork $
-             runWithRandomIntervals (sec 10) (sec 60) $ do
-               mT <- liftIO $ tryReadMVar mvar
-               case mT of
+             runWithRandomIntervals (sec 10) (sec 60) $ liftIO (tryReadMVar mvar) >>= \case
                  Nothing -> do
                     logInfo "Asking neighbors for system start"
                     (void $ sendToNeighbors SysStartRequest) `catchAll`
-                       \e -> logDebug $ sformat ("Error sending SysStartRequest to neighbors: " % shown) e
+                       \e -> logDebug $ sformat
+                       ("Error sending SysStartRequest to neighbors: " % shown) e
                  Just _ -> fail "Close thread"
            t <- liftIO $ takeMVar mvar
            killThread tId
@@ -208,7 +213,7 @@ runTimeSlaveReal inst bp = do
   where
     listeners mvar =
       if isDevelopment
-         then [sysStartReqListener Nothing, sysStartRespListener mvar]
+         then [sysStartReqListenerSlave, sysStartRespListener mvar]
          else []
 
 runTimeLordReal :: LoggingParams -> IO Timestamp
@@ -234,7 +239,7 @@ runSupporterReal inst bp = runServiceMode inst bp [] $ do
 addDevListeners :: NodeParams -> [ListenerDHT (RealMode ssc)] -> [ListenerDHT (RealMode ssc)]
 addDevListeners NodeParams{..} ls =
     if isDevelopment
-    then sysStartReqListener (Just npSystemStart) : ls
+    then sysStartReqListener npSystemStart : ls
     else ls
 
 -- | Run full node in real mode.
@@ -276,8 +281,14 @@ bracketDHTInstance BaseParams {..} = bracket acquire release
       }
 
 -- TODO: use bracket
-runRealMode :: forall ssc c . RealModeSscConstraint ssc
-            => KademliaDHTInstance -> NodeParams -> [ListenerDHT (RealMode ssc)] -> RealMode ssc c -> IO c
+runRealMode
+    :: forall ssc c.
+       RealModeSscConstraint ssc
+    => KademliaDHTInstance
+    -> NodeParams
+    -> [ListenerDHT (RealMode ssc)]
+    -> RealMode ssc c
+    -> IO c
 runRealMode inst NodeParams {..} listeners action = do
     setupLoggers lp
     db <- openDb
@@ -288,10 +299,16 @@ runRealMode inst NodeParams {..} listeners action = do
     mStorage = storageFromUtxo <$> npCustomUtxo
 
     openDb :: IO (NodeState ssc)
-    openDb = runTimed lpRunnerTag . runCH $
-         maybe (openMemState mStorage)
-               (openState mStorage npRebuildDb)
-               npDbPath
+    openDb = do
+         -- we rebuild DB manually, because we need to remove
+         -- everything in npDbPath
+         let rebuild fp = whenM ((npRebuildDb &&) <$> doesDirectoryExist fp) $
+                 removeDirectoryRecursive fp
+         whenJust npDbPath rebuild
+         runTimed lpRunnerTag . runCH $
+             maybe (openMemState mStorage)
+                 (openState mStorage False)
+                 ((</> "main") <$> npDbPath)
 
     runCH :: MonadIO m => ContextHolder m a -> m a
     runCH act = flip runContextHolder act . ctx
@@ -300,13 +317,19 @@ runRealMode inst NodeParams {..} listeners action = do
         ctx jlFile =
           NodeContext
               { ncSystemStart = npSystemStart
-              , ncSecretKey   = npSecretKey
-              , ncVssKeyPair  = npVssKeyPair
-              , ncTimeLord    = npTimeLord
-              , ncJLFile      = jlFile
+              , ncSecretKey = npSecretKey
+              , ncVssKeyPair = npVssKeyPair
+              , ncTimeLord = npTimeLord
+              , ncJLFile = jlFile
+              , ncDbPath = npDbPath
               }
 
-runServiceMode :: KademliaDHTInstance -> BaseParams -> [ListenerDHT ServiceMode] -> ServiceMode a -> IO a
+runServiceMode
+    :: KademliaDHTInstance
+    -> BaseParams
+    -> [ListenerDHT ServiceMode]
+    -> ServiceMode a
+    -> IO a
 runServiceMode inst bp@BaseParams{..} listeners action = loggerBracket bpLoggingParams $ do
     runTimed (lpRunnerTag bpLoggingParams) . runKDHT inst bp listeners $
         nodeStartMsg bp >> action
@@ -315,8 +338,18 @@ runServiceMode inst bp@BaseParams{..} listeners action = loggerBracket bpLogging
 -- Helpers
 ----------------------------------------------------------------------------
 
-runKDHT :: (MonadBaseControl IO m, WithNamedLogger m, MonadIO m, MonadTimed m, MonadMask m, MonadDialog BinaryP m)
-        => KademliaDHTInstance -> BaseParams -> [ListenerDHT (KademliaDHT m)] -> KademliaDHT m a -> m a
+runKDHT
+    :: (MonadBaseControl IO m
+       ,WithNamedLogger m
+       ,MonadIO m
+       ,MonadTimed m
+       ,MonadMask m
+       ,MonadDialog BinaryP m)
+    => KademliaDHTInstance
+    -> BaseParams
+    -> [ListenerDHT (KademliaDHT m)]
+    -> KademliaDHT m a
+    -> m a
 runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
   where
     kadConfig =

@@ -64,7 +64,6 @@ import           Control.Monad.Fail            (fail)
 import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
 import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
                                                 Second, for, killThread)
-
 import           Data.Binary                   (Binary)
 import qualified Data.Binary                   as Binary (encode)
 import qualified Data.Cache.LRU                as LRU
@@ -79,7 +78,6 @@ import           Data.SafeCopy                 (Contained, SafeCopy (..), base, 
 import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (String)
 import           Data.Time.Units               (convertUnit)
-
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
 import           Serokell.Util                 (VerificationRes)
@@ -339,7 +337,9 @@ waitRandomInterval minT maxT = do
         liftIO (randomNumber $ fromIntegral $ maxT - minT)
     wait $ for interval
 
-runWithRandomIntervals :: (MonadIO m, MonadTimed m, WithNamedLogger m) => Microsecond -> Microsecond -> m () -> m ()
+runWithRandomIntervals
+    :: (MonadIO m, MonadTimed m, WithNamedLogger m)
+    => Microsecond -> Microsecond -> m () -> m ()
 runWithRandomIntervals minT maxT action = do
   waitRandomInterval minT maxT
   action

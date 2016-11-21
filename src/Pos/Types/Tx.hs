@@ -37,9 +37,9 @@ verifyTxAlone Tx {..} =
 -- into Address and Coin. It does checks from verifyTxAlone and the
 -- following:
 --
--- ★ sum of inputs ≥ sum of outputs;
--- ★ every input is signed properly;
--- ★ every input is a known unspent output.
+-- * sum of inputs ≥ sum of outputs;
+-- * every input is signed properly;
+-- * every input is a known unspent output.
 verifyTx :: (TxIn -> Maybe TxOut) -> Tx -> VerificationRes
 verifyTx inputResolver tx@Tx {..} =
     mconcat [verifyTxAlone tx, verifySum, verifyInputs]

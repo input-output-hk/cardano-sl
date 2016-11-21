@@ -33,7 +33,17 @@ library
                         Pos.Launcher
                         Pos.Merkle
                         Pos.Slotting
+                        Pos.Ssc.Class.Types
+                        Pos.Ssc.Class.Storage
+                        Pos.Ssc.Class.Workers
+                        Pos.Ssc.Class.Listeners
                         Pos.State
+                        Pos.State.Acidic
+                        Pos.State.State
+                        Pos.State.Storage
+                        Pos.State.Storage.Block
+                        Pos.State.Storage.Types
+                        Pos.State.Storage.Tx
                         Pos.Statistics
                         Pos.Types
                         Pos.Util
@@ -62,10 +72,6 @@ library
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
                         Pos.DHT.Types
-                        Pos.Ssc.Class.Types
-                        Pos.Ssc.Class.Storage
-                        Pos.Ssc.Class.Workers
-                        Pos.Ssc.Class.Listeners
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Base
                         Pos.Ssc.GodTossing.Error
@@ -82,12 +88,6 @@ library
                         Pos.Ssc.GodTossing.Server
                         Pos.Ssc.GodTossing.Storage
                         Pos.Ssc.GodTossing.Types
-                        Pos.State.Acidic
-                        Pos.State.State
-                        Pos.State.Storage
-                        Pos.State.Storage.Block
-                        Pos.State.Storage.Types
-                        Pos.State.Storage.Tx
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry

@@ -39,10 +39,11 @@ type SscUpdate ssc a =
 -- we might have to change 'mpcVerifyBlock' because currently it works by
 -- simulating block application and we don't want block verification to have
 -- any side effects. The compiler will warn us if it happens, though.
+-- | Monad reader on something containing `SscStorage` inside.
 type SscQuery ssc a =
     forall m x. (HasSscStorage ssc x, MonadReader x m) => m a
 
--- | Class for something that has 'SscStorage'.
+-- | Class of objects that we can retrieve 'SscStorage' from.
 class HasSscStorage ssc a where
     sscStorage :: Lens' a (SscStorage ssc)
 
@@ -56,13 +57,12 @@ class Ssc ssc => SscStorageClass ssc where
     -- | Do something with given message, result is whether message
     -- has been processed successfully (implementation defined).
     sscProcessMessage :: SscMessage ssc -> SscUpdate ssc (Maybe (SscMessage ssc))
-    -- | Rollback application of last 'n' blocks.  blocks. If there
-    -- are less blocks than 'n' is, just leaves an empty ('def')
-    -- version.
-    --
     -- TODO: there was also such comment.
     -- If @n > 0@, also removes all commitments/etc received during that
     -- period but not included into blocks.
+    -- | Rollback application of last 'n' blocks.  blocks. If there
+    -- are less blocks than 'n' is, just leaves an empty ('def')
+    -- version.
     sscRollback :: Word -> SscUpdate ssc ()
     sscGetLocalPayload :: SlotId -> SscQuery ssc (SscPayload ssc)
     sscGetGlobalPayload :: SscQuery ssc (SscPayload ssc)
@@ -73,7 +73,9 @@ class Ssc ssc => SscStorageClass ssc where
     -- if first argument isn't zero).
     sscVerifyBlocks :: Word -> AltChain ssc -> SscQuery ssc VerificationRes
 
-    -- | BARDAQ
+    -- BARDAQ, see:
+    -- https://issues.serokell.io/issue/CSL-103
+    -- https://issues.serokell.io/issue/CSL-106
     sscGetOurShares :: VssKeyPair -> Integer -> SscQuery ssc (HashMap PublicKey Share)
 
     -- TODO: yet another BARDAQ

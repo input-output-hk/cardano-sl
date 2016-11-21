@@ -57,8 +57,10 @@ handleInv (InvMsg tag keys) = do
             unless (checkPresence pk) $ replyToNode $ ReqMsg tag pk
     mapM_ handleSingle keys
 
-handleReq :: WorkMode SscGodTossing m => ReqMsg -> m ()
-handleReq = notImplemented
+handleReq :: ResponseMode SscGodTossing m => ReqMsg -> m ()
+handleReq (ReqMsg tag key) = do
+    res <- notImplemented tag key
+    replyToNode @_ @DataMsg res
 
 handleData :: WorkMode SscGodTossing m => DataMsg -> m ()
 handleData = notImplemented

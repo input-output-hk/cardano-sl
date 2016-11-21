@@ -25,7 +25,6 @@ module Pos.State.State
        , getLeaders
        , getLocalTxs
        , isTxVerified
-       , getLocalSscPayload
        , getGlobalMpcData
        , mayBlockBeUseful
 
@@ -35,7 +34,6 @@ module Pos.State.State
        , createNewBlock
        , processBlock
        , processNewSlot
-       , processSscMessage
        , processTx
 
        -- * Functions for generating seed by SSC algorithm.
@@ -59,7 +57,7 @@ import           Pos.Crypto               (PublicKey, SecretKey, Share, Threshol
                                            VssKeyPair, VssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
-import           Pos.Ssc.Class.Types      (Ssc (SscMessage, SscPayload, SscStorage))
+import           Pos.Ssc.Class.Types      (Ssc (SscPayload, SscStorage))
 import           Pos.State.Acidic         (DiskState, tidyState)
 import qualified Pos.State.Acidic         as A
 import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (..),
@@ -70,7 +68,7 @@ import           Pos.Types                (Block, EpochIndex, GenesisBlock, Head
                                            SlotLeaders, Tx)
 
 -- | NodeState encapsulates all the state stored by node.
-class MonadDB ssc m | m -> ssc where
+class Monad m => MonadDB ssc m | m -> ssc where
     getNodeState :: m (NodeState ssc)
 
 -- | Convenient type class to avoid passing NodeState throughout the code.
@@ -160,9 +158,6 @@ getLocalTxs = queryDisk A.GetLocalTxs
 isTxVerified :: QUConstraint ssc m => Tx -> m Bool
 isTxVerified = queryDisk . A.IsTxVerified
 
-getLocalSscPayload :: QUConstraint ssc m => SlotId -> m (SscPayload ssc)
-getLocalSscPayload = queryDisk . A.GetLocalSscPayload
-
 getGlobalMpcData :: QUConstraint ssc m => m (SscPayload ssc)
 getGlobalMpcData = queryDisk A.GetGlobalSscPayload
 
@@ -174,8 +169,9 @@ mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 createNewBlock :: QUConstraint ssc m
                => SecretKey
                -> SlotId
+               -> SscPayload ssc
                -> m (Maybe (MainBlock ssc))
-createNewBlock sk = updateDisk . A.CreateNewBlock sk
+createNewBlock sk si = updateDisk . A.CreateNewBlock sk si
 
 -- | Process transaction received from other party.
 processTx :: QUConstraint ssc m => Tx -> m ProcessTxRes
@@ -193,9 +189,6 @@ processBlock :: QUConstraint ssc m
              -> m (ProcessBlockRes ssc)
 processBlock si = updateDisk . A.ProcessBlock si
 
-processSscMessage :: QUConstraint ssc m => SscMessage ssc -> m (Maybe (SscMessage ssc))
-processSscMessage = updateDisk . A.ProcessSscMessage
-
 -- | Functions for generating seed by SSC algorithm
 getParticipants
     :: QUConstraint ssc m
@@ -207,7 +200,6 @@ getThreshold :: QUConstraint ssc m
              => EpochIndex
              -> m (Maybe Threshold)
 getThreshold = queryDisk . A.GetThreshold
-
 
 ----------------------------------------------------------------------------
 -- Related to SscGodTossing

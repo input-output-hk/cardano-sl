@@ -12,7 +12,6 @@ import           Data.Text.Buildable (Buildable)
 import           Universum
 
 class (Typeable ssc
---      ,Typeable (SscToken ssc)
       ,Typeable (SscPayload ssc)
       ,Typeable (SscStorage ssc)
       ,Typeable (SscProof ssc)
@@ -29,12 +28,13 @@ class (Typeable ssc
       ,SafeCopy (SscProof ssc)
       ,SafeCopy (SscPayload ssc)
       ,SafeCopy (SscMessage ssc)
---      ,SafeCopy (SscToken ssc)
       ,SafeCopy (SscStorage ssc)) =>
       Ssc ssc where
 
-    -- | Internal SSC state
+    -- | Internal SSC state stored on disk
     type SscStorage ssc
+    -- | Internal SSC state stored in memory
+    type SscLocalData ssc
     -- | Payload which will be stored in main blocks
     type SscPayload ssc
     -- | Proof that SSC payload is correct (it'll be included into block

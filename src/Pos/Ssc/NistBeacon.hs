@@ -52,6 +52,7 @@ instance Buildable () where
     build _ = "()"
 
 instance Ssc SscNistBeacon where
+    type SscLocalData SscNistBeacon = ()
     type SscStorage   SscNistBeacon = ()
     type SscPayload   SscNistBeacon = ()
     type SscProof     SscNistBeacon = ()
@@ -62,10 +63,7 @@ instance Ssc SscNistBeacon where
 
 instance SscStorageClass SscNistBeacon where
     sscApplyBlocks _ = pass
-    sscPrepareToNewSlot _ = pass
-    sscProcessMessage _ = pure Nothing
     sscRollback _ = pass
-    sscGetLocalPayload _ = pure ()
     sscGetGlobalPayload = pure ()
     sscGetGlobalPayloadByDepth _ = pure Nothing
     sscVerifyBlocks _ _ = pure VerSuccess

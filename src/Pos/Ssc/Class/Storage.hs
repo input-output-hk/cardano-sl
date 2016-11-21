@@ -24,8 +24,7 @@ import           Pos.Crypto              (PublicKey, Share, Threshold, VssKeyPai
                                           VssPublicKey)
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types.Types         (EpochIndex, MainBlockHeader, SlotId,
-                                          SlotLeaders, Utxo)
+import           Pos.Types.Types         (EpochIndex, MainBlockHeader, SlotLeaders, Utxo)
 
 type SscUpdate ssc a =
     forall m x. (HasSscStorage ssc x, MonadState x m) => m a
@@ -44,11 +43,6 @@ class Ssc ssc => SscStorageClass ssc where
     -- sscCalculateSeed :: SscQuery ssc (Either (SscSeedError ssc) SharedSeed)
 
     sscApplyBlocks :: AltChain ssc -> SscUpdate ssc ()
-    -- | Should be executed before doing any updates within given slot.
-    sscPrepareToNewSlot :: SlotId -> SscUpdate ssc ()
-    -- | Do something with given message, result is whether message
-    -- has been processed successfully (implementation defined).
-    sscProcessMessage :: SscMessage ssc -> SscUpdate ssc (Maybe (SscMessage ssc))
     -- | Rollback application of last 'n' blocks.  blocks. If there
     -- are less blocks than 'n' is, just leaves an empty ('def')
     -- version.
@@ -57,7 +51,6 @@ class Ssc ssc => SscStorageClass ssc where
     -- If @n > 0@, also removes all commitments/etc received during that
     -- period but not included into blocks.
     sscRollback :: Word -> SscUpdate ssc ()
-    sscGetLocalPayload :: SlotId -> SscQuery ssc (SscPayload ssc)
     sscGetGlobalPayload :: SscQuery ssc (SscPayload ssc)
     sscGetGlobalPayloadByDepth :: Word -> SscQuery ssc (Maybe (SscPayload ssc))
     -- | Verify Ssc-related predicates of block sequence which is

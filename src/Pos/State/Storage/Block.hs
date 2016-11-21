@@ -509,9 +509,9 @@ blkCreateNewBlock
     -> [Tx]
     -> SscPayload ssc
     -> Update ssc (MainBlock ssc)
-blkCreateNewBlock sk sId txs mpcData = do
+blkCreateNewBlock sk sId txs sscData = do
     prevHeader <- readerToState $ getBlockHeader <$> getHeadBlock
-    let body = mkMainBody txs mpcData
+    let body = mkMainBody txs sscData
     let blk = mkMainBlock (Just prevHeader) sId sk body
     insertBlock $ Right blk
     blk <$ blkSetHead (headerHash blk)

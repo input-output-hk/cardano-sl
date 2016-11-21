@@ -27,7 +27,6 @@ module Pos.State.Acidic
        , GetLeaders (..)
        , GetLocalTxs (..)
        , IsTxVerified (..)
-       , GetLocalSscPayload (..)
        , GetOurShares (..)
        , GetThreshold (..)
        , GetParticipants (..)
@@ -36,9 +35,7 @@ module Pos.State.Acidic
        , CreateNewBlock (..)
        , ProcessBlock (..)
        , ProcessNewSlot (..)
-       , ProcessSscMessage (..)
        , ProcessTx (..)
-
        ) where
 
 import           Data.Acid             (EventResult, EventState, QueryEvent, UpdateEvent,
@@ -113,7 +110,6 @@ makeAcidicWithHacks ''S.Storage ["ssc"]
     [ 'S.getBlock
     , 'S.getGlobalSscPayload
     , 'S.getLeaders
-    , 'S.getLocalSscPayload
     , 'S.getLocalTxs
     , 'S.isTxVerified
     , 'S.getHeadBlock
@@ -125,6 +121,5 @@ makeAcidicWithHacks ''S.Storage ["ssc"]
     , 'S.createNewBlock
     , 'S.processBlock
     , 'S.processNewSlot
-    , 'S.processSscMessage
     , 'S.processTx
     ]

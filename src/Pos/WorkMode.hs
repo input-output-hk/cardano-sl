@@ -49,7 +49,9 @@ import           Pos.DHT                     (DHTResponseT, MonadMessageDHT (..)
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Ssc.Class.LocalData     (MonadSscLD (..))
 import           Pos.Ssc.Class.Storage       (SscStorageMode)
+import           Pos.Ssc.Class.Types         (Ssc (SscLocalData))
 import           Pos.State                   (MonadDB (..), NodeState)
 import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
 import           Pos.Types                   (Timestamp (..))
@@ -63,6 +65,7 @@ type WorkMode ssc m
       , MonadSlots m
       , MonadDB ssc m
       , SscStorageMode ssc
+      , MonadSscLD ssc m
       , WithNodeContext m
       , MonadMessageDHT m
       , WithDefaultMsgHeader m
@@ -78,6 +81,19 @@ type MinWorkMode m
       , MonadMessageDHT m
       , WithDefaultMsgHeader m
       )
+
+----------------------------------------------------------------------------
+-- MonadSscLD
+----------------------------------------------------------------------------
+
+-- newtype SscLDHolder ssc m a = SscLDHolder
+--     { getSscLDHolder :: StateT (SscLocalData ssc) m a
+--     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
+--                 MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDialog p)
+
+instance (Monad m, MonadDB ssc m) => MonadSscLD ssc m where
+    getLocalData = notImplemented
+    setLocalData = notImplemented
 
 ----------------------------------------------------------------------------
 -- MonadDB

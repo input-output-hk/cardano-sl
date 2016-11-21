@@ -43,8 +43,7 @@ import           Pos.Ssc.GodTossing.Worker.SecretStorage (checkpoint, getSecret,
                                                           setSecret)
 import           Pos.Ssc.GodTossing.Worker.Types         (GtSecret)
 import           Pos.State                               (getGlobalMpcData, getOurShares,
-                                                          getParticipants, getThreshold,
-                                                          processSscMessage)
+                                                          getParticipants, getThreshold)
 import           Pos.Types                               (EpochIndex, LocalSlotIndex,
                                                           SlotId (..), Timestamp (..))
 import           Pos.WorkMode                            (WorkMode, getNodeContext,
@@ -116,7 +115,8 @@ onNewSlotCommitment SlotId {..} = do
     when shouldSendCommitment $ do
         mbComm <- fmap (view _2) <$> getToken
         whenJust mbComm $ \comm -> do
-            () <$ processSscMessage (DSCommitments $ pure $ (ourPk, comm))
+            notImplemented
+            -- () <$ processSscMessage (DSCommitments $ pure $ (ourPk, comm))
             sendOurData CommitmentMsg siEpoch 0 ourPk
 
 -- Openings-related part of new slot processing
@@ -133,7 +133,8 @@ onNewSlotOpening SlotId {..} = do
     when shouldSendOpening $ do
         mbOpen <- fmap (view _3) <$> getToken
         whenJust mbOpen $ \open -> do
-            () <$ processSscMessage (DSOpenings $ pure $ (ourPk, open))
+            notImplemented
+            -- () <$ processSscMessage (DSOpenings $ pure $ (ourPk, open))
             sendOurData OpeningMsg siEpoch 2 ourPk
 
 -- Shares-related part of new slot processing
@@ -150,7 +151,8 @@ onNewSlotShares SlotId {..} = do
         ourVss <- ncVssKeyPair <$> getNodeContext
         shares <- getOurShares ourVss
         unless (null shares) $ do
-            () <$ processSscMessage (DSSharesMulti $ pure (ourPk, shares))
+            notImplemented
+            -- () <$ processSscMessage (DSSharesMulti $ pure (ourPk, shares))
             sendOurData SharesMsg siEpoch 4 ourPk
 
 sendOurData

@@ -73,7 +73,8 @@ onNewSlotWhenLeader slotId = do
                             warnings
                     announceBlock $ createdBlk ^. gbHeader
             let whenNotCreated = logWarning "I couldn't create a new block"
-            maybe whenNotCreated whenCreated =<< createNewBlock sk slotId
+            let sscData = undefined
+            maybe whenNotCreated whenCreated =<< createNewBlock sk slotId sscData
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
 -- | All workers specific to block processing.

@@ -17,6 +17,7 @@ module Pos.State.Storage.Tx
 
        , getLocalTxs
        , getUtxoByDepth
+       , isTxVerified
        , txVerifyBlocks
 
        , processTx
@@ -34,7 +35,7 @@ import           Formatting              (build, int, sformat, (%))
 import           Serokell.Util           (VerificationRes (..))
 import           Universum
 
-import           Pos.Constants           (maxLocalTxs)
+import           Pos.Constants           (k, maxLocalTxs)
 import           Pos.Crypto              (hash)
 import           Pos.State.Storage.Types (AltChain, ProcessTxRes (..), mkPTRinvalid)
 import           Pos.Types               (Block, SlotId, Tx (..), TxId, Utxo,
@@ -108,6 +109,17 @@ txVerifyBlocks (fromIntegral -> toRollback) newChain = do
 -- depth has been applied.
 getUtxoByDepth :: Word -> Query (Maybe Utxo)
 getUtxoByDepth (fromIntegral -> depth) = preview $ txUtxoHistory . ix depth
+
+-- | Check if given transaction is verified, e. g.
+-- is present in `k` and more blocks deeper
+isTxVerified :: Tx -> Query Bool
+isTxVerified tx = do
+    mutxo <- getUtxoByDepth k
+    case mutxo of
+        Nothing   -> pure False
+        Just utxo -> case verifyTxUtxo utxo tx of
+            VerSuccess   -> pure True
+            VerFailure _ -> pure False
 
 type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
 

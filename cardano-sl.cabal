@@ -339,6 +339,40 @@ executable cardano-tx-generator
                         RecordWildCards
                         TypeApplications
 
+executable cardano-smart-generator
+  hs-source-dirs:      src/smart-generator
+  main-is:             Main.hs
+  build-depends:       QuickCheck
+                     , base
+                     , aeson
+                     , array
+                     , bytestring
+                     , data-default
+                     , cardano-sl
+                     , formatting
+                     , log-warper >= 0.1.0
+                     , optparse-applicative
+                     , parsec
+                     , random
+                     , serokell-util
+                     , time
+                     , time-warp
+                     , universum >= 0.1.9
+                     , unordered-containers
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -with-rtsopts=-N
+                       -O2
+  default-extensions:   DeriveDataTypeable
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                       
+
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec

@@ -24,6 +24,7 @@ module Pos.State.Storage
        , getGlobalSscPayload
        , getLeaders
        , getLocalTxs
+       , isTxVerified
        , getLocalSscPayload
        , getOurShares
        , getParticipants
@@ -66,9 +67,9 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
                                           getHeadBlock, getLeaders, getSlotDepth,
                                           mayBlockBeUseful, mkBlockStorage)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
-                                          getLocalTxs, getUtxoByDepth, processTx,
-                                          txApplyBlocks, txRollback, txStorageFromUtxo,
-                                          txVerifyBlocks)
+                                          getLocalTxs, getUtxoByDepth, isTxVerified,
+                                          processTx, txApplyBlocks, txRollback,
+                                          txStorageFromUtxo, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
                                           ProcessTxRes (..), mkPBRabort)
 import           Pos.Types               (Block, EpochIndex, GenesisBlock, MainBlock,

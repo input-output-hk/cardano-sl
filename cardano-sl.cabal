@@ -46,6 +46,14 @@ library
                         Pos.State.Storage.Tx
                         Pos.Statistics
                         Pos.Types
+                        Pos.Types.Arbitrary
+                        Pos.Types.Arbitrary.Unsafe
+                        Pos.Types.Block
+                        Pos.Types.Slotting
+                        Pos.Types.Timestamp
+                        Pos.Types.Tx
+                        Pos.Types.Types
+                        Pos.Types.Utxo
                         Pos.Util
                         Pos.Util.JsonLog
                         Pos.Worker
@@ -92,14 +100,6 @@ library
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
-                        Pos.Types.Arbitrary
-                        Pos.Types.Arbitrary.Unsafe
-                        Pos.Types.Block
-                        Pos.Types.Slotting
-                        Pos.Types.Timestamp
-                        Pos.Types.Tx
-                        Pos.Types.Types
-                        Pos.Types.Utxo
                         Pos.Worker.Block
                         Pos.Worker.Stats
                         Pos.Worker.Tx

@@ -15,4 +15,5 @@ if [[ "$SSC_ALGO" != "" ]]; then
     ssc_algo=" --ssc-algo $SSC_ALGO "
 fi
 
-$(find_binary cardano-smart-generator) $(peer_config $i) $(logs smartgen$i.log) $ssc_algo -i $i $@
+$(find_binary cardano-smart-generator) $(peer_config $i) $(logs smartgen$i.log) \
+                                       --flat-distr "(3, 100000)"  $ssc_algo -i $i $@

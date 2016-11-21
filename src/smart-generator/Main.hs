@@ -4,11 +4,12 @@
 
 module Main where
 
-import           Control.TimeWarp.Timed (for, fork_, ms, sec, sleepForever, wait)
+import           Control.TimeWarp.Timed (for, fork_, ms, sec, wait)
 import           Data.Aeson             (encode)
 import           Data.Array.IO          (IOArray)
 import           Data.Array.MArray      (MArray (..), newListArray, readArray, writeArray)
 import qualified Data.ByteString.Lazy   as LBS
+import           Data.Default           (def)
 import qualified Data.HashMap.Strict    as M
 import           Data.IORef             (IORef, modifyIORef', newIORef, readIORef)
 import           Data.List              (head, tail)
@@ -31,17 +32,19 @@ import           Pos.Crypto             (KeyPair (..), SecretKey, hash, sign, un
 import           Pos.DHT                (DHTNode, DHTNodeType (..), ListenerDHT, dhtAddr,
                                          discoverPeers, mapListenerDHT)
 import           Pos.DHT.Real           (KademliaDHTInstance)
-import           Pos.Genesis            (genesisAddresses, genesisSecretKeys)
+import           Pos.Genesis            (StakeDistribution (..), genesisAddresses,
+                                         genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
                                          NodeParams (..), RealModeSscConstraint,
                                          addDevListeners, bracketDHTInstance, runNode,
-                                         runRealMode, submitTxRaw)
+                                         runRealMode, runTimeSlaveReal, submitTxRaw)
 import           Pos.Ssc.GodTossing     (SscGodTossing)
 import           Pos.Ssc.NistBeacon     (SscNistBeacon)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 import           Pos.State              (isTxVerified)
 import           Pos.Statistics         (getNoStatsT)
-import           Pos.Types              (Address, Tx (..), TxId, TxIn (..), TxOut (..))
+import           Pos.Types              (Address, Tx (..), TxId, TxIn (..), TxOut (..),
+                                         txF)
 import           Pos.Util.JsonLog       ()
 import           Pos.WorkMode           (RealMode, WorkMode)
 
@@ -63,6 +66,8 @@ data GenOptions = GenOptions
     , goLogsPrefix         :: !(Maybe FilePath)
     , goJLFile             :: !(Maybe FilePath)
     , goSscAlgo            :: !SscAlgo
+    , goFlatDistr          :: !(Maybe (Int, Int))
+    , goBitcoinDistr       :: !(Maybe (Int, Int))
     }
 
 optionsParser :: Parser GenOptions
@@ -126,7 +131,20 @@ optionsParser = GenOptions
       <> value GodTossingAlgo
       <> showDefault
       <> help "Shared Seed Calculation algorithm which nodes will use")
-
+    <*> optional
+        (option auto $
+         mconcat
+            [ long "flat-distr"
+            , metavar "(INT,INT)"
+            , help "Use flat stake distribution with given parameters (nodes, coins)"
+            ])
+    <*> optional
+        (option auto $
+         mconcat
+            [ long "bitcoin-distr"
+            , metavar "(INT,INT)"
+            , help "Use bitcoin stake distribution with given parameters (nodes, coins)"
+            ])
 
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $
@@ -171,7 +189,7 @@ data BambooPool = BambooPool
 createBambooPool :: SecretKey -> Address -> Tx -> IO BambooPool
 createBambooPool sk addr tx = BambooPool <$> newListArray (0, outputsN - 1) bamboos <*> newIORef 0
     where outputsN = length $ txOutputs tx
-          bamboos = map (tx :) $
+          bamboos = --map (tx :) $
                     map (genChain sk addr (hash tx) . fromIntegral) [0 .. outputsN - 1]
 
 shiftTx :: BambooPool -> IO ()
@@ -193,15 +211,15 @@ peekTx BambooPool {..} =
     fmap head . readArray bpChains
 nextValidTx :: WorkMode ssc m => BambooPool -> Int -> m Tx
 nextValidTx bp tpsDelta = do
-    parentTx <- liftIO $ peekTx bp
-    isVer <- isTxVerified parentTx
+    tx <- liftIO $ peekTx bp
+    isVer <- isTxVerified tx
     if isVer
-    then liftIO $ do
+        then liftIO $ do
         shiftTx bp
-        resTx <- peekTx bp
         nextBamboo bp
-        return resTx
-    else do
+        return tx
+        else do
+        logInfo $ sformat ("Transaction "%txF%"is not verified yet!") tx
         liftIO $ nextBamboo bp
         wait $ for $ ms tpsDelta
         nextValidTx bp tpsDelta
@@ -231,7 +249,6 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
     -- | Run all the usual node workers in order to get
     -- access to blockchain
     fork_ (runNode @ssc)
-    sleepForever
 
     logInfo "STARTING TXGEN"
     peers <- discoverPeers DHTFull
@@ -299,7 +316,6 @@ main = do
 
     KeyPair _ sk <- generate arbitrary
     vssKeyPair <- generate arbitrary
-
     let logParams =
             LoggingParams
             { lpRunnerTag     = "smart-gen"
@@ -314,20 +330,36 @@ main = do
             , bpDHTKeyOrType       = Right DHTFull
             , bpDHTExplicitInitial = goDhtExplicitInitial
             }
-        params =
-            NodeParams
-            { npDbPath      = Nothing
-            , npRebuildDb   = False
-            , npSystemStart = 1477706355381569 --arbitrary value
-            , npSecretKey   = sk
-            , npVssKeyPair  = vssKeyPair
-            , npBaseParams  = baseParams
-            , npCustomUtxo  = Nothing
-            , npTimeLord    = False
-            , npJLFile      = goJLFile
-            }
+        stakesDistr = case (goFlatDistr, goBitcoinDistr) of
+            (Nothing, Nothing) -> def
+            (Just _, Just _) ->
+                panic "flat-distr and bitcoin distr are conflicting options"
+            (Just (nodes, coins), Nothing) ->
+                FlatStakes (fromIntegral nodes) (fromIntegral coins)
+            (Nothing, Just (nodes, coins)) ->
+                BitcoinStakes (fromIntegral nodes) (fromIntegral coins)
 
     bracketDHTInstance baseParams $ \inst -> do
+        let timeSlaveParams =
+                baseParams
+                { bpLoggingParams = logParams { lpRunnerTag = "time-slave" }
+                }
+
+        systemStart <- runTimeSlaveReal inst timeSlaveParams
+
+        let params =
+                NodeParams
+                { npDbPath      = Nothing
+                , npRebuildDb   = False
+                , npSystemStart = systemStart
+                , npSecretKey   = sk
+                , npVssKeyPair  = vssKeyPair
+                , npBaseParams  = baseParams
+                , npCustomUtxo  = Just $ genesisUtxo stakesDistr
+                , npTimeLord    = False
+                , npJLFile      = goJLFile
+                }
+
         case goSscAlgo of
             GodTossingAlgo -> putText "Using MPC coin tossing" *>
                               runSmartGen @SscGodTossing inst params opts

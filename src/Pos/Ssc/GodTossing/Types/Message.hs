@@ -5,6 +5,8 @@ module Pos.Ssc.GodTossing.Types.Message
        , InvMsg (..)
        , ReqMsg (..)
        , DataMsg (..)
+       , dataMsgPublicKey
+       , dataMsgTag
        ) where
 
 import           Control.TimeWarp.Rpc          (Message (..))
@@ -72,3 +74,17 @@ instance Binary DataMsg
 
 instance Message DataMsg where
     messageName _ = "GT Data"
+
+-- | MsgTag appropriate for given DataMsg.
+dataMsgTag :: DataMsg -> MsgTag
+dataMsgTag (DMCommitment _ _)     = CommitmentMsg
+dataMsgTag (DMOpening _ _)        = OpeningMsg
+dataMsgTag (DMShares _ _)         = SharesMsg
+dataMsgTag (DMVssCertificate _ _) = VssCertificateMsg
+
+-- | PublicKey stored in DataMsg.
+dataMsgPublicKey :: DataMsg -> PublicKey
+dataMsgPublicKey (DMCommitment pk _)     = pk
+dataMsgPublicKey (DMOpening pk _)        = pk
+dataMsgPublicKey (DMShares pk _)         = pk
+dataMsgPublicKey (DMVssCertificate pk _) = pk

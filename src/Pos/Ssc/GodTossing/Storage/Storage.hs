@@ -12,7 +12,7 @@
 
 -- | Instance of SscStorageClass.
 
-module Pos.Ssc.GodTossing.Instance.Storage
+module Pos.Ssc.GodTossing.Storage.Storage
        ( -- * Instances
          -- ** instance SscStorageClass SscGodTossing
        ) where
@@ -49,10 +49,10 @@ import           Pos.Ssc.GodTossing.Base           (Commitment (..), CommitmentS
                                                     verifySignedCommitment)
 import           Pos.Ssc.GodTossing.Base           (Opening)
 import           Pos.Ssc.GodTossing.Error          (SeedError)
-import           Pos.Ssc.GodTossing.Instance.Type  (SscGodTossing)
-import           Pos.Ssc.GodTossing.Instance.Types ()
+import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types ()
 import           Pos.Ssc.GodTossing.Seed           (calculateSeed)
-import           Pos.Ssc.GodTossing.Storage        (GtStorage, GtStorageVersion (..),
+import           Pos.Ssc.GodTossing.Storage.Types  (GtStorage, GtStorageVersion (..),
                                                     dsGlobalCertificates,
                                                     dsGlobalCommitments, dsGlobalOpenings,
                                                     dsGlobalShares, dsLastProcessedSlotL,

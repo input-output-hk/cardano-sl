@@ -4,62 +4,60 @@
 
 -- | Instance of SscWorkersClass.
 
-module Pos.Ssc.GodTossing.Instance.Worker
+module Pos.Ssc.GodTossing.Worker.Workers
        ( -- * Instances
          -- ** instance SscWorkersClass SscGodTossing
        ) where
 
-import           Control.Lens                             (view, _2, _3)
-import           Control.TimeWarp.Timed                   (Microsecond, Millisecond,
-                                                           currentTime, for,
-                                                           repeatForever, wait)
-import qualified Data.HashMap.Strict                      as HM (toList)
-import           Data.List.NonEmpty                       (nonEmpty)
-import           Data.Tagged                              (Tagged (..))
-import           Formatting                               (build, ords, sformat, shown,
-                                                           stext, (%))
-import           Serokell.Util.Exceptions                 ()
-import           System.Wlog                              (logDebug, logWarning)
+import           Control.Lens                            (view, _2, _3)
+import           Control.TimeWarp.Timed                  (Microsecond, Millisecond,
+                                                          currentTime, for, repeatForever,
+                                                          wait)
+import qualified Data.HashMap.Strict                     as HM (toList)
+import           Data.List.NonEmpty                      (nonEmpty)
+import           Data.Tagged                             (Tagged (..))
+import           Formatting                              (build, ords, sformat, shown,
+                                                          stext, (%))
+import           Serokell.Util.Exceptions                ()
+import           System.Wlog                             (logDebug, logWarning)
 import           Universum
 
-import           Pos.Constants                            (k, mpcSendInterval,
-                                                           sscTransmitterInterval)
-import           Pos.Crypto                               (SecretKey, randomNumber,
-                                                           runSecureRandom, toPublic)
-import           Pos.Slotting                             (getCurrentSlot, getSlotStart)
-import           Pos.Ssc.Class.Workers                    (SscWorkersClass (..))
-import           Pos.Ssc.GodTossing.Base                  (genCommitmentAndOpening,
-                                                           genCommitmentAndOpening,
-                                                           isCommitmentIdx, isOpeningIdx,
-                                                           isSharesIdx,
-                                                           mkSignedCommitment)
-import           Pos.Ssc.GodTossing.Base                  (Opening, SignedCommitment)
-import           Pos.Ssc.GodTossing.Instance.Type         (SscGodTossing)
-import           Pos.Ssc.GodTossing.Server                (announceCommitments,
-                                                           announceOpenings,
-                                                           announceSharesMulti,
-                                                           announceVssCertificates)
-import           Pos.Ssc.GodTossing.Storage               (GtSecret)
-import           Pos.Ssc.GodTossing.Types                 (GtMessage (..), GtPayload (..),
-                                                           hasCommitment, hasOpening,
-                                                           hasShares)
-import           Pos.State                                (getGlobalMpcData,
-                                                           getLocalSscPayload,
-                                                           getOurShares, getParticipants,
-                                                           getThreshold,
-                                                           processSscMessage)
-import           Pos.Types                                (EpochIndex, LocalSlotIndex,
-                                                           SlotId (..), Timestamp (..))
-import           Pos.WorkMode                             (WorkMode, getNodeContext,
-                                                           ncDbPath, ncPublicKey,
-                                                           ncSecretKey, ncVssKeyPair)
+import           Pos.Constants                           (k, mpcSendInterval,
+                                                          sscTransmitterInterval)
+import           Pos.Crypto                              (SecretKey, randomNumber,
+                                                          runSecureRandom, toPublic)
+import           Pos.Slotting                            (getCurrentSlot, getSlotStart)
+import           Pos.Ssc.Class.Workers                   (SscWorkersClass (..))
+import           Pos.Ssc.GodTossing.Base                 (genCommitmentAndOpening,
+                                                          genCommitmentAndOpening,
+                                                          isCommitmentIdx, isOpeningIdx,
+                                                          isSharesIdx, mkSignedCommitment)
+import           Pos.Ssc.GodTossing.Base                 (Opening, SignedCommitment)
+import           Pos.Ssc.GodTossing.Server               (announceCommitments,
+                                                          announceOpenings,
+                                                          announceSharesMulti,
+                                                          announceVssCertificates)
+import           Pos.Ssc.GodTossing.Type                 (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types                (GtMessage (..), GtPayload (..),
+                                                          hasCommitment, hasOpening,
+                                                          hasShares)
+import           Pos.Ssc.GodTossing.Worker.Types         (GtSecret)
+import           Pos.State                               (getGlobalMpcData,
+                                                          getLocalSscPayload,
+                                                          getOurShares, getParticipants,
+                                                          getThreshold, processSscMessage)
+import           Pos.Types                               (EpochIndex, LocalSlotIndex,
+                                                          SlotId (..), Timestamp (..))
+import           Pos.WorkMode                            (WorkMode, getNodeContext,
+                                                          ncDbPath, ncPublicKey,
+                                                          ncSecretKey, ncVssKeyPair)
 
-import           Data.Time.Units                          (convertUnit)
-import           Pos.Communication.Methods                (announceSsc)
-import           Pos.Ssc.GodTossing.Instance.AcidicSecret (getSecret,
-                                                           prepareSecretToNewSlot,
-                                                           setSecret)
-import           System.FilePath                          ((</>))
+import           Data.Time.Units                         (convertUnit)
+import           Pos.Communication.Methods               (announceSsc)
+import           Pos.Ssc.GodTossing.Worker.SecretStorage (checkpoint, getSecret,
+                                                          prepareSecretToNewSlot,
+                                                          setSecret)
+import           System.FilePath                         ((</>))
 
 instance SscWorkersClass SscGodTossing where
     sscOnNewSlot = Tagged onNewSlot
@@ -71,6 +69,7 @@ onNewSlot slotId = do
     onNewSlotCommitment slotId
     onNewSlotOpening slotId
     onNewSlotShares slotId
+    createCheckpoint slotId
 
 randomTimeInInterval
     :: WorkMode SscGodTossing m
@@ -100,6 +99,9 @@ waitUntilSend msgName epoch kMultiplier = do
             sformat ("Waiting for "%shown%" before sending "%stext)
                 ttwMillisecond msgName
         wait $ for timeToWait
+
+createCheckpoint :: WorkMode SscGodTossing m => SlotId -> m ()
+createCheckpoint SlotId {..} = pathToSecret >>= checkpoint
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment :: WorkMode SscGodTossing m => SlotId -> m ()

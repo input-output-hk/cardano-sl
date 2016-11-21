@@ -207,8 +207,8 @@ nextBamboo BambooPool {..} = do
 peekTx :: BambooPool -> IO Tx
 peekTx BambooPool {..} =
     readIORef bpCurIdx >>=
-
     fmap head . readArray bpChains
+
 nextValidTx :: WorkMode ssc m => BambooPool -> Int -> m Tx
 nextValidTx bp tpsDelta = do
     tx <- liftIO $ peekTx bp

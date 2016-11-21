@@ -282,10 +282,10 @@ mkGtProof GtPayload {..} =
 ----------------------------------------------------------------------------
 
 hasCommitment :: PublicKey -> GtPayload -> Bool
-hasCommitment pk md = HM.member pk (_mdCommitments md)
+hasCommitment pk = HM.member pk . _mdCommitments
 
 hasOpening :: PublicKey -> GtPayload -> Bool
-hasOpening pk md = HM.member pk (_mdOpenings md)
+hasOpening pk = HM.member pk . _mdOpenings
 
 hasShares :: PublicKey -> GtPayload -> Bool
-hasShares pk md = HM.member pk (_mdShares md)
+hasShares pk = HM.member pk . _mdShares

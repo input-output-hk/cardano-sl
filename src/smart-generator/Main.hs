@@ -1,8 +1,10 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
-import           Control.TimeWarp.Timed (for, fork_, ms, sec, wait)
+import           Control.TimeWarp.Timed (for, fork_, ms, sec, sleepForever, wait)
 import           Data.Aeson             (encode)
 import           Data.Array.IO          (IOArray)
 import           Data.Array.MArray      (MArray (..), newListArray, readArray, writeArray)
@@ -16,28 +18,36 @@ import           Data.Time.Clock.POSIX  (getPOSIXTime)
 import           Formatting             (float, int, sformat, (%))
 import           Options.Applicative    (Parser, ParserInfo, auto, execParser, fullDesc,
                                          help, helper, info, long, many, metavar, option,
-                                         progDesc, short, switch, value)
-import           Serokell.Util.OptParse (fromParsec)
+                                         progDesc, short, showDefault, switch, value)
+import           Serokell.Util.OptParse (fromParsec, strOption)
 import           System.Wlog            (logInfo)
 import           Test.QuickCheck        (arbitrary, generate)
 import           Universum              hiding (head, (<>))
 
-import           Pos.CLI                (dhtNodeParser)
+import           Pos.CLI                (dhtNodeParser, sscAlgoParser)
+import           Pos.Communication      (allListeners)
 import           Pos.Constants          (k, slotDuration)
 import           Pos.Crypto             (KeyPair (..), SecretKey, hash, sign, unsafeHash)
-import           Pos.DHT                (DHTNode, DHTNodeType (..), dhtAddr,
-                                         discoverPeers)
+import           Pos.DHT                (DHTNode, DHTNodeType (..), ListenerDHT, dhtAddr,
+                                         discoverPeers, mapListenerDHT)
+import           Pos.DHT.Real           (KademliaDHTInstance)
 import           Pos.Genesis            (genesisAddresses, genesisSecretKeys)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
-                                         NodeParams (..), bracketDHTInstance, runNode,
+                                         NodeParams (..), RealModeSscConstraint,
+                                         addDevListeners, bracketDHTInstance, runNode,
                                          runRealMode, submitTxRaw)
 import           Pos.Ssc.GodTossing     (SscGodTossing)
+import           Pos.Ssc.NistBeacon     (SscNistBeacon)
+import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 import           Pos.State              (isTxVerified)
 import           Pos.Statistics         (getNoStatsT)
 import           Pos.Types              (Address, Tx (..), TxId, TxIn (..), TxOut (..))
 import           Pos.Util.JsonLog       ()
-import           Pos.WorkMode           (WorkMode)
+import           Pos.WorkMode           (RealMode, WorkMode)
 
+-----------------------------------------------------------------------
+-- CLI options
+-----------------------------------------------------------------------
 data GenOptions = GenOptions
     { goGenesisIdx         :: !Word       -- ^ Index in genesis key pairs.
     -- , goRemoteAddr  :: !NetworkAddress -- ^ Remote node address
@@ -51,6 +61,8 @@ data GenOptions = GenOptions
     , goDhtExplicitInitial :: !Bool
     , goLogConfig          :: !(Maybe FilePath)
     , goLogsPrefix         :: !(Maybe FilePath)
+    , goJLFile             :: !(Maybe FilePath)
+    , goSscAlgo            :: !SscAlgo
     }
 
 optionsParser :: Parser GenOptions
@@ -96,14 +108,24 @@ optionsParser = GenOptions
         (long "explicit-initial" <>
          help
              "Explicitely contact to initial peers as to neighbors (even if they appeared offline once)")
-    <*> optional (option auto $
-                 long "log-config"
-              <> metavar "FILEPATH"
-              <> help "Path to logger configuration")
-    <*> optional (option auto $
-                 long "logs-prefix"
-              <> metavar "FILEPATH"
-              <> help "Prefix to logger output path")
+    <*> optional (strOption $
+                  long "log-config"
+               <> metavar "FILEPATH"
+               <> help "Path to logger configuration")
+    <*> optional (strOption $
+                  long "logs-prefix"
+               <> metavar "FILEPATH"
+               <> help "Prefix to logger output path")
+    <*> optional (strOption $
+                  long "json-log"
+               <> metavar "FILEPATH"
+               <> help "Path to json log file")
+    <*> option (fromParsec sscAlgoParser)
+        (long "ssc-algo"
+      <> metavar "ALGO"
+      <> value GodTossingAlgo
+      <> showDefault
+      <> help "Shared Seed Calculation algorithm which nodes will use")
 
 
 optsInfo :: ParserInfo GenOptions
@@ -167,8 +189,8 @@ nextBamboo BambooPool {..} = do
 peekTx :: BambooPool -> IO Tx
 peekTx BambooPool {..} =
     readIORef bpCurIdx >>=
-    fmap head . readArray bpChains
 
+    fmap head . readArray bpChains
 nextValidTx :: WorkMode ssc m => BambooPool -> Int -> m Tx
 nextValidTx bp tpsDelta = do
     parentTx <- liftIO $ peekTx bp
@@ -184,27 +206,110 @@ nextValidTx bp tpsDelta = do
         wait $ for $ ms tpsDelta
         nextValidTx bp tpsDelta
 
+-----------------------------------------------------------------------------
+-- Launcher helper
+-----------------------------------------------------------------------------
+
+realListeners :: RealModeSscConstraint ssc => NodeParams -> [ListenerDHT (RealMode ssc)]
+realListeners params = addDevListeners params noStatsListeners
+  where noStatsListeners = map (mapListenerDHT getNoStatsT) allListeners
+
+runSmartGen :: forall ssc . RealModeSscConstraint ssc
+            => KademliaDHTInstance -> NodeParams -> GenOptions -> IO ()
+runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
+    runRealMode inst np (realListeners @ssc np) $ getNoStatsT $ do
+    let i = fromIntegral goGenesisIdx
+        getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
+        totalRounds = length goTPSs
+        initTx = initTransaction opts
+
+    bambooPool <- liftIO $ createBambooPool
+                  (genesisSecretKeys !! i)
+                  (genesisAddresses !! i)
+                  initTx
+
+    -- | Run all the usual node workers in order to get
+    -- access to blockchain
+    fork_ (runNode @ssc)
+    sleepForever
+
+    logInfo "STARTING TXGEN"
+    peers <- discoverPeers DHTFull
+
+    let na' = dhtAddr <$> peers
+        na = if goSingleRecipient
+             then take 1 na'
+             else na'
+
+    logInfo "Issuing seed transaction"
+    submitTxRaw na initTx
+    logInfo "Waiting for verifying period..."
+    wait $ for $ fromIntegral (k + goPropThreshold) * slotDuration
+
+    forM_ (zip [1..] goTPSs) $ \(roundNum :: Int, goTPS) -> do
+        logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)
+            roundNum totalRounds goTPS
+
+        let tpsDelta = round $ 1000 / goTPS
+            txNum = round $ goRoundDuration * goTPS
+
+        beginT <- getPosixMs
+        resMap <- foldM
+            (\curmap (idx :: Int) -> do
+                    transaction <- nextValidTx bambooPool tpsDelta
+
+                    startT <- getPosixMs
+                    logInfo $ sformat ("Sending transaction #"%int) idx
+                    submitTxRaw na transaction
+
+                    -- sometimes nodes fail so we never write timestamps...
+                    when (idx `mod` 271 == 0) $ void $ liftIO $ forkIO $
+                        LBS.writeFile "timestampsTxSender.json" $
+                        encode $ M.toList curmap
+
+                    endT <- getPosixMs
+                    let runDelta = endT - startT
+                    wait $ for $ ms (max 0 $ tpsDelta - runDelta)
+
+                    -- we dump microseconds to be consistent with JSON log
+                    pure $ M.insert (pretty $ hash transaction) (startT * 1000) curmap)
+            (M.empty :: M.HashMap Text Int) -- TxId Int
+            [0 .. txNum - 1]
+
+        finishT <- getPosixMs
+
+        let globalTime, realTPS :: Double
+            globalTime = (fromIntegral (finishT - beginT)) / 1000
+            realTPS = (fromIntegral txNum) / globalTime
+
+        putText "----------------------------------------"
+        putText "wrote json to ./timestampsTxSender.json"
+        liftIO $ LBS.writeFile "timestampsTxSender.json" $
+            encode $ M.toList resMap
+        putText $ "Sending transactions took (s): " <> show globalTime
+        putText $ "So real tps was: " <> show realTPS
+
+-----------------------------------------------------------------------------
+-- Main
+-----------------------------------------------------------------------------
+
 main :: IO ()
 main = do
     opts@GenOptions {..} <- execParser optsInfo
 
-    -- | Use arbitrary key/value pair to not have any stake
     KeyPair _ sk <- generate arbitrary
-
-    -- | Same for VssKeyPair
     vssKeyPair <- generate arbitrary
 
-    let i = fromIntegral goGenesisIdx
-        logParams =
+    let logParams =
             LoggingParams
-            { lpRunnerTag     = "tx-gen"
+            { lpRunnerTag     = "smart-gen"
             , lpHandlerPrefix = goLogsPrefix
             , lpConfigPath    = goLogConfig
             }
         baseParams =
             BaseParams
             { bpLoggingParams      = logParams
-            , bpPort               = 24962 + fromIntegral i
+            , bpPort               = 24962 + fromIntegral goGenesisIdx
             , bpDHTPeers           = goDHTPeers
             , bpDHTKeyOrType       = Right DHTFull
             , bpDHTExplicitInitial = goDhtExplicitInitial
@@ -219,74 +324,13 @@ main = do
             , npBaseParams  = baseParams
             , npCustomUtxo  = Nothing
             , npTimeLord    = False
-            , npJLFile      = Nothing
+            , npJLFile      = goJLFile
             }
-        getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
-        totalRounds = length goTPSs
-        initTx = initTransaction opts
-
-    bambooPool <- createBambooPool (genesisSecretKeys !! i) (genesisAddresses !! i) initTx
 
     bracketDHTInstance baseParams $ \inst -> do
-        runRealMode @SscGodTossing inst params [] $ getNoStatsT $ do
-            -- | Run all the usual node workers in order to get
-            -- access to blockchain
-
-            fork_ runNode
-
-            logInfo "STARTING TXGEN"
-            peers <- discoverPeers DHTFull
-
-            let na' = dhtAddr <$> peers
-                na = if goSingleRecipient
-                     then take 1 na'
-                     else na'
-
-            logInfo "Issuing seed transaction"
-            submitTxRaw na initTx
-            logInfo "Waiting for verifying period..."
-            wait $ for $ fromIntegral (k + goPropThreshold) * slotDuration
-
-            forM_ (zip [1..] goTPSs) $ \(roundNum :: Int, goTPS) -> do
-                logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)
-                    roundNum totalRounds goTPS
-
-                let tpsDelta = round $ 1000 / goTPS
-                    txNum = round $ goRoundDuration * goTPS
-
-                beginT <- getPosixMs
-                resMap <- foldM
-                    (\curmap (idx :: Int) -> do
-                        transaction <- nextValidTx bambooPool tpsDelta
-
-                        startT <- getPosixMs
-                        logInfo $ sformat ("Sending transaction #"%int) idx
-                        submitTxRaw na transaction
-
-                        -- sometimes nodes fail so we never write timestamps...
-                        when (idx `mod` 271 == 0) $ void $ liftIO $ forkIO $
-                            LBS.writeFile "timestampsTxSender.json" $
-                                encode $ M.toList curmap
-
-                        endT <- getPosixMs
-                        let runDelta = endT - startT
-                        wait $ for $ ms (max 0 $ tpsDelta - runDelta)
-
-                        -- we dump microseconds to be consistent with JSON log
-                        pure $ M.insert (pretty $ hash transaction) (startT * 1000) curmap)
-                    (M.empty :: M.HashMap Text Int) -- TxId Int
-                    [0 .. txNum - 1]
-
-                finishT <- getPosixMs
-
-                let globalTime, realTPS :: Double
-                    globalTime = (fromIntegral (finishT - beginT)) / 1000
-                    realTPS = (fromIntegral txNum) / globalTime
-
-                putText "----------------------------------------"
-                putText "wrote json to ./timestampsTxSender.json"
-                liftIO $ LBS.writeFile "timestampsTxSender.json" $
-                    encode $ M.toList resMap
-                putText $ "Sending transactions took (s): " <> show globalTime
-                putText $ "So real tps was: " <> show realTPS
+        case goSscAlgo of
+            GodTossingAlgo -> putText "Using MPC coin tossing" *>
+                              runSmartGen @SscGodTossing inst params opts
+            NistBeaconAlgo -> putText "Using NIST beacon" *>
+                              runSmartGen @SscNistBeacon inst params opts
 

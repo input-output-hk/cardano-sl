@@ -12,6 +12,7 @@ module Pos.Launcher
        ( LoggingParams (..)
        , NodeParams (..)
        , BaseParams (..)
+       , RealModeSscConstraint
        , RealModeRunner
        , getCurTimestamp
        , runNode
@@ -26,6 +27,7 @@ module Pos.Launcher
        -- Export this for custom usage in CLI utils
        , runServiceMode
        , runRealMode
+       , addDevListeners
        , bracketDHTInstance
        ) where
 

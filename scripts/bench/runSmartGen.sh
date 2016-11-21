@@ -11,5 +11,8 @@ ensure_logs
 i=$1
 shift
 
-$(find_binary cardano-smart-generator) $(peer_config $i) -i $i $@ \
-                                       2>&1 | tee $logs_dir/txgen$i.log
+if [[ "$SSC_ALGO" != "" ]]; then
+    ssc_algo=" --ssc-algo $SSC_ALGO "
+fi
+
+$(find_binary cardano-smart-generator) $(peer_config $i) $(logs smartgen$i.log) $ssc_algo -i $i $@

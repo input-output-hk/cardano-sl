@@ -167,6 +167,7 @@ library
                        -fno-warn-orphans
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -200,6 +201,7 @@ executable cardano-node
                        -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -231,6 +233,7 @@ executable cardano-analyzer
                        -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -257,6 +260,7 @@ executable cardano-wallet
                        -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -301,6 +305,7 @@ executable cardano-stats-collector
                        -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -332,6 +337,7 @@ executable cardano-tx-generator
                        -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -365,12 +371,13 @@ executable cardano-smart-generator
                        -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
-                       
+
 
 test-suite cardano-test
   main-is:             Test.hs
@@ -424,6 +431,7 @@ test-suite cardano-test
                        -- -fno-warn-orphans
                        -with-rtsopts=-N
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -454,6 +462,7 @@ benchmark cardano-bench-criterion
                        -fno-warn-orphans
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings

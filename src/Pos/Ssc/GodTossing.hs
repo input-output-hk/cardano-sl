@@ -8,14 +8,21 @@
 -- Proof-of-Stake Blockchain Protocol”), section 4 for more details.
 
 module Pos.Ssc.GodTossing
-       ( module GodTossing
+       ( module Pos.Ssc.GodTossing.Arbitrary
+       , module Pos.Ssc.GodTossing.Base
+       , module Pos.Ssc.GodTossing.Error
+       , module Pos.Ssc.GodTossing.Genesis
+       , module Pos.Ssc.GodTossing.Instance
+       , module Pos.Ssc.GodTossing.Seed
+       , module Pos.Ssc.GodTossing.Storage
+       , module Pos.Ssc.GodTossing.Types
        ) where
 
-import           Pos.Ssc.GodTossing.Arbitrary as GodTossing
-import           Pos.Ssc.GodTossing.Base      as GodTossing
-import           Pos.Ssc.GodTossing.Error     as GodTossing
-import           Pos.Ssc.GodTossing.Genesis   as GodTossing
-import           Pos.Ssc.GodTossing.Instance  as GodTossing
-import           Pos.Ssc.GodTossing.Seed      as GodTossing
-import           Pos.Ssc.GodTossing.Storage   ()
-import           Pos.Ssc.GodTossing.Types     as GodTossing
+import           Pos.Ssc.GodTossing.Arbitrary
+import           Pos.Ssc.GodTossing.Base
+import           Pos.Ssc.GodTossing.Error
+import           Pos.Ssc.GodTossing.Genesis
+import           Pos.Ssc.GodTossing.Instance
+import           Pos.Ssc.GodTossing.Seed
+import           Pos.Ssc.GodTossing.Storage
+import           Pos.Ssc.GodTossing.Types

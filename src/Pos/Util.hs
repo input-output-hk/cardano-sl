@@ -11,7 +11,7 @@
 module Pos.Util
        (
        -- * Stuff for testing and benchmarking
-         module UtilArbitrary
+         module Pos.Util.Arbitrary
 
        -- * Various
        , Raw
@@ -42,6 +42,7 @@ module Pos.Util
        , colorize
 
        -- * TimeWarp helpers
+       , CanLogInParallel
        , WaitingDelta (..)
        , messageName'
        , logWarningLongAction
@@ -94,7 +95,7 @@ import           Universum
 import           Unsafe                        (unsafeInit, unsafeLast)
 
 import           Pos.Crypto.Random             (randomNumber)
-import           Pos.Util.Arbitrary            as UtilArbitrary
+import           Pos.Util.Arbitrary
 import           Pos.Util.NotImplemented       ()
 
 -- | A wrapper over 'ByteString' for adding type safety to
@@ -303,6 +304,7 @@ data WaitingDelta
     | WaitGeometric Microsecond Double  -- ^ wait m, m * q, m * q^2, m * q^3, ... microseconds
     deriving (Show)
 
+-- | Constraint for something that can be logged in parallel with other action.
 type CanLogInParallel m = (MonadIO m, MonadTimed m, WithNamedLogger m)
 
 -- | Run action and print warning if it takes more time than expected.

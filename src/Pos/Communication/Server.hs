@@ -7,8 +7,8 @@
 module Pos.Communication.Server
        ( allListeners
        , serverLoggerName
-       , module SysStart
-       , module Statistics
+       , module Pos.Communication.Server.Statistics
+       , module Pos.Communication.Server.SysStart
        ) where
 
 import           Control.TimeWarp.Rpc                (BinaryP, MonadDialog)
@@ -17,8 +17,8 @@ import           System.Wlog                         (LoggerName)
 import           Universum
 
 import           Pos.Communication.Server.Block      (blockListeners)
-import           Pos.Communication.Server.Statistics as Statistics
-import           Pos.Communication.Server.SysStart   as SysStart
+import           Pos.Communication.Server.Statistics
+import           Pos.Communication.Server.SysStart
 import           Pos.Communication.Server.Tx         (txListeners)
 import           Pos.Communication.Util              (modifyListenerLogger)
 import           Pos.DHT                             (ListenerDHT)

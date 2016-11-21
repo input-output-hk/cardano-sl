@@ -24,6 +24,7 @@ module Pos.State.Storage
        , getGlobalSscPayload
        , getLeaders
        , getLocalTxs
+       , isTxVerified
        , getLocalSscPayload
        , getOurShares
        , getParticipants
@@ -66,9 +67,9 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
                                           getHeadBlock, getLeaders, getSlotDepth,
                                           mayBlockBeUseful, mkBlockStorage)
 import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
-                                          getLocalTxs, getUtxoByDepth, processTx,
-                                          txApplyBlocks, txRollback, txStorageFromUtxo,
-                                          txVerifyBlocks)
+                                          getLocalTxs, getUtxoByDepth, isTxVerified,
+                                          processTx, txApplyBlocks, txRollback,
+                                          txStorageFromUtxo, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
                                           ProcessTxRes (..), mkPBRabort)
 import           Pos.Types               (Block, EpochIndex, GenesisBlock, MainBlock,
@@ -217,7 +218,7 @@ processBlockDo curSlotId blk = do
         PBRgood (toRollback, chain) -> do
             mpcRes <- readerToState $ sscVerifyBlocks @ssc toRollback chain
             txRes <- readerToState $ txVerifyBlocks toRollback chain
-            case mpcRes <> txRes of
+            case mpcRes <> eitherToVerResult txRes of
                 VerSuccess        -> processBlockFinally toRollback chain
                 VerFailure errors -> return $ mkPBRabort errors
         -- if we need block which we already know, we just use it
@@ -225,6 +226,8 @@ processBlockDo curSlotId blk = do
             maybe (pure r) (processBlockDo curSlotId) =<<
             readerToState (getBlock h)
         _ -> return r
+  where
+    eitherToVerResult = either (VerFailure . (:[])) (const VerSuccess)
 
 -- At this point all checks have been passed and we know that we can
 -- adopt this AltChain.

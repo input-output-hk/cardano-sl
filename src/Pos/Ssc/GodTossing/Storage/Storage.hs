@@ -12,7 +12,7 @@
 
 -- | Instance of SscStorageClass.
 
-module Pos.Ssc.GodTossing.Instance.Storage
+module Pos.Ssc.GodTossing.Storage.Storage
        ( -- * Instances
          -- ** instance SscStorageClass SscGodTossing
        ) where
@@ -41,25 +41,24 @@ import           Pos.FollowTheSatoshi              (followTheSatoshi)
 import           Pos.Ssc.Class.Storage             (HasSscStorage (..), SscQuery,
                                                     SscStorageClass (..), SscUpdate)
 import           Pos.Ssc.Class.Types               (Ssc (..))
-import           Pos.Ssc.GodTossing.Base           (Commitment (..), CommitmentSignature,
-                                                    CommitmentsMap, OpeningsMap,
-                                                    VssCertificate, VssCertificatesMap,
-                                                    isCommitmentIdx, isOpeningIdx,
-                                                    isSharesIdx, verifyOpening,
-                                                    verifySignedCommitment)
-import           Pos.Ssc.GodTossing.Base           (Opening)
 import           Pos.Ssc.GodTossing.Error          (SeedError)
-import           Pos.Ssc.GodTossing.Instance.Type  (SscGodTossing)
-import           Pos.Ssc.GodTossing.Instance.Types ()
 import           Pos.Ssc.GodTossing.Seed           (calculateSeed)
-import           Pos.Ssc.GodTossing.Storage        (GtStorage, GtStorageVersion (..),
+import           Pos.Ssc.GodTossing.Storage.Types  (GtStorage, GtStorageVersion (..),
                                                     dsGlobalCertificates,
                                                     dsGlobalCommitments, dsGlobalOpenings,
                                                     dsGlobalShares, dsLastProcessedSlotL,
                                                     dsLocalCertificates,
                                                     dsLocalCommitments, dsLocalOpenings,
                                                     dsLocalShares, dsVersionedL)
-import           Pos.Ssc.GodTossing.Types          (GtMessage (..), GtPayload (..),
+import           Pos.Ssc.GodTossing.Types.Base     (Commitment (..), CommitmentSignature,
+                                                    CommitmentsMap, Opening, OpeningsMap,
+                                                    VssCertificate, VssCertificatesMap,
+                                                    isCommitmentIdx, isOpeningIdx,
+                                                    isSharesIdx, verifyOpening,
+                                                    verifySignedCommitment)
+import           Pos.Ssc.GodTossing.Types.Instance ()
+import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types    (GtMessage (..), GtPayload (..),
                                                     filterGtPayload, mdCommitments,
                                                     mdOpenings, mdShares,
                                                     mdVssCertificates, verifyGtPayload)
@@ -212,17 +211,16 @@ checkOpeningLastVer pk opening =
 
 -- | Check that the decrypted share matches the encrypted share in the
 -- commitment
--- TODO: check that there is no opening for share, but only after fixing
--- getOurShares!!1!1
 checkShare
     :: CommitmentsMap
     -> OpeningsMap
     -> VssCertificatesMap
     -> (PublicKey, PublicKey, Share)
     -> Bool
-checkShare globalCommitments _ globalCertificates (pkTo, pkFrom, share) =
+checkShare globalCommitments globalOpenings globalCertificates (pkTo, pkFrom, share) =
     fromMaybe False $ do
         guard $ HM.member pkTo globalCommitments
+        guard $ isNothing $ HM.lookup pkFrom globalOpenings
         (comm, _) <- HM.lookup pkFrom globalCommitments
         vssKey <- signedValue <$> HM.lookup pkTo globalCertificates
         encShare <- HM.lookup vssKey (commShares comm)
@@ -480,14 +478,15 @@ getOurShares
 getOurShares ourKey seed = do
     let drg = drgNewSeed (seedFromInteger seed)
     comms <- view (lastVer . dsGlobalCommitments)
+    opens <- view (lastVer . dsGlobalOpenings)
+    let ourPK = toVssPublicKey ourKey
     return $ fst $ withDRG drg $
         fmap (HM.fromList . catMaybes) $
             forM (HM.toList comms) $ \(theirPK, (Commitment{..}, _)) -> do
-                let mbEncShare = HM.lookup (toVssPublicKey ourKey) commShares
-                case mbEncShare of
-                    Nothing       -> return Nothing
-                    Just encShare -> Just . (theirPK,) <$>
-                                    decryptShare ourKey encShare
-                -- TODO: do we need to verify shares with 'verifyEncShare'
-                -- here? Or do we need to verify them earlier (i.e. at the
-                -- stage of commitment verification)?
+                if not $ HM.member theirPK opens then do
+                    let mbEncShare = HM.lookup ourPK commShares
+                    case mbEncShare of
+                        Nothing       -> return Nothing
+                        Just encShare -> Just . (theirPK,) <$>
+                                        decryptShare ourKey encShare
+                 else return Nothing -- if we have opening for theirPK, we shouldn't send shares for it

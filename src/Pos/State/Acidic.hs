@@ -26,6 +26,7 @@ module Pos.State.Acidic
        , GetBestChain (..)
        , GetLeaders (..)
        , GetLocalTxs (..)
+       , IsTxVerified (..)
        , GetLocalSscPayload (..)
        , GetOurShares (..)
        , GetThreshold (..)
@@ -117,6 +118,7 @@ makeAcidicWithHacks ''S.Storage ["ssc"]
     , 'S.getLeaders
     , 'S.getLocalSscPayload
     , 'S.getLocalTxs
+    , 'S.isTxVerified
     , 'S.getHeadBlock
     , 'S.getBestChain
     , 'S.getOurShares

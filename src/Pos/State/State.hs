@@ -24,6 +24,7 @@ module Pos.State.State
        , getBestChain
        , getLeaders
        , getLocalTxs
+       , isTxVerified
        , getLocalSscPayload
        , getGlobalMpcData
        , mayBlockBeUseful
@@ -158,6 +159,10 @@ getBestChain = queryDisk A.GetBestChain
 -- | Get local transactions list.
 getLocalTxs :: QUConstraint ssc m => m (HashSet Tx)
 getLocalTxs = queryDisk A.GetLocalTxs
+
+-- | Checks if tx is verified
+isTxVerified :: QUConstraint ssc m => Tx -> m Bool
+isTxVerified = queryDisk . A.IsTxVerified
 
 -- | Get local SSC data for inclusion into a block for slot N. (Different
 -- kinds of data are included into different blocks.)

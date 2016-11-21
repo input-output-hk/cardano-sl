@@ -5,7 +5,7 @@
 
 -- | Instance of SscListenersClass
 
-module Pos.Ssc.GodTossing.Instance.Listeners
+module Pos.Ssc.GodTossing.Listener.Listeners
        ( -- * Instances
          -- ** instance SscListenersClass SscGodTossing
        ) where
@@ -21,9 +21,9 @@ import           Pos.Communication.Methods         (announceSsc)
 import           Pos.Crypto                        (PublicKey)
 import           Pos.DHT                           (ListenerDHT (..))
 import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
-import           Pos.Ssc.GodTossing.Instance.Type  (SscGodTossing)
-import           Pos.Ssc.GodTossing.Instance.Types ()
-import           Pos.Ssc.GodTossing.Types          (GtMessage (..))
+import           Pos.Ssc.GodTossing.Types.Instance ()
+import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types    (GtMessage (..))
 import qualified Pos.State                         as St
 import           Pos.WorkMode                      (WorkMode)
 

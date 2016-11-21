@@ -3,7 +3,7 @@
 
 -- | Base of GodTossing SSC.
 
-module Pos.Ssc.GodTossing.Base
+module Pos.Ssc.GodTossing.Types.Base
        (
          -- * Types
          Commitment (..)

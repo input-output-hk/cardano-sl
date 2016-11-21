@@ -53,11 +53,13 @@ onNewSlotWorkerImpl slotId = do
 
     when (flattenSlotId slotId <= sysTimeBroadcastSlots) $
       whenM (ncTimeLord <$> getNodeContext) $ fork_ $ do
-        waitRandomInterval (ms 500) slotDuration
-        ncSystemStart <$> getNodeContext
-            >>= \(SysStartResponse . Just -> mT) -> do
-                logInfo "Broadcasting system start"
-                sendToNetwork mT
+        let send = ncSystemStart <$> getNodeContext
+                    >>= \sysStart -> do
+                        logInfo "Broadcasting system start"
+                        sendToNetwork $ SysStartResponse sysStart (Just slotId)
+        send
+        waitRandomInterval (ms 500) (slotDuration `div` 2)
+        send
 
     fork_ (untag sscOnNewSlot slotId)
     blkOnNewSlot slotId

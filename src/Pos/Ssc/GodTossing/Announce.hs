@@ -2,10 +2,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 -- | Server for handling @GodTossing@ messages.
-
-module Pos.Ssc.GodTossing.Server
-       (
-         announceCommitment
+module Pos.Ssc.GodTossing.Announce
+       ( announceCommitment
        , announceCommitments
        , announceOpening
        , announceOpenings
@@ -23,11 +21,11 @@ import           Universum
 
 import           Pos.Communication.Methods         (announceSsc)
 import           Pos.Crypto                        (PublicKey, Share)
-import           Pos.Ssc.GodTossing.Base           (Opening, SignedCommitment,
+import           Pos.Ssc.GodTossing.Types.Base     (Opening, SignedCommitment,
                                                     VssCertificate)
-import           Pos.Ssc.GodTossing.Instance.Type  (SscGodTossing)
-import           Pos.Ssc.GodTossing.Instance.Types ()
-import           Pos.Ssc.GodTossing.Types          (GtMessage (..))
+import           Pos.Ssc.GodTossing.Types.Instance ()
+import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types    (GtMessage (..))
 import           Pos.WorkMode                      (WorkMode)
 
 -- | Announce commitment to other participants.

@@ -34,7 +34,7 @@ function logs {
   mkdir -p "$conf_dir"
 
   local conf_file="$conf_dir/$log_file.yaml"
-  local main=Info
+  local main=Debug
   if [[ "$MAIN_LOG" != "" ]]; then
     main=$MAIN_LOG
   fi

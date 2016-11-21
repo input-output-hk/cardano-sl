@@ -24,6 +24,7 @@ library
                         Pos.Constants
                         Pos.DHT
                         Pos.DHT.Real
+                        Pos.DHT.Types
                         Pos.FollowTheSatoshi
                         Pos.Ssc.Class
                         Pos.Ssc.GodTossing
@@ -33,9 +34,27 @@ library
                         Pos.Launcher
                         Pos.Merkle
                         Pos.Slotting
+                        Pos.Ssc.Class.Types
+                        Pos.Ssc.Class.Storage
+                        Pos.Ssc.Class.Workers
+                        Pos.Ssc.Class.Listeners
                         Pos.State
+                        Pos.State.Acidic
+                        Pos.State.State
+                        Pos.State.Storage
+                        Pos.State.Storage.Block
+                        Pos.State.Storage.Types
+                        Pos.State.Storage.Tx
                         Pos.Statistics
                         Pos.Types
+                        Pos.Types.Arbitrary
+                        Pos.Types.Arbitrary.Unsafe
+                        Pos.Types.Block
+                        Pos.Types.Slotting
+                        Pos.Types.Timestamp
+                        Pos.Types.Tx
+                        Pos.Types.Types
+                        Pos.Types.Utxo
                         Pos.Util
                         Pos.Util.JsonLog
                         Pos.Worker
@@ -61,11 +80,6 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
-                        Pos.DHT.Types
-                        Pos.Ssc.Class.Types
-                        Pos.Ssc.Class.Storage
-                        Pos.Ssc.Class.Workers
-                        Pos.Ssc.Class.Listeners
                         Pos.Ssc.GodTossing.Announce
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
@@ -81,24 +95,10 @@ library
                         Pos.Ssc.GodTossing.Types.Instance
                         Pos.Ssc.GodTossing.Types.Type
                         Pos.Ssc.GodTossing.Types.Types
-                        Pos.State.Acidic
-                        Pos.State.State
-                        Pos.State.Storage
-                        Pos.State.Storage.Block
-                        Pos.State.Storage.Types
-                        Pos.State.Storage.Tx
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
-                        Pos.Types.Arbitrary
-                        Pos.Types.Arbitrary.Unsafe
-                        Pos.Types.Block
-                        Pos.Types.Slotting
-                        Pos.Types.Timestamp
-                        Pos.Types.Tx
-                        Pos.Types.Types
-                        Pos.Types.Utxo
                         Pos.Worker.Block
                         Pos.Worker.Stats
                         Pos.Worker.Tx

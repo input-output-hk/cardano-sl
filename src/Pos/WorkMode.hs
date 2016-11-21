@@ -6,7 +6,10 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
--- | WorkMode constraint.
+{-| 'WorkMode' constraint. It is widely used in almost every our code.
+    Simple alias for bunch of useful constraints. This module also
+    contains new monads to extend functional capabilities inside do-block.
+-}
 
 module Pos.WorkMode
        ( WorkMode
@@ -55,6 +58,7 @@ import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
 import           Pos.Types                   (Timestamp (..))
 import           Pos.Util.JsonLog            (MonadJL (..), appendJL)
 
+-- | Bunch of constraints to perform work for real world distributed system.
 type WorkMode ssc m
     = ( WithNamedLogger m
       , MonadIO m
@@ -70,6 +74,7 @@ type WorkMode ssc m
       , MonadJL m
       )
 
+-- | More relaxed version of 'WorkMode'.
 type MinWorkMode m
     = ( WithNamedLogger m
       , MonadTimed m
@@ -83,11 +88,13 @@ type MinWorkMode m
 -- MonadDB
 ----------------------------------------------------------------------------
 
+-- | Holder for database.
 newtype DBHolder ssc m a = DBHolder
     { getDBHolder :: ReaderT (NodeState ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
                MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDialog p)
 
+-- | Execute 'DBHolder' action with given 'NodeState'.
 runDBHolder :: NodeState ssc -> DBHolder ssc m a -> m a
 runDBHolder db = flip runReaderT db . getDBHolder
 
@@ -135,12 +142,15 @@ data NodeContext = NodeContext
     , ncDbPath      :: !(Maybe FilePath)
     }
 
+-- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.
 ncPublicKey :: NodeContext -> PublicKey
 ncPublicKey = toPublic . ncSecretKey
 
+-- | Get 'VssPublicKey' from 'VssKeyPair' inside 'NodeContext'.
 ncVssPublicKey :: NodeContext -> VssPublicKey
 ncVssPublicKey = toVssPublicKey . ncVssKeyPair
 
+-- | Class for something that has 'NodeContext' inside.
 class WithNodeContext m where
     getNodeContext :: m NodeContext
 
@@ -172,11 +182,13 @@ instance (Monad m, WithNodeContext m) =>
          WithNodeContext (NoStatsT m) where
     getNodeContext = lift getNodeContext
 
+-- | Wrapper for monadic action which brings 'NodeContext'.
 newtype ContextHolder m a = ContextHolder
     { getContextHolder :: ReaderT NodeContext m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
                MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDB ssc, MonadDialog p)
 
+-- | Run 'ContextHolder' action.
 runContextHolder :: NodeContext -> ContextHolder m a -> m a
 runContextHolder ctx = flip runReaderT ctx . getContextHolder
 

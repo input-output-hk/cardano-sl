@@ -42,6 +42,7 @@ import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, Sha
                                                 VssCertificatesMap)
 import           Pos.Types                     (SlotId, unflattenSlotId)
 
+-- | @GodTossing@ storage inside one version.
 data GtStorageVersion = GtStorageVersion
     { -- | Local set of 'Commitment's. These are valid commitments which are
       -- known to the node and not stored in blockchain. It is useful only
@@ -85,6 +86,7 @@ instance Default GtStorageVersion where
         , _dsGlobalCertificates = genesisCertificates
         }
 
+-- | @GotTossing@ storage with versioning.
 data GtStorage = GtStorage
     { -- | Last several versions of MPC storage, a version for each received
       -- block. To bring storage to the state as it was just before the last

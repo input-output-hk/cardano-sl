@@ -67,11 +67,12 @@ instance Ssc ssc => SafeCopy (ProcessBlockRes ssc) where
                PBRgood a  -> Cereal.putWord8 1 >> safePut a
                PBRabort a -> Cereal.putWord8 2 >> safePut a
 
+-- | Result of transaction processing
 data ProcessTxRes
-    = PTRadded
-    | PTRknown
-    | PTRinvalid !Text
-    | PTRoverwhelmed
+    = PTRadded -- ^ Transaction has ben successfully added to the storage
+    | PTRknown -- ^ Transaction is already in the storage (cache)
+    | PTRinvalid !Text -- ^ Can't add transaction
+    | PTRoverwhelmed -- ^ Local transaction storage is full -- can't accept more txs
     deriving (Show, Eq)
 
 deriveSafeCopySimple 0 'base ''ProcessTxRes

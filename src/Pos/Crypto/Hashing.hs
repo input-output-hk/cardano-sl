@@ -31,6 +31,7 @@ import           Universum
 
 import           Pos.Util            (Raw, getCopyBinary, msgpackFail, putCopyBinary)
 
+-- | Hash wrapper with phantom type for more type-safety.
 newtype Hash a = Hash (Digest SHA256)
     deriving (Show, Eq, Ord, ByteArray.ByteArrayAccess, Generic, NFData)
 
@@ -63,18 +64,23 @@ instance Binary (Hash a) where
 instance Buildable.Buildable (Hash a) where
     build (Hash x) = bprint shown x
 
+-- | Short version of 'unsafeHash'.
 hash :: Binary a => a -> Hash a
 hash = unsafeHash
 
+-- | Raw constructor application.
 hashRaw :: ByteString -> Hash Raw
 hashRaw = Hash . Hash.hash
 
+-- | Encode thing as 'Binary' data and then wrap into constructor.
 unsafeHash :: Binary a => a -> Hash b
 unsafeHash = Hash . Hash.hashlazy . Binary.encode
 
+-- | Specialized formatter for 'Hash'.
 hashHexF :: Format r (Hash a -> r)
 hashHexF = later $ \(Hash x) -> Buildable.build (show x :: Text)
 
+-- | Smart formatter for 'Hash' to show only first @8@ characters of 'Hash'.
 shortHashF :: Format r (Hash a -> r)
 shortHashF = fitLeft 8 %. hashHexF
 

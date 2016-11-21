@@ -1,3 +1,5 @@
+-- | Workers for collecting transaction statistics.
+
 module Pos.Worker.Stats
        ( statsWorkers
        ) where
@@ -14,6 +16,7 @@ import           Pos.WorkMode             (WorkMode)
 txStatsRefreshInterval :: Microsecond
 txStatsRefreshInterval = sec 1
 
+-- | Workers for collecting statistics about transactions in background.
 statsWorkers :: WorkMode ssc m => [m ()]
 statsWorkers = [txStatsWorker]
 

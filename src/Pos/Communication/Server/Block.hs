@@ -48,6 +48,7 @@ blockListeners =
     , ListenerDHT handleBlockRequest
     ]
 
+-- | Handler 'SendBlock' event.
 handleBlock :: forall ssc m . ResponseMode ssc m
             => SendBlock ssc -> m ()
 handleBlock (SendBlock block) = do
@@ -111,6 +112,7 @@ propagateBlock (St.PBRgood (_, blocks)) =
     header = getBlockHeader blk
 propagateBlock _ = pass
 
+-- | Handle 'SendBlockHeader' message.
 handleBlockHeader
     :: ResponseMode ssc m
     => SendBlockHeader ssc -> m ()
@@ -135,6 +137,7 @@ handleBlockHeader (SendBlockHeader header) = do
                     msg = sformat fmt h
                 True <$ logDebug msg
 
+-- | Handle 'RequsetBlock' message.
 handleBlockRequest
     :: ResponseMode ssc m
     => RequestBlock ssc -> m ()

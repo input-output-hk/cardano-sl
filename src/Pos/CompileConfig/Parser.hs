@@ -12,6 +12,7 @@ import           Universum                  hiding (lift)
 
 import           Pos.CompileConfig.Type     (CompileConfig)
 
+-- | Used in code compile-time configuration from /constants.yaml/ file.
 compileConfig :: CompileConfig
 compileConfig =
     $(do let file = $(embedFile =<< makeRelativeToProject "constants.yaml")

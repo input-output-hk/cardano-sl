@@ -55,6 +55,7 @@ class Monad m => MonadStats m where
     logStatM label action = action >>= statLog label
 
 -- TODO: is there a way to avoid such boilerplate for transformers?
+-- UPD: I have and idea how to avoid such boilerplate. Can try later.
 instance MonadStats m => MonadStats (KademliaDHT m) where
     statLog label = lift . statLog label
     resetStat = lift . resetStat
@@ -83,8 +84,9 @@ instance MonadStats m => MonadStats (DHTResponseT m) where
 type instance ThreadId (NoStatsT m) = ThreadId m
 type instance ThreadId (StatsT m) = ThreadId m
 
+-- | Stats wrapper for collecting statistics without collecting it.
 newtype NoStatsT m a = NoStatsT
-    { getNoStatsT :: m a
+    { getNoStatsT :: m a  -- ^ action inside wrapper without collecting statistics
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                MonadMask, MonadIO, MonadDB ssc, WithNamedLogger, MonadDialog p,
                MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader,
@@ -110,8 +112,10 @@ instance Monad m => MonadStats (NoStatsT m) where
     resetStat _ = pure ()
     logStatM _ _ = pure ()
 
+-- | Statistics wrapper around some monadic action to collect statistics
+-- during execution of this action. Used in benchmarks.
 newtype StatsT m a = StatsT
-    { getStatsT :: m a
+    { getStatsT :: m a  -- ^ action inside wrapper with collected statistics
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                MonadMask, MonadIO, MonadDB ssc, WithNamedLogger, MonadDialog p,
                MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader,

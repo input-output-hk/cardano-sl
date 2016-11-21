@@ -6,10 +6,12 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
+-- | Miscellaneous unclassified utility functions.
+
 module Pos.Util
        (
        -- * Stuff for testing and benchmarking
-         module UtilArbitrary
+         module Pos.Util.Arbitrary
 
        -- * Various
        , Raw
@@ -40,6 +42,7 @@ module Pos.Util
        , colorize
 
        -- * TimeWarp helpers
+       , CanLogInParallel
        , WaitingDelta (..)
        , messageName'
        , logWarningLongAction
@@ -90,7 +93,7 @@ import           Universum
 import           Unsafe                        (unsafeInit, unsafeLast)
 
 import           Pos.Crypto.Random             (randomNumber)
-import           Pos.Util.Arbitrary            as UtilArbitrary
+import           Pos.Util.Arbitrary
 import           Pos.Util.NotImplemented       ()
 
 -- | A wrapper over 'ByteString' for adding type safety to
@@ -124,6 +127,9 @@ deriveSafeCopySimple 0 'base ''VerificationRes
 eitherPanic :: Show a => Text -> Either a b -> b
 eitherPanic msgPrefix = either (panic . (msgPrefix <>) . show) identity
 
+-- | This function performs checks at compile-time for different actions.
+-- May slowdown implementation. To disable such checks (especially in benchmarks)
+-- one should compile with: @stack build --flag cardano-sl:-asserts@
 inAssertMode :: Applicative m => m a -> m ()
 #ifdef ASSERTS_ON
 inAssertMode x = x *> pure ()
@@ -224,9 +230,11 @@ makeLensesData familyName typeParamName = do
 _neHead :: Lens' (NonEmpty a) a
 _neHead f (x :| xs) = (:| xs) <$> f x
 
+-- | Lens for the tail of 'NonEmpty'.
 _neTail :: Lens' (NonEmpty a) [a]
 _neTail f (x :| xs) = (x :|) <$> f xs
 
+-- | Lens for the last element of 'NonEmpty'.
 _neLast :: Lens' (NonEmpty a) a
 _neLast f (x :| []) = (:| []) <$> f x
 _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
@@ -269,6 +277,7 @@ magnify' l = reader . runReader . magnify l
 -- Prettification.
 ----------------------------------------------------------------------------
 
+-- | Prettify 'Text' message with 'Vivid' color.
 colorize :: Color -> Text -> Text
 colorize color msg =
     mconcat
@@ -281,6 +290,7 @@ colorize color msg =
 -- TimeWarp helpers
 ----------------------------------------------------------------------------
 
+-- | Utility function to convert 'Message' into 'MessageName'.
 messageName' :: Message r => r -> MessageName
 messageName' = messageName . (const Proxy :: a -> Proxy a)
 
@@ -292,6 +302,7 @@ data WaitingDelta
     | WaitGeometric Microsecond Double  -- ^ wait m, m * q, m * q^2, m * q^3, ... microseconds
     deriving (Show)
 
+-- | Constraint for something that can be logged in parallel with other action.
 type CanLogInParallel m = (MonadIO m, MonadTimed m, WithNamedLogger m)
 
 -- | Run action and print warning if it takes more time than expected.
@@ -319,15 +330,20 @@ logWarningLongAction delta actionTag action = do
 
 {- Helper functions to avoid dealing with data type -}
 
+-- | Specialization of 'logWarningLongAction' with 'WaitOnce'.
 logWarningWaitOnce :: CanLogInParallel m => Second -> Text -> m a -> m a
 logWarningWaitOnce = logWarningLongAction . WaitOnce
 
+-- | Specialization of 'logWarningLongAction' with 'WaiLinear'.
 logWarningWaitLinear :: CanLogInParallel m => Second -> Text -> m a -> m a
 logWarningWaitLinear = logWarningLongAction . WaitLinear
 
+-- | Specialization of 'logWarningLongAction' with 'WaitGeometric'
+-- with parameter @1.3@. Accepts 'Second'.
 logWarningWaitInf :: CanLogInParallel m => Second -> Text -> m a -> m a
 logWarningWaitInf = logWarningLongAction . (`WaitGeometric` 1.3) . convertUnit
 
+-- | Wait random number of 'Microsecond'`s between min and max.
 waitRandomInterval
     :: (MonadIO m, MonadTimed m)
     => Microsecond -> Microsecond -> m ()
@@ -337,6 +353,7 @@ waitRandomInterval minT maxT = do
         liftIO (randomNumber $ fromIntegral $ maxT - minT)
     wait $ for interval
 
+-- | Wait random interval and then perform given action.
 runWithRandomIntervals
     :: (MonadIO m, MonadTimed m, WithNamedLogger m)
     => Microsecond -> Microsecond -> m () -> m ()

@@ -205,6 +205,7 @@ instance Buildable SlotId where
     build SlotId {..} =
         bprint (ords%" slot of "%ords%" epoch") siSlot siEpoch
 
+-- | Specialized formatter for 'SlotId'.
 slotIdF :: Format r (SlotId -> r)
 slotIdF = build
 
@@ -222,6 +223,7 @@ newtype Address = Address
 
 instance MessagePack Address
 
+-- | Specialized formatter for 'Address'.
 addressF :: Format r (Address -> r)
 addressF = build
 
@@ -229,8 +231,10 @@ addressF = build
 -- Transaction
 ----------------------------------------------------------------------------
 
+-- | Represents transaction identifier as 'Hash' of 'Tx'.
 type TxId = Hash Tx
 
+-- | 'Signature' of addrId.
 type TxSig = Signature (TxId, Word32, [TxOut])
 
 -- | Transaction input.
@@ -280,6 +284,7 @@ instance Buildable Tx where
             ("Transaction with inputs "%listJson%", outputs: "%listJson)
             txInputs txOutputs
 
+-- | Specialized formatter for 'Tx'.
 txF :: Format r (Tx -> r)
 txF = build
 
@@ -293,9 +298,11 @@ txF = build
 -- output) pairs.
 type Utxo = Map (TxId, Word32) TxOut
 
+-- | Format 'Utxo' map as json.
 formatUtxo :: Utxo -> Builder
 formatUtxo = mapBuilderJson . map (first pairBuilder) . M.toList
 
+-- | Specialized formatter for 'Utxo'.
 utxoF :: Format r (Utxo -> r)
 utxoF = later formatUtxo
 
@@ -326,6 +333,7 @@ instance Monoid SharedSeed where
     mappend = (<>)
     mconcat = foldl' (<>) mempty
 
+-- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty PublicKey
 
 ----------------------------------------------------------------------------
@@ -431,6 +439,7 @@ newtype ChainDifficulty = ChainDifficulty
 
 instance MessagePack ChainDifficulty
 
+-- | Constraint for data to be signed in main block.
 type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
 
 instance Ssc ssc => Blockchain (MainBlockchain ssc) where
@@ -478,6 +487,7 @@ instance Ssc ssc => Binary (BodyProof (MainBlockchain ssc))
 instance Ssc ssc => Binary (ConsensusData (MainBlockchain ssc))
 instance Ssc ssc => Binary (Body (MainBlockchain ssc))
 
+-- | Header of generic main block.
 type MainBlockHeader ssc = GenericBlockHeader (MainBlockchain ssc)
 
 instance Ssc ssc => Buildable (MainBlockHeader ssc) where
@@ -530,6 +540,7 @@ instance Ssc ssc => Buildable (MainBlock ssc) where
 -- example, it is useful for SPV-clients.
 data GenesisBlockchain ssc
 
+-- | Header of Genesis block.
 type GenesisBlockHeader ssc = GenericBlockHeader (GenesisBlockchain ssc)
 
 instance Blockchain (GenesisBlockchain ssc) where
@@ -563,6 +574,7 @@ instance MessagePack (BodyProof (GenesisBlockchain ssc))
 instance MessagePack (ConsensusData (GenesisBlockchain ssc))
 instance MessagePack (Body (GenesisBlockchain ssc))
 
+-- | Genesis block parametrized by 'GenesisBlockchain'.
 type GenesisBlock ssc = GenericBlock (GenesisBlockchain ssc)
 
 instance Ssc ssc => Buildable (GenesisBlock ssc) where
@@ -603,12 +615,16 @@ instance Ssc ssc => Buildable (GenesisBlockHeader ssc) where
 -- GenesisBlock ∪ MainBlock
 ----------------------------------------------------------------------------
 
+-- | Either header of ordinary main block or genesis block.
 type BlockHeader ssc = Either (GenesisBlockHeader ssc) (MainBlockHeader ssc)
+-- | 'Hash' of block header.
 type HeaderHash ssc = Hash (BlockHeader ssc)
 
+-- | Specialized formatter for 'HeaderHash'.
 headerHashF :: Format r (HeaderHash ssc -> r)
 headerHashF = build
 
+-- | Block.
 type Block ssc = Either (GenesisBlock ssc) (MainBlock ssc)
 
 ----------------------------------------------------------------------------
@@ -626,51 +642,65 @@ makeLenses ''GenericBlock
 
 -- makeLensesData ''ConsensusData ''(MainBlockchain ssc)
 
+-- | Lens for 'SlotId' of 'MainBlockchain' in 'ConsensusData'.
 mcdSlot :: Lens' (ConsensusData (MainBlockchain ssc)) SlotId
 MAKE_LENS(mcdSlot, _mcdSlot)
 
+-- | Lens for 'PublicKey' of 'MainBlockchain' in 'ConsensusData'.
 mcdLeaderKey :: Lens' (ConsensusData (MainBlockchain ssc)) PublicKey
 MAKE_LENS(mcdLeaderKey, _mcdLeaderKey)
 
+-- | Lens for 'ChainDifficulty' of 'MainBlockchain' in 'ConsensusData'.
 mcdDifficulty :: Lens' (ConsensusData (MainBlockchain ssc)) ChainDifficulty
 MAKE_LENS(mcdDifficulty, _mcdDifficulty)
 
+-- | Lens for 'Signature' of 'MainBlockchain' in 'ConsensusData'.
 mcdSignature :: Lens' (ConsensusData (MainBlockchain ssc)) (Signature (MainToSign ssc))
 MAKE_LENS(mcdSignature, _mcdSignature)
 
 -- makeLensesData ''ConsensusData ''(GenesisBlockchain ssc)
 
+-- | Lens for 'EpochIndex' of 'GenesisBlockchain' in 'ConsensusData'.
 gcdEpoch :: Lens' (ConsensusData (GenesisBlockchain ssc)) EpochIndex
 MAKE_LENS(gcdEpoch, _gcdEpoch)
 
+-- | Lens for 'ChainDifficulty' of 'GenesisBlockchain' in 'ConsensusData'.
 gcdDifficulty :: Lens' (ConsensusData (GenesisBlockchain ssc)) ChainDifficulty
 MAKE_LENS(gcdDifficulty, _gcdDifficulty)
 
 -- makeLensesData ''Body ''(MainBlockchain ssc)
 
+-- | Lens for 'MerkleTree' in 'Body' of 'MainBlockChain'.
 mbTxs :: Lens' (Body (MainBlockchain ssc)) (MerkleTree Tx)
 MAKE_LENS(mbTxs, _mbTxs)
 
+-- | Lens for 'MerkleTree' in 'Body' of 'SscPayload'.
 mbMpc :: Lens' (Body (MainBlockchain ssc)) (SscPayload ssc)
 MAKE_LENS(mbMpc, _mbMpc)
 
 -- makeLensesData ''Body ''(GenesisBlockchain ssc)
 
+-- | Lens for 'SlotLeaders' in 'Body' of 'GenesisBlockchain'.
 gbLeaders :: Lens' (Body (GenesisBlockchain ssc)) SlotLeaders
 MAKE_LENS(gbLeaders, _gbLeaders)
 
+-- | Lens from 'GenericBlock' to 'BodyProof'.
 gbBodyProof :: Lens' (GenericBlock b) (BodyProof b)
 gbBodyProof = gbHeader . gbhBodyProof
 
+-- | Lens from 'MainBlockHeader' to 'SlotId'.
 headerSlot :: Lens' (MainBlockHeader ssc) SlotId
 headerSlot = gbhConsensus . mcdSlot
 
+-- | Lens from 'MainBlockHeader' to 'PublicKey'.
 headerLeaderKey :: Lens' (MainBlockHeader ssc) PublicKey
 headerLeaderKey = gbhConsensus . mcdLeaderKey
 
+-- | Lens from 'MainBlockHeader' to 'Signature'.
 headerSignature :: Lens' (MainBlockHeader ssc) (Signature (MainToSign ssc))
 headerSignature = gbhConsensus . mcdSignature
 
+-- | Type class for something that has 'ChainDifficulty'.
 class HasDifficulty a where
     difficultyL :: Lens' a ChainDifficulty
 
@@ -698,6 +728,7 @@ instance HasDifficulty (GenesisBlock ssc) where
 instance HasDifficulty (Block ssc) where
     difficultyL = choosing difficultyL difficultyL
 
+-- | Class for something that has previous block (lens to 'Hash' for this block).
 class HasPrevBlock s a | s -> a where
     prevBlockL :: Lens' s (Hash a)
 
@@ -713,6 +744,7 @@ instance (HasPrevBlock s a, HasPrevBlock s' a) =>
          HasPrevBlock (Either s s') a where
     prevBlockL = choosing prevBlockL prevBlockL
 
+-- | Class for something that has 'HeaderHash'.
 class HasHeaderHash a ssc | a -> ssc where
     headerHash :: a -> HeaderHash ssc
     headerHashG :: Getter a (HeaderHash ssc)
@@ -736,6 +768,7 @@ instance Ssc ssc => HasHeaderHash (GenesisBlock ssc) ssc where
 instance Ssc ssc => HasHeaderHash (Block ssc) ssc where
     headerHash = hash . getBlockHeader
 
+-- | Class for something that has 'EpochIndex'.
 class HasEpochIndex a where
     epochIndexL :: Lens' a EpochIndex
 
@@ -752,29 +785,38 @@ instance (HasEpochIndex a, HasEpochIndex b) =>
          HasEpochIndex (Either a b) where
     epochIndexL = choosing epochIndexL epochIndexL
 
+-- | Lens from 'MainBlock' to 'SlotId'.
 blockSlot :: Lens' (MainBlock ssc) SlotId
 blockSlot = gbHeader . headerSlot
 
+-- | Lens from 'MainBlock' to 'PublicKey'.
 blockLeaderKey :: Lens' (MainBlock ssc) PublicKey
 blockLeaderKey = gbHeader . headerLeaderKey
 
+-- | Lens from 'MainBlock' to 'Signature'.
 blockSignature :: Lens' (MainBlock ssc) (Signature (MainToSign ssc))
 blockSignature = gbHeader . headerSignature
 
+-- | Lens from 'MainBlock' to 'SscPayload'.
 blockMpc :: Lens' (MainBlock ssc) (SscPayload ssc)
 blockMpc = gbBody . mbMpc
 
+-- | Lens from 'MainBlock' to 'MerkleTree'.
 blockTxs :: Lens' (MainBlock ssc) (MerkleTree Tx)
 blockTxs = gbBody . mbTxs
 
+-- | Lens from 'GenesisBlock' to 'SlotLeaders'.
 blockLeaders :: Lens' (GenesisBlock ssc) SlotLeaders
 blockLeaders = gbBody . gbLeaders
 
+-- | Lens from 'Block' to 'BlockHeader'.
+--
 -- This gives a “redundant constraint” message warning which will be fixed in
 -- lens-4.15 (not in LTS yet).
 blockHeader :: Getter (Block ssc) (BlockHeader ssc)
 blockHeader = to getBlockHeader
 
+-- | Take 'BlockHeader' from either 'GenesisBlock' or 'MainBlock'.
 getBlockHeader :: Block ssc -> BlockHeader ssc
 getBlockHeader = bimap (view gbHeader) (view gbHeader)
 
@@ -792,10 +834,12 @@ headerDifficulty (Right _) = 1
 blockDifficulty :: Block ssc -> ChainDifficulty
 blockDifficulty = headerDifficulty . getBlockHeader
 
+-- | Predefined 'Hash' of 'GenesisBlock'.
 genesisHash :: Hash a
 genesisHash = unsafeHash ("patak" :: Text)
 {-# INLINE genesisHash #-}
 
+-- | Smart constructor for 'GenericBlockHeader'.
 mkGenericHeader
     :: forall b.
        (Binary (BBlockHeader b), Blockchain b)
@@ -816,6 +860,7 @@ mkGenericHeader prevHeader body consensus extra =
     h = maybe genesisHash hash prevHeader
     proof = mkBodyProof body
 
+-- | Smart constructor for 'GenericBlock'. Uses 'mkGenericBlockHeader'.
 mkGenericBlock
     :: forall b.
        (Binary (BBlockHeader b), Blockchain b)
@@ -830,6 +875,7 @@ mkGenericBlock prevHeader body consensus extraH extraB =
   where
     header = mkGenericHeader prevHeader body consensus extraH
 
+-- | Smart constructor for 'MainBlockHeader'.
 mkMainHeader
     :: Ssc ssc
     => Maybe (BlockHeader ssc)
@@ -850,6 +896,7 @@ mkMainHeader prevHeader slotId sk body =
         , _mcdSignature = signature prevHash proof
         }
 
+-- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'.
 mkMainBlock
     :: Ssc ssc
     => Maybe (BlockHeader ssc)
@@ -864,6 +911,7 @@ mkMainBlock prevHeader slotId sk body =
     , _gbExtra = ()
     }
 
+-- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.
 mkGenesisHeader
     :: Ssc ssc
     => Maybe (BlockHeader ssc)
@@ -877,6 +925,7 @@ mkGenesisHeader prevHeader epoch body =
     consensus _ _ =
         GenesisConsensusData {_gcdEpoch = epoch, _gcdDifficulty = difficulty}
 
+-- | Smart constructor for 'GenesisBlock'. Uses 'mkGenesisHeader'.
 mkGenesisBlock
     :: Ssc ssc
     => Maybe (BlockHeader ssc)
@@ -892,6 +941,7 @@ mkGenesisBlock prevHeader epoch leaders =
   where
     body = GenesisBody leaders
 
+-- | Smart constructor for 'Body' of 'MainBlockchain'.
 mkMainBody :: [Tx] -> SscPayload ssc -> Body (MainBlockchain ssc)
 mkMainBody txs mpc = MainBody {_mbTxs = mkMerkleTree txs, _mbMpc = mpc}
 

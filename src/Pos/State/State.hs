@@ -80,8 +80,12 @@ instance (Monad m, MonadDB ssc m) => MonadDB ssc (ReaderT r m) where
 instance (Monad m, MonadDB ssc m) => MonadDB ssc (DHTResponseT m) where
     getNodeState = lift getNodeState
 
+-- | IO monad with db access.
 type WorkModeDB ssc m = (MonadIO m, MonadDB ssc m)
+
+-- | State of the node.
 type NodeState ssc = DiskState ssc
+
 type QUConstraint ssc m = (SscStorageMode ssc, WorkModeDB ssc m)
 
 -- | Open NodeState, reading existing state from disk (if any).
@@ -148,21 +152,29 @@ getBlock = queryDisk . A.GetBlock
 getHeadBlock :: QUConstraint ssc m => m (Block ssc)
 getHeadBlock = queryDisk A.GetHeadBlock
 
+-- | Return current best chain.
 getBestChain :: QUConstraint ssc m => m (NonEmpty (Block ssc))
 getBestChain = queryDisk A.GetBestChain
 
+-- | Get local transactions list.
 getLocalTxs :: QUConstraint ssc m => m (HashSet Tx)
 getLocalTxs = queryDisk A.GetLocalTxs
 
+-- | Checks if tx is verified
 isTxVerified :: QUConstraint ssc m => Tx -> m Bool
 isTxVerified = queryDisk . A.IsTxVerified
 
+-- | Get local SSC data for inclusion into a block for slot N. (Different
+-- kinds of data are included into different blocks.)
 getLocalSscPayload :: QUConstraint ssc m => SlotId -> m (SscPayload ssc)
 getLocalSscPayload = queryDisk . A.GetLocalSscPayload
 
+-- | Get global SSC data.
 getGlobalMpcData :: QUConstraint ssc m => m (SscPayload ssc)
 getGlobalMpcData = queryDisk A.GetGlobalSscPayload
 
+-- | Check that block header is correct and claims to represent block
+-- which may become part of blockchain.
 mayBlockBeUseful :: QUConstraint ssc m => SlotId -> MainBlockHeader ssc -> m VerificationRes
 mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 
@@ -190,6 +202,8 @@ processBlock :: QUConstraint ssc m
              -> m (ProcessBlockRes ssc)
 processBlock si = updateDisk . A.ProcessBlock si
 
+-- | Do something with given message, result is whether message has been
+-- processed successfully (implementation defined).
 processSscMessage :: QUConstraint ssc m => SscMessage ssc -> m (Maybe (SscMessage ssc))
 processSscMessage = updateDisk . A.ProcessSscMessage
 
@@ -200,6 +214,8 @@ getParticipants
     -> m (Maybe (NonEmpty VssPublicKey))
 getParticipants = queryDisk . A.GetParticipants
 
+-- | Figure out the threshold (i.e. how many secret shares would be required
+-- to recover each node's secret).
 getThreshold :: QUConstraint ssc m
              => EpochIndex
              -> m (Maybe Threshold)
@@ -210,6 +226,8 @@ getThreshold = queryDisk . A.GetThreshold
 -- Related to SscGodTossing
 ----------------------------------------------------------------------------
 
+-- | Decrypt shares (in commitments) that are intended for us and that we can
+-- decrypt.
 getOurShares
     :: QUConstraint ssc m
     => VssKeyPair -> m (HashMap PublicKey Share)

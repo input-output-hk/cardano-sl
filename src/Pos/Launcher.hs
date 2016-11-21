@@ -97,6 +97,7 @@ type RealModeSscConstraint ssc =
                 SscListenersClass ssc,
                 SscWorkersClass ssc)
 
+-- | Runner of 'KademliaDHTInstance' with given 'NodeParams' in real mode.
 type RealModeRunner = KademliaDHTInstance -> NodeParams -> IO ()
 
 -- | Get current time as Timestamp. It is intended to be used when you
@@ -163,29 +164,32 @@ waitSystemStart = do
 -- Parameters
 ----------------------------------------------------------------------------
 
+-- | Contains all parameters required for hierarchical logger initialization.
 data LoggingParams = LoggingParams
-    { lpRunnerTag     :: !LoggerName  -- ^ prefix for logger, like "time-slave"
-    , lpHandlerPrefix :: !(Maybe FilePath)
-    , lpConfigPath    :: !(Maybe FilePath)
+    { lpRunnerTag     :: !LoggerName        -- ^ prefix for logger, like "time-slave"
+    , lpHandlerPrefix :: !(Maybe FilePath)  -- ^ prefix of path for all logs
+    , lpConfigPath    :: !(Maybe FilePath)  -- ^ path to logger configuration
     } deriving (Show)
 
+-- | Contains basic & networking parameters for running node.
 data BaseParams = BaseParams
-    { bpPort               :: !Word16
-    , bpDHTPeers           :: ![DHTNode]
+    { bpPort               :: !Word16         -- ^ port to run on
+    , bpDHTPeers           :: ![DHTNode]      -- ^ peers passed from CLI
     , bpDHTKeyOrType       :: !(Either DHTKey DHTNodeType)
     , bpDHTExplicitInitial :: !Bool
-    , bpLoggingParams      :: !LoggingParams
+    , bpLoggingParams      :: !LoggingParams  -- ^ logger parameters
     } deriving (Show)
 
+-- | Contains algorithm specific & storage parameters for Node.
 data NodeParams = NodeParams
-    { npDbPath      :: !(Maybe FilePath)
-    , npRebuildDb   :: !Bool
-    , npSystemStart :: !Timestamp
-    , npSecretKey   :: !SecretKey
-    , npVssKeyPair  :: !VssKeyPair
-    , npBaseParams  :: !BaseParams
-    , npCustomUtxo  :: !(Maybe Utxo)
-    , npTimeLord    :: !Bool
+    { npDbPath      :: !(Maybe FilePath)  -- ^ Path to node data-base. 'Nothing' means memory-mode.
+    , npRebuildDb   :: !Bool              -- ^ @True@ if data-base should be rebuilt
+    , npSystemStart :: !Timestamp         -- ^ System start
+    , npSecretKey   :: !SecretKey         -- ^ Secret key of this node
+    , npVssKeyPair  :: !VssKeyPair        -- ^ Key pair used for secret sharing
+    , npBaseParams  :: !BaseParams        -- ^ See 'BaseParams'
+    , npCustomUtxo  :: !(Maybe Utxo)      -- ^ predefined custom utxo
+    , npTimeLord    :: !Bool              -- ^ @True@ if node started as time-lord
     , npJLFile      :: !(Maybe FilePath)
     } deriving (Show)
 
@@ -194,6 +198,7 @@ data NodeParams = NodeParams
 -- Service node runners
 ----------------------------------------------------------------------------
 
+-- | Runs node as time-slave inside IO monad.
 runTimeSlaveReal :: KademliaDHTInstance -> BaseParams -> IO Timestamp
 runTimeSlaveReal inst bp = do
     mvar <- liftIO newEmptyMVar
@@ -218,6 +223,7 @@ runTimeSlaveReal inst bp = do
          then [sysStartReqListenerSlave, sysStartRespListener mvar]
          else []
 
+-- | Runs time-lord to acquire system start.
 runTimeLordReal :: LoggingParams -> IO Timestamp
 runTimeLordReal lp@LoggingParams{..} = loggerBracket lp $ do
     t <- getCurTimestamp
@@ -227,6 +233,7 @@ runTimeLordReal lp@LoggingParams{..} = loggerBracket lp $ do
         realTime <- liftIO Time.getZonedTime
         logInfo (sformat ("[Time lord] System start: " %timestampF%", i. e.: "%shown) t realTime)
 
+-- | Runs supporter. TODO: Deprecated?
 runSupporterReal :: KademliaDHTInstance -> BaseParams -> IO ()
 runSupporterReal inst bp = runServiceMode inst bp [] $ do
     supporterKey <- currentNodeKey
@@ -267,6 +274,7 @@ runNodeStats inst np = runRealMode inst np listeners $ getStatsT $ do
 -- Real mode runners
 ----------------------------------------------------------------------------
 
+-- | RAII for node starter.
 bracketDHTInstance
     :: BaseParams -> (KademliaDHTInstance -> IO a) -> IO a
 bracketDHTInstance BaseParams {..} = bracket acquire release
@@ -283,6 +291,7 @@ bracketDHTInstance BaseParams {..} = bracket acquire release
       }
 
 -- TODO: use bracket
+-- | Runs node instance in real mode.
 runRealMode
     :: forall ssc c.
        RealModeSscConstraint ssc
@@ -326,6 +335,7 @@ runRealMode inst NodeParams {..} listeners action = do
               , ncDbPath = npDbPath
               }
 
+-- | Runs node instance in service mode.
 runServiceMode
     :: KademliaDHTInstance
     -> BaseParams

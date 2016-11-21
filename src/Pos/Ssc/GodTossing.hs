@@ -7,9 +7,7 @@
 -- See https://eprint.iacr.org/2015/889.pdf (“A Provably Secure
 -- Proof-of-Stake Blockchain Protocol”), section 4 for more details.
 
-module Pos.Ssc.GodTossing
-       ( module GodTossing
-       ) where
+module Pos.Ssc.GodTossing ( module GodTossing ) where
 
 import           Pos.Ssc.GodTossing.Arbitrary          as GodTossing
 import           Pos.Ssc.GodTossing.Error              as GodTossing

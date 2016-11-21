@@ -4,7 +4,7 @@
 
 -- | Some types related to GodTossing necessary for Ssc instance.
 
-module Pos.Ssc.GodTossing.Types
+module Pos.Ssc.GodTossing.Types.Types
        (
          -- * Instance types
          GtPayload(..)
@@ -27,35 +27,29 @@ module Pos.Ssc.GodTossing.Types
        , hasShares
        ) where
 
-import           Control.Lens                     (makeLenses, (^.))
-import           Data.Binary                      (Binary)
-import qualified Data.HashMap.Strict              as HM
-import           Data.Ix                          (inRange)
-import           Data.List.NonEmpty               (NonEmpty)
-import           Data.MessagePack                 (MessagePack)
-import           Data.SafeCopy                    (base, deriveSafeCopySimple)
-import           Data.Tagged                      (Tagged (..))
-import           Data.Text.Buildable              (Buildable (..))
-import           Formatting                       (bprint, (%))
-import           Serokell.Util                    (VerificationRes, isVerSuccess,
-                                                   listJson, verifyGeneric)
+import           Control.Lens            (makeLenses, (^.))
+import           Data.Binary             (Binary)
+import qualified Data.HashMap.Strict     as HM
+import           Data.Ix                 (inRange)
+import           Data.List.NonEmpty      (NonEmpty)
+import           Data.MessagePack        (MessagePack)
+import           Data.SafeCopy           (base, deriveSafeCopySimple)
+import           Data.Text.Buildable     (Buildable (..))
+import           Formatting              (bprint, (%))
+import           Serokell.Util           (VerificationRes, isVerSuccess, listJson,
+                                          verifyGeneric)
 import           Universum
 
-import           Pos.Constants                    (k)
-import           Pos.Crypto                       (Hash, PublicKey, Share, hash)
-import           Pos.Ssc.Class.Types              (Ssc (..))
-import           Pos.Ssc.GodTossing.Base          (CommitmentsMap, Opening, OpeningsMap,
-                                                   SharesMap, SignedCommitment,
-                                                   VssCertificate, VssCertificatesMap,
-                                                   checkCert, isCommitmentId, isOpeningId,
-                                                   isSharesId, verifySignedCommitment)
-import           Pos.Ssc.GodTossing.Storage.Types (GtStorage)
-import           Pos.Types                        (MainBlockHeader, SlotId (..),
-                                                   headerSlot)
+import           Pos.Constants           (k)
+import           Pos.Crypto              (Hash, PublicKey, Share, hash)
+import           Pos.Ssc.Class.Types     (Ssc (..))
+import           Pos.Ssc.GodTossing.Base (CommitmentsMap, Opening, OpeningsMap, SharesMap,
+                                          SignedCommitment, VssCertificate,
+                                          VssCertificatesMap, checkCert, isCommitmentId,
+                                          isOpeningId, isSharesId, verifySignedCommitment)
+import           Pos.Types               (MainBlockHeader, SlotId (..), headerSlot)
 
-import           Control.TimeWarp.Rpc             (Message (..))
-import           Pos.Ssc.GodTossing.Error         (SeedError)
-import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
+import           Control.TimeWarp.Rpc    (Message (..))
 
 ----------------------------------------------------------------------------
 -- SscMessage
@@ -282,14 +276,6 @@ mkGtProof GtPayload {..} =
     , mpSharesHash = hash _mdShares
     , mpVssCertificatesHash = hash _mdVssCertificates
     }
-
-instance Ssc SscGodTossing where
-    type SscStorage   SscGodTossing = GtStorage
-    type SscPayload   SscGodTossing = GtPayload
-    type SscProof     SscGodTossing = GtProof
-    type SscMessage   SscGodTossing = GtMessage
-    type SscSeedError SscGodTossing = SeedError
-    mkSscProof = Tagged mkGtProof
 
 ----------------------------------------------------------------------------
 -- Utility functions

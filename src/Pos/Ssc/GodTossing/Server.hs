@@ -13,19 +13,20 @@ module Pos.Ssc.GodTossing.Server
        , announceVssCertificates
        ) where
 
-import           Data.List.NonEmpty        (NonEmpty)
-import           Formatting                (sformat, (%))
-import           Serokell.Util.Text        (listJson)
-import           System.Wlog               (logDebug)
+import           Data.List.NonEmpty                (NonEmpty)
+import           Formatting                        (sformat, (%))
+import           Serokell.Util.Text                (listJson)
+import           System.Wlog                       (logDebug)
 import           Universum
 
-import           Pos.Communication.Methods (announceSsc)
-import           Pos.Crypto                (PublicKey, Share)
-import           Pos.Ssc.GodTossing.Base   (Opening, SignedCommitment, VssCertificate)
-import           Pos.Ssc.GodTossing.Type   (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types  ()
-import           Pos.Ssc.GodTossing.Types  (GtMessage (..))
-import           Pos.WorkMode              (WorkMode)
+import           Pos.Communication.Methods         (announceSsc)
+import           Pos.Crypto                        (PublicKey, Share)
+import           Pos.Ssc.GodTossing.Base           (Opening, SignedCommitment,
+                                                    VssCertificate)
+import           Pos.Ssc.GodTossing.Types.Instance ()
+import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types    (GtMessage (..))
+import           Pos.WorkMode                      (WorkMode)
 
 -- TODO: add statlogging for everything, see e.g. announceTxs
 announceCommitment :: WorkMode SscGodTossing m => PublicKey -> SignedCommitment -> m ()

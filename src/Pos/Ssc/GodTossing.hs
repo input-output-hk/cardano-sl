@@ -18,6 +18,6 @@ import           Pos.Ssc.GodTossing.Genesis            as GodTossing
 import           Pos.Ssc.GodTossing.Listener.Listeners ()
 import           Pos.Ssc.GodTossing.Seed               as GodTossing
 import           Pos.Ssc.GodTossing.Storage.Storage    ()
-import           Pos.Ssc.GodTossing.Type               as GodTossing
-import           Pos.Ssc.GodTossing.Types              as GodTossing
+import           Pos.Ssc.GodTossing.Types.Type         as GodTossing
+import           Pos.Ssc.GodTossing.Types.Types        as GodTossing
 import           Pos.Ssc.GodTossing.Worker.Workers     ()

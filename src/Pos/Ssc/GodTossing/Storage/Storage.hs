@@ -49,8 +49,6 @@ import           Pos.Ssc.GodTossing.Base           (Commitment (..), CommitmentS
                                                     verifySignedCommitment)
 import           Pos.Ssc.GodTossing.Base           (Opening)
 import           Pos.Ssc.GodTossing.Error          (SeedError)
-import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types ()
 import           Pos.Ssc.GodTossing.Seed           (calculateSeed)
 import           Pos.Ssc.GodTossing.Storage.Types  (GtStorage, GtStorageVersion (..),
                                                     dsGlobalCertificates,
@@ -59,7 +57,9 @@ import           Pos.Ssc.GodTossing.Storage.Types  (GtStorage, GtStorageVersion 
                                                     dsLocalCertificates,
                                                     dsLocalCommitments, dsLocalOpenings,
                                                     dsLocalShares, dsVersionedL)
-import           Pos.Ssc.GodTossing.Types          (GtMessage (..), GtPayload (..),
+import           Pos.Ssc.GodTossing.Types.Instance ()
+import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types    (GtMessage (..), GtPayload (..),
                                                     filterGtPayload, mdCommitments,
                                                     mdOpenings, mdShares,
                                                     mdVssCertificates, verifyGtPayload)

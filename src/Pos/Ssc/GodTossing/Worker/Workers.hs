@@ -37,8 +37,8 @@ import           Pos.Ssc.GodTossing.Server               (announceCommitments,
                                                           announceOpenings,
                                                           announceSharesMulti,
                                                           announceVssCertificates)
-import           Pos.Ssc.GodTossing.Type                 (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types                (GtMessage (..), GtPayload (..),
+import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types          (GtMessage (..), GtPayload (..),
                                                           hasCommitment, hasOpening,
                                                           hasShares)
 import           Pos.Ssc.GodTossing.Worker.Types         (GtSecret)

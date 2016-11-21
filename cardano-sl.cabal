@@ -78,8 +78,9 @@ library
                         Pos.Ssc.GodTossing.Worker.Workers
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Server
-                        Pos.Ssc.GodTossing.Type
-                        Pos.Ssc.GodTossing.Types
+                        Pos.Ssc.GodTossing.Types.Instance
+                        Pos.Ssc.GodTossing.Types.Type
+                        Pos.Ssc.GodTossing.Types.Types
                         Pos.State.Acidic
                         Pos.State.State
                         Pos.State.Storage

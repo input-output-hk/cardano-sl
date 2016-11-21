@@ -79,8 +79,12 @@ instance (Monad m, MonadDB ssc m) => MonadDB ssc (ReaderT r m) where
 instance (Monad m, MonadDB ssc m) => MonadDB ssc (DHTResponseT m) where
     getNodeState = lift getNodeState
 
+-- | IO monad with db access.
 type WorkModeDB ssc m = (MonadIO m, MonadDB ssc m)
+
+-- | State of the node.
 type NodeState ssc = DiskState ssc
+
 type QUConstraint ssc m = (SscStorageMode ssc, WorkModeDB ssc m)
 
 -- | Open NodeState, reading existing state from disk (if any).
@@ -147,9 +151,11 @@ getBlock = queryDisk . A.GetBlock
 getHeadBlock :: QUConstraint ssc m => m (Block ssc)
 getHeadBlock = queryDisk A.GetHeadBlock
 
+-- | Return current best chain.
 getBestChain :: QUConstraint ssc m => m (NonEmpty (Block ssc))
 getBestChain = queryDisk A.GetBestChain
 
+-- | Get local transactions list.
 getLocalTxs :: QUConstraint ssc m => m (HashSet Tx)
 getLocalTxs = queryDisk A.GetLocalTxs
 
@@ -159,6 +165,8 @@ getLocalSscPayload = queryDisk . A.GetLocalSscPayload
 getGlobalMpcData :: QUConstraint ssc m => m (SscPayload ssc)
 getGlobalMpcData = queryDisk A.GetGlobalSscPayload
 
+-- | Check that block header is correct and claims to represent block
+-- which may become part of blockchain.
 mayBlockBeUseful :: QUConstraint ssc m => SlotId -> MainBlockHeader ssc -> m VerificationRes
 mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 

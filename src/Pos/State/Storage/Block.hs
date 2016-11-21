@@ -602,9 +602,9 @@ blkRollback =
   where
     onError = panic "Attempt to rollback too many blocks"
 
+-- TODO
 -- | Remove obsolete cached blocks, alternative chains which are
 -- definitely useless, etc.
--- TODO
 blkCleanUp :: SlotId -> Update ssc ()
 blkCleanUp _ = do
     headDifficulty <- view difficultyL <$> readerToState getHeadBlock

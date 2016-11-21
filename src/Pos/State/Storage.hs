@@ -140,7 +140,7 @@ storageFromUtxo u =
 getHeadSlot :: Query ssc (Either EpochIndex SlotId)
 getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock
 
--- | Get local ssc payload using internal ssc storage (see
+-- Get local ssc payload using internal ssc storage (see
 -- 'SscStorageClass').
 getLocalSscPayload
     :: forall ssc.
@@ -148,7 +148,7 @@ getLocalSscPayload
     => SlotId -> Query ssc (SscPayload ssc)
 getLocalSscPayload = sscGetLocalPayload @ssc
 
--- | Get global ssc payload using internal ssc storage (see
+-- Get global ssc payload using internal ssc storage (see
 -- 'SscStorageClass').
 getGlobalSscPayload
     :: forall ssc.
@@ -379,7 +379,7 @@ getThreshold epoch = do
   where
     getThresholdImpl (length -> len) = fromIntegral $ len `div` 2 + len `mod` 2
 
--- | SSC message processing using internal ssc storage (see
+-- SSC message processing using internal ssc storage (see
 -- 'SscStorageClass').
 processSscMessage
     :: forall ssc.
@@ -387,7 +387,7 @@ processSscMessage
     => SscMessage ssc -> Update ssc (Maybe (SscMessage ssc))
 processSscMessage = sscProcessMessage @ssc
 
--- | Get shares using internal ssc storage (see 'SscStorageClass').
+-- Get shares using internal ssc storage (see 'SscStorageClass').
 getOurShares
     :: forall ssc.
        SscStorageClass ssc

@@ -1,6 +1,6 @@
-severity: {{main}}
+severity: Warning
 node:
-    severity: {{server}}
+    severity: {{main}}
     file: {{file}}
     comm:
         severity: {{comm}}

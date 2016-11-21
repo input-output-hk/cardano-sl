@@ -149,7 +149,6 @@ library
                       , serokell-util
                       , stm
                       , stm-containers
-                      , stm-containers
                       , tagged
                       , template-haskell
                       , text
@@ -376,6 +375,7 @@ test-suite cardano-test
                      , lens
                      , log-warper >= 0.1.0
                      , memory
+                     , mtl
                      , random
                      , safecopy
                      , serokell-util

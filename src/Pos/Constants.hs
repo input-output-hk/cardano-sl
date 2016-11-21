@@ -38,7 +38,7 @@ import           Pos.Types.Timestamp    (Timestamp)
 k :: Integral a => a
 k = fromIntegral . ccK $ compileConfig
 
--- | See 'Pos.CompileConfig.ccSlotDurationSec'.
+-- | Length of slot. Also see 'Pos.CompileConfig.ccSlotDurationSec'.
 slotDuration :: Microsecond
 slotDuration = sec . ccSlotDurationSec $ compileConfig
 
@@ -46,7 +46,7 @@ slotDuration = sec . ccSlotDurationSec $ compileConfig
 epochSlots :: Integral a => a
 epochSlots = 6 * k
 
--- | Lenght of one epoch in 'Microsecond's.
+-- | Length of one epoch in 'Microsecond's.
 epochDuration :: Microsecond
 epochDuration = epochSlots * slotDuration
 
@@ -73,7 +73,8 @@ genesisN = fromIntegral . ccGenesisN $ compileConfig
 maxLocalTxs :: Integral i => i
 maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
 
--- | See 'Pos.CompileConfig.ccSysTimeBroadcastSlots'.
+-- | /Time-lord/ node announces system start time by broadcast. She does it
+-- during first 'Pos.CompileConfig.ccSysTimeBroadcastSlots' slots.
 sysTimeBroadcastSlots :: Integral i => i
 sysTimeBroadcastSlots = fromIntegral . ccSysTimeBroadcastSlots $ compileConfig
 

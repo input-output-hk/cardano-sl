@@ -177,11 +177,11 @@ data BaseParams = BaseParams
 
 -- | Contains algorithm specific & storage parameters for Node.
 data NodeParams = NodeParams
-    { npDbPath      :: !(Maybe FilePath)  -- ^ path to node data-base
+    { npDbPath      :: !(Maybe FilePath)  -- ^ Path to node data-base. 'Nothing' means memory-mode.
     , npRebuildDb   :: !Bool              -- ^ @True@ if data-base should be rebuilt
     , npSystemStart :: !Timestamp         -- ^ System start
     , npSecretKey   :: !SecretKey         -- ^ Secret key of this node
-    , npVssKeyPair  :: !VssKeyPair        -- ^ VssKeyPair
+    , npVssKeyPair  :: !VssKeyPair        -- ^ Key pair used for secret sharing
     , npBaseParams  :: !BaseParams        -- ^ See 'BaseParams'
     , npCustomUtxo  :: !(Maybe Utxo)      -- ^ predefined custom utxo
     , npTimeLord    :: !Bool              -- ^ @True@ if node started as time-lord

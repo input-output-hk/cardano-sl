@@ -21,11 +21,11 @@ data CompileConfig = CompileConfig
     , ccSlotDurationSec         :: !Int       -- ^ Length of slot in seconds
     , ccNetworkDiameter         :: !Int       -- ^ Estimated time for broadcasting messages
     , ccNeighboursSendThreshold :: !Int       -- ^ Broadcasting threshold
-    , ccGenesisN                :: !Int       -- ^ Number of stakeholders for genesis block
+    , ccGenesisN                :: !Int       -- ^ Number of pre-generated keys
     , ccMaxLocalTxs             :: !Word      -- ^ Max number of transactions in Storage
-    , ccMpcRelayInterval        :: !Int       -- ^ MPC broadcast interval
+    , ccMpcRelayInterval        :: !Int       -- ^ MPC relay interval; to be removed soon
     , ccDefaultPeers            :: ![[Char]]  -- ^ List of default peers
-    , ccSysTimeBroadcastSlots   :: !Int       -- ^ System time for slots broadcasting
+    , ccSysTimeBroadcastSlots   :: !Int       -- ^ Number of slots to broadcast system time
     , ccMpcSendInterval         :: !Word      -- ^ Length of interval for sending MPC message
     } deriving (Show, Lift)
 

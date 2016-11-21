@@ -1,9 +1,8 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Pos.Ssc.GodTossing.Server
-       (
-         announceCommitment
+module Pos.Ssc.GodTossing.Announce
+       ( announceCommitment
        , announceCommitments
        , announceOpening
        , announceOpenings

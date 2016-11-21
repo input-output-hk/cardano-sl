@@ -16,19 +16,22 @@ import           Control.TimeWarp.Timed                  (Microsecond, Milliseco
 import qualified Data.HashMap.Strict                     as HM (toList)
 import           Data.List.NonEmpty                      (nonEmpty)
 import           Data.Tagged                             (Tagged (..))
+import           Data.Time.Units                         (convertUnit)
 import           Formatting                              (build, ords, sformat, shown,
                                                           stext, (%))
 import           Serokell.Util.Exceptions                ()
+import           System.FilePath                         ((</>))
 import           System.Wlog                             (logDebug, logWarning)
 import           Universum
 
+import           Pos.Communication.Methods               (announceSsc)
 import           Pos.Constants                           (k, mpcSendInterval,
                                                           sscTransmitterInterval)
 import           Pos.Crypto                              (SecretKey, randomNumber,
                                                           runSecureRandom, toPublic)
 import           Pos.Slotting                            (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.Class.Workers                   (SscWorkersClass (..))
-import           Pos.Ssc.GodTossing.Server               (announceCommitments,
+import           Pos.Ssc.GodTossing.Announce             (announceCommitments,
                                                           announceOpenings,
                                                           announceSharesMulti,
                                                           announceVssCertificates)
@@ -41,6 +44,9 @@ import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types          (GtMessage (..), GtPayload (..),
                                                           hasCommitment, hasOpening,
                                                           hasShares)
+import           Pos.Ssc.GodTossing.Worker.SecretStorage (checkpoint, getSecret,
+                                                          prepareSecretToNewSlot,
+                                                          setSecret)
 import           Pos.Ssc.GodTossing.Worker.Types         (GtSecret)
 import           Pos.State                               (getGlobalMpcData,
                                                           getLocalSscPayload,
@@ -51,13 +57,6 @@ import           Pos.Types                               (EpochIndex, LocalSlotI
 import           Pos.WorkMode                            (WorkMode, getNodeContext,
                                                           ncDbPath, ncPublicKey,
                                                           ncSecretKey, ncVssKeyPair)
-
-import           Data.Time.Units                         (convertUnit)
-import           Pos.Communication.Methods               (announceSsc)
-import           Pos.Ssc.GodTossing.Worker.SecretStorage (checkpoint, getSecret,
-                                                          prepareSecretToNewSlot,
-                                                          setSecret)
-import           System.FilePath                         ((</>))
 
 instance SscWorkersClass SscGodTossing where
     sscOnNewSlot = Tagged onNewSlot

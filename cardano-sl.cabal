@@ -66,6 +66,7 @@ library
                         Pos.Ssc.Class.Storage
                         Pos.Ssc.Class.Workers
                         Pos.Ssc.Class.Listeners
+                        Pos.Ssc.GodTossing.Announce
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Genesis
@@ -76,7 +77,6 @@ library
                         Pos.Ssc.GodTossing.Worker.Types
                         Pos.Ssc.GodTossing.Worker.Workers
                         Pos.Ssc.GodTossing.Seed
-                        Pos.Ssc.GodTossing.Server
                         Pos.Ssc.GodTossing.Types.Base
                         Pos.Ssc.GodTossing.Types.Instance
                         Pos.Ssc.GodTossing.Types.Type

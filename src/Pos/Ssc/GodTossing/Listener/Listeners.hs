@@ -18,13 +18,17 @@ import           System.Wlog                       (logDebug, logError, logInfo)
 import           Universum
 
 import           Pos.Communication.Methods         (announceSsc)
+import           Pos.Communication.Types           (ResponseMode)
 import           Pos.Crypto                        (PublicKey)
-import           Pos.DHT                           (ListenerDHT (..))
+import           Pos.DHT                           (ListenerDHT (..), replyToNode)
 import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
 import           Pos.Ssc.GodTossing.Types.Instance ()
-import           Pos.Ssc.GodTossing.Types.Message  (DataMsg, InvMsg, ReqMsg)
+import           Pos.Ssc.GodTossing.Types.Message  (DataMsg (..), InvMsg (..),
+                                                    MsgTag (..), ReqMsg (..))
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types    (GtMessage (..))
+import           Pos.Ssc.GodTossing.Types.Types    (GtMessage (..), hasCommitment,
+                                                    hasOpening, hasShares,
+                                                    hasVssCertificate)
 import qualified Pos.State                         as St
 import           Pos.WorkMode                      (WorkMode)
 
@@ -37,8 +41,21 @@ instance SscListenersClass SscGodTossing where
             , ListenerDHT handleData
             ]
 
-handleInv :: WorkMode SscGodTossing m => InvMsg -> m ()
-handleInv = notImplemented
+handleInv :: ResponseMode SscGodTossing m => InvMsg -> m ()
+handleInv (InvMsg tag keys) = do
+    globalData <- St.getGlobalMpcData
+    let checkGlobalPresence =
+            case tag of
+                CommitmentMsg     -> hasCommitment
+                OpeningMsg        -> hasOpening
+                SharesMsg         -> hasShares
+                VssCertificateMsg -> hasVssCertificate
+    let checkLocalPresence = notImplemented
+    let checkPresence pk =
+            all ($ pk) [checkLocalPresence, flip checkGlobalPresence globalData]
+    let handleSingle pk =
+            unless (checkPresence pk) $ replyToNode $ ReqMsg tag pk
+    mapM_ handleSingle keys
 
 handleReq :: WorkMode SscGodTossing m => ReqMsg -> m ()
 handleReq = notImplemented

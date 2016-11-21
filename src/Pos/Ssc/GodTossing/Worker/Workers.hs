@@ -28,15 +28,15 @@ import           Pos.Crypto                              (SecretKey, randomNumbe
                                                           runSecureRandom, toPublic)
 import           Pos.Slotting                            (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.Class.Workers                   (SscWorkersClass (..))
-import           Pos.Ssc.GodTossing.Base                 (genCommitmentAndOpening,
-                                                          genCommitmentAndOpening,
-                                                          isCommitmentIdx, isOpeningIdx,
-                                                          isSharesIdx, mkSignedCommitment)
-import           Pos.Ssc.GodTossing.Base                 (Opening, SignedCommitment)
 import           Pos.Ssc.GodTossing.Server               (announceCommitments,
                                                           announceOpenings,
                                                           announceSharesMulti,
                                                           announceVssCertificates)
+import           Pos.Ssc.GodTossing.Types.Base           (Opening, SignedCommitment,
+                                                          genCommitmentAndOpening,
+                                                          genCommitmentAndOpening,
+                                                          isCommitmentIdx, isOpeningIdx,
+                                                          isSharesIdx, mkSignedCommitment)
 import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types          (GtMessage (..), GtPayload (..),
                                                           hasCommitment, hasOpening,

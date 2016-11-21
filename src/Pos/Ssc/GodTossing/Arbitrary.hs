@@ -14,7 +14,7 @@ import           Universum
 import           Pos.Crypto                     (SecretProof, SecretSharingExtra,
                                                  deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Crypto.Arbitrary           ()
-import           Pos.Ssc.GodTossing.Base        (Commitment (..), Opening,
+import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), Opening,
                                                  genCommitmentAndOpening)
 import           Pos.Ssc.GodTossing.Types.Types (GtProof (..))
 import           Pos.Types.Arbitrary.Unsafe     ()

@@ -21,7 +21,7 @@ import           Universum
 
 import           Pos.Communication.Methods         (announceSsc)
 import           Pos.Crypto                        (PublicKey, Share)
-import           Pos.Ssc.GodTossing.Base           (Opening, SignedCommitment,
+import           Pos.Ssc.GodTossing.Types.Base     (Opening, SignedCommitment,
                                                     VssCertificate)
 import           Pos.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)

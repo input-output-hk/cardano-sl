@@ -27,29 +27,30 @@ module Pos.Ssc.GodTossing.Types.Types
        , hasShares
        ) where
 
-import           Control.Lens            (makeLenses, (^.))
-import           Data.Binary             (Binary)
-import qualified Data.HashMap.Strict     as HM
-import           Data.Ix                 (inRange)
-import           Data.List.NonEmpty      (NonEmpty)
-import           Data.MessagePack        (MessagePack)
-import           Data.SafeCopy           (base, deriveSafeCopySimple)
-import           Data.Text.Buildable     (Buildable (..))
-import           Formatting              (bprint, (%))
-import           Serokell.Util           (VerificationRes, isVerSuccess, listJson,
-                                          verifyGeneric)
+import           Control.Lens                  (makeLenses, (^.))
+import           Data.Binary                   (Binary)
+import qualified Data.HashMap.Strict           as HM
+import           Data.Ix                       (inRange)
+import           Data.List.NonEmpty            (NonEmpty)
+import           Data.MessagePack              (MessagePack)
+import           Data.SafeCopy                 (base, deriveSafeCopySimple)
+import           Data.Text.Buildable           (Buildable (..))
+import           Formatting                    (bprint, (%))
+import           Serokell.Util                 (VerificationRes, isVerSuccess, listJson,
+                                                verifyGeneric)
 import           Universum
 
-import           Pos.Constants           (k)
-import           Pos.Crypto              (Hash, PublicKey, Share, hash)
-import           Pos.Ssc.Class.Types     (Ssc (..))
-import           Pos.Ssc.GodTossing.Base (CommitmentsMap, Opening, OpeningsMap, SharesMap,
-                                          SignedCommitment, VssCertificate,
-                                          VssCertificatesMap, checkCert, isCommitmentId,
-                                          isOpeningId, isSharesId, verifySignedCommitment)
-import           Pos.Types               (MainBlockHeader, SlotId (..), headerSlot)
+import           Pos.Constants                 (k)
+import           Pos.Crypto                    (Hash, PublicKey, Share, hash)
+import           Pos.Ssc.Class.Types           (Ssc (..))
+import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, Opening, OpeningsMap,
+                                                SharesMap, SignedCommitment,
+                                                VssCertificate, VssCertificatesMap,
+                                                checkCert, isCommitmentId, isOpeningId,
+                                                isSharesId, verifySignedCommitment)
+import           Pos.Types                     (MainBlockHeader, SlotId (..), headerSlot)
 
-import           Control.TimeWarp.Rpc    (Message (..))
+import           Control.TimeWarp.Rpc          (Message (..))
 
 ----------------------------------------------------------------------------
 -- SscMessage

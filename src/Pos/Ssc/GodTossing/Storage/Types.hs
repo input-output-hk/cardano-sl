@@ -30,17 +30,17 @@ module Pos.Ssc.GodTossing.Storage.Types
        , dsGlobalCertificates
        ) where
 
-import           Control.Lens               (makeLenses, makeLensesFor)
-import           Data.Default               (Default (..))
-import           Data.List.NonEmpty         (NonEmpty (..))
-import           Data.List.NonEmpty         (NonEmpty ((:|)))
-import           Data.SafeCopy              (base, deriveSafeCopySimple)
+import           Control.Lens                  (makeLenses, makeLensesFor)
+import           Data.Default                  (Default (..))
+import           Data.List.NonEmpty            (NonEmpty (..))
+import           Data.List.NonEmpty            (NonEmpty ((:|)))
+import           Data.SafeCopy                 (base, deriveSafeCopySimple)
 import           Universum
 
-import           Pos.Ssc.GodTossing.Base    (CommitmentsMap, OpeningsMap,
-                                             SharesMap, VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Genesis (genesisCertificates)
-import           Pos.Types                  (SlotId, unflattenSlotId)
+import           Pos.Ssc.GodTossing.Genesis    (genesisCertificates)
+import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
+                                                VssCertificatesMap)
+import           Pos.Types                     (SlotId, unflattenSlotId)
 
 data GtStorageVersion = GtStorageVersion
     { -- | Local set of 'Commitment's. These are valid commitments which are

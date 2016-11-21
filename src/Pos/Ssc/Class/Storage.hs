@@ -64,8 +64,12 @@ class Ssc ssc => SscStorageClass ssc where
     -- are less blocks than 'n' is, just leaves an empty ('def')
     -- version.
     sscRollback :: Word -> SscUpdate ssc ()
+    -- | Get local SSC data for inclusion into a block for slot N. (Different
+    -- kinds of data are included into different blocks.)
     sscGetLocalPayload :: SlotId -> SscQuery ssc (SscPayload ssc)
+    -- | Get global SSC data.
     sscGetGlobalPayload :: SscQuery ssc (SscPayload ssc)
+    -- | Get global SSC data for the state that was observed N blocks ago.
     sscGetGlobalPayloadByDepth :: Word -> SscQuery ssc (Maybe (SscPayload ssc))
     -- | Verify Ssc-related predicates of block sequence which is
     -- about to be applied. It should check that SSC payload will be

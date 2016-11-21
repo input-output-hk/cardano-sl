@@ -159,9 +159,12 @@ getBestChain = queryDisk A.GetBestChain
 getLocalTxs :: QUConstraint ssc m => m (HashSet Tx)
 getLocalTxs = queryDisk A.GetLocalTxs
 
+-- | Get local SSC data for inclusion into a block for slot N. (Different
+-- kinds of data are included into different blocks.)
 getLocalSscPayload :: QUConstraint ssc m => SlotId -> m (SscPayload ssc)
 getLocalSscPayload = queryDisk . A.GetLocalSscPayload
 
+-- | Get global SSC data.
 getGlobalMpcData :: QUConstraint ssc m => m (SscPayload ssc)
 getGlobalMpcData = queryDisk A.GetGlobalSscPayload
 
@@ -194,6 +197,8 @@ processBlock :: QUConstraint ssc m
              -> m (ProcessBlockRes ssc)
 processBlock si = updateDisk . A.ProcessBlock si
 
+-- | Do something with given message, result is whether message has been
+-- processed successfully (implementation defined).
 processSscMessage :: QUConstraint ssc m => SscMessage ssc -> m (Maybe (SscMessage ssc))
 processSscMessage = updateDisk . A.ProcessSscMessage
 
@@ -204,6 +209,8 @@ getParticipants
     -> m (Maybe (NonEmpty VssPublicKey))
 getParticipants = queryDisk . A.GetParticipants
 
+-- | Figure out the threshold (i.e. how many secret shares would be required
+-- to recover each node's secret).
 getThreshold :: QUConstraint ssc m
              => EpochIndex
              -> m (Maybe Threshold)
@@ -214,6 +221,8 @@ getThreshold = queryDisk . A.GetThreshold
 -- Related to SscGodTossing
 ----------------------------------------------------------------------------
 
+-- | Decrypt shares (in commitments) that are intended for us and that we can
+-- decrypt.
 getOurShares
     :: QUConstraint ssc m
     => VssKeyPair -> m (HashMap PublicKey Share)

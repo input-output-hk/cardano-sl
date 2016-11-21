@@ -232,6 +232,7 @@ verifyGtPayload header GtPayload {..} =
 
 
 -- | Remove messages irrelevant to given slot id from payload.
+-- E.g. commitments are irrelevant if this isn't a commitment slot, etc.
 filterGtPayload :: SlotId -> GtPayload -> GtPayload
 filterGtPayload slotId GtPayload {..} =
     GtPayload

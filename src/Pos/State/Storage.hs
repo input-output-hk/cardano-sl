@@ -140,22 +140,20 @@ storageFromUtxo u =
 getHeadSlot :: Query ssc (Either EpochIndex SlotId)
 getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock
 
--- Get local ssc payload using internal ssc storage (see
--- 'SscStorageClass').
+-- | Get local SSC data for inclusion into a block for slot N. (Different
+-- kinds of data are included into different blocks.)
 getLocalSscPayload
     :: forall ssc.
        SscStorageClass ssc
     => SlotId -> Query ssc (SscPayload ssc)
 getLocalSscPayload = sscGetLocalPayload @ssc
 
--- Get global ssc payload using internal ssc storage (see
--- 'SscStorageClass').
+-- | Get global SSC data.
 getGlobalSscPayload
     :: forall ssc.
        SscStorageClass ssc
     => Query ssc (SscPayload ssc)
 getGlobalSscPayload = sscGetGlobalPayload @ssc
-
 
 -- | Create a new block on top of best chain if possible. Block can
 -- be created if:
@@ -370,6 +368,8 @@ getMpcCrucialDepth epoch = do
         then return Nothing
         else return (Just depth)
 
+-- | Figure out the threshold (i.e. how many secret shares would be required
+-- to recover each node's secret).
 getThreshold
     :: forall ssc.
        SscStorageClass ssc
@@ -379,15 +379,16 @@ getThreshold epoch = do
   where
     getThresholdImpl (length -> len) = fromIntegral $ len `div` 2 + len `mod` 2
 
--- SSC message processing using internal ssc storage (see
--- 'SscStorageClass').
+-- | Do something with given message, result is whether message has been
+-- processed successfully (implementation defined).
 processSscMessage
     :: forall ssc.
        SscStorageClass ssc
     => SscMessage ssc -> Update ssc (Maybe (SscMessage ssc))
 processSscMessage = sscProcessMessage @ssc
 
--- Get shares using internal ssc storage (see 'SscStorageClass').
+-- | Decrypt shares (in commitments) that are intended for us and that we can
+-- decrypt.
 getOurShares
     :: forall ssc.
        SscStorageClass ssc

@@ -22,13 +22,33 @@ import           Pos.Crypto                        (PublicKey)
 import           Pos.DHT                           (ListenerDHT (..))
 import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
 import           Pos.Ssc.GodTossing.Types.Instance ()
+import           Pos.Ssc.GodTossing.Types.Message  (DataMsg, InvMsg, ReqMsg)
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types    (GtMessage (..))
 import qualified Pos.State                         as St
 import           Pos.WorkMode                      (WorkMode)
 
 instance SscListenersClass SscGodTossing where
-    sscListeners = Tagged [ListenerDHT handleSsc]
+    sscListeners =
+        Tagged
+            [ ListenerDHT handleSsc
+            , ListenerDHT handleInv
+            , ListenerDHT handleReq
+            , ListenerDHT handleData
+            ]
+
+handleInv :: WorkMode SscGodTossing m => InvMsg -> m ()
+handleInv = notImplemented
+
+handleReq :: WorkMode SscGodTossing m => ReqMsg -> m ()
+handleReq = notImplemented
+
+handleData :: WorkMode SscGodTossing m => DataMsg -> m ()
+handleData = notImplemented
+
+----------------------------------------------------------------------------
+-- Old
+----------------------------------------------------------------------------
 
 handleSsc :: WorkMode SscGodTossing m => GtMessage -> m ()
 handleSsc m = do

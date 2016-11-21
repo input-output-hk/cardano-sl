@@ -34,7 +34,7 @@ data InvMsg = InvMsg
 
 instance Binary InvMsg
 
-instance Message MsgTag where
+instance Message InvMsg where
     messageName _ = "GT Inventory"
 
 -- | Request message. Can be used to request data (ideally data which

@@ -11,10 +11,7 @@ module Pos.Ssc.GodTossing.Worker.Workers
 
 import           Control.Lens                            (view, _2, _3)
 import           Control.TimeWarp.Timed                  (Microsecond, Millisecond,
-                                                          currentTime, for, repeatForever,
-                                                          wait)
-import qualified Data.HashMap.Strict                     as HM (toList)
-import           Data.List.NonEmpty                      (nonEmpty)
+                                                          currentTime, for, wait)
 import           Data.Tagged                             (Tagged (..))
 import           Data.Time.Units                         (convertUnit)
 import           Formatting                              (build, ords, sformat, shown,
@@ -25,35 +22,29 @@ import           System.Wlog                             (logDebug, logWarning)
 import           Universum
 
 import           Pos.Communication.Methods               (sendToNeighborsSafe)
-import           Pos.Constants                           (k, mpcSendInterval,
-                                                          sscTransmitterInterval)
+import           Pos.Constants                           (k, mpcSendInterval)
 import           Pos.Crypto                              (PublicKey, SecretKey,
                                                           randomNumber, runSecureRandom,
                                                           toPublic)
-import           Pos.Slotting                            (getCurrentSlot, getSlotStart)
+import           Pos.Slotting                            (getSlotStart)
 import           Pos.Ssc.Class.Workers                   (SscWorkersClass (..))
-import           Pos.Ssc.GodTossing.Announce             (announceCommitments,
-                                                          announceOpenings,
-                                                          announceSharesMulti,
-                                                          announceVssCertificates)
 import           Pos.Ssc.GodTossing.Types.Base           (Opening, SignedCommitment,
                                                           genCommitmentAndOpening,
                                                           genCommitmentAndOpening,
                                                           isCommitmentIdx, isOpeningIdx,
                                                           isSharesIdx, mkSignedCommitment)
+import           Pos.Ssc.GodTossing.Types.Instance       ()
 import           Pos.Ssc.GodTossing.Types.Message        (InvMsg (..), MsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types          (GtMessage (..), GtPayload (..),
-                                                          hasCommitment, hasOpening,
-                                                          hasShares)
+import           Pos.Ssc.GodTossing.Types.Types          (GtMessage (..), hasCommitment,
+                                                          hasOpening, hasShares)
 import           Pos.Ssc.GodTossing.Worker.SecretStorage (checkpoint, getSecret,
                                                           prepareSecretToNewSlot,
                                                           setSecret)
 import           Pos.Ssc.GodTossing.Worker.Types         (GtSecret)
-import           Pos.State                               (getGlobalMpcData,
-                                                          getLocalSscPayload,
-                                                          getOurShares, getParticipants,
-                                                          getThreshold, processSscMessage)
+import           Pos.State                               (getGlobalMpcData, getOurShares,
+                                                          getParticipants, getThreshold,
+                                                          processSscMessage)
 import           Pos.Types                               (EpochIndex, LocalSlotIndex,
                                                           SlotId (..), Timestamp (..))
 import           Pos.WorkMode                            (WorkMode, getNodeContext,
@@ -62,7 +53,7 @@ import           Pos.WorkMode                            (WorkMode, getNodeConte
 
 instance SscWorkersClass SscGodTossing where
     sscOnNewSlot = Tagged onNewSlot
-    sscWorkers = Tagged [sscTransmitter]
+    sscWorkers = mempty
 
 onNewSlot :: WorkMode SscGodTossing m => SlotId -> m ()
 onNewSlot slotId = do
@@ -174,21 +165,6 @@ sendOurData msgTag epoch kMultiplier ourPk = do
     let msg = InvMsg {imType = msgTag, imKeys = pure ourPk}
     sendToNeighborsSafe msg
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
-
-sscTransmitter :: WorkMode SscGodTossing m => m ()
-sscTransmitter =
-    repeatForever sscTransmitterInterval onError $
-    do GtPayload {..} <- getLocalSscPayload =<< getCurrentSlot
-       whenJust (nonEmpty $ HM.toList _mdCommitments) announceCommitments
-       whenJust (nonEmpty $ HM.toList _mdOpenings) announceOpenings
-       whenJust (nonEmpty $ HM.toList _mdShares) announceSharesMulti
-       whenJust
-           (nonEmpty $ HM.toList _mdVssCertificates)
-           announceVssCertificates
-  where
-    onError e =
-        sscTransmitterInterval <$
-        logWarning (sformat ("Error occured in sscTransmitter: " %build) e)
 
 -- | Generate new commitment and opening and use them for the current
 -- epoch. Assumes that the genesis block has already been generated and

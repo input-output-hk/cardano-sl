@@ -10,6 +10,7 @@ module Pos.Ssc.GodTossing.Types.Message
 import           Control.TimeWarp.Rpc          (Message (..))
 import           Data.Binary                   (Binary)
 import           Data.List.NonEmpty            (NonEmpty)
+import qualified Data.Text.Buildable
 import           Universum
 
 import           Pos.Crypto                    (PublicKey, Share)
@@ -24,6 +25,12 @@ data MsgTag
     deriving (Show, Generic)
 
 instance Binary MsgTag
+
+instance Buildable MsgTag where
+    build CommitmentMsg     = "commitment message"
+    build OpeningMsg        = "opening message"
+    build SharesMsg         = "shares message"
+    build VssCertificateMsg = "VSS certificate message"
 
 -- | Inventory message. Can be used to announce the fact that you have
 -- some data.

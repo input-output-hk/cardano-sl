@@ -18,7 +18,7 @@ import           Serokell.Util.Text                (listJson)
 import           System.Wlog                       (logDebug)
 import           Universum
 
-import           Pos.Communication.Methods         (announceSsc)
+import           Pos.Communication.Methods         (sendToNeighborsSafe)
 import           Pos.Crypto                        (PublicKey, Share)
 import           Pos.Ssc.GodTossing.Types.Base     (Opening, SignedCommitment,
                                                     VssCertificate)
@@ -38,7 +38,7 @@ announceCommitments comms = do
     -- TODO: should we show actual commitments?
     logDebug $
         sformat ("Announcing commitments from: "%listJson) $ map fst comms
-    announceSsc $ DSCommitments comms
+    sendToNeighborsSafe $ DSCommitments comms
 
 announceOpening :: WorkMode SscGodTossing m => PublicKey -> Opening -> m ()
 announceOpening pk open = announceOpenings $ pure (pk, open)
@@ -48,7 +48,7 @@ announceOpenings openings = do
     -- TODO: should we show actual openings?
     logDebug $
         sformat ("Announcing openings from: "%listJson) $ map fst openings
-    announceSsc $ DSOpenings openings
+    sendToNeighborsSafe $ DSOpenings openings
 
 announceShares :: WorkMode SscGodTossing m => PublicKey -> HashMap PublicKey Share -> m ()
 announceShares pk shares = announceSharesMulti $ pure (pk, shares)
@@ -60,7 +60,7 @@ announceSharesMulti shares = do
     -- TODO: should we show actual shares?
     logDebug $
         sformat ("Announcing shares from: "%listJson) $ map fst shares
-    announceSsc $ DSSharesMulti shares
+    sendToNeighborsSafe $ DSSharesMulti shares
 
 announceVssCertificate
     :: WorkMode SscGodTossing m
@@ -74,4 +74,4 @@ announceVssCertificates certs = do
     -- TODO: should we show actual certificates?
     logDebug $ sformat
         ("Announcing VSS certificates from: "%listJson) $ map fst certs
-    announceSsc $ DSVssCertificates certs
+    sendToNeighborsSafe $ DSVssCertificates certs

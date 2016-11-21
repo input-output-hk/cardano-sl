@@ -17,7 +17,7 @@ import           Serokell.Util.Text                (listJson)
 import           System.Wlog                       (logDebug, logError, logInfo)
 import           Universum
 
-import           Pos.Communication.Methods         (announceSsc)
+import           Pos.Communication.Methods         (sendToNeighborsSafe)
 import           Pos.Communication.Types           (ResponseMode)
 import           Pos.Crypto                        (PublicKey)
 import           Pos.DHT                           (ListenerDHT (..), replyToNode)
@@ -77,7 +77,7 @@ handleSsc m = do
     loggerAction msgName True added
     loggerAction msgName False ignored
     let call p
-            | checkSameConstrs m p = announceSsc p
+            | checkSameConstrs m p = sendToNeighborsSafe p
             | otherwise = distConstrsError m p
     whenJust processed call
 

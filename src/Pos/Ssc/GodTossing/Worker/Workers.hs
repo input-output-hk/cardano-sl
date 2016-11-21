@@ -18,17 +18,18 @@ import           Data.List.NonEmpty                      (nonEmpty)
 import           Data.Tagged                             (Tagged (..))
 import           Data.Time.Units                         (convertUnit)
 import           Formatting                              (build, ords, sformat, shown,
-                                                          stext, (%))
+                                                          (%))
 import           Serokell.Util.Exceptions                ()
 import           System.FilePath                         ((</>))
 import           System.Wlog                             (logDebug, logWarning)
 import           Universum
 
-import           Pos.Communication.Methods               (announceSsc)
+import           Pos.Communication.Methods               (sendToNeighborsSafe)
 import           Pos.Constants                           (k, mpcSendInterval,
                                                           sscTransmitterInterval)
-import           Pos.Crypto                              (SecretKey, randomNumber,
-                                                          runSecureRandom, toPublic)
+import           Pos.Crypto                              (PublicKey, SecretKey,
+                                                          randomNumber, runSecureRandom,
+                                                          toPublic)
 import           Pos.Slotting                            (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.Class.Workers                   (SscWorkersClass (..))
 import           Pos.Ssc.GodTossing.Announce             (announceCommitments,
@@ -40,6 +41,7 @@ import           Pos.Ssc.GodTossing.Types.Base           (Opening, SignedCommitm
                                                           genCommitmentAndOpening,
                                                           isCommitmentIdx, isOpeningIdx,
                                                           isSharesIdx, mkSignedCommitment)
+import           Pos.Ssc.GodTossing.Types.Message        (InvMsg (..), MsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types          (GtMessage (..), GtPayload (..),
                                                           hasCommitment, hasOpening,
@@ -82,8 +84,8 @@ randomTimeInInterval interval =
 
 waitUntilSend
     :: WorkMode SscGodTossing m
-    => Text -> EpochIndex -> LocalSlotIndex -> m ()
-waitUntilSend msgName epoch kMultiplier = do
+    => MsgTag -> EpochIndex -> LocalSlotIndex -> m ()
+waitUntilSend msgTag epoch kMultiplier = do
     Timestamp beginning <-
         getSlotStart $ SlotId {siEpoch = epoch, siSlot = kMultiplier * k}
     curTime <- currentTime
@@ -95,8 +97,8 @@ waitUntilSend msgName epoch kMultiplier = do
         let ttwMillisecond :: Millisecond
             ttwMillisecond = convertUnit timeToWait
         logDebug $
-            sformat ("Waiting for "%shown%" before sending "%stext)
-                ttwMillisecond msgName
+            sformat ("Waiting for "%shown%" before sending "%build)
+                ttwMillisecond msgTag
         wait $ for timeToWait
 
 createCheckpoint :: WorkMode SscGodTossing m => SlotId -> m ()
@@ -122,9 +124,9 @@ onNewSlotCommitment SlotId {..} = do
         return $ isCommitmentIdx siSlot && not commitmentInBlockchain
     when shouldSendCommitment $ do
         mbComm <- fmap (view _2) <$> getToken
-        whenJust mbComm $
-            onSendSomething siEpoch "commitment" 0 .
-            DSCommitments . pure . (ourPk,)
+        whenJust mbComm $ \comm -> do
+            () <$ processSscMessage (DSCommitments $ pure $ (ourPk, comm))
+            sendOurData CommitmentMsg siEpoch 0 ourPk
 
 -- Openings-related part of new slot processing
 onNewSlotOpening :: WorkMode SscGodTossing m => SlotId -> m ()
@@ -139,8 +141,9 @@ onNewSlotOpening SlotId {..} = do
                      , commitmentInBlockchain]
     when shouldSendOpening $ do
         mbOpen <- fmap (view _3) <$> getToken
-        whenJust mbOpen $
-            onSendSomething siEpoch "opening" 2 . DSOpenings . pure . (ourPk,)
+        whenJust mbOpen $ \open -> do
+            () <$ processSscMessage (DSOpenings $ pure $ (ourPk, open))
+            sendOurData OpeningMsg siEpoch 2 ourPk
 
 -- Shares-related part of new slot processing
 onNewSlotShares :: WorkMode SscGodTossing m => SlotId -> m ()
@@ -155,22 +158,22 @@ onNewSlotShares SlotId {..} = do
     when shouldSendShares $ do
         ourVss <- ncVssKeyPair <$> getNodeContext
         shares <- getOurShares ourVss
-        let msg = DSSharesMulti $ pure (ourPk, shares)
-        unless (null shares) $
-            onSendSomething siEpoch "shares" 4 msg
+        unless (null shares) $ do
+            () <$ processSscMessage (DSSharesMulti $ pure (ourPk, shares))
+            sendOurData SharesMsg siEpoch 4 ourPk
 
-onSendSomething
+sendOurData
     :: WorkMode SscGodTossing m
-    => EpochIndex -> Text -> LocalSlotIndex -> GtMessage -> m ()
-onSendSomething epoch msgName kMultiplier msg = do
-    () <$ processSscMessage msg
+    => MsgTag -> EpochIndex -> LocalSlotIndex -> PublicKey -> m ()
+sendOurData msgTag epoch kMultiplier ourPk = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one
     -- type of message.
-    waitUntilSend msgName epoch kMultiplier
-    logDebug $ "Announcing our " `mappend` msgName
-    announceSsc msg
-    logDebug $ sformat ("Sent our "%stext%" to neighbors") msgName
+    waitUntilSend msgTag epoch kMultiplier
+    logDebug $ sformat ("Announcing our "%build) msgTag
+    let msg = InvMsg {imType = msgTag, imKeys = pure ourPk}
+    sendToNeighborsSafe msg
+    logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 
 sscTransmitter :: WorkMode SscGodTossing m => m ()
 sscTransmitter =

@@ -25,6 +25,7 @@ module Pos.Ssc.GodTossing.Types.Types
        , hasCommitment
        , hasOpening
        , hasShares
+       , hasVssCertificate
        ) where
 
 import           Control.Lens                  (makeLenses, (^.))
@@ -289,3 +290,6 @@ hasOpening pk = HM.member pk . _mdOpenings
 
 hasShares :: PublicKey -> GtPayload -> Bool
 hasShares pk = HM.member pk . _mdShares
+
+hasVssCertificate :: PublicKey -> GtPayload -> Bool
+hasVssCertificate pk = HM.member pk . _mdVssCertificates

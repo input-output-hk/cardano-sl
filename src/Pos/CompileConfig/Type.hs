@@ -19,7 +19,6 @@ data CompileConfig = CompileConfig
     , ccNeighboursSendThreshold :: !Int
     , ccGenesisN                :: !Int
     , ccMaxLocalTxs             :: !Word
-    , ccMpcRelayInterval        :: !Int
     , ccDefaultPeers            :: ![[Char]]
     , ccSysTimeBroadcastSlots   :: !Int
     , ccMpcSendInterval         :: !Word

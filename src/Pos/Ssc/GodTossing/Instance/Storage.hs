@@ -490,7 +490,4 @@ getOurShares ourKey seed = do
                         Nothing       -> return Nothing
                         Just encShare -> Just . (theirPK,) <$>
                                         decryptShare ourKey encShare
-                        -- TODO: do we need to verify shares with 'verifyEncShare'
-                        -- here? Or do we need to verify them earlier (i.e. at the
-                        -- stage of commitment verification)?
                  else return Nothing -- if we have opening for theirPK, we shouldn't send shares for it

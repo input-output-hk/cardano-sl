@@ -79,6 +79,7 @@ library
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Types.Base
                         Pos.Ssc.GodTossing.Types.Instance
+                        Pos.Ssc.GodTossing.Types.Message
                         Pos.Ssc.GodTossing.Types.Type
                         Pos.Ssc.GodTossing.Types.Types
                         Pos.State.Acidic

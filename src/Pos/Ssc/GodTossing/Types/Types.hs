@@ -28,6 +28,7 @@ module Pos.Ssc.GodTossing.Types.Types
        ) where
 
 import           Control.Lens                  (makeLenses, (^.))
+import           Control.TimeWarp.Rpc          (Message (..))
 import           Data.Binary                   (Binary)
 import qualified Data.HashMap.Strict           as HM
 import           Data.Ix                       (inRange)
@@ -49,8 +50,6 @@ import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, Opening, Opening
                                                 checkCert, isCommitmentId, isOpeningId,
                                                 isSharesId, verifySignedCommitment)
 import           Pos.Types                     (MainBlockHeader, SlotId (..), headerSlot)
-
-import           Control.TimeWarp.Rpc          (Message (..))
 
 ----------------------------------------------------------------------------
 -- SscMessage

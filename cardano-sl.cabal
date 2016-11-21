@@ -24,6 +24,7 @@ library
                         Pos.Constants
                         Pos.DHT
                         Pos.DHT.Real
+                        Pos.DHT.Types
                         Pos.FollowTheSatoshi
                         Pos.Ssc.Class
                         Pos.Ssc.GodTossing
@@ -79,7 +80,6 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
-                        Pos.DHT.Types
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Base
                         Pos.Ssc.GodTossing.Error

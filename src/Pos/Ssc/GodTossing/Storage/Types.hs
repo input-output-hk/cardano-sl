@@ -11,23 +11,14 @@
 
 -- | GodTossing storage.
 
-module Pos.Ssc.GodTossing.Storage
+module Pos.Ssc.GodTossing.Storage.Types
        ( GtStorage (..)
-       , HasGtSecretStorage(..)
        , GtStorageVersion (..)
-       , GtSecretStorageClass (..)
-       , GtSecretStorage(..)
-       , GtSecret
-       , SecQuery
-       , SecUpdate
 
        -- * Lenses
        -- ** GtStorage
        , dsVersionedL
        , dsLastProcessedSlotL
-       -- ** GtSecretStorage
-       , dsCurrentSecretL
-       , dsSecLastProcessedSlotL
        -- ** GtStorageVersion
        , dsLocalCommitments
        , dsGlobalCommitments
@@ -39,20 +30,17 @@ module Pos.Ssc.GodTossing.Storage
        , dsGlobalCertificates
        ) where
 
-import           Control.Lens               (Lens')
-import           Control.Lens               (makeLenses, makeLensesFor)
-import           Data.Default               (Default (..))
-import           Data.List.NonEmpty         (NonEmpty (..))
-import           Data.List.NonEmpty         (NonEmpty ((:|)))
-import           Data.SafeCopy              (base, deriveSafeCopySimple)
+import           Control.Lens                  (makeLenses, makeLensesFor)
+import           Data.Default                  (Default (..))
+import           Data.List.NonEmpty            (NonEmpty (..))
+import           Data.List.NonEmpty            (NonEmpty ((:|)))
+import           Data.SafeCopy                 (base, deriveSafeCopySimple)
 import           Universum
 
-import           Pos.Crypto                 (PublicKey)
-import           Pos.Ssc.GodTossing.Base    (CommitmentsMap, Opening, OpeningsMap,
-                                             SharesMap, SignedCommitment,
-                                             VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Genesis (genesisCertificates)
-import           Pos.Types                  (SlotId, unflattenSlotId)
+import           Pos.Ssc.GodTossing.Genesis    (genesisCertificates)
+import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
+                                                VssCertificatesMap)
+import           Pos.Types                     (SlotId, unflattenSlotId)
 
 data GtStorageVersion = GtStorageVersion
     { -- | Local set of 'Commitment's. These are valid commitments which are
@@ -111,51 +99,15 @@ data GtStorage = GtStorage
       _dsLastProcessedSlot :: !SlotId
     }
 
-
 flip makeLensesFor ''GtStorage
     [ ("_dsVersioned", "dsVersionedL")
     , ("_dsLastProcessedSlot", "dsLastProcessedSlotL")
     ]
 deriveSafeCopySimple 0 'base ''GtStorage
 
-type GtSecret = (PublicKey, SignedCommitment, Opening)
-data GtSecretStorage = GtSecretStorage
-    {
-      -- | Secret that we are using for the current epoch.
-      _dsCurrentSecret        :: !(Maybe GtSecret)
-    , -- | Last slot we are aware of.
-      _dsSecLastProcessedSlot :: !SlotId
-    }
-
-class HasGtSecretStorage ss a where
-    secretStorage :: Lens' a ss
-
-type SecQuery a = forall x m . (HasGtSecretStorage GtSecretStorage x, MonadReader x m) => m a
-type SecUpdate a = forall x m . (HasGtSecretStorage GtSecretStorage x, MonadState x m) => m a
-
-class GtSecretStorageClass ss where
-    ssGetSecret :: SecQuery (Maybe GtSecret)
-    ssSetSecret :: GtSecret -> SecUpdate ()
-    ssPrepareToNewSlot :: SlotId -> SecUpdate ()
-
-flip makeLensesFor ''GtSecretStorage
-    [
-      ("_dsCurrentSecret", "dsCurrentSecretL")
-    , ("_dsSecLastProcessedSlot", "dsSecLastProcessedSlotL")
-    ]
-deriveSafeCopySimple 0 'base ''GtSecretStorage
-
 instance Default GtStorage where
     def =
         GtStorage
         { _dsVersioned = (def :| [])
         , _dsLastProcessedSlot = unflattenSlotId 0
-        }
-
-instance Default GtSecretStorage where
-    def =
-        GtSecretStorage
-        {
-          _dsCurrentSecret = Nothing
-        , _dsSecLastProcessedSlot = unflattenSlotId 0
         }

@@ -12,7 +12,7 @@
 
 -- | Instance of SscStorageClass.
 
-module Pos.Ssc.GodTossing.Instance.Storage
+module Pos.Ssc.GodTossing.Storage.Storage
        ( -- * Instances
          -- ** instance SscStorageClass SscGodTossing
        ) where
@@ -41,25 +41,24 @@ import           Pos.FollowTheSatoshi              (followTheSatoshi)
 import           Pos.Ssc.Class.Storage             (HasSscStorage (..), SscQuery,
                                                     SscStorageClass (..), SscUpdate)
 import           Pos.Ssc.Class.Types               (Ssc (..))
-import           Pos.Ssc.GodTossing.Base           (Commitment (..), CommitmentSignature,
-                                                    CommitmentsMap, OpeningsMap,
-                                                    VssCertificate, VssCertificatesMap,
-                                                    isCommitmentIdx, isOpeningIdx,
-                                                    isSharesIdx, verifyOpening,
-                                                    verifySignedCommitment)
-import           Pos.Ssc.GodTossing.Base           (Opening)
 import           Pos.Ssc.GodTossing.Error          (SeedError)
-import           Pos.Ssc.GodTossing.Instance.Type  (SscGodTossing)
-import           Pos.Ssc.GodTossing.Instance.Types ()
 import           Pos.Ssc.GodTossing.Seed           (calculateSeed)
-import           Pos.Ssc.GodTossing.Storage        (GtStorage, GtStorageVersion (..),
+import           Pos.Ssc.GodTossing.Storage.Types  (GtStorage, GtStorageVersion (..),
                                                     dsGlobalCertificates,
                                                     dsGlobalCommitments, dsGlobalOpenings,
                                                     dsGlobalShares, dsLastProcessedSlotL,
                                                     dsLocalCertificates,
                                                     dsLocalCommitments, dsLocalOpenings,
                                                     dsLocalShares, dsVersionedL)
-import           Pos.Ssc.GodTossing.Types          (GtMessage (..), GtPayload (..),
+import           Pos.Ssc.GodTossing.Types.Base     (Commitment (..), CommitmentSignature,
+                                                    CommitmentsMap, Opening, OpeningsMap,
+                                                    VssCertificate, VssCertificatesMap,
+                                                    isCommitmentIdx, isOpeningIdx,
+                                                    isSharesIdx, verifyOpening,
+                                                    verifySignedCommitment)
+import           Pos.Ssc.GodTossing.Types.Instance ()
+import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types    (GtMessage (..), GtPayload (..),
                                                     filterGtPayload, mdCommitments,
                                                     mdOpenings, mdShares,
                                                     mdVssCertificates, verifyGtPayload)

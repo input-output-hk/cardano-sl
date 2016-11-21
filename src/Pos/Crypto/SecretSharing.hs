@@ -202,6 +202,7 @@ instance MessagePack Share
 instance Buildable Share where
     build _ = "share ¯\\_(ツ)_/¯"
 
+-- | Returns id of 'Share'.
 shareId :: Share -> ShareId
 shareId = Pvss.decryptedShareID . getShare
 
@@ -215,6 +216,7 @@ instance MessagePack EncShare
 instance Buildable EncShare where
     build _ = "encrypted share ¯\\_(ツ)_/¯"
 
+-- | Returns id of encrypted share.
 encShareId :: EncShare -> ShareId
 encShareId = Pvss.shareID . getEncShare
 

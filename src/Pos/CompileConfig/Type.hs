@@ -23,9 +23,9 @@ data CompileConfig = CompileConfig
     , ccNeighboursSendThreshold :: !Int       -- ^ Broadcasting threshold
     , ccGenesisN                :: !Int       -- ^ Number of stakeholders for genesis block
     , ccMaxLocalTxs             :: !Word      -- ^ Max number of transactions in Storage
-    , ccMpcRelayInterval        :: !Int
+    , ccMpcRelayInterval        :: !Int       -- ^ MPC broadcast interval
     , ccDefaultPeers            :: ![[Char]]  -- ^ List of default peers
-    , ccSysTimeBroadcastSlots   :: !Int
+    , ccSysTimeBroadcastSlots   :: !Int       -- ^ System time for slots broadcasting
     , ccMpcSendInterval         :: !Word      -- ^ Length of interval for sending MPC message
     } deriving (Show, Lift)
 

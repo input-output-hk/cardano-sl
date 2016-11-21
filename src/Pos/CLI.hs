@@ -4,6 +4,7 @@
 
 module Pos.CLI
        ( addrParser
+       , defaultLoggerConfig
        , dhtKeyParser
        , dhtNodeParser
        , readLoggerConfig
@@ -24,14 +25,17 @@ import           System.Wlog                        (LoggerConfig (..),
                                                      parseLoggerConfig)
 import qualified Text.ParserCombinators.Parsec.Char as P
 
+-- | Parser for DHT key.
 dhtKeyParser :: P.Parser DHTKey
 dhtKeyParser = P.base64Url >>= toDHTKey
   where
     toDHTKey = either fail return . bytesToDHTKey
 
+-- | Parsed for network address in format @host:port@.
 addrParser :: P.Parser NetworkAddress
 addrParser = (,) <$> (encodeUtf8 <$> P.host) <*> (P.char ':' *> P.port)
 
+-- | Parser for 'DHTNode'.
 dhtNodeParser :: P.Parser DHTNode
 dhtNodeParser = DHTNode <$> addrParser <*> (P.char '/' *> dhtKeyParser)
 
@@ -62,6 +66,6 @@ defaultLoggerConfig = def { lcSubloggers = defSubloggers }
                       )
                     ]
 
--- | Reads logger config from given path. By default return @defaultLoggerConfig@.
+-- | Reads logger config from given path. By default return 'defaultLoggerConfig'.
 readLoggerConfig :: MonadIO m => Maybe FilePath -> m LoggerConfig
 readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig

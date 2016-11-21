@@ -8,5 +8,7 @@ module Pos.Ssc.GodTossing.Instance.Type
 
 import           Universum
 
+-- | Data type which represents shared seed calculation tag
+-- in -XTypeApplication hacks with type families.
 data SscGodTossing
     deriving (Generic)

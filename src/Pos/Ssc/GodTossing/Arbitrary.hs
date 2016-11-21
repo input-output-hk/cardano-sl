@@ -20,6 +20,7 @@ import           Pos.Ssc.GodTossing.Types   (GtProof (..))
 import           Pos.Types.Arbitrary.Unsafe ()
 import           Pos.Util.Arbitrary         (Nonrepeating (..), sublistN, unsafeMakePool)
 
+-- | Pair of 'Commitment' and 'Opening'.
 data CommitmentOpening = CommitmentOpening
     { coCommitment :: !Commitment
     , coOpening    :: !Opening

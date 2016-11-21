@@ -92,6 +92,7 @@ type RealModeSscConstraint ssc =
                 SscListenersClass ssc,
                 SscWorkersClass ssc)
 
+-- | Runner of 'KademliaDHTInstance' with given 'NodeParams' in real mode.
 type RealModeRunner = KademliaDHTInstance -> NodeParams -> IO ()
 
 -- | Get current time as Timestamp. It is intended to be used when you

@@ -19,12 +19,14 @@ import           Pos.Types               (Timestamp)
 import           Pos.WorkMode            (MinWorkMode)
 
 
+-- | Listener for 'SysStartRequest' message.
 sysStartReqListener :: (MonadDialog BinaryP m, MinWorkMode m) => Maybe (Timestamp) -> ListenerDHT m
 sysStartReqListener mSysStart = ListenerDHT $
     \(_ :: SysStartRequest) -> do
         replyToNode $ SysStartResponse mSysStart
         closeResponse
 
+-- | Listener for 'SysStartResponce' message.
 sysStartRespListener :: (MonadDialog BinaryP m, MinWorkMode m) => MVar Timestamp -> ListenerDHT m
 sysStartRespListener mvar = ListenerDHT $
     \(SysStartResponse mTs :: SysStartResponse) -> do

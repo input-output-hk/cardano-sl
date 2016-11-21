@@ -50,6 +50,7 @@ epochSlots = 6 * k
 epochDuration :: Microsecond
 epochDuration = epochSlots * slotDuration
 
+-- | Length of shared seed.
 sharedSeedLength :: Integral a => a
 sharedSeedLength = 32
 
@@ -96,6 +97,7 @@ data RunningMode
 runningMode :: RunningMode
 runningMode = Development
 
+-- | @True@ if current mode is 'Development'.
 isDevelopment :: Bool
 isDevelopment = case runningMode of
                   Development -> True

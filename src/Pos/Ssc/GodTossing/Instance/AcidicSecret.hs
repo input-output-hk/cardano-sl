@@ -3,6 +3,8 @@
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeFamilies     #-}
 
+-- | @acid-state@ implementations of secret storage state for @GodTossing@.
+
 module Pos.Ssc.GodTossing.Instance.AcidicSecret
        (
          getSecret
@@ -65,13 +67,16 @@ bracket' pathToSecret call =
              closeExtendedState
              call
 
+-- | Get 'GtSecret' from from storage by given 'FilePath'.
 getSecret :: (MonadMask m, MonadIO m) => Maybe FilePath -> m (Maybe GtSecret)
 getSecret pathToSecret = bracket' pathToSecret $ flip queryExtended GetSecret_
 
+-- | Update 'GtSecret' with given value in storage by given 'FilePath'.
 setSecret :: (MonadMask m, MonadIO m) => Maybe FilePath -> GtSecret -> m ()
 setSecret pathToSecret secret = bracket' pathToSecret $
     flip updateExtended (SetSecret_ secret)
 
+-- | Prepare 'GtSecret' for new slot with given 'SlotId'.
 prepareSecretToNewSlot :: (MonadMask m, MonadIO m) => Maybe FilePath -> SlotId -> m ()
 prepareSecretToNewSlot pathToSecret slotId = bracket' pathToSecret $
     flip updateExtended (PrepareSecretToNewSlot_ slotId)

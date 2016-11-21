@@ -1,3 +1,5 @@
+-- | Implementation of statistics gathering and processing utilities.
+
 module Pos.Statistics
        ( module Stats
        ) where

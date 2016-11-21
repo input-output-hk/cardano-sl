@@ -2,6 +2,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
 
+-- | Secret storage instances for @GodTossing@ algorithm.
+
 module Pos.Ssc.GodTossing.Instance.SecretStorage
        (
            -- Instances here

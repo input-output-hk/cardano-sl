@@ -13,9 +13,11 @@ import           Universum
 import           Control.TimeWarp.Rpc (Message (..))
 import           Pos.Types            (Timestamp)
 
+-- | Communication request for system start.
 data SysStartRequest = SysStartRequest
     deriving (Generic)
 
+-- | Response to 'SysStartRequest'.
 data SysStartResponse = SysStartResponse !(Maybe Timestamp)
     deriving (Generic)
 

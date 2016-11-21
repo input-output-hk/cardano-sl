@@ -24,8 +24,10 @@ import           Pos.Communication.Types.Tx         as Tx
 import           Pos.DHT                            (MonadResponseDHT)
 import           Pos.WorkMode                       (WorkMode)
 
+-- | Constraint alias for 'WorkMode' with 'MonadResponseDHT'.
 type ResponseMode ssc m = (WorkMode ssc m, MonadResponseDHT m)
 
+-- | 'MessageName'`s that shouldn't be cached.
 noCacheMessageNames :: [MessageName]
 noCacheMessageNames =
     [ -- messageName (Proxy :: Proxy Block.RequestBlock)

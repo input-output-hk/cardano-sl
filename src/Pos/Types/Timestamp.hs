@@ -47,5 +47,6 @@ instance MessagePack Timestamp where
       read' = either fail return . readEither
   toObject = toObject . show . toInteger
 
+-- | Specialized formatter for 'Timestamp' data type.
 timestampF :: Format r (Timestamp -> r)
 timestampF = build

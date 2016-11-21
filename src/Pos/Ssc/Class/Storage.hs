@@ -4,6 +4,8 @@
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
 
+-- | Storage for generic Shared Seed calculation implementation.
+
 module Pos.Ssc.Class.Storage
        ( SscStorageClass(..)
        , HasSscStorage(..)
@@ -27,9 +29,12 @@ import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types.Types         (EpochIndex, MainBlockHeader, SlotId,
                                           SlotLeaders, Utxo)
 
+-- | Generic @SSC@ query.
 type SscUpdate ssc a =
     forall m x. (HasSscStorage ssc x, MonadState x m) => m a
 
+-- | Generic @SSC@ update.
+--
 -- If this type ever changes to include side effects (error reporting, etc)
 -- we might have to change 'mpcVerifyBlock' because currently it works by
 -- simulating block application and we don't want block verification to have
@@ -37,9 +42,11 @@ type SscUpdate ssc a =
 type SscQuery ssc a =
     forall m x. (HasSscStorage ssc x, MonadReader x m) => m a
 
+-- | Class for something that has 'SscStorage'.
 class HasSscStorage ssc a where
     sscStorage :: Lens' a (SscStorage ssc)
 
+-- | Class for @SSC@ storage.
 class Ssc ssc => SscStorageClass ssc where
     -- sscCalculateSeed :: SscQuery ssc (Either (SscSeedError ssc) SharedSeed)
 
@@ -80,4 +87,5 @@ class Ssc ssc => SscStorageClass ssc where
     -- | Verify payload using header containing this payload.
     sscVerifyPayload :: Tagged ssc (MainBlockHeader ssc -> SscPayload ssc -> VerificationRes)
 
+-- | Type constraint for actions to operate withing @SSC@ storage.
 type SscStorageMode ssc = (SscStorageClass ssc, SafeCopy ssc)

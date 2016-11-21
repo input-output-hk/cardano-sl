@@ -54,6 +54,7 @@ import           Pos.Ssc.GodTossing.Base    (CommitmentsMap, Opening, OpeningsMa
 import           Pos.Ssc.GodTossing.Genesis (genesisCertificates)
 import           Pos.Types                  (SlotId, unflattenSlotId)
 
+-- | @GodTossing@ storage inside one version.
 data GtStorageVersion = GtStorageVersion
     { -- | Local set of 'Commitment's. These are valid commitments which are
       -- known to the node and not stored in blockchain. It is useful only
@@ -97,6 +98,7 @@ instance Default GtStorageVersion where
         , _dsGlobalCertificates = genesisCertificates
         }
 
+-- | @GotTossing@ storage with versioning.
 data GtStorage = GtStorage
     { -- | Last several versions of MPC storage, a version for each received
       -- block. To bring storage to the state as it was just before the last
@@ -118,7 +120,10 @@ flip makeLensesFor ''GtStorage
     ]
 deriveSafeCopySimple 0 'base ''GtStorage
 
+-- | Secret of @GodTossing@.
 type GtSecret = (PublicKey, SignedCommitment, Opening)
+
+-- | Secret @GodTossing@ storage.
 data GtSecretStorage = GtSecretStorage
     {
       -- | Secret that we are using for the current epoch.
@@ -127,12 +132,14 @@ data GtSecretStorage = GtSecretStorage
       _dsSecLastProcessedSlot :: !SlotId
     }
 
+-- | Class for something that has secret storage.
 class HasGtSecretStorage ss a where
     secretStorage :: Lens' a ss
 
 type SecQuery a = forall x m . (HasGtSecretStorage GtSecretStorage x, MonadReader x m) => m a
 type SecUpdate a = forall x m . (HasGtSecretStorage GtSecretStorage x, MonadState x m) => m a
 
+-- | Class for something that has secrets in its secret storage.
 class GtSecretStorageClass ss where
     ssGetSecret :: SecQuery (Maybe GtSecret)
     ssSetSecret :: GtSecret -> SecUpdate ()

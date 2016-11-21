@@ -135,10 +135,12 @@ instance MessagePack Ed25519.Signature where
 -- Keys, key generation & printing & decoding
 ----------------------------------------------------------------------------
 
+-- | Wrapper around 'Ed25519.PublicKey'.
 newtype PublicKey = PublicKey Ed25519.PublicKey
     deriving (Eq, Ord, Show, Generic, NFData,
               Binary, Cereal.Serialize, Hashable)
 
+-- | Wrapper around 'Ed25519.SecretKey'.
 newtype SecretKey = SecretKey Ed25519.SecretKey
     deriving (Eq, Ord, Show, Generic, NFData,
               Binary, Cereal.Serialize, Hashable)
@@ -164,12 +166,15 @@ instance Buildable.Buildable PublicKey where
 instance Buildable.Buildable SecretKey where
     build = bprint ("sec:"%shortHashF) . hash . toPublic
 
+-- | 'Builder' for 'PublicKey' to show it in base64 encoded form.
 formatFullPublicKey :: PublicKey -> Builder
 formatFullPublicKey = Buildable.build . Base64.encode . BSL.toStrict . Binary.encode
 
+-- | Specialized formatter for 'PublicKey' to show it in base64.
 fullPublicKeyF :: Format r (PublicKey -> r)
 fullPublicKeyF = later formatFullPublicKey
 
+-- | Parse 'PublicKey' from base64 encoded string.
 parseFullPublicKey :: Text -> Maybe PublicKey
 parseFullPublicKey s =
     case Base64.decode s of
@@ -198,6 +203,7 @@ deterministicKeyGen seed =
 -- Signatures
 ----------------------------------------------------------------------------
 
+-- | Wrapper around 'Ed25519.Signature'.
 newtype Signature a = Signature Ed25519.Signature
     deriving (Eq, Ord, Show, Generic, NFData, Binary, Hashable)
 
@@ -214,6 +220,7 @@ instance Buildable.Buildable (Signature a) where
 sign :: (Binary a) => SecretKey -> a -> Signature a
 sign k = coerce . signRaw k . BSL.toStrict . Binary.encode
 
+-- | Alias for constructor.
 signRaw :: SecretKey -> ByteString -> Signature Raw
 signRaw (SecretKey k) x = Signature (Ed25519.dsign k x)
 
@@ -221,18 +228,20 @@ signRaw (SecretKey k) x = Signature (Ed25519.dsign k x)
 verify :: Binary a => PublicKey -> a -> Signature a -> Bool
 verify k x s = verifyRaw k (BSL.toStrict (Binary.encode x)) (coerce s)
 
+-- | Verify raw 'ByteString'.
 verifyRaw :: PublicKey -> ByteString -> Signature Raw -> Bool
 verifyRaw (PublicKey k) x (Signature s) = Ed25519.dverify k x s
 
 -- | Value and signature for this value.
 data Signed a = Signed
-    { signedValue :: !a
-    , signedSig   :: !(Signature a)
+    { signedValue :: !a              -- ^ Value to be signed
+    , signedSig   :: !(Signature a)  -- ^ 'Signature' of 'signedValue'
     } deriving (Show, Eq, Ord, Generic)
 
 instance Binary a => Binary (Signed a)
 instance MessagePack a => MessagePack (Signed a)
 
+-- | Smart constructor for 'Signed' data type with proper signing.
 mkSigned :: (Binary a) => SecretKey -> a -> Signed a
 mkSigned sk x = Signed x (sign sk x)
 

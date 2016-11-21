@@ -25,6 +25,7 @@ import           Pos.DHT                             (ListenerDHT)
 import           Pos.Ssc.Class.Listeners             (SscListenersClass, sscListeners)
 import           Pos.WorkMode                        (WorkMode)
 
+-- | All listeners running on one node.
 allListeners :: (SscListenersClass ssc, MonadDialog BinaryP m, WorkMode ssc m)
              => [ListenerDHT m]
 allListeners =
@@ -35,5 +36,6 @@ allListeners =
         , map (modifyListenerLogger "tx") txListeners
         ]
 
+-- | Logger name for server.
 serverLoggerName :: LoggerName
 serverLoggerName = "server"

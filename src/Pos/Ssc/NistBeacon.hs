@@ -39,6 +39,7 @@ import           Pos.Types               (EpochIndex, SharedSeed (..), SlotLeade
 import           Serokell.Util.Verify    (VerificationRes (..))
 import           Universum
 
+-- | Data type tag for Nist Beacon implementation of Shared Seed Calculation.
 data SscNistBeacon
     deriving (Generic)
 

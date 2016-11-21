@@ -3,6 +3,7 @@ language: c
 cache:
   directories:
   - "$HOME/.stack"
+  - "$HOME/build/input-output-hk/pos-haskell-prototype/.stack-work"
 addons:
   apt:
     packages:
@@ -13,7 +14,7 @@ before_install:
 - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards
   --strip-components=1 -C ~/.local/bin '*/stack'
 install:
-- stack --no-terminal --install-ghc test --only-dependencies --jobs=2
+- stack --no-terminal --install-ghc test --only-dependencies --jobs=4
 script:
 - stack --no-terminal build --test --haddock --no-haddock-deps --bench --no-run-benchmarks
 notifications:

@@ -351,10 +351,12 @@ executable cardano-smart-generator
                      , cardano-sl
                      , formatting
                      , log-warper >= 0.1.0
+                     , lens
                      , optparse-applicative
                      , parsec
                      , random
                      , serokell-util
+                     , text
                      , time
                      , time-warp
                      , universum >= 0.1.9

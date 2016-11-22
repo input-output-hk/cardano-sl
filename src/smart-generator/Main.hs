@@ -4,24 +4,27 @@
 
 module Main where
 
-import           Control.TimeWarp.Timed (for, fork_, ms, sec, wait)
+import           Control.Lens           ((^.))
+import           Control.Monad          (when)
+import           Control.TimeWarp.Timed (for, fork_, ms, repeatForever, sec, wait)
 import           Data.Aeson             (encode)
 import           Data.Array.IO          (IOArray)
 import           Data.Array.MArray      (MArray (..), newListArray, readArray, writeArray)
 import qualified Data.ByteString.Lazy   as LBS
 import           Data.Default           (def)
 import qualified Data.HashMap.Strict    as M
-import           Data.IORef             (IORef, modifyIORef', newIORef, readIORef)
-import           Data.List              (head, tail)
-import           Data.List              ((!!))
+import           Data.IORef             (IORef, modifyIORef', newIORef, readIORef,
+                                         writeIORef)
+import           Data.List              (head, intersect, tail, (!!))
 import           Data.Monoid            ((<>))
+import           Data.Text.IO           (writeFile)
 import           Data.Time.Clock.POSIX  (getPOSIXTime)
-import           Formatting             (float, int, sformat, (%))
+import           Formatting             (build, fixed, float, int, sformat, (%))
 import           Options.Applicative    (Parser, ParserInfo, auto, execParser, fullDesc,
                                          help, helper, info, long, many, metavar, option,
                                          progDesc, short, showDefault, switch, value)
 import           Serokell.Util.OptParse (fromParsec, strOption)
-import           System.Wlog            (logInfo)
+import           System.Wlog            (logInfo, logWarning)
 import           Test.QuickCheck        (arbitrary, generate)
 import           Universum              hiding (head, (<>))
 
@@ -38,15 +41,16 @@ import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
                                          NodeParams (..), RealModeSscConstraint,
                                          addDevListeners, bracketDHTInstance, runNode,
                                          runRealMode, runTimeSlaveReal, submitTxRaw)
+import           Pos.Slotting           (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.GodTossing     (SscGodTossing)
 import           Pos.Ssc.NistBeacon     (SscNistBeacon)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
-import           Pos.State              (isTxVerified)
+import           Pos.State              (getHeadBlock, isTxVerified)
 import           Pos.Statistics         (getNoStatsT)
-import           Pos.Types              (Address, Tx (..), TxId, TxIn (..), TxOut (..),
-                                         txF)
+import           Pos.Types              (Address, SlotId (..), Tx (..), TxId, TxIn (..),
+                                         TxOut (..), blockSlot, blockTxs, txF)
 import           Pos.Util.JsonLog       ()
-import           Pos.WorkMode           (RealMode, WorkMode)
+import           Pos.WorkMode           (ProductionMode, RealMode, WorkMode)
 
 -----------------------------------------------------------------------
 -- CLI options
@@ -225,6 +229,67 @@ nextValidTx bp tpsDelta = do
         nextValidTx bp tpsDelta
 
 -----------------------------------------------------------------------------
+-- Transaction analysis
+-----------------------------------------------------------------------------
+
+type TxTimeMap = M.HashMap TxId Word64
+
+data TxTimestamps = TxTimestamps
+    { sentTimes   :: IORef TxTimeMap
+    , verifyTimes :: IORef TxTimeMap
+    , lastSlot    :: IORef SlotId
+    }
+
+createTxTimestamps :: IO TxTimestamps
+createTxTimestamps = TxTimestamps
+                     <$> newIORef M.empty
+                     <*> newIORef M.empty
+                     <*> newIORef (SlotId 0 0)
+
+registerSentTx :: TxTimestamps -> TxId -> Word64 -> IO ()
+registerSentTx TxTimestamps{..} id = modifyIORef' sentTimes . M.insert id
+
+registerVerifiedTx :: TxTimestamps -> TxId -> Word64 -> IO ()
+registerVerifiedTx TxTimestamps{..} id = modifyIORef' verifyTimes . M.insert id
+
+dumpTxTable :: TxTimestamps -> IO [(TxId, Word64, Word64)]
+dumpTxTable TxTimestamps {..} = M.foldlWithKey' foo []
+                                <$> (M.intersectionWith (,)
+                                     <$> readIORef sentTimes
+                                     <*> readIORef verifyTimes)
+  where foo ls id (sent, verified) = (id, sent, verified) : ls
+
+checkTxsInLastBlock :: forall ssc . RealModeSscConstraint ssc
+                    => TxTimestamps -> ProductionMode ssc ()
+checkTxsInLastBlock txts@TxTimestamps {..} = do
+    headBlock <- getHeadBlock
+    case headBlock of
+        Left _ -> pure ()
+        Right block -> do
+            st <- liftIO $ readIORef sentTimes
+            vt <- liftIO $ readIORef verifyTimes
+            ls <- liftIO $ readIORef lastSlot
+            let curSlot = block^.blockSlot
+            when (ls < curSlot) $ do
+                let toCheck = M.keys $ M.difference st vt
+                    txsMerkle = block^.blockTxs
+                    txIds = map hash $ toList txsMerkle
+                    verified = toCheck `intersect` txIds
+                -- We don't know exact time when last block has been created/adopted,
+                -- so we just take next slot start time for such
+                slStart <- getSlotStart $ succ curSlot
+                forM_ verified $ \id ->
+                    liftIO $ registerVerifiedTx txts id $ fromIntegral slStart
+                liftIO $ writeIORef lastSlot curSlot
+
+checkWorker :: forall ssc . RealModeSscConstraint ssc
+            => TxTimestamps -> ProductionMode ssc ()
+checkWorker txts = repeatForever slotDuration onError $
+                   checkTxsInLastBlock txts
+  where onError e = slotDuration <$
+                    logWarning (sformat ("Error occured in checkWorker: " %build) e)
+
+-----------------------------------------------------------------------------
 -- Launcher helper
 -----------------------------------------------------------------------------
 
@@ -246,9 +311,15 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
                   (genesisAddresses !! i)
                   initTx
 
+    txTimestamps <- liftIO createTxTimestamps
+
     -- | Run all the usual node workers in order to get
     -- access to blockchain
-    fork_ (runNode @ssc)
+    fork_ $ runNode @ssc
+
+    -- | Run the special worker to check new blocks and
+    -- fill tx verification times
+    fork_ $ checkWorker txTimestamps
 
     logInfo "STARTING TXGEN"
     peers <- discoverPeers DHTFull
@@ -263,7 +334,7 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
     logInfo "Waiting for verifying period..."
     wait $ for $ fromIntegral (k + goPropThreshold) * slotDuration
 
-    forM_ (zip [1..] goTPSs) $ \(roundNum :: Int, goTPS) -> do
+    tpsTable <- forM (zip [1..] goTPSs) $ \(roundNum :: Int, goTPS) -> do
         logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)
             roundNum totalRounds goTPS
 
@@ -274,6 +345,7 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         resMap <- foldM
             (\curmap (idx :: Int) -> do
                     transaction <- nextValidTx bambooPool tpsDelta
+                    let curTxId = hash transaction
 
                     startT <- getPosixMs
                     logInfo $ sformat ("Sending transaction #"%int) idx
@@ -288,8 +360,11 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
                     let runDelta = endT - startT
                     wait $ for $ ms (max 0 $ tpsDelta - runDelta)
 
+                    -- put timestamp to current txmap
+                    liftIO $ registerSentTx txTimestamps curTxId $ fromIntegral startT * 1000
+
                     -- we dump microseconds to be consistent with JSON log
-                    pure $ M.insert (pretty $ hash transaction) (startT * 1000) curmap)
+                    pure $ M.insert (pretty curTxId) (startT * 1000) curmap)
             (M.empty :: M.HashMap Text Int) -- TxId Int
             [0 .. txNum - 1]
 
@@ -305,6 +380,30 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
             encode $ M.toList resMap
         putText $ "Sending transactions took (s): " <> show globalTime
         putText $ "So real tps was: " <> show realTPS
+
+        -- We collect tables of really generated tps
+        return (globalTime, goTPS, realTPS)
+
+    vers <- liftIO $ dumpTxTable txTimestamps
+    liftIO $ writeFile "smart-gen-verifications.csv" $ verificationsToCsv vers
+    liftIO $writeFile "smart-gen-tps.csv" $ tpsToCsv tpsTable
+
+tpsToCsv :: [(Double, Double, Double)] -> Text
+tpsToCsv entries =
+    "global_time,round_tps,real_tps\n" <>
+    mconcat (map formatter entries)
+  where
+    formatter (gtime, roundTPS, realTPS) =
+        sformat (fixed 2%","%fixed 2%","%fixed 2%"\n") gtime roundTPS realTPS
+
+verificationsToCsv :: [(TxId, Word64, Word64)] -> Text
+verificationsToCsv entries =
+    "transaction_id,sending_ts,verification_ts\n" <>
+    mconcat (map formatter entries)
+  where
+    formatter (txId, sendTs, verifyTs) =
+        sformat (build%","%int%","%int%"\n") txId sendTs verifyTs
+
 
 -----------------------------------------------------------------------------
 -- Main

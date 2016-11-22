@@ -51,7 +51,6 @@ class Monad m => MonadSscLD ssc m | m -> ssc where
 -- that it is not stored in blocks.
 class Ssc ssc => SscLocalDataClass ssc where
     sscEmptyLocalData :: SscLocalData ssc
-    -- maybe should take global payload too
     sscGetLocalPayloadQ :: SlotId -> LocalQuery ssc (SscPayload ssc)
     sscProcessBlockU :: Block ssc -> LocalUpdate ssc ()
     sscProcessNewSlotU :: SlotId -> LocalUpdate ssc ()
@@ -73,14 +72,13 @@ sscGetLocalPayload
     :: forall ssc m.
        (MonadSscLD ssc m, SscLocalDataClass ssc)
     => SlotId -> m (SscPayload ssc)
-sscGetLocalPayload slotId =
-    runReader (sscGetLocalPayloadQ @ssc slotId) <$> getLocalData @ssc
+sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 
 sscProcessBlock
     :: forall ssc m.
        (MonadSscLD ssc m, SscLocalDataClass ssc)
     => Block ssc -> m ()
-sscProcessBlock = sscRunLocalUpdate . sscProcessBlockU
+sscProcessBlock = sscRunLocalUpdate . sscProcessBlockU @ssc
 
 sscProcessNewSlot
     :: forall ssc m.

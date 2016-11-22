@@ -45,7 +45,7 @@ import           Pos.Slotting           (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.GodTossing     (SscGodTossing)
 import           Pos.Ssc.NistBeacon     (SscNistBeacon)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
-import           Pos.State              (getHeadBlock, isTxVerified)
+import           Pos.State              (getBlockByDepth, isTxVerified)
 import           Pos.Statistics         (getNoStatsT)
 import           Pos.Types              (Address, SlotId (..), Tx (..), TxId, TxIn (..),
                                          TxOut (..), blockSlot, blockTxs, txF)
@@ -262,10 +262,11 @@ dumpTxTable TxTimestamps {..} = M.foldlWithKey' foo []
 checkTxsInLastBlock :: forall ssc . RealModeSscConstraint ssc
                     => TxTimestamps -> ProductionMode ssc ()
 checkTxsInLastBlock txts@TxTimestamps {..} = do
-    headBlock <- getHeadBlock
-    case headBlock of
-        Left _ -> pure ()
-        Right block -> do
+    mBlock <- getBlockByDepth k
+    case mBlock of
+        Nothing -> pure ()
+        Just (Left _) -> pure ()
+        Just (Right block) -> do
             st <- liftIO $ readIORef sentTimes
             vt <- liftIO $ readIORef verifyTimes
             ls <- liftIO $ readIORef lastSlot
@@ -275,9 +276,10 @@ checkTxsInLastBlock txts@TxTimestamps {..} = do
                     txsMerkle = block^.blockTxs
                     txIds = map hash $ toList txsMerkle
                     verified = toCheck `intersect` txIds
-                -- We don't know exact time when last block has been created/adopted,
-                -- so we just take next slot start time for such
-                slStart <- getSlotStart $ succ curSlot
+                -- We don't know exact time when checked block has been created/adopted,
+                -- but we do know that it was not at `k` depth a slot ago,
+                -- so we just take a beginning of current slot
+                slStart <- getSlotStart =<< getCurrentSlot
                 forM_ verified $ \id ->
                     liftIO $ registerVerifiedTx txts id $ fromIntegral slStart
                 liftIO $ writeIORef lastSlot curSlot

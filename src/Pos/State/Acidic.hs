@@ -21,6 +21,7 @@ module Pos.State.Acidic
        , update
 
        , GetBlock (..)
+       , GetBlockByDepth (..)
        , GetGlobalSscPayload (..)
        , GetHeadBlock (..)
        , GetBestChain (..)
@@ -111,6 +112,7 @@ tidyState = tidyExtendedState
 
 makeAcidicWithHacks ''S.Storage ["ssc"]
     [ 'S.getBlock
+    , 'S.getBlockByDepth
     , 'S.getGlobalSscPayload
     , 'S.getLeaders
     , 'S.getLocalSscPayload

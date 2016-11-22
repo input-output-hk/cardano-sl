@@ -6,7 +6,7 @@
 -- | This module defines methods which operate on GtLocalData.
 
 module Pos.Ssc.GodTossing.LocalData.LocalData
-       ( -- sscProcessMessage
+       (
          -- * Instances
          -- ** instance SscLocalDataClass SscGodTossing
          sscProcessMessage

@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
 
@@ -21,7 +22,7 @@ import           Universum
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
-import           Pos.Ssc.Class             (sscVerifyPayload)
+import           Pos.Ssc.Class             (sscGetLocalPayload, sscVerifyPayload)
 import           Pos.State                 (createNewBlock, getHeadBlock, getLeaders)
 import           Pos.Types                 (SlotId (..), Timestamp (Timestamp), blockMpc,
                                             gbHeader, slotIdF)
@@ -73,7 +74,7 @@ onNewSlotWhenLeader slotId = do
                             warnings
                     announceBlock $ createdBlk ^. gbHeader
             let whenNotCreated = logWarning "I couldn't create a new block"
-            let sscData = undefined
+            sscData <- sscGetLocalPayload slotId
             maybe whenNotCreated whenCreated =<< createNewBlock sk slotId sscData
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 

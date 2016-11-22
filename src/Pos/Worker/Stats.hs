@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module Pos.Worker.Stats
        ( statsWorkers
        ) where

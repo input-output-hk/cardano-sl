@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts      #-}
+
 module Pos.Ssc.Class.Workers
        ( SscWorkersClass(..)
        ) where

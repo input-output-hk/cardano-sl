@@ -16,7 +16,7 @@ import qualified Data.Text.Buildable
 import           Universum
 
 import           Pos.Crypto                    (PublicKey, Share)
-import           Pos.Ssc.GodTossing.Types.Base (Commitment, Opening, VssCertificate)
+import           Pos.Ssc.GodTossing.Types.Base (Opening, SignedCommitment, VssCertificate)
 
 -- | Tag associated with message.
 data MsgTag
@@ -61,7 +61,7 @@ instance Message ReqMsg where
 -- | Data message. Can be used to send actual data.
 data DataMsg
     = DMCommitment !PublicKey
-                   !Commitment
+                   !SignedCommitment
     | DMOpening !PublicKey
                 !Opening
     | DMShares !PublicKey

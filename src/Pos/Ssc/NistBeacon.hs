@@ -30,6 +30,7 @@ import           Pos.Crypto              (Threshold, deterministicVssKeyGen,
                                           toVssPublicKey)
 import           Pos.FollowTheSatoshi    (followTheSatoshi)
 import           Pos.Ssc.Class.Listeners (SscListenersClass (..))
+import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage   (SscQuery)
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
@@ -56,7 +57,6 @@ instance Ssc SscNistBeacon where
     type SscStorage   SscNistBeacon = ()
     type SscPayload   SscNistBeacon = ()
     type SscProof     SscNistBeacon = ()
-    type SscMessage   SscNistBeacon = ()
     type SscSeedError SscNistBeacon = ()
 
     mkSscProof = Tagged $ const ()
@@ -97,3 +97,9 @@ instance SscWorkersClass SscNistBeacon where
 
 instance SscListenersClass SscNistBeacon where
     sscListeners = Tagged []
+
+instance SscLocalDataClass SscNistBeacon where
+    sscEmptyLocalData = ()
+    sscGetLocalPayloadQ _ = pure ()
+    sscProcessBlockU _ = pure ()
+    sscProcessNewSlotU _ = pure ()

@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
 
 -- | Instance of SscListenersClass
 
@@ -10,25 +11,27 @@ module Pos.Ssc.GodTossing.Listener.Listeners
          -- ** instance SscListenersClass SscGodTossing
        ) where
 
-import           Data.Tagged                       (Tagged (..))
-import           Formatting                        (build, sformat, stext, (%))
-import           System.Wlog                       (logDebug, logInfo)
+import           Data.Tagged                            (Tagged (..))
+import           Formatting                             (build, sformat, stext, (%))
+import           System.Wlog                            (logDebug, logInfo)
 import           Universum
 
-import           Pos.Communication.Methods         (sendToNeighborsSafe)
-import           Pos.Communication.Types           (ResponseMode)
-import           Pos.Crypto                        (PublicKey)
-import           Pos.DHT                           (ListenerDHT (..), replyToNode)
-import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
-import           Pos.Ssc.GodTossing.Types.Instance ()
-import           Pos.Ssc.GodTossing.Types.Message  (DataMsg (..), InvMsg (..),
-                                                    MsgTag (..), ReqMsg (..),
-                                                    dataMsgPublicKey, dataMsgTag)
-import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types    (hasCommitment, hasOpening, hasShares,
-                                                    hasVssCertificate)
-import qualified Pos.State                         as St
-import           Pos.WorkMode                      (WorkMode)
+import           Pos.Communication.Methods              (sendToNeighborsSafe)
+import           Pos.Communication.Types                (ResponseMode)
+import           Pos.Crypto                             (PublicKey)
+import           Pos.DHT                                (ListenerDHT (..), replyToNode)
+import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
+import           Pos.Ssc.Class.LocalData                (sscRunLocalUpdate)
+import           Pos.Ssc.GodTossing.Functions           (hasCommitment, hasOpening,
+                                                         hasShares, hasVssCertificate)
+import           Pos.Ssc.GodTossing.LocalData.LocalData (sscProcessMessage)
+import           Pos.Ssc.GodTossing.Types.Instance      ()
+import           Pos.Ssc.GodTossing.Types.Message       (DataMsg (..), InvMsg (..),
+                                                         MsgTag (..), ReqMsg (..),
+                                                         dataMsgPublicKey, dataMsgTag)
+import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
+import qualified Pos.State                              as St
+import           Pos.WorkMode                           (WorkMode)
 
 instance SscListenersClass SscGodTossing where
     sscListeners =
@@ -79,7 +82,7 @@ loggerAction msgTag added pk = logAction msg
                 | otherwise = logDebug
 
 addDataToLocalStorage :: WorkMode SscGodTossing m => DataMsg -> m Bool
-addDataToLocalStorage = notImplemented
+addDataToLocalStorage = sscProcessMessage
 
 ----------------------------------------------------------------------------
 -- Old

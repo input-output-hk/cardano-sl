@@ -71,9 +71,9 @@ library
                         Pos.Ssc.Class.Storage
                         Pos.Ssc.Class.Types
                         Pos.Ssc.Class.Workers
-                        Pos.Ssc.GodTossing.Announce
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
+                        Pos.Ssc.GodTossing.Functions
                         Pos.Ssc.GodTossing.Genesis
                         Pos.Ssc.GodTossing.Listener.Listeners
                         Pos.Ssc.GodTossing.LocalData.LocalData

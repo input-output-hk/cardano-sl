@@ -78,6 +78,7 @@ type WorkMode ssc m
       , MonadSlots m
       , MonadDB ssc m
       , SscStorageMode ssc
+      , SscLocalDataClass ssc
       , MonadSscLD ssc m
       , WithNodeContext m
       , MonadMessageDHT m
@@ -109,6 +110,7 @@ newtype SscLDImpl ssc m a = SscLDImpl
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
                 MonadCatch, MonadIO, WithNamedLogger, MonadDialog p, WithNodeContext, MonadJL,
                 MonadDB ssc)
+
 
 -- TODO: refactor!
 instance MonadMask m =>

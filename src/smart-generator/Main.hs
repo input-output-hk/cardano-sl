@@ -35,9 +35,10 @@ import           Pos.DHT.Real           (KademliaDHTInstance)
 import           Pos.Genesis            (StakeDistribution (..), genesisAddresses,
                                          genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
-                                         NodeParams (..), RealModeSscConstraint,
-                                         addDevListeners, bracketDHTInstance, runNode,
-                                         runRealMode, runTimeSlaveReal, submitTxRaw)
+                                         NodeParams (..), addDevListeners,
+                                         bracketDHTInstance, runNode, runRealMode,
+                                         runTimeSlaveReal, submitTxRaw)
+import           Pos.Ssc.Class          (SscConstraint)
 import           Pos.Ssc.GodTossing     (SscGodTossing)
 import           Pos.Ssc.NistBeacon     (SscNistBeacon)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
@@ -228,11 +229,11 @@ nextValidTx bp tpsDelta = do
 -- Launcher helper
 -----------------------------------------------------------------------------
 
-realListeners :: RealModeSscConstraint ssc => NodeParams -> [ListenerDHT (RealMode ssc)]
+realListeners :: SscConstraint ssc => NodeParams -> [ListenerDHT (RealMode ssc)]
 realListeners params = addDevListeners params noStatsListeners
   where noStatsListeners = map (mapListenerDHT getNoStatsT) allListeners
 
-runSmartGen :: forall ssc . RealModeSscConstraint ssc
+runSmartGen :: forall ssc . SscConstraint ssc
             => KademliaDHTInstance -> NodeParams -> GenOptions -> IO ()
 runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
     runRealMode inst np (realListeners @ssc np) $ getNoStatsT $ do

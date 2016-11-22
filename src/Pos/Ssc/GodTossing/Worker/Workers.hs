@@ -28,16 +28,18 @@ import           Pos.Crypto                              (PublicKey, SecretKey,
                                                           toPublic)
 import           Pos.Slotting                            (getSlotStart)
 import           Pos.Ssc.Class.Workers                   (SscWorkersClass (..))
-import           Pos.Ssc.GodTossing.Types.Base           (Opening, SignedCommitment,
+import           Pos.Ssc.GodTossing.Functions            (genCommitmentAndOpening,
                                                           genCommitmentAndOpening,
-                                                          genCommitmentAndOpening,
-                                                          isCommitmentIdx, isOpeningIdx,
-                                                          isSharesIdx, mkSignedCommitment)
+                                                          hasCommitment, hasOpening,
+                                                          hasShares, isCommitmentIdx,
+                                                          isOpeningIdx, isSharesIdx,
+                                                          mkSignedCommitment)
+import           Pos.Ssc.GodTossing.LocalData.LocalData    (sscProcessMessage)
+import           Pos.Ssc.GodTossing.Types.Base           (Opening, SignedCommitment)
 import           Pos.Ssc.GodTossing.Types.Instance       ()
 import           Pos.Ssc.GodTossing.Types.Message        (InvMsg (..), MsgTag (..))
+import           Pos.Ssc.GodTossing.Types.Message        (DataMsg (..))
 import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types          (GtMessage (..), hasCommitment,
-                                                          hasOpening, hasShares)
 import           Pos.Ssc.GodTossing.Worker.SecretStorage (checkpoint, getSecret,
                                                           prepareSecretToNewSlot,
                                                           setSecret)
@@ -49,7 +51,6 @@ import           Pos.Types                               (EpochIndex, LocalSlotI
 import           Pos.WorkMode                            (WorkMode, getNodeContext,
                                                           ncDbPath, ncPublicKey,
                                                           ncSecretKey, ncVssKeyPair)
-
 instance SscWorkersClass SscGodTossing where
     sscOnNewSlot = Tagged onNewSlot
     sscWorkers = mempty
@@ -91,9 +92,6 @@ waitUntilSend msgTag epoch kMultiplier = do
                 ttwMillisecond msgTag
         wait $ for timeToWait
 
-createCheckpoint :: WorkMode SscGodTossing m => SlotId -> m ()
-createCheckpoint SlotId {..} = pathToSecret >>= checkpoint
-
 -- Commitments-related part of new slot processing
 onNewSlotCommitment :: WorkMode SscGodTossing m => SlotId -> m ()
 onNewSlotCommitment SlotId {..} = do
@@ -115,8 +113,7 @@ onNewSlotCommitment SlotId {..} = do
     when shouldSendCommitment $ do
         mbComm <- fmap (view _2) <$> getToken
         whenJust mbComm $ \comm -> do
-            notImplemented
-            -- () <$ processSscMessage (DSCommitments $ pure $ (ourPk, comm))
+            _ <- sscProcessMessage $ DMCommitment ourPk comm
             sendOurData CommitmentMsg siEpoch 0 ourPk
 
 -- Openings-related part of new slot processing
@@ -133,8 +130,7 @@ onNewSlotOpening SlotId {..} = do
     when shouldSendOpening $ do
         mbOpen <- fmap (view _3) <$> getToken
         whenJust mbOpen $ \open -> do
-            notImplemented
-            -- () <$ processSscMessage (DSOpenings $ pure $ (ourPk, open))
+            _ <- sscProcessMessage $ DMOpening ourPk open
             sendOurData OpeningMsg siEpoch 2 ourPk
 
 -- Shares-related part of new slot processing
@@ -151,8 +147,7 @@ onNewSlotShares SlotId {..} = do
         ourVss <- ncVssKeyPair <$> getNodeContext
         shares <- getOurShares ourVss
         unless (null shares) $ do
-            notImplemented
-            -- () <$ processSscMessage (DSSharesMulti $ pure (ourPk, shares))
+            _ <- sscProcessMessage $ DMShares ourPk shares
             sendOurData SharesMsg siEpoch 4 ourPk
 
 sendOurData
@@ -203,3 +198,6 @@ getToken = pathToSecret >>= getSecret
 
 prepareTokenToNewSlot :: WorkMode SscGodTossing m => SlotId -> m ()
 prepareTokenToNewSlot slotId = pathToSecret >>= flip prepareSecretToNewSlot slotId
+
+createCheckpoint :: WorkMode SscGodTossing m => SlotId -> m ()
+createCheckpoint SlotId {..} = pathToSecret >>= checkpoint

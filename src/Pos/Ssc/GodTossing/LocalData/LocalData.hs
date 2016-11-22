@@ -7,9 +7,10 @@
 
 module Pos.Ssc.GodTossing.LocalData.LocalData
        (
+         sscIsDataUseful
+       , sscProcessMessage
          -- * Instances
          -- ** instance SscLocalDataClass SscGodTossing
-         sscProcessMessage
        ) where
 
 import           Data.Default                       (Default (def))
@@ -20,7 +21,7 @@ import qualified Data.HashMap.Strict                as HM
 import           Pos.Crypto                         (PublicKey, Share)
 import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate, MonadSscLD,
                                                      SscLocalDataClass (..),
-                                                     sscRunLocalUpdate)
+                                                     sscRunLocalQuery, sscRunLocalUpdate)
 import           Pos.Ssc.Class.Types                (Ssc (..))
 import           Pos.Ssc.GodTossing.Functions       (checkOpening, checkShares,
                                                      isCommitmentIdx, isOpeningIdx,
@@ -36,7 +37,7 @@ import           Pos.Ssc.GodTossing.LocalData.Types (gtGlobalCertificates,
 import           Pos.Ssc.GodTossing.Types.Base      (Commitment, CommitmentSignature,
                                                      Opening, VssCertificate)
 import           Pos.Ssc.GodTossing.Types.Instance  ()
-import           Pos.Ssc.GodTossing.Types.Message   (DataMsg (..))
+import           Pos.Ssc.GodTossing.Types.Message   (DataMsg (..), MsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types     (GtPayload (..), mdCommitments,
                                                      mdOpenings, mdShares,
@@ -64,6 +65,43 @@ processNewSlot si@SlotId {siSlot = slotIdx} = do
     unless (isOpeningIdx slotIdx) $ gtLocalOpenings .= mempty
     unless (isSharesIdx slotIdx) $ gtLocalShares .= mempty
     gtLastProcessedSlot .= si
+
+----------------------------------------------------------------------------
+-- Check knowledge of data
+----------------------------------------------------------------------------
+
+-- | Check whether SSC data with given tag and public key can be added
+-- to local data.
+sscIsDataUseful
+    :: MonadSscLD SscGodTossing m
+    => MsgTag -> PublicKey -> m Bool
+sscIsDataUseful tag = sscRunLocalQuery . sscIsDataUsefulQ tag
+
+sscIsDataUsefulQ :: MsgTag -> PublicKey -> LDQuery Bool
+sscIsDataUsefulQ CommitmentMsg pk =
+    not . or <$>
+    sequence
+        [ (HM.member pk <$> view gtLocalCommitments)
+        , (HM.member pk <$> view gtGlobalCommitments)
+        ]
+sscIsDataUsefulQ OpeningMsg pk =
+    not . or <$>
+    sequence
+        [ (HM.member pk <$> view gtLocalOpenings)
+        , (HM.member pk <$> view gtGlobalOpenings)
+        ]
+sscIsDataUsefulQ SharesMsg pk =
+    not . or <$>
+    sequence
+        [ (HM.member pk <$> view gtLocalShares)
+        , (HM.member pk <$> view gtGlobalShares)
+        ]
+sscIsDataUsefulQ VssCertificateMsg pk =
+    not . or <$>
+    sequence
+        [ (HM.member pk <$> view gtLocalCertificates)
+        , (HM.member pk <$> view gtGlobalCertificates)
+        ]
 
 ----------------------------------------------------------------------------
 -- Ssc Process Message

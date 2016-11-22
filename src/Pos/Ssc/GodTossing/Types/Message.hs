@@ -2,6 +2,8 @@
 
 module Pos.Ssc.GodTossing.Types.Message
        ( MsgTag (..)
+       , isGoodSlotForTag
+       , isGoodSlotIdForTag
        , InvMsg (..)
        , ReqMsg (..)
        , DataMsg (..)
@@ -16,7 +18,11 @@ import qualified Data.Text.Buildable
 import           Universum
 
 import           Pos.Crypto                    (PublicKey, Share)
+import           Pos.Ssc.GodTossing.Functions  (isCommitmentId, isCommitmentIdx,
+                                                isOpeningId, isOpeningIdx, isSharesId,
+                                                isSharesIdx)
 import           Pos.Ssc.GodTossing.Types.Base (Opening, SignedCommitment, VssCertificate)
+import           Pos.Types                     (LocalSlotIndex, SlotId)
 
 -- | Tag associated with message.
 data MsgTag
@@ -33,6 +39,18 @@ instance Buildable MsgTag where
     build OpeningMsg        = "opening message"
     build SharesMsg         = "shares message"
     build VssCertificateMsg = "VSS certificate message"
+
+isGoodSlotForTag :: MsgTag -> LocalSlotIndex -> Bool
+isGoodSlotForTag CommitmentMsg     = isCommitmentIdx
+isGoodSlotForTag OpeningMsg        = isOpeningIdx
+isGoodSlotForTag SharesMsg         = isSharesIdx
+isGoodSlotForTag VssCertificateMsg = const True
+
+isGoodSlotIdForTag :: MsgTag -> SlotId -> Bool
+isGoodSlotIdForTag CommitmentMsg     = isCommitmentId
+isGoodSlotIdForTag OpeningMsg        = isOpeningId
+isGoodSlotIdForTag SharesMsg         = isSharesId
+isGoodSlotIdForTag VssCertificateMsg = const True
 
 -- | Inventory message. Can be used to announce the fact that you have
 -- some data.

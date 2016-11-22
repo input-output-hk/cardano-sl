@@ -1,8 +1,8 @@
+{-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE AllowAmbiguousTypes   #-}
 
 -- | Instance of SscListenersClass
 
@@ -21,7 +21,6 @@ import           Pos.Communication.Types                (ResponseMode)
 import           Pos.Crypto                             (PublicKey)
 import           Pos.DHT                                (ListenerDHT (..), replyToNode)
 import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
-import           Pos.Ssc.Class.LocalData                (sscRunLocalUpdate)
 import           Pos.Ssc.GodTossing.Functions           (hasCommitment, hasOpening,
                                                          hasShares, hasVssCertificate)
 import           Pos.Ssc.GodTossing.LocalData.LocalData (sscProcessMessage)

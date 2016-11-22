@@ -8,34 +8,21 @@ module Pos.Launcher.Scenario
        , submitTxRaw
        ) where
 
-import           Control.TimeWarp.Rpc   (BinaryP (..), Dialog, MonadDialog,
-                                         NetworkAddress, Transfer, commLoggerName,
-                                         runDialog, runTransfer)
-import           Control.TimeWarp.Timed (MonadTimed, currentTime, for, fork, fork_,
-                                         killThread, repeatForever, runTimedIO, sec,
-                                         sleepForever, wait)
-import           Formatting             (build, sformat, shown, (%))
-import           System.Wlog            (LoggerName (..), WithNamedLogger, logDebug,
-                                         logError, logInfo, logWarning,
-                                         traverseLoggerConfig, usingLoggerName)
+import           Control.TimeWarp.Rpc   (NetworkAddress)
+import           Control.TimeWarp.Timed (currentTime, for, sleepForever, wait)
+import           Formatting             (build, sformat, (%))
+import           System.Wlog            (logError, logInfo)
 import           Universum
 
-import           Pos.Communication      (SysStartRequest (..), allListeners,
-                                         noCacheMessageNames, sendTx, statsListeners,
-                                         sysStartReqListener, sysStartReqListenerSlave,
-                                         sysStartRespListener)
-import           Pos.Crypto             (SecretKey, VssKeyPair, hash, sign)
-import           Pos.DHT                (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
-                                         ListenerDHT, MonadDHT (..), filterByNodeType,
-                                         mapListenerDHT, sendToNeighbors)
+import           Pos.Communication      (sendTx)
+import           Pos.Crypto             (hash, sign)
+import           Pos.DHT                (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Ssc.Class          (SscConstraint)
 import           Pos.Types              (Address, Coin, Timestamp (Timestamp), Tx (..),
-                                         TxId, TxIn (..), TxOut (..), Utxo, timestampF,
-                                         txF)
-import           Pos.Worker             (runWorkers, statsWorkers)
-import           Pos.WorkMode           (ContextHolder (..), NodeContext (..), RealMode,
-                                         ServiceMode, WorkMode, getNodeContext,
-                                         ncPublicKey, runContextHolder, runDBHolder)
+                                         TxId, TxIn (..), TxOut (..), txF)
+import           Pos.Worker             (runWorkers)
+import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeContext,
+                                         ncPublicKey)
 
 -- | Run full node in any WorkMode.
 runNode :: (SscConstraint ssc, WorkMode ssc m) => m ()

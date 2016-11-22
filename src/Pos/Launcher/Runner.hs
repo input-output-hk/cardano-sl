@@ -27,20 +27,16 @@ module Pos.Launcher.Runner
        , bracketDHTInstance
        ) where
 
-import           Universum
-
 import           Control.Concurrent.MVar     (newEmptyMVar, newMVar, takeMVar,
                                               tryReadMVar)
 import           Control.Monad               (fail)
 import           Control.Monad.Catch         (bracket)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, MonadDialog,
-                                              NetworkAddress, Transfer, commLoggerName,
-                                              runDialog, runTransfer)
-import           Control.TimeWarp.Timed      (MonadTimed, currentTime, for, fork, fork_,
-                                              killThread, repeatForever, runTimedIO, sec,
-                                              sleepForever, wait)
-import           Data.Default                (Default)
+import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, MonadDialog, Transfer,
+                                              commLoggerName, runDialog, runTransfer)
+import           Control.TimeWarp.Timed      (MonadTimed, currentTime, fork, fork_,
+                                              killThread, repeatForever, runTimedIO, sec)
+
 import           Data.List                   (nub)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
@@ -49,21 +45,19 @@ import           System.Directory            (doesDirectoryExist,
 import           System.FilePath             ((</>))
 import           System.Log.Logger           (removeAllHandlers)
 import           System.Wlog                 (LoggerName (..), WithNamedLogger, logDebug,
-                                              logError, logInfo, logWarning,
-                                              traverseLoggerConfig, usingLoggerName)
+                                              logInfo, logWarning, traverseLoggerConfig,
+                                              usingLoggerName)
+import           Universum
 
 import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication           (SysStartRequest (..), allListeners,
-                                              noCacheMessageNames, sendTx, statsListeners,
+                                              noCacheMessageNames, statsListeners,
                                               sysStartReqListener,
                                               sysStartReqListenerSlave,
                                               sysStartRespListener)
 import           Pos.Constants               (RunningMode (..), defaultPeers,
                                               isDevelopment, runningMode)
-import           Pos.Crypto                  (SecretKey, VssKeyPair, hash, sign)
-import           Pos.DHT                     (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
-                                              ListenerDHT, MonadDHT (..),
-                                              filterByNodeType, mapListenerDHT,
+import           Pos.DHT                     (ListenerDHT, MonadDHT (..), mapListenerDHT,
                                               sendToNeighbors)
 import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..),
                                               KademliaDHTInstance,
@@ -72,20 +66,17 @@ import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..
                                               stopDHTInstance)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
-import           Pos.Launcher.Scenario
+import           Pos.Launcher.Scenario       (runNode)
 import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.State                   (NodeState, openMemState, openState)
 import           Pos.State.Storage           (storageFromUtxo)
 import           Pos.Statistics              (getNoStatsT, getStatsT)
-import           Pos.Types                   (Address, Coin, Timestamp (Timestamp),
-                                              Tx (..), TxId, TxIn (..), TxOut (..), Utxo,
-                                              timestampF, txF)
+import           Pos.Types                   (Timestamp (Timestamp), timestampF)
 import           Pos.Util                    (runWithRandomIntervals)
-import           Pos.Worker                  (runWorkers, statsWorkers)
+import           Pos.Worker                  (statsWorkers)
 import           Pos.WorkMode                (ContextHolder (..), NodeContext (..),
-                                              RealMode, ServiceMode, WorkMode,
-                                              getNodeContext, ncPublicKey,
-                                              runContextHolder, runDBHolder, runSscLDImpl)
+                                              RealMode, ServiceMode, runContextHolder,
+                                              runDBHolder, runSscLDImpl)
 
 type RealModeRunner = KademliaDHTInstance -> NodeParams -> IO ()
 

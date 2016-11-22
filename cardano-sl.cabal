@@ -62,6 +62,10 @@ library
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
                         Pos.DHT.Types
+                        Pos.Launcher.Launcher
+                        Pos.Launcher.Param
+                        Pos.Launcher.Runner
+                        Pos.Launcher.Scenario
                         Pos.Ssc.Class.Listeners
                         Pos.Ssc.Class.LocalData
                         Pos.Ssc.Class.Storage

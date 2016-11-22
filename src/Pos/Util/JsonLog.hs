@@ -86,3 +86,9 @@ class Monad m => MonadJL m where
 
 instance MonadJL m => MonadJL (DHTResponseT m) where
     jlLog = lift . jlLog
+
+instance MonadJL m => MonadJL (ReaderT s m) where
+    jlLog = lift . jlLog
+
+instance MonadJL m => MonadJL (StateT s m) where
+    jlLog = lift . jlLog

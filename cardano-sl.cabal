@@ -24,6 +24,7 @@ library
                         Pos.Constants
                         Pos.DHT
                         Pos.DHT.Real
+                        Pos.DHT.Types
                         Pos.FollowTheSatoshi
                         Pos.Ssc.Class
                         Pos.Ssc.GodTossing
@@ -33,9 +34,27 @@ library
                         Pos.Launcher
                         Pos.Merkle
                         Pos.Slotting
+                        Pos.Ssc.Class.Types
+                        Pos.Ssc.Class.Storage
+                        Pos.Ssc.Class.Workers
+                        Pos.Ssc.Class.Listeners
                         Pos.State
+                        Pos.State.Acidic
+                        Pos.State.State
+                        Pos.State.Storage
+                        Pos.State.Storage.Block
+                        Pos.State.Storage.Types
+                        Pos.State.Storage.Tx
                         Pos.Statistics
                         Pos.Types
+                        Pos.Types.Arbitrary
+                        Pos.Types.Arbitrary.Unsafe
+                        Pos.Types.Block
+                        Pos.Types.Slotting
+                        Pos.Types.Timestamp
+                        Pos.Types.Tx
+                        Pos.Types.Types
+                        Pos.Types.Utxo
                         Pos.Util
                         Pos.Util.JsonLog
                         Pos.Worker
@@ -61,45 +80,25 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
-                        Pos.DHT.Types
-                        Pos.Ssc.Class.Types
-                        Pos.Ssc.Class.Storage
-                        Pos.Ssc.Class.Workers
-                        Pos.Ssc.Class.Listeners
+                        Pos.Ssc.GodTossing.Announce
                         Pos.Ssc.GodTossing.Arbitrary
-                        Pos.Ssc.GodTossing.Base
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Genesis
-                        Pos.Ssc.GodTossing.Instance
-                        Pos.Ssc.GodTossing.Instance.AcidicSecret
-                        Pos.Ssc.GodTossing.Instance.Listeners
-                        Pos.Ssc.GodTossing.Instance.SecretStorage
-                        Pos.Ssc.GodTossing.Instance.Storage
-                        Pos.Ssc.GodTossing.Instance.Type
-                        Pos.Ssc.GodTossing.Instance.Types
-                        Pos.Ssc.GodTossing.Instance.Worker
+                        Pos.Ssc.GodTossing.Storage.Storage
+                        Pos.Ssc.GodTossing.Storage.Types
+                        Pos.Ssc.GodTossing.Listener.Listeners
+                        Pos.Ssc.GodTossing.Worker.SecretStorage
+                        Pos.Ssc.GodTossing.Worker.Types
+                        Pos.Ssc.GodTossing.Worker.Workers
                         Pos.Ssc.GodTossing.Seed
-                        Pos.Ssc.GodTossing.Server
-                        Pos.Ssc.GodTossing.Storage
-                        Pos.Ssc.GodTossing.Types
-                        Pos.State.Acidic
-                        Pos.State.State
-                        Pos.State.Storage
-                        Pos.State.Storage.Block
-                        Pos.State.Storage.Types
-                        Pos.State.Storage.Tx
+                        Pos.Ssc.GodTossing.Types.Base
+                        Pos.Ssc.GodTossing.Types.Instance
+                        Pos.Ssc.GodTossing.Types.Type
+                        Pos.Ssc.GodTossing.Types.Types
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
-                        Pos.Types.Arbitrary
-                        Pos.Types.Arbitrary.Unsafe
-                        Pos.Types.Block
-                        Pos.Types.Slotting
-                        Pos.Types.Timestamp
-                        Pos.Types.Tx
-                        Pos.Types.Types
-                        Pos.Types.Utxo
                         Pos.Worker.Block
                         Pos.Worker.Stats
                         Pos.Worker.Tx
@@ -168,6 +167,7 @@ library
                        -fno-warn-orphans
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -201,6 +201,7 @@ executable cardano-node
                        -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -232,6 +233,7 @@ executable cardano-analyzer
                        -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -258,6 +260,7 @@ executable cardano-wallet
                        -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -302,6 +305,7 @@ executable cardano-stats-collector
                        -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -333,6 +337,7 @@ executable cardano-tx-generator
                        -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -368,12 +373,13 @@ executable cardano-smart-generator
                        -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
-                       
+
 
 test-suite cardano-test
   main-is:             Test.hs
@@ -427,6 +433,7 @@ test-suite cardano-test
                        -- -fno-warn-orphans
                        -with-rtsopts=-N
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -457,6 +464,7 @@ benchmark cardano-bench-criterion
                        -fno-warn-orphans
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings

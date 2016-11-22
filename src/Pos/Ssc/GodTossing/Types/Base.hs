@@ -3,7 +3,7 @@
 
 -- | Base of GodTossing SSC.
 
-module Pos.Ssc.GodTossing.Base
+module Pos.Ssc.GodTossing.Types.Base
        (
          -- * Types
          Commitment (..)
@@ -74,8 +74,10 @@ instance MessagePack Commitment
 -- with given public key for given epoch.
 type CommitmentSignature = Signature (EpochIndex, Commitment)
 
+-- | 'Commitment' with corresponding signature ('CommitmentSignature').
 type SignedCommitment = (Commitment, CommitmentSignature)
 
+-- | 'HashMap' from 'PublicKey' to corresponding 'Commitment'.
 type CommitmentsMap = HashMap PublicKey (Commitment, CommitmentSignature)
 
 -- | Opening reveals secret.
@@ -85,6 +87,7 @@ newtype Opening = Opening
 
 instance MessagePack Opening
 
+-- | 'HashMap' from 'PublicKey' to corresponding 'Opening'.
 type OpeningsMap = HashMap PublicKey Opening
 
 -- | Each node generates a 'SharedSeed', breaks it into 'Share's, and sends
@@ -169,20 +172,26 @@ checkCert (pk, cert) = verify pk (signedValue cert) (signedSig cert)
 mkSignedCommitment :: SecretKey -> EpochIndex -> Commitment -> SignedCommitment
 mkSignedCommitment sk i c = (c, sign sk (i, c))
 
+-- | @True@ iff 'LocalSlotIndex' in [0, k) interval.
 isCommitmentIdx :: LocalSlotIndex -> Bool
 isCommitmentIdx = inRange (0, k - 1)
 
+-- | @True@ iff 'LocalSlotIndex' in [2k, 3k) interval.
 isOpeningIdx :: LocalSlotIndex -> Bool
 isOpeningIdx = inRange (2 * k, 3 * k - 1)
 
+-- | @True@ iff 'LocalSlotIndex' in [4k, 5k) interval.
 isSharesIdx :: LocalSlotIndex -> Bool
 isSharesIdx = inRange (4 * k, 5 * k - 1)
 
+-- | Applies 'isCommitmentIdx' to 'SlotId'.
 isCommitmentId :: SlotId -> Bool
 isCommitmentId = isCommitmentIdx . siSlot
 
+-- | Applies 'isOpendingIdx' to 'SlotId'.
 isOpeningId :: SlotId -> Bool
 isOpeningId = isOpeningIdx . siSlot
 
+-- | Applies 'isSharesIdx' to 'SlotId'.
 isSharesId :: SlotId -> Bool
 isSharesId = isSharesIdx . siSlot

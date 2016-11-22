@@ -31,11 +31,13 @@ import           Data.ByteArray       (ByteArrayAccess, convert)
 import           Pos.Crypto           (Hash, hashRaw)
 import           Pos.Util             (Raw)
 
+-- | Data type for root of merkle tree.
+--
 -- TODO: This uses SHA256 (i.e. Hash). Bitcoin uses double SHA256 to protect
 -- against some attacks that don't exist yet. It'd likely be nice to use
 -- SHA3-256 here instead.
 newtype MerkleRoot a = MerkleRoot
-    { getMerkleRoot :: Hash Raw
+    { getMerkleRoot :: Hash Raw  -- ^ returns root 'Hash' of Merkle Tree
     } deriving (Show, Eq, Ord, Generic, Binary, ByteArrayAccess)
 
 instance MessagePack (MerkleRoot a)
@@ -44,6 +46,7 @@ instance MessagePack (MerkleRoot a)
 -- https://github.com/acid-state/safecopy/issues/46.
 deriveSafeCopySimple 0 'base ''MerkleRoot
 
+-- | Straightforward merkle tree representation in Haskell.
 data MerkleTree a = MerkleEmpty | MerkleTree Word32 (MerkleNode a)
     deriving (Eq, Generic, Foldable)
 
@@ -106,6 +109,7 @@ mkBranch a b =
                                  , convert (mRoot b) ]
     }
 
+-- | Smart constructor for 'MerkleTree'.
 mkMerkleTree :: Binary a => [a] -> MerkleTree a
 mkMerkleTree [] = MerkleEmpty
 mkMerkleTree ls = MerkleTree (fromIntegral lsLen) (go lsLen ls)
@@ -117,6 +121,7 @@ mkMerkleTree ls = MerkleTree (fromIntegral lsLen) (go lsLen ls)
         i = powerOfTwo len
         (l, r) = splitAt i xs
 
+-- | Returns root of merkle tree.
 mtRoot :: MerkleTree a -> MerkleRoot a
 mtRoot MerkleEmpty      = emptyHash
 mtRoot (MerkleTree _ x) = mRoot x
@@ -124,6 +129,7 @@ mtRoot (MerkleTree _ x) = mRoot x
 emptyHash :: MerkleRoot a
 emptyHash = MerkleRoot (hashRaw mempty)
 
+-- | Returns size of given merkle tree.
 mtSize :: MerkleTree a -> Word32
 mtSize MerkleEmpty      = 0
 mtSize (MerkleTree s _) = s

@@ -42,10 +42,12 @@ class (FullySerializable l, Buildable l, Hashable l, StatEntry (EntryType l)) =>
     labelName :: Proxy l -> Text
     toJLEvent :: l -> EntryType l -> JLEvent
 
+-- | Counter for specified statistics.
 newtype CountStat = CountStat
     { getCounter :: Word64
     } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Binary, Typeable)
 
+-- | Value for specified collected statistic.
 data ValueStat = ValueStat
     { valueCount :: !Word64
     , valueMin   :: !Double

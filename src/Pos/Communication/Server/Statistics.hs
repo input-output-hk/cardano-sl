@@ -20,6 +20,7 @@ import           Pos.Statistics.StatEntry  (StatLabel (..))
 import           Pos.Statistics.Tx         (StatProcessTx)
 import           Pos.WorkMode              (WorkMode)
 
+-- | Listeners for collecting stats. Wait for 'StatProcessTx' messages.
 statsListeners :: (MonadDialog BinaryP m, WorkMode ssc m) => [ListenerDHT m]
 statsListeners = [ ListenerDHT $ handleStatsRequests @StatProcessTx
                  ]

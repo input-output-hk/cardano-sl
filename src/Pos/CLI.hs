@@ -4,6 +4,7 @@
 
 module Pos.CLI
        ( addrParser
+       , defaultLoggerConfig
        , dhtKeyParser
        , dhtNodeParser
        , readLoggerConfig
@@ -24,17 +25,21 @@ import           System.Wlog                        (LoggerConfig (..),
                                                      parseLoggerConfig)
 import qualified Text.ParserCombinators.Parsec.Char as P
 
+-- | Parser for DHT key.
 dhtKeyParser :: P.Parser DHTKey
 dhtKeyParser = P.base64Url >>= toDHTKey
   where
     toDHTKey = either fail return . bytesToDHTKey
 
+-- | Parsed for network address in format @host:port@.
 addrParser :: P.Parser NetworkAddress
 addrParser = (,) <$> (encodeUtf8 <$> P.host) <*> (P.char ':' *> P.port)
 
+-- | Parser for 'DHTNode'.
 dhtNodeParser :: P.Parser DHTNode
 dhtNodeParser = DHTNode <$> addrParser <*> (P.char '/' *> dhtKeyParser)
 
+-- | Decides which secret-sharing algorithm to use.
 sscAlgoParser :: P.Parser SscAlgo
 sscAlgoParser = GodTossingAlgo <$ (P.string "GodTossing") <|>
                 NistBeaconAlgo   <$ (P.string "NistBeacon")

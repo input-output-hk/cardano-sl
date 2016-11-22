@@ -77,6 +77,9 @@ class MonadDB ssc m | m -> ssc where
 instance (Monad m, MonadDB ssc m) => MonadDB ssc (ReaderT r m) where
     getNodeState = lift getNodeState
 
+instance (MonadDB ssc m, Monad m) => MonadDB ssc (StateT s m) where
+    getNodeState = lift getNodeState
+
 instance (Monad m, MonadDB ssc m) => MonadDB ssc (DHTResponseT m) where
     getNodeState = lift getNodeState
 

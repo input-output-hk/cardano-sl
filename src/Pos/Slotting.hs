@@ -17,7 +17,7 @@ import           Formatting               (build, sformat, shown, (%))
 import           Serokell.Util.Exceptions ()
 import           System.Wlog              (WithNamedLogger, logError, logInfo,
                                            modifyLoggerName)
-import           Universum                hiding (catch)
+import           Universum
 
 import           Pos.Constants            (slotDuration)
 import           Pos.DHT                  (DHTResponseT)
@@ -29,6 +29,14 @@ import           Pos.Types                (FlatSlotId, SlotId (..), Timestamp (.
 class Monad m => MonadSlots m where
     getSystemStartTime :: m Timestamp
     getCurrentTime :: m Timestamp
+
+instance MonadSlots m => MonadSlots (ReaderT s m) where
+    getSystemStartTime = lift getSystemStartTime
+    getCurrentTime = lift getCurrentTime
+
+instance MonadSlots m => MonadSlots (StateT s m) where
+    getSystemStartTime = lift getSystemStartTime
+    getCurrentTime = lift getCurrentTime
 
 instance MonadSlots m => MonadSlots (DHTResponseT m) where
     getSystemStartTime = lift getSystemStartTime

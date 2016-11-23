@@ -61,9 +61,12 @@ instance SscLocalDataClass SscGodTossing where
 -- Should be executed before doing any updates within given slot.
 processNewSlot :: SlotId -> LDUpdate ()
 processNewSlot si@SlotId {siSlot = slotIdx} = do
-    unless (isCommitmentIdx slotIdx) $ gtLocalCommitments .= mempty
-    unless (isOpeningIdx slotIdx) $ gtLocalOpenings .= mempty
-    unless (isSharesIdx slotIdx) $ gtLocalShares .= mempty
+    unless (isCommitmentIdx slotIdx) $ do
+        gtLocalCommitments .= mempty
+    unless (isOpeningIdx slotIdx) $ do
+        gtLocalOpenings .= mempty
+    unless (isSharesIdx slotIdx) $ do
+        gtLocalShares .= mempty
     gtLastProcessedSlot .= si
 
 ----------------------------------------------------------------------------
@@ -195,7 +198,10 @@ processBlock blk = do
         -- “arrive”, we clear global commitments and other globals. Not
         -- certificates, though, because we don't want to make nodes resend
         -- them in each epoch.
-        Left _  -> return ()
+        Left _  -> do
+            gtGlobalCommitments .= mempty
+            gtGlobalOpenings    .= mempty
+            gtGlobalShares      .= mempty
         Right b -> do
             let blockCommitments  = b ^. blockMpc . mdCommitments
                 blockOpenings     = b ^. blockMpc . mdOpenings
@@ -208,6 +214,14 @@ processBlock blk = do
             gtLocalShares  %= (`diffDoubleMap` blockShares)
             -- VSS certificates
             gtLocalCertificates  %= (`HM.difference` blockCertificates)
+            -- global commitments
+            gtGlobalCommitments %= HM.union blockCommitments
+            -- openings
+            gtGlobalOpenings %= HM.union blockOpenings
+            -- shares
+            gtGlobalShares %= HM.unionWith HM.union blockShares
+            -- VSS certificates
+            gtGlobalCertificates %= HM.union blockCertificates
 
 ----------------------------------------------------------------------------
 -- Get Local Payload

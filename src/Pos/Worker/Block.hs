@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
 
@@ -21,8 +22,10 @@ import           Universum
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
-import           Pos.Ssc.Class             (sscVerifyPayload)
-import           Pos.State                 (createNewBlock, getHeadBlock, getLeaders)
+import           Pos.Ssc.Class             (sscApplyGlobalPayload, sscGetLocalPayload,
+                                            sscVerifyPayload)
+import           Pos.State                 (createNewBlock, getGlobalMpcData,
+                                            getHeadBlock, getLeaders)
 import           Pos.Types                 (SlotId (..), Timestamp (Timestamp), blockMpc,
                                             gbHeader, slotIdF)
 import           Pos.Util                  (logWarningWaitLinear)
@@ -71,9 +74,11 @@ onNewSlotWhenLeader slotId = do
                         VerFailure warnings -> logWarning $ sformat
                             ("New block failed some checks: "%listJson)
                             warnings
+                    sscApplyGlobalPayload =<< getGlobalMpcData
                     announceBlock $ createdBlk ^. gbHeader
             let whenNotCreated = logWarning "I couldn't create a new block"
-            maybe whenNotCreated whenCreated =<< createNewBlock sk slotId
+            sscData <- sscGetLocalPayload slotId
+            maybe whenNotCreated whenCreated =<< createNewBlock sk slotId sscData
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
 -- | All workers specific to block processing.

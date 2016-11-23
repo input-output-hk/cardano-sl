@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
@@ -14,14 +15,24 @@
 module Pos.WorkMode
        ( WorkMode
        , MinWorkMode
+
+       -- * Ssc local data
+       , SscLDImpl
+       , runSscLDImpl
+
+       -- * DB
        , DBHolder (..)
+       , runDBHolder
+
+       -- * Context
+       , ContextHolder (..)
        , NodeContext (..)
        , WithNodeContext (..)
-       , ContextHolder (..)
-       , runDBHolder
-       , runContextHolder
        , ncPublicKey
        , ncVssPublicKey
+       , runContextHolder
+
+       -- * Actual modes
        , RealMode
        , ServiceMode
        , StatsMode
@@ -33,6 +44,8 @@ import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow, catchAll)
 import           Control.Monad.Except        (ExceptT)
 import           Control.Monad.Morph         (hoist)
+import           Control.Monad.Reader        (ReaderT (ReaderT), ask)
+import           Control.Monad.State         (StateT)
 import           Control.Monad.Trans.Class   (MonadTrans)
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
@@ -42,9 +55,10 @@ import           Control.TimeWarp.Rpc        (BinaryP, Dialog, MonadDialog,
                                               MonadResponse (..), MonadTransfer (..),
                                               Transfer, hoistRespCond)
 import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
+import           Data.IORef                  (IORef, newIORef, readIORef, writeIORef)
 import           Formatting                  (sformat, shown, (%))
 import           System.Wlog                 (WithNamedLogger (..), logWarning)
-import           Universum                   hiding (catch)
+import           Universum
 
 import           Pos.Crypto                  (PublicKey, SecretKey, VssKeyPair,
                                               VssPublicKey, toPublic, toVssPublicKey)
@@ -52,7 +66,10 @@ import           Pos.DHT                     (DHTResponseT, MonadMessageDHT (..)
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Ssc.Class.LocalData     (MonadSscLD (..),
+                                              SscLocalDataClass (sscEmptyLocalData))
 import           Pos.Ssc.Class.Storage       (SscStorageMode)
+import           Pos.Ssc.Class.Types         (Ssc (SscLocalData))
 import           Pos.State                   (MonadDB (..), NodeState)
 import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
 import           Pos.Types                   (Timestamp (..))
@@ -67,6 +84,8 @@ type WorkMode ssc m
       , MonadSlots m
       , MonadDB ssc m
       , SscStorageMode ssc
+      , SscLocalDataClass ssc
+      , MonadSscLD ssc m
       , WithNodeContext m
       , MonadMessageDHT m
       , WithDefaultMsgHeader m
@@ -83,6 +102,108 @@ type MinWorkMode m
       , MonadMessageDHT m
       , WithDefaultMsgHeader m
       )
+
+----------------------------------------------------------------------------
+-- MonadSscLD
+----------------------------------------------------------------------------
+
+instance (Monad m, MonadSscLD ssc m) =>
+         MonadSscLD ssc (DHTResponseT m) where
+    getLocalData = lift getLocalData
+    setLocalData = lift . setLocalData
+
+newtype SscLDImpl ssc m a = SscLDImpl
+    -- { getSscLDImpl :: StateT (SscLocalData ssc) m a
+    { getSscLDImpl :: ReaderT (IORef (SscLocalData ssc)) m a
+    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
+                MonadCatch, MonadIO, WithNamedLogger, MonadDialog p, WithNodeContext, MonadJL,
+                MonadDB ssc)
+
+instance MonadMask m =>
+         MonadMask (SscLDImpl ssc m) where
+    mask a =
+        SscLDImpl . ReaderT $
+        \s -> mask $ \u -> runReaderT (getSscLDImpl $ a $ q u) s
+      where
+        q
+            :: (m a -> m a)
+            -> SscLDImpl ssc m a
+            -> SscLDImpl ssc m a
+        q u (SscLDImpl (ReaderT b)) = SscLDImpl (ReaderT (u . b))
+    uninterruptibleMask a =
+        SscLDImpl . ReaderT $
+        \s -> uninterruptibleMask $ \u -> runReaderT (getSscLDImpl $ a $ q u) s
+      where
+        q
+            :: (m a -> m a)
+            -> SscLDImpl ssc m a
+            -> SscLDImpl ssc m a
+        q u (SscLDImpl (ReaderT b)) = SscLDImpl (ReaderT (u . b))
+
+-- TODO: refactor!
+-- instance MonadMask m =>
+--          MonadMask (SscLDImpl ssc m) where
+--     mask a =
+--         SscLDImpl . StateT $
+--         \s -> mask $ \u -> runStateT (getSscLDImpl $ a $ q u) s
+--       where
+--         q
+--             :: (m (a, SscLocalData ssc) -> m (a, SscLocalData ssc))
+--             -> SscLDImpl ssc m a
+--             -> SscLDImpl ssc m a
+--         q u (SscLDImpl (StateT b)) = SscLDImpl (StateT (u . b))
+--     uninterruptibleMask a =
+--         SscLDImpl . StateT $
+--         \s -> uninterruptibleMask $ \u -> runStateT (getSscLDImpl $ a $ q u) s
+--       where
+--         q
+--             :: (m (a, SscLocalData ssc) -> m (a, SscLocalData ssc))
+--             -> SscLDImpl ssc m a
+--             -> SscLDImpl ssc m a
+--         q u (SscLDImpl (StateT b)) = SscLDImpl (StateT (u . b))
+
+instance MonadIO m => MonadSscLD ssc (SscLDImpl ssc m) where
+    getLocalData = liftIO . readIORef =<< SscLDImpl ask
+    setLocalData d = (liftIO . flip writeIORef d) =<< SscLDImpl ask
+
+runSscLDImpl
+    :: forall ssc m a.
+       (MonadIO m, SscLocalDataClass ssc)
+    => SscLDImpl ssc m a -> m a
+runSscLDImpl action = do
+  ref <- liftIO $ newIORef (sscEmptyLocalData @ssc)
+  flip runReaderT ref . getSscLDImpl @ssc $ action
+
+instance MonadBase IO m => MonadBase IO (SscLDImpl ssc m) where
+    liftBase = lift . liftBase
+
+instance MonadTransControl (SscLDImpl ssc) where
+    type StT (SscLDImpl ssc) a = StT (ReaderT (IORef (SscLocalData ssc))) a
+    liftWith = defaultLiftWith SscLDImpl getSscLDImpl
+    restoreT = defaultRestoreT SscLDImpl
+
+instance MonadBaseControl IO m => MonadBaseControl IO (SscLDImpl ssc m) where
+    type StM (SscLDImpl ssc m) a = ComposeSt (SscLDImpl ssc) m a
+    liftBaseWith     = defaultLiftBaseWith
+    restoreM         = defaultRestoreM
+
+type instance ThreadId (SscLDImpl ssc m) = ThreadId m
+
+instance MonadTransfer m =>
+         MonadTransfer (SscLDImpl ssc m) where
+    sendRaw addr req =
+        SscLDImpl ask >>=
+        \ctx ->
+             lift $
+             sendRaw addr (hoist (flip runReaderT ctx . getSscLDImpl) req)
+    listenRaw binding sink =
+        SscLDImpl $
+        fmap SscLDImpl $ listenRaw binding $ hoistRespCond getSscLDImpl sink
+    close = lift . close
+
+instance (MonadSscLD ssc m, Monad m) => MonadSscLD ssc (KademliaDHT m) where
+    getLocalData = lift getLocalData
+    setLocalData = lift . setLocalData
 
 ----------------------------------------------------------------------------
 -- MonadDB
@@ -246,7 +367,7 @@ instance (MonadIO m, WithNamedLogger m, MonadCatch m) => MonadJL (ContextHolder 
 ----------------------------------------------------------------------------
 
 -- | RealMode is a basis for `WorkMode`s used to really run system.
-type RealMode ssc = KademliaDHT (ContextHolder (DBHolder ssc (Dialog BinaryP Transfer)))
+type RealMode ssc = KademliaDHT (SscLDImpl ssc (ContextHolder (DBHolder ssc (Dialog BinaryP Transfer))))
 
 -- | ServiceMode is the mode in which support nodes work
 type ServiceMode = KademliaDHT (Dialog BinaryP Transfer)

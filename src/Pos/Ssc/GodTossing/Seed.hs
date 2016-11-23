@@ -15,9 +15,9 @@ import           Universum
 import           Pos.Crypto                    (PublicKey, Secret, Share, Threshold,
                                                 shareId, unsafeRecoverSecret)
 import           Pos.Ssc.GodTossing.Error      (SeedError (..))
+import           Pos.Ssc.GodTossing.Functions  (secretToSharedSeed, verifyOpening)
 import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
-                                                getOpening, secretToSharedSeed,
-                                                verifyOpening)
+                                                getOpening)
 import           Pos.Types                     (SharedSeed)
 
 getKeys :: HashMap k v -> HashSet k

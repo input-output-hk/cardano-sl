@@ -16,11 +16,9 @@ import           Universum
 -- | Main Shared Seed Calculation type class. Stores all needed type
 -- parameters for general implementation of SSC.
 class (Typeable ssc
---      ,Typeable (SscToken ssc)
       ,Typeable (SscPayload ssc)
       ,Typeable (SscStorage ssc)
       ,Typeable (SscProof ssc)
-      ,Typeable (SscMessage ssc)
       ,Typeable (SscSeedError ssc)
       ,Eq (SscProof ssc)
       ,Show (SscProof ssc)
@@ -29,24 +27,20 @@ class (Typeable ssc
       ,Buildable (SscSeedError ssc)
       ,Binary (SscProof ssc)
       ,Binary (SscPayload ssc)
-      ,Binary (SscMessage ssc)
       ,SafeCopy (SscProof ssc)
       ,SafeCopy (SscPayload ssc)
-      ,SafeCopy (SscMessage ssc)
---      ,SafeCopy (SscToken ssc)
       ,SafeCopy (SscStorage ssc)) =>
       Ssc ssc where
 
-    -- | Internal SSC state
+    -- | Internal SSC state stored on disk
     type SscStorage ssc
+    -- | Internal SSC state stored in memory
+    type SscLocalData ssc
     -- | Payload which will be stored in main blocks
     type SscPayload ssc
     -- | Proof that SSC payload is correct (it'll be included into block
     -- header)
     type SscProof ssc
-    -- | Messages that nodes send to each other to achieve SSC (this
-    -- is going to be an ADT if there are many possible messages)
-    type SscMessage ssc
     -- | Error that can happen when calculating the seed
     type SscSeedError ssc
 

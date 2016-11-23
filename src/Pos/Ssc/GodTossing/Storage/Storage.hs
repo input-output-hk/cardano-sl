@@ -17,13 +17,13 @@ module Pos.Ssc.GodTossing.Storage.Storage
          -- ** instance SscStorageClass SscGodTossing
        ) where
 
-import           Control.Lens                      (Lens', at, ix, preview, to, use, view,
+import           Control.Lens                      (Lens', ix, preview, to, use, view,
                                                     (%=), (.=), (^.))
 import           Crypto.Random                     (drgNewSeed, seedFromInteger, withDRG)
 import           Data.Default                      (def)
 import qualified Data.HashMap.Strict               as HM
 import           Data.List                         (nub)
-import           Data.List.NonEmpty                (NonEmpty ((:|)), fromList)
+import           Data.List.NonEmpty                (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty                as NE
 import           Data.SafeCopy                     (SafeCopy)
 import           Data.Serialize                    (Serialize (..))
@@ -34,41 +34,34 @@ import           Universum
 
 import           Pos.Crypto                        (Share, Signed (signedValue),
                                                     Threshold, VssKeyPair, VssPublicKey,
-                                                    decryptShare, toVssPublicKey,
-                                                    verifyShare)
+                                                    decryptShare, toVssPublicKey)
 import           Pos.Crypto                        (PublicKey)
 import           Pos.FollowTheSatoshi              (followTheSatoshi)
 import           Pos.Ssc.Class.Storage             (HasSscStorage (..), SscQuery,
                                                     SscStorageClass (..), SscUpdate)
 import           Pos.Ssc.Class.Types               (Ssc (..))
 import           Pos.Ssc.GodTossing.Error          (SeedError)
+import           Pos.Ssc.GodTossing.Functions      (checkOpening, checkShares,
+                                                    isCommitmentIdx, isOpeningIdx,
+                                                    isSharesIdx, verifyGtPayload)
 import           Pos.Ssc.GodTossing.Seed           (calculateSeed)
 import           Pos.Ssc.GodTossing.Storage.Types  (GtStorage, GtStorageVersion (..),
                                                     dsGlobalCertificates,
                                                     dsGlobalCommitments, dsGlobalOpenings,
-                                                    dsGlobalShares, dsLastProcessedSlotL,
-                                                    dsLocalCertificates,
-                                                    dsLocalCommitments, dsLocalOpenings,
-                                                    dsLocalShares, dsVersionedL)
-import           Pos.Ssc.GodTossing.Types.Base     (Commitment (..), CommitmentSignature,
-                                                    CommitmentsMap, Opening, OpeningsMap,
-                                                    VssCertificate, VssCertificatesMap,
-                                                    isCommitmentIdx, isOpeningIdx,
-                                                    isSharesIdx, verifyOpening,
-                                                    verifySignedCommitment)
+                                                    dsGlobalShares, dsVersionedL)
+import           Pos.Ssc.GodTossing.Types.Base     (Commitment (..))
 import           Pos.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types    (GtMessage (..), GtPayload (..),
-                                                    filterGtPayload, mdCommitments,
+import           Pos.Ssc.GodTossing.Types.Types    (GtPayload (..), mdCommitments,
                                                     mdOpenings, mdShares,
-                                                    mdVssCertificates, verifyGtPayload)
+                                                    mdVssCertificates)
 import           Pos.State.Storage.Types           (AltChain)
 import           Pos.Types                         (Address (getAddress), Block,
                                                     EpochIndex, SlotId (..), SlotLeaders,
                                                     Utxo, blockMpc, blockSlot, blockSlot,
                                                     gbHeader, txOutAddress)
-import           Pos.Util                          (diffDoubleMap, magnify',
-                                                    readerToState, zoom', _neHead)
+import           Pos.Util                          (magnify', readerToState, zoom',
+                                                    _neHead)
 
 -- acid-state requires this instance because of a bug
 instance SafeCopy SscGodTossing
@@ -76,30 +69,9 @@ instance Serialize SscGodTossing where
     put = panic "put@SscGodTossing: can't happen"
     get = panic "get@SscGodTossing: can't happen"
 
-helper :: (NonEmpty (a, b) -> GtMessage)
-       -> (a -> b -> Update Bool)
-       -> NonEmpty (a, b)
-       -> Update (Maybe GtMessage)
-helper c f ne = do
-    res <- toList <$> mapM (uncurry f) ne
-    let updated = map snd . filter fst . zip res . toList $ ne
-    if null updated
-      then return Nothing
-      else return $ Just . c . fromList $ updated
-
 instance SscStorageClass SscGodTossing where
     sscApplyBlocks = mpcApplyBlocks
-    sscPrepareToNewSlot = mpcProcessNewSlot
-    sscProcessMessage (DSCommitments ne)     =
-        helper DSCommitments mpcProcessCommitment ne
-    sscProcessMessage (DSOpenings ne)        =
-        helper DSOpenings mpcProcessOpening ne
-    sscProcessMessage (DSSharesMulti ne)     =
-        helper DSSharesMulti mpcProcessShares ne
-    sscProcessMessage (DSVssCertificates ne) =
-        helper DSVssCertificates mpcProcessVssCertificate ne
     sscRollback = mpcRollback
-    sscGetLocalPayload = getLocalPayload
     sscGetGlobalPayload = getGlobalMpcData
     sscGetGlobalPayloadByDepth = getGlobalMpcDataByDepth
     sscVerifyBlocks = mpcVerifyBlocks
@@ -110,7 +82,6 @@ instance SscStorageClass SscGodTossing where
     sscCalculateLeaders = calculateLeaders
 
     sscVerifyPayload = Tagged verifyGtPayload
-
 
 type Query a = SscQuery SscGodTossing a
 type Update a = SscUpdate SscGodTossing a
@@ -123,24 +94,9 @@ dsVersioned
        Lens' a (NonEmpty GtStorageVersion)
 dsVersioned = sscStorage @SscGodTossing . dsVersionedL
 
-dsLastProcessedSlot
-    :: HasSscStorage SscGodTossing a
-    => Lens' a SlotId
-dsLastProcessedSlot = sscStorage @SscGodTossing . dsLastProcessedSlotL
-
 -- | A lens to access the last version of GtStorage
 lastVer :: HasSscStorage SscGodTossing a => Lens' a GtStorageVersion
 lastVer = dsVersioned . _neHead
-
-
-getLocalPayload :: SlotId -> Query GtPayload
-getLocalPayload slotId = filterGtPayload slotId <$> getStoredLocalPayload
-
-getStoredLocalPayload :: Query GtPayload
-getStoredLocalPayload =
-    magnify' lastVer $
-    GtPayload <$> view dsLocalCommitments <*> view dsLocalOpenings <*>
-    view dsLocalShares <*> view dsLocalCertificates
 
 getGlobalMpcData :: Query GtPayload
 getGlobalMpcData =
@@ -194,62 +150,14 @@ calculateLeaders _ utxo threshold = do --GodTossing doesn't use epoch, but NistB
         Left e     -> Left e
         Right seed -> Right $ fmap getAddress $ followTheSatoshi seed utxo
 
--- | Check that the secret revealed in the opening matches the secret proof
--- in the commitment
-checkOpening
-    :: CommitmentsMap -> (PublicKey, Opening) -> Bool
-checkOpening globalCommitments (pk, opening) =
-    case HM.lookup pk globalCommitments of
-        Nothing        -> False
-        Just (comm, _) -> verifyOpening comm opening
-
--- Apply checkOpening using last version.
-checkOpeningLastVer :: PublicKey -> Opening -> Query Bool
-checkOpeningLastVer pk opening =
-    magnify' lastVer $
-    flip checkOpening (pk, opening) <$> view dsGlobalCommitments
-
--- | Check that the decrypted share matches the encrypted share in the
--- commitment
-checkShare
-    :: CommitmentsMap
-    -> OpeningsMap
-    -> VssCertificatesMap
-    -> (PublicKey, PublicKey, Share)
-    -> Bool
-checkShare globalCommitments globalOpenings globalCertificates (pkTo, pkFrom, share) =
-    fromMaybe False $ do
-        guard $ HM.member pkTo globalCommitments
-        guard $ isNothing $ HM.lookup pkFrom globalOpenings
-        (comm, _) <- HM.lookup pkFrom globalCommitments
-        vssKey <- signedValue <$> HM.lookup pkTo globalCertificates
-        encShare <- HM.lookup vssKey (commShares comm)
-        return $ verifyShare encShare vssKey share
-
--- Apply checkShare to all shares in map.
-checkShares
-    :: CommitmentsMap
-    -> OpeningsMap
-    -> VssCertificatesMap
-    -> PublicKey
-    -> HashMap PublicKey Share
-    -> Bool
-checkShares globalCommitments globalOpenings globalCertificates pkTo shares =
-    let listShares :: [(PublicKey, PublicKey, Share)]
-        listShares = map convert $ HM.toList shares
-        convert (pkFrom, share) = (pkTo, pkFrom, share)
-    in all
-           (checkShare globalCommitments globalOpenings globalCertificates)
-           listShares
-
--- Apply checkShares using last version.
-checkSharesLastVer :: PublicKey -> HashMap PublicKey Share -> Query Bool
-checkSharesLastVer pk shares =
-    magnify' lastVer $
-    (\comms openings certs -> checkShares comms openings certs pk shares) <$>
-    view dsGlobalCommitments <*>
-    view dsGlobalOpenings <*>
-    view dsGlobalCertificates
+-- -- Apply checkShares using last version.
+-- checkSharesLastVer :: PublicKey -> HashMap PublicKey Share -> Query Bool
+-- checkSharesLastVer pk shares =
+--     magnify' lastVer $
+--     (\comms openings certs -> checkShares comms openings certs pk shares) <$>
+--     view dsGlobalCommitments <*>
+--     view dsGlobalOpenings <*>
+--     view dsGlobalCertificates
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
@@ -354,72 +262,6 @@ mpcVerifyBlocks toRollback blocks = do
             return v
         return (fold vs)
 
-mpcProcessCommitment
-    :: PublicKey -> (Commitment, CommitmentSignature) -> Update Bool
-mpcProcessCommitment pk c = do
-    epochIdx <- siEpoch <$> use dsLastProcessedSlot
-    ok <- readerToState $ and <$> magnify' lastVer (sequence $ checks epochIdx)
-    ok <$ when ok (zoom' lastVer $ dsLocalCommitments %= HM.insert pk c)
-  where
-    checks epochIndex =
-        [ pure . isVerSuccess $ verifySignedCommitment pk epochIndex c
-        , not . HM.member pk <$> view dsGlobalCommitments
-        , not . HM.member pk <$> view dsLocalCommitments
-        ]
-
-mpcProcessOpening :: PublicKey -> Opening -> Update Bool
-mpcProcessOpening pk o = do
-    ok <- readerToState $ and <$> sequence checks
-    ok <$ when ok (zoom' lastVer $ dsLocalOpenings %= HM.insert pk o)
-  where
-    checks = [checkOpeningAbsence pk, checkOpeningLastVer pk o]
-
--- Check that there is no opening from given public key in blocks. It is useful
--- in opening processing.
-checkOpeningAbsence :: PublicKey -> Query Bool
-checkOpeningAbsence pk =
-    magnify' lastVer $
-    (&&) <$> (notMember <$> view dsGlobalOpenings) <*>
-    (notMember <$> view dsLocalOpenings)
-  where
-    notMember = not . HM.member pk
-
-mpcProcessShares :: PublicKey -> HashMap PublicKey Share -> Update Bool
-mpcProcessShares pk s
-    | null s = pure False
-    | otherwise = do
-        -- TODO: we accept shares that we already have (but don't add them to
-        -- local shares) because someone who sent us those shares might not be
-        -- aware of the fact that they are already in the blockchain. On the
-        -- other hand, now nodes can send us huge spammy messages and we can't
-        -- ban them for that. On the third hand, is this a concern?
-        preOk <- readerToState $ checkSharesLastVer pk s
-        let mpcProcessSharesDo = do
-                globalSharesForPK <-
-                    HM.lookupDefault mempty pk <$> use dsGlobalShares
-                localSharesForPk <- HM.lookupDefault mempty pk <$> use dsLocalShares
-                let s' = s `HM.difference` globalSharesForPK
-                let newLocalShares = localSharesForPk `HM.union` s'
-                -- Note: size is O(n), but union is also O(n + m), so
-                -- it doesn't matter.
-                let ok = preOk && (HM.size newLocalShares /= HM.size localSharesForPk)
-                ok <$ (when ok $ dsLocalShares . at pk .= Just newLocalShares)
-        zoom' lastVer $ mpcProcessSharesDo
-
-mpcProcessVssCertificate :: PublicKey -> VssCertificate -> Update Bool
-mpcProcessVssCertificate pk c = zoom' lastVer $ do
-    ok <- not . HM.member pk <$> use dsGlobalCertificates
-    ok <$ when ok (dsLocalCertificates %= HM.insert pk c)
-
--- Should be executed before doing any updates within given slot.
-mpcProcessNewSlot :: SlotId -> Update ()
-mpcProcessNewSlot si@SlotId {siSlot = slotIdx} = do
-    zoom' lastVer $ do
-        unless (isCommitmentIdx slotIdx) $ dsLocalCommitments .= mempty
-        unless (isOpeningIdx slotIdx) $ dsLocalOpenings .= mempty
-        unless (isSharesIdx slotIdx) $ dsLocalShares .= mempty
-    dsLastProcessedSlot .= si
-
 -- | Apply sequence of blocks to state. Sequence must be based on last
 -- applied block and must be valid.
 mpcApplyBlocks
@@ -457,16 +299,12 @@ mpcProcessBlock blk = do
             zoom' lastVer $ do
                 -- commitments
                 dsGlobalCommitments %= HM.union blockCommitments
-                dsLocalCommitments  %= (`HM.difference` blockCommitments)
                 -- openings
                 dsGlobalOpenings %= HM.union blockOpenings
-                dsLocalOpenings  %= (`HM.difference` blockOpenings)
                 -- shares
                 dsGlobalShares %= HM.unionWith HM.union blockShares
-                dsLocalShares  %= (`diffDoubleMap` blockShares)
                 -- VSS certificates
                 dsGlobalCertificates %= HM.union blockCertificates
-                dsLocalCertificates  %= (`HM.difference` blockCertificates)
 
 -- | Decrypt shares (in commitments) that we can decrypt.
 getOurShares

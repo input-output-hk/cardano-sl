@@ -29,7 +29,11 @@ function logs {
 
   local log_file=$1
   local conf_dir="$logs_dir/conf"
-  local template="$base_common/log-template.yaml"
+  local template_name="log-template.yaml"
+  if [[ "$LOG_TEMPLATE" != "" ]]; then
+    template_name="$LOG_TEMPLATE"
+  fi
+  local template="$base_common/$template_name"
 
   mkdir -p "$conf_dir"
 

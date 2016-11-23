@@ -26,8 +26,7 @@ import           Pos.Crypto              (PublicKey, Share, Threshold, VssKeyPai
                                           VssPublicKey)
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types.Types         (EpochIndex, MainBlockHeader, SlotId,
-                                          SlotLeaders, Utxo)
+import           Pos.Types.Types         (EpochIndex, MainBlockHeader, SlotLeaders, Utxo)
 
 -- | Generic @SSC@ query.
 type SscUpdate ssc a =
@@ -52,11 +51,7 @@ class Ssc ssc => SscStorageClass ssc where
     -- sscCalculateSeed :: SscQuery ssc (Either (SscSeedError ssc) SharedSeed)
 
     sscApplyBlocks :: AltChain ssc -> SscUpdate ssc ()
-    -- | Should be executed before doing any updates within given slot.
-    sscPrepareToNewSlot :: SlotId -> SscUpdate ssc ()
-    -- | Do something with given message, result is whether message
-    -- has been processed successfully (implementation defined).
-    sscProcessMessage :: SscMessage ssc -> SscUpdate ssc (Maybe (SscMessage ssc))
+
     -- TODO: there was also such comment.
     -- If @n > 0@, also removes all commitments/etc received during that
     -- period but not included into blocks.
@@ -64,9 +59,7 @@ class Ssc ssc => SscStorageClass ssc where
     -- are less blocks than 'n' is, just leaves an empty ('def')
     -- version.
     sscRollback :: Word -> SscUpdate ssc ()
-    -- | Get local SSC data for inclusion into a block for slot N. (Different
-    -- kinds of data are included into different blocks.)
-    sscGetLocalPayload :: SlotId -> SscQuery ssc (SscPayload ssc)
+
     -- | Get global SSC data.
     sscGetGlobalPayload :: SscQuery ssc (SscPayload ssc)
     -- | Get global SSC data for the state that was observed N blocks ago.

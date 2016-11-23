@@ -19,7 +19,7 @@ import           Pos.Communication.Types (SysStartRequest (..), SysStartResponse
 import           Pos.Types               (Timestamp)
 import           Pos.WorkMode            (MinWorkMode)
 
-sysStartReqListenerSlave :: (MonadDialog BinaryP m, MinWorkMode m) => ListenerDHT m
+sysStartReqListenerSlave :: (MonadDialog BinaryP m) => ListenerDHT m
 sysStartReqListenerSlave = ListenerDHT $ \(_ :: SysStartRequest) -> return ()
 
 -- | Listener for 'SysStartRequest' message.

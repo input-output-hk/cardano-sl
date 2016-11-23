@@ -39,10 +39,11 @@ import           Pos.DHT.Real           (KademliaDHTInstance)
 import           Pos.Genesis            (StakeDistribution (..), genesisAddresses,
                                          genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
-                                         NodeParams (..), RealModeSscConstraint,
-                                         addDevListeners, bracketDHTInstance, runNode,
-                                         runRealMode, runTimeSlaveReal, submitTxRaw)
+                                         NodeParams (..), addDevListeners,
+                                         bracketDHTInstance, runNode, runRealMode,
+                                         runTimeSlaveReal, submitTxRaw)
 import           Pos.Slotting           (getCurrentSlot, getSlotStart)
+import           Pos.Ssc.Class          (SscConstraint)
 import           Pos.Ssc.GodTossing     (SscGodTossing)
 import           Pos.Ssc.NistBeacon     (SscNistBeacon)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
@@ -260,7 +261,7 @@ dumpTxTable TxTimestamps {..} = M.foldlWithKey' foo []
                                      <*> readIORef verifyTimes)
   where foo ls id (sent, verified) = (id, sent, verified) : ls
 
-checkTxsInLastBlock :: forall ssc . RealModeSscConstraint ssc
+checkTxsInLastBlock :: forall ssc . SscConstraint ssc
                     => TxTimestamps -> ProductionMode ssc ()
 checkTxsInLastBlock txts@TxTimestamps {..} = do
     mBlock <- getBlockByDepth k
@@ -285,7 +286,7 @@ checkTxsInLastBlock txts@TxTimestamps {..} = do
                     liftIO $ registerVerifiedTx txts id $ fromIntegral slStart
                 liftIO $ writeIORef lastSlot curSlot
 
-checkWorker :: forall ssc . RealModeSscConstraint ssc
+checkWorker :: forall ssc . SscConstraint ssc
             => TxTimestamps -> ProductionMode ssc ()
 checkWorker txts = repeatForever slotDuration onError $
                    checkTxsInLastBlock txts
@@ -296,12 +297,12 @@ checkWorker txts = repeatForever slotDuration onError $
 -- Launcher helper
 -----------------------------------------------------------------------------
 
-realListeners :: RealModeSscConstraint ssc => NodeParams -> [ListenerDHT (RealMode ssc)]
+realListeners :: SscConstraint ssc => NodeParams -> [ListenerDHT (RealMode ssc)]
 realListeners params = addDevListeners params noStatsListeners
   where noStatsListeners = map (mapListenerDHT getNoStatsT) allListeners
 
 -- | Resend initTx with `slotDuration` period until it's verified
-seedInitTx :: forall ssc . RealModeSscConstraint ssc
+seedInitTx :: forall ssc . SscConstraint ssc
            => BambooPool -> Tx -> [NetworkAddress] -> ProductionMode ssc ()
 seedInitTx bp initTx na = do
     logInfo "Issuing seed transaction"
@@ -315,7 +316,7 @@ seedInitTx bp initTx na = do
         then pure ()
         else seedInitTx bp initTx na
 
-runSmartGen :: forall ssc . RealModeSscConstraint ssc
+runSmartGen :: forall ssc . SscConstraint ssc
             => KademliaDHTInstance -> NodeParams -> GenOptions -> IO ()
 runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
     runRealMode inst np (realListeners @ssc np) $ getNoStatsT $ do
@@ -360,6 +361,11 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         beginT <- getPosixMs
         resMap <- foldM
             (\curmap (idx :: Int) -> do
+                preStartT <- getPosixMs
+                -- prevent periods longer than we expected
+                if preStartT - beginT > round (goRoundDuration * 1000)
+                then pure curmap
+                else do
                     transaction <- nextValidTx bambooPool tpsDelta
                     let curTxId = hash transaction
 
@@ -480,4 +486,3 @@ main = do
                               runSmartGen @SscGodTossing inst params opts
             NistBeaconAlgo -> putText "Using NIST beacon" *>
                               runSmartGen @SscNistBeacon inst params opts
-

@@ -6,8 +6,8 @@ module Pos.Communication.Methods
        ( announceBlock
        , announceTx
        , announceTxs
+       , sendToNeighborsSafe
        , sendTx
-       , announceSsc
        ) where
 
 import           Control.TimeWarp.Rpc    (Message, NetworkAddress)
@@ -20,12 +20,13 @@ import           Universum
 
 import           Pos.Communication.Types (SendBlockHeader (..), SendTx (..), SendTxs (..))
 import           Pos.DHT                 (sendToNeighbors, sendToNode)
-import           Pos.Ssc.Class.Types     (Ssc (SscMessage))
 import           Pos.Types               (MainBlockHeader, Tx)
 import           Pos.Util                (logWarningWaitLinear, messageName')
 import           Pos.WorkMode            (WorkMode)
 import           Serokell.Util.Text      (listJson)
 
+-- | Wrapper on top of sendToNeighbors which does it in separate
+-- thread and controls how much time action takes.
 sendToNeighborsSafe :: (Binary r, Message r, WorkMode ssc m) => r -> m ()
 sendToNeighborsSafe msg = do
     let msgName = messageName' msg
@@ -61,16 +62,6 @@ announceTxs txs@(tx:txs') = do
 -- | Send Tx to given address.
 sendTx :: WorkMode ssc m => NetworkAddress -> Tx -> m ()
 sendTx addr = sendToNode addr . SendTx
-
-----------------------------------------------------------------------------
--- Relaying MPC messages
-----------------------------------------------------------------------------
-
--- | Announce ssc message to all known peers. Intended to be used
--- by SSC algorithm
-announceSsc :: (WorkMode ssc m,
-                Message (SscMessage ssc)) => SscMessage ssc -> m ()
-announceSsc = sendToNeighborsSafe
 
 ----------------------------------------------------------------------------
 -- TODOs from the first version of the prototype, to be reviewed/deleted

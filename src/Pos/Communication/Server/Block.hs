@@ -32,6 +32,7 @@ import           Pos.Communication.Types   (RequestBlock (..), ResponseMode,
 import           Pos.Crypto                (hash, shortHashF)
 import           Pos.DHT                   (ListenerDHT (..), replyToNode)
 import           Pos.Slotting              (getCurrentSlot)
+import           Pos.Ssc.Class.LocalData   (sscApplyGlobalPayload)
 import qualified Pos.State                 as St
 import           Pos.Types                 (HeaderHash, Tx, blockTxs, getBlockHeader,
                                             headerHash)
@@ -54,6 +55,9 @@ handleBlock :: forall ssc m . ResponseMode ssc m
 handleBlock (SendBlock block) = do
     slotId <- getCurrentSlot
     pbr <- St.processBlock slotId block
+    let globalChanged = case pbr of St.PBRgood _ -> True
+                                    _            -> False
+    when globalChanged $ sscApplyGlobalPayload =<< St.getGlobalMpcData
     let blkHash = headerHash block
     case pbr of
         St.PBRabort msg -> do

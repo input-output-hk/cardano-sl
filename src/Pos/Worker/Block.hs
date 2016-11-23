@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
 
@@ -21,8 +22,10 @@ import           Universum
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
-import           Pos.Ssc.Class             (sscVerifyPayload)
-import           Pos.State                 (createNewBlock, getHeadBlock, getLeaders)
+import           Pos.Ssc.Class             (sscApplyGlobalPayload, sscGetLocalPayload,
+                                            sscVerifyPayload)
+import           Pos.State                 (createNewBlock, getGlobalMpcData,
+                                            getHeadBlock, getLeaders, processNewSlot)
 import           Pos.Types                 (SlotId (..), Timestamp (Timestamp), blockMpc,
                                             gbHeader, slotIdF)
 import           Pos.Util                  (logWarningWaitLinear)
@@ -33,9 +36,19 @@ import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKe
 -- | Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode ssc m => SlotId -> m ()
 blkOnNewSlot slotId@SlotId {..} = do
+    -- First of all we create genesis block if necessary.
+    mGenBlock <- processNewSlot slotId
+    forM_ mGenBlock $ \createdBlk -> do
+        logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
+        jlLog $ jlCreatedBlock (Left createdBlk)
+
+    -- Then we get leaders for current epoch.
     leadersMaybe <- getLeaders siEpoch
     case leadersMaybe of
+        -- If we don't know leaders, we can't do anything.
         Nothing -> logWarning "Leaders are not known for new slot"
+        -- If we know leaders, we check whether we are leader and
+        -- create a new block if we are.
         Just leaders -> do
             let logLeadersF = if siSlot == 0 then logInfo else logDebug
             logLeadersF (sformat ("Slot leaders: " %listJson) leaders)
@@ -71,9 +84,11 @@ onNewSlotWhenLeader slotId = do
                         VerFailure warnings -> logWarning $ sformat
                             ("New block failed some checks: "%listJson)
                             warnings
+                    sscApplyGlobalPayload =<< getGlobalMpcData
                     announceBlock $ createdBlk ^. gbHeader
             let whenNotCreated = logWarning "I couldn't create a new block"
-            maybe whenNotCreated whenCreated =<< createNewBlock sk slotId
+            sscData <- sscGetLocalPayload slotId
+            maybe whenNotCreated whenCreated =<< createNewBlock sk slotId sscData
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
 -- | All workers specific to block processing.

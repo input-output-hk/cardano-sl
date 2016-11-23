@@ -38,6 +38,7 @@ import           Pos.DHT                  (DHTResponseT, MonadDHT, MonadMessageD
                                            WithDefaultMsgHeader)
 import           Pos.DHT.Real             (KademliaDHT)
 import           Pos.Slotting             (MonadSlots (..))
+import           Pos.Ssc.Class.LocalData  (MonadSscLD (..))
 import           Pos.State                (MonadDB)
 import           Pos.Statistics.StatEntry (StatLabel (..))
 import           Pos.Types                (Timestamp (..))
@@ -102,6 +103,9 @@ instance MonadResponse m => MonadResponse (NoStatsT m) where
     closeR = lift closeR
     peerAddr = lift peerAddr
 
+instance MonadSscLD ssc m => MonadSscLD ssc (NoStatsT m) where
+    getLocalData = lift getLocalData
+    setLocalData = lift . setLocalData
 
 instance MonadTrans NoStatsT where
     lift = NoStatsT
@@ -130,6 +134,10 @@ instance MonadResponse m => MonadResponse (StatsT m) where
     replyRaw dat = StatsT $ replyRaw (hoist getStatsT dat)
     closeR = lift closeR
     peerAddr = lift peerAddr
+
+instance MonadSscLD ssc m => MonadSscLD ssc (StatsT m) where
+    getLocalData = lift getLocalData
+    setLocalData = lift . setLocalData
 
 instance MonadTrans StatsT where
     lift = StatsT

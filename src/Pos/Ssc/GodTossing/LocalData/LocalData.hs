@@ -8,7 +8,8 @@
 
 module Pos.Ssc.GodTossing.LocalData.LocalData
        (
-         sscIsDataUseful
+         localOnNewSlot
+       , sscIsDataUseful
        , sscProcessMessage
          -- * Instances
          -- ** instance SscLocalDataClass SscGodTossing
@@ -52,14 +53,19 @@ instance SscLocalDataClass SscGodTossing where
     sscEmptyLocalData = def
     sscGetLocalPayloadQ = getLocalPayload
     sscApplyGlobalPayloadU = applyGlobal
-    sscProcessNewSlotU = processNewSlot
 
 ----------------------------------------------------------------------------
 -- Process New Slot
 ----------------------------------------------------------------------------
--- Should be executed before doing any updates within given slot.
-processNewSlot :: SlotId -> LDUpdate ()
-processNewSlot si@SlotId {siSlot = slotIdx} = do
+
+-- | Clean-up some data when new slot starts.
+localOnNewSlot
+    :: MonadSscLD SscGodTossing m
+    => SlotId -> m ()
+localOnNewSlot = sscRunLocalUpdate . localOnNewSlotU
+
+localOnNewSlotU :: SlotId -> LDUpdate ()
+localOnNewSlotU si@SlotId {siSlot = slotIdx} = do
     when (slotIdx == 0) $ do
         gtGlobalCommitments .= mempty
         gtGlobalOpenings    .= mempty

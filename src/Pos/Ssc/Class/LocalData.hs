@@ -22,7 +22,6 @@ module Pos.Ssc.Class.LocalData
        , sscRunLocalUpdate
        , sscGetLocalPayload
        , sscApplyGlobalPayload
-       , sscProcessNewSlot
        ) where
 
 import           Control.Lens        (Lens')
@@ -53,7 +52,6 @@ class Ssc ssc => SscLocalDataClass ssc where
     sscEmptyLocalData :: SscLocalData ssc
     sscGetLocalPayloadQ :: SlotId -> LocalQuery ssc (SscPayload ssc)
     sscApplyGlobalPayloadU :: SscPayload ssc -> LocalUpdate ssc ()
-    sscProcessNewSlotU :: SlotId -> LocalUpdate ssc ()
 
 sscRunLocalQuery
     :: forall ssc m a.
@@ -79,9 +77,3 @@ sscApplyGlobalPayload
        (MonadSscLD ssc m, SscLocalDataClass ssc)
     => SscPayload ssc -> m ()
 sscApplyGlobalPayload = sscRunLocalUpdate . sscApplyGlobalPayloadU @ssc
-
-sscProcessNewSlot
-    :: forall ssc m.
-       (MonadSscLD ssc m, SscLocalDataClass ssc)
-    => SlotId -> m ()
-sscProcessNewSlot = sscRunLocalUpdate . sscProcessNewSlotU @ssc

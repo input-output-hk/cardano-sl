@@ -34,7 +34,8 @@ import           Pos.Ssc.GodTossing.Functions            (genCommitmentAndOpenin
                                                           hasShares, isCommitmentIdx,
                                                           isOpeningIdx, isSharesIdx,
                                                           mkSignedCommitment)
-import           Pos.Ssc.GodTossing.LocalData.LocalData    (sscProcessMessage)
+import           Pos.Ssc.GodTossing.LocalData.LocalData  (localOnNewSlot,
+                                                          sscProcessMessage)
 import           Pos.Ssc.GodTossing.Types.Base           (Opening, SignedCommitment)
 import           Pos.Ssc.GodTossing.Types.Instance       ()
 import           Pos.Ssc.GodTossing.Types.Message        (InvMsg (..), MsgTag (..))
@@ -57,6 +58,7 @@ instance SscWorkersClass SscGodTossing where
 
 onNewSlot :: WorkMode SscGodTossing m => SlotId -> m ()
 onNewSlot slotId = do
+    localOnNewSlot slotId
     prepareTokenToNewSlot slotId
     onNewSlotCommitment slotId
     onNewSlotOpening slotId

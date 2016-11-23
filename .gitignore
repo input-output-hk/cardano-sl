@@ -39,3 +39,4 @@ stats-node-*
 *.json
 *.ipynb
 testRun
+*.csv

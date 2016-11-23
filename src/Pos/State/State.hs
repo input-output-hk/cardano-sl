@@ -20,6 +20,7 @@ module Pos.State.State
 
        -- * Simple getters.
        , getBlock
+       , getBlockByDepth
        , getHeadBlock
        , getBestChain
        , getLeaders
@@ -148,6 +149,10 @@ getLeaders = queryDisk . A.GetLeaders
 -- | Get Block by hash.
 getBlock :: QUConstraint ssc m => HeaderHash ssc -> m (Maybe (Block ssc))
 getBlock = queryDisk . A.GetBlock
+
+-- | Get Block by depth
+getBlockByDepth :: QUConstraint ssc m => Word -> m (Maybe (Block ssc))
+getBlockByDepth = queryDisk . A.GetBlockByDepth
 
 -- | Get block which is the head of the __best chain__.
 getHeadBlock :: QUConstraint ssc m => m (Block ssc)

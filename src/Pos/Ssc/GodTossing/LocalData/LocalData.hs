@@ -18,7 +18,7 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
 import           Control.Lens                       (at, use, view, (%=), (.=))
 import           Control.Lens                       (Getter)
 import           Data.Containers                    (ContainerKey,
-                                                     SetContainer (member, notMember))
+                                                     SetContainer (notMember))
 import           Data.Default                       (Default (def))
 import qualified Data.HashMap.Strict                as HM
 import qualified Data.HashSet                       as HS
@@ -204,8 +204,8 @@ processVssCertificate pk c = do
 ----------------------------------------------------------------------------
 -- Apply Global State
 ----------------------------------------------------------------------------
-applyGlobal :: SlotId -> GtPayload -> LDUpdate ()
-applyGlobal slotId globalData = do
+applyGlobal :: GtPayload -> LDUpdate ()
+applyGlobal globalData = do
     let
         globalCommitments = _mdCommitments globalData
         globalOpenings = _mdOpenings globalData
@@ -216,6 +216,7 @@ applyGlobal slotId globalData = do
     gtLocalShares  %= (`diffDoubleMap` globalShares)
     gtLocalCertificates  %= (`HM.difference` globalCert)
 
+    slotId <- use gtLastProcessedSlot
     if inLastKSlotsId slotId then clearGlobalState
     else do
         gtGlobalCommitments .= globalCommitments `HM.difference` globalOpenings

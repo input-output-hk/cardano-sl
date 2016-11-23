@@ -95,8 +95,7 @@ sscIsDataUseful tag = sscRunLocalQuery . sscIsDataUsefulQ tag
 sscIsDataUsefulQ :: MsgTag -> PublicKey -> LDQuery Bool
 sscIsDataUsefulQ CommitmentMsg =
     sscIsDataUsefulImpl gtLocalCommitments gtGlobalCommitments
-sscIsDataUsefulQ OpeningMsg =
-    sscIsDataUsefulImpl gtLocalOpenings gtGlobalOpenings
+sscIsDataUsefulQ OpeningMsg = sscIsOpeningsUsefulQ
 sscIsDataUsefulQ SharesMsg = sscIsSharesUsefulQ
 sscIsDataUsefulQ VssCertificateMsg =
     sscIsDataUsefulImpl gtLocalCertificates gtGlobalCertificates
@@ -107,6 +106,14 @@ sscIsSharesUsefulQ pk =
     sequence
         [ (HM.member pk <$> view gtGlobalShares)
         , (HM.member pk <$> view gtLocalShares)
+        ]
+
+sscIsOpeningsUsefulQ :: PublicKey -> LDQuery Bool
+sscIsOpeningsUsefulQ pk =
+    not . or <$>
+    sequence
+        [ (HS.member pk <$> view gtGlobalOpenings)
+        , (HM.member pk <$> view gtLocalOpenings)
         ]
 
 type MapGetter a = Getter GtLocalData (HashMap PublicKey a)
@@ -160,10 +167,8 @@ processOpening pk o = do
 -- in opening processing.
 checkOpeningAbsence :: PublicKey -> LDQuery Bool
 checkOpeningAbsence pk =
-    (&&) <$> (notMember <$> view gtGlobalOpenings) <*>
-             (notMember <$> view gtLocalOpenings)
-  where
-    notMember = not . HM.member pk
+    (&&) <$> (not . HS.member pk <$> view gtGlobalOpenings) <*>
+             (not . HM.member pk <$> view gtLocalOpenings)
 
 -- Match opening to commitment from globalCommitments
 matchOpening :: PublicKey -> Opening -> LDQuery Bool
@@ -221,7 +226,7 @@ applyGlobal slotId globalData = do
     if inLastKSlotsId slotId then clearGlobalState
     else do
         gtGlobalCommitments .= globalCommitments `HM.difference` globalOpenings
-        gtGlobalOpenings .= globalOpenings
+        gtGlobalOpenings .= getKeys globalOpenings
         gtGlobalShares .= HM.map getKeys globalShares
         gtGlobalCertificates .= globalCert
 

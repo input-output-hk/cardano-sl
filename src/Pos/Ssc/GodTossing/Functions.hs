@@ -35,6 +35,7 @@ module Pos.Ssc.GodTossing.Functions
 
 import           Control.Lens                   ((^.))
 import qualified Data.HashMap.Strict            as HM
+import qualified Data.HashSet                   as HS
 import           Data.Ix                        (inRange)
 import           Data.List.NonEmpty             (NonEmpty (..))
 import           Pos.Constants                  (k)
@@ -46,9 +47,8 @@ import           Pos.Crypto                     (PublicKey, Secret, SecretKey,
                                                  verifySecretProof, verifyShare)
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap,
-                                                 Opening (..), OpeningsMap,
-                                                 SignedCommitment, VssCertificate,
-                                                 VssCertificatesMap)
+                                                 Opening (..), PKSet, SignedCommitment,
+                                                 VssCertificate, VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Types (GtPayload (..))
 import           Pos.Types.Types                (EpochIndex, LocalSlotIndex,
                                                  MainBlockHeader, SharedSeed (..),
@@ -158,14 +158,14 @@ checkCert (pk, cert) = verify pk (signedValue cert) (signedSig cert)
 -- commitment
 checkShare
     :: CommitmentsMap
-    -> OpeningsMap
+    -> PKSet
     -> VssCertificatesMap
     -> (PublicKey, PublicKey, Share)
     -> Bool
 checkShare globalCommitments globalOpenings globalCertificates (pkTo, pkFrom, share) =
     fromMaybe False $ do
         guard $ HM.member pkTo globalCommitments
-        guard $ isNothing $ HM.lookup pkFrom globalOpenings
+        guard $ not $ HS.member pkFrom globalOpenings
         (comm, _) <- HM.lookup pkFrom globalCommitments
         vssKey <- signedValue <$> HM.lookup pkTo globalCertificates
         encShare <- HM.lookup vssKey (commShares comm)
@@ -174,7 +174,7 @@ checkShare globalCommitments globalOpenings globalCertificates (pkTo, pkFrom, sh
 -- Apply checkShare to all shares in map.
 checkShares
     :: CommitmentsMap
-    -> OpeningsMap
+    -> PKSet --Should we add phantom type for more typesafety?
     -> VssCertificatesMap
     -> PublicKey
     -> HashMap PublicKey Share

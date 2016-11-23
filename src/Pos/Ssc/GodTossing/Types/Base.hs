@@ -15,6 +15,7 @@ module Pos.Ssc.GodTossing.Types.Base
        , SharesMap
        , VssCertificate
        , VssCertificatesMap
+       , PKSet
        ) where
 
 
@@ -32,6 +33,7 @@ import           Pos.Types.Types     (EpochIndex)
 ----------------------------------------------------------------------------
 -- Types, instances
 ----------------------------------------------------------------------------
+type PKSet = HashSet PublicKey
 
 -- | Commitment is a message generated during the first stage of
 -- MPC. It contains encrypted shares and proof of secret.

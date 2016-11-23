@@ -14,11 +14,13 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
          -- ** instance SscLocalDataClass SscGodTossing
        ) where
 
+import           Control.Lens                       (at, use, view, (%=), (.=))
+import           Control.Lens                       (Getter)
 import           Data.Default                       (Default (def))
+import qualified Data.HashMap.Strict                as HM
+import           Serokell.Util.Verify               (isVerSuccess)
 import           Universum
 
-import           Control.Lens                       (at, use, view, (%=), (.=))
-import qualified Data.HashMap.Strict                as HM
 import           Pos.Crypto                         (PublicKey, Share)
 import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate, MonadSscLD,
                                                      SscLocalDataClass (..),
@@ -27,7 +29,7 @@ import           Pos.Ssc.GodTossing.Functions       (checkOpening, checkShares,
                                                      isCommitmentIdx, isOpeningIdx,
                                                      isSharesIdx, verifySignedCommitment)
 import           Pos.Ssc.GodTossing.Functions       (filterGtPayload)
-import           Pos.Ssc.GodTossing.LocalData.Types (gtGlobalCertificates,
+import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData, gtGlobalCertificates,
                                                      gtGlobalCommitments,
                                                      gtGlobalOpenings, gtGlobalShares,
                                                      gtLastProcessedSlot,
@@ -42,7 +44,6 @@ import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types     (GtPayload (..))
 import           Pos.Types                          (SlotId (..))
 import           Pos.Util                           (diffDoubleMap, readerToState)
-import           Serokell.Util.Verify               (isVerSuccess)
 
 type LDQuery a = LocalQuery SscGodTossing a
 type LDUpdate a = LocalUpdate SscGodTossing a
@@ -80,29 +81,23 @@ sscIsDataUseful
 sscIsDataUseful tag = sscRunLocalQuery . sscIsDataUsefulQ tag
 
 sscIsDataUsefulQ :: MsgTag -> PublicKey -> LDQuery Bool
-sscIsDataUsefulQ CommitmentMsg pk =
+sscIsDataUsefulQ CommitmentMsg =
+    sscIsDataUsefulImpl gtLocalCommitments gtGlobalCommitments
+sscIsDataUsefulQ OpeningMsg =
+    sscIsDataUsefulImpl gtLocalOpenings gtGlobalOpenings
+sscIsDataUsefulQ SharesMsg  =
+    sscIsDataUsefulImpl gtLocalShares gtGlobalShares
+sscIsDataUsefulQ VssCertificateMsg =
+    sscIsDataUsefulImpl gtLocalCertificates gtGlobalCertificates
+
+type MapGetter a = Getter GtLocalData (HashMap PublicKey a)
+
+sscIsDataUsefulImpl :: MapGetter a -> MapGetter a -> PublicKey -> LDQuery Bool
+sscIsDataUsefulImpl localG globalG pk =
     not . or <$>
     sequence
-        [ (HM.member pk <$> view gtLocalCommitments)
-        , (HM.member pk <$> view gtGlobalCommitments)
-        ]
-sscIsDataUsefulQ OpeningMsg pk =
-    not . or <$>
-    sequence
-        [ (HM.member pk <$> view gtLocalOpenings)
-        , (HM.member pk <$> view gtGlobalOpenings)
-        ]
-sscIsDataUsefulQ SharesMsg pk =
-    not . or <$>
-    sequence
-        [ (HM.member pk <$> view gtLocalShares)
-        , (HM.member pk <$> view gtGlobalShares)
-        ]
-sscIsDataUsefulQ VssCertificateMsg pk =
-    not . or <$>
-    sequence
-        [ (HM.member pk <$> view gtLocalCertificates)
-        , (HM.member pk <$> view gtGlobalCertificates)
+        [ (HM.member pk <$> view globalG)
+        , (HM.member pk <$> view localG)
         ]
 
 ----------------------------------------------------------------------------

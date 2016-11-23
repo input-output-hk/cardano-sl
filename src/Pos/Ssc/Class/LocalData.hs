@@ -42,7 +42,7 @@ class HasSscLocalData ssc a where
 instance (SscLocalData ssc ~ a) => HasSscLocalData ssc a where
     sscLocalData = identity
 
-class Monad m => MonadSscLD ssc m | m -> ssc where
+class MonadIO m => MonadSscLD ssc m | m -> ssc where
     getLocalData :: m (SscLocalData ssc)
     setLocalData :: SscLocalData ssc -> m ()
 

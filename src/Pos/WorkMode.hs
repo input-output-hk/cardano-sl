@@ -44,7 +44,8 @@ import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow, catchAll)
 import           Control.Monad.Except        (ExceptT)
 import           Control.Monad.Morph         (hoist)
-import           Control.Monad.State         (StateT (StateT), get, put)
+import           Control.Monad.Reader        (ReaderT (ReaderT), ask)
+import           Control.Monad.State         (StateT)
 import           Control.Monad.Trans.Class   (MonadTrans)
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
@@ -54,6 +55,7 @@ import           Control.TimeWarp.Rpc        (BinaryP, Dialog, MonadDialog,
                                               MonadResponse (..), MonadTransfer (..),
                                               Transfer, hoistRespCond)
 import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
+import           Data.IORef                  (IORef, newIORef, readIORef, writeIORef)
 import           Formatting                  (sformat, shown, (%))
 import           System.Wlog                 (WithNamedLogger (..), logWarning)
 import           Universum
@@ -111,49 +113,72 @@ instance (Monad m, MonadSscLD ssc m) =>
     setLocalData = lift . setLocalData
 
 newtype SscLDImpl ssc m a = SscLDImpl
-    { getSscLDImpl :: StateT (SscLocalData ssc) m a
+    -- { getSscLDImpl :: StateT (SscLocalData ssc) m a
+    { getSscLDImpl :: ReaderT (IORef (SscLocalData ssc)) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
                 MonadCatch, MonadIO, WithNamedLogger, MonadDialog p, WithNodeContext, MonadJL,
                 MonadDB ssc)
 
-
--- TODO: refactor!
 instance MonadMask m =>
          MonadMask (SscLDImpl ssc m) where
     mask a =
-        SscLDImpl . StateT $
-        \s -> mask $ \u -> runStateT (getSscLDImpl $ a $ q u) s
+        SscLDImpl . ReaderT $
+        \s -> mask $ \u -> runReaderT (getSscLDImpl $ a $ q u) s
       where
         q
-            :: (m (a, SscLocalData ssc) -> m (a, SscLocalData ssc))
+            :: (m a -> m a)
             -> SscLDImpl ssc m a
             -> SscLDImpl ssc m a
-        q u (SscLDImpl (StateT b)) = SscLDImpl (StateT (u . b))
+        q u (SscLDImpl (ReaderT b)) = SscLDImpl (ReaderT (u . b))
     uninterruptibleMask a =
-        SscLDImpl . StateT $
-        \s -> uninterruptibleMask $ \u -> runStateT (getSscLDImpl $ a $ q u) s
+        SscLDImpl . ReaderT $
+        \s -> uninterruptibleMask $ \u -> runReaderT (getSscLDImpl $ a $ q u) s
       where
         q
-            :: (m (a, SscLocalData ssc) -> m (a, SscLocalData ssc))
+            :: (m a -> m a)
             -> SscLDImpl ssc m a
             -> SscLDImpl ssc m a
-        q u (SscLDImpl (StateT b)) = SscLDImpl (StateT (u . b))
+        q u (SscLDImpl (ReaderT b)) = SscLDImpl (ReaderT (u . b))
 
-instance Monad m => MonadSscLD ssc (SscLDImpl ssc m) where
-    getLocalData = SscLDImpl get
-    setLocalData d = SscLDImpl (put d)
+-- TODO: refactor!
+-- instance MonadMask m =>
+--          MonadMask (SscLDImpl ssc m) where
+--     mask a =
+--         SscLDImpl . StateT $
+--         \s -> mask $ \u -> runStateT (getSscLDImpl $ a $ q u) s
+--       where
+--         q
+--             :: (m (a, SscLocalData ssc) -> m (a, SscLocalData ssc))
+--             -> SscLDImpl ssc m a
+--             -> SscLDImpl ssc m a
+--         q u (SscLDImpl (StateT b)) = SscLDImpl (StateT (u . b))
+--     uninterruptibleMask a =
+--         SscLDImpl . StateT $
+--         \s -> uninterruptibleMask $ \u -> runStateT (getSscLDImpl $ a $ q u) s
+--       where
+--         q
+--             :: (m (a, SscLocalData ssc) -> m (a, SscLocalData ssc))
+--             -> SscLDImpl ssc m a
+--             -> SscLDImpl ssc m a
+--         q u (SscLDImpl (StateT b)) = SscLDImpl (StateT (u . b))
+
+instance MonadIO m => MonadSscLD ssc (SscLDImpl ssc m) where
+    getLocalData = liftIO . readIORef =<< SscLDImpl ask
+    setLocalData d = (liftIO . flip writeIORef d) =<< SscLDImpl ask
 
 runSscLDImpl
     :: forall ssc m a.
-       (Monad m, SscLocalDataClass ssc)
+       (MonadIO m, SscLocalDataClass ssc)
     => SscLDImpl ssc m a -> m a
-runSscLDImpl = flip evalStateT (sscEmptyLocalData @ssc) . getSscLDImpl @ssc
+runSscLDImpl action = do
+  ref <- liftIO $ newIORef (sscEmptyLocalData @ssc)
+  flip runReaderT ref . getSscLDImpl @ssc $ action
 
 instance MonadBase IO m => MonadBase IO (SscLDImpl ssc m) where
     liftBase = lift . liftBase
 
 instance MonadTransControl (SscLDImpl ssc) where
-    type StT (SscLDImpl ssc) a = StT (StateT (SscLocalData ssc)) a
+    type StT (SscLDImpl ssc) a = StT (ReaderT (IORef (SscLocalData ssc))) a
     liftWith = defaultLiftWith SscLDImpl getSscLDImpl
     restoreT = defaultRestoreT SscLDImpl
 
@@ -167,10 +192,10 @@ type instance ThreadId (SscLDImpl ssc m) = ThreadId m
 instance MonadTransfer m =>
          MonadTransfer (SscLDImpl ssc m) where
     sendRaw addr req =
-        SscLDImpl get >>=
+        SscLDImpl ask >>=
         \ctx ->
              lift $
-             sendRaw addr (hoist (flip evalStateT ctx . getSscLDImpl) req)
+             sendRaw addr (hoist (flip runReaderT ctx . getSscLDImpl) req)
     listenRaw binding sink =
         SscLDImpl $
         fmap SscLDImpl $ listenRaw binding $ hoistRespCond getSscLDImpl sink

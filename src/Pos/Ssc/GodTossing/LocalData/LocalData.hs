@@ -27,9 +27,9 @@ import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate, Mo
                                                      SscLocalDataClass (..),
                                                      sscRunLocalQuery, sscRunLocalUpdate)
 import           Pos.Ssc.GodTossing.Functions       (checkOpeningMatchesCommitment,
-                                                     checkShares, isCommitmentIdx,
-                                                     isOpeningIdx, isSharesIdx,
-                                                     verifySignedCommitment)
+                                                     checkShares, inLastKSlotsId,
+                                                     isCommitmentIdx, isOpeningIdx,
+                                                     isSharesIdx, verifySignedCommitment)
 import           Pos.Ssc.GodTossing.Functions       (filterGtPayload)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData, gtGlobalCertificates,
                                                      gtGlobalCommitments,
@@ -58,6 +58,12 @@ instance SscLocalDataClass SscGodTossing where
 ----------------------------------------------------------------------------
 -- Process New Slot
 ----------------------------------------------------------------------------
+clearGlobalState :: LDUpdate ()
+clearGlobalState = do
+    gtGlobalCommitments  .= mempty
+    gtGlobalOpenings     .= mempty
+    gtGlobalShares       .= mempty
+    gtGlobalCertificates .= mempty -- TODO is it correct7
 
 -- | Clean-up some data when new slot starts.
 localOnNewSlot
@@ -67,10 +73,7 @@ localOnNewSlot = sscRunLocalUpdate . localOnNewSlotU
 
 localOnNewSlotU :: SlotId -> LDUpdate ()
 localOnNewSlotU si@SlotId {siSlot = slotIdx} = do
-    when (slotIdx == 0) $ do
-        gtGlobalCommitments .= mempty
-        gtGlobalOpenings    .= mempty
-        gtGlobalShares      .= mempty
+    when (slotIdx == 0) clearGlobalState
     unless (isCommitmentIdx slotIdx) $ gtLocalCommitments .= mempty
     unless (isOpeningIdx slotIdx) $ gtLocalOpenings .= mempty
     unless (isSharesIdx slotIdx) $ gtLocalShares .= mempty
@@ -175,7 +178,7 @@ processShares pk s
                 let newLocalShares = localSharesForPk `HM.union` s'
                 -- Note: size is O(n), but union is also O(n + m), so
                 -- it doesn't matter.
-                let ok = preOk && (HM.size newLocalShares /= HM.size localSharesForPk)
+                let ok = preOk && (not . null $ s') --not null s' - if we added some new shares to local shares
                 ok <$ (when ok $ gtLocalShares . at pk .= Just newLocalShares)
         mpcProcessSharesDo
 
@@ -194,22 +197,24 @@ processVssCertificate pk c = do
 ----------------------------------------------------------------------------
 -- Apply Global State
 ----------------------------------------------------------------------------
-applyGlobal :: GtPayload -> LDUpdate ()
-applyGlobal payload = do
+applyGlobal :: SlotId -> GtPayload -> LDUpdate ()
+applyGlobal slotId globalData = do
     let
-        payloadCommitments = _mdCommitments payload
-        payloadOpenings = _mdOpenings payload
-        payloadShares = _mdShares payload
-        payloadCert = _mdVssCertificates payload
-    gtLocalCommitments  %= (`HM.difference` payloadCommitments)
-    gtLocalOpenings  %= (`HM.difference` payloadOpenings)
-    gtLocalShares  %= (`diffDoubleMap` payloadShares)
-    gtLocalCertificates  %= (`HM.difference` payloadCert)
+        globalCommitments = _mdCommitments globalData
+        globalOpenings = _mdOpenings globalData
+        globalShares = _mdShares globalData
+        globalCert = _mdVssCertificates globalData
+    gtLocalCommitments  %= (`HM.difference` globalCommitments)
+    gtLocalOpenings  %= (`HM.difference` globalOpenings)
+    gtLocalShares  %= (`diffDoubleMap` globalShares)
+    gtLocalCertificates  %= (`HM.difference` globalCert)
 
-    gtGlobalCommitments .= payloadCommitments `HM.difference` payloadOpenings
-    gtGlobalOpenings .= payloadOpenings
-    gtGlobalShares .= payloadShares
-    gtGlobalCertificates .= payloadCert
+    if inLastKSlotsId slotId then clearGlobalState
+    else do
+        gtGlobalCommitments .= globalCommitments `HM.difference` globalOpenings
+        gtGlobalOpenings .= globalOpenings
+        gtGlobalShares .= globalShares
+        gtGlobalCertificates .= globalCert
 
 ----------------------------------------------------------------------------
 -- Get Local Payload

@@ -59,7 +59,7 @@ class Ssc ssc => SscLocalDataClass ssc where
     sscGetLocalPayloadQ :: SlotId -> LocalQuery ssc (SscPayload ssc)
     -- | Update LocalData using global data from blocks (last version
     -- of best known chain).
-    sscApplyGlobalPayloadU :: SscPayload ssc -> LocalUpdate ssc ()
+    sscApplyGlobalPayloadU :: SlotId -> SscPayload ssc -> LocalUpdate ssc ()
 
 -- | Convenient wrapper to run LocalQuery in MonadSscLD.
 sscRunLocalQuery
@@ -85,5 +85,5 @@ sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 sscApplyGlobalPayload
     :: forall ssc m.
        (MonadSscLD ssc m, SscLocalDataClass ssc)
-    => SscPayload ssc -> m ()
-sscApplyGlobalPayload = sscRunLocalUpdate . sscApplyGlobalPayloadU @ssc
+    => SlotId -> SscPayload ssc -> m ()
+sscApplyGlobalPayload slotId = sscRunLocalUpdate . sscApplyGlobalPayloadU @ssc slotId

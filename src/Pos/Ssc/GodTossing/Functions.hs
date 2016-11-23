@@ -11,6 +11,7 @@ module Pos.Ssc.GodTossing.Functions
        , isOpeningIdx
        , isSharesId
        , isSharesIdx
+       , inLastKSlotsId
        , hasCommitment
        , hasOpening
        , hasShares
@@ -102,6 +103,9 @@ isOpeningId = isOpeningIdx . siSlot
 
 isSharesId :: SlotId -> Bool
 isSharesId = isSharesIdx . siSlot
+
+inLastKSlotsId :: SlotId -> Bool
+inLastKSlotsId SlotId{..} = siSlot >= 5 * k
 
 hasCommitment :: PublicKey -> GtPayload -> Bool
 hasCommitment pk = HM.member pk . _mdCommitments

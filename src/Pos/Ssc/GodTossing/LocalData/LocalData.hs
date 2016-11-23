@@ -109,6 +109,9 @@ sscIsDataUsefulImpl localG globalG pk =
 ----------------------------------------------------------------------------
 -- Ssc Process Message
 ----------------------------------------------------------------------------
+
+-- | Process message and save it if needed. Result is whether message
+-- has been actually added.
 sscProcessMessage ::
        MonadSscLD SscGodTossing m
     => DataMsg -> m Bool

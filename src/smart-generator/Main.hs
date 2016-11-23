@@ -6,6 +6,7 @@ module Main where
 
 import           Control.Lens           ((^.))
 import           Control.Monad          (when)
+import           Control.TimeWarp.Rpc   (NetworkAddress)
 import           Control.TimeWarp.Timed (for, fork_, ms, repeatForever, sec, wait)
 import           Data.Aeson             (encode)
 import           Data.Array.IO          (IOArray)
@@ -299,6 +300,21 @@ realListeners :: RealModeSscConstraint ssc => NodeParams -> [ListenerDHT (RealMo
 realListeners params = addDevListeners params noStatsListeners
   where noStatsListeners = map (mapListenerDHT getNoStatsT) allListeners
 
+-- | Resend initTx with `slotDuration` period until it's verified
+seedInitTx :: forall ssc . RealModeSscConstraint ssc
+           => BambooPool -> Tx -> [NetworkAddress] -> ProductionMode ssc ()
+seedInitTx bp initTx na = do
+    logInfo "Issuing seed transaction"
+    submitTxRaw na initTx
+    logInfo "Waiting for 1 slot before resending..."
+    wait $ for slotDuration
+    -- If next tx is present in utxo, then everything is all right
+    tx <- liftIO $ peekTx bp
+    isVer <- isTxVerified tx
+    if isVer
+        then pure ()
+        else seedInitTx bp initTx na
+
 runSmartGen :: forall ssc . RealModeSscConstraint ssc
             => KademliaDHTInstance -> NodeParams -> GenOptions -> IO ()
 runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
@@ -331,10 +347,8 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
              then take 1 na'
              else na'
 
-    logInfo "Issuing seed transaction"
-    submitTxRaw na initTx
-    logInfo "Waiting for verifying period..."
-    wait $ for $ fromIntegral (k + goPropThreshold) * slotDuration
+    -- Seeding init tx
+    seedInitTx bambooPool initTx na
 
     tpsTable <- forM (zip [1..] goTPSs) $ \(roundNum :: Int, goTPS) -> do
         logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)

@@ -347,6 +347,11 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         beginT <- getPosixMs
         resMap <- foldM
             (\curmap (idx :: Int) -> do
+                preStartT <- getPosixMs
+                -- prevent periods longer than we expected
+                if preStartT - beginT > round (goRoundDuration * 1000)
+                then pure curmap
+                else do
                     transaction <- nextValidTx bambooPool tpsDelta
                     let curTxId = hash transaction
 
@@ -467,4 +472,3 @@ main = do
                               runSmartGen @SscGodTossing inst params opts
             NistBeaconAlgo -> putText "Using NIST beacon" *>
                               runSmartGen @SscNistBeacon inst params opts
-

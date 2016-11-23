@@ -61,7 +61,7 @@ import           Pos.Types                         (Address (getAddress), Block,
                                                     EpochIndex, SlotId (..), SlotLeaders,
                                                     Utxo, blockMpc, blockSlot, blockSlot,
                                                     gbHeader, txOutAddress)
-import           Pos.Util                          (getKeys, magnify', readerToState,
+import           Pos.Util                          (magnify', readerToState,
                                                     zoom', _neHead)
 
 -- acid-state requires this instance because of a bug
@@ -233,7 +233,7 @@ mpcVerifyBlock (Right b) = magnify' lastVer $ do
             -- shares into multiple messages.
             , (null (shares `HM.intersection` globalShares),
                    "some shares have already been sent")
-            , (all (uncurry (checkShares globalCommitments (getKeys globalOpenings)
+            , (all (uncurry (checkShares globalCommitments globalOpenings
                              globalCertificates)) $
                      HM.toList shares,
                    "some decrypted shares don't match encrypted shares \

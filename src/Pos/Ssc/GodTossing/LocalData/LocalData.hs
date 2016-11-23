@@ -17,6 +17,8 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
 
 import           Control.Lens                       (at, use, view, (%=), (.=))
 import           Control.Lens                       (Getter)
+import           Data.Containers                    (ContainerKey,
+                                                     SetContainer (member, notMember))
 import           Data.Default                       (Default (def))
 import qualified Data.HashMap.Strict                as HM
 import qualified Data.HashSet                       as HS
@@ -65,7 +67,6 @@ clearGlobalState = do
     gtGlobalCommitments  .= mempty
     gtGlobalOpenings     .= mempty
     gtGlobalShares       .= mempty
-    gtGlobalCertificates .= mempty -- TODO is it correct7
 
 -- | Clean-up some data when new slot starts.
 localOnNewSlot
@@ -95,36 +96,28 @@ sscIsDataUseful tag = sscRunLocalQuery . sscIsDataUsefulQ tag
 sscIsDataUsefulQ :: MsgTag -> PublicKey -> LDQuery Bool
 sscIsDataUsefulQ CommitmentMsg =
     sscIsDataUsefulImpl gtLocalCommitments gtGlobalCommitments
-sscIsDataUsefulQ OpeningMsg = sscIsOpeningsUsefulQ
-sscIsDataUsefulQ SharesMsg = sscIsSharesUsefulQ
+sscIsDataUsefulQ OpeningMsg =
+    sscIsDataUsefulImplSet gtLocalOpenings gtGlobalOpenings
+sscIsDataUsefulQ SharesMsg =
+    sscIsDataUsefulImplSet gtLocalShares gtGlobalShares
 sscIsDataUsefulQ VssCertificateMsg =
     sscIsDataUsefulImpl gtLocalCertificates gtGlobalCertificates
 
-sscIsSharesUsefulQ :: PublicKey -> LDQuery Bool
-sscIsSharesUsefulQ pk =
-    not . or <$>
-    sequence
-        [ (HM.member pk <$> view gtGlobalShares)
-        , (HM.member pk <$> view gtLocalShares)
-        ]
-
-sscIsOpeningsUsefulQ :: PublicKey -> LDQuery Bool
-sscIsOpeningsUsefulQ pk =
-    not . or <$>
-    sequence
-        [ (HS.member pk <$> view gtGlobalOpenings)
-        , (HM.member pk <$> view gtLocalOpenings)
-        ]
-
 type MapGetter a = Getter GtLocalData (HashMap PublicKey a)
+type SetGetter set = Getter GtLocalData set
 
 sscIsDataUsefulImpl :: MapGetter a -> MapGetter a -> PublicKey -> LDQuery Bool
 sscIsDataUsefulImpl localG globalG pk =
-    not . or <$>
-    sequence
-        [ (HM.member pk <$> view globalG)
-        , (HM.member pk <$> view localG)
-        ]
+    (&&) <$>
+        (notMember pk <$> view globalG) <*>
+        (notMember pk <$> view localG)
+
+sscIsDataUsefulImplSet :: (SetContainer set, ContainerKey set ~ PublicKey)
+                       => MapGetter a -> SetGetter set -> PublicKey -> LDQuery Bool
+sscIsDataUsefulImplSet localG globalG pk =
+    (&&) <$>
+        (notMember pk <$> view localG) <*>
+        (notMember pk <$> view globalG)
 
 ----------------------------------------------------------------------------
 -- Ssc Process Message

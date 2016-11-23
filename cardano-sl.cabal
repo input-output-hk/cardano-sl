@@ -147,6 +147,7 @@ library
                       , mmorph
                       , monad-control
                       , monad-loops
+                      , mono-traversable
                       , mtl
                       , parsec
                       , pvss

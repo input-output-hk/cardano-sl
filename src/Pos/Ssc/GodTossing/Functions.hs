@@ -34,6 +34,7 @@ module Pos.Ssc.GodTossing.Functions
        ) where
 
 import           Control.Lens                   ((^.))
+import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS
 import           Data.Ix                        (inRange)
@@ -47,7 +48,7 @@ import           Pos.Crypto                     (PublicKey, Secret, SecretKey,
                                                  verifySecretProof, verifyShare)
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap,
-                                                 Opening (..), PKSet, SignedCommitment,
+                                                 Opening (..), SignedCommitment,
                                                  VssCertificate, VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Types (GtPayload (..))
 import           Pos.Types.Types                (EpochIndex, LocalSlotIndex,
@@ -156,35 +157,35 @@ checkCert (pk, cert) = verify pk (signedValue cert) (signedSig cert)
 
 -- | Check that the decrypted share matches the encrypted share in the
 -- commitment
-checkShare
-    :: CommitmentsMap
-    -> PKSet
-    -> VssCertificatesMap
-    -> (PublicKey, PublicKey, Share)
-    -> Bool
-checkShare globalCommitments globalOpenings globalCertificates (pkTo, pkFrom, share) =
+checkShare :: (SetContainer set, ContainerKey set ~ PublicKey)
+           => CommitmentsMap
+           -> set --set of opening's PK
+           -> VssCertificatesMap
+           -> (PublicKey, PublicKey, Share)
+           -> Bool
+checkShare globalCommitments globalOpeningsPK globalCertificates (pkTo, pkFrom, share) =
     fromMaybe False $ do
         guard $ HM.member pkTo globalCommitments
-        guard $ not $ HS.member pkFrom globalOpenings
+        guard $ notMember pkFrom globalOpeningsPK
         (comm, _) <- HM.lookup pkFrom globalCommitments
         vssKey <- signedValue <$> HM.lookup pkTo globalCertificates
         encShare <- HM.lookup vssKey (commShares comm)
         return $ verifyShare encShare vssKey share
 
 -- Apply checkShare to all shares in map.
-checkShares
-    :: CommitmentsMap
-    -> PKSet --Should we add phantom type for more typesafety?
-    -> VssCertificatesMap
-    -> PublicKey
-    -> HashMap PublicKey Share
-    -> Bool
-checkShares globalCommitments globalOpenings globalCertificates pkTo shares =
+checkShares :: (SetContainer set, ContainerKey set ~ PublicKey)
+            => CommitmentsMap
+            -> set --set of opening's PK. TODO Should we add phantom type for more typesafety?
+            -> VssCertificatesMap
+            -> PublicKey
+            -> HashMap PublicKey Share
+            -> Bool
+checkShares globalCommitments globalOpeningsPK globalCertificates pkTo shares =
     let listShares :: [(PublicKey, PublicKey, Share)]
         listShares = map convert $ HM.toList shares
         convert (pkFrom, share) = (pkTo, pkFrom, share)
     in all
-           (checkShare globalCommitments globalOpenings globalCertificates)
+           (checkShare globalCommitments globalOpeningsPK globalCertificates)
            listShares
 
 -- | Check that the secret revealed in the opening matches the secret proof

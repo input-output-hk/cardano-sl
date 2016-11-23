@@ -249,7 +249,8 @@ processBlockFinally toRollback blocks = do
     _ <- createGenesisBlock knownEpoch
     return $ PBRgood (toRollback, blocks)
 
--- | Do all necessary changes when new slot starts.
+-- | Do all necessary changes when new slot starts.  Specifically this
+-- function creates genesis block if necessary and does some clean-up.
 processNewSlot
     :: forall ssc.
        (SscStorageClass ssc)
@@ -290,10 +291,7 @@ createGenesisBlock
     :: forall ssc.
        SscStorageClass ssc
     => EpochIndex -> Update ssc (Maybe (GenesisBlock ssc))
-createGenesisBlock epoch = do
-    --readerToState getHeadSlot >>= \hs ->
-    --  identity $! traceM $ "[~~~~~~] createGenesisBlock: epoch="
-    --                       <> pretty epoch <> ", headSlot=" <> pretty (either (`SlotId` 0) identity hs)
+createGenesisBlock epoch =
     ifM (readerToState $ shouldCreateGenesisBlock epoch)
         (Just <$> createGenesisBlockDo epoch)
         (pure Nothing)

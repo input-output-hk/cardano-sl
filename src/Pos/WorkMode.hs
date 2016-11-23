@@ -113,12 +113,12 @@ instance (Monad m, MonadSscLD ssc m) =>
     setLocalData = lift . setLocalData
 
 newtype SscLDImpl ssc m a = SscLDImpl
-    -- { getSscLDImpl :: StateT (SscLocalData ssc) m a
     { getSscLDImpl :: ReaderT (IORef (SscLocalData ssc)) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
                 MonadCatch, MonadIO, WithNamedLogger, MonadDialog p, WithNodeContext, MonadJL,
                 MonadDB ssc)
 
+-- TODO: refactor!
 instance MonadMask m =>
          MonadMask (SscLDImpl ssc m) where
     mask a =
@@ -139,28 +139,6 @@ instance MonadMask m =>
             -> SscLDImpl ssc m a
             -> SscLDImpl ssc m a
         q u (SscLDImpl (ReaderT b)) = SscLDImpl (ReaderT (u . b))
-
--- TODO: refactor!
--- instance MonadMask m =>
---          MonadMask (SscLDImpl ssc m) where
---     mask a =
---         SscLDImpl . StateT $
---         \s -> mask $ \u -> runStateT (getSscLDImpl $ a $ q u) s
---       where
---         q
---             :: (m (a, SscLocalData ssc) -> m (a, SscLocalData ssc))
---             -> SscLDImpl ssc m a
---             -> SscLDImpl ssc m a
---         q u (SscLDImpl (StateT b)) = SscLDImpl (StateT (u . b))
---     uninterruptibleMask a =
---         SscLDImpl . StateT $
---         \s -> uninterruptibleMask $ \u -> runStateT (getSscLDImpl $ a $ q u) s
---       where
---         q
---             :: (m (a, SscLocalData ssc) -> m (a, SscLocalData ssc))
---             -> SscLDImpl ssc m a
---             -> SscLDImpl ssc m a
---         q u (SscLDImpl (StateT b)) = SscLDImpl (StateT (u . b))
 
 instance MonadIO m => MonadSscLD ssc (SscLDImpl ssc m) where
     getLocalData = liftIO . readIORef =<< SscLDImpl ask

@@ -19,6 +19,7 @@ module Pos.Util
        , eitherPanic
        , inAssertMode
        , diffDoubleMap
+       , getKeys
 
        -- * Msgpack
        , msgpackFail
@@ -92,6 +93,7 @@ import           System.Wlog                   (WithNamedLogger, logWarning)
 import           Universum
 import           Unsafe                        (unsafeInit, unsafeLast)
 
+import           Data.HashSet                  (fromMap)
 import           Pos.Crypto.Random             (randomNumber)
 import           Pos.Util.Arbitrary
 import           Pos.Util.NotImplemented       ()
@@ -378,3 +380,7 @@ instance (Ord k, SafeCopy k, SafeCopy v) =>
         do safePut $ LRU.maxSize lru
            safePut $ LRU.toList lru
     errorTypeName _ = "LRU"
+
+-- | Create HashSet from HashMap's keys
+getKeys :: HashMap k v -> HashSet k
+getKeys = fromMap . void

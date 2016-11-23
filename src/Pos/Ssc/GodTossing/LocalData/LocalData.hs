@@ -19,6 +19,7 @@ import           Control.Lens                       (at, use, view, (%=), (.=))
 import           Control.Lens                       (Getter)
 import           Data.Default                       (Default (def))
 import qualified Data.HashMap.Strict                as HM
+import qualified Data.HashSet                       as HS
 import           Serokell.Util.Verify               (isVerSuccess)
 import           Universum
 
@@ -46,6 +47,7 @@ import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types     (GtPayload (..))
 import           Pos.Types                          (SlotId (..))
 import           Pos.Util                           (diffDoubleMap, readerToState)
+import           Pos.Util                           (getKeys)
 
 type LDQuery a = LocalQuery SscGodTossing a
 type LDUpdate a = LocalUpdate SscGodTossing a
@@ -95,10 +97,17 @@ sscIsDataUsefulQ CommitmentMsg =
     sscIsDataUsefulImpl gtLocalCommitments gtGlobalCommitments
 sscIsDataUsefulQ OpeningMsg =
     sscIsDataUsefulImpl gtLocalOpenings gtGlobalOpenings
-sscIsDataUsefulQ SharesMsg  =
-    sscIsDataUsefulImpl gtLocalShares gtGlobalShares
+sscIsDataUsefulQ SharesMsg = sscIsSharesUsefulQ
 sscIsDataUsefulQ VssCertificateMsg =
     sscIsDataUsefulImpl gtLocalCertificates gtGlobalCertificates
+
+sscIsSharesUsefulQ :: PublicKey -> LDQuery Bool
+sscIsSharesUsefulQ pk =
+    not . or <$>
+    sequence
+        [ (HM.member pk <$> view gtGlobalShares)
+        , (HM.member pk <$> view gtLocalShares)
+        ]
 
 type MapGetter a = Getter GtLocalData (HashMap PublicKey a)
 
@@ -172,9 +181,9 @@ processShares pk s
         -- ban them for that. On the third hand, is this a concern?
         preOk <- readerToState $ checkSharesLastVer pk s
         let mpcProcessSharesDo = do
-                globalSharesForPK <- HM.lookupDefault mempty pk <$> use gtGlobalShares
+                globalSharesPKForPK <- HM.lookupDefault mempty pk <$> use gtGlobalShares
                 localSharesForPk <- HM.lookupDefault mempty pk <$> use gtLocalShares
-                let s' = s `HM.difference` globalSharesForPK
+                let s' = s `HM.difference` (HS.toMap globalSharesPKForPK)
                 let newLocalShares = localSharesForPk `HM.union` s'
                 -- Note: size is O(n), but union is also O(n + m), so
                 -- it doesn't matter.
@@ -213,7 +222,7 @@ applyGlobal slotId globalData = do
     else do
         gtGlobalCommitments .= globalCommitments `HM.difference` globalOpenings
         gtGlobalOpenings .= globalOpenings
-        gtGlobalShares .= globalShares
+        gtGlobalShares .= HM.map getKeys globalShares
         gtGlobalCertificates .= globalCert
 
 ----------------------------------------------------------------------------

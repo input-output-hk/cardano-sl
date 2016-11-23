@@ -18,7 +18,6 @@ module Pos.Ssc.GodTossing.Storage.Types
        -- * Lenses
        -- ** GtStorage
        , dsVersionedL
-       , dsLastProcessedSlotL
        -- ** GtStorageVersion
        , dsGlobalCommitments
        , dsGlobalShares
@@ -28,7 +27,6 @@ module Pos.Ssc.GodTossing.Storage.Types
 
 import           Control.Lens                  (makeLenses, makeLensesFor)
 import           Data.Default                  (Default (..))
-import           Data.List.NonEmpty            (NonEmpty (..))
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import           Data.SafeCopy                 (base, deriveSafeCopySimple)
 import           Universum
@@ -36,7 +34,6 @@ import           Universum
 import           Pos.Ssc.GodTossing.Genesis    (genesisCertificates)
 import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
                                                 VssCertificatesMap)
-import           Pos.Types                     (SlotId, unflattenSlotId)
 
 -- | @GodTossing@ storage inside one version.
 data GtStorageVersion = GtStorageVersion
@@ -79,8 +76,6 @@ data GtStorage = GtStorage
       -- deltas for maps which are in 'GtStorageVersion', see [POS-25] for
       -- the explanation of deltas.
       _dsVersioned         :: NonEmpty GtStorageVersion
-    , -- | Last slot we are aware of.
-      _dsLastProcessedSlot :: !SlotId
     }
 
 flip makeLensesFor ''GtStorage
@@ -93,5 +88,4 @@ instance Default GtStorage where
     def =
         GtStorage
         { _dsVersioned = (def :| [])
-        , _dsLastProcessedSlot = unflattenSlotId 0
         }

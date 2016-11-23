@@ -22,6 +22,7 @@ import           Control.Lens                  (makeLenses)
 import           Data.Default                  (Default (def))
 import           Universum
 
+import           Pos.Ssc.GodTossing.Genesis    (genesisCertificates)
 import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
                                                 VssCertificatesMap)
 import           Pos.Types                     (SlotId, unflattenSlotId)
@@ -62,5 +63,5 @@ instance Default GtLocalData where
         , _gtGlobalCommitments = mempty
         , _gtGlobalOpenings = mempty
         , _gtGlobalShares = mempty
-        , _gtGlobalCertificates = mempty
+        , _gtGlobalCertificates = genesisCertificates
         }

@@ -1,5 +1,5 @@
 k: 2
-slotDurationSec: 15
+slotDurationSec: 10
 networkDiameter: 3
 neighboursSendThreshold: 4
 genesisN: 12
@@ -7,4 +7,4 @@ maxLocalTxs: 10000
 mpcRelayInterval: 16
 defaultPeers: []
 sysTimeBroadcastSlots: 6
-mpcSendInterval: 18 # must be less than (k * slotDuration - networkDiameter)
+mpcSendInterval: 12 # must be less than (k * slotDuration - networkDiameter)

@@ -13,7 +13,7 @@ module Pos.Worker.Block
 import           Control.Lens              (ix, (^.), (^?))
 import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, wait)
 import           Data.Tagged               (untag)
-import           Formatting                (build, sformat, (%))
+import           Formatting                (build, sformat, shown, (%))
 import           Serokell.Util             (VerificationRes (..), listJson)
 import           Serokell.Util.Exceptions  ()
 import           System.Wlog               (logDebug, logInfo, logWarning)
@@ -67,6 +67,8 @@ onNewSlotWhenLeader slotId = do
     let timeToCreate =
             max currentTime (nextSlotStart - Timestamp networkDiameter)
         Timestamp timeToWait = timeToCreate - currentTime
+    logInfo $
+        sformat ("Waiting for "%shown%" before creating block") timeToWait
     wait (for timeToWait)
     -- TODO: provide a single function which does all verifications.
     let verifyCreatedBlock blk =

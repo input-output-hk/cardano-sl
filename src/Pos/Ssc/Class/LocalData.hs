@@ -45,7 +45,7 @@ instance (SscLocalData ssc ~ a) => HasSscLocalData ssc a where
     sscLocalData = identity
 
 -- | Monad which has read-write access to LocalData.
-class MonadIO m => MonadSscLD ssc m | m -> ssc where
+class Monad m => MonadSscLD ssc m | m -> ssc where
     getLocalData :: m (SscLocalData ssc)
     setLocalData :: SscLocalData ssc -> m ()
 

@@ -26,7 +26,7 @@ module Pos.Ssc.GodTossing.Functions
        , verifyOpening
        , checkShare
        , checkShares
-       , checkOpening
+       , checkOpeningMatchesCommitment
        -- * GtPayload
        , verifyGtPayload
        , filterGtPayload
@@ -185,9 +185,9 @@ checkShares globalCommitments globalOpenings globalCertificates pkTo shares =
 
 -- | Check that the secret revealed in the opening matches the secret proof
 -- in the commitment
-checkOpening
+checkOpeningMatchesCommitment
     :: CommitmentsMap -> (PublicKey, Opening) -> Bool
-checkOpening globalCommitments (pk, opening) =
+checkOpeningMatchesCommitment globalCommitments (pk, opening) =
     case HM.lookup pk globalCommitments of
         Nothing        -> False
         Just (comm, _) -> verifyOpening comm opening

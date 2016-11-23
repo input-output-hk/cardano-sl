@@ -41,9 +41,10 @@ import           Pos.Ssc.Class.Storage             (HasSscStorage (..), SscQuery
                                                     SscStorageClass (..), SscUpdate)
 import           Pos.Ssc.Class.Types               (Ssc (..))
 import           Pos.Ssc.GodTossing.Error          (SeedError)
-import           Pos.Ssc.GodTossing.Functions      (checkOpening, checkShares,
-                                                    isCommitmentIdx, isOpeningIdx,
-                                                    isSharesIdx, verifyGtPayload)
+import           Pos.Ssc.GodTossing.Functions      (checkOpeningMatchesCommitment,
+                                                    checkShares, isCommitmentIdx,
+                                                    isOpeningIdx, isSharesIdx,
+                                                    verifyGtPayload)
 import           Pos.Ssc.GodTossing.Seed           (calculateSeed)
 import           Pos.Ssc.GodTossing.Storage.Types  (GtStorage, GtStorageVersion (..),
                                                     dsGlobalCertificates,
@@ -212,7 +213,7 @@ mpcVerifyBlock (Right b) = magnify' lastVer $ do
             , (all (`HM.member` globalCommitments)
                    (HM.keys openings),
                    "some openings don't have corresponding commitments")
-            , (all (checkOpening globalCommitments) (HM.toList openings),
+            , (all (checkOpeningMatchesCommitment globalCommitments) (HM.toList openings),
                    "some openings don't match corresponding commitments")
             ]
 

@@ -26,9 +26,10 @@ import           Pos.Crypto                         (PublicKey, Share)
 import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate, MonadSscLD,
                                                      SscLocalDataClass (..),
                                                      sscRunLocalQuery, sscRunLocalUpdate)
-import           Pos.Ssc.GodTossing.Functions       (checkOpening, checkShares,
-                                                     isCommitmentIdx, isOpeningIdx,
-                                                     isSharesIdx, verifySignedCommitment)
+import           Pos.Ssc.GodTossing.Functions       (checkOpeningMatchesCommitment,
+                                                     checkShares, isCommitmentIdx,
+                                                     isOpeningIdx, isSharesIdx,
+                                                     verifySignedCommitment)
 import           Pos.Ssc.GodTossing.Functions       (filterGtPayload)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData, gtGlobalCertificates,
                                                      gtGlobalCommitments,
@@ -141,16 +142,21 @@ processOpening pk o = do
     ok <- readerToState $ and <$> sequence checks
     ok <$ when ok (gtLocalOpenings %= HM.insert pk o)
   where
-    checks = [checkOpeningAbsence pk, checkOpeningLastVer pk o]
+    checks = [checkOpeningAbsence pk, matchOpening pk o]
 
 -- Check that there is no opening from given public key in blocks. It is useful
 -- in opening processing.
 checkOpeningAbsence :: PublicKey -> LDQuery Bool
 checkOpeningAbsence pk =
     (&&) <$> (notMember <$> view gtGlobalOpenings) <*>
-    (notMember <$> view gtLocalOpenings)
+             (notMember <$> view gtLocalOpenings)
   where
     notMember = not . HM.member pk
+
+-- Match opening to commitment from globalCommitments
+matchOpening :: PublicKey -> Opening -> LDQuery Bool
+matchOpening pk opening =
+    flip checkOpeningMatchesCommitment (pk, opening) <$> view gtGlobalCommitments
 
 processShares :: PublicKey -> HashMap PublicKey Share -> LDUpdate Bool
 processShares pk s
@@ -163,8 +169,7 @@ processShares pk s
         -- ban them for that. On the third hand, is this a concern?
         preOk <- readerToState $ checkSharesLastVer pk s
         let mpcProcessSharesDo = do
-                globalSharesForPK <-
-                    HM.lookupDefault mempty pk <$> use gtGlobalShares
+                globalSharesForPK <- HM.lookupDefault mempty pk <$> use gtGlobalShares
                 localSharesForPk <- HM.lookupDefault mempty pk <$> use gtLocalShares
                 let s' = s `HM.difference` globalSharesForPK
                 let newLocalShares = localSharesForPk `HM.union` s'
@@ -181,20 +186,14 @@ checkSharesLastVer pk shares =
     view gtGlobalOpenings <*>
     view gtGlobalCertificates
 
--- Apply checkOpening using last version.
-checkOpeningLastVer :: PublicKey -> Opening -> LDQuery Bool
-checkOpeningLastVer pk opening =
-    flip checkOpening (pk, opening) <$> view gtGlobalCommitments
-
 processVssCertificate :: PublicKey -> VssCertificate -> LDUpdate Bool
 processVssCertificate pk c = do
     ok <- not . HM.member pk <$> use gtGlobalCertificates
     ok <$ when ok (gtLocalCertificates %= HM.insert pk c)
 
 ----------------------------------------------------------------------------
--- Apply Block
+-- Apply Global State
 ----------------------------------------------------------------------------
-
 applyGlobal :: GtPayload -> LDUpdate ()
 applyGlobal payload = do
     let
@@ -207,7 +206,7 @@ applyGlobal payload = do
     gtLocalShares  %= (`diffDoubleMap` payloadShares)
     gtLocalCertificates  %= (`HM.difference` payloadCert)
 
-    gtGlobalCommitments .= payloadCommitments
+    gtGlobalCommitments .= payloadCommitments `HM.difference` payloadOpenings
     gtGlobalOpenings .= payloadOpenings
     gtGlobalShares .= payloadShares
     gtGlobalCertificates .= payloadCert

@@ -34,27 +34,7 @@ function logs {
   mkdir -p "$conf_dir"
 
   local conf_file="$conf_dir/$log_file.yaml"
-  local main=Debug
-  if [[ "$MAIN_LOG" != "" ]]; then
-    main=$MAIN_LOG
-  fi
-  local dht=$main
-  local comm=$main
-  local server=$main
-  if [[ "$DHT_LOG" != "" ]]; then
-    dht=$DHT_LOG
-  fi
-  if [[ "$COMM_LOG" != "" ]]; then
-    comm=$COMM_LOG
-  fi
-  if [[ "$SERVER_LOG" != "" ]]; then
-    server=$SERVER_LOG
-  fi
   cat "$template" \
-    | sed "s/{{dht}}/$dht/g" \
-    | sed "s/{{main}}/$main/g" \
-    | sed "s/{{server}}/$server/g" \
-    | sed "s/{{comm}}/$comm/g" \
     | sed "s/{{file}}/$log_file/g" \
     > "$conf_file"
   echo -n " --json-log=$logs_dir/node$i.json "

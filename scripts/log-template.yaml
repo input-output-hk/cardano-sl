@@ -1,8 +1,9 @@
 severity: Warning
 node:
-    severity: {{main}}
+    severity: Debug
     file: {{file}}
     comm:
-        severity: {{comm}}
-    kademlia:
-        severity: {{dht}}
+        severity: Info
+    dht:
+        severity: Info
+    server: {}

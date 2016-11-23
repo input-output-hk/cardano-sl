@@ -9,7 +9,7 @@ module Pos.Worker
 
 import           Control.TimeWarp.Timed (fork_, ms)
 import           Data.Tagged            (untag)
-import           Formatting             (build, sformat, (%))
+import           Formatting             (sformat, (%))
 import           System.Wlog            (logDebug, logInfo, logNotice)
 import           Universum
 
@@ -18,10 +18,8 @@ import           Pos.Constants          (slotDuration, sysTimeBroadcastSlots)
 import           Pos.DHT                (sendToNetwork)
 import           Pos.Slotting           (onNewSlot)
 import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscOnNewSlot, sscWorkers)
-import           Pos.State              (processNewSlot)
 import           Pos.Types              (SlotId, flattenSlotId, slotIdF)
 import           Pos.Util               (waitRandomInterval)
-import           Pos.Util.JsonLog       (jlCreatedBlock, jlLog)
 import           Pos.Worker.Block       (blkOnNewSlot, blkWorkers)
 import           Pos.Worker.Stats       (statsWorkers)
 import           Pos.Worker.Tx          (txWorkers)
@@ -44,14 +42,10 @@ onNewSlotWorkerImpl :: (SscWorkersClass ssc, WorkMode ssc m)
                     => SlotId -> m ()
 onNewSlotWorkerImpl slotId = do
     logNotice $ sformat ("New slot has just started: "%slotIdF) slotId
-    -- A note about order: currently only one thing is important, that
-    -- `processNewSlot` is executed before everything else
-    mGenBlock <- processNewSlot slotId
-    forM_ mGenBlock $ \createdBlk -> do
-      logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
-      jlLog $ jlCreatedBlock (Left createdBlk)
-    logDebug "Finished `processNewSlot`"
-
+    -- A note about order: currently all onNewSlot updates can be run
+    -- in parallel and we try to maintain this rule. If at some point
+    -- order becomes important, update this comment! I don't think you
+    -- will read it, but who knows…
     when (flattenSlotId slotId <= sysTimeBroadcastSlots) $
       whenM (ncTimeLord <$> getNodeContext) $ fork_ $ do
         let send = ncSystemStart <$> getNodeContext
@@ -63,5 +57,6 @@ onNewSlotWorkerImpl slotId = do
         send
 
     fork_ (untag sscOnNewSlot slotId)
+
     blkOnNewSlot slotId
     logDebug "Finished `blkOnNewSlot`"

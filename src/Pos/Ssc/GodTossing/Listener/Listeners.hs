@@ -12,6 +12,7 @@ module Pos.Ssc.GodTossing.Listener.Listeners
        ) where
 
 import           Control.Lens                           (at, (^.))
+import           Data.List.NonEmpty                     (NonEmpty)
 import           Data.Tagged                            (Tagged (..))
 import           Formatting                             (build, sformat, stext, (%))
 import           System.Wlog                            (logDebug, logInfo)
@@ -47,10 +48,20 @@ instance SscListenersClass SscGodTossing where
 
 handleInv :: ResponseMode SscGodTossing m => InvMsg -> m ()
 handleInv (InvMsg tag keys) =
-    whenM (isGoodSlotIdForTag tag <$> getCurrentSlot) $
-    do let handleSingle pk =
-               whenM (sscIsDataUseful tag pk) $ replyToNode $ ReqMsg tag pk
-       mapM_ handleSingle keys
+    ifM (isGoodSlotIdForTag tag <$> getCurrentSlot)
+        (handleInvDo tag keys)
+        (logDebug $
+         sformat ("Ignoring "%build%", because slot is not appropriate") tag)
+
+handleInvDo :: ResponseMode SscGodTossing m => MsgTag -> NonEmpty PublicKey -> m ()
+handleInvDo tag keys = mapM_ handleSingle keys
+  where
+    handleSingle pk =
+        ifM (sscIsDataUseful tag pk)
+            (replyToNode $ ReqMsg tag pk)
+            (logDebug $
+             sformat ("Ignoring "%build% " ("%build%"), because it's useless")
+                 tag pk)
 
 handleReq :: ResponseMode SscGodTossing m => ReqMsg -> m ()
 handleReq (ReqMsg tag key) = do

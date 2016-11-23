@@ -4,6 +4,8 @@
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
 
+-- | Storage for generic Shared Seed calculation implementation.
+
 module Pos.Ssc.Class.Storage
        ( SscStorageClass(..)
        , HasSscStorage(..)
@@ -22,26 +24,32 @@ import           Universum
 
 import           Pos.Crypto              (PublicKey, Share, Threshold, VssKeyPair,
                                           VssPublicKey)
-import           Pos.Ssc.Class.Types     (SscTypes (..))
+import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types.Types         (EpochIndex, MainBlockHeader, SlotId,
                                           SlotLeaders, Utxo)
 
+-- | Generic @SSC@ query.
 type SscUpdate ssc a =
     forall m x. (HasSscStorage ssc x, MonadState x m) => m a
 
+-- | Generic @SSC@ update.
+--
 -- If this type ever changes to include side effects (error reporting, etc)
 -- we might have to change 'mpcVerifyBlock' because currently it works by
 -- simulating block application and we don't want block verification to have
 -- any side effects. The compiler will warn us if it happens, though.
+-- | Monad reader on something containing `SscStorage` inside.
 type SscQuery ssc a =
     forall m x. (HasSscStorage ssc x, MonadReader x m) => m a
 
+-- | Class of objects that we can retrieve 'SscStorage' from.
 class HasSscStorage ssc a where
     sscStorage :: Lens' a (SscStorage ssc)
 
-class SscTypes ssc => SscStorageClass ssc where
-    -- sscCalculateSeed :: SscQuery ssc (Either (SscSeedError ssc) FtsSeed)
+-- | Class for @SSC@ storage.
+class Ssc ssc => SscStorageClass ssc where
+    -- sscCalculateSeed :: SscQuery ssc (Either (SscSeedError ssc) SharedSeed)
 
     sscApplyBlocks :: AltChain ssc -> SscUpdate ssc ()
     -- | Should be executed before doing any updates within given slot.
@@ -49,16 +57,19 @@ class SscTypes ssc => SscStorageClass ssc where
     -- | Do something with given message, result is whether message
     -- has been processed successfully (implementation defined).
     sscProcessMessage :: SscMessage ssc -> SscUpdate ssc (Maybe (SscMessage ssc))
-    -- | Rollback application of last 'n' blocks.  blocks. If there
-    -- are less blocks than 'n' is, just leaves an empty ('def')
-    -- version.
-    --
     -- TODO: there was also such comment.
     -- If @n > 0@, also removes all commitments/etc received during that
     -- period but not included into blocks.
+    -- | Rollback application of last 'n' blocks.  blocks. If there
+    -- are less blocks than 'n' is, just leaves an empty ('def')
+    -- version.
     sscRollback :: Word -> SscUpdate ssc ()
+    -- | Get local SSC data for inclusion into a block for slot N. (Different
+    -- kinds of data are included into different blocks.)
     sscGetLocalPayload :: SlotId -> SscQuery ssc (SscPayload ssc)
+    -- | Get global SSC data.
     sscGetGlobalPayload :: SscQuery ssc (SscPayload ssc)
+    -- | Get global SSC data for the state that was observed N blocks ago.
     sscGetGlobalPayloadByDepth :: Word -> SscQuery ssc (Maybe (SscPayload ssc))
     -- | Verify Ssc-related predicates of block sequence which is
     -- about to be applied. It should check that SSC payload will be
@@ -66,11 +77,9 @@ class SscTypes ssc => SscStorageClass ssc where
     -- if first argument isn't zero).
     sscVerifyBlocks :: Word -> AltChain ssc -> SscQuery ssc VerificationRes
 
-    -- | BARDAQ
-    sscGetToken :: SscQuery ssc (Maybe (SscToken ssc))
-    -- | BARDAQ
-    sscSetToken :: SscToken ssc -> SscUpdate ssc ()
-    -- | Even more BARDAQ
+    -- BARDAQ, see:
+    -- https://issues.serokell.io/issue/CSL-103
+    -- https://issues.serokell.io/issue/CSL-106
     sscGetOurShares :: VssKeyPair -> Integer -> SscQuery ssc (HashMap PublicKey Share)
 
     -- TODO: yet another BARDAQ
@@ -80,8 +89,9 @@ class SscTypes ssc => SscStorageClass ssc where
                            SscQuery ssc (Either (SscSeedError ssc)  SlotLeaders)
 
     -- TODO: one more BARDAQ. It's not related to Storage, but can't
-    -- be put into SscTypes now :(
+    -- be put into Ssc now :(
     -- | Verify payload using header containing this payload.
     sscVerifyPayload :: Tagged ssc (MainBlockHeader ssc -> SscPayload ssc -> VerificationRes)
 
+-- | Type constraint for actions to operate withing @SSC@ storage.
 type SscStorageMode ssc = (SscStorageClass ssc, SafeCopy ssc)

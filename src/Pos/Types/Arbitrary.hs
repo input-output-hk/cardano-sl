@@ -15,13 +15,13 @@ import           Control.Lens               (over, view, _2, _3)
 import qualified Data.ByteString            as BS (pack)
 import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
-import           Pos.Constants              (epochSlots, ftsSeedLength)
+import           Pos.Constants              (epochSlots, sharedSeedLength)
 import           Pos.Crypto                 (SecretKey, hash, sign, toPublic)
 import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
-                                             Coin (..), EpochIndex (..), FtsSeed (..),
-                                             LocalSlotIndex (..), SlotId (..), Tx (..),
-                                             TxIn (..), TxOut (..))
+                                             Coin (..), EpochIndex (..),
+                                             LocalSlotIndex (..), SharedSeed (..),
+                                             SlotId (..), Tx (..), TxIn (..), TxOut (..))
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
                                              NonZero (..), choose, vector)
@@ -109,6 +109,7 @@ buildProperTx triplesList (inCoin, outCoin)= do
             goodTx = fmap newTx txList
         return goodTx
 
+-- | Well-formed transaction 'Tx'.
 newtype GoodTx = GoodTx
     { getGoodTx :: [(Tx, TxIn, TxOut)]
     } deriving (Show)
@@ -119,6 +120,7 @@ instance Arbitrary GoodTx where
             (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
         buildProperTx txsList (identity, identity)
 
+-- | Ill-formed 'Tx' with overflow.
 newtype OverflowTx = OverflowTx
     { getOverflowTx :: [(Tx, TxIn, TxOut)]
     } deriving (Show)
@@ -130,6 +132,7 @@ instance Arbitrary OverflowTx where
         let halfBound = maxBound `div` 2
         buildProperTx txsList ((halfBound +), (halfBound -))
 
+-- | Ill-formed 'Tx' with bad signatures.
 newtype BadSigsTx = BadSigsTx
     { getBadSigsTx :: [(Tx, TxIn, TxOut)]
     } deriving (Show)
@@ -141,10 +144,10 @@ instance Arbitrary BadSigsTx where
         let addBadSig t = t {txInSig = badSig}
         return $ fmap (over _2 addBadSig) goodTxList
 
-instance Arbitrary FtsSeed where
+instance Arbitrary SharedSeed where
     arbitrary = do
-        bs <- vector ftsSeedLength
-        return $ FtsSeed $ BS.pack bs
+        bs <- vector sharedSeedLength
+        return $ SharedSeed $ BS.pack bs
 
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types

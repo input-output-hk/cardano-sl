@@ -21,7 +21,9 @@ import           Universum
 
 import           Pos.Statistics.StatEntry (CountStat, StatLabel (..))
 import           Pos.Util                 (fromMsgpackBinary, toMsgpackBinary)
+import           Pos.Util.JsonLog         (JLEvent (..))
 
+-- | Singleton data type to represent collected statistics about processes 'Tx'`s.
 data StatProcessTx = StatProcessTx deriving (Show, Eq, Generic, Typeable)
 
 -- TODO: generate these using TH
@@ -49,6 +51,7 @@ instance Hashable StatProcessTx where
 instance StatLabel StatProcessTx where
     type EntryType StatProcessTx = CountStat
     labelName _ = "StatProcessTx"
+    toJLEvent _ val = JLTpsStat $ fromIntegral val
 
 -- logTx :: WorkMode m => Tx -> m StatEntry
 -- logTx tx = do

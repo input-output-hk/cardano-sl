@@ -1,10 +1,10 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE ViewPatterns          #-}
 
 -- | Launcher of full node or simple operations.
 
@@ -12,12 +12,14 @@ module Pos.Launcher
        ( LoggingParams (..)
        , NodeParams (..)
        , BaseParams (..)
+       , RealModeSscConstraint
        , RealModeRunner
        , getCurTimestamp
        , runNode
        , runNodeReal
        , runNodeStats
        , submitTx
+       , submitTxRaw
        , submitTxReal
        , runSupporterReal
        , runTimeSlaveReal
@@ -25,42 +27,47 @@ module Pos.Launcher
        -- Export this for custom usage in CLI utils
        , runServiceMode
        , runRealMode
+       , addDevListeners
        , bracketDHTInstance
        ) where
 
+import           Universum
 
 import           Control.Concurrent.MVar     (newEmptyMVar, newMVar, takeMVar,
                                               tryReadMVar)
 import           Control.Monad               (fail)
 import           Control.Monad.Catch         (bracket)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Control.TimeWarp.Logging    (LoggerName, Severity (Warning),
-                                              WithNamedLogger, initLogging, logDebug,
-                                              logError, logInfo, logWarning, setSeverity,
-                                              setSeverityMaybe, usingLoggerName)
 import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, MonadDialog,
-                                              NetworkAddress, Transfer, runDialog,
-                                              runTransfer)
+                                              NetworkAddress, Transfer, commLoggerName,
+                                              runDialog, runTransfer)
 import           Control.TimeWarp.Timed      (MonadTimed, currentTime, for, fork, fork_,
-                                              killThread, ms, repeatForever, runTimedIO,
-                                              sec, sleepForever, wait, wait)
-import           Data.Default                (Default (def))
+                                              killThread, repeatForever, runTimedIO, sec,
+                                              sleepForever, wait)
+import           Data.Default                (Default)
 import           Data.List                   (nub)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
-import           Universum
+import           System.Directory            (doesDirectoryExist,
+                                              removeDirectoryRecursive)
+import           System.Log.Logger           (removeAllHandlers)
+import           System.Wlog                 (LoggerName (..), WithNamedLogger, logDebug,
+                                              logError, logInfo, logWarning,
+                                              traverseLoggerConfig, usingLoggerName)
 
-import           Pos.Communication           (SysStartRequest (..), SysStartResponse (..),
-                                              allListeners, noCacheMessageNames, sendTx,
-                                              serverLoggerName, statsListeners,
-                                              sysStartReqListener, sysStartRespListener)
+import           Pos.CLI                     (readLoggerConfig)
+import           Pos.Communication           (SysStartRequest (..), allListeners,
+                                              noCacheMessageNames, sendTx, statsListeners,
+                                              sysStartReqListener,
+                                              sysStartReqListenerSlave,
+                                              sysStartRespListener)
 import           Pos.Constants               (RunningMode (..), defaultPeers,
                                               isDevelopment, runningMode)
 import           Pos.Crypto                  (SecretKey, VssKeyPair, hash, sign)
 import           Pos.DHT                     (DHTKey, DHTNode (dhtAddr), DHTNodeType (..),
                                               ListenerDHT, MonadDHT (..),
                                               filterByNodeType, mapListenerDHT,
-                                              sendToNeighbors, sendToNetwork)
+                                              sendToNeighbors)
 import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..),
                                               KademliaDHTInstance,
                                               KademliaDHTInstanceConfig (..),
@@ -68,7 +75,7 @@ import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..
                                               stopDHTInstance)
 import           Pos.Ssc.Class.Listeners     (SscListenersClass)
 import           Pos.Ssc.Class.Storage       (SscStorageMode)
-import           Pos.Ssc.Class.Types         (SscStorage, SscTypes)
+import           Pos.Ssc.Class.Types         (Ssc, SscStorage)
 import           Pos.Ssc.Class.Workers       (SscWorkersClass)
 import           Pos.State                   (NodeState, openMemState, openState)
 import           Pos.State.Storage           (storageFromUtxo)
@@ -82,13 +89,15 @@ import           Pos.WorkMode                (ContextHolder (..), NodeContext (.
                                               RealMode, ServiceMode, WorkMode,
                                               getNodeContext, ncPublicKey,
                                               runContextHolder, runDBHolder)
+import           System.FilePath             ((</>))
 
 type RealModeSscConstraint ssc =
-               (SscTypes ssc, Default (SscStorage ssc),
+               (Ssc ssc, Default (SscStorage ssc),
                 SscStorageMode ssc,
                 SscListenersClass ssc,
                 SscWorkersClass ssc)
 
+-- | Runner of 'KademliaDHTInstance' with given 'NodeParams' in real mode.
 type RealModeRunner = KademliaDHTInstance -> NodeParams -> IO ()
 
 -- | Get current time as Timestamp. It is intended to be used when you
@@ -101,12 +110,6 @@ runNode :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
 runNode = do
     pk <- ncPublicKey <$> getNodeContext
     logInfo $ sformat ("My public key is: "%build) pk
-    whenM (ncTimeLord <$> getNodeContext) $
-      ncSystemStart <$> getNodeContext
-          >>= \(SysStartResponse . Just -> mT) -> fork_ $
-            runWithRandomIntervals (ms 500) (sec 5) $ do
-              logInfo "Broadcasting system start"
-              sendToNetwork mT
     peers <- discoverPeers DHTFull
     logInfo $ sformat ("Known peers: " % build) peers
 
@@ -125,11 +128,16 @@ submitTx na (txInHash, txInIndex) (txOutAddress, txOutValue) =
         let txOuts = [TxOut {..}]
             txIns = [TxIn {txInSig = sign sk (txInHash, txInIndex, txOuts), ..}]
             tx = Tx {txInputs = txIns, txOutputs = txOuts}
-            txId = hash tx
-        logInfo $ sformat ("Submitting transaction: "%txF) tx
-        logInfo $ sformat ("Transaction id: "%build) txId
-        mapM_ (`sendTx` tx) na
+        submitTxRaw na tx
         pure tx
+
+-- | Send the ready-to-use transaction
+submitTxRaw :: WorkMode ssc m => [NetworkAddress] -> Tx -> m ()
+submitTxRaw na tx = do
+    let txId = hash tx
+    logInfo $ sformat ("Submitting transaction: "%txF) tx
+    logInfo $ sformat ("Transaction id: "%build) txId
+    mapM_ (`sendTx` tx) na
 
 -- | Submit tx in real mode.
 submitTxReal :: forall ssc . RealModeSscConstraint ssc
@@ -156,50 +164,41 @@ waitSystemStart = do
 -- Parameters
 ----------------------------------------------------------------------------
 
+-- | Contains all parameters required for hierarchical logger initialization.
 data LoggingParams = LoggingParams
-    { lpRootLogger     :: !LoggerName
-    , lpMainSeverity   :: !Severity
-    , lpDhtSeverity    :: !(Maybe Severity)
-    , lpServerSeverity :: !(Maybe Severity)
-    , lpCommSeverity   :: !(Maybe Severity)
-    , lpWorkerSeverity :: !(Maybe Severity)
+    { lpRunnerTag     :: !LoggerName        -- ^ prefix for logger, like "time-slave"
+    , lpHandlerPrefix :: !(Maybe FilePath)  -- ^ prefix of path for all logs
+    , lpConfigPath    :: !(Maybe FilePath)  -- ^ path to logger configuration
     } deriving (Show)
 
-instance Default LoggingParams where
-    def =
-        LoggingParams
-        { lpRootLogger     = mempty
-        , lpMainSeverity   = Warning
-        , lpDhtSeverity    = Nothing
-        , lpServerSeverity = Nothing
-        , lpCommSeverity   = Nothing
-        , lpWorkerSeverity = Nothing
-        }
+-- | Contains basic & networking parameters for running node.
+data BaseParams = BaseParams
+    { bpPort               :: !Word16         -- ^ port to run on
+    , bpDHTPeers           :: ![DHTNode]      -- ^ peers passed from CLI
+    , bpDHTKeyOrType       :: !(Either DHTKey DHTNodeType)
+    , bpDHTExplicitInitial :: !Bool
+    , bpLoggingParams      :: !LoggingParams  -- ^ logger parameters
+    } deriving (Show)
 
+-- | Contains algorithm specific & storage parameters for Node.
 data NodeParams = NodeParams
-    { npDbPath      :: !(Maybe FilePath)
-    , npRebuildDb   :: !Bool
-    , npSecretKey   :: !SecretKey
-    , npVssKeyPair  :: !VssKeyPair
-    , npBaseParams  :: !BaseParams
-    , npSystemStart :: !Timestamp
-    , npCustomUtxo  :: !(Maybe Utxo)
-    , npTimeLord    :: !Bool
+    { npDbPath      :: !(Maybe FilePath)  -- ^ Path to node data-base. 'Nothing' means memory-mode.
+    , npRebuildDb   :: !Bool              -- ^ @True@ if data-base should be rebuilt
+    , npSystemStart :: !Timestamp         -- ^ System start
+    , npSecretKey   :: !SecretKey         -- ^ Secret key of this node
+    , npVssKeyPair  :: !VssKeyPair        -- ^ Key pair used for secret sharing
+    , npBaseParams  :: !BaseParams        -- ^ See 'BaseParams'
+    , npCustomUtxo  :: !(Maybe Utxo)      -- ^ predefined custom utxo
+    , npTimeLord    :: !Bool              -- ^ @True@ if node started as time-lord
     , npJLFile      :: !(Maybe FilePath)
     } deriving (Show)
 
-data BaseParams = BaseParams
-    { bpLogging            :: !LoggingParams
-    , bpPort               :: !Word16
-    , bpDHTPeers           :: ![DHTNode]
-    , bpDHTKeyOrType       :: !(Either DHTKey DHTNodeType)
-    , bpDHTExplicitInitial :: !Bool
-    } deriving (Show)
 
 ----------------------------------------------------------------------------
 -- Service node runners
 ----------------------------------------------------------------------------
 
+-- | Runs node as time-slave inside IO monad.
 runTimeSlaveReal :: KademliaDHTInstance -> BaseParams -> IO Timestamp
 runTimeSlaveReal inst bp = do
     mvar <- liftIO newEmptyMVar
@@ -207,13 +206,12 @@ runTimeSlaveReal inst bp = do
       case runningMode of
          Development -> do
            tId <- fork $
-             runWithRandomIntervals (sec 10) (sec 60) $ do
-               mT <- liftIO $ tryReadMVar mvar
-               case mT of
+             runWithRandomIntervals (sec 10) (sec 60) $ liftIO (tryReadMVar mvar) >>= \case
                  Nothing -> do
                     logInfo "Asking neighbors for system start"
                     (void $ sendToNeighbors SysStartRequest) `catchAll`
-                       \e -> logDebug $ sformat ("Error sending SysStartRequest to neighbors: " % shown) e
+                       \e -> logDebug $ sformat
+                       ("Error sending SysStartRequest to neighbors: " % shown) e
                  Just _ -> fail "Close thread"
            t <- liftIO $ takeMVar mvar
            killThread tId
@@ -222,19 +220,20 @@ runTimeSlaveReal inst bp = do
   where
     listeners mvar =
       if isDevelopment
-         then [sysStartReqListener Nothing, sysStartRespListener mvar]
+         then [sysStartReqListenerSlave, sysStartRespListener mvar]
          else []
 
+-- | Runs time-lord to acquire system start.
 runTimeLordReal :: LoggingParams -> IO Timestamp
-runTimeLordReal lp = do
-    setupLoggingReal lp
+runTimeLordReal lp@LoggingParams{..} = loggerBracket lp $ do
     t <- getCurTimestamp
-    usingLoggerName (lpRootLogger lp) (doLog t) $> t
+    usingLoggerName lpRunnerTag (doLog t) $> t
   where
     doLog t = do
         realTime <- liftIO Time.getZonedTime
         logInfo (sformat ("[Time lord] System start: " %timestampF%", i. e.: "%shown) t realTime)
 
+-- | Runs supporter. TODO: Deprecated?
 runSupporterReal :: KademliaDHTInstance -> BaseParams -> IO ()
 runSupporterReal inst bp = runServiceMode inst bp [] $ do
     supporterKey <- currentNodeKey
@@ -247,9 +246,9 @@ runSupporterReal inst bp = runServiceMode inst bp [] $ do
 -----------------------------------------------------------------------------
 
 addDevListeners :: NodeParams -> [ListenerDHT (RealMode ssc)] -> [ListenerDHT (RealMode ssc)]
-addDevListeners NodeParams {..} ls =
+addDevListeners NodeParams{..} ls =
     if isDevelopment
-    then sysStartReqListener (Just npSystemStart) : ls
+    then sysStartReqListener npSystemStart : ls
     else ls
 
 -- | Run full node in real mode.
@@ -275,13 +274,14 @@ runNodeStats inst np = runRealMode inst np listeners $ getStatsT $ do
 -- Real mode runners
 ----------------------------------------------------------------------------
 
+-- | RAII for node starter.
 bracketDHTInstance
     :: BaseParams -> (KademliaDHTInstance -> IO a) -> IO a
 bracketDHTInstance BaseParams {..} = bracket acquire release
   where
-    logger = lpRootLogger bpLogging
-    acquire = runTimed logger $ startDHTInstance instConfig
-    release = runTimed logger . stopDHTInstance
+    loggerName = lpRunnerTag bpLoggingParams
+    acquire = runTimed loggerName $ startDHTInstance instConfig
+    release = runTimed loggerName . stopDHTInstance
     instConfig =
       KademliaDHTInstanceConfig
       { kdcKeyOrType = bpDHTKeyOrType
@@ -291,23 +291,35 @@ bracketDHTInstance BaseParams {..} = bracket acquire release
       }
 
 -- TODO: use bracket
-runRealMode :: forall ssc c . RealModeSscConstraint ssc
-            => KademliaDHTInstance -> NodeParams -> [ListenerDHT (RealMode ssc)] -> RealMode ssc c -> IO c
+-- | Runs node instance in real mode.
+runRealMode
+    :: forall ssc c.
+       RealModeSscConstraint ssc
+    => KademliaDHTInstance
+    -> NodeParams
+    -> [ListenerDHT (RealMode ssc)]
+    -> RealMode ssc c
+    -> IO c
 runRealMode inst NodeParams {..} listeners action = do
-    setupLoggingReal logParams
+    setupLoggers lp
     db <- openDb
-    runTimed loggerName . runDBHolder db . runCH . runKDHT inst npBaseParams listeners $
+    runTimed lpRunnerTag . runDBHolder db . runCH . runKDHT inst npBaseParams listeners $
         nodeStartMsg npBaseParams >> action
   where
-    logParams  = bpLogging npBaseParams
-    loggerName = lpRootLogger logParams
-    mStorage = storageFromUtxo @ssc <$> npCustomUtxo
+    lp@LoggingParams{..} = bpLoggingParams npBaseParams
+    mStorage = storageFromUtxo <$> npCustomUtxo
 
     openDb :: IO (NodeState ssc)
-    openDb = runTimed loggerName . runCH $
-         maybe (openMemState mStorage)
-               (openState mStorage npRebuildDb)
-               npDbPath
+    openDb = do
+         -- we rebuild DB manually, because we need to remove
+         -- everything in npDbPath
+         let rebuild fp = whenM ((npRebuildDb &&) <$> doesDirectoryExist fp) $
+                 removeDirectoryRecursive fp
+         whenJust npDbPath rebuild
+         runTimed lpRunnerTag . runCH $
+             maybe (openMemState mStorage)
+                 (openState mStorage False)
+                 ((</> "main") <$> npDbPath)
 
     runCH :: MonadIO m => ContextHolder m a -> m a
     runCH act = flip runContextHolder act . ctx
@@ -320,20 +332,36 @@ runRealMode inst NodeParams {..} listeners action = do
               , ncVssKeyPair = npVssKeyPair
               , ncTimeLord = npTimeLord
               , ncJLFile = jlFile
+              , ncDbPath = npDbPath
               }
 
-runServiceMode :: KademliaDHTInstance -> BaseParams -> [ListenerDHT ServiceMode] -> ServiceMode a -> IO a
-runServiceMode inst bp@BaseParams {..} listeners action = do
-    setupLoggingReal bpLogging
-    runTimed (lpRootLogger bpLogging) . runKDHT inst bp listeners $
+-- | Runs node instance in service mode.
+runServiceMode
+    :: KademliaDHTInstance
+    -> BaseParams
+    -> [ListenerDHT ServiceMode]
+    -> ServiceMode a
+    -> IO a
+runServiceMode inst bp@BaseParams{..} listeners action = loggerBracket bpLoggingParams $ do
+    runTimed (lpRunnerTag bpLoggingParams) . runKDHT inst bp listeners $
         nodeStartMsg bp >> action
 
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
-runKDHT :: (MonadBaseControl IO m, WithNamedLogger m, MonadIO m, MonadTimed m, MonadMask m, MonadDialog BinaryP m)
-        => KademliaDHTInstance -> BaseParams -> [ListenerDHT (KademliaDHT m)] -> KademliaDHT m a -> m a
+runKDHT
+    :: (MonadBaseControl IO m
+       ,WithNamedLogger m
+       ,MonadIO m
+       ,MonadTimed m
+       ,MonadMask m
+       ,MonadDialog BinaryP m)
+    => KademliaDHTInstance
+    -> BaseParams
+    -> [ListenerDHT (KademliaDHT m)]
+    -> KademliaDHT m a
+    -> m a
 runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
   where
     kadConfig =
@@ -346,22 +374,24 @@ runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
       , kdcDHTInstance = dhtInstance
       }
 
+-- TODO: move to log-warper and remove hslogger from dependencies?
+loggerBracket :: LoggingParams -> IO a -> IO a
+loggerBracket lp = bracket_ (setupLoggers lp) removeAllHandlers
+
+setupLoggers :: MonadIO m => LoggingParams -> m ()
+setupLoggers LoggingParams{..} = do
+    lpLoggerConfig <- readLoggerConfig lpConfigPath
+    traverseLoggerConfig (commMapper . dhtMapper) lpLoggerConfig lpHandlerPrefix
+  where
+    commMapper name | name == "comm" = commLoggerName
+                    | otherwise      = name
+    dhtMapper  name | name == "dht"  = dhtLoggerName (Proxy :: Proxy (RealMode ssc))
+                    | otherwise      = name
+
 runTimed :: LoggerName -> Dialog BinaryP Transfer a -> IO a
 runTimed loggerName =
     runTimedIO .
     usingLoggerName loggerName . runTransfer . runDialog BinaryP
-
-setupLoggingReal :: LoggingParams -> IO ()
-setupLoggingReal LoggingParams {..} = do
-    initLogging Warning
-    setSeverity lpRootLogger lpMainSeverity
-    setSeverityMaybe
-        (lpRootLogger <> dhtLoggerName (Proxy :: Proxy (RealMode ssc)))
-        lpDhtSeverity
-    -- TODO: `comm` shouldn't be hardcoded, it should be taken
-    -- from MonadTransfer or something
-    setSeverityMaybe (lpRootLogger <> "comm") lpCommSeverity
-    setSeverityMaybe (lpRootLogger <> serverLoggerName) lpServerSeverity
 
 nodeStartMsg :: (WithNamedLogger m, MonadIO m) => BaseParams -> m ()
 nodeStartMsg BaseParams {..} = logInfo msg

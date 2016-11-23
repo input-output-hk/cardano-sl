@@ -1,10 +1,11 @@
 -- | Re-exports of Pos.Communication.*
 
 module Pos.Communication
-       (
-         module Communication
+       ( module Pos.Communication.Methods
+       , module Pos.Communication.Server
+       , module Pos.Communication.Types
        ) where
 
-import           Pos.Communication.Methods as Communication
-import           Pos.Communication.Server  as Communication
-import           Pos.Communication.Types   as Communication
+import           Pos.Communication.Methods
+import           Pos.Communication.Server
+import           Pos.Communication.Types

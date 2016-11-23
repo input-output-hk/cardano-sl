@@ -11,6 +11,7 @@ import           Data.Binary            (Binary (get, put))
 import           Data.MessagePack       (MessagePack (fromObject, toObject))
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
+
 import           Formatting             (Format, build)
 import           Prelude                (Read (..), Show (..))
 import           Universum              hiding (show)
@@ -46,5 +47,6 @@ instance MessagePack Timestamp where
       read' = either fail return . readEither
   toObject = toObject . show . toInteger
 
+-- | Specialized formatter for 'Timestamp' data type.
 timestampF :: Format r (Timestamp -> r)
 timestampF = build

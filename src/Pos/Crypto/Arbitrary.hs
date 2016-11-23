@@ -1,4 +1,3 @@
-
 -- | `Arbitrary` instances for using in tests and benchmarks
 
 module Pos.Crypto.Arbitrary
@@ -35,6 +34,7 @@ production and in tests?). So, we just generate lots of keys and seeds with
 -- Arbitrary signing keys
 ----------------------------------------------------------------------------
 
+-- | 'PublicKey' with corresponding 'SecretKey'.
 data KeyPair = KeyPair
     { getPub :: PublicKey
     , getSec :: SecretKey

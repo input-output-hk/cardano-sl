@@ -19,7 +19,7 @@ import           Pos.Crypto            (Hash, KeyPair (..), PublicKey, SecretKey
                                         fullPublicKeyF, hash, parseFullPublicKey,
                                         randomNumber, sign, toPublic, verify)
 -- FIXME: it's bad :(
-import           Pos.Ssc.DynamicState  ()
+import           Pos.Ssc.GodTossing    ()
 
 import           Test.Pos.Util         (binaryEncodeDecode, msgPackEncodeDecode,
                                         safeCopyEncodeDecode)

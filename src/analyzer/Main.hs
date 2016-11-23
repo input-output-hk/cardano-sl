@@ -11,12 +11,15 @@ import           Data.Attoparsec.ByteString (eitherResult, many', parseWith)
 import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Lazy       as LBS
 import qualified Data.HashMap.Strict        as HM
-import           Formatting                 (int, sformat, (%))
+import           Data.Time.Clock            (UTCTime)
+import           Data.Time.Clock.POSIX      (posixSecondsToUTCTime)
+import           Formatting                 (fixed, int, sformat, shown, string, (%))
 import           Options.Applicative.Simple (simpleOptions)
-import           Universum                  hiding ((<>))
+import           Universum
 import           Unsafe                     (unsafeFromJust)
 
 import           AnalyzerOptions            (Args (..), argsParser)
+import           Data.Text.IO               (writeFile)
 import           Pos.Types                  (flattenSlotId, unflattenSlotId)
 import           Pos.Util.JsonLog           (JLBlock (..), JLEvent (..),
                                              JLTimedEvent (..), fromJLSlotId)
@@ -37,7 +40,9 @@ main = do
         HM.fromList . fromMaybe (panic "failed to read txSenderMap") . decode <$>
         LBS.readFile txFile
     logs <- parseFiles files
-    let txConfTimes :: HM.HashMap TxId Integer
+    let tpsLogs :: HM.HashMap FilePath [(UTCTime, Double)]
+        tpsLogs = getTpsLog <$> logs
+        txConfTimes :: HM.HashMap TxId Integer
         txConfTimes = getTxAcceptTimeAvgs confirmationParam logs
         common =
             HM.intersectionWith (-) txConfTimes txSenderMap
@@ -58,6 +63,11 @@ main = do
     -- traceShowM $ length $ (HM.keys txConfTimes) `L.intersect` (HM.keys txSenderMap)
     --LBS.putStr . encode $ getTxAcceptTimeAvgs logs
     print averageMsec
+
+    forM_ (HM.toList tpsLogs) $ \(file, ds) -> do
+        let csvFile = tpsCsvFilename file
+        putText $ sformat ("Writing TPS stats to file: "%string) csvFile
+        writeFile csvFile $ tpsToCsv ds
 
 getTxAcceptTimeAvgs :: Word64 -> HM.HashMap FilePath [JLTimedEvent] -> HM.HashMap TxId Integer
 getTxAcceptTimeAvgs confirmations fileEvsMap = result
@@ -117,3 +127,24 @@ parseFile f = do
     fromJSON' val = case fromJSON val of
                       A.Error e   -> fail e
                       A.Success a -> return a
+
+tpsCsvFilename :: FilePath -> FilePath
+tpsCsvFilename file = take (length file - 5) file ++ "-tps.csv"
+
+getTpsLog :: [JLTimedEvent] -> [(UTCTime, Double)]
+getTpsLog = map toTimedCount . filter isTpsEvent
+  where isTpsEvent ev = case jlEvent ev of
+            JLTpsStat _ -> True
+            _           -> False
+        toTimedCount (JLTimedEvent time (JLTpsStat count)) =
+            ( posixSecondsToUTCTime $ fromIntegral $ time `div` 1000000
+            , fromIntegral count
+            )
+        toTimedCount _ = panic "getTpsLog: not TPS stat is given!"
+
+tpsToCsv :: [(UTCTime, Double)] -> Text
+tpsToCsv entries =
+    "time,tps\n" <>
+    mconcat (map formatter entries)
+  where
+    formatter (time, tps) = sformat (shown%","%fixed 2%"\n") time tps

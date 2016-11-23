@@ -15,7 +15,8 @@ import           Universum
 
 import           Pos.Constants      (epochSlots)
 import           Pos.Crypto         (deterministic, randomNumber)
-import           Pos.Types.Types    (Address, Coin (..), FtsSeed (..), TxOut (..), Utxo)
+import           Pos.Types.Types    (Address, Coin (..), SharedSeed (..), TxOut (..),
+                                     Utxo)
 
 -- | Choose several random stakeholders (specifically, their amount is
 -- currently hardcoded in 'Pos.Constants.epochSlots').
@@ -30,8 +31,8 @@ import           Pos.Types.Types    (Address, Coin (..), FtsSeed (..), TxOut (..
 -- in the system; to find owner of 'i'th coin we find the lowest x such that
 -- sum of all coins in this list up to 'i'th is not less than 'i' (and then
 -- 'x'th address is the owner).
-followTheSatoshi :: FtsSeed -> Utxo -> NonEmpty Address
-followTheSatoshi (FtsSeed seed) utxo
+followTheSatoshi :: SharedSeed -> Utxo -> NonEmpty Address
+followTheSatoshi (SharedSeed seed) utxo
     | null outputs = panic "followTheSatoshi: utxo is empty"
     | otherwise    = fromList $ map fst $ sortOn snd $
                      findLeaders (sortOn fst $ zip coinIndices [1..]) sums

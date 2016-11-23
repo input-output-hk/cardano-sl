@@ -17,16 +17,16 @@ import           Pos.Constants              (RunningMode (..), runningMode)
 import           Pos.Crypto                 (keyGen, vssKeyGen)
 import           Pos.DHT                    (DHTNodeType (..), dhtNodeType)
 import           Pos.Genesis                (StakeDistribution (..), genesisSecretKeys,
-                                             genesisUtxo, genesisUtxoPetty)
+                                             genesisUtxo)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), RealModeRunner,
                                              bracketDHTInstance, runNodeReal,
                                              runNodeStats, runSupporterReal,
                                              runTimeLordReal, runTimeSlaveReal)
-import           Pos.Ssc.DynamicState       (genesisVssKeyPairs)
+import           Pos.Ssc.GodTossing         (genesisVssKeyPairs)
 
 import           NodeOptions                (Args (..), argsParser)
-import           Pos.Ssc.DynamicState       (SscDynamicState)
+import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 
@@ -47,10 +47,10 @@ decode' fpath = either fail' return . decode =<< LBS.readFile fpath
     fail' e = fail $ "Error reading key from " ++ fpath ++ ": " ++ e
 
 realModeRunner :: Bool -> SscAlgo -> RealModeRunner
-realModeRunner True DynamicStateAlgo  = runNodeReal @SscDynamicState
-realModeRunner False DynamicStateAlgo = runNodeStats @SscDynamicState
-realModeRunner True NistBeaconAlgo    = runNodeReal @SscNistBeacon
-realModeRunner False NistBeaconAlgo   = runNodeStats @SscNistBeacon
+realModeRunner False GodTossingAlgo = runNodeReal @SscGodTossing
+realModeRunner True GodTossingAlgo  = runNodeStats @SscGodTossing
+realModeRunner False NistBeaconAlgo = runNodeReal @SscNistBeacon
+realModeRunner True NistBeaconAlgo  = runNodeStats @SscNistBeacon
 
 main :: IO ()
 main = do
@@ -105,17 +105,15 @@ main = do
                     then runTimeLordReal (loggingParams "time-lord" args)
                     else runTimeSlaveReal inst (baseParams "time-slave" args)
             Production systemStart -> return systemStart
-    loggingParams logger Args {..} =
-        def
-        { lpRootLogger = logger
-        , lpMainSeverity = mainLogSeverity
-        , lpDhtSeverity = Just dhtLogSeverity
-        , lpServerSeverity = serverLogSeverity
-        , lpCommSeverity = commLogSeverity
+    loggingParams lpRunnerTag Args{..} =
+        LoggingParams
+        { lpHandlerPrefix = logsPrefix
+        , lpConfigPath    = logConfig
+        , ..
         }
-    baseParams logger args@Args {..} =
+    baseParams logger args@Args{..} =
         BaseParams
-        { bpLogging = loggingParams logger args
+        { bpLoggingParams = loggingParams logger args
         , bpPort = port
         , bpDHTPeers = dhtPeers
         , bpDHTKeyOrType =
@@ -128,15 +126,12 @@ main = do
         NodeParams
         { npDbPath = Just dbPath
         , npRebuildDb = rebuildDB
-        , npSystemStart = systemStart
         , npSecretKey = spendingSK
+        , npSystemStart = systemStart
         , npVssKeyPair = vssSK
         , npBaseParams = baseParams "node" args
         , npCustomUtxo =
-              Just .
-              (if pettyUtxo
-                   then genesisUtxoPetty
-                   else genesisUtxo) $
+              Just . genesisUtxo $
               stakesDistr args
         , npTimeLord = timeLord
         , npJLFile = jlPath

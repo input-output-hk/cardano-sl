@@ -21,7 +21,7 @@ import qualified Data.Serialize      as Cereal (getWord8, putWord8)
 import qualified Data.Text           as T
 import           Universum
 
-import           Pos.Ssc.Class.Types (SscTypes)
+import           Pos.Ssc.Class.Types (Ssc)
 import           Pos.Types           (Block, BodyProof, HeaderHash, MainBlockchain)
 
 -- | Alternative chain is a list of blocks which potentially
@@ -41,7 +41,7 @@ data ProcessBlockRes ssc
       PBRabort !Text
 
 deriving instance
-         (SscTypes ssc, Show (BodyProof (MainBlockchain ssc))) =>
+         (Ssc ssc, Show (BodyProof (MainBlockchain ssc))) =>
          Show (ProcessBlockRes ssc)
 
 -- | Make `ProcessBlockRes` from list of error messages using
@@ -51,7 +51,7 @@ deriving instance
 mkPBRabort :: [Text] -> ProcessBlockRes ssc
 mkPBRabort = PBRabort . T.intercalate "; "
 
-instance SscTypes ssc => SafeCopy (ProcessBlockRes ssc) where
+instance Ssc ssc => SafeCopy (ProcessBlockRes ssc) where
     getCopy =
         contain $
         do t <- Cereal.getWord8
@@ -67,11 +67,12 @@ instance SscTypes ssc => SafeCopy (ProcessBlockRes ssc) where
                PBRgood a  -> Cereal.putWord8 1 >> safePut a
                PBRabort a -> Cereal.putWord8 2 >> safePut a
 
+-- | Result of transaction processing
 data ProcessTxRes
-    = PTRadded
-    | PTRknown
-    | PTRinvalid !Text
-    | PTRoverwhelmed
+    = PTRadded -- ^ Transaction has ben successfully added to the storage
+    | PTRknown -- ^ Transaction is already in the storage (cache)
+    | PTRinvalid !Text -- ^ Can't add transaction
+    | PTRoverwhelmed -- ^ Local transaction storage is full -- can't accept more txs
     deriving (Show, Eq)
 
 deriveSafeCopySimple 0 'base ''ProcessTxRes

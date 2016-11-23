@@ -20,10 +20,12 @@ module Pos.State.State
 
        -- * Simple getters.
        , getBlock
+       , getBlockByDepth
        , getHeadBlock
        , getBestChain
        , getLeaders
        , getLocalTxs
+       , isTxVerified
        , getLocalSscPayload
        , getGlobalMpcData
        , mayBlockBeUseful
@@ -32,65 +34,63 @@ module Pos.State.State
        , ProcessBlockRes (..)
        , ProcessTxRes (..)
        , createNewBlock
-       --, generateAndSetNewSecret
        , processBlock
        , processNewSlot
        , processSscMessage
        , processTx
 
-       -- * Stats collecting and fetching.
-       , newStatRecord
-       , getStatRecords
-
        -- * Functions for generating seed by SSC algorithm.
        , getThreshold
        , getParticipants
 
-       -- * SscDynamic state simple getters and setters.
-       , setToken
-       , getToken
+       -- * SscGodTossing simple getters and setters.
        , getOurShares
        ) where
 
 import           Crypto.Random            (seedNew, seedToInteger)
 import           Data.Acid                (EventResult, EventState, QueryEvent,
                                            UpdateEvent)
-import qualified Data.Binary              as Binary
 import           Data.Default             (Default)
 import           Data.List.NonEmpty       (NonEmpty)
 import           Pos.DHT                  (DHTResponseT)
-import           Serokell.Util            (VerificationRes, show')
+import           Serokell.Util            (VerificationRes)
 import           Universum
 
 import           Pos.Crypto               (PublicKey, SecretKey, Share, Threshold,
                                            VssKeyPair, VssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
-import           Pos.Ssc.Class.Types      (SscTypes (SscMessage, SscPayload, SscStorage, SscToken))
+import           Pos.Ssc.Class.Types      (Ssc (SscMessage, SscPayload, SscStorage))
 import           Pos.State.Acidic         (DiskState, tidyState)
 import qualified Pos.State.Acidic         as A
 import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (..),
                                            Storage)
-import           Pos.Statistics.StatEntry (StatLabel (..))
+import           Pos.Statistics.StatEntry ()
 import           Pos.Types                (Block, EpochIndex, GenesisBlock, HeaderHash,
                                            MainBlock, MainBlockHeader, SlotId,
-                                           SlotLeaders, Timestamp, Tx)
+                                           SlotLeaders, Tx)
 
 -- | NodeState encapsulates all the state stored by node.
-type NodeState ssc = DiskState ssc
-type QUConstraint ssc m = (SscStorageMode ssc, WorkModeDB ssc m)
-
--- | Convenient type class to avoid passing NodeState throughout the code.
 class MonadDB ssc m | m -> ssc where
     getNodeState :: m (NodeState ssc)
 
+-- | Convenient type class to avoid passing NodeState throughout the code.
 instance (Monad m, MonadDB ssc m) => MonadDB ssc (ReaderT r m) where
+    getNodeState = lift getNodeState
+
+instance (MonadDB ssc m, Monad m) => MonadDB ssc (StateT s m) where
     getNodeState = lift getNodeState
 
 instance (Monad m, MonadDB ssc m) => MonadDB ssc (DHTResponseT m) where
     getNodeState = lift getNodeState
 
+-- | IO monad with db access.
 type WorkModeDB ssc m = (MonadIO m, MonadDB ssc m)
+
+-- | State of the node.
+type NodeState ssc = DiskState ssc
+
+type QUConstraint ssc m = (SscStorageMode ssc, WorkModeDB ssc m)
 
 -- | Open NodeState, reading existing state from disk (if any).
 openState
@@ -104,6 +104,7 @@ openState storage deleteIfExists fp =
     openStateDo $ maybe (A.openState deleteIfExists fp)
                         (\s -> A.openStateCustom s deleteIfExists fp)
                         storage
+
 
 -- | Open NodeState which doesn't store anything on disk. Everything
 -- is stored in memory and will be lost after shutdown.
@@ -151,22 +152,37 @@ getLeaders = queryDisk . A.GetLeaders
 getBlock :: QUConstraint ssc m => HeaderHash ssc -> m (Maybe (Block ssc))
 getBlock = queryDisk . A.GetBlock
 
+-- | Get Block by depth
+getBlockByDepth :: QUConstraint ssc m => Word -> m (Maybe (Block ssc))
+getBlockByDepth = queryDisk . A.GetBlockByDepth
+
 -- | Get block which is the head of the __best chain__.
 getHeadBlock :: QUConstraint ssc m => m (Block ssc)
 getHeadBlock = queryDisk A.GetHeadBlock
 
+-- | Return current best chain.
 getBestChain :: QUConstraint ssc m => m (NonEmpty (Block ssc))
 getBestChain = queryDisk A.GetBestChain
 
+-- | Get local transactions list.
 getLocalTxs :: QUConstraint ssc m => m (HashSet Tx)
 getLocalTxs = queryDisk A.GetLocalTxs
 
+-- | Checks if tx is verified
+isTxVerified :: QUConstraint ssc m => Tx -> m Bool
+isTxVerified = queryDisk . A.IsTxVerified
+
+-- | Get local SSC data for inclusion into a block for slot N. (Different
+-- kinds of data are included into different blocks.)
 getLocalSscPayload :: QUConstraint ssc m => SlotId -> m (SscPayload ssc)
 getLocalSscPayload = queryDisk . A.GetLocalSscPayload
 
+-- | Get global SSC data.
 getGlobalMpcData :: QUConstraint ssc m => m (SscPayload ssc)
 getGlobalMpcData = queryDisk A.GetGlobalSscPayload
 
+-- | Check that block header is correct and claims to represent block
+-- which may become part of blockchain.
 mayBlockBeUseful :: QUConstraint ssc m => SlotId -> MainBlockHeader ssc -> m VerificationRes
 mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 
@@ -194,24 +210,10 @@ processBlock :: QUConstraint ssc m
              -> m (ProcessBlockRes ssc)
 processBlock si = updateDisk . A.ProcessBlock si
 
+-- | Do something with given message, result is whether message has been
+-- processed successfully (implementation defined).
 processSscMessage :: QUConstraint ssc m => SscMessage ssc -> m (Maybe (SscMessage ssc))
 processSscMessage = updateDisk . A.ProcessSscMessage
-
-
--- | Functions for collecting stats (for benchmarking)
-getStatRecords :: (QUConstraint ssc m, StatLabel l)
-               => l
-               -> m (Maybe [(Timestamp, EntryType l)])
-getStatRecords label = fmap toEntries <$> queryDisk (A.GetStatRecords $ show' label)
-  where toEntries = map $ bimap fromIntegral Binary.decode
-
-newStatRecord :: (QUConstraint ssc m, StatLabel l)
-              => l
-              -> Timestamp
-              -> EntryType l
-              -> m ()
-newStatRecord label ts entry =
-    updateDisk $ A.NewStatRecord (show' label) (fromIntegral ts) $ Binary.encode entry
 
 -- | Functions for generating seed by SSC algorithm
 getParticipants
@@ -220,6 +222,8 @@ getParticipants
     -> m (Maybe (NonEmpty VssPublicKey))
 getParticipants = queryDisk . A.GetParticipants
 
+-- | Figure out the threshold (i.e. how many secret shares would be required
+-- to recover each node's secret).
 getThreshold :: QUConstraint ssc m
              => EpochIndex
              -> m (Maybe Threshold)
@@ -227,18 +231,11 @@ getThreshold = queryDisk . A.GetThreshold
 
 
 ----------------------------------------------------------------------------
--- Functions related to SscDynamicState
+-- Related to SscGodTossing
 ----------------------------------------------------------------------------
-getToken
-    :: QUConstraint ssc m
-    => m (Maybe (SscToken ssc))
-getToken = queryDisk A.GetToken
 
-setToken
-    :: QUConstraint ssc m
-    => SscToken ssc -> m ()
-setToken = updateDisk . A.SetToken
-
+-- | Decrypt shares (in commitments) that are intended for us and that we can
+-- decrypt.
 getOurShares
     :: QUConstraint ssc m
     => VssKeyPair -> m (HashMap PublicKey Share)

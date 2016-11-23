@@ -1,8 +1,10 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies     #-}
 
+-- | Types for Shared Seed calculation.
+
 module Pos.Ssc.Class.Types
-       ( SscTypes(..)
+       ( Ssc(..)
        ) where
 
 import           Data.Binary         (Binary)
@@ -11,8 +13,10 @@ import           Data.Tagged         (Tagged)
 import           Data.Text.Buildable (Buildable)
 import           Universum
 
+-- | Main Shared Seed Calculation type class. Stores all needed type
+-- parameters for general implementation of SSC.
 class (Typeable ssc
-      ,Typeable (SscToken ssc)
+--      ,Typeable (SscToken ssc)
       ,Typeable (SscPayload ssc)
       ,Typeable (SscStorage ssc)
       ,Typeable (SscProof ssc)
@@ -29,9 +33,9 @@ class (Typeable ssc
       ,SafeCopy (SscProof ssc)
       ,SafeCopy (SscPayload ssc)
       ,SafeCopy (SscMessage ssc)
-      ,SafeCopy (SscToken ssc)
+--      ,SafeCopy (SscToken ssc)
       ,SafeCopy (SscStorage ssc)) =>
-      SscTypes ssc where
+      Ssc ssc where
 
     -- | Internal SSC state
     type SscStorage ssc
@@ -45,8 +49,6 @@ class (Typeable ssc
     type SscMessage ssc
     -- | Error that can happen when calculating the seed
     type SscSeedError ssc
-    -- | This is BARDAQ needed only for dynamic state implementation.
-    type SscToken ssc
 
     -- | Create proof (for inclusion into block header) from payload
     mkSscProof :: Tagged ssc (SscPayload ssc -> SscProof ssc)

@@ -7,7 +7,6 @@ module NodeOptions
        , argsParser
        ) where
 
-import           Control.TimeWarp.Logging   (Severity (Debug, Info))
 import           Data.Monoid                ((<>))
 import           Options.Applicative.Simple (Parser, auto, help, long, many, metavar,
                                              option, showDefault, strOption, switch,
@@ -28,16 +27,13 @@ data Args = Args
     , spendingSecretPath :: !(Maybe FilePath)
     , vssSecretPath      :: !(Maybe FilePath)
     , port               :: !Word16
-    , pettyUtxo          :: !Bool
     , flatDistr          :: !(Maybe (Int, Int))
     , bitcoinDistr       :: !(Maybe (Int, Int))
     , dhtPeers           :: ![DHTNode]
     , supporterNode      :: !Bool
     , dhtKey             :: !(Maybe DHTKey)
-    , mainLogSeverity    :: !Severity
-    , dhtLogSeverity     :: !Severity
-    , commLogSeverity    :: !(Maybe Severity)
-    , serverLogSeverity  :: !(Maybe Severity)
+    , logConfig          :: !(Maybe FilePath)
+    , logsPrefix         :: !(Maybe FilePath)
     , timeLord           :: !Bool
     , dhtExplicitInitial :: !Bool
     , enableStats        :: !Bool
@@ -77,9 +73,6 @@ argsParser =
         auto
         (long "port" <> metavar "INTEGER" <> value 3000 <> showDefault <>
          help "Port to work on") <*>
-    switch
-        (long "petty-utxo" <>
-         help "Petty utxo (1 coin per transaction, many txs)") <*>
     optional
         (option auto $
          mconcat
@@ -104,25 +97,14 @@ argsParser =
     optional
         (option (fromParsec dhtKeyParser) $
          long "dht-key" <> metavar "HOST_ID" <> help "DHT key in base64-url") <*>
-    option
-        auto
-        (long "main-log" <> metavar "SEVERITY" <> value Debug <> showDefault <>
-         help "Main log severity, one of Info, Debug, Warning, Error") <*>
-    option
-        auto
-        (long "dht-log" <> metavar "SEVERITY" <> value Info <> showDefault <>
-         help "DHT log severity, one of Info, Debug, Warning, Error") <*>
     optional
-        (option auto $
-         mconcat
-             [ long "comm-log"
-             , metavar "SEVERITY"
-             , help "Comm (time-warp) log severity"
-             ]) <*>
+        (strOption $
+         long "log-config" <> metavar "FILEPATH" <> help "Path to logger configuration")
+    <*>
     optional
-        (option auto $
-         mconcat
-             [long "server-log", metavar "SEVERITY", help "Server log severity"]) <*>
+        (strOption $
+         long "logs-prefix" <> metavar "FILEPATH" <> help "Prefix to logger output path")
+    <*>
     switch
         (long "time-lord" <>
          help
@@ -137,7 +119,7 @@ argsParser =
         (long "json-log" <> metavar "FILEPATH" <>
          help "Path to json log file")) <*>
     option (fromParsec sscAlgoParser)
-        (long "ssc-algo" <> metavar "ALGO" <> value DynamicStateAlgo <> showDefault <>
+        (long "ssc-algo" <> metavar "ALGO" <> value GodTossingAlgo <> showDefault <>
          help "Shared Seed Calculation algorithm which nodes will use")
   where
     peerHelpMsg =

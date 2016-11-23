@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE UndecidableInstances      #-}
 
--- | Peer discovery
+-- | Distributed Hash Table for peer discovery.
 
 module Pos.DHT (
     DHTException (..),
@@ -41,9 +41,6 @@ import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, c
                                             throwM)
 import           Control.Monad.Morph       (hoist)
 import           Control.Monad.Trans.Class (MonadTrans)
-import           Control.TimeWarp.Logging  (LoggerName,
-                                            WithNamedLogger (modifyLoggerName), logDebug,
-                                            logInfo, logWarning)
 import           Control.TimeWarp.Rpc      (BinaryP, HeaderNContentData, Message,
                                             MonadDialog, MonadTransfer (..),
                                             NetworkAddress, ResponseT, Unpackable, closeR,
@@ -54,19 +51,23 @@ import           Data.Binary               (Binary)
 import           Data.Proxy                (Proxy (Proxy))
 import           Formatting                (int, sformat, shown, (%))
 import qualified Formatting                as F
+import           System.Wlog               (LoggerName,
+                                            WithNamedLogger (modifyLoggerName), logDebug,
+                                            logInfo, logWarning)
 import           Universum
 
 import           Pos.Constants             (neighborsSendThreshold)
 import           Pos.DHT.Types
 import           Pos.Util                  (messageName')
 
+-- | Monad for Distributed Hash Table operations.
 class Monad m => MonadDHT m where
     joinNetwork :: [DHTNode] -> m ()
 
-  -- Peer discovery: query DHT for random key
-  -- Processing request, node will discover few other nodes
-  -- We return these newly discovered nodes among with already known
-  -- (List of known nodes is updated as well)
+    -- | Peer discovery: query DHT for random key
+    -- Processing request, node will discover few other nodes
+    -- We return these newly discovered nodes among with already known
+    -- (List of known nodes is updated as well)
     discoverPeers :: DHTNodeType -> m [DHTNode]
 
     getKnownPeers :: m [DHTNode]
@@ -76,9 +77,11 @@ class Monad m => MonadDHT m where
     dhtLoggerName :: Proxy m -> LoggerName
     -- dhtLoggerName Proxy = "MonadDHT"
 
+-- | Specialized logger name for DHT monad.
 dhtLoggerNameM :: forall m . MonadDHT m => m LoggerName
 dhtLoggerNameM = pure $ dhtLoggerName (Proxy :: Proxy m)
 
+-- | Perform some action using 'dhtLoggerName'.
 withDhtLogger
     :: (WithNamedLogger m, MonadDHT m)
     => m a -> m a
@@ -86,15 +89,18 @@ withDhtLogger action = do
     subName <- dhtLoggerNameM
     modifyLoggerName (<> subName) action
 
+-- | Header of messages in DHT algorithm.
 data DHTMsgHeader = BroadcastHeader
                   | SimpleHeader { dmhNoCache :: Bool }
   deriving (Generic, Show)
 
 instance Binary DHTMsgHeader
 
+-- | Class for something that has default 'DHTMsgHeader'.
 class WithDefaultMsgHeader m where
     defaultMsgHeader :: Message r => r -> m DHTMsgHeader
 
+-- | Monad that can send messages over distributed network.
 class MonadDHT m => MonadMessageDHT m where
 
     sendToNetwork :: (Binary r, Message r) => r -> m ()
@@ -116,14 +122,17 @@ class MonadDHT m => MonadMessageDHT m where
     default sendToNeighbors :: (Binary r, Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
     sendToNeighbors = defaultSendToNeighbors sequence sendToNode
 
+-- | Monad that can respond on messages for DHT algorithm.
 class MonadMessageDHT m => MonadResponseDHT m where
   replyToNode :: (Binary r, Message r) => r -> m ()
   closeResponse :: m ()
 
+-- | Listener of DHT messages.
 data ListenerDHT m =
     forall r . (Unpackable BinaryP (HeaderNContentData DHTMsgHeader r), Message r)
             => ListenerDHT (r -> DHTResponseT m ())
 
+-- | Send 'defaultMsgHeader' for node with given 'NetworkAddress'.
 defaultSendToNode
     :: ( MonadMessageDHT m
        , Binary r
@@ -141,6 +150,7 @@ defaultSendToNode addr msg = do
     header <- defaultMsgHeader msg
     sendH addr header msg
 
+-- | Send default message to neighbours in parallel.
 defaultSendToNeighbors
     :: ( MonadMessageDHT m
        , WithNamedLogger m
@@ -175,6 +185,7 @@ defaultSendToNeighbors parallelize sender msg = do
           logInfo $ sformat ("Error sending message to " % F.build % ": " % shown) node e
           return False
 
+-- | Data type for DHT exceptions.
 data DHTException = NodeDown | AllPeersUnavailable
   deriving (Show, Typeable)
 
@@ -195,6 +206,7 @@ instance MonadMessageDHT m => MonadMessageDHT (ResponseT m) where
 instance (Monad m, WithDefaultMsgHeader m) => WithDefaultMsgHeader (ResponseT m) where
   defaultMsgHeader = lift . defaultMsgHeader
 
+-- | Wrapper for monadic action that can also respond on DHT messages.
 newtype DHTResponseT m a = DHTResponseT
     { getDHTResponseT :: ResponseT m a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans,
@@ -218,6 +230,7 @@ instance (WithNamedLogger m, WithDefaultMsgHeader m, MonadMessageDHT m, MonadDia
     DHTResponseT $ replyH header msg
   closeResponse = DHTResponseT closeR
 
+-- | Monad morphism of inner monadic action inside 'DHTResponceT'.
 mapDHTResponseT :: (m a -> n b) -> DHTResponseT m a -> DHTResponseT n b
 mapDHTResponseT how = DHTResponseT . mapResponseT how . getDHTResponseT
 
@@ -225,9 +238,11 @@ mapDHTResponseT how = DHTResponseT . mapResponseT how . getDHTResponseT
 mapListenerDHT :: (m () -> n ()) -> ListenerDHT m -> ListenerDHT n
 mapListenerDHT how (ListenerDHT listen) = ListenerDHT $ mapDHTResponseT how . listen
 
+-- | Leave only those nodes that has given @Just type@.
 filterByNodeType :: DHTNodeType -> [DHTNode] -> [DHTNode]
 filterByNodeType type_ = filter (\n -> dhtNodeType (dhtNodeId n) == Just type_)
 
+-- | Join distributed network without throwing 'AllPeersUnavailable' exception.
 joinNetworkNoThrow :: (MonadDHT m, MonadCatch m, MonadIO m, WithNamedLogger m) => [DHTNode] -> m ()
 joinNetworkNoThrow peers = joinNetwork peers `catch` handleJoinE
   where

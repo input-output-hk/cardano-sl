@@ -7,6 +7,11 @@
 {-# LANGUAGE UndecidableInstances  #-}
 {-# LANGUAGE ViewPatterns          #-}
 
+{-| Implementation of peer discovery using using Kademlia Distributed Hash Table.
+    For more details regarding DHT see this package on hackage:
+    <https://hackage.haskell.org/package/kademlia>
+-}
+
 module Pos.DHT.Real
        ( KademliaDHT
        , runKademliaDHT
@@ -25,8 +30,6 @@ import           Control.Monad.Catch             (Handler (..), MonadCatch, Mona
 import           Control.Monad.Morph             (hoist)
 import           Control.Monad.Trans.Class       (MonadTrans)
 import           Control.Monad.Trans.Control     (MonadBaseControl)
-import           Control.TimeWarp.Logging        (WithNamedLogger, logDebug, logError,
-                                                  logInfo, logWarning, usingLoggerName)
 import           Control.TimeWarp.Rpc            (BinaryP (..), Binding (..),
                                                   ListenerH (..), MonadDialog,
                                                   MonadResponse (..), MonadTransfer (..),
@@ -56,6 +59,8 @@ import           Pos.DHT                         (DHTData, DHTException (..), DH
                                                   joinNetworkNoThrow, randomDHTKey,
                                                   withDhtLogger)
 import           Pos.Util                        (runWithRandomIntervals)
+import           System.Wlog                     (WithNamedLogger, logDebug, logError,
+                                                  logInfo, logWarning, usingLoggerName)
 import           Universum                       hiding (fromStrict, mapConcurrently,
                                                   toStrict)
 
@@ -78,6 +83,7 @@ instance K.Serialize DHTKey where
 
 type DHTHandle = K.KademliaInstance DHTKey DHTData
 
+-- | Instance of node for /Kademlia DHT/ algorithm.
 data KademliaDHTInstance = KademliaDHTInstance
     { kdiHandle          :: !DHTHandle
     , kdiKey             :: !DHTKey
@@ -85,6 +91,7 @@ data KademliaDHTInstance = KademliaDHTInstance
     , kdiExplicitInitial :: !Bool
     }
 
+-- | Node context for 'KademliaDHTInstance'.
 data KademliaDHTContext m = KademliaDHTContext
     { kdcDHTInstance_         :: !KademliaDHTInstance
     , kdcAuxClosers           :: !(TVar [KademliaDHT m ()])
@@ -93,6 +100,7 @@ data KademliaDHTContext m = KademliaDHTContext
     , kdcNoCacheMessageNames_ :: ![Text]
     }
 
+-- | Configuration for particular 'KademliaDHTInstance'.
 data KademliaDHTConfig m = KademliaDHTConfig
     { kdcPort                :: !Word16
     , kdcListeners           :: ![ListenerDHT (KademliaDHT m)]
@@ -101,6 +109,8 @@ data KademliaDHTConfig m = KademliaDHTConfig
     , kdcNoCacheMessageNames :: ![Text]
     , kdcDHTInstance         :: !KademliaDHTInstance
     }
+
+-- | Instance of part of config.
 data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
     { kdcPort            :: !Word16
     , kdcKeyOrType       :: !(Either DHTKey DHTNodeType)
@@ -108,6 +118,7 @@ data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
     , kdcExplicitInitial :: !Bool
     }
 
+-- | Node of /Kademlia DHT/ algorithm with access to 'KademliaDHTContext'.
 newtype KademliaDHT m a = KademliaDHT { unKademliaDHT :: ReaderT (KademliaDHTContext m) m a }
     deriving (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadIO,
              MonadMask, WithNamedLogger, MonadTimed, MonadDialog p)
@@ -155,6 +166,7 @@ instance MonadTrans KademliaDHT where
 
 type instance ThreadId (KademliaDHT m) = ThreadId m
 
+-- | Run 'KademliaDHT' with provided 'KademliaDTHConfig'.
 runKademliaDHT
     :: (WithNamedLogger m, MonadIO m, MonadTimed m, MonadDialog BinaryP m, MonadMask m, MonadBaseControl IO m)
     => KademliaDHTConfig m -> KademliaDHT m a -> m a
@@ -182,6 +194,7 @@ runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
       closer <- listenByBinding $ AtPort kdcPort
       liftIO . atomically $ modifyTVar tvar (closer:)
 
+-- | Stop DHT algo.
 stopDHT :: (MonadTimed m, MonadIO m) => KademliaDHT m ()
 stopDHT = do
     (closersTV, stoppedTV) <- KademliaDHT $ (,)
@@ -191,11 +204,13 @@ stopDHT = do
     closers <- liftIO . atomically $ swapTVar closersTV []
     sequence_ closers
 
+-- | Stop chosen 'KademliaDHTInstance'.
 stopDHTInstance
     :: MonadIO m
     => KademliaDHTInstance -> m ()
 stopDHTInstance KademliaDHTInstance {..} = liftIO $ K.close kdiHandle
 
+-- | Start 'KademliaDHTInstance' with 'KademliaDHTInstanceConfig'.
 startDHTInstance
     :: ( MonadTimed m
        , MonadIO m

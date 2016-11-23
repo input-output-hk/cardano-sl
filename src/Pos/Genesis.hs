@@ -1,4 +1,8 @@
--- | Blockchain genesis. Not to be confused with genesis block in epoch.
+{-| Blockchain genesis. Not to be confused with genesis block in epoch.
+    Blockchain genesis means genesis values which are hardcoded in advance
+    (before system starts doing anything). Genesis block in epoch exists
+    in every epoch and it's not known in advance.
+-}
 
 module Pos.Genesis
        (
@@ -9,7 +13,6 @@ module Pos.Genesis
        , genesisPublicKeys
        , genesisSecretKeys
        , genesisUtxo
-       , genesisUtxoPetty
 
        -- * Ssc
        , genesisLeaders
@@ -17,7 +20,7 @@ module Pos.Genesis
 
 
 import           Data.Default         (Default (def))
-import           Data.List            (genericLength, genericReplicate, (!!))
+import           Data.List            (genericLength, genericReplicate)
 import qualified Data.Map.Strict      as M
 import qualified Data.Text            as T
 import           Formatting           (int, sformat, (%))
@@ -28,14 +31,16 @@ import           Pos.Constants        (genesisN)
 import           Pos.Crypto           (PublicKey, SecretKey, deterministicKeyGen,
                                        unsafeHash)
 import           Pos.FollowTheSatoshi (followTheSatoshi)
-import           Pos.Types            (Address (..), Coin, FtsSeed (FtsSeed), SlotLeaders,
-                                       TxOut (..), Utxo)
+import           Pos.Types            (Address (..), Coin, SharedSeed (SharedSeed),
+                                       SlotLeaders, TxOut (..), Utxo)
 
 
 ----------------------------------------------------------------------------
 -- Static state
 ----------------------------------------------------------------------------
 
+-- | List of pairs from 'SecretKey' with corresponding 'PublicKey'.
+--
 -- TODO get rid of this hardcode !!
 -- Secret keys of genesis block participants shouldn't obviously be widely known
 genesisKeyPairs :: [(PublicKey, SecretKey)]
@@ -48,12 +53,15 @@ genesisKeyPairs = map gen [0 .. genesisN - 1]
         encodeUtf8 .
         T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")
 
+-- | List of 'SecrekKey'`s in genesis.
 genesisSecretKeys :: [SecretKey]
 genesisSecretKeys = map snd genesisKeyPairs
 
+-- | List of 'PublicKey'`s in genesis.
 genesisPublicKeys :: [PublicKey]
 genesisPublicKeys = map fst genesisKeyPairs
 
+-- | List of 'Address'`es in genesis. See 'genesisPublicKeys'.
 genesisAddresses :: [Address]
 genesisAddresses = map Address genesisPublicKeys
 
@@ -65,10 +73,6 @@ data StakeDistribution
                  !Coin     -- total number of coins
     | BitcoinStakes !Word  -- number of stakeholders
                     !Coin  -- total number of coins
-
-sdStakeHolders :: StakeDistribution -> Word
-sdStakeHolders (FlatStakes n _)    = n
-sdStakeHolders (BitcoinStakes n _) = n
 
 instance Default StakeDistribution where
     def = FlatStakes genesisN (genesisN * 10000)
@@ -111,34 +115,20 @@ bitcoinDistributionImpl ratio coins (coinIdx, coin) =
     toAddValMin = coin `div` fromIntegral toAddNum
     toAddValMax = coin - toAddValMin * (fromIntegral toAddNum - 1)
 
+-- | Genesis 'Utxo'.
 genesisUtxo :: StakeDistribution -> Utxo
 genesisUtxo sd =
     M.fromList . zipWith zipF (stakeDistribution sd) $ genesisAddresses
   where
     zipF coin addr = ((unsafeHash addr, 0), TxOut addr coin)
 
--- | Each utxo is split into many utxos, each containing 1 coin. Only
--- for 0-th node.
-genesisUtxoPetty :: StakeDistribution -> Utxo
-genesisUtxoPetty sd =
-    M.fromList $
-    flip concatMap (genesisAddresses `zip` [0 .. sdStakeHolders sd - 1]) $
-    \(a, nodei) ->
-         let c = coinsDistr !! fromIntegral nodei
-         in if nodei == 0
-                then map
-                         (\i -> ((unsafeHash (show a ++ show i), 0), TxOut a 1))
-                         [1 .. fromIntegral c :: Int]
-                else [((unsafeHash a, 0), TxOut a c)]
-  where
-    coinsDistr = stakeDistribution sd
-
 ----------------------------------------------------------------------------
 -- Slot leaders
 ----------------------------------------------------------------------------
 
-genesisSeed :: FtsSeed
-genesisSeed = FtsSeed "vasa opasa skovoroda Ggurda boroda provoda"
+genesisSeed :: SharedSeed
+genesisSeed = SharedSeed "vasa opasa skovoroda Ggurda boroda provoda"
 
+-- | Leaders of genesis. See 'followTheSatoshi'.
 genesisLeaders :: Utxo -> SlotLeaders
 genesisLeaders = fmap getAddress . followTheSatoshi genesisSeed

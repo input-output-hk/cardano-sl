@@ -6,10 +6,10 @@ module Pos.Worker.Tx
        ( txWorkers
        ) where
 
-import           Control.TimeWarp.Logging  (logWarning)
 import           Control.TimeWarp.Timed    (Microsecond, repeatForever)
 import           Formatting                (build, sformat, (%))
 import           Serokell.Util.Exceptions  ()
+import           System.Wlog               (logWarning)
 import           Universum
 
 import           Pos.Communication.Methods (announceTxs)

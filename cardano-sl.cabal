@@ -4,8 +4,8 @@ synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             BSD3
 license-file:        LICENSE
-author:              Serokell OU
-maintainer:          hi@serokell.io
+author:              Serokell
+maintainer:          Serokell <hi@serokell.io>
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
@@ -24,18 +24,37 @@ library
                         Pos.Constants
                         Pos.DHT
                         Pos.DHT.Real
+                        Pos.DHT.Types
                         Pos.FollowTheSatoshi
                         Pos.Ssc.Class
-                        Pos.Ssc.DynamicState
+                        Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon
                         Pos.Ssc.SscAlgo
                         Pos.Genesis
                         Pos.Launcher
                         Pos.Merkle
                         Pos.Slotting
+                        Pos.Ssc.Class.Types
+                        Pos.Ssc.Class.Storage
+                        Pos.Ssc.Class.Workers
+                        Pos.Ssc.Class.Listeners
                         Pos.State
+                        Pos.State.Acidic
+                        Pos.State.State
+                        Pos.State.Storage
+                        Pos.State.Storage.Block
+                        Pos.State.Storage.Types
+                        Pos.State.Storage.Tx
                         Pos.Statistics
                         Pos.Types
+                        Pos.Types.Arbitrary
+                        Pos.Types.Arbitrary.Unsafe
+                        Pos.Types.Block
+                        Pos.Types.Slotting
+                        Pos.Types.Timestamp
+                        Pos.Types.Tx
+                        Pos.Types.Types
+                        Pos.Types.Utxo
                         Pos.Util
                         Pos.Util.JsonLog
                         Pos.Worker
@@ -61,45 +80,25 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
-                        Pos.DHT.Types
-                        Pos.Ssc.Class.Types
-                        Pos.Ssc.Class.Storage
-                        Pos.Ssc.Class.Workers
-                        Pos.Ssc.Class.Listeners
-                        Pos.Ssc.DynamicState.Arbitrary
-                        Pos.Ssc.DynamicState.Base
-                        Pos.Ssc.DynamicState.Error
-                        Pos.Ssc.DynamicState.Genesis
-                        Pos.Ssc.DynamicState.Instance
-                        Pos.Ssc.DynamicState.Instance.Listeners
-                        Pos.Ssc.DynamicState.Instance.Storage
-                        Pos.Ssc.DynamicState.Instance.Type
-                        Pos.Ssc.DynamicState.Instance.Types
-                        Pos.Ssc.DynamicState.Instance.Worker
-                        Pos.Ssc.DynamicState.Seed
-                        Pos.Ssc.DynamicState.Server
-                        Pos.Ssc.DynamicState.Storage
-                        Pos.Ssc.DynamicState.Types
-                        Pos.State.Acidic
-                        Pos.State.State
-                        Pos.State.Storage
-                        Pos.State.Storage.Block
-                        Pos.State.Storage.Stats
-                        Pos.State.Storage.Types
-                        Pos.State.Storage.Tx
-                        Pos.Statistics.Block
+                        Pos.Ssc.GodTossing.Announce
+                        Pos.Ssc.GodTossing.Arbitrary
+                        Pos.Ssc.GodTossing.Error
+                        Pos.Ssc.GodTossing.Genesis
+                        Pos.Ssc.GodTossing.Storage.Storage
+                        Pos.Ssc.GodTossing.Storage.Types
+                        Pos.Ssc.GodTossing.Listener.Listeners
+                        Pos.Ssc.GodTossing.Worker.SecretStorage
+                        Pos.Ssc.GodTossing.Worker.Types
+                        Pos.Ssc.GodTossing.Worker.Workers
+                        Pos.Ssc.GodTossing.Seed
+                        Pos.Ssc.GodTossing.Types.Base
+                        Pos.Ssc.GodTossing.Types.Instance
+                        Pos.Ssc.GodTossing.Types.Type
+                        Pos.Ssc.GodTossing.Types.Types
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
-                        Pos.Types.Arbitrary
-                        Pos.Types.Arbitrary.Unsafe
-                        Pos.Types.Block
-                        Pos.Types.Slotting
-                        Pos.Types.Timestamp
-                        Pos.Types.Tx
-                        Pos.Types.Types
-                        Pos.Types.Utxo
                         Pos.Worker.Block
                         Pos.Worker.Stats
                         Pos.Worker.Tx
@@ -122,15 +121,19 @@ library
                       , data-default
                       , data-msgpack >= 0.0.8
                       , derive
+                      , directory
                       , ed25519
                       , exceptions
                       , file-embed >= 0.0.10
+                      , filepath
                       , focus
                       , formatting
                       , hashable
+                      , hslogger >= 1.2.10
                       , kademlia
                       , lens
                       , lifted-async
+                      , log-warper >= 0.1.0
                       , lrucache
                       , memory
                       , mmorph
@@ -144,7 +147,6 @@ library
                       , safecopy
                       , serokell-util
                       , stm
-                      , stm-containers
                       , stm-containers
                       , tagged
                       , template-haskell
@@ -165,6 +167,7 @@ library
                        -fno-warn-orphans
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -185,6 +188,7 @@ executable cardano-node
                      , directory
                      , filepath
                      , formatting
+                     , log-warper >= 0.1.0
                      , optparse-simple
                      , parsec
                      , serokell-util
@@ -194,8 +198,10 @@ executable cardano-node
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
+                       -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -212,8 +218,11 @@ executable cardano-analyzer
                      , bytestring
                      , cardano-sl
                      , formatting
+                     , log-warper >= 0.1.0
                      , optparse-simple
                      , serokell-util
+                     , text
+                     , time
                      , time-warp
                      , universum >= 0.1.9
                      , unordered-containers
@@ -221,8 +230,10 @@ executable cardano-analyzer
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
+                       -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -236,6 +247,7 @@ executable cardano-wallet
                      , data-default
                      , cardano-sl
                      , formatting
+                     , log-warper >= 0.1.0
                      , optparse-applicative
                      , parsec
                      , serokell-util
@@ -245,8 +257,10 @@ executable cardano-wallet
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
+                       -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -270,6 +284,7 @@ executable cardano-stats-collector
                      , formatting
                      , filepath
                      , hashable
+                     , log-warper >= 0.1.0
                      , lifted-async
                      , monad-control
                      , optparse-simple >= 0.0.3
@@ -287,8 +302,10 @@ executable cardano-stats-collector
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
+                       -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -304,6 +321,7 @@ executable cardano-tx-generator
                      , data-default
                      , cardano-sl
                      , formatting
+                     , log-warper >= 0.1.0
                      , optparse-applicative
                      , parsec
                      , random
@@ -316,13 +334,52 @@ executable cardano-tx-generator
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
+                       -with-rtsopts=-N
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+
+executable cardano-smart-generator
+  hs-source-dirs:      src/smart-generator
+  main-is:             Main.hs
+  build-depends:       QuickCheck
+                     , base
+                     , aeson
+                     , array
+                     , bytestring
+                     , data-default
+                     , cardano-sl
+                     , formatting
+                     , log-warper >= 0.1.0
+                     , lens
+                     , optparse-applicative
+                     , parsec
+                     , random
+                     , serokell-util
+                     , text
+                     , time
+                     , time-warp
+                     , universum >= 0.1.9
+                     , unordered-containers
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -with-rtsopts=-N
+                       -O2
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+
 
 test-suite cardano-test
   main-is:             Test.hs
@@ -331,10 +388,10 @@ test-suite cardano-test
                      , Test.Pos.FollowTheSatoshiSpec
                      , Test.Pos.MerkleSpec
                      , Test.Pos.SlottingSpec
-                     , Test.Pos.Ssc.DynamicState.Identity.BinarySpec
-                     , Test.Pos.Ssc.DynamicState.Identity.MessagePackSpec
-                     , Test.Pos.Ssc.DynamicState.Identity.SafeCopySpec
-                     , Test.Pos.Ssc.DynamicState.SeedSpec
+                     , Test.Pos.Ssc.GodTossing.Identity.BinarySpec
+                     , Test.Pos.Ssc.GodTossing.Identity.MessagePackSpec
+                     , Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
+                     , Test.Pos.Ssc.GodTossing.SeedSpec
                      , Test.Pos.Types.BlockSpec
                      , Test.Pos.Types.Identity.BinarySpec
                      , Test.Pos.Types.Identity.MessagePackSpec
@@ -358,7 +415,9 @@ test-suite cardano-test
                      , formatting
                      , hspec
                      , lens
+                     , log-warper >= 0.1.0
                      , memory
+                     , mtl
                      , random
                      , safecopy
                      , serokell-util
@@ -371,8 +430,10 @@ test-suite cardano-test
   ghc-options:         -threaded
                        -rtsopts
                        -Wall
-                       -fno-warn-orphans
+                       -- -fno-warn-orphans
+                       -with-rtsopts=-N
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings
@@ -394,6 +455,7 @@ benchmark cardano-bench-criterion
                      , criterion
                      , formatting
                      , hashtables
+                     , log-warper >= 0.1.0
                      , universum >= 0.1.9
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
@@ -402,6 +464,7 @@ benchmark cardano-bench-criterion
                        -fno-warn-orphans
                        -O2
   default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
                         GeneralizedNewtypeDeriving
                         NoImplicitPrelude
                         OverloadedStrings

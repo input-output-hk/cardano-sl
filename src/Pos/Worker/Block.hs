@@ -10,12 +10,12 @@ module Pos.Worker.Block
        ) where
 
 import           Control.Lens              (ix, (^.), (^?))
-import           Control.TimeWarp.Logging  (logDebug, logInfo, logWarning)
 import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, wait)
 import           Data.Tagged               (untag)
 import           Formatting                (build, sformat, (%))
 import           Serokell.Util             (VerificationRes (..), listJson)
 import           Serokell.Util.Exceptions  ()
+import           System.Wlog               (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Communication.Methods (announceBlock)
@@ -23,7 +23,6 @@ import           Pos.Constants             (networkDiameter, slotDuration)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
 import           Pos.Ssc.Class             (sscVerifyPayload)
 import           Pos.State                 (createNewBlock, getHeadBlock, getLeaders)
-import           Pos.Statistics            (StatBlockCreated (..), statlogCountEvent)
 import           Pos.Types                 (SlotId (..), Timestamp (Timestamp), blockMpc,
                                             gbHeader, slotIdF)
 import           Pos.Util                  (logWarningWaitLinear)
@@ -64,7 +63,6 @@ onNewSlotWhenLeader slotId = do
             logInfo "It's time to create a block for current slot"
             sk <- ncSecretKey <$> getNodeContext
             let whenCreated createdBlk = do
-                    statlogCountEvent StatBlockCreated 1
                     logInfo $
                         sformat ("Created a new block:\n" %build) createdBlk
                     jlLog $ jlCreatedBlock (Right createdBlk)

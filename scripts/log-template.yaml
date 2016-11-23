@@ -1,0 +1,8 @@
+severity: Warning
+node:
+    severity: {{main}}
+    file: {{file}}
+    comm:
+        severity: {{comm}}
+    kademlia:
+        severity: {{dht}}

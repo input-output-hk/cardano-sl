@@ -10,11 +10,11 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp.git
-    commit: 157ae0135c82ceb2fd882ad3729af147b93ae492
+    commit: 1758ce25ab96f01e8979379e66dea3c7dae6c8c4
   extra-dep: true
 - location:
-    git: https://github.com/serokell/serokell-util.git
-    commit: 3fd9a911211276f1f2a2a9fe78bddbb2e1ffd503
+    git: https://github.com/serokell/log-warper.git
+    commit: 5de577c3ab25e6f9a4350a9646050a88b2b8996e
   extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git
@@ -41,6 +41,6 @@ extra-deps:
 - QuickCheck-2.9.2
 - cryptonite-openssl-0.2
 - UtilityTM-0.0.4
-- th-expand-syns-0.4.1.0
+- serokell-util-0.1.1.1
 
-resolver: lts-7.1
+resolver: lts-7.9

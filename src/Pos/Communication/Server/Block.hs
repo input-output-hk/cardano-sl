@@ -55,8 +55,9 @@ handleBlock :: forall ssc m . ResponseMode ssc m
 handleBlock (SendBlock block) = do
     slotId <- getCurrentSlot
     pbr <- St.processBlock slotId block
-    globalData <- St.getGlobalMpcData
-    sscApplyGlobalPayload pbr globalData
+    let globalChanged = case pbr of St.PBRgood _ -> True
+                                    _            -> False
+    when globalChanged $ sscApplyGlobalPayload =<< St.getGlobalMpcData
     let blkHash = headerHash block
     case pbr of
         St.PBRabort msg -> do

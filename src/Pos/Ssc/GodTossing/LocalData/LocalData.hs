@@ -1,7 +1,8 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE TypeFamilies        #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE Rank2Types       #-}
-{-# LANGUAGE TypeFamilies     #-}
 
 -- | This module defines methods which operate on GtLocalData.
 
@@ -16,13 +17,12 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
 import           Data.Default                       (Default (def))
 import           Universum
 
-import           Control.Lens                       (at, use, view, (%=), (.=), (^.))
+import           Control.Lens                       (at, use, view, (%=), (.=))
 import qualified Data.HashMap.Strict                as HM
 import           Pos.Crypto                         (PublicKey, Share)
 import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate, MonadSscLD,
                                                      SscLocalDataClass (..),
                                                      sscRunLocalQuery, sscRunLocalUpdate)
-import           Pos.Ssc.Class.Types                (Ssc (..))
 import           Pos.Ssc.GodTossing.Functions       (checkOpening, checkShares,
                                                      isCommitmentIdx, isOpeningIdx,
                                                      isSharesIdx, verifySignedCommitment)
@@ -39,13 +39,10 @@ import           Pos.Ssc.GodTossing.Types.Base      (Commitment, CommitmentSigna
 import           Pos.Ssc.GodTossing.Types.Instance  ()
 import           Pos.Ssc.GodTossing.Types.Message   (DataMsg (..), MsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types     (GtPayload (..), mdCommitments,
-                                                     mdOpenings, mdShares,
-                                                     mdVssCertificates)
-import           Pos.Types                          (Block, SlotId (..))
+import           Pos.Ssc.GodTossing.Types.Types     (GtPayload (..))
+import           Pos.Types                          (SlotId (..))
 import           Pos.Util                           (diffDoubleMap, readerToState)
 import           Serokell.Util.Verify               (isVerSuccess)
-import           Pos.State.Storage.Types (ProcessBlockRes (..))
 
 type LDQuery a = LocalQuery SscGodTossing a
 type LDUpdate a = LocalUpdate SscGodTossing a
@@ -194,9 +191,8 @@ processVssCertificate pk c = do
 -- Apply Block
 ----------------------------------------------------------------------------
 
-applyGlobal :: (SscPayload ssc ~ GtPayload) => ProcessBlockRes ssc -> SscPayload ssc -> LDUpdate ()
-applyGlobal (PBRabort _) _ = return ()
-applyGlobal _ payload = do
+applyGlobal :: GtPayload -> LDUpdate ()
+applyGlobal payload = do
     let
         payloadCommitments = _mdCommitments payload
         payloadOpenings = _mdOpenings payload
@@ -222,5 +218,3 @@ getStoredLocalPayload :: LDQuery GtPayload
 getStoredLocalPayload =
     GtPayload <$> view gtLocalCommitments <*> view gtLocalOpenings <*>
     view gtLocalShares <*> view gtLocalCertificates
-
-

@@ -102,5 +102,5 @@ instance SscListenersClass SscNistBeacon where
 instance SscLocalDataClass SscNistBeacon where
     sscEmptyLocalData = ()
     sscGetLocalPayloadQ _ = pure ()
-    sscProcessBlockU _ = pure ()
+    sscApplyGlobalPayloadU _ _ = pure ()
     sscProcessNewSlotU _ = pure ()

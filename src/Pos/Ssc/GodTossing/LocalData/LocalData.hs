@@ -42,9 +42,10 @@ import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types     (GtPayload (..), mdCommitments,
                                                      mdOpenings, mdShares,
                                                      mdVssCertificates)
-import           Pos.Types                          (Block, SlotId (..), blockMpc)
+import           Pos.Types                          (Block, SlotId (..))
 import           Pos.Util                           (diffDoubleMap, readerToState)
 import           Serokell.Util.Verify               (isVerSuccess)
+import           Pos.State.Storage.Types (ProcessBlockRes (..))
 
 type LDQuery a = LocalQuery SscGodTossing a
 type LDUpdate a = LocalUpdate SscGodTossing a
@@ -52,7 +53,7 @@ type LDUpdate a = LocalUpdate SscGodTossing a
 instance SscLocalDataClass SscGodTossing where
     sscEmptyLocalData = def
     sscGetLocalPayloadQ = getLocalPayload
-    sscProcessBlockU = processBlock
+    sscApplyGlobalPayloadU = applyGlobal
     sscProcessNewSlotU = processNewSlot
 
 ----------------------------------------------------------------------------
@@ -61,12 +62,13 @@ instance SscLocalDataClass SscGodTossing where
 -- Should be executed before doing any updates within given slot.
 processNewSlot :: SlotId -> LDUpdate ()
 processNewSlot si@SlotId {siSlot = slotIdx} = do
-    unless (isCommitmentIdx slotIdx) $ do
-        gtLocalCommitments .= mempty
-    unless (isOpeningIdx slotIdx) $ do
-        gtLocalOpenings .= mempty
-    unless (isSharesIdx slotIdx) $ do
-        gtLocalShares .= mempty
+    when (slotIdx == 0) $ do
+        gtGlobalCommitments .= mempty
+        gtGlobalOpenings    .= mempty
+        gtGlobalShares      .= mempty
+    unless (isCommitmentIdx slotIdx) $ gtLocalCommitments .= mempty
+    unless (isOpeningIdx slotIdx) $ gtLocalOpenings .= mempty
+    unless (isSharesIdx slotIdx) $ gtLocalShares .= mempty
     gtLastProcessedSlot .= si
 
 ----------------------------------------------------------------------------
@@ -189,39 +191,26 @@ processVssCertificate pk c = do
     ok <$ when ok (gtLocalCertificates %= HM.insert pk c)
 
 ----------------------------------------------------------------------------
--- Process Block
+-- Apply Block
 ----------------------------------------------------------------------------
-processBlock :: (SscPayload ssc ~ GtPayload) => Block ssc -> LDUpdate ()
-processBlock blk = do
-    case blk of
-        -- Genesis blocks don't contain anything interesting, but when they
-        -- “arrive”, we clear global commitments and other globals. Not
-        -- certificates, though, because we don't want to make nodes resend
-        -- them in each epoch.
-        Left _  -> do
-            gtGlobalCommitments .= mempty
-            gtGlobalOpenings    .= mempty
-            gtGlobalShares      .= mempty
-        Right b -> do
-            let blockCommitments  = b ^. blockMpc . mdCommitments
-                blockOpenings     = b ^. blockMpc . mdOpenings
-                blockShares       = b ^. blockMpc . mdShares
-                blockCertificates = b ^. blockMpc . mdVssCertificates
-            gtLocalCommitments  %= (`HM.difference` blockCommitments)
-            -- openings
-            gtLocalOpenings  %= (`HM.difference` blockOpenings)
-            -- shares
-            gtLocalShares  %= (`diffDoubleMap` blockShares)
-            -- VSS certificates
-            gtLocalCertificates  %= (`HM.difference` blockCertificates)
-            -- global commitments
-            gtGlobalCommitments %= HM.union blockCommitments
-            -- openings
-            gtGlobalOpenings %= HM.union blockOpenings
-            -- shares
-            gtGlobalShares %= HM.unionWith HM.union blockShares
-            -- VSS certificates
-            gtGlobalCertificates %= HM.union blockCertificates
+
+applyGlobal :: (SscPayload ssc ~ GtPayload) => ProcessBlockRes ssc -> SscPayload ssc -> LDUpdate ()
+applyGlobal (PBRabort _) _ = return ()
+applyGlobal _ payload = do
+    let
+        payloadCommitments = _mdCommitments payload
+        payloadOpenings = _mdOpenings payload
+        payloadShares = _mdShares payload
+        payloadCert = _mdVssCertificates payload
+    gtLocalCommitments  %= (`HM.difference` payloadCommitments)
+    gtLocalOpenings  %= (`HM.difference` payloadOpenings)
+    gtLocalShares  %= (`diffDoubleMap` payloadShares)
+    gtLocalCertificates  %= (`HM.difference` payloadCert)
+
+    gtGlobalCommitments .= payloadCommitments
+    gtGlobalOpenings .= payloadOpenings
+    gtGlobalShares .= payloadShares
+    gtGlobalCertificates .= payloadCert
 
 ----------------------------------------------------------------------------
 -- Get Local Payload
@@ -233,3 +222,5 @@ getStoredLocalPayload :: LDQuery GtPayload
 getStoredLocalPayload =
     GtPayload <$> view gtLocalCommitments <*> view gtLocalOpenings <*>
     view gtLocalShares <*> view gtLocalCertificates
+
+

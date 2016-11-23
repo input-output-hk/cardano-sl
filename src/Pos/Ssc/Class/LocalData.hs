@@ -21,15 +21,16 @@ module Pos.Ssc.Class.LocalData
        , sscRunLocalQuery
        , sscRunLocalUpdate
        , sscGetLocalPayload
-       , sscProcessBlock
+       , sscApplyGlobalPayload
        , sscProcessNewSlot
        ) where
 
-import           Control.Lens        (Lens')
+import           Control.Lens            (Lens')
 import           Universum
 
-import           Pos.Ssc.Class.Types (Ssc (..))
-import           Pos.Types.Types     (Block, SlotId)
+import           Pos.Ssc.Class.Types     (Ssc (..))
+import           Pos.State.Storage.Types (ProcessBlockRes)
+import           Pos.Types.Types         (Block, SlotId)
 
 type LocalQuery ssc a = forall m . ( HasSscLocalData ssc (SscLocalData ssc)
                                    , MonadReader (SscLocalData ssc) m
@@ -52,7 +53,7 @@ class Monad m => MonadSscLD ssc m | m -> ssc where
 class Ssc ssc => SscLocalDataClass ssc where
     sscEmptyLocalData :: SscLocalData ssc
     sscGetLocalPayloadQ :: SlotId -> LocalQuery ssc (SscPayload ssc)
-    sscProcessBlockU :: Block ssc -> LocalUpdate ssc ()
+    sscApplyGlobalPayloadU :: ProcessBlockRes ssc -> SscPayload ssc -> LocalUpdate ssc ()
     sscProcessNewSlotU :: SlotId -> LocalUpdate ssc ()
 
 sscRunLocalQuery
@@ -74,11 +75,11 @@ sscGetLocalPayload
     => SlotId -> m (SscPayload ssc)
 sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 
-sscProcessBlock
+sscApplyGlobalPayload
     :: forall ssc m.
        (MonadSscLD ssc m, SscLocalDataClass ssc)
-    => Block ssc -> m ()
-sscProcessBlock = sscRunLocalUpdate . sscProcessBlockU @ssc
+    => ProcessBlockRes ssc -> SscPayload ssc -> m ()
+sscApplyGlobalPayload res = sscRunLocalUpdate . sscApplyGlobalPayloadU @ssc res
 
 sscProcessNewSlot
     :: forall ssc m.

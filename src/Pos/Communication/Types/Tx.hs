@@ -26,6 +26,7 @@ instance Binary SendTx
 
 instance MessagePack SendTx
 
+-- | Message: some node has sent 'NonEmpty' list of 'Tx'.
 data SendTxs =
     SendTxs !(NonEmpty Tx)
     deriving (Generic)

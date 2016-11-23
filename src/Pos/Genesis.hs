@@ -1,4 +1,8 @@
--- | Blockchain genesis. Not to be confused with genesis block in epoch.
+{-| Blockchain genesis. Not to be confused with genesis block in epoch.
+    Blockchain genesis means genesis values which are hardcoded in advance
+    (before system starts doing anything). Genesis block in epoch exists
+    in every epoch and it's not known in advance.
+-}
 
 module Pos.Genesis
        (
@@ -35,6 +39,8 @@ import           Pos.Types            (Address (..), Coin, SharedSeed (SharedSee
 -- Static state
 ----------------------------------------------------------------------------
 
+-- | List of pairs from 'SecretKey' with corresponding 'PublicKey'.
+--
 -- TODO get rid of this hardcode !!
 -- Secret keys of genesis block participants shouldn't obviously be widely known
 genesisKeyPairs :: [(PublicKey, SecretKey)]
@@ -47,12 +53,15 @@ genesisKeyPairs = map gen [0 .. genesisN - 1]
         encodeUtf8 .
         T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")
 
+-- | List of 'SecrekKey'`s in genesis.
 genesisSecretKeys :: [SecretKey]
 genesisSecretKeys = map snd genesisKeyPairs
 
+-- | List of 'PublicKey'`s in genesis.
 genesisPublicKeys :: [PublicKey]
 genesisPublicKeys = map fst genesisKeyPairs
 
+-- | List of 'Address'`es in genesis. See 'genesisPublicKeys'.
 genesisAddresses :: [Address]
 genesisAddresses = map Address genesisPublicKeys
 
@@ -106,6 +115,7 @@ bitcoinDistributionImpl ratio coins (coinIdx, coin) =
     toAddValMin = coin `div` fromIntegral toAddNum
     toAddValMax = coin - toAddValMin * (fromIntegral toAddNum - 1)
 
+-- | Genesis 'Utxo'.
 genesisUtxo :: StakeDistribution -> Utxo
 genesisUtxo sd =
     M.fromList . zipWith zipF (stakeDistribution sd) $ genesisAddresses
@@ -119,5 +129,6 @@ genesisUtxo sd =
 genesisSeed :: SharedSeed
 genesisSeed = SharedSeed "vasa opasa skovoroda Ggurda boroda provoda"
 
+-- | Leaders of genesis. See 'followTheSatoshi'.
 genesisLeaders :: Utxo -> SlotLeaders
 genesisLeaders = fmap getAddress . followTheSatoshi genesisSeed

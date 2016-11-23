@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies     #-}
 
+-- | Types for Shared Seed calculation.
+
 module Pos.Ssc.Class.Types
        ( Ssc(..)
        ) where
@@ -11,6 +13,8 @@ import           Data.Tagged         (Tagged)
 import           Data.Text.Buildable (Buildable)
 import           Universum
 
+-- | Main Shared Seed Calculation type class. Stores all needed type
+-- parameters for general implementation of SSC.
 class (Typeable ssc
       ,Typeable (SscPayload ssc)
       ,Typeable (SscStorage ssc)

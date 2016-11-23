@@ -4,8 +4,7 @@
 -- | Re-exports of Pos.Ssc.Class.* modules.
 
 module Pos.Ssc.Class
-       (
-         module Class
+       ( module Class
        , SscConstraint
        ) where
 

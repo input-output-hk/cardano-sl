@@ -29,10 +29,11 @@ import           Universum            hiding (show)
 
 import           Pos.Crypto.Random    (secureRandomBS)
 
+-- | Dummy data for DHT.
 newtype DHTData = DHTData ()
   deriving (Eq, Ord, Binary, Show)
 
--- DHTKey should be strictly 20-byte long
+-- | DHTKey should be strictly 20-byte long.
 newtype DHTKey = DHTKey { dhtKeyBytes :: BS.ByteString }
   deriving (Eq, Ord, Binary, Hashable)
 
@@ -47,19 +48,20 @@ instance Buildable DHTKey where
 instance Show DHTKey where
   show = toString . pretty
 
--- Node type is determined by first byte of key
+-- | Node type is determined by first byte of key.
 data DHTNodeType
-  -- node which participates only in supporting DHT, i.e. not a part of PoS communication
+  -- | Node which participates only in supporting DHT, i.e. not a part of PoS communication.
   = DHTSupporter
-  -- full node, i.e. fully participating in both DHT supporting and PoS
+  -- | Full node, i.e. fully participating in both DHT supporting and PoS.
   | DHTFull
-  -- client node (for SPV). Key idea is that clients, being a part of DHT, are rarely queried
+  -- | Client node (for SPV). Key idea is that clients, being a part of DHT, are rarely queried.
   | DHTClient
   deriving (Eq, Ord, Show)
 
 instance Buildable DHTNodeType where
   build = build . show
 
+-- | Return type of DHT node by given key.
 dhtNodeType :: DHTKey -> Maybe DHTNodeType
 dhtNodeType (DHTKey bs) = impl $ BS.head bs
   where
@@ -68,6 +70,7 @@ dhtNodeType (DHTKey bs) = impl $ BS.head bs
     impl 0xF0 = Just DHTClient
     impl _    = Nothing
 
+-- | DHT node.
 data DHTNode = DHTNode { dhtAddr   :: NetworkAddress
                        , dhtNodeId :: DHTKey
                        }
@@ -83,14 +86,17 @@ instance Buildable DHTNode where
 instance Buildable [DHTNode] where
     build = listBuilderJSON
 
+-- | Converts 'BS.ByteString' into 'DHTKey' if possible.
 bytesToDHTKey :: IsString s => BS.ByteString -> Either s DHTKey
 bytesToDHTKey bs = if BS.length bs /= 20
                       then Left "Key length must be exactly 20 bytes"
                       else Right $ DHTKey bs
 
+-- | Generate random 'DHTKey'.
 randomDHTKey :: MonadIO m => DHTNodeType -> m DHTKey
 randomDHTKey type_ = (DHTKey . BS.cons (typeByte type_)) <$> secureRandomBS 19
 
+-- | Get byte representation of 'DHTNodeType'.
 typeByte :: DHTNodeType -> Word8
 typeByte DHTSupporter = 0x00
 typeByte DHTFull      = 0x30

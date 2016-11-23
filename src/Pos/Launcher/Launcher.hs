@@ -23,8 +23,8 @@ import           Pos.Types             (Address, Coin, TxId)
 
 -- | Submit tx in real mode.
 submitTxReal
-    :: forall ssc.
-       SscConstraint ssc
+    :: forall ssc .
+    SscConstraint ssc
     => NodeParams -> (TxId, Word32) -> (Address, Coin) -> IO ()
 submitTxReal np input addrCoin = bracketDHTInstance (npBaseParams np) action
   where

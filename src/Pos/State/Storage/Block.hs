@@ -9,11 +9,11 @@
 
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
--- | Blocks maintenance happens here.
+-- | Blocks maintenance and processing logic (from state pov).
 
 module Pos.State.Storage.Block
        (
-         BlockStorage
+         BlockStorage (..)
        , HasBlockStorage (blockStorage)
        , mkBlockStorage
 
@@ -67,17 +67,19 @@ import           Pos.Types               (Block, BlockHeader, ChainDifficulty, E
                                           verifyHeader)
 import           Pos.Util                (readerToState, _neHead, _neLast)
 
+-- | Block-related part of the state. Includes blockchain itself,
+-- genesis blocks, block head, altchains etc.
 data BlockStorage ssc = BlockStorage
     { -- | All blocks known to the node. Blocks have pointers to other
       -- blocks and can be easily traversed.
       _blkBlocks        :: !(HashMap (HeaderHash ssc) (Block ssc))
-    , -- | Hashes of genesis blocks in the __best chain__.
+    , -- | Hashes of genesis blocks in the best chain.
       _blkGenesisBlocks :: !(Vector (HeaderHash ssc))
-    , -- | Hash of the head in the __best chain__.
+    , -- | Hash of the head in the best chain.
       _blkHead          :: !(HeaderHash ssc)
-    , -- | Alternative chains which can be merged into main chain.
-      -- TODO: storing blocks more than once is inefficient, but we
+    , -- TODO: storing blocks more than once is inefficient, but we
       -- don't care now.
+      -- | Alternative chains which can be merged into main chain.
       _blkAltChains     :: ![AltChain ssc]
     , -- | Difficulty of the block with depth `k` (or 0 if there are
       -- less than `k` blocks). It doesn't make sense to consider
@@ -86,8 +88,8 @@ data BlockStorage ssc = BlockStorage
       _blkMinDifficulty :: !ChainDifficulty
     }
 
+-- | Classy lenses generated for BlockStorage.
 makeClassy ''BlockStorage
-
 
 instance Ssc ssc => SafeCopy (BlockStorage ssc) where
     getCopy =
@@ -112,6 +114,7 @@ genesisBlock0 = Left . mkGenesisBlock Nothing 0
 genesisBlock0Hash :: Ssc ssc => SlotLeaders -> HeaderHash ssc
 genesisBlock0Hash leaders = hash $ genesisBlock0 leaders ^. blockHeader
 
+-- | Creates block storage out of utxo.
 mkBlockStorage :: forall ssc . Ssc ssc => Utxo -> BlockStorage ssc
 mkBlockStorage utxo =
     BlockStorage
@@ -131,11 +134,11 @@ type Update ssc a = forall m x. (Ssc ssc, HasBlockStorage x ssc, MonadState x m)
 getBlock :: HeaderHash ssc -> Query ssc (Maybe (Block ssc))
 getBlock h = view (blkBlocks . at h)
 
--- | Get block by its depth, i. e. number of times one needs to use
+-- | Get block by its depth, i.e. number of times one needs to use
 -- pointer to previous block.
--- TODO: optimize using blkGenesisBlocks.
 getBlockByDepth :: Word -> Query ssc (Maybe (Block ssc))
 getBlockByDepth i = do
+    -- TODO: optimize using blkGenesisBlocks.
     headHash <- view blkHead
     getBlockByDepthDo i headHash
 
@@ -185,9 +188,11 @@ getLeader :: SlotId -> Query ssc (Maybe PublicKey)
 getLeader SlotId {..} = (preview $ _Just . ix (fromIntegral siSlot)) <$> getLeaders siEpoch
 
 -- | Get depth of the first main block whose SlotId ≤ given value.
--- Depth of the deepest (i. e. 0-th genesis) block is returned if
--- there is no such block.
--- SlotId of such block is also returned (for genesis block siSlot is set to 0).
+-- Depth of the deepest (i.e. 0-th genesis) block is returned if there
+-- is no such block.
+--
+-- SlotId of such block is also returned (for genesis block siSlot is
+-- set to 0).
 getSlotDepth :: SlotId -> Query ssc (Word, SlotId)
 getSlotDepth slotId = do
     headBlock <- getHeadBlock
@@ -516,6 +521,7 @@ blkCreateNewBlock sk sId txs sscData = do
     insertBlock $ Right blk
     blk <$ blkSetHead (headerHash blk)
 
+-- | Create new genesis block and append it to the best chain.
 blkCreateGenesisBlock :: Ssc ssc => EpochIndex -> SlotLeaders -> Update ssc (GenesisBlock ssc)
 blkCreateGenesisBlock epoch leaders = do
     prevHeader <- readerToState $ getBlockHeader <$> getHeadBlock
@@ -596,9 +602,9 @@ blkRollback =
   where
     onError = panic "Attempt to rollback too many blocks"
 
+-- TODO
 -- | Remove obsolete cached blocks, alternative chains which are
 -- definitely useless, etc.
--- TODO
 blkCleanUp :: SlotId -> Update ssc ()
 blkCleanUp _ = do
     headDifficulty <- view difficultyL <$> readerToState getHeadBlock

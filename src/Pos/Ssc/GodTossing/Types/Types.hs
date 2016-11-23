@@ -104,6 +104,7 @@ deriveSafeCopySimple 0 'base ''GtProof
 instance Binary GtProof
 instance MessagePack GtProof
 
+-- | Smart constructor for 'GtProof' from 'GtPayload'.
 mkGtProof :: GtPayload -> GtProof
 mkGtProof GtPayload {..} =
     GtProof

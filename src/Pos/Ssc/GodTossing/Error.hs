@@ -12,6 +12,7 @@ import           Universum
 
 import           Pos.Crypto          (PublicKey)
 
+-- | Data type for error during seed calculation.
 data SeedError
     -- | Some nodes in the 'OpeningsMap' aren't in the set of participants
     = ExtraneousOpenings (HashSet PublicKey)

@@ -84,6 +84,7 @@ type RealModeRunner = KademliaDHTInstance -> NodeParams -> IO ()
 -- Service node runners
 ----------------------------------------------------------------------------
 
+-- | Runs node as time-slave inside IO monad.
 runTimeSlaveReal :: KademliaDHTInstance -> BaseParams -> IO Timestamp
 runTimeSlaveReal inst bp = do
     mvar <- liftIO newEmptyMVar
@@ -108,6 +109,7 @@ runTimeSlaveReal inst bp = do
          then [sysStartReqListenerSlave, sysStartRespListener mvar]
          else []
 
+-- | Runs time-lord to acquire system start.
 runTimeLordReal :: LoggingParams -> IO Timestamp
 runTimeLordReal lp@LoggingParams{..} = loggerBracket lp $ do
     t <- getCurTimestamp
@@ -251,6 +253,8 @@ nodeStartMsg BaseParams {..} = logInfo msg
   where
     msg = sformat ("Started node, joining to DHT network " %build) bpDHTPeers
 
+-- | Get current time as Timestamp. It is intended to be used when you
+-- launch the first node. It doesn't make sense in emulation mode.
 getCurTimestamp :: IO Timestamp
 getCurTimestamp = Timestamp <$> runTimedIO currentTime
 
@@ -268,6 +272,7 @@ setupLoggers LoggingParams{..} = do
 loggerBracket :: LoggingParams -> IO a -> IO a
 loggerBracket lp = bracket_ (setupLoggers lp) removeAllHandlers
 
+-- | RAII for node starter.
 addDevListeners :: NodeParams -> [ListenerDHT (RealMode ssc)] -> [ListenerDHT (RealMode ssc)]
 addDevListeners NodeParams{..} ls =
     if isDevelopment

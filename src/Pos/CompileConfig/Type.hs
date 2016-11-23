@@ -1,7 +1,10 @@
 {-# LANGUAGE DeriveLift      #-}
 {-# LANGUAGE TemplateHaskell #-}
 
--- | Compile-time configuration type.
+{-| Compile-time configuration is represented by 'CompileConfig' data type.
+    This configuration is parsed at compile-time using /file-embed/ library
+    and stores constants from paper and also some network-specific.
+-}
 
 module Pos.CompileConfig.Type
     ( CompileConfig (..)
@@ -12,16 +15,17 @@ import           Language.Haskell.TH.Syntax (Lift)
 import           Serokell.Aeson.Options     (defaultOptions)
 import           Universum
 
+-- | Compile time configuration. See example in /constants.yaml/ file.
 data CompileConfig = CompileConfig
-    { ccK                       :: !Int
-    , ccSlotDurationSec         :: !Int
-    , ccNetworkDiameter         :: !Int
-    , ccNeighboursSendThreshold :: !Int
-    , ccGenesisN                :: !Int
-    , ccMaxLocalTxs             :: !Word
-    , ccDefaultPeers            :: ![[Char]]
-    , ccSysTimeBroadcastSlots   :: !Int
-    , ccMpcSendInterval         :: !Word
+    { ccK                       :: !Int       -- ^ Security parameter from paper
+    , ccSlotDurationSec         :: !Int       -- ^ Length of slot in seconds
+    , ccNetworkDiameter         :: !Int       -- ^ Estimated time for broadcasting messages
+    , ccNeighboursSendThreshold :: !Int       -- ^ Broadcasting threshold
+    , ccGenesisN                :: !Int       -- ^ Number of pre-generated keys
+    , ccMaxLocalTxs             :: !Word      -- ^ Max number of transactions in Storage
+    , ccDefaultPeers            :: ![[Char]]  -- ^ List of default peers
+    , ccSysTimeBroadcastSlots   :: !Int       -- ^ Number of slots to broadcast system time
+    , ccMpcSendInterval         :: !Word      -- ^ Length of interval for sending MPC message
     } deriving (Show, Lift)
 
 $(A.deriveFromJSON defaultOptions ''CompileConfig)

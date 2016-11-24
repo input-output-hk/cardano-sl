@@ -33,7 +33,7 @@ instance MonadRandom SecureRandom where
 -- use a seed (hopefully produced by a Really Secure™ randomness source). The
 -- seed has to have enough entropy to make this function secure.
 deterministic :: ByteString -> MonadPseudoRandom ChaChaDRG a -> a
-deterministic seed gen = fst $ withDRG chachaSeed gen  -- TODO: is it secure?
+deterministic seed gen = fst $ withDRG chachaSeed gen
   where
     chachaSeed = drgNewSeed . seedFromInteger . os2ip $ seed
 

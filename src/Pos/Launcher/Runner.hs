@@ -268,7 +268,6 @@ setupLoggers LoggingParams{..} = do
     dhtMapper  name | name == "dht"  = dhtLoggerName (Proxy :: Proxy (RealMode ssc))
                     | otherwise      = name
 
--- TODO: move to log-warper and remove hslogger from dependencies?
 loggerBracket :: LoggingParams -> IO a -> IO a
 loggerBracket lp = bracket_ (setupLoggers lp) removeAllHandlers
 

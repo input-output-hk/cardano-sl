@@ -40,8 +40,6 @@ followTheSatoshi (SharedSeed seed) utxo
     outputs :: [(Address, Coin)]
     outputs = [(txOutAddress, txOutValue) | TxOut{..} <- toList utxo]
 
-    -- TODO: not sure that 'sum' will use strict foldl' here, because 'sum'
-    -- is only specialised for some types
     totalCoins :: Coin
     totalCoins = sum (map snd outputs)
 

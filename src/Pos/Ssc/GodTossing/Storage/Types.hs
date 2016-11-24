@@ -71,10 +71,6 @@ data GtStorage = GtStorage
       -- block. To bring storage to the state as it was just before the last
       -- block arrived, just remove the head. All incoming commitments/etc
       -- which aren't parts of blocks are applied to the head, too.
-      --
-      -- TODO: this is a very naive solution. A better one would be storing
-      -- deltas for maps which are in 'GtStorageVersion', see [POS-25] for
-      -- the explanation of deltas.
       _dsVersioned         :: NonEmpty GtStorageVersion
     }
 

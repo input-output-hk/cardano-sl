@@ -319,16 +319,18 @@ logWarningLongAction delta actionTag action = do
 
     -- TODO: avoid code duplication somehow
     waitAndWarn (WaitOnce      s  ) = wait (for s) >> printWarning s
-    waitAndWarn (WaitLinear    s  ) = let waitLoop t = do
-                                              wait $ for t
-                                              printWarning t
-                                              waitLoop (t + s)
+    waitAndWarn (WaitLinear    s  ) = let waitLoop acc = do
+                                              wait $ for s
+                                              printWarning acc
+                                              waitLoop (acc + s)
                                       in waitLoop s
-    waitAndWarn (WaitGeometric s q) = let waitLoop t = do
+    waitAndWarn (WaitGeometric s q) = let waitLoop acc t = do
                                               wait $ for t
-                                              printWarning (convertUnit t :: Second)
-                                              waitLoop (round $ fromIntegral t * q)
-                                      in waitLoop s
+                                              let newAcc = acc + t
+                                              let newT   = round $ fromIntegral t * q
+                                              printWarning (convertUnit newAcc :: Second)
+                                              waitLoop newAcc newT
+                                      in waitLoop 0 s
 
 {- Helper functions to avoid dealing with data type -}
 

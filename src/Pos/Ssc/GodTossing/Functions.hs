@@ -39,6 +39,10 @@ import           Data.Containers                (ContainerKey, SetContainer (not
 import qualified Data.HashMap.Strict            as HM
 import           Data.Ix                        (inRange)
 import           Data.List.NonEmpty             (NonEmpty (..))
+import           Serokell.Util                  (VerificationRes, verifyGeneric)
+import           Serokell.Util.Verify           (isVerSuccess)
+import           Universum
+
 import           Pos.Constants                  (k)
 import           Pos.Crypto                     (PublicKey, Secret, SecretKey,
                                                  SecureRandom (..), Share, Signed (..),
@@ -55,9 +59,6 @@ import           Pos.Types.Types                (EpochIndex, LocalSlotIndex,
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), headerSlot)
 import           Pos.Util                       (diffDoubleMap)
-import           Serokell.Util                  (VerificationRes, verifyGeneric)
-import           Serokell.Util.Verify           (isVerSuccess)
-import           Universum
 
 ----------------------------------------------------------------------------
 -- Helpers

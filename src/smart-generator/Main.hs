@@ -390,11 +390,6 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
                 submitTxRaw na transaction
                 liftIO $ modifyIORef' realTxNum (+1)
 
-                -- sometimes nodes fail so we never write timestamps...
-                when (idx `mod` 271 == 0) $ void $ liftIO $ forkIO $
-                    LBS.writeFile "timestampsTxSender.json" $
-                    encode $ M.toList curmap
-
                 endT <- getPosixMs
                 let runDelta = endT - startT
                 wait $ for $ ms (max 0 $ tpsDelta - runDelta)

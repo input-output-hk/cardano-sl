@@ -90,7 +90,7 @@ import           Serokell.Util.Binary          as Binary (decodeFull)
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
                                                 SGR (Reset, SetColor), setSGRCode)
-import           System.Wlog                   (WithNamedLogger, logWarning)
+import           System.Wlog                   (WithLogger, logWarning)
 import           Universum
 import           Unsafe                        (unsafeInit, unsafeLast)
 
@@ -305,7 +305,7 @@ data WaitingDelta
     deriving (Show)
 
 -- | Constraint for something that can be logged in parallel with other action.
-type CanLogInParallel m = (MonadIO m, MonadTimed m, WithNamedLogger m)
+type CanLogInParallel m = (MonadIO m, MonadTimed m, WithLogger m)
 
 -- | Run action and print warning if it takes more time than expected.
 logWarningLongAction :: CanLogInParallel m => WaitingDelta -> Text -> m a -> m a
@@ -359,7 +359,7 @@ waitRandomInterval minT maxT = do
 
 -- | Wait random interval and then perform given action.
 runWithRandomIntervals
-    :: (MonadIO m, MonadTimed m, WithNamedLogger m)
+    :: (MonadIO m, MonadTimed m, WithLogger m)
     => Microsecond -> Microsecond -> m () -> m ()
 runWithRandomIntervals minT maxT action = do
   waitRandomInterval minT maxT

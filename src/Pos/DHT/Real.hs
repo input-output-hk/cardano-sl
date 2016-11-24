@@ -59,8 +59,9 @@ import           Pos.DHT                         (DHTData, DHTException (..), DH
                                                   joinNetworkNoThrow, randomDHTKey,
                                                   withDhtLogger)
 import           Pos.Util                        (runWithRandomIntervals)
-import           System.Wlog                     (WithNamedLogger, logDebug, logError,
-                                                  logInfo, logWarning, usingLoggerName)
+import           System.Wlog                     (CanLog, HasLoggerName, WithLogger,
+                                                  logDebug, logError, logInfo, logWarning,
+                                                  usingLoggerName)
 import           Universum                       hiding (fromStrict, mapConcurrently,
                                                   toStrict)
 
@@ -121,7 +122,7 @@ data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
 -- | Node of /Kademlia DHT/ algorithm with access to 'KademliaDHTContext'.
 newtype KademliaDHT m a = KademliaDHT { unKademliaDHT :: ReaderT (KademliaDHTContext m) m a }
     deriving (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadIO,
-             MonadMask, WithNamedLogger, MonadTimed, MonadDialog p)
+             MonadMask, MonadTimed, MonadDialog p, CanLog, HasLoggerName)
 
 instance MonadResponse m => MonadResponse (KademliaDHT m) where
     replyRaw dat = KademliaDHT $ replyRaw (hoist unKademliaDHT dat)
@@ -168,7 +169,13 @@ type instance ThreadId (KademliaDHT m) = ThreadId m
 
 -- | Run 'KademliaDHT' with provided 'KademliaDTHConfig'.
 runKademliaDHT
-    :: (WithNamedLogger m, MonadIO m, MonadTimed m, MonadDialog BinaryP m, MonadMask m, MonadBaseControl IO m)
+    :: ( WithLogger m
+       , MonadIO m
+       , MonadTimed m
+       , MonadDialog BinaryP m
+       , MonadMask m
+       , MonadBaseControl IO m
+       )
     => KademliaDHTConfig m -> KademliaDHT m a -> m a
 runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
     startDHT kdc >>= runReaderT (unKademliaDHT action')
@@ -214,7 +221,7 @@ stopDHTInstance KademliaDHTInstance {..} = liftIO $ K.close kdiHandle
 startDHTInstance
     :: ( MonadTimed m
        , MonadIO m
-       , WithNamedLogger m
+       , WithLogger m
        , MonadCatch m
        , MonadBaseControl IO m
        )
@@ -243,7 +250,7 @@ startDHT
     :: ( MonadTimed m
        , MonadIO m
        , MonadDialog BinaryP m
-       , WithNamedLogger m
+       , WithLogger m
        , MonadMask m
        , MonadBaseControl IO m
        )
@@ -275,7 +282,7 @@ rawListener
        , MonadDialog BinaryP m
        , MonadIO m
        , MonadTimed m
-       , WithNamedLogger m
+       , WithLogger m
        )
     => Bool
     -> TVar (LRU.LRU Int ())
@@ -319,7 +326,7 @@ updCache cacheTV dataHash = do
 
 sendToNetworkR
     :: ( MonadBaseControl IO m
-       , WithNamedLogger m
+       , WithLogger m
        , MonadCatch m
        , MonadIO m
        , MonadDialog BinaryP m
@@ -329,7 +336,7 @@ sendToNetworkR = sendToNetworkImpl sendR
 
 sendToNetworkImpl
     :: ( MonadBaseControl IO m
-       , WithNamedLogger m
+       , WithLogger m
        , MonadCatch m
        , MonadIO m
        , MonadTimed m
@@ -342,8 +349,13 @@ sendToNetworkImpl sender msg = do
 seqConcurrentlyK :: MonadBaseControl IO m => [KademliaDHT m a] -> KademliaDHT m [a]
 seqConcurrentlyK = KademliaDHT . mapConcurrently unKademliaDHT
 
-instance (MonadDialog BinaryP m, WithNamedLogger m, MonadCatch m, MonadIO m, MonadTimed m, MonadBaseControl IO m)
-       => MonadMessageDHT (KademliaDHT m) where
+instance ( MonadDialog BinaryP m
+         , WithLogger m
+         , MonadCatch m
+         , MonadIO m
+         , MonadTimed m
+         , MonadBaseControl IO m
+         ) => MonadMessageDHT (KademliaDHT m) where
     sendToNetwork = sendToNetworkImpl sendH
     sendToNeighbors = defaultSendToNeighbors seqConcurrentlyK sendToNode
     sendToNode addr msg = do
@@ -361,7 +373,7 @@ instance (MonadDialog BinaryP m, WithNamedLogger m, MonadCatch m, MonadIO m, Mon
         updateClosers closer = KademliaDHT (asks kdcAuxClosers)
                             >>= \tvar -> (liftIO . atomically $ modifyTVar tvar (closer:))
 
-rejoinNetwork :: (MonadIO m, WithNamedLogger m, MonadCatch m) => KademliaDHT m ()
+rejoinNetwork :: (MonadIO m, WithLogger m, MonadCatch m) => KademliaDHT m ()
 rejoinNetwork = withDhtLogger $ do
     peers <- getKnownPeers
     logDebug $ sformat ("rejoinNetwork: peers " % build) peers
@@ -370,7 +382,7 @@ rejoinNetwork = withDhtLogger $ do
       init <- KademliaDHT $ asks (kdiInitialPeers . kdcDHTInstance_)
       joinNetworkNoThrow init
 
-instance (MonadIO m, MonadCatch m, WithNamedLogger m) => MonadDHT (KademliaDHT m) where
+instance (MonadIO m, MonadCatch m, WithLogger m) => MonadDHT (KademliaDHT m) where
 
   joinNetwork [] = throwM AllPeersUnavailable
   joinNetwork nodes = do
@@ -427,7 +439,9 @@ joinNetwork' inst node = do
     K.IDClash    -> pure () --logInfo $ sformat ("joinNetwork: node " % build % " already contains us") node
 
 -- TODO move to serokell-core ?
-waitAnyUnexceptional :: (MonadIO m, WithNamedLogger m) => [Async a] -> m (Maybe (Async a, a))
+waitAnyUnexceptional
+    :: (MonadIO m, WithLogger m)
+    => [Async a] -> m (Maybe (Async a, a))
 waitAnyUnexceptional asyncs = liftIO (waitAnyCatch asyncs) >>= handleRes
   where
     handleRes (async', Right res) = pure $ Just (async', res)

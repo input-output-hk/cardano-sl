@@ -39,6 +39,7 @@ data Args = Args
     , enableStats        :: !Bool
     , jlPath             :: !(Maybe FilePath)
     , sscAlgo            :: !SscAlgo
+    , memoryMode         :: !Bool
     }
   deriving Show
 
@@ -47,7 +48,7 @@ argsParser =
     Args <$>
     strOption
         (long "db-path" <> metavar "FILEPATH" <> value "node-db" <>
-         help "Path to the node database") <*>
+        help "Path to the node database") <*>
     switch
         (long "rebuild-db" <>
          help
@@ -120,7 +121,11 @@ argsParser =
          help "Path to json log file")) <*>
     option (fromParsec sscAlgoParser)
         (long "ssc-algo" <> metavar "ALGO" <> value GodTossingAlgo <> showDefault <>
-         help "Shared Seed Calculation algorithm which nodes will use")
+         help "Shared Seed Calculation algorithm which nodes will use") <*>
+    switch
+        (long "memory-mode" <>
+         help
+             "Run DB in memory mode")
   where
     peerHelpMsg =
         "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""

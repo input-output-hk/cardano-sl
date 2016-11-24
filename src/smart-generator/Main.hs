@@ -368,7 +368,8 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         writeFile tpsCsvFile tpsCsvHeader
         writeFile verifyCsvFile verifyCsvHeader
 
-    _ <- forFold goInitTps [1 .. goRoundNumber] $ \goTPS (roundNum :: Int) -> do
+    _ <- forFold (goInitTps, goTpsIncreaseStep) [1 .. goRoundNumber] $
+        \(goTPS, increaseStep) (roundNum :: Int) -> do
         logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)
             roundNum goRoundNumber goTPS
 
@@ -380,8 +381,9 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         beginT <- getPosixMs
         forM_ [0 .. txNum - 1] $ \(idx :: Int) -> do
             preStartT <- getPosixMs
+            logInfo $ sformat ("CURRENT TXNUM: "%int) txNum
             -- prevent periods longer than we expected
-            when (preStartT - beginT > round (goRoundDuration * 1000)) $ do
+            unless (preStartT - beginT > round (goRoundDuration * 1000)) $ do
                 transaction <- nextValidTx bambooPool tpsDelta
                 let curTxId = hash transaction
 
@@ -403,9 +405,9 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         let globalTime, realTPS :: Double
             globalTime = (fromIntegral (finishT - beginT)) / 1000
             realTPS = (fromIntegral realTxNumVal) / globalTime
-            newTPS = if realTPS >= goTPS - 5
-                     then goTPS + goTpsIncreaseStep
-                     else realTPS
+            (newTPS, newStep) = if realTPS >= goTPS - 5
+                                then (goTPS + increaseStep, increaseStep)
+                                else (realTPS, increaseStep / 2)
 
         putText "----------------------------------------"
 --        putText "wrote json to ./timestampsTxSender.json"
@@ -418,7 +420,7 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         liftIO $ appendFile tpsCsvFile $
             tpsCsvFormat (globalTime, goTPS, realTPS)
 
-        return newTPS
+        return (newTPS, newStep)
 
     vers <- liftIO $ dumpTxTable txTimestamps
     liftIO $ appendFile verifyCsvFile $

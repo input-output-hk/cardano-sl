@@ -22,7 +22,7 @@ module Pos.DHT.Real
        , stopDHTInstance
        ) where
 
-import           Control.Concurrent.Async.Lifted (mapConcurrently)
+import           Control.Concurrent.Async.Lifted (async, mapConcurrently)
 import           Control.Concurrent.STM          (STM, TVar, atomically, modifyTVar,
                                                   newTVar, readTVar, swapTVar, writeTVar)
 import           Control.Monad.Catch             (Handler (..), MonadCatch, MonadMask,
@@ -38,6 +38,7 @@ import           Control.TimeWarp.Rpc            (BinaryP (..), Binding (..),
                                                   listenR, sendH, sendR)
 import           Control.TimeWarp.Timed          (MonadTimed, ThreadId, fork, killThread,
                                                   ms, sec)
+
 import           Data.Binary                     (Binary, decodeOrFail, encode)
 import qualified Data.ByteString                 as BS
 import           Data.ByteString.Lazy            (fromStrict, toStrict)
@@ -45,8 +46,15 @@ import qualified Data.Cache.LRU                  as LRU
 import           Data.Hashable                   (hash)
 import qualified Data.HashMap.Strict             as HM
 import           Data.Text                       (Text)
+
 import           Formatting                      (build, int, sformat, shown, (%))
 import qualified Network.Kademlia                as K
+import           System.Wlog                     (CanLog, HasLoggerName, WithLogger,
+                                                  getLoggerName, logDebug, logError,
+                                                  logInfo, logWarning, usingLoggerName)
+import           Universum                       hiding (async, fromStrict,
+                                                  mapConcurrently, toStrict)
+
 import           Pos.DHT                         (DHTData, DHTException (..), DHTKey,
                                                   DHTMsgHeader (..), DHTNode (..),
                                                   DHTNodeType (..), DHTResponseT (..),
@@ -59,11 +67,6 @@ import           Pos.DHT                         (DHTData, DHTException (..), DH
                                                   joinNetworkNoThrow, randomDHTKey,
                                                   withDhtLogger)
 import           Pos.Util                        (runWithRandomIntervals)
-import           System.Wlog                     (CanLog, HasLoggerName, WithLogger,
-                                                  logDebug, logError, logInfo, logWarning,
-                                                  usingLoggerName)
-import           Universum                       hiding (fromStrict, mapConcurrently,
-                                                  toStrict)
 
 toBSBinary :: Binary b => b -> BS.ByteString
 toBSBinary = toStrict . encode
@@ -387,7 +390,10 @@ instance (MonadIO m, MonadCatch m, WithLogger m) => MonadDHT (KademliaDHT m) whe
   joinNetwork [] = throwM AllPeersUnavailable
   joinNetwork nodes = do
       inst <- KademliaDHT $ asks (kdiHandle . kdcDHTInstance_)
-      asyncs <- mapM (liftIO . async . joinNetwork' inst) nodes
+      loggerName <- getLoggerName
+      asyncs <- mapM
+          (liftIO . usingLoggerName loggerName . async . joinNetwork' inst)
+          nodes
       waitAnyUnexceptional asyncs >>= handleRes
     where
       handleRes (Just _) = pure ()
@@ -428,15 +434,18 @@ fromKPeer K.Peer{..} = (encodeUtf8 peerHost, fromIntegral peerPort)
 toKPeer :: NetworkAddress -> K.Peer
 toKPeer (peerHost, peerPort) = K.Peer (decodeUtf8 peerHost) (fromIntegral peerPort)
 
--- TODO add TimedIO, WithLoggerName constraints and uncomment logging
-joinNetwork' :: (MonadIO m, MonadThrow m) => DHTHandle -> DHTNode -> m ()
+joinNetwork'
+    :: (MonadIO m, MonadThrow m, WithLogger m)
+    => DHTHandle -> DHTNode -> m ()
 joinNetwork' inst node = do
-  let node' = K.Node (toKPeer $ dhtAddr node) (dhtNodeId node)
-  res <- liftIO $ K.joinNetwork inst node'
-  case res of
-    K.JoinSucces -> pure ()
-    K.NodeDown   -> throwM NodeDown
-    K.IDClash    -> pure () --logInfo $ sformat ("joinNetwork: node " % build % " already contains us") node
+    let node' = K.Node (toKPeer $ dhtAddr node) (dhtNodeId node)
+    res <- liftIO $ K.joinNetwork inst node'
+    case res of
+        K.JoinSucces -> pure ()
+        K.NodeDown -> throwM NodeDown
+        K.IDClash ->
+            logInfo $
+            sformat ("joinNetwork: node " % build % " already contains us") node
 
 -- TODO move to serokell-core ?
 waitAnyUnexceptional

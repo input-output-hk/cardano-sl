@@ -14,15 +14,17 @@ module Pos.Launcher.Runner
          runRealMode
        , runServiceMode
 
-         -- TODO: describe
-       , RealModeRunner
-       , runNode
-       , runNodeReal
-       , runNodeStats
+         -- * Service runners
        , runSupporterReal
        , runTimeSlaveReal
        , runTimeLordReal
-       -- Export this for custom usage in CLI utils
+
+         -- * Node runners
+       , runNodeReal
+       , runNodeStats
+
+       -- * Exported for custom usage in CLI utils
+       , RealModeRunner
        , addDevListeners
        , bracketDHTInstance
        ) where
@@ -68,7 +70,8 @@ import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..
                                               NodeParams (..))
 import           Pos.Launcher.Scenario       (runNode)
 import           Pos.Ssc.Class               (SscConstraint)
-import           Pos.State                   (NodeState, openMemState, openState)
+import           Pos.State                   (NodeState, closeState, openMemState,
+                                              openState)
 import           Pos.State.Storage           (storageFromUtxo)
 import           Pos.Statistics              (getNoStatsT, getStatsT)
 import           Pos.Types                   (Timestamp (Timestamp), timestampF)
@@ -153,7 +156,6 @@ runNodeStats inst np = runRealMode inst np listeners $ getStatsT $ do
 -- High level runners
 ----------------------------------------------------------------------------
 
--- TODO: use bracket
 runRealMode
     :: forall ssc c.
        SscConstraint ssc
@@ -164,11 +166,12 @@ runRealMode
     -> IO c
 runRealMode inst np@NodeParams {..} listeners action = do
     setupLoggers lp
-    db <- openDb
-    runTimed lpRunnerTag .
-        runDBHolder db .
-        runCH np . runSscLDImpl . runKDHT inst npBaseParams listeners $
-        nodeStartMsg npBaseParams >> action
+    let run db =
+            runTimed lpRunnerTag .
+            runDBHolder db .
+            runCH np . runSscLDImpl . runKDHT inst npBaseParams listeners $
+            nodeStartMsg npBaseParams >> action
+    bracket openDb closeDb run
   where
     lp@LoggingParams {..} = bpLoggingParams npBaseParams
     mStorage = storageFromUtxo <$> npCustomUtxo
@@ -185,6 +188,8 @@ runRealMode inst np@NodeParams {..} listeners action = do
                 (openMemState mStorage)
                 (openState mStorage False)
                 ((</> "main") <$> npDbPath)
+    closeDb :: NodeState ssc -> IO ()
+    closeDb = closeState
 
 runServiceMode
     :: KademliaDHTInstance

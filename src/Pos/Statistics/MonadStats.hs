@@ -31,7 +31,7 @@ import           Focus                    (Decision (Remove), alterM)
 import           Serokell.Util            (show')
 import qualified STMContainers.Map        as SM
 import           System.IO.Unsafe         (unsafePerformIO)
-import           System.Wlog              (WithNamedLogger (..))
+import           System.Wlog              (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.DHT                  (DHTResponseT, MonadDHT, MonadMessageDHT (..),
@@ -89,9 +89,9 @@ type instance ThreadId (StatsT m) = ThreadId m
 newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a  -- ^ action inside wrapper without collecting statistics
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, MonadDB ssc, WithNamedLogger, MonadDialog p,
+               MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog p,
                MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader,
-               MonadJL)
+               MonadJL, CanLog)
 
 instance MonadTransfer m => MonadTransfer (NoStatsT m) where
     sendRaw addr p = NoStatsT $ sendRaw addr (hoist getNoStatsT p)
@@ -121,9 +121,9 @@ instance Monad m => MonadStats (NoStatsT m) where
 newtype StatsT m a = StatsT
     { getStatsT :: m a  -- ^ action inside wrapper with collected statistics
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, MonadDB ssc, WithNamedLogger, MonadDialog p,
+               MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog p,
                MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader,
-               MonadJL)
+               MonadJL, CanLog)
 
 instance MonadTransfer m => MonadTransfer (StatsT m) where
     sendRaw addr p = StatsT $ sendRaw addr (hoist getStatsT p)

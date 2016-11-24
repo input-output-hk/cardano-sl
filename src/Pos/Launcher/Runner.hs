@@ -44,7 +44,7 @@ import           System.Directory            (doesDirectoryExist,
                                               removeDirectoryRecursive)
 import           System.FilePath             ((</>))
 import           System.Log.Logger           (removeAllHandlers)
-import           System.Wlog                 (LoggerName (..), WithNamedLogger, logDebug,
+import           System.Wlog                 (LoggerName (..), WithLogger, logDebug,
                                               logInfo, logWarning, traverseLoggerConfig,
                                               usingLoggerName)
 import           Universum
@@ -201,12 +201,12 @@ runServiceMode inst bp@BaseParams{..} listeners action = loggerBracket bpLogging
 ----------------------------------------------------------------------------
 
 runKDHT
-    :: (MonadBaseControl IO m
-       ,WithNamedLogger m
-       ,MonadIO m
-       ,MonadTimed m
-       ,MonadMask m
-       ,MonadDialog BinaryP m)
+    :: ( MonadBaseControl IO m
+       , WithLogger m
+       , MonadIO m
+       , MonadTimed m
+       , MonadMask m
+       , MonadDialog BinaryP m)
     => KademliaDHTInstance
     -> BaseParams
     -> [ListenerDHT (KademliaDHT m)]
@@ -248,7 +248,7 @@ runTimed loggerName =
 -- Utilities
 ----------------------------------------------------------------------------
 
-nodeStartMsg :: (WithNamedLogger m, MonadIO m) => BaseParams -> m ()
+nodeStartMsg :: WithLogger m => BaseParams -> m ()
 nodeStartMsg BaseParams {..} = logInfo msg
   where
     msg = sformat ("Started node, joining to DHT network " %build) bpDHTPeers

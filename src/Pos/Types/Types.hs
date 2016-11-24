@@ -180,9 +180,12 @@ coinF = build
 -- | Index of epoch.
 newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Binary, Hashable, Buildable)
+    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Binary, Hashable)
 
 instance MessagePack EpochIndex
+
+instance Buildable EpochIndex where
+    build = bprint ("epoch #"%int)
 
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex

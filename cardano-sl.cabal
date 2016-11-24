@@ -357,6 +357,8 @@ executable cardano-smart-generator
   hs-source-dirs:      src/smart-generator
   main-is:             Main.hs
   other-modules:       GenOptions
+                       TxGeneration
+                       TxAnalysis
   build-depends:       QuickCheck
                      , base
                      , aeson

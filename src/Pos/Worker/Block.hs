@@ -86,8 +86,12 @@ onNewSlotWhenLeader slotId = do
                         VerFailure warnings -> logWarning $ sformat
                             ("New block failed some checks: "%listJson)
                             warnings
-                    sscApplyGlobalPayload =<< getGlobalMpcData
-                    announceBlock $ createdBlk ^. gbHeader
+                    globalData <- logWarningWaitLinear 6 "getGlobalMpcData"
+                        getGlobalMpcData
+                    logWarningWaitLinear 7 "sscApplyGlobalPayload" $
+                        sscApplyGlobalPayload globalData
+                    logWarningWaitLinear 8 "announceBlock" $
+                        announceBlock $ createdBlk ^. gbHeader
             let whenNotCreated = logWarning "I couldn't create a new block"
             sscData <- sscGetLocalPayload slotId
             maybe whenNotCreated whenCreated =<< createNewBlock sk slotId sscData

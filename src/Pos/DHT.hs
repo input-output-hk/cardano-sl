@@ -51,9 +51,9 @@ import           Data.Binary               (Binary)
 import           Data.Proxy                (Proxy (Proxy))
 import           Formatting                (int, sformat, shown, (%))
 import qualified Formatting                as F
-import           System.Wlog               (LoggerName,
-                                            WithNamedLogger (modifyLoggerName), logDebug,
-                                            logInfo, logWarning)
+import           System.Wlog               (CanLog, HasLoggerName (modifyLoggerName),
+                                            LoggerName, WithLogger, logDebug, logInfo,
+                                            logWarning)
 import           Universum
 
 import           Pos.Constants             (neighborsSendThreshold)
@@ -83,7 +83,7 @@ dhtLoggerNameM = pure $ dhtLoggerName (Proxy :: Proxy m)
 
 -- | Perform some action using 'dhtLoggerName'.
 withDhtLogger
-    :: (WithNamedLogger m, MonadDHT m)
+    :: (HasLoggerName m, MonadDHT m)
     => m a -> m a
 withDhtLogger action = do
     subName <- dhtLoggerNameM
@@ -111,15 +111,18 @@ class MonadDHT m => MonadMessageDHT m where
 
     default sendToNode :: ( Binary r
                           , Message r
-                          , WithNamedLogger m
+                          , WithLogger m
                           , WithDefaultMsgHeader m
-                          , MonadIO m
                           , MonadDialog BinaryP m
                           , MonadThrow m
                           ) => NetworkAddress -> r -> m ()
     sendToNode = defaultSendToNode
 
-    default sendToNeighbors :: (Binary r, Message r, WithNamedLogger m, MonadCatch m, MonadIO m) => r -> m Int
+    default sendToNeighbors :: ( Binary r
+                               , Message r
+                               , WithLogger m
+                               , MonadCatch m
+                               ) => r -> m Int
     sendToNeighbors = defaultSendToNeighbors sequence sendToNode
 
 -- | Monad that can respond on messages for DHT algorithm.
@@ -138,10 +141,9 @@ defaultSendToNode
        , Binary r
        , Message r
        , WithDefaultMsgHeader m
-       , WithNamedLogger m
+       , WithLogger m
        , MonadDialog BinaryP m
        , MonadThrow m
-       , MonadIO m
        )
     => NetworkAddress -> r -> m ()
 defaultSendToNode addr msg = do
@@ -153,9 +155,8 @@ defaultSendToNode addr msg = do
 -- | Send default message to neighbours in parallel.
 defaultSendToNeighbors
     :: ( MonadMessageDHT m
-       , WithNamedLogger m
+       , WithLogger m
        , MonadCatch m
-       , MonadIO m
        )
     => ([m Bool] -> m [Bool]) -> (NetworkAddress -> r -> m ()) -> r -> m Int
 defaultSendToNeighbors parallelize sender msg = do
@@ -211,8 +212,8 @@ newtype DHTResponseT m a = DHTResponseT
     { getDHTResponseT :: ResponseT m a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans,
                 MonadThrow, MonadCatch, MonadMask,
-                MonadState s, WithDefaultMsgHeader,
-                WithNamedLogger, MonadTimed, MonadDialog t, MonadDHT, MonadMessageDHT)
+                MonadState s, WithDefaultMsgHeader, CanLog,
+                HasLoggerName, MonadTimed, MonadDialog t, MonadDHT, MonadMessageDHT)
 
 instance MonadTransfer m => MonadTransfer (DHTResponseT m) where
     sendRaw addr p = DHTResponseT $ sendRaw addr (hoist getDHTResponseT p)
@@ -221,7 +222,13 @@ instance MonadTransfer m => MonadTransfer (DHTResponseT m) where
 
 type instance ThreadId (DHTResponseT m) = ThreadId m
 
-instance (WithNamedLogger m, WithDefaultMsgHeader m, MonadMessageDHT m, MonadDialog BinaryP m, MonadIO m, MonadMask m) => MonadResponseDHT (DHTResponseT m) where
+instance ( WithLogger m
+         , WithDefaultMsgHeader m
+         , MonadMessageDHT m
+         , MonadDialog BinaryP m
+         , MonadIO m
+         , MonadMask m
+         ) => MonadResponseDHT (DHTResponseT m) where
   replyToNode msg = do
     addr <- DHTResponseT $ peerAddr
     withDhtLogger $
@@ -243,7 +250,10 @@ filterByNodeType :: DHTNodeType -> [DHTNode] -> [DHTNode]
 filterByNodeType type_ = filter (\n -> dhtNodeType (dhtNodeId n) == Just type_)
 
 -- | Join distributed network without throwing 'AllPeersUnavailable' exception.
-joinNetworkNoThrow :: (MonadDHT m, MonadCatch m, MonadIO m, WithNamedLogger m) => [DHTNode] -> m ()
+joinNetworkNoThrow :: ( MonadDHT   m
+                      , MonadCatch m
+                      , WithLogger m
+                      ) => [DHTNode] -> m ()
 joinNetworkNoThrow peers = joinNetwork peers `catch` handleJoinE
   where
     handleJoinE AllPeersUnavailable =

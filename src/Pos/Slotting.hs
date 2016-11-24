@@ -15,7 +15,7 @@ import           Control.Monad.Catch      (MonadCatch, catch)
 import           Control.TimeWarp.Timed   (Microsecond, MonadTimed, for, fork_, wait)
 import           Formatting               (build, sformat, shown, (%))
 import           Serokell.Util.Exceptions ()
-import           System.Wlog              (WithNamedLogger, logError, logInfo,
+import           System.Wlog              (WithLogger, logError, logInfo,
                                            modifyLoggerName)
 import           Universum
 
@@ -63,18 +63,18 @@ getSlotStart (flattenSlotId -> slotId) =
 -- it.  This function uses MonadTimed and assumes consistency between
 -- MonadSlots and MonadTimed implementations.
 onNewSlot
-    :: (MonadIO m, MonadTimed m, MonadSlots m, MonadCatch m, WithNamedLogger m)
+    :: (MonadIO m, MonadTimed m, MonadSlots m, MonadCatch m, WithLogger m)
     => Bool -> (SlotId -> m ()) -> m a
 onNewSlot startImmediately action =
     onNewSlotDo Nothing startImmediately actionWithCatch
   where
     -- TODO: think about exceptions more carefully.
     actionWithCatch s = action s `catch` handler
-    handler :: (MonadIO m, WithNamedLogger m) => SomeException -> m ()
+    handler :: WithLogger m => SomeException -> m ()
     handler = logError . sformat ("Error occurred: "%build)
 
 onNewSlotDo
-    :: (MonadIO m, MonadTimed m, MonadSlots m, MonadCatch m, WithNamedLogger m)
+    :: (MonadIO m, MonadTimed m, MonadSlots m, MonadCatch m, WithLogger m)
     => Maybe SlotId -> Bool -> (SlotId -> m ()) -> m a
 onNewSlotDo expectedSlotId startImmediately action = do
     -- here we wait for short intervals to be sure that expected slot

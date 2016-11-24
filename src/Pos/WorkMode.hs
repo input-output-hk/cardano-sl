@@ -57,7 +57,8 @@ import           Control.TimeWarp.Rpc        (BinaryP, Dialog, MonadDialog,
                                               Transfer, hoistRespCond)
 import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
 import           Formatting                  (sformat, shown, (%))
-import           System.Wlog                 (WithNamedLogger (..), logWarning)
+import           System.Wlog                 (CanLog, HasLoggerName, WithLogger,
+                                              logWarning)
 import           Universum
 
 import           Pos.Crypto                  (PublicKey, SecretKey, VssKeyPair,
@@ -77,7 +78,7 @@ import           Pos.Util.JsonLog            (MonadJL (..), appendJL)
 
 -- | Bunch of constraints to perform work for real world distributed system.
 type WorkMode ssc m
-    = ( WithNamedLogger m
+    = ( WithLogger m
       , MonadIO m
       , MonadTimed m
       , MonadMask m
@@ -95,7 +96,7 @@ type WorkMode ssc m
 
 -- | More relaxed version of 'WorkMode'.
 type MinWorkMode m
-    = ( WithNamedLogger m
+    = ( WithLogger m
       , MonadTimed m
       , MonadMask m
       , MonadIO m
@@ -115,8 +116,8 @@ instance (Monad m, MonadSscLD ssc m) =>
 newtype SscLDImpl ssc m a = SscLDImpl
     { getSscLDImpl :: ReaderT (STM.TVar (SscLocalData ssc)) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
-                MonadCatch, MonadIO, WithNamedLogger, MonadDialog p, WithNodeContext, MonadJL,
-                MonadDB ssc)
+                MonadCatch, MonadIO, HasLoggerName, MonadDialog p, WithNodeContext, MonadJL,
+                MonadDB ssc, CanLog)
 
 -- TODO: refactor!
 instance MonadMask m =>
@@ -193,7 +194,7 @@ instance (MonadSscLD ssc m, Monad m) => MonadSscLD ssc (KademliaDHT m) where
 newtype DBHolder ssc m a = DBHolder
     { getDBHolder :: ReaderT (NodeState ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
-               MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDialog p)
+               MonadCatch, MonadMask, MonadIO, HasLoggerName, CanLog, MonadDialog p)
 
 -- | Execute 'DBHolder' action with given 'NodeState'.
 runDBHolder :: NodeState ssc -> DBHolder ssc m a -> m a
@@ -287,7 +288,7 @@ instance (Monad m, WithNodeContext m) =>
 newtype ContextHolder m a = ContextHolder
     { getContextHolder :: ReaderT NodeContext m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
-               MonadCatch, MonadMask, MonadIO, WithNamedLogger, MonadDB ssc, MonadDialog p)
+               MonadCatch, MonadMask, MonadIO, HasLoggerName, CanLog, MonadDB ssc, MonadDialog p)
 
 -- | Run 'ContextHolder' action.
 runContextHolder :: NodeContext -> ContextHolder m a -> m a
@@ -334,7 +335,7 @@ instance (MonadTimed m, Monad m) =>
     getSystemStartTime = ContextHolder $ asks ncSystemStart
     getCurrentTime = Timestamp <$> currentTime
 
-instance (MonadIO m, WithNamedLogger m, MonadCatch m) => MonadJL (ContextHolder m) where
+instance (MonadIO m, MonadCatch m, WithLogger m) => MonadJL (ContextHolder m) where
     jlLog ev = ContextHolder (asks ncJLFile) >>= maybe (pure ()) doLog
       where
         doLog logFileMV =

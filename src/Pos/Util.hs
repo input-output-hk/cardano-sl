@@ -73,6 +73,7 @@ import qualified Data.Binary                   as Binary (encode)
 import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
+import           Data.HashSet                  (fromMap)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty            as NE
 import           Data.MessagePack              (MessagePack (..))
@@ -93,7 +94,6 @@ import           System.Wlog                   (WithNamedLogger, logWarning)
 import           Universum
 import           Unsafe                        (unsafeInit, unsafeLast)
 
-import           Data.HashSet                  (fromMap)
 import           Pos.Crypto.Random             (randomNumber)
 import           Pos.Util.Arbitrary
 import           Pos.Util.NotImplemented       ()

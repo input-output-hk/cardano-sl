@@ -48,8 +48,7 @@ import           Pos.Ssc.GodTossing.Types.Message   (DataMsg (..), MsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types     (GtPayload (..))
 import           Pos.Types                          (SlotId (..))
-import           Pos.Util                           (diffDoubleMap, readerToState)
-import           Pos.Util                           (getKeys)
+import           Pos.Util                           (diffDoubleMap, readerToState, getKeys)
 
 type LDQuery a = LocalQuery SscGodTossing a
 type LDUpdate a = LocalUpdate SscGodTossing a
@@ -97,9 +96,9 @@ sscIsDataUsefulQ :: MsgTag -> PublicKey -> LDQuery Bool
 sscIsDataUsefulQ CommitmentMsg =
     sscIsDataUsefulImpl gtLocalCommitments gtGlobalCommitments
 sscIsDataUsefulQ OpeningMsg =
-    sscIsDataUsefulImplSet gtLocalOpenings gtGlobalOpenings
+    sscIsDataUsefulSetImpl gtLocalOpenings gtGlobalOpenings
 sscIsDataUsefulQ SharesMsg =
-    sscIsDataUsefulImplSet gtLocalShares gtGlobalShares
+    sscIsDataUsefulSetImpl gtLocalShares gtGlobalShares
 sscIsDataUsefulQ VssCertificateMsg =
     sscIsDataUsefulImpl gtLocalCertificates gtGlobalCertificates
 
@@ -112,9 +111,9 @@ sscIsDataUsefulImpl localG globalG pk =
         (notMember pk <$> view globalG) <*>
         (notMember pk <$> view localG)
 
-sscIsDataUsefulImplSet :: (SetContainer set, ContainerKey set ~ PublicKey)
+sscIsDataUsefulSetImpl :: (SetContainer set, ContainerKey set ~ PublicKey)
                        => MapGetter a -> SetGetter set -> PublicKey -> LDQuery Bool
-sscIsDataUsefulImplSet localG globalG pk =
+sscIsDataUsefulSetImpl localG globalG pk =
     (&&) <$>
         (notMember pk <$> view localG) <*>
         (notMember pk <$> view globalG)
@@ -154,14 +153,8 @@ processOpening pk o = do
     ok <- readerToState $ and <$> sequence checks
     ok <$ when ok (gtLocalOpenings %= HM.insert pk o)
   where
-    checks = [checkOpeningAbsence pk, matchOpening pk o]
-
--- Check that there is no opening from given public key in blocks. It is useful
--- in opening processing.
-checkOpeningAbsence :: PublicKey -> LDQuery Bool
-checkOpeningAbsence pk =
-    (&&) <$> (not . HS.member pk <$> view gtGlobalOpenings) <*>
-             (not . HM.member pk <$> view gtLocalOpenings)
+    checkAbsence = sscIsDataUsefulSetImpl gtLocalOpenings gtGlobalOpenings
+    checks = [checkAbsence pk, matchOpening pk o]
 
 -- Match opening to commitment from globalCommitments
 matchOpening :: PublicKey -> Opening -> LDQuery Bool
@@ -185,7 +178,7 @@ processShares pk s
                 let newLocalShares = localSharesForPk `HM.union` s'
                 -- Note: size is O(n), but union is also O(n + m), so
                 -- it doesn't matter.
-                let ok = preOk && (not . null $ s') --not null s' - if we added some new shares to local shares
+                let ok = preOk && (HM.size newLocalShares /= HM.size localSharesForPk)
                 ok <$ (when ok $ gtLocalShares . at pk .= Just newLocalShares)
         mpcProcessSharesDo
 

@@ -168,8 +168,10 @@ createNewBlockDo
        (SscStorageClass ssc)
     => SecretKey -> SlotId -> SscPayload ssc -> Update ssc (MainBlock ssc)
 createNewBlockDo sk sId sscPayload = do
+    globalPayload <- readerToState $ getGlobalSscPayload
+    let filteredPayload = sscFilterPayload @ssc sscPayload globalPayload
     txs <- readerToState $ toList <$> getLocalTxs
-    blk <- blkCreateNewBlock sk sId txs sscPayload
+    blk <- blkCreateNewBlock sk sId txs filteredPayload
     let blocks = Right blk :| []
     sscApplyBlocks blocks
     blk <$ txApplyBlocks blocks

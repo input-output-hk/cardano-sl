@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies     #-}
 
@@ -46,3 +47,6 @@ class (Typeable ssc
 
     -- | Create proof (for inclusion into block header) from payload
     mkSscProof :: Tagged ssc (SscPayload ssc -> SscProof ssc)
+
+    -- | Remove from all data, which can make global state inconsistent
+    sscFilterPayload :: SscPayload ssc -> SscPayload ssc -> SscPayload ssc

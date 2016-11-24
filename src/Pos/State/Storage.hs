@@ -41,7 +41,7 @@ module Pos.State.Storage
        , processTx
        ) where
 
-import           Control.Lens            (makeClassy, use, view, (.=), (^.))
+import           Control.Lens            (makeClassy, use, (.=), (^.))
 import           Control.Monad.TM        ((.=<<.))
 import           Data.Acid               ()
 import           Data.Default            (Default, def)
@@ -73,8 +73,8 @@ import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
                                           ProcessTxRes (..), mkPBRabort)
 import           Pos.Types               (Block, EpochIndex, GenesisBlock, MainBlock,
                                           SlotId (..), SlotLeaders, Utxo, blockMpc,
-                                          blockSlot, blockTxs, epochIndexL, flattenSlotId,
-                                          gbHeader, headerHashG, unflattenSlotId,
+                                          blockTxs, epochIndexL, flattenSlotId, gbHeader,
+                                          getSlotOrEpoch, headerHashG, unflattenSlotId,
                                           verifyTxAlone)
 import           Pos.Util                (readerToState, _neLast)
 
@@ -138,7 +138,7 @@ storageFromUtxo u =
     }
 
 getHeadSlot :: Query ssc (Either EpochIndex SlotId)
-getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock
+getHeadSlot = getSlotOrEpoch <$> getHeadBlock
 
 -- | Get global SSC data.
 getGlobalSscPayload

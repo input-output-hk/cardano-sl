@@ -1035,17 +1035,33 @@ verifyHeader VerifyHeaderExtra {..} h =
               ("incorrect difficulty (expected " %int % ", found " %int % ")")
               expectedDifficulty
               actualDifficulty)
+    compareSlotsOrEpochs (Left e1) (Left e2)   = e1 < e2
+    compareSlotsOrEpochs (Right s1) (Right s2) = s1 < s2
+    compareSlotsOrEpochs (Right s1) (Left e2)  = siEpoch s1 < e2
+    compareSlotsOrEpochs (Left e1) (Right s2)  = e1 <= siEpoch s2
+    checkSlot :: Either EpochIndex SlotId
+              -> Either EpochIndex SlotId
+              -> (Bool, Text)
+    checkSlot oldSlot newSlot =
+        ( compareSlotsOrEpochs oldSlot newSlot
+        , sformat
+              ("slots are not monotonic (" %build% " > " %build% ")")
+              (either Buildable.build Buildable.build oldSlot)
+              (either Buildable.build Buildable.build newSlot)
+        )
     relatedToPrevHeader prevHeader =
         [ checkDifficulty
               (prevHeader ^. difficultyL + headerDifficulty h)
               (h ^. difficultyL)
         , checkHash (hash prevHeader) (h ^. prevBlockL)
+        , checkSlot (getSlotOrEpoch prevHeader) (getSlotOrEpoch h)
         ]
     relatedToNextHeader nextHeader =
         [ checkDifficulty
               (nextHeader ^. difficultyL - headerDifficulty nextHeader)
               (h ^. difficultyL)
         , checkHash (hash h) (nextHeader ^. prevBlockL)
+        , checkSlot (getSlotOrEpoch h) (getSlotOrEpoch nextHeader)
         ]
     relatedToCurrentSlot curSlotId =
         [ ( either (const True) ((<= curSlotId) . view headerSlot) h

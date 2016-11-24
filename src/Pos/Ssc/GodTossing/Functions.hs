@@ -30,6 +30,7 @@ module Pos.Ssc.GodTossing.Functions
        -- * GtPayload
        , verifyGtPayload
        , filterGtPayload
+       , filterLocalPayload
        ) where
 
 import           Control.Lens                   ((^.))
@@ -52,6 +53,7 @@ import           Pos.Ssc.GodTossing.Types.Types (GtPayload (..))
 import           Pos.Types.Types                (EpochIndex, LocalSlotIndex,
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), headerSlot)
+import           Pos.Util                       (diffDoubleMap)
 import           Serokell.Util                  (VerificationRes, verifyGeneric)
 import           Serokell.Util.Verify           (isVerSuccess)
 import           Universum
@@ -317,3 +319,20 @@ filterGtPayload slotId GtPayload {..} =
     filterDo checker container
         | checker slotId = container
         | otherwise = mempty
+
+----------------------------------------------------------------------------
+-- Filter Local Payload
+----------------------------------------------------------------------------
+filterLocalPayload :: GtPayload -> GtPayload -> GtPayload
+filterLocalPayload localPay globalPay =
+    GtPayload
+    {
+      _mdCommitments  = (_mdCommitments localPay) `HM.difference`
+                        (_mdCommitments globalPay)
+    , _mdOpenings = (_mdOpenings localPay) `HM.difference`
+                    (_mdOpenings globalPay)
+    , _mdShares = (_mdShares localPay) `diffDoubleMap`
+                  (_mdShares globalPay)
+    , _mdVssCertificates = (_mdVssCertificates localPay) `HM.difference`
+                           (_mdVssCertificates globalPay)
+    }

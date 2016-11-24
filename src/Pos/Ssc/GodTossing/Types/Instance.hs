@@ -11,6 +11,7 @@ import           Data.Tagged                        (Tagged (..))
 
 import           Pos.Ssc.Class.Types                (Ssc (..))
 import           Pos.Ssc.GodTossing.Error           (SeedError)
+import           Pos.Ssc.GodTossing.Functions       (filterLocalPayload)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData)
 import           Pos.Ssc.GodTossing.Storage.Types   (GtStorage)
 import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
@@ -23,3 +24,4 @@ instance Ssc SscGodTossing where
     type SscProof     SscGodTossing = GtProof
     type SscSeedError SscGodTossing = SeedError
     mkSscProof = Tagged mkGtProof
+    sscFilterPayload = filterLocalPayload

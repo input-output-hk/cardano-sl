@@ -61,6 +61,7 @@ class Ssc ssc => SscLocalDataClass ssc where
     -- of best known chain).
     sscApplyGlobalPayloadU :: SscPayload ssc -> LocalUpdate ssc ()
 
+
 -- | Convenient wrapper to run LocalQuery in MonadSscLD.
 sscRunLocalQuery
     :: forall ssc m a.

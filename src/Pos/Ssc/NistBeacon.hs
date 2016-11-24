@@ -61,6 +61,7 @@ instance Ssc SscNistBeacon where
     type SscSeedError SscNistBeacon = ()
 
     mkSscProof = Tagged $ const ()
+    sscFilterPayload _ _ = ()
 
 instance SscStorageClass SscNistBeacon where
     sscApplyBlocks _ = pass

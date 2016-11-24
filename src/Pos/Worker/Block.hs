@@ -80,8 +80,7 @@ onNewSlotWhenLeader slotId = do
             let whenCreated createdBlk = do
                     logInfo $
                         sformat ("Created a new block:\n" %build) createdBlk
-                    logWarningWaitLinear 6 "jlLog created block" $
-                        jlLog $ jlCreatedBlock (Right createdBlk)
+                    jlLog $ jlCreatedBlock (Right createdBlk)
                     case verifyCreatedBlock createdBlk of
                         VerSuccess -> return ()
                         VerFailure warnings -> logWarning $ sformat
@@ -91,11 +90,10 @@ onNewSlotWhenLeader slotId = do
                         getGlobalMpcData
                     logWarningWaitLinear 7 "sscApplyGlobalPayload" $
                         sscApplyGlobalPayload globalData
-                    logWarningWaitLinear 8 "announceBlock" $
-                        announceBlock $ createdBlk ^. gbHeader
-            let whenNotCreated = logWarning "I couldn't create a new block"
+                    announceBlock $ createdBlk ^. gbHeader
+            let whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
             sscData <- sscGetLocalPayload slotId
-            maybe whenNotCreated whenCreated =<< createNewBlock sk slotId sscData
+            either whenNotCreated whenCreated =<< createNewBlock sk slotId sscData
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
 -- | All workers specific to block processing.

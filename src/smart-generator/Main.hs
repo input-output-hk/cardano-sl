@@ -378,37 +378,29 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         realTxNum <- liftIO $ newIORef (0 :: Int)
 
         beginT <- getPosixMs
-        resMap <- foldM
-            (\curmap (idx :: Int) -> do
-                preStartT <- getPosixMs
-                -- prevent periods longer than we expected
-                if preStartT - beginT > round (goRoundDuration * 1000)
-                    then pure curmap
-                    else do
-                    transaction <- nextValidTx bambooPool tpsDelta
-                    let curTxId = hash transaction
+        forM_ [0 .. txNum - 1] $ \(idx :: Int) -> do
+            preStartT <- getPosixMs
+            -- prevent periods longer than we expected
+            when (preStartT - beginT > round (goRoundDuration * 1000)) $ do
+                transaction <- nextValidTx bambooPool tpsDelta
+                let curTxId = hash transaction
 
-                    startT <- getPosixMs
-                    logInfo $ sformat ("Sending transaction #"%int) idx
-                    submitTxRaw na transaction
-                    liftIO $ modifyIORef' realTxNum (+1)
+                startT <- getPosixMs
+                logInfo $ sformat ("Sending transaction #"%int) idx
+                submitTxRaw na transaction
+                liftIO $ modifyIORef' realTxNum (+1)
 
-                    -- sometimes nodes fail so we never write timestamps...
-                    when (idx `mod` 271 == 0) $ void $ liftIO $ forkIO $
-                        LBS.writeFile "timestampsTxSender.json" $
-                        encode $ M.toList curmap
+                -- sometimes nodes fail so we never write timestamps...
+                when (idx `mod` 271 == 0) $ void $ liftIO $ forkIO $
+                    LBS.writeFile "timestampsTxSender.json" $
+                    encode $ M.toList curmap
 
-                    endT <- getPosixMs
-                    let runDelta = endT - startT
-                    wait $ for $ ms (max 0 $ tpsDelta - runDelta)
+                endT <- getPosixMs
+                let runDelta = endT - startT
+                wait $ for $ ms (max 0 $ tpsDelta - runDelta)
 
-                    -- put timestamp to current txmap
-                    liftIO $ registerSentTx txTimestamps curTxId $ fromIntegral startT * 1000
-
-                -- we dump microseconds to be consistent with JSON log
-                    pure $ M.insert (pretty curTxId) (startT * 1000) curmap)
-            (M.empty :: M.HashMap Text Int) -- TxId Int
-            [0 .. txNum - 1]
+                -- put timestamp to current txmap
+                liftIO $ registerSentTx txTimestamps curTxId $ fromIntegral startT * 1000
 
         finishT <- getPosixMs
         realTxNumVal <- liftIO $ readIORef realTxNum
@@ -421,9 +413,9 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
                      else realTPS
 
         putText "----------------------------------------"
-        putText "wrote json to ./timestampsTxSender.json"
-        liftIO $ LBS.writeFile "timestampsTxSender.json" $
-            encode $ M.toList resMap
+--        putText "wrote json to ./timestampsTxSender.json"
+--        liftIO $ LBS.writeFile "timestampsTxSender.json" $
+--            encode $ M.toList resMap
         putText $ "Sending transactions took (s): " <> show globalTime
         putText $ "So real tps was: " <> show realTPS
 

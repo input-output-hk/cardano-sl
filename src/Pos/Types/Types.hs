@@ -21,10 +21,12 @@ module Pos.Types.Types
        , coinF
 
        , EpochIndex (..)
+       , FlatSlotId
        , LocalSlotIndex (..)
        , SlotId (..)
-       , FlatSlotId
+       , EpochOrSlot (..)
        , slotIdF
+       , epochOrSlot
 
        , Address (..)
        , addressF
@@ -70,6 +72,7 @@ module Pos.Types.Types
        , HasEpochIndex (..)
        , HasHeaderHash (..)
        , HasPrevBlock (..)
+       , HasEpochOrSlot (..)
 
        , blockHeader
        , blockLeaderKey
@@ -180,9 +183,12 @@ coinF = build
 -- | Index of epoch.
 newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Binary, Hashable, Buildable)
+    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Binary, Hashable)
 
 instance MessagePack EpochIndex
+
+instance Buildable EpochIndex where
+    build = bprint ("epoch #"%int)
 
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex
@@ -211,6 +217,28 @@ slotIdF = build
 
 -- | FlatSlotId is a flat version of SlotId
 type FlatSlotId = Word64
+
+-- | Represents SlotId or EpochIndex. Useful because genesis blocks
+-- have only EpochIndex, while main blocks have SlotId.
+newtype EpochOrSlot = EpochOrSlot
+    { unEpochOrSlot :: Either EpochIndex SlotId
+    } deriving (Show, Eq)
+
+-- | Apply one of the function depending on content of EpochOrSlot.
+epochOrSlot :: (EpochIndex -> a) -> (SlotId -> a) -> EpochOrSlot -> a
+epochOrSlot f g = either f g . unEpochOrSlot
+
+instance Ord EpochOrSlot where
+    EpochOrSlot (Left e1) < EpochOrSlot (Left e2) = e1 < e2
+    EpochOrSlot (Right s1) < EpochOrSlot (Right s2) = s1 < s2
+    EpochOrSlot (Right s1) < EpochOrSlot (Left e2) = siEpoch s1 < e2
+    EpochOrSlot (Left e1) < EpochOrSlot (Right s2) = e1 <= siEpoch s2
+    EpochOrSlot (Left e1) <= EpochOrSlot (Left e2) = e1 <= e2
+    EpochOrSlot (Right s1) <= EpochOrSlot (Right s2) = s1 <= s2
+    EpochOrSlot a <= EpochOrSlot b = a < b
+
+instance Buildable EpochOrSlot where
+    build = either Buildable.build Buildable.build . unEpochOrSlot
 
 ----------------------------------------------------------------------------
 -- Address
@@ -820,6 +848,29 @@ blockHeader = to getBlockHeader
 getBlockHeader :: Block ssc -> BlockHeader ssc
 getBlockHeader = bimap (view gbHeader) (view gbHeader)
 
+class HasEpochOrSlot a where
+    _getEpochOrSlot :: a -> Either EpochIndex SlotId
+    getEpochOrSlot :: a -> EpochOrSlot
+    getEpochOrSlot = EpochOrSlot . _getEpochOrSlot
+    epochOrSlotG :: Getter a EpochOrSlot
+    epochOrSlotG = to getEpochOrSlot
+
+instance HasEpochOrSlot (MainBlockHeader ssc) where
+    _getEpochOrSlot = Right . _mcdSlot . _gbhConsensus
+
+instance HasEpochOrSlot (GenesisBlockHeader ssc) where
+    _getEpochOrSlot = Left . _gcdEpoch . _gbhConsensus
+
+instance HasEpochOrSlot (MainBlock ssc) where
+    _getEpochOrSlot = _getEpochOrSlot . _gbHeader
+
+instance HasEpochOrSlot (GenesisBlock ssc) where
+    _getEpochOrSlot = _getEpochOrSlot . _gbHeader
+
+instance (HasEpochOrSlot a, HasEpochOrSlot b) =>
+         HasEpochOrSlot (Either a b) where
+    _getEpochOrSlot = either _getEpochOrSlot _getEpochOrSlot
+
 ----------------------------------------------------------------------------
 -- Block.hs. TODO: move it into Block.hs.
 -- These functions are here because of GHC bug (trac 12127).
@@ -1010,17 +1061,28 @@ verifyHeader VerifyHeaderExtra {..} h =
               ("incorrect difficulty (expected " %int % ", found " %int % ")")
               expectedDifficulty
               actualDifficulty)
+    checkSlot :: EpochOrSlot
+              -> EpochOrSlot
+              -> (Bool, Text)
+    checkSlot oldSlot newSlot =
+        ( oldSlot < newSlot
+        , sformat
+              ("slots are not monotonic (" %build% " > " %build% ")")
+              oldSlot newSlot
+        )
     relatedToPrevHeader prevHeader =
         [ checkDifficulty
               (prevHeader ^. difficultyL + headerDifficulty h)
               (h ^. difficultyL)
         , checkHash (hash prevHeader) (h ^. prevBlockL)
+        , checkSlot (getEpochOrSlot prevHeader) (getEpochOrSlot h)
         ]
     relatedToNextHeader nextHeader =
         [ checkDifficulty
               (nextHeader ^. difficultyL - headerDifficulty nextHeader)
               (h ^. difficultyL)
         , checkHash (hash h) (nextHeader ^. prevBlockL)
+        , checkSlot (getEpochOrSlot h) (getEpochOrSlot nextHeader)
         ]
     relatedToCurrentSlot curSlotId =
         [ ( either (const True) ((<= curSlotId) . view headerSlot) h

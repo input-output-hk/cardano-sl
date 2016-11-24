@@ -22,9 +22,10 @@ import           Control.Lens                  (makeLenses)
 import           Data.Default                  (Default (def))
 import           Universum
 
+import           Pos.Crypto                    (PublicKey)
 import           Pos.Ssc.GodTossing.Genesis    (genesisCertificates)
 import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
-                                                VssCertificatesMap)
+                                                VssCertificatesMap, PKSet)
 import           Pos.Types                     (SlotId, unflattenSlotId)
 
 data GtLocalData = GtLocalData
@@ -44,9 +45,9 @@ data GtLocalData = GtLocalData
     , -- | Last version of global commitments
       _gtGlobalCommitments  :: !CommitmentsMap
     , -- | Last version of global openings
-      _gtGlobalOpenings     :: !OpeningsMap
+      _gtGlobalOpenings     :: !PKSet
     , -- | Last version of global certificates
-      _gtGlobalShares       :: !SharesMap
+      _gtGlobalShares       :: !(HashMap PublicKey PKSet)
     , -- | Global certificates
       _gtGlobalCertificates :: !VssCertificatesMap
     }

@@ -11,6 +11,7 @@ module Pos.Ssc.GodTossing.Functions
        , isOpeningIdx
        , isSharesId
        , isSharesIdx
+       , inLastKSlotsId
        , hasCommitment
        , hasOpening
        , hasShares
@@ -26,7 +27,7 @@ module Pos.Ssc.GodTossing.Functions
        , verifyOpening
        , checkShare
        , checkShares
-       , checkOpening
+       , checkOpeningMatchesCommitment
        -- * GtPayload
        , verifyGtPayload
        , filterGtPayload
@@ -34,7 +35,9 @@ module Pos.Ssc.GodTossing.Functions
        ) where
 
 import           Control.Lens                   ((^.))
+import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
+import qualified Data.HashSet                   as HS
 import           Data.Ix                        (inRange)
 import           Data.List.NonEmpty             (NonEmpty (..))
 import           Pos.Constants                  (k)
@@ -46,9 +49,8 @@ import           Pos.Crypto                     (PublicKey, Secret, SecretKey,
                                                  verifySecretProof, verifyShare)
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap,
-                                                 Opening (..), OpeningsMap,
-                                                 SignedCommitment, VssCertificate,
-                                                 VssCertificatesMap)
+                                                 Opening (..), SignedCommitment,
+                                                 VssCertificate, VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Types (GtPayload (..))
 import           Pos.Types.Types                (EpochIndex, LocalSlotIndex,
                                                  MainBlockHeader, SharedSeed (..),
@@ -105,6 +107,9 @@ isOpeningId = isOpeningIdx . siSlot
 isSharesId :: SlotId -> Bool
 isSharesId = isSharesIdx . siSlot
 
+inLastKSlotsId :: SlotId -> Bool
+inLastKSlotsId SlotId{..} = siSlot >= 5 * k
+
 hasCommitment :: PublicKey -> GtPayload -> Bool
 hasCommitment pk = HM.member pk . _mdCommitments
 
@@ -154,42 +159,42 @@ checkCert (pk, cert) = verify pk (signedValue cert) (signedSig cert)
 
 -- | Check that the decrypted share matches the encrypted share in the
 -- commitment
-checkShare
-    :: CommitmentsMap
-    -> OpeningsMap
-    -> VssCertificatesMap
-    -> (PublicKey, PublicKey, Share)
-    -> Bool
-checkShare globalCommitments globalOpenings globalCertificates (pkTo, pkFrom, share) =
+checkShare :: (SetContainer set, ContainerKey set ~ PublicKey)
+           => CommitmentsMap
+           -> set --set of opening's PK
+           -> VssCertificatesMap
+           -> (PublicKey, PublicKey, Share)
+           -> Bool
+checkShare globalCommitments globalOpeningsPK globalCertificates (pkTo, pkFrom, share) =
     fromMaybe False $ do
         guard $ HM.member pkTo globalCommitments
-        guard $ isNothing $ HM.lookup pkFrom globalOpenings
+        guard $ notMember pkFrom globalOpeningsPK
         (comm, _) <- HM.lookup pkFrom globalCommitments
         vssKey <- signedValue <$> HM.lookup pkTo globalCertificates
         encShare <- HM.lookup vssKey (commShares comm)
         return $ verifyShare encShare vssKey share
 
 -- Apply checkShare to all shares in map.
-checkShares
-    :: CommitmentsMap
-    -> OpeningsMap
-    -> VssCertificatesMap
-    -> PublicKey
-    -> HashMap PublicKey Share
-    -> Bool
-checkShares globalCommitments globalOpenings globalCertificates pkTo shares =
+checkShares :: (SetContainer set, ContainerKey set ~ PublicKey)
+            => CommitmentsMap
+            -> set --set of opening's PK. TODO Should we add phantom type for more typesafety?
+            -> VssCertificatesMap
+            -> PublicKey
+            -> HashMap PublicKey Share
+            -> Bool
+checkShares globalCommitments globalOpeningsPK globalCertificates pkTo shares =
     let listShares :: [(PublicKey, PublicKey, Share)]
         listShares = map convert $ HM.toList shares
         convert (pkFrom, share) = (pkTo, pkFrom, share)
     in all
-           (checkShare globalCommitments globalOpenings globalCertificates)
+           (checkShare globalCommitments globalOpeningsPK globalCertificates)
            listShares
 
 -- | Check that the secret revealed in the opening matches the secret proof
 -- in the commitment
-checkOpening
+checkOpeningMatchesCommitment
     :: CommitmentsMap -> (PublicKey, Opening) -> Bool
-checkOpening globalCommitments (pk, opening) =
+checkOpeningMatchesCommitment globalCommitments (pk, opening) =
     case HM.lookup pk globalCommitments of
         Nothing        -> False
         Just (comm, _) -> verifyOpening comm opening

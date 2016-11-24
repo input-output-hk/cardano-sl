@@ -19,6 +19,7 @@ module Pos.Util
        , eitherPanic
        , inAssertMode
        , diffDoubleMap
+       , getKeys
 
        -- * Msgpack
        , msgpackFail
@@ -72,6 +73,7 @@ import qualified Data.Binary                   as Binary (encode)
 import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
+import           Data.HashSet                  (fromMap)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty            as NE
 import           Data.MessagePack              (MessagePack (..))
@@ -380,3 +382,7 @@ instance (Ord k, SafeCopy k, SafeCopy v) =>
         do safePut $ LRU.maxSize lru
            safePut $ LRU.toList lru
     errorTypeName _ = "LRU"
+
+-- | Create HashSet from HashMap's keys
+getKeys :: HashMap k v -> HashSet k
+getKeys = fromMap . void

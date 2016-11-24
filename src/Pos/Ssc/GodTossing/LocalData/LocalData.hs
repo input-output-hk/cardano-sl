@@ -17,8 +17,11 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
 
 import           Control.Lens                       (at, use, view, (%=), (.=))
 import           Control.Lens                       (Getter)
+import           Data.Containers                    (ContainerKey,
+                                                     SetContainer (notMember))
 import           Data.Default                       (Default (def))
 import qualified Data.HashMap.Strict                as HM
+import qualified Data.HashSet                       as HS
 import           Serokell.Util.Verify               (isVerSuccess)
 import           Universum
 
@@ -26,7 +29,8 @@ import           Pos.Crypto                         (PublicKey, Share)
 import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate, MonadSscLD,
                                                      SscLocalDataClass (..),
                                                      sscRunLocalQuery, sscRunLocalUpdate)
-import           Pos.Ssc.GodTossing.Functions       (checkOpening, checkShares,
+import           Pos.Ssc.GodTossing.Functions       (checkOpeningMatchesCommitment,
+                                                     checkShares, inLastKSlotsId,
                                                      isCommitmentIdx, isOpeningIdx,
                                                      isSharesIdx, verifySignedCommitment)
 import           Pos.Ssc.GodTossing.Functions       (filterGtPayload)
@@ -44,7 +48,7 @@ import           Pos.Ssc.GodTossing.Types.Message   (DataMsg (..), MsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types     (GtPayload (..))
 import           Pos.Types                          (SlotId (..))
-import           Pos.Util                           (diffDoubleMap, readerToState)
+import           Pos.Util                           (diffDoubleMap, readerToState, getKeys)
 
 type LDQuery a = LocalQuery SscGodTossing a
 type LDUpdate a = LocalUpdate SscGodTossing a
@@ -57,6 +61,11 @@ instance SscLocalDataClass SscGodTossing where
 ----------------------------------------------------------------------------
 -- Process New Slot
 ----------------------------------------------------------------------------
+clearGlobalState :: LDUpdate ()
+clearGlobalState = do
+    gtGlobalCommitments  .= mempty
+    gtGlobalOpenings     .= mempty
+    gtGlobalShares       .= mempty
 
 -- | Clean-up some data when new slot starts.
 localOnNewSlot
@@ -66,10 +75,7 @@ localOnNewSlot = sscRunLocalUpdate . localOnNewSlotU
 
 localOnNewSlotU :: SlotId -> LDUpdate ()
 localOnNewSlotU si@SlotId {siSlot = slotIdx} = do
-    when (slotIdx == 0) $ do
-        gtGlobalCommitments .= mempty
-        gtGlobalOpenings    .= mempty
-        gtGlobalShares      .= mempty
+    when (slotIdx == 0) clearGlobalState
     unless (isCommitmentIdx slotIdx) $ gtLocalCommitments .= mempty
     unless (isOpeningIdx slotIdx) $ gtLocalOpenings .= mempty
     unless (isSharesIdx slotIdx) $ gtLocalShares .= mempty
@@ -90,21 +96,27 @@ sscIsDataUsefulQ :: MsgTag -> PublicKey -> LDQuery Bool
 sscIsDataUsefulQ CommitmentMsg =
     sscIsDataUsefulImpl gtLocalCommitments gtGlobalCommitments
 sscIsDataUsefulQ OpeningMsg =
-    sscIsDataUsefulImpl gtLocalOpenings gtGlobalOpenings
-sscIsDataUsefulQ SharesMsg  =
-    sscIsDataUsefulImpl gtLocalShares gtGlobalShares
+    sscIsDataUsefulSetImpl gtLocalOpenings gtGlobalOpenings
+sscIsDataUsefulQ SharesMsg =
+    sscIsDataUsefulSetImpl gtLocalShares gtGlobalShares
 sscIsDataUsefulQ VssCertificateMsg =
     sscIsDataUsefulImpl gtLocalCertificates gtGlobalCertificates
 
 type MapGetter a = Getter GtLocalData (HashMap PublicKey a)
+type SetGetter set = Getter GtLocalData set
 
 sscIsDataUsefulImpl :: MapGetter a -> MapGetter a -> PublicKey -> LDQuery Bool
 sscIsDataUsefulImpl localG globalG pk =
-    not . or <$>
-    sequence
-        [ (HM.member pk <$> view globalG)
-        , (HM.member pk <$> view localG)
-        ]
+    (&&) <$>
+        (notMember pk <$> view globalG) <*>
+        (notMember pk <$> view localG)
+
+sscIsDataUsefulSetImpl :: (SetContainer set, ContainerKey set ~ PublicKey)
+                       => MapGetter a -> SetGetter set -> PublicKey -> LDQuery Bool
+sscIsDataUsefulSetImpl localG globalG pk =
+    (&&) <$>
+        (notMember pk <$> view localG) <*>
+        (notMember pk <$> view globalG)
 
 ----------------------------------------------------------------------------
 -- Ssc Process Message
@@ -141,16 +153,13 @@ processOpening pk o = do
     ok <- readerToState $ and <$> sequence checks
     ok <$ when ok (gtLocalOpenings %= HM.insert pk o)
   where
-    checks = [checkOpeningAbsence pk, checkOpeningLastVer pk o]
+    checkAbsence = sscIsDataUsefulSetImpl gtLocalOpenings gtGlobalOpenings
+    checks = [checkAbsence pk, matchOpening pk o]
 
--- Check that there is no opening from given public key in blocks. It is useful
--- in opening processing.
-checkOpeningAbsence :: PublicKey -> LDQuery Bool
-checkOpeningAbsence pk =
-    (&&) <$> (notMember <$> view gtGlobalOpenings) <*>
-    (notMember <$> view gtLocalOpenings)
-  where
-    notMember = not . HM.member pk
+-- Match opening to commitment from globalCommitments
+matchOpening :: PublicKey -> Opening -> LDQuery Bool
+matchOpening pk opening =
+    flip checkOpeningMatchesCommitment (pk, opening) <$> view gtGlobalCommitments
 
 processShares :: PublicKey -> HashMap PublicKey Share -> LDUpdate Bool
 processShares pk s
@@ -163,10 +172,9 @@ processShares pk s
         -- ban them for that. On the third hand, is this a concern?
         preOk <- readerToState $ checkSharesLastVer pk s
         let mpcProcessSharesDo = do
-                globalSharesForPK <-
-                    HM.lookupDefault mempty pk <$> use gtGlobalShares
+                globalSharesPKForPK <- HM.lookupDefault mempty pk <$> use gtGlobalShares
                 localSharesForPk <- HM.lookupDefault mempty pk <$> use gtLocalShares
-                let s' = s `HM.difference` globalSharesForPK
+                let s' = s `HM.difference` (HS.toMap globalSharesPKForPK)
                 let newLocalShares = localSharesForPk `HM.union` s'
                 -- Note: size is O(n), but union is also O(n + m), so
                 -- it doesn't matter.
@@ -181,36 +189,33 @@ checkSharesLastVer pk shares =
     view gtGlobalOpenings <*>
     view gtGlobalCertificates
 
--- Apply checkOpening using last version.
-checkOpeningLastVer :: PublicKey -> Opening -> LDQuery Bool
-checkOpeningLastVer pk opening =
-    flip checkOpening (pk, opening) <$> view gtGlobalCommitments
-
 processVssCertificate :: PublicKey -> VssCertificate -> LDUpdate Bool
 processVssCertificate pk c = do
     ok <- not . HM.member pk <$> use gtGlobalCertificates
     ok <$ when ok (gtLocalCertificates %= HM.insert pk c)
 
 ----------------------------------------------------------------------------
--- Apply Block
+-- Apply Global State
 ----------------------------------------------------------------------------
-
 applyGlobal :: GtPayload -> LDUpdate ()
-applyGlobal payload = do
+applyGlobal globalData = do
     let
-        payloadCommitments = _mdCommitments payload
-        payloadOpenings = _mdOpenings payload
-        payloadShares = _mdShares payload
-        payloadCert = _mdVssCertificates payload
-    gtLocalCommitments  %= (`HM.difference` payloadCommitments)
-    gtLocalOpenings  %= (`HM.difference` payloadOpenings)
-    gtLocalShares  %= (`diffDoubleMap` payloadShares)
-    gtLocalCertificates  %= (`HM.difference` payloadCert)
+        globalCommitments = _mdCommitments globalData
+        globalOpenings = _mdOpenings globalData
+        globalShares = _mdShares globalData
+        globalCert = _mdVssCertificates globalData
+    gtLocalCommitments  %= (`HM.difference` globalCommitments)
+    gtLocalOpenings  %= (`HM.difference` globalOpenings)
+    gtLocalShares  %= (`diffDoubleMap` globalShares)
+    gtLocalCertificates  %= (`HM.difference` globalCert)
 
-    gtGlobalCommitments .= payloadCommitments
-    gtGlobalOpenings .= payloadOpenings
-    gtGlobalShares .= payloadShares
-    gtGlobalCertificates .= payloadCert
+    slotId <- use gtLastProcessedSlot
+    if inLastKSlotsId slotId then clearGlobalState
+    else do
+        gtGlobalCommitments .= globalCommitments `HM.difference` globalOpenings
+        gtGlobalOpenings .= getKeys globalOpenings
+        gtGlobalShares .= HM.map getKeys globalShares
+        gtGlobalCertificates .= globalCert
 
 ----------------------------------------------------------------------------
 -- Get Local Payload

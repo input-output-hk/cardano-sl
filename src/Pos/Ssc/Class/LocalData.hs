@@ -86,5 +86,5 @@ sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 sscApplyGlobalPayload
     :: forall ssc m.
        (MonadSscLD ssc m, SscLocalDataClass ssc)
-    => SscPayload ssc -> m ()
+    =>  SscPayload ssc -> m ()
 sscApplyGlobalPayload = sscRunLocalUpdate . sscApplyGlobalPayloadU @ssc

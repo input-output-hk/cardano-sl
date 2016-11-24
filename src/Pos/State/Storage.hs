@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE MultiWayIf             #-}
 {-# LANGUAGE Rank2Types             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TemplateHaskell        #-}
@@ -72,9 +73,10 @@ import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
                                           ProcessTxRes (..), mkPBRabort)
 import           Pos.Types               (Block, EpochIndex, GenesisBlock, MainBlock,
-                                          SlotId (..), SlotLeaders, Utxo, blockMpc,
-                                          blockTxs, epochIndexL, flattenSlotId, gbHeader,
-                                          getSlotOrEpoch, headerHashG, unflattenSlotId,
+                                          SlotId (..), SlotLeaders, SlotOrEpoch (..),
+                                          Utxo, blockMpc, blockTxs, epochIndexL,
+                                          flattenSlotId, gbHeader, getSlotOrEpoch,
+                                          headerHashG, slotOrEpoch, unflattenSlotId,
                                           verifyTxAlone)
 import           Pos.Util                (readerToState, _neLast)
 
@@ -137,7 +139,7 @@ storageFromUtxo u =
     , _slotId = unflattenSlotId 0
     }
 
-getHeadSlot :: Query ssc (Either EpochIndex SlotId)
+getHeadSlot :: Query ssc SlotOrEpoch
 getHeadSlot = getSlotOrEpoch <$> getHeadBlock
 
 -- | Get global SSC data.
@@ -157,11 +159,10 @@ createNewBlock
     => SecretKey
     -> SlotId
     -> SscPayload ssc
-    -> Update ssc (Maybe (MainBlock ssc))
-createNewBlock sk sId sscPayload = do
-    ifM (readerToState (canCreateBlock sId))
-        (Just <$> createNewBlockDo sk sId sscPayload)
-        (pure Nothing)
+    -> Update ssc (Either Text (MainBlock ssc))
+createNewBlock sk sId sscPayload =
+    maybe (Right <$> createNewBlockDo sk sId sscPayload) (pure . Left) =<<
+    readerToState (canCreateBlock sId)
 
 createNewBlockDo
     :: forall ssc.
@@ -176,12 +177,18 @@ createNewBlockDo sk sId sscPayload = do
     sscApplyBlocks blocks
     blk <$ txApplyBlocks blocks
 
-canCreateBlock :: SlotId -> Query ssc Bool
+canCreateBlock :: SlotId -> Query ssc (Maybe Text)
 canCreateBlock sId = do
-    maxSlotId <- canCreateBlockMax
-    return (sId <= maxSlotId)
+    headSlot <- getHeadSlot
+    let maxSlotId = addKSafe $ slotOrEpoch (`SlotId` 0) identity headSlot
+    let retRes = return . Just
+    if | sId > maxSlotId ->
+           retRes "slot id is too big, we don't know recent block"
+       | (SlotOrEpoch $ Right sId) < headSlot ->
+           retRes "slot id is not biger than one from last known block"
+       | otherwise -> return Nothing
   where
-    canCreateBlockMax = addKSafe . either (`SlotId` 0) identity <$> getHeadSlot
+
     addKSafe si = si {siSlot = min (6 * k - 1) (siSlot si + k)}
 
 -- | Do all necessary changes when a block is received.
@@ -285,7 +292,7 @@ shouldCreateGenesisBlock :: EpochIndex -> Query ssc Bool
 -- Genesis block for 0-th epoch is hardcoded.
 shouldCreateGenesisBlock 0 = pure False
 shouldCreateGenesisBlock epoch =
-    doCheck . either (`SlotId` 0) identity <$> getHeadSlot
+    doCheck . slotOrEpoch (`SlotId` 0) identity <$> getHeadSlot
   where
     doCheck SlotId {..} = siEpoch == epoch - 1 && siSlot >= 5 * k
 

@@ -93,9 +93,9 @@ onNewSlotWhenLeader slotId = do
                         sscApplyGlobalPayload globalData
                     logWarningWaitLinear 8 "announceBlock" $
                         announceBlock $ createdBlk ^. gbHeader
-            let whenNotCreated = logWarning "I couldn't create a new block"
+            let whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
             sscData <- sscGetLocalPayload slotId
-            maybe whenNotCreated whenCreated =<< createNewBlock sk slotId sscData
+            either whenNotCreated whenCreated =<< createNewBlock sk slotId sscData
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
 -- | All workers specific to block processing.

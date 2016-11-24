@@ -21,10 +21,12 @@ module Pos.Types.Types
        , coinF
 
        , EpochIndex (..)
+       , FlatSlotId
        , LocalSlotIndex (..)
        , SlotId (..)
-       , FlatSlotId
+       , SlotOrEpoch (..)
        , slotIdF
+       , slotOrEpoch
 
        , Address (..)
        , addressF
@@ -215,6 +217,28 @@ slotIdF = build
 
 -- | FlatSlotId is a flat version of SlotId
 type FlatSlotId = Word64
+
+-- | Represents SlotId or EpochIndex. Useful because genesis blocks
+-- have only EpochIndex, while main blocks have SlotId.
+newtype SlotOrEpoch = SlotOrEpoch
+    { unSlotOrEpoch :: Either EpochIndex SlotId
+    } deriving (Show, Eq)
+
+-- | Apply one of the function depending on content of SlotOrEpoch.
+slotOrEpoch :: (EpochIndex -> a) -> (SlotId -> a) -> SlotOrEpoch -> a
+slotOrEpoch f g = either f g . unSlotOrEpoch
+
+instance Ord SlotOrEpoch where
+    SlotOrEpoch (Left e1) < SlotOrEpoch (Left e2) = e1 < e2
+    SlotOrEpoch (Right s1) < SlotOrEpoch (Right s2) = s1 < s2
+    SlotOrEpoch (Right s1) < SlotOrEpoch (Left e2) = siEpoch s1 < e2
+    SlotOrEpoch (Left e1) < SlotOrEpoch (Right s2) = e1 <= siEpoch s2
+    SlotOrEpoch (Left e1) <= SlotOrEpoch (Left e2) = e1 <= e2
+    SlotOrEpoch (Right s1) <= SlotOrEpoch (Right s2) = s1 <= s2
+    SlotOrEpoch a <= SlotOrEpoch b = a < b
+
+instance Buildable SlotOrEpoch where
+    build = either Buildable.build Buildable.build . unSlotOrEpoch
 
 ----------------------------------------------------------------------------
 -- Address
@@ -825,25 +849,27 @@ getBlockHeader :: Block ssc -> BlockHeader ssc
 getBlockHeader = bimap (view gbHeader) (view gbHeader)
 
 class HasSlotOrEpoch a where
-    getSlotOrEpoch :: a -> Either EpochIndex SlotId
-    slotOrEpochG :: Getter a (Either EpochIndex SlotId)
+    _getSlotOrEpoch :: a -> Either EpochIndex SlotId
+    getSlotOrEpoch :: a -> SlotOrEpoch
+    getSlotOrEpoch = SlotOrEpoch . _getSlotOrEpoch
+    slotOrEpochG :: Getter a SlotOrEpoch
     slotOrEpochG = to getSlotOrEpoch
 
 instance HasSlotOrEpoch (MainBlockHeader ssc) where
-    getSlotOrEpoch = Right . _mcdSlot . _gbhConsensus
+    _getSlotOrEpoch = Right . _mcdSlot . _gbhConsensus
 
 instance HasSlotOrEpoch (GenesisBlockHeader ssc) where
-    getSlotOrEpoch = Left . _gcdEpoch . _gbhConsensus
+    _getSlotOrEpoch = Left . _gcdEpoch . _gbhConsensus
 
 instance HasSlotOrEpoch (MainBlock ssc) where
-    getSlotOrEpoch = getSlotOrEpoch . _gbHeader
+    _getSlotOrEpoch = _getSlotOrEpoch . _gbHeader
 
 instance HasSlotOrEpoch (GenesisBlock ssc) where
-    getSlotOrEpoch = getSlotOrEpoch . _gbHeader
+    _getSlotOrEpoch = _getSlotOrEpoch . _gbHeader
 
 instance (HasSlotOrEpoch a, HasSlotOrEpoch b) =>
          HasSlotOrEpoch (Either a b) where
-    getSlotOrEpoch = either getSlotOrEpoch getSlotOrEpoch
+    _getSlotOrEpoch = either _getSlotOrEpoch _getSlotOrEpoch
 
 ----------------------------------------------------------------------------
 -- Block.hs. TODO: move it into Block.hs.
@@ -1035,19 +1061,14 @@ verifyHeader VerifyHeaderExtra {..} h =
               ("incorrect difficulty (expected " %int % ", found " %int % ")")
               expectedDifficulty
               actualDifficulty)
-    compareSlotsOrEpochs (Left e1) (Left e2)   = e1 < e2
-    compareSlotsOrEpochs (Right s1) (Right s2) = s1 < s2
-    compareSlotsOrEpochs (Right s1) (Left e2)  = siEpoch s1 < e2
-    compareSlotsOrEpochs (Left e1) (Right s2)  = e1 <= siEpoch s2
-    checkSlot :: Either EpochIndex SlotId
-              -> Either EpochIndex SlotId
+    checkSlot :: SlotOrEpoch
+              -> SlotOrEpoch
               -> (Bool, Text)
     checkSlot oldSlot newSlot =
-        ( compareSlotsOrEpochs oldSlot newSlot
+        ( oldSlot < newSlot
         , sformat
               ("slots are not monotonic (" %build% " > " %build% ")")
-              (either Buildable.build Buildable.build oldSlot)
-              (either Buildable.build Buildable.build newSlot)
+              oldSlot newSlot
         )
     relatedToPrevHeader prevHeader =
         [ checkDifficulty

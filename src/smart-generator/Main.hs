@@ -18,7 +18,7 @@ import           Data.IORef             (IORef, modifyIORef', newIORef, readIORe
                                          writeIORef)
 import           Data.List              (head, intersect, tail, (!!))
 import           Data.Monoid            ((<>))
-import           Data.Text.IO           (writeFile)
+import           Data.Text.IO           (appendFile, writeFile)
 import           Data.Time.Clock.POSIX  (getPOSIXTime)
 import           Formatting             (build, fixed, float, int, sformat, (%))
 import           Options.Applicative    (Parser, ParserInfo, auto, execParser, fullDesc,
@@ -62,9 +62,11 @@ data GenOptions = GenOptions
     -- , goRemoteAddr  :: !NetworkAddress -- ^ Remote node address
     , goDHTPeers           :: ![DHTNode]  -- ^ Initial DHT nodes
     , goRoundDuration      :: !Double     -- ^ Number of seconds per round
+    , goRoundNumber        :: !Int        -- ^ Number of rounds
     , goTxFrom             :: !Int        -- ^ Start from UTXO transaction #x
     , goInitBalance        :: !Int        -- ^ Total coins in init utxo per address
-    , goTPSs               :: ![Double]   -- ^ TPS rate
+    , goInitTps            :: !Double     -- ^ Start TPS rate (it adjusts over time)
+    , goTpsIncreaseStep    :: !Double     -- ^ When system is stable, increase TPS in next round by this value
     , goPropThreshold      :: !Int
     , goSingleRecipient    :: !Bool       -- ^ Send to only 1 node if flag is set
     , goDhtExplicitInitial :: !Bool
@@ -96,17 +98,27 @@ optionsParser = GenOptions
           <> long "round-duration"
           <> help "Duration of one testing round")
     <*> option auto
+            (short 'N'
+          <> long "round-number"
+          <> help "Number of testing rounds")
+    <*> option auto
             (long "tx-from-n"
           <> value 0
           <> help "From which transaction in utxo to start")
     <*> option auto
             (long "init-money"
           <> help "How many coins node has in the beginning")
-    <*> many (option auto $
-             short 't'
+    <*> option auto
+            (short 't'
           <> long "tps"
           <> metavar "DOUBLE"
           <> help "TPS (transactions per second)")
+    <*> option auto
+            (short 'S'
+          <> long "tps-step"
+          <> value 10
+          <> metavar "DOUBLE"
+          <> help "TPS increase delta on stable system")
     <*> option auto
             (short 'P'
           <> long "propagate-threshold"
@@ -174,7 +186,7 @@ genChain secretKey addr txInHash txInIndex =
 
 initTransaction :: GenOptions -> Tx
 initTransaction GenOptions {..} =
-    let maxTps = round $ maximum goTPSs
+    let maxTps = round $ goInitTps + goTpsIncreaseStep * fromIntegral goRoundNumber
         n' = maxTps * (k + goPropThreshold) * fromIntegral (slotDuration `div` sec 1)
         n = min n' goInitBalance
         i = fromIntegral goGenesisIdx
@@ -322,7 +334,6 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
     runRealMode inst np (realListeners @ssc np) $ getNoStatsT $ do
     let i = fromIntegral goGenesisIdx
         getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
-        totalRounds = length goTPSs
         initTx = initTransaction opts
 
     bambooPool <- liftIO $ createBambooPool
@@ -347,16 +358,24 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         na = if goSingleRecipient
              then take 1 na'
              else na'
+        forFold init ls act = foldM act init ls
 
     -- Seeding init tx
     seedInitTx bambooPool initTx na
 
-    tpsTable <- forM (zip [1..] goTPSs) $ \(roundNum :: Int, goTPS) -> do
+    -- Start writing data files
+    liftIO $ do
+        writeFile tpsCsvFile tpsCsvHeader
+        writeFile verifyCsvFile verifyCsvHeader
+
+    _ <- forFold goInitTps [1 .. goRoundNumber] $ \goTPS (roundNum :: Int) -> do
         logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)
-            roundNum totalRounds goTPS
+            roundNum goRoundNumber goTPS
 
         let tpsDelta = round $ 1000 / goTPS
             txNum = round $ goRoundDuration * goTPS
+
+        realTxNum <- liftIO $ newIORef (0 :: Int)
 
         beginT <- getPosixMs
         resMap <- foldM
@@ -364,14 +383,15 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
                 preStartT <- getPosixMs
                 -- prevent periods longer than we expected
                 if preStartT - beginT > round (goRoundDuration * 1000)
-                then pure curmap
-                else do
+                    then pure curmap
+                    else do
                     transaction <- nextValidTx bambooPool tpsDelta
                     let curTxId = hash transaction
 
                     startT <- getPosixMs
                     logInfo $ sformat ("Sending transaction #"%int) idx
                     submitTxRaw na transaction
+                    liftIO $ modifyIORef' realTxNum (+1)
 
                     -- sometimes nodes fail so we never write timestamps...
                     when (idx `mod` 271 == 0) $ void $ liftIO $ forkIO $
@@ -385,16 +405,20 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
                     -- put timestamp to current txmap
                     liftIO $ registerSentTx txTimestamps curTxId $ fromIntegral startT * 1000
 
-                    -- we dump microseconds to be consistent with JSON log
+                -- we dump microseconds to be consistent with JSON log
                     pure $ M.insert (pretty curTxId) (startT * 1000) curmap)
             (M.empty :: M.HashMap Text Int) -- TxId Int
             [0 .. txNum - 1]
 
         finishT <- getPosixMs
+        realTxNumVal <- liftIO $ readIORef realTxNum
 
         let globalTime, realTPS :: Double
             globalTime = (fromIntegral (finishT - beginT)) / 1000
-            realTPS = (fromIntegral txNum) / globalTime
+            realTPS = (fromIntegral realTxNumVal) / globalTime
+            newTPS = if realTPS >= goTPS - 5
+                     then goTPS + goTpsIncreaseStep
+                     else realTPS
 
         putText "----------------------------------------"
         putText "wrote json to ./timestampsTxSender.json"
@@ -404,28 +428,30 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         putText $ "So real tps was: " <> show realTPS
 
         -- We collect tables of really generated tps
-        return (globalTime, goTPS, realTPS)
+        liftIO $ appendFile tpsCsvFile $
+            tpsCsvFormat (globalTime, goTPS, realTPS)
+
+        return newTPS
 
     vers <- liftIO $ dumpTxTable txTimestamps
-    liftIO $ writeFile "smart-gen-verifications.csv" $ verificationsToCsv vers
-    liftIO $writeFile "smart-gen-tps.csv" $ tpsToCsv tpsTable
+    liftIO $ appendFile verifyCsvFile $
+        mconcat $ map verifyCsvFormat vers
 
-tpsToCsv :: [(Double, Double, Double)] -> Text
-tpsToCsv entries =
-    "global_time,round_tps,real_tps\n" <>
-    mconcat (map formatter entries)
-  where
-    formatter (gtime, roundTPS, realTPS) =
-        sformat (fixed 2%","%fixed 2%","%fixed 2%"\n") gtime roundTPS realTPS
+verifyCsvFile, tpsCsvFile :: FilePath
+verifyCsvFile = "smart-gen-verifications.csv"
+tpsCsvFile = "smart-gen-tps.csv"
 
-verificationsToCsv :: [(TxId, Word64, Word64)] -> Text
-verificationsToCsv entries =
-    "transaction_id,sending_ts,verification_ts\n" <>
-    mconcat (map formatter entries)
-  where
-    formatter (txId, sendTs, verifyTs) =
-        sformat (build%","%int%","%int%"\n") txId sendTs verifyTs
+verifyCsvHeader, tpsCsvHeader :: Text
+tpsCsvHeader = "global_time,round_tps,real_tps\n"
+verifyCsvHeader = "transaction_id,sending_ts,verification_ts\n"
 
+tpsCsvFormat :: (Double, Double, Double) -> Text
+tpsCsvFormat (gtime, roundTPS, realTPS) =
+    sformat (fixed 2%","%fixed 2%","%fixed 2%"\n") gtime roundTPS realTPS
+
+verifyCsvFormat :: (TxId, Word64, Word64) -> Text
+verifyCsvFormat (txId, sendTs, verifyTs) =
+    sformat (build%","%int%","%int%"\n") txId sendTs verifyTs
 
 -----------------------------------------------------------------------------
 -- Main

@@ -70,6 +70,7 @@ module Pos.Types.Types
        , HasEpochIndex (..)
        , HasHeaderHash (..)
        , HasPrevBlock (..)
+       , HasSlotOrEpoch (..)
 
        , blockHeader
        , blockLeaderKey
@@ -822,6 +823,27 @@ blockHeader = to getBlockHeader
 -- | Take 'BlockHeader' from either 'GenesisBlock' or 'MainBlock'.
 getBlockHeader :: Block ssc -> BlockHeader ssc
 getBlockHeader = bimap (view gbHeader) (view gbHeader)
+
+class HasSlotOrEpoch a where
+    getSlotOrEpoch :: a -> Either EpochIndex SlotId
+    slotOrEpochG :: Getter a (Either EpochIndex SlotId)
+    slotOrEpochG = to getSlotOrEpoch
+
+instance HasSlotOrEpoch (MainBlockHeader ssc) where
+    getSlotOrEpoch = Right . _mcdSlot . _gbhConsensus
+
+instance HasSlotOrEpoch (GenesisBlockHeader ssc) where
+    getSlotOrEpoch = Left . _gcdEpoch . _gbhConsensus
+
+instance HasSlotOrEpoch (MainBlock ssc) where
+    getSlotOrEpoch = getSlotOrEpoch . _gbHeader
+
+instance HasSlotOrEpoch (GenesisBlock ssc) where
+    getSlotOrEpoch = getSlotOrEpoch . _gbHeader
+
+instance (HasSlotOrEpoch a, HasSlotOrEpoch b) =>
+         HasSlotOrEpoch (Either a b) where
+    getSlotOrEpoch = either getSlotOrEpoch getSlotOrEpoch
 
 ----------------------------------------------------------------------------
 -- Block.hs. TODO: move it into Block.hs.

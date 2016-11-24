@@ -80,7 +80,8 @@ onNewSlotWhenLeader slotId = do
             let whenCreated createdBlk = do
                     logInfo $
                         sformat ("Created a new block:\n" %build) createdBlk
-                    jlLog $ jlCreatedBlock (Right createdBlk)
+                    logWarningWaitLinear 6 "jlLog created block" $
+                        jlLog $ jlCreatedBlock (Right createdBlk)
                     case verifyCreatedBlock createdBlk of
                         VerSuccess -> return ()
                         VerFailure warnings -> logWarning $ sformat

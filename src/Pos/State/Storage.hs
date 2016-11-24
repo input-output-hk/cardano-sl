@@ -72,12 +72,12 @@ import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           txStorageFromUtxo, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
                                           ProcessTxRes (..), mkPBRabort)
-import           Pos.Types               (Block, EpochIndex, GenesisBlock, MainBlock,
-                                          SlotId (..), SlotLeaders, SlotOrEpoch (..),
-                                          Utxo, blockMpc, blockTxs, epochIndexL,
-                                          flattenSlotId, gbHeader, getSlotOrEpoch,
-                                          headerHashG, slotOrEpoch, unflattenSlotId,
-                                          verifyTxAlone)
+import           Pos.Types               (Block, EpochIndex, EpochOrSlot (..),
+                                          GenesisBlock, MainBlock, SlotId (..),
+                                          SlotLeaders, Utxo, blockMpc, blockTxs,
+                                          epochIndexL, epochOrSlot, flattenSlotId,
+                                          gbHeader, getEpochOrSlot, headerHashG,
+                                          unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState, _neLast)
 
 
@@ -139,8 +139,8 @@ storageFromUtxo u =
     , _slotId = unflattenSlotId 0
     }
 
-getHeadSlot :: Query ssc SlotOrEpoch
-getHeadSlot = getSlotOrEpoch <$> getHeadBlock
+getHeadSlot :: Query ssc EpochOrSlot
+getHeadSlot = getEpochOrSlot <$> getHeadBlock
 
 -- | Get global SSC data.
 getGlobalSscPayload
@@ -180,11 +180,11 @@ createNewBlockDo sk sId sscPayload = do
 canCreateBlock :: SlotId -> Query ssc (Maybe Text)
 canCreateBlock sId = do
     headSlot <- getHeadSlot
-    let maxSlotId = addKSafe $ slotOrEpoch (`SlotId` 0) identity headSlot
+    let maxSlotId = addKSafe $ epochOrSlot (`SlotId` 0) identity headSlot
     let retRes = return . Just
     if | sId > maxSlotId ->
            retRes "slot id is too big, we don't know recent block"
-       | (SlotOrEpoch $ Right sId) < headSlot ->
+       | (EpochOrSlot $ Right sId) < headSlot ->
            retRes "slot id is not biger than one from last known block"
        | otherwise -> return Nothing
   where
@@ -292,7 +292,7 @@ shouldCreateGenesisBlock :: EpochIndex -> Query ssc Bool
 -- Genesis block for 0-th epoch is hardcoded.
 shouldCreateGenesisBlock 0 = pure False
 shouldCreateGenesisBlock epoch =
-    doCheck . slotOrEpoch (`SlotId` 0) identity <$> getHeadSlot
+    doCheck . epochOrSlot (`SlotId` 0) identity <$> getHeadSlot
   where
     doCheck SlotId {..} = siEpoch == epoch - 1 && siSlot >= 5 * k
 

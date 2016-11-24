@@ -37,7 +37,6 @@ module Pos.Ssc.GodTossing.Functions
 import           Control.Lens                   ((^.))
 import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
-import qualified Data.HashSet                   as HS
 import           Data.Ix                        (inRange)
 import           Data.List.NonEmpty             (NonEmpty (..))
 import           Pos.Constants                  (k)

@@ -119,27 +119,18 @@ newtype SscLDImpl ssc m a = SscLDImpl
                 MonadCatch, MonadIO, HasLoggerName, MonadDialog p, WithNodeContext, MonadJL,
                 MonadDB ssc, CanLog)
 
--- TODO: refactor!
+monadMaskHelper
+    :: (ReaderT (STM.TVar (SscLocalData ssc)) m a -> ReaderT (STM.TVar (SscLocalData ssc)) m a)
+    -> SscLDImpl ssc m a
+    -> SscLDImpl ssc m a
+monadMaskHelper u (SscLDImpl b) = SscLDImpl (u b)
+
 instance MonadMask m =>
          MonadMask (SscLDImpl ssc m) where
-    mask a =
-        SscLDImpl . ReaderT $
-        \s -> mask $ \u -> runReaderT (getSscLDImpl $ a $ q u) s
-      where
-        q
-            :: (m a -> m a)
-            -> SscLDImpl ssc m a
-            -> SscLDImpl ssc m a
-        q u (SscLDImpl (ReaderT b)) = SscLDImpl (ReaderT (u . b))
+    mask a = SscLDImpl $ mask $ \u -> getSscLDImpl $ a $ monadMaskHelper u
     uninterruptibleMask a =
-        SscLDImpl . ReaderT $
-        \s -> uninterruptibleMask $ \u -> runReaderT (getSscLDImpl $ a $ q u) s
-      where
-        q
-            :: (m a -> m a)
-            -> SscLDImpl ssc m a
-            -> SscLDImpl ssc m a
-        q u (SscLDImpl (ReaderT b)) = SscLDImpl (ReaderT (u . b))
+        SscLDImpl $
+        uninterruptibleMask $ \u -> getSscLDImpl $ a $ monadMaskHelper u
 
 instance MonadIO m =>
          MonadSscLD ssc (SscLDImpl ssc m) where

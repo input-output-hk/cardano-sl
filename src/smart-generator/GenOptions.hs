@@ -19,7 +19,7 @@ data GenOptions = GenOptions
     { goGenesisIdx         :: !Word       -- ^ Index in genesis key pairs.
     -- , goRemoteAddr  :: !NetworkAddress -- ^ Remote node address
     , goDHTPeers           :: ![DHTNode]  -- ^ Initial DHT nodes
-    , goRoundPeriodRate    :: !Int        -- ^ R, where duration of one round is ((k + P) * R  + 1) * slotDuration
+    , goRoundPeriodRate    :: !Int        -- ^ R, where duration of one round is ((k + P) * (R + 1)) * slotDuration
     , goRoundNumber        :: !Int        -- ^ Number of rounds
     , goRoundPause         :: !Double     -- ^ Pause between rounds (in seconds)
     , goTxFrom             :: !Int        -- ^ Start from UTXO transaction #x
@@ -55,8 +55,8 @@ optionsParser = GenOptions
     <*> option auto
             (short 'R'
           <> long "round-period-rate"
-          <> value 3
-          <> help "R, where duration of one round is ((k + P) * R  + 1) * slotDuration")
+          <> value 2
+          <> help "R, where duration of one round is ((k + P) * (R + 1)) * slotDuration")
     <*> option auto
             (short 'N'
           <> long "round-number"

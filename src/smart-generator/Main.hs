@@ -115,7 +115,7 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
 
         let tpsDelta = round $ 1000 / goTPS
             roundDuration =
-                fromIntegral ((k + goPropThreshold) * goRoundPeriodRate + 1) *
+                fromIntegral ((k + goPropThreshold) * (goRoundPeriodRate + 1)) *
                 fromIntegral (slotDuration `div` sec 1)
             txNum = round $ roundDuration * goTPS
 

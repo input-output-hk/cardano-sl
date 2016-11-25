@@ -77,8 +77,9 @@ shiftTx BambooPool {..} = do
 
 nextBamboo :: BambooPool -> Double -> Int -> IO ()
 nextBamboo BambooPool {..} curTps propThreshold = do
+    let bound = tpsTxBound curTps propThreshold
     modifyIORef' bpCurIdx $ \idx ->
-        (idx + 1) `mod` (tpsTxBound curTps propThreshold)
+        (idx + 1) `mod` bound
 
 resetBamboo :: BambooPool -> IO ()
 resetBamboo BambooPool {..} = writeIORef bpCurIdx 0

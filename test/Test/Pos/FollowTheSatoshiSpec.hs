@@ -1,8 +1,8 @@
-{-# LANGUAGE BangPatterns         #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE MultiWayIf           #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE ViewPatterns         #-}
+{-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE MultiWayIf          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 -- | Specification of Pos.FollowTheSatoshi
 
@@ -10,10 +10,9 @@ module Test.Pos.FollowTheSatoshiSpec
        ( spec
        ) where
 
-import                                 Data.List (scanl1)
+import           Data.List             (scanl1)
 import qualified Data.Map              as M (elems, fromList, insert)
-import qualified Data.Set              as S (deleteFindMin, fromList, size,
-                                             toList)
+import qualified Data.Set              as S (deleteFindMin, fromList, size, toList)
 import           Pos.Constants         (epochSlots)
 import           Pos.Crypto            (unsafeHash)
 import           Pos.FollowTheSatoshi  (followTheSatoshi)
@@ -51,10 +50,10 @@ spec = do
         "a stakeholder with low stake will be chosen seldom"
     description_ftsHighStake =
         "a stakeholder with high stake will be chosen often"
-    lowStake = 0.02
+    lowStake  = 0.02
     highStake = 0.98
-    lowStakeTolerance = (5000 >)
-    highStakeTolerance = (95000 <)
+    lowStakeTolerance  = (< round (fromIntegral numberOfRuns * lowStake)  + 50)  -- < ~250
+    highStakeTolerance = (> round (fromIntegral numberOfRuns * highStake) - 50)  -- > ~9750
 
 -- | Type used to generate random Utxo and an address that is not in this map,
 -- meaning it does not hold any stake in the system's current state.
@@ -111,7 +110,7 @@ ftsAllStake fts (key, t@TxOut{..}) =
 
 -- | Constant specifying the number of times 'ftsReasonableStake' will be run.
 numberOfRuns :: Int
-numberOfRuns = 100000
+numberOfRuns = 10000
 
 newtype FtsStream = Stream
     { getStream :: [SharedSeed]
@@ -141,29 +140,30 @@ instance Arbitrary UtxoStream where
 -- threshold, respectively.
 ftsReasonableStake
     :: Double
-    -> (Int -> Bool)
+    -> (Word -> Bool)
     -> FtsStream
     -> UtxoStream
     -> Bool
-ftsReasonableStake stakeProbability
-                   threshold
-                   (getStream -> ftsList)
-                   (getUtxoStream -> utxoList) =
-    let result = go (0,0) ftsList utxoList
-        key = (unsafeHash ("this is unsafe" :: Text), 0)
+ftsReasonableStake
+    stakeProbability
+    threshold
+    (getStream     -> ftsList)
+    (getUtxoStream -> utxoList)
+  =
+    let result = go numberOfRuns 0 ftsList utxoList
     in threshold result
   where
-    go :: (Int, Int) -> [SharedSeed] -> [StakeAndHolder] -> Int
-    go (p, _) [] _ = p
-    go (p, _) _ [] = p
-    go (!present, !total) (fts : next) ((getNoStake -> (adr, utxo)) : nextU)
-        | total < numberOfRuns =
-                let totalStake =
-                        fromIntegral $ sum $ map (getCoin . txOutValue) $ M.elems utxo
-                    newStake =
-                        round $ (stakeProbability * totalStake) / (1 - stakeProbability)
-                    newUtxo = M.insert key (TxOut adr newStake) utxo
-                in if elem adr (followTheSatoshi fts newUtxo)
-                    then go (1 + present, 1 + total) next nextU
-                    else go (present, 1 + total) next nextU
-        | otherwise = present
+    key = (unsafeHash ("this is unsafe" :: Text), 0)
+
+    go :: Int -> Word -> [SharedSeed] -> [StakeAndHolder] -> Word
+    go 0 p  _  _ = p
+    go _ p []  _ = p
+    go _ p  _ [] = p
+    go total !present (fts : nextSeed) ((getNoStake -> (adr, utxo)) : nextUtxo) =
+        let totalStake = fromIntegral $ sum $ map (getCoin . txOutValue) $ M.elems utxo
+            newStake   = round $ (stakeProbability * totalStake) / (1 - stakeProbability)
+            newUtxo    = M.insert key (TxOut adr newStake) utxo
+            newPresent = if elem adr (followTheSatoshi fts newUtxo)
+                         then present + 1
+                         else present
+        in go (total - 1) newPresent nextSeed nextUtxo

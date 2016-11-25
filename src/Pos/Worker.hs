@@ -35,11 +35,10 @@ runWorkers = mapM_ fork_ $ concat
     , txWorkers
     ]
 
-onNewSlotWorker :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
+onNewSlotWorker :: WorkMode ssc m => m ()
 onNewSlotWorker = onNewSlot True onNewSlotWorkerImpl
 
-onNewSlotWorkerImpl :: (SscWorkersClass ssc, WorkMode ssc m)
-                    => SlotId -> m ()
+onNewSlotWorkerImpl :: WorkMode ssc m => SlotId -> m ()
 onNewSlotWorkerImpl slotId = do
     logNotice $ sformat ("New slot has just started: "%slotIdF) slotId
     -- A note about order: currently all onNewSlot updates can be run

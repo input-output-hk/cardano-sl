@@ -8,7 +8,6 @@ module Pos.Ssc.Class.Workers
 import           Data.Tagged         (Tagged)
 
 import           Pos.Ssc.Class.Types (Ssc (..))
-import           Pos.Types.Types     (SlotId)
 import           Pos.WorkMode        (WorkMode)
 
 -- | Class for @SSC@ workers.

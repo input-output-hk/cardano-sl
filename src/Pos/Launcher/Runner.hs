@@ -14,15 +14,17 @@ module Pos.Launcher.Runner
          runRealMode
        , runServiceMode
 
-         -- TODO: describe
-       , RealModeRunner
-       , runNode
-       , runNodeReal
-       , runNodeStats
+         -- * Service runners
        , runSupporterReal
        , runTimeSlaveReal
        , runTimeLordReal
-       -- Export this for custom usage in CLI utils
+
+         -- * Node runners
+       , runNodeReal
+       , runNodeStats
+
+       -- * Exported for custom usage in CLI utils
+       , RealModeRunner
        , addDevListeners
        , bracketDHTInstance
        ) where
@@ -44,7 +46,7 @@ import           System.Directory            (doesDirectoryExist,
                                               removeDirectoryRecursive)
 import           System.FilePath             ((</>))
 import           System.Log.Logger           (removeAllHandlers)
-import           System.Wlog                 (LoggerName (..), WithNamedLogger, logDebug,
+import           System.Wlog                 (LoggerName (..), WithLogger, logDebug,
                                               logInfo, logWarning, traverseLoggerConfig,
                                               usingLoggerName)
 import           Universum
@@ -68,7 +70,8 @@ import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..
                                               NodeParams (..))
 import           Pos.Launcher.Scenario       (runNode)
 import           Pos.Ssc.Class               (SscConstraint)
-import           Pos.State                   (NodeState, openMemState, openState)
+import           Pos.State                   (NodeState, closeState, openMemState,
+                                              openState)
 import           Pos.State.Storage           (storageFromUtxo)
 import           Pos.Statistics              (getNoStatsT, getStatsT)
 import           Pos.Types                   (Timestamp (Timestamp), timestampF)
@@ -153,7 +156,6 @@ runNodeStats inst np = runRealMode inst np listeners $ getStatsT $ do
 -- High level runners
 ----------------------------------------------------------------------------
 
--- TODO: use bracket
 runRealMode
     :: forall ssc c.
        SscConstraint ssc
@@ -164,11 +166,12 @@ runRealMode
     -> IO c
 runRealMode inst np@NodeParams {..} listeners action = do
     setupLoggers lp
-    db <- openDb
-    runTimed lpRunnerTag .
-        runDBHolder db .
-        runCH np . runSscLDImpl . runKDHT inst npBaseParams listeners $
-        nodeStartMsg npBaseParams >> action
+    let run db =
+            runTimed lpRunnerTag .
+            runDBHolder db .
+            runCH np . runSscLDImpl . runKDHT inst npBaseParams listeners $
+            nodeStartMsg npBaseParams >> action
+    bracket openDb closeDb run
   where
     lp@LoggingParams {..} = bpLoggingParams npBaseParams
     mStorage = storageFromUtxo <$> npCustomUtxo
@@ -185,6 +188,8 @@ runRealMode inst np@NodeParams {..} listeners action = do
                 (openMemState mStorage)
                 (openState mStorage False)
                 ((</> "main") <$> npDbPath)
+    closeDb :: NodeState ssc -> IO ()
+    closeDb = closeState
 
 runServiceMode
     :: KademliaDHTInstance
@@ -201,12 +206,12 @@ runServiceMode inst bp@BaseParams{..} listeners action = loggerBracket bpLogging
 ----------------------------------------------------------------------------
 
 runKDHT
-    :: (MonadBaseControl IO m
-       ,WithNamedLogger m
-       ,MonadIO m
-       ,MonadTimed m
-       ,MonadMask m
-       ,MonadDialog BinaryP m)
+    :: ( MonadBaseControl IO m
+       , WithLogger m
+       , MonadIO m
+       , MonadTimed m
+       , MonadMask m
+       , MonadDialog BinaryP m)
     => KademliaDHTInstance
     -> BaseParams
     -> [ListenerDHT (KademliaDHT m)]
@@ -248,7 +253,7 @@ runTimed loggerName =
 -- Utilities
 ----------------------------------------------------------------------------
 
-nodeStartMsg :: (WithNamedLogger m, MonadIO m) => BaseParams -> m ()
+nodeStartMsg :: WithLogger m => BaseParams -> m ()
 nodeStartMsg BaseParams {..} = logInfo msg
   where
     msg = sformat ("Started node, joining to DHT network " %build) bpDHTPeers
@@ -268,7 +273,6 @@ setupLoggers LoggingParams{..} = do
     dhtMapper  name | name == "dht"  = dhtLoggerName (Proxy :: Proxy (RealMode ssc))
                     | otherwise      = name
 
--- TODO: move to log-warper and remove hslogger from dependencies?
 loggerBracket :: LoggingParams -> IO a -> IO a
 loggerBracket lp = bracket_ (setupLoggers lp) removeAllHandlers
 

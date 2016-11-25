@@ -185,7 +185,7 @@ createNewBlock :: QUConstraint ssc m
                => SecretKey
                -> SlotId
                -> SscPayload ssc
-               -> m (Maybe (MainBlock ssc))
+               -> m (Either Text (MainBlock ssc))
 createNewBlock sk si = updateDisk . A.CreateNewBlock sk si
 
 -- | Process transaction received from other party.

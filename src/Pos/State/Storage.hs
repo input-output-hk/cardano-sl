@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE MultiWayIf             #-}
 {-# LANGUAGE Rank2Types             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TemplateHaskell        #-}
@@ -41,7 +42,7 @@ module Pos.State.Storage
        , processTx
        ) where
 
-import           Control.Lens            (makeClassy, use, view, (.=), (^.))
+import           Control.Lens            (makeClassy, use, (.=), (^.))
 import           Control.Monad.TM        ((.=<<.))
 import           Data.Acid               ()
 import           Data.Default            (Default, def)
@@ -71,11 +72,12 @@ import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           txStorageFromUtxo, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
                                           ProcessTxRes (..), mkPBRabort)
-import           Pos.Types               (Block, EpochIndex, GenesisBlock, MainBlock,
-                                          SlotId (..), SlotLeaders, Utxo, blockMpc,
-                                          blockSlot, blockTxs, epochIndexL, flattenSlotId,
-                                          gbHeader, headerHashG, unflattenSlotId,
-                                          verifyTxAlone)
+import           Pos.Types               (Block, EpochIndex, EpochOrSlot (..),
+                                          GenesisBlock, MainBlock, SlotId (..),
+                                          SlotLeaders, Utxo, blockMpc, blockTxs,
+                                          epochIndexL, epochOrSlot, flattenSlotId,
+                                          gbHeader, getEpochOrSlot, headerHashG,
+                                          unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState, _neLast)
 
 
@@ -137,8 +139,8 @@ storageFromUtxo u =
     , _slotId = unflattenSlotId 0
     }
 
-getHeadSlot :: Query ssc (Either EpochIndex SlotId)
-getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock
+getHeadSlot :: Query ssc EpochOrSlot
+getHeadSlot = getEpochOrSlot <$> getHeadBlock
 
 -- | Get global SSC data.
 getGlobalSscPayload
@@ -157,11 +159,10 @@ createNewBlock
     => SecretKey
     -> SlotId
     -> SscPayload ssc
-    -> Update ssc (Maybe (MainBlock ssc))
-createNewBlock sk sId sscPayload = do
-    ifM (readerToState (canCreateBlock sId))
-        (Just <$> createNewBlockDo sk sId sscPayload)
-        (pure Nothing)
+    -> Update ssc (Either Text (MainBlock ssc))
+createNewBlock sk sId sscPayload =
+    maybe (Right <$> createNewBlockDo sk sId sscPayload) (pure . Left) =<<
+    readerToState (canCreateBlock sId)
 
 createNewBlockDo
     :: forall ssc.
@@ -176,19 +177,24 @@ createNewBlockDo sk sId sscPayload = do
     sscApplyBlocks blocks
     blk <$ txApplyBlocks blocks
 
-canCreateBlock :: SlotId -> Query ssc Bool
+canCreateBlock :: SlotId -> Query ssc (Maybe Text)
 canCreateBlock sId = do
-    maxSlotId <- canCreateBlockMax
-    return (sId <= maxSlotId)
+    headSlot <- getHeadSlot
+    let maxSlotId = addKSafe $ epochOrSlot (`SlotId` 0) identity headSlot
+    let retRes = return . Just
+    if | sId > maxSlotId ->
+           retRes "slot id is too big, we don't know recent block"
+       | (EpochOrSlot $ Right sId) < headSlot ->
+           retRes "slot id is not biger than one from last known block"
+       | otherwise -> return Nothing
   where
-    canCreateBlockMax = addKSafe . either (`SlotId` 0) identity <$> getHeadSlot
+
     addKSafe si = si {siSlot = min (6 * k - 1) (siSlot si + k)}
 
 -- | Do all necessary changes when a block is received.
 processBlock :: SscStorageClass ssc
     => SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
 processBlock curSlotId blk = do
-    -- TODO: I guess these checks should be part of block verification actually.
     let verifyMpc mainBlk =
             untag sscVerifyPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
     let mpcRes = either (const mempty) verifyMpc blk
@@ -285,7 +291,7 @@ shouldCreateGenesisBlock :: EpochIndex -> Query ssc Bool
 -- Genesis block for 0-th epoch is hardcoded.
 shouldCreateGenesisBlock 0 = pure False
 shouldCreateGenesisBlock epoch =
-    doCheck . either (`SlotId` 0) identity <$> getHeadSlot
+    doCheck . epochOrSlot (`SlotId` 0) identity <$> getHeadSlot
   where
     doCheck SlotId {..} = siEpoch == epoch - 1 && siSlot >= 5 * k
 

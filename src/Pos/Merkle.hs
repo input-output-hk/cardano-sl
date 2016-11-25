@@ -22,7 +22,6 @@ import qualified Data.Binary          as Binary (encode)
 import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Lazy as BL (toStrict)
 import           Data.Coerce          (coerce)
-import           Data.MessagePack     (MessagePack)
 import           Data.SafeCopy        (base, deriveSafeCopySimple)
 import           Prelude              (Show (..))
 import           Universum            hiding (show)
@@ -32,15 +31,9 @@ import           Pos.Crypto           (Hash, hashRaw)
 import           Pos.Util             (Raw)
 
 -- | Data type for root of merkle tree.
---
--- TODO: This uses SHA256 (i.e. Hash). Bitcoin uses double SHA256 to protect
--- against some attacks that don't exist yet. It'd likely be nice to use
--- SHA3-256 here instead.
 newtype MerkleRoot a = MerkleRoot
     { getMerkleRoot :: Hash Raw  -- ^ returns root 'Hash' of Merkle Tree
     } deriving (Show, Eq, Ord, Generic, Binary, ByteArrayAccess)
-
-instance MessagePack (MerkleRoot a)
 
 -- This gives a “redundant constraint” warning due to
 -- https://github.com/acid-state/safecopy/issues/46.
@@ -53,9 +46,6 @@ data MerkleTree a = MerkleEmpty | MerkleTree Word32 (MerkleNode a)
 instance Show a => Show (MerkleTree a) where
   show tree = "Merkle tree: " <> show (toList tree)
 
--- TODO: MessagePack instances can be more efficient.
-instance MessagePack a => MessagePack (MerkleTree a)
-
 data MerkleNode a
     = MerkleBranch { mRoot  :: MerkleRoot a
                    , mLeft  :: MerkleNode a
@@ -63,8 +53,6 @@ data MerkleNode a
     | MerkleLeaf { mRoot :: MerkleRoot a
                  , mVal  :: a}
     deriving (Eq, Show, Generic)
-
-instance MessagePack a => MessagePack (MerkleNode a)
 
 instance Foldable MerkleNode where
     foldMap f x = case x of

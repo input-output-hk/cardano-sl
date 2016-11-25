@@ -17,7 +17,7 @@ import           Pos.Communication      (SysStartResponse (..))
 import           Pos.Constants          (slotDuration, sysTimeBroadcastSlots)
 import           Pos.DHT                (sendToNetwork)
 import           Pos.Slotting           (onNewSlot)
-import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscOnNewSlot, sscWorkers)
+import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscWorkers)
 import           Pos.Types              (SlotId, flattenSlotId, slotIdF)
 import           Pos.Util               (waitRandomInterval)
 import           Pos.Worker.Block       (blkOnNewSlot, blkWorkers)
@@ -35,11 +35,10 @@ runWorkers = mapM_ fork_ $ concat
     , txWorkers
     ]
 
-onNewSlotWorker :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
+onNewSlotWorker :: WorkMode ssc m => m ()
 onNewSlotWorker = onNewSlot True onNewSlotWorkerImpl
 
-onNewSlotWorkerImpl :: (SscWorkersClass ssc, WorkMode ssc m)
-                    => SlotId -> m ()
+onNewSlotWorkerImpl :: WorkMode ssc m => SlotId -> m ()
 onNewSlotWorkerImpl slotId = do
     logNotice $ sformat ("New slot has just started: "%slotIdF) slotId
     -- A note about order: currently all onNewSlot updates can be run
@@ -55,8 +54,6 @@ onNewSlotWorkerImpl slotId = do
         send
         waitRandomInterval (ms 500) (slotDuration `div` 2)
         send
-
-    fork_ (untag sscOnNewSlot slotId)
 
     blkOnNewSlot slotId
     logDebug "Finished `blkOnNewSlot`"

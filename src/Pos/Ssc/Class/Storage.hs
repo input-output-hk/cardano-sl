@@ -52,9 +52,6 @@ class Ssc ssc => SscStorageClass ssc where
 
     sscApplyBlocks :: AltChain ssc -> SscUpdate ssc ()
 
-    -- TODO: there was also such comment.
-    -- If @n > 0@, also removes all commitments/etc received during that
-    -- period but not included into blocks.
     -- | Rollback application of last 'n' blocks.  blocks. If there
     -- are less blocks than 'n' is, just leaves an empty ('def')
     -- version.

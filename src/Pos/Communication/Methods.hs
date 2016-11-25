@@ -62,25 +62,3 @@ announceTxs txs@(tx:txs') = do
 -- | Send Tx to given address.
 sendTx :: WorkMode ssc m => NetworkAddress -> Tx -> m ()
 sendTx addr = sendToNode addr . SendTx
-
-----------------------------------------------------------------------------
--- TODOs from the first version of the prototype, to be reviewed/deleted
-----------------------------------------------------------------------------
-
--- * What to do about blocks delivered a bit late? E.g. let's assume that a
---   block was generated in slot X, but received by another node in slot
---   Y. What are the conditions on Y under which the block should (and
---   shouldn't) be accepted?
-
--- * Let's say that we receive a transaction, and then we receive a block
---   containing that transaction. We remove the transaction from our list of
---   pending transactions. Later (before K slots pass) it turns out that that
---   block was bad, and we discard it; then we should add the transaction
---   back. Right? If this is how it works, then it means that somebody can
---   prevent the transaction from being included into the blockchain for the
---   duration of K−1 slots – right? How easy/probable/important is it in
---   practice?
-
--- * We should exclude extremely delayed entries that are the same as ones we
---   already received before, but already included into one of the previous
---   blocks.

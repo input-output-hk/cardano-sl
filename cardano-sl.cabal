@@ -356,6 +356,10 @@ executable cardano-tx-generator
 executable cardano-smart-generator
   hs-source-dirs:      src/smart-generator
   main-is:             Main.hs
+  other-modules:       GenOptions
+                       TxGeneration
+                       TxAnalysis
+                       Util
   build-depends:       QuickCheck
                      , base
                      , aeson
@@ -363,6 +367,7 @@ executable cardano-smart-generator
                      , bytestring
                      , data-default
                      , cardano-sl
+                     , filepath
                      , formatting
                      , log-warper >= 0.1.0
                      , lens
@@ -439,7 +444,7 @@ test-suite cardano-test
   ghc-options:         -threaded
                        -rtsopts
                        -Wall
-                       -- -fno-warn-orphans
+                       -fno-warn-orphans
                        -with-rtsopts=-N
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric

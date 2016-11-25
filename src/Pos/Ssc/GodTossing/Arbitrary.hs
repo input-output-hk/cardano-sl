@@ -50,8 +50,6 @@ instance Arbitrary Commitment where
 instance Arbitrary Opening where
     arbitrary = coOpening <$> arbitrary
 
--- TODO: these types are not in Pos.Ssc.GodTossing actually, but they are
--- needed and it's not so easy to do it better
 instance Arbitrary SecretSharingExtra where
     arbitrary = commExtra <$> arbitrary
 

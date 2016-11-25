@@ -26,7 +26,7 @@ import           Pos.Constants                           (k, mpcSendInterval)
 import           Pos.Crypto                              (PublicKey, SecretKey,
                                                           randomNumber, runSecureRandom,
                                                           toPublic)
-import           Pos.Slotting                            (getSlotStart)
+import           Pos.Slotting                            (getSlotStart, onNewSlot)
 import           Pos.Ssc.Class.Workers                   (SscWorkersClass (..))
 import           Pos.Ssc.GodTossing.Functions            (genCommitmentAndOpening,
                                                           genCommitmentAndOpening,
@@ -41,10 +41,11 @@ import           Pos.Ssc.GodTossing.Types.Instance       ()
 import           Pos.Ssc.GodTossing.Types.Message        (InvMsg (..), MsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Message        (DataMsg (..))
 import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
-import           Pos.Ssc.GodTossing.Worker.SecretStorage (checkpoint, getSecret,
+import           Pos.Ssc.GodTossing.Worker.SecretStorage (SecretStorage, bracket',
+                                                          checkpointSecret, getSecret,
                                                           prepareSecretToNewSlot,
                                                           setSecret)
-import           Pos.Ssc.GodTossing.Worker.Types         (GtSecret)
+import           Pos.Ssc.GodTossing.Worker.Types         ()
 import           Pos.State                               (getGlobalMpcData, getOurShares,
                                                           getParticipants, getThreshold)
 import           Pos.Types                               (EpochIndex, LocalSlotIndex,
@@ -53,58 +54,34 @@ import           Pos.WorkMode                            (WorkMode, getNodeConte
                                                           ncDbPath, ncPublicKey,
                                                           ncSecretKey, ncVssKeyPair)
 instance SscWorkersClass SscGodTossing where
-    sscOnNewSlot = Tagged onNewSlot
-    sscWorkers = mempty
+    sscWorkers = Tagged [onNewSlotSsc]
 
-onNewSlot :: WorkMode SscGodTossing m => SlotId -> m ()
-onNewSlot slotId = do
+onNewSlotSsc :: WorkMode SscGodTossing m => m ()
+onNewSlotSsc = do
+    path <- pathToSecret
+    bracket' path $ onNewSlot True . onNewSlotImpl
+
+onNewSlotImpl :: WorkMode SscGodTossing m => SecretStorage -> SlotId -> m ()
+onNewSlotImpl storage slotId = do
     localOnNewSlot slotId
-    prepareTokenToNewSlot slotId
-    onNewSlotCommitment slotId
-    onNewSlotOpening slotId
+    prepareSecretToNewSlot storage slotId
+    onNewSlotCommitment storage slotId
+    onNewSlotOpening storage slotId
     onNewSlotShares slotId
-    createCheckpoint slotId
+    checkpointSecret storage
 
-randomTimeInInterval
-    :: WorkMode SscGodTossing m
-    => Microsecond -> m Microsecond
-randomTimeInInterval interval =
-    -- Type applications here ensure that the same time units are used.
-    (fromInteger @Microsecond) <$>
-    liftIO (runSecureRandom (randomNumber n))
-  where
-    n = toInteger @Microsecond interval
-
-waitUntilSend
-    :: WorkMode SscGodTossing m
-    => MsgTag -> EpochIndex -> LocalSlotIndex -> m ()
-waitUntilSend msgTag epoch kMultiplier = do
-    Timestamp beginning <-
-        getSlotStart $ SlotId {siEpoch = epoch, siSlot = kMultiplier * k}
-    curTime <- currentTime
-    let minToSend = curTime
-    let maxToSend = beginning + mpcSendInterval
-    when (minToSend < maxToSend) $ do
-        let delta = maxToSend - minToSend
-        timeToWait <- randomTimeInInterval delta
-        let ttwMillisecond :: Millisecond
-            ttwMillisecond = convertUnit timeToWait
-        logDebug $
-            sformat ("Waiting for "%shown%" before sending "%build)
-                ttwMillisecond msgTag
-        wait $ for timeToWait
 
 -- Commitments-related part of new slot processing
-onNewSlotCommitment :: WorkMode SscGodTossing m => SlotId -> m ()
-onNewSlotCommitment SlotId {..} = do
+onNewSlotCommitment :: WorkMode SscGodTossing m => SecretStorage -> SlotId -> m ()
+onNewSlotCommitment storage SlotId {..} = do
     ourPk <- ncPublicKey <$> getNodeContext
     ourSk <- ncSecretKey <$> getNodeContext
     shouldCreateCommitment <- do
-        secret <- getToken
+        secret <- getSecret storage
         return $ isCommitmentIdx siSlot && isNothing secret
     when shouldCreateCommitment $ do
         logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
-        generated <- generateAndSetNewSecret ourSk siEpoch
+        generated <- generateAndSetNewSecret storage ourSk siEpoch
         case generated of
             Nothing -> logWarning "I failed to generate secret for Mpc"
             Just _ -> logDebug $
@@ -113,14 +90,14 @@ onNewSlotCommitment SlotId {..} = do
         commitmentInBlockchain <- hasCommitment ourPk <$> getGlobalMpcData
         return $ isCommitmentIdx siSlot && not commitmentInBlockchain
     when shouldSendCommitment $ do
-        mbComm <- fmap (view _2) <$> getToken
+        mbComm <- fmap (view _2) <$> (getSecret storage)
         whenJust mbComm $ \comm -> do
             _ <- sscProcessMessage $ DMCommitment ourPk comm
             sendOurData CommitmentMsg siEpoch 0 ourPk
 
 -- Openings-related part of new slot processing
-onNewSlotOpening :: WorkMode SscGodTossing m => SlotId -> m ()
-onNewSlotOpening SlotId {..} = do
+onNewSlotOpening :: WorkMode SscGodTossing m => SecretStorage -> SlotId -> m ()
+onNewSlotOpening storage SlotId {..} = do
     ourPk <- ncPublicKey <$> getNodeContext
     shouldSendOpening <- do
         globalData <- getGlobalMpcData
@@ -130,7 +107,7 @@ onNewSlotOpening SlotId {..} = do
                      , not openingInBlockchain
                      , commitmentInBlockchain]
     when shouldSendOpening $ do
-        mbOpen <- fmap (view _3) <$> getToken
+        mbOpen <- fmap (view _3) <$> (getSecret storage)
         whenJust mbOpen $ \open -> do
             _ <- sscProcessMessage $ DMOpening ourPk open
             sendOurData OpeningMsg siEpoch 2 ourPk
@@ -173,10 +150,11 @@ sendOurData msgTag epoch kMultiplier ourPk = do
 -- Nothing is returned if node is not ready.
 generateAndSetNewSecret
     :: WorkMode SscGodTossing m
-    => SecretKey
+    => SecretStorage
+    -> SecretKey
     -> EpochIndex                         -- ^ Current epoch
     -> m (Maybe (SignedCommitment, Opening))
-generateAndSetNewSecret sk epoch = do
+generateAndSetNewSecret storage sk epoch = do
     -- TODO: I think it's safe here to perform 3 operations which aren't
     -- grouped into a single transaction here, but I'm still a bit nervous.
     threshold <- getThreshold epoch
@@ -187,19 +165,36 @@ generateAndSetNewSecret sk epoch = do
             (comm, op) <-
                 first (mkSignedCommitment sk epoch) <$>
                 genCommitmentAndOpening th ps
-            Just (comm, op) <$ setToken (toPublic sk, comm, op)
+            Just (comm, op) <$ setSecret storage (toPublic sk, comm, op)
 
 pathToSecret :: WorkMode SscGodTossing m => m (Maybe FilePath)
 pathToSecret = fmap (</> "secret") <$> (ncDbPath <$> getNodeContext)
 
-setToken :: WorkMode SscGodTossing m => GtSecret -> m ()
-setToken secret = pathToSecret >>= flip setSecret secret
+randomTimeInInterval
+    :: WorkMode SscGodTossing m
+    => Microsecond -> m Microsecond
+randomTimeInInterval interval =
+    -- Type applications here ensure that the same time units are used.
+    (fromInteger @Microsecond) <$>
+    liftIO (runSecureRandom (randomNumber n))
+  where
+    n = toInteger @Microsecond interval
 
-getToken :: WorkMode SscGodTossing m => m (Maybe GtSecret)
-getToken = pathToSecret >>= getSecret
-
-prepareTokenToNewSlot :: WorkMode SscGodTossing m => SlotId -> m ()
-prepareTokenToNewSlot slotId = pathToSecret >>= flip prepareSecretToNewSlot slotId
-
-createCheckpoint :: WorkMode SscGodTossing m => SlotId -> m ()
-createCheckpoint SlotId {..} = pathToSecret >>= checkpoint
+waitUntilSend
+    :: WorkMode SscGodTossing m
+    => MsgTag -> EpochIndex -> LocalSlotIndex -> m ()
+waitUntilSend msgTag epoch kMultiplier = do
+    Timestamp beginning <-
+        getSlotStart $ SlotId {siEpoch = epoch, siSlot = kMultiplier * k}
+    curTime <- currentTime
+    let minToSend = curTime
+    let maxToSend = beginning + mpcSendInterval
+    when (minToSend < maxToSend) $ do
+        let delta = maxToSend - minToSend
+        timeToWait <- randomTimeInInterval delta
+        let ttwMillisecond :: Millisecond
+            ttwMillisecond = convertUnit timeToWait
+        logDebug $
+            sformat ("Waiting for "%shown%" before sending "%build)
+                ttwMillisecond msgTag
+        wait $ for timeToWait

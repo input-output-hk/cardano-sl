@@ -64,6 +64,10 @@ checkTxsInLastBlock TxTimestamps {..} = do
                     txIds = map hash $ toList txsMerkle
                     verified = toCheck `intersect` txIds
 
+                -- Delete verified txs from hashmap
+                let newSt = foldr M.delete st verified
+                liftIO $ writeIORef sentTimes newSt
+
                 -- We don't know exact time when checked block has been created/adopted,
                 -- but we do know that it was not at `k` depth a slot ago,
                 -- so we just take a beginning of current slot

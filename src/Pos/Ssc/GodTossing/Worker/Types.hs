@@ -5,12 +5,15 @@ module Pos.Ssc.GodTossing.Worker.Types
          GtSecret
        , GtSecretStorage (..)
        ) where
+
 import           Data.Default                  (Default, def)
 import           Data.SafeCopy                 (base, deriveSafeCopySimple)
+import           Universum
+
 import           Pos.Crypto                    (PublicKey)
 import           Pos.Ssc.GodTossing.Types.Base (Opening, SignedCommitment)
 import           Pos.Types                     (SlotId, unflattenSlotId)
-import           Universum
+
 type GtSecret = (PublicKey, SignedCommitment, Opening)
 
 data GtSecretStorage = GtSecretStorage

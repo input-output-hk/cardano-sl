@@ -17,14 +17,14 @@ module Pos.Ssc.GodTossing.Worker.SecretStorage
 import           Control.Monad.State             (get, put)
 import           Data.Acid                       (Query, Update, makeAcidic)
 import           Data.Default                    (def)
-import           Pos.Ssc.GodTossing.Worker.Types (GtSecret, GtSecretStorage (..))
-import           Pos.Types                       (SlotId (..))
-import           Serokell.AcidState              (ExtendedState)
-import           Serokell.AcidState              (closeExtendedState,
+import           Serokell.AcidState              (ExtendedState, closeExtendedState,
                                                   openLocalExtendedState,
                                                   openMemoryExtendedState, queryExtended,
                                                   tidyExtendedState, updateExtended)
 import           Universum
+
+import           Pos.Ssc.GodTossing.Worker.Types (GtSecret, GtSecretStorage (..))
+import           Pos.Types                       (SlotId (..))
 
 getS :: Query GtSecretStorage (Maybe GtSecret)
 getS = asks _dsCurrentSecret

@@ -18,6 +18,7 @@ import           Universum
 -- parameters for general implementation of SSC.
 class (Typeable ssc
       ,Typeable (SscPayload ssc)
+      ,Typeable (SscGlobalState ssc)
       ,Typeable (SscStorage ssc)
       ,Typeable (SscProof ssc)
       ,Typeable (SscSeedError ssc)
@@ -29,6 +30,7 @@ class (Typeable ssc
       ,Binary (SscProof ssc)
       ,Binary (SscPayload ssc)
       ,SafeCopy (SscProof ssc)
+      ,SafeCopy (SscGlobalState ssc)
       ,SafeCopy (SscPayload ssc)
       ,SafeCopy (SscStorage ssc)) =>
       Ssc ssc where
@@ -39,6 +41,8 @@ class (Typeable ssc
     type SscLocalData ssc
     -- | Payload which will be stored in main blocks
     type SscPayload ssc
+    -- | Global state, which formed from all known blocks
+    type SscGlobalState ssc
     -- | Proof that SSC payload is correct (it'll be included into block
     -- header)
     type SscProof ssc
@@ -49,4 +53,4 @@ class (Typeable ssc
     mkSscProof :: Tagged ssc (SscPayload ssc -> SscProof ssc)
 
     -- | Remove from all data, which can make global state inconsistent
-    sscFilterPayload :: SscPayload ssc -> SscPayload ssc -> SscPayload ssc
+    sscFilterPayload :: SscPayload ssc -> SscGlobalState ssc -> SscPayload ssc

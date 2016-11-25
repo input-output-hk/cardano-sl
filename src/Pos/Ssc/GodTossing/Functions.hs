@@ -30,7 +30,7 @@ module Pos.Ssc.GodTossing.Functions
        , checkOpeningMatchesCommitment
        -- * GtPayload
        , verifyGtPayload
-       , filterGtPayload
+       --, filterGtPayload
        , filterLocalPayload
        ) where
 
@@ -54,7 +54,7 @@ import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap,
                                                  Opening (..), SignedCommitment,
                                                  VssCertificate, VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Types.Types (GtPayload (..))
+import           Pos.Ssc.GodTossing.Types.Types (GtPayload (..), GtGlobalState (..))
 import           Pos.Types.Types                (EpochIndex, LocalSlotIndex,
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), headerSlot)
@@ -110,17 +110,17 @@ isSharesId = isSharesIdx . siSlot
 inLastKSlotsId :: SlotId -> Bool
 inLastKSlotsId SlotId{..} = siSlot >= 5 * k
 
-hasCommitment :: PublicKey -> GtPayload -> Bool
-hasCommitment pk = HM.member pk . _mdCommitments
+hasCommitment :: PublicKey -> GtGlobalState -> Bool
+hasCommitment pk = HM.member pk . _gsCommitments
 
-hasOpening :: PublicKey -> GtPayload -> Bool
-hasOpening pk = HM.member pk . _mdOpenings
+hasOpening :: PublicKey -> GtGlobalState -> Bool
+hasOpening pk = HM.member pk . _gsOpenings
 
-hasShares :: PublicKey -> GtPayload -> Bool
-hasShares pk = HM.member pk . _mdShares
+hasShares :: PublicKey -> GtGlobalState -> Bool
+hasShares pk = HM.member pk . _gsShares
 
-hasVssCertificate :: PublicKey -> GtPayload -> Bool
-hasVssCertificate pk = HM.member pk . _mdVssCertificates
+hasVssCertificate :: PublicKey -> GtGlobalState -> Bool
+hasVssCertificate pk = HM.member pk . _gsVssCertificates
 
 ----------------------------------------------------------------------------
 -- Verifications for GodTossing.Types.Base
@@ -219,18 +219,23 @@ We also do some general sanity checks.
 verifyGtPayload
     :: (SscPayload ssc ~ GtPayload)
     => MainBlockHeader ssc -> SscPayload ssc -> VerificationRes
-verifyGtPayload header GtPayload {..} =
-    verifyGeneric allChecks
+verifyGtPayload header payload =
+    verifyGeneric $ otherChecks ++
+        case payload of
+            CommitmentsPayload comms certs -> [ certsChecks certs
+                                                 , isComm
+                                                 , commChecks comms]
+            OpeningsPayload        _ certs -> [certsChecks certs, isOpen]
+            SharesPayload          _ certs -> [certsChecks certs, isShare]
+            CertificatesPayload      certs -> [certsChecks certs, isOther]
   where
     slotId       = header ^. headerSlot
     epochId      = siEpoch slotId
-    commitments  = _mdCommitments
-    openings     = _mdOpenings
-    shares       = _mdShares
-    certificates = _mdVssCertificates
-    isComm       = isCommitmentId slotId
-    isOpen       = isOpeningId slotId
-    isShare      = isSharesId slotId
+    isComm       = (isCommitmentId slotId, "slotId doesn't belong commitment phase")
+    isOpen       = (isOpeningId slotId, "slotId doesn't belong openings phase")
+    isShare      = (isSharesId slotId, "slotId doesn't belong share phase")
+    isOther      = (all not $ map fst [isComm, isOpen, isShare],
+                    "slotId doesn't belong intermediate phase")
 
     -- We *forbid* blocks from having commitments/openings/shares in blocks
     -- with wrong slotId (instead of merely discarding such commitments/etc)
@@ -246,98 +251,40 @@ verifyGtPayload header GtPayload {..} =
     -- then we would be able to simplify 'calculateSeed' a bit – however,
     -- it's somewhat complicated because we have encrypted shares, shares in
     -- commitments, etc.
-    commChecks =
-        [ (null openings,
-                "there are openings in a commitment block")
-        , (null shares,
-                "there are shares in a commitment block")
-        , (let checkSignedComm = isVerSuccess .
+    commChecks commitments =
+          (let checkSignedComm = isVerSuccess .
                     uncurry (flip verifySignedCommitment epochId)
             in all checkSignedComm (HM.toList commitments),
                 "verifySignedCommitment has failed for some commitments")
-        ]
 
-    -- For openings, we check that
-    --   * there are only openings in the block
-    openChecks =
-        [ (null commitments,
-                "there are commitments in an openings block")
-        , (null shares,
-                "there are shares in an openings block")
-        ]
-
-    -- For shares, we check that
-    --   * there are only shares in the block
-    shareChecks =
-        [ (null commitments,
-                "there are commitments in a shares block")
-        , (null openings,
-                "there are openings in a shares block")
-        ]
-
-    -- For all other blocks, we check that
-    --   * there are no commitments, openings or shares
-    otherBlockChecks =
-        [ (null commitments,
-                "there are commitments in an ordinary block")
-        , (null openings,
-                "there are openings in an ordinary block")
-        , (null shares,
-                "there are shares in an ordinary block")
-        ]
+    -- Vss certificates checker
+    --   * VSS certificates are signed properly
+    certsChecks certs =
+         (all checkCert (HM.toList certs),
+                "some VSS certificates aren't signed properly")
 
     -- For all blocks (no matter the type), we check that
     --   * slot ID is in range
-    --   * VSS certificates are signed properly
     otherChecks =
         [ (inRange (0, 6 * k - 1) (siSlot slotId),
-                "slot id is outside of [0, 6k)")
-        , (all checkCert (HM.toList certificates),
-                "some VSS certificates aren't signed properly")
-        ]
-
-    allChecks = concat $ concat
-        [ [ commChecks       | isComm ]
-        , [ openChecks       | isOpen ]
-        , [ shareChecks      | isShare ]
-        , [ otherBlockChecks | all not [isComm, isOpen, isShare] ]
-        , [ otherChecks ]
-        ]
-
-
--- | Remove messages irrelevant to given slot id from payload.
-filterGtPayload :: SlotId -> GtPayload -> GtPayload
-filterGtPayload slotId GtPayload {..} =
-    GtPayload
-    { _mdCommitments = filteredCommitments
-    , _mdOpenings = filteredOpenings
-    , _mdShares = filteredShares
-    , ..
-    }
-  where
-    filteredCommitments = filterDo isCommitmentId _mdCommitments
-    filteredOpenings = filterDo isOpeningId _mdOpenings
-    filteredShares = filterDo isSharesId _mdShares
-    filterDo
-        :: Monoid container
-        => (SlotId -> Bool) -> container -> container
-    filterDo checker container
-        | checker slotId = container
-        | otherwise = mempty
+                "slot id is outside of [0, 6k)")]
 
 ----------------------------------------------------------------------------
 -- Filter Local Payload
 ----------------------------------------------------------------------------
-filterLocalPayload :: GtPayload -> GtPayload -> GtPayload
+filterLocalPayload :: GtPayload -> GtGlobalState -> GtPayload
 filterLocalPayload localPay globalPay =
-    GtPayload
-    {
-      _mdCommitments  = (_mdCommitments localPay) `HM.difference`
-                        (_mdCommitments globalPay)
-    , _mdOpenings = (_mdOpenings localPay) `HM.difference`
-                    (_mdOpenings globalPay)
-    , _mdShares = (_mdShares localPay) `diffDoubleMap`
-                  (_mdShares globalPay)
-    , _mdVssCertificates = (_mdVssCertificates localPay) `HM.difference`
-                           (_mdVssCertificates globalPay)
-    }
+    case localPay of
+        CommitmentsPayload    comms certs ->
+            CommitmentsPayload (comms `HM.difference` _gsCommitments globalPay)
+                               (filterCerts certs)
+        OpeningsPayload       opens certs ->
+            OpeningsPayload (opens `HM.difference` _gsOpenings globalPay)
+                            (filterCerts certs)
+        SharesPayload        shares certs ->
+            SharesPayload (shares `diffDoubleMap` _gsShares globalPay)
+                          (filterCerts certs)
+        CertificatesPayload         certs ->
+            CertificatesPayload $ filterCerts certs
+  where
+    filterCerts = flip HM.difference $ _gsVssCertificates globalPay

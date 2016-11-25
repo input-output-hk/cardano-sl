@@ -15,13 +15,15 @@ import           Pos.Ssc.GodTossing.Functions       (filterLocalPayload)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData)
 import           Pos.Ssc.GodTossing.Storage.Types   (GtStorage)
 import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types     (GtPayload, GtProof, mkGtProof)
+import           Pos.Ssc.GodTossing.Types.Types     (GtGlobalState, GtPayload, GtProof,
+                                                     mkGtProof)
 
 instance Ssc SscGodTossing where
-    type SscStorage   SscGodTossing = GtStorage
-    type SscLocalData SscGodTossing = GtLocalData
-    type SscPayload   SscGodTossing = GtPayload
-    type SscProof     SscGodTossing = GtProof
-    type SscSeedError SscGodTossing = SeedError
+    type SscStorage     SscGodTossing = GtStorage
+    type SscLocalData   SscGodTossing = GtLocalData
+    type SscPayload     SscGodTossing = GtPayload
+    type SscGlobalState SscGodTossing = GtGlobalState
+    type SscProof       SscGodTossing = GtProof
+    type SscSeedError   SscGodTossing = SeedError
     mkSscProof = Tagged mkGtProof
     sscFilterPayload = filterLocalPayload

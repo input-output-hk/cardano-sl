@@ -58,7 +58,7 @@ import           Pos.Crypto               (PublicKey, SecretKey, Share, Threshol
                                            VssKeyPair, VssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
-import           Pos.Ssc.Class.Types      (Ssc (SscPayload, SscStorage))
+import           Pos.Ssc.Class.Types      (Ssc (SscGlobalState, SscPayload, SscStorage))
 import           Pos.State.Acidic         (DiskState, tidyState)
 import qualified Pos.State.Acidic         as A
 import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (..),
@@ -171,7 +171,7 @@ isTxVerified :: QUConstraint ssc m => Tx -> m Bool
 isTxVerified = queryDisk . A.IsTxVerified
 
 -- | Get global SSC data.
-getGlobalMpcData :: QUConstraint ssc m => m (SscPayload ssc)
+getGlobalMpcData :: QUConstraint ssc m => m (SscGlobalState ssc)
 getGlobalMpcData = queryDisk A.GetGlobalSscPayload
 
 -- | Check that block header is correct and claims to represent block

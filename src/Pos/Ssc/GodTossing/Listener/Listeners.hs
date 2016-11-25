@@ -11,7 +11,7 @@ module Pos.Ssc.GodTossing.Listener.Listeners
          -- ** instance SscListenersClass SscGodTossing
        ) where
 
-import           Control.Lens                           (at, (^.))
+import           Data.HashMap.Strict                    (lookup)
 import           Data.List.NonEmpty                     (NonEmpty)
 import           Data.Tagged                            (Tagged (..))
 import           Formatting                             (build, sformat, stext, (%))
@@ -33,9 +33,7 @@ import           Pos.Ssc.GodTossing.Types.Message       (DataMsg (..), InvMsg (.
                                                          dataMsgPublicKey, dataMsgTag,
                                                          isGoodSlotIdForTag)
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types         (GtPayload, mdCommitments,
-                                                         mdOpenings, mdShares,
-                                                         mdVssCertificates)
+import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), _gpCertificates)
 import           Pos.WorkMode                           (WorkMode)
 
 instance SscListenersClass SscGodTossing where
@@ -69,13 +67,15 @@ handleReq (ReqMsg tag key) = do
     whenJust (toDataMsg tag key localPayload) (replyToNode @_ @DataMsg)
 
 toDataMsg :: MsgTag -> PublicKey -> GtPayload -> Maybe DataMsg
-toDataMsg CommitmentMsg key payload =
-    DMCommitment key <$> payload ^. mdCommitments . at key
-toDataMsg OpeningMsg key payload =
-    DMOpening key <$> payload ^. mdOpenings . at key
-toDataMsg SharesMsg key payload = DMShares key <$> payload ^. mdShares . at key
+toDataMsg CommitmentMsg key (CommitmentsPayload comm _) =
+    DMCommitment key <$> lookup key comm
+toDataMsg OpeningMsg key (OpeningsPayload opens _) =
+    DMOpening key <$> lookup key opens
+toDataMsg SharesMsg key (SharesPayload shares _) =
+    DMShares key <$> lookup key shares
 toDataMsg VssCertificateMsg key payload =
-    DMVssCertificate key <$> payload ^. mdVssCertificates . at key
+    DMVssCertificate key <$> lookup key (_gpCertificates payload)
+toDataMsg _ _ _ = Nothing
 
 handleData :: WorkMode SscGodTossing m => DataMsg -> m ()
 handleData msg =

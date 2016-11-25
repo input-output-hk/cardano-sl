@@ -53,16 +53,15 @@ import           Pos.Ssc.GodTossing.Storage.Types  (GtStorage, GtStorageVersion 
 import           Pos.Ssc.GodTossing.Types.Base     (Commitment (..))
 import           Pos.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types    (GtPayload (..), mdCommitments,
-                                                    mdOpenings, mdShares,
-                                                    mdVssCertificates)
+import           Pos.Ssc.GodTossing.Types.Types    (GtGlobalState (..), GtPayload (..),
+                                                    _gpCertificates)
 import           Pos.State.Storage.Types           (AltChain)
 import           Pos.Types                         (Address (getAddress), Block,
                                                     EpochIndex, SlotId (..), SlotLeaders,
                                                     Utxo, blockMpc, blockSlot, blockSlot,
                                                     gbHeader, txOutAddress)
-import           Pos.Util                          (magnify', readerToState,
-                                                    zoom', _neHead)
+import           Pos.Util                          (magnify', readerToState, zoom',
+                                                    _neHead)
 
 -- acid-state requires this instance because of a bug
 instance SafeCopy SscGodTossing
@@ -99,7 +98,7 @@ dsVersioned = sscStorage @SscGodTossing . dsVersionedL
 lastVer :: HasSscStorage SscGodTossing a => Lens' a GtStorageVersion
 lastVer = dsVersioned . _neHead
 
-getGlobalMpcData :: Query GtPayload
+getGlobalMpcData :: Query GtGlobalState
 getGlobalMpcData =
     fromMaybe (panic "No global SSC payload for depth 0") <$>
     getGlobalMpcDataByDepth 0
@@ -108,16 +107,16 @@ getGlobalMpcData =
 --
 -- specifically, I'm not sure whether versioning here and versioning in .Tx
 -- are the same versionings
-getGlobalMpcDataByDepth :: Word -> Query (Maybe GtPayload)
+getGlobalMpcDataByDepth :: Word -> Query (Maybe GtGlobalState)
 getGlobalMpcDataByDepth (fromIntegral -> depth) =
     preview $ dsVersioned . ix depth . to mkGlobalMpcData
   where
     mkGlobalMpcData GtStorageVersion {..} =
-        GtPayload
-        { _mdCommitments = _dsGlobalCommitments
-        , _mdOpenings = _dsGlobalOpenings
-        , _mdShares = _dsGlobalShares
-        , _mdVssCertificates = _dsGlobalCertificates
+        GtGlobalState
+        { _gsCommitments = _dsGlobalCommitments
+        , _gsOpenings = _dsGlobalOpenings
+        , _gsShares = _dsGlobalShares
+        , _gsVssCertificates = _dsGlobalCertificates
         }
 
 -- | Get keys of nodes participating in an epoch. A node participates if,
@@ -128,7 +127,7 @@ getGlobalMpcDataByDepth (fromIntegral -> depth) =
 --   2. It had already sent us its VSS key by that time.
 getParticipants :: Word -> Utxo -> Query (Maybe (NonEmpty VssPublicKey))
 getParticipants depth utxo = do
-    mKeymap <- fmap _mdVssCertificates <$> getGlobalMpcDataByDepth depth
+    mKeymap <- fmap _gsVssCertificates <$> getGlobalMpcDataByDepth depth
     return $
         do keymap <- mKeymap
            let stakeholders =
@@ -173,18 +172,15 @@ mpcVerifyBlock (Left _) = return VerSuccess
 mpcVerifyBlock (Right b) = magnify' lastVer $ do
     let SlotId{siSlot = slotId} = b ^. blockSlot
     let payload      = b ^. blockMpc
-    let commitments  = payload ^. mdCommitments
-        openings     = payload ^. mdOpenings
-        shares       = payload ^. mdShares
-        certificates = payload ^. mdVssCertificates
+
     globalCommitments  <- view dsGlobalCommitments
     globalOpenings     <- view dsGlobalOpenings
     globalShares       <- view dsGlobalShares
     globalCertificates <- view dsGlobalCertificates
-    let isComm  = isCommitmentIdx slotId
-        isOpen  = isOpeningIdx slotId
-        isShare = isSharesIdx slotId
 
+    let isComm       = (isCommitmentIdx slotId, "slotId doesn't belong commitment phase")
+        isOpen       = (isOpeningIdx slotId, "slotId doesn't belong openings phase")
+        isShare      = (isSharesIdx slotId, "slotId doesn't belong share phase")
     -- For commitments we
     --   * check that the nodes haven't already sent their commitments before
     --     in some different block
@@ -193,12 +189,13 @@ mpcVerifyBlock (Right b) = magnify' lastVer $ do
     -- then we would be able to simplify 'calculateSeed' a bit – however,
     -- it's somewhat complicated because we have encrypted shares, shares in
     -- commitments, etc.
-    let commChecks =
-            [ (all (`HM.member` (certificates <> globalCertificates))
-                   (HM.keys commitments),
+    let commChecks comms certs =
+            [ isComm
+            , (all (`HM.member` (certs <> globalCertificates))
+                   (HM.keys comms),
                    "some committing nodes haven't sent a VSS certificate")
             , (all (not . (`HM.member` globalCommitments))
-                   (HM.keys commitments),
+                   (HM.keys comms),
                    "some nodes have already sent their commitments")
             ]
 
@@ -206,14 +203,15 @@ mpcVerifyBlock (Right b) = magnify' lastVer $ do
     --   * the opening isn't present in previous blocks
     --   * corresponding commitment is present
     --   * the opening matches the commitment
-    let openChecks =
-            [ (all (not . (`HM.member` globalOpenings))
-                   (HM.keys openings),
+    let openChecks opens =
+            [ isOpen
+            , (all (not . (`HM.member` globalOpenings))
+                   (HM.keys opens),
                    "some nodes have already sent their openings")
             , (all (`HM.member` globalCommitments)
-                   (HM.keys openings),
+                   (HM.keys opens),
                    "some openings don't have corresponding commitments")
-            , (all (checkOpeningMatchesCommitment globalCommitments) (HM.toList openings),
+            , (all (checkOpeningMatchesCommitment globalCommitments) (HM.toList opens),
                    "some openings don't match corresponding commitments")
             ]
 
@@ -223,8 +221,9 @@ mpcVerifyBlock (Right b) = magnify' lastVer $ do
     --   * if encrypted shares (in commitments) are decrypted, they match
     --     decrypted shares
     -- We don't check whether shares match the openings.
-    let shareChecks =
-            [ (all (`HM.member` globalCommitments)
+    let shareChecks shares =
+            [ isShare
+            , (all (`HM.member` globalCommitments)
                    (HM.keys shares <> concatMap HM.keys (toList shares)),
                    "some shares don't have corresponding commitments")
             -- TODO: here we assume that all shares are always sent as a whole
@@ -240,12 +239,12 @@ mpcVerifyBlock (Right b) = magnify' lastVer $ do
                    \in the corresponding commitment")
             ]
 
-    let ourRes = verifyGeneric $ concat $ concat
-            [ [ commChecks       | isComm ]
-            , [ openChecks       | isOpen ]
-            , [ shareChecks      | isShare ]
-            ]
-
+    let ourRes = verifyGeneric $
+            case payload of
+                CommitmentsPayload comms certs -> commChecks comms certs
+                OpeningsPayload        opens _ -> openChecks opens
+                SharesPayload         shares _ -> shareChecks shares
+                CertificatesPayload          _ -> []
     return (verifyGtPayload @ssc (b ^. gbHeader) payload <> ourRes)
 
 -- TODO:
@@ -278,7 +277,6 @@ mpcProcessBlock
     :: (SscPayload ssc ~ GtPayload)
     => Block ssc -> Update ()
 mpcProcessBlock blk = do
-    --identity $! traceM . (<>) ("[~~~~~~] MPC Processing " <> (either (const "genesis") (const "main") blk) <> " block for epoch: ") . pretty $ blk ^. epochIndexL
     lv <- use lastVer
     dsVersioned %= NE.cons lv
     case blk of
@@ -293,17 +291,20 @@ mpcProcessBlock blk = do
                 dsGlobalShares      .= mempty
         -- Main blocks contain commitments, openings, shares, VSS certificates
         Right b -> do
-            let blockCommitments  = b ^. blockMpc . mdCommitments
-                blockOpenings     = b ^. blockMpc . mdOpenings
-                blockShares       = b ^. blockMpc . mdShares
-                blockCertificates = b ^. blockMpc . mdVssCertificates
+            let payload = b ^. blockMpc
+                blockCertificates = _gpCertificates payload
             zoom' lastVer $ do
-                -- commitments
-                dsGlobalCommitments %= HM.union blockCommitments
-                -- openings
-                dsGlobalOpenings %= HM.union blockOpenings
-                -- shares
-                dsGlobalShares %= HM.unionWith HM.union blockShares
+                case payload of
+                    CommitmentsPayload comms _ ->
+                        -- commitments
+                        dsGlobalCommitments %= HM.union comms
+                    OpeningsPayload    opens _ ->
+                        -- openings
+                        dsGlobalOpenings %= HM.union opens
+                    SharesPayload     shares _ ->
+                        -- shares
+                        dsGlobalShares %= HM.unionWith HM.union shares
+                    CertificatesPayload      _ -> return ()
                 -- VSS certificates
                 dsGlobalCertificates %= HM.union blockCertificates
 

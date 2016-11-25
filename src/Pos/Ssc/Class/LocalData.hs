@@ -21,7 +21,7 @@ module Pos.Ssc.Class.LocalData
        , sscRunLocalQuery
        , sscRunLocalUpdate
        , sscGetLocalPayload
-       , sscApplyGlobalPayload
+       , sscApplyGlobalState
        ) where
 
 import           Control.Lens        (Lens')
@@ -59,7 +59,7 @@ class Ssc ssc => SscLocalDataClass ssc where
     sscGetLocalPayloadQ :: SlotId -> LocalQuery ssc (SscPayload ssc)
     -- | Update LocalData using global data from blocks (last version
     -- of best known chain).
-    sscApplyGlobalPayloadU :: SscPayload ssc -> LocalUpdate ssc ()
+    sscApplyGlobalStateU :: SscGlobalState ssc -> LocalUpdate ssc ()
 
 
 -- | Convenient wrapper to run LocalQuery in MonadSscLD.
@@ -83,8 +83,8 @@ sscGetLocalPayload
     => SlotId -> m (SscPayload ssc)
 sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 
-sscApplyGlobalPayload
+sscApplyGlobalState
     :: forall ssc m.
        (MonadSscLD ssc m, SscLocalDataClass ssc)
-    =>  SscPayload ssc -> m ()
-sscApplyGlobalPayload = sscRunLocalUpdate . sscApplyGlobalPayloadU @ssc
+    =>  SscGlobalState ssc -> m ()
+sscApplyGlobalState = sscRunLocalUpdate . sscApplyGlobalStateU @ssc

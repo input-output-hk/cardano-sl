@@ -367,6 +367,7 @@ executable cardano-smart-generator
                      , bytestring
                      , data-default
                      , cardano-sl
+                     , filepath
                      , formatting
                      , log-warper >= 0.1.0
                      , lens

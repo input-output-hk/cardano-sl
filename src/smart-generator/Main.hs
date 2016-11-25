@@ -9,10 +9,12 @@ import           Control.TimeWarp.Timed (Microsecond, for, fork_, ms, sec, wait)
 import           Data.Default           (def)
 import           Data.IORef             (modifyIORef', newIORef, readIORef)
 import           Data.List              ((!!))
+import           Data.Maybe             (fromMaybe)
 import           Data.Text.IO           (appendFile, writeFile)
 import           Data.Time.Clock.POSIX  (getPOSIXTime)
 import           Formatting             (float, int, sformat, (%))
 import           Options.Applicative    (execParser)
+import           System.FilePath.Posix  ((</>))
 import           System.Wlog            (logInfo)
 import           Test.QuickCheck        (arbitrary, generate)
 import           Universum
@@ -84,9 +86,10 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
     -- access to blockchain
     fork_ $ runNode @ssc
 
+    let logsFilePrefix = fromMaybe "." goLogsPrefix
     -- | Run the special worker to check new blocks and
     -- fill tx verification times
-    fork_ $ checkWorker txTimestamps
+    fork_ $ checkWorker txTimestamps logsFilePrefix
 
     logInfo "STARTING TXGEN"
     peers <- discoverPeers DHTFull
@@ -101,7 +104,7 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
     seedInitTx bambooPool initTx na
 
     -- Start writing tps file
-    liftIO $ writeFile tpsCsvFile tpsCsvHeader
+    liftIO $ writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
 
     initialT <- getPosixMs
     let startMeasurementsT =
@@ -113,7 +116,7 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
     void $ forFold (goInitTps, goTpsIncreaseStep) [1 .. goRoundNumber] $
         \(goTPS, increaseStep) (roundNum :: Int) -> do
         -- Start writing verifications file
-        liftIO $ writeFile (verifyCsvFile roundNum) verifyCsvHeader
+        liftIO $ writeFile (logsFilePrefix </> verifyCsvFile roundNum) verifyCsvHeader
 
         logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)
             roundNum goRoundNumber goTPS
@@ -171,7 +174,7 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         putText $ "So real tps was: " <> show realTPS
 
         -- We collect tables of really generated tps
-        liftIO $ appendFile tpsCsvFile $
+        liftIO $ appendFile (logsFilePrefix </> tpsCsvFile) $
             tpsCsvFormat (globalTime, goTPS, realTPS)
 
         return (newTPS, newStep)

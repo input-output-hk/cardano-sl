@@ -16,6 +16,7 @@ import           Data.List              (intersect)
 import           Data.Maybe             (fromJust, maybeToList)
 import           Data.Text.IO           (appendFile)
 import           Formatting             (build, sformat, (%))
+import           System.FilePath.Posix  ((</>))
 import           System.Wlog            (logWarning)
 import           Universum
 
@@ -50,15 +51,15 @@ splitRound = foldl' foo M.empty
   where foo m (id, (rnd, ts)) = M.alter (bar id ts) rnd m
         bar id ts mls = Just $ (id, ts) : (concat $ maybeToList mls)
 
-appendVerified :: Word64 -> Int -> [(TxId, Word64)] -> IO ()
-appendVerified ts roundNum df = do
+appendVerified :: Word64 -> Int -> [(TxId, Word64)] -> FilePath -> IO ()
+appendVerified ts roundNum df logsPrefix = do
     let df' = map (\(id, sts) -> (id, sts, ts)) df
         dfText = mconcat $ map verifyCsvFormat df'
-    appendFile (verifyCsvFile roundNum) dfText
+    appendFile (logsPrefix </> verifyCsvFile roundNum) dfText
 
 checkTxsInLastBlock :: forall ssc . SscConstraint ssc
-                    => TxTimestamps -> ProductionMode ssc ()
-checkTxsInLastBlock TxTimestamps {..} = do
+                    => TxTimestamps -> FilePath -> ProductionMode ssc ()
+checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
     mBlock <- getBlockByDepth k
     case mBlock of
         Nothing -> pure ()
@@ -88,12 +89,12 @@ checkTxsInLastBlock TxTimestamps {..} = do
                     splitData = splitRound verifiedPairedData
 
                 forM_ (M.toList splitData) $ \(roundNum, df) ->
-                    liftIO $ appendVerified (fromIntegral slStart) roundNum df
+                    liftIO $ appendVerified (fromIntegral slStart) roundNum df logsPrefix
 
 checkWorker :: forall ssc . SscConstraint ssc
-            => TxTimestamps -> ProductionMode ssc ()
-checkWorker txts = repeatForever slotDuration onError $
-                   checkTxsInLastBlock txts
+            => TxTimestamps -> FilePath -> ProductionMode ssc ()
+checkWorker txts logsPrefix = repeatForever slotDuration onError $
+                              checkTxsInLastBlock txts logsPrefix
   where onError e = slotDuration <$
                     logWarning (sformat ("Error occured in checkWorker: " %build) e)
 

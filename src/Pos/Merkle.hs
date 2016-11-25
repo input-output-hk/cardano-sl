@@ -31,10 +31,6 @@ import           Pos.Crypto           (Hash, hashRaw)
 import           Pos.Util             (Raw)
 
 -- | Data type for root of merkle tree.
---
--- TODO: This uses SHA256 (i.e. Hash). Bitcoin uses double SHA256 to protect
--- against some attacks that don't exist yet. It'd likely be nice to use
--- SHA3-256 here instead.
 newtype MerkleRoot a = MerkleRoot
     { getMerkleRoot :: Hash Raw  -- ^ returns root 'Hash' of Merkle Tree
     } deriving (Show, Eq, Ord, Generic, Binary, ByteArrayAccess)

@@ -1,6 +1,6 @@
--- | Specification of Pos.Ssc.GodTossing.Base
+-- | Specification of Pos.Ssc.GodTossing.Types.Base
 
-module Test.Pos.Ssc.GodTossing.Base
+module Test.Pos.Ssc.GodTossing.Types.BaseSpec
        ( spec
        ) where
 

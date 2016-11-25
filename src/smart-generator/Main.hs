@@ -100,24 +100,25 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
     -- Seeding init tx
     seedInitTx bambooPool initTx na
 
-    -- Start writing data files
-    liftIO $ do
-        writeFile tpsCsvFile tpsCsvHeader
-        writeFile verifyCsvFile verifyCsvHeader
+    -- Start writing tps file
+    liftIO $ writeFile tpsCsvFile tpsCsvHeader
 
     initialT <- getPosixMs
     let startMeasurementsT =
             initialT + (k + goPropThreshold) * fromIntegral (slotDuration `div` ms 1)
+        roundDuration =
+                fromIntegral ((k + goPropThreshold) * (goRoundPeriodRate + 1)) *
+                fromIntegral (slotDuration `div` sec 1)
 
     void $ forFold (goInitTps, goTpsIncreaseStep) [1 .. goRoundNumber] $
         \(goTPS, increaseStep) (roundNum :: Int) -> do
+        -- Start writing verifications file
+        liftIO $ writeFile (verifyCsvFile roundNum) verifyCsvHeader
+
         logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)
             roundNum goRoundNumber goTPS
 
         let tpsDelta = round $ 1000 / goTPS
-            roundDuration =
-                fromIntegral ((k + goPropThreshold) * (goRoundPeriodRate + 1)) *
-                fromIntegral (slotDuration `div` sec 1)
             txNum = round $ roundDuration * goTPS
 
         realTxNum <- liftIO $ newIORef (0 :: Int)
@@ -146,7 +147,7 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
                         when (startT >= startMeasurementsT) $ liftIO $ do
                             modifyIORef' realTxNum (+1)
                             -- put timestamp to current txmap
-                            registerSentTx txTimestamps curTxId $ fromIntegral startT * 1000
+                            registerSentTx txTimestamps curTxId roundNum $ fromIntegral startT * 1000
 
                 endT <- getPosixMs
                 let runDelta = endT - startT

@@ -13,7 +13,7 @@ import qualified Data.HashMap.Strict    as M
 import           Data.IORef             (IORef, modifyIORef', newIORef, readIORef,
                                          writeIORef)
 import           Data.List              (intersect)
-import           Data.Maybe             (fromJust)
+import           Data.Maybe             (fromJust, maybeToList)
 import           Data.Text.IO           (appendFile)
 import           Formatting             (build, sformat, (%))
 import           System.Wlog            (logWarning)
@@ -29,22 +29,32 @@ import           Pos.WorkMode           (ProductionMode)
 
 import           Util                   (verifyCsvFile, verifyCsvFormat)
 
-type TxTimeMap = M.HashMap TxId Word64
+type TxTimeMap = M.HashMap TxId (Int, Word64)
 
 data TxTimestamps = TxTimestamps
-    { sentTimes   :: IORef TxTimeMap
-    , verifyTimes :: IORef TxTimeMap
-    , lastSlot    :: IORef SlotId
+    { sentTimes :: IORef TxTimeMap
+    , lastSlot  :: IORef SlotId
     }
 
 createTxTimestamps :: IO TxTimestamps
 createTxTimestamps = TxTimestamps
                      <$> newIORef M.empty
-                     <*> newIORef M.empty
                      <*> newIORef (SlotId 0 0)
 
-registerSentTx :: TxTimestamps -> TxId -> Word64 -> IO ()
-registerSentTx TxTimestamps{..} id = modifyIORef' sentTimes . M.insert id
+registerSentTx :: TxTimestamps -> TxId -> Int -> Word64 -> IO ()
+registerSentTx TxTimestamps{..} id roundNum ts =
+    modifyIORef' sentTimes $ M.insert id (roundNum, ts)
+
+splitRound :: [(TxId, (Int, Word64))] -> M.HashMap Int [(TxId, Word64)]
+splitRound = foldl' foo M.empty
+  where foo m (id, (rnd, ts)) = M.alter (bar id ts) rnd m
+        bar id ts mls = Just $ (id, ts) : (concat $ maybeToList mls)
+
+appendVerified :: Word64 -> Int -> [(TxId, Word64)] -> IO ()
+appendVerified ts roundNum df = do
+    let df' = map (\(id, sts) -> (id, sts, ts)) df
+        dfText = mconcat $ map verifyCsvFormat df'
+    appendFile (verifyCsvFile roundNum) dfText
 
 checkTxsInLastBlock :: forall ssc . SscConstraint ssc
                     => TxTimestamps -> ProductionMode ssc ()
@@ -55,11 +65,10 @@ checkTxsInLastBlock TxTimestamps {..} = do
         Just (Left _) -> pure ()
         Just (Right block) -> do
             st <- liftIO $ readIORef sentTimes
-            vt <- liftIO $ readIORef verifyTimes
             ls <- liftIO $ readIORef lastSlot
             let curSlot = block^.blockSlot
             when (ls < curSlot) $ do
-                let toCheck = M.keys $ M.difference st vt
+                let toCheck = M.keys st
                     txsMerkle = block^.blockTxs
                     txIds = map hash $ toList txsMerkle
                     verified = toCheck `intersect` txIds
@@ -74,11 +83,12 @@ checkTxsInLastBlock TxTimestamps {..} = do
                 slStart <- getSlotStart =<< getCurrentSlot
                 liftIO $ writeIORef lastSlot curSlot
 
-                let verifiedSentTimes = map (fromJust . flip M.lookup st) verified
-                    df = zip3 verified verifiedSentTimes $ repeat (fromIntegral slStart)
-                    dfText = mconcat $ map verifyCsvFormat df
+                let verifiedSentData = map (fromJust . flip M.lookup st) verified
+                    verifiedPairedData = zip verified verifiedSentData
+                    splitData = splitRound verifiedPairedData
 
-                liftIO $ appendFile verifyCsvFile dfText
+                forM_ (M.toList splitData) $ \(roundNum, df) ->
+                    liftIO $ appendVerified (fromIntegral slStart) roundNum df
 
 checkWorker :: forall ssc . SscConstraint ssc
             => TxTimestamps -> ProductionMode ssc ()

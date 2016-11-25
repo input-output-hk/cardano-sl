@@ -6,9 +6,11 @@ import           Universum
 
 import           Pos.Types  (TxId)
 
-verifyCsvFile, tpsCsvFile :: FilePath
-verifyCsvFile = "smart-gen-verifications.csv"
+tpsCsvFile :: FilePath
 tpsCsvFile = "smart-gen-tps.csv"
+
+verifyCsvFile :: Int -> FilePath
+verifyCsvFile rnd = "smart-gen-verifications-round" ++ show rnd ++ ".csv"
 
 verifyCsvHeader, tpsCsvHeader :: Text
 tpsCsvHeader = "global_time,round_tps,real_tps\n"

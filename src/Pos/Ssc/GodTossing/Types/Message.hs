@@ -11,7 +11,7 @@ module Pos.Ssc.GodTossing.Types.Message
        , dataMsgTag
        ) where
 
-import           Control.TimeWarp.Rpc          (Message (..))
+import           Control.TimeWarp.Rpc          (Message (..), messageName')
 import           Data.Binary                   (Binary)
 import           Data.List.NonEmpty            (NonEmpty)
 import qualified Data.Text.Buildable
@@ -63,6 +63,7 @@ instance Binary InvMsg
 
 instance Message InvMsg where
     messageName _ = "GT Inventory"
+    formatMessage = messageName'
 
 -- | Request message. Can be used to request data (ideally data which
 -- was previously announced by inventory message).
@@ -75,6 +76,7 @@ instance Binary ReqMsg
 
 instance Message ReqMsg where
     messageName _ = "GT Request"
+    formatMessage = messageName'
 
 -- | Data message. Can be used to send actual data.
 data DataMsg
@@ -92,6 +94,7 @@ instance Binary DataMsg
 
 instance Message DataMsg where
     messageName _ = "GT Data"
+    formatMessage = messageName'
 
 -- | MsgTag appropriate for given DataMsg.
 dataMsgTag :: DataMsg -> MsgTag

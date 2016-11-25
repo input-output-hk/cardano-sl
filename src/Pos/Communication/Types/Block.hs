@@ -13,7 +13,7 @@ module Pos.Communication.Types.Block
 import           Data.Binary          (Binary)
 import           Universum
 
-import           Control.TimeWarp.Rpc (Message (..))
+import           Control.TimeWarp.Rpc (Message (..), messageName')
 import           Pos.Ssc.Class.Types  (Ssc)
 import           Pos.Types            (Block, HeaderHash, MainBlockHeader)
 
@@ -38,9 +38,12 @@ instance Binary (RequestBlock ssc)
 
 instance (Ssc ssc) => Message (SendBlock ssc) where
     messageName _ = "SendBlock"
+    formatMessage = messageName'
 
 instance (Ssc ssc) => Message (SendBlockHeader ssc) where
     messageName _ = "SendBlockHeader"
+    formatMessage = messageName'
 
 instance Typeable ssc => Message (RequestBlock ssc) where
     messageName _ = "RequestBlock"
+    formatMessage = messageName'

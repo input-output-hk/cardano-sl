@@ -9,7 +9,7 @@ module Pos.Communication.Types.Tx
        , SendTxs (..)
        ) where
 
-import           Control.TimeWarp.Rpc (Message (messageName))
+import           Control.TimeWarp.Rpc (Message (..), messageName')
 import           Data.Binary          (Binary)
 import           Data.List.NonEmpty   (NonEmpty)
 import           Data.MessagePack     (MessagePack)
@@ -37,6 +37,8 @@ instance MessagePack SendTxs
 
 instance Message SendTx where
     messageName _ = "Send Tx"
+    formatMessage = messageName'
 
 instance Message SendTxs where
     messageName _ = "Send Txs"
+    formatMessage = messageName'

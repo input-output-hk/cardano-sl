@@ -12,7 +12,7 @@ import           Data.Binary              (Binary)
 import           Data.MessagePack         (MessagePack)
 import           Universum
 
-import           Control.TimeWarp.Rpc     (Message (..))
+import           Control.TimeWarp.Rpc     (Message (..), messageName')
 
 import           Pos.Statistics.StatEntry (StatLabel (..))
 
@@ -40,6 +40,8 @@ instance (StatLabel l, MessagePack a) => MessagePack (ResponseStat l a)
 
 instance StatLabel l => Message (RequestStat l) where
     messageName _ = "RequestStat_" <> labelName (Proxy :: Proxy l)
+    formatMessage = messageName'
 
 instance (StatLabel l, Typeable a) => Message (ResponseStat l a) where
     messageName _ = "ResponseStat_" <> labelName (Proxy :: Proxy l)
+    formatMessage = messageName'

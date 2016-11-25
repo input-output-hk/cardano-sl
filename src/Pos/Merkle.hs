@@ -22,7 +22,6 @@ import qualified Data.Binary          as Binary (encode)
 import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Lazy as BL (toStrict)
 import           Data.Coerce          (coerce)
-import           Data.MessagePack     (MessagePack)
 import           Data.SafeCopy        (base, deriveSafeCopySimple)
 import           Prelude              (Show (..))
 import           Universum            hiding (show)
@@ -40,8 +39,6 @@ newtype MerkleRoot a = MerkleRoot
     { getMerkleRoot :: Hash Raw  -- ^ returns root 'Hash' of Merkle Tree
     } deriving (Show, Eq, Ord, Generic, Binary, ByteArrayAccess)
 
-instance MessagePack (MerkleRoot a)
-
 -- This gives a “redundant constraint” warning due to
 -- https://github.com/acid-state/safecopy/issues/46.
 deriveSafeCopySimple 0 'base ''MerkleRoot
@@ -53,9 +50,6 @@ data MerkleTree a = MerkleEmpty | MerkleTree Word32 (MerkleNode a)
 instance Show a => Show (MerkleTree a) where
   show tree = "Merkle tree: " <> show (toList tree)
 
--- TODO: MessagePack instances can be more efficient.
-instance MessagePack a => MessagePack (MerkleTree a)
-
 data MerkleNode a
     = MerkleBranch { mRoot  :: MerkleRoot a
                    , mLeft  :: MerkleNode a
@@ -63,8 +57,6 @@ data MerkleNode a
     | MerkleLeaf { mRoot :: MerkleRoot a
                  , mVal  :: a}
     deriving (Eq, Show, Generic)
-
-instance MessagePack a => MessagePack (MerkleNode a)
 
 instance Foldable MerkleNode where
     foldMap f x = case x of

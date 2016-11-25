@@ -1,9 +1,11 @@
-{-# LANGUAGE CPP                   #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE CPP                    #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE TypeFamilies           #-}
+{-# LANGUAGE UndecidableInstances   #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 -- | Acid-state wrapped operations.
@@ -19,6 +21,7 @@ module Pos.State.Acidic
 
        , query
        , update
+       , updateWithLog
 
        , GetBlock (..)
        , GetBlockByDepth (..)
@@ -35,22 +38,30 @@ module Pos.State.Acidic
 
        , CreateNewBlock (..)
        , ProcessBlock (..)
-       , ProcessNewSlot (..)
        , ProcessTx (..)
+
+         -- * Updates with logging
+       , ProcessNewSlotL (..)
        ) where
 
-import           Data.Acid             (EventResult, EventState, QueryEvent, UpdateEvent,
-                                        makeAcidicWithHacks)
+import           Universum
+
+import           Control.Monad.State   (MonadState)
+import           Data.Acid             (EventResult, EventState, QueryEvent, Update,
+                                        UpdateEvent, makeAcidicWithHacks)
 import           Data.Default          (Default, def)
 import           Data.SafeCopy         (SafeCopy)
 import           Serokell.AcidState    (ExtendedState, closeExtendedState,
                                         openLocalExtendedState, openMemoryExtendedState,
                                         queryExtended, tidyExtendedState, updateExtended)
-import           Universum
+import           System.Wlog           (CanLog, HasLoggerName (..), LoggerName,
+                                        LoggerNameBox (..), PureLogger, runPureLog,
+                                        usingLoggerName)
 
 import           Pos.Ssc.Class.Storage (SscStorageClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (SscStorage))
 import qualified Pos.State.Storage     as S
+import           Pos.Types             as PT
 
 ----------------------------------------------------------------------------
 -- Acid-state things
@@ -72,6 +83,21 @@ update
         UpdateEvent event, MonadIO m)
     => DiskState ssc -> event -> m (EventResult event)
 update = updateExtended
+
+-- | 'updateExtended' specification for 'Storage' with logged results.
+updateWithLog
+    :: ( SscStorageClass ssc
+       , EventState event ~ Storage ssc
+       , EventResult event ~ (a, Text)
+       , UpdateEvent event
+       , MonadIO m
+       , HasLoggerName m)
+    => DiskState ssc
+    -> (LoggerName -> event)
+    -> m (a, Text)
+updateWithLog disc loggedEvent = do
+    event <- modifyLoggerName (<> "acid") $ loggedEvent <$> getLoggerName
+    updateExtended disc event
 
 -- | Open disk state. Accepts \"deleteIfExists\" flag and filepath.
 openState
@@ -110,6 +136,54 @@ closeState = closeExtendedState
 tidyState :: (SscStorageClass ssc, MonadIO m) => DiskState ssc -> m ()
 tidyState = tidyExtendedState
 
+-- | Class that allows converting acid-state updates with logging into simple updates.
+class ConvertUpdateWithLog l u  | u -> l where
+    convertUpdateWithLog :: l -> u
+
+-- | Wrapper for @acid-state@ updates which supports logging and logger names.
+newtype LogUpdate s a = LogUpdate
+    { runLogUpdate :: PureLogger (LoggerNameBox (Update s)) a
+    } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName, MonadState s)
+
+unwrapLogUpdate :: LogUpdate s a -> LoggerName -> Update s (a, Text)
+unwrapLogUpdate lu name = usingLoggerName name $ runPureLog $ runLogUpdate lu
+
+instance ConvertUpdateWithLog
+    (LogUpdate storage a)
+    (LoggerName -> Update storage (a, Text))
+  where
+    convertUpdateWithLog = unwrapLogUpdate
+
+instance ConvertUpdateWithLog
+    (arg1 -> LogUpdate storage a)
+    (arg1 -> LoggerName -> Update storage (a, Text))
+  where
+    convertUpdateWithLog logF = unwrapLogUpdate . logF
+
+instance ConvertUpdateWithLog
+    (arg1 -> arg2 -> LogUpdate storage a)
+    (arg1 -> arg2 -> LoggerName -> Update storage (a, Text))
+  where
+    convertUpdateWithLog logF arg1 = unwrapLogUpdate . logF arg1
+
+----------------------------------------------------------------------------
+-- Converted updates with logging
+----------------------------------------------------------------------------
+
+-- | Convenient alias to use in updates with logging.
+type UpdateWithLog ssc a = Update (Storage ssc) (a, Text)
+
+processNewSlotL
+    :: (SscStorageClass ssc)
+    => PT.SlotId
+    -> LoggerName
+    -> UpdateWithLog ssc (Maybe (PT.GenesisBlock ssc))
+processNewSlotL = convertUpdateWithLog S.processNewSlot
+
+----------------------------------------------------------------------------
+-- Making everything acidic
+----------------------------------------------------------------------------
+
 makeAcidicWithHacks ''S.Storage ["ssc"]
     [ 'S.getBlock
     , 'S.getBlockByDepth
@@ -125,6 +199,7 @@ makeAcidicWithHacks ''S.Storage ["ssc"]
     , 'S.mayBlockBeUseful
     , 'S.createNewBlock
     , 'S.processBlock
-    , 'S.processNewSlot
     , 'S.processTx
+
+    , 'processNewSlotL
     ]

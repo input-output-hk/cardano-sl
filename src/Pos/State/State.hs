@@ -45,6 +45,8 @@ module Pos.State.State
        , getOurShares
        ) where
 
+import           Universum
+
 import           Crypto.Random            (seedNew, seedToInteger)
 import           Data.Acid                (EventResult, EventState, QueryEvent,
                                            UpdateEvent)
@@ -52,7 +54,7 @@ import           Data.Default             (Default)
 import           Data.List.NonEmpty       (NonEmpty)
 import           Pos.DHT                  (DHTResponseT)
 import           Serokell.Util            (VerificationRes)
-import           Universum
+import           System.Wlog              (HasLoggerName, LoggerName)
 
 import           Pos.Crypto               (PublicKey, SecretKey, Share, Threshold,
                                            VssKeyPair, VssPublicKey)
@@ -88,12 +90,13 @@ type WorkModeDB ssc m = (MonadIO m, MonadDB ssc m)
 -- | State of the node.
 type NodeState ssc = DiskState ssc
 
-type QUConstraint ssc m = (SscStorageMode ssc, WorkModeDB ssc m)
+type QUConstraint  ssc m = (SscStorageMode ssc, WorkModeDB ssc m)
+type QULConstraint ssc m = (SscStorageMode ssc, WorkModeDB ssc m, HasLoggerName m)
 
 -- | Open NodeState, reading existing state from disk (if any).
 openState
     :: (SscStorageMode ssc, Default (SscStorage ssc),
-        MonadIO m, MonadSlots m)
+        MonadIO m, MonadSlots m, HasLoggerName m)
     => Maybe (Storage ssc)
     -> Bool
     -> FilePath
@@ -103,22 +106,23 @@ openState storage deleteIfExists fp =
                         (\s -> A.openStateCustom s deleteIfExists fp)
                         storage
 
-
 -- | Open NodeState which doesn't store anything on disk. Everything
 -- is stored in memory and will be lost after shutdown.
 openMemState
     :: (SscStorageMode ssc, Default (SscStorage ssc),
-        MonadIO m, MonadSlots m)
+        MonadIO m, MonadSlots m, HasLoggerName m)
     => Maybe (Storage ssc)
     -> m (NodeState ssc)
 openMemState = openStateDo . maybe A.openMemState A.openMemStateCustom
 
-openStateDo :: (MonadIO m, MonadSlots m, SscStorageMode ssc)
-            => m (DiskState ssc)
-            -> m (NodeState ssc)
+openStateDo
+    :: forall ssc m .
+       (MonadIO m, MonadSlots m, SscStorageMode ssc, HasLoggerName m)
+    => m (DiskState ssc)
+    -> m (NodeState ssc)
 openStateDo openDiskState = do
     st <- openDiskState
-    _ <- A.update st . A.ProcessNewSlot =<< getCurrentSlot
+    _  <- A.updateWithLog st . A.ProcessNewSlotL =<< getCurrentSlot
     st <$ tidyState st
 
 -- | Safely close NodeState.
@@ -140,6 +144,17 @@ updateDisk
     => event
     -> m (EventResult event)
 updateDisk e = flip A.update e =<< getNodeState
+
+updateDiskWithLog
+     :: ( SscStorageClass ssc
+        , EventState event ~ (Storage ssc)
+        , EventResult event ~ (a, Text)
+        , UpdateEvent event
+        , WorkModeDB ssc m
+        , HasLoggerName m)
+     => (LoggerName -> event)
+     -> m (a, Text)
+updateDiskWithLog le = flip A.updateWithLog le =<< getNodeState
 
 -- | Get list of slot leaders for the given epoch. Empty list is returned
 -- if no information is available.
@@ -194,8 +209,8 @@ processTx = updateDisk . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot. Ideally it should
 -- be used before all other updates within this slot.
-processNewSlot :: QUConstraint ssc m => SlotId -> m (Maybe (GenesisBlock ssc))
-processNewSlot = updateDisk . A.ProcessNewSlot
+processNewSlot :: QULConstraint ssc m => SlotId -> m (Maybe (GenesisBlock ssc), Text)
+processNewSlot = updateDiskWithLog . A.ProcessNewSlotL
 
 -- | Process some Block received from the network.
 processBlock :: QUConstraint ssc m

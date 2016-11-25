@@ -41,8 +41,8 @@ import           Pos.WorkMode           (ProductionMode, RealMode)
 
 import           GenOptions             (GenOptions (..), optsInfo)
 import           TxAnalysis             (checkWorker, createTxTimestamps, registerSentTx)
-import           TxGeneration           (BambooPool, createBambooPool, initTransaction,
-                                         nextValidTx, peekTx, resetBamboo)
+import           TxGeneration           (BambooPool, createBambooPool, curBambooTx,
+                                         initTransaction, nextValidTx, resetBamboo)
 import           Util
 
 
@@ -59,7 +59,7 @@ seedInitTx bp initTx na = do
     logInfo "Waiting for 1 slot before resending..."
     wait $ for slotDuration
     -- If next tx is present in utxo, then everything is all right
-    tx <- liftIO $ peekTx bp
+    tx <- liftIO $ curBambooTx bp 1
     isVer <- isTxVerified tx
     if isVer
         then pure ()
@@ -131,20 +131,26 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
             logInfo $ sformat ("CURRENT TXNUM: "%int) txNum
             -- prevent periods longer than we expected
             unless (preStartT - beginT > round (roundDuration * 1000)) $ do
-                transaction <- nextValidTx bambooPool tpsDelta goTPS goPropThreshold
-                let curTxId = hash transaction
-
+                eTx <- nextValidTx bambooPool goTPS goPropThreshold
                 startT <- getPosixMs
-                logInfo $ sformat ("Sending transaction #"%int) idx
-                submitTxRaw na transaction
-                liftIO $ modifyIORef' realTxNum (+1)
+                case eTx of
+                    Left parent -> do
+                        logInfo $ sformat ("Transaction #"%int%" is not verified yet!") idx
+                        logInfo "Resend the transaction parent again"
+                        submitTxRaw na parent
+
+                    Right transaction -> do
+                        let curTxId = hash transaction
+                        logInfo $ sformat ("Sending transaction #"%int) idx
+                        submitTxRaw na transaction
+                        liftIO $ modifyIORef' realTxNum (+1)
+
+                        -- put timestamp to current txmap
+                        liftIO $ registerSentTx txTimestamps curTxId $ fromIntegral startT * 1000
 
                 endT <- getPosixMs
                 let runDelta = endT - startT
                 wait $ for $ ms (max 0 $ tpsDelta - runDelta)
-
-                -- put timestamp to current txmap
-                liftIO $ registerSentTx txTimestamps curTxId $ fromIntegral startT * 1000
 
         liftIO $ resetBamboo bambooPool
         finishT <- getPosixMs

@@ -2,27 +2,25 @@ module TxGeneration
        ( BambooPool
        , initTransaction
        , createBambooPool
+       , curBambooTx
        , peekTx
        , nextValidTx
        , resetBamboo
        ) where
 
-import           Control.TimeWarp.Timed (for, ms, sec, wait)
+import           Control.TimeWarp.Timed (sec)
 import           Data.Array.IO          (IOArray)
 import           Data.Array.MArray      (newListArray, readArray, writeArray)
 import           Data.IORef             (IORef, modifyIORef', newIORef, readIORef,
                                          writeIORef)
-import           Data.List              (head, tail, (!!))
-import           Formatting             (sformat, (%))
-import           System.Wlog            (logInfo)
+import           Data.List              (tail, (!!))
 import           Universum              hiding (head)
 
 import           Pos.Constants          (k, slotDuration)
 import           Pos.Crypto             (SecretKey, hash, sign, unsafeHash)
 import           Pos.Genesis            (genesisAddresses, genesisSecretKeys)
 import           Pos.State              (isTxVerified)
-import           Pos.Types              (Address, Tx (..), TxId, TxIn (..), TxOut (..),
-                                         txF)
+import           Pos.Types              (Address, Tx (..), TxId, TxIn (..), TxOut (..))
 import           Pos.WorkMode           (WorkMode)
 
 import           GenOptions             (GenOptions (..))
@@ -66,7 +64,7 @@ data BambooPool = BambooPool
 createBambooPool :: SecretKey -> Address -> Tx -> IO BambooPool
 createBambooPool sk addr tx = BambooPool <$> newListArray (0, outputsN - 1) bamboos <*> newIORef 0
     where outputsN = length $ txOutputs tx
-          bamboos = --map (tx :) $
+          bamboos = map (tx :) $
                     map (genChain sk addr (hash tx) . fromIntegral) [0 .. outputsN - 1]
 
 shiftTx :: BambooPool -> IO ()
@@ -84,22 +82,27 @@ nextBamboo BambooPool {..} curTps propThreshold = do
 resetBamboo :: BambooPool -> IO ()
 resetBamboo BambooPool {..} = writeIORef bpCurIdx 0
 
-peekTx :: BambooPool -> IO Tx
-peekTx BambooPool {..} =
-    readIORef bpCurIdx >>=
-    fmap head . readArray bpChains
+getTx :: BambooPool -> Int -> Int -> IO Tx
+getTx BambooPool {..} bambooIdx txIdx =
+    (!! txIdx) <$> readArray bpChains bambooIdx
 
-nextValidTx :: WorkMode ssc m => BambooPool -> Int -> Double -> Int -> m Tx
-nextValidTx bp tpsDelta curTps propThreshold = do
-    tx <- liftIO $ peekTx bp
-    isVer <- isTxVerified tx
-    if isVer
-        then liftIO $ do
+curBambooTx :: BambooPool -> Int -> IO Tx
+curBambooTx bp@BambooPool {..} idx =
+    join $ getTx bp <$> readIORef bpCurIdx <*> pure idx
+
+peekTx :: BambooPool -> IO Tx
+peekTx bp = curBambooTx bp 0
+
+nextValidTx :: WorkMode ssc m => BambooPool -> Double -> Int -> m (Either Tx Tx)
+nextValidTx bp curTps propThreshold = do
+    curTx <- liftIO $ curBambooTx bp 1
+    isVer <- isTxVerified curTx
+    liftIO $ if isVer
+        then do
         shiftTx bp
         nextBamboo bp curTps propThreshold
-        return tx
+        return $ Right curTx
         else do
-        logInfo $ sformat ("Transaction "%txF%"is not verified yet!") tx
-        liftIO $ nextBamboo bp curTps propThreshold
-        wait $ for $ ms tpsDelta
-        nextValidTx bp tpsDelta curTps propThreshold
+        parentTx <- peekTx bp
+        nextBamboo bp curTps propThreshold
+        return $ Left parentTx

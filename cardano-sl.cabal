@@ -359,6 +359,7 @@ executable cardano-smart-generator
   other-modules:       GenOptions
                        TxGeneration
                        TxAnalysis
+                       Util
   build-depends:       QuickCheck
                      , base
                      , aeson

@@ -11,7 +11,7 @@ import           Data.IORef             (modifyIORef', newIORef, readIORef)
 import           Data.List              ((!!))
 import           Data.Text.IO           (appendFile, writeFile)
 import           Data.Time.Clock.POSIX  (getPOSIXTime)
-import           Formatting             (build, fixed, float, int, sformat, (%))
+import           Formatting             (float, int, sformat, (%))
 import           Options.Applicative    (execParser)
 import           System.Wlog            (logInfo)
 import           Test.QuickCheck        (arbitrary, generate)
@@ -35,15 +35,16 @@ import           Pos.Ssc.NistBeacon     (SscNistBeacon)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 import           Pos.State              (isTxVerified)
 import           Pos.Statistics         (getNoStatsT)
-import           Pos.Types              (Tx (..), TxId)
+import           Pos.Types              (Tx (..))
 import           Pos.Util.JsonLog       ()
 import           Pos.WorkMode           (ProductionMode, RealMode)
 
 import           GenOptions             (GenOptions (..), optsInfo)
-import           TxAnalysis             (checkWorker, createTxTimestamps, dumpTxTable,
-                                         registerSentTx)
+import           TxAnalysis             (checkWorker, createTxTimestamps, registerSentTx)
 import           TxGeneration           (BambooPool, createBambooPool, initTransaction,
                                          nextValidTx, peekTx, resetBamboo)
+import           Util
+
 
 realListeners :: SscConstraint ssc => NodeParams -> [ListenerDHT (RealMode ssc)]
 realListeners params = addDevListeners params noStatsListeners
@@ -108,7 +109,7 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
     let startMeasurementsT =
             initialT + (k + goPropThreshold) * fromIntegral (slotDuration `div` ms 1)
 
-    _ <- forFold (goInitTps, goTpsIncreaseStep) [1 .. goRoundNumber] $
+    void $ forFold (goInitTps, goTpsIncreaseStep) [1 .. goRoundNumber] $
         \(goTPS, increaseStep) (roundNum :: Int) -> do
         logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)
             roundNum goRoundNumber goTPS
@@ -170,26 +171,6 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
                 tpsCsvFormat (globalTime, goTPS, realTPS)
 
             return (newTPS, newStep)
-
-    vers <- liftIO $ dumpTxTable txTimestamps
-    liftIO $ appendFile verifyCsvFile $
-        mconcat $ map verifyCsvFormat vers
-
-verifyCsvFile, tpsCsvFile :: FilePath
-verifyCsvFile = "smart-gen-verifications.csv"
-tpsCsvFile = "smart-gen-tps.csv"
-
-verifyCsvHeader, tpsCsvHeader :: Text
-tpsCsvHeader = "global_time,round_tps,real_tps\n"
-verifyCsvHeader = "transaction_id,sending_ts,verification_ts\n"
-
-tpsCsvFormat :: (Double, Double, Double) -> Text
-tpsCsvFormat (gtime, roundTPS, realTPS) =
-    sformat (fixed 2%","%fixed 2%","%fixed 2%"\n") gtime roundTPS realTPS
-
-verifyCsvFormat :: (TxId, Word64, Word64) -> Text
-verifyCsvFormat (txId, sendTs, verifyTs) =
-    sformat (build%","%int%","%int%"\n") txId sendTs verifyTs
 
 -----------------------------------------------------------------------------
 -- Main

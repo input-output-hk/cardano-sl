@@ -143,10 +143,10 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
                         let curTxId = hash transaction
                         logInfo $ sformat ("Sending transaction #"%int) idx
                         submitTxRaw na transaction
-                        liftIO $ modifyIORef' realTxNum (+1)
-
-                        -- put timestamp to current txmap
-                        liftIO $ registerSentTx txTimestamps curTxId $ fromIntegral startT * 1000
+                        when (startT >= startMeasurementsT) $ liftIO $ do
+                            modifyIORef' realTxNum (+1)
+                            -- put timestamp to current txmap
+                            registerSentTx txTimestamps curTxId $ fromIntegral startT * 1000
 
                 endT <- getPosixMs
                 let runDelta = endT - startT
@@ -155,28 +155,25 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         liftIO $ resetBamboo bambooPool
         finishT <- getPosixMs
 
+        realTxNumVal <- liftIO $ readIORef realTxNum
+
+        let realBeginT = max beginT startMeasurementsT
+            globalTime, realTPS :: Double
+            globalTime = (fromIntegral (finishT - realBeginT)) / 1000
+            realTPS = (fromIntegral realTxNumVal) / globalTime
+            (newTPS, newStep) = if realTPS >= goTPS - 5
+                                then (goTPS + increaseStep, increaseStep)
+                                else (realTPS, increaseStep / 2)
+
         putText "----------------------------------------"
-        if beginT < startMeasurementsT
-            then putText "Skipping measurements for initial txs" >>
-                 pure (goTPS, increaseStep)
-            else do
-            realTxNumVal <- liftIO $ readIORef realTxNum
+        putText $ "Sending transactions took (s): " <> show globalTime
+        putText $ "So real tps was: " <> show realTPS
 
-            let globalTime, realTPS :: Double
-                globalTime = (fromIntegral (finishT - beginT)) / 1000
-                realTPS = (fromIntegral realTxNumVal) / globalTime
-                (newTPS, newStep) = if realTPS >= goTPS - 5
-                                    then (goTPS + increaseStep, increaseStep)
-                                    else (realTPS, increaseStep / 2)
+        -- We collect tables of really generated tps
+        liftIO $ appendFile tpsCsvFile $
+            tpsCsvFormat (globalTime, goTPS, realTPS)
 
-            putText $ "Sending transactions took (s): " <> show globalTime
-            putText $ "So real tps was: " <> show realTPS
-
-            -- We collect tables of really generated tps
-            liftIO $ appendFile tpsCsvFile $
-                tpsCsvFormat (globalTime, goTPS, realTPS)
-
-            return (newTPS, newStep)
+        return (newTPS, newStep)
 
 -----------------------------------------------------------------------------
 -- Main

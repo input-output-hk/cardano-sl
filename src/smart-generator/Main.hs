@@ -167,7 +167,9 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
             realTPS = (fromIntegral realTxNumVal) / globalTime
             (newTPS, newStep) = if realTPS >= goTPS - 5
                                 then (goTPS + increaseStep, increaseStep)
-                                else (realTPS, increaseStep / 2)
+                                else if realTPS >= goTPS * 0.8
+                                     then (goTPS, increaseStep)
+                                     else (realTPS, increaseStep / 2)
 
         putText "----------------------------------------"
         putText $ "Sending transactions took (s): " <> show globalTime

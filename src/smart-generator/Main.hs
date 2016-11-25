@@ -5,7 +5,7 @@
 module Main where
 
 import           Control.TimeWarp.Rpc   (NetworkAddress)
-import           Control.TimeWarp.Timed (for, fork_, ms, wait)
+import           Control.TimeWarp.Timed (Microsecond, for, fork_, ms, sec, wait)
 import           Data.Default           (def)
 import           Data.IORef             (modifyIORef', newIORef, readIORef)
 import           Data.List              ((!!))
@@ -18,7 +18,7 @@ import           Test.QuickCheck        (arbitrary, generate)
 import           Universum
 
 import           Pos.Communication      (allListeners)
-import           Pos.Constants          (slotDuration)
+import           Pos.Constants          (k, slotDuration)
 import           Pos.Crypto             (KeyPair (..), hash)
 import           Pos.DHT                (DHTNodeType (..), ListenerDHT, dhtAddr,
                                          discoverPeers, mapListenerDHT)
@@ -43,7 +43,7 @@ import           GenOptions             (GenOptions (..), optsInfo)
 import           TxAnalysis             (checkWorker, createTxTimestamps, dumpTxTable,
                                          registerSentTx)
 import           TxGeneration           (BambooPool, createBambooPool, initTransaction,
-                                         nextValidTx, peekTx)
+                                         nextValidTx, peekTx, resetBamboo)
 
 realListeners :: SscConstraint ssc => NodeParams -> [ListenerDHT (RealMode ssc)]
 realListeners params = addDevListeners params noStatsListeners
@@ -104,23 +104,33 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         writeFile tpsCsvFile tpsCsvHeader
         writeFile verifyCsvFile verifyCsvHeader
 
+    initialT <- getPosixMs
+    let startMeasurementsT =
+            initialT + (k + goPropThreshold) * fromIntegral (slotDuration `div` ms 1)
+
     _ <- forFold (goInitTps, goTpsIncreaseStep) [1 .. goRoundNumber] $
         \(goTPS, increaseStep) (roundNum :: Int) -> do
         logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)
             roundNum goRoundNumber goTPS
 
         let tpsDelta = round $ 1000 / goTPS
-            txNum = round $ goRoundDuration * goTPS
+            roundDuration =
+                fromIntegral ((k + goPropThreshold) * goRoundPeriodRate + 1) *
+                fromIntegral (slotDuration `div` sec 1)
+            txNum = round $ roundDuration * goTPS
 
         realTxNum <- liftIO $ newIORef (0 :: Int)
+
+        -- Make a pause between rounds
+        wait $ for (round $ goRoundPause * fromIntegral (sec 1) :: Microsecond)
 
         beginT <- getPosixMs
         forM_ [0 .. txNum - 1] $ \(idx :: Int) -> do
             preStartT <- getPosixMs
             logInfo $ sformat ("CURRENT TXNUM: "%int) txNum
             -- prevent periods longer than we expected
-            unless (preStartT - beginT > round (goRoundDuration * 1000)) $ do
-                transaction <- nextValidTx bambooPool tpsDelta
+            unless (preStartT - beginT > round (roundDuration * 1000)) $ do
+                transaction <- nextValidTx bambooPool tpsDelta goTPS goPropThreshold
                 let curTxId = hash transaction
 
                 startT <- getPosixMs
@@ -135,28 +145,31 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
                 -- put timestamp to current txmap
                 liftIO $ registerSentTx txTimestamps curTxId $ fromIntegral startT * 1000
 
+        liftIO $ resetBamboo bambooPool
         finishT <- getPosixMs
-        realTxNumVal <- liftIO $ readIORef realTxNum
-
-        let globalTime, realTPS :: Double
-            globalTime = (fromIntegral (finishT - beginT)) / 1000
-            realTPS = (fromIntegral realTxNumVal) / globalTime
-            (newTPS, newStep) = if realTPS >= goTPS - 5
-                                then (goTPS + increaseStep, increaseStep)
-                                else (realTPS, increaseStep / 2)
 
         putText "----------------------------------------"
---        putText "wrote json to ./timestampsTxSender.json"
---        liftIO $ LBS.writeFile "timestampsTxSender.json" $
---            encode $ M.toList resMap
-        putText $ "Sending transactions took (s): " <> show globalTime
-        putText $ "So real tps was: " <> show realTPS
+        if beginT < startMeasurementsT
+            then putText "Skipping measurements for initial txs" >>
+                 pure (goTPS, increaseStep)
+            else do
+            realTxNumVal <- liftIO $ readIORef realTxNum
 
-        -- We collect tables of really generated tps
-        liftIO $ appendFile tpsCsvFile $
-            tpsCsvFormat (globalTime, goTPS, realTPS)
+            let globalTime, realTPS :: Double
+                globalTime = (fromIntegral (finishT - beginT)) / 1000
+                realTPS = (fromIntegral realTxNumVal) / globalTime
+                (newTPS, newStep) = if realTPS >= goTPS - 5
+                                    then (goTPS + increaseStep, increaseStep)
+                                    else (realTPS, increaseStep / 2)
 
-        return (newTPS, newStep)
+            putText $ "Sending transactions took (s): " <> show globalTime
+            putText $ "So real tps was: " <> show realTPS
+
+            -- We collect tables of really generated tps
+            liftIO $ appendFile tpsCsvFile $
+                tpsCsvFormat (globalTime, goTPS, realTPS)
+
+            return (newTPS, newStep)
 
     vers <- liftIO $ dumpTxTable txTimestamps
     liftIO $ appendFile verifyCsvFile $

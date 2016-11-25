@@ -4,12 +4,14 @@ module TxGeneration
        , createBambooPool
        , peekTx
        , nextValidTx
+       , resetBamboo
        ) where
 
 import           Control.TimeWarp.Timed (for, ms, sec, wait)
 import           Data.Array.IO          (IOArray)
-import           Data.Array.MArray      (MArray (..), newListArray, readArray, writeArray)
-import           Data.IORef             (IORef, modifyIORef', newIORef, readIORef)
+import           Data.Array.MArray      (newListArray, readArray, writeArray)
+import           Data.IORef             (IORef, modifyIORef', newIORef, readIORef,
+                                         writeIORef)
 import           Data.List              (head, tail, (!!))
 import           Formatting             (sformat, (%))
 import           System.Wlog            (logInfo)
@@ -29,6 +31,10 @@ import           GenOptions             (GenOptions (..))
 -- txChain i = genChain (genesisSecretKeys !! i) addr (unsafeHash addr) 0
 --   where addr = genesisAddresses !! i
 
+tpsTxBound :: Double -> Int -> Int
+tpsTxBound tps propThreshold =
+    round tps * (k + propThreshold) * fromIntegral (slotDuration `div` sec 1)
+
 genChain :: SecretKey -> Address -> TxId -> Word32 -> [Tx]
 genChain secretKey addr txInHash txInIndex =
     let txOutValue = 1
@@ -39,8 +45,8 @@ genChain secretKey addr txInHash txInIndex =
 
 initTransaction :: GenOptions -> Tx
 initTransaction GenOptions {..} =
-    let maxTps = round $ goInitTps + goTpsIncreaseStep * fromIntegral goRoundNumber
-        n' = maxTps * (k + goPropThreshold) * fromIntegral (slotDuration `div` sec 1)
+    let maxTps = goInitTps + goTpsIncreaseStep * fromIntegral goRoundNumber
+        n' = tpsTxBound maxTps goPropThreshold
         n = min n' goInitBalance
         i = fromIntegral goGenesisIdx
         txOutAddress = genesisAddresses !! i
@@ -69,28 +75,30 @@ shiftTx BambooPool {..} = do
     chain <- readArray bpChains idx
     writeArray bpChains idx $ tail chain
 
-nextBamboo :: BambooPool -> IO ()
-nextBamboo BambooPool {..} = do
-    lastChainIdx <- snd <$> getBounds bpChains
+nextBamboo :: BambooPool -> Double -> Int -> IO ()
+nextBamboo BambooPool {..} curTps propThreshold = do
     modifyIORef' bpCurIdx $ \idx ->
-        (idx + 1) `mod` (lastChainIdx + 1)
+        (idx + 1) `mod` (tpsTxBound curTps propThreshold)
+
+resetBamboo :: BambooPool -> IO ()
+resetBamboo BambooPool {..} = writeIORef bpCurIdx 0
 
 peekTx :: BambooPool -> IO Tx
 peekTx BambooPool {..} =
     readIORef bpCurIdx >>=
     fmap head . readArray bpChains
 
-nextValidTx :: WorkMode ssc m => BambooPool -> Int -> m Tx
-nextValidTx bp tpsDelta = do
+nextValidTx :: WorkMode ssc m => BambooPool -> Int -> Double -> Int -> m Tx
+nextValidTx bp tpsDelta curTps propThreshold = do
     tx <- liftIO $ peekTx bp
     isVer <- isTxVerified tx
     if isVer
         then liftIO $ do
         shiftTx bp
-        nextBamboo bp
+        nextBamboo bp curTps propThreshold
         return tx
         else do
         logInfo $ sformat ("Transaction "%txF%"is not verified yet!") tx
-        liftIO $ nextBamboo bp
+        liftIO $ nextBamboo bp curTps propThreshold
         wait $ for $ ms tpsDelta
-        nextValidTx bp tpsDelta
+        nextValidTx bp tpsDelta curTps propThreshold

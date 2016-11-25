@@ -24,8 +24,10 @@ import           Data.Binary                   (Binary)
 import qualified Data.HashMap.Strict           as HM
 import           Data.MessagePack              (MessagePack)
 import           Data.SafeCopy                 (base, deriveSafeCopySimple)
+import qualified Data.Text                     as T
 import           Data.Text.Buildable           (Buildable (..))
-import           Formatting                    (bprint, (%))
+import           Data.Text.Lazy.Builder        (fromText)
+import           Formatting                    (sformat, (%))
 import           Serokell.Util                 (listJson)
 import           Universum
 
@@ -57,16 +59,19 @@ instance MessagePack GtPayload
 
 instance Buildable GtPayload where
     build GtPayload {..} =
-        mconcat
-            [ formatCommitments
+        formatMPC $ mconcat
+            [ (formatCommitments :: Text)
             , formatOpenings
             , formatShares
             , formatCertificates
             ]
       where
+        formatMPC msg
+            | T.null msg = "  no MPC data"
+            | otherwise = fromText msg
         formatIfNotNull formatter l
             | null l = mempty
-            | otherwise = bprint formatter l
+            | otherwise = sformat formatter l
         formatCommitments =
             formatIfNotNull
                 ("  commitments from: "%listJson%"\n")

@@ -195,7 +195,6 @@ canCreateBlock sId = do
 processBlock :: SscStorageClass ssc
     => SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
 processBlock curSlotId blk = do
-    -- TODO: I guess these checks should be part of block verification actually.
     let verifyMpc mainBlk =
             untag sscVerifyPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
     let mpcRes = either (const mempty) verifyMpc blk

@@ -70,7 +70,6 @@ onNewSlotWhenLeader slotId = do
     logInfo $
         sformat ("Waiting for "%shown%" before creating block") timeToWait
     wait (for timeToWait)
-    -- TODO: provide a single function which does all verifications.
     let verifyCreatedBlock blk =
             untag sscVerifyPayload
             (blk ^. gbHeader) (blk ^. blockMpc)

@@ -109,6 +109,7 @@ buildProperTx triplesList (inCoin, outCoin)= do
             goodTx = fmap newTx txList
         return goodTx
 
+-- | Well-formed transaction 'Tx'.
 newtype GoodTx = GoodTx
     { getGoodTx :: [(Tx, TxIn, TxOut)]
     } deriving (Show)
@@ -119,6 +120,7 @@ instance Arbitrary GoodTx where
             (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
         buildProperTx txsList (identity, identity)
 
+-- | Ill-formed 'Tx' with overflow.
 newtype OverflowTx = OverflowTx
     { getOverflowTx :: [(Tx, TxIn, TxOut)]
     } deriving (Show)
@@ -130,6 +132,7 @@ instance Arbitrary OverflowTx where
         let halfBound = maxBound `div` 2
         buildProperTx txsList ((halfBound +), (halfBound -))
 
+-- | Ill-formed 'Tx' with bad signatures.
 newtype BadSigsTx = BadSigsTx
     { getBadSigsTx :: [(Tx, TxIn, TxOut)]
     } deriving (Show)

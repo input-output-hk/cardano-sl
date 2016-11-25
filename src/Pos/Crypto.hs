@@ -1,12 +1,15 @@
 -- | Re-export of Crypto modules.
 
 module Pos.Crypto
-       (
-         module Crypto
+       ( module Pos.Crypto.Arbitrary
+       , module Pos.Crypto.Hashing
+       , module Pos.Crypto.Random
+       , module Pos.Crypto.SecretSharing
+       , module Pos.Crypto.Signing
        ) where
 
-import           Pos.Crypto.Arbitrary     as Crypto
-import           Pos.Crypto.Hashing       as Crypto
-import           Pos.Crypto.Random        as Crypto
-import           Pos.Crypto.SecretSharing as Crypto
-import           Pos.Crypto.Signing       as Crypto
+import           Pos.Crypto.Arbitrary
+import           Pos.Crypto.Hashing
+import           Pos.Crypto.Random
+import           Pos.Crypto.SecretSharing
+import           Pos.Crypto.Signing

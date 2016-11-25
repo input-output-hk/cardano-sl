@@ -124,7 +124,8 @@ main = do
         }
     params args@Args {..} spendingSK vssSK systemStart =
         NodeParams
-        { npDbPath = Just dbPath
+        { npDbPath = if memoryMode then Nothing
+                     else Just dbPath
         , npRebuildDb = rebuildDB
         , npSecretKey = spendingSK
         , npSystemStart = systemStart

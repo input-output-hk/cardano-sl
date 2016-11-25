@@ -6,20 +6,22 @@ module Pos.Ssc.GodTossing.Arbitrary
        ( CommitmentOpening (..)
        ) where
 
-import           Data.DeriveTH              (derive, makeArbitrary)
-import           Data.List.NonEmpty         (NonEmpty ((:|)))
-import           Test.QuickCheck            (Arbitrary (..), elements)
+import           Data.DeriveTH                  (derive, makeArbitrary)
+import           Data.List.NonEmpty             (NonEmpty ((:|)))
+import           Test.QuickCheck                (Arbitrary (..), elements)
 import           Universum
 
-import           Pos.Crypto                 (SecretProof, SecretSharingExtra,
-                                             deterministicVssKeyGen, toVssPublicKey)
-import           Pos.Crypto.Arbitrary       ()
-import           Pos.Ssc.GodTossing.Base    (Commitment (..), Opening,
-                                             genCommitmentAndOpening)
-import           Pos.Ssc.GodTossing.Types   (GtProof (..))
-import           Pos.Types.Arbitrary.Unsafe ()
-import           Pos.Util.Arbitrary         (Nonrepeating (..), sublistN, unsafeMakePool)
+import           Pos.Crypto                     (SecretProof, SecretSharingExtra,
+                                                 deterministicVssKeyGen, toVssPublicKey)
+import           Pos.Crypto.Arbitrary           ()
+import           Pos.Ssc.GodTossing.Functions   (genCommitmentAndOpening)
+import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), Opening)
+import           Pos.Ssc.GodTossing.Types.Types (GtProof (..))
+import           Pos.Types.Arbitrary.Unsafe     ()
+import           Pos.Util.Arbitrary             (Nonrepeating (..), sublistN,
+                                                 unsafeMakePool)
 
+-- | Pair of 'Commitment' and 'Opening'.
 data CommitmentOpening = CommitmentOpening
     { coCommitment :: !Commitment
     , coOpening    :: !Opening
@@ -48,8 +50,6 @@ instance Arbitrary Commitment where
 instance Arbitrary Opening where
     arbitrary = coOpening <$> arbitrary
 
--- TODO: these types are not in Pos.Ssc.GodTossing actually, but they are
--- needed and it's not so easy to do it better
 instance Arbitrary SecretSharingExtra where
     arbitrary = commExtra <$> arbitrary
 

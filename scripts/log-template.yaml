@@ -1,8 +1,18 @@
-severity: {{main}}
+severity: Warning
 node:
-    severity: {{server}}
+    severity: Debug
     file: {{file}}
     comm:
-        severity: {{comm}}
-    kademlia:
-        severity: {{dht}}
+        severity: Info
+        file: comm-{{file}}
+    dht:
+        severity: Info
+    server:
+        file: server-{{file}}
+        ssc:
+            file: server-ssc-{{file}}
+        tx:
+            file: server-tx-{{file}}
+        block:
+            file: server-block-{{file}}
+

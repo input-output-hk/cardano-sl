@@ -1,12 +1,25 @@
+{-# LANGUAGE ConstraintKinds  #-}
+{-# LANGUAGE FlexibleContexts #-}
+
 -- | Re-exports of Pos.Ssc.Class.* modules.
 
 module Pos.Ssc.Class
-       (
-         module Class
+       ( module Class
+       , SscConstraint
        ) where
 
 
+import           Data.Default            (Default)
 import           Pos.Ssc.Class.Listeners as Class
+import           Pos.Ssc.Class.LocalData as Class
 import           Pos.Ssc.Class.Storage   as Class
 import           Pos.Ssc.Class.Types     as Class
 import           Pos.Ssc.Class.Workers   as Class
+
+type SscConstraint ssc =
+               (Ssc ssc,
+                Default (SscStorage ssc),
+                SscListenersClass ssc,
+                SscLocalDataClass ssc,
+                SscStorageMode ssc,
+                SscWorkersClass ssc)

@@ -30,6 +30,7 @@ import           Pos.Crypto              (Threshold, deterministicVssKeyGen,
                                           toVssPublicKey)
 import           Pos.FollowTheSatoshi    (followTheSatoshi)
 import           Pos.Ssc.Class.Listeners (SscListenersClass (..))
+import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage   (SscQuery)
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
@@ -39,6 +40,7 @@ import           Pos.Types               (EpochIndex, SharedSeed (..), SlotLeade
 import           Serokell.Util.Verify    (VerificationRes (..))
 import           Universum
 
+-- | Data type tag for Nist Beacon implementation of Shared Seed Calculation.
 data SscNistBeacon
     deriving (Generic)
 
@@ -52,20 +54,18 @@ instance Buildable () where
     build _ = "()"
 
 instance Ssc SscNistBeacon where
+    type SscLocalData SscNistBeacon = ()
     type SscStorage   SscNistBeacon = ()
     type SscPayload   SscNistBeacon = ()
     type SscProof     SscNistBeacon = ()
-    type SscMessage   SscNistBeacon = ()
     type SscSeedError SscNistBeacon = ()
 
     mkSscProof = Tagged $ const ()
+    sscFilterPayload _ _ = ()
 
 instance SscStorageClass SscNistBeacon where
     sscApplyBlocks _ = pass
-    sscPrepareToNewSlot _ = pass
-    sscProcessMessage _ = pure Nothing
     sscRollback _ = pass
-    sscGetLocalPayload _ = pure ()
     sscGetGlobalPayload = pure ()
     sscGetGlobalPayloadByDepth _ = pure Nothing
     sscVerifyBlocks _ _ = pure VerSuccess
@@ -99,3 +99,8 @@ instance SscWorkersClass SscNistBeacon where
 
 instance SscListenersClass SscNistBeacon where
     sscListeners = Tagged []
+
+instance SscLocalDataClass SscNistBeacon where
+    sscEmptyLocalData = ()
+    sscGetLocalPayloadQ _ = pure ()
+    sscApplyGlobalPayloadU _ = pure ()

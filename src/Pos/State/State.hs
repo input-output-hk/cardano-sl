@@ -20,11 +20,12 @@ module Pos.State.State
 
        -- * Simple getters.
        , getBlock
+       , getBlockByDepth
        , getHeadBlock
        , getBestChain
        , getLeaders
        , getLocalTxs
-       , getLocalSscPayload
+       , isTxVerified
        , getGlobalMpcData
        , mayBlockBeUseful
 
@@ -34,7 +35,6 @@ module Pos.State.State
        , createNewBlock
        , processBlock
        , processNewSlot
-       , processSscMessage
        , processTx
 
        -- * Functions for generating seed by SSC algorithm.
@@ -58,7 +58,7 @@ import           Pos.Crypto               (PublicKey, SecretKey, Share, Threshol
                                            VssKeyPair, VssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
-import           Pos.Ssc.Class.Types      (Ssc (SscMessage, SscPayload, SscStorage))
+import           Pos.Ssc.Class.Types      (Ssc (SscPayload, SscStorage))
 import           Pos.State.Acidic         (DiskState, tidyState)
 import qualified Pos.State.Acidic         as A
 import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (..),
@@ -69,18 +69,25 @@ import           Pos.Types                (Block, EpochIndex, GenesisBlock, Head
                                            SlotLeaders, Tx)
 
 -- | NodeState encapsulates all the state stored by node.
-class MonadDB ssc m | m -> ssc where
+class Monad m => MonadDB ssc m | m -> ssc where
     getNodeState :: m (NodeState ssc)
 
 -- | Convenient type class to avoid passing NodeState throughout the code.
 instance (Monad m, MonadDB ssc m) => MonadDB ssc (ReaderT r m) where
     getNodeState = lift getNodeState
 
+instance (MonadDB ssc m, Monad m) => MonadDB ssc (StateT s m) where
+    getNodeState = lift getNodeState
+
 instance (Monad m, MonadDB ssc m) => MonadDB ssc (DHTResponseT m) where
     getNodeState = lift getNodeState
 
+-- | IO monad with db access.
 type WorkModeDB ssc m = (MonadIO m, MonadDB ssc m)
+
+-- | State of the node.
 type NodeState ssc = DiskState ssc
+
 type QUConstraint ssc m = (SscStorageMode ssc, WorkModeDB ssc m)
 
 -- | Open NodeState, reading existing state from disk (if any).
@@ -143,22 +150,32 @@ getLeaders = queryDisk . A.GetLeaders
 getBlock :: QUConstraint ssc m => HeaderHash ssc -> m (Maybe (Block ssc))
 getBlock = queryDisk . A.GetBlock
 
+-- | Get Block by depth
+getBlockByDepth :: QUConstraint ssc m => Word -> m (Maybe (Block ssc))
+getBlockByDepth = queryDisk . A.GetBlockByDepth
+
 -- | Get block which is the head of the __best chain__.
 getHeadBlock :: QUConstraint ssc m => m (Block ssc)
 getHeadBlock = queryDisk A.GetHeadBlock
 
+-- | Return current best chain.
 getBestChain :: QUConstraint ssc m => m (NonEmpty (Block ssc))
 getBestChain = queryDisk A.GetBestChain
 
+-- | Get local transactions list.
 getLocalTxs :: QUConstraint ssc m => m (HashSet Tx)
 getLocalTxs = queryDisk A.GetLocalTxs
 
-getLocalSscPayload :: QUConstraint ssc m => SlotId -> m (SscPayload ssc)
-getLocalSscPayload = queryDisk . A.GetLocalSscPayload
+-- | Checks if tx is verified
+isTxVerified :: QUConstraint ssc m => Tx -> m Bool
+isTxVerified = queryDisk . A.IsTxVerified
 
+-- | Get global SSC data.
 getGlobalMpcData :: QUConstraint ssc m => m (SscPayload ssc)
 getGlobalMpcData = queryDisk A.GetGlobalSscPayload
 
+-- | Check that block header is correct and claims to represent block
+-- which may become part of blockchain.
 mayBlockBeUseful :: QUConstraint ssc m => SlotId -> MainBlockHeader ssc -> m VerificationRes
 mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 
@@ -167,8 +184,9 @@ mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 createNewBlock :: QUConstraint ssc m
                => SecretKey
                -> SlotId
-               -> m (Maybe (MainBlock ssc))
-createNewBlock sk = updateDisk . A.CreateNewBlock sk
+               -> SscPayload ssc
+               -> m (Either Text (MainBlock ssc))
+createNewBlock sk si = updateDisk . A.CreateNewBlock sk si
 
 -- | Process transaction received from other party.
 processTx :: QUConstraint ssc m => Tx -> m ProcessTxRes
@@ -186,9 +204,6 @@ processBlock :: QUConstraint ssc m
              -> m (ProcessBlockRes ssc)
 processBlock si = updateDisk . A.ProcessBlock si
 
-processSscMessage :: QUConstraint ssc m => SscMessage ssc -> m (Maybe (SscMessage ssc))
-processSscMessage = updateDisk . A.ProcessSscMessage
-
 -- | Functions for generating seed by SSC algorithm
 getParticipants
     :: QUConstraint ssc m
@@ -196,16 +211,19 @@ getParticipants
     -> m (Maybe (NonEmpty VssPublicKey))
 getParticipants = queryDisk . A.GetParticipants
 
+-- | Figure out the threshold (i.e. how many secret shares would be required
+-- to recover each node's secret).
 getThreshold :: QUConstraint ssc m
              => EpochIndex
              -> m (Maybe Threshold)
 getThreshold = queryDisk . A.GetThreshold
 
-
 ----------------------------------------------------------------------------
 -- Related to SscGodTossing
 ----------------------------------------------------------------------------
 
+-- | Decrypt shares (in commitments) that are intended for us and that we can
+-- decrypt.
 getOurShares
     :: QUConstraint ssc m
     => VssKeyPair -> m (HashMap PublicKey Share)

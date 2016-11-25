@@ -8,4 +8,5 @@ in
      buildInputs =
        [ zlib glib git cabal-install openssh autoreconfHook stack openssl
          sshpass gmp ];
+     LANG = "en_US.UTF-8";
   }

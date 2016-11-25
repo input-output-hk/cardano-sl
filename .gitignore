@@ -39,3 +39,5 @@ stats-node-*
 *.json
 *.ipynb
 testRun
+*.csv
+my-log-template.yaml

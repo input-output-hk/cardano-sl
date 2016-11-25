@@ -36,7 +36,7 @@ data GenOptions = GenOptions
     -- , goRemoteAddr  :: !NetworkAddress -- ^ Remote node address
     , goDHTPeers           :: ![DHTNode]  -- ^ Initial DHT nodes
     , goRoundDuration      :: !Double     -- ^ Number of seconds per round
-    , goTxFrom             :: !Int        -- ^ Start from UTXO transaction #x
+    , goTxFrom             :: !Int        -- ^ Start from chain transaction #NUM
     , goInitBalance        :: !Int        -- ^ Total coins in init utxo per address
     , goTPSs               :: ![Double]   -- ^ TPS rate
     , goSingleRecipient    :: !Bool       -- ^ Send to only 1 node if flag is set
@@ -145,7 +145,7 @@ main = do
         getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         totalRounds = length goTPSs
 
-    leftTxs <- newIORef $ zip [0..] $ txChain i
+    leftTxs <- newIORef $ take goTxFrom $ zip [0..] $ txChain i
 
     bracketDHTInstance baseParams $ \inst -> do
         runRealMode @SscGodTossing inst params [] $ getNoStatsT $ do

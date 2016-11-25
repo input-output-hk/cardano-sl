@@ -1,8 +1,13 @@
+-- | Implementation of statistics gathering and processing utilities.
+
 module Pos.Statistics
-       ( module Stats
+       ( module Pos.Statistics.Helpers
+       , module Pos.Statistics.MonadStats
+       , module Pos.Statistics.StatEntry
+       , module Pos.Statistics.Tx
        ) where
 
-import           Pos.Statistics.Helpers    as Stats
-import           Pos.Statistics.MonadStats as Stats
-import           Pos.Statistics.StatEntry  as Stats
-import           Pos.Statistics.Tx         as Stats
+import           Pos.Statistics.Helpers
+import           Pos.Statistics.MonadStats
+import           Pos.Statistics.StatEntry
+import           Pos.Statistics.Tx

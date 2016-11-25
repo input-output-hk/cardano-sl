@@ -31,13 +31,14 @@ import           Focus                    (Decision (Remove), alterM)
 import           Serokell.Util            (show')
 import qualified STMContainers.Map        as SM
 import           System.IO.Unsafe         (unsafePerformIO)
-import           System.Wlog              (WithNamedLogger (..))
+import           System.Wlog              (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.DHT                  (DHTResponseT, MonadDHT, MonadMessageDHT (..),
                                            WithDefaultMsgHeader)
 import           Pos.DHT.Real             (KademliaDHT)
 import           Pos.Slotting             (MonadSlots (..))
+import           Pos.Ssc.Class.LocalData  (MonadSscLD (..))
 import           Pos.State                (MonadDB)
 import           Pos.Statistics.StatEntry (StatLabel (..))
 import           Pos.Types                (Timestamp (..))
@@ -55,6 +56,7 @@ class Monad m => MonadStats m where
     logStatM label action = action >>= statLog label
 
 -- TODO: is there a way to avoid such boilerplate for transformers?
+-- UPD: I have and idea how to avoid such boilerplate. Can try later.
 instance MonadStats m => MonadStats (KademliaDHT m) where
     statLog label = lift . statLog label
     resetStat = lift . resetStat
@@ -83,12 +85,13 @@ instance MonadStats m => MonadStats (DHTResponseT m) where
 type instance ThreadId (NoStatsT m) = ThreadId m
 type instance ThreadId (StatsT m) = ThreadId m
 
+-- | Stats wrapper for collecting statistics without collecting it.
 newtype NoStatsT m a = NoStatsT
-    { getNoStatsT :: m a
+    { getNoStatsT :: m a  -- ^ action inside wrapper without collecting statistics
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, MonadDB ssc, WithNamedLogger, MonadDialog p,
+               MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog p,
                MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader,
-               MonadJL)
+               MonadJL, CanLog)
 
 instance MonadTransfer m => MonadTransfer (NoStatsT m) where
     sendRaw addr p = NoStatsT $ sendRaw addr (hoist getNoStatsT p)
@@ -100,6 +103,9 @@ instance MonadResponse m => MonadResponse (NoStatsT m) where
     closeR = lift closeR
     peerAddr = lift peerAddr
 
+instance MonadSscLD ssc m => MonadSscLD ssc (NoStatsT m) where
+    getLocalData = lift getLocalData
+    setLocalData = lift . setLocalData
 
 instance MonadTrans NoStatsT where
     lift = NoStatsT
@@ -110,12 +116,14 @@ instance Monad m => MonadStats (NoStatsT m) where
     resetStat _ = pure ()
     logStatM _ _ = pure ()
 
+-- | Statistics wrapper around some monadic action to collect statistics
+-- during execution of this action. Used in benchmarks.
 newtype StatsT m a = StatsT
-    { getStatsT :: m a
+    { getStatsT :: m a  -- ^ action inside wrapper with collected statistics
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, MonadDB ssc, WithNamedLogger, MonadDialog p,
+               MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog p,
                MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader,
-               MonadJL)
+               MonadJL, CanLog)
 
 instance MonadTransfer m => MonadTransfer (StatsT m) where
     sendRaw addr p = StatsT $ sendRaw addr (hoist getStatsT p)
@@ -126,6 +134,10 @@ instance MonadResponse m => MonadResponse (StatsT m) where
     replyRaw dat = StatsT $ replyRaw (hoist getStatsT dat)
     closeR = lift closeR
     peerAddr = lift peerAddr
+
+instance MonadSscLD ssc m => MonadSscLD ssc (StatsT m) where
+    getLocalData = lift getLocalData
+    setLocalData = lift . setLocalData
 
 instance MonadTrans StatsT where
     lift = StatsT

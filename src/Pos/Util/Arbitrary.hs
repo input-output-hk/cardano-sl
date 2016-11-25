@@ -29,6 +29,7 @@ sublistN n xs
     | length xs < n = panic "sublistN: not enough elements"
     | otherwise     = take n <$> shuffle xs
 
+-- | Type for generating list of unique (nonrepeating) elemets.
 class Nonrepeating a where
     nonrepeating :: Int -> Gen [a]
 
@@ -48,26 +49,26 @@ unsafeMakeList msg action = unsafePerformIO $ do
     putText msg
     action
 
--- | Make arbitrary `ByteString` of given length
+-- | Make arbitrary `ByteString` of given length.
 arbitrarySizedS :: Int -> Gen ByteString
 arbitrarySizedS n = pack <$> vector n
 
+-- | Make arbitrary `ByteString.Lazy` of given length.
 arbitrarySizedSL :: Int -> Gen BL.ByteString
 arbitrarySizedSL n = BL.pack <$> vector n
 
-{- ArbitraryUnsafe class
-~~~~~~~~~~~~~~~~~~~~~~~~
+{-| ArbitraryUnsafe class
+    ~~~~~~~~~~~~~~~~~~~~~~~~
 
-This class is the same as `Arbitrary`, except instances of this class for
-stuff like public/secret keys, VSS shares, commitments etc. are designed
-not to mimic real data as presisely as possible (using OpenSSL random), but
-rather to be simple and efficient.
+    This class is the same as `Arbitrary`, except instances of this class for
+    stuff like public/secret keys, VSS shares, commitments etc. are designed
+    not to mimic real data as presisely as possible (using OpenSSL random), but
+    rather to be simple and efficient.
 
-This is especially useful for benchmarking.
+    This is especially useful for benchmarking.
 
-TODO: embrace some generics to derive `ArbitraryUnsafe` automagically
+    TODO: embrace some generics to derive `ArbitraryUnsafe` automagically
 -}
-
 class ArbitraryUnsafe a where
     arbitraryUnsafe :: Gen a
 

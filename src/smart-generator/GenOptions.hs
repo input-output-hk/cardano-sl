@@ -19,8 +19,9 @@ data GenOptions = GenOptions
     { goGenesisIdx         :: !Word       -- ^ Index in genesis key pairs.
     -- , goRemoteAddr  :: !NetworkAddress -- ^ Remote node address
     , goDHTPeers           :: ![DHTNode]  -- ^ Initial DHT nodes
-    , goRoundDuration      :: !Double     -- ^ Number of seconds per round
+    , goRoundPeriodRate    :: !Int        -- ^ R, where duration of one round is ((k + P) * (R + 1)) * slotDuration
     , goRoundNumber        :: !Int        -- ^ Number of rounds
+    , goRoundPause         :: !Double     -- ^ Pause between rounds (in seconds)
     , goTxFrom             :: !Int        -- ^ Start from UTXO transaction #x
     , goInitBalance        :: !Int        -- ^ Total coins in init utxo per address
     , goInitTps            :: !Double     -- ^ Start TPS rate (it adjusts over time)
@@ -52,13 +53,19 @@ optionsParser = GenOptions
           <> metavar "HOST:PORT/HOST_ID"
           <> help "Initial DHT peer (may be many)")
     <*> option auto
-            (short 'd'
-          <> long "round-duration"
-          <> help "Duration of one testing round")
+            (short 'R'
+          <> long "round-period-rate"
+          <> value 2
+          <> help "R, where duration of one round is ((k + P) * (R + 1)) * slotDuration")
     <*> option auto
             (short 'N'
           <> long "round-number"
           <> help "Number of testing rounds")
+    <*> option auto
+            (short 'p'
+          <> long "round-pause"
+          <> value 0
+          <> help "Pause between rounds (in seconds)")
     <*> option auto
             (long "tx-from-n"
           <> value 0

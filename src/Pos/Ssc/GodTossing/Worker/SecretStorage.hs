@@ -9,9 +9,11 @@ module Pos.Ssc.GodTossing.Worker.SecretStorage
          getSecret
        , setSecret
        , prepareSecretToNewSlot
-       , checkpoint
+       , checkpointSecret
+       , bracket'
+       , SecretStorage
        ) where
---import           Control.Lens               (Lens', use, view, (.=))
+
 import           Control.Monad.State             (get, put)
 import           Data.Acid                       (Query, Update, makeAcidic)
 import           Data.Default                    (def)
@@ -63,7 +65,9 @@ makeAcidic ''GtSecretStorage
     , 'prepare
     ]
 
-bracket' :: (MonadMask m, MonadIO m) => Maybe FilePath -> (ExtendedState GtSecretStorage -> m a) -> m a
+type SecretStorage  = ExtendedState GtSecretStorage
+
+bracket' :: (MonadMask m, MonadIO m) => Maybe FilePath -> (SecretStorage -> m a) -> m a
 bracket' pathToSecret call =
     bracket (maybe
                  openMemGtSecretState
@@ -72,16 +76,15 @@ bracket' pathToSecret call =
              closeExtendedState
              call
 
-getSecret :: (MonadMask m, MonadIO m) => Maybe FilePath -> m (Maybe GtSecret)
-getSecret pathToSecret = bracket' pathToSecret $ flip queryExtended GetS
+getSecret :: MonadIO m => SecretStorage -> m (Maybe GtSecret)
+getSecret = flip queryExtended GetS
 
-setSecret :: (MonadMask m, MonadIO m) => Maybe FilePath -> GtSecret -> m ()
-setSecret pathToSecret secret = bracket' pathToSecret $
-    flip updateExtended (SetS secret)
+setSecret :: MonadIO m => SecretStorage -> GtSecret -> m ()
+setSecret storage secret = updateExtended storage (SetS secret)
 
-prepareSecretToNewSlot :: (MonadMask m, MonadIO m) => Maybe FilePath -> SlotId -> m ()
-prepareSecretToNewSlot pathToSecret slotId = bracket' pathToSecret $
-    flip updateExtended (Prepare slotId)
+prepareSecretToNewSlot :: MonadIO m => SecretStorage -> SlotId -> m ()
+prepareSecretToNewSlot storage slotId =
+    updateExtended storage (Prepare slotId)
 
-checkpoint :: (MonadMask m, MonadIO m) => Maybe FilePath -> m ()
-checkpoint pathToSecret = bracket' pathToSecret $ tidyExtendedState
+checkpointSecret :: MonadIO m => SecretStorage -> m ()
+checkpointSecret = tidyExtendedState

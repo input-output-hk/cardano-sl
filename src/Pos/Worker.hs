@@ -17,7 +17,7 @@ import           Pos.Communication      (SysStartResponse (..))
 import           Pos.Constants          (slotDuration, sysTimeBroadcastSlots)
 import           Pos.DHT                (sendToNetwork)
 import           Pos.Slotting           (onNewSlot)
-import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscOnNewSlot, sscWorkers)
+import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscWorkers)
 import           Pos.Types              (SlotId, flattenSlotId, slotIdF)
 import           Pos.Util               (waitRandomInterval)
 import           Pos.Worker.Block       (blkOnNewSlot, blkWorkers)
@@ -55,8 +55,6 @@ onNewSlotWorkerImpl slotId = do
         send
         waitRandomInterval (ms 500) (slotDuration `div` 2)
         send
-
-    fork_ (untag sscOnNewSlot slotId)
 
     blkOnNewSlot slotId
     logDebug "Finished `blkOnNewSlot`"

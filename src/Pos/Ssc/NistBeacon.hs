@@ -94,7 +94,6 @@ calculateLeaders epoch utxo _ = do
     return $ Right $ fmap getAddress $ followTheSatoshi seed utxo
 
 instance SscWorkersClass SscNistBeacon where
-    sscOnNewSlot = Tagged $ const $ return ()
     sscWorkers = Tagged []
 
 instance SscListenersClass SscNistBeacon where

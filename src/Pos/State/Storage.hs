@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE MultiWayIf             #-}
 {-# LANGUAGE Rank2Types             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TemplateHaskell        #-}
@@ -26,7 +27,6 @@ module Pos.State.Storage
        , getLeaders
        , getLocalTxs
        , isTxVerified
-       , getLocalSscPayload
        , getOurShares
        , getParticipants
        , getThreshold
@@ -39,11 +39,10 @@ module Pos.State.Storage
        , createNewBlock
        , processBlock
        , processNewSlot
-       , processSscMessage
        , processTx
        ) where
 
-import           Control.Lens            (makeClassy, use, view, (.=), (^.))
+import           Control.Lens            (makeClassy, use, (.=), (^.))
 import           Control.Monad.TM        ((.=<<.))
 import           Data.Acid               ()
 import           Data.Default            (Default, def)
@@ -73,11 +72,12 @@ import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           txStorageFromUtxo, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
                                           ProcessTxRes (..), mkPBRabort)
-import           Pos.Types               (Block, EpochIndex, GenesisBlock, MainBlock,
-                                          SlotId (..), SlotLeaders, Utxo, blockMpc,
-                                          blockSlot, blockTxs, epochIndexL, flattenSlotId,
-                                          gbHeader, headerHashG, unflattenSlotId,
-                                          verifyTxAlone)
+import           Pos.Types               (Block, EpochIndex, EpochOrSlot (..),
+                                          GenesisBlock, MainBlock, SlotId (..),
+                                          SlotLeaders, Utxo, blockMpc, blockTxs,
+                                          epochIndexL, epochOrSlot, flattenSlotId,
+                                          gbHeader, getEpochOrSlot, headerHashG,
+                                          unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState, _neLast)
 
 
@@ -130,7 +130,7 @@ instance (Ssc ssc, Default (SscStorage ssc)) => Default (Storage ssc) where
 -- | Create default storage with specified utxo
 storageFromUtxo
     :: (Ssc ssc, Default (SscStorage ssc))
-    => Utxo -> (Storage ssc)
+    => Utxo -> Storage ssc
 storageFromUtxo u =
     Storage
     { __mpcStorage = def
@@ -139,16 +139,8 @@ storageFromUtxo u =
     , _slotId = unflattenSlotId 0
     }
 
-getHeadSlot :: Query ssc (Either EpochIndex SlotId)
-getHeadSlot = bimap (view epochIndexL) (view blockSlot) <$> getHeadBlock
-
--- | Get local SSC data for inclusion into a block for slot N. (Different
--- kinds of data are included into different blocks.)
-getLocalSscPayload
-    :: forall ssc.
-       SscStorageClass ssc
-    => SlotId -> Query ssc (SscPayload ssc)
-getLocalSscPayload = sscGetLocalPayload @ssc
+getHeadSlot :: Query ssc EpochOrSlot
+getHeadSlot = getEpochOrSlot <$> getHeadBlock
 
 -- | Get global SSC data.
 getGlobalSscPayload
@@ -157,46 +149,52 @@ getGlobalSscPayload
     => Query ssc (SscPayload ssc)
 getGlobalSscPayload = sscGetGlobalPayload @ssc
 
--- | Create a new block on top of best chain if possible. Block can
--- be created if:
---
--- * we know genesis block for epoch from given SlotId
---
--- * last known block is not more than k slots away from given SlotId
+-- | Create a new block on top of best chain if possible.
+-- Block can be created if:
+-- • we know genesis block for epoch from given SlotId
+-- • last known block is not more than k slots away from
+-- given SlotId
 createNewBlock
-    :: SscStorageClass ssc
-    => SecretKey -> SlotId -> Update ssc (Maybe (MainBlock ssc))
-createNewBlock sk sId = do
-    ifM (readerToState (canCreateBlock sId))
-        (Just <$> createNewBlockDo sk sId)
-        (pure Nothing)
+    :: (SscStorageClass ssc)
+    => SecretKey
+    -> SlotId
+    -> SscPayload ssc
+    -> Update ssc (Either Text (MainBlock ssc))
+createNewBlock sk sId sscPayload =
+    maybe (Right <$> createNewBlockDo sk sId sscPayload) (pure . Left) =<<
+    readerToState (canCreateBlock sId)
 
 createNewBlockDo
     :: forall ssc.
-       SscStorageClass ssc
-    => SecretKey -> SlotId -> Update ssc (MainBlock ssc)
-createNewBlockDo sk sId = do
+       (SscStorageClass ssc)
+    => SecretKey -> SlotId -> SscPayload ssc -> Update ssc (MainBlock ssc)
+createNewBlockDo sk sId sscPayload = do
+    globalPayload <- readerToState $ getGlobalSscPayload
+    let filteredPayload = sscFilterPayload @ssc sscPayload globalPayload
     txs <- readerToState $ toList <$> getLocalTxs
-    mpcData <- readerToState (sscGetLocalPayload @ssc sId)
-    blk <- blkCreateNewBlock sk sId txs mpcData
+    blk <- blkCreateNewBlock sk sId txs filteredPayload
     let blocks = Right blk :| []
     sscApplyBlocks blocks
     blk <$ txApplyBlocks blocks
 
-canCreateBlock :: SlotId -> Query ssc Bool
+canCreateBlock :: SlotId -> Query ssc (Maybe Text)
 canCreateBlock sId = do
-    maxSlotId <- canCreateBlockMax
-    --identity $! traceM $ "[~~~~~~] canCreateBlock: slotId=" <> pretty slotId <> " < max=" <> pretty max <> " = " <> show (flattenSlotId slotId < flattenSlotId max)
-    return (sId <= maxSlotId)
+    headSlot <- getHeadSlot
+    let maxSlotId = addKSafe $ epochOrSlot (`SlotId` 0) identity headSlot
+    let retRes = return . Just
+    if | sId > maxSlotId ->
+           retRes "slot id is too big, we don't know recent block"
+       | (EpochOrSlot $ Right sId) < headSlot ->
+           retRes "slot id is not biger than one from last known block"
+       | otherwise -> return Nothing
   where
-    canCreateBlockMax = addKSafe . either (`SlotId` 0) identity <$> getHeadSlot
+
     addKSafe si = si {siSlot = min (6 * k - 1) (siSlot si + k)}
 
 -- | Do all necessary changes when a block is received.
 processBlock :: SscStorageClass ssc
     => SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
 processBlock curSlotId blk = do
-    -- TODO: I guess these checks should be part of block verification actually.
     let verifyMpc mainBlk =
             untag sscVerifyPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
     let mpcRes = either (const mempty) verifyMpc blk
@@ -259,10 +257,11 @@ processBlockFinally toRollback blocks = do
     _ <- createGenesisBlock knownEpoch
     return $ PBRgood (toRollback, blocks)
 
--- | Do all necessary changes when new slot starts.
+-- | Do all necessary changes when new slot starts.  Specifically this
+-- function creates genesis block if necessary and does some clean-up.
 processNewSlot
     :: forall ssc.
-       SscStorageClass ssc
+       (SscStorageClass ssc)
     => SlotId -> Update ssc (Maybe (GenesisBlock ssc))
 processNewSlot sId = do
     knownSlot <- use slotId
@@ -272,7 +271,7 @@ processNewSlot sId = do
 
 processNewSlotDo
     :: forall ssc .
-       SscStorageClass ssc
+       (SscStorageClass ssc)
     => SlotId -> Update ssc (Maybe (GenesisBlock ssc))
 processNewSlotDo sId@SlotId {..} = do
     slotId .= sId
@@ -280,8 +279,7 @@ processNewSlotDo sId@SlotId {..} = do
       if siSlot == 0
          then createGenesisBlock @ssc siEpoch
          else pure Nothing
-    blkCleanUp sId
-    sscPrepareToNewSlot @ssc sId $> mGenBlock
+    mGenBlock <$ blkCleanUp sId
 
 -- We create genesis block for i-th epoch when head of currently known
 -- best chain is MainBlock corresponding to one of last `k` slots of
@@ -293,7 +291,7 @@ shouldCreateGenesisBlock :: EpochIndex -> Query ssc Bool
 -- Genesis block for 0-th epoch is hardcoded.
 shouldCreateGenesisBlock 0 = pure False
 shouldCreateGenesisBlock epoch =
-    doCheck . either (`SlotId` 0) identity <$> getHeadSlot
+    doCheck . epochOrSlot (`SlotId` 0) identity <$> getHeadSlot
   where
     doCheck SlotId {..} = siEpoch == epoch - 1 && siSlot >= 5 * k
 
@@ -301,10 +299,7 @@ createGenesisBlock
     :: forall ssc.
        SscStorageClass ssc
     => EpochIndex -> Update ssc (Maybe (GenesisBlock ssc))
-createGenesisBlock epoch = do
-    --readerToState getHeadSlot >>= \hs ->
-    --  identity $! traceM $ "[~~~~~~] createGenesisBlock: epoch="
-    --                       <> pretty epoch <> ", headSlot=" <> pretty (either (`SlotId` 0) identity hs)
+createGenesisBlock epoch =
     ifM (readerToState $ shouldCreateGenesisBlock epoch)
         (Just <$> createGenesisBlockDo epoch)
         (pure Nothing)
@@ -318,7 +313,7 @@ createGenesisBlockDo epoch = do
     leaders <- readerToState $ calculateLeaders epoch
     genBlock <- blkCreateGenesisBlock epoch leaders
     -- Genesis block contains no transactions,
-    --    so we should update only MPC
+    --    so we should update only SSC
     sscApplyBlocks $ Left genBlock :| []
     pure genBlock
 
@@ -382,14 +377,6 @@ getThreshold epoch = do
     fmap getThresholdImpl <$> getParticipants @ssc epoch
   where
     getThresholdImpl (length -> len) = fromIntegral $ len `div` 2 + len `mod` 2
-
--- | Do something with given message, result is whether message has been
--- processed successfully (implementation defined).
-processSscMessage
-    :: forall ssc.
-       SscStorageClass ssc
-    => SscMessage ssc -> Update ssc (Maybe (SscMessage ssc))
-processSscMessage = sscProcessMessage @ssc
 
 -- | Decrypt shares (in commitments) that are intended for us and that we can
 -- decrypt.

@@ -40,3 +40,4 @@ stats-node-*
 *.ipynb
 testRun
 *.csv
+my-log-template.yaml

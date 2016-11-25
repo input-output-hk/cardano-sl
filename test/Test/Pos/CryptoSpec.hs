@@ -18,7 +18,6 @@ import           Pos.Crypto            (Hash, KeyPair (..), PublicKey, SecretKey
                                         Signed, VssPublicKey, deterministic,
                                         fullPublicKeyF, hash, parseFullPublicKey,
                                         randomNumber, sign, toPublic, verify)
--- FIXME: it's bad :(
 import           Pos.Ssc.GodTossing    ()
 
 import           Test.Pos.Util         (binaryEncodeDecode, msgPackEncodeDecode,

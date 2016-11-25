@@ -23,7 +23,6 @@ data CompileConfig = CompileConfig
     , ccNeighboursSendThreshold :: !Int       -- ^ Broadcasting threshold
     , ccGenesisN                :: !Int       -- ^ Number of pre-generated keys
     , ccMaxLocalTxs             :: !Word      -- ^ Max number of transactions in Storage
-    , ccMpcRelayInterval        :: !Int       -- ^ MPC relay interval; to be removed soon
     , ccDefaultPeers            :: ![[Char]]  -- ^ List of default peers
     , ccSysTimeBroadcastSlots   :: !Int       -- ^ Number of slots to broadcast system time
     , ccMpcSendInterval         :: !Word      -- ^ Length of interval for sending MPC message

@@ -40,9 +40,6 @@ import           Pos.Types            (Address (..), Coin, SharedSeed (SharedSee
 ----------------------------------------------------------------------------
 
 -- | List of pairs from 'SecretKey' with corresponding 'PublicKey'.
---
--- TODO get rid of this hardcode !!
--- Secret keys of genesis block participants shouldn't obviously be widely known
 genesisKeyPairs :: [(PublicKey, SecretKey)]
 genesisKeyPairs = map gen [0 .. genesisN - 1]
   where

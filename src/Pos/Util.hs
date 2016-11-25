@@ -19,6 +19,7 @@ module Pos.Util
        , eitherPanic
        , inAssertMode
        , diffDoubleMap
+       , getKeys
 
        -- * Msgpack
        , msgpackFail
@@ -72,6 +73,7 @@ import qualified Data.Binary                   as Binary (encode)
 import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
+import           Data.HashSet                  (fromMap)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty            as NE
 import           Data.MessagePack              (MessagePack (..))
@@ -88,7 +90,7 @@ import           Serokell.Util.Binary          as Binary (decodeFull)
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
                                                 SGR (Reset, SetColor), setSGRCode)
-import           System.Wlog                   (WithNamedLogger, logWarning)
+import           System.Wlog                   (WithLogger, logWarning)
 import           Universum
 import           Unsafe                        (unsafeInit, unsafeLast)
 
@@ -303,7 +305,7 @@ data WaitingDelta
     deriving (Show)
 
 -- | Constraint for something that can be logged in parallel with other action.
-type CanLogInParallel m = (MonadIO m, MonadTimed m, WithNamedLogger m)
+type CanLogInParallel m = (MonadIO m, MonadTimed m, WithLogger m)
 
 -- | Run action and print warning if it takes more time than expected.
 logWarningLongAction :: CanLogInParallel m => WaitingDelta -> Text -> m a -> m a
@@ -317,16 +319,18 @@ logWarningLongAction delta actionTag action = do
 
     -- TODO: avoid code duplication somehow
     waitAndWarn (WaitOnce      s  ) = wait (for s) >> printWarning s
-    waitAndWarn (WaitLinear    s  ) = let waitLoop t = do
-                                              wait $ for t
-                                              printWarning t
-                                              waitLoop (t + s)
+    waitAndWarn (WaitLinear    s  ) = let waitLoop acc = do
+                                              wait $ for s
+                                              printWarning acc
+                                              waitLoop (acc + s)
                                       in waitLoop s
-    waitAndWarn (WaitGeometric s q) = let waitLoop t = do
+    waitAndWarn (WaitGeometric s q) = let waitLoop acc t = do
                                               wait $ for t
-                                              printWarning (convertUnit t :: Second)
-                                              waitLoop (round $ fromIntegral t * q)
-                                      in waitLoop s
+                                              let newAcc = acc + t
+                                              let newT   = round $ fromIntegral t * q
+                                              printWarning (convertUnit newAcc :: Second)
+                                              waitLoop newAcc newT
+                                      in waitLoop 0 s
 
 {- Helper functions to avoid dealing with data type -}
 
@@ -355,7 +359,7 @@ waitRandomInterval minT maxT = do
 
 -- | Wait random interval and then perform given action.
 runWithRandomIntervals
-    :: (MonadIO m, MonadTimed m, WithNamedLogger m)
+    :: (MonadIO m, MonadTimed m, WithLogger m)
     => Microsecond -> Microsecond -> m () -> m ()
 runWithRandomIntervals minT maxT action = do
   waitRandomInterval minT maxT
@@ -378,3 +382,7 @@ instance (Ord k, SafeCopy k, SafeCopy v) =>
         do safePut $ LRU.maxSize lru
            safePut $ LRU.toList lru
     errorTypeName _ = "LRU"
+
+-- | Create HashSet from HashMap's keys
+getKeys :: HashMap k v -> HashSet k
+getKeys = fromMap . void

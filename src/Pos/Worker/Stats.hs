@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 -- | Workers for collecting transaction statistics.
 
 module Pos.Worker.Stats

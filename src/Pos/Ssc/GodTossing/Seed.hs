@@ -9,19 +9,18 @@ module Pos.Ssc.GodTossing.Seed
 
 import           Control.Arrow                 ((&&&))
 import qualified Data.HashMap.Strict           as HM (fromList, lookup, mapMaybe, toList)
-import qualified Data.HashSet                  as HS (difference, fromMap)
+import qualified Data.HashSet                  as HS (difference)
+import           Pos.Util                      (getKeys)
 import           Universum
 
 import           Pos.Crypto                    (PublicKey, Secret, Share, Threshold,
                                                 shareId, unsafeRecoverSecret)
 import           Pos.Ssc.GodTossing.Error      (SeedError (..))
+import           Pos.Ssc.GodTossing.Functions  (secretToSharedSeed, verifyOpening)
 import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
-                                                getOpening, secretToSharedSeed,
-                                                verifyOpening)
+                                                getOpening)
 import           Pos.Types                     (SharedSeed)
 
-getKeys :: HashMap k v -> HashSet k
-getKeys = HS.fromMap . void
 
 -- | Calculate SharedSeed. SharedSeed is a random bytestring that all
 -- nodes generate together and agree on.

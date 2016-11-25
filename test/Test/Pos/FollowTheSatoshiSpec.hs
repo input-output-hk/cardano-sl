@@ -150,6 +150,7 @@ ftsReasonableStake stakeProbability
                    (getStream -> ftsList)
                    (getUtxoStream -> utxoList) =
     let result = go (0,0) ftsList utxoList
+        key = (unsafeHash ("this is unsafe" :: Text), 0)
     in threshold result
   where
     go :: (Int, Int) -> [SharedSeed] -> [StakeAndHolder] -> Int
@@ -161,7 +162,6 @@ ftsReasonableStake stakeProbability
                         fromIntegral $ sum $ map (getCoin . txOutValue) $ M.elems utxo
                     newStake =
                         round $ (stakeProbability * totalStake) / (1 - stakeProbability)
-                    key = (unsafeHash ("this is unsafe" :: Text), 0)
                     newUtxo = M.insert key (TxOut adr newStake) utxo
                 in if elem adr (followTheSatoshi fts newUtxo)
                     then go (1 + present, 1 + total) next nextU

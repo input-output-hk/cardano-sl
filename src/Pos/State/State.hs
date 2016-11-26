@@ -54,7 +54,7 @@ import           Data.Default             (Default)
 import           Data.List.NonEmpty       (NonEmpty)
 import           Pos.DHT                  (DHTResponseT)
 import           Serokell.Util            (VerificationRes)
-import           System.Wlog              (HasLoggerName, LoggerName)
+import           System.Wlog              (HasLoggerName, LogEvent, LoggerName)
 
 import           Pos.Crypto               (PublicKey, SecretKey, Share, Threshold,
                                            VssKeyPair, VssPublicKey)
@@ -148,12 +148,12 @@ updateDisk e = flip A.update e =<< getNodeState
 updateDiskWithLog
      :: ( SscStorageClass ssc
         , EventState event ~ (Storage ssc)
-        , EventResult event ~ (a, Text)
+        , EventResult event ~ (a, [LogEvent])
         , UpdateEvent event
         , WorkModeDB ssc m
         , HasLoggerName m)
      => (LoggerName -> event)
-     -> m (a, Text)
+     -> m (a, [LogEvent])
 updateDiskWithLog le = flip A.updateWithLog le =<< getNodeState
 
 -- | Get list of slot leaders for the given epoch. Empty list is returned
@@ -209,7 +209,7 @@ processTx = updateDisk . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot. Ideally it should
 -- be used before all other updates within this slot.
-processNewSlot :: QULConstraint ssc m => SlotId -> m (Maybe (GenesisBlock ssc), Text)
+processNewSlot :: QULConstraint ssc m => SlotId -> m (Maybe (GenesisBlock ssc), [LogEvent])
 processNewSlot = updateDiskWithLog . A.ProcessNewSlotL
 
 -- | Process some Block received from the network.

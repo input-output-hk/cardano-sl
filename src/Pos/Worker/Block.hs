@@ -13,10 +13,10 @@ module Pos.Worker.Block
 import           Control.Lens              (ix, (^.), (^?))
 import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, wait)
 import           Data.Tagged               (untag)
-import           Formatting                (build, sformat, shown, stext, (%))
+import           Formatting                (build, sformat, shown, (%))
 import           Serokell.Util             (VerificationRes (..), listJson)
 import           Serokell.Util.Exceptions  ()
-import           System.Wlog               (logDebug, logInfo, logWarning)
+import           System.Wlog               (dispatchEvents, logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Communication.Methods (announceBlock)
@@ -38,7 +38,7 @@ blkOnNewSlot :: WorkMode ssc m => SlotId -> m ()
 blkOnNewSlot slotId@SlotId {..} = do
     -- First of all we create genesis block if necessary.
     (mGenBlock, pnsLog) <- processNewSlot slotId
-    logDebug $ sformat ("Pure log after New Slot acid-state:\n"%stext) pnsLog
+    dispatchEvents pnsLog
     forM_ mGenBlock $ \createdBlk -> do
         logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
         jlLog $ jlCreatedBlock (Left createdBlk)

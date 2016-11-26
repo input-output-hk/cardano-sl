@@ -54,7 +54,7 @@ import           Data.SafeCopy         (SafeCopy)
 import           Serokell.AcidState    (ExtendedState, closeExtendedState,
                                         openLocalExtendedState, openMemoryExtendedState,
                                         queryExtended, tidyExtendedState, updateExtended)
-import           System.Wlog           (CanLog, HasLoggerName (..), LoggerName,
+import           System.Wlog           (CanLog, HasLoggerName (..), LogEvent, LoggerName,
                                         LoggerNameBox (..), PureLogger, runPureLog,
                                         usingLoggerName)
 
@@ -88,13 +88,13 @@ update = updateExtended
 updateWithLog
     :: ( SscStorageClass ssc
        , EventState event ~ Storage ssc
-       , EventResult event ~ (a, Text)
+       , EventResult event ~ (a, [LogEvent])
        , UpdateEvent event
        , MonadIO m
        , HasLoggerName m)
     => DiskState ssc
     -> (LoggerName -> event)
-    -> m (a, Text)
+    -> m (a, [LogEvent])
 updateWithLog disc loggedEvent = do
     event <- modifyLoggerName (<> "acid") $ loggedEvent <$> getLoggerName
     updateExtended disc event
@@ -145,24 +145,24 @@ newtype LogUpdate s a = LogUpdate
     { runLogUpdate :: PureLogger (LoggerNameBox (Update s)) a
     } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName, MonadState s)
 
-unwrapLogUpdate :: LogUpdate s a -> LoggerName -> Update s (a, Text)
+unwrapLogUpdate :: LogUpdate s a -> LoggerName -> Update s (a, [LogEvent])
 unwrapLogUpdate lu name = usingLoggerName name $ runPureLog $ runLogUpdate lu
 
 instance ConvertUpdateWithLog
     (LogUpdate storage a)
-    (LoggerName -> Update storage (a, Text))
+    (LoggerName -> Update storage (a, [LogEvent]))
   where
     convertUpdateWithLog = unwrapLogUpdate
 
 instance ConvertUpdateWithLog
     (arg1 -> LogUpdate storage a)
-    (arg1 -> LoggerName -> Update storage (a, Text))
+    (arg1 -> LoggerName -> Update storage (a, [LogEvent]))
   where
     convertUpdateWithLog logF = unwrapLogUpdate . logF
 
 instance ConvertUpdateWithLog
     (arg1 -> arg2 -> LogUpdate storage a)
-    (arg1 -> arg2 -> LoggerName -> Update storage (a, Text))
+    (arg1 -> arg2 -> LoggerName -> Update storage (a, [LogEvent]))
   where
     convertUpdateWithLog logF arg1 = unwrapLogUpdate . logF arg1
 
@@ -171,7 +171,7 @@ instance ConvertUpdateWithLog
 ----------------------------------------------------------------------------
 
 -- | Convenient alias to use in updates with logging.
-type UpdateWithLog ssc a = Update (Storage ssc) (a, Text)
+type UpdateWithLog ssc a = Update (Storage ssc) (a, [LogEvent])
 
 processNewSlotL
     :: (SscStorageClass ssc)

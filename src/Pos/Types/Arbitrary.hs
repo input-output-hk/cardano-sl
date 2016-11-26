@@ -9,6 +9,9 @@ module Pos.Types.Arbitrary
        ( BadSigsTx (..)
        , GoodTx (..)
        , OverflowTx (..)
+       , SmallBadSigsTx (..)
+       , SmallGoodTx (..)
+       , SmallOverflowTx (..)
        ) where
 
 import           Control.Lens               (over, view, _2, _3)
@@ -24,11 +27,24 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              SlotId (..), Tx (..), TxIn (..), TxOut (..))
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
-                                             NonZero (..), choose, vector)
+                                             NonZero (..), choose, scale, vector)
 import           Universum
 
 import           Pos.Crypto.Arbitrary       ()
 import           Pos.Types.Arbitrary.Unsafe ()
+
+makeSmall :: Gen a -> Gen a
+makeSmall = scale f
+  where
+    f 0 = 0
+    f 1 = 1
+    f 2 = 2
+    f 3 = 3
+    f 4 = 3
+    f n
+      | n < 0 = n
+      | otherwise =
+          (round . (sqrt :: Double -> Double) . realToFrac . (`div` 3)) n
 
 ----------------------------------------------------------------------------
 -- Arbitrary core types
@@ -114,16 +130,27 @@ newtype GoodTx = GoodTx
     { getGoodTx :: [(Tx, TxIn, TxOut)]
     } deriving (Show)
 
+newtype SmallGoodTx =
+    SmallGoodTx GoodTx
+    deriving Show
+
 instance Arbitrary GoodTx where
     arbitrary = GoodTx <$> do
         txsList <- getNonEmpty <$>
             (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
         buildProperTx txsList (identity, identity)
 
+instance Arbitrary SmallGoodTx where
+    arbitrary = SmallGoodTx <$> makeSmall arbitrary
+
 -- | Ill-formed 'Tx' with overflow.
 newtype OverflowTx = OverflowTx
     { getOverflowTx :: [(Tx, TxIn, TxOut)]
     } deriving (Show)
+
+newtype SmallOverflowTx =
+    SmallOverflowTx OverflowTx
+    deriving Show
 
 instance Arbitrary OverflowTx where
     arbitrary = OverflowTx <$> do
@@ -132,10 +159,17 @@ instance Arbitrary OverflowTx where
         let halfBound = maxBound `div` 2
         buildProperTx txsList ((halfBound +), (halfBound -))
 
+instance Arbitrary SmallOverflowTx where
+    arbitrary = SmallOverflowTx <$> makeSmall arbitrary
+
 -- | Ill-formed 'Tx' with bad signatures.
 newtype BadSigsTx = BadSigsTx
     { getBadSigsTx :: [(Tx, TxIn, TxOut)]
     } deriving (Show)
+
+newtype SmallBadSigsTx =
+    SmallBadSigsTx BadSigsTx
+    deriving Show
 
 instance Arbitrary BadSigsTx where
     arbitrary = BadSigsTx <$> do
@@ -143,6 +177,9 @@ instance Arbitrary BadSigsTx where
         badSig <- arbitrary
         let addBadSig t = t {txInSig = badSig}
         return $ fmap (over _2 addBadSig) goodTxList
+
+instance Arbitrary SmallBadSigsTx where
+    arbitrary = SmallBadSigsTx <$> makeSmall arbitrary
 
 instance Arbitrary SharedSeed where
     arbitrary = do

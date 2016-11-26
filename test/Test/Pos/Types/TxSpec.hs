@@ -22,9 +22,11 @@ import           Test.QuickCheck.Gen   (Gen)
 import           Universum             hiding ((.&.))
 
 import           Pos.Crypto            (hash, verify)
-import           Pos.Types             (Address (..), BadSigsTx (..), GoodTx (..),
-                                        OverflowTx (..), Tx (..), TxIn (..), TxOut (..),
-                                        topsortTxs, verifyTx, verifyTxAlone)
+import           Pos.Types             (Address (..), BadSigsTx (..),  GoodTx (..),
+                                        OverflowTx (..), SmallBadSigsTx (..),
+                                        SmallGoodTx (..), SmallOverflowTx (..),  Tx (..),
+                                        TxIn (..), TxOut (..), topsortTxs, verifyTx,
+                                        verifyTxAlone)
 import           Pos.Util              (sublistN)
 
 
@@ -121,16 +123,16 @@ individualTxPropertyVerifier (tx@Tx{..}, _, extendedInputs) =
         hasGoodInputs = and $ map mapFun extendedInputs
     in hasGoodSum && hasGoodStructure && hasGoodInputs
 
-validateGoodTx :: GoodTx -> Bool
-validateGoodTx (getGoodTx -> ls) =
+validateGoodTx :: SmallGoodTx -> Bool
+validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
     let triple@(tx, inpResolver, _) =
             getTxFromGoodTx ls
         transactionIsVerified = isVerSuccess $ verifyTx inpResolver tx
         transactionReallyIsGood = individualTxPropertyVerifier triple
     in  transactionIsVerified == transactionReallyIsGood
 
-overflowTx :: OverflowTx -> Bool
-overflowTx (getOverflowTx -> ls) =
+overflowTx :: SmallOverflowTx -> Bool
+overflowTx (SmallOverflowTx (getOverflowTx -> ls)) =
     let (tx@Tx{..}, inpResolver, extendedInputs) =
             getTxFromGoodTx ls
         transactionIsNotVerified = isVerFailure $ verifyTx inpResolver tx
@@ -144,8 +146,8 @@ signatureIsNotValid txOutputs (Just (TxIn{..}, TxOut{..})) =
         txInSig
 signatureIsNotValid _ _ = False
 
-badSigsTx :: BadSigsTx -> Bool
-badSigsTx (getBadSigsTx -> ls) =
+badSigsTx :: SmallBadSigsTx -> Bool
+badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
     let (tx@Tx{..}, inpResolver, extendedInputs) =
             getTxFromGoodTx ls
         transactionIsNotVerified = isVerFailure $ verifyTx inpResolver tx

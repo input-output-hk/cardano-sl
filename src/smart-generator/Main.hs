@@ -106,12 +106,9 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
     -- Start writing tps file
     liftIO $ writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
 
-    initialT <- getPosixMs
-    let startMeasurementsT =
-            initialT + (k + goPropThreshold) * fromIntegral (slotDuration `div` ms 1)
-        roundDuration =
-                fromIntegral ((k + goPropThreshold) * (goRoundPeriodRate + 1)) *
-                fromIntegral (slotDuration `div` sec 1)
+    let phaseDuration = fromIntegral (k + goPropThreshold) * slotDuration
+        roundDuration = fromIntegral (goRoundPeriodRate + 1) *
+                        fromIntegral (phaseDuration `div` sec 1)
 
     void $ forFold (goInitTps, goTpsIncreaseStep) [1 .. goRoundNumber] $
         \(goTPS, increaseStep) (roundNum :: Int) -> do
@@ -130,6 +127,9 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         wait $ for (round $ goRoundPause * fromIntegral (sec 1) :: Microsecond)
 
         beginT <- getPosixMs
+        let startMeasurementsT =
+                beginT + fromIntegral (phaseDuration `div` ms 1)
+
         forM_ [0 .. txNum - 1] $ \(idx :: Int) -> do
             preStartT <- getPosixMs
             logInfo $ sformat ("CURRENT TXNUM: "%int) txNum
@@ -161,9 +161,8 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
 
         realTxNumVal <- liftIO $ readIORef realTxNum
 
-        let realBeginT = max beginT startMeasurementsT
-            globalTime, realTPS :: Double
-            globalTime = (fromIntegral (finishT - realBeginT)) / 1000
+        let globalTime, realTPS :: Double
+            globalTime = (fromIntegral (finishT - startMeasurementsT)) / 1000
             realTPS = (fromIntegral realTxNumVal) / globalTime
             (newTPS, newStep) = if realTPS >= goTPS - 5
                                 then (goTPS + increaseStep, increaseStep)
@@ -178,6 +177,10 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         -- We collect tables of really generated tps
         liftIO $ appendFile (logsFilePrefix </> tpsCsvFile) $
             tpsCsvFormat (globalTime, goTPS, realTPS)
+
+        -- Wait for 1 phase (to get all the last sent transactions)
+        logInfo "Pausing transaction spawning for 1 phase"
+        wait $ for phaseDuration
 
         return (newTPS, newStep)
 

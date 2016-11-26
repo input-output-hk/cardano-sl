@@ -128,7 +128,7 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
 
         beginT <- getPosixMs
         let startMeasurementsT =
-                beginT + (k + goPropThreshold) * fromIntegral (slotDuration `div` ms 1)
+                beginT + fromIntegral (phaseDuration `div` ms 1)
 
         forM_ [0 .. txNum - 1] $ \(idx :: Int) -> do
             preStartT <- getPosixMs
@@ -161,9 +161,8 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
 
         realTxNumVal <- liftIO $ readIORef realTxNum
 
-        let realBeginT = max beginT startMeasurementsT
-            globalTime, realTPS :: Double
-            globalTime = (fromIntegral (finishT - realBeginT)) / 1000
+        let globalTime, realTPS :: Double
+            globalTime = (fromIntegral (finishT - startMeasurementsT)) / 1000
             realTPS = (fromIntegral realTxNumVal) / globalTime
             (newTPS, newStep) = if realTPS >= goTPS - 5
                                 then (goTPS + increaseStep, increaseStep)

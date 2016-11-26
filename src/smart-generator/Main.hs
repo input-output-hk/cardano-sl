@@ -106,9 +106,9 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
     -- Start writing tps file
     liftIO $ writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
 
-    let phaseDuration = fromIntegral (k + goPropThreshold) * slotDuration
-        roundDuration = fromIntegral (goRoundPeriodRate + 1) *
-                        fromIntegral (phaseDuration `div` sec 1)
+    let phaseDurationMs = fromIntegral (k + goPropThreshold) * slotDuration
+        roundDurationSec = fromIntegral (goRoundPeriodRate + 1) *
+                           fromIntegral (phaseDurationMs `div` sec 1)
 
     void $ forFold (goInitTps, goTpsIncreaseStep) [1 .. goRoundNumber] $
         \(goTPS, increaseStep) (roundNum :: Int) -> do
@@ -119,7 +119,7 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
             roundNum goRoundNumber goTPS
 
         let tpsDelta = round $ 1000 / goTPS
-            txNum = round $ roundDuration * goTPS
+            txNum = round $ roundDurationSec * goTPS
 
         realTxNum <- liftIO $ newIORef (0 :: Int)
 
@@ -128,13 +128,13 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
 
         beginT <- getPosixMs
         let startMeasurementsT =
-                beginT + fromIntegral (phaseDuration `div` ms 1)
+                beginT + fromIntegral (phaseDurationMs `div` ms 1)
 
         forM_ [0 .. txNum - 1] $ \(idx :: Int) -> do
             preStartT <- getPosixMs
             logInfo $ sformat ("CURRENT TXNUM: "%int) txNum
             -- prevent periods longer than we expected
-            unless (preStartT - beginT > round (roundDuration * 1000)) $ do
+            unless (preStartT - beginT > round (roundDurationSec * 1000)) $ do
                 eTx <- nextValidTx bambooPool goTPS goPropThreshold
                 startT <- getPosixMs
                 case eTx of
@@ -180,7 +180,7 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
 
         -- Wait for 1 phase (to get all the last sent transactions)
         logInfo "Pausing transaction spawning for 1 phase"
-        wait $ for phaseDuration
+        wait $ for phaseDurationMs
 
         return (newTPS, newStep)
 

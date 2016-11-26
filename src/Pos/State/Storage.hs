@@ -42,6 +42,8 @@ module Pos.State.Storage
        , processTx
        ) where
 
+import           Universum
+
 import           Control.Lens            (makeClassy, use, (.=), (^.))
 import           Control.Monad.TM        ((.=<<.))
 import           Data.Acid               ()
@@ -52,7 +54,7 @@ import           Data.Tagged             (untag)
 import           Formatting              (build, sformat, (%))
 import           Serokell.AcidState      ()
 import           Serokell.Util           (VerificationRes (..))
-import           Universum
+import           System.Wlog             (WithLogger, logDebug)
 
 import           Pos.Constants           (k)
 import           Pos.Crypto              (PublicKey, SecretKey, Share, Threshold,
@@ -76,7 +78,7 @@ import           Pos.Types               (Block, EpochIndex, EpochOrSlot (..),
                                           GenesisBlock, MainBlock, SlotId (..),
                                           SlotLeaders, Utxo, blockMpc, blockTxs,
                                           epochIndexL, epochOrSlot, flattenSlotId,
-                                          gbHeader, getEpochOrSlot, headerHashG,
+                                          gbHeader, getEpochOrSlot, headerHashG, slotIdF,
                                           unflattenSlotId, verifyTxAlone)
 import           Pos.Util                (readerToState, _neLast)
 
@@ -101,6 +103,12 @@ type Query  ssc a = forall m . (Ssc ssc, MonadReader (Storage ssc) m) => m a
 
 -- | Type alias for MonadState of storage that supports SSC.
 type Update ssc a = forall m . (Ssc ssc, MonadState (Storage ssc) m) => m a
+
+-- | Type alias for MonadState of storage that supports SSC.
+type UpdateWithLog ssc a = forall m . ( Ssc ssc
+                                      , MonadState (Storage ssc) m
+                                      , WithLogger m
+                                      ) => m a
 
 instance Ssc ssc => SafeCopy (Storage ssc) where
     putCopy Storage {..} =
@@ -262,9 +270,10 @@ processBlockFinally toRollback blocks = do
 processNewSlot
     :: forall ssc.
        (SscStorageClass ssc)
-    => SlotId -> Update ssc (Maybe (GenesisBlock ssc))
+    => SlotId -> UpdateWithLog ssc (Maybe (GenesisBlock ssc))
 processNewSlot sId = do
     knownSlot <- use slotId
+    logDebug $ sformat ("Known slot = "%slotIdF) knownSlot
     if sId > knownSlot
        then processNewSlotDo sId
        else pure Nothing

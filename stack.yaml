@@ -14,7 +14,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/log-warper.git
-    commit: 70cf25d296c651ba2b7ddf094c5dfc0b66dfebc7
+    commit: 4f8ce662f3fbff9acd07101325989bf49f018899
   extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git

@@ -137,7 +137,6 @@ library
                       , focus
                       , formatting
                       , hashable
-                      , hslogger >= 1.2.10
                       , kademlia
                       , lens
                       , lifted-async

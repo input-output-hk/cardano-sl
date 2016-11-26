@@ -45,10 +45,9 @@ import           Formatting                  (build, sformat, shown, (%))
 import           System.Directory            (doesDirectoryExist,
                                               removeDirectoryRecursive)
 import           System.FilePath             ((</>))
-import           System.Log.Logger           (removeAllHandlers)
 import           System.Wlog                 (LoggerName (..), WithLogger, logDebug,
-                                              logInfo, logWarning, traverseLoggerConfig,
-                                              usingLoggerName)
+                                              logInfo, logWarning, releaseAllHandlers,
+                                              traverseLoggerConfig, usingLoggerName)
 import           Universum
 
 import           Pos.CLI                     (readLoggerConfig)
@@ -274,7 +273,7 @@ setupLoggers LoggingParams{..} = do
                     | otherwise      = name
 
 loggerBracket :: LoggingParams -> IO a -> IO a
-loggerBracket lp = bracket_ (setupLoggers lp) removeAllHandlers
+loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
 -- | RAII for node starter.
 addDevListeners :: NodeParams -> [ListenerDHT (RealMode ssc)] -> [ListenerDHT (RealMode ssc)]

@@ -16,7 +16,7 @@ import           Data.Tagged               (untag)
 import           Formatting                (build, sformat, shown, (%))
 import           Serokell.Util             (VerificationRes (..), listJson)
 import           Serokell.Util.Exceptions  ()
-import           System.Wlog               (logDebug, logInfo, logWarning)
+import           System.Wlog               (dispatchEvents, logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Communication.Methods (announceBlock)
@@ -37,7 +37,8 @@ import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKe
 blkOnNewSlot :: WorkMode ssc m => SlotId -> m ()
 blkOnNewSlot slotId@SlotId {..} = do
     -- First of all we create genesis block if necessary.
-    mGenBlock <- processNewSlot slotId
+    (mGenBlock, pnsLog) <- processNewSlot slotId
+    dispatchEvents pnsLog
     forM_ mGenBlock $ \createdBlk -> do
         logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
         jlLog $ jlCreatedBlock (Left createdBlk)

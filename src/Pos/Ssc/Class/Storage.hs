@@ -67,19 +67,14 @@ class Ssc ssc => SscStorageClass ssc where
     -- if first argument isn't zero).
     sscVerifyBlocks :: Word -> AltChain ssc -> SscQuery ssc VerificationRes
 
-    -- BARDAQ, see:
-    -- https://issues.serokell.io/issue/CSL-103
-    -- https://issues.serokell.io/issue/CSL-106
+    -- [CSL-103]: these 3 functions should be replaced with something different.
     sscGetOurShares :: VssKeyPair -> Integer -> SscQuery ssc (HashMap PublicKey Share)
-
-    -- TODO: yet another BARDAQ
     sscGetParticipants :: Word -> Utxo ->
                           SscQuery ssc (Maybe (NonEmpty VssPublicKey))
     sscCalculateLeaders :: EpochIndex -> Utxo -> Threshold ->
                            SscQuery ssc (Either (SscSeedError ssc)  SlotLeaders)
 
-    -- TODO: one more BARDAQ. It's not related to Storage, but can't
-    -- be put into Ssc now :(
+    -- [CSL-106]: it should be moved into another type class.
     -- | Verify payload using header containing this payload.
     sscVerifyPayload :: Tagged ssc (MainBlockHeader ssc -> SscPayload ssc -> VerificationRes)
 

@@ -106,12 +106,9 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
     -- Start writing tps file
     liftIO $ writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
 
-    initialT <- getPosixMs
-    let startMeasurementsT =
-            initialT + (k + goPropThreshold) * fromIntegral (slotDuration `div` ms 1)
-        roundDuration =
-                fromIntegral ((k + goPropThreshold) * (goRoundPeriodRate + 1)) *
-                fromIntegral (slotDuration `div` sec 1)
+    let phaseDurationMs = fromIntegral (k + goPropThreshold) * slotDuration
+        roundDurationSec = fromIntegral (goRoundPeriodRate + 1) *
+                           fromIntegral (phaseDurationMs `div` sec 1)
 
     void $ forFold (goInitTps, goTpsIncreaseStep) [1 .. goRoundNumber] $
         \(goTPS, increaseStep) (roundNum :: Int) -> do
@@ -122,7 +119,7 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
             roundNum goRoundNumber goTPS
 
         let tpsDelta = round $ 1000 / goTPS
-            txNum = round $ roundDuration * goTPS
+            txNum = round $ roundDurationSec * goTPS
 
         realTxNum <- liftIO $ newIORef (0 :: Int)
 
@@ -130,11 +127,14 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         wait $ for (round $ goRoundPause * fromIntegral (sec 1) :: Microsecond)
 
         beginT <- getPosixMs
+        let startMeasurementsT =
+                beginT + fromIntegral (phaseDurationMs `div` ms 1)
+
         forM_ [0 .. txNum - 1] $ \(idx :: Int) -> do
             preStartT <- getPosixMs
             logInfo $ sformat ("CURRENT TXNUM: "%int) txNum
             -- prevent periods longer than we expected
-            unless (preStartT - beginT > round (roundDuration * 1000)) $ do
+            unless (preStartT - beginT > round (roundDurationSec * 1000)) $ do
                 eTx <- nextValidTx bambooPool goTPS goPropThreshold
                 startT <- getPosixMs
                 case eTx of
@@ -161,13 +161,14 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
 
         realTxNumVal <- liftIO $ readIORef realTxNum
 
-        let realBeginT = max beginT startMeasurementsT
-            globalTime, realTPS :: Double
-            globalTime = (fromIntegral (finishT - realBeginT)) / 1000
+        let globalTime, realTPS :: Double
+            globalTime = (fromIntegral (finishT - startMeasurementsT)) / 1000
             realTPS = (fromIntegral realTxNumVal) / globalTime
             (newTPS, newStep) = if realTPS >= goTPS - 5
                                 then (goTPS + increaseStep, increaseStep)
-                                else (realTPS, increaseStep / 2)
+                                else if realTPS >= goTPS * 0.8
+                                     then (goTPS, increaseStep)
+                                     else (realTPS, increaseStep / 2)
 
         putText "----------------------------------------"
         putText $ "Sending transactions took (s): " <> show globalTime
@@ -176,6 +177,10 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         -- We collect tables of really generated tps
         liftIO $ appendFile (logsFilePrefix </> tpsCsvFile) $
             tpsCsvFormat (globalTime, goTPS, realTPS)
+
+        -- Wait for 1 phase (to get all the last sent transactions)
+        logInfo "Pausing transaction spawning for 1 phase"
+        wait $ for phaseDurationMs
 
         return (newTPS, newStep)
 

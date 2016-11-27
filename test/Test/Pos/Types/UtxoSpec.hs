@@ -10,8 +10,9 @@ import           Control.Lens          (view, _1)
 import qualified Data.Map              as M (Map, delete, elems, fromList, insert, keys)
 import           Data.Maybe            (isJust, isNothing)
 import           Pos.Crypto            (hash, keyGen, sign, unsafeHash)
-import           Pos.Types             (GoodTx (..), Tx (..), TxIn (..), TxOut, Utxo,
-                                        applyTxToUtxo, deleteTxIn, findTxIn, verifyTxUtxo)
+import           Pos.Types             (GoodTx (..), SmallGoodTx (..), Tx (..),
+                                        TxIn (..), TxOut, Utxo, applyTxToUtxo, deleteTxIn,
+                                        findTxIn, verifyTxUtxo)
 import           Serokell.Util.Verify  (isVerSuccess)
 import           System.IO.Unsafe      (unsafePerformIO)
 
@@ -63,8 +64,8 @@ deleteTxInUtxo t@TxIn{..} txO utxo =
         newUtxo = M.insert key txO utxo
     in (utxo' == deleteTxIn t newUtxo) && (utxo' == deleteTxIn t utxo')
 
-verifyTxInUtxo :: GoodTx -> Bool
-verifyTxInUtxo (getGoodTx -> ls) =
+verifyTxInUtxo :: SmallGoodTx -> Bool
+verifyTxInUtxo (SmallGoodTx (getGoodTx -> ls)) =
     let txs = fmap (view _1) ls
         newTx = uncurry Tx $ unzip $ map (\(_, tIs, tOs) -> (tIs, tOs)) ls
         utxo = foldr applyTxToUtxo mempty txs

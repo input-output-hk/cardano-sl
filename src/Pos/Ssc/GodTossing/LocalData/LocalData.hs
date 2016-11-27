@@ -17,6 +17,7 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
 
 import           Control.Lens                       (at, use, view, (%=), (.=))
 import           Control.Lens                       (Getter)
+import           Control.Monad.Loops                (andM)
 import           Data.Containers                    (ContainerKey,
                                                      SetContainer (notMember))
 import           Data.Default                       (Default (def))
@@ -140,18 +141,18 @@ processCommitment
     :: PublicKey -> (Commitment, CommitmentSignature) -> LDUpdate Bool
 processCommitment pk c = do
     epochIdx <- siEpoch <$> use gtLastProcessedSlot
-    ok <- readerToState $ and <$> (sequence $ checks epochIdx)
+    ok <- readerToState $ andM $ checks epochIdx
     ok <$ when ok (gtLocalCommitments %= HM.insert pk c)
   where
     checks epochIndex =
-        [ pure . isVerSuccess $ verifySignedCommitment pk epochIndex c
-        , not . HM.member pk <$> view gtGlobalCommitments
+        [ not . HM.member pk <$> view gtGlobalCommitments
         , not . HM.member pk <$> view gtLocalCommitments
+        , pure . isVerSuccess $ verifySignedCommitment pk epochIndex c
         ]
 
 processOpening :: PublicKey -> Opening -> LDUpdate Bool
 processOpening pk o = do
-    ok <- readerToState $ and <$> sequence checks
+    ok <- readerToState $ andM checks
     ok <$ when ok (gtLocalOpenings %= HM.insert pk o)
   where
     checkAbsence = sscIsDataUsefulSetImpl gtLocalOpenings gtGlobalOpenings
@@ -171,17 +172,18 @@ processShares pk s
         -- aware of the fact that they are already in the blockchain. On the
         -- other hand, now nodes can send us huge spammy messages and we can't
         -- ban them for that. On the third hand, is this a concern?
-        preOk <- readerToState $ checkSharesLastVer pk s
-        let mpcProcessSharesDo = do
-                globalSharesPKForPK <- HM.lookupDefault mempty pk <$> use gtGlobalShares
-                localSharesForPk <- HM.lookupDefault mempty pk <$> use gtLocalShares
-                let s' = s `HM.difference` (HS.toMap globalSharesPKForPK)
-                let newLocalShares = localSharesForPk `HM.union` s'
-                -- Note: size is O(n), but union is also O(n + m), so
-                -- it doesn't matter.
-                let ok = preOk && (HM.size newLocalShares /= HM.size localSharesForPk)
-                ok <$ (when ok $ gtLocalShares . at pk .= Just newLocalShares)
-        mpcProcessSharesDo
+        globalSharesPKForPK <- HM.lookupDefault mempty pk <$> use gtGlobalShares
+        localSharesForPk <- HM.lookupDefault mempty pk <$> use gtLocalShares
+        let s' = s `HM.difference` (HS.toMap globalSharesPKForPK)
+        let newLocalShares = localSharesForPk `HM.union` s'
+        -- Note: size is O(n), but union is also O(n + m), so
+        -- it doesn't matter.
+        let checks =
+              [ pure (HM.size newLocalShares /= HM.size localSharesForPk)
+              , readerToState $ checkSharesLastVer pk s
+              ]
+        ok <- andM checks
+        ok <$ when ok (gtLocalShares . at pk .= Just newLocalShares)
 
 checkSharesLastVer :: PublicKey -> HashMap PublicKey Share -> LDQuery Bool
 checkSharesLastVer pk shares =

@@ -88,9 +88,6 @@ instance MessagePack Pvss.Secret where
     toObject = toMsgpackBinary
     fromObject = fromMsgpackBinary "Pvss.Secret"
 
--- TODO: this one should be in pvss-haskell
-instance Binary KeyPair
-
 instance SafeCopy KeyPair where
     putCopy = putCopyBinary
     getCopy = getCopyBinary "KeyPair"

@@ -68,7 +68,7 @@ onNewSlot
 onNewSlot startImmediately action =
     onNewSlotDo Nothing startImmediately actionWithCatch
   where
-    -- TODO: think about exceptions more carefully.
+    -- [CSL-198]: think about exceptions more carefully.
     actionWithCatch s = action s `catch` handler
     handler :: WithLogger m => SomeException -> m ()
     handler = logError . sformat ("Error occurred: "%build)

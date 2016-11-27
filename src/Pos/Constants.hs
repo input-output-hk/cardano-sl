@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 {-| Constants used by algorithm. See paper for more details.
@@ -92,10 +93,13 @@ data RunningMode
     = Development
     | Production { rmSystemStart :: !Timestamp}
 
--- TODO switch between Development/Production via `stack` flag
 -- | Current running mode.
 runningMode :: RunningMode
+#ifdef DEV_MODE
 runningMode = Development
+#else
+runningMode = Production $ panic "System start is not known!"
+#endif
 
 -- | @True@ if current mode is 'Development'.
 isDevelopment :: Bool

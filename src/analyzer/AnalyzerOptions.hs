@@ -19,7 +19,7 @@ data Args = Args
     }
   deriving Show
 
---TODO introduce subcommands
+-- TODO: introduce subcommands (can be done if new commands appear)
 argsParser :: Parser Args
 argsParser =
     Args <$>

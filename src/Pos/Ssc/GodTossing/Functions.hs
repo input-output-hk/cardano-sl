@@ -54,7 +54,7 @@ import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap,
                                                  Opening (..), SignedCommitment,
                                                  VssCertificate, VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Types.Types (GtPayload (..), GtGlobalState (..))
+import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..))
 import           Pos.Types.Types                (EpochIndex, LocalSlotIndex,
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), headerSlot)
@@ -273,18 +273,20 @@ verifyGtPayload header payload =
 -- Filter Local Payload
 ----------------------------------------------------------------------------
 filterLocalPayload :: GtPayload -> GtGlobalState -> GtPayload
-filterLocalPayload localPay globalPay =
+filterLocalPayload localPay GtGlobalState {..} =
     case localPay of
-        CommitmentsPayload    comms certs ->
-            CommitmentsPayload (comms `HM.difference` _gsCommitments globalPay)
-                               (filterCerts certs)
-        OpeningsPayload       opens certs ->
-            OpeningsPayload (opens `HM.difference` _gsOpenings globalPay)
-                            (filterCerts certs)
-        SharesPayload        shares certs ->
-            SharesPayload (shares `diffDoubleMap` _gsShares globalPay)
-                          (filterCerts certs)
-        CertificatesPayload         certs ->
-            CertificatesPayload $ filterCerts certs
+        CommitmentsPayload comms certs ->
+            CommitmentsPayload
+                ((comms `HM.difference` _gsCommitments) `HM.intersection`
+                 _gsVssCertificates)
+                (filterCerts certs)
+        OpeningsPayload opens certs ->
+            OpeningsPayload
+                ((opens `HM.difference` _gsOpenings) `HM.intersection`
+                 _gsCommitments)
+                (filterCerts certs)
+        SharesPayload shares certs ->
+            SharesPayload (shares `diffDoubleMap` _gsShares) (filterCerts certs)
+        CertificatesPayload certs -> CertificatesPayload $ filterCerts certs
   where
-    filterCerts = flip HM.difference $ _gsVssCertificates globalPay
+    filterCerts = flip HM.difference _gsVssCertificates

@@ -219,8 +219,8 @@ processBlockDo
 processBlockDo curSlotId blk = do
     let verifyMpc mainBlk =
             untag sscVerifyPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
-    let mpcRes = either (const mempty) verifyMpc blk
-    r <- blkProcessBlock curSlotId blk (pure mpcRes)
+    let mpcResPure = either (const mempty) verifyMpc blk
+    r <- blkProcessBlock curSlotId blk (pure mpcResPure)
     case r of
         PBRgood (toRollback, chain) -> do
             mpcRes <- readerToState $ sscVerifyBlocks @ssc toRollback chain

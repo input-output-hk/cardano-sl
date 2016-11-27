@@ -36,7 +36,7 @@ module Pos.State.Storage.Block
 
 import           Control.Lens            (at, ix, makeClassy, preview, use, uses, view,
                                           (%=), (.=), (.~), (<~), (^.), _Just)
-import           Control.Monad.Loops     (unfoldrM)
+import           Control.Monad.Loops     (andM, unfoldrM)
 import           Data.Default            (def)
 import qualified Data.HashMap.Strict     as HM
 import           Data.List               ((!!))
@@ -229,6 +229,18 @@ isHeaderInteresting header = do
     altChains <- view blkAltChains
     or <$> mapM ($ header) (isMostDifficult : map canContinueAltChain altChains)
 
+-- Can we continue concrete AltChain (given its index).
+canContinueAltChainI
+    :: Ssc ssc
+    => Block ssc -> Int -> Query ssc Bool
+canContinueAltChainI blk i = do
+    -- We only need to check that block can be previous block of the
+    -- head of alternative chain.
+    (altChainBlk :| _) <- (!! i) <$> view blkAltChains
+    let vhe = def {vheNextHeader = Just $ altChainBlk ^. blockHeader}
+    let vbp = def {vbpVerifyHeader = Just vhe}
+    return $ isVerSuccess $ verifyBlock vbp blk
+
 canContinueAltChain
     :: Ssc ssc
     => AltChain ssc -> MainBlockHeader ssc -> Query ssc Bool
@@ -251,8 +263,8 @@ insertBlock blk = blkBlocks . at (headerHash blk) .= Just blk
 -- necessary.
 blkProcessBlock
     :: Ssc ssc
-    => SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
-blkProcessBlock currentSlotId blk = do
+    => SlotId -> Block ssc -> Query ssc VerificationRes -> Update ssc (ProcessBlockRes ssc)
+blkProcessBlock currentSlotId blk hardChecks = do
     -- First of all we do the simplest general checks.
     leaders <-
         either
@@ -266,22 +278,35 @@ blkProcessBlock currentSlotId blk = do
                 [ verifyHeader vhe header
                 , verifyBlock (def {vbpVerifyGeneric = True}) blk
                 ]
+    guardVerRes verRes $ blkProcessBlockDo blk hardChecks
+
+guardVerRes
+  :: (Monad m, Ssc ssc)
+  => VerificationRes -> m (ProcessBlockRes ssc) -> m (ProcessBlockRes ssc)
+guardVerRes verRes action =
     case verRes of
         VerFailure errors -> pure $ mkPBRabort errors
-        VerSuccess        -> blkProcessBlockDo blk
+        VerSuccess        -> action
+
+guardVerResSt
+  :: Ssc ssc
+  => Query ssc VerificationRes
+  -> Update ssc (ProcessBlockRes ssc)
+  -> Update ssc (ProcessBlockRes ssc)
+guardVerResSt checks action = readerToState checks >>= flip guardVerRes action
 
 blkProcessBlockDo
     :: Ssc ssc
-    => Block ssc -> Update ssc (ProcessBlockRes ssc)
-blkProcessBlockDo blk = do
+    => Block ssc -> Query ssc VerificationRes -> Update ssc (ProcessBlockRes ssc)
+blkProcessBlockDo blk hardChecks = do
     -- At this point we know that block is good in isolation.
     -- Our first attempt is to continue the best chain and finish.
     ifM (readerToState $ canContinueBestChain blk)
         -- If it's possible, we just do it.
-        (continueBestChain blk)
+        (guardVerResSt hardChecks $ continueBestChain blk)
         -- Our next attempt is to start alternative chain or continue
         -- existing one.
-        (proceedToAltChains blk)
+        (proceedToAltChains blk hardChecks)
 
 canContinueBestChain :: Ssc ssc => Block ssc -> Query ssc Bool
 -- We don't continue best chain with received genesis block. It is
@@ -303,7 +328,7 @@ continueBestChain
     => Block ssc -> Update ssc (ProcessBlockRes ssc)
 continueBestChain blk = do
     insertBlock blk
-    decideWhatToDo <$> tryContinueAltChain blk
+    decideWhatToDo <$> tryContinueAltChain blk (pure VerSuccess)
   where
     decideWhatToDo r@(PBRgood _) = r
     decideWhatToDo _             = PBRgood (0, blk :| [])
@@ -311,13 +336,18 @@ continueBestChain blk = do
 -- Here we try to start alternative chain and/or continue existing one.
 proceedToAltChains
     :: Ssc ssc
-    => Block ssc -> Update ssc (ProcessBlockRes ssc)
-proceedToAltChains blk = do
-    tryStartRes <- tryStartAltChain blk
+    => Block ssc -> Query ssc VerificationRes -> Update ssc (ProcessBlockRes ssc)
+proceedToAltChains blk hardChecks = do
+    tryStartRes <- tryStartAltChain blk hardChecks
     case tryStartRes of
-        Just r@(PBRgood _) -> return r
-        Just r@(PBRmore _) -> r <$ tryContinueAltChain blk
-        _                  -> tryContinueAltChain blk
+        Just r@(PBRgood _)  -> return r
+        Just m@(PBRmore _)  -> do
+            res <- tryContinueAltChain blk (pure VerSuccess)
+            case res of
+              g@(PBRgood _) -> pure g
+              _             -> pure m
+        Just r@(PBRabort _) -> return r
+        _                   -> tryContinueAltChain blk hardChecks
 
 -- Possible results are:
 -- • Nothing: can't start alternative chain.
@@ -329,16 +359,18 @@ proceedToAltChains blk = do
 tryStartAltChain
     :: forall ssc.
        Ssc ssc
-    => Block ssc -> Update ssc (Maybe (ProcessBlockRes ssc))
-tryStartAltChain (Left _) = pure Nothing
-tryStartAltChain (Right blk) = do
+    => Block ssc -> Query ssc VerificationRes -> Update ssc (Maybe (ProcessBlockRes ssc))
+tryStartAltChain (Left _) _ = pure Nothing
+tryStartAltChain (Right blk) hardChecks = do
     let header = blk ^. gbHeader
         checks =
             [ isMostDifficult header
             , not <$> isHeadOfAlternative @ssc (Right header)
             ]
-        chk = and <$> sequence checks
-    ifM (readerToState chk) (Just <$> startAltChain blk) (pure Nothing)
+        chk = andM checks
+    ifM (readerToState chk)
+        (fmap Just $ guardVerResSt hardChecks $ startAltChain blk)
+        (pure Nothing)
 
 isHeadOfAlternative :: Ssc ssc => BlockHeader ssc -> Query ssc Bool
 isHeadOfAlternative header = do
@@ -376,36 +408,33 @@ pbrUseless = mkPBRabort ["block can't be added to any chain"]
 -- to be called.
 tryContinueAltChain
     :: forall ssc. Ssc ssc
-    => Block ssc -> Update ssc (ProcessBlockRes ssc)
-tryContinueAltChain blk = do
+    => Block ssc -> Query ssc VerificationRes -> Update ssc (ProcessBlockRes ssc)
+tryContinueAltChain blk hardChecks = do
     n <- length <$> use blkAltChains
-    foldM go pbrUseless [0 .. n - 1]
+    fromMaybe pbrUseless <$> foldM go Nothing [0 .. n - 1]
   where
-    go :: ProcessBlockRes ssc -> Int -> Update ssc (ProcessBlockRes ssc)
+    go :: Maybe (ProcessBlockRes ssc) -> Int -> Update ssc (Maybe (ProcessBlockRes ssc))
+    -- Nothing means that we did't encounter chain to add block to yet.
+    -- In this case we just go further and try another chain.
+    go Nothing i = tryContinueAltChainDo i
     -- PBRgood means that chain can be merged into main chain.
     -- In this case we stop processing.
-    go good@(PBRgood _) _ = pure good
+    go good@(Just (PBRgood _)) _ = pure good
     -- PBRmore means that block has been added to at least one
     -- alternative chain, we return PBRmore, but try to add it to
     -- other chains as well.
-    go more@(PBRmore _) i =  more <$ tryContinueAltChainDo blk i
-    -- PBRabort means that we didn't add block to alternative
-    -- chains. In this case we just go further and try another chain.
-    go (PBRabort _) i     = tryContinueAltChainDo blk i
+    go more@(Just (PBRmore _)) i = do
+        res <- tryContinueAltChainDo i
+        pure $ case res of
+          good@(Just (PBRgood _)) -> good
+          _                       -> more
+    -- PBRabort means that block definitely can't be added to any chain
+    go abort@(Just (PBRabort _)) _     = pure abort
 
--- Here we actually try to continue concrete AltChain (given its index).
-tryContinueAltChainDo
-    :: Ssc ssc
-    => Block ssc -> Int -> Update ssc (ProcessBlockRes ssc)
-tryContinueAltChainDo blk i = do
-    -- We only need to check that block can be previous block of the
-    -- head of alternative chain.
-    (altChainBlk :| _) <- uses blkAltChains (!! i)
-    let vhe = def {vheNextHeader = Just $ altChainBlk ^. blockHeader}
-    let vbp = def {vbpVerifyHeader = Just vhe}
-    if isVerSuccess $ verifyBlock vbp blk
-        then continueAltChain blk i
-        else pure pbrUseless
+    tryContinueAltChainDo i = do
+        ifM (readerToState $ canContinueAltChainI blk i)
+            (fmap Just $ guardVerResSt hardChecks $ continueAltChain blk i)
+            (pure Nothing)
 
 -- Here we know that block is a good continuation of i-th chain.
 continueAltChain

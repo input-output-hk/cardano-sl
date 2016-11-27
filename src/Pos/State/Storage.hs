@@ -203,15 +203,12 @@ canCreateBlock sId = do
 processBlock :: SscStorageClass ssc
     => SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
 processBlock curSlotId blk = do
-    let verifyMpc mainBlk =
-            untag sscVerifyPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
-    let mpcRes = either (const mempty) verifyMpc blk
     let txs =
             case blk of
                 Left _        -> []
                 Right mainBlk -> toList $ mainBlk ^. blockTxs
     let txRes = foldMap verifyTxAlone txs
-    case mpcRes <> txRes of
+    case txRes of
         VerSuccess        -> processBlockDo curSlotId blk
         VerFailure errors -> return $ mkPBRabort errors
 
@@ -220,7 +217,10 @@ processBlockDo
        SscStorageClass ssc
     => SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
 processBlockDo curSlotId blk = do
-    r <- blkProcessBlock curSlotId blk
+    let verifyMpc mainBlk =
+            untag sscVerifyPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
+    let mpcRes = either (const mempty) verifyMpc blk
+    r <- blkProcessBlock curSlotId blk (pure mpcRes)
     case r of
         PBRgood (toRollback, chain) -> do
             mpcRes <- readerToState $ sscVerifyBlocks @ssc toRollback chain

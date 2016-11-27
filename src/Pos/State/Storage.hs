@@ -154,7 +154,7 @@ getHeadSlot = getEpochOrSlot <$> getHeadBlock
 getGlobalSscPayload
     :: forall ssc.
        SscStorageClass ssc
-    => Query ssc (SscPayload ssc)
+    => Query ssc (SscGlobalState ssc)
 getGlobalSscPayload = sscGetGlobalPayload @ssc
 
 -- | Create a new block on top of best chain if possible.

@@ -8,7 +8,7 @@ module Pos.Ssc.GodTossing.Arbitrary
 
 import           Data.DeriveTH                  (derive, makeArbitrary)
 import           Data.List.NonEmpty             (NonEmpty ((:|)))
-import           Test.QuickCheck                (Arbitrary (..), elements)
+import           Test.QuickCheck                (Arbitrary (..), elements, choose)
 import           Universum
 
 import           Pos.Crypto                     (SecretProof, SecretSharingExtra,

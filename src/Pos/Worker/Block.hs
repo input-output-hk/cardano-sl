@@ -22,7 +22,7 @@ import           Universum
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
-import           Pos.Ssc.Class             (sscApplyGlobalPayload, sscGetLocalPayload,
+import           Pos.Ssc.Class             (sscApplyGlobalState, sscGetLocalPayload,
                                             sscVerifyPayload)
 import           Pos.State                 (createNewBlock, getGlobalMpcData,
                                             getHeadBlock, getLeaders, processNewSlot)
@@ -88,8 +88,8 @@ onNewSlotWhenLeader slotId = do
                             warnings
                     globalData <- logWarningWaitLinear 6 "getGlobalMpcData"
                         getGlobalMpcData
-                    logWarningWaitLinear 7 "sscApplyGlobalPayload" $
-                        sscApplyGlobalPayload globalData
+                    logWarningWaitLinear 7 "sscApplyGlobalState" $
+                        sscApplyGlobalState globalData
                     announceBlock $ createdBlk ^. gbHeader
             let whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
             sscData <- sscGetLocalPayload slotId

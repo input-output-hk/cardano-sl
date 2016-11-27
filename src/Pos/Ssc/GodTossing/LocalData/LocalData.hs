@@ -34,7 +34,7 @@ import           Pos.Ssc.GodTossing.Functions       (checkOpeningMatchesCommitme
                                                      checkShares, inLastKSlotsId,
                                                      isCommitmentIdx, isOpeningIdx,
                                                      isSharesIdx, verifySignedCommitment)
-import           Pos.Ssc.GodTossing.Functions       (filterGtPayload)
+--import           Pos.Ssc.GodTossing.Functions       (filterGtPayload)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData, gtGlobalCertificates,
                                                      gtGlobalCommitments,
                                                      gtGlobalOpenings, gtGlobalShares,
@@ -47,7 +47,7 @@ import           Pos.Ssc.GodTossing.Types.Base      (Commitment, CommitmentSigna
 import           Pos.Ssc.GodTossing.Types.Instance  ()
 import           Pos.Ssc.GodTossing.Types.Message   (DataMsg (..), MsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types     (GtPayload (..))
+import           Pos.Ssc.GodTossing.Types.Types     (GtGlobalState (..), GtPayload (..))
 import           Pos.Types                          (SlotId (..))
 import           Pos.Util                           (diffDoubleMap, getKeys,
                                                      readerToState)
@@ -58,7 +58,7 @@ type LDUpdate a = LocalUpdate SscGodTossing a
 instance SscLocalDataClass SscGodTossing where
     sscEmptyLocalData = def
     sscGetLocalPayloadQ = getLocalPayload
-    sscApplyGlobalPayloadU = applyGlobal
+    sscApplyGlobalStateU = applyGlobal
 
 ----------------------------------------------------------------------------
 -- Process New Slot
@@ -200,13 +200,13 @@ processVssCertificate pk c = do
 ----------------------------------------------------------------------------
 -- Apply Global State
 ----------------------------------------------------------------------------
-applyGlobal :: GtPayload -> LDUpdate ()
+applyGlobal :: GtGlobalState -> LDUpdate ()
 applyGlobal globalData = do
     let
-        globalCommitments = _mdCommitments globalData
-        globalOpenings = _mdOpenings globalData
-        globalShares = _mdShares globalData
-        globalCert = _mdVssCertificates globalData
+        globalCommitments = _gsCommitments globalData
+        globalOpenings = _gsOpenings globalData
+        globalShares = _gsShares globalData
+        globalCert = _gsVssCertificates globalData
     gtLocalCommitments  %= (`HM.difference` globalCommitments)
     gtLocalOpenings  %= (`HM.difference` globalOpenings)
     gtLocalShares  %= (`diffDoubleMap` globalShares)
@@ -224,9 +224,13 @@ applyGlobal globalData = do
 -- Get Local Payload
 ----------------------------------------------------------------------------
 getLocalPayload :: SlotId -> LDQuery GtPayload
-getLocalPayload slotId = filterGtPayload slotId <$> getStoredLocalPayload
-
-getStoredLocalPayload :: LDQuery GtPayload
-getStoredLocalPayload =
-    GtPayload <$> view gtLocalCommitments <*> view gtLocalOpenings <*>
-    view gtLocalShares <*> view gtLocalCertificates
+getLocalPayload SlotId{..} =
+    (if isCommitmentIdx siSlot then
+        CommitmentsPayload <$> view gtLocalCommitments
+    else if isOpeningIdx siSlot then
+        OpeningsPayload <$> view gtLocalOpenings
+    else if isSharesIdx siSlot then
+        SharesPayload <$> view gtLocalShares
+    else
+        pure CertificatesPayload)
+    <*> view gtLocalCertificates

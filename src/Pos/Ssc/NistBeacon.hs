@@ -54,11 +54,12 @@ instance Buildable () where
     build _ = "()"
 
 instance Ssc SscNistBeacon where
-    type SscLocalData SscNistBeacon = ()
-    type SscStorage   SscNistBeacon = ()
-    type SscPayload   SscNistBeacon = ()
-    type SscProof     SscNistBeacon = ()
-    type SscSeedError SscNistBeacon = ()
+    type SscLocalData   SscNistBeacon = ()
+    type SscStorage     SscNistBeacon = ()
+    type SscPayload     SscNistBeacon = ()
+    type SscProof       SscNistBeacon = ()
+    type SscSeedError   SscNistBeacon = ()
+    type SscGlobalState SscNistBeacon = ()
 
     mkSscProof = Tagged $ const ()
     sscFilterPayload _ _ = ()
@@ -102,4 +103,4 @@ instance SscListenersClass SscNistBeacon where
 instance SscLocalDataClass SscNistBeacon where
     sscEmptyLocalData = ()
     sscGetLocalPayloadQ _ = pure ()
-    sscApplyGlobalPayloadU _ = pure ()
+    sscApplyGlobalStateU _ = pure ()

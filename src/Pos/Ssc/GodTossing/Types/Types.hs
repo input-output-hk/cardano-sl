@@ -1,6 +1,5 @@
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
 
 -- | Some types related to GodTossing necessary for Ssc instance.
@@ -101,12 +100,11 @@ data GtPayload
 
 _gpCertificates :: GtPayload -> VssCertificatesMap
 _gpCertificates (CommitmentsPayload _ certs) = certs
-_gpCertificates (OpeningsPayload _ certs) = certs
-_gpCertificates (SharesPayload _ certs) = certs
-_gpCertificates (CertificatesPayload certs) = certs
+_gpCertificates (OpeningsPayload _ certs)    = certs
+_gpCertificates (SharesPayload _ certs)      = certs
+_gpCertificates (CertificatesPayload certs)  = certs
 
 deriveSafeCopySimple 0 'base ''GtPayload
-makeLenses ''GtPayload
 
 instance Binary GtPayload
 instance MessagePack GtPayload

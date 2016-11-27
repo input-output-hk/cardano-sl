@@ -491,8 +491,6 @@ instance Ssc ssc => Blockchain (MainBlockchain ssc) where
     -- and MPC messages.
     data Body (MainBlockchain ssc) = MainBody
         { -- | Transactions are the main payload.
-          -- TODO: currently we don't know for sure whether it should be
-          -- MerkleTree or something list-like.
           _mbTxs         :: !(MerkleTree Tx)
         , -- | Data necessary for MPC.
           _mbMpc  :: !(SscPayload ssc)

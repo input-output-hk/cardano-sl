@@ -29,6 +29,8 @@ spec :: Spec
 spec = do
     -- note that we can't make max size larger than 50 without changing it in
     -- Test.Pos.Util as well
+    describe "SharedSeed" $ do
+        prop description_xorFormsAbelianGroup xorFormsAbelianGroup    
     let smaller = modifyMaxSize (const 40) . modifyMaxSuccess (const 30)
     describe "calculateSeed" $ smaller $ do
         prop
@@ -57,10 +59,35 @@ spec = do
         --        -- n_openings + n_shares - n_overlap >= n
         --        return $ recoverSecretsProp n n_openings n_shares n_overlap
         prop "secret recovering works" pending
+  where
+      description_xorFormsAbelianGroup =
+          "under the xor operation, the set of ftsSeedLength-byte SharedSeeds is an \
+          \ abelian group"
 
 ----------------------------------------------------------------------------
 -- Properties
 ----------------------------------------------------------------------------
+
+xorFormsAbelianGroup :: SharedSeed -> SharedSeed -> SharedSeed -> Bool
+xorFormsAbelianGroup fts1 fts2 fts3 =
+    let isAssociative =
+            let assoc1 = (fts1 <> fts2) <> fts3
+                assoc2 = fts1 <> (fts2 <> fts3)
+            in assoc1 == assoc2
+        hasIdentity =
+            let id1 = mempty <> fts1
+                id2 = fts1 <> mempty
+            in (fts1 == id1) && (fts1 == id2)
+        hasInverses =
+            let inv1 = fts1 <> fts2
+                inv2 = inv1 <> fts2
+                inv3 = fts1 <> inv1
+            in inv2 == fts1 && inv3 == fts2
+        isCommutative =
+            let comm1 = fts1 <> fts2
+                comm2 = fts2 <> fts1
+            in comm1 == comm2
+    in isAssociative && hasIdentity && hasInverses && isCommutative
 
 -- | When each party has provided either an opening or shares (or both), we
 -- should be able to recover the secret. When at least somebody hasn't

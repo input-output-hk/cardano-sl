@@ -34,7 +34,6 @@ import           Pos.Ssc.GodTossing.Functions       (checkOpeningMatchesCommitme
                                                      checkShares, inLastKSlotsId,
                                                      isCommitmentIdx, isOpeningIdx,
                                                      isSharesIdx, verifySignedCommitment)
---import           Pos.Ssc.GodTossing.Functions       (filterGtPayload)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData, gtGlobalCertificates,
                                                      gtGlobalCommitments,
                                                      gtGlobalOpenings, gtGlobalShares,

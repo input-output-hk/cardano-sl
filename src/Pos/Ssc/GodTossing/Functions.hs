@@ -30,7 +30,6 @@ module Pos.Ssc.GodTossing.Functions
        , checkOpeningMatchesCommitment
        -- * GtPayload
        , verifyGtPayload
-       --, filterGtPayload
        , filterLocalPayload
        ) where
 

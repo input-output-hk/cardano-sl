@@ -16,6 +16,12 @@ flag asserts
   default: True
   manual: True
 
+flag dev-mode
+  default:     True
+  manual:      True
+
+  description: Switch between Development and Production mode
+
 library
   exposed-modules:      Pos.CLI
                         Pos.Crypto
@@ -181,8 +187,11 @@ library
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+
   if flag(asserts)
     cpp-options: -DASSERTS_ON
+  if flag(dev-mode)
+    cpp-options: -DDEV_MODE
 
 executable cardano-node
   hs-source-dirs:      src/node

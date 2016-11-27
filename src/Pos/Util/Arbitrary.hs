@@ -67,7 +67,9 @@ arbitrarySizedSL n = BL.pack <$> vector n
 
     This is especially useful for benchmarking.
 
-    TODO: embrace some generics to derive `ArbitraryUnsafe` automagically
+    Note: we don't need 'Generic' to derive instances of 'ArbitraryUnsafe'.
+    We can either use one-line instance declaration, or @-XStandaloneDeriving@
+    or @-XDeriveAnyClass@ to write something like @deriving (Arbitrary, ArbitraryUnsafe)@.
 -}
 class ArbitraryUnsafe a where
     arbitraryUnsafe :: Gen a

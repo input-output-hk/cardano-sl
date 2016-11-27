@@ -88,7 +88,8 @@ instance MessagePack Pvss.Secret where
     toObject = toMsgpackBinary
     fromObject = fromMsgpackBinary "Pvss.Secret"
 
--- TODO: this one should be in pvss-haskell
+-- [#7]: this one should be in pvss-haskell
+-- https://github.com/input-output-hk/pvss-haskell/issues/7
 instance Binary KeyPair
 
 instance SafeCopy KeyPair where

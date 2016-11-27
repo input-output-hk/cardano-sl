@@ -3,15 +3,12 @@
 -- known as /Coin tossing with guaranteed output delivery/ (@GodTossing@).
 
 module Pos.Ssc.SscAlgo
-       (
-         SscAlgo (..)
+       ( SscAlgo (..)
        ) where
+
 import           Universum
 
 -- | Options for command line
---
--- TODO: (mb move to other place? but I didn't find this place
--- due to cyclic dependencies.)
 data SscAlgo = GodTossingAlgo
              | NistBeaconAlgo
-              deriving (Show, Eq)
+             deriving (Show, Eq)

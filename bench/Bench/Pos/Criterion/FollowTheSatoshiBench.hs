@@ -17,7 +17,7 @@ import           Pos.Util             (arbitraryUnsafe)
 
 type UtxoSize = Int
 
--- TODO: make a trick and use special unsafe arbitrary instances
+-- [CSL-192]: make a trick and use special unsafe arbitrary instances
 -- for generation of such things
 arbitraryUtxoOfSize :: UtxoSize -> Gen Utxo
 arbitraryUtxoOfSize n = fromList . take n <$> infiniteListOf arbitraryUnsafe

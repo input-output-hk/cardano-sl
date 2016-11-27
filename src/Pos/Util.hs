@@ -170,7 +170,7 @@ diffDoubleMap a b = HM.foldlWithKey' go mempty a
 msgpackFail :: Monad m => String -> m a
 msgpackFail = Control.Monad.fail
 
--- TODO: pull request to data-messagepack
+-- [SRK-51]: pull request to data-messagepack
 instance MessagePack a =>
          MessagePack (NonEmpty a) where
     toObject = toObject . toList
@@ -241,7 +241,7 @@ _neLast :: Lens' (NonEmpty a) a
 _neLast f (x :| []) = (:| []) <$> f x
 _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
 
--- TODO: we should try to get this one into safecopy itself though it's
+-- [SRK-51]: we should try to get this one into safecopy itself though it's
 -- unlikely that they will choose a different implementation (if they do
 -- choose a different implementation we'll have to write a migration)
 --
@@ -298,6 +298,8 @@ messageName' = messageName . (const Proxy :: a -> Proxy a)
 
 -- | Data type to represent waiting strategy for printing warnings
 -- if action take too much time.
+--
+-- [LW-4]: this probably will be moved somewhere from here
 data WaitingDelta
     = WaitOnce      Second              -- ^ wait s seconds and stop execution
     | WaitLinear    Second              -- ^ wait s, s * 2, s * 3  , s * 4  , ...      seconds
@@ -317,7 +319,7 @@ logWarningLongAction delta actionTag action = do
                                   actionTag
                                   t
 
-    -- TODO: avoid code duplication somehow
+    -- [LW-4]: avoid code duplication somehow (during refactoring)
     waitAndWarn (WaitOnce      s  ) = wait (for s) >> printWarning s
     waitAndWarn (WaitLinear    s  ) = let waitLoop acc = do
                                               wait $ for s
@@ -374,6 +376,7 @@ runWithRandomIntervals minT maxT action = do
 clearLRU :: Ord k => LRU.LRU k v -> LRU.LRU k v
 clearLRU = LRU.newLRU . LRU.maxSize
 
+-- [SRK-51]: Probably this instance should be in @safecopy@ library
 instance (Ord k, SafeCopy k, SafeCopy v) =>
          SafeCopy (LRU.LRU k v) where
     getCopy = contain $ LRU.fromList <$> safeGet <*> safeGet

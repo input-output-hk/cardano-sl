@@ -102,7 +102,7 @@ module Pos.Types.Types
        , mcdDifficulty
        , mcdSignature
 
-       -- TODO: move it from here to Block.hs
+       -- [CSL-193]: move it from here to Block.hs
        , blockDifficulty
        , mkGenericBlock
        , mkGenericHeader
@@ -654,13 +654,14 @@ headerHashF = build
 type Block ssc = Either (GenesisBlock ssc) (MainBlock ssc)
 
 ----------------------------------------------------------------------------
--- Lenses. TODO: move to Block.hs and other modules or leave them here?
+-- Lenses. [CSL-193]: move to Block.hs and other modules or leave them here?
 ----------------------------------------------------------------------------
 
 makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock
 
--- TODO: 'makeLensesData' doesn't work with types with parameters. I don't
+-- !!! Create issue about this on lens github or give link on existing issue !!!
+-- 'makeLensesData' doesn't work with types with parameters. I don't
 -- know how to design a 'makeLensesData' which would work with them (in fact,
 -- I don't even know how an invocation of 'makeLensesData' would look like)
 
@@ -870,7 +871,7 @@ instance (HasEpochOrSlot a, HasEpochOrSlot b) =>
     _getEpochOrSlot = either _getEpochOrSlot _getEpochOrSlot
 
 ----------------------------------------------------------------------------
--- Block.hs. TODO: move it into Block.hs.
+-- Block.hs. [CSL-193]: move it into Block.hs.
 -- These functions are here because of GHC bug (trac 12127).
 ----------------------------------------------------------------------------
 
@@ -1137,9 +1138,9 @@ verifyBlock VerifyBlockParams {..} blk =
 
 -- | Verify sequence of blocks. It is assumed that the leftmost block
 -- is the oldest one.
--- TODO: foldl' is used here which eliminates laziness benefits essential for
--- VerificationRes. Is it true? Can we do something with it?
--- Apart from returning Bool.
+-- foldl' is used here which eliminates laziness of triple.
+-- It doesn't affect laziness of 'VerificationRes' which is goo
+-- because laziness for this data type is crucial.
 verifyBlocks
     :: forall ssc t. (Ssc ssc, Foldable t)
     => Maybe SlotId -> t (Block ssc) -> VerificationRes

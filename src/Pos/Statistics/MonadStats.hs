@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE DefaultSignatures     #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -44,43 +45,34 @@ import           Pos.Statistics.StatEntry (StatLabel (..))
 import           Pos.Types                (Timestamp (..))
 import           Pos.Util.JsonLog         (MonadJL (..))
 
+
+type Stats l = Maybe [(Timestamp, EntryType l)]
+
 -- | `MonadStats` is a monad which has methods for stats collecting
 class Monad m => MonadStats m where
-    statLog :: StatLabel l => l -> EntryType l -> m ()
+    statLog   :: StatLabel l => l -> EntryType l -> m ()
     resetStat :: StatLabel l => l -> m ()
-    getStats :: StatLabel l => l -> m (Maybe [(Timestamp, EntryType l)])
+    getStats  :: StatLabel l => l -> m (Stats l)
+
+    default statLog :: (MonadTrans t, StatLabel l) => l -> EntryType l -> t m ()
+    statLog label = lift . statLog label
+
+    default resetStat :: (MonadTrans t, StatLabel l) => l -> t m ()
+    resetStat = lift . resetStat
+
+    default getStats :: (MonadTrans t, StatLabel l) => l -> t m (Stats l)
+    getStats = lift . getStats
 
     -- | Default convenience method, which we can override
     -- (to truly do nothing in `NoStatsT`, for example)
     logStatM :: StatLabel l => l -> m (EntryType l) -> m ()
     logStatM label action = action >>= statLog label
 
--- TODO: is there a way to avoid such boilerplate for transformers?
--- UPD: I have and idea how to avoid such boilerplate. Can try later.
-instance MonadStats m => MonadStats (KademliaDHT m) where
-    statLog label = lift . statLog label
-    resetStat = lift . resetStat
-    getStats = lift . getStats
-
-instance MonadStats m => MonadStats (ReaderT a m) where
-    statLog label = lift . statLog label
-    resetStat = lift . resetStat
-    getStats = lift . getStats
-
-instance MonadStats m => MonadStats (StateT a m) where
-    statLog label = lift . statLog label
-    resetStat = lift . resetStat
-    getStats = lift . getStats
-
-instance MonadStats m => MonadStats (ExceptT e m) where
-    statLog label = lift . statLog label
-    resetStat = lift . resetStat
-    getStats = lift . getStats
-
-instance MonadStats m => MonadStats (DHTResponseT m) where
-    statLog label = lift . statLog label
-    resetStat = lift . resetStat
-    getStats = lift . getStats
+instance MonadStats m => MonadStats (KademliaDHT    m)
+instance MonadStats m => MonadStats (ReaderT      a m)
+instance MonadStats m => MonadStats (StateT       a m)
+instance MonadStats m => MonadStats (ExceptT      e m)
+instance MonadStats m => MonadStats (DHTResponseT   m)
 
 type instance ThreadId (NoStatsT m) = ThreadId m
 type instance ThreadId (StatsT m) = ThreadId m
@@ -142,7 +134,7 @@ instance MonadSscLD ssc m => MonadSscLD ssc (StatsT m) where
 instance MonadTrans StatsT where
     lift = StatsT
 
--- TODO: =\
+-- [CSL-196]: Global mutable variables are bad
 statsMap :: SM.Map Text LByteString
 statsMap = unsafePerformIO SM.newIO
 
@@ -161,5 +153,5 @@ instance (MonadIO m, MonadJL m) => MonadStats (StatsT m) where
       where
         reset old = return (old, Remove)
 
-    -- TODO: do we need getStats at all?
+    -- [CSL-196]: do we need getStats at all?
     getStats _ = pure $ pure []

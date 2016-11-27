@@ -30,7 +30,7 @@ spec = do
     -- note that we can't make max size larger than 50 without changing it in
     -- Test.Pos.Util as well
     describe "SharedSeed" $ do
-        prop description_xorFormsAbelianGroup xorFormsAbelianGroup    
+        prop description_xorFormsAbelianGroup xorFormsAbelianGroup
     let smaller = modifyMaxSize (const 40) . modifyMaxSuccess (const 30)
     describe "calculateSeed" $ smaller $ do
         prop
@@ -48,7 +48,7 @@ spec = do
                n_openings <- choose (n_overlap, n)
                let n_shares = n - n_openings + n_overlap
                return $ recoverSecretsProp n n_openings n_shares n_overlap
-        -- TODO: we are in process of thinking about this property, see CSL-50
+        -- [CSL-50]: we are in process of thinking about this property
         -- prop
         --     "fails to find the seed when some secrets can't be recovered" $
         --     do n <- sized $ \size -> choose (1, max size 1)

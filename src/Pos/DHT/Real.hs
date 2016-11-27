@@ -365,7 +365,7 @@ instance ( MonadDialog BinaryP m
         defaultSendToNode addr msg
         listenOutbound >>= updateClosers
       where
-        -- TODO [CSL-4] temporary code, to refactor to subscriptions (after TW-47)
+        -- [CSL-4][TW-47]: temporary code, to refactor to subscriptions (after TW-47)
         listenOutboundDo = KademliaDHT (asks kdcListenByBinding) >>= ($ AtConnTo addr)
         listenOutbound = listenOutboundDo `catches` [Handler handleAL, Handler handleTE]
         handleAL (AlreadyListeningOutbound _) = return $ pure ()
@@ -447,7 +447,7 @@ joinNetwork' inst node = do
             logInfo $
             sformat ("joinNetwork: node " % build % " already contains us") node
 
--- TODO move to serokell-core ?
+-- [TW-84]: move to serokell-core or time-warp?
 waitAnyUnexceptional
     :: (MonadIO m, WithLogger m)
     => [Async a] -> m (Maybe (Async a, a))

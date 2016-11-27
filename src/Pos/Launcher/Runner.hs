@@ -141,7 +141,8 @@ runNodeReal inst np = runRealMode inst np listeners $ getNoStatsT (runNode @ssc)
     noStatsListeners = map (mapListenerDHT getNoStatsT) (allListeners @ssc)
 
 -- | Run full node in benchmarking node
--- TODO: spawn here additional listener, which would accept stat queries
+-- [CSL-169]: spawn here additional listener, which would accept stat queries
+-- can be done as part of refactoring (or someone who will refactor will create new issue).
 runNodeStats :: forall ssc . SscConstraint ssc
              => KademliaDHTInstance -> NodeParams -> IO ()
 runNodeStats inst np = runRealMode inst np listeners $ getStatsT $ do

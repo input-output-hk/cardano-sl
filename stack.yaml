@@ -21,10 +21,6 @@ packages:
     commit: 95fce1dbada62020a0b2d6aa2dd7e88eadd7214b
   extra-dep: true
 - location:
-    git: https://github.com/input-output-hk/pvss-haskell.git
-    commit: 1b898a222341116d210f2d3a5566028e14a335ae
-  extra-dep: true
-- location:
     git: https://github.com/serokell/kademlia.git
     commit: 062053ed11b92c8e25d4d61ea943506fd0482fa6
   extra-dep: true
@@ -39,8 +35,9 @@ extra-deps:
 - aeson-extra-0.4.0.0
 - recursion-schemes-5
 - QuickCheck-2.9.2
-- cryptonite-openssl-0.2
+- cryptonite-openssl-0.3
 - UtilityTM-0.0.4
 - serokell-util-0.1.1.1
+- pvss-0.1
 
 resolver: lts-7.9

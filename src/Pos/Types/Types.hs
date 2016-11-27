@@ -570,8 +570,8 @@ data GenesisBlockchain ssc
 type GenesisBlockHeader ssc = GenericBlockHeader (GenesisBlockchain ssc)
 
 instance Blockchain (GenesisBlockchain ssc) where
+    -- [CSL-199]: maybe we should use ADS.
     -- | Proof of GenesisBody is just a hash of slot leaders list.
-    -- TODO: do we need a Merkle tree? This list probably won't be large.
     data BodyProof (GenesisBlockchain ssc) = GenesisProof
         !(Hash SlotLeaders)
         deriving (Eq, Generic, Show)

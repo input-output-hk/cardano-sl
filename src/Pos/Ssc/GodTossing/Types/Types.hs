@@ -114,43 +114,46 @@ deriveSafeCopySimple 0 'base ''GtPayload
 instance Binary GtPayload
 instance MessagePack GtPayload
 
+isEmptyGtPayload :: GtPayload -> Bool
+isEmptyGtPayload (CommitmentsPayload comms certs) = null comms && null certs
+isEmptyGtPayload (OpeningsPayload opens certs)    = null opens && null certs
+isEmptyGtPayload (SharesPayload shares certs)     = null shares && null certs
+isEmptyGtPayload (CertificatesPayload certs)      = null certs
+
 instance Buildable GtPayload where
-    build gp =
-        case gp of
-            CommitmentsPayload comms certs     ->
-                formatTwo formatCommitments comms certs
-            OpeningsPayload  openings certs    ->
-                formatTwo formatOpenings openings certs
-            SharesPayload shares certs         ->
-                formatTwo formatShares shares certs
-            CertificatesPayload certs          ->
-                formatCertificates certs
+    build gp
+        | isEmptyGtPayload gp = "  no GodTossing payload"
+        | otherwise =
+            case gp of
+                CommitmentsPayload comms certs ->
+                    formatTwo formatCommitments comms certs
+                OpeningsPayload openings certs ->
+                    formatTwo formatOpenings openings certs
+                SharesPayload shares certs ->
+                    formatTwo formatShares shares certs
+                CertificatesPayload certs -> formatCertificates certs
       where
         formatIfNotNull formatter l
             | null l = mempty
             | otherwise = bprint formatter l
         formatCommitments comms =
             formatIfNotNull
-                ("  commitments from: "%listJson%"\n")
+                ("  commitments from: " %listJson % "\n")
                 (HM.keys comms)
         formatOpenings openings =
             formatIfNotNull
-                ("  openings from: "%listJson%"\n")
+                ("  openings from: " %listJson % "\n")
                 (HM.keys openings)
         formatShares shares =
             formatIfNotNull
-                ("  shares from: "%listJson%"\n")
+                ("  shares from: " %listJson % "\n")
                 (HM.keys shares)
         formatCertificates certs =
             formatIfNotNull
-                ("  certificates from: "%listJson%"\n")
+                ("  certificates from: " %listJson % "\n")
                 (HM.keys certs)
         formatTwo formatter hm certs =
-              mconcat
-                  [
-                    formatter hm
-                  , formatCertificates certs
-                  ]
+            mconcat [formatter hm, formatCertificates certs]
 
 ----------------------------------------------------------------------------
 -- SscProof

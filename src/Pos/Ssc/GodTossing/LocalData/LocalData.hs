@@ -146,6 +146,7 @@ processCommitment pk c = do
     checks epochIndex =
         [ not . HM.member pk <$> view gtGlobalCommitments
         , not . HM.member pk <$> view gtLocalCommitments
+        , HM.member pk <$> view gtGlobalCertificates
         , pure . isVerSuccess $ verifySignedCommitment pk epochIndex c
         ]
 

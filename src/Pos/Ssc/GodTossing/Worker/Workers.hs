@@ -143,11 +143,11 @@ sendOurData msgTag epoch kMultiplier ourPk = do
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 
 -- | Generate new commitment and opening and use them for the current
--- epoch. Assumes that the genesis block has already been generated and
--- processed by MPC (when the genesis block is processed, the secret is
--- cleared) (otherwise 'generateNewSecret' will fail because 'A.SetSecret'
--- won't set the secret if there's one already).
--- Nothing is returned if node is not ready.
+-- epoch. 'prepareSecretToNewSlot' must be called before doing it.
+--
+-- Nothing is returned if node is not ready (usually it means that
+-- node doesn't have recent enough blocks and needs to be
+-- synchronized).
 generateAndSetNewSecret
     :: WorkMode SscGodTossing m
     => SecretStorage

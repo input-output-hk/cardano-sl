@@ -14,10 +14,13 @@ import           Pos.Crypto.Arbitrary.Hash   ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
 import           Pos.Crypto.SecretSharing    (EncShare, Secret, VssKeyPair, VssPublicKey,
                                               genSharedSecret, toVssPublicKey, vssKeyGen)
+import           Pos.Crypto.SerTypes         (LEncShare, LSecret, LVssPublicKey)
+import           Pos.Crypto.SerTypes         ()
 import           Pos.Crypto.Signing          (PublicKey, SecretKey, Signature, Signed,
                                               keyGen, mkSigned, sign)
 import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakeList,
                                               unsafeMakePool)
+import           Pos.Util                    (Serialized (..))
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -74,6 +77,9 @@ instance Arbitrary VssKeyPair where
 instance Arbitrary VssPublicKey where
     arbitrary = toVssPublicKey <$> arbitrary
 
+instance Arbitrary LVssPublicKey where
+    arbitrary = (serialize :: VssPublicKey -> LVssPublicKey) <$> arbitrary
+
 instance Nonrepeating VssKeyPair where
     nonrepeating n = sublistN n vssKeys
 
@@ -103,6 +109,9 @@ secrets =
 instance Arbitrary Secret where
     arbitrary = elements secrets
 
+instance Arbitrary LSecret where
+    arbitrary = (serialize :: Secret -> LSecret) <$> arbitrary
+
 encShares :: [EncShare]
 encShares =
     unsafeMakeList "[generating shares for tests...]" $
@@ -111,3 +120,6 @@ encShares =
 
 instance Arbitrary EncShare where
     arbitrary = elements encShares
+
+instance Arbitrary LEncShare where
+    arbitrary = (serialize :: EncShare -> LEncShare) <$> arbitrary

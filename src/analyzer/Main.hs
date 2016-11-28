@@ -35,14 +35,27 @@ main = do
             "Use it!"
             argsParser
             empty
+    logs <- parseFiles files
+
+    case txFile of
+        Nothing   -> pure ()
+        Just file -> analyzeVerifyTimes file confirmationParam logs
+
+    let tpsLogs :: HM.HashMap FilePath [(UTCTime, Double)]
+        tpsLogs = getTpsLog <$> logs
+
+    forM_ (HM.toList tpsLogs) $ \(file, ds) -> do
+        let csvFile = tpsCsvFilename file
+        putText $ sformat ("Writing TPS stats to file: "%string) csvFile
+        writeFile csvFile $ tpsToCsv ds
+
+analyzeVerifyTimes :: FilePath -> Word64 -> HM.HashMap FilePath [JLTimedEvent] -> IO ()
+analyzeVerifyTimes txFile cParam logs = do
     (txSenderMap :: HashMap TxId Integer) <-
         HM.fromList . fromMaybe (panic "failed to read txSenderMap") . decode <$>
         LBS.readFile txFile
-    logs <- parseFiles files
-    let tpsLogs :: HM.HashMap FilePath [(UTCTime, Double)]
-        tpsLogs = getTpsLog <$> logs
-        txConfTimes :: HM.HashMap TxId Integer
-        txConfTimes = getTxAcceptTimeAvgs confirmationParam logs
+    let txConfTimes :: HM.HashMap TxId Integer
+        txConfTimes = getTxAcceptTimeAvgs cParam logs
         common =
             HM.intersectionWith (-) txConfTimes txSenderMap
         average :: Double
@@ -53,20 +66,7 @@ main = do
     print $
         sformat ("Number of transactions which are sent and accepted: " %int) $
         length common
-    -- traceShowM $ HM.size logs
-    -- traceShowM $ take 10 $ HM.toList logs
-    -- traceShowM $ HM.size txSenderMap
-    -- traceShowM $ take 10 $ HM.toList txSenderMap
-    -- traceShowM $ HM.size txConfTimes
-    -- traceShowM $ take 10 $ HM.toList txConfTimes
-    -- traceShowM $ length $ (HM.keys txConfTimes) `L.intersect` (HM.keys txSenderMap)
-    --LBS.putStr . encode $ getTxAcceptTimeAvgs logs
     print averageMsec
-
-    forM_ (HM.toList tpsLogs) $ \(file, ds) -> do
-        let csvFile = tpsCsvFilename file
-        putText $ sformat ("Writing TPS stats to file: "%string) csvFile
-        writeFile csvFile $ tpsToCsv ds
 
 getTxAcceptTimeAvgs :: Word64 -> HM.HashMap FilePath [JLTimedEvent] -> HM.HashMap TxId Integer
 getTxAcceptTimeAvgs confirmations fileEvsMap = result

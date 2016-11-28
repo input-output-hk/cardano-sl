@@ -14,6 +14,7 @@ import           Data.Time.Clock.POSIX  (getPOSIXTime)
 import           Formatting             (float, int, sformat, (%))
 import           Options.Applicative    (execParser)
 import           System.FilePath.Posix  ((</>))
+import           System.Random.Shuffle  (shuffleM)
 import           System.Wlog            (logInfo)
 import           Test.QuickCheck        (arbitrary, generate)
 import           Universum
@@ -66,6 +67,10 @@ seedInitTx bp initTx na = do
         then pure ()
         else seedInitTx bp initTx na
 
+chooseSubset :: Double -> [a] -> [a]
+chooseSubset share ls = take n ls
+  where n = min 1 $ round $ share * fromIntegral (length ls)
+
 runSmartGen :: forall ssc . SscConstraint ssc
             => KademliaDHTInstance -> NodeParams -> GenOptions -> IO ()
 runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
@@ -93,14 +98,11 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
     logInfo "STARTING TXGEN"
     peers <- discoverPeers DHTFull
 
-    let na' = dhtAddr <$> peers
-        na = if goSingleRecipient
-             then take 1 na'
-             else na'
+    let neighboursAddrs = dhtAddr <$> peers
         forFold init ls act = foldM act init ls
 
     -- Seeding init tx
-    seedInitTx bambooPool initTx na
+    seedInitTx bambooPool initTx neighboursAddrs
 
     -- Start writing tps file
     liftIO $ writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
@@ -134,8 +136,12 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
             logInfo $ sformat ("CURRENT TXNUM: "%int) txNum
             -- prevent periods longer than we expected
             unless (preStartT - beginT > round (roundDurationSec * 1000)) $ do
-                eTx <- nextValidTx bambooPool goTPS goPropThreshold
                 startT <- getPosixMs
+
+                -- Get a random subset of neighbours to send tx
+                na <- liftIO $ chooseSubset goRecipientShare <$> shuffleM neighboursAddrs
+
+                eTx <- nextValidTx bambooPool goTPS goPropThreshold
                 case eTx of
                     Left parent -> do
                         logInfo $ sformat ("Transaction #"%int%" is not verified yet!") idx

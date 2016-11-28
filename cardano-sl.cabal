@@ -383,6 +383,7 @@ executable cardano-smart-generator
                      , optparse-applicative
                      , parsec
                      , random
+                     , random-shuffle
                      , serokell-util
                      , text
                      , time

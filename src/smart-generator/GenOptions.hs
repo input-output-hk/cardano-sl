@@ -27,7 +27,7 @@ data GenOptions = GenOptions
     , goInitTps            :: !Double     -- ^ Start TPS rate (it adjusts over time)
     , goTpsIncreaseStep    :: !Double     -- ^ When system is stable, increase TPS in next round by this value
     , goPropThreshold      :: !Int
-    , goSingleRecipient    :: !Bool       -- ^ Send to only 1 node if flag is set
+    , goRecipientShare     :: !Double     -- ^ Which portion of neighbours to send on each round
     , goDhtExplicitInitial :: !Bool
     , goLogConfig          :: !(Maybe FilePath)
     , goLogsPrefix         :: !(Maybe FilePath)
@@ -89,9 +89,10 @@ optionsParser = GenOptions
           <> long "propagate-threshold"
           <> value 1
           <> help "Approximate number of slots needed to propagate transactions across the network")
-    <*> switch
-        (long "single-recipient" <>
-         help "Send transactions only to one of nodes")
+    <*> option auto
+            (long "recipients-share"
+          <> value 1
+          <> help "Which portion of neighbours to send on each round")
     <*> switch
         (long "explicit-initial" <>
          help

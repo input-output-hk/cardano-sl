@@ -26,7 +26,7 @@ statsListeners = [ ListenerDHT $ handleStatsRequests @StatProcessTx
                  ]
 
 handleStatsRequests :: (StatLabel l, ResponseMode ssc m) => RequestStat l -> m ()
-handleStatsRequests (RequestStat id label) = do
+handleStatsRequests (RequestStat label) = do
     logInfo $ sformat ("Requested statistical data with label "%build) label
     stats <- getStats label
-    replyToNode $ ResponseStat id label stats
+    replyToNode $ ResponseStat label stats

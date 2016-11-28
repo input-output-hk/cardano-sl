@@ -24,12 +24,12 @@ TODO: remove after `ListenerDHT` is able to know sender's address
 
 -- | Message: someone requested a stat
 data RequestStat l =
-    RequestStat !Word64 !l
+    RequestStat !l
     deriving (Generic)
 
 -- | Message: send the list with stats back
 data ResponseStat l a =
-    ResponseStat !Word64 !l !(Maybe [a])
+    ResponseStat !l !(Maybe [a])
     deriving (Generic)
 
 instance StatLabel l => Binary (RequestStat l)

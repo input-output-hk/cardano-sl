@@ -113,7 +113,7 @@ module Pos.Types.Types
        , mkGenesisBlock
 
        , VerifyBlockParams (..)
-       , VerifyHeaderExtra (..)
+       , VerifyHeaderParams (..)
        , verifyBlock
        , verifyBlocks
        , verifyGenericBlock
@@ -1009,42 +1009,41 @@ verifyConsensusLocal (Right header) =
     sig = consensus ^. mcdSignature
 
 -- | Extra data which may be used by verifyHeader function to do more checks.
-data VerifyHeaderExtra ssc = VerifyHeaderExtra
-    { vhePrevHeader  :: !(Maybe (BlockHeader ssc))
+data VerifyHeaderParams ssc = VerifyHeaderParams
+    { vhpPrevHeader  :: !(Maybe (BlockHeader ssc))
     -- ^ Nothing means that block is unknown, not genesis.
-    , vheNextHeader  :: !(Maybe (BlockHeader ssc))
-    , vheCurrentSlot :: !(Maybe SlotId)
-    , vheLeaders     :: !(Maybe SlotLeaders)
+    , vhpNextHeader  :: !(Maybe (BlockHeader ssc))
+    , vhpCurrentSlot :: !(Maybe SlotId)
+    , vhpLeaders     :: !(Maybe SlotLeaders)
     }
 
 -- | By default there is not extra data.
-instance Default (VerifyHeaderExtra ssc) where
+instance Default (VerifyHeaderParams ssc) where
     def =
-        VerifyHeaderExtra
-        { vhePrevHeader = Nothing
-        , vheNextHeader = Nothing
-        , vheCurrentSlot = Nothing
-        , vheLeaders = Nothing
+        VerifyHeaderParams
+        { vhpPrevHeader = Nothing
+        , vhpNextHeader = Nothing
+        , vhpCurrentSlot = Nothing
+        , vhpLeaders = Nothing
         }
 
 maybeEmpty :: Monoid m => (a -> m) -> Maybe a -> m
 maybeEmpty = maybe mempty
 
--- | Check some predicates about BlockHeader. Number of checks depends
--- on extra data passed to this function. It tries to do as much as
--- possible.
+-- | Check some predicates (determined by VerifyHeaderParams) about
+-- BlockHeader.
 verifyHeader
     :: Ssc ssc
-    => VerifyHeaderExtra ssc -> BlockHeader ssc -> VerificationRes
-verifyHeader VerifyHeaderExtra {..} h =
+    => VerifyHeaderParams ssc -> BlockHeader ssc -> VerificationRes
+verifyHeader VerifyHeaderParams {..} h =
     verifyConsensusLocal h <> verifyGeneric checks
   where
     checks =
         mconcat
-            [ maybeEmpty relatedToPrevHeader vhePrevHeader
-            , maybeEmpty relatedToNextHeader vheNextHeader
-            , maybeEmpty relatedToCurrentSlot vheCurrentSlot
-            , maybeEmpty relatedToLeaders vheLeaders
+            [ maybeEmpty relatedToPrevHeader vhpPrevHeader
+            , maybeEmpty relatedToNextHeader vhpNextHeader
+            , maybeEmpty relatedToCurrentSlot vhpCurrentSlot
+            , maybeEmpty relatedToLeaders vhpLeaders
             ]
     checkHash expectedHash actualHash =
         ( expectedHash == actualHash
@@ -1109,7 +1108,7 @@ verifyGenericBlock blk =
 -- Note: to check that block references previous block and/or is referenced
 -- by next block, use header verification (via vbpVerifyHeader).
 data VerifyBlockParams ssc = VerifyBlockParams
-    { vbpVerifyHeader  :: !(Maybe (VerifyHeaderExtra ssc))
+    { vbpVerifyHeader  :: !(Maybe (VerifyHeaderParams ssc))
     , vbpVerifyGeneric :: !Bool
     }
 
@@ -1155,16 +1154,16 @@ verifyBlocks curSlotId = (view _3) . foldl' step start
                 case blk of
                     Left genesisBlock -> Just $ genesisBlock ^. blockLeaders
                     Right _           -> leaders
-            vhe =
-                VerifyHeaderExtra
-                { vhePrevHeader = prevHeader
-                , vheNextHeader = Nothing
-                , vheLeaders = newLeaders
-                , vheCurrentSlot = curSlotId
+            vhp =
+                VerifyHeaderParams
+                { vhpPrevHeader = prevHeader
+                , vhpNextHeader = Nothing
+                , vhpLeaders = newLeaders
+                , vhpCurrentSlot = curSlotId
                 }
             vbp =
                 VerifyBlockParams
-                {vbpVerifyHeader = Just vhe, vbpVerifyGeneric = True}
+                {vbpVerifyHeader = Just vhp, vbpVerifyGeneric = True}
         in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)
 
 ----------------------------------------------------------------------------

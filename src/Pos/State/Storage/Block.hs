@@ -58,7 +58,7 @@ import           Pos.Types               (Block, BlockHeader, ChainDifficulty, E
                                           GenesisBlock, HeaderHash, MainBlock,
                                           MainBlockHeader, SlotId (..), SlotLeaders, Tx,
                                           Utxo, VerifyBlockParams (..),
-                                          VerifyHeaderExtra (..), blockHeader,
+                                          VerifyHeaderParams (..), blockHeader,
                                           blockLeaders, blockSlot, difficultyL,
                                           epochIndexL, gbHeader, getBlockHeader,
                                           headerDifficulty, headerHash, headerSlot,
@@ -216,13 +216,13 @@ mayBlockBeUseful currentSlotId header = do
     let hSlot = header ^. headerSlot
     leaders <- getLeaders (siEpoch hSlot)
     isInteresting <- isHeaderInteresting header
-    let vhe = def {vheCurrentSlot = Just currentSlotId, vheLeaders = leaders}
+    let vhp = def {vhpCurrentSlot = Just currentSlotId, vhpLeaders = leaders}
     let extraChecks =
             [ ( isInteresting
               , "block is not more difficult than the best known block and \
                  \can't be appended to alternative chain")
             ]
-    return $ verifyHeader vhe (Right header) <> verifyGeneric extraChecks
+    return $ verifyHeader vhp (Right header) <> verifyGeneric extraChecks
 
 isHeaderInteresting :: Ssc ssc => MainBlockHeader ssc -> Query ssc Bool
 isHeaderInteresting header = do
@@ -237,18 +237,18 @@ canContinueAltChainI blk i = do
     -- We only need to check that block can be previous block of the
     -- head of alternative chain.
     (altChainBlk :| _) <- (!! i) <$> view blkAltChains
-    let vhe = def {vheNextHeader = Just $ altChainBlk ^. blockHeader}
-    let vbp = def {vbpVerifyHeader = Just vhe}
+    let vhp = def {vhpNextHeader = Just $ altChainBlk ^. blockHeader}
+    let vbp = def {vbpVerifyHeader = Just vhp}
     return $ isVerSuccess $ verifyBlock vbp blk
 
 canContinueAltChain
     :: Ssc ssc
     => AltChain ssc -> MainBlockHeader ssc -> Query ssc Bool
 canContinueAltChain (blk :| _) header
-    | isVerFailure $ verifyHeader vhe (Right header) = pure False
+    | isVerFailure $ verifyHeader vhp (Right header) = pure False
     | otherwise = (header ^. difficultyL >=) <$> view blkMinDifficulty
   where
-    vhe = def {vheNextHeader = Just (blk ^. blockHeader)}
+    vhp = def {vhpNextHeader = Just (blk ^. blockHeader)}
 
 isMostDifficult :: MainBlockHeader ssc -> Query ssc Bool
 isMostDifficult (view difficultyL -> difficulty) =
@@ -271,11 +271,11 @@ blkProcessBlock currentSlotId blk hardChecks = do
             (const $ pure Nothing)
             (readerToState . getLeaders . siEpoch . view blockSlot)
             blk
-    let vhe = def {vheCurrentSlot = Just currentSlotId, vheLeaders = leaders}
+    let vhp = def {vhpCurrentSlot = Just currentSlotId, vhpLeaders = leaders}
     let header = blk ^. blockHeader
     let verRes =
             mconcat
-                [ verifyHeader vhe header
+                [ verifyHeader vhp header
                 , verifyBlock (def {vbpVerifyGeneric = True}) blk
                 ]
     guardVerRes verRes $ blkProcessBlockDo blk hardChecks
@@ -316,8 +316,8 @@ canContinueBestChain blk = do
     headBlk <- getHeadBlock
     -- At this point we only need to check that block references head
     -- and is consistent with it.
-    let vhe = def {vhePrevHeader = Just $ getBlockHeader headBlk}
-    let vbp = def {vbpVerifyHeader = Just vhe}
+    let vhp = def {vhpPrevHeader = Just $ getBlockHeader headBlk}
+    let vbp = def {vbpVerifyHeader = Just vhp}
     return $ isVerSuccess $ verifyBlock vbp blk
 
 -- We know that we can continue best chain, but we also try to merge

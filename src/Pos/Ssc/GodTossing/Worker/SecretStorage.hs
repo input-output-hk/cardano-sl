@@ -33,7 +33,7 @@ setS :: GtSecret -> Update GtSecretStorage ()
 setS (ourPk, comm, op) = do
     st <- get
     case _dsCurrentSecret st of
-        Just _  -> panic "setSecret: a secret was already present"
+        Just _  -> pass
         Nothing -> put $ st {_dsCurrentSecret = Just (ourPk, comm, op)}
 
 prepare :: SlotId -> Update GtSecretStorage ()

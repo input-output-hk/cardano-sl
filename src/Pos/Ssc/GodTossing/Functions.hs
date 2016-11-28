@@ -242,13 +242,13 @@ verifyGtPayload header payload =
             SharesPayload          _ certs -> [certsChecks certs, isShare]
             CertificatesPayload      certs -> [certsChecks certs, isOther]
   where
-    slotId       = header ^. headerSlot
-    epochId      = siEpoch slotId
-    isComm       = (isCommitmentId slotId, "slotId doesn't belong commitment phase")
-    isOpen       = (isOpeningId slotId, "slotId doesn't belong openings phase")
-    isShare      = (isSharesId slotId, "slotId doesn't belong share phase")
-    isOther      = (all not $ map fst [isComm, isOpen, isShare],
-                    "slotId doesn't belong intermediate phase")
+    slotId  = header ^. headerSlot
+    epochId = siEpoch slotId
+    isComm  = (isCommitmentId slotId, "slotId doesn't belong commitment phase")
+    isOpen  = (isOpeningId slotId, "slotId doesn't belong openings phase")
+    isShare = (isSharesId slotId, "slotId doesn't belong share phase")
+    isOther = (all not $ map fst [isComm, isOpen, isShare],
+                  "slotId doesn't belong intermediate phase")
 
     -- We *forbid* blocks from having commitments/openings/shares in blocks
     -- with wrong slotId (instead of merely discarding such commitments/etc)
@@ -257,30 +257,28 @@ verifyGtPayload header payload =
     --
     -- For commitments specifically, we also
     --   * check there are only commitments in the block
-    --   * use verifySignedCommitment, which checks commitments themselves, e. g.
-    --     checks their signatures (which includes checking that the
+    --   * use verifySignedCommitment, which checks commitments themselves,
+    --     e.g. checks their signatures (which includes checking that the
     --     commitment has been generated for this particular epoch)
-    -- TODO: we might also check that all share IDs are different, because
-    -- then we would be able to simplify 'calculateSeed' a bit – however,
-    -- it's somewhat complicated because we have encrypted shares, shares in
-    -- commitments, etc.
     commChecks commitments =
-          (let checkSignedComm = isVerSuccess .
-                    uncurry (flip verifySignedCommitment epochId)
-            in all checkSignedComm (HM.toList commitments),
-                "verifySignedCommitment has failed for some commitments")
+        (let checkSignedComm =
+                 isVerSuccess .
+                 uncurry (flip verifySignedCommitment epochId)
+          in all checkSignedComm (HM.toList commitments),
+            "verifySignedCommitment has failed for some commitments")
+        -- [CSL-206]: check that share IDs are different.
 
     -- Vss certificates checker
     --   * VSS certificates are signed properly
     certsChecks certs =
-         (all checkCert (HM.toList certs),
-                "some VSS certificates aren't signed properly")
+        (all checkCert (HM.toList certs),
+            "some VSS certificates aren't signed properly")
 
     -- For all blocks (no matter the type), we check that
     --   * slot ID is in range
     otherChecks =
         [ (inRange (0, 6 * k - 1) (siSlot slotId),
-                "slot id is outside of [0, 6k)")]
+            "slot id is outside of [0, 6k)")]
 
 ----------------------------------------------------------------------------
 -- Filter Local Payload

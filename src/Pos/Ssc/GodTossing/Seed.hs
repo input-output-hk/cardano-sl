@@ -71,10 +71,11 @@ calculateSeed (fromIntegral -> t) commitments openings lShares = do
             -- We are now trying to recover a secret for key 'k'
             k <- toList mustBeRecovered
             -- We collect all secrets that 'k' has sent to other nodes (and
-            -- remove shares with equal IDs)
+            -- remove shares with equal IDs; when [CSL-206] is done, I assume
+            -- we won't have to do this).
             --
             -- TODO: can we be sure that here different IDs mean different
-            -- shares? maybe it'd be better to 'assert' it
+            -- shares? maybe it'd be better to 'assert' it.
             let secrets :: [Share]
                 secrets = toList . HM.fromList $
                           map (shareId &&& identity) $

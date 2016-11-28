@@ -183,10 +183,6 @@ mpcVerifyBlock (Right b) = magnify' lastVer $ do
     --   * check that the nodes haven't already sent their commitments before
     --     in some different block
     --   * check that a VSS certificate is present for the committing node
-    -- TODO: we might also check that all share IDs are different, because
-    -- then we would be able to simplify 'calculateSeed' a bit – however,
-    -- it's somewhat complicated because we have encrypted shares, shares in
-    -- commitments, etc.
     let commChecks comms certs =
             [ isComm
             , (all (`HM.member` (certs <> globalCertificates))
@@ -195,6 +191,7 @@ mpcVerifyBlock (Right b) = magnify' lastVer $ do
             , (all (not . (`HM.member` globalCommitments))
                    (HM.keys comms),
                    "some nodes have already sent their commitments")
+            -- [CSL-206]: check that share IDs are different.
             ]
 
     -- For openings, we check that

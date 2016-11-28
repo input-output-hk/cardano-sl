@@ -156,7 +156,7 @@ instance Buildable GtPayload where
 -- SscProof
 ----------------------------------------------------------------------------
 -- | Proof of MpcData.
--- We can use ADS for commitments, opennings, shares as well,
+-- We can use ADS for commitments, openings, shares as well,
 -- if we find it necessary.
 data GtProof
     = CommitmentsProof !(Hash CommitmentsMap) !(Hash VssCertificatesMap)

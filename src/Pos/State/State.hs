@@ -62,8 +62,7 @@ import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            runPureLog, usingLoggerName)
 
 import           Pos.Crypto               (LVssPublicKey, PublicKey, SecretKey, Share,
-                                           Threshold, VssKeyPair, decryptShare,
-                                           toVssPublicKey)
+                                           VssKeyPair, decryptShare, toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
 import           Pos.Ssc.Class.Types      (Ssc (SscGlobalState, SscPayload, SscStorage))

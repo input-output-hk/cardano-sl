@@ -155,8 +155,11 @@ generateAndSetNewSecret
     -> EpochIndex                         -- ^ Current epoch
     -> m (Maybe (SignedCommitment, Opening))
 generateAndSetNewSecret storage sk epoch = do
-    -- TODO: I think it's safe here to perform 2 operations which aren't
-    -- grouped into a single transaction here, but I'm still a bit nervous.
+    -- It should be safe here to perform 2 operations (get and set)
+    -- which aren't grouped into a single transaction here, because if
+    -- getParticipants returns 'Just res' it will always return 'Just
+    -- res' unless key assumption is broken. But if it's broken,
+    -- nothing else matters.
     participants <- getParticipants epoch
     case participants of
         Nothing -> return Nothing

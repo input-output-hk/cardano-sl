@@ -1140,7 +1140,7 @@ verifyBlock VerifyBlockParams {..} blk =
 -- | Verify sequence of blocks. It is assumed that the leftmost block
 -- is the oldest one.
 -- foldl' is used here which eliminates laziness of triple.
--- It doesn't affect laziness of 'VerificationRes' which is goo
+-- It doesn't affect laziness of 'VerificationRes' which is good
 -- because laziness for this data type is crucial.
 verifyBlocks
     :: forall ssc t. (Ssc ssc, Foldable t)

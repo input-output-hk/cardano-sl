@@ -1,10 +1,11 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
 
 -- | Miscellaneous unclassified utility functions.
 
@@ -56,6 +57,9 @@ module Pos.Util
        -- * LRU
        , clearLRU
 
+       , Serialized (..)
+       , deserializeM
+
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
        ) where
@@ -64,7 +68,7 @@ import           Control.Lens                  (Lens', LensLike', Magnified, Zoo
                                                 lensRules, magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad
-import           Control.Monad.Fail            (fail)
+import           Control.Monad.Fail            (MonadFail, fail)
 import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
 import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
                                                 Second, for, killThread)
@@ -389,3 +393,18 @@ instance (Ord k, SafeCopy k, SafeCopy v) =>
 -- | Create HashSet from HashMap's keys
 getKeys :: HashMap k v -> HashSet k
 getKeys = fromMap . void
+
+----------------------------------------------------------------------------
+-- Deserialized wrapper
+----------------------------------------------------------------------------
+
+class Binary b => Serialized a b where
+  serialize :: a -> b
+  deserialize :: b -> Either [Char] a
+
+deserializeM :: (Serialized a b, MonadFail m) => b -> m a
+deserializeM = either fail return . deserialize
+
+instance (Serialized a c, Serialized b d) => Serialized (a, b) (c, d) where
+    serialize (a, b) = (serialize a, serialize b)
+    deserialize (c, d) = (,) <$> deserialize c <*> deserialize d

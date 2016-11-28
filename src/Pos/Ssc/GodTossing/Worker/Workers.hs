@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 -- | Instance of SscWorkersClass.
 
@@ -10,6 +11,7 @@ module Pos.Ssc.GodTossing.Worker.Workers
        ) where
 
 import           Control.Lens                            (view, _2, _3)
+import           Control.Monad.Trans.Maybe               (runMaybeT)
 import           Control.TimeWarp.Timed                  (Microsecond, Millisecond,
                                                           currentTime, for, wait)
 import           Data.Tagged                             (Tagged (..))
@@ -18,7 +20,7 @@ import           Formatting                              (build, ords, sformat, 
                                                           (%))
 import           Serokell.Util.Exceptions                ()
 import           System.FilePath                         ((</>))
-import           System.Wlog                             (logDebug, logWarning)
+import           System.Wlog                             (logDebug, logError, logWarning)
 import           Universum
 
 import           Pos.Communication.Methods               (sendToNeighborsSafe)
@@ -50,6 +52,7 @@ import           Pos.State                               (getGlobalMpcData, getO
                                                           getParticipants, getThreshold)
 import           Pos.Types                               (EpochIndex, LocalSlotIndex,
                                                           SlotId (..), Timestamp (..))
+import           Pos.Util                                (serialize)
 import           Pos.WorkMode                            (WorkMode, getNodeContext,
                                                           ncDbPath, ncPublicKey,
                                                           ncSecretKey, ncVssKeyPair)
@@ -125,8 +128,9 @@ onNewSlotShares SlotId {..} = do
     when shouldSendShares $ do
         ourVss <- ncVssKeyPair <$> getNodeContext
         shares <- getOurShares ourVss
+        let lShares = fmap serialize shares
         unless (null shares) $ do
-            _ <- sscProcessMessage $ DMShares ourPk shares
+            _ <- sscProcessMessage $ DMShares ourPk lShares
             sendOurData SharesMsg siEpoch 4 ourPk
 
 sendOurData
@@ -165,10 +169,13 @@ generateAndSetNewSecret storage sk epoch = do
         Nothing -> return Nothing
         Just ps -> do
             let threshold = getThreshold $ length ps
-            (comm, op) <-
-                first (mkSignedCommitment sk epoch) <$>
-                genCommitmentAndOpening threshold ps
-            Just (comm, op) <$ setSecret storage (toPublic sk, comm, op)
+            mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
+            case mPair of
+              Just (mkSignedCommitment sk epoch -> comm, op) ->
+                  Just (comm, op) <$ setSecret storage (toPublic sk, comm, op)
+              _ -> do
+                logError "Wrong participants list: can't deserialize"
+                return Nothing
 
 pathToSecret :: WorkMode SscGodTossing m => m (Maybe FilePath)
 pathToSecret = fmap (</> "secret") <$> (ncDbPath <$> getNodeContext)

@@ -34,6 +34,7 @@ module Pos.Ssc.GodTossing.Functions
        ) where
 
 import           Control.Lens                   ((^.))
+import           Control.Monad.Fail             (MonadFail)
 import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
 import           Data.Ix                        (inRange)
@@ -43,9 +44,9 @@ import           Serokell.Util.Verify           (isVerSuccess)
 import           Universum
 
 import           Pos.Constants                  (k)
-import           Pos.Crypto                     (PublicKey, Secret, SecretKey,
-                                                 SecureRandom (..), Share, Signed (..),
-                                                 Threshold, VssPublicKey, genSharedSecret,
+import           Pos.Crypto                     (LShare, LVssPublicKey, PublicKey, Secret,
+                                                 SecretKey, SecureRandom (..),
+                                                 Signed (..), Threshold, genSharedSecret,
                                                  getDhSecret, secretToDhSecret, sign,
                                                  verify, verifyEncShare,
                                                  verifySecretProof, verifyShare)
@@ -57,7 +58,7 @@ import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (
 import           Pos.Types.Types                (EpochIndex, LocalSlotIndex,
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), headerSlot)
-import           Pos.Util                       (diffDoubleMap)
+import           Pos.Util                       (deserializeM, diffDoubleMap, serialize)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -68,18 +69,19 @@ secretToSharedSeed = SharedSeed . getDhSecret . secretToDhSecret
 
 -- | Generate securely random SharedSeed.
 genCommitmentAndOpening
-    :: MonadIO m
-    => Threshold -> NonEmpty VssPublicKey -> m (Commitment, Opening)
-genCommitmentAndOpening n pks =
-    liftIO . runSecureRandom . fmap convertRes . genSharedSecret n $ pks
+    :: (MonadFail m, MonadIO m)
+    => Threshold -> NonEmpty LVssPublicKey -> m (Commitment, Opening)
+genCommitmentAndOpening n pks = do
+    pks' <- traverse deserializeM pks
+    liftIO . runSecureRandom . fmap convertRes . genSharedSecret n $ pks'
   where
     convertRes (extra, secret, proof, shares) =
         ( Commitment
-          { commExtra = extra
-          , commProof = proof
-          , commShares = HM.fromList $ zip (toList pks) shares
+          { commExtra = serialize extra
+          , commProof = serialize proof
+          , commShares = HM.fromList $ zip (toList pks) $ map serialize shares
           }
-        , Opening secret)
+        , Opening $ serialize secret)
 
 -- | Make signed commitment from commitment and epoch index using secret key.
 mkSignedCommitment :: SecretKey -> EpochIndex -> Commitment -> SignedCommitment
@@ -126,9 +128,11 @@ hasVssCertificate pk = HM.member pk . _gsVssCertificates
 ----------------------------------------------------------------------------
 -- | Verify that Commitment is correct.
 verifyCommitment :: Commitment -> Bool
-verifyCommitment Commitment {..} = all verifyCommitmentDo $ HM.toList commShares
+verifyCommitment Commitment {..} = fromMaybe False $ do
+    extra <- deserializeM commExtra
+    all (verifyCommitmentDo extra) <$> traverse deserializeM (HM.toList commShares)
   where
-    verifyCommitmentDo = uncurry (verifyEncShare commExtra)
+    verifyCommitmentDo extra = uncurry (verifyEncShare extra)
 
 -- | Verify signature in SignedCommitment using public key and epoch index.
 verifyCommitmentSignature :: PublicKey -> EpochIndex -> SignedCommitment -> Bool
@@ -147,8 +151,11 @@ verifySignedCommitment pk epoch sc =
 
 -- | Verify that Secret provided with Opening corresponds to given commitment.
 verifyOpening :: Commitment -> Opening -> Bool
-verifyOpening Commitment {..} (Opening secret) =
-    verifySecretProof commExtra secret commProof
+verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
+    verifySecretProof
+      <$> deserializeM commExtra
+      <*> deserializeM secret
+      <*> deserializeM commProof
 
 -- | Check that the VSS certificate is signed properly
 checkCert
@@ -162,16 +169,23 @@ checkShare :: (SetContainer set, ContainerKey set ~ PublicKey)
            => CommitmentsMap
            -> set --set of opening's PK
            -> VssCertificatesMap
-           -> (PublicKey, PublicKey, Share)
+           -> (PublicKey, PublicKey, LShare)
            -> Bool
 checkShare globalCommitments globalOpeningsPK globalCertificates (pkTo, pkFrom, share) =
-    fromMaybe False $ do
+    fromMaybe False $ case tuple of
+      Just (eS, pk, s) -> verifyShare
+                            <$> deserializeM eS
+                            <*> deserializeM pk
+                            <*> deserializeM s
+      _ -> return False
+  where
+    tuple = do
         guard $ HM.member pkTo globalCommitments
         guard $ notMember pkFrom globalOpeningsPK
         (comm, _) <- HM.lookup pkFrom globalCommitments
         vssKey <- signedValue <$> HM.lookup pkTo globalCertificates
         encShare <- HM.lookup vssKey (commShares comm)
-        return $ verifyShare encShare vssKey share
+        return (encShare, vssKey, share)
 
 -- Apply checkShare to all shares in map.
 checkShares :: (SetContainer set, ContainerKey set ~ PublicKey)
@@ -179,10 +193,10 @@ checkShares :: (SetContainer set, ContainerKey set ~ PublicKey)
             -> set --set of opening's PK. TODO Should we add phantom type for more typesafety?
             -> VssCertificatesMap
             -> PublicKey
-            -> HashMap PublicKey Share
+            -> HashMap PublicKey LShare
             -> Bool
 checkShares globalCommitments globalOpeningsPK globalCertificates pkTo shares =
-    let listShares :: [(PublicKey, PublicKey, Share)]
+    let listShares :: [(PublicKey, PublicKey, LShare)]
         listShares = map convert $ HM.toList shares
         convert (pkFrom, share) = (pkTo, pkFrom, share)
     in all
@@ -194,7 +208,7 @@ checkShares globalCommitments globalOpeningsPK globalCertificates pkTo shares =
 checkOpeningMatchesCommitment
     :: CommitmentsMap -> (PublicKey, Opening) -> Bool
 checkOpeningMatchesCommitment globalCommitments (pk, opening) =
-    case HM.lookup pk globalCommitments of
+      case HM.lookup pk globalCommitments of
         Nothing        -> False
         Just (comm, _) -> verifyOpening comm opening
 

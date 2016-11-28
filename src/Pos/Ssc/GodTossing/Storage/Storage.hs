@@ -19,7 +19,6 @@ module Pos.Ssc.GodTossing.Storage.Storage
 
 import           Control.Lens                      (Lens', ix, preview, to, use, view,
                                                     (%=), (.=), (^.))
-import           Crypto.Random                     (drgNewSeed, seedFromInteger, withDRG)
 import           Data.Default                      (def)
 import qualified Data.HashMap.Strict               as HM
 import           Data.List                         (nub)
@@ -32,9 +31,8 @@ import           Serokell.Util.Verify              (VerificationRes (..), isVerS
                                                     verifyGeneric)
 import           Universum
 
-import           Pos.Crypto                        (Share, Signed (signedValue),
-                                                    Threshold, VssKeyPair, VssPublicKey,
-                                                    decryptShare, toVssPublicKey)
+import           Pos.Crypto                        (LEncShare, LVssPublicKey,
+                                                    Signed (signedValue), Threshold)
 import           Pos.Crypto                        (PublicKey)
 import           Pos.FollowTheSatoshi              (followTheSatoshi)
 import           Pos.Ssc.Class.Storage             (HasSscStorage (..), SscQuery,
@@ -125,7 +123,7 @@ getGlobalMpcDataByDepth (fromIntegral -> depth) =
 --
 --   1. It was a stakeholder.
 --   2. It had already sent us its VSS key by that time.
-getParticipants :: Word -> Utxo -> Query (Maybe (NonEmpty VssPublicKey))
+getParticipants :: Word -> Utxo -> Query (Maybe (NonEmpty LVssPublicKey))
 getParticipants depth utxo = do
     mKeymap <- fmap _gsVssCertificates <$> getGlobalMpcDataByDepth depth
     return $
@@ -308,24 +306,17 @@ mpcProcessBlock blk = do
                 -- VSS certificates
                 dsGlobalCertificates %= HM.union blockCertificates
 
+
 -- | Decrypt shares (in commitments) that we can decrypt.
 getOurShares
-    :: VssKeyPair                           -- ^ Our VSS key
-    -> Integer                              -- ^ Random generator seed
-                                            -- (needed for 'decryptShare')
-    -> Query (HashMap PublicKey Share)
-getOurShares ourKey seed = do
-    let drg = drgNewSeed (seedFromInteger seed)
+    :: LVssPublicKey                           -- ^ Our VSS key
+    -> Query (HashMap PublicKey LEncShare)
+getOurShares ourPK = do
     comms <- view (lastVer . dsGlobalCommitments)
     opens <- view (lastVer . dsGlobalOpenings)
-    let ourPK = toVssPublicKey ourKey
-    return $ fst $ withDRG drg $
-        fmap (HM.fromList . catMaybes) $
-            forM (HM.toList comms) $ \(theirPK, (Commitment{..}, _)) -> do
-                if not $ HM.member theirPK opens then do
-                    let mbEncShare = HM.lookup ourPK commShares
-                    case mbEncShare of
-                        Nothing       -> return Nothing
-                        Just encShare -> Just . (theirPK,) <$>
-                                        decryptShare ourKey encShare
-                 else return Nothing -- if we have opening for theirPK, we shouldn't send shares for it
+    return .
+        HM.fromList . catMaybes $
+            flip fmap (HM.toList comms) $ \(theirPK, (Commitment{..}, _)) ->
+                if not $ HM.member theirPK opens
+                   then (,) theirPK <$> HM.lookup ourPK commShares
+                   else Nothing -- if we have opening for theirPK, we shouldn't send shares for it

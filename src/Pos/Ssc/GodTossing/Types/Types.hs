@@ -24,7 +24,6 @@ module Pos.Ssc.GodTossing.Types.Types
 import           Control.Lens                  (makeLenses)
 import           Data.Binary                   (Binary)
 import qualified Data.HashMap.Strict           as HM
-import           Data.MessagePack              (MessagePack)
 import           Data.SafeCopy                 (base, deriveSafeCopySimple)
 import qualified Data.Text                     as T
 import           Data.Text.Buildable           (Buildable (..))
@@ -57,7 +56,6 @@ deriveSafeCopySimple 0 'base ''GtGlobalState
 makeLenses ''GtGlobalState
 
 instance Binary GtGlobalState
-instance MessagePack GtGlobalState
 
 instance Buildable GtGlobalState where
     build GtGlobalState {..} =
@@ -112,7 +110,6 @@ _gpCertificates (CertificatesPayload certs)  = certs
 deriveSafeCopySimple 0 'base ''GtPayload
 
 instance Binary GtPayload
-instance MessagePack GtPayload
 
 isEmptyGtPayload :: GtPayload -> Bool
 isEmptyGtPayload (CommitmentsPayload comms certs) = null comms && null certs
@@ -171,7 +168,6 @@ data GtProof
 deriveSafeCopySimple 0 'base ''GtProof
 
 instance Binary GtProof
-instance MessagePack GtProof
 
 -- | Smart constructor for 'GtProof' from 'GtPayload'.
 mkGtProof :: GtPayload -> GtProof

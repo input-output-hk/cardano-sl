@@ -56,8 +56,8 @@ import           Serokell.Util           (VerificationRes (..))
 import           System.Wlog             (WithLogger, logDebug)
 
 import           Pos.Constants           (k)
-import           Pos.Crypto              (PublicKey, SecretKey, Share, Threshold,
-                                          VssKeyPair, VssPublicKey)
+import           Pos.Crypto              (LEncShare, LVssPublicKey, PublicKey, SecretKey,
+                                          Threshold)
 import           Pos.Genesis             (genesisUtxo)
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
@@ -355,7 +355,7 @@ calculateLeaders epoch = do
 getParticipants
     :: forall ssc.
        SscStorageClass ssc
-    => EpochIndex -> Query ssc (Maybe (NonEmpty VssPublicKey))
+    => EpochIndex -> Query ssc (Maybe (NonEmpty LVssPublicKey))
 getParticipants epoch = do
     mDepth <- getMpcCrucialDepth epoch
     mUtxo <- getUtxoByDepth .=<<. mDepth
@@ -387,7 +387,6 @@ getMpcCrucialDepth epoch = do
 getOurShares
     :: forall ssc.
        SscStorageClass ssc
-    => VssKeyPair -- ^ Our VSS key
-    -> Integer -- ^ Random generator seed (needed for 'decryptShare')
-    -> Query ssc (HashMap PublicKey Share)
+    => LVssPublicKey -- ^ Our VSS key
+    -> Query ssc (HashMap PublicKey LEncShare)
 getOurShares = sscGetOurShares @ssc

@@ -8,16 +8,17 @@ module Pos.Ssc.GodTossing.Arbitrary
 
 import           Data.DeriveTH                  (derive, makeArbitrary)
 import           Data.List.NonEmpty             (NonEmpty ((:|)))
-import           Test.QuickCheck                (Arbitrary (..), elements, choose)
+import           Test.QuickCheck                (Arbitrary (..), choose, elements)
 import           Universum
 
-import           Pos.Crypto                     (SecretProof, SecretSharingExtra,
+import           Pos.Crypto                     (LSecretProof, LSecretSharingExtra,
                                                  deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Crypto.Arbitrary           ()
 import           Pos.Ssc.GodTossing.Functions   (genCommitmentAndOpening)
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), Opening)
 import           Pos.Ssc.GodTossing.Types.Types (GtProof (..))
 import           Pos.Types.Arbitrary.Unsafe     ()
+import           Pos.Util                       (serialize)
 import           Pos.Util.Arbitrary             (Nonrepeating (..), sublistN,
                                                  unsafeMakePool)
 
@@ -33,7 +34,7 @@ commitmentsAndOpenings :: [CommitmentOpening]
 commitmentsAndOpenings =
     map (uncurry CommitmentOpening) $
     unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $
-    genCommitmentAndOpening 1 (vssPk :| [])
+       genCommitmentAndOpening 1 (serialize vssPk :| [])
   where
     vssPk = toVssPublicKey $ deterministicVssKeyGen "aaaaaaaaaaaaaaaaaaaaaassss"
 {-# NOINLINE commitmentsAndOpenings #-}
@@ -50,10 +51,10 @@ instance Arbitrary Commitment where
 instance Arbitrary Opening where
     arbitrary = coOpening <$> arbitrary
 
-instance Arbitrary SecretSharingExtra where
+instance Arbitrary LSecretSharingExtra where
     arbitrary = commExtra <$> arbitrary
 
-instance Arbitrary SecretProof where
+instance Arbitrary LSecretProof where
     arbitrary = commProof <$> arbitrary
 
 derive makeArbitrary ''GtProof

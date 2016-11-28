@@ -48,17 +48,22 @@ module Pos.State.State
 
 import           Universum
 
-import           Crypto.Random            (seedNew, seedToInteger)
+import           Crypto.Random            (drgNewSeed, seedNew, withDRG)
 import           Data.Acid                (EventResult, EventState, QueryEvent,
                                            UpdateEvent)
 import           Data.Default             (Default)
+import qualified Data.HashMap.Strict      as HM
 import           Data.List.NonEmpty       (NonEmpty)
+import           Formatting               (build, sformat, (%))
 import           Pos.DHT                  (DHTResponseT)
 import           Serokell.Util            (VerificationRes)
-import           System.Wlog              (HasLoggerName, LogEvent, LoggerName)
+import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
+                                           dispatchEvents, getLoggerName, logWarning,
+                                           runPureLog, usingLoggerName)
 
-import           Pos.Crypto               (PublicKey, SecretKey, Share, VssKeyPair,
-                                           VssPublicKey)
+import           Pos.Crypto               (LVssPublicKey, PublicKey, SecretKey, Share,
+                                           Threshold, VssKeyPair, decryptShare,
+                                           toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
 import           Pos.Ssc.Class.Types      (Ssc (SscGlobalState, SscPayload, SscStorage))
@@ -70,6 +75,7 @@ import           Pos.Statistics.StatEntry ()
 import           Pos.Types                (Block, EpochIndex, GenesisBlock, HeaderHash,
                                            MainBlock, MainBlockHeader, SlotId,
                                            SlotLeaders, Tx)
+import           Pos.Util                 (deserializeM, serialize)
 
 -- | NodeState encapsulates all the state stored by node.
 class Monad m => MonadDB ssc m | m -> ssc where
@@ -224,7 +230,7 @@ processBlock si = updateDisk . A.ProcessBlock si
 getParticipants
     :: QUConstraint ssc m
     => EpochIndex
-    -> m (Maybe (NonEmpty VssPublicKey))
+    -> m (Maybe (NonEmpty LVssPublicKey))
 getParticipants = queryDisk . A.GetParticipants
 
 ----------------------------------------------------------------------------
@@ -234,8 +240,23 @@ getParticipants = queryDisk . A.GetParticipants
 -- | Decrypt shares (in commitments) that are intended for us and that we can
 -- decrypt.
 getOurShares
-    :: QUConstraint ssc m
+    :: QULConstraint ssc m
     => VssKeyPair -> m (HashMap PublicKey Share)
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
-    queryDisk $ A.GetOurShares ourKey (seedToInteger randSeed)
+    let ourPK = serialize $ toVssPublicKey ourKey
+    encSharesM <- queryDisk $ A.GetOurShares ourPK
+    let drg = drgNewSeed randSeed
+        (res, pLog) = fst . withDRG drg . runPureLog . usingLoggerName mempty <$>
+                        flip traverse (HM.toList encSharesM) $ \(pk, lEncSh) -> do
+                          let mEncSh = deserializeM lEncSh
+                          case mEncSh of
+                            Just encShare -> lift . lift $ Just . (,) pk <$> decryptShare ourKey encShare
+                            _             -> do
+                                logWarning $
+                                    sformat ("Failed to deserialize share for " % build) pk
+                                return Nothing
+        resHM = HM.fromList . catMaybes $ res
+    loggerName <- getLoggerName
+    liftIO $ usingLoggerName loggerName $ dispatchEvents pLog
+    return resHM

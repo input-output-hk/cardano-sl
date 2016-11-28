@@ -8,18 +8,20 @@ module Pos.Ssc.GodTossing.Seed
        ) where
 
 import           Control.Arrow                 ((&&&))
-import qualified Data.HashMap.Strict           as HM (fromList, lookup, mapMaybe, toList)
+import qualified Data.HashMap.Strict           as HM (fromList, lookup, mapMaybe, toList,
+                                                      traverseWithKey)
 import qualified Data.HashSet                  as HS (difference)
 import           Pos.Util                      (getKeys)
 import           Universum
 
-import           Pos.Crypto                    (PublicKey, Secret, Share, Threshold,
-                                                shareId, unsafeRecoverSecret)
+import           Pos.Crypto                    (LSecret, LShare, PublicKey, Secret, Share,
+                                                Threshold, shareId, unsafeRecoverSecret)
 import           Pos.Ssc.GodTossing.Error      (SeedError (..))
 import           Pos.Ssc.GodTossing.Functions  (secretToSharedSeed, verifyOpening)
 import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
                                                 getOpening)
 import           Pos.Types                     (SharedSeed)
+import           Pos.Util                      (Serialized, deserializeM)
 
 
 -- | Calculate SharedSeed. SharedSeed is a random bytestring that all
@@ -32,15 +34,15 @@ calculateSeed
     -> OpeningsMap
     -> SharesMap             -- ^ Decrypted shares
     -> Either SeedError SharedSeed
-calculateSeed (fromIntegral -> t) commitments openings shares = do
+calculateSeed (fromIntegral -> t) commitments openings lShares = do
     let participants = getKeys commitments
 
     -- First let's do some sanity checks.
     let extraOpenings, extraShares :: HashSet PublicKey
         extraOpenings = HS.difference (getKeys openings) participants
         extraShares =
-            let xs = getKeys shares <>
-                     mconcat (map getKeys (toList shares))
+            let xs = getKeys lShares <>
+                     mconcat (map getKeys (toList lShares))
             in  HS.difference xs participants
     unless (null extraOpenings) $
         Left (ExtraneousOpenings extraOpenings)
@@ -59,6 +61,9 @@ calculateSeed (fromIntegral -> t) commitments openings shares = do
     -- Participants for whom we have to recover the secret
     let mustBeRecovered :: HashSet PublicKey
         mustBeRecovered = HS.difference participants (getKeys openings)
+
+    shares <- mapHelper BrokenShare (traverse deserializeM) lShares
+
     -- Secrets recovered from actual share lists (but only those we need –
     -- i.e. ones which are in mustBeRecovered)
     let recovered :: HashMap PublicKey (Maybe Secret)
@@ -79,9 +84,11 @@ calculateSeed (fromIntegral -> t) commitments openings shares = do
                          then Nothing
                          else Just $ unsafeRecoverSecret (take t secrets))
 
+    secrets0 <- mapHelper BrokenSecret deserializeM $ getOpening <$> openings
+
     -- All secrets, both recovered and from openings
     let secrets :: HashMap PublicKey Secret
-        secrets = fmap getOpening openings <>
+        secrets = secrets0 <>
                   HM.mapMaybe identity recovered
 
     -- Now that we have the secrets, we can check whether the commitments
@@ -101,3 +108,7 @@ calculateSeed (fromIntegral -> t) commitments openings shares = do
        | null secrets -> Left NoParticipants
        | otherwise    -> Right $
                          mconcat $ map secretToSharedSeed (toList secrets)
+
+mapHelper :: (PublicKey -> c) -> (b -> Maybe a) -> HashMap PublicKey b -> Either c (HashMap PublicKey a)
+mapHelper errMapper mapper = HM.traverseWithKey (\pk v -> maybe (Left $ errMapper pk) Right $ mapper v)
+

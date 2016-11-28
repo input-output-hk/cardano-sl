@@ -94,9 +94,9 @@ updateWithLog
     => DiskState ssc
     -> (LoggerName -> event)
     -> m (a, [LogEvent])
-updateWithLog disc loggedEvent = do
+updateWithLog disk loggedEvent = do
     event <- modifyLoggerName (<> "acid") $ loggedEvent <$> getLoggerName
-    updateExtended disc event
+    updateExtended disk event
 
 -- | Open disk state. Accepts \"deleteIfExists\" flag and filepath.
 openState

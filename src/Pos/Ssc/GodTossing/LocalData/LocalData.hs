@@ -26,7 +26,7 @@ import qualified Data.HashSet                       as HS
 import           Serokell.Util.Verify               (isVerSuccess)
 import           Universum
 
-import           Pos.Crypto                         (PublicKey, Share)
+import           Pos.Crypto                         (LShare, PublicKey)
 import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate, MonadSscLD,
                                                      SscLocalDataClass (..),
                                                      sscRunLocalQuery, sscRunLocalUpdate)
@@ -163,7 +163,7 @@ matchOpening :: PublicKey -> Opening -> LDQuery Bool
 matchOpening pk opening =
     flip checkOpeningMatchesCommitment (pk, opening) <$> view gtGlobalCommitments
 
-processShares :: PublicKey -> HashMap PublicKey Share -> LDUpdate Bool
+processShares :: PublicKey -> HashMap PublicKey LShare -> LDUpdate Bool
 processShares pk s
     | null s = pure False
     | otherwise = do
@@ -185,7 +185,7 @@ processShares pk s
         ok <- andM checks
         ok <$ when ok (gtLocalShares . at pk .= Just newLocalShares)
 
-checkSharesLastVer :: PublicKey -> HashMap PublicKey Share -> LDQuery Bool
+checkSharesLastVer :: PublicKey -> HashMap PublicKey LShare -> LDQuery Bool
 checkSharesLastVer pk shares =
     (\comms openings certs -> checkShares comms openings certs pk shares) <$>
     view gtGlobalCommitments <*>

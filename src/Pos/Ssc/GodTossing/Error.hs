@@ -20,11 +20,15 @@ data SeedError
     | ExtraneousShares (HashSet PublicKey)
     -- | There were no participants so a random string couldn't be generated
     | NoParticipants
-    -- | Commitment didn't match secret (either recovered or in openings)
+    -- | Commitment can't be deserialized or didn't match secret (either recovered or in openings)
     | BrokenCommitment PublicKey
     -- | Secret couldn't be recovered, or wasn't found in either
     -- 'OpeningsMap' or 'SharesMap'
     | NoSecretFound PublicKey
+    -- | Secret can't be deserialized
+    | BrokenSecret PublicKey
+    -- | Share can't be deserialized
+    | BrokenShare PublicKey
     deriving (Eq, Show)
 
 instance Buildable SeedError where
@@ -38,3 +42,7 @@ instance Buildable SeedError where
         "BrokenCommitment " <> build k
     build (NoSecretFound k) =
         "NoSecretFound " <> build k
+    build (BrokenSecret k) =
+        "BrokenSecret " <> build k
+    build (BrokenShare k) =
+        "BrokenShare " <> build k

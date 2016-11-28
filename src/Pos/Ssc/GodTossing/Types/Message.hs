@@ -17,7 +17,7 @@ import           Data.List.NonEmpty            (NonEmpty)
 import qualified Data.Text.Buildable
 import           Universum
 
-import           Pos.Crypto                    (PublicKey, Share)
+import           Pos.Crypto                    (LShare, PublicKey)
 import           Pos.Ssc.GodTossing.Functions  (isCommitmentId, isCommitmentIdx,
                                                 isOpeningId, isOpeningIdx, isSharesId,
                                                 isSharesIdx)
@@ -89,7 +89,7 @@ data DataMsg
     | DMOpening !PublicKey
                 !Opening
     | DMShares !PublicKey
-               !(HashMap PublicKey Share)
+               !(HashMap PublicKey LShare)
     | DMVssCertificate !PublicKey
                        !VssCertificate
     deriving (Generic)

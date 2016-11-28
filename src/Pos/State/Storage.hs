@@ -8,7 +8,6 @@
 {-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE UndecidableInstances   #-}
-{-# LANGUAGE ViewPatterns           #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 -- | Storage with node local state which should be persistent.
@@ -334,15 +333,16 @@ calculateLeaders epoch = do
     depth <- fromMaybe onErrorGetDepth <$> getMpcCrucialDepth epoch
     utxo <- fromMaybe onErrorGetUtxo <$> getUtxoByDepth depth
     -- TODO: overall 'calculateLeadersDo' gets utxo twice, could be optimised
-    threshold <- fromMaybe onErrorGetThreshold <$> getThreshold epoch
+    threshold <-
+        getThreshold . length . fromMaybe onErrorGetParticipants <$>
+        getParticipants epoch
     either onErrorCalcLeaders identity <$> sscCalculateLeaders @ssc epoch utxo threshold
   where
-    onErrorGetDepth =
-        panic "Depth of MPC crucial slot isn't reasonable"
+    onErrorGetDepth = panic "Depth of MPC crucial slot isn't reasonable"
     onErrorGetUtxo =
         panic "Failed to get utxo necessary for leaders calculation"
-    onErrorGetThreshold =
-        panic "Failed to get threshold necessary for leaders calculation"
+    onErrorGetParticipants =
+        panic "Failed to get participants necessary for leaders calculation"
     onErrorCalcLeaders e =
         panic (sformat ("Leaders calculation reported error: " % build) e)
 
@@ -363,6 +363,12 @@ getParticipants epoch = do
         Nothing            -> return Nothing
         Just (depth, utxo) -> sscGetParticipants @ssc depth utxo
 
+-- [CSL-103]: it shouldn't be here.
+-- | Figure out the threshold (i.e. how many secret shares would be required
+-- to recover each node's secret) using number of participants.
+getThreshold :: Integral a => a -> Threshold
+getThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
+
 -- slot such that data after it is used for MPC in given epoch
 mpcCrucialSlot :: EpochIndex -> SlotId
 mpcCrucialSlot 0     = SlotId {siEpoch = 0, siSlot = 0}
@@ -375,17 +381,6 @@ getMpcCrucialDepth epoch = do
     if flattenSlotId slot + 2 * k < flattenSlotId (SlotId epoch 0)
         then return Nothing
         else return (Just depth)
-
--- | Figure out the threshold (i.e. how many secret shares would be required
--- to recover each node's secret).
-getThreshold
-    :: forall ssc.
-       SscStorageClass ssc
-    => EpochIndex -> Query ssc (Maybe Threshold)
-getThreshold epoch = do
-    fmap getThresholdImpl <$> getParticipants @ssc epoch
-  where
-    getThresholdImpl (length -> len) = fromIntegral $ len `div` 2 + len `mod` 2
 
 -- | Decrypt shares (in commitments) that are intended for us and that we can
 -- decrypt.

@@ -155,16 +155,16 @@ generateAndSetNewSecret
     -> EpochIndex                         -- ^ Current epoch
     -> m (Maybe (SignedCommitment, Opening))
 generateAndSetNewSecret storage sk epoch = do
-    -- TODO: I think it's safe here to perform 3 operations which aren't
+    -- TODO: I think it's safe here to perform 2 operations which aren't
     -- grouped into a single transaction here, but I'm still a bit nervous.
-    threshold <- getThreshold epoch
     participants <- getParticipants epoch
-    case (,) <$> threshold <*> participants of
+    case participants of
         Nothing -> return Nothing
-        Just (th, ps) -> do
+        Just ps -> do
+            let threshold = getThreshold $ length ps
             (comm, op) <-
                 first (mkSignedCommitment sk epoch) <$>
-                genCommitmentAndOpening th ps
+                genCommitmentAndOpening threshold ps
             Just (comm, op) <$ setSecret storage (toPublic sk, comm, op)
 
 pathToSecret :: WorkMode SscGodTossing m => m (Maybe FilePath)

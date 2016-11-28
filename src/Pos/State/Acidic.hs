@@ -32,7 +32,6 @@ module Pos.State.Acidic
        , GetLocalTxs (..)
        , IsTxVerified (..)
        , GetOurShares (..)
-       , GetThreshold (..)
        , GetParticipants (..)
        , MayBlockBeUseful (..)
 
@@ -194,7 +193,6 @@ makeAcidicWithHacks ''S.Storage ["ssc"]
     , 'S.getHeadBlock
     , 'S.getBestChain
     , 'S.getOurShares
-    , 'S.getThreshold
     , 'S.getParticipants
     , 'S.mayBlockBeUseful
     , 'S.createNewBlock

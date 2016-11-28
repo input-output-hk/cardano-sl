@@ -37,9 +37,10 @@ module Pos.State.State
        , processNewSlot
        , processTx
 
+       -- [CSL-103]: these function should be moved to GodTossing.
        -- * Functions for generating seed by SSC algorithm.
-       , getThreshold
        , getParticipants
+       , getThreshold
 
        -- * SscGodTossing simple getters and setters.
        , getOurShares
@@ -56,15 +57,15 @@ import           Pos.DHT                  (DHTResponseT)
 import           Serokell.Util            (VerificationRes)
 import           System.Wlog              (HasLoggerName, LogEvent, LoggerName)
 
-import           Pos.Crypto               (PublicKey, SecretKey, Share, Threshold,
-                                           VssKeyPair, VssPublicKey)
+import           Pos.Crypto               (PublicKey, SecretKey, Share, VssKeyPair,
+                                           VssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
 import           Pos.Ssc.Class.Types      (Ssc (SscGlobalState, SscPayload, SscStorage))
 import           Pos.State.Acidic         (DiskState, tidyState)
 import qualified Pos.State.Acidic         as A
 import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (..),
-                                           Storage)
+                                           Storage, getThreshold)
 import           Pos.Statistics.StatEntry ()
 import           Pos.Types                (Block, EpochIndex, GenesisBlock, HeaderHash,
                                            MainBlock, MainBlockHeader, SlotId,
@@ -225,13 +226,6 @@ getParticipants
     => EpochIndex
     -> m (Maybe (NonEmpty VssPublicKey))
 getParticipants = queryDisk . A.GetParticipants
-
--- | Figure out the threshold (i.e. how many secret shares would be required
--- to recover each node's secret).
-getThreshold :: QUConstraint ssc m
-             => EpochIndex
-             -> m (Maybe Threshold)
-getThreshold = queryDisk . A.GetThreshold
 
 ----------------------------------------------------------------------------
 -- Related to SscGodTossing

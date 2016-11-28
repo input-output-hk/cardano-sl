@@ -216,7 +216,12 @@ mayBlockBeUseful currentSlotId header = do
     let hSlot = header ^. headerSlot
     leaders <- getLeaders (siEpoch hSlot)
     isInteresting <- isHeaderInteresting header
-    let vhp = def {vhpCurrentSlot = Just currentSlotId, vhpLeaders = leaders}
+    let vhp =
+            def
+            { vhpVerifyConsensus = True
+            , vhpCurrentSlot = Just currentSlotId
+            , vhpLeaders = leaders
+            }
     let extraChecks =
             [ ( isInteresting
               , "block is not more difficult than the best known block and \
@@ -248,6 +253,8 @@ canContinueAltChain (blk :| _) header
     | isVerFailure $ verifyHeader vhp (Right header) = pure False
     | otherwise = (header ^. difficultyL >=) <$> view blkMinDifficulty
   where
+    -- We don't need to check anything else, because it's checked in
+    -- 'mayBlockBeUseful'.
     vhp = def {vhpNextHeader = Just (blk ^. blockHeader)}
 
 isMostDifficult :: MainBlockHeader ssc -> Query ssc Bool
@@ -271,7 +278,12 @@ blkProcessBlock currentSlotId blk hardChecks = do
             (const $ pure Nothing)
             (readerToState . getLeaders . siEpoch . view blockSlot)
             blk
-    let vhp = def {vhpCurrentSlot = Just currentSlotId, vhpLeaders = leaders}
+    let vhp =
+            def
+            { vhpVerifyConsensus = True
+            , vhpCurrentSlot = Just currentSlotId
+            , vhpLeaders = leaders
+            }
     let header = blk ^. blockHeader
     let verRes =
             mconcat

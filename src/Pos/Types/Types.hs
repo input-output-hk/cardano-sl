@@ -1010,18 +1010,20 @@ verifyConsensusLocal (Right header) =
 
 -- | Extra data which may be used by verifyHeader function to do more checks.
 data VerifyHeaderParams ssc = VerifyHeaderParams
-    { vhpPrevHeader  :: !(Maybe (BlockHeader ssc))
+    { vhpVerifyConsensus :: !Bool
+    , vhpPrevHeader      :: !(Maybe (BlockHeader ssc))
     -- ^ Nothing means that block is unknown, not genesis.
-    , vhpNextHeader  :: !(Maybe (BlockHeader ssc))
-    , vhpCurrentSlot :: !(Maybe SlotId)
-    , vhpLeaders     :: !(Maybe SlotLeaders)
+    , vhpNextHeader      :: !(Maybe (BlockHeader ssc))
+    , vhpCurrentSlot     :: !(Maybe SlotId)
+    , vhpLeaders         :: !(Maybe SlotLeaders)
     }
 
--- | By default there is not extra data.
+-- | By default nothing is checked.
 instance Default (VerifyHeaderParams ssc) where
     def =
         VerifyHeaderParams
-        { vhpPrevHeader = Nothing
+        { vhpVerifyConsensus = False
+        , vhpPrevHeader = Nothing
         , vhpNextHeader = Nothing
         , vhpCurrentSlot = Nothing
         , vhpLeaders = Nothing
@@ -1036,8 +1038,10 @@ verifyHeader
     :: Ssc ssc
     => VerifyHeaderParams ssc -> BlockHeader ssc -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
-    verifyConsensusLocal h <> verifyGeneric checks
+   consensusRes <> verifyGeneric checks
   where
+    consensusRes | vhpVerifyConsensus = verifyConsensusLocal h
+                 | otherwise = mempty
     checks =
         mconcat
             [ maybeEmpty relatedToPrevHeader vhpPrevHeader
@@ -1156,7 +1160,8 @@ verifyBlocks curSlotId = (view _3) . foldl' step start
                     Right _           -> leaders
             vhp =
                 VerifyHeaderParams
-                { vhpPrevHeader = prevHeader
+                { vhpVerifyConsensus = True
+                , vhpPrevHeader = prevHeader
                 , vhpNextHeader = Nothing
                 , vhpLeaders = newLeaders
                 , vhpCurrentSlot = curSlotId

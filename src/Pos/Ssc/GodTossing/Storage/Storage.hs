@@ -314,7 +314,6 @@ getOurShares
     -> Integer                              -- ^ Random generator seed
                                             -- (needed for 'decryptShare')
     -> Query (HashMap PublicKey Share)
--- | TODO: do not decrypt shares for which we know openings!
 getOurShares ourKey seed = do
     let drg = drgNewSeed (seedFromInteger seed)
     comms <- view (lastVer . dsGlobalCommitments)

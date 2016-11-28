@@ -134,9 +134,8 @@ instance MonadMask m =>
 
 instance MonadIO m =>
          MonadSscLD ssc (SscLDImpl ssc m) where
-    getLocalData = liftIO . STM.atomically . STM.readTVar =<< SscLDImpl ask
-    setLocalData d =
-        liftIO . STM.atomically . flip STM.writeTVar d =<< SscLDImpl ask
+    getLocalData = atomically . STM.readTVar =<< SscLDImpl ask
+    setLocalData d = atomically . flip STM.writeTVar d =<< SscLDImpl ask
 
 runSscLDImpl
     :: forall ssc m a.

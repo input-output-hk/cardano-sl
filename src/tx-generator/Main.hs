@@ -8,14 +8,14 @@ import qualified Data.ByteString.Lazy   as LBS
 import qualified Data.HashMap.Strict    as M
 import           Data.IORef             (modifyIORef, newIORef, readIORef)
 import           Data.List              ((!!))
-import           Data.Monoid            ((<>))
 import           Data.Time.Clock.POSIX  (getPOSIXTime)
 import           Formatting             (float, int, sformat, (%))
 import           Options.Applicative    (Parser, ParserInfo, auto, execParser, fullDesc,
                                          help, helper, info, long, many, metavar, option,
                                          progDesc, short, switch, value)
+import           Serokell.Util.OptParse (fromParsec)
 import           System.Wlog            (logInfo)
-import           Universum              hiding ((<>))
+import           Universum
 
 import           Pos.CLI                (dhtNodeParser)
 import           Pos.Crypto             (hash, sign, unsafeHash)
@@ -29,7 +29,6 @@ import           Pos.Ssc.GodTossing     (SscGodTossing, genesisVssKeyPairs)
 import           Pos.Statistics         (getNoStatsT)
 import           Pos.Types              (Tx (..), TxIn (..), TxOut (..))
 import           Pos.Util.JsonLog       ()
-import           Serokell.Util.OptParse (fromParsec)
 
 data GenOptions = GenOptions
     { goGenesisIdx         :: !Word       -- ^ Index in genesis key pairs.

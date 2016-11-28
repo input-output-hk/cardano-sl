@@ -7,12 +7,11 @@ module NodeOptions
        , argsParser
        ) where
 
-import           Data.Monoid                ((<>))
 import           Options.Applicative.Simple (Parser, auto, help, long, many, metavar,
                                              option, showDefault, strOption, switch,
                                              value)
 import           Serokell.Util.OptParse     (fromParsec)
-import           Universum                  hiding ((<>))
+import           Universum
 
 import           Pos.CLI                    (dhtKeyParser, dhtNodeParser, sscAlgoParser)
 import           Pos.DHT                    (DHTKey, DHTNode)

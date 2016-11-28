@@ -7,10 +7,9 @@ module AnalyzerOptions
        , argsParser
        ) where
 
-import           Data.Monoid                ((<>))
 import           Options.Applicative.Simple (Parser, auto, help, long, many, metavar,
                                              option, short, strOption)
-import           Universum                  hiding ((<>))
+import           Universum
 
 data Args = Args
     { files             :: ![FilePath]

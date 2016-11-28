@@ -23,8 +23,8 @@ module Pos.DHT.Real
        ) where
 
 import           Control.Concurrent.Async.Lifted (async, mapConcurrently)
-import           Control.Concurrent.STM          (STM, TVar, atomically, modifyTVar,
-                                                  newTVar, readTVar, swapTVar, writeTVar)
+import           Control.Concurrent.STM          (STM, TVar, modifyTVar, newTVar,
+                                                  readTVar, swapTVar, writeTVar)
 import           Control.Monad.Catch             (Handler (..), MonadCatch, MonadMask,
                                                   MonadThrow, catchAll, catches, throwM)
 import           Control.Monad.Morph             (hoist)
@@ -197,12 +197,12 @@ runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
     startRejoinThread = do
       tvar <- KademliaDHT $ asks kdcAuxClosers
       tid <- fork $ runWithRandomIntervals (ms 500) (sec 5) rejoinNetwork
-      liftIO . atomically $ modifyTVar tvar (killThread tid:)
+      atomically $ modifyTVar tvar (killThread tid:)
     startMsgThread = do
       (tvar, listenByBinding) <-
           KademliaDHT $ (,) <$> asks kdcAuxClosers <*> asks kdcListenByBinding
       closer <- listenByBinding $ AtPort kdcPort
-      liftIO . atomically $ modifyTVar tvar (closer:)
+      atomically $ modifyTVar tvar (closer:)
 
 -- | Stop DHT algo.
 stopDHT :: (MonadTimed m, MonadIO m) => KademliaDHT m ()
@@ -210,8 +210,8 @@ stopDHT = do
     (closersTV, stoppedTV) <- KademliaDHT $ (,)
             <$> asks kdcAuxClosers
             <*> asks kdcStopped
-    liftIO . atomically $ writeTVar stoppedTV True
-    closers <- liftIO . atomically $ swapTVar closersTV []
+    atomically $ writeTVar stoppedTV True
+    closers <- atomically $ swapTVar closersTV []
     sequence_ closers
 
 -- | Stop chosen 'KademliaDHTInstance'.
@@ -259,9 +259,9 @@ startDHT
        )
     => KademliaDHTConfig m -> m (KademliaDHTContext m)
 startDHT KademliaDHTConfig {..} = do
-    kdcStopped <- liftIO . atomically $ newTVar False
-    kdcAuxClosers <- liftIO . atomically $ newTVar []
-    msgCache <- liftIO . atomically $
+    kdcStopped <- atomically $ newTVar False
+    kdcAuxClosers <- atomically $ newTVar []
+    msgCache <- atomically $
         newTVar (LRU.newLRU (Just $ toInteger kdcMessageCacheSize) :: LRU.LRU Int ())
     let kdcListenByBinding binding = do
             closer <- listenR binding (convert <$> kdcListeners)
@@ -293,14 +293,14 @@ rawListener
     -> (DHTMsgHeader, RawData)
     -> DHTResponseT (KademliaDHT m) Bool
 rawListener enableBroadcast cache kdcStopped (h, rawData@(RawData raw)) = withDhtLogger $ do
-    isStopped <- liftIO . atomically $ readTVar kdcStopped
+    isStopped <- atomically $ readTVar kdcStopped
     when isStopped $ do
         closeResponse
         throwM $ FatalError "KademliaDHT stopped"
     let mHash = hash raw
     ignoreMsg <- case h of
                    SimpleHeader True -> return False
-                   _                 -> liftIO . atomically $ updCache cache mHash
+                   _                 -> atomically $ updCache cache mHash
     if ignoreMsg
        then logDebug $
                 sformat ("Ignoring message " % shown % ", hash=" % int) h mHash
@@ -374,7 +374,7 @@ instance ( MonadDialog BinaryP m
                                 shown % ": " % build) addr e
             return $ pure ()
         updateClosers closer = KademliaDHT (asks kdcAuxClosers)
-                            >>= \tvar -> (liftIO . atomically $ modifyTVar tvar (closer:))
+                            >>= \tvar -> (atomically $ modifyTVar tvar (closer:))
 
 rejoinNetwork :: (MonadIO m, WithLogger m, MonadCatch m) => KademliaDHT m ()
 rejoinNetwork = withDhtLogger $ do

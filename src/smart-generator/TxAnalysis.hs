@@ -14,7 +14,6 @@ import           Data.IORef             (IORef, modifyIORef', newIORef, readIORe
                                          writeIORef)
 import           Data.List              (intersect)
 import           Data.Maybe             (fromJust, maybeToList)
-import           Data.Text.IO           (appendFile)
 import           Formatting             (build, sformat, (%))
 import           System.FilePath.Posix  ((</>))
 import           System.Wlog            (logWarning)
@@ -97,4 +96,3 @@ checkWorker txts logsPrefix = repeatForever slotDuration onError $
                               checkTxsInLastBlock txts logsPrefix
   where onError e = slotDuration <$
                     logWarning (sformat ("Error occured in checkWorker: " %build) e)
-

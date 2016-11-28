@@ -2,10 +2,9 @@
 
 module Main where
 
-import           Universum              hiding ((<>))
+import           Universum
 
 import           Data.List              ((!!))
-import           Data.Monoid            ((<>))
 import qualified Options.Applicative    as Opts
 import           Serokell.Util.OptParse (fromParsec)
 

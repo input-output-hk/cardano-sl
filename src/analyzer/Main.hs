@@ -19,7 +19,6 @@ import           Universum
 import           Unsafe                     (unsafeFromJust)
 
 import           AnalyzerOptions            (Args (..), argsParser)
-import           Data.Text.IO               (writeFile)
 import           Pos.Types                  (flattenSlotId, unflattenSlotId)
 import           Pos.Util.JsonLog           (JLBlock (..), JLEvent (..),
                                              JLTimedEvent (..), fromJLSlotId)

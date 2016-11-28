@@ -28,7 +28,7 @@ import           Data.Text.Buildable      (Buildable)
 import qualified Data.Text.Buildable      as Buildable
 import           Formatting               (bprint, int, sformat, stext, (%))
 import           Serokell.Util.Binary     as Binary (decodeFull)
-import           Universum
+import           Universum                hiding (putByteString)
 
 import           Pos.Crypto.Hashing       (hash, shortHashF)
 import           Pos.Crypto.SecretSharing (EncShare, Secret, SecretProof,

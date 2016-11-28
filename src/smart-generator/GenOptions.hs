@@ -6,9 +6,9 @@ module GenOptions
 
 import           Options.Applicative    (Parser, ParserInfo, auto, fullDesc, help, helper,
                                          info, long, many, metavar, option, progDesc,
-                                         short, showDefault, switch, value, (<>))
+                                         short, showDefault, switch, value)
 import           Serokell.Util.OptParse (fromParsec, strOption)
-import           Universum              hiding ((<>))
+import           Universum
 
 
 import           Pos.CLI                (dhtNodeParser, sscAlgoParser)
@@ -132,4 +132,3 @@ optionsParser = GenOptions
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $
     fullDesc `mappend` progDesc "Stupid transaction generator"
-

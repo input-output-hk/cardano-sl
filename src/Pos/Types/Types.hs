@@ -116,6 +116,7 @@ import qualified Data.Map               as M (toList)
 import           Data.MessagePack       (MessagePack (..))
 import           Data.SafeCopy          (SafeCopy (..), base, contain,
                                          deriveSafeCopySimple, safeGet, safePut)
+import qualified Data.Semigroup         (Semigroup (..))
 import           Data.Tagged            (untag)
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
@@ -332,8 +333,8 @@ instance Semigroup SharedSeed where
 
 instance Monoid SharedSeed where
     mempty = SharedSeed $ BSC.pack $ replicate sharedSeedLength '\NUL'
-    mappend = (<>)
-    mconcat = foldl' (<>) mempty
+    mappend = (Data.Semigroup.<>)
+    mconcat = foldl' mappend mempty
 
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty PublicKey

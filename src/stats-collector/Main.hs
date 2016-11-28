@@ -12,7 +12,6 @@ import           Control.Concurrent     (forkIO)
 import           Data.Aeson.TH          (deriveJSON)
 import           Data.Aeson.Types       (FromJSON)
 -- import           Data.Default             (def)
-import           Data.Monoid            ((<>))
 import qualified Data.Text.IO           as TIO
 import           Data.Time.Clock        (addUTCTime, getCurrentTime)
 -- import           Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
@@ -22,7 +21,7 @@ import           Serokell.Aeson.Options (defaultOptions)
 import           System.Directory       (createDirectoryIfMissing)
 import           System.FilePath        ((</>))
 -- import           Text.Parsec              (parse)
-import           Universum              hiding ((<>))
+import           Universum
 
 -- import           Pos.CLI                  (addrParser)
 -- import           Pos.Communication        (RequestStat (..), ResponseStat (..))
@@ -157,4 +156,3 @@ main = do
         threadDelay $ (fromIntegral soInterval) * 1000 * 1000
         forkIO $ worker $ soOutputDir </> ("run" <> show i)
     worker soOutputDir
-

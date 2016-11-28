@@ -118,8 +118,8 @@ onNewSlotShares SlotId {..} = do
     ourPk <- ncPublicKey <$> getNodeContext
     -- Send decrypted shares that others have sent us
     shouldSendShares <- do
-        -- TODO: here we assume that all shares are always sent as a whole
-        -- package.
+        -- [CSL-203]: here we assume that all shares are always sent
+        -- as a whole package.
         sharesInBlockchain <- hasShares ourPk <$> getGlobalMpcData
         return $ isSharesIdx siSlot && not sharesInBlockchain
     when shouldSendShares $ do

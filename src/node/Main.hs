@@ -3,6 +3,7 @@
 module Main where
 
 import           Control.Applicative        (empty)
+import           Control.Concurrent         (forkIO)
 import           Control.Monad              (fail)
 import           Data.Binary                (Binary, decode, encode)
 import qualified Data.ByteString.Lazy       as LBS
@@ -24,6 +25,7 @@ import           Pos.Launcher               (BaseParams (..), LoggingParams (..)
                                              runNodeStats, runSupporterReal,
                                              runTimeLordReal, runTimeSlaveReal)
 import           Pos.Ssc.GodTossing         (genesisVssKeyPairs)
+import           Pos.Web                    (serveWeb)
 
 import           NodeOptions                (Args (..), argsParser)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
@@ -61,6 +63,7 @@ main = do
             "Use it!"
             argsParser
             empty
+    () <$ forkIO serveWeb
     bracketDHTInstance (baseParams "node" args) (action args)
   where
     action args@Args {..} inst = do

@@ -15,7 +15,6 @@ import           Pos.Crypto.Arbitrary.Unsafe ()
 import           Pos.Crypto.SecretSharing    (EncShare, Secret, VssKeyPair, VssPublicKey,
                                               genSharedSecret, toVssPublicKey, vssKeyGen)
 import           Pos.Crypto.SerTypes         (LEncShare, LSecret, LVssPublicKey)
-import           Pos.Crypto.SerTypes         ()
 import           Pos.Crypto.Signing          (PublicKey, SecretKey, Signature, Signed,
                                               keyGen, mkSigned, sign)
 import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakeList,
@@ -78,7 +77,7 @@ instance Arbitrary VssPublicKey where
     arbitrary = toVssPublicKey <$> arbitrary
 
 instance Arbitrary LVssPublicKey where
-    arbitrary = (serialize :: VssPublicKey -> LVssPublicKey) <$> arbitrary
+    arbitrary = serialize @VssPublicKey <$> arbitrary
 
 instance Nonrepeating VssKeyPair where
     nonrepeating n = sublistN n vssKeys

@@ -2,14 +2,14 @@ name:                cardano-sl
 version:             0.1.0.0
 synopsis:            Cardano SL main implementation
 description:         Please see README.md
-license:             BSD3
+license:             MIT
 license-file:        LICENSE
 author:              Serokell
 maintainer:          Serokell <hi@serokell.io>
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
--- extra-source-files:
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 flag asserts

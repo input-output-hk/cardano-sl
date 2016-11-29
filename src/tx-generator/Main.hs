@@ -140,6 +140,7 @@ main = do
             , npCustomUtxo  = Nothing
             , npTimeLord    = False
             , npJLFile      = Nothing
+            , npSscEnabled  = False
             }
         getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         totalRounds = length goTPSs

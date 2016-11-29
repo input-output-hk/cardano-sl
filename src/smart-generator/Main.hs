@@ -241,6 +241,7 @@ main = do
                 , npCustomUtxo  = Just $ genesisUtxo stakesDistr
                 , npTimeLord    = False
                 , npJLFile      = goJLFile
+                , npSscEnabled  = False
                 }
 
         case goSscAlgo of

@@ -31,6 +31,7 @@ module Pos.Launcher.Runner
 
 import           Control.Concurrent.MVar     (newEmptyMVar, newMVar, takeMVar,
                                               tryReadMVar)
+import           Control.Concurrent.STM      (newTVarIO)
 import           Control.Monad               (fail)
 import           Control.Monad.Catch         (bracket)
 import           Control.Monad.Trans.Control (MonadBaseControl)
@@ -232,9 +233,11 @@ runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
 runCH :: MonadIO m => NodeParams -> ContextHolder m a -> m a
 runCH NodeParams {..} act =
     flip runContextHolder act . ctx =<<
-    maybe (pure Nothing) (fmap Just . liftIO . newMVar) npJLFile
+    liftIO
+        ((,) <$> maybe (pure Nothing) (fmap Just . newMVar) npJLFile <*>
+         newTVarIO npSscEnabled)
   where
-    ctx jlFile =
+    ctx (jlFile, participateSscTVar) =
         NodeContext
         { ncSystemStart = npSystemStart
         , ncSecretKey = npSecretKey
@@ -242,6 +245,7 @@ runCH NodeParams {..} act =
         , ncTimeLord = npTimeLord
         , ncJLFile = jlFile
         , ncDbPath = npDbPath
+        , ncParticipateSsc = participateSscTVar
         }
 
 runTimed :: LoggerName -> Dialog BinaryP Transfer a -> IO a

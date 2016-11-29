@@ -224,14 +224,15 @@ instance (MonadDB ssc m, Monad m) => MonadDB ssc (KademliaDHT m) where
 -- | NodeContext contains runtime context of node.
 data NodeContext = NodeContext
     { -- | Time when system started working.
-      ncSystemStart :: !Timestamp
+      ncSystemStart    :: !Timestamp
     , -- | Secret key used for blocks creation.
-      ncSecretKey   :: !SecretKey
+      ncSecretKey      :: !SecretKey
     , -- | Vss key pair used for MPC.
-      ncVssKeyPair  :: !VssKeyPair
-    , ncTimeLord    :: !Bool
-    , ncJLFile      :: !(Maybe (MVar FilePath))
-    , ncDbPath      :: !(Maybe FilePath)
+      ncVssKeyPair     :: !VssKeyPair
+    , ncTimeLord       :: !Bool
+    , ncJLFile         :: !(Maybe (MVar FilePath))
+    , ncDbPath         :: !(Maybe FilePath)
+    , ncParticipateSsc :: !(STM.TVar Bool)
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

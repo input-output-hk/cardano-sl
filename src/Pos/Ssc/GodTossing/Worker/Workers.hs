@@ -10,6 +10,7 @@ module Pos.Ssc.GodTossing.Worker.Workers
          -- ** instance SscWorkersClass SscGodTossing
        ) where
 
+import           Control.Concurrent.STM                  (readTVar)
 import           Control.Lens                            (view, _2, _3)
 import           Control.Monad.Trans.Maybe               (runMaybeT)
 import           Control.TimeWarp.Timed                  (Microsecond, Millisecond,
@@ -54,8 +55,9 @@ import           Pos.Types                               (EpochIndex, LocalSlotI
                                                           SlotId (..), Timestamp (..))
 import           Pos.Util                                (serialize)
 import           Pos.WorkMode                            (WorkMode, getNodeContext,
-                                                          ncDbPath, ncPublicKey,
-                                                          ncSecretKey, ncVssKeyPair)
+                                                          ncDbPath, ncParticipateSsc,
+                                                          ncPublicKey, ncSecretKey,
+                                                          ncVssKeyPair)
 instance SscWorkersClass SscGodTossing where
     sscWorkers = Tagged [onNewSlotSsc]
 
@@ -73,15 +75,17 @@ onNewSlotImpl storage slotId = do
     onNewSlotShares slotId
     checkpointSecret storage
 
-
 -- Commitments-related part of new slot processing
 onNewSlotCommitment :: WorkMode SscGodTossing m => SecretStorage -> SlotId -> m ()
 onNewSlotCommitment storage SlotId {..} = do
     ourPk <- ncPublicKey <$> getNodeContext
     ourSk <- ncSecretKey <$> getNodeContext
     shouldCreateCommitment <- do
+        participationEnabled <- getNodeContext >>=
+            atomically . readTVar . ncParticipateSsc
         secret <- getSecret storage
-        return $ isCommitmentIdx siSlot && isNothing secret
+        return $
+            and [participationEnabled, isCommitmentIdx siSlot, isNothing secret]
     when shouldCreateCommitment $ do
         logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
         generated <- generateAndSetNewSecret storage ourSk siEpoch

@@ -136,6 +136,7 @@ main = do
               stakesDistr args
         , npTimeLord = timeLord
         , npJLFile = jlPath
+        , npSscEnabled = True
         }
     stakesDistr Args {..} =
         case (flatDistr, bitcoinDistr) of

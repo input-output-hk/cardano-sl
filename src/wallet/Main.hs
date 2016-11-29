@@ -94,6 +94,7 @@ main = do
                     , npCustomUtxo = Nothing
                     , npTimeLord = False
                     , npJLFile = Nothing
+                    , npSscEnabled = False
                     }
             let addr = genesisAddresses !! i
             let txId = unsafeHash addr

@@ -40,4 +40,6 @@ data NodeParams = NodeParams
     , npCustomUtxo  :: !(Maybe Utxo)      -- ^ predefined custom utxo
     , npTimeLord    :: !Bool              -- ^ @True@ if node started as time-lord
     , npJLFile      :: !(Maybe FilePath)
+    , npSscEnabled  :: !Bool              -- ^ Whether node should participate in SSC
+                                          -- in case SSC requires participation.
     } deriving (Show)

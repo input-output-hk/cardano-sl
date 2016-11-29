@@ -4,12 +4,12 @@
 
 module NodeOptions
        ( Args (..)
-       , argsParser
+       , getNodeOptions
        ) where
 
 import           Options.Applicative.Simple (Parser, auto, help, long, many, metavar,
-                                             option, showDefault, strOption, switch,
-                                             value)
+                                             option, showDefault, simpleOptions,
+                                             strOption, switch, value)
 import           Serokell.Util.OptParse     (fromParsec)
 import           Universum
 
@@ -128,3 +128,8 @@ argsParser =
   where
     peerHelpMsg =
         "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""
+
+getNodeOptions :: IO Args
+getNodeOptions =
+    fst <$>
+    simpleOptions "cardano-node" "PoS prototype node" "Use it!" argsParser pass

@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | Pos.Crypto specification
 
 module Test.Pos.CryptoSpec
@@ -12,12 +13,14 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
-import           Pos.Crypto            (Hash, KeyPair (..), PublicKey, SecretKey,
-                                        SecretProof, SecretSharingExtra, Signature,
+import           Pos.Crypto             (EncShare, Hash, KeyPair (..), LVssPublicKey, LEncShare,
+                                        LSecret, LSecretProof, LSecretSharingExtra, LShare, PublicKey,
+                                        Secret, SecretKey, SecretProof, SecretSharingExtra, Signature,
                                         Signed, VssPublicKey, deterministic,
                                         fullPublicKeyF, hash, parseFullPublicKey,
                                         randomNumber, sign, toPublic, verify)
 import           Pos.Ssc.GodTossing    ()
+import           Pos.Util              (Serialized (..))
 
 import           Test.Pos.Util         (binaryEncodeDecode, msgPackEncodeDecode,
                                         safeCopyEncodeDecode)
@@ -68,20 +71,43 @@ spec = describe "Crypto" $ do
     describe "Signing" $ do
         describe "Identity testing" $ do
             describe "Binary instances" $ do
-                prop "SecretKey" (binaryEncodeDecode @SecretKey)
-                prop "PublicKey" (binaryEncodeDecode @PublicKey)
-                prop "Signature" (binaryEncodeDecode @(Signature ()))
-                prop "Signed"    (binaryEncodeDecode @(Signed Bool))
+                prop "SecretKey"     (binaryEncodeDecode @SecretKey)
+                prop "PublicKey"     (binaryEncodeDecode @PublicKey)
+                prop "Signature"     (binaryEncodeDecode @(Signature ()))
+                prop "Signed"        (binaryEncodeDecode @(Signed Bool))
+                prop "VssPublicKey"  (binaryEncodeDecode @VssPublicKey)
+                prop "LVssPublicKey" (binaryEncodeDecode @LVssPublicKey)
+                prop "LSecret"       (binaryEncodeDecode @LSecret)
+                prop "LEncShare"     (binaryEncodeDecode @LEncShare)
             describe "MessagePack instances" $ do
                 prop "SecretKey" (msgPackEncodeDecode @SecretKey)
                 prop "PublicKey" (msgPackEncodeDecode @PublicKey)
                 prop "Signature" (msgPackEncodeDecode @(Signature ()))
                 prop "Signed"    (msgPackEncodeDecode @(Signed Bool))
             describe "SafeCopy instances" $ do
-                prop "SecretKey" (safeCopyEncodeDecode @SecretKey)
-                prop "PublicKey" (safeCopyEncodeDecode @PublicKey)
-                prop "Signature" (safeCopyEncodeDecode @(Signature ()))
-                prop "Signed"    (safeCopyEncodeDecode @(Signed Bool))
+                prop "SecretKey"     (safeCopyEncodeDecode @SecretKey)
+                prop "PublicKey"     (safeCopyEncodeDecode @PublicKey)
+                prop "Signature"     (safeCopyEncodeDecode @(Signature ()))
+                prop "Signed"        (safeCopyEncodeDecode @(Signed Bool))
+                prop "LVssPublicKey" (safeCopyEncodeDecode @LVssPublicKey)
+                prop "LSecret"       (safeCopyEncodeDecode @LSecret)
+                prop "LEncShare"     (safeCopyEncodeDecode @LEncShare)
+        describe "Serialized" $ do
+            prop "VssPublicKey <-> LVssPublicKey"
+                (\(a :: VssPublicKey) -> (===) a $
+                    either (panic . toText) identity $
+                    (deserialize :: LVssPublicKey -> Either [Char] VssPublicKey) $
+                        (serialize :: VssPublicKey -> LVssPublicKey) a)
+            prop "Secret <-> LSecret"
+                (\(a :: Secret) -> (===) a $
+                    either (panic . toText) identity $
+                    (deserialize :: LSecret -> Either [Char] Secret) $
+                        (serialize :: Secret -> LSecret) a)
+            prop "EncShare <-> LEncShare"
+                (\(a :: EncShare) -> (===) a $
+                    either (panic . toText) identity $
+                    (deserialize :: LEncShare -> Either [Char] EncShare) $
+                        (serialize :: EncShare -> LEncShare) a)
         describe "keys" $ do
             prop
                 "derived pubkey equals to generated pubkey"

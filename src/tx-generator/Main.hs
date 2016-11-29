@@ -23,8 +23,8 @@ import           Pos.DHT                (DHTNode, DHTNodeType (..), dhtAddr,
                                          discoverPeers)
 import           Pos.Genesis            (genesisAddresses, genesisSecretKeys)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
-                                         NodeParams (..), bracketDHTInstance, runRealMode,
-                                         submitTxRaw)
+                                         NodeParams (..), bracketDHTInstance,
+                                         runRawRealMode, submitTxRaw)
 import           Pos.Ssc.GodTossing     (SscGodTossing, genesisVssKeyPairs)
 import           Pos.Statistics         (getNoStatsT)
 import           Pos.Types              (Tx (..), TxIn (..), TxOut (..))
@@ -148,7 +148,7 @@ main = do
     leftTxs <- newIORef $ take goTxFrom $ zip [0..] $ txChain i
 
     bracketDHTInstance baseParams $ \inst -> do
-        runRealMode @SscGodTossing inst params [] $ getNoStatsT $ do
+        runRawRealMode @SscGodTossing inst params [] $ getNoStatsT $ do
             logInfo "TX GEN RUSHING"
             peers <- discoverPeers DHTFull
 

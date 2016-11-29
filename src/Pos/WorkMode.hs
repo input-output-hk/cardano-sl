@@ -33,10 +33,10 @@ module Pos.WorkMode
        , runContextHolder
 
        -- * Actual modes
-       , RealMode
+       , ProductionMode
+       , RawRealMode
        , ServiceMode
        , StatsMode
-       , ProductionMode
        ) where
 
 import           Control.Concurrent.MVar     (withMVar)
@@ -338,14 +338,15 @@ instance (MonadIO m, MonadCatch m, WithLogger m) => MonadJL (ContextHolder m) wh
 -- Concrete types
 ----------------------------------------------------------------------------
 
--- | RealMode is a basis for `WorkMode`s used to really run system.
-type RealMode ssc = KademliaDHT (SscLDImpl ssc (ContextHolder (DBHolder ssc (Dialog BinaryP Transfer))))
+-- | RawRealMode is a basis for `WorkMode`s used to really run system.
+type RawRealMode ssc = KademliaDHT (SscLDImpl ssc (ContextHolder (DBHolder ssc (Dialog BinaryP Transfer))))
+
+-- | ProductionMode is an instance of WorkMode which is used
+-- (unsurprisingly) in production.
+type ProductionMode ssc = NoStatsT (RawRealMode ssc)
+
+-- | StatsMode is used for remote benchmarking.
+type StatsMode ssc = StatsT (RawRealMode ssc)
 
 -- | ServiceMode is the mode in which support nodes work
 type ServiceMode = KademliaDHT (Dialog BinaryP Transfer)
-
--- | ProductionMode is an instance of WorkMode which is used (unsurprisingly) in production.
-type ProductionMode ssc = NoStatsT (RealMode ssc)
-
--- | StatsMode is used for remote benchmarking
-type StatsMode ssc = StatsT (RealMode ssc)

@@ -11,7 +11,9 @@
 module Pos.Launcher.Runner
        (
          -- * High level runners
-         runRealMode
+         runRawRealMode
+       , runProductionMode
+       , runStatsMode
        , runServiceMode
 
          -- * Service runners
@@ -19,12 +21,8 @@ module Pos.Launcher.Runner
        , runTimeSlaveReal
        , runTimeLordReal
 
-         -- * Node runners
-       , runNodeReal
-       , runNodeStats
-
        -- * Exported for custom usage in CLI utils
-       , RealModeRunner
+       , NodeRunner
        , addDevListeners
        , bracketDHTInstance
        ) where
@@ -37,8 +35,8 @@ import           Control.Monad.Catch         (bracket)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, MonadDialog, Transfer,
                                               commLoggerName, runDialog, runTransfer)
-import           Control.TimeWarp.Timed      (MonadTimed, currentTime, fork, fork_,
-                                              killThread, repeatForever, runTimedIO, sec)
+import           Control.TimeWarp.Timed      (MonadTimed, currentTime, fork, killThread,
+                                              repeatForever, runTimedIO, sec)
 
 import           Data.List                   (nub)
 import qualified Data.Time                   as Time
@@ -68,7 +66,6 @@ import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..
                                               stopDHTInstance)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
-import           Pos.Launcher.Scenario       (runNode)
 import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.State                   (NodeState, closeState, openMemState,
                                               openState)
@@ -78,10 +75,11 @@ import           Pos.Types                   (Timestamp (Timestamp), timestampF)
 import           Pos.Util                    (runWithRandomIntervals)
 import           Pos.Worker                  (statsWorkers)
 import           Pos.WorkMode                (ContextHolder (..), NodeContext (..),
-                                              RealMode, ServiceMode, runContextHolder,
-                                              runDBHolder, runSscLDImpl)
+                                              ProductionMode, RawRealMode, ServiceMode,
+                                              StatsMode, runContextHolder, runDBHolder,
+                                              runSscLDImpl)
 
-type RealModeRunner = KademliaDHTInstance -> NodeParams -> IO ()
+type NodeRunner = KademliaDHTInstance -> NodeParams -> IO ()
 
 ----------------------------------------------------------------------------
 -- Service node runners
@@ -129,43 +127,20 @@ runSupporterReal inst bp = runServiceMode inst bp [] $ do
     repeatForever (sec 5) (const . return $ sec 5) $
         getKnownPeers >>= logInfo . sformat ("Known peers: " % build)
 
------------------------------------------------------------------------------
--- Main launchers
------------------------------------------------------------------------------
-
--- | Run full node in real mode.
-runNodeReal :: forall ssc . SscConstraint ssc
-            => KademliaDHTInstance -> NodeParams -> IO ()
-runNodeReal inst np = runRealMode inst np listeners $ getNoStatsT (runNode @ssc)
-  where
-    listeners = addDevListeners @ssc np noStatsListeners
-    noStatsListeners = map (mapListenerDHT getNoStatsT) (allListeners @ssc)
-
--- | Run full node in benchmarking node
--- [CSL-169]: spawn here additional listener, which would accept stat queries
--- can be done as part of refactoring (or someone who will refactor will create new issue).
-runNodeStats :: forall ssc . SscConstraint ssc
-             => KademliaDHTInstance -> NodeParams -> IO ()
-runNodeStats inst np = runRealMode inst np listeners $ getStatsT $ do
-    mapM_ fork_ statsWorkers
-    runNode @ssc
-  where
-    listeners = addDevListeners @ssc np sListeners
-    sListeners = map (mapListenerDHT getStatsT) $ statsListeners ++ (allListeners @ssc)
-
 ----------------------------------------------------------------------------
 -- High level runners
 ----------------------------------------------------------------------------
 
-runRealMode
+-- | RawRealMode runner.
+runRawRealMode
     :: forall ssc c.
        SscConstraint ssc
     => KademliaDHTInstance
     -> NodeParams
-    -> [ListenerDHT (RealMode ssc)]
-    -> RealMode ssc c
+    -> [ListenerDHT (RawRealMode ssc)]
+    -> RawRealMode ssc c
     -> IO c
-runRealMode inst np@NodeParams {..} listeners action = do
+runRawRealMode inst np@NodeParams {..} listeners action = do
     setupLoggers lp
     let run db =
             runTimed lpRunnerTag .
@@ -192,6 +167,31 @@ runRealMode inst np@NodeParams {..} listeners action = do
     closeDb :: NodeState ssc -> IO ()
     closeDb = closeState
 
+-- | ProductionMode runner.
+runProductionMode
+    :: forall ssc a.
+       SscConstraint ssc
+    => KademliaDHTInstance -> NodeParams -> ProductionMode ssc a -> IO a
+runProductionMode inst np = runRawRealMode inst np listeners . getNoStatsT
+  where
+    listeners = addDevListeners @ssc np noStatsListeners
+    noStatsListeners = map (mapListenerDHT getNoStatsT) (allListeners @ssc)
+
+-- | StatsMode runner.
+-- [CSL-169]: spawn here additional listener, which would accept stat queries
+-- can be done as part of refactoring (or someone who will refactor will create new issue).
+runStatsMode
+    :: forall ssc a.
+       SscConstraint ssc
+    => KademliaDHTInstance -> NodeParams -> StatsMode ssc a -> IO a
+runStatsMode inst np action = runRawRealMode inst np listeners $ getStatsT $ do
+    mapM_ fork statsWorkers
+    action
+  where
+    listeners = addDevListeners @ssc np sListeners
+    sListeners = map (mapListenerDHT getStatsT) $ statsListeners ++ (allListeners @ssc)
+
+-- | ServiceMode runner.
 runServiceMode
     :: KademliaDHTInstance
     -> BaseParams
@@ -274,14 +274,16 @@ setupLoggers LoggingParams{..} = do
   where
     commMapper name | name == "comm" = commLoggerName
                     | otherwise      = name
-    dhtMapper  name | name == "dht"  = dhtLoggerName (Proxy :: Proxy (RealMode ssc))
+    dhtMapper  name | name == "dht"  = dhtLoggerName (Proxy :: Proxy (RawRealMode ssc))
                     | otherwise      = name
 
 loggerBracket :: LoggingParams -> IO a -> IO a
 loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
 -- | RAII for node starter.
-addDevListeners :: NodeParams -> [ListenerDHT (RealMode ssc)] -> [ListenerDHT (RealMode ssc)]
+addDevListeners :: NodeParams
+                -> [ListenerDHT (RawRealMode ssc)]
+                -> [ListenerDHT (RawRealMode ssc)]
 addDevListeners NodeParams{..} ls =
     if isDevelopment
     then sysStartReqListener npSystemStart : ls

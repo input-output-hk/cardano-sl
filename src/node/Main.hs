@@ -20,10 +20,9 @@ import           Pos.DHT.Real         (KademliaDHTInstance)
 import           Pos.Genesis          (StakeDistribution (..), genesisSecretKeys,
                                        genesisUtxo)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
-                                       NodeParams (..), RealModeRunner,
-                                       bracketDHTInstance, runNodeReal, runNodeStats,
-                                       runSupporterReal, runTimeLordReal,
-                                       runTimeSlaveReal)
+                                       NodeParams (..), NodeRunner, bracketDHTInstance,
+                                       runNodeProduction, runNodeStats, runSupporterReal,
+                                       runTimeLordReal, runTimeSlaveReal)
 import           Pos.Ssc.GodTossing   (genesisVssKeyPairs)
 import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
@@ -50,11 +49,11 @@ decode' fpath = either fail' return . decode =<< LBS.readFile fpath
   where
     fail' e = fail $ "Error reading key from " ++ fpath ++ ": " ++ e
 
-realModeRunner :: Bool -> SscAlgo -> RealModeRunner
-realModeRunner False GodTossingAlgo = runNodeReal @SscGodTossing
-realModeRunner True GodTossingAlgo  = runNodeStats @SscGodTossing
-realModeRunner False NistBeaconAlgo = runNodeReal @SscNistBeacon
-realModeRunner True NistBeaconAlgo  = runNodeStats @SscNistBeacon
+nodeRunner :: Bool -> SscAlgo -> NodeRunner
+nodeRunner False GodTossingAlgo = runNodeProduction @SscGodTossing
+nodeRunner True GodTossingAlgo  = runNodeStats @SscGodTossing
+nodeRunner False NistBeaconAlgo = runNodeProduction @SscNistBeacon
+nodeRunner True NistBeaconAlgo  = runNodeStats @SscNistBeacon
 
 getSystemStart :: KademliaDHTInstance -> Args -> IO Timestamp
 getSystemStart inst args =
@@ -133,7 +132,7 @@ action args@Args {..} inst = do
             systemStart <- getSystemStart inst args
             let currentParams = nodeParams args spendingSK vssSK systemStart
             putText $ "Running using " <> show sscAlgo
-            realModeRunner enableStats sscAlgo inst currentParams
+            nodeRunner enableStats sscAlgo inst currentParams
 
 nodeParams :: Args -> SecretKey -> VssKeyPair -> Timestamp -> NodeParams
 nodeParams args@Args {..} spendingSK vssSK systemStart =

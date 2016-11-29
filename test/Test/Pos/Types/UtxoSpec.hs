@@ -38,16 +38,16 @@ spec = describe "Types.Utxo" $ do
     mySig = sign mySK (myHash, 0, [])
     mySK = unsafePerformIO $ snd <$> keyGen
     description_findTxInUtxo =
-        "correctly finds the TxOut corresponding to (txHash, txIndex) when the key is in \
+        "correctly finds the TxOut corresponding to (txHash, txIndex) when the key is in\
         \ the Utxo map, and doesn't find it otherwise"
     description_deleteTxInUtxo =
-        "deleting a (txHash, txIndex) key from a Utxo map where it is present returns \
+        "deleting a (txHash, txIndex) key from a Utxo map where it is present returns\
         \ the map without that key, and if it's not present it does nothing"
     description_applyTxToUtxoGood =
-        "correctly removes spent outputs used as inputs in given transaction and \
+        "correctly removes spent outputs used as inputs in given transaction and\
         \ successfully adds this transaction's outputs to the utxo map"
     description_verifyTxInUtxo =
-        "successfully verifies a transaction whose inputs are all present in the utxo \
+        "successfully verifies a transaction whose inputs are all present in the utxo\
         \ map"
 
 findTxInUtxo :: TxIn -> TxOut -> Utxo -> Bool

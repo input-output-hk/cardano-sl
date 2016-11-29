@@ -62,7 +62,7 @@ spec = do
         prop "secret recovering works" pending
   where
       description_xorFormsAbelianGroup =
-          "under the xor operation, the set of ftsSeedLength-byte SharedSeeds is an \
+          "under the xor operation, the set of ftsSeedLength-byte SharedSeeds is an\
           \ abelian group"
 
 ----------------------------------------------------------------------------

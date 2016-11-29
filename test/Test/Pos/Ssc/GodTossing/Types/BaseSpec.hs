@@ -24,12 +24,12 @@ spec = describe "Ssc.GodTossing.Base" $ do
         prop description_verifiesOkOpening verifiesOkOpening
   where
     description_verifiesOkComm =
-        "successfully verifies a correct commitment, and fails to verify an incorrect \
+        "successfully verifies a correct commitment, and fails to verify an incorrect\
         \ commitment"
     description_verifiesOkCommSig =
         "successfully verifies a signed commitment for a given epoch and secret key"
     description_verifiesOkOpening =
-        "successfully verifies that an opening corresponding to the given commitment \
+        "successfully verifies that an opening corresponding to the given commitment\
         \ does indeed belong to it"
 
 verifiesOkComm :: CommitmentOpening -> Bool

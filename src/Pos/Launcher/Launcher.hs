@@ -1,14 +1,18 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 -- | Applications of runners to scenarios.
 
 module Pos.Launcher.Launcher
        (
          -- * Node launchers.
-         runNodeProduction
+         NodeRunner
+       , NodeRunnerClass (runNodeIO)
+       , runNodeProduction
        , runNodeStats
 
          -- * Utility launchers.
@@ -27,24 +31,37 @@ import           Pos.Launcher.Scenario (runNode, submitTx)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Statistics        (getNoStatsT)
 import           Pos.Types             (Address, Coin, TxId)
+import           Pos.WorkMode          (ProductionMode, StatsMode)
 
 -----------------------------------------------------------------------------
 -- Main launchers
 -----------------------------------------------------------------------------
 
+-- Too hard :(
+type NodeRunner m = KademliaDHTInstance -> [m ()] -> NodeParams -> IO ()
+
+class NodeRunnerClass ssc m where
+    runNodeIO :: KademliaDHTInstance -> [m ()] -> NodeParams -> IO ()
+
 -- | Run full node in real mode.
 runNodeProduction
     :: forall ssc.
        SscConstraint ssc
-    => KademliaDHTInstance -> NodeParams -> IO ()
-runNodeProduction inst np = runProductionMode inst np (runNode @ssc)
+    => KademliaDHTInstance -> [ProductionMode ssc ()] -> NodeParams -> IO ()
+runNodeProduction inst plugins np = runProductionMode inst np (runNode @ssc plugins)
+
+instance SscConstraint ssc => NodeRunnerClass ssc (ProductionMode ssc) where
+    runNodeIO = runNodeProduction
 
 -- | Run full node in benchmarking node
 runNodeStats
     :: forall ssc.
        SscConstraint ssc
-    => KademliaDHTInstance -> NodeParams -> IO ()
-runNodeStats inst np = runStatsMode inst np (runNode @ssc)
+    => KademliaDHTInstance -> [StatsMode ssc ()] -> NodeParams -> IO ()
+runNodeStats inst plugins np = runStatsMode inst np (runNode @ssc plugins)
+
+instance SscConstraint ssc => NodeRunnerClass ssc (StatsMode ssc) where
+    runNodeIO = runNodeStats
 
 ----------------------------------------------------------------------------
 -- Utilities

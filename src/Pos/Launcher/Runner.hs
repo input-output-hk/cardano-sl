@@ -22,7 +22,6 @@ module Pos.Launcher.Runner
        , runTimeLordReal
 
        -- * Exported for custom usage in CLI utils
-       , NodeRunner
        , addDevListeners
        , bracketDHTInstance
        ) where
@@ -78,8 +77,6 @@ import           Pos.WorkMode                (ContextHolder (..), NodeContext (.
                                               ProductionMode, RawRealMode, ServiceMode,
                                               StatsMode, runContextHolder, runDBHolder,
                                               runSscLDImpl)
-
-type NodeRunner = KademliaDHTInstance -> NodeParams -> IO ()
 
 ----------------------------------------------------------------------------
 -- Service node runners

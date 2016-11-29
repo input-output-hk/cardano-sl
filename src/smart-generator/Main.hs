@@ -80,7 +80,7 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
 
     -- | Run all the usual node workers in order to get
     -- access to blockchain
-    fork_ $ runNode @ssc
+    fork_ $ runNode @ssc []
 
     let logsFilePrefix = fromMaybe "." goLogsPrefix
     -- | Run the special worker to check new blocks and

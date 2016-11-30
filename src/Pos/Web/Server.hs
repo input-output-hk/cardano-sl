@@ -11,8 +11,8 @@ import           Universum
 
 import           Pos.Web.Api              (NodeApi, nodeApi)
 
-serveWeb :: IO ()
-serveWeb = run 8081 application
+serveWeb :: Word16 -> IO ()
+serveWeb port = run (fromIntegral port) application
 
 application :: Application
 application = serve nodeApi servantServer

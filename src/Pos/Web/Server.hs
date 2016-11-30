@@ -15,29 +15,31 @@ module Pos.Web.Server
        , applicationGT
        ) where
 
-import qualified Control.Monad.Catch      as Catch
-import           Control.Monad.Except     (MonadError (throwError))
-import           Control.TimeWarp.Timed   (TimedIO, runTimedIO)
-import           Formatting               (ords, sformat, stext, (%))
-import           Network.Wai              (Application)
-import           Network.Wai.Handler.Warp (run)
-import           Servant.API              ((:<|>) ((:<|>)), FromHttpApiData)
-import           Servant.Server           (Handler, ServantErr (errBody), Server, ServerT,
-                                           err404, serve)
-import           Servant.Utils.Enter      ((:~>) (Nat), enter)
+import qualified Control.Monad.Catch                  as Catch
+import           Control.Monad.Except                 (MonadError (throwError))
+import           Control.TimeWarp.Timed               (TimedIO, runTimedIO)
+import           Formatting                           (ords, sformat, stext, (%))
+import           Network.Wai                          (Application)
+import           Network.Wai.Handler.Warp             (run)
+import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
+import           Servant.API                          ((:<|>) ((:<|>)), FromHttpApiData)
+import           Servant.Server                       (Handler, ServantErr (errBody),
+                                                       Server, ServerT, err404, serve)
+import           Servant.Utils.Enter                  ((:~>) (Nat), enter)
 import           Universum
 
-import           Pos.Slotting             (getCurrentSlot)
-import           Pos.Ssc.Class            (SscConstraint)
-import           Pos.Ssc.GodTossing       (SscGodTossing)
-import qualified Pos.State                as St
-import           Pos.Types                (EpochIndex (..), SlotId (siEpoch), SlotLeaders,
-                                           headerHash)
-import           Pos.Web.Api              (BaseNodeApi, GodTossingApi, GtNodeApi,
-                                           baseNodeApi, gtNodeApi)
-import           Pos.WorkMode             (ContextHolder, DBHolder, NodeContext, WorkMode,
-                                           getNodeContext, ncPublicKey, runContextHolder,
-                                           runDBHolder)
+import           Pos.Slotting                         (getCurrentSlot)
+import           Pos.Ssc.Class                        (SscConstraint)
+import           Pos.Ssc.GodTossing                   (SscGodTossing)
+import qualified Pos.State                            as St
+import           Pos.Types                            (EpochIndex (..), SlotId (siEpoch),
+                                                       SlotLeaders, headerHash)
+import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
+                                                       GtNodeApi, baseNodeApi, gtNodeApi)
+import           Pos.WorkMode                         (ContextHolder, DBHolder,
+                                                       NodeContext, WorkMode,
+                                                       getNodeContext, ncPublicKey,
+                                                       runContextHolder, runDBHolder)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -47,7 +49,7 @@ import           Pos.WorkMode             (ContextHolder, DBHolder, NodeContext,
 type MyWorkMode ssc m = (WorkMode ssc m, SscConstraint ssc)
 
 serveWebBase :: MyWorkMode ssc m => Word16 -> m ()
-serveWebBase port = liftIO . run (fromIntegral port) =<< applicationBase
+serveWebBase = serveImpl applicationBase
 
 applicationBase :: MyWorkMode ssc m => m Application
 applicationBase = do
@@ -55,12 +57,17 @@ applicationBase = do
     return $ serve baseNodeApi server
 
 serveWebGT :: MyWorkMode SscGodTossing m => Word16 -> m ()
-serveWebGT port = liftIO . run (fromIntegral port) =<< applicationBase
+serveWebGT = serveImpl applicationGT
 
 applicationGT :: MyWorkMode SscGodTossing m => m Application
 applicationGT = do
     server <- servantServerGT
     return $ serve gtNodeApi server
+
+-- [CSL-217]: do not hardcode logStdoutDev.
+serveImpl :: MonadIO m => m Application -> Word16 -> m ()
+serveImpl application port =
+    liftIO . run (fromIntegral port) . logStdoutDev =<< application
 
 ----------------------------------------------------------------------------
 -- Servant infrastructure

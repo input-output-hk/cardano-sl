@@ -181,6 +181,7 @@ library
                       , unordered-containers
                       , vector
                       , wai
+                      , wai-extra
                       , warp
                       , yaml
   hs-source-dirs:       src

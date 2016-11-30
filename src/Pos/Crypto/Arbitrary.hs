@@ -12,9 +12,10 @@ import           Universum
 
 import           Pos.Crypto.Arbitrary.Hash   ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
-import           Pos.Crypto.SecretSharing    (EncShare, Secret, VssKeyPair, VssPublicKey,
+import           Pos.Crypto.SecretSharing    (EncShare, Secret, Share, VssKeyPair,
+                                              VssPublicKey, decryptShare,
                                               genSharedSecret, toVssPublicKey, vssKeyGen)
-import           Pos.Crypto.SerTypes         (LEncShare, LSecret, LVssPublicKey)
+import           Pos.Crypto.SerTypes         (LEncShare, LSecret, LShare, LVssPublicKey)
 import           Pos.Crypto.Signing          (PublicKey, SecretKey, Signature, Signed,
                                               keyGen, mkSigned, sign)
 import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakeList,
@@ -121,4 +122,8 @@ instance Arbitrary EncShare where
     arbitrary = elements encShares
 
 instance Arbitrary LEncShare where
-    arbitrary = (serialize :: EncShare -> LEncShare) <$> arbitrary
+    arbitrary = serialize @EncShare <$> arbitrary
+
+instance Arbitrary LShare where
+    arbitrary =
+        serialize @Share . unsafePerformIO <$> (decryptShare <$> arbitrary <*> arbitrary)

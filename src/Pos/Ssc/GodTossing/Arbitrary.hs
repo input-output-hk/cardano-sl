@@ -6,9 +6,8 @@ module Pos.Ssc.GodTossing.Arbitrary
        ( CommitmentOpening (..)
        ) where
 
-import           Data.DeriveTH                  (derive, makeArbitrary)
 import           Data.List.NonEmpty             (NonEmpty ((:|)))
-import           Test.QuickCheck                (Arbitrary (..), choose, elements)
+import           Test.QuickCheck                (Arbitrary (..), oneof, elements)
 import           Universum
 
 import           Pos.Crypto                     (LSecretProof, LSecretSharingExtra,
@@ -57,4 +56,10 @@ instance Arbitrary LSecretSharingExtra where
 instance Arbitrary LSecretProof where
     arbitrary = commProof <$> arbitrary
 
-derive makeArbitrary ''GtProof
+instance Arbitrary GtProof where
+    arbitrary = oneof [
+                        CommitmentsProof <$> arbitrary <*> arbitrary
+                      , OpeningsProof <$> arbitrary <*> arbitrary
+                      , SharesProof <$> arbitrary <*> arbitrary
+                      , CertificatesProof <$> arbitrary
+                      ]

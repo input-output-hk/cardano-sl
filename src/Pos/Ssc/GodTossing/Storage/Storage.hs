@@ -209,6 +209,10 @@ mpcVerifyBlock (Right b) = magnify' lastVer $ do
     -- We don't check whether shares match the openings.
     let shareChecks shares =
             [ isShare
+            --We intentionally don't check, that nodes which decrypted shares
+            --sent its commitments.
+            --If node decrypted shares correctly, such node is useful for us, despite of
+            --it didn't send its commitment.
             , (all (`HM.member` globalCommitments)
                    (concatMap HM.keys (toList shares)),
                    "some shares don't have corresponding commitments")

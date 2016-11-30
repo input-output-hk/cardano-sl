@@ -25,7 +25,7 @@ module Pos.State.Acidic
 
        , GetBlock (..)
        , GetBlockByDepth (..)
-       , GetGlobalSscPayload (..)
+       , GetGlobalSscState (..)
        , GetHeadBlock (..)
        , GetBestChain (..)
        , GetLeaders (..)
@@ -186,7 +186,7 @@ processNewSlotL = convertUpdateWithLog S.processNewSlot
 makeAcidicWithHacks ''S.Storage ["ssc"]
     [ 'S.getBlock
     , 'S.getBlockByDepth
-    , 'S.getGlobalSscPayload
+    , 'S.getGlobalSscState
     , 'S.getLeaders
     , 'S.getLocalTxs
     , 'S.isTxVerified

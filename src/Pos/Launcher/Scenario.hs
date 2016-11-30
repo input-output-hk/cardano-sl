@@ -9,7 +9,7 @@ module Pos.Launcher.Scenario
        ) where
 
 import           Control.TimeWarp.Rpc   (NetworkAddress)
-import           Control.TimeWarp.Timed (currentTime, for, sleepForever, wait)
+import           Control.TimeWarp.Timed (currentTime, for, fork, sleepForever, wait)
 import           Formatting             (build, sformat, (%))
 import           System.Wlog            (logError, logInfo)
 import           Universum
@@ -25,8 +25,8 @@ import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeCont
                                          ncPublicKey)
 
 -- | Run full node in any WorkMode.
-runNode :: (SscConstraint ssc, WorkMode ssc m) => m ()
-runNode = do
+runNode :: (SscConstraint ssc, WorkMode ssc m) => [m ()] -> m ()
+runNode plugins = do
     pk <- ncPublicKey <$> getNodeContext
     logInfo $ sformat ("My public key is: "%build) pk
     peers <- discoverPeers DHTFull
@@ -34,6 +34,7 @@ runNode = do
 
     waitSystemStart
     runWorkers
+    mapM_ fork plugins
     sleepForever
 
 -- | Construct Tx with a single input and single output and send it to

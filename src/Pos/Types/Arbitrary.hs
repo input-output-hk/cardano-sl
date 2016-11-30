@@ -10,6 +10,7 @@ module Pos.Types.Arbitrary
        , GoodTx (..)
        , OverflowTx (..)
        , SmallBadSigsTx (..)
+       , SmallHashMap (..)
        , SmallGoodTx (..)
        , SmallOverflowTx (..)
        ) where
@@ -19,7 +20,7 @@ import qualified Data.ByteString            as BS (pack)
 import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           Pos.Constants              (epochSlots, sharedSeedLength)
-import           Pos.Crypto                 (SecretKey, hash, sign, toPublic)
+import           Pos.Crypto                 (LShare, PublicKey, SecretKey, hash, sign, toPublic)
 import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              Coin (..), EpochIndex (..),
@@ -28,6 +29,7 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
                                              NonZero (..), choose, scale, vector)
+import           Test.QuickCheck.Instances  ()
 import           Universum
 
 import           Pos.Crypto.Arbitrary       ()
@@ -194,3 +196,10 @@ instance Arbitrary Microsecond where
     arbitrary = fromMicroseconds <$> choose (0, 600 * 1000 * 1000)
 
 deriving instance Arbitrary Timestamp
+
+newtype SmallHashMap =
+    SmallHashMap (HashMap PublicKey (HashMap PublicKey LShare))
+    deriving Show
+
+instance Arbitrary SmallHashMap where
+    arbitrary = SmallHashMap <$> makeSmall arbitrary

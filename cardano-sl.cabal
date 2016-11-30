@@ -433,6 +433,7 @@ test-suite cardano-test
                      , Test.Pos.Types.TxSpec
                      , Test.Pos.Types.UtxoSpec
                      , Test.Pos.Util
+                     , Test.Pos.UtilSpec
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
                      , base
@@ -449,6 +450,7 @@ test-suite cardano-test
                      , log-warper >= 0.1.0
                      , memory
                      , mtl
+                     , quickcheck-instances
                      , random
                      , safecopy
                      , serokell-util

@@ -19,27 +19,23 @@ import           System.Wlog            (logInfo)
 import           Test.QuickCheck        (arbitrary, generate)
 import           Universum
 
-import           Pos.Communication      (allListeners)
 import           Pos.Constants          (k, slotDuration)
 import           Pos.Crypto             (KeyPair (..), hash)
-import           Pos.DHT                (DHTNodeType (..), ListenerDHT, dhtAddr,
-                                         discoverPeers, mapListenerDHT)
+import           Pos.DHT                (DHTNodeType (..), dhtAddr, discoverPeers)
 import           Pos.DHT.Real           (KademliaDHTInstance)
 import           Pos.Genesis            (StakeDistribution (..), genesisAddresses,
                                          genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
-                                         NodeParams (..), addDevListeners,
-                                         bracketDHTInstance, runNode, runRealMode,
-                                         runTimeSlaveReal, submitTxRaw)
+                                         NodeParams (..), bracketDHTInstance, runNode,
+                                         runProductionMode, runTimeSlaveReal, submitTxRaw)
 import           Pos.Ssc.Class          (SscConstraint)
 import           Pos.Ssc.GodTossing     (SscGodTossing)
 import           Pos.Ssc.NistBeacon     (SscNistBeacon)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 import           Pos.State              (isTxVerified)
-import           Pos.Statistics         (getNoStatsT)
 import           Pos.Types              (Tx (..))
 import           Pos.Util.JsonLog       ()
-import           Pos.WorkMode           (ProductionMode, RealMode)
+import           Pos.WorkMode           (ProductionMode)
 
 import           GenOptions             (GenOptions (..), optsInfo)
 import           TxAnalysis             (checkWorker, createTxTimestamps, registerSentTx)
@@ -47,10 +43,6 @@ import           TxGeneration           (BambooPool, createBambooPool, curBamboo
                                          initTransaction, nextValidTx, resetBamboo)
 import           Util
 
-
-realListeners :: SscConstraint ssc => NodeParams -> [ListenerDHT (RealMode ssc)]
-realListeners params = addDevListeners params noStatsListeners
-  where noStatsListeners = map (mapListenerDHT getNoStatsT) allListeners
 
 -- | Resend initTx with `slotDuration` period until it's verified
 seedInitTx :: forall ssc . SscConstraint ssc
@@ -74,7 +66,7 @@ chooseSubset share ls = take n ls
 runSmartGen :: forall ssc . SscConstraint ssc
             => KademliaDHTInstance -> NodeParams -> GenOptions -> IO ()
 runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
-    runRealMode inst np (realListeners @ssc np) $ getNoStatsT $ do
+    runProductionMode inst np $ do
     let i = fromIntegral goGenesisIdx
         getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         initTx = initTransaction opts
@@ -88,7 +80,7 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
 
     -- | Run all the usual node workers in order to get
     -- access to blockchain
-    fork_ $ runNode @ssc
+    fork_ $ runNode @ssc []
 
     let logsFilePrefix = fromMaybe "." goLogsPrefix
     -- | Run the special worker to check new blocks and

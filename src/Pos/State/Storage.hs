@@ -22,7 +22,7 @@ module Pos.State.Storage
        , getBlockByDepth
        , getHeadBlock
        , getBestChain
-       , getGlobalSscPayload
+       , getGlobalSscState
        , getLeaders
        , getLocalTxs
        , isTxVerified
@@ -150,11 +150,11 @@ getHeadSlot :: Query ssc EpochOrSlot
 getHeadSlot = getEpochOrSlot <$> getHeadBlock
 
 -- | Get global SSC data.
-getGlobalSscPayload
+getGlobalSscState
     :: forall ssc.
        SscStorageClass ssc
     => Query ssc (SscGlobalState ssc)
-getGlobalSscPayload = sscGetGlobalPayload @ssc
+getGlobalSscState = sscGetGlobalState @ssc
 
 -- | Create a new block on top of best chain if possible.
 -- Block can be created if:
@@ -176,7 +176,7 @@ createNewBlockDo
        (SscStorageClass ssc)
     => SecretKey -> SlotId -> SscPayload ssc -> Update ssc (MainBlock ssc)
 createNewBlockDo sk sId sscPayload = do
-    globalPayload <- readerToState $ getGlobalSscPayload
+    globalPayload <- readerToState $ getGlobalSscState
     let filteredPayload = sscFilterPayload @ssc sscPayload globalPayload
     txs <- readerToState $ toList <$> getLocalTxs
     blk <- blkCreateNewBlock sk sId txs filteredPayload

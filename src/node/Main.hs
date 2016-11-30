@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns        #-}
 
@@ -20,10 +21,9 @@ import           Pos.DHT.Real         (KademliaDHTInstance)
 import           Pos.Genesis          (StakeDistribution (..), genesisSecretKeys,
                                        genesisUtxo)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
-                                       NodeParams (..), RealModeRunner,
-                                       bracketDHTInstance, runNodeReal, runNodeStats,
-                                       runSupporterReal, runTimeLordReal,
-                                       runTimeSlaveReal)
+                                       NodeParams (..), bracketDHTInstance,
+                                       runNodeProduction, runNodeStats, runSupporterReal,
+                                       runTimeLordReal, runTimeSlaveReal)
 import           Pos.Ssc.GodTossing   (genesisVssKeyPairs)
 import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
@@ -50,12 +50,6 @@ decode' :: Binary key => FilePath -> IO key
 decode' fpath = either fail' return . decode =<< LBS.readFile fpath
   where
     fail' e = fail $ "Error reading key from " ++ fpath ++ ": " ++ e
-
-realModeRunner :: Bool -> SscAlgo -> RealModeRunner
-realModeRunner False GodTossingAlgo = runNodeReal @SscGodTossing
-realModeRunner True GodTossingAlgo  = runNodeStats @SscGodTossing
-realModeRunner False NistBeaconAlgo = runNodeReal @SscNistBeacon
-realModeRunner True NistBeaconAlgo  = runNodeStats @SscNistBeacon
 
 getSystemStart :: KademliaDHTInstance -> Args -> IO Timestamp
 getSystemStart inst args =
@@ -134,7 +128,15 @@ action args@Args {..} inst = do
             systemStart <- getSystemStart inst args
             let currentParams = nodeParams args spendingSK vssSK systemStart
             putText $ "Running using " <> show sscAlgo
-            realModeRunner enableStats sscAlgo inst currentParams
+            case (enableStats, sscAlgo) of
+                (True, GodTossingAlgo) ->
+                    runNodeStats @SscGodTossing inst [] currentParams
+                (True, NistBeaconAlgo) ->
+                    runNodeStats @SscNistBeacon inst [] currentParams
+                (False, GodTossingAlgo) ->
+                    runNodeProduction @SscGodTossing inst [] currentParams
+                (False, NistBeaconAlgo) ->
+                    runNodeProduction @SscNistBeacon inst [] currentParams
 
 nodeParams :: Args -> SecretKey -> VssKeyPair -> Timestamp -> NodeParams
 nodeParams args@Args {..} spendingSK vssSK systemStart =

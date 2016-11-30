@@ -57,9 +57,9 @@ class Ssc ssc => SscStorageClass ssc where
     sscRollback :: Word -> SscUpdate ssc ()
 
     -- | Get global SSC data.
-    sscGetGlobalPayload :: SscQuery ssc (SscGlobalState ssc)
+    sscGetGlobalState :: SscQuery ssc (SscGlobalState ssc)
     -- | Get global SSC data for the state that was observed N blocks ago.
-    sscGetGlobalPayloadByDepth :: Word -> SscQuery ssc (Maybe (SscGlobalState ssc))
+    sscGetGlobalStateByDepth :: Word -> SscQuery ssc (Maybe (SscGlobalState ssc))
     -- | Verify Ssc-related predicates of block sequence which is
     -- about to be applied. It should check that SSC payload will be
     -- consistent if this blocks are applied (after possible rollback

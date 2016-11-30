@@ -69,8 +69,8 @@ instance Ssc SscNistBeacon where
 instance SscStorageClass SscNistBeacon where
     sscApplyBlocks _ = pass
     sscRollback _ = pass
-    sscGetGlobalPayload = pure ()
-    sscGetGlobalPayloadByDepth _ = pure Nothing
+    sscGetGlobalState = pure ()
+    sscGetGlobalStateByDepth _ = pure Nothing
     sscVerifyBlocks _ _ = pure VerSuccess
 
     sscGetOurShares _ = pure HM.empty

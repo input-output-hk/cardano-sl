@@ -193,7 +193,7 @@ isTxVerified = queryDisk . A.IsTxVerified
 
 -- | Get global SSC data.
 getGlobalMpcData :: QUConstraint ssc m => m (SscGlobalState ssc)
-getGlobalMpcData = queryDisk A.GetGlobalSscPayload
+getGlobalMpcData = queryDisk A.GetGlobalSscState
 
 -- | Check that block header is correct and claims to represent block
 -- which may become part of blockchain.

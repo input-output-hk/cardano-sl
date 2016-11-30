@@ -130,6 +130,7 @@ argsParser =
         "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""
 
 getNodeOptions :: IO Args
-getNodeOptions =
-    fst <$>
-    simpleOptions "cardano-node" "PoS prototype node" "Use it!" argsParser pass
+getNodeOptions = do
+    (res, ()) <-
+        simpleOptions "cardano-node" "PoS prototype node" "Use it!" argsParser empty
+    return res

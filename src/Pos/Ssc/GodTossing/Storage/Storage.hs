@@ -70,8 +70,8 @@ instance Serialize SscGodTossing where
 instance SscStorageClass SscGodTossing where
     sscApplyBlocks = mpcApplyBlocks
     sscRollback = mpcRollback
-    sscGetGlobalPayload = getGlobalMpcData
-    sscGetGlobalPayloadByDepth = getGlobalMpcDataByDepth
+    sscGetGlobalState = getGlobalMpcData
+    sscGetGlobalStateByDepth = getGlobalMpcDataByDepth
     sscVerifyBlocks = mpcVerifyBlocks
 
     sscGetOurShares = getOurShares

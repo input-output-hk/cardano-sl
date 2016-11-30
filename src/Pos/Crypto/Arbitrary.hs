@@ -7,14 +7,16 @@ module Pos.Crypto.Arbitrary
 import           Control.Lens                (view, _2, _4)
 import           Data.Binary                 (Binary)
 import           Data.List.NonEmpty          (fromList)
+import           System.IO.Unsafe            (unsafePerformIO)
 import           Test.QuickCheck             (Arbitrary (..), elements)
 import           Universum
 
 import           Pos.Crypto.Arbitrary.Hash   ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
-import           Pos.Crypto.SecretSharing    (EncShare, Secret, VssKeyPair, VssPublicKey,
+import           Pos.Crypto.SecretSharing    (EncShare, Secret, Share, VssKeyPair,
+                                              VssPublicKey, decryptShare,
                                               genSharedSecret, toVssPublicKey, vssKeyGen)
-import           Pos.Crypto.SerTypes         (LEncShare, LSecret, LVssPublicKey)
+import           Pos.Crypto.SerTypes         (LEncShare, LSecret, LShare, LVssPublicKey)
 import           Pos.Crypto.Signing          (PublicKey, SecretKey, Signature, Signed,
                                               keyGen, mkSigned, sign)
 import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakeList,
@@ -109,7 +111,7 @@ instance Arbitrary Secret where
     arbitrary = elements secrets
 
 instance Arbitrary LSecret where
-    arbitrary = (serialize :: Secret -> LSecret) <$> arbitrary
+    arbitrary = serialize @Secret <$> arbitrary
 
 encShares :: [EncShare]
 encShares =
@@ -121,4 +123,8 @@ instance Arbitrary EncShare where
     arbitrary = elements encShares
 
 instance Arbitrary LEncShare where
-    arbitrary = (serialize :: EncShare -> LEncShare) <$> arbitrary
+    arbitrary = serialize @EncShare <$> arbitrary
+
+instance Arbitrary LShare where
+    arbitrary =
+        serialize @Share . unsafePerformIO <$> (decryptShare <$> arbitrary <*> arbitrary)

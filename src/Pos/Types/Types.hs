@@ -976,5 +976,4 @@ instance SafeCopy (Body (GenesisBlockchain ssc)) where
 ----------------------------------------------------------------------------
 -- Other derived instances
 ----------------------------------------------------------------------------
-
 derive makeNFData ''TxOut

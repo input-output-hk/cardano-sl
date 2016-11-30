@@ -7,6 +7,7 @@ module Pos.Crypto.Arbitrary
 import           Control.Lens                (view, _2, _4)
 import           Data.Binary                 (Binary)
 import           Data.List.NonEmpty          (fromList)
+import           System.IO.Unsafe            (unsafePerformIO)
 import           Test.QuickCheck             (Arbitrary (..), elements)
 import           Universum
 
@@ -110,7 +111,7 @@ instance Arbitrary Secret where
     arbitrary = elements secrets
 
 instance Arbitrary LSecret where
-    arbitrary = (serialize :: Secret -> LSecret) <$> arbitrary
+    arbitrary = serialize @Secret <$> arbitrary
 
 encShares :: [EncShare]
 encShares =

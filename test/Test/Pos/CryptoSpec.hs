@@ -13,10 +13,9 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
-import           Pos.Crypto             (EncShare, Hash, KeyPair (..), LVssPublicKey, LEncShare,
-                                        LSecret, LSecretProof, LSecretSharingExtra, LShare, PublicKey,
-                                        Secret, SecretKey, SecretProof, SecretSharingExtra, Signature,
-                                        Signed, VssPublicKey, deterministic,
+import           Pos.Crypto            (EncShare, Hash, KeyPair (..), LVssPublicKey,
+                                        LEncShare, LSecret, PublicKey, Secret, SecretKey,
+                                        Signature, Signed, VssPublicKey, deterministic,
                                         fullPublicKeyF, hash, parseFullPublicKey,
                                         randomNumber, sign, toPublic, verify)
 import           Pos.Ssc.GodTossing    ()
@@ -97,17 +96,17 @@ spec = describe "Crypto" $ do
                 (\(a :: VssPublicKey) -> (===) a $
                     either (panic . toText) identity $
                     (deserialize :: LVssPublicKey -> Either [Char] VssPublicKey) $
-                        (serialize :: VssPublicKey -> LVssPublicKey) a)
+                        serialize a)
             prop "Secret <-> LSecret"
                 (\(a :: Secret) -> (===) a $
                     either (panic . toText) identity $
                     (deserialize :: LSecret -> Either [Char] Secret) $
-                        (serialize :: Secret -> LSecret) a)
+                        serialize  a)
             prop "EncShare <-> LEncShare"
                 (\(a :: EncShare) -> (===) a $
                     either (panic . toText) identity $
                     (deserialize :: LEncShare -> Either [Char] EncShare) $
-                        (serialize :: EncShare -> LEncShare) a)
+                        serialize a)
         describe "keys" $ do
             prop
                 "derived pubkey equals to generated pubkey"

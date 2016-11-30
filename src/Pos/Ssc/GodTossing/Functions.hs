@@ -180,7 +180,6 @@ checkShare globalCommitments globalOpeningsPK globalCertificates (pkTo, pkFrom, 
       _ -> return False
   where
     tuple = do
-        guard $ HM.member pkTo globalCommitments
         guard $ notMember pkFrom globalOpeningsPK
         (comm, _) <- HM.lookup pkFrom globalCommitments
         vssKey <- signedValue <$> HM.lookup pkTo globalCertificates

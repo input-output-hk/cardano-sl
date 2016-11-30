@@ -148,15 +148,6 @@ calculateLeaders _ utxo threshold = do --GodTossing doesn't use epoch, but NistB
         Left e     -> Left e
         Right seed -> Right $ fmap getAddress $ followTheSatoshi seed utxo
 
--- -- Apply checkShares using last version.
--- checkSharesLastVer :: PublicKey -> HashMap PublicKey Share -> Query Bool
--- checkSharesLastVer pk shares =
---     magnify' lastVer $
---     (\comms openings certs -> checkShares comms openings certs pk shares) <$>
---     view dsGlobalCommitments <*>
---     view dsGlobalOpenings <*>
---     view dsGlobalCertificates
-
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
 mpcVerifyBlock
@@ -219,7 +210,7 @@ mpcVerifyBlock (Right b) = magnify' lastVer $ do
     let shareChecks shares =
             [ isShare
             , (all (`HM.member` globalCommitments)
-                   (HM.keys shares <> concatMap HM.keys (toList shares)),
+                   (concatMap HM.keys (toList shares)),
                    "some shares don't have corresponding commitments")
             -- [CSL-203]: here we assume that all shares are always sent as a
             -- whole package.

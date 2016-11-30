@@ -40,8 +40,7 @@ calculateSeed (fromIntegral -> t) commitments openings lShares = do
     let extraOpenings, extraShares :: HashSet PublicKey
         extraOpenings = HS.difference (getKeys openings) participants
         extraShares =
-            let xs = getKeys lShares <>
-                     mconcat (map getKeys (toList lShares))
+            let xs = mconcat (map getKeys (toList lShares))
             in  HS.difference xs participants
     unless (null extraOpenings) $
         Left (ExtraneousOpenings extraOpenings)

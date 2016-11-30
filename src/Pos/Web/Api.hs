@@ -18,7 +18,7 @@ import           Data.Proxy         (Proxy (Proxy))
 import           Servant.API        ((:<|>), (:>), Capture, Get, JSON, Post, QueryParam)
 import           Universum
 
-import           Pos.Crypto         (PublicKey)
+import           Pos.Crypto         (LSecret, PublicKey)
 import           Pos.Ssc.GodTossing (SscGodTossing)
 import           Pos.Types          (EpochIndex, HeaderHash, SlotId, SlotLeaders)
 
@@ -34,7 +34,9 @@ baseNodeApi :: Proxy (BaseNodeApi ssc)
 baseNodeApi = Proxy
 
 -- | GodTossing specific API.
-type GodTossingApi = "toggle" :> Capture "enable" Bool :> Post '[JSON] ()
+type GodTossingApi =
+    "toggle" :> Capture "enable" Bool :> Post '[JSON] () :<|>
+    "secret" :> Get '[JSON] LSecret
 
 -- | Helper Proxy.
 godTossingApi :: Proxy GodTossingApi

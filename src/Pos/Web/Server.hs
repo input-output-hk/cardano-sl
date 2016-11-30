@@ -28,6 +28,7 @@ import           Servant.Server                       (Handler, ServantErr (errB
 import           Servant.Utils.Enter                  ((:~>) (Nat), enter)
 import           Universum
 
+import           Pos.Crypto                           (LSecret)
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing)
@@ -131,10 +132,13 @@ getLeadersDo (Just e) = St.getLeaders e
 ----------------------------------------------------------------------------
 
 gtServantHandlers :: ServerT GodTossingApi (WebHandler SscGodTossing)
-gtServantHandlers = toggleGtParticipation
+gtServantHandlers = toggleGtParticipation :<|> getOurSecret
 
 toggleGtParticipation :: Bool -> WebHandler SscGodTossing ()
 toggleGtParticipation = const pass
+
+getOurSecret :: WebHandler SscGodTossing LSecret
+getOurSecret = notImplemented
 
 ----------------------------------------------------------------------------
 -- Orphan instances

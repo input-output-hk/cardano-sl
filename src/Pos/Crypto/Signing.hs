@@ -31,6 +31,7 @@ module Pos.Crypto.Signing
        ) where
 
 import qualified Crypto.Sign.Ed25519    as Ed25519
+import           Data.Aeson             (ToJSON (toJSON))
 import           Data.Binary            (Binary)
 import qualified Data.Binary            as Binary
 import qualified Data.Binary.Get        as Binary
@@ -198,6 +199,9 @@ keyGen = liftIO $ do
 deterministicKeyGen :: BS.ByteString -> Maybe (PublicKey, SecretKey)
 deterministicKeyGen seed =
     bimap PublicKey SecretKey <$> Ed25519.createKeypairFromSeed_ seed
+
+instance ToJSON PublicKey where
+    toJSON = toJSON . sformat fullPublicKeyF
 
 ----------------------------------------------------------------------------
 -- Signatures

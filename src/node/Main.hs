@@ -161,7 +161,7 @@ nodeParams args@Args {..} spendingSK vssSK systemStart =
 
 plugins :: WorkMode ssc m => Args -> [m ()]
 plugins Args {..}
-    | enableWeb = [liftIO $ serveWeb webPort]
+    | enableWeb = [serveWeb webPort]
     | otherwise = []
 
 main :: IO ()

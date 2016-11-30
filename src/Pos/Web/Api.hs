@@ -10,9 +10,11 @@ module Pos.Web.Api
 
 import           Data.Proxy  (Proxy (Proxy))
 import           Servant.API ((:>), Get, JSON)
-import           Universum
+-- import           Universum
 
-type NodeApi = "patak" :> Get '[JSON] Text
+import           Pos.Types   (SlotId)
+
+type NodeApi = "current_slot" :> Get '[JSON] SlotId
 
 nodeApi :: Proxy NodeApi
 nodeApi = Proxy

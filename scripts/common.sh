@@ -101,6 +101,7 @@ function node_cmd {
   local st=''
   local reb=''
   local ssc_algo=''
+  local web=''
 
   ensure_run
 
@@ -114,7 +115,10 @@ function node_cmd {
     reb=" --rebuild-db "
   fi
   if [[ $is_stat != "" ]]; then
-    stats="--stats"
+    stats=" --stats "
+  fi
+  if [[ $i == "0" ]]; then
+    web=" --web "
   fi
 
   echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $reb --vss-genesis $i"
@@ -124,6 +128,7 @@ function node_cmd {
   echo -n " --spending-genesis $i --port "`get_port $i`
   echo -n " $(logs node$i.log) $time_lord $stats"
   echo -n " $stake_distr $ssc_algo "
+  echo -n " $web "
   echo ''
 }
 

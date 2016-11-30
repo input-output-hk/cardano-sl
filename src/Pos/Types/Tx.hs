@@ -20,7 +20,7 @@ import           Formatting          (build, int, sformat, (%))
 import           Serokell.Util       (VerificationRes, verifyGeneric)
 import           Universum
 
-import           Pos.Crypto          (hash, verify)
+import           Pos.Crypto          (hash, checkSig)
 import           Pos.Types.Types     (Address (..), Tx (..), TxIn (..), TxOut (..), coinF)
 
 -- | Verify that Tx itself is correct. Most likely you will also want
@@ -74,7 +74,7 @@ verifyTx inputResolver tx@Tx {..} =
     inputPredicates i Nothing =
         [(False, sformat ("input #" %int% " is not an unspent output: ") i)]
     inputPredicates i (Just (txIn@TxIn{..}, TxOut{..})) =
-        [ ( verify (getAddress txOutAddress)
+        [ ( checkSig (getAddress txOutAddress)
                    (txInHash, txInIndex, txOutputs)
                    txInSig
           , sformat ("input #"%int%" is not signed properly: ("%build%")")

@@ -17,7 +17,7 @@ import           Pos.Crypto            (EncShare, Hash, KeyPair (..), LVssPublic
                                         LEncShare, LSecret, PublicKey, Secret, SecretKey,
                                         Signature, Signed, VssPublicKey, deterministic,
                                         fullPublicKeyF, hash, parseFullPublicKey,
-                                        randomNumber, sign, toPublic, verify)
+                                        randomNumber, sign, toPublic, checkSig)
 import           Pos.Ssc.GodTossing    ()
 import           Pos.Util              (Serialized (..))
 
@@ -140,16 +140,16 @@ keyParsing pk = parseFullPublicKey (sformat fullPublicKeyF pk) === Just pk
 signThenVerify
     :: Binary a
     => SecretKey -> a -> Bool
-signThenVerify sk a = verify (toPublic sk) a $ sign sk a
+signThenVerify sk a = checkSig (toPublic sk) a $ sign sk a
 
 signThenVerifyDifferentKey
     :: Binary a
     => SecretKey -> PublicKey -> a -> Property
 signThenVerifyDifferentKey sk1 pk2 a =
-    (toPublic sk1 /= pk2) ==> not (verify pk2 a $ sign sk1 a)
+    (toPublic sk1 /= pk2) ==> not (checkSig pk2 a $ sign sk1 a)
 
 signThenVerifyDifferentData
     :: (Eq a, Binary a)
     => SecretKey -> a -> a -> Property
 signThenVerifyDifferentData sk a b =
-    (a /= b) ==> not (verify (toPublic sk) b $ sign sk a)
+    (a /= b) ==> not (checkSig (toPublic sk) b $ sign sk a)

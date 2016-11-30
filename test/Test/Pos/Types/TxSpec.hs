@@ -21,7 +21,7 @@ import           Test.QuickCheck       (NonNegative (..), Positive (..), Propert
 import           Test.QuickCheck.Gen   (Gen)
 import           Universum             hiding ((.&.))
 
-import           Pos.Crypto            (hash, verify)
+import           Pos.Crypto            (hash, checkSig)
 import           Pos.Types             (Address (..), BadSigsTx (..),  GoodTx (..),
                                         OverflowTx (..), SmallBadSigsTx (..),
                                         SmallGoodTx (..), SmallOverflowTx (..),  Tx (..),
@@ -117,9 +117,9 @@ individualTxPropertyVerifier (tx@Tx{..}, _, extendedInputs) =
                 case maybeTxPair of
                     Nothing -> False
                     Just (TxIn{..}, TxOut{..}) ->
-                        verify (getAddress txOutAddress)
-                               (txInHash, txInIndex, txOutputs)
-                               txInSig
+                        checkSig (getAddress txOutAddress)
+                                 (txInHash, txInIndex, txOutputs)
+                                 txInSig
         hasGoodInputs = and $ map mapFun extendedInputs
     in hasGoodSum && hasGoodStructure && hasGoodInputs
 
@@ -141,7 +141,7 @@ overflowTx (SmallOverflowTx (getOverflowTx -> ls)) =
 
 signatureIsNotValid :: [TxOut] -> Maybe (TxIn, TxOut) -> Bool
 signatureIsNotValid txOutputs (Just (TxIn{..}, TxOut{..})) =
-    not $ verify (getAddress txOutAddress)
+    not $ checkSig (getAddress txOutAddress)
         (txInHash, txInIndex, txOutputs)
         txInSig
 signatureIsNotValid _ _ = False

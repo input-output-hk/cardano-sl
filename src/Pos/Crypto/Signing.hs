@@ -18,7 +18,7 @@ module Pos.Crypto.Signing
        -- * Signing and verification
        , Signature
        , sign
-       , verify
+       , checkSig
 
        , Signed
        , mkSigned
@@ -229,8 +229,8 @@ signRaw :: SecretKey -> ByteString -> Signature Raw
 signRaw (SecretKey k) x = Signature (Ed25519.dsign k x)
 
 -- | Verify a signature.
-verify :: Binary a => PublicKey -> a -> Signature a -> Bool
-verify k x s = verifyRaw k (BSL.toStrict (Binary.encode x)) (coerce s)
+checkSig :: Binary a => PublicKey -> a -> Signature a -> Bool
+checkSig k x s = verifyRaw k (BSL.toStrict (Binary.encode x)) (coerce s)
 
 -- | Verify raw 'ByteString'.
 verifyRaw :: PublicKey -> ByteString -> Signature Raw -> Bool

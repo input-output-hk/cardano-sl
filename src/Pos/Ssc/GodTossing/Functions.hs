@@ -48,7 +48,7 @@ import           Pos.Crypto                     (LShare, LVssPublicKey, PublicKe
                                                  SecretKey, SecureRandom (..),
                                                  Signed (..), Threshold, genSharedSecret,
                                                  getDhSecret, secretToDhSecret, sign,
-                                                 verify, verifyEncShare,
+                                                 checkSig, verifyEncShare,
                                                  verifySecretProof, verifyShare)
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap,
@@ -137,7 +137,7 @@ verifyCommitment Commitment {..} = fromMaybe False $ do
 -- | Verify signature in SignedCommitment using public key and epoch index.
 verifyCommitmentSignature :: PublicKey -> EpochIndex -> SignedCommitment -> Bool
 verifyCommitmentSignature pk epoch (comm, commSig) =
-    verify pk (epoch, comm) commSig
+    checkSig pk (epoch, comm) commSig
 
 -- | Verify SignedCommitment using public key and epoch index.
 verifySignedCommitment :: PublicKey -> EpochIndex -> SignedCommitment -> VerificationRes
@@ -161,7 +161,7 @@ verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
 checkCert
     :: (PublicKey, VssCertificate)
     -> Bool
-checkCert (pk, cert) = verify pk (signedValue cert) (signedSig cert)
+checkCert (pk, cert) = checkSig pk (signedValue cert) (signedSig cert)
 
 -- | Check that the decrypted share matches the encrypted share in the
 -- commitment

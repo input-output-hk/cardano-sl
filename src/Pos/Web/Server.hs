@@ -27,10 +27,12 @@ import           Universum
 import           Pos.Slotting             (getCurrentSlot)
 import           Pos.Ssc.Class            (SscConstraint)
 import qualified Pos.State                as St
-import           Pos.Types                (EpochIndex (..), SlotId (siEpoch), SlotLeaders)
+import           Pos.Types                (EpochIndex (..), SlotId (siEpoch), SlotLeaders,
+                                           headerHash)
 import           Pos.Web.Api              (NodeApi, nodeApi)
 import           Pos.WorkMode             (ContextHolder, DBHolder, NodeContext, WorkMode,
-                                           getNodeContext, runContextHolder, runDBHolder)
+                                           getNodeContext, ncPublicKey, runContextHolder,
+                                           runDBHolder)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -69,7 +71,7 @@ nat = do
     ns <- St.getNodeState
     return $ Nat (convertHandler nc ns)
 
-servantServer :: forall ssc m . MyWorkMode ssc m => m (Server NodeApi)
+servantServer :: forall ssc m . MyWorkMode ssc m => m (Server (NodeApi ssc))
 servantServer = flip enter servantHandlers <$> (nat @ssc @m)
 
 ----------------------------------------------------------------------------
@@ -78,8 +80,10 @@ servantServer = flip enter servantHandlers <$> (nat @ssc @m)
 
 servantHandlers
     :: SscConstraint ssc
-    => ServerT NodeApi (WebHandler ssc)
-servantHandlers = getCurrentSlot :<|> getLeaders
+    => ServerT (NodeApi ssc) (WebHandler ssc)
+servantHandlers =
+    getCurrentSlot :<|> getLeaders :<|> (ncPublicKey <$> getNodeContext) :<|>
+    (headerHash <$> St.getHeadBlock)
 
 getLeaders :: SscConstraint ssc => Maybe EpochIndex -> WebHandler ssc SlotLeaders
 getLeaders e = maybe (throwM err) pure =<< getLeadersDo e

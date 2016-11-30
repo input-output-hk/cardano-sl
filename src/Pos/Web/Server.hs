@@ -9,7 +9,10 @@
 -- | Web server.
 
 module Pos.Web.Server
-       ( serveWeb
+       ( serveWebBase
+       , applicationBase
+       , serveWebGT
+       , applicationGT
        ) where
 
 import qualified Control.Monad.Catch      as Catch
@@ -26,10 +29,12 @@ import           Universum
 
 import           Pos.Slotting             (getCurrentSlot)
 import           Pos.Ssc.Class            (SscConstraint)
+import           Pos.Ssc.GodTossing       (SscGodTossing)
 import qualified Pos.State                as St
 import           Pos.Types                (EpochIndex (..), SlotId (siEpoch), SlotLeaders,
                                            headerHash)
-import           Pos.Web.Api              (NodeApi, nodeApi)
+import           Pos.Web.Api              (BaseNodeApi, GodTossingApi, GtNodeApi,
+                                           baseNodeApi, gtNodeApi)
 import           Pos.WorkMode             (ContextHolder, DBHolder, NodeContext, WorkMode,
                                            getNodeContext, ncPublicKey, runContextHolder,
                                            runDBHolder)
@@ -41,13 +46,21 @@ import           Pos.WorkMode             (ContextHolder, DBHolder, NodeContext,
 -- [CSL-152]: I want SscConstraint to be part of WorkMode.
 type MyWorkMode ssc m = (WorkMode ssc m, SscConstraint ssc)
 
-serveWeb :: MyWorkMode ssc m => Word16 -> m ()
-serveWeb port = liftIO . run (fromIntegral port) =<< application
+serveWebBase :: MyWorkMode ssc m => Word16 -> m ()
+serveWebBase port = liftIO . run (fromIntegral port) =<< applicationBase
 
-application :: MyWorkMode ssc m => m Application
-application = do
-    server <- servantServer
-    return $ serve nodeApi server
+applicationBase :: MyWorkMode ssc m => m Application
+applicationBase = do
+    server <- servantServerBase
+    return $ serve baseNodeApi server
+
+serveWebGT :: MyWorkMode SscGodTossing m => Word16 -> m ()
+serveWebGT port = liftIO . run (fromIntegral port) =<< applicationBase
+
+applicationGT :: MyWorkMode SscGodTossing m => m Application
+applicationGT = do
+    server <- servantServerGT
+    return $ serve gtNodeApi server
 
 ----------------------------------------------------------------------------
 -- Servant infrastructure
@@ -71,17 +84,21 @@ nat = do
     ns <- St.getNodeState
     return $ Nat (convertHandler nc ns)
 
-servantServer :: forall ssc m . MyWorkMode ssc m => m (Server (NodeApi ssc))
-servantServer = flip enter servantHandlers <$> (nat @ssc @m)
+servantServerBase :: forall ssc m . MyWorkMode ssc m => m (Server (BaseNodeApi ssc))
+servantServerBase = flip enter baseServantHandlers <$> (nat @ssc @m)
+
+servantServerGT :: forall m . WorkMode SscGodTossing m => m (Server GtNodeApi)
+servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
+    (nat @SscGodTossing @m)
 
 ----------------------------------------------------------------------------
--- Handlers
+-- Base handlers
 ----------------------------------------------------------------------------
 
-servantHandlers
+baseServantHandlers
     :: SscConstraint ssc
-    => ServerT (NodeApi ssc) (WebHandler ssc)
-servantHandlers =
+    => ServerT (BaseNodeApi ssc) (WebHandler ssc)
+baseServantHandlers =
     getCurrentSlot :<|> getLeaders :<|> (ncPublicKey <$> getNodeContext) :<|>
     (headerHash <$> St.getHeadBlock)
 
@@ -101,6 +118,16 @@ getLeadersDo
     => Maybe EpochIndex -> WebHandler ssc (Maybe SlotLeaders)
 getLeadersDo Nothing  = St.getLeaders . siEpoch =<< getCurrentSlot
 getLeadersDo (Just e) = St.getLeaders e
+
+----------------------------------------------------------------------------
+-- GodTossing handlers
+----------------------------------------------------------------------------
+
+gtServantHandlers :: ServerT GodTossingApi (WebHandler SscGodTossing)
+gtServantHandlers = toggleGtParticipation
+
+toggleGtParticipation :: Bool -> WebHandler SscGodTossing ()
+toggleGtParticipation = const pass
 
 ----------------------------------------------------------------------------
 -- Orphan instances

@@ -30,7 +30,7 @@ import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Types            (Timestamp)
-import           Pos.Web              (serveWeb)
+import           Pos.Web              (serveWebBase, serveWebGT)
 import           Pos.WorkMode         (WorkMode)
 
 import           NodeOptions          (Args (..), getNodeOptions)
@@ -131,14 +131,16 @@ action args@Args {..} inst = do
             let currentParams = nodeParams args spendingSK vssSK systemStart
                 currentPlugins :: (SscConstraint ssc, WorkMode ssc m) => [m ()]
                 currentPlugins = plugins args
+                currentPluginsGT :: (WorkMode SscGodTossing m) => [m ()]
+                currentPluginsGT = pluginsGT args
             putText $ "Running using " <> show sscAlgo
             case (enableStats, sscAlgo) of
                 (True, GodTossingAlgo) ->
-                    runNodeStats @SscGodTossing inst currentPlugins currentParams
+                    runNodeStats @SscGodTossing inst currentPluginsGT currentParams
                 (True, NistBeaconAlgo) ->
                     runNodeStats @SscNistBeacon inst currentPlugins currentParams
                 (False, GodTossingAlgo) ->
-                    runNodeProduction @SscGodTossing inst currentPlugins currentParams
+                    runNodeProduction @SscGodTossing inst currentPluginsGT currentParams
                 (False, NistBeaconAlgo) ->
                     runNodeProduction @SscNistBeacon inst currentPlugins currentParams
 
@@ -162,7 +164,12 @@ nodeParams args@Args {..} spendingSK vssSK systemStart =
 
 plugins :: (SscConstraint ssc, WorkMode ssc m) => Args -> [m ()]
 plugins Args {..}
-    | enableWeb = [serveWeb webPort]
+    | enableWeb = [serveWebBase webPort]
+    | otherwise = []
+
+pluginsGT :: (WorkMode SscGodTossing m) => Args -> [m ()]
+pluginsGT Args {..}
+    | enableWeb = [serveWebGT webPort]
     | otherwise = []
 
 main :: IO ()

@@ -1,7 +1,7 @@
 -- | Web-related part of cardano-sl.
 
 module Pos.Web
-       ( serveWeb
+       ( module Pos.Web.Server
        ) where
 
-import           Pos.Web.Server (serveWeb)
+import           Pos.Web.Server

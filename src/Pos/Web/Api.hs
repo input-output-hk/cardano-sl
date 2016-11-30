@@ -9,12 +9,13 @@ module Pos.Web.Api
        ) where
 
 import           Data.Proxy  (Proxy (Proxy))
-import           Servant.API ((:>), Get, JSON)
+import           Servant.API ((:<|>), (:>), Get, JSON, QueryParam)
 -- import           Universum
 
-import           Pos.Types   (SlotId)
+import           Pos.Types   (EpochIndex, SlotId, SlotLeaders)
 
-type NodeApi = "current_slot" :> Get '[JSON] SlotId
+type NodeApi = "current_slot" :> Get '[JSON] SlotId :<|>
+               "leaders" :> QueryParam "epoch" EpochIndex :> Get '[JSON] SlotLeaders
 
 nodeApi :: Proxy NodeApi
 nodeApi = Proxy

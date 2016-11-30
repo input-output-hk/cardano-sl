@@ -24,6 +24,7 @@ import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        NodeParams (..), bracketDHTInstance,
                                        runNodeProduction, runNodeStats, runSupporterReal,
                                        runTimeLordReal, runTimeSlaveReal)
+import           Pos.Ssc.Class        (SscConstraint)
 import           Pos.Ssc.GodTossing   (genesisVssKeyPairs)
 import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
@@ -128,7 +129,7 @@ action args@Args {..} inst = do
                     vssKeyGen
             systemStart <- getSystemStart inst args
             let currentParams = nodeParams args spendingSK vssSK systemStart
-                currentPlugins :: WorkMode ssc m => [m ()]
+                currentPlugins :: (SscConstraint ssc, WorkMode ssc m) => [m ()]
                 currentPlugins = plugins args
             putText $ "Running using " <> show sscAlgo
             case (enableStats, sscAlgo) of
@@ -159,7 +160,7 @@ nodeParams args@Args {..} spendingSK vssSK systemStart =
     , npSscEnabled = True
     }
 
-plugins :: WorkMode ssc m => Args -> [m ()]
+plugins :: (SscConstraint ssc, WorkMode ssc m) => Args -> [m ()]
 plugins Args {..}
     | enableWeb = [serveWeb webPort]
     | otherwise = []

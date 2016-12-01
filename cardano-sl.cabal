@@ -117,6 +117,7 @@ library
                         Pos.Statistics.Tx
                         Pos.Web.Api
                         Pos.Web.Server
+                        Pos.Web.Types
                         Pos.Worker.Block
                         Pos.Worker.Stats
                         Pos.Worker.Tx

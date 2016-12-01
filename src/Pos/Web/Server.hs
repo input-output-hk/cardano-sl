@@ -32,12 +32,15 @@ import           Universum
 import           Pos.Crypto                           (LSecret)
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class                        (SscConstraint)
-import           Pos.Ssc.GodTossing                   (SscGodTossing)
+import           Pos.Ssc.GodTossing                   (SscGodTossing, isCommitmentIdx,
+                                                       isOpeningIdx, isSharesIdx)
 import qualified Pos.State                            as St
-import           Pos.Types                            (EpochIndex (..), SlotId (siEpoch),
+import           Pos.Types                            (EpochIndex (..),
+                                                       SlotId (siEpoch, siSlot),
                                                        SlotLeaders, headerHash)
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
+import           Pos.Web.Types                        (GodTossingStage (..))
 import           Pos.WorkMode                         (ContextHolder, DBHolder,
                                                        NodeContext, WorkMode,
                                                        getNodeContext, ncParticipateSsc,
@@ -110,7 +113,7 @@ baseServantHandlers
     => ServerT (BaseNodeApi ssc) (WebHandler ssc)
 baseServantHandlers =
     getCurrentSlot :<|> getLeaders :<|> (ncPublicKey <$> getNodeContext) :<|>
-    (headerHash <$> St.getHeadBlock)
+    (headerHash <$> St.getHeadBlock) :<|> getLocalTxsNum
 
 getLeaders :: SscConstraint ssc => Maybe EpochIndex -> WebHandler ssc SlotLeaders
 getLeaders e = maybe (throwM err) pure =<< getLeadersDo e
@@ -129,12 +132,16 @@ getLeadersDo
 getLeadersDo Nothing  = St.getLeaders . siEpoch =<< getCurrentSlot
 getLeadersDo (Just e) = St.getLeaders e
 
+getLocalTxsNum :: SscConstraint ssc => WebHandler ssc Word
+getLocalTxsNum = fromIntegral . length <$> St.getLocalTxs
+
 ----------------------------------------------------------------------------
 -- GodTossing handlers
 ----------------------------------------------------------------------------
 
 gtServantHandlers :: ServerT GodTossingApi (WebHandler SscGodTossing)
-gtServantHandlers = toggleGtParticipation :<|> getOurSecret
+gtServantHandlers =
+    toggleGtParticipation :<|> getOurSecret :<|> getGtStage
 
 toggleGtParticipation :: Bool -> WebHandler SscGodTossing ()
 toggleGtParticipation enable =
@@ -142,6 +149,16 @@ toggleGtParticipation enable =
 
 getOurSecret :: WebHandler SscGodTossing LSecret
 getOurSecret = notImplemented
+
+getGtStage :: WebHandler SscGodTossing GodTossingStage
+getGtStage = do
+    getGtStageImpl . siSlot <$> getCurrentSlot
+  where
+    getGtStageImpl idx
+        | isCommitmentIdx idx = CommitmentStage
+        | isOpeningIdx idx = OpeningStage
+        | isSharesIdx idx = SharesStage
+        | otherwise = OrdinaryStage
 
 ----------------------------------------------------------------------------
 -- Orphan instances

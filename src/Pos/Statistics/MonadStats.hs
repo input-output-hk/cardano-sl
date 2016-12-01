@@ -14,9 +14,7 @@
 module Pos.Statistics.MonadStats
        ( MonadStats (..)
        , NoStatsT (..)
-       , getNoStatsT
        , StatsT (..)
-       , getStatsT
        ) where
 
 import           Control.Monad.Base          (MonadBase (..))

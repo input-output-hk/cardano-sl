@@ -178,7 +178,8 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
               liftIO $ resetBamboo bambooPool
 
         -- [CSL-220] Write MonadBaseControl instance for KademliaDHT
-        _ <- NoStatsT $ KademliaDHT $ forConcurrently bambooPools (unKademliaDHT . getNoStatsT . sendThread)
+        _ <- NoStatsT $ KademliaDHT $
+            forConcurrently bambooPools (unKademliaDHT . getNoStatsT . sendThread)
         finishT <- getPosixMs
 
         realTxNumVal <- liftIO $ readTVarIO realTxNum

@@ -103,7 +103,7 @@ module Pos.Types.Types
        ) where
 
 import           Control.Lens           (Getter, Lens', choosing, makeLenses, to, view)
-import           Data.Aeson             (ToJSON)
+import           Data.Aeson             (ToJSON (toJSON))
 import           Data.Aeson.TH          (deriveToJSON)
 import           Data.Binary            (Binary)
 import           Data.Binary.Orphans    ()
@@ -328,6 +328,9 @@ newtype SharedSeed = SharedSeed
     } deriving (Show, Eq, Ord, Generic, Binary, NFData)
 
 instance MessagePack SharedSeed
+
+instance ToJSON SharedSeed where
+    toJSON = toJSON . pretty
 
 instance Buildable SharedSeed where
     build = B16.formatBase16 . getSharedSeed

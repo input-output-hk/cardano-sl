@@ -28,7 +28,6 @@ module Pos.Launcher.Runner
 
 import           Control.Concurrent.MVar     (newEmptyMVar, newMVar, takeMVar,
                                               tryReadMVar)
-import           Control.Concurrent.STM      (newTVarIO)
 import           Control.Monad               (fail)
 import           Control.Monad.Catch         (bracket)
 import           Control.Monad.Trans.Control (MonadBaseControl)
@@ -65,7 +64,7 @@ import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..
                                               stopDHTInstance)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
-import           Pos.Ssc.Class               (SscConstraint, sscCreateNodeContext)
+import           Pos.Ssc.Class               (SscConstraint, sscCreateNodeContext, SscParams)
 import           Pos.State                   (NodeState, closeState, openMemState,
                                               openState)
 import           Pos.State.Storage           (storageFromUtxo)
@@ -134,15 +133,16 @@ runRawRealMode
        SscConstraint ssc
     => KademliaDHTInstance
     -> NodeParams
+    -> SscParams ssc
     -> [ListenerDHT (RawRealMode ssc)]
     -> RawRealMode ssc c
     -> IO c
-runRawRealMode inst np@NodeParams {..} listeners action = do
+runRawRealMode inst np@NodeParams {..} sscnp listeners action = do
     setupLoggers lp
     let run db =
             runTimed lpRunnerTag .
             runDBHolder db .
-            runCH np . runSscLDImpl . runKDHT inst npBaseParams listeners $
+            runCH np sscnp . runSscLDImpl . runKDHT inst npBaseParams listeners $
             nodeStartMsg npBaseParams >> action
     bracket openDb closeDb run
   where
@@ -156,7 +156,7 @@ runRawRealMode inst np@NodeParams {..} listeners action = do
                 whenM ((npRebuildDb &&) <$> doesDirectoryExist fp) $
                 removeDirectoryRecursive fp
         whenJust npDbPath rebuild
-        runTimed lpRunnerTag . runCH @ssc np $
+        runTimed lpRunnerTag . runCH @ssc np sscnp $
             maybe
                 (openMemState mStorage)
                 (openState mStorage False)
@@ -168,8 +168,8 @@ runRawRealMode inst np@NodeParams {..} listeners action = do
 runProductionMode
     :: forall ssc a.
        SscConstraint ssc
-    => KademliaDHTInstance -> NodeParams -> ProductionMode ssc a -> IO a
-runProductionMode inst np = runRawRealMode inst np listeners . getNoStatsT
+    => KademliaDHTInstance -> NodeParams -> SscParams ssc -> ProductionMode ssc a -> IO a
+runProductionMode inst np sscnp = runRawRealMode inst np sscnp listeners . getNoStatsT
   where
     listeners = addDevListeners @ssc np noStatsListeners
     noStatsListeners = map (mapListenerDHT getNoStatsT) (allListeners @ssc)
@@ -180,8 +180,8 @@ runProductionMode inst np = runRawRealMode inst np listeners . getNoStatsT
 runStatsMode
     :: forall ssc a.
        SscConstraint ssc
-    => KademliaDHTInstance -> NodeParams -> StatsMode ssc a -> IO a
-runStatsMode inst np action = runRawRealMode inst np listeners $ getStatsT $ do
+    => KademliaDHTInstance -> NodeParams -> SscParams ssc -> StatsMode ssc a -> IO a
+runStatsMode inst np sscnp action = runRawRealMode inst np sscnp listeners $ getStatsT $ do
     mapM_ fork statsWorkers
     action
   where
@@ -228,23 +228,20 @@ runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
       }
 
 runCH :: forall ssc m a . (MonadIO m, SscConstraint ssc)
-      => NodeParams -> ContextHolder ssc m a -> m a
-runCH NodeParams {..} act =
+      => NodeParams -> SscParams ssc -> ContextHolder ssc m a -> m a
+runCH NodeParams {..} sscnp act =
     flip runContextHolder act . ctx =<<
     liftIO
-        ((,,) <$> sscCreateNodeContext @ssc npDbPath
-              <*> maybe (pure Nothing) (fmap Just . newMVar) npJLFile
-              <*> newTVarIO npSscEnabled)
+        ((,) <$> sscCreateNodeContext @ssc sscnp
+              <*> maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
   where
-    ctx (sscNodeContext, jlFile, participateSscTVar) =
+    ctx (sscNodeContext, jlFile) =
         NodeContext
         { ncSystemStart = npSystemStart
         , ncSecretKey = npSecretKey
-        , ncVssKeyPair = npVssKeyPair
         , ncTimeLord = npTimeLord
         , ncJLFile = jlFile
         , ncDbPath = npDbPath
-        , ncParticipateSsc = participateSscTVar
         , ncSscContext = sscNodeContext
         }
 

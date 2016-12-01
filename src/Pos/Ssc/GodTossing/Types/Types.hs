@@ -11,6 +11,7 @@ module Pos.Ssc.GodTossing.Types.Types
        , GtProof (..)
        , GtGlobalState (..)
        , GtContext (..)
+       , GtParams (..)
 
        -- * Lenses
        -- ** GtPayload
@@ -22,7 +23,8 @@ module Pos.Ssc.GodTossing.Types.Types
        , createGtContext
        , _gpCertificates
        ) where
-
+import           Control.Concurrent.STM                  (newTVarIO)
+import qualified Control.Concurrent.STM                  as STM
 import           Control.Lens                            (makeLenses)
 import           Data.Binary                             (Binary)
 import qualified Data.HashMap.Strict                     as HM
@@ -35,7 +37,7 @@ import           Serokell.Util                           (listJson)
 import           System.FilePath                         ((</>))
 import           Universum
 
-import           Pos.Crypto                              (Hash, hash)
+import           Pos.Crypto                              (Hash, VssKeyPair, hash)
 import           Pos.Ssc.GodTossing.SecretStorage.Acidic (SecretStorage,
                                                           openGtSecretStorage,
                                                           openMemGtSecretStorage)
@@ -190,14 +192,28 @@ mkGtProof payload =
         proof constr hm cert =
             constr (hash hm) (hash cert)
 
+data GtParams = GtParams
+    {
+      gtpRebuildDb  :: !Bool
+    , gtpDbPath     :: !(Maybe FilePath)
+    , gtpSscEnabled :: !Bool              -- ^ Whether node should participate in SSC
+                                          -- in case SSC requires participation.
+    , gtpVssKeyPair :: !VssKeyPair        -- ^ Key pair used for secret sharing
+    }
 
 data GtContext = GtContext
     {
-      gtcSecretStorage :: SecretStorage
+      -- | Vss key pair used for MPC.
+      gtcVssKeyPair     :: !VssKeyPair
+    , gtcParticipateSsc :: !(STM.TVar Bool)
+    , gtcSecretStorage  :: !SecretStorage
     }
 
-createGtContext :: MonadIO m => Maybe FilePath -> m GtContext
-createGtContext dbPath =
-    GtContext <$> maybe openMemGtSecretStorage (openGtSecretStorage True) secretPath
-  where                     -- TODO --redubild-db flag must be here  ^
-    secretPath = (</> "secret") <$> dbPath
+createGtContext :: MonadIO m => GtParams -> m GtContext
+createGtContext GtParams {..} =
+    GtContext gtpVssKeyPair <$> liftIO (newTVarIO gtpSscEnabled)
+                            <*> maybe openMemGtSecretStorage
+                                      (openGtSecretStorage gtpRebuildDb)
+                                      secretPath
+  where
+    secretPath = (</> "secret") <$> gtpDbPath

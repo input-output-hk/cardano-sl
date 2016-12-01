@@ -25,7 +25,7 @@ import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        runNodeProduction, runNodeStats, runSupporterReal,
                                        runTimeLordReal, runTimeSlaveReal)
 import           Pos.Ssc.GodTossing   (genesisVssKeyPairs)
-import           Pos.Ssc.GodTossing   (SscGodTossing)
+import           Pos.Ssc.GodTossing   (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Types            (Timestamp)
@@ -125,34 +125,44 @@ action args@Args {..} inst = do
                     "vss.keypair"
                     vssKeyGen
             systemStart <- getSystemStart inst args
-            let currentParams = nodeParams args spendingSK vssSK systemStart
+            let currentParams = nodeParams args spendingSK systemStart
+                gtParams = gtSscParams args vssSK
             putText $ "Running using " <> show sscAlgo
             case (enableStats, sscAlgo) of
                 (True, GodTossingAlgo) ->
-                    runNodeStats @SscGodTossing inst [] currentParams
+                    runNodeStats @SscGodTossing inst [] currentParams gtParams
                 (True, NistBeaconAlgo) ->
-                    runNodeStats @SscNistBeacon inst [] currentParams
+                    runNodeStats @SscNistBeacon inst [] currentParams ()
                 (False, GodTossingAlgo) ->
-                    runNodeProduction @SscGodTossing inst [] currentParams
+                    runNodeProduction @SscGodTossing inst [] currentParams gtParams
                 (False, NistBeaconAlgo) ->
-                    runNodeProduction @SscNistBeacon inst [] currentParams
+                    runNodeProduction @SscNistBeacon inst [] currentParams ()
 
-nodeParams :: Args -> SecretKey -> VssKeyPair -> Timestamp -> NodeParams
-nodeParams args@Args {..} spendingSK vssSK systemStart =
+nodeParams :: Args -> SecretKey -> Timestamp -> NodeParams
+nodeParams args@Args {..} spendingSK systemStart =
     NodeParams
     { npDbPath = if memoryMode then Nothing
-                    else Just dbPath
+                 else Just dbPath
     , npRebuildDb = rebuildDB
     , npSecretKey = spendingSK
     , npSystemStart = systemStart
-    , npVssKeyPair = vssSK
     , npBaseParams = baseParams "node" args
     , npCustomUtxo =
             Just . genesisUtxo $
             stakesDistr args
     , npTimeLord = timeLord
     , npJLFile = jlPath
-    , npSscEnabled = True
+    }
+
+gtSscParams :: Args -> VssKeyPair -> GtParams
+gtSscParams Args {..} vssSK =
+    GtParams
+    {
+      gtpRebuildDb  = rebuildDB
+    , gtpDbPath     = if memoryMode then Nothing
+                      else Just dbPath
+    , gtpSscEnabled = True
+    , gtpVssKeyPair = vssSK
     }
 
 main :: IO ()

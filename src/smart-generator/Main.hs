@@ -33,8 +33,8 @@ import           Pos.Launcher                    (BaseParams (..), LoggingParams
                                                   NodeParams (..), bracketDHTInstance,
                                                   runNode, runProductionMode,
                                                   runTimeSlaveReal, submitTxRaw)
-import           Pos.Ssc.Class                   (SscConstraint)
-import           Pos.Ssc.GodTossing              (SscGodTossing)
+import           Pos.Ssc.Class                   (SscConstraint, SscParams)
+import           Pos.Ssc.GodTossing              (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon              (SscNistBeacon)
 import           Pos.Ssc.SscAlgo                 (SscAlgo (..))
 import           Pos.State                       (isTxVerified)
@@ -83,9 +83,9 @@ getPeers share = do
     liftIO $ chooseSubset share <$> shuffleM peers
 
 runSmartGen :: forall ssc . SscConstraint ssc
-            => KademliaDHTInstance -> NodeParams -> GenOptions -> IO ()
-runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
-    runProductionMode inst np $ do
+            => KademliaDHTInstance -> NodeParams -> SscParams ssc -> GenOptions -> IO ()
+runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
+    runProductionMode inst np sscnp $ do
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         initTx = initTransaction opts
 
@@ -254,16 +254,22 @@ main = do
                 , npRebuildDb   = False
                 , npSystemStart = systemStart
                 , npSecretKey   = sk
-                , npVssKeyPair  = vssKeyPair
                 , npBaseParams  = baseParams
                 , npCustomUtxo  = Just $ genesisUtxo stakesDistr
                 , npTimeLord    = False
                 , npJLFile      = goJLFile
-                , npSscEnabled  = False
+                }
+            gtParams =
+                GtParams
+                {
+                  gtpRebuildDb  = False
+                , gtpDbPath     = Nothing
+                , gtpSscEnabled = False
+                , gtpVssKeyPair = vssKeyPair
                 }
 
         case goSscAlgo of
             GodTossingAlgo -> putText "Using MPC coin tossing" *>
-                              runSmartGen @SscGodTossing inst params opts
+                              runSmartGen @SscGodTossing inst params gtParams opts
             NistBeaconAlgo -> putText "Using NIST beacon" *>
-                              runSmartGen @SscNistBeacon inst params opts
+                              runSmartGen @SscNistBeacon inst params () opts

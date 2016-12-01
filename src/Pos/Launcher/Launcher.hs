@@ -29,6 +29,7 @@ import           Pos.Launcher.Runner   (bracketDHTInstance, runProductionMode,
                                         runRawRealMode, runStatsMode)
 import           Pos.Launcher.Scenario (runNode, submitTx)
 import           Pos.Ssc.Class         (SscConstraint)
+import           Pos.Ssc.Class.Types   (SscParams)
 import           Pos.Statistics        (getNoStatsT)
 import           Pos.Types             (Address, Coin, TxId)
 import           Pos.WorkMode          (ProductionMode, StatsMode)
@@ -41,14 +42,14 @@ import           Pos.WorkMode          (ProductionMode, StatsMode)
 type NodeRunner m = KademliaDHTInstance -> [m ()] -> NodeParams -> IO ()
 
 class NodeRunnerClass ssc m where
-    runNodeIO :: KademliaDHTInstance -> [m ()] -> NodeParams -> IO ()
+    runNodeIO :: KademliaDHTInstance -> [m ()] -> NodeParams -> SscParams ssc -> IO ()
 
 -- | Run full node in real mode.
 runNodeProduction
     :: forall ssc.
        SscConstraint ssc
-    => KademliaDHTInstance -> [ProductionMode ssc ()] -> NodeParams -> IO ()
-runNodeProduction inst plugins np = runProductionMode inst np (runNode @ssc plugins)
+    => KademliaDHTInstance -> [ProductionMode ssc ()] -> NodeParams -> SscParams ssc -> IO ()
+runNodeProduction inst plugins np sscnp = runProductionMode inst np sscnp (runNode @ssc plugins)
 
 instance SscConstraint ssc => NodeRunnerClass ssc (ProductionMode ssc) where
     runNodeIO = runNodeProduction
@@ -57,8 +58,8 @@ instance SscConstraint ssc => NodeRunnerClass ssc (ProductionMode ssc) where
 runNodeStats
     :: forall ssc.
        SscConstraint ssc
-    => KademliaDHTInstance -> [StatsMode ssc ()] -> NodeParams -> IO ()
-runNodeStats inst plugins np = runStatsMode inst np (runNode @ssc plugins)
+    => KademliaDHTInstance -> [StatsMode ssc ()] -> NodeParams -> SscParams ssc -> IO ()
+runNodeStats inst plugins np sscnp = runStatsMode inst np sscnp (runNode @ssc plugins)
 
 instance SscConstraint ssc => NodeRunnerClass ssc (StatsMode ssc) where
     runNodeIO = runNodeStats
@@ -71,10 +72,10 @@ instance SscConstraint ssc => NodeRunnerClass ssc (StatsMode ssc) where
 submitTxReal
     :: forall ssc .
     SscConstraint ssc
-    => NodeParams -> (TxId, Word32) -> (Address, Coin) -> IO ()
-submitTxReal np input addrCoin = bracketDHTInstance (npBaseParams np) action
+    => NodeParams -> SscParams ssc -> (TxId, Word32) -> (Address, Coin) -> IO ()
+submitTxReal np sscnp input addrCoin = bracketDHTInstance (npBaseParams np) action
   where
-    action inst = runRawRealMode @ssc inst np [] $ do
+    action inst = runRawRealMode @ssc inst np sscnp [] $ do
         peers <- getKnownPeers
         let na = dhtAddr <$> filterByNodeType DHTFull peers
         void $ getNoStatsT $ (submitTx @ssc) na input addrCoin

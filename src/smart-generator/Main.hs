@@ -6,7 +6,6 @@
 module Main where
 
 import           Control.Concurrent.Async.Lifted (forConcurrently)
-import           Control.Concurrent.STM          (atomically)
 import           Control.Concurrent.STM.TVar     (modifyTVar', newTVarIO, readTVarIO)
 import           Control.TimeWarp.Rpc            (NetworkAddress)
 import           Control.TimeWarp.Timed          (Microsecond, for, fork_, ms, sec, wait)
@@ -20,7 +19,7 @@ import           System.FilePath.Posix           ((</>))
 import           System.Random.Shuffle           (shuffleM)
 import           System.Wlog                     (logInfo)
 import           Test.QuickCheck                 (arbitrary, generate)
-import           Universum                       hiding (atomically, forConcurrently)
+import           Universum                       hiding (forConcurrently)
 
 import           Pos.Constants                   (k, neighborsSendThreshold, slotDuration)
 import           Pos.Crypto                      (KeyPair (..), hash)
@@ -176,7 +175,7 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
                       endT <- getPosixMs
                       let runDelta = endT - startT
                       wait $ for $ ms (max 0 $ tpsDelta - runDelta)
-                  liftIO $ resetBamboo bambooPool
+              liftIO $ resetBamboo bambooPool
 
         -- [CSL-220] Write MonadBaseControl instance for KademliaDHT
         _ <- NoStatsT $ KademliaDHT $ forConcurrently bambooPools (unKademliaDHT . getNoStatsT . sendThread)

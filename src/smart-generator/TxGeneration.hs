@@ -8,22 +8,23 @@ module TxGeneration
        , resetBamboo
        ) where
 
-import           Control.TimeWarp.Timed (sec)
-import           Data.Array.IO          (IOArray)
-import           Data.Array.MArray      (newListArray, readArray, writeArray)
-import           Data.IORef             (IORef, modifyIORef', newIORef, readIORef,
-                                         writeIORef)
-import           Data.List              (tail, (!!))
-import           Universum              hiding (head)
+import           Control.Concurrent.STM.TArray (TArray)
+import           Control.Concurrent.STM.TVar   (TVar, modifyTVar', newTVar, readTVar,
+                                                writeTVar)
+import           Control.TimeWarp.Timed        (sec)
+import           Data.Array.MArray             (newListArray, readArray, writeArray)
+import           Data.List                     (tail, (!!))
+import           Universum                     hiding (head)
 
-import           Pos.Constants          (k, slotDuration)
-import           Pos.Crypto             (SecretKey, hash, sign, unsafeHash)
-import           Pos.Genesis            (genesisAddresses, genesisSecretKeys)
-import           Pos.State              (isTxVerified)
-import           Pos.Types              (Address, Tx (..), TxId, TxIn (..), TxOut (..))
-import           Pos.WorkMode           (WorkMode)
+import           Pos.Constants                 (k, slotDuration)
+import           Pos.Crypto                    (SecretKey, hash, sign, unsafeHash)
+import           Pos.Genesis                   (genesisAddresses, genesisSecretKeys)
+import           Pos.State                     (isTxVerified)
+import           Pos.Types                     (Address, Tx (..), TxId, TxIn (..),
+                                                TxOut (..))
+import           Pos.WorkMode                  (WorkMode)
 
-import           GenOptions             (GenOptions (..))
+import           GenOptions                    (GenOptions (..))
 
 -- txChain :: Int -> [Tx]
 -- txChain i = genChain (genesisSecretKeys !! i) addr (unsafeHash addr) 0
@@ -56,38 +57,38 @@ initTransaction GenOptions {..} i =
     in Tx {..}
 
 data BambooPool = BambooPool
-    { bpChains :: IOArray Int [Tx]
-    , bpCurIdx :: IORef Int
+    { bpChains :: TArray Int [Tx]
+    , bpCurIdx :: TVar Int
     }
 
 createBambooPool :: SecretKey -> Address -> Tx -> IO BambooPool
-createBambooPool sk addr tx = BambooPool <$> newListArray (0, outputsN - 1) bamboos <*> newIORef 0
+createBambooPool sk addr tx = atomically $ BambooPool <$> newListArray (0, outputsN - 1) bamboos <*> newTVar 0
     where outputsN = length $ txOutputs tx
           bamboos = map (tx :) $
                     map (genChain sk addr (hash tx) . fromIntegral) [0 .. outputsN - 1]
 
 shiftTx :: BambooPool -> IO ()
-shiftTx BambooPool {..} = do
-    idx <- readIORef bpCurIdx
+shiftTx BambooPool {..} = atomically $ do
+    idx <- readTVar bpCurIdx
     chain <- readArray bpChains idx
     writeArray bpChains idx $ tail chain
 
 nextBamboo :: BambooPool -> Double -> Int -> IO ()
-nextBamboo BambooPool {..} curTps propThreshold = do
+nextBamboo BambooPool {..} curTps propThreshold = atomically $ do
     let bound = tpsTxBound curTps propThreshold
-    modifyIORef' bpCurIdx $ \idx ->
+    modifyTVar' bpCurIdx $ \idx ->
         (idx + 1) `mod` bound
 
 resetBamboo :: BambooPool -> IO ()
-resetBamboo BambooPool {..} = writeIORef bpCurIdx 0
+resetBamboo BambooPool {..} = atomically $ writeTVar bpCurIdx 0
 
-getTx :: BambooPool -> Int -> Int -> IO Tx
+getTx :: BambooPool -> Int -> Int -> STM Tx
 getTx BambooPool {..} bambooIdx txIdx =
     (!! txIdx) <$> readArray bpChains bambooIdx
 
 curBambooTx :: BambooPool -> Int -> IO Tx
-curBambooTx bp@BambooPool {..} idx =
-    join $ getTx bp <$> readIORef bpCurIdx <*> pure idx
+curBambooTx bp@BambooPool {..} idx = atomically $
+    join $ getTx bp <$> readTVar bpCurIdx <*> pure idx
 
 peekTx :: BambooPool -> IO Tx
 peekTx bp = curBambooTx bp 0

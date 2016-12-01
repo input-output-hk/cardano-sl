@@ -229,7 +229,7 @@ instance Buildable EpochOrSlot where
 -- | Address is where you can send coins.
 newtype Address = Address
     { getAddress :: PublicKey
-    } deriving (Show, Eq, Generic, Buildable, Ord, Binary, Hashable, NFData)
+    } deriving (Show, Eq, Generic, Buildable, Ord, Binary, Hashable, NFData, ToJSON)
 
 instance MessagePack Address
 

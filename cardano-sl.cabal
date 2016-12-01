@@ -54,6 +54,7 @@ library
                         Pos.State.Storage.Tx
                         Pos.Statistics
                         Pos.Types
+                        Pos.Types.Address
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block
@@ -127,6 +128,7 @@ library
                       , ansi-terminal
                       , async
                       , base
+                      , base58-bytestring
                       , binary
                       , binary-orphans
                       , bytestring
@@ -136,6 +138,7 @@ library
                       , data-default
                       , data-msgpack >= 0.0.8
                       , derive
+                      , digest
                       , directory
                       , ed25519
                       , exceptions

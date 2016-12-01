@@ -33,6 +33,8 @@ module Pos.Types.Types
 
        , TxSig
        , TxId
+       , Validator (..)
+       , Redeemer (..)
        , TxIn (..)
        , TxOut (..)
        , Tx (..)
@@ -133,6 +135,7 @@ import           Pos.Crypto             (Hash, PublicKey, Signature, hash, hashH
                                          shortHashF)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Ssc.Class.Types    (Ssc (..))
+import           Pos.Types.Address      (Address (..), addressF)
 import           Pos.Util               (Color (Magenta), colorize)
 
 ----------------------------------------------------------------------------
@@ -218,21 +221,6 @@ instance Buildable EpochOrSlot where
     build = either Buildable.build Buildable.build . unEpochOrSlot
 
 ----------------------------------------------------------------------------
--- Address
-----------------------------------------------------------------------------
-
--- | Address is where you can send coins.
-newtype Address = Address
-    { getAddress :: PublicKey
-    } deriving (Show, Eq, Generic, Buildable, Ord, Binary, Hashable, NFData)
-
-instance MessagePack Address
-
--- | Specialized formatter for 'Address'.
-addressF :: Format r (Address -> r)
-addressF = build
-
-----------------------------------------------------------------------------
 -- Transaction
 ----------------------------------------------------------------------------
 
@@ -242,14 +230,34 @@ type TxId = Hash Tx
 -- | 'Signature' of addrId.
 type TxSig = Signature (TxId, Word32, [TxOut])
 
+-- | Validation structure of transaction input.
+-- Now it's only a wrapper around public key.
+-- TODO: add script validator after scripts are introduced
+newtype Validator = PubKeyValidator
+    { getValidator :: PublicKey
+    } deriving (Eq, Ord, Show, Generic, Binary, Hashable)
+
+instance MessagePack Validator
+
+-- | Redeeming structure of transaction input.
+-- Now it's only a wrapper around signature.
+-- TODO: add script redeemer after scripts are introduced.
+newtype Redeemer = PubKeyRedeemer
+    { getRedeemer :: TxSig
+    } deriving (Eq, Ord, Show, Generic, Binary, Hashable)
+
+instance MessagePack Redeemer
+
 -- | Transaction input.
 data TxIn = TxIn
-    { txInHash  :: !TxId    -- ^ Which transaction's output is used
-    , txInIndex :: !Word32  -- ^ Index of the output in transaction's
-                            -- outputs
-    , txInSig   :: !TxSig   -- ^ Signature given by public key
-                            -- corresponding to address referenced by
-                            -- this input.
+    { txInHash      :: !TxId       -- ^ Which transaction's output is used
+    , txInIndex     :: !Word32     -- ^ Index of the output in transaction's
+                                   -- outputs
+    , txInValidator :: !Validator  -- ^ Either public key of money owner or a
+                                   -- script which takes some key, produced
+                                   -- by `Redeemer` script and checks it
+    , txInRedeemer  :: !Redeemer   -- ^ Either signature of money owner or a
+                                   -- script which produces a key for `Validator`
     } deriving (Eq, Ord, Show, Generic)
 
 instance Binary TxIn

@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 -- | `Arbitrary` instance for `Hash`
@@ -9,13 +11,13 @@
 module Pos.Crypto.Arbitrary.Hash () where
 
 import           Data.Binary        (Binary)
-import           Test.QuickCheck    (Arbitrary (..))
+import           Test.QuickCheck    (Arbitrary (..), Gen)
 import           Universum
 
 import           Pos.Crypto.Hashing (Hash, unsafeHash)
 import           Pos.Util.Arbitrary (ArbitraryUnsafe)
 
 instance Binary a => Arbitrary (Hash a) where
-    arbitrary = unsafeHash @ByteString <$> arbitrary
+    arbitrary = unsafeHash <$> (arbitrary :: Gen ByteString)
 
 instance Binary a => ArbitraryUnsafe (Hash a)

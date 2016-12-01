@@ -45,14 +45,15 @@ import           Pos.Ssc.GodTossing.Types.Instance      ()
 import           Pos.Ssc.GodTossing.Types.Message       (DataMsg (..), InvMsg (..),
                                                          MsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types         (gtcParticipateSsc, gtcVssKeyPair)
 import           Pos.State                              (getGlobalMpcData, getOurShares,
                                                          getParticipants, getThreshold)
 import           Pos.Types                              (EpochIndex, LocalSlotIndex,
                                                          SlotId (..), Timestamp (..))
 import           Pos.Util                               (serialize)
 import           Pos.WorkMode                           (WorkMode, getNodeContext,
-                                                         ncParticipateSsc, ncPublicKey,
-                                                         ncSecretKey, ncVssKeyPair)
+                                                         ncPublicKey, ncSecretKey,
+                                                         ncSscContext)
 instance SscWorkersClass SscGodTossing where
     sscWorkers = Tagged [onNewSlotSsc]
 
@@ -72,7 +73,7 @@ onNewSlotCommitment SlotId {..} = do
     ourSk <- ncSecretKey <$> getNodeContext
     shouldCreateCommitment <- do
         participationEnabled <- getNodeContext >>=
-            atomically . readTVar . ncParticipateSsc
+            atomically . readTVar . gtcParticipateSsc . ncSscContext
         secret <- getSecret
         return $
             and [participationEnabled, isCommitmentIdx siSlot, isNothing secret]
@@ -120,7 +121,7 @@ onNewSlotShares SlotId {..} = do
         sharesInBlockchain <- hasShares ourPk <$> getGlobalMpcData
         return $ isSharesIdx siSlot && not sharesInBlockchain
     when shouldSendShares $ do
-        ourVss <- ncVssKeyPair <$> getNodeContext
+        ourVss <- gtcVssKeyPair . ncSscContext <$> getNodeContext
         shares <- getOurShares ourVss
         let lShares = fmap serialize shares
         unless (null shares) $ do

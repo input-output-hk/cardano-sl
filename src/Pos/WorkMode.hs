@@ -30,7 +30,7 @@ module Pos.WorkMode
        , NodeContext (..)
        , WithNodeContext (..)
        , ncPublicKey
-       , ncVssPublicKey
+       --, ncVssPublicKey
        , runContextHolder
 
        -- * Actual modes
@@ -62,8 +62,7 @@ import           System.Wlog                 (CanLog, HasLoggerName, WithLogger,
                                               logWarning)
 import           Universum
 
-import           Pos.Crypto                  (PublicKey, SecretKey, VssKeyPair,
-                                              VssPublicKey, toPublic, toVssPublicKey)
+import           Pos.Crypto                  (PublicKey, SecretKey, toPublic)
 import           Pos.DHT                     (DHTResponseT, MonadMessageDHT (..),
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
@@ -225,25 +224,18 @@ instance (MonadDB ssc m, Monad m) => MonadDB ssc (KademliaDHT m) where
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
     { -- | Time when system started working.
-      ncSystemStart    :: !Timestamp
+      ncSystemStart :: !Timestamp
     , -- | Secret key used for blocks creation.
-      ncSecretKey      :: !SecretKey
-    , -- | Vss key pair used for MPC.
-      ncVssKeyPair     :: !VssKeyPair
-    , ncTimeLord       :: !Bool
-    , ncJLFile         :: !(Maybe (MVar FilePath))
-    , ncDbPath         :: !(Maybe FilePath)
-    , ncParticipateSsc :: !(STM.TVar Bool)
-    , ncSscContext     :: !(SscNodeContext ssc)
+      ncSecretKey   :: !SecretKey
+    , ncTimeLord    :: !Bool
+    , ncJLFile      :: !(Maybe (MVar FilePath))
+    , ncDbPath      :: !(Maybe FilePath)
+    , ncSscContext  :: !(SscNodeContext ssc)
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.
 ncPublicKey :: NodeContext ssc -> PublicKey
 ncPublicKey = toPublic . ncSecretKey
-
--- | Get 'VssPublicKey' from 'VssKeyPair' inside 'NodeContext'.
-ncVssPublicKey :: NodeContext ssc -> VssPublicKey
-ncVssPublicKey = toVssPublicKey . ncVssKeyPair
 
 -- | Class for something that has 'NodeContext' inside.
 class WithNodeContext ssc m | m -> ssc where

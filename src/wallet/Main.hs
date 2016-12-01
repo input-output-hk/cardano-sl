@@ -11,7 +11,7 @@ import           Pos.DHT            (DHTNodeType (..))
 import           Pos.Genesis        (genesisAddresses, genesisSecretKeys)
 import           Pos.Launcher       (BaseParams (..), LoggingParams (..), NodeParams (..),
                                      submitTxReal)
-import           Pos.Ssc.GodTossing (SscGodTossing, genesisVssKeyPairs)
+import           Pos.Ssc.GodTossing (GtParams (..), SscGodTossing, genesisVssKeyPairs)
 
 import           WalletOptions      (WalletCommand (..), WalletOptions (..),
                                      getWalletOptions)
@@ -28,7 +28,6 @@ main = do
                     , npRebuildDb = False
                     , npSystemStart = 1477706355381569 --arbitrary value
                     , npSecretKey = genesisSecretKeys !! i
-                    , npVssKeyPair = genesisVssKeyPairs !! i
                     , npBaseParams = BaseParams
                                       { bpLoggingParams = LoggingParams
                                                           { lpRunnerTag     = "wallet"
@@ -43,8 +42,15 @@ main = do
                     , npCustomUtxo = Nothing
                     , npTimeLord = False
                     , npJLFile = Nothing
-                    , npSscEnabled = False
+                    }
+                gtParams =
+                    GtParams
+                    {
+                      gtpRebuildDb  = False
+                    , gtpDbPath     = Nothing
+                    , gtpSscEnabled = False
+                    , gtpVssKeyPair = genesisVssKeyPairs !! i
                     }
             let addr = genesisAddresses !! i
             let txId = unsafeHash addr
-            submitTxReal @SscGodTossing params (txId, 0) (addr, 10)
+            submitTxReal @SscGodTossing params gtParams (txId, 0) (addr, 10)

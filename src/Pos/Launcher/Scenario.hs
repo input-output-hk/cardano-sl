@@ -18,6 +18,7 @@ import           Pos.Communication      (sendTx)
 import           Pos.Crypto             (hash, sign)
 import           Pos.DHT                (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Ssc.Class          (SscConstraint)
+import           Pos.State              (initFirstSlot)
 import           Pos.Types              (Address, Coin, Timestamp (Timestamp), Tx (..),
                                          TxId, TxIn (..), TxOut (..), txF)
 import           Pos.Worker             (runWorkers)
@@ -32,6 +33,7 @@ runNode plugins = do
     peers <- discoverPeers DHTFull
     logInfo $ sformat ("Known peers: " % build) peers
 
+    initFirstSlot
     waitSystemStart
     runWorkers
     mapM_ fork plugins

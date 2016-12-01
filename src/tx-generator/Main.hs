@@ -25,7 +25,7 @@ import           Pos.Genesis            (genesisAddresses, genesisSecretKeys)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
                                          NodeParams (..), bracketDHTInstance,
                                          runRawRealMode, submitTxRaw)
-import           Pos.Ssc.GodTossing     (SscGodTossing, genesisVssKeyPairs)
+import           Pos.Ssc.GodTossing     (GtParams (..), SscGodTossing, genesisVssKeyPairs)
 import           Pos.Statistics         (getNoStatsT)
 import           Pos.Types              (Tx (..), TxIn (..), TxOut (..))
 import           Pos.Util.JsonLog       ()
@@ -135,12 +135,18 @@ main = do
             , npRebuildDb   = False
             , npSystemStart = 1477706355381569 --arbitrary value
             , npSecretKey   = genesisSecretKeys !! i
-            , npVssKeyPair  = genesisVssKeyPairs !! i
             , npBaseParams  = baseParams
             , npCustomUtxo  = Nothing
             , npTimeLord    = False
             , npJLFile      = Nothing
-            , npSscEnabled  = False
+            }
+        gtParams =
+            GtParams
+            {
+              gtpRebuildDb  = False
+            , gtpDbPath     = Nothing
+            , gtpSscEnabled = False
+            , gtpVssKeyPair = genesisVssKeyPairs !! i
             }
         getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         totalRounds = length goTPSs
@@ -148,7 +154,7 @@ main = do
     leftTxs <- newIORef $ take goTxFrom $ zip [0..] $ txChain i
 
     bracketDHTInstance baseParams $ \inst -> do
-        runRawRealMode @SscGodTossing inst params [] $ getNoStatsT $ do
+        runRawRealMode @SscGodTossing inst params gtParams [] $ getNoStatsT $ do
             logInfo "TX GEN RUSHING"
             peers <- discoverPeers DHTFull
 

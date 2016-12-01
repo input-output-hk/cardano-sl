@@ -33,8 +33,9 @@ import           Universum
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, getOpening,
-                                                       isCommitmentIdx, isOpeningIdx,
-                                                       isSharesIdx, secretToSharedSeed)
+                                                       gtcParticipateSsc, isCommitmentIdx,
+                                                       isOpeningIdx, isSharesIdx,
+                                                       secretToSharedSeed)
 import           Pos.Ssc.GodTossing.SecretStorage     (getSecret)
 import qualified Pos.State                            as St
 import           Pos.Types                            (EpochIndex (..), SharedSeed,
@@ -46,8 +47,8 @@ import           Pos.Web.Api                          (BaseNodeApi, GodTossingAp
 import           Pos.Web.Types                        (GodTossingStage (..))
 import           Pos.WorkMode                         (ContextHolder, DBHolder,
                                                        NodeContext, WorkMode,
-                                                       getNodeContext, ncParticipateSsc,
-                                                       ncPublicKey, runContextHolder,
+                                                       getNodeContext, ncPublicKey,
+                                                       ncSscContext, runContextHolder,
                                                        runDBHolder)
 
 ----------------------------------------------------------------------------
@@ -150,7 +151,8 @@ gtServantHandlers =
 
 toggleGtParticipation :: Bool -> GtWebHandler ()
 toggleGtParticipation enable =
-    atomically . flip writeTVar enable . ncParticipateSsc =<< getNodeContext
+    getNodeContext >>=
+    atomically . flip writeTVar enable . gtcParticipateSsc . ncSscContext
 
 gtHasSecret :: GtWebHandler Bool
 gtHasSecret = isJust <$> getSecret

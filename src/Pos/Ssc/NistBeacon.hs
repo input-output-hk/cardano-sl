@@ -63,6 +63,7 @@ instance Ssc SscNistBeacon where
     type SscSeedError   SscNistBeacon = ()
     type SscGlobalState SscNistBeacon = ()
     type SscNodeContext SscNistBeacon = ()
+    type SscParams      SscNistBeacon = ()
 
     mkSscProof = Tagged $ const ()
     sscFilterPayload _ _ = ()

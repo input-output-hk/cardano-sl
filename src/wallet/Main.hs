@@ -12,6 +12,7 @@ import           Pos.Genesis        (genesisAddresses, genesisSecretKeys)
 import           Pos.Launcher       (BaseParams (..), LoggingParams (..), NodeParams (..),
                                      submitTxReal)
 import           Pos.Ssc.GodTossing (SscGodTossing, genesisVssKeyPairs)
+import           Pos.Wallet.Web     (walletServeWeb)
 
 import           WalletOptions      (WalletCommand (..), WalletOptions (..),
                                      getWalletOptions)
@@ -48,3 +49,5 @@ main = do
             let addr = genesisAddresses !! i
             let txId = unsafeHash addr
             submitTxReal @SscGodTossing params (txId, 0) (addr, 10)
+        ServeWallet {..} -> do
+            walletServeWeb swPort

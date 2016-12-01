@@ -116,7 +116,7 @@ function node_cmd {
   if [[ $is_stat != "" ]]; then
     stats="--stats"
   fi
-  if [[ "$CSL_RTS" != "" ]]; then
+  if [[ "$CSL_RTS" != "" ]] && [[ $i -eq 0 ]]; then
     rts_opts="+RTS -N -pa -A6G -qg -RTS"
   fi
 

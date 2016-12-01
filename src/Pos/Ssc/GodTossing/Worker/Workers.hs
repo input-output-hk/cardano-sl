@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE ViewPatterns          #-}
 
@@ -27,6 +28,8 @@ import           Pos.Constants                          (k, mpcSendInterval)
 import           Pos.Crypto                             (PublicKey, SecretKey,
                                                          randomNumber, runSecureRandom,
                                                          toPublic)
+import           Pos.Crypto.SecretSharing               (toVssPublicKey)
+import           Pos.Crypto.Signing                     (mkSigned)
 import           Pos.Slotting                           (getSlotStart, onNewSlot)
 import           Pos.Ssc.Class.Workers                  (SscWorkersClass (..))
 import           Pos.Ssc.GodTossing.Functions           (genCommitmentAndOpening,
@@ -40,7 +43,7 @@ import           Pos.Ssc.GodTossing.LocalData.LocalData (localOnNewSlot,
 import           Pos.Ssc.GodTossing.SecretStorage.State (checkpointSecret, getSecret,
                                                          prepareSecretToNewSlot,
                                                          setSecret)
-import           Pos.Ssc.GodTossing.Types.Base          (Opening, SignedCommitment)
+import           Pos.Ssc.GodTossing.Types.Base          (Opening, SignedCommitment, VssCertificate)
 import           Pos.Ssc.GodTossing.Types.Instance      ()
 import           Pos.Ssc.GodTossing.Types.Message       (DataMsg (..), InvMsg (..),
                                                          MsgTag (..))
@@ -54,7 +57,27 @@ import           Pos.WorkMode                           (WorkMode, getNodeContex
                                                          ncParticipateSsc, ncPublicKey,
                                                          ncSecretKey, ncVssKeyPair)
 instance SscWorkersClass SscGodTossing where
-    sscWorkers = Tagged [onNewSlotSsc]
+    sscWorkers = Tagged [ onStart
+                        , onNewSlotSsc
+                        ]
+
+onStart :: forall m. WorkMode SscGodTossing m => m ()
+onStart = do
+    ourPk             <- ncPublicKey <$> getNodeContext
+    ourVssCertificate <- getOurVssCertificate
+    let msg = DMVssCertificate ourPk ourVssCertificate
+    logDebug "Announcing our VssCertificate."
+    sendToNeighborsSafe msg
+    logDebug "Sent our VssCertificate."
+
+  where
+
+    getOurVssCertificate :: m VssCertificate
+    getOurVssCertificate = do
+        ourSk         <- ncSecretKey <$> getNodeContext
+        ourVssKeyPair <- ncVssKeyPair <$> getNodeContext
+        let unsigned = serialize $ toVssPublicKey ourVssKeyPair
+        return $ mkSigned ourSk unsigned
 
 onNewSlotSsc :: WorkMode SscGodTossing m => m ()
 onNewSlotSsc = onNewSlot True $ \slotId-> do

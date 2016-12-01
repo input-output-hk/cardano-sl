@@ -114,7 +114,6 @@ openStateCustom :: (SscStorageClass ssc, SafeCopy ssc, MonadIO m)
 openStateCustom customStorage deleteIfExists fp =
     openLocalExtendedState deleteIfExists fp customStorage
 
-
 -- | Open in-ram state.
 openMemState
     :: (SscStorageClass ssc, Default (SscStorage ssc), SafeCopy ssc, MonadIO m)

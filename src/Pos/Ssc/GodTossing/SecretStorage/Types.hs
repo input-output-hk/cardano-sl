@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Pos.Ssc.GodTossing.Worker.Types
+module Pos.Ssc.GodTossing.SecretStorage.Types
        (
          GtSecret
        , GtSecretStorage (..)

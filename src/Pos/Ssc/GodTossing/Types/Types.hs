@@ -10,6 +10,7 @@ module Pos.Ssc.GodTossing.Types.Types
          GtPayload (..)
        , GtProof (..)
        , GtGlobalState (..)
+       , GtContext (..)
 
        -- * Lenses
        -- ** GtPayload
@@ -18,24 +19,28 @@ module Pos.Ssc.GodTossing.Types.Types
        , gsShares
        , gsVssCertificates
        , mkGtProof
+       , createGtContext
        , _gpCertificates
        ) where
 
-import           Control.Lens                  (makeLenses)
-import           Data.Binary                   (Binary)
-import qualified Data.HashMap.Strict           as HM
-import           Data.SafeCopy                 (base, deriveSafeCopySimple)
-import qualified Data.Text                     as T
-import           Data.Text.Buildable           (Buildable (..))
-import           Data.Text.Lazy.Builder        (Builder, fromText)
-import           Formatting                    (bprint, sformat, (%))
-import           Serokell.Util                 (listJson)
+import           Control.Lens                            (makeLenses)
+import           Data.Binary                             (Binary)
+import qualified Data.HashMap.Strict                     as HM
+import           Data.SafeCopy                           (base, deriveSafeCopySimple)
+import qualified Data.Text                               as T
+import           Data.Text.Buildable                     (Buildable (..))
+import           Data.Text.Lazy.Builder                  (Builder, fromText)
+import           Formatting                              (bprint, sformat, (%))
+import           Serokell.Util                           (listJson)
+import           System.FilePath                         ((</>))
 import           Universum
 
-import           Pos.Crypto                    (Hash, hash)
-import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
-                                                VssCertificatesMap)
-
+import           Pos.Crypto                              (Hash, hash)
+import           Pos.Ssc.GodTossing.SecretStorage.Acidic (SecretStorage,
+                                                          openGtSecretStorage,
+                                                          openMemGtSecretStorage)
+import           Pos.Ssc.GodTossing.Types.Base           (CommitmentsMap, OpeningsMap,
+                                                          SharesMap, VssCertificatesMap)
 ----------------------------------------------------------------------------
 -- SscGlobalState
 ----------------------------------------------------------------------------
@@ -184,3 +189,15 @@ mkGtProof payload =
       where
         proof constr hm cert =
             constr (hash hm) (hash cert)
+
+
+data GtContext = GtContext
+    {
+      gtcSecretStorage :: SecretStorage
+    }
+
+createGtContext :: MonadIO m => Maybe FilePath -> m GtContext
+createGtContext dbPath =
+    GtContext <$> maybe openMemGtSecretStorage (openGtSecretStorage True) secretPath
+  where                     -- TODO --redubild-db flag must be here  ^
+    secretPath = (</> "secret") <$> dbPath

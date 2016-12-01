@@ -62,9 +62,11 @@ instance Ssc SscNistBeacon where
     type SscProof       SscNistBeacon = ()
     type SscSeedError   SscNistBeacon = ()
     type SscGlobalState SscNistBeacon = ()
+    type SscNodeContext SscNistBeacon = ()
 
     mkSscProof = Tagged $ const ()
     sscFilterPayload _ _ = ()
+    sscCreateNodeContext _ = return ()
 
 instance SscStorageClass SscNistBeacon where
     sscApplyBlocks _ = pass

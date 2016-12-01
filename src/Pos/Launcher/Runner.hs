@@ -142,7 +142,9 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = do
     let run db =
             runTimed lpRunnerTag .
             runDBHolder db .
-            runCH np sscnp . runSscLDImpl . runKDHT inst npBaseParams listeners $
+            runCH np sscnp .
+            runSscLDImpl .
+            runKDHT inst npBaseParams listeners $
             nodeStartMsg npBaseParams >> action
     bracket openDb closeDb run
   where
@@ -156,7 +158,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = do
                 whenM ((npRebuildDb &&) <$> doesDirectoryExist fp) $
                 removeDirectoryRecursive fp
         whenJust npDbPath rebuild
-        runTimed lpRunnerTag . runCH @ssc np sscnp $
+        runTimed lpRunnerTag $
             maybe
                 (openMemState mStorage)
                 (openState mStorage False)

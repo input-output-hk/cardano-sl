@@ -15,6 +15,7 @@ module Pos.Web.Server
        , applicationGT
        ) where
 
+import           Control.Concurrent.STM.TVar          (writeTVar)
 import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
 import           Control.TimeWarp.Timed               (TimedIO, runTimedIO)
@@ -39,8 +40,9 @@ import           Pos.Web.Api                          (BaseNodeApi, GodTossingAp
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
 import           Pos.WorkMode                         (ContextHolder, DBHolder,
                                                        NodeContext, WorkMode,
-                                                       getNodeContext, ncPublicKey,
-                                                       runContextHolder, runDBHolder)
+                                                       getNodeContext, ncParticipateSsc,
+                                                       ncPublicKey, runContextHolder,
+                                                       runDBHolder)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -135,7 +137,8 @@ gtServantHandlers :: ServerT GodTossingApi (WebHandler SscGodTossing)
 gtServantHandlers = toggleGtParticipation :<|> getOurSecret
 
 toggleGtParticipation :: Bool -> WebHandler SscGodTossing ()
-toggleGtParticipation = const pass
+toggleGtParticipation enable =
+    atomically . flip writeTVar enable . ncParticipateSsc =<< getNodeContext
 
 getOurSecret :: WebHandler SscGodTossing LSecret
 getOurSecret = notImplemented

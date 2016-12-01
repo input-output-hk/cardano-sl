@@ -36,7 +36,7 @@ import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, MonadDialog,
 import           Control.TimeWarp.Timed      (MonadTimed, currentTime, fork, killThread,
                                               repeatForever, runTimedIO, sec)
 
-import           Data.Acquire                (mkAcquire, withEx)
+import           Data.Acquire                (withEx)
 import           Data.List                   (nub)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))

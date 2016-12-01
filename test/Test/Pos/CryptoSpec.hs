@@ -19,10 +19,9 @@ import           Pos.Crypto            (EncShare, Hash, KeyPair (..), LVssPublic
                                         fullPublicKeyF, hash, parseFullPublicKey,
                                         randomNumber, sign, toPublic, checkSig)
 import           Pos.Ssc.GodTossing    ()
-import           Pos.Util              (Serialized (..))
 
 import           Test.Pos.Util         (binaryEncodeDecode, msgPackEncodeDecode,
-                                        safeCopyEncodeDecode)
+                                        safeCopyEncodeDecode, serDeserId)
 
 spec :: Spec
 spec = describe "Crypto" $ do
@@ -93,20 +92,11 @@ spec = describe "Crypto" $ do
                 prop "LEncShare"     (safeCopyEncodeDecode @LEncShare)
         describe "Serialized" $ do
             prop "VssPublicKey <-> LVssPublicKey"
-                (\(a :: VssPublicKey) -> (===) a $
-                    either (panic . toText) identity $
-                    (deserialize :: LVssPublicKey -> Either [Char] VssPublicKey) $
-                        serialize a)
+                (serDeserId @VssPublicKey @LVssPublicKey)
             prop "Secret <-> LSecret"
-                (\(a :: Secret) -> (===) a $
-                    either (panic . toText) identity $
-                    (deserialize :: LSecret -> Either [Char] Secret) $
-                        serialize  a)
+                (serDeserId @Secret @LSecret)
             prop "EncShare <-> LEncShare"
-                (\(a :: EncShare) -> (===) a $
-                    either (panic . toText) identity $
-                    (deserialize :: LEncShare -> Either [Char] EncShare) $
-                        serialize a)
+                (serDeserId @EncShare @LEncShare)
         describe "keys" $ do
             prop
                 "derived pubkey equals to generated pubkey"

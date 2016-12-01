@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
@@ -5,6 +6,7 @@ module Test.Pos.Util
        ( binaryEncodeDecode
        , msgPackEncodeDecode
        , safeCopyEncodeDecode
+       , serDeserId
        , showRead
        ) where
 
@@ -33,3 +35,8 @@ safeCopyEncodeDecode a =
 
 showRead :: (Show a, Eq a, Read a) => a -> Property
 showRead a = read (show a) === a
+
+serDeserId :: forall t lt . (Show t, Eq t, Serialized t lt) => t -> Property
+serDeserId a =
+    let serDeser = either (panic . toText) identity . deserialize @t @lt . serialize @t @lt
+    in a === serDeser a

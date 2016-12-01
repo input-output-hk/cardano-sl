@@ -103,6 +103,8 @@ module Pos.Types.Types
        ) where
 
 import           Control.Lens           (Getter, Lens', choosing, makeLenses, to, view)
+import           Data.Aeson             (ToJSON (toJSON))
+import           Data.Aeson.TH          (deriveToJSON)
 import           Data.Binary            (Binary)
 import           Data.Binary.Orphans    ()
 import qualified Data.ByteString        as BS (pack, zipWith)
@@ -124,6 +126,7 @@ import           Data.Text.Lazy.Builder (Builder)
 import           Formatting             (Format, bprint, build, int, later, ords, sformat,
                                          stext, (%))
 import           Serokell.AcidState     ()
+import           Serokell.Aeson.Options (defaultOptions)
 import qualified Serokell.Util.Base16   as B16
 import           Serokell.Util.Text     (listJson, mapBuilderJson, pairBuilder)
 import           Universum
@@ -160,7 +163,7 @@ coinF = build
 -- | Index of epoch.
 newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Binary, Hashable)
+    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Binary, Hashable, ToJSON)
 
 instance MessagePack EpochIndex
 
@@ -170,7 +173,7 @@ instance Buildable EpochIndex where
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex
     { getSlotIndex :: Word16
-    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Binary, Hashable, Buildable)
+    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Binary, Hashable, Buildable, ToJSON)
 
 instance MessagePack LocalSlotIndex
 
@@ -183,6 +186,8 @@ data SlotId = SlotId
 
 instance Binary SlotId
 instance MessagePack SlotId
+
+$(deriveToJSON defaultOptions ''SlotId)
 
 instance Buildable SlotId where
     build SlotId {..} =
@@ -224,7 +229,7 @@ instance Buildable EpochOrSlot where
 -- | Address is where you can send coins.
 newtype Address = Address
     { getAddress :: PublicKey
-    } deriving (Show, Eq, Generic, Buildable, Ord, Binary, Hashable, NFData)
+    } deriving (Show, Eq, Generic, Buildable, Ord, Binary, Hashable, NFData, ToJSON)
 
 instance MessagePack Address
 
@@ -323,6 +328,9 @@ newtype SharedSeed = SharedSeed
     } deriving (Show, Eq, Ord, Generic, Binary, NFData)
 
 instance MessagePack SharedSeed
+
+instance ToJSON SharedSeed where
+    toJSON = toJSON . pretty
 
 instance Buildable SharedSeed where
     build = B16.formatBase16 . getSharedSeed

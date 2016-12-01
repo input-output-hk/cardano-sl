@@ -24,11 +24,14 @@ import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        NodeParams (..), bracketDHTInstance,
                                        runNodeProduction, runNodeStats, runSupporterReal,
                                        runTimeLordReal, runTimeSlaveReal)
+import           Pos.Ssc.Class        (SscConstraint)
 import           Pos.Ssc.GodTossing   (genesisVssKeyPairs)
 import           Pos.Ssc.GodTossing   (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Types            (Timestamp)
+import           Pos.Web              (serveWebBase, serveWebGT)
+import           Pos.WorkMode         (WorkMode)
 
 import           NodeOptions          (Args (..), getNodeOptions)
 
@@ -127,16 +130,20 @@ action args@Args {..} inst = do
             systemStart <- getSystemStart inst args
             let currentParams = nodeParams args spendingSK systemStart
                 gtParams = gtSscParams args vssSK
+                currentPlugins :: (SscConstraint ssc, WorkMode ssc m) => [m ()]
+                currentPlugins = plugins args
+                currentPluginsGT :: (WorkMode SscGodTossing m) => [m ()]
+                currentPluginsGT = pluginsGT args
             putText $ "Running using " <> show sscAlgo
             case (enableStats, sscAlgo) of
                 (True, GodTossingAlgo) ->
-                    runNodeStats @SscGodTossing inst [] currentParams gtParams
+                    runNodeStats @SscGodTossing inst currentPluginsGT currentParams gtParams
                 (True, NistBeaconAlgo) ->
-                    runNodeStats @SscNistBeacon inst [] currentParams ()
+                    runNodeStats @SscNistBeacon inst currentPlugins currentParams ()
                 (False, GodTossingAlgo) ->
-                    runNodeProduction @SscGodTossing inst [] currentParams gtParams
+                    runNodeProduction @SscGodTossing inst currentPluginsGT currentParams gtParams
                 (False, NistBeaconAlgo) ->
-                    runNodeProduction @SscNistBeacon inst [] currentParams ()
+                    runNodeProduction @SscNistBeacon inst currentPlugins currentParams ()
 
 nodeParams :: Args -> SecretKey -> Timestamp -> NodeParams
 nodeParams args@Args {..} spendingSK systemStart =
@@ -164,6 +171,16 @@ gtSscParams Args {..} vssSK =
     , gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
     }
+
+plugins :: (SscConstraint ssc, WorkMode ssc m) => Args -> [m ()]
+plugins Args {..}
+    | enableWeb = [serveWebBase webPort]
+    | otherwise = []
+
+pluginsGT :: (WorkMode SscGodTossing m) => Args -> [m ()]
+pluginsGT Args {..}
+    | enableWeb = [serveWebGT webPort]
+    | otherwise = []
 
 main :: IO ()
 main = do

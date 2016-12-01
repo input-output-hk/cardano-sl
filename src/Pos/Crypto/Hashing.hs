@@ -17,6 +17,7 @@ module Pos.Crypto.Hashing
 
 import           Crypto.Hash         (Digest, SHA256, digestFromByteString)
 import qualified Crypto.Hash         as Hash (hash, hashlazy)
+import           Data.Aeson          (ToJSON (toJSON))
 import           Data.Binary         (Binary (..))
 import qualified Data.Binary         as Binary
 import qualified Data.Binary.Get     as Binary (getByteString)
@@ -63,6 +64,9 @@ instance Binary (Hash a) where
 
 instance Buildable.Buildable (Hash a) where
     build (Hash x) = bprint shown x
+
+instance ToJSON (Hash a) where
+    toJSON = toJSON . pretty
 
 -- | Short version of 'unsafeHash'.
 hash :: Binary a => a -> Hash a

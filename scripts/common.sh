@@ -116,8 +116,11 @@ function node_cmd {
   if [[ $is_stat != "" ]]; then
     stats="--stats"
   fi
+  if [[ "$CSL_RTS" != "" ]]; then
+    rts_opts="+RTS -N -pa -A6G -qg -RTS"
+  fi
 
-  echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i --memory-mode +RTS -N -pa -A6G -qg -RTS $reb --vss-genesis $i"
+  echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $rts_opts  $reb --vss-genesis $i"
 
   $dht_cmd
 

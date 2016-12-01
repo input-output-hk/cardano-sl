@@ -135,20 +135,20 @@ getBlock :: HeaderHash ssc -> Query ssc (Maybe (Block ssc))
 getBlock h = view (blkBlocks . at h)
 
 -- | Get block by its depth, i.e. number of times one needs to use
--- pointer to previous block.
+-- pointer to previous block. O(n) -- just follows blockhashes.
 getBlockByDepth :: Word -> Query ssc (Maybe (Block ssc))
-getBlockByDepth i = do
+getBlockByDepth n = do
     -- TODO: optimize using blkGenesisBlocks.
     headHash <- view blkHead
-    getBlockByDepthDo i headHash
+    getBlockByDepthDo n headHash
+  where
+    getBlockByDepthDo :: Word -> HeaderHash ssc -> Query ssc (Maybe (Block ssc))
+    getBlockByDepthDo 0 h = getBlock h
+    getBlockByDepthDo i h =
+        maybe (pure Nothing) (getBlockByDepthDo (i - 1) . view prevBlockL) =<<
+        getBlock h
 
-getBlockByDepthDo :: Word -> HeaderHash ssc -> Query ssc (Maybe (Block ssc))
-getBlockByDepthDo 0 h = getBlock h
-getBlockByDepthDo i h =
-    maybe (pure Nothing) (getBlockByDepthDo (i - 1) . view prevBlockL) =<<
-    getBlock h
-
--- | Get block which is the head of the __best chain__.
+-- | Get block which is the head of the best chain.
 getHeadBlock :: Query ssc (Block ssc)
 getHeadBlock = do
     headHash <- view blkHead
@@ -156,7 +156,8 @@ getHeadBlock = do
             sformat ("blkHead ("%build%") is not found in storage") headHash
     fromMaybe (panic errorMsg) <$> getBlockByDepth 0
 
--- | Get the whole best chain.
+-- | Get the whole best chain. Expensive, shouldn't be used except for
+-- asserts.
 getBestChain :: Query ssc (NonEmpty (Block ssc))
 getBestChain = do
     headHash <- view blkHead
@@ -185,7 +186,8 @@ getLeaders (fromIntegral -> epoch) = do
 
 -- | Get leader of the given slot if it's known.
 getLeader :: SlotId -> Query ssc (Maybe PublicKey)
-getLeader SlotId {..} = (preview $ _Just . ix (fromIntegral siSlot)) <$> getLeaders siEpoch
+getLeader SlotId {..} =
+    preview (_Just . ix (fromIntegral siSlot)) <$> getLeaders siEpoch
 
 -- | Get depth of the first main block whose SlotId ≤ given value.
 -- Depth of the deepest (i.e. 0-th genesis) block is returned if there
@@ -213,7 +215,6 @@ mayBlockBeUseful
     :: Ssc ssc
     => SlotId -> MainBlockHeader ssc -> Query ssc VerificationRes
 mayBlockBeUseful currentSlotId header = do
-    let hSlot = header ^. headerSlot
     leaders <- getLeaders (siEpoch hSlot)
     isInteresting <- isHeaderInteresting header
     let vhp =
@@ -228,11 +229,12 @@ mayBlockBeUseful currentSlotId header = do
                  \can't be appended to alternative chain")
             ]
     return $ verifyHeader vhp (Right header) <> verifyGeneric extraChecks
-
-isHeaderInteresting :: Ssc ssc => MainBlockHeader ssc -> Query ssc Bool
-isHeaderInteresting header = do
-    altChains <- view blkAltChains
-    or <$> mapM ($ header) (isMostDifficult : map canContinueAltChain altChains)
+  where
+    hSlot = header ^. headerSlot
+    isHeaderInteresting :: Ssc ssc => MainBlockHeader ssc -> Query ssc Bool
+    isHeaderInteresting header' = do
+        altChains <- view blkAltChains
+        or <$> mapM ($ header') (isMostDifficult : map canContinueAltChain altChains)
 
 -- Can we continue concrete AltChain (given its index).
 canContinueAltChainI
@@ -246,6 +248,7 @@ canContinueAltChainI blk i = do
     let vbp = def {vbpVerifyHeader = Just vhp}
     return $ isVerSuccess $ verifyBlock vbp blk
 
+-- Checks (by header) that block can be appended to the altchain.
 canContinueAltChain
     :: Ssc ssc
     => AltChain ssc -> MainBlockHeader ssc -> Query ssc Bool
@@ -257,19 +260,23 @@ canContinueAltChain (blk :| _) header
     -- 'mayBlockBeUseful'.
     vhp = def {vhpNextHeader = Just (blk ^. blockHeader)}
 
+-- Checks if given block header is the most difficult one among
+-- available in the state. Basically compares with blockchain head.
 isMostDifficult :: MainBlockHeader ssc -> Query ssc Bool
 isMostDifficult (view difficultyL -> difficulty) =
     (difficulty >) . view difficultyL <$> getHeadBlock
 
+-- Inserts block into blockchan where previous block hash points.
 insertBlock :: Ssc ssc => Block ssc -> Update ssc ()
 insertBlock blk = blkBlocks . at (headerHash blk) .= Just blk
 
 -- | Process received block, adding it to alternative chain if
--- necessary. This block won't become part of main chain, the only way
--- to do it is to use `blkSetHead`. This function only caches block if
--- necessary.
+-- necessary. This block won't become part of the main chain, the only
+-- way to do it is to use `blkSetHead`. This function only caches
+-- block if necessary.
 blkProcessBlock
-    :: Ssc ssc
+    :: forall ssc.
+       Ssc ssc
     => SlotId -> Block ssc -> Query ssc VerificationRes -> Update ssc (ProcessBlockRes ssc)
 blkProcessBlock currentSlotId blk hardChecks = do
     -- First of all we do the simplest general checks.
@@ -290,7 +297,22 @@ blkProcessBlock currentSlotId blk hardChecks = do
                 [ verifyHeader vhp header
                 , verifyBlock (def {vbpVerifyGeneric = True}) blk
                 ]
-    guardVerRes verRes $ blkProcessBlockDo blk hardChecks
+    guardVerRes verRes blkProcessBlockDo
+  where
+    blkProcessBlockDo
+        :: Ssc ssc
+        => Update ssc (ProcessBlockRes ssc)
+    blkProcessBlockDo
+                          -- At this point we know that block is good in isolation.
+                          -- Our first attempt is to continue the best chain and finish.
+     = do
+        ifM
+            (readerToState $ canContinueBestChain blk)
+            -- If it's possible, we just do it.
+            (guardVerResSt hardChecks $ continueBestChain blk)
+            -- Our next attempt is to start alternative chain or continue
+            -- existing one.
+            (proceedToAltChains blk hardChecks)
 
 guardVerRes
   :: (Monad m, Ssc ssc)
@@ -301,24 +323,12 @@ guardVerRes verRes action =
         VerSuccess        -> action
 
 guardVerResSt
-  :: Ssc ssc
-  => Query ssc VerificationRes
-  -> Update ssc (ProcessBlockRes ssc)
-  -> Update ssc (ProcessBlockRes ssc)
+    :: Ssc ssc
+    => Query ssc VerificationRes
+    -> Update ssc (ProcessBlockRes ssc)
+    -> Update ssc (ProcessBlockRes ssc)
 guardVerResSt checks action = readerToState checks >>= flip guardVerRes action
 
-blkProcessBlockDo
-    :: Ssc ssc
-    => Block ssc -> Query ssc VerificationRes -> Update ssc (ProcessBlockRes ssc)
-blkProcessBlockDo blk hardChecks = do
-    -- At this point we know that block is good in isolation.
-    -- Our first attempt is to continue the best chain and finish.
-    ifM (readerToState $ canContinueBestChain blk)
-        -- If it's possible, we just do it.
-        (guardVerResSt hardChecks $ continueBestChain blk)
-        -- Our next attempt is to start alternative chain or continue
-        -- existing one.
-        (proceedToAltChains blk hardChecks)
 
 canContinueBestChain :: Ssc ssc => Block ssc -> Query ssc Bool
 -- We don't continue best chain with received genesis block. It is
@@ -362,12 +372,13 @@ proceedToAltChains blk hardChecks = do
         _                   -> tryContinueAltChain blk hardChecks
 
 -- Possible results are:
--- • Nothing: can't start alternative chain.
--- • Just PBRgood: started alternative chain and can merge it already.
--- • Just PBRmore: started alternative chain and want more.
+-- + Nothing: can't start alternative chain.
+-- + Just PBRgood: started alternative chain and can merge it already.
+-- + Just PBRmore: started alternative chain and want more.
+--
 -- Conditions to start alternative chain:
--- • block is more difficult that head of main chain;
--- • block is not head of existing alternative chain.
+-- + block is more difficult that head of main chain;
+-- + block is not head of existing alternative chain.
 tryStartAltChain
     :: forall ssc.
        Ssc ssc
@@ -384,6 +395,7 @@ tryStartAltChain (Right blk) hardChecks = do
         (fmap Just $ guardVerResSt hardChecks $ startAltChain blk)
         (pure Nothing)
 
+-- Checks if given block header can be a head of some altchain.
 isHeadOfAlternative :: Ssc ssc => BlockHeader ssc -> Query ssc Bool
 isHeadOfAlternative header = do
     altChains <- view blkAltChains
@@ -471,31 +483,32 @@ tryMergeAltChain i = do
         -- Note that it's safe to remove i-th element here, because we stop
         -- at the first `PBRgood`. This is fragile though.
         Just x  -> Just (x, altChain) <$ (blkAltChains %= removeIth i)
+  where
+    -- Here we actually try to merge alternative chain into main
+    -- chain. Note that it's only a query, so actual merge won't be
+    -- performed.
+    tryMergeAltChainDo :: Ssc ssc => AltChain ssc -> Query ssc (Maybe Word)
+    tryMergeAltChainDo altChain = do
+        let altChainDifficulty = altChain ^. _neLast . difficultyL
+        isHardest <- (altChainDifficulty >) . view difficultyL <$> getHeadBlock
+        if not isHardest
+            then return Nothing
+            else do
+                rollback <- findRollback k (altChain ^. _neHead . prevBlockL)
+                case rollback of
+                    Nothing -> return Nothing
+                    Just x ->
+                        ifM
+                            (testMergeAltChain x altChain)
+                            (return rollback)
+                            (return Nothing)
 
 removeIth :: Int -> [x] -> [x]
 removeIth i xs =
     let (l, (_:r)) = splitAt i xs
     in l ++ r
 
--- Here we actually try to merge alternative chain into main
--- chain. Note that it's only a query, so actual merge won't be
--- performed.
-tryMergeAltChainDo :: Ssc ssc => AltChain ssc -> Query ssc (Maybe Word)
-tryMergeAltChainDo altChain = do
-    let altChainDifficulty = altChain ^. _neLast . difficultyL
-    isHardest <- (altChainDifficulty >) . view difficultyL <$> getHeadBlock
-    if not isHardest
-        then return Nothing
-        else do
-            rollback <- findRollback k (altChain ^. _neHead . prevBlockL)
-            case rollback of
-                Nothing -> return Nothing
-                Just x ->
-                    ifM
-                        (testMergeAltChain x altChain)
-                        (return rollback)
-                        (return Nothing)
-
+-- Find a number of blocks to rollback. Restrictions
 findRollback
     :: forall ssc. Ssc ssc
     => ChainDifficulty -> HeaderHash ssc -> Query ssc (Maybe Word)
@@ -570,8 +583,8 @@ blkCreateGenesisBlock epoch leaders = do
     insertBlock $ Left blk
     let h = headerHash blk
     -- when we create genesis block, two situations are possible:
-    -- • it's created for new epoch, then we append it to blkGenesisBlocks
-    -- • it's created for epoch started earlier because of rollback,
+    -- - it's created for new epoch, then we append it to blkGenesisBlocks
+    -- - it's created for epoch started earlier because of rollback,
     -- which means that we replace last element in blkGenesisBlocks.
     -- Other situations are illegal.
     -- Note that we don't need to remove last element from blkGenesisBlocks

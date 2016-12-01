@@ -16,6 +16,7 @@ module Pos.Web.Server
        ) where
 
 import           Control.Concurrent.STM.TVar          (writeTVar)
+import           Control.Lens                         (view, _3)
 import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
 import           Control.TimeWarp.Timed               (TimedIO, runTimedIO)
@@ -32,8 +33,10 @@ import           Universum
 import           Pos.Crypto                           (LSecret)
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class                        (SscConstraint)
-import           Pos.Ssc.GodTossing                   (SscGodTossing, isCommitmentIdx,
-                                                       isOpeningIdx, isSharesIdx)
+import           Pos.Ssc.GodTossing                   (SscGodTossing, getOpening,
+                                                       isCommitmentIdx, isOpeningIdx,
+                                                       isSharesIdx)
+import           Pos.Ssc.GodTossing.SecretStorage     (getSecret)
 import qualified Pos.State                            as St
 import           Pos.Types                            (EpochIndex (..),
                                                        SlotId (siEpoch, siSlot),
@@ -139,18 +142,25 @@ getLocalTxsNum = fromIntegral . length <$> St.getLocalTxs
 -- GodTossing handlers
 ----------------------------------------------------------------------------
 
-gtServantHandlers :: ServerT GodTossingApi (WebHandler SscGodTossing)
-gtServantHandlers =
-    toggleGtParticipation :<|> getOurSecret :<|> getGtStage
+type GtWebHandler = WebHandler SscGodTossing
 
-toggleGtParticipation :: Bool -> WebHandler SscGodTossing ()
+gtServantHandlers :: ServerT GodTossingApi GtWebHandler
+gtServantHandlers =
+    toggleGtParticipation :<|> gtHasSecret :<|> getOurSecret :<|> getGtStage
+
+toggleGtParticipation :: Bool -> GtWebHandler ()
 toggleGtParticipation enable =
     atomically . flip writeTVar enable . ncParticipateSsc =<< getNodeContext
 
-getOurSecret :: WebHandler SscGodTossing LSecret
-getOurSecret = notImplemented
+gtHasSecret :: GtWebHandler Bool
+gtHasSecret = isJust <$> getSecret
 
-getGtStage :: WebHandler SscGodTossing GodTossingStage
+getOurSecret :: GtWebHandler LSecret
+getOurSecret = maybe (throwM err) (pure . getOpening . view _3) =<< getSecret
+  where
+    err = err404 { errBody = "I don't have secret" }
+
+getGtStage :: GtWebHandler GodTossingStage
 getGtStage = do
     getGtStageImpl . siSlot <$> getCurrentSlot
   where

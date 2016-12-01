@@ -38,6 +38,7 @@ baseNodeApi = Proxy
 -- | GodTossing specific API.
 type GodTossingApi =
     "toggle" :> Capture "enable" Bool :> Post '[JSON] () :<|>
+    "has_secret" :> Get '[JSON] Bool :<|>
     "secret" :> Get '[JSON] LSecret :<|>
     "stage" :> Get '[JSON] GodTossingStage
 

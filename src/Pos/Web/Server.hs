@@ -30,17 +30,17 @@ import           Servant.Server                       (Handler, ServantErr (errB
 import           Servant.Utils.Enter                  ((:~>) (Nat), enter)
 import           Universum
 
-import           Pos.Crypto                           (LSecret)
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, getOpening,
                                                        isCommitmentIdx, isOpeningIdx,
-                                                       isSharesIdx)
+                                                       isSharesIdx, secretToSharedSeed)
 import           Pos.Ssc.GodTossing.SecretStorage     (getSecret)
 import qualified Pos.State                            as St
-import           Pos.Types                            (EpochIndex (..),
+import           Pos.Types                            (EpochIndex (..), SharedSeed,
                                                        SlotId (siEpoch, siSlot),
                                                        SlotLeaders, headerHash)
+import           Pos.Util                             (deserializeM)
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
 import           Pos.Web.Types                        (GodTossingStage (..))
@@ -155,10 +155,14 @@ toggleGtParticipation enable =
 gtHasSecret :: GtWebHandler Bool
 gtHasSecret = isJust <$> getSecret
 
-getOurSecret :: GtWebHandler LSecret
-getOurSecret = maybe (throwM err) (pure . getOpening . view _3) =<< getSecret
+getOurSecret :: GtWebHandler SharedSeed
+getOurSecret = maybe (throwM err) (pure . convertGtSecret) =<< getSecret
   where
     err = err404 { errBody = "I don't have secret" }
+    doPanic = panic "our secret is malformed"
+    convertGtSecret =
+        secretToSharedSeed .
+        fromMaybe doPanic . deserializeM . getOpening . view _3
 
 getGtStage :: GtWebHandler GodTossingStage
 getGtStage = do

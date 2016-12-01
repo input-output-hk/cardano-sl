@@ -18,9 +18,10 @@ import           Data.Proxy         (Proxy (Proxy))
 import           Servant.API        ((:<|>), (:>), Capture, Get, JSON, Post, QueryParam)
 import           Universum
 
-import           Pos.Crypto         (LSecret, PublicKey)
+import           Pos.Crypto         (PublicKey)
 import           Pos.Ssc.GodTossing (SscGodTossing)
-import           Pos.Types          (EpochIndex, HeaderHash, SlotId, SlotLeaders)
+import           Pos.Types          (EpochIndex, HeaderHash, SharedSeed, SlotId,
+                                     SlotLeaders)
 import           Pos.Web.Types      (GodTossingStage)
 
 -- | Servant API which provides access to full node internals.
@@ -39,7 +40,7 @@ baseNodeApi = Proxy
 type GodTossingApi =
     "toggle" :> Capture "enable" Bool :> Post '[JSON] () :<|>
     "has_secret" :> Get '[JSON] Bool :<|>
-    "secret" :> Get '[JSON] LSecret :<|>
+    "secret" :> Get '[JSON] SharedSeed :<|>
     "stage" :> Get '[JSON] GodTossingStage
 
 -- | Helper Proxy.

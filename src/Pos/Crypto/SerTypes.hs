@@ -17,7 +17,6 @@ module Pos.Crypto.SerTypes
        , LSecretSharingExtra
        ) where
 
-import           Data.Aeson               (ToJSON (toJSON))
 import           Data.Binary              (Binary (..), encode)
 import           Data.Binary.Get          (getByteString)
 import           Data.Binary.Put          (putByteString)
@@ -79,9 +78,6 @@ instance Hashable LVssPublicKey where
 
 instance Buildable LSecret where
     build _ = "secret ¯\\_(ツ)_/¯"
-
-instance ToJSON LSecret where
-    toJSON = notImplemented
 
 instance Buildable LShare where
     build _ = "share ¯\\_(ツ)_/¯"

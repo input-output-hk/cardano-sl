@@ -117,7 +117,7 @@ function node_cmd {
     stats="--stats"
   fi
 
-  echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $reb --vss-genesis $i"
+  echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i --memory-mode +RTS -N -pa -A6G -qg -RTS $reb --vss-genesis $i"
 
   $dht_cmd
 

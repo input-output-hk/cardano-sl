@@ -272,6 +272,7 @@ executable cardano-analyzer
 executable cardano-wallet
   hs-source-dirs:      src/wallet
   main-is:             Main.hs
+  other-modules:       WalletOptions
   build-depends:       base
                      , data-default
                      , cardano-sl

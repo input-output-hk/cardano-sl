@@ -378,13 +378,15 @@ executable cardano-smart-generator
                      , cardano-sl
                      , filepath
                      , formatting
-                     , log-warper >= 0.1.0
                      , lens
+                     , lifted-async
+                     , log-warper >= 0.1.0
                      , optparse-applicative
                      , parsec
                      , random
                      , random-shuffle
                      , serokell-util
+                     , stm
                      , text
                      , time
                      , time-warp

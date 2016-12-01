@@ -16,13 +16,12 @@ import           Pos.DHT                (DHTNode)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 
 data GenOptions = GenOptions
-    { goGenesisIdx         :: !Word       -- ^ Index in genesis key pairs.
+    { goGenesisIdxs        :: ![Word]       -- ^ Index in genesis key pairs.
     -- , goRemoteAddr  :: !NetworkAddress -- ^ Remote node address
     , goDHTPeers           :: ![DHTNode]  -- ^ Initial DHT nodes
     , goRoundPeriodRate    :: !Int        -- ^ R, where duration of one round is ((k + P) * (R + 1)) * slotDuration
     , goRoundNumber        :: !Int        -- ^ Number of rounds
     , goRoundPause         :: !Double     -- ^ Pause between rounds (in seconds)
-    , goTxFrom             :: !Int        -- ^ Start from UTXO transaction #x
     , goInitBalance        :: !Int        -- ^ Total coins in init utxo per address
     , goInitTps            :: !Double     -- ^ Start TPS rate (it adjusts over time)
     , goTpsIncreaseStep    :: !Double     -- ^ When system is stable, increase TPS in next round by this value
@@ -39,11 +38,11 @@ data GenOptions = GenOptions
 
 optionsParser :: Parser GenOptions
 optionsParser = GenOptions
-    <$> option auto
+    <$> many (option auto
             (short 'i'
           <> long "index"
           <> metavar "INT"
-          <> help "Index in list of genesis key pairs")
+          <> help "Index in list of genesis key pairs"))
     -- <*> option (fromParsec addrParser)
     --         (long "peer"
     --       <> metavar "HOST:PORT"
@@ -66,10 +65,6 @@ optionsParser = GenOptions
           <> long "round-pause"
           <> value 0
           <> help "Pause between rounds (in seconds)")
-    <*> option auto
-            (long "tx-from-n"
-          <> value 0
-          <> help "From which transaction in utxo to start")
     <*> option auto
             (long "init-money"
           <> help "How many coins node has in the beginning")

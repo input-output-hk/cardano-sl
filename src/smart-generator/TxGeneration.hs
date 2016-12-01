@@ -41,12 +41,11 @@ genChain secretKey addr txInHash txInIndex =
         resultTransaction = Tx {..}
     in resultTransaction : genChain secretKey addr (hash resultTransaction) 0
 
-initTransaction :: GenOptions -> Tx
-initTransaction GenOptions {..} =
+initTransaction :: GenOptions -> Int -> Tx
+initTransaction GenOptions {..} i =
     let maxTps = goInitTps + goTpsIncreaseStep * fromIntegral goRoundNumber
         n' = tpsTxBound maxTps goPropThreshold
         n = min n' goInitBalance
-        i = fromIntegral goGenesisIdx
         txOutAddress = genesisAddresses !! i
         secretKey = genesisSecretKeys !! i
         txOutValue = 1

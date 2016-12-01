@@ -506,7 +506,8 @@ removeIth i xs =
     let (l, (_:r)) = splitAt i xs
     in l ++ r
 
--- Find a number of blocks to rollback. Restrictions
+-- Find a number of blocks to rollback on, given restrictions on max
+-- difficulty and block X that we want to be parent.
 findRollback
     :: forall ssc. Ssc ssc
     => ChainDifficulty -> HeaderHash ssc -> Query ssc (Maybe Word)

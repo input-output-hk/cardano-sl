@@ -79,11 +79,11 @@ serveImpl application port =
 -- Servant infrastructure
 ----------------------------------------------------------------------------
 
-type WebHandler ssc = ContextHolder (DBHolder ssc TimedIO)
+type WebHandler ssc = ContextHolder ssc (DBHolder ssc TimedIO)
 
 convertHandler
     :: forall ssc a.
-       NodeContext -> St.NodeState ssc -> WebHandler ssc a -> Handler a
+       NodeContext ssc -> St.NodeState ssc -> WebHandler ssc a -> Handler a
 convertHandler nc ns handler =
     liftIO (runTimedIO (runDBHolder ns (runContextHolder nc handler))) `Catch.catches`
     excHandlers

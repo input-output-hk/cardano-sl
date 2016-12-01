@@ -100,10 +100,12 @@ library
                         Pos.Ssc.GodTossing.Listener.Listeners
                         Pos.Ssc.GodTossing.LocalData.LocalData
                         Pos.Ssc.GodTossing.LocalData.Types
+                        Pos.Ssc.GodTossing.SecretStorage
+                        Pos.Ssc.GodTossing.SecretStorage.Acidic
+                        Pos.Ssc.GodTossing.SecretStorage.State
+                        Pos.Ssc.GodTossing.SecretStorage.Types
                         Pos.Ssc.GodTossing.Storage.Storage
                         Pos.Ssc.GodTossing.Storage.Types
-                        Pos.Ssc.GodTossing.Worker.SecretStorage
-                        Pos.Ssc.GodTossing.Worker.Types
                         Pos.Ssc.GodTossing.Worker.Workers
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Types.Base

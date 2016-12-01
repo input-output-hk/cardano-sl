@@ -65,7 +65,7 @@ import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..
                                               stopDHTInstance)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
-import           Pos.Ssc.Class               (SscConstraint)
+import           Pos.Ssc.Class               (SscConstraint, sscCreateNodeContext)
 import           Pos.State                   (NodeState, closeState, openMemState,
                                               openState)
 import           Pos.State.Storage           (storageFromUtxo)
@@ -156,7 +156,7 @@ runRawRealMode inst np@NodeParams {..} listeners action = do
                 whenM ((npRebuildDb &&) <$> doesDirectoryExist fp) $
                 removeDirectoryRecursive fp
         whenJust npDbPath rebuild
-        runTimed lpRunnerTag . runCH np $
+        runTimed lpRunnerTag . runCH @ssc np $
             maybe
                 (openMemState mStorage)
                 (openState mStorage False)
@@ -227,14 +227,16 @@ runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
       , kdcDHTInstance = dhtInstance
       }
 
-runCH :: MonadIO m => NodeParams -> ContextHolder m a -> m a
+runCH :: forall ssc m a . (MonadIO m, SscConstraint ssc)
+      => NodeParams -> ContextHolder ssc m a -> m a
 runCH NodeParams {..} act =
     flip runContextHolder act . ctx =<<
     liftIO
-        ((,) <$> maybe (pure Nothing) (fmap Just . newMVar) npJLFile <*>
-         newTVarIO npSscEnabled)
+        ((,,) <$> sscCreateNodeContext @ssc npDbPath
+              <*> maybe (pure Nothing) (fmap Just . newMVar) npJLFile
+              <*> newTVarIO npSscEnabled)
   where
-    ctx (jlFile, participateSscTVar) =
+    ctx (sscNodeContext, jlFile, participateSscTVar) =
         NodeContext
         { ncSystemStart = npSystemStart
         , ncSecretKey = npSecretKey
@@ -243,6 +245,7 @@ runCH NodeParams {..} act =
         , ncJLFile = jlFile
         , ncDbPath = npDbPath
         , ncParticipateSsc = participateSscTVar
+        , ncSscContext = sscNodeContext
         }
 
 runTimed :: LoggerName -> Dialog BinaryP Transfer a -> IO a

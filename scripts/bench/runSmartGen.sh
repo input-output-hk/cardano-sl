@@ -16,4 +16,4 @@ if [[ "$SSC_ALGO" != "" ]]; then
 fi
 
 $(find_binary cardano-smart-generator) $(peer_config $i) $(logs smartgen$i.log) \
-                                       --flat-distr "(3, 100000)"  $ssc_algo -i $i $@
+                                       --flat-distr "(3, 100000)" $ssc_algo -i $i $@

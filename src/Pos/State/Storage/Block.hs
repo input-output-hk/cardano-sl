@@ -299,15 +299,13 @@ blkProcessBlock currentSlotId blk hardChecks = do
                 ]
     guardVerRes verRes blkProcessBlockDo
   where
+    -- At this point we know that block is good in isolation.
+    -- Our first attempt is to continue the best chain and finish.
     blkProcessBlockDo
         :: Ssc ssc
         => Update ssc (ProcessBlockRes ssc)
-    blkProcessBlockDo
-                          -- At this point we know that block is good in isolation.
-                          -- Our first attempt is to continue the best chain and finish.
-     = do
-        ifM
-            (readerToState $ canContinueBestChain blk)
+    blkProcessBlockDo =
+        ifM (readerToState $ canContinueBestChain blk)
             -- If it's possible, we just do it.
             (guardVerResSt hardChecks $ continueBestChain blk)
             -- Our next attempt is to start alternative chain or continue

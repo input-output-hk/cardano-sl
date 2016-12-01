@@ -99,6 +99,7 @@ library
                         Pos.Ssc.GodTossing.Listener.Listeners
                         Pos.Ssc.GodTossing.LocalData.LocalData
                         Pos.Ssc.GodTossing.LocalData.Types
+                        Pos.Ssc.GodTossing.SecretStorage
                         Pos.Ssc.GodTossing.SecretStorage.Acidic
                         Pos.Ssc.GodTossing.SecretStorage.State
                         Pos.Ssc.GodTossing.SecretStorage.Types

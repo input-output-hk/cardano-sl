@@ -13,37 +13,39 @@
 
 module Pos.Statistics.MonadStats
        ( MonadStats (..)
-       , NoStatsT
-       , getNoStatsT
-       , StatsT
-       , getStatsT
+       , NoStatsT (..)
+       , StatsT (..)
        ) where
 
-import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Except     (ExceptT)
-import           Control.Monad.Morph      (hoist)
-import           Control.Monad.Trans      (MonadTrans)
-import           Control.TimeWarp.Rpc     (MonadDialog, MonadResponse (..),
-                                           MonadTransfer (..), hoistRespCond)
-import           Control.TimeWarp.Timed   (MonadTimed (..), ThreadId)
-import qualified Data.Binary              as Binary
-import           Data.Maybe               (fromMaybe)
-import           Focus                    (Decision (Remove), alterM)
-import           Serokell.Util            (show')
-import qualified STMContainers.Map        as SM
-import           System.IO.Unsafe         (unsafePerformIO)
-import           System.Wlog              (CanLog, HasLoggerName)
+import           Control.Monad.Base          (MonadBase (..))
+import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Except        (ExceptT)
+import           Control.Monad.Morph         (hoist)
+import           Control.Monad.Trans         (MonadTrans)
+import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
+                                              MonadTransControl (..), StM,
+                                              defaultLiftBaseWith, defaultRestoreM)
+import           Control.TimeWarp.Rpc        (MonadDialog, MonadResponse (..),
+                                              MonadTransfer (..), hoistRespCond)
+import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
+import qualified Data.Binary                 as Binary
+import           Data.Maybe                  (fromMaybe)
+import           Focus                       (Decision (Remove), alterM)
+import           Serokell.Util               (show')
+import qualified STMContainers.Map           as SM
+import           System.IO.Unsafe            (unsafePerformIO)
+import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.DHT                  (DHTResponseT, MonadDHT, MonadMessageDHT (..),
-                                           WithDefaultMsgHeader)
-import           Pos.DHT.Real             (KademliaDHT)
-import           Pos.Slotting             (MonadSlots (..))
-import           Pos.Ssc.Class.LocalData  (MonadSscLD (..))
-import           Pos.State                (MonadDB)
-import           Pos.Statistics.StatEntry (StatLabel (..))
-import           Pos.Types                (Timestamp (..))
-import           Pos.Util.JsonLog         (MonadJL (..))
+import           Pos.DHT                     (DHTResponseT, MonadDHT,
+                                              MonadMessageDHT (..), WithDefaultMsgHeader)
+import           Pos.DHT.Real                (KademliaDHT)
+import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Ssc.Class.LocalData     (MonadSscLD (..))
+import           Pos.State                   (MonadDB)
+import           Pos.Statistics.StatEntry    (StatLabel (..))
+import           Pos.Types                   (Timestamp (..))
+import           Pos.Util.JsonLog            (MonadJL (..))
 
 
 type Stats l = Maybe [(Timestamp, EntryType l)]
@@ -85,6 +87,19 @@ newtype NoStatsT m a = NoStatsT
                MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader,
                MonadJL, CanLog)
 
+instance MonadBase IO m => MonadBase IO (NoStatsT m) where
+    liftBase = lift . liftBase
+
+instance MonadTransControl NoStatsT where
+    type StT NoStatsT a = a
+    liftWith f = NoStatsT $ f $ getNoStatsT
+    restoreT = NoStatsT
+
+instance MonadBaseControl IO m => MonadBaseControl IO (NoStatsT m) where
+    type StM (NoStatsT m) a = ComposeSt NoStatsT m a
+    liftBaseWith     = defaultLiftBaseWith
+    restoreM         = defaultRestoreM
+
 instance MonadTransfer m => MonadTransfer (NoStatsT m) where
     sendRaw addr p = NoStatsT $ sendRaw addr (hoist getNoStatsT p)
     listenRaw binding sink = NoStatsT $ fmap NoStatsT $ listenRaw binding (hoistRespCond getNoStatsT sink)
@@ -116,6 +131,19 @@ newtype StatsT m a = StatsT
                MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog p,
                MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader,
                MonadJL, CanLog)
+
+instance MonadBase IO m => MonadBase IO (StatsT m) where
+    liftBase = lift . liftBase
+
+instance MonadTransControl StatsT where
+    type StT StatsT a = a
+    liftWith f = StatsT $ f $ getStatsT
+    restoreT = StatsT
+
+instance MonadBaseControl IO m => MonadBaseControl IO (StatsT m) where
+    type StM (StatsT m) a = ComposeSt StatsT m a
+    liftBaseWith     = defaultLiftBaseWith
+    restoreM         = defaultRestoreM
 
 instance MonadTransfer m => MonadTransfer (StatsT m) where
     sendRaw addr p = StatsT $ sendRaw addr (hoist getStatsT p)

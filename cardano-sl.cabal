@@ -65,6 +65,7 @@ library
                         Pos.Util
                         Pos.Util.JsonLog
                         Pos.Web
+                        Pos.Wallet.Web
                         Pos.Worker
                         Pos.WorkMode
   other-modules:        Pos.Communication.Methods
@@ -117,6 +118,8 @@ library
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
+                        Pos.Wallet.Web.Api
+                        Pos.Wallet.Web.Server
                         Pos.Web.Api
                         Pos.Web.Server
                         Pos.Web.Types

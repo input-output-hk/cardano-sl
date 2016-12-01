@@ -146,10 +146,10 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         let startMeasurementsT =
                 beginT + fromIntegral (phaseDurationMs `div` ms 1)
 
-        let sendThread bambooPool =
+        let sendThread bambooPool = do
+              logInfo $ sformat ("CURRENT TXNUM: "%int) txNum
               forM_ [0 .. txNum - 1] $ \(idx :: Int) -> do
                   preStartT <- getPosixMs
-                  logInfo $ sformat ("CURRENT TXNUM: "%int) txNum
                   -- prevent periods longer than we expected
                   unless (preStartT - beginT > round (roundDurationSec * 1000)) $ do
                       startT <- getPosixMs

@@ -31,7 +31,7 @@ import           GenOptions             (GenOptions (..))
 
 tpsTxBound :: Double -> Int -> Int
 tpsTxBound tps propThreshold =
-    round tps * (k + propThreshold) * fromIntegral (slotDuration `div` sec 1)
+    round $ tps * fromIntegral (k + propThreshold) * fromIntegral (slotDuration `div` sec 1)
 
 genChain :: SecretKey -> Address -> TxId -> Word32 -> [Tx]
 genChain secretKey addr txInHash txInIndex =
@@ -44,7 +44,7 @@ genChain secretKey addr txInHash txInIndex =
 initTransaction :: GenOptions -> Int -> Tx
 initTransaction GenOptions {..} i =
     let maxTps = goInitTps + goTpsIncreaseStep * fromIntegral goRoundNumber
-        n' = tpsTxBound maxTps goPropThreshold
+        n' = tpsTxBound (maxTps / fromIntegral (length goGenesisIdxs)) goPropThreshold
         n = min n' goInitBalance
         txOutAddress = genesisAddresses !! i
         secretKey = genesisSecretKeys !! i

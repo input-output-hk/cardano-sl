@@ -187,10 +187,10 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         let globalTime, realTPS :: Double
             globalTime = (fromIntegral (finishT - startMeasurementsT)) / 1000
             realTPS = (fromIntegral realTxNumVal) / globalTime
-            (newTPS, newStep) = if realTPS >= goTPS - 5
-                                then (goTPS + increaseStep, increaseStep)
-                                else if realTPS >= goTPS * 0.8
-                                     then (goTPS, increaseStep)
+            (newTPS, newStep) = if realTPS >= goTPS' - 5
+                                then (goTPS' + increaseStep, increaseStep)
+                                else if realTPS >= goTPS' * 0.8
+                                     then (goTPS', increaseStep)
                                      else (realTPS, increaseStep / 2)
 
         putText "----------------------------------------"
@@ -199,7 +199,7 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
 
         -- We collect tables of really generated tps
         liftIO $ appendFile (logsFilePrefix </> tpsCsvFile) $
-            tpsCsvFormat (globalTime, goTPS, realTPS)
+            tpsCsvFormat (globalTime, (goTPS, length bambooPools), realTPS)
 
         -- Wait for 1 phase (to get all the last sent transactions)
         logInfo "Pausing transaction spawning for 1 phase"

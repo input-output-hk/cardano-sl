@@ -91,7 +91,7 @@ verifyKeyIsPresent (SmallHashMap hm1) (SmallHashMap hm2) =
             let isPresentInFirstMap = HM.member pk hm1 && (not $ HM.member pk hm2)
                 isPresentInDiffMap = HM.member pk diffMap
             in (not isPresentInFirstMap) || isPresentInDiffMap -- ((not p) || q) <=> (p => q)
-    in and $ fmap checkKeyIsPresent diffKeys
+    in all checkKeyIsPresent diffKeys
 
 -- | This test does the following:
 -- Given two double hashmaps and their difference, hm1, hm2, and diffMap, the
@@ -100,6 +100,10 @@ verifyKeyIsPresent (SmallHashMap hm1) (SmallHashMap hm2) =
 -- maps in hm1 and hm2 is not empty. If there is any key for which this occurs,
 -- it is checked that the sum of the sizes of all inner hashmaps in hm1 is
 -- strictly greater than those in diffMap.
+--
+-- In logical terms:
+-- ∃  k : k ∈ hm1 ⋀ k ∈ hm2 ⋀ (hm1 ! k ⋂ hm2 ! k ≠ ∅) ⇒
+-- Σ (| v1 |, v1 ∈ elems(hm1)) > Σ (| v |, v ∈ elems(diffMap))
 verifyDiffMapIsSmaller
     :: SmallHashMap
     -> SmallHashMap

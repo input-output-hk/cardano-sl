@@ -46,16 +46,17 @@ import           Universum
 import           Pos.Constants                  (k)
 import           Pos.Crypto                     (LShare, LVssPublicKey, PublicKey, Secret,
                                                  SecretKey, SecureRandom (..),
-                                                 Signed (..), Threshold, genSharedSecret,
-                                                 getDhSecret, secretToDhSecret, sign,
-                                                 verify, verifyEncShare,
-                                                 verifySecretProof, verifyShare)
+                                                 Signed (..), Threshold, addressHash,
+                                                 genSharedSecret, getDhSecret,
+                                                 secretToDhSecret, sign, verify,
+                                                 verifyEncShare, verifySecretProof,
+                                                 verifyShare)
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap,
                                                  Opening (..), SignedCommitment,
-                                                 VssCertificate, VssCertificatesMap)
+                                                 VssCertificate (..), VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..))
-import           Pos.Types.Types                (EpochIndex, LocalSlotIndex,
+import           Pos.Types.Types                (Address (..), EpochIndex, LocalSlotIndex,
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), headerSlot)
 import           Pos.Util                       (deserializeM, diffDoubleMap, serialize)
@@ -111,17 +112,17 @@ isSharesId = isSharesIdx . siSlot
 inLastKSlotsId :: SlotId -> Bool
 inLastKSlotsId SlotId{..} = siSlot >= 5 * k
 
-hasCommitment :: PublicKey -> GtGlobalState -> Bool
-hasCommitment pk = HM.member pk . _gsCommitments
+hasCommitment :: Address -> GtGlobalState -> Bool
+hasCommitment addr = HM.member addr . _gsCommitments
 
-hasOpening :: PublicKey -> GtGlobalState -> Bool
-hasOpening pk = HM.member pk . _gsOpenings
+hasOpening :: Address -> GtGlobalState -> Bool
+hasOpening addr = HM.member addr . _gsOpenings
 
-hasShares :: PublicKey -> GtGlobalState -> Bool
-hasShares pk = HM.member pk . _gsShares
+hasShares :: Address -> GtGlobalState -> Bool
+hasShares addr = HM.member addr . _gsShares
 
-hasVssCertificate :: PublicKey -> GtGlobalState -> Bool
-hasVssCertificate pk = HM.member pk . _gsVssCertificates
+hasVssCertificate :: Address -> GtGlobalState -> Bool
+hasVssCertificate addr = HM.member addr . _gsVssCertificates
 
 ----------------------------------------------------------------------------
 -- Verifications for GodTossing.Types.Base
@@ -158,20 +159,20 @@ verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
       <*> deserializeM commProof
 
 -- | Check that the VSS certificate is signed properly
-checkCert
-    :: (PublicKey, VssCertificate)
-    -> Bool
-checkCert (pk, cert) = verify pk (signedValue cert) (signedSig cert)
+checkCert :: (Address, VssCertificate) -> Bool
+checkCert (PubKeyAddress {..}, VssCertificate {..}) =
+    addressHash vcSigningKey == addrHash &&
+    verify vcSigningKey vcVssKey vcSignature
 
 -- | Check that the decrypted share matches the encrypted share in the
 -- commitment
-checkShare :: (SetContainer set, ContainerKey set ~ PublicKey)
+checkShare :: (SetContainer set, ContainerKey set ~ Address)
            => CommitmentsMap
-           -> set --set of opening's PK
+           -> set --set of opening's addresses
            -> VssCertificatesMap
-           -> (PublicKey, PublicKey, LShare)
+           -> (Address, Address, LShare)
            -> Bool
-checkShare globalCommitments globalOpeningsPK globalCertificates (pkTo, pkFrom, share) =
+checkShare globalCommitments globalOpeningsPK globalCertificates (addrTo, addrFrom, share) =
     fromMaybe False $ case tuple of
       Just (eS, pk, s) -> verifyShare
                             <$> deserializeM eS
@@ -180,24 +181,24 @@ checkShare globalCommitments globalOpeningsPK globalCertificates (pkTo, pkFrom, 
       _ -> return False
   where
     tuple = do
-        guard $ notMember pkFrom globalOpeningsPK
-        (comm, _) <- HM.lookup pkFrom globalCommitments
-        vssKey <- signedValue <$> HM.lookup pkTo globalCertificates
+        guard $ notMember addrFrom globalOpeningsPK
+        (comm, _) <- HM.lookup addrFrom globalCommitments
+        vssKey <- vcVssKey <$> HM.lookup addrTo globalCertificates
         encShare <- HM.lookup vssKey (commShares comm)
         return (encShare, vssKey, share)
 
 -- Apply checkShare to all shares in map.
-checkShares :: (SetContainer set, ContainerKey set ~ PublicKey)
+checkShares :: (SetContainer set, ContainerKey set ~ Address)
             => CommitmentsMap
             -> set --set of opening's PK. TODO Should we add phantom type for more typesafety?
             -> VssCertificatesMap
-            -> PublicKey
-            -> HashMap PublicKey LShare
+            -> Address
+            -> HashMap Address LShare
             -> Bool
-checkShares globalCommitments globalOpeningsPK globalCertificates pkTo shares =
-    let listShares :: [(PublicKey, PublicKey, LShare)]
+checkShares globalCommitments globalOpeningsPK globalCertificates addrTo shares =
+    let listShares :: [(Address, Address, LShare)]
         listShares = map convert $ HM.toList shares
-        convert (pkFrom, share) = (pkTo, pkFrom, share)
+        convert (addrFrom, share) = (addrTo, addrFrom, share)
     in all
            (checkShare globalCommitments globalOpeningsPK globalCertificates)
            listShares
@@ -205,9 +206,9 @@ checkShares globalCommitments globalOpeningsPK globalCertificates pkTo shares =
 -- | Check that the secret revealed in the opening matches the secret proof
 -- in the commitment
 checkOpeningMatchesCommitment
-    :: CommitmentsMap -> (PublicKey, Opening) -> Bool
-checkOpeningMatchesCommitment globalCommitments (pk, opening) =
-      case HM.lookup pk globalCommitments of
+    :: CommitmentsMap -> (Address, Opening) -> Bool
+checkOpeningMatchesCommitment globalCommitments (addr, opening) =
+      case HM.lookup addr globalCommitments of
         Nothing        -> False
         Just (comm, _) -> verifyOpening comm opening
 

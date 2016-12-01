@@ -2,6 +2,7 @@
 
 module Pos.Crypto.Address
        ( AddressHash
+       , unsafeAddressHash
        , addressHash
        ) where
 
@@ -20,5 +21,8 @@ firstHash = hashlazy . Binary.encode
 secondHash :: Digest SHA3_256 -> Digest Blake2s_224
 secondHash = hash
 
+unsafeAddressHash :: Binary a => a -> AddressHash b
+unsafeAddressHash = AbstractHash . secondHash . firstHash
+
 addressHash :: Binary a => a -> AddressHash a
-addressHash = AbstractHash . secondHash . firstHash
+addressHash = unsafeAddressHash

@@ -20,8 +20,9 @@ import           Formatting          (build, int, sformat, (%))
 import           Serokell.Util       (VerificationRes, verifyGeneric)
 import           Universum
 
-import           Pos.Crypto          (hash, verify)
-import           Pos.Types.Types     (Address (..), Tx (..), TxIn (..), TxOut (..), coinF)
+import           Pos.Crypto          (addressHash, hash, verify)
+import           Pos.Types.Types     (Address (..), Redeemer (..), Tx (..), TxIn (..),
+                                      TxOut (..), Validator (..), coinF)
 
 -- | Verify that Tx itself is correct. Most likely you will also want
 -- to verify that inputs are legal, signed properly and have enough coins.
@@ -74,13 +75,20 @@ verifyTx inputResolver tx@Tx {..} =
     inputPredicates i Nothing =
         [(False, sformat ("input #" %int% " is not an unspent output: ") i)]
     inputPredicates i (Just (txIn@TxIn{..}, TxOut{..})) =
-        [ ( verify (getAddress txOutAddress)
-                   (txInHash, txInIndex, txOutputs)
-                   txInSig
-          , sformat ("input #"%int%" is not signed properly: ("%build%")")
-                    i txIn
+        [ ( checkAddrHash txOutAddress txInValidator
+          , sformat ("input #"%int%" doesn't match address "
+                     %build%" of corresponding output: ("%build%")") i txOutAddress txIn
+          )
+        , ( validateTxIn txIn
+          , sformat ("input #"%int%" is not signed properly: ("%build%")") i txIn
           )
         ]
+
+    checkAddrHash addr (PubKeyValidator pk) = addrHash addr == addressHash pk
+    validateTxIn TxIn{..} =
+        let pk = getValidator txInValidator
+            sig = getRedeemer txInRedeemer
+        in verify pk (txInHash, txInIndex, txOutputs) sig
 
 data TopsortState = TopsortState
     { _tsVisited     :: HS.HashSet Tx

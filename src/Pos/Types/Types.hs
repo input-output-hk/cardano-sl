@@ -29,6 +29,7 @@ module Pos.Types.Types
        , epochOrSlot
 
        , Address (..)
+       , makePubKeyAddress
        , addressF
 
        , TxSig
@@ -135,7 +136,7 @@ import           Pos.Crypto             (Hash, PublicKey, Signature, hash, hashH
                                          shortHashF)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Ssc.Class.Types    (Ssc (..))
-import           Pos.Types.Address      (Address (..), addressF)
+import           Pos.Types.Address      (Address (..), addressF, makePubKeyAddress)
 import           Pos.Util               (Color (Magenta), colorize)
 
 ----------------------------------------------------------------------------
@@ -345,7 +346,7 @@ instance Monoid SharedSeed where
     mconcat = foldl' mappend mempty
 
 -- | 'NonEmpty' list of slot leaders.
-type SlotLeaders = NonEmpty PublicKey
+type SlotLeaders = NonEmpty Address
 
 ----------------------------------------------------------------------------
 -- GenericBlock
@@ -865,6 +866,8 @@ deriveSafeCopySimple 0 'base ''LocalSlotIndex
 deriveSafeCopySimple 0 'base ''SlotId
 deriveSafeCopySimple 0 'base ''Coin
 deriveSafeCopySimple 0 'base ''Address
+deriveSafeCopySimple 0 'base ''Validator
+deriveSafeCopySimple 0 'base ''Redeemer
 deriveSafeCopySimple 0 'base ''TxIn
 deriveSafeCopySimple 0 'base ''TxOut
 deriveSafeCopySimple 0 'base ''Tx

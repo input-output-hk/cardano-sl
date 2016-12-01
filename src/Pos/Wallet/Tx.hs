@@ -7,6 +7,7 @@ module Pos.Wallet.Tx
 import           Universum
 
 import           Pos.Crypto (PublicKey, SecretKey)
+import           Pos.Crypto (sign)
 import           Pos.Types  (Address, Coin, Redeemer (..), Tx (..), TxId, TxIn (..),
                              TxOut (..), Validator (..))
 
@@ -22,5 +23,6 @@ makePubKeyTx pk sk inputs outputs = Tx {..}
         makeTxIn (txInHash, txInIndex) =
             TxIn { txInValidator = PubKeyValidator pk
                  , txInRedeemer = PubKeyRedeemer $ sign sk (txInHash, txInIndex, txOutputs)
+                 , ..
                  }
 

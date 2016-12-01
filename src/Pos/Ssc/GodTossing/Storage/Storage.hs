@@ -54,10 +54,10 @@ import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types    (GtGlobalState (..), GtPayload (..),
                                                     _gpCertificates)
 import           Pos.State.Storage.Types           (AltChain)
-import           Pos.Types                         (Address (getAddress), Block,
-                                                    EpochIndex, SlotId (..), SlotLeaders,
-                                                    Utxo, blockMpc, blockSlot, blockSlot,
-                                                    gbHeader, txOutAddress)
+import           Pos.Types                         (Block, EpochIndex, SlotId (..),
+                                                    SlotLeaders, Utxo, blockMpc,
+                                                    blockSlot, blockSlot, gbHeader,
+                                                    txOutAddress)
 import           Pos.Util                          (magnify', readerToState, zoom',
                                                     _neHead)
 
@@ -129,7 +129,7 @@ getParticipants depth utxo = do
     return $
         do keymap <- mKeymap
            let stakeholders =
-                   nub $ map (getAddress . txOutAddress) (toList utxo)
+                   nub $ map txOutAddress (toList utxo)
            NE.nonEmpty $
                map signedValue $ mapMaybe (`HM.lookup` keymap) stakeholders
 
@@ -146,7 +146,7 @@ calculateLeaders _ utxo threshold = do --GodTossing doesn't use epoch, but NistB
                             <*> view (lastVer . dsGlobalShares)
     return $ case mbSeed of
         Left e     -> Left e
-        Right seed -> Right $ fmap getAddress $ followTheSatoshi seed utxo
+        Right seed -> Right $ followTheSatoshi seed utxo
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.

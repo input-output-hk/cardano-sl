@@ -65,6 +65,7 @@ library
                         Pos.Types.Utxo
                         Pos.Util
                         Pos.Util.JsonLog
+                        Pos.Wallet
                         Pos.Worker
                         Pos.WorkMode
   other-modules:        Pos.Communication.Methods
@@ -81,6 +82,7 @@ library
                         Pos.Communication.Util
                         Pos.CompileConfig.Parser
                         Pos.CompileConfig.Type
+                        Pos.Crypto.Address
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
@@ -115,6 +117,7 @@ library
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
+                        Pos.Wallet.Tx
                         Pos.Worker.Block
                         Pos.Worker.Stats
                         Pos.Worker.Tx

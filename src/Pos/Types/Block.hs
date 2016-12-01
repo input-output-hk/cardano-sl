@@ -259,7 +259,7 @@ verifyHeader VerifyHeaderParams {..} h =
         case h of
             Left _ -> []
             Right mainHeader ->
-                [ ( (Just (mainHeader ^. headerLeaderKey) ==
+                [ ( (Just (makePubKeyAddress $ mainHeader ^. headerLeaderKey) ==
                      leaders ^?
                      ix (fromIntegral $ siSlot $ mainHeader ^. headerSlot))
                   , "block's leader is different from expected one")

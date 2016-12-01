@@ -20,19 +20,22 @@ import qualified Data.ByteString            as BS (pack)
 import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           Pos.Constants              (epochSlots, sharedSeedLength)
-import           Pos.Crypto                 (LShare, PublicKey, SecretKey, hash, sign, toPublic)
+import           Pos.Crypto                 (LShare, PublicKey, SecretKey, hash, sign,
+                                             toPublic)
 import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              Coin (..), EpochIndex (..),
-                                             LocalSlotIndex (..), SharedSeed (..),
-                                             SlotId (..), Tx (..), TxIn (..), TxOut (..))
+                                             LocalSlotIndex (..), Redeemer (..),
+                                             SharedSeed (..), SlotId (..), Tx (..),
+                                             TxIn (..), TxOut (..), Validator (..),
+                                             makePubKeyAddress)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
                                              NonZero (..), choose, scale, vector)
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
-import           Pos.Crypto.Arbitrary       ()
+import           Pos.Crypto.Arbitrary       (KeyPair (..))
 import           Pos.Types.Arbitrary.Unsafe ()
 
 makeSmall :: Gen a -> Gen a
@@ -52,7 +55,9 @@ makeSmall = scale f
 -- Arbitrary core types
 ----------------------------------------------------------------------------
 
-deriving instance Arbitrary Address
+instance Arbitrary Address where
+    arbitrary = makePubKeyAddress <$> arbitrary
+
 deriving instance Arbitrary ChainDifficulty
 
 derive makeArbitrary ''SlotId
@@ -76,11 +81,12 @@ instance Arbitrary LocalSlotIndex where
 
 instance Arbitrary TxIn where
     arbitrary = do
-        txId <- arbitrary
-        txIdx <- arbitrary
-        sk <- arbitrary
-        let signature = sign sk (txId, txIdx, [])
-        return $ TxIn txId txIdx signature
+        txInHash <- arbitrary
+        txInIndex <- arbitrary
+        KeyPair pk sk <- arbitrary
+        let txInValidator = PubKeyValidator pk
+            txInRedeemer = PubKeyRedeemer $ sign sk (txInHash, txInIndex, [])
+        return TxIn {..}
 
 -- | Arbitrary transactions generated from this instance will only be valid
 -- with regards to 'verifyTxAlone'
@@ -111,21 +117,22 @@ buildProperTx
     :: [(Tx, SecretKey, SecretKey, Coin)]
     -> (Coin -> Coin, Coin -> Coin)
     -> Gen [(Tx, TxIn, TxOut)]
-buildProperTx triplesList (inCoin, outCoin)= do
-        let fun (Tx txIn txOut, fromSk, toSk, c) =
-                let inC = inCoin c
-                    outC = outCoin c
-                    txToBeSpent = Tx txIn $ (makeTxOutput fromSk inC) : txOut
-                in (txToBeSpent, fromSk, makeTxOutput toSk outC)
-            txList = fmap fun triplesList
-            thisTxOutputs = fmap (view _3) txList
-            newTx (tx, fromSk, txOutput) =
-                let txHash = hash tx
-                    txIn = TxIn txHash 0 (sign fromSk (txHash, 0, thisTxOutputs))
-                in (tx, txIn, txOutput)
-            makeTxOutput s c = TxOut (Address $ toPublic s) c
-            goodTx = fmap newTx txList
-        return goodTx
+buildProperTx triplesList (inCoin, outCoin) = do
+    let fun (Tx txIn txOut, fromSk, toSk, c) =
+            let inC = inCoin c
+                outC = outCoin c
+                txToBeSpent = Tx txIn $ (makeTxOutput fromSk inC) : txOut
+            in (txToBeSpent, fromSk, makeTxOutput toSk outC)
+        txList = fmap fun triplesList
+        thisTxOutputs = fmap (view _3) txList
+        newTx (tx, fromSk, txOutput) =
+            let txHash = hash tx
+                txIn = TxIn txHash 0 (PubKeyValidator $ toPublic fromSk) $
+                       PubKeyRedeemer $ sign fromSk (txHash, 0, thisTxOutputs)
+            in (tx, txIn, txOutput)
+        makeTxOutput s c = TxOut (makePubKeyAddress $ toPublic s) c
+        goodTx = fmap newTx txList
+    return goodTx
 
 -- | Well-formed transaction 'Tx'.
 newtype GoodTx = GoodTx
@@ -177,7 +184,7 @@ instance Arbitrary BadSigsTx where
     arbitrary = BadSigsTx <$> do
         goodTxList <- getGoodTx <$> arbitrary
         badSig <- arbitrary
-        let addBadSig t = t {txInSig = badSig}
+        let addBadSig t = t {txInRedeemer = PubKeyRedeemer badSig}
         return $ fmap (over _2 addBadSig) goodTxList
 
 instance Arbitrary SmallBadSigsTx where

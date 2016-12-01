@@ -8,8 +8,7 @@ import           Data.Binary            (Binary (..))
 import qualified Data.Binary            as Binary
 import qualified Data.Binary.Get        as Binary (getWord32be)
 import qualified Data.Binary.Put        as Binary (putWord32be)
-import           Data.ByteString.Base58 (Alphabet, bitcoinAlphabet, decodeBase58,
-                                         encodeBase58)
+import           Data.ByteString.Base58 (Alphabet, bitcoinAlphabet, encodeBase58)
 import qualified Data.ByteString.Char8  as BSC (unpack)
 import qualified Data.ByteString.Lazy   as BSL (toStrict)
 import           Data.Digest.CRC32      (CRC32 (..))
@@ -83,4 +82,3 @@ makePubKeyAddress = PubKeyAddress curAddrVersion . addressHash
 -- | Specialized formatter for 'Address'.
 addressF :: Format r (Address -> r)
 addressF = build
-

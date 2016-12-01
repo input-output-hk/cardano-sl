@@ -102,13 +102,10 @@ txChain i = genChain $ unsafeHash addr
     where
       addr = genesisAddresses !! i
       secretKey = genesisSecretKeys !! i
+      publicKey = genesisPublicKeys !! i
       genChain txInHash =
-          let txOutValue = 1
-              txInIndex = 0
-              txOutputs = [TxOut { txOutAddress = addr, ..}]
-              txInputs = [TxIn { txInSig = sign secretKey (txInHash, txInIndex, txOutputs), .. }]
-              resultTransaction = Tx {..}
-          in resultTransaction : genChain (hash resultTransaction)
+          let tx = makePubKeyTx publicKey secretKey [(txInHash, 0)] [(addr, 1)]
+          in tx : genChain (hash tx)
 
 main :: IO ()
 main = do

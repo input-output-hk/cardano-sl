@@ -20,6 +20,7 @@ import           Pos.DHT                (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Ssc.Class          (SscConstraint)
 import           Pos.Types              (Address, Coin, Timestamp (Timestamp), Tx (..),
                                          TxId, TxIn (..), TxOut (..), txF)
+import           Pos.Wallet             (makePubKeyTx)
 import           Pos.Worker             (runWorkers)
 import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeContext,
                                          ncPublicKey)
@@ -40,14 +41,13 @@ runNode plugins = do
 -- | Construct Tx with a single input and single output and send it to
 -- the given network addresses.
 submitTx :: WorkMode ssc m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m Tx
-submitTx na (txInHash, txInIndex) (txOutAddress, txOutValue) =
+submitTx na input output =
     if null na
       then logError "No addresses to send" >> panic "submitTx failed"
       else do
+        pk <- ncPublicKey <$> getNodeContext
         sk <- ncSecretKey <$> getNodeContext
-        let txOuts = [TxOut {..}]
-            txIns = [TxIn {txInSig = sign sk (txInHash, txInIndex, txOuts), ..}]
-            tx = Tx {txInputs = txIns, txOutputs = txOuts}
+        let tx = makePubKeyTx pk sk [input] [output]
         submitTxRaw na tx
         pure tx
 

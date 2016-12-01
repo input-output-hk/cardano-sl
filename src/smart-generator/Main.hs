@@ -72,8 +72,8 @@ runSmartGen inst np@NodeParams{..} opts@GenOptions{..} =
         initTx = initTransaction opts
 
     bambooPool <- liftIO $ createBambooPool
+                  (genesisPublicKeys !! i)
                   (genesisSecretKeys !! i)
-                  (genesisAddresses !! i)
                   initTx
 
     txTimestamps <- liftIO createTxTimestamps

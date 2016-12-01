@@ -48,9 +48,15 @@ class (Typeable ssc
     type SscProof ssc
     -- | Error that can happen when calculating the seed
     type SscSeedError ssc
+    -- | Type for representation Ssc specific context in NodeContext
+    type SscNodeContext ssc
 
     -- | Create proof (for inclusion into block header) from payload
     mkSscProof :: Tagged ssc (SscPayload ssc -> SscProof ssc)
 
     -- | Remove from all data, which can make global state inconsistent
     sscFilterPayload :: SscPayload ssc -> SscGlobalState ssc -> SscPayload ssc
+
+    -- | Create SscNodeContext
+    sscCreateNodeContext :: MonadIO m => Maybe FilePath -> m (SscNodeContext ssc)
+                                          -- ^ TODO it's temporary solution, SscParams must be here

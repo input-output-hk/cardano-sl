@@ -1,13 +1,13 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies     #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Types for Shared Seed calculation.
 
 module Pos.Ssc.Class.Types
        ( Ssc(..)
        ) where
-
+import           Data.Acquire        (Acquire)
 import           Data.Binary         (Binary)
 import           Data.SafeCopy       (SafeCopy)
 import           Data.Tagged         (Tagged)
@@ -60,4 +60,4 @@ class (Typeable ssc
     sscFilterPayload :: SscPayload ssc -> SscGlobalState ssc -> SscPayload ssc
 
     -- | Create SscNodeContext
-    sscCreateNodeContext :: MonadIO m => SscParams ssc -> m (SscNodeContext ssc)
+    sscCreateNodeContext :: SscParams ssc -> Acquire (SscNodeContext ssc)

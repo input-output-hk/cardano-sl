@@ -36,6 +36,7 @@ import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, MonadDialog,
 import           Control.TimeWarp.Timed      (MonadTimed, currentTime, fork, killThread,
                                               repeatForever, runTimedIO, sec)
 
+import           Data.Acquire                (mkAcquire, withEx)
 import           Data.List                   (nub)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
@@ -64,7 +65,8 @@ import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..
                                               stopDHTInstance)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
-import           Pos.Ssc.Class               (SscConstraint, sscCreateNodeContext, SscParams)
+import           Pos.Ssc.Class               (SscConstraint, SscNodeContext, SscParams,
+                                              sscCreateNodeContext)
 import           Pos.State                   (NodeState, closeState, openMemState,
                                               openState)
 import           Pos.State.Storage           (storageFromUtxo)
@@ -142,7 +144,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = do
     let run db =
             runTimed lpRunnerTag .
             runDBHolder db .
-            runCH np sscnp .
+            withEx (sscCreateNodeContext @ssc sscnp) $ flip (runCH np) .
             runSscLDImpl .
             runKDHT inst npBaseParams listeners $
             nodeStartMsg npBaseParams >> action
@@ -229,15 +231,13 @@ runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
       , kdcDHTInstance = dhtInstance
       }
 
-runCH :: forall ssc m a . (MonadIO m, SscConstraint ssc)
-      => NodeParams -> SscParams ssc -> ContextHolder ssc m a -> m a
-runCH NodeParams {..} sscnp act =
+runCH :: MonadIO m
+      => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
+runCH NodeParams {..} sscNodeContext act =
     flip runContextHolder act . ctx =<<
-    liftIO
-        ((,) <$> sscCreateNodeContext @ssc sscnp
-              <*> maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
+    liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
   where
-    ctx (sscNodeContext, jlFile) =
+    ctx jlFile =
         NodeContext
         { ncSystemStart = npSystemStart
         , ncSecretKey = npSecretKey

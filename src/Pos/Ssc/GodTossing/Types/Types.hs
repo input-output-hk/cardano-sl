@@ -1,6 +1,7 @@
-{-# LANGUAGE DeriveGeneric   #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Some types related to GodTossing necessary for Ssc instance.
 
@@ -26,6 +27,7 @@ module Pos.Ssc.GodTossing.Types.Types
 import           Control.Concurrent.STM                  (newTVarIO)
 import qualified Control.Concurrent.STM                  as STM
 import           Control.Lens                            (makeLenses)
+import           Data.Acquire                            (Acquire, mkAcquire)
 import           Data.Binary                             (Binary)
 import qualified Data.HashMap.Strict                     as HM
 import           Data.SafeCopy                           (base, deriveSafeCopySimple)
@@ -39,6 +41,7 @@ import           Universum
 
 import           Pos.Crypto                              (Hash, VssKeyPair, hash)
 import           Pos.Ssc.GodTossing.SecretStorage.Acidic (SecretStorage,
+                                                          closeSecretStorage,
                                                           openGtSecretStorage,
                                                           openMemGtSecretStorage)
 import           Pos.Ssc.GodTossing.Types.Base           (CommitmentsMap, OpeningsMap,
@@ -209,11 +212,13 @@ data GtContext = GtContext
     , gtcSecretStorage  :: !SecretStorage
     }
 
-createGtContext :: MonadIO m => GtParams -> m GtContext
-createGtContext GtParams {..} =
-    GtContext gtpVssKeyPair <$> liftIO (newTVarIO gtpSscEnabled)
-                            <*> maybe openMemGtSecretStorage
-                                      (openGtSecretStorage gtpRebuildDb)
-                                      secretPath
+createGtContext :: GtParams -> Acquire GtContext
+createGtContext GtParams {..} = mkAcquire
+    (GtContext gtpVssKeyPair
+           <$> liftIO (newTVarIO gtpSscEnabled)
+           <*> maybe openMemGtSecretStorage
+                  (openGtSecretStorage gtpRebuildDb)
+                  secretPath)
+    (closeSecretStorage . gtcSecretStorage)
   where
     secretPath = (</> "secret") <$> gtpDbPath

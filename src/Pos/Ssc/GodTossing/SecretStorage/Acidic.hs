@@ -8,6 +8,7 @@ module Pos.Ssc.GodTossing.SecretStorage.Acidic
        (
          openGtSecretStorage
        , openMemGtSecretStorage
+       , closeSecretStorage
        , SecretStorage
        , GetS (..)
        , SetS (..)
@@ -18,12 +19,14 @@ import           Control.Monad.State                    (get, put)
 import           Data.Acid                              (Query, Update, makeAcidic)
 import           Data.Default                           (def)
 import           Serokell.AcidState                     (ExtendedState,
+                                                         closeExtendedState,
                                                          openLocalExtendedState,
                                                          openMemoryExtendedState)
 import           Universum
 
 import           Pos.Ssc.GodTossing.SecretStorage.Types (GtSecret, GtSecretStorage (..))
 import           Pos.Types                              (SlotId (..))
+
 
 getS :: Query GtSecretStorage (Maybe GtSecret)
 getS = asks _dsCurrentSecret
@@ -45,17 +48,22 @@ prepare si@SlotId {siEpoch = epochIdx} = do
 ----------------------------------------------------------------------------
 -- Acidic Secret Storage
 ----------------------------------------------------------------------------
+type SecretStorage  = ExtendedState GtSecretStorage
+
 openGtSecretStorage :: MonadIO m
                   => Bool
                   -> FilePath
-                  -> m (ExtendedState GtSecretStorage)
+                  -> m SecretStorage
 openGtSecretStorage deleteIfExists fp =
     openLocalExtendedState deleteIfExists fp def
 
 
 openMemGtSecretStorage :: MonadIO m
-             => m (ExtendedState GtSecretStorage)
+             => m SecretStorage
 openMemGtSecretStorage = openMemoryExtendedState def
+
+closeSecretStorage :: MonadIO m => SecretStorage -> m ()
+closeSecretStorage = closeExtendedState
 
 makeAcidic ''GtSecretStorage
     [
@@ -64,4 +72,3 @@ makeAcidic ''GtSecretStorage
     , 'prepare
     ]
 
-type SecretStorage  = ExtendedState GtSecretStorage

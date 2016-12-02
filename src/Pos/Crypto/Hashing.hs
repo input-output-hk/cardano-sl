@@ -55,7 +55,7 @@ instance SafeCopy (Hash a) where
 
 instance Binary (Hash a) where
     get = do
-        bs <- Binary.getByteString (256 `div` 8)
+        bs <- Binary.getByteString (512 `div` 8)
         case digestFromByteString bs of
             -- It's impossible because getByteString will already fail if
             -- there weren't enough bytes available

@@ -21,6 +21,7 @@ import           Pos.Ssc.Class          (SscConstraint)
 import           Pos.State              (initFirstSlot)
 import           Pos.Types              (Address, Coin, Timestamp (Timestamp), Tx (..),
                                          TxId, TxIn (..), TxOut (..), txF)
+import           Pos.Util               (inAssertMode)
 import           Pos.Worker             (runWorkers)
 import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeContext,
                                          ncPublicKey)
@@ -28,6 +29,7 @@ import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeCont
 -- | Run full node in any WorkMode.
 runNode :: (SscConstraint ssc, WorkMode ssc m) => [m ()] -> m ()
 runNode plugins = do
+    inAssertMode $ logInfo "Assert mode on"
     pk <- ncPublicKey <$> getNodeContext
     logInfo $ sformat ("My public key is: "%build) pk
     peers <- discoverPeers DHTFull

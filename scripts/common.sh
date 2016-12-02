@@ -118,7 +118,9 @@ function node_cmd {
     stats=" --stats "
   fi
   if [[ $i == "0" ]]; then
-    web=" --web "
+    if [[ $CARDANO_WEB != "" ]]; then
+      web=" --web "
+    fi
   fi
   if [[ "$CSL_RTS" != "" ]] && [[ $i -eq 0 ]]; then
     rts_opts="+RTS -N -pa -A6G -qg -RTS"

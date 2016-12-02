@@ -17,11 +17,11 @@ import           Data.List              (tail, (!!))
 import           Universum              hiding (head)
 
 import           Pos.Constants          (k, slotDuration)
-import           Pos.Crypto             (SecretKey, hash, sign, unsafeHash)
-import           Pos.Genesis            (genesisAddresses, genesisSecretKeys)
+import           Pos.Crypto             (PublicKey, SecretKey, hash, unsafeHash)
+import           Pos.Genesis            (genesisAddresses, genesisPublicKeys,
+                                         genesisSecretKeys)
 import           Pos.State              (isTxVerified)
-import           Pos.Types              (Address, Tx (..), TxId, TxIn (..), TxOut (..),
-                                         makePubKeyAddress)
+import           Pos.Types              (Tx (..), TxId, makePubKeyAddress)
 import           Pos.Wallet             (makePubKeyTx)
 import           Pos.WorkMode           (WorkMode)
 
@@ -36,7 +36,7 @@ tpsTxBound tps propThreshold =
     round tps * (k + propThreshold) * fromIntegral (slotDuration `div` sec 1)
 
 genChain :: PublicKey -> SecretKey -> TxId -> Word32 -> [Tx]
-genChain pk sk addr txInHash txInIndex =
+genChain pk sk txInHash txInIndex =
     let addr = makePubKeyAddress pk
         tx = makePubKeyTx pk sk [(txInHash, txInIndex)] [(addr, 1)]
     in tx : genChain pk sk (hash tx) 0

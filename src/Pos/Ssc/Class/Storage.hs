@@ -22,10 +22,11 @@ import           Data.Tagged             (Tagged)
 import           Serokell.Util.Verify    (VerificationRes)
 import           Universum
 
-import           Pos.Crypto              (LEncShare, LVssPublicKey, PublicKey, Threshold)
+import           Pos.Crypto              (LEncShare, LVssPublicKey, Threshold)
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types.Types         (EpochIndex, MainBlockHeader, SlotLeaders, Utxo)
+import           Pos.Types.Types         (Address, EpochIndex, MainBlockHeader,
+                                          SlotLeaders, Utxo)
 
 -- | Generic @SSC@ query.
 type SscUpdate ssc a =
@@ -67,7 +68,7 @@ class Ssc ssc => SscStorageClass ssc where
     sscVerifyBlocks :: Word -> AltChain ssc -> SscQuery ssc VerificationRes
 
     -- [CSL-103]: these 3 functions should be replaced with something different.
-    sscGetOurShares :: LVssPublicKey -> SscQuery ssc (HashMap PublicKey LEncShare)
+    sscGetOurShares :: LVssPublicKey -> SscQuery ssc (HashMap Address LEncShare)
     sscGetParticipants :: Word -> Utxo ->
                           SscQuery ssc (Maybe (NonEmpty LVssPublicKey))
     sscCalculateLeaders :: EpochIndex -> Utxo -> Threshold ->

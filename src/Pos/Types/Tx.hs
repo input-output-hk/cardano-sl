@@ -22,7 +22,8 @@ import           Universum
 
 import           Pos.Crypto          (addressHash, hash, verify)
 import           Pos.Types.Types     (Address (..), Redeemer (..), Tx (..), TxIn (..),
-                                      TxOut (..), Validator (..), coinF)
+                                      TxOut (..), Validator (..), checkPubKeyAddress,
+                                      coinF)
 
 -- | Verify that Tx itself is correct. Most likely you will also want
 -- to verify that inputs are legal, signed properly and have enough coins.
@@ -84,7 +85,7 @@ verifyTx inputResolver tx@Tx {..} =
           )
         ]
 
-    checkAddrHash addr (PubKeyValidator pk) = addrHash addr == addressHash pk
+    checkAddrHash addr (PubKeyValidator pk) = checkPubKeyAddress pk addr
     validateTxIn TxIn{..} =
         let pk = getValidator txInValidator
             sig = getRedeemer txInRedeemer

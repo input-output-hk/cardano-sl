@@ -23,7 +23,7 @@ import           Pos.Constants          (k, slotDuration)
 import           Pos.Crypto             (KeyPair (..), hash)
 import           Pos.DHT                (DHTNodeType (..), dhtAddr, discoverPeers)
 import           Pos.DHT.Real           (KademliaDHTInstance)
-import           Pos.Genesis            (StakeDistribution (..), genesisAddresses,
+import           Pos.Genesis            (StakeDistribution (..), genesisPublicKeys,
                                          genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
                                          NodeParams (..), bracketDHTInstance, runNode,

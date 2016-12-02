@@ -61,8 +61,8 @@ import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            dispatchEvents, getLoggerName, logWarning,
                                            runPureLog, usingLoggerName)
 
-import           Pos.Crypto               (LVssPublicKey, PublicKey, SecretKey, Share,
-                                           VssKeyPair, decryptShare, toVssPublicKey)
+import           Pos.Crypto               (LVssPublicKey, SecretKey, Share, VssKeyPair,
+                                           decryptShare, toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
 import           Pos.Ssc.Class.Types      (Ssc (SscGlobalState, SscPayload, SscStorage))
@@ -71,8 +71,8 @@ import qualified Pos.State.Acidic         as A
 import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (..),
                                            Storage, getThreshold)
 import           Pos.Statistics.StatEntry ()
-import           Pos.Types                (Block, EpochIndex, GenesisBlock, HeaderHash,
-                                           MainBlock, MainBlockHeader, SlotId,
+import           Pos.Types                (Address, Block, EpochIndex, GenesisBlock,
+                                           HeaderHash, MainBlock, MainBlockHeader, SlotId,
                                            SlotLeaders, Tx)
 import           Pos.Util                 (deserializeM, serialize)
 
@@ -240,7 +240,7 @@ getParticipants = queryDisk . A.GetParticipants
 -- decrypt.
 getOurShares
     :: QULConstraint ssc m
-    => VssKeyPair -> m (HashMap PublicKey Share)
+    => VssKeyPair -> m (HashMap Address Share)
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
     let ourPK = serialize $ toVssPublicKey ourKey

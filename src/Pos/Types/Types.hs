@@ -30,6 +30,7 @@ module Pos.Types.Types
 
        , Address (..)
        , makePubKeyAddress
+       , checkPubKeyAddress
        , addressF
 
        , TxSig
@@ -136,7 +137,8 @@ import           Pos.Crypto             (Hash, PublicKey, Signature, hash, hashH
                                          shortHashF)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Ssc.Class.Types    (Ssc (..))
-import           Pos.Types.Address      (Address (..), addressF, makePubKeyAddress)
+import           Pos.Types.Address      (Address (..), addressF, checkPubKeyAddress,
+                                         makePubKeyAddress)
 import           Pos.Util               (Color (Magenta), colorize)
 
 ----------------------------------------------------------------------------

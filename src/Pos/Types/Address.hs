@@ -2,6 +2,7 @@ module Pos.Types.Address
        ( Address (..)
        , addressF
        , makePubKeyAddress
+       , checkPubKeyAddress
        ) where
 
 import           Data.Binary            (Binary (..))
@@ -78,6 +79,10 @@ instance MessagePack Address
 -- | A function for making an address from PublicKey
 makePubKeyAddress :: PublicKey -> Address
 makePubKeyAddress = PubKeyAddress curAddrVersion . addressHash
+
+-- | Check if given `Address` is created from given `PublicKey`
+checkPubKeyAddress :: PublicKey -> Address -> Bool
+checkPubKeyAddress pk PubKeyAddress {..} = addrHash == addressHash pk
 
 -- | Specialized formatter for 'Address'.
 addressF :: Format r (Address -> r)

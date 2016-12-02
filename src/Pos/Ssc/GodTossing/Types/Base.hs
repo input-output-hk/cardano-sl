@@ -50,9 +50,9 @@ instance Binary Commitment
 -- with given public key for given epoch.
 type CommitmentSignature = Signature (EpochIndex, Commitment)
 
-type SignedCommitment = (Commitment, CommitmentSignature)
+type SignedCommitment = (PublicKey, Commitment, CommitmentSignature)
 
-type CommitmentsMap = HashMap Address (Commitment, CommitmentSignature)
+type CommitmentsMap = HashMap Address SignedCommitment
 
 -- | Opening reveals secret.
 newtype Opening = Opening

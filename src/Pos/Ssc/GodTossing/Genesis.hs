@@ -13,8 +13,7 @@ import           Universum
 
 import           Pos.Constants                 (genesisN)
 import           Pos.Crypto                    (VssKeyPair, VssPublicKey,
-                                                deterministicVssKeyGen, mkSigned,
-                                                toVssPublicKey)
+                                                deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Genesis                   (genesisKeyPairs)
 import           Pos.Ssc.GodTossing.Types.Base (VssCertificatesMap, mkVssCertificate)
 import           Pos.Types                     (makePubKeyAddress)

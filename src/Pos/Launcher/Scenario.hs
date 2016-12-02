@@ -15,11 +15,11 @@ import           System.Wlog            (logError, logInfo)
 import           Universum
 
 import           Pos.Communication      (sendTx)
-import           Pos.Crypto             (hash, sign)
+import           Pos.Crypto             (hash)
 import           Pos.DHT                (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Ssc.Class          (SscConstraint)
 import           Pos.Types              (Address, Coin, Timestamp (Timestamp), Tx (..),
-                                         TxId, TxIn (..), TxOut (..), txF)
+                                         TxId, txF)
 import           Pos.Wallet             (makePubKeyTx)
 import           Pos.Worker             (runWorkers)
 import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeContext,

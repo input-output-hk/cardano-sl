@@ -17,12 +17,12 @@ import           Data.List.NonEmpty            (NonEmpty)
 import qualified Data.Text.Buildable
 import           Universum
 
-import           Pos.Crypto                    (LShare, PublicKey)
+import           Pos.Crypto                    (LShare)
 import           Pos.Ssc.GodTossing.Functions  (isCommitmentId, isCommitmentIdx,
                                                 isOpeningId, isOpeningIdx, isSharesId,
                                                 isSharesIdx)
 import           Pos.Ssc.GodTossing.Types.Base (Opening, SignedCommitment, VssCertificate)
-import           Pos.Types                     (LocalSlotIndex, SlotId)
+import           Pos.Types                     (Address, LocalSlotIndex, SlotId)
 
 -- | Tag associated with message.
 data MsgTag
@@ -54,13 +54,13 @@ isGoodSlotIdForTag VssCertificateMsg = const True
 
 -- [CSL-203]: this model assumes that shares and commitments are
 -- always sent as a single message, it allows to identify such
--- messages using only PublicKey.
+-- messages using only Address.
 
 -- | Inventory message. Can be used to announce the fact that you have
 -- some data.
 data InvMsg = InvMsg
     { imType :: !MsgTag
-    , imKeys :: !(NonEmpty PublicKey)
+    , imKeys :: !(NonEmpty Address)
     } deriving (Generic)
 
 instance Binary InvMsg
@@ -73,7 +73,7 @@ instance Message InvMsg where
 -- was previously announced by inventory message).
 data ReqMsg = ReqMsg
     { rmType :: !MsgTag
-    , rmKey  :: !PublicKey
+    , rmKey  :: !Address
     } deriving (Generic)
 
 instance Binary ReqMsg
@@ -84,13 +84,13 @@ instance Message ReqMsg where
 
 -- | Data message. Can be used to send actual data.
 data DataMsg
-    = DMCommitment !PublicKey
+    = DMCommitment !Address
                    !SignedCommitment
-    | DMOpening !PublicKey
+    | DMOpening !Address
                 !Opening
-    | DMShares !PublicKey
-               !(HashMap PublicKey LShare)
-    | DMVssCertificate !PublicKey
+    | DMShares !Address
+               !(HashMap Address LShare)
+    | DMVssCertificate !Address
                        !VssCertificate
     deriving (Generic)
 
@@ -107,9 +107,9 @@ dataMsgTag (DMOpening _ _)        = OpeningMsg
 dataMsgTag (DMShares _ _)         = SharesMsg
 dataMsgTag (DMVssCertificate _ _) = VssCertificateMsg
 
--- | PublicKey stored in DataMsg.
-dataMsgPublicKey :: DataMsg -> PublicKey
-dataMsgPublicKey (DMCommitment pk _)     = pk
-dataMsgPublicKey (DMOpening pk _)        = pk
-dataMsgPublicKey (DMShares pk _)         = pk
-dataMsgPublicKey (DMVssCertificate pk _) = pk
+-- | Address stored in DataMsg.
+dataMsgPublicKey :: DataMsg -> Address
+dataMsgPublicKey (DMCommitment addr _)     = addr
+dataMsgPublicKey (DMOpening addr _)        = addr
+dataMsgPublicKey (DMShares addr _)         = addr
+dataMsgPublicKey (DMVssCertificate addr _) = addr

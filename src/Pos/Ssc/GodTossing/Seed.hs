@@ -40,6 +40,12 @@ calculateSeed (fromIntegral -> t) commitments openings lShares = do
     -- First let's do some sanity checks.
     let extraOpenings, extraShares :: HashSet Address
         extraOpenings = HS.difference (getKeys openings) participants
+        --We check that nodes which sent its encrypted shares to restore its opening
+        --as well send their commitment. (e.g HM.member pkFrom participants)
+        --We intentionally don't check, that nodes which decrypted shares
+        --sent its commitments.
+        --If node decrypted shares correctly, such node is useful for us, despite of
+        --it didn't send its commitment.
         extraShares =
             let xs = mconcat (map getKeys (toList lShares))
             in  HS.difference xs participants

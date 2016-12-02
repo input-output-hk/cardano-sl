@@ -18,8 +18,10 @@ import           Pos.Communication      (sendTx)
 import           Pos.Crypto             (hash)
 import           Pos.DHT                (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Ssc.Class          (SscConstraint)
+import           Pos.State              (initFirstSlot)
 import           Pos.Types              (Address, Coin, Timestamp (Timestamp), Tx (..),
                                          TxId, txF)
+import           Pos.Util               (inAssertMode)
 import           Pos.Wallet             (makePubKeyTx)
 import           Pos.Worker             (runWorkers)
 import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeContext,
@@ -28,11 +30,13 @@ import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeCont
 -- | Run full node in any WorkMode.
 runNode :: (SscConstraint ssc, WorkMode ssc m) => [m ()] -> m ()
 runNode plugins = do
+    inAssertMode $ logInfo "Assert mode on"
     pk <- ncPublicKey <$> getNodeContext
     logInfo $ sformat ("My public key is: "%build) pk
     peers <- discoverPeers DHTFull
     logInfo $ sformat ("Known peers: " % build) peers
 
+    initFirstSlot
     waitSystemStart
     runWorkers
     mapM_ fork plugins

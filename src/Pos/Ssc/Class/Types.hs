@@ -1,13 +1,13 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies     #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Types for Shared Seed calculation.
 
 module Pos.Ssc.Class.Types
        ( Ssc(..)
        ) where
-
+import           Data.Acquire        (Acquire)
 import           Data.Binary         (Binary)
 import           Data.SafeCopy       (SafeCopy)
 import           Data.Tagged         (Tagged)
@@ -48,9 +48,16 @@ class (Typeable ssc
     type SscProof ssc
     -- | Error that can happen when calculating the seed
     type SscSeedError ssc
+    -- | SSC specific context in NodeContext
+    type SscNodeContext ssc
+    -- | Needed options for creating SscNodeContext
+    type SscParams ssc
 
     -- | Create proof (for inclusion into block header) from payload
     mkSscProof :: Tagged ssc (SscPayload ssc -> SscProof ssc)
 
     -- | Remove from all data, which can make global state inconsistent
     sscFilterPayload :: SscPayload ssc -> SscGlobalState ssc -> SscPayload ssc
+
+    -- | Create SscNodeContext
+    sscCreateNodeContext :: SscParams ssc -> Acquire (SscNodeContext ssc)

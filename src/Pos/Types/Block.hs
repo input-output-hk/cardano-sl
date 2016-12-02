@@ -33,7 +33,7 @@ import           Universum
 
 import           Pos.Constants        (epochSlots)
 import           Pos.Crypto           (Hash, SecretKey, hash, sign, toPublic, unsafeHash,
-                                       verify)
+                                       checkSig)
 import           Pos.Merkle           (mkMerkleTree)
 import           Pos.Ssc.Class.Types  (Ssc (..))
 -- Unqualified import is used here because of GHC bug (trac 12127).
@@ -164,7 +164,7 @@ verifyConsensusLocal :: Ssc ssc => BlockHeader ssc -> VerificationRes
 verifyConsensusLocal (Left _)       = mempty
 verifyConsensusLocal (Right header) =
     verifyGeneric
-        [ ( verify pk (_gbhPrevBlock, _gbhBodyProof, slotId, d) sig
+        [ ( checkSig pk (_gbhPrevBlock, _gbhBodyProof, slotId, d) sig
           , "can't verify signature")
         , (siSlot slotId < epochSlots, "slot index is not less than epochSlots")
         ]

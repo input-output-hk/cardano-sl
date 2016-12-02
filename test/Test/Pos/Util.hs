@@ -1,10 +1,12 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.Pos.Util
        ( binaryEncodeDecode
        , msgPackEncodeDecode
        , safeCopyEncodeDecode
+       , serDeserId
        , showRead
        ) where
 
@@ -13,7 +15,7 @@ import qualified Data.Binary      as Binary
 import           Data.MessagePack (MessagePack, pack, unpack)
 import           Data.SafeCopy    (SafeCopy, safeGet, safePut)
 import           Data.Serialize   (runGet, runPut)
-import           Pos.Util         ()
+import           Pos.Util         (Serialized (..))
 import           Prelude          (read)
 import           Test.QuickCheck  (Property, (===))
 import           Universum
@@ -33,3 +35,8 @@ safeCopyEncodeDecode a =
 
 showRead :: (Show a, Eq a, Read a) => a -> Property
 showRead a = read (show a) === a
+
+serDeserId :: forall t lt . (Show t, Eq t, Serialized t lt) => t -> Property
+serDeserId a =
+    let serDeser = either (panic . toText) identity . deserialize @t @lt . serialize @t @lt
+    in a === serDeser a

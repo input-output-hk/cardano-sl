@@ -21,7 +21,7 @@ import           Test.QuickCheck       (NonNegative (..), Positive (..), Propert
 import           Test.QuickCheck.Gen   (Gen)
 import           Universum             hiding ((.&.))
 
-import           Pos.Crypto            (hash, verify)
+import           Pos.Crypto            (checkSig, hash)
 import           Pos.Types             (BadSigsTx (..), GoodTx (..), OverflowTx (..),
                                         Redeemer (..), SmallBadSigsTx (..),
                                         SmallGoodTx (..), SmallOverflowTx (..), Tx (..),
@@ -137,7 +137,7 @@ signatureIsValid txOutputs (Just (TxIn{..}, TxOut{..})) =
     let pk = getValidator txInValidator
         sig = getRedeemer txInRedeemer
     in checkPubKeyAddress pk txOutAddress &&
-       verify pk (txInHash, txInIndex, txOutputs) sig
+       checkSig pk (txInHash, txInIndex, txOutputs) sig
 signatureIsValid _ _ = False
 
 signatureIsNotValid :: [TxOut] -> Maybe (TxIn, TxOut) -> Bool

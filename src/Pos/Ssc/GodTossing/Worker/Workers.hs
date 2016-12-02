@@ -10,86 +10,78 @@ module Pos.Ssc.GodTossing.Worker.Workers
          -- ** instance SscWorkersClass SscGodTossing
        ) where
 
-import           Control.Concurrent.STM                  (readTVar)
-import           Control.Lens                            (view, _2, _3)
-import           Control.Monad.Trans.Maybe               (runMaybeT)
-import           Control.TimeWarp.Timed                  (Microsecond, Millisecond,
-                                                          currentTime, for, wait)
-import           Data.Tagged                             (Tagged (..))
-import           Data.Time.Units                         (convertUnit)
-import           Formatting                              (build, ords, sformat, shown,
-                                                          (%))
-import           Serokell.Util.Exceptions                ()
-import           System.FilePath                         ((</>))
-import           System.Wlog                             (logDebug, logError, logWarning)
+import           Control.Concurrent.STM                 (readTVar)
+import           Control.Lens                           (view, _2, _3)
+import           Control.Monad.Trans.Maybe              (runMaybeT)
+import           Control.TimeWarp.Timed                 (Microsecond, Millisecond,
+                                                         currentTime, for, wait)
+import           Data.Tagged                            (Tagged (..))
+import           Data.Time.Units                        (convertUnit)
+import           Formatting                             (build, ords, sformat, shown, (%))
+import           Serokell.Util.Exceptions               ()
+import           System.Wlog                            (logDebug, logError, logWarning)
 import           Universum
 
-import           Pos.Communication.Methods               (sendToNeighborsSafe)
-import           Pos.Constants                           (k, mpcSendInterval)
-import           Pos.Crypto                              (SecretKey, randomNumber,
-                                                          runSecureRandom, toPublic)
-import           Pos.Slotting                            (getSlotStart, onNewSlot)
-import           Pos.Ssc.Class.Workers                   (SscWorkersClass (..))
-import           Pos.Ssc.GodTossing.Functions            (genCommitmentAndOpening,
-                                                          genCommitmentAndOpening,
-                                                          hasCommitment, hasOpening,
-                                                          hasShares, isCommitmentIdx,
-                                                          isOpeningIdx, isSharesIdx,
-                                                          mkSignedCommitment)
-import           Pos.Ssc.GodTossing.LocalData.LocalData  (localOnNewSlot,
-                                                          sscProcessMessage)
-import           Pos.Ssc.GodTossing.Types.Base           (Opening, SignedCommitment)
-import           Pos.Ssc.GodTossing.Types.Instance       ()
-import           Pos.Ssc.GodTossing.Types.Message        (InvMsg (..), MsgTag (..))
-import           Pos.Ssc.GodTossing.Types.Message        (DataMsg (..))
-import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
-import           Pos.Ssc.GodTossing.Worker.SecretStorage (SecretStorage, bracket',
-                                                          checkpointSecret, getSecret,
-                                                          prepareSecretToNewSlot,
-                                                          setSecret)
-import           Pos.Ssc.GodTossing.Worker.Types         ()
-import           Pos.State                               (getGlobalMpcData, getOurShares,
-                                                          getParticipants, getThreshold)
-import           Pos.Types                               (Address (..), EpochIndex,
-                                                          LocalSlotIndex, SlotId (..),
-                                                          Timestamp (..),
-                                                          makePubKeyAddress)
-import           Pos.Util                                (serialize)
-import           Pos.WorkMode                            (WorkMode, getNodeContext,
-                                                          ncDbPath, ncParticipateSsc,
-                                                          ncPublicKey, ncSecretKey,
-                                                          ncVssKeyPair)
+import           Pos.Communication.Methods              (sendToNeighborsSafe)
+import           Pos.Constants                          (k, mpcSendInterval)
+import           Pos.Crypto                             (SecretKey, randomNumber,
+                                                         runSecureRandom, toPublic)
+import           Pos.Slotting                           (getSlotStart, onNewSlot)
+import           Pos.Ssc.Class.Workers                  (SscWorkersClass (..))
+import           Pos.Ssc.GodTossing.Functions           (genCommitmentAndOpening,
+                                                         genCommitmentAndOpening,
+                                                         hasCommitment, hasOpening,
+                                                         hasShares, isCommitmentIdx,
+                                                         isOpeningIdx, isSharesIdx,
+                                                         mkSignedCommitment)
+import           Pos.Ssc.GodTossing.LocalData.LocalData (localOnNewSlot,
+                                                         sscProcessMessage)
+import           Pos.Ssc.GodTossing.SecretStorage.State (checkpointSecret, getSecret,
+                                                         prepareSecretToNewSlot,
+                                                         setSecret)
+import           Pos.Ssc.GodTossing.Types.Base          (Opening, SignedCommitment)
+import           Pos.Ssc.GodTossing.Types.Instance      ()
+import           Pos.Ssc.GodTossing.Types.Message       (DataMsg (..), InvMsg (..),
+                                                         MsgTag (..))
+import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types         (gtcParticipateSsc, gtcVssKeyPair)
+import           Pos.State                              (getGlobalMpcData, getOurShares,
+                                                         getParticipants, getThreshold)
+import           Pos.Types                              (Address (..), EpochIndex,
+                                                         LocalSlotIndex, SlotId (..),
+                                                         Timestamp (..),
+                                                         makePubKeyAddress)
+import           Pos.Util                               (serialize)
+import           Pos.WorkMode                           (WorkMode, getNodeContext,
+                                                         ncPublicKey, ncSecretKey,
+                                                         ncSscContext)
+
 instance SscWorkersClass SscGodTossing where
     sscWorkers = Tagged [onNewSlotSsc]
 
 onNewSlotSsc :: WorkMode SscGodTossing m => m ()
-onNewSlotSsc = do
-    path <- pathToSecret
-    bracket' path $ onNewSlot True . onNewSlotImpl
-
-onNewSlotImpl :: WorkMode SscGodTossing m => SecretStorage -> SlotId -> m ()
-onNewSlotImpl storage slotId = do
+onNewSlotSsc = onNewSlot True $ \slotId-> do
     localOnNewSlot slotId
-    prepareSecretToNewSlot storage slotId
-    onNewSlotCommitment storage slotId
-    onNewSlotOpening storage slotId
+    prepareSecretToNewSlot slotId
+    onNewSlotCommitment slotId
+    onNewSlotOpening slotId
     onNewSlotShares slotId
-    checkpointSecret storage
+    checkpointSecret
 
 -- Commitments-related part of new slot processing
-onNewSlotCommitment :: WorkMode SscGodTossing m => SecretStorage -> SlotId -> m ()
-onNewSlotCommitment storage SlotId {..} = do
+onNewSlotCommitment :: WorkMode SscGodTossing m => SlotId -> m ()
+onNewSlotCommitment SlotId {..} = do
     ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
     ourSk <- ncSecretKey <$> getNodeContext
     shouldCreateCommitment <- do
         participationEnabled <- getNodeContext >>=
-            atomically . readTVar . ncParticipateSsc
-        secret <- getSecret storage
+            atomically . readTVar . gtcParticipateSsc . ncSscContext
+        secret <- getSecret
         return $
             and [participationEnabled, isCommitmentIdx siSlot, isNothing secret]
     when shouldCreateCommitment $ do
         logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
-        generated <- generateAndSetNewSecret storage ourSk siEpoch
+        generated <- generateAndSetNewSecret ourSk siEpoch
         case generated of
             Nothing -> logWarning "I failed to generate secret for Mpc"
             Just _ -> logDebug $
@@ -98,14 +90,14 @@ onNewSlotCommitment storage SlotId {..} = do
         commitmentInBlockchain <- hasCommitment ourAddr <$> getGlobalMpcData
         return $ isCommitmentIdx siSlot && not commitmentInBlockchain
     when shouldSendCommitment $ do
-        mbComm <- fmap (view _2) <$> (getSecret storage)
+        mbComm <- fmap (view _2) <$> getSecret
         whenJust mbComm $ \comm -> do
             _ <- sscProcessMessage $ DMCommitment ourAddr comm
             sendOurData CommitmentMsg siEpoch 0 ourAddr
 
 -- Openings-related part of new slot processing
-onNewSlotOpening :: WorkMode SscGodTossing m => SecretStorage -> SlotId -> m ()
-onNewSlotOpening storage SlotId {..} = do
+onNewSlotOpening :: WorkMode SscGodTossing m => SlotId -> m ()
+onNewSlotOpening SlotId {..} = do
     ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
     shouldSendOpening <- do
         globalData <- getGlobalMpcData
@@ -115,7 +107,7 @@ onNewSlotOpening storage SlotId {..} = do
                      , not openingInBlockchain
                      , commitmentInBlockchain]
     when shouldSendOpening $ do
-        mbOpen <- fmap (view _3) <$> (getSecret storage)
+        mbOpen <- fmap (view _3) <$> getSecret
         whenJust mbOpen $ \open -> do
             _ <- sscProcessMessage $ DMOpening ourAddr open
             sendOurData OpeningMsg siEpoch 2 ourAddr
@@ -131,7 +123,7 @@ onNewSlotShares SlotId {..} = do
         sharesInBlockchain <- hasShares ourAddr <$> getGlobalMpcData
         return $ isSharesIdx siSlot && not sharesInBlockchain
     when shouldSendShares $ do
-        ourVss <- ncVssKeyPair <$> getNodeContext
+        ourVss <- gtcVssKeyPair . ncSscContext <$> getNodeContext
         shares <- getOurShares ourVss
         let lShares = fmap serialize shares
         unless (null shares) $ do
@@ -159,11 +151,10 @@ sendOurData msgTag epoch kMultiplier ourAddr = do
 -- synchronized).
 generateAndSetNewSecret
     :: WorkMode SscGodTossing m
-    => SecretStorage
-    -> SecretKey
+    => SecretKey
     -> EpochIndex                         -- ^ Current epoch
     -> m (Maybe (SignedCommitment, Opening))
-generateAndSetNewSecret storage sk epoch = do
+generateAndSetNewSecret sk epoch = do
     -- It should be safe here to perform 2 operations (get and set)
     -- which aren't grouped into a single transaction here, because if
     -- getParticipants returns 'Just res' it will always return 'Just
@@ -177,13 +168,13 @@ generateAndSetNewSecret storage sk epoch = do
             mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
             case mPair of
               Just (mkSignedCommitment sk epoch -> comm, op) ->
-                  Just (comm, op) <$ setSecret storage (toPublic sk, comm, op)
+                  Just (comm, op) <$ setSecret (toPublic sk, comm, op)
               _ -> do
                 logError "Wrong participants list: can't deserialize"
                 return Nothing
 
-pathToSecret :: WorkMode SscGodTossing m => m (Maybe FilePath)
-pathToSecret = fmap (</> "secret") <$> (ncDbPath <$> getNodeContext)
+-- pathToSecret :: WorkMode SscGodTossing m => m (Maybe FilePath)
+-- pathToSecret = fmap (</> "secret") <$> (ncDbPath <$> getNodeContext)
 
 randomTimeInInterval
     :: WorkMode SscGodTossing m

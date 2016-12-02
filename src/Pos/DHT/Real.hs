@@ -13,7 +13,7 @@
 -}
 
 module Pos.DHT.Real
-       ( KademliaDHT
+       ( KademliaDHT (..)
        , runKademliaDHT
        , KademliaDHTConfig(..)
        , KademliaDHTInstanceConfig(..)

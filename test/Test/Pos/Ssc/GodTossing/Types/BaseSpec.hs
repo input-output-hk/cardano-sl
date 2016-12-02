@@ -8,7 +8,7 @@ import           Pos.Crypto            (SecretKey, sign, toPublic)
 import           Pos.Ssc.GodTossing    (Commitment, CommitmentOpening (..),
                                         verifyCommitment, verifyCommitmentSignature,
                                         verifyOpening)
-import           Pos.Types             (EpochIndex, makePubKeyAddress)
+import           Pos.Types             (EpochIndex)
 
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)

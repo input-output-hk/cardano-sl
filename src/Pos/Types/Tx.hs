@@ -20,7 +20,7 @@ import           Formatting          (build, int, sformat, (%))
 import           Serokell.Util       (VerificationRes, verifyGeneric)
 import           Universum
 
-import           Pos.Crypto          (addressHash, hash, verify)
+import           Pos.Crypto          (addressHash, checkSig, hash)
 import           Pos.Types.Types     (Address (..), Redeemer (..), Tx (..), TxIn (..),
                                       TxOut (..), Validator (..), checkPubKeyAddress,
                                       coinF)
@@ -89,7 +89,7 @@ verifyTx inputResolver tx@Tx {..} =
     validateTxIn TxIn{..} =
         let pk = getValidator txInValidator
             sig = getRedeemer txInRedeemer
-        in verify pk (txInHash, txInIndex, txOutputs) sig
+        in checkSig pk (txInHash, txInIndex, txOutputs) sig
 
 data TopsortState = TopsortState
     { _tsVisited     :: HS.HashSet Tx

@@ -16,6 +16,7 @@ module Pos.State.State
        , WorkModeDB
        , openState
        , openMemState
+       , initFirstSlot
        , closeState
 
        -- * Simple getters.
@@ -102,34 +103,35 @@ type QULConstraint ssc m = (SscStorageMode ssc, WorkModeDB ssc m, HasLoggerName 
 -- | Open NodeState, reading existing state from disk (if any).
 openState
     :: (SscStorageMode ssc, Default (SscStorage ssc),
-        MonadIO m, MonadSlots m, HasLoggerName m)
+        MonadIO m)
     => Maybe (Storage ssc)
     -> Bool
     -> FilePath
     -> m (NodeState ssc)
 openState storage deleteIfExists fp =
-    openStateDo $ maybe (A.openState deleteIfExists fp)
-                        (\s -> A.openStateCustom s deleteIfExists fp)
-                        storage
+    maybe (A.openState deleteIfExists fp)
+        (\s -> A.openStateCustom s deleteIfExists fp)
+        storage
 
 -- | Open NodeState which doesn't store anything on disk. Everything
 -- is stored in memory and will be lost after shutdown.
 openMemState
     :: (SscStorageMode ssc, Default (SscStorage ssc),
-        MonadIO m, MonadSlots m, HasLoggerName m)
+        MonadIO m)
     => Maybe (Storage ssc)
     -> m (NodeState ssc)
-openMemState = openStateDo . maybe A.openMemState A.openMemStateCustom
+openMemState = maybe A.openMemState A.openMemStateCustom
 
-openStateDo
+initFirstSlot
     :: forall ssc m .
-       (MonadIO m, MonadSlots m, SscStorageMode ssc, HasLoggerName m)
-    => m (DiskState ssc)
-    -> m (NodeState ssc)
-openStateDo openDiskState = do
-    st <- openDiskState
+       (MonadIO m, MonadSlots m, SscStorageMode ssc
+       , HasLoggerName m
+       , WorkModeDB ssc m)
+    => m ()
+initFirstSlot = do
+    st <- getNodeState
     _  <- A.updateWithLog st . A.ProcessNewSlotL =<< getCurrentSlot
-    st <$ tidyState st
+    tidyState st
 
 -- | Safely close NodeState.
 closeState :: (MonadIO m, SscStorageClass ssc) => NodeState ssc -> m ()

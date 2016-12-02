@@ -5,6 +5,7 @@ module Pos.Types.Address
        , checkPubKeyAddress
        ) where
 
+import           Data.Aeson             (ToJSON (toJSON))
 import           Data.Binary            (Binary (..))
 import qualified Data.Binary            as Binary
 import qualified Data.Binary.Get        as Binary (getWord32be)
@@ -17,7 +18,7 @@ import           Data.Hashable          (Hashable (..))
 import           Data.MessagePack       (MessagePack (..))
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
-import           Formatting             (Format, build)
+import           Formatting             (Format, build, sformat)
 import           Prelude                (show)
 import           Universum              hiding (show)
 
@@ -75,6 +76,9 @@ instance Buildable Address where
 
 instance NFData Address
 instance MessagePack Address
+
+instance ToJSON Address where
+    toJSON = toJSON . sformat build
 
 -- | A function for making an address from PublicKey
 makePubKeyAddress :: PublicKey -> Address

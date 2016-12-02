@@ -9,7 +9,7 @@ module Pos.Launcher.Param
 import           System.Wlog (LoggerName)
 import           Universum
 
-import           Pos.Crypto  (SecretKey, VssKeyPair)
+import           Pos.Crypto  (SecretKey)
 import           Pos.DHT     (DHTKey, DHTNode, DHTNodeType)
 import           Pos.Types   (Timestamp, Utxo)
 
@@ -35,11 +35,8 @@ data NodeParams = NodeParams
     , npRebuildDb   :: !Bool              -- ^ @True@ if data-base should be rebuilt
     , npSystemStart :: !Timestamp         -- ^ System start
     , npSecretKey   :: !SecretKey         -- ^ Secret key of this node
-    , npVssKeyPair  :: !VssKeyPair        -- ^ Key pair used for secret sharing
     , npBaseParams  :: !BaseParams        -- ^ See 'BaseParams'
     , npCustomUtxo  :: !(Maybe Utxo)      -- ^ predefined custom utxo
     , npTimeLord    :: !Bool              -- ^ @True@ if node started as time-lord
     , npJLFile      :: !(Maybe FilePath)
-    , npSscEnabled  :: !Bool              -- ^ Whether node should participate in SSC
-                                          -- in case SSC requires participation.
     } deriving (Show)

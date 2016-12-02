@@ -18,18 +18,21 @@ module Pos.Crypto.Hashing
        , CastHash (castHash)
        ) where
 
-import           Crypto.Hash         (Digest, HashAlgorithm, SHA256, digestFromByteString)
+import           Crypto.Hash         (Blake2b_512, Digest, HashAlgorithm,
+                                      digestFromByteString)
 import qualified Crypto.Hash         as Hash (hash, hashDigestSize, hashlazy)
+import           Data.Aeson          (ToJSON (toJSON))
 import           Data.Binary         (Binary (..))
 import qualified Data.Binary         as Binary
 import qualified Data.Binary.Get     as Binary (getByteString)
 import qualified Data.Binary.Put     as Binary (putByteString)
 import qualified Data.ByteArray      as ByteArray
-import           Data.Hashable       (Hashable (hashWithSalt))
+import           Data.Hashable       (Hashable (hashWithSalt), hashPtrWithSalt)
 import           Data.MessagePack    (MessagePack (fromObject, toObject), Object (..))
 import           Data.SafeCopy       (SafeCopy (..))
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (Format, bprint, fitLeft, later, shown, (%.))
+import           System.IO.Unsafe    (unsafePerformIO)
 import           Universum
 
 import           Pos.Util            (Raw, getCopyBinary, msgpackFail, putCopyBinary)
@@ -41,10 +44,10 @@ newtype AbstractHash algo a = AbstractHash (Digest algo)
     deriving (Show, Eq, Ord, ByteArray.ByteArrayAccess, Generic, NFData)
 
 -- | Type alias for commonly used hash
-type Hash = AbstractHash SHA256
+type Hash = AbstractHash Blake2b_512
 
 instance Hashable (AbstractHash algo a) where
-    hashWithSalt s (AbstractHash x) = hashWithSalt s $ ByteArray.unpack x
+    hashWithSalt s h = unsafePerformIO $ ByteArray.withByteArray h (\ptr -> hashPtrWithSalt ptr (ByteArray.length h) s)
 
 instance HashAlgorithm algo => MessagePack (AbstractHash algo a) where
     {-# SPECIALIZE instance MessagePack (Hash a) #-}
@@ -74,6 +77,9 @@ instance HashAlgorithm algo => Binary (AbstractHash algo a) where
 
 instance Buildable.Buildable (AbstractHash algo a) where
     build (AbstractHash x) = bprint shown x
+
+instance ToJSON (Hash a) where
+    toJSON = toJSON . pretty
 
 -- | Short version of 'unsafeHash'.
 hash :: Binary a => a -> Hash a

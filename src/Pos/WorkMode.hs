@@ -1,11 +1,12 @@
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE ConstraintKinds        #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE TypeFamilies           #-}
+{-# LANGUAGE UndecidableInstances   #-}
 
 {-| 'WorkMode' constraint. It is widely used in almost every our code.
     Simple alias for bunch of useful constraints. This module also
@@ -29,7 +30,7 @@ module Pos.WorkMode
        , NodeContext (..)
        , WithNodeContext (..)
        , ncPublicKey
-       , ncVssPublicKey
+       --, ncVssPublicKey
        , runContextHolder
 
        -- * Actual modes
@@ -61,8 +62,7 @@ import           System.Wlog                 (CanLog, HasLoggerName, WithLogger,
                                               logWarning)
 import           Universum
 
-import           Pos.Crypto                  (PublicKey, SecretKey, VssKeyPair,
-                                              VssPublicKey, toPublic, toVssPublicKey)
+import           Pos.Crypto                  (PublicKey, SecretKey, toPublic)
 import           Pos.DHT                     (DHTResponseT, MonadMessageDHT (..),
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
@@ -70,7 +70,7 @@ import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData     (MonadSscLD (..),
                                               SscLocalDataClass (sscEmptyLocalData))
 import           Pos.Ssc.Class.Storage       (SscStorageMode)
-import           Pos.Ssc.Class.Types         (Ssc (SscLocalData))
+import           Pos.Ssc.Class.Types         (Ssc (SscLocalData, SscNodeContext))
 import           Pos.State                   (MonadDB (..), NodeState)
 import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
 import           Pos.Types                   (Timestamp (..))
@@ -87,7 +87,7 @@ type WorkMode ssc m
       , SscStorageMode ssc
       , SscLocalDataClass ssc
       , MonadSscLD ssc m
-      , WithNodeContext m
+      , WithNodeContext ssc m
       , MonadMessageDHT m
       , WithDefaultMsgHeader m
       , MonadStats m
@@ -116,7 +116,7 @@ instance (Monad m, MonadSscLD ssc m) =>
 newtype SscLDImpl ssc m a = SscLDImpl
     { getSscLDImpl :: ReaderT (STM.TVar (SscLocalData ssc)) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
-                MonadCatch, MonadIO, HasLoggerName, MonadDialog p, WithNodeContext, MonadJL,
+                MonadCatch, MonadIO, HasLoggerName, MonadDialog p, WithNodeContext ssc, MonadJL,
                 MonadDB ssc, CanLog)
 
 monadMaskHelper
@@ -222,96 +222,90 @@ instance (MonadDB ssc m, Monad m) => MonadDB ssc (KademliaDHT m) where
 ----------------------------------------------------------------------------
 
 -- | NodeContext contains runtime context of node.
-data NodeContext = NodeContext
+data NodeContext ssc = NodeContext
     { -- | Time when system started working.
-      ncSystemStart    :: !Timestamp
+      ncSystemStart :: !Timestamp
     , -- | Secret key used for blocks creation.
-      ncSecretKey      :: !SecretKey
-    , -- | Vss key pair used for MPC.
-      ncVssKeyPair     :: !VssKeyPair
-    , ncTimeLord       :: !Bool
-    , ncJLFile         :: !(Maybe (MVar FilePath))
-    , ncDbPath         :: !(Maybe FilePath)
-    , ncParticipateSsc :: !(STM.TVar Bool)
+      ncSecretKey   :: !SecretKey
+    , ncTimeLord    :: !Bool
+    , ncJLFile      :: !(Maybe (MVar FilePath))
+    , ncDbPath      :: !(Maybe FilePath)
+    , ncSscContext  :: !(SscNodeContext ssc)
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.
-ncPublicKey :: NodeContext -> PublicKey
+ncPublicKey :: NodeContext ssc -> PublicKey
 ncPublicKey = toPublic . ncSecretKey
 
--- | Get 'VssPublicKey' from 'VssKeyPair' inside 'NodeContext'.
-ncVssPublicKey :: NodeContext -> VssPublicKey
-ncVssPublicKey = toVssPublicKey . ncVssKeyPair
-
 -- | Class for something that has 'NodeContext' inside.
-class WithNodeContext m where
-    getNodeContext :: m NodeContext
+class WithNodeContext ssc m | m -> ssc where
+    getNodeContext :: m (NodeContext ssc)
 
-instance (Monad m, WithNodeContext m) =>
-         WithNodeContext (KademliaDHT m) where
+instance (Monad m, WithNodeContext ssc m) =>
+         WithNodeContext ssc (KademliaDHT m) where
     getNodeContext = lift getNodeContext
 
-instance (Monad m, WithNodeContext m) =>
-         WithNodeContext (ReaderT a m) where
+instance (Monad m, WithNodeContext ssc m) =>
+         WithNodeContext ssc (ReaderT a m) where
     getNodeContext = lift getNodeContext
 
-instance (Monad m, WithNodeContext m) =>
-         WithNodeContext (StateT a m) where
+instance (Monad m, WithNodeContext ssc m) =>
+         WithNodeContext ssc (StateT a m) where
     getNodeContext = lift getNodeContext
 
-instance (Monad m, WithNodeContext m) =>
-         WithNodeContext (ExceptT e m) where
+instance (Monad m, WithNodeContext ssc m) =>
+         WithNodeContext ssc (ExceptT e m) where
     getNodeContext = lift getNodeContext
 
-instance (Monad m, WithNodeContext m) =>
-         WithNodeContext (DHTResponseT m) where
+instance (Monad m, WithNodeContext ssc m) =>
+         WithNodeContext ssc (DHTResponseT m) where
     getNodeContext = lift getNodeContext
 
-instance (Monad m, WithNodeContext m) =>
-         WithNodeContext (StatsT m) where
+instance (Monad m, WithNodeContext ssc m) =>
+         WithNodeContext ssc (StatsT m) where
     getNodeContext = lift getNodeContext
 
-instance (Monad m, WithNodeContext m) =>
-         WithNodeContext (NoStatsT m) where
+instance (Monad m, WithNodeContext ssc m) =>
+         WithNodeContext ssc (NoStatsT m) where
     getNodeContext = lift getNodeContext
 
 -- | Wrapper for monadic action which brings 'NodeContext'.
-newtype ContextHolder m a = ContextHolder
-    { getContextHolder :: ReaderT NodeContext m a
+newtype ContextHolder ssc m a = ContextHolder
+    { getContextHolder :: ReaderT (NodeContext ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
                MonadCatch, MonadMask, MonadIO, HasLoggerName, CanLog, MonadDB ssc, MonadDialog p)
 
 -- | Run 'ContextHolder' action.
-runContextHolder :: NodeContext -> ContextHolder m a -> m a
+runContextHolder :: NodeContext ssc -> ContextHolder ssc m a -> m a
 runContextHolder ctx = flip runReaderT ctx . getContextHolder
 
-instance MonadBase IO m => MonadBase IO (ContextHolder m) where
+instance MonadBase IO m => MonadBase IO (ContextHolder ssc m) where
     liftBase = lift . liftBase
 
-instance MonadTransControl ContextHolder where
-    type StT ContextHolder a = StT (ReaderT NodeContext) a
+instance MonadTransControl (ContextHolder ssc) where
+    type StT (ContextHolder ssc) a = StT (ReaderT (NodeContext ssc)) a
     liftWith = defaultLiftWith ContextHolder getContextHolder
     restoreT = defaultRestoreT ContextHolder
 
-instance MonadBaseControl IO m => MonadBaseControl IO (ContextHolder m) where
-    type StM (ContextHolder m) a = ComposeSt ContextHolder m a
+instance MonadBaseControl IO m => MonadBaseControl IO (ContextHolder ssc m) where
+    type StM (ContextHolder ssc m) a = ComposeSt (ContextHolder ssc) m a
     liftBaseWith     = defaultLiftBaseWith
     restoreM         = defaultRestoreM
 
-type instance ThreadId (ContextHolder m) = ThreadId m
+type instance ThreadId (ContextHolder ssc m) = ThreadId m
 
-instance MonadTransfer m => MonadTransfer (ContextHolder m) where
+instance MonadTransfer m => MonadTransfer (ContextHolder ssc m) where
     sendRaw addr req = ContextHolder ask >>= \ctx -> lift $ sendRaw addr (hoist (runContextHolder ctx) req)
     listenRaw binding sink =
         ContextHolder $ fmap ContextHolder $ listenRaw binding $ hoistRespCond getContextHolder sink
     close = lift . close
 
-instance MonadResponse m => MonadResponse (ContextHolder m) where
+instance MonadResponse m => MonadResponse (ContextHolder ssc m) where
     replyRaw dat = ContextHolder $ replyRaw (hoist getContextHolder dat)
     closeR = lift closeR
     peerAddr = lift peerAddr
 
-instance Monad m => WithNodeContext (ContextHolder m) where
+instance Monad m => WithNodeContext ssc (ContextHolder ssc m) where
     getNodeContext = ContextHolder ask
 
 instance MonadJL m => MonadJL (KademliaDHT m) where
@@ -322,11 +316,11 @@ instance MonadSlots m => MonadSlots (KademliaDHT m) where
     getCurrentTime = lift getCurrentTime
 
 instance (MonadTimed m, Monad m) =>
-         MonadSlots (ContextHolder m) where
+         MonadSlots (ContextHolder ssc m) where
     getSystemStartTime = ContextHolder $ asks ncSystemStart
     getCurrentTime = Timestamp <$> currentTime
 
-instance (MonadIO m, MonadCatch m, WithLogger m) => MonadJL (ContextHolder m) where
+instance (MonadIO m, MonadCatch m, WithLogger m) => MonadJL (ContextHolder ssc m) where
     jlLog ev = ContextHolder (asks ncJLFile) >>= maybe (pure ()) doLog
       where
         doLog logFileMV =
@@ -339,7 +333,7 @@ instance (MonadIO m, MonadCatch m, WithLogger m) => MonadJL (ContextHolder m) wh
 ----------------------------------------------------------------------------
 
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
-type RawRealMode ssc = KademliaDHT (SscLDImpl ssc (ContextHolder (DBHolder ssc (Dialog BinaryP Transfer))))
+type RawRealMode ssc = KademliaDHT (SscLDImpl ssc (ContextHolder ssc (DBHolder ssc (Dialog BinaryP Transfer))))
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.

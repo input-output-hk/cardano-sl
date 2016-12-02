@@ -44,9 +44,9 @@ import           Universum
 
 import           Pos.Constants                  (k)
 import           Pos.Crypto                     (LShare, LVssPublicKey, Secret, SecretKey,
-                                                 SecureRandom (..), Threshold,
+                                                 SecureRandom (..), Threshold, checkSig,
                                                  genSharedSecret, getDhSecret,
-                                                 secretToDhSecret, sign, toPublic, verify,
+                                                 secretToDhSecret, sign, toPublic,
                                                  verifyEncShare, verifySecretProof,
                                                  verifyShare)
 import           Pos.Ssc.Class.Types            (Ssc (..))
@@ -141,7 +141,7 @@ verifyCommitmentPK addr (pk, _, _) = checkPubKeyAddress pk addr
 -- | Verify signature in SignedCommitment using epoch index.
 verifyCommitmentSignature :: EpochIndex -> SignedCommitment -> Bool
 verifyCommitmentSignature epoch (pk, comm, commSig) =
-    verify pk (epoch, comm) commSig
+    checkSig pk (epoch, comm) commSig
 
 -- | Verify SignedCommitment using public key and epoch index.
 verifySignedCommitment :: Address -> EpochIndex -> SignedCommitment -> VerificationRes
@@ -167,7 +167,7 @@ verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
 checkCert :: (Address, VssCertificate) -> Bool
 checkCert (addr, VssCertificate {..}) =
     checkPubKeyAddress vcSigningKey addr &&
-    verify vcSigningKey vcVssKey vcSignature
+    checkSig vcSigningKey vcVssKey vcSignature
 
 -- | Check that the decrypted share matches the encrypted share in the
 -- commitment

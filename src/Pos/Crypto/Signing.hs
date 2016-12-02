@@ -18,7 +18,7 @@ module Pos.Crypto.Signing
        -- * Signing and verification
        , Signature
        , sign
-       , verify
+       , checkSig
 
        , Signed
        , mkSigned
@@ -31,6 +31,7 @@ module Pos.Crypto.Signing
        ) where
 
 import qualified Crypto.Sign.Ed25519    as Ed25519
+import           Data.Aeson             (ToJSON (toJSON))
 import           Data.Binary            (Binary)
 import qualified Data.Binary            as Binary
 import qualified Data.Binary.Get        as Binary
@@ -199,6 +200,9 @@ deterministicKeyGen :: BS.ByteString -> Maybe (PublicKey, SecretKey)
 deterministicKeyGen seed =
     bimap PublicKey SecretKey <$> Ed25519.createKeypairFromSeed_ seed
 
+instance ToJSON PublicKey where
+    toJSON = toJSON . sformat fullPublicKeyF
+
 ----------------------------------------------------------------------------
 -- Signatures
 ----------------------------------------------------------------------------
@@ -225,8 +229,8 @@ signRaw :: SecretKey -> ByteString -> Signature Raw
 signRaw (SecretKey k) x = Signature (Ed25519.dsign k x)
 
 -- | Verify a signature.
-verify :: Binary a => PublicKey -> a -> Signature a -> Bool
-verify k x s = verifyRaw k (BSL.toStrict (Binary.encode x)) (coerce s)
+checkSig :: Binary a => PublicKey -> a -> Signature a -> Bool
+checkSig k x s = verifyRaw k (BSL.toStrict (Binary.encode x)) (coerce s)
 
 -- | Verify raw 'ByteString'.
 verifyRaw :: PublicKey -> ByteString -> Signature Raw -> Bool

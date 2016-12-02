@@ -13,10 +13,12 @@ import           Pos.Types.Types             (Address (..), Coin (..), EpochInde
 import           Pos.Util.Arbitrary          (ArbitraryUnsafe (..))
 
 deriving instance ArbitraryUnsafe Coin
-deriving instance ArbitraryUnsafe Address
 deriving instance ArbitraryUnsafe SharedSeed
 deriving instance ArbitraryUnsafe EpochIndex
 deriving instance ArbitraryUnsafe LocalSlotIndex
+
+instance ArbitraryUnsafe Address where
+    arbitraryUnsafe = PubKeyAddress 0 <$> arbitraryUnsafe
 
 instance ArbitraryUnsafe SlotId where
     arbitraryUnsafe = SlotId <$> arbitraryUnsafe <*> arbitraryUnsafe

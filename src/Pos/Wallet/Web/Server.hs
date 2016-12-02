@@ -23,8 +23,8 @@ import           System.Wlog              (LoggerNameBox, logInfo, usingLoggerNa
 import           Universum
 
 import           Pos.Crypto               (parseFullPublicKey)
-import           Pos.Types                (Address (Address), Coin (Coin), addressF,
-                                           coinF)
+import           Pos.Types                (Address, Coin (Coin), addressF, coinF,
+                                           makePubKeyAddress)
 import           Pos.Wallet.Web.Api       (WalletApi, walletApi)
 
 ----------------------------------------------------------------------------
@@ -85,6 +85,6 @@ send srcIdx dstAddr c
 deriving instance FromHttpApiData Coin
 
 instance FromHttpApiData Address where
-    parseUrlPiece = fmap Address . maybe onError pure . parseFullPublicKey
+    parseUrlPiece = fmap makePubKeyAddress . maybe onError pure . parseFullPublicKey
       where
         onError = throwError "failed to parse address"

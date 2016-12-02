@@ -18,17 +18,19 @@ import           System.Wlog            (logInfo)
 import           Universum
 
 import           Pos.CLI                (dhtNodeParser)
-import           Pos.Crypto             (hash, sign, unsafeHash)
+import           Pos.Crypto             (hash, unsafeHash)
 import           Pos.DHT                (DHTNode, DHTNodeType (..), dhtAddr,
                                          discoverPeers)
-import           Pos.Genesis            (genesisAddresses, genesisSecretKeys)
+import           Pos.Genesis            (genesisAddresses, genesisPublicKeys,
+                                         genesisSecretKeys)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
                                          NodeParams (..), bracketDHTInstance,
                                          runRawRealMode, submitTxRaw)
 import           Pos.Ssc.GodTossing     (GtParams (..), SscGodTossing, genesisVssKeyPairs)
 import           Pos.Statistics         (getNoStatsT)
-import           Pos.Types              (Tx (..), TxIn (..), TxOut (..))
+import           Pos.Types              (Tx (..))
 import           Pos.Util.JsonLog       ()
+import           Pos.Wallet             (makePubKeyTx)
 
 data GenOptions = GenOptions
     { goGenesisIdx         :: !Word       -- ^ Index in genesis key pairs.
@@ -102,13 +104,10 @@ txChain i = genChain $ unsafeHash addr
     where
       addr = genesisAddresses !! i
       secretKey = genesisSecretKeys !! i
+      publicKey = genesisPublicKeys !! i
       genChain txInHash =
-          let txOutValue = 1
-              txInIndex = 0
-              txOutputs = [TxOut { txOutAddress = addr, ..}]
-              txInputs = [TxIn { txInSig = sign secretKey (txInHash, txInIndex, txOutputs), .. }]
-              resultTransaction = Tx {..}
-          in resultTransaction : genChain (hash resultTransaction)
+          let tx = makePubKeyTx publicKey secretKey [(txInHash, 0)] [(addr, 1)]
+          in tx : genChain (hash tx)
 
 main :: IO ()
 main = do

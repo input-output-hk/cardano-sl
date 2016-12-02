@@ -38,8 +38,7 @@ import           Pos.Ssc.Class.Storage   (SscQuery)
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Ssc.Class.Workers   (SscWorkersClass (..))
-import           Pos.Types               (EpochIndex, SharedSeed (..), SlotLeaders, Utxo,
-                                          getAddress)
+import           Pos.Types               (EpochIndex, SharedSeed (..), SlotLeaders, Utxo)
 import           Pos.Util                (serialize)
 
 -- | Data type tag for Nist Beacon implementation of Shared Seed Calculation.
@@ -97,7 +96,7 @@ calculateLeaders
 calculateLeaders epoch utxo _ = do
     let seed = coerce . ByteArray.convert @_ @ByteString .
                Hash.hashlazy @SHA256 . Binary.encode $ epoch
-    return $ Right $ fmap getAddress $ followTheSatoshi seed utxo
+    return $ Right $ followTheSatoshi seed utxo
 
 instance SscWorkersClass SscNistBeacon where
     sscWorkers = Tagged []

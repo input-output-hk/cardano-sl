@@ -27,7 +27,7 @@ import           Pos.DHT                         (DHTNodeType (..), MonadDHT, dh
                                                   discoverPeers, getKnownPeers)
 import           Pos.DHT.Real                    (KademliaDHT (..), KademliaDHTInstance)
 import           Pos.Genesis                     (StakeDistribution (..),
-                                                  genesisAddresses, genesisSecretKeys,
+                                                  genesisPublicKeys, genesisSecretKeys,
                                                   genesisUtxo)
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..), bracketDHTInstance,
@@ -91,8 +91,8 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
 
     bambooPools <- forM goGenesisIdxs $ \(fromIntegral -> i) ->
                     liftIO $ createBambooPool
+                      (genesisPublicKeys !! i)
                       (genesisSecretKeys !! i)
-                      (genesisAddresses !! i)
                       (initTx i)
 
     txTimestamps <- liftIO createTxTimestamps

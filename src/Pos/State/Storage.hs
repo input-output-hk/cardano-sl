@@ -73,7 +73,7 @@ import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
                                           txStorageFromUtxo, txVerifyBlocks)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
                                           ProcessTxRes (..), mkPBRabort)
-import           Pos.Types               (Block, EpochIndex, EpochOrSlot (..),
+import           Pos.Types               (Address, Block, EpochIndex, EpochOrSlot (..),
                                           GenesisBlock, MainBlock, SlotId (..),
                                           SlotLeaders, Utxo, blockMpc, blockTxs,
                                           epochIndexL, epochOrSlot, flattenSlotId,
@@ -388,5 +388,5 @@ getOurShares
     :: forall ssc.
        SscStorageClass ssc
     => LVssPublicKey -- ^ Our VSS key
-    -> Query ssc (HashMap PublicKey LEncShare)
+    -> Query ssc (HashMap Address LEncShare)
 getOurShares = sscGetOurShares @ssc

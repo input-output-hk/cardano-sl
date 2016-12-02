@@ -21,11 +21,12 @@ import           Test.QuickCheck       (NonNegative (..), Positive (..), Propert
 import           Test.QuickCheck.Gen   (Gen)
 import           Universum             hiding ((.&.))
 
-import           Pos.Crypto            (hash, checkSig)
-import           Pos.Types             (Address (..), BadSigsTx (..),  GoodTx (..),
-                                        OverflowTx (..), SmallBadSigsTx (..),
-                                        SmallGoodTx (..), SmallOverflowTx (..),  Tx (..),
-                                        TxIn (..), TxOut (..), topsortTxs, verifyTx,
+import           Pos.Crypto            (checkSig, hash)
+import           Pos.Types             (BadSigsTx (..), GoodTx (..), OverflowTx (..),
+                                        Redeemer (..), SmallBadSigsTx (..),
+                                        SmallGoodTx (..), SmallOverflowTx (..), Tx (..),
+                                        TxIn (..), TxOut (..), Validator (..),
+                                        checkPubKeyAddress, topsortTxs, verifyTx,
                                         verifyTxAlone)
 import           Pos.Util              (sublistN)
 
@@ -112,15 +113,7 @@ individualTxPropertyVerifier :: TxVerifyingTools -> Bool
 individualTxPropertyVerifier (tx@Tx{..}, _, extendedInputs) =
     let hasGoodSum = txChecksum extendedInputs txOutputs
         hasGoodStructure = isVerSuccess $ verifyTxAlone tx
-        mapFun =
-            \maybeTxPair ->
-                case maybeTxPair of
-                    Nothing -> False
-                    Just (TxIn{..}, TxOut{..}) ->
-                        checkSig (getAddress txOutAddress)
-                                 (txInHash, txInIndex, txOutputs)
-                                 txInSig
-        hasGoodInputs = and $ map mapFun extendedInputs
+        hasGoodInputs = and $ map (signatureIsValid txOutputs) extendedInputs
     in hasGoodSum && hasGoodStructure && hasGoodInputs
 
 validateGoodTx :: SmallGoodTx -> Bool
@@ -139,12 +132,16 @@ overflowTx (SmallOverflowTx (getOverflowTx -> ls)) =
         inpSumLessThanOutSum = not $ txChecksum extendedInputs txOutputs
     in inpSumLessThanOutSum == transactionIsNotVerified
 
+signatureIsValid :: [TxOut] -> Maybe (TxIn, TxOut) -> Bool
+signatureIsValid txOutputs (Just (TxIn{..}, TxOut{..})) =
+    let pk = getValidator txInValidator
+        sig = getRedeemer txInRedeemer
+    in checkPubKeyAddress pk txOutAddress &&
+       checkSig pk (txInHash, txInIndex, txOutputs) sig
+signatureIsValid _ _ = False
+
 signatureIsNotValid :: [TxOut] -> Maybe (TxIn, TxOut) -> Bool
-signatureIsNotValid txOutputs (Just (TxIn{..}, TxOut{..})) =
-    not $ checkSig (getAddress txOutAddress)
-        (txInHash, txInIndex, txOutputs)
-        txInSig
-signatureIsNotValid _ _ = False
+signatureIsNotValid txOutputs = not . signatureIsValid txOutputs
 
 badSigsTx :: SmallBadSigsTx -> Bool
 badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
@@ -160,9 +157,10 @@ txGen :: Int -> Gen Tx
 txGen size = do
     (Positive inputsN) <- resize size arbitrary
     (Positive outputsN) <- resize size arbitrary
-    inputs <- replicateM inputsN $ (\h s -> TxIn h 0 s) <$> arbitrary <*> arbitrary
+    inputs <- replicateM inputsN $ (\h v r -> TxIn h 0 v r) <$>
+              arbitrary <*> arbitrary <*> arbitrary
     outputs <- replicateM outputsN $
-        (\p (Positive c) -> TxOut (Address p) c) <$> arbitrary <*> arbitrary
+        (\addr (Positive c) -> TxOut addr c) <$> arbitrary <*> arbitrary
     pure $ Tx inputs outputs
 
 testTopsort :: Bool -> Property
@@ -210,11 +208,11 @@ txAcyclicGen isBamboo size = do
             resize (bool (min 3 $ length unusedUtxo) 1 isBamboo) arbitrary
         chosenUtxo <- sublistN depsN unusedUtxo
         -- grab some inputs
-        inputs <- mapM (\(h,i) -> TxIn (hash h) (fromIntegral i) <$> arbitrary) chosenUtxo
+        inputs <- mapM (\(h,i) -> TxIn (hash h) (fromIntegral i) <$> arbitrary <*> arbitrary) chosenUtxo
         (Positive outputsN) <- resize some' arbitrary
         -- gen some outputs
         outputs <- replicateM outputsN $
-            (\p (Positive c) -> TxOut (Address p) c) <$> arbitrary <*> arbitrary
+            (\addr (Positive c) -> TxOut addr c) <$> arbitrary <*> arbitrary
         -- calculate new utxo & add vertex
         let tx = Tx inputs outputs
             producedUtxo = map (tx,) $ [0..(length outputs) - 1]

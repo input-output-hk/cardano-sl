@@ -12,10 +12,11 @@ module Pos.Ssc.GodTossing.Worker.Workers
        ) where
 
 import           Control.Concurrent.STM                 (readTVar)
-import           Control.Lens                           (view, _2, _3)
+import           Control.Lens                           (view, _2, _3, (%=))
 import           Control.Monad.Trans.Maybe              (runMaybeT)
 import           Control.TimeWarp.Timed                 (Microsecond, Millisecond,
                                                          currentTime, for, wait)
+import           Data.HashMap.Strict                    (insert, lookup)
 import           Data.Tagged                            (Tagged (..))
 import           Data.Time.Units                        (convertUnit)
 import           Formatting                             (build, ords, sformat, shown, (%))
@@ -28,8 +29,10 @@ import           Pos.Constants                          (k, mpcSendInterval)
 import           Pos.Crypto                             (SecretKey, randomNumber,
                                                          runSecureRandom, toPublic)
 import           Pos.Crypto.SecretSharing               (toVssPublicKey)
-import           Pos.Crypto.Signing                     (sign)
+import           Pos.Crypto.Signing                     (PublicKey, sign)
 import           Pos.Slotting                           (getSlotStart, onNewSlot)
+import           Pos.Ssc.Class.LocalData                (sscRunLocalQuery,
+                                                         sscRunLocalUpdate)
 import           Pos.Ssc.Class.Workers                  (SscWorkersClass (..))
 import           Pos.Ssc.GodTossing.Functions           (genCommitmentAndOpening,
                                                          genCommitmentAndOpening,
@@ -39,6 +42,7 @@ import           Pos.Ssc.GodTossing.Functions           (genCommitmentAndOpening
                                                          mkSignedCommitment)
 import           Pos.Ssc.GodTossing.LocalData.LocalData (localOnNewSlot,
                                                          sscProcessMessage)
+import           Pos.Ssc.GodTossing.LocalData.Types     (gtLocalCertificates)
 import           Pos.Ssc.GodTossing.SecretStorage.State (checkpointSecret, getSecret,
                                                          prepareSecretToNewSlot,
                                                          setSecret)
@@ -67,25 +71,36 @@ instance SscWorkersClass SscGodTossing where
 
 onStart :: forall m. WorkMode SscGodTossing m => m ()
 onStart = do
-    ourPk             <- ncPublicKey <$> getNodeContext
+    (_, ourAddr)      <- getOurPkAndAddr
     ourVssCertificate <- getOurVssCertificate
-    let msg = DMVssCertificate (makePubKeyAddress ourPk) ourVssCertificate
+    let msg = DMVssCertificate ourAddr ourVssCertificate
     logDebug "Announcing our VssCertificate."
     sendToNeighborsSafe msg
     logDebug "Sent our VssCertificate."
 
   where
 
+    getOurPkAndAddr :: m (PublicKey, Address)
+    getOurPkAndAddr = do
+        ourPk <- ncPublicKey <$> getNodeContext
+        return (ourPk, makePubKeyAddress ourPk)
+
     getOurVssCertificate :: m VssCertificate
     getOurVssCertificate = do
-        ourPk         <- ncPublicKey <$> getNodeContext
-        ourSk         <- ncSecretKey <$> getNodeContext
-        ourVssKeyPair <- gtcVssKeyPair . ncSscContext <$> getNodeContext
-        let vssKey = serialize $ toVssPublicKey ourVssKeyPair
-        return VssCertificate { vcVssKey     = vssKey
-                              , vcSignature  = sign ourSk vssKey
-                              , vcSigningKey = ourPk
-                              }
+        (ourPk, ourAddr) <- getOurPkAndAddr
+        localCerts       <- sscRunLocalQuery $ view gtLocalCertificates
+        case lookup ourAddr localCerts of
+          Just c  -> return c
+          Nothing -> do
+            ourSk         <- ncSecretKey <$> getNodeContext
+            ourVssKeyPair <- gtcVssKeyPair . ncSscContext <$> getNodeContext
+            let vssKey  = serialize $ toVssPublicKey ourVssKeyPair
+                ourCert = VssCertificate { vcVssKey     = vssKey
+                                         , vcSignature  = sign ourSk vssKey
+                                         , vcSigningKey = ourPk
+                                         }
+            sscRunLocalUpdate $ gtLocalCertificates %= insert ourAddr ourCert
+            return ourCert
 
 onNewSlotSsc :: WorkMode SscGodTossing m => m ()
 onNewSlotSsc = onNewSlot True $ \slotId-> do

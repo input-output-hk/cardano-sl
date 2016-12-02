@@ -15,7 +15,7 @@ module Pos.Crypto.Hashing
        , CastHash (castHash)
        ) where
 
-import           Crypto.Hash         (Digest, SHA256, digestFromByteString)
+import           Crypto.Hash         (Blake2b_512, Digest, digestFromByteString)
 import qualified Crypto.Hash         as Hash (hash, hashlazy)
 import           Data.Aeson          (ToJSON (toJSON))
 import           Data.Binary         (Binary (..))
@@ -23,21 +23,23 @@ import qualified Data.Binary         as Binary
 import qualified Data.Binary.Get     as Binary (getByteString)
 import qualified Data.Binary.Put     as Binary (putByteString)
 import qualified Data.ByteArray      as ByteArray
-import           Data.Hashable       (Hashable (hashWithSalt))
+import           Data.Hashable       (Hashable (hashWithSalt), hashPtrWithSalt)
 import           Data.MessagePack    (MessagePack (fromObject, toObject), Object (..))
 import           Data.SafeCopy       (SafeCopy (..))
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (Format, bprint, fitLeft, later, shown, (%.))
+import           System.IO.Unsafe    (unsafePerformIO)
 import           Universum
 
 import           Pos.Util            (Raw, getCopyBinary, msgpackFail, putCopyBinary)
 
 -- | Hash wrapper with phantom type for more type-safety.
-newtype Hash a = Hash (Digest SHA256)
+newtype Hash a = Hash (Digest Blake2b_512)
+--newtype Hash a = Hash (Digest SHA256)
     deriving (Show, Eq, Ord, ByteArray.ByteArrayAccess, Generic, NFData)
 
 instance Hashable (Hash a) where
-    hashWithSalt s (Hash x) = hashWithSalt s $ ByteArray.unpack x
+    hashWithSalt s h = unsafePerformIO $ ByteArray.withByteArray h (\ptr -> hashPtrWithSalt ptr (ByteArray.length h) s)
 
 instance MessagePack (Hash a) where
     toObject (Hash x) = toObject @ByteString . ByteArray.convert $ x

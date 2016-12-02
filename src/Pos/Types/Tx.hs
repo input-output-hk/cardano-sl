@@ -20,10 +20,9 @@ import           Formatting          (build, int, sformat, (%))
 import           Serokell.Util       (VerificationRes, verifyGeneric)
 import           Universum
 
-import           Pos.Crypto          (addressHash, checkSig, hash)
-import           Pos.Types.Types     (Address (..), Redeemer (..), Tx (..), TxIn (..),
-                                      TxOut (..), Validator (..), checkPubKeyAddress,
-                                      coinF)
+import           Pos.Crypto          (checkSig, hash)
+import           Pos.Types.Types     (Redeemer (..), Tx (..), TxIn (..), TxOut (..),
+                                      Validator (..), checkPubKeyAddress, coinF)
 
 -- | Verify that Tx itself is correct. Most likely you will also want
 -- to verify that inputs are legal, signed properly and have enough coins.

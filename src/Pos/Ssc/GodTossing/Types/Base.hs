@@ -21,7 +21,6 @@ module Pos.Ssc.GodTossing.Types.Base
 
 
 import           Data.Binary         (Binary)
-import           Data.MessagePack    (MessagePack)
 import           Data.SafeCopy       (base, deriveSafeCopySimple)
 import           Data.Text.Buildable (Buildable (..))
 import           Universum
@@ -34,6 +33,7 @@ import           Pos.Types.Types     (Address (..), EpochIndex)
 ----------------------------------------------------------------------------
 -- Types, instances
 ----------------------------------------------------------------------------
+
 type PKSet = HashSet Address
 
 -- | Commitment is a message generated during the first stage of

@@ -9,7 +9,6 @@ module Pos.Communication.Types.Statistics
        ) where
 
 import           Data.Binary              (Binary)
-import           Data.MessagePack         (MessagePack)
 import           Universum
 
 import           Control.TimeWarp.Rpc     (Message (..), messageName')
@@ -34,9 +33,6 @@ data ResponseStat l a =
 
 instance StatLabel l => Binary (RequestStat l)
 instance (StatLabel l, Binary a) => Binary (ResponseStat l a)
-
-instance StatLabel l => MessagePack (RequestStat l)
-instance (StatLabel l, MessagePack a) => MessagePack (ResponseStat l a)
 
 instance StatLabel l => Message (RequestStat l) where
     messageName _ = "RequestStat_" <> labelName (Proxy :: Proxy l)

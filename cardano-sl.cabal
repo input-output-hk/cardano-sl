@@ -123,6 +123,7 @@ library
                         Pos.Statistics.Tx
                         Pos.Wallet.Tx
                         Pos.Wallet.Web.Api
+                        Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Server
                         Pos.Web.Api
                         Pos.Web.Doc
@@ -160,6 +161,7 @@ library
                       , focus
                       , formatting
                       , hashable
+                      , http-types
                       , kademlia
                       , lens
                       , lifted-async
@@ -432,6 +434,26 @@ executable cardano-smart-generator
 
 executable cardano-web-docs
   hs-source-dirs:      src/web-docs
+  main-is:             Main.hs
+  build-depends:       base
+                     , cardano-sl
+                     , universum >= 0.1.11
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -with-rtsopts=-N
+                       -O2
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+
+executable cardano-wallet-web-docs
+  hs-source-dirs:      src/wallet-web-docs
   main-is:             Main.hs
   build-depends:       base
                      , cardano-sl

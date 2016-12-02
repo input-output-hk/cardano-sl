@@ -20,7 +20,6 @@ import           Universum
 
 import           Pos.Communication.Methods              (sendToNeighborsSafe)
 import           Pos.Communication.Types                (ResponseMode)
-import           Pos.Crypto                             (PublicKey)
 import           Pos.DHT                                (ListenerDHT (..), replyToNode)
 import           Pos.Slotting                           (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
@@ -34,6 +33,7 @@ import           Pos.Ssc.GodTossing.Types.Message       (DataMsg (..), InvMsg (.
                                                          isGoodSlotIdForTag)
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), _gpCertificates)
+import           Pos.Types                              (Address)
 import           Pos.WorkMode                           (WorkMode)
 
 instance SscListenersClass SscGodTossing where
@@ -51,30 +51,30 @@ handleInv (InvMsg tag keys) =
         (logDebug $
          sformat ("Ignoring "%build%", because slot is not appropriate") tag)
 
-handleInvDo :: ResponseMode SscGodTossing m => MsgTag -> NonEmpty PublicKey -> m ()
+handleInvDo :: ResponseMode SscGodTossing m => MsgTag -> NonEmpty Address -> m ()
 handleInvDo tag keys = mapM_ handleSingle keys
   where
-    handleSingle pk =
-        ifM (sscIsDataUseful tag pk)
-            (replyToNode $ ReqMsg tag pk)
+    handleSingle addr =
+        ifM (sscIsDataUseful tag addr)
+            (replyToNode $ ReqMsg tag addr)
             (logDebug $
              sformat ("Ignoring "%build% " ("%build%"), because it's useless")
-                 tag pk)
+                 tag addr)
 
 handleReq :: ResponseMode SscGodTossing m => ReqMsg -> m ()
-handleReq (ReqMsg tag key) = do
+handleReq (ReqMsg tag addr) = do
     localPayload <- sscGetLocalPayload =<< getCurrentSlot
-    whenJust (toDataMsg tag key localPayload) (replyToNode @_ @DataMsg)
+    whenJust (toDataMsg tag addr localPayload) (replyToNode @_ @DataMsg)
 
-toDataMsg :: MsgTag -> PublicKey -> GtPayload -> Maybe DataMsg
-toDataMsg CommitmentMsg key (CommitmentsPayload comm _) =
-    DMCommitment key <$> lookup key comm
-toDataMsg OpeningMsg key (OpeningsPayload opens _) =
-    DMOpening key <$> lookup key opens
-toDataMsg SharesMsg key (SharesPayload shares _) =
-    DMShares key <$> lookup key shares
-toDataMsg VssCertificateMsg key payload =
-    DMVssCertificate key <$> lookup key (_gpCertificates payload)
+toDataMsg :: MsgTag -> Address -> GtPayload -> Maybe DataMsg
+toDataMsg CommitmentMsg addr (CommitmentsPayload comm _) =
+    DMCommitment addr <$> lookup addr comm
+toDataMsg OpeningMsg addr (OpeningsPayload opens _) =
+    DMOpening addr <$> lookup addr opens
+toDataMsg SharesMsg addr (SharesPayload shares _) =
+    DMShares addr <$> lookup addr shares
+toDataMsg VssCertificateMsg addr payload =
+    DMVssCertificate addr <$> lookup addr (_gpCertificates payload)
 toDataMsg _ _ _ = Nothing
 
 handleData :: WorkMode SscGodTossing m => DataMsg -> m ()
@@ -82,17 +82,17 @@ handleData msg =
     whenM (isGoodSlotIdForTag (dataMsgTag msg) <$> getCurrentSlot) $
     do added <- sscProcessMessage msg
        let tag = dataMsgTag msg
-           pk = dataMsgPublicKey msg
-       loggerAction tag added pk
-       when added $ sendToNeighborsSafe $ InvMsg tag $ pure pk
+           addr = dataMsgPublicKey msg
+       loggerAction tag added addr
+       when added $ sendToNeighborsSafe $ InvMsg tag $ pure addr
 
 loggerAction :: WorkMode SscGodTossing m
-             => MsgTag -> Bool -> PublicKey -> m ()
-loggerAction msgTag added pk = logAction msg
+             => MsgTag -> Bool -> Address -> m ()
+loggerAction msgTag added addr = logAction msg
   where
       msgAction | added = "added to local storage"
                 | otherwise = "ignored"
       msg = sformat (build%" from "%build%" have/has been "%stext)
-          msgTag pk msgAction
+          msgTag addr msgAction
       logAction | added = logInfo
                 | otherwise = logDebug

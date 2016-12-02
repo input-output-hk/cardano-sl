@@ -28,7 +28,7 @@ import           Pos.Ssc.Class             (sscApplyGlobalState, sscGetLocalPayl
 import           Pos.State                 (createNewBlock, getGlobalMpcData,
                                             getHeadBlock, getLeaders, processNewSlot)
 import           Pos.Types                 (SlotId (..), Timestamp (Timestamp), blockMpc,
-                                            gbHeader, slotIdF)
+                                            gbHeader, makePubKeyAddress, slotIdF)
 import           Pos.Util                  (logWarningWaitLinear)
 import           Pos.Util.JsonLog          (jlCreatedBlock, jlLog)
 import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey,
@@ -54,9 +54,9 @@ blkOnNewSlot slotId@SlotId {..} = do
         Just leaders -> do
             let logLeadersF = if siSlot == 0 then logInfo else logDebug
             logLeadersF (sformat ("Slot leaders: " %listJson) leaders)
-            ourPk <- ncPublicKey <$> getNodeContext
+            ourPkAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
             let leader = leaders ^? ix (fromIntegral siSlot)
-            when (leader == Just ourPk) $ onNewSlotWhenLeader slotId
+            when (leader == Just ourPkAddr) $ onNewSlotWhenLeader slotId
 
 onNewSlotWhenLeader :: WorkMode ssc m => SlotId -> m ()
 onNewSlotWhenLeader slotId = do

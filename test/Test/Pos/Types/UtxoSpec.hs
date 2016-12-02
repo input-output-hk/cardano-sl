@@ -10,9 +10,9 @@ import           Control.Lens          (view, _1)
 import qualified Data.Map              as M (Map, delete, elems, fromList, insert, keys)
 import           Data.Maybe            (isJust, isNothing)
 import           Pos.Crypto            (hash, keyGen, sign, unsafeHash)
-import           Pos.Types             (GoodTx (..), SmallGoodTx (..), Tx (..),
-                                        TxIn (..), TxOut, Utxo, applyTxToUtxo, deleteTxIn,
-                                        findTxIn, verifyTxUtxo)
+import           Pos.Types             (GoodTx (..), Redeemer (..), SmallGoodTx (..),
+                                        Tx (..), TxIn (..), TxOut, Utxo, Validator (..),
+                                        applyTxToUtxo, deleteTxIn, findTxIn, verifyTxUtxo)
 import           Serokell.Util.Verify  (isVerSuccess)
 import           System.IO.Unsafe      (unsafePerformIO)
 
@@ -33,10 +33,11 @@ spec = describe "Types.Utxo" $ do
     describe "applyTxToUtxo" $ do
         prop description_applyTxToUtxoGood applyTxToUtxoGood
   where
-    myTx = (TxIn myHash 0 mySig)
+    myTx = (TxIn myHash 0 myValidator myRedeemer)
     myHash = unsafeHash (0 :: Int)
-    mySig = sign mySK (myHash, 0, [])
-    mySK = unsafePerformIO $ snd <$> keyGen
+    myValidator = PubKeyValidator myPK
+    myRedeemer = PubKeyRedeemer $ sign mySK (myHash, 0, [])
+    (myPK, mySK) = unsafePerformIO keyGen
     description_findTxInUtxo =
         "correctly finds the TxOut corresponding to (txHash, txIndex) when the key is in\
         \ the Utxo map, and doesn't find it otherwise"
@@ -75,7 +76,7 @@ applyTxToUtxoGood :: M.Map TxIn TxOut -> [TxOut] -> Bool
 applyTxToUtxoGood txMap txOuts =
     let txInps = M.keys txMap
         hashTx = hash $ Tx txInps txOuts
-        inpFun = (\(TxIn h i _) -> (h,i))
+        inpFun = (\(TxIn h i _ _) -> (h,i))
         inpList = map inpFun txInps
         utxoMap = M.fromList $ zip inpList (M.elems txMap)
         newUtxoMap = applyTxToUtxo (Tx txInps txOuts) utxoMap

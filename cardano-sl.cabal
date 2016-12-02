@@ -54,6 +54,7 @@ library
                         Pos.State.Storage.Tx
                         Pos.Statistics
                         Pos.Types
+                        Pos.Types.Address
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block
@@ -64,6 +65,8 @@ library
                         Pos.Types.Utxo
                         Pos.Util
                         Pos.Util.JsonLog
+                        Pos.Wallet
+                        Pos.Wallet.Web
                         Pos.Web
                         Pos.Worker
                         Pos.WorkMode
@@ -81,6 +84,7 @@ library
                         Pos.Communication.Util
                         Pos.CompileConfig.Parser
                         Pos.CompileConfig.Type
+                        Pos.Crypto.Address
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
@@ -117,6 +121,9 @@ library
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
+                        Pos.Wallet.Tx
+                        Pos.Wallet.Web.Api
+                        Pos.Wallet.Web.Server
                         Pos.Web.Api
                         Pos.Web.Server
                         Pos.Web.Types
@@ -133,6 +140,7 @@ library
                       , ansi-terminal
                       , async
                       , base
+                      , base58-bytestring
                       , binary
                       , binary-orphans
                       , bytestring
@@ -142,6 +150,7 @@ library
                       , data-default
                       , data-msgpack >= 0.0.8
                       , derive
+                      , digest
                       , directory
                       , ed25519
                       , exceptions
@@ -163,6 +172,7 @@ library
                       , mtl
                       , parsec
                       , pvss
+                      , resourcet
                       , quickcheck-instances
                       , random
                       , safecopy
@@ -272,6 +282,7 @@ executable cardano-analyzer
 executable cardano-wallet
   hs-source-dirs:      src/wallet
   main-is:             Main.hs
+  other-modules:       WalletOptions
   build-depends:       base
                      , data-default
                      , cardano-sl

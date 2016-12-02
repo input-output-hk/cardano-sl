@@ -32,7 +32,7 @@ import           Pos.Crypto           (PublicKey, SecretKey, deterministicKeyGen
                                        unsafeHash)
 import           Pos.FollowTheSatoshi (followTheSatoshi)
 import           Pos.Types            (Address (..), Coin, SharedSeed (SharedSeed),
-                                       SlotLeaders, TxOut (..), Utxo)
+                                       SlotLeaders, TxOut (..), Utxo, makePubKeyAddress)
 
 
 ----------------------------------------------------------------------------
@@ -60,7 +60,7 @@ genesisPublicKeys = map fst genesisKeyPairs
 
 -- | List of 'Address'`es in genesis. See 'genesisPublicKeys'.
 genesisAddresses :: [Address]
-genesisAddresses = map Address genesisPublicKeys
+genesisAddresses = map makePubKeyAddress genesisPublicKeys
 
 -- | Stake distribution in genesis block.
 -- FlatStakes is a flat distribution, i. e. each node has the same amount of coins.
@@ -128,4 +128,4 @@ genesisSeed = SharedSeed "vasa opasa skovoroda Ggurda boroda provoda"
 
 -- | Leaders of genesis. See 'followTheSatoshi'.
 genesisLeaders :: Utxo -> SlotLeaders
-genesisLeaders = fmap getAddress . followTheSatoshi genesisSeed
+genesisLeaders = followTheSatoshi genesisSeed

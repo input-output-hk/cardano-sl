@@ -13,11 +13,11 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
-import           Pos.Crypto            (EncShare, Hash, KeyPair (..), LVssPublicKey,
-                                        LEncShare, LSecret, PublicKey, Secret, SecretKey,
-                                        Signature, Signed, VssPublicKey, deterministic,
-                                        fullPublicKeyF, hash, parseFullPublicKey,
-                                        randomNumber, sign, toPublic, checkSig)
+import           Pos.Crypto            (EncShare, Hash, KeyPair (..), LEncShare, LSecret,
+                                        LVssPublicKey, PublicKey, Secret, SecretKey,
+                                        Signature, Signed, VssPublicKey, checkSig,
+                                        deterministic, fullPublicKeyF, hash,
+                                        parseFullPublicKey, randomNumber, sign, toPublic)
 import           Pos.Ssc.GodTossing    ()
 
 import           Test.Pos.Util         (binaryEncodeDecode, msgPackEncodeDecode,
@@ -63,8 +63,7 @@ spec = describe "Crypto" $ do
         describe "check hash sample" $ do
             specify "1 :: Int" $
                 checkHash (1 :: Int)
-                    "cd2662154e6d76b2b2b92e70c0cac3cc\
-                    \f534f9b74eb5b89819ec509083d00a50"
+                    "009d179ba955ae9b0690b8f6a96a866972b1606d97b0c9d8094073a374de77b7612d4ae35ac3e38f4092aced0f1680295a0bc95722ad039253ee6aa275569848"
 
     describe "Signing" $ do
         describe "Identity testing" $ do

@@ -31,9 +31,7 @@ import           Serokell.Util.Verify              (VerificationRes (..), isVerS
                                                     verifyGeneric)
 import           Universum
 
-import           Pos.Crypto                        (LEncShare, LVssPublicKey,
-                                                    Signed (signedValue), Threshold)
-import           Pos.Crypto                        (PublicKey)
+import           Pos.Crypto                        (LEncShare, LVssPublicKey, Threshold)
 import           Pos.FollowTheSatoshi              (followTheSatoshi)
 import           Pos.Ssc.Class.Storage             (HasSscStorage (..), SscQuery,
                                                     SscStorageClass (..), SscUpdate)
@@ -48,15 +46,15 @@ import           Pos.Ssc.GodTossing.Storage.Types  (GtStorage, GtStorageVersion 
                                                     dsGlobalCertificates,
                                                     dsGlobalCommitments, dsGlobalOpenings,
                                                     dsGlobalShares, dsVersionedL)
-import           Pos.Ssc.GodTossing.Types.Base     (Commitment (..))
+import           Pos.Ssc.GodTossing.Types.Base     (Commitment (..), VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types    (GtGlobalState (..), GtPayload (..),
                                                     _gpCertificates)
 import           Pos.State.Storage.Types           (AltChain)
-import           Pos.Types                         (Address (getAddress), Block,
-                                                    EpochIndex, SlotId (..), SlotLeaders,
-                                                    Utxo, blockMpc, blockSlot, blockSlot,
+import           Pos.Types                         (Address (..), Block, EpochIndex,
+                                                    SlotId (..), SlotLeaders, Utxo,
+                                                    blockMpc, blockSlot, blockSlot,
                                                     gbHeader, txOutAddress)
 import           Pos.Util                          (magnify', readerToState, zoom',
                                                     _neHead)
@@ -129,9 +127,9 @@ getParticipants depth utxo = do
     return $
         do keymap <- mKeymap
            let stakeholders =
-                   nub $ map (getAddress . txOutAddress) (toList utxo)
+                   nub $ map txOutAddress (toList utxo)
            NE.nonEmpty $
-               map signedValue $ mapMaybe (`HM.lookup` keymap) stakeholders
+               map vcVssKey $ mapMaybe (`HM.lookup` keymap) stakeholders
 
 -- | Calculate leaders for the next epoch.
 calculateLeaders
@@ -146,7 +144,7 @@ calculateLeaders _ utxo threshold = do --GodTossing doesn't use epoch, but NistB
                             <*> view (lastVer . dsGlobalShares)
     return $ case mbSeed of
         Left e     -> Left e
-        Right seed -> Right $ fmap getAddress $ followTheSatoshi seed utxo
+        Right seed -> Right $ followTheSatoshi seed utxo
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
@@ -302,13 +300,13 @@ mpcProcessBlock blk = do
 -- | Decrypt shares (in commitments) that we can decrypt.
 getOurShares
     :: LVssPublicKey                           -- ^ Our VSS key
-    -> Query (HashMap PublicKey LEncShare)
+    -> Query (HashMap Address LEncShare)
 getOurShares ourPK = do
     comms <- view (lastVer . dsGlobalCommitments)
     opens <- view (lastVer . dsGlobalOpenings)
     return .
         HM.fromList . catMaybes $
-            flip fmap (HM.toList comms) $ \(theirPK, (Commitment{..}, _)) ->
-                if not $ HM.member theirPK opens
-                   then (,) theirPK <$> HM.lookup ourPK commShares
-                   else Nothing -- if we have opening for theirPK, we shouldn't send shares for it
+            flip fmap (HM.toList comms) $ \(theirAddr, (_, Commitment{..}, _)) ->
+                if not $ HM.member theirAddr opens
+                   then (,) theirAddr <$> HM.lookup ourPK commShares
+                   else Nothing -- if we have opening for theirAddr, we shouldn't send shares for it

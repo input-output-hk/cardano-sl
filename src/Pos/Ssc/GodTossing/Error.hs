@@ -10,25 +10,25 @@ import           Data.Text.Buildable (Buildable (..))
 import           Serokell.Util       (listBuilderJSON)
 import           Universum
 
-import           Pos.Crypto          (PublicKey)
+import           Pos.Types           (Address)
 
 -- | Data type for error during seed calculation.
 data SeedError
     -- | Some nodes in the 'OpeningsMap' aren't in the set of participants
-    = ExtraneousOpenings (HashSet PublicKey)
+    = ExtraneousOpenings (HashSet Address)
     -- | Some nodes in the 'SharesMap' aren't in the set of participants
-    | ExtraneousShares (HashSet PublicKey)
+    | ExtraneousShares (HashSet Address)
     -- | There were no participants so a random string couldn't be generated
     | NoParticipants
     -- | Commitment can't be deserialized or didn't match secret (either recovered or in openings)
-    | BrokenCommitment PublicKey
+    | BrokenCommitment Address
     -- | Secret couldn't be recovered, or wasn't found in either
     -- 'OpeningsMap' or 'SharesMap'
-    | NoSecretFound PublicKey
+    | NoSecretFound Address
     -- | Secret can't be deserialized
-    | BrokenSecret PublicKey
+    | BrokenSecret Address
     -- | Share can't be deserialized
-    | BrokenShare PublicKey
+    | BrokenShare Address
     deriving (Eq, Show)
 
 instance Buildable SeedError where

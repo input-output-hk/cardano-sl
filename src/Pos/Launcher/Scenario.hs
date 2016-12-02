@@ -15,11 +15,14 @@ import           System.Wlog            (logError, logInfo)
 import           Universum
 
 import           Pos.Communication      (sendTx)
-import           Pos.Crypto             (hash, sign)
+import           Pos.Crypto             (hash)
 import           Pos.DHT                (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Ssc.Class          (SscConstraint)
+import           Pos.State              (initFirstSlot)
 import           Pos.Types              (Address, Coin, Timestamp (Timestamp), Tx (..),
-                                         TxId, TxIn (..), TxOut (..), txF)
+                                         TxId, txF)
+import           Pos.Util               (inAssertMode)
+import           Pos.Wallet             (makePubKeyTx)
 import           Pos.Worker             (runWorkers)
 import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeContext,
                                          ncPublicKey)
@@ -27,11 +30,13 @@ import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeCont
 -- | Run full node in any WorkMode.
 runNode :: (SscConstraint ssc, WorkMode ssc m) => [m ()] -> m ()
 runNode plugins = do
+    inAssertMode $ logInfo "Assert mode on"
     pk <- ncPublicKey <$> getNodeContext
     logInfo $ sformat ("My public key is: "%build) pk
     peers <- discoverPeers DHTFull
     logInfo $ sformat ("Known peers: " % build) peers
 
+    initFirstSlot
     waitSystemStart
     runWorkers
     mapM_ fork plugins
@@ -40,14 +45,13 @@ runNode plugins = do
 -- | Construct Tx with a single input and single output and send it to
 -- the given network addresses.
 submitTx :: WorkMode ssc m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m Tx
-submitTx na (txInHash, txInIndex) (txOutAddress, txOutValue) =
+submitTx na input output =
     if null na
       then logError "No addresses to send" >> panic "submitTx failed"
       else do
+        pk <- ncPublicKey <$> getNodeContext
         sk <- ncSecretKey <$> getNodeContext
-        let txOuts = [TxOut {..}]
-            txIns = [TxIn {txInSig = sign sk (txInHash, txInIndex, txOuts), ..}]
-            tx = Tx {txInputs = txIns, txOutputs = txOuts}
+        let tx = makePubKeyTx pk sk [input] [output]
         submitTxRaw na tx
         pure tx
 

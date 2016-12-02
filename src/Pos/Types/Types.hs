@@ -29,10 +29,14 @@ module Pos.Types.Types
        , epochOrSlot
 
        , Address (..)
+       , makePubKeyAddress
+       , checkPubKeyAddress
        , addressF
 
        , TxSig
        , TxId
+       , Validator (..)
+       , Redeemer (..)
        , TxIn (..)
        , TxOut (..)
        , Tx (..)
@@ -136,6 +140,8 @@ import           Pos.Crypto             (Hash, PublicKey, Signature, hash, hashH
                                          shortHashF)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Ssc.Class.Types    (Ssc (..))
+import           Pos.Types.Address      (Address (..), addressF, checkPubKeyAddress,
+                                         makePubKeyAddress)
 import           Pos.Util               (Color (Magenta), colorize)
 
 ----------------------------------------------------------------------------
@@ -145,7 +151,7 @@ import           Pos.Util               (Color (Magenta), colorize)
 -- | Coin is the least possible unit of currency.
 newtype Coin = Coin
     { getCoin :: Word64
-    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Binary, Hashable, Data, NFData)
+    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Binary, Hashable, Data, NFData, ToJSON)
 
 instance MessagePack Coin
 
@@ -223,21 +229,6 @@ instance Buildable EpochOrSlot where
     build = either Buildable.build Buildable.build . unEpochOrSlot
 
 ----------------------------------------------------------------------------
--- Address
-----------------------------------------------------------------------------
-
--- | Address is where you can send coins.
-newtype Address = Address
-    { getAddress :: PublicKey
-    } deriving (Show, Eq, Generic, Buildable, Ord, Binary, Hashable, NFData, ToJSON)
-
-instance MessagePack Address
-
--- | Specialized formatter for 'Address'.
-addressF :: Format r (Address -> r)
-addressF = build
-
-----------------------------------------------------------------------------
 -- Transaction
 ----------------------------------------------------------------------------
 
@@ -247,14 +238,34 @@ type TxId = Hash Tx
 -- | 'Signature' of addrId.
 type TxSig = Signature (TxId, Word32, [TxOut])
 
+-- | Validation structure of transaction input.
+-- Now it's only a wrapper around public key.
+-- TODO: add script validator after scripts are introduced
+newtype Validator = PubKeyValidator
+    { getValidator :: PublicKey
+    } deriving (Eq, Ord, Show, Generic, Binary, Hashable)
+
+instance MessagePack Validator
+
+-- | Redeeming structure of transaction input.
+-- Now it's only a wrapper around signature.
+-- TODO: add script redeemer after scripts are introduced.
+newtype Redeemer = PubKeyRedeemer
+    { getRedeemer :: TxSig
+    } deriving (Eq, Ord, Show, Generic, Binary, Hashable)
+
+instance MessagePack Redeemer
+
 -- | Transaction input.
 data TxIn = TxIn
-    { txInHash  :: !TxId    -- ^ Which transaction's output is used
-    , txInIndex :: !Word32  -- ^ Index of the output in transaction's
-                            -- outputs
-    , txInSig   :: !TxSig   -- ^ Signature given by public key
-                            -- corresponding to address referenced by
-                            -- this input.
+    { txInHash      :: !TxId       -- ^ Which transaction's output is used
+    , txInIndex     :: !Word32     -- ^ Index of the output in transaction's
+                                   -- outputs
+    , txInValidator :: !Validator  -- ^ Either public key of money owner or a
+                                   -- script which takes some key, produced
+                                   -- by `Redeemer` script and checks it
+    , txInRedeemer  :: !Redeemer   -- ^ Either signature of money owner or a
+                                   -- script which produces a key for `Validator`
     } deriving (Eq, Ord, Show, Generic)
 
 instance Binary TxIn
@@ -345,7 +356,7 @@ instance Monoid SharedSeed where
     mconcat = foldl' mappend mempty
 
 -- | 'NonEmpty' list of slot leaders.
-type SlotLeaders = NonEmpty PublicKey
+type SlotLeaders = NonEmpty Address
 
 ----------------------------------------------------------------------------
 -- GenericBlock
@@ -865,6 +876,8 @@ deriveSafeCopySimple 0 'base ''LocalSlotIndex
 deriveSafeCopySimple 0 'base ''SlotId
 deriveSafeCopySimple 0 'base ''Coin
 deriveSafeCopySimple 0 'base ''Address
+deriveSafeCopySimple 0 'base ''Validator
+deriveSafeCopySimple 0 'base ''Redeemer
 deriveSafeCopySimple 0 'base ''TxIn
 deriveSafeCopySimple 0 'base ''TxOut
 deriveSafeCopySimple 0 'base ''Tx

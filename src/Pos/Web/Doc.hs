@@ -10,32 +10,71 @@ module Pos.Web.Doc
        , gtDocsText
        ) where
 
-import           Data.Default  (Default (def))
-import           Data.Proxy    (Proxy (..))
-import           Servant.API   (Capture, QueryParam)
-import           Servant.Docs  (API, DocCapture (..), DocQueryParam (..),
-                                ParamKind (Normal), ToCapture (toCapture),
-                                ToParam (toParam), ToSample (toSamples), docs, markdown,
-                                singleSample)
+import           Control.Lens        ((<>~))
+import           Data.Default        (Default (def))
+import qualified Data.HashMap.Strict as HM
+import           Data.Proxy          (Proxy (..))
+import           Servant.API         (Capture, QueryParam)
+import           Servant.Docs        (API, DocCapture (..), DocIntro (..), DocNote (..),
+                                      DocQueryParam (..), ExtraInfo (..),
+                                      ParamKind (Normal), ToCapture (toCapture),
+                                      ToParam (toParam), ToSample (toSamples), defAction,
+                                      defEndpoint, defaultDocOptions, docsWith, markdown,
+                                      notes, path, singleSample)
+import qualified Servant.Docs        as SD
 import           Universum
 
-import           Pos.Crypto    (Hash, PublicKey, deterministicKeyGen, unsafeHash)
-import           Pos.Genesis   (genesisLeaders, genesisUtxo)
-import           Pos.Types     (EpochIndex, SharedSeed (..), SlotId (..), SlotLeaders)
-import           Pos.Web.Api   (baseNodeApi, gtNodeApi)
-import           Pos.Web.Types (GodTossingStage (..))
+import           Pos.Crypto          (Hash, PublicKey, deterministicKeyGen, unsafeHash)
+import           Pos.Genesis         (genesisLeaders, genesisUtxo)
+import           Pos.Types           (EpochIndex, SharedSeed (..), SlotId (..),
+                                      SlotLeaders)
+import           Pos.Web.Api         (baseNodeApi, gtNodeApi)
+import           Pos.Web.Types       (GodTossingStage (..))
 
 baseDocs :: API
-baseDocs = docs baseNodeApi
+baseDocs = docsWith defaultDocOptions intros extras (SD.pretty baseNodeApi)
 
 baseDocsText :: Text
 baseDocsText = toText $ markdown baseDocs
 
 gtDocs :: API
-gtDocs = docs gtNodeApi
+gtDocs = docsWith defaultDocOptions intros extras (SD.pretty gtNodeApi)
 
 gtDocsText :: Text
 gtDocsText = toText $ markdown gtDocs
+
+intros :: [DocIntro]
+intros =
+    [ DocIntro
+          "Documentation of cardano-node web API"
+          ["This is very first version, don't expect it to be smart."]
+    ]
+
+-- [CSL-234]: this is unsafe solution, but I didn't manage to make
+-- safe one work :(
+extras :: ExtraInfo api
+extras =
+    ExtraInfo . HM.fromList $
+    [ (defEndpoint & path <>~ ["head_hash"], defAction & notes <>~ headHashNotes)
+    , (defEndpoint & path <>~ ["local_txs_num"], defAction & notes <>~ localTxsNumNotes)
+    ]
+  where
+    headHashNotes =
+        [ DocNote
+          { _noteTitle = "Description"
+          , _noteBody =
+              [ "Returns hash of header of block which is head of our blockchain."
+              ]
+          }
+        ]
+    localTxsNumNotes =
+        [ DocNote
+          { _noteTitle = "Description"
+          , _noteBody =
+              [ "Returns number of transactions stored locally."
+              ]
+          }
+        ]
 
 ----------------------------------------------------------------------------
 -- Orphan instances

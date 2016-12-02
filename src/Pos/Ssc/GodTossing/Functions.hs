@@ -299,21 +299,30 @@ filterLocalPayload localPay GtGlobalState {..} =
                  _gsVssCertificates)
                 (filterCerts certs)
         OpeningsPayload opens certs ->
-            OpeningsPayload
-                ((opens `HM.difference` _gsOpenings) `HM.intersection`
-                 _gsCommitments)
-                (filterCerts certs)
+            let filteredOpenings =
+                    foldl' (flip ($)) opens $
+                    [
+                    -- Select only new openings
+                      (`HM.difference` _gsOpenings)
+                    -- Select commitments which sent opening
+                    , (`HM.intersection` _gsCommitments)
+                    -- Select opening which corresponds its commitment
+                    , HM.filterWithKey
+                          (curry $ checkOpeningMatchesCommitment _gsCommitments)
+                    ]
+            in
+                OpeningsPayload filteredOpenings (filterCerts certs)
         SharesPayload shares certs ->
             let filteredShares =
                     foldl' (flip ($)) shares $
                     [
                     -- Select only new shares
                       (`diffDoubleMap` _gsShares)
-                    -- Select shares from nodes which sent its certificates
+                    -- Select shares from nodes which sent certificates
                     , (`HM.intersection` _gsVssCertificates)
-                    -- Select shares to nodes which sent its commitments
+                    -- Select shares to nodes which sent commitments
                     , map (`HM.intersection` _gsCommitments)
-                    -- Ensure that share from pkFrom to pkTo is valid
+                    -- Ensure that share sent from pkFrom to pkTo is valid
                     , HM.mapWithKey filterShares
                     ]
             in

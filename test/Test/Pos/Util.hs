@@ -1,5 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.Pos.Util
        ( binaryEncodeDecode
@@ -13,10 +13,10 @@ import qualified Data.Binary      as Binary
 import           Data.MessagePack (MessagePack, pack, unpack)
 import           Data.SafeCopy    (SafeCopy, safeGet, safePut)
 import           Data.Serialize   (runGet, runPut)
+import           Pos.Util         ()
 import           Prelude          (read)
 import           Test.QuickCheck  (Property, (===))
 import           Universum
-import           Pos.Util         (Serialized (..))
 
 binaryEncodeDecode :: (Show a, Eq a, Binary a) => a -> Property
 binaryEncodeDecode a = Binary.decode (Binary.encode a) === a

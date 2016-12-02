@@ -8,7 +8,7 @@ import           Pos.Crypto            (SecretKey, sign, toPublic)
 import           Pos.Ssc.GodTossing    (Commitment, CommitmentOpening (..),
                                         verifyCommitment, verifyCommitmentSignature,
                                         verifyOpening)
-import           Pos.Types             (EpochIndex)
+import           Pos.Types             (EpochIndex, makePubKeyAddress)
 
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
@@ -38,9 +38,8 @@ verifiesOkComm CommitmentOpening{..} =
 
 verifiesOkCommSig :: SecretKey -> Commitment -> EpochIndex -> Bool
 verifiesOkCommSig sk comm epoch =
-    let commSig = (comm, sign sk (epoch, comm))
-        pk = toPublic sk
-    in verifyCommitmentSignature pk epoch commSig
+    let commSig = (toPublic sk, comm, sign sk (epoch, comm))
+    in verifyCommitmentSignature epoch commSig
 
 verifiesOkOpening :: CommitmentOpening -> Bool
 verifiesOkOpening CommitmentOpening{..} =

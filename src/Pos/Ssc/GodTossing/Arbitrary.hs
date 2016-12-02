@@ -15,7 +15,8 @@ import           Pos.Crypto                     (LSecretProof, LSecretSharingExt
                                                  deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Crypto.Arbitrary           ()
 import           Pos.Ssc.GodTossing.Functions   (genCommitmentAndOpening)
-import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), Opening)
+import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), Opening,
+                                                 VssCertificate (..), mkVssCertificate)
 import           Pos.Ssc.GodTossing.Types.Types (GtProof (..))
 import           Pos.Types.Arbitrary.Unsafe     ()
 import           Pos.Util                       (serialize)
@@ -50,6 +51,9 @@ instance Arbitrary Commitment where
 
 instance Arbitrary Opening where
     arbitrary = coOpening <$> arbitrary
+
+instance Arbitrary VssCertificate where
+    arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary
 
 instance Arbitrary LSecretSharingExtra where
     arbitrary = commExtra <$> arbitrary

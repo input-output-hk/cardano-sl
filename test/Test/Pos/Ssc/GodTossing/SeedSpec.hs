@@ -23,8 +23,11 @@ import           Pos.Crypto               (KeyPair (..), LSecret, LShare, Secret
 import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Opening (..),
                                            SeedError (..), calculateSeed,
                                            genCommitmentAndOpening, secretToSharedSeed)
-import           Pos.Types                (SharedSeed (..))
+import           Pos.Types                (Address, SharedSeed (..), makePubKeyAddress)
 import           Pos.Util                 (Serialized (..), nonrepeating, sublistN)
+
+getPubAddr :: KeyPair -> Address
+getPubAddr = makePubKeyAddress . getPub
 
 spec :: Spec
 spec = do
@@ -137,7 +140,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
         sublistN (n_shares - n_overlap) (keys \\ haveSentOpening)
     let commitmentsMap = mkCommitmentsMap keys comms
     let openingsMap = HM.fromList
-            [(getPub k, o)
+            [(getPubAddr k, o)
               | (k, o) <- zip keys opens
               , k `elem` haveSentOpening]
     -- @generatedShares ! X@ = shares that X generated and sent to others
@@ -146,19 +149,19 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
         let sentShares (kp, _) = kp `elem` haveSentShares
         fmap HM.fromList $ forM (filter sentShares (zip keys comms)) $
             \(kp, comm) -> do
-                let KeyPair pk _ = kp
+                let addr = getPubAddr kp
                 decShares <- getDecryptedShares vssKeys comm
-                return (pk, HM.fromList (zip (map getPub keys) decShares))
+                return (addr, HM.fromList (zip (map getPubAddr keys) decShares))
     -- @sharesMap ! X@ = shares that X received from others
     let sharesMap = HM.fromList $ do
-             KeyPair pk _ <- keys
+             addr <- getPubAddr <$> keys
              let ser = serialize :: Share -> LShare
                  receivedShares = HM.fromList $ do
                      (sender, senderShares) <- HM.toList generatedShares
-                     case HM.lookup pk senderShares of
+                     case HM.lookup addr senderShares of
                          Nothing -> []
                          Just s  -> return (sender, ser s)
-             return (pk, receivedShares)
+             return (addr, receivedShares)
 
     let shouldSucceed = n_openings + n_shares - n_overlap >= n
     let result = calculateSeed threshold commitmentsMap openingsMap sharesMap
@@ -223,7 +226,7 @@ mkCommitmentsMap keys comms =
         (KeyPair pk sk, comm) <- zip keys comms
         let epochIdx = 0  -- we don't care here
         let sig = sign sk (epochIdx, comm)
-        return (pk, (comm, sig))
+        return (makePubKeyAddress pk, (pk, comm, sig))
 
 getDecryptedShares
     :: MonadRandom m

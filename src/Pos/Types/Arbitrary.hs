@@ -79,6 +79,12 @@ deriving instance Random LocalSlotIndex
 instance Arbitrary LocalSlotIndex where
     arbitrary = choose (0, epochSlots - 1)
 
+instance Arbitrary Validator where
+    arbitrary = PubKeyValidator <$> arbitrary
+
+instance Arbitrary Redeemer where
+    arbitrary = PubKeyRedeemer <$> arbitrary
+
 instance Arbitrary TxIn where
     arbitrary = do
         txInHash <- arbitrary

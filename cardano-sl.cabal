@@ -348,6 +348,7 @@ executable cardano-tx-generator
                      , time-warp
                      , universum >= 0.1.11
                      , unordered-containers
+                     , vector
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -390,6 +391,7 @@ executable cardano-smart-generator
                      , time-warp
                      , universum >= 0.1.11
                      , unordered-containers
+                     , vector
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall

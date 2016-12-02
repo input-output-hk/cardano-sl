@@ -9,6 +9,7 @@ import qualified Data.HashMap.Strict    as M
 import           Data.IORef             (modifyIORef, newIORef, readIORef)
 import           Data.List              ((!!))
 import           Data.Time.Clock.POSIX  (getPOSIXTime)
+import qualified Data.Vector            as V
 import           Formatting             (float, int, sformat, (%))
 import           Options.Applicative    (Parser, ParserInfo, auto, execParser, fullDesc,
                                          help, helper, info, long, many, metavar, option,
@@ -27,7 +28,7 @@ import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
                                          submitTxRaw)
 import           Pos.Ssc.GodTossing     (SscGodTossing, genesisVssKeyPairs)
 import           Pos.Statistics         (getNoStatsT)
-import           Pos.Types              (Tx (..), TxIn (..), TxOut (..))
+import           Pos.Types              (Tx (..), TxIn (..), TxOut (..), TxWitness)
 import           Pos.Util.JsonLog       ()
 
 data GenOptions = GenOptions
@@ -97,7 +98,7 @@ optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $
     fullDesc `mappend` progDesc "Stupid transaction generator"
 
-txChain :: Int -> [Tx]
+txChain :: Int -> [(Tx, TxWitness)]
 txChain i = genChain $ unsafeHash addr
     where
       addr = genesisAddresses !! i
@@ -106,9 +107,12 @@ txChain i = genChain $ unsafeHash addr
           let txOutValue = 1
               txInIndex = 0
               txOutputs = [TxOut { txOutAddress = addr, ..}]
-              txInputs = [TxIn { txInSig = sign secretKey (txInHash, txInIndex, txOutputs), .. }]
+              txInputs = [TxIn { .. }]
               resultTransaction = Tx {..}
-          in resultTransaction : genChain (hash resultTransaction)
+              resultWitness = V.fromList [
+                  sign secretKey (txInHash, txInIndex, txOutputs) ]
+          in (resultTransaction, resultWitness) :
+             genChain (hash resultTransaction)
 
 main :: IO ()
 main = do
@@ -168,11 +172,11 @@ main = do
 
                 beginT <- getPosixMs
                 resMap <- foldM
-                    (\curmap (idx :: Int, transaction) -> do
+                    (\curmap (idx :: Int, (transaction, witness)) -> do
                         startT <- getPosixMs
 
                         logInfo $ sformat ("Sending transaction #"%int) idx
-                        submitTxRaw na transaction
+                        submitTxRaw na (transaction, witness)
 
                         -- sometimes nodes fail so we never write timestamps...
                         when (idx `mod` 271 == 0) $ void $ liftIO $ forkIO $

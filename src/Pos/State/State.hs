@@ -73,7 +73,7 @@ import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (.
 import           Pos.Statistics.StatEntry ()
 import           Pos.Types                (Block, EpochIndex, GenesisBlock, HeaderHash,
                                            MainBlock, MainBlockHeader, SlotId,
-                                           SlotLeaders, Tx)
+                                           SlotLeaders, Tx, TxWitness)
 import           Pos.Util                 (deserializeM, serialize)
 
 -- | NodeState encapsulates all the state stored by node.
@@ -184,11 +184,11 @@ getBestChain :: QUConstraint ssc m => m (NonEmpty (Block ssc))
 getBestChain = queryDisk A.GetBestChain
 
 -- | Get local transactions list.
-getLocalTxs :: QUConstraint ssc m => m (HashSet Tx)
+getLocalTxs :: QUConstraint ssc m => m (HashMap Tx TxWitness)
 getLocalTxs = queryDisk A.GetLocalTxs
 
 -- | Checks if tx is verified
-isTxVerified :: QUConstraint ssc m => Tx -> m Bool
+isTxVerified :: QUConstraint ssc m => (Tx, TxWitness) -> m Bool
 isTxVerified = queryDisk . A.IsTxVerified
 
 -- | Get global SSC data.
@@ -210,7 +210,7 @@ createNewBlock :: QUConstraint ssc m
 createNewBlock sk si = updateDisk . A.CreateNewBlock sk si
 
 -- | Process transaction received from other party.
-processTx :: QUConstraint ssc m => Tx -> m ProcessTxRes
+processTx :: QUConstraint ssc m => (Tx, TxWitness) -> m ProcessTxRes
 processTx = updateDisk . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot. Ideally it should

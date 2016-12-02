@@ -14,13 +14,15 @@ import           Data.Array.MArray      (newListArray, readArray, writeArray)
 import           Data.IORef             (IORef, modifyIORef', newIORef, readIORef,
                                          writeIORef)
 import           Data.List              (tail, (!!))
+import qualified Data.Vector            as V
 import           Universum              hiding (head)
 
 import           Pos.Constants          (k, slotDuration)
 import           Pos.Crypto             (SecretKey, hash, sign, unsafeHash)
 import           Pos.Genesis            (genesisAddresses, genesisSecretKeys)
 import           Pos.State              (isTxVerified)
-import           Pos.Types              (Address, Tx (..), TxId, TxIn (..), TxOut (..))
+import           Pos.Types              (Address, Tx (..), TxId, TxIn (..), TxOut (..),
+                                         TxWitness (..))
 import           Pos.WorkMode           (WorkMode)
 
 import           GenOptions             (GenOptions (..))
@@ -33,15 +35,18 @@ tpsTxBound :: Double -> Int -> Int
 tpsTxBound tps propThreshold =
     round tps * (k + propThreshold) * fromIntegral (slotDuration `div` sec 1)
 
-genChain :: SecretKey -> Address -> TxId -> Word32 -> [Tx]
+genChain :: SecretKey -> Address -> TxId -> Word32 -> [(Tx, TxWitness)]
 genChain secretKey addr txInHash txInIndex =
     let txOutValue = 1
         txOutputs = [TxOut { txOutAddress = addr, ..}]
-        txInputs = [TxIn { txInSig = sign secretKey (txInHash, txInIndex, txOutputs), .. }]
+        txInputs = [TxIn { .. }]
         resultTransaction = Tx {..}
-    in resultTransaction : genChain secretKey addr (hash resultTransaction) 0
+        resultWitness = V.fromList [
+            sign secretKey (txInHash, txInIndex, txOutputs) ]
+    in (resultTransaction, resultWitness) :
+       genChain secretKey addr (hash resultTransaction) 0
 
-initTransaction :: GenOptions -> Tx
+initTransaction :: GenOptions -> (Tx, TxWitness)
 initTransaction GenOptions {..} =
     let maxTps = goInitTps + goTpsIncreaseStep * fromIntegral goRoundNumber
         n' = tpsTxBound maxTps goPropThreshold
@@ -53,19 +58,22 @@ initTransaction GenOptions {..} =
         txOutputs = replicate n (TxOut {..})
         txInHash = unsafeHash txOutAddress
         txInIndex = 0
-        txInputs = [TxIn { txInSig = sign secretKey (txInHash, txInIndex, txOutputs), .. }]
-    in Tx {..}
+        txInputs = [TxIn { .. }]
+        txWitness = V.fromList [
+            sign secretKey (txInHash, txInIndex, txOutputs) ]
+    in (Tx {..}, txWitness)
 
 data BambooPool = BambooPool
-    { bpChains :: IOArray Int [Tx]
+    { bpChains :: IOArray Int [(Tx, TxWitness)]
     , bpCurIdx :: IORef Int
     }
 
-createBambooPool :: SecretKey -> Address -> Tx -> IO BambooPool
-createBambooPool sk addr tx = BambooPool <$> newListArray (0, outputsN - 1) bamboos <*> newIORef 0
-    where outputsN = length $ txOutputs tx
-          bamboos = map (tx :) $
-                    map (genChain sk addr (hash tx) . fromIntegral) [0 .. outputsN - 1]
+createBambooPool :: SecretKey -> Address -> (Tx, TxWitness) -> IO BambooPool
+createBambooPool sk addr (tx,w) =
+    BambooPool <$> newListArray (0, outputsN - 1) bamboos <*> newIORef 0
+  where outputsN = length $ txOutputs tx
+        bamboos = map ((tx,w) :) $
+                  map (genChain sk addr (hash tx) . fromIntegral) [0 .. outputsN - 1]
 
 shiftTx :: BambooPool -> IO ()
 shiftTx BambooPool {..} = do
@@ -82,18 +90,23 @@ nextBamboo BambooPool {..} curTps propThreshold = do
 resetBamboo :: BambooPool -> IO ()
 resetBamboo BambooPool {..} = writeIORef bpCurIdx 0
 
-getTx :: BambooPool -> Int -> Int -> IO Tx
+getTx :: BambooPool -> Int -> Int -> IO (Tx, TxWitness)
 getTx BambooPool {..} bambooIdx txIdx =
     (!! txIdx) <$> readArray bpChains bambooIdx
 
-curBambooTx :: BambooPool -> Int -> IO Tx
+curBambooTx :: BambooPool -> Int -> IO (Tx, TxWitness)
 curBambooTx bp@BambooPool {..} idx =
     join $ getTx bp <$> readIORef bpCurIdx <*> pure idx
 
-peekTx :: BambooPool -> IO Tx
+peekTx :: BambooPool -> IO (Tx, TxWitness)
 peekTx bp = curBambooTx bp 0
 
-nextValidTx :: WorkMode ssc m => BambooPool -> Double -> Int -> m (Either Tx Tx)
+nextValidTx
+    :: WorkMode ssc m
+    => BambooPool
+    -> Double
+    -> Int
+    -> m (Either (Tx, TxWitness) (Tx, TxWitness))
 nextValidTx bp curTps propThreshold = do
     curTx <- liftIO $ curBambooTx bp 1
     isVer <- isTxVerified curTx
@@ -106,3 +119,4 @@ nextValidTx bp curTps propThreshold = do
         parentTx <- peekTx bp
         nextBamboo bp curTps propThreshold
         return $ Left parentTx
+

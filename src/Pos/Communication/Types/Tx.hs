@@ -15,11 +15,11 @@ import           Data.List.NonEmpty   (NonEmpty)
 import           Data.MessagePack     (MessagePack)
 import           Universum
 
-import           Pos.Types            (Tx)
+import           Pos.Types            (Tx, TxWitness)
 
 -- | Message: some node has sent a Transaction.
 data SendTx =
-    SendTx !Tx
+    SendTx !Tx !TxWitness
     deriving (Generic)
 
 instance Binary SendTx
@@ -28,7 +28,7 @@ instance MessagePack SendTx
 
 -- | Message: some node has sent 'NonEmpty' list of 'Tx'.
 data SendTxs =
-    SendTxs !(NonEmpty Tx)
+    SendTxs !(NonEmpty (Tx, TxWitness))
     deriving (Generic)
 
 instance Binary SendTxs

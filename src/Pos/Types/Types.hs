@@ -31,12 +31,15 @@ module Pos.Types.Types
        , Address (..)
        , addressF
 
+       , TxInWitness
+       , TxWitness
        , TxSig
        , TxId
        , TxIn (..)
        , TxOut (..)
        , Tx (..)
        , txF
+       , txwF
 
        , Utxo
        , formatUtxo
@@ -81,6 +84,7 @@ module Pos.Types.Types
        , blockSignature
        , blockSlot
        , blockTxs
+       , blockTxws
        , gbBody
        , gbBodyProof
        , gbExtra
@@ -96,13 +100,16 @@ module Pos.Types.Types
        , headerSlot
        , mbMpc
        , mbTxs
+       , mbWitnesses
        , mcdSlot
        , mcdLeaderKey
        , mcdDifficulty
        , mcdSignature
        ) where
 
-import           Control.Lens           (Getter, Lens', choosing, makeLenses, to, view)
+import           Control.Lens           (Getter, Lens', choosing, makeLenses, to, view,
+                                         (^.))
+import           Control.Monad.Fail     (fail)
 import           Data.Binary            (Binary)
 import           Data.Binary.Orphans    ()
 import qualified Data.ByteString        as BS (pack, zipWith)
@@ -121,11 +128,13 @@ import           Data.Tagged            (untag)
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
 import           Data.Text.Lazy.Builder (Builder)
+import           Data.Vector            (Vector)
 import           Formatting             (Format, bprint, build, int, later, ords, sformat,
                                          stext, (%))
 import           Serokell.AcidState     ()
 import qualified Serokell.Util.Base16   as B16
-import           Serokell.Util.Text     (listJson, mapBuilderJson, pairBuilder)
+import           Serokell.Util.Text     (listJson, listJsonIndent, mapBuilderJson,
+                                         pairBuilder)
 import           Universum
 
 import           Pos.Constants          (sharedSeedLength)
@@ -239,18 +248,24 @@ addressF = build
 -- | Represents transaction identifier as 'Hash' of 'Tx'.
 type TxId = Hash Tx
 
+-- | A witness for a single input.
+type TxInWitness = TxSig
+
+-- | A witness is a proof that a transaction is allowed to spend the funds it
+-- spends (by providing signatures, redeeming scripts, etc). A separate proof
+-- is provided for each input.
+type TxWitness = Vector TxInWitness
+
 -- | 'Signature' of addrId.
 type TxSig = Signature (TxId, Word32, [TxOut])
 
 -- | Transaction input.
 data TxIn = TxIn
-    { txInHash  :: !TxId    -- ^ Which transaction's output is used
-    , txInIndex :: !Word32  -- ^ Index of the output in transaction's
-                            -- outputs
-    , txInSig   :: !TxSig   -- ^ Signature given by public key
-                            -- corresponding to address referenced by
-                            -- this input.
-    } deriving (Eq, Ord, Show, Generic)
+    { -- | Which transaction's output is used
+      txInHash  :: !TxId
+      -- | Index of the output in transaction's outputs
+    , txInIndex :: !Word32
+    } deriving (Eq, Show, Generic)
 
 instance Binary TxIn
 instance Hashable TxIn
@@ -274,10 +289,12 @@ instance Buildable TxOut where
         bprint ("TxOut "%coinF%" -> "%build) txOutValue txOutAddress
 
 -- | Transaction.
+--
+-- NB: transaction witnesses are stored separately.
 data Tx = Tx
     { txInputs  :: ![TxIn]   -- ^ Inputs of transaction.
     , txOutputs :: ![TxOut]  -- ^ Outputs of transaction.
-    } deriving (Eq, Ord, Show, Generic)
+    } deriving (Eq, Show, Generic)
 
 instance Binary Tx
 instance Hashable Tx
@@ -292,6 +309,11 @@ instance Buildable Tx where
 -- | Specialized formatter for 'Tx'.
 txF :: Format r (Tx -> r)
 txF = build
+
+-- | Specialized formatter for 'Tx' with a witness.
+txwF :: Format r ((Tx, TxWitness) -> r)
+txwF = later $ \(tx, w) ->
+    bprint (build%"\n"%"witnesses:"%listJsonIndent 4) tx w
 
 ----------------------------------------------------------------------------
 -- UTXO
@@ -448,9 +470,10 @@ type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, C
 instance Ssc ssc => Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
     data BodyProof (MainBlockchain ssc) = MainProof
-        { mpNumber   :: !Word32
-        , mpRoot     :: !(MerkleRoot Tx)
-        , mpMpcProof :: !(SscProof ssc)
+        { mpNumber        :: !Word32
+        , mpRoot          :: !(MerkleRoot Tx)
+        , mpWitnessesHash :: !(Hash [TxWitness])
+        , mpMpcProof      :: !(SscProof ssc)
         } deriving (Generic)
     data ConsensusData (MainBlockchain ssc) = MainConsensusData
         { -- | Id of the slot for which this block was generated.
@@ -468,7 +491,18 @@ instance Ssc ssc => Blockchain (MainBlockchain ssc) where
     -- and MPC messages.
     data Body (MainBlockchain ssc) = MainBody
         { -- | Transactions are the main payload.
+          -- TODO: currently we don't know for sure whether it should be
+          -- serialized as a MerkleTree or something list-like.
           _mbTxs         :: !(MerkleTree Tx)
+        , -- | Transaction witnesses. Invariant: there are as many witnesses
+          -- as there are transactions in the block. This is checked during
+          -- deserialisation. We can't put them into the same Merkle tree
+          -- with transactions, as the whole point of segwit is to separate
+          -- transactions and witnesses.
+          --
+          -- TODO: should they be put into a separate Merkle tree or left as
+          -- a list?
+          _mbWitnesses   :: ![TxWitness]
         , -- | Data necessary for MPC.
           _mbMpc  :: !(SscPayload ssc)
         } deriving (Generic)
@@ -478,6 +512,7 @@ instance Ssc ssc => Blockchain (MainBlockchain ssc) where
         MainProof
         { mpNumber = mtSize _mbTxs
         , mpRoot = mtRoot _mbTxs
+        , mpWitnessesHash = hash _mbWitnesses
         , mpMpcProof = untag @ssc mkSscProof _mbMpc
         }
 
@@ -672,11 +707,15 @@ MAKE_LENS(gcdDifficulty, _gcdDifficulty)
 
 -- makeLensesData ''Body ''(MainBlockchain ssc)
 
--- | Lens for 'MerkleTree' in 'Body' of 'MainBlockChain'.
+-- | Lens for transaction tree in main block body.
 mbTxs :: Lens' (Body (MainBlockchain ssc)) (MerkleTree Tx)
 MAKE_LENS(mbTxs, _mbTxs)
 
--- | Lens for 'MerkleTree' in 'Body' of 'SscPayload'.
+-- | Lens for witness list in main block body.
+mbWitnesses :: Lens' (Body (MainBlockchain ssc)) [TxWitness]
+MAKE_LENS(mbWitnesses, _mbWitnesses)
+
+-- | Lens for 'SscPayload' in main block body.
 mbMpc :: Lens' (Body (MainBlockchain ssc)) (SscPayload ssc)
 MAKE_LENS(mbMpc, _mbMpc)
 
@@ -807,6 +846,10 @@ blockMpc = gbBody . mbMpc
 blockTxs :: Lens' (MainBlock ssc) (MerkleTree Tx)
 blockTxs = gbBody . mbTxs
 
+-- | Getter from 'MainBlock' to a list of transactions with their witnesses.
+blockTxws :: Getter (MainBlock ssc) [(Tx,TxWitness)]
+blockTxws = gbBody . to (\b -> zip (toList (b ^. mbTxs)) (b ^. mbWitnesses))
+
 -- | Lens from 'GenesisBlock' to 'SlotLeaders'.
 blockLeaders :: Lens' (GenesisBlock ssc) SlotLeaders
 blockLeaders = gbBody . gbLeaders
@@ -910,12 +953,14 @@ instance Ssc ssc => SafeCopy (BodyProof (MainBlockchain ssc)) where
         contain $
         do mpNumber <- safeGet
            mpRoot <- safeGet
+           mpWitnessesHash <- safeGet
            mpMpcProof <- safeGet
            return $! MainProof {..}
     putCopy MainProof {..} =
         contain $
         do safePut mpNumber
            safePut mpRoot
+           safePut mpWitnessesHash
            safePut mpMpcProof
 
 instance SafeCopy (BodyProof (GenesisBlockchain ssc)) where
@@ -957,11 +1002,19 @@ instance Ssc ssc => SafeCopy (Body (MainBlockchain ssc)) where
     getCopy =
         contain $
         do _mbTxs <- safeGet
+           _mbWitnesses <- safeGet
+           let lenTxs = length _mbTxs
+               lenWit = length _mbWitnesses
+           when (lenTxs /= lenWit) $ fail $ toString $
+               sformat ("getCopy@(Body MainBlockchain): "%
+                        "size of txs tree ("%int%") /= "%
+                        "length of witness list ("%int%")") lenTxs lenWit
            _mbMpc <- safeGet
            return $! MainBody {..}
     putCopy MainBody {..} =
         contain $
         do safePut _mbTxs
+           safePut _mbWitnesses
            safePut _mbMpc
 
 instance SafeCopy (Body (GenesisBlockchain ssc)) where

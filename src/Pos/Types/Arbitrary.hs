@@ -14,7 +14,7 @@ module Pos.Types.Arbitrary
        , SmallOverflowTx (..)
        ) where
 
-import           Control.Lens               (over, view, _2, _3)
+import           Control.Lens               (over, set, view, _2, _3, _4)
 import qualified Data.ByteString            as BS (pack)
 import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
@@ -24,7 +24,8 @@ import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              Coin (..), EpochIndex (..),
                                              LocalSlotIndex (..), SharedSeed (..),
-                                             SlotId (..), Tx (..), TxIn (..), TxOut (..))
+                                             SlotId (..), Tx (..), TxIn (..), TxInWitness,
+                                             TxOut (..))
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
                                              NonZero (..), choose, scale, vector)
@@ -76,9 +77,7 @@ instance Arbitrary TxIn where
     arbitrary = do
         txId <- arbitrary
         txIdx <- arbitrary
-        sk <- arbitrary
-        let signature = sign sk (txId, txIdx, [])
-        return $ TxIn txId txIdx signature
+        return (TxIn txId txIdx)
 
 -- | Arbitrary transactions generated from this instance will only be valid
 -- with regards to 'verifyTxAlone'
@@ -108,7 +107,7 @@ instance Arbitrary Tx where
 buildProperTx
     :: [(Tx, SecretKey, SecretKey, Coin)]
     -> (Coin -> Coin, Coin -> Coin)
-    -> Gen [(Tx, TxIn, TxOut)]
+    -> Gen [(Tx, TxIn, TxOut, TxInWitness)]
 buildProperTx triplesList (inCoin, outCoin)= do
         let fun (Tx txIn txOut, fromSk, toSk, c) =
                 let inC = inCoin c
@@ -119,15 +118,16 @@ buildProperTx triplesList (inCoin, outCoin)= do
             thisTxOutputs = fmap (view _3) txList
             newTx (tx, fromSk, txOutput) =
                 let txHash = hash tx
-                    txIn = TxIn txHash 0 (sign fromSk (txHash, 0, thisTxOutputs))
-                in (tx, txIn, txOutput)
+                    txIn = TxIn txHash 0
+                    witness = sign fromSk (txHash, 0, thisTxOutputs)
+                in (tx, txIn, txOutput, witness)
             makeTxOutput s c = TxOut (Address $ toPublic s) c
             goodTx = fmap newTx txList
         return goodTx
 
 -- | Well-formed transaction 'Tx'.
 newtype GoodTx = GoodTx
-    { getGoodTx :: [(Tx, TxIn, TxOut)]
+    { getGoodTx :: [(Tx, TxIn, TxOut, TxInWitness)]
     } deriving (Show)
 
 newtype SmallGoodTx =
@@ -145,7 +145,7 @@ instance Arbitrary SmallGoodTx where
 
 -- | Ill-formed 'Tx' with overflow.
 newtype OverflowTx = OverflowTx
-    { getOverflowTx :: [(Tx, TxIn, TxOut)]
+    { getOverflowTx :: [(Tx, TxIn, TxOut, TxInWitness)]
     } deriving (Show)
 
 newtype SmallOverflowTx =
@@ -164,7 +164,7 @@ instance Arbitrary SmallOverflowTx where
 
 -- | Ill-formed 'Tx' with bad signatures.
 newtype BadSigsTx = BadSigsTx
-    { getBadSigsTx :: [(Tx, TxIn, TxOut)]
+    { getBadSigsTx :: [(Tx, TxIn, TxOut, TxInWitness)]
     } deriving (Show)
 
 newtype SmallBadSigsTx =
@@ -175,8 +175,7 @@ instance Arbitrary BadSigsTx where
     arbitrary = BadSigsTx <$> do
         goodTxList <- getGoodTx <$> arbitrary
         badSig <- arbitrary
-        let addBadSig t = t {txInSig = badSig}
-        return $ fmap (over _2 addBadSig) goodTxList
+        return $ map (set _4 badSig) goodTxList
 
 instance Arbitrary SmallBadSigsTx where
     arbitrary = SmallBadSigsTx <$> makeSmall arbitrary

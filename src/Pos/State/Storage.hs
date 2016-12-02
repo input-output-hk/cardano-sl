@@ -47,6 +47,7 @@ import           Control.Lens            (makeClassy, use, (.=), (^.))
 import           Control.Monad.TM        ((.=<<.))
 import           Data.Acid               ()
 import           Data.Default            (Default, def)
+import qualified Data.HashMap.Strict     as HM
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import           Data.SafeCopy           (SafeCopy (..), contain, safeGet, safePut)
 import           Data.Tagged             (untag)
@@ -178,7 +179,7 @@ createNewBlockDo
 createNewBlockDo sk sId sscPayload = do
     globalPayload <- readerToState $ getGlobalSscPayload
     let filteredPayload = sscFilterPayload @ssc sscPayload globalPayload
-    txs <- readerToState $ toList <$> getLocalTxs
+    txs <- readerToState $ HM.toList <$> getLocalTxs
     blk <- blkCreateNewBlock sk sId txs filteredPayload
     let blocks = Right blk :| []
     sscApplyBlocks blocks

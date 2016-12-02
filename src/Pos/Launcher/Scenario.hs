@@ -10,6 +10,7 @@ module Pos.Launcher.Scenario
 
 import           Control.TimeWarp.Rpc   (NetworkAddress)
 import           Control.TimeWarp.Timed (currentTime, for, sleepForever, wait)
+import qualified Data.Vector            as V
 import           Formatting             (build, sformat, (%))
 import           System.Wlog            (logError, logInfo)
 import           Universum
@@ -19,7 +20,7 @@ import           Pos.Crypto             (hash, sign)
 import           Pos.DHT                (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Ssc.Class          (SscConstraint)
 import           Pos.Types              (Address, Coin, Timestamp (Timestamp), Tx (..),
-                                         TxId, TxIn (..), TxOut (..), txF)
+                                         TxId, TxIn (..), TxOut (..), TxWitness, txwF)
 import           Pos.Worker             (runWorkers)
 import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeContext,
                                          ncPublicKey)
@@ -38,25 +39,26 @@ runNode = do
 
 -- | Construct Tx with a single input and single output and send it to
 -- the given network addresses.
-submitTx :: WorkMode ssc m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m Tx
+submitTx :: WorkMode ssc m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m (Tx, TxWitness)
 submitTx na (txInHash, txInIndex) (txOutAddress, txOutValue) =
     if null na
       then logError "No addresses to send" >> panic "submitTx failed"
       else do
         sk <- ncSecretKey <$> getNodeContext
         let txOuts = [TxOut {..}]
-            txIns = [TxIn {txInSig = sign sk (txInHash, txInIndex, txOuts), ..}]
+            txIns = [TxIn {..}]
             tx = Tx {txInputs = txIns, txOutputs = txOuts}
-        submitTxRaw na tx
-        pure tx
+            txWitness = V.fromList [sign sk (txInHash, txInIndex, txOuts)]
+        submitTxRaw na (tx, txWitness)
+        pure (tx, txWitness)
 
 -- | Send the ready-to-use transaction
-submitTxRaw :: WorkMode ssc m => [NetworkAddress] -> Tx -> m ()
-submitTxRaw na tx = do
+submitTxRaw :: WorkMode ssc m => [NetworkAddress] -> (Tx, TxWitness) -> m ()
+submitTxRaw na txw@(tx,_w) = do
     let txId = hash tx
-    logInfo $ sformat ("Submitting transaction: "%txF) tx
+    logInfo $ sformat ("Submitting transaction: "%txwF) txw
     logInfo $ sformat ("Transaction id: "%build) txId
-    mapM_ (`sendTx` tx) na
+    mapM_ (`sendTx` txw) na
 
 -- Sanity check in case start time is in future (may happen if clocks
 -- are not accurately synchronized, for example).

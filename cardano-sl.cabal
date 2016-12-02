@@ -125,6 +125,7 @@ library
                         Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Server
                         Pos.Web.Api
+                        Pos.Web.Doc
                         Pos.Web.Server
                         Pos.Web.Types
                         Pos.Worker.Block
@@ -178,6 +179,7 @@ library
                       , safecopy
                       , serokell-util
                       , servant >= 0.8.1
+                      , servant-docs >= 0.8.1
                       , servant-server >= 0.8.1
                       , stm
                       , stm-containers

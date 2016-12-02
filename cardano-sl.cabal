@@ -342,51 +342,6 @@ executable cardano-wallet
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
 
-executable cardano-stats-collector
-  hs-source-dirs:      src/stats-collector
-  main-is:             Main.hs
-  other-modules:       StatsOptions
-                     , SarCollector
-                     , Plotting
-  build-depends:       aeson
-                     , base
-                     , cardano-sl
-                     , containers
-                     , Chart
-                     , Chart-diagrams
-                     , data-default
-                     , directory
-                     , formatting
-                     , filepath
-                     , hashable
-                     , log-warper >= 0.1.0
-                     , lifted-async
-                     , monad-control
-                     , optparse-simple >= 0.0.3
-                     , transformers
-                     , parsec
-                     , serokell-util
-                     , time >= 1.2.2.1
-                     , time-warp
-                     , text
-                     , turtle
-                     , universum >= 0.1.11
-                     , unordered-containers
-                     , yaml
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -with-rtsopts=-N
-                       -O2
-  default-extensions:   DeriveDataTypeable
-                        DeriveGeneric
-                        GeneralizedNewtypeDeriving
-                        NoImplicitPrelude
-                        OverloadedStrings
-                        RecordWildCards
-                        TypeApplications
-
 executable cardano-tx-generator
   hs-source-dirs:      src/tx-generator
   main-is:             Main.hs

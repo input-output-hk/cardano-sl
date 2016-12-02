@@ -61,10 +61,13 @@ servantServer = enter nat servantHandlers
 ----------------------------------------------------------------------------
 
 servantHandlers :: ServerT WalletApi WebHandler
-servantHandlers = getAddresses :<|> send
+servantHandlers = getAddresses :<|> getBalances :<|> send
 
 getAddresses :: WebHandler [Address]
 getAddresses = pure []
+
+getBalances :: WebHandler [(Address, Coin)]
+getBalances = pure []
 
 send :: Word -> Address -> Coin -> WebHandler ()
 send srcIdx dstAddr c

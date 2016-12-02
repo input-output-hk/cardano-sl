@@ -18,6 +18,8 @@ import           Pos.Types   (Address, Coin)
 type WalletApi =
     "addresses" :> Get '[JSON] [Address]
   :<|>
+    "balances" :> Get '[JSON] [(Address, Coin)]
+  :<|>
     "send" :> Capture "from" Word :> Capture "to" Address :> Capture "amount" Coin :> Post '[JSON] ()
 
 -- | Helper Proxy.

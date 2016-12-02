@@ -296,7 +296,15 @@ filterLocalPayload localPay GtGlobalState {..} =
                  _gsCommitments)
                 (filterCerts certs)
         SharesPayload shares certs ->
-            SharesPayload (shares `diffDoubleMap` _gsShares) (filterCerts certs)
+            let filteredShares =
+                    foldl' (flip ($)) shares $
+                    [
+                      (`diffDoubleMap` _gsShares)             -- select only new shares
+                    , (`HM.intersection` _gsVssCertificates)  -- select shares from nodes which sent its certificates
+                    , map (`HM.intersection` _gsCommitments)  -- select shares to nodes which sent its commitments
+                    ]
+            in
+                SharesPayload filteredShares (filterCerts certs)
         CertificatesPayload certs -> CertificatesPayload $ filterCerts certs
   where
     filterCerts = flip HM.difference _gsVssCertificates

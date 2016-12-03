@@ -36,7 +36,6 @@ import           Data.Maybe                  (fromMaybe)
 import           Focus                       (Decision (Remove), alterM)
 import           Serokell.Util               (show')
 import qualified STMContainers.Map           as SM
-import           System.IO.Unsafe            (unsafePerformIO)
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
@@ -47,11 +46,8 @@ import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData     (MonadSscLD (..))
 import           Pos.State                   (MonadDB)
 import           Pos.Statistics.StatEntry    (StatLabel (..))
-import           Pos.Types                   (Timestamp (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
-
-type Stats l = Maybe [(Timestamp, EntryType l)]
 
 -- | `MonadStats` is a monad which has methods for stats collecting
 class Monad m => MonadStats m where
@@ -163,8 +159,8 @@ instance MonadSscLD ssc m => MonadSscLD ssc (StatsT m) where
 runStatsT :: MonadIO m => StatsT m a -> m a
 runStatsT action = liftIO SM.newIO >>= flip runStatsT' action
 
-runStatsT' :: Monad m => StatsMap -> StatsT m a -> m a
-runStatsT' map action = runReaderT (getStatsT action) map
+runStatsT' :: StatsMap -> StatsT m a -> m a
+runStatsT' statsMap action = runReaderT (getStatsT action) statsMap
 
 instance (MonadIO m, MonadJL m) => MonadStats (StatsT m) where
     statLog label entry = do

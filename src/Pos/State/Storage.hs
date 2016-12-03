@@ -56,8 +56,7 @@ import           Serokell.Util           (VerificationRes (..))
 import           System.Wlog             (WithLogger, logDebug)
 
 import           Pos.Constants           (k)
-import           Pos.Crypto              (LEncShare, LVssPublicKey, PublicKey, SecretKey,
-                                          Threshold)
+import           Pos.Crypto              (LEncShare, LVssPublicKey, SecretKey, Threshold)
 import           Pos.Genesis             (genesisUtxo)
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))

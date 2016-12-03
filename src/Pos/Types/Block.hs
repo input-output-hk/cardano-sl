@@ -32,8 +32,8 @@ import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum
 
 import           Pos.Constants        (epochSlots)
-import           Pos.Crypto           (Hash, SecretKey, hash, sign, toPublic, unsafeHash,
-                                       checkSig)
+import           Pos.Crypto           (Hash, SecretKey, checkSig, hash, sign, toPublic,
+                                       unsafeHash)
 import           Pos.Merkle           (mkMerkleTree)
 import           Pos.Ssc.Class.Types  (Ssc (..))
 -- Unqualified import is used here because of GHC bug (trac 12127).
@@ -240,7 +240,7 @@ verifyHeader VerifyHeaderParams {..} h =
     sameEpoch oldEpoch newEpoch =
         ( oldEpoch == newEpoch
         , sformat
-              ("two adjacent blocks are from diffenert epochs (" %build% " > " %build% ")")
+              ("two adjacent blocks are from different epochs ("%build%" > "%build%")")
               oldEpoch newEpoch
         )
     relatedToPrevHeader prevHeader =

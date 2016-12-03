@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -31,7 +32,7 @@ import           Data.Hashable       (Hashable (hashWithSalt), hashPtrWithSalt)
 import           Data.SafeCopy       (SafeCopy (..))
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (Format, bprint, fitLeft, later, shown, (%.))
-import           System.IO.Unsafe    (unsafePerformIO)
+import           System.IO.Unsafe    (unsafeDupablePerformIO)
 import           Universum
 
 import           Pos.Util            (Raw, getCopyBinary, putCopyBinary)
@@ -46,8 +47,9 @@ newtype AbstractHash algo a = AbstractHash (Digest algo)
 type Hash = AbstractHash Blake2b_512
 
 instance Hashable (AbstractHash algo a) where
-    hashWithSalt s h = unsafePerformIO $ ByteArray.withByteArray h (\ptr -> hashPtrWithSalt ptr (ByteArray.length h) s)
-
+    hashWithSalt s h = unsafeDupablePerformIO $ ByteArray.withByteArray h (\ptr -> hashPtrWithSalt ptr len s)
+      where
+        !len = ByteArray.length h
 
 instance HashAlgorithm algo => SafeCopy (AbstractHash algo a) where
     putCopy = putCopyBinary

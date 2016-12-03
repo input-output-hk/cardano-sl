@@ -6,8 +6,8 @@ module Pos.Wallet.Tx
 
 import           Universum
 
-import           Pos.Crypto (PublicKey, SecretKey)
-import           Pos.Crypto (sign)
+import           Pos.Crypto (SecretKey)
+import           Pos.Crypto (sign, toPublic)
 import           Pos.Types  (Address, Coin, Redeemer (..), Tx (..), TxId, TxIn (..),
                              TxOut (..), Validator (..))
 
@@ -15,9 +15,10 @@ type TxInputs = [(TxId, Word32)]
 type TxOutputs = [(Address, Coin)]
 
 -- | Makes a transaction which use P2PKH addresses as a source
-makePubKeyTx :: PublicKey -> SecretKey -> TxInputs -> TxOutputs -> Tx
-makePubKeyTx pk sk inputs outputs = Tx {..}
-  where txOutputs = map makeTxOut outputs
+makePubKeyTx :: SecretKey -> TxInputs -> TxOutputs -> Tx
+makePubKeyTx sk inputs outputs = Tx {..}
+  where pk = toPublic sk
+        txOutputs = map makeTxOut outputs
         txInputs = map makeTxIn inputs
         makeTxOut (txOutAddress, txOutValue) = TxOut {..}
         makeTxIn (txInHash, txInIndex) =

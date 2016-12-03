@@ -49,9 +49,8 @@ submitTx na input output =
     if null na
       then logError "No addresses to send" >> panic "submitTx failed"
       else do
-        pk <- ncPublicKey <$> getNodeContext
         sk <- ncSecretKey <$> getNodeContext
-        let tx = makePubKeyTx pk sk [input] [output]
+        let tx = makePubKeyTx sk [input] [output]
         submitTxRaw na tx
         pure tx
 

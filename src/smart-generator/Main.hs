@@ -91,7 +91,6 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
 
     bambooPools <- forM goGenesisIdxs $ \(fromIntegral -> i) ->
                     liftIO $ createBambooPool
-                      (genesisPublicKeys !! i)
                       (genesisSecretKeys !! i)
                       (initTx i)
 

@@ -17,9 +17,8 @@ import           Data.List                     (tail, (!!))
 import           Universum                     hiding (head)
 
 import           Pos.Constants                 (k, slotDuration)
-import           Pos.Crypto                    (PublicKey, SecretKey, hash, unsafeHash)
-import           Pos.Genesis                   (genesisAddresses, genesisPublicKeys,
-                                                genesisSecretKeys)
+import           Pos.Crypto                    (SecretKey, hash, toPublic, unsafeHash)
+import           Pos.Genesis                   (genesisAddresses, genesisSecretKeys)
 import           Pos.State                     (isTxVerified)
 import           Pos.Types                     (Tx (..), TxId, makePubKeyAddress)
 import           Pos.Wallet                    (makePubKeyTx)
@@ -35,11 +34,11 @@ tpsTxBound :: Double -> Int -> Int
 tpsTxBound tps propThreshold =
     round $ tps * fromIntegral (k + propThreshold) * fromIntegral (slotDuration `div` sec 1)
 
-genChain :: PublicKey -> SecretKey -> TxId -> Word32 -> [Tx]
-genChain pk sk txInHash txInIndex =
-    let addr = makePubKeyAddress pk
-        tx = makePubKeyTx pk sk [(txInHash, txInIndex)] [(addr, 1)]
-    in tx : genChain pk sk (hash tx) 0
+genChain :: SecretKey -> TxId -> Word32 -> [Tx]
+genChain sk txInHash txInIndex =
+    let addr = makePubKeyAddress $ toPublic sk
+        tx = makePubKeyTx sk [(txInHash, txInIndex)] [(addr, 1)]
+    in tx : genChain sk (hash tx) 0
 
 initTransaction :: GenOptions -> Int -> Tx
 initTransaction GenOptions {..} i =
@@ -47,22 +46,21 @@ initTransaction GenOptions {..} i =
         n' = tpsTxBound (maxTps / fromIntegral (length goGenesisIdxs)) goPropThreshold
         n = min n' goInitBalance
         addr = genesisAddresses !! i
-        pk = genesisPublicKeys !! i
         sk = genesisSecretKeys !! i
         input = (unsafeHash addr, 0)
         outputs = replicate n (addr, 1)
-    in makePubKeyTx pk sk [input] outputs
+    in makePubKeyTx sk [input] outputs
 
 data BambooPool = BambooPool
     { bpChains :: TArray Int [Tx]
     , bpCurIdx :: TVar Int
     }
 
-createBambooPool :: PublicKey -> SecretKey -> Tx -> IO BambooPool
-createBambooPool pk sk tx = atomically $ BambooPool <$> newListArray (0, outputsN - 1) bamboos <*> newTVar 0
+createBambooPool :: SecretKey -> Tx -> IO BambooPool
+createBambooPool sk tx = atomically $ BambooPool <$> newListArray (0, outputsN - 1) bamboos <*> newTVar 0
     where outputsN = length $ txOutputs tx
           bamboos = map (tx :) $
-                    map (genChain pk sk (hash tx) . fromIntegral) [0 .. outputsN - 1]
+                    map (genChain sk (hash tx) . fromIntegral) [0 .. outputsN - 1]
 
 shiftTx :: BambooPool -> IO ()
 shiftTx BambooPool {..} = atomically $ do

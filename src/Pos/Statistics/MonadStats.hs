@@ -15,6 +15,8 @@ module Pos.Statistics.MonadStats
        ( MonadStats (..)
        , NoStatsT (..)
        , StatsT (..)
+       , runStatsT
+       , runStatsT'
        ) where
 
 import           Control.Monad.Base          (MonadBase (..))
@@ -24,7 +26,8 @@ import           Control.Monad.Morph         (hoist)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
-                                              defaultLiftBaseWith, defaultRestoreM)
+                                              defaultLiftBaseWith, defaultLiftWith,
+                                              defaultRestoreM, defaultRestoreT)
 import           Control.TimeWarp.Rpc        (MonadDialog, MonadResponse (..),
                                               MonadTransfer (..), hoistRespCond)
 import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
@@ -54,16 +57,12 @@ type Stats l = Maybe [(Timestamp, EntryType l)]
 class Monad m => MonadStats m where
     statLog   :: StatLabel l => l -> EntryType l -> m ()
     resetStat :: StatLabel l => l -> m ()
-    getStats  :: StatLabel l => l -> m (Stats l)
 
     default statLog :: (MonadTrans t, StatLabel l) => l -> EntryType l -> t m ()
     statLog label = lift . statLog label
 
     default resetStat :: (MonadTrans t, StatLabel l) => l -> t m ()
     resetStat = lift . resetStat
-
-    default getStats :: (MonadTrans t, StatLabel l) => l -> t m (Stats l)
-    getStats = lift . getStats
 
     -- | Default convenience method, which we can override
     -- (to truly do nothing in `NoStatsT`, for example)
@@ -119,36 +118,38 @@ instance MonadTrans NoStatsT where
 
 instance Monad m => MonadStats (NoStatsT m) where
     statLog _ _ = pure ()
-    getStats _ = pure $ pure []
     resetStat _ = pure ()
     logStatM _ _ = pure ()
+
+type StatsMap = SM.Map Text LByteString
 
 -- | Statistics wrapper around some monadic action to collect statistics
 -- during execution of this action. Used in benchmarks.
 newtype StatsT m a = StatsT
-    { getStatsT :: m a  -- ^ action inside wrapper with collected statistics
+    { getStatsT :: ReaderT StatsMap m a  -- ^ action inside wrapper with collected statistics
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog p,
-               MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader,
+               MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader, MonadTrans,
                MonadJL, CanLog)
 
-instance MonadBase IO m => MonadBase IO (StatsT m) where
-    liftBase = lift . liftBase
-
 instance MonadTransControl StatsT where
-    type StT StatsT a = a
-    liftWith f = StatsT $ f $ getStatsT
-    restoreT = StatsT
+    type StT StatsT a = StT (ReaderT StatsMap) a
+    liftWith = defaultLiftWith StatsT getStatsT
+    restoreT = defaultRestoreT StatsT
 
 instance MonadBaseControl IO m => MonadBaseControl IO (StatsT m) where
     type StM (StatsT m) a = ComposeSt StatsT m a
     liftBaseWith     = defaultLiftBaseWith
     restoreM         = defaultRestoreM
 
+instance MonadBase IO m => MonadBase IO (StatsT m) where
+    liftBase = lift . liftBase
+
 instance MonadTransfer m => MonadTransfer (StatsT m) where
-    sendRaw addr p = StatsT $ sendRaw addr (hoist getStatsT p)
-    listenRaw binding sink = StatsT $ fmap StatsT $ listenRaw binding (hoistRespCond getStatsT sink)
-    close = StatsT . close
+    sendRaw addr req = StatsT ask >>= \ctx -> lift $ sendRaw addr (hoist (runStatsT' ctx) req)
+    listenRaw binding sink =
+        StatsT $ fmap StatsT $ listenRaw binding $ hoistRespCond getStatsT sink
+    close = lift . close
 
 instance MonadResponse m => MonadResponse (StatsT m) where
     replyRaw dat = StatsT $ replyRaw (hoist getStatsT dat)
@@ -159,15 +160,15 @@ instance MonadSscLD ssc m => MonadSscLD ssc (StatsT m) where
     getLocalData = lift getLocalData
     setLocalData = lift . setLocalData
 
-instance MonadTrans StatsT where
-    lift = StatsT
+runStatsT :: MonadIO m => StatsT m a -> m a
+runStatsT action = liftIO SM.newIO >>= flip runStatsT' action
 
--- [CSL-196]: Global mutable variables are bad
-statsMap :: SM.Map Text LByteString
-statsMap = unsafePerformIO SM.newIO
+runStatsT' :: Monad m => StatsMap -> StatsT m a -> m a
+runStatsT' map action = runReaderT (getStatsT action) map
 
 instance (MonadIO m, MonadJL m) => MonadStats (StatsT m) where
     statLog label entry = do
+        statsMap <- StatsT ask
         liftIO $ atomically $ SM.focus update (show' label) statsMap
         return ()
       where
@@ -175,11 +176,9 @@ instance (MonadIO m, MonadJL m) => MonadStats (StatsT m) where
             mappend entry . Binary.decode <$> v <|> Just entry
 
     resetStat label = do
+        statsMap <- StatsT ask
         mval <- liftIO $ atomically $ SM.focus reset (show' label) statsMap
         let val = fromMaybe mempty $ Binary.decode <$> mval
         lift $ jlLog $ toJLEvent label val
       where
         reset old = return (old, Remove)
-
-    -- [CSL-196]: do we need getStats at all?
-    getStats _ = pure $ pure []

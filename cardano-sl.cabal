@@ -89,12 +89,10 @@ library
   other-modules:        Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
-                        Pos.Communication.Types.Statistics
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Types.Tx
                         Pos.Communication.Server
                         Pos.Communication.Server.Block
-                        Pos.Communication.Server.Statistics
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Server.Tx
                         Pos.Communication.Util

@@ -16,28 +16,21 @@ module Pos.Statistics.StatEntry
 
 import           Data.Binary         (Binary)
 import           Data.Hashable       (Hashable)
-import           Data.MessagePack    (MessagePack)
 import           Data.SafeCopy       (base, deriveSafeCopySimple)
 import           Data.Text.Buildable (Buildable (..))
 import           Universum
 
 import           Pos.Util.JsonLog    (JLEvent)
 
-type FullySerializable s
-    = ( Binary s
-      , MessagePack s
-      , Typeable s
-      )
+type FullySerializable s = (Binary s, Typeable s)
 
 -- | Stat entry is a simple counter or a structure for aggregating
 -- statistical data about real value
-type StatEntry e
-    = ( Monoid e
-      , FullySerializable e
-      )
+type StatEntry e = (Monoid e, FullySerializable e)
 
 -- | `StatLabel` is some datatype which determines a single stat
-class (FullySerializable l, Buildable l, Hashable l, StatEntry (EntryType l)) => StatLabel l where
+class (FullySerializable l, Buildable l, Hashable l, StatEntry (EntryType l)) =>
+      StatLabel l  where
     type EntryType l :: *
     labelName :: Proxy l -> Text
     toJLEvent :: l -> EntryType l -> JLEvent
@@ -76,8 +69,6 @@ instance Monoid ValueStat where
 -- | Instances for acid and network
 
 instance Binary ValueStat
-instance MessagePack CountStat
-instance MessagePack ValueStat
 
 deriveSafeCopySimple 0 'base ''CountStat
 deriveSafeCopySimple 0 'base ''ValueStat

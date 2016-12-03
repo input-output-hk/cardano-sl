@@ -5,16 +5,14 @@ module Test.Pos.UtilSpec
        ( spec
        ) where
 
-import qualified Data.HashMap.Strict as HM ((!), difference, elems, filter, intersection,
-                                             intersectionWith, keys, mapWithKey, member,
-                                           size)
-import qualified Data.Set            as S  (fromList, isSubsetOf)
-import           Pos.Types.Arbitrary       (SmallHashMap (..))
-import           Pos.Util                  (diffDoubleMap)
+import qualified Data.HashMap.Strict   as HM (difference, filter, intersection,
+                                              intersectionWith, keys, mapWithKey, member,
+                                              (!))
+import           Pos.Types.Arbitrary   (SmallHashMap (..))
+import           Pos.Util              (diffDoubleMap)
 
-import           Test.Hspec                (Spec, describe)
-import           Test.Hspec.QuickCheck     (prop)
-import           Test.QuickCheck           ((==>), Property)
+import           Test.Hspec            (Spec, describe)
+import           Test.Hspec.QuickCheck (prop)
 import           Universum
 
 spec :: Spec
@@ -43,7 +41,7 @@ spec = describe "Util" $ do
         "When subtracting two double hashmaps with common keys, and when the inner maps\
         \ corresponding to these keys have a non-empty intersection, the difference\
         \ map's inner maps corresponding to those keys will be smaller in size than the\
-        \ the inner maps in the minuend hashmap"
+        \ inner maps in the minuend hashmap"
 
 ddmEmptyHashMap
     :: SmallHashMap

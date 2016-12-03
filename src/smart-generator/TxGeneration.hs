@@ -17,11 +17,12 @@ import           Data.List                     (tail, (!!))
 import           Universum                     hiding (head)
 
 import           Pos.Constants                 (k, slotDuration)
-import           Pos.Crypto                    (SecretKey, hash, sign, unsafeHash)
-import           Pos.Genesis                   (genesisAddresses, genesisSecretKeys)
+import           Pos.Crypto                    (PublicKey, SecretKey, hash, unsafeHash)
+import           Pos.Genesis                   (genesisAddresses, genesisPublicKeys,
+                                                genesisSecretKeys)
 import           Pos.State                     (isTxVerified)
-import           Pos.Types                     (Address, Tx (..), TxId, TxIn (..),
-                                                TxOut (..))
+import           Pos.Types                     (Tx (..), TxId, makePubKeyAddress)
+import           Pos.Wallet                    (makePubKeyTx)
 import           Pos.WorkMode                  (WorkMode)
 
 import           GenOptions                    (GenOptions (..))
@@ -34,38 +35,34 @@ tpsTxBound :: Double -> Int -> Int
 tpsTxBound tps propThreshold =
     round $ tps * fromIntegral (k + propThreshold) * fromIntegral (slotDuration `div` sec 1)
 
-genChain :: SecretKey -> Address -> TxId -> Word32 -> [Tx]
-genChain secretKey addr txInHash txInIndex =
-    let txOutValue = 1
-        txOutputs = [TxOut { txOutAddress = addr, ..}]
-        txInputs = [TxIn { txInSig = sign secretKey (txInHash, txInIndex, txOutputs), .. }]
-        resultTransaction = Tx {..}
-    in resultTransaction : genChain secretKey addr (hash resultTransaction) 0
+genChain :: PublicKey -> SecretKey -> TxId -> Word32 -> [Tx]
+genChain pk sk txInHash txInIndex =
+    let addr = makePubKeyAddress pk
+        tx = makePubKeyTx pk sk [(txInHash, txInIndex)] [(addr, 1)]
+    in tx : genChain pk sk (hash tx) 0
 
 initTransaction :: GenOptions -> Int -> Tx
 initTransaction GenOptions {..} i =
     let maxTps = goInitTps + goTpsIncreaseStep * fromIntegral goRoundNumber
         n' = tpsTxBound (maxTps / fromIntegral (length goGenesisIdxs)) goPropThreshold
         n = min n' goInitBalance
-        txOutAddress = genesisAddresses !! i
-        secretKey = genesisSecretKeys !! i
-        txOutValue = 1
-        txOutputs = replicate n (TxOut {..})
-        txInHash = unsafeHash txOutAddress
-        txInIndex = 0
-        txInputs = [TxIn { txInSig = sign secretKey (txInHash, txInIndex, txOutputs), .. }]
-    in Tx {..}
+        addr = genesisAddresses !! i
+        pk = genesisPublicKeys !! i
+        sk = genesisSecretKeys !! i
+        input = (unsafeHash addr, 0)
+        outputs = replicate n (addr, 1)
+    in makePubKeyTx pk sk [input] outputs
 
 data BambooPool = BambooPool
     { bpChains :: TArray Int [Tx]
     , bpCurIdx :: TVar Int
     }
 
-createBambooPool :: SecretKey -> Address -> Tx -> IO BambooPool
-createBambooPool sk addr tx = atomically $ BambooPool <$> newListArray (0, outputsN - 1) bamboos <*> newTVar 0
+createBambooPool :: PublicKey -> SecretKey -> Tx -> IO BambooPool
+createBambooPool pk sk tx = atomically $ BambooPool <$> newListArray (0, outputsN - 1) bamboos <*> newTVar 0
     where outputsN = length $ txOutputs tx
           bamboos = map (tx :) $
-                    map (genChain sk addr (hash tx) . fromIntegral) [0 .. outputsN - 1]
+                    map (genChain pk sk (hash tx) . fromIntegral) [0 .. outputsN - 1]
 
 shiftTx :: BambooPool -> IO ()
 shiftTx BambooPool {..} = atomically $ do

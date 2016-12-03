@@ -15,12 +15,10 @@ import qualified Data.Binary              as Binary
 import qualified Data.Binary.Get          as Binary (getWord32be)
 import qualified Data.Binary.Put          as Binary (putWord32be)
 import           Data.Hashable            (Hashable (hash, hashWithSalt))
-import           Data.MessagePack         (MessagePack (fromObject, toObject))
 import           Data.Text.Buildable      (build)
 import           Universum
 
 import           Pos.Statistics.StatEntry (CountStat, StatLabel (..))
-import           Pos.Util                 (fromMsgpackBinary, toMsgpackBinary)
 import           Pos.Util.JsonLog         (JLEvent (..))
 
 -- | Singleton data type to represent collected statistics about processes 'Tx'`s.
@@ -40,10 +38,6 @@ instance Binary StatProcessTx where
             fail "Binary.get: StatProcessTx fail"
         return StatProcessTx
     put _ = Binary.putWord32be hId
-
-instance MessagePack StatProcessTx where
-    toObject = toMsgpackBinary
-    fromObject = fromMsgpackBinary "StatProcessTx"
 
 instance Hashable StatProcessTx where
     hashWithSalt x _ = hashWithSalt x ("StatProcessTx" :: ByteString)

@@ -5,16 +5,17 @@
 
 module Pos.Crypto.Arbitrary.Unsafe () where
 
-import           Data.Binary              (Binary)
-import qualified Data.Binary              as Binary
-import           Test.QuickCheck          (Arbitrary (..))
+import           Data.Binary               (Binary)
+import qualified Data.Binary               as Binary
+import           Test.QuickCheck           (Arbitrary (..))
+import           Test.QuickCheck.Instances ()
 import           Universum
 
-import           Pos.Crypto.SecretSharing (VssKeyPair, VssPublicKey,
-                                           deterministicVssKeyGen, toVssPublicKey)
-import           Pos.Crypto.Signing       (PublicKey, SecretKey, Signature, Signed,
-                                           mkSigned)
-import           Pos.Util.Arbitrary       (ArbitraryUnsafe (..), arbitrarySizedSL)
+import           Pos.Crypto.SecretSharing  (VssKeyPair, VssPublicKey,
+                                            deterministicVssKeyGen, toVssPublicKey)
+import           Pos.Crypto.Signing        (PublicKey, SecretKey, Signature, Signed,
+                                            mkSigned)
+import           Pos.Util.Arbitrary        (ArbitraryUnsafe (..), arbitrarySizedSL)
 
 instance ArbitraryUnsafe PublicKey where
     arbitraryUnsafe = Binary.decode <$> arbitrarySizedSL 32

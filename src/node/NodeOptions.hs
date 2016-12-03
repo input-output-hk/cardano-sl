@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Command line options of pos-node.
@@ -39,8 +40,10 @@ data Args = Args
     , jlPath             :: !(Maybe FilePath)
     , sscAlgo            :: !SscAlgo
     , memoryMode         :: !Bool
+#ifdef WITH_WEB
     , enableWeb          :: !Bool
     , webPort            :: !Word16
+#endif
     }
   deriving Show
 
@@ -125,13 +128,16 @@ argsParser =
          help "Shared Seed Calculation algorithm which nodes will use") <*>
     switch
         (long "memory-mode" <>
-         help "Run DB in memory mode") <*>
+         help "Run DB in memory mode")
+#ifdef WITH_WEB
+    <*>
     switch
         (long "web" <>
          help "Run web server") <*>
     option auto
         (long "web-port" <> metavar "PORT" <> value 8080 <> showDefault <>
          help "Port for web server")
+#endif
   where
     peerHelpMsg =
         "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""

@@ -50,12 +50,12 @@ import           Serokell.Util.Verify    (VerificationRes (..), isVerFailure,
 import           Universum
 
 import           Pos.Constants           (k)
-import           Pos.Crypto              (PublicKey, SecretKey, hash)
+import           Pos.Crypto              (SecretKey, hash)
 import           Pos.Genesis             (genesisLeaders)
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
-import           Pos.Types               (Block, BlockHeader, ChainDifficulty, EpochIndex,
-                                          GenesisBlock, HeaderHash, MainBlock,
+import           Pos.Types               (Address, Block, BlockHeader, ChainDifficulty,
+                                          EpochIndex, GenesisBlock, HeaderHash, MainBlock,
                                           MainBlockHeader, SlotId (..), SlotLeaders, Tx,
                                           Utxo, VerifyBlockParams (..),
                                           VerifyHeaderParams (..), blockHeader,
@@ -185,7 +185,7 @@ getLeaders (fromIntegral -> epoch) = do
     leadersFromBlock _                      = Nothing
 
 -- | Get leader of the given slot if it's known.
-getLeader :: SlotId -> Query ssc (Maybe PublicKey)
+getLeader :: SlotId -> Query ssc (Maybe Address)
 getLeader SlotId {..} =
     preview (_Just . ix (fromIntegral siSlot)) <$> getLeaders siEpoch
 

@@ -40,8 +40,6 @@ import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Coerce            (coerce)
 import           Data.Hashable          (Hashable)
-import           Data.MessagePack       (MessagePack)
-import qualified Data.MessagePack       as MP (fromObject, toObject)
 import           Data.SafeCopy          (SafeCopy (..), base, deriveSafeCopySimple)
 import qualified Data.Serialize         as Cereal
 import qualified Data.Text.Buildable    as Buildable
@@ -118,20 +116,6 @@ instance Cereal.Serialize Ed25519.Signature where
         Cereal.putByteString s
     get = Ed25519.Signature <$> Cereal.getByteString signatureLength
 
--- MessagePack
-
-instance MessagePack Ed25519.PublicKey where
-    toObject (Ed25519.PublicKey k) = MP.toObject k
-    fromObject = fmap Ed25519.PublicKey . MP.fromObject
-
-instance MessagePack Ed25519.SecretKey where
-    toObject (Ed25519.SecretKey k) = MP.toObject k
-    fromObject = fmap Ed25519.SecretKey . MP.fromObject
-
-instance MessagePack Ed25519.Signature where
-    toObject (Ed25519.Signature s) = MP.toObject s
-    fromObject = fmap Ed25519.Signature . MP.fromObject
-
 ----------------------------------------------------------------------------
 -- Keys, key generation & printing & decoding
 ----------------------------------------------------------------------------
@@ -145,9 +129,6 @@ newtype PublicKey = PublicKey Ed25519.PublicKey
 newtype SecretKey = SecretKey Ed25519.SecretKey
     deriving (Eq, Ord, Show, Generic, NFData,
               Binary, Cereal.Serialize, Hashable)
-
-instance MessagePack PublicKey
-instance MessagePack SecretKey
 
 instance SafeCopy PublicKey where
     -- an empty declaration uses Cereal.Serialize instance by default
@@ -211,8 +192,6 @@ instance ToJSON PublicKey where
 newtype Signature a = Signature Ed25519.Signature
     deriving (Eq, Ord, Show, Generic, NFData, Binary, Hashable)
 
-instance MessagePack (Signature a)
-
 instance SafeCopy (Signature a) where
     putCopy = putCopyBinary
     getCopy = getCopyBinary "Signature"
@@ -243,7 +222,6 @@ data Signed a = Signed
     } deriving (Show, Eq, Ord, Generic)
 
 instance Binary a => Binary (Signed a)
-instance MessagePack a => MessagePack (Signed a)
 
 -- | Smart constructor for 'Signed' data type with proper signing.
 mkSigned :: (Binary a) => SecretKey -> a -> Signed a

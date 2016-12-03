@@ -40,6 +40,7 @@ module Pos.WorkMode
        , StatsMode
        ) where
 
+import           Control.Lens                (iso)
 import           Control.Concurrent.MVar     (withMVar)
 import qualified Control.Concurrent.STM      as STM
 import           Control.Monad.Base          (MonadBase (..))
@@ -55,9 +56,10 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               defaultRestoreM, defaultRestoreT)
 import           Control.TimeWarp.Rpc        (BinaryP, Dialog, MonadDialog,
                                               MonadResponse (..), MonadTransfer (..),
-                                              Transfer, hoistRespCond)
+                                              Transfer)
 import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
 import           Formatting                  (sformat, shown, (%))
+import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName, WithLogger,
                                               logWarning)
 import           Universum
@@ -119,6 +121,10 @@ newtype SscLDImpl ssc m a = SscLDImpl
                 MonadCatch, MonadIO, HasLoggerName, MonadDialog p, WithNodeContext ssc, MonadJL,
                 MonadDB ssc, CanLog)
 
+instance Monad m => WrappedM (SscLDImpl ssc m) where
+    type UnwrappedM (SscLDImpl ssc m) = ReaderT (STM.TVar (SscLocalData ssc)) m
+    _WrappedM = iso getSscLDImpl SscLDImpl
+
 monadMaskHelper
     :: (ReaderT (STM.TVar (SscLocalData ssc)) m a -> ReaderT (STM.TVar (SscLocalData ssc)) m a)
     -> SscLDImpl ssc m a
@@ -160,17 +166,7 @@ instance MonadBaseControl IO m => MonadBaseControl IO (SscLDImpl ssc m) where
 
 type instance ThreadId (SscLDImpl ssc m) = ThreadId m
 
-instance MonadTransfer m =>
-         MonadTransfer (SscLDImpl ssc m) where
-    sendRaw addr req =
-        SscLDImpl ask >>=
-        \ctx ->
-             lift $
-             sendRaw addr (hoist (flip runReaderT ctx . getSscLDImpl) req)
-    listenRaw binding sink =
-        SscLDImpl $
-        fmap SscLDImpl $ listenRaw binding $ hoistRespCond getSscLDImpl sink
-    close = lift . close
+instance MonadTransfer m => MonadTransfer (SscLDImpl ssc m)
 
 instance (MonadSscLD ssc m, Monad m) => MonadSscLD ssc (KademliaDHT m) where
     getLocalData = lift getLocalData
@@ -190,6 +186,10 @@ newtype DBHolder ssc m a = DBHolder
 runDBHolder :: NodeState ssc -> DBHolder ssc m a -> m a
 runDBHolder db = flip runReaderT db . getDBHolder
 
+instance Monad m => WrappedM (DBHolder ssc m) where
+    type UnwrappedM (DBHolder ssc m) = ReaderT (NodeState ssc) m
+    _WrappedM = iso getDBHolder DBHolder
+
 instance MonadBase IO m => MonadBase IO (DBHolder ssc m) where
     liftBase = lift . liftBase
 
@@ -205,11 +205,7 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBHolder ssc m) where
 
 type instance ThreadId (DBHolder ssc m) = ThreadId m
 
-instance MonadTransfer m => MonadTransfer (DBHolder ssc m) where
-    sendRaw addr req = DBHolder ask >>= \ctx -> lift $ sendRaw addr (hoist (runDBHolder ctx) req)
-    listenRaw binding sink =
-        DBHolder $ fmap DBHolder $ listenRaw binding $ hoistRespCond getDBHolder sink
-    close = lift . close
+instance MonadTransfer m => MonadTransfer (DBHolder ssc m)
 
 instance Monad m => MonadDB ssc (DBHolder ssc m) where
     getNodeState = DBHolder ask
@@ -279,6 +275,10 @@ newtype ContextHolder ssc m a = ContextHolder
 runContextHolder :: NodeContext ssc -> ContextHolder ssc m a -> m a
 runContextHolder ctx = flip runReaderT ctx . getContextHolder
 
+instance Monad m => WrappedM (ContextHolder ssc m) where
+    type UnwrappedM (ContextHolder ssc m) = ReaderT (NodeContext ssc) m
+    _WrappedM = iso getContextHolder ContextHolder
+
 instance MonadBase IO m => MonadBase IO (ContextHolder ssc m) where
     liftBase = lift . liftBase
 
@@ -294,11 +294,7 @@ instance MonadBaseControl IO m => MonadBaseControl IO (ContextHolder ssc m) wher
 
 type instance ThreadId (ContextHolder ssc m) = ThreadId m
 
-instance MonadTransfer m => MonadTransfer (ContextHolder ssc m) where
-    sendRaw addr req = ContextHolder ask >>= \ctx -> lift $ sendRaw addr (hoist (runContextHolder ctx) req)
-    listenRaw binding sink =
-        ContextHolder $ fmap ContextHolder $ listenRaw binding $ hoistRespCond getContextHolder sink
-    close = lift . close
+instance MonadTransfer m => MonadTransfer (ContextHolder ssc m)
 
 instance MonadResponse m => MonadResponse (ContextHolder ssc m) where
     replyRaw dat = ContextHolder $ replyRaw (hoist getContextHolder dat)

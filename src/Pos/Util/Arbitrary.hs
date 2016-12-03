@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 -- | Common things used in `Pos.Crypto.Arbitrary` and `Pos.Util.Arbitrary`
 
@@ -17,7 +18,6 @@ module Pos.Util.Arbitrary
 
 import           Data.ByteString      (pack)
 import qualified Data.ByteString.Lazy as BL (ByteString, pack)
-import           Data.MessagePack     ()
 import           System.IO.Unsafe     (unsafePerformIO)
 import           Test.QuickCheck      (Arbitrary (..), Gen, listOf, shuffle, vector)
 import           Universum
@@ -80,7 +80,7 @@ class ArbitraryUnsafe a where
 instance ArbitraryUnsafe Word16
 instance ArbitraryUnsafe Word32
 instance ArbitraryUnsafe Word64
-instance ArbitraryUnsafe ByteString
+instance (Arbitrary ByteString) => ArbitraryUnsafe ByteString
 
 instance ArbitraryUnsafe a => ArbitraryUnsafe [a] where
     arbitraryUnsafe = listOf arbitraryUnsafe

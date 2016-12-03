@@ -1,4 +1,4 @@
-severity: Warning
+severity: Info
 node:
     severity: Debug
     file: {{file}}

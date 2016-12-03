@@ -26,7 +26,7 @@ import qualified Data.HashSet                       as HS
 import           Serokell.Util.Verify               (isVerSuccess)
 import           Universum
 
-import           Pos.Crypto                         (LShare, PublicKey)
+import           Pos.Crypto                         (LShare)
 import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate, MonadSscLD,
                                                      SscLocalDataClass (..),
                                                      sscRunLocalQuery, sscRunLocalUpdate)
@@ -41,13 +41,13 @@ import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData, gtGlobalCertif
                                                      gtLocalCertificates,
                                                      gtLocalCommitments, gtLocalOpenings,
                                                      gtLocalShares)
-import           Pos.Ssc.GodTossing.Types.Base      (Commitment, CommitmentSignature,
-                                                     Opening, VssCertificate)
+import           Pos.Ssc.GodTossing.Types.Base      (Opening, SignedCommitment,
+                                                     VssCertificate)
 import           Pos.Ssc.GodTossing.Types.Instance  ()
 import           Pos.Ssc.GodTossing.Types.Message   (DataMsg (..), MsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types     (GtGlobalState (..), GtPayload (..))
-import           Pos.Types                          (SlotId (..))
+import           Pos.Types                          (Address (..), SlotId (..))
 import           Pos.Util                           (diffDoubleMap, getKeys,
                                                      readerToState)
 
@@ -90,10 +90,10 @@ localOnNewSlotU si@SlotId {siSlot = slotIdx} = do
 -- to local data.
 sscIsDataUseful
     :: MonadSscLD SscGodTossing m
-    => MsgTag -> PublicKey -> m Bool
+    => MsgTag -> Address -> m Bool
 sscIsDataUseful tag = sscRunLocalQuery . sscIsDataUsefulQ tag
 
-sscIsDataUsefulQ :: MsgTag -> PublicKey -> LDQuery Bool
+sscIsDataUsefulQ :: MsgTag -> Address -> LDQuery Bool
 sscIsDataUsefulQ CommitmentMsg =
     sscIsDataUsefulImpl gtLocalCommitments gtGlobalCommitments
 sscIsDataUsefulQ OpeningMsg =
@@ -103,21 +103,21 @@ sscIsDataUsefulQ SharesMsg =
 sscIsDataUsefulQ VssCertificateMsg =
     sscIsDataUsefulImpl gtLocalCertificates gtGlobalCertificates
 
-type MapGetter a = Getter GtLocalData (HashMap PublicKey a)
+type MapGetter a = Getter GtLocalData (HashMap Address a)
 type SetGetter set = Getter GtLocalData set
 
-sscIsDataUsefulImpl :: MapGetter a -> MapGetter a -> PublicKey -> LDQuery Bool
-sscIsDataUsefulImpl localG globalG pk =
+sscIsDataUsefulImpl :: MapGetter a -> MapGetter a -> Address -> LDQuery Bool
+sscIsDataUsefulImpl localG globalG addr =
     (&&) <$>
-        (notMember pk <$> view globalG) <*>
-        (notMember pk <$> view localG)
+        (notMember addr <$> view globalG) <*>
+        (notMember addr <$> view localG)
 
-sscIsDataUsefulSetImpl :: (SetContainer set, ContainerKey set ~ PublicKey)
-                       => MapGetter a -> SetGetter set -> PublicKey -> LDQuery Bool
-sscIsDataUsefulSetImpl localG globalG pk =
+sscIsDataUsefulSetImpl :: (SetContainer set, ContainerKey set ~ Address)
+                       => MapGetter a -> SetGetter set -> Address -> LDQuery Bool
+sscIsDataUsefulSetImpl localG globalG addr =
     (&&) <$>
-        (notMember pk <$> view localG) <*>
-        (notMember pk <$> view globalG)
+        (notMember addr <$> view localG) <*>
+        (notMember addr <$> view globalG)
 
 ----------------------------------------------------------------------------
 -- Ssc Process Message
@@ -131,40 +131,40 @@ sscProcessMessage ::
 sscProcessMessage = sscRunLocalUpdate  . sscProcessMessageU
 
 sscProcessMessageU :: DataMsg -> LDUpdate Bool
-sscProcessMessageU (DMCommitment pk comm)     = processCommitment pk comm
-sscProcessMessageU (DMOpening pk open)        = processOpening pk open
-sscProcessMessageU (DMShares pk shares)       = processShares pk shares
-sscProcessMessageU (DMVssCertificate pk cert) = processVssCertificate pk cert
+sscProcessMessageU (DMCommitment addr comm)     = processCommitment addr comm
+sscProcessMessageU (DMOpening addr open)        = processOpening addr open
+sscProcessMessageU (DMShares addr shares)       = processShares addr shares
+sscProcessMessageU (DMVssCertificate addr cert) = processVssCertificate addr cert
 
 processCommitment
-    :: PublicKey -> (Commitment, CommitmentSignature) -> LDUpdate Bool
-processCommitment pk c = do
+    :: Address -> SignedCommitment -> LDUpdate Bool
+processCommitment addr c = do
     epochIdx <- siEpoch <$> use gtLastProcessedSlot
     ok <- readerToState $ andM $ checks epochIdx
-    ok <$ when ok (gtLocalCommitments %= HM.insert pk c)
+    ok <$ when ok (gtLocalCommitments %= HM.insert addr c)
   where
     checks epochIndex =
-        [ not . HM.member pk <$> view gtGlobalCommitments
-        , not . HM.member pk <$> view gtLocalCommitments
-        , HM.member pk <$> view gtGlobalCertificates
-        , pure . isVerSuccess $ verifySignedCommitment pk epochIndex c
+        [ not . HM.member addr <$> view gtGlobalCommitments
+        , not . HM.member addr <$> view gtLocalCommitments
+        , HM.member addr <$> view gtGlobalCertificates
+        , pure . isVerSuccess $ verifySignedCommitment addr epochIndex c
         ]
 
-processOpening :: PublicKey -> Opening -> LDUpdate Bool
-processOpening pk o = do
+processOpening :: Address -> Opening -> LDUpdate Bool
+processOpening addr o = do
     ok <- readerToState $ andM checks
-    ok <$ when ok (gtLocalOpenings %= HM.insert pk o)
+    ok <$ when ok (gtLocalOpenings %= HM.insert addr o)
   where
     checkAbsence = sscIsDataUsefulSetImpl gtLocalOpenings gtGlobalOpenings
-    checks = [checkAbsence pk, matchOpening pk o]
+    checks = [checkAbsence addr, matchOpening addr o]
 
 -- Match opening to commitment from globalCommitments
-matchOpening :: PublicKey -> Opening -> LDQuery Bool
-matchOpening pk opening =
-    flip checkOpeningMatchesCommitment (pk, opening) <$> view gtGlobalCommitments
+matchOpening :: Address -> Opening -> LDQuery Bool
+matchOpening addr opening =
+    flip checkOpeningMatchesCommitment (addr, opening) <$> view gtGlobalCommitments
 
-processShares :: PublicKey -> HashMap PublicKey LShare -> LDUpdate Bool
-processShares pk s
+processShares :: Address -> HashMap Address LShare -> LDUpdate Bool
+processShares addr s
     | null s = pure False
     | otherwise = do
         -- TODO: we accept shares that we already have (but don't add them to
@@ -172,30 +172,30 @@ processShares pk s
         -- aware of the fact that they are already in the blockchain. On the
         -- other hand, now nodes can send us huge spammy messages and we can't
         -- ban them for that. On the third hand, is this a concern?
-        globalSharesPKForPK <- HM.lookupDefault mempty pk <$> use gtGlobalShares
-        localSharesForPk <- HM.lookupDefault mempty pk <$> use gtLocalShares
+        globalSharesPKForPK <- HM.lookupDefault mempty addr <$> use gtGlobalShares
+        localSharesForPk <- HM.lookupDefault mempty addr <$> use gtLocalShares
         let s' = s `HM.difference` (HS.toMap globalSharesPKForPK)
         let newLocalShares = localSharesForPk `HM.union` s'
         -- Note: size is O(n), but union is also O(n + m), so
         -- it doesn't matter.
         let checks =
               [ pure (HM.size newLocalShares /= HM.size localSharesForPk)
-              , readerToState $ checkSharesLastVer pk s
+              , readerToState $ checkSharesLastVer addr s
               ]
         ok <- andM checks
-        ok <$ when ok (gtLocalShares . at pk .= Just newLocalShares)
+        ok <$ when ok (gtLocalShares . at addr .= Just newLocalShares)
 
-checkSharesLastVer :: PublicKey -> HashMap PublicKey LShare -> LDQuery Bool
-checkSharesLastVer pk shares =
-    (\comms openings certs -> checkShares comms openings certs pk shares) <$>
+checkSharesLastVer :: Address -> HashMap Address LShare -> LDQuery Bool
+checkSharesLastVer addr shares =
+    (\comms openings certs -> checkShares comms openings certs addr shares) <$>
     view gtGlobalCommitments <*>
     view gtGlobalOpenings <*>
     view gtGlobalCertificates
 
-processVssCertificate :: PublicKey -> VssCertificate -> LDUpdate Bool
-processVssCertificate pk c = do
-    ok <- not . HM.member pk <$> use gtGlobalCertificates
-    ok <$ when ok (gtLocalCertificates %= HM.insert pk c)
+processVssCertificate :: Address -> VssCertificate -> LDUpdate Bool
+processVssCertificate addr c = do
+    ok <- not . HM.member addr <$> use gtGlobalCertificates
+    ok <$ when ok (gtLocalCertificates %= HM.insert addr c)
 
 ----------------------------------------------------------------------------
 -- Apply Global State

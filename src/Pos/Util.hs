@@ -22,11 +22,6 @@ module Pos.Util
        , diffDoubleMap
        , getKeys
 
-       -- * Msgpack
-       , msgpackFail
-       , toMsgpackBinary
-       , fromMsgpackBinary
-
        -- * SafeCopy
        , getCopyBinary
        , putCopyBinary
@@ -67,7 +62,6 @@ module Pos.Util
 import           Control.Lens                  (Lens', LensLike', Magnified, Zoomed,
                                                 lensRules, magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
-import qualified Control.Monad
 import           Control.Monad.Fail            (MonadFail, fail)
 import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
 import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
@@ -80,8 +74,6 @@ import qualified Data.HashMap.Strict           as HM
 import           Data.HashSet                  (fromMap)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty            as NE
-import           Data.MessagePack              (MessagePack (..))
-import qualified Data.MessagePack              as Msgpack
 import           Data.SafeCopy                 (Contained, SafeCopy (..), base, contain,
                                                 deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
@@ -165,38 +157,6 @@ diffDoubleMap a b = HM.foldlWithKey' go mempty a
                 in if null diff
                        then res
                        else HM.insert extKey diff res
-
-----------------------------------------------------------------------------
--- MessagePack
-----------------------------------------------------------------------------
-
--- | Report error in msgpack's fromObject.
-msgpackFail :: Monad m => String -> m a
-msgpackFail = Control.Monad.fail
-
--- [SRK-51]: pull request to data-messagepack
-instance MessagePack a =>
-         MessagePack (NonEmpty a) where
-    toObject = toObject . toList
-    fromObject = maybeToMsgpack errMsg . NE.nonEmpty <=< fromObject
-      where
-        errMsg = "Non-empty list is expected, but it's empty"
-        maybeToMsgpack msg = maybe (msgpackFail msg) pure
-
--- | Convert instance of Binary into msgpack binary Object.
-toMsgpackBinary :: Binary a => a -> Msgpack.Object
-toMsgpackBinary = toObject . Binary.encode
-
--- | Extract ByteString from msgpack Object and decode it using Binary
--- instance.
-fromMsgpackBinary
-    :: (Binary a, Monad m)
-    => String -> Msgpack.Object -> m a
-fromMsgpackBinary typeName obj = do
-    bs <- fromObject obj
-    case Binary.decodeFull bs of
-        Left err -> msgpackFail ("fromObject@" ++ typeName ++ ": " ++ err)
-        Right x  -> return x
 
 ----------------------------------------------------------------------------
 -- Lens utils

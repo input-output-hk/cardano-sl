@@ -5,10 +5,8 @@ module Pos.Types.Timestamp
        , timestampF
        ) where
 
-import           Control.Monad          (fail)
 import           Control.TimeWarp.Timed (Microsecond)
 import           Data.Binary            (Binary (get, put))
-import           Data.MessagePack       (MessagePack (fromObject, toObject))
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
 
@@ -37,15 +35,6 @@ instance Buildable Timestamp where
 instance Binary Timestamp where
   get = fromInteger <$> get
   put = put . toInteger
-
--- ugly instance, but MessagePack doesn't export instance for Integer
--- and currently we need this instance only for testing
-instance MessagePack Timestamp where
-  fromObject = fromObject >=> fmap fromInteger . read'
-    where
-      read' :: (Monad m, Read a) => [Char] -> m a
-      read' = either fail return . readEither
-  toObject = toObject . show . toInteger
 
 -- | Specialized formatter for 'Timestamp' data type.
 timestampF :: Format r (Timestamp -> r)

@@ -50,8 +50,7 @@ import           Universum
 
 import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication           (SysStartRequest (..), allListeners,
-                                              noCacheMessageNames, statsListeners,
-                                              sysStartReqListener,
+                                              noCacheMessageNames, sysStartReqListener,
                                               sysStartReqListenerSlave,
                                               sysStartRespListener)
 import           Pos.Constants               (RunningMode (..), defaultPeers,
@@ -70,7 +69,7 @@ import           Pos.Ssc.Class               (SscConstraint, SscNodeContext, Ssc
 import           Pos.State                   (NodeState, closeState, openMemState,
                                               openState)
 import           Pos.State.Storage           (storageFromUtxo)
-import           Pos.Statistics              (getNoStatsT, getStatsT)
+import           Pos.Statistics              (getNoStatsT, runStatsT)
 import           Pos.Types                   (Timestamp (Timestamp), timestampF)
 import           Pos.Util                    (runWithRandomIntervals)
 import           Pos.Worker                  (statsWorkers)
@@ -185,12 +184,12 @@ runStatsMode
     :: forall ssc a.
        SscConstraint ssc
     => KademliaDHTInstance -> NodeParams -> SscParams ssc -> StatsMode ssc a -> IO a
-runStatsMode inst np sscnp action = runRawRealMode inst np sscnp listeners $ getStatsT $ do
+runStatsMode inst np sscnp action = runRawRealMode inst np sscnp listeners $ runStatsT $ do
     mapM_ fork statsWorkers
     action
   where
     listeners = addDevListeners @ssc np sListeners
-    sListeners = map (mapListenerDHT getStatsT) $ statsListeners ++ (allListeners @ssc)
+    sListeners = map (mapListenerDHT runStatsT) $ allListeners @ssc
 
 -- | ServiceMode runner.
 runServiceMode

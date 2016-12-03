@@ -17,7 +17,6 @@ import           Pos.State              (initFirstSlot)
 import           Pos.Types              (Address, Coin, Timestamp (Timestamp), Tx (..),
                                          TxId, txF)
 import           Pos.Util               (inAssertMode)
-import           Pos.Wallet             (makePubKeyTx)
 import           Pos.Worker             (runWorkers)
 import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeContext,
                                          ncPublicKey)

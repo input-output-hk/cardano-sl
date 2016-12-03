@@ -20,7 +20,8 @@ import           Pos.Constants                 (k, slotDuration)
 import           Pos.Crypto                    (SecretKey, hash, toPublic, unsafeHash)
 import           Pos.Genesis                   (genesisAddresses, genesisSecretKeys)
 import           Pos.State                     (isTxVerified)
-import           Pos.Types                     (Tx (..), TxId, makePubKeyAddress)
+import           Pos.Types                     (Tx (..), TxId, TxOut (..),
+                                                makePubKeyAddress)
 import           Pos.Wallet                    (makePubKeyTx)
 import           Pos.WorkMode                  (WorkMode)
 
@@ -37,7 +38,7 @@ tpsTxBound tps propThreshold =
 genChain :: SecretKey -> TxId -> Word32 -> [Tx]
 genChain sk txInHash txInIndex =
     let addr = makePubKeyAddress $ toPublic sk
-        tx = makePubKeyTx sk [(txInHash, txInIndex)] [(addr, 1)]
+        tx = makePubKeyTx sk [(txInHash, txInIndex)] [TxOut addr 1]
     in tx : genChain sk (hash tx) 0
 
 initTransaction :: GenOptions -> Int -> Tx
@@ -48,7 +49,7 @@ initTransaction GenOptions {..} i =
         addr = genesisAddresses !! i
         sk = genesisSecretKeys !! i
         input = (unsafeHash addr, 0)
-        outputs = replicate n (addr, 1)
+        outputs = replicate n $ TxOut addr 1
     in makePubKeyTx sk [input] outputs
 
 data BambooPool = BambooPool

@@ -19,15 +19,13 @@ import           Pos.Types            (Address, Coin, Redeemer (..), Tx (..), Tx
 import           Pos.WorkMode         (NodeContext (..), WorkMode, getNodeContext)
 
 type TxInputs = [(TxId, Word32)]
-type TxOutputs = [(Address, Coin)]
+type TxOutputs = [TxOut]
 
 -- | Makes a transaction which use P2PKH addresses as a source
 makePubKeyTx :: SecretKey -> TxInputs -> TxOutputs -> Tx
-makePubKeyTx sk inputs outputs = Tx {..}
+makePubKeyTx sk inputs txOutputs = Tx {..}
   where pk = toPublic sk
-        txOutputs = map makeTxOut outputs
         txInputs = map makeTxIn inputs
-        makeTxOut (txOutAddress, txOutValue) = TxOut {..}
         makeTxIn (txInHash, txInIndex) =
             TxIn { txInValidator = PubKeyValidator pk
                  , txInRedeemer = PubKeyRedeemer $ sign sk (txInHash, txInIndex, txOutputs)
@@ -42,7 +40,7 @@ submitTx na input output =
       then logError "No addresses to send" >> panic "submitTx failed"
       else do
         sk <- ncSecretKey <$> getNodeContext
-        let tx = makePubKeyTx sk [input] [output]
+        let tx = makePubKeyTx sk [input] [uncurry TxOut output]
         submitTxRaw na tx
         pure tx
 

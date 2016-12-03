@@ -276,7 +276,7 @@ runContextHolder :: NodeContext ssc -> ContextHolder ssc m a -> m a
 runContextHolder ctx = flip runReaderT ctx . getContextHolder
 
 instance Monad m => WrappedM (ContextHolder ssc m) where
-    type UnwrappedM (ContextHolder ssc m) = ReaderT NodeContext m
+    type UnwrappedM (ContextHolder ssc m) = ReaderT (NodeContext ssc) m
     _WrappedM = iso getContextHolder ContextHolder
 
 instance MonadBase IO m => MonadBase IO (ContextHolder ssc m) where

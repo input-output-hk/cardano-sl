@@ -15,11 +15,13 @@ import           Pos.Ssc.Class.LocalData as Class
 import           Pos.Ssc.Class.Storage   as Class
 import           Pos.Ssc.Class.Types     as Class
 import           Pos.Ssc.Class.Workers   as Class
+import           Pos.Ssc.Class.Helpers   as Class
 
 type SscConstraint ssc =
                (Ssc ssc,
                 Default (SscStorage ssc),
                 SscListenersClass ssc,
                 SscLocalDataClass ssc,
+                SscHelpersClass ssc,
                 SscStorageMode ssc,
                 SscWorkersClass ssc)

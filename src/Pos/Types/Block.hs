@@ -237,12 +237,21 @@ verifyHeader VerifyHeaderParams {..} h =
               ("slots are not monotonic (" %build% " > " %build% ")")
               oldSlot newSlot
         )
+    sameEpoch oldEpoch newEpoch =
+        ( oldEpoch == newEpoch
+        , sformat
+              ("two adjacent blocks are from diffenert epochs (" %build% " > " %build% ")")
+              oldEpoch newEpoch
+        )
     relatedToPrevHeader prevHeader =
         [ checkDifficulty
               (prevHeader ^. difficultyL + headerDifficulty h)
               (h ^. difficultyL)
         , checkHash (hash prevHeader) (h ^. prevBlockL)
         , checkSlot (getEpochOrSlot prevHeader) (getEpochOrSlot h)
+        , case h of
+              Left  _ -> (True, "") -- check that epochId prevHeader < epochId h performed above
+              Right _ -> sameEpoch (prevHeader ^. epochIndexL) (h ^. epochIndexL)
         ]
     relatedToNextHeader nextHeader =
         [ checkDifficulty

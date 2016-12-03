@@ -9,9 +9,10 @@ module Pos.Ssc.GodTossing.Types.Instance
 
 import           Data.Tagged                        (Tagged (..))
 
+import           Pos.Ssc.Class.Helpers              (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types                (Ssc (..))
 import           Pos.Ssc.GodTossing.Error           (SeedError)
-import           Pos.Ssc.GodTossing.Functions       (filterLocalPayload)
+import           Pos.Ssc.GodTossing.Functions       (filterLocalPayload, verifyGtPayload)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData)
 import           Pos.Ssc.GodTossing.Storage.Types   (GtStorage)
 import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
@@ -31,3 +32,6 @@ instance Ssc SscGodTossing where
     mkSscProof = Tagged mkGtProof
     sscFilterPayload = filterLocalPayload
     sscCreateNodeContext = createGtContext
+
+instance SscHelpersClass SscGodTossing where
+    sscVerifyPayload = Tagged verifyGtPayload

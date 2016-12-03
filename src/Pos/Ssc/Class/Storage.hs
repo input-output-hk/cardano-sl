@@ -18,15 +18,13 @@ module Pos.Ssc.Class.Storage
 import           Control.Lens            (Lens')
 import           Data.List.NonEmpty      (NonEmpty)
 import           Data.SafeCopy           (SafeCopy)
-import           Data.Tagged             (Tagged)
 import           Serokell.Util.Verify    (VerificationRes)
 import           Universum
 
 import           Pos.Crypto              (LEncShare, LVssPublicKey, Threshold)
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types.Types         (Address, EpochIndex, MainBlockHeader,
-                                          SlotLeaders, Utxo)
+import           Pos.Types.Types         (Address, EpochIndex, SlotLeaders, Utxo)
 
 -- | Generic @SSC@ query.
 type SscUpdate ssc a =
@@ -73,10 +71,6 @@ class Ssc ssc => SscStorageClass ssc where
                           SscQuery ssc (Maybe (NonEmpty LVssPublicKey))
     sscCalculateLeaders :: EpochIndex -> Utxo -> Threshold ->
                            SscQuery ssc (Either (SscSeedError ssc)  SlotLeaders)
-
-    -- [CSL-106]: it should be moved into another type class.
-    -- | Verify payload using header containing this payload.
-    sscVerifyPayload :: Tagged ssc (MainBlockHeader ssc -> SscPayload ssc -> VerificationRes)
 
 -- | Type constraint for actions to operate withing @SSC@ storage.
 type SscStorageMode ssc = (SscStorageClass ssc, SafeCopy ssc)

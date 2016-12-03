@@ -65,6 +65,7 @@ import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
 import           Pos.Crypto               (LVssPublicKey, SecretKey, Share, VssKeyPair,
                                            decryptShare, toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
+import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
 import           Pos.Ssc.Class.Types      (Ssc (SscGlobalState, SscPayload, SscStorage))
 import           Pos.State.Acidic         (DiskState, tidyState)
@@ -102,7 +103,7 @@ type QULConstraint ssc m = (SscStorageMode ssc, WorkModeDB ssc m, HasLoggerName 
 
 -- | Open NodeState, reading existing state from disk (if any).
 openState
-    :: (SscStorageMode ssc, Default (SscStorage ssc),
+    :: (SscHelpersClass ssc, SscStorageMode ssc, Default (SscStorage ssc),
         MonadIO m)
     => Maybe (Storage ssc)
     -> Bool
@@ -116,7 +117,7 @@ openState storage deleteIfExists fp =
 -- | Open NodeState which doesn't store anything on disk. Everything
 -- is stored in memory and will be lost after shutdown.
 openMemState
-    :: (SscStorageMode ssc, Default (SscStorage ssc),
+    :: (SscHelpersClass ssc, SscStorageMode ssc, Default (SscStorage ssc),
         MonadIO m)
     => Maybe (Storage ssc)
     -> m (NodeState ssc)
@@ -221,7 +222,7 @@ processNewSlot :: QULConstraint ssc m => SlotId -> m (Maybe (GenesisBlock ssc), 
 processNewSlot = updateDiskWithLog . A.ProcessNewSlotL
 
 -- | Process some Block received from the network.
-processBlock :: QUConstraint ssc m
+processBlock :: (SscHelpersClass ssc, QUConstraint ssc m)
              => SlotId
              -> Block ssc
              -> m (ProcessBlockRes ssc)

@@ -32,6 +32,7 @@ import           Universum
 import           Pos.Crypto              (Threshold, deterministicVssKeyGen,
                                           toVssPublicKey)
 import           Pos.FollowTheSatoshi    (followTheSatoshi)
+import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Listeners (SscListenersClass (..))
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage   (SscQuery)
@@ -80,6 +81,7 @@ instance SscStorageClass SscNistBeacon where
     sscGetParticipants _ _  = pure $ Just $ pure $ serialize $ toVssPublicKey $ deterministicVssKeyGen ""
     sscCalculateLeaders = calculateLeaders
 
+instance SscHelpersClass SscNistBeacon where
     sscVerifyPayload = Tagged $ const $ const VerSuccess
 
 type Query a = SscQuery SscNistBeacon a

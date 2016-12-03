@@ -40,9 +40,9 @@ module Pos.WorkMode
        , StatsMode
        ) where
 
-import           Control.Lens                (iso)
 import           Control.Concurrent.MVar     (withMVar)
 import qualified Control.Concurrent.STM      as STM
+import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow, catchAll)
 import           Control.Monad.Except        (ExceptT)
@@ -69,6 +69,7 @@ import           Pos.DHT                     (DHTResponseT, MonadMessageDHT (..)
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData     (MonadSscLD (..),
                                               SscLocalDataClass (sscEmptyLocalData))
 import           Pos.Ssc.Class.Storage       (SscStorageMode)
@@ -88,6 +89,7 @@ type WorkMode ssc m
       , MonadDB ssc m
       , SscStorageMode ssc
       , SscLocalDataClass ssc
+      , SscHelpersClass ssc
       , MonadSscLD ssc m
       , WithNodeContext ssc m
       , MonadMessageDHT m

@@ -4,18 +4,13 @@
 
 module Pos.Launcher.Scenario
        ( runNode
-       , submitTx
-       , submitTxRaw
        ) where
 
-import           Control.TimeWarp.Rpc   (NetworkAddress)
 import           Control.TimeWarp.Timed (currentTime, for, fork, sleepForever, wait)
 import           Formatting             (build, sformat, (%))
 import           System.Wlog            (logError, logInfo)
 import           Universum
 
-import           Pos.Communication      (sendTx)
-import           Pos.Crypto             (hash)
 import           Pos.DHT                (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Ssc.Class          (SscConstraint)
 import           Pos.State              (initFirstSlot)
@@ -26,7 +21,6 @@ import           Pos.Wallet             (makePubKeyTx)
 import           Pos.Worker             (runWorkers)
 import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeContext,
                                          ncPublicKey)
-
 -- | Run full node in any WorkMode.
 runNode :: (SscConstraint ssc, WorkMode ssc m) => [m ()] -> m ()
 runNode plugins = do
@@ -41,26 +35,6 @@ runNode plugins = do
     runWorkers
     mapM_ fork plugins
     sleepForever
-
--- | Construct Tx with a single input and single output and send it to
--- the given network addresses.
-submitTx :: WorkMode ssc m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m Tx
-submitTx na input output =
-    if null na
-      then logError "No addresses to send" >> panic "submitTx failed"
-      else do
-        sk <- ncSecretKey <$> getNodeContext
-        let tx = makePubKeyTx sk [input] [output]
-        submitTxRaw na tx
-        pure tx
-
--- | Send the ready-to-use transaction
-submitTxRaw :: WorkMode ssc m => [NetworkAddress] -> Tx -> m ()
-submitTxRaw na tx = do
-    let txId = hash tx
-    logInfo $ sformat ("Submitting transaction: "%txF) tx
-    logInfo $ sformat ("Transaction id: "%build) txId
-    mapM_ (`sendTx` tx) na
 
 -- Sanity check in case start time is in future (may happen if clocks
 -- are not accurately synchronized, for example).

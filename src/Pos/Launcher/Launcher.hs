@@ -27,11 +27,12 @@ import           Pos.DHT.Real          (KademliaDHTInstance)
 import           Pos.Launcher.Param    (NodeParams (..))
 import           Pos.Launcher.Runner   (bracketDHTInstance, runProductionMode,
                                         runRawRealMode, runStatsMode)
-import           Pos.Launcher.Scenario (runNode, submitTx)
+import           Pos.Launcher.Scenario (runNode)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Ssc.Class.Types   (SscParams)
 import           Pos.Statistics        (getNoStatsT)
 import           Pos.Types             (Address, Coin, TxId)
+import           Pos.Wallet            (submitTx)
 import           Pos.WorkMode          (ProductionMode, StatsMode)
 
 -----------------------------------------------------------------------------

@@ -27,12 +27,11 @@ import           Pos.DHT                         (DHTNodeType (..), MonadDHT, dh
                                                   discoverPeers, getKnownPeers)
 import           Pos.DHT.Real                    (KademliaDHT (..), KademliaDHTInstance)
 import           Pos.Genesis                     (StakeDistribution (..),
-                                                  genesisPublicKeys, genesisSecretKeys,
-                                                  genesisUtxo)
+                                                  genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..), bracketDHTInstance,
                                                   runNode, runProductionMode,
-                                                  runTimeSlaveReal, submitTxRaw)
+                                                  runTimeSlaveReal)
 import           Pos.Ssc.Class                   (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing              (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon              (SscNistBeacon)
@@ -41,6 +40,7 @@ import           Pos.State                       (isTxVerified)
 import           Pos.Statistics                  (NoStatsT (..))
 import           Pos.Types                       (Tx (..))
 import           Pos.Util.JsonLog                ()
+import           Pos.Wallet                      (submitTxRaw)
 import           Pos.WorkMode                    (ProductionMode)
 
 import           GenOptions                      (GenOptions (..), optsInfo)

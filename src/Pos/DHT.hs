@@ -130,6 +130,24 @@ class MonadMessageDHT m => MonadResponseDHT m where
   replyToNode :: (Binary r, Message r) => r -> m ()
   closeResponse :: m ()
 
+instance MonadDHT m => MonadDHT (ReaderT r m) where
+    joinNetwork = lift . joinNetwork
+    discoverPeers = lift . discoverPeers
+    getKnownPeers = lift getKnownPeers
+    currentNodeKey = lift currentNodeKey
+    dhtLoggerName  = dhtLoggerName . fromRProxy
+      where
+        fromRProxy :: Proxy (ReaderT r m) -> Proxy m
+        fromRProxy _ = Proxy
+
+instance MonadMessageDHT m => MonadMessageDHT (ReaderT r m) where
+    sendToNetwork = lift . sendToNetwork
+    sendToNeighbors = lift . sendToNeighbors
+    sendToNode addr = lift . sendToNode addr
+
+instance (Monad m, WithDefaultMsgHeader m) => WithDefaultMsgHeader (ReaderT r m) where
+    defaultMsgHeader = lift . defaultMsgHeader
+
 -- | Listener of DHT messages.
 data ListenerDHT m =
     forall r . (Unpackable BinaryP (HeaderNContentData DHTMsgHeader r), Message r)

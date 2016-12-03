@@ -7,7 +7,6 @@ module Pos.Communication.Types.SysStart
        ) where
 
 import           Data.Binary          (Binary)
-import           Data.MessagePack     (MessagePack)
 import           Universum
 
 import           Control.TimeWarp.Rpc (Message (..), messageName')
@@ -23,10 +22,6 @@ data SysStartResponse = SysStartResponse !Timestamp !(Maybe SlotId)
 
 instance Binary SysStartRequest
 instance Binary SysStartResponse
-
-instance MessagePack SysStartRequest
-
-instance MessagePack SysStartResponse
 
 instance Message SysStartRequest where
     messageName _ = "SysStartRequest"

@@ -119,7 +119,6 @@ import           Data.Hashable          (Hashable)
 import           Data.Ix                (Ix)
 import           Data.List.NonEmpty     (NonEmpty)
 import qualified Data.Map               as M (toList)
-import           Data.MessagePack       (MessagePack (..))
 import           Data.SafeCopy          (SafeCopy (..), base, contain,
                                          deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Semigroup         (Semigroup (..))
@@ -153,8 +152,6 @@ newtype Coin = Coin
     { getCoin :: Word64
     } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Binary, Hashable, Data, NFData, ToJSON)
 
-instance MessagePack Coin
-
 instance Buildable Coin where
     build = bprint (int%" coin(s)")
 
@@ -171,8 +168,6 @@ newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
     } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Binary, Hashable, ToJSON)
 
-instance MessagePack EpochIndex
-
 instance Buildable EpochIndex where
     build = bprint ("epoch #"%int)
 
@@ -180,8 +175,6 @@ instance Buildable EpochIndex where
 newtype LocalSlotIndex = LocalSlotIndex
     { getSlotIndex :: Word16
     } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Binary, Hashable, Buildable, ToJSON)
-
-instance MessagePack LocalSlotIndex
 
 -- | Slot is identified by index of epoch and local index of slot in
 -- this epoch. This is a global index
@@ -191,7 +184,6 @@ data SlotId = SlotId
     } deriving (Show, Eq, Ord, Generic)
 
 instance Binary SlotId
-instance MessagePack SlotId
 
 $(deriveToJSON defaultOptions ''SlotId)
 
@@ -245,16 +237,12 @@ newtype Validator = PubKeyValidator
     { getValidator :: PublicKey
     } deriving (Eq, Ord, Show, Generic, Binary, Hashable)
 
-instance MessagePack Validator
-
 -- | Redeeming structure of transaction input.
 -- Now it's only a wrapper around signature.
 -- TODO: add script redeemer after scripts are introduced.
 newtype Redeemer = PubKeyRedeemer
     { getRedeemer :: TxSig
     } deriving (Eq, Ord, Show, Generic, Binary, Hashable)
-
-instance MessagePack Redeemer
 
 -- | Transaction input.
 data TxIn = TxIn
@@ -270,7 +258,6 @@ data TxIn = TxIn
 
 instance Binary TxIn
 instance Hashable TxIn
-instance MessagePack TxIn
 
 instance Buildable TxIn where
     build TxIn {..} = bprint ("TxIn "%shortHashF%" #"%int) txInHash txInIndex
@@ -283,7 +270,6 @@ data TxOut = TxOut
 
 instance Binary TxOut
 instance Hashable TxOut
-instance MessagePack TxOut
 
 instance Buildable TxOut where
     build TxOut {..} =
@@ -297,7 +283,6 @@ data Tx = Tx
 
 instance Binary Tx
 instance Hashable Tx
-instance MessagePack Tx
 
 instance Buildable Tx where
     build Tx {..} =
@@ -337,8 +322,6 @@ utxoF = later formatUtxo
 newtype SharedSeed = SharedSeed
     { getSharedSeed :: ByteString
     } deriving (Show, Eq, Ord, Generic, Binary, NFData)
-
-instance MessagePack SharedSeed
 
 instance ToJSON SharedSeed where
     toJSON = toJSON . pretty
@@ -458,8 +441,6 @@ data MainBlockchain ssc
 newtype ChainDifficulty = ChainDifficulty
     { getChainDifficulty :: Word64
     } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Binary, Buildable)
-
-instance MessagePack ChainDifficulty
 
 -- | Constraint for data to be signed in main block.
 type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
@@ -589,10 +570,6 @@ instance Blockchain (GenesisBlockchain ssc) where
 instance Binary (BodyProof (GenesisBlockchain ssc))
 instance Binary (ConsensusData (GenesisBlockchain ssc))
 instance Binary (Body (GenesisBlockchain ssc))
-
-instance MessagePack (BodyProof (GenesisBlockchain ssc))
-instance MessagePack (ConsensusData (GenesisBlockchain ssc))
-instance MessagePack (Body (GenesisBlockchain ssc))
 
 -- | Genesis block parametrized by 'GenesisBlockchain'.
 type GenesisBlock ssc = GenericBlock (GenesisBlockchain ssc)

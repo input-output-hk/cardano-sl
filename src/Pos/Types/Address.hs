@@ -15,7 +15,6 @@ import qualified Data.ByteString.Char8  as BSC (unpack)
 import qualified Data.ByteString.Lazy   as BSL (toStrict)
 import           Data.Digest.CRC32      (CRC32 (..))
 import           Data.Hashable          (Hashable (..))
-import           Data.MessagePack       (MessagePack (..))
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
 import           Formatting             (Format, build, sformat)
@@ -75,7 +74,6 @@ instance Buildable Address where
     build = Buildable.build . decodeUtf8 @Text . addrToBase58
 
 instance NFData Address
-instance MessagePack Address
 
 instance ToJSON Address where
     toJSON = toJSON . sformat build

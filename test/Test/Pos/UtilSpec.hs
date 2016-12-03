@@ -41,7 +41,7 @@ spec = describe "Util" $ do
         "When subtracting two double hashmaps with common keys, and when the inner maps\
         \ corresponding to these keys have a non-empty intersection, the difference\
         \ map's inner maps corresponding to those keys will be smaller in size than the\
-        \ the inner maps in the minuend hashmap"
+        \ inner maps in the minuend hashmap"
 
 ddmEmptyHashMap
     :: SmallHashMap

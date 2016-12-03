@@ -22,6 +22,18 @@ flag dev-mode
 
   description: Switch between Development and Production mode
 
+Flag with-web
+  default:     False
+  manual:      True
+
+  description: Build with web part.
+
+Flag with-wallet
+  default:     False
+  manual:      True
+
+  description: Build with wallet.
+
 library
   exposed-modules:      Pos.CLI
                         Pos.Crypto
@@ -65,20 +77,22 @@ library
                         Pos.Types.Utxo
                         Pos.Util
                         Pos.Util.JsonLog
-                        Pos.Wallet
-                        Pos.Wallet.Web
-                        Pos.Web
                         Pos.Worker
                         Pos.WorkMode
+  if flag(with-web)
+    exposed-modules:    Pos.Web
+  -- FIXME
+  if flag(with-wallet) || true
+    exposed-modules:    Pos.Wallet
+  if flag(with-wallet) && flag(with-web)
+    exposed-modules:    Pos.Wallet.Web
   other-modules:        Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
-                        Pos.Communication.Types.Statistics
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Types.Tx
                         Pos.Communication.Server
                         Pos.Communication.Server.Block
-                        Pos.Communication.Server.Statistics
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Server.Tx
                         Pos.Communication.Util
@@ -121,19 +135,23 @@ library
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
-                        Pos.Wallet.Tx
-                        Pos.Wallet.Web.Api
-                        Pos.Wallet.Web.Doc
-                        Pos.Wallet.Web.Server
-                        Pos.Web.Api
-                        Pos.Web.Doc
-                        Pos.Web.Server
-                        Pos.Web.Types
                         Pos.Worker.Block
                         Pos.Worker.Stats
                         Pos.Worker.Tx
                         Pos.Util.Arbitrary
                         Pos.Util.NotImplemented
+  if flag(with-web)
+    other-modules:      Pos.Web.Api
+                        Pos.Web.Doc
+                        Pos.Web.Server
+                        Pos.Web.Types
+  -- FIXME
+  if (flag(with-wallet) || true)
+    other-modules:      Pos.Wallet.Tx
+  if (flag(with-wallet) && flag(with-web))
+    other-modules:      Pos.Wallet.Web.Api
+                        Pos.Wallet.Web.Doc
+                        Pos.Wallet.Web.Server
   build-depends:        HsOpenSSL
                       , QuickCheck
                       , UtilityTM
@@ -150,7 +168,6 @@ library
                       , containers
                       , cryptonite >= 0.19 && < 0.21
                       , data-default
-                      , data-msgpack >= 0.0.8
                       , derive
                       , digest
                       , directory
@@ -161,7 +178,6 @@ library
                       , focus
                       , formatting
                       , hashable
-                      , http-types
                       , kademlia
                       , lens
                       , lifted-async
@@ -180,9 +196,6 @@ library
                       , random
                       , safecopy
                       , serokell-util
-                      , servant >= 0.8.1
-                      , servant-docs >= 0.8.1
-                      , servant-server >= 0.8.1
                       , stm
                       , stm-containers
                       , tagged
@@ -197,10 +210,16 @@ library
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
+                      , yaml
+
+  if flag(with-web)
+    build-depends:      http-types
+                      , servant >= 0.8.1
+                      , servant-docs >= 0.8.1
+                      , servant-server >= 0.8.1
                       , wai
                       , wai-extra
                       , warp
-                      , yaml
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:         -Wall
@@ -218,6 +237,10 @@ library
     cpp-options: -DASSERTS_ON
   if flag(dev-mode)
     cpp-options: -DDEV_MODE
+  if flag(with-web)
+    cpp-options: -DWITH_WEB
+  if flag(with-wallet)
+    cpp-options: -DWITH_WALLET
 
 executable cardano-node
   hs-source-dirs:      src/node
@@ -250,6 +273,8 @@ executable cardano-node
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+  if flag(with-web)
+    cpp-options: -DWITH_WEB
 
 executable cardano-analyzer
   hs-source-dirs:      src/analyzer
@@ -310,83 +335,10 @@ executable cardano-wallet
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
-
-executable cardano-stats-collector
-  hs-source-dirs:      src/stats-collector
-  main-is:             Main.hs
-  other-modules:       StatsOptions
-                     , SarCollector
-                     , Plotting
-  build-depends:       aeson
-                     , base
-                     , cardano-sl
-                     , containers
-                     , Chart
-                     , Chart-diagrams
-                     , data-default
-                     , directory
-                     , formatting
-                     , filepath
-                     , hashable
-                     , log-warper >= 0.1.0
-                     , lifted-async
-                     , monad-control
-                     , optparse-simple >= 0.0.3
-                     , transformers
-                     , parsec
-                     , serokell-util
-                     , time >= 1.2.2.1
-                     , time-warp
-                     , text
-                     , turtle
-                     , universum >= 0.1.11
-                     , unordered-containers
-                     , yaml
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -with-rtsopts=-N
-                       -O2
-  default-extensions:   DeriveDataTypeable
-                        DeriveGeneric
-                        GeneralizedNewtypeDeriving
-                        NoImplicitPrelude
-                        OverloadedStrings
-                        RecordWildCards
-                        TypeApplications
-
-executable cardano-tx-generator
-  hs-source-dirs:      src/tx-generator
-  main-is:             Main.hs
-  build-depends:       base
-                     , aeson
-                     , bytestring
-                     , data-default
-                     , cardano-sl
-                     , formatting
-                     , log-warper >= 0.1.0
-                     , optparse-applicative
-                     , parsec
-                     , random
-                     , serokell-util
-                     , time
-                     , time-warp
-                     , universum >= 0.1.11
-                     , unordered-containers
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -with-rtsopts=-N
-                       -O2
-  default-extensions:   DeriveDataTypeable
-                        DeriveGeneric
-                        GeneralizedNewtypeDeriving
-                        NoImplicitPrelude
-                        OverloadedStrings
-                        RecordWildCards
-                        TypeApplications
+  if flag(with-web)
+    cpp-options: -DWITH_WEB
+  if flag(with-wallet)
+    cpp-options: -DWITH_WALLET
 
 executable cardano-smart-generator
   hs-source-dirs:      src/smart-generator
@@ -451,6 +403,8 @@ executable cardano-web-docs
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+  if flag(with-web)
+    cpp-options: -DWITH_WEB
 
 executable cardano-wallet-web-docs
   hs-source-dirs:      src/wallet-web-docs
@@ -471,6 +425,10 @@ executable cardano-wallet-web-docs
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+  if flag(with-web)
+    cpp-options: -DWITH_WEB
+  if flag(with-wallet)
+    cpp-options: -DWITH_WALLET
 
 test-suite cardano-test
   main-is:             Test.hs
@@ -480,13 +438,11 @@ test-suite cardano-test
                      , Test.Pos.MerkleSpec
                      , Test.Pos.SlottingSpec
                      , Test.Pos.Ssc.GodTossing.Identity.BinarySpec
-                     , Test.Pos.Ssc.GodTossing.Identity.MessagePackSpec
                      , Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
                      , Test.Pos.Ssc.GodTossing.SeedSpec
                      , Test.Pos.Ssc.GodTossing.Types.BaseSpec
                      , Test.Pos.Types.BlockSpec
                      , Test.Pos.Types.Identity.BinarySpec
-                     , Test.Pos.Types.Identity.MessagePackSpec
                      , Test.Pos.Types.Identity.SafeCopySpec
                      , Test.Pos.Types.Identity.TimestampSpec
                      , Test.Pos.Types.SlottingSpec
@@ -503,7 +459,6 @@ test-suite cardano-test
                      , cereal
                      , containers
                      , cryptonite
-                     , data-msgpack
                      , formatting
                      , hspec
                      , lens

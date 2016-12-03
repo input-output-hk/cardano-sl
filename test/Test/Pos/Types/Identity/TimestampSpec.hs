@@ -12,11 +12,10 @@ import           Universum
 
 import           Pos.Types             (Timestamp)
 
-import           Test.Pos.Util         (binaryEncodeDecode, msgPackEncodeDecode, showRead)
+import           Test.Pos.Util         (binaryEncodeDecode, showRead)
 
 spec :: Spec
 spec = describe "Timestamp" $ do
     describe "Identity testing" $ do
         prop "Binary" (binaryEncodeDecode @Timestamp)
-        prop "MessagePack" (msgPackEncodeDecode @Timestamp)
         prop "Show/Read" (showRead @Timestamp)

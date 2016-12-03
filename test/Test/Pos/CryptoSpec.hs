@@ -20,8 +20,8 @@ import           Pos.Crypto            (EncShare, Hash, KeyPair (..), LEncShare,
                                         parseFullPublicKey, randomNumber, sign, toPublic)
 import           Pos.Ssc.GodTossing    ()
 
-import           Test.Pos.Util         (binaryEncodeDecode, msgPackEncodeDecode,
-                                        safeCopyEncodeDecode, serDeserId)
+import           Test.Pos.Util         (binaryEncodeDecode, safeCopyEncodeDecode, 
+                                        serDeserId)
 
 spec :: Spec
 spec = describe "Crypto" $ do
@@ -43,9 +43,6 @@ spec = describe "Crypto" $ do
             prop
                 "Binary"
                 (binaryEncodeDecode @(Hash Int))
-            prop
-                "MessagePack"
-                (msgPackEncodeDecode @(Hash Int))
             prop
                 "SafeCopy"
                 (safeCopyEncodeDecode @(Hash Int))
@@ -76,11 +73,6 @@ spec = describe "Crypto" $ do
                 prop "LVssPublicKey" (binaryEncodeDecode @LVssPublicKey)
                 prop "LSecret"       (binaryEncodeDecode @LSecret)
                 prop "LEncShare"     (binaryEncodeDecode @LEncShare)
-            describe "MessagePack instances" $ do
-                prop "SecretKey" (msgPackEncodeDecode @SecretKey)
-                prop "PublicKey" (msgPackEncodeDecode @PublicKey)
-                prop "Signature" (msgPackEncodeDecode @(Signature ()))
-                prop "Signed"    (msgPackEncodeDecode @(Signed Bool))
             describe "SafeCopy instances" $ do
                 prop "SecretKey"     (safeCopyEncodeDecode @SecretKey)
                 prop "PublicKey"     (safeCopyEncodeDecode @PublicKey)

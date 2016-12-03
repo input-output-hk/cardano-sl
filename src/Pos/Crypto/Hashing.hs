@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -28,14 +29,13 @@ import qualified Data.Binary.Get     as Binary (getByteString)
 import qualified Data.Binary.Put     as Binary (putByteString)
 import qualified Data.ByteArray      as ByteArray
 import           Data.Hashable       (Hashable (hashWithSalt), hashPtrWithSalt)
-import           Data.MessagePack    (MessagePack (fromObject, toObject), Object (..))
 import           Data.SafeCopy       (SafeCopy (..))
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (Format, bprint, fitLeft, later, shown, (%.))
-import           System.IO.Unsafe    (unsafePerformIO)
+import           System.IO.Unsafe    (unsafeDupablePerformIO)
 import           Universum
 
-import           Pos.Util            (Raw, getCopyBinary, msgpackFail, putCopyBinary)
+import           Pos.Util            (Raw, getCopyBinary, putCopyBinary)
 
 -- | Hash wrapper with phantom type for more type-safety.
 -- Made abstract in order to support different algorithms in
@@ -47,16 +47,9 @@ newtype AbstractHash algo a = AbstractHash (Digest algo)
 type Hash = AbstractHash Blake2b_512
 
 instance Hashable (AbstractHash algo a) where
-    hashWithSalt s h = unsafePerformIO $ ByteArray.withByteArray h (\ptr -> hashPtrWithSalt ptr (ByteArray.length h) s)
-
-instance HashAlgorithm algo => MessagePack (AbstractHash algo a) where
-    {-# SPECIALIZE instance MessagePack (Hash a) #-}
-    toObject (AbstractHash x) = toObject @ByteString . ByteArray.convert $ x
-    fromObject (ObjectBin bs) =
-        case digestFromByteString bs of
-            Nothing -> msgpackFail "failed to convert ByteString to AbstractHash"
-            Just x  -> pure $ AbstractHash x
-    fromObject _ = msgpackFail "AbstractHash must be represented as binary"
+    hashWithSalt s h = unsafeDupablePerformIO $ ByteArray.withByteArray h (\ptr -> hashPtrWithSalt ptr len s)
+      where
+        !len = ByteArray.length h
 
 instance HashAlgorithm algo => SafeCopy (AbstractHash algo a) where
     putCopy = putCopyBinary

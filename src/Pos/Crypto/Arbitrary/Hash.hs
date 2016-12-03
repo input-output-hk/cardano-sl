@@ -10,13 +10,14 @@
 
 module Pos.Crypto.Arbitrary.Hash () where
 
-import           Data.Binary        (Binary)
-import           Test.QuickCheck    (Arbitrary (..), Gen)
+import           Data.Binary               (Binary)
+import           Test.QuickCheck           (Arbitrary (..), Gen)
+import           Test.QuickCheck.Instances ()
 import           Universum
 
-import           Pos.Crypto.Address (AddressHash, unsafeAddressHash)
-import           Pos.Crypto.Hashing (Hash, unsafeHash)
-import           Pos.Util.Arbitrary (ArbitraryUnsafe)
+import           Pos.Crypto.Address        (AddressHash, unsafeAddressHash)
+import           Pos.Crypto.Hashing        (Hash, unsafeHash)
+import           Pos.Util.Arbitrary        (ArbitraryUnsafe)
 
 instance Binary a => Arbitrary (Hash a) where
     arbitrary = unsafeHash <$> (arbitrary :: Gen ByteString)

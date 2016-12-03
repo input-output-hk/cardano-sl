@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns        #-}
@@ -24,16 +25,19 @@ import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        NodeParams (..), bracketDHTInstance,
                                        runNodeProduction, runNodeStats, runSupporterReal,
                                        runTimeLordReal, runTimeSlaveReal)
-import           Pos.Ssc.Class        (SscConstraint)
 import           Pos.Ssc.GodTossing   (genesisVssKeyPairs)
 import           Pos.Ssc.GodTossing   (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Types            (Timestamp)
+#ifdef WITH_WEB
+import           Pos.Ssc.Class        (SscConstraint)
 import           Pos.Web              (serveWebBase, serveWebGT)
 import           Pos.WorkMode         (WorkMode)
+#endif
 
 import           NodeOptions          (Args (..), getNodeOptions)
+
 
 getKey
     :: Binary key
@@ -130,10 +134,17 @@ action args@Args {..} inst = do
             systemStart <- getSystemStart inst args
             let currentParams = nodeParams args spendingSK systemStart
                 gtParams = gtSscParams args vssSK
+#ifdef WITH_WEB
                 currentPlugins :: (SscConstraint ssc, WorkMode ssc m) => [m ()]
                 currentPlugins = plugins args
                 currentPluginsGT :: (WorkMode SscGodTossing m) => [m ()]
                 currentPluginsGT = pluginsGT args
+#else
+                currentPlugins :: [a]
+                currentPlugins = []
+                currentPluginsGT :: [a]
+                currentPluginsGT = []
+#endif
             putText $ "Running using " <> show sscAlgo
             case (enableStats, sscAlgo) of
                 (True, GodTossingAlgo) ->
@@ -172,15 +183,19 @@ gtSscParams Args {..} vssSK =
     , gtpVssKeyPair = vssSK
     }
 
+#ifdef WITH_WEB
 plugins :: (SscConstraint ssc, WorkMode ssc m) => Args -> [m ()]
 plugins Args {..}
     | enableWeb = [serveWebBase webPort]
     | otherwise = []
+#endif
 
+#ifdef WITH_WEB
 pluginsGT :: (WorkMode SscGodTossing m) => Args -> [m ()]
 pluginsGT Args {..}
     | enableWeb = [serveWebGT webPort]
     | otherwise = []
+#endif
 
 main :: IO ()
 main = do

@@ -26,6 +26,7 @@ module Pos.State.State
        , getBestChain
        , getLeaders
        , getLocalTxs
+       , getUtxoByDepth
        , isTxVerified
        , getGlobalMpcData
        , mayBlockBeUseful
@@ -74,7 +75,7 @@ import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (.
 import           Pos.Statistics.StatEntry ()
 import           Pos.Types                (Address, Block, EpochIndex, GenesisBlock,
                                            HeaderHash, MainBlock, MainBlockHeader, SlotId,
-                                           SlotLeaders, Tx)
+                                           SlotLeaders, Tx, Utxo)
 import           Pos.Util                 (deserializeM, serialize)
 
 -- | NodeState encapsulates all the state stored by node.
@@ -188,6 +189,10 @@ getBestChain = queryDisk A.GetBestChain
 -- | Get local transactions list.
 getLocalTxs :: QUConstraint ssc m => m (HashSet Tx)
 getLocalTxs = queryDisk A.GetLocalTxs
+
+-- | Get Utxo by depth
+getUtxoByDepth :: QUConstraint ssc m => Word -> m (Maybe Utxo)
+getUtxoByDepth = queryDisk . A.GetUtxoByDepth
 
 -- | Checks if tx is verified
 isTxVerified :: QUConstraint ssc m => Tx -> m Bool

@@ -8,14 +8,13 @@ module Pos.Launcher.Scenario
 
 import           Control.TimeWarp.Timed (currentTime, for, fork, sleepForever, wait)
 import           Formatting             (build, sformat, (%))
-import           System.Wlog            (logError, logInfo)
+import           System.Wlog            (logInfo)
 import           Universum
 
 import           Pos.DHT                (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Ssc.Class          (SscConstraint)
 import           Pos.State              (initFirstSlot)
-import           Pos.Types              (Address, Coin, Timestamp (Timestamp), Tx (..),
-                                         TxId, txF)
+import           Pos.Types              (Timestamp (Timestamp))
 import           Pos.Util               (inAssertMode)
 import           Pos.Worker             (runWorkers)
 import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeContext,

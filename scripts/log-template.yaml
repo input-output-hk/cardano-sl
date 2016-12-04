@@ -1,4 +1,6 @@
 severity: Info
+smart-wallet:
+    severity: Error
 node:
     severity: Debug
     file: {{file}}

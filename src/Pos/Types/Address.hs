@@ -3,6 +3,7 @@ module Pos.Types.Address
        , addressF
        , makePubKeyAddress
        , checkPubKeyAddress
+       , addrAlphabet
        ) where
 
 import           Data.Aeson             (ToJSON (toJSON))

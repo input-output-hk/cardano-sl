@@ -31,7 +31,7 @@ import           Pos.Genesis                     (StakeDistribution (..),
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..), bracketDHTInstance,
                                                   runNode, runProductionMode,
-                                                  runTimeSlaveReal)
+                                                  runTimeSlaveReal, stakesDistr)
 import           Pos.Ssc.Class                   (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing              (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon              (SscNistBeacon)
@@ -230,14 +230,6 @@ main = do
             , bpDHTKeyOrType       = Right DHTFull
             , bpDHTExplicitInitial = goDhtExplicitInitial
             }
-        stakesDistr = case (goFlatDistr, goBitcoinDistr) of
-            (Nothing, Nothing) -> def
-            (Just _, Just _) ->
-                panic "flat-distr and bitcoin distr are conflicting options"
-            (Just (nodes, coins), Nothing) ->
-                FlatStakes (fromIntegral nodes) (fromIntegral coins)
-            (Nothing, Just (nodes, coins)) ->
-                BitcoinStakes (fromIntegral nodes) (fromIntegral coins)
 
     bracketDHTInstance baseParams $ \inst -> do
         let timeSlaveParams =
@@ -254,14 +246,14 @@ main = do
                 , npSystemStart = systemStart
                 , npSecretKey   = sk
                 , npBaseParams  = baseParams
-                , npCustomUtxo  = Just $ genesisUtxo stakesDistr
+                , npCustomUtxo  = Just $ genesisUtxo $
+                                  stakesDistr goFlatDistr goBitcoinDistr
                 , npTimeLord    = False
                 , npJLFile      = goJLFile
                 }
             gtParams =
                 GtParams
-                {
-                  gtpRebuildDb  = False
+                { gtpRebuildDb  = False
                 , gtpDbPath     = Nothing
                 , gtpSscEnabled = False
                 , gtpVssKeyPair = vssKeyPair

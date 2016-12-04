@@ -19,6 +19,7 @@ module Pos.Crypto.Hashing
        , CastHash (castHash)
        ) where
 
+import           Control.Monad.Fail  (fail)
 import           Crypto.Hash         (Blake2b_512, Digest, HashAlgorithm,
                                       digestFromByteString)
 import qualified Crypto.Hash         as Hash (hash, hashDigestSize, hashlazy)
@@ -63,7 +64,7 @@ instance HashAlgorithm algo => Binary (AbstractHash algo a) where
         case digestFromByteString bs of
             -- It's impossible because getByteString will already fail if
             -- there weren't enough bytes available
-            Nothing -> panic "Pos.Crypto.Hashing.get: impossible"
+            Nothing -> fail "Pos.Crypto.Hashing.get: impossible"
             Just x  -> return (AbstractHash x)
     put (AbstractHash h) =
         Binary.putByteString (ByteArray.convert h)

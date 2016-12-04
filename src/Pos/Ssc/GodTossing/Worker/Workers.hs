@@ -88,8 +88,9 @@ onStart = do
            (_, ourAddr)      <- getOurPkAndAddr
            ourVssCertificate <- getOurVssCertificate
            let msg = DMVssCertificate ourAddr ourVssCertificate
-           sendToNeighborsSafe msg
-           logDebug "Announced our VssCertificate."
+           (sendToNeighborsSafe msg >> logDebug "Announced our VssCertificate.")
+               `catchAll` \e ->
+               logError $ sformat ("Error announcing our VssCertificate: " % shown) e
            wait (for mpcSendInterval)
            onStart -- retry
 

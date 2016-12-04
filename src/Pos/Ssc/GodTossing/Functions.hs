@@ -186,9 +186,17 @@ checkShare globalCommitments globalOpeningsPK globalCertificates (addrTo, addrFr
       _ -> return False
   where
     tuple = do
+        -- addrFrom sent its decrypted share to addrTo on commitment phase.
+        -- addrTo must decrypt share from addrFrom on shares phase,
+        -- if addrFrom didn't send its opening
+
+        -- Check that addrFrom really didn't send its opening
         guard $ notMember addrFrom globalOpeningsPK
+        -- Check that addrFrom really sent its commitment
         (_, comm, _) <- HM.lookup addrFrom globalCommitments
+        -- Get pkTo's vss certificate
         vssKey <- vcVssKey <$> HM.lookup addrTo globalCertificates
+        -- Get encrypted share, which sent pkFrom to pkTo on commitment phase
         encShare <- HM.lookup vssKey (commShares comm)
         return (encShare, vssKey, share)
 
@@ -297,12 +305,40 @@ filterLocalPayload localPay GtGlobalState {..} =
                  _gsVssCertificates)
                 (filterCerts certs)
         OpeningsPayload opens certs ->
-            OpeningsPayload
-                ((opens `HM.difference` _gsOpenings) `HM.intersection`
-                 _gsCommitments)
-                (filterCerts certs)
+            let filteredOpenings =
+                    foldl' (flip ($)) opens $
+                    [
+                    -- Select only new openings
+                      (`HM.difference` _gsOpenings)
+                    -- Select commitments which sent opening
+                    , (`HM.intersection` _gsCommitments)
+                    -- Select opening which corresponds its commitment
+                    , HM.filterWithKey
+                          (curry $ checkOpeningMatchesCommitment _gsCommitments)
+                    ]
+            in
+                OpeningsPayload filteredOpenings (filterCerts certs)
         SharesPayload shares certs ->
-            SharesPayload (shares `diffDoubleMap` _gsShares) (filterCerts certs)
+            let filteredShares =
+                    foldl' (flip ($)) shares $
+                    [
+                    -- Select only new shares
+                      (`diffDoubleMap` _gsShares)
+                    -- Select shares from nodes which sent certificates
+                    , (`HM.intersection` _gsVssCertificates)
+                    -- Select shares to nodes which sent commitments
+                    , map (`HM.intersection` _gsCommitments)
+                    -- Ensure that share sent from pkFrom to pkTo is valid
+                    , HM.mapWithKey filterShares
+                    ]
+            in
+                SharesPayload filteredShares (filterCerts certs)
         CertificatesPayload certs -> CertificatesPayload $ filterCerts certs
   where
     filterCerts = flip HM.difference _gsVssCertificates
+    filterShares pkTo shares = HM.filterWithKey
+        (\pkFrom share -> checkShare
+                              _gsCommitments
+                              _gsOpenings
+                              _gsVssCertificates
+                              (pkTo, pkFrom, share)) shares

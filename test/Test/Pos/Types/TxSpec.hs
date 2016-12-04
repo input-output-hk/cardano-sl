@@ -21,7 +21,7 @@ import           Test.QuickCheck       (NonNegative (..), Positive (..), Propert
 import           Test.QuickCheck.Gen   (Gen)
 import           Universum             hiding ((.&.))
 
-import           Pos.Crypto            (checkSig, hash)
+import           Pos.Crypto            (checkSig, hash, whData, withHash)
 import           Pos.Types             (BadSigsTx (..), GoodTx (..), OverflowTx (..),
                                         Redeemer (..), SmallBadSigsTx (..),
                                         SmallGoodTx (..), SmallOverflowTx (..), Tx (..),
@@ -44,10 +44,10 @@ spec = describe "Types.Tx" $ do
         prop "doesn't change the random set of transactions" $
             forAll (resize 10 $ arbitrary) $ \(NonNegative l) ->
             forAll (vectorOf l (txGen 10)) $ \txs ->
-            (sort <$> topsortTxs txs) === Just (sort txs)
+            (sort <$> topsortTxs (map withHash txs)) === Just (sort $ map withHash txs)
         prop "graph generator does not produce loops" $
             forAll (txAcyclicGen False 20) $ \(txs,_) ->
-            forAll (shuffle txs) $ \shuffled ->
+            forAll (shuffle $ map withHash txs) $ \shuffled ->
             isJust $ topsortTxs shuffled
         prop "does correct topsort on bamboo" $ testTopsort True
         prop "does correct topsort on arbitrary acyclic graph" $ testTopsort False
@@ -169,7 +169,7 @@ testTopsort isBamboo =
     forAll (shuffle txs) $ \shuffled ->
     let reachables :: [(Tx,Tx)]
         reachables = [(from,to) | (to,froms) <- HM.toList reach, from <- froms]
-        topsorted = topsortTxs shuffled
+        topsorted = map whData <$> topsortTxs (map withHash shuffled)
         reaches :: (Tx,Tx) -> Bool
         reaches (from,to) =
             let fromI = elemIndex from =<< topsorted

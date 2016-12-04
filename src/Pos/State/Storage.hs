@@ -26,6 +26,7 @@ module Pos.State.Storage
        , getGlobalSscStateByDepth
        , getLeaders
        , getLocalTxs
+       , getUtxoByDepth
        , isTxVerified
        , getOurShares
        , getParticipants
@@ -57,8 +58,10 @@ import           Serokell.Util           (VerificationRes (..))
 import           System.Wlog             (WithLogger, logDebug)
 
 import           Pos.Constants           (k)
-import           Pos.Crypto              (LEncShare, LVssPublicKey, SecretKey, Threshold)
+import           Pos.Crypto              (LEncShare, LVssPublicKey, SecretKey, Threshold,
+                                          WithHash (whData))
 import           Pos.Genesis             (genesisUtxo)
+import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
@@ -186,7 +189,7 @@ createNewBlockDo sk sId sscPayload = do
     globalPayload <- readerToState $ getGlobalSscState
     let filteredPayload = sscFilterPayload @ssc sscPayload globalPayload
     txs <- readerToState $ toList <$> getLocalTxs
-    blk <- blkCreateNewBlock sk sId txs filteredPayload
+    blk <- blkCreateNewBlock sk sId (fmap whData txs) filteredPayload
     let blocks = Right blk :| []
     sscApplyBlocks blocks
     blk <$ txApplyBlocks blocks
@@ -206,7 +209,7 @@ canCreateBlock sId = do
     addKSafe si = si {siSlot = min (6 * k - 1) (siSlot si + k)}
 
 -- | Do all necessary changes when a block is received.
-processBlock :: SscStorageClass ssc
+processBlock :: (SscHelpersClass ssc, SscStorageClass ssc)
     => SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
 processBlock curSlotId blk = do
     let txs =
@@ -220,7 +223,7 @@ processBlock curSlotId blk = do
 
 processBlockDo
     :: forall ssc.
-       SscStorageClass ssc
+       (SscHelpersClass ssc, SscStorageClass ssc)
     => SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
 processBlockDo curSlotId blk = do
     let verifyMpc mainBlk =

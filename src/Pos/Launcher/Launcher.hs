@@ -27,11 +27,12 @@ import           Pos.DHT.Real          (KademliaDHTInstance)
 import           Pos.Launcher.Param    (NodeParams (..))
 import           Pos.Launcher.Runner   (bracketDHTInstance, runProductionMode,
                                         runRawRealMode, runStatsMode)
-import           Pos.Launcher.Scenario (runNode, submitTx)
+import           Pos.Launcher.Scenario (runNode)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Ssc.Class.Types   (SscParams)
 import           Pos.Statistics        (getNoStatsT)
 import           Pos.Types             (Address, Coin, TxId)
+import           Pos.Wallet            (submitSimpleTx)
 import           Pos.WorkMode          (ProductionMode, StatsMode)
 
 -----------------------------------------------------------------------------
@@ -78,4 +79,4 @@ submitTxReal np sscnp input addrCoin = bracketDHTInstance (npBaseParams np) acti
     action inst = runRawRealMode @ssc inst np sscnp [] $ do
         peers <- getKnownPeers
         let na = dhtAddr <$> filterByNodeType DHTFull peers
-        void $ getNoStatsT $ (submitTx @ssc) na input addrCoin
+        void $ getNoStatsT $ (submitSimpleTx @ssc) na input addrCoin

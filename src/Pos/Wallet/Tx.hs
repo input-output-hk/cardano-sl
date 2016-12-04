@@ -2,27 +2,124 @@
 
 module Pos.Wallet.Tx
        ( makePubKeyTx
+       , submitSimpleTx
+       , submitTx
+       , getBalance
+       , submitTxRaw
+       , createTx
        ) where
 
+import           Control.Lens         (use, uses, (%=), (-=), _1, _2)
+import           Control.Monad        (fail)
+import           Control.Monad.State  (StateT, evalStateT)
+import           Control.TimeWarp.Rpc (NetworkAddress)
+import           Data.List            (tail)
+import qualified Data.Map             as M
+import           Data.Maybe           (fromJust)
+import           Formatting           (build, sformat, (%))
+import           System.Wlog          (logError, logInfo)
 import           Universum
 
-import           Pos.Crypto (PublicKey, SecretKey)
-import           Pos.Crypto (sign)
-import           Pos.Types  (Address, Coin, Redeemer (..), Tx (..), TxId, TxIn (..),
-                             TxOut (..), Validator (..))
+import           Pos.Communication    (sendTx)
+import           Pos.Crypto           (SecretKey)
+import           Pos.Crypto           (hash, sign, toPublic)
+import           Pos.State            (getUtxoByDepth)
+import           Pos.Types            (Address, Coin, Redeemer (..), Tx (..), TxId,
+                                       TxIn (..), TxOut (..), Utxo, Validator (..),
+                                       makePubKeyAddress, txF)
+import           Pos.WorkMode         (NodeContext (..), WorkMode, getNodeContext)
 
-type TxInputs = [(TxId, Word32)]
-type TxOutputs = [(Address, Coin)]
+type TxOutIdx = (TxId, Word32)
+type TxInputs = [TxOutIdx]
+type TxOutputs = [TxOut]
+type TxError = Text
+
+------------------------------------------------------------------------------------
+-- Pure functions
+------------------------------------------------------------------------------------
 
 -- | Makes a transaction which use P2PKH addresses as a source
-makePubKeyTx :: PublicKey -> SecretKey -> TxInputs -> TxOutputs -> Tx
-makePubKeyTx pk sk inputs outputs = Tx {..}
-  where txOutputs = map makeTxOut outputs
+makePubKeyTx :: SecretKey -> TxInputs -> TxOutputs -> Tx
+makePubKeyTx sk inputs txOutputs = Tx {..}
+  where pk = toPublic sk
         txInputs = map makeTxIn inputs
-        makeTxOut (txOutAddress, txOutValue) = TxOut {..}
         makeTxIn (txInHash, txInIndex) =
             TxIn { txInValidator = PubKeyValidator pk
                  , txInRedeemer = PubKeyRedeemer $ sign sk (txInHash, txInIndex, txOutputs)
                  , ..
                  }
+
+-- | Select only TxOuts for given addresses
+filterUtxo :: Address -> Utxo -> Utxo
+filterUtxo addr = M.filter ((addr ==) . txOutAddress)
+
+type FlatUtxo = [(TxOutIdx, TxOut)]
+type InputPicker = StateT (Coin, FlatUtxo) (Either TxError)
+
+-- | Make a multi-transaction using given secret key and info for outputs
+createTx :: Utxo -> SecretKey -> TxOutputs -> Either TxError Tx
+createTx utxo sk outputs = uncurry (makePubKeyTx sk) <$> inpOuts
+  where totalMoney = sum $ map txOutValue outputs
+        ourAddr = makePubKeyAddress $ toPublic sk
+        allUnspent = M.toList $ filterUtxo ourAddr utxo
+        sortedUnspent = sortBy (comparing $ Down . txOutValue . snd) allUnspent
+        inpOuts = do
+            futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
+            let inputs = map fst futxo
+                inputSum = sum $ map (txOutValue . snd) futxo
+                newOuts = if inputSum > totalMoney
+                          then TxOut ourAddr (inputSum - totalMoney) : outputs
+                          else outputs
+            pure (inputs, newOuts)
+
+        pickInputs :: FlatUtxo -> InputPicker FlatUtxo
+        pickInputs inps = do
+            moneyLeft <- use _1
+            if moneyLeft == 0
+                then return inps
+                else do
+                mNextOut <- uses _2 head
+                case mNextOut of
+                    Nothing -> fail "Not enough money to send!"
+                    Just inp@(_, TxOut {..}) -> do
+                        _1 -= min txOutValue moneyLeft
+                        _2 %= tail
+                        pickInputs (inp:inps)
+
+---------------------------------------------------------------------------------------
+-- WorkMode scenarios
+---------------------------------------------------------------------------------------
+
+-- | Construct Tx with a single input and single output and send it to
+-- the given network addresses.
+submitSimpleTx :: WorkMode ssc m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m Tx
+submitSimpleTx [] _ _ =
+    logError "No addresses to send" >> fail "submitSimpleTx failed"
+submitSimpleTx na input output = do
+    sk <- ncSecretKey <$> getNodeContext
+    let tx = makePubKeyTx sk [input] [uncurry TxOut output]
+    submitTxRaw na tx
+    pure tx
+
+-- | Construct Tx using secret key and given list of desired outputs
+submitTx :: WorkMode ssc m => SecretKey -> [NetworkAddress] -> TxOutputs -> m Tx
+submitTx _ [] _ = logError "No addresses to send" >> fail "submitTx failed"
+submitTx sk na outputs = do
+    utxo <- fromJust <$> getUtxoByDepth 0
+    case createTx utxo sk outputs of
+        Left err -> fail $ toString err
+        Right tx -> tx <$ submitTxRaw na tx
+
+-- | Get current balance with given address
+getBalance :: WorkMode ssc m => Address -> m Coin
+getBalance addr = fromJust <$> getUtxoByDepth 0 >>=
+                  return . sum . M.map txOutValue . filterUtxo addr
+
+-- | Send the ready-to-use transaction
+submitTxRaw :: WorkMode ssc m => [NetworkAddress] -> Tx -> m ()
+submitTxRaw na tx = do
+    let txId = hash tx
+    logInfo $ sformat ("Submitting transaction: "%txF) tx
+    logInfo $ sformat ("Transaction id: "%build) txId
+    mapM_ (`sendTx` tx) na
 

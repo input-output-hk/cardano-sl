@@ -26,6 +26,7 @@ module Pos.State.State
        , getBestChain
        , getLeaders
        , getLocalTxs
+       , getUtxoByDepth
        , isTxVerified
        , getGlobalMpcData
        , getGlobalMpcDataByDepth
@@ -64,8 +65,9 @@ import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            runPureLog, usingLoggerName)
 
 import           Pos.Crypto               (LVssPublicKey, SecretKey, Share, VssKeyPair,
-                                           decryptShare, toVssPublicKey)
+                                           WithHash, decryptShare, toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
+import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
 import           Pos.Ssc.Class.Types      (Ssc (SscGlobalState, SscPayload, SscStorage))
 import           Pos.State.Acidic         (DiskState, tidyState)
@@ -75,7 +77,7 @@ import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (.
 import           Pos.Statistics.StatEntry ()
 import           Pos.Types                (Address, Block, EpochIndex, GenesisBlock,
                                            HeaderHash, MainBlock, MainBlockHeader, SlotId,
-                                           SlotLeaders, Tx)
+                                           SlotLeaders, Tx, Utxo)
 import           Pos.Util                 (deserializeM, serialize)
 
 -- | NodeState encapsulates all the state stored by node.
@@ -103,7 +105,7 @@ type QULConstraint ssc m = (SscStorageMode ssc, WorkModeDB ssc m, HasLoggerName 
 
 -- | Open NodeState, reading existing state from disk (if any).
 openState
-    :: (SscStorageMode ssc, Default (SscStorage ssc),
+    :: (SscHelpersClass ssc, SscStorageMode ssc, Default (SscStorage ssc),
         MonadIO m)
     => Maybe (Storage ssc)
     -> Bool
@@ -117,7 +119,7 @@ openState storage deleteIfExists fp =
 -- | Open NodeState which doesn't store anything on disk. Everything
 -- is stored in memory and will be lost after shutdown.
 openMemState
-    :: (SscStorageMode ssc, Default (SscStorage ssc),
+    :: (SscHelpersClass ssc, SscStorageMode ssc, Default (SscStorage ssc),
         MonadIO m)
     => Maybe (Storage ssc)
     -> m (NodeState ssc)
@@ -187,8 +189,12 @@ getBestChain :: QUConstraint ssc m => m (NonEmpty (Block ssc))
 getBestChain = queryDisk A.GetBestChain
 
 -- | Get local transactions list.
-getLocalTxs :: QUConstraint ssc m => m (HashSet Tx)
+getLocalTxs :: QUConstraint ssc m => m (HashSet (WithHash Tx))
 getLocalTxs = queryDisk A.GetLocalTxs
+
+-- | Get Utxo by depth
+getUtxoByDepth :: QUConstraint ssc m => Word -> m (Maybe Utxo)
+getUtxoByDepth = queryDisk . A.GetUtxoByDepth
 
 -- | Checks if tx is verified
 isTxVerified :: QUConstraint ssc m => Tx -> m Bool
@@ -217,7 +223,7 @@ createNewBlock :: QUConstraint ssc m
 createNewBlock sk si = updateDisk . A.CreateNewBlock sk si
 
 -- | Process transaction received from other party.
-processTx :: QUConstraint ssc m => Tx -> m ProcessTxRes
+processTx :: QUConstraint ssc m => WithHash Tx -> m ProcessTxRes
 processTx = updateDisk . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot. Ideally it should
@@ -226,7 +232,7 @@ processNewSlot :: QULConstraint ssc m => SlotId -> m (Maybe (GenesisBlock ssc), 
 processNewSlot = updateDiskWithLog . A.ProcessNewSlotL
 
 -- | Process some Block received from the network.
-processBlock :: QUConstraint ssc m
+processBlock :: (SscHelpersClass ssc, QUConstraint ssc m)
              => SlotId
              -> Block ssc
              -> m (ProcessBlockRes ssc)

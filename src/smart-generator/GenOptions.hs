@@ -127,4 +127,4 @@ optionsParser = GenOptions
 
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $
-    fullDesc `mappend` progDesc "Stupid transaction generator"
+    fullDesc `mappend` progDesc "Smart transaction generator"

@@ -30,6 +30,7 @@ module Pos.WorkMode
        , NodeContext (..)
        , WithNodeContext (..)
        , ncPublicKey
+       , ncPubKeyAddress
        --, ncVssPublicKey
        , runContextHolder
 
@@ -40,9 +41,9 @@ module Pos.WorkMode
        , StatsMode
        ) where
 
-import           Control.Lens                (iso)
 import           Control.Concurrent.MVar     (withMVar)
 import qualified Control.Concurrent.STM      as STM
+import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow, catchAll)
 import           Control.Monad.Except        (ExceptT)
@@ -69,13 +70,14 @@ import           Pos.DHT                     (DHTResponseT, MonadMessageDHT (..)
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData     (MonadSscLD (..),
                                               SscLocalDataClass (sscEmptyLocalData))
 import           Pos.Ssc.Class.Storage       (SscStorageMode)
 import           Pos.Ssc.Class.Types         (Ssc (SscLocalData, SscNodeContext))
 import           Pos.State                   (MonadDB (..), NodeState)
 import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
-import           Pos.Types                   (Timestamp (..))
+import           Pos.Types                   (Address, Timestamp (..), makePubKeyAddress)
 import           Pos.Util.JsonLog            (MonadJL (..), appendJL)
 
 -- | Bunch of constraints to perform work for real world distributed system.
@@ -88,6 +90,7 @@ type WorkMode ssc m
       , MonadDB ssc m
       , SscStorageMode ssc
       , SscLocalDataClass ssc
+      , SscHelpersClass ssc
       , MonadSscLD ssc m
       , WithNodeContext ssc m
       , MonadMessageDHT m
@@ -232,6 +235,10 @@ data NodeContext ssc = NodeContext
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.
 ncPublicKey :: NodeContext ssc -> PublicKey
 ncPublicKey = toPublic . ncSecretKey
+
+-- | Generate 'Address' from 'SecretKey' of 'NodeContext'
+ncPubKeyAddress :: NodeContext ssc -> Address
+ncPubKeyAddress = makePubKeyAddress . ncPublicKey
 
 -- | Class for something that has 'NodeContext' inside.
 class WithNodeContext ssc m | m -> ssc where

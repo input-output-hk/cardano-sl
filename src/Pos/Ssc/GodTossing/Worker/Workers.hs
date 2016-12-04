@@ -16,7 +16,7 @@ import           Control.Lens                           (view, _2, _3, (%=), (^.
 import           Control.Monad.Trans.Maybe              (runMaybeT)
 import           Control.TimeWarp.Timed                 (Microsecond, Millisecond,
                                                          currentTime, for, wait)
-import           Data.HashMap.Strict                    (insert, lookup, member, keys)
+import           Data.HashMap.Strict                    (insert, lookup, member)
 import           Data.Tagged                            (Tagged (..))
 import           Data.Time.Units                        (convertUnit)
 import           Formatting                             (build, ords, sformat, shown, (%))
@@ -124,13 +124,10 @@ isVssCertificateVerified = (||) <$> isInGenesis <*> isAtDepthK
     isAtDepthK = do
         md <- getGlobalMpcDataByDepth k
         case md of
-          Nothing -> logDebug "NOT DEEP ENOUGH" >> return False
+          Nothing -> return False
           Just d  -> do
               (_, ourAddr) <- getOurPkAndAddr
               let certs = d ^. gsVssCertificates
-              logDebug $ sformat ("ourAddr:"%build) ourAddr
-              forM_ (keys certs) $ \x ->
-                  logDebug $ sformat build x
               return $ member ourAddr certs
 
 getOurPkAndAddr :: WorkMode SscGodTossing m => m (PublicKey, Address)
@@ -151,7 +148,7 @@ onNewSlotSsc = do
     atomically $ do
         verified <- readTVar b
         unless verified retry
-    logDebug "Our VssCertificate has been verified."
+    logDebug "Finished waiting - our VssCertificate has just been verified."
     onNewSlot True $ \slotId-> do
         localOnNewSlot slotId
         prepareSecretToNewSlot slotId

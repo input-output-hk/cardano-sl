@@ -53,18 +53,26 @@ makePubKeyTx sk inputs txOutputs = Tx {..}
 filterUtxo :: Address -> Utxo -> Utxo
 filterUtxo addr = M.filter ((addr ==) . txOutAddress)
 
-type InputPicker = StateT (Coin, [(TxOutIdx, TxOut)]) (Either TxError)
+type FlatUtxo = [(TxOutIdx, TxOut)]
+type InputPicker = StateT (Coin, FlatUtxo) (Either TxError)
 
 -- | Make a multi-transaction using given secret key and info for outputs
 createTx :: Utxo -> SecretKey -> TxOutputs -> Either TxError Tx
-createTx utxo sk outputs = flip (makePubKeyTx sk) outputs <$> inputs
+createTx utxo sk outputs = uncurry (makePubKeyTx sk) <$> inpOuts
   where totalMoney = sum $ map txOutValue outputs
         ourAddr = makePubKeyAddress $ toPublic sk
         allUnspent = M.toList $ filterUtxo ourAddr utxo
         sortedUnspent = sortBy (comparing $ Down . txOutValue . snd) allUnspent
-        inputs = evalStateT (pickInputs []) (totalMoney, sortedUnspent)
+        inpOuts = do
+            futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
+            let inputs = map fst futxo
+                inputSum = sum $ map (txOutValue . snd) futxo
+                newOuts = if inputSum > totalMoney
+                          then TxOut ourAddr (inputSum - totalMoney) : outputs
+                          else outputs
+            pure (inputs, newOuts)
 
-        pickInputs :: TxInputs -> InputPicker TxInputs
+        pickInputs :: FlatUtxo -> InputPicker FlatUtxo
         pickInputs inps = do
             moneyLeft <- use _1
             if moneyLeft == 0
@@ -73,7 +81,7 @@ createTx utxo sk outputs = flip (makePubKeyTx sk) outputs <$> inputs
                 mNextOut <- uses _2 head
                 case mNextOut of
                     Nothing -> fail "Not enough money to send!"
-                    Just (inp, TxOut {..}) -> do
+                    Just inp@(_, TxOut {..}) -> do
                         _1 -= min txOutValue moneyLeft
                         _2 %= tail
                         pickInputs (inp:inps)
@@ -86,7 +94,7 @@ createTx utxo sk outputs = flip (makePubKeyTx sk) outputs <$> inputs
 -- the given network addresses.
 submitSimpleTx :: WorkMode ssc m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m Tx
 submitSimpleTx [] _ _ =
-    logError "No addresses to send" >> panic "submitSimpleTx failed"
+    logError "No addresses to send" >> fail "submitSimpleTx failed"
 submitSimpleTx na input output = do
     sk <- ncSecretKey <$> getNodeContext
     let tx = makePubKeyTx sk [input] [uncurry TxOut output]
@@ -95,11 +103,11 @@ submitSimpleTx na input output = do
 
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx :: WorkMode ssc m => SecretKey -> [NetworkAddress] -> TxOutputs -> m Tx
-submitTx _ [] _ = logError "No addresses to send" >> panic "submitTx failed"
+submitTx _ [] _ = logError "No addresses to send" >> fail "submitTx failed"
 submitTx sk na outputs = do
     utxo <- fromJust <$> getUtxoByDepth 0
     case createTx utxo sk outputs of
-        Left err -> panic err
+        Left err -> fail $ toString err
         Right tx -> tx <$ submitTxRaw na tx
 
 -- | Get current balance with given address

@@ -28,6 +28,7 @@ import           Pos.Ssc.Class          (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing     (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon     (SscNistBeacon)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
+import           Pos.Types              (txF)
 import           Pos.Wallet             (getBalance, submitTx)
 import           Pos.WorkMode           (WorkMode)
 
@@ -39,11 +40,13 @@ type CmdRunner = ReaderT (SecretKey, [NetworkAddress])
 evalCmd :: WorkMode ssc m => Command -> CmdRunner m ()
 evalCmd Quit = pure ()
 evalCmd (Balance addr) = lift (getBalance addr) >>=
-                         print . sformat ("Current balance: "%int) >>
+                         putText . sformat ("Current balance: "%int) >>
                          evalCommands
 evalCmd (Send outputs) = do
     (sk, na) <- ask
-    () <$ lift (submitTx sk na outputs)
+    tx <- lift (submitTx sk na outputs)
+    putText $ sformat ("Submitted transaction: "%txF) tx
+    evalCommands
 
 evalCommands :: WorkMode ssc m => CmdRunner m ()
 evalCommands = do

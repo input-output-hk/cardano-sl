@@ -7,32 +7,18 @@ module Command
        , parseCommand
        ) where
 
-import           Control.Lens           (view, _3)
-import           Control.Monad          (fail)
-import           Data.Binary            (decodeOrFail)
-import           Data.ByteString.Base58 (decodeBase58)
-import qualified Data.ByteString.Lazy   as BSL (fromStrict)
-import           Data.String            (String)
-import           Prelude                (read, show)
-import           Text.Parsec            (many1, parse, try, (<?>))
-import           Text.Parsec.Char       (alphaNum, digit, spaces, string)
-import           Text.Parsec.Text       (Parser)
-import           Universum              hiding (show)
+import           Data.String      (String)
+import           Prelude          (read, show)
+import           Text.Parsec      (many1, parse, try, (<?>))
+import           Text.Parsec.Char (alphaNum, digit, spaces, string)
+import           Text.Parsec.Text (Parser)
+import           Universum        hiding (show)
 
-import           Pos.Types              (Address (..), Coin (..), TxOut (..),
-                                         addrAlphabet)
+import           Pos.Types        (Address (..), Coin (..), TxOut (..))
 
 data Command = Balance Address
              | Send [TxOut]
              | Quit
-
-decodeAddress :: Text -> Either String Address
-decodeAddress (encodeUtf8 -> bs) = do
-    let base58Err = "Invalid base58 representation of address"
-        takeErr = toString . view _3
-        takeRes = view _3
-    dbs <- maybeToRight base58Err $ decodeBase58 addrAlphabet bs
-    bimap takeErr takeRes $ decodeOrFail $ BSL.fromStrict dbs
 
 lexeme :: Parser a -> Parser a
 lexeme p = spaces *> p
@@ -41,8 +27,7 @@ text :: String -> Parser Text
 text = lexeme . fmap toText . string
 
 address :: Parser Address
-address = lexeme $ toText <$> many1 alphaNum >>=
-          either fail pure . decodeAddress
+address = lexeme $ read <$> many1 alphaNum
 
 coin :: Parser Coin
 coin = lexeme $ fromInteger . read <$> many1 digit

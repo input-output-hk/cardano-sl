@@ -9,10 +9,11 @@ module Pos.Wallet.Tx
        , createTx
        ) where
 
-import           Control.Lens         (use, uses, (-=), _1, _2)
+import           Control.Lens         (use, uses, (%=), (-=), _1, _2)
 import           Control.Monad        (fail)
 import           Control.Monad.State  (StateT, evalStateT)
 import           Control.TimeWarp.Rpc (NetworkAddress)
+import           Data.List            (tail)
 import qualified Data.Map             as M
 import           Data.Maybe           (fromJust)
 import           Formatting           (build, sformat, (%))
@@ -66,14 +67,15 @@ createTx utxo sk outputs = flip (makePubKeyTx sk) outputs <$> inputs
         pickInputs :: TxInputs -> InputPicker TxInputs
         pickInputs inps = do
             moneyLeft <- use _1
-            if moneyLeft <= 0
+            if moneyLeft == 0
                 then return inps
                 else do
                 mNextOut <- uses _2 head
                 case mNextOut of
                     Nothing -> fail "Not enough money to send!"
                     Just (inp, TxOut {..}) -> do
-                        _1 -= txOutValue
+                        _1 -= min txOutValue moneyLeft
+                        _2 %= tail
                         pickInputs (inp:inps)
 
 ---------------------------------------------------------------------------------------

@@ -63,7 +63,7 @@ import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            runPureLog, usingLoggerName)
 
 import           Pos.Crypto               (LVssPublicKey, SecretKey, Share, VssKeyPair,
-                                           decryptShare, toVssPublicKey)
+                                           WithHash, decryptShare, toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
@@ -187,7 +187,7 @@ getBestChain :: QUConstraint ssc m => m (NonEmpty (Block ssc))
 getBestChain = queryDisk A.GetBestChain
 
 -- | Get local transactions list.
-getLocalTxs :: QUConstraint ssc m => m (HashSet Tx)
+getLocalTxs :: QUConstraint ssc m => m (HashSet (WithHash Tx))
 getLocalTxs = queryDisk A.GetLocalTxs
 
 -- | Checks if tx is verified
@@ -213,7 +213,7 @@ createNewBlock :: QUConstraint ssc m
 createNewBlock sk si = updateDisk . A.CreateNewBlock sk si
 
 -- | Process transaction received from other party.
-processTx :: QUConstraint ssc m => Tx -> m ProcessTxRes
+processTx :: QUConstraint ssc m => WithHash Tx -> m ProcessTxRes
 processTx = updateDisk . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot. Ideally it should

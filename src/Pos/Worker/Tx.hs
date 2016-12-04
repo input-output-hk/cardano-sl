@@ -15,6 +15,7 @@ import           Universum
 
 import           Pos.Communication.Methods (announceTxs)
 import           Pos.Constants             (slotDuration)
+import           Pos.Crypto                (WithHash (whData))
 import           Pos.State                 (getLocalTxs)
 import           Pos.WorkMode              (WorkMode)
 
@@ -31,7 +32,7 @@ txsTransmitter :: WorkMode ssc m => m ()
 txsTransmitter =
     repeatForever txsTransmitterInterval onError $
     do localTxs <- getLocalTxs
-       announceTxs $ toList localTxs
+       announceTxs . fmap whData . toList $ localTxs
   where
     onError e =
         txsTransmitterInterval <$

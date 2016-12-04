@@ -18,6 +18,8 @@ import           Pos.Types        (Address (..), Coin (..), TxOut (..))
 
 data Command = Balance Address
              | Send [TxOut]
+             | Help
+             | MyAddress
              | Quit
 
 lexeme :: Parser a -> Parser a
@@ -44,7 +46,9 @@ send = Send <$> many1 txout
 command :: Parser Command
 command = try (text "balance") *> balance <|>
           try (text "send") *> send <|>
-          try (text "quit") *> pure Quit <?>
+          try (text "quit") *> pure Quit <|>
+          try (text "help") *> pure Help <|>
+          try (text "myaddress") *> pure MyAddress <?>
           "Undefined command"
 
 parseCommand :: Text -> Either String Command

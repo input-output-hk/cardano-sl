@@ -23,6 +23,7 @@ module Pos.State.Storage
        , getHeadBlock
        , getBestChain
        , getGlobalSscState
+       , getGlobalSscStateByDepth
        , getLeaders
        , getLocalTxs
        , isTxVerified
@@ -154,6 +155,13 @@ getGlobalSscState
        SscStorageClass ssc
     => Query ssc (SscGlobalState ssc)
 getGlobalSscState = sscGetGlobalState @ssc
+
+-- | Get global SSC data that was observed N blocks ago.
+getGlobalSscStateByDepth
+    :: forall ssc.
+       SscStorageClass ssc
+    => Word -> Query ssc (Maybe (SscGlobalState ssc))
+getGlobalSscStateByDepth = sscGetGlobalStateByDepth @ssc
 
 -- | Create a new block on top of best chain if possible.
 -- Block can be created if:

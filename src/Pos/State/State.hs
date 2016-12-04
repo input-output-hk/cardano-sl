@@ -28,6 +28,7 @@ module Pos.State.State
        , getLocalTxs
        , isTxVerified
        , getGlobalMpcData
+       , getGlobalMpcDataByDepth
        , mayBlockBeUseful
 
        -- * Operations with effects.
@@ -196,6 +197,10 @@ isTxVerified = queryDisk . A.IsTxVerified
 -- | Get global SSC data.
 getGlobalMpcData :: QUConstraint ssc m => m (SscGlobalState ssc)
 getGlobalMpcData = queryDisk A.GetGlobalSscState
+
+-- | Get global SSC data that was observed N blocks ago.
+getGlobalMpcDataByDepth :: QUConstraint ssc m => Word ->  m (Maybe (SscGlobalState ssc))
+getGlobalMpcDataByDepth = queryDisk . A.GetGlobalSscStateByDepth
 
 -- | Check that block header is correct and claims to represent block
 -- which may become part of blockchain.

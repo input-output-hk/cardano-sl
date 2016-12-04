@@ -48,7 +48,7 @@ import           Pos.Util            (Raw, getCopyBinary, putCopyBinary)
 data WithHash a = WithHash
     { whData :: a
     , whHash :: Hash a
-    }
+    } deriving (Show)
 
 instance Binary a => Binary (WithHash a) where
     put = put. whData
@@ -66,6 +66,9 @@ instance Buildable.Buildable a => Buildable.Buildable (WithHash a) where
 
 instance Eq a => Eq (WithHash a) where
     a == b = (whHash a == whHash b) && (whData a == whData b)
+
+instance Ord a => Ord (WithHash a) where
+    a <= b = whData a <= whData b
 
 withHash :: Binary a => a -> WithHash a
 withHash a = WithHash a (force h)

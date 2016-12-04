@@ -74,22 +74,16 @@ spec = describe "Crypto" $ do
                 prop "Signature" (binaryEncodeDecode @(Signature ()))
                 prop "Signed"    (binaryEncodeDecode @(Signed Bool))
                 prop "VssPublicKey" (binaryEncodeDecode @VssPublicKey)
-                prop "SecretProof"  (binaryEncodeDecode @SecretProof)
-                prop "SecretSharingExtra" (binaryEncodeDecode @SecretSharingExtra)
             describe "MessagePack instances" $ do
                 prop "SecretKey" (msgPackEncodeDecode @SecretKey)
                 prop "PublicKey" (msgPackEncodeDecode @PublicKey)
                 prop "Signature" (msgPackEncodeDecode @(Signature ()))
                 prop "Signed"    (msgPackEncodeDecode @(Signed Bool))
-                prop "VssPublicKey" (msgPackEncodeDecode @VssPublicKey)
-                prop "SecretProof"  (msgPackEncodeDecode @SecretProof)
             describe "SafeCopy instances" $ do
                 prop "SecretKey" (safeCopyEncodeDecode @SecretKey)
                 prop "PublicKey" (safeCopyEncodeDecode @PublicKey)
                 prop "Signature" (safeCopyEncodeDecode @(Signature ()))
                 prop "Signed"    (safeCopyEncodeDecode @(Signed Bool))
-                prop "VssPublicKey" (safeCopyEncodeDecode @VssPublicKey)
-                prop "SecretProof"  (safeCopyEncodeDecode @SecretProof)
         describe "keys" $ do
             prop
                 "derived pubkey equals to generated pubkey"

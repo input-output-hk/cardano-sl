@@ -451,6 +451,7 @@ test-suite cardano-test
                      , time-warp
                      , universum >= 0.1.11
                      , unordered-containers
+                     , vector
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded

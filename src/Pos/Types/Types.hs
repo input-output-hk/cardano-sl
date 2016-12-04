@@ -265,7 +265,7 @@ data TxIn = TxIn
       txInHash  :: !TxId
       -- | Index of the output in transaction's outputs
     , txInIndex :: !Word32
-    } deriving (Eq, Show, Generic)
+    } deriving (Eq, Ord, Show, Generic)
 
 instance Binary TxIn
 instance Hashable TxIn
@@ -294,7 +294,7 @@ instance Buildable TxOut where
 data Tx = Tx
     { txInputs  :: ![TxIn]   -- ^ Inputs of transaction.
     , txOutputs :: ![TxOut]  -- ^ Outputs of transaction.
-    } deriving (Eq, Show, Generic)
+    } deriving (Eq, Ord, Show, Generic)
 
 instance Binary Tx
 instance Hashable Tx

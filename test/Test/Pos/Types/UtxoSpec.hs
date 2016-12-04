@@ -6,15 +6,15 @@ module Test.Pos.Types.UtxoSpec
        ( spec
        ) where
 
-import           Control.Lens          (view, _1)
+import           Control.Lens          (view, _1, _4)
 import qualified Data.Map              as M (Map, delete, elems, fromList, insert, keys)
 import           Data.Maybe            (isJust, isNothing)
-import           Pos.Crypto            (hash, keyGen, sign, unsafeHash)
+import qualified Data.Vector           as V (fromList)
+import           Pos.Crypto            (hash, unsafeHash)
 import           Pos.Types             (GoodTx (..), SmallGoodTx (..), Tx (..),
                                         TxIn (..), TxOut, Utxo, applyTxToUtxo, deleteTxIn,
                                         findTxIn, verifyTxUtxo)
 import           Serokell.Util.Verify  (isVerSuccess)
-import           System.IO.Unsafe      (unsafePerformIO)
 
 import           Test.Hspec            (Spec, describe, it)
 import           Test.Hspec.QuickCheck (prop)
@@ -33,10 +33,8 @@ spec = describe "Types.Utxo" $ do
     describe "applyTxToUtxo" $ do
         prop description_applyTxToUtxoGood applyTxToUtxoGood
   where
-    myTx = (TxIn myHash 0 mySig)
+    myTx = (TxIn myHash 0)
     myHash = unsafeHash (0 :: Int)
-    mySig = sign mySK (myHash, 0, [])
-    mySK = unsafePerformIO $ snd <$> keyGen
     description_findTxInUtxo =
         "correctly finds the TxOut corresponding to (txHash, txIndex) when the key is in \
         \ the Utxo map, and doesn't find it otherwise"
@@ -67,15 +65,16 @@ deleteTxInUtxo t@TxIn{..} txO utxo =
 verifyTxInUtxo :: SmallGoodTx -> Bool
 verifyTxInUtxo (SmallGoodTx (getGoodTx -> ls)) =
     let txs = fmap (view _1) ls
-        newTx = uncurry Tx $ unzip $ map (\(_, tIs, tOs) -> (tIs, tOs)) ls
+        witness = V.fromList $ fmap (view _4) ls
+        newTx = uncurry Tx $ unzip $ map (\(_, tIs, tOs, _) -> (tIs, tOs)) ls
         utxo = foldr applyTxToUtxo mempty txs
-    in isVerSuccess $ verifyTxUtxo utxo newTx
+    in isVerSuccess $ verifyTxUtxo utxo (newTx, witness)
 
 applyTxToUtxoGood :: M.Map TxIn TxOut -> [TxOut] -> Bool
 applyTxToUtxoGood txMap txOuts =
     let txInps = M.keys txMap
         hashTx = hash $ Tx txInps txOuts
-        inpFun = (\(TxIn h i _) -> (h,i))
+        inpFun = (\(TxIn h i) -> (h,i))
         inpList = map inpFun txInps
         utxoMap = M.fromList $ zip inpList (M.elems txMap)
         newUtxoMap = applyTxToUtxo (Tx txInps txOuts) utxoMap

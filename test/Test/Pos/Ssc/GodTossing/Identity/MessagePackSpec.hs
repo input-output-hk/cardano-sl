@@ -17,8 +17,4 @@ import           Test.Pos.Util         (msgPackEncodeDecode)
 spec :: Spec
 spec = describe "Types" $ do
     describe "MessagePack instances" $ do
-        prop "Commitment" (msgPackEncodeDecode @GT.Commitment)
         prop "CommitmentSignature" (msgPackEncodeDecode @GT.CommitmentSignature)
-        prop "SignedCommitment" (msgPackEncodeDecode @GT.SignedCommitment)
-        prop "Opening" (msgPackEncodeDecode @GT.Opening)
-        prop "VssCertificate" (msgPackEncodeDecode @GT.VssCertificate)

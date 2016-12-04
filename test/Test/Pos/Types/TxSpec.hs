@@ -8,10 +8,11 @@ module Test.Pos.Types.TxSpec
        ( spec
        ) where
 
-import           Control.Lens          (view, _2, _3)
+import           Control.Lens          (view, _2, _3, _4)
 import           Control.Monad         (join)
 import qualified Data.HashMap.Strict   as HM
 import           Data.List             (elemIndex, lookup, (\\))
+import qualified Data.Vector           as V (fromList, toList)
 import           Serokell.Util.Verify  (isVerFailure, isVerSuccess)
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
@@ -25,8 +26,8 @@ import           Pos.Crypto            (hash, verify)
 import           Pos.Types             (Address (..), BadSigsTx (..),  GoodTx (..),
                                         OverflowTx (..), SmallBadSigsTx (..),
                                         SmallGoodTx (..), SmallOverflowTx (..),  Tx (..),
-                                        TxIn (..), TxOut (..), topsortTxs, verifyTx,
-                                        verifyTxAlone)
+                                        TxIn (..), TxInWitness, TxOut (..), TxWitness,
+                                        topsortTxs, verifyTx, verifyTxAlone)
 import           Pos.Util              (sublistN)
 
 
@@ -73,7 +74,7 @@ invalidateBadTxAlone Tx {..} = all (isVerFailure . verifyTxAlone) badTxs
         map (uncurry Tx) $
         [([], txOutputs), (txInputs, []), (txInputs, zeroOutputs)]
 
-type TxVerifyingTools = (Tx, TxIn -> Maybe TxOut, [Maybe (TxIn, TxOut)])
+type TxVerifyingTools = (Tx, TxIn -> Maybe TxOut, [Maybe (TxIn, TxOut)], TxWitness)
 
 -- | This function takes the list inside a 'GoodTx' and related types, and
 -- turns it into something 'verifyTx' can use:
@@ -81,16 +82,17 @@ type TxVerifyingTools = (Tx, TxIn -> Maybe TxOut, [Maybe (TxIn, TxOut)])
 -- * the transaction that the list holds
 -- * the input resolver associated with that transaction
 -- * the list of resolved inputs with all inputs in the transaction
-getTxFromGoodTx :: [(Tx, TxIn, TxOut)] -> TxVerifyingTools
+getTxFromGoodTx :: [(Tx, TxIn, TxOut, TxInWitness)] -> TxVerifyingTools
 getTxFromGoodTx ls =
-    let txOutputs = fmap (view _3) ls
+    let txWitness = V.fromList $ fmap (view _4) ls
+        txOutputs = fmap (view _3) ls
         txInputs = fmap (view _2) ls
         inpResolver :: TxIn -> Maybe TxOut
-        inpResolver = join . flip lookup (fmap (\(Tx _ o, ti, _) -> (ti, head o)) ls)
+        inpResolver = join . flip lookup (fmap (\(Tx _ o, ti, _, _) -> (ti, head o)) ls)
         extendInput txIn = (txIn,) <$> inpResolver txIn
         extendedInputs :: [Maybe (TxIn, TxOut)]
         extendedInputs = fmap extendInput txInputs
-    in (Tx {..}, inpResolver, extendedInputs)
+    in (Tx {..}, inpResolver, extendedInputs, txWitness)
 
 -- | This function takes a list of resolved inputs from a transaction, that
 -- same transaction's outputs, and verifies that the input sum is greater than
@@ -109,49 +111,51 @@ txChecksum extendedInputs txOuts =
 -- * every input is a known unspent output.
 -- It also checks that it has good structure w.r.t. 'verifyTxAlone'.
 individualTxPropertyVerifier :: TxVerifyingTools -> Bool
-individualTxPropertyVerifier (tx@Tx{..}, _, extendedInputs) =
+individualTxPropertyVerifier (tx@Tx{..}, _, extendedInputs, txWits) =
     let hasGoodSum = txChecksum extendedInputs txOutputs
         hasGoodStructure = isVerSuccess $ verifyTxAlone tx
         mapFun =
-            \maybeTxPair ->
+            \(maybeTxPair, witness) ->
                 case maybeTxPair of
                     Nothing -> False
                     Just (TxIn{..}, TxOut{..}) ->
                         verify (getAddress txOutAddress)
                                (txInHash, txInIndex, txOutputs)
-                               txInSig
-        hasGoodInputs = and $ map mapFun extendedInputs
+                               witness
+        hasGoodInputs = and $ map mapFun $ zip extendedInputs (V.toList txWits)
     in hasGoodSum && hasGoodStructure && hasGoodInputs
 
 validateGoodTx :: SmallGoodTx -> Bool
 validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
-    let triple@(tx, inpResolver, _) =
+    let quadruple@(tx, inpResolver, _, txWits) =
             getTxFromGoodTx ls
-        transactionIsVerified = isVerSuccess $ verifyTx inpResolver tx
-        transactionReallyIsGood = individualTxPropertyVerifier triple
+        transactionIsVerified = 
+            isVerSuccess $ verifyTx inpResolver (tx, txWits)
+        transactionReallyIsGood = individualTxPropertyVerifier quadruple
     in  transactionIsVerified == transactionReallyIsGood
 
 overflowTx :: SmallOverflowTx -> Bool
 overflowTx (SmallOverflowTx (getOverflowTx -> ls)) =
-    let (tx@Tx{..}, inpResolver, extendedInputs) =
+    let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
-        transactionIsNotVerified = isVerFailure $ verifyTx inpResolver tx
+        transactionIsNotVerified = isVerFailure $ verifyTx inpResolver (tx, txWits)
         inpSumLessThanOutSum = not $ txChecksum extendedInputs txOutputs
     in inpSumLessThanOutSum == transactionIsNotVerified
 
-signatureIsNotValid :: [TxOut] -> Maybe (TxIn, TxOut) -> Bool
-signatureIsNotValid txOutputs (Just (TxIn{..}, TxOut{..})) =
+signatureIsNotValid :: [TxOut] -> (Maybe (TxIn, TxOut), TxInWitness) -> Bool
+signatureIsNotValid txOutputs (Just (TxIn{..}, TxOut{..}), witness) =
     not $ verify (getAddress txOutAddress)
         (txInHash, txInIndex, txOutputs)
-        txInSig
+        witness
 signatureIsNotValid _ _ = False
 
 badSigsTx :: SmallBadSigsTx -> Bool
 badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
-    let (tx@Tx{..}, inpResolver, extendedInputs) =
+    let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
-        transactionIsNotVerified = isVerFailure $ verifyTx inpResolver tx
-        notAllSignaturesAreValid = any (signatureIsNotValid txOutputs) extendedInputs
+        transactionIsNotVerified = isVerFailure $ verifyTx inpResolver (tx, txWits)
+        notAllSignaturesAreValid = 
+            any (signatureIsNotValid txOutputs) $ zip extendedInputs (V.toList txWits)
     in notAllSignaturesAreValid == transactionIsNotVerified
 
 -- | Primitive transaction generator with restriction on
@@ -160,7 +164,7 @@ txGen :: Int -> Gen Tx
 txGen size = do
     (Positive inputsN) <- resize size arbitrary
     (Positive outputsN) <- resize size arbitrary
-    inputs <- replicateM inputsN $ (\h s -> TxIn h 0 s) <$> arbitrary <*> arbitrary
+    inputs <- replicateM inputsN $ (\h -> TxIn h 0) <$> arbitrary
     outputs <- replicateM outputsN $
         (\p (Positive c) -> TxOut (Address p) c) <$> arbitrary <*> arbitrary
     pure $ Tx inputs outputs
@@ -210,7 +214,7 @@ txAcyclicGen isBamboo size = do
             resize (bool (min 3 $ length unusedUtxo) 1 isBamboo) arbitrary
         chosenUtxo <- sublistN depsN unusedUtxo
         -- grab some inputs
-        inputs <- mapM (\(h,i) -> TxIn (hash h) (fromIntegral i) <$> arbitrary) chosenUtxo
+        let inputs = map (\(h,i) -> TxIn (hash h) (fromIntegral i)) chosenUtxo
         (Positive outputsN) <- resize some' arbitrary
         -- gen some outputs
         outputs <- replicateM outputsN $

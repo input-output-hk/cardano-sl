@@ -26,7 +26,6 @@ import           Data.List.NonEmpty                (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty                as NE
 import           Data.SafeCopy                     (SafeCopy)
 import           Data.Serialize                    (Serialize (..))
-import           Data.Tagged                       (Tagged (..))
 import           Serokell.Util.Verify              (VerificationRes (..), isVerSuccess,
                                                     verifyGeneric)
 import           Universum
@@ -76,8 +75,6 @@ instance SscStorageClass SscGodTossing where
 
     sscGetParticipants = getParticipants
     sscCalculateLeaders = calculateLeaders
-
-    sscVerifyPayload = Tagged verifyGtPayload
 
 type Query a = SscQuery SscGodTossing a
 type Update a = SscUpdate SscGodTossing a

@@ -20,7 +20,7 @@ import           Formatting          (build, int, sformat, (%))
 import           Serokell.Util       (VerificationRes, verifyGeneric)
 import           Universum
 
-import           Pos.Crypto          (checkSig, hash)
+import           Pos.Crypto          (WithHash (..), checkSig)
 import           Pos.Types.Types     (Redeemer (..), Tx (..), TxIn (..), TxOut (..),
                                       Validator (..), checkPubKeyAddress, coinF)
 
@@ -91,9 +91,9 @@ verifyTx inputResolver tx@Tx {..} =
         in checkSig pk (txInHash, txInIndex, txOutputs) sig
 
 data TopsortState = TopsortState
-    { _tsVisited     :: HS.HashSet Tx
-    , _tsUnprocessed :: [Tx]
-    , _tsResult      :: [Tx]
+    { _tsVisited     :: HS.HashSet (WithHash Tx)
+    , _tsUnprocessed :: [WithHash Tx]
+    , _tsResult      :: [WithHash Tx]
     , _tsLoop        :: Bool
     }
 
@@ -102,13 +102,13 @@ $(makeLenses ''TopsortState)
 -- | Does topological sort on transactions -- backwards dfs from every
 -- node with reverse visiting order recording. Returns nothing on loop
 -- encountered. Return order is head-first.
-topsortTxs :: [Tx] -> Maybe [Tx]
+topsortTxs :: [WithHash Tx] -> Maybe [WithHash Tx]
 topsortTxs input =
     let res = execState dfs1 initState
     in guard (not $ res ^. tsLoop) >> pure (reverse $ res ^. tsResult)
   where
     dup a = (a,a)
-    txHashes = HM.fromList $ map (first hash . dup) input
+    txHashes = HM.fromList $ map (first whHash . dup) input
     initState = TopsortState HS.empty input [] False
     -- Searches next unprocessed vertix and calls dfs2 for it. Wipes
     -- visited vertices.
@@ -123,8 +123,8 @@ topsortTxs input =
     -- Does dfs putting vertices into tsResult in reversed order of
     -- visiting. visitedThis is map of visited vertices for _this_ dfs
     -- (cycle detection).
-    dfs2 visitedThis tx@Tx{..} | tx `HS.member` visitedThis = tsLoop .= True
-    dfs2 visitedThis tx@Tx{..} = unlessM (use tsLoop) $ do
+    dfs2 visitedThis tx | tx `HS.member` visitedThis = tsLoop .= True
+    dfs2 visitedThis tx = unlessM (use tsLoop) $ do
         tsVisited %= HS.insert tx
         let visitedNew = HS.insert tx visitedThis
             dependsUnfiltered =
@@ -133,3 +133,5 @@ topsortTxs input =
             filterM (fmap not . uses tsVisited . HS.member) dependsUnfiltered
         forM_ depends $ dfs2 visitedNew
         tsResult %= (tx:)
+      where
+        Tx{..} = whData tx

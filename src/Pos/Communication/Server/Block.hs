@@ -51,7 +51,7 @@ blockListeners =
     ]
 
 -- | Handler 'SendBlock' event.
-handleBlock :: forall ssc m . ResponseMode ssc m
+handleBlock :: forall ssc m . (ResponseMode ssc m)
             => SendBlock ssc -> m ()
 handleBlock (SendBlock block) = do
     slotId <- getCurrentSlot

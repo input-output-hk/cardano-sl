@@ -53,6 +53,7 @@ library
                         Pos.Merkle
                         Pos.Slotting
                         Pos.Ssc.Class.Types
+                        Pos.Ssc.Class.Helpers
                         Pos.Ssc.Class.Storage
                         Pos.Ssc.Class.Workers
                         Pos.Ssc.Class.Listeners
@@ -169,6 +170,7 @@ library
                       , containers
                       , cryptonite >= 0.19 && < 0.21
                       , data-default
+                      , deepseq
                       , derive
                       , digest
                       , directory

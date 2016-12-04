@@ -8,7 +8,10 @@
 -- | Hashing capabilities.
 
 module Pos.Crypto.Hashing
-       ( AbstractHash (..)
+       ( WithHash (whData, whHash)
+       , withHash
+
+       , AbstractHash (..)
        , Hash
        , hashHexF
        , shortHashF
@@ -19,6 +22,8 @@ module Pos.Crypto.Hashing
        , CastHash (castHash)
        ) where
 
+import           Control.DeepSeq     (force)
+import           Control.Monad.Fail  (fail)
 import           Crypto.Hash         (Blake2b_512, Digest, HashAlgorithm,
                                       digestFromByteString)
 import qualified Crypto.Hash         as Hash (hash, hashDigestSize, hashlazy)
@@ -36,6 +41,36 @@ import           System.IO.Unsafe    (unsafeDupablePerformIO)
 import           Universum
 
 import           Pos.Util            (Raw, getCopyBinary, putCopyBinary)
+
+----------------------------------------------------------------------------
+-- WithHash
+----------------------------------------------------------------------------
+data WithHash a = WithHash
+    { whData :: a
+    , whHash :: Hash a
+    }
+
+instance Binary a => Binary (WithHash a) where
+    put = put. whData
+    get = withHash <$> get
+
+instance Binary a => SafeCopy (WithHash a) where
+    putCopy = putCopyBinary
+    getCopy = getCopyBinary "WithHash"
+
+instance Hashable (WithHash a) where
+    hashWithSalt s = hashWithSalt s . whHash
+
+instance Buildable.Buildable a => Buildable.Buildable (WithHash a) where
+    build = Buildable.build . whData
+
+instance Eq a => Eq (WithHash a) where
+    a == b = (whHash a == whHash b) && (whData a == whData b)
+
+withHash :: Binary a => a -> WithHash a
+withHash a = WithHash a (force h)
+  where
+    h = hash a
 
 -- | Hash wrapper with phantom type for more type-safety.
 -- Made abstract in order to support different algorithms in
@@ -63,7 +98,7 @@ instance HashAlgorithm algo => Binary (AbstractHash algo a) where
         case digestFromByteString bs of
             -- It's impossible because getByteString will already fail if
             -- there weren't enough bytes available
-            Nothing -> panic "Pos.Crypto.Hashing.get: impossible"
+            Nothing -> fail "Pos.Crypto.Hashing.get: impossible"
             Just x  -> return (AbstractHash x)
     put (AbstractHash h) =
         Binary.putByteString (ByteArray.convert h)

@@ -58,6 +58,7 @@ import           System.Wlog           (CanLog, HasLoggerName (..), LogEvent, Lo
                                         LoggerNameBox (..), PureLogger, runPureLog,
                                         usingLoggerName)
 
+import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Storage (SscStorageClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (SscStorage))
 import qualified Pos.State.Storage     as S
@@ -101,13 +102,13 @@ updateWithLog disk loggedEvent = do
 
 -- | Open disk state. Accepts \"deleteIfExists\" flag and filepath.
 openState
-    :: (SscStorageClass ssc, Default (SscStorage ssc), SafeCopy ssc, MonadIO m)
+    :: (SscHelpersClass ssc, SscStorageClass ssc, Default (SscStorage ssc), SafeCopy ssc, MonadIO m)
     => Bool -> FilePath -> m (DiskState ssc)
 openState = openStateCustom def
 
 -- | Same as 'openState', but with explicitly specified initial
 -- state.
-openStateCustom :: (SscStorageClass ssc, SafeCopy ssc, MonadIO m)
+openStateCustom :: (SscHelpersClass ssc, SscStorageClass ssc, SafeCopy ssc, MonadIO m)
                 => Storage ssc
                 -> Bool
                 -> FilePath
@@ -117,13 +118,13 @@ openStateCustom customStorage deleteIfExists fp =
 
 -- | Open in-ram state.
 openMemState
-    :: (SscStorageClass ssc, Default (SscStorage ssc), SafeCopy ssc, MonadIO m)
+    :: (SscHelpersClass ssc, SscStorageClass ssc, Default (SscStorage ssc), SafeCopy ssc, MonadIO m)
     => m (DiskState ssc)
 openMemState = openMemStateCustom def
 
 -- | Same as 'openMemState', but with explicitly specified initial state
 openMemStateCustom
-    :: (SscStorageClass ssc, SafeCopy ssc, MonadIO m)
+    :: (SscHelpersClass ssc, SscStorageClass ssc, SafeCopy ssc, MonadIO m)
     => Storage ssc -> m (DiskState ssc)
 openMemStateCustom = openMemoryExtendedState
 

@@ -25,6 +25,7 @@ module Pos.State.Storage
        , getGlobalSscState
        , getLeaders
        , getLocalTxs
+       , getUtxoByDepth
        , isTxVerified
        , getOurShares
        , getParticipants

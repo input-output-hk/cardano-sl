@@ -9,7 +9,6 @@ import           Control.Concurrent.Async.Lifted (forConcurrently)
 import           Control.Concurrent.STM.TVar     (modifyTVar', newTVarIO, readTVarIO)
 import           Control.TimeWarp.Rpc            (NetworkAddress)
 import           Control.TimeWarp.Timed          (Microsecond, for, fork_, ms, sec, wait)
-import           Data.Default                    (def)
 import           Data.List                       ((!!))
 import           Data.Maybe                      (fromMaybe)
 import           Data.Time.Clock.POSIX           (getPOSIXTime)
@@ -26,8 +25,7 @@ import           Pos.Crypto                      (KeyPair (..), hash)
 import           Pos.DHT                         (DHTNodeType (..), MonadDHT, dhtAddr,
                                                   discoverPeers, getKnownPeers)
 import           Pos.DHT.Real                    (KademliaDHT (..), KademliaDHTInstance)
-import           Pos.Genesis                     (StakeDistribution (..),
-                                                  genesisSecretKeys, genesisUtxo)
+import           Pos.Genesis                     (genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..), bracketDHTInstance,
                                                   runNode, runProductionMode,

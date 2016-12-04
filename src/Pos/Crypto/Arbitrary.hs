@@ -5,23 +5,24 @@ module Pos.Crypto.Arbitrary
     ) where
 
 import           Control.Lens                (view, _2, _4)
-import           Data.Binary                 (Binary)
 import           Data.List.NonEmpty          (fromList)
 import           System.IO.Unsafe            (unsafePerformIO)
 import           Test.QuickCheck             (Arbitrary (..), elements)
 import           Universum
 
+import           Pos.Binary.Class            (Bi)
+import qualified Pos.Binary.Class            as Bi
 import           Pos.Crypto.Arbitrary.Hash   ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
 import           Pos.Crypto.SecretSharing    (EncShare, Secret, Share, VssKeyPair,
-                                              VssPublicKey, decryptShare,
-                                              genSharedSecret, toVssPublicKey, vssKeyGen)
+                                              VssPublicKey, decryptShare, genSharedSecret,
+                                              toVssPublicKey, vssKeyGen)
 import           Pos.Crypto.SerTypes         (LEncShare, LSecret, LShare, LVssPublicKey)
 import           Pos.Crypto.Signing          (PublicKey, SecretKey, Signature, Signed,
                                               keyGen, mkSigned, sign)
+import           Pos.Util                    (Serialized (..))
 import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakeList,
                                               unsafeMakePool)
-import           Pos.Util                    (Serialized (..))
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -91,10 +92,10 @@ instance Nonrepeating VssPublicKey where
 -- Arbitrary signatures
 ----------------------------------------------------------------------------
 
-instance (Binary a, Arbitrary a) => Arbitrary (Signature a) where
+instance (Bi a, Arbitrary a) => Arbitrary (Signature a) where
     arbitrary = sign <$> arbitrary <*> arbitrary
 
-instance (Binary a, Arbitrary a) => Arbitrary (Signed a) where
+instance (Bi a, Arbitrary a) => Arbitrary (Signed a) where
     arbitrary = mkSigned <$> arbitrary <*> arbitrary
 
 ----------------------------------------------------------------------------

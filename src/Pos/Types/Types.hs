@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP                    #-}
+{-# LANGUAGE ConstraintKinds        #-}
 {-# LANGUAGE DefaultSignatures      #-}
 {-# LANGUAGE DeriveGeneric          #-}
 {-# LANGUAGE FlexibleContexts       #-}
@@ -110,7 +111,6 @@ import           Control.Lens           (Getter, Lens', choosing, makeLenses, to
 import           Data.Aeson             (ToJSON (toJSON))
 import           Data.Aeson.TH          (deriveToJSON)
 import           Data.Binary            (Binary)
-import           Data.Binary.Orphans    ()
 import qualified Data.ByteString        as BS (pack, zipWith)
 import qualified Data.ByteString.Char8  as BSC (pack)
 import           Data.Data              (Data)
@@ -150,7 +150,7 @@ import           Pos.Util               (Color (Magenta), colorize)
 -- | Coin is the least possible unit of currency.
 newtype Coin = Coin
     { getCoin :: Word64
-    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Binary, Hashable, Data, NFData, ToJSON)
+    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Hashable, Data, NFData, ToJSON)
 
 instance Buildable Coin where
     build = bprint (int%" coin(s)")
@@ -166,7 +166,7 @@ coinF = build
 -- | Index of epoch.
 newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Binary, Hashable, ToJSON)
+    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable, ToJSON)
 
 instance Buildable EpochIndex where
     build = bprint ("epoch #"%int)
@@ -174,7 +174,7 @@ instance Buildable EpochIndex where
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex
     { getSlotIndex :: Word16
-    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Binary, Hashable, Buildable, ToJSON)
+    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Buildable, ToJSON)
 
 -- | Slot is identified by index of epoch and local index of slot in
 -- this epoch. This is a global index
@@ -183,7 +183,6 @@ data SlotId = SlotId
     , siSlot  :: !LocalSlotIndex
     } deriving (Show, Eq, Ord, Generic)
 
-instance Binary SlotId
 
 $(deriveToJSON defaultOptions ''SlotId)
 
@@ -235,14 +234,14 @@ type TxSig = Signature (TxId, Word32, [TxOut])
 -- TODO: add script validator after scripts are introduced
 newtype Validator = PubKeyValidator
     { getValidator :: PublicKey
-    } deriving (Eq, Ord, Show, Generic, Binary, Hashable)
+    } deriving (Eq, Ord, Show, Generic, Hashable)
 
 -- | Redeeming structure of transaction input.
 -- Now it's only a wrapper around signature.
 -- TODO: add script redeemer after scripts are introduced.
 newtype Redeemer = PubKeyRedeemer
     { getRedeemer :: TxSig
-    } deriving (Eq, Ord, Show, Generic, Binary, Hashable)
+    } deriving (Eq, Ord, Show, Generic, Hashable)
 
 -- | Transaction input.
 data TxIn = TxIn
@@ -256,7 +255,6 @@ data TxIn = TxIn
                                    -- script which produces a key for `Validator`
     } deriving (Eq, Ord, Show, Generic)
 
-instance Binary TxIn
 instance Hashable TxIn
 
 instance Buildable TxIn where
@@ -268,7 +266,6 @@ data TxOut = TxOut
     , txOutValue   :: !Coin
     } deriving (Eq, Ord, Show, Generic)
 
-instance Binary TxOut
 instance Hashable TxOut
 
 instance Buildable TxOut where
@@ -281,7 +278,6 @@ data Tx = Tx
     , txOutputs :: ![TxOut]  -- ^ Outputs of transaction.
     } deriving (Eq, Ord, Show, Generic)
 
-instance Binary Tx
 instance Hashable Tx
 
 instance Buildable Tx where
@@ -321,7 +317,7 @@ utxoF = later formatUtxo
 -- same value.
 newtype SharedSeed = SharedSeed
     { getSharedSeed :: ByteString
-    } deriving (Show, Eq, Ord, Generic, Binary, NFData)
+    } deriving (Show, Eq, Ord, Generic, NFData)
 
 instance ToJSON SharedSeed where
     toJSON = toJSON . pretty
@@ -396,12 +392,6 @@ deriving instance
           Eq (ExtraHeaderData b)) =>
          Eq (GenericBlockHeader b)
 
-instance ( Binary (BodyProof b)
-         , Binary (ConsensusData b)
-         , Binary (ExtraHeaderData b)
-         ) =>
-         Binary (GenericBlockHeader b)
-
 -- | In general Block consists of header and body. It may contain
 -- extra data as well.
 data GenericBlock b = GenericBlock
@@ -420,14 +410,6 @@ deriving instance
           Eq (Body b), Eq (ExtraBodyData b)) =>
          Eq (GenericBlock b)
 
-instance ( Binary (BodyProof b)
-         , Binary (ConsensusData b)
-         , Binary (ExtraHeaderData b)
-         , Binary (Body b)
-         , Binary (ExtraBodyData b)
-         ) =>
-         Binary (GenericBlock b)
-
 ----------------------------------------------------------------------------
 -- MainBlock
 ----------------------------------------------------------------------------
@@ -440,7 +422,7 @@ data MainBlockchain ssc
 -- chain. In the simplest case it can be number of blocks in chain.
 newtype ChainDifficulty = ChainDifficulty
     { getChainDifficulty :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Binary, Buildable)
+    } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Buildable)
 
 -- | Constraint for data to be signed in main block.
 type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
@@ -484,14 +466,16 @@ instance Ssc ssc => Blockchain (MainBlockchain ssc) where
 deriving instance Ssc ssc => Eq (BodyProof (MainBlockchain ssc))
 deriving instance Ssc ssc => Show (Body (MainBlockchain ssc))
 
-instance Ssc ssc => Binary (BodyProof (MainBlockchain ssc))
-instance Ssc ssc => Binary (ConsensusData (MainBlockchain ssc))
-instance Ssc ssc => Binary (Body (MainBlockchain ssc))
-
 -- | Header of generic main block.
 type MainBlockHeader ssc = GenericBlockHeader (MainBlockchain ssc)
 
-instance Ssc ssc => Buildable (MainBlockHeader ssc) where
+-- | Ssc w/ buildable blockchain
+type BinarySsc ssc =
+    ( Ssc ssc
+    , Binary (GenericBlockHeader (GenesisBlockchain ssc))
+    , Binary (GenericBlockHeader (MainBlockchain ssc)))
+
+instance BinarySsc ssc => Buildable (MainBlockHeader ssc) where
     build gbh@GenericBlockHeader {..} =
         bprint
             ("MainBlockHeader:\n"%
@@ -515,7 +499,7 @@ instance Ssc ssc => Buildable (MainBlockHeader ssc) where
 -- main part of our consensus algorithm.
 type MainBlock ssc = GenericBlock (MainBlockchain ssc)
 
-instance Ssc ssc => Buildable (MainBlock ssc) where
+instance BinarySsc ssc => Buildable (MainBlock ssc) where
     build GenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -566,10 +550,6 @@ instance Blockchain (GenesisBlockchain ssc) where
     type BBlock (GenesisBlockchain ssc) = Block ssc
 
     mkBodyProof = GenesisProof . hash . _gbLeaders
-
-instance Binary (BodyProof (GenesisBlockchain ssc))
-instance Binary (ConsensusData (GenesisBlockchain ssc))
-instance Binary (Body (GenesisBlockchain ssc))
 
 -- | Genesis block parametrized by 'GenesisBlockchain'.
 type GenesisBlock ssc = GenericBlock (GenesisBlockchain ssc)

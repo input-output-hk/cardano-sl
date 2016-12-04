@@ -67,7 +67,6 @@ import           Control.TimeWarp.Rpc          (Message (messageName), MessageNa
 import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
                                                 Second, for, killThread)
 import           Data.Binary                   (Binary)
-import qualified Data.Binary                   as Binary (encode)
 import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
@@ -82,7 +81,6 @@ import           Data.Time.Units               (convertUnit)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
 import           Serokell.Util                 (VerificationRes)
-import           Serokell.Util.Binary          as Binary (decodeFull)
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
                                                 SGR (Reset, SetColor), setSGRCode)
@@ -90,6 +88,8 @@ import           System.Wlog                   (WithLogger, logWarning)
 import           Universum
 import           Unsafe                        (unsafeInit, unsafeLast)
 
+import           Pos.Binary.Class              (Bi)
+import qualified Pos.Binary.Class              as Bi
 import           Pos.Crypto.Random             (randomNumber)
 import           Pos.Util.Arbitrary
 import           Pos.Util.NotImplemented       ()
@@ -101,15 +101,15 @@ newtype Raw = Raw ByteString
 
 -- | A helper for "Data.SafeCopy" that creates 'putCopy' given a 'Binary'
 -- instance.
-putCopyBinary :: Binary a => a -> Contained Cereal.Put
-putCopyBinary x = contain $ safePut (Binary.encode x)
+putCopyBinary :: Bi a => a -> Contained Cereal.Put
+putCopyBinary x = contain $ safePut (Bi.encode x)
 
 -- | A helper for "Data.SafeCopy" that creates 'getCopy' given a 'Binary'
 -- instance.
-getCopyBinary :: Binary a => String -> Contained (Cereal.Get a)
+getCopyBinary :: Bi a => String -> Contained (Cereal.Get a)
 getCopyBinary typeName = contain $ do
     bs <- safeGet
-    case Binary.decodeFull bs of
+    case Bi.decodeFull bs of
         Left err -> fail ("getCopy@" ++ typeName ++ ": " ++ err)
         Right x  -> return x
 
@@ -357,6 +357,8 @@ getKeys = fromMap . void
 ----------------------------------------------------------------------------
 -- Deserialized wrapper
 ----------------------------------------------------------------------------
+
+-- TODO Another serialization?? :(
 
 class Binary b => Serialized a b where
   serialize :: a -> b

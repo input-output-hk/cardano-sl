@@ -1,6 +1,8 @@
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE DeriveGeneric        #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE StandaloneDeriving   #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Signing done with public/private keys.
 module Pos.Crypto.Signing
@@ -32,15 +34,11 @@ module Pos.Crypto.Signing
 
 import qualified Crypto.Sign.Ed25519    as Ed25519
 import           Data.Aeson             (ToJSON (toJSON))
-import           Data.Binary            (Binary)
-import qualified Data.Binary            as Binary
-import qualified Data.Binary.Get        as Binary
-import qualified Data.Binary.Put        as Binary
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Coerce            (coerce)
 import           Data.Hashable          (Hashable)
-import           Data.SafeCopy          (SafeCopy (..), base, deriveSafeCopySimple)
+import           Data.SafeCopy          (SafeCopy (..))
 import qualified Data.Serialize         as Cereal
 import qualified Data.Text.Buildable    as Buildable
 import           Data.Text.Lazy.Builder (Builder)
@@ -49,6 +47,8 @@ import           Universum
 
 import qualified Serokell.Util.Base64   as Base64 (decode, encode)
 
+import           Pos.Binary.Class       (Bi)
+import qualified Pos.Binary.Class       as Bi
 import           Pos.Crypto.Hashing     (hash, shortHashF)
 import           Pos.Crypto.Random      (secureRandomBS)
 import           Pos.Util               (Raw, getCopyBinary, putCopyBinary)
@@ -76,27 +76,28 @@ putAssertLength typeName expectedLength bs =
         sformat ("put@"%stext%": expected length "%int%", not "%int)
                 typeName expectedLength (BS.length bs)
 
--- Binary
+-- TODO Move to Pos.Binary
+---- Binary
+--
+--instance Binary Ed25519.PublicKey where
+--    put (Ed25519.PublicKey k) = do
+--        putAssertLength "PublicKey" publicKeyLength k
+--        Binary.putByteString k
+--    get = Ed25519.PublicKey <$> Binary.getByteString publicKeyLength
+--
+--instance Binary Ed25519.SecretKey where
+--    put (Ed25519.SecretKey k) = do
+--        putAssertLength "SecretKey" secretKeyLength k
+--        Binary.putByteString k
+--    get = Ed25519.SecretKey <$> Binary.getByteString secretKeyLength
+--
+--instance Binary Ed25519.Signature where
+--    put (Ed25519.Signature s) = do
+--        putAssertLength "Signature" signatureLength s
+--        Binary.putByteString s
+--    get = Ed25519.Signature <$> Binary.getByteString signatureLength
 
-instance Binary Ed25519.PublicKey where
-    put (Ed25519.PublicKey k) = do
-        putAssertLength "PublicKey" publicKeyLength k
-        Binary.putByteString k
-    get = Ed25519.PublicKey <$> Binary.getByteString publicKeyLength
-
-instance Binary Ed25519.SecretKey where
-    put (Ed25519.SecretKey k) = do
-        putAssertLength "SecretKey" secretKeyLength k
-        Binary.putByteString k
-    get = Ed25519.SecretKey <$> Binary.getByteString secretKeyLength
-
-instance Binary Ed25519.Signature where
-    put (Ed25519.Signature s) = do
-        putAssertLength "Signature" signatureLength s
-        Binary.putByteString s
-    get = Ed25519.Signature <$> Binary.getByteString signatureLength
-
--- Cereal
+-- Cereal (for safecopy -- todo write safecopy instead)
 
 instance Cereal.Serialize Ed25519.PublicKey where
     put (Ed25519.PublicKey k) = do
@@ -123,12 +124,12 @@ instance Cereal.Serialize Ed25519.Signature where
 -- | Wrapper around 'Ed25519.PublicKey'.
 newtype PublicKey = PublicKey Ed25519.PublicKey
     deriving (Eq, Ord, Show, Generic, NFData,
-              Binary, Cereal.Serialize, Hashable)
+              Cereal.Serialize, Hashable)
 
 -- | Wrapper around 'Ed25519.SecretKey'.
 newtype SecretKey = SecretKey Ed25519.SecretKey
     deriving (Eq, Ord, Show, Generic, NFData,
-              Binary, Cereal.Serialize, Hashable)
+              Cereal.Serialize, Hashable)
 
 instance SafeCopy PublicKey where
     -- an empty declaration uses Cereal.Serialize instance by default
@@ -140,28 +141,28 @@ instance SafeCopy SecretKey where
 toPublic :: SecretKey -> PublicKey
 toPublic (SecretKey k) = PublicKey (Ed25519.toPublicKey k)
 
-instance Buildable.Buildable PublicKey where
+instance Bi PublicKey => Buildable.Buildable PublicKey where
     -- Hash the key, take first 8 chars (that's how GPG does fingerprinting,
     -- except that their binary representation of the key is different)
     build = bprint ("pub:"%shortHashF) . hash
 
-instance Buildable.Buildable SecretKey where
+instance Bi PublicKey => Buildable.Buildable SecretKey where
     build = bprint ("sec:"%shortHashF) . hash . toPublic
 
 -- | 'Builder' for 'PublicKey' to show it in base64 encoded form.
-formatFullPublicKey :: PublicKey -> Builder
-formatFullPublicKey = Buildable.build . Base64.encode . BSL.toStrict . Binary.encode
+formatFullPublicKey :: Bi PublicKey => PublicKey -> Builder
+formatFullPublicKey = Buildable.build . Base64.encode . BSL.toStrict . Bi.encode
 
 -- | Specialized formatter for 'PublicKey' to show it in base64.
-fullPublicKeyF :: Format r (PublicKey -> r)
+fullPublicKeyF :: Bi PublicKey => Format r (PublicKey -> r)
 fullPublicKeyF = later formatFullPublicKey
 
 -- | Parse 'PublicKey' from base64 encoded string.
-parseFullPublicKey :: Text -> Maybe PublicKey
+parseFullPublicKey :: (Bi PublicKey) => Text -> Maybe PublicKey
 parseFullPublicKey s =
     case Base64.decode s of
         Left _  -> Nothing
-        Right b -> case Binary.decodeOrFail (BSL.fromStrict b) of
+        Right b -> case Bi.decodeOrFail (BSL.fromStrict b) of
             Left _ -> Nothing
             Right (unconsumed, _, a)
                 | BSL.null unconsumed -> Just a
@@ -181,7 +182,7 @@ deterministicKeyGen :: BS.ByteString -> Maybe (PublicKey, SecretKey)
 deterministicKeyGen seed =
     bimap PublicKey SecretKey <$> Ed25519.createKeypairFromSeed_ seed
 
-instance ToJSON PublicKey where
+instance Bi PublicKey => ToJSON PublicKey where
     toJSON = toJSON . sformat fullPublicKeyF
 
 ----------------------------------------------------------------------------
@@ -190,9 +191,9 @@ instance ToJSON PublicKey where
 
 -- | Wrapper around 'Ed25519.Signature'.
 newtype Signature a = Signature Ed25519.Signature
-    deriving (Eq, Ord, Show, Generic, NFData, Binary, Hashable)
+    deriving (Eq, Ord, Show, Generic, NFData, Hashable)
 
-instance SafeCopy (Signature a) where
+instance Bi (Signature a) => SafeCopy (Signature a) where
     putCopy = putCopyBinary
     getCopy = getCopyBinary "Signature"
 
@@ -200,16 +201,16 @@ instance Buildable.Buildable (Signature a) where
     build _ = "<signature>"
 
 -- | Encode something with 'Binary' and sign it.
-sign :: (Binary a) => SecretKey -> a -> Signature a
-sign k = coerce . signRaw k . BSL.toStrict . Binary.encode
+sign :: Bi a => SecretKey -> a -> Signature a
+sign k = coerce . signRaw k . BSL.toStrict . Bi.encode
 
 -- | Alias for constructor.
 signRaw :: SecretKey -> ByteString -> Signature Raw
 signRaw (SecretKey k) x = Signature (Ed25519.dsign k x)
 
 -- | Verify a signature.
-checkSig :: Binary a => PublicKey -> a -> Signature a -> Bool
-checkSig k x s = verifyRaw k (BSL.toStrict (Binary.encode x)) (coerce s)
+checkSig :: Bi a => PublicKey -> a -> Signature a -> Bool
+checkSig k x s = verifyRaw k (BSL.toStrict (Bi.encode x)) (coerce s)
 
 -- | Verify raw 'ByteString'.
 verifyRaw :: PublicKey -> ByteString -> Signature Raw -> Bool
@@ -221,10 +222,11 @@ data Signed a = Signed
     , signedSig   :: !(Signature a)  -- ^ 'Signature' of 'signedValue'
     } deriving (Show, Eq, Ord, Generic)
 
-instance Binary a => Binary (Signed a)
+--instance Binary a => Binary (Signed a)
 
 -- | Smart constructor for 'Signed' data type with proper signing.
-mkSigned :: (Binary a) => SecretKey -> a -> Signed a
+mkSigned :: (Bi a) => SecretKey -> a -> Signed a
 mkSigned sk x = Signed x (sign sk x)
 
-deriveSafeCopySimple 0 'base ''Signed
+-- TODO rewrite without TH
+--deriveSafeCopySimple 0 'base ''Signed

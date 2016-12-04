@@ -6,18 +6,18 @@
 
 module Main where
 
-import           Control.Monad.Reader   (MonadReader (..), ReaderT, runReaderT)
+import           Control.Monad.Reader   (MonadReader (..), ReaderT, asks, runReaderT)
 import           Control.TimeWarp.Rpc   (NetworkAddress)
 import           Control.TimeWarp.Timed (for, fork_, wait)
 import           Data.List              ((!!))
-import           Formatting             (int, sformat, (%))
+import           Formatting             (build, int, sformat, (%))
 import           Options.Applicative    (execParser)
 import           System.IO              (hFlush, stdout)
 import           Test.QuickCheck        (arbitrary, generate)
 import           Universum
 
 import           Pos.Constants          (slotDuration)
-import           Pos.Crypto             (KeyPair (..), SecretKey)
+import           Pos.Crypto             (KeyPair (..), SecretKey, toPublic)
 import           Pos.DHT                (DHTNodeType (..), dhtAddr, discoverPeers)
 import           Pos.DHT.Real           (KademliaDHTInstance)
 import           Pos.Genesis            (genesisSecretKeys, genesisUtxo)
@@ -28,7 +28,7 @@ import           Pos.Ssc.Class          (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing     (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon     (SscNistBeacon)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
-import           Pos.Types              (txF)
+import           Pos.Types              (makePubKeyAddress, txF)
 import           Pos.Wallet             (getBalance, submitTx)
 import           Pos.WorkMode           (WorkMode)
 
@@ -38,7 +38,6 @@ import           WalletOptions          (WalletOptions (..), optsInfo)
 type CmdRunner = ReaderT (SecretKey, [NetworkAddress])
 
 evalCmd :: WorkMode ssc m => Command -> CmdRunner m ()
-evalCmd Quit = pure ()
 evalCmd (Balance addr) = lift (getBalance addr) >>=
                          putText . sformat ("Current balance: "%int) >>
                          evalCommands
@@ -47,6 +46,19 @@ evalCmd (Send outputs) = do
     tx <- lift (submitTx sk na outputs)
     putText $ sformat ("Submitted transaction: "%txF) tx
     evalCommands
+evalCmd Help =
+    putText "Avaliable commands:\n\
+            \   balance <address>          -- check balance on given address\n\
+            \   send [<address> <coins>]+  -- create and send transaction with given outputs\n\
+            \                                 from current wallet address\n\
+            \   myaddress                  -- get current wallet address\n\
+            \   help                       -- show this message\n\
+            \   quit                       -- shutdown node wallet"
+    >> evalCommands
+evalCmd MyAddress = asks fst >>=
+                    putText . sformat build . makePubKeyAddress . toPublic >>
+                    evalCommands
+evalCmd Quit = pure ()
 
 evalCommands :: WorkMode ssc m => CmdRunner m ()
 evalCommands = do
@@ -72,7 +84,8 @@ runWallet inst np@NodeParams{..} sscnp WalletOptions{..} =
 
     let sk = genesisSecretKeys !! woSecretKeyIdx
     na <- fmap dhtAddr <$> discoverPeers DHTFull
-    runReaderT evalCommands (sk, na)
+    putText "Welcome to Wallet CLI Node"
+    runReaderT (evalCmd Help) (sk, na)
 
 main :: IO ()
 main = do

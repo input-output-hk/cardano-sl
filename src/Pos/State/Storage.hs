@@ -23,8 +23,10 @@ module Pos.State.Storage
        , getHeadBlock
        , getBestChain
        , getGlobalSscState
+       , getGlobalSscStateByDepth
        , getLeaders
        , getLocalTxs
+       , getUtxoByDepth
        , isTxVerified
        , getOurShares
        , getParticipants
@@ -56,7 +58,8 @@ import           Serokell.Util           (VerificationRes (..))
 import           System.Wlog             (WithLogger, logDebug)
 
 import           Pos.Constants           (k)
-import           Pos.Crypto              (LEncShare, LVssPublicKey, SecretKey, Threshold)
+import           Pos.Crypto              (LEncShare, LVssPublicKey, SecretKey, Threshold,
+                                          WithHash (whData))
 import           Pos.Genesis             (genesisUtxo)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
@@ -156,6 +159,13 @@ getGlobalSscState
     => Query ssc (SscGlobalState ssc)
 getGlobalSscState = sscGetGlobalState @ssc
 
+-- | Get global SSC data that was observed N blocks ago.
+getGlobalSscStateByDepth
+    :: forall ssc.
+       SscStorageClass ssc
+    => Word -> Query ssc (Maybe (SscGlobalState ssc))
+getGlobalSscStateByDepth = sscGetGlobalStateByDepth @ssc
+
 -- | Create a new block on top of best chain if possible.
 -- Block can be created if:
 -- • we know genesis block for epoch from given SlotId
@@ -179,7 +189,7 @@ createNewBlockDo sk sId sscPayload = do
     globalPayload <- readerToState $ getGlobalSscState
     let filteredPayload = sscFilterPayload @ssc sscPayload globalPayload
     txs <- readerToState $ toList <$> getLocalTxs
-    blk <- blkCreateNewBlock sk sId txs filteredPayload
+    blk <- blkCreateNewBlock sk sId (fmap whData txs) filteredPayload
     let blocks = Right blk :| []
     sscApplyBlocks blocks
     blk <$ txApplyBlocks blocks

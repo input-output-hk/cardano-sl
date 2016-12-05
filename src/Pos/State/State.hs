@@ -26,8 +26,10 @@ module Pos.State.State
        , getBestChain
        , getLeaders
        , getLocalTxs
+       , getUtxoByDepth
        , isTxVerified
        , getGlobalMpcData
+       , getGlobalMpcDataByDepth
        , mayBlockBeUseful
 
        -- * Operations with effects.
@@ -63,7 +65,7 @@ import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            runPureLog, usingLoggerName)
 
 import           Pos.Crypto               (LVssPublicKey, SecretKey, Share, VssKeyPair,
-                                           decryptShare, toVssPublicKey)
+                                           WithHash, decryptShare, toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
@@ -75,7 +77,7 @@ import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (.
 import           Pos.Statistics.StatEntry ()
 import           Pos.Types                (Address, Block, EpochIndex, GenesisBlock,
                                            HeaderHash, MainBlock, MainBlockHeader, SlotId,
-                                           SlotLeaders, Tx)
+                                           SlotLeaders, Tx, Utxo)
 import           Pos.Util                 (deserializeM, serialize)
 
 -- | NodeState encapsulates all the state stored by node.
@@ -187,8 +189,12 @@ getBestChain :: QUConstraint ssc m => m (NonEmpty (Block ssc))
 getBestChain = queryDisk A.GetBestChain
 
 -- | Get local transactions list.
-getLocalTxs :: QUConstraint ssc m => m (HashSet Tx)
+getLocalTxs :: QUConstraint ssc m => m (HashSet (WithHash Tx))
 getLocalTxs = queryDisk A.GetLocalTxs
+
+-- | Get Utxo by depth
+getUtxoByDepth :: QUConstraint ssc m => Word -> m (Maybe Utxo)
+getUtxoByDepth = queryDisk . A.GetUtxoByDepth
 
 -- | Checks if tx is verified
 isTxVerified :: QUConstraint ssc m => Tx -> m Bool
@@ -197,6 +203,10 @@ isTxVerified = queryDisk . A.IsTxVerified
 -- | Get global SSC data.
 getGlobalMpcData :: QUConstraint ssc m => m (SscGlobalState ssc)
 getGlobalMpcData = queryDisk A.GetGlobalSscState
+
+-- | Get global SSC data that was observed N blocks ago.
+getGlobalMpcDataByDepth :: QUConstraint ssc m => Word ->  m (Maybe (SscGlobalState ssc))
+getGlobalMpcDataByDepth = queryDisk . A.GetGlobalSscStateByDepth
 
 -- | Check that block header is correct and claims to represent block
 -- which may become part of blockchain.
@@ -213,7 +223,7 @@ createNewBlock :: QUConstraint ssc m
 createNewBlock sk si = updateDisk . A.CreateNewBlock sk si
 
 -- | Process transaction received from other party.
-processTx :: QUConstraint ssc m => Tx -> m ProcessTxRes
+processTx :: QUConstraint ssc m => WithHash Tx -> m ProcessTxRes
 processTx = updateDisk . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot. Ideally it should

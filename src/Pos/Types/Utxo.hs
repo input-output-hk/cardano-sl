@@ -16,7 +16,7 @@ import qualified Data.Map.Strict as M
 import           Serokell.Util   (VerificationRes (..))
 import           Universum
 
-import           Pos.Crypto      (hash)
+import           Pos.Crypto      (WithHash (whData, whHash))
 import           Pos.Types.Tx    (topsortTxs, verifyTx)
 import           Pos.Types.Types (Tx (..), TxIn (..), TxOut (..), Utxo)
 
@@ -34,14 +34,14 @@ verifyTxUtxo utxo = verifyTx (`findTxIn` utxo)
 
 -- | Remove unspent outputs used in given transaction, add new unspent
 -- outputs.
-applyTxToUtxo :: Tx -> Utxo -> Utxo
-applyTxToUtxo tx@Tx {..} =
+applyTxToUtxo :: WithHash Tx -> Utxo -> Utxo
+applyTxToUtxo tx =
     foldl' (.) identity
         (map applyInput txInputs ++ zipWith applyOutput [0..] txOutputs)
   where
-    h = hash tx
+    Tx {..} = whData tx
     applyInput txIn = deleteTxIn txIn
-    applyOutput idx txOut = M.insert (h, idx) txOut
+    applyOutput idx txOut = M.insert (whHash tx, idx) txOut
 
 -- | Accepts list of transactions and verifies its overall properties
 -- plus validity of every transaction in particular. Return value is
@@ -51,18 +51,18 @@ applyTxToUtxo tx@Tx {..} =
 -- applied -- no more than one error can happen. Either transactions
 -- can't be topsorted at all or the first incorrect transaction is
 -- encountered so we can't proceed further.
-verifyAndApplyTxs :: [Tx] -> Utxo -> Either Text ([Tx], Utxo)
+verifyAndApplyTxs :: [WithHash Tx] -> Utxo -> Either Text ([WithHash Tx], Utxo)
 verifyAndApplyTxs txs utxo =
     maybe
         (Left "Topsort on transactions failed -- topology is broken")
         (\txs' -> (txs',) <$> applyAll txs')
         topsorted
   where
-    applyAll :: [Tx] -> Either Text Utxo
+    applyAll :: [WithHash Tx] -> Either Text Utxo
     applyAll [] = Right utxo
     applyAll (tx:xs) = do
         curUtxo <- applyAll xs
-        case verifyTxUtxo curUtxo tx of
+        case verifyTxUtxo curUtxo $ whData tx of
             VerSuccess          -> pure $ tx `applyTxToUtxo` curUtxo
             (VerFailure reason) ->
                 Left $ fromMaybe "Transaction application failed, reason not specified" $
@@ -73,17 +73,17 @@ verifyAndApplyTxs txs utxo =
 -- | Takes the set of transactions and utxo, returns only those
 -- transactions that can be applied inside. Bonus -- returns them
 -- sorted (topographically).
-normalizeTxs :: [Tx] -> Utxo -> [Tx]
+normalizeTxs :: [WithHash Tx] -> Utxo -> [WithHash Tx]
 normalizeTxs = normGo []
   where
 -- checks if transaction can be applied, adds it to first arg and
 -- to utxo if ok, does nothing otherwise
-    canApply :: Tx -> ([Tx], Utxo) -> ([Tx], Utxo)
+    canApply :: WithHash Tx -> ([WithHash Tx], Utxo) -> ([WithHash Tx], Utxo)
     canApply tx prev@(txs, utxo) =
-        case verifyTxUtxo utxo tx of
+        case verifyTxUtxo utxo $ whData tx of
             VerFailure _ -> prev
             VerSuccess   -> (tx : txs, tx `applyTxToUtxo` utxo)
-    normGo :: [Tx] -> [Tx] -> Utxo -> [Tx]
+    normGo :: [WithHash Tx] -> [WithHash Tx] -> Utxo -> [WithHash Tx]
     normGo result pending curUtxo =
         let !(!canBeApplied, !newUtxo) = foldr' canApply ([], curUtxo) pending
             newPending = pending \\ canBeApplied

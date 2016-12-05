@@ -207,9 +207,10 @@ data GtParams = GtParams
 data GtContext = GtContext
     {
       -- | Vss key pair used for MPC.
-      gtcVssKeyPair     :: !VssKeyPair
-    , gtcParticipateSsc :: !(STM.TVar Bool)
-    , gtcSecretStorage  :: !SecretStorage
+      gtcVssKeyPair             :: !VssKeyPair
+    , gtcParticipateSsc         :: !(STM.TVar Bool)
+    , gtcSecretStorage          :: !SecretStorage
+    , gtcVssCertificateVerified :: !(STM.TVar Bool)
     }
 
 createGtContext :: GtParams -> Acquire GtContext
@@ -218,7 +219,8 @@ createGtContext GtParams {..} = mkAcquire
            <$> liftIO (newTVarIO gtpSscEnabled)
            <*> maybe openMemGtSecretStorage
                   (openGtSecretStorage gtpRebuildDb)
-                  secretPath)
+                  secretPath
+           <*> liftIO (newTVarIO False))
     (closeSecretStorage . gtcSecretStorage)
   where
     secretPath = (</> "secret") <$> gtpDbPath

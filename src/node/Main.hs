@@ -8,7 +8,6 @@ module Main where
 import           Control.Monad        (fail)
 import           Data.Binary          (Binary, decode, encode)
 import qualified Data.ByteString.Lazy as LBS
-import           Data.Default         (def)
 import           Data.List            ((!!))
 import           System.Directory     (createDirectoryIfMissing)
 import           System.FilePath      ((</>))
@@ -19,12 +18,11 @@ import           Pos.Constants        (RunningMode (..), runningMode)
 import           Pos.Crypto           (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.DHT              (DHTKey, DHTNodeType (..), dhtNodeType)
 import           Pos.DHT.Real         (KademliaDHTInstance)
-import           Pos.Genesis          (StakeDistribution (..), genesisSecretKeys,
-                                       genesisUtxo)
+import           Pos.Genesis          (genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        NodeParams (..), bracketDHTInstance,
                                        runNodeProduction, runNodeStats, runSupporterReal,
-                                       runTimeLordReal, runTimeSlaveReal)
+                                       runTimeLordReal, runTimeSlaveReal, stakesDistr)
 import           Pos.Ssc.GodTossing   (genesisVssKeyPairs)
 import           Pos.Ssc.GodTossing   (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
@@ -87,17 +85,6 @@ baseParams loggingTag args@Args {..} =
     dhtKeyOrType
         | supporterNode = maybe (Right DHTSupporter) Left dhtKey
         | otherwise = maybe (Right DHTFull) Left dhtKey
-
-stakesDistr :: Args -> StakeDistribution
-stakesDistr Args {..} =
-    case (flatDistr, bitcoinDistr) of
-        (Nothing, Nothing) -> def
-        (Just _, Just _) ->
-            panic "flat-distr and bitcoin distr are conflicting options"
-        (Just (nodes, coins), Nothing) ->
-            FlatStakes (fromIntegral nodes) (fromIntegral coins)
-        (Nothing, Just (nodes, coins)) ->
-            BitcoinStakes (fromIntegral nodes) (fromIntegral coins)
 
 checkDhtKey :: Bool -> Maybe DHTKey -> IO ()
 checkDhtKey _ Nothing = pass
@@ -167,7 +154,7 @@ nodeParams args@Args {..} spendingSK systemStart =
     , npBaseParams = baseParams "node" args
     , npCustomUtxo =
             Just . genesisUtxo $
-            stakesDistr args
+            stakesDistr flatDistr bitcoinDistr
     , npTimeLord = timeLord
     , npJLFile = jlPath
     }

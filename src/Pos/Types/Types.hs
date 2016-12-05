@@ -143,6 +143,7 @@ import           Pos.Types.Address      (Address (..), addressF, checkPubKeyAddr
                                          makePubKeyAddress)
 import           Pos.Util               (Color (Magenta), colorize)
 
+
 ----------------------------------------------------------------------------
 -- Coin
 ----------------------------------------------------------------------------

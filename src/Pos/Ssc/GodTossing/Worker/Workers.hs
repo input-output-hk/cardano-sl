@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE ViewPatterns          #-}
 
@@ -10,11 +11,12 @@ module Pos.Ssc.GodTossing.Worker.Workers
          -- ** instance SscWorkersClass SscGodTossing
        ) where
 
-import           Control.Concurrent.STM                 (readTVar)
-import           Control.Lens                           (view, _2, _3)
+import           Control.Concurrent.STM                 (TVar, readTVar, writeTVar)
+import           Control.Lens                           (view, (%=), (^.), _2, _3)
 import           Control.Monad.Trans.Maybe              (runMaybeT)
 import           Control.TimeWarp.Timed                 (Microsecond, Millisecond,
                                                          currentTime, for, wait)
+import           Data.HashMap.Strict                    (insert, lookup, member)
 import           Data.Tagged                            (Tagged (..))
 import           Data.Time.Units                        (convertUnit)
 import           Formatting                             (build, ords, sformat, shown, (%))
@@ -24,9 +26,14 @@ import           Universum
 
 import           Pos.Communication.Methods              (sendToNeighborsSafe)
 import           Pos.Constants                          (k, mpcSendInterval)
-import           Pos.Crypto                             (SecretKey, randomNumber,
-                                                         runSecureRandom, toPublic)
+import           Pos.Crypto                             (SecretKey, VssKeyPair,
+                                                         randomNumber, runSecureRandom,
+                                                         toPublic)
+import           Pos.Crypto.SecretSharing               (toVssPublicKey)
+import           Pos.Crypto.Signing                     (PublicKey, sign)
 import           Pos.Slotting                           (getSlotStart, onNewSlot)
+import           Pos.Ssc.Class.LocalData                (sscRunLocalQuery,
+                                                         sscRunLocalUpdate)
 import           Pos.Ssc.Class.Workers                  (SscWorkersClass (..))
 import           Pos.Ssc.GodTossing.Functions           (genCommitmentAndOpening,
                                                          genCommitmentAndOpening,
@@ -34,19 +41,27 @@ import           Pos.Ssc.GodTossing.Functions           (genCommitmentAndOpening
                                                          hasShares, isCommitmentIdx,
                                                          isOpeningIdx, isSharesIdx,
                                                          mkSignedCommitment)
+import           Pos.Ssc.GodTossing.Genesis             (genesisVssKeyPairs)
 import           Pos.Ssc.GodTossing.LocalData.LocalData (localOnNewSlot,
                                                          sscProcessMessage)
+import           Pos.Ssc.GodTossing.LocalData.Types     (gtLocalCertificates)
 import           Pos.Ssc.GodTossing.SecretStorage.State (checkpointSecret, getSecret,
                                                          prepareSecretToNewSlot,
                                                          setSecret)
-import           Pos.Ssc.GodTossing.Types.Base          (Opening, SignedCommitment)
+import           Pos.Ssc.GodTossing.Types.Base          (Opening, SignedCommitment,
+                                                         VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Instance      ()
 import           Pos.Ssc.GodTossing.Types.Message       (DataMsg (..), InvMsg (..),
                                                          MsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types         (gtcParticipateSsc, gtcVssKeyPair)
-import           Pos.State                              (getGlobalMpcData, getOurShares,
-                                                         getParticipants, getThreshold)
+import           Pos.Ssc.GodTossing.Types.Types         (gsVssCertificates,
+                                                         gtcParticipateSsc,
+                                                         gtcVssCertificateVerified,
+                                                         gtcVssKeyPair)
+import           Pos.State                              (getGlobalMpcData,
+                                                         getGlobalMpcDataByDepth,
+                                                         getOurShares, getParticipants,
+                                                         getThreshold)
 import           Pos.Types                              (Address (..), EpochIndex,
                                                          LocalSlotIndex, SlotId (..),
                                                          Timestamp (..),
@@ -57,16 +72,96 @@ import           Pos.WorkMode                           (WorkMode, getNodeContex
                                                          ncSscContext)
 
 instance SscWorkersClass SscGodTossing where
-    sscWorkers = Tagged [onNewSlotSsc]
+    sscWorkers = Tagged [ onStart
+                        , onNewSlotSsc
+                        ]
+
+onStart :: forall m. WorkMode SscGodTossing m => m ()
+onStart = do
+    isVerified <- isVssCertificateVerified
+    if isVerified
+       then do
+           logDebug "Our VssCertificate is verified."
+           b <- getGtcVssCertificateVerified
+           atomically $ writeTVar b True
+       else do
+           logDebug "Our VssCertificate is not verified yet, we will announce it now."
+           (_, ourAddr)      <- getOurPkAndAddr
+           ourVssCertificate <- getOurVssCertificate
+           let msg = DMVssCertificate ourAddr ourVssCertificate
+           -- [CSL-245]: do not catch all, catch something more concrete.
+           (sendToNeighborsSafe msg >> logDebug "Announced our VssCertificate.")
+               `catchAll` \e ->
+               logError $ sformat ("Error announcing our VssCertificate: " % shown) e
+           wait (for mpcSendInterval)
+           onStart -- retry
+
+  where
+
+    getOurVssCertificate :: m VssCertificate
+    getOurVssCertificate = do
+        (ourPk, ourAddr) <- getOurPkAndAddr
+        localCerts       <- sscRunLocalQuery $ view gtLocalCertificates
+        case lookup ourAddr localCerts of
+          Just c  -> return c
+          Nothing -> do
+            ourSk         <- ncSecretKey <$> getNodeContext
+            ourVssKeyPair <- getOurVssKeyPair
+            let vssKey  = serialize $ toVssPublicKey ourVssKeyPair
+                ourCert = VssCertificate { vcVssKey     = vssKey
+                                         , vcSignature  = sign ourSk vssKey
+                                         , vcSigningKey = ourPk
+                                         }
+            sscRunLocalUpdate $ gtLocalCertificates %= insert ourAddr ourCert
+            return ourCert
+
+isVssCertificateVerified :: forall m. WorkMode SscGodTossing m => m Bool
+isVssCertificateVerified = (||) <$> isInGenesis <*> isAtDepthK
+
+  where
+
+    isInGenesis :: m Bool
+    isInGenesis = (`elem` genesisVssKeyPairs) <$> getOurVssKeyPair
+
+    isAtDepthK :: m Bool
+    isAtDepthK = do
+        md <- getGlobalMpcDataByDepth k
+        case md of
+          Nothing -> return False
+          Just d  -> do
+              (_, ourAddr) <- getOurPkAndAddr
+              let certs = d ^. gsVssCertificates
+              return $ member ourAddr certs
+
+getOurPkAndAddr :: WorkMode SscGodTossing m => m (PublicKey, Address)
+getOurPkAndAddr = do
+    ourPk <- ncPublicKey <$> getNodeContext
+    return (ourPk, makePubKeyAddress ourPk)
+
+getOurVssKeyPair :: WorkMode SscGodTossing m => m VssKeyPair
+getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
+
+getGtcVssCertificateVerified :: WorkMode SscGodTossing m => m (TVar Bool)
+getGtcVssCertificateVerified = gtcVssCertificateVerified . ncSscContext <$> getNodeContext
 
 onNewSlotSsc :: WorkMode SscGodTossing m => m ()
-onNewSlotSsc = onNewSlot True $ \slotId-> do
-    localOnNewSlot slotId
-    prepareSecretToNewSlot slotId
-    onNewSlotCommitment slotId
-    onNewSlotOpening slotId
-    onNewSlotShares slotId
-    checkpointSecret
+onNewSlotSsc = do
+    logDebug "Waiting until our VssCertificate has been verified."
+    b <- getGtcVssCertificateVerified
+    atomically $ do
+        verified <- readTVar b
+        unless verified retry
+    logDebug "Finished waiting - our VssCertificate has just been verified."
+    onNewSlot True $ \slotId-> do
+        localOnNewSlot slotId
+        prepareSecretToNewSlot slotId
+        participationEnabled <- getNodeContext >>=
+            atomically . readTVar . gtcParticipateSsc . ncSscContext
+        when participationEnabled $ do
+            onNewSlotCommitment slotId
+            onNewSlotOpening slotId
+            onNewSlotShares slotId
+            checkpointSecret
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment :: WorkMode SscGodTossing m => SlotId -> m ()
@@ -74,11 +169,8 @@ onNewSlotCommitment SlotId {..} = do
     ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
     ourSk <- ncSecretKey <$> getNodeContext
     shouldCreateCommitment <- do
-        participationEnabled <- getNodeContext >>=
-            atomically . readTVar . gtcParticipateSsc . ncSscContext
         secret <- getSecret
-        return $
-            and [participationEnabled, isCommitmentIdx siSlot, isNothing secret]
+        return $ and [isCommitmentIdx siSlot, isNothing secret]
     when shouldCreateCommitment $ do
         logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
         generated <- generateAndSetNewSecret ourSk siEpoch

@@ -37,7 +37,7 @@ import           Serokell.Util           (VerificationRes (..))
 import           Universum
 
 import           Pos.Constants           (k, maxLocalTxs)
-import           Pos.Crypto              (hash)
+import           Pos.Crypto              (WithHash (..), withHash)
 import           Pos.State.Storage.Types (AltChain, ProcessTxRes (..), mkPTRinvalid)
 import           Pos.Types               (Block, SlotId, Tx (..), TxId, Utxo,
                                           applyTxToUtxo, blockSlot, blockTxs,
@@ -52,7 +52,7 @@ data TxStorage = TxStorage
       -- the head of last block's utxo) transactions which are known
       -- to the node and are /not/ included in the blockchain store by
       -- the node. This set is used later to form the block payload.
-      _txLocalTxs     :: !(HashSet Tx)
+      _txLocalTxs     :: !(HashSet (WithHash Tx))
     , -- | @length@ is @O(n)@ for 'HE.HashSet' so we store it explicitly.
       _txLocalTxsSize :: !Int
     , -- | Set of unspent transaction outputs formed by applying
@@ -86,24 +86,24 @@ txStorageFromUtxo u =
 type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
 
 -- | Query returning '_txLocalTxs'
-getLocalTxs :: Query (HashSet Tx)
+getLocalTxs :: Query (HashSet (WithHash Tx))
 getLocalTxs = view txLocalTxs
 
 -- | Given number of blocks to rollback and some sidechain to adopt it
 -- checks if it can be done prior to transaction validity. Returns a
 -- list of topsorted transactions, head ~ deepest block on success.
-txVerifyBlocks :: Word -> AltChain ssc -> Query (Either Text [[Tx]])
+txVerifyBlocks :: Word -> AltChain ssc -> Query (Either Text [[WithHash Tx]])
 txVerifyBlocks (fromIntegral -> toRollback) newChain = do
     (preview (txUtxoHistory . ix toRollback)) <&> \case
         Nothing ->
             Left $ sformat ("Can't rollback on "%int%" blocks") toRollback
         Just utxo -> reverse . snd <$> foldM verifyDo (utxo, []) newChainTxs
   where
-    newChainTxs :: [(SlotId,[Tx])]
+    newChainTxs :: [(SlotId,[WithHash Tx])]
     newChainTxs =
-        fmap (\b -> (b ^. blockSlot, toList $ b ^. blockTxs)) . rights $
+        fmap (\b -> (b ^. blockSlot, fmap withHash $ toList $ b ^. blockTxs)) . rights $
         NE.toList newChain
-    verifyDo :: (Utxo,[[Tx]]) -> (SlotId, [Tx]) -> Either Text (Utxo, [[Tx]])
+    verifyDo :: (Utxo,[[WithHash Tx]]) -> (SlotId, [WithHash Tx]) -> Either Text (Utxo, [[WithHash Tx]])
     verifyDo (utxo,accTxs) (slotId, txs) =
         case verifyAndApplyTxs txs utxo of
           Left reason        -> Left $ sformat eFormat slotId reason
@@ -131,17 +131,17 @@ isTxVerified tx = do
 type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
 
 -- | Add transaction to storage if it is fully valid.
-processTx :: Tx -> Update ProcessTxRes
+processTx :: WithHash Tx -> Update ProcessTxRes
 processTx tx = do
     localSetSize <- use txLocalTxsSize
     if localSetSize < maxLocalTxs
         then processTxDo tx
         else pure PTRoverwhelmed
 
-processTxDo :: Tx -> Update ProcessTxRes
+processTxDo :: WithHash Tx -> Update ProcessTxRes
 processTxDo tx =
     ifM isKnown (pure PTRknown) $
-    verifyTx tx >>= \case
+    verifyTx tx' >>= \case
         VerSuccess -> do
             txLocalTxs %= HS.insert tx
             txLocalTxsSize += 1
@@ -150,11 +150,12 @@ processTxDo tx =
         VerFailure errors ->
             pure (mkPTRinvalid errors)
   where
+    tx' = whData tx
     isKnown =
         or <$>
         sequence
             [ HS.member tx <$> use txLocalTxs
-            , isJust . snd . LRU.lookup (hash tx) <$> use txFilterCache
+            , isJust . snd . LRU.lookup (whHash tx) <$> use txFilterCache
             ]
 
 -- | Checks if it's possible to apply transaction to current local
@@ -164,11 +165,11 @@ verifyTx tx = uses txUtxo $ flip verifyTxUtxo tx
 
 -- | Applies transaction to current utxo. Should be called only if
 -- it's possible to do so (see 'verifyTx').
-applyTx :: Tx -> Update ()
+applyTx :: WithHash Tx -> Update ()
 applyTx tx = txUtxo %= applyTxToUtxo tx
 
 -- | Removes transaction from the local transaction set.
-removeLocalTx :: Tx -> Update ()
+removeLocalTx :: WithHash Tx -> Update ()
 removeLocalTx tx = do
     present <- HS.member tx <$> use txLocalTxs
     when present $ do
@@ -176,8 +177,8 @@ removeLocalTx tx = do
         txLocalTxsSize -= 1
 
 -- | Insert transaction which is in block into filter cache.
-cacheTx :: Tx -> Update ()
-cacheTx (hash -> txId) = txFilterCache %= LRU.insert txId ()
+cacheTx :: TxId -> Update ()
+cacheTx txId = txFilterCache %= LRU.insert txId ()
 
 -- | Apply chain of /definitely/ valid blocks which go right after
 -- last applied block. If invalid block is passed, this function will
@@ -200,7 +201,7 @@ txApplyBlocks blocks = do
             -- application and regenerate local utxo with them
             overrideWithLocalTxs
 
-txApplyBlock :: (Block ssc, [Tx]) -> Update ()
+txApplyBlock :: (Block ssc, [WithHash Tx]) -> Update ()
 txApplyBlock (Left _, _) = do
     utxo <- use txUtxo
     txUtxoHistory %= (utxo:)
@@ -211,7 +212,7 @@ txApplyBlock (_, txs) = do
     -- more transactions from local storage then txs (see
     -- overrideWithLocalTxs usage in txApplyBlocks), it should be okay
     -- not to invalidate them because their inputs are used already.
-    mapM_ cacheTx txs
+    mapM_ (cacheTx . whHash) txs
     mapM_ removeLocalTx txs
     utxo <- use txUtxo
     txUtxoHistory %= (utxo:)
@@ -235,7 +236,7 @@ txRollback (fromIntegral -> n) = do
 -- that don't make sense anymore (e.g. after block application that
 -- spends utxo we were counting on). Returns new transaction list,
 -- sorted.
-filterLocalTxs :: Update [Tx]
+filterLocalTxs :: Update [WithHash Tx]
 filterLocalTxs = do
     txs <- uses txLocalTxs toList
     utxo <- use txUtxo

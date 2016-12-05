@@ -13,6 +13,7 @@ module Pos.Launcher
        ) where
 
 import           Pos.Launcher.Launcher as Launcher
+import           Pos.Launcher.Options  as Launcher
 import           Pos.Launcher.Param    as Launcher
 import           Pos.Launcher.Runner   as Launcher
 import           Pos.Launcher.Scenario as Launcher

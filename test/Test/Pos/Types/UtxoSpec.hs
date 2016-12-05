@@ -9,7 +9,7 @@ module Test.Pos.Types.UtxoSpec
 import           Control.Lens          (view, _1)
 import qualified Data.Map              as M (Map, delete, elems, fromList, insert, keys)
 import           Data.Maybe            (isJust, isNothing)
-import           Pos.Crypto            (hash, keyGen, sign, unsafeHash)
+import           Pos.Crypto            (hash, keyGen, sign, unsafeHash, withHash)
 import           Pos.Types             (GoodTx (..), Redeemer (..), SmallGoodTx (..),
                                         Tx (..), TxIn (..), TxOut, Utxo, Validator (..),
                                         applyTxToUtxo, deleteTxIn, findTxIn, verifyTxUtxo)
@@ -69,7 +69,7 @@ verifyTxInUtxo :: SmallGoodTx -> Bool
 verifyTxInUtxo (SmallGoodTx (getGoodTx -> ls)) =
     let txs = fmap (view _1) ls
         newTx = uncurry Tx $ unzip $ map (\(_, tIs, tOs) -> (tIs, tOs)) ls
-        utxo = foldr applyTxToUtxo mempty txs
+        utxo = foldr applyTxToUtxo mempty $ map withHash txs
     in isVerSuccess $ verifyTxUtxo utxo newTx
 
 applyTxToUtxoGood :: M.Map TxIn TxOut -> [TxOut] -> Bool
@@ -79,7 +79,7 @@ applyTxToUtxoGood txMap txOuts =
         inpFun = (\(TxIn h i _ _) -> (h,i))
         inpList = map inpFun txInps
         utxoMap = M.fromList $ zip inpList (M.elems txMap)
-        newUtxoMap = applyTxToUtxo (Tx txInps txOuts) utxoMap
+        newUtxoMap = applyTxToUtxo (withHash $ Tx txInps txOuts) utxoMap
         newUtxos = ((repeat hashTx) `zip` [0 ..]) `zip` txOuts
         rmvUtxo = foldr M.delete utxoMap inpList
         insNewUtxo = foldr (uncurry M.insert) rmvUtxo newUtxos

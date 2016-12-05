@@ -16,22 +16,16 @@ module Pos.Launcher.Launcher
        , runNodeStats
 
          -- * Utility launchers.
-       , submitTxReal
        ) where
 
 import           Universum
 
-import           Pos.DHT               (DHTNode (dhtAddr), DHTNodeType (..),
-                                        MonadDHT (..), filterByNodeType)
 import           Pos.DHT.Real          (KademliaDHTInstance)
 import           Pos.Launcher.Param    (NodeParams (..))
-import           Pos.Launcher.Runner   (bracketDHTInstance, runProductionMode,
-                                        runRawRealMode, runStatsMode)
-import           Pos.Launcher.Scenario (runNode, submitTx)
+import           Pos.Launcher.Runner   (runProductionMode, runStatsMode)
+import           Pos.Launcher.Scenario (runNode)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Ssc.Class.Types   (SscParams)
-import           Pos.Statistics        (getNoStatsT)
-import           Pos.Types             (Address, Coin, TxId)
 import           Pos.WorkMode          (ProductionMode, StatsMode)
 
 -----------------------------------------------------------------------------
@@ -67,15 +61,3 @@ instance SscConstraint ssc => NodeRunnerClass ssc (StatsMode ssc) where
 ----------------------------------------------------------------------------
 -- Utilities
 ----------------------------------------------------------------------------
-
--- | Submit tx in real mode.
-submitTxReal
-    :: forall ssc .
-    SscConstraint ssc
-    => NodeParams -> SscParams ssc -> (TxId, Word32) -> (Address, Coin) -> IO ()
-submitTxReal np sscnp input addrCoin = bracketDHTInstance (npBaseParams np) action
-  where
-    action inst = runRawRealMode @ssc inst np sscnp [] $ do
-        peers <- getKnownPeers
-        let na = dhtAddr <$> filterByNodeType DHTFull peers
-        void $ getNoStatsT $ (submitTx @ssc) na input addrCoin

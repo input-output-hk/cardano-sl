@@ -1,11 +1,14 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 
 module Main where
 
+import           Universum
+#ifdef WITH_WALLET
 import           Control.Monad.Reader   (MonadReader (..), ReaderT, asks, runReaderT)
 import           Control.TimeWarp.Rpc   (NetworkAddress)
 import           Control.TimeWarp.Timed (for, fork_, wait)
@@ -14,7 +17,6 @@ import           Formatting             (build, int, sformat, (%))
 import           Options.Applicative    (execParser)
 import           System.IO              (hFlush, stdout)
 import           Test.QuickCheck        (arbitrary, generate)
-import           Universum
 
 import           Pos.Constants          (slotDuration)
 import           Pos.Crypto             (KeyPair (..), SecretKey, toPublic)
@@ -142,3 +144,7 @@ main = do
             NistBeaconAlgo -> putText "Using NIST beacon" *>
                               runWallet @SscNistBeacon inst params () opts
 
+#else
+main :: IO ()
+main = panic "Wallet is disabled!"
+#endif

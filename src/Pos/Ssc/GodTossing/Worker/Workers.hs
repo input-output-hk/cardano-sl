@@ -12,7 +12,7 @@ module Pos.Ssc.GodTossing.Worker.Workers
        ) where
 
 import           Control.Concurrent.STM                 (TVar, readTVar, writeTVar)
-import           Control.Lens                           (view, _2, _3, (%=), (^.))
+import           Control.Lens                           (view, (%=), (^.), _2, _3)
 import           Control.Monad.Trans.Maybe              (runMaybeT)
 import           Control.TimeWarp.Timed                 (Microsecond, Millisecond,
                                                          currentTime, for, wait)
@@ -49,14 +49,15 @@ import           Pos.Ssc.GodTossing.SecretStorage.State (checkpointSecret, getSe
                                                          prepareSecretToNewSlot,
                                                          setSecret)
 import           Pos.Ssc.GodTossing.Types.Base          (Opening, SignedCommitment,
-                                                         VssCertificate(..))
+                                                         VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Instance      ()
 import           Pos.Ssc.GodTossing.Types.Message       (DataMsg (..), InvMsg (..),
                                                          MsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types         (gtcParticipateSsc, gtcVssKeyPair,
+import           Pos.Ssc.GodTossing.Types.Types         (gsVssCertificates,
+                                                         gtcParticipateSsc,
                                                          gtcVssCertificateVerified,
-                                                         gsVssCertificates)
+                                                         gtcVssKeyPair)
 import           Pos.State                              (getGlobalMpcData,
                                                          getGlobalMpcDataByDepth,
                                                          getOurShares, getParticipants,
@@ -88,6 +89,7 @@ onStart = do
            (_, ourAddr)      <- getOurPkAndAddr
            ourVssCertificate <- getOurVssCertificate
            let msg = DMVssCertificate ourAddr ourVssCertificate
+           -- [CSL-245]: do not catch all, catch something more concrete.
            (sendToNeighborsSafe msg >> logDebug "Announced our VssCertificate.")
                `catchAll` \e ->
                logError $ sformat ("Error announcing our VssCertificate: " % shown) e

@@ -155,10 +155,13 @@ onNewSlotSsc = do
     onNewSlot True $ \slotId-> do
         localOnNewSlot slotId
         prepareSecretToNewSlot slotId
-        onNewSlotCommitment slotId
-        onNewSlotOpening slotId
-        onNewSlotShares slotId
-        checkpointSecret
+        participationEnabled <- getNodeContext >>=
+            atomically . readTVar . gtcParticipateSsc . ncSscContext
+        when participationEnabled $ do
+            onNewSlotCommitment slotId
+            onNewSlotOpening slotId
+            onNewSlotShares slotId
+            checkpointSecret
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment :: WorkMode SscGodTossing m => SlotId -> m ()
@@ -166,11 +169,8 @@ onNewSlotCommitment SlotId {..} = do
     ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
     ourSk <- ncSecretKey <$> getNodeContext
     shouldCreateCommitment <- do
-        participationEnabled <- getNodeContext >>=
-            atomically . readTVar . gtcParticipateSsc . ncSscContext
         secret <- getSecret
-        return $
-            and [participationEnabled, isCommitmentIdx siSlot, isNothing secret]
+        return $ and [isCommitmentIdx siSlot, isNothing secret]
     when shouldCreateCommitment $ do
         logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
         generated <- generateAndSetNewSecret ourSk siEpoch

@@ -48,15 +48,18 @@ evalCmd (Send outputs) = do
     tx <- lift (submitTx sk na outputs)
     putText $ sformat ("Submitted transaction: "%txF) tx
     evalCommands
-evalCmd Help =
-    putText "Avaliable commands:\n\
-            \   balance <address>          -- check balance on given address\n\
-            \   send [<address> <coins>]+  -- create and send transaction with given outputs\n\
-            \                                 from current wallet address\n\
-            \   myaddress                  -- get current wallet address\n\
-            \   help                       -- show this message\n\
-            \   quit                       -- shutdown node wallet"
-    >> evalCommands
+evalCmd Help = do
+    putText $
+        unlines
+            [ "Avaliable commands:"
+            , "   balance <address>          -- check balance on given address"
+            , "   send [<address> <coins>]+  -- create and send transaction with given outputs"
+            , "                                 from current wallet address"
+            , "   myaddress                  -- get current wallet address"
+            , "   help                       -- show this message"
+            , "   quit                       -- shutdown node wallet"
+            ]
+    evalCommands
 evalCmd MyAddress = asks fst >>=
                     putText . sformat build . makePubKeyAddress . toPublic >>
                     evalCommands
@@ -143,7 +146,6 @@ main = do
                               runWallet @SscGodTossing inst params gtParams opts
             NistBeaconAlgo -> putText "Using NIST beacon" *>
                               runWallet @SscNistBeacon inst params () opts
-
 #else
 main :: IO ()
 main = panic "Wallet is disabled!"

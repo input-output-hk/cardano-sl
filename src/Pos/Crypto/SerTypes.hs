@@ -52,6 +52,26 @@ checkLen action name len bs =
                 (stext % " " % stext % " failed: length of bytestring is " % int % " instead of " % int)
                 action name (LBS.length bs) len
 
+-- [CSL-246]: avoid boilerplate.
+{-
+#define Ser(B, A, Bytes, Name) \
+  newtype A = A ByteString \
+    deriving (Show, Eq) ;\
+  instance Binary A where {\
+    put (A bs) = putByteString bs ;\
+    get = A <$> getByteString Bytes}; \
+  instance Serialized B A where {\
+    serialize = decodeErr Name . checkLen "serialize" Name Bytes . encode ;\
+    deserialize = decodeFull . checkLen "deserialize" Name Bytes . encode }; \
+  deriveSafeCopySimple 0 'base ''A
+
+Ser(VssPublicKey, LVssPublicKey, 33, "LVssPublicKey")
+Ser(Secret, LSecret, 33, "LSecret")
+Ser(Share, LShare, 101, "LShare") --4+33+64
+Ser(EncShare, LEncShare, 101, "LEncShare")
+Ser(SecretProof, LSecretProof, 64, "LSecretProof")
+-}
+
 newtype LVssPublicKey = LVssPublicKey ByteString     deriving (Show, Eq) ;  instance Binary LVssPublicKey where {    put (LVssPublicKey bs) = putByteString bs ;    get = LVssPublicKey <$> getByteString 33};   instance Serialized VssPublicKey LVssPublicKey where {    serialize = decodeErr "LVssPublicKey" . checkLen "serialize" "LVssPublicKey" 33 . encode ;    deserialize = decodeFull . checkLen "deserialize" "LVssPublicKey" 33 . encode };   deriveSafeCopySimple 0 'base ''LVssPublicKey
 newtype LSecret = LSecret ByteString     deriving (Show, Eq) ;  instance Binary LSecret where {    put (LSecret bs) = putByteString bs ;    get = LSecret <$> getByteString 33};   instance Serialized Secret LSecret where {    serialize = decodeErr "LSecret" . checkLen "serialize" "LSecret" 33 . encode ;    deserialize = decodeFull . checkLen "deserialize" "LSecret" 33 . encode };   deriveSafeCopySimple 0 'base ''LSecret
 newtype LShare = LShare ByteString     deriving (Show, Eq) ;  instance Binary LShare where {    put (LShare bs) = putByteString bs ;    get = LShare <$> getByteString 101};   instance Serialized Share LShare where {    serialize = decodeErr "LShare" . checkLen "serialize" "LShare" 101 . encode ;    deserialize = decodeFull . checkLen "deserialize" "LShare" 101 . encode };   deriveSafeCopySimple 0 'base ''LShare --4+33+64

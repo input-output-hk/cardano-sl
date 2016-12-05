@@ -259,6 +259,9 @@ verifyHeader VerifyHeaderParams {..} h =
               (h ^. difficultyL)
         , checkHash (hash h) (nextHeader ^. prevBlockL)
         , checkSlot (getEpochOrSlot h) (getEpochOrSlot nextHeader)
+        , case nextHeader of
+              Left  _ -> (True, "") -- check that epochId h  < epochId nextHeader performed above
+              Right _ -> sameEpoch (h ^. epochIndexL) (nextHeader ^. epochIndexL)
         ]
     relatedToCurrentSlot curSlotId =
         [ ( either (const True) ((<= curSlotId) . view headerSlot) h

@@ -6,6 +6,7 @@ module Pos.Types.Address
        ) where
 
 import           Control.Lens           (view, _3)
+import           Control.Monad.Fail     (fail)
 import           Data.Aeson             (ToJSON (toJSON))
 import           Data.Binary            (Binary (..))
 import qualified Data.Binary            as Bi
@@ -54,7 +55,7 @@ instance Binary Address where
             ourChecksum = crc32 addr
         theirChecksum <- Bi.getWord32be
         if theirChecksum /= ourChecksum
-            then panic "Pos.Types.Address.get: invalid checksum!"
+            then fail "Address has invalid checksum!"
             else return addr
     put addr@PubKeyAddress {..} = do
         Bi.putWord8 addrVersion

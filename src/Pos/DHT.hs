@@ -43,7 +43,7 @@ import           Control.Monad.Morph       (hoist)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.TimeWarp.Rpc      (BinaryP, HeaderNContentData, Message,
                                             MonadDialog, MonadTransfer (..),
-                                            NetworkAddress, ResponseT, Unpackable, closeR,
+                                            NetworkAddress, ResponseT, closeR,
                                             hoistRespCond, mapResponseT, peerAddr, replyH,
                                             sendH)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
@@ -150,7 +150,7 @@ instance (Monad m, WithDefaultMsgHeader m) => WithDefaultMsgHeader (ReaderT r m)
 
 -- | Listener of DHT messages.
 data ListenerDHT m =
-    forall r . (Unpackable BinaryP (HeaderNContentData DHTMsgHeader r), Message r)
+    forall r . (Binary r, Message r)
             => ListenerDHT (r -> DHTResponseT m ())
 
 -- | Send 'defaultMsgHeader' for node with given 'NetworkAddress'.

@@ -32,8 +32,8 @@ import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum
 
 import           Pos.Constants        (epochSlots)
-import           Pos.Crypto           (Hash, SecretKey, hash, sign, toPublic, unsafeHash,
-                                       checkSig)
+import           Pos.Crypto           (Hash, SecretKey, checkSig, hash, sign, toPublic,
+                                       unsafeHash)
 import           Pos.Merkle           (mkMerkleTree)
 import           Pos.Ssc.Class.Types  (Ssc (..))
 -- Unqualified import is used here because of GHC bug (trac 12127).
@@ -237,12 +237,21 @@ verifyHeader VerifyHeaderParams {..} h =
               ("slots are not monotonic (" %build% " > " %build% ")")
               oldSlot newSlot
         )
+    sameEpoch oldEpoch newEpoch =
+        ( oldEpoch == newEpoch
+        , sformat
+              ("two adjacent blocks are from different epochs ("%build%" > "%build%")")
+              oldEpoch newEpoch
+        )
     relatedToPrevHeader prevHeader =
         [ checkDifficulty
               (prevHeader ^. difficultyL + headerDifficulty h)
               (h ^. difficultyL)
         , checkHash (hash prevHeader) (h ^. prevBlockL)
         , checkSlot (getEpochOrSlot prevHeader) (getEpochOrSlot h)
+        , case h of
+              Left  _ -> (True, "") -- check that epochId prevHeader < epochId h performed above
+              Right _ -> sameEpoch (prevHeader ^. epochIndexL) (h ^. epochIndexL)
         ]
     relatedToNextHeader nextHeader =
         [ checkDifficulty
@@ -250,6 +259,9 @@ verifyHeader VerifyHeaderParams {..} h =
               (h ^. difficultyL)
         , checkHash (hash h) (nextHeader ^. prevBlockL)
         , checkSlot (getEpochOrSlot h) (getEpochOrSlot nextHeader)
+        , case nextHeader of
+              Left  _ -> (True, "") -- check that epochId h  < epochId nextHeader performed above
+              Right _ -> sameEpoch (h ^. epochIndexL) (nextHeader ^. epochIndexL)
         ]
     relatedToCurrentSlot curSlotId =
         [ ( either (const True) ((<= curSlotId) . view headerSlot) h

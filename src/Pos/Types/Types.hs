@@ -777,8 +777,14 @@ instance HasEpochIndex SlotId where
 instance HasEpochIndex (MainBlock ssc) where
     epochIndexL = gbHeader . gbhConsensus . mcdSlot . epochIndexL
 
+instance HasEpochIndex (MainBlockHeader ssc) where
+    epochIndexL = gbhConsensus . mcdSlot . epochIndexL
+
 instance HasEpochIndex (GenesisBlock ssc) where
     epochIndexL = gbHeader . gbhConsensus . gcdEpoch
+
+instance HasEpochIndex (GenesisBlockHeader ssc) where
+    epochIndexL = gbhConsensus . gcdEpoch
 
 instance (HasEpochIndex a, HasEpochIndex b) =>
          HasEpochIndex (Either a b) where

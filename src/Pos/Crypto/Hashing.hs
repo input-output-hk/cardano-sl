@@ -8,10 +8,17 @@
 -- | Hashing capabilities.
 
 module Pos.Crypto.Hashing
-       ( WithHash (whData, whHash)
+       (
+         -- * WithHash
+         WithHash (whData, whHash)
        , withHash
 
+         -- * AbstractHash
        , AbstractHash (..)
+       , abstractHash
+       , unsafeAbstractHash
+
+         -- * Common Hash
        , Hash
        , hashHexF
        , shortHashF
@@ -19,7 +26,9 @@ module Pos.Crypto.Hashing
        , hashRaw
        , unsafeHash
 
+         -- * Utility
        , CastHash (castHash)
+       , HashAlgorithm
        ) where
 
 import           Control.DeepSeq     (force)
@@ -81,9 +90,6 @@ withHash a = WithHash a (force h)
 newtype AbstractHash algo a = AbstractHash (Digest algo)
     deriving (Show, Eq, Ord, ByteArray.ByteArrayAccess, Generic, NFData)
 
--- | Type alias for commonly used hash
-type Hash = AbstractHash Blake2b_512
-
 instance Hashable (AbstractHash algo a) where
     hashWithSalt s h = unsafeDupablePerformIO $ ByteArray.withByteArray h (\ptr -> hashPtrWithSalt ptr len s)
       where
@@ -109,6 +115,21 @@ instance HashAlgorithm algo => Binary (AbstractHash algo a) where
 instance Buildable.Buildable (AbstractHash algo a) where
     build (AbstractHash x) = bprint shown x
 
+-- | Encode thing as 'Binary' data and then wrap into constructor.
+abstractHash
+    :: (HashAlgorithm algo, Binary a)
+    => a -> AbstractHash algo a
+abstractHash = unsafeAbstractHash
+
+-- | Unsafe version of abstractHash.
+unsafeAbstractHash
+    :: (HashAlgorithm algo, Binary a)
+    => a -> AbstractHash algo b
+unsafeAbstractHash = AbstractHash . Hash.hashlazy . Binary.encode
+
+-- | Type alias for commonly used hash
+type Hash = AbstractHash Blake2b_512
+
 instance ToJSON (Hash a) where
     toJSON = toJSON . pretty
 
@@ -122,7 +143,7 @@ hashRaw = AbstractHash . Hash.hash
 
 -- | Encode thing as 'Binary' data and then wrap into constructor.
 unsafeHash :: Binary a => a -> Hash b
-unsafeHash = AbstractHash . Hash.hashlazy . Binary.encode
+unsafeHash = unsafeAbstractHash
 
 -- | Specialized formatter for 'Hash'.
 hashHexF :: Format r (Hash a -> r)

@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
--- | `Arbitrary` instances for `Hash` and `AddressHash`
+-- | `Arbitrary` instances for `AbstractHash`.
 --
 -- Moved to a separate module to suppress `redundant constraint`
 -- warning about `Binary a` constraint
@@ -11,20 +11,16 @@
 module Pos.Crypto.Arbitrary.Hash () where
 
 import           Data.Binary               (Binary)
-import           Test.QuickCheck           (Arbitrary (..), Gen)
+import           Test.QuickCheck           (Arbitrary (..))
 import           Test.QuickCheck.Instances ()
 import           Universum
 
-import           Pos.Crypto.Address        (AddressHash, unsafeAddressHash)
-import           Pos.Crypto.Hashing        (Hash, unsafeHash)
+import           Pos.Crypto.Hashing        (AbstractHash, HashAlgorithm,
+                                            unsafeAbstractHash)
 import           Pos.Util.Arbitrary        (ArbitraryUnsafe)
 
-instance Binary a => Arbitrary (Hash a) where
-    arbitrary = unsafeHash <$> (arbitrary :: Gen ByteString)
+instance (HashAlgorithm algo, Binary a) =>
+         Arbitrary (AbstractHash algo a) where
+    arbitrary = unsafeAbstractHash <$> (arbitrary @Int64)
 
-instance Binary a => ArbitraryUnsafe (Hash a)
-
-instance Binary a => Arbitrary (AddressHash a) where
-    arbitrary = unsafeAddressHash <$> (arbitrary :: Gen ByteString)
-
-instance Binary a => ArbitraryUnsafe (AddressHash a)
+instance (HashAlgorithm algo, Binary a) => ArbitraryUnsafe (AbstractHash algo a)

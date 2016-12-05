@@ -99,7 +99,6 @@ library
                         Pos.Communication.Util
                         Pos.CompileConfig.Parser
                         Pos.CompileConfig.Type
-                        Pos.Crypto.Address
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
@@ -471,7 +470,7 @@ executable cardano-wallet-web-docs
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
 
- 
+
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec

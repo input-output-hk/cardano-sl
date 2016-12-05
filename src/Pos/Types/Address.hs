@@ -1,12 +1,14 @@
 module Pos.Types.Address
        ( Address (..)
        , addressF
-       , makePubKeyAddress
        , checkPubKeyAddress
+       , makePubKeyAddress
        ) where
 
 import           Control.Lens           (view, _3)
 import           Control.Monad.Fail     (fail)
+import           Crypto.Hash            (Blake2s_224, Digest, SHA3_256, hashlazy)
+import qualified Crypto.Hash            as CryptoHash
 import           Data.Aeson             (ToJSON (toJSON))
 import           Data.Binary            (Binary (..))
 import qualified Data.Binary            as Bi
@@ -26,7 +28,7 @@ import           Formatting             (Format, build, sformat)
 import           Prelude                (String, readsPrec, show)
 import           Universum              hiding (show)
 
-import           Pos.Crypto             (AddressHash, PublicKey, addressHash)
+import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey)
 
 -- | Address versions are here for dealing with possible backwards
 -- compatibility issues in the future
@@ -112,3 +114,19 @@ checkPubKeyAddress pk PubKeyAddress {..} = addrHash == addressHash pk
 -- | Specialized formatter for 'Address'.
 addressF :: Format r (Address -> r)
 addressF = build
+
+----------------------------------------------------------------------------
+-- Hashing
+----------------------------------------------------------------------------
+type AddressHash = AbstractHash Blake2s_224
+
+unsafeAddressHash :: Binary a => a -> AddressHash b
+unsafeAddressHash = AbstractHash . secondHash . firstHash
+  where
+    firstHash :: Binary a => a -> Digest SHA3_256
+    firstHash = hashlazy . Bi.encode
+    secondHash :: Digest SHA3_256 -> Digest Blake2s_224
+    secondHash = CryptoHash.hash
+
+addressHash :: Binary a => a -> AddressHash a
+addressHash = unsafeAddressHash

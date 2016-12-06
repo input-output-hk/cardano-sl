@@ -14,7 +14,9 @@ import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
 import           Pos.Crypto            (EncShare, Hash, KeyPair (..), LEncShare, LSecret,
+                                        LSecretProof, LSecretSharingExtra, LShare,
                                         LVssPublicKey, PublicKey, Secret, SecretKey,
+                                        SecretProof, SecretSharingExtra, Share,
                                         Signature, Signed, VssPublicKey, checkSig,
                                         deterministic, fullPublicKeyF, hash,
                                         parseFullPublicKey, randomNumber, sign, toPublic)
@@ -72,7 +74,10 @@ spec = describe "Crypto" $ do
                 prop "VssPublicKey"  (binaryEncodeDecode @VssPublicKey)
                 prop "LVssPublicKey" (binaryEncodeDecode @LVssPublicKey)
                 prop "LSecret"       (binaryEncodeDecode @LSecret)
+                prop "LShare"        (binaryEncodeDecode @LShare)
                 prop "LEncShare"     (binaryEncodeDecode @LEncShare)
+                prop "LSecretProof"  (binaryEncodeDecode @LSecretProof)
+                prop "LSecretSharingExtra" (binaryEncodeDecode @LSecretSharingExtra)
             describe "SafeCopy instances" $ do
                 prop "SecretKey"     (safeCopyEncodeDecode @SecretKey)
                 prop "PublicKey"     (safeCopyEncodeDecode @PublicKey)
@@ -80,14 +85,23 @@ spec = describe "Crypto" $ do
                 prop "Signed"        (safeCopyEncodeDecode @(Signed Bool))
                 prop "LVssPublicKey" (safeCopyEncodeDecode @LVssPublicKey)
                 prop "LSecret"       (safeCopyEncodeDecode @LSecret)
+                prop "LShare"        (safeCopyEncodeDecode @LShare)
                 prop "LEncShare"     (safeCopyEncodeDecode @LEncShare)
+                prop "LSecretProof"  (safeCopyEncodeDecode @LSecretProof)
+                prop "LSecretSharingExtra" (safeCopyEncodeDecode @LSecretSharingExtra)
         describe "Serialized" $ do
             prop "VssPublicKey <-> LVssPublicKey"
                 (serDeserId @VssPublicKey @LVssPublicKey)
             prop "Secret <-> LSecret"
                 (serDeserId @Secret @LSecret)
+            prop "Share <-> LShare"
+                (serDeserId @Share @LShare)
             prop "EncShare <-> LEncShare"
                 (serDeserId @EncShare @LEncShare)
+            prop "SecretProof <-> LSecretProof"
+                (serDeserId @SecretProof @LSecretProof)
+            prop "SecretSharingExtra <-> LSecretSharingExtra"
+                (serDeserId @SecretSharingExtra @LSecretSharingExtra)
         describe "keys" $ do
             prop
                 "derived pubkey equals to generated pubkey"

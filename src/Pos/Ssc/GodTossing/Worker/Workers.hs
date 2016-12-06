@@ -145,23 +145,20 @@ getGtcVssCertificateVerified :: WorkMode SscGodTossing m => m (TVar Bool)
 getGtcVssCertificateVerified = gtcVssCertificateVerified . ncSscContext <$> getNodeContext
 
 onNewSlotSsc :: WorkMode SscGodTossing m => m ()
-onNewSlotSsc = do
-    logDebug "Waiting until our VssCertificate has been verified."
-    b <- getGtcVssCertificateVerified
-    atomically $ do
-        verified <- readTVar b
-        unless verified retry
-    logDebug "Finished waiting - our VssCertificate has just been verified."
-    onNewSlot True $ \slotId-> do
-        localOnNewSlot slotId
-        prepareSecretToNewSlot slotId
-        participationEnabled <- getNodeContext >>=
-            atomically . readTVar . gtcParticipateSsc . ncSscContext
-        when participationEnabled $ do
-            onNewSlotCommitment slotId
-            onNewSlotOpening slotId
-            onNewSlotShares slotId
-            checkpointSecret
+onNewSlotSsc = onNewSlot True $ \slotId-> do
+    localOnNewSlot slotId
+    verified <- getGtcVssCertificateVerified >>= atomically . readTVar
+    if verified
+       then do
+           prepareSecretToNewSlot slotId
+           participationEnabled <- getNodeContext >>=
+               atomically . readTVar . gtcParticipateSsc . ncSscContext
+           when participationEnabled $ do
+               onNewSlotCommitment slotId
+               onNewSlotOpening slotId
+               onNewSlotShares slotId
+               checkpointSecret
+       else logDebug "Our VssCertificate has not been verified yet."
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment :: WorkMode SscGodTossing m => SlotId -> m ()

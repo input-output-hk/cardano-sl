@@ -311,38 +311,6 @@ executable cardano-analyzer
 executable cardano-wallet
   hs-source-dirs:      src/wallet
   main-is:             Main.hs
-  other-modules:       WalletOptions
-  build-depends:       base
-                     , data-default
-                     , cardano-sl
-                     , formatting
-                     , log-warper >= 0.1.0
-                     , optparse-applicative
-                     , parsec
-                     , serokell-util
-                     , time-warp
-                     , universum >= 0.1.11
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -with-rtsopts=-N
-                       -O2
-  default-extensions:   DeriveDataTypeable
-                        DeriveGeneric
-                        GeneralizedNewtypeDeriving
-                        NoImplicitPrelude
-                        OverloadedStrings
-                        RecordWildCards
-                        TypeApplications
-  if flag(with-web)
-    cpp-options: -DWITH_WEB
-  if flag(with-wallet)
-    cpp-options: -DWITH_WALLET
-
-executable cardano-smart-wallet
-  hs-source-dirs:      src/smart-wallet
-  main-is:             Main.hs
   if flag(with-wallet)
     other-modules:     WalletOptions
                        Command

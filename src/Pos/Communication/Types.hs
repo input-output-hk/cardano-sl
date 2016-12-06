@@ -9,7 +9,7 @@ module Pos.Communication.Types
          -- * Request types
        , module Pos.Communication.Types.Block
        , module Pos.Communication.Types.SysStart
-       , module Pos.Communication.Types.Tx
+       , module Pos.Txp.Types.Listener
 
        , noCacheMessageNames
        ) where
@@ -19,7 +19,7 @@ import           Data.Proxy                       (Proxy (..))
 
 import           Pos.Communication.Types.Block
 import           Pos.Communication.Types.SysStart
-import           Pos.Communication.Types.Tx
+import           Pos.Txp.Types.Listener
 import           Pos.DHT                          (MonadResponseDHT)
 import           Pos.WorkMode                     (WorkMode)
 

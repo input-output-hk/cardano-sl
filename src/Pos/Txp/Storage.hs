@@ -10,7 +10,7 @@
 -- | Internal state of the transaction-handling worker. Trasnaction
 -- processing logic.
 
-module Pos.State.Storage.Tx
+module Pos.Txp.Storage
        (
          TxStorage (..)
        , HasTxStorage (txStorage)

@@ -4,7 +4,7 @@
 
 -- | Types used for communication about Blocks.
 
-module Pos.Communication.Types.Tx
+module Pos.Txp.Types.Listener
        ( SendTx (..)
        , SendTxs (..)
        ) where

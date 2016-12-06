@@ -64,8 +64,10 @@ library
                         Pos.State.Storage
                         Pos.State.Storage.Block
                         Pos.State.Storage.Types
-                        Pos.State.Storage.Tx
                         Pos.Statistics
+                        Pos.Txp.Listeners
+                        Pos.Txp.Storage
+                        Pos.Txp.Workers
                         Pos.Types
                         Pos.Types.Address
                         Pos.Types.Arbitrary
@@ -90,11 +92,9 @@ library
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
                         Pos.Communication.Types.SysStart
-                        Pos.Communication.Types.Tx
                         Pos.Communication.Server
                         Pos.Communication.Server.Block
                         Pos.Communication.Server.SysStart
-                        Pos.Communication.Server.Tx
                         Pos.Communication.Util
                         Pos.CompileConfig.Parser
                         Pos.CompileConfig.Type
@@ -135,9 +135,9 @@ library
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
+                        Pos.Txp.Types.Listener
                         Pos.Worker.Block
                         Pos.Worker.Stats
-                        Pos.Worker.Tx
                         Pos.Util.Arbitrary
                         Pos.Util.NotImplemented
   if flag(with-web)

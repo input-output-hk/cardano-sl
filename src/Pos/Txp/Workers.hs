@@ -3,7 +3,7 @@
 
 -- | Tx processing related workers.
 
-module Pos.Worker.Tx
+module Pos.Txp.Workers
        ( txWorkers
        ) where
 

@@ -70,12 +70,12 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
                                           blkSetHead, getBestChain, getBlock,
                                           getBlockByDepth, getHeadBlock, getLeaders,
                                           getSlotDepth, mayBlockBeUseful, mkBlockStorage)
-import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
+import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
+                                          ProcessTxRes (..), mkPBRabort)
+import           Pos.Txp.Storage         (HasTxStorage (txStorage), TxStorage,
                                           getLocalTxs, getUtxoByDepth, isTxVerified,
                                           processTx, txApplyBlocks, txRollback,
                                           txStorageFromUtxo, txVerifyBlocks)
-import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
-                                          ProcessTxRes (..), mkPBRabort)
 import           Pos.Types               (Address, Block, EpochIndex, EpochOrSlot (..),
                                           GenesisBlock, MainBlock, SlotId (..),
                                           SlotLeaders, Utxo, blockMpc, blockTxs,

@@ -4,7 +4,7 @@
 
 -- | Server which handles transactions.
 
-module Pos.Communication.Server.Tx
+module Pos.Txp.Listeners
        ( txListeners
        ) where
 

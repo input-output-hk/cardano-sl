@@ -41,11 +41,10 @@ import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, c
                                             throwM)
 import           Control.Monad.Morph       (hoist)
 import           Control.Monad.Trans.Class (MonadTrans)
-import           Control.TimeWarp.Rpc      (BinaryP, HeaderNContentData, Message,
-                                            MonadDialog, MonadTransfer (..),
-                                            NetworkAddress, ResponseT, closeR,
-                                            hoistRespCond, mapResponseT, peerAddr, replyH,
-                                            sendH)
+import           Control.TimeWarp.Rpc      (BinaryP, Message, MonadDialog,
+                                            MonadTransfer (..), NetworkAddress, ResponseT,
+                                            closeR, hoistRespCond, mapResponseT, peerAddr,
+                                            replyH, sendH)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Data.Binary               (Binary)
 import           Data.Proxy                (Proxy (Proxy))

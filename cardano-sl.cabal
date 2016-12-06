@@ -378,6 +378,8 @@ executable cardano-smart-wallet
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+  if flag(with-web)
+    cpp-options: -DWITH_WEB
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
 

@@ -107,7 +107,7 @@ main = do
         baseParams =
             BaseParams
             { bpLoggingParams      = logParams
-            , bpPort               = 24961
+            , bpPort               = woPort
             , bpDHTPeers           = woDHTPeers
             , bpDHTKeyOrType       = Right DHTFull
             , bpDHTExplicitInitial = woDhtExplicitInitial
@@ -123,8 +123,8 @@ main = do
 
         let params =
                 NodeParams
-                { npDbPath      = Nothing
-                , npRebuildDb   = False
+                { npDbPath      = Just woDbPath
+                , npRebuildDb   = woRebuildDb
                 , npSystemStart = systemStart
                 , npSecretKey   = sk
                 , npBaseParams  = baseParams

@@ -1,3 +1,6 @@
+{-# LANGUAGE CPP #-}
+
+-- | Command line options of cardano-wallet
 
 module WalletOptions
        ( WalletOptions (..)
@@ -17,8 +20,14 @@ import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 
 
 data WalletOptions = WalletOptions
-    { woDHTPeers           :: ![DHTNode]  -- ^ Initial DHT nodes
+    { woDbPath             :: !FilePath
+    , woRebuildDb          :: !Bool
+    , woDHTPeers           :: ![DHTNode]  -- ^ Initial DHT nodes
     , woDhtExplicitInitial :: !Bool
+    , woPort               :: !Word16     -- ^ DHT/Blockchain port
+#ifdef WITH_WEB
+    , woWebPort            :: !Word16     -- ^ A port on which web API listens
+#endif
     , woInitialPause       :: !Int     -- ^ Pause between connecting to network
                                        -- and starting accepting commands (in slots)
     , woSecretKeyIdx       :: !Int     -- ^ Index of genesis SK to use
@@ -32,13 +41,32 @@ data WalletOptions = WalletOptions
 
 optionsParser :: Parser WalletOptions
 optionsParser = WalletOptions
-    <$> many (option (fromParsec dhtNodeParser) $
+    <$> strOption (long "db-path"
+                <> metavar "FILEPATH"
+                <> value "wallet-db"
+                <> help "Path to the wallet database")
+    <*> switch (long "rebuild-db"
+             <> help "If we DB already exist, discard it's contents and \
+                     \create new one from scratch")
+    <*> many (option (fromParsec dhtNodeParser) $
               long "peer"
            <> metavar "HOST:PORT/HOST_ID"
            <> help "Initial DHT peer (may be many)")
     <*> switch (long "explicit-initial"
              <> help "Explicitely contact to initial peers as to neighbors\
                      \ (even if they appeared offline once)")
+    <*> option auto (long "port"
+                  <> metavar "PORT"
+                  <> value 24961   -- truly random value
+                  <> showDefault
+                  <> help "Port to work on")
+#ifdef WITH_WEB
+    <*> option auto (long "web-port"
+                  <> metavar "PORT"
+                  <> value 8090    -- to differ from node's default port
+                  <> showDefault
+                  <> help "Port for web server")
+#endif
     <*> option auto (long "initial-pause"
                   <> short 'p'
                   <> value 1

@@ -9,7 +9,6 @@ module Pos.Types.Tx
        ( verifyTxAlone
        , verifyTx
        , topsortTxs
-       , topsortTxs'
        ) where
 
 import           Control.Lens        (makeLenses, use, uses, (%=), (.=), (^.))
@@ -116,16 +115,14 @@ data TopsortState a = TopsortState
 
 $(makeLenses ''TopsortState)
 
--- | Does topological sort on transactions -- backwards dfs from every
--- node with reverse visiting order recording. Returns nothing on loop
--- encountered. Return order is head-first.
-topsortTxs :: [WithHash Tx] -> Maybe [WithHash Tx]
-topsortTxs = topsortTxs' identity
-
--- | Does topological sort on things that contain transactions, e.g. can be
+-- | Does topological sort on things that contain transactions – e.g. can be
 -- used both for sorting @[Tx]@ and @[(Tx, TxWitness)]@.
-topsortTxs' :: forall a. (a -> WithHash Tx) -> [a] -> Maybe [a]
-topsortTxs' toTx input =
+--
+-- (Backwards dfs from every node with reverse visiting order
+-- recording. Returns nothing on loop encountered. Return order is
+-- head-first.)
+topsortTxs :: forall a. (a -> WithHash Tx) -> [a] -> Maybe [a]
+topsortTxs toTx input =
     let res = execState dfs1 initState
     in guard (not $ res ^. tsLoop) >> pure (reverse $ res ^. tsResult)
   where

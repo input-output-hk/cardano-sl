@@ -21,7 +21,7 @@ import           Pos.Crypto                (WithHash (whData), withHash)
 import           Pos.DHT                   (ListenerDHT (..))
 import           Pos.State                 (ProcessTxRes (..), processTx)
 import           Pos.Statistics            (StatProcessTx (..), statlogCountEvent)
-import           Pos.Types                 (Tx, TxWitness, topsortTxs', txwF)
+import           Pos.Types                 (Tx, TxWitness, topsortTxs, txwF)
 import           Pos.WorkMode              (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
@@ -58,7 +58,7 @@ handleTxs
     :: (ResponseMode ssc m)
     => SendTxs -> m ()
 handleTxs (SendTxs txsUnsorted_) =
-    case topsortTxs' fst $ NE.toList txsUnsorted of
+    case topsortTxs fst $ NE.toList txsUnsorted of
         Nothing ->
             logWarning "Received broken set of transactions, can't be sorted"
         Just txws -> do

@@ -41,8 +41,8 @@ import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData, gtGlobalCertif
                                                      gtLocalCertificates,
                                                      gtLocalCommitments, gtLocalOpenings,
                                                      gtLocalShares)
-import           Pos.Ssc.GodTossing.Types.Base      (Opening, SignedCommitment,
-                                                     VssCertificate)
+import           Pos.Ssc.GodTossing.Types.Base      (InnerSharesMap, Opening,
+                                                     SignedCommitment, VssCertificate)
 import           Pos.Ssc.GodTossing.Types.Instance  ()
 import           Pos.Ssc.GodTossing.Types.Message   (DataMsg (..), MsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
@@ -163,7 +163,7 @@ matchOpening :: Address -> Opening -> LDQuery Bool
 matchOpening addr opening =
     flip checkOpeningMatchesCommitment (addr, opening) <$> view gtGlobalCommitments
 
-processShares :: Address -> HashMap Address LShare -> LDUpdate Bool
+processShares :: Address -> InnerSharesMap -> LDUpdate Bool
 processShares addr s
     | null s = pure False
     | otherwise = do
@@ -185,7 +185,7 @@ processShares addr s
         ok <- andM checks
         ok <$ when ok (gtLocalShares . at addr .= Just newLocalShares)
 
-checkSharesLastVer :: Address -> HashMap Address LShare -> LDQuery Bool
+checkSharesLastVer :: Address -> InnerSharesMap -> LDQuery Bool
 checkSharesLastVer addr shares =
     (\comms openings certs -> checkShares comms openings certs addr shares) <$>
     view gtGlobalCommitments <*>

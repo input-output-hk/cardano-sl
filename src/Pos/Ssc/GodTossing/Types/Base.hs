@@ -10,6 +10,7 @@ module Pos.Ssc.GodTossing.Types.Base
        , CommitmentSignature
        , SignedCommitment
        , CommitmentsMap
+       , InnerSharesMap
        , Opening (..)
        , OpeningsMap
        , SharesMap
@@ -67,7 +68,10 @@ type OpeningsMap = HashMap Address Opening
 --
 -- Specifically, if node identified by 'Address' X has received a share
 -- from node identified by key Y, this share will be at @sharesMap ! X ! Y@.
-type SharesMap = HashMap Address (HashMap Address LShare)
+
+type InnerSharesMap = HashMap Address LShare
+
+type SharesMap = HashMap Address InnerSharesMap
 
 -- | VssCertificate allows VssPublicKey to participate in MPC.
 -- Each stakeholder should create a Vss keypair, sign public key with signing

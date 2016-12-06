@@ -50,9 +50,10 @@ import           Pos.Crypto                     (LShare, LVssPublicKey, Secret, 
                                                  verifyEncShare, verifySecretProof,
                                                  verifyShare)
 import           Pos.Ssc.Class.Types            (Ssc (..))
-import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap,
-                                                 Opening (..), SignedCommitment,
-                                                 VssCertificate (..), VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Types.Base  (InnerSharesMap, Commitment (..),
+                                                 CommitmentsMap, Opening (..),
+                                                 SignedCommitment, VssCertificate (..),
+                                                 VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..))
 import           Pos.Types.Types                (Address (..), EpochIndex, LocalSlotIndex,
                                                  MainBlockHeader, SharedSeed (..),
@@ -206,7 +207,7 @@ checkShares :: (SetContainer set, ContainerKey set ~ Address)
             -> set --set of opening's PK. TODO Should we add phantom type for more typesafety?
             -> VssCertificatesMap
             -> Address
-            -> HashMap Address LShare
+            -> InnerSharesMap
             -> Bool
 checkShares globalCommitments globalOpeningsPK globalCertificates addrTo shares =
     let listShares :: [(Address, Address, LShare)]

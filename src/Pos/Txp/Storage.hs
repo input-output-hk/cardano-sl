@@ -16,78 +16,58 @@ module Pos.Txp.Storage
        , HasTxStorage (txStorage)
        , txStorageFromUtxo
 
-       , getLocalTxs
        , getUtxoByDepth
+       , getUtxo
        , isTxVerified
        , txVerifyBlocks
-
-       , processTx
        , txApplyBlocks
        , txRollback
+       , processTx
        ) where
 
 import           Control.Lens            (ix, makeClassy, preview, use, uses, view, (%=),
-                                          (+=), (-=), (.=), (<&>), (<~), (^.))
-import qualified Data.Cache.LRU          as LRU
-import qualified Data.HashSet            as HS
+                                          (.=), (<&>), (<~), (^.))
 import qualified Data.List.NonEmpty      as NE
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Formatting              (build, int, sformat, (%))
 import           Serokell.Util           (VerificationRes (..))
 import           Universum
 
-import           Pos.Constants           (k, maxLocalTxs)
+import           Pos.Constants           (k)
 import           Pos.Crypto              (WithHash (..), withHash)
-import           Pos.State.Storage.Types (AltChain, ProcessTxRes (..), mkPTRinvalid)
-import           Pos.Types               (Block, SlotId, Tx (..), TxId, Utxo,
-                                          applyTxToUtxo, blockSlot, blockTxs,
-                                          normalizeTxs, slotIdF, verifyAndApplyTxs,
-                                          verifyTxUtxo)
-import           Pos.Util                (clearLRU)
+import           Pos.State.Storage.Types (AltChain)
+import           Pos.Types               (Block, SlotId, Tx (..), Utxo, applyTxToUtxo,
+                                          blockSlot, blockTxs, normalizeTxs, slotIdF,
+                                          verifyAndApplyTxs, verifyTxUtxo)
 
 -- | Transaction-related state part, includes transactions, utxo and
 -- auxiliary structures needed for transaction processing.
 data TxStorage = TxStorage
-    { -- | Local set of transactions. These are valid (with respect to
-      -- the head of last block's utxo) transactions which are known
-      -- to the node and are /not/ included in the blockchain store by
-      -- the node. This set is used later to form the block payload.
-      _txLocalTxs     :: !(HashSet (WithHash Tx))
-    , -- | @length@ is @O(n)@ for 'HE.HashSet' so we store it explicitly.
-      _txLocalTxsSize :: !Int
+    {
+      -- | History of utxo. May be necessary in case of
+      -- reorganization. Also it is needed for MPC. Head of this list
+      -- is utxo corresponding to last known block.
+      _txUtxoHistory :: ![Utxo]
     , -- | Set of unspent transaction outputs formed by applying
       -- txLocalTxs to the head of txUtxoHistory. It is need to check
       -- new transactions and run follow-the-satoshi, for example.
-      _txUtxo         :: !Utxo
-    , -- | History of utxo. May be necessary in case of
-      -- reorganization. Also it is needed for MPC. Head of this list
-      -- is utxo corresponding to last known block.
-      _txUtxoHistory  :: ![Utxo]
-    , -- | Transactions recently added to blocks. Used for ignoring
-      -- overhead when same transaction is propagated several times.
-      _txFilterCache  :: !(LRU.LRU TxId ())
+      _txUtxo        :: !Utxo
     }
+
+-- | Generate TxStorage from non-default utxo.
+txStorageFromUtxo :: Utxo -> TxStorage
+txStorageFromUtxo u = TxStorage [u] u
 
 -- | Classy lens generated for 'TxStorage'
 makeClassy ''TxStorage
 deriveSafeCopySimple 0 'base ''TxStorage
 
--- | Generate TxStorage from non-default utxo.
-txStorageFromUtxo :: Utxo -> TxStorage
-txStorageFromUtxo u =
-    TxStorage
-    { _txLocalTxs = mempty
-    , _txLocalTxsSize = 0
-    , _txUtxo = u
-    , _txUtxoHistory = [u]
-    , _txFilterCache = LRU.newLRU (Just 10000)
-    }
-
 type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
 
--- | Query returning '_txLocalTxs'
-getLocalTxs :: Query (HashSet (WithHash Tx))
-getLocalTxs = view txLocalTxs
+-- | Applies transaction to current utxo. Should be called only if
+-- it's possible to do so (see 'verifyTx').
+applyTx :: WithHash Tx -> Update ()
+applyTx tx = txUtxo %= applyTxToUtxo tx
 
 -- | Given number of blocks to rollback and some sidechain to adopt it
 -- checks if it can be done prior to transaction validity. Returns a
@@ -112,6 +92,9 @@ txVerifyBlocks (fromIntegral -> toRollback) newChain = do
         "Failed to apply transactions on block from slot " %
         slotIdF%", error: "%build
 
+getUtxo :: Query Utxo
+getUtxo = view txUtxo
+
 -- | Get utxo corresponding to state right after block with given
 -- depth has been applied.
 getUtxoByDepth :: Word -> Query (Maybe Utxo)
@@ -130,61 +113,11 @@ isTxVerified tx = do
 
 type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
 
--- | Add transaction to storage if it is fully valid.
-processTx :: WithHash Tx -> Update ProcessTxRes
-processTx tx = do
-    localSetSize <- use txLocalTxsSize
-    if localSetSize < maxLocalTxs
-        then processTxDo tx
-        else pure PTRoverwhelmed
-
-processTxDo :: WithHash Tx -> Update ProcessTxRes
-processTxDo tx =
-    ifM isKnown (pure PTRknown) $
-    verifyTx tx' >>= \case
-        VerSuccess -> do
-            txLocalTxs %= HS.insert tx
-            txLocalTxsSize += 1
-            applyTx tx
-            pure PTRadded
-        VerFailure errors ->
-            pure (mkPTRinvalid errors)
-  where
-    tx' = whData tx
-    isKnown =
-        or <$>
-        sequence
-            [ HS.member tx <$> use txLocalTxs
-            , isJust . snd . LRU.lookup (whHash tx) <$> use txFilterCache
-            ]
-
--- | Checks if it's possible to apply transaction to current local
--- utxo.
-verifyTx :: Tx -> Update VerificationRes
-verifyTx tx = uses txUtxo $ flip verifyTxUtxo tx
-
--- | Applies transaction to current utxo. Should be called only if
--- it's possible to do so (see 'verifyTx').
-applyTx :: WithHash Tx -> Update ()
-applyTx tx = txUtxo %= applyTxToUtxo tx
-
--- | Removes transaction from the local transaction set.
-removeLocalTx :: WithHash Tx -> Update ()
-removeLocalTx tx = do
-    present <- HS.member tx <$> use txLocalTxs
-    when present $ do
-        txLocalTxs %= HS.delete tx
-        txLocalTxsSize -= 1
-
--- | Insert transaction which is in block into filter cache.
-cacheTx :: TxId -> Update ()
-cacheTx txId = txFilterCache %= LRU.insert txId ()
-
 -- | Apply chain of /definitely/ valid blocks which go right after
 -- last applied block. If invalid block is passed, this function will
 -- panic.
-txApplyBlocks :: AltChain ssc -> Update ()
-txApplyBlocks blocks = do
+txApplyBlocks :: [WithHash Tx] -> AltChain ssc -> Update ()
+txApplyBlocks localTxs blocks = do
     verdict <- runReaderT (txVerifyBlocks 0 blocks) =<< use txStorage
     case verdict of
         -- TODO Consider using `MonadError` and throwing `InternalError`.
@@ -199,21 +132,13 @@ txApplyBlocks blocks = do
             -- and Y ∈ block spend output A, so we must filter local
             -- transactions that became invalid after block
             -- application and regenerate local utxo with them
-            overrideWithLocalTxs
+            overrideWithLocalTxs localTxs
 
 txApplyBlock :: (Block ssc, [WithHash Tx]) -> Update ()
-txApplyBlock (Left _, _) = do
-    utxo <- use txUtxo
-    txUtxoHistory %= (utxo:)
-txApplyBlock (_, txs) = do
-    mapM_ applyTx txs
-    -- As far as cache contains only those transactions that were
-    -- included into local transactions set, even in case we delete
-    -- more transactions from local storage then txs (see
-    -- overrideWithLocalTxs usage in txApplyBlocks), it should be okay
-    -- not to invalidate them because their inputs are used already.
-    mapM_ (cacheTx . whHash) txs
-    mapM_ removeLocalTx txs
+txApplyBlock (b, txs) = do
+    case b of
+      Left _ -> return ()
+      _      -> mapM_ applyTx txs
     utxo <- use txUtxo
     txUtxoHistory %= (utxo:)
 
@@ -221,38 +146,18 @@ txApplyBlock (_, txs) = do
 -- of desired depth block and also filter local transactions so they
 -- can be applied. @tx@ prefix is used, because rollback may happen in
 -- other storages as well.
-txRollback :: Word -> Update ()
-txRollback 0 = pass
-txRollback (fromIntegral -> n) = do
+txRollback :: [WithHash Tx] -> Word -> Update ()
+txRollback _ 0 = pass
+txRollback localTxs (fromIntegral -> n) = do
     txUtxo <~ fromMaybe onError . (`atMay` n) <$> use txUtxoHistory
     txUtxoHistory %= drop n
-    overrideWithLocalTxs
-    invalidateCache
+    overrideWithLocalTxs localTxs
   where
     -- TODO Consider using `MonadError` and throwing `InternalError`.
     onError = (panic "attempt to rollback to too old or non-existing block")
 
--- | Normalize local transaction list -- throw away all transactions
--- that don't make sense anymore (e.g. after block application that
--- spends utxo we were counting on). Returns new transaction list,
--- sorted.
-filterLocalTxs :: Update [WithHash Tx]
-filterLocalTxs = do
-    txs <- uses txLocalTxs toList
-    utxo <- use txUtxo
-    let txs' = normalizeTxs txs utxo
-    txLocalTxs .= HS.fromList txs'
-    txLocalTxsSize .= length txs'
-    pure txs'
-
--- | Takes the utxo we have now, reset it to head of utxo history and
--- apply all localtransactions we have. It applies @filterLocalTxs@
--- inside, because we can't apply transactions that don't apply.
-overrideWithLocalTxs :: Update ()
-overrideWithLocalTxs = do
-    resetLocalUtxo
-    txs <- filterLocalTxs
-    forM_ txs applyTx
+processTx :: WithHash Tx -> Update ()
+processTx = applyTx
 
 -- | Erases local utxo and puts utxo of the last block on it's place.
 resetLocalUtxo :: Update ()
@@ -260,5 +165,21 @@ resetLocalUtxo = do
     headUtxo <- uses txUtxoHistory head
     whenJust headUtxo $ \h -> txUtxo .= h
 
-invalidateCache :: Update ()
-invalidateCache = txFilterCache %= clearLRU
+-- | Normalize local transaction list -- throw away all transactions
+-- that don't make sense anymore (e.g. after block application that
+-- spends utxo we were counting on). Returns new transaction list,
+-- sorted.
+filterLocalTxs :: [WithHash Tx] -> Update [WithHash Tx]
+filterLocalTxs localTxs = do --TODO cosmetic fix it
+    utxo <- use txUtxo
+    pure $ normalizeTxs localTxs utxo
+
+-- | Takes the utxo we have now, reset it to head of utxo history and
+-- apply all localtransactions we have. It applies @filterLocalTxs@
+-- inside, because we can't apply transactions that don't apply.
+-- Returns filtered localTransactions
+overrideWithLocalTxs :: [WithHash Tx] -> Update ()
+overrideWithLocalTxs localTxs = do
+    resetLocalUtxo
+    txs <- filterLocalTxs localTxs
+    forM_ txs applyTx

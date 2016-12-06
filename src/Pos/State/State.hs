@@ -25,7 +25,7 @@ module Pos.State.State
        , getHeadBlock
        , getBestChain
        , getLeaders
-       , getLocalTxs
+       , getUtxo
        , getUtxoByDepth
        , isTxVerified
        , getGlobalMpcData
@@ -188,13 +188,13 @@ getHeadBlock = queryDisk A.GetHeadBlock
 getBestChain :: QUConstraint ssc m => m (NonEmpty (Block ssc))
 getBestChain = queryDisk A.GetBestChain
 
--- | Get local transactions list.
-getLocalTxs :: QUConstraint ssc m => m (HashSet (WithHash Tx))
-getLocalTxs = queryDisk A.GetLocalTxs
-
 -- | Get Utxo by depth
 getUtxoByDepth :: QUConstraint ssc m => Word -> m (Maybe Utxo)
 getUtxoByDepth = queryDisk . A.GetUtxoByDepth
+
+-- | Get current Utxo
+getUtxo :: QUConstraint ssc m => m Utxo
+getUtxo = queryDisk A.GetUtxo
 
 -- | Checks if tx is verified
 isTxVerified :: QUConstraint ssc m => Tx -> m Bool
@@ -216,14 +216,15 @@ mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 -- | Create new block on top of currently known best chain, assuming
 -- we are slot leader.
 createNewBlock :: QUConstraint ssc m
-               => SecretKey
+               => [WithHash Tx]
+               -> SecretKey
                -> SlotId
                -> SscPayload ssc
                -> m (Either Text (MainBlock ssc))
-createNewBlock sk si = updateDisk . A.CreateNewBlock sk si
+createNewBlock localTxs sk si = updateDisk . A.CreateNewBlock localTxs sk si
 
 -- | Process transaction received from other party.
-processTx :: QUConstraint ssc m => WithHash Tx -> m ProcessTxRes
+processTx :: QUConstraint ssc m => WithHash Tx -> m ()
 processTx = updateDisk . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot. Ideally it should
@@ -233,10 +234,11 @@ processNewSlot = updateDiskWithLog . A.ProcessNewSlotL
 
 -- | Process some Block received from the network.
 processBlock :: (SscHelpersClass ssc, QUConstraint ssc m)
-             => SlotId
+             => [WithHash Tx]
+             -> SlotId
              -> Block ssc
              -> m (ProcessBlockRes ssc)
-processBlock si = updateDisk . A.ProcessBlock si
+processBlock localTxs si = updateDisk . A.ProcessBlock localTxs si
 
 -- | Functions for generating seed by SSC algorithm
 getParticipants

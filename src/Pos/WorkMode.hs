@@ -17,6 +17,10 @@ module Pos.WorkMode
        ( WorkMode
        , MinWorkMode
 
+       -- * Tx local data
+       , TxLDImpl
+       , runTxLDImpl
+
        -- * Ssc local data
        , SscLDImpl
        , runSscLDImpl
@@ -31,7 +35,6 @@ module Pos.WorkMode
        , WithNodeContext (..)
        , ncPublicKey
        , ncPubKeyAddress
-       --, ncVssPublicKey
        , runContextHolder
 
        -- * Actual modes
@@ -59,6 +62,7 @@ import           Control.TimeWarp.Rpc        (BinaryP, Dialog, MonadDialog,
                                               MonadResponse (..), MonadTransfer (..),
                                               Transfer)
 import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
+import           Data.Default                (def)
 import           Formatting                  (sformat, shown, (%))
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName, WithLogger,
@@ -77,6 +81,7 @@ import           Pos.Ssc.Class.Storage       (SscStorageMode)
 import           Pos.Ssc.Class.Types         (Ssc (SscLocalData, SscNodeContext))
 import           Pos.State                   (MonadDB (..), NodeState)
 import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
+import           Pos.Txp.LocalData           (MonadTxLD (..), TxLocalData (..))
 import           Pos.Types                   (Address, Timestamp (..), makePubKeyAddress)
 import           Pos.Util.JsonLog            (MonadJL (..), appendJL)
 
@@ -88,6 +93,7 @@ type WorkMode ssc m
       , MonadMask m
       , MonadSlots m
       , MonadDB ssc m
+      , MonadTxLD m
       , SscStorageMode ssc
       , SscLocalDataClass ssc
       , SscHelpersClass ssc
@@ -110,11 +116,73 @@ type MinWorkMode m
       )
 
 ----------------------------------------------------------------------------
+-- MonadTxLD
+----------------------------------------------------------------------------
+
+instance MonadTxLD m => MonadTxLD (NoStatsT m) where
+    getTxLocalData = lift getTxLocalData
+    setTxLocalData = lift . setTxLocalData
+
+instance MonadTxLD m => MonadTxLD (StatsT m) where
+    getTxLocalData = lift getTxLocalData
+    setTxLocalData = lift . setTxLocalData
+
+instance MonadTxLD m => MonadTxLD (DHTResponseT m) where
+    getTxLocalData = lift getTxLocalData
+    setTxLocalData = lift . setTxLocalData
+
+instance MonadTxLD m => MonadTxLD (KademliaDHT m) where
+    getTxLocalData = lift getTxLocalData
+    setTxLocalData = lift . setTxLocalData
+
+newtype TxLDImpl m a = TxLDImpl
+    { getTxLDImpl :: ReaderT (STM.TVar TxLocalData) m a
+    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
+                MonadCatch, MonadIO, HasLoggerName, MonadDialog p, WithNodeContext ssc, MonadJL,
+                MonadDB ssc, CanLog, MonadMask)
+
+type instance ThreadId (TxLDImpl m) = ThreadId m
+
+instance Monad m => WrappedM (TxLDImpl m) where
+    type UnwrappedM (TxLDImpl m) = ReaderT (STM.TVar TxLocalData) m
+    _WrappedM = iso getTxLDImpl TxLDImpl
+
+instance MonadTransfer m => MonadTransfer (TxLDImpl m)
+
+instance MonadBase IO m => MonadBase IO (TxLDImpl m) where
+    liftBase = lift . liftBase
+
+instance MonadTransControl TxLDImpl where
+    type StT TxLDImpl a = StT (ReaderT (STM.TVar TxLocalData)) a
+    liftWith = defaultLiftWith TxLDImpl getTxLDImpl
+    restoreT = defaultRestoreT TxLDImpl
+
+instance MonadBaseControl IO m => MonadBaseControl IO (TxLDImpl m) where
+    type StM (TxLDImpl m) a = ComposeSt TxLDImpl m a
+    liftBaseWith     = defaultLiftBaseWith
+    restoreM         = defaultRestoreM
+
+instance MonadIO m =>
+         MonadTxLD (TxLDImpl m) where
+    getTxLocalData = atomically . STM.readTVar =<< TxLDImpl ask
+    setTxLocalData d = atomically . flip STM.writeTVar d =<< TxLDImpl ask
+
+runTxLDImpl :: MonadIO m => TxLDImpl m a -> m a
+runTxLDImpl action = do
+  ref <- liftIO $ STM.newTVarIO def
+  flip runReaderT ref . getTxLDImpl $ action
+
+
+----------------------------------------------------------------------------
 -- MonadSscLD
 ----------------------------------------------------------------------------
 
 instance (Monad m, MonadSscLD ssc m) =>
          MonadSscLD ssc (DHTResponseT m) where
+    getLocalData = lift getLocalData
+    setLocalData = lift . setLocalData
+
+instance MonadSscLD ssc m => MonadSscLD ssc (TxLDImpl m) where
     getLocalData = lift getLocalData
     setLocalData = lift . setLocalData
 
@@ -336,7 +404,10 @@ instance (MonadIO m, MonadCatch m, WithLogger m) => MonadJL (ContextHolder ssc m
 ----------------------------------------------------------------------------
 
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
-type RawRealMode ssc = KademliaDHT (SscLDImpl ssc (ContextHolder ssc (DBHolder ssc (Dialog BinaryP Transfer))))
+type RawRealMode ssc = KademliaDHT (TxLDImpl (
+                                       SscLDImpl ssc (
+                                           ContextHolder ssc (
+                                               DBHolder ssc (Dialog BinaryP Transfer)))))
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.

@@ -136,6 +136,7 @@ library
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
                         Pos.Txp.Types.Listener
+                        Pos.Txp.LocalData
                         Pos.Worker.Block
                         Pos.Worker.Stats
                         Pos.Util.Arbitrary

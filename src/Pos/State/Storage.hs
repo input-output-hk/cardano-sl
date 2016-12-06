@@ -25,9 +25,12 @@ module Pos.State.Storage
        , getGlobalSscState
        , getGlobalSscStateByDepth
        , getLeaders
-       , getLocalTxs
+
+       , getUtxo
        , getUtxoByDepth
        , isTxVerified
+       , processTx
+
        , getOurShares
        , getParticipants
        , getThreshold
@@ -40,7 +43,6 @@ module Pos.State.Storage
        , createNewBlock
        , processBlock
        , processNewSlot
-       , processTx
        ) where
 
 import           Universum
@@ -72,13 +74,13 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
                                           getSlotDepth, mayBlockBeUseful, mkBlockStorage)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
                                           ProcessTxRes (..), mkPBRabort)
-import           Pos.Txp.Storage         (HasTxStorage (txStorage), TxStorage,
-                                          getLocalTxs, getUtxoByDepth, isTxVerified,
-                                          processTx, txApplyBlocks, txRollback,
-                                          txStorageFromUtxo, txVerifyBlocks)
+import           Pos.Txp.Storage         (HasTxStorage (txStorage), TxStorage, getUtxo,
+                                          getUtxoByDepth, isTxVerified, processTx,
+                                          txApplyBlocks, txRollback, txStorageFromUtxo,
+                                          txVerifyBlocks)
 import           Pos.Types               (Address, Block, EpochIndex, EpochOrSlot (..),
                                           GenesisBlock, MainBlock, SlotId (..),
-                                          SlotLeaders, Utxo, blockMpc, blockTxs,
+                                          SlotLeaders, Tx (..), Utxo, blockMpc, blockTxs,
                                           epochIndexL, epochOrSlot, flattenSlotId,
                                           gbHeader, getEpochOrSlot, headerHashG, slotIdF,
                                           unflattenSlotId, verifyTxAlone)
@@ -173,26 +175,26 @@ getGlobalSscStateByDepth = sscGetGlobalStateByDepth @ssc
 -- given SlotId
 createNewBlock
     :: (SscStorageClass ssc)
-    => SecretKey
+    => [WithHash Tx]
+    -> SecretKey
     -> SlotId
     -> SscPayload ssc
     -> Update ssc (Either Text (MainBlock ssc))
-createNewBlock sk sId sscPayload =
-    maybe (Right <$> createNewBlockDo sk sId sscPayload) (pure . Left) =<<
+createNewBlock localTxs sk sId sscPayload =
+    maybe (Right <$> createNewBlockDo localTxs sk sId sscPayload) (pure . Left) =<<
     readerToState (canCreateBlock sId)
 
 createNewBlockDo
     :: forall ssc.
        (SscStorageClass ssc)
-    => SecretKey -> SlotId -> SscPayload ssc -> Update ssc (MainBlock ssc)
-createNewBlockDo sk sId sscPayload = do
+    => [WithHash Tx] -> SecretKey -> SlotId -> SscPayload ssc -> Update ssc (MainBlock ssc)
+createNewBlockDo localTxs sk sId sscPayload = do
     globalPayload <- readerToState $ getGlobalSscState
     let filteredPayload = sscFilterPayload @ssc sscPayload globalPayload
-    txs <- readerToState $ toList <$> getLocalTxs
-    blk <- blkCreateNewBlock sk sId (fmap whData txs) filteredPayload
+    blk <- blkCreateNewBlock sk sId (fmap whData localTxs) filteredPayload
     let blocks = Right blk :| []
     sscApplyBlocks blocks
-    blk <$ txApplyBlocks blocks
+    blk <$ txApplyBlocks localTxs blocks
 
 canCreateBlock :: SlotId -> Query ssc (Maybe Text)
 canCreateBlock sId = do
@@ -210,22 +212,22 @@ canCreateBlock sId = do
 
 -- | Do all necessary changes when a block is received.
 processBlock :: (SscHelpersClass ssc, SscStorageClass ssc)
-    => SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
-processBlock curSlotId blk = do
+    =>[WithHash Tx] -> SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
+processBlock localTxs curSlotId blk = do
     let txs =
             case blk of
                 Left _        -> []
                 Right mainBlk -> toList $ mainBlk ^. blockTxs
     let txRes = foldMap verifyTxAlone txs
     case txRes of
-        VerSuccess        -> processBlockDo curSlotId blk
+        VerSuccess        -> processBlockDo localTxs curSlotId blk
         VerFailure errors -> return $ mkPBRabort errors
 
 processBlockDo
     :: forall ssc.
        (SscHelpersClass ssc, SscStorageClass ssc)
-    => SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
-processBlockDo curSlotId blk = do
+    => [WithHash Tx] -> SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
+processBlockDo localTxs curSlotId blk = do
     let verifyMpc mainBlk =
             untag sscVerifyPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
     let mpcResPure = either (const mempty) verifyMpc blk
@@ -235,11 +237,11 @@ processBlockDo curSlotId blk = do
             mpcRes <- readerToState $ sscVerifyBlocks @ssc toRollback chain
             txRes <- readerToState $ txVerifyBlocks toRollback chain
             case mpcRes <> eitherToVerResult txRes of
-                VerSuccess        -> processBlockFinally toRollback chain
+                VerSuccess        -> processBlockFinally localTxs toRollback chain
                 VerFailure errors -> return $ mkPBRabort errors
         -- if we need block which we already know, we just use it
         PBRmore h ->
-            maybe (pure r) (processBlockDo curSlotId) =<<
+            maybe (pure r) (processBlockDo localTxs curSlotId) =<<
             readerToState (getBlock h)
         _ -> return r
   where
@@ -247,14 +249,16 @@ processBlockDo curSlotId blk = do
 
 -- At this point all checks have been passed and we know that we can
 -- adopt this AltChain.
-processBlockFinally :: forall ssc . SscStorageClass ssc => Word
+processBlockFinally :: forall ssc . SscStorageClass ssc =>
+                       [WithHash Tx]
+                    -> Word
                     -> AltChain ssc
                     -> Update ssc (ProcessBlockRes ssc)
-processBlockFinally toRollback blocks = do
+processBlockFinally localTxs toRollback blocks = do
     sscRollback @ssc toRollback
     sscApplyBlocks @ssc blocks
-    txRollback toRollback
-    txApplyBlocks blocks
+    txRollback localTxs toRollback
+    txApplyBlocks localTxs blocks
     blkRollback toRollback
     blkSetHead (blocks ^. _neLast . headerHashG)
     knownEpoch <- use (slotId . epochIndexL)

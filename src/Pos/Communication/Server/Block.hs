@@ -34,6 +34,8 @@ import           Pos.DHT                   (ListenerDHT (..), replyToNode)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class.LocalData   (sscApplyGlobalState)
 import qualified Pos.State                 as St
+import           Pos.Txp.LocalData         (getLocalTxs, txApplyGlobalUtxo,
+                                            txLocalDataRollback)
 import           Pos.Types                 (HeaderHash, Tx, blockTxs, getBlockHeader,
                                             headerHash)
 import           Pos.Util                  (inAssertMode)
@@ -55,12 +57,16 @@ handleBlock :: forall ssc m . (ResponseMode ssc m)
             => SendBlock ssc -> m ()
 handleBlock (SendBlock block) = do
     slotId <- getCurrentSlot
-    pbr <- St.processBlock slotId block
-    let globalChanged =
+    localTxs <- HS.toList <$> getLocalTxs
+    pbr <- St.processBlock localTxs slotId block
+    let (globalChanged, toRollback) =
             case pbr of
-                St.PBRgood _ -> True
-                _            -> False
-    when globalChanged $ sscApplyGlobalState =<< St.getGlobalMpcData
+                St.PBRgood (toRoll, _) -> (True, toRoll)
+                _                      -> (False, 0)
+    when globalChanged $ do --synchronize local data with global data
+        sscApplyGlobalState =<< St.getGlobalMpcData
+        txLocalDataRollback toRollback
+        txApplyGlobalUtxo =<< St.getUtxo
     let blkHash = headerHash block
     case pbr of
         St.PBRabort msg -> do

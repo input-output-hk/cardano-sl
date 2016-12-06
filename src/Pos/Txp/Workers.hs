@@ -16,7 +16,7 @@ import           Universum
 import           Pos.Communication.Methods (announceTxs)
 import           Pos.Constants             (slotDuration)
 import           Pos.Crypto                (WithHash (whData))
-import           Pos.State                 (getLocalTxs)
+import           Pos.Txp.LocalData         (getLocalTxs)
 import           Pos.WorkMode              (WorkMode)
 
 -- | All workers specific to tx processing.

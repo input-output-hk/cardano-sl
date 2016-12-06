@@ -18,8 +18,10 @@ import           Pos.Communication.Methods (announceTxs)
 import           Pos.Communication.Types   (ResponseMode, SendTx (..), SendTxs (..))
 import           Pos.Crypto                (WithHash (whData), withHash)
 import           Pos.DHT                   (ListenerDHT (..))
-import           Pos.State                 (ProcessTxRes (..), processTx)
+import           Pos.State                 (ProcessTxRes (..))
+import qualified Pos.State                 as St
 import           Pos.Statistics            (StatProcessTx (..), statlogCountEvent)
+import           Pos.Txp.LocalData         (txLocalDataProcessTx)
 import           Pos.Types                 (Tx, topsortTxs)
 import           Pos.WorkMode              (WorkMode)
 
@@ -37,7 +39,7 @@ handleTxDo
     :: ResponseMode ssc m
     => WithHash Tx -> m Bool
 handleTxDo tx = do
-    res <- processTx tx
+    res <- processTx
     case res of
         PTRadded -> do
             statlogCountEvent StatProcessTx 1
@@ -51,6 +53,13 @@ handleTxDo tx = do
         PTRoverwhelmed ->
             logInfo $ sformat ("Node is overwhelmed, can't add tx: "%build) tx
     return (res == PTRadded)
+  where
+    processTx = do
+        utxo <- St.getUtxo
+        locRes <- txLocalDataProcessTx tx utxo
+        case locRes of
+            PTRadded -> PTRadded <$ St.processTx tx
+            r        -> return r
 
 handleTxs
     :: (ResponseMode ssc m)

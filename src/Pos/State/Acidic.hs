@@ -30,7 +30,7 @@ module Pos.State.Acidic
        , GetHeadBlock (..)
        , GetBestChain (..)
        , GetLeaders (..)
-       , GetLocalTxs (..)
+       , GetUtxo (..)
        , GetUtxoByDepth (..)
        , IsTxVerified (..)
        , GetOurShares (..)
@@ -191,7 +191,7 @@ makeAcidicWithHacks ''S.Storage ["ssc"]
     , 'S.getGlobalSscState
     , 'S.getGlobalSscStateByDepth
     , 'S.getLeaders
-    , 'S.getLocalTxs
+    , 'S.getUtxo
     , 'S.getUtxoByDepth
     , 'S.isTxVerified
     , 'S.getHeadBlock

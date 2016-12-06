@@ -38,32 +38,35 @@ import           Pos.Wallet.Web         (walletServeWeb)
 import           Command                (Command (..), parseCommand)
 import           WalletOptions          (WalletAction (..), WalletOptions (..), optsInfo)
 
-type CmdRunner = ReaderT (SecretKey, [NetworkAddress])
+type CmdRunner = ReaderT ([SecretKey], [NetworkAddress])
 
 evalCmd :: WorkMode ssc m => Command -> CmdRunner m ()
 evalCmd (Balance addr) = lift (getBalance addr) >>=
                          putText . sformat ("Current balance: "%int) >>
                          evalCommands
-evalCmd (Send outputs) = do
-    (sk, na) <- ask
-    tx <- lift (submitTx sk na outputs)
+evalCmd (Send idx outputs) = do
+    (skeys, na) <- ask
+    tx <- lift $ submitTx (skeys !! idx) na outputs
     putText $ sformat ("Submitted transaction: "%txwF) tx
     evalCommands
 evalCmd Help = do
     putText $
         unlines
             [ "Avaliable commands:"
-            , "   balance <address>          -- check balance on given address"
-            , "   send [<address> <coins>]+  -- create and send transaction with given outputs"
-            , "                                 from current wallet address"
-            , "   myaddress                  -- get current wallet address"
-            , "   help                       -- show this message"
-            , "   quit                       -- shutdown node wallet"
+            , "   balance <address>              -- check balance on given address (may be any address)"
+            , "   send <N> [<address> <coins>]+  -- create and send transaction with given outputs"
+            , "                                     from own address #N"
+            , "   listaddr                       -- list own addresses"
+            , "   help                           -- show this message"
+            , "   quit                           -- shutdown node wallet"
             ]
     evalCommands
-evalCmd MyAddress = asks fst >>=
-                    putText . sformat build . makePubKeyAddress . toPublic >>
-                    evalCommands
+evalCmd ListAddresses = do
+    addrs <- map (makePubKeyAddress . toPublic) <$> asks fst
+    putText "Available addresses:"
+    forM_ (zip [0 :: Int ..] addrs) $
+        putText . uncurry (sformat $ "    #"%int%":   "%build)
+    evalCommands
 evalCmd Quit = pure ()
 
 evalCommands :: WorkMode ssc m => CmdRunner m ()
@@ -82,10 +85,9 @@ runWalletRepl WalletOptions{..} = do
     putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
     wait $ for $ fromIntegral woInitialPause * slotDuration
 
-    let sk = genesisSecretKeys !! woSecretKeyIdx
     na <- fmap dhtAddr <$> discoverPeers DHTFull
     putText "Welcome to Wallet CLI Node"
-    runReaderT (evalCmd Help) (sk, na)
+    runReaderT (evalCmd Help) (genesisSecretKeys, na)
 
 #ifdef WITH_WEB
 runWalletApi :: WorkMode ssc m => Word16 -> m ()

@@ -45,11 +45,11 @@ spec = describe "Types.Tx" $ do
         prop "doesn't change the random set of transactions" $
             forAll (resize 10 $ arbitrary) $ \(NonNegative l) ->
             forAll (vectorOf l (txGen 10)) $ \txs ->
-            (sort <$> topsortTxs (map withHash txs)) === Just (sort $ map withHash txs)
+            (sort <$> topsortTxs identity (map withHash txs)) === Just (sort $ map withHash txs)
         prop "graph generator does not produce loops" $
             forAll (txAcyclicGen False 20) $ \(txs,_) ->
             forAll (shuffle $ map withHash txs) $ \shuffled ->
-            isJust $ topsortTxs shuffled
+            isJust $ topsortTxs identity shuffled
         prop "does correct topsort on bamboo" $ testTopsort True
         prop "does correct topsort on arbitrary acyclic graph" $ testTopsort False
   where
@@ -171,7 +171,7 @@ testTopsort isBamboo =
     forAll (shuffle txs) $ \shuffled ->
     let reachables :: [(Tx,Tx)]
         reachables = [(from,to) | (to,froms) <- HM.toList reach, from <- froms]
-        topsorted = map whData <$> topsortTxs (map withHash shuffled)
+        topsorted = map whData <$> topsortTxs identity (map withHash shuffled)
         reaches :: (Tx,Tx) -> Bool
         reaches (from,to) =
             let fromI = elemIndex from =<< topsorted

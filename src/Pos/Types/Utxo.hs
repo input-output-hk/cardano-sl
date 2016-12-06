@@ -18,7 +18,7 @@ import           Serokell.Util   (VerificationRes (..))
 import           Universum
 
 import           Pos.Crypto      (WithHash (whData, whHash))
-import           Pos.Types.Tx    (topsortTxs', verifyTx)
+import           Pos.Types.Tx    (topsortTxs, verifyTx)
 import           Pos.Types.Types (Tx (..), TxIn (..), TxOut (..), TxWitness, Utxo)
 
 -- | Find transaction input in Utxo assuming it is valid.
@@ -71,8 +71,8 @@ verifyAndApplyTxs txws utxo =
             VerFailure reason ->
                 Left $ fromMaybe "Transaction application failed, reason not specified" $
                 head reason
-    topsorted = reverse <$> topsortTxs' fst txws -- head is the last one
-                                                 -- to check
+    topsorted = reverse <$> topsortTxs fst txws -- head is the last one
+                                                -- to check
 
 -- | Takes the set of transactions and utxo, returns only those
 -- transactions that can be applied inside. Bonus -- returns them

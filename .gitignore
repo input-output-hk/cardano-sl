@@ -42,3 +42,4 @@ testRun
 *.csv
 my-log-template.yaml
 tags
+run

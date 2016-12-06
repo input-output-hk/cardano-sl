@@ -13,4 +13,5 @@ if [[ "$SSC_ALGO" != "" ]]; then
 fi
 
 $(find_binary cardano-smart-wallet) $(peer_config $i) $(logs smartwallet$i.log) \
+                                    --db-path "run/wallet-db" \
                                     --flat-distr "(3, 100000)" $ssc_algo -i $i $@

@@ -14,13 +14,13 @@ import           Control.TimeWarp.Rpc    (Message, NetworkAddress)
 import           Control.TimeWarp.Timed  (fork_)
 import           Data.Binary             (Binary)
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
-import           Formatting              (build, sformat, (%))
+import           Formatting              (bprint, build, sformat, (%))
 import           System.Wlog             (logDebug)
 import           Universum
 
 import           Pos.Communication.Types (SendBlockHeader (..), SendTx (..), SendTxs (..))
 import           Pos.DHT                 (sendToNeighbors, sendToNode)
-import           Pos.Types               (MainBlockHeader, Tx)
+import           Pos.Types               (MainBlockHeader, Tx, TxWitness, txwF)
 import           Pos.Util                (logWarningWaitLinear, messageName')
 import           Pos.WorkMode            (WorkMode)
 import           Serokell.Util.Text      (listJson)
@@ -45,20 +45,21 @@ announceBlock header = do
 
 -- | Announce new transaction to all known peers. Intended to be used when
 -- tx is created.
-announceTx :: WorkMode ssc m => Tx -> m ()
-announceTx tx = do
-    logDebug $ sformat ("Announcing tx to others:\n"%build) tx
-    sendToNeighborsSafe . SendTx $ tx
+announceTx :: WorkMode ssc m => (Tx, TxWitness) -> m ()
+announceTx txw@(tx,w) = do
+    logDebug $ sformat ("Announcing tx to others:\n"%txwF) txw
+    sendToNeighborsSafe $ SendTx tx w
 
 -- | Announce known transactions to all known peers. Intended to be used
 -- to relay transactions.
-announceTxs :: WorkMode ssc m => [Tx] -> m ()
+announceTxs :: WorkMode ssc m => [(Tx,TxWitness)] -> m ()
 announceTxs [] = pure ()
 announceTxs txs@(tx:txs') = do
     logDebug $
-        sformat ("Announcing txs to others:\n" %listJson) txs
+        sformat ("Announcing txs to others:\n" %listJson)
+                (fmap (bprint txwF) txs)
     sendToNeighborsSafe . SendTxs $ tx :| txs'
 
 -- | Send Tx to given address.
-sendTx :: WorkMode ssc m => NetworkAddress -> Tx -> m ()
-sendTx addr = sendToNode addr . SendTx
+sendTx :: WorkMode ssc m => NetworkAddress -> (Tx, TxWitness) -> m ()
+sendTx addr (tx,w) = sendToNode addr $ SendTx tx w

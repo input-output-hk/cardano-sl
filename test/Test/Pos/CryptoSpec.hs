@@ -20,7 +20,7 @@ import           Pos.Crypto            (EncShare, Hash, KeyPair (..), LEncShare,
                                         parseFullPublicKey, randomNumber, sign, toPublic)
 import           Pos.Ssc.GodTossing    ()
 
-import           Test.Pos.Util         (binaryEncodeDecode, safeCopyEncodeDecode, 
+import           Test.Pos.Util         (binaryEncodeDecode, safeCopyEncodeDecode,
                                         serDeserId)
 
 spec :: Spec

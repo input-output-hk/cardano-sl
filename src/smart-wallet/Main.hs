@@ -28,7 +28,7 @@ import           Pos.Ssc.Class          (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing     (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon     (SscNistBeacon)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
-import           Pos.Types              (makePubKeyAddress, txF)
+import           Pos.Types              (makePubKeyAddress, txwF)
 import           Pos.Wallet             (getBalance, submitTx)
 import           Pos.WorkMode           (WorkMode)
 
@@ -44,7 +44,7 @@ evalCmd (Balance addr) = lift (getBalance addr) >>=
 evalCmd (Send outputs) = do
     (sk, na) <- ask
     tx <- lift (submitTx sk na outputs)
-    putText $ sformat ("Submitted transaction: "%txF) tx
+    putText $ sformat ("Submitted transaction: "%txwF) tx
     evalCommands
 evalCmd Help =
     putText "Avaliable commands:\n\

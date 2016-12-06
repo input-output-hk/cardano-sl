@@ -25,6 +25,10 @@ packages:
     git: https://github.com/serokell/kademlia.git
     commit: 062053ed11b92c8e25d4d61ea943506fd0482fa6
   extra-dep: true
+- location:
+    git: https://github.com/serokell/double-conversion.git
+    commit: cc7b810a08721a047c0241f0ef654dbebcef83f6
+  extra-dep: true
 
 nix:
   shell-file: shell.nix

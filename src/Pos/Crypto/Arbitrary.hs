@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 -- | `Arbitrary` instances for using in tests and benchmarks
 
 module Pos.Crypto.Arbitrary
@@ -14,14 +15,14 @@ import           Universum
 import           Pos.Crypto.Arbitrary.Hash   ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
 import           Pos.Crypto.SecretSharing    (EncShare, Secret, Share, VssKeyPair,
-                                              VssPublicKey, decryptShare,
-                                              genSharedSecret, toVssPublicKey, vssKeyGen)
+                                              VssPublicKey, decryptShare, genSharedSecret,
+                                              toVssPublicKey, vssKeyGen)
 import           Pos.Crypto.SerTypes         (LEncShare, LSecret, LShare, LVssPublicKey)
 import           Pos.Crypto.Signing          (PublicKey, SecretKey, Signature, Signed,
                                               keyGen, mkSigned, sign)
+import           Pos.Util                    (Serialized (..))
 import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakeList,
                                               unsafeMakePool)
-import           Pos.Util                    (Serialized (..))
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

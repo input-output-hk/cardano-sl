@@ -11,7 +11,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp.git
-    commit: 7b167481558b9a631ec46a0446f3ff9184cfc0c6
+    commit: ea933cf9de84041f92339c8f41bcf285fdd1b0d7
   extra-dep: true
 - location:
     git: https://github.com/serokell/log-warper.git
@@ -24,6 +24,10 @@ packages:
 - location:
     git: https://github.com/serokell/kademlia.git
     commit: 062053ed11b92c8e25d4d61ea943506fd0482fa6
+  extra-dep: true
+- location:
+    git: https://github.com/serokell/double-conversion.git
+    commit: cc7b810a08721a047c0241f0ef654dbebcef83f6
   extra-dep: true
 
 nix:

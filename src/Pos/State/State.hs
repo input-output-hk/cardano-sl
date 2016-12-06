@@ -29,6 +29,7 @@ module Pos.State.State
        , getUtxoByDepth
        , isTxVerified
        , getGlobalMpcData
+       , getGlobalMpcDataByDepth
        , mayBlockBeUseful
 
        -- * Operations with effects.
@@ -76,7 +77,7 @@ import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (.
 import           Pos.Statistics.StatEntry ()
 import           Pos.Types                (Address, Block, EpochIndex, GenesisBlock,
                                            HeaderHash, MainBlock, MainBlockHeader, SlotId,
-                                           SlotLeaders, Tx, Utxo)
+                                           SlotLeaders, Tx, TxWitness, Utxo)
 import           Pos.Util                 (deserializeM, serialize)
 
 -- | NodeState encapsulates all the state stored by node.
@@ -188,7 +189,7 @@ getBestChain :: QUConstraint ssc m => m (NonEmpty (Block ssc))
 getBestChain = queryDisk A.GetBestChain
 
 -- | Get local transactions list.
-getLocalTxs :: QUConstraint ssc m => m (HashSet (WithHash Tx))
+getLocalTxs :: QUConstraint ssc m => m (HashMap (WithHash Tx) TxWitness)
 getLocalTxs = queryDisk A.GetLocalTxs
 
 -- | Get Utxo by depth
@@ -196,12 +197,16 @@ getUtxoByDepth :: QUConstraint ssc m => Word -> m (Maybe Utxo)
 getUtxoByDepth = queryDisk . A.GetUtxoByDepth
 
 -- | Checks if tx is verified
-isTxVerified :: QUConstraint ssc m => Tx -> m Bool
+isTxVerified :: QUConstraint ssc m => (Tx, TxWitness) -> m Bool
 isTxVerified = queryDisk . A.IsTxVerified
 
 -- | Get global SSC data.
 getGlobalMpcData :: QUConstraint ssc m => m (SscGlobalState ssc)
 getGlobalMpcData = queryDisk A.GetGlobalSscState
+
+-- | Get global SSC data that was observed N blocks ago.
+getGlobalMpcDataByDepth :: QUConstraint ssc m => Word ->  m (Maybe (SscGlobalState ssc))
+getGlobalMpcDataByDepth = queryDisk . A.GetGlobalSscStateByDepth
 
 -- | Check that block header is correct and claims to represent block
 -- which may become part of blockchain.
@@ -218,7 +223,7 @@ createNewBlock :: QUConstraint ssc m
 createNewBlock sk si = updateDisk . A.CreateNewBlock sk si
 
 -- | Process transaction received from other party.
-processTx :: QUConstraint ssc m => WithHash Tx -> m ProcessTxRes
+processTx :: QUConstraint ssc m => (WithHash Tx, TxWitness) -> m ProcessTxRes
 processTx = updateDisk . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot. Ideally it should

@@ -1,11 +1,14 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 
 module Main where
 
+import           Universum
+#ifdef WITH_WALLET
 import           Control.Monad.Reader   (MonadReader (..), ReaderT, asks, runReaderT)
 import           Control.TimeWarp.Rpc   (NetworkAddress)
 import           Control.TimeWarp.Timed (for, fork_, wait)
@@ -14,7 +17,6 @@ import           Formatting             (build, int, sformat, (%))
 import           Options.Applicative    (execParser)
 import           System.IO              (hFlush, stdout)
 import           Test.QuickCheck        (arbitrary, generate)
-import           Universum
 
 import           Pos.Constants          (slotDuration)
 import           Pos.Crypto             (KeyPair (..), SecretKey, toPublic)
@@ -28,7 +30,7 @@ import           Pos.Ssc.Class          (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing     (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon     (SscNistBeacon)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
-import           Pos.Types              (makePubKeyAddress, txF)
+import           Pos.Types              (makePubKeyAddress, txwF)
 import           Pos.Wallet             (getBalance, submitTx)
 import           Pos.WorkMode           (WorkMode)
 
@@ -44,17 +46,20 @@ evalCmd (Balance addr) = lift (getBalance addr) >>=
 evalCmd (Send outputs) = do
     (sk, na) <- ask
     tx <- lift (submitTx sk na outputs)
-    putText $ sformat ("Submitted transaction: "%txF) tx
+    putText $ sformat ("Submitted transaction: "%txwF) tx
     evalCommands
-evalCmd Help =
-    putText "Avaliable commands:\n\
-            \   balance <address>          -- check balance on given address\n\
-            \   send [<address> <coins>]+  -- create and send transaction with given outputs\n\
-            \                                 from current wallet address\n\
-            \   myaddress                  -- get current wallet address\n\
-            \   help                       -- show this message\n\
-            \   quit                       -- shutdown node wallet"
-    >> evalCommands
+evalCmd Help = do
+    putText $
+        unlines
+            [ "Avaliable commands:"
+            , "   balance <address>          -- check balance on given address"
+            , "   send [<address> <coins>]+  -- create and send transaction with given outputs"
+            , "                                 from current wallet address"
+            , "   myaddress                  -- get current wallet address"
+            , "   help                       -- show this message"
+            , "   quit                       -- shutdown node wallet"
+            ]
+    evalCommands
 evalCmd MyAddress = asks fst >>=
                     putText . sformat build . makePubKeyAddress . toPublic >>
                     evalCommands
@@ -141,4 +146,7 @@ main = do
                               runWallet @SscGodTossing inst params gtParams opts
             NistBeaconAlgo -> putText "Using NIST beacon" *>
                               runWallet @SscNistBeacon inst params () opts
-
+#else
+main :: IO ()
+main = panic "Wallet is disabled!"
+#endif

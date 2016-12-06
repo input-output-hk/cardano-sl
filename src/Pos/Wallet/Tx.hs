@@ -16,6 +16,7 @@ import           Control.TimeWarp.Rpc (NetworkAddress)
 import           Data.List            (tail)
 import qualified Data.Map             as M
 import           Data.Maybe           (fromJust)
+import qualified Data.Vector          as V
 import           Formatting           (build, sformat, (%))
 import           System.Wlog          (logError, logInfo)
 import           Universum
@@ -24,9 +25,9 @@ import           Pos.Communication    (sendTx)
 import           Pos.Crypto           (SecretKey)
 import           Pos.Crypto           (hash, sign, toPublic)
 import           Pos.State            (getUtxoByDepth)
-import           Pos.Types            (Address, Coin, Redeemer (..), Tx (..), TxId,
-                                       TxIn (..), TxOut (..), Utxo, Validator (..),
-                                       makePubKeyAddress, txF)
+import           Pos.Types            (Address, Coin, Tx (..), TxId, TxIn (..),
+                                       TxInWitness (..), TxOut (..), TxWitness, Utxo,
+                                       makePubKeyAddress, txwF)
 import           Pos.WorkMode         (NodeContext (..), WorkMode, getNodeContext)
 
 type TxOutIdx = (TxId, Word32)
@@ -34,20 +35,21 @@ type TxInputs = [TxOutIdx]
 type TxOutputs = [TxOut]
 type TxError = Text
 
-------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------
 -- Pure functions
-------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------
 
 -- | Makes a transaction which use P2PKH addresses as a source
-makePubKeyTx :: SecretKey -> TxInputs -> TxOutputs -> Tx
-makePubKeyTx sk inputs txOutputs = Tx {..}
+makePubKeyTx :: SecretKey -> TxInputs -> TxOutputs -> (Tx, TxWitness)
+makePubKeyTx sk inputs txOutputs = (Tx {..}, txWitness)
   where pk = toPublic sk
         txInputs = map makeTxIn inputs
-        makeTxIn (txInHash, txInIndex) =
-            TxIn { txInValidator = PubKeyValidator pk
-                 , txInRedeemer = PubKeyRedeemer $ sign sk (txInHash, txInIndex, txOutputs)
-                 , ..
-                 }
+        makeTxIn (txInHash, txInIndex) = TxIn {..}
+        makeTxInWitness (txInHash, txInIndex) =
+            PkWitness {
+                twKey = pk,
+                twSig = sign sk (txInHash, txInIndex, txOutputs) }
+        txWitness = V.fromList (map makeTxInWitness inputs)
 
 -- | Select only TxOuts for given addresses
 filterUtxo :: Address -> Utxo -> Utxo
@@ -57,7 +59,7 @@ type FlatUtxo = [(TxOutIdx, TxOut)]
 type InputPicker = StateT (Coin, FlatUtxo) (Either TxError)
 
 -- | Make a multi-transaction using given secret key and info for outputs
-createTx :: Utxo -> SecretKey -> TxOutputs -> Either TxError Tx
+createTx :: Utxo -> SecretKey -> TxOutputs -> Either TxError (Tx, TxWitness)
 createTx utxo sk outputs = uncurry (makePubKeyTx sk) <$> inpOuts
   where totalMoney = sum $ map txOutValue outputs
         ourAddr = makePubKeyAddress $ toPublic sk
@@ -92,7 +94,7 @@ createTx utxo sk outputs = uncurry (makePubKeyTx sk) <$> inpOuts
 
 -- | Construct Tx with a single input and single output and send it to
 -- the given network addresses.
-submitSimpleTx :: WorkMode ssc m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m Tx
+submitSimpleTx :: WorkMode ssc m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m (Tx, TxWitness)
 submitSimpleTx [] _ _ =
     logError "No addresses to send" >> fail "submitSimpleTx failed"
 submitSimpleTx na input output = do
@@ -102,7 +104,7 @@ submitSimpleTx na input output = do
     pure tx
 
 -- | Construct Tx using secret key and given list of desired outputs
-submitTx :: WorkMode ssc m => SecretKey -> [NetworkAddress] -> TxOutputs -> m Tx
+submitTx :: WorkMode ssc m => SecretKey -> [NetworkAddress] -> TxOutputs -> m (Tx, TxWitness)
 submitTx _ [] _ = logError "No addresses to send" >> fail "submitTx failed"
 submitTx sk na outputs = do
     utxo <- fromJust <$> getUtxoByDepth 0
@@ -116,10 +118,10 @@ getBalance addr = fromJust <$> getUtxoByDepth 0 >>=
                   return . sum . M.map txOutValue . filterUtxo addr
 
 -- | Send the ready-to-use transaction
-submitTxRaw :: WorkMode ssc m => [NetworkAddress] -> Tx -> m ()
+submitTxRaw :: WorkMode ssc m => [NetworkAddress] -> (Tx, TxWitness) -> m ()
 submitTxRaw na tx = do
     let txId = hash tx
-    logInfo $ sformat ("Submitting transaction: "%txF) tx
+    logInfo $ sformat ("Submitting transaction: "%txwF) tx
     logInfo $ sformat ("Transaction id: "%build) txId
     mapM_ (`sendTx` tx) na
 

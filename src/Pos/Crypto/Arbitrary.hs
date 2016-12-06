@@ -1,10 +1,11 @@
+{-# LANGUAGE TypeApplications #-}
 -- | `Arbitrary` instances for using in tests and benchmarks
 
 module Pos.Crypto.Arbitrary
     ( KeyPair(..)
     ) where
 
-import           Control.Lens                (view, _2, _4)
+import           Control.Lens                (view, _1, _2, _3, _4)
 import           Data.Binary                 (Binary)
 import           Data.List.NonEmpty          (fromList)
 import           System.IO.Unsafe            (unsafePerformIO)
@@ -13,15 +14,15 @@ import           Universum
 
 import           Pos.Crypto.Arbitrary.Hash   ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
-import           Pos.Crypto.SecretSharing    (EncShare, Secret, Share, VssKeyPair,
-                                              VssPublicKey, decryptShare,
-                                              genSharedSecret, toVssPublicKey, vssKeyGen)
+import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
+                                              SecretSharingExtra, Share, VssKeyPair,
+                                              VssPublicKey, decryptShare, genSharedSecret,
+                                              toVssPublicKey, vssKeyGen)
 import           Pos.Crypto.SerTypes         (LEncShare, LSecret, LShare, LVssPublicKey)
 import           Pos.Crypto.Signing          (PublicKey, SecretKey, Signature, Signed,
                                               keyGen, mkSigned, sign)
-import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakeList,
-                                              unsafeMakePool)
 import           Pos.Util                    (Serialized (..))
+import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakePool)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -101,30 +102,32 @@ instance (Binary a, Arbitrary a) => Arbitrary (Signed a) where
 -- Arbitrary secrets
 ----------------------------------------------------------------------------
 
-secrets :: [Secret]
-secrets =
-    unsafeMakePool "[generating shares for tests...]" 50 $
-        view _2 <$> genSharedSecret 1000 (map toVssPublicKey $ fromList vssKeys)
-{-# NOINLINE secrets #-}
+sharedSecrets :: [(SecretSharingExtra, Secret, SecretProof, [EncShare])]
+sharedSecrets =
+    unsafeMakePool "[generating shared secrets for tests...]" 50 $
+        genSharedSecret 1000 (map toVssPublicKey $ fromList vssKeys)
+{-# NOINLINE sharedSecrets #-}
+
+instance Arbitrary SecretSharingExtra where
+    arbitrary = elements $ fmap (view _1) sharedSecrets
 
 instance Arbitrary Secret where
-    arbitrary = elements secrets
+    arbitrary = elements $ fmap (view _2) sharedSecrets
 
 instance Arbitrary LSecret where
     arbitrary = serialize @Secret <$> arbitrary
 
-encShares :: [EncShare]
-encShares =
-    unsafeMakeList "[generating shares for tests...]" $
-        view _4 <$> genSharedSecret 1000 (map toVssPublicKey $ fromList vssKeys)
-{-# NOINLINE encShares #-}
+instance Arbitrary SecretProof where
+    arbitrary = elements $ fmap (view _3) sharedSecrets
 
 instance Arbitrary EncShare where
-    arbitrary = elements encShares
+    arbitrary = elements $ concat $ fmap (view _4) sharedSecrets
 
 instance Arbitrary LEncShare where
     arbitrary = serialize @EncShare <$> arbitrary
 
+instance Arbitrary Share where
+    arbitrary = unsafePerformIO <$> (decryptShare <$> arbitrary <*> arbitrary)
+
 instance Arbitrary LShare where
-    arbitrary =
-        serialize @Share . unsafePerformIO <$> (decryptShare <$> arbitrary <*> arbitrary)
+    arbitrary = serialize @Share <$> arbitrary

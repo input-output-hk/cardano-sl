@@ -23,6 +23,7 @@ module Pos.State.Storage
        , getHeadBlock
        , getBestChain
        , getGlobalSscState
+       , getGlobalSscStateByDepth
        , getLeaders
        , getLocalTxs
        , getUtxoByDepth
@@ -44,10 +45,11 @@ module Pos.State.Storage
 
 import           Universum
 
-import           Control.Lens            (makeClassy, use, (.=), (^.))
+import           Control.Lens            (makeClassy, use, (%~), (.=), (^.), _1)
 import           Control.Monad.TM        ((.=<<.))
 import           Data.Acid               ()
 import           Data.Default            (Default, def)
+import qualified Data.HashMap.Strict     as HM
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import           Data.SafeCopy           (SafeCopy (..), contain, safeGet, safePut)
 import           Data.Tagged             (untag)
@@ -158,6 +160,13 @@ getGlobalSscState
     => Query ssc (SscGlobalState ssc)
 getGlobalSscState = sscGetGlobalState @ssc
 
+-- | Get global SSC data that was observed N blocks ago.
+getGlobalSscStateByDepth
+    :: forall ssc.
+       SscStorageClass ssc
+    => Word -> Query ssc (Maybe (SscGlobalState ssc))
+getGlobalSscStateByDepth = sscGetGlobalStateByDepth @ssc
+
 -- | Create a new block on top of best chain if possible.
 -- Block can be created if:
 -- • we know genesis block for epoch from given SlotId
@@ -180,8 +189,8 @@ createNewBlockDo
 createNewBlockDo sk sId sscPayload = do
     globalPayload <- readerToState $ getGlobalSscState
     let filteredPayload = sscFilterPayload @ssc sscPayload globalPayload
-    txs <- readerToState $ toList <$> getLocalTxs
-    blk <- blkCreateNewBlock sk sId (fmap whData txs) filteredPayload
+    txs <- readerToState $ HM.toList <$> getLocalTxs
+    blk <- blkCreateNewBlock sk sId (map (_1 %~ whData) txs) filteredPayload
     let blocks = Right blk :| []
     sscApplyBlocks blocks
     blk <$ txApplyBlocks blocks

@@ -1,10 +1,13 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns        #-}
 
 module Main where
 
+import           Universum                       hiding (forConcurrently)
+#ifdef WITH_WALLET
 import           Control.Concurrent.Async.Lifted (forConcurrently)
 import           Control.Concurrent.STM.TVar     (modifyTVar', newTVarIO, readTVarIO)
 import           Control.TimeWarp.Rpc            (NetworkAddress)
@@ -18,7 +21,6 @@ import           System.FilePath.Posix           ((</>))
 import           System.Random.Shuffle           (shuffleM)
 import           System.Wlog                     (logInfo)
 import           Test.QuickCheck                 (arbitrary, generate)
-import           Universum                       hiding (forConcurrently)
 
 import           Pos.Constants                   (k, neighborsSendThreshold, slotDuration)
 import           Pos.Crypto                      (KeyPair (..), hash)
@@ -36,7 +38,7 @@ import           Pos.Ssc.NistBeacon              (SscNistBeacon)
 import           Pos.Ssc.SscAlgo                 (SscAlgo (..))
 import           Pos.State                       (isTxVerified)
 import           Pos.Statistics                  (NoStatsT (..))
-import           Pos.Types                       (Tx (..))
+import           Pos.Types                       (Tx (..), TxWitness)
 import           Pos.Util.JsonLog                ()
 import           Pos.Wallet                      (submitTxRaw)
 import           Pos.WorkMode                    (ProductionMode)
@@ -52,7 +54,7 @@ import           Util
 
 -- | Resend initTx with `slotDuration` period until it's verified
 seedInitTx :: forall ssc . SscConstraint ssc
-           => Double -> BambooPool -> Tx -> ProductionMode ssc ()
+           => Double -> BambooPool -> (Tx, TxWitness) -> ProductionMode ssc ()
 seedInitTx recipShare bp initTx = do
     na <- getPeers recipShare
     logInfo "Issuing seed transaction"
@@ -160,10 +162,10 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
                               logInfo "Resend the transaction parent again"
                               submitTxRaw na parent
 
-                          Right transaction -> do
+                          Right (transaction, witness) -> do
                               let curTxId = hash transaction
                               logInfo $ sformat ("Sending transaction #"%int) idx
-                              submitTxRaw na transaction
+                              submitTxRaw na (transaction, witness)
                               when (startT >= startMeasurementsT) $ liftIO $ do
                                   liftIO $ atomically $ modifyTVar' realTxNum (+1)
                                   -- put timestamp to current txmap
@@ -262,3 +264,7 @@ main = do
                               runSmartGen @SscGodTossing inst params gtParams opts
             NistBeaconAlgo -> putText "Using NIST beacon" *>
                               runSmartGen @SscNistBeacon inst params () opts
+#else
+main :: IO ()
+main = panic "Wallet is necessary for smart generator"
+#endif

@@ -82,8 +82,7 @@ library
                         Pos.WorkMode
   if flag(with-web)
     exposed-modules:    Pos.Web
-  -- FIXME
-  if flag(with-wallet) || true
+  if flag(with-wallet)
     exposed-modules:    Pos.Wallet
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
@@ -99,7 +98,6 @@ library
                         Pos.Communication.Util
                         Pos.CompileConfig.Parser
                         Pos.CompileConfig.Type
-                        Pos.Crypto.Address
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
@@ -147,8 +145,7 @@ library
                         Pos.Web.Doc
                         Pos.Web.Server
                         Pos.Web.Types
-  -- FIXME
-  if (flag(with-wallet) || true)
+  if flag(with-wallet)
     other-modules:      Pos.Wallet.Tx
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Wallet.Web.Api
@@ -346,7 +343,8 @@ executable cardano-wallet
 executable cardano-smart-wallet
   hs-source-dirs:      src/smart-wallet
   main-is:             Main.hs
-  other-modules:       WalletOptions
+  if flag(with-wallet)
+    other-modules:     WalletOptions
                        Command
   build-depends:       QuickCheck
                      , base
@@ -380,11 +378,14 @@ executable cardano-smart-wallet
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+  if flag(with-wallet)
+    cpp-options: -DWITH_WALLET
 
 executable cardano-smart-generator
   hs-source-dirs:      src/smart-generator
   main-is:             Main.hs
-  other-modules:       GenOptions
+  if flag(with-wallet)
+    other-modules:     GenOptions
                        TxGeneration
                        TxAnalysis
                        Util
@@ -411,6 +412,7 @@ executable cardano-smart-generator
                      , time-warp
                      , universum >= 0.1.11
                      , unordered-containers
+                     , vector
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -424,6 +426,8 @@ executable cardano-smart-generator
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+  if flag(with-wallet)
+    cpp-options: -DWITH_WALLET
 
 executable cardano-web-docs
   hs-source-dirs:      src/web-docs
@@ -453,6 +457,8 @@ executable cardano-wallet-web-docs
   build-depends:       base
                      , cardano-sl
                      , universum >= 0.1.11
+                     , unordered-containers
+                     , vector
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -471,7 +477,7 @@ executable cardano-wallet-web-docs
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
 
- 
+
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec
@@ -515,6 +521,7 @@ test-suite cardano-test
                      , time-warp
                      , universum >= 0.1.11
                      , unordered-containers
+                     , vector
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded

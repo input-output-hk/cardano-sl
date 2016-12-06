@@ -4,12 +4,14 @@
 
 module WalletOptions
        ( WalletOptions (..)
+       , WalletAction (..)
        , optsInfo
        ) where
 
-import           Options.Applicative    (Parser, ParserInfo, auto, fullDesc, help, helper,
-                                         info, long, many, metavar, option, option,
-                                         progDesc, short, showDefault, switch, value)
+import           Options.Applicative    (CommandFields, Mod, Parser, ParserInfo, auto,
+                                         command, fullDesc, help, helper, info, long,
+                                         many, metavar, option, option, progDesc, short,
+                                         showDefault, subparser, switch, value)
 import           Serokell.Util.OptParse (fromParsec, strOption)
 import           Universum
 
@@ -18,16 +20,12 @@ import           Pos.CLI                (dhtNodeParser, sscAlgoParser)
 import           Pos.DHT                (DHTNode)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 
-
 data WalletOptions = WalletOptions
     { woDbPath             :: !FilePath
     , woRebuildDb          :: !Bool
     , woDHTPeers           :: ![DHTNode]  -- ^ Initial DHT nodes
     , woDhtExplicitInitial :: !Bool
     , woPort               :: !Word16     -- ^ DHT/Blockchain port
-#ifdef WITH_WEB
-    , woWebPort            :: !Word16     -- ^ A port on which web API listens
-#endif
     , woInitialPause       :: !Int     -- ^ Pause between connecting to network
                                        -- and starting accepting commands (in slots)
     , woSecretKeyIdx       :: !Int     -- ^ Index of genesis SK to use
@@ -37,7 +35,34 @@ data WalletOptions = WalletOptions
     , woSscAlgo            :: !SscAlgo
     , woFlatDistr          :: !(Maybe (Int, Int))
     , woBitcoinDistr       :: !(Maybe (Int, Int))
+    , woAction             :: !WalletAction
     }
+
+data WalletAction = Repl
+#ifdef WITH_WEB
+                  | Serve { webPort :: !Word16 }
+#endif
+
+actionParser :: Parser WalletAction
+actionParser = subparser $ replParser
+#ifdef WITH_WEB
+                        <> serveParser
+#endif
+
+replParser :: Mod CommandFields WalletAction
+replParser = command "repl" $ info (pure Repl) $
+             progDesc "Run REPL in console to evaluate the commands"
+
+#ifdef WITH_WEB
+serveParser :: Mod CommandFields WalletAction
+serveParser = command "serve" $ info opts desc
+  where opts = Serve <$> option auto (long "web-port"
+                                   <> metavar "PORT"
+                                   <> value 8090    -- to differ from node's default port
+                                   <> showDefault
+                                   <> help "Port for web server")
+        desc = progDesc "Serve HTTP Daedalus API on given port"
+#endif
 
 optionsParser :: Parser WalletOptions
 optionsParser = WalletOptions
@@ -46,33 +71,25 @@ optionsParser = WalletOptions
                 <> value "wallet-db"
                 <> help "Path to the wallet database")
     <*> switch (long "rebuild-db"
-             <> help "If we DB already exist, discard it's contents and \
-                     \create new one from scratch")
+             <> help ("If we DB already exist, discard it's contents and " <>
+                      "create new one from scratch"))
     <*> many (option (fromParsec dhtNodeParser) $
               long "peer"
            <> metavar "HOST:PORT/HOST_ID"
            <> help "Initial DHT peer (may be many)")
     <*> switch (long "explicit-initial"
-             <> help "Explicitely contact to initial peers as to neighbors\
-                     \ (even if they appeared offline once)")
+             <> help ("Explicitely contact to initial peers as to neighbors " <>
+                      "(even if they appeared offline once)"))
     <*> option auto (long "port"
                   <> metavar "PORT"
                   <> value 24961   -- truly random value
                   <> showDefault
                   <> help "Port to work on")
-#ifdef WITH_WEB
-    <*> option auto (long "web-port"
-                  <> metavar "PORT"
-                  <> value 8090    -- to differ from node's default port
-                  <> showDefault
-                  <> help "Port for web server")
-#endif
     <*> option auto (long "initial-pause"
                   <> short 'p'
                   <> value 1
                   <> metavar "SLOTS_NUM"
-                  <> help "Pause between connecting to network and starting\
-                          \ accepting commands")
+                  <> help "Pause between connecting to network and starting accepting commands")
     <*> option auto (long "genesis-sk"
                   <> short 'i'
                   <> metavar "INDEX"
@@ -109,6 +126,7 @@ optionsParser = WalletOptions
             , metavar "(INT,INT)"
             , help "Use bitcoin stake distribution with given parameters (nodes, coins)"
             ])
+    <*> actionParser
 
 optsInfo :: ParserInfo WalletOptions
 optsInfo = info (helper <*> optionsParser) $

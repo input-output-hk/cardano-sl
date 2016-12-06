@@ -11,7 +11,7 @@ import           Universum
 #ifdef WITH_WALLET
 import           Control.Monad.Reader   (MonadReader (..), ReaderT, asks, runReaderT)
 import           Control.TimeWarp.Rpc   (NetworkAddress)
-import           Control.TimeWarp.Timed (for, fork_, wait)
+import           Control.TimeWarp.Timed (for, wait)
 import           Data.List              ((!!))
 import           Formatting             (build, int, sformat, (%))
 import           Options.Applicative    (execParser)
@@ -21,21 +21,22 @@ import           Test.QuickCheck        (arbitrary, generate)
 import           Pos.Constants          (slotDuration)
 import           Pos.Crypto             (KeyPair (..), SecretKey, toPublic)
 import           Pos.DHT                (DHTNodeType (..), dhtAddr, discoverPeers)
-import           Pos.DHT.Real           (KademliaDHTInstance)
 import           Pos.Genesis            (genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
-                                         NodeParams (..), bracketDHTInstance, runNode,
-                                         runProductionMode, runTimeSlaveReal, stakesDistr)
-import           Pos.Ssc.Class          (SscConstraint, SscParams)
+                                         NodeParams (..), bracketDHTInstance,
+                                         runNodeProduction, runTimeSlaveReal, stakesDistr)
 import           Pos.Ssc.GodTossing     (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon     (SscNistBeacon)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 import           Pos.Types              (makePubKeyAddress, txwF)
 import           Pos.Wallet             (getBalance, submitTx)
 import           Pos.WorkMode           (WorkMode)
+#ifdef WITH_WEB
+import           Pos.Wallet.Web         (walletServeWeb)
+#endif
 
 import           Command                (Command (..), parseCommand)
-import           WalletOptions          (WalletOptions (..), optsInfo)
+import           WalletOptions          (WalletAction (..), WalletOptions (..), optsInfo)
 
 type CmdRunner = ReaderT (SecretKey, [NetworkAddress])
 
@@ -75,14 +76,8 @@ evalCommands = do
         Left err  -> putStrLn err >> evalCommands
         Right cmd -> evalCmd cmd
 
-runWallet :: forall ssc . SscConstraint ssc
-          => KademliaDHTInstance -> NodeParams -> SscParams ssc -> WalletOptions -> IO ()
-runWallet inst np@NodeParams{..} sscnp WalletOptions{..} =
-    runProductionMode inst np sscnp $ do
-
-    -- Run node workers
-    fork_ $ runNode @ssc []
-
+runWalletRepl :: WorkMode ssc m => WalletOptions -> m ()
+runWalletRepl WalletOptions{..} = do
     -- Wait some time to ensure blockchain is fetched
     putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
     wait $ for $ fromIntegral woInitialPause * slotDuration
@@ -91,6 +86,11 @@ runWallet inst np@NodeParams{..} sscnp WalletOptions{..} =
     na <- fmap dhtAddr <$> discoverPeers DHTFull
     putText "Welcome to Wallet CLI Node"
     runReaderT (evalCmd Help) (sk, na)
+
+#ifdef WITH_WEB
+runWalletApi :: WorkMode ssc m => Word16 -> m ()
+runWalletApi = walletServeWeb
+#endif
 
 main :: IO ()
 main = do
@@ -141,11 +141,18 @@ main = do
                 , gtpVssKeyPair = vssKeyPair
                 }
 
+            plugins :: WorkMode ssc m => [m ()]
+            plugins = case woAction of
+                Repl          -> [runWalletRepl opts]
+#ifdef WITH_WEB
+                Serve webPort -> [runWalletApi webPort]
+#endif
+
         case woSscAlgo of
             GodTossingAlgo -> putText "Using MPC coin tossing" *>
-                              runWallet @SscGodTossing inst params gtParams opts
+                              runNodeProduction @SscGodTossing inst plugins params gtParams
             NistBeaconAlgo -> putText "Using NIST beacon" *>
-                              runWallet @SscNistBeacon inst params () opts
+                              runNodeProduction @SscNistBeacon inst plugins params ()
 #else
 main :: IO ()
 main = panic "Wallet is disabled!"

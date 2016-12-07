@@ -7,6 +7,9 @@
 module Pos.Txp.Types.Listener
        ( SendTx (..)
        , SendTxs (..)
+       , TxInvMsg (..)
+       , TxReqMsg (..)
+       , TxDataMsg (..)
        ) where
 
 import           Control.TimeWarp.Rpc (Message (..), messageName')
@@ -14,6 +17,7 @@ import           Data.Binary          (Binary)
 import           Data.List.NonEmpty   (NonEmpty)
 import           Universum
 
+import           Pos.Crypto           (WithHash)
 import           Pos.Types            (Tx)
 
 -- | Message: some node has sent a Transaction.
@@ -36,4 +40,46 @@ instance Message SendTx where
 
 instance Message SendTxs where
     messageName _ = "Send Txs"
+    formatMessage = messageName'
+
+----------------------------------------------------------------------------
+-- Inventory, Request and Data messages
+----------------------------------------------------------------------------
+
+-- | Inventory message. Can be used to announce the fact that you have
+-- some new local transactions.
+data TxInvMsg = TxInvMsg
+    {
+      imTxs :: !(NonEmpty Tx)
+    } deriving (Generic)
+
+instance Binary TxInvMsg
+
+instance Message TxInvMsg where
+    messageName _ = "Tx Inventory"
+    formatMessage = messageName'
+
+-- | Request message. Can be used to request transactions (ideally transactions which
+-- was previously announced by inventory message).
+data TxReqMsg = TxReqMsg
+    {
+      rmTxs :: !(NonEmpty Tx)
+    } deriving (Generic)
+
+instance Binary TxReqMsg
+
+instance Message TxReqMsg where
+    messageName _ = "Tx Request"
+    formatMessage = messageName'
+
+-- | Data message. Can be used to send one transaction per message.
+data TxDataMsg = TxDataMsg
+    {
+      dmTxs :: !(WithHash Tx) -- should we use Tx here?
+    } deriving (Generic)
+
+instance Binary TxDataMsg
+
+instance Message TxDataMsg where
+    messageName _ = "Tx Data"
     formatMessage = messageName'

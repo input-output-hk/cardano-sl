@@ -8,9 +8,8 @@ module Pos.Txp.Listeners
        ( txListeners
        ) where
 
-import           Control.TimeWarp.Rpc        (BinaryP, Message, MonadDialog)
-import           Data.Binary                 (Binary)
-import           Data.List.NonEmpty          (NonEmpty)
+import           Control.TimeWarp.Rpc        (BinaryP, MonadDialog)
+import qualified Data.HashMap.Strict         as HM
 import qualified Data.List.NonEmpty          as NE
 import           Data.Maybe                  (fromJust)
 import           Formatting                  (build, sformat, stext, (%))
@@ -19,7 +18,7 @@ import           Universum
 
 import           Pos.Communication.Methods   (announceTxs)
 import           Pos.Communication.Types     (ResponseMode)
-import           Pos.Crypto                  (WithHash (..), withHash, hash)
+import           Pos.Crypto                  (WithHash (..), hash)
 import           Pos.DHT                     (ListenerDHT (..), replyToNode)
 import           Pos.State                   (ProcessTxRes (..))
 import qualified Pos.State                   as St
@@ -28,8 +27,7 @@ import           Pos.Txp.LocalData           (txLocalDataProcessTx)
 import           Pos.Txp.LocalData           (getLocalTxs)
 import           Pos.Txp.Types.Communication (SendTx (..), SendTxs (..), TxDataMsg (..),
                                               TxInvMsg (..), TxReqMsg (..))
-import           Pos.Types                   (IdTxWitness, Tx, TxId, TxWitness,
-                                              topsortTxs)
+import           Pos.Types                   (IdTxWitness, TxId, topsortTxs)
 import           Pos.WorkMode                (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
@@ -48,9 +46,9 @@ handleTx
     :: ResponseMode ssc m
     => SendTx -> m Bool
 handleTx (SendTx tx tw) = do
-    added <- handleTxDo $ (hash tx, (tx, tw))
-    when added $ do
-        notImplemented
+    let txId = hash tx
+    added <- handleTxDo $ (txId, (tx, tw))
+    when added . replyToNode . TxInvMsg . pure $ txId
     return added
 
 handleTxDo
@@ -83,23 +81,21 @@ handleTxs (SendTxs txsUnsorted_) =
         Just txs -> do
             added <- toList <$> mapM handleTxDo txs
             let addedItems = map (snd . snd) . filter fst . zip added . toList $ txs
-            announceTxs addedItems --should we use TxInvMessage here?
+            announceTxs addedItems -- TODO should we use TxInvMessage here?
   where
     txsUnsorted = fmap (\(t, w) -> (hash t, (t, w))) txsUnsorted_
 
-isTxUsefull :: TxId -> m Bool
-isTxUsefull = notImplemented
+isTxUsefull :: ResponseMode ssc m => TxId -> m Bool
+isTxUsefull txId = HM.member txId <$> getLocalTxs
+-- TODO it isn't enought, but I don't know how check it in utxo
 
-handleTxInv :: (ResponseMode ssc m)
-            => TxInvMsg -> m ()
+handleTxInv :: (ResponseMode ssc m) => TxInvMsg -> m ()
 handleTxInv (TxInvMsg txHashes_) = do
     let txHashes = NE.toList txHashes_
     added <- mapM handleSingle txHashes
     let addedItems = map snd . filter fst . zip added $ txHashes
     safeReply addedItems TxReqMsg
   where
-    safeReply :: (Binary r, Message r, ResponseMode ssc m)
-              => [a] -> (NonEmpty a -> r) -> m ()
     safeReply [] _      = pure ()
     safeReply xs constr = replyToNode . constr . NE.fromList $ xs
     handleSingle txHash =
@@ -114,12 +110,9 @@ handleTxReq :: (ResponseMode ssc m)
 handleTxReq (TxReqMsg txIds_) = do
     localTxs <- getLocalTxs
     let txIds = NE.toList txIds_
-    found <- mapM lookupSingle txIds
+        found = map (flip HM.lookup localTxs) txIds
     let addedItems = map (fmap fromJust) . filter (isJust . snd) . zip txIds $ found
     mapM_ (replyToNode . TxDataMsg) addedItems
-  where
-    lookupSingle :: TxId -> m (Maybe (Tx, TxWitness))
-    lookupSingle = notImplemented
 
 handleTxData :: (ResponseMode ssc m)
              => TxDataMsg -> m ()

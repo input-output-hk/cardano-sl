@@ -24,6 +24,7 @@ module Pos.Launcher.Runner
        -- * Exported for custom usage in CLI utils
        , addDevListeners
        , bracketDHTInstance
+       , runTimed
        ) where
 
 import           Control.Concurrent.MVar     (newEmptyMVar, newMVar, takeMVar,

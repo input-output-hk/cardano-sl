@@ -8,10 +8,11 @@ module Test.Pos.Types.TxSpec
        ( spec
        ) where
 
-import           Control.Lens          (view, _2, _3)
+import           Control.Lens          (view, _2, _3, _4)
 import           Control.Monad         (join)
 import qualified Data.HashMap.Strict   as HM
 import           Data.List             (elemIndex, lookup, (\\))
+import qualified Data.Vector           as V (fromList, toList)
 import           Serokell.Util.Verify  (isVerFailure, isVerSuccess)
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
@@ -23,9 +24,9 @@ import           Universum             hiding ((.&.))
 
 import           Pos.Crypto            (checkSig, hash, whData, withHash)
 import           Pos.Types             (BadSigsTx (..), GoodTx (..), OverflowTx (..),
-                                        Redeemer (..), SmallBadSigsTx (..),
-                                        SmallGoodTx (..), SmallOverflowTx (..), Tx (..),
-                                        TxIn (..), TxOut (..), Validator (..),
+                                        SmallBadSigsTx (..), SmallGoodTx (..),
+                                        SmallOverflowTx (..), Tx (..), TxIn (..),
+                                        TxInWitness (..), TxOut (..), TxWitness,
                                         checkPubKeyAddress, topsortTxs, verifyTx,
                                         verifyTxAlone)
 import           Pos.Util              (sublistN)
@@ -44,11 +45,11 @@ spec = describe "Types.Tx" $ do
         prop "doesn't change the random set of transactions" $
             forAll (resize 10 $ arbitrary) $ \(NonNegative l) ->
             forAll (vectorOf l (txGen 10)) $ \txs ->
-            (sort <$> topsortTxs (map withHash txs)) === Just (sort $ map withHash txs)
+            (sort <$> topsortTxs identity (map withHash txs)) === Just (sort $ map withHash txs)
         prop "graph generator does not produce loops" $
             forAll (txAcyclicGen False 20) $ \(txs,_) ->
             forAll (shuffle $ map withHash txs) $ \shuffled ->
-            isJust $ topsortTxs shuffled
+            isJust $ topsortTxs identity shuffled
         prop "does correct topsort on bamboo" $ testTopsort True
         prop "does correct topsort on arbitrary acyclic graph" $ testTopsort False
   where
@@ -74,7 +75,7 @@ invalidateBadTxAlone Tx {..} = all (isVerFailure . verifyTxAlone) badTxs
         map (uncurry Tx) $
         [([], txOutputs), (txInputs, []), (txInputs, zeroOutputs)]
 
-type TxVerifyingTools = (Tx, TxIn -> Maybe TxOut, [Maybe (TxIn, TxOut)])
+type TxVerifyingTools = (Tx, TxIn -> Maybe TxOut, [Maybe (TxIn, TxOut)], TxWitness)
 
 -- | This function takes the list inside a 'GoodTx' and related types, and
 -- turns it into something 'verifyTx' can use:
@@ -82,16 +83,17 @@ type TxVerifyingTools = (Tx, TxIn -> Maybe TxOut, [Maybe (TxIn, TxOut)])
 -- * the transaction that the list holds
 -- * the input resolver associated with that transaction
 -- * the list of resolved inputs with all inputs in the transaction
-getTxFromGoodTx :: [(Tx, TxIn, TxOut)] -> TxVerifyingTools
+getTxFromGoodTx :: [(Tx, TxIn, TxOut, TxInWitness)] -> TxVerifyingTools
 getTxFromGoodTx ls =
-    let txOutputs = fmap (view _3) ls
+    let txWitness = V.fromList $ fmap (view _4) ls
+        txOutputs = fmap (view _3) ls
         txInputs = fmap (view _2) ls
         inpResolver :: TxIn -> Maybe TxOut
-        inpResolver = join . flip lookup (fmap (\(Tx _ o, ti, _) -> (ti, head o)) ls)
+        inpResolver = join . flip lookup (fmap (\(Tx _ o, ti, _, _) -> (ti, head o)) ls)
         extendInput txIn = (txIn,) <$> inpResolver txIn
         extendedInputs :: [Maybe (TxIn, TxOut)]
         extendedInputs = fmap extendInput txInputs
-    in (Tx {..}, inpResolver, extendedInputs)
+    in (Tx {..}, inpResolver, extendedInputs, txWitness)
 
 -- | This function takes a list of resolved inputs from a transaction, that
 -- same transaction's outputs, and verifies that the input sum is greater than
@@ -110,45 +112,46 @@ txChecksum extendedInputs txOuts =
 -- * every input is a known unspent output.
 -- It also checks that it has good structure w.r.t. 'verifyTxAlone'.
 individualTxPropertyVerifier :: TxVerifyingTools -> Bool
-individualTxPropertyVerifier (tx@Tx{..}, _, extendedInputs) =
+individualTxPropertyVerifier (tx@Tx{..}, _, extendedInputs, txWits) =
     let hasGoodSum = txChecksum extendedInputs txOutputs
         hasGoodStructure = isVerSuccess $ verifyTxAlone tx
-        hasGoodInputs = and $ map (signatureIsValid txOutputs) extendedInputs
+        hasGoodInputs = all (signatureIsValid txOutputs)
+                            (zip extendedInputs (toList txWits))
     in hasGoodSum && hasGoodStructure && hasGoodInputs
 
 validateGoodTx :: SmallGoodTx -> Bool
 validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
-    let triple@(tx, inpResolver, _) =
+    let quadruple@(tx, inpResolver, _, txWits) =
             getTxFromGoodTx ls
-        transactionIsVerified = isVerSuccess $ verifyTx inpResolver tx
-        transactionReallyIsGood = individualTxPropertyVerifier triple
+        transactionIsVerified =
+            isVerSuccess $ verifyTx inpResolver (tx, txWits)
+        transactionReallyIsGood = individualTxPropertyVerifier quadruple
     in  transactionIsVerified == transactionReallyIsGood
 
 overflowTx :: SmallOverflowTx -> Bool
 overflowTx (SmallOverflowTx (getOverflowTx -> ls)) =
-    let (tx@Tx{..}, inpResolver, extendedInputs) =
+    let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
-        transactionIsNotVerified = isVerFailure $ verifyTx inpResolver tx
+        transactionIsNotVerified = isVerFailure $ verifyTx inpResolver (tx, txWits)
         inpSumLessThanOutSum = not $ txChecksum extendedInputs txOutputs
     in inpSumLessThanOutSum == transactionIsNotVerified
 
-signatureIsValid :: [TxOut] -> Maybe (TxIn, TxOut) -> Bool
-signatureIsValid txOutputs (Just (TxIn{..}, TxOut{..})) =
-    let pk = getValidator txInValidator
-        sig = getRedeemer txInRedeemer
-    in checkPubKeyAddress pk txOutAddress &&
-       checkSig pk (txInHash, txInIndex, txOutputs) sig
+signatureIsValid :: [TxOut] -> (Maybe (TxIn, TxOut), TxInWitness) -> Bool
+signatureIsValid txOutputs (Just (TxIn{..}, TxOut{..}), PkWitness{..}) =
+    checkPubKeyAddress twKey txOutAddress &&
+    checkSig twKey (txInHash, txInIndex, txOutputs) twSig
 signatureIsValid _ _ = False
 
-signatureIsNotValid :: [TxOut] -> Maybe (TxIn, TxOut) -> Bool
+signatureIsNotValid :: [TxOut] -> (Maybe (TxIn, TxOut), TxInWitness) -> Bool
 signatureIsNotValid txOutputs = not . signatureIsValid txOutputs
 
 badSigsTx :: SmallBadSigsTx -> Bool
 badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
-    let (tx@Tx{..}, inpResolver, extendedInputs) =
+    let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
-        transactionIsNotVerified = isVerFailure $ verifyTx inpResolver tx
-        notAllSignaturesAreValid = any (signatureIsNotValid txOutputs) extendedInputs
+        transactionIsNotVerified = isVerFailure $ verifyTx inpResolver (tx, txWits)
+        notAllSignaturesAreValid =
+            any (signatureIsNotValid txOutputs) $ zip extendedInputs (V.toList txWits)
     in notAllSignaturesAreValid == transactionIsNotVerified
 
 -- | Primitive transaction generator with restriction on
@@ -157,8 +160,7 @@ txGen :: Int -> Gen Tx
 txGen size = do
     (Positive inputsN) <- resize size arbitrary
     (Positive outputsN) <- resize size arbitrary
-    inputs <- replicateM inputsN $ (\h v r -> TxIn h 0 v r) <$>
-              arbitrary <*> arbitrary <*> arbitrary
+    inputs <- replicateM inputsN $ (\h -> TxIn h 0) <$> arbitrary
     outputs <- replicateM outputsN $
         (\addr (Positive c) -> TxOut addr c) <$> arbitrary <*> arbitrary
     pure $ Tx inputs outputs
@@ -169,7 +171,7 @@ testTopsort isBamboo =
     forAll (shuffle txs) $ \shuffled ->
     let reachables :: [(Tx,Tx)]
         reachables = [(from,to) | (to,froms) <- HM.toList reach, from <- froms]
-        topsorted = map whData <$> topsortTxs (map withHash shuffled)
+        topsorted = map whData <$> topsortTxs identity (map withHash shuffled)
         reaches :: (Tx,Tx) -> Bool
         reaches (from,to) =
             let fromI = elemIndex from =<< topsorted
@@ -208,7 +210,7 @@ txAcyclicGen isBamboo size = do
             resize (bool (min 3 $ length unusedUtxo) 1 isBamboo) arbitrary
         chosenUtxo <- sublistN depsN unusedUtxo
         -- grab some inputs
-        inputs <- mapM (\(h,i) -> TxIn (hash h) (fromIntegral i) <$> arbitrary <*> arbitrary) chosenUtxo
+        let inputs = map (\(h,i) -> TxIn (hash h) (fromIntegral i)) chosenUtxo
         (Positive outputsN) <- resize some' arbitrary
         -- gen some outputs
         outputs <- replicateM outputsN $

@@ -234,6 +234,9 @@ library
                         RecordWildCards
                         TypeApplications
 
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
   if flag(asserts)
     cpp-options: -DASSERTS_ON
   if flag(dev-mode)
@@ -274,6 +277,10 @@ executable cardano-node
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
   if flag(with-web)
     cpp-options: -DWITH_WEB
 
@@ -309,40 +316,11 @@ executable cardano-analyzer
                         RecordWildCards
                         TypeApplications
 
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
 executable cardano-wallet
   hs-source-dirs:      src/wallet
-  main-is:             Main.hs
-  other-modules:       WalletOptions
-  build-depends:       base
-                     , data-default
-                     , cardano-sl
-                     , formatting
-                     , log-warper >= 0.1.0
-                     , optparse-applicative
-                     , parsec
-                     , serokell-util
-                     , time-warp
-                     , universum >= 0.1.11
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -with-rtsopts=-N
-                       -O2
-  default-extensions:   DeriveDataTypeable
-                        DeriveGeneric
-                        GeneralizedNewtypeDeriving
-                        NoImplicitPrelude
-                        OverloadedStrings
-                        RecordWildCards
-                        TypeApplications
-  if flag(with-web)
-    cpp-options: -DWITH_WEB
-  if flag(with-wallet)
-    cpp-options: -DWITH_WALLET
-
-executable cardano-smart-wallet
-  hs-source-dirs:      src/smart-wallet
   main-is:             Main.hs
   if flag(with-wallet)
     other-modules:     WalletOptions
@@ -379,6 +357,12 @@ executable cardano-smart-wallet
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+  if flag(with-web)
+    cpp-options: -DWITH_WEB
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
 
@@ -413,6 +397,7 @@ executable cardano-smart-generator
                      , time-warp
                      , universum >= 0.1.11
                      , unordered-containers
+                     , vector
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -426,6 +411,10 @@ executable cardano-smart-generator
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
 
@@ -448,6 +437,10 @@ executable cardano-web-docs
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
   if flag(with-web)
     cpp-options: -DWITH_WEB
 
@@ -457,6 +450,8 @@ executable cardano-wallet-web-docs
   build-depends:       base
                      , cardano-sl
                      , universum >= 0.1.11
+                     , unordered-containers
+                     , vector
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -470,6 +465,10 @@ executable cardano-wallet-web-docs
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
   if flag(with-web)
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
@@ -519,6 +518,7 @@ test-suite cardano-test
                      , time-warp
                      , universum >= 0.1.11
                      , unordered-containers
+                     , vector
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded
@@ -533,6 +533,9 @@ test-suite cardano-test
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
 
 benchmark cardano-bench-criterion
   hs-source-dirs:      bench
@@ -564,3 +567,6 @@ benchmark cardano-bench-criterion
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

@@ -19,8 +19,7 @@ import           Universum
 
 import           Pos.Communication.Methods   (announceTxs)
 import           Pos.Communication.Types     (ResponseMode)
-import           Pos.Crypto                  (WithHash (whData), withHash)
-import           Pos.Crypto                  (Hash)
+import           Pos.Crypto                  (WithHash (..), withHash, hash)
 import           Pos.DHT                     (ListenerDHT (..), replyToNode)
 import           Pos.State                   (ProcessTxRes (..))
 import qualified Pos.State                   as St
@@ -29,7 +28,8 @@ import           Pos.Txp.LocalData           (txLocalDataProcessTx)
 import           Pos.Txp.LocalData           (getLocalTxs)
 import           Pos.Txp.Types.Communication (SendTx (..), SendTxs (..), TxDataMsg (..),
                                               TxInvMsg (..), TxReqMsg (..))
-import           Pos.Types                   (Tx, TxId, topsortTxs)
+import           Pos.Types                   (IdTxWitness, Tx, TxId, TxWitness,
+                                              topsortTxs)
 import           Pos.WorkMode                (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
@@ -47,46 +47,47 @@ txListeners =
 handleTx
     :: ResponseMode ssc m
     => SendTx -> m Bool
-handleTx (SendTx tx) = do
-    added <- handleTxDo $ withHash tx
+handleTx (SendTx tx tw) = do
+    added <- handleTxDo $ (hash tx, (tx, tw))
     when added $ do
         notImplemented
     return added
 
 handleTxDo
     :: ResponseMode ssc m
-    => WithHash Tx -> m Bool
+    => IdTxWitness -> m Bool
 handleTxDo tx = do
     res <- processTx tx
+    let txId = fst tx
     case res of
         PTRadded -> do
             statlogCountEvent StatProcessTx 1
             logInfo $
-                sformat ("Transaction has been added to storage: "%build) tx
+                sformat ("Transaction has been added to storage: "%build) txId
         PTRinvalid msg ->
             logWarning $
-            sformat ("Transaction "%build%" failed to verify: "%stext) tx msg
+            sformat ("Transaction "%build%" failed to verify: "%stext) txId msg
         PTRknown ->
-            logDebug $ sformat ("Transaction is already known: "%build) tx
+            logDebug $ sformat ("Transaction is already known: "%build) txId
         PTRoverwhelmed ->
-            logInfo $ sformat ("Node is overwhelmed, can't add tx: "%build) tx
+            logInfo $ sformat ("Node is overwhelmed, can't add tx: "%build) txId
     return (res == PTRadded)
 
 handleTxs
     :: (ResponseMode ssc m)
     => SendTxs -> m ()
 handleTxs (SendTxs txsUnsorted_) =
-    case topsortTxs $ NE.toList txsUnsorted of
+    case topsortTxs (\(i, (t, _)) -> WithHash t i) $ NE.toList txsUnsorted of
         Nothing ->
             logWarning "Received broken set of transactions, can't be sorted"
         Just txs -> do
             added <- toList <$> mapM handleTxDo txs
-            let addedItems = map (whData . snd) . filter fst . zip added . toList $ txs
+            let addedItems = map (snd . snd) . filter fst . zip added . toList $ txs
             announceTxs addedItems --should we use TxInvMessage here?
   where
-    txsUnsorted = fmap withHash txsUnsorted_
+    txsUnsorted = fmap (\(t, w) -> (hash t, (t, w))) txsUnsorted_
 
-isTxUsefull :: Hash Tx -> m Bool
+isTxUsefull :: TxId -> m Bool
 isTxUsefull = notImplemented
 
 handleTxInv :: (ResponseMode ssc m)
@@ -115,22 +116,22 @@ handleTxReq (TxReqMsg txIds_) = do
     let txIds = NE.toList txIds_
     found <- mapM lookupSingle txIds
     let addedItems = map (fmap fromJust) . filter (isJust . snd) . zip txIds $ found
-    mapM_ (replyToNode . uncurry  TxDataMsg)  addedItems
+    mapM_ (replyToNode . TxDataMsg) addedItems
   where
-    lookupSingle :: TxId -> m (Maybe Tx)
+    lookupSingle :: TxId -> m (Maybe (Tx, TxWitness))
     lookupSingle = notImplemented
 
 handleTxData :: (ResponseMode ssc m)
              => TxDataMsg -> m ()
-handleTxData (TxDataMsg txId tx) =
-    --TODO should we check that hash tx == txId?
-    ifM ((== PTRadded) <$> (processTx . withHash $ tx))
+handleTxData (TxDataMsg tx) =
+    --TODO should we check that hash of transaction == txId?
+    ifM ((== PTRadded) <$> processTx tx)
         (logDebug $
-         sformat ("Tx with hash ("%build%") have been added") txId)
+         sformat ("Tx with hash ("%build%") have been added") (fst tx))
         (logDebug $
-         sformat ("Tx with hash ("%build%") have been ignored") txId)
+         sformat ("Tx with hash ("%build%") have been ignored") (fst tx))
 
-processTx :: ResponseMode ssc m => WithHash Tx -> m ProcessTxRes
+processTx :: ResponseMode ssc m => IdTxWitness -> m ProcessTxRes
 processTx tx = do
     utxo <- St.getUtxo
     locRes <- txLocalDataProcessTx tx utxo

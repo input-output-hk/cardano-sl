@@ -25,8 +25,8 @@ module Pos.Txp.Storage
        , processTx
        ) where
 
-import           Control.Lens            (ix, makeClassy, preview, use, uses, view, (%=),
-                                          (.=), (<&>), (<~), (^.))
+import           Control.Lens            (each, ix, makeClassy, over, preview, use, uses,
+                                          view, (%=), (.=), (<&>), (<~), (^.), _1)
 import qualified Data.List.NonEmpty      as NE
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Formatting              (build, int, sformat, (%))
@@ -36,9 +36,11 @@ import           Universum
 import           Pos.Constants           (k)
 import           Pos.Crypto              (WithHash (..), withHash)
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types               (Block, SlotId, Tx (..), Utxo, applyTxToUtxo,
-                                          blockSlot, blockTxs, normalizeTxs, slotIdF,
-                                          verifyAndApplyTxs, verifyTxUtxo)
+import           Pos.Types               (Block, IdTxWitness, SlotId, Tx (..), TxWitness,
+                                          Utxo, applyTxToUtxo', blockSlot,
+                                          blockTxws, convertFrom', normalizeTxs', slotIdF,
+                                          verifyAndApplyTxs, 
+                                          verifyTxUtxo)
 
 -- | Transaction-related state part, includes transactions, utxo and
 -- auxiliary structures needed for transaction processing.
@@ -66,28 +68,31 @@ type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
 
 -- | Applies transaction to current utxo. Should be called only if
 -- it's possible to do so (see 'verifyTx').
-applyTx :: WithHash Tx -> Update ()
-applyTx tx = txUtxo %= applyTxToUtxo tx
+applyTx :: IdTxWitness -> Update ()
+applyTx tx = txUtxo %= applyTxToUtxo' tx
 
 -- | Given number of blocks to rollback and some sidechain to adopt it
 -- checks if it can be done prior to transaction validity. Returns a
 -- list of topsorted transactions, head ~ deepest block on success.
-txVerifyBlocks :: Word -> AltChain ssc -> Query (Either Text [[WithHash Tx]])
+txVerifyBlocks :: Word -> AltChain ssc -> Query (Either Text [[IdTxWitness]])
 txVerifyBlocks (fromIntegral -> toRollback) newChain = do
     (preview (txUtxoHistory . ix toRollback)) <&> \case
         Nothing ->
             Left $ sformat ("Can't rollback on "%int%" blocks") toRollback
-        Just utxo -> reverse . snd <$> foldM verifyDo (utxo, []) newChainTxs
+        Just utxo -> map convertFrom' . reverse . snd <$> foldM verifyDo (utxo, []) newChainTxs
   where
-    newChainTxs :: [(SlotId,[WithHash Tx])]
+    newChainTxs :: [(SlotId, [(WithHash Tx, TxWitness)])]
     newChainTxs =
-        fmap (\b -> (b ^. blockSlot, fmap withHash $ toList $ b ^. blockTxs)) . rights $
-        NE.toList newChain
-    verifyDo :: (Utxo,[[WithHash Tx]]) -> (SlotId, [WithHash Tx]) -> Either Text (Utxo, [[WithHash Tx]])
-    verifyDo (utxo,accTxs) (slotId, txs) =
-        case verifyAndApplyTxs txs utxo of
-          Left reason        -> Left $ sformat eFormat slotId reason
-          Right (txs',utxo') -> Right (utxo',txs':accTxs)
+        map (\b -> (b ^. blockSlot,
+                    over (each._1) withHash (b ^. blockTxws))) $
+        rights (NE.toList newChain)
+    verifyDo :: (Utxo, [[(WithHash Tx, TxWitness)]])
+             -> (SlotId, [(WithHash Tx, TxWitness)])
+             -> Either Text (Utxo, [[(WithHash Tx, TxWitness)]])
+    verifyDo (utxo, accTxs) (slotId, txws) =
+        case verifyAndApplyTxs txws utxo of
+          Left reason         -> Left $ sformat eFormat slotId reason
+          Right (txws',utxo') -> Right (utxo',txws':accTxs)
     eFormat =
         "Failed to apply transactions on block from slot " %
         slotIdF%", error: "%build
@@ -102,7 +107,7 @@ getUtxoByDepth (fromIntegral -> depth) = preview $ txUtxoHistory . ix depth
 
 -- | Check if given transaction is verified, e. g.
 -- is present in `k` and more blocks deeper
-isTxVerified :: Tx -> Query Bool
+isTxVerified :: (Tx, TxWitness) -> Query Bool
 isTxVerified tx = do
     mutxo <- getUtxoByDepth k
     case mutxo of
@@ -116,7 +121,7 @@ type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
 -- | Apply chain of /definitely/ valid blocks which go right after
 -- last applied block. If invalid block is passed, this function will
 -- panic.
-txApplyBlocks :: [WithHash Tx] -> AltChain ssc -> Update ()
+txApplyBlocks :: [IdTxWitness] -> AltChain ssc -> Update ()
 txApplyBlocks localTxs blocks = do
     verdict <- runReaderT (txVerifyBlocks 0 blocks) =<< use txStorage
     case verdict of
@@ -134,7 +139,7 @@ txApplyBlocks localTxs blocks = do
             -- application and regenerate local utxo with them
             overrideWithLocalTxs localTxs
 
-txApplyBlock :: (Block ssc, [WithHash Tx]) -> Update ()
+txApplyBlock :: (Block ssc, [IdTxWitness]) -> Update ()
 txApplyBlock (b, txs) = do
     case b of
       Left _ -> return ()
@@ -146,7 +151,7 @@ txApplyBlock (b, txs) = do
 -- of desired depth block and also filter local transactions so they
 -- can be applied. @tx@ prefix is used, because rollback may happen in
 -- other storages as well.
-txRollback :: [WithHash Tx] -> Word -> Update ()
+txRollback :: [IdTxWitness] -> Word -> Update ()
 txRollback _ 0 = pass
 txRollback localTxs (fromIntegral -> n) = do
     txUtxo <~ fromMaybe onError . (`atMay` n) <$> use txUtxoHistory
@@ -156,7 +161,7 @@ txRollback localTxs (fromIntegral -> n) = do
     -- TODO Consider using `MonadError` and throwing `InternalError`.
     onError = (panic "attempt to rollback to too old or non-existing block")
 
-processTx :: WithHash Tx -> Update ()
+processTx :: IdTxWitness -> Update ()
 processTx = applyTx
 
 -- | Erases local utxo and puts utxo of the last block on it's place.
@@ -169,16 +174,16 @@ resetLocalUtxo = do
 -- that don't make sense anymore (e.g. after block application that
 -- spends utxo we were counting on). Returns new transaction list,
 -- sorted.
-filterLocalTxs :: [WithHash Tx] -> Update [WithHash Tx]
+filterLocalTxs :: [IdTxWitness] -> Update [IdTxWitness]
 filterLocalTxs localTxs = do --TODO cosmetic fix it
     utxo <- use txUtxo
-    pure $ normalizeTxs localTxs utxo
+    pure $ normalizeTxs' localTxs utxo
 
 -- | Takes the utxo we have now, reset it to head of utxo history and
 -- apply all localtransactions we have. It applies @filterLocalTxs@
 -- inside, because we can't apply transactions that don't apply.
 -- Returns filtered localTransactions
-overrideWithLocalTxs :: [WithHash Tx] -> Update ()
+overrideWithLocalTxs :: [IdTxWitness] -> Update ()
 overrideWithLocalTxs localTxs = do
     resetLocalUtxo
     txs <- filterLocalTxs localTxs

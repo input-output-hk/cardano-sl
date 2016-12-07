@@ -65,7 +65,7 @@ import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            runPureLog, usingLoggerName)
 
 import           Pos.Crypto               (LVssPublicKey, SecretKey, Share, VssKeyPair,
-                                           WithHash, decryptShare, toVssPublicKey)
+                                           decryptShare, toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
@@ -76,8 +76,9 @@ import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (.
                                            Storage, getThreshold)
 import           Pos.Statistics.StatEntry ()
 import           Pos.Types                (Address, Block, EpochIndex, GenesisBlock,
-                                           HeaderHash, MainBlock, MainBlockHeader, SlotId,
-                                           SlotLeaders, Tx, Utxo)
+                                           HeaderHash, IdTxWitness, MainBlock,
+                                           MainBlockHeader, SlotId, SlotLeaders, Tx, TxId,
+                                           TxWitness, Utxo)
 import           Pos.Util                 (deserializeM, serialize)
 
 -- | NodeState encapsulates all the state stored by node.
@@ -197,7 +198,7 @@ getUtxo :: QUConstraint ssc m => m Utxo
 getUtxo = queryDisk A.GetUtxo
 
 -- | Checks if tx is verified
-isTxVerified :: QUConstraint ssc m => Tx -> m Bool
+isTxVerified :: QUConstraint ssc m => (Tx, TxWitness) -> m Bool
 isTxVerified = queryDisk . A.IsTxVerified
 
 -- | Get global SSC data.
@@ -216,7 +217,7 @@ mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 -- | Create new block on top of currently known best chain, assuming
 -- we are slot leader.
 createNewBlock :: QUConstraint ssc m
-               => [WithHash Tx]
+               => [IdTxWitness]
                -> SecretKey
                -> SlotId
                -> SscPayload ssc
@@ -224,7 +225,7 @@ createNewBlock :: QUConstraint ssc m
 createNewBlock localTxs sk si = updateDisk . A.CreateNewBlock localTxs sk si
 
 -- | Process transaction received from other party.
-processTx :: QUConstraint ssc m => WithHash Tx -> m ()
+processTx :: QUConstraint ssc m => (TxId, (Tx, TxWitness)) -> m ()
 processTx = updateDisk . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot. Ideally it should
@@ -234,7 +235,7 @@ processNewSlot = updateDiskWithLog . A.ProcessNewSlotL
 
 -- | Process some Block received from the network.
 processBlock :: (SscHelpersClass ssc, QUConstraint ssc m)
-             => [WithHash Tx]
+             => [IdTxWitness]
              -> SlotId
              -> Block ssc
              -> m (ProcessBlockRes ssc)

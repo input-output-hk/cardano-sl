@@ -8,6 +8,7 @@ module Pos.Txp.Workers
        ) where
 
 import           Control.TimeWarp.Timed    (Microsecond, repeatForever)
+import qualified Data.HashMap.Strict       as HM
 import           Formatting                (build, sformat, (%))
 import           Serokell.Util.Exceptions  ()
 import           System.Wlog               (logWarning)
@@ -15,7 +16,6 @@ import           Universum
 
 import           Pos.Communication.Methods (announceTxs)
 import           Pos.Constants             (slotDuration)
-import           Pos.Crypto                (WithHash (whData))
 import           Pos.Txp.LocalData         (getLocalTxs)
 import           Pos.WorkMode              (WorkMode)
 
@@ -32,7 +32,7 @@ txsTransmitter :: WorkMode ssc m => m ()
 txsTransmitter =
     repeatForever txsTransmitterInterval onError $
     do localTxs <- getLocalTxs
-       announceTxs . fmap whData . toList $ localTxs
+       announceTxs . map snd . HM.toList $ localTxs
   where
     onError e =
         txsTransmitterInterval <$

@@ -20,7 +20,7 @@ import           Serokell.Util.Exceptions  ()
 import           System.Wlog               (dispatchEvents, logDebug, logInfo, logWarning)
 import           Universum
 
-import qualified Data.HashSet              as HS
+import qualified Data.HashMap.Strict       as HM
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
@@ -96,7 +96,7 @@ onNewSlotWhenLeader slotId = do
                     announceBlock $ createdBlk ^. gbHeader
             let whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
             sscData <- sscGetLocalPayload slotId
-            localTxs <- HS.toList <$> getLocalTxs
+            localTxs <- HM.toList <$> getLocalTxs
             either whenNotCreated whenCreated =<< createNewBlock localTxs sk slotId sscData
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 

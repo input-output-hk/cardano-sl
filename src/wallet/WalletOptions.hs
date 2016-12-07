@@ -1,93 +1,129 @@
 {-# LANGUAGE CPP #-}
 
-#ifdef WITH_WALLET
--- | Wallet's command line options.
+-- | Command line options of cardano-wallet
 
 module WalletOptions
-       ( WalletCommand (..)
-       , WalletOptions (..)
-       , getWalletOptions
+       ( WalletOptions (..)
+       , WalletAction (..)
+       , optsInfo
        ) where
 
+import           Options.Applicative    (CommandFields, Mod, Parser, ParserInfo, auto,
+                                         command, fullDesc, help, helper, info, long,
+                                         many, metavar, option, option, progDesc, short,
+                                         showDefault, subparser, switch, value)
+import           Serokell.Util.OptParse (fromParsec, strOption)
 import           Universum
 
-import qualified Options.Applicative    as Opts
-import           Serokell.Util.OptParse (fromParsec)
 
-import           Pos.CLI                (dhtNodeParser)
+import           Pos.CLI                (dhtNodeParser, sscAlgoParser)
 import           Pos.DHT                (DHTNode)
-
-data WalletCommand
-    = SubmitTx { stGenesisIdx :: !Word -- ^ Index in genesis key pairs.
-               , stDHTPeers   :: ![DHTNode]
-               , stLogConfig  :: !(Maybe FilePath)
-               , stLogsPrefix :: !(Maybe FilePath)}
-#ifdef WITH_WEB
-    | ServeWallet { swPort :: !Word16}
-#endif
-
-commandParser :: Opts.Parser WalletCommand
-commandParser =
-    Opts.subparser
-        (mconcat
-             [ Opts.command
-                   "submit"
-                   (Opts.info submitTxOpts (Opts.progDesc "Submit transactions"))
-#ifdef WITH_WEB
-             , Opts.command
-                   "serve"
-                   (Opts.info serveWalletOpts (Opts.progDesc "Run web server"))
-#endif
-             ])
-  where
-    submitTxOpts =
-        SubmitTx <$>
-        Opts.option
-            Opts.auto
-            (mconcat
-                 [ Opts.short 'i'
-                 , Opts.long "index"
-                 , Opts.metavar "INT"
-                 , Opts.help "Index in list of genesis key pairs"
-                 ]) <*>
-        Opts.many
-            (Opts.option (fromParsec dhtNodeParser) $
-             Opts.long "peer" <> Opts.metavar "HOST:PORT/HOST_ID" <> Opts.help peerHelpMsg) <*>
-        optional
-            (Opts.option Opts.auto $
-             Opts.long "log-config" <> Opts.metavar "FILEPATH" <>
-             Opts.help "Path to logger configuration") <*>
-        optional
-            (Opts.option Opts.auto $
-             Opts.long "logs-prefix" <> Opts.metavar "FILEPATH" <>
-             Opts.help "Prefix to logger output path")
-#ifdef WITH_WEB
-    serveWalletOpts =
-        ServeWallet <$>
-        Opts.option
-            Opts.auto
-            (mconcat
-                 [ Opts.long "port"
-                 , Opts.metavar "PORT"
-                 , Opts.help "Port for web server"
-                 , Opts.value 8090
-                 , Opts.showDefault
-                 ])
-#endif
-    peerHelpMsg =
-        "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""
+import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 
 data WalletOptions = WalletOptions
-    { woCommand :: !WalletCommand
+    { woDbPath             :: !FilePath
+    , woRebuildDb          :: !Bool
+    , woDHTPeers           :: ![DHTNode]  -- ^ Initial DHT nodes
+    , woDhtExplicitInitial :: !Bool
+    , woPort               :: !Word16     -- ^ DHT/Blockchain port
+    , woInitialPause       :: !Int     -- ^ Pause between connecting to network
+                                       -- and starting accepting commands (in slots)
+    , woLogConfig          :: !(Maybe FilePath)
+    , woLogsPrefix         :: !(Maybe FilePath)
+    , woJLFile             :: !(Maybe FilePath)
+    , woSscAlgo            :: !SscAlgo
+    , woFlatDistr          :: !(Maybe (Int, Int))
+    , woBitcoinDistr       :: !(Maybe (Int, Int))
+    , woAction             :: !WalletAction
     }
 
-optionsParser :: Opts.Parser WalletOptions
-optionsParser = WalletOptions <$> commandParser
-
-getWalletOptions :: IO WalletOptions
-getWalletOptions =
-    Opts.execParser $
-    Opts.info
-        (Opts.helper <*> optionsParser)
-        (Opts.fullDesc `mappend` Opts.progDesc "Stupid wallet")
+data WalletAction = Repl
+#ifdef WITH_WEB
+                  | Serve { webPort :: !Word16 }
 #endif
+
+actionParser :: Parser WalletAction
+actionParser = subparser $ replParser
+#ifdef WITH_WEB
+                        <> serveParser
+#endif
+
+replParser :: Mod CommandFields WalletAction
+replParser = command "repl" $ info (pure Repl) $
+             progDesc "Run REPL in console to evaluate the commands"
+
+#ifdef WITH_WEB
+serveParser :: Mod CommandFields WalletAction
+serveParser = command "serve" $ info opts desc
+  where opts = Serve <$> option auto (long "web-port"
+                                   <> metavar "PORT"
+                                   <> value 8090    -- to differ from node's default port
+                                   <> showDefault
+                                   <> help "Port for web server")
+        desc = progDesc "Serve HTTP Daedalus API on given port"
+#endif
+
+optionsParser :: Parser WalletOptions
+optionsParser = WalletOptions
+    <$> strOption (long "db-path"
+                <> metavar "FILEPATH"
+                <> value "wallet-db"
+                <> help "Path to the wallet database")
+    <*> switch (long "rebuild-db"
+             <> help ("If we DB already exist, discard it's contents and " <>
+                      "create new one from scratch"))
+    <*> many (option (fromParsec dhtNodeParser) $
+              long "peer"
+           <> metavar "HOST:PORT/HOST_ID"
+           <> help "Initial DHT peer (may be many)")
+    <*> switch (long "explicit-initial"
+             <> help ("Explicitely contact to initial peers as to neighbors " <>
+                      "(even if they appeared offline once)"))
+    <*> option auto (long "port"
+                  <> metavar "PORT"
+                  <> value 24961   -- truly random value
+                  <> showDefault
+                  <> help "Port to work on")
+    <*> option auto (long "initial-pause"
+                  <> short 'p'
+                  <> value 1
+                  <> metavar "SLOTS_NUM"
+                  <> help "Pause between connecting to network and starting accepting commands")
+   <*> optional (strOption $
+                  long "log-config"
+               <> metavar "FILEPATH"
+               <> help "Path to logger configuration")
+    <*> optional (strOption $
+                  long "logs-prefix"
+               <> metavar "FILEPATH"
+               <> help "Prefix to logger output path")
+    <*> optional (strOption $
+                  long "json-log"
+               <> metavar "FILEPATH"
+               <> help "Path to json log file")
+    <*> option (fromParsec sscAlgoParser)
+        (long "ssc-algo"
+      <> metavar "ALGO"
+      <> value GodTossingAlgo
+      <> showDefault
+      <> help "Shared Seed Calculation algorithm which nodes will use")
+    <*> optional
+        (option auto $
+         mconcat
+            [ long "flat-distr"
+            , metavar "(INT,INT)"
+            , help "Use flat stake distribution with given parameters (nodes, coins)"
+            ])
+    <*> optional
+        (option auto $
+         mconcat
+            [ long "bitcoin-distr"
+            , metavar "(INT,INT)"
+            , help "Use bitcoin stake distribution with given parameters (nodes, coins)"
+            ])
+    <*> actionParser
+
+optsInfo :: ParserInfo WalletOptions
+optsInfo = info (helper <*> optionsParser) $
+    fullDesc `mappend` progDesc "Wallet-only node"
+

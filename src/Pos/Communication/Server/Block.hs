@@ -16,6 +16,7 @@ module Pos.Communication.Server.Block
 
 import           Control.Lens              ((^.))
 import           Control.TimeWarp.Rpc      (BinaryP, MonadDialog)
+import qualified Data.HashMap.Strict       as HM
 import qualified Data.HashSet              as HS
 import           Data.List.NonEmpty        (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty        as NE
@@ -57,7 +58,7 @@ handleBlock :: forall ssc m . (ResponseMode ssc m)
             => SendBlock ssc -> m ()
 handleBlock (SendBlock block) = do
     slotId <- getCurrentSlot
-    localTxs <- HS.toList <$> getLocalTxs
+    localTxs <- HM.toList <$> getLocalTxs
     pbr <- St.processBlock localTxs slotId block
     let (globalChanged, toRollback) =
             case pbr of

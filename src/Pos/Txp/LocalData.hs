@@ -20,22 +20,24 @@ import           Control.Lens            (makeClassy, use, uses, view, (%=), (+=
                                           (.=))
 import qualified Data.Cache.LRU          as LRU
 import           Data.Default            (Default (..))
-import qualified Data.HashSet            as HS
+import qualified Data.HashMap.Strict     as HM
 import           Serokell.Util           (VerificationRes (..))
 import           Universum
 
 import           Pos.Constants           (maxLocalTxs)
-import           Pos.Crypto              (WithHash (..))
 import           Pos.State.Storage.Types (ProcessTxRes (..), mkPTRinvalid)
-import           Pos.Types               (Tx (..), TxId, Utxo, normalizeTxs, verifyTxUtxo)
+import           Pos.Types               (IdTxWitness, Tx (..), TxId, TxWitness, Utxo,
+                                          normalizeTxs', verifyTxUtxo)
 import           Pos.Util                (clearLRU)
+
+type TxMap = HashMap TxId (Tx, TxWitness)
 
 data TxLocalData = TxLocalData
     { -- | Local set of transactions. These are valid (with respect to
       -- the head of last block's utxo) transactions which are known
       -- to the node and are /not/ included in the blockchain store by
       -- the node. This set is used later to form the block payload.
-      _txLocalTxs     :: !(HashSet (WithHash Tx))
+      _txLocalTxs     :: !TxMap
     , -- | @length@ is @O(n)@ for 'HE.HashSet' so we store it explicitly.
       _txLocalTxsSize :: !Int
     , -- | Transactions recently added to blocks. Used for ignoring
@@ -68,11 +70,11 @@ txRunUpdate upd = do
     (res, newLocalData) <- runState upd <$> getTxLocalData
     res <$ setTxLocalData newLocalData
 
-getLocalTxs :: MonadTxLD m => m (HashSet (WithHash Tx))
+getLocalTxs :: MonadTxLD m => m TxMap
 getLocalTxs = txRunQuery getLocalTxsQ
 
-removeLocalTx :: MonadTxLD m => WithHash Tx -> m ()
-removeLocalTx tx = txRunUpdate . removeLocalTxU $ tx
+removeLocalTx :: MonadTxLD m => IdTxWitness -> m ()
+removeLocalTx tx = txRunUpdate . removeLocalTxU . fst $ tx
 
 txApplyGlobalUtxo :: MonadTxLD m => Utxo -> m ()
 txApplyGlobalUtxo utxo = txRunUpdate $ applyGlobalUtxoU utxo
@@ -80,46 +82,45 @@ txApplyGlobalUtxo utxo = txRunUpdate $ applyGlobalUtxoU utxo
 txLocalDataRollback :: MonadTxLD m => Word -> m ()
 txLocalDataRollback toRollback = txRunUpdate $ txLocalDataRollbackU toRollback
 
-txLocalDataProcessTx :: MonadTxLD m => WithHash Tx -> Utxo -> m ProcessTxRes
+txLocalDataProcessTx :: MonadTxLD m => IdTxWitness -> Utxo -> m ProcessTxRes
 txLocalDataProcessTx tx utxo = txRunUpdate $ processTxU tx utxo
 
 -- | Query returning '_txLocalTxs'
-getLocalTxsQ :: Query (HashSet (WithHash Tx))
+getLocalTxsQ :: Query TxMap
 getLocalTxsQ = view txLocalTxs
 
 -- | Add transaction to storage if it is fully valid.
-processTxU :: WithHash Tx -> Utxo -> Update ProcessTxRes
+processTxU :: IdTxWitness -> Utxo -> Update ProcessTxRes
 processTxU tx utxo = do
     localSetSize <- use txLocalTxsSize
     if localSetSize < maxLocalTxs
         then processTxDo tx utxo
         else pure PTRoverwhelmed
 
-processTxDo :: WithHash Tx -> Utxo -> Update ProcessTxRes
-processTxDo tx utxo =
+processTxDo :: IdTxWitness -> Utxo -> Update ProcessTxRes
+processTxDo (id, tx) utxo =
     ifM isKnown (pure PTRknown) $
-    case verifyTxUtxo utxo tx' of
+    case verifyTxUtxo utxo tx of
         VerSuccess -> do
-            txLocalTxs %= HS.insert tx
+            txLocalTxs %= HM.insert id tx
             txLocalTxsSize += 1
             pure PTRadded
         VerFailure errors ->
             pure (mkPTRinvalid errors)
   where
-    tx' = whData tx
     isKnown =
         or <$>
         sequence
-            [ HS.member tx <$> use txLocalTxs
-            , isJust . snd . LRU.lookup (whHash tx) <$> use txFilterCache
+            [ HM.member id <$> use txLocalTxs
+            , isJust . snd . LRU.lookup id <$> use txFilterCache
             ]
 
 -- | Removes transaction from the local transaction set.
-removeLocalTxU :: WithHash Tx -> Update ()
-removeLocalTxU tx = do
-    present <- HS.member tx <$> use txLocalTxs
+removeLocalTxU :: TxId -> Update ()
+removeLocalTxU id = do
+    present <- HM.member id <$> use txLocalTxs
     when present $ do
-        txLocalTxs %= HS.delete tx
+        txLocalTxs %= HM.delete id
         txLocalTxsSize -= 1
 
 -- | Insert transaction which is in block into filter cache.
@@ -135,8 +136,8 @@ invalidateCache = txFilterCache %= clearLRU
 
 applyGlobalUtxoU :: Utxo -> Update ()
 applyGlobalUtxoU globalUtxo = do
-    localTxs <- uses txLocalTxs HS.toList
-    let txs' = normalizeTxs localTxs globalUtxo
-    txLocalTxs .= HS.fromList txs'
+    localTxs <- uses txLocalTxs HM.toList
+    let txs' = normalizeTxs' localTxs globalUtxo
+    txLocalTxs .= HM.fromList txs'
     txLocalTxsSize .= length txs'
-    mapM_ (cacheTx . whHash) txs'
+    mapM_ cacheTx (map fst txs')

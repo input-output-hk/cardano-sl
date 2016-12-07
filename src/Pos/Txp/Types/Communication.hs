@@ -17,18 +17,20 @@ import           Data.Binary          (Binary)
 import           Data.List.NonEmpty   (NonEmpty)
 import           Universum
 
-import           Pos.Types            (Tx, TxId)
+import           Pos.Types            (IdTxWitness, Tx, TxId, TxWitness)
 
 -- | Message: some node has sent a Transaction.
+-- | Message: some node has sent a Transaction.
 data SendTx =
-    SendTx !Tx
+    SendTx !Tx !TxWitness
     deriving (Generic)
 
 instance Binary SendTx
 
 -- | Message: some node has sent 'NonEmpty' list of 'Tx'.
+-- | Message: some node has sent 'NonEmpty' list of 'Tx'.
 data SendTxs =
-    SendTxs !(NonEmpty Tx)
+    SendTxs !(NonEmpty (Tx, TxWitness))
     deriving (Generic)
 
 instance Binary SendTxs
@@ -74,8 +76,7 @@ instance Message TxReqMsg where
 -- | Data message. Can be used to send one transaction per message.
 data TxDataMsg = TxDataMsg
     {
-      dmId :: !TxId
-    , dmTx :: !Tx
+      dmTx :: !IdTxWitness
     } deriving (Generic)
 
 instance Binary TxDataMsg

@@ -157,8 +157,11 @@ mkGenesisBlock prevHeader epoch leaders =
     body = GenesisBody leaders
 
 -- | Smart constructor for 'Body' of 'MainBlockchain'.
-mkMainBody :: [Tx] -> SscPayload ssc -> Body (MainBlockchain ssc)
-mkMainBody txs mpc = MainBody {_mbTxs = mkMerkleTree txs, _mbMpc = mpc}
+mkMainBody :: [(Tx, TxWitness)] -> SscPayload ssc -> Body (MainBlockchain ssc)
+mkMainBody txws mpc = MainBody {
+    _mbTxs = mkMerkleTree (map fst txws),
+    _mbWitnesses = map snd txws,
+    _mbMpc = mpc }
 
 verifyConsensusLocal :: Ssc ssc => BlockHeader ssc -> VerificationRes
 verifyConsensusLocal (Left _)       = mempty

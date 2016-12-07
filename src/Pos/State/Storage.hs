@@ -60,8 +60,7 @@ import           Serokell.Util           (VerificationRes (..))
 import           System.Wlog             (WithLogger, logDebug)
 
 import           Pos.Constants           (k)
-import           Pos.Crypto              (LEncShare, LVssPublicKey, SecretKey, Threshold,
-                                          WithHash (whData))
+import           Pos.Crypto              (LEncShare, LVssPublicKey, SecretKey, Threshold)
 import           Pos.Genesis             (genesisUtxo)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
@@ -79,11 +78,12 @@ import           Pos.Txp.Storage         (HasTxStorage (txStorage), TxStorage, g
                                           txApplyBlocks, txRollback, txStorageFromUtxo,
                                           txVerifyBlocks)
 import           Pos.Types               (Address, Block, EpochIndex, EpochOrSlot (..),
-                                          GenesisBlock, MainBlock, SlotId (..),
-                                          SlotLeaders, Tx (..), Utxo, blockMpc, blockTxs,
-                                          epochIndexL, epochOrSlot, flattenSlotId,
-                                          gbHeader, getEpochOrSlot, headerHashG, slotIdF,
-                                          unflattenSlotId, verifyTxAlone)
+                                          GenesisBlock, IdTxWitness, MainBlock,
+                                          SlotId (..), SlotLeaders, Utxo,
+                                          blockMpc, blockTxs, epochIndexL, epochOrSlot,
+                                          flattenSlotId, gbHeader, getEpochOrSlot,
+                                          headerHashG, slotIdF, unflattenSlotId,
+                                          verifyTxAlone)
 import           Pos.Util                (readerToState, _neLast)
 
 
@@ -175,7 +175,7 @@ getGlobalSscStateByDepth = sscGetGlobalStateByDepth @ssc
 -- given SlotId
 createNewBlock
     :: (SscStorageClass ssc)
-    => [WithHash Tx]
+    => [IdTxWitness]
     -> SecretKey
     -> SlotId
     -> SscPayload ssc
@@ -187,11 +187,11 @@ createNewBlock localTxs sk sId sscPayload =
 createNewBlockDo
     :: forall ssc.
        (SscStorageClass ssc)
-    => [WithHash Tx] -> SecretKey -> SlotId -> SscPayload ssc -> Update ssc (MainBlock ssc)
+    => [IdTxWitness] -> SecretKey -> SlotId -> SscPayload ssc -> Update ssc (MainBlock ssc)
 createNewBlockDo localTxs sk sId sscPayload = do
     globalPayload <- readerToState $ getGlobalSscState
     let filteredPayload = sscFilterPayload @ssc sscPayload globalPayload
-    blk <- blkCreateNewBlock sk sId (fmap whData localTxs) filteredPayload
+    blk <- blkCreateNewBlock sk sId (map snd localTxs) filteredPayload
     let blocks = Right blk :| []
     sscApplyBlocks blocks
     blk <$ txApplyBlocks localTxs blocks
@@ -212,7 +212,7 @@ canCreateBlock sId = do
 
 -- | Do all necessary changes when a block is received.
 processBlock :: (SscHelpersClass ssc, SscStorageClass ssc)
-    =>[WithHash Tx] -> SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
+    =>[IdTxWitness] -> SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
 processBlock localTxs curSlotId blk = do
     let txs =
             case blk of
@@ -226,7 +226,7 @@ processBlock localTxs curSlotId blk = do
 processBlockDo
     :: forall ssc.
        (SscHelpersClass ssc, SscStorageClass ssc)
-    => [WithHash Tx] -> SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
+    => [IdTxWitness] -> SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
 processBlockDo localTxs curSlotId blk = do
     let verifyMpc mainBlk =
             untag sscVerifyPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
@@ -249,8 +249,8 @@ processBlockDo localTxs curSlotId blk = do
 
 -- At this point all checks have been passed and we know that we can
 -- adopt this AltChain.
-processBlockFinally :: forall ssc . SscStorageClass ssc =>
-                       [WithHash Tx]
+processBlockFinally :: forall ssc . SscStorageClass ssc
+                    => [IdTxWitness]
                     -> Word
                     -> AltChain ssc
                     -> Update ssc (ProcessBlockRes ssc)

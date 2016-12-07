@@ -1,28 +1,29 @@
+{-# LANGUAGE TypeApplications #-}
 -- | `Arbitrary` instances for using in tests and benchmarks
 
 module Pos.Crypto.Arbitrary
     ( KeyPair(..)
     ) where
 
-import           Control.Lens                (view, _1, _2, _3, _4)
-import           Data.Binary                 (Binary)
-import           Data.List.NonEmpty          (fromList)
-import           System.IO.Unsafe            (unsafePerformIO)
-import           Test.QuickCheck             (Arbitrary (..), elements)
+import           Control.Lens                 (view, _1, _2, _3, _4)
+import           Data.Binary                  (Binary)
+import           Data.List.NonEmpty           (fromList)
+import           System.IO.Unsafe             (unsafePerformIO)
+import           Test.QuickCheck              (Arbitrary (..), elements)
 import           Universum
 
-import           Pos.Crypto.Arbitrary.Hash   ()
-import           Pos.Crypto.Arbitrary.Unsafe ()
-import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
-                                              SecretSharingExtra, Share, VssKeyPair,
-                                              VssPublicKey, decryptShare,
-                                              genSharedSecret, toVssPublicKey, vssKeyGen)
-import           Pos.Crypto.SerTypes         (LEncShare, LSecret, LShare, LVssPublicKey)
-import           Pos.Crypto.Signing          (PublicKey, SecretKey, Signature, Signed,
-                                              keyGen, mkSigned, sign)
-import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN,
-                                              unsafeMakePool)
-import           Pos.Util                    (Serialized (..))
+import           Pos.Crypto.Arbitrary.Hash    ()
+import           Pos.Crypto.Arbitrary.Unsafe  ()
+import           Pos.Crypto.SecretSharing     (EncShare,Secret, SecretProof,
+                                               SecretSharingExtra, Share, VssKeyPair,
+                                               VssPublicKey, decryptShare, genSharedSecret,
+                                               toVssPublicKey, vssKeyGen)
+import           Pos.Crypto.SerTypes          (LEncShare, LSecret, LSecretProof,
+                                               LSecretSharingExtra, LShare, LVssPublicKey)
+import           Pos.Crypto.Signing           (PublicKey, SecretKey, Signature, Signed,
+                                               keyGen, mkSigned, sign)
+import           Pos.Util                     (Serialized (..))
+import           Pos.Util.Arbitrary           (Nonrepeating (..), sublistN, unsafeMakePool)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -110,6 +111,12 @@ sharedSecrets =
 
 instance Arbitrary SecretSharingExtra where
     arbitrary = elements $ fmap (view _1) sharedSecrets
+
+instance Arbitrary LSecretSharingExtra where
+    arbitrary = serialize @SecretSharingExtra <$> arbitrary
+
+instance Arbitrary LSecretProof where
+    arbitrary = serialize @SecretProof <$> arbitrary
 
 instance Arbitrary Secret where
     arbitrary = elements $ fmap (view _2) sharedSecrets

@@ -11,7 +11,7 @@
 module Pos.Crypto.Hashing
        (
          -- * WithHash
-         WithHash (whData, whHash)
+         WithHash (..)
        , withHash
 
          -- * AbstractHash

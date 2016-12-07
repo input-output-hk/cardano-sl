@@ -38,7 +38,7 @@ import           Pos.Ssc.NistBeacon              (SscNistBeacon)
 import           Pos.Ssc.SscAlgo                 (SscAlgo (..))
 import           Pos.State                       (isTxVerified)
 import           Pos.Statistics                  (NoStatsT (..))
-import           Pos.Types                       (Tx (..))
+import           Pos.Types                       (Tx (..), TxWitness)
 import           Pos.Util.JsonLog                ()
 import           Pos.Wallet                      (submitTxRaw)
 import           Pos.WorkMode                    (ProductionMode)
@@ -54,7 +54,7 @@ import           Util
 
 -- | Resend initTx with `slotDuration` period until it's verified
 seedInitTx :: forall ssc . SscConstraint ssc
-           => Double -> BambooPool -> Tx -> ProductionMode ssc ()
+           => Double -> BambooPool -> (Tx, TxWitness) -> ProductionMode ssc ()
 seedInitTx recipShare bp initTx = do
     na <- getPeers recipShare
     logInfo "Issuing seed transaction"
@@ -162,10 +162,10 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
                               logInfo "Resend the transaction parent again"
                               submitTxRaw na parent
 
-                          Right transaction -> do
+                          Right (transaction, witness) -> do
                               let curTxId = hash transaction
                               logInfo $ sformat ("Sending transaction #"%int) idx
-                              submitTxRaw na transaction
+                              submitTxRaw na (transaction, witness)
                               when (startT >= startMeasurementsT) $ liftIO $ do
                                   liftIO $ atomically $ modifyTVar' realTxNum (+1)
                                   -- put timestamp to current txmap

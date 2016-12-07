@@ -62,8 +62,9 @@ verifyTx inputResolver (tx@Tx{..}, witnesses) =
     extendedInputs :: [Maybe (TxIn, TxOut)]
     extendedInputs = fmap extendInput txInputs
     extendInput txIn = (txIn,) <$> inputResolver txIn
+    resolvedInputs = catMaybes extendedInputs
     inpSum :: Integer
-    inpSum = sum $ fmap (toInteger . txOutValue . snd) $ catMaybes extendedInputs
+    inpSum = sum $ fmap (toInteger . txOutValue . snd) resolvedInputs
     verifyCounts =
         verifyGeneric
             [ ( length txInputs == length witnesses
@@ -72,13 +73,21 @@ verifyTx inputResolver (tx@Tx{..}, witnesses) =
                   (length txInputs) (length witnesses) )
             ]
     verifySum =
-        verifyGeneric
-            [ ( inpSum >= outSum
-              , sformat
-                    ("sum of outputs is more than sum of inputs ("
-                     %int%" > "%int%"), maybe some inputs are invalid")
-                    outSum inpSum)
-            ]
+        let resInps = length resolvedInputs
+            extInps = length extendedInputs
+            allInputsExist = resInps == extInps
+            verifier =
+                if allInputsExist
+                    then ( inpSum >= outSum
+                         , sformat
+                               ("sum of outputs is more than sum of inputs ("
+                                %int%" > "%int)
+                                outSum inpSum)
+                    else ( False
+                         , sformat
+                               (int%" inputs could not be resolved")
+                               (abs $ resInps - extInps))
+        in verifyGeneric [verifier]
     verifyInputs =
         verifyGeneric $ concat $
             zipWith3 inputPredicates [0..] extendedInputs (toList witnesses)

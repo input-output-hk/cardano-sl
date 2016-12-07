@@ -135,7 +135,7 @@ library
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
-                        Pos.Txp.Types.Listener
+                        Pos.Txp.Types.Communication
                         Pos.Txp.LocalData
                         Pos.Worker.Block
                         Pos.Worker.Stats

@@ -4,7 +4,7 @@
 
 -- | Types used for communication about Blocks.
 
-module Pos.Txp.Types.Listener
+module Pos.Txp.Types.Communication
        ( SendTx (..)
        , SendTxs (..)
        , TxInvMsg (..)
@@ -17,8 +17,7 @@ import           Data.Binary          (Binary)
 import           Data.List.NonEmpty   (NonEmpty)
 import           Universum
 
-import           Pos.Crypto           (WithHash)
-import           Pos.Types            (Tx)
+import           Pos.Types            (Tx, TxId)
 
 -- | Message: some node has sent a Transaction.
 data SendTx =
@@ -50,7 +49,7 @@ instance Message SendTxs where
 -- some new local transactions.
 data TxInvMsg = TxInvMsg
     {
-      imTxs :: !(NonEmpty Tx)
+      imTxs :: !(NonEmpty TxId)
     } deriving (Generic)
 
 instance Binary TxInvMsg
@@ -63,7 +62,7 @@ instance Message TxInvMsg where
 -- was previously announced by inventory message).
 data TxReqMsg = TxReqMsg
     {
-      rmTxs :: !(NonEmpty Tx)
+      rmTxs :: !(NonEmpty TxId)
     } deriving (Generic)
 
 instance Binary TxReqMsg
@@ -75,7 +74,8 @@ instance Message TxReqMsg where
 -- | Data message. Can be used to send one transaction per message.
 data TxDataMsg = TxDataMsg
     {
-      dmTxs :: !(WithHash Tx) -- should we use Tx here?
+      dmId :: !TxId
+    , dmTx :: !Tx
     } deriving (Generic)
 
 instance Binary TxDataMsg

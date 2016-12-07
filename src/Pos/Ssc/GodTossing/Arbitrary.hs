@@ -10,11 +10,9 @@ import           Data.List.NonEmpty             (NonEmpty ((:|)))
 import           Test.QuickCheck                (Arbitrary (..), oneof, elements)
 import           Universum
 
-import           Pos.Crypto                     (LSecretProof, LSecretSharingExtra,
-                                                 deterministicVssKeyGen, toVssPublicKey)
-import           Pos.Crypto.Arbitrary           ()
+import           Pos.Crypto                     (deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Ssc.GodTossing.Functions   (genCommitmentAndOpening)
-import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), Opening,
+import           Pos.Ssc.GodTossing.Types.Base  (Commitment, Opening,
                                                  VssCertificate (..), mkVssCertificate)
 import           Pos.Ssc.GodTossing.Types.Types (GtProof (..))
 import           Pos.Types.Arbitrary.Unsafe     ()
@@ -53,12 +51,6 @@ instance Arbitrary Opening where
 
 instance Arbitrary VssCertificate where
     arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary
-
-instance Arbitrary LSecretSharingExtra where
-    arbitrary = commExtra <$> arbitrary
-
-instance Arbitrary LSecretProof where
-    arbitrary = commProof <$> arbitrary
 
 instance Arbitrary GtProof where
     arbitrary = oneof [

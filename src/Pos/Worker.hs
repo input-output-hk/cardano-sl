@@ -18,7 +18,6 @@ import           Pos.Constants          (slotDuration, sysTimeBroadcastSlots)
 import           Pos.DHT                (sendToNetwork)
 import           Pos.Slotting           (onNewSlot)
 import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscWorkers)
-import           Pos.Txp.Workers        (txWorkers)
 import           Pos.Types              (SlotId, flattenSlotId, slotIdF)
 import           Pos.Util               (waitRandomInterval)
 import           Pos.Worker.Block       (blkOnNewSlot, blkWorkers)
@@ -32,7 +31,6 @@ runWorkers = mapM_ fork_ $ concat
     [ [onNewSlotWorker]
     , blkWorkers
     , untag sscWorkers
-    , txWorkers
     ]
 
 onNewSlotWorker :: WorkMode ssc m => m ()

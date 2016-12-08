@@ -67,7 +67,6 @@ library
                         Pos.Statistics
                         Pos.Txp.Listeners
                         Pos.Txp.Storage
-                        Pos.Txp.Workers
                         Pos.Types
                         Pos.Types.Address
                         Pos.Types.Arbitrary

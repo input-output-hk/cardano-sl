@@ -5,9 +5,7 @@
 -- | Types used for communication about Blocks.
 
 module Pos.Txp.Types.Communication
-       ( SendTx (..)
-       , SendTxs (..)
-       , TxInvMsg (..)
+       ( TxInvMsg (..)
        , TxReqMsg (..)
        , TxDataMsg (..)
        ) where
@@ -17,31 +15,7 @@ import           Data.Binary          (Binary)
 import           Data.List.NonEmpty   (NonEmpty)
 import           Universum
 
-import           Pos.Types            (IdTxWitness, Tx, TxId, TxWitness)
-
--- | Message: some node has sent a Transaction.
--- | Message: some node has sent a Transaction.
-data SendTx =
-    SendTx !Tx !TxWitness
-    deriving (Generic)
-
-instance Binary SendTx
-
--- | Message: some node has sent 'NonEmpty' list of 'Tx'.
--- | Message: some node has sent 'NonEmpty' list of 'Tx'.
-data SendTxs =
-    SendTxs !(NonEmpty (Tx, TxWitness))
-    deriving (Generic)
-
-instance Binary SendTxs
-
-instance Message SendTx where
-    messageName _ = "Send Tx"
-    formatMessage = messageName'
-
-instance Message SendTxs where
-    messageName _ = "Send Txs"
-    formatMessage = messageName'
+import           Pos.Types            (Tx, TxId, TxWitness)
 
 ----------------------------------------------------------------------------
 -- Inventory, Request and Data messages
@@ -76,7 +50,8 @@ instance Message TxReqMsg where
 -- | Data message. Can be used to send one transaction per message.
 data TxDataMsg = TxDataMsg
     {
-      dmTx :: !IdTxWitness
+      dmTx      :: !Tx
+    , dmWitness :: !TxWitness
     } deriving (Generic)
 
 instance Binary TxDataMsg

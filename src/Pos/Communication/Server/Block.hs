@@ -17,9 +17,11 @@ module Pos.Communication.Server.Block
 
 import           Control.Lens              ((^.))
 import           Control.TimeWarp.Rpc      (BinaryP, MonadDialog)
+import qualified Data.HashMap.Strict       as HM
 import qualified Data.HashSet              as HS
 import           Data.List.NonEmpty        (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty        as NE
+import           Data.Maybe                (fromJust)
 import           Formatting                (bprint, build, int, sformat, stext, (%))
 import           Serokell.Util             (VerificationRes (..), listJson,
                                             listJsonIndent)
@@ -36,6 +38,8 @@ import           Pos.DHT                   (ListenerDHT (..), replyToNode)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class.LocalData   (sscApplyGlobalState)
 import qualified Pos.State                 as St
+import           Pos.Txp.LocalData         (getLocalTxs, txApplyHeadUtxo,
+                                            txLocalDataRollback)
 import           Pos.Types                 (HeaderHash, Tx, blockTxs, getBlockHeader,
                                             headerHash)
 import           Pos.Util                  (inAssertMode)
@@ -58,12 +62,16 @@ handleBlock :: forall ssc m . (ResponseMode ssc m)
             => SendBlock ssc -> m ()
 handleBlock (SendBlock block) = do
     slotId <- getCurrentSlot
-    pbr <- St.processBlock slotId block
-    let globalChanged =
+    localTxs <- HM.toList <$> getLocalTxs
+    pbr <- St.processBlock localTxs slotId block
+    let (globalChanged, toRollback) =
             case pbr of
-                St.PBRgood _ -> True
-                _            -> False
-    when globalChanged $ sscApplyGlobalState =<< St.getGlobalMpcData
+                St.PBRgood (toRoll, _) -> (True, toRoll)
+                _                      -> (False, 0)
+    when globalChanged $ do --synchronize local data with global data
+        sscApplyGlobalState =<< St.getGlobalMpcData
+        txLocalDataRollback toRollback
+        txApplyHeadUtxo =<< fromJust <$> St.getUtxoByDepth 0
     let blkHash = headerHash block
     case pbr of
         St.PBRabort msg -> do

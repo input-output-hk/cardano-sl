@@ -43,6 +43,7 @@ module Pos.Types.Types
        , Tx (..)
        , txF
        , txwF
+       , IdTxWitness
 
        , Utxo
        , formatUtxo
@@ -293,6 +294,8 @@ data Tx = Tx
     { txInputs  :: ![TxIn]   -- ^ Inputs of transaction.
     , txOutputs :: ![TxOut]  -- ^ Outputs of transaction.
     } deriving (Eq, Ord, Show, Generic)
+
+type IdTxWitness = (TxId, (Tx, TxWitness))
 
 instance Binary Tx
 instance Hashable Tx

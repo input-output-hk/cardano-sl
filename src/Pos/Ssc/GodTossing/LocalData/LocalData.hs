@@ -26,7 +26,6 @@ import qualified Data.HashSet                       as HS
 import           Serokell.Util.Verify               (isVerSuccess)
 import           Universum
 
-import           Pos.Crypto                         (LShare)
 import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate, MonadSscLD,
                                                      SscLocalDataClass (..),
                                                      sscRunLocalQuery, sscRunLocalUpdate)

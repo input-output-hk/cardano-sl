@@ -72,7 +72,7 @@ import           Pos.DHT.Real.Types              (KademliaDHTInstance (..),
                                                   DHTHandle)
 
 import           Pos.DHT.Util                    (joinNetworkNoThrow)
-import           Pos.Util                        (runWithRandomIntervals)
+import           Pos.Util                        (runWithRandomIntervals, waitAnyUnexceptional)
 
 -- | Run 'KademliaDHT' with provided 'KademliaDTHConfig'.
 runKademliaDHT
@@ -350,17 +350,3 @@ joinNetwork' inst node = do
         K.IDClash ->
             logInfo $
             sformat ("joinNetwork: node " % build % " already contains us") node
-
--- [TW-84]: move to serokell-core or time-warp?
-waitAnyUnexceptional
-    :: (MonadIO m, WithLogger m)
-    => [Async a] -> m (Maybe (Async a, a))
-waitAnyUnexceptional asyncs = liftIO (waitAnyCatch asyncs) >>= handleRes
-  where
-    handleRes (async', Right res) = pure $ Just (async', res)
-    handleRes (async', Left e) = do
-      logWarning $ sformat ("waitAnyUnexceptional: caught error " % shown) e
-      if null asyncs'
-         then pure Nothing
-         else waitAnyUnexceptional asyncs'
-      where asyncs' = filter (/= async') asyncs

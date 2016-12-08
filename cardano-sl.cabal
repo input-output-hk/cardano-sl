@@ -111,6 +111,7 @@ library
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
+                        Pos.Script
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
@@ -169,6 +170,7 @@ library
                       , data-default
                       , deepseq
                       , derive
+                      , deriving-compat
                       , digest
                       , directory
                       , ed25519
@@ -190,10 +192,11 @@ library
                       , mono-traversable
                       , mtl
                       , parsec
+                      , plutus-prototype
                       , pvss
-                      , resourcet
                       , quickcheck-instances
                       , random
+                      , resourcet
                       , safecopy
                       , serokell-util
                       , stm

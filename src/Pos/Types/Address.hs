@@ -2,7 +2,9 @@ module Pos.Types.Address
        ( Address (..)
        , addressF
        , checkPubKeyAddress
+       , checkScriptAddress
        , makePubKeyAddress
+       , makeScriptAddress
        ) where
 
 import           Control.Lens           (view, _3)
@@ -29,6 +31,7 @@ import           Prelude                (String, readsPrec, show)
 import           Universum              hiding (show)
 
 import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey)
+import           Pos.Script             (Script)
 
 -- | Address versions are here for dealing with possible backwards
 -- compatibility issues in the future
@@ -40,28 +43,42 @@ curAddrVersion = 0
 -- | Address is where you can send coins.
 -- It's not `newtype` because in the future there will be `ScriptAddress`es
 -- as well.
-data Address = PubKeyAddress
-    { addrVersion :: !AddressVersion
-    , addrHash    :: !(AddressHash PublicKey)
-    } deriving (Eq, Generic, Ord)
+data Address
+    = PubKeyAddress {
+          addrVersion :: !AddressVersion,
+          addrKeyHash :: !(AddressHash PublicKey) }
+    | ScriptAddress {
+          addrVersion    :: !AddressVersion,
+          addrScriptHash :: !(AddressHash Script) }
+    deriving (Eq, Generic, Ord)
 
 instance CRC32 Address where
     crc32Update seed PubKeyAddress {..} =
-        crc32Update (crc32Update seed [addrVersion]) $ Bi.encode addrHash
+        crc32Update (crc32Update seed [0, addrVersion]) $
+        Bi.encode addrKeyHash
+    crc32Update seed ScriptAddress {..} =
+        crc32Update (crc32Update seed [1, addrVersion]) $
+        Bi.encode addrScriptHash
 
 instance Binary Address where
     get = do
-        ver <- Bi.getWord8
-        addrHash <- get
-        let addr = PubKeyAddress ver addrHash
-            ourChecksum = crc32 addr
+        addrVersion <- Bi.getWord8
+        tag <- Bi.getWord8
+        addr <- case tag of
+            0 -> do addrKeyHash <- get
+                    return PubKeyAddress {..}
+            1 -> do addrScriptHash <- get
+                    return ScriptAddress {..}
+            _ -> fail ("get@Address: unknown tag " ++ show tag)
         theirChecksum <- Bi.getWord32be
-        if theirChecksum /= ourChecksum
+        if theirChecksum /= crc32 addr
             then fail "Address has invalid checksum!"
             else return addr
-    put addr@PubKeyAddress {..} = do
-        Bi.putWord8 addrVersion
-        put addrHash
+    put addr = do
+        Bi.putWord8 (addrVersion addr)
+        case addr of
+            PubKeyAddress {..} -> Bi.putWord8 0 >> put addrKeyHash
+            ScriptAddress {..} -> Bi.putWord8 1 >> put addrScriptHash
         Bi.putWord32be $ crc32 addr
 
 instance Hashable Address where
@@ -103,13 +120,23 @@ decodeAddress bs = do
     dbs <- maybeToRight base58Err $ decodeBase58 addrAlphabet bs
     bimap takeErr takeRes $ Bi.decodeOrFail $ BSL.fromStrict dbs
 
--- | A function for making an address from PublicKey
+-- | A function for making an address from 'PublicKey'
 makePubKeyAddress :: PublicKey -> Address
 makePubKeyAddress = PubKeyAddress curAddrVersion . addressHash
 
--- | Check if given `Address` is created from given `PublicKey`
+-- | A function for making an address from a validation script
+makeScriptAddress :: Script -> Address
+makeScriptAddress = ScriptAddress curAddrVersion . addressHash
+
+-- | Check if given 'Address' is created from given 'PublicKey'
 checkPubKeyAddress :: PublicKey -> Address -> Bool
-checkPubKeyAddress pk PubKeyAddress {..} = addrHash == addressHash pk
+checkPubKeyAddress pk PubKeyAddress{..} = addrKeyHash == addressHash pk
+checkPubKeyAddress _ _                  = False
+
+-- | Check if given 'Address' is created from given validation script
+checkScriptAddress :: Script -> Address -> Bool
+checkScriptAddress scr ScriptAddress{..} = addrScriptHash == addressHash scr
+checkScriptAddress _ _                   = False
 
 -- | Specialized formatter for 'Address'.
 addressF :: Format r (Address -> r)

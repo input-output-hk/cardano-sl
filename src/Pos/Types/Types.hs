@@ -30,7 +30,9 @@ module Pos.Types.Types
 
        , Address (..)
        , makePubKeyAddress
+       , makeScriptAddress
        , checkPubKeyAddress
+       , checkScriptAddress
        , addressF
 
        , TxInWitness (..)
@@ -145,9 +147,11 @@ import           Pos.Constants          (sharedSeedLength)
 import           Pos.Crypto             (Hash, PublicKey, Signature, hash, hashHexF,
                                          shortHashF)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
+import           Pos.Script             (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
 import           Pos.Types.Address      (Address (..), addressF, checkPubKeyAddress,
-                                         makePubKeyAddress)
+                                         checkScriptAddress, makePubKeyAddress,
+                                         makeScriptAddress)
 import           Pos.Util               (Color (Magenta), colorize)
 
 
@@ -244,7 +248,11 @@ data TxInWitness
         { twKey :: PublicKey
         , twSig :: TxSig
         }
-    deriving (Eq, Ord, Show, Generic)
+    | ScriptWitness
+        { twValidator :: Script
+        , twRedeemer  :: Script
+        }
+    deriving (Eq, Show, Generic)
 
 instance Binary TxInWitness
 instance Hashable TxInWitness
@@ -252,6 +260,10 @@ instance Hashable TxInWitness
 instance Buildable TxInWitness where
     build (PkWitness key sig) =
         bprint ("PkWitness: key = "%build%", sig = "%build) key sig
+    build (ScriptWitness val red) =
+        bprint ("ScriptWitness: "%
+                "validator hash = "%shortHashF%", "%
+                "redeemer hash = "%shortHashF) (hash val) (hash red)
 
 -- | A witness is a proof that a transaction is allowed to spend the funds it
 -- spends (by providing signatures, redeeming scripts, etc). A separate proof

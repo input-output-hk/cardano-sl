@@ -25,67 +25,79 @@ import           Servant.API                          ((:<|>) ((:<|>)),
 import           Servant.Server                       (Handler, ServantErr (errBody),
                                                        Server, ServerT, err404, serve)
 import           Servant.Utils.Enter                  ((:~>) (..), enter)
+import           Text.Read                            (read)
 import           Universum
 
 import           Pos.Crypto                           (parseFullPublicKey)
 import           Pos.DHT                              (dhtAddr, getKnownPeers)
+import           Pos.DHT.Real                         (KademliaDHTContext,
+                                                       getKademliaDHTCtx,
+                                                       runKademliaDHTRaw)
 import           Pos.Genesis                          (genesisAddresses,
                                                        genesisSecretKeys)
 import           Pos.Launcher                         (runTimed)
 import           Pos.Ssc.Class                        (SscConstraint)
 import qualified Pos.State                            as St
+import           Pos.Statistics                       (getNoStatsT)
 import           Pos.Types                            (Address, Coin (Coin), TxOut (..),
-                                                       addressF, coinF, makePubKeyAddress)
+                                                       addressF, coinF, decodeTextAddress,
+                                                       makePubKeyAddress)
 import           Pos.Wallet.Tx                        (getBalance, submitTx)
 import           Pos.Wallet.Web.Api                   (WalletApi, walletApi)
-import           Pos.Web.Server                       (MyWorkMode)
+import           Pos.Web.Server                       (serveImpl)
 import           Pos.WorkMode                         (ContextHolder, DBHolder,
-                                                       NodeContext, WorkMode,
+                                                       NodeContext, ProductionMode,
+                                                       SscLDImpl (..), WorkMode,
                                                        getNodeContext, ncPublicKey,
                                                        ncSscContext, runContextHolder,
-                                                       runDBHolder)
+                                                       runDBHolder, runSscLDImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
 ----------------------------------------------------------------------------
 
-walletServeWeb :: MyWorkMode ssc m => Word16 -> m ()
+walletServeWeb :: SscConstraint ssc => Word16 -> ProductionMode ssc ()
 walletServeWeb = serveImpl walletApplication
 
-walletApplication :: MyWorkMode ssc m => m Application
+walletApplication :: SscConstraint ssc => ProductionMode ssc Application
 walletApplication = servantServer >>= return . serve walletApi
-
-serveImpl :: MonadIO m => m Application -> Word16 -> m ()
-serveImpl application port =
-    liftIO . run (fromIntegral port) . logStdoutDev =<< application
 
 ----------------------------------------------------------------------------
 -- Servant infrastructure
 ----------------------------------------------------------------------------
 
-type WebHandler ssc = ContextHolder ssc (DBHolder ssc (Dialog BinaryP Transfer))
+type WebHandler ssc = ProductionMode ssc
+type SubKademlia ssc = SscLDImpl ssc (ContextHolder ssc (DBHolder ssc (Dialog BinaryP Transfer)))
 
 convertHandler
-    :: forall ssc a.
-       NodeContext ssc -> St.NodeState ssc -> WebHandler ssc a -> Handler a
-convertHandler nc ns handler =
+    :: forall ssc a . SscConstraint ssc
+    => KademliaDHTContext (SubKademlia ssc)
+    -> NodeContext ssc
+    -> St.NodeState ssc
+    -> WebHandler ssc a
+    -> Handler a
+convertHandler kctx nc ns handler =
     liftIO (runTimed "wallet-api" .
             runDBHolder ns .
-            runContextHolder nc $
+            runContextHolder nc .
+            runSscLDImpl .
+            runKademliaDHTRaw kctx .
+            getNoStatsT $
             handler) `Catch.catches`
     excHandlers
   where
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
 
-nat :: MyWorkMode ssc m => m (WebHandler ssc :~> Handler)
+nat :: SscConstraint ssc => ProductionMode ssc (WebHandler ssc :~> Handler)
 nat = do
+    kctx <- lift getKademliaDHTCtx
     nc <- getNodeContext
     ns <- St.getNodeState
-    return $ Nat (convertHandler nc ns)
+    return $ Nat (convertHandler kctx nc ns)
 
-servantServer :: forall ssc m . MyWorkMode ssc m => m (Server WalletApi)
-servantServer = flip enter servantHandlers <$> (nat @ssc @m)
+servantServer :: forall ssc . SscConstraint ssc => ProductionMode ssc (Server WalletApi)
+servantServer = flip enter servantHandlers <$> (nat @ssc)
 
 ----------------------------------------------------------------------------
 -- Handlers
@@ -125,6 +137,4 @@ send srcIdx dstAddr c
 deriving instance FromHttpApiData Coin
 
 instance FromHttpApiData Address where
-    parseUrlPiece = fmap makePubKeyAddress . maybe onError pure . parseFullPublicKey
-      where
-        onError = throwError "failed to parse address"
+    parseUrlPiece = decodeTextAddress

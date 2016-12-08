@@ -31,7 +31,7 @@ import           Pos.Ssc.NistBeacon     (SscNistBeacon)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 import           Pos.Types              (makePubKeyAddress, txwF)
 import           Pos.Wallet             (getBalance, submitTx)
-import           Pos.WorkMode           (WorkMode)
+import           Pos.WorkMode           (ProductionMode, WorkMode)
 #ifdef WITH_WEB
 import           Pos.Wallet.Web         (walletServeWeb)
 #endif
@@ -139,7 +139,7 @@ main = do
                 , gtpVssKeyPair = vssKeyPair
                 }
 
-            plugins :: (SscConstraint ssc, WorkMode ssc m) => [m ()]
+            plugins :: SscConstraint ssc => [ProductionMode ssc ()]
             plugins = case woAction of
                 Repl          -> [runWalletRepl opts]
 #ifdef WITH_WEB

@@ -11,7 +11,7 @@ module Pos.Txp.LocalData
 
        , getLocalTxs
        , removeLocalTx
-       , txApplyGlobalUtxo
+       , txApplyHeadUtxo
        , txLocalDataRollback
        , txLocalDataProcessTx
        ) where
@@ -76,8 +76,8 @@ getLocalTxs = txRunQuery getLocalTxsQ
 removeLocalTx :: MonadTxLD m => IdTxWitness -> m ()
 removeLocalTx tx = txRunUpdate . removeLocalTxU . fst $ tx
 
-txApplyGlobalUtxo :: MonadTxLD m => Utxo -> m ()
-txApplyGlobalUtxo utxo = txRunUpdate $ applyGlobalUtxoU utxo
+txApplyHeadUtxo :: MonadTxLD m => Utxo -> m ()
+txApplyHeadUtxo utxo = txRunUpdate $ applyHeadUtxoU utxo
 
 txLocalDataRollback :: MonadTxLD m => Word -> m ()
 txLocalDataRollback toRollback = txRunUpdate $ txLocalDataRollbackU toRollback
@@ -134,10 +134,10 @@ txLocalDataRollbackU _ = invalidateCache
 invalidateCache :: Update ()
 invalidateCache = txFilterCache %= clearLRU
 
-applyGlobalUtxoU :: Utxo -> Update ()
-applyGlobalUtxoU globalUtxo = do
+applyHeadUtxoU :: Utxo -> Update ()
+applyHeadUtxoU headUtxo = do
     localTxs <- uses txLocalTxs HM.toList
-    let txs' = normalizeTxs' localTxs globalUtxo
+    let txs' = normalizeTxs' localTxs headUtxo
     txLocalTxs .= HM.fromList txs'
     txLocalTxsSize .= length txs'
     mapM_ cacheTx (map fst txs')

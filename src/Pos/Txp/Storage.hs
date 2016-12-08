@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -38,10 +39,9 @@ import           Pos.Constants           (k)
 import           Pos.Crypto              (WithHash (..), withHash)
 import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types               (Block, IdTxWitness, SlotId, Tx (..), TxWitness,
-                                          Utxo, applyTxToUtxo', blockSlot,
-                                          blockTxws, convertFrom', normalizeTxs', slotIdF,
-                                          verifyAndApplyTxs, 
-                                          verifyTxUtxo)
+                                          Utxo, applyTxToUtxo', blockSlot, blockTxws,
+                                          convertFrom', normalizeTxs', slotIdF,
+                                          verifyAndApplyTxs, verifyTxUtxo)
 
 -- | Transaction-related state part, includes transactions, utxo and
 -- auxiliary structures needed for transaction processing.
@@ -175,10 +175,8 @@ resetLocalUtxo = do
 -- that don't make sense anymore (e.g. after block application that
 -- spends utxo we were counting on). Returns new transaction list,
 -- sorted.
-filterLocalTxs :: [IdTxWitness] -> Update [IdTxWitness]
-filterLocalTxs localTxs = do --TODO cosmetic fix it
-    utxo <- use txUtxo
-    pure $ normalizeTxs' localTxs utxo
+filterLocalTxs :: [IdTxWitness] -> Utxo -> [IdTxWitness]
+filterLocalTxs localTxs = normalizeTxs' localTxs
 
 -- | Takes the utxo we have now, reset it to head of utxo history and
 -- apply all localtransactions we have. It applies @filterLocalTxs@
@@ -187,5 +185,6 @@ filterLocalTxs localTxs = do --TODO cosmetic fix it
 overrideWithLocalTxs :: [IdTxWitness] -> Update ()
 overrideWithLocalTxs localTxs = do
     resetLocalUtxo
-    txs <- filterLocalTxs localTxs
+    utxo <- use txUtxo
+    let txs = filterLocalTxs localTxs utxo
     forM_ txs applyTx

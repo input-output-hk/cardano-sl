@@ -52,6 +52,7 @@ import           Control.Monad.TM        ((.=<<.))
 import           Data.Acid               ()
 import           Data.Default            (Default, def)
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
+import           Data.Maybe              (fromJust)
 import           Data.SafeCopy           (SafeCopy (..), contain, safeGet, safePut)
 import           Data.Tagged             (untag)
 import           Formatting              (build, sformat, (%))
@@ -191,7 +192,8 @@ createNewBlockDo
 createNewBlockDo localTxs sk sId sscPayload = do
     globalPayload <- readerToState $ getGlobalSscState
     let filteredPayload = sscFilterPayload @ssc sscPayload globalPayload
-    filteredTxs <- filterLocalTxs localTxs
+    headUtxo <- readerToState $ fromJust <$> getUtxoByDepth 0
+    let filteredTxs = filterLocalTxs localTxs headUtxo
     blk <- blkCreateNewBlock sk sId (map snd filteredTxs) filteredPayload
     let blocks = Right blk :| []
     sscApplyBlocks blocks
@@ -332,7 +334,6 @@ createGenesisBlockDo
        SscStorageClass ssc
     => EpochIndex -> Update ssc (GenesisBlock ssc)
 createGenesisBlockDo epoch = do
-    --traceMpcLastVer
     leaders <- readerToState $ calculateLeaders epoch
     genBlock <- blkCreateGenesisBlock epoch leaders
     -- Genesis block contains no transactions,

@@ -20,6 +20,7 @@ import qualified Data.HashMap.Strict       as HM
 import qualified Data.HashSet              as HS
 import           Data.List.NonEmpty        (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty        as NE
+import           Data.Maybe                (fromJust)
 import           Formatting                (bprint, build, int, sformat, stext, (%))
 import           Serokell.Util             (VerificationRes (..), listJson,
                                             listJsonIndent)
@@ -35,7 +36,7 @@ import           Pos.DHT                   (ListenerDHT (..), replyToNode)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class.LocalData   (sscApplyGlobalState)
 import qualified Pos.State                 as St
-import           Pos.Txp.LocalData         (getLocalTxs, txApplyGlobalUtxo,
+import           Pos.Txp.LocalData         (getLocalTxs, txApplyHeadUtxo,
                                             txLocalDataRollback)
 import           Pos.Types                 (HeaderHash, Tx, blockTxs, getBlockHeader,
                                             headerHash)
@@ -67,7 +68,7 @@ handleBlock (SendBlock block) = do
     when globalChanged $ do --synchronize local data with global data
         sscApplyGlobalState =<< St.getGlobalMpcData
         txLocalDataRollback toRollback
-        txApplyGlobalUtxo =<< St.getUtxo
+        txApplyHeadUtxo =<< fromJust <$> St.getUtxoByDepth 0
     let blkHash = headerHash block
     case pbr of
         St.PBRabort msg -> do

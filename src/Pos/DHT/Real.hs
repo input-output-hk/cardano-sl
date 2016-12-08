@@ -55,17 +55,24 @@ import           System.Wlog                     (CanLog, HasLoggerName, WithLog
 import           Universum                       hiding (async, fromStrict,
                                                   mapConcurrently, toStrict)
 
-import           Pos.DHT                         (DHTData, DHTException (..), DHTKey,
-                                                  DHTMsgHeader (..), DHTNode (..),
-                                                  DHTNodeType (..), DHTResponseT (..),
-                                                  ListenerDHT (..), MonadDHT (..),
+import           Pos.DHT.Class.MonadDHT          (DHTException (..),
+                                                  DHTMsgHeader (..),
+                                                  DHTResponseT (..),
+                                                  ListenerDHT (..),
+                                                  MonadDHT (..),
                                                   MonadMessageDHT (..),
                                                   MonadResponseDHT (closeResponse),
                                                   WithDefaultMsgHeader (..),
                                                   defaultSendToNeighbors,
-                                                  defaultSendToNode, filterByNodeType,
-                                                  joinNetworkNoThrow, randomDHTKey,
-                                                  withDhtLogger)
+                                                  defaultSendToNode,
+                                                  withDhtLogger
+                                                 )
+import           Pos.DHT.Types                   (DHTData, DHTKey,
+                                                  DHTNode (..),
+                                                  DHTNodeType (..),
+                                                  filterByNodeType,
+                                                  randomDHTKey,
+                                                  )
 import           Pos.Util                        (runWithRandomIntervals)
 
 toBSBinary :: Binary b => b -> BS.ByteString
@@ -446,6 +453,17 @@ joinNetwork' inst node = do
         K.IDClash ->
             logInfo $
             sformat ("joinNetwork: node " % build % " already contains us") node
+
+-- | Join distributed network without throwing 'AllPeersUnavailable' exception.
+joinNetworkNoThrow :: ( MonadDHT   m
+                      , MonadCatch m
+                      , WithLogger m
+                      ) => [DHTNode] -> m ()
+joinNetworkNoThrow peers = joinNetwork peers `catch` handleJoinE
+  where
+    handleJoinE AllPeersUnavailable =
+        logInfo $ sformat ("Not connected to any of peers " % build) peers
+    handleJoinE e = throwM e
 
 -- [TW-84]: move to serokell-core or time-warp?
 waitAnyUnexceptional

@@ -23,6 +23,7 @@ module Pos.Txp.Storage
        , txApplyBlocks
        , txRollback
        , processTx
+       , filterLocalTxs
        ) where
 
 import           Control.Lens            (each, ix, makeClassy, over, preview, use, uses,

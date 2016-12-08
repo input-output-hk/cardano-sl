@@ -73,14 +73,14 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
                                           getSlotDepth, mayBlockBeUseful, mkBlockStorage)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
                                           ProcessTxRes (..), mkPBRabort)
-import           Pos.Txp.Storage         (HasTxStorage (txStorage), TxStorage, getUtxo,
-                                          getUtxoByDepth, isTxVerified, processTx,
-                                          txApplyBlocks, txRollback, txStorageFromUtxo,
-                                          txVerifyBlocks)
+import           Pos.Txp.Storage         (HasTxStorage (txStorage), TxStorage,
+                                          filterLocalTxs, getUtxo, getUtxoByDepth,
+                                          isTxVerified, processTx, txApplyBlocks,
+                                          txRollback, txStorageFromUtxo, txVerifyBlocks)
 import           Pos.Types               (Address, Block, EpochIndex, EpochOrSlot (..),
                                           GenesisBlock, IdTxWitness, MainBlock,
-                                          SlotId (..), SlotLeaders, Utxo,
-                                          blockMpc, blockTxs, epochIndexL, epochOrSlot,
+                                          SlotId (..), SlotLeaders, Utxo, blockMpc,
+                                          blockTxs, epochIndexL, epochOrSlot,
                                           flattenSlotId, gbHeader, getEpochOrSlot,
                                           headerHashG, slotIdF, unflattenSlotId,
                                           verifyTxAlone)
@@ -191,10 +191,11 @@ createNewBlockDo
 createNewBlockDo localTxs sk sId sscPayload = do
     globalPayload <- readerToState $ getGlobalSscState
     let filteredPayload = sscFilterPayload @ssc sscPayload globalPayload
-    blk <- blkCreateNewBlock sk sId (map snd localTxs) filteredPayload
+    filteredTxs <- filterLocalTxs localTxs
+    blk <- blkCreateNewBlock sk sId (map snd filteredTxs) filteredPayload
     let blocks = Right blk :| []
     sscApplyBlocks blocks
-    blk <$ txApplyBlocks localTxs blocks
+    blk <$ txApplyBlocks filteredTxs blocks
 
 canCreateBlock :: SlotId -> Query ssc (Maybe Text)
 canCreateBlock sId = do

@@ -172,7 +172,6 @@ runTxLDImpl action = do
   ref <- liftIO $ STM.newTVarIO def
   flip runReaderT ref . getTxLDImpl $ action
 
-
 ----------------------------------------------------------------------------
 -- MonadSscLD
 ----------------------------------------------------------------------------

@@ -39,6 +39,8 @@ import           Pos.Launcher                         (runTimed)
 import           Pos.Ssc.Class                        (SscConstraint)
 import qualified Pos.State                            as St
 import           Pos.Statistics                       (getNoStatsT)
+import           Pos.Txp.LocalData                    (TxLocalData, getTxLocalData,
+                                                       setTxLocalData)
 import           Pos.Types                            (Address, Coin (Coin), TxOut (..),
                                                        addressF, coinF, decodeTextAddress,
                                                        makePubKeyAddress)
@@ -47,10 +49,11 @@ import           Pos.Wallet.Web.Api                   (WalletApi, walletApi)
 import           Pos.Web.Server                       (serveImpl)
 import           Pos.WorkMode                         (ContextHolder, DBHolder,
                                                        NodeContext, ProductionMode,
-                                                       SscLDImpl (..), WorkMode,
+                                                       SscLDImpl (..), TxLDImpl, WorkMode,
                                                        getNodeContext, ncPublicKey,
                                                        ncSscContext, runContextHolder,
-                                                       runDBHolder, runSscLDImpl)
+                                                       runDBHolder, runSscLDImpl,
+                                                       runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -67,23 +70,27 @@ walletApplication = servantServer >>= return . serve walletApi
 ----------------------------------------------------------------------------
 
 type WebHandler ssc = ProductionMode ssc
-type SubKademlia ssc = SscLDImpl ssc (ContextHolder ssc (DBHolder ssc (Dialog BinaryP Transfer)))
+type SubKademlia ssc = TxLDImpl
+    (SscLDImpl ssc (ContextHolder ssc (DBHolder ssc (Dialog BinaryP Transfer))))
 
 convertHandler
     :: forall ssc a . SscConstraint ssc
     => KademliaDHTContext (SubKademlia ssc)
+    -> TxLocalData
     -> NodeContext ssc
     -> St.NodeState ssc
     -> WebHandler ssc a
     -> Handler a
-convertHandler kctx nc ns handler =
+convertHandler kctx tld nc ns handler =
     liftIO (runTimed "wallet-api" .
             runDBHolder ns .
             runContextHolder nc .
             runSscLDImpl .
+            runTxLDImpl .
             runKademliaDHTRaw kctx .
             getNoStatsT $
-            handler) `Catch.catches`
+            setTxLocalData tld >> handler)
+    `Catch.catches`
     excHandlers
   where
     excHandlers = [Catch.Handler catchServant]
@@ -92,9 +99,10 @@ convertHandler kctx nc ns handler =
 nat :: SscConstraint ssc => ProductionMode ssc (WebHandler ssc :~> Handler)
 nat = do
     kctx <- lift getKademliaDHTCtx
+    tld <- getTxLocalData
     nc <- getNodeContext
     ns <- St.getNodeState
-    return $ Nat (convertHandler kctx nc ns)
+    return $ Nat (convertHandler kctx tld nc ns)
 
 servantServer :: forall ssc . SscConstraint ssc => ProductionMode ssc (Server WalletApi)
 servantServer = flip enter servantHandlers <$> (nat @ssc)

@@ -12,6 +12,7 @@ module Pos.Communication.Server.Block
        , handleBlock
        , handleBlockHeader
        , handleBlockRequest
+       , handleBlockchainPartRequest
        ) where
 
 import           Control.Lens              ((^.))
@@ -29,8 +30,9 @@ import           System.Wlog               (logDebug, logError, logInfo, logNoti
 import           Universum
 
 import           Pos.Communication.Methods (announceBlock)
-import           Pos.Communication.Types   (RequestBlock (..), ResponseMode,
-                                            SendBlock (..), SendBlockHeader (..))
+import           Pos.Communication.Types   (RequestBlock (..), RequestBlockchainPart (..),
+                                            ResponseMode, SendBlock (..),
+                                            SendBlockHeader (..), SendBlockchainPart (..))
 import           Pos.Crypto                (hash, shortHashF)
 import           Pos.DHT                   (ListenerDHT (..), replyToNode)
 import           Pos.Slotting              (getCurrentSlot)
@@ -52,6 +54,7 @@ blockListeners =
     [ ListenerDHT handleBlock
     , ListenerDHT handleBlockHeader
     , ListenerDHT handleBlockRequest
+    , ListenerDHT handleBlockchainPartRequest
     ]
 
 -- | Handler 'SendBlock' event.
@@ -167,3 +170,22 @@ handleBlockRequest (RequestBlock h) = do
     sendBlockBack block = do
         logDebug $ sformat ("Sending block " %build % " in reply") h
         replyToNode $ SendBlock block
+
+-- | Handle 'RequestBlockchainPart' message
+handleBlockchainPartRequest
+    :: ResponseMode ssc m
+    => RequestBlockchainPart ssc -> m ()
+handleBlockchainPartRequest RequestBlockchainPart {..} = do
+    logDebug $ sformat ("Blockchain part (range "%build%".."%build%
+                        ", count "%build%" is requested")
+        rbFromBlock rbUntilBlock rbCount
+    either logErr sendChainPart =<< St.getChainPart rbFromBlock rbUntilBlock rbCount
+  where
+    logErr = logWarning . sformat ("Error while fetching part of blockchain: "%stext)
+    sendChainPart cp = do
+        let fstH = headerHash <$> head cp
+            lc = length cp
+        logDebug $ sformat ("Sending chain part of length "%int%
+                            ", starting with "%build) lc fstH
+        replyToNode $ SendBlockchainPart cp
+

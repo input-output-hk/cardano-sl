@@ -20,6 +20,7 @@ module Pos.WorkMode
        -- * Tx local data
        , TxLDImpl
        , runTxLDImpl
+       , runTxLDImplRaw
 
        -- * Ssc local data
        , SscLDImpl
@@ -168,9 +169,10 @@ instance MonadIO m =>
     setTxLocalData d = atomically . flip STM.writeTVar d =<< TxLDImpl ask
 
 runTxLDImpl :: MonadIO m => TxLDImpl m a -> m a
-runTxLDImpl action = do
-  ref <- liftIO $ STM.newTVarIO def
-  flip runReaderT ref . getTxLDImpl $ action
+runTxLDImpl action = liftIO (STM.newTVarIO def) >>= runTxLDImplRaw action
+
+runTxLDImplRaw :: TxLDImpl m a -> STM.TVar TxLocalData -> m a
+runTxLDImplRaw = runReaderT . getTxLDImpl
 
 ----------------------------------------------------------------------------
 -- MonadSscLD

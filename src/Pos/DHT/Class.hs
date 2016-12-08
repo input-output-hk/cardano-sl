@@ -1,22 +1,15 @@
--- | Distributed Hash Table for peer discovery.
+-- | Re-exports of Pos.DHT.Class.* modules
 
-module Pos.DHT (
+module Pos.DHT.Class (
     DHTException (..),
-    DHTKey,
-    dhtKeyBytes,
-    DHTData,
-    DHTNode (..),
-    DHTNodeType (..),
-    DHTMsgHeader (..),
     MonadDHT (..),
+    withDhtLogger,
+    DHTMsgHeader (..),
     MonadMessageDHT (..),
     MonadResponseDHT (..),
     DHTResponseT (..),
     mapDHTResponseT,
     mapListenerDHT,
-    randomDHTKey,
-    bytesToDHTKey,
-    dhtNodeType,
     WithDefaultMsgHeader (..),
     ListenerDHT (..),
     withDhtLogger,
@@ -24,5 +17,5 @@ module Pos.DHT (
     defaultSendToNode
 ) where
 
-import           Pos.DHT.Types
-import           Pos.DHT.Class
+import Pos.DHT.Class.MonadDHT
+import Pos.DHT.Class.MonadMessageDHT

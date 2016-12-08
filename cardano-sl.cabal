@@ -43,7 +43,9 @@ library
                         Pos.DHT
                         Pos.DHT.Real
                         Pos.DHT.Types
+                        Pos.DHT.Class
                         Pos.DHT.Class.MonadDHT
+                        Pos.DHT.Class.MonadMessageDHT
                         Pos.FollowTheSatoshi
                         Pos.Ssc.Class
                         Pos.Ssc.GodTossing

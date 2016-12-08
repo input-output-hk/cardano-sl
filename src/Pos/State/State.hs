@@ -24,6 +24,7 @@ module Pos.State.State
        , getBlockByDepth
        , getHeadBlock
        , getBestChain
+       , getChainPart
        , getLeaders
        , getLocalTxs
        , getUtxoByDepth
@@ -187,6 +188,12 @@ getHeadBlock = queryDisk A.GetHeadBlock
 -- | Return current best chain.
 getBestChain :: QUConstraint ssc m => m (NonEmpty (Block ssc))
 getBestChain = queryDisk A.GetBestChain
+
+-- | Return part of best chain with given limits
+getChainPart :: QUConstraint ssc m
+             => Maybe (HeaderHash ssc) -> Maybe (HeaderHash ssc) -> Maybe Word
+             -> m (Either Text [Block ssc])
+getChainPart toH fromH = queryDisk . A.GetChainPart toH fromH
 
 -- | Get local transactions list.
 getLocalTxs :: QUConstraint ssc m => m (HashMap (WithHash Tx) TxWitness)

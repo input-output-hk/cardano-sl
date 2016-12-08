@@ -233,6 +233,9 @@ library
                         RecordWildCards
                         TypeApplications
 
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
   if flag(asserts)
     cpp-options: -DASSERTS_ON
   if flag(dev-mode)
@@ -273,6 +276,10 @@ executable cardano-node
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
   if flag(with-web)
     cpp-options: -DWITH_WEB
 
@@ -307,6 +314,9 @@ executable cardano-analyzer
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
 
 executable cardano-wallet
   hs-source-dirs:      src/wallet
@@ -346,6 +356,10 @@ executable cardano-wallet
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
   if flag(with-web)
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
@@ -396,6 +410,10 @@ executable cardano-smart-generator
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
 
@@ -418,6 +436,10 @@ executable cardano-web-docs
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
   if flag(with-web)
     cpp-options: -DWITH_WEB
 
@@ -442,6 +464,10 @@ executable cardano-wallet-web-docs
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
   if flag(with-web)
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
@@ -507,6 +533,9 @@ test-suite cardano-test
                         RecordWildCards
                         TypeApplications
 
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
 benchmark cardano-bench-criterion
   hs-source-dirs:      bench
   main-is:             Local/Criterion.hs
@@ -537,3 +566,6 @@ benchmark cardano-bench-criterion
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

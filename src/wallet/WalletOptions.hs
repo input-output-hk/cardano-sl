@@ -28,7 +28,6 @@ data WalletOptions = WalletOptions
     , woPort               :: !Word16     -- ^ DHT/Blockchain port
     , woInitialPause       :: !Int     -- ^ Pause between connecting to network
                                        -- and starting accepting commands (in slots)
-    , woSecretKeyIdx       :: !Int     -- ^ Index of genesis SK to use
     , woLogConfig          :: !(Maybe FilePath)
     , woLogsPrefix         :: !(Maybe FilePath)
     , woJLFile             :: !(Maybe FilePath)
@@ -90,11 +89,7 @@ optionsParser = WalletOptions
                   <> value 1
                   <> metavar "SLOTS_NUM"
                   <> help "Pause between connecting to network and starting accepting commands")
-    <*> option auto (long "genesis-sk"
-                  <> short 'i'
-                  <> metavar "INDEX"
-                  <> help "Index of genesis SK to use")
-    <*> optional (strOption $
+   <*> optional (strOption $
                   long "log-config"
                <> metavar "FILEPATH"
                <> help "Path to logger configuration")

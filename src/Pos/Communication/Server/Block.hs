@@ -12,13 +12,16 @@ module Pos.Communication.Server.Block
        , handleBlock
        , handleBlockHeader
        , handleBlockRequest
+       , handleBlockchainPartRequest
        ) where
 
 import           Control.Lens              ((^.))
 import           Control.TimeWarp.Rpc      (BinaryP, MonadDialog)
+import qualified Data.HashMap.Strict       as HM
 import qualified Data.HashSet              as HS
 import           Data.List.NonEmpty        (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty        as NE
+import           Data.Maybe                (fromJust)
 import           Formatting                (bprint, build, int, sformat, stext, (%))
 import           Serokell.Util             (VerificationRes (..), listJson,
                                             listJsonIndent)
@@ -27,13 +30,16 @@ import           System.Wlog               (logDebug, logError, logInfo, logNoti
 import           Universum
 
 import           Pos.Communication.Methods (announceBlock)
-import           Pos.Communication.Types   (RequestBlock (..), ResponseMode,
-                                            SendBlock (..), SendBlockHeader (..))
+import           Pos.Communication.Types   (RequestBlock (..), RequestBlockchainPart (..),
+                                            ResponseMode, SendBlock (..),
+                                            SendBlockHeader (..), SendBlockchainPart (..))
 import           Pos.Crypto                (hash, shortHashF)
 import           Pos.DHT                   (ListenerDHT (..), replyToNode)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class.LocalData   (sscApplyGlobalState)
 import qualified Pos.State                 as St
+import           Pos.Txp.LocalData         (getLocalTxs, txApplyHeadUtxo,
+                                            txLocalDataRollback)
 import           Pos.Types                 (HeaderHash, Tx, blockTxs, getBlockHeader,
                                             headerHash)
 import           Pos.Util                  (inAssertMode)
@@ -48,6 +54,7 @@ blockListeners =
     [ ListenerDHT handleBlock
     , ListenerDHT handleBlockHeader
     , ListenerDHT handleBlockRequest
+    , ListenerDHT handleBlockchainPartRequest
     ]
 
 -- | Handler 'SendBlock' event.
@@ -55,12 +62,16 @@ handleBlock :: forall ssc m . (ResponseMode ssc m)
             => SendBlock ssc -> m ()
 handleBlock (SendBlock block) = do
     slotId <- getCurrentSlot
-    pbr <- St.processBlock slotId block
-    let globalChanged =
+    localTxs <- HM.toList <$> getLocalTxs
+    pbr <- St.processBlock localTxs slotId block
+    let (globalChanged, toRollback) =
             case pbr of
-                St.PBRgood _ -> True
-                _            -> False
-    when globalChanged $ sscApplyGlobalState =<< St.getGlobalMpcData
+                St.PBRgood (toRoll, _) -> (True, toRoll)
+                _                      -> (False, 0)
+    when globalChanged $ do --synchronize local data with global data
+        sscApplyGlobalState =<< St.getGlobalMpcData
+        txLocalDataRollback toRollback
+        txApplyHeadUtxo =<< fromJust <$> St.getUtxoByDepth 0
     let blkHash = headerHash block
     case pbr of
         St.PBRabort msg -> do
@@ -159,3 +170,22 @@ handleBlockRequest (RequestBlock h) = do
     sendBlockBack block = do
         logDebug $ sformat ("Sending block " %build % " in reply") h
         replyToNode $ SendBlock block
+
+-- | Handle 'RequestBlockchainPart' message
+handleBlockchainPartRequest
+    :: ResponseMode ssc m
+    => RequestBlockchainPart ssc -> m ()
+handleBlockchainPartRequest RequestBlockchainPart {..} = do
+    logDebug $ sformat ("Blockchain part (range "%build%".."%build%
+                        ", count "%build%" is requested")
+        rbFromBlock rbUntilBlock rbCount
+    either logErr sendChainPart =<< St.getChainPart rbFromBlock rbUntilBlock rbCount
+  where
+    logErr = logWarning . sformat ("Error while fetching part of blockchain: "%stext)
+    sendChainPart cp = do
+        let fstH = headerHash <$> head cp
+            lc = length cp
+        logDebug $ sformat ("Sending chain part of length "%int%
+                            ", starting with "%build) lc fstH
+        replyToNode $ SendBlockchainPart cp
+

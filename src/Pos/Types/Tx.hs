@@ -9,7 +9,6 @@ module Pos.Types.Tx
        ( verifyTxAlone
        , verifyTx
        , topsortTxs
-       , topsortTxs'
        ) where
 
 import           Control.Lens        (makeLenses, use, uses, (%=), (.=), (^.))
@@ -63,8 +62,9 @@ verifyTx inputResolver (tx@Tx{..}, witnesses) =
     extendedInputs :: [Maybe (TxIn, TxOut)]
     extendedInputs = fmap extendInput txInputs
     extendInput txIn = (txIn,) <$> inputResolver txIn
+    resolvedInputs = catMaybes extendedInputs
     inpSum :: Integer
-    inpSum = sum $ fmap (toInteger . txOutValue . snd) $ catMaybes extendedInputs
+    inpSum = sum $ fmap (toInteger . txOutValue . snd) resolvedInputs
     verifyCounts =
         verifyGeneric
             [ ( length txInputs == length witnesses
@@ -73,13 +73,21 @@ verifyTx inputResolver (tx@Tx{..}, witnesses) =
                   (length txInputs) (length witnesses) )
             ]
     verifySum =
-        verifyGeneric
-            [ ( inpSum >= outSum
-              , sformat
-                    ("sum of outputs is more than sum of inputs ("
-                     %int%" > "%int%"), maybe some inputs are invalid")
-                    outSum inpSum)
-            ]
+        let resInps = length resolvedInputs
+            extInps = length extendedInputs
+            allInputsExist = resInps == extInps
+            verifier =
+                if allInputsExist
+                    then ( inpSum >= outSum
+                         , sformat
+                               ("sum of outputs is more than sum of inputs ("
+                                %int%" > "%int)
+                                outSum inpSum)
+                    else ( False
+                         , sformat
+                               (int%" inputs could not be resolved")
+                               (abs $ resInps - extInps))
+        in verifyGeneric [verifier]
     verifyInputs =
         verifyGeneric $ concat $
             zipWith3 inputPredicates [0..] extendedInputs (toList witnesses)
@@ -116,16 +124,14 @@ data TopsortState a = TopsortState
 
 $(makeLenses ''TopsortState)
 
--- | Does topological sort on transactions -- backwards dfs from every
--- node with reverse visiting order recording. Returns nothing on loop
--- encountered. Return order is head-first.
-topsortTxs :: [WithHash Tx] -> Maybe [WithHash Tx]
-topsortTxs = topsortTxs' identity
-
--- | Does topological sort on things that contain transactions, e.g. can be
+-- | Does topological sort on things that contain transactions – e.g. can be
 -- used both for sorting @[Tx]@ and @[(Tx, TxWitness)]@.
-topsortTxs' :: forall a. (a -> WithHash Tx) -> [a] -> Maybe [a]
-topsortTxs' toTx input =
+--
+-- (Backwards dfs from every node with reverse visiting order
+-- recording. Returns nothing on loop encountered. Return order is
+-- head-first.)
+topsortTxs :: forall a. (a -> WithHash Tx) -> [a] -> Maybe [a]
+topsortTxs toTx input =
     let res = execState dfs1 initState
     in guard (not $ res ^. tsLoop) >> pure (reverse $ res ^. tsResult)
   where

@@ -17,11 +17,11 @@ import           Data.List.NonEmpty            (NonEmpty)
 import qualified Data.Text.Buildable
 import           Universum
 
-import           Pos.Crypto                    (LShare)
 import           Pos.Ssc.GodTossing.Functions  (isCommitmentId, isCommitmentIdx,
                                                 isOpeningId, isOpeningIdx, isSharesId,
                                                 isSharesIdx)
-import           Pos.Ssc.GodTossing.Types.Base (Opening, SignedCommitment, VssCertificate)
+import           Pos.Ssc.GodTossing.Types.Base (InnerSharesMap, Opening,
+                                                SignedCommitment, VssCertificate)
 import           Pos.Types                     (Address, LocalSlotIndex, SlotId)
 
 -- | Tag associated with message.
@@ -89,7 +89,7 @@ data DataMsg
     | DMOpening !Address
                 !Opening
     | DMShares !Address
-               !(HashMap Address LShare)
+               InnerSharesMap
     | DMVssCertificate !Address
                        !VssCertificate
     deriving (Generic)

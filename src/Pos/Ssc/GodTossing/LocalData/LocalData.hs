@@ -151,7 +151,7 @@ processCommitment certs addr c = do
     checks epochIndex =
         [ not . HM.member addr <$> view gtGlobalCommitments
         , not . HM.member addr <$> view gtLocalCommitments
-        , return (addr `HM.member` certs)
+        , pure (addr `HM.member` certs)
         , pure . isVerSuccess $ verifySignedCommitment addr epochIndex c
         ]
 

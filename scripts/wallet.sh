@@ -3,12 +3,12 @@
 base=$(dirname "$0")
 . "$base"/common.sh
 
-# create logs dir actually
-# TODO update wallet executable to support
-#   log params and pass params as is done for node
 ensure_logs
 
-i=$1
+if [[ "$SSC_ALGO" != "" ]]; then
+    ssc_algo=" --ssc-algo $SSC_ALGO "
+fi
 
-$(find_binary cardano-wallet) submit -i $i `dht_config rand 0`\
-  | tee $logs_dir/wallet$i.log
+$(find_binary cardano-wallet) $(peer_config 0) $(logs smartwallet$i.log) \
+                              --db-path "run/wallet-db" \
+                              --flat-distr "(3, 100000)" $ssc_algo $@

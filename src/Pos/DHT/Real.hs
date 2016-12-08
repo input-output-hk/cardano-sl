@@ -18,8 +18,13 @@ module Pos.DHT.Real
        , KademliaDHTConfig(..)
        , KademliaDHTInstanceConfig(..)
        , KademliaDHTInstance
+       , KademliaDHTContext
        , startDHTInstance
        , stopDHTInstance
+
+       -- * For Servant integration
+       , getKademliaDHTCtx
+       , runKademliaDHTRaw
        ) where
 
 import           Control.Concurrent.Async.Lifted (async, mapConcurrently)
@@ -169,6 +174,14 @@ instance MonadTrans KademliaDHT where
   lift = KademliaDHT . lift
 
 type instance ThreadId (KademliaDHT m) = ThreadId m
+
+-- | Run 'KademliaDHT' with provided 'KademliaDHTContext'
+runKademliaDHTRaw :: KademliaDHTContext m -> KademliaDHT m a -> m a
+runKademliaDHTRaw ctx action = runReaderT (unKademliaDHT action) ctx
+
+-- | Get context from 'KademliaDHT'
+getKademliaDHTCtx :: Monad m => KademliaDHT m (KademliaDHTContext m)
+getKademliaDHTCtx = KademliaDHT ask
 
 -- | Run 'KademliaDHT' with provided 'KademliaDTHConfig'.
 runKademliaDHT

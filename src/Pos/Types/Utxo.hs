@@ -9,6 +9,11 @@ module Pos.Types.Utxo
        , verifyTxUtxo
        , verifyAndApplyTxs
        , normalizeTxs
+       , normalizeTxs'
+       , applyTxToUtxo'
+       , verifyAndApplyTxs'
+       , convertTo'
+       , convertFrom'
        ) where
 
 import           Control.Lens    (over, _1)
@@ -17,9 +22,10 @@ import qualified Data.Map.Strict as M
 import           Serokell.Util   (VerificationRes (..))
 import           Universum
 
-import           Pos.Crypto      (WithHash (whData, whHash))
-import           Pos.Types.Tx    (topsortTxs', verifyTx)
-import           Pos.Types.Types (Tx (..), TxIn (..), TxOut (..), TxWitness, Utxo)
+import           Pos.Crypto      (WithHash (..))
+import           Pos.Types.Tx    (topsortTxs, verifyTx)
+import           Pos.Types.Types (IdTxWitness, Tx (..), TxIn (..), TxOut (..), TxWitness,
+                                  Utxo)
 
 -- | Find transaction input in Utxo assuming it is valid.
 findTxIn :: TxIn -> Utxo -> Maybe TxOut
@@ -71,8 +77,8 @@ verifyAndApplyTxs txws utxo =
             VerFailure reason ->
                 Left $ fromMaybe "Transaction application failed, reason not specified" $
                 head reason
-    topsorted = reverse <$> topsortTxs' fst txws -- head is the last one
-                                                 -- to check
+    topsorted = reverse <$> topsortTxs fst txws -- head is the last one
+                                                -- to check
 
 -- | Takes the set of transactions and utxo, returns only those
 -- transactions that can be applied inside. Bonus -- returns them
@@ -101,3 +107,26 @@ normalizeTxs = normGo []
         in if null canBeApplied
                then result
                else normGo newResult newPending newUtxo
+
+-- TODO change types of normalizeTxs and related
+
+convertTo' :: [IdTxWitness] -> [(WithHash Tx, TxWitness)]
+convertTo' = map (\(i, (t, w)) -> (WithHash t i, w))
+
+convertFrom' :: [(WithHash Tx, TxWitness)] -> [IdTxWitness]
+convertFrom' = map (\(WithHash t h, w) -> (h, (t, w)))
+
+normalizeTxs' :: [IdTxWitness] -> Utxo -> [IdTxWitness]
+normalizeTxs' tx utxo =
+    let converted = convertTo' tx in
+    convertFrom' $ normalizeTxs converted utxo
+
+applyTxToUtxo' :: IdTxWitness -> Utxo -> Utxo
+applyTxToUtxo' (i, (t, _)) = applyTxToUtxo $ WithHash t i
+
+verifyAndApplyTxs'
+    :: [IdTxWitness]
+    -> Utxo
+    -> Either Text ([IdTxWitness], Utxo)
+verifyAndApplyTxs' txws utxo = (\(x, y) -> (convertFrom' x, y))
+                               <$> verifyAndApplyTxs (convertTo' txws) utxo

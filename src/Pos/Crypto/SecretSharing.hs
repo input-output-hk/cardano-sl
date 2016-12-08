@@ -10,7 +10,7 @@
 
 module Pos.Crypto.SecretSharing
        ( -- * Keys and related.
-         VssPublicKey
+         VssPublicKey (..)
        , VssKeyPair
        , toVssPublicKey
        , vssKeyGen
@@ -19,11 +19,11 @@ module Pos.Crypto.SecretSharing
          -- * Sharing
        , DhSecret (..)
        , ShareId
-       , EncShare
-       , Secret
-       , SecretProof
+       , EncShare (..)
+       , Secret (..)
+       , SecretProof (..)
        , SecretSharingExtra
-       , Share
+       , Share (..)
        , Threshold
 
        , shareId

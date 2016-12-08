@@ -41,7 +41,17 @@ deriveSafeCopySimple 0 'base ''MerkleRoot
 
 -- | Straightforward merkle tree representation in Haskell.
 data MerkleTree a = MerkleEmpty | MerkleTree Word32 (MerkleNode a)
-    deriving (Eq, Generic, Foldable)
+    deriving (Eq, Generic)
+
+instance Foldable MerkleTree where
+    foldMap _ MerkleEmpty      = mempty
+    foldMap f (MerkleTree _ n) = foldMap f n
+
+    null MerkleEmpty = True
+    null _           = False
+
+    length MerkleEmpty      = 0
+    length (MerkleTree s _) = fromIntegral s
 
 instance Show a => Show (MerkleTree a) where
   show tree = "Merkle tree: " <> show (toList tree)
@@ -117,7 +127,8 @@ mtRoot (MerkleTree _ x) = mRoot x
 emptyHash :: MerkleRoot a
 emptyHash = MerkleRoot (hashRaw mempty)
 
--- | Returns size of given merkle tree.
+-- | Returns size of given merkle tree. You can also use 'length',
+-- it's O(1) too.
 mtSize :: MerkleTree a -> Word32
 mtSize MerkleEmpty      = 0
 mtSize (MerkleTree s _) = s

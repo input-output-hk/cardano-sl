@@ -1,28 +1,29 @@
+{-# LANGUAGE UndecidableInstances #-}
 -- | `Arbitrary` instances for using in tests and benchmarks
 
 module Pos.Crypto.Arbitrary
     ( KeyPair(..)
     ) where
 
-import           Control.Lens                (view, _2, _4)
+
+import           Control.Lens                (view, _1, _2, _3, _4)
 import           Data.List.NonEmpty          (fromList)
 import           System.IO.Unsafe            (unsafePerformIO)
 import           Test.QuickCheck             (Arbitrary (..), elements)
 import           Universum
 
-import           Pos.Binary.Class            (Bi)
-import qualified Pos.Binary.Class            as Bi
+import           Pos.Binary.Class            (Bi, Serialized (..))
 import           Pos.Crypto.Arbitrary.Hash   ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
-import           Pos.Crypto.SecretSharing    (EncShare, Secret, Share, VssKeyPair,
+import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
+                                              SecretSharingExtra, Share, VssKeyPair,
                                               VssPublicKey, decryptShare, genSharedSecret,
                                               toVssPublicKey, vssKeyGen)
-import           Pos.Crypto.SerTypes         (LEncShare, LSecret, LShare, LVssPublicKey)
+import           Pos.Crypto.SerTypes         (LEncShare, LSecret, LSecretProof,
+                                              LSecretSharingExtra, LShare, LVssPublicKey)
 import           Pos.Crypto.Signing          (PublicKey, SecretKey, Signature, Signed,
                                               keyGen, mkSigned, sign)
-import           Pos.Util                    (Serialized (..))
-import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakeList,
-                                              unsafeMakePool)
+import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakePool)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -79,7 +80,7 @@ instance Arbitrary VssKeyPair where
 instance Arbitrary VssPublicKey where
     arbitrary = toVssPublicKey <$> arbitrary
 
-instance Arbitrary LVssPublicKey where
+instance Serialized VssPublicKey LVssPublicKey => Arbitrary LVssPublicKey where
     arbitrary = serialize @VssPublicKey <$> arbitrary
 
 instance Nonrepeating VssKeyPair where
@@ -102,30 +103,40 @@ instance (Bi a, Arbitrary a) => Arbitrary (Signed a) where
 -- Arbitrary secrets
 ----------------------------------------------------------------------------
 
-secrets :: [Secret]
-secrets =
-    unsafeMakePool "[generating shares for tests...]" 50 $
-        view _2 <$> genSharedSecret 1000 (map toVssPublicKey $ fromList vssKeys)
-{-# NOINLINE secrets #-}
+sharedSecrets :: [(SecretSharingExtra, Secret, SecretProof, [EncShare])]
+sharedSecrets =
+    unsafeMakePool "[generating shared secrets for tests...]" 50 $
+        genSharedSecret 1000 (map toVssPublicKey $ fromList vssKeys)
+{-# NOINLINE sharedSecrets #-}
+
+instance Arbitrary SecretSharingExtra where
+    arbitrary = elements $ fmap (view _1) sharedSecrets
+
+instance Serialized SecretSharingExtra LSecretSharingExtra =>
+         Arbitrary LSecretSharingExtra where
+    arbitrary = serialize @SecretSharingExtra <$> arbitrary
+
+instance Serialized SecretProof LSecretProof =>
+         Arbitrary LSecretProof where
+    arbitrary = serialize @SecretProof <$> arbitrary
 
 instance Arbitrary Secret where
-    arbitrary = elements secrets
+    arbitrary = elements $ fmap (view _2) sharedSecrets
 
-instance Arbitrary LSecret where
+instance Serialized Secret LSecret => Arbitrary LSecret where
     arbitrary = serialize @Secret <$> arbitrary
 
-encShares :: [EncShare]
-encShares =
-    unsafeMakeList "[generating shares for tests...]" $
-        view _4 <$> genSharedSecret 1000 (map toVssPublicKey $ fromList vssKeys)
-{-# NOINLINE encShares #-}
+instance Arbitrary SecretProof where
+    arbitrary = elements $ fmap (view _3) sharedSecrets
 
 instance Arbitrary EncShare where
-    arbitrary = elements encShares
+    arbitrary = elements $ concat $ fmap (view _4) sharedSecrets
 
-instance Arbitrary LEncShare where
+instance Serialized EncShare LEncShare => Arbitrary LEncShare where
     arbitrary = serialize @EncShare <$> arbitrary
 
-instance Arbitrary LShare where
-    arbitrary =
-        serialize @Share . unsafePerformIO <$> (decryptShare <$> arbitrary <*> arbitrary)
+instance Arbitrary Share where
+    arbitrary = unsafePerformIO <$> (decryptShare <$> arbitrary <*> arbitrary)
+
+instance Serialized Share LShare => Arbitrary LShare where
+    arbitrary = serialize @Share <$> arbitrary

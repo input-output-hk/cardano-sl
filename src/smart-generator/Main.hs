@@ -1,15 +1,17 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns        #-}
 
 module Main where
 
+import           Universum                       hiding (forConcurrently)
+#ifdef WITH_WALLET
 import           Control.Concurrent.Async.Lifted (forConcurrently)
 import           Control.Concurrent.STM.TVar     (modifyTVar', newTVarIO, readTVarIO)
 import           Control.TimeWarp.Rpc            (NetworkAddress)
 import           Control.TimeWarp.Timed          (Microsecond, for, fork_, ms, sec, wait)
-import           Data.Default                    (def)
 import           Data.List                       ((!!))
 import           Data.Maybe                      (fromMaybe)
 import           Data.Time.Clock.POSIX           (getPOSIXTime)
@@ -19,28 +21,26 @@ import           System.FilePath.Posix           ((</>))
 import           System.Random.Shuffle           (shuffleM)
 import           System.Wlog                     (logInfo)
 import           Test.QuickCheck                 (arbitrary, generate)
-import           Universum                       hiding (forConcurrently)
 
 import           Pos.Constants                   (k, neighborsSendThreshold, slotDuration)
 import           Pos.Crypto                      (KeyPair (..), hash)
 import           Pos.DHT                         (DHTNodeType (..), MonadDHT, dhtAddr,
                                                   discoverPeers, getKnownPeers)
 import           Pos.DHT.Real                    (KademliaDHT (..), KademliaDHTInstance)
-import           Pos.Genesis                     (StakeDistribution (..),
-                                                  genesisPublicKeys, genesisSecretKeys,
-                                                  genesisUtxo)
+import           Pos.Genesis                     (genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..), bracketDHTInstance,
                                                   runNode, runProductionMode,
-                                                  runTimeSlaveReal, submitTxRaw)
+                                                  runTimeSlaveReal, stakesDistr)
 import           Pos.Ssc.Class                   (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing              (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon              (SscNistBeacon)
 import           Pos.Ssc.SscAlgo                 (SscAlgo (..))
 import           Pos.State                       (isTxVerified)
 import           Pos.Statistics                  (NoStatsT (..))
-import           Pos.Types                       (Tx (..))
+import           Pos.Types                       (Tx (..), TxWitness)
 import           Pos.Util.JsonLog                ()
+import           Pos.Wallet                      (submitTxRaw)
 import           Pos.WorkMode                    (ProductionMode)
 
 import           GenOptions                      (GenOptions (..), optsInfo)
@@ -54,7 +54,7 @@ import           Util
 
 -- | Resend initTx with `slotDuration` period until it's verified
 seedInitTx :: forall ssc . SscConstraint ssc
-           => Double -> BambooPool -> Tx -> ProductionMode ssc ()
+           => Double -> BambooPool -> (Tx, TxWitness) -> ProductionMode ssc ()
 seedInitTx recipShare bp initTx = do
     na <- getPeers recipShare
     logInfo "Issuing seed transaction"
@@ -91,7 +91,6 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
 
     bambooPools <- forM goGenesisIdxs $ \(fromIntegral -> i) ->
                     liftIO $ createBambooPool
-                      (genesisPublicKeys !! i)
                       (genesisSecretKeys !! i)
                       (initTx i)
 
@@ -163,10 +162,10 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
                               logInfo "Resend the transaction parent again"
                               submitTxRaw na parent
 
-                          Right transaction -> do
+                          Right (transaction, witness) -> do
                               let curTxId = hash transaction
                               logInfo $ sformat ("Sending transaction #"%int) idx
-                              submitTxRaw na transaction
+                              submitTxRaw na (transaction, witness)
                               when (startT >= startMeasurementsT) $ liftIO $ do
                                   liftIO $ atomically $ modifyTVar' realTxNum (+1)
                                   -- put timestamp to current txmap
@@ -231,14 +230,6 @@ main = do
             , bpDHTKeyOrType       = Right DHTFull
             , bpDHTExplicitInitial = goDhtExplicitInitial
             }
-        stakesDistr = case (goFlatDistr, goBitcoinDistr) of
-            (Nothing, Nothing) -> def
-            (Just _, Just _) ->
-                panic "flat-distr and bitcoin distr are conflicting options"
-            (Just (nodes, coins), Nothing) ->
-                FlatStakes (fromIntegral nodes) (fromIntegral coins)
-            (Nothing, Just (nodes, coins)) ->
-                BitcoinStakes (fromIntegral nodes) (fromIntegral coins)
 
     bracketDHTInstance baseParams $ \inst -> do
         let timeSlaveParams =
@@ -255,14 +246,14 @@ main = do
                 , npSystemStart = systemStart
                 , npSecretKey   = sk
                 , npBaseParams  = baseParams
-                , npCustomUtxo  = Just $ genesisUtxo stakesDistr
+                , npCustomUtxo  = Just $ genesisUtxo $
+                                  stakesDistr goFlatDistr goBitcoinDistr
                 , npTimeLord    = False
                 , npJLFile      = goJLFile
                 }
             gtParams =
                 GtParams
-                {
-                  gtpRebuildDb  = False
+                { gtpRebuildDb  = False
                 , gtpDbPath     = Nothing
                 , gtpSscEnabled = False
                 , gtpVssKeyPair = vssKeyPair
@@ -273,3 +264,7 @@ main = do
                               runSmartGen @SscGodTossing inst params gtParams opts
             NistBeaconAlgo -> putText "Using NIST beacon" *>
                               runSmartGen @SscNistBeacon inst params () opts
+#else
+main :: IO ()
+main = panic "Wallet is necessary for smart generator"
+#endif

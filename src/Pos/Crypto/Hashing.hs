@@ -10,7 +10,17 @@
 -- | Hashing capabilities.
 
 module Pos.Crypto.Hashing
-       ( AbstractHash (..)
+       (
+         -- * WithHash
+         WithHash (..)
+       , withHash
+
+         -- * AbstractHash
+       , AbstractHash (..)
+       , abstractHash
+       , unsafeAbstractHash
+
+         -- * Common Hash
        , Hash
        , hashHexF
        , shortHashF
@@ -18,10 +28,13 @@ module Pos.Crypto.Hashing
        , hashRaw
        , unsafeHash
 
+         -- * Utility
        , CastHash (castHash)
+       , HashAlgorithm
        ) where
 
-import           Crypto.Hash         (Blake2b_512, Digest)
+import           Control.DeepSeq     (force)
+import           Crypto.Hash         (Blake2b_512, Digest, HashAlgorithm)
 import qualified Crypto.Hash         as Hash (hash, hashlazy)
 import           Data.Aeson          (ToJSON (toJSON))
 import qualified Data.ByteArray      as ByteArray
@@ -36,14 +49,36 @@ import           Pos.Binary.Class    (Bi)
 import qualified Pos.Binary.Class    as Bi
 import           Pos.Util            (Raw, getCopyBinary, putCopyBinary)
 
+----------------------------------------------------------------------------
+-- WithHash
+----------------------------------------------------------------------------
+data WithHash a = WithHash
+    { whData :: a
+    , whHash :: Hash a
+    } deriving (Show)
+
+instance Hashable (WithHash a) where
+    hashWithSalt s = hashWithSalt s . whHash
+
+instance Buildable.Buildable a => Buildable.Buildable (WithHash a) where
+    build = Buildable.build . whData
+
+instance Eq a => Eq (WithHash a) where
+    a == b = (whHash a == whHash b) && (whData a == whData b)
+
+instance Ord a => Ord (WithHash a) where
+    a <= b = whData a <= whData b
+
+withHash :: Bi a => a -> WithHash a
+withHash a = WithHash a (force h)
+  where
+    h = hash a
+
 -- | Hash wrapper with phantom type for more type-safety.
 -- Made abstract in order to support different algorithms in
 -- different situations
 newtype AbstractHash algo a = AbstractHash (Digest algo)
     deriving (Show, Eq, Ord, ByteArray.ByteArrayAccess, Generic, NFData)
-
--- | Type alias for commonly used hash
-type Hash = AbstractHash Blake2b_512
 
 instance Hashable (AbstractHash algo a) where
     hashWithSalt s h =
@@ -57,21 +92,23 @@ instance Bi (AbstractHash algo a) =>
     putCopy = putCopyBinary
     getCopy = getCopyBinary "AbstractHash"
 
---instance HashAlgorithm algo => Bi (AbstractHash algo a) where
---    {-# SPECIALIZE instance Binary (Hash a) #-}
---    get = do
---        bs <- Binary.getByteString $ Hash.hashDigestSize @algo $
---              panic "Pos.Crypto.Hashing.get: HashAlgorithm value is evaluated!"
---        case digestFromByteString bs of
---            -- It's impossible because getByteString will already fail if
---            -- there weren't enough bytes available
---            Nothing -> fail "Pos.Crypto.Hashing.get: impossible"
---            Just x  -> return (AbstractHash x)
---    put (AbstractHash h) =
---        Binary.putByteString (ByteArray.convert h)
-
 instance Buildable.Buildable (AbstractHash algo a) where
     build (AbstractHash x) = bprint shown x
+
+-- | Encode thing as 'Binary' data and then wrap into constructor.
+abstractHash
+    :: (HashAlgorithm algo, Bi a)
+    => a -> AbstractHash algo a
+abstractHash = unsafeAbstractHash
+
+-- | Unsafe version of abstractHash.
+unsafeAbstractHash
+    :: (HashAlgorithm algo, Bi a)
+    => a -> AbstractHash algo b
+unsafeAbstractHash = AbstractHash . Hash.hashlazy . Bi.encode
+
+-- | Type alias for commonly used hash
+type Hash = AbstractHash Blake2b_512
 
 instance ToJSON (Hash a) where
     toJSON = toJSON . pretty
@@ -86,7 +123,7 @@ hashRaw = AbstractHash . Hash.hash
 
 -- | Encode thing as 'Bi' data and then wrap into constructor.
 unsafeHash :: Bi a => a -> Hash b
-unsafeHash = AbstractHash . Hash.hashlazy . Bi.encode
+unsafeHash = unsafeAbstractHash
 
 -- | Specialized formatter for 'Hash'.
 hashHexF :: Format r (Hash a -> r)

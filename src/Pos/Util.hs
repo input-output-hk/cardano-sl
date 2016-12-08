@@ -52,8 +52,6 @@ module Pos.Util
        -- * LRU
        , clearLRU
 
-       , Serialized (..)
-       , deserializeM
 
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
@@ -62,11 +60,10 @@ module Pos.Util
 import           Control.Lens                  (Lens', LensLike', Magnified, Zoomed,
                                                 lensRules, magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
-import           Control.Monad.Fail            (MonadFail, fail)
+import           Control.Monad.Fail            (fail)
 import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
 import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
                                                 Second, for, killThread)
-import           Data.Binary                   (Binary)
 import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
@@ -353,20 +350,3 @@ instance (Ord k, SafeCopy k, SafeCopy v) =>
 -- | Create HashSet from HashMap's keys
 getKeys :: HashMap k v -> HashSet k
 getKeys = fromMap . void
-
-----------------------------------------------------------------------------
--- Deserialized wrapper
-----------------------------------------------------------------------------
-
--- TODO Another serialization?? :(
-
-class Binary b => Serialized a b where
-  serialize :: a -> b
-  deserialize :: b -> Either [Char] a
-
-deserializeM :: (Serialized a b, MonadFail m) => b -> m a
-deserializeM = either fail return . deserialize
-
-instance (Serialized a c, Serialized b d) => Serialized (a, b) (c, d) where
-    serialize (a, b) = (serialize a, serialize b)
-    deserialize (c, d) = (,) <$> deserialize c <*> deserialize d

@@ -15,7 +15,7 @@ module Pos.Types.Arbitrary
        , SmallOverflowTx (..)
        ) where
 
-import           Control.Lens               (over, view, _2, _3)
+import           Control.Lens               (set, view, _3, _4)
 import qualified Data.ByteString            as BS (pack)
 import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
@@ -25,9 +25,9 @@ import           Pos.Crypto                 (LShare, PublicKey, SecretKey, hash,
 import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              Coin (..), EpochIndex (..),
-                                             LocalSlotIndex (..), Redeemer (..),
-                                             SharedSeed (..), SlotId (..), Tx (..),
-                                             TxIn (..), TxOut (..), Validator (..),
+                                             LocalSlotIndex (..), SharedSeed (..),
+                                             SlotId (..), Tx (..), TxIn (..),
+                                             TxInWitness (..), TxOut (..),
                                              makePubKeyAddress)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
@@ -35,7 +35,7 @@ import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
-import           Pos.Crypto.Arbitrary       (KeyPair (..))
+import           Pos.Crypto.Arbitrary       ()
 import           Pos.Types.Arbitrary.Unsafe ()
 
 makeSmall :: Gen a -> Gen a
@@ -79,20 +79,14 @@ deriving instance Random LocalSlotIndex
 instance Arbitrary LocalSlotIndex where
     arbitrary = choose (0, epochSlots - 1)
 
-instance Arbitrary Validator where
-    arbitrary = PubKeyValidator <$> arbitrary
-
-instance Arbitrary Redeemer where
-    arbitrary = PubKeyRedeemer <$> arbitrary
+instance Arbitrary TxInWitness where
+    arbitrary = PkWitness <$> arbitrary <*> arbitrary
 
 instance Arbitrary TxIn where
     arbitrary = do
-        txInHash <- arbitrary
-        txInIndex <- arbitrary
-        KeyPair pk sk <- arbitrary
-        let txInValidator = PubKeyValidator pk
-            txInRedeemer = PubKeyRedeemer $ sign sk (txInHash, txInIndex, [])
-        return TxIn {..}
+        txId <- arbitrary
+        txIdx <- arbitrary
+        return (TxIn txId txIdx)
 
 -- | Arbitrary transactions generated from this instance will only be valid
 -- with regards to 'verifyTxAlone'
@@ -122,27 +116,29 @@ instance Arbitrary Tx where
 buildProperTx
     :: [(Tx, SecretKey, SecretKey, Coin)]
     -> (Coin -> Coin, Coin -> Coin)
-    -> Gen [(Tx, TxIn, TxOut)]
-buildProperTx triplesList (inCoin, outCoin) = do
-    let fun (Tx txIn txOut, fromSk, toSk, c) =
-            let inC = inCoin c
-                outC = outCoin c
-                txToBeSpent = Tx txIn $ (makeTxOutput fromSk inC) : txOut
-            in (txToBeSpent, fromSk, makeTxOutput toSk outC)
-        txList = fmap fun triplesList
-        thisTxOutputs = fmap (view _3) txList
-        newTx (tx, fromSk, txOutput) =
-            let txHash = hash tx
-                txIn = TxIn txHash 0 (PubKeyValidator $ toPublic fromSk) $
-                       PubKeyRedeemer $ sign fromSk (txHash, 0, thisTxOutputs)
-            in (tx, txIn, txOutput)
-        makeTxOutput s c = TxOut (makePubKeyAddress $ toPublic s) c
-        goodTx = fmap newTx txList
-    return goodTx
+    -> Gen [(Tx, TxIn, TxOut, TxInWitness)]
+buildProperTx triplesList (inCoin, outCoin)= do
+        let fun (Tx txIn txOut, fromSk, toSk, c) =
+                let inC = inCoin c
+                    outC = outCoin c
+                    txToBeSpent = Tx txIn $ (makeTxOutput fromSk inC) : txOut
+                in (txToBeSpent, fromSk, makeTxOutput toSk outC)
+            txList = fmap fun triplesList
+            thisTxOutputs = fmap (view _3) txList
+            newTx (tx, fromSk, txOutput) =
+                let txHash = hash tx
+                    txIn = TxIn txHash 0
+                    witness = PkWitness {
+                        twKey = toPublic fromSk,
+                        twSig = sign fromSk (txHash, 0, thisTxOutputs) }
+                in (tx, txIn, txOutput, witness)
+            makeTxOutput s c = TxOut (makePubKeyAddress $ toPublic s) c
+            goodTx = fmap newTx txList
+        return goodTx
 
 -- | Well-formed transaction 'Tx'.
 newtype GoodTx = GoodTx
-    { getGoodTx :: [(Tx, TxIn, TxOut)]
+    { getGoodTx :: [(Tx, TxIn, TxOut, TxInWitness)]
     } deriving (Show)
 
 newtype SmallGoodTx =
@@ -160,7 +156,7 @@ instance Arbitrary SmallGoodTx where
 
 -- | Ill-formed 'Tx' with overflow.
 newtype OverflowTx = OverflowTx
-    { getOverflowTx :: [(Tx, TxIn, TxOut)]
+    { getOverflowTx :: [(Tx, TxIn, TxOut, TxInWitness)]
     } deriving (Show)
 
 newtype SmallOverflowTx =
@@ -179,7 +175,7 @@ instance Arbitrary SmallOverflowTx where
 
 -- | Ill-formed 'Tx' with bad signatures.
 newtype BadSigsTx = BadSigsTx
-    { getBadSigsTx :: [(Tx, TxIn, TxOut)]
+    { getBadSigsTx :: [(Tx, TxIn, TxOut, TxInWitness)]
     } deriving (Show)
 
 newtype SmallBadSigsTx =
@@ -190,8 +186,7 @@ instance Arbitrary BadSigsTx where
     arbitrary = BadSigsTx <$> do
         goodTxList <- getGoodTx <$> arbitrary
         badSig <- arbitrary
-        let addBadSig t = t {txInRedeemer = PubKeyRedeemer badSig}
-        return $ fmap (over _2 addBadSig) goodTxList
+        return $ map (set _4 badSig) goodTxList
 
 instance Arbitrary SmallBadSigsTx where
     arbitrary = SmallBadSigsTx <$> makeSmall arbitrary

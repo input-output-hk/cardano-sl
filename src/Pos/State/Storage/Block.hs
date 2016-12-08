@@ -57,7 +57,7 @@ import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRa
 import           Pos.Types               (Address, Block, BlockHeader, ChainDifficulty,
                                           EpochIndex, GenesisBlock, HeaderHash, MainBlock,
                                           MainBlockHeader, SlotId (..), SlotLeaders, Tx,
-                                          Utxo, VerifyBlockParams (..),
+                                          TxWitness, Utxo, VerifyBlockParams (..),
                                           VerifyHeaderParams (..), blockHeader,
                                           blockLeaders, blockSlot, difficultyL,
                                           epochIndexL, gbHeader, getBlockHeader,
@@ -564,7 +564,7 @@ blkCreateNewBlock
     :: Ssc ssc
     => SecretKey
     -> SlotId
-    -> [Tx]
+    -> [(Tx,TxWitness)]
     -> SscPayload ssc
     -> Update ssc (MainBlock ssc)
 blkCreateNewBlock sk sId txs sscData = do

@@ -36,3 +36,5 @@ module Pos.Binary.Local where
 --instance Serializable (BodyProof (GenesisBlockchain ssc))
 --instance Serializable (ConsensusData (GenesisBlockchain ssc))
 --instance Serializable (Body (GenesisBlockchain ssc))
+
+--instance Binary TxInWitness

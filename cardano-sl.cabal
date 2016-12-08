@@ -161,9 +161,11 @@ library
                       , base
                       , base58-bytestring
                       , binary
+                      , binary-conduit >= 1.2.4.1
                       , binary-orphans
                       , bytestring
                       , cereal
+                      , conduit >= 1.2.8
                       , containers
                       , cryptonite >= 0.19 && < 0.21
                       , data-default
@@ -191,9 +193,9 @@ library
                       , mtl
                       , parsec
                       , pvss
-                      , resourcet
                       , quickcheck-instances
                       , random
+                      , resourcet
                       , safecopy
                       , serokell-util
                       , stm
@@ -250,10 +252,10 @@ executable cardano-node
   main-is:             Main.hs
   other-modules:       NodeOptions
   build-depends:       base
-                     , data-default
                      , binary
                      , bytestring
                      , cardano-sl
+                     , data-default
                      , directory
                      , filepath
                      , formatting

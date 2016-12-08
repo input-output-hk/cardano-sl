@@ -1,3 +1,6 @@
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 module Pos.Types.Address
        ( Address (..)
        , addressF
@@ -6,14 +9,9 @@ module Pos.Types.Address
        ) where
 
 import           Control.Lens           (view, _3)
-import           Control.Monad.Fail     (fail)
 import           Crypto.Hash            (Blake2s_224, Digest, SHA3_256, hashlazy)
 import qualified Crypto.Hash            as CryptoHash
 import           Data.Aeson             (ToJSON (toJSON))
-import           Data.Binary            (Binary (..))
-import qualified Data.Binary            as Bi
-import qualified Data.Binary.Get        as Bi (getWord32be)
-import qualified Data.Binary.Put        as Bi (putWord32be)
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58,
                                          encodeBase58)
 import qualified Data.ByteString.Char8  as BSC (elem, unpack)
@@ -28,6 +26,9 @@ import           Formatting             (Format, build, sformat)
 import           Prelude                (String, readsPrec, show)
 import           Universum              hiding (show)
 
+import           Pos.Binary.Class       (Bi)
+import qualified Pos.Binary.Class       as Bi
+import           Pos.Binary.Crypto      ()
 import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey)
 
 -- | Address versions are here for dealing with possible backwards
@@ -45,47 +46,32 @@ data Address = PubKeyAddress
     , addrHash    :: !(AddressHash PublicKey)
     } deriving (Eq, Generic, Ord)
 
-instance CRC32 Address where
+instance Bi (AddressHash PublicKey) => CRC32 Address where
     crc32Update seed PubKeyAddress {..} =
         crc32Update (crc32Update seed [addrVersion]) $ Bi.encode addrHash
 
-instance Binary Address where
-    get = do
-        ver <- Bi.getWord8
-        addrHash <- get
-        let addr = PubKeyAddress ver addrHash
-            ourChecksum = crc32 addr
-        theirChecksum <- Bi.getWord32be
-        if theirChecksum /= ourChecksum
-            then fail "Address has invalid checksum!"
-            else return addr
-    put addr@PubKeyAddress {..} = do
-        Bi.putWord8 addrVersion
-        put addrHash
-        Bi.putWord32be $ crc32 addr
-
-instance Hashable Address where
+instance Bi Address => Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.encode
 
 -- | Currently we gonna use Bitcoin alphabet for representing addresses in base58
 addrAlphabet :: Alphabet
 addrAlphabet = bitcoinAlphabet
 
-addrToBase58 :: Address -> ByteString
+addrToBase58 :: Bi Address => Address -> ByteString
 addrToBase58 = encodeBase58 addrAlphabet . BSL.toStrict . Bi.encode
 
-instance Show Address where
+instance Bi Address => Show Address where
     show = BSC.unpack . addrToBase58
 
-instance Buildable Address where
+instance Bi Address => Buildable Address where
     build = Buildable.build . decodeUtf8 @Text . addrToBase58
 
 instance NFData Address
 
-instance ToJSON Address where
+instance Bi Address => ToJSON Address where
     toJSON = toJSON . sformat build
 
-instance Read Address where
+instance Bi Address => Read Address where
     readsPrec _ str =
         let trimmedStr = dropWhile isSpace str
             (addrStr, rest) = span (`BSC.elem` unAlphabet addrAlphabet) trimmedStr
@@ -95,7 +81,7 @@ instance Read Address where
                Right addr -> [(addr, rest)]
 
 -- | A function which decodes base58 address from given ByteString
-decodeAddress :: ByteString -> Either String Address
+decodeAddress :: Bi Address => ByteString -> Either String Address
 decodeAddress bs = do
     let base58Err = "Invalid base58 representation of address"
         takeErr = toString . view _3
@@ -112,21 +98,22 @@ checkPubKeyAddress :: PublicKey -> Address -> Bool
 checkPubKeyAddress pk PubKeyAddress {..} = addrHash == addressHash pk
 
 -- | Specialized formatter for 'Address'.
-addressF :: Format r (Address -> r)
+addressF :: Bi Address => Format r (Address -> r)
 addressF = build
 
 ----------------------------------------------------------------------------
 -- Hashing
 ----------------------------------------------------------------------------
+
 type AddressHash = AbstractHash Blake2s_224
 
-unsafeAddressHash :: Binary a => a -> AddressHash b
+unsafeAddressHash :: Bi a => a -> AddressHash b
 unsafeAddressHash = AbstractHash . secondHash . firstHash
   where
-    firstHash :: Binary a => a -> Digest SHA3_256
+    firstHash :: Bi a => a -> Digest SHA3_256
     firstHash = hashlazy . Bi.encode
     secondHash :: Digest SHA3_256 -> Digest Blake2s_224
     secondHash = CryptoHash.hash
 
-addressHash :: Binary a => a -> AddressHash a
+addressHash :: Bi a => a -> AddressHash a
 addressHash = unsafeAddressHash

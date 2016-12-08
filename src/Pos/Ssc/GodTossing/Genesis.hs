@@ -11,13 +11,13 @@ import qualified Data.Text                     as T
 import           Formatting                    (int, sformat, (%))
 import           Universum
 
+import           Pos.Binary.Class              (serialize)
 import           Pos.Constants                 (genesisN)
 import           Pos.Crypto                    (VssKeyPair, VssPublicKey,
                                                 deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Genesis                   (genesisKeyPairs)
 import           Pos.Ssc.GodTossing.Types.Base (VssCertificatesMap, mkVssCertificate)
 import           Pos.Types                     (makePubKeyAddress)
-import           Pos.Util                      (serialize)
 
 -- | List of 'VssKeyPair' in genesis.
 genesisVssKeyPairs :: [VssKeyPair]

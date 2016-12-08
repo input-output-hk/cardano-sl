@@ -12,7 +12,6 @@ module Pos.Communication.Methods
 
 import           Control.TimeWarp.Rpc    (Message, NetworkAddress)
 import           Control.TimeWarp.Timed  (fork_)
-import           Data.Binary             (Binary)
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import           Formatting              (bprint, build, sformat, (%))
 import           System.Wlog             (logDebug)
@@ -27,7 +26,7 @@ import           Serokell.Util.Text      (listJson)
 
 -- | Wrapper on top of sendToNeighbors which does it in separate
 -- thread and controls how much time action takes.
-sendToNeighborsSafe :: (Binary r, Message r, WorkMode ssc m) => r -> m ()
+sendToNeighborsSafe :: (Bi r, Message r, WorkMode ssc m) => r -> m ()
 sendToNeighborsSafe msg = do
     let msgName = messageName' msg
     let action = () <$ sendToNeighbors msg

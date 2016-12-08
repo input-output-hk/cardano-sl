@@ -10,7 +10,6 @@ module Pos.Communication.Types.Tx
        ) where
 
 import           Control.TimeWarp.Rpc (Message (..), messageName')
-import           Data.Binary          (Binary)
 import           Data.List.NonEmpty   (NonEmpty)
 import           Universum
 
@@ -21,14 +20,10 @@ data SendTx =
     SendTx !Tx !TxWitness
     deriving (Generic)
 
-instance Binary SendTx
-
 -- | Message: some node has sent 'NonEmpty' list of 'Tx'.
 data SendTxs =
     SendTxs !(NonEmpty (Tx, TxWitness))
     deriving (Generic)
-
-instance Binary SendTxs
 
 instance Message SendTx where
     messageName _ = "Send Tx"

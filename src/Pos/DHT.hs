@@ -11,42 +11,42 @@
 
 -- | Distributed Hash Table for peer discovery.
 
-module Pos.DHT (
-    DHTException (..),
-    DHTKey,
-    dhtKeyBytes,
-    DHTData,
-    DHTNode (..),
-    DHTNodeType (..),
-    DHTMsgHeader (..),
-    MonadDHT (..),
-    MonadMessageDHT (..),
-    MonadResponseDHT (..),
-    DHTResponseT (..),
-    mapDHTResponseT,
-    mapListenerDHT,
-    randomDHTKey,
-    bytesToDHTKey,
-    dhtNodeType,
-    WithDefaultMsgHeader (..),
-    ListenerDHT (..),
-    withDhtLogger,
-    filterByNodeType,
-    joinNetworkNoThrow,
-    defaultSendToNeighbors,
-    defaultSendToNode
-) where
+module Pos.DHT
+       (
+         DHTException (..)
+       , DHTKey
+       , dhtKeyBytes
+       , DHTData
+       , DHTNode (..)
+       , DHTNodeType (..)
+       , MonadDHT (..)
+       , DHTMsgHeader(..)
+       , MonadMessageDHT (..)
+       , MonadResponseDHT (..)
+       , DHTResponseT (..)
+       , mapDHTResponseT
+       , mapListenerDHT
+       , randomDHTKey
+       , bytesToDHTKey
+       , dhtNodeType
+       , WithDefaultMsgHeader (..)
+       , ListenerDHT (..)
+       , withDhtLogger
+       , filterByNodeType
+       , joinNetworkNoThrow
+       , defaultSendToNeighbors
+       , defaultSendToNode
+       ) where
 
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, catch,
                                             throwM)
 import           Control.Monad.Morph       (hoist)
 import           Control.Monad.Trans.Class (MonadTrans)
-import           Control.TimeWarp.Rpc      (BinaryP, Message, MonadDialog,
-                                            MonadTransfer (..), NetworkAddress, ResponseT,
-                                            closeR, hoistRespCond, mapResponseT, peerAddr,
-                                            replyH, sendH)
+import           Control.TimeWarp.Rpc      (Message, MonadDialog, MonadTransfer (..),
+                                            NetworkAddress, ResponseT, closeR,
+                                            hoistRespCond, mapResponseT, peerAddr, replyH,
+                                            sendH)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
-import           Data.Binary               (Binary)
 import           Data.Proxy                (Proxy (Proxy))
 import           Formatting                (int, sformat, shown, (%))
 import qualified Formatting                as F
@@ -55,6 +55,8 @@ import           System.Wlog               (CanLog, HasLoggerName (modifyLoggerN
                                             logWarning)
 import           Universum
 
+import           Pos.Binary.Class          (Bi)
+import           Pos.Binary.Network        (BiP, DHTMsgHeader (..))
 import           Pos.Constants             (neighborsSendThreshold)
 import           Pos.DHT.Types
 import           Pos.Util                  (messageName')
@@ -88,12 +90,6 @@ withDhtLogger action = do
     subName <- dhtLoggerNameM
     modifyLoggerName (<> subName) action
 
--- | Header of messages in DHT algorithm.
-data DHTMsgHeader = BroadcastHeader
-                  | SimpleHeader { dmhNoCache :: Bool }
-  deriving (Generic, Show)
-
-instance Binary DHTMsgHeader
 
 -- | Class for something that has default 'DHTMsgHeader'.
 class WithDefaultMsgHeader m where
@@ -102,22 +98,22 @@ class WithDefaultMsgHeader m where
 -- | Monad that can send messages over distributed network.
 class MonadDHT m => MonadMessageDHT m where
 
-    sendToNetwork :: (Binary r, Message r) => r -> m ()
+    sendToNetwork :: (Bi r, Message r) => r -> m ()
 
-    sendToNode :: (Binary r, Message r) => NetworkAddress -> r -> m ()
+    sendToNode :: (Bi r, Message r) => NetworkAddress -> r -> m ()
 
-    sendToNeighbors :: (Binary r, Message r) => r -> m Int
+    sendToNeighbors :: (Bi r, Message r) => r -> m Int
 
-    default sendToNode :: ( Binary r
+    default sendToNode :: ( Bi r
                           , Message r
                           , WithLogger m
                           , WithDefaultMsgHeader m
-                          , MonadDialog BinaryP m
+                          , MonadDialog BiP m
                           , MonadThrow m
                           ) => NetworkAddress -> r -> m ()
     sendToNode = defaultSendToNode
 
-    default sendToNeighbors :: ( Binary r
+    default sendToNeighbors :: ( Bi r
                                , Message r
                                , WithLogger m
                                , MonadCatch m
@@ -126,7 +122,7 @@ class MonadDHT m => MonadMessageDHT m where
 
 -- | Monad that can respond on messages for DHT algorithm.
 class MonadMessageDHT m => MonadResponseDHT m where
-  replyToNode :: (Binary r, Message r) => r -> m ()
+  replyToNode :: (Bi r, Message r) => r -> m ()
   closeResponse :: m ()
 
 instance MonadDHT m => MonadDHT (ReaderT r m) where
@@ -149,23 +145,24 @@ instance (Monad m, WithDefaultMsgHeader m) => WithDefaultMsgHeader (ReaderT r m)
 
 -- | Listener of DHT messages.
 data ListenerDHT m =
-    forall r . (Binary r, Message r)
+    forall r . (Bi r, Message r)
             => ListenerDHT (r -> DHTResponseT m ())
 
 -- | Send 'defaultMsgHeader' for node with given 'NetworkAddress'.
 defaultSendToNode
     :: ( MonadMessageDHT m
-       , Binary r
+       , Bi r
        , Message r
        , WithDefaultMsgHeader m
        , WithLogger m
-       , MonadDialog BinaryP m
+       , MonadDialog BiP m
        , MonadThrow m
        )
     => NetworkAddress -> r -> m ()
 defaultSendToNode addr msg = do
     withDhtLogger $
-      logDebug $ sformat ("Sending message " % F.build % " to node " % shown) (messageName' msg) addr
+      logDebug $
+      sformat ("Sending message " % F.build % " to node " % shown) (messageName' msg) addr
     header <- defaultMsgHeader msg
     sendH addr header msg
 
@@ -234,7 +231,10 @@ newtype DHTResponseT m a = DHTResponseT
 
 instance MonadTransfer m => MonadTransfer (DHTResponseT m) where
     sendRaw addr p = DHTResponseT $ sendRaw addr (hoist getDHTResponseT p)
-    listenRaw binding sink = DHTResponseT $ fmap DHTResponseT $ listenRaw binding (hoistRespCond getDHTResponseT sink)
+    listenRaw binding sink =
+        DHTResponseT $
+        fmap DHTResponseT $
+        listenRaw binding (hoistRespCond getDHTResponseT sink)
     close = DHTResponseT . close
 
 type instance ThreadId (DHTResponseT m) = ThreadId m
@@ -242,14 +242,15 @@ type instance ThreadId (DHTResponseT m) = ThreadId m
 instance ( WithLogger m
          , WithDefaultMsgHeader m
          , MonadMessageDHT m
-         , MonadDialog BinaryP m
+         , MonadDialog BiP m
          , MonadIO m
          , MonadMask m
          ) => MonadResponseDHT (DHTResponseT m) where
   replyToNode msg = do
     addr <- DHTResponseT $ peerAddr
     withDhtLogger $
-      logDebug $ sformat ("Replying with message " % F.build % " to " % F.build) (messageName' msg) addr
+      logDebug $
+      sformat ("Replying with message " % F.build % " to " % F.build) (messageName' msg) addr
     header <- defaultMsgHeader msg
     DHTResponseT $ replyH header msg
   closeResponse = DHTResponseT closeR
@@ -267,10 +268,9 @@ filterByNodeType :: DHTNodeType -> [DHTNode] -> [DHTNode]
 filterByNodeType type_ = filter (\n -> dhtNodeType (dhtNodeId n) == Just type_)
 
 -- | Join distributed network without throwing 'AllPeersUnavailable' exception.
-joinNetworkNoThrow :: ( MonadDHT   m
-                      , MonadCatch m
-                      , WithLogger m
-                      ) => [DHTNode] -> m ()
+joinNetworkNoThrow
+    :: (MonadDHT m, MonadCatch m, WithLogger m)
+    => [DHTNode] -> m ()
 joinNetworkNoThrow peers = joinNetwork peers `catch` handleJoinE
   where
     handleJoinE AllPeersUnavailable =

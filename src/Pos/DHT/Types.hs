@@ -8,6 +8,7 @@ module Pos.DHT.Types
        , dhtKeyBytes
        , DHTNode (..)
        , DHTNodeType (..)
+       , DHTMsgHeader (..)
 
        , bytesToDHTKey
        , dhtNodeType
@@ -16,7 +17,6 @@ module Pos.DHT.Types
        ) where
 
 import           Control.TimeWarp.Rpc (NetworkAddress)
-import           Data.Binary          (Binary)
 import qualified Data.ByteString      as BS
 import           Data.Hashable        (Hashable)
 import           Data.Text.Buildable  (Buildable (..))
@@ -31,11 +31,11 @@ import           Pos.Crypto.Random    (secureRandomBS)
 
 -- | Dummy data for DHT.
 newtype DHTData = DHTData ()
-  deriving (Eq, Ord, Binary, Show)
+  deriving (Eq, Ord, Show, Generic)
 
 -- | DHTKey should be strictly 20-byte long.
 newtype DHTKey = DHTKey { dhtKeyBytes :: BS.ByteString }
-  deriving (Eq, Ord, Binary, Hashable)
+  deriving (Eq, Ord, Hashable, Generic)
 
 instance Buildable DHTKey where
     build key@(DHTKey bs) = buildType (dhtNodeType key)
@@ -101,3 +101,8 @@ typeByte :: DHTNodeType -> Word8
 typeByte DHTSupporter = 0x00
 typeByte DHTFull      = 0x30
 typeByte DHTClient    = 0xF0
+
+-- | Header of messages in DHT algorithm.
+data DHTMsgHeader = BroadcastHeader
+                  | SimpleHeader { dmhNoCache :: Bool }
+  deriving (Generic, Show)

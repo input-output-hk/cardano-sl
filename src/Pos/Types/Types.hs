@@ -60,6 +60,7 @@ module Pos.Types.Types
 
        , MainBlockchain
        , MainBlockHeader
+       , BiSsc
        , ChainDifficulty (..)
        , MainToSign
        , MainBlock
@@ -115,7 +116,6 @@ import           Control.Lens           (Getter, Lens', choosing, makeLenses, to
 import           Control.Monad.Fail     (fail)
 import           Data.Aeson             (ToJSON (toJSON))
 import           Data.Aeson.TH          (deriveToJSON)
-import           Data.Binary            (Binary)
 import qualified Data.ByteString        as BS (pack, zipWith)
 import qualified Data.ByteString.Char8  as BSC (pack)
 import           Data.Data              (Data)
@@ -141,6 +141,8 @@ import           Serokell.Util.Text     (listJson, listJsonIndent, mapBuilderJso
                                          pairBuilder)
 import           Universum
 
+import           Pos.Binary.Address     ()
+import           Pos.Binary.Class       (Bi)
 import           Pos.Constants          (sharedSeedLength)
 import           Pos.Crypto             (Hash, PublicKey, Signature, hash, hashHexF,
                                          shortHashF)
@@ -271,7 +273,7 @@ instance Buildable TxIn where
 data TxOut = TxOut
     { txOutAddress :: !Address
     , txOutValue   :: !Coin
-    } deriving (Eq, Ord, Show, Generic)
+    } deriving (Eq, Ord, Generic, Show)
 
 instance Hashable TxOut
 
@@ -285,8 +287,9 @@ instance Buildable TxOut where
 data Tx = Tx
     { txInputs  :: ![TxIn]   -- ^ Inputs of transaction.
     , txOutputs :: ![TxOut]  -- ^ Outputs of transaction.
-    } deriving (Eq, Ord, Show, Generic)
+    } deriving (Eq, Ord, Generic)
 
+deriving instance Show Tx
 instance Hashable Tx
 
 instance Buildable Tx where
@@ -441,7 +444,7 @@ newtype ChainDifficulty = ChainDifficulty
 -- | Constraint for data to be signed in main block.
 type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
 
-instance Ssc ssc => Blockchain (MainBlockchain ssc) where
+instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
     data BodyProof (MainBlockchain ssc) = MainProof
         { mpNumber        :: !Word32
@@ -497,12 +500,12 @@ deriving instance Ssc ssc => Show (Body (MainBlockchain ssc))
 type MainBlockHeader ssc = GenericBlockHeader (MainBlockchain ssc)
 
 -- | Ssc w/ buildable blockchain
-type BinarySsc ssc =
+type BiSsc ssc =
     ( Ssc ssc
-    , Binary (GenericBlockHeader (GenesisBlockchain ssc))
-    , Binary (GenericBlockHeader (MainBlockchain ssc)))
+    , Bi (GenericBlockHeader (GenesisBlockchain ssc))
+    , Bi (GenericBlockHeader (MainBlockchain ssc)))
 
-instance BinarySsc ssc => Buildable (MainBlockHeader ssc) where
+instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
     build gbh@GenericBlockHeader {..} =
         bprint
             ("MainBlockHeader:\n"%
@@ -526,7 +529,7 @@ instance BinarySsc ssc => Buildable (MainBlockHeader ssc) where
 -- main part of our consensus algorithm.
 type MainBlock ssc = GenericBlock (MainBlockchain ssc)
 
-instance BinarySsc ssc => Buildable (MainBlock ssc) where
+instance BiSsc ssc => Buildable (MainBlock ssc) where
     build GenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -573,7 +576,7 @@ instance Blockchain (GenesisBlockchain ssc) where
     -- associated with this block.
     data Body (GenesisBlockchain ssc) = GenesisBody
         { _gbLeaders :: !SlotLeaders
-        } deriving (Show, Generic)
+        } deriving (Generic, Show)
     type BBlock (GenesisBlockchain ssc) = Block ssc
 
     mkBodyProof = GenesisProof . hash . _gbLeaders
@@ -581,7 +584,7 @@ instance Blockchain (GenesisBlockchain ssc) where
 -- | Genesis block parametrized by 'GenesisBlockchain'.
 type GenesisBlock ssc = GenericBlock (GenesisBlockchain ssc)
 
-instance Ssc ssc => Buildable (GenesisBlock ssc) where
+instance BiSsc ssc => Buildable (GenesisBlock ssc) where
     build GenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -597,7 +600,7 @@ instance Ssc ssc => Buildable (GenesisBlock ssc) where
         formatLeaders = formatIfNotNull
             ("  leaders: "%listJson%"\n") _gbLeaders
 
-instance Ssc ssc => Buildable (GenesisBlockHeader ssc) where
+instance BiSsc ssc => Buildable (GenesisBlockHeader ssc) where
     build gbh@GenericBlockHeader {..} =
         bprint
             ("GenesisBlockHeader:\n"%
@@ -759,22 +762,22 @@ class HasHeaderHash a ssc | a -> ssc where
     headerHashG :: Getter a (HeaderHash ssc)
     headerHashG = to headerHash
 
-instance Ssc ssc => HasHeaderHash (MainBlockHeader ssc) ssc where
+instance BiSsc ssc => HasHeaderHash (MainBlockHeader ssc) ssc where
     headerHash = hash . Right
 
-instance Ssc ssc => HasHeaderHash (GenesisBlockHeader ssc) ssc where
+instance BiSsc ssc => HasHeaderHash (GenesisBlockHeader ssc) ssc where
     headerHash = hash . Left
 
-instance Ssc ssc => HasHeaderHash (BlockHeader ssc) ssc where
+instance BiSsc ssc => HasHeaderHash (BlockHeader ssc) ssc where
     headerHash = hash
 
-instance Ssc ssc => HasHeaderHash (MainBlock ssc) ssc where
+instance BiSsc ssc => HasHeaderHash (MainBlock ssc) ssc where
     headerHash = hash . Right . view gbHeader
 
-instance Ssc ssc => HasHeaderHash (GenesisBlock ssc) ssc where
+instance BiSsc ssc => HasHeaderHash (GenesisBlock ssc) ssc where
     headerHash = hash . Left  . view gbHeader
 
-instance Ssc ssc => HasHeaderHash (Block ssc) ssc where
+instance BiSsc ssc => HasHeaderHash (Block ssc) ssc where
     headerHash = hash . getBlockHeader
 
 -- | Class for something that has 'EpochIndex'.

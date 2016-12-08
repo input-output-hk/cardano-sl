@@ -8,8 +8,8 @@
 module Pos.Crypto.Signing
        (
        -- * Keys
-         PublicKey
-       , SecretKey
+         PublicKey (..)
+       , SecretKey (..)
        , keyGen
        , deterministicKeyGen
        , toPublic
@@ -18,7 +18,7 @@ module Pos.Crypto.Signing
        , parseFullPublicKey
 
        -- * Signing and verification
-       , Signature
+       , Signature (..)
        , sign
        , checkSig
 
@@ -30,6 +30,12 @@ module Pos.Crypto.Signing
        -- * Versions for raw bytestrings
        , signRaw
        , verifyRaw
+
+       -- remove it when getting rid of cereal!
+       , secretKeyLength
+       , publicKeyLength
+       , signatureLength
+       , putAssertLength
        ) where
 
 import qualified Crypto.Sign.Ed25519    as Ed25519
@@ -65,6 +71,23 @@ instance NFData Ed25519.PublicKey
 instance NFData Ed25519.SecretKey
 instance NFData Ed25519.Signature
 
+----------------------------------------------------------------------------
+-- Keys, key generation & printing & decoding
+----------------------------------------------------------------------------
+
+-- | Wrapper around 'Ed25519.PublicKey'.
+newtype PublicKey = PublicKey Ed25519.PublicKey
+    deriving (Eq, Ord, Show, Generic, NFData,
+              Cereal.Serialize, Hashable)
+
+-- | Wrapper around 'Ed25519.SecretKey'.
+newtype SecretKey = SecretKey Ed25519.SecretKey
+    deriving (Eq, Ord, Show, Generic, NFData,
+              Cereal.Serialize, Hashable)
+
+
+-- TODO GET RID OF CEREAL SHIT HERE
+
 secretKeyLength, publicKeyLength, signatureLength :: Int
 secretKeyLength = 64
 publicKeyLength = 32
@@ -75,27 +98,6 @@ putAssertLength typeName expectedLength bs =
     when (BS.length bs /= expectedLength) $ panic $
         sformat ("put@"%stext%": expected length "%int%", not "%int)
                 typeName expectedLength (BS.length bs)
-
--- TODO Move to Pos.Binary
----- Binary
---
---instance Binary Ed25519.PublicKey where
---    put (Ed25519.PublicKey k) = do
---        putAssertLength "PublicKey" publicKeyLength k
---        Binary.putByteString k
---    get = Ed25519.PublicKey <$> Binary.getByteString publicKeyLength
---
---instance Binary Ed25519.SecretKey where
---    put (Ed25519.SecretKey k) = do
---        putAssertLength "SecretKey" secretKeyLength k
---        Binary.putByteString k
---    get = Ed25519.SecretKey <$> Binary.getByteString secretKeyLength
---
---instance Binary Ed25519.Signature where
---    put (Ed25519.Signature s) = do
---        putAssertLength "Signature" signatureLength s
---        Binary.putByteString s
---    get = Ed25519.Signature <$> Binary.getByteString signatureLength
 
 -- Cereal (for safecopy -- todo write safecopy instead)
 
@@ -116,20 +118,6 @@ instance Cereal.Serialize Ed25519.Signature where
         putAssertLength "Signature" signatureLength s
         Cereal.putByteString s
     get = Ed25519.Signature <$> Cereal.getByteString signatureLength
-
-----------------------------------------------------------------------------
--- Keys, key generation & printing & decoding
-----------------------------------------------------------------------------
-
--- | Wrapper around 'Ed25519.PublicKey'.
-newtype PublicKey = PublicKey Ed25519.PublicKey
-    deriving (Eq, Ord, Show, Generic, NFData,
-              Cereal.Serialize, Hashable)
-
--- | Wrapper around 'Ed25519.SecretKey'.
-newtype SecretKey = SecretKey Ed25519.SecretKey
-    deriving (Eq, Ord, Show, Generic, NFData,
-              Cereal.Serialize, Hashable)
 
 instance SafeCopy PublicKey where
     -- an empty declaration uses Cereal.Serialize instance by default

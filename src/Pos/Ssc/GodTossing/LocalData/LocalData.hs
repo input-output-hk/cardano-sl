@@ -1,7 +1,8 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE Rank2Types           #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 -- | This module defines methods which operate on GtLocalData.
@@ -26,7 +27,7 @@ import qualified Data.HashSet                       as HS
 import           Serokell.Util.Verify               (isVerSuccess)
 import           Universum
 
-import           Pos.Crypto                         (LShare)
+import           Pos.Binary.Class                   (Bi)
 import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate, MonadSscLD,
                                                      SscLocalDataClass (..),
                                                      sscRunLocalQuery, sscRunLocalUpdate)
@@ -41,12 +42,13 @@ import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData, gtGlobalCertif
                                                      gtLocalCertificates,
                                                      gtLocalCommitments, gtLocalOpenings,
                                                      gtLocalShares)
-import           Pos.Ssc.GodTossing.Types.Base      (InnerSharesMap, Opening,
+import           Pos.Ssc.GodTossing.Types.Base      (Commitment, InnerSharesMap, Opening,
                                                      SignedCommitment, VssCertificate)
 import           Pos.Ssc.GodTossing.Types.Instance  ()
 import           Pos.Ssc.GodTossing.Types.Message   (DataMsg (..), MsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types     (GtGlobalState (..), GtPayload (..))
+import           Pos.Ssc.GodTossing.Types.Types     (GtGlobalState (..), GtPayload (..),
+                                                     SscBi)
 import           Pos.Types                          (Address (..), SlotId (..))
 import           Pos.Util                           (diffDoubleMap, getKeys,
                                                      readerToState)
@@ -54,7 +56,7 @@ import           Pos.Util                           (diffDoubleMap, getKeys,
 type LDQuery a = LocalQuery SscGodTossing a
 type LDUpdate a = LocalUpdate SscGodTossing a
 
-instance SscLocalDataClass SscGodTossing where
+instance SscBi => SscLocalDataClass SscGodTossing where
     sscEmptyLocalData = def
     sscGetLocalPayloadQ = getLocalPayload
     sscApplyGlobalStateU = applyGlobal
@@ -62,6 +64,7 @@ instance SscLocalDataClass SscGodTossing where
 ----------------------------------------------------------------------------
 -- Process New Slot
 ----------------------------------------------------------------------------
+
 clearGlobalState :: LDUpdate ()
 clearGlobalState = do
     gtGlobalCommitments  .= mempty
@@ -125,19 +128,20 @@ sscIsDataUsefulSetImpl localG globalG addr =
 
 -- | Process message and save it if needed. Result is whether message
 -- has been actually added.
-sscProcessMessage ::
-       MonadSscLD SscGodTossing m
+sscProcessMessage
+    :: (MonadSscLD SscGodTossing m, SscBi)
     => DataMsg -> m Bool
 sscProcessMessage = sscRunLocalUpdate  . sscProcessMessageU
 
-sscProcessMessageU :: DataMsg -> LDUpdate Bool
+sscProcessMessageU :: SscBi => DataMsg -> LDUpdate Bool
 sscProcessMessageU (DMCommitment addr comm)     = processCommitment addr comm
 sscProcessMessageU (DMOpening addr open)        = processOpening addr open
 sscProcessMessageU (DMShares addr shares)       = processShares addr shares
 sscProcessMessageU (DMVssCertificate addr cert) = processVssCertificate addr cert
 
 processCommitment
-    :: Address -> SignedCommitment -> LDUpdate Bool
+    :: Bi Commitment
+    => Address -> SignedCommitment -> LDUpdate Bool
 processCommitment addr c = do
     epochIdx <- siEpoch <$> use gtLastProcessedSlot
     ok <- readerToState $ andM $ checks epochIdx
@@ -200,6 +204,7 @@ processVssCertificate addr c = do
 ----------------------------------------------------------------------------
 -- Apply Global State
 ----------------------------------------------------------------------------
+
 applyGlobal :: GtGlobalState -> LDUpdate ()
 applyGlobal globalData = do
     let
@@ -223,6 +228,7 @@ applyGlobal globalData = do
 ----------------------------------------------------------------------------
 -- Get Local Payload
 ----------------------------------------------------------------------------
+
 getLocalPayload :: SlotId -> LDQuery GtPayload
 getLocalPayload SlotId{..} =
     (if isCommitmentIdx siSlot then

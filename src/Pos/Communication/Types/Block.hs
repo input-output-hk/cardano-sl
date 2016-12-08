@@ -10,7 +10,6 @@ module Pos.Communication.Types.Block
        , RequestBlock (..)
        ) where
 
-import           Data.Binary          (Binary)
 import           Universum
 
 import           Control.TimeWarp.Rpc (Message (..), messageName')
@@ -31,10 +30,6 @@ data SendBlockHeader ssc =
 data RequestBlock ssc =
     RequestBlock !(HeaderHash ssc)
     deriving (Generic)
-
-instance Ssc ssc => Binary (SendBlock ssc)
-instance Ssc ssc => Binary (SendBlockHeader ssc)
-instance Binary (RequestBlock ssc)
 
 instance (Ssc ssc) => Message (SendBlock ssc) where
     messageName _ = "SendBlock"

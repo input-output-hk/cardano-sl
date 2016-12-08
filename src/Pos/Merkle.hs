@@ -10,15 +10,16 @@
 module Pos.Merkle
        ( MerkleRoot
        , getMerkleRoot
-       , MerkleTree
+       , MerkleTree (..)
        , mtRoot
        , mtSize
        , mkMerkleTree
+
+       , MerkleNode (..)
+       , mkBranch
+       , mkLeaf
        ) where
 
-import           Control.Monad.Fail   (fail)
-import           Data.Binary          (Binary, get, getWord8, put, putWord8)
-import qualified Data.Binary          as Binary (encode)
 import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Lazy as BL (toStrict)
 import           Data.Coerce          (coerce)
@@ -27,13 +28,14 @@ import           Prelude              (Show (..))
 import           Universum            hiding (show)
 
 import           Data.ByteArray       (ByteArrayAccess, convert)
+import           Pos.Binary           (Bi, encode)
 import           Pos.Crypto           (Hash, hashRaw)
 import           Pos.Util             (Raw)
 
 -- | Data type for root of merkle tree.
 newtype MerkleRoot a = MerkleRoot
     { getMerkleRoot :: Hash Raw  -- ^ returns root 'Hash' of Merkle Tree
-    } deriving (Show, Eq, Ord, Generic, Binary, ByteArrayAccess)
+    } deriving (Show, Eq, Ord, Generic, ByteArrayAccess)
 
 -- This gives a “redundant constraint” warning due to
 -- https://github.com/acid-state/safecopy/issues/46.
@@ -73,27 +75,12 @@ instance Foldable MerkleNode where
 deriveSafeCopySimple 0 'base ''MerkleNode
 deriveSafeCopySimple 0 'base ''MerkleTree
 
--- This instance is both faster and more space-efficient (as confirmed by a
--- benchmark). Hashing turns out to be faster than decoding extra data.
-instance Binary a => Binary (MerkleNode a) where
-    get = do
-        tag <- getWord8
-        case tag of
-            0 -> mkBranch <$> get <*> get
-            1 -> mkLeaf <$> get
-            _ -> fail ("get@MerkleNode: invalid tag: " ++ show tag)
-    put x = case x of
-        MerkleBranch{..} -> putWord8 0 >> put mLeft >> put mRight
-        MerkleLeaf{..}   -> putWord8 1 >> put mVal
-
-instance Binary a => Binary (MerkleTree a)
-
-mkLeaf :: Binary a => a -> MerkleNode a
+mkLeaf :: Bi a => a -> MerkleNode a
 mkLeaf a =
     MerkleLeaf
     { mVal  = a
     , mRoot = MerkleRoot $ coerce $
-              hashRaw (BS.singleton 0 <> BL.toStrict (Binary.encode a))
+              hashRaw (BS.singleton 0 <> BL.toStrict (encode a))
     }
 
 mkBranch :: MerkleNode a -> MerkleNode a -> MerkleNode a
@@ -108,7 +95,7 @@ mkBranch a b =
     }
 
 -- | Smart constructor for 'MerkleTree'.
-mkMerkleTree :: Binary a => [a] -> MerkleTree a
+mkMerkleTree :: Bi a => [a] -> MerkleTree a
 mkMerkleTree [] = MerkleEmpty
 mkMerkleTree ls = MerkleTree (fromIntegral lsLen) (go lsLen ls)
   where

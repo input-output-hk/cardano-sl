@@ -19,4 +19,5 @@ import           Pos.Ssc.GodTossing.Types.Base         as GodTossing
 import           Pos.Ssc.GodTossing.Types.Type         as GodTossing
 import           Pos.Ssc.GodTossing.Types.Types        as GodTossing
 import           Pos.Ssc.GodTossing.Worker.Workers     ()
+
 import           Pos.Ssc.GodTossing.Functions          as GodTossing

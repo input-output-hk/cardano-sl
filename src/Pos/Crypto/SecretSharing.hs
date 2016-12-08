@@ -22,7 +22,7 @@ module Pos.Crypto.SecretSharing
        , EncShare (..)
        , Secret (..)
        , SecretProof (..)
-       , SecretSharingExtra
+       , SecretSharingExtra (..)
        , Share (..)
        , Threshold
 

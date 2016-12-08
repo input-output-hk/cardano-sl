@@ -30,16 +30,14 @@ import           Control.Monad.Catch             (Handler (..), MonadCatch, Mona
 import           Control.Monad.Morph             (hoist)
 import           Control.Monad.Trans.Class       (MonadTrans)
 import           Control.Monad.Trans.Control     (MonadBaseControl)
-import           Control.TimeWarp.Rpc            (BinaryP (..), Binding (..),
-                                                  ListenerH (..), MonadDialog,
-                                                  MonadResponse (..), MonadTransfer (..),
-                                                  NetworkAddress, RawData (..),
-                                                  TransferException (..), hoistRespCond,
-                                                  listenR, sendH, sendR)
+import           Control.TimeWarp.Rpc            (Binding (..), ListenerH (..),
+                                                  MonadDialog, MonadResponse (..),
+                                                  MonadTransfer (..), NetworkAddress,
+                                                  RawData (..), TransferException (..),
+                                                  hoistRespCond, listenR, sendH, sendR)
 import           Control.TimeWarp.Timed          (MonadTimed, ThreadId, fork, killThread,
                                                   ms, sec)
 
-import           Data.Binary                     (Binary, decodeOrFail, encode)
 import qualified Data.ByteString                 as BS
 import           Data.ByteString.Lazy            (fromStrict, toStrict)
 import qualified Data.Cache.LRU                  as LRU
@@ -55,6 +53,8 @@ import           System.Wlog                     (CanLog, HasLoggerName, WithLog
 import           Universum                       hiding (async, fromStrict,
                                                   mapConcurrently, toStrict)
 
+import           Pos.Binary.Class                (Bi (..), decodeOrFail, encode)
+import           Pos.Binary.Network              (BiP (..))
 import           Pos.DHT                         (DHTData, DHTException (..), DHTKey,
                                                   DHTMsgHeader (..), DHTNode (..),
                                                   DHTNodeType (..), DHTResponseT (..),
@@ -68,20 +68,20 @@ import           Pos.DHT                         (DHTData, DHTException (..), DH
                                                   withDhtLogger)
 import           Pos.Util                        (runWithRandomIntervals)
 
-toBSBinary :: Binary b => b -> BS.ByteString
+toBSBinary :: Bi b => b -> BS.ByteString
 toBSBinary = toStrict . encode
 
-fromBSBinary :: Binary b => BS.ByteString -> Either [Char] (b, BS.ByteString)
+fromBSBinary :: Bi b => BS.ByteString -> Either [Char] (b, BS.ByteString)
 fromBSBinary bs =
     case decodeOrFail $ fromStrict bs of
         Left (_, _, errMsg)  -> Left errMsg
         Right (rest, _, res) -> Right (res, toStrict rest)
 
-instance K.Serialize DHTData where
+instance (Bi DHTData, Bi DHTKey) => K.Serialize DHTData where
   toBS = toBSBinary
   fromBS = fromBSBinary
 
-instance K.Serialize DHTKey where
+instance (Bi DHTData, Bi DHTKey) => K.Serialize DHTKey where
   toBS = toBSBinary
   fromBS = fromBSBinary
 
@@ -175,9 +175,10 @@ runKademliaDHT
     :: ( WithLogger m
        , MonadIO m
        , MonadTimed m
-       , MonadDialog BinaryP m
+       , MonadDialog BiP m
        , MonadMask m
        , MonadBaseControl IO m
+       , Bi DHTKey
        )
     => KademliaDHTConfig m -> KademliaDHT m a -> m a
 runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
@@ -227,6 +228,8 @@ startDHTInstance
        , WithLogger m
        , MonadCatch m
        , MonadBaseControl IO m
+       , Bi DHTData
+       , Bi DHTKey
        )
     => KademliaDHTInstanceConfig -> m KademliaDHTInstance
 startDHTInstance KademliaDHTInstanceConfig {..} = do
@@ -252,10 +255,11 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
 startDHT
     :: ( MonadTimed m
        , MonadIO m
-       , MonadDialog BinaryP m
+       , MonadDialog BiP m
        , WithLogger m
        , MonadMask m
        , MonadBaseControl IO m
+       , Bi DHTKey
        )
     => KademliaDHTConfig m -> m (KademliaDHTContext m)
 startDHT KademliaDHTConfig {..} = do
@@ -273,7 +277,7 @@ startDHT KademliaDHTConfig {..} = do
     let kdcDHTInstance_ = kdcDHTInstance
     pure $ KademliaDHTContext {..}
   where
-    convert :: ListenerDHT m -> ListenerH BinaryP DHTMsgHeader m
+    convert :: ListenerDHT m -> ListenerH BiP DHTMsgHeader m
     convert (ListenerDHT f) = ListenerH $ \(_, m) -> getDHTResponseT $ f m
     convert' handler = getDHTResponseT . handler
 
@@ -282,7 +286,7 @@ startDHT KademliaDHTConfig {..} = do
 rawListener
     :: ( MonadBaseControl IO m
        , MonadMask m
-       , MonadDialog BinaryP m
+       , MonadDialog BiP m
        , MonadIO m
        , MonadTimed m
        , WithLogger m
@@ -332,7 +336,7 @@ sendToNetworkR
        , WithLogger m
        , MonadCatch m
        , MonadIO m
-       , MonadDialog BinaryP m
+       , MonadDialog BiP m
        , MonadTimed m
        ) => RawData -> KademliaDHT m ()
 sendToNetworkR = sendToNetworkImpl sendR
@@ -343,7 +347,7 @@ sendToNetworkImpl
        , MonadCatch m
        , MonadIO m
        , MonadTimed m
-       , MonadDialog BinaryP m
+       , MonadDialog BiP m
        ) => (NetworkAddress -> DHTMsgHeader -> msg -> KademliaDHT m ()) -> msg -> KademliaDHT m ()
 sendToNetworkImpl sender msg = do
     logDebug "Sending message to network"
@@ -352,7 +356,7 @@ sendToNetworkImpl sender msg = do
 seqConcurrentlyK :: MonadBaseControl IO m => [KademliaDHT m a] -> KademliaDHT m [a]
 seqConcurrentlyK = KademliaDHT . mapConcurrently unKademliaDHT
 
-instance ( MonadDialog BinaryP m
+instance ( MonadDialog BiP m
          , WithLogger m
          , MonadCatch m
          , MonadIO m

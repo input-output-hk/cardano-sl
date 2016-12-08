@@ -49,6 +49,7 @@ import           Serokell.Util.Verify    (VerificationRes (..), isVerFailure,
                                           isVerSuccess, verifyGeneric)
 import           Universum
 
+import           Pos.Binary.Types        ()
 import           Pos.Constants           (k)
 import           Pos.Crypto              (SecretKey, hash)
 import           Pos.Genesis             (genesisLeaders)

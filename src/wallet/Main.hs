@@ -25,12 +25,13 @@ import           Pos.Genesis            (genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
                                          NodeParams (..), bracketDHTInstance,
                                          runNodeProduction, runTimeSlaveReal, stakesDistr)
+import           Pos.Ssc.Class          (SscConstraint)
 import           Pos.Ssc.GodTossing     (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon     (SscNistBeacon)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 import           Pos.Types              (makePubKeyAddress, txwF)
 import           Pos.Wallet             (getBalance, submitTx)
-import           Pos.WorkMode           (WorkMode)
+import           Pos.WorkMode           (ProductionMode, WorkMode)
 #ifdef WITH_WEB
 import           Pos.Wallet.Web         (walletServeWeb)
 #endif
@@ -89,11 +90,6 @@ runWalletRepl WalletOptions{..} = do
     putText "Welcome to Wallet CLI Node"
     runReaderT (evalCmd Help) (genesisSecretKeys, na)
 
-#ifdef WITH_WEB
-runWalletApi :: WorkMode ssc m => Word16 -> m ()
-runWalletApi = walletServeWeb
-#endif
-
 main :: IO ()
 main = do
     opts@WalletOptions {..} <- execParser optsInfo
@@ -143,11 +139,11 @@ main = do
                 , gtpVssKeyPair = vssKeyPair
                 }
 
-            plugins :: WorkMode ssc m => [m ()]
+            plugins :: SscConstraint ssc => [ProductionMode ssc ()]
             plugins = case woAction of
                 Repl          -> [runWalletRepl opts]
 #ifdef WITH_WEB
-                Serve webPort -> [runWalletApi webPort]
+                Serve webPort -> [walletServeWeb webPort]
 #endif
 
         case woSscAlgo of

@@ -9,7 +9,11 @@
 -- | Web server.
 
 module Pos.Web.Server
-       ( serveWebBase
+       ( MyWorkMode
+       , WebHandler
+       , serveImpl
+       , nat
+       , serveWebBase
        , applicationBase
        , serveWebGT
        , applicationGT

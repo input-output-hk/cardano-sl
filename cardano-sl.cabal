@@ -42,6 +42,7 @@ library
                         Pos.Constants
                         Pos.DHT
                         Pos.DHT.Real
+                        Pos.DHT.Real.Types
                         Pos.DHT.Types
                         Pos.DHT.Util
                         Pos.DHT.Class

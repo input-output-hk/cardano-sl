@@ -5,6 +5,12 @@ module Pos.Types.Address
        , checkScriptAddress
        , makePubKeyAddress
        , makeScriptAddress
+
+         -- * Internals
+       , AddressHash(..)
+       , addressHash
+       , unsafeAddressHash
+       , curAddrVersion
        ) where
 
 import           Control.Lens           (view, _3)
@@ -41,8 +47,6 @@ curAddrVersion :: AddressVersion
 curAddrVersion = 0
 
 -- | Address is where you can send coins.
--- It's not `newtype` because in the future there will be `ScriptAddress`es
--- as well.
 data Address
     = PubKeyAddress {
           addrVersion :: !AddressVersion,

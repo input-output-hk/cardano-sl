@@ -11,49 +11,36 @@ module Pos.Wallet.Web.Server
        , walletServeWeb
        ) where
 
-import qualified Control.Monad.Catch                  as Catch
-import           Control.Monad.Except                 (MonadError (throwError))
-import           Control.TimeWarp.Rpc                 (BinaryP, Dialog, Transfer)
-import           Control.TimeWarp.Timed               (TimedIO, runTimedIO)
-import           Data.List                            ((!!))
-import           Formatting                           (int, ords, sformat, (%))
-import           Network.Wai                          (Application)
-import           Network.Wai.Handler.Warp             (run)
-import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
-import           Servant.API                          ((:<|>) ((:<|>)),
-                                                       FromHttpApiData (parseUrlPiece))
-import           Servant.Server                       (Handler, ServantErr (errBody),
-                                                       Server, ServerT, err404, serve)
-import           Servant.Utils.Enter                  ((:~>) (..), enter)
-import           Text.Read                            (read)
+import qualified Control.Monad.Catch  as Catch
+import           Control.Monad.Except (MonadError (throwError))
+import           Control.TimeWarp.Rpc (BinaryP, Dialog, Transfer)
+import           Data.List            ((!!))
+import           Formatting           (int, ords, sformat, (%))
+import           Network.Wai          (Application)
+import           Servant.API          ((:<|>) ((:<|>)), FromHttpApiData (parseUrlPiece))
+import           Servant.Server       (Handler, ServantErr (errBody), Server, ServerT,
+                                       err404, serve)
+import           Servant.Utils.Enter  ((:~>) (..), enter)
 import           Universum
 
-import           Pos.Crypto                           (parseFullPublicKey)
-import           Pos.DHT                              (dhtAddr, getKnownPeers)
-import           Pos.DHT.Real                         (KademliaDHTContext,
-                                                       getKademliaDHTCtx,
-                                                       runKademliaDHTRaw)
-import           Pos.Genesis                          (genesisAddresses,
-                                                       genesisSecretKeys)
-import           Pos.Launcher                         (runTimed)
-import           Pos.Ssc.Class                        (SscConstraint)
-import qualified Pos.State                            as St
-import           Pos.Statistics                       (getNoStatsT)
-import           Pos.Txp.LocalData                    (TxLocalData, getTxLocalData,
-                                                       setTxLocalData)
-import           Pos.Types                            (Address, Coin (Coin), TxOut (..),
-                                                       addressF, coinF, decodeTextAddress,
-                                                       makePubKeyAddress)
-import           Pos.Wallet.Tx                        (getBalance, submitTx)
-import           Pos.Wallet.Web.Api                   (WalletApi, walletApi)
-import           Pos.Web.Server                       (serveImpl)
-import           Pos.WorkMode                         (ContextHolder, DBHolder,
-                                                       NodeContext, ProductionMode,
-                                                       SscLDImpl (..), TxLDImpl, WorkMode,
-                                                       getNodeContext, ncPublicKey,
-                                                       ncSscContext, runContextHolder,
-                                                       runDBHolder, runSscLDImpl,
-                                                       runTxLDImpl)
+import           Pos.DHT              (dhtAddr, getKnownPeers)
+import           Pos.DHT.Real         (KademliaDHTContext, getKademliaDHTCtx,
+                                       runKademliaDHTRaw)
+import           Pos.Genesis          (genesisAddresses, genesisSecretKeys)
+import           Pos.Launcher         (runTimed)
+import           Pos.Ssc.Class        (SscConstraint)
+import qualified Pos.State            as St
+import           Pos.Statistics       (getNoStatsT)
+import           Pos.Txp.LocalData    (TxLocalData, getTxLocalData, setTxLocalData)
+import           Pos.Types            (Address, Coin (Coin), TxOut (..), addressF, coinF,
+                                       decodeTextAddress)
+import           Pos.Wallet.Tx        (getBalance, submitTx)
+import           Pos.Wallet.Web.Api   (WalletApi, walletApi)
+import           Pos.Web.Server       (serveImpl)
+import           Pos.WorkMode         (ContextHolder, DBHolder, NodeContext,
+                                       ProductionMode, SscLDImpl, TxLDImpl,
+                                       getNodeContext, runContextHolder, runDBHolder,
+                                       runSscLDImpl, runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -114,7 +101,7 @@ servantServer = flip enter servantHandlers <$> (nat @ssc)
 servantHandlers :: SscConstraint ssc => ServerT WalletApi (WebHandler ssc)
 servantHandlers = getAddresses :<|> getBalances :<|> send
 
-getAddresses :: SscConstraint ssc => WebHandler ssc [Address]
+getAddresses :: WebHandler ssc [Address]
 getAddresses = pure genesisAddresses
 
 getBalances :: SscConstraint ssc => WebHandler ssc [(Address, Coin)]
@@ -133,7 +120,7 @@ send srcIdx dstAddr c
     | otherwise = do
           let sk = genesisSecretKeys !! fromIntegral srcIdx
           na <- fmap dhtAddr <$> getKnownPeers
-          submitTx sk na [TxOut dstAddr c]
+          () <$ submitTx sk na [TxOut dstAddr c]
           putText $
               sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
               c srcIdx dstAddr

@@ -9,15 +9,16 @@ import           Control.Lens                 (view, _1, _2, _3, _4)
 import           Data.Binary                  (Binary)
 import           Data.List.NonEmpty           (fromList)
 import           System.IO.Unsafe             (unsafePerformIO)
-import           Test.QuickCheck              (Arbitrary (..), elements)
+import           Test.QuickCheck              (Arbitrary (..), choose, elements,
+                                               generate)
 import           Universum
 
 import           Pos.Crypto.Arbitrary.Hash    ()
 import           Pos.Crypto.Arbitrary.Unsafe  ()
 import           Pos.Crypto.SecretSharing     (EncShare,Secret, SecretProof,
                                                SecretSharingExtra, Share, VssKeyPair,
-                                               VssPublicKey, decryptShare, genSharedSecret,
-                                               toVssPublicKey, vssKeyGen)
+                                               VssPublicKey, decryptShare,
+                                               genSharedSecret, toVssPublicKey, vssKeyGen)
 import           Pos.Crypto.SerTypes          (LEncShare, LSecret, LSecretProof,
                                                LSecretSharingExtra, LShare, LVssPublicKey)
 import           Pos.Crypto.Signing           (PublicKey, SecretKey, Signature, Signed,
@@ -105,12 +106,15 @@ instance (Binary a, Arbitrary a) => Arbitrary (Signed a) where
 
 sharedSecrets :: [(SecretSharingExtra, Secret, SecretProof, [EncShare])]
 sharedSecrets =
-    unsafeMakePool "[generating shared secrets for tests...]" 50 $
-        genSharedSecret 1000 (map toVssPublicKey $ fromList vssKeys)
+    unsafeMakePool "[generating shared secrets for tests...]" 50 $ do
+        parties <- generate $ choose (1, length vssKeys)
+        threshold <- generate $ choose (1, toInteger parties)
+        vssKs <- generate $ sublistN parties vssKeys
+        genSharedSecret threshold (map toVssPublicKey $ fromList vssKs)
 {-# NOINLINE sharedSecrets #-}
 
 instance Arbitrary SecretSharingExtra where
-    arbitrary = elements $ fmap (view _1) sharedSecrets
+    arbitrary = elements . fmap (view _1) $ sharedSecrets
 
 instance Arbitrary LSecretSharingExtra where
     arbitrary = serialize @SecretSharingExtra <$> arbitrary
@@ -119,16 +123,16 @@ instance Arbitrary LSecretProof where
     arbitrary = serialize @SecretProof <$> arbitrary
 
 instance Arbitrary Secret where
-    arbitrary = elements $ fmap (view _2) sharedSecrets
+    arbitrary = elements . fmap (view _2) $ sharedSecrets
 
 instance Arbitrary LSecret where
     arbitrary = serialize @Secret <$> arbitrary
 
 instance Arbitrary SecretProof where
-    arbitrary = elements $ fmap (view _3) sharedSecrets
+    arbitrary = elements . fmap (view _3) $ sharedSecrets
 
 instance Arbitrary EncShare where
-    arbitrary = elements $ concat $ fmap (view _4) sharedSecrets
+    arbitrary = elements . concat . fmap (view _4) $ sharedSecrets
 
 instance Arbitrary LEncShare where
     arbitrary = serialize @EncShare <$> arbitrary

@@ -42,7 +42,13 @@ library
                         Pos.Constants
                         Pos.DHT
                         Pos.DHT.Real
+                        Pos.DHT.Real.Real
+                        Pos.DHT.Real.Types
                         Pos.DHT.Types
+                        Pos.DHT.Util
+                        Pos.DHT.Class
+                        Pos.DHT.Class.MonadDHT
+                        Pos.DHT.Class.MonadMessageDHT
                         Pos.FollowTheSatoshi
                         Pos.Ssc.Class
                         Pos.Ssc.GodTossing

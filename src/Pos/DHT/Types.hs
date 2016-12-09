@@ -8,11 +8,11 @@ module Pos.DHT.Types
        , dhtKeyBytes
        , DHTNode (..)
        , DHTNodeType (..)
-
        , bytesToDHTKey
        , dhtNodeType
        , randomDHTKey
        , typeByte
+       , filterByNodeType
        ) where
 
 import           Control.TimeWarp.Rpc (NetworkAddress)
@@ -101,3 +101,7 @@ typeByte :: DHTNodeType -> Word8
 typeByte DHTSupporter = 0x00
 typeByte DHTFull      = 0x30
 typeByte DHTClient    = 0xF0
+
+-- | Leave only those nodes that has given @Just type@.
+filterByNodeType :: DHTNodeType -> [DHTNode] -> [DHTNode]
+filterByNodeType type_ = filter (\n -> dhtNodeType (dhtNodeId n) == Just type_)

@@ -11,6 +11,10 @@ module Pos.DHT.Real.Real
        ( runKademliaDHT
        , startDHTInstance
        , stopDHTInstance
+
+       -- * For Servant integration
+       , getKademliaDHTCtx
+       , runKademliaDHTRaw
        ) where
 
 import           Control.Concurrent.Async.Lifted (async, mapConcurrently)
@@ -64,6 +68,14 @@ import           Pos.DHT.Real.Types              (KademliaDHTInstance (..),
 
 import           Pos.DHT.Util                    (joinNetworkNoThrow)
 import           Pos.Util                        (runWithRandomIntervals, waitAnyUnexceptional)
+
+-- | Run 'KademliaDHT' with provided 'KademliaDHTContext'
+runKademliaDHTRaw :: KademliaDHTContext m -> KademliaDHT m a -> m a
+runKademliaDHTRaw ctx action = runReaderT (unKademliaDHT action) ctx
+
+-- | Get context from 'KademliaDHT'
+getKademliaDHTCtx :: Monad m => KademliaDHT m (KademliaDHTContext m)
+getKademliaDHTCtx = KademliaDHT ask
 
 -- | Run 'KademliaDHT' with provided 'KademliaDTHConfig'.
 runKademliaDHT

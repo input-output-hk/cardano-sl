@@ -24,6 +24,7 @@ module Pos.Launcher.Runner
        -- * Exported for custom usage in CLI utils
        , addDevListeners
        , bracketDHTInstance
+       , runTimed
        ) where
 
 import           Control.Concurrent.MVar     (newEmptyMVar, newMVar, takeMVar,
@@ -76,7 +77,7 @@ import           Pos.Worker                  (statsWorkers)
 import           Pos.WorkMode                (ContextHolder (..), NodeContext (..),
                                               ProductionMode, RawRealMode, ServiceMode,
                                               StatsMode, runContextHolder, runDBHolder,
-                                              runSscLDImpl)
+                                              runSscLDImpl, runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Service node runners
@@ -145,6 +146,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = do
             runDBHolder db .
             withEx (sscCreateNodeContext @ssc sscnp) $ flip (runCH np) .
             runSscLDImpl .
+            runTxLDImpl .
             runKDHT inst npBaseParams listeners $
             nodeStartMsg npBaseParams >> action
     bracket openDb closeDb run

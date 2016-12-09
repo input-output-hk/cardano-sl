@@ -17,4 +17,5 @@ node:
             file: server-tx-{{file}}
         block:
             file: server-block-{{file}}
-
+smart-gen:
+    severity: Info

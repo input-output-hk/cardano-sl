@@ -9,26 +9,27 @@ module Pos.Wallet.Tx
        , createTx
        ) where
 
-import           Control.Lens         (use, uses, (%=), (-=), _1, _2)
-import           Control.Monad        (fail)
-import           Control.Monad.State  (StateT, evalStateT)
-import           Control.TimeWarp.Rpc (NetworkAddress)
-import           Data.List            (tail)
-import qualified Data.Map             as M
-import           Data.Maybe           (fromJust)
-import qualified Data.Vector          as V
-import           Formatting           (build, sformat, (%))
-import           System.Wlog          (logError, logInfo)
+import           Control.Lens          (use, uses, (%=), (-=), _1, _2)
+import           Control.Monad         (fail)
+import           Control.Monad.State   (StateT, evalStateT)
+import           Control.TimeWarp.Rpc  (NetworkAddress)
+import           Data.List             (tail)
+import qualified Data.Map              as M
+import           Data.Maybe            (fromJust)
+import qualified Data.Vector           as V
+import           Formatting            (build, sformat, (%))
+import           System.Wlog           (logError, logInfo)
 import           Universum
 
-import           Pos.Communication    (sendTx)
-import           Pos.Crypto           (SecretKey)
-import           Pos.Crypto           (hash, sign, toPublic)
-import           Pos.State            (getUtxoByDepth)
-import           Pos.Types            (Address, Coin, Tx (..), TxId, TxIn (..),
-                                       TxInWitness (..), TxOut (..), TxWitness, Utxo,
-                                       makePubKeyAddress, txwF)
-import           Pos.WorkMode         (NodeContext (..), WorkMode, getNodeContext)
+import           Pos.Communication     (sendTx)
+import           Pos.Crypto            (SecretKey)
+import           Pos.Crypto            (hash, sign, toPublic)
+import           Pos.Ssc.Class.Storage (SscStorageMode)
+import           Pos.State             (WorkModeDB, getUtxoByDepth)
+import           Pos.Types             (Address, Coin, Tx (..), TxId, TxIn (..),
+                                        TxInWitness (..), TxOut (..), TxWitness, Utxo,
+                                        makePubKeyAddress, txwF)
+import           Pos.WorkMode          (NodeContext (..), WorkMode, getNodeContext)
 
 type TxOutIdx = (TxId, Word32)
 type TxInputs = [TxOutIdx]
@@ -113,7 +114,7 @@ submitTx sk na outputs = do
         Right tx -> tx <$ submitTxRaw na tx
 
 -- | Get current balance with given address
-getBalance :: WorkMode ssc m => Address -> m Coin
+getBalance :: (SscStorageMode ssc, WorkModeDB ssc m) => Address -> m Coin
 getBalance addr = fromJust <$> getUtxoByDepth 0 >>=
                   return . sum . M.map txOutValue . filterUtxo addr
 

@@ -3,6 +3,7 @@ module Pos.Types.Address
        , addressF
        , checkPubKeyAddress
        , makePubKeyAddress
+       , decodeTextAddress
        ) where
 
 import           Control.Lens           (view, _3)
@@ -102,6 +103,9 @@ decodeAddress bs = do
         takeRes = view _3
     dbs <- maybeToRight base58Err $ decodeBase58 addrAlphabet bs
     bimap takeErr takeRes $ Bi.decodeOrFail $ BSL.fromStrict dbs
+
+decodeTextAddress :: Text -> Either Text Address
+decodeTextAddress = first toText . decodeAddress . encodeUtf8
 
 -- | A function for making an address from PublicKey
 makePubKeyAddress :: PublicKey -> Address

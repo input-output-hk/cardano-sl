@@ -41,12 +41,15 @@ import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData, gtGlobalCertif
                                                      gtLocalCertificates,
                                                      gtLocalCommitments, gtLocalOpenings,
                                                      gtLocalShares)
-import           Pos.Ssc.GodTossing.Types.Base      (InnerSharesMap, Opening,
-                                                     SignedCommitment, VssCertificate)
+import           Pos.Ssc.GodTossing.Storage.Storage ()
+import           Pos.Ssc.GodTossing.Types.Base      (Opening, SignedCommitment,
+                                                     VssCertificate, VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Instance  ()
 import           Pos.Ssc.GodTossing.Types.Message   (DataMsg (..), MsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types     (GtGlobalState (..), GtPayload (..))
+import           Pos.Ssc.GodTossing.Utils           (verifiedVssCertificates)
+import           Pos.State                          (WorkModeDB)
 import           Pos.Types                          (Address (..), SlotId (..))
 import           Pos.Util                           (diffDoubleMap, getKeys,
                                                      readerToState)
@@ -126,19 +129,21 @@ sscIsDataUsefulSetImpl localG globalG addr =
 -- | Process message and save it if needed. Result is whether message
 -- has been actually added.
 sscProcessMessage ::
-       MonadSscLD SscGodTossing m
+       (MonadSscLD SscGodTossing m, WorkModeDB SscGodTossing m)
     => DataMsg -> m Bool
-sscProcessMessage = sscRunLocalUpdate  . sscProcessMessageU
+sscProcessMessage msg = do
+    certs <- verifiedVssCertificates
+    sscRunLocalUpdate $ sscProcessMessageU certs msg
 
-sscProcessMessageU :: DataMsg -> LDUpdate Bool
-sscProcessMessageU (DMCommitment addr comm)     = processCommitment addr comm
-sscProcessMessageU (DMOpening addr open)        = processOpening addr open
-sscProcessMessageU (DMShares addr shares)       = processShares addr shares
-sscProcessMessageU (DMVssCertificate addr cert) = processVssCertificate addr cert
+sscProcessMessageU :: VssCertificatesMap -> DataMsg -> LDUpdate Bool
+sscProcessMessageU certs (DMCommitment addr comm)     = processCommitment certs addr comm
+sscProcessMessageU _     (DMOpening addr open)        = processOpening addr open
+sscProcessMessageU certs (DMShares addr shares)       = processShares certs addr shares
+sscProcessMessageU _     (DMVssCertificate addr cert) = processVssCertificate addr cert
 
 processCommitment
-    :: Address -> SignedCommitment -> LDUpdate Bool
-processCommitment addr c = do
+    :: VssCertificatesMap -> Address -> SignedCommitment -> LDUpdate Bool
+processCommitment certs addr c = do
     epochIdx <- siEpoch <$> use gtLastProcessedSlot
     ok <- readerToState $ andM $ checks epochIdx
     ok <$ when ok (gtLocalCommitments %= HM.insert addr c)
@@ -146,7 +151,7 @@ processCommitment addr c = do
     checks epochIndex =
         [ not . HM.member addr <$> view gtGlobalCommitments
         , not . HM.member addr <$> view gtLocalCommitments
-        , HM.member addr <$> view gtGlobalCertificates
+        , pure (addr `HM.member` certs)
         , pure . isVerSuccess $ verifySignedCommitment addr epochIndex c
         ]
 
@@ -163,8 +168,8 @@ matchOpening :: Address -> Opening -> LDQuery Bool
 matchOpening addr opening =
     flip checkOpeningMatchesCommitment (addr, opening) <$> view gtGlobalCommitments
 
-processShares :: Address -> InnerSharesMap -> LDUpdate Bool
-processShares addr s
+processShares :: VssCertificatesMap -> Address -> HashMap Address LShare -> LDUpdate Bool
+processShares certs addr s
     | null s = pure False
     | otherwise = do
         -- TODO: we accept shares that we already have (but don't add them to
@@ -180,17 +185,16 @@ processShares addr s
         -- it doesn't matter.
         let checks =
               [ pure (HM.size newLocalShares /= HM.size localSharesForPk)
-              , readerToState $ checkSharesLastVer addr s
+              , readerToState $ checkSharesLastVer certs addr s
               ]
         ok <- andM checks
         ok <$ when ok (gtLocalShares . at addr .= Just newLocalShares)
 
-checkSharesLastVer :: Address -> InnerSharesMap -> LDQuery Bool
-checkSharesLastVer addr shares =
-    (\comms openings certs -> checkShares comms openings certs addr shares) <$>
+checkSharesLastVer :: VssCertificatesMap -> Address -> HashMap Address LShare -> LDQuery Bool
+checkSharesLastVer certs addr shares =
+    (\comms openings -> checkShares comms openings certs addr shares) <$>
     view gtGlobalCommitments <*>
-    view gtGlobalOpenings <*>
-    view gtGlobalCertificates
+    view gtGlobalOpenings
 
 processVssCertificate :: Address -> VssCertificate -> LDUpdate Bool
 processVssCertificate addr c = do

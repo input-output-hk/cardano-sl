@@ -24,8 +24,9 @@ module Pos.State.State
        , getBlockByDepth
        , getHeadBlock
        , getBestChain
+       , getChainPart
        , getLeaders
-       , getLocalTxs
+       , getUtxo
        , getUtxoByDepth
        , isTxVerified
        , getGlobalMpcData
@@ -65,7 +66,7 @@ import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            runPureLog, usingLoggerName)
 
 import           Pos.Crypto               (LVssPublicKey, SecretKey, Share, VssKeyPair,
-                                           WithHash, decryptShare, toVssPublicKey)
+                                           decryptShare, toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
@@ -76,8 +77,9 @@ import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (.
                                            Storage, getThreshold)
 import           Pos.Statistics.StatEntry ()
 import           Pos.Types                (Address, Block, EpochIndex, GenesisBlock,
-                                           HeaderHash, MainBlock, MainBlockHeader, SlotId,
-                                           SlotLeaders, Tx, TxWitness, Utxo)
+                                           HeaderHash, IdTxWitness, MainBlock,
+                                           MainBlockHeader, SlotId, SlotLeaders, Tx, TxId,
+                                           TxWitness, Utxo)
 import           Pos.Util                 (deserializeM, serialize)
 
 -- | NodeState encapsulates all the state stored by node.
@@ -188,13 +190,19 @@ getHeadBlock = queryDisk A.GetHeadBlock
 getBestChain :: QUConstraint ssc m => m (NonEmpty (Block ssc))
 getBestChain = queryDisk A.GetBestChain
 
--- | Get local transactions list.
-getLocalTxs :: QUConstraint ssc m => m (HashMap (WithHash Tx) TxWitness)
-getLocalTxs = queryDisk A.GetLocalTxs
+-- | Return part of best chain with given limits
+getChainPart :: QUConstraint ssc m
+             => Maybe (HeaderHash ssc) -> Maybe (HeaderHash ssc) -> Maybe Word
+             -> m (Either Text [Block ssc])
+getChainPart toH fromH = queryDisk . A.GetChainPart toH fromH
 
 -- | Get Utxo by depth
 getUtxoByDepth :: QUConstraint ssc m => Word -> m (Maybe Utxo)
 getUtxoByDepth = queryDisk . A.GetUtxoByDepth
+
+-- | Get current Utxo
+getUtxo :: QUConstraint ssc m => m Utxo
+getUtxo = queryDisk A.GetUtxo
 
 -- | Checks if tx is verified
 isTxVerified :: QUConstraint ssc m => (Tx, TxWitness) -> m Bool
@@ -216,14 +224,15 @@ mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 -- | Create new block on top of currently known best chain, assuming
 -- we are slot leader.
 createNewBlock :: QUConstraint ssc m
-               => SecretKey
+               => [IdTxWitness]
+               -> SecretKey
                -> SlotId
                -> SscPayload ssc
                -> m (Either Text (MainBlock ssc))
-createNewBlock sk si = updateDisk . A.CreateNewBlock sk si
+createNewBlock localTxs sk si = updateDisk . A.CreateNewBlock localTxs sk si
 
 -- | Process transaction received from other party.
-processTx :: QUConstraint ssc m => (WithHash Tx, TxWitness) -> m ProcessTxRes
+processTx :: QUConstraint ssc m => (TxId, (Tx, TxWitness)) -> m ()
 processTx = updateDisk . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot. Ideally it should
@@ -233,10 +242,11 @@ processNewSlot = updateDiskWithLog . A.ProcessNewSlotL
 
 -- | Process some Block received from the network.
 processBlock :: (SscHelpersClass ssc, QUConstraint ssc m)
-             => SlotId
+             => [IdTxWitness]
+             -> SlotId
              -> Block ssc
              -> m (ProcessBlockRes ssc)
-processBlock si = updateDisk . A.ProcessBlock si
+processBlock localTxs si = updateDisk . A.ProcessBlock localTxs si
 
 -- | Functions for generating seed by SSC algorithm
 getParticipants

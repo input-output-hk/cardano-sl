@@ -52,6 +52,7 @@ module Pos.Util
        -- * LRU
        , clearLRU
 
+       , AsBinary (..)
        , Serialized (..)
        , deserializeM
 
@@ -358,13 +359,19 @@ getKeys = fromMap . void
 -- Deserialized wrapper
 ----------------------------------------------------------------------------
 
-class Binary b => Serialized a b where
-  serialize :: a -> b
-  deserialize :: b -> Either [Char] a
+-- | See `Pos.Crypto.SerTypes` for details on this types
 
-deserializeM :: (Serialized a b, MonadFail m) => b -> m a
+newtype AsBinary a = AsBinary
+    { getAsBinary :: ByteString
+    } deriving (Show, Eq)
+
+instance SafeCopy (AsBinary a) where
+    getCopy = contain $ AsBinary <$> safeGet
+    putCopy = contain . safePut . getAsBinary
+
+class Serialized a where
+  serialize :: a -> AsBinary a
+  deserialize :: AsBinary a -> Either [Char] a
+
+deserializeM :: (Serialized a, MonadFail m) => AsBinary a -> m a
 deserializeM = either fail return . deserialize
-
-instance (Serialized a c, Serialized b d) => Serialized (a, b) (c, d) where
-    serialize (a, b) = (serialize a, serialize b)
-    deserialize (c, d) = (,) <$> deserialize c <*> deserialize d

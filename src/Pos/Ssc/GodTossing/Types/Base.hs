@@ -26,10 +26,11 @@ import           Data.SafeCopy       (base, deriveSafeCopySimple)
 import           Data.Text.Buildable (Buildable (..))
 import           Universum
 
-import           Pos.Crypto          (LEncShare, LSecret, LSecretProof,
-                                      LSecretSharingExtra, LShare, LVssPublicKey,
-                                      PublicKey, SecretKey, Signature, sign, toPublic)
+import           Pos.Crypto          (EncShare, PublicKey, Secret, Share, SecretKey,
+                                      SecretProof, SecretSharingExtra, Signature,
+                                      VssPublicKey, sign, toPublic)
 import           Pos.Types.Types     (Address (..), EpochIndex)
+import           Pos.Util            (AsBinary (..))
 
 ----------------------------------------------------------------------------
 -- Types, instances
@@ -40,9 +41,9 @@ type PKSet = HashSet Address
 -- | Commitment is a message generated during the first stage of
 -- MPC. It contains encrypted shares and proof of secret.
 data Commitment = Commitment
-    { commExtra  :: !LSecretSharingExtra
-    , commProof  :: !LSecretProof
-    , commShares :: !(HashMap LVssPublicKey LEncShare)
+    { commExtra  :: !(AsBinary SecretSharingExtra)
+    , commProof  :: !(AsBinary SecretProof)
+    , commShares :: !(HashMap (AsBinary VssPublicKey) (AsBinary EncShare))
     } deriving (Show, Eq, Generic)
 
 instance Binary Commitment
@@ -57,7 +58,7 @@ type CommitmentsMap = HashMap Address SignedCommitment
 
 -- | Opening reveals secret.
 newtype Opening = Opening
-    { getOpening :: LSecret
+    { getOpening :: (AsBinary Secret)
     } deriving (Show, Eq, Generic, Binary, Buildable)
 
 type OpeningsMap = HashMap Address Opening
@@ -69,7 +70,7 @@ type OpeningsMap = HashMap Address Opening
 -- Specifically, if node identified by 'Address' X has received a share
 -- from node identified by key Y, this share will be at @sharesMap ! X ! Y@.
 
-type InnerSharesMap = HashMap Address LShare
+type InnerSharesMap = HashMap Address (AsBinary Share)
 
 type SharesMap = HashMap Address InnerSharesMap
 
@@ -83,14 +84,14 @@ type SharesMap = HashMap Address InnerSharesMap
 -- Other nodes accept this certificate if it is valid and if node really
 -- has some stake.
 data VssCertificate = VssCertificate
-    { vcVssKey     :: !LVssPublicKey
-    , vcSignature  :: !(Signature LVssPublicKey)
+    { vcVssKey     :: !(AsBinary VssPublicKey)
+    , vcSignature  :: !(Signature (AsBinary VssPublicKey))
     , vcSigningKey :: !PublicKey
     } deriving (Show, Eq, Generic)
 
 instance Binary VssCertificate
 
-mkVssCertificate :: SecretKey -> LVssPublicKey -> VssCertificate
+mkVssCertificate :: SecretKey -> (AsBinary VssPublicKey) -> VssCertificate
 mkVssCertificate sk vk = VssCertificate vk (sign sk vk) $ toPublic sk
 
 -- | VssCertificatesMap contains all valid certificates collected

@@ -20,7 +20,7 @@ import qualified Data.ByteString            as BS (pack)
 import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           Pos.Constants              (epochSlots, sharedSeedLength)
-import           Pos.Crypto                 (LShare, PublicKey, SecretKey, hash, sign,
+import           Pos.Crypto                 (Share, PublicKey, SecretKey, hash, sign,
                                              toPublic)
 import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
@@ -29,6 +29,7 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              SlotId (..), Tx (..), TxIn (..),
                                              TxInWitness (..), TxOut (..),
                                              makePubKeyAddress)
+import           Pos.Util                   (AsBinary)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
                                              NonZero (..), choose, scale, vector)
@@ -206,7 +207,7 @@ instance Arbitrary Microsecond where
 deriving instance Arbitrary Timestamp
 
 newtype SmallHashMap =
-    SmallHashMap (HashMap PublicKey (HashMap PublicKey LShare))
+    SmallHashMap (HashMap PublicKey (HashMap PublicKey (AsBinary Share)))
     deriving Show
 
 instance Arbitrary SmallHashMap where

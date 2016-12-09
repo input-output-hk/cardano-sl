@@ -17,9 +17,8 @@ import           Test.QuickCheck          (Property, choose, counterexample, gen
 import           Test.QuickCheck.Property (failed, succeeded)
 import           Universum
 
-import           Pos.Crypto               (KeyPair (..), LSecret, LShare, Secret, Share,
-                                           Threshold, VssKeyPair, decryptShare, sign,
-                                           toVssPublicKey)
+import           Pos.Crypto               (KeyPair (..), Share, Threshold, VssKeyPair,
+                                           decryptShare, sign, toVssPublicKey)
 import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Opening (..),
                                            SeedError (..), calculateSeed,
                                            genCommitmentAndOpening, secretToSharedSeed)
@@ -125,7 +124,7 @@ recoverSecretsProp n n_openings n_shares n_overlap
 recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
     let threshold = pickThreshold n
     (keys, vssKeys, comms, opens) <- generateKeysAndMpc threshold n
-    let des = deserialize :: LSecret -> Either [Char] Secret
+    let des = deserialize
         seeds :: [SharedSeed]
         seeds = rights $ map (fmap secretToSharedSeed . des . getOpening) opens
     let expectedSharedSeed :: SharedSeed
@@ -155,7 +154,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
     -- @sharesMap ! X@ = shares that X received from others
     let sharesMap = HM.fromList $ do
              addr <- getPubAddr <$> keys
-             let ser = serialize :: Share -> LShare
+             let ser = serialize @Share
                  receivedShares = HM.fromList $ do
                      (sender, senderShares) <- HM.toList generatedShares
                      case HM.lookup addr senderShares of

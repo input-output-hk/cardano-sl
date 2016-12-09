@@ -29,7 +29,7 @@ safeCopyEncodeDecode a =
 showRead :: (Show a, Eq a, Read a) => a -> Property
 showRead a = read (show a) === a
 
-serDeserId :: forall t lt . (Show t, Eq t, Serialized t lt) => t -> Property
+serDeserId :: forall t . (Show t, Eq t, Serialized t) => t -> Property
 serDeserId a =
-    let serDeser = either (panic . toText) identity . deserialize @t @lt . serialize @t @lt
+    let serDeser = either (panic . toText) identity . deserialize . serialize @t
     in a === serDeser a

@@ -12,7 +12,7 @@ module Pos.Ssc.GodTossing.Worker.Workers
        ) where
 
 import           Control.Concurrent.STM                 (TVar, readTVar, writeTVar)
-import           Control.Lens                           (view, (%=), (^.), _2, _3)
+import           Control.Lens                           (view, (%=), _2, _3)
 import           Control.Monad.Trans.Maybe              (runMaybeT)
 import           Control.TimeWarp.Timed                 (Microsecond, Millisecond,
                                                          currentTime, for, wait)
@@ -41,7 +41,6 @@ import           Pos.Ssc.GodTossing.Functions           (genCommitmentAndOpening
                                                          hasShares, isCommitmentIdx,
                                                          isOpeningIdx, isSharesIdx,
                                                          mkSignedCommitment)
-import           Pos.Ssc.GodTossing.Genesis             (genesisVssKeyPairs)
 import           Pos.Ssc.GodTossing.LocalData.LocalData (localOnNewSlot,
                                                          sscProcessMessage)
 import           Pos.Ssc.GodTossing.LocalData.Types     (gtLocalCertificates)
@@ -54,12 +53,11 @@ import           Pos.Ssc.GodTossing.Types.Instance      ()
 import           Pos.Ssc.GodTossing.Types.Message       (DataMsg (..), InvMsg (..),
                                                          MsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types         (gsVssCertificates,
-                                                         gtcParticipateSsc,
+import           Pos.Ssc.GodTossing.Types.Types         (gtcParticipateSsc,
                                                          gtcVssCertificateVerified,
                                                          gtcVssKeyPair)
+import           Pos.Ssc.GodTossing.Utils               (verifiedVssCertificates)
 import           Pos.State                              (getGlobalMpcData,
-                                                         getGlobalMpcDataByDepth,
                                                          getOurShares, getParticipants,
                                                          getThreshold)
 import           Pos.Types                              (Address (..), EpochIndex,
@@ -116,22 +114,10 @@ onStart = do
             return ourCert
 
 isVssCertificateVerified :: forall m. WorkMode SscGodTossing m => m Bool
-isVssCertificateVerified = (||) <$> isInGenesis <*> isAtDepthK
-
-  where
-
-    isInGenesis :: m Bool
-    isInGenesis = (`elem` genesisVssKeyPairs) <$> getOurVssKeyPair
-
-    isAtDepthK :: m Bool
-    isAtDepthK = do
-        md <- getGlobalMpcDataByDepth k
-        case md of
-          Nothing -> return False
-          Just d  -> do
-              (_, ourAddr) <- getOurPkAndAddr
-              let certs = d ^. gsVssCertificates
-              return $ member ourAddr certs
+isVssCertificateVerified = do
+    (_, ourAddr) <- getOurPkAndAddr
+    certs        <- verifiedVssCertificates
+    return $ ourAddr `member` certs
 
 getOurPkAndAddr :: WorkMode SscGodTossing m => m (PublicKey, Address)
 getOurPkAndAddr = do

@@ -5,19 +5,19 @@
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE UndecidableInstances      #-}
 
-module Pos.DHT.Class.MonadMessageDHT (
-    DHTMsgHeader (..),
-    MonadMessageDHT (..),
-    MonadResponseDHT (..),
-    DHTResponseT (..),
-    mapDHTResponseT,
-    mapListenerDHT,
-    WithDefaultMsgHeader (..),
-    ListenerDHT (..),
-    withDhtLogger,
-    defaultSendToNeighbors,
-    defaultSendToNode
-) where
+module Pos.DHT.Class.MonadMessageDHT
+       ( DHTMsgHeader (..)
+       , MonadMessageDHT (..)
+       , MonadResponseDHT (..)
+       , DHTResponseT (..)
+       , mapDHTResponseT
+       , mapListenerDHT
+       , WithDefaultMsgHeader (..)
+       , ListenerDHT (..)
+       , withDhtLogger
+       , defaultSendToNeighbors
+       , defaultSendToNode
+       ) where
 
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, catch)
 import           Control.Monad.Morph       (hoist)

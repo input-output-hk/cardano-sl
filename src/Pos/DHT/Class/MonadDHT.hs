@@ -1,10 +1,10 @@
 {-# LANGUAGE ScopedTypeVariables       #-}
 
-module Pos.DHT.Class.MonadDHT (
-    DHTException (..),
-    MonadDHT (..),
-    withDhtLogger
-) where
+module Pos.DHT.Class.MonadDHT
+       ( DHTException (..)
+       , MonadDHT (..)
+       , withDhtLogger
+       ) where
 
 import           Control.TimeWarp.Rpc      (ResponseT)
 import           Data.Proxy                (Proxy (Proxy))

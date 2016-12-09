@@ -1,13 +1,14 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeFamilies          #-}
 
-module Pos.DHT.Real.Types ( KademliaDHTInstance (..)
-                          , KademliaDHTContext (..)
-                          , KademliaDHTConfig (..)
-                          , KademliaDHTInstanceConfig (..)
-                          , KademliaDHT (..)
-                          , DHTHandle
-) where
+module Pos.DHT.Real.Types
+       ( KademliaDHTInstance (..)
+       , KademliaDHTContext (..)
+       , KademliaDHTConfig (..)
+       , KademliaDHTInstanceConfig (..)
+       , KademliaDHT (..)
+       , DHTHandle
+       ) where
 
 import           Control.Concurrent.STM          (TVar)
 import           Control.Monad.Catch             (MonadCatch, MonadMask,

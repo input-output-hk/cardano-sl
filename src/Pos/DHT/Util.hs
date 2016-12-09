@@ -1,5 +1,6 @@
-module Pos.DHT.Util (joinNetworkNoThrow
-) where
+module Pos.DHT.Util
+       ( joinNetworkNoThrow
+       ) where
 
 import           Control.Monad.Catch             (MonadCatch, catch, throwM)
 import           Formatting                      (build, sformat, (%))

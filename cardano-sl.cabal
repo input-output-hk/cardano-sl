@@ -56,6 +56,14 @@ library
                         Pos.Ssc.SscAlgo
                         Pos.Genesis
                         Pos.Launcher
+                        Pos.Modern.State.Storage
+                        Pos.Modern.Types.Utxo
+                        Pos.Modern.Txp.Types.Communication
+                        Pos.Modern.Txp.Storage
+                        Pos.Modern.Txp.LocalData
+                        Pos.Modern.Txp.Listeners
+                        Pos.Modern.Txp.RocksDB
+                        Pos.Modern.WorkMode
                         Pos.Merkle
                         Pos.Slotting
                         Pos.Ssc.Class.Types
@@ -66,7 +74,6 @@ library
                         Pos.Ssc.Class.LocalData
                         Pos.State
                         Pos.State.Acidic
-                        Pos.State.Modern
                         Pos.State.State
                         Pos.State.Storage
                         Pos.State.Storage.Block
@@ -159,7 +166,8 @@ library
     other-modules:      Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Server
-  build-depends:        HsOpenSSL
+  build-depends:        IfElse
+                      , HsOpenSSL
                       , QuickCheck
                       , UtilityTM
                       , acid-state

@@ -56,6 +56,8 @@ module Pos.Util
        , Serialized (..)
        , deserializeM
 
+       , binaryToBS
+       , bsToBinary
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
        ) where
@@ -68,7 +70,8 @@ import           Control.TimeWarp.Rpc          (Message (messageName), MessageNa
 import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
                                                 Second, for, killThread)
 import           Data.Binary                   (Binary)
-import qualified Data.Binary                   as Binary (encode)
+import qualified Data.Binary                   as Binary (decode, encode)
+import qualified Data.ByteString.Lazy          as BSL (fromStrict, toStrict)
 import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
@@ -383,3 +386,13 @@ deserializeM = either fail return . deserialize
 instance (Serialized a c, Serialized b d) => Serialized (a, b) (c, d) where
     serialize (a, b) = (serialize a, serialize b)
     deserialize (c, d) = (,) <$> deserialize c <*> deserialize d
+
+----------------------------------------------------------------------------
+-- For RocksDB
+----------------------------------------------------------------------------
+
+binaryToBS :: Binary v => v -> ByteString
+binaryToBS x = BSL.toStrict (Binary.encode x)
+
+bsToBinary :: Binary v => ByteString -> v
+bsToBinary x = Binary.decode (BSL.fromStrict x)

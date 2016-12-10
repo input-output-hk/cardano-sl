@@ -18,7 +18,7 @@ import           Control.Monad.Fail   (MonadFail, fail)
 import           Data.Binary          (Get, Put)
 import qualified Data.Binary          as Binary
 import           Data.Binary.Get      (ByteOffset, getWord8, runGet, runGetOrFail)
-import           Data.Binary.Put      (putWord8, runPut)
+import           Data.Binary.Put      (putCharUtf8, putWord8, runPut)
 import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Hashable        (Hashable (..))
@@ -110,6 +110,40 @@ POSSIBILITY OF SUCH DAMAGE.
 instance Bi () where
     put ()  = mempty
     get     = return ()
+
+-- Words8s are written as bytes
+instance Bi Word8 where
+    put     = putWord8
+    get     = getWord8
+
+instance Bi Char where
+    {-# INLINE put #-}
+    put = putCharUtf8
+    get = do
+        let getByte = liftM (fromIntegral :: Word8 -> Int) get
+            shiftL6 = flip shiftL 6 :: Int -> Int
+        w <- getByte
+        r <- case () of
+                _ | w < 0x80  -> return w
+                  | w < 0xe0  -> do
+                                    x <- liftM (xor 0x80) getByte
+                                    return (x .|. shiftL6 (xor 0xc0 w))
+                  | w < 0xf0  -> do
+                                    x <- liftM (xor 0x80) getByte
+                                    y <- liftM (xor 0x80) getByte
+                                    return (y .|. shiftL6 (x .|. shiftL6
+                                            (xor 0xe0 w)))
+                  | otherwise -> do
+                                x <- liftM (xor 0x80) getByte
+                                y <- liftM (xor 0x80) getByte
+                                z <- liftM (xor 0x80) getByte
+                                return (z .|. shiftL6 (y .|. shiftL6
+                                        (x .|. shiftL6 (xor 0xf0 w))))
+        getChr r
+      where
+        getChr w
+          | w <= 0x10ffff = return $! toEnum $ fromEnum w
+          | otherwise = fail "Not a valid Unicode code point!"
 
 instance Bi BS.ByteString where
     {-# INLINE put #-}

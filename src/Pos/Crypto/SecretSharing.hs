@@ -11,7 +11,7 @@
 module Pos.Crypto.SecretSharing
        ( -- * Keys and related.
          VssPublicKey (..)
-       , VssKeyPair
+       , VssKeyPair (..)
        , toVssPublicKey
        , vssKeyGen
        , deterministicVssKeyGen

@@ -26,7 +26,7 @@ import           Pos.Crypto.Hashing       (AbstractHash (..), Hash, HashAlgorith
                                            WithHash (..), withHash)
 import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
                                            SecretSharingExtra (..), Share (..),
-                                           VssPublicKey (..))
+                                           VssKeyPair (..), VssPublicKey (..))
 import           Pos.Crypto.SerTypes      (LEncShare (..), LSecret (..),
                                            LSecretProof (..), LSecretSharingExtra (..),
                                            LShare (..), LVssPublicKey (..))
@@ -78,6 +78,11 @@ instance Bi Pvss.PublicKey where
     get = Binary.get
 deriving instance Bi VssPublicKey
 
+instance Bi Pvss.KeyPair where
+    put = Binary.put
+    get = Binary.get
+deriving instance Bi VssKeyPair
+
 instance Bi Pvss.Secret where
     put = Binary.put
     get = Binary.get
@@ -102,6 +107,7 @@ instance Binary.Binary SecretSharingExtra
 instance Bi SecretSharingExtra where
     put = Binary.put
     get = Binary.get
+
 
 ----------------------------------------------------------------------------
 -- SerTypes

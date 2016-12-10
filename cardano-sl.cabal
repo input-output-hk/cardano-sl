@@ -93,7 +93,14 @@ library
     exposed-modules:    Pos.Wallet
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
-  other-modules:        Pos.Communication.Methods
+  other-modules:        Pos.Binary.Address
+                        Pos.Binary.Class
+                        Pos.Binary.Crypto
+                        Pos.Binary.DHT
+                        Pos.Binary.Merkle
+                        Pos.Binary.Ssc
+                        Pos.Binary.Types
+                        Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
                         Pos.Communication.Types.SysStart

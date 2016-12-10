@@ -1,14 +1,14 @@
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Security.Workers
        ( SecurityWorkersClass (..)
        ) where
 
 import           Control.Lens                      ((^.))
-import           Control.Monad.Trans.State         (StateT (..), get, put, modify)
+import           Control.Monad.Trans.State         (StateT (..), get, modify, put)
 import           Data.Tagged                       (Tagged (..))
-import           Formatting                        (sformat, (%), int, build)
+import           Formatting                        (build, int, sformat, (%))
 import           System.Wlog                       (logWarning)
 import           Universum                         hiding (modify)
 
@@ -18,11 +18,11 @@ import           Pos.Ssc.GodTossing.Functions      (hasCommitment, isOpeningId)
 import           Pos.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
 import           Pos.Ssc.NistBeacon                (SscNistBeacon)
-import           Pos.State                         (getHeadBlock, getGlobalMpcData)
-import           Pos.Types                         (SlotId, flattenSlotId, gbHeader,
-                                                    headerSlot, makePubKeyAddress, flattenSlotId,
-                                                    slotIdF)
-import           Pos.WorkMode                      (WorkMode, ncPublicKey, getNodeContext)
+import           Pos.State                         (getGlobalMpcData, getHeadBlock)
+import           Pos.Types                         (SlotId, flattenSlotId, flattenSlotId,
+                                                    gbHeader, headerSlot,
+                                                    makePubKeyAddress, slotIdF)
+import           Pos.WorkMode                      (WorkMode, getNodeContext, ncPublicKey)
 
 class Ssc ssc => SecurityWorkersClass ssc where
   securityWorkers :: WorkMode ssc m => Tagged ssc [m ()]
@@ -77,6 +77,5 @@ checkForIgnoredCommitmentsWorkerImpl slotId = do
   logWarning $ sformat ("Malicious: slot="%slotIdF%", epochs="%int%", hasCommitment="%build) slotId epochs commitmentInBlockchain
   when (and [isOpeningId slotId, not commitmentInBlockchain]) $ do
     modify (+1)
-    --epochs <- get
     when (epochs > commitmentsAreIgnoredThreshold) $
       lift reportAboutEclipsed

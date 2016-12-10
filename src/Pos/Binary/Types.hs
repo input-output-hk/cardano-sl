@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -fno-warn-missing-methods #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
--- | For Pos.Types.* modules
+-- | Binary serialization of Pos.Types.* modules
 
 module Pos.Binary.Types where
 

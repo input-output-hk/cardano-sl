@@ -11,7 +11,6 @@ module Pos.Txp.Types.Communication
        ) where
 
 import           Control.TimeWarp.Rpc (Message (..), messageName')
-import           Data.Binary          (Binary)
 import           Data.List.NonEmpty   (NonEmpty)
 import           Universum
 
@@ -28,8 +27,6 @@ data TxInvMsg = TxInvMsg
       imTxs :: !(NonEmpty TxId)
     } deriving (Generic)
 
-instance Binary TxInvMsg
-
 instance Message TxInvMsg where
     messageName _ = "Tx Inventory"
     formatMessage = messageName'
@@ -41,8 +38,6 @@ data TxReqMsg = TxReqMsg
       rmTxs :: !(NonEmpty TxId)
     } deriving (Generic)
 
-instance Binary TxReqMsg
-
 instance Message TxReqMsg where
     messageName _ = "Tx Request"
     formatMessage = messageName'
@@ -53,8 +48,6 @@ data TxDataMsg = TxDataMsg
       dmTx      :: !Tx
     , dmWitness :: !TxWitness
     } deriving (Generic)
-
-instance Binary TxDataMsg
 
 instance Message TxDataMsg where
     messageName _ = "Tx Data"

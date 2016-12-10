@@ -28,6 +28,7 @@ import           System.Wlog               (logDebug, logError, logInfo, logNoti
                                             logWarning)
 import           Universum
 
+import           Pos.Binary.Class          (Bi)
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Communication.Types   (RequestBlock (..), RequestBlockchainPart (..),
                                             ResponseMode, SendBlock (..),
@@ -47,7 +48,13 @@ import           Pos.WorkMode              (MonadUserDialog, WorkMode)
 
 -- | Listeners for requests related to blocks processing.
 blockListeners
-    :: (MonadUserDialog m, WorkMode ssc m)
+    :: (MonadUserDialog m
+       ,WorkMode ssc m
+       ,Bi (SendBlock ssc)
+       ,Bi (SendBlockHeader ssc)
+       ,Bi (RequestBlock ssc)
+       ,Bi (RequestBlockchainPart ssc)
+       ,Bi (SendBlockchainPart ssc))
     => [ListenerDHT m]
 blockListeners =
     [ ListenerDHT handleBlock
@@ -57,8 +64,10 @@ blockListeners =
     ]
 
 -- | Handler 'SendBlock' event.
-handleBlock :: forall ssc m . (ResponseMode ssc m)
-            => SendBlock ssc -> m ()
+handleBlock
+    :: forall ssc m.
+       (ResponseMode ssc m, Bi (RequestBlock ssc), Bi (SendBlockHeader ssc))
+    => SendBlock ssc -> m ()
 handleBlock (SendBlock block) = do
     slotId <- getCurrentSlot
     localTxs <- HM.toList <$> getLocalTxs
@@ -124,8 +133,9 @@ handleBlock (SendBlock block) = do
                         else bprint (shortHashF % ": " %listJsonIndent 4) h txs
                    | (h, txs) <- reverse dups ]
 
-propagateBlock :: WorkMode ssc m
-               => St.ProcessBlockRes ssc -> m ()
+propagateBlock
+    :: (WorkMode ssc m, Bi (SendBlockHeader ssc))
+    => St.ProcessBlockRes ssc -> m ()
 propagateBlock (St.PBRgood (_, blocks)) =
     either (const pass) announceBlock header
   where
@@ -135,7 +145,7 @@ propagateBlock _ = pass
 
 -- | Handle 'SendBlockHeader' message.
 handleBlockHeader
-    :: ResponseMode ssc m
+    :: (ResponseMode ssc m, Bi (RequestBlock ssc))
     => SendBlockHeader ssc -> m ()
 handleBlockHeader (SendBlockHeader header) =
     whenM checkUsefulness $ replyToNode (RequestBlock h)
@@ -159,7 +169,7 @@ handleBlockHeader (SendBlockHeader header) =
 
 -- | Handle 'RequsetBlock' message.
 handleBlockRequest
-    :: ResponseMode ssc m
+    :: (ResponseMode ssc m, Bi (SendBlock ssc))
     => RequestBlock ssc -> m ()
 handleBlockRequest (RequestBlock h) = do
     logDebug $ sformat ("Block " %build % " is requested") h
@@ -172,7 +182,7 @@ handleBlockRequest (RequestBlock h) = do
 
 -- | Handle 'RequestBlockchainPart' message
 handleBlockchainPartRequest
-    :: ResponseMode ssc m
+    :: (ResponseMode ssc m, Bi (SendBlockchainPart ssc))
     => RequestBlockchainPart ssc -> m ()
 handleBlockchainPartRequest RequestBlockchainPart {..} = do
     logDebug $ sformat ("Blockchain part (range "%build%".."%build%

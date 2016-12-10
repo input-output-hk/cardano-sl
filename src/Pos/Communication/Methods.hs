@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+
 -- | Wrappers on top of communication methods.
 
 module Pos.Communication.Methods
@@ -8,14 +9,13 @@ module Pos.Communication.Methods
        , sendTx
        ) where
 
-
 import           Control.TimeWarp.Rpc        (Message, NetworkAddress)
 import           Control.TimeWarp.Timed      (fork_)
-import           Data.Binary                 (Binary)
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (logDebug)
 import           Universum
 
+import           Pos.Binary.Class            (Bi)
 import           Pos.Communication.Types     (SendBlockHeader (..))
 import           Pos.DHT                     (sendToNeighbors, sendToNode)
 import           Pos.Txp.Types.Communication (TxDataMsg (..))
@@ -35,12 +35,14 @@ sendToNeighborsSafe msg = do
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.
 announceBlock
-    :: WorkMode ssc m
+    :: (WorkMode ssc m, Bi (SendBlockHeader ssc))
     => MainBlockHeader ssc -> m ()
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     sendToNeighborsSafe . SendBlockHeader $ header
 
 -- | Send Tx to given address.
-sendTx :: WorkMode ssc m => NetworkAddress -> (Tx, TxWitness) -> m ()
+sendTx
+    :: (WorkMode ssc m, Bi TxDataMsg)
+    => NetworkAddress -> (Tx, TxWitness) -> m ()
 sendTx addr (tx,w) = sendToNode addr $ TxDataMsg tx w

@@ -64,9 +64,8 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Rpc        (BinaryP, Dialog, MonadDialog,
-                                              MonadResponse (..), MonadTransfer (..),
-                                              Transfer)
+import           Control.TimeWarp.Rpc        (Dialog, MonadDialog, MonadResponse (..),
+                                              MonadTransfer (..), Transfer)
 import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
 import           Data.Default                (def)
 import           Formatting                  (sformat, shown, (%))
@@ -76,8 +75,8 @@ import           System.Wlog                 (CanLog, HasLoggerName, WithLogger,
 import           Universum
 
 import           Pos.Crypto                  (PublicKey, SecretKey, toPublic)
-import           Pos.DHT                     (DHTResponseT, MonadMessageDHT (..),
-                                              WithDefaultMsgHeader)
+import           Pos.DHT                     (BiP, DHTMsgHeader, DHTResponseT,
+                                              MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
@@ -410,7 +409,7 @@ instance (MonadIO m, MonadCatch m, WithLogger m) => MonadJL (ContextHolder ssc m
 ----------------------------------------------------------------------------
 
 -- | Packing type used to send messages in the system.
-type UserPacking = BinaryP
+type UserPacking = BiP DHTMsgHeader
 
 -- | Shortcut for `MonadDialog` with packing type used in the system.
 type MonadUserDialog = MonadDialog UserPacking
@@ -426,7 +425,7 @@ type UserDialog = Dialog UserPacking
 type RawRealMode ssc = KademliaDHT (TxLDImpl (
                                        SscLDImpl ssc (
                                            ContextHolder ssc (
-                                               DBHolder ssc (Dialog BinaryP Transfer)))))
+                                               DBHolder ssc (Dialog UserPacking Transfer)))))
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.
@@ -436,4 +435,4 @@ type ProductionMode ssc = NoStatsT (RawRealMode ssc)
 type StatsMode ssc = StatsT (RawRealMode ssc)
 
 -- | ServiceMode is the mode in which support nodes work
-type ServiceMode = KademliaDHT (Dialog BinaryP Transfer)
+type ServiceMode = KademliaDHT (Dialog UserPacking Transfer)

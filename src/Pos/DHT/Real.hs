@@ -175,7 +175,7 @@ runKademliaDHT
     :: ( WithLogger m
        , MonadIO m
        , MonadTimed m
-       , MonadDialog BiP m
+       , MonadDialog (BiP DHTMsgHeader) m
        , MonadMask m
        , MonadBaseControl IO m
        )
@@ -252,7 +252,7 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
 startDHT
     :: ( MonadTimed m
        , MonadIO m
-       , MonadDialog BiP m
+       , MonadDialog (BiP DHTMsgHeader) m
        , WithLogger m
        , MonadMask m
        , MonadBaseControl IO m
@@ -273,7 +273,7 @@ startDHT KademliaDHTConfig {..} = do
     let kdcDHTInstance_ = kdcDHTInstance
     pure $ KademliaDHTContext {..}
   where
-    convert :: (Bi DHTData) => ListenerDHT m -> ListenerH BiP DHTMsgHeader m
+    convert :: ListenerDHT m -> ListenerH (BiP DHTMsgHeader) DHTMsgHeader m
     convert (ListenerDHT f) = ListenerH $ \(_, m) -> getDHTResponseT $ f m
     convert' handler = getDHTResponseT . handler
 
@@ -282,7 +282,7 @@ startDHT KademliaDHTConfig {..} = do
 rawListener
     :: ( MonadBaseControl IO m
        , MonadMask m
-       , MonadDialog BiP m
+       , MonadDialog (BiP DHTMsgHeader) m
        , MonadIO m
        , MonadTimed m
        , WithLogger m
@@ -332,7 +332,7 @@ sendToNetworkR
        , WithLogger m
        , MonadCatch m
        , MonadIO m
-       , MonadDialog BiP m
+       , MonadDialog (BiP DHTMsgHeader) m
        , MonadTimed m
        ) => RawData -> KademliaDHT m ()
 sendToNetworkR = sendToNetworkImpl sendR
@@ -343,7 +343,7 @@ sendToNetworkImpl
        , MonadCatch m
        , MonadIO m
        , MonadTimed m
-       , MonadDialog BiP m
+       , MonadDialog (BiP DHTMsgHeader) m
        ) => (NetworkAddress -> DHTMsgHeader -> msg -> KademliaDHT m ()) -> msg -> KademliaDHT m ()
 sendToNetworkImpl sender msg = do
     logDebug "Sending message to network"
@@ -352,7 +352,7 @@ sendToNetworkImpl sender msg = do
 seqConcurrentlyK :: MonadBaseControl IO m => [KademliaDHT m a] -> KademliaDHT m [a]
 seqConcurrentlyK = KademliaDHT . mapConcurrently unKademliaDHT
 
-instance ( MonadDialog BiP m
+instance ( MonadDialog (BiP DHTMsgHeader) m
          , WithLogger m
          , MonadCatch m
          , MonadIO m

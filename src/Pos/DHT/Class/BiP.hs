@@ -1,30 +1,31 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ViewPatterns          #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 -- | BiP datatype and related instance for time-warp abstracted
 -- serialization.
 
-module Pos.DHT.Class.BiP ( BiP(..) ) where
+module Pos.DHT.Class.BiP
+       (
+         BiP(..)
+       , plainBiP
+       ) where
 
-import           Control.Monad                     (when)
 import           Control.Monad.Catch               (MonadThrow (..))
-import           Control.TimeWarp.Rpc.Message      (HeaderData (..),
+import           Control.Monad.Fail                (fail)
+import           Control.TimeWarp.Rpc.Message      (ContentData (..),
                                                     HeaderNContentData (..),
-                                                    HeaderNNameData (..),
-                                                    HeaderNNameNContentData (..),
                                                     HeaderNRawData (..), Message (..),
-                                                    Packable (..), RawData (..),
-                                                    Unpackable (..), messageName')
-import           Data.Binary.Get                   (Decoder (..), Get, pushChunk,
-                                                    runGetIncremental, runGetOrFail)
+                                                    MessageName, NameData (..),
+                                                    Packable (..), PackingType (..),
+                                                    RawData (..), Unpackable (..),
+                                                    messageName')
+import           Data.Binary.Get                   (Get, isEmpty, label, runGetOrFail)
 import           Data.Binary.Put                   (runPut)
-import           Data.ByteString                   (ByteString)
-import qualified Data.ByteString                   as BS
 import qualified Data.ByteString.Lazy              as BL
-import           Data.Conduit                      (Conduit, await, leftover, yield,
-                                                    (=$=))
+import           Data.Conduit                      ((=$=))
 import qualified Data.Conduit.List                 as CL
-import           Data.Conduit.Serialization.Binary (ParseError (..), conduitPut)
+import           Data.Conduit.Serialization.Binary (ParseError (..), conduitGet,
+                                                    conduitPut)
 import           Universum                         hiding (yield)
 
 import           Pos.Binary.Class                  (Bi (..))
@@ -34,84 +35,54 @@ import           Pos.Binary.Class                  (Bi (..))
 -- Something should be done in terms of refactoring.
 ----------------------------------------------------------------------------
 
-data BiP = BiP
+data BiP header = BiP
 
--- This is copy-pasted function from Message. TODO Refactor it.
-conduitGet' :: MonadThrow m => Get b -> Conduit ByteString m b
-conduitGet' g = start
-  where
-    start = do mx <- await
-               case mx of
-                  Nothing -> return ()
-                  Just x -> do
-                               go (runGetIncremental g `pushChunk` x)
-    go (Done bs _ v) = do when (not $ BS.null bs) $ leftover bs
-                          yield v
-                          start
-    go (Fail u o e)  = throwM (ParseError u o e)
-    go (Partial n)   = await >>= (go . n)
+runGetOrThrow :: MonadThrow m => Get a -> BL.ByteString -> m a
+runGetOrThrow p s =
+    either (\(bs, off, err) -> throwM $ ParseError (BL.toStrict bs) off err)
+           (\(_, _, a) -> return a)
+        $ runGetOrFail p s
 
-instance (Bi h, Bi r, Message r) =>
-         Packable BiP (HeaderNContentData h r) where
+
+plainBiP :: BiP ()
+plainBiP = BiP
+
+instance Bi h => PackingType (BiP h) where
+    type IntermediateForm (BiP h) = HeaderNRawData h
+    unpackMsg _ = conduitGet $ HeaderNRawData <$> get <*> (RawData <$> get)
+
+instance (Bi h, Bi r, Message r)
+       => Packable (BiP h) (HeaderNContentData h r) where
     packMsg p = CL.map packToRaw =$= packMsg p
       where
         packToRaw (HeaderNContentData h r) =
-            HeaderNRawData h . RawData . BL.toStrict . runPut $
-            do put $ messageName' r
-               put r
+            HeaderNRawData h . RawData . BL.toStrict . runPut $ do
+                put $ messageName' r
+                put r
 
 instance Bi h
-      => Packable BiP (HeaderNRawData h) where
+      => Packable (BiP h) (HeaderNRawData h) where
     packMsg _ = CL.map doPut =$= conduitPut
       where
         doPut (HeaderNRawData h (RawData r)) = put h >> put r
 
-instance Bi h
-      => Unpackable BiP (HeaderData h) where
-    unpackMsg _ = conduitGet' $ HeaderData <$> get
 
 instance Bi h
-      => Unpackable BiP (HeaderNRawData h) where
-    unpackMsg _ = conduitGet' $ HeaderNRawData <$> get <*> (RawData <$> get)
+      => Unpackable (BiP h) (HeaderNRawData h) where
+    extractMsgPart _ = return
 
-parseHeaderNNameData :: MonadThrow m => HeaderNRawData h -> m (HeaderNNameData h)
-parseHeaderNNameData (HeaderNRawData h (RawData raw)) =
-    case rawE of
-        Left (BL.toStrict -> bs, off, err) ->
-            throwM $ ParseError bs off $ "parseHeaderNNameData: " ++ err
-        Right (_, _, a) -> return a
-  where
-    rawE = runGetOrFail (HeaderNNameData h <$> get) $ BL.fromStrict raw
-
-parseHeaderNNameNContentData
-    :: (MonadThrow m, Bi r)
-    => HeaderNRawData h -> m (HeaderNNameNContentData h r)
-parseHeaderNNameNContentData (HeaderNRawData h (RawData raw)) =
-    case rawE of
-        Left (BL.toStrict -> bs, off, err) ->
-            throwM $ ParseError bs off $ "parseHeaderNNameContentData: " ++ err
-        Right (bs, off, a) ->
-            if BL.null bs
-                then return a
-                else throwM $
-                     ParseError (BL.toStrict bs) off $
-                     "parseHeaderNNameContentNData: unconsumed input"
-  where
-    rawE =
-        runGetOrFail (HeaderNNameNContentData h <$> get <*> get) $
-        BL.fromStrict raw
-
--- | TODO: don't read whole content
 instance Bi h
-      => Unpackable BiP (HeaderNNameData h) where
-    unpackMsg p = unpackMsg p =$= CL.mapM parseHeaderNNameData
+      => Unpackable (BiP h) NameData where
+    extractMsgPart _ (HeaderNRawData _ (RawData raw)) =
+        let labelName = "(in parseNameData)"
+        in runGetOrThrow (NameData <$> label labelName get) $ BL.fromStrict raw
 
 instance (Bi h, Bi r)
-       => Unpackable BiP (HeaderNNameNContentData h r) where
-    unpackMsg p = unpackMsg p =$= CL.mapM parseHeaderNNameNContentData
-
-instance (Bi h, Bi r)
-       => Unpackable BiP (HeaderNContentData h r) where
-    unpackMsg p = unpackMsg p =$= CL.map extract
+      => Unpackable (BiP h) (ContentData r) where
+    extractMsgPart _ (HeaderNRawData _ (RawData raw)) =
+        runGetOrThrow parser $ BL.fromStrict raw
       where
-        extract (HeaderNNameNContentData h _ r) = HeaderNContentData h r
+        parser = checkAllConsumed $ label labelName $
+            (get :: Get MessageName) *> (ContentData <$> get)
+        checkAllConsumed p = p <* unlessM isEmpty (fail "unconsumed input")
+        labelName = "(in parseNameNContentData)"

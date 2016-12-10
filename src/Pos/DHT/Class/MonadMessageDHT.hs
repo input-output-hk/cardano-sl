@@ -55,7 +55,7 @@ class MonadDHT m => MonadMessageDHT m where
                           , Message r
                           , WithLogger m
                           , WithDefaultMsgHeader m
-                          , MonadDialog BiP m
+                          , MonadDialog (BiP DHTMsgHeader) m
                           , MonadThrow m
                           ) => NetworkAddress -> r -> m ()
     sendToNode = defaultSendToNode
@@ -116,7 +116,7 @@ type instance ThreadId (DHTResponseT m) = ThreadId m
 instance ( WithLogger m
          , WithDefaultMsgHeader m
          , MonadMessageDHT m
-         , MonadDialog BiP m
+         , MonadDialog (BiP DHTMsgHeader) m
          , MonadIO m
          , MonadMask m
          , Bi DHTMsgHeader
@@ -150,7 +150,7 @@ defaultSendToNode
        , Message r
        , WithDefaultMsgHeader m
        , WithLogger m
-       , MonadDialog BiP m
+       , MonadDialog (BiP DHTMsgHeader) m
        , MonadThrow m
        , Bi DHTMsgHeader
        )

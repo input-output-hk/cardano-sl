@@ -6,19 +6,22 @@ module Pos.Security.Workers
        ) where
 
 import           Control.Lens                      ((^.))
+import           Control.Monad.Trans.State         (StateT (..), get, put, modify)
 import           Data.Tagged                       (Tagged (..))
+import           Formatting                        (sformat, (%), int, build)
 import           System.Wlog                       (logWarning)
-import           Universum
+import           Universum                         hiding (modify)
 
 import           Pos.Slotting                      (onNewSlot)
 import           Pos.Ssc.Class.Types               (Ssc (..))
-import           Pos.Ssc.GodTossing.Functions      (hasCommitment)
+import           Pos.Ssc.GodTossing.Functions      (hasCommitment, isOpeningId)
 import           Pos.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
 import           Pos.Ssc.NistBeacon                (SscNistBeacon)
 import           Pos.State                         (getHeadBlock, getGlobalMpcData)
 import           Pos.Types                         (SlotId, flattenSlotId, gbHeader,
-                                                    headerSlot, makePubKeyAddress, flattenSlotId)
+                                                    headerSlot, makePubKeyAddress, flattenSlotId,
+                                                    slotIdF)
 import           Pos.WorkMode                      (WorkMode, ncPublicKey, getNodeContext)
 
 class Ssc ssc => SecurityWorkersClass ssc where
@@ -37,6 +40,10 @@ instance SecurityWorkersClass SscNistBeacon where
 blocksNotReceivedThreshold :: Integral a => a
 blocksNotReceivedThreshold = 10
 
+-- TODO(voit): Move this to constants
+commitmentsAreIgnoredThreshold :: Integral a => a
+commitmentsAreIgnoredThreshold = 5
+
 reportAboutEclipsed :: WorkMode ssc m => m ()
 reportAboutEclipsed = logWarning "We're doomed, we're eclipsed!"
 
@@ -51,10 +58,25 @@ checkForReceivedBlocksWorker = onNewSlot True $ \slotId -> do
       when (fSlotId - fBlockGeneratedSlotId > blocksNotReceivedThreshold)
         reportAboutEclipsed
 
--- TODO(voit): This is just a stub
 checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => m ()
-checkForIgnoredCommitmentsWorker = onNewSlot True $ \slotId -> do
+checkForIgnoredCommitmentsWorker =
+  runStateT (onNewSlot True checkForIgnoredCommitmentsWorkerImpl) 0 >> return ()
+
+type EpochsCount = Word64
+
+checkForIgnoredCommitmentsWorkerImpl ::
+  forall m. WorkMode SscGodTossing m
+  => SlotId -> StateT EpochsCount m ()
+checkForIgnoredCommitmentsWorkerImpl slotId = do
   ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
   commitmentInBlockchain <- hasCommitment ourAddr <$> getGlobalMpcData
-  when (not commitmentInBlockchain) $
-    reportAboutEclipsed
+  when commitmentInBlockchain $
+    put 0
+  -- TODO(voit): Check if isOpeningId is the correct time to check about commitment
+  epochs <- get
+  logWarning $ sformat ("Malicious: slot="%slotIdF%", epochs="%int%", hasCommitment="%build) slotId epochs commitmentInBlockchain
+  when (and [isOpeningId slotId, not commitmentInBlockchain]) $ do
+    modify (+1)
+    --epochs <- get
+    when (epochs > commitmentsAreIgnoredThreshold) $
+      lift reportAboutEclipsed

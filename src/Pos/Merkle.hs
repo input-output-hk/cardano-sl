@@ -28,7 +28,8 @@ import           Prelude              (Show (..))
 import           Universum            hiding (show)
 
 import           Data.ByteArray       (ByteArrayAccess, convert)
-import           Pos.Binary           (Bi, encode)
+import           Pos.Binary.Class     (Bi, encode)
+import           Pos.Binary.Crypto    ()
 import           Pos.Crypto           (Hash, hashRaw)
 import           Pos.Util             (Raw)
 

@@ -12,6 +12,6 @@ import           Pos.Binary.Class            (Bi (..))
 import           Pos.Txp.Types.Communication (TxDataMsg, TxInvMsg, TxReqMsg)
 import           Pos.Types.Address           (Address (..))
 
-instance Binary TxInvMsg
-instance Binary TxReqMsg
-instance Binary TxDataMsg
+instance Bi TxInvMsg
+instance Bi TxReqMsg
+instance Bi TxDataMsg

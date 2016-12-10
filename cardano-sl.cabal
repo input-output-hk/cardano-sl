@@ -35,7 +35,8 @@ Flag with-wallet
   description: Build with wallet.
 
 library
-  exposed-modules:      Pos.CLI
+  exposed-modules:      Pos.Binary
+                        Pos.CLI
                         Pos.Crypto
                         Pos.Communication
                         Pos.CompileConfig
@@ -47,6 +48,7 @@ library
                         Pos.DHT.Types
                         Pos.DHT.Util
                         Pos.DHT.Class
+                        Pos.DHT.Class.BiP
                         Pos.DHT.Class.MonadDHT
                         Pos.DHT.Class.MonadMessageDHT
                         Pos.FollowTheSatoshi
@@ -96,9 +98,11 @@ library
   other-modules:        Pos.Binary.Address
                         Pos.Binary.Class
                         Pos.Binary.Crypto
+                        Pos.Binary.Communication
                         Pos.Binary.DHT
                         Pos.Binary.Merkle
                         Pos.Binary.Ssc
+                        Pos.Binary.Txp
                         Pos.Binary.Types
                         Pos.Communication.Methods
                         Pos.Communication.Types

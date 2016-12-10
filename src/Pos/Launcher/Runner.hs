@@ -74,10 +74,11 @@ import           Pos.Statistics              (getNoStatsT, runStatsT)
 import           Pos.Types                   (Timestamp (Timestamp), timestampF)
 import           Pos.Util                    (runWithRandomIntervals)
 import           Pos.Worker                  (statsWorkers)
-import           Pos.WorkMode                (ContextHolder (..), NodeContext (..),
-                                              ProductionMode, RawRealMode, ServiceMode,
-                                              StatsMode, runContextHolder, runDBHolder,
-                                              runSscLDImpl, runTxLDImpl, MonadUserDialog)
+import           Pos.WorkMode                (ContextHolder (..), MonadUserDialog,
+                                              NodeContext (..), ProductionMode,
+                                              RawRealMode, ServiceMode, StatsMode,
+                                              runContextHolder, runDBHolder, runSscLDImpl,
+                                              runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Service node runners

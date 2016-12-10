@@ -17,5 +17,5 @@ instance Bi SysStartResponse
 instance Ssc ssc => Bi (SendBlock ssc)
 instance Ssc ssc => Bi (SendBlockHeader ssc)
 instance Ssc ssc => Bi (SendBlockchainPart ssc)
-instance Bi (RequestBlock ssc)
-instance Bi (RequestBlockchainPart ssc)
+instance Ssc ssc => Bi (RequestBlock ssc)
+instance Ssc ssc => Bi (RequestBlockchainPart ssc)

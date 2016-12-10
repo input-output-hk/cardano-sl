@@ -13,6 +13,7 @@ module Pos.Worker.Block
 
 import           Control.Lens              (ix, (^.), (^?))
 import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, wait)
+import qualified Data.HashMap.Strict       as HM
 import           Data.Tagged               (untag)
 import           Formatting                (build, sformat, shown, (%))
 import           Serokell.Util             (VerificationRes (..), listJson)
@@ -20,7 +21,7 @@ import           Serokell.Util.Exceptions  ()
 import           System.Wlog               (dispatchEvents, logDebug, logInfo, logWarning)
 import           Universum
 
-import qualified Data.HashMap.Strict       as HM
+import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)

@@ -23,11 +23,10 @@ import           Control.Concurrent.STM          (STM, TVar, modifyTVar, newTVar
 import           Control.Monad.Catch             (Handler (..), MonadCatch, MonadMask,
                                                   MonadThrow, catchAll, catches, throwM)
 import           Control.Monad.Trans.Control     (MonadBaseControl)
-import           Control.TimeWarp.Rpc            (BinaryP (..), Binding (..),
-                                                  ListenerH (..), MonadDialog,
-                                                  NetworkAddress, RawData (..),
-                                                  TransferException (..), listenR, sendH,
-                                                  sendR)
+import           Control.TimeWarp.Rpc            (Binding (..), ListenerH (..),
+                                                  MonadDialog, NetworkAddress,
+                                                  RawData (..), TransferException (..),
+                                                  listenR, sendH, sendR)
 import           Control.TimeWarp.Timed          (MonadTimed, fork, killThread, ms, sec)
 
 import qualified Data.Cache.LRU                  as LRU
@@ -43,9 +42,11 @@ import           Universum                       hiding (async, fromStrict,
                                                   mapConcurrently, toStrict)
 
 import           Pos.Binary.Class                (Bi (..))
-import           Pos.DHT.Class                   (DHTException (..), DHTMsgHeader (..),
-                                                  DHTResponseT (..), ListenerDHT (..),
-                                                  MonadDHT (..), MonadMessageDHT (..),
+import           Pos.Binary.DHT                  ()
+import           Pos.DHT.Class                   (BiP (..), DHTException (..),
+                                                  DHTMsgHeader (..), DHTResponseT (..),
+                                                  ListenerDHT (..), MonadDHT (..),
+                                                  MonadMessageDHT (..),
                                                   MonadResponseDHT (closeResponse),
                                                   defaultSendToNeighbors,
                                                   defaultSendToNode, withDhtLogger)
@@ -74,11 +75,9 @@ runKademliaDHT
     :: ( WithLogger m
        , MonadIO m
        , MonadTimed m
-       , MonadDialog BinaryP m
+       , MonadDialog (BiP DHTMsgHeader) m
        , MonadMask m
        , MonadBaseControl IO m
-       , Bi DHTKey
-       , Bi DHTData
        )
     => KademliaDHTConfig m -> KademliaDHT m a -> m a
 runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
@@ -155,12 +154,10 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
 startDHT
     :: ( MonadTimed m
        , MonadIO m
-       , MonadDialog BinaryP m
+       , MonadDialog (BiP DHTMsgHeader) m
        , WithLogger m
        , MonadMask m
        , MonadBaseControl IO m
-       , Bi DHTData
-       , Bi DHTKey
        )
     => KademliaDHTConfig m -> m (KademliaDHTContext m)
 startDHT KademliaDHTConfig {..} = do
@@ -178,7 +175,7 @@ startDHT KademliaDHTConfig {..} = do
     let kdcDHTInstance_ = kdcDHTInstance
     pure $ KademliaDHTContext {..}
   where
-    convert :: ListenerDHT m -> ListenerH BinaryP DHTMsgHeader m
+    convert :: ListenerDHT m -> ListenerH (BiP DHTMsgHeader) DHTMsgHeader m
     convert (ListenerDHT f) = ListenerH $ \(_, m) -> getDHTResponseT $ f m
     convert' handler = getDHTResponseT . handler
 
@@ -187,12 +184,10 @@ startDHT KademliaDHTConfig {..} = do
 rawListener
     :: ( MonadBaseControl IO m
        , MonadMask m
-       , MonadDialog BinaryP m
+       , MonadDialog (BiP DHTMsgHeader) m
        , MonadIO m
        , MonadTimed m
        , WithLogger m
-       , Bi DHTData
-       , Bi DHTKey
        )
     => Bool
     -> TVar (LRU.LRU Int ())
@@ -239,10 +234,8 @@ sendToNetworkR
        , WithLogger m
        , MonadCatch m
        , MonadIO m
-       , MonadDialog BinaryP m
+       , MonadDialog (BiP DHTMsgHeader) m
        , MonadTimed m
-       , Bi DHTData
-       , Bi DHTKey
        ) => RawData -> KademliaDHT m ()
 sendToNetworkR = sendToNetworkImpl sendR
 
@@ -252,9 +245,8 @@ sendToNetworkImpl
        ,MonadCatch m
        ,MonadIO m
        ,MonadTimed m
-       ,MonadDialog BinaryP m
-       ,Bi DHTData
-       ,Bi DHTKey)
+       ,MonadDialog (BiP DHTMsgHeader) m
+       )
     => (NetworkAddress -> DHTMsgHeader -> msg -> KademliaDHT m ())
     -> msg
     -> KademliaDHT m ()
@@ -265,7 +257,7 @@ sendToNetworkImpl sender msg = do
 seqConcurrentlyK :: MonadBaseControl IO m => [KademliaDHT m a] -> KademliaDHT m [a]
 seqConcurrentlyK = KademliaDHT . mapConcurrently unKademliaDHT
 
-instance ( MonadDialog BinaryP m
+instance ( MonadDialog (BiP DHTMsgHeader) m
          , WithLogger m
          , MonadCatch m
          , MonadIO m

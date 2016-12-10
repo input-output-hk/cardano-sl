@@ -5,14 +5,13 @@
 -- | Provides functionality of representing `Bi` instances as correct
 -- `Message`s used by time-warp.
 
-module Pos.Binary.Network () where
+module Pos.Binary.DHT () where
 
 import qualified Data.Binary      as Binary
 import           Pos.Binary.Class (Bi (..))
 import           Pos.DHT.Class    (DHTMsgHeader (..))
 import           Pos.DHT.Types    (DHTData, DHTKey (..))
 
--- TODO Rewrite :(((
 instance Binary.Binary DHTMsgHeader
 
 instance Bi DHTMsgHeader where

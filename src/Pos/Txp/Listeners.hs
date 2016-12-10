@@ -8,7 +8,6 @@ module Pos.Txp.Listeners
        ( txListeners
        ) where
 
-import           Control.TimeWarp.Rpc        (BinaryP, MonadDialog)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.List.NonEmpty          as NE
 import           Data.Maybe                  (fromJust)
@@ -28,10 +27,10 @@ import           Pos.Txp.LocalData           (getLocalTxs)
 import           Pos.Txp.Types.Communication (TxDataMsg (..), TxInvMsg (..),
                                               TxReqMsg (..))
 import           Pos.Types                   (IdTxWitness, TxId)
-import           Pos.WorkMode                (WorkMode)
+import           Pos.WorkMode                (MonadUserDialog, WorkMode)
 
 -- | Listeners for requests related to blocks processing.
-txListeners :: (MonadDialog BinaryP m, WorkMode ssc m)
+txListeners :: (MonadUserDialog m, WorkMode ssc m)
             => [ListenerDHT m]
 txListeners =
     [

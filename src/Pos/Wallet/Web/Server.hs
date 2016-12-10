@@ -13,7 +13,7 @@ module Pos.Wallet.Web.Server
 
 import qualified Control.Monad.Catch  as Catch
 import           Control.Monad.Except (MonadError (throwError))
-import           Control.TimeWarp.Rpc (BinaryP, Dialog, Transfer)
+import           Control.TimeWarp.Rpc (Transfer)
 import           Data.List            ((!!))
 import           Formatting           (int, ords, sformat, (%))
 import           Network.Wai          (Application)
@@ -38,7 +38,7 @@ import           Pos.Wallet.Tx        (getBalance, submitTx)
 import           Pos.Wallet.Web.Api   (WalletApi, walletApi)
 import           Pos.Web.Server       (serveImpl)
 import           Pos.WorkMode         (ContextHolder, DBHolder, NodeContext,
-                                       ProductionMode, SscLDImpl, TxLDImpl,
+                                       ProductionMode, SscLDImpl, TxLDImpl, UserDialog,
                                        getNodeContext, runContextHolder, runDBHolder,
                                        runSscLDImpl, runTxLDImpl)
 
@@ -58,7 +58,7 @@ walletApplication = servantServer >>= return . serve walletApi
 
 type WebHandler ssc = ProductionMode ssc
 type SubKademlia ssc = TxLDImpl
-    (SscLDImpl ssc (ContextHolder ssc (DBHolder ssc (Dialog BinaryP Transfer))))
+    (SscLDImpl ssc (ContextHolder ssc (DBHolder ssc (UserDialog Transfer))))
 
 convertHandler
     :: forall ssc a . SscConstraint ssc

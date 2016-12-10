@@ -16,7 +16,6 @@ module Pos.Communication.Server.Block
        ) where
 
 import           Control.Lens              ((^.))
-import           Control.TimeWarp.Rpc      (BinaryP, MonadDialog)
 import qualified Data.HashMap.Strict       as HM
 import qualified Data.HashSet              as HS
 import           Data.List.NonEmpty        (NonEmpty ((:|)))
@@ -44,11 +43,11 @@ import           Pos.Types                 (HeaderHash, Tx, blockTxs, getBlockHe
                                             headerHash)
 import           Pos.Util                  (inAssertMode)
 import           Pos.Util.JsonLog          (jlAdoptedBlock, jlLog)
-import           Pos.WorkMode              (WorkMode)
+import           Pos.WorkMode              (MonadUserDialog, WorkMode)
 
 -- | Listeners for requests related to blocks processing.
 blockListeners
-    :: (MonadDialog BinaryP m, WorkMode ssc m)
+    :: (MonadUserDialog m, WorkMode ssc m)
     => [ListenerDHT m]
 blockListeners =
     [ ListenerDHT handleBlock
@@ -188,4 +187,3 @@ handleBlockchainPartRequest RequestBlockchainPart {..} = do
         logDebug $ sformat ("Sending chain part of length "%int%
                             ", starting with "%build) lc fstH
         replyToNode $ SendBlockchainPart cp
-

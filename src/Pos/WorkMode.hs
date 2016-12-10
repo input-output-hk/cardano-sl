@@ -38,6 +38,11 @@ module Pos.WorkMode
        , ncPubKeyAddress
        , runContextHolder
 
+       -- * Messages serialization strategy
+       , UserPacking
+       , MonadUserDialog
+       , UserDialog
+
        -- * Actual modes
        , ProductionMode
        , RawRealMode
@@ -399,6 +404,19 @@ instance (MonadIO m, MonadCatch m, WithLogger m) => MonadJL (ContextHolder ssc m
           (liftIO . withMVar logFileMV $ flip appendJL ev)
             `catchAll` \e -> logWarning $ sformat ("Can't write to json log: " % shown) e
 
+
+----------------------------------------------------------------------------
+-- MonadDialog shortcut
+----------------------------------------------------------------------------
+
+-- | Packing type used to send messages in the system.
+type UserPacking = BinaryP
+
+-- | Shortcut for `MonadDialog` with packing type used in the system.
+type MonadUserDialog = MonadDialog UserPacking
+
+-- | Shortcut for `Dialog` with packing type used in the system.
+type UserDialog = Dialog UserPacking
 
 ----------------------------------------------------------------------------
 -- Concrete types

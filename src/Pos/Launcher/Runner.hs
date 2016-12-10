@@ -32,7 +32,7 @@ import           Control.Concurrent.MVar     (newEmptyMVar, newMVar, takeMVar,
 import           Control.Monad               (fail)
 import           Control.Monad.Catch         (bracket)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, MonadDialog, Transfer,
+import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, Transfer,
                                               commLoggerName, runDialog, runTransfer)
 import           Control.TimeWarp.Timed      (MonadTimed, currentTime, fork, killThread,
                                               repeatForever, runTimedIO, sec)
@@ -77,7 +77,7 @@ import           Pos.Worker                  (statsWorkers)
 import           Pos.WorkMode                (ContextHolder (..), NodeContext (..),
                                               ProductionMode, RawRealMode, ServiceMode,
                                               StatsMode, runContextHolder, runDBHolder,
-                                              runSscLDImpl, runTxLDImpl)
+                                              runSscLDImpl, runTxLDImpl, MonadUserDialog)
 
 ----------------------------------------------------------------------------
 -- Service node runners
@@ -214,7 +214,7 @@ runKDHT
        , MonadIO m
        , MonadTimed m
        , MonadMask m
-       , MonadDialog BinaryP m)
+       , MonadUserDialog m)
     => KademliaDHTInstance
     -> BaseParams
     -> [ListenerDHT (KademliaDHT m)]

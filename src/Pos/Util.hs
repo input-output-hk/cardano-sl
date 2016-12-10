@@ -48,6 +48,7 @@ module Pos.Util
        , logWarningWaitInf
        , runWithRandomIntervals
        , waitRandomInterval
+       , waitAnyUnexceptional
 
        -- * LRU
        , clearLRU
@@ -328,6 +329,20 @@ runWithRandomIntervals minT maxT action = do
   waitRandomInterval minT maxT
   action
   runWithRandomIntervals minT maxT action
+
+-- [TW-84]: move to serokell-core or time-warp?
+waitAnyUnexceptional
+    :: (MonadIO m, WithLogger m)
+    => [Async a] -> m (Maybe (Async a, a))
+waitAnyUnexceptional asyncs = liftIO (waitAnyCatch asyncs) >>= handleRes
+  where
+    handleRes (async', Right res) = pure $ Just (async', res)
+    handleRes (async', Left e) = do
+      logWarning $ sformat ("waitAnyUnexceptional: caught error " % shown) e
+      if null asyncs'
+         then pure Nothing
+         else waitAnyUnexceptional asyncs'
+      where asyncs' = filter (/= async') asyncs
 
 ----------------------------------------------------------------------------
 -- LRU cache

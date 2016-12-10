@@ -33,6 +33,7 @@ module Pos.Types.Types
        , makePubKeyAddress
        , checkPubKeyAddress
        , addressF
+       , decodeTextAddress
 
        , TxInWitness (..)
        , TxWitness
@@ -43,6 +44,7 @@ module Pos.Types.Types
        , Tx (..)
        , txF
        , txwF
+       , IdTxWitness
 
        , Utxo
        , formatUtxo
@@ -149,7 +151,7 @@ import           Pos.Crypto             (Hash, PublicKey, Signature, hash, hashH
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Ssc.Class.Types    (Ssc (..))
 import           Pos.Types.Address      (Address (..), addressF, checkPubKeyAddress,
-                                         makePubKeyAddress)
+                                         decodeTextAddress, makePubKeyAddress)
 import           Pos.Util               (Color (Magenta), colorize)
 
 
@@ -287,9 +289,10 @@ instance Buildable TxOut where
 data Tx = Tx
     { txInputs  :: ![TxIn]   -- ^ Inputs of transaction.
     , txOutputs :: ![TxOut]  -- ^ Outputs of transaction.
-    } deriving (Eq, Ord, Generic)
+    } deriving (Eq, Ord, Generic, Show)
 
-deriving instance Show Tx
+type IdTxWitness = (TxId, (Tx, TxWitness))
+
 instance Hashable Tx
 
 instance Buildable Tx where

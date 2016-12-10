@@ -1,6 +1,6 @@
 -- | Binary serialization of address
 
-module Pos.Binary.Address where
+module Pos.Binary.Address () where
 
 import           Control.Monad.Fail (fail)
 import           Data.Binary.Get    (getWord32be, getWord8)

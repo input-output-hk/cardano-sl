@@ -10,21 +10,20 @@ module Pos.Communication.Server
        , module Pos.Communication.Server.SysStart
        ) where
 
-import           Control.TimeWarp.Rpc              (BinaryP, MonadDialog)
 import           Data.Tagged                       (untag)
 import           System.Wlog                       (LoggerName)
 import           Universum
 
 import           Pos.Communication.Server.Block    (blockListeners)
 import           Pos.Communication.Server.SysStart
-import           Pos.Communication.Server.Tx       (txListeners)
 import           Pos.Communication.Util            (modifyListenerLogger)
 import           Pos.DHT                           (ListenerDHT)
 import           Pos.Ssc.Class.Listeners           (SscListenersClass, sscListeners)
-import           Pos.WorkMode                      (WorkMode)
+import           Pos.Txp.Listeners                 (txListeners)
+import           Pos.WorkMode                      (MonadUserDialog, WorkMode)
 
 -- | All listeners running on one node.
-allListeners :: (SscListenersClass ssc, MonadDialog BinaryP m, WorkMode ssc m)
+allListeners :: (SscListenersClass ssc, MonadUserDialog m, WorkMode ssc m)
              => [ListenerDHT m]
 allListeners =
     map (modifyListenerLogger serverLoggerName) $

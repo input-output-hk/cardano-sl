@@ -8,12 +8,11 @@ module Pos.DHT.Types
        , dhtKeyBytes
        , DHTNode (..)
        , DHTNodeType (..)
-       , DHTMsgHeader (..)
-
        , bytesToDHTKey
        , dhtNodeType
        , randomDHTKey
        , typeByte
+       , filterByNodeType
        ) where
 
 import           Control.TimeWarp.Rpc (NetworkAddress)
@@ -102,7 +101,6 @@ typeByte DHTSupporter = 0x00
 typeByte DHTFull      = 0x30
 typeByte DHTClient    = 0xF0
 
--- | Header of messages in DHT algorithm.
-data DHTMsgHeader = BroadcastHeader
-                  | SimpleHeader { dmhNoCache :: Bool }
-  deriving (Generic, Show)
+-- | Leave only those nodes that has given @Just type@.
+filterByNodeType :: DHTNodeType -> [DHTNode] -> [DHTNode]
+filterByNodeType type_ = filter (\n -> dhtNodeType (dhtNodeId n) == Just type_)

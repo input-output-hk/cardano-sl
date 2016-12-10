@@ -51,7 +51,7 @@ import           Serokell.Util.Verify    (VerificationRes (..), isVerFailure,
                                           isVerSuccess, verifyGeneric)
 import           Universum
 
-import           Pos.Constants           (k)
+import           Pos.Constants           (epochSlots, k)
 import           Pos.Crypto              (SecretKey, hash)
 import           Pos.Genesis             (genesisLeaders)
 import           Pos.Ssc.Class.Types     (Ssc (..))
@@ -166,7 +166,7 @@ getChainPart topH bottomH maxLen = runExceptT $
     realTopH topH >>= getBlockOrFail >>= takeChainPart realMaxLen
   where
     realTopH = maybe (view blkHead) pure
-    realMaxLen = min 300 $ fromMaybe 10 maxLen
+    realMaxLen = min 300 $ fromMaybe epochSlots maxLen
 
     errorMsg h = sformat ("block ("%build%") is not found in storage") h
     getBlockOrFail h = fromMaybe <$> (throwError $ errorMsg h) <*> getBlock h

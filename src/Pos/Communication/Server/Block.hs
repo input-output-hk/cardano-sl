@@ -188,4 +188,3 @@ handleBlockchainPartRequest RequestBlockchainPart {..} = do
         logDebug $ sformat ("Sending chain part of length "%int%
                             ", starting with "%build) lc fstH
         replyToNode $ SendBlockchainPart cp
-

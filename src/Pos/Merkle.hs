@@ -9,7 +9,6 @@
 -- See <https://tools.ietf.org/html/rfc6962>.
 module Pos.Merkle
        ( MerkleRoot(..)
-       , getMerkleRoot
        , MerkleTree (..)
        , mtRoot
        , mtSize

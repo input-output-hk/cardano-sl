@@ -7,8 +7,6 @@
 
 module Main where
 
-import           Universum
-#ifdef WITH_WALLET
 import           Control.Monad.Reader   (MonadReader (..), ReaderT, asks, runReaderT)
 import           Control.TimeWarp.Rpc   (NetworkAddress)
 import           Control.TimeWarp.Timed (for, wait)
@@ -17,6 +15,7 @@ import           Formatting             (build, int, sformat, (%))
 import           Options.Applicative    (execParser)
 import           System.IO              (hFlush, stdout)
 import           Test.QuickCheck        (arbitrary, generate)
+import           Universum
 
 import           Pos.Constants          (slotDuration)
 import           Pos.Crypto             (KeyPair (..), SecretKey, toPublic)
@@ -151,7 +150,3 @@ main = do
                               runNodeProduction @SscGodTossing inst plugins params gtParams
             NistBeaconAlgo -> putText "Using NIST beacon" *>
                               runNodeProduction @SscNistBeacon inst plugins params ()
-#else
-main :: IO ()
-main = panic "Wallet is disabled!"
-#endif

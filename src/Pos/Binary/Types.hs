@@ -105,7 +105,7 @@ instance Ssc ssc => Bi (T.BodyProof (T.MainBlockchain ssc)) where
         put mpMpcProof
     get = T.MainProof <$> get <*> get <*> get <*> get
 
-instance Ssc ssc => Bi (T.ConsensusData (T.MainBlockchain ssc)) where
+instance Bi (T.ConsensusData (T.MainBlockchain ssc)) where
     put T.MainConsensusData{..} = do
         put _mcdSlot
         put _mcdLeaderKey

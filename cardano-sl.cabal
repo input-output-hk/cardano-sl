@@ -341,8 +341,7 @@ executable cardano-analyzer
 executable cardano-wallet
   hs-source-dirs:      src/wallet
   main-is:             Main.hs
-  if flag(with-wallet)
-    other-modules:     WalletOptions
+  other-modules:       WalletOptions
                        Command
   build-depends:       QuickCheck
                      , base
@@ -380,16 +379,18 @@ executable cardano-wallet
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
+  if flag(with-wallet)
+    buildable:         True
+  else
+    buildable:         False
+
   if flag(with-web)
     cpp-options: -DWITH_WEB
-  if flag(with-wallet)
-    cpp-options: -DWITH_WALLET
 
 executable cardano-smart-generator
   hs-source-dirs:      src/smart-generator
   main-is:             Main.hs
-  if flag(with-wallet)
-    other-modules:     GenOptions
+  other-modules:       GenOptions
                        TxGeneration
                        TxAnalysis
                        Util
@@ -435,7 +436,9 @@ executable cardano-smart-generator
   ghc-options: -pgmP cpphs -optP --cpp
 
   if flag(with-wallet)
-    cpp-options: -DWITH_WALLET
+    buildable:         True
+  else
+    buildable:         False
 
 executable cardano-web-docs
   hs-source-dirs:      src/web-docs
@@ -461,7 +464,9 @@ executable cardano-web-docs
   ghc-options: -pgmP cpphs -optP --cpp
 
   if flag(with-web)
-    cpp-options: -DWITH_WEB
+    buildable:         True
+  else
+    buildable:         False
 
 executable cardano-wallet-web-docs
   hs-source-dirs:      src/wallet-web-docs
@@ -488,11 +493,10 @@ executable cardano-wallet-web-docs
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-web)
-    cpp-options: -DWITH_WEB
-  if flag(with-wallet)
-    cpp-options: -DWITH_WALLET
-
+  if flag(with-web) && flag(with-wallet)
+    buildable:         True
+  else
+    buildable:         False
 
 test-suite cardano-test
   main-is:             Test.hs

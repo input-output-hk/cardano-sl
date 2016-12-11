@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
@@ -7,25 +8,27 @@
 
 module Pos.Binary.DHT () where
 
-import qualified Data.Binary      as Binary
-import           Pos.Binary.Class (Bi (..))
-import           Pos.DHT.Class    (DHTMsgHeader (..))
-import           Pos.DHT.Types    (DHTData, DHTKey (..))
+import           Control.Monad.Fail (fail)
+import           Data.Binary.Get    (getWord8)
+import           Data.Binary.Put    (putWord8)
+import           Universum
 
-instance Binary.Binary DHTMsgHeader
+import           Pos.Binary.Class   (Bi (..))
+import           Pos.DHT.Class      (DHTMsgHeader (..))
+import           Pos.DHT.Types      (DHTData (..), DHTKey (..))
 
 instance Bi DHTMsgHeader where
-    put = Binary.put
-    get = Binary.get
-
-instance Binary.Binary DHTKey
+    put BroadcastHeader  = putWord8 0
+    put (SimpleHeader b) = putWord8 1 >> put b
+    get = getWord8 >>= \case
+        0 -> pure BroadcastHeader
+        1 -> SimpleHeader <$> get
+        tag -> fail ("get@DHTMsgHeader: invalid tag: " ++ show tag)
 
 instance Bi DHTKey where
-    put = Binary.put
-    get = Binary.get
-
-instance Binary.Binary DHTData
+    put (DHTKey bs) = put bs
+    get = DHTKey <$> get
 
 instance Bi DHTData where
-    put = Binary.put
-    get = Binary.get
+    put (DHTData ()) = mempty
+    get = pure $ DHTData ()

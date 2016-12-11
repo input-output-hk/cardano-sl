@@ -12,6 +12,7 @@ import           Pos.Communication.Types.Block    (RequestBlock (..),
 import           Pos.Communication.Types.SysStart (SysStartRequest (..),
                                                    SysStartResponse (..))
 import           Pos.Ssc.Class.Types              (Ssc (..))
+import           Pos.Types                        ()
 
 instance Bi SysStartRequest where
     put = mempty
@@ -21,8 +22,25 @@ instance Bi SysStartResponse where
     put (SysStartResponse t msid) = put t >> put msid
     get = SysStartResponse <$> get <*> get
 
-instance Ssc ssc => Bi (SendBlock ssc)
-instance Ssc ssc => Bi (SendBlockHeader ssc)
-instance Ssc ssc => Bi (SendBlockchainPart ssc)
-instance Ssc ssc => Bi (RequestBlock ssc)
-instance Ssc ssc => Bi (RequestBlockchainPart ssc)
+instance Ssc ssc => Bi (SendBlock ssc) where
+    put (SendBlock b) = put b
+    get = SendBlock <$> get
+
+instance Ssc ssc => Bi (SendBlockHeader ssc) where
+    put (SendBlockHeader b) = put b
+    get = SendBlockHeader <$> get
+
+instance Ssc ssc => Bi (SendBlockchainPart ssc) where
+    put (SendBlockchainPart b) = put b
+    get = SendBlockchainPart <$> get
+
+instance Ssc ssc => Bi (RequestBlock ssc) where
+    put (RequestBlock b) = put b
+    get = RequestBlock <$> get
+
+instance Ssc ssc => Bi (RequestBlockchainPart ssc) where
+    put RequestBlockchainPart{..} = do
+        put rbFromBlock
+        put rbUntilBlock
+        put rbCount
+    get = RequestBlockchainPart <$> get <*> get <*> get

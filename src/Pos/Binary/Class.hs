@@ -179,6 +179,12 @@ instance Bi Integer where
     {-# INLINE get #-}
     get = Binary.get
 
+instance Bi Word where
+    {-# INLINE put #-}
+    put = Binary.put
+    {-# INLINE get #-}
+    get = Binary.get
+
 instance Bi Word8 where
     {-# INLINE put #-}
     put = putWord8

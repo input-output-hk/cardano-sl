@@ -3,8 +3,8 @@
 -- | DHT types.
 
 module Pos.DHT.Types
-       ( DHTData
-       , DHTKey
+       ( DHTData (..)
+       , DHTKey (..)
        , dhtKeyBytes
        , DHTNode (..)
        , DHTNodeType (..)

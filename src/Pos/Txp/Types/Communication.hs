@@ -23,8 +23,7 @@ import           Pos.Types            (Tx, TxId, TxWitness)
 -- | Inventory message. Can be used to announce the fact that you have
 -- some new local transactions.
 data TxInvMsg = TxInvMsg
-    {
-      imTxs :: !(NonEmpty TxId)
+    { imTxs :: !(NonEmpty TxId)
     } deriving (Generic)
 
 instance Message TxInvMsg where
@@ -34,8 +33,7 @@ instance Message TxInvMsg where
 -- | Request message. Can be used to request transactions (ideally transactions which
 -- was previously announced by inventory message).
 data TxReqMsg = TxReqMsg
-    {
-      rmTxs :: !(NonEmpty TxId)
+    { rmTxs :: !(NonEmpty TxId)
     } deriving (Generic)
 
 instance Message TxReqMsg where
@@ -44,8 +42,7 @@ instance Message TxReqMsg where
 
 -- | Data message. Can be used to send one transaction per message.
 data TxDataMsg = TxDataMsg
-    {
-      dmTx      :: !Tx
+    { dmTx      :: !Tx
     , dmWitness :: !TxWitness
     } deriving (Generic)
 

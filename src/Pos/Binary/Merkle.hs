@@ -1,9 +1,12 @@
+{-# LANGUAGE LambdaCase #-}
+
 -- | Merkle tree-related serialization
 
 module Pos.Binary.Merkle where
 
 import           Control.Monad.Fail (fail)
-import           Data.Binary        (getWord8, putWord8)
+import           Data.Binary.Get    (getWord32be, getWord8)
+import           Data.Binary.Put    (putWord32be, putWord8)
 import           Universum
 
 import           Pos.Binary.Class   (Bi (..))
@@ -22,8 +25,10 @@ instance Bi a => Bi (MerkleNode a) where
         MerkleBranch{..} -> putWord8 0 >> put mLeft >> put mRight
         MerkleLeaf{..}   -> putWord8 1 >> put mVal
 
--- TODO
---instance Bi a => Bi (MerkleTree a) where
-instance Bi (MerkleTree a) where
-    get = notImplemented
-    put = notImplemented
+instance Bi a => Bi (MerkleTree a) where
+    get = getWord8 >>= \case
+        0 -> pure MerkleEmpty
+        1 -> MerkleTree <$> getWord32be <*> get
+        tag -> fail ("get@MerkleTree: invalid tag: " ++ show tag)
+    put MerkleEmpty      = putWord8 0
+    put (MerkleTree w n) = putWord8 1 >> putWord32be w >> put n

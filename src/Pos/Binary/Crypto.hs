@@ -4,7 +4,8 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeApplications      #-}
--- | Crypto binary/serializable/...
+
+-- | Serializable instances for Pos.Crypto.*
 
 module Pos.Binary.Crypto where
 

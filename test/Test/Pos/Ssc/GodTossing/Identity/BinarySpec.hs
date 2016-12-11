@@ -15,7 +15,7 @@ import           Test.Pos.Util         (binaryEncodeDecode)
 
 spec :: Spec
 spec = describe "GodTossing" $ do
-    describe "Binary instances" $ do
+    describe "Bi instances" $ do
         prop "Commitment" (binaryEncodeDecode @GT.Commitment)
         prop "CommitmentSignature" (binaryEncodeDecode @GT.CommitmentSignature)
         prop "SignedCommitment" (binaryEncodeDecode @GT.SignedCommitment)

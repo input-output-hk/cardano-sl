@@ -12,7 +12,6 @@ module Pos.Communication.Types.Block
        , RequestBlockchainPart (..)
        ) where
 
-import           Data.Binary          (Binary)
 import           Universum
 
 import           Control.TimeWarp.Rpc (Message (..), messageName')
@@ -45,12 +44,6 @@ data RequestBlockchainPart ssc = RequestBlockchainPart
     , rbUntilBlock :: !(Maybe (HeaderHash ssc))
     , rbCount      :: !(Maybe Word)
     } deriving (Generic)
-
-instance Ssc ssc => Binary (SendBlock ssc)
-instance Ssc ssc => Binary (SendBlockHeader ssc)
-instance Ssc ssc => Binary (SendBlockchainPart ssc)
-instance Binary (RequestBlock ssc)
-instance Binary (RequestBlockchainPart ssc)
 
 instance Ssc ssc => Message (SendBlock ssc) where
     messageName _ = "SendBlock"

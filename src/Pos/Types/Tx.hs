@@ -20,6 +20,7 @@ import           Formatting          (build, int, sformat, (%))
 import           Serokell.Util       (VerificationRes, verifyGeneric)
 import           Universum
 
+import           Pos.Binary.Class    (Bi)
 import           Pos.Crypto          (Hash, WithHash (..), checkSig)
 import           Pos.Types.Types     (Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
                                       TxWitness, checkPubKeyAddress, coinF)
@@ -51,7 +52,8 @@ verifyTxAlone Tx {..} =
 -- * every input is signed properly;
 -- * every input is a known unspent output.
 verifyTx
-    :: (TxIn -> Maybe TxOut)
+    :: Bi TxOut
+    => (TxIn -> Maybe TxOut)
     -> (Tx, TxWitness)
     -> VerificationRes
 verifyTx inputResolver (tx@Tx{..}, witnesses) =

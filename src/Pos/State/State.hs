@@ -65,6 +65,7 @@ import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            dispatchEvents, getLoggerName, logWarning,
                                            runPureLog, usingLoggerName)
 
+import           Pos.Binary.Class         (deserializeM, serialize)
 import           Pos.Crypto               (LVssPublicKey, SecretKey, Share, VssKeyPair,
                                            decryptShare, toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
@@ -80,7 +81,6 @@ import           Pos.Types                (Address, Block, EpochIndex, GenesisBl
                                            HeaderHash, IdTxWitness, MainBlock,
                                            MainBlockHeader, SlotId, SlotLeaders, Tx, TxId,
                                            TxWitness, Utxo)
-import           Pos.Util                 (deserializeM, serialize)
 
 -- | NodeState encapsulates all the state stored by node.
 class Monad m => MonadDB ssc m | m -> ssc where

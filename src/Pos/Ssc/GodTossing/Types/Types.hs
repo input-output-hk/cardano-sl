@@ -1,5 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
@@ -23,12 +25,14 @@ module Pos.Ssc.GodTossing.Types.Types
        , mkGtProof
        , createGtContext
        , _gpCertificates
+
+       , SscBi
        ) where
+
 import           Control.Concurrent.STM                  (newTVarIO)
 import qualified Control.Concurrent.STM                  as STM
 import           Control.Lens                            (makeLenses)
 import           Data.Acquire                            (Acquire, mkAcquire)
-import           Data.Binary                             (Binary)
 import qualified Data.HashMap.Strict                     as HM
 import           Data.SafeCopy                           (base, deriveSafeCopySimple)
 import qualified Data.Text                               as T
@@ -39,16 +43,20 @@ import           Serokell.Util                           (listJson)
 import           System.FilePath                         ((</>))
 import           Universum
 
+import           Pos.Binary.Class                        (Bi)
 import           Pos.Crypto                              (Hash, VssKeyPair, hash)
 import           Pos.Ssc.GodTossing.SecretStorage.Acidic (SecretStorage,
                                                           closeSecretStorage,
                                                           openGtSecretStorage,
                                                           openMemGtSecretStorage)
-import           Pos.Ssc.GodTossing.Types.Base           (CommitmentsMap, OpeningsMap,
-                                                          SharesMap, VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Types.Base           (Commitment, CommitmentsMap,
+                                                          Opening, OpeningsMap, SharesMap,
+                                                          VssCertificate,
+                                                          VssCertificatesMap)
 ----------------------------------------------------------------------------
 -- SscGlobalState
 ----------------------------------------------------------------------------
+
 -- | MPC-related content of main body.
 data GtGlobalState = GtGlobalState
     { -- | Commitments are added during the first phase of epoch.
@@ -64,8 +72,6 @@ data GtGlobalState = GtGlobalState
 
 deriveSafeCopySimple 0 'base ''GtGlobalState
 makeLenses ''GtGlobalState
-
-instance Binary GtGlobalState
 
 instance Buildable GtGlobalState where
     build GtGlobalState {..} =
@@ -103,6 +109,7 @@ instance Buildable GtGlobalState where
 ----------------------------------------------------------------------------
 -- SscPayload
 ----------------------------------------------------------------------------
+
 -- | Block payload
 data GtPayload
     = CommitmentsPayload  !CommitmentsMap !VssCertificatesMap
@@ -118,8 +125,6 @@ _gpCertificates (SharesPayload _ certs)      = certs
 _gpCertificates (CertificatesPayload certs)  = certs
 
 deriveSafeCopySimple 0 'base ''GtPayload
-
-instance Binary GtPayload
 
 isEmptyGtPayload :: GtPayload -> Bool
 isEmptyGtPayload (CommitmentsPayload comms certs) = null comms && null certs
@@ -165,6 +170,7 @@ instance Buildable GtPayload where
 ----------------------------------------------------------------------------
 -- SscProof
 ----------------------------------------------------------------------------
+
 -- | Proof of MpcData.
 -- We can use ADS for commitments, openings, shares as well,
 -- if we find it necessary.
@@ -177,10 +183,10 @@ data GtProof
 
 deriveSafeCopySimple 0 'base ''GtProof
 
-instance Binary GtProof
-
 -- | Smart constructor for 'GtProof' from 'GtPayload'.
-mkGtProof :: GtPayload -> GtProof
+mkGtProof
+    :: (Bi VssCertificate, Bi Commitment, Bi Opening)
+    => GtPayload -> GtProof
 mkGtProof payload =
     case payload of
         CommitmentsPayload comms certs ->
@@ -224,3 +230,14 @@ createGtContext GtParams {..} = mkAcquire
     (closeSecretStorage . gtcSecretStorage)
   where
     secretPath = (</> "secret") <$> gtpDbPath
+
+----------------------------------------------------------------------------
+-- Convinient binary type alias
+----------------------------------------------------------------------------
+
+type SscBi =
+    ( Bi GtProof
+    , Bi GtPayload
+    , Bi Opening
+    , Bi VssCertificate
+    , Bi Commitment)

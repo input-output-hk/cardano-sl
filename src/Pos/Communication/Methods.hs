@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+
 -- | Wrappers on top of communication methods.
 
 module Pos.Communication.Methods
@@ -15,12 +16,12 @@ module Pos.Communication.Methods
 
 import           Control.TimeWarp.Rpc        (Message, NetworkAddress)
 import           Control.TimeWarp.Timed      (fork_)
-import           Data.Binary                 (Binary)
 import           Formatting                  (build, sformat, (%))
 import           Pos.State                   (getHeadBlock)
 import           System.Wlog                 (logDebug)
 import           Universum
 
+import           Pos.Binary.Class            (Bi)
 import           Pos.Communication.Types     (RequestBlockchainPart (..),
                                               SendBlockHeader (..))
 import           Pos.DHT                     (sendToNeighbors, sendToNode)
@@ -32,7 +33,7 @@ import           Pos.WorkMode                (WorkMode)
 
 -- | Wrapper on top of sendToNeighbors which does it in separate
 -- thread and controls how much time action takes.
-sendToNeighborsSafe :: (Binary r, Message r, WorkMode ssc m) => r -> m ()
+sendToNeighborsSafe :: (Bi r, Message r, WorkMode ssc m) => r -> m ()
 sendToNeighborsSafe msg = do
     let msgName = messageName' msg
     let action = () <$ sendToNeighbors msg
@@ -42,7 +43,7 @@ sendToNeighborsSafe msg = do
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.
 announceBlock
-    :: WorkMode ssc m
+    :: (WorkMode ssc m, Bi (SendBlockHeader ssc))
     => MainBlockHeader ssc -> m ()
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
@@ -50,7 +51,7 @@ announceBlock header = do
 
 -- | Query the blockchain part. Generic method.
 queryBlockchainPart
-    :: WorkMode ssc m
+    :: (WorkMode ssc m, Bi (RequestBlockchainPart ssc))
     => Maybe (HeaderHash ssc) -> Maybe (HeaderHash ssc) -> Maybe Word
     -> m ()
 queryBlockchainPart fromH toH mLen = do
@@ -60,14 +61,18 @@ queryBlockchainPart fromH toH mLen = do
 
 -- | Query for all the newest blocks until some given hash
 queryBlockchainUntil
-    :: WorkMode ssc m
+    :: (WorkMode ssc m, Bi (RequestBlockchainPart ssc))
     => HeaderHash ssc -> m ()
 queryBlockchainUntil hash = queryBlockchainPart Nothing (Just hash) Nothing
 
 -- | Query for possible new blocks on top of new blockchain.
-queryBlockchainFresh :: WorkMode ssc m => m ()
+queryBlockchainFresh
+    :: (WorkMode ssc m, Bi (RequestBlockchainPart ssc))
+    => m ()
 queryBlockchainFresh = queryBlockchainUntil . headerHash =<< getHeadBlock
 
 -- | Send Tx to given address.
-sendTx :: WorkMode ssc m => NetworkAddress -> (Tx, TxWitness) -> m ()
+sendTx
+    :: (WorkMode ssc m, Bi TxDataMsg)
+    => NetworkAddress -> (Tx, TxWitness) -> m ()
 sendTx addr (tx,w) = sendToNode addr $ TxDataMsg tx w

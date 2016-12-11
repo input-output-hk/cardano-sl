@@ -8,11 +8,12 @@ module Pos.Ssc.Class.Types
        ( Ssc(..)
        ) where
 import           Data.Acquire        (Acquire)
-import           Data.Binary         (Binary)
 import           Data.SafeCopy       (SafeCopy)
 import           Data.Tagged         (Tagged)
 import           Data.Text.Buildable (Buildable)
 import           Universum
+
+import           Pos.Binary.Class    (Bi)
 
 -- | Main Shared Seed Calculation type class. Stores all needed type
 -- parameters for general implementation of SSC.
@@ -27,8 +28,8 @@ class (Typeable ssc
       ,Show (SscPayload ssc)
       ,Buildable (SscPayload ssc)
       ,Buildable (SscSeedError ssc)
-      ,Binary (SscProof ssc)
-      ,Binary (SscPayload ssc)
+      ,Bi (SscProof ssc)
+      ,Bi (SscPayload ssc)
       ,SafeCopy (SscProof ssc)
       ,SafeCopy (SscGlobalState ssc)
       ,SafeCopy (SscPayload ssc)

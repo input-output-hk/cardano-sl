@@ -4,8 +4,6 @@ module Pos.Ssc.GodTossing.Error
        ( SeedError (..)
        ) where
 
-
-
 import           Data.Text.Buildable (Buildable (..))
 import           Serokell.Util       (listBuilderJSON)
 import           Universum

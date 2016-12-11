@@ -1,4 +1,3 @@
-
 -- | This module tests Binary instances.
 
 module Test.Pos.Types.Identity.BinarySpec
@@ -15,7 +14,7 @@ import           Test.Pos.Util         (binaryEncodeDecode)
 
 spec :: Spec
 spec = describe "Types" $ do
-    describe "Binary instances" $ do
+    describe "Bi instances" $ do
         prop "Epochindex" (binaryEncodeDecode @T.EpochIndex)
         prop "Localslotindex" (binaryEncodeDecode @T.LocalSlotIndex)
         prop "SlotId" (binaryEncodeDecode @T.SlotId)

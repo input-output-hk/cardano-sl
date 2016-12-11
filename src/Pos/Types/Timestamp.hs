@@ -6,7 +6,6 @@ module Pos.Types.Timestamp
        ) where
 
 import           Control.TimeWarp.Timed (Microsecond)
-import           Data.Binary            (Binary (get, put))
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
 
@@ -31,10 +30,6 @@ instance Read Timestamp where
 
 instance Buildable Timestamp where
     build = Buildable.build @Integer . fromIntegral
-
-instance Binary Timestamp where
-  get = fromInteger <$> get
-  put = put . toInteger
 
 -- | Specialized formatter for 'Timestamp' data type.
 timestampF :: Format r (Timestamp -> r)

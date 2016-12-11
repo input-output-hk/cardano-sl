@@ -32,8 +32,8 @@ import           Control.Concurrent.MVar     (newEmptyMVar, newMVar, takeMVar,
 import           Control.Monad               (fail)
 import           Control.Monad.Catch         (bracket)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Control.TimeWarp.Rpc        (BinaryP (..), Dialog, Transfer,
-                                              commLoggerName, runDialog, runTransfer)
+import           Control.TimeWarp.Rpc        (Dialog, Transfer, commLoggerName, runDialog,
+                                              runTransfer)
 import           Control.TimeWarp.Timed      (MonadTimed, currentTime, fork, killThread,
                                               repeatForever, runTimedIO, sec)
 
@@ -49,6 +49,7 @@ import           System.Wlog                 (LoggerName (..), WithLogger, logDe
                                               traverseLoggerConfig, usingLoggerName)
 import           Universum
 
+import           Pos.Binary                  ()
 import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication           (SysStartRequest (..), allListeners,
                                               noCacheMessageNames, sysStartReqListener,
@@ -56,7 +57,8 @@ import           Pos.Communication           (SysStartRequest (..), allListeners
                                               sysStartRespListener)
 import           Pos.Constants               (RunningMode (..), defaultPeers,
                                               isDevelopment, runningMode)
-import           Pos.DHT                     (ListenerDHT, MonadDHT (..), mapListenerDHT,
+import           Pos.DHT                     (BiP (..), DHTMsgHeader, ListenerDHT,
+                                              MonadDHT (..), mapListenerDHT,
                                               sendToNeighbors)
 import           Pos.DHT.Real                (KademliaDHT, KademliaDHTConfig (..),
                                               KademliaDHTInstance,
@@ -74,10 +76,11 @@ import           Pos.Statistics              (getNoStatsT, runStatsT)
 import           Pos.Types                   (Timestamp (Timestamp), timestampF)
 import           Pos.Util                    (runWithRandomIntervals)
 import           Pos.Worker                  (statsWorkers)
-import           Pos.WorkMode                (ContextHolder (..), NodeContext (..),
-                                              ProductionMode, RawRealMode, ServiceMode,
-                                              StatsMode, runContextHolder, runDBHolder,
-                                              runSscLDImpl, runTxLDImpl, MonadUserDialog)
+import           Pos.WorkMode                (ContextHolder (..), MonadUserDialog,
+                                              NodeContext (..), ProductionMode,
+                                              RawRealMode, ServiceMode, StatsMode,
+                                              runContextHolder, runDBHolder, runSscLDImpl,
+                                              runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Service node runners
@@ -248,10 +251,10 @@ runCH NodeParams {..} sscNodeContext act =
         , ncSscContext = sscNodeContext
         }
 
-runTimed :: LoggerName -> Dialog BinaryP Transfer a -> IO a
+runTimed :: LoggerName -> Dialog (BiP DHTMsgHeader) Transfer a -> IO a
 runTimed loggerName =
     runTimedIO .
-    usingLoggerName loggerName . runTransfer . runDialog BinaryP
+    usingLoggerName loggerName . runTransfer . runDialog BiP
 
 ----------------------------------------------------------------------------
 -- Utilities

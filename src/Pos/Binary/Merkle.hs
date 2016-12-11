@@ -2,7 +2,7 @@
 
 -- | Merkle tree-related serialization
 
-module Pos.Binary.Merkle where
+module Pos.Binary.Merkle () where
 
 import           Control.Monad.Fail (fail)
 import           Data.Binary.Get    (getWord32be, getWord8)
@@ -10,7 +10,8 @@ import           Data.Binary.Put    (putWord32be, putWord8)
 import           Universum
 
 import           Pos.Binary.Class   (Bi (..))
-import           Pos.Merkle         (MerkleNode (..), MerkleTree (..), mkBranch, mkLeaf)
+import           Pos.Merkle         (MerkleNode (..), MerkleRoot (..), MerkleTree (..),
+                                     mkBranch, mkLeaf)
 
 -- This instance is both faster and more space-efficient (as confirmed by a
 -- benchmark). Hashing turns out to be faster than decoding extra data.
@@ -32,3 +33,7 @@ instance Bi a => Bi (MerkleTree a) where
         tag -> fail ("get@MerkleTree: invalid tag: " ++ show tag)
     put MerkleEmpty      = putWord8 0
     put (MerkleTree w n) = putWord8 1 >> putWord32be w >> put n
+
+instance Bi (MerkleRoot a) where
+    put (MerkleRoot a) = put a
+    get = MerkleRoot <$> get

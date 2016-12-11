@@ -14,17 +14,23 @@ module Pos.Binary.Class
        , deserializeM
        ) where
 
-import           Control.Monad.Fail   (MonadFail, fail)
-import           Data.Binary          (Get, Put)
-import qualified Data.Binary          as Binary
-import           Data.Binary.Get      (ByteOffset, getWord8, runGet, runGetOrFail)
-import           Data.Binary.Put      (putCharUtf8, putWord8, runPut)
-import qualified Data.ByteString      as BS
-import qualified Data.ByteString.Lazy as BSL
-import           Data.Hashable        (Hashable (..))
-import qualified Data.HashMap.Strict  as HM
-import qualified Data.List.NonEmpty   as NE
-import           Data.Word            (Word32)
+import           Control.Monad.Fail          (MonadFail, fail)
+import           Data.Binary                 (Get, Put)
+import qualified Data.Binary                 as Binary
+import           Data.Binary.Get             (ByteOffset, getWord16be, getWord32be,
+                                              getWord64be, getWord8, runGet, runGetOrFail)
+import           Data.Binary.Put             (putCharUtf8, putWord16be, putWord32be,
+                                              putWord64be, putWord8, runPut)
+import qualified Data.ByteString             as BS
+import qualified Data.ByteString.Lazy        as BSL
+import           Data.Hashable               (Hashable (..))
+import qualified Data.HashMap.Strict         as HM
+import qualified Data.List.NonEmpty          as NE
+import qualified Data.Vector                 as V
+import qualified Data.Vector.Generic         as G
+import qualified Data.Vector.Generic.Mutable as GM
+import           Data.Word                   (Word32)
+import           System.IO.Unsafe            (unsafePerformIO)
 import           Universum
 
 ----------------------------------------------------------------------------
@@ -106,6 +112,10 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -}
 
+----------------------------------------------------------------------------
+-- Primitive types
+----------------------------------------------------------------------------
+
 instance Bi () where
     put ()  = mempty
     get     = return ()
@@ -117,11 +127,6 @@ instance Bi Bool where
         toBool 0 = return False
         toBool 1 = return True
         toBool c = fail ("Could not map value " ++ show c ++ " to Bool")
-
--- Words8s are written as bytes
-instance Bi Word8 where
-    put     = putWord8
-    get     = getWord8
 
 instance Bi Char where
     {-# INLINE put #-}
@@ -152,13 +157,11 @@ instance Bi Char where
           | w <= 0x10ffff = return $! toEnum $ fromEnum w
           | otherwise = fail "Not a valid Unicode code point!"
 
-instance Bi BS.ByteString where
-    {-# INLINE put #-}
-    put = Binary.put
-    {-# INLINE get #-}
-    get = Binary.get
+----------------------------------------------------------------------------
+-- Numeric data
+----------------------------------------------------------------------------
 
-instance Bi BSL.ByteString where
+instance Bi Int where
     {-# INLINE put #-}
     put = Binary.put
     {-# INLINE get #-}
@@ -170,23 +173,39 @@ instance Bi Int64 where
     {-# INLINE get #-}
     get = Binary.get
 
-instance Bi Int where
-    {-# INLINE put #-}
-    put = Binary.put
-    {-# INLINE get #-}
-    get = Binary.get
-
 instance Bi Integer where
     {-# INLINE put #-}
     put = Binary.put
     {-# INLINE get #-}
     get = Binary.get
 
+instance Bi Word8 where
+    {-# INLINE put #-}
+    put = putWord8
+    {-# INLINE get #-}
+    get = getWord8
+
+instance Bi Word16 where
+    {-# INLINE put #-}
+    put = putWord16be
+    {-# INLINE get #-}
+    get = getWord16be
+
 instance Bi Word32 where
     {-# INLINE put #-}
-    put = Binary.put
+    put = putWord32be
     {-# INLINE get #-}
-    get = Binary.get
+    get = getWord32be
+
+instance Bi Word64 where
+    {-# INLINE put #-}
+    put = putWord64be
+    {-# INLINE get #-}
+    get = getWord64be
+
+----------------------------------------------------------------------------
+-- Containers
+----------------------------------------------------------------------------
 
 instance (Bi a, Bi b) => Bi (a, b) where
     {-# INLINE put #-}
@@ -206,6 +225,21 @@ instance (Bi a, Bi b, Bi c, Bi d) => Bi (a, b, c, d) where
     {-# INLINE get #-}
     get = liftM4 (,,,) get get get get
 
+instance Bi BS.ByteString where
+    {-# INLINE put #-}
+    put = Binary.put
+    {-# INLINE get #-}
+    get = Binary.get
+
+instance Bi BSL.ByteString where
+    {-# INLINE put #-}
+    put = Binary.put
+    {-# INLINE get #-}
+    get = Binary.get
+
+instance Bi Text where
+    put = Binary.put
+    get = Binary.get
 
 -- TODO Optimize by using varint instead of int
 instance Bi a => Bi [a] where
@@ -246,13 +280,27 @@ instance (Bi a) => Bi (Maybe a) where
             0 -> return Nothing
             _ -> liftM Just get
 
-instance  (Hashable k, Eq k, Bi k, Bi v) => Bi (HM.HashMap k v) where
+instance (Hashable k, Eq k, Bi k, Bi v) => Bi (HM.HashMap k v) where
     get = fmap HM.fromList get
     put = put . HM.toList
 
-instance Bi Text where
-    put = Binary.put
-    get = Binary.get
+-- Copy-pasted w/ modifications, license:
+-- https://github.com/bos/vector-binary-instances/blob/master/LICENSE
+
+instance Bi a => Bi (V.Vector a) where
+    get = do
+        n <- get
+        v <- pure $ unsafePerformIO $ GM.unsafeNew n
+        let go 0 = return ()
+            go i = do
+                x <- get
+                () <- pure $ unsafePerformIO $ GM.unsafeWrite v (n-i) x
+                go (i-1)
+        () <- go n
+        pure $ unsafePerformIO $ G.unsafeFreeze v
+    put v = do
+        put (G.length v)
+        G.mapM_ put v
 
 ----------------------------------------------------------------------------
 -- Deserialized wrapper

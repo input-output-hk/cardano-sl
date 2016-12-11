@@ -8,7 +8,7 @@
 --
 -- See <https://tools.ietf.org/html/rfc6962>.
 module Pos.Merkle
-       ( MerkleRoot
+       ( MerkleRoot(..)
        , getMerkleRoot
        , MerkleTree (..)
        , mtRoot

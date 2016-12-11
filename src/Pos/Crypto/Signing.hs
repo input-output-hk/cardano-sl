@@ -34,6 +34,11 @@ module Pos.Crypto.Signing
        , publicKeyLength
        , signatureLength
        , putAssertLength
+
+       -- * Proxy signature scheme
+       , ProxyISignature (..)
+       , proxyISign
+       , proxyICheckSig
        ) where
 
 import           Control.Monad.Fail     (fail)
@@ -209,8 +214,6 @@ data Signed a = Signed
     , signedSig   :: !(Signature a)  -- ^ 'Signature' of 'signedValue'
     } deriving (Show, Eq, Ord, Generic)
 
---instance Binary a => Binary (Signed a)
-
 -- | Smart constructor for 'Signed' data type with proper signing.
 mkSigned :: (Bi a) => SecretKey -> a -> Signed a
 mkSigned sk x = Signed x (sign sk x)
@@ -222,3 +225,34 @@ instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
         case Bi.decodeFull bs of
             Left err    -> fail $ "getCopy@SafeCopy: " ++ err
             Right (v,s) -> pure $ Signed v s
+
+----------------------------------------------------------------------------
+-- Proxy signing
+----------------------------------------------------------------------------
+
+
+-- | Signature produced by issuer
+newtype ProxyISignature a = ProxyISignature Ed25519.Signature
+    deriving (Eq, Ord, Show, Generic, NFData, Hashable)
+
+instance Buildable.Buildable (ProxyISignature a) where
+    build _ = "<proxy_i_signature>"
+
+-- | Raw bytestring signing
+proxyISignRaw :: SecretKey -> ByteString -> ProxyISignature Raw
+proxyISignRaw (SecretKey k) m =
+    ProxyISignature (Ed25519.dsign k $ "11" `BS.append` m)
+
+-- | Getting signature from binary representation of value
+proxyISign :: Bi a => SecretKey -> a -> ProxyISignature a
+proxyISign k = coerce . proxyISignRaw k . BSL.toStrict . Bi.encode
+
+-- | Raw bytestring verification
+proxyIVerifyRaw :: PublicKey -> ByteString -> Signature Raw -> Bool
+proxyIVerifyRaw (PublicKey k) m (Signature s) =
+    Ed25519.dverify k ("11" `BS.append` m) s
+
+-- | Verify a proxy issuer signature using value's binary
+-- representation
+proxyICheckSig :: Bi a => PublicKey -> a -> Signature a -> Bool
+proxyICheckSig k m s = proxyIVerifyRaw k (BSL.toStrict (Bi.encode m)) (coerce s)

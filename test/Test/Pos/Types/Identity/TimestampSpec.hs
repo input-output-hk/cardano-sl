@@ -16,5 +16,5 @@ import           Test.Pos.Util         (binaryEncodeDecode, showRead)
 spec :: Spec
 spec = describe "Timestamp" $ do
     describe "Identity testing" $ do
-        prop "Binary" (binaryEncodeDecode @Timestamp)
+        prop "Bi" (binaryEncodeDecode @Timestamp)
         prop "Show/Read" (showRead @Timestamp)

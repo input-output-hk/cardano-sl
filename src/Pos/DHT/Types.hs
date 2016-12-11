@@ -5,7 +5,6 @@
 module Pos.DHT.Types
        ( DHTData (..)
        , DHTKey (..)
-       , dhtKeyBytes
        , DHTNode (..)
        , DHTNodeType (..)
        , bytesToDHTKey

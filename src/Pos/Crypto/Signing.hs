@@ -24,8 +24,6 @@ module Pos.Crypto.Signing
 
        , Signed (..)
        , mkSigned
-       , signedValue
-       , signedSig
 
        -- * Versions for raw bytestrings
        , signRaw
@@ -38,14 +36,14 @@ module Pos.Crypto.Signing
        , putAssertLength
        ) where
 
+import           Control.Monad.Fail     (fail)
 import qualified Crypto.Sign.Ed25519    as Ed25519
 import           Data.Aeson             (ToJSON (toJSON))
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Coerce            (coerce)
 import           Data.Hashable          (Hashable)
-import           Data.SafeCopy          (SafeCopy (..), base, contain, deriveSafeCopy,
-                                         safePut)
+import           Data.SafeCopy          (SafeCopy (..), contain, safeGet, safePut)
 import qualified Data.Serialize         as Cereal
 import qualified Data.Text.Buildable    as Buildable
 import           Data.Text.Lazy.Builder (Builder)
@@ -87,7 +85,7 @@ newtype SecretKey = SecretKey Ed25519.SecretKey
               Cereal.Serialize, Hashable)
 
 
--- TODO GET RID OF CEREAL SHIT HERE
+-- TODO GET RID OF CEREAL STUFF HERE
 
 secretKeyLength, publicKeyLength, signatureLength :: Int
 secretKeyLength = 64
@@ -218,8 +216,9 @@ mkSigned :: (Bi a) => SecretKey -> a -> Signed a
 mkSigned sk x = Signed x (sign sk x)
 
 instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
-    putCopy = notImplemented
-    getCopy = notImplemented
---    putCopy (Signed v s) = contain $ safePut $ Bi.encode (v, s)
-
---    getCopy = getCopyBinary "Signature"
+    putCopy (Signed v s) = contain $ safePut (Bi.encode (v,s))
+    getCopy = contain $ do
+        bs <- safeGet
+        case Bi.decodeFull bs of
+            Left err    -> fail $ "getCopy@SafeCopy: " ++ err
+            Right (v,s) -> pure $ Signed v s

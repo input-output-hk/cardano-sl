@@ -5,7 +5,6 @@ module Test.Pos.CryptoSpec
        ( spec
        ) where
 
-import           Data.Binary           (Binary)
 import qualified Data.ByteString       as BS
 import           Formatting            (build, sformat)
 import           Test.Hspec            (Expectation, Spec, describe, shouldBe, specify)
@@ -13,13 +12,14 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
+import           Pos.Binary            (Bi)
 import           Pos.Crypto            (EncShare, Hash, KeyPair (..), LEncShare, LSecret,
                                         LSecretProof, LSecretSharingExtra, LShare,
                                         LVssPublicKey, PublicKey, Secret, SecretKey,
-                                        SecretProof, SecretSharingExtra, Share,
-                                        Signature, Signed, VssPublicKey, checkSig,
-                                        deterministic, fullPublicKeyF, hash,
-                                        parseFullPublicKey, randomNumber, sign, toPublic)
+                                        SecretProof, SecretSharingExtra, Share, Signature,
+                                        Signed, VssPublicKey, checkSig, deterministic,
+                                        fullPublicKeyF, hash, parseFullPublicKey,
+                                        randomNumber, sign, toPublic)
 import           Pos.Ssc.GodTossing    ()
 
 import           Test.Pos.Util         (binaryEncodeDecode, safeCopyEncodeDecode,
@@ -43,7 +43,7 @@ spec = describe "Crypto" $ do
     describe "Hashing" $ do
         describe "Hash instances" $ do
             prop
-                "Binary"
+                "Bi"
                 (binaryEncodeDecode @(Hash Int))
             prop
                 "SafeCopy"
@@ -66,7 +66,7 @@ spec = describe "Crypto" $ do
 
     describe "Signing" $ do
         describe "Identity testing" $ do
-            describe "Binary instances" $ do
+            describe "Bi instances" $ do
                 prop "SecretKey"     (binaryEncodeDecode @SecretKey)
                 prop "PublicKey"     (binaryEncodeDecode @PublicKey)
                 prop "Signature"     (binaryEncodeDecode @(Signature ()))
@@ -120,10 +120,10 @@ spec = describe "Crypto" $ do
                 "modified data can't be verified"
                 (signThenVerifyDifferentData @[Int])
 
-hashInequality :: (Eq a, Binary a) => a -> a -> Property
+hashInequality :: (Eq a, Bi a) => a -> a -> Property
 hashInequality a b = a /= b ==> hash a /= hash b
 
-checkHash :: Binary a => a -> Text -> Expectation
+checkHash :: Bi a => a -> Text -> Expectation
 checkHash x s = sformat build (hash x) `shouldBe` s
 
 keyDerivation :: KeyPair -> Property
@@ -133,18 +133,18 @@ keyParsing :: PublicKey -> Property
 keyParsing pk = parseFullPublicKey (sformat fullPublicKeyF pk) === Just pk
 
 signThenVerify
-    :: Binary a
+    :: Bi a
     => SecretKey -> a -> Bool
 signThenVerify sk a = checkSig (toPublic sk) a $ sign sk a
 
 signThenVerifyDifferentKey
-    :: Binary a
+    :: Bi a
     => SecretKey -> PublicKey -> a -> Property
 signThenVerifyDifferentKey sk1 pk2 a =
     (toPublic sk1 /= pk2) ==> not (checkSig pk2 a $ sign sk1 a)
 
 signThenVerifyDifferentData
-    :: (Eq a, Binary a)
+    :: (Eq a, Bi a)
     => SecretKey -> a -> a -> Property
 signThenVerifyDifferentData sk a b =
     (a /= b) ==> not (checkSig (toPublic sk) b $ sign sk a)

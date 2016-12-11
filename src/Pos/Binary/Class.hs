@@ -26,7 +26,6 @@ import qualified Data.HashMap.Strict  as HM
 import qualified Data.List.NonEmpty   as NE
 import           Data.Word            (Word32)
 import           Universum
---import qualified Data.Binary as B
 
 ----------------------------------------------------------------------------
 -- Bi typeclass
@@ -110,6 +109,14 @@ POSSIBILITY OF SUCH DAMAGE.
 instance Bi () where
     put ()  = mempty
     get     = return ()
+
+instance Bi Bool where
+    put     = putWord8 . fromIntegral . fromEnum
+    get     = getWord8 >>= toBool
+      where
+        toBool 0 = return False
+        toBool 1 = return True
+        toBool c = fail ("Could not map value " ++ show c ++ " to Bool")
 
 -- Words8s are written as bytes
 instance Bi Word8 where
@@ -229,6 +236,15 @@ instance (Bi a, Bi b) => Bi (Either a b) where
 instance Bi a => Bi (NE.NonEmpty a) where
     get = fmap NE.fromList get
     put = put . NE.toList
+
+instance (Bi a) => Bi (Maybe a) where
+    put Nothing  = putWord8 0
+    put (Just x) = putWord8 1 <> put x
+    get = do
+        w <- getWord8
+        case w of
+            0 -> return Nothing
+            _ -> liftM Just get
 
 instance  (Hashable k, Eq k, Bi k, Bi v) => Bi (HM.HashMap k v) where
     get = fmap HM.fromList get

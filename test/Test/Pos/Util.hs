@@ -9,17 +9,15 @@ module Test.Pos.Util
        , showRead
        ) where
 
-import           Data.Binary      (Binary)
-import qualified Data.Binary      as Binary
-import           Data.SafeCopy    (SafeCopy, safeGet, safePut)
-import           Data.Serialize   (runGet, runPut)
-import           Pos.Util         (Serialized (..))
-import           Prelude          (read)
-import           Test.QuickCheck  (Property, (===))
+import           Data.SafeCopy   (SafeCopy, safeGet, safePut)
+import           Data.Serialize  (runGet, runPut)
+import           Pos.Binary      (Bi, Serialized (..), decode, encode)
+import           Prelude         (read)
+import           Test.QuickCheck (Property, (===))
 import           Universum
 
-binaryEncodeDecode :: (Show a, Eq a, Binary a) => a -> Property
-binaryEncodeDecode a = Binary.decode (Binary.encode a) === a
+binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
+binaryEncodeDecode a = decode (encode a) === a
 
 safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
 safeCopyEncodeDecode a =

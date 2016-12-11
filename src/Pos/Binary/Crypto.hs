@@ -31,7 +31,7 @@ import           Pos.Crypto.SerTypes      (LEncShare (..), LSecret (..),
                                            LSecretProof (..), LSecretSharingExtra (..),
                                            LShare (..), LVssPublicKey (..))
 import           Pos.Crypto.Signing       (PublicKey (..), SecretKey (..), Signature (..),
-                                           publicKeyLength, putAssertLength,
+                                           Signed (..), publicKeyLength, putAssertLength,
                                            secretKeyLength, signatureLength)
 import           Pos.Util                 (getCopyBinary, putCopyBinary)
 
@@ -212,3 +212,7 @@ instance Bi Ed25519.Signature where
 deriving instance Bi (Signature a)
 deriving instance Bi PublicKey
 deriving instance Bi SecretKey
+
+instance Bi a => Bi (Signed a) where
+    put (Signed v s) = put (v,s)
+    get = Signed <$> get <*> get

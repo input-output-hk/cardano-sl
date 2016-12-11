@@ -9,8 +9,10 @@
 
 module Pos.Ssc.GodTossing ( module GodTossing ) where
 
+import           Pos.Binary.Ssc                        ()
 import           Pos.Ssc.GodTossing.Arbitrary          as GodTossing
 import           Pos.Ssc.GodTossing.Error              as GodTossing
+import           Pos.Ssc.GodTossing.Functions          as GodTossing
 import           Pos.Ssc.GodTossing.Genesis            as GodTossing
 import           Pos.Ssc.GodTossing.Listener.Listeners ()
 import           Pos.Ssc.GodTossing.Seed               as GodTossing
@@ -19,5 +21,3 @@ import           Pos.Ssc.GodTossing.Types.Base         as GodTossing
 import           Pos.Ssc.GodTossing.Types.Type         as GodTossing
 import           Pos.Ssc.GodTossing.Types.Types        as GodTossing
 import           Pos.Ssc.GodTossing.Worker.Workers     ()
-
-import           Pos.Ssc.GodTossing.Functions          as GodTossing

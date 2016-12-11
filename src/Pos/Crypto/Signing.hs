@@ -22,7 +22,7 @@ module Pos.Crypto.Signing
        , sign
        , checkSig
 
-       , Signed
+       , Signed (..)
        , mkSigned
        , signedValue
        , signedSig
@@ -44,7 +44,8 @@ import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Coerce            (coerce)
 import           Data.Hashable          (Hashable)
-import           Data.SafeCopy          (SafeCopy (..))
+import           Data.SafeCopy          (SafeCopy (..), base, contain, deriveSafeCopy,
+                                         safePut)
 import qualified Data.Serialize         as Cereal
 import qualified Data.Text.Buildable    as Buildable
 import           Data.Text.Lazy.Builder (Builder)
@@ -216,5 +217,9 @@ data Signed a = Signed
 mkSigned :: (Bi a) => SecretKey -> a -> Signed a
 mkSigned sk x = Signed x (sign sk x)
 
--- TODO rewrite without TH
---deriveSafeCopySimple 0 'base ''Signed
+instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
+    putCopy = notImplemented
+    getCopy = notImplemented
+--    putCopy (Signed v s) = contain $ safePut $ Bi.encode (v, s)
+
+--    getCopy = getCopyBinary "Signature"

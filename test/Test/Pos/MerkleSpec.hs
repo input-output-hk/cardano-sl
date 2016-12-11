@@ -5,12 +5,12 @@ module Test.Pos.MerkleSpec
        ( spec
        ) where
 
-import           Data.Binary           (Binary)
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (===))
 import           Universum
 
+import           Pos.Binary            (Bi)
 import           Pos.Merkle            (mkMerkleTree, mtSize)
 
 spec :: Spec
@@ -22,8 +22,8 @@ spec = describe "Merkle" $ do
         "size . mkMerkleTree === length"
         (sizeProp @Int)
 
-generateAndFoldProp :: (Eq a, Show a, Binary a) => [a] -> Property
+generateAndFoldProp :: (Eq a, Show a, Bi a) => [a] -> Property
 generateAndFoldProp xs = toList (mkMerkleTree xs) === xs
 
-sizeProp :: (Binary a) => [a] -> Property
+sizeProp :: (Bi a) => [a] -> Property
 sizeProp xs = mtSize (mkMerkleTree xs) === fromIntegral (length xs)

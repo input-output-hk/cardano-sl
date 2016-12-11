@@ -1,4 +1,3 @@
-
 -- | This module tests Binary instances.
 
 module Test.Pos.Types.Identity.BinarySpec

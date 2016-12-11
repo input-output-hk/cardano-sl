@@ -21,6 +21,7 @@ import           Formatting            (build, sformat, (%))
 import           System.Wlog           (logError, logInfo)
 import           Universum
 
+import           Pos.Binary            ()
 import           Pos.Communication     (sendTx)
 import           Pos.Crypto            (SecretKey)
 import           Pos.Crypto            (hash, sign, toPublic)
@@ -125,4 +126,3 @@ submitTxRaw na tx = do
     logInfo $ sformat ("Submitting transaction: "%txwF) tx
     logInfo $ sformat ("Transaction id: "%build) txId
     mapM_ (`sendTx` tx) na
-

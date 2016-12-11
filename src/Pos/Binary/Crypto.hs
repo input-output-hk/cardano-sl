@@ -7,7 +7,7 @@
 
 -- | Serializable instances for Pos.Crypto.*
 
-module Pos.Binary.Crypto where
+module Pos.Binary.Crypto () where
 
 import           Control.Monad.Fail       (fail)
 import           Crypto.Hash              (digestFromByteString, hashDigestSize)

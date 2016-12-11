@@ -34,11 +34,11 @@ instance Ssc ssc => Bi (SendBlockchainPart ssc) where
     put (SendBlockchainPart b) = put b
     get = SendBlockchainPart <$> get
 
-instance Ssc ssc => Bi (RequestBlock ssc) where
+instance Bi (RequestBlock ssc) where
     put (RequestBlock b) = put b
     get = RequestBlock <$> get
 
-instance Ssc ssc => Bi (RequestBlockchainPart ssc) where
+instance Bi (RequestBlockchainPart ssc) where
     put RequestBlockchainPart{..} = do
         put rbFromBlock
         put rbUntilBlock

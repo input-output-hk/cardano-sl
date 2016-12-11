@@ -4,7 +4,7 @@
 
 -- | Binary serialization of Pos.Types.* modules
 
-module Pos.Binary.Types where
+module Pos.Binary.Types () where
 
 import           Universum
 

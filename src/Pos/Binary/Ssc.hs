@@ -3,7 +3,7 @@
 
 -- | GodTossing serialization instances
 
-module Pos.Binary.Ssc where
+module Pos.Binary.Ssc () where
 
 import           Control.Monad.Fail               (fail)
 import           Data.Binary.Get                  (getWord8)

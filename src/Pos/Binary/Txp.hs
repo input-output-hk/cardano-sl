@@ -1,6 +1,6 @@
 -- | Binary serialization for Pos.Txp.*
 
-module Pos.Binary.Txp where
+module Pos.Binary.Txp () where
 
 import           Universum
 

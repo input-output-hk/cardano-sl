@@ -56,7 +56,7 @@ import           System.Wlog                 (CanLog, HasLoggerName, WithLogger)
 import           Universum
 
 import           Pos.Context                 (ContextHolder, WithNodeContext)
-import           Pos.DHT                     (BiP, DHTMsgHeader, DHTResponseT,
+import           Pos.DHT                     (BiP, DHTMsgHeader, DHTResponseT (..),
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT (..))
 #ifdef WITH_ROCKS
@@ -80,7 +80,7 @@ type WorkMode ssc m
       , MonadMask m
       , MonadSlots m
       , MonadDB ssc m
-      -- , Modern.MonadDB ssc m
+      , Modern.MonadDB ssc m
       , MonadTxLD m
       , SscStorageMode ssc
       , SscLocalDataClass ssc
@@ -179,15 +179,6 @@ instance MonadSscLD ssc m => MonadSscLD ssc (TxLDImpl m) where
 
 instance MonadJL m => MonadJL (KademliaDHT m) where
     jlLog = lift . jlLog
-
-----------------------------------------------------------------------------
--- Modern
-----------------------------------------------------------------------------
-
-#ifdef WITH_ROCKS
-deriving instance (Modern.MonadDB ssc m) =>
-         Modern.MonadDB ssc (KademliaDHT m)
-#endif
 
 ----------------------------------------------------------------------------
 -- MonadDialog shortcut

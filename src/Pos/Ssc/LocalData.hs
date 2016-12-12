@@ -4,6 +4,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE StandaloneDeriving     #-}
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE UndecidableInstances   #-}
 
@@ -52,12 +53,7 @@ instance Monad m => WrappedM (SscLDImpl ssc m) where
     _WrappedM = iso getSscLDImpl SscLDImpl
 
 #ifdef WITH_ROCKS
-instance Modern.MonadDB ssc m => Modern.MonadDB ssc (SscLDImpl ssc m) where
-    getNodeDBs = notImplemented
-    usingReadOptionsUtxo = notImplemented
-    usingWriteOptionsUtxo = notImplemented
-    usingReadOptionsBlock = notImplemented
-    usingWriteOptionsBlock = notImplemented
+deriving instance Modern.MonadDB ssc m => Modern.MonadDB ssc (SscLDImpl ssc m)
 #endif
 
 monadMaskHelper

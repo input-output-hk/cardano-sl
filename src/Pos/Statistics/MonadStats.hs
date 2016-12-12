@@ -134,7 +134,11 @@ newtype StatsT m a = StatsT
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog p,
                MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader, MonadTrans,
-               MonadJL, CanLog)
+               MonadJL, CanLog
+#ifdef WITH_ROCKS
+               , Modern.MonadDB ssc
+#endif
+               )
 
 instance MonadTransControl StatsT where
     type StT StatsT a = StT (ReaderT StatsMap) a

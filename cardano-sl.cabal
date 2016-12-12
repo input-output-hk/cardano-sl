@@ -203,6 +203,7 @@ library
                         Pos.Wallet.Web.State.Holder
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
+                        Pos.Wallet.Web.ClientTypes
   build-depends:        IfElse
                       , HsOpenSSL
                       , QuickCheck

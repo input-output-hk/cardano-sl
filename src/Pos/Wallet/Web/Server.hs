@@ -12,16 +12,17 @@ module Pos.Wallet.Web.Server
        , walletServeWeb
        ) where
 
-import qualified Control.Monad.Catch  as Catch
-import           Control.Monad.Except (MonadError (throwError))
-import           Control.TimeWarp.Rpc (Transfer)
-import           Data.List            ((!!))
-import           Formatting           (int, ords, sformat, (%))
-import           Network.Wai          (Application)
-import           Servant.API          ((:<|>) ((:<|>)), FromHttpApiData (parseUrlPiece))
-import           Servant.Server       (Handler, ServantErr (errBody), Server, ServerT,
-                                       err404, serve)
-import           Servant.Utils.Enter  ((:~>) (..), enter)
+import qualified Control.Monad.Catch    as Catch
+import           Control.Monad.Except   (MonadError (throwError))
+import           Control.TimeWarp.Rpc   (Transfer)
+import           Data.List              ((!!))
+import           Data.Time.Clock        (UTCTime)
+import           Formatting             (int, ords, sformat, (%))
+import           Network.Wai            (Application)
+import           Servant.API            ((:<|>) ((:<|>)), FromHttpApiData (parseUrlPiece))
+import           Servant.Server         (Handler, ServantErr (errBody), Server, ServerT,
+                                        err404, serve)
+import           Servant.Utils.Enter    ((:~>) (..), enter)
 import           Universum
 
 import           Pos.DHT              (dhtAddr, getKnownPeers)
@@ -40,13 +41,14 @@ import qualified Pos.State            as St
 import           Pos.Statistics       (getNoStatsT)
 import           Pos.Txp.LocalData    (TxLocalData, getTxLocalData, setTxLocalData)
 import           Pos.Types            (Address, Coin (Coin), TxOut (..), addressF, coinF,
-                                       decodeTextAddress)
+                                       decodeTextAddress, TxId)
 import           Pos.Wallet.Tx        (getBalance, submitTx)
 import           Pos.Wallet.Web.Api   (WalletApi, walletApi)
 import           Pos.Wallet.Web.State (MonadWalletWebDB (..), WalletState, WalletWebDB,
                                        closeState, openState, runWalletWebDB)
 import           Pos.Web.Server       (serveImpl)
 import           Pos.WorkMode         (ProductionMode, TxLDImpl, UserDialog, runTxLDImpl)
+import           Pos.Wallet.Web.ClientTypes (CWallet)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -136,7 +138,7 @@ servantServer = flip enter servantHandlers <$> (nat @ssc)
 ----------------------------------------------------------------------------
 
 servantHandlers :: SscConstraint ssc => ServerT WalletApi (WebHandler ssc)
-servantHandlers = getAddresses :<|> getBalances :<|> send
+servantHandlers = getAddresses :<|> getBalances :<|> send -- :<|> getWallets
 
 getAddresses :: WebHandler ssc [Address]
 getAddresses = pure genesisAddresses
@@ -161,6 +163,9 @@ send srcIdx dstAddr c
           putText $
               sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
               c srcIdx dstAddr
+
+getWallets :: SscConstraint ssc => WebHandler ssc [CWallet]
+getWallets = undefined
 
 ----------------------------------------------------------------------------
 -- Orphan instances

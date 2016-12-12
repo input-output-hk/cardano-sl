@@ -7,7 +7,7 @@ module Pos.Types.Address
        , makeScriptAddress
 
          -- * Internals
-       , AddressHash(..)
+       , AddressHash
        , addressHash
        , unsafeAddressHash
        , curAddrVersion
@@ -70,7 +70,7 @@ instance CRC32 Address where
 instance Binary Address where
     get = do
         addrVersion <- Bi.getWord8
-        addr <- if addrVersion < 128 o
+        addr <- if addrVersion < 128
                 then do addrKeyHash <- get
                         return PubKeyAddress {..}
                 else do addrScriptHash <- get

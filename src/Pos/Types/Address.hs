@@ -22,6 +22,7 @@ import           Data.Binary            (Binary (..))
 import qualified Data.Binary            as Bi
 import qualified Data.Binary.Get        as Bi (getWord32be)
 import qualified Data.Binary.Put        as Bi (putWord32be)
+import           Data.Bits              ((.|.))
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58,
                                          encodeBase58)
 import qualified Data.ByteString.Char8  as BSC (elem, unpack)
@@ -41,6 +42,8 @@ import           Pos.Script             (Script)
 
 -- | Address versions are here for dealing with possible backwards
 -- compatibility issues in the future
+-- For P2PKH addresses, we use versions from 0 to 127
+-- For P2SH addresses, we use versions from 128 to 255
 type AddressVersion = Word8
 
 curAddrVersion :: AddressVersion
@@ -58,31 +61,29 @@ data Address
 
 instance CRC32 Address where
     crc32Update seed PubKeyAddress {..} =
-        crc32Update (crc32Update seed [0, addrVersion]) $
+        crc32Update (crc32Update seed [addrVersion]) $
         Bi.encode addrKeyHash
     crc32Update seed ScriptAddress {..} =
-        crc32Update (crc32Update seed [1, addrVersion]) $
+        crc32Update (crc32Update seed [addrVersion .|. 128]) $
         Bi.encode addrScriptHash
 
 instance Binary Address where
     get = do
         addrVersion <- Bi.getWord8
-        tag <- Bi.getWord8
-        addr <- case tag of
-            0 -> do addrKeyHash <- get
-                    return PubKeyAddress {..}
-            1 -> do addrScriptHash <- get
-                    return ScriptAddress {..}
-            _ -> fail ("get@Address: unknown tag " ++ show tag)
+        addr <- if addrVersion < 128 o
+                then do addrKeyHash <- get
+                        return PubKeyAddress {..}
+                else do addrScriptHash <- get
+                        return ScriptAddress {..}
         theirChecksum <- Bi.getWord32be
         if theirChecksum /= crc32 addr
             then fail "Address has invalid checksum!"
             else return addr
     put addr = do
-        Bi.putWord8 (addrVersion addr)
+        let ver = addrVersion addr
         case addr of
-            PubKeyAddress {..} -> Bi.putWord8 0 >> put addrKeyHash
-            ScriptAddress {..} -> Bi.putWord8 1 >> put addrScriptHash
+            PubKeyAddress {..} -> Bi.putWord8 ver >> put addrKeyHash
+            ScriptAddress {..} -> Bi.putWord8 (ver .|. 128) >> put addrScriptHash
         Bi.putWord32be $ crc32 addr
 
 instance Hashable Address where
@@ -130,7 +131,7 @@ makePubKeyAddress = PubKeyAddress curAddrVersion . addressHash
 
 -- | A function for making an address from a validation script
 makeScriptAddress :: Script -> Address
-makeScriptAddress = ScriptAddress curAddrVersion . addressHash
+makeScriptAddress = ScriptAddress (curAddrVersion .|. 128) . addressHash
 
 -- | Check if given 'Address' is created from given 'PublicKey'
 checkPubKeyAddress :: PublicKey -> Address -> Bool

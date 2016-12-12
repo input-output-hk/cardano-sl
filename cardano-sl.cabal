@@ -35,14 +35,22 @@ Flag with-wallet
   description: Build with wallet.
 
 library
-  exposed-modules:      Pos.CLI
+  exposed-modules:      Pos.Binary
+                        Pos.CLI
                         Pos.Crypto
                         Pos.Communication
                         Pos.CompileConfig
                         Pos.Constants
                         Pos.DHT
                         Pos.DHT.Real
+                        Pos.DHT.Real.Real
+                        Pos.DHT.Real.Types
                         Pos.DHT.Types
+                        Pos.DHT.Util
+                        Pos.DHT.Class
+                        Pos.DHT.Class.BiP
+                        Pos.DHT.Class.MonadDHT
+                        Pos.DHT.Class.MonadMessageDHT
                         Pos.FollowTheSatoshi
                         Pos.Ssc.Class
                         Pos.Ssc.GodTossing
@@ -64,8 +72,9 @@ library
                         Pos.State.Storage
                         Pos.State.Storage.Block
                         Pos.State.Storage.Types
-                        Pos.State.Storage.Tx
                         Pos.Statistics
+                        Pos.Txp.Listeners
+                        Pos.Txp.Storage
                         Pos.Types
                         Pos.Types.Address
                         Pos.Types.Arbitrary
@@ -86,15 +95,22 @@ library
     exposed-modules:    Pos.Wallet
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
-  other-modules:        Pos.Communication.Methods
+  other-modules:        Pos.Binary.Address
+                        Pos.Binary.Class
+                        Pos.Binary.Crypto
+                        Pos.Binary.Communication
+                        Pos.Binary.DHT
+                        Pos.Binary.Merkle
+                        Pos.Binary.Ssc
+                        Pos.Binary.Txp
+                        Pos.Binary.Types
+                        Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
                         Pos.Communication.Types.SysStart
-                        Pos.Communication.Types.Tx
                         Pos.Communication.Server
                         Pos.Communication.Server.Block
                         Pos.Communication.Server.SysStart
-                        Pos.Communication.Server.Tx
                         Pos.Communication.Util
                         Pos.CompileConfig.Parser
                         Pos.CompileConfig.Type
@@ -132,13 +148,15 @@ library
                         Pos.Ssc.GodTossing.Types.Message
                         Pos.Ssc.GodTossing.Types.Type
                         Pos.Ssc.GodTossing.Types.Types
+                        Pos.Ssc.GodTossing.Utils
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
+                        Pos.Txp.Types.Communication
+                        Pos.Txp.LocalData
                         Pos.Worker.Block
                         Pos.Worker.Stats
-                        Pos.Worker.Tx
                         Pos.Util.Arbitrary
                         Pos.Util.NotImplemented
   if flag(with-web)
@@ -162,9 +180,11 @@ library
                       , base
                       , base58-bytestring
                       , binary
+                      , binary-conduit >= 1.2.4.1
                       , binary-orphans
                       , bytestring
                       , cereal
+                      , conduit >= 1.2.8
                       , containers
                       , cryptonite >= 0.19 && < 0.21
                       , data-default
@@ -253,10 +273,10 @@ executable cardano-node
   main-is:             Main.hs
   other-modules:       NodeOptions
   build-depends:       base
-                     , data-default
                      , binary
                      , bytestring
                      , cardano-sl
+                     , data-default
                      , directory
                      , filepath
                      , formatting
@@ -324,8 +344,7 @@ executable cardano-analyzer
 executable cardano-wallet
   hs-source-dirs:      src/wallet
   main-is:             Main.hs
-  if flag(with-wallet)
-    other-modules:     WalletOptions
+  other-modules:       WalletOptions
                        Command
   build-depends:       QuickCheck
                      , base
@@ -363,16 +382,18 @@ executable cardano-wallet
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
+  if flag(with-wallet)
+    buildable:         True
+  else
+    buildable:         False
+
   if flag(with-web)
     cpp-options: -DWITH_WEB
-  if flag(with-wallet)
-    cpp-options: -DWITH_WALLET
 
 executable cardano-smart-generator
   hs-source-dirs:      src/smart-generator
   main-is:             Main.hs
-  if flag(with-wallet)
-    other-modules:     GenOptions
+  other-modules:       GenOptions
                        TxGeneration
                        TxAnalysis
                        Util
@@ -418,7 +439,9 @@ executable cardano-smart-generator
   ghc-options: -pgmP cpphs -optP --cpp
 
   if flag(with-wallet)
-    cpp-options: -DWITH_WALLET
+    buildable:         True
+  else
+    buildable:         False
 
 executable cardano-web-docs
   hs-source-dirs:      src/web-docs
@@ -444,7 +467,9 @@ executable cardano-web-docs
   ghc-options: -pgmP cpphs -optP --cpp
 
   if flag(with-web)
-    cpp-options: -DWITH_WEB
+    buildable:         True
+  else
+    buildable:         False
 
 executable cardano-wallet-web-docs
   hs-source-dirs:      src/wallet-web-docs
@@ -471,11 +496,10 @@ executable cardano-wallet-web-docs
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-web)
-    cpp-options: -DWITH_WEB
-  if flag(with-wallet)
-    cpp-options: -DWITH_WALLET
-
+  if flag(with-web) && flag(with-wallet)
+    buildable:         True
+  else
+    buildable:         False
 
 test-suite cardano-test
   main-is:             Test.hs

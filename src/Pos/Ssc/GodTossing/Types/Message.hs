@@ -12,17 +12,15 @@ module Pos.Ssc.GodTossing.Types.Message
        ) where
 
 import           Control.TimeWarp.Rpc          (Message (..), messageName')
-import           Data.Binary                   (Binary)
 import           Data.List.NonEmpty            (NonEmpty)
 import qualified Data.Text.Buildable
 import           Universum
 
-import           Pos.Crypto                    (LShare)
 import           Pos.Ssc.GodTossing.Functions  (isCommitmentId, isCommitmentIdx,
                                                 isOpeningId, isOpeningIdx, isSharesId,
                                                 isSharesIdx)
-import           Pos.Ssc.GodTossing.Types.Base (InnerSharesMap, Opening,
-                                                SignedCommitment, VssCertificate)
+import           Pos.Ssc.GodTossing.Types.Base (InnerSharesMap, Opening, SignedCommitment,
+                                                VssCertificate)
 import           Pos.Types                     (Address, LocalSlotIndex, SlotId)
 
 -- | Tag associated with message.
@@ -32,8 +30,6 @@ data MsgTag
     | SharesMsg
     | VssCertificateMsg
     deriving (Show, Generic)
-
-instance Binary MsgTag
 
 instance Buildable MsgTag where
     build CommitmentMsg     = "commitment message"
@@ -64,8 +60,6 @@ data InvMsg = InvMsg
     , imKeys :: !(NonEmpty Address)
     } deriving (Generic)
 
-instance Binary InvMsg
-
 instance Message InvMsg where
     messageName _ = "GT Inventory"
     formatMessage = messageName'
@@ -76,8 +70,6 @@ data ReqMsg = ReqMsg
     { rmType :: !MsgTag
     , rmKey  :: !Address
     } deriving (Generic)
-
-instance Binary ReqMsg
 
 instance Message ReqMsg where
     messageName _ = "GT Request"
@@ -94,8 +86,6 @@ data DataMsg
     | DMVssCertificate !Address
                        !VssCertificate
     deriving (Generic)
-
-instance Binary DataMsg
 
 instance Message DataMsg where
     messageName _ = "GT Data"

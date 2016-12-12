@@ -13,6 +13,7 @@ module Pos.Worker.Block
 
 import           Control.Lens              (ix, (^.), (^?))
 import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, wait)
+import qualified Data.HashMap.Strict       as HM
 import           Data.Tagged               (untag)
 import           Formatting                (build, sformat, shown, (%))
 import           Serokell.Util             (VerificationRes (..), listJson)
@@ -20,6 +21,7 @@ import           Serokell.Util.Exceptions  ()
 import           System.Wlog               (dispatchEvents, logDebug, logInfo, logWarning)
 import           Universum
 
+import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
@@ -27,6 +29,7 @@ import           Pos.Ssc.Class             (sscApplyGlobalState, sscGetLocalPayl
                                             sscVerifyPayload)
 import           Pos.State                 (createNewBlock, getGlobalMpcData,
                                             getHeadBlock, getLeaders, processNewSlot)
+import           Pos.Txp.LocalData         (getLocalTxs)
 import           Pos.Types                 (SlotId (..), Timestamp (Timestamp), blockMpc,
                                             gbHeader, makePubKeyAddress, slotIdF)
 import           Pos.Util                  (logWarningWaitLinear)
@@ -94,7 +97,8 @@ onNewSlotWhenLeader slotId = do
                     announceBlock $ createdBlk ^. gbHeader
             let whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
             sscData <- sscGetLocalPayload slotId
-            either whenNotCreated whenCreated =<< createNewBlock sk slotId sscData
+            localTxs <- HM.toList <$> getLocalTxs
+            either whenNotCreated whenCreated =<< createNewBlock localTxs sk slotId sscData
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
 -- | All workers specific to block processing.

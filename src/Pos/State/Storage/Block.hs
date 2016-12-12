@@ -21,6 +21,7 @@ module Pos.State.Storage.Block
        , getBlockByDepth
        , getHeadBlock
        , getBestChain
+       , getChainPart
        , getLeader
        , getLeaders
        , getSlotDepth
@@ -36,6 +37,7 @@ module Pos.State.Storage.Block
 
 import           Control.Lens            (at, ix, makeClassy, preview, use, uses, view,
                                           (%=), (.=), (.~), (<~), (^.), _Just)
+import           Control.Monad.Except    (runExceptT, throwError)
 import           Control.Monad.Loops     (andM, unfoldrM)
 import           Data.Default            (def)
 import qualified Data.HashMap.Strict     as HM
@@ -49,7 +51,8 @@ import           Serokell.Util.Verify    (VerificationRes (..), isVerFailure,
                                           isVerSuccess, verifyGeneric)
 import           Universum
 
-import           Pos.Constants           (k)
+import           Pos.Binary.Types        ()
+import           Pos.Constants           (epochSlots, k)
 import           Pos.Crypto              (SecretKey, hash)
 import           Pos.Genesis             (genesisLeaders)
 import           Pos.Ssc.Class.Types     (Ssc (..))
@@ -155,6 +158,26 @@ getHeadBlock = do
     let errorMsg =
             sformat ("blkHead ("%build%") is not found in storage") headHash
     fromMaybe (panic errorMsg) <$> getBlockByDepth 0
+
+-- | Get part of the chain between given blocks
+-- with length restriction
+getChainPart :: Maybe (HeaderHash ssc) -> Maybe (HeaderHash ssc) -> Maybe Word
+             -> Query ssc (Either Text [Block ssc])
+getChainPart topH bottomH maxLen = runExceptT $
+    realTopH topH >>= getBlockOrFail >>= takeChainPart realMaxLen
+  where
+    realTopH = maybe (view blkHead) pure
+    realMaxLen = min 300 $ fromMaybe epochSlots maxLen
+
+    errorMsg h = sformat ("block ("%build%") is not found in storage") h
+    getBlockOrFail h = fromMaybe <$> (throwError $ errorMsg h) <*> getBlock h
+
+    takeChainPart 0 _ = pure []
+    takeChainPart n blk = do
+        let ph = blk ^. prevBlockL
+        if Just ph == bottomH
+            then return [blk]
+            else (blk :) <$> (getBlockOrFail ph >>= takeChainPart (n - 1))
 
 -- | Get the whole best chain. Expensive, shouldn't be used except for
 -- asserts.

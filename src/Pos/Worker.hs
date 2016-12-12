@@ -22,7 +22,6 @@ import           Pos.Types              (SlotId, flattenSlotId, slotIdF)
 import           Pos.Util               (waitRandomInterval)
 import           Pos.Worker.Block       (blkOnNewSlot, blkWorkers)
 import           Pos.Worker.Stats       (statsWorkers)
-import           Pos.Worker.Tx          (txWorkers)
 import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeContext)
 
 -- | Run all necessary workers in separate threads. This call doesn't
@@ -32,7 +31,6 @@ runWorkers = mapM_ fork_ $ concat
     [ [onNewSlotWorker]
     , blkWorkers
     , untag sscWorkers
-    , txWorkers
     ]
 
 onNewSlotWorker :: WorkMode ssc m => m ()

@@ -1,4 +1,6 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Arbitrary instances for GodTossing types.
 
@@ -7,16 +9,16 @@ module Pos.Ssc.GodTossing.Arbitrary
        ) where
 
 import           Data.List.NonEmpty             (NonEmpty ((:|)))
-import           Test.QuickCheck                (Arbitrary (..), oneof, elements)
+import           Test.QuickCheck                (Arbitrary (..), elements, oneof)
 import           Universum
 
+import           Pos.Binary.Class               (Bi, serialize)
 import           Pos.Crypto                     (deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Ssc.GodTossing.Functions   (genCommitmentAndOpening)
-import           Pos.Ssc.GodTossing.Types.Base  (Commitment, Opening,
-                                                 VssCertificate (..), mkVssCertificate)
+import           Pos.Ssc.GodTossing.Types.Base  (Commitment, Opening, VssCertificate (..),
+                                                 mkVssCertificate)
 import           Pos.Ssc.GodTossing.Types.Types (GtProof (..))
 import           Pos.Types.Arbitrary.Unsafe     ()
-import           Pos.Util                       (serialize)
 import           Pos.Util.Arbitrary             (Nonrepeating (..), sublistN,
                                                  unsafeMakePool)
 
@@ -52,7 +54,7 @@ instance Arbitrary Opening where
 instance Arbitrary VssCertificate where
     arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary
 
-instance Arbitrary GtProof where
+instance (Bi Commitment, Bi Opening, Bi VssCertificate) => Arbitrary GtProof where
     arbitrary = oneof [
                         CommitmentsProof <$> arbitrary <*> arbitrary
                       , OpeningsProof <$> arbitrary <*> arbitrary

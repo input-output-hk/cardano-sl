@@ -1,13 +1,10 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns        #-}
 
 module Main where
 
-import           Universum                       hiding (forConcurrently)
-#ifdef WITH_WALLET
 import           Control.Concurrent.Async.Lifted (forConcurrently)
 import           Control.Concurrent.STM.TVar     (modifyTVar', newTVarIO, readTVarIO)
 import           Control.TimeWarp.Rpc            (NetworkAddress)
@@ -21,6 +18,7 @@ import           System.FilePath.Posix           ((</>))
 import           System.Random.Shuffle           (shuffleM)
 import           System.Wlog                     (logInfo)
 import           Test.QuickCheck                 (arbitrary, generate)
+import           Universum                       hiding (forConcurrently)
 
 import           Pos.Constants                   (k, neighborsSendThreshold, slotDuration)
 import           Pos.Crypto                      (KeyPair (..), hash)
@@ -264,7 +262,3 @@ main = do
                               runSmartGen @SscGodTossing inst params gtParams opts
             NistBeaconAlgo -> putText "Using NIST beacon" *>
                               runSmartGen @SscNistBeacon inst params () opts
-#else
-main :: IO ()
-main = panic "Wallet is necessary for smart generator"
-#endif

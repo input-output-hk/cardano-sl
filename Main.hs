@@ -43,7 +43,9 @@ type MessageName = BS.ByteString
 data Listener = Listener MessageName ListenerAction
 
 data ListenerAction where
-  ListenerAction :: Binary msg => (ReplyAction -> msg -> IO ()) -> ListenerAction
+  ListenerAction :: Binary msg
+                 => (SendAction -> ReplyAction -> msg -> IO ())
+                 -> ListenerAction
 
 
 data SendAction = SendAction {
@@ -72,6 +74,10 @@ startNode transport workers listeners = do
   where
     handler :: NodeId -> Chan (Maybe BS.ByteString) -> IO ()
     handler peer chan = return ()
+    --TODO: fill in the dispatcher impl:
+    --      it needs to decode the MessageName
+    --      then lookup the listener(s)
+    --      then decode the body and fork the listener with the decoded message
 
 stopNode :: Node -> IO ()
 stopNode Node {..} = do
@@ -109,3 +115,4 @@ recvMsg chan prefix =
     go (Bin.Fail _trailing _ err) = fail "TODO"
     go (Bin.Partial continue) = do
       mx <- readChan chan
+      --TODO...

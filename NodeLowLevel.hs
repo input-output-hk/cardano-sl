@@ -87,6 +87,11 @@ data ConnectionState =
 -- amount of in flight incoming data. This will be needed to inform the
 -- back-pressure policy.
 
+--TODO: need to fill in how threads are cleaned up. The 'finally' handler for
+-- the forked thread will post a cleanup event to the dispatcher thread which
+-- will eventually get it and remove the ConnectionId from the DispatcherState
+-- and update any stats (ie decrement counts of resources in use)
+
 -- | The one thread that handles /all/ incoming messages and dispatches them
 -- to various handlers.
 --
@@ -182,7 +187,7 @@ sendMsg Node{nodeEndPoint} (NodeId endpointaddr) msg = do
                nodeEndPoint
                endpointaddr
                NT.ReliableOrdered
-               NT.ConnectHints{ connectTimeout = Nothing } --TODO
+               NT.ConnectHints{ connectTimeout = Nothing } --TODO use timeout
 
     -- TODO: Any error detected here needs to be reported because it's not
     -- reported via the dispatcher thread. It means we cannot establish a

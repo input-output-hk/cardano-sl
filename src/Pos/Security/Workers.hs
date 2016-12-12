@@ -7,6 +7,7 @@ module Pos.Security.Workers
 
 import           Control.Lens                      ((^.))
 import           Control.Monad.Trans.State         (StateT (..), get, modify, put)
+import qualified Data.HashMap.Strict               as HM
 import           Data.Tagged                       (Tagged (..))
 import           Formatting                        (build, int, sformat, (%))
 import           System.Wlog                       (logWarning)
@@ -14,12 +15,14 @@ import           Universum                         hiding (modify)
 
 import           Pos.Slotting                      (onNewSlot)
 import           Pos.Ssc.Class.Types               (Ssc (..))
-import           Pos.Ssc.GodTossing.Functions      (hasCommitment, isOpeningId)
+import           Pos.Ssc.GodTossing.Functions      (isOpeningId)
 import           Pos.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types    (GtPayload (..))
 import           Pos.Ssc.NistBeacon                (SscNistBeacon)
-import           Pos.State                         (getGlobalMpcData, getHeadBlock)
-import           Pos.Types                         (SlotId, flattenSlotId, flattenSlotId,
+import           Pos.State                         (getHeadBlock)
+import           Pos.Types                         (Address, SlotId, MainBlock, blockMpc,
+                                                    flattenSlotId, flattenSlotId,
                                                     gbHeader, headerSlot,
                                                     makePubKeyAddress, slotIdF)
 import           Pos.WorkMode                      (WorkMode, getNodeContext, ncPublicKey)
@@ -68,13 +71,31 @@ checkForIgnoredCommitmentsWorkerImpl ::
   forall m. WorkMode SscGodTossing m
   => SlotId -> StateT EpochsCount m ()
 checkForIgnoredCommitmentsWorkerImpl slotId = do
+  headBlock <- getHeadBlock
+  case headBlock of
+    Left _ -> return ()
+    Right blk -> processBlock slotId blk
+
+isCommitmentInPayload  :: forall m. WorkMode SscGodTossing m => Address -> GtPayload -> m Bool
+isCommitmentInPayload addr p@(CommitmentsPayload commitments _) = do
+  logWarning $ sformat ("Malicious commitment: "%build) p
+  return $ HM.member addr commitments
+isCommitmentInPayload _ p = do
+  logWarning $ sformat ("Malicious other-type: "%build) p
+  return False
+
+processBlock ::
+  forall m. WorkMode SscGodTossing m
+  => SlotId -> MainBlock SscGodTossing -> StateT EpochsCount m ()
+processBlock slotId block = do
   ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
-  commitmentInBlockchain <- hasCommitment ourAddr <$> getGlobalMpcData
+  -- let commitmentInBlockchain = isCommitmentInPayload ourAddr (block ^. blockMpc)
+  commitmentInBlockchain <- lift $ isCommitmentInPayload ourAddr (block ^. blockMpc)
   when commitmentInBlockchain $
     put 0
   -- TODO(voit): Check if isOpeningId is the correct time to check about commitment
   epochs <- get
-  logWarning $ sformat ("Malicious: slot="%slotIdF%", epochs="%int%", hasCommitment="%build) slotId epochs commitmentInBlockchain
+  logWarning $ sformat ("Malicious: slot="%slotIdF%", epochs="%int%", hasCommitment="%build%", ourAddr="%build) slotId epochs commitmentInBlockchain ourAddr
   when (and [isOpeningId slotId, not commitmentInBlockchain]) $ do
     modify (+1)
     when (epochs > commitmentsAreIgnoredThreshold) $

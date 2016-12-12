@@ -9,7 +9,6 @@ import           Control.Lens                      ((^.))
 import           Control.Monad.Trans.State         (StateT (..), get, put)
 import qualified Data.HashMap.Strict               as HM
 import           Data.Tagged                       (Tagged (..))
-import           Formatting                        (build, int, sformat, (%))
 import           System.Wlog                       (logWarning)
 import           Universum                         hiding (modify)
 
@@ -24,8 +23,7 @@ import           Pos.State                         (getHeadBlock, getBlockByDept
 import           Pos.Types                         (Address, EpochIndex, SlotId (..),
                                                     MainBlock, blockMpc,
                                                     flattenSlotId, flattenSlotId,
-                                                    gbHeader, headerSlot, makePubKeyAddress,
-                                                    slotIdF)
+                                                    gbHeader, headerSlot, makePubKeyAddress)
 import           Pos.WorkMode                      (WorkMode, getNodeContext, ncPublicKey)
 
 class Ssc ssc => SecurityWorkersClass ssc where
@@ -82,26 +80,19 @@ isCommitmentIncludedInAnyPreviousBlock slotId = do
   fmap or $ forM [0 .. k - 1] $ \depth -> do
     headBlock <- getBlockByDepth depth
     case headBlock of
-      Just (Right blk) -> logWarning (sformat ("Malicious: processing depth: "%int) depth) >> processBlock slotId blk
+      Just (Right blk) -> processBlock slotId blk
       _ -> return False
 
-isCommitmentInPayload  :: forall m. WorkMode SscGodTossing m => Address -> GtPayload -> m Bool
-isCommitmentInPayload addr p@(CommitmentsPayload commitments _) = do
-  logWarning $ sformat ("Malicious commitment: "%build) p
-  return $ HM.member addr commitments
-
-isCommitmentInPayload _ p = do
-  logWarning $ sformat ("Malicious other-type: "%build) p
-  return False
+isCommitmentInPayload  :: Address -> GtPayload -> Bool
+isCommitmentInPayload addr (CommitmentsPayload commitments _) = HM.member addr commitments
+isCommitmentInPayload _ _ = False
 
 processBlock ::
   forall m. WorkMode SscGodTossing m
   => SlotId -> MainBlock SscGodTossing -> StateT EpochIndex m Bool
 processBlock slotId block = do
   ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
-  commitmentInBlockchain <- lift $ isCommitmentInPayload ourAddr (block ^. blockMpc)
+  let commitmentInBlockchain = isCommitmentInPayload ourAddr (block ^. blockMpc)
   when commitmentInBlockchain $
     put $ siEpoch slotId
-  epochs <- get
-  logWarning $ sformat ("Malicious: slot="%slotIdF%", epochs="%int%", hasCommitment="%build%", ourAddr="%build) slotId epochs commitmentInBlockchain ourAddr
   return commitmentInBlockchain

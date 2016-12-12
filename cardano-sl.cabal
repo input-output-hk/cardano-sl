@@ -34,6 +34,12 @@ Flag with-wallet
 
   description: Build with wallet.
 
+Flag with-rocks
+  default:     True
+  manual:      True
+
+  description: Build with RocksDB.
+
 library
   exposed-modules:      Pos.Binary
                         Pos.CLI
@@ -158,6 +164,18 @@ library
                         Pos.Worker.Stats
                         Pos.Util.Arbitrary
                         Pos.Util.NotImplemented
+  if flag(with-rocks)
+    other-modules:
+                        Pos.Modern.DB
+                        Pos.Modern.DB.Class
+                        Pos.Modern.DB.Functions
+                        Pos.Modern.DB.Holder
+                        Pos.Modern.DB.Types
+                        Pos.Modern.Types.Utxo
+                        Pos.Modern.Txp.Storage
+                        Pos.Modern.Txp.LocalData
+                        Pos.Modern.Txp.Listeners
+                        Pos.Modern.Txp.RocksDB
   if flag(with-web)
     other-modules:      Pos.Web.Api
                         Pos.Web.Doc
@@ -169,7 +187,8 @@ library
     other-modules:      Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Server
-  build-depends:        HsOpenSSL
+  build-depends:        IfElse
+                      , HsOpenSSL
                       , QuickCheck
                       , UtilityTM
                       , acid-state
@@ -232,6 +251,9 @@ library
                       , vector
                       , yaml
 
+  if flag(with-rocks)
+    build-depends:      rocksdb
+
   if flag(with-web)
     build-depends:      http-types
                       , servant >= 0.8.1
@@ -264,6 +286,8 @@ library
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
+  if flag(with-rocks)
+    cpp-options: -DWITH_ROCKS
 
 executable cardano-node
   hs-source-dirs:      src/node

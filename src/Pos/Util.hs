@@ -53,7 +53,6 @@ module Pos.Util
        -- * LRU
        , clearLRU
 
-
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
        ) where

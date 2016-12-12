@@ -50,6 +50,8 @@ module Pos.Types.Types
        , formatUtxo
        , utxoF
 
+       , Undo
+
        , SharedSeed (..)
        , SlotLeaders
 
@@ -327,6 +329,12 @@ formatUtxo = mapBuilderJson . map (first pairBuilder) . M.toList
 -- | Specialized formatter for 'Utxo'.
 utxoF :: Format r (Utxo -> r)
 utxoF = later formatUtxo
+
+----------------------------------------------------------------------------
+-- UNDO
+----------------------------------------------------------------------------
+-- | Structure for undo block during rollback
+type Undo = [[TxOut]]
 
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw

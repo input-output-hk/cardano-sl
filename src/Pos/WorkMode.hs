@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                    #-}
 {-# LANGUAGE ConstraintKinds        #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
@@ -78,6 +79,9 @@ import           Pos.Crypto                  (PublicKey, SecretKey, toPublic)
 import           Pos.DHT                     (BiP, DHTMsgHeader, DHTResponseT,
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
+#ifdef WITH_ROCKS
+import qualified Pos.Modern.DB               as Modern
+#endif
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData     (MonadSscLD (..),
@@ -216,6 +220,7 @@ instance MonadMask m =>
 
 instance MonadIO m =>
          MonadSscLD ssc (SscLDImpl ssc m) where
+
     getLocalData = atomically . STM.readTVar =<< SscLDImpl ask
     setLocalData d = atomically . flip STM.writeTVar d =<< SscLDImpl ask
 
@@ -425,7 +430,13 @@ type UserDialog = Dialog UserPacking
 type RawRealMode ssc = KademliaDHT (TxLDImpl (
                                        SscLDImpl ssc (
                                            ContextHolder ssc (
-                                               DBHolder ssc (Dialog UserPacking Transfer)))))
+#ifdef WITH_ROCKS
+                                               Modern.DBHolder ssc (
+#endif
+                                                   DBHolder ssc (Dialog UserPacking Transfer)))))
+#ifdef WITH_ROCKS
+                                   )
+#endif
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.

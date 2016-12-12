@@ -43,8 +43,8 @@ import           Pos.Types            (Address, Coin (Coin), TxOut (..), address
 import           Pos.Wallet.Tx        (getBalance, submitTx)
 import           Pos.Wallet.Web.Api   (WalletApi, walletApi)
 import           Pos.Web.Server       (serveImpl)
-import           Pos.WorkMode         (DBHolder, ProductionMode, SscLDImpl, TxLDImpl,
-                                       UserDialog, runDBHolder, runSscLDImpl, runTxLDImpl)
+import           Pos.WorkMode         (ProductionMode, SscLDImpl, TxLDImpl,
+                                       UserDialog, runSscLDImpl, runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -67,7 +67,7 @@ type SubKademlia ssc = (TxLDImpl (
 #ifdef WITH_ROCKS
                                    Modern.DBHolder ssc (
 #endif
-                                       DBHolder ssc (UserDialog Transfer)))))
+                                       St.DBHolder ssc (UserDialog Transfer)))))
 #ifdef WITH_ROCKS
                        )
 #endif
@@ -89,7 +89,7 @@ convertHandler kctx tld nc ns modernDB handler =
 convertHandler kctx tld nc ns handler =
 #endif
     liftIO (runTimed "wallet-api" .
-            runDBHolder ns .
+            St.runDBHolder ns .
 #ifdef WITH_ROCKS
             Modern.runDBHolder modernDB .
 #endif

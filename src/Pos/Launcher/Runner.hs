@@ -77,7 +77,7 @@ import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (.
 import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
                                                sscCreateNodeContext)
 import           Pos.State                    (NodeState, closeState, openMemState,
-                                               openState)
+                                               openState, runDBHolder)
 import           Pos.State.Storage            (storageFromUtxo)
 import           Pos.Statistics               (getNoStatsT, runStatsT)
 import           Pos.Types                    (Timestamp (Timestamp), timestampF)
@@ -85,7 +85,7 @@ import           Pos.Util                     (runWithRandomIntervals)
 import           Pos.Worker                   (statsWorkers)
 import           Pos.WorkMode                 (MonadUserDialog, ProductionMode,
                                                RawRealMode, ServiceMode, StatsMode,
-                                               runDBHolder, runSscLDImpl, runTxLDImpl)
+                                               runSscLDImpl, runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Service node runners

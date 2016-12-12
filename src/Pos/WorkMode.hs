@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                    #-}
 {-# LANGUAGE ConstraintKinds        #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
@@ -74,7 +75,9 @@ import           Pos.Crypto                  (PublicKey, SecretKey, toPublic)
 import           Pos.DHT                     (DHTResponseT, MonadMessageDHT (..),
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
+#ifdef WITH_ROCKS
 import qualified Pos.Modern.DB               as Modern
+#endif
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData     (MonadSscLD (..),
@@ -410,8 +413,13 @@ instance (MonadIO m, MonadCatch m, WithLogger m) => MonadJL (ContextHolder ssc m
 type RawRealMode ssc = KademliaDHT (TxLDImpl (
                                        SscLDImpl ssc (
                                            ContextHolder ssc (
+#ifdef WITH_ROCKS
                                                Modern.DBHolder ssc (
-                                                   DBHolder ssc (Dialog BinaryP Transfer))))))
+#endif
+                                                   DBHolder ssc (Dialog BinaryP Transfer)))))
+#ifdef WITH_ROCKS
+                                   )
+#endif
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.

@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -67,7 +68,9 @@ import           Pos.DHT.Real                 (KademliaDHT, KademliaDHTConfig (.
                                                stopDHTInstance)
 import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (..),
                                                NodeParams (..))
+#ifdef WITH_ROCKS
 import qualified Pos.Modern.DB                as Modern
+#endif
 import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
                                                sscCreateNodeContext)
 import           Pos.State                    (NodeState, closeState, openMemState,
@@ -145,11 +148,15 @@ runRawRealMode
 runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ do
     lift $ setupLoggers lp
     legacyDB <- snd <$> allocate openDb closeDb
+#ifdef WITH_ROCKS
     modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo")
+#endif
     let run db =
             runTimed lpRunnerTag .
             runDBHolder db .
+#ifdef WITH_ROCKS
             Modern.runDBHolder modernDBs .
+#endif
             withEx (sscCreateNodeContext @ssc sscnp) $ flip (runCH np) .
             runSscLDImpl .
             runTxLDImpl .

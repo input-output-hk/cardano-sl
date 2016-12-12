@@ -6,7 +6,6 @@
 module Main where
 
 import           Control.Monad        (fail)
-import           Data.Binary          (Binary, decode, encode)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.List            ((!!))
 import           System.Directory     (createDirectoryIfMissing)
@@ -14,6 +13,7 @@ import           System.FilePath      ((</>))
 import           System.Wlog          (LoggerName)
 import           Universum
 
+import           Pos.Binary           (Bi, decode, encode)
 import           Pos.Constants        (RunningMode (..), runningMode)
 import           Pos.Crypto           (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.DHT              (DHTKey, DHTNodeType (..), dhtNodeType)
@@ -38,7 +38,7 @@ import           NodeOptions          (Args (..), getNodeOptions)
 
 
 getKey
-    :: Binary key
+    :: Bi key
     => Maybe key -> Maybe FilePath -> FilePath -> IO key -> IO key
 getKey (Just key) _ _ _ = return key
 getKey _ (Just path) _ _ = decode' path
@@ -50,7 +50,7 @@ getKey _ _ fpath gen = do
         putStrLn $ "Generated key " ++ ("cardano-keys" </> fpath)
         return key
 
-decode' :: Binary key => FilePath -> IO key
+decode' :: Bi key => FilePath -> IO key
 decode' fpath = either fail' return . decode =<< LBS.readFile fpath
   where
     fail' e = fail $ "Error reading key from " ++ fpath ++ ": " ++ e

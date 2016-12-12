@@ -10,7 +10,6 @@ module Pos.Modern.DB.Functions
        ) where
 
 import           Control.Monad.Trans.Resource (MonadResource)
-import           Data.Binary                  (Binary)
 import           Data.Default                 (def)
 import           Database.RocksDB             (getBinary, putBinary)
 import qualified Database.RocksDB             as Rocks
@@ -18,8 +17,8 @@ import           System.Directory             (createDirectoryIfMissing)
 import           System.FilePath              ((</>))
 import           Universum
 
+import           Pos.Binary.Class             (Bi, encode)
 import           Pos.Modern.DB.Types          (DB (..), NodeDBs (..))
-import           Pos.Util                     (binaryToBS)
 
 -- | Open DB stored on disk.
 openDB :: MonadResource m => FilePath -> m (DB ssc)
@@ -38,17 +37,17 @@ ensureDirectoryExists :: MonadIO m => FilePath -> m ()
 ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 
 -- | Read from RocksDb with default options
-rocksGetRaw :: (Binary v, MonadIO m) => ByteString -> DB ssc -> m (Maybe v)
-rocksGetRaw key DB {..} = getBinary rocksDB rocksReadOpts key
+rocksGetRaw :: (Bi v, MonadIO m) => ByteString -> DB ssc -> m (Maybe v)
+rocksGetRaw = notImplemented -- getBinary rocksDB rocksReadOpts key
 
 -- | Read from RocksDb with default options
-rocksGet :: (Binary k, Binary v, MonadIO m) => k -> DB ssc -> m (Maybe v)
-rocksGet key DB {..} = getBinary rocksDB rocksReadOpts (binaryToBS key)
+rocksGet :: (Bi k, Bi v, MonadIO m) => k -> DB ssc -> m (Maybe v)
+rocksGet = notImplemented -- getBinary rocksDB rocksReadOpts $ BSL.toStrict (encode key)
 
 -- | Read from RocksDb with default options
-rocksPutRaw :: (Binary v, MonadIO m) => ByteString -> v -> DB ssc -> m ()
-rocksPutRaw key val DB {..} = putBinary rocksDB rocksWriteOpts key val
+rocksPutRaw :: (Bi v, MonadIO m) => ByteString -> v -> DB ssc -> m ()
+rocksPutRaw = notImplemented -- putBinary rocksDB rocksWriteOpts key val
 
 -- | Write to RocksDb with default options
-rocksPut :: (Binary k, Binary v, MonadIO m) => k -> v -> DB ssc -> m ()
-rocksPut key val DB {..} = putBinary rocksDB rocksWriteOpts key val
+rocksPut :: (Bi k, Bi v, MonadIO m) => k -> v -> DB ssc -> m ()
+rocksPut = notImplemented -- putBinary rocksDB rocksWriteOpts key val

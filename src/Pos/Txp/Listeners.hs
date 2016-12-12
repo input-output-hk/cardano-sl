@@ -8,7 +8,6 @@ module Pos.Txp.Listeners
        ( txListeners
        ) where
 
-import           Control.TimeWarp.Rpc        (BinaryP, MonadDialog)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.List.NonEmpty          as NE
 import           Data.Maybe                  (fromJust)
@@ -16,6 +15,7 @@ import           Formatting                  (build, sformat, stext, (%))
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 import           Universum
 
+import           Pos.Binary.Class            (Bi)
 import           Pos.Communication.Methods   (sendToNeighborsSafe)
 import           Pos.Communication.Types     (ResponseMode)
 import           Pos.Crypto                  (hash)
@@ -28,10 +28,10 @@ import           Pos.Txp.LocalData           (getLocalTxs)
 import           Pos.Txp.Types.Communication (TxDataMsg (..), TxInvMsg (..),
                                               TxReqMsg (..))
 import           Pos.Types                   (IdTxWitness, TxId)
-import           Pos.WorkMode                (WorkMode)
+import           Pos.WorkMode                (MonadUserDialog, WorkMode)
 
 -- | Listeners for requests related to blocks processing.
-txListeners :: (MonadDialog BinaryP m, WorkMode ssc m)
+txListeners :: (MonadUserDialog m, WorkMode ssc m, Bi TxInvMsg, Bi TxReqMsg, Bi TxDataMsg)
             => [ListenerDHT m]
 txListeners =
     [
@@ -40,7 +40,9 @@ txListeners =
     , ListenerDHT handleTxData
     ]
 
-handleTxInv :: (ResponseMode ssc m) => TxInvMsg -> m ()
+handleTxInv
+    :: (ResponseMode ssc m, Bi TxReqMsg)
+    => TxInvMsg -> m ()
 handleTxInv (TxInvMsg txHashes_) = do
     let txHashes = NE.toList txHashes_
     added <- mapM handleSingle txHashes
@@ -56,8 +58,9 @@ handleTxInv (TxInvMsg txHashes_) = do
     ingoringLogMsg txHash = logDebug $
         sformat ("Ignoring tx with hash ("%build%"), because it's useless") txHash
 
-handleTxReq :: (ResponseMode ssc m)
-            => TxReqMsg -> m ()
+handleTxReq
+    :: (ResponseMode ssc m, Bi TxDataMsg)
+    => TxReqMsg -> m ()
 handleTxReq (TxReqMsg txIds_) = do
     localTxs <- getLocalTxs
     let txIds = NE.toList txIds_
@@ -65,7 +68,7 @@ handleTxReq (TxReqMsg txIds_) = do
         addedItems = map fromJust . filter isJust $ found
     mapM_ (replyToNode . uncurry TxDataMsg) addedItems
 
-handleTxData :: (ResponseMode ssc m)
+handleTxData :: (ResponseMode ssc m, Bi TxInvMsg)
              => TxDataMsg -> m ()
 handleTxData (TxDataMsg tx tw) = do
     let txId = hash tx

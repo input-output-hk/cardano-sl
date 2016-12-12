@@ -1,19 +1,17 @@
 module Pos.Modern.Txp.RocksDB
-       (
-         createPutTx
+       ( createPutTx
        , createDelTx
        ) where
-import           Database.RocksDB (BatchOp, BatchOp (..))
+import           Database.RocksDB (BatchOp (..))
 import           Universum
 
 import           Pos.Types        (TxId, TxOut)
-import           Pos.Util         (binaryToBS)
 
 ----------------------------------------------------------------------------
 -- RocksDB Tx
 ----------------------------------------------------------------------------
 createPutTx :: ((TxId, Word32), TxOut) -> BatchOp
-createPutTx (key, val) = Put (binaryToBS key) (binaryToBS val)
+createPutTx = notImplemented
 
 createDelTx :: (TxId, Word32) -> BatchOp
-createDelTx key = Del (binaryToBS key)
+createDelTx = notImplemented

@@ -1,18 +1,19 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell  #-}
 
 -- | Monadic represantion of something that has @json@ journaled log
 -- of operations.
 
 module Pos.Util.JsonLog
-    ( JLEvent(..)
-    , JLBlock (..)
-    , JLTimedEvent (..)
-    , jlCreatedBlock
-    , jlAdoptedBlock
-    , MonadJL (..)
-    , appendJL
-    , fromJLSlotId
-    ) where
+       ( JLEvent(..)
+       , JLBlock (..)
+       , JLTimedEvent (..)
+       , jlCreatedBlock
+       , jlAdoptedBlock
+       , MonadJL (..)
+       , appendJL
+       , fromJLSlotId
+       ) where
 
 import           Control.Lens           (view, (^.))
 import           Control.TimeWarp.Timed (currentTime, runTimedIO)
@@ -20,14 +21,16 @@ import           Data.Aeson             (encode)
 import           Data.Aeson.TH          (deriveJSON)
 import qualified Data.ByteString.Lazy   as LBS
 import           Formatting             (sformat)
+import           Serokell.Aeson.Options (defaultOptions)
+import           Universum
+
+import           Pos.Binary.Types       ()
 import           Pos.Crypto             (Hash, hash, hashHexF)
 import           Pos.DHT                (DHTResponseT)
 import           Pos.Ssc.Class.Types    (Ssc)
-import           Pos.Types              (Block, SlotId (..), blockHeader, blockTxs,
+import           Pos.Types              (BiSsc, Block, SlotId (..), blockHeader, blockTxs,
                                          epochIndexL, gbHeader, gbhPrevBlock, headerHash,
                                          headerSlot)
-import           Serokell.Aeson.Options (defaultOptions)
-import           Universum
 
 type BlockId = Text
 type TxId = Text
@@ -66,7 +69,7 @@ $(deriveJSON defaultOptions ''JLEvent)
 $(deriveJSON defaultOptions ''JLTimedEvent)
 
 -- | Return event of created block.
-jlCreatedBlock :: Ssc ssc => Block ssc -> JLEvent
+jlCreatedBlock :: BiSsc ssc => Block ssc -> JLEvent
 jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
   where
     jlHash = showHash $ headerHash block

@@ -45,6 +45,7 @@ prepare si@SlotId {siEpoch = epochIdx} = do
         put $ GtSecretStorage Nothing si
     else
         put $ st {_dsLastProcessedSlot = si}
+
 ----------------------------------------------------------------------------
 -- Acidic Secret Storage
 ----------------------------------------------------------------------------
@@ -71,4 +72,3 @@ makeAcidic ''GtSecretStorage
     , 'setS
     , 'prepare
     ]
-

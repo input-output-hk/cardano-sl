@@ -5,5 +5,5 @@ module Pos.DHT
       , module Pos.DHT.Class
       ) where
 
-import           Pos.DHT.Types
 import           Pos.DHT.Class
+import           Pos.DHT.Types

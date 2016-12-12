@@ -22,43 +22,45 @@ module Pos.DHT.Class.MonadMessageDHT
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, catch)
 import           Control.Monad.Morph       (hoist)
 import           Control.Monad.Trans.Class (MonadTrans)
-import           Control.TimeWarp.Rpc      (BinaryP, Message, MonadDialog,
-                                            MonadTransfer (..), NetworkAddress, ResponseT,
-                                            closeR, hoistRespCond, mapResponseT, peerAddr,
-                                            replyH, sendH)
+import           Control.TimeWarp.Rpc      (Message, MonadDialog, MonadTransfer (..),
+                                            NetworkAddress, ResponseT, closeR,
+                                            hoistRespCond, mapResponseT, peerAddr, replyH,
+                                            sendH)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
-import           Data.Binary               (Binary)
 import           Formatting                (int, sformat, shown, (%))
 import qualified Formatting                as F
-import           System.Wlog               (CanLog, HasLoggerName,
-                                            WithLogger, logDebug, logInfo, logWarning)
+import           System.Wlog               (CanLog, HasLoggerName, WithLogger, logDebug,
+                                            logInfo, logWarning)
 import           Universum
 
+import           Pos.Binary.Class          (Bi (..))
 import           Pos.Constants             (neighborsSendThreshold)
-import           Pos.DHT.Types             (DHTNode (..), DHTNodeType (..), dhtAddr, filterByNodeType)
+import           Pos.DHT.Class.BiP         (BiP)
 import           Pos.DHT.Class.MonadDHT
+import           Pos.DHT.Types             (DHTNode (..), DHTNodeType (..), dhtAddr,
+                                            filterByNodeType)
 import           Pos.Util                  (messageName')
-
 
 -- | Monad that can send messages over distributed network.
 class MonadDHT m => MonadMessageDHT m where
 
-    sendToNetwork :: (Binary r, Message r) => r -> m ()
+    sendToNetwork :: (Bi r, Message r) => r -> m ()
 
-    sendToNode :: (Binary r, Message r) => NetworkAddress -> r -> m ()
+    sendToNode :: (Bi r, Message r) => NetworkAddress -> r -> m ()
 
-    sendToNeighbors :: (Binary r, Message r) => r -> m Int
+    sendToNeighbors :: (Bi r, Message r) => r -> m Int
 
-    default sendToNode :: ( Binary r
+    default sendToNode :: ( Bi r
+                          , Bi DHTMsgHeader
                           , Message r
                           , WithLogger m
                           , WithDefaultMsgHeader m
-                          , MonadDialog BinaryP m
+                          , MonadDialog (BiP DHTMsgHeader) m
                           , MonadThrow m
                           ) => NetworkAddress -> r -> m ()
     sendToNode = defaultSendToNode
 
-    default sendToNeighbors :: ( Binary r
+    default sendToNeighbors :: ( Bi r
                                , Message r
                                , WithLogger m
                                , MonadCatch m
@@ -67,7 +69,7 @@ class MonadDHT m => MonadMessageDHT m where
 
 -- | Monad that can respond on messages for DHT algorithm.
 class MonadMessageDHT m => MonadResponseDHT m where
-  replyToNode :: (Binary r, Message r) => r -> m ()
+  replyToNode :: (Bi r, Message r) => r -> m ()
   closeResponse :: m ()
 
 instance MonadMessageDHT m => MonadMessageDHT (ReaderT r m) where
@@ -79,8 +81,6 @@ instance MonadMessageDHT m => MonadMessageDHT (ReaderT r m) where
 data DHTMsgHeader = BroadcastHeader
                   | SimpleHeader { dmhNoCache :: Bool }
   deriving (Generic, Show)
-
-instance Binary DHTMsgHeader
 
 -- | Class for something that has default 'DHTMsgHeader'.
 class WithDefaultMsgHeader m where
@@ -107,7 +107,8 @@ newtype DHTResponseT m a = DHTResponseT
 
 instance MonadTransfer m => MonadTransfer (DHTResponseT m) where
     sendRaw addr p = DHTResponseT $ sendRaw addr (hoist getDHTResponseT p)
-    listenRaw binding sink = DHTResponseT $ fmap DHTResponseT $ listenRaw binding (hoistRespCond getDHTResponseT sink)
+    listenRaw binding sink =
+        DHTResponseT $ fmap DHTResponseT $ listenRaw binding (hoistRespCond getDHTResponseT sink)
     close = DHTResponseT . close
 
 type instance ThreadId (DHTResponseT m) = ThreadId m
@@ -115,21 +116,23 @@ type instance ThreadId (DHTResponseT m) = ThreadId m
 instance ( WithLogger m
          , WithDefaultMsgHeader m
          , MonadMessageDHT m
-         , MonadDialog BinaryP m
+         , MonadDialog (BiP DHTMsgHeader) m
          , MonadIO m
          , MonadMask m
+         , Bi DHTMsgHeader
          ) => MonadResponseDHT (DHTResponseT m) where
   replyToNode msg = do
     addr <- DHTResponseT $ peerAddr
     withDhtLogger $
-      logDebug $ sformat ("Replying with message " % F.build % " to " % F.build) (messageName' msg) addr
+      logDebug $
+      sformat ("Replying with message "%F.build%" to "%F.build) (messageName' msg) addr
     header <- defaultMsgHeader msg
     DHTResponseT $ replyH header msg
   closeResponse = DHTResponseT closeR
 
 -- | Listener of DHT messages.
 data ListenerDHT m =
-    forall r . (Binary r, Message r)
+    forall r . (Bi r, Message r)
             => ListenerDHT (r -> DHTResponseT m ())
 
 -- | Monad morphism of inner monadic action inside 'DHTResponceT'.
@@ -143,17 +146,19 @@ mapListenerDHT how (ListenerDHT listen) = ListenerDHT $ mapDHTResponseT how . li
 -- | Send 'defaultMsgHeader' for node with given 'NetworkAddress'.
 defaultSendToNode
     :: ( MonadMessageDHT m
-       , Binary r
+       , Bi r
        , Message r
        , WithDefaultMsgHeader m
        , WithLogger m
-       , MonadDialog BinaryP m
+       , MonadDialog (BiP DHTMsgHeader) m
        , MonadThrow m
+       , Bi DHTMsgHeader
        )
     => NetworkAddress -> r -> m ()
 defaultSendToNode addr msg = do
     withDhtLogger $
-      logDebug $ sformat ("Sending message " % F.build % " to node " % shown) (messageName' msg) addr
+      logDebug $
+      sformat ("Sending message "%F.build%" to node "%shown) (messageName' msg) addr
     header <- defaultMsgHeader msg
     sendH addr header msg
 

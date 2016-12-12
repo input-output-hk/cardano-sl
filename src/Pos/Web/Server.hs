@@ -34,6 +34,7 @@ import           Servant.Server                       (Handler, ServantErr (errB
 import           Servant.Utils.Enter                  ((:~>) (Nat), enter)
 import           Universum
 
+import           Pos.Binary                           (deserializeM)
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, getOpening,
@@ -47,7 +48,6 @@ import           Pos.Txp.LocalData                    (TxLocalData, getLocalTxs,
 import           Pos.Types                            (EpochIndex (..), SharedSeed,
                                                        SlotId (siEpoch, siSlot),
                                                        SlotLeaders, headerHash)
-import           Pos.Util                             (deserializeM)
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
 import           Pos.Web.Types                        (GodTossingStage (..))

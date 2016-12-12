@@ -1,5 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Pos.DHT.Real.Types
        ( KademliaDHTInstance (..)
@@ -10,49 +12,42 @@ module Pos.DHT.Real.Types
        , DHTHandle
        ) where
 
-import           Control.Concurrent.STM          (TVar)
-import           Control.Monad.Catch             (MonadCatch, MonadMask,
-                                                  MonadThrow)
-import           Control.Monad.Morph             (hoist)
-import           Control.Monad.Trans.Class       (MonadTrans)
-import           Control.TimeWarp.Rpc            (Binding (..),
-                                                  MonadDialog,
-                                                  MonadResponse (..), MonadTransfer (..),
-                                                  hoistRespCond)
-import           Control.TimeWarp.Timed          (MonadTimed, ThreadId)
+import           Control.Concurrent.STM    (TVar)
+import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Morph       (hoist)
+import           Control.Monad.Trans.Class (MonadTrans)
+import           Control.TimeWarp.Rpc      (Binding (..), MonadDialog, MonadResponse (..),
+                                            MonadTransfer (..), hoistRespCond)
+import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 
-import           Data.Binary                     (Binary, decodeOrFail, encode)
-import qualified Data.ByteString                 as BS
-import           Data.ByteString.Lazy            (fromStrict, toStrict)
+import qualified Data.ByteString           as BS
+import           Data.ByteString.Lazy      (fromStrict, toStrict)
 
-import qualified Network.Kademlia                as K
-import           System.Wlog                     (CanLog, HasLoggerName)
-import           Universum                       hiding (async, fromStrict,
-                                                  mapConcurrently, toStrict)
+import qualified Network.Kademlia          as K
+import           Pos.Binary.Class          (Bi (..), decodeOrFail, encode)
+import           System.Wlog               (CanLog, HasLoggerName)
+import           Universum                 hiding (async, fromStrict, mapConcurrently,
+                                            toStrict)
 
-import           Pos.DHT.Class                   (DHTMsgHeader (..),
-                                                  ListenerDHT (..),
-                                                  WithDefaultMsgHeader (..),
-                                                 )
-import           Pos.DHT.Types                   (DHTData, DHTKey,
-                                                  DHTNode (..),
-                                                  DHTNodeType (..),
-                                                  )
+import           Pos.DHT.Class             (DHTMsgHeader (..), ListenerDHT (..),
+                                            WithDefaultMsgHeader (..))
+import           Pos.DHT.Types             (DHTData, DHTKey, DHTNode (..),
+                                            DHTNodeType (..))
 
-toBSBinary :: Binary b => b -> BS.ByteString
+toBSBinary :: Bi b => b -> BS.ByteString
 toBSBinary = toStrict . encode
 
-fromBSBinary :: Binary b => BS.ByteString -> Either [Char] (b, BS.ByteString)
+fromBSBinary :: Bi b => BS.ByteString -> Either [Char] (b, BS.ByteString)
 fromBSBinary bs =
     case decodeOrFail $ fromStrict bs of
         Left (_, _, errMsg)  -> Left errMsg
         Right (rest, _, res) -> Right (res, toStrict rest)
 
-instance K.Serialize DHTData where
+instance Bi DHTData => K.Serialize DHTData where
   toBS = toBSBinary
   fromBS = fromBSBinary
 
-instance K.Serialize DHTKey where
+instance Bi DHTKey => K.Serialize DHTKey where
   toBS = toBSBinary
   fromBS = fromBSBinary
 

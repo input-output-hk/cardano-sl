@@ -4,6 +4,7 @@ extra-package-dbs: []
 
 packages:
 - '.'
+
 - location:
     git: https://github.com/serokell/universum
     commit: d347ccf3605d0851dd0f7046fe63f364510ef1a0
@@ -23,6 +24,10 @@ packages:
 - location:
     git: https://github.com/serokell/kademlia.git
     commit: 062053ed11b92c8e25d4d61ea943506fd0482fa6
+  extra-dep: true
+- location:
+    git: https://github.com/serokell/rocksdb-haskell.git
+    commit: 9910b9dc5c49c660eb7b5de233c11717e133f0b9
   extra-dep: true
 
 nix:

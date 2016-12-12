@@ -66,6 +66,7 @@ library
                         Pos.Ssc.Class.LocalData
                         Pos.State
                         Pos.State.Acidic
+                        Pos.State.Modern
                         Pos.State.State
                         Pos.State.Storage
                         Pos.State.Storage.Block
@@ -199,6 +200,7 @@ library
                       , parsec
                       , pvss
                       , resourcet
+                      , rocksdb
                       , quickcheck-instances
                       , random
                       , safecopy

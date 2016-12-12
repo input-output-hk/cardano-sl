@@ -19,15 +19,15 @@ import           Pos.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types    (GtPayload (..))
 import           Pos.Ssc.NistBeacon                (SscNistBeacon)
-import           Pos.State                         (getHeadBlock, getBlockByDepth)
-import           Pos.Types                         (Address, EpochIndex, SlotId (..),
-                                                    MainBlock, blockMpc,
-                                                    flattenSlotId, flattenSlotId,
-                                                    gbHeader, headerSlot, makePubKeyAddress)
+import           Pos.State                         (getBlockByDepth, getHeadBlock)
+import           Pos.Types                         (EpochIndex, MainBlock, SlotId (..),
+                                                    blockMpc, flattenSlotId,
+                                                    flattenSlotId, gbHeader, headerSlot,
+                                                    makePubKeyAddress)
 import           Pos.WorkMode                      (WorkMode, getNodeContext, ncPublicKey)
 
 class Ssc ssc => SecurityWorkersClass ssc where
-  securityWorkers :: WorkMode ssc m => Tagged ssc [m ()]
+    securityWorkers :: WorkMode ssc m => Tagged ssc [m ()]
 
 instance SecurityWorkersClass SscGodTossing where
     securityWorkers = Tagged [ checkForReceivedBlocksWorker
@@ -51,48 +51,47 @@ reportAboutEclipsed = logWarning "We're doomed, we're eclipsed!"
 
 checkForReceivedBlocksWorker :: WorkMode ssc m => m ()
 checkForReceivedBlocksWorker = onNewSlot True $ \slotId -> do
-  headBlock <- getHeadBlock
-  case headBlock of
-    Left _    -> return ()
-    Right blk -> do
-      let fSlotId = flattenSlotId slotId
-      let fBlockGeneratedSlotId = flattenSlotId (blk ^. gbHeader . headerSlot)
-      when (fSlotId - fBlockGeneratedSlotId > blocksNotReceivedThreshold)
-        reportAboutEclipsed
+    headBlock <- getHeadBlock
+    case headBlock of
+        Left _    -> return ()
+        Right blk -> do
+            let fSlotId = flattenSlotId slotId
+            let fBlockGeneratedSlotId = flattenSlotId (blk ^. gbHeader . headerSlot)
+            when (fSlotId - fBlockGeneratedSlotId > blocksNotReceivedThreshold)
+                reportAboutEclipsed
 
 checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => m ()
-checkForIgnoredCommitmentsWorker =
-  runStateT (onNewSlot True checkForIgnoredCommitmentsWorkerImpl) 0 >> return ()
+checkForIgnoredCommitmentsWorker = do
+    _ <- runStateT (onNewSlot True checkForIgnoredCommitmentsWorkerImpl) 0
+    return ()
 
-checkForIgnoredCommitmentsWorkerImpl ::
-  forall m. WorkMode SscGodTossing m
-  => SlotId -> StateT EpochIndex m ()
+checkForIgnoredCommitmentsWorkerImpl
+    :: forall m. WorkMode SscGodTossing m
+    => SlotId -> StateT EpochIndex m ()
 checkForIgnoredCommitmentsWorkerImpl slotId = do
-  commitmentIgnored <- not <$> isCommitmentIncludedInAnyPreviousBlock slotId
-  lastCommitment <- get
-  when (and [commitmentIgnored, siEpoch slotId - lastCommitment > commitmentsAreIgnoredThreshold]) $ do
-    lift reportAboutEclipsed
+    checkCommitmentsInPreviousBlocks slotId
+    lastCommitment <- get
+    when (siEpoch slotId - lastCommitment > commitmentsAreIgnoredThreshold) $ do
+        lift reportAboutEclipsed
 
-isCommitmentIncludedInAnyPreviousBlock ::
-  forall m. WorkMode SscGodTossing m
-  => SlotId -> StateT EpochIndex m Bool
-isCommitmentIncludedInAnyPreviousBlock slotId = do
-  fmap or $ forM [0 .. k - 1] $ \depth -> do
-    headBlock <- getBlockByDepth depth
-    case headBlock of
-      Just (Right blk) -> processBlock slotId blk
-      _ -> return False
+checkCommitmentsInPreviousBlocks
+    :: forall m. WorkMode SscGodTossing m
+    => SlotId -> StateT EpochIndex m ()
+checkCommitmentsInPreviousBlocks slotId = do
+    forM_ [0 .. k - 1] $ \depth -> do
+        headBlock <- getBlockByDepth depth
+        case headBlock of
+            Just (Right blk) -> checkCommitmentsInBlock slotId blk
+            _                -> return ()
 
-isCommitmentInPayload  :: Address -> GtPayload -> Bool
-isCommitmentInPayload addr (CommitmentsPayload commitments _) = HM.member addr commitments
-isCommitmentInPayload _ _ = False
-
-processBlock ::
-  forall m. WorkMode SscGodTossing m
-  => SlotId -> MainBlock SscGodTossing -> StateT EpochIndex m Bool
-processBlock slotId block = do
-  ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
-  let commitmentInBlockchain = isCommitmentInPayload ourAddr (block ^. blockMpc)
-  when commitmentInBlockchain $
-    put $ siEpoch slotId
-  return commitmentInBlockchain
+checkCommitmentsInBlock
+    :: forall m. WorkMode SscGodTossing m
+    => SlotId -> MainBlock SscGodTossing -> StateT EpochIndex m ()
+checkCommitmentsInBlock slotId block = do
+    ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
+    let commitmentInBlockchain = isCommitmentInPayload ourAddr (block ^. blockMpc)
+    when commitmentInBlockchain $
+        put $ siEpoch slotId
+  where
+    isCommitmentInPayload addr (CommitmentsPayload commitments _) = HM.member addr commitments
+    isCommitmentInPayload _ _ = False

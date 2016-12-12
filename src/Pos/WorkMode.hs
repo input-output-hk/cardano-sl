@@ -102,6 +102,7 @@ type WorkMode ssc m
       , MonadMask m
       , MonadSlots m
       , MonadDB ssc m
+      -- , Modern.MonadDB ssc m
       , MonadTxLD m
       , SscStorageMode ssc
       , SscLocalDataClass ssc
@@ -151,6 +152,15 @@ newtype TxLDImpl m a = TxLDImpl
                 MonadDB ssc, CanLog, MonadMask)
 
 type instance ThreadId (TxLDImpl m) = ThreadId m
+
+#ifdef WITH_ROCKS
+instance Modern.MonadDB ssc m => Modern.MonadDB ssc (TxLDImpl m) where
+    getNodeDBs = notImplemented
+    usingReadOptionsUtxo = notImplemented
+    usingWriteOptionsUtxo = notImplemented
+    usingReadOptionsBlock = notImplemented
+    usingWriteOptionsBlock = notImplemented
+#endif
 
 instance Monad m => WrappedM (TxLDImpl m) where
     type UnwrappedM (TxLDImpl m) = ReaderT (STM.TVar TxLocalData) m
@@ -204,6 +214,15 @@ newtype SscLDImpl ssc m a = SscLDImpl
 instance Monad m => WrappedM (SscLDImpl ssc m) where
     type UnwrappedM (SscLDImpl ssc m) = ReaderT (STM.TVar (SscLocalData ssc)) m
     _WrappedM = iso getSscLDImpl SscLDImpl
+
+#ifdef WITH_ROCKS
+instance Modern.MonadDB ssc m => Modern.MonadDB ssc (SscLDImpl ssc m) where
+    getNodeDBs = notImplemented
+    usingReadOptionsUtxo = notImplemented
+    usingWriteOptionsUtxo = notImplemented
+    usingReadOptionsBlock = notImplemented
+    usingWriteOptionsBlock = notImplemented
+#endif
 
 monadMaskHelper
     :: (ReaderT (STM.TVar (SscLocalData ssc)) m a -> ReaderT (STM.TVar (SscLocalData ssc)) m a)
@@ -295,6 +314,22 @@ instance (MonadDB ssc m, Monad m) => MonadDB ssc (KademliaDHT m) where
     getNodeState = lift getNodeState
 
 ----------------------------------------------------------------------------
+-- Modern
+----------------------------------------------------------------------------
+
+#ifdef WITH_ROCKS
+
+instance (Modern.MonadDB ssc m, Monad m) =>
+         Modern.MonadDB ssc (KademliaDHT m) where
+    getNodeDBs = lift Modern.getNodeDBs
+    usingReadOptionsUtxo = notImplemented
+    usingWriteOptionsUtxo = notImplemented
+    usingReadOptionsBlock = notImplemented
+    usingWriteOptionsBlock = notImplemented
+
+#endif
+
+----------------------------------------------------------------------------
 -- NodeContext
 ----------------------------------------------------------------------------
 
@@ -359,6 +394,15 @@ newtype ContextHolder ssc m a = ContextHolder
 -- | Run 'ContextHolder' action.
 runContextHolder :: NodeContext ssc -> ContextHolder ssc m a -> m a
 runContextHolder ctx = flip runReaderT ctx . getContextHolder
+
+#ifdef WITH_ROCKS
+instance Modern.MonadDB ssc m => Modern.MonadDB ssc (ContextHolder ssc m) where
+    getNodeDBs = notImplemented
+    usingReadOptionsUtxo = notImplemented
+    usingWriteOptionsUtxo = notImplemented
+    usingReadOptionsBlock = notImplemented
+    usingWriteOptionsBlock = notImplemented
+#endif
 
 instance Monad m => WrappedM (ContextHolder ssc m) where
     type UnwrappedM (ContextHolder ssc m) = ReaderT (NodeContext ssc) m

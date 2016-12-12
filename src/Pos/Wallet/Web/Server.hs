@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -28,6 +29,9 @@ import           Pos.DHT.Real         (KademliaDHTContext, getKademliaDHTCtx,
                                        runKademliaDHTRaw)
 import           Pos.Genesis          (genesisAddresses, genesisSecretKeys)
 import           Pos.Launcher         (runTimed)
+#ifdef WITH_ROCKS
+import qualified Pos.Modern.DB        as Modern
+#endif
 import           Pos.Ssc.Class        (SscConstraint)
 import qualified Pos.State            as St
 import           Pos.Statistics       (getNoStatsT)
@@ -57,8 +61,16 @@ walletApplication = servantServer >>= return . serve walletApi
 ----------------------------------------------------------------------------
 
 type WebHandler ssc = ProductionMode ssc
-type SubKademlia ssc = TxLDImpl
-    (SscLDImpl ssc (ContextHolder ssc (DBHolder ssc (UserDialog Transfer))))
+type SubKademlia ssc = (TxLDImpl (
+                           SscLDImpl ssc (
+                               ContextHolder ssc (
+#ifdef WITH_ROCKS
+                                   Modern.DBHolder ssc (
+#endif
+                                       DBHolder ssc (UserDialog Transfer)))))
+#ifdef WITH_ROCKS
+                       )
+#endif
 
 convertHandler
     :: forall ssc a . SscConstraint ssc
@@ -66,11 +78,21 @@ convertHandler
     -> TxLocalData
     -> NodeContext ssc
     -> St.NodeState ssc
+#ifdef WITH_ROCKS
+    -> Modern.NodeDBs ssc
+#endif
     -> WebHandler ssc a
     -> Handler a
+#ifdef WITH_ROCKS
+convertHandler kctx tld nc ns modernDB handler =
+#else
 convertHandler kctx tld nc ns handler =
+#endif
     liftIO (runTimed "wallet-api" .
             runDBHolder ns .
+#ifdef WITH_ROCKS
+            Modern.runDBHolder modernDB .
+#endif
             runContextHolder nc .
             runSscLDImpl .
             runTxLDImpl .
@@ -89,7 +111,12 @@ nat = do
     tld <- getTxLocalData
     nc <- getNodeContext
     ns <- St.getNodeState
+#ifdef WITH_ROCKS
+    modernDB <- Modern.getNodeDBs
+    return $ Nat (convertHandler kctx tld nc ns modernDB)
+#else
     return $ Nat (convertHandler kctx tld nc ns)
+#endif
 
 servantServer :: forall ssc . SscConstraint ssc => ProductionMode ssc (Server WalletApi)
 servantServer = flip enter servantHandlers <$> (nat @ssc)

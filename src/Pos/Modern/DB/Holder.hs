@@ -7,10 +7,11 @@
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE UndecidableInstances   #-}
 
--- | Modern implementation of node's persistent state.
+-- | Default implementation of MonadDB.
 
-module Pos.Modern.WorkMode
-       ( runDBHolder
+module Pos.Modern.DB.Holder
+       ( DBHolder
+       , runDBHolder
        ) where
 
 import           Control.Lens                 (over)
@@ -25,12 +26,12 @@ import           Control.TimeWarp.Timed       (MonadTimed, ThreadId)
 import           System.Wlog                  (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Modern.State.Storage     (DB (..), MonadDB (..), NodeState (..),
-                                               blockDb, utxoDb)
+import           Pos.Modern.DB.Class          (MonadDB (..))
+import           Pos.Modern.DB.Types          (DB (..), NodeDBs (..), blockDB, utxoDB)
 
 
 newtype DBHolder ssc m a = DBHolder
-    { getDBHolder :: ReaderT (NodeState ssc) m a
+    { getDBHolder :: ReaderT (NodeDBs ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
                MonadCatch, MonadMask, MonadIO, HasLoggerName, CanLog)
 
@@ -43,20 +44,18 @@ type instance ThreadId (DBHolder ssc m) = ThreadId m
 
 instance MonadIO m =>
          MonadDB ssc (DBHolder ssc m) where
-    getBlockDB = DBHolder $ asks _blockDb
-    getUtxoDB = DBHolder $ asks _utxoDb
-    getUndoDB = DBHolder $ asks _blockDb
+    getNodeDBs = DBHolder $ ask
     usingReadOptionsUtxo  opts (DBHolder rdr)
-        = DBHolder $ local (over utxoDb (\db -> db {rocksReadOpts = opts})) rdr
+        = DBHolder $ local (over utxoDB (\db -> db {rocksReadOpts = opts})) rdr
     usingWriteOptionsUtxo  opts (DBHolder rdr)
-        = DBHolder $ local (over utxoDb (\db -> db {rocksWriteOpts = opts})) rdr
+        = DBHolder $ local (over utxoDB (\db -> db {rocksWriteOpts = opts})) rdr
     usingReadOptionsBlock  opts (DBHolder rdr)
-        = DBHolder $ local (over blockDb (\db -> db {rocksReadOpts = opts})) rdr
+        = DBHolder $ local (over blockDB (\db -> db {rocksReadOpts = opts})) rdr
     usingWriteOptionsBlock  opts (DBHolder rdr)
-        = DBHolder $ local (over blockDb (\db -> db {rocksWriteOpts = opts})) rdr
+        = DBHolder $ local (over blockDB (\db -> db {rocksWriteOpts = opts})) rdr
 
 instance MonadTransControl (DBHolder ssc) where
-    type StT (DBHolder ssc) a = StT (ReaderT (NodeState ssc)) a
+    type StT (DBHolder ssc) a = StT (ReaderT (NodeDBs ssc)) a
     liftWith = defaultLiftWith DBHolder getDBHolder
     restoreT = defaultRestoreT DBHolder
 
@@ -66,14 +65,5 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBHolder ssc m) where
     restoreM         = defaultRestoreM
 
 -- | Execute 'DBHolder' action with given 'NodeState'.
-runDBHolder :: NodeState ssc -> DBHolder ssc m a -> m a
+runDBHolder :: NodeDBs ssc -> DBHolder ssc m a -> m a
 runDBHolder nState = flip runReaderT nState . getDBHolder
-
--- Garbage
-
--- type TmpWorkMode ssc m = (MonadResourceBase m, MonadDB ssc m)
-
--- type TmpRealMode ssc = DBHolder ssc (ResourceT IO)
-
--- runTmpRealMode :: DB ssc -> TmpRealMode ssc a -> IO a
--- runTmpRealMode db = runResourceT . runDBHolder db

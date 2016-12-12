@@ -24,28 +24,27 @@ module Pos.Modern.Txp.Storage
          txApplyBlocks
        , txRollback
        ) where
-import           Control.Lens             (each, over, (^.), _1)
-import           Control.Monad.IfElse     (aifM)
-import qualified Data.List.NonEmpty       as NE
-import qualified Data.Map.Strict          as M
-import           Data.Maybe               (fromJust, isJust)
-import           Database.RocksDB         (BatchOp (..), WriteBatch, write)
-import           Formatting               (build, sformat, text, (%))
-import           System.Wlog              (WithLogger, logError)
+import           Control.Lens            (each, over, (^.), _1)
+import           Control.Monad.IfElse    (aifM)
+import qualified Data.List.NonEmpty      as NE
+import qualified Data.Map.Strict         as M
+import           Data.Maybe              (fromJust, isJust)
+import           Database.RocksDB        (BatchOp (..), WriteBatch, write)
+import           Formatting              (build, sformat, text, (%))
+import           System.Wlog             (WithLogger, logError)
 import           Universum
 
-import           Pos.Crypto               (Hash, WithHash (..), hash, withHash)
-import           Pos.Modern.State.Storage (DB (..),
-                                           MonadDB (getBlockDB, getUndoDB, getUtxoDB),
-                                           rocksGet, rocksGetRaw, rocksPutRaw)
-import           Pos.Modern.Txp.RocksDB   (createDelTx, createPutTx)
-import           Pos.Modern.Types.Utxo    (verifyTxs)
-import           Pos.Ssc.Class.Types      (Ssc)
-import           Pos.State.Storage.Types  (AltChain)
-import           Pos.Types                (Block, BlockHeader, IdTxWitness, SlotId,
-                                           Tx (..), TxIn (..), TxOut, TxWitness, Undo,
-                                           blockSlot, blockTxws, blockTxws, convertFrom',
-                                           headerHash, prevBlockL, slotIdF)
+import           Pos.Crypto              (Hash, WithHash (..), hash, withHash)
+import           Pos.Modern.DB           (DB (..), MonadDB, getBlockDB, getUtxoDB,
+                                          rocksGet, rocksGetRaw, rocksPutRaw)
+import           Pos.Modern.Txp.RocksDB  (createDelTx, createPutTx)
+import           Pos.Modern.Types.Utxo   (verifyTxs)
+import           Pos.Ssc.Class.Types     (Ssc)
+import           Pos.State.Storage.Types (AltChain)
+import           Pos.Types               (Block, BlockHeader, IdTxWitness, SlotId,
+                                          Tx (..), TxIn (..), TxOut, TxWitness, Undo,
+                                          blockSlot, blockTxws, blockTxws, convertFrom',
+                                          headerHash, prevBlockL, slotIdF)
 
 -- | Apply chain of /definitely/ valid blocks which go right after
 -- last applied block. If invalid block is passed, this function will
@@ -175,16 +174,17 @@ getTip = getUtxoDB >>= rocksGetRaw "tip"
 putTip :: MonadDB ssc m => Hash (BlockHeader ssc) -> m ()
 putTip h = getUtxoDB >>= rocksPutRaw "tip" h
 
+-- FIXME: use prefixes
 getBlock :: (Ssc ssc, MonadDB ssc m) => Hash (BlockHeader ssc) -> m (Maybe (Block ssc))
 getBlock h = getBlockDB >>= rocksGet h
 
 getUndo :: (MonadDB ssc m) => Hash (BlockHeader ssc) -> m (Maybe Undo)
-getUndo h = getUndoDB >>= rocksGet h
+getUndo h = getBlockDB >>= rocksGet h
 
 writeTxOuts :: MonadDB ssc m => WriteBatch -> m ()
 writeTxOuts batch = do
     DB {..} <- getUtxoDB
-    write rocksDb rocksWriteOpts batch
+    write rocksDB rocksWriteOpts batch
 
 isGenesisBlock :: Block ssc -> Bool
 isGenesisBlock (Left _) = True
@@ -223,4 +223,3 @@ isGenesisBlock _        = False
 --     utxo <- use txUtxo
 --     let txs = filterLocalTxs localTxs utxo
 --     forM_ txs applyTx
-

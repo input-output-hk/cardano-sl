@@ -56,14 +56,6 @@ library
                         Pos.Ssc.SscAlgo
                         Pos.Genesis
                         Pos.Launcher
-                        Pos.Modern.State.Storage
-                        Pos.Modern.Types.Utxo
-                        Pos.Modern.Txp.Types.Communication
-                        Pos.Modern.Txp.Storage
-                        Pos.Modern.Txp.LocalData
-                        Pos.Modern.Txp.Listeners
-                        Pos.Modern.Txp.RocksDB
-                        Pos.Modern.WorkMode
                         Pos.Merkle
                         Pos.Slotting
                         Pos.Ssc.Class.Types
@@ -124,6 +116,16 @@ library
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
+                        Pos.Modern.DB
+                        Pos.Modern.DB.Class
+                        Pos.Modern.DB.Holder
+                        Pos.Modern.DB.Types
+                        Pos.Modern.Types.Utxo
+                        Pos.Modern.Txp.Types.Communication
+                        Pos.Modern.Txp.Storage
+                        Pos.Modern.Txp.LocalData
+                        Pos.Modern.Txp.Listeners
+                        Pos.Modern.Txp.RocksDB
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions

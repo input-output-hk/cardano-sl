@@ -13,20 +13,21 @@ module Pos.Modern.Types.Utxo
        , convertFrom'
        ) where
 
-import           Control.Lens             (over, _1)
-import           Control.Monad.IfElse     (aifM)
-import qualified Data.HashSet             as HS
-import qualified Data.Map.Strict          as M
-import           Database.RocksDB         (BatchOp (..))
-import           Serokell.Util            (VerificationRes (..))
+import           Control.Lens           (over, _1)
+import           Control.Monad.IfElse   (aifM)
+import qualified Data.HashSet           as HS
+import qualified Data.Map.Strict        as M
+import           Database.RocksDB       (BatchOp (..))
+import           Serokell.Util          (VerificationRes (..))
 import           Universum
 
-import           Pos.Crypto               (WithHash (..))
-import           Pos.Modern.State.Storage (MonadDB (..), rocksGet)
-import           Pos.Modern.Txp.RocksDB   (createDelTx, createPutTx)
-import           Pos.Types.Tx             (topsortTxs, verifyTx)
-import           Pos.Types.Types          (IdTxWitness, Tx (..), TxIn (..), TxOut (..),
-                                           TxWitness, Utxo)
+import           Pos.Crypto             (WithHash (..))
+import           Pos.Modern.DB          (MonadDB (..), getUtxoDB, rocksGet)
+import           Pos.Modern.Txp.RocksDB (createDelTx, createPutTx)
+import           Pos.Types.Tx           (topsortTxs, verifyTx)
+import           Pos.Types.Types        (IdTxWitness, Tx (..), TxIn (..), TxOut (..),
+                                         TxWitness, Utxo)
+
 -- | Find transaction input in Utxo assuming it is valid.
 findTxIn :: TxIn -> Utxo -> Maybe TxOut
 findTxIn TxIn{..} = M.lookup (txInHash, txInIndex)

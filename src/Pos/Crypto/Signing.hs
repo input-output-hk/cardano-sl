@@ -39,6 +39,12 @@ module Pos.Crypto.Signing
        , ProxyISignature (..)
        , proxyISign
        , proxyICheckSig
+       , ProxyCert (..)
+       , createProxyCert
+       , ProxySecretKey (..)
+       , ProxyDSignature (..)
+       , proxyDSign
+       , proxyDVerify
        ) where
 
 import           Control.Monad.Fail     (fail)
@@ -142,11 +148,12 @@ instance Bi PublicKey => Buildable.Buildable SecretKey where
     build = bprint ("sec:"%shortHashF) . hash . toPublic
 
 -- | 'Builder' for 'PublicKey' to show it in base64 encoded form.
-formatFullPublicKey :: Bi PublicKey => PublicKey -> Builder
-formatFullPublicKey = Buildable.build . Base64.encode . BSL.toStrict . Bi.encode
+formatFullPublicKey :: PublicKey -> Builder
+formatFullPublicKey (PublicKey pk) =
+    Buildable.build . Base64.encode . Ed25519.unPublicKey $ pk
 
 -- | Specialized formatter for 'PublicKey' to show it in base64.
-fullPublicKeyF :: Bi PublicKey => Format r (PublicKey -> r)
+fullPublicKeyF :: Format r (PublicKey -> r)
 fullPublicKeyF = later formatFullPublicKey
 
 -- | Parse 'PublicKey' from base64 encoded string.
@@ -174,7 +181,7 @@ deterministicKeyGen :: BS.ByteString -> Maybe (PublicKey, SecretKey)
 deterministicKeyGen seed =
     bimap PublicKey SecretKey <$> Ed25519.createKeypairFromSeed_ seed
 
-instance Bi PublicKey => ToJSON PublicKey where
+instance ToJSON PublicKey where
     toJSON = toJSON . sformat fullPublicKeyF
 
 ----------------------------------------------------------------------------
@@ -230,9 +237,8 @@ instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
 -- Proxy signing
 ----------------------------------------------------------------------------
 
-
 -- | Signature produced by issuer
-newtype ProxyISignature a = ProxyISignature Ed25519.Signature
+newtype ProxyISignature a = ProxyISignature { unProxyISignature :: Ed25519.Signature }
     deriving (Eq, Ord, Show, Generic, NFData, Hashable)
 
 instance Buildable.Buildable (ProxyISignature a) where
@@ -256,3 +262,83 @@ proxyIVerifyRaw (PublicKey k) m (Signature s) =
 -- representation
 proxyICheckSig :: Bi a => PublicKey -> a -> Signature a -> Bool
 proxyICheckSig k m s = proxyIVerifyRaw k (BSL.toStrict (Bi.encode m)) (coerce s)
+
+-- | Proxy certificate, made of ω + public key of delegate.
+newtype ProxyCert a = ProxyCert { unProxyCert :: Ed25519.Signature }
+    deriving (Eq, Ord, Show, Generic, NFData, Hashable)
+
+-- | Proxy certificate creation from secret key of issuer, public key
+-- of delegate and the message space ω.
+createProxyCert :: (Bi a) => SecretKey -> PublicKey -> a -> ProxyCert a
+createProxyCert (SecretKey issuerSk) (PublicKey delegatePk) o =
+    coerce $
+    ProxyCert $
+    Ed25519.dsign issuerSk $
+    mconcat
+        ["00", BSL.toStrict $ Bi.encode o, Ed25519.unPublicKey delegatePk]
+
+-- | Convenient wrapper for secret key, that's basically ω plus
+-- certificate.
+data ProxySecretKey a = ProxySecretKey a (ProxyCert a)
+    deriving (Eq, Ord, Show, Generic)
+
+instance NFData a => NFData (ProxySecretKey a)
+instance Hashable a => Hashable (ProxySecretKey a)
+
+-- | Delegate signature made with certificate-based permission. @a@
+-- stays for message type used in proxy (ω in the implementation
+-- notes), @b@ for type of message signed.
+data ProxyDSignature a b = ProxyDSignature
+    { pdOmega      :: a
+    , pdDelegatePk :: PublicKey
+    , pdCert       :: ProxyCert a
+    , pdSig        :: Ed25519.Signature
+    } deriving (Eq, Ord, Show, Generic)
+
+instance NFData a => NFData (ProxyDSignature a b)
+instance Hashable a => Hashable (ProxyDSignature a b)
+
+-- | Make a proxy delegate signature with help of certificate.
+proxyDSign
+    :: (Bi b)
+    => SecretKey -> PublicKey -> ProxySecretKey a -> b -> ProxyDSignature a b
+proxyDSign sk@(SecretKey delegateSk) (PublicKey issuerPk) (ProxySecretKey o cert) m =
+    ProxyDSignature
+    { pdOmega = o
+    , pdDelegatePk = toPublic sk
+    , pdCert = cert
+    , pdSig = sigma
+    }
+  where
+    sigma =
+        Ed25519.dsign delegateSk $
+        mconcat ["01", Ed25519.unPublicKey issuerPk, BSL.toStrict $ Bi.encode m]
+
+-- | Verify delegated signature given issuer's pk, signature, message
+-- space predicate and message itself.
+proxyDVerify
+    :: (Bi a, Bi b)
+    => PublicKey -> ProxyDSignature a b -> (a -> Bool) -> b -> Bool
+proxyDVerify (PublicKey issuerPk) ProxyDSignature {..} omegaPred m =
+    and [predCorrect, certValid, sigValid]
+  where
+    PublicKey pdDelegatePkRaw = pdDelegatePk
+    predCorrect = omegaPred pdOmega
+    certValid =
+        Ed25519.dverify
+            issuerPk
+            (mconcat
+                 [ "00"
+                 , Ed25519.unPublicKey pdDelegatePkRaw
+                 , BSL.toStrict $ Bi.encode pdOmega
+                 ])
+            (unProxyCert pdCert)
+    sigValid =
+        Ed25519.dverify
+            pdDelegatePkRaw
+            (mconcat
+                 [ "01"
+                 , Ed25519.unPublicKey issuerPk
+                 , BSL.toStrict $ Bi.encode m
+                 ])
+            pdSig

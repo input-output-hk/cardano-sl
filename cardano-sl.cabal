@@ -73,6 +73,7 @@ library
                         Pos.Ssc.Class.Workers
                         Pos.Ssc.Class.Listeners
                         Pos.Ssc.Class.LocalData
+                        Pos.Ssc.LocalData
                         Pos.State
                         Pos.State.Acidic
                         Pos.State.Holder

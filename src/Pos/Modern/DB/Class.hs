@@ -1,5 +1,7 @@
+{-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE UndecidableInstances   #-}
 
 -- | Class which provides access to database.
 
@@ -27,3 +29,15 @@ getBlockDB = view blockDB <$> getNodeDBs
 
 getUtxoDB :: MonadDB ssc m => m (DB ssc)
 getUtxoDB = view utxoDB <$> getNodeDBs
+
+instance (MonadDB ssc m) =>
+         MonadDB ssc (ReaderT a m) where
+    getNodeDBs = lift getNodeDBs
+    usingReadOptionsUtxo how m =
+        ask >>= lift . usingReadOptionsUtxo how . runReaderT m
+    usingWriteOptionsUtxo how m =
+        ask >>= lift . usingWriteOptionsUtxo how . runReaderT m
+    usingReadOptionsBlock how m =
+        ask >>= lift . usingReadOptionsBlock how . runReaderT m
+    usingWriteOptionsBlock how m =
+        ask >>= lift . usingWriteOptionsBlock how . runReaderT m

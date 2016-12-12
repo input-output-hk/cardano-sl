@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE StandaloneDeriving     #-}
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE UndecidableInstances   #-}
 
@@ -22,10 +23,6 @@ module Pos.WorkMode
        , TxLDImpl
        , runTxLDImpl
        , runTxLDImplRaw
-
-       -- * Ssc local data
-       , SscLDImpl
-       , runSscLDImpl
 
        -- * Messages serialization strategy
        , UserPacking
@@ -61,16 +58,15 @@ import           Universum
 import           Pos.Context                 (ContextHolder, WithNodeContext)
 import           Pos.DHT                     (BiP, DHTMsgHeader, DHTResponseT,
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
-import           Pos.DHT.Real                (KademliaDHT)
+import           Pos.DHT.Real                (KademliaDHT (..))
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB               as Modern
 #endif
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
-import           Pos.Ssc.Class.LocalData     (MonadSscLD (..),
-                                              SscLocalDataClass (sscEmptyLocalData))
+import           Pos.Ssc.Class.LocalData     (MonadSscLD (..), SscLocalDataClass)
 import           Pos.Ssc.Class.Storage       (SscStorageMode)
-import           Pos.Ssc.Class.Types         (Ssc (SscLocalData))
+import           Pos.Ssc.LocalData           (SscLDImpl)
 import           Pos.State                   (DBHolder, MonadDB (..))
 import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
 import           Pos.Txp.LocalData           (MonadTxLD (..), TxLocalData (..))
@@ -136,12 +132,7 @@ newtype TxLDImpl m a = TxLDImpl
 type instance ThreadId (TxLDImpl m) = ThreadId m
 
 #ifdef WITH_ROCKS
-instance Modern.MonadDB ssc m => Modern.MonadDB ssc (TxLDImpl m) where
-    getNodeDBs = notImplemented
-    usingReadOptionsUtxo = notImplemented
-    usingWriteOptionsUtxo = notImplemented
-    usingReadOptionsBlock = notImplemented
-    usingWriteOptionsBlock = notImplemented
+deriving instance Modern.MonadDB ssc m => Modern.MonadDB ssc (TxLDImpl m)
 #endif
 
 instance Monad m => WrappedM (TxLDImpl m) where
@@ -178,88 +169,9 @@ runTxLDImplRaw = runReaderT . getTxLDImpl
 -- MonadSscLD
 ----------------------------------------------------------------------------
 
-instance (Monad m, MonadSscLD ssc m) =>
-         MonadSscLD ssc (DHTResponseT m) where
-    getLocalData = lift getLocalData
-    setLocalData = lift . setLocalData
-
 instance MonadSscLD ssc m => MonadSscLD ssc (TxLDImpl m) where
     getLocalData = lift getLocalData
     setLocalData = lift . setLocalData
-
-newtype SscLDImpl ssc m a = SscLDImpl
-    { getSscLDImpl :: ReaderT (STM.TVar (SscLocalData ssc)) m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
-                MonadCatch, MonadIO, HasLoggerName, MonadDialog p, WithNodeContext ssc, MonadJL,
-                MonadDB ssc, CanLog)
-
-instance Monad m => WrappedM (SscLDImpl ssc m) where
-    type UnwrappedM (SscLDImpl ssc m) = ReaderT (STM.TVar (SscLocalData ssc)) m
-    _WrappedM = iso getSscLDImpl SscLDImpl
-
-#ifdef WITH_ROCKS
-instance Modern.MonadDB ssc m => Modern.MonadDB ssc (SscLDImpl ssc m) where
-    getNodeDBs = notImplemented
-    usingReadOptionsUtxo = notImplemented
-    usingWriteOptionsUtxo = notImplemented
-    usingReadOptionsBlock = notImplemented
-    usingWriteOptionsBlock = notImplemented
-#endif
-
-monadMaskHelper
-    :: (ReaderT (STM.TVar (SscLocalData ssc)) m a -> ReaderT (STM.TVar (SscLocalData ssc)) m a)
-    -> SscLDImpl ssc m a
-    -> SscLDImpl ssc m a
-monadMaskHelper u (SscLDImpl b) = SscLDImpl (u b)
-
-instance MonadMask m =>
-         MonadMask (SscLDImpl ssc m) where
-    mask a = SscLDImpl $ mask $ \u -> getSscLDImpl $ a $ monadMaskHelper u
-    uninterruptibleMask a =
-        SscLDImpl $
-        uninterruptibleMask $ \u -> getSscLDImpl $ a $ monadMaskHelper u
-
-instance MonadIO m =>
-         MonadSscLD ssc (SscLDImpl ssc m) where
-
-    getLocalData = atomically . STM.readTVar =<< SscLDImpl ask
-    setLocalData d = atomically . flip STM.writeTVar d =<< SscLDImpl ask
-
-runSscLDImpl
-    :: forall ssc m a.
-       (MonadIO m, SscLocalDataClass ssc)
-    => SscLDImpl ssc m a -> m a
-runSscLDImpl action = do
-  ref <- liftIO $ STM.newTVarIO (sscEmptyLocalData @ssc)
-  flip runReaderT ref . getSscLDImpl @ssc $ action
-
-instance MonadBase IO m => MonadBase IO (SscLDImpl ssc m) where
-    liftBase = lift . liftBase
-
-instance MonadTransControl (SscLDImpl ssc) where
-    type StT (SscLDImpl ssc) a = StT (ReaderT (STM.TVar (SscLocalData ssc))) a
-    liftWith = defaultLiftWith SscLDImpl getSscLDImpl
-    restoreT = defaultRestoreT SscLDImpl
-
-instance MonadBaseControl IO m => MonadBaseControl IO (SscLDImpl ssc m) where
-    type StM (SscLDImpl ssc m) a = ComposeSt (SscLDImpl ssc) m a
-    liftBaseWith     = defaultLiftBaseWith
-    restoreM         = defaultRestoreM
-
-type instance ThreadId (SscLDImpl ssc m) = ThreadId m
-
-instance MonadTransfer m => MonadTransfer (SscLDImpl ssc m)
-
-instance (MonadSscLD ssc m, Monad m) => MonadSscLD ssc (KademliaDHT m) where
-    getLocalData = lift getLocalData
-    setLocalData = lift . setLocalData
-
-----------------------------------------------------------------------------
--- MonadDB
-----------------------------------------------------------------------------
-
-instance (MonadDB ssc m, Monad m) => MonadDB ssc (KademliaDHT m) where
-    getNodeState = lift getNodeState
 
 ----------------------------------------------------------------------------
 -- HZ
@@ -268,24 +180,13 @@ instance (MonadDB ssc m, Monad m) => MonadDB ssc (KademliaDHT m) where
 instance MonadJL m => MonadJL (KademliaDHT m) where
     jlLog = lift . jlLog
 
-instance MonadSlots m => MonadSlots (KademliaDHT m) where
-    getSystemStartTime = lift getSystemStartTime
-    getCurrentTime = lift getCurrentTime
-
 ----------------------------------------------------------------------------
 -- Modern
 ----------------------------------------------------------------------------
 
 #ifdef WITH_ROCKS
-
-instance (Modern.MonadDB ssc m, Monad m) =>
-         Modern.MonadDB ssc (KademliaDHT m) where
-    getNodeDBs = lift Modern.getNodeDBs
-    usingReadOptionsUtxo = notImplemented
-    usingWriteOptionsUtxo = notImplemented
-    usingReadOptionsBlock = notImplemented
-    usingWriteOptionsBlock = notImplemented
-
+deriving instance (Modern.MonadDB ssc m) =>
+         Modern.MonadDB ssc (KademliaDHT m)
 #endif
 
 ----------------------------------------------------------------------------

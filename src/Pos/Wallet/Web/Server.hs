@@ -35,6 +35,7 @@ import qualified Pos.Modern.DB        as Modern
 import           Pos.Context          (ContextHolder, NodeContext, getNodeContext,
                                        runContextHolder)
 import           Pos.Ssc.Class        (SscConstraint)
+import           Pos.Ssc.LocalData    (SscLDImpl, runSscLDImpl)
 import qualified Pos.State            as St
 import           Pos.Statistics       (getNoStatsT)
 import           Pos.Txp.LocalData    (TxLocalData, getTxLocalData, setTxLocalData)
@@ -43,8 +44,8 @@ import           Pos.Types            (Address, Coin (Coin), TxOut (..), address
 import           Pos.Wallet.Tx        (getBalance, submitTx)
 import           Pos.Wallet.Web.Api   (WalletApi, walletApi)
 import           Pos.Web.Server       (serveImpl)
-import           Pos.WorkMode         (ProductionMode, SscLDImpl, TxLDImpl,
-                                       UserDialog, runSscLDImpl, runTxLDImpl)
+import           Pos.WorkMode         (ProductionMode, TxLDImpl,
+                                       UserDialog, runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality

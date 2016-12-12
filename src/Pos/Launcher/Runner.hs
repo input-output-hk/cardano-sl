@@ -34,9 +34,6 @@ import           Control.Monad                (fail)
 import           Control.Monad.Catch          (bracket)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Control.Monad.Trans.Resource (allocate, runResourceT)
-import           Control.TimeWarp.Rpc         (BinaryP (..), Dialog, MonadDialog,
-                                               Transfer, commLoggerName, runDialog,
-                                               runTransfer)
 import           Control.TimeWarp.Rpc         (Dialog, Transfer, commLoggerName,
                                                runDialog, runTransfer)
 import           Control.TimeWarp.Timed       (MonadTimed, currentTime, fork, killThread,
@@ -68,6 +65,8 @@ import           Pos.DHT                      (BiP (..), DHTMsgHeader, ListenerD
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB                as Modern
 #endif
+import           Pos.Context                  (ContextHolder (..), NodeContext (..),
+                                               runContextHolder)
 import           Pos.DHT.Real                 (KademliaDHT, KademliaDHTConfig (..),
                                                KademliaDHTInstance,
                                                KademliaDHTInstanceConfig (..),
@@ -84,11 +83,9 @@ import           Pos.Statistics               (getNoStatsT, runStatsT)
 import           Pos.Types                    (Timestamp (Timestamp), timestampF)
 import           Pos.Util                     (runWithRandomIntervals)
 import           Pos.Worker                   (statsWorkers)
-import           Pos.WorkMode                 (ContextHolder (..), MonadUserDialog,
-                                               NodeContext (..), ProductionMode,
+import           Pos.WorkMode                 (MonadUserDialog, ProductionMode,
                                                RawRealMode, ServiceMode, StatsMode,
-                                               runContextHolder, runDBHolder,
-                                               runSscLDImpl, runTxLDImpl)
+                                               runDBHolder, runSscLDImpl, runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Service node runners

@@ -24,6 +24,7 @@ import           Universum
 import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
+import           Pos.Context               (getNodeContext, ncPublicKey, ncSecretKey)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
 import           Pos.Ssc.Class             (sscApplyGlobalState, sscGetLocalPayload,
                                             sscVerifyPayload)
@@ -34,8 +35,7 @@ import           Pos.Types                 (SlotId (..), Timestamp (Timestamp), 
                                             gbHeader, makePubKeyAddress, slotIdF)
 import           Pos.Util                  (logWarningWaitLinear)
 import           Pos.Util.JsonLog          (jlCreatedBlock, jlLog)
-import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey,
-                                            ncSecretKey)
+import           Pos.WorkMode              (WorkMode)
 
 -- | Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode ssc m => SlotId -> m ()

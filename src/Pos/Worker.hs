@@ -15,6 +15,7 @@ import           Universum
 
 import           Pos.Communication      (SysStartResponse (..))
 import           Pos.Constants          (slotDuration, sysTimeBroadcastSlots)
+import           Pos.Context            (NodeContext (..), getNodeContext)
 import           Pos.DHT                (sendToNetwork)
 import           Pos.Slotting           (onNewSlot)
 import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscWorkers)
@@ -22,7 +23,7 @@ import           Pos.Types              (SlotId, flattenSlotId, slotIdF)
 import           Pos.Util               (waitRandomInterval)
 import           Pos.Worker.Block       (blkOnNewSlot, blkWorkers)
 import           Pos.Worker.Stats       (statsWorkers)
-import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeContext)
+import           Pos.WorkMode           (WorkMode)
 
 -- | Run all necessary workers in separate threads. This call doesn't
 -- block.

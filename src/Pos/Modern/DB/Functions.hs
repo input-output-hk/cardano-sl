@@ -11,7 +11,7 @@ module Pos.Modern.DB.Functions
 
 import           Control.Monad.Trans.Resource (MonadResource)
 import           Data.Default                 (def)
-import           Database.RocksDB             (getBinary, putBinary)
+
 import qualified Database.RocksDB             as Rocks
 import           System.Directory             (createDirectoryIfMissing)
 import           System.FilePath              ((</>))

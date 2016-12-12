@@ -43,10 +43,11 @@ Flag with-rocks
 library
   exposed-modules:      Pos.Binary
                         Pos.CLI
-                        Pos.Crypto
+                        Pos.Context
                         Pos.Communication
                         Pos.CompileConfig
                         Pos.Constants
+                        Pos.Crypto
                         Pos.DHT
                         Pos.DHT.Real
                         Pos.DHT.Real.Real
@@ -120,6 +121,9 @@ library
                         Pos.Communication.Util
                         Pos.CompileConfig.Parser
                         Pos.CompileConfig.Type
+                        Pos.Context.Class
+                        Pos.Context.Context
+                        Pos.Context.Holder
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe

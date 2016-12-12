@@ -11,14 +11,15 @@ import           Formatting             (build, sformat, (%))
 import           System.Wlog            (logInfo)
 import           Universum
 
+import           Pos.Context            (NodeContext (..), getNodeContext, ncPublicKey)
 import           Pos.DHT                (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Ssc.Class          (SscConstraint)
 import           Pos.State              (initFirstSlot)
 import           Pos.Types              (Timestamp (Timestamp))
 import           Pos.Util               (inAssertMode)
 import           Pos.Worker             (runWorkers)
-import           Pos.WorkMode           (NodeContext (..), WorkMode, getNodeContext,
-                                         ncPublicKey)
+import           Pos.WorkMode           (WorkMode)
+
 -- | Run full node in any WorkMode.
 runNode :: (SscConstraint ssc, WorkMode ssc m) => [m ()] -> m ()
 runNode plugins = do

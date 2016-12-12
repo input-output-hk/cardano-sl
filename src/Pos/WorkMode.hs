@@ -80,7 +80,9 @@ type WorkMode ssc m
       , MonadMask m
       , MonadSlots m
       , MonadDB ssc m
+#ifdef WITH_ROCKS
       , Modern.MonadDB ssc m
+#endif
       , MonadTxLD m
       , SscStorageMode ssc
       , SscLocalDataClass ssc

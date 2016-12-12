@@ -32,6 +32,8 @@ import           Pos.Launcher         (runTimed)
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB        as Modern
 #endif
+import           Pos.Context          (ContextHolder, NodeContext, getNodeContext,
+                                       runContextHolder)
 import           Pos.Ssc.Class        (SscConstraint)
 import qualified Pos.State            as St
 import           Pos.Statistics       (getNoStatsT)
@@ -41,10 +43,8 @@ import           Pos.Types            (Address, Coin (Coin), TxOut (..), address
 import           Pos.Wallet.Tx        (getBalance, submitTx)
 import           Pos.Wallet.Web.Api   (WalletApi, walletApi)
 import           Pos.Web.Server       (serveImpl)
-import           Pos.WorkMode         (ContextHolder, DBHolder, NodeContext,
-                                       ProductionMode, SscLDImpl, TxLDImpl, UserDialog,
-                                       getNodeContext, runContextHolder, runDBHolder,
-                                       runSscLDImpl, runTxLDImpl)
+import           Pos.WorkMode         (DBHolder, ProductionMode, SscLDImpl, TxLDImpl,
+                                       UserDialog, runDBHolder, runSscLDImpl, runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality

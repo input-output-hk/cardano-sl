@@ -7,6 +7,6 @@ in
      ghc = hsPkgs.ghc;
      buildInputs =
        [ zlib glib git cabal-install openssh autoreconfHook stack openssl
-         sshpass gmp ];
+         sshpass gmp rocksdb ];
      LANG = "en_US.UTF-8";
   }

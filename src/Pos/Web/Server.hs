@@ -35,6 +35,9 @@ import           Servant.Utils.Enter                  ((:~>) (Nat), enter)
 import           Universum
 
 import           Pos.Binary                           (deserializeM)
+import           Pos.Context                          (ContextHolder, NodeContext,
+                                                       getNodeContext, ncPublicKey,
+                                                       ncSscContext, runContextHolder)
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, getOpening,
@@ -51,10 +54,7 @@ import           Pos.Types                            (EpochIndex (..), SharedSe
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
 import           Pos.Web.Types                        (GodTossingStage (..))
-import           Pos.WorkMode                         (ContextHolder, DBHolder,
-                                                       NodeContext, TxLDImpl, WorkMode,
-                                                       getNodeContext, ncPublicKey,
-                                                       ncSscContext, runContextHolder,
+import           Pos.WorkMode                         (DBHolder, TxLDImpl, WorkMode,
                                                        runDBHolder, runTxLDImpl)
 
 ----------------------------------------------------------------------------

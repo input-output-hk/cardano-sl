@@ -14,7 +14,7 @@ module Pos.Modern.DB.Holder
        , runDBHolder
        ) where
 
-import           Control.Lens                 (over)
+import           Control.Lens                 (iso, over)
 import           Control.Monad.Base           (MonadBase (..))
 import           Control.Monad.Trans          (MonadTrans)
 import           Control.Monad.Trans.Control  (ComposeSt, MonadBaseControl (..),
@@ -22,21 +22,31 @@ import           Control.Monad.Trans.Control  (ComposeSt, MonadBaseControl (..),
                                                defaultLiftBaseWith, defaultLiftWith,
                                                defaultRestoreM, defaultRestoreT)
 import           Control.Monad.Trans.Resource (MonadResource)
+import           Control.TimeWarp.Rpc         (MonadDialog, MonadTransfer)
 import           Control.TimeWarp.Timed       (MonadTimed, ThreadId)
+import           Serokell.Util.Lens           (WrappedM (..))
 import           System.Wlog                  (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Modern.DB.Class          (MonadDB (..))
 import           Pos.Modern.DB.Types          (DB (..), NodeDBs (..), blockDB, utxoDB)
+import qualified Pos.State                    as Legacy
 
 
 newtype DBHolder ssc m a = DBHolder
     { getDBHolder :: ReaderT (NodeDBs ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
-               MonadCatch, MonadMask, MonadIO, HasLoggerName, CanLog)
+                MonadCatch, MonadMask, MonadIO, HasLoggerName, CanLog, MonadDialog p,
+                Legacy.MonadDB ssc)
+
+instance Monad m => WrappedM (DBHolder ssc m) where
+    type UnwrappedM (DBHolder ssc m) = ReaderT (NodeDBs ssc) m
+    _WrappedM = iso getDBHolder DBHolder
 
 instance MonadBase IO m => MonadBase IO (DBHolder ssc m) where
     liftBase = lift . liftBase
+
+instance MonadTransfer m => MonadTransfer (DBHolder ssc m)
 
 deriving instance MonadResource m => MonadResource (DBHolder ssc m)
 

@@ -74,6 +74,7 @@ import           Pos.Crypto                  (PublicKey, SecretKey, toPublic)
 import           Pos.DHT                     (DHTResponseT, MonadMessageDHT (..),
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
+import qualified Pos.Modern.DB               as Modern
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData     (MonadSscLD (..),
@@ -212,6 +213,7 @@ instance MonadMask m =>
 
 instance MonadIO m =>
          MonadSscLD ssc (SscLDImpl ssc m) where
+
     getLocalData = atomically . STM.readTVar =<< SscLDImpl ask
     setLocalData d = atomically . flip STM.writeTVar d =<< SscLDImpl ask
 
@@ -408,7 +410,8 @@ instance (MonadIO m, MonadCatch m, WithLogger m) => MonadJL (ContextHolder ssc m
 type RawRealMode ssc = KademliaDHT (TxLDImpl (
                                        SscLDImpl ssc (
                                            ContextHolder ssc (
-                                               DBHolder ssc (Dialog BinaryP Transfer)))))
+                                               Modern.DBHolder ssc (
+                                                   DBHolder ssc (Dialog BinaryP Transfer))))))
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.

@@ -118,6 +118,7 @@ library
                         Pos.Launcher.Scenario
                         Pos.Modern.DB
                         Pos.Modern.DB.Class
+                        Pos.Modern.DB.Functions
                         Pos.Modern.DB.Holder
                         Pos.Modern.DB.Types
                         Pos.Modern.Types.Utxo

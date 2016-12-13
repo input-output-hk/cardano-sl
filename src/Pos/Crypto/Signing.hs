@@ -39,9 +39,11 @@ module Pos.Crypto.Signing
        , ProxyISignature (..)
        , proxyISign
        , proxyICheckSig
+
        , ProxyCert (..)
        , createProxyCert
        , ProxySecretKey (..)
+       , createProxySecretKey
        , ProxyDSignature (..)
        , proxyDSign
        , proxyDVerify
@@ -254,13 +256,13 @@ proxyISign :: Bi a => SecretKey -> a -> ProxyISignature a
 proxyISign k = coerce . proxyISignRaw k . BSL.toStrict . Bi.encode
 
 -- | Raw bytestring verification
-proxyIVerifyRaw :: PublicKey -> ByteString -> Signature Raw -> Bool
-proxyIVerifyRaw (PublicKey k) m (Signature s) =
+proxyIVerifyRaw :: PublicKey -> ByteString -> ProxyISignature Raw -> Bool
+proxyIVerifyRaw (PublicKey k) m (ProxyISignature s) =
     Ed25519.dverify k ("11" `BS.append` m) s
 
 -- | Verify a proxy issuer signature using value's binary
 -- representation
-proxyICheckSig :: Bi a => PublicKey -> a -> Signature a -> Bool
+proxyICheckSig :: Bi a => PublicKey -> a -> ProxyISignature a -> Bool
 proxyICheckSig k m s = proxyIVerifyRaw k (BSL.toStrict (Bi.encode m)) (coerce s)
 
 -- | Proxy certificate, made of ω + public key of delegate.
@@ -275,7 +277,7 @@ createProxyCert (SecretKey issuerSk) (PublicKey delegatePk) o =
     ProxyCert $
     Ed25519.dsign issuerSk $
     mconcat
-        ["00", BSL.toStrict $ Bi.encode o, Ed25519.unPublicKey delegatePk]
+        ["00", Ed25519.unPublicKey delegatePk, BSL.toStrict $ Bi.encode o]
 
 -- | Convenient wrapper for secret key, that's basically ω plus
 -- certificate.
@@ -284,6 +286,11 @@ data ProxySecretKey w = ProxySecretKey w (ProxyCert w)
 
 instance NFData w => NFData (ProxySecretKey w)
 instance Hashable w => Hashable (ProxySecretKey w)
+
+-- | Creates proxy secret key
+createProxySecretKey :: (Bi w) => SecretKey -> PublicKey -> w -> ProxySecretKey w
+createProxySecretKey issuerSk delegatePk w =
+    ProxySecretKey w $ createProxyCert issuerSk delegatePk w
 
 -- | Delegate signature made with certificate-based permission. @a@
 -- stays for message type used in proxy (ω in the implementation

@@ -264,12 +264,12 @@ proxyICheckSig :: Bi a => PublicKey -> a -> Signature a -> Bool
 proxyICheckSig k m s = proxyIVerifyRaw k (BSL.toStrict (Bi.encode m)) (coerce s)
 
 -- | Proxy certificate, made of ω + public key of delegate.
-newtype ProxyCert a = ProxyCert { unProxyCert :: Ed25519.Signature }
+newtype ProxyCert w = ProxyCert { unProxyCert :: Ed25519.Signature }
     deriving (Eq, Ord, Show, Generic, NFData, Hashable)
 
 -- | Proxy certificate creation from secret key of issuer, public key
 -- of delegate and the message space ω.
-createProxyCert :: (Bi a) => SecretKey -> PublicKey -> a -> ProxyCert a
+createProxyCert :: (Bi w) => SecretKey -> PublicKey -> w -> ProxyCert w
 createProxyCert (SecretKey issuerSk) (PublicKey delegatePk) o =
     coerce $
     ProxyCert $
@@ -279,29 +279,29 @@ createProxyCert (SecretKey issuerSk) (PublicKey delegatePk) o =
 
 -- | Convenient wrapper for secret key, that's basically ω plus
 -- certificate.
-data ProxySecretKey a = ProxySecretKey a (ProxyCert a)
+data ProxySecretKey w = ProxySecretKey w (ProxyCert w)
     deriving (Eq, Ord, Show, Generic)
 
-instance NFData a => NFData (ProxySecretKey a)
-instance Hashable a => Hashable (ProxySecretKey a)
+instance NFData w => NFData (ProxySecretKey w)
+instance Hashable w => Hashable (ProxySecretKey w)
 
 -- | Delegate signature made with certificate-based permission. @a@
 -- stays for message type used in proxy (ω in the implementation
 -- notes), @b@ for type of message signed.
-data ProxyDSignature a b = ProxyDSignature
-    { pdOmega      :: a
+data ProxyDSignature w a = ProxyDSignature
+    { pdOmega      :: w
     , pdDelegatePk :: PublicKey
-    , pdCert       :: ProxyCert a
+    , pdCert       :: ProxyCert w
     , pdSig        :: Ed25519.Signature
     } deriving (Eq, Ord, Show, Generic)
 
-instance NFData a => NFData (ProxyDSignature a b)
-instance Hashable a => Hashable (ProxyDSignature a b)
+instance NFData w => NFData (ProxyDSignature w a)
+instance Hashable w => Hashable (ProxyDSignature w a)
 
 -- | Make a proxy delegate signature with help of certificate.
 proxyDSign
-    :: (Bi b)
-    => SecretKey -> PublicKey -> ProxySecretKey a -> b -> ProxyDSignature a b
+    :: (Bi a)
+    => SecretKey -> PublicKey -> ProxySecretKey w -> a -> ProxyDSignature w a
 proxyDSign sk@(SecretKey delegateSk) (PublicKey issuerPk) (ProxySecretKey o cert) m =
     ProxyDSignature
     { pdOmega = o
@@ -317,8 +317,8 @@ proxyDSign sk@(SecretKey delegateSk) (PublicKey issuerPk) (ProxySecretKey o cert
 -- | Verify delegated signature given issuer's pk, signature, message
 -- space predicate and message itself.
 proxyDVerify
-    :: (Bi a, Bi b)
-    => PublicKey -> ProxyDSignature a b -> (a -> Bool) -> b -> Bool
+    :: (Bi w, Bi a)
+    => PublicKey -> ProxyDSignature w a -> (w -> Bool) -> a -> Bool
 proxyDVerify (PublicKey issuerPk) ProxyDSignature {..} omegaPred m =
     and [predCorrect, certValid, sigValid]
   where

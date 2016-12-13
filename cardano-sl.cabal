@@ -195,6 +195,11 @@ library
     other-modules:      Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Server
+                        Pos.Wallet.Web.State
+                        Pos.Wallet.Web.State.Acidic
+                        Pos.Wallet.Web.State.Holder
+                        Pos.Wallet.Web.State.State
+                        Pos.Wallet.Web.State.Storage
   build-depends:        IfElse
                       , HsOpenSSL
                       , QuickCheck

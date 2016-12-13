@@ -93,9 +93,9 @@ convertHandler
     -> Handler a
 #ifdef WITH_ROCKS
 convertHandler kctx tld nc ns modernDB ws handler =
--- #else
--- convertHandler kctx tld nc ns ws handler =
--- #endif
+#else
+convertHandler kctx tld nc ns ws handler =
+#endif
     liftIO (runTimed "wallet-api" .
             St.runDBHolder ns .
 #ifdef WITH_ROCKS

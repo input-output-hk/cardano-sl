@@ -52,8 +52,8 @@ import           Pos.WorkMode             (ProductionMode, TxLDImpl,
 -- Top level functionality
 ----------------------------------------------------------------------------
 
-walletServeWeb :: SscConstraint ssc => WalletState -> Word16 -> ProductionMode ssc ()
-walletServeWeb ws = serveImpl (walletApplication ws)
+walletServeWeb :: SscConstraint ssc => Word16 -> WalletState -> ProductionMode ssc ()
+walletServeWeb webPort = flip serveImpl webPort . walletApplication
 
 walletApplication :: SscConstraint ssc => WalletState -> ProductionMode ssc Application
 walletApplication ws = servantServer ws >>= return . serve walletApi

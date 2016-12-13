@@ -193,6 +193,8 @@ library
     other-modules:      Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Server
+                        Pos.Wallet.Web.AcidState
+                        Pos.Wallet.Web.Storage
   build-depends:        IfElse
                       , HsOpenSSL
                       , QuickCheck

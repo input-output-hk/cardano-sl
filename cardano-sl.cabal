@@ -108,6 +108,7 @@ library
                         Pos.Binary.Communication
                         Pos.Binary.DHT
                         Pos.Binary.Merkle
+                        Pos.Binary.Script
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
                         Pos.Binary.Types
@@ -137,6 +138,7 @@ library
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
+                        Pos.Script
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
@@ -219,6 +221,7 @@ library
                       , data-default
                       , deepseq
                       , derive
+                      , deriving-compat
                       , digest
                       , directory
                       , ed25519
@@ -240,6 +243,7 @@ library
                       , mono-traversable
                       , mtl
                       , parsec
+                      , plutus-prototype
                       , pvss
                       , quickcheck-instances
                       , random
@@ -544,6 +548,7 @@ test-suite cardano-test
                      , Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
                      , Test.Pos.Ssc.GodTossing.SeedSpec
                      , Test.Pos.Ssc.GodTossing.Types.BaseSpec
+                     , Test.Pos.Types.AddressSpec
                      , Test.Pos.Types.BlockSpec
                      , Test.Pos.Types.Identity.BinarySpec
                      , Test.Pos.Types.Identity.SafeCopySpec

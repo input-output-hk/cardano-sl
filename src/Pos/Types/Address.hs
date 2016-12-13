@@ -5,14 +5,23 @@ module Pos.Types.Address
        ( Address (..)
        , addressF
        , checkPubKeyAddress
+       , checkScriptAddress
        , makePubKeyAddress
+       , makeScriptAddress
        , decodeTextAddress
+
+         -- * Internals
+       , AddressHash
+       , addressHash
+       , unsafeAddressHash
+       , curAddrVersion
        ) where
 
 import           Control.Lens           (view, _3)
 import           Crypto.Hash            (Blake2s_224, Digest, SHA3_256, hashlazy)
 import qualified Crypto.Hash            as CryptoHash
 import           Data.Aeson             (ToJSON (toJSON))
+import           Data.Bits              ((.|.))
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58,
                                          encodeBase58)
 import qualified Data.ByteString.Char8  as BSC (elem, unpack)
@@ -31,25 +40,34 @@ import           Pos.Binary.Class       (Bi)
 import qualified Pos.Binary.Class       as Bi
 import           Pos.Binary.Crypto      ()
 import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey)
+import           Pos.Script             (Script)
 
 -- | Address versions are here for dealing with possible backwards
 -- compatibility issues in the future
+-- For P2PKH addresses, we use versions from 0 to 127
+-- For P2SH addresses, we use versions from 128 to 255
 type AddressVersion = Word8
 
 curAddrVersion :: AddressVersion
 curAddrVersion = 0
 
 -- | Address is where you can send coins.
--- It's not `newtype` because in the future there will be `ScriptAddress`es
--- as well.
-data Address = PubKeyAddress
-    { addrVersion :: !AddressVersion
-    , addrHash    :: !(AddressHash PublicKey)
-    } deriving (Eq, Generic, Ord)
+data Address
+    = PubKeyAddress {
+          addrVersion :: !AddressVersion,
+          addrKeyHash :: !(AddressHash PublicKey) }
+    | ScriptAddress {
+          addrVersion    :: !AddressVersion,
+          addrScriptHash :: !(AddressHash Script) }
+    deriving (Eq, Generic, Ord)
 
 instance Bi (AddressHash PublicKey) => CRC32 Address where
     crc32Update seed PubKeyAddress {..} =
-        crc32Update (crc32Update seed [addrVersion]) $ Bi.encode addrHash
+        crc32Update (crc32Update seed [addrVersion]) $
+        Bi.encode addrKeyHash
+    crc32Update seed ScriptAddress {..} =
+        crc32Update (crc32Update seed [addrVersion .|. 128]) $
+        Bi.encode addrScriptHash
 
 instance Bi Address => Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.encode
@@ -97,9 +115,19 @@ decodeTextAddress = first toText . decodeAddress . encodeUtf8
 makePubKeyAddress :: PublicKey -> Address
 makePubKeyAddress = PubKeyAddress curAddrVersion . addressHash
 
--- | Check if given `Address` is created from given `PublicKey`
+-- | A function for making an address from a validation script
+makeScriptAddress :: Bi Script => Script -> Address
+makeScriptAddress = ScriptAddress (curAddrVersion .|. 128) . addressHash
+
+-- | Check if given 'Address' is created from given 'PublicKey'
 checkPubKeyAddress :: PublicKey -> Address -> Bool
-checkPubKeyAddress pk PubKeyAddress {..} = addrHash == addressHash pk
+checkPubKeyAddress pk PubKeyAddress{..} = addrKeyHash == addressHash pk
+checkPubKeyAddress _ _                  = False
+
+-- | Check if given 'Address' is created from given validation script
+checkScriptAddress :: Bi Script => Script -> Address -> Bool
+checkScriptAddress scr ScriptAddress{..} = addrScriptHash == addressHash scr
+checkScriptAddress _ _                   = False
 
 -- | Specialized formatter for 'Address'.
 addressF :: Bi Address => Format r (Address -> r)

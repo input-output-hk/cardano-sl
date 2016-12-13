@@ -15,14 +15,16 @@ module Pos.Modern.Types.Utxo
 
 import           Control.Lens           (over, _1)
 import           Control.Monad.IfElse   (aifM)
+import qualified Data.ByteString.Lazy   as BSL
 import qualified Data.HashSet           as HS
 import qualified Data.Map.Strict        as M
 import           Database.RocksDB       (BatchOp (..))
 import           Serokell.Util          (VerificationRes (..))
 import           Universum
 
+import           Pos.Binary             (encode)
 import           Pos.Crypto             (WithHash (..))
-import           Pos.Modern.DB          (MonadDB (..), getUtxoDB, rocksGet)
+import           Pos.Modern.DB          (MonadDB (..), getUtxoDB, rocksGetBi)
 import           Pos.Modern.Txp.RocksDB (createDelTx, createPutTx)
 import           Pos.Types.Tx           (topsortTxs, verifyTx)
 import           Pos.Types.Types        (IdTxWitness, Tx (..), TxIn (..), TxOut (..),
@@ -121,7 +123,7 @@ verifyTxs txws initValidationCache = do
 
             foldM (\utxo hash'id ->
                       if (not $ M.member hash'id utxo) then
-                          aifM (getUtxoDB >>= rocksGet hash'id)
+                          aifM (getUtxoDB >>= rocksGetBi (BSL.toStrict . encode $ hash'id))
                               (\txOut -> return $ M.insert hash'id txOut utxo)
                               (return utxo)
                       else

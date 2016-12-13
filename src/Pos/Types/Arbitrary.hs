@@ -19,7 +19,7 @@ module Pos.Types.Arbitrary
 
 import           Control.Lens               (set, view, _3, _4)
 import qualified Data.ByteString            as BS (pack)
-import           Data.DeriveTH              (derive, makeArbitrary)
+import           Data.DeriveTH              (derive, makeArbitrary, makeNFData)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           Pos.Constants              (epochSlots, sharedSeedLength)
 import           Pos.Crypto                 (LShare, PublicKey, SecretKey, hash, sign,
@@ -134,7 +134,7 @@ buildProperTx triplesList (inCoin, outCoin)= do
                     txIn = TxIn txHash 0
                     witness = PkWitness {
                         twKey = toPublic fromSk,
-                        twSig = sign fromSk (txHash, 0, thisTxOutputs) }
+                        twSig = sign fromSk (txHash, 0, hash thisTxOutputs) }
                 in (tx, txIn, txOutput, witness)
             makeTxOutput s c = TxOut (makePubKeyAddress $ toPublic s) c
             goodTx = fmap newTx txList
@@ -215,3 +215,5 @@ newtype SmallHashMap =
 
 instance Arbitrary SmallHashMap where
     arbitrary = SmallHashMap <$> makeSmall arbitrary
+
+derive makeNFData ''GoodTx

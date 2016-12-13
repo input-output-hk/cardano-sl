@@ -21,7 +21,7 @@ import           Serokell.Util       (VerificationRes, verifyGeneric)
 import           Universum
 
 import           Pos.Binary.Class    (Bi)
-import           Pos.Crypto          (Hash, WithHash (..), checkSig)
+import           Pos.Crypto          (Hash, WithHash (..), checkSig, hash)
 import           Pos.Types.Types     (Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
                                       TxWitness, checkPubKeyAddress, coinF)
 
@@ -67,6 +67,7 @@ verifyTx inputResolver (tx@Tx{..}, witnesses) =
     resolvedInputs = catMaybes extendedInputs
     inpSum :: Integer
     inpSum = sum $ fmap (toInteger . txOutValue . snd) resolvedInputs
+    txOutHash = hash txOutputs
     verifyCounts =
         verifyGeneric
             [ ( length txInputs == length witnesses
@@ -115,7 +116,7 @@ verifyTx inputResolver (tx@Tx{..}, witnesses) =
 
     checkAddrHash addr PkWitness{..} = checkPubKeyAddress twKey addr
     validateTxIn TxIn{..} PkWitness{..} =
-        checkSig twKey (txInHash, txInIndex, txOutputs) twSig
+        checkSig twKey (txInHash, txInIndex, txOutHash) twSig
 
 data TopsortState a = TopsortState
     { _tsVisited     :: HS.HashSet (Hash Tx)

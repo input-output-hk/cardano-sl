@@ -241,7 +241,7 @@ instance Buildable EpochOrSlot where
 type TxId = Hash Tx
 
 -- | 'Signature' of addrId.
-type TxSig = Signature (TxId, Word32, [TxOut])
+type TxSig = Signature (TxId, Word32, Hash [TxOut])
 
 -- | A witness for a single input.
 data TxInWitness = PkWitness
@@ -1018,4 +1018,7 @@ instance SafeCopy (Body (GenesisBlockchain ssc)) where
 ----------------------------------------------------------------------------
 -- Other derived instances
 ----------------------------------------------------------------------------
+derive makeNFData ''TxIn
+derive makeNFData ''TxInWitness
 derive makeNFData ''TxOut
+derive makeNFData ''Tx

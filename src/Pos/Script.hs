@@ -29,6 +29,7 @@ import qualified Utils.ABT             as ABT
 import qualified Utils.Names           as Names
 import qualified Utils.Vars            as Vars
 
+import           Pos.Binary.Class      (Bi)
 import           Pos.Util              (getCopyBinary, putCopyBinary)
 
 -- | A script for inclusion into a transaction.
@@ -116,11 +117,11 @@ instance NFData r => NFData (PLCore.ClauseF r)
 instance NFData a => NFData (PLCore.TermF a)
 instance NFData a => NFData (PLCore.PatternF a)
 
-instance SafeCopy PLCore.Term where
+instance Bi PLCore.Term => SafeCopy PLCore.Term where
     getCopy = getCopyBinary "Term"
     putCopy = putCopyBinary
 
-instance SafeCopy PLCore.Program where
+instance Bi PLCore.Program => SafeCopy PLCore.Program where
     getCopy = getCopyBinary "Program"
     putCopy = putCopyBinary
 

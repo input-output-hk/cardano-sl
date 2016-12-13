@@ -9,6 +9,7 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (===))
 import           Universum
 
+import           Pos.Binary            ()
 import           Pos.Types.Address     (Address (..), curAddrVersion, unsafeAddressHash)
 
 spec :: Spec

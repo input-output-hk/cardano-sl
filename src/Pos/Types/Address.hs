@@ -116,7 +116,7 @@ makePubKeyAddress :: PublicKey -> Address
 makePubKeyAddress = PubKeyAddress curAddrVersion . addressHash
 
 -- | A function for making an address from a validation script
-makeScriptAddress :: Script -> Address
+makeScriptAddress :: Bi Script => Script -> Address
 makeScriptAddress = ScriptAddress (curAddrVersion .|. 128) . addressHash
 
 -- | Check if given 'Address' is created from given 'PublicKey'
@@ -125,7 +125,7 @@ checkPubKeyAddress pk PubKeyAddress{..} = addrKeyHash == addressHash pk
 checkPubKeyAddress _ _                  = False
 
 -- | Check if given 'Address' is created from given validation script
-checkScriptAddress :: Script -> Address -> Bool
+checkScriptAddress :: Bi Script => Script -> Address -> Bool
 checkScriptAddress scr ScriptAddress{..} = addrScriptHash == addressHash scr
 checkScriptAddress _ _                   = False
 

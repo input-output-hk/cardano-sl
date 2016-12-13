@@ -101,6 +101,7 @@ library
                         Pos.Binary.Communication
                         Pos.Binary.DHT
                         Pos.Binary.Merkle
+                        Pos.Binary.Script
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
                         Pos.Binary.Types

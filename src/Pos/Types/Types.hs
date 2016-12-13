@@ -147,6 +147,7 @@ import           Universum
 
 import           Pos.Binary.Address     ()
 import           Pos.Binary.Class       (Bi)
+import           Pos.Binary.Script      ()
 import           Pos.Constants          (sharedSeedLength)
 import           Pos.Crypto             (Hash, PublicKey, Signature, hash, hashHexF,
                                          shortHashF)
@@ -255,11 +256,11 @@ data TxInWitness
         { twValidator :: Script
         , twRedeemer  :: Script
         }
-    deriving (Eq, Ord, Show, Generic)
+    deriving (Eq, Show, Generic)
 
 instance Hashable TxInWitness
 
-instance Buildable TxInWitness where
+instance Bi Script => Buildable TxInWitness where
     build (PkWitness key sig) =
         bprint ("PkWitness: key = "%build%", sig = "%build) key sig
     build (ScriptWitness val red) =
@@ -320,7 +321,7 @@ txF :: Format r (Tx -> r)
 txF = build
 
 -- | Specialized formatter for 'Tx' with a witness.
-txwF :: Format r ((Tx, TxWitness) -> r)
+txwF :: Bi Script => Format r ((Tx, TxWitness) -> r)
 txwF = later $ \(tx, w) ->
     bprint (build%"\n"%"witnesses:"%listJsonIndent 4) tx w
 

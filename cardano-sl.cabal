@@ -175,6 +175,7 @@ library
   if flag(with-rocks)
     other-modules:
                         Pos.Modern.DB
+                        Pos.Modern.DB.Block
                         Pos.Modern.DB.Class
                         Pos.Modern.DB.Functions
                         Pos.Modern.DB.Holder

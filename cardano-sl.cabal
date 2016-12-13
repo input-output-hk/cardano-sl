@@ -34,13 +34,20 @@ Flag with-wallet
 
   description: Build with wallet.
 
+Flag with-rocks
+  default:     True
+  manual:      True
+
+  description: Build with RocksDB.
+
 library
   exposed-modules:      Pos.Binary
                         Pos.CLI
-                        Pos.Crypto
+                        Pos.Context
                         Pos.Communication
                         Pos.CompileConfig
                         Pos.Constants
+                        Pos.Crypto
                         Pos.DHT
                         Pos.DHT.Real
                         Pos.DHT.Real.Real
@@ -66,12 +73,12 @@ library
                         Pos.Ssc.Class.Workers
                         Pos.Ssc.Class.Listeners
                         Pos.Ssc.Class.LocalData
+                        Pos.Ssc.LocalData
                         Pos.State
                         Pos.State.Acidic
+                        Pos.State.Holder
                         Pos.State.State
                         Pos.State.Storage
-                        Pos.State.Storage.Block
-                        Pos.State.Storage.Types
                         Pos.Statistics
                         Pos.Txp.Listeners
                         Pos.Txp.Storage
@@ -115,6 +122,9 @@ library
                         Pos.Communication.Util
                         Pos.CompileConfig.Parser
                         Pos.CompileConfig.Type
+                        Pos.Context.Class
+                        Pos.Context.Context
+                        Pos.Context.Holder
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
@@ -150,6 +160,8 @@ library
                         Pos.Ssc.GodTossing.Types.Type
                         Pos.Ssc.GodTossing.Types.Types
                         Pos.Ssc.GodTossing.Utils
+                        Pos.State.Storage.Block
+                        Pos.State.Storage.Types
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
@@ -160,6 +172,18 @@ library
                         Pos.Worker.Stats
                         Pos.Util.Arbitrary
                         Pos.Util.NotImplemented
+  if flag(with-rocks)
+    other-modules:
+                        Pos.Modern.DB
+                        Pos.Modern.DB.Class
+                        Pos.Modern.DB.Functions
+                        Pos.Modern.DB.Holder
+                        Pos.Modern.DB.Types
+                        Pos.Modern.Types.Utxo
+                        Pos.Modern.Txp.Storage
+                        Pos.Modern.Txp.LocalData
+                        Pos.Modern.Txp.Listeners
+                        Pos.Modern.Txp.RocksDB
   if flag(with-web)
     other-modules:      Pos.Web.Api
                         Pos.Web.Doc
@@ -171,7 +195,8 @@ library
     other-modules:      Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Server
-  build-depends:        HsOpenSSL
+  build-depends:        IfElse
+                      , HsOpenSSL
                       , QuickCheck
                       , UtilityTM
                       , acid-state
@@ -236,6 +261,9 @@ library
                       , vector
                       , yaml
 
+  if flag(with-rocks)
+    build-depends:      rocksdb
+
   if flag(with-web)
     build-depends:      http-types
                       , servant >= 0.8.1
@@ -268,6 +296,8 @@ library
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
+  if flag(with-rocks)
+    cpp-options: -DWITH_ROCKS
 
 executable cardano-node
   hs-source-dirs:      src/node

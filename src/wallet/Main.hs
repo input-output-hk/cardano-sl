@@ -121,6 +121,7 @@ main = do
         let params =
                 NodeParams
                 { npDbPath      = Just woDbPath
+                , npDbPathM     = woDbPath
                 , npRebuildDb   = woRebuildDb
                 , npSystemStart = systemStart
                 , npSecretKey   = sk

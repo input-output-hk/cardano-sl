@@ -240,6 +240,7 @@ main = do
         let params =
                 NodeParams
                 { npDbPath      = Nothing
+                , npDbPathM      = "zhogovo"
                 , npRebuildDb   = False
                 , npSystemStart = systemStart
                 , npSecretKey   = sk

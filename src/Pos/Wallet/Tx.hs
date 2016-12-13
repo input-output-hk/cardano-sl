@@ -23,6 +23,7 @@ import           Universum
 
 import           Pos.Binary            ()
 import           Pos.Communication     (sendTx)
+import           Pos.Context           (NodeContext (..), getNodeContext)
 import           Pos.Crypto            (SecretKey)
 import           Pos.Crypto            (hash, sign, toPublic)
 import           Pos.Ssc.Class.Storage (SscStorageMode)
@@ -30,7 +31,7 @@ import           Pos.State             (WorkModeDB, getUtxoByDepth)
 import           Pos.Types             (Address, Coin, Tx (..), TxId, TxIn (..),
                                         TxInWitness (..), TxOut (..), TxWitness, Utxo,
                                         makePubKeyAddress, txwF)
-import           Pos.WorkMode          (NodeContext (..), WorkMode, getNodeContext)
+import           Pos.WorkMode          (WorkMode)
 
 type TxOutIdx = (TxId, Word32)
 type TxInputs = [TxOutIdx]

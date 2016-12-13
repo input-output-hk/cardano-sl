@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DefaultSignatures     #-}
 {-# LANGUAGE FlexibleContexts      #-}
@@ -39,6 +40,9 @@ import qualified STMContainers.Map           as SM
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
+#ifdef WITH_ROCKS
+import qualified Pos.Modern.DB               as Modern
+#endif
 import           Pos.DHT                     (DHTResponseT, MonadDHT,
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
@@ -80,7 +84,11 @@ newtype NoStatsT m a = NoStatsT
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog p,
                MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader,
-               MonadJL, CanLog)
+               MonadJL, CanLog
+#ifdef WITH_ROCKS
+               , Modern.MonadDB ssc
+#endif
+               )
 
 instance MonadBase IO m => MonadBase IO (NoStatsT m) where
     liftBase = lift . liftBase
@@ -126,7 +134,11 @@ newtype StatsT m a = StatsT
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog p,
                MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader, MonadTrans,
-               MonadJL, CanLog)
+               MonadJL, CanLog
+#ifdef WITH_ROCKS
+               , Modern.MonadDB ssc
+#endif
+               )
 
 instance MonadTransControl StatsT where
     type StT StatsT a = StT (ReaderT StatsMap) a

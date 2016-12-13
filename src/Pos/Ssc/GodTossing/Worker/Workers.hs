@@ -28,6 +28,8 @@ import           Universum
 import           Pos.Binary.Class                       (Bi, serialize)
 import           Pos.Communication.Methods              (sendToNeighborsSafe)
 import           Pos.Constants                          (k, mpcSendInterval)
+import           Pos.Context                            (getNodeContext, ncPublicKey,
+                                                         ncSecretKey, ncSscContext)
 import           Pos.Crypto                             (SecretKey, VssKeyPair,
                                                          randomNumber, runSecureRandom,
                                                          toPublic)
@@ -67,9 +69,7 @@ import           Pos.Types                              (Address (..), EpochInde
                                                          LocalSlotIndex, SlotId (..),
                                                          Timestamp (..),
                                                          makePubKeyAddress)
-import           Pos.WorkMode                           (WorkMode, getNodeContext,
-                                                         ncPublicKey, ncSecretKey,
-                                                         ncSscContext)
+import           Pos.WorkMode                           (WorkMode)
 
 instance (Bi VssCertificate
          ,Bi Opening

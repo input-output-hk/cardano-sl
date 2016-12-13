@@ -25,6 +25,8 @@ module Pos.Ssc.Class.LocalData
        ) where
 
 import           Control.Lens        (Lens')
+import           Pos.DHT             (DHTResponseT)
+import           Pos.DHT.Real        (KademliaDHT)
 import           Universum
 
 import           Pos.Ssc.Class.Types (Ssc (..))
@@ -48,6 +50,21 @@ instance (SscLocalData ssc ~ a) => HasSscLocalData ssc a where
 class Monad m => MonadSscLD ssc m | m -> ssc where
     getLocalData :: m (SscLocalData ssc)
     setLocalData :: SscLocalData ssc -> m ()
+
+instance (Monad m, MonadSscLD ssc m) =>
+         MonadSscLD ssc (ReaderT x m) where
+    getLocalData = lift getLocalData
+    setLocalData = lift . setLocalData
+
+instance (Monad m, MonadSscLD ssc m) =>
+         MonadSscLD ssc (DHTResponseT m) where
+    getLocalData = lift getLocalData
+    setLocalData = lift . setLocalData
+
+instance (MonadSscLD ssc m, Monad m) =>
+         MonadSscLD ssc (KademliaDHT m) where
+    getLocalData = lift getLocalData
+    setLocalData = lift . setLocalData
 
 -- | This type class abstracts local data used for SSC. Local means
 -- that it is not stored in blocks.

@@ -60,6 +60,7 @@ import qualified Data.HashMap.Strict      as HM
 import           Data.List.NonEmpty       (NonEmpty)
 import           Formatting               (build, sformat, (%))
 import           Pos.DHT                  (DHTResponseT)
+import           Pos.DHT.Real             (KademliaDHT)
 import           Serokell.Util            (VerificationRes)
 import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            dispatchEvents, getLoggerName, logWarning,
@@ -94,6 +95,9 @@ instance (MonadDB ssc m, Monad m) => MonadDB ssc (StateT s m) where
     getNodeState = lift getNodeState
 
 instance (Monad m, MonadDB ssc m) => MonadDB ssc (DHTResponseT m) where
+    getNodeState = lift getNodeState
+
+instance (MonadDB ssc m, Monad m) => MonadDB ssc (KademliaDHT m) where
     getNodeState = lift getNodeState
 
 -- | IO monad with db access.

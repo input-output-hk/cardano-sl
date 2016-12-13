@@ -101,8 +101,9 @@ convertHandler kctx tld nc ns ws handler =
             runSscLDImpl .
             runTxLDImpl .
             runKademliaDHTRaw kctx .
-            getNoStatsT $
-            setTxLocalData tld >> runReaderT handler ws)
+            getNoStatsT .
+            flip runReaderT ws $
+            setTxLocalData tld >> handler)
     `Catch.catches`
     excHandlers
   where
@@ -151,7 +152,7 @@ send srcIdx dstAddr c
     | otherwise = do
           let sk = genesisSecretKeys !! fromIntegral srcIdx
           na <- fmap dhtAddr <$> getKnownPeers
-          () <$ lift (submitTx sk na [TxOut dstAddr c])
+          () <$ submitTx sk na [TxOut dstAddr c]
           putText $
               sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
               c srcIdx dstAddr

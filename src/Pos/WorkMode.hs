@@ -125,6 +125,10 @@ instance MonadTxLD m => MonadTxLD (KademliaDHT m) where
     getTxLocalData = lift getTxLocalData
     setTxLocalData = lift . setTxLocalData
 
+instance MonadTxLD m => MonadTxLD (ReaderT r m) where
+    getTxLocalData = lift getTxLocalData
+    setTxLocalData = lift . setTxLocalData
+
 newtype TxLDImpl m a = TxLDImpl
     { getTxLDImpl :: ReaderT (STM.TVar TxLocalData) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,

@@ -1,3 +1,4 @@
+{-# LANGUAGE DefaultSignatures     #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances  #-}
@@ -17,10 +18,8 @@ module Pos.Binary.Class
 import           Control.Monad.Fail          (MonadFail, fail)
 import           Data.Binary                 (Get, Put)
 import qualified Data.Binary                 as Binary
-import           Data.Binary.Get             (ByteOffset, getWord16be, getWord32be,
-                                              getWord64be, getWord8, runGet, runGetOrFail)
-import           Data.Binary.Put             (putCharUtf8, putWord16be, putWord32be,
-                                              putWord64be, putWord8, runPut)
+import           Data.Binary.Get             (ByteOffset, getWord8, runGet, runGetOrFail)
+import           Data.Binary.Put             (putCharUtf8, putWord8, runPut)
 import qualified Data.ByteString             as BS
 import qualified Data.ByteString.Lazy        as BSL
 import           Data.Hashable               (Hashable (..))
@@ -39,9 +38,19 @@ import           Universum
 
 -- | Simplified definition of serializable object,
 -- Data.Binary.Class-alike.
+--
+-- Write @instance Bi SomeType where@ without any method definitions if you
+-- want to use the 'Binary' instance for your type.
 class Bi t where
     put :: t -> Put
+    default put :: Binary.Binary t => t -> Put
+    put = Binary.put
+    {-# INLINE put #-}
+
     get :: Get t
+    default get :: Binary.Binary t => Get t
+    get = Binary.get
+    {-# INLINE get #-}
 
 --instance Serializable t => B.Binary t where
 --    get = get
@@ -161,53 +170,19 @@ instance Bi Char where
 -- Numeric data
 ----------------------------------------------------------------------------
 
-instance Bi Int where
-    {-# INLINE put #-}
-    put = Binary.put
-    {-# INLINE get #-}
-    get = Binary.get
+-- These instances just copy 'Binary'
 
-instance Bi Int64 where
-    {-# INLINE put #-}
-    put = Binary.put
-    {-# INLINE get #-}
-    get = Binary.get
+instance Bi Int where               -- 8 bytes, big endian
+instance Bi Word where              -- 8 bytes, big endian
 
-instance Bi Integer where
-    {-# INLINE put #-}
-    put = Binary.put
-    {-# INLINE get #-}
-    get = Binary.get
+instance Bi Integer where           -- TODO: write how Integer is serialized
 
-instance Bi Word where
-    {-# INLINE put #-}
-    put = Binary.put
-    {-# INLINE get #-}
-    get = Binary.get
+instance Bi Int64 where             -- 8 bytes, big endian
 
-instance Bi Word8 where
-    {-# INLINE put #-}
-    put = putWord8
-    {-# INLINE get #-}
-    get = getWord8
-
-instance Bi Word16 where
-    {-# INLINE put #-}
-    put = putWord16be
-    {-# INLINE get #-}
-    get = getWord16be
-
-instance Bi Word32 where
-    {-# INLINE put #-}
-    put = putWord32be
-    {-# INLINE get #-}
-    get = getWord32be
-
-instance Bi Word64 where
-    {-# INLINE put #-}
-    put = putWord64be
-    {-# INLINE get #-}
-    get = getWord64be
+instance Bi Word8 where             -- single byte
+instance Bi Word16 where            -- 2 bytes, big endian
+instance Bi Word32 where            -- 4 bytes, big endian
+instance Bi Word64 where            -- 8 bytes, big endian
 
 ----------------------------------------------------------------------------
 -- Containers
@@ -231,21 +206,9 @@ instance (Bi a, Bi b, Bi c, Bi d) => Bi (a, b, c, d) where
     {-# INLINE get #-}
     get = liftM4 (,,,) get get get get
 
-instance Bi BS.ByteString where
-    {-# INLINE put #-}
-    put = Binary.put
-    {-# INLINE get #-}
-    get = Binary.get
-
-instance Bi BSL.ByteString where
-    {-# INLINE put #-}
-    put = Binary.put
-    {-# INLINE get #-}
-    get = Binary.get
-
-instance Bi Text where
-    put = Binary.put
-    get = Binary.get
+instance Bi BS.ByteString where    -- [length, 8 bytes BE][bytestring]
+instance Bi BSL.ByteString where   -- [length, 8 bytes BE][bytestring]
+instance Bi Text where             -- [length of UTF8 encoding][bytestring]
 
 -- TODO Optimize by using varint instead of int
 instance Bi a => Bi [a] where

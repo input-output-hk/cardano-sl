@@ -24,7 +24,8 @@ import           Universum
 import           Pos.Binary.Class            (Bi)
 import           Pos.Communication.Types     (RequestBlockchainPart (..),
                                               SendBlockHeader (..))
-import           Pos.DHT                     (sendToNeighbors, sendToNode)
+import           Pos.DHT                     (MonadMessageDHT, sendToNeighbors,
+                                              sendToNode)
 import           Pos.Txp.Types.Communication (TxDataMsg (..))
 import           Pos.Types                   (HeaderHash, MainBlockHeader, Tx, TxWitness,
                                               headerHash)
@@ -73,6 +74,6 @@ queryBlockchainFresh = queryBlockchainUntil . headerHash =<< getHeadBlock
 
 -- | Send Tx to given address.
 sendTx
-    :: (WorkMode ssc m, Bi TxDataMsg)
+    :: (MonadMessageDHT m, Bi TxDataMsg)
     => NetworkAddress -> (Tx, TxWitness) -> m ()
 sendTx addr (tx,w) = sendToNode addr $ TxDataMsg tx w

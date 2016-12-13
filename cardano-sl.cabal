@@ -193,6 +193,7 @@ library
                         Pos.Web.Types
   if flag(with-wallet)
     other-modules:      Pos.Wallet.Tx
+                      , Pos.Wallet.WalletMode
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc

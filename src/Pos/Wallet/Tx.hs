@@ -15,7 +15,6 @@ import           Control.Monad.State   (StateT, evalStateT)
 import           Control.TimeWarp.Rpc  (NetworkAddress)
 import           Data.List             (tail)
 import qualified Data.Map              as M
-import           Data.Maybe            (fromJust)
 import qualified Data.Vector           as V
 import           Formatting            (build, sformat, (%))
 import           System.Wlog           (logError, logInfo)
@@ -27,11 +26,11 @@ import           Pos.Context           (NodeContext (..), getNodeContext)
 import           Pos.Crypto            (SecretKey)
 import           Pos.Crypto            (hash, sign, toPublic)
 import           Pos.Ssc.Class.Storage (SscStorageMode)
-import           Pos.State             (WorkModeDB, getUtxoByDepth)
+import           Pos.State             (WorkModeDB, getUtxo)
 import           Pos.Types             (Address, Coin, Tx (..), TxId, TxIn (..),
                                         TxInWitness (..), TxOut (..), TxWitness, Utxo,
                                         makePubKeyAddress, txwF)
-import           Pos.WorkMode          (WorkMode)
+import           Pos.Wallet.WalletMode (WalletMode)
 
 type TxOutIdx = (TxId, Word32)
 type TxInputs = [TxOutIdx]
@@ -97,7 +96,7 @@ createTx utxo sk outputs = uncurry (makePubKeyTx sk) <$> inpOuts
 
 -- | Construct Tx with a single input and single output and send it to
 -- the given network addresses.
-submitSimpleTx :: WorkMode ssc m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m (Tx, TxWitness)
+submitSimpleTx :: WalletMode ssc m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m (Tx, TxWitness)
 submitSimpleTx [] _ _ =
     logError "No addresses to send" >> fail "submitSimpleTx failed"
 submitSimpleTx na input output = do
@@ -107,21 +106,20 @@ submitSimpleTx na input output = do
     pure tx
 
 -- | Construct Tx using secret key and given list of desired outputs
-submitTx :: WorkMode ssc m => SecretKey -> [NetworkAddress] -> TxOutputs -> m (Tx, TxWitness)
+submitTx :: WalletMode ssc m => SecretKey -> [NetworkAddress] -> TxOutputs -> m (Tx, TxWitness)
 submitTx _ [] _ = logError "No addresses to send" >> fail "submitTx failed"
 submitTx sk na outputs = do
-    utxo <- fromJust <$> getUtxoByDepth 0
+    utxo <- getUtxo
     case createTx utxo sk outputs of
         Left err -> fail $ toString err
         Right tx -> tx <$ submitTxRaw na tx
 
 -- | Get current balance with given address
 getBalance :: (SscStorageMode ssc, WorkModeDB ssc m) => Address -> m Coin
-getBalance addr = fromJust <$> getUtxoByDepth 0 >>=
-                  return . sum . M.map txOutValue . filterUtxo addr
+getBalance addr = getUtxo >>= return . sum . M.map txOutValue . filterUtxo addr
 
 -- | Send the ready-to-use transaction
-submitTxRaw :: WorkMode ssc m => [NetworkAddress] -> (Tx, TxWitness) -> m ()
+submitTxRaw :: WalletMode ssc m => [NetworkAddress] -> (Tx, TxWitness) -> m ()
 submitTxRaw na tx = do
     let txId = hash tx
     logInfo $ sformat ("Submitting transaction: "%txwF) tx

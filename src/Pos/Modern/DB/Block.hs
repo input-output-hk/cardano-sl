@@ -7,9 +7,10 @@ module Pos.Modern.DB.Block
        , isBlockInMainChain
        ) where
 
+import           Data.ByteArray          (convert)
 import           Universum
 
-import           Pos.Binary              (Bi, encodeStrict)
+import           Pos.Binary              (Bi)
 import           Pos.Modern.DB.Class     (MonadDB, getBlockDB)
 import           Pos.Modern.DB.Functions (rocksGetBi)
 import           Pos.Modern.DB.Types     (StoredBlock (..))
@@ -25,7 +26,7 @@ getBi k = rocksGetBi k =<< getBlockDB
 getStoredBlock
     :: (Ssc ssc, MonadDB ssc m)
     => HeaderHash ssc -> m (Maybe (StoredBlock ssc))
-getStoredBlock = getBi . ("b" <>) . encodeStrict
+getStoredBlock = getBi . ("b" <>) . convert
 
 -- | Get block with given hash from Block DB.
 getBlock
@@ -43,4 +44,4 @@ isBlockInMainChain = fmap (maybe True sbInMain) . getStoredBlock
 getUndo
     :: (MonadDB ssc m)
     => HeaderHash ssc -> m (Maybe Undo)
-getUndo = getBi . ("u" <>) . encodeStrict
+getUndo = getBi . ("u" <>) . convert

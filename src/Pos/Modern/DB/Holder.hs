@@ -30,7 +30,7 @@ import           Universum
 
 import           Pos.Modern.DB.Class          (MonadDB (..))
 import           Pos.Modern.DB.Types          (DB (..), NodeDBs (..), blockDB, utxoDB)
-import qualified Pos.State                    as Legacy
+import qualified Pos.State.State              as Legacy
 
 
 newtype DBHolder ssc m a = DBHolder

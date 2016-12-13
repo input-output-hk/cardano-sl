@@ -21,6 +21,7 @@ import           Universum
 
 import           Pos.Constants            (slotDuration)
 import           Pos.DHT                  (DHTResponseT)
+import           Pos.DHT.Real             (KademliaDHT)
 import           Pos.Types                (FlatSlotId, SlotId (..), Timestamp (..),
                                            flattenSlotId, unflattenSlotId)
 
@@ -39,6 +40,10 @@ instance MonadSlots m => MonadSlots (StateT s m) where
     getCurrentTime = lift getCurrentTime
 
 instance MonadSlots m => MonadSlots (DHTResponseT m) where
+    getSystemStartTime = lift getSystemStartTime
+    getCurrentTime = lift getCurrentTime
+
+instance MonadSlots m => MonadSlots (KademliaDHT m) where
     getSystemStartTime = lift getSystemStartTime
     getCurrentTime = lift getCurrentTime
 

@@ -1,5 +1,8 @@
+{-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE StandaloneDeriving     #-}
+{-# LANGUAGE UndecidableInstances   #-}
 
 -- | Class which provides access to database.
 
@@ -9,11 +12,14 @@ module Pos.Modern.DB.Class
        , getUtxoDB
        ) where
 
-import           Control.Lens        (view)
-import qualified Database.RocksDB    as Rocks
+import           Control.Lens         (view)
+import           Control.TimeWarp.Rpc (ResponseT (..))
+import qualified Database.RocksDB     as Rocks
 import           Universum
 
-import           Pos.Modern.DB.Types (DB, NodeDBs, blockDB, utxoDB)
+import           Pos.DHT              (DHTResponseT (..))
+import           Pos.DHT.Real         (KademliaDHT (..))
+import           Pos.Modern.DB.Types  (DB, NodeDBs, blockDB, utxoDB)
 
 class MonadIO m => MonadDB ssc m | m -> ssc where
     getNodeDBs :: m (NodeDBs ssc)
@@ -27,3 +33,19 @@ getBlockDB = view blockDB <$> getNodeDBs
 
 getUtxoDB :: MonadDB ssc m => m (DB ssc)
 getUtxoDB = view utxoDB <$> getNodeDBs
+
+instance (MonadDB ssc m) =>
+         MonadDB ssc (ReaderT a m) where
+    getNodeDBs = lift getNodeDBs
+    usingReadOptionsUtxo how m =
+        ask >>= lift . usingReadOptionsUtxo how . runReaderT m
+    usingWriteOptionsUtxo how m =
+        ask >>= lift . usingWriteOptionsUtxo how . runReaderT m
+    usingReadOptionsBlock how m =
+        ask >>= lift . usingReadOptionsBlock how . runReaderT m
+    usingWriteOptionsBlock how m =
+        ask >>= lift . usingWriteOptionsBlock how . runReaderT m
+
+deriving instance (MonadDB ssc m) => MonadDB ssc (ResponseT m)
+deriving instance (MonadDB ssc m) => MonadDB ssc (KademliaDHT m)
+deriving instance (MonadDB ssc m) => MonadDB ssc (DHTResponseT m)

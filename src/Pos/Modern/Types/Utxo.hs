@@ -22,8 +22,8 @@ import           Serokell.Util                (VerificationRes (..))
 import           Universum
 
 import           Pos.Crypto                   (WithHash (..))
-import           Pos.Modern.DB                (MonadDB (..), getUtxoDB, rocksGet)
-import           Pos.Modern.Txp.RocksDB       (createDelTx, createPutTx)
+--import           Pos.Modern.DB                (MonadDB (..), getUtxoDB, rocksGet)
+--import           Pos.Modern.Txp.RocksDB       (createDelTx, createPutTx)
 import           Pos.Modern.Txp.Storage.Types (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Modern.Types.Tx          (topsortTxs, verifyTx)
 import           Pos.Types.Types              (IdTxWitness, Tx (..), TxId, TxIn (..),
@@ -74,7 +74,7 @@ applyTxToUtxo tx = do
   where
     Tx {..} = whData tx
     applyInput = delTxIn
-    applyOutput idx = putTxOut (whHash tx, idx)
+    applyOutput idx = putTxOut $ TxIn (whHash tx) idx
 
 convertTo' :: [IdTxWitness] -> [(WithHash Tx, TxWitness)]
 convertTo' = map (\(i, (t, w)) -> (WithHash t i, w))
@@ -87,7 +87,7 @@ convertFrom' = map (\(WithHash t h, w) -> (h, (t, w)))
 
 -- | Find transaction input in Utxo assuming it is valid.
 findTxIn :: MonadUtxoRead ssc m => TxIn -> m (Maybe TxOut)
-findTxIn TxIn{..} = getTxOut (txInHash, txInIndex)
+findTxIn = getTxOut
 
 -- | Verify single Tx using Utxo as TxIn resolver.
 verifyTxUtxo :: MonadUtxoRead ssc m => (Tx, TxWitness) -> m VerificationRes

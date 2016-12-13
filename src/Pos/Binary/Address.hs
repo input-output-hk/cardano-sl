@@ -5,6 +5,7 @@ module Pos.Binary.Address () where
 import           Control.Monad.Fail (fail)
 import           Data.Binary.Get    (getWord32be, getWord8)
 import           Data.Binary.Put    (putWord32be, putWord8)
+import           Data.Bits          ((.|.))
 import           Data.Digest.CRC32  (crc32)
 import           Universum
 
@@ -18,15 +19,19 @@ import           Pos.Types.Address  (Address (..))
 
 instance Bi Address where
     get = do
-        ver <- getWord8
-        addrHash <- get
-        let addr = PubKeyAddress ver addrHash
-            ourChecksum = crc32 addr
+        addrVersion <- getWord8
+        addr <- if addrVersion < 128
+                then do addrKeyHash <- get
+                        return PubKeyAddress {..}
+                else do addrScriptHash <- get
+                        return ScriptAddress {..}
         theirChecksum <- getWord32be
-        if theirChecksum /= ourChecksum
+        if theirChecksum /= crc32 addr
             then fail "Address has invalid checksum!"
-            else pure addr
-    put addr@PubKeyAddress {..} = do
-        putWord8 addrVersion
-        put addrHash
+            else return addr
+    put addr = do
+        let ver = addrVersion addr
+        case addr of
+            PubKeyAddress {..} -> putWord8 ver >> put addrKeyHash
+            ScriptAddress {..} -> putWord8 (ver .|. 128) >> put addrScriptHash
         putWord32be $ crc32 addr

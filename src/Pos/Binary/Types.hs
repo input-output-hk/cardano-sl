@@ -6,6 +6,7 @@
 
 module Pos.Binary.Types () where
 
+import           Control.Monad.Fail  (fail)
 import           Universum
 
 import           Pos.Binary.Class    (Bi (..))
@@ -50,8 +51,14 @@ instance Bi T.Tx where
     get = T.Tx <$> get <*> get
 
 instance Bi T.TxInWitness where
-    put (T.PkWitness key sig) = put key >> put sig
-    get = T.PkWitness <$> get <*> get
+    put (T.PkWitness key sig)     = put (0 :: Word8) >> put key >> put sig
+    put (T.ScriptWitness val red) = put (1 :: Word8) >> put val >> put red
+    get = do
+        tag <- get
+        case (tag :: Word8) of
+            0 -> T.PkWitness <$> get <*> get
+            1 -> T.ScriptWitness <$> get <*> get
+            _ -> fail "get@TxInWitness: unknown tag"
 
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where

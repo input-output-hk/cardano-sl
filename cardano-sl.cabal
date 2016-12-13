@@ -73,12 +73,12 @@ library
                         Pos.Ssc.Class.Workers
                         Pos.Ssc.Class.Listeners
                         Pos.Ssc.Class.LocalData
+                        Pos.Ssc.LocalData
                         Pos.State
                         Pos.State.Acidic
+                        Pos.State.Holder
                         Pos.State.State
                         Pos.State.Storage
-                        Pos.State.Storage.Block
-                        Pos.State.Storage.Types
                         Pos.Statistics
                         Pos.Txp.Listeners
                         Pos.Txp.Storage
@@ -108,6 +108,7 @@ library
                         Pos.Binary.Communication
                         Pos.Binary.DHT
                         Pos.Binary.Merkle
+                        Pos.Binary.Script
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
                         Pos.Binary.Types
@@ -137,6 +138,7 @@ library
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
+                        Pos.Script
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
@@ -158,6 +160,8 @@ library
                         Pos.Ssc.GodTossing.Types.Type
                         Pos.Ssc.GodTossing.Types.Types
                         Pos.Ssc.GodTossing.Utils
+                        Pos.State.Storage.Block
+                        Pos.State.Storage.Types
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
@@ -170,7 +174,10 @@ library
                         Pos.Util.NotImplemented
   if flag(with-rocks)
     other-modules:
+                        Pos.Binary.Modern.DB
                         Pos.Modern.DB
+                        Pos.Modern.DB.Block
+                        Pos.Modern.DB.Utxo
                         Pos.Modern.DB.Class
                         Pos.Modern.DB.Functions
                         Pos.Modern.DB.Holder
@@ -181,7 +188,6 @@ library
                         Pos.Modern.Txp.Storage.Types
                         Pos.Modern.Txp.LocalData
                         Pos.Modern.Txp.Listeners
-                        Pos.Modern.Txp.RocksDB
                         Pos.Modern.Types.Tx
   if flag(with-web)
     other-modules:      Pos.Web.Api
@@ -194,6 +200,11 @@ library
     other-modules:      Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Server
+                        Pos.Wallet.Web.State
+                        Pos.Wallet.Web.State.Acidic
+                        Pos.Wallet.Web.State.Holder
+                        Pos.Wallet.Web.State.State
+                        Pos.Wallet.Web.State.Storage
   build-depends:        IfElse
                       , HsOpenSSL
                       , QuickCheck
@@ -215,6 +226,7 @@ library
                       , data-default
                       , deepseq
                       , derive
+                      , deriving-compat
                       , digest
                       , directory
                       , ed25519
@@ -236,6 +248,7 @@ library
                       , mono-traversable
                       , mtl
                       , parsec
+                      , plutus-prototype
                       , pvss
                       , quickcheck-instances
                       , random
@@ -540,6 +553,7 @@ test-suite cardano-test
                      , Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
                      , Test.Pos.Ssc.GodTossing.SeedSpec
                      , Test.Pos.Ssc.GodTossing.Types.BaseSpec
+                     , Test.Pos.Types.AddressSpec
                      , Test.Pos.Types.BlockSpec
                      , Test.Pos.Types.Identity.BinarySpec
                      , Test.Pos.Types.Identity.SafeCopySpec

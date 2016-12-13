@@ -20,10 +20,10 @@ import qualified Pos.Modern.Txp.Storage.MemPool as MP
 import           Pos.Types                      (TxId, TxIn (..), TxOut)
 
 class Monad m => MonadUtxoRead ssc m | m -> ssc where
-    getTxOut :: (TxId, Word32) -> m (Maybe TxOut)
+    getTxOut :: TxIn -> m (Maybe TxOut)
 
 class MonadUtxoRead ssc m => MonadUtxo ssc m | m -> ssc where
-    putTxOut :: (TxId, Word32) -> TxOut -> m ()
+    putTxOut :: TxIn -> TxOut -> m ()
     delTxIn :: TxIn -> m ()
 
 newtype MemPoolHolder ssc m a = MemPoolHolder

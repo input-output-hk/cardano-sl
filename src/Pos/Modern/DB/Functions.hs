@@ -5,10 +5,12 @@
 module Pos.Modern.DB.Functions
        ( openDB
        , openNodeDBs
+       , rocksDelete
        , rocksGetBi
        , rocksGetBytes
        , rocksPutBi
        , rocksPutBytes
+       , rocksWriteBatch
        ) where
 
 import           Control.Monad.Fail           (fail)
@@ -71,3 +73,10 @@ rocksPutBytes k v DB {..} = Rocks.put rocksDB rocksWriteOpts k v
 -- | Write serializable value to RocksDb for given key.
 rocksPutBi :: (Bi v, MonadIO m) => ByteString -> v -> DB ssc -> m ()
 rocksPutBi k v = rocksPutBytes k (BSL.toStrict $ encode v)
+
+rocksDelete :: (MonadIO m) => ByteString -> DB ssc -> m ()
+rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k
+
+-- | Write Batch incapsulation
+rocksWriteBatch :: MonadIO m => [Rocks.BatchOp] -> DB ssc -> m ()
+rocksWriteBatch batch DB{..} = Rocks.write rocksDB rocksWriteOpts batch

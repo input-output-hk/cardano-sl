@@ -174,7 +174,10 @@ library
                         Pos.Util.NotImplemented
   if flag(with-rocks)
     other-modules:
+                        Pos.Binary.Modern.DB
                         Pos.Modern.DB
+                        Pos.Modern.DB.Block
+                        Pos.Modern.DB.Utxo
                         Pos.Modern.DB.Class
                         Pos.Modern.DB.Functions
                         Pos.Modern.DB.Holder
@@ -183,7 +186,6 @@ library
                         Pos.Modern.Txp.Storage
                         Pos.Modern.Txp.LocalData
                         Pos.Modern.Txp.Listeners
-                        Pos.Modern.Txp.RocksDB
   if flag(with-web)
     other-modules:      Pos.Web.Api
                         Pos.Web.Doc

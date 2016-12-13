@@ -5,7 +5,6 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
-{-# LANGUAGE ViewPatterns          #-}
 
 -- | Internal state of the transaction-handling worker. Trasnaction
 -- processing logic.
@@ -24,29 +23,31 @@ module Pos.Modern.Txp.Storage.Storage
 --         txApplyBlocks
 --       , txRollback
        ) where
-import           Control.Lens            (each, over, (^.), _1)
-import           Control.Monad.IfElse    (aifM)
-import qualified Data.ByteString.Lazy    as BSL
-import qualified Data.List.NonEmpty      as NE
-import qualified Data.Map.Strict         as M
-import           Data.Maybe              (fromJust, isJust)
-import           Database.RocksDB        (BatchOp (..), WriteBatch, write)
-import           Formatting              (build, sformat, text, (%))
-import           System.Wlog             (WithLogger, logError)
+import           Control.Lens                    (each, over, (^.), _1)
+import           Control.Monad.IfElse            (aifM)
+import qualified Data.ByteString.Lazy            as BSL
+import qualified Data.List.NonEmpty              as NE
+import qualified Data.Map.Strict                 as M
+import           Data.Maybe                      (fromJust, isJust)
+import           Database.RocksDB                (BatchOp (..), WriteBatch, write)
+import           Formatting                      (build, sformat, text, (%))
+import           System.Wlog                     (WithLogger, logError)
 import           Universum
 
-import           Pos.Binary              (encode)
-import           Pos.Crypto              (Hash, WithHash (..), hash, withHash)
-import           Pos.Modern.DB           (DB (..), MonadDB)
-import           Pos.Modern.DB.Block     (getBlock, getUndo)
-import           Pos.Modern.DB.Utxo      (getTip, putTip)
-import           Pos.Modern.Types.Utxo   (verifyTxs)
-import           Pos.Ssc.Class.Types     (Ssc)
-import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types               (Block, BlockHeader, IdTxWitness, SlotId,
-                                          Tx (..), TxIn (..), TxOut, TxWitness, Undo,
-                                          blockSlot, blockTxws, blockTxws, convertFrom',
-                                          headerHash, prevBlockL, slotIdF)
+import           Pos.Binary                      (encode)
+import           Pos.Crypto                      (Hash, WithHash (..), hash, withHash)
+import           Pos.Modern.DB                   (DB (..), MonadDB)
+import           Pos.Modern.DB.Block             (getBlock, getUndo)
+import           Pos.Modern.DB.Utxo              (getTip, putTip, writeBatchToUtxo)
+import           Pos.Modern.Txp.Storage.UtxoView (UtxoView)
+import           Pos.Modern.Types.Utxo           (verifyTxs)
+import           Pos.Ssc.Class.Types             (Ssc)
+import           Pos.State.Storage.Types         (AltChain)
+import           Pos.Types                       (Block, BlockHeader, IdTxWitness, SlotId,
+                                                  Tx (..), TxIn (..), TxOut, TxWitness,
+                                                  Undo, blockSlot, blockTxws, blockTxws,
+                                                  convertFrom', headerHash, prevBlockL,
+                                                  slotIdF)
 -- | I have commented whole this file, because tx processing will be changed (due to csl289) and I'll fix it in csl289.
 
 -- | Apply chain of /definitely/ valid blocks which go right after
@@ -138,16 +139,14 @@ import           Pos.Types               (Block, BlockHeader, IdTxWitness, SlotI
 -- checks if it can be done prior to transaction validity. Returns a
 -- list of topsorted transactions, head ~ deepest block on success.
 -- txVerifyBlocks :: MonadDB ssc m => AltChain ssc
---                -> m (Either Text ([[IdTxWitness]], [[BatchOp]]))
+--                -> m (Either Text ([[IdTxWitness]], UtxoView ssc))
 -- txVerifyBlocks newChain = do
---     verifyRes <- foldM verifyDo (Right ([], [], M.empty)) newChainTxs
+--     verifyRes <- foldM verifyDo (Right ([], M.empty)) newChainTxs
 --     return $
 --         case verifyRes of
---           Left msg        -> Left msg
---           Right ( accTxs
---                 , accBatch
---                 , _)      -> do
---                 Right (map convertFrom' . reverse $ accTxs, reverse accBatch)
+--           Left msg                    -> Left msg
+--           Right (accTxs, newUtxoView) ->
+--                 Right (map convertFrom' . reverse $ accTxs, newUtxoView)
 --   where
 --     newChainTxs :: [(SlotId, [(WithHash Tx, TxWitness)])]
 --     newChainTxs =
@@ -159,16 +158,12 @@ import           Pos.Types               (Block, BlockHeader, IdTxWitness, SlotI
 --     --          -> (SlotId, [(WithHash Tx, TxWitness)])
 --     --          -> m (Either Text ([[(WithHash Tx, TxWitness)]], [BatchOp], Utxo)) -- kaef
 --     verifyDo er@(Left _) _ = return er
---     verifyDo (Right (accTxs, accBatch, localUtxo)) (slotId, txws) = do
---         res <- verifyTxs txws localUtxo
+--     verifyDo (Right (accTxs, localUtxo)) (slotId, txws) = do
+--         res <- verifyTxs txws
 --         return $
 --             case res of
---               Left reason         -> Left $ sformat eFormat slotId reason
---               Right ( txws'
---                     , batch'
---                     , localUtxo') -> Right ( txws':accTxs
---                                            , batch' : accBatch
---                                            , localUtxo')
+--               Left reason               -> Left $ sformat eFormat slotId reason
+--               Right (txws', localUtxo') -> Right (txws':accTxs, localUtxo')
 --     eFormat =
 --         "Failed to apply transactions on block from slot " %
 --         slotIdF%", error: "%build

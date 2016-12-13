@@ -10,6 +10,7 @@ module Pos.Modern.DB.Functions
        , rocksGetBytes
        , rocksPutBi
        , rocksPutBytes
+       , rocksWriteBatch
        ) where
 
 import           Control.Monad.Fail           (fail)
@@ -75,3 +76,7 @@ rocksPutBi k v = rocksPutBytes k (BSL.toStrict $ encode v)
 
 rocksDelete :: (MonadIO m) => ByteString -> DB ssc -> m ()
 rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k
+
+-- | Write Batch incapsulation
+rocksWriteBatch :: MonadIO m => [Rocks.BatchOp] -> DB ssc -> m ()
+rocksWriteBatch batch DB{..} = Rocks.write rocksDB rocksWriteOpts batch

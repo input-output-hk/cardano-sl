@@ -22,6 +22,7 @@ import           Pos.Types       (Address, Coin, TxId)
 
 
 -- | currencies handled by client
+-- Note: Cardano does not deal with other currency than ADA yet
 data CCurrency
   = ADA
   | BTC
@@ -38,14 +39,19 @@ data CWalletType
 -- | Client Wallet (CW)
 -- (Flow type: walletType)
 data CWallet = CWallet
-  { cwAddress  :: Address
-  , cwAmount   :: Coin
-  -- "meta data"
-  , cwType     :: CWalletType
+  { cwAddress :: Address
+  , cwAmount  :: Coin
+  , cwMeta    :: CWalletMeta
+  }
+
+-- | Meta data of CWallet
+-- Includes data which are not provided by Cardano
+data CWalletMeta = CWalletMeta
+  { cwType     :: CWalletType
   , cwCurrency :: CCurrency
   , cwName     :: Text
   , cwLastUsed :: Bool
-}
+  }
 
 
 ----------------------------------------------------------------------------
@@ -56,43 +62,54 @@ data CWallet = CWallet
 type CPwHash = Text -- or Base64 or something else
 
 -- | Client profile (CP)
+-- all data of client are "meta data" - that is not provided by Cardano
 -- (Flow type: accountType)
 data CProfile = CProfile
-  { -- all are "meta data"
-  cpName          :: Text
+  { cpName        :: Text
   , cpEmail       :: Text
   , cpPhoneNumber :: Text
   , cpPwHash      :: CPwHash
   , cpPwCreated   :: UTCTime
   , cpLocale      :: Text
-}
+  }
 
 ----------------------------------------------------------------------------
 -- transactions
 ----------------------------------------------------------------------------
 
 -- | type of transactions
--- (client has 'card', 'adaExpand', 'adaIncome', 'exchange',
--- but we do need just in- / output and both)
+-- It can be an input / output / exchange transaction
 data CTType
-  = CTIn -- TxIn
-  | CTOut
-  | CTInOut
+  = CTIn CTxMeta
+  | CTOut CTxMeta
+  | CTInOut CTExMeta -- Ex == exchange
 
 
--- | Client transaction (CT)
--- TODO jk: It's need more work on this!!
+-- | Client transaction (CTx)
+-- Provides all Data about a transaction needed by client.
+-- It includes meta data which are not part of Cardano, too
 -- (Flow type: transactionType)
-data CTx = CTx {
-  ctId                    :: TxId
-  -- "meta data"
-  , ctType                :: CTType
-  , ctAmount              :: Coin -- TxOut txOutValue
-  , ctCurrency            :: CCurrency
-  , ctTitle               :: Text
-  , ctDescription         :: Text
-  , ctDate                :: UTCTime
-  , ctExchangeRate        :: Maybe Text
-  , ctExchangeDescription :: Maybe Text -- client's 'exchange' value
-  , ctAddress             :: Maybe Address
-}
+data CTx = CTx
+  { ctId     :: TxId
+  , ctAmount :: Coin
+  , ctType   :: CTType -- it includes all "meta data"
+  }
+
+-- | meta data of transactions
+data CTxMeta = CTxMeta
+  { ctmCurrency    :: CCurrency
+  , ctmTitle       :: Text
+  , ctmDescription :: Text
+  , ctmDate        :: UTCTime
+  }
+
+-- | meta data of exchanges
+data CTExMeta = CTExMeta
+  { cexCurrency    :: CCurrency
+  , cexTitle       :: Text
+  , cexDescription :: Text
+  , cexDate        :: UTCTime
+  , cexRate        :: Text
+  , cexLabel       :: Text -- counter part of client's 'exchange' value
+  , cexAddress     :: Address
+  }

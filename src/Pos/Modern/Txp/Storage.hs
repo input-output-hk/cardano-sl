@@ -26,6 +26,7 @@ module Pos.Modern.Txp.Storage
        ) where
 import           Control.Lens            (each, over, (^.), _1)
 import           Control.Monad.IfElse    (aifM)
+import qualified Data.ByteString.Lazy    as BSL
 import qualified Data.List.NonEmpty      as NE
 import qualified Data.Map.Strict         as M
 import           Data.Maybe              (fromJust, isJust)
@@ -34,9 +35,10 @@ import           Formatting              (build, sformat, text, (%))
 import           System.Wlog             (WithLogger, logError)
 import           Universum
 
+import           Pos.Binary              (encode)
 import           Pos.Crypto              (Hash, WithHash (..), hash, withHash)
 import           Pos.Modern.DB           (DB (..), MonadDB, getBlockDB, getUtxoDB,
-                                          rocksGet, rocksGetRaw, rocksPutRaw)
+                                          rocksGetBi, rocksPutBi)
 import           Pos.Modern.Txp.RocksDB  (createDelTx, createPutTx)
 import           Pos.Modern.Types.Utxo   (verifyTxs)
 import           Pos.Ssc.Class.Types     (Ssc)
@@ -169,17 +171,19 @@ txVerifyBlocks newChain = do
         slotIdF%", error: "%build
 
 getTip :: MonadDB ssc m => m (Maybe (Hash (BlockHeader ssc)))
-getTip = getUtxoDB >>= rocksGetRaw "tip"
+getTip = getUtxoDB >>= rocksGetBi "tip"
 
 putTip :: MonadDB ssc m => Hash (BlockHeader ssc) -> m ()
-putTip h = getUtxoDB >>= rocksPutRaw "tip" h
+putTip h = getUtxoDB >>= rocksPutBi "tip" h
 
 -- FIXME: use prefixes
-getBlock :: (Ssc ssc, MonadDB ssc m) => Hash (BlockHeader ssc) -> m (Maybe (Block ssc))
-getBlock h = getBlockDB >>= rocksGet h
+getBlock
+    :: (Ssc ssc, MonadDB ssc m)
+    => Hash (BlockHeader ssc) -> m (Maybe (Block ssc))
+getBlock h = getBlockDB >>= rocksGetBi (BSL.toStrict . encode $ h)
 
 getUndo :: (MonadDB ssc m) => Hash (BlockHeader ssc) -> m (Maybe Undo)
-getUndo h = getBlockDB >>= rocksGet h
+getUndo h = getBlockDB >>= rocksGetBi (BSL.toStrict . encode $ h)
 
 writeTxOuts :: MonadDB ssc m => WriteBatch -> m ()
 writeTxOuts batch = do

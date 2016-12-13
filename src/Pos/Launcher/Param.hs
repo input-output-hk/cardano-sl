@@ -40,4 +40,5 @@ data NodeParams = NodeParams
     , npCustomUtxo  :: !(Maybe Utxo)      -- ^ predefined custom utxo
     , npTimeLord    :: !Bool              -- ^ @True@ if node started as time-lord
     , npJLFile      :: !(Maybe FilePath)
+    , npMalicious   :: !Bool              -- ^ @True@ if node should emulate malicious actions
     } deriving (Show)

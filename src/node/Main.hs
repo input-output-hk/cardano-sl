@@ -158,6 +158,7 @@ nodeParams args@Args {..} spendingSK systemStart =
             stakesDistr flatDistr bitcoinDistr
     , npTimeLord = timeLord
     , npJLFile = jlPath
+    , npMalicious = maliciousEmulation
     }
 
 gtSscParams :: Args -> VssKeyPair -> GtParams

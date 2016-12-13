@@ -40,6 +40,7 @@ data Args = Args
     , jlPath             :: !(Maybe FilePath)
     , sscAlgo            :: !SscAlgo
     , memoryMode         :: !Bool
+    , maliciousEmulation :: !Bool
 #ifdef WITH_WEB
     , enableWeb          :: !Bool
     , webPort            :: !Word16
@@ -128,7 +129,10 @@ argsParser =
          help "Shared Seed Calculation algorithm which nodes will use") <*>
     switch
         (long "memory-mode" <>
-         help "Run DB in memory mode")
+         help "Run DB in memory mode") <*>
+    switch
+        (long "malicious-emulation" <>
+         help "Run node in malicious activity emulation mode")
 #ifdef WITH_WEB
     <*>
     switch

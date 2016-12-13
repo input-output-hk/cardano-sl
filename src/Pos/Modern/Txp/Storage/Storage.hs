@@ -20,7 +20,7 @@ module Pos.Modern.Txp.Storage.Storage
        -- , txRollback
        -- , processTx
        -- , filterLocalTxs
---         txApplyBlocks
+         txApplyBlocks
 --       , txRollback
        ) where
 import           Control.Lens                    (each, over, (^.), _1)
@@ -29,17 +29,19 @@ import qualified Data.ByteString.Lazy            as BSL
 import qualified Data.List.NonEmpty              as NE
 import qualified Data.Map.Strict                 as M
 import           Data.Maybe                      (fromJust, isJust)
-import           Database.RocksDB                (BatchOp (..), WriteBatch, write)
 import           Formatting                      (build, sformat, text, (%))
 import           System.Wlog                     (WithLogger, logError)
 import           Universum
 
 import           Pos.Binary                      (encode)
 import           Pos.Crypto                      (Hash, WithHash (..), hash, withHash)
-import           Pos.Modern.DB                   (DB (..), MonadDB)
+import           Pos.Modern.DB                   (DB (..), MonadDB, getUtxoDB)
 import           Pos.Modern.DB.Block             (getBlock, getUndo)
-import           Pos.Modern.DB.Utxo              (getTip, putTip, writeBatchToUtxo)
-import           Pos.Modern.Txp.Storage.UtxoView (UtxoView)
+import           Pos.Modern.DB.Utxo              (BatchOp (..), getTip, putTip,
+                                                  writeBatchToUtxo)
+import           Pos.Modern.Txp.Storage.Types    (MonadTxpLD, MonadUtxoRead, getUtxoView,
+                                                  runTxpLDHolder)
+import           Pos.Modern.Txp.Storage.UtxoView (UtxoView, createFromDB)
 import           Pos.Modern.Types.Utxo           (verifyTxs)
 import           Pos.Ssc.Class.Types             (Ssc)
 import           Pos.State.Storage.Types         (AltChain)
@@ -53,42 +55,43 @@ import           Pos.Types                       (Block, BlockHeader, IdTxWitnes
 -- | Apply chain of /definitely/ valid blocks which go right after
 -- last applied block. If invalid block is passed, this function will
 -- panic.
--- txApplyBlocks :: (Ssc ssc, WithLogger m, MonadDB ssc m) => AltChain ssc -> m ()
--- txApplyBlocks blocks = do
---     verdict <- txVerifyBlocks blocks
---     case verdict of
---         -- TODO Consider using `MonadError` and throwing `InternalError`.
---         Left _ -> panic "Attempted to apply blocks that don't pass txVerifyBlocks"
---         Right (txs, batches) -> do
---             -- Apply all the blocks' transactions
---             mapM_ (uncurry txApplyBlock)
---                   (zipWith (\x->fmap Just . (x,)) (NE.toList blocks `zip` txs) batches)
---             --writeTxOuts batch
+txApplyBlocks :: (Ssc ssc, WithLogger m, MonadDB ssc m, MonadTxpLD ssc m) => AltChain ssc -> m ()
+txApplyBlocks blocks = do
+    verdict <- txVerifyBlocks blocks
+    case verdict of
+        -- TODO Consider using `MonadError` and throwing `InternalError`.
+        Left _ -> panic "Attempted to apply blocks that don't pass txVerifyBlocks"
+        Right txs -> do
+            -- TODO apply UtxoView to Utxo here
+            -- Apply all the blocks' transactions
+            -- TODO actually, we can improve it: we can use UtxoView from txVerifyBlocks
+            -- Now we recalculate TxIn which must be removed from Utxo DB or added to Utxo DB
+            -- I can improve it, if it is bottlneck
+            mapM_ (uncurry txApplyBlock)
+                  (zip (NE.toList blocks `zip` txs) (repeat Nothing))
 
--- txApplyBlock :: (Ssc ssc, MonadDB ssc m, WithLogger m)
---              => (Block ssc, [IdTxWitness]) -> Maybe [BatchOp] -> m ()
--- txApplyBlock (b, txs) computedBatch = do
---     when (not . isGenesisBlock $ b) $ do
---         let hashPrevHeader = b ^. prevBlockL
---         tip <- getTip
---         if (isJust tip && hashPrevHeader == fromJust tip) then do
---             -- SIMPLIFY IT!!!
---             let batch = fromJust (computedBatch <|> (Just $ foldr' prependToBatch [] txs))
---             writeTxOuts batch
---             putTip (headerHash b)
---         else
---             logError "Error during application block to Undo DB: No TIP"
---   where
---     prependToBatch :: IdTxWitness -> [BatchOp] -> [BatchOp]
---     prependToBatch (txId, (Tx{..}, _)) batch =
---         let
---             keys = zip (repeat txId) [(0::Word32)..]
---             delIn = notImplemented
---             putOut = notImplemented
---             --delIn = map (createDelTx . \x -> (txInHash x, txInIndex x)) txInputs -- simplify it
---             --putOut = map createPutTx $ zip keys txOutputs
---         in
---             foldr' (:) (foldr' (:) batch putOut) delIn --how we could simplify it?
+txApplyBlock :: (Ssc ssc, MonadDB ssc m, WithLogger m)
+             => (Block ssc, [IdTxWitness]) -> Maybe [BatchOp] -> m ()
+txApplyBlock (b, txs) computedBatch = do
+    when (not . isGenesisBlock $ b) $ do
+        let hashPrevHeader = b ^. prevBlockL
+        tip <- getTip
+        if (isJust tip && hashPrevHeader == fromJust tip) then do
+            -- SIMPLIFY IT!!!
+            let batch = fromJust (computedBatch <|> (Just $ foldr' prependToBatch [] txs))
+            writeBatchToUtxo batch
+            putTip (headerHash b)
+        else
+            logError "Error during application of block to Undo DB: No TIP"
+  where
+    prependToBatch :: IdTxWitness -> [BatchOp] -> [BatchOp]
+    prependToBatch (txId, (Tx{..}, _)) batch =
+        let
+            keys = zipWith TxIn (repeat txId) [(0::Word32)..]
+            delIn = map DelTxIn txInputs
+            putOut = map (uncurry AddTxOut) $ zip keys txOutputs
+        in
+            foldr' (:) (foldr' (:) batch putOut) delIn --how we could simplify it?
 
 -- | Rollback last @n@ blocks. This will replace current utxo to utxo
 -- of desired depth block and also filter local transactions so they
@@ -138,35 +141,38 @@ import           Pos.Types                       (Block, BlockHeader, IdTxWitnes
 -- | Given number of blocks to rollback and some sidechain to adopt it
 -- checks if it can be done prior to transaction validity. Returns a
 -- list of topsorted transactions, head ~ deepest block on success.
--- txVerifyBlocks :: MonadDB ssc m => AltChain ssc
---                -> m (Either Text ([[IdTxWitness]], UtxoView ssc))
--- txVerifyBlocks newChain = do
---     verifyRes <- foldM verifyDo (Right ([], M.empty)) newChainTxs
---     return $
---         case verifyRes of
---           Left msg                    -> Left msg
---           Right (accTxs, newUtxoView) ->
---                 Right (map convertFrom' . reverse $ accTxs, newUtxoView)
---   where
---     newChainTxs :: [(SlotId, [(WithHash Tx, TxWitness)])]
---     newChainTxs =
---         map (\b -> (b ^. blockSlot,
---                     over (each._1) withHash (b ^. blockTxws))) $
---         rights (NE.toList newChain)
+txVerifyBlocks :: (MonadDB ssc m, MonadTxpLD ssc m) => AltChain ssc
+               -> m (Either Text [[IdTxWitness]])
+txVerifyBlocks newChain = do
+    utxoDB <- getUtxoDB
+    verifyRes <- runTxpLDHolder
+                     (foldM verifyDo (Right []) newChainTxs)
+                     (createFromDB utxoDB)
+    return $
+        case verifyRes of
+          Left msg                    -> Left msg
+          Right accTxs ->
+                Right (map convertFrom' . reverse $ accTxs)
+  where
+    newChainTxs :: [(SlotId, [(WithHash Tx, TxWitness)])]
+    newChainTxs =
+        map (\b -> (b ^. blockSlot,
+                    over (each._1) withHash (b ^. blockTxws))) $
+        rights (NE.toList newChain)
 
---     -- verifyDo :: (Either Text([[(WithHash Tx, TxWitness)]], [BatchOp], Utxo))
---     --          -> (SlotId, [(WithHash Tx, TxWitness)])
---     --          -> m (Either Text ([[(WithHash Tx, TxWitness)]], [BatchOp], Utxo)) -- kaef
---     verifyDo er@(Left _) _ = return er
---     verifyDo (Right (accTxs, localUtxo)) (slotId, txws) = do
---         res <- verifyTxs txws
---         return $
---             case res of
---               Left reason               -> Left $ sformat eFormat slotId reason
---               Right (txws', localUtxo') -> Right (txws':accTxs, localUtxo')
---     eFormat =
---         "Failed to apply transactions on block from slot " %
---         slotIdF%", error: "%build
+    -- verifyDo  :: (Either Text [[IdTxWitness]])
+    --           -> (SlotId, [(WithHash Tx, TxWitness)])
+    --           -> m (Either Text [[IdTxWitness]])
+    verifyDo er@(Left _) _ = return er
+    verifyDo (Right accTxs) (slotId, txws) = do
+        res <- verifyTxs txws
+        return $
+            case res of
+              Left reason -> Left  (sformat eFormat slotId reason)
+              Right txws' -> Right (txws':accTxs)
+    eFormat =
+        "Failed to apply transactions on block from slot " %
+        slotIdF%", error: "%build
 
 isGenesisBlock :: Block ssc -> Bool
 isGenesisBlock (Left _) = True

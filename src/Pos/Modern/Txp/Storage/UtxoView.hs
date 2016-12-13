@@ -4,6 +4,7 @@ module Pos.Modern.Txp.Storage.UtxoView
        , getTxOut
        , putTxOut
        , delTxIn
+       , createFromDB
        ) where
 
 import           Data.HashSet        (HashSet)
@@ -21,6 +22,9 @@ data UtxoView ssc = UtxoView
     , delUtxo :: !(HashSet TxIn)
     , utxoDB  :: !(DB ssc)
     }
+
+createFromDB :: DB ssc -> UtxoView ssc
+createFromDB = UtxoView M.empty HS.empty
 
 putTxOut :: TxIn -> TxOut -> UtxoView ssc -> UtxoView ssc
 putTxOut TxIn{..} val mp@UtxoView{..} = -- what we should do if key contains into delUtxo?

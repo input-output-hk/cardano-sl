@@ -57,7 +57,7 @@ instance (Monad m, MonadSscLD ssc m) =>
     setLocalData = lift . setLocalData
 
 instance (Monad m, MonadSscLD ssc m) =>
-         MonadSscLD ssc (DHTResponseT m) where
+         MonadSscLD ssc (DHTResponseT s m) where
     getLocalData = lift getLocalData
     setLocalData = lift . setLocalData
 

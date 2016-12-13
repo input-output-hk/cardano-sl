@@ -1,6 +1,10 @@
+{-# LANGUAGE ConstraintKinds           #-}
 {-# LANGUAGE DefaultSignatures         #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE FunctionalDependencies    #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE UndecidableInstances      #-}
@@ -17,15 +21,18 @@ module Pos.DHT.Class.MonadMessageDHT
        , withDhtLogger
        , defaultSendToNeighbors
        , defaultSendToNode
+       , DHTPacking
+       , MonadDHTDialog
+       , DHTDialog
        ) where
 
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, catch)
 import           Control.Monad.Morph       (hoist)
 import           Control.Monad.Trans.Class (MonadTrans)
-import           Control.TimeWarp.Rpc      (Message, MonadDialog, MonadTransfer (..),
-                                            NetworkAddress, ResponseT, closeR,
-                                            hoistRespCond, mapResponseT, peerAddr, replyH,
-                                            sendH)
+import           Control.TimeWarp.Rpc      (Dialog, Message, MonadDialog,
+                                            MonadTransfer (..), NetworkAddress, ResponseT,
+                                            closeR, hoistRespCond, mapResponseT, peerAddr,
+                                            replyH, sendH)
 import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
 import           Formatting                (int, sformat, shown, (%))
 import qualified Formatting                as F
@@ -42,7 +49,7 @@ import           Pos.DHT.Types             (DHTNode (..), DHTNodeType (..), dhtA
 import           Pos.Util                  (messageName')
 
 -- | Monad that can send messages over distributed network.
-class MonadDHT m => MonadMessageDHT m where
+class MonadDHT m => MonadMessageDHT s m | m -> s where
 
     sendToNetwork :: (Bi r, Message r) => r -> m ()
 
@@ -55,7 +62,7 @@ class MonadDHT m => MonadMessageDHT m where
                           , Message r
                           , WithLogger m
                           , WithDefaultMsgHeader m
-                          , MonadDialog (BiP DHTMsgHeader) m
+                          , MonadDHTDialog s m
                           , MonadThrow m
                           ) => NetworkAddress -> r -> m ()
     sendToNode = defaultSendToNode
@@ -68,11 +75,11 @@ class MonadDHT m => MonadMessageDHT m where
     sendToNeighbors = defaultSendToNeighbors sequence sendToNode
 
 -- | Monad that can respond on messages for DHT algorithm.
-class MonadMessageDHT m => MonadResponseDHT m where
+class MonadMessageDHT s m => MonadResponseDHT s m | m -> s where
   replyToNode :: (Bi r, Message r) => r -> m ()
   closeResponse :: m ()
 
-instance MonadMessageDHT m => MonadMessageDHT (ReaderT r m) where
+instance MonadMessageDHT s m => MonadMessageDHT s (ReaderT r m) where
     sendToNetwork = lift . sendToNetwork
     sendToNeighbors = lift . sendToNeighbors
     sendToNode addr = lift . sendToNode addr
@@ -89,38 +96,48 @@ class WithDefaultMsgHeader m where
 instance (Monad m, WithDefaultMsgHeader m) => WithDefaultMsgHeader (ReaderT r m) where
     defaultMsgHeader = lift . defaultMsgHeader
 
-instance MonadMessageDHT m => MonadMessageDHT (ResponseT m) where
+instance MonadMessageDHT s m => MonadMessageDHT s (ResponseT s m) where
     sendToNetwork = lift . sendToNetwork
     sendToNode node = lift . sendToNode node
     sendToNeighbors = lift . sendToNeighbors
 
-instance (Monad m, WithDefaultMsgHeader m) => WithDefaultMsgHeader (ResponseT m) where
+instance (Monad m, WithDefaultMsgHeader m) => WithDefaultMsgHeader (ResponseT s m) where
   defaultMsgHeader = lift . defaultMsgHeader
 
+-- | Packing type used by DHT to send messages.
+type DHTPacking = BiP DHTMsgHeader
+
+-- | Shortcut for `MonadDialog` with packing used by DHT.
+type MonadDHTDialog s = MonadDialog s DHTPacking
+
+-- | Shortcut for `Dialog` with packing used by DHT.
+type DHTDialog = Dialog DHTPacking
+
 -- | Wrapper for monadic action that can also respond on DHT messages.
-newtype DHTResponseT m a = DHTResponseT
-    { getDHTResponseT :: ResponseT m a
+newtype DHTResponseT s m a = DHTResponseT
+    { getDHTResponseT :: ResponseT s m a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans,
                 MonadThrow, MonadCatch, MonadMask,
-                MonadState s, WithDefaultMsgHeader, CanLog,
-                HasLoggerName, MonadTimed, MonadDialog t, MonadDHT, MonadMessageDHT)
+                MonadState ss, WithDefaultMsgHeader, CanLog,
+                HasLoggerName, MonadTimed, MonadDialog s p, MonadDHT, MonadMessageDHT s)
 
-instance MonadTransfer m => MonadTransfer (DHTResponseT m) where
+instance MonadTransfer s m => MonadTransfer s (DHTResponseT s m) where
     sendRaw addr p = DHTResponseT $ sendRaw addr (hoist getDHTResponseT p)
     listenRaw binding sink =
         DHTResponseT $ fmap DHTResponseT $ listenRaw binding (hoistRespCond getDHTResponseT sink)
     close = DHTResponseT . close
+    userState = DHTResponseT . userState
 
-type instance ThreadId (DHTResponseT m) = ThreadId m
+type instance ThreadId (DHTResponseT s m) = ThreadId m
 
 instance ( WithLogger m
          , WithDefaultMsgHeader m
-         , MonadMessageDHT m
-         , MonadDialog (BiP DHTMsgHeader) m
+         , MonadMessageDHT s m
+         , MonadDHTDialog s m
          , MonadIO m
          , MonadMask m
          , Bi DHTMsgHeader
-         ) => MonadResponseDHT (DHTResponseT m) where
+         ) => MonadResponseDHT s (DHTResponseT s m) where
   replyToNode msg = do
     addr <- DHTResponseT $ peerAddr
     withDhtLogger $
@@ -131,26 +148,26 @@ instance ( WithLogger m
   closeResponse = DHTResponseT closeR
 
 -- | Listener of DHT messages.
-data ListenerDHT m =
+data ListenerDHT s m =
     forall r . (Bi r, Message r)
-            => ListenerDHT (r -> DHTResponseT m ())
+            => ListenerDHT (r -> DHTResponseT s m ())
 
 -- | Monad morphism of inner monadic action inside 'DHTResponceT'.
-mapDHTResponseT :: (m a -> n b) -> DHTResponseT m a -> DHTResponseT n b
+mapDHTResponseT :: (m a -> n b) -> DHTResponseT s m a -> DHTResponseT s n b
 mapDHTResponseT how = DHTResponseT . mapResponseT how . getDHTResponseT
 
 -- | Helper for substituting inner monad stack in `ListenerDHT`
-mapListenerDHT :: (m () -> n ()) -> ListenerDHT m -> ListenerDHT n
+mapListenerDHT :: (m () -> n ()) -> ListenerDHT s m -> ListenerDHT s n
 mapListenerDHT how (ListenerDHT listen) = ListenerDHT $ mapDHTResponseT how . listen
 
 -- | Send 'defaultMsgHeader' for node with given 'NetworkAddress'.
 defaultSendToNode
-    :: ( MonadMessageDHT m
+    :: ( MonadMessageDHT s m
        , Bi r
        , Message r
        , WithDefaultMsgHeader m
        , WithLogger m
-       , MonadDialog (BiP DHTMsgHeader) m
+       , MonadDHTDialog s m
        , MonadThrow m
        , Bi DHTMsgHeader
        )
@@ -164,7 +181,7 @@ defaultSendToNode addr msg = do
 
 -- | Send default message to neighbours in parallel.
 defaultSendToNeighbors
-    :: ( MonadMessageDHT m
+    :: ( MonadMessageDHT s m
        , WithLogger m
        , MonadCatch m
        )

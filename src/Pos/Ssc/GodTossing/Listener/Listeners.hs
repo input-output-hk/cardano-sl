@@ -78,7 +78,7 @@ handleInvDo tag keys = mapM_ handleSingle keys
 handleReq :: (Bi DataMsg) => ResponseMode SscGodTossing m => ReqMsg -> m ()
 handleReq (ReqMsg tag addr) = do
     localPayload <- sscGetLocalPayload =<< getCurrentSlot
-    whenJust (toDataMsg tag addr localPayload) (replyToNode @_ @DataMsg)
+    whenJust (toDataMsg tag addr localPayload) (replyToNode @_ @_ @DataMsg)
 
 toDataMsg :: MsgTag -> Address -> GtPayload -> Maybe DataMsg
 toDataMsg CommitmentMsg addr (CommitmentsPayload comm _) =

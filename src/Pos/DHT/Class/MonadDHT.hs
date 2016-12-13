@@ -51,7 +51,7 @@ instance MonadDHT m => MonadDHT (ReaderT r m) where
         fromRProxy :: Proxy (ReaderT r m) -> Proxy m
         fromRProxy _ = Proxy
 
-instance MonadDHT m => MonadDHT (ResponseT m) where
+instance MonadDHT m => MonadDHT (ResponseT s m) where
     discoverPeers = lift . discoverPeers
     getKnownPeers = lift getKnownPeers
     currentNodeKey = lift currentNodeKey

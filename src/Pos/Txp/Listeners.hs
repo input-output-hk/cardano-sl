@@ -19,7 +19,8 @@ import           Pos.Binary.Class            (Bi)
 import           Pos.Communication.Methods   (sendToNeighborsSafe)
 import           Pos.Communication.Types     (ResponseMode)
 import           Pos.Crypto                  (hash)
-import           Pos.DHT                     (ListenerDHT (..), replyToNode)
+import           Pos.DHT                     (ListenerDHT (..), MonadDHTDialog,
+                                              replyToNode)
 import           Pos.State                   (ProcessTxRes (..))
 import qualified Pos.State                   as St
 import           Pos.Statistics              (StatProcessTx (..), statlogCountEvent)
@@ -28,11 +29,12 @@ import           Pos.Txp.LocalData           (getLocalTxs)
 import           Pos.Txp.Types.Communication (TxDataMsg (..), TxInvMsg (..),
                                               TxReqMsg (..))
 import           Pos.Types                   (IdTxWitness, TxId)
-import           Pos.WorkMode                (MonadUserDialog, WorkMode)
+import           Pos.WorkMode                (SocketState, WorkMode)
 
 -- | Listeners for requests related to blocks processing.
-txListeners :: (MonadUserDialog m, WorkMode ssc m, Bi TxInvMsg, Bi TxReqMsg, Bi TxDataMsg)
-            => [ListenerDHT m]
+txListeners :: (MonadDHTDialog SocketState m, WorkMode ssc m, Bi TxInvMsg,
+                Bi TxReqMsg, Bi TxDataMsg)
+            => [ListenerDHT SocketState m]
 txListeners =
     [
       ListenerDHT handleTxInv

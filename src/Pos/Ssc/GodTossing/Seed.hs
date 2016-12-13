@@ -14,7 +14,6 @@ import qualified Data.HashMap.Strict           as HM (fromList, lookup, mapMaybe
 import qualified Data.HashSet                  as HS (difference)
 import           Universum
 
-import           Pos.Binary.Class              (deserializeM)
 import           Pos.Crypto                    (Secret, Share, Threshold, shareId,
                                                 unsafeRecoverSecret)
 import           Pos.Ssc.GodTossing.Error      (SeedError (..))
@@ -22,7 +21,7 @@ import           Pos.Ssc.GodTossing.Functions  (secretToSharedSeed, verifyOpenin
 import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
                                                 getOpening)
 import           Pos.Types                     (Address (..), SharedSeed)
-import           Pos.Util                      (getKeys)
+import           Pos.Util                      (deserializeM, getKeys)
 
 
 -- | Calculate SharedSeed. SharedSeed is a random bytestring that all

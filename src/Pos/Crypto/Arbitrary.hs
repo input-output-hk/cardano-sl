@@ -14,7 +14,7 @@ import           System.IO.Unsafe            (unsafePerformIO)
 import           Test.QuickCheck             (Arbitrary (..), choose, elements, generate)
 import           Universum
 
-import           Pos.Binary.Class            (Bi, Serialized (..))
+import           Pos.Binary.Class            (Bi)
 import           Pos.Crypto.Arbitrary.Hash   ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
 import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
@@ -28,6 +28,7 @@ import           Pos.Crypto.Signing          (ProxyCert, ProxyDSignature, ProxyI
                                               Signature, Signed, createProxyCert,
                                               createProxySecretKey, keyGen, mkSigned,
                                               proxyDSign, proxyISign, sign)
+import           Pos.Util                    (AsBinaryClass (..))
 import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakePool)
 
 {- A note on 'Arbitrary' instances
@@ -85,7 +86,7 @@ instance Arbitrary VssKeyPair where
 instance Arbitrary VssPublicKey where
     arbitrary = toVssPublicKey <$> arbitrary
 
-instance Serialized VssPublicKey LVssPublicKey => Arbitrary LVssPublicKey where
+instance AsBinaryClass VssPublicKey LVssPublicKey => Arbitrary LVssPublicKey where
     arbitrary = serialize @VssPublicKey <$> arbitrary
 
 instance Nonrepeating VssKeyPair where
@@ -133,18 +134,18 @@ sharedSecrets =
 instance Arbitrary SecretSharingExtra where
     arbitrary = elements . fmap (view _1) $ sharedSecrets
 
-instance Serialized SecretSharingExtra LSecretSharingExtra =>
+instance AsBinaryClass SecretSharingExtra LSecretSharingExtra =>
          Arbitrary LSecretSharingExtra where
     arbitrary = serialize @SecretSharingExtra <$> arbitrary
 
-instance Serialized SecretProof LSecretProof =>
+instance AsBinaryClass SecretProof LSecretProof =>
          Arbitrary LSecretProof where
     arbitrary = serialize @SecretProof <$> arbitrary
 
 instance Arbitrary Secret where
     arbitrary = elements . fmap (view _2) $ sharedSecrets
 
-instance Serialized Secret LSecret => Arbitrary LSecret where
+instance AsBinaryClass Secret LSecret => Arbitrary LSecret where
     arbitrary = serialize @Secret <$> arbitrary
 
 instance Arbitrary SecretProof where
@@ -153,11 +154,11 @@ instance Arbitrary SecretProof where
 instance Arbitrary EncShare where
     arbitrary = elements . concat . fmap (view _4) $ sharedSecrets
 
-instance Serialized EncShare LEncShare => Arbitrary LEncShare where
+instance AsBinaryClass EncShare LEncShare => Arbitrary LEncShare where
     arbitrary = serialize @EncShare <$> arbitrary
 
 instance Arbitrary Share where
     arbitrary = unsafePerformIO <$> (decryptShare <$> arbitrary <*> arbitrary)
 
-instance Serialized Share LShare => Arbitrary LShare where
+instance AsBinaryClass Share LShare => Arbitrary LShare where
     arbitrary = serialize @Share <$> arbitrary

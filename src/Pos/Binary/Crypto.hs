@@ -22,7 +22,7 @@ import           Data.SafeCopy            (SafeCopy (..))
 import           Formatting               (int, sformat, stext, (%))
 import           Universum                hiding (putByteString)
 
-import           Pos.Binary.Class         (Bi (..), Serialized (..), decodeFull, encode)
+import           Pos.Binary.Class         (Bi (..), decodeFull, encode)
 import           Pos.Crypto.Hashing       (AbstractHash (..), Hash, HashAlgorithm,
                                            WithHash (..), withHash)
 import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
@@ -36,7 +36,8 @@ import           Pos.Crypto.Signing       (ProxyCert (..), ProxyDSignature (..),
                                            PublicKey (..), SecretKey (..), Signature (..),
                                            Signed (..), publicKeyLength, putAssertLength,
                                            secretKeyLength, signatureLength)
-import           Pos.Util                 (getCopyBinary, putCopyBinary)
+import           Pos.Util                 (AsBinaryClass (..), getCopyBinary,
+                                           putCopyBinary)
 
 instance Bi a => Bi (WithHash a) where
     put = put. whData
@@ -124,7 +125,7 @@ instance Bi SecretSharingExtra where
   instance Binary A where {\
     put (A bs) = putByteString bs ;\
     get = A <$> getByteString Bytes}; \
-  instance Serialized B A where {\
+  instance AsBinaryClass B A where {\
     serialize = A . LBS.toStrict . checkLen "serialize" Name Bytes . encode ;\
     deserialize = decodeFull . checkLen "deserialize" Name Bytes . encode }; \
   deriveSafeCopySimple 0 'base ''A
@@ -140,7 +141,7 @@ instance Bi LVssPublicKey where
     put (LVssPublicKey bs) = putByteString bs
     get = LVssPublicKey <$> getByteString 33
 
-instance Serialized VssPublicKey LVssPublicKey where
+instance AsBinaryClass VssPublicKey LVssPublicKey where
     serialize =
         LVssPublicKey .
         LBS.toStrict . checkLen "serialize" "LVssPublicKey" 33 . encode
@@ -150,7 +151,7 @@ instance Bi LSecret where
     put (LSecret bs) = putByteString bs
     get = LSecret <$> getByteString 33
 
-instance Serialized Secret LSecret where
+instance AsBinaryClass Secret LSecret where
     serialize = LSecret . LBS.toStrict . checkLen "serialize" "LSecret" 33 . encode
     deserialize = decodeFull . checkLen "deserialize" "LSecret" 33 . encode
 
@@ -159,7 +160,7 @@ instance Bi LShare where
     put (LShare bs) = putByteString bs
     get = LShare <$> getByteString 101
 
-instance Serialized Share LShare where
+instance AsBinaryClass Share LShare where
     serialize = LShare . LBS.toStrict . checkLen "serialize" "LShare" 101 . encode
     deserialize = decodeFull . checkLen "deserialize" "LShare" 101 . encode
 
@@ -168,7 +169,7 @@ instance Bi LEncShare where
     put (LEncShare bs) = putByteString bs
     get = LEncShare <$> getByteString 101
 
-instance Serialized EncShare LEncShare where
+instance AsBinaryClass EncShare LEncShare where
     serialize =
         LEncShare . LBS.toStrict . checkLen "serialize" "LEncShare" 101 . encode
     deserialize = decodeFull . checkLen "deserialize" "LEncShare" 101 . encode
@@ -178,14 +179,14 @@ instance Bi LSecretProof where
     put (LSecretProof bs) = putByteString bs
     get = LSecretProof <$> getByteString 64
 
-instance Serialized SecretProof LSecretProof where
+instance AsBinaryClass SecretProof LSecretProof where
     serialize =
         LSecretProof . LBS.toStrict . checkLen "serialize" "LSecretProof" 64 . encode
     deserialize = decodeFull . checkLen "deserialize" "LSecretProof" 64 . encode
 
 deriving instance Bi LSecretSharingExtra
 
-instance Serialized SecretSharingExtra LSecretSharingExtra where
+instance AsBinaryClass SecretSharingExtra LSecretSharingExtra where
     serialize = LSecretSharingExtra . encode
     deserialize (LSecretSharingExtra x) = decodeFull x
 

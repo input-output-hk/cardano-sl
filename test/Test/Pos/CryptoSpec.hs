@@ -97,7 +97,7 @@ spec = describe "Crypto" $ do
                 prop "LEncShare"           (safeCopyEncodeDecode @LEncShare)
                 prop "LSecretProof"        (safeCopyEncodeDecode @LSecretProof)
                 prop "LSecretSharingExtra" (safeCopyEncodeDecode @LSecretSharingExtra)
-        describe "Serialized" $ do
+        describe "AsBinaryClass" $ do
             prop "VssPublicKey <-> LVssPublicKey"
                 (serDeserId @VssPublicKey @LVssPublicKey)
             prop "Secret <-> LSecret"

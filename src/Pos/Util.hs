@@ -53,6 +53,10 @@ module Pos.Util
        -- * LRU
        , clearLRU
 
+       -- * Binar serialization
+       , AsBinaryClass (..)
+       , deserializeM
+
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
        ) where
@@ -60,7 +64,7 @@ module Pos.Util
 import           Control.Lens                  (Lens', LensLike', Magnified, Zoomed,
                                                 lensRules, magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
-import           Control.Monad.Fail            (fail)
+import           Control.Monad.Fail            (MonadFail, fail)
 import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
 import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
                                                 Second, for, killThread)
@@ -364,3 +368,18 @@ instance (Ord k, SafeCopy k, SafeCopy v) =>
 -- | Create HashSet from HashMap's keys
 getKeys :: HashMap k v -> HashSet k
 getKeys = fromMap . void
+
+----------------------------------------------------------------------------
+-- Deserialized wrapper
+----------------------------------------------------------------------------
+
+class Bi b => AsBinaryClass a b where
+    serialize :: a -> b
+    deserialize :: b -> Either [Char] a
+
+deserializeM :: (AsBinaryClass a b, MonadFail m) => b -> m a
+deserializeM = either fail return . deserialize
+
+instance (AsBinaryClass a c, AsBinaryClass b d) => AsBinaryClass (a, b) (c, d) where
+    serialize (a, b) = (serialize a, serialize b)
+    deserialize (c, d) = (,) <$> deserialize c <*> deserialize d

@@ -12,13 +12,14 @@ import           Data.List.NonEmpty             (NonEmpty ((:|)))
 import           Test.QuickCheck                (Arbitrary (..), elements, oneof)
 import           Universum
 
-import           Pos.Binary.Class               (Bi, serialize)
+import           Pos.Binary.Class               (Bi)
 import           Pos.Crypto                     (deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Ssc.GodTossing.Functions   (genCommitmentAndOpening)
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment, Opening, VssCertificate (..),
                                                  mkVssCertificate)
 import           Pos.Ssc.GodTossing.Types.Types (GtProof (..))
 import           Pos.Types.Arbitrary.Unsafe     ()
+import           Pos.Util                       (serialize)
 import           Pos.Util.Arbitrary             (Nonrepeating (..), sublistN,
                                                  unsafeMakePool)
 

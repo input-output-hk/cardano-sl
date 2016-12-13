@@ -43,8 +43,7 @@ import           Serokell.Util                  (VerificationRes, verifyGeneric)
 import           Serokell.Util.Verify           (isVerSuccess)
 import           Universum
 
-import           Pos.Binary.Class               (Bi, Serialized (..), deserializeM,
-                                                 serialize)
+import           Pos.Binary.Class               (Bi)
 import           Pos.Binary.Crypto              ()
 import           Pos.Constants                  (k)
 import           Pos.Crypto                     (LShare, LVssPublicKey, Secret, SecretKey,
@@ -63,7 +62,8 @@ import           Pos.Types.Types                (Address (..), EpochIndex, Local
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), checkPubKeyAddress,
                                                  headerSlot)
-import           Pos.Util                       (diffDoubleMap)
+import           Pos.Util                       (AsBinaryClass (..), deserializeM,
+                                                 diffDoubleMap)
 
 ----------------------------------------------------------------------------
 -- Helpers

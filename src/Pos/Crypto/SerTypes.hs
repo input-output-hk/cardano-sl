@@ -3,7 +3,7 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{-| Serialized types for implementation of VSS (wrapping over pvss).
+{-| AsBinaryClass types for implementation of VSS (wrapping over pvss).
     For more details see <https://github.com/input-output-hk/pvss-haskell>.
 -}
 
@@ -43,7 +43,7 @@ import           Pos.Crypto.Hashing   (hash, shortHashF)
   instance Binary A where {\
     put (A bs) = putByteString bs ;\
     get = A <$> getByteString Bytes}; \
-  instance Serialized B A where {\
+  instance AsBinaryClass B A where {\
     serialize = A . LBS.toStrict . checkLen "serialize" Name Bytes . encode ;\
     deserialize = decodeFull . checkLen "deserialize" Name Bytes . encode }; \
   deriveSafeCopySimple 0 'base ''A
@@ -100,7 +100,7 @@ instance (Bi LVssPublicKey) => Buildable LVssPublicKey where
 newtype LSecretSharingExtra = LSecretSharingExtra LBS.ByteString
     deriving (Show, Eq)
 
---instance Serialized SecretSharingExtra LSecretSharingExtra where
+--instance AsBinaryClass SecretSharingExtra LSecretSharingExtra where
 --  serialize = LSecretSharingExtra . encode
 --  deserialize (LSecretSharingExtra x) = decodeFull x
 

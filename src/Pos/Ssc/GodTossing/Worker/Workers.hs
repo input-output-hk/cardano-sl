@@ -25,7 +25,7 @@ import           Serokell.Util.Exceptions               ()
 import           System.Wlog                            (logDebug, logError, logWarning)
 import           Universum
 
-import           Pos.Binary.Class                       (Bi, serialize)
+import           Pos.Binary.Class                       (Bi)
 import           Pos.Communication.Methods              (sendToNeighborsSafe)
 import           Pos.Constants                          (k, mpcSendInterval)
 import           Pos.Context                            (getNodeContext, ncPublicKey,
@@ -69,6 +69,7 @@ import           Pos.Types                              (Address (..), EpochInde
                                                          LocalSlotIndex, SlotId (..),
                                                          Timestamp (..),
                                                          makePubKeyAddress)
+import           Pos.Util                               (serialize)
 import           Pos.WorkMode                           (WorkMode)
 
 instance (Bi VssCertificate

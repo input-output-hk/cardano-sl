@@ -11,7 +11,8 @@ module Test.Pos.Util
 
 import           Data.SafeCopy   (SafeCopy, safeGet, safePut)
 import           Data.Serialize  (runGet, runPut)
-import           Pos.Binary      (Bi, Serialized (..), decode, encode)
+import           Pos.Binary      (Bi, decode, encode)
+import           Pos.Util        (AsBinaryClass (..))
 import           Prelude         (read)
 import           Test.QuickCheck (Property, (===))
 import           Universum
@@ -27,7 +28,7 @@ safeCopyEncodeDecode a =
 showRead :: (Show a, Eq a, Read a) => a -> Property
 showRead a = read (show a) === a
 
-serDeserId :: forall t lt . (Show t, Eq t, Serialized t lt) => t -> Property
+serDeserId :: forall t lt . (Show t, Eq t, AsBinaryClass t lt) => t -> Property
 serDeserId a =
     let serDeser = either (panic . toText) identity . deserialize @t @lt . serialize @t @lt
     in a === serDeser a

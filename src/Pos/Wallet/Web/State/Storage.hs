@@ -3,7 +3,7 @@
 {-# LANGUAGE TemplateHaskell  #-}
 
 -- @jens: this document is inspired by https://github.com/input-output-hk/rscoin-haskell/blob/master/src/RSCoin/Explorer/Storage.hs
-module Pos.Wallet.Web.Storage
+module Pos.Wallet.Web.State.Storage
        (
          Storage (..)
        , Query
@@ -33,7 +33,7 @@ instance Default Storage where
           _dummyAttribute = 0
         }
 
-type Query a = forall m. MonadReader Storage m => m a
+type Query a = forall m. (MonadReader Storage m) => m a
 type Update a = forall m. (MonadThrow m, MonadState Storage m) => m a
 
 getDummyAttribute :: Query Int

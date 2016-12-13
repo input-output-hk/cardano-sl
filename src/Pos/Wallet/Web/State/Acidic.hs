@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeFamilies    #-}
 -- @jens: this document is inspired by https://github.com/input-output-hk/rscoin-haskell/blob/master/src/RSCoin/Explorer/AcidState.hs
 
-module Pos.Wallet.Web.AcidState
+module Pos.Wallet.Web.State.Acidic
        (
          WalletState
        , closeState
@@ -18,23 +18,25 @@ module Pos.Wallet.Web.AcidState
 
 import           Universum
 
-import           Data.Acid              (EventResult, EventState, Query, QueryEvent,
-                                         Update, UpdateEvent, makeAcidic)
-import           Data.Default           (def)
-import           Pos.Wallet.Web.Storage as WS
-import           Serokell.AcidState     (ExtendedState, closeExtendedState,
-                                         openLocalExtendedState, openMemoryExtendedState,
-                                         queryExtended, tidyExtendedState, updateExtended)
+import           Data.Acid                    (EventResult, EventState, Query, QueryEvent,
+                                               Update, UpdateEvent, makeAcidic)
+import           Data.Default                 (def)
+import           Pos.Wallet.Web.State.Storage (Storage)
+import           Pos.Wallet.Web.State.Storage as WS
+import           Serokell.AcidState           (ExtendedState, closeExtendedState,
+                                               openLocalExtendedState,
+                                               openMemoryExtendedState, queryExtended,
+                                               tidyExtendedState, updateExtended)
 
-type WalletState = ExtendedState WS.Storage
+type WalletState = ExtendedState Storage
 
 query
-    :: (EventState event ~ WS.Storage, QueryEvent event, MonadIO m)
+    :: (EventState event ~ Storage, QueryEvent event, MonadIO m)
     => WalletState -> event -> m (EventResult event)
 query = queryExtended
 
 update
-    :: (EventState event ~ WS.Storage, UpdateEvent event, MonadIO m)
+    :: (EventState event ~ Storage, UpdateEvent event, MonadIO m)
     => WalletState -> event -> m (EventResult event)
 update = updateExtended
 
@@ -50,7 +52,7 @@ closeState = closeExtendedState
 tidyState :: MonadIO m => WalletState -> m ()
 tidyState = tidyExtendedState
 
-makeAcidic ''WS.Storage
+makeAcidic ''Storage
     [
       'WS.getDummyAttribute
     , 'WS.setDummyAttribute

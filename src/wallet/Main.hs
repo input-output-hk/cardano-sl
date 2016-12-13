@@ -32,7 +32,7 @@ import           Pos.Types              (makePubKeyAddress, txwF)
 import           Pos.Wallet             (getBalance, submitTx)
 import           Pos.WorkMode           (ProductionMode, WorkMode)
 #ifdef WITH_WEB
-import           Pos.Wallet.Web         (closeState, openState, walletServeWeb)
+import           Pos.Wallet.Web         (walletServeWeb)
 #endif
 
 import           Command                (Command (..), parseCommand)
@@ -143,7 +143,7 @@ main = do
             plugins = case woAction of
                 Repl          -> [runWalletRepl opts]
 #ifdef WITH_WEB
-                Serve webPort -> [bracket (openState False "bla") closeState $ walletServeWeb webPort]
+                Serve webPort -> [walletServeWeb webPort]
 #endif
 
         case woSscAlgo of

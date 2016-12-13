@@ -123,7 +123,7 @@ nat ws = do
 #endif
 
 servantServer :: forall ssc . SscConstraint ssc => WalletState -> ProductionMode ssc (Server WalletApi)
-servantServer ws = flip enter servantHandlers <$> (nat ws @ssc)
+servantServer ws = flip enter servantHandlers <$> (nat @ssc ws)
 
 ----------------------------------------------------------------------------
 -- Handlers
@@ -151,7 +151,7 @@ send srcIdx dstAddr c
     | otherwise = do
           let sk = genesisSecretKeys !! fromIntegral srcIdx
           na <- fmap dhtAddr <$> getKnownPeers
-          () <$ submitTx sk na [TxOut dstAddr c]
+          () <$ lift (submitTx sk na [TxOut dstAddr c])
           putText $
               sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
               c srcIdx dstAddr

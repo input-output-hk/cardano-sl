@@ -1034,3 +1034,7 @@ instance SafeCopy (Body (GenesisBlockchain ssc)) where
 -- Other derived instances
 ----------------------------------------------------------------------------
 derive makeNFData ''TxOut
+
+deriveToJSON defaultOptions ''TxIn
+deriveToJSON defaultOptions ''TxOut
+deriveToJSON defaultOptions ''Tx

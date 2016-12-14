@@ -23,6 +23,8 @@ import           Pos.Binary.Class                       (Bi)
 import           Pos.Binary.Crypto                      ()
 import           Pos.Communication.Methods              (sendToNeighborsSafe)
 import           Pos.Communication.Types                (ResponseMode)
+import           Pos.Context                            (WithNodeContext (getNodeContext),
+                                                         ncPropagation)
 import           Pos.DHT                                (ListenerDHT (..), replyToNode)
 import           Pos.Slotting                           (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
@@ -104,7 +106,8 @@ handleData msg =
        let tag = dataMsgTag msg
            addr = dataMsgPublicKey msg
        loggerAction tag added addr
-       when added $ sendToNeighborsSafe $ InvMsg tag $ pure addr
+       needPropagate <- ncPropagation <$> getNodeContext
+       when (added && needPropagate) $ sendToNeighborsSafe $ InvMsg tag $ pure addr
 
 loggerAction :: WorkMode SscGodTossing m
              => MsgTag -> Bool -> Address -> m ()

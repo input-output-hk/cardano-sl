@@ -266,6 +266,7 @@ runCH NodeParams {..} sscNodeContext act =
         , ncJLFile = jlFile
         , ncDbPath = npDbPath
         , ncSscContext = sscNodeContext
+        , ncPropagation = npPropagation
         }
 
 runTimed :: LoggerName -> Dialog DHTPacking (Transfer SocketState) a -> IO a

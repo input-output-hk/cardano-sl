@@ -18,6 +18,8 @@ import           Universum
 import           Pos.Binary.Txp              ()
 import           Pos.Communication.Methods   (sendToNeighborsSafe)
 import           Pos.Communication.Types     (ResponseMode)
+import           Pos.Context                 (WithNodeContext (getNodeContext),
+                                              ncPropagation)
 import           Pos.Crypto                  (hash)
 import           Pos.DHT                     (ListenerDHT (..), MonadDHTDialog,
                                               replyToNode)
@@ -75,7 +77,8 @@ handleTxData :: (ResponseMode ssc m)
 handleTxData (TxDataMsg tx tw) = do
     let txId = hash tx
     added <- handleTxDo (txId, (tx, tw))
-    when added $ sendToNeighborsSafe $ TxInvMsg $ pure txId
+    needPropagate <- ncPropagation <$> getNodeContext
+    when (added && needPropagate) $ sendToNeighborsSafe $ TxInvMsg $ pure txId
 
 isTxUsefull :: ResponseMode ssc m => TxId -> m Bool
 isTxUsefull txId = not . HM.member txId <$> getLocalTxs

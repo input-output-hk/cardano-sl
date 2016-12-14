@@ -33,6 +33,7 @@ import           Pos.Communication.Methods (announceBlock)
 import           Pos.Communication.Types   (RequestBlock (..), RequestBlockchainPart (..),
                                             ResponseMode, SendBlock (..),
                                             SendBlockHeader (..), SendBlockchainPart (..))
+import           Pos.Context               (getNodeContext, ncPropagation)
 import           Pos.Crypto                (hash, shortHashF)
 import           Pos.DHT                   (ListenerDHT (..), MonadDHTDialog, replyToNode)
 import           Pos.Slotting              (getCurrentSlot)
@@ -100,7 +101,7 @@ handleBlock (SendBlock block) = do
                     blkHash
                     h
             replyToNode $ RequestBlock h
-    propagateBlock pbr
+    whenM (ncPropagation <$> getNodeContext) $ propagateBlock pbr
     -- We assert that the chain is consistent – none of the transactions in a
     -- block are present in previous blocks. This is an expensive check and
     -- we only do it when asserts are turned on.

@@ -1,5 +1,5 @@
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Security.Workers
@@ -23,9 +23,8 @@ import           Pos.Ssc.GodTossing.Types.Types    (GtPayload (..), SscBi)
 import           Pos.Ssc.NistBeacon                (SscNistBeacon)
 import           Pos.State                         (getBlockByDepth, getHeadBlock)
 import           Pos.Types                         (EpochIndex, MainBlock, SlotId (..),
-                                                    blockMpc,
-                                                    flattenSlotId, gbHeader, headerSlot,
-                                                    gcdEpoch, gbhConsensus,
+                                                    blockMpc, flattenSlotId, gbHeader,
+                                                    gbhConsensus, gcdEpoch, headerSlot,
                                                     makePubKeyAddress)
 import           Pos.WorkMode                      (WorkMode)
 

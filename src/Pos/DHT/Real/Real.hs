@@ -270,7 +270,8 @@ instance ( MonadDialog (BiP DHTMsgHeader) m
     sendToNeighbors = defaultSendToNeighbors seqConcurrentlyK sendToNode
     sendToNode addr msg = do
         defaultSendToNode addr msg
-        listenOutbound >>= updateClosers
+        listenOutbound
+        pure ()
       where
         -- [CSL-4][TW-47]: temporary code, to refactor to subscriptions (after TW-47)
         listenOutboundDo = KademliaDHT (asks kdcListenByBinding) >>= ($ AtConnTo addr)
@@ -280,8 +281,6 @@ instance ( MonadDialog (BiP DHTMsgHeader) m
             logDebug $ sformat ("Error listening outbound connection to " %
                                 shown % ": " % build) addr e
             return $ pure ()
-        updateClosers closer = KademliaDHT (asks kdcAuxClosers)
-                            >>= \tvar -> (atomically $ modifyTVar tvar (closer:))
 
 rejoinNetwork
     :: (MonadIO m, WithLogger m, MonadCatch m, Bi DHTData, Bi DHTKey)

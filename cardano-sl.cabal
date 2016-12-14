@@ -66,6 +66,8 @@ library
                         Pos.Genesis
                         Pos.Launcher
                         Pos.Merkle
+                        Pos.Security
+                        Pos.Security.Workers
                         Pos.Slotting
                         Pos.Ssc.Class.Types
                         Pos.Ssc.Class.Helpers
@@ -174,7 +176,10 @@ library
                         Pos.Util.NotImplemented
   if flag(with-rocks)
     other-modules:
+                        Pos.Binary.Modern.DB
                         Pos.Modern.DB
+                        Pos.Modern.DB.Block
+                        Pos.Modern.DB.Utxo
                         Pos.Modern.DB.Class
                         Pos.Modern.DB.Functions
                         Pos.Modern.DB.Holder
@@ -183,7 +188,6 @@ library
                         Pos.Modern.Txp.Storage
                         Pos.Modern.Txp.LocalData
                         Pos.Modern.Txp.Listeners
-                        Pos.Modern.Txp.RocksDB
   if flag(with-web)
     other-modules:      Pos.Web.Api
                         Pos.Web.Doc
@@ -191,10 +195,16 @@ library
                         Pos.Web.Types
   if flag(with-wallet)
     other-modules:      Pos.Wallet.Tx
+                      , Pos.Wallet.WalletMode
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Server
+                        Pos.Wallet.Web.State
+                        Pos.Wallet.Web.State.Acidic
+                        Pos.Wallet.Web.State.Holder
+                        Pos.Wallet.Web.State.State
+                        Pos.Wallet.Web.State.Storage
   build-depends:        IfElse
                       , HsOpenSSL
                       , QuickCheck

@@ -1,5 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
@@ -71,9 +73,9 @@ data KademliaDHTContext m = KademliaDHTContext
     }
 
 -- | Configuration for particular 'KademliaDHTInstance'.
-data KademliaDHTConfig m = KademliaDHTConfig
+data KademliaDHTConfig s m = KademliaDHTConfig
     { kdcPort                :: !Word16
-    , kdcListeners           :: ![ListenerDHT (KademliaDHT m)]
+    , kdcListeners           :: ![ListenerDHT s (KademliaDHT m)]
     , kdcMessageCacheSize    :: !Int
     , kdcEnableBroadcast     :: !Bool
     , kdcNoCacheMessageNames :: ![Text]
@@ -91,9 +93,9 @@ data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
 -- | Node of /Kademlia DHT/ algorithm with access to 'KademliaDHTContext'.
 newtype KademliaDHT m a = KademliaDHT { unKademliaDHT :: ReaderT (KademliaDHTContext m) m a }
     deriving (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadIO,
-             MonadMask, MonadTimed, MonadDialog p, CanLog, HasLoggerName)
+             MonadMask, MonadTimed, MonadDialog s p, CanLog, HasLoggerName)
 
-instance MonadResponse m => MonadResponse (KademliaDHT m) where
+instance MonadResponse s m => MonadResponse s (KademliaDHT m) where
     replyRaw dat = KademliaDHT $ replyRaw (hoist unKademliaDHT dat)
     closeR = lift closeR
     peerAddr = lift peerAddr
@@ -108,11 +110,12 @@ instance MonadResponse m => MonadResponse (KademliaDHT m) where
 --    liftBaseWith     = defaultLiftBaseWith
 --    restoreM         = defaultRestoreM
 
-instance MonadTransfer m => MonadTransfer (KademliaDHT m) where
+instance MonadTransfer s m => MonadTransfer s (KademliaDHT m) where
     sendRaw addr req = KademliaDHT $ sendRaw addr (hoist unKademliaDHT req)
     listenRaw binding sink =
         KademliaDHT $ fmap KademliaDHT $ listenRaw binding $ hoistRespCond unKademliaDHT sink
     close = lift . close
+    userState = lift . userState
 
 instance Applicative m => WithDefaultMsgHeader (KademliaDHT m) where
     defaultMsgHeader _ = do

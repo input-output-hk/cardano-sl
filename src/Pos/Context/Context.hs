@@ -25,6 +25,7 @@ data NodeContext ssc = NodeContext
     , ncSscContext  :: !(SscNodeContext ssc)
     , ncMalicious   :: !Bool
     , ncMalicious'  :: ![NetworkAddress]
+    , ncPropagation :: !Bool              -- ^ Whether to propagate txs, ssc data, blocks to neighbors
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

@@ -19,7 +19,7 @@ import           Control.TimeWarp.Rpc (MonadDialog)
 -- import           Pos.Communication.Methods   (sendToNeighborsSafe)
 -- import           Pos.Communication.Types     (ResponseMode)
 -- import           Pos.Crypto                  (hash)
-import           Pos.DHT              (ListenerDHT (..))
+import           Pos.DHT              (ListenerDHT (..), MonadDHTDialog)
 -- import           Pos.State                   (ProcessTxRes (..))
 -- import qualified Pos.State                   as St
 -- import           Pos.Statistics              (StatProcessTx (..), statlogCountEvent)
@@ -28,11 +28,12 @@ import           Pos.DHT              (ListenerDHT (..))
 -- import           Pos.Txp.Types.Communication (TxDataMsg (..), TxInvMsg (..),
 --                                               TxReqMsg (..))
 -- import           Pos.Types                   (IdTxWitness, TxId)
-import           Pos.WorkMode         (UserPacking, WorkMode)
+import           Pos.WorkMode         (SocketState, WorkMode)
 
 -- | Listeners for requests related to blocks processing.
-txListeners :: (MonadDialog UserPacking m, WorkMode ssc m)
-            => [ListenerDHT m]
+txListeners
+    :: (MonadDHTDialog SocketState m, WorkMode ssc m)
+    => [ListenerDHT SocketState m]
 txListeners =
     [
     --   ListenerDHT handleTxInv

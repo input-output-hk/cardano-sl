@@ -48,6 +48,7 @@ data Args = Args
     , enableWeb          :: !Bool
     , webPort            :: !Word16
 #endif
+    , disablePropagation :: !Bool
     }
   deriving Show
 
@@ -148,6 +149,9 @@ argsParser =
         (long "web-port" <> metavar "PORT" <> value 8080 <> showDefault <>
          help "Port for web server")
 #endif
+    <*> switch
+        (long "disable-propagation" <>
+         help "Disable network propagation (transactions, SSC data, blocks). I.e. all data is to be sent only by entity who creates data and entity is yosend it to all peers on his own")
   where
     peerHelpMsg =
         "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""

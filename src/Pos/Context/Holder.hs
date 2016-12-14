@@ -52,7 +52,7 @@ import           Pos.Util.JsonLog            (MonadJL (..), appendJL)
 newtype ContextHolder ssc m a = ContextHolder
     { getContextHolder :: ReaderT (NodeContext ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
-               MonadCatch, MonadMask, MonadIO, HasLoggerName, CanLog, MonadDB ssc, MonadDialog p)
+               MonadCatch, MonadMask, MonadIO, HasLoggerName, CanLog, MonadDB ssc, MonadDialog s p)
 
 -- | Run 'ContextHolder' action.
 runContextHolder :: NodeContext ssc -> ContextHolder ssc m a -> m a
@@ -81,9 +81,9 @@ instance MonadBaseControl IO m => MonadBaseControl IO (ContextHolder ssc m) wher
 
 type instance ThreadId (ContextHolder ssc m) = ThreadId m
 
-instance MonadTransfer m => MonadTransfer (ContextHolder ssc m)
+instance MonadTransfer s m => MonadTransfer s (ContextHolder ssc m)
 
-instance MonadResponse m => MonadResponse (ContextHolder ssc m) where
+instance MonadResponse s m => MonadResponse s (ContextHolder ssc m) where
     replyRaw dat = ContextHolder $ replyRaw (hoist getContextHolder dat)
     closeR = lift closeR
     peerAddr = lift peerAddr

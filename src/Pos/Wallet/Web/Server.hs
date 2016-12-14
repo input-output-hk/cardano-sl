@@ -14,7 +14,7 @@ module Pos.Wallet.Web.Server
 
 import qualified Control.Monad.Catch  as Catch
 import           Control.Monad.Except (MonadError (throwError))
-import           Control.TimeWarp.Rpc (Transfer)
+import           Control.TimeWarp.Rpc (Transfer, Dialog)
 import           Data.List            ((!!))
 import           Formatting           (int, ords, sformat, (%))
 import           Network.Wai          (Application)
@@ -24,7 +24,7 @@ import           Servant.Server       (Handler, ServantErr (errBody), Server, Se
 import           Servant.Utils.Enter  ((:~>) (..), enter)
 import           Universum
 
-import           Pos.DHT              (dhtAddr, getKnownPeers)
+import           Pos.DHT              (dhtAddr, getKnownPeers, DHTPacking)
 import           Pos.DHT.Real         (KademliaDHTContext, getKademliaDHTCtx,
                                        runKademliaDHTRaw)
 import           Pos.Genesis          (genesisAddresses, genesisSecretKeys)
@@ -43,32 +43,39 @@ import           Pos.Types            (Address, Coin (Coin), TxOut (..), address
                                        decodeTextAddress)
 import           Pos.Wallet.Tx        (getBalance, submitTx)
 import           Pos.Wallet.Web.Api   (WalletApi, walletApi)
+import           Pos.Wallet.Web.State (MonadWalletWebDB (..), WalletState, WalletWebDB,
+                                       closeState, openState, runWalletWebDB)
 import           Pos.Web.Server       (serveImpl)
-import           Pos.WorkMode         (ProductionMode, TxLDImpl,
-                                       UserDialog, runTxLDImpl)
+import           Pos.WorkMode         (ProductionMode, TxLDImpl, SocketState, runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
 ----------------------------------------------------------------------------
 
 walletServeWeb :: SscConstraint ssc => Word16 -> ProductionMode ssc ()
-walletServeWeb = serveImpl walletApplication
+walletServeWeb webPort = serveImpl walletApplication webPort
 
+-- TODO: Make a configuration datatype for wallet web api
+-- to make database path configurable
 walletApplication :: SscConstraint ssc => ProductionMode ssc Application
-walletApplication = servantServer >>= return . serve walletApi
+walletApplication = bracket openDB closeDB $ \ws ->
+    runWalletWebDB ws servantServer >>= return . serve walletApi
+  where openDB = openState False "bla"
+        closeDB = closeState
 
 ----------------------------------------------------------------------------
 -- Servant infrastructure
 ----------------------------------------------------------------------------
 
-type WebHandler ssc = ProductionMode ssc
+type WebHandler ssc = WalletWebDB (ProductionMode ssc)
 type SubKademlia ssc = (TxLDImpl (
                            SscLDImpl ssc (
                                ContextHolder ssc (
 #ifdef WITH_ROCKS
                                    Modern.DBHolder ssc (
 #endif
-                                       St.DBHolder ssc (UserDialog Transfer)))))
+                                       St.DBHolder ssc (Dialog DHTPacking
+                                            (Transfer SocketState))))))
 #ifdef WITH_ROCKS
                        )
 #endif
@@ -82,12 +89,13 @@ convertHandler
 #ifdef WITH_ROCKS
     -> Modern.NodeDBs ssc
 #endif
+    -> WalletState
     -> WebHandler ssc a
     -> Handler a
 #ifdef WITH_ROCKS
-convertHandler kctx tld nc ns modernDB handler =
+convertHandler kctx tld nc ns modernDB ws handler =
 #else
-convertHandler kctx tld nc ns handler =
+convertHandler kctx tld nc ns ws handler =
 #endif
     liftIO (runTimed "wallet-api" .
             St.runDBHolder ns .
@@ -98,7 +106,8 @@ convertHandler kctx tld nc ns handler =
             runSscLDImpl .
             runTxLDImpl .
             runKademliaDHTRaw kctx .
-            getNoStatsT $
+            getNoStatsT .
+            runWalletWebDB ws $
             setTxLocalData tld >> handler)
     `Catch.catches`
     excHandlers
@@ -106,20 +115,21 @@ convertHandler kctx tld nc ns handler =
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
 
-nat :: SscConstraint ssc => ProductionMode ssc (WebHandler ssc :~> Handler)
+nat :: SscConstraint ssc => WebHandler ssc (WebHandler ssc :~> Handler)
 nat = do
-    kctx <- lift getKademliaDHTCtx
+    ws <- getWalletWebState
+    kctx <- lift $ lift getKademliaDHTCtx
     tld <- getTxLocalData
     nc <- getNodeContext
     ns <- St.getNodeState
 #ifdef WITH_ROCKS
     modernDB <- Modern.getNodeDBs
-    return $ Nat (convertHandler kctx tld nc ns modernDB)
+    return $ Nat (convertHandler kctx tld nc ns modernDB ws)
 #else
-    return $ Nat (convertHandler kctx tld nc ns)
+    return $ Nat (convertHandler kctx tld nc ns ws)
 #endif
 
-servantServer :: forall ssc . SscConstraint ssc => ProductionMode ssc (Server WalletApi)
+servantServer :: forall ssc . SscConstraint ssc => WebHandler ssc (Server WalletApi)
 servantServer = flip enter servantHandlers <$> (nat @ssc)
 
 ----------------------------------------------------------------------------

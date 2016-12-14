@@ -21,10 +21,10 @@ import           Pos.Communication.Types.Block
 import           Pos.Communication.Types.SysStart
 import           Pos.DHT                          (MonadResponseDHT)
 import           Pos.Txp.Types.Communication
-import           Pos.WorkMode                     (WorkMode)
+import           Pos.WorkMode                     (SocketState, WorkMode)
 
 -- | Constraint alias for 'WorkMode' with 'MonadResponseDHT'.
-type ResponseMode ssc m = (WorkMode ssc m, MonadResponseDHT m)
+type ResponseMode ssc m = (WorkMode ssc m, MonadResponseDHT SocketState m)
 
 -- | 'MessageName'`s that shouldn't be cached.
 noCacheMessageNames :: [MessageName]

@@ -31,7 +31,9 @@ import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretPro
 import           Pos.Crypto.SerTypes      (LEncShare (..), LSecret (..),
                                            LSecretProof (..), LSecretSharingExtra (..),
                                            LShare (..), LVssPublicKey (..))
-import           Pos.Crypto.Signing       (PublicKey (..), SecretKey (..), Signature (..),
+import           Pos.Crypto.Signing       (ProxyCert (..), ProxyDSignature (..),
+                                           ProxyISignature (..), ProxySecretKey (..),
+                                           PublicKey (..), SecretKey (..), Signature (..),
                                            Signed (..), publicKeyLength, putAssertLength,
                                            secretKeyLength, signatureLength)
 import           Pos.Util                 (getCopyBinary, putCopyBinary)
@@ -217,3 +219,18 @@ deriving instance Bi SecretKey
 instance Bi a => Bi (Signed a) where
     put (Signed v s) = put (v,s)
     get = Signed <$> get <*> get
+
+deriving instance Bi (ProxyISignature a)
+deriving instance Bi (ProxyCert w)
+
+instance (Bi w) => Bi (ProxySecretKey w) where
+    put (ProxySecretKey w cert) = put w >> put cert
+    get = liftM2 ProxySecretKey get get
+
+instance (Bi w) => Bi (ProxyDSignature w a) where
+    put ProxyDSignature{..} = do
+        put pdOmega
+        put pdDelegatePk
+        put pdCert
+        put pdSig
+    get = liftM4 ProxyDSignature get get get get

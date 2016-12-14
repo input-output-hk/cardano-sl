@@ -13,6 +13,7 @@ import           Universum
 
 import           Pos.Context            (NodeContext (..), getNodeContext, ncPublicKey)
 import           Pos.DHT                (DHTNodeType (DHTFull), discoverPeers)
+import           Pos.Security           (SecurityWorkersClass)
 import           Pos.Ssc.Class          (SscConstraint)
 import           Pos.State              (initFirstSlot)
 import           Pos.Types              (Timestamp (Timestamp))
@@ -21,7 +22,7 @@ import           Pos.Worker             (runWorkers)
 import           Pos.WorkMode           (WorkMode)
 
 -- | Run full node in any WorkMode.
-runNode :: (SscConstraint ssc, WorkMode ssc m) => [m ()] -> m ()
+runNode :: (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc m) => [m ()] -> m ()
 runNode plugins = do
     inAssertMode $ logInfo "Assert mode on"
     pk <- ncPublicKey <$> getNodeContext

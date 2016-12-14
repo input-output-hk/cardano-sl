@@ -17,9 +17,10 @@ import           Pos.Communication      (SysStartResponse (..))
 import           Pos.Constants          (slotDuration, sysTimeBroadcastSlots)
 import           Pos.Context            (NodeContext (..), getNodeContext)
 import           Pos.DHT                (sendToNetwork)
+import           Pos.Security.Workers   (SecurityWorkersClass, securityWorkers)
 import           Pos.Slotting           (onNewSlot)
 import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscWorkers)
-import           Pos.Types              (SlotId, flattenSlotId, slotIdF)
+import           Pos.Types              (SlotId, slotIdF, flattenSlotId)
 import           Pos.Util               (waitRandomInterval)
 import           Pos.Worker.Block       (blkOnNewSlot, blkWorkers)
 import           Pos.Worker.Stats       (statsWorkers)
@@ -27,11 +28,12 @@ import           Pos.WorkMode           (WorkMode)
 
 -- | Run all necessary workers in separate threads. This call doesn't
 -- block.
-runWorkers :: (SscWorkersClass ssc,  WorkMode ssc m) => m ()
+runWorkers :: (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m) => m ()
 runWorkers = mapM_ fork_ $ concat
     [ [onNewSlotWorker]
     , blkWorkers
     , untag sscWorkers
+    , untag securityWorkers
     ]
 
 onNewSlotWorker :: WorkMode ssc m => m ()

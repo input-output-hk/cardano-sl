@@ -24,7 +24,8 @@ import           Universum
 import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
-import           Pos.Context               (getNodeContext, ncPublicKey, ncSecretKey, ncMalicious)
+import           Pos.Context               (getNodeContext, ncPropagation, ncPublicKey,
+                                            ncSecretKey, ncMalicious)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
 import           Pos.Ssc.Class             (sscApplyGlobalState, sscGetLocalPayload,
                                             sscVerifyPayload)
@@ -111,17 +112,17 @@ blocksTransmitterInterval :: Microsecond
 blocksTransmitterInterval = slotDuration `div` 2
 
 blocksTransmitter :: WorkMode ssc m => m ()
-blocksTransmitter =
-    repeatForever blocksTransmitterInterval onError $
-    do headBlock <- getHeadBlock
-       case headBlock of
-           Left _          -> logDebug "Head block is genesis block ⇒ no announcement"
-           Right mainBlock -> do
-               malicious <- ncMalicious <$> getNodeContext
-               -- TODO(voit): Make malicious node announce blocks to other malicious nodes
-               when (not malicious) $
-                 announceBlock (mainBlock ^. gbHeader)
+blocksTransmitter = whenM (ncPropagation <$> getNodeContext) impl
   where
+    impl = repeatForever blocksTransmitterInterval onError $
+        do headBlock <- getHeadBlock
+           case headBlock of
+               Left _          -> logDebug "Head block is genesis block ⇒ no announcement"
+               Right mainBlock -> do
+                   malicious <- ncMalicious <$> getNodeContext
+                   -- TODO(voit): Make malicious node announce blocks to other malicious nodes
+                   when (not malicious) $
+                       announceBlock (mainBlock ^. gbHeader)
     onError e =
         blocksTransmitterInterval <$
         logWarning (sformat ("Error occured in blocksTransmitter: " %build) e)

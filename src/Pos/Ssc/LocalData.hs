@@ -45,7 +45,7 @@ import           Pos.Util.JsonLog            (MonadJL (..))
 newtype SscLDImpl ssc m a = SscLDImpl
     { getSscLDImpl :: ReaderT (STM.TVar (SscLocalData ssc)) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
-                MonadCatch, MonadIO, HasLoggerName, MonadDialog p, WithNodeContext ssc, MonadJL,
+                MonadCatch, MonadIO, HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
                 MonadDB ssc, CanLog)
 
 instance Monad m => WrappedM (SscLDImpl ssc m) where
@@ -97,4 +97,4 @@ instance MonadBaseControl IO m => MonadBaseControl IO (SscLDImpl ssc m) where
 
 type instance ThreadId (SscLDImpl ssc m) = ThreadId m
 
-instance MonadTransfer m => MonadTransfer (SscLDImpl ssc m)
+instance MonadTransfer s m => MonadTransfer s (SscLDImpl ssc m)

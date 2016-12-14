@@ -32,9 +32,9 @@ import           Pos.Crypto.SerTypes      (LEncShare (..), LSecret (..),
                                            LSecretProof (..), LSecretSharingExtra (..),
                                            LShare (..), LVssPublicKey (..))
 import           Pos.Crypto.Signing       (ProxyCert (..), ProxyDSignature (..),
-                                           ProxyISignature (..), ProxySecretKey (..),
-                                           PublicKey (..), SecretKey (..), Signature (..),
-                                           Signed (..), publicKeyLength, putAssertLength,
+                                           ProxySecretKey (..), PublicKey (..),
+                                           SecretKey (..), Signature (..), Signed (..),
+                                           publicKeyLength, putAssertLength,
                                            secretKeyLength, signatureLength)
 import           Pos.Util                 (getCopyBinary, putCopyBinary)
 
@@ -220,7 +220,6 @@ instance Bi a => Bi (Signed a) where
     put (Signed v s) = put (v,s)
     get = Signed <$> get <*> get
 
-deriving instance Bi (ProxyISignature a)
 deriving instance Bi (ProxyCert w)
 
 instance (Bi w) => Bi (ProxySecretKey w) where

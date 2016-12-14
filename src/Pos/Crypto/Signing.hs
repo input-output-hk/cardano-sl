@@ -36,10 +36,6 @@ module Pos.Crypto.Signing
        , putAssertLength
 
        -- * Proxy signature scheme
-       , ProxyISignature (..)
-       , proxyISign
-       , proxyICheckSig
-
        , ProxyCert (..)
        , createProxyCert
        , ProxySecretKey (..)
@@ -238,32 +234,6 @@ instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
 ----------------------------------------------------------------------------
 -- Proxy signing
 ----------------------------------------------------------------------------
-
--- | Signature produced by issuer
-newtype ProxyISignature a = ProxyISignature { unProxyISignature :: Ed25519.Signature }
-    deriving (Eq, Ord, Show, Generic, NFData, Hashable)
-
-instance Buildable.Buildable (ProxyISignature a) where
-    build _ = "<proxy_i_signature>"
-
--- | Raw bytestring signing
-proxyISignRaw :: SecretKey -> ByteString -> ProxyISignature Raw
-proxyISignRaw (SecretKey k) m =
-    ProxyISignature (Ed25519.dsign k $ "11" `BS.append` m)
-
--- | Getting signature from binary representation of value
-proxyISign :: Bi a => SecretKey -> a -> ProxyISignature a
-proxyISign k = coerce . proxyISignRaw k . BSL.toStrict . Bi.encode
-
--- | Raw bytestring verification
-proxyIVerifyRaw :: PublicKey -> ByteString -> ProxyISignature Raw -> Bool
-proxyIVerifyRaw (PublicKey k) m (ProxyISignature s) =
-    Ed25519.dverify k ("11" `BS.append` m) s
-
--- | Verify a proxy issuer signature using value's binary
--- representation
-proxyICheckSig :: Bi a => PublicKey -> a -> ProxyISignature a -> Bool
-proxyICheckSig k m s = proxyIVerifyRaw k (BSL.toStrict (Bi.encode m)) (coerce s)
 
 -- | Proxy certificate, made of ω + public key of delegate.
 newtype ProxyCert w = ProxyCert { unProxyCert :: Ed25519.Signature }

@@ -16,13 +16,12 @@ import           Pos.Binary            (Bi)
 import           Pos.Crypto            (EncShare, Hash, KeyPair (..), LEncShare, LSecret,
                                         LSecretProof, LSecretSharingExtra, LShare,
                                         LVssPublicKey, ProxyCert, ProxyDSignature,
-                                        ProxyISignature, ProxySecretKey, PublicKey,
-                                        Secret, SecretKey, SecretProof,
-                                        SecretSharingExtra, Share, Signature, Signed,
-                                        VssPublicKey, checkSig, createProxySecretKey,
-                                        deterministic, fullPublicKeyF, hash,
-                                        parseFullPublicKey, proxyDSign, proxyDVerify,
-                                        proxyICheckSig, proxyISign, randomNumber, sign,
+                                        ProxySecretKey, PublicKey, Secret, SecretKey,
+                                        SecretProof, SecretSharingExtra, Share, Signature,
+                                        Signed, VssPublicKey, checkSig,
+                                        createProxySecretKey, deterministic,
+                                        fullPublicKeyF, hash, parseFullPublicKey,
+                                        proxyDSign, proxyDVerify, randomNumber, sign,
                                         toPublic)
 import           Pos.Ssc.GodTossing    ()
 
@@ -74,7 +73,6 @@ spec = describe "Crypto" $ do
                 prop "SecretKey"           (binaryEncodeDecode @SecretKey)
                 prop "PublicKey"           (binaryEncodeDecode @PublicKey)
                 prop "Signature"           (binaryEncodeDecode @(Signature ()))
-                prop "ProxyISignature"     (binaryEncodeDecode @(ProxyISignature ()))
                 prop "ProxyCert"           (binaryEncodeDecode @(ProxyCert Int))
                 prop "ProxySecretKey"      (binaryEncodeDecode @(ProxySecretKey Int))
                 prop "ProxyDSignature"     (binaryEncodeDecode @(ProxyDSignature Int Int))
@@ -127,16 +125,6 @@ spec = describe "Crypto" $ do
             prop
                 "modified data signature can't be verified"
                 (signThenVerifyDifferentData @[Int])
-        describe "proxy issuer signing" $ do
-            prop
-                "signed data can be verified successfully"
-                (proxyISignThenVerify @[Int])
-            prop
-                "signed data can't be verified by a different key"
-                (proxyISignThenVerifyDifferentKey @[Int])
-            prop
-                "modified data signature can't be verified"
-                (proxyISignThenVerifyDifferentData @[Int])
         describe "proxy delegate signing" $ do
             prop
                 "signature can be verified successfully"
@@ -177,17 +165,6 @@ signThenVerifyDifferentData
     => SecretKey -> a -> a -> Property
 signThenVerifyDifferentData sk a b =
     (a /= b) ==> not (checkSig (toPublic sk) b $ sign sk a)
-
-proxyISignThenVerify :: Bi a => SecretKey -> a -> Bool
-proxyISignThenVerify sk a = proxyICheckSig (toPublic sk) a $ proxyISign sk a
-
-proxyISignThenVerifyDifferentKey :: Bi a => SecretKey -> PublicKey -> a -> Property
-proxyISignThenVerifyDifferentKey sk1 pk2 a =
-    (toPublic sk1 /= pk2) ==> not (proxyICheckSig pk2 a $ proxyISign sk1 a)
-
-proxyISignThenVerifyDifferentData :: (Eq a, Bi a) => SecretKey -> a -> a -> Property
-proxyISignThenVerifyDifferentData sk a b =
-    (a /= b) ==> not (proxyICheckSig (toPublic sk) b $ proxyISign sk a)
 
 proxyDSignVerify :: (Bi a, Bi w, Eq w) => SecretKey -> SecretKey -> w -> a -> Bool
 proxyDSignVerify issuerSk delegateSk w m =

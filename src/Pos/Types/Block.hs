@@ -32,9 +32,11 @@ import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum
 
 import           Pos.Binary.Class     (Bi (..))
+import           Pos.Binary.Types     ()
 import           Pos.Constants        (epochSlots)
-import           Pos.Crypto           (Hash, SecretKey, checkSig, hash, sign, toPublic,
-                                       unsafeHash)
+import           Pos.Crypto           (Hash, ProxySecretKey, PublicKey, SecretKey,
+                                       checkSig, hash, proxySign, proxyVerify, sign,
+                                       toPublic, unsafeHash)
 import           Pos.Merkle           (mkMerkleTree)
 import           Pos.Ssc.Class.Types  (Ssc (..))
 -- Unqualified import is used here because of GHC bug (trac 12127).
@@ -91,26 +93,24 @@ mkGenericBlock prevHeader body consensus extraH extraB =
   where
     header = mkGenericHeader prevHeader body consensus extraH
 
-type BiSscBlock ssc =
-    (BiSsc ssc,
-     Bi (BodyProof (MainBlockchain ssc)),
-     Bi TxWitness,
-     Bi SlotId,
-     Bi ChainDifficulty)
-
 -- | Smart constructor for 'MainBlockHeader'.
 mkMainHeader
-    :: BiSscBlock ssc
+    :: BiSsc ssc
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
+    -> Maybe (PublicKey, ProxySecretKey (EpochIndex,EpochIndex))
     -> Body (MainBlockchain ssc)
     -> MainBlockHeader ssc
-mkMainHeader prevHeader slotId sk body =
+mkMainHeader prevHeader slotId sk proxyInfo body =
     mkGenericHeader prevHeader body consensus ()
   where
     difficulty = maybe 0 (succ . view difficultyL) prevHeader
-    signature prevHash proof = sign sk (prevHash, proof, slotId, difficulty)
+    signature prevHash proof =
+        let toSign = (prevHash, proof, slotId, difficulty)
+        in maybe (BlockSignature $ sign sk toSign)
+                 (\(pk,proxySk) -> BlockPSignature $ proxySign sk pk proxySk toSign)
+                 proxyInfo
     consensus prevHash proof =
         MainConsensusData
         { _mcdSlot = slotId
@@ -121,19 +121,16 @@ mkMainHeader prevHeader slotId sk body =
 
 -- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'.
 mkMainBlock
-    :: (BiSsc ssc,
-        Bi (BodyProof (MainBlockchain ssc)),
-        Bi TxWitness,
-        Bi SlotId,
-        Bi ChainDifficulty)
+    :: BiSsc ssc
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
+    -> Maybe (PublicKey, ProxySecretKey (EpochIndex,EpochIndex))
     -> Body (MainBlockchain ssc)
     -> MainBlock ssc
-mkMainBlock prevHeader slotId sk body =
+mkMainBlock prevHeader slotId sk proxyInfo body =
     GenericBlock
-    { _gbHeader = mkMainHeader prevHeader slotId sk body
+    { _gbHeader = mkMainHeader prevHeader slotId sk proxyInfo body
     , _gbBody = body
     , _gbExtra = ()
     }
@@ -169,30 +166,38 @@ mkGenesisBlock prevHeader epoch leaders =
     body = GenesisBody leaders
 
 -- | Smart constructor for 'Body' of 'MainBlockchain'.
-mkMainBody
-    :: (Bi Tx)
-    => [(Tx, TxWitness)] -> SscPayload ssc -> Body (MainBlockchain ssc)
+mkMainBody :: [(Tx, TxWitness)] -> SscPayload ssc -> Body (MainBlockchain ssc)
 mkMainBody txws mpc = MainBody {
     _mbTxs = mkMerkleTree (map fst txws),
     _mbWitnesses = map snd txws,
     _mbMpc = mpc }
 
 verifyConsensusLocal
-    :: BiSscBlock ssc
+    :: BiSsc ssc
     => BlockHeader ssc -> VerificationRes
 verifyConsensusLocal (Left _)       = mempty
 verifyConsensusLocal (Right header) =
     verifyGeneric
-        [ ( checkSig pk (_gbhPrevBlock, _gbhBodyProof, slotId, d) sig
-          , "can't verify signature")
+        [ ( verifyBlockSignature $ consensus ^. mcdSignature
+          , "can't verify simple signature")
         , (siSlot slotId < epochSlots, "slot index is not less than epochSlots")
         ]
   where
-    GenericBlockHeader {_gbhConsensus = consensus, ..} = header
+    verifyBlockSignature (BlockSignature sig) =
+        checkSig pk (_gbhPrevBlock, _gbhBodyProof, slotId, d) sig
+    verifyBlockSignature (BlockPSignature proxySig) =
+        proxyVerify
+            pk
+            proxySig
+            (\(epochLow, epochHigh) ->
+               epochId <= epochHigh && epochId >= epochLow)
+            (_gbhPrevBlock, _gbhBodyProof, slotId, d)
+    GenericBlockHeader {_gbhConsensus = consensus
+                       ,..} = header
     pk = consensus ^. mcdLeaderKey
     slotId = consensus ^. mcdSlot
+    epochId = siEpoch slotId
     d = consensus ^. mcdDifficulty
-    sig = consensus ^. mcdSignature
 
 -- | Extra data which may be used by verifyHeader function to do more checks.
 data VerifyHeaderParams ssc = VerifyHeaderParams
@@ -221,7 +226,7 @@ maybeEmpty = maybe mempty
 -- | Check some predicates (determined by VerifyHeaderParams) about
 -- BlockHeader.
 verifyHeader
-    :: BiSscBlock ssc
+    :: BiSsc ssc
     => VerifyHeaderParams ssc -> BlockHeader ssc -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
    consensusRes <> verifyGeneric checks
@@ -323,7 +328,7 @@ instance Default (VerifyBlockParams ssc) where
         }
 
 -- | Check predicates defined by VerifyBlockParams.
-verifyBlock :: BiSscBlock ssc => VerifyBlockParams ssc -> Block ssc -> VerificationRes
+verifyBlock :: BiSsc ssc => VerifyBlockParams ssc -> Block ssc -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
         [ verifyG
@@ -341,7 +346,7 @@ verifyBlock VerifyBlockParams {..} blk =
 -- It doesn't affect laziness of 'VerificationRes' which is good
 -- because laziness for this data type is crucial.
 verifyBlocks
-    :: forall ssc t. (BiSscBlock ssc, Foldable t)
+    :: forall ssc t. (BiSsc ssc, Foldable t)
     => Maybe SlotId -> t (Block ssc) -> VerificationRes
 verifyBlocks curSlotId = (view _3) . foldl' step start
   where

@@ -9,16 +9,15 @@ module Pos.Wallet.Web.Api
        ) where
 
 import           Data.Proxy                 (Proxy (Proxy))
-import           Servant.API                ((:<|>), (:>), Capture, Get, JSON,
-                                             Post)
+import           Servant.API                ((:<|>), (:>), Capture, Get, JSON, Post)
 import           Universum
 
 import           Pos.Types                  (Address, Coin)
-import           Pos.Wallet.Web.ClientTypes (CWallet)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CWallet)
 
 -- | Servant API which provides access to wallet.
 type WalletApi =
-    "addresses" :> Get '[JSON] [Address]
+    "addresses" :> Get '[JSON] [CAddress]
   :<|>
     "balances" :> Get '[JSON] [(Address, Coin)]
   :<|>

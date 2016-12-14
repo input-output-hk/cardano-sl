@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -24,14 +25,17 @@ module Pos.Wallet.Web.ClientTypes
       , CWallet (..)
       , CWalletType (..)
       , CWalletMeta (..)
+      , mkStubCAddress -- FIXME: remove!
       ) where
 
-import           Data.Text       (Text)
-import           Data.Time.Clock (NominalDiffTime)
-import           GHC.Generics    (Generic)
+import           Data.Text              (Text)
+import           Data.Time.Clock        (NominalDiffTime)
+import           GHC.Generics           (Generic)
 import           Universum
 
-import           Pos.Types       (Address (..), Coin, TxId)
+import           Data.Aeson.TH          (deriveToJSON)
+import           Pos.Types              (Address (..), Coin, TxId)
+import           Serokell.Aeson.Options (defaultOptionsPS)
 
 
 -- | currencies handled by client
@@ -45,13 +49,20 @@ data CCurrency
 -- | Client hash
 newtype CHash = CHash Text deriving (Show, Generic)
 
+$(deriveToJSON defaultOptionsPS ''CHash)
+
 -- | Client address
 newtype CAddress = CAddress CHash deriving (Show, Generic)
 
+$(deriveToJSON defaultOptionsPS ''CAddress)
+
 -- | transform Address into CAddress
 addressToCAddress :: Address -> CAddress
-addressToCAddress (PubKeyAddress _ addrKeyHash)  = undefined
-addressToCAddress (ScriptAddress _ addrScriptHash)  = undefined
+addressToCAddress (PubKeyAddress _ addrKeyHash)    = undefined
+addressToCAddress (ScriptAddress _ addrScriptHash) = undefined
+
+mkStubCAddress :: Text -> CAddress
+mkStubCAddress = CAddress . CHash
 
 -- | Client transaction id
 newtype CTxId = CTxId CHash deriving (Show, Generic)

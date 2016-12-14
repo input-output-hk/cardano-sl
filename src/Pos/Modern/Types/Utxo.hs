@@ -13,22 +13,22 @@ module Pos.Modern.Types.Utxo
        , convertFrom'
        ) where
 
-import           Control.Lens           (over, _1)
-import           Control.Monad.IfElse   (aifM)
-import qualified Data.ByteString.Lazy   as BSL
-import qualified Data.HashSet           as HS
-import qualified Data.Map.Strict        as M
-import           Database.RocksDB       (BatchOp (..))
-import           Serokell.Util          (VerificationRes (..))
+import           Control.Lens         (over, _1)
+import           Control.Monad.IfElse (aifM)
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.HashSet         as HS
+import qualified Data.Map.Strict      as M
+import           Serokell.Util        (VerificationRes (..))
 import           Universum
 
-import           Pos.Binary             (encode)
-import           Pos.Crypto             (WithHash (..))
-import           Pos.Modern.DB          (MonadDB (..), getUtxoDB, rocksGetBi)
-import           Pos.Modern.Txp.RocksDB (createDelTx, createPutTx)
-import           Pos.Types.Tx           (topsortTxs, verifyTx)
-import           Pos.Types.Types        (IdTxWitness, Tx (..), TxIn (..), TxOut (..),
-                                         TxWitness, Utxo)
+import           Pos.Binary           (encode)
+import           Pos.Crypto           (WithHash (..))
+import           Pos.Modern.DB        ()
+import           Pos.Modern.DB        (MonadDB (..), getUtxoDB, rocksGetBi)
+import           Pos.Modern.DB.Utxo   (BatchOp (..))
+import           Pos.Types.Tx         (topsortTxs, verifyTx)
+import           Pos.Types.Types      (IdTxWitness, Tx (..), TxIn (..), TxOut (..),
+                                       TxWitness, Utxo)
 
 -- | Find transaction input in Utxo assuming it is valid.
 findTxIn :: TxIn -> Utxo -> Maybe TxOut
@@ -148,8 +148,10 @@ verifyTxs txws initValidationCache = do
             (Left "Topsort on transactions failed -- topology is broken")
             (\txs' -> do
                 utxoAfterApply <- applyAll txs'
-                let delInp = map createDelTx (M.keys initUtxo)
-                    putOut = map createPutTx (M.toList utxoAfterApply)
+                let delInp = notImplemented
+                    putOut = notImplemented
+                -- let delInp = map DelTxIn (M.keys initUtxo)
+                --     putOut = map createPutTx (M.toList utxoAfterApply)
                 Right (txs', delInp ++ putOut, utxoAfterApply)
             )
             topsorted

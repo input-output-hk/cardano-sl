@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module TxGeneration
        ( BambooPool
        , initTransaction
@@ -107,4 +109,3 @@ nextValidTx bp curTps propThreshold = do
         parentTx <- peekTx bp
         nextBamboo bp curTps propThreshold
         return $ Left parentTx
-

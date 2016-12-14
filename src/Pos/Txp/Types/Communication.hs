@@ -30,8 +30,8 @@ instance Message TxInvMsg where
     messageName _ = "Tx Inventory"
     formatMessage = messageName'
 
--- | Request message. Can be used to request transactions (ideally transactions which
--- was previously announced by inventory message).
+-- | Request message. Can be used to request transactions (ideally
+-- transactions which were previously announced by inventory message).
 data TxReqMsg = TxReqMsg
     { rmTxs :: !(NonEmpty TxId)
     } deriving (Generic)

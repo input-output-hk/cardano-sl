@@ -32,7 +32,7 @@ instance (Monad m, WithNodeContext ssc m) =>
     getNodeContext = lift getNodeContext
 
 instance (Monad m, WithNodeContext ssc m) =>
-         WithNodeContext ssc (DHTResponseT m) where
+         WithNodeContext ssc (DHTResponseT s m) where
     getNodeContext = lift getNodeContext
 
 instance (Monad m, WithNodeContext ssc m) =>

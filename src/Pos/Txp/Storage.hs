@@ -106,6 +106,7 @@ getUtxo = view txUtxo
 getUtxoByDepth :: Word -> Query (Maybe Utxo)
 getUtxoByDepth (fromIntegral -> depth) = preview $ txUtxoHistory . ix depth
 
+-- CHECK # Checks whether transaction is verified (`k` blocks deep in the blockchain).
 -- | Check if given transaction is verified, e. g.
 -- is present in `k` and more blocks deeper
 isTxVerified :: (Tx, TxWitness) -> Query Bool

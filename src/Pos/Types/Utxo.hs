@@ -38,9 +38,11 @@ findTxIn TxIn{..} = M.lookup (txInHash, txInIndex)
 deleteTxIn :: TxIn -> Utxo -> Utxo
 deleteTxIn TxIn{..} = M.delete (txInHash, txInIndex)
 
+-- CHECK # Check tx against specific utxo.
+
 -- | Verify single Tx using Utxo as TxIn resolver.
 verifyTxUtxo :: Bi TxOut => Utxo -> (Tx, TxWitness) -> VerificationRes
-verifyTxUtxo utxo txw = verifyTx (`findTxIn` utxo) txw
+verifyTxUtxo utxo txw = verifyTx (`findTxIn` utxo) txw -- CHECK ## Does utxo contain tx inputs?
 
 -- | Remove unspent outputs used in given transaction, add new unspent
 -- outputs.

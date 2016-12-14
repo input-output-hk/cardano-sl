@@ -92,16 +92,9 @@ mkGenericBlock prevHeader body consensus extraH extraB =
   where
     header = mkGenericHeader prevHeader body consensus extraH
 
-type BiSscBlock ssc =
-    (BiSsc ssc,
-     Bi (BodyProof (MainBlockchain ssc)),
-     Bi TxWitness,
-     Bi SlotId,
-     Bi ChainDifficulty)
-
 -- | Smart constructor for 'MainBlockHeader'.
 mkMainHeader
-    :: BiSscBlock ssc
+    :: BiSsc ssc
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
@@ -122,11 +115,7 @@ mkMainHeader prevHeader slotId sk body =
 
 -- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'.
 mkMainBlock
-    :: (BiSsc ssc,
-        Bi (BodyProof (MainBlockchain ssc)),
-        Bi TxWitness,
-        Bi SlotId,
-        Bi ChainDifficulty)
+    :: BiSsc ssc
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
@@ -170,16 +159,14 @@ mkGenesisBlock prevHeader epoch leaders =
     body = GenesisBody leaders
 
 -- | Smart constructor for 'Body' of 'MainBlockchain'.
-mkMainBody
-    :: (Bi Tx)
-    => [(Tx, TxWitness)] -> SscPayload ssc -> Body (MainBlockchain ssc)
+mkMainBody :: [(Tx, TxWitness)] -> SscPayload ssc -> Body (MainBlockchain ssc)
 mkMainBody txws mpc = MainBody {
     _mbTxs = mkMerkleTree (map fst txws),
     _mbWitnesses = map snd txws,
     _mbMpc = mpc }
 
 verifyConsensusLocal
-    :: BiSscBlock ssc
+    :: BiSsc ssc
     => BlockHeader ssc -> VerificationRes
 verifyConsensusLocal (Left _)       = mempty
 verifyConsensusLocal (Right header) =
@@ -232,7 +219,7 @@ maybeEmpty = maybe mempty
 -- | Check some predicates (determined by VerifyHeaderParams) about
 -- BlockHeader.
 verifyHeader
-    :: BiSscBlock ssc
+    :: BiSsc ssc
     => VerifyHeaderParams ssc -> BlockHeader ssc -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
    consensusRes <> verifyGeneric checks
@@ -334,7 +321,7 @@ instance Default (VerifyBlockParams ssc) where
         }
 
 -- | Check predicates defined by VerifyBlockParams.
-verifyBlock :: BiSscBlock ssc => VerifyBlockParams ssc -> Block ssc -> VerificationRes
+verifyBlock :: BiSsc ssc => VerifyBlockParams ssc -> Block ssc -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
         [ verifyG
@@ -352,7 +339,7 @@ verifyBlock VerifyBlockParams {..} blk =
 -- It doesn't affect laziness of 'VerificationRes' which is good
 -- because laziness for this data type is crucial.
 verifyBlocks
-    :: forall ssc t. (BiSscBlock ssc, Foldable t)
+    :: forall ssc t. (BiSsc ssc, Foldable t)
     => Maybe SlotId -> t (Block ssc) -> VerificationRes
 verifyBlocks curSlotId = (view _3) . foldl' step start
   where

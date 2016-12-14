@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
 
@@ -12,13 +13,11 @@ module Pos.DHT.Class.BiP
 
 import           Control.Monad.Catch               (MonadThrow (..))
 import           Control.Monad.Fail                (fail)
-import           Control.TimeWarp.Rpc.Message      (ContentData (..),
-                                                    HeaderNContentData (..),
-                                                    HeaderNRawData (..), Message (..),
+import           Control.TimeWarp.Rpc.Message      (ContentData (..), Message (..),
                                                     MessageName, NameData (..),
                                                     Packable (..), PackingType (..),
                                                     RawData (..), Unpackable (..),
-                                                    messageName')
+                                                    WithHeaderData (..), messageName')
 import           Data.Binary.Get                   (Get, isEmpty, label, runGetOrFail)
 import           Data.Binary.Put                   (runPut)
 import qualified Data.ByteString.Lazy              as BL
@@ -48,41 +47,42 @@ plainBiP :: BiP ()
 plainBiP = BiP
 
 instance Bi h => PackingType (BiP h) where
-    type IntermediateForm (BiP h) = HeaderNRawData h
-    unpackMsg _ = conduitGet $ HeaderNRawData <$> get <*> (RawData <$> get)
+    type IntermediateForm (BiP h) = WithHeaderData h RawData
+    unpackMsg _ = conduitGet $ WithHeaderData <$> get <*> (RawData <$> get)
 
 instance (Bi h, Bi r, Message r)
-       => Packable (BiP h) (HeaderNContentData h r) where
+       => Packable (BiP h) (WithHeaderData h (ContentData r)) where
     packMsg p = CL.map packToRaw =$= packMsg p
       where
-        packToRaw (HeaderNContentData h r) =
-            HeaderNRawData h . RawData . BL.toStrict . runPut $ do
+        packToRaw (WithHeaderData h (ContentData r)) =
+            WithHeaderData h . RawData . BL.toStrict . runPut $ do
                 put $ messageName' r
                 put r
 
 instance Bi h
-      => Packable (BiP h) (HeaderNRawData h) where
+      => Packable (BiP h) (WithHeaderData h RawData) where
     packMsg _ = CL.map doPut =$= conduitPut
       where
-        doPut (HeaderNRawData h (RawData r)) = put h >> put r
+        doPut (WithHeaderData h (RawData r)) = put h >> put r
 
 
 instance Bi h
-      => Unpackable (BiP h) (HeaderNRawData h) where
+      => Unpackable (BiP h) (WithHeaderData h RawData) where
     extractMsgPart _ = return
 
 instance Bi h
       => Unpackable (BiP h) NameData where
-    extractMsgPart _ (HeaderNRawData _ (RawData raw)) =
-        let labelName = "(in parseNameData)"
-        in runGetOrThrow (NameData <$> label labelName get) $ BL.fromStrict raw
+    extractMsgPart _ (WithHeaderData _ (RawData raw)) =
+        runGetOrThrow (NameData <$> label lname get) $ BL.fromStrict raw
+      where
+        lname = "(in parseNameData)"
 
 instance (Bi h, Bi r)
       => Unpackable (BiP h) (ContentData r) where
-    extractMsgPart _ (HeaderNRawData _ (RawData raw)) =
+    extractMsgPart _ (WithHeaderData _ (RawData raw)) =
         runGetOrThrow parser $ BL.fromStrict raw
       where
-        parser = checkAllConsumed $ label labelName $
+        parser = label lname $ checkAllConsumed $
             (get :: Get MessageName) *> (ContentData <$> get)
         checkAllConsumed p = p <* unlessM isEmpty (fail "unconsumed input")
-        labelName = "(in parseNameNContentData)"
+        lname = "(in parseNameNContentData)"

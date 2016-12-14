@@ -28,6 +28,7 @@ module Pos.State.State
        , getLeaders
        , getUtxo
        , getUtxoByDepth
+       , getOldestUtxo
        , isTxVerified
        , getGlobalMpcData
        , getGlobalMpcDataByDepth
@@ -94,7 +95,7 @@ instance (Monad m, MonadDB ssc m) => MonadDB ssc (ReaderT r m) where
 instance (MonadDB ssc m, Monad m) => MonadDB ssc (StateT s m) where
     getNodeState = lift getNodeState
 
-instance (Monad m, MonadDB ssc m) => MonadDB ssc (DHTResponseT m) where
+instance (Monad m, MonadDB ssc m) => MonadDB ssc (DHTResponseT s m) where
     getNodeState = lift getNodeState
 
 instance (MonadDB ssc m, Monad m) => MonadDB ssc (KademliaDHT m) where
@@ -207,6 +208,10 @@ getUtxoByDepth = queryDisk . A.GetUtxoByDepth
 -- | Get current Utxo
 getUtxo :: QUConstraint ssc m => m Utxo
 getUtxo = queryDisk A.GetUtxo
+
+-- | Get oldest (genesis) utxo
+getOldestUtxo :: QUConstraint ssc m => m Utxo
+getOldestUtxo = queryDisk A.GetOldestUtxo
 
 -- | Checks if tx is verified
 isTxVerified :: QUConstraint ssc m => (Tx, TxWitness) -> m Bool

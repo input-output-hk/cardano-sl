@@ -33,8 +33,9 @@ import           Pos.Communication.Methods (announceBlock)
 import           Pos.Communication.Types   (RequestBlock (..), RequestBlockchainPart (..),
                                             ResponseMode, SendBlock (..),
                                             SendBlockHeader (..), SendBlockchainPart (..))
+import           Pos.Context               (getNodeContext, ncPropagation)
 import           Pos.Crypto                (hash, shortHashF)
-import           Pos.DHT                   (ListenerDHT (..), replyToNode)
+import           Pos.DHT                   (ListenerDHT (..), MonadDHTDialog, replyToNode)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class.LocalData   (sscApplyGlobalState)
 import qualified Pos.State                 as St
@@ -44,12 +45,12 @@ import           Pos.Types                 (HeaderHash, Tx, blockTxs, getBlockHe
                                             headerHash)
 import           Pos.Util                  (inAssertMode)
 import           Pos.Util.JsonLog          (jlAdoptedBlock, jlLog)
-import           Pos.WorkMode              (MonadUserDialog, WorkMode)
+import           Pos.WorkMode              (SocketState, WorkMode)
 
 -- | Listeners for requests related to blocks processing.
 blockListeners
-    :: (MonadUserDialog m, WorkMode ssc m)
-    => [ListenerDHT m]
+    :: (MonadDHTDialog SocketState m, WorkMode ssc m)
+    => [ListenerDHT SocketState m]
 blockListeners =
     [ ListenerDHT handleBlock
     , ListenerDHT handleBlockHeader
@@ -100,7 +101,7 @@ handleBlock (SendBlock block) = do
                     blkHash
                     h
             replyToNode $ RequestBlock h
-    propagateBlock pbr
+    whenM (ncPropagation <$> getNodeContext) $ propagateBlock pbr
     -- We assert that the chain is consistent – none of the transactions in a
     -- block are present in previous blocks. This is an expensive check and
     -- we only do it when asserts are turned on.

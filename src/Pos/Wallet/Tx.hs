@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 -- | Functions for creating transactions
 
 module Pos.Wallet.Tx
@@ -5,15 +7,17 @@ module Pos.Wallet.Tx
        , submitSimpleTx
        , submitTx
        , getBalance
+       , getTxHistory
        , submitTxRaw
        , createTx
        ) where
 
-import           Control.Lens          (use, uses, (%=), (-=), _1, _2)
+import           Control.Lens          (use, uses, (%=), (-=), (^.), _1, _2)
 import           Control.Monad         (fail)
 import           Control.Monad.State   (StateT, evalStateT)
 import           Control.TimeWarp.Rpc  (NetworkAddress)
 import           Data.List             (tail)
+import           Data.List.NonEmpty    (NonEmpty)
 import qualified Data.Map              as M
 import qualified Data.Vector           as V
 import           Formatting            (build, sformat, (%))
@@ -24,11 +28,12 @@ import           Pos.Binary            ()
 import           Pos.Communication     (sendTx)
 import           Pos.Context           (NodeContext (..), getNodeContext)
 import           Pos.Crypto            (SecretKey)
-import           Pos.Crypto            (hash, sign, toPublic)
+import           Pos.Crypto            (hash, sign, toPublic, withHash)
 import           Pos.Ssc.Class.Storage (SscStorageMode)
-import           Pos.State             (WorkModeDB, getUtxo)
-import           Pos.Types             (Address, Coin, Tx (..), TxId, TxIn (..),
-                                        TxInWitness (..), TxOut (..), TxWitness, Utxo,
+import           Pos.State             (WorkModeDB, getBestChain, getOldestUtxo, getUtxo)
+import           Pos.Types             (Address, Block, Coin, MainBlock, Tx (..), TxId,
+                                        TxIn (..), TxInWitness (..), TxOut (..),
+                                        TxWitness, Utxo, applyTxToUtxo, blockTxs,
                                         makePubKeyAddress, txwF)
 import           Pos.Wallet.WalletMode (WalletMode)
 
@@ -90,6 +95,58 @@ createTx utxo sk outputs = uncurry (makePubKeyTx sk) <$> inpOuts
                         _2 %= tail
                         pickInputs (inp:inps)
 
+-- | Select transactions from block by given predicate
+selectBlockTxs :: (Tx -> Bool) -> MainBlock ssc -> [Tx]
+selectBlockTxs p blk = foldl' selectTxs [] $ blk ^. blockTxs
+  where selectTxs ls tx = if p tx then tx : ls else ls
+
+-- | Select incoming transactions for given address from block
+getIncomingTxs :: Address -> MainBlock ssc -> [Tx]
+getIncomingTxs addr = selectBlockTxs (`hasReceiver` addr)
+
+-- | Check if given 'Address' is one of the receivers of 'Tx'
+hasReceiver :: Tx -> Address -> Bool
+hasReceiver Tx {..} addr = any ((== addr) . txOutAddress) txOutputs
+
+-- | Given some 'Utxo', get outgoing transactions for given address
+getOutgoingTxs :: Utxo -> Address -> MainBlock ssc -> [Tx]
+getOutgoingTxs utxo addr = selectBlockTxs (hasSender utxo addr)
+
+-- | Given some 'Utxo', check ig given 'Address' is one of the senders of 'Tx'
+hasSender :: Utxo -> Address -> Tx -> Bool
+hasSender utxo addr Tx {..} = any hasCorrespondingOutput txInputs
+  where hasCorrespondingOutput (TxIn h idx)  =
+            toBool $ (== addr) . txOutAddress <$> M.lookup (h, idx) utxo
+        toBool Nothing  = False
+        toBool (Just b) = b
+
+-- | Leave in Utxo only outputs of given addresses
+getOwnUtxo :: Address -> Utxo -> Utxo
+getOwnUtxo addr = M.filter ((== addr) . txOutAddress)
+
+-- | Given a full blockchain, derive address history and Utxo
+-- TODO: Such functionality will still be useful for merging
+-- blockchains when wallet state is ready, but some metadata for
+-- Tx will be required.
+deriveAddrHistory :: Address -> Utxo -> NonEmpty (Block ssc) -> (Utxo, [Tx], [Tx])
+deriveAddrHistory addr utxo = deriveAddrHistoryPartial (ownUtxo, [], []) addr
+  where ownUtxo = getOwnUtxo addr utxo
+
+deriveAddrHistoryPartial
+    :: (Utxo, [Tx], [Tx])
+    -> Address
+    -> NonEmpty (Block ssc)
+    -> (Utxo, [Tx], [Tx])
+deriveAddrHistoryPartial histData addr chain = foldr updateAll histData chain
+  where updateAll (Left _) hdata = hdata
+        updateAll (Right blk) (utxo, incoming, outgoing) =
+            let applyAllToUtxo = foldl' $ flip (applyTxToUtxo . withHash)
+                newIncoming = getIncomingTxs addr blk
+                utxo' = applyAllToUtxo utxo newIncoming
+                newOutgoing = getOutgoingTxs utxo' addr blk
+                utxo'' = applyAllToUtxo utxo' newOutgoing
+            in (getOwnUtxo addr utxo'', newIncoming ++ incoming, newOutgoing ++ outgoing)
+
 ---------------------------------------------------------------------------------------
 -- WorkMode scenarios
 ---------------------------------------------------------------------------------------
@@ -125,3 +182,11 @@ submitTxRaw na tx = do
     logInfo $ sformat ("Submitting transaction: "%txwF) tx
     logInfo $ sformat ("Transaction id: "%build) txId
     mapM_ (`sendTx` tx) na
+
+-- | Get tx history for Address
+getTxHistory :: WalletMode ssc m => Address -> m ([Tx], [Tx])
+getTxHistory addr = do
+    chain <- getBestChain
+    utxo <- getOldestUtxo
+    let (_, incoming, outgoing) = deriveAddrHistory addr utxo chain
+    return (incoming, outgoing)

@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -19,6 +18,7 @@ module Pos.Txp.Storage
 
        , getUtxoByDepth
        , getUtxo
+       , getOldestUtxo
        , isTxVerified
        , txVerifyBlocks
        , txApplyBlocks
@@ -27,8 +27,9 @@ module Pos.Txp.Storage
        , filterLocalTxs
        ) where
 
-import           Control.Lens            (each, ix, makeClassy, over, preview, use, uses,
-                                          view, (%=), (.=), (<&>), (<~), (^.), _1)
+import           Control.Lens            (each, ix, makeClassy, over, preview, to, use,
+                                          uses, view, (%=), (.=), (<&>), (<~), (^.), _1)
+import           Data.List               (last)
 import qualified Data.List.NonEmpty      as NE
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Formatting              (build, int, sformat, (%))
@@ -105,6 +106,10 @@ getUtxo = view txUtxo
 -- depth has been applied.
 getUtxoByDepth :: Word -> Query (Maybe Utxo)
 getUtxoByDepth (fromIntegral -> depth) = preview $ txUtxoHistory . ix depth
+
+-- | Get the very first (genesis) utxo.
+getOldestUtxo :: Query Utxo
+getOldestUtxo = view $ txUtxoHistory . to last
 
 -- | Check if given transaction is verified, e. g.
 -- is present in `k` and more blocks deeper

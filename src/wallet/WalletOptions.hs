@@ -34,6 +34,7 @@ data WalletOptions = WalletOptions
     , woSscAlgo            :: !SscAlgo
     , woFlatDistr          :: !(Maybe (Int, Int))
     , woBitcoinDistr       :: !(Maybe (Int, Int))
+    , woDisablePropagation :: !Bool
     , woAction             :: !WalletAction
     }
 
@@ -121,6 +122,9 @@ optionsParser = WalletOptions
             , metavar "(INT,INT)"
             , help "Use bitcoin stake distribution with given parameters (nodes, coins)"
             ])
+    <*> switch
+        (long "disable-propagation" <>
+         help "Disable network propagation (transactions, SSC data, blocks). I.e. all data is to be sent only by entity who creates data and entity is yosend it to all peers on his own")
     <*> actionParser
 
 optsInfo :: ParserInfo WalletOptions

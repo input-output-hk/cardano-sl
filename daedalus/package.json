@@ -1,0 +1,32 @@
+{
+  "name": "daedalus",
+  "version": "0.0.1",
+  "description": "Daedalus wallet client library",
+  "main": "dist/index.js",
+  "scripts": {
+    "postinstall": "bower cache clean && bower install",
+    "clean": "rimraf dist && rimraf output",
+    "build": "npm run clean && mkdir dist && pulp build --to dist/index.js",
+    "build-production": "npm run clean && mkdir dist && pulp browserify --optimise --to dist/index.js",
+    "build-standalone": "echo 'Look into https://github.com/bodil/pulp#reimporting-browserified-bundles'",
+    "docs": "pulp docs --with-tests",
+    "repl": "pulp psci",
+    "test": "pulp test",
+    "watch": "pulp --watch build",
+    "watch-test": "pulp --watch test"
+  },
+  "keywords": [
+    "daedalus",
+    "cryptocurrency",
+    "avm",
+    "cardano",
+    "wallet"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "bower": "^1.8.0",
+    "pulp": "^10.0.0",
+    "purescript": "^0.10.3"
+  }
+}

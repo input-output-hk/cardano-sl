@@ -1,20 +1,15 @@
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE StandaloneDeriving     #-}
-{-# LANGUAGE TupleSections          #-}
-{-# LANGUAGE TypeFamilies           #-}
-{-# LANGUAGE UndecidableInstances   #-}
-
-module Pos.Modern.Txp.Storage.Types
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
+module Pos.Modern.Txp.Holder
        (
-         MonadUtxoRead (..)
-       , MonadUtxo (..)
-       , MonadTxpLD (..)
-       , TxpLDHolder (..)
+         TxpLDHolder (..)
        , runTxpLDHolder
        ) where
+
 import qualified Control.Concurrent.STM          as STM
 import           Control.Lens                    (iso)
 import           Control.Monad.Base              (MonadBase (..))
@@ -27,7 +22,7 @@ import           Control.Monad.Trans.Control     (ComposeSt, MonadBaseControl (.
                                                   defaultRestoreM, defaultRestoreT)
 import           Control.TimeWarp.Rpc            (MonadDialog, MonadTransfer (..))
 import           Control.TimeWarp.Timed          (MonadTimed (..), ThreadId)
-import qualified Data.HashSet                    as HS (empty)
+import           Data.Default                    (def)
 import           Serokell.Util.Lens              (WrappedM (..))
 import           System.Wlog                     (CanLog, HasLoggerName)
 import           Universum
@@ -41,26 +36,11 @@ import           Pos.Txp.LocalData               (MonadTxLD (..))
 import           Pos.Util.JsonLog                (MonadJL (..))
 
 import qualified Pos.Modern.DB                   as Modern
+import           Pos.Modern.Txp.Class            (MonadTxpLD (..), MonadUtxo (..),
+                                                  MonadUtxoRead (..))
+import           Pos.Modern.Txp.Storage.MemPool  (MemPool)
 import           Pos.Modern.Txp.Storage.UtxoView (UtxoView)
 import qualified Pos.Modern.Txp.Storage.UtxoView as UV
-import           Pos.Types                       (Tx, TxIn (..), TxOut)
-
-
-class Monad m => MonadUtxoRead ssc m | m -> ssc where
-    getTxOut :: TxIn -> m (Maybe TxOut)
-
-class MonadUtxoRead ssc m => MonadUtxo ssc m | m -> ssc where
-    putTxOut :: TxIn -> TxOut -> m ()
-    delTxIn :: TxIn -> m ()
-
-type MemPool = HashSet Tx
-
-class Monad m => MonadTxpLD ssc m | m -> ssc where
-    getUtxoView :: m (UtxoView ssc)
-    getMemPool  :: m MemPool
-    setUtxoView :: UtxoView ssc -> m ()
-    setMemPool  :: MemPool -> m ()
-
 ----------------------------------------------------------------------------
 -- Holder
 ----------------------------------------------------------------------------
@@ -132,5 +112,5 @@ instance (MonadIO m, MonadUtxoRead ssc (TxpLDHolder ssc m))
 runTxpLDHolder :: MonadIO m => TxpLDHolder ssc m a -> UtxoView ssc -> m a
 runTxpLDHolder holder mp = TxpLDWrap
                        <$> liftIO (STM.newTVarIO mp)
-                       <*> liftIO (STM.newTVarIO HS.empty)
+                       <*> liftIO (STM.newTVarIO def)
                        >>= runReaderT (getTxpLDHolder holder)

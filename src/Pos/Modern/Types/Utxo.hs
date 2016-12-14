@@ -11,23 +11,18 @@ module Pos.Modern.Types.Utxo
        , verifyTxs
        , convertTo'
        , convertFrom'
+       , applyTxToUtxo'
        ) where
 
-import           Control.Lens                 (over, _1)
-import           Control.Monad.IfElse         (aifM)
-import qualified Data.HashSet                 as HS
-import qualified Data.Map.Strict              as M
-import           Database.RocksDB             (BatchOp (..))
-import           Serokell.Util                (VerificationRes (..))
+import           Control.Lens         (over, _1)
+import           Serokell.Util        (VerificationRes (..))
 import           Universum
 
-import           Pos.Crypto                   (WithHash (..))
---import           Pos.Modern.DB                (MonadDB (..), getUtxoDB, rocksGet)
---import           Pos.Modern.Txp.RocksDB       (createDelTx, createPutTx)
-import           Pos.Modern.Txp.Storage.Types (MonadUtxo (..), MonadUtxoRead (..))
-import           Pos.Modern.Types.Tx          (topsortTxs, verifyTx)
-import           Pos.Types.Types              (IdTxWitness, Tx (..), TxId, TxIn (..),
-                                               TxOut (..), TxWitness, Utxo)
+import           Pos.Crypto           (WithHash (..))
+import           Pos.Modern.Txp.Class (MonadUtxo (..), MonadUtxoRead (..))
+import           Pos.Modern.Types.Tx  (topsortTxs, verifyTx)
+import           Pos.Types.Types      (IdTxWitness, Tx (..), TxIn (..), TxOut (..),
+                                       TxWitness)
 -- | Accepts list of transactions and verifies its overall properties
 -- plus validity of every transaction in particular. Return value is
 -- verification failure (first) or topsorted list of transactions (if
@@ -54,7 +49,10 @@ verifyTxs txws  = do
                   return $
                       case resCur of
                           VerSuccess        -> VerSuccess
-                          VerFailure reason -> notImplemented
+                          VerFailure reason ->
+                              VerFailure $
+                                  fromMaybe ["Transaction application failed, reason not specified"] $
+                                            (:[]) <$> head reason
                 )
     maybe
         (return $ Left "Topsort on transactions failed -- topology is broken")
@@ -63,10 +61,15 @@ verifyTxs txws  = do
             return $
                 case res of
                     VerSuccess        -> Right txs'
-                    VerFailure reason -> Left "" -- $ head reason
+                    VerFailure reason ->
+                        Left $
+                            fromMaybe "Transaction application failed, reason not specified" $
+                                       head reason
         )
         topsorted
 
+-- | Remove unspent outputs used in given transaction, add new unspent
+-- outputs.
 applyTxToUtxo :: MonadUtxo ssc m => WithHash Tx -> m ()
 applyTxToUtxo tx = do
     mapM_ applyInput txInputs
@@ -76,15 +79,6 @@ applyTxToUtxo tx = do
     applyInput = delTxIn
     applyOutput idx = putTxOut $ TxIn (whHash tx) idx
 
-convertTo' :: [IdTxWitness] -> [(WithHash Tx, TxWitness)]
-convertTo' = map (\(i, (t, w)) -> (WithHash t i, w))
-
-convertFrom' :: [(WithHash Tx, TxWitness)] -> [IdTxWitness]
-convertFrom' = map (\(WithHash t h, w) -> (h, (t, w)))
-
--- applyTxToUtxo' :: IdTxWitness -> Utxo -> Utxo
--- applyTxToUtxo' (i, (t, _)) = applyTxToUtxo $ WithHash t i
-
 -- | Find transaction input in Utxo assuming it is valid.
 findTxIn :: MonadUtxoRead ssc m => TxIn -> m (Maybe TxOut)
 findTxIn = getTxOut
@@ -93,33 +87,11 @@ findTxIn = getTxOut
 verifyTxUtxo :: MonadUtxoRead ssc m => (Tx, TxWitness) -> m VerificationRes
 verifyTxUtxo = verifyTx findTxIn
 
--- | Takes the set of transactions and utxo, returns only those
--- transactions that can be applied inside. Bonus -- returns them
--- sorted (topographically).
--- normalizeTxs :: [(WithHash Tx, TxWitness)] -> Utxo -> [(WithHash Tx, TxWitness)]
--- normalizeTxs = normGo []
---   where
---     -- checks if transaction can be applied, adds it to first arg and
---     -- to utxo if ok, does nothing otherwise
---     canApply :: (WithHash Tx, TxWitness)
---              -> ([(WithHash Tx, TxWitness)], Utxo)
---              -> ([(WithHash Tx, TxWitness)], Utxo)
---     canApply txw prev@(txws, utxo) =
---         case verifyTxUtxo utxo (over _1 whData txw) of
---             VerFailure _ -> prev
---             VerSuccess   -> (txw : txws, fst txw `applyTxToUtxo` utxo)
+convertTo' :: [IdTxWitness] -> [(WithHash Tx, TxWitness)]
+convertTo' = map (\(i, (t, w)) -> (WithHash t i, w))
 
---     normGo :: [(WithHash Tx, TxWitness)]
---            -> [(WithHash Tx, TxWitness)]
---            -> Utxo
---            -> [(WithHash Tx, TxWitness)]
---     normGo result pending curUtxo =
---         let !(!canBeApplied, !newUtxo) = foldr' canApply ([], curUtxo) pending
---             newPending = pending \\ canBeApplied
---             newResult = result ++ canBeApplied
---         in if null canBeApplied
---                then result
---                else normGo newResult newPending newUtxo
+convertFrom' :: [(WithHash Tx, TxWitness)] -> [IdTxWitness]
+convertFrom' = map (\(WithHash t h, w) -> (h, (t, w)))
 
--- | Remove unspent outputs used in given transaction, add new unspent
--- outputs.
+applyTxToUtxo' :: MonadUtxo ssc m => IdTxWitness -> m ()
+applyTxToUtxo' (i, (t, _)) = applyTxToUtxo $ WithHash t i

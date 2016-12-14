@@ -66,7 +66,7 @@ import           Pos.DHT                         (BiP (..), DHTMsgHeader, Listen
                                                   sendToNeighbors)
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB                   as Modern
-import qualified Pos.Modern.Txp.Storage.Types    as Modern
+import qualified Pos.Modern.Txp.Holder           as Modern
 import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 #endif
 import           Pos.Context                     (ContextHolder (..), NodeContext (..),

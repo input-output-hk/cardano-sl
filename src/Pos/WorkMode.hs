@@ -37,41 +37,42 @@ module Pos.WorkMode
        ) where
 
 
-import qualified Control.Concurrent.STM       as STM
-import           Control.Lens                 (iso)
-import           Control.Monad.Base           (MonadBase (..))
-import           Control.Monad.Catch          (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Reader         (ReaderT (ReaderT), ask)
-import           Control.Monad.Trans.Class    (MonadTrans)
-import           Control.Monad.Trans.Control  (ComposeSt, MonadBaseControl (..),
-                                               MonadTransControl (..), StM,
-                                               defaultLiftBaseWith, defaultLiftWith,
-                                               defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Rpc         (Dialog, MonadDialog, MonadTransfer (..),
-                                               Transfer)
-import           Control.TimeWarp.Timed       (MonadTimed (..), ThreadId)
-import           Data.Default                 (def)
-import           Serokell.Util.Lens           (WrappedM (..))
-import           System.Wlog                  (CanLog, HasLoggerName, WithLogger)
+import qualified Control.Concurrent.STM      as STM
+import           Control.Lens                (iso)
+import           Control.Monad.Base          (MonadBase (..))
+import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Reader        (ReaderT (ReaderT), ask)
+import           Control.Monad.Trans.Class   (MonadTrans)
+import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
+                                              MonadTransControl (..), StM,
+                                              defaultLiftBaseWith, defaultLiftWith,
+                                              defaultRestoreM, defaultRestoreT)
+import           Control.TimeWarp.Rpc        (Dialog, MonadDialog, MonadTransfer (..),
+                                              Transfer)
+import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
+import           Data.Default                (def)
+import           Serokell.Util.Lens          (WrappedM (..))
+import           System.Wlog                 (CanLog, HasLoggerName, WithLogger)
 import           Universum
 
-import           Pos.Context                  (ContextHolder, WithNodeContext)
-import           Pos.DHT                      (BiP, DHTMsgHeader, DHTResponseT (..),
-                                               MonadMessageDHT (..), WithDefaultMsgHeader)
-import           Pos.DHT.Real                 (KademliaDHT (..))
+import           Pos.Context                 (ContextHolder, WithNodeContext)
+import           Pos.DHT                     (BiP, DHTMsgHeader, DHTResponseT (..),
+                                              MonadMessageDHT (..), WithDefaultMsgHeader)
+import           Pos.DHT.Real                (KademliaDHT (..))
 #ifdef WITH_ROCKS
-import qualified Pos.Modern.DB                as Modern
-import           Pos.Modern.Txp.Storage.Types (MonadTxpLD (..), TxpLDHolder)
+import qualified Pos.Modern.DB               as Modern
+import           Pos.Modern.Txp.Class        (MonadTxpLD (..))
+import           Pos.Modern.Txp.Holder       (TxpLDHolder)
 #endif
-import           Pos.Slotting                 (MonadSlots (..))
-import           Pos.Ssc.Class.Helpers        (SscHelpersClass (..))
-import           Pos.Ssc.Class.LocalData      (MonadSscLD (..), SscLocalDataClass)
-import           Pos.Ssc.Class.Storage        (SscStorageMode)
-import           Pos.Ssc.LocalData            (SscLDImpl)
-import           Pos.State                    (DBHolder, MonadDB (..))
-import           Pos.Statistics.MonadStats    (MonadStats, NoStatsT, StatsT)
-import           Pos.Txp.LocalData            (MonadTxLD (..), TxLocalData (..))
-import           Pos.Util.JsonLog             (MonadJL (..))
+import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
+import           Pos.Ssc.Class.LocalData     (MonadSscLD (..), SscLocalDataClass)
+import           Pos.Ssc.Class.Storage       (SscStorageMode)
+import           Pos.Ssc.LocalData           (SscLDImpl)
+import           Pos.State                   (DBHolder, MonadDB (..))
+import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
+import           Pos.Txp.LocalData           (MonadTxLD (..), TxLocalData (..))
+import           Pos.Util.JsonLog            (MonadJL (..))
 
 -- | Bunch of constraints to perform work for real world distributed system.
 type WorkMode ssc m

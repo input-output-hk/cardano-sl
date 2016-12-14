@@ -263,11 +263,6 @@ instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
     getCopy = contain $
         ProxySignature <$> safeGet <*> safeGet <*> safeGet <*> safeGet
 
--- Ideally it should be binary-unrelated, but (SafeCopy w) => constraint is something
---instance Bi (ProxySignature w a) => SafeCopy (ProxySignature w a) where
---    putCopy = putCopyBinary
---    getCopy = getCopyBinary "ProxySignature"
-
 -- | Make a proxy delegate signature with help of certificate.
 proxySign
     :: (Bi a)

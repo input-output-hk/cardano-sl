@@ -32,9 +32,10 @@ import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum
 
 import           Pos.Binary.Class     (Bi (..))
+import           Pos.Binary.Types     ()
 import           Pos.Constants        (epochSlots)
-import           Pos.Crypto           (Hash, SecretKey, checkSig, hash, sign, toPublic,
-                                       unsafeHash)
+import           Pos.Crypto           (Hash, SecretKey, checkSig, hash, proxyVerify, sign,
+                                       toPublic, unsafeHash)
 import           Pos.Merkle           (mkMerkleTree)
 import           Pos.Ssc.Class.Types  (Ssc (..))
 -- Unqualified import is used here because of GHC bug (trac 12127).
@@ -116,7 +117,7 @@ mkMainHeader prevHeader slotId sk body =
         { _mcdSlot = slotId
         , _mcdLeaderKey = toPublic sk
         , _mcdDifficulty = difficulty
-        , _mcdSignature = signature prevHash proof
+        , _mcdSignature = BlockSignature $ signature prevHash proof
         }
 
 -- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'.
@@ -183,16 +184,26 @@ verifyConsensusLocal
 verifyConsensusLocal (Left _)       = mempty
 verifyConsensusLocal (Right header) =
     verifyGeneric
-        [ ( checkSig pk (_gbhPrevBlock, _gbhBodyProof, slotId, d) sig
-          , "can't verify signature")
+        [ ( verifyBlockSignature $ consensus ^. mcdSignature
+          , "can't verify simple signature")
         , (siSlot slotId < epochSlots, "slot index is not less than epochSlots")
         ]
   where
-    GenericBlockHeader {_gbhConsensus = consensus, ..} = header
+    verifyBlockSignature (BlockSignature sig) =
+        checkSig pk (_gbhPrevBlock, _gbhBodyProof, slotId, d) sig
+    verifyBlockSignature (BlockPSignature proxySig) =
+        proxyVerify
+            pk
+            proxySig
+            (\(epochLow, epochHigh) ->
+               epochId <= epochHigh && epochId >= epochLow)
+            (_gbhPrevBlock, _gbhBodyProof, slotId, d)
+    GenericBlockHeader {_gbhConsensus = consensus
+                       ,..} = header
     pk = consensus ^. mcdLeaderKey
     slotId = consensus ^. mcdSlot
+    epochId = siEpoch slotId
     d = consensus ^. mcdDifficulty
-    sig = consensus ^. mcdSignature
 
 -- | Extra data which may be used by verifyHeader function to do more checks.
 data VerifyHeaderParams ssc = VerifyHeaderParams

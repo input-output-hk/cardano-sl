@@ -41,21 +41,21 @@ class NodeRunnerClass ssc m where
 -- | Run full node in real mode.
 runNodeProduction
     :: forall ssc.
-       (SscConstraint ssc)
+       SscConstraint ssc
     => KademliaDHTInstance -> [ProductionMode ssc ()] -> NodeParams -> SscParams ssc -> IO ()
 runNodeProduction inst plugins np sscnp = runProductionMode inst np sscnp (runNode @ssc plugins)
 
-instance (SscConstraint ssc) => NodeRunnerClass ssc (ProductionMode ssc) where
+instance SscConstraint ssc => NodeRunnerClass ssc (ProductionMode ssc) where
     runNodeIO = runNodeProduction
 
 -- | Run full node in benchmarking node
 runNodeStats
     :: forall ssc.
-       (SscConstraint ssc)
+       SscConstraint ssc
     => KademliaDHTInstance -> [StatsMode ssc ()] -> NodeParams -> SscParams ssc -> IO ()
 runNodeStats inst plugins np sscnp = runStatsMode inst np sscnp (runNode @ssc plugins)
 
-instance (SscConstraint ssc) => NodeRunnerClass ssc (StatsMode ssc) where
+instance SscConstraint ssc => NodeRunnerClass ssc (StatsMode ssc) where
     runNodeIO = runNodeStats
 
 ----------------------------------------------------------------------------

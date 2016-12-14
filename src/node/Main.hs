@@ -159,6 +159,7 @@ nodeParams args@Args {..} spendingSK systemStart =
     , npTimeLord = timeLord
     , npJLFile = jlPath
     , npMalicious = maliciousEmulation
+    , npMalicious' = maliciousEmulation'
     }
 
 gtSscParams :: Args -> VssKeyPair -> GtParams

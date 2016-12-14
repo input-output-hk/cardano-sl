@@ -6,11 +6,12 @@ module Pos.Context.Context
        , ncPubKeyAddress
        ) where
 
+import           Control.TimeWarp.Rpc (NetworkAddress)
 import           Universum
 
-import           Pos.Crypto          (PublicKey, SecretKey, toPublic)
-import           Pos.Ssc.Class.Types (Ssc (SscNodeContext))
-import           Pos.Types           (Address, Timestamp (..), makePubKeyAddress)
+import           Pos.Crypto           (PublicKey, SecretKey, toPublic)
+import           Pos.Ssc.Class.Types  (Ssc (SscNodeContext))
+import           Pos.Types            (Address, Timestamp (..), makePubKeyAddress)
 
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
@@ -23,6 +24,7 @@ data NodeContext ssc = NodeContext
     , ncDbPath      :: !(Maybe FilePath)
     , ncSscContext  :: !(SscNodeContext ssc)
     , ncMalicious   :: !Bool
+    , ncMalicious'  :: ![NetworkAddress]
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

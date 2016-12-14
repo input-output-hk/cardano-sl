@@ -24,7 +24,8 @@ import           Universum
 import           Pos.Binary.Class            (Bi)
 import           Pos.Communication.Types     (RequestBlockchainPart (..),
                                               SendBlockHeader (..))
-import           Pos.DHT                     (sendToNeighbors, sendToNode)
+import           Pos.Context                 (getNodeContext, ncMalicious')
+import           Pos.DHT                     (sendToNeighbors, sendToNode, defaultSendToNeighbors)
 import           Pos.Txp.Types.Communication (TxDataMsg (..))
 import           Pos.Types                   (HeaderHash, MainBlockHeader, Tx, TxWitness,
                                               headerHash)
@@ -36,9 +37,16 @@ import           Pos.WorkMode                (WorkMode)
 sendToNeighborsSafe :: (Bi r, Message r, WorkMode ssc m) => r -> m ()
 sendToNeighborsSafe msg = do
     let msgName = messageName' msg
-    let action = () <$ sendToNeighbors msg
+    -- let action = () <$ sendToNeighbors msg
+    -- TODO(voit): sendToNeighbors should be done using seqConcurrentlyK
+    let action = () <$ defaultSendToNeighbors sequence mySendToNode msg
     fork_ $
         logWarningWaitLinear 10 ("Sending " <> msgName <> " to neighbors") action
+  where
+    mySendToNode addr msg = do
+        malicious <- ncMalicious' <$> getNodeContext
+        when (addr `notElem` malicious) $
+            sendToNode addr msg
 
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.

@@ -8,13 +8,15 @@ module NodeOptions
        , getNodeOptions
        ) where
 
+import           Control.TimeWarp.Rpc       (NetworkAddress)
 import           Options.Applicative.Simple (Parser, auto, help, long, many, metavar,
                                              option, showDefault, simpleOptions,
                                              strOption, switch, value)
 import           Serokell.Util.OptParse     (fromParsec)
 import           Universum
 
-import           Pos.CLI                    (dhtKeyParser, dhtNodeParser, sscAlgoParser)
+import           Pos.CLI                    (addrParser, dhtKeyParser, dhtNodeParser,
+                                             sscAlgoParser)
 import           Pos.DHT                    (DHTKey, DHTNode)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 
@@ -41,6 +43,7 @@ data Args = Args
     , sscAlgo            :: !SscAlgo
     , memoryMode         :: !Bool
     , maliciousEmulation :: !Bool
+    , maliciousEmulation':: ![NetworkAddress]
 #ifdef WITH_WEB
     , enableWeb          :: !Bool
     , webPort            :: !Word16
@@ -132,7 +135,10 @@ argsParser =
          help "Run DB in memory mode") <*>
     switch
         (long "malicious-emulation" <>
-         help "Run node in malicious activity emulation mode")
+         help "Run node in malicious activity emulation mode") <*>
+    many
+        (option (fromParsec addrParser) $
+         long "malicious" <> metavar "HOST_ID" <> help "Node to cheat on")
 #ifdef WITH_WEB
     <*>
     switch

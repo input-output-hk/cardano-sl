@@ -6,12 +6,13 @@ module Pos.Launcher.Param
        , NodeParams (..)
        ) where
 
-import           System.Wlog (LoggerName)
+import           Control.TimeWarp.Rpc (NetworkAddress)
+import           System.Wlog          (LoggerName)
 import           Universum
 
-import           Pos.Crypto  (SecretKey)
-import           Pos.DHT     (DHTKey, DHTNode, DHTNodeType)
-import           Pos.Types   (Timestamp, Utxo)
+import           Pos.Crypto           (SecretKey)
+import           Pos.DHT              (DHTKey, DHTNode, DHTNodeType)
+import           Pos.Types            (Timestamp, Utxo)
 
 -- | Contains all parameters required for hierarchical logger initialization.
 data LoggingParams = LoggingParams
@@ -41,4 +42,5 @@ data NodeParams = NodeParams
     , npTimeLord    :: !Bool              -- ^ @True@ if node started as time-lord
     , npJLFile      :: !(Maybe FilePath)
     , npMalicious   :: !Bool              -- ^ @True@ if node should emulate malicious actions
+    , npMalicious'  :: ![NetworkAddress]  -- ^ List of addresses node should cheat on
     } deriving (Show)

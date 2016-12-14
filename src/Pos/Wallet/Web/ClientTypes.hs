@@ -29,7 +29,6 @@ module Pos.Wallet.Web.ClientTypes
       ) where
 
 import           Data.Text              (Text)
-import           Data.Time.Clock        (NominalDiffTime)
 import           GHC.Generics           (Generic)
 import           Universum
 
@@ -114,7 +113,7 @@ data CProfile = CProfile
     , cpEmail       :: Text
     , cpPhoneNumber :: Text
     , cpPwHash      :: CPwHash
-    , cpPwCreated   :: NominalDiffTime
+    , cpPwCreated   :: Text -- TODO jk: should be NominalDiffTime
     , cpLocale      :: Text
     } deriving (Show, Generic)
 
@@ -145,7 +144,7 @@ data CTxMeta = CTxMeta
     { ctmCurrency    :: CCurrency
     , ctmTitle       :: Text
     , ctmDescription :: Text
-    , ctmDate        :: NominalDiffTime
+    , ctmDate        :: Text -- TODO jk: should be NominalDiffTime
     } deriving (Show, Generic)
 
 -- | meta data of exchanges
@@ -153,7 +152,7 @@ data CTExMeta = CTExMeta
     { cexCurrency    :: CCurrency
     , cexTitle       :: Text
     , cexDescription :: Text
-    , cexDate        :: NominalDiffTime
+    , cexDate        :: Text -- TODO jk: should be NominalDiffTime
     , cexRate        :: Text
     , cexLabel       :: Text -- counter part of client's 'exchange' value
     , cexAddress     :: CAddress

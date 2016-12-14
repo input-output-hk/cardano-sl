@@ -22,19 +22,15 @@
     "tests"
   ],
   "devDependencies": {
-    "purescript-psci-support": "^2.0.0"
+    "purescript-psci-support": "^1.0.0"
   },
   "dependencies": {
-    "purescript-maybe": "^2.0.1",
-    "purescript-tuples": "^3.0.0",
-    "purescript-functions": "^2.0.0",
-    "purescript-eff-functions": "^2.0.0",
-    "purescript-eff": "^2.0.0",
-    "purescript-debug": "^2.0.0",
-    "purescript-websocket-simple": "^1.0.1",
-    "purescript-affjax": "^3.0.2",
-    "purescript-arrays": "^3.1.0",
-    "purescript-strings": "^2.0.2",
-    "purescript-argonaut": "^2.0.0"
+    "purescript-console": "^1.0.0",
+    "purescript-affjax": "^2.0.1",
+    "purescript-eff-functions": "^1.0.0",
+    "purescript-eff": "^1.0.0",
+    "purescript-argonaut": "^1.0.0",
+    "purescript-argonaut-generic-codecs": "^3.0.1",
+    "purescript-aff": "^1.1.0"
   }
 }

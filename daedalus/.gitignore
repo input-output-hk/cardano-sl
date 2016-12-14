@@ -4,3 +4,4 @@ dist/
 output/
 .psci_modules/
 .pulp-cache/
+.psc-ide-port

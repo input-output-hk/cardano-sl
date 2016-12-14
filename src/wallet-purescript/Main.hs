@@ -18,7 +18,7 @@ import           PSTypes                            (psHash, psPosixTime)
 main :: IO ()
 main =
     writePSTypes
-      "src/wallet-purescript-bridge/src"
+      "daedalus/src"
       (buildBridge customBridge)
       [ mkSumType (Proxy :: Proxy CT.CCurrency)
       , mkSumType (Proxy :: Proxy CT.CWalletMeta)

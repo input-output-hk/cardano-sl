@@ -28,6 +28,7 @@ module Pos.State.State
        , getLeaders
        , getUtxo
        , getUtxoByDepth
+       , getOldestUtxo
        , isTxVerified
        , getGlobalMpcData
        , getGlobalMpcDataByDepth
@@ -207,6 +208,10 @@ getUtxoByDepth = queryDisk . A.GetUtxoByDepth
 -- | Get current Utxo
 getUtxo :: QUConstraint ssc m => m Utxo
 getUtxo = queryDisk A.GetUtxo
+
+-- | Get oldest (genesis) utxo
+getOldestUtxo :: QUConstraint ssc m => m Utxo
+getOldestUtxo = queryDisk A.GetOldestUtxo
 
 -- | Checks if tx is verified
 isTxVerified :: QUConstraint ssc m => (Tx, TxWitness) -> m Bool

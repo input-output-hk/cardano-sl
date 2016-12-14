@@ -12,7 +12,7 @@ import           Data.Proxy  (Proxy (Proxy))
 import           Servant.API ((:<|>), (:>), Capture, Get, JSON, Post)
 import           Universum
 
-import           Pos.Types   (Address, Coin)
+import           Pos.Types   (Address, Coin, Tx)
 
 -- | Servant API which provides access to wallet.
 type WalletApi =
@@ -21,6 +21,8 @@ type WalletApi =
     "balances" :> Get '[JSON] [(Address, Coin)]
   :<|>
     "send" :> Capture "from" Word :> Capture "to" Address :> Capture "amount" Coin :> Post '[JSON] ()
+  :<|>
+    "history" :> Capture "address" Address :> Get '[JSON] ([Tx], [Tx])
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

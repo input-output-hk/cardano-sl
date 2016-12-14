@@ -10,8 +10,10 @@ module Pos.Wallet.Web.Doc
        ) where
 
 import           Control.Lens              ((.~), (<>~))
+import           Data.Default              (def)
 import qualified Data.HashMap.Strict       as HM
 import           Data.List                 ((!!))
+import qualified Data.Map                  as M
 import           Data.Proxy                (Proxy (..))
 import           Network.HTTP.Types.Method (methodPost)
 import           Servant.API               (Capture)
@@ -24,8 +26,8 @@ import           Servant.Docs              (API, DocCapture (..), DocIntro (..),
 import qualified Servant.Docs              as SD
 import           Universum
 
-import           Pos.Genesis               (genesisAddresses)
-import           Pos.Types                 (Address, Coin)
+import           Pos.Genesis               (genesisAddresses, genesisUtxo)
+import           Pos.Types                 (Address, Coin, Tx (..), TxIn (..))
 import           Pos.Wallet.Web.Api        (walletApi)
 
 walletDocs :: API
@@ -90,6 +92,13 @@ instance ToCapture (Capture "amount" Coin) where
         , _capDesc = "Amount of coins to send."
         }
 
+instance ToCapture (Capture "address" Address) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "address"
+        , _capDesc = "Address, history of which should be fetched"
+        }
+
 instance ToSample Coin where
     toSamples Proxy = singleSample 100500
 
@@ -98,3 +107,7 @@ instance ToSample Address where
 
 instance ToSample () where
     toSamples Proxy = singleSample ()
+
+instance ToSample Tx where
+    toSamples Proxy = singleSample $ Tx [TxIn hsh idx] [out]
+      where ((hsh, idx), out) = M.toList (genesisUtxo def) !! 0

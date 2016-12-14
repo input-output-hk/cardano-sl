@@ -157,6 +157,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     legacyDB <- snd <$> allocate openDb closeDb
 #ifdef WITH_ROCKS
     modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo")
+    let initTip = notImplemented -- init tip must be here
 #endif
     let run db =
             runTimed lpRunnerTag .
@@ -168,7 +169,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
             runSscLDImpl .
             runTxLDImpl .
 #ifdef WITH_ROCKS
-            flip Modern.runTxpLDHolder (Modern.createFromDB . Modern._utxoDB $ modernDBs) .
+            flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDBs) .
 #endif
             runKDHT inst npBaseParams listeners $
             nodeStartMsg npBaseParams >> action

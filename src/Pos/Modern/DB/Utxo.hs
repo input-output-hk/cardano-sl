@@ -1,7 +1,6 @@
 module Pos.Modern.DB.Utxo
        ( BatchOp (..)
        , getTip
-       , putTip
        , putTxOut
        , deleteTxOut
        , getTxOut
@@ -18,15 +17,15 @@ import           Pos.Modern.DB.Functions (rocksDelete, rocksGetBi, rocksPutBi,
                                           rocksWriteBatch)
 import           Pos.Types               (HeaderHash, TxIn (..), TxOut)
 
-data BatchOp = DelTxIn TxIn | AddTxOut TxIn TxOut
+data BatchOp ssc = DelTxIn TxIn | AddTxOut TxIn TxOut | PutTip (HeaderHash ssc)
 
 -- | Get current TIP from Utxo DB.
 getTip :: MonadDB ssc m => m (Maybe (HeaderHash ssc))
 getTip = getUtxoDB >>= rocksGetBi "tip"
 
 -- | Put new TIP to Utxo DB.
-putTip :: MonadDB ssc m => HeaderHash ssc -> m ()
-putTip h = getUtxoDB >>= rocksPutBi "tip" h
+-- putTip :: MonadDB ssc m => HeaderHash ssc -> m ()
+-- putTip h = getUtxoDB >>= rocksPutBi "tip" h
 
 putTxOut :: MonadDB ssc m => TxIn -> TxOut -> m ()
 putTxOut = putBi . utxoKey
@@ -40,7 +39,7 @@ getTxOut = getBi . utxoKey
 getTxOutFromDB :: MonadIO m => TxIn -> DB ssc -> m (Maybe TxOut)
 getTxOutFromDB txIn = rocksGetBi (utxoKey txIn)
 
-writeBatchToUtxo :: MonadDB ssc m => [BatchOp] -> m ()
+writeBatchToUtxo :: MonadDB ssc m => [BatchOp ssc] -> m ()
 writeBatchToUtxo batch = rocksWriteBatch (map toRocksOp batch) =<< getUtxoDB
 
 ----------------------------------------------------------------------------
@@ -60,9 +59,10 @@ putBi k v = rocksPutBi k v =<< getUtxoDB
 delete :: (MonadDB ssc m) => ByteString -> m ()
 delete k = rocksDelete k =<< getUtxoDB
 
-toRocksOp :: BatchOp -> Rocks.BatchOp
+toRocksOp :: BatchOp ssc -> Rocks.BatchOp
 toRocksOp (AddTxOut txIn txOut) = Rocks.Put (utxoKey txIn) (encodeStrict txOut)
 toRocksOp (DelTxIn txIn)        = Rocks.Del $ utxoKey txIn
+toRocksOp (PutTip h)            = Rocks.Put "tip" (encodeStrict h)
 
 utxoKey :: TxIn -> ByteString
 utxoKey = (<>) "t" . encodeStrict

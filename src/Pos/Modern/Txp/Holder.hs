@@ -8,6 +8,7 @@ module Pos.Modern.Txp.Holder
        (
          TxpLDHolder (..)
        , runTxpLDHolder
+       , runTxpLDHolderUV
        ) where
 
 import qualified Control.Concurrent.STM          as STM
@@ -22,7 +23,7 @@ import           Control.Monad.Trans.Control     (ComposeSt, MonadBaseControl (.
                                                   defaultRestoreM, defaultRestoreT)
 import           Control.TimeWarp.Rpc            (MonadDialog, MonadTransfer (..))
 import           Control.TimeWarp.Timed          (MonadTimed (..), ThreadId)
-import           Data.Default                    (def)
+import           Data.Default                    (Default, def)
 import           Serokell.Util.Lens              (WrappedM (..))
 import           System.Wlog                     (CanLog, HasLoggerName)
 import           Universum
@@ -41,6 +42,8 @@ import           Pos.Modern.Txp.Class            (MonadTxpLD (..), MonadUtxo (..
 import           Pos.Modern.Txp.Storage.MemPool  (MemPool)
 import           Pos.Modern.Txp.Storage.UtxoView (UtxoView)
 import qualified Pos.Modern.Txp.Storage.UtxoView as UV
+import           Pos.Types                       (HeaderHash)
+
 ----------------------------------------------------------------------------
 -- Holder
 ----------------------------------------------------------------------------
@@ -48,6 +51,7 @@ data TxpLDWrap ssc = TxpLDWrap
     {
       utxoView :: !(STM.TVar (UtxoView ssc))
     , memPool  :: !(STM.TVar MemPool)
+    , tip      :: !(STM.TVar (HeaderHash ssc))
     }
 
 newtype TxpLDHolder ssc m a = TxpLDHolder
@@ -92,6 +96,15 @@ instance MonadIO m => MonadTxpLD ssc (TxpLDHolder ssc m) where
     setUtxoView uv = TxpLDHolder (asks utxoView) >>= atomically . flip STM.writeTVar uv
     getMemPool = TxpLDHolder (asks memPool) >>= atomically . STM.readTVar
     setMemPool mp = TxpLDHolder (asks memPool) >>= atomically . flip STM.writeTVar mp
+    modifyTxpLD f = TxpLDHolder ask >>= \txld -> atomically $ do
+                curUV  <- STM.readTVar (utxoView txld)
+                curMP  <- STM.readTVar (memPool txld)
+                curTip <- STM.readTVar (tip txld)
+                let (res, (newUV, newMP, newTip)) = f (curUV, curMP, curTip)
+                STM.writeTVar (utxoView txld) newUV
+                STM.writeTVar (memPool txld) newMP
+                STM.writeTVar (tip txld) newTip
+                return res
 
 instance Monad m => WrappedM (TxpLDHolder ssc m) where
     type UnwrappedM (TxpLDHolder ssc m) = ReaderT (TxpLDWrap ssc) m
@@ -108,9 +121,21 @@ instance (MonadIO m, MonadUtxoRead ssc (TxpLDHolder ssc m))
     delTxIn key = TxpLDHolder (asks utxoView) >>=
                   atomically . flip STM.modifyTVar' (UV.delTxIn key)
 
+instance Default (HeaderHash ssc) where
+    def = notImplemented -- TODO we must implement
 
-runTxpLDHolder :: MonadIO m => TxpLDHolder ssc m a -> UtxoView ssc -> m a
-runTxpLDHolder holder mp = TxpLDWrap
-                       <$> liftIO (STM.newTVarIO mp)
+runTxpLDHolder :: MonadIO m => TxpLDHolder ssc m a
+               -> UtxoView ssc -> HeaderHash ssc -> m a
+runTxpLDHolder holder uv initTip = TxpLDWrap
+                       <$> liftIO (STM.newTVarIO uv)
+                       <*> liftIO (STM.newTVarIO def)
+                       <*> liftIO (STM.newTVarIO initTip)
+                       >>= runReaderT (getTxpLDHolder holder)
+
+runTxpLDHolderUV :: MonadIO m => TxpLDHolder ssc m a
+               -> UtxoView ssc -> m a
+runTxpLDHolderUV holder uv = TxpLDWrap
+                       <$> liftIO (STM.newTVarIO uv)
+                       <*> liftIO (STM.newTVarIO def)
                        <*> liftIO (STM.newTVarIO def)
                        >>= runReaderT (getTxpLDHolder holder)

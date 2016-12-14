@@ -8,7 +8,7 @@ module Pos.Modern.Types.Utxo
        ( applyTxToUtxo
        , findTxIn
        , verifyTxUtxo
-       , verifyTxs
+       , verifyAndApplyTxs
        , convertTo'
        , convertFrom'
        , applyTxToUtxo'
@@ -31,11 +31,11 @@ import           Pos.Types.Types      (IdTxWitness, Tx (..), TxIn (..), TxOut (.
 -- applied -- no more than one error can happen. Either transactions
 -- can't be topsorted at all or the first incorrect transaction is
 -- encountered so we can't proceed further.
-verifyTxs
-    :: MonadUtxoRead ssc m
+verifyAndApplyTxs
+    :: MonadUtxo ssc m
     => [(WithHash Tx, TxWitness)]
     -> m (Either Text [(WithHash Tx, TxWitness)])
-verifyTxs txws  = do
+verifyAndApplyTxs txws  = do
     let
         -- head is the last one to check
         topsorted = reverse <$> topsortTxs fst txws
@@ -46,10 +46,11 @@ verifyTxs txws  = do
             <*> (applyAll xs)
             <*> ( do
                   resCur <- verifyTxUtxo (over _1 whData txw)
-                  return $
-                      case resCur of
-                          VerSuccess        -> VerSuccess
-                          VerFailure reason ->
+                  case resCur of
+                      VerSuccess ->
+                          VerSuccess <$ applyTxToUtxo (fst txw)
+                      VerFailure reason ->
+                          return $
                               VerFailure $
                                   fromMaybe ["Transaction application failed, reason not specified"] $
                                             (:[]) <$> head reason

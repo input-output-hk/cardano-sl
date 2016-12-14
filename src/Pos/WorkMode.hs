@@ -117,30 +117,35 @@ instance MonadTxpLD ssc m => MonadTxpLD ssc (NoStatsT m) where
     setUtxoView = lift . setUtxoView
     getMemPool  = lift  getMemPool
     setMemPool  = lift . setMemPool
+    modifyTxpLD = lift . modifyTxpLD
 
 instance MonadTxpLD ssc m => MonadTxpLD ssc (StatsT m) where
     getUtxoView = lift getUtxoView
     setUtxoView = lift . setUtxoView
     getMemPool  = lift  getMemPool
     setMemPool  = lift . setMemPool
+    modifyTxpLD = lift . modifyTxpLD
 
 instance MonadTxpLD ssc m => MonadTxpLD ssc (DHTResponseT m) where
     getUtxoView = lift getUtxoView
     setUtxoView = lift . setUtxoView
     getMemPool  = lift  getMemPool
     setMemPool  = lift . setMemPool
+    modifyTxpLD = lift . modifyTxpLD
 
 instance MonadTxpLD ssc m => MonadTxpLD ssc (KademliaDHT m) where
     getUtxoView = lift getUtxoView
     setUtxoView = lift . setUtxoView
     getMemPool  = lift  getMemPool
     setMemPool  = lift . setMemPool
+    modifyTxpLD = lift . modifyTxpLD
 
 instance MonadTxpLD ssc m => MonadTxpLD ssc (ReaderT r m) where
     getUtxoView = lift getUtxoView
     setUtxoView = lift . setUtxoView
     getMemPool  = lift  getMemPool
     setMemPool  = lift . setMemPool
+    modifyTxpLD = lift . modifyTxpLD
 
 ----------------------------------------------------------------------------
 -- MonadTxLD

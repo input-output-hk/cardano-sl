@@ -182,6 +182,7 @@ library
                         Pos.Binary.Modern.DB
                         Pos.Modern.Blockp.Server
                         Pos.Modern.Blockp.Server.State
+                        Pos.Modern.Blockp.Server.Listeners
                         Pos.Modern.DB
                         Pos.Modern.DB.Block
                         Pos.Modern.DB.Class

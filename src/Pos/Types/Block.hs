@@ -34,7 +34,8 @@ import           Universum
 import           Pos.Binary.Class     (Bi (..))
 import           Pos.Binary.Types     ()
 import           Pos.Constants        (epochSlots)
-import           Pos.Crypto           (Hash, SecretKey, checkSig, hash, proxyVerify, sign,
+import           Pos.Crypto           (Hash, ProxySecretKey, PublicKey, SecretKey,
+                                       checkSig, hash, proxySign, proxyVerify, sign,
                                        toPublic, unsafeHash)
 import           Pos.Merkle           (mkMerkleTree)
 import           Pos.Ssc.Class.Types  (Ssc (..))
@@ -98,19 +99,24 @@ mkMainHeader
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
+    -> Maybe (PublicKey, ProxySecretKey (EpochIndex,EpochIndex))
     -> Body (MainBlockchain ssc)
     -> MainBlockHeader ssc
-mkMainHeader prevHeader slotId sk body =
+mkMainHeader prevHeader slotId sk proxyInfo body =
     mkGenericHeader prevHeader body consensus ()
   where
     difficulty = maybe 0 (succ . view difficultyL) prevHeader
-    signature prevHash proof = sign sk (prevHash, proof, slotId, difficulty)
+    signature prevHash proof =
+        let toSign = (prevHash, proof, slotId, difficulty)
+        in maybe (BlockSignature $ sign sk toSign)
+                 (\(pk,proxySk) -> BlockPSignature $ proxySign sk pk proxySk toSign)
+                 proxyInfo
     consensus prevHash proof =
         MainConsensusData
         { _mcdSlot = slotId
         , _mcdLeaderKey = toPublic sk
         , _mcdDifficulty = difficulty
-        , _mcdSignature = BlockSignature $ signature prevHash proof
+        , _mcdSignature = signature prevHash proof
         }
 
 -- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'.
@@ -119,11 +125,12 @@ mkMainBlock
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
+    -> Maybe (PublicKey, ProxySecretKey (EpochIndex,EpochIndex))
     -> Body (MainBlockchain ssc)
     -> MainBlock ssc
-mkMainBlock prevHeader slotId sk body =
+mkMainBlock prevHeader slotId sk proxyInfo body =
     GenericBlock
-    { _gbHeader = mkMainHeader prevHeader slotId sk body
+    { _gbHeader = mkMainHeader prevHeader slotId sk proxyInfo body
     , _gbBody = body
     , _gbExtra = ()
     }

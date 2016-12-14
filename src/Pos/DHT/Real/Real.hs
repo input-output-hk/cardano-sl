@@ -270,8 +270,7 @@ instance ( MonadDHTDialog s m
     sendToNeighbors = defaultSendToNeighbors seqConcurrentlyK sendToNode
     sendToNode addr msg = do
         defaultSendToNode addr msg
-        listenOutbound
-        pure ()
+        () <$ listenOutbound
       where
         -- [CSL-4][TW-47]: temporary code, to refactor to subscriptions (after TW-47)
         listenOutboundDo = KademliaDHT (asks kdcListenByBinding) >>= ($ AtConnTo addr)

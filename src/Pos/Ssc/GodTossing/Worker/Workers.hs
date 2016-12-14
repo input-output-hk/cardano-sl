@@ -29,7 +29,7 @@ import           Pos.Binary.Class                       (Bi, serialize)
 import           Pos.Communication.Methods              (sendToNeighborsSafe)
 import           Pos.Constants                          (k, mpcSendInterval)
 import           Pos.Context                            (getNodeContext, ncPublicKey,
-                                                         ncSecretKey, ncSscContext, ncMalicious)
+                                                         ncSecretKey, ncSscContext)
 import           Pos.Crypto                             (SecretKey, VssKeyPair,
                                                          randomNumber, runSecureRandom,
                                                          toPublic)
@@ -244,10 +244,7 @@ sendOurData msgTag epoch kMultiplier ourAddr = do
     waitUntilSend msgTag epoch kMultiplier
     logDebug $ sformat ("Announcing our "%build) msgTag
     let msg = InvMsg {imType = msgTag, imKeys = pure ourAddr}
-    -- TODO(voit): Make malicious node announce commitments to other malicious nodes
-    malicious <- ncMalicious <$> getNodeContext
-    when (not malicious) $
-      sendToNeighborsSafe msg
+    sendToNeighborsSafe msg
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 
 -- | Generate new commitment and opening and use them for the current

@@ -25,7 +25,7 @@ import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
 import           Pos.Context               (getNodeContext, ncPropagation, ncPublicKey,
-                                            ncSecretKey, ncMalicious)
+                                            ncSecretKey)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
 import           Pos.Ssc.Class             (sscApplyGlobalState, sscGetLocalPayload,
                                             sscVerifyPayload)
@@ -119,10 +119,7 @@ blocksTransmitter = whenM (ncPropagation <$> getNodeContext) impl
            case headBlock of
                Left _          -> logDebug "Head block is genesis block ⇒ no announcement"
                Right mainBlock -> do
-                   malicious <- ncMalicious <$> getNodeContext
-                   -- TODO(voit): Make malicious node announce blocks to other malicious nodes
-                   when (not malicious) $
-                       announceBlock (mainBlock ^. gbHeader)
+                   announceBlock (mainBlock ^. gbHeader)
     onError e =
         blocksTransmitterInterval <$
         logWarning (sformat ("Error occured in blocksTransmitter: " %build) e)

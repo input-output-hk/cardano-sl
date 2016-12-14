@@ -41,7 +41,6 @@ data NodeParams = NodeParams
     , npCustomUtxo  :: !(Maybe Utxo)      -- ^ predefined custom utxo
     , npTimeLord    :: !Bool              -- ^ @True@ if node started as time-lord
     , npJLFile      :: !(Maybe FilePath)
-    , npMalicious   :: !Bool              -- ^ @True@ if node should emulate malicious actions
-    , npMalicious'  :: ![NetworkAddress]  -- ^ List of addresses node should cheat on
+    , npMalicious   :: ![NetworkAddress]  -- ^ List of addresses node should cheat on
     , npPropagation :: !Bool              -- ^ Whether to propagate txs, ssc data, blocks to neighbors
     } deriving (Show)

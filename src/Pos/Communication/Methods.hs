@@ -24,7 +24,7 @@ import           Universum
 import           Pos.Binary.Class            (Bi)
 import           Pos.Communication.Types     (RequestBlockchainPart (..),
                                               SendBlockHeader (..))
-import           Pos.Context                 (getNodeContext, ncMalicious')
+import           Pos.Context                 (getNodeContext, ncMalicious)
 import           Pos.DHT                     (MonadMessageDHT, sendToNeighbors,
                                               sendToNode, defaultSendToNeighbors)
 import           Pos.Txp.Types.Communication (TxDataMsg (..))
@@ -45,7 +45,7 @@ sendToNeighborsSafe msg = do
         logWarningWaitLinear 10 ("Sending " <> msgName <> " to neighbors") action
   where
     mySendToNode addr msg = do
-        malicious <- ncMalicious' <$> getNodeContext
+        malicious <- ncMalicious <$> getNodeContext
         when (addr `notElem` malicious) $
             sendToNode addr msg
 

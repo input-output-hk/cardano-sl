@@ -267,7 +267,6 @@ runCH NodeParams {..} sscNodeContext act =
         , ncDbPath = npDbPath
         , ncSscContext = sscNodeContext
         , ncMalicious = npMalicious
-        , ncMalicious' = npMalicious'
         , ncPropagation = npPropagation
         }
 

@@ -42,8 +42,7 @@ data Args = Args
     , jlPath             :: !(Maybe FilePath)
     , sscAlgo            :: !SscAlgo
     , memoryMode         :: !Bool
-    , maliciousEmulation :: !Bool
-    , maliciousEmulation':: ![NetworkAddress]
+    , maliciousEmulation :: ![NetworkAddress]
 #ifdef WITH_WEB
     , enableWeb          :: !Bool
     , webPort            :: !Word16
@@ -134,9 +133,6 @@ argsParser =
     switch
         (long "memory-mode" <>
          help "Run DB in memory mode") <*>
-    switch
-        (long "malicious-emulation" <>
-         help "Run node in malicious activity emulation mode") <*>
     many
         (option (fromParsec addrParser) $
          long "malicious" <> metavar "HOST_ID" <> help "Node to cheat on")

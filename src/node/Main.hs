@@ -159,7 +159,6 @@ nodeParams args@Args {..} spendingSK systemStart =
     , npTimeLord = timeLord
     , npJLFile = jlPath
     , npMalicious = maliciousEmulation
-    , npMalicious' = maliciousEmulation'
     , npPropagation = not disablePropagation
     }
 

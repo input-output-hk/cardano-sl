@@ -15,13 +15,13 @@ import           Universum
 import           Pos.Binary            (Bi)
 import           Pos.Crypto            (EncShare, Hash, KeyPair (..), LEncShare, LSecret,
                                         LSecretProof, LSecretSharingExtra, LShare,
-                                        LVssPublicKey, ProxyCert, ProxyDSignature,
-                                        ProxySecretKey, PublicKey, Secret, SecretKey,
+                                        LVssPublicKey, ProxyCert, ProxySecretKey,
+                                        ProxySignature, PublicKey, Secret, SecretKey,
                                         SecretProof, SecretSharingExtra, Share, Signature,
                                         Signed, VssPublicKey, checkSig,
                                         createProxySecretKey, deterministic,
                                         fullPublicKeyF, hash, parseFullPublicKey,
-                                        proxyDSign, proxyDVerify, randomNumber, sign,
+                                        proxySign, proxyVerify, randomNumber, sign,
                                         toPublic)
 import           Pos.Ssc.GodTossing    ()
 
@@ -75,7 +75,7 @@ spec = describe "Crypto" $ do
                 prop "Signature"           (binaryEncodeDecode @(Signature ()))
                 prop "ProxyCert"           (binaryEncodeDecode @(ProxyCert Int))
                 prop "ProxySecretKey"      (binaryEncodeDecode @(ProxySecretKey Int))
-                prop "ProxyDSignature"     (binaryEncodeDecode @(ProxyDSignature Int Int))
+                prop "ProxySignature"      (binaryEncodeDecode @(ProxySignature Int Int))
                 prop "Signed"              (binaryEncodeDecode @(Signed Bool))
                 prop "VssPublicKey"        (binaryEncodeDecode @VssPublicKey)
                 prop "LVssPublicKey"       (binaryEncodeDecode @LVssPublicKey)
@@ -128,13 +128,13 @@ spec = describe "Crypto" $ do
         describe "proxy delegate signing" $ do
             prop
                 "signature can be verified successfully"
-                (proxyDSignVerify @[Int] @(Int,Int))
+                (proxySignVerify @[Int] @(Int,Int))
             prop
                 "signature can't be verified with a different key"
-                (proxyDSignVerifyDifferentKey @[Int] @(Int,Int))
+                (proxySignVerifyDifferentKey @[Int] @(Int,Int))
             prop
                 "modified data signature can't be verified "
-                (proxyDSignVerifyDifferentData @[Int] @(Int,Int))
+                (proxySignVerifyDifferentData @[Int] @(Int,Int))
 
 
 hashInequality :: (Eq a, Bi a) => a -> a -> Property
@@ -166,29 +166,29 @@ signThenVerifyDifferentData
 signThenVerifyDifferentData sk a b =
     (a /= b) ==> not (checkSig (toPublic sk) b $ sign sk a)
 
-proxyDSignVerify :: (Bi a, Bi w, Eq w) => SecretKey -> SecretKey -> w -> a -> Bool
-proxyDSignVerify issuerSk delegateSk w m =
-    proxyDVerify issuerPk signature (== w) m
+proxySignVerify :: (Bi a, Bi w, Eq w) => SecretKey -> SecretKey -> w -> a -> Bool
+proxySignVerify issuerSk delegateSk w m =
+    proxyVerify issuerPk signature (== w) m
   where
     issuerPk = toPublic issuerSk
     proxySk = createProxySecretKey issuerSk (toPublic delegateSk) w
-    signature = proxyDSign delegateSk issuerPk proxySk m
+    signature = proxySign delegateSk issuerPk proxySk m
 
-proxyDSignVerifyDifferentKey
+proxySignVerifyDifferentKey
     :: (Bi a, Bi w, Eq w)
     => SecretKey -> SecretKey -> PublicKey -> w -> a -> Property
-proxyDSignVerifyDifferentKey issuerSk delegateSk pk2 w m =
-    (toPublic issuerSk /= pk2) ==> not (proxyDVerify pk2 signature (== w) m)
+proxySignVerifyDifferentKey issuerSk delegateSk pk2 w m =
+    (toPublic issuerSk /= pk2) ==> not (proxyVerify pk2 signature (== w) m)
   where
     proxySk = createProxySecretKey issuerSk (toPublic delegateSk) w
-    signature = proxyDSign delegateSk (toPublic issuerSk) proxySk m
+    signature = proxySign delegateSk (toPublic issuerSk) proxySk m
 
-proxyDSignVerifyDifferentData
+proxySignVerifyDifferentData
     :: (Bi a, Eq a, Bi w, Eq w)
     => SecretKey -> SecretKey -> w -> a -> a -> Property
-proxyDSignVerifyDifferentData issuerSk delegateSk w m m2 =
-    (m /= m2) ==> not (proxyDVerify issuerPk signature (== w) m2)
+proxySignVerifyDifferentData issuerSk delegateSk w m m2 =
+    (m /= m2) ==> not (proxyVerify issuerPk signature (== w) m2)
   where
     issuerPk = toPublic issuerSk
     proxySk = createProxySecretKey issuerSk (toPublic delegateSk) w
-    signature = proxyDSign delegateSk issuerPk proxySk m
+    signature = proxySign delegateSk issuerPk proxySk m

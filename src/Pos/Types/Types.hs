@@ -151,8 +151,8 @@ import           Pos.Binary.Address     ()
 import           Pos.Binary.Class       (Bi)
 import           Pos.Binary.Script      ()
 import           Pos.Constants          (sharedSeedLength)
-import           Pos.Crypto             (Hash, PublicKey, Signature, hash, hashHexF,
-                                         shortHashF)
+import           Pos.Crypto             (Hash, ProxySignature, PublicKey, Signature, hash,
+                                         hashHexF, shortHashF)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Script             (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
@@ -469,6 +469,16 @@ newtype ChainDifficulty = ChainDifficulty
 
 -- | Constraint for data to be signed in main block.
 type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
+
+-- TODO replace _mcdSignature with this
+-- | Signature of the block. Can be either regular signature from the
+-- issuer or delegated signature having a constraint on epoch indices
+-- (it means the signature is valid only if block's slot id has epoch
+-- inside the constrained interval).
+data BlockSignature ssc
+    = BlockSignature (Signature (MainToSign ssc))
+    | BlockPSignature (ProxySignature (EpochIndex, EpochIndex) (MainToSign ssc))
+    deriving Show
 
 instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
@@ -951,6 +961,7 @@ instance ( SafeCopy (BodyProof b)
            safePut _gbExtra
 
 deriveSafeCopySimple 0 'base ''ChainDifficulty
+deriveSafeCopySimple 0 'base ''BlockSignature
 
 instance Ssc ssc => SafeCopy (BodyProof (MainBlockchain ssc)) where
     getCopy =

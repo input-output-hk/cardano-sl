@@ -23,10 +23,10 @@ import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
                                               toVssPublicKey, vssKeyGen)
 import           Pos.Crypto.SerTypes         (LEncShare, LSecret, LSecretProof,
                                               LSecretSharingExtra, LShare, LVssPublicKey)
-import           Pos.Crypto.Signing          (ProxyCert, ProxyDSignature, ProxySecretKey,
+import           Pos.Crypto.Signing          (ProxyCert, ProxySecretKey, ProxySignature,
                                               PublicKey, SecretKey, Signature, Signed,
                                               createProxyCert, createProxySecretKey,
-                                              keyGen, mkSigned, proxyDSign, sign)
+                                              keyGen, mkSigned, proxySign, sign)
 import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakePool)
 
 {- A note on 'Arbitrary' instances
@@ -110,8 +110,8 @@ instance (Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
     arbitrary = liftA3 createProxySecretKey arbitrary arbitrary arbitrary
 
 instance (Bi w, Arbitrary w, Bi a, Arbitrary a) =>
-         Arbitrary (ProxyDSignature w a) where
-    arbitrary = proxyDSign <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+         Arbitrary (ProxySignature w a) where
+    arbitrary = proxySign <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary secrets

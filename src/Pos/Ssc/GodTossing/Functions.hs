@@ -46,9 +46,9 @@ import           Universum
 import           Pos.Binary.Class               (Bi)
 import           Pos.Binary.Crypto              ()
 import           Pos.Constants                  (k)
-import           Pos.Crypto                     (LShare, LVssPublicKey, Secret, SecretKey,
-                                                 SecureRandom (..), Threshold, checkSig,
-                                                 genSharedSecret, getDhSecret,
+import           Pos.Crypto                     (EncShare, Share, VssPublicKey, Secret,
+                                                 SecretKey, SecureRandom (..), Threshold,
+                                                 checkSig, genSharedSecret, getDhSecret,
                                                  secretToDhSecret, sign, toPublic,
                                                  verifyEncShare, verifySecretProof,
                                                  verifyShare)
@@ -62,8 +62,8 @@ import           Pos.Types.Types                (Address (..), EpochIndex, Local
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), checkPubKeyAddress,
                                                  headerSlot)
-import           Pos.Util                       (AsBinaryClass (..), deserializeM,
-                                                 diffDoubleMap)
+import           Pos.Util                       (AsBinary, deserializeM, diffDoubleMap,
+                                                 serialize)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -75,7 +75,7 @@ secretToSharedSeed = SharedSeed . getDhSecret . secretToDhSecret
 -- | Generate securely random SharedSeed.
 genCommitmentAndOpening
     :: (MonadFail m, MonadIO m)
-    => Threshold -> NonEmpty LVssPublicKey -> m (Commitment, Opening)
+    => Threshold -> NonEmpty (AsBinary VssPublicKey) -> m (Commitment, Opening)
 genCommitmentAndOpening n pks = do
     pks' <- traverse deserializeM pks
     liftIO . runSecureRandom . fmap convertRes . genSharedSecret n $ pks'
@@ -137,9 +137,14 @@ hasVssCertificate addr = HM.member addr . _gsVssCertificates
 verifyCommitment :: Commitment -> Bool
 verifyCommitment Commitment {..} = fromMaybe False $ do
     extra <- deserializeM commExtra
-    all (verifyCommitmentDo extra) <$> traverse deserializeM (HM.toList commShares)
+    all (verifyCommitmentDo extra) <$> traverse tupleDeserializeM (HM.toList commShares)
   where
     verifyCommitmentDo extra = uncurry (verifyEncShare extra)
+    tupleDeserializeM
+        :: (AsBinary VssPublicKey, AsBinary EncShare)
+        -> Maybe (VssPublicKey, EncShare)
+    tupleDeserializeM =
+        uncurry (liftA2 (,)) . bimap deserializeM deserializeM
 
 -- | Verify public key contained in SignedCommitment against given address
 verifyCommitmentPK :: Address -> SignedCommitment -> Bool
@@ -184,7 +189,7 @@ checkShare :: (SetContainer set, ContainerKey set ~ Address)
            => CommitmentsMap
            -> set --set of opening's addresses
            -> VssCertificatesMap
-           -> (Address, Address, LShare)
+           -> (Address, Address, AsBinary Share)
            -> Bool
 checkShare globalCommitments globalOpeningsPK globalCertificates (addrTo, addrFrom, share) =
     fromMaybe False $ case tuple of
@@ -218,7 +223,7 @@ checkShares :: (SetContainer set, ContainerKey set ~ Address)
             -> InnerSharesMap
             -> Bool
 checkShares globalCommitments globalOpeningsPK globalCertificates addrTo shares =
-    let listShares :: [(Address, Address, LShare)]
+    let listShares :: [(Address, Address, AsBinary Share)]
         listShares = map convert $ HM.toList shares
         convert (addrFrom, share) = (addrTo, addrFrom, share)
     in all

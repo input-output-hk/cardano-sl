@@ -131,7 +131,6 @@ library
                         Pos.Crypto.Hashing
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
-                        Pos.Crypto.SerTypes
                         Pos.Crypto.Signing
                         Pos.Launcher.Launcher
                         Pos.Launcher.Options

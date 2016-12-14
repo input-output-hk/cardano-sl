@@ -66,7 +66,7 @@ import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            dispatchEvents, getLoggerName, logWarning,
                                            runPureLog, usingLoggerName)
 
-import           Pos.Crypto               (LVssPublicKey, SecretKey, Share, VssKeyPair,
+import           Pos.Crypto               (VssPublicKey, SecretKey, Share, VssKeyPair,
                                            decryptShare, toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
@@ -81,7 +81,7 @@ import           Pos.Types                (Address, Block, EpochIndex, GenesisBl
                                            HeaderHash, IdTxWitness, MainBlock,
                                            MainBlockHeader, SlotId, SlotLeaders, Tx, TxId,
                                            TxWitness, Utxo)
-import           Pos.Util                 (deserializeM, serialize)
+import           Pos.Util                 (AsBinary, deserializeM, serialize)
 
 -- | NodeState encapsulates all the state stored by node.
 class Monad m => MonadDB ssc m | m -> ssc where
@@ -256,7 +256,7 @@ processBlock localTxs si = updateDisk . A.ProcessBlock localTxs si
 getParticipants
     :: QUConstraint ssc m
     => EpochIndex
-    -> m (Maybe (NonEmpty LVssPublicKey))
+    -> m (Maybe (NonEmpty (AsBinary VssPublicKey)))
 getParticipants = queryDisk . A.GetParticipants
 
 ----------------------------------------------------------------------------

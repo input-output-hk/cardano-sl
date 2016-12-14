@@ -31,7 +31,7 @@ import           Serokell.Util.Verify              (VerificationRes (..), isVerS
                                                     verifyGeneric)
 import           Universum
 
-import           Pos.Crypto                        (LEncShare, LVssPublicKey, Threshold)
+import           Pos.Crypto                        (EncShare, VssPublicKey, Threshold)
 import           Pos.FollowTheSatoshi              (followTheSatoshi)
 import           Pos.Ssc.Class.Storage             (HasSscStorage (..), SscQuery,
                                                     SscStorageClass (..), SscUpdate)
@@ -56,8 +56,8 @@ import           Pos.Types                         (Address (..), Block, EpochIn
                                                     SlotId (..), SlotLeaders, Utxo,
                                                     blockMpc, blockSlot, blockSlot,
                                                     gbHeader, txOutAddress)
-import           Pos.Util                          (magnify', readerToState, zoom',
-                                                    _neHead)
+import           Pos.Util                          (AsBinary, magnify', readerToState,
+                                                    zoom', _neHead)
 
 -- acid-state requires this instance because of a bug
 instance SafeCopy SscGodTossing
@@ -119,7 +119,7 @@ getGlobalMpcDataByDepth (fromIntegral -> depth) =
 --
 --   1. It was a stakeholder.
 --   2. It had already sent us its VSS key by that time.
-getParticipants :: Word -> Utxo -> Query (Maybe (NonEmpty LVssPublicKey))
+getParticipants :: Word -> Utxo -> Query (Maybe (NonEmpty (AsBinary VssPublicKey)))
 getParticipants depth utxo = do
     mKeymap <- fmap _gsVssCertificates <$> getGlobalMpcDataByDepth depth
     return $
@@ -297,8 +297,8 @@ mpcProcessBlock blk = do
 
 -- | Decrypt shares (in commitments) that we can decrypt.
 getOurShares
-    :: LVssPublicKey                           -- ^ Our VSS key
-    -> Query (HashMap Address LEncShare)
+    :: AsBinary VssPublicKey                           -- ^ Our VSS key
+    -> Query (HashMap Address (AsBinary EncShare))
 getOurShares ourPK = do
     comms <- view (lastVer . dsGlobalCommitments)
     opens <- view (lastVer . dsGlobalOpenings)

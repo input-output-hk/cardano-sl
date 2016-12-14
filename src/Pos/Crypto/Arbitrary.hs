@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- | `Arbitrary` instances for using in tests and benchmarks
 
@@ -14,22 +15,21 @@ import           System.IO.Unsafe            (unsafePerformIO)
 import           Test.QuickCheck             (Arbitrary (..), choose, elements, generate)
 import           Universum
 
-import           Pos.Binary.Class            (Bi)
-import           Pos.Crypto.Arbitrary.Hash   ()
-import           Pos.Crypto.Arbitrary.Unsafe ()
-import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
-                                              SecretSharingExtra, Share, VssKeyPair,
-                                              VssPublicKey, decryptShare, genSharedSecret,
-                                              toVssPublicKey, vssKeyGen)
-import           Pos.Crypto.SerTypes         (LEncShare, LSecret, LSecretProof,
-                                              LSecretSharingExtra, LShare, LVssPublicKey)
+import           Pos.Binary.Class             (Bi)
+import           Pos.Binary.Crypto            ()
+import           Pos.Crypto.Arbitrary.Hash    ()
+import           Pos.Crypto.Arbitrary.Unsafe  ()
+import           Pos.Crypto.SecretSharing     (EncShare,Secret, SecretProof,
+                                               SecretSharingExtra, Share, VssKeyPair,
+                                               VssPublicKey, decryptShare, genSharedSecret,
+                                               toVssPublicKey, vssKeyGen)
 import           Pos.Crypto.Signing          (ProxyCert, ProxyDSignature, ProxyISignature,
                                               ProxySecretKey, PublicKey, SecretKey,
                                               Signature, Signed, createProxyCert,
                                               createProxySecretKey, keyGen, mkSigned,
                                               proxyDSign, proxyISign, sign)
-import           Pos.Util                    (AsBinaryClass (..))
-import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakePool)
+import           Pos.Util                     (AsBinary (..), AsBinaryClass (..))
+import           Pos.Util.Arbitrary           (Nonrepeating (..), sublistN, unsafeMakePool)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -86,7 +86,7 @@ instance Arbitrary VssKeyPair where
 instance Arbitrary VssPublicKey where
     arbitrary = toVssPublicKey <$> arbitrary
 
-instance AsBinaryClass VssPublicKey LVssPublicKey => Arbitrary LVssPublicKey where
+instance Arbitrary (AsBinary VssPublicKey) where
     arbitrary = serialize @VssPublicKey <$> arbitrary
 
 instance Nonrepeating VssKeyPair where
@@ -134,18 +134,16 @@ sharedSecrets =
 instance Arbitrary SecretSharingExtra where
     arbitrary = elements . fmap (view _1) $ sharedSecrets
 
-instance AsBinaryClass SecretSharingExtra LSecretSharingExtra =>
-         Arbitrary LSecretSharingExtra where
+instance Arbitrary (AsBinary SecretSharingExtra) where
     arbitrary = serialize @SecretSharingExtra <$> arbitrary
 
-instance AsBinaryClass SecretProof LSecretProof =>
-         Arbitrary LSecretProof where
+instance Arbitrary (AsBinary SecretProof) where
     arbitrary = serialize @SecretProof <$> arbitrary
 
 instance Arbitrary Secret where
     arbitrary = elements . fmap (view _2) $ sharedSecrets
 
-instance AsBinaryClass Secret LSecret => Arbitrary LSecret where
+instance Arbitrary (AsBinary Secret) where
     arbitrary = serialize @Secret <$> arbitrary
 
 instance Arbitrary SecretProof where
@@ -154,11 +152,11 @@ instance Arbitrary SecretProof where
 instance Arbitrary EncShare where
     arbitrary = elements . concat . fmap (view _4) $ sharedSecrets
 
-instance AsBinaryClass EncShare LEncShare => Arbitrary LEncShare where
+instance Arbitrary (AsBinary EncShare) where
     arbitrary = serialize @EncShare <$> arbitrary
 
 instance Arbitrary Share where
     arbitrary = unsafePerformIO <$> (decryptShare <$> arbitrary <*> arbitrary)
 
-instance AsBinaryClass Share LShare => Arbitrary LShare where
+instance Arbitrary (AsBinary Share) where
     arbitrary = serialize @Share <$> arbitrary

@@ -1,4 +1,6 @@
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -18,26 +20,27 @@ import           Data.Binary.Get          (getByteString)
 import           Data.Binary.Put          (putByteString)
 import qualified Data.ByteArray           as ByteArray
 import qualified Data.ByteString.Lazy     as LBS
+import           Data.Hashable            (Hashable)
+import qualified Data.Hashable            as Hashable
+import           Data.Text.Buildable      (Buildable)
+import qualified Data.Text.Buildable      as Buildable
 import           Data.SafeCopy            (SafeCopy (..))
-import           Formatting               (int, sformat, stext, (%))
+import           Formatting               (bprint, int, sformat, stext, (%))
 import           Universum                hiding (putByteString)
 
 import           Pos.Binary.Class         (Bi (..), decodeFull, encode)
 import           Pos.Crypto.Hashing       (AbstractHash (..), Hash, HashAlgorithm,
-                                           WithHash (..), withHash)
+                                           WithHash (..), hash, shortHashF, withHash)
 import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
                                            SecretSharingExtra (..), Share (..),
                                            VssKeyPair (..), VssPublicKey (..))
-import           Pos.Crypto.SerTypes      (LEncShare (..), LSecret (..),
-                                           LSecretProof (..), LSecretSharingExtra (..),
-                                           LShare (..), LVssPublicKey (..))
 import           Pos.Crypto.Signing       (ProxyCert (..), ProxyDSignature (..),
                                            ProxyISignature (..), ProxySecretKey (..),
                                            PublicKey (..), SecretKey (..), Signature (..),
                                            Signed (..), publicKeyLength, putAssertLength,
                                            secretKeyLength, signatureLength)
-import           Pos.Util                 (AsBinaryClass (..), getCopyBinary,
-                                           putCopyBinary)
+import           Pos.Util                 (AsBinary (..), AsBinaryClass (..),
+                                           getCopyBinary, putCopyBinary)
 
 instance Bi a => Bi (WithHash a) where
     put = put. whData
@@ -46,15 +49,6 @@ instance Bi a => Bi (WithHash a) where
 instance Bi a => SafeCopy (WithHash a) where
     putCopy = putCopyBinary
     getCopy = getCopyBinary "WithHash"
-
-
-checkLen :: Text -> Text -> Int -> LBS.ByteString -> LBS.ByteString
-checkLen action name len bs =
-    if LBS.length bs == fromIntegral len
-        then bs
-        else panic $ sformat
-                (stext%" "%stext%" failed: length of bytestring is "%int%" instead of "%int)
-                action name (LBS.length bs) len
 
 ----------------------------------------------------------------------------
 -- Hashing
@@ -77,119 +71,78 @@ instance HashAlgorithm algo => Bi (AbstractHash algo a) where
 -- SecretSharing
 ----------------------------------------------------------------------------
 
-instance Bi Pvss.PublicKey where
-    put = Binary.put
-    get = Binary.get
-deriving instance Bi VssPublicKey
+#define BiPvss(T, PT) \
+  instance Bi T where {\
+    put = Binary.put ;\
+    get = Binary.get }; \
+  deriving instance Bi PT ;\
 
-instance Bi Pvss.KeyPair where
-    put = Binary.put
-    get = Binary.get
-deriving instance Bi VssKeyPair
-
-instance Bi Pvss.Secret where
-    put = Binary.put
-    get = Binary.get
-deriving instance Bi Secret
-
-instance Bi Pvss.DecryptedShare where
-    put = Binary.put
-    get = Binary.get
-deriving instance Bi Share
-
-instance Bi Pvss.EncryptedShare where
-    put = Binary.put
-    get = Binary.get
-deriving instance Bi EncShare
-
-instance Bi Pvss.Proof where
-    put = Binary.put
-    get = Binary.get
-deriving instance Bi SecretProof
+BiPvss (Pvss.PublicKey, VssPublicKey)
+BiPvss (Pvss.KeyPair, VssKeyPair)
+BiPvss (Pvss.Secret, Secret)
+BiPvss (Pvss.DecryptedShare, Share)
+BiPvss (Pvss.EncryptedShare, EncShare)
+BiPvss (Pvss.Proof, SecretProof)
 
 instance Binary.Binary SecretSharingExtra
 instance Bi SecretSharingExtra where
     put = Binary.put
     get = Binary.get
 
-
 ----------------------------------------------------------------------------
 -- SerTypes
 ----------------------------------------------------------------------------
 
+----------------------------------------------------------------------------
+-- AsBinary type wrappers
+--
+-- wrappers over byte string to make it possible to transmit
+-- crypto data types over network without high costs on serialization/hashing
+----------------------------------------------------------------------------
+
+checkLen :: Text -> Text -> Int -> LBS.ByteString -> LBS.ByteString
+checkLen action name len bs =
+    if LBS.length bs == fromIntegral len
+        then bs
+        else panic $ sformat
+                (stext%" "%stext%" failed: length of bytestring is "%int%" instead of "%int)
+                action name (LBS.length bs) len
+
 -- [CSL-246]: avoid boilerplate.
-{-
-#define Ser(B, A, Bytes, Name) \
-  newtype A = A ByteString \
-    deriving (Show, Eq) ;\
-  instance Binary A where {\
-    put (A bs) = putByteString bs ;\
-    get = A <$> getByteString Bytes}; \
-  instance AsBinaryClass B A where {\
-    serialize = A . LBS.toStrict . checkLen "serialize" Name Bytes . encode ;\
+#define Ser(B, Bytes, Name) \
+  instance Bi (AsBinary B) where {\
+    put (AsBinary bs) = putByteString bs ;\
+    get = AsBinary <$> getByteString Bytes}; \
+  instance AsBinaryClass B where {\
+    serialize = AsBinary . LBS.toStrict . checkLen "serialize" Name Bytes . encode ;\
     deserialize = decodeFull . checkLen "deserialize" Name Bytes . encode }; \
-  deriveSafeCopySimple 0 'base ''A
 
-Ser(VssPublicKey, LVssPublicKey, 33, "LVssPublicKey")
-Ser(Secret, LSecret, 33, "LSecret")
-Ser(Share, LShare, 101, "LShare") --4+33+64
-Ser(EncShare, LEncShare, 101, "LEncShare")
-Ser(SecretProof, LSecretProof, 64, "LSecretProof")
--}
+Ser(VssPublicKey, 33, "VssPublicKey")
+Ser(Secret, 33, "Secret")
+Ser(Share, 101, "Share") --4+33+64
+Ser(EncShare, 101, "EncShare")
+Ser(SecretProof, 64, "SecretProof")
 
-instance Bi LVssPublicKey where
-    put (LVssPublicKey bs) = putByteString bs
-    get = LVssPublicKey <$> getByteString 33
+instance Hashable (AsBinary VssPublicKey) where
+    hashWithSalt s = Hashable.hashWithSalt s . encode
 
-instance AsBinaryClass VssPublicKey LVssPublicKey where
-    serialize =
-        LVssPublicKey .
-        LBS.toStrict . checkLen "serialize" "LVssPublicKey" 33 . encode
-    deserialize = decodeFull . checkLen "deserialize" "LVssPublicKey" 33 . encode
+instance Buildable (AsBinary Secret) where
+    build _ = "secret ¯\\_(ツ)_/¯"
 
-instance Bi LSecret where
-    put (LSecret bs) = putByteString bs
-    get = LSecret <$> getByteString 33
+instance Buildable (AsBinary Share) where
+    build _ = "share ¯\\_(ツ)_/¯"
 
-instance AsBinaryClass Secret LSecret where
-    serialize = LSecret . LBS.toStrict . checkLen "serialize" "LSecret" 33 . encode
-    deserialize = decodeFull . checkLen "deserialize" "LSecret" 33 . encode
+instance Buildable (AsBinary EncShare) where
+    build _ = "encrypted share ¯\\_(ツ)_/¯"
 
+instance Buildable (AsBinary VssPublicKey) where
+    build = bprint ("vsspub:"%shortHashF) . hash
 
-instance Bi LShare where
-    put (LShare bs) = putByteString bs
-    get = LShare <$> getByteString 101
+deriving instance Bi (AsBinary SecretSharingExtra)
 
-instance AsBinaryClass Share LShare where
-    serialize = LShare . LBS.toStrict . checkLen "serialize" "LShare" 101 . encode
-    deserialize = decodeFull . checkLen "deserialize" "LShare" 101 . encode
-
-
-instance Bi LEncShare where
-    put (LEncShare bs) = putByteString bs
-    get = LEncShare <$> getByteString 101
-
-instance AsBinaryClass EncShare LEncShare where
-    serialize =
-        LEncShare . LBS.toStrict . checkLen "serialize" "LEncShare" 101 . encode
-    deserialize = decodeFull . checkLen "deserialize" "LEncShare" 101 . encode
-
-
-instance Bi LSecretProof where
-    put (LSecretProof bs) = putByteString bs
-    get = LSecretProof <$> getByteString 64
-
-instance AsBinaryClass SecretProof LSecretProof where
-    serialize =
-        LSecretProof . LBS.toStrict . checkLen "serialize" "LSecretProof" 64 . encode
-    deserialize = decodeFull . checkLen "deserialize" "LSecretProof" 64 . encode
-
-deriving instance Bi LSecretSharingExtra
-
-instance AsBinaryClass SecretSharingExtra LSecretSharingExtra where
-    serialize = LSecretSharingExtra . encode
-    deserialize (LSecretSharingExtra x) = decodeFull x
-
+instance AsBinaryClass SecretSharingExtra where
+    serialize = AsBinary . LBS.toStrict . encode
+    deserialize = decodeFull . LBS.fromStrict . getAsBinary
 
 ----------------------------------------------------------------------------
 -- Signing

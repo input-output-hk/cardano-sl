@@ -23,6 +23,8 @@ import           Pos.Binary.Class                       (Bi)
 import           Pos.Binary.Crypto                      ()
 import           Pos.Communication.Methods              (sendToNeighborsSafe)
 import           Pos.Communication.Types                (ResponseMode)
+import           Pos.Context                            (WithNodeContext (getNodeContext),
+                                                         ncPropagation)
 import           Pos.DHT                                (ListenerDHT (..), replyToNode)
 import           Pos.Slotting                           (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
@@ -78,7 +80,7 @@ handleInvDo tag keys = mapM_ handleSingle keys
 handleReq :: (Bi DataMsg) => ResponseMode SscGodTossing m => ReqMsg -> m ()
 handleReq (ReqMsg tag addr) = do
     localPayload <- sscGetLocalPayload =<< getCurrentSlot
-    whenJust (toDataMsg tag addr localPayload) (replyToNode @_ @DataMsg)
+    whenJust (toDataMsg tag addr localPayload) (replyToNode @_ @_ @DataMsg)
 
 toDataMsg :: MsgTag -> Address -> GtPayload -> Maybe DataMsg
 toDataMsg CommitmentMsg addr (CommitmentsPayload comm _) =
@@ -104,7 +106,8 @@ handleData msg =
        let tag = dataMsgTag msg
            addr = dataMsgPublicKey msg
        loggerAction tag added addr
-       when added $ sendToNeighborsSafe $ InvMsg tag $ pure addr
+       needPropagate <- ncPropagation <$> getNodeContext
+       when (added && needPropagate) $ sendToNeighborsSafe $ InvMsg tag $ pure addr
 
 loggerAction :: WorkMode SscGodTossing m
              => MsgTag -> Bool -> Address -> m ()

@@ -39,5 +39,6 @@ data NodeParams = NodeParams
     , npBaseParams  :: !BaseParams        -- ^ See 'BaseParams'
     , npCustomUtxo  :: !(Maybe Utxo)      -- ^ predefined custom utxo
     , npTimeLord    :: !Bool              -- ^ @True@ if node started as time-lord
-    , npJLFile      :: !(Maybe FilePath)
+    , npJLFile      :: !(Maybe FilePath)  -- ^ JSON log file
+    , npPropagation :: !Bool              -- ^ Whether to propagate txs, ssc data, blocks to neighbors
     } deriving (Show)

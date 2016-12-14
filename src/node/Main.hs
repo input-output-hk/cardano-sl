@@ -158,6 +158,7 @@ nodeParams args@Args {..} spendingSK systemStart =
             stakesDistr flatDistr bitcoinDistr
     , npTimeLord = timeLord
     , npJLFile = jlPath
+    , npPropagation = not disablePropagation
     }
 
 gtSscParams :: Args -> VssKeyPair -> GtParams

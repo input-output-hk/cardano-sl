@@ -12,6 +12,6 @@ import           Pos.DHT     (ListenerDHT (..))
 -- | Append given logger name to the name used by listener.
 modifyListenerLogger
     :: (Monad m, HasLoggerName m)
-    => LoggerName -> ListenerDHT m -> ListenerDHT m
+    => LoggerName -> ListenerDHT s m -> ListenerDHT s m
 modifyListenerLogger name (ListenerDHT listener) =
     ListenerDHT $ \r -> modifyLoggerName (<> name) (listener r)

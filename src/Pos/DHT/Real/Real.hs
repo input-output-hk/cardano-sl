@@ -24,9 +24,9 @@ import           Control.Monad.Catch             (Handler (..), MonadCatch, Mona
                                                   MonadThrow, catchAll, catches, throwM)
 import           Control.Monad.Trans.Control     (MonadBaseControl)
 import           Control.TimeWarp.Rpc            (Binding (..), ListenerH (..),
-                                                  MonadDialog, NetworkAddress,
-                                                  RawData (..), TransferException (..),
-                                                  listenR, sendH, sendR)
+                                                  NetworkAddress, RawData (..),
+                                                  TransferException (..), listenR, sendH,
+                                                  sendR)
 import           Control.TimeWarp.Timed          (MonadTimed, fork, killThread, ms, sec)
 
 import qualified Data.Cache.LRU                  as LRU
@@ -43,10 +43,10 @@ import           Universum                       hiding (async, fromStrict,
 
 import           Pos.Binary.Class                (Bi (..))
 import           Pos.Binary.DHT                  ()
-import           Pos.DHT.Class                   (BiP (..), DHTException (..),
-                                                  DHTMsgHeader (..), DHTResponseT (..),
+import           Pos.DHT.Class                   (DHTException (..), DHTMsgHeader (..),
+                                                  DHTPacking, DHTResponseT (..),
                                                   ListenerDHT (..), MonadDHT (..),
-                                                  MonadMessageDHT (..),
+                                                  MonadDHTDialog, MonadMessageDHT (..),
                                                   MonadResponseDHT (closeResponse),
                                                   defaultSendToNeighbors,
                                                   defaultSendToNode, withDhtLogger)
@@ -75,11 +75,11 @@ runKademliaDHT
     :: ( WithLogger m
        , MonadIO m
        , MonadTimed m
-       , MonadDialog (BiP DHTMsgHeader) m
+       , MonadDHTDialog s m
        , MonadMask m
        , MonadBaseControl IO m
        )
-    => KademliaDHTConfig m -> KademliaDHT m a -> m a
+    => KademliaDHTConfig s m -> KademliaDHT m a -> m a
 runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
     startDHT kdc >>= runReaderT (unKademliaDHT action')
   where
@@ -154,12 +154,12 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
 startDHT
     :: ( MonadTimed m
        , MonadIO m
-       , MonadDialog (BiP DHTMsgHeader) m
+       , MonadDHTDialog s m
        , WithLogger m
        , MonadMask m
        , MonadBaseControl IO m
        )
-    => KademliaDHTConfig m -> m (KademliaDHTContext m)
+    => KademliaDHTConfig s m -> m (KademliaDHTContext m)
 startDHT KademliaDHTConfig {..} = do
     kdcStopped <- atomically $ newTVar False
     kdcAuxClosers <- atomically $ newTVar []
@@ -175,7 +175,7 @@ startDHT KademliaDHTConfig {..} = do
     let kdcDHTInstance_ = kdcDHTInstance
     pure $ KademliaDHTContext {..}
   where
-    convert :: ListenerDHT m -> ListenerH (BiP DHTMsgHeader) DHTMsgHeader m
+    convert :: ListenerDHT s m -> ListenerH s DHTPacking DHTMsgHeader m
     convert (ListenerDHT f) = ListenerH $ \(_, m) -> getDHTResponseT $ f m
     convert' handler = getDHTResponseT . handler
 
@@ -184,7 +184,7 @@ startDHT KademliaDHTConfig {..} = do
 rawListener
     :: ( MonadBaseControl IO m
        , MonadMask m
-       , MonadDialog (BiP DHTMsgHeader) m
+       , MonadDHTDialog s m
        , MonadIO m
        , MonadTimed m
        , WithLogger m
@@ -193,7 +193,7 @@ rawListener
     -> TVar (LRU.LRU Int ())
     -> TVar Bool
     -> (DHTMsgHeader, RawData)
-    -> DHTResponseT (KademliaDHT m) Bool
+    -> DHTResponseT s (KademliaDHT m) Bool
 rawListener enableBroadcast cache kdcStopped (h, rawData@(RawData raw)) = withDhtLogger $ do
     isStopped <- atomically $ readTVar kdcStopped
     when isStopped $ do
@@ -234,7 +234,7 @@ sendToNetworkR
        , WithLogger m
        , MonadCatch m
        , MonadIO m
-       , MonadDialog (BiP DHTMsgHeader) m
+       , MonadDHTDialog s m
        , MonadTimed m
        ) => RawData -> KademliaDHT m ()
 sendToNetworkR = sendToNetworkImpl sendR
@@ -245,7 +245,7 @@ sendToNetworkImpl
        ,MonadCatch m
        ,MonadIO m
        ,MonadTimed m
-       ,MonadDialog (BiP DHTMsgHeader) m
+       ,MonadDHTDialog s m
        )
     => (NetworkAddress -> DHTMsgHeader -> msg -> KademliaDHT m ())
     -> msg
@@ -257,7 +257,7 @@ sendToNetworkImpl sender msg = do
 seqConcurrentlyK :: MonadBaseControl IO m => [KademliaDHT m a] -> KademliaDHT m [a]
 seqConcurrentlyK = KademliaDHT . mapConcurrently unKademliaDHT
 
-instance ( MonadDialog (BiP DHTMsgHeader) m
+instance ( MonadDHTDialog s m
          , WithLogger m
          , MonadCatch m
          , MonadIO m
@@ -265,12 +265,13 @@ instance ( MonadDialog (BiP DHTMsgHeader) m
          , MonadBaseControl IO m
          , Bi DHTData
          , Bi DHTKey
-         ) => MonadMessageDHT (KademliaDHT m) where
+         ) => MonadMessageDHT s (KademliaDHT m) where
     sendToNetwork = sendToNetworkImpl sendH
     sendToNeighbors = defaultSendToNeighbors seqConcurrentlyK sendToNode
     sendToNode addr msg = do
         defaultSendToNode addr msg
-        listenOutbound >>= updateClosers
+        listenOutbound
+        pure ()
       where
         -- [CSL-4][TW-47]: temporary code, to refactor to subscriptions (after TW-47)
         listenOutboundDo = KademliaDHT (asks kdcListenByBinding) >>= ($ AtConnTo addr)
@@ -280,8 +281,6 @@ instance ( MonadDialog (BiP DHTMsgHeader) m
             logDebug $ sformat ("Error listening outbound connection to " %
                                 shown % ": " % build) addr e
             return $ pure ()
-        updateClosers closer = KademliaDHT (asks kdcAuxClosers)
-                            >>= \tvar -> (atomically $ modifyTVar tvar (closer:))
 
 rejoinNetwork
     :: (MonadIO m, WithLogger m, MonadCatch m, Bi DHTData, Bi DHTKey)

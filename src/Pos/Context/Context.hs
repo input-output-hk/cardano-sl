@@ -22,6 +22,7 @@ data NodeContext ssc = NodeContext
     , ncJLFile      :: !(Maybe (MVar FilePath))
     , ncDbPath      :: !(Maybe FilePath)
     , ncSscContext  :: !(SscNodeContext ssc)
+    , ncPropagation :: !Bool              -- ^ Whether to propagate txs, ssc data, blocks to neighbors
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

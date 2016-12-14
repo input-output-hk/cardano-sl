@@ -74,6 +74,6 @@ queryBlockchainFresh = queryBlockchainUntil . headerHash =<< getHeadBlock
 
 -- | Send Tx to given address.
 sendTx
-    :: (MonadMessageDHT m, Bi TxDataMsg)
+    :: (MonadMessageDHT s m, Bi TxDataMsg)
     => NetworkAddress -> (Tx, TxWitness) -> m ()
 sendTx addr (tx,w) = sendToNode addr $ TxDataMsg tx w

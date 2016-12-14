@@ -12,20 +12,19 @@ module Pos.Wallet.Web.Server
        , walletServeWeb
        ) where
 
-import qualified Control.Monad.Catch    as Catch
-import           Control.Monad.Except   (MonadError (throwError))
-import           Control.TimeWarp.Rpc   (Transfer)
-import           Data.List              ((!!))
-import           Data.Time.Clock        (UTCTime)
-import           Formatting             (int, ords, sformat, (%))
-import           Network.Wai            (Application)
-import           Servant.API            ((:<|>) ((:<|>)), FromHttpApiData (parseUrlPiece))
-import           Servant.Server         (Handler, ServantErr (errBody), Server, ServerT,
-                                        err404, serve)
-import           Servant.Utils.Enter    ((:~>) (..), enter)
+import qualified Control.Monad.Catch  as Catch
+import           Control.Monad.Except (MonadError (throwError))
+import           Control.TimeWarp.Rpc (Transfer, Dialog)
+import           Data.List            ((!!))
+import           Formatting           (int, ords, sformat, (%))
+import           Network.Wai          (Application)
+import           Servant.API          ((:<|>) ((:<|>)), FromHttpApiData (parseUrlPiece))
+import           Servant.Server       (Handler, ServantErr (errBody), Server, ServerT,
+                                       err404, serve)
+import           Servant.Utils.Enter  ((:~>) (..), enter)
 import           Universum
 
-import           Pos.DHT              (dhtAddr, getKnownPeers)
+import           Pos.DHT              (dhtAddr, getKnownPeers, DHTPacking)
 import           Pos.DHT.Real         (KademliaDHTContext, getKademliaDHTCtx,
                                        runKademliaDHTRaw)
 import           Pos.Genesis          (genesisAddresses, genesisSecretKeys)
@@ -47,8 +46,8 @@ import           Pos.Wallet.Web.Api   (WalletApi, walletApi)
 import           Pos.Wallet.Web.State (MonadWalletWebDB (..), WalletState, WalletWebDB,
                                        closeState, openState, runWalletWebDB)
 import           Pos.Web.Server       (serveImpl)
-import           Pos.WorkMode         (ProductionMode, TxLDImpl, UserDialog, runTxLDImpl)
 import           Pos.Wallet.Web.ClientTypes (CWallet)
+import           Pos.WorkMode         (ProductionMode, TxLDImpl, SocketState, runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -76,7 +75,8 @@ type SubKademlia ssc = (TxLDImpl (
 #ifdef WITH_ROCKS
                                    Modern.DBHolder ssc (
 #endif
-                                       St.DBHolder ssc (UserDialog Transfer)))))
+                                       St.DBHolder ssc (Dialog DHTPacking
+                                            (Transfer SocketState))))))
 #ifdef WITH_ROCKS
                        )
 #endif

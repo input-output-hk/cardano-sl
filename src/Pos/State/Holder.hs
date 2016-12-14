@@ -35,7 +35,7 @@ import           Pos.State.State             (MonadDB (..), NodeState)
 newtype DBHolder ssc m a = DBHolder
     { getDBHolder :: ReaderT (NodeState ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
-               MonadCatch, MonadMask, MonadIO, HasLoggerName, CanLog, MonadDialog p)
+               MonadCatch, MonadMask, MonadIO, HasLoggerName, CanLog, MonadDialog s p)
 
 -- | Execute 'DBHolder' action with given 'NodeState'.
 runDBHolder :: NodeState ssc -> DBHolder ssc m a -> m a
@@ -60,7 +60,7 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBHolder ssc m) where
 
 type instance ThreadId (DBHolder ssc m) = ThreadId m
 
-instance MonadTransfer m => MonadTransfer (DBHolder ssc m)
+instance MonadTransfer s m => MonadTransfer s (DBHolder ssc m)
 
 instance Monad m => MonadDB ssc (DBHolder ssc m) where
     getNodeState = DBHolder ask

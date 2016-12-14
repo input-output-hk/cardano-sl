@@ -13,6 +13,7 @@ module Pos.Worker.Block
 
 import           Control.Lens              (ix, (^.), (^?))
 import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, wait)
+import qualified Data.HashMap.Strict       as HM
 import           Data.Tagged               (untag)
 import           Formatting                (build, sformat, shown, (%))
 import           Serokell.Util             (VerificationRes (..), listJson)
@@ -20,9 +21,11 @@ import           Serokell.Util.Exceptions  ()
 import           System.Wlog               (dispatchEvents, logDebug, logInfo, logWarning)
 import           Universum
 
-import qualified Data.HashMap.Strict       as HM
+import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
+import           Pos.Context               (getNodeContext, ncPropagation, ncPublicKey,
+                                            ncSecretKey)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
 import           Pos.Ssc.Class             (sscApplyGlobalState, sscGetLocalPayload,
                                             sscVerifyPayload)
@@ -33,8 +36,7 @@ import           Pos.Types                 (SlotId (..), Timestamp (Timestamp), 
                                             gbHeader, makePubKeyAddress, slotIdF)
 import           Pos.Util                  (logWarningWaitLinear)
 import           Pos.Util.JsonLog          (jlCreatedBlock, jlLog)
-import           Pos.WorkMode              (WorkMode, getNodeContext, ncPublicKey,
-                                            ncSecretKey)
+import           Pos.WorkMode              (WorkMode)
 
 -- | Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode ssc m => SlotId -> m ()
@@ -110,13 +112,13 @@ blocksTransmitterInterval :: Microsecond
 blocksTransmitterInterval = slotDuration `div` 2
 
 blocksTransmitter :: WorkMode ssc m => m ()
-blocksTransmitter =
-    repeatForever blocksTransmitterInterval onError $
-    do headBlock <- getHeadBlock
-       case headBlock of
-           Left _          -> logDebug "Head block is genesis block ⇒ no announcement"
-           Right mainBlock -> announceBlock (mainBlock ^. gbHeader)
+blocksTransmitter = whenM (ncPropagation <$> getNodeContext) impl
   where
+    impl = repeatForever blocksTransmitterInterval onError $
+        do headBlock <- getHeadBlock
+           case headBlock of
+               Left _          -> logDebug "Head block is genesis block ⇒ no announcement"
+               Right mainBlock -> announceBlock (mainBlock ^. gbHeader)
     onError e =
         blocksTransmitterInterval <$
         logWarning (sformat ("Error occured in blocksTransmitter: " %build) e)

@@ -31,12 +31,14 @@ data BaseParams = BaseParams
 
 -- | Contains algorithm specific & storage parameters for Node.
 data NodeParams = NodeParams
-    { npDbPath      :: !(Maybe FilePath)  -- ^ Path to node data-base. 'Nothing' means memory-mode.
+    { npDbPath      :: !(Maybe FilePath)  -- ^ Path to node's data-base. 'Nothing' means memory-mode.
+    , npDbPathM     :: !FilePath          -- ^ Modern path to node's data-base.
     , npRebuildDb   :: !Bool              -- ^ @True@ if data-base should be rebuilt
     , npSystemStart :: !Timestamp         -- ^ System start
     , npSecretKey   :: !SecretKey         -- ^ Secret key of this node
     , npBaseParams  :: !BaseParams        -- ^ See 'BaseParams'
     , npCustomUtxo  :: !(Maybe Utxo)      -- ^ predefined custom utxo
     , npTimeLord    :: !Bool              -- ^ @True@ if node started as time-lord
-    , npJLFile      :: !(Maybe FilePath)
+    , npJLFile      :: !(Maybe FilePath)  -- ^ JSON log file
+    , npPropagation :: !Bool              -- ^ Whether to propagate txs, ssc data, blocks to neighbors
     } deriving (Show)

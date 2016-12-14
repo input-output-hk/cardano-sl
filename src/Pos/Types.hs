@@ -1,4 +1,4 @@
--- | Re-export of Pos.Types.*
+-- | Re-export of Pos.Types.* + binary instances
 
 module Pos.Types
        ( module Pos.Types.Arbitrary
@@ -10,6 +10,8 @@ module Pos.Types
        , module Pos.Types.Utxo
        ) where
 
+import           Pos.Binary.Address  ()
+import           Pos.Binary.Types    ()
 import           Pos.Types.Arbitrary
 import           Pos.Types.Block
 import           Pos.Types.Slotting

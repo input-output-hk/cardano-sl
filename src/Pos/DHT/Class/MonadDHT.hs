@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.DHT.Class.MonadDHT
        ( DHTException (..)
@@ -6,13 +6,12 @@ module Pos.DHT.Class.MonadDHT
        , withDhtLogger
        ) where
 
-import           Control.TimeWarp.Rpc      (ResponseT)
-import           Data.Proxy                (Proxy (Proxy))
-import           System.Wlog               (HasLoggerName (modifyLoggerName),
-                                            LoggerName)
+import           Control.TimeWarp.Rpc (ResponseT)
+import           Data.Proxy           (Proxy (Proxy))
+import           System.Wlog          (HasLoggerName (modifyLoggerName), LoggerName)
 import           Universum
 
-import           Pos.DHT.Types             (DHTNode (..), DHTNodeType (..), DHTKey)
+import           Pos.DHT.Types        (DHTKey, DHTNode (..), DHTNodeType (..))
 
 -- | Monad for Distributed Hash Table operations.
 class Monad m => MonadDHT m where
@@ -52,7 +51,7 @@ instance MonadDHT m => MonadDHT (ReaderT r m) where
         fromRProxy :: Proxy (ReaderT r m) -> Proxy m
         fromRProxy _ = Proxy
 
-instance MonadDHT m => MonadDHT (ResponseT m) where
+instance MonadDHT m => MonadDHT (ResponseT s m) where
     discoverPeers = lift . discoverPeers
     getKnownPeers = lift getKnownPeers
     currentNodeKey = lift currentNodeKey

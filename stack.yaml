@@ -4,13 +4,14 @@ extra-package-dbs: []
 
 packages:
 - '.'
+
 - location:
     git: https://github.com/serokell/universum
     commit: d347ccf3605d0851dd0f7046fe63f364510ef1a0
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp.git
-    commit: ea933cf9de84041f92339c8f41bcf285fdd1b0d7
+    commit: ac8ff481d00f85cdce163b8f3cdf14bce59e1aab
   extra-dep: true
 - location:
     git: https://github.com/serokell/log-warper.git
@@ -23,6 +24,14 @@ packages:
 - location:
     git: https://github.com/serokell/kademlia.git
     commit: 062053ed11b92c8e25d4d61ea943506fd0482fa6
+  extra-dep: true
+- location:
+    git: https://github.com/input-output-hk/plutus-prototype
+    commit: f0498b9cfc7e0204cfe8709a89370f3190d3195f
+  extra-dep: true
+- location:
+    git: https://github.com/serokell/rocksdb-haskell.git
+    commit: 0a5bced2c0372e5d0dff886595841406cf6a73a2
   extra-dep: true
 
 nix:

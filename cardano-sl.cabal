@@ -34,12 +34,20 @@ Flag with-wallet
 
   description: Build with wallet.
 
+Flag with-rocks
+  default:     True
+  manual:      True
+
+  description: Build with RocksDB.
+
 library
-  exposed-modules:      Pos.CLI
-                        Pos.Crypto
+  exposed-modules:      Pos.Binary
+                        Pos.CLI
+                        Pos.Context
                         Pos.Communication
                         Pos.CompileConfig
                         Pos.Constants
+                        Pos.Crypto
                         Pos.DHT
                         Pos.DHT.Real
                         Pos.DHT.Real.Real
@@ -47,6 +55,7 @@ library
                         Pos.DHT.Types
                         Pos.DHT.Util
                         Pos.DHT.Class
+                        Pos.DHT.Class.BiP
                         Pos.DHT.Class.MonadDHT
                         Pos.DHT.Class.MonadMessageDHT
                         Pos.FollowTheSatoshi
@@ -66,12 +75,12 @@ library
                         Pos.Ssc.Class.Workers
                         Pos.Ssc.Class.Listeners
                         Pos.Ssc.Class.LocalData
+                        Pos.Ssc.LocalData
                         Pos.State
                         Pos.State.Acidic
+                        Pos.State.Holder
                         Pos.State.State
                         Pos.State.Storage
-                        Pos.State.Storage.Block
-                        Pos.State.Storage.Types
                         Pos.Statistics
                         Pos.Txp.Listeners
                         Pos.Txp.Storage
@@ -95,7 +104,17 @@ library
     exposed-modules:    Pos.Wallet
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
-  other-modules:        Pos.Communication.Methods
+  other-modules:        Pos.Binary.Address
+                        Pos.Binary.Class
+                        Pos.Binary.Crypto
+                        Pos.Binary.Communication
+                        Pos.Binary.DHT
+                        Pos.Binary.Merkle
+                        Pos.Binary.Script
+                        Pos.Binary.Ssc
+                        Pos.Binary.Txp
+                        Pos.Binary.Types
+                        Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
                         Pos.Communication.Types.SysStart
@@ -105,6 +124,9 @@ library
                         Pos.Communication.Util
                         Pos.CompileConfig.Parser
                         Pos.CompileConfig.Type
+                        Pos.Context.Class
+                        Pos.Context.Context
+                        Pos.Context.Holder
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
@@ -118,6 +140,7 @@ library
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
+                        Pos.Script
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
@@ -139,6 +162,8 @@ library
                         Pos.Ssc.GodTossing.Types.Type
                         Pos.Ssc.GodTossing.Types.Types
                         Pos.Ssc.GodTossing.Utils
+                        Pos.State.Storage.Block
+                        Pos.State.Storage.Types
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
@@ -149,6 +174,20 @@ library
                         Pos.Worker.Stats
                         Pos.Util.Arbitrary
                         Pos.Util.NotImplemented
+  if flag(with-rocks)
+    other-modules:
+                        Pos.Binary.Modern.DB
+                        Pos.Modern.DB
+                        Pos.Modern.DB.Block
+                        Pos.Modern.DB.Utxo
+                        Pos.Modern.DB.Class
+                        Pos.Modern.DB.Functions
+                        Pos.Modern.DB.Holder
+                        Pos.Modern.DB.Types
+                        Pos.Modern.Types.Utxo
+                        Pos.Modern.Txp.Storage
+                        Pos.Modern.Txp.LocalData
+                        Pos.Modern.Txp.Listeners
   if flag(with-web)
     other-modules:      Pos.Web.Api
                         Pos.Web.Doc
@@ -156,11 +195,18 @@ library
                         Pos.Web.Types
   if flag(with-wallet)
     other-modules:      Pos.Wallet.Tx
+                      , Pos.Wallet.WalletMode
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Server
-  build-depends:        HsOpenSSL
+                        Pos.Wallet.Web.State
+                        Pos.Wallet.Web.State.Acidic
+                        Pos.Wallet.Web.State.Holder
+                        Pos.Wallet.Web.State.State
+                        Pos.Wallet.Web.State.Storage
+  build-depends:        IfElse
+                      , HsOpenSSL
                       , QuickCheck
                       , UtilityTM
                       , acid-state
@@ -170,14 +216,17 @@ library
                       , base
                       , base58-bytestring
                       , binary
+                      , binary-conduit >= 1.2.4.1
                       , binary-orphans
                       , bytestring
                       , cereal
+                      , conduit >= 1.2.8
                       , containers
                       , cryptonite >= 0.19 && < 0.21
                       , data-default
                       , deepseq
                       , derive
+                      , deriving-compat
                       , digest
                       , directory
                       , ed25519
@@ -199,10 +248,11 @@ library
                       , mono-traversable
                       , mtl
                       , parsec
+                      , plutus-prototype
                       , pvss
-                      , resourcet
                       , quickcheck-instances
                       , random
+                      , resourcet
                       , safecopy
                       , serokell-util
                       , stm
@@ -220,6 +270,9 @@ library
                       , unordered-containers
                       , vector
                       , yaml
+
+  if flag(with-rocks)
+    build-depends:      rocksdb
 
   if flag(with-web)
     build-depends:      http-types
@@ -253,16 +306,18 @@ library
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
+  if flag(with-rocks)
+    cpp-options: -DWITH_ROCKS
 
 executable cardano-node
   hs-source-dirs:      src/node
   main-is:             Main.hs
   other-modules:       NodeOptions
   build-depends:       base
-                     , data-default
                      , binary
                      , bytestring
                      , cardano-sl
+                     , data-default
                      , directory
                      , filepath
                      , formatting
@@ -330,8 +385,7 @@ executable cardano-analyzer
 executable cardano-wallet
   hs-source-dirs:      src/wallet
   main-is:             Main.hs
-  if flag(with-wallet)
-    other-modules:     WalletOptions
+  other-modules:       WalletOptions
                        Command
   build-depends:       QuickCheck
                      , base
@@ -369,16 +423,18 @@ executable cardano-wallet
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
+  if flag(with-wallet)
+    buildable:         True
+  else
+    buildable:         False
+
   if flag(with-web)
     cpp-options: -DWITH_WEB
-  if flag(with-wallet)
-    cpp-options: -DWITH_WALLET
 
 executable cardano-smart-generator
   hs-source-dirs:      src/smart-generator
   main-is:             Main.hs
-  if flag(with-wallet)
-    other-modules:     GenOptions
+  other-modules:       GenOptions
                        TxGeneration
                        TxAnalysis
                        Util
@@ -424,7 +480,9 @@ executable cardano-smart-generator
   ghc-options: -pgmP cpphs -optP --cpp
 
   if flag(with-wallet)
-    cpp-options: -DWITH_WALLET
+    buildable:         True
+  else
+    buildable:         False
 
 executable cardano-web-docs
   hs-source-dirs:      src/web-docs
@@ -450,7 +508,9 @@ executable cardano-web-docs
   ghc-options: -pgmP cpphs -optP --cpp
 
   if flag(with-web)
-    cpp-options: -DWITH_WEB
+    buildable:         True
+  else
+    buildable:         False
 
 executable cardano-wallet-web-docs
   hs-source-dirs:      src/wallet-web-docs
@@ -477,11 +537,10 @@ executable cardano-wallet-web-docs
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-web)
-    cpp-options: -DWITH_WEB
-  if flag(with-wallet)
-    cpp-options: -DWITH_WALLET
-
+  if flag(with-web) && flag(with-wallet)
+    buildable:         True
+  else
+    buildable:         False
 
 test-suite cardano-test
   main-is:             Test.hs
@@ -494,6 +553,7 @@ test-suite cardano-test
                      , Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
                      , Test.Pos.Ssc.GodTossing.SeedSpec
                      , Test.Pos.Ssc.GodTossing.Types.BaseSpec
+                     , Test.Pos.Types.AddressSpec
                      , Test.Pos.Types.BlockSpec
                      , Test.Pos.Types.Identity.BinarySpec
                      , Test.Pos.Types.Identity.SafeCopySpec

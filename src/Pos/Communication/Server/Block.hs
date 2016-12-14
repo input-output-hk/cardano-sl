@@ -28,12 +28,14 @@ import           System.Wlog               (logDebug, logError, logInfo, logNoti
                                             logWarning)
 import           Universum
 
+import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Communication.Types   (RequestBlock (..), RequestBlockchainPart (..),
                                             ResponseMode, SendBlock (..),
                                             SendBlockHeader (..), SendBlockchainPart (..))
+import           Pos.Context               (getNodeContext, ncPropagation)
 import           Pos.Crypto                (hash, shortHashF)
-import           Pos.DHT                   (ListenerDHT (..), replyToNode)
+import           Pos.DHT                   (ListenerDHT (..), MonadDHTDialog, replyToNode)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class.LocalData   (sscApplyGlobalState)
 import qualified Pos.State                 as St
@@ -43,12 +45,12 @@ import           Pos.Types                 (HeaderHash, Tx, blockTxs, getBlockHe
                                             headerHash)
 import           Pos.Util                  (inAssertMode)
 import           Pos.Util.JsonLog          (jlAdoptedBlock, jlLog)
-import           Pos.WorkMode              (MonadUserDialog, WorkMode)
+import           Pos.WorkMode              (SocketState, WorkMode)
 
 -- | Listeners for requests related to blocks processing.
 blockListeners
-    :: (MonadUserDialog m, WorkMode ssc m)
-    => [ListenerDHT m]
+    :: (MonadDHTDialog SocketState m, WorkMode ssc m)
+    => [ListenerDHT SocketState m]
 blockListeners =
     [ ListenerDHT handleBlock
     , ListenerDHT handleBlockHeader
@@ -57,8 +59,10 @@ blockListeners =
     ]
 
 -- | Handler 'SendBlock' event.
-handleBlock :: forall ssc m . (ResponseMode ssc m)
-            => SendBlock ssc -> m ()
+handleBlock
+    :: forall ssc m.
+       (ResponseMode ssc m)
+    => SendBlock ssc -> m ()
 handleBlock (SendBlock block) = do
     slotId <- getCurrentSlot
     localTxs <- HM.toList <$> getLocalTxs
@@ -97,7 +101,7 @@ handleBlock (SendBlock block) = do
                     blkHash
                     h
             replyToNode $ RequestBlock h
-    propagateBlock pbr
+    whenM (ncPropagation <$> getNodeContext) $ propagateBlock pbr
     -- We assert that the chain is consistent – none of the transactions in a
     -- block are present in previous blocks. This is an expensive check and
     -- we only do it when asserts are turned on.
@@ -124,8 +128,9 @@ handleBlock (SendBlock block) = do
                         else bprint (shortHashF % ": " %listJsonIndent 4) h txs
                    | (h, txs) <- reverse dups ]
 
-propagateBlock :: WorkMode ssc m
-               => St.ProcessBlockRes ssc -> m ()
+propagateBlock
+    :: (WorkMode ssc m)
+    => St.ProcessBlockRes ssc -> m ()
 propagateBlock (St.PBRgood (_, blocks)) =
     either (const pass) announceBlock header
   where
@@ -135,7 +140,7 @@ propagateBlock _ = pass
 
 -- | Handle 'SendBlockHeader' message.
 handleBlockHeader
-    :: ResponseMode ssc m
+    :: (ResponseMode ssc m)
     => SendBlockHeader ssc -> m ()
 handleBlockHeader (SendBlockHeader header) =
     whenM checkUsefulness $ replyToNode (RequestBlock h)
@@ -159,7 +164,7 @@ handleBlockHeader (SendBlockHeader header) =
 
 -- | Handle 'RequsetBlock' message.
 handleBlockRequest
-    :: ResponseMode ssc m
+    :: (ResponseMode ssc m)
     => RequestBlock ssc -> m ()
 handleBlockRequest (RequestBlock h) = do
     logDebug $ sformat ("Block " %build % " is requested") h
@@ -172,7 +177,7 @@ handleBlockRequest (RequestBlock h) = do
 
 -- | Handle 'RequestBlockchainPart' message
 handleBlockchainPartRequest
-    :: ResponseMode ssc m
+    :: (ResponseMode ssc m)
     => RequestBlockchainPart ssc -> m ()
 handleBlockchainPartRequest RequestBlockchainPart {..} = do
     logDebug $ sformat ("Blockchain part (range "%build%".."%build%

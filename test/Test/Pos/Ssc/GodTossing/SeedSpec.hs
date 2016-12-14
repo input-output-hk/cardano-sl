@@ -17,6 +17,7 @@ import           Test.QuickCheck          (Property, choose, counterexample, gen
 import           Test.QuickCheck.Property (failed, succeeded)
 import           Universum
 
+import           Pos.Binary               (Serialized (..))
 import           Pos.Crypto               (KeyPair (..), LSecret, LShare, Secret, Share,
                                            Threshold, VssKeyPair, decryptShare, sign,
                                            toVssPublicKey)
@@ -24,7 +25,7 @@ import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Open
                                            SeedError (..), calculateSeed,
                                            genCommitmentAndOpening, secretToSharedSeed)
 import           Pos.Types                (Address, SharedSeed (..), makePubKeyAddress)
-import           Pos.Util                 (Serialized (..), nonrepeating, sublistN)
+import           Pos.Util                 (nonrepeating, sublistN)
 
 getPubAddr :: KeyPair -> Address
 getPubAddr = makePubKeyAddress . getPub

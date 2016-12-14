@@ -18,6 +18,8 @@ import           Serokell.AcidState                      (queryExtended,
                                                           updateExtended)
 import           Universum
 
+import           Pos.Context                             (WithNodeContext (getNodeContext),
+                                                          ncSscContext)
 import           Pos.Ssc.Class.Types                     (Ssc (SscNodeContext))
 import           Pos.Ssc.GodTossing.SecretStorage.Acidic (GetS (..), Prepare (..),
                                                           SecretStorage, SetS (..))
@@ -25,8 +27,6 @@ import           Pos.Ssc.GodTossing.SecretStorage.Types  (GtSecret)
 import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types          (GtContext (gtcSecretStorage))
 import           Pos.Types                               (SlotId (..))
-import           Pos.WorkMode                            (WithNodeContext (getNodeContext),
-                                                          ncSscContext)
 
 
 type SConstraint a = forall m . (MonadIO m

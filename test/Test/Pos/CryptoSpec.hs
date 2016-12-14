@@ -5,7 +5,6 @@ module Test.Pos.CryptoSpec
        ( spec
        ) where
 
-import           Data.Binary           (Binary)
 import qualified Data.ByteString       as BS
 import           Formatting            (build, sformat)
 import           Test.Hspec            (Expectation, Spec, describe, shouldBe, specify)
@@ -13,13 +12,18 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
+import           Pos.Binary            (Bi)
 import           Pos.Crypto            (EncShare, Hash, KeyPair (..), LEncShare, LSecret,
                                         LSecretProof, LSecretSharingExtra, LShare,
-                                        LVssPublicKey, PublicKey, Secret, SecretKey,
-                                        SecretProof, SecretSharingExtra, Share,
-                                        Signature, Signed, VssPublicKey, checkSig,
+                                        LVssPublicKey, ProxyCert, ProxyDSignature,
+                                        ProxyISignature, ProxySecretKey, PublicKey,
+                                        Secret, SecretKey, SecretProof,
+                                        SecretSharingExtra, Share, Signature, Signed,
+                                        VssPublicKey, checkSig, createProxySecretKey,
                                         deterministic, fullPublicKeyF, hash,
-                                        parseFullPublicKey, randomNumber, sign, toPublic)
+                                        parseFullPublicKey, proxyDSign, proxyDVerify,
+                                        proxyICheckSig, proxyISign, randomNumber, sign,
+                                        toPublic)
 import           Pos.Ssc.GodTossing    ()
 
 import           Test.Pos.Util         (binaryEncodeDecode, safeCopyEncodeDecode,
@@ -43,7 +47,7 @@ spec = describe "Crypto" $ do
     describe "Hashing" $ do
         describe "Hash instances" $ do
             prop
-                "Binary"
+                "Bi"
                 (binaryEncodeDecode @(Hash Int))
             prop
                 "SafeCopy"
@@ -66,28 +70,32 @@ spec = describe "Crypto" $ do
 
     describe "Signing" $ do
         describe "Identity testing" $ do
-            describe "Binary instances" $ do
-                prop "SecretKey"     (binaryEncodeDecode @SecretKey)
-                prop "PublicKey"     (binaryEncodeDecode @PublicKey)
-                prop "Signature"     (binaryEncodeDecode @(Signature ()))
-                prop "Signed"        (binaryEncodeDecode @(Signed Bool))
-                prop "VssPublicKey"  (binaryEncodeDecode @VssPublicKey)
-                prop "LVssPublicKey" (binaryEncodeDecode @LVssPublicKey)
-                prop "LSecret"       (binaryEncodeDecode @LSecret)
-                prop "LShare"        (binaryEncodeDecode @LShare)
-                prop "LEncShare"     (binaryEncodeDecode @LEncShare)
-                prop "LSecretProof"  (binaryEncodeDecode @LSecretProof)
+            describe "Bi instances" $ do
+                prop "SecretKey"           (binaryEncodeDecode @SecretKey)
+                prop "PublicKey"           (binaryEncodeDecode @PublicKey)
+                prop "Signature"           (binaryEncodeDecode @(Signature ()))
+                prop "ProxyISignature"     (binaryEncodeDecode @(ProxyISignature ()))
+                prop "ProxyCert"           (binaryEncodeDecode @(ProxyCert Int))
+                prop "ProxySecretKey"      (binaryEncodeDecode @(ProxySecretKey Int))
+                prop "ProxyDSignature"     (binaryEncodeDecode @(ProxyDSignature Int Int))
+                prop "Signed"              (binaryEncodeDecode @(Signed Bool))
+                prop "VssPublicKey"        (binaryEncodeDecode @VssPublicKey)
+                prop "LVssPublicKey"       (binaryEncodeDecode @LVssPublicKey)
+                prop "LSecret"             (binaryEncodeDecode @LSecret)
+                prop "LShare"              (binaryEncodeDecode @LShare)
+                prop "LEncShare"           (binaryEncodeDecode @LEncShare)
+                prop "LSecretProof"        (binaryEncodeDecode @LSecretProof)
                 prop "LSecretSharingExtra" (binaryEncodeDecode @LSecretSharingExtra)
             describe "SafeCopy instances" $ do
-                prop "SecretKey"     (safeCopyEncodeDecode @SecretKey)
-                prop "PublicKey"     (safeCopyEncodeDecode @PublicKey)
-                prop "Signature"     (safeCopyEncodeDecode @(Signature ()))
-                prop "Signed"        (safeCopyEncodeDecode @(Signed Bool))
-                prop "LVssPublicKey" (safeCopyEncodeDecode @LVssPublicKey)
-                prop "LSecret"       (safeCopyEncodeDecode @LSecret)
-                prop "LShare"        (safeCopyEncodeDecode @LShare)
-                prop "LEncShare"     (safeCopyEncodeDecode @LEncShare)
-                prop "LSecretProof"  (safeCopyEncodeDecode @LSecretProof)
+                prop "SecretKey"           (safeCopyEncodeDecode @SecretKey)
+                prop "PublicKey"           (safeCopyEncodeDecode @PublicKey)
+                prop "Signature"           (safeCopyEncodeDecode @(Signature ()))
+                prop "Signed"              (safeCopyEncodeDecode @(Signed Bool))
+                prop "LVssPublicKey"       (safeCopyEncodeDecode @LVssPublicKey)
+                prop "LSecret"             (safeCopyEncodeDecode @LSecret)
+                prop "LShare"              (safeCopyEncodeDecode @LShare)
+                prop "LEncShare"           (safeCopyEncodeDecode @LEncShare)
+                prop "LSecretProof"        (safeCopyEncodeDecode @LSecretProof)
                 prop "LSecretSharingExtra" (safeCopyEncodeDecode @LSecretSharingExtra)
         describe "Serialized" $ do
             prop "VssPublicKey <-> LVssPublicKey"
@@ -117,13 +125,34 @@ spec = describe "Crypto" $ do
                 "signed data can't be verified by a different key"
                 (signThenVerifyDifferentKey @[Int])
             prop
-                "modified data can't be verified"
+                "modified data signature can't be verified"
                 (signThenVerifyDifferentData @[Int])
+        describe "proxy issuer signing" $ do
+            prop
+                "signed data can be verified successfully"
+                (proxyISignThenVerify @[Int])
+            prop
+                "signed data can't be verified by a different key"
+                (proxyISignThenVerifyDifferentKey @[Int])
+            prop
+                "modified data signature can't be verified"
+                (proxyISignThenVerifyDifferentData @[Int])
+        describe "proxy delegate signing" $ do
+            prop
+                "signature can be verified successfully"
+                (proxyDSignVerify @[Int] @(Int,Int))
+            prop
+                "signature can't be verified with a different key"
+                (proxyDSignVerifyDifferentKey @[Int] @(Int,Int))
+            prop
+                "modified data signature can't be verified "
+                (proxyDSignVerifyDifferentData @[Int] @(Int,Int))
 
-hashInequality :: (Eq a, Binary a) => a -> a -> Property
+
+hashInequality :: (Eq a, Bi a) => a -> a -> Property
 hashInequality a b = a /= b ==> hash a /= hash b
 
-checkHash :: Binary a => a -> Text -> Expectation
+checkHash :: Bi a => a -> Text -> Expectation
 checkHash x s = sformat build (hash x) `shouldBe` s
 
 keyDerivation :: KeyPair -> Property
@@ -133,18 +162,56 @@ keyParsing :: PublicKey -> Property
 keyParsing pk = parseFullPublicKey (sformat fullPublicKeyF pk) === Just pk
 
 signThenVerify
-    :: Binary a
+    :: Bi a
     => SecretKey -> a -> Bool
 signThenVerify sk a = checkSig (toPublic sk) a $ sign sk a
 
 signThenVerifyDifferentKey
-    :: Binary a
+    :: Bi a
     => SecretKey -> PublicKey -> a -> Property
 signThenVerifyDifferentKey sk1 pk2 a =
     (toPublic sk1 /= pk2) ==> not (checkSig pk2 a $ sign sk1 a)
 
 signThenVerifyDifferentData
-    :: (Eq a, Binary a)
+    :: (Eq a, Bi a)
     => SecretKey -> a -> a -> Property
 signThenVerifyDifferentData sk a b =
     (a /= b) ==> not (checkSig (toPublic sk) b $ sign sk a)
+
+proxyISignThenVerify :: Bi a => SecretKey -> a -> Bool
+proxyISignThenVerify sk a = proxyICheckSig (toPublic sk) a $ proxyISign sk a
+
+proxyISignThenVerifyDifferentKey :: Bi a => SecretKey -> PublicKey -> a -> Property
+proxyISignThenVerifyDifferentKey sk1 pk2 a =
+    (toPublic sk1 /= pk2) ==> not (proxyICheckSig pk2 a $ proxyISign sk1 a)
+
+proxyISignThenVerifyDifferentData :: (Eq a, Bi a) => SecretKey -> a -> a -> Property
+proxyISignThenVerifyDifferentData sk a b =
+    (a /= b) ==> not (proxyICheckSig (toPublic sk) b $ proxyISign sk a)
+
+proxyDSignVerify :: (Bi a, Bi w, Eq w) => SecretKey -> SecretKey -> w -> a -> Bool
+proxyDSignVerify issuerSk delegateSk w m =
+    proxyDVerify issuerPk signature (== w) m
+  where
+    issuerPk = toPublic issuerSk
+    proxySk = createProxySecretKey issuerSk (toPublic delegateSk) w
+    signature = proxyDSign delegateSk issuerPk proxySk m
+
+proxyDSignVerifyDifferentKey
+    :: (Bi a, Bi w, Eq w)
+    => SecretKey -> SecretKey -> PublicKey -> w -> a -> Property
+proxyDSignVerifyDifferentKey issuerSk delegateSk pk2 w m =
+    (toPublic issuerSk /= pk2) ==> not (proxyDVerify pk2 signature (== w) m)
+  where
+    proxySk = createProxySecretKey issuerSk (toPublic delegateSk) w
+    signature = proxyDSign delegateSk (toPublic issuerSk) proxySk m
+
+proxyDSignVerifyDifferentData
+    :: (Bi a, Eq a, Bi w, Eq w)
+    => SecretKey -> SecretKey -> w -> a -> a -> Property
+proxyDSignVerifyDifferentData issuerSk delegateSk w m m2 =
+    (m /= m2) ==> not (proxyDVerify issuerPk signature (== w) m2)
+  where
+    issuerPk = toPublic issuerSk
+    proxySk = createProxySecretKey issuerSk (toPublic delegateSk) w
+    signature = proxyDSign delegateSk issuerPk proxySk m

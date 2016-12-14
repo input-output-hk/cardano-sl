@@ -1,30 +1,34 @@
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 -- | `Arbitrary` instances for using in tests and benchmarks
 
 module Pos.Crypto.Arbitrary
     ( KeyPair(..)
     ) where
 
-import           Control.Lens                 (view, _1, _2, _3, _4)
-import           Data.Binary                  (Binary)
-import           Data.List.NonEmpty           (fromList)
-import           System.IO.Unsafe             (unsafePerformIO)
-import           Test.QuickCheck              (Arbitrary (..), choose, elements,
-                                               generate)
+import           Control.Lens                (view, _1, _2, _3, _4)
+import           Data.List.NonEmpty          (fromList)
+import           System.IO.Unsafe            (unsafePerformIO)
+import           Test.QuickCheck             (Arbitrary (..), choose, elements, generate)
 import           Universum
 
-import           Pos.Crypto.Arbitrary.Hash    ()
-import           Pos.Crypto.Arbitrary.Unsafe  ()
-import           Pos.Crypto.SecretSharing     (EncShare,Secret, SecretProof,
-                                               SecretSharingExtra, Share, VssKeyPair,
-                                               VssPublicKey, decryptShare,
-                                               genSharedSecret, toVssPublicKey, vssKeyGen)
-import           Pos.Crypto.SerTypes          (LEncShare, LSecret, LSecretProof,
-                                               LSecretSharingExtra, LShare, LVssPublicKey)
-import           Pos.Crypto.Signing           (PublicKey, SecretKey, Signature, Signed,
-                                               keyGen, mkSigned, sign)
-import           Pos.Util                     (Serialized (..))
-import           Pos.Util.Arbitrary           (Nonrepeating (..), sublistN, unsafeMakePool)
+import           Pos.Binary.Class            (Bi, Serialized (..))
+import           Pos.Crypto.Arbitrary.Hash   ()
+import           Pos.Crypto.Arbitrary.Unsafe ()
+import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
+                                              SecretSharingExtra, Share, VssKeyPair,
+                                              VssPublicKey, decryptShare, genSharedSecret,
+                                              toVssPublicKey, vssKeyGen)
+import           Pos.Crypto.SerTypes         (LEncShare, LSecret, LSecretProof,
+                                              LSecretSharingExtra, LShare, LVssPublicKey)
+import           Pos.Crypto.Signing          (ProxyCert, ProxyDSignature, ProxyISignature,
+                                              ProxySecretKey, PublicKey, SecretKey,
+                                              Signature, Signed, createProxyCert,
+                                              createProxySecretKey, keyGen, mkSigned,
+                                              proxyDSign, proxyISign, sign)
+import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakePool)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -81,7 +85,7 @@ instance Arbitrary VssKeyPair where
 instance Arbitrary VssPublicKey where
     arbitrary = toVssPublicKey <$> arbitrary
 
-instance Arbitrary LVssPublicKey where
+instance Serialized VssPublicKey LVssPublicKey => Arbitrary LVssPublicKey where
     arbitrary = serialize @VssPublicKey <$> arbitrary
 
 instance Nonrepeating VssKeyPair where
@@ -94,11 +98,24 @@ instance Nonrepeating VssPublicKey where
 -- Arbitrary signatures
 ----------------------------------------------------------------------------
 
-instance (Binary a, Arbitrary a) => Arbitrary (Signature a) where
+instance (Bi a, Arbitrary a) => Arbitrary (Signature a) where
     arbitrary = sign <$> arbitrary <*> arbitrary
 
-instance (Binary a, Arbitrary a) => Arbitrary (Signed a) where
+instance (Bi a, Arbitrary a) => Arbitrary (Signed a) where
     arbitrary = mkSigned <$> arbitrary <*> arbitrary
+
+instance (Bi a, Arbitrary a) => Arbitrary (ProxyISignature a) where
+    arbitrary = liftA2 proxyISign arbitrary arbitrary
+
+instance (Bi w, Arbitrary w) => Arbitrary (ProxyCert w) where
+    arbitrary = liftA3 createProxyCert arbitrary arbitrary arbitrary
+
+instance (Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
+    arbitrary = liftA3 createProxySecretKey arbitrary arbitrary arbitrary
+
+instance (Bi w, Arbitrary w, Bi a, Arbitrary a) =>
+         Arbitrary (ProxyDSignature w a) where
+    arbitrary = proxyDSign <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary secrets
@@ -116,16 +133,18 @@ sharedSecrets =
 instance Arbitrary SecretSharingExtra where
     arbitrary = elements . fmap (view _1) $ sharedSecrets
 
-instance Arbitrary LSecretSharingExtra where
+instance Serialized SecretSharingExtra LSecretSharingExtra =>
+         Arbitrary LSecretSharingExtra where
     arbitrary = serialize @SecretSharingExtra <$> arbitrary
 
-instance Arbitrary LSecretProof where
+instance Serialized SecretProof LSecretProof =>
+         Arbitrary LSecretProof where
     arbitrary = serialize @SecretProof <$> arbitrary
 
 instance Arbitrary Secret where
     arbitrary = elements . fmap (view _2) $ sharedSecrets
 
-instance Arbitrary LSecret where
+instance Serialized Secret LSecret => Arbitrary LSecret where
     arbitrary = serialize @Secret <$> arbitrary
 
 instance Arbitrary SecretProof where
@@ -134,11 +153,11 @@ instance Arbitrary SecretProof where
 instance Arbitrary EncShare where
     arbitrary = elements . concat . fmap (view _4) $ sharedSecrets
 
-instance Arbitrary LEncShare where
+instance Serialized EncShare LEncShare => Arbitrary LEncShare where
     arbitrary = serialize @EncShare <$> arbitrary
 
 instance Arbitrary Share where
     arbitrary = unsafePerformIO <$> (decryptShare <$> arbitrary <*> arbitrary)
 
-instance Arbitrary LShare where
+instance Serialized Share LShare => Arbitrary LShare where
     arbitrary = serialize @Share <$> arbitrary

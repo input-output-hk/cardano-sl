@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Security.Workers
        ( SecurityWorkersClass (..)
@@ -13,23 +14,24 @@ import           System.Wlog                       (logWarning)
 import           Universum                         hiding (modify)
 
 import           Pos.Constants                     (k)
+import           Pos.Context                       (getNodeContext, ncPublicKey)
 import           Pos.Slotting                      (onNewSlot)
 import           Pos.Ssc.Class.Types               (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types    (GtPayload (..))
+import           Pos.Ssc.GodTossing.Types.Types    (GtPayload (..), SscBi)
 import           Pos.Ssc.NistBeacon                (SscNistBeacon)
 import           Pos.State                         (getBlockByDepth, getHeadBlock)
 import           Pos.Types                         (EpochIndex, MainBlock, SlotId (..),
                                                     blockMpc, flattenSlotId,
                                                     flattenSlotId, gbHeader, headerSlot,
                                                     makePubKeyAddress)
-import           Pos.WorkMode                      (WorkMode, getNodeContext, ncPublicKey)
+import           Pos.WorkMode                      (WorkMode)
 
 class Ssc ssc => SecurityWorkersClass ssc where
     securityWorkers :: WorkMode ssc m => Tagged ssc [m ()]
 
-instance SecurityWorkersClass SscGodTossing where
+instance SscBi => SecurityWorkersClass SscGodTossing where
     securityWorkers = Tagged [ checkForReceivedBlocksWorker
                              , checkForIgnoredCommitmentsWorker
                              ]

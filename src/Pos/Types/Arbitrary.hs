@@ -1,7 +1,9 @@
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE DeriveGeneric        #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE StandaloneDeriving   #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | `Arbitrary` instances for core types for using in tests and benchmarks
 
@@ -28,14 +30,17 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              LocalSlotIndex (..), SharedSeed (..),
                                              SlotId (..), Tx (..), TxIn (..),
                                              TxInWitness (..), TxOut (..),
-                                             makePubKeyAddress)
+                                             makePubKeyAddress, makeScriptAddress)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
-                                             NonZero (..), choose, scale, vector)
+                                             NonZero (..), choose, elements, oneof, scale,
+                                             vector)
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
+import           Pos.Binary.Class           (Bi)
 import           Pos.Crypto.Arbitrary       ()
+import           Pos.Script                 (Script, parseRedeemer, parseValidator)
 import           Pos.Types.Arbitrary.Unsafe ()
 
 makeSmall :: Gen a -> Gen a
@@ -52,11 +57,39 @@ makeSmall = scale f
           (round . (sqrt :: Double -> Double) . realToFrac . (`div` 3)) n
 
 ----------------------------------------------------------------------------
+-- Validator and redeemer scripts
+----------------------------------------------------------------------------
+
+tfValidator :: Script
+Right tfValidator = parseValidator $ unlines [
+    "data Bool = { True | False }",
+    "validator : (forall a . a -> a -> a) -> Comp Bool {",
+    "  validator f = case f True False of {",
+    "    True  -> success True : Comp Bool;",
+    "    False -> failure : Comp Bool } }" ]
+
+goodTfRedeemer :: Script
+Right goodTfRedeemer = parseRedeemer $ unlines [
+    "redeemer : Comp (forall a . a -> a -> a) {",
+    "  redeemer = success (\\t f -> t) }" ]
+
+badTfRedeemer :: Script
+Right badTfRedeemer = parseRedeemer $ unlines [
+    "redeemer : Comp (forall a . a -> a -> a) {",
+    "  redeemer = success (\\t f -> f) }" ]
+
+----------------------------------------------------------------------------
 -- Arbitrary core types
 ----------------------------------------------------------------------------
 
+instance Arbitrary Script where
+    arbitrary = elements
+        [tfValidator, goodTfRedeemer, badTfRedeemer]
+
 instance Arbitrary Address where
-    arbitrary = makePubKeyAddress <$> arbitrary
+    arbitrary = oneof [
+        makePubKeyAddress <$> arbitrary,
+        makeScriptAddress <$> arbitrary ]
 
 deriving instance Arbitrary ChainDifficulty
 
@@ -79,10 +112,14 @@ deriving instance Random LocalSlotIndex
 instance Arbitrary LocalSlotIndex where
     arbitrary = choose (0, epochSlots - 1)
 
-instance Arbitrary TxInWitness where
-    arbitrary = PkWitness <$> arbitrary <*> arbitrary
+instance (Bi TxOut, Bi Tx) => Arbitrary TxInWitness where
+    arbitrary = oneof [
+        PkWitness <$> arbitrary <*> arbitrary,
+        -- this can generate a redeemer script where a validator script is
+        -- needed and vice-versa, but it doesn't matter
+        ScriptWitness <$> arbitrary <*> arbitrary ]
 
-instance Arbitrary TxIn where
+instance Bi Tx => Arbitrary TxIn where
     arbitrary = do
         txId <- arbitrary
         txIdx <- arbitrary
@@ -91,7 +128,7 @@ instance Arbitrary TxIn where
 -- | Arbitrary transactions generated from this instance will only be valid
 -- with regards to 'verifyTxAlone'
 
-instance Arbitrary Tx where
+instance Bi Tx => Arbitrary Tx where
     arbitrary = do
         txIns <- getNonEmpty <$> arbitrary
         txOuts <- getNonEmpty <$> arbitrary
@@ -114,7 +151,8 @@ instance Arbitrary Tx where
 -- signatures in the transaction's inputs have been replaced with a bogus one.
 
 buildProperTx
-    :: [(Tx, SecretKey, SecretKey, Coin)]
+    :: (Bi Tx, Bi TxOut)
+    => [(Tx, SecretKey, SecretKey, Coin)]
     -> (Coin -> Coin, Coin -> Coin)
     -> Gen [(Tx, TxIn, TxOut, TxInWitness)]
 buildProperTx triplesList (inCoin, outCoin)= do
@@ -145,13 +183,13 @@ newtype SmallGoodTx =
     SmallGoodTx GoodTx
     deriving Show
 
-instance Arbitrary GoodTx where
+instance (Bi Tx, Bi TxOut) => Arbitrary GoodTx where
     arbitrary = GoodTx <$> do
         txsList <- getNonEmpty <$>
             (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
         buildProperTx txsList (identity, identity)
 
-instance Arbitrary SmallGoodTx where
+instance (Bi Tx, Bi TxOut) => Arbitrary SmallGoodTx where
     arbitrary = SmallGoodTx <$> makeSmall arbitrary
 
 -- | Ill-formed 'Tx' with overflow.
@@ -163,14 +201,14 @@ newtype SmallOverflowTx =
     SmallOverflowTx OverflowTx
     deriving Show
 
-instance Arbitrary OverflowTx where
+instance (Bi Tx, Bi TxOut) => Arbitrary OverflowTx where
     arbitrary = OverflowTx <$> do
         txsList <- getNonEmpty <$>
             (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
         let halfBound = maxBound `div` 2
         buildProperTx txsList ((halfBound +), (halfBound -))
 
-instance Arbitrary SmallOverflowTx where
+instance (Bi Tx, Bi TxOut) => Arbitrary SmallOverflowTx where
     arbitrary = SmallOverflowTx <$> makeSmall arbitrary
 
 -- | Ill-formed 'Tx' with bad signatures.
@@ -182,13 +220,13 @@ newtype SmallBadSigsTx =
     SmallBadSigsTx BadSigsTx
     deriving Show
 
-instance Arbitrary BadSigsTx where
+instance (Bi Tx, Bi TxOut) => Arbitrary BadSigsTx where
     arbitrary = BadSigsTx <$> do
         goodTxList <- getGoodTx <$> arbitrary
         badSig <- arbitrary
         return $ map (set _4 badSig) goodTxList
 
-instance Arbitrary SmallBadSigsTx where
+instance (Bi Tx, Bi TxOut) => Arbitrary SmallBadSigsTx where
     arbitrary = SmallBadSigsTx <$> makeSmall arbitrary
 
 instance Arbitrary SharedSeed where

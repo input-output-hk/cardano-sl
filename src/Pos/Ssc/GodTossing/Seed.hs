@@ -14,6 +14,7 @@ import qualified Data.HashMap.Strict           as HM (fromList, lookup, mapMaybe
 import qualified Data.HashSet                  as HS (difference)
 import           Universum
 
+import           Pos.Binary.Class              (deserializeM)
 import           Pos.Crypto                    (Secret, Share, Threshold, shareId,
                                                 unsafeRecoverSecret)
 import           Pos.Ssc.GodTossing.Error      (SeedError (..))
@@ -21,7 +22,7 @@ import           Pos.Ssc.GodTossing.Functions  (secretToSharedSeed, verifyOpenin
 import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
                                                 getOpening)
 import           Pos.Types                     (Address (..), SharedSeed)
-import           Pos.Util                      (deserializeM, getKeys)
+import           Pos.Util                      (getKeys)
 
 
 -- | Calculate SharedSeed. SharedSeed is a random bytestring that all
@@ -117,4 +118,3 @@ calculateSeed (fromIntegral -> t) commitments openings lShares = do
 
 mapHelper :: (Address -> c) -> (b -> Maybe a) -> HashMap Address b -> Either c (HashMap Address a)
 mapHelper errMapper mapper = HM.traverseWithKey (\pk v -> maybe (Left $ errMapper pk) Right $ mapper v)
-

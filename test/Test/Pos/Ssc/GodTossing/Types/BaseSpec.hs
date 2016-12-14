@@ -4,6 +4,7 @@ module Test.Pos.Ssc.GodTossing.Types.BaseSpec
        ( spec
        ) where
 
+import           Pos.Binary            ()
 import           Pos.Crypto            (SecretKey, sign, toPublic)
 import           Pos.Ssc.GodTossing    (Commitment, CommitmentOpening (..),
                                         verifyCommitment, verifyCommitmentSignature,

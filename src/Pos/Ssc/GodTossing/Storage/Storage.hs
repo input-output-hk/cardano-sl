@@ -8,6 +8,7 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
 {-# LANGUAGE ViewPatterns          #-}
 
 -- | Instance of SscStorageClass.
@@ -49,7 +50,7 @@ import           Pos.Ssc.GodTossing.Types.Base     (Commitment (..), VssCertific
 import           Pos.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types    (GtGlobalState (..), GtPayload (..),
-                                                    _gpCertificates)
+                                                    SscBi, _gpCertificates)
 import           Pos.State.Storage.Types           (AltChain)
 import           Pos.Types                         (Address (..), Block, EpochIndex,
                                                     SlotId (..), SlotLeaders, Utxo,
@@ -64,7 +65,7 @@ instance Serialize SscGodTossing where
     put = panic "put@SscGodTossing: can't happen"
     get = panic "get@SscGodTossing: can't happen"
 
-instance SscStorageClass SscGodTossing where
+instance SscBi => SscStorageClass SscGodTossing where
     sscApplyBlocks = mpcApplyBlocks
     sscRollback = mpcRollback
     sscGetGlobalState = getGlobalMpcData
@@ -146,7 +147,7 @@ calculateLeaders _ utxo threshold = do --GodTossing doesn't use epoch, but NistB
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
 mpcVerifyBlock
-    :: forall ssc . (SscPayload ssc ~ GtPayload)
+    :: forall ssc . (SscPayload ssc ~ GtPayload, SscBi)
     => Block ssc -> Query VerificationRes
 -- Genesis blocks don't have any SSC data.
 mpcVerifyBlock (Left _) = return VerSuccess
@@ -235,7 +236,7 @@ mpcVerifyBlock (Right b) = magnify' lastVer $ do
 -- TODO:
 --   ★ verification messages should include block hash/slotId
 --   ★ we should stop at first failing block
-mpcVerifyBlocks :: Word -> AltChain SscGodTossing -> Query VerificationRes
+mpcVerifyBlocks :: SscBi => Word -> AltChain SscGodTossing -> Query VerificationRes
 mpcVerifyBlocks toRollback blocks = do
     curState <- view (sscStorage @SscGodTossing)
     return $ flip evalState curState $ do

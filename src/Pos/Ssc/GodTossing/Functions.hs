@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies     #-}
 
 module Pos.Ssc.GodTossing.Functions
        (
@@ -42,6 +43,9 @@ import           Serokell.Util                  (VerificationRes, verifyGeneric)
 import           Serokell.Util.Verify           (isVerSuccess)
 import           Universum
 
+import           Pos.Binary.Class               (Bi, Serialized (..), deserializeM,
+                                                 serialize)
+import           Pos.Binary.Crypto              ()
 import           Pos.Constants                  (k)
 import           Pos.Crypto                     (LShare, LVssPublicKey, Secret, SecretKey,
                                                  SecureRandom (..), Threshold, checkSig,
@@ -50,8 +54,8 @@ import           Pos.Crypto                     (LShare, LVssPublicKey, Secret, 
                                                  verifyEncShare, verifySecretProof,
                                                  verifyShare)
 import           Pos.Ssc.Class.Types            (Ssc (..))
-import           Pos.Ssc.GodTossing.Types.Base  (InnerSharesMap, Commitment (..),
-                                                 CommitmentsMap, Opening (..),
+import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap,
+                                                 InnerSharesMap, Opening (..),
                                                  SignedCommitment, VssCertificate (..),
                                                  VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..))
@@ -59,7 +63,7 @@ import           Pos.Types.Types                (Address (..), EpochIndex, Local
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), checkPubKeyAddress,
                                                  headerSlot)
-import           Pos.Util                       (deserializeM, diffDoubleMap, serialize)
+import           Pos.Util                       (diffDoubleMap)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -85,7 +89,9 @@ genCommitmentAndOpening n pks = do
         , Opening $ serialize secret)
 
 -- | Make signed commitment from commitment and epoch index using secret key.
-mkSignedCommitment :: SecretKey -> EpochIndex -> Commitment -> SignedCommitment
+mkSignedCommitment
+    :: Bi Commitment
+    => SecretKey -> EpochIndex -> Commitment -> SignedCommitment
 mkSignedCommitment sk i c = (toPublic sk, c, sign sk (i, c))
 
 ----------------------------------------------------------------------------
@@ -140,12 +146,14 @@ verifyCommitmentPK :: Address -> SignedCommitment -> Bool
 verifyCommitmentPK addr (pk, _, _) = checkPubKeyAddress pk addr
 
 -- | Verify signature in SignedCommitment using epoch index.
-verifyCommitmentSignature :: EpochIndex -> SignedCommitment -> Bool
+verifyCommitmentSignature :: Bi Commitment => EpochIndex -> SignedCommitment -> Bool
 verifyCommitmentSignature epoch (pk, comm, commSig) =
     checkSig pk (epoch, comm) commSig
 
 -- | Verify SignedCommitment using public key and epoch index.
-verifySignedCommitment :: Address -> EpochIndex -> SignedCommitment -> VerificationRes
+verifySignedCommitment
+    :: Bi Commitment
+    => Address -> EpochIndex -> SignedCommitment -> VerificationRes
 verifySignedCommitment addr epoch sc@(_, comm, _) =
     verifyGeneric
         [ ( verifyCommitmentPK addr sc
@@ -244,7 +252,7 @@ For each DS datum we check:
 We also do some general sanity checks.
 -}
 verifyGtPayload
-    :: (SscPayload ssc ~ GtPayload)
+    :: (SscPayload ssc ~ GtPayload, Bi Commitment)
     => MainBlockHeader ssc -> SscPayload ssc -> VerificationRes
 verifyGtPayload header payload =
     verifyGeneric $ otherChecks ++

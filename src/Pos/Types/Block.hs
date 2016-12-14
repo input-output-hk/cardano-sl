@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
@@ -25,12 +26,12 @@ module Pos.Types.Block
        ) where
 
 import           Control.Lens         (ix, view, (^.), (^?), _3)
-import           Data.Binary          (Binary)
 import           Data.Default         (Default (def))
 import           Formatting           (build, int, sformat, (%))
 import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum
 
+import           Pos.Binary.Class     (Bi (..))
 import           Pos.Constants        (epochSlots)
 import           Pos.Crypto           (Hash, SecretKey, checkSig, hash, sign, toPublic,
                                        unsafeHash)
@@ -57,7 +58,7 @@ genesisHash = unsafeHash ("patak" :: Text)
 -- | Smart constructor for 'GenericBlockHeader'.
 mkGenericHeader
     :: forall b.
-       (Binary (BBlockHeader b), Blockchain b)
+       (Bi (BBlockHeader b), Blockchain b)
     => Maybe (BBlockHeader b)
     -> Body b
     -> (Hash (BBlockHeader b) -> BodyProof b -> ConsensusData b)
@@ -78,7 +79,7 @@ mkGenericHeader prevHeader body consensus extra =
 -- | Smart constructor for 'GenericBlock'. Uses 'mkGenericBlockHeader'.
 mkGenericBlock
     :: forall b.
-       (Binary (BBlockHeader b), Blockchain b)
+       (Bi (BBlockHeader b), Blockchain b)
     => Maybe (BBlockHeader b)
     -> Body b
     -> (Hash (BBlockHeader b) -> BodyProof b -> ConsensusData b)
@@ -90,9 +91,16 @@ mkGenericBlock prevHeader body consensus extraH extraB =
   where
     header = mkGenericHeader prevHeader body consensus extraH
 
+type BiSscBlock ssc =
+    (BiSsc ssc,
+     Bi (BodyProof (MainBlockchain ssc)),
+     Bi TxWitness,
+     Bi SlotId,
+     Bi ChainDifficulty)
+
 -- | Smart constructor for 'MainBlockHeader'.
 mkMainHeader
-    :: Ssc ssc
+    :: BiSscBlock ssc
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
@@ -113,7 +121,11 @@ mkMainHeader prevHeader slotId sk body =
 
 -- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'.
 mkMainBlock
-    :: Ssc ssc
+    :: (BiSsc ssc,
+        Bi (BodyProof (MainBlockchain ssc)),
+        Bi TxWitness,
+        Bi SlotId,
+        Bi ChainDifficulty)
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
@@ -128,7 +140,7 @@ mkMainBlock prevHeader slotId sk body =
 
 -- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.
 mkGenesisHeader
-    :: Ssc ssc
+    :: BiSsc ssc
     => Maybe (BlockHeader ssc)
     -> EpochIndex
     -> Body (GenesisBlockchain ssc)
@@ -142,7 +154,7 @@ mkGenesisHeader prevHeader epoch body =
 
 -- | Smart constructor for 'GenesisBlock'. Uses 'mkGenesisHeader'.
 mkGenesisBlock
-    :: Ssc ssc
+    :: BiSsc ssc
     => Maybe (BlockHeader ssc)
     -> EpochIndex
     -> SlotLeaders
@@ -157,13 +169,17 @@ mkGenesisBlock prevHeader epoch leaders =
     body = GenesisBody leaders
 
 -- | Smart constructor for 'Body' of 'MainBlockchain'.
-mkMainBody :: [(Tx, TxWitness)] -> SscPayload ssc -> Body (MainBlockchain ssc)
+mkMainBody
+    :: (Bi Tx)
+    => [(Tx, TxWitness)] -> SscPayload ssc -> Body (MainBlockchain ssc)
 mkMainBody txws mpc = MainBody {
     _mbTxs = mkMerkleTree (map fst txws),
     _mbWitnesses = map snd txws,
     _mbMpc = mpc }
 
-verifyConsensusLocal :: Ssc ssc => BlockHeader ssc -> VerificationRes
+verifyConsensusLocal
+    :: BiSscBlock ssc
+    => BlockHeader ssc -> VerificationRes
 verifyConsensusLocal (Left _)       = mempty
 verifyConsensusLocal (Right header) =
     verifyGeneric
@@ -205,7 +221,7 @@ maybeEmpty = maybe mempty
 -- | Check some predicates (determined by VerifyHeaderParams) about
 -- BlockHeader.
 verifyHeader
-    :: Ssc ssc
+    :: BiSscBlock ssc
     => VerifyHeaderParams ssc -> BlockHeader ssc -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
    consensusRes <> verifyGeneric checks
@@ -307,7 +323,7 @@ instance Default (VerifyBlockParams ssc) where
         }
 
 -- | Check predicates defined by VerifyBlockParams.
-verifyBlock :: Ssc ssc => VerifyBlockParams ssc -> Block ssc -> VerificationRes
+verifyBlock :: BiSscBlock ssc => VerifyBlockParams ssc -> Block ssc -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
         [ verifyG
@@ -325,7 +341,7 @@ verifyBlock VerifyBlockParams {..} blk =
 -- It doesn't affect laziness of 'VerificationRes' which is good
 -- because laziness for this data type is crucial.
 verifyBlocks
-    :: forall ssc t. (Ssc ssc, Foldable t)
+    :: forall ssc t. (BiSscBlock ssc, Foldable t)
     => Maybe SlotId -> t (Block ssc) -> VerificationRes
 verifyBlocks curSlotId = (view _3) . foldl' step start
   where

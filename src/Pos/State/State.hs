@@ -60,11 +60,13 @@ import qualified Data.HashMap.Strict      as HM
 import           Data.List.NonEmpty       (NonEmpty)
 import           Formatting               (build, sformat, (%))
 import           Pos.DHT                  (DHTResponseT)
+import           Pos.DHT.Real             (KademliaDHT)
 import           Serokell.Util            (VerificationRes)
 import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            dispatchEvents, getLoggerName, logWarning,
                                            runPureLog, usingLoggerName)
 
+import           Pos.Binary.Class         (deserializeM, serialize)
 import           Pos.Crypto               (LVssPublicKey, SecretKey, Share, VssKeyPair,
                                            decryptShare, toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
@@ -80,7 +82,6 @@ import           Pos.Types                (Address, Block, EpochIndex, GenesisBl
                                            HeaderHash, IdTxWitness, MainBlock,
                                            MainBlockHeader, SlotId, SlotLeaders, Tx, TxId,
                                            TxWitness, Utxo)
-import           Pos.Util                 (deserializeM, serialize)
 
 -- | NodeState encapsulates all the state stored by node.
 class Monad m => MonadDB ssc m | m -> ssc where
@@ -93,7 +94,10 @@ instance (Monad m, MonadDB ssc m) => MonadDB ssc (ReaderT r m) where
 instance (MonadDB ssc m, Monad m) => MonadDB ssc (StateT s m) where
     getNodeState = lift getNodeState
 
-instance (Monad m, MonadDB ssc m) => MonadDB ssc (DHTResponseT m) where
+instance (Monad m, MonadDB ssc m) => MonadDB ssc (DHTResponseT s m) where
+    getNodeState = lift getNodeState
+
+instance (MonadDB ssc m, Monad m) => MonadDB ssc (KademliaDHT m) where
     getNodeState = lift getNodeState
 
 -- | IO monad with db access.

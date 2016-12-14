@@ -10,7 +10,6 @@ import           Language.PureScript.Bridge         (BridgePart, buildBridge,
 import           Language.PureScript.Bridge.PSTypes (psInt)
 import           Universum
 
-import qualified Pos.Types.Address                  as PT
 import qualified Pos.Types.Types                    as PT
 import qualified Pos.Wallet.Web.ClientTypes         as CT
 
@@ -29,12 +28,11 @@ main =
       , mkSumType (Proxy :: Proxy CT.CTType)
       , mkSumType (Proxy :: Proxy CT.CTxMeta)
       , mkSumType (Proxy :: Proxy CT.CTExMeta)
+      , mkSumType (Proxy :: Proxy CT.CAddress)
+      , mkSumType (Proxy :: Proxy CT.CHash)
+      , mkSumType (Proxy :: Proxy CT.CTxId)
       , mkSumType (Proxy :: Proxy CT.CTx)
-      , mkSumType (Proxy :: Proxy PT.Address)
       , mkSumType (Proxy :: Proxy PT.Coin)
-      , mkSumType (Proxy :: Proxy PT.Tx)
-      , mkSumType (Proxy :: Proxy PT.TxIn)
-      , mkSumType (Proxy :: Proxy PT.TxOut)
       ]
   where
       customBridge =

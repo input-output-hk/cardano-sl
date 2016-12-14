@@ -11,11 +11,14 @@
 -- just to have a starting point)
 
 module Pos.Wallet.Web.ClientTypes
-      ( CCurrency (..)
+      ( CAddress
+      , CCurrency (..)
+      , CHash
       , CTType (..)
       , CProfile (..)
       , CPwHash
       , CTx (..)
+      , CTxId
       , CTxMeta (..)
       , CTExMeta (..)
       , CWallet (..)
@@ -28,7 +31,7 @@ import           Data.Time.Clock (NominalDiffTime)
 import           GHC.Generics    (Generic)
 import           Universum
 
-import           Pos.Types       (Address, Coin, TxId)
+import           Pos.Types       (Address (..), Coin, TxId)
 
 
 -- | currencies handled by client
@@ -37,12 +40,31 @@ data CCurrency
     = ADA
     | BTC
     | ETH
-    deriving (Show,Generic)
+    deriving (Show, Generic)
+
+-- | Client hash
+newtype CHash = CHash Text deriving (Show, Generic)
+
+-- | Client address
+newtype CAddress = CAddress CHash deriving (Show, Generic)
+
+-- | transform Address into CAddress
+addressToCAddress :: Address -> CAddress
+addressToCAddress (PubKeyAddress _ addrKeyHash)  = undefined
+addressToCAddress (ScriptAddress _ addrScriptHash)  = undefined
+
+-- | Client transaction id
+newtype CTxId = CTxId CHash deriving (Show, Generic)
+
+-- | transform TxId into CTxId
+txIdToCTxId :: TxId -> CTxId
+txIdToCTxId = undefined
 
 ----------------------------------------------------------------------------
 -- wallet
 ----------------------------------------------------------------------------
--- | Can be used as personal or shared wallet
+
+-- | A wallet can be used as personal or shared wallet
 data CWalletType
     = CWTPersonal
     | CWTShared
@@ -51,7 +73,7 @@ data CWalletType
 -- | Client Wallet (CW)
 -- (Flow type: walletType)
 data CWallet = CWallet
-    { cwAddress :: Address
+    { cwAddress :: CAddress
     , cwAmount  :: Coin
     , cwMeta    :: CWalletMeta
     } deriving (Show, Generic)
@@ -102,7 +124,7 @@ data CTType
 -- It includes meta data which are not part of Cardano, too
 -- (Flow type: transactionType)
 data CTx = CTx
-    { ctId     :: TxId
+    { ctId     :: CTxId
     , ctAmount :: Coin
     , ctType   :: CTType -- it includes all "meta data"
     } deriving (Show, Generic)
@@ -123,5 +145,5 @@ data CTExMeta = CTExMeta
     , cexDate        :: NominalDiffTime
     , cexRate        :: Text
     , cexLabel       :: Text -- counter part of client's 'exchange' value
-    , cexAddress     :: Address
+    , cexAddress     :: CAddress
     } deriving (Show, Generic)

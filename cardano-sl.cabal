@@ -540,6 +540,18 @@ executable cardano-wallet-web-docs
   else
     buildable:         False
 
+executable cardano-checks
+  hs-source-dirs:      src/checks
+  main-is:             Main.hs
+  build-depends:       base
+                     , foldl
+                     , turtle
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -Wall
+                       -O2
+  default-extensions:  OverloadedStrings
+
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec

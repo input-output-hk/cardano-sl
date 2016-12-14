@@ -43,3 +43,5 @@ testRun
 my-log-template.yaml
 tags
 run
+*.swp
+.ghci

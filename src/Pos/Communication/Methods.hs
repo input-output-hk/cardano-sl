@@ -6,6 +6,8 @@
 module Pos.Communication.Methods
        ( announceBlock
        , sendToNeighborsSafe
+       , sendToNeighborsSafe
+       , sendToNeighborsSafeWithMaliciousEmulation
        , sendTx
 
        -- * Blockchain part queries
@@ -35,19 +37,25 @@ import           Pos.WorkMode                (WorkMode)
 
 -- | Wrapper on top of sendToNeighbors which does it in separate
 -- thread and controls how much time action takes.
-sendToNeighborsSafe :: (Bi r, Message r, WorkMode ssc m) => r -> m ()
-sendToNeighborsSafe msg = do
+sendToNeighborsSafeImpl :: (Bi r, Message r, WorkMode ssc m) => Bool -> r -> m ()
+sendToNeighborsSafeImpl emulateMaliciousActions msg = do
     let msgName = messageName' msg
-    -- let action = () <$ sendToNeighbors msg
+    let sendToNode' = if emulateMaliciousActions then sendMalicious else sendToNode
     -- TODO(voit): sendToNeighbors should be done using seqConcurrentlyK
-    let action = () <$ defaultSendToNeighbors sequence mySendToNode msg
+    let action = () <$ defaultSendToNeighbors sequence sendToNode' msg
     fork_ $
         logWarningWaitLinear 10 ("Sending " <> msgName <> " to neighbors") action
   where
-    mySendToNode addr message = do
+    sendMalicious addr message = do
         malicious <- ncMalicious <$> getNodeContext
         when (addr `notElem` malicious) $
             sendToNode addr message
+
+sendToNeighborsSafe :: (Bi r, Message r, WorkMode ssc m) => r -> m ()
+sendToNeighborsSafe = sendToNeighborsSafeImpl False
+
+sendToNeighborsSafeWithMaliciousEmulation :: (Bi r, Message r, WorkMode ssc m) => r -> m ()
+sendToNeighborsSafeWithMaliciousEmulation = sendToNeighborsSafeImpl True
 
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.
@@ -56,7 +64,7 @@ announceBlock
     => MainBlockHeader ssc -> m ()
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
-    sendToNeighborsSafe . SendBlockHeader $ header
+    sendToNeighborsSafeWithMaliciousEmulation . SendBlockHeader $ header
 
 -- | Query the blockchain part. Generic method.
 queryBlockchainPart

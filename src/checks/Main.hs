@@ -1,6 +1,6 @@
 #!/usr/bin/env stack
 -- stack --install-ghc runghc --package turtle
- 
+
 {-# LANGUAGE OverloadedStrings #-}
 
 import qualified Control.Foldl as Fold
@@ -12,9 +12,9 @@ main = do
     xs <- arguments
     case xs of
         [folder, file] -> pandoc file $ folderMarkDown folder
-        _              -> err "Expected source folder and output file as arguments." 
+        _              -> err "Expected source folder and output file as arguments."
 
-data Check = Module !Text | CheckHeader !Text | CheckItem !Int !Text
+data Check = Module !Text | CheckHeader !Int !Text | CheckItem !Int !Text
 
 hsFiles :: FilePath -> Shell FilePath
 hsFiles folder = do
@@ -56,17 +56,19 @@ handleFile file = do
 
     checkPattern :: Int -> Pattern Check
     checkPattern n =
-            (Module             <$> (text "module " *> star (noneOf " ") <* rest))
-        <|> (CheckHeader        <$> (chars *> text "-- CHECK # " *> chars))
-        <|> (CheckItem (succ n) <$> (chars *> text "-- CHECK ## " *> chars))
+            (Module               <$> (text "module " *> star (noneOf " ") <* rest))
+        <|> (CheckHeader (succ n) <$> (chars *> text "-- CHECK # " *> chars))
+        <|> (CheckItem   (succ n) <$> (chars *> text "-- CHECK ## " *> chars))
 
     rest = (char ' ' <* chars <|> eof *> pure ' ')
 
     fromCheck :: Check -> Shell Text
-    fromCheck (Module t)      = return "" <|> return ("## " <> t)
-    fromCheck (CheckHeader t) = return "" <|> (return $ "### " <> t)
-    fromCheck (CheckItem n t) = return ("  * " <> t) <|>
-                                return (fromString $ "     + line " <> show n)
+    fromCheck (Module t)        = return "" <|> return ("## " <> t)
+    fromCheck (CheckHeader n t) = return "" <|> (return $ "### " <> t <> line n)
+    fromCheck (CheckItem   n t) = return ("  * " <> t <> line n)
+
+    line :: Int -> Text
+    line n = " _(line " <> fromString (show n) <> ")_"
 
 {-
 handleFolder :: FilePath -> IO ()

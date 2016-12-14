@@ -22,6 +22,7 @@ data NodeContext ssc = NodeContext
     , ncJLFile      :: !(Maybe (MVar FilePath))
     , ncDbPath      :: !(Maybe FilePath)
     , ncSscContext  :: !(SscNodeContext ssc)
+    , ncMalicious   :: !Bool
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

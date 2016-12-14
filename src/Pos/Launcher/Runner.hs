@@ -262,6 +262,7 @@ runCH NodeParams {..} sscNodeContext act =
         , ncJLFile = jlFile
         , ncDbPath = npDbPath
         , ncSscContext = sscNodeContext
+        , ncMalicious = npMalicious
         }
 
 runTimed :: LoggerName -> Dialog (BiP DHTMsgHeader) Transfer a -> IO a

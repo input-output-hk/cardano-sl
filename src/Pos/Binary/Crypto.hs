@@ -17,6 +17,7 @@ import qualified Data.Binary              as Binary
 import           Data.Binary.Get          (getByteString)
 import           Data.Binary.Put          (putByteString)
 import qualified Data.ByteArray           as ByteArray
+import qualified Data.ByteString          as BS
 import qualified Data.ByteString.Lazy     as LBS
 import           Data.SafeCopy            (SafeCopy (..))
 import           Formatting               (int, sformat, stext, (%))
@@ -31,11 +32,9 @@ import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretPro
 import           Pos.Crypto.SerTypes      (LEncShare (..), LSecret (..),
                                            LSecretProof (..), LSecretSharingExtra (..),
                                            LShare (..), LVssPublicKey (..))
-import           Pos.Crypto.Signing       (ProxyCert (..), ProxyDSignature (..),
-                                           ProxyISignature (..), ProxySecretKey (..),
-                                           PublicKey (..), SecretKey (..), Signature (..),
-                                           Signed (..), publicKeyLength, putAssertLength,
-                                           secretKeyLength, signatureLength)
+import           Pos.Crypto.Signing       (ProxyCert (..), ProxySecretKey (..),
+                                           ProxySignature (..), PublicKey (..),
+                                           SecretKey (..), Signature (..), Signed (..))
 import           Pos.Util                 (getCopyBinary, putCopyBinary)
 
 instance Bi a => Bi (WithHash a) where
@@ -194,6 +193,17 @@ instance Serialized SecretSharingExtra LSecretSharingExtra where
 -- Signing
 ----------------------------------------------------------------------------
 
+secretKeyLength, publicKeyLength, signatureLength :: Int
+secretKeyLength = 64
+publicKeyLength = 32
+signatureLength = 64
+
+putAssertLength :: Monad m => Text -> Int -> ByteString -> m ()
+putAssertLength typeName expectedLength bs =
+    when (BS.length bs /= expectedLength) $ panic $
+        sformat ("put@"%stext%": expected length "%int%", not "%int)
+                typeName expectedLength (BS.length bs)
+
 instance Bi Ed25519.PublicKey where
     put (Ed25519.PublicKey k) = do
         putAssertLength "PublicKey" publicKeyLength k
@@ -220,17 +230,16 @@ instance Bi a => Bi (Signed a) where
     put (Signed v s) = put (v,s)
     get = Signed <$> get <*> get
 
-deriving instance Bi (ProxyISignature a)
 deriving instance Bi (ProxyCert w)
 
 instance (Bi w) => Bi (ProxySecretKey w) where
     put (ProxySecretKey w cert) = put w >> put cert
     get = liftM2 ProxySecretKey get get
 
-instance (Bi w) => Bi (ProxyDSignature w a) where
-    put ProxyDSignature{..} = do
+instance (Bi w) => Bi (ProxySignature w a) where
+    put ProxySignature{..} = do
         put pdOmega
         put pdDelegatePk
         put pdCert
         put pdSig
-    get = liftM4 ProxyDSignature get get get get
+    get = liftM4 ProxySignature get get get get

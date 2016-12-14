@@ -5,7 +5,6 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
-{-# LANGUAGE ViewPatterns          #-}
 
 -- | Internal state of the transaction-handling worker. Trasnaction
 -- processing logic.
@@ -24,29 +23,29 @@ module Pos.Modern.Txp.Storage
 --         txApplyBlocks
 --       , txRollback
        ) where
-import           Control.Lens            (each, over, (^.), _1)
-import           Control.Monad.IfElse    (aifM)
-import qualified Data.ByteString.Lazy    as BSL
-import qualified Data.List.NonEmpty      as NE
-import qualified Data.Map.Strict         as M
-import           Data.Maybe              (fromJust, isJust)
-import           Database.RocksDB        (BatchOp (..), WriteBatch, write)
-import           Formatting              (build, sformat, text, (%))
-import           System.Wlog             (WithLogger, logError)
-import           Universum
 
-import           Pos.Binary              (encode)
-import           Pos.Crypto              (Hash, WithHash (..), hash, withHash)
-import           Pos.Modern.DB           (DB (..), MonadDB)
-import           Pos.Modern.DB.Block     (getBlock, getUndo)
-import           Pos.Modern.DB.Utxo      (getTip, putTip)
-import           Pos.Modern.Types.Utxo   (verifyTxs)
-import           Pos.Ssc.Class.Types     (Ssc)
-import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types               (Block, BlockHeader, IdTxWitness, SlotId,
-                                          Tx (..), TxIn (..), TxOut, TxWitness, Undo,
-                                          blockSlot, blockTxws, blockTxws, convertFrom',
-                                          headerHash, prevBlockL, slotIdF)
+-- import           Control.Lens            (each, over, (^.), _1)
+-- import           Control.Monad.IfElse    (aifM)
+-- import qualified Data.ByteString.Lazy    as BSL
+-- import qualified Data.List.NonEmpty      as NE
+-- import qualified Data.Map.Strict         as M
+-- import           Data.Maybe              (fromJust, isJust)
+-- import           Database.RocksDB        (BatchOp (..), WriteBatch, write)
+-- import           Formatting              (build, sformat, text, (%))
+-- import           System.Wlog             (WithLogger, logError)
+-- import           Universum
+
+-- import           Pos.Binary              (encode)
+-- import           Pos.Crypto              (Hash, WithHash (..), hash, withHash)
+-- import           Pos.Modern.DB           (DB (..), MonadDB)
+-- import           Pos.Modern.DB.Block     (getBlock, getUndo)
+-- import           Pos.Modern.DB.Utxo      (getTip, putTip)
+-- import           Pos.Modern.Types.Utxo   (verifyTxs)
+-- import           Pos.Ssc.Class.Types     (Ssc)
+-- import           Pos.State.Storage.Types (AltChain)
+-- import           Pos.Types (Block, BlockHeader, IdTxWitness, SlotId, Tx (..), TxIn (..),
+--                             TxOut, TxWitness, Undo, blockSlot, blockTxws, blockTxws,
+--                             convertFrom', headerHash, prevBlockL, slotIdF)
 -- | I have commented whole this file, because tx processing will be changed (due to csl289) and I'll fix it in csl289.
 
 -- | Apply chain of /definitely/ valid blocks which go right after
@@ -173,9 +172,9 @@ import           Pos.Types               (Block, BlockHeader, IdTxWitness, SlotI
 --         "Failed to apply transactions on block from slot " %
 --         slotIdF%", error: "%build
 
-isGenesisBlock :: Block ssc -> Bool
-isGenesisBlock (Left _) = True
-isGenesisBlock _        = False
+-- isGenesisBlock :: Block ssc -> Bool
+-- isGenesisBlock (Left _) = True
+-- isGenesisBlock _        = False
 
 -- | Check if given transaction is verified, e. g.
 -- is present in `k` and more blocks deeper

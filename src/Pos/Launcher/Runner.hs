@@ -59,9 +59,8 @@ import           Pos.Communication            (SysStartRequest (..), allListener
                                                sysStartRespListener)
 import           Pos.Constants                (RunningMode (..), defaultPeers,
                                                isDevelopment, runningMode)
-import           Pos.DHT                      (BiP (..), ListenerDHT,
-                                               MonadDHT (..), mapListenerDHT,
-                                               sendToNeighbors)
+import           Pos.DHT                      (BiP (..), ListenerDHT, MonadDHT (..),
+                                               mapListenerDHT, sendToNeighbors)
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB                as Modern
 #endif
@@ -85,10 +84,8 @@ import           Pos.Statistics               (getNoStatsT, runStatsT)
 import           Pos.Types                    (Timestamp (Timestamp), timestampF)
 import           Pos.Util                     (runWithRandomIntervals)
 import           Pos.Worker                   (statsWorkers)
-import           Pos.WorkMode                 (ProductionMode,
-                                               RawRealMode, ServiceMode, SocketState,
-                                               StatsMode,
-                                               runTxLDImpl)
+import           Pos.WorkMode                 (ProductionMode, RawRealMode, ServiceMode,
+                                               SocketState, StatsMode, runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Service node runners
@@ -256,9 +253,10 @@ runCH :: MonadIO m
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH NodeParams {..} sscNodeContext act =
     flip runContextHolder act . ctx =<<
-    liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
+    (,) <$> liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile) <*>
+    liftIO newEmptyMVar
   where
-    ctx jlFile =
+    ctx (jlFile, semaphore) =
         NodeContext
         { ncSystemStart = npSystemStart
         , ncSecretKey = npSecretKey
@@ -267,6 +265,7 @@ runCH NodeParams {..} sscNodeContext act =
         , ncDbPath = npDbPath
         , ncSscContext = sscNodeContext
         , ncPropagation = npPropagation
+        , ncBlkSemaphore = semaphore
         }
 
 runTimed :: LoggerName -> Dialog DHTPacking (Transfer SocketState) a -> IO a

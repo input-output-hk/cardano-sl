@@ -177,11 +177,13 @@ library
                         Pos.Binary.Modern.DB
                         Pos.Modern.DB
                         Pos.Modern.DB.Block
-                        Pos.Modern.DB.Utxo
                         Pos.Modern.DB.Class
+                        Pos.Modern.DB.DB
+                        Pos.Modern.DB.Error
                         Pos.Modern.DB.Functions
                         Pos.Modern.DB.Holder
                         Pos.Modern.DB.Types
+                        Pos.Modern.DB.Utxo
                         Pos.Modern.Types.Utxo
                         Pos.Modern.Txp.Storage
                         Pos.Modern.Txp.LocalData

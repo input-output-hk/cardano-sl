@@ -4,7 +4,6 @@
 
 module Pos.Modern.DB.Functions
        ( openDB
-       , openNodeDBs
        , rocksDelete
        , rocksGetBi
        , rocksGetBytes
@@ -20,28 +19,15 @@ import qualified Data.ByteString.Lazy         as BSL
 import           Data.Default                 (def)
 import qualified Database.RocksDB             as Rocks
 import           Formatting                   (formatToString, shown, string, (%))
-import           System.Directory             (createDirectoryIfMissing)
-import           System.FilePath              ((</>))
 import           Universum
 
 import           Pos.Binary.Class             (Bi, decodeFull, encode)
-import           Pos.Modern.DB.Types          (DB (..), NodeDBs (..))
+import           Pos.Modern.DB.Types          (DB (..))
 
 -- | Open DB stored on disk.
 openDB :: MonadResource m => FilePath -> m (DB ssc)
 openDB fp = DB def def def
                    <$> Rocks.open fp def { Rocks.createIfMissing = True }
-
--- | Open all DBs stored on disk.
-openNodeDBs :: MonadResource m => FilePath -> m (NodeDBs ssc)
-openNodeDBs fp = do
-    let blockPath = fp </> "blocks"
-    let utxoPath = fp </> "utxo"
-    mapM_ ensureDirectoryExists [blockPath, utxoPath]
-    NodeDBs <$> openDB (fp </> "blocks") <*> openDB (fp </> "utxo")
-  where
-    ensureDirectoryExists :: MonadIO m => FilePath -> m ()
-    ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 
 -- | Read ByteString from RocksDb using given key.
 rocksGetBytes :: (MonadIO m) => ByteString -> DB ssc -> m (Maybe ByteString)

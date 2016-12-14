@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE LambdaCase             #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE StandaloneDeriving     #-}
@@ -67,6 +68,7 @@ module Pos.Types.Types
        , MainBlockchain
        , MainBlockHeader
        , BiSsc
+       , BlockSignature (..)
        , ChainDifficulty (..)
        , MainToSign
        , MainBlock
@@ -133,6 +135,7 @@ import qualified Data.Map               as M (toList)
 import           Data.SafeCopy          (SafeCopy (..), base, contain,
                                          deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Semigroup         (Semigroup (..))
+import qualified Data.Serialize         as Cereal (getWord8, putWord8)
 import           Data.Tagged            (untag)
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
@@ -151,8 +154,8 @@ import           Pos.Binary.Address     ()
 import           Pos.Binary.Class       (Bi)
 import           Pos.Binary.Script      ()
 import           Pos.Constants          (sharedSeedLength)
-import           Pos.Crypto             (Hash, PublicKey, Signature, hash, hashHexF,
-                                         shortHashF)
+import           Pos.Crypto             (Hash, ProxySignature, PublicKey, Signature, hash,
+                                         hashHexF, shortHashF)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Script             (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
@@ -470,6 +473,16 @@ newtype ChainDifficulty = ChainDifficulty
 -- | Constraint for data to be signed in main block.
 type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
 
+-- TODO replace _mcdSignature with this
+-- | Signature of the block. Can be either regular signature from the
+-- issuer or delegated signature having a constraint on epoch indices
+-- (it means the signature is valid only if block's slot id has epoch
+-- inside the constrained interval).
+data BlockSignature ssc
+    = BlockSignature (Signature (MainToSign ssc))
+    | BlockPSignature (ProxySignature (EpochIndex, EpochIndex) (MainToSign ssc))
+    deriving Show
+
 instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
     data BodyProof (MainBlockchain ssc) = MainProof
@@ -486,7 +499,7 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         , -- | Difficulty of chain ending in this block.
         _mcdDifficulty :: !ChainDifficulty
         , -- | Signature given by slot leader.
-        _mcdSignature  :: !(Signature (MainToSign ssc))
+        _mcdSignature  :: !(BlockSignature ssc)
         } deriving (Generic, Show)
     type BBlockHeader (MainBlockchain ssc) = BlockHeader ssc
 
@@ -689,7 +702,7 @@ mcdDifficulty :: Lens' (ConsensusData (MainBlockchain ssc)) ChainDifficulty
 MAKE_LENS(mcdDifficulty, _mcdDifficulty)
 
 -- | Lens for 'Signature' of 'MainBlockchain' in 'ConsensusData'.
-mcdSignature :: Lens' (ConsensusData (MainBlockchain ssc)) (Signature (MainToSign ssc))
+mcdSignature :: Lens' (ConsensusData (MainBlockchain ssc)) (BlockSignature ssc)
 MAKE_LENS(mcdSignature, _mcdSignature)
 
 -- makeLensesData ''ConsensusData ''(GenesisBlockchain ssc)
@@ -735,7 +748,7 @@ headerLeaderKey :: Lens' (MainBlockHeader ssc) PublicKey
 headerLeaderKey = gbhConsensus . mcdLeaderKey
 
 -- | Lens from 'MainBlockHeader' to 'Signature'.
-headerSignature :: Lens' (MainBlockHeader ssc) (Signature (MainToSign ssc))
+headerSignature :: Lens' (MainBlockHeader ssc) (BlockSignature ssc)
 headerSignature = gbhConsensus . mcdSignature
 
 -- | Type class for something that has 'ChainDifficulty'.
@@ -838,7 +851,7 @@ blockLeaderKey :: Lens' (MainBlock ssc) PublicKey
 blockLeaderKey = gbHeader . headerLeaderKey
 
 -- | Lens from 'MainBlock' to 'Signature'.
-blockSignature :: Lens' (MainBlock ssc) (Signature (MainToSign ssc))
+blockSignature :: Lens' (MainBlock ssc) (BlockSignature ssc)
 blockSignature = gbHeader . headerSignature
 
 -- | Lens from 'MainBlock' to 'SscPayload'.
@@ -975,6 +988,14 @@ instance SafeCopy (BodyProof (GenesisBlockchain ssc)) where
     putCopy (GenesisProof x) =
         contain $
         do safePut x
+
+instance SafeCopy (BlockSignature ssc) where
+    getCopy = contain $ Cereal.getWord8 >>= \case
+        0 -> BlockSignature <$> safeGet
+        1 -> BlockPSignature <$> safeGet
+        t -> fail $ "getCopy@BlockSignature: couldn't read tag: " <> show t
+    putCopy (BlockSignature sig)       = contain $ Cereal.putWord8 0 >> safePut sig
+    putCopy (BlockPSignature proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
 
 instance SafeCopy (ConsensusData (MainBlockchain ssc)) where
     getCopy =

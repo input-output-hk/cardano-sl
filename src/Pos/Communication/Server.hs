@@ -14,30 +14,18 @@ import           Data.Tagged                       (untag)
 import           System.Wlog                       (LoggerName)
 import           Universum
 
-import           Pos.Binary.Class                  (Bi)
+import           Pos.Binary.Communication          ()
 import           Pos.Communication.Server.Block    (blockListeners)
 import           Pos.Communication.Server.SysStart
-import           Pos.Communication.Types.Block     as Bl
 import           Pos.Communication.Util            (modifyListenerLogger)
 import           Pos.DHT                           (ListenerDHT, MonadDHTDialog)
 import           Pos.Ssc.Class.Listeners           (SscListenersClass, sscListeners)
 import           Pos.Txp.Listeners                 (txListeners)
-import           Pos.Txp.Types.Communication       as Txp
 import           Pos.WorkMode                      (SocketState, WorkMode)
 
 -- | All listeners running on one node.
 allListeners
-    :: (SscListenersClass ssc
-       ,MonadDHTDialog SocketState m
-       ,WorkMode ssc m
-       ,Bi (Bl.SendBlock ssc)
-       ,Bi (Bl.SendBlockHeader ssc)
-       ,Bi (Bl.RequestBlock ssc)
-       ,Bi (Bl.RequestBlockchainPart ssc)
-       ,Bi (Bl.SendBlockchainPart ssc)
-       ,Bi Txp.TxInvMsg
-       ,Bi Txp.TxReqMsg
-       ,Bi Txp.TxDataMsg)
+    :: (SscListenersClass ssc, MonadDHTDialog SocketState m, WorkMode ssc m)
     => [ListenerDHT SocketState m]
 allListeners =
     map (modifyListenerLogger serverLoggerName) $

@@ -15,7 +15,7 @@ import           Formatting                  (build, sformat, stext, (%))
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 import           Universum
 
-import           Pos.Binary.Class            (Bi)
+import           Pos.Binary.Txp              ()
 import           Pos.Communication.Methods   (sendToNeighborsSafe)
 import           Pos.Communication.Types     (ResponseMode)
 import           Pos.Crypto                  (hash)
@@ -32,9 +32,9 @@ import           Pos.Types                   (IdTxWitness, TxId)
 import           Pos.WorkMode                (SocketState, WorkMode)
 
 -- | Listeners for requests related to blocks processing.
-txListeners :: (MonadDHTDialog SocketState m, WorkMode ssc m, Bi TxInvMsg,
-                Bi TxReqMsg, Bi TxDataMsg)
-            => [ListenerDHT SocketState m]
+txListeners
+    :: (MonadDHTDialog SocketState m, WorkMode ssc m)
+    => [ListenerDHT SocketState m]
 txListeners =
     [
       ListenerDHT handleTxInv
@@ -43,7 +43,7 @@ txListeners =
     ]
 
 handleTxInv
-    :: (ResponseMode ssc m, Bi TxReqMsg)
+    :: (ResponseMode ssc m)
     => TxInvMsg -> m ()
 handleTxInv (TxInvMsg txHashes_) = do
     let txHashes = NE.toList txHashes_
@@ -61,7 +61,7 @@ handleTxInv (TxInvMsg txHashes_) = do
         sformat ("Ignoring tx with hash ("%build%"), because it's useless") txHash
 
 handleTxReq
-    :: (ResponseMode ssc m, Bi TxDataMsg)
+    :: (ResponseMode ssc m)
     => TxReqMsg -> m ()
 handleTxReq (TxReqMsg txIds_) = do
     localTxs <- getLocalTxs
@@ -70,7 +70,7 @@ handleTxReq (TxReqMsg txIds_) = do
         addedItems = map fromJust . filter isJust $ found
     mapM_ (replyToNode . uncurry TxDataMsg) addedItems
 
-handleTxData :: (ResponseMode ssc m, Bi TxInvMsg)
+handleTxData :: (ResponseMode ssc m)
              => TxDataMsg -> m ()
 handleTxData (TxDataMsg tx tw) = do
     let txId = hash tx

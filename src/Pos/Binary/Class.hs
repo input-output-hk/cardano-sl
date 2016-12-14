@@ -7,6 +7,7 @@
 module Pos.Binary.Class
        ( Bi (..)
        , encode
+       , encodeStrict
        , decode
        , decodeOrFail
        , decodeFull
@@ -56,12 +57,19 @@ class Bi t where
 --    get = get
 --    put = put
 
--- | Encode a value to a strict bytestring
+-- | Encode a value to a lazy bytestring
 encode :: Bi a => a -> BSL.ByteString
 encode = runPut . put
 {-# INLINE encode #-}
 
--- | Decode a value from a lazy ByteString, reconstructing the original structure.
+-- | Encode a value to a strict bytestring.  Use with caution, because
+-- converting to strict ByteString is expensive.
+encodeStrict :: Bi a => a -> ByteString
+encodeStrict = BSL.toStrict . encode
+{-# INLINE encodeStrict #-}
+
+-- | Decode a value from a lazy ByteString, reconstructing the
+-- original structure.
 decode :: Bi a => BSL.ByteString -> a
 decode = runGet get
 

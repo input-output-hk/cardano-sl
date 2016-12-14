@@ -4,15 +4,26 @@
 -- | Types related to DB.
 
 module Pos.Modern.DB.Types
-       ( DB (..)
+       (
+         -- * General types.
+         DB (..)
        , NodeDBs (..)
        , blockDB
        , utxoDB
+
+        -- * Block DB related types.
+       , StoredBlock (..)
        ) where
 
 import           Control.Lens     (makeLenses)
 import qualified Database.RocksDB as Rocks
--- import           Universum
+import           Universum
+
+import           Pos.Types        (Block)
+
+----------------------------------------------------------------------------
+-- General
+----------------------------------------------------------------------------
 
 -- should we replace `rocks` prefix by other or remove it at all?
 data DB ssc = DB
@@ -28,3 +39,12 @@ data NodeDBs ssc = NodeDBs
     }
 
 makeLenses ''NodeDBs
+
+----------------------------------------------------------------------------
+-- Blocks DB
+----------------------------------------------------------------------------
+
+data StoredBlock ssc = StoredBlock
+    { sbBlock  :: !(Block ssc)  -- ^ Block itself.
+    , sbInMain :: !Bool         -- ^ Whether block is part of our main chain.
+    } deriving (Generic)

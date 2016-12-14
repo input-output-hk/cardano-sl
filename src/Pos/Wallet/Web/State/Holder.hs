@@ -1,5 +1,8 @@
-{-# LANGUAGE CPP          #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Pos.Wallet.Web.State.Holder
        ( WalletWebDB
@@ -35,7 +38,7 @@ newtype WalletWebDB m a = WalletWebDB
     { getWalletWebDB :: ReaderT WalletState m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                 MonadMask, MonadIO, MonadDB ssc, HasLoggerName, WithNodeContext ssc,
-                MonadDialog p, MonadDHT, MonadMessageDHT, MonadSlots, MonadSscLD ssc,
+                MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots, MonadSscLD ssc,
 #ifdef WITH_ROCKS
                 Modern.MonadDB ssc,
 #endif
@@ -48,7 +51,7 @@ instance Monad m => WrappedM (WalletWebDB m) where
 instance MonadTrans WalletWebDB where
     lift = WalletWebDB . lift
 
-instance MonadTransfer m => MonadTransfer (WalletWebDB m)
+instance MonadTransfer s m => MonadTransfer s (WalletWebDB m)
 
 type instance ThreadId (WalletWebDB m) = ThreadId m
 

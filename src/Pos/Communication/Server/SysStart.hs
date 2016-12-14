@@ -15,17 +15,18 @@ import           Universum
 
 import           Pos.Binary.Class        (Bi)
 import           Pos.Communication.Types (SysStartRequest (..), SysStartResponse (..))
-import           Pos.DHT                 (ListenerDHT (..), closeResponse, replyToNode)
+import           Pos.DHT                 (ListenerDHT (..), closeResponse, replyToNode, MonadDHTDialog)
 import           Pos.Types               (Timestamp)
-import           Pos.WorkMode            (MinWorkMode, MonadUserDialog)
+import           Pos.WorkMode            (MinWorkMode, SocketState)
 
-sysStartReqListenerSlave :: (MonadUserDialog m, Bi SysStartRequest) => ListenerDHT m
+sysStartReqListenerSlave :: (MonadDHTDialog s m, Bi SysStartRequest) => ListenerDHT s m
 sysStartReqListenerSlave = ListenerDHT $ \(_ :: SysStartRequest) -> return ()
 
 -- | Listener for 'SysStartRequest' message.
 sysStartReqListener
-    :: (MonadUserDialog m, MinWorkMode m, Bi SysStartRequest, Bi SysStartResponse)
-    => Timestamp -> ListenerDHT m
+    :: (MonadDHTDialog SocketState m, MinWorkMode m, Bi SysStartRequest,
+        Bi SysStartResponse)
+    => Timestamp -> ListenerDHT SocketState m
 sysStartReqListener sysStart = ListenerDHT $
     \(_ :: SysStartRequest) -> do
         replyToNode $ SysStartResponse sysStart Nothing
@@ -33,10 +34,10 @@ sysStartReqListener sysStart = ListenerDHT $
 
 -- | Listener for 'SysStartResponce' message.
 sysStartRespListener
-    :: (MonadUserDialog m
+    :: (MonadDHTDialog SocketState m
        ,MinWorkMode m
        ,Bi SysStartResponse)
-    => MVar Timestamp -> ListenerDHT m
+    => MVar Timestamp -> ListenerDHT SocketState m
 sysStartRespListener mvar = ListenerDHT $
     \(SysStartResponse ts _ :: SysStartResponse) -> do
         liftIO . void . tryPutMVar mvar $ ts

@@ -9,11 +9,11 @@ module Pos.Ssc.Class.Listeners
 
 import           Data.Tagged         (Tagged)
 
-import           Pos.DHT             (ListenerDHT (..))
+import           Pos.DHT             (ListenerDHT (..), MonadDHTDialog)
 import           Pos.Ssc.Class.Types (Ssc (..))
-import           Pos.WorkMode        (MonadUserDialog, WorkMode)
+import           Pos.WorkMode        (SocketState, WorkMode)
 
 -- | Class for defining listeners in DHT @SSC@ implementation.
-class Ssc ssc => SscListenersClass ssc  where
-    sscListeners :: (MonadUserDialog m, WorkMode ssc m)
-                 => Tagged ssc [ListenerDHT m]
+class Ssc ssc => SscListenersClass ssc where
+    sscListeners :: (MonadDHTDialog SocketState m, WorkMode ssc m)
+                 => Tagged ssc [ListenerDHT SocketState m]

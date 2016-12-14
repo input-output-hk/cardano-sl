@@ -39,7 +39,7 @@ instance MonadSlots m => MonadSlots (StateT s m) where
     getSystemStartTime = lift getSystemStartTime
     getCurrentTime = lift getCurrentTime
 
-instance MonadSlots m => MonadSlots (DHTResponseT m) where
+instance MonadSlots m => MonadSlots (DHTResponseT s m) where
     getSystemStartTime = lift getSystemStartTime
     getCurrentTime = lift getCurrentTime
 

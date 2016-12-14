@@ -25,7 +25,7 @@ import           Pos.Binary.Class            (Bi)
 import           Pos.Communication.Types     (RequestBlockchainPart (..),
                                               SendBlockHeader (..))
 import           Pos.Context                 (getNodeContext, ncMalicious)
-import           Pos.DHT                     (MonadMessageDHT, sendToNeighbors,
+import           Pos.DHT                     (MonadMessageDHT,
                                               sendToNode, defaultSendToNeighbors)
 import           Pos.Txp.Types.Communication (TxDataMsg (..))
 import           Pos.Types                   (HeaderHash, MainBlockHeader, Tx, TxWitness,
@@ -44,10 +44,10 @@ sendToNeighborsSafe msg = do
     fork_ $
         logWarningWaitLinear 10 ("Sending " <> msgName <> " to neighbors") action
   where
-    mySendToNode addr msg = do
+    mySendToNode addr message = do
         malicious <- ncMalicious <$> getNodeContext
         when (addr `notElem` malicious) $
-            sendToNode addr msg
+            sendToNode addr message
 
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.

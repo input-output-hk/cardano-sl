@@ -29,6 +29,7 @@ module Pos.State.Storage
 
        , getUtxo
        , getUtxoByDepth
+       , getOldestUtxo
        , isTxVerified
        , processTx
 
@@ -77,9 +78,10 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
                                           ProcessTxRes (..), mkPBRabort)
 import           Pos.Txp.Storage         (HasTxStorage (txStorage), TxStorage,
-                                          filterLocalTxs, getUtxo, getUtxoByDepth,
-                                          isTxVerified, processTx, txApplyBlocks,
-                                          txRollback, txStorageFromUtxo, txVerifyBlocks)
+                                          filterLocalTxs, getOldestUtxo, getUtxo,
+                                          getUtxoByDepth, isTxVerified, processTx,
+                                          txApplyBlocks, txRollback, txStorageFromUtxo,
+                                          txVerifyBlocks)
 import           Pos.Types               (Address, Block, EpochIndex, EpochOrSlot (..),
                                           GenesisBlock, IdTxWitness, MainBlock,
                                           SlotId (..), SlotLeaders, Utxo, blockMpc,

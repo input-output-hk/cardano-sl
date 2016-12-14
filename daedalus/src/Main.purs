@@ -13,4 +13,4 @@ import Data.Argonaut.Generic.Aeson (encodeJson)
 -- it's just a first (unsafe) entry point
 main = launchAff do
   Right addr <- getAddresses
-  liftEff $ log <<< printJson $ encodeJson addr
+  liftEff <<< log <<< printJson $ encodeJson addr

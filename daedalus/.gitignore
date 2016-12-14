@@ -5,3 +5,4 @@ output/
 .psci_modules/
 .pulp-cache/
 .psc-ide-port
+./Pos/ # generated types by purescript-bridge

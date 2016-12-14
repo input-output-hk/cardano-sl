@@ -1,5 +1,5 @@
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Security.Workers
@@ -23,8 +23,8 @@ import           Pos.Ssc.GodTossing.Types.Types    (GtPayload (..), SscBi)
 import           Pos.Ssc.NistBeacon                (SscNistBeacon)
 import           Pos.State                         (getBlockByDepth, getHeadBlock)
 import           Pos.Types                         (EpochIndex, MainBlock, SlotId (..),
-                                                    blockMpc, flattenSlotId,
-                                                    flattenSlotId, gbHeader, headerSlot,
+                                                    blockMpc, flattenSlotId, gbHeader,
+                                                    gbhConsensus, gcdEpoch, headerSlot,
                                                     makePubKeyAddress)
 import           Pos.WorkMode                      (WorkMode)
 
@@ -55,12 +55,14 @@ checkForReceivedBlocksWorker :: WorkMode ssc m => m ()
 checkForReceivedBlocksWorker = onNewSlot True $ \slotId -> do
     headBlock <- getHeadBlock
     case headBlock of
-        Left _    -> return ()
-        Right blk -> do
-            let fSlotId = flattenSlotId slotId
-            let fBlockGeneratedSlotId = flattenSlotId (blk ^. gbHeader . headerSlot)
-            when (fSlotId - fBlockGeneratedSlotId > blocksNotReceivedThreshold)
-                reportAboutEclipsed
+        Left genesis -> compareSlots slotId $ SlotId (genesis ^. gbHeader . gbhConsensus . gcdEpoch) 0
+        Right blk    -> compareSlots slotId (blk ^. gbHeader . headerSlot)
+  where
+    compareSlots slotId blockGeneratedId = do
+        let fSlotId = flattenSlotId slotId
+        let fBlockGeneratedSlotId = flattenSlotId blockGeneratedId
+        when (fSlotId - fBlockGeneratedSlotId > blocksNotReceivedThreshold)
+            reportAboutEclipsed
 
 checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => m ()
 checkForIgnoredCommitmentsWorker = do

@@ -141,7 +141,7 @@ txApplyBlock (b, txs) computedBatch = do
 -- | Given number of blocks to rollback and some sidechain to adopt it
 -- checks if it can be done prior to transaction validity. Returns a
 -- list of topsorted transactions, head ~ deepest block on success.
-txVerifyBlocks :: (MonadDB ssc m, MonadTxpLD ssc m) => AltChain ssc
+txVerifyBlocks :: MonadDB ssc m => AltChain ssc
                -> m (Either Text [[IdTxWitness]])
 txVerifyBlocks newChain = do
     utxoDB <- getUtxoDB

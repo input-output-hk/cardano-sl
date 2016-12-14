@@ -37,40 +37,41 @@ module Pos.WorkMode
        ) where
 
 
-import qualified Control.Concurrent.STM      as STM
-import           Control.Lens                (iso)
-import           Control.Monad.Base          (MonadBase (..))
-import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Reader        (ReaderT (ReaderT), ask)
-import           Control.Monad.Trans.Class   (MonadTrans)
-import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
-                                              MonadTransControl (..), StM,
-                                              defaultLiftBaseWith, defaultLiftWith,
-                                              defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Rpc        (Dialog, MonadDialog, MonadTransfer (..),
-                                              Transfer)
-import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
-import           Data.Default                (def)
-import           Serokell.Util.Lens          (WrappedM (..))
-import           System.Wlog                 (CanLog, HasLoggerName, WithLogger)
+import qualified Control.Concurrent.STM       as STM
+import           Control.Lens                 (iso)
+import           Control.Monad.Base           (MonadBase (..))
+import           Control.Monad.Catch          (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Reader         (ReaderT (ReaderT), ask)
+import           Control.Monad.Trans.Class    (MonadTrans)
+import           Control.Monad.Trans.Control  (ComposeSt, MonadBaseControl (..),
+                                               MonadTransControl (..), StM,
+                                               defaultLiftBaseWith, defaultLiftWith,
+                                               defaultRestoreM, defaultRestoreT)
+import           Control.TimeWarp.Rpc         (Dialog, MonadDialog, MonadTransfer (..),
+                                               Transfer)
+import           Control.TimeWarp.Timed       (MonadTimed (..), ThreadId)
+import           Data.Default                 (def)
+import           Serokell.Util.Lens           (WrappedM (..))
+import           System.Wlog                  (CanLog, HasLoggerName, WithLogger)
 import           Universum
 
-import           Pos.Context                 (ContextHolder, WithNodeContext)
-import           Pos.DHT                     (BiP, DHTMsgHeader, DHTResponseT (..),
-                                              MonadMessageDHT (..), WithDefaultMsgHeader)
-import           Pos.DHT.Real                (KademliaDHT (..))
+import           Pos.Context                  (ContextHolder, WithNodeContext)
+import           Pos.DHT                      (BiP, DHTMsgHeader, DHTResponseT (..),
+                                               MonadMessageDHT (..), WithDefaultMsgHeader)
+import           Pos.DHT.Real                 (KademliaDHT (..))
 #ifdef WITH_ROCKS
-import qualified Pos.Modern.DB               as Modern
+import qualified Pos.Modern.DB                as Modern
+import           Pos.Modern.Txp.Storage.Types (MonadTxpLD (..), TxpLDHolder)
 #endif
-import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
-import           Pos.Ssc.Class.LocalData     (MonadSscLD (..), SscLocalDataClass)
-import           Pos.Ssc.Class.Storage       (SscStorageMode)
-import           Pos.Ssc.LocalData           (SscLDImpl)
-import           Pos.State                   (DBHolder, MonadDB (..))
-import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
-import           Pos.Txp.LocalData           (MonadTxLD (..), TxLocalData (..))
-import           Pos.Util.JsonLog            (MonadJL (..))
+import           Pos.Slotting                 (MonadSlots (..))
+import           Pos.Ssc.Class.Helpers        (SscHelpersClass (..))
+import           Pos.Ssc.Class.LocalData      (MonadSscLD (..), SscLocalDataClass)
+import           Pos.Ssc.Class.Storage        (SscStorageMode)
+import           Pos.Ssc.LocalData            (SscLDImpl)
+import           Pos.State                    (DBHolder, MonadDB (..))
+import           Pos.Statistics.MonadStats    (MonadStats, NoStatsT, StatsT)
+import           Pos.Txp.LocalData            (MonadTxLD (..), TxLocalData (..))
+import           Pos.Util.JsonLog             (MonadJL (..))
 
 -- | Bunch of constraints to perform work for real world distributed system.
 type WorkMode ssc m
@@ -82,6 +83,7 @@ type WorkMode ssc m
       , MonadDB ssc m
 #ifdef WITH_ROCKS
       , Modern.MonadDB ssc m
+      , MonadTxpLD ssc m
 #endif
       , MonadTxLD m
       , SscStorageMode ssc
@@ -104,6 +106,40 @@ type MinWorkMode m
       , MonadMessageDHT m
       , WithDefaultMsgHeader m
       )
+
+----------------------------------------------------------------------------
+-- MonadTxpLD
+----------------------------------------------------------------------------
+-- | WE NEED MACROS!
+instance MonadTxpLD ssc m => MonadTxpLD ssc (NoStatsT m) where
+    getUtxoView = lift getUtxoView
+    setUtxoView = lift . setUtxoView
+    getMemPool  = lift  getMemPool
+    setMemPool  = lift . setMemPool
+
+instance MonadTxpLD ssc m => MonadTxpLD ssc (StatsT m) where
+    getUtxoView = lift getUtxoView
+    setUtxoView = lift . setUtxoView
+    getMemPool  = lift  getMemPool
+    setMemPool  = lift . setMemPool
+
+instance MonadTxpLD ssc m => MonadTxpLD ssc (DHTResponseT m) where
+    getUtxoView = lift getUtxoView
+    setUtxoView = lift . setUtxoView
+    getMemPool  = lift  getMemPool
+    setMemPool  = lift . setMemPool
+
+instance MonadTxpLD ssc m => MonadTxpLD ssc (KademliaDHT m) where
+    getUtxoView = lift getUtxoView
+    setUtxoView = lift . setUtxoView
+    getMemPool  = lift  getMemPool
+    setMemPool  = lift . setMemPool
+
+instance MonadTxpLD ssc m => MonadTxpLD ssc (ReaderT r m) where
+    getUtxoView = lift getUtxoView
+    setUtxoView = lift . setUtxoView
+    getMemPool  = lift  getMemPool
+    setMemPool  = lift . setMemPool
 
 ----------------------------------------------------------------------------
 -- MonadTxLD
@@ -204,7 +240,11 @@ type UserDialog = Dialog UserPacking
 ----------------------------------------------------------------------------
 
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
-type RawRealMode ssc = KademliaDHT (TxLDImpl (
+type RawRealMode ssc = KademliaDHT (
+#ifdef WITH_ROCKS
+                               TxpLDHolder ssc (
+#endif
+                                   TxLDImpl (
                                        SscLDImpl ssc (
                                            ContextHolder ssc (
 #ifdef WITH_ROCKS
@@ -212,7 +252,7 @@ type RawRealMode ssc = KademliaDHT (TxLDImpl (
 #endif
                                                    DBHolder ssc (Dialog UserPacking Transfer)))))
 #ifdef WITH_ROCKS
-                                   )
+                                   ))
 #endif
 
 -- | ProductionMode is an instance of WorkMode which is used

@@ -162,13 +162,13 @@ buildProperTx triplesList (inCoin, outCoin)= do
                     txToBeSpent = Tx txIn $ (makeTxOutput fromSk inC) : txOut
                 in (txToBeSpent, fromSk, makeTxOutput toSk outC)
             txList = fmap fun triplesList
-            thisTxOutputs = fmap (view _3) txList
+            thisTxOutputsHash = hash $ fmap (view _3) txList
             newTx (tx, fromSk, txOutput) =
                 let txHash = hash tx
                     txIn = TxIn txHash 0
                     witness = PkWitness {
                         twKey = toPublic fromSk,
-                        twSig = sign fromSk (txHash, 0, hash thisTxOutputs) }
+                        twSig = sign fromSk (txHash, 0, thisTxOutputsHash) }
                 in (tx, txIn, txOutput, witness)
             makeTxOutput s c = TxOut (makePubKeyAddress $ toPublic s) c
             goodTx = fmap newTx txList

@@ -20,6 +20,7 @@ module Pos.Statistics.MonadStats
        , runStatsT'
        ) where
 
+import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Except        (ExceptT)
@@ -30,12 +31,12 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
 import           Control.TimeWarp.Rpc        (MonadDialog, MonadResponse (..),
-                                              MonadTransfer (..), hoistRespCond)
+                                              MonadTransfer (..))
 import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
 import qualified Data.Binary                 as Binary
 import           Data.Maybe                  (fromMaybe)
 import           Focus                       (Decision (Remove), alterM)
-import           Serokell.Util               (show')
+import           Serokell.Util               (WrappedM (..), show')
 import qualified STMContainers.Map           as SM
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
@@ -73,7 +74,7 @@ instance MonadStats m => MonadStats (KademliaDHT    m)
 instance MonadStats m => MonadStats (ReaderT      a m)
 instance MonadStats m => MonadStats (StateT       a m)
 instance MonadStats m => MonadStats (ExceptT      e m)
-instance MonadStats m => MonadStats (DHTResponseT   m)
+instance MonadStats m => MonadStats (DHTResponseT s m)
 
 type instance ThreadId (NoStatsT m) = ThreadId m
 type instance ThreadId (StatsT m) = ThreadId m
@@ -82,13 +83,17 @@ type instance ThreadId (StatsT m) = ThreadId m
 newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a  -- ^ action inside wrapper without collecting statistics
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog p,
-               MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader,
+               MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog s p,
+               MonadDHT, MonadMessageDHT s, MonadSlots, WithDefaultMsgHeader,
                MonadJL, CanLog
 #ifdef WITH_ROCKS
                , Modern.MonadDB ssc
 #endif
                )
+
+instance Monad m => WrappedM (NoStatsT m) where
+    type UnwrappedM (NoStatsT m) = m
+    _WrappedM = iso getNoStatsT NoStatsT
 
 instance MonadBase IO m => MonadBase IO (NoStatsT m) where
     liftBase = lift . liftBase
@@ -103,12 +108,9 @@ instance MonadBaseControl IO m => MonadBaseControl IO (NoStatsT m) where
     liftBaseWith     = defaultLiftBaseWith
     restoreM         = defaultRestoreM
 
-instance MonadTransfer m => MonadTransfer (NoStatsT m) where
-    sendRaw addr p = NoStatsT $ sendRaw addr (hoist getNoStatsT p)
-    listenRaw binding sink = NoStatsT $ fmap NoStatsT $ listenRaw binding (hoistRespCond getNoStatsT sink)
-    close = NoStatsT . close
+instance MonadTransfer s m => MonadTransfer s (NoStatsT m)
 
-instance MonadResponse m => MonadResponse (NoStatsT m) where
+instance MonadResponse s m => MonadResponse s (NoStatsT m) where
     replyRaw dat = NoStatsT $ replyRaw (hoist getNoStatsT dat)
     closeR = lift closeR
     peerAddr = lift peerAddr
@@ -132,9 +134,18 @@ type StatsMap = SM.Map Text LByteString
 newtype StatsT m a = StatsT
     { getStatsT :: ReaderT StatsMap m a  -- ^ action inside wrapper with collected statistics
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog p,
-               MonadDHT, MonadMessageDHT, MonadSlots, WithDefaultMsgHeader, MonadTrans,
-               MonadJL, CanLog)
+               MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog s p,
+               MonadDHT, MonadMessageDHT s, MonadSlots, WithDefaultMsgHeader, MonadTrans,
+               MonadJL, CanLog
+#ifdef WITH_ROCKS
+               , Modern.MonadDB ssc
+#endif
+
+               )
+
+instance Monad m => WrappedM (StatsT m) where
+    type UnwrappedM (StatsT m) = ReaderT StatsMap m
+    _WrappedM = iso getStatsT StatsT
 
 instance MonadTransControl StatsT where
     type StT StatsT a = StT (ReaderT StatsMap) a
@@ -149,13 +160,9 @@ instance MonadBaseControl IO m => MonadBaseControl IO (StatsT m) where
 instance MonadBase IO m => MonadBase IO (StatsT m) where
     liftBase = lift . liftBase
 
-instance MonadTransfer m => MonadTransfer (StatsT m) where
-    sendRaw addr req = StatsT ask >>= \ctx -> lift $ sendRaw addr (hoist (runStatsT' ctx) req)
-    listenRaw binding sink =
-        StatsT $ fmap StatsT $ listenRaw binding $ hoistRespCond getStatsT sink
-    close = lift . close
+instance MonadTransfer s m => MonadTransfer s (StatsT m)
 
-instance MonadResponse m => MonadResponse (StatsT m) where
+instance MonadResponse s m => MonadResponse s (StatsT m) where
     replyRaw dat = StatsT $ replyRaw (hoist getStatsT dat)
     closeR = lift closeR
     peerAddr = lift peerAddr

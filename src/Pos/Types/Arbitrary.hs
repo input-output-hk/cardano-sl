@@ -30,15 +30,17 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              LocalSlotIndex (..), SharedSeed (..),
                                              SlotId (..), Tx (..), TxIn (..),
                                              TxInWitness (..), TxOut (..),
-                                             makePubKeyAddress)
+                                             makePubKeyAddress, makeScriptAddress)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
-                                             NonZero (..), choose, scale, vector)
+                                             NonZero (..), choose, elements, oneof, scale,
+                                             vector)
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
 import           Pos.Binary.Class           (Bi)
 import           Pos.Crypto.Arbitrary       ()
+import           Pos.Script                 (Script, parseRedeemer, parseValidator)
 import           Pos.Types.Arbitrary.Unsafe ()
 
 makeSmall :: Gen a -> Gen a
@@ -55,11 +57,39 @@ makeSmall = scale f
           (round . (sqrt :: Double -> Double) . realToFrac . (`div` 3)) n
 
 ----------------------------------------------------------------------------
+-- Validator and redeemer scripts
+----------------------------------------------------------------------------
+
+tfValidator :: Script
+Right tfValidator = parseValidator $ unlines [
+    "data Bool = { True | False }",
+    "validator : (forall a . a -> a -> a) -> Comp Bool {",
+    "  validator f = case f True False of {",
+    "    True  -> success True : Comp Bool;",
+    "    False -> failure : Comp Bool } }" ]
+
+goodTfRedeemer :: Script
+Right goodTfRedeemer = parseRedeemer $ unlines [
+    "redeemer : Comp (forall a . a -> a -> a) {",
+    "  redeemer = success (\\t f -> t) }" ]
+
+badTfRedeemer :: Script
+Right badTfRedeemer = parseRedeemer $ unlines [
+    "redeemer : Comp (forall a . a -> a -> a) {",
+    "  redeemer = success (\\t f -> f) }" ]
+
+----------------------------------------------------------------------------
 -- Arbitrary core types
 ----------------------------------------------------------------------------
 
+instance Arbitrary Script where
+    arbitrary = elements
+        [tfValidator, goodTfRedeemer, badTfRedeemer]
+
 instance Arbitrary Address where
-    arbitrary = makePubKeyAddress <$> arbitrary
+    arbitrary = oneof [
+        makePubKeyAddress <$> arbitrary,
+        makeScriptAddress <$> arbitrary ]
 
 deriving instance Arbitrary ChainDifficulty
 
@@ -83,7 +113,11 @@ instance Arbitrary LocalSlotIndex where
     arbitrary = choose (0, epochSlots - 1)
 
 instance (Bi TxOut, Bi Tx) => Arbitrary TxInWitness where
-    arbitrary = PkWitness <$> arbitrary <*> arbitrary
+    arbitrary = oneof [
+        PkWitness <$> arbitrary <*> arbitrary,
+        -- this can generate a redeemer script where a validator script is
+        -- needed and vice-versa, but it doesn't matter
+        ScriptWitness <$> arbitrary <*> arbitrary ]
 
 instance Bi Tx => Arbitrary TxIn where
     arbitrary = do

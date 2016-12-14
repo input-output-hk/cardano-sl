@@ -130,6 +130,7 @@ main = do
                                   stakesDistr woFlatDistr woBitcoinDistr
                 , npTimeLord    = False
                 , npJLFile      = woJLFile
+                , npPropagation = not woDisablePropagation
                 }
             gtParams =
                 GtParams

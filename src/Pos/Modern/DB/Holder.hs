@@ -30,13 +30,13 @@ import           Universum
 
 import           Pos.Modern.DB.Class          (MonadDB (..))
 import           Pos.Modern.DB.Types          (DB (..), NodeDBs (..), blockDB, utxoDB)
-import qualified Pos.State                    as Legacy
+import qualified Pos.State.State              as Legacy
 
 
 newtype DBHolder ssc m a = DBHolder
     { getDBHolder :: ReaderT (NodeDBs ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
-                MonadCatch, MonadMask, MonadIO, HasLoggerName, CanLog, MonadDialog p,
+                MonadCatch, MonadMask, MonadIO, HasLoggerName, CanLog, MonadDialog s p,
                 Legacy.MonadDB ssc)
 
 instance Monad m => WrappedM (DBHolder ssc m) where
@@ -46,7 +46,7 @@ instance Monad m => WrappedM (DBHolder ssc m) where
 instance MonadBase IO m => MonadBase IO (DBHolder ssc m) where
     liftBase = lift . liftBase
 
-instance MonadTransfer m => MonadTransfer (DBHolder ssc m)
+instance MonadTransfer s m => MonadTransfer s (DBHolder ssc m)
 
 deriving instance MonadResource m => MonadResource (DBHolder ssc m)
 

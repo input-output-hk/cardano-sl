@@ -31,7 +31,9 @@ module Pos.Types.Types
 
        , Address (..)
        , makePubKeyAddress
+       , makeScriptAddress
        , checkPubKeyAddress
+       , checkScriptAddress
        , addressF
        , decodeTextAddress
 
@@ -147,13 +149,16 @@ import           Universum
 
 import           Pos.Binary.Address     ()
 import           Pos.Binary.Class       (Bi)
+import           Pos.Binary.Script      ()
 import           Pos.Constants          (sharedSeedLength)
 import           Pos.Crypto             (Hash, PublicKey, Signature, hash, hashHexF,
                                          shortHashF)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
+import           Pos.Script             (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
 import           Pos.Types.Address      (Address (..), addressF, checkPubKeyAddress,
-                                         decodeTextAddress, makePubKeyAddress)
+                                         checkScriptAddress, decodeTextAddress,
+                                         makePubKeyAddress, makeScriptAddress)
 import           Pos.Util               (Color (Magenta), colorize)
 
 
@@ -244,16 +249,26 @@ type TxId = Hash Tx
 type TxSig = Signature (TxId, Word32, Hash [TxOut])
 
 -- | A witness for a single input.
-data TxInWitness = PkWitness
-    { twKey :: PublicKey
-    , twSig :: TxSig
-    } deriving (Eq, Ord, Show, Generic)
+data TxInWitness
+    = PkWitness
+        { twKey :: PublicKey
+        , twSig :: TxSig
+        }
+    | ScriptWitness
+        { twValidator :: Script
+        , twRedeemer  :: Script
+        }
+    deriving (Eq, Show, Generic)
 
 instance Hashable TxInWitness
 
-instance Buildable TxInWitness where
+instance Bi Script => Buildable TxInWitness where
     build (PkWitness key sig) =
         bprint ("PkWitness: key = "%build%", sig = "%build) key sig
+    build (ScriptWitness val red) =
+        bprint ("ScriptWitness: "%
+                "validator hash = "%shortHashF%", "%
+                "redeemer hash = "%shortHashF) (hash val) (hash red)
 
 -- | A witness is a proof that a transaction is allowed to spend the funds it
 -- spends (by providing signatures, redeeming scripts, etc). A separate proof
@@ -308,7 +323,7 @@ txF :: Format r (Tx -> r)
 txF = build
 
 -- | Specialized formatter for 'Tx' with a witness.
-txwF :: Format r ((Tx, TxWitness) -> r)
+txwF :: Bi Script => Format r ((Tx, TxWitness) -> r)
 txwF = later $ \(tx, w) ->
     bprint (build%"\n"%"witnesses:"%listJsonIndent 4) tx w
 

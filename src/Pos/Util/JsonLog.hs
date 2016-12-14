@@ -99,7 +99,7 @@ appendJL path ev = liftIO $ do
 class Monad m => MonadJL m where
   jlLog :: JLEvent -> m ()
 
-instance MonadJL m => MonadJL (DHTResponseT m) where
+instance MonadJL m => MonadJL (DHTResponseT s m) where
     jlLog = lift . jlLog
 
 instance MonadJL m => MonadJL (ReaderT s m) where

@@ -35,6 +35,9 @@ import           Servant.Utils.Enter                  ((:~>) (Nat), enter)
 import           Universum
 
 import           Pos.Binary                           (deserializeM)
+import           Pos.Context                          (ContextHolder, NodeContext,
+                                                       getNodeContext, ncPublicKey,
+                                                       ncSscContext, runContextHolder)
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, getOpening,
@@ -51,11 +54,7 @@ import           Pos.Types                            (EpochIndex (..), SharedSe
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
 import           Pos.Web.Types                        (GodTossingStage (..))
-import           Pos.WorkMode                         (ContextHolder, DBHolder,
-                                                       NodeContext, TxLDImpl, WorkMode,
-                                                       getNodeContext, ncPublicKey,
-                                                       ncSscContext, runContextHolder,
-                                                       runDBHolder, runTxLDImpl)
+import           Pos.WorkMode                         (TxLDImpl, WorkMode, runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -89,7 +88,7 @@ serveImpl application port =
 -- Servant infrastructure
 ----------------------------------------------------------------------------
 
-type WebHandler ssc = TxLDImpl (ContextHolder ssc (DBHolder ssc TimedIO))
+type WebHandler ssc = TxLDImpl (ContextHolder ssc (St.DBHolder ssc TimedIO))
 
 convertHandler
     :: forall ssc a.
@@ -100,7 +99,7 @@ convertHandler
     -> Handler a
 convertHandler tld nc ns handler =
     liftIO (runTimedIO .
-            runDBHolder ns .
+            St.runDBHolder ns .
             runContextHolder nc .
             runTxLDImpl $
             setTxLocalData tld >> handler)

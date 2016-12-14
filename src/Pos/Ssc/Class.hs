@@ -17,6 +17,8 @@ import           Pos.Ssc.Class.Types     as Class
 import           Pos.Ssc.Class.Workers   as Class
 import           Pos.Ssc.Class.Helpers   as Class
 
+import           Pos.Security            (SecurityWorkersClass)
+
 type SscConstraint ssc =
                (Ssc ssc,
                 Default (SscStorage ssc),
@@ -24,4 +26,5 @@ type SscConstraint ssc =
                 SscLocalDataClass ssc,
                 SscHelpersClass ssc,
                 SscStorageMode ssc,
-                SscWorkersClass ssc)
+                SscWorkersClass ssc,
+                SecurityWorkersClass ssc)

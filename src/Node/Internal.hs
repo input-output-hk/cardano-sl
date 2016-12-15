@@ -9,13 +9,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Node.Internal (
-    NodeId,
-    Node,
+    NodeId(..),
+    Node(..),
     startNode,
     stopNode,
     sendMsg,
-    ChannelIn,
-    ChannelOut,
+    ChannelIn(..),
+    ChannelOut(..),
     connectOutChannel,
     connectInOutChannel,
     closeChannel,
@@ -47,7 +47,7 @@ import Mockable.SharedAtomic
 
 -- A node id wraps a network-transport endpoint address
 newtype NodeId = NodeId NT.EndPointAddress
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
 
 data Node (m :: * -> *) = forall g . RandomGen g => Node {
        nodeEndPoint         :: NT.EndPoint m,

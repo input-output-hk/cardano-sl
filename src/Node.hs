@@ -8,17 +8,25 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RecursiveDo #-}
 
 module Node where
 
+import Control.Monad.Fix (MonadFix)
 import qualified Node.Internal as LL
-import Node.Internal (NodeId, ChannelIn, ChannelOut)
+import Node.Internal (ChannelIn(..), ChannelOut(..))
+import Data.String (fromString, IsString)
 import Data.Binary     as Bin
 import Data.Binary.Put as Bin
 import Data.Binary.Get as Bin
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Builder.Extra as BS
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 import qualified Network.Transport.Abstract as NT
 import System.Random (RandomGen)
 import Mockable.Class
@@ -26,15 +34,27 @@ import Mockable.Concurrent
 import Mockable.Channel
 import Mockable.SharedAtomic
 import Mockable.Exception
+import GHC.Generics (Generic)
 
 data Node (m :: * -> *) = Node {
        nodeLL      :: LL.Node m,
        nodeWorkers :: [ThreadId m]
      }
 
+type NodeId = LL.NodeId
+
+nodeId :: Node m -> NodeId
+nodeId = LL.NodeId . NT.address . LL.nodeEndPoint . nodeLL
+
 type Worker m = SendActions m -> m ()
 
-type MessageName = BS.ByteString
+newtype MessageName = MessageName BS.ByteString
+deriving instance Eq MessageName
+deriving instance Ord MessageName
+deriving instance Show MessageName
+deriving instance Generic MessageName
+deriving instance IsString MessageName
+instance Binary MessageName
 
 data Listener m = Listener MessageName (ListenerAction m)
 
@@ -69,17 +89,28 @@ data ConversationActions m = ConversationActions {
        close :: m ()  -- TODO: needed? if so only for early close. Should by automatic.
      }
 
+type ListenerIndex m = Map MessageName (ListenerAction m)
+
+makeListenerIndex :: [Listener m] -> (ListenerIndex m, [MessageName])
+makeListenerIndex = foldr combine (M.empty, [])
+    where
+    combine (Listener name action) (map, existing) =
+        let (replaced, map') = M.insertLookupWithKey (\_ _ _ -> action) name action map
+            overlapping = maybe [] (const [name]) replaced
+        in  (map', overlapping ++ existing)
+
 startNode
     :: forall m g .
        ( Mockable Fork m, Mockable RunInUnboundThread m, Mockable Throw m
-       , Mockable Channel m, Mockable SharedAtomic m, RandomGen g )
+       , Mockable Channel m, Mockable SharedAtomic m, RandomGen g
+       , MonadFix m )
     => NT.Transport m
     -> g
     -> [Worker m]
     -> [Listener m]
     -> m (Node m)
-startNode transport prng workers listeners = do
-    node <- LL.startNode transport prng handlerIn handlerInOut
+startNode transport prng workers listeners = mdo
+    node <- LL.startNode transport prng (handlerIn node sendAction) (handlerInOut node)
     let sendAction = SendActions { sendTo = sendMsg node, connect = undefined }
     tids <- sequence
               [ fork $ worker sendAction
@@ -89,26 +120,61 @@ startNode transport prng workers listeners = do
       nodeWorkers = tids
     }
   where
-    handlerIn :: NodeId -> ChannelIn m -> m ()
-    handlerIn peer chan = return ()
-    --TODO: fill in the dispatcher impl:
-    --      it needs to decode the MessageName
-    --      then lookup the listener(s)
-    --      then decode the body and fork the listener with the decoded message
+    -- Index the listeners by message name, for faster lookup.
+    listenerIndex :: ListenerIndex m
+    (listenerIndex, conflictingNames) = makeListenerIndex listeners
 
-    handlerInOut :: NodeId -> ChannelIn m -> ChannelOut m -> m ()
-    handlerInOut peer inchan outchan = return ()
+    handlerIn :: LL.Node m -> SendActions m -> NodeId -> ChannelIn m -> m ()
+    handlerIn node sendActions peerId (ChannelIn chan) = do
+        (msgName :: MessageName, rest) <- recvPart chan (fromString "")
+        let listener = M.lookup msgName listenerIndex
+        case listener of
+            Just (ListenerActionOneMsg action) -> do
+                (msgBody, rest') <- recvPart chan rest
+                tid <- fork (action peerId sendActions msgBody)
+                -- TODO remember the thread id? Inform dispatcher when it's
+                -- finished?
+                pure ()
+            -- If it's a conversation listener, then that's an error, no?
+            Just (ListenerActionConversation _) -> error ("Wrong listener type! " ++ show msgName)
+            Nothing -> error ("No listener! " ++ show msgName)
+        pure ()
+
+    handlerInOut :: LL.Node m -> NodeId -> ChannelIn m -> ChannelOut m -> m ()
+    handlerInOut node peerId (ChannelIn inchan) (ChannelOut outchan) = do
+        (msgName :: MessageName, rest) <- recvPart inchan (fromString "")
+        let listener = M.lookup msgName listenerIndex
+        case listener of
+            Just (ListenerActionConversation action) -> do
+                -- NB we do not pull the body from the channel.
+                -- It's up to the listener to do so.
+                -- We also need a channel which will accept messages without
+                -- names.
+                let csend :: Binary body => body -> m ()
+                    -- Write to the outchan.
+                    csend = undefined
+                let crecv :: Binary body => m body
+                    -- Read from the inchan.
+                    crecv = undefined
+                let cclose :: m ()
+                    -- I dunno.
+                    cclose = undefined
+                let conversationActions = ConversationActions csend crecv cclose
+                tid <- fork (action peerId conversationActions)
+                pure ()
+            Just (ListenerActionOneMsg _) -> error ("Wrong listener type! " ++ show msgName)
+            Nothing -> error ("No listener! " ++ show msgName)
+        pure ()
+
     --TODO: fill in the dispatcher impl:
 
 stopNode :: ( Mockable Fork m ) => Node m -> m ()
 stopNode Node {..} = do
     LL.stopNode nodeLL
-
     -- Stop the workers
     mapM_ killThread nodeWorkers
     -- alternatively we could try stopping new incoming messages
     -- and wait for all handlers to finish
-
 
 sendMsg
     :: ( Monad m, Binary body )
@@ -131,12 +197,30 @@ serialiseMsg name body =
                  LBS.empty
               . Bin.execPut
 
-recvMsg
-    :: ( Mockable Channel m, Binary msg )
-    => ChannelT m (Maybe BS.ByteString)  -- source
-    -> BS.ByteString                     -- prefix
-    -> m (msg, BS.ByteString)            -- trailing
-recvMsg chan prefix =
+sendBody
+    :: ( Monad m, Binary body )
+    => LL.Node m
+    -> NodeId
+    -> body
+    -> m ()
+sendBody node nodeid body =
+    LL.sendMsg node nodeid (serialiseBody body)
+
+serialiseBody
+    :: ( Binary body )
+    => body
+    -> LBS.ByteString
+serialiseBody =
+    BS.toLazyByteStringWith (BS.untrimmedStrategy 256 4096) LBS.empty
+    . Bin.execPut
+    . put
+
+recvPart
+    :: ( Mockable Channel m, Binary thing )
+    => ChannelT m (Maybe BS.ByteString)    -- source
+    -> BS.ByteString                       -- prefix
+    -> m (thing, BS.ByteString)            -- trailing
+recvPart chan prefix =
     go (Bin.pushChunk (Bin.runGetIncremental Bin.get) prefix)
   where
     go (Bin.Done trailing _ a) = return (a, trailing)

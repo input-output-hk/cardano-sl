@@ -53,15 +53,13 @@ import           Pos.WorkMode         (ProductionMode, TxLDImpl, SocketState, ru
 -- Top level functionality
 ----------------------------------------------------------------------------
 
-walletServeWeb :: SscConstraint ssc => Word16 -> ProductionMode ssc ()
-walletServeWeb webPort = serveImpl walletApplication webPort
+walletServeWeb :: SscConstraint ssc => FilePath -> Word16 -> ProductionMode ssc ()
+walletServeWeb daedalusDbPath = serveImpl $ walletApplication daedalusDbPath
 
--- TODO: Make a configuration datatype for wallet web api
--- to make database path configurable
-walletApplication :: SscConstraint ssc => ProductionMode ssc Application
-walletApplication = bracket openDB closeDB $ \ws ->
+walletApplication :: SscConstraint ssc => FilePath -> ProductionMode ssc Application
+walletApplication daedalusDbPath = bracket openDB closeDB $ \ws ->
     runWalletWebDB ws servantServer >>= return . serve walletApi
-  where openDB = openState False "bla"
+  where openDB = openState False daedalusDbPath
         closeDB = closeState
 
 ----------------------------------------------------------------------------

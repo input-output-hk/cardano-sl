@@ -40,7 +40,9 @@ data WalletOptions = WalletOptions
 
 data WalletAction = Repl
 #ifdef WITH_WEB
-                  | Serve { webPort :: !Word16 }
+                  | Serve { webPort           :: !Word16
+                          , webDaedalusDbPath :: !FilePath
+                          }
 #endif
 
 actionParser :: Parser WalletAction
@@ -61,6 +63,10 @@ serveParser = command "serve" $ info opts desc
                                    <> value 8090    -- to differ from node's default port
                                    <> showDefault
                                    <> help "Port for web server")
+                     <*> option auto (long "daedalus-db-path"
+                                   <> metavar "FILEPATH"
+                                   <> value "run/daedalus-db"
+                                   <> help "Path to the wallet database")
         desc = progDesc "Serve HTTP Daedalus API on given port"
 #endif
 

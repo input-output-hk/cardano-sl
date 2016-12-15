@@ -171,7 +171,6 @@ library
                         Pos.Types.Utxo.Class
                         Pos.Types.Utxo.Functions
                         Pos.Types.Utxo.Pure
-                        Pos.Modern.Types.Tx
                         Pos.Worker.Block
                         Pos.Worker.Stats
                         Pos.Util.Arbitrary

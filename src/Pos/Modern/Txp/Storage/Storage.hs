@@ -39,7 +39,6 @@ import           Pos.Modern.Txp.Class            (MonadTxpLD (..), TxpLD)
 import           Pos.Modern.Txp.Holder           (TxpLDHolder, runTxpLDHolderUV)
 import           Pos.Modern.Txp.Storage.Types    (MemPool (..), UtxoView (..))
 import qualified Pos.Modern.Txp.Storage.UtxoView as UV
-import           Pos.Modern.Types.Tx             (topsortTxs, verifyTx)
 import           Pos.Ssc.Class.Types             (Ssc)
 import           Pos.State.Storage.Types         (AltChain, ProcessTxRes (..),
                                                   mkPTRinvalid)
@@ -48,7 +47,8 @@ import           Pos.Types                       (Block, IdTxWitness, MonadUtxo,
                                                   Tx (..), TxIn (..), TxOut, TxWitness,
                                                   applyTxToUtxo', blockSlot, blockTxws,
                                                   blockTxws, convertFrom', headerHash,
-                                                  prevBlockL, slotIdF)
+                                                  prevBlockL, slotIdF, topsortTxs,
+                                                  verifyTx)
 import           Pos.Types.Utxo                  (verifyAndApplyTxs, verifyTxUtxo)
 
 type TxpWorkMode ssc m = ( Ssc ssc

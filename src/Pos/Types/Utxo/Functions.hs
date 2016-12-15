@@ -25,8 +25,7 @@ import           Universum
 
 import           Pos.Binary.Types     ()
 import           Pos.Crypto           (WithHash (..))
-import           Pos.Modern.Types.Tx  (verifyTx)
-import           Pos.Types.Tx         (topsortTxs)
+import           Pos.Types.Tx         (topsortTxs, verifyTx)
 import           Pos.Types.Types      (IdTxWitness, Tx (..), TxIn (..), TxOut (..),
                                        TxWitness, Utxo)
 import           Pos.Types.Utxo.Class (MonadUtxo (..), MonadUtxoRead (utxoGet))

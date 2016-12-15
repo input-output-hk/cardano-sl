@@ -24,10 +24,8 @@ module Pos.WorkMode
        , runTxLDImpl
        , runTxLDImplRaw
 
-       -- * Messages serialization strategy
-       , UserPacking
-       , MonadUserDialog
-       , UserDialog
+       -- * Socket state
+       , SocketState
 
        -- * Actual modes
        , ProductionMode
@@ -56,7 +54,7 @@ import           System.Wlog                 (CanLog, HasLoggerName, WithLogger)
 import           Universum
 
 import           Pos.Context                 (ContextHolder, WithNodeContext)
-import           Pos.DHT                     (BiP, DHTMsgHeader, DHTResponseT (..),
+import           Pos.DHT                     (DHTPacking, DHTResponseT (..),
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT (..))
 #ifdef WITH_ROCKS
@@ -92,7 +90,7 @@ type WorkMode ssc m
       , SscHelpersClass ssc
       , MonadSscLD ssc m
       , WithNodeContext ssc m
-      , MonadMessageDHT m
+      , MonadMessageDHT SocketState m
       , WithDefaultMsgHeader m
       , MonadStats m
       , MonadJL m
@@ -104,7 +102,7 @@ type MinWorkMode m
       , MonadTimed m
       , MonadMask m
       , MonadIO m
-      , MonadMessageDHT m
+      , MonadMessageDHT SocketState m
       , WithDefaultMsgHeader m
       )
 
@@ -112,7 +110,7 @@ type MinWorkMode m
 -- MonadTxpLD
 ----------------------------------------------------------------------------
 #ifdef WITH_ROCKS
-instance MonadTxpLD ssc m => MonadTxpLD ssc (DHTResponseT m) where
+instance MonadTxpLD ssc m => MonadTxpLD ssc (DHTResponseT s m) where
     getUtxoView = lift getUtxoView
     setUtxoView = lift . setUtxoView
     getMemPool  = lift  getMemPool
@@ -146,7 +144,7 @@ instance MonadTxLD m => MonadTxLD (StatsT m) where
     getTxLocalData = lift getTxLocalData
     setTxLocalData = lift . setTxLocalData
 
-instance MonadTxLD m => MonadTxLD (DHTResponseT m) where
+instance MonadTxLD m => MonadTxLD (DHTResponseT s m) where
     getTxLocalData = lift getTxLocalData
     setTxLocalData = lift . setTxLocalData
 
@@ -161,7 +159,7 @@ instance MonadTxLD m => MonadTxLD (ReaderT r m) where
 newtype TxLDImpl m a = TxLDImpl
     { getTxLDImpl :: ReaderT (STM.TVar TxLocalData) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
-                MonadCatch, MonadIO, HasLoggerName, MonadDialog p, WithNodeContext ssc, MonadJL,
+                MonadCatch, MonadIO, HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
                 MonadDB ssc, CanLog, MonadMask)
 
 type instance ThreadId (TxLDImpl m) = ThreadId m
@@ -174,7 +172,7 @@ instance Monad m => WrappedM (TxLDImpl m) where
     type UnwrappedM (TxLDImpl m) = ReaderT (STM.TVar TxLocalData) m
     _WrappedM = iso getTxLDImpl TxLDImpl
 
-instance MonadTransfer m => MonadTransfer (TxLDImpl m)
+instance MonadTransfer s m => MonadTransfer s (TxLDImpl m)
 
 instance MonadBase IO m => MonadBase IO (TxLDImpl m) where
     liftBase = lift . liftBase
@@ -216,17 +214,10 @@ instance MonadJL m => MonadJL (KademliaDHT m) where
     jlLog = lift . jlLog
 
 ----------------------------------------------------------------------------
--- MonadDialog shortcut
+-- Socket state
 ----------------------------------------------------------------------------
 
--- | Packing type used to send messages in the system.
-type UserPacking = BiP DHTMsgHeader
-
--- | Shortcut for `MonadDialog` with packing type used in the system.
-type MonadUserDialog = MonadDialog UserPacking
-
--- | Shortcut for `Dialog` with packing type used in the system.
-type UserDialog = Dialog UserPacking
+type SocketState = ()
 
 ----------------------------------------------------------------------------
 -- Concrete types
@@ -243,7 +234,7 @@ type RawRealMode ssc = KademliaDHT (
 #ifdef WITH_ROCKS
                                                Modern.DBHolder ssc (
 #endif
-                                                   DBHolder ssc (Dialog UserPacking Transfer)))))
+                                                   DBHolder ssc (Dialog DHTPacking (Transfer SocketState))))))
 #ifdef WITH_ROCKS
                                    ))
 #endif
@@ -256,4 +247,4 @@ type ProductionMode ssc = NoStatsT (RawRealMode ssc)
 type StatsMode ssc = StatsT (RawRealMode ssc)
 
 -- | ServiceMode is the mode in which support nodes work
-type ServiceMode = KademliaDHT (Dialog UserPacking Transfer)
+type ServiceMode = KademliaDHT (Dialog DHTPacking (Transfer SocketState))

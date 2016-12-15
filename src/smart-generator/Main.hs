@@ -249,6 +249,7 @@ main = do
                                   stakesDistr goFlatDistr goBitcoinDistr
                 , npTimeLord    = False
                 , npJLFile      = goJLFile
+                , npPropagation = not goDisablePropagation
                 }
             gtParams =
                 GtParams

@@ -34,6 +34,7 @@ data GenOptions = GenOptions
     , goSscAlgo            :: !SscAlgo
     , goFlatDistr          :: !(Maybe (Int, Int))
     , goBitcoinDistr       :: !(Maybe (Int, Int))
+    , goDisablePropagation :: !Bool
     }
 
 optionsParser :: Parser GenOptions
@@ -124,6 +125,9 @@ optionsParser = GenOptions
             , metavar "(INT,INT)"
             , help "Use bitcoin stake distribution with given parameters (nodes, coins)"
             ])
+    <*> switch
+        (long "disable-propagation" <>
+         help "Disable network propagation (transactions, SSC data, blocks). I.e. all data is to be sent only by entity who creates data and entity is yosend it to all peers on his own")
 
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $

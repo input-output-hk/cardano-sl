@@ -23,7 +23,7 @@ import           Control.Monad.IfElse            (aifM)
 import qualified Data.HashMap.Strict             as HM
 import qualified Data.HashSet                    as HS
 import qualified Data.List.NonEmpty              as NE
-import           Data.Maybe                      (fromJust, isJust)
+import           Data.Maybe                      (fromJust)
 import           Formatting                      (build, sformat, text, (%))
 import           Serokell.Util                   (VerificationRes (..))
 import           System.Wlog                     (WithLogger, logError)
@@ -54,8 +54,14 @@ type TxpWorkMode ssc m = ( Ssc ssc
                          , WithLogger m
                          , MonadDB ssc m
                          , MonadTxpLD ssc m
-                         , MonadUtxo ssc m)
+                         , MonadUtxo ssc m
+                         , MonadThrow m)
 
+type MinTxpWorkMode ssc m = (
+                              MonadDB ssc m
+                            , MonadTxpLD ssc m
+                            , MonadUtxo ssc m
+                            , MonadThrow m)
 -- | Apply chain of /definitely/ valid blocks which go right after
 -- last applied block. If invalid block is passed, this function will
 -- panic.
@@ -82,7 +88,7 @@ txApplyBlock (b, txs) computedBatch = do
     when (not . isGenesisBlock $ b) $ do
         let hashPrevHeader = b ^. prevBlockL
         tip <- getTip
-        if (isJust tip && hashPrevHeader == fromJust tip) then do
+        if (hashPrevHeader == tip) then do
             -- SIMPLIFY IT!!!
             let batch = fromJust (computedBatch <|>
                                  (Just $ foldr' prependToBatch [] txs))
@@ -135,11 +141,9 @@ txVerifyBlocks newChain = do
         "Failed to apply transactions on block from slot " %
         slotIdF%", error: "%build
 
-processTx :: (MonadDB ssc m, MonadTxpLD ssc m, MonadUtxo ssc m)
-          => IdTxWitness -> m ProcessTxRes
+processTx :: MinTxpWorkMode ssc m => IdTxWitness -> m ProcessTxRes
 processTx itw@(_, (tx, _)) = do
-    tipBefore <- fromJust <$> getTip
-    -- TODO check Just
+    tipBefore <- getTip
     resolved <-
       foldM (\s inp -> getTxOut inp >>=
                        maybe (pure s) (\x -> pure $ HM.insert inp x s))
@@ -193,13 +197,13 @@ processTxDo ld@(uv, mp, tip) resolvedIns utxoDB (id, (tx, txw)) =
 -- of desired depth block and also filter local transactions so they
 -- can be applied. @tx@ prefix is used, because rollback may happen in
 -- other storages as well.
-txRollbackBlocks :: (Ssc ssc, WithLogger m, MonadDB ssc m) => Word -> m ()
+txRollbackBlocks :: (Ssc ssc, WithLogger m, MonadDB ssc m, MonadThrow m) => Word -> m ()
 txRollbackBlocks (fromIntegral -> n) = replicateM_ n txRollbackBlock
 
 -- | Rollback last block
-txRollbackBlock :: (Ssc ssc, WithLogger m, MonadDB ssc m) => m ()
-txRollbackBlock =
-    aifM getTip (\tip ->
+txRollbackBlock :: (Ssc ssc, WithLogger m, MonadDB ssc m, MonadThrow m) => m ()
+txRollbackBlock = getTip >>=
+    (\tip ->
         aifM (getBlock tip) (\block ->
             aifM (getUndo tip) (\undo -> do
                 let txs = getTxs block
@@ -215,7 +219,6 @@ txRollbackBlock =
             --(errorMsg $ sformat ("No Undo for block with hash: "%build) tip)
         (errorMsg "No Block"))
         --(errorMsg $ sformat ("No Block with hash: "%build) tip)
-    (errorMsg "No TIP")
   where
     getTxs (Left _)   = []
     getTxs (Right mb) = map fst $ mb ^. blockTxws
@@ -241,10 +244,10 @@ filterMemPool blockTxs = modifyTxpLD (\(uv, mp, tip) ->
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Removed from MemPool invalid transactions
-normalizeTxpLD :: (MonadDB ssc m, MonadTxpLD ssc m)
+normalizeTxpLD :: (MonadDB ssc m, MonadTxpLD ssc m, MonadThrow m)
                => m ()
 normalizeTxpLD = do
-    utxoTip <- fromJust <$> getTip --fix it, without Maybe
+    utxoTip <- getTip
     mpTxs <- HM.toList . localTxs <$> getMemPool
     emptyUtxoView <- return . UV.createFromDB =<< getUtxoDB
     let emptyMemPool = MemPool HM.empty 0
@@ -276,4 +279,3 @@ normalizeTxpLD = do
 isGenesisBlock :: Block ssc -> Bool
 isGenesisBlock (Left _) = True
 isGenesisBlock _        = False
-

@@ -116,6 +116,8 @@ instance NFData (f (ABT.Scope f)) => NFData (ABT.Scope f)
 instance NFData r => NFData (PLCore.ClauseF r)
 instance NFData a => NFData (PLCore.TermF a)
 instance NFData a => NFData (PLCore.PatternF a)
+instance NFData PLCore.TermDeclaration
+instance NFData Script
 
 instance Bi PLCore.Term => SafeCopy PLCore.Term where
     getCopy = getCopyBinary "Term"

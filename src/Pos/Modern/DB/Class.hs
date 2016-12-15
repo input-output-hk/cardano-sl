@@ -46,6 +46,6 @@ instance (MonadDB ssc m) =>
     usingWriteOptionsBlock how m =
         ask >>= lift . usingWriteOptionsBlock how . runReaderT m
 
-deriving instance (MonadDB ssc m) => MonadDB ssc (ResponseT m)
+deriving instance (MonadDB ssc m) => MonadDB ssc (ResponseT s m)
 deriving instance (MonadDB ssc m) => MonadDB ssc (KademliaDHT m)
-deriving instance (MonadDB ssc m) => MonadDB ssc (DHTResponseT m)
+deriving instance (MonadDB ssc m) => MonadDB ssc (DHTResponseT s m)

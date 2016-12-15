@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Binary serialization of Pos.Types.* modules
@@ -7,6 +8,8 @@
 module Pos.Binary.Types () where
 
 import           Control.Monad.Fail  (fail)
+import           Data.Binary.Get     (getWord8)
+import           Data.Binary.Put     (putWord8)
 import           Universum
 
 import           Pos.Binary.Class    (Bi (..))
@@ -58,7 +61,7 @@ instance Bi T.TxInWitness where
         case (tag :: Word8) of
             0 -> T.PkWitness <$> get <*> get
             1 -> T.ScriptWitness <$> get <*> get
-            _ -> fail "get@TxInWitness: unknown tag"
+            t -> fail $ "get@TxInWitness: unknown tag " <> show t
 
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
@@ -111,6 +114,14 @@ instance Ssc ssc => Bi (T.BodyProof (T.MainBlockchain ssc)) where
         put mpWitnessesHash
         put mpMpcProof
     get = T.MainProof <$> get <*> get <*> get <*> get
+
+instance Bi (T.BlockSignature ssc) where
+    put (T.BlockSignature sig)       = putWord8 0 >> put sig
+    put (T.BlockPSignature proxySig) = putWord8 1 >> put proxySig
+    get = getWord8 >>= \case
+        0 -> T.BlockSignature <$> get
+        1 -> T.BlockPSignature <$> get
+        t -> fail $ "get@BlockSignature: unknown tag: " <> show t
 
 instance Bi (T.ConsensusData (T.MainBlockchain ssc)) where
     put T.MainConsensusData{..} = do

@@ -61,9 +61,8 @@ import           Pos.Communication               (SysStartRequest (..), allListe
                                                   sysStartRespListener)
 import           Pos.Constants                   (RunningMode (..), defaultPeers,
                                                   isDevelopment, runningMode)
-import           Pos.DHT                         (BiP (..), DHTMsgHeader, ListenerDHT,
-                                                  MonadDHT (..), mapListenerDHT,
-                                                  sendToNeighbors)
+import           Pos.DHT                         (BiP (..), ListenerDHT, MonadDHT (..),
+                                                  mapListenerDHT, sendToNeighbors)
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB                   as Modern
 import qualified Pos.Modern.Txp.Holder           as Modern
@@ -71,6 +70,7 @@ import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 #endif
 import           Pos.Context                     (ContextHolder (..), NodeContext (..),
                                                   runContextHolder)
+import           Pos.DHT.Class                   (DHTPacking, MonadDHTDialog)
 import           Pos.DHT.Real                    (KademliaDHT, KademliaDHTConfig (..),
                                                   KademliaDHTInstance,
                                                   KademliaDHTInstanceConfig (..),
@@ -88,10 +88,9 @@ import           Pos.Statistics                  (getNoStatsT, runStatsT)
 import           Pos.Types                       (Timestamp (Timestamp), timestampF)
 import           Pos.Util                        (runWithRandomIntervals)
 import           Pos.Worker                      (statsWorkers)
-import           Pos.WorkMode                    (MonadUserDialog, ProductionMode,
-                                                  RawRealMode, ServiceMode, StatsMode,
+import           Pos.WorkMode                    (ProductionMode, RawRealMode,
+                                                  ServiceMode, SocketState, StatsMode,
                                                   runTxLDImpl)
-
 ----------------------------------------------------------------------------
 -- Service node runners
 ----------------------------------------------------------------------------
@@ -149,7 +148,7 @@ runRawRealMode
     => KademliaDHTInstance
     -> NodeParams
     -> SscParams ssc
-    -> [ListenerDHT (RawRealMode ssc)]
+    -> [ListenerDHT SocketState (RawRealMode ssc)]
     -> RawRealMode ssc c
     -> IO c
 runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ do
@@ -197,7 +196,8 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
 runProductionMode
     :: forall ssc a.
        SscConstraint ssc
-    => KademliaDHTInstance -> NodeParams -> SscParams ssc -> ProductionMode ssc a -> IO a
+    => KademliaDHTInstance -> NodeParams -> SscParams ssc ->
+       ProductionMode ssc a -> IO a
 runProductionMode inst np sscnp = runRawRealMode inst np sscnp listeners . getNoStatsT
   where
     listeners = addDevListeners @ssc np noStatsListeners
@@ -209,7 +209,8 @@ runProductionMode inst np sscnp = runRawRealMode inst np sscnp listeners . getNo
 runStatsMode
     :: forall ssc a.
        SscConstraint ssc
-    => KademliaDHTInstance -> NodeParams -> SscParams ssc -> StatsMode ssc a -> IO a
+    => KademliaDHTInstance -> NodeParams -> SscParams ssc -> StatsMode ssc a
+    -> IO a
 runStatsMode inst np sscnp action = runRawRealMode inst np sscnp listeners $ runStatsT $ do
     mapM_ fork statsWorkers
     action
@@ -221,7 +222,7 @@ runStatsMode inst np sscnp action = runRawRealMode inst np sscnp listeners $ run
 runServiceMode
     :: KademliaDHTInstance
     -> BaseParams
-    -> [ListenerDHT ServiceMode]
+    -> [ListenerDHT SocketState ServiceMode]
     -> ServiceMode a
     -> IO a
 runServiceMode inst bp@BaseParams{..} listeners action = loggerBracket bpLoggingParams $ do
@@ -238,10 +239,10 @@ runKDHT
        , MonadIO m
        , MonadTimed m
        , MonadMask m
-       , MonadUserDialog m)
+       , MonadDHTDialog SocketState m)
     => KademliaDHTInstance
     -> BaseParams
-    -> [ListenerDHT (KademliaDHT m)]
+    -> [ListenerDHT SocketState (KademliaDHT m)]
     -> KademliaDHT m a
     -> m a
 runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
@@ -260,9 +261,10 @@ runCH :: MonadIO m
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH NodeParams {..} sscNodeContext act =
     flip runContextHolder act . ctx =<<
-    liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
+    (,) <$> liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile) <*>
+    liftIO newEmptyMVar
   where
-    ctx jlFile =
+    ctx (jlFile, semaphore) =
         NodeContext
         { ncSystemStart = npSystemStart
         , ncSecretKey = npSecretKey
@@ -270,12 +272,17 @@ runCH NodeParams {..} sscNodeContext act =
         , ncJLFile = jlFile
         , ncDbPath = npDbPath
         , ncSscContext = sscNodeContext
+        , ncPropagation = npPropagation
+        , ncBlkSemaphore = semaphore
         }
 
-runTimed :: LoggerName -> Dialog (BiP DHTMsgHeader) Transfer a -> IO a
+runTimed :: LoggerName -> Dialog DHTPacking (Transfer SocketState) a -> IO a
 runTimed loggerName =
     runTimedIO .
-    usingLoggerName loggerName . runTransfer . runDialog BiP
+    usingLoggerName loggerName . runTransfer initSocketState . runDialog BiP
+  where
+    initSocketState :: IO SocketState
+    initSocketState = return ()
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -306,8 +313,8 @@ loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
 -- | RAII for node starter.
 addDevListeners :: NodeParams
-                -> [ListenerDHT (RawRealMode ssc)]
-                -> [ListenerDHT (RawRealMode ssc)]
+                -> [ListenerDHT SocketState (RawRealMode ssc)]
+                -> [ListenerDHT SocketState (RawRealMode ssc)]
 addDevListeners NodeParams{..} ls =
     if isDevelopment
     then sysStartReqListener npSystemStart : ls

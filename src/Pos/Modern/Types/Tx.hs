@@ -11,20 +11,21 @@ module Pos.Modern.Types.Tx
        , topsortTxs
        ) where
 
-import           Control.Lens          (makeLenses, use, uses, (%=), (.=), (^.))
-import           Data.Bifunctor        (first)
-import qualified Data.HashMap.Strict   as HM
-import qualified Data.HashSet          as HS
-import           Data.List             (tail, zipWith3)
-import           Formatting            (build, int, sformat, (%))
-import           Serokell.Util         (VerificationRes, verifyGeneric)
+import           Control.Lens        (makeLenses, use, uses, (%=), (.=), (^.))
+import           Data.Bifunctor      (first)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet        as HS
+import           Data.List           (tail, zipWith3)
+import           Formatting          (build, int, sformat, (%))
+import           Serokell.Util       (VerificationRes, verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Class      (Bi)
-import           Pos.Crypto            (Hash, WithHash (..), checkSig)
-import           Pos.Types.Types       (Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
-                                        TxWitness, checkPubKeyAddress, coinF)
-
+import           Pos.Binary.Class    (Bi)
+import           Pos.Crypto          (Hash, WithHash (..), checkSig, hash)
+import           Pos.Script          (txScriptCheck)
+import           Pos.Types.Types     (Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
+                                      TxWitness, checkPubKeyAddress, checkScriptAddress,
+                                      coinF)
 -- | Verify Tx correctness using magic function which resolves input
 -- into Address and Coin. It does checks from 'verifyTxAlone' and the
 -- following:
@@ -38,7 +39,8 @@ verifyTx
     -> (Tx, TxWitness)
     -> m VerificationRes
 verifyTx inputResolver (tx@Tx{..}, witnesses) = do
-    let extendInput txIn = fmap (txIn,) <$> inputResolver txIn
+    let txOutHash = hash txOutputs
+        extendInput txIn = fmap (txIn,) <$> inputResolver txIn
     extendedInputs <- mapM extendInput txInputs
 
     let outSum :: Integer
@@ -95,9 +97,16 @@ verifyTx inputResolver (tx@Tx{..}, witnesses) = do
               )
             ]
 
-        checkAddrHash addr PkWitness{..} = checkPubKeyAddress twKey addr
+        checkAddrHash addr PkWitness{..}     = checkPubKeyAddress twKey addr
+        checkAddrHash addr ScriptWitness{..} = checkScriptAddress twValidator addr
+
         validateTxIn TxIn{..} PkWitness{..} =
-            checkSig twKey (txInHash, txInIndex, txOutputs) twSig
+            checkSig twKey (txInHash, txInIndex, txOutHash) twSig
+        validateTxIn TxIn{..} ScriptWitness{..} =
+            isRight (txScriptCheck twValidator twRedeemer)
+        -- checkAddrHash addr PkWitness{..} = checkPubKeyAddress twKey addr
+        -- validateTxIn TxIn{..} PkWitness{..} =
+        --     checkSig twKey (txInHash, txInIndex, txOutputs) twSig
 
     return $ mconcat [verifyTxAlone tx, verifyCounts, verifySum, verifyInputs]
 

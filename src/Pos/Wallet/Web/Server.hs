@@ -148,8 +148,8 @@ getBalances = mapM gb genesisAddresses
   where gb addr = (,) (addressToCAddress addr) <$> getBalance addr
 
 send :: SscConstraint ssc
-     => Word -> Text -> Word64 -> WebHandler ssc ()
-send srcIdx dstAddr' c'
+     => Word -> Address -> Coin -> WebHandler ssc ()
+send srcIdx dstAddr c
     | fromIntegral srcIdx > length genesisAddresses =
         throwM err404 {
           errBody = encodeUtf8 $
@@ -163,9 +163,6 @@ send srcIdx dstAddr' c'
           putText $
               sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
               c srcIdx dstAddr
-  where
-    c = Coin c'
-    dstAddr = read $ T.unpack dstAddr' :: Address -- FIXME: use safer version like decodeAddress which might not fail. Report error.
 
 getWallets :: SscConstraint ssc => WebHandler ssc [CWallet]
 getWallets = undefined

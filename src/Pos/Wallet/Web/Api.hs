@@ -21,7 +21,7 @@ type WalletApi =
   :<|>
     "balances" :> Get '[JSON] [(CAddress, Coin)]
   :<|>
-    "send" :> Capture "from" Word :> Capture "to" Text :> Capture "amount" Word64 :> Get '[JSON] () -- FIXME: change to Post!!
+    "send" :> Capture "from" Word :> Capture "to" Address :> Capture "amount" Coin :> Post '[JSON] ()
   -- :<|>
   --   "wallets" :> Get '[JSON] [CWallet]
 

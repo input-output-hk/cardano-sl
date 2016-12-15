@@ -29,7 +29,7 @@ import           System.Wlog                  (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Modern.DB.Class          (MonadDB (..))
-import           Pos.Modern.DB.Types          (DB (..), NodeDBs (..), blockDB, utxoDB)
+import           Pos.Modern.DB.Types          (DB (..), NodeDBs (..))
 import qualified Pos.State.State              as Legacy
 
 
@@ -55,14 +55,10 @@ type instance ThreadId (DBHolder ssc m) = ThreadId m
 instance MonadIO m =>
          MonadDB ssc (DBHolder ssc m) where
     getNodeDBs = DBHolder $ ask
-    usingReadOptionsUtxo  opts (DBHolder rdr)
-        = DBHolder $ local (over utxoDB (\db -> db {rocksReadOpts = opts})) rdr
-    usingWriteOptionsUtxo  opts (DBHolder rdr)
-        = DBHolder $ local (over utxoDB (\db -> db {rocksWriteOpts = opts})) rdr
-    usingReadOptionsBlock  opts (DBHolder rdr)
-        = DBHolder $ local (over blockDB (\db -> db {rocksReadOpts = opts})) rdr
-    usingWriteOptionsBlock  opts (DBHolder rdr)
-        = DBHolder $ local (over blockDB (\db -> db {rocksWriteOpts = opts})) rdr
+    usingReadOptions opts l (DBHolder rdr)
+        = DBHolder $ local (over l (\db -> db {rocksReadOpts = opts})) rdr
+    usingWriteOptions opts l (DBHolder rdr)
+        = DBHolder $ local (over l (\db -> db {rocksWriteOpts = opts})) rdr
 
 instance MonadTransControl (DBHolder ssc) where
     type StT (DBHolder ssc) a = StT (ReaderT (NodeDBs ssc)) a

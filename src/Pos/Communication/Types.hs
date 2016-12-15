@@ -19,7 +19,7 @@ import           Data.Proxy                       (Proxy (..))
 
 import           Pos.Communication.Types.Block
 import           Pos.Communication.Types.SysStart
-import           Pos.DHT                          (MonadResponseDHT)
+import           Pos.DHT.Model                    (MonadResponseDHT)
 import           Pos.Txp.Types.Communication
 import           Pos.WorkMode                     (SocketState, WorkMode)
 

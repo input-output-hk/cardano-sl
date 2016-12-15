@@ -19,7 +19,7 @@ import           Universum
 
 import           Pos.Constants          (slotDuration)
 import           Pos.Crypto             (KeyPair (..), SecretKey, toPublic)
-import           Pos.DHT                (DHTNodeType (..), dhtAddr, discoverPeers)
+import           Pos.DHT.Model          (DHTNodeType (..), dhtAddr, discoverPeers)
 import           Pos.Genesis            (genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
                                          NodeParams (..), bracketDHTInstance,

@@ -24,7 +24,7 @@ import           Universum
 import           Pos.Binary.Class            (Bi)
 import           Pos.Communication.Types     (RequestBlockchainPart (..),
                                               SendBlockHeader (..))
-import           Pos.DHT                     (MonadMessageDHT, sendToNeighbors,
+import           Pos.DHT.Model               (MonadMessageDHT, sendToNeighbors,
                                               sendToNode)
 import           Pos.Txp.Types.Communication (TxDataMsg (..))
 import           Pos.Types                   (HeaderHash, MainBlockHeader, Tx, TxWitness,

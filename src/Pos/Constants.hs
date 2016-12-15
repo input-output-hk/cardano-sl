@@ -30,7 +30,7 @@ import           Universum
 
 import           Pos.CLI                (dhtNodeParser)
 import           Pos.CompileConfig      (CompileConfig (..), compileConfig)
-import           Pos.DHT.Types          (DHTNode)
+import           Pos.DHT.Model.Types    (DHTNode)
 import           Pos.Types.Timestamp    (Timestamp)
 
 -- | Consensus guarantee (i.e. after what amount of blocks can we consider

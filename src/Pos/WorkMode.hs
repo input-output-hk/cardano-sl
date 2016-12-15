@@ -54,7 +54,7 @@ import           System.Wlog                 (CanLog, HasLoggerName, WithLogger)
 import           Universum
 
 import           Pos.Context                 (ContextHolder, WithNodeContext)
-import           Pos.DHT                     (DHTPacking, DHTResponseT (..),
+import           Pos.DHT.Model               (DHTPacking, DHTResponseT (..),
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT (..))
 #ifdef WITH_ROCKS

@@ -44,7 +44,7 @@ import           Universum
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB               as Modern
 #endif
-import           Pos.DHT                     (DHTResponseT, MonadDHT,
+import           Pos.DHT.Model               (DHTResponseT, MonadDHT,
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))

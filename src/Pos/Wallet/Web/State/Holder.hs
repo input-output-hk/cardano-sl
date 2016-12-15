@@ -15,8 +15,6 @@ import           Control.Lens               (iso)
 import           Control.Monad.Trans        (MonadTrans (..))
 import           Control.TimeWarp.Rpc       (MonadDialog, MonadTransfer)
 import           Control.TimeWarp.Timed     (MonadTimed, ThreadId)
-import           Pos.DHT                    (MonadDHT, MonadMessageDHT,
-                                             WithDefaultMsgHeader)
 import           Serokell.Util.Lens         (WrappedM (..))
 import           System.Wlog                (CanLog, HasLoggerName)
 
@@ -24,6 +22,8 @@ import           Pos.Context                (WithNodeContext)
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB              as Modern (MonadDB)
 #endif
+import           Pos.DHT.Model              (MonadDHT, MonadMessageDHT,
+                                             WithDefaultMsgHeader)
 import           Pos.Slotting               (MonadSlots)
 import           Pos.Ssc.Class              (MonadSscLD)
 import           Pos.State                  (MonadDB)

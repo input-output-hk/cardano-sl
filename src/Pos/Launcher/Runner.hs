@@ -59,14 +59,14 @@ import           Pos.Communication            (SysStartRequest (..), allListener
                                                sysStartRespListener)
 import           Pos.Constants                (RunningMode (..), defaultPeers,
                                                isDevelopment, runningMode)
-import           Pos.DHT                      (BiP (..), ListenerDHT, MonadDHT (..),
+import           Pos.DHT.Model                (BiP (..), ListenerDHT, MonadDHT (..),
                                                mapListenerDHT, sendToNeighbors)
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB                as Modern
 #endif
 import           Pos.Context                  (ContextHolder (..), NodeContext (..),
                                                runContextHolder)
-import           Pos.DHT.Class                (DHTPacking, MonadDHTDialog)
+import           Pos.DHT.Model.Class          (DHTPacking, MonadDHTDialog)
 import           Pos.DHT.Real                 (KademliaDHT, KademliaDHTConfig (..),
                                                KademliaDHTInstance,
                                                KademliaDHTInstanceConfig (..),

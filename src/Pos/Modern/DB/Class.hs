@@ -17,7 +17,7 @@ import           Control.TimeWarp.Rpc (ResponseT (..))
 import qualified Database.RocksDB     as Rocks
 import           Universum
 
-import           Pos.DHT              (DHTResponseT (..))
+import           Pos.DHT.Model        (DHTResponseT (..))
 import           Pos.DHT.Real         (KademliaDHT (..))
 import           Pos.Modern.DB.Types  (DB, NodeDBs, blockDB, utxoDB)
 

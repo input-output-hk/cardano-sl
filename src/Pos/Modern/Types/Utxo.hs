@@ -9,8 +9,6 @@ module Pos.Modern.Types.Utxo
        , findTxIn
        , verifyTxUtxo
        , verifyAndApplyTxs
-       , convertTo'
-       , convertFrom'
        , applyTxToUtxo'
        ) where
 
@@ -89,12 +87,6 @@ findTxIn = getTxOut
 -- | Verify single Tx using Utxo as TxIn resolver.
 verifyTxUtxo :: MonadUtxoRead m => (Tx, TxWitness) -> m VerificationRes
 verifyTxUtxo = verifyTx findTxIn
-
-convertTo' :: [IdTxWitness] -> [(WithHash Tx, TxWitness)]
-convertTo' = map (\(i, (t, w)) -> (WithHash t i, w))
-
-convertFrom' :: [(WithHash Tx, TxWitness)] -> [IdTxWitness]
-convertFrom' = map (\(WithHash t h, w) -> (h, (t, w)))
 
 applyTxToUtxo' :: MonadUtxo m => IdTxWitness -> m ()
 applyTxToUtxo' (i, (t, _)) = applyTxToUtxo $ WithHash t i

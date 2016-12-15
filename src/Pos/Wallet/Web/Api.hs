@@ -19,9 +19,9 @@ import           Pos.Wallet.Web.ClientTypes (CAddress, CWallet)
 type WalletApi =
     "addresses" :> Get '[JSON] [CAddress]
   :<|>
-    "balances" :> Get '[JSON] [(Address, Coin)]
+    "balances" :> Get '[JSON] [(CAddress, Coin)]
   :<|>
-    "send" :> Capture "from" Word :> Capture "to" Address :> Capture "amount" Coin :> Post '[JSON] ()
+    "send" :> Capture "from" Word :> Capture "to" Text :> Capture "amount" Word64 :> Get '[JSON] () -- FIXME: change to Post!!
   -- :<|>
   --   "wallets" :> Get '[JSON] [CWallet]
 

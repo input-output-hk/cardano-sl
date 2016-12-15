@@ -12,42 +12,44 @@ module Pos.Wallet.Web.Server
        , walletServeWeb
        ) where
 
-import qualified Control.Monad.Catch  as Catch
-import           Control.Monad.Except (MonadError (throwError))
-import           Control.TimeWarp.Rpc (Transfer, Dialog)
-import           Data.List            ((!!))
-import           Formatting           (int, ords, sformat, (%))
-import           Network.Wai          (Application)
-import           Servant.API          ((:<|>) ((:<|>)), FromHttpApiData (parseUrlPiece))
-import           Servant.Server       (Handler, ServantErr (errBody), Server, ServerT,
-                                       err404, serve)
-import           Servant.Utils.Enter  ((:~>) (..), enter)
+import qualified Control.Monad.Catch        as Catch
+import           Control.Monad.Except       (MonadError (throwError))
+import           Control.TimeWarp.Rpc       (Transfer, Dialog)
+import           Data.List                  ((!!))
+import           Formatting                 (int, ords, sformat, (%))
+import           Network.Wai                (Application)
+import           Servant.API                ((:<|>) ((:<|>)), FromHttpApiData (parseUrlPiece))
+import           Servant.Server             (Handler, ServantErr (errBody), Server, ServerT,
+                                             err404, serve)
+import           Servant.Utils.Enter        ((:~>) (..), enter)
 import           Universum
 
-import           Pos.DHT              (dhtAddr, getKnownPeers, DHTPacking)
-import           Pos.DHT.Real         (KademliaDHTContext, getKademliaDHTCtx,
-                                       runKademliaDHTRaw)
-import           Pos.Genesis          (genesisAddresses, genesisSecretKeys)
-import           Pos.Launcher         (runTimed)
+import           Pos.DHT                    (dhtAddr, getKnownPeers, DHTPacking)
+import           Pos.DHT.Real               (KademliaDHTContext, getKademliaDHTCtx,
+                                             runKademliaDHTRaw)
+import           Pos.Genesis                (genesisAddresses, genesisSecretKeys)
+import           Pos.Launcher               (runTimed)
 #ifdef WITH_ROCKS
-import qualified Pos.Modern.DB        as Modern
+import qualified Pos.Modern.DB              as Modern
 #endif
-import           Pos.Context          (ContextHolder, NodeContext, getNodeContext,
-                                       runContextHolder)
-import           Pos.Ssc.Class        (SscConstraint)
-import           Pos.Ssc.LocalData    (SscLDImpl, runSscLDImpl)
-import qualified Pos.State            as St
-import           Pos.Statistics       (getNoStatsT)
-import           Pos.Txp.LocalData    (TxLocalData, getTxLocalData, setTxLocalData)
-import           Pos.Types            (Address, Coin (Coin), TxOut (..), addressF, coinF,
-                                       decodeTextAddress, TxId)
-import           Pos.Wallet.Tx        (getBalance, submitTx)
-import           Pos.Wallet.Web.Api   (WalletApi, walletApi)
-import           Pos.Wallet.Web.State (MonadWalletWebDB (..), WalletState, WalletWebDB,
-                                       closeState, openState, runWalletWebDB)
-import           Pos.Web.Server       (serveImpl)
+import           Pos.Context                (ContextHolder, NodeContext, getNodeContext,
+                                             runContextHolder)
+import           Pos.Ssc.Class              (SscConstraint)
+import           Pos.Ssc.LocalData          (SscLDImpl, runSscLDImpl)
+import qualified Pos.State                  as St
+import           Pos.Statistics             (getNoStatsT)
+import           Pos.Txp.LocalData          (TxLocalData, getTxLocalData, setTxLocalData)
+import           Pos.Types                  (Address, Coin (Coin), TxOut (..), addressF, coinF,
+                                             decodeTextAddress, TxId)
+import           Pos.Wallet.Tx              (getBalance, submitTx)
+import           Pos.Wallet.Web.Api         (WalletApi, walletApi)
+import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletState, WalletWebDB,
+                                             closeState, openState, runWalletWebDB)
+import           Pos.Web.Server             (serveImpl)
 import           Pos.Wallet.Web.ClientTypes (CWallet, addressToCAddress, CAddress)
-import           Pos.WorkMode         (ProductionMode, TxLDImpl, SocketState, runTxLDImpl)
+import           Pos.WorkMode               (ProductionMode, TxLDImpl, SocketState, runTxLDImpl)
+import           Prelude                    (read)
+import qualified Data.Text                  as T (unpack)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -141,13 +143,13 @@ servantHandlers = getAddresses :<|> getBalances :<|> send -- :<|> getWallets
 getAddresses :: WebHandler ssc [CAddress]
 getAddresses = pure $ map addressToCAddress genesisAddresses
 
-getBalances :: SscConstraint ssc => WebHandler ssc [(Address, Coin)]
+getBalances :: SscConstraint ssc => WebHandler ssc [(CAddress, Coin)]
 getBalances = mapM gb genesisAddresses
-  where gb addr = (,) addr <$> getBalance addr
+  where gb addr = (,) (addressToCAddress addr) <$> getBalance addr
 
 send :: SscConstraint ssc
-     => Word -> Address -> Coin -> WebHandler ssc ()
-send srcIdx dstAddr c
+     => Word -> Text -> Word64 -> WebHandler ssc ()
+send srcIdx dstAddr' c'
     | fromIntegral srcIdx > length genesisAddresses =
         throwM err404 {
           errBody = encodeUtf8 $
@@ -161,6 +163,9 @@ send srcIdx dstAddr c
           putText $
               sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
               c srcIdx dstAddr
+  where
+    c = Coin c'
+    dstAddr = read $ T.unpack dstAddr' :: Address -- FIXME: use safer version like decodeAddress which might not fail. Report error.
 
 getWallets :: SscConstraint ssc => WebHandler ssc [CWallet]
 getWallets = undefined

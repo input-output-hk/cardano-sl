@@ -77,14 +77,14 @@ instance ToCapture (Capture "from" Word) where
         , _capDesc = "Index of address from which coins should be sent."
         }
 
-instance ToCapture (Capture "to" Address) where
+instance ToCapture (Capture "to" Text) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "to"
         , _capDesc = "Destination address."
         }
 
-instance ToCapture (Capture "amount" Coin) where
+instance ToCapture (Capture "amount" Word64) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "amount"

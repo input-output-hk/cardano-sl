@@ -110,14 +110,14 @@ instance Monad m => WrappedM (TxpLDHolder ssc m) where
     _WrappedM = iso getTxpLDHolder TxpLDHolder
 
 instance MonadIO m => MonadUtxoRead (TxpLDHolder ssc m) where
-    getTxOut key = TxpLDHolder (asks utxoView) >>=
+    utxoGet key = TxpLDHolder (asks utxoView) >>=
                    (atomically . STM.readTVar >=> UV.getTxOut key)
 
 instance (MonadIO m, MonadUtxoRead (TxpLDHolder ssc m))
        => MonadUtxo (TxpLDHolder ssc m) where
-    putTxOut key val = TxpLDHolder (asks utxoView) >>=
+    utxoPut key val = TxpLDHolder (asks utxoView) >>=
                        atomically . flip STM.modifyTVar' (UV.putTxOut key val)
-    delTxIn key = TxpLDHolder (asks utxoView) >>=
+    utxoDel key = TxpLDHolder (asks utxoView) >>=
                   atomically . flip STM.modifyTVar' (UV.delTxIn key)
 
 instance Default (HeaderHash ssc) where

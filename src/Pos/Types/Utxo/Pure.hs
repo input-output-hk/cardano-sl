@@ -20,7 +20,7 @@ newtype UtxoReaderT m a = UtxoReaderT
     } deriving (Functor, Applicative, Monad)
 
 instance Monad m => MonadUtxoRead (UtxoReaderT m) where
-    getTxOut TxIn {..} = UtxoReaderT $ view $ at (txInHash, txInIndex)
+    utxoGet TxIn {..} = UtxoReaderT $ view $ at (txInHash, txInIndex)
 
 runUtxoReaderT :: UtxoReaderT m a -> Utxo -> m a
 runUtxoReaderT = runReaderT . getUtxoReaderT

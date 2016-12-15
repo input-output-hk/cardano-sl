@@ -10,8 +10,8 @@ import           Universum
 import           Pos.Types.Types (TxIn, TxOut)
 
 class Monad m => MonadUtxoRead m where
-    getTxOut :: TxIn -> m (Maybe TxOut)
+    utxoGet :: TxIn -> m (Maybe TxOut)
 
 class MonadUtxoRead m => MonadUtxo m where
-    putTxOut :: TxIn -> TxOut -> m ()
-    delTxIn :: TxIn -> m ()
+    utxoPut :: TxIn -> TxOut -> m ()
+    utxoDel :: TxIn -> m ()

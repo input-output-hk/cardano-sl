@@ -6,7 +6,6 @@
 
 module Pos.Modern.Types.Utxo
        ( applyTxToUtxo
-       , findTxIn
        , verifyTxUtxo
        , verifyAndApplyTxs
        , applyTxToUtxo'
@@ -77,16 +76,12 @@ applyTxToUtxo tx = do
     mapM_ (uncurry applyOutput) (zip [0..] txOutputs)
   where
     Tx {..} = whData tx
-    applyInput = delTxIn
-    applyOutput idx = putTxOut $ TxIn (whHash tx) idx
-
--- | Find transaction input in Utxo assuming it is valid.
-findTxIn :: MonadUtxoRead m => TxIn -> m (Maybe TxOut)
-findTxIn = getTxOut
+    applyInput = utxoDel
+    applyOutput idx = utxoPut $ TxIn (whHash tx) idx
 
 -- | Verify single Tx using Utxo as TxIn resolver.
 verifyTxUtxo :: MonadUtxoRead m => (Tx, TxWitness) -> m VerificationRes
-verifyTxUtxo = verifyTx findTxIn
+verifyTxUtxo = verifyTx utxoGet
 
 applyTxToUtxo' :: MonadUtxo m => IdTxWitness -> m ()
 applyTxToUtxo' (i, (t, _)) = applyTxToUtxo $ WithHash t i

@@ -46,7 +46,7 @@ import           Pos.Ssc.Class.Types             (Ssc)
 import           Pos.State.Storage.Types         (AltChain, ProcessTxRes (..),
                                                   mkPTRinvalid)
 import           Pos.Types                       (Block, IdTxWitness, MonadUtxo,
-                                                  MonadUtxoRead (getTxOut), SlotId,
+                                                  MonadUtxoRead (utxoGet), SlotId,
                                                   Tx (..), TxIn (..), TxOut, TxWitness,
                                                   blockSlot, blockTxws, blockTxws,
                                                   convertFrom', headerHash, prevBlockL,
@@ -147,7 +147,7 @@ processTx :: MinTxpWorkMode ssc m => IdTxWitness -> m ProcessTxRes
 processTx itw@(_, (tx, _)) = do
     tipBefore <- getTip
     resolved <-
-      foldM (\s inp -> getTxOut inp >>=
+      foldM (\s inp -> utxoGet inp >>=
                        maybe (pure s) (\x -> pure $ HM.insert inp x s))
             HM.empty (txInputs tx)
     db <- getUtxoDB

@@ -18,11 +18,13 @@ import           Control.Lens         (over, _1)
 import           Serokell.Util        (VerificationRes (..))
 import           Universum
 
+import           Pos.Binary.Types     ()
 import           Pos.Crypto           (WithHash (..))
-import           Pos.Modern.Txp.Class (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Modern.Types.Tx  (topsortTxs, verifyTx)
 import           Pos.Types.Types      (IdTxWitness, Tx (..), TxIn (..), TxOut (..),
                                        TxWitness)
+import           Pos.Types.Utxo.Class (MonadUtxo (..), MonadUtxoRead (..))
+
 -- | Accepts list of transactions and verifies its overall properties
 -- plus validity of every transaction in particular. Return value is
 -- verification failure (first) or topsorted list of transactions (if

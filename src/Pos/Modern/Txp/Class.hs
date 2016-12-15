@@ -3,11 +3,10 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE UndecidableInstances   #-}
+
 module Pos.Modern.Txp.Class
        (
-         MonadUtxoRead (..)
-       , MonadUtxo (..)
-       , MonadTxpLD (..)
+         MonadTxpLD (..)
        , TxpLD
        ) where
 
@@ -15,14 +14,7 @@ import           Universum
 
 import           Control.Monad.Trans          (MonadTrans)
 import           Pos.Modern.Txp.Storage.Types (MemPool, UtxoView)
-import           Pos.Types                    (HeaderHash, TxIn, TxOut)
-
-class Monad m => MonadUtxoRead ssc m | m -> ssc where
-    getTxOut :: TxIn -> m (Maybe TxOut)
-
-class MonadUtxoRead ssc m => MonadUtxo ssc m | m -> ssc where
-    putTxOut :: TxIn -> TxOut -> m ()
-    delTxIn :: TxIn -> m ()
+import           Pos.Types                    (HeaderHash)
 
 type TxpLD ssc = (UtxoView ssc, MemPool, HeaderHash ssc)
 

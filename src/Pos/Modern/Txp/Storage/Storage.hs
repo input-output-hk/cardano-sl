@@ -18,6 +18,7 @@ module Pos.Modern.Txp.Storage.Storage
        , processTx
        , txRollbackBlocks
        ) where
+
 import           Control.Lens                    (each, over, (^.), _1)
 import           Control.Monad.IfElse            (aifM)
 import qualified Data.HashMap.Strict             as HM
@@ -34,8 +35,7 @@ import           Pos.Crypto                      (WithHash (..), hash, withHash)
 import           Pos.Modern.DB                   (DB, MonadDB, getUtxoDB)
 import           Pos.Modern.DB.Block             (getBlock, getUndo)
 import           Pos.Modern.DB.Utxo              (BatchOp (..), getTip, writeBatchToUtxo)
-import           Pos.Modern.Txp.Class            (MonadTxpLD (..), MonadUtxo, TxpLD,
-                                                  getTxOut)
+import           Pos.Modern.Txp.Class            (MonadTxpLD (..), TxpLD)
 import           Pos.Modern.Txp.Holder           (runTxpLDHolderUV)
 import           Pos.Modern.Txp.Storage.Types    (MemPool (..), UtxoView (..))
 import qualified Pos.Modern.Txp.Storage.UtxoView as UV
@@ -45,10 +45,12 @@ import           Pos.Modern.Types.Utxo           (applyTxToUtxo', verifyAndApply
 import           Pos.Ssc.Class.Types             (Ssc)
 import           Pos.State.Storage.Types         (AltChain, ProcessTxRes (..),
                                                   mkPTRinvalid)
-import           Pos.Types                       (Block, IdTxWitness, SlotId, Tx (..),
-                                                  TxIn (..), TxOut, TxWitness, blockSlot,
-                                                  blockTxws, blockTxws, convertFrom',
-                                                  headerHash, prevBlockL, slotIdF)
+import           Pos.Types                       (Block, IdTxWitness, MonadUtxo,
+                                                  MonadUtxoRead (getTxOut), SlotId,
+                                                  Tx (..), TxIn (..), TxOut, TxWitness,
+                                                  blockSlot, blockTxws, blockTxws,
+                                                  convertFrom', headerHash, prevBlockL,
+                                                  slotIdF)
 
 type TxpWorkMode ssc m = ( Ssc ssc
                          , WithLogger m

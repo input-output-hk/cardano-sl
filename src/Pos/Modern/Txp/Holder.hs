@@ -37,11 +37,11 @@ import           Pos.Txp.LocalData               (MonadTxLD (..))
 import           Pos.Util.JsonLog                (MonadJL (..))
 
 import qualified Pos.Modern.DB                   as Modern
-import           Pos.Modern.Txp.Class            (MonadTxpLD (..), MonadUtxo (..),
-                                                  MonadUtxoRead (..))
+import           Pos.Modern.Txp.Class            (MonadTxpLD (..))
 import           Pos.Modern.Txp.Storage.Types    (MemPool, UtxoView)
 import qualified Pos.Modern.Txp.Storage.UtxoView as UV
-import           Pos.Types                       (HeaderHash)
+import           Pos.Types                       (HeaderHash, MonadUtxo (..),
+                                                  MonadUtxoRead (..))
 
 ----------------------------------------------------------------------------
 -- Holder

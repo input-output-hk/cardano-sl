@@ -168,6 +168,8 @@ library
                         Pos.Statistics.Tx
                         Pos.Txp.Types.Communication
                         Pos.Txp.LocalData
+                        Pos.Types.Utxo.Class
+                        Pos.Types.Utxo.Functions
                         Pos.Worker.Block
                         Pos.Worker.Stats
                         Pos.Util.Arbitrary

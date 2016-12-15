@@ -14,9 +14,10 @@ import           Universum
 
 import           Pos.Binary            (Bi)
 import           Pos.Crypto            (EncShare, Hash, KeyPair (..), ProxyCert,
-                                        ProxySecretKey, ProxySignature, PublicKey, Secret,
-                                        SecretKey, SecretProof, SecretSharingExtra, Share,
-                                        Signature, Signed, VssPublicKey, checkSig,
+                                        ProxySecretKey (..), ProxySignature, PublicKey,
+                                        Secret, SecretKey, SecretProof,
+                                        SecretSharingExtra, Share, Signature, Signed,
+                                        VssPublicKey, checkProxySecretKey, checkSig,
                                         createProxySecretKey, deterministic,
                                         fullPublicKeyF, hash, parseFullPublicKey,
                                         proxySign, proxyVerify, randomNumber, sign,
@@ -147,6 +148,13 @@ spec = describe "Crypto" $ do
             prop
                 "modified data signature can't be verified "
                 (proxySignVerifyDifferentData @[Int] @(Int,Int))
+            prop
+                "correct proxy signature schemes pass correctness check"
+                (proxySecretKeyCheckCorrect @(Int,Int))
+            prop
+                "incorrect proxy signature schemes fails correctness check"
+                (proxySecretKeyCheckIncorrect @(Int,Int))
+
 
 
 hashInequality :: (Eq a, Bi a) => a -> a -> Property
@@ -204,3 +212,18 @@ proxySignVerifyDifferentData issuerSk delegateSk w m m2 =
     issuerPk = toPublic issuerSk
     proxySk = createProxySecretKey issuerSk (toPublic delegateSk) w
     signature = proxySign delegateSk issuerPk proxySk m
+
+proxySecretKeyCheckCorrect
+    :: (Bi w) => SecretKey -> SecretKey -> w -> Bool
+proxySecretKeyCheckCorrect issuerSk delegateSk w =
+    checkProxySecretKey delegateSk proxySk
+  where
+    proxySk = createProxySecretKey issuerSk (toPublic delegateSk) w
+
+proxySecretKeyCheckIncorrect
+    :: (Bi w) => SecretKey -> SecretKey -> PublicKey -> w -> Property
+proxySecretKeyCheckIncorrect issuerSk delegateSk pk2 w = do
+    let ProxySecretKey{..} =
+            createProxySecretKey issuerSk (toPublic delegateSk) w
+        wrongPsk = ProxySecretKey { pskIssuerPk = pk2, ..}
+    (toPublic issuerSk /= pk2) ==> not (checkProxySecretKey delegateSk wrongPsk)

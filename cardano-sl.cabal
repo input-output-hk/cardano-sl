@@ -95,6 +95,7 @@ library
                         Pos.Types.Utxo
                         Pos.Util
                         Pos.Util.JsonLog
+                        Pos.Util.UserSecret
                         Pos.Worker
                         Pos.WorkMode
   if flag(with-web)
@@ -231,6 +232,7 @@ library
                       , ed25519
                       , exceptions
                       , file-embed >= 0.0.10
+                      , filelock >= 0.1.0.1
                       , filepath
                       , focus
                       , formatting

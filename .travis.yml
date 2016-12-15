@@ -2,15 +2,17 @@ sudo: false
 os:
   - linux
   - osx
+env:
+  - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/77adcfb59f9167108c984049d71a26323b523697.tar.gz
 language: nix
 cache:
   directories:
   - "$HOME/.stack"
   - "$HOME/build/input-output-hk/pos-haskell-prototype/.stack-work"
 install:
-- nix-shell -p stack --run "stack --no-terminal --install-ghc build --nix --only-dependencies --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks"
+- nix-shell -j 4 -p stack --run "stack --no-terminal --install-ghc build --nix --only-dependencies --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks"
 script:
-- nix-shell -p stack --run "stack --no-terminal build --nix --test --haddock --no-haddock-deps --bench --jobs=4 --no-run-benchmarks --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks"
+- nix-shell -j 4 -p stack --run "stack --no-terminal build --nix --test --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks"
 notifications:
   email: false
   slack:

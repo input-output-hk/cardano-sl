@@ -28,14 +28,14 @@ module Pos.Wallet.Web.ClientTypes
       , addressToCAddress
       ) where
 
-import           Data.Text              (Text)
-import           GHC.Generics           (Generic)
+import           Data.Text     (Text)
+import           GHC.Generics  (Generic)
 import           Universum
 
-import           Data.Aeson.TH          (deriveToJSON)
-import           Formatting             (build, sformat)
-import           Pos.Types              (Address (..), Coin, TxId)
-import           Serokell.Aeson.Options (defaultOptionsPS)
+import           Data.Aeson    (ToJSON (toJSON))
+import           Data.Aeson.TH (defaultOptions, deriveToJSON)
+import           Formatting    (build, sformat)
+import           Pos.Types     (Address (..), Coin, TxId)
 
 
 -- | currencies handled by client
@@ -47,22 +47,18 @@ data CCurrency
     deriving (Show, Generic)
 
 -- | Client hash
-newtype CHash = CHash Text deriving (Show, Generic)
-
-$(deriveToJSON defaultOptionsPS ''CHash)
+newtype CHash = CHash Text deriving (Show, Generic, ToJSON)
 
 -- | Client address
-newtype CAddress = CAddress CHash deriving (Show, Generic)
-
-$(deriveToJSON defaultOptionsPS ''CAddress)
+newtype CAddress = CAddress CHash deriving (Show, Generic, ToJSON)
 
 -- | transform Address into CAddress
--- TODO: we might simplify Address just to `Address Text`?
+-- TODO: this is not complitely safe. If someone changes implementation of Buildable Address. It should be probably more safe to introduce `class PSSimplified` that would have the same implementation has it is with Buildable Address but then person will know it will probably change something for purescript.
 addressToCAddress :: Address -> CAddress
 addressToCAddress = CAddress . CHash . sformat build
 
 -- | Client transaction id
-newtype CTxId = CTxId CHash deriving (Show, Generic)
+newtype CTxId = CTxId CHash deriving (Show, Generic, ToJSON)
 
 -- | transform TxId into CTxId
 txIdToCTxId :: TxId -> CTxId
@@ -78,14 +74,6 @@ data CWalletType
     | CWTShared
     deriving (Show, Generic)
 
--- | Client Wallet (CW)
--- (Flow type: walletType)
-data CWallet = CWallet
-    { cwAddress :: CAddress
-    , cwAmount  :: Coin
-    , cwMeta    :: CWalletMeta
-    } deriving (Show, Generic)
-
 -- | Meta data of CWallet
 -- Includes data which are not provided by Cardano
 data CWalletMeta = CWalletMeta
@@ -95,6 +83,13 @@ data CWalletMeta = CWalletMeta
     , cwLastUsed :: Bool
     } deriving (Show, Generic)
 
+-- | Client Wallet (CW)
+-- (Flow type: walletType)
+data CWallet = CWallet
+    { cwAddress :: CAddress
+    , cwAmount  :: Coin
+    , cwMeta    :: CWalletMeta
+    } deriving (Show, Generic)
 
 ----------------------------------------------------------------------------
 -- profile
@@ -119,6 +114,14 @@ data CProfile = CProfile
 -- transactions
 ----------------------------------------------------------------------------
 
+-- | meta data of transactions
+data CTxMeta = CTxMeta
+    { ctmCurrency    :: CCurrency
+    , ctmTitle       :: Text
+    , ctmDescription :: Text
+    , ctmDate        :: Text -- TODO jk: should be NominalDiffTime
+    } deriving (Show, Generic)
+
 -- | type of transactions
 -- It can be an input / output / exchange transaction
 data CTType
@@ -137,14 +140,6 @@ data CTx = CTx
     , ctType   :: CTType -- it includes all "meta data"
     } deriving (Show, Generic)
 
--- | meta data of transactions
-data CTxMeta = CTxMeta
-    { ctmCurrency    :: CCurrency
-    , ctmTitle       :: Text
-    , ctmDescription :: Text
-    , ctmDate        :: Text -- TODO jk: should be NominalDiffTime
-    } deriving (Show, Generic)
-
 -- | meta data of exchanges
 data CTExMeta = CTExMeta
     { cexCurrency    :: CCurrency
@@ -155,3 +150,13 @@ data CTExMeta = CTExMeta
     , cexLabel       :: Text -- counter part of client's 'exchange' value
     , cexAddress     :: CAddress
     } deriving (Show, Generic)
+
+$(deriveToJSON defaultOptions ''CCurrency)
+$(deriveToJSON defaultOptions ''CWalletType)
+$(deriveToJSON defaultOptions ''CWalletMeta)
+$(deriveToJSON defaultOptions ''CWallet)
+$(deriveToJSON defaultOptions ''CProfile)
+$(deriveToJSON defaultOptions ''CTx)
+$(deriveToJSON defaultOptions ''CTxMeta)
+$(deriveToJSON defaultOptions ''CTType)
+$(deriveToJSON defaultOptions ''CTExMeta)

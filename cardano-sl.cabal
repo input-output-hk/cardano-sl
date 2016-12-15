@@ -170,6 +170,7 @@ library
                         Pos.Txp.LocalData
                         Pos.Types.Utxo.Class
                         Pos.Types.Utxo.Functions
+                        Pos.Types.Utxo.Pure
                         Pos.Worker.Block
                         Pos.Worker.Stats
                         Pos.Util.Arbitrary

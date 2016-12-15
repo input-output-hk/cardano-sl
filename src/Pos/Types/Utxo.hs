@@ -6,3 +6,4 @@ module Pos.Types.Utxo
 
 import           Pos.Types.Utxo.Class     as Utxo
 import           Pos.Types.Utxo.Functions as Utxo
+import           Pos.Types.Utxo.Pure      as Utxo

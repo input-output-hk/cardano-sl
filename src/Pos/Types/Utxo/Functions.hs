@@ -1,6 +1,7 @@
-{-# LANGUAGE BangPatterns     #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TupleSections    #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 
 -- | Functions operating on UTXO.
 
@@ -10,25 +11,25 @@ module Pos.Types.Utxo.Functions
        , findTxIn
        , verifyTxUtxo
        , verifyAndApplyTxs
-       , normalizeTxs
-       , normalizeTxs'
        , applyTxToUtxo'
        , verifyAndApplyTxs'
        , convertTo'
        , convertFrom'
        ) where
 
-import           Control.Lens     (over, _1)
-import           Data.List        ((\\))
-import qualified Data.Map.Strict  as M
-import           Serokell.Util    (VerificationRes (..))
+import           Control.Lens         (over, _1)
+import           Control.Monad.Except (ExceptT, runExceptT, throwError)
+import qualified Data.Map.Strict      as M
+import           Serokell.Util        (VerificationRes (..))
 import           Universum
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Crypto       (WithHash (..))
-import           Pos.Types.Tx     (topsortTxs, verifyTx)
-import           Pos.Types.Types  (IdTxWitness, Tx (..), TxIn (..), TxOut (..), TxWitness,
-                                   Utxo)
+import           Pos.Binary.Types     ()
+import           Pos.Crypto           (WithHash (..))
+import           Pos.Modern.Types.Tx  (verifyTx)
+import           Pos.Types.Tx         (topsortTxs)
+import           Pos.Types.Types      (IdTxWitness, Tx (..), TxIn (..), TxOut (..),
+                                       TxWitness, Utxo)
+import           Pos.Types.Utxo.Class (MonadUtxo (..), MonadUtxoRead (utxoGet))
 
 -- | Find transaction input in Utxo assuming it is valid.
 findTxIn :: TxIn -> Utxo -> Maybe TxOut
@@ -38,20 +39,23 @@ findTxIn TxIn{..} = M.lookup (txInHash, txInIndex)
 deleteTxIn :: TxIn -> Utxo -> Utxo
 deleteTxIn TxIn{..} = M.delete (txInHash, txInIndex)
 
--- | Verify single Tx using Utxo as TxIn resolver.
-verifyTxUtxo :: Bi TxOut => Utxo -> (Tx, TxWitness) -> VerificationRes
-verifyTxUtxo utxo txw = verifyTx (`findTxIn` utxo) txw
+-- | Verify single Tx using MonadUtxoRead as TxIn resolver.
+verifyTxUtxo :: MonadUtxoRead m => (Tx, TxWitness) -> m VerificationRes
+verifyTxUtxo = verifyTx utxoGet
 
 -- | Remove unspent outputs used in given transaction, add new unspent
 -- outputs.
-applyTxToUtxo :: WithHash Tx -> Utxo -> Utxo
-applyTxToUtxo tx =
-    foldl' (.) identity
-        (map applyInput txInputs ++ zipWith applyOutput [0..] txOutputs)
+applyTxToUtxo :: MonadUtxo m => WithHash Tx -> m ()
+applyTxToUtxo tx = do
+    mapM_ applyInput txInputs
+    mapM_ (uncurry applyOutput) (zip [0..] txOutputs)
   where
     Tx {..} = whData tx
-    applyInput txIn = deleteTxIn txIn
-    applyOutput idx txOut = M.insert (whHash tx, idx) txOut
+    applyInput = utxoDel
+    applyOutput idx = utxoPut $ TxIn (whHash tx) idx
+
+applyTxToUtxo' :: MonadUtxo m => IdTxWitness -> m ()
+applyTxToUtxo' (i, (t, _)) = applyTxToUtxo $ WithHash t i
 
 -- | Accepts list of transactions and verifies its overall properties
 -- plus validity of every transaction in particular. Return value is
@@ -62,59 +66,26 @@ applyTxToUtxo tx =
 -- can't be topsorted at all or the first incorrect transaction is
 -- encountered so we can't proceed further.
 verifyAndApplyTxs
-    :: Bi TxOut
-    => [(WithHash Tx, TxWitness)]
-    -> Utxo
-    -> Either Text ([(WithHash Tx, TxWitness)], Utxo)
-verifyAndApplyTxs txws utxo =
-    maybe
-        (Left "Topsort on transactions failed -- topology is broken")
-        (\txs' -> (txs',) <$> applyAll txs')
-        topsorted
+    :: forall m.
+       MonadUtxo m
+    => [(WithHash Tx, TxWitness)] -> m (Either Text [(WithHash Tx, TxWitness)])
+verifyAndApplyTxs txws =
+    runExceptT $
+    maybe (throwError brokenMsg) (\txs' -> txs' <$ applyAll txs') topsorted
   where
-    applyAll :: [(WithHash Tx, TxWitness)] -> Either Text Utxo
-    applyAll [] = Right utxo
+    brokenMsg = "Topsort on transactions failed -- topology is broken"
+    applyAll :: [(WithHash Tx, TxWitness)] -> ExceptT Text m ()
+    applyAll [] = pass
     applyAll (txw:xs) = do
-        curUtxo <- applyAll xs
-        case verifyTxUtxo curUtxo (over _1 whData txw) of
-            VerSuccess        -> pure $ fst txw `applyTxToUtxo` curUtxo
+        applyAll xs
+        verRes <- verifyTxUtxo (over _1 whData txw)
+        case verRes of
+            VerSuccess -> applyTxToUtxo $ fst txw
             VerFailure reason ->
-                Left $ fromMaybe "Transaction application failed, reason not specified" $
+                throwError $
+                fromMaybe "Transaction application failed, reason not specified" $
                 head reason
-    topsorted = reverse <$> topsortTxs fst txws -- head is the last one
-                                                -- to check
-
--- | Takes the set of transactions and utxo, returns only those
--- transactions that can be applied inside. Bonus -- returns them
--- sorted (topographically).
-normalizeTxs
-    :: Bi TxOut
-    => [(WithHash Tx, TxWitness)]
-    -> Utxo
-    -> [(WithHash Tx, TxWitness)]
-normalizeTxs = normGo []
-  where
-    -- checks if transaction can be applied, adds it to first arg and
-    -- to utxo if ok, does nothing otherwise
-    canApply :: (WithHash Tx, TxWitness)
-             -> ([(WithHash Tx, TxWitness)], Utxo)
-             -> ([(WithHash Tx, TxWitness)], Utxo)
-    canApply txw prev@(txws, utxo) =
-        case verifyTxUtxo utxo (over _1 whData txw) of
-            VerFailure _ -> prev
-            VerSuccess   -> (txw : txws, fst txw `applyTxToUtxo` utxo)
-
-    normGo :: [(WithHash Tx, TxWitness)]
-           -> [(WithHash Tx, TxWitness)]
-           -> Utxo
-           -> [(WithHash Tx, TxWitness)]
-    normGo result pending curUtxo =
-        let !(!canBeApplied, !newUtxo) = foldr' canApply ([], curUtxo) pending
-            newPending = pending \\ canBeApplied
-            newResult = result ++ canBeApplied
-        in if null canBeApplied
-               then result
-               else normGo newResult newPending newUtxo
+    topsorted = reverse <$> topsortTxs fst txws -- head is the last one to check
 
 -- TODO change types of normalizeTxs and related
 
@@ -124,16 +95,8 @@ convertTo' = map (\(i, (t, w)) -> (WithHash t i, w))
 convertFrom' :: [(WithHash Tx, TxWitness)] -> [IdTxWitness]
 convertFrom' = map (\(WithHash t h, w) -> (h, (t, w)))
 
-normalizeTxs' :: Bi TxOut => [IdTxWitness] -> Utxo -> [IdTxWitness]
-normalizeTxs' tx utxo =
-    let converted = convertTo' tx in
-    convertFrom' $ normalizeTxs converted utxo
-
-applyTxToUtxo' :: IdTxWitness -> Utxo -> Utxo
-applyTxToUtxo' (i, (t, _)) = applyTxToUtxo $ WithHash t i
-
 verifyAndApplyTxs'
-    :: Bi TxOut
-    => [IdTxWitness] -> Utxo -> Either Text ([IdTxWitness], Utxo)
-verifyAndApplyTxs' txws utxo = (\(x, y) -> (convertFrom' x, y))
-                               <$> verifyAndApplyTxs (convertTo' txws) utxo
+    :: MonadUtxo m
+    => [IdTxWitness] -> m (Either Text [IdTxWitness])
+verifyAndApplyTxs' txws =
+    fmap convertFrom' <$> verifyAndApplyTxs (convertTo' txws)

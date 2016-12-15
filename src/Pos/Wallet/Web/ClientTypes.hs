@@ -25,7 +25,7 @@ module Pos.Wallet.Web.ClientTypes
       , CWallet (..)
       , CWalletType (..)
       , CWalletMeta (..)
-      , mkStubCAddress -- FIXME: remove!
+      , addressToCAddress
       ) where
 
 import           Data.Text              (Text)
@@ -33,6 +33,7 @@ import           GHC.Generics           (Generic)
 import           Universum
 
 import           Data.Aeson.TH          (deriveToJSON)
+import           Formatting             (build, sformat)
 import           Pos.Types              (Address (..), Coin, TxId)
 import           Serokell.Aeson.Options (defaultOptionsPS)
 
@@ -56,12 +57,9 @@ newtype CAddress = CAddress CHash deriving (Show, Generic)
 $(deriveToJSON defaultOptionsPS ''CAddress)
 
 -- | transform Address into CAddress
+-- TODO: we might simplify Address just to `Address Text`?
 addressToCAddress :: Address -> CAddress
-addressToCAddress (PubKeyAddress _ addrKeyHash)    = undefined
-addressToCAddress (ScriptAddress _ addrScriptHash) = undefined
-
-mkStubCAddress :: Text -> CAddress
-mkStubCAddress = CAddress . CHash
+addressToCAddress = CAddress . CHash . sformat build
 
 -- | Client transaction id
 newtype CTxId = CTxId CHash deriving (Show, Generic)

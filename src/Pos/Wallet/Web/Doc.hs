@@ -27,7 +27,7 @@ import           Universum
 import           Pos.Genesis                (genesisAddresses)
 import           Pos.Types                  (Address, Coin)
 import           Pos.Wallet.Web.Api         (walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CHash)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CHash, addressToCAddress)
 
 walletDocs :: API
 walletDocs = docsWith defaultDocOptions intros extras (SD.pretty walletApi)
@@ -101,7 +101,7 @@ instance ToSample CHash where
     toSamples Proxy = singleSample $ undefined
 
 instance ToSample CAddress where
-    toSamples Proxy = singleSample $ undefined
+    toSamples Proxy = singleSample . addressToCAddress $ genesisAddresses !! 0
 
 instance ToSample () where
     toSamples Proxy = singleSample ()

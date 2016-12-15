@@ -35,7 +35,8 @@ import qualified Data.Map.Strict as Map
 import Data.Monoid
 import Data.Typeable
 import Control.Exception hiding (bracket, throw)
-import qualified Network.Transport as NT
+import qualified Network.Transport.Abstract as NT
+import qualified Network.Transport as NT (EventErrorCode(EventConnectionLost, EventEndPointFailed, EventTransportFailed))
 import System.Random (RandomGen, random)
 import Mockable.Class
 import Mockable.Concurrent
@@ -249,11 +250,13 @@ nodeDispatcher endpoint incomingVar handlerIn handlerInOut =
           --TODO: decide what to do with all active handlers
           return ()
 
-        NT.ErrorEvent (NT.TransportError (NT.EventConnectionLost peer) _msg) -> undefined
+        NT.ErrorEvent (NT.TransportError (NT.EventErrorCode (NT.EventConnectionLost peer)) _msg) -> undefined
 
-        NT.ErrorEvent (NT.TransportError NT.EventEndPointFailed  msg) -> undefined
+        NT.ErrorEvent (NT.TransportError (NT.EventErrorCode NT.EventEndPointFailed)  msg) -> undefined
 
-        NT.ErrorEvent (NT.TransportError NT.EventTransportFailed msg) -> undefined
+        NT.ErrorEvent (NT.TransportError (NT.EventErrorCode NT.EventTransportFailed) msg) -> undefined
+
+        NT.ErrorEvent (NT.TransportError NT.UnsupportedEvent msg) -> undefined
 
         NT.ConnectionOpened _ _ _ ->
           throw (ProtocolError "unexpected connection reliability")

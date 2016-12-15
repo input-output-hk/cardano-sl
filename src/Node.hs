@@ -19,7 +19,7 @@ import Data.Binary.Get as Bin
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Builder.Extra as BS
-import qualified Network.Transport as NT
+import qualified Network.Transport.Abstract as NT
 import System.Random (RandomGen)
 import Mockable.Class
 import Mockable.Concurrent

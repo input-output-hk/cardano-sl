@@ -7,7 +7,8 @@ build-type:          Simple
 cabal-version:       >=1.20
 
 Library
- exposed-modules:      Network.Transport
+ exposed-modules:      Network.Transport.Abstract
+                     , Network.Transport.Concrete
                      , Node
                      , Mockable.Class
                      , Mockable.Concurrent
@@ -23,4 +24,6 @@ Library
                      , random
                      , deepseq
                      , hashable
+                     , network-transport
+                     , transformers
  hs-source-dirs:     src

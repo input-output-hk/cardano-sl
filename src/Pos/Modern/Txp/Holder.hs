@@ -109,12 +109,12 @@ instance Monad m => WrappedM (TxpLDHolder ssc m) where
     type UnwrappedM (TxpLDHolder ssc m) = ReaderT (TxpLDWrap ssc) m
     _WrappedM = iso getTxpLDHolder TxpLDHolder
 
-instance MonadIO m => MonadUtxoRead ssc (TxpLDHolder ssc m) where
+instance MonadIO m => MonadUtxoRead (TxpLDHolder ssc m) where
     getTxOut key = TxpLDHolder (asks utxoView) >>=
                    (atomically . STM.readTVar >=> UV.getTxOut key)
 
-instance (MonadIO m, MonadUtxoRead ssc (TxpLDHolder ssc m))
-       => MonadUtxo ssc (TxpLDHolder ssc m) where
+instance (MonadIO m, MonadUtxoRead (TxpLDHolder ssc m))
+       => MonadUtxo (TxpLDHolder ssc m) where
     putTxOut key val = TxpLDHolder (asks utxoView) >>=
                        atomically . flip STM.modifyTVar' (UV.putTxOut key val)
     delTxIn key = TxpLDHolder (asks utxoView) >>=

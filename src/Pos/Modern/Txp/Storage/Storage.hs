@@ -56,13 +56,13 @@ type TxpWorkMode ssc m = ( Ssc ssc
                          , WithLogger m
                          , MonadDB ssc m
                          , MonadTxpLD ssc m
-                         , MonadUtxo ssc m
+                         , MonadUtxo m
                          , MonadThrow m)
 
 type MinTxpWorkMode ssc m = (
                               MonadDB ssc m
                             , MonadTxpLD ssc m
-                            , MonadUtxo ssc m
+                            , MonadUtxo m
                             , MonadThrow m)
 -- | Apply chain of /definitely/ valid blocks which go right after
 -- last applied block. If invalid block is passed, this function will

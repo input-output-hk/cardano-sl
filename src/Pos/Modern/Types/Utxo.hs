@@ -34,7 +34,7 @@ import           Pos.Types.Utxo.Class (MonadUtxo (..), MonadUtxoRead (..))
 -- can't be topsorted at all or the first incorrect transaction is
 -- encountered so we can't proceed further.
 verifyAndApplyTxs
-    :: MonadUtxo ssc m
+    :: MonadUtxo m
     => [(WithHash Tx, TxWitness)]
     -> m (Either Text [(WithHash Tx, TxWitness)])
 verifyAndApplyTxs txws  = do
@@ -73,7 +73,7 @@ verifyAndApplyTxs txws  = do
 
 -- | Remove unspent outputs used in given transaction, add new unspent
 -- outputs.
-applyTxToUtxo :: MonadUtxo ssc m => WithHash Tx -> m ()
+applyTxToUtxo :: MonadUtxo m => WithHash Tx -> m ()
 applyTxToUtxo tx = do
     mapM_ applyInput txInputs
     mapM_ (uncurry applyOutput) (zip [0..] txOutputs)
@@ -83,11 +83,11 @@ applyTxToUtxo tx = do
     applyOutput idx = putTxOut $ TxIn (whHash tx) idx
 
 -- | Find transaction input in Utxo assuming it is valid.
-findTxIn :: MonadUtxoRead ssc m => TxIn -> m (Maybe TxOut)
+findTxIn :: MonadUtxoRead m => TxIn -> m (Maybe TxOut)
 findTxIn = getTxOut
 
 -- | Verify single Tx using Utxo as TxIn resolver.
-verifyTxUtxo :: MonadUtxoRead ssc m => (Tx, TxWitness) -> m VerificationRes
+verifyTxUtxo :: MonadUtxoRead m => (Tx, TxWitness) -> m VerificationRes
 verifyTxUtxo = verifyTx findTxIn
 
 convertTo' :: [IdTxWitness] -> [(WithHash Tx, TxWitness)]
@@ -96,5 +96,5 @@ convertTo' = map (\(i, (t, w)) -> (WithHash t i, w))
 convertFrom' :: [(WithHash Tx, TxWitness)] -> [IdTxWitness]
 convertFrom' = map (\(WithHash t h, w) -> (h, (t, w)))
 
-applyTxToUtxo' :: MonadUtxo ssc m => IdTxWitness -> m ()
+applyTxToUtxo' :: MonadUtxo m => IdTxWitness -> m ()
 applyTxToUtxo' (i, (t, _)) = applyTxToUtxo $ WithHash t i

@@ -1,5 +1,3 @@
-{-# LANGUAGE FunctionalDependencies #-}
-
 -- | Type class abstracting UTXO (set of unspent outputs).
 
 module Pos.Types.Utxo.Class
@@ -11,9 +9,9 @@ import           Universum
 
 import           Pos.Types.Types (TxIn, TxOut)
 
-class Monad m => MonadUtxoRead ssc m | m -> ssc where
+class Monad m => MonadUtxoRead m where
     getTxOut :: TxIn -> m (Maybe TxOut)
 
-class MonadUtxoRead ssc m => MonadUtxo ssc m | m -> ssc where
+class MonadUtxoRead m => MonadUtxo m where
     putTxOut :: TxIn -> TxOut -> m ()
     delTxIn :: TxIn -> m ()

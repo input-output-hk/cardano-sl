@@ -15,11 +15,12 @@ module Pos.Util.UserSecret
 import           Control.Lens         (makeLenses, to, (.~), (^.))
 import           Control.Monad.Fail   (MonadFail, fail)
 import qualified Data.ByteString.Lazy as BSL
+import           Data.Default         (Default (..))
 import           System.FileLock      (FileLock, SharedExclusive (..), lockFile,
                                        unlockFile, withFileLock)
 import           Universum
 
-import           Pos.Binary           (Bi (..), decode, encode)
+import           Pos.Binary           (Bi (..), decode, decodeFull, encode)
 import           Pos.Crypto           (SecretKey)
 
 -- | User secret data. Includes secret keys only for now (not
@@ -38,20 +39,22 @@ makeLenses ''UserSecret
 canWrite :: UserSecret -> Bool
 canWrite u = u ^. usLock . to isJust
 
+instance Default UserSecret where
+    def = UserSecret [] "" Nothing
+
 -- | It's not network/system-related, so instance shouldn't be under
 -- @Pos.Binary.*@.
 instance Bi UserSecret where
     put UserSecret{..} = put _usKeys
-    get = do
-        _usKeys <- get
-        pure $ UserSecret { _usPath = "", _usLock = Nothing, ..}
+    get = get >>= pure . flip (usKeys .~) def
 
 -- | Reads user secret from the given file.
+-- If the file does not exist/is empty, returns empty user secret
 peekUserSecret :: (MonadIO m) => FilePath -> m UserSecret
 peekUserSecret path =
     liftIO $ withFileLock path Shared $ const $ do
-        content <- decode <$> BSL.readFile path
-        pure $ content & usPath .~ path
+        econtent <- decodeFull <$> BSL.readFile path
+        pure $ either (const def) identity econtent & usPath .~ path
 
 -- | Read user secret putting an exclusive lock on it. To unlock, use
 -- 'writeUserSecret' or 'writeUserSecretRelease'.
@@ -62,17 +65,18 @@ takeUserSecret path = liftIO $ do
     pure $ content & usPath .~ path
                    & usLock .~ Just l
 
--- | Writes user secret if file is locked by this process.
+-- | Writes user secret .
 writeUserSecret :: (MonadIO m, MonadFail m) => UserSecret -> m ()
 writeUserSecret u
-    | not (canWrite u) = fail "writeUserSecret: UserSecret is not writable"
-    | otherwise = liftIO $ BSL.writeFile (u ^. usPath) $ encode u
+    | canWrite u = fail "writeUserSecret: UserSecret is already locked"
+    | otherwise = liftIO $ withFileLock (u ^. usPath) Exclusive $ const $
+                  BSL.writeFile (u ^. usPath) $ encode u
 
 -- | Writes user secret and releases the lock. UserSecret can't be
 -- used after this function call anymore.
 writeUserSecretRelease :: (MonadIO m, MonadFail m) => UserSecret -> m ()
 writeUserSecretRelease u
-    | not (canWrite u) = fail "writeUserSecret: UserSecret is not writable"
+    | not (canWrite u) = fail "writeUserSecretRelease: UserSecret is not writable"
     | otherwise = do
         writeUserSecret u
         liftIO $ unlockFile

@@ -5,8 +5,9 @@ in
   haskell.lib.buildStackProject {
      name = "cardano-sl";
      ghc = hsPkgs.ghc;
-     buildInputs =
-       [ zlib glib git cabal-install openssh autoreconfHook stack openssl
-         sshpass gmp rocksdb ];
+     # cabal-install and stack pull in lots of dependencies on OSX so skip them
+     buildInputs = [
+       zlib openssh autoreconfHook openssl
+       gmp rocksdb git ] ++ (lib.optionals stdenv.isLinux [ cabal-install stack ]);
      LANG = "en_US.UTF-8";
   }

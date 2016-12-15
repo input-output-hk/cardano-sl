@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE StandaloneDeriving     #-}
 {-# LANGUAGE UndecidableInstances   #-}
 
@@ -11,6 +10,7 @@ module Pos.Modern.DB.Class
        ( MonadDB (..)
        , getBlockDB
        , getUtxoDB
+       , getMiscDB
        ) where
 
 import           Control.Lens         (ASetter', view)
@@ -20,7 +20,7 @@ import           Universum
 
 import           Pos.DHT.Model        (DHTResponseT (..))
 import           Pos.DHT.Real         (KademliaDHT (..))
-import           Pos.Modern.DB.Types  (DB, NodeDBs, blockDB, utxoDB)
+import           Pos.Modern.DB.Types  (DB, NodeDBs, blockDB, miscDB, utxoDB)
 
 -- TODO write a documentation. LensLike' is just a lens. Written using
 -- LensLike' to avoid rankntypes.
@@ -34,6 +34,9 @@ getBlockDB = view blockDB <$> getNodeDBs
 
 getUtxoDB :: MonadDB ssc m => m (DB ssc)
 getUtxoDB = view utxoDB <$> getNodeDBs
+
+getMiscDB :: MonadDB ssc m => m (DB ssc)
+getMiscDB = view miscDB <$> getNodeDBs
 
 instance (MonadDB ssc m) => MonadDB ssc (ReaderT a m) where
     getNodeDBs = lift getNodeDBs

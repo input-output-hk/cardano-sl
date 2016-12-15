@@ -36,7 +36,7 @@ import           Pos.Modern.DB                   (DB, MonadDB, getUtxoDB)
 import           Pos.Modern.DB.Block             (getBlock, getUndo)
 import           Pos.Modern.DB.Utxo              (BatchOp (..), getTip, writeBatchToUtxo)
 import           Pos.Modern.Txp.Class            (MonadTxpLD (..), TxpLD)
-import           Pos.Modern.Txp.Holder           (runTxpLDHolderUV)
+import           Pos.Modern.Txp.Holder           (TxpLDHolder, runTxpLDHolderUV)
 import           Pos.Modern.Txp.Storage.Types    (MemPool (..), UtxoView (..))
 import qualified Pos.Modern.Txp.Storage.UtxoView as UV
 import           Pos.Modern.Types.Tx             (topsortTxs, verifyTx)
@@ -109,7 +109,7 @@ txApplyBlock (b, txs) computedBatch = do
 -- | Given number of blocks to rollback and some sidechain to adopt it
 -- checks if it can be done prior to transaction validity. Returns a
 -- list of topsorted transactions, head ~ deepest block on success.
-txVerifyBlocks :: MonadDB ssc m => AltChain ssc
+txVerifyBlocks :: forall ssc m . MonadDB ssc m => AltChain ssc
                -> m (Either Text [[IdTxWitness]])
 txVerifyBlocks newChain = do
     utxoDB <- getUtxoDB
@@ -118,9 +118,10 @@ txVerifyBlocks newChain = do
                      (UV.createFromDB utxoDB)
     return $
         case verifyRes of
-          Left msg     -> Left msg
+          Left msg     ->
+              Left msg
           Right accTxs ->
-                Right (map convertFrom' . reverse $ accTxs)
+              Right (map convertFrom' . reverse $ accTxs)
   where
     newChainTxs :: [(SlotId, [(WithHash Tx, TxWitness)])]
     newChainTxs =
@@ -128,9 +129,9 @@ txVerifyBlocks newChain = do
                     over (each._1) withHash (b ^. blockTxws))) $
         rights (NE.toList newChain)
 
-    -- verifyDo  :: (Either Text [[IdTxWitness]])
-    --           -> (SlotId, [(WithHash Tx, TxWitness)])
-    --           -> m (Either Text [[IdTxWitness]])
+    verifyDo  :: Either Text [[(WithHash Tx, TxWitness)]]
+              -> (SlotId, [(WithHash Tx, TxWitness)])
+              ->  TxpLDHolder ssc m (Either Text [[(WithHash Tx, TxWitness)]])
     verifyDo er@(Left _) _ = return er
     verifyDo (Right accTxs) (slotId, txws) = do
         res <- verifyAndApplyTxs txws
@@ -168,31 +169,27 @@ processTxDo ld@(uv, mp, tip) resolvedIns utxoDB (id, (tx, txw)) =
         locTxs = localTxs mp
         locTxsSize = localTxsSize mp
         addUtxo' = addUtxo uv
-        delUtxo' = delUtxo uv in
+        delUtxo' = delUtxo uv
+        inputResolver tin = return $
+            if HS.member tin delUtxo' then Nothing
+            else maybe (HM.lookup tin addUtxo') Just (HM.lookup tin resolvedIns) in
     if not $ HM.member id locTxs then
-        let verifyRes =
-              runIdentity $
-                verifyTx
-                  (\tin -> return $
-                      if HS.member tin delUtxo' then Nothing
-                      else maybe
-                            (HM.lookup tin addUtxo')
-                            Just
-                            (HM.lookup tin resolvedIns))
-                  (tx, txw) in
+        let verifyRes = runIdentity $ verifyTx inputResolver (tx, txw) in
         case verifyRes of
-            VerSuccess ->
-                let
-                    keys = zipWith TxIn (repeat id) [0..]
-                    newAddUtxo' = foldl' (\r (x, y) -> HM.insert x y r) addUtxo' $ zip keys (txOutputs tx)
-                    newDelUtxo' = foldl' (flip HS.insert) delUtxo' (txInputs tx) in
-                (PTRadded, (UtxoView newAddUtxo' newDelUtxo' utxoDB,
-                            MemPool (HM.insert id (tx, txw) locTxs) (locTxsSize + 1),
-                            tip))
-            VerFailure errors ->
-                ((mkPTRinvalid errors), ld)
+            VerSuccess        -> newState addUtxo' delUtxo' locTxs locTxsSize
+            VerFailure errors -> ((mkPTRinvalid errors), ld)
      else
          (PTRknown, ld)
+  where
+    newState nAddUtxo nDelUtxo oldTxs oldSize =
+        let
+            keys = zipWith TxIn (repeat id) [0..]
+            zipKeys = zip keys (txOutputs tx)
+            newAddUtxo' = foldl' (flip $ uncurry HM.insert) nAddUtxo zipKeys
+            newDelUtxo' = foldl' (flip HS.insert) nDelUtxo (txInputs tx) in
+        (PTRadded, (UtxoView newAddUtxo' newDelUtxo' utxoDB,
+                    MemPool (HM.insert id (tx, txw) oldTxs) (oldSize + 1),
+                    tip))
 
 -- | Rollback last @n@ blocks. This will replace current utxo to utxo
 -- of desired depth block and also filter local transactions so they
@@ -209,7 +206,8 @@ txRollbackBlock = getTip >>=
             aifM (getUndo tip) (\undo -> do
                 let txs = getTxs block
                 --TODO more detailed message must be here
-                unless (length undo == length txs) $ panic "Number of txs must be equal length of undo"
+                unless (length undo == length txs)
+                    $ panic "Number of txs must be equal length of undo"
                 let batchOrError = foldl' prependToBatch (Right []) $ zip txs undo
                 case batchOrError of
                     Left msg    -> panic msg
@@ -255,20 +253,19 @@ normalizeTxpLD = do
     maybe (modifyTxpLD (setTxpLd ((), (emptyUtxoView, emptyMemPool, utxoTip))))
           (\topsorted -> do
               (validTxs, newUtxoView) <- -- we run this code in temporary TxpLDHolder
-                  runTxpLDHolderUV
-                      ( do
-                          validTxs' <- foldlM canApply [] topsorted
-                          newUtxoView' <- getUtxoView
-                          return (validTxs', newUtxoView')
-                      )
-                      emptyUtxoView
-              modifyTxpLD (setTxpLd
-                             ((), ( newUtxoView
-                                    , MemPool (HM.fromList validTxs) (length validTxs)
-                                    , utxoTip)))
+                  runTxpLDHolderUV (findValid topsorted) emptyUtxoView
+              modifyTxpLD (setTxpLd $ newState newUtxoView validTxs utxoTip)
           ) (topsortTxs (\(i, (t, _)) -> WithHash t i) mpTxs)
   where
     setTxpLd val = \(_, _, _) -> val
+    findValid topsorted = do
+        validTxs' <- foldlM canApply [] topsorted
+        newUtxoView' <- getUtxoView
+        return (validTxs', newUtxoView')
+    newState newUtxoView validTxs utxoTip =
+        ((), ( newUtxoView
+              , MemPool (HM.fromList validTxs) (length validTxs)
+              , utxoTip))
     canApply xs itw@(_, (tx, txw)) = do
         verifyRes <- verifyTxUtxo (tx, txw)
         case verifyRes of

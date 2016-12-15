@@ -1,5 +1,7 @@
-{-# LANGUAGE BangPatterns  #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE BangPatterns     #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TupleSections    #-}
+
 -- | Utxo related operations.
 
 module Pos.Types.Utxo
@@ -9,17 +11,24 @@ module Pos.Types.Utxo
        , verifyTxUtxo
        , verifyAndApplyTxs
        , normalizeTxs
+       , normalizeTxs'
+       , applyTxToUtxo'
+       , verifyAndApplyTxs'
+       , convertTo'
+       , convertFrom'
        ) where
 
-import           Control.Lens    (over, _1)
-import           Data.List       ((\\))
-import qualified Data.Map.Strict as M
-import           Serokell.Util   (VerificationRes (..))
+import           Control.Lens     (over, _1)
+import           Data.List        ((\\))
+import qualified Data.Map.Strict  as M
+import           Serokell.Util    (VerificationRes (..))
 import           Universum
 
-import           Pos.Crypto      (WithHash (whData, whHash))
-import           Pos.Types.Tx    (topsortTxs, verifyTx)
-import           Pos.Types.Types (Tx (..), TxIn (..), TxOut (..), TxWitness, Utxo)
+import           Pos.Binary.Class (Bi)
+import           Pos.Crypto       (WithHash (..))
+import           Pos.Types.Tx     (topsortTxs, verifyTx)
+import           Pos.Types.Types  (IdTxWitness, Tx (..), TxIn (..), TxOut (..), TxWitness,
+                                   Utxo)
 
 -- | Find transaction input in Utxo assuming it is valid.
 findTxIn :: TxIn -> Utxo -> Maybe TxOut
@@ -30,7 +39,7 @@ deleteTxIn :: TxIn -> Utxo -> Utxo
 deleteTxIn TxIn{..} = M.delete (txInHash, txInIndex)
 
 -- | Verify single Tx using Utxo as TxIn resolver.
-verifyTxUtxo :: Utxo -> (Tx, TxWitness) -> VerificationRes
+verifyTxUtxo :: Bi TxOut => Utxo -> (Tx, TxWitness) -> VerificationRes
 verifyTxUtxo utxo txw = verifyTx (`findTxIn` utxo) txw
 
 -- | Remove unspent outputs used in given transaction, add new unspent
@@ -53,7 +62,8 @@ applyTxToUtxo tx =
 -- can't be topsorted at all or the first incorrect transaction is
 -- encountered so we can't proceed further.
 verifyAndApplyTxs
-    :: [(WithHash Tx, TxWitness)]
+    :: Bi TxOut
+    => [(WithHash Tx, TxWitness)]
     -> Utxo
     -> Either Text ([(WithHash Tx, TxWitness)], Utxo)
 verifyAndApplyTxs txws utxo =
@@ -77,7 +87,11 @@ verifyAndApplyTxs txws utxo =
 -- | Takes the set of transactions and utxo, returns only those
 -- transactions that can be applied inside. Bonus -- returns them
 -- sorted (topographically).
-normalizeTxs :: [(WithHash Tx, TxWitness)] -> Utxo -> [(WithHash Tx, TxWitness)]
+normalizeTxs
+    :: Bi TxOut
+    => [(WithHash Tx, TxWitness)]
+    -> Utxo
+    -> [(WithHash Tx, TxWitness)]
 normalizeTxs = normGo []
   where
     -- checks if transaction can be applied, adds it to first arg and
@@ -101,3 +115,25 @@ normalizeTxs = normGo []
         in if null canBeApplied
                then result
                else normGo newResult newPending newUtxo
+
+-- TODO change types of normalizeTxs and related
+
+convertTo' :: [IdTxWitness] -> [(WithHash Tx, TxWitness)]
+convertTo' = map (\(i, (t, w)) -> (WithHash t i, w))
+
+convertFrom' :: [(WithHash Tx, TxWitness)] -> [IdTxWitness]
+convertFrom' = map (\(WithHash t h, w) -> (h, (t, w)))
+
+normalizeTxs' :: Bi TxOut => [IdTxWitness] -> Utxo -> [IdTxWitness]
+normalizeTxs' tx utxo =
+    let converted = convertTo' tx in
+    convertFrom' $ normalizeTxs converted utxo
+
+applyTxToUtxo' :: IdTxWitness -> Utxo -> Utxo
+applyTxToUtxo' (i, (t, _)) = applyTxToUtxo $ WithHash t i
+
+verifyAndApplyTxs'
+    :: Bi TxOut
+    => [IdTxWitness] -> Utxo -> Either Text ([IdTxWitness], Utxo)
+verifyAndApplyTxs' txws utxo = (\(x, y) -> (convertFrom' x, y))
+                               <$> verifyAndApplyTxs (convertTo' txws) utxo

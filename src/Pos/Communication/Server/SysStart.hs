@@ -10,27 +10,35 @@ module Pos.Communication.Server.SysStart
        , sysStartRespListener
        ) where
 
-import           Pos.DHT                 (ListenerDHT (..), closeResponse, replyToNode)
+import           Control.Concurrent.MVar (MVar, tryPutMVar)
 import           Universum
 
-import           Control.Concurrent.MVar (MVar, tryPutMVar)
-import           Control.TimeWarp.Rpc    (BinaryP, MonadDialog)
+import           Pos.Binary.Class        (Bi)
 import           Pos.Communication.Types (SysStartRequest (..), SysStartResponse (..))
+import           Pos.DHT.Model           (ListenerDHT (..), MonadDHTDialog, closeResponse,
+                                          replyToNode)
 import           Pos.Types               (Timestamp)
-import           Pos.WorkMode            (MinWorkMode)
+import           Pos.WorkMode            (MinWorkMode, SocketState)
 
-sysStartReqListenerSlave :: (MonadDialog BinaryP m) => ListenerDHT m
+sysStartReqListenerSlave :: (MonadDHTDialog s m, Bi SysStartRequest) => ListenerDHT s m
 sysStartReqListenerSlave = ListenerDHT $ \(_ :: SysStartRequest) -> return ()
 
 -- | Listener for 'SysStartRequest' message.
-sysStartReqListener :: (MonadDialog BinaryP m, MinWorkMode m) => Timestamp -> ListenerDHT m
+sysStartReqListener
+    :: (MonadDHTDialog SocketState m, MinWorkMode m, Bi SysStartRequest,
+        Bi SysStartResponse)
+    => Timestamp -> ListenerDHT SocketState m
 sysStartReqListener sysStart = ListenerDHT $
     \(_ :: SysStartRequest) -> do
         replyToNode $ SysStartResponse sysStart Nothing
         closeResponse
 
 -- | Listener for 'SysStartResponce' message.
-sysStartRespListener :: (MonadDialog BinaryP m, MinWorkMode m) => MVar Timestamp -> ListenerDHT m
+sysStartRespListener
+    :: (MonadDHTDialog SocketState m
+       ,MinWorkMode m
+       ,Bi SysStartResponse)
+    => MVar Timestamp -> ListenerDHT SocketState m
 sysStartRespListener mvar = ListenerDHT $
     \(SysStartResponse ts _ :: SysStartResponse) -> do
         liftIO . void . tryPutMVar mvar $ ts

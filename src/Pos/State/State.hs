@@ -24,9 +24,11 @@ module Pos.State.State
        , getBlockByDepth
        , getHeadBlock
        , getBestChain
+       , getChainPart
        , getLeaders
-       , getLocalTxs
+       , getUtxo
        , getUtxoByDepth
+       , getOldestUtxo
        , isTxVerified
        , getGlobalMpcData
        , getGlobalMpcDataByDepth
@@ -58,14 +60,15 @@ import           Data.Default             (Default)
 import qualified Data.HashMap.Strict      as HM
 import           Data.List.NonEmpty       (NonEmpty)
 import           Formatting               (build, sformat, (%))
-import           Pos.DHT                  (DHTResponseT)
+import           Pos.DHT.Model            (DHTResponseT)
+import           Pos.DHT.Real             (KademliaDHT)
 import           Serokell.Util            (VerificationRes)
 import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            dispatchEvents, getLoggerName, logWarning,
                                            runPureLog, usingLoggerName)
 
-import           Pos.Crypto               (LVssPublicKey, SecretKey, Share, VssKeyPair,
-                                           WithHash, decryptShare, toVssPublicKey)
+import           Pos.Crypto               (SecretKey, Share, VssKeyPair, VssPublicKey,
+                                           decryptShare, toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
@@ -76,9 +79,10 @@ import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (.
                                            Storage, getThreshold)
 import           Pos.Statistics.StatEntry ()
 import           Pos.Types                (Address, Block, EpochIndex, GenesisBlock,
-                                           HeaderHash, MainBlock, MainBlockHeader, SlotId,
-                                           SlotLeaders, Tx, TxWitness, Utxo)
-import           Pos.Util                 (deserializeM, serialize)
+                                           HeaderHash, IdTxWitness, MainBlock,
+                                           MainBlockHeader, SlotId, SlotLeaders, Tx, TxId,
+                                           TxWitness, Utxo)
+import           Pos.Util                 (AsBinary, asBinary, fromBinaryM)
 
 -- | NodeState encapsulates all the state stored by node.
 class Monad m => MonadDB ssc m | m -> ssc where
@@ -91,7 +95,10 @@ instance (Monad m, MonadDB ssc m) => MonadDB ssc (ReaderT r m) where
 instance (MonadDB ssc m, Monad m) => MonadDB ssc (StateT s m) where
     getNodeState = lift getNodeState
 
-instance (Monad m, MonadDB ssc m) => MonadDB ssc (DHTResponseT m) where
+instance (Monad m, MonadDB ssc m) => MonadDB ssc (DHTResponseT s m) where
+    getNodeState = lift getNodeState
+
+instance (MonadDB ssc m, Monad m) => MonadDB ssc (KademliaDHT m) where
     getNodeState = lift getNodeState
 
 -- | IO monad with db access.
@@ -188,13 +195,23 @@ getHeadBlock = queryDisk A.GetHeadBlock
 getBestChain :: QUConstraint ssc m => m (NonEmpty (Block ssc))
 getBestChain = queryDisk A.GetBestChain
 
--- | Get local transactions list.
-getLocalTxs :: QUConstraint ssc m => m (HashMap (WithHash Tx) TxWitness)
-getLocalTxs = queryDisk A.GetLocalTxs
+-- | Return part of best chain with given limits
+getChainPart :: QUConstraint ssc m
+             => Maybe (HeaderHash ssc) -> Maybe (HeaderHash ssc) -> Maybe Word
+             -> m (Either Text [Block ssc])
+getChainPart toH fromH = queryDisk . A.GetChainPart toH fromH
 
 -- | Get Utxo by depth
 getUtxoByDepth :: QUConstraint ssc m => Word -> m (Maybe Utxo)
 getUtxoByDepth = queryDisk . A.GetUtxoByDepth
+
+-- | Get current Utxo
+getUtxo :: QUConstraint ssc m => m Utxo
+getUtxo = queryDisk A.GetUtxo
+
+-- | Get oldest (genesis) utxo
+getOldestUtxo :: QUConstraint ssc m => m Utxo
+getOldestUtxo = queryDisk A.GetOldestUtxo
 
 -- | Checks if tx is verified
 isTxVerified :: QUConstraint ssc m => (Tx, TxWitness) -> m Bool
@@ -216,14 +233,15 @@ mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 -- | Create new block on top of currently known best chain, assuming
 -- we are slot leader.
 createNewBlock :: QUConstraint ssc m
-               => SecretKey
+               => [IdTxWitness]
+               -> SecretKey
                -> SlotId
                -> SscPayload ssc
                -> m (Either Text (MainBlock ssc))
-createNewBlock sk si = updateDisk . A.CreateNewBlock sk si
+createNewBlock localTxs sk si = updateDisk . A.CreateNewBlock localTxs sk si
 
 -- | Process transaction received from other party.
-processTx :: QUConstraint ssc m => (WithHash Tx, TxWitness) -> m ProcessTxRes
+processTx :: QUConstraint ssc m => (TxId, (Tx, TxWitness)) -> m ()
 processTx = updateDisk . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot. Ideally it should
@@ -233,16 +251,17 @@ processNewSlot = updateDiskWithLog . A.ProcessNewSlotL
 
 -- | Process some Block received from the network.
 processBlock :: (SscHelpersClass ssc, QUConstraint ssc m)
-             => SlotId
+             => [IdTxWitness]
+             -> SlotId
              -> Block ssc
              -> m (ProcessBlockRes ssc)
-processBlock si = updateDisk . A.ProcessBlock si
+processBlock localTxs si = updateDisk . A.ProcessBlock localTxs si
 
 -- | Functions for generating seed by SSC algorithm
 getParticipants
     :: QUConstraint ssc m
     => EpochIndex
-    -> m (Maybe (NonEmpty LVssPublicKey))
+    -> m (Maybe (NonEmpty (AsBinary VssPublicKey)))
 getParticipants = queryDisk . A.GetParticipants
 
 ----------------------------------------------------------------------------
@@ -256,12 +275,12 @@ getOurShares
     => VssKeyPair -> m (HashMap Address Share)
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
-    let ourPK = serialize $ toVssPublicKey ourKey
+    let ourPK = asBinary $ toVssPublicKey ourKey
     encSharesM <- queryDisk $ A.GetOurShares ourPK
     let drg = drgNewSeed randSeed
         (res, pLog) = fst . withDRG drg . runPureLog . usingLoggerName mempty <$>
                         flip traverse (HM.toList encSharesM) $ \(pk, lEncSh) -> do
-                          let mEncSh = deserializeM lEncSh
+                          let mEncSh = fromBinaryM lEncSh
                           case mEncSh of
                             Just encShare -> lift . lift $ Just . (,) pk <$> decryptShare ourKey encShare
                             _             -> do

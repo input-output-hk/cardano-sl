@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
@@ -15,6 +16,8 @@ module Pos.Types.Block
        , mkGenesisHeader
        , mkGenesisBlock
 
+       , genesisHash
+
        , VerifyBlockParams (..)
        , VerifyHeaderParams (..)
        , verifyBlock
@@ -25,15 +28,17 @@ module Pos.Types.Block
        ) where
 
 import           Control.Lens         (ix, view, (^.), (^?), _3)
-import           Data.Binary          (Binary)
 import           Data.Default         (Default (def))
 import           Formatting           (build, int, sformat, (%))
 import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum
 
+import           Pos.Binary.Class     (Bi (..))
+import           Pos.Binary.Types     ()
 import           Pos.Constants        (epochSlots)
-import           Pos.Crypto           (Hash, SecretKey, checkSig, hash, sign, toPublic,
-                                       unsafeHash)
+import           Pos.Crypto           (Hash, ProxySecretKey, PublicKey, SecretKey,
+                                       checkSig, hash, proxySign, proxyVerify, sign,
+                                       toPublic, unsafeHash)
 import           Pos.Merkle           (mkMerkleTree)
 import           Pos.Ssc.Class.Types  (Ssc (..))
 -- Unqualified import is used here because of GHC bug (trac 12127).
@@ -57,7 +62,7 @@ genesisHash = unsafeHash ("patak" :: Text)
 -- | Smart constructor for 'GenericBlockHeader'.
 mkGenericHeader
     :: forall b.
-       (Binary (BBlockHeader b), Blockchain b)
+       (Bi (BBlockHeader b), Blockchain b)
     => Maybe (BBlockHeader b)
     -> Body b
     -> (Hash (BBlockHeader b) -> BodyProof b -> ConsensusData b)
@@ -78,7 +83,7 @@ mkGenericHeader prevHeader body consensus extra =
 -- | Smart constructor for 'GenericBlock'. Uses 'mkGenericBlockHeader'.
 mkGenericBlock
     :: forall b.
-       (Binary (BBlockHeader b), Blockchain b)
+       (Bi (BBlockHeader b), Blockchain b)
     => Maybe (BBlockHeader b)
     -> Body b
     -> (Hash (BBlockHeader b) -> BodyProof b -> ConsensusData b)
@@ -92,17 +97,22 @@ mkGenericBlock prevHeader body consensus extraH extraB =
 
 -- | Smart constructor for 'MainBlockHeader'.
 mkMainHeader
-    :: Ssc ssc
+    :: BiSsc ssc
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
+    -> Maybe (PublicKey, ProxySecretKey (EpochIndex,EpochIndex))
     -> Body (MainBlockchain ssc)
     -> MainBlockHeader ssc
-mkMainHeader prevHeader slotId sk body =
+mkMainHeader prevHeader slotId sk proxyInfo body =
     mkGenericHeader prevHeader body consensus ()
   where
     difficulty = maybe 0 (succ . view difficultyL) prevHeader
-    signature prevHash proof = sign sk (prevHash, proof, slotId, difficulty)
+    signature prevHash proof =
+        let toSign = (prevHash, proof, slotId, difficulty)
+        in maybe (BlockSignature $ sign sk toSign)
+                 (\(pk,proxySk) -> BlockPSignature $ proxySign sk pk proxySk toSign)
+                 proxyInfo
     consensus prevHash proof =
         MainConsensusData
         { _mcdSlot = slotId
@@ -113,22 +123,23 @@ mkMainHeader prevHeader slotId sk body =
 
 -- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'.
 mkMainBlock
-    :: Ssc ssc
+    :: BiSsc ssc
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
+    -> Maybe (PublicKey, ProxySecretKey (EpochIndex,EpochIndex))
     -> Body (MainBlockchain ssc)
     -> MainBlock ssc
-mkMainBlock prevHeader slotId sk body =
+mkMainBlock prevHeader slotId sk proxyInfo body =
     GenericBlock
-    { _gbHeader = mkMainHeader prevHeader slotId sk body
+    { _gbHeader = mkMainHeader prevHeader slotId sk proxyInfo body
     , _gbBody = body
     , _gbExtra = ()
     }
 
 -- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.
 mkGenesisHeader
-    :: Ssc ssc
+    :: BiSsc ssc
     => Maybe (BlockHeader ssc)
     -> EpochIndex
     -> Body (GenesisBlockchain ssc)
@@ -142,7 +153,7 @@ mkGenesisHeader prevHeader epoch body =
 
 -- | Smart constructor for 'GenesisBlock'. Uses 'mkGenesisHeader'.
 mkGenesisBlock
-    :: Ssc ssc
+    :: BiSsc ssc
     => Maybe (BlockHeader ssc)
     -> EpochIndex
     -> SlotLeaders
@@ -163,20 +174,32 @@ mkMainBody txws mpc = MainBody {
     _mbWitnesses = map snd txws,
     _mbMpc = mpc }
 
-verifyConsensusLocal :: Ssc ssc => BlockHeader ssc -> VerificationRes
+verifyConsensusLocal
+    :: BiSsc ssc
+    => BlockHeader ssc -> VerificationRes
 verifyConsensusLocal (Left _)       = mempty
 verifyConsensusLocal (Right header) =
     verifyGeneric
-        [ ( checkSig pk (_gbhPrevBlock, _gbhBodyProof, slotId, d) sig
-          , "can't verify signature")
+        [ ( verifyBlockSignature $ consensus ^. mcdSignature
+          , "can't verify simple signature")
         , (siSlot slotId < epochSlots, "slot index is not less than epochSlots")
         ]
   where
-    GenericBlockHeader {_gbhConsensus = consensus, ..} = header
+    verifyBlockSignature (BlockSignature sig) =
+        checkSig pk (_gbhPrevBlock, _gbhBodyProof, slotId, d) sig
+    verifyBlockSignature (BlockPSignature proxySig) =
+        proxyVerify
+            pk
+            proxySig
+            (\(epochLow, epochHigh) ->
+               epochId <= epochHigh && epochId >= epochLow)
+            (_gbhPrevBlock, _gbhBodyProof, slotId, d)
+    GenericBlockHeader {_gbhConsensus = consensus
+                       ,..} = header
     pk = consensus ^. mcdLeaderKey
     slotId = consensus ^. mcdSlot
+    epochId = siEpoch slotId
     d = consensus ^. mcdDifficulty
-    sig = consensus ^. mcdSignature
 
 -- | Extra data which may be used by verifyHeader function to do more checks.
 data VerifyHeaderParams ssc = VerifyHeaderParams
@@ -205,7 +228,7 @@ maybeEmpty = maybe mempty
 -- | Check some predicates (determined by VerifyHeaderParams) about
 -- BlockHeader.
 verifyHeader
-    :: Ssc ssc
+    :: BiSsc ssc
     => VerifyHeaderParams ssc -> BlockHeader ssc -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
    consensusRes <> verifyGeneric checks
@@ -307,7 +330,7 @@ instance Default (VerifyBlockParams ssc) where
         }
 
 -- | Check predicates defined by VerifyBlockParams.
-verifyBlock :: Ssc ssc => VerifyBlockParams ssc -> Block ssc -> VerificationRes
+verifyBlock :: BiSsc ssc => VerifyBlockParams ssc -> Block ssc -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
         [ verifyG
@@ -325,7 +348,7 @@ verifyBlock VerifyBlockParams {..} blk =
 -- It doesn't affect laziness of 'VerificationRes' which is good
 -- because laziness for this data type is crucial.
 verifyBlocks
-    :: forall ssc t. (Ssc ssc, Foldable t)
+    :: forall ssc t. (BiSsc ssc, Foldable t)
     => Maybe SlotId -> t (Block ssc) -> VerificationRes
 verifyBlocks curSlotId = (view _3) . foldl' step start
   where

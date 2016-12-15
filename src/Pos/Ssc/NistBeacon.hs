@@ -18,7 +18,6 @@ module Pos.Ssc.NistBeacon
 
 import           Crypto.Hash             (SHA256)
 import qualified Crypto.Hash             as Hash
-import qualified Data.Binary             as Binary
 import qualified Data.ByteArray          as ByteArray (convert)
 import           Data.Coerce             (coerce)
 import qualified Data.HashMap.Strict     as HM
@@ -29,6 +28,7 @@ import           Data.Text.Buildable     (Buildable (build))
 import           Serokell.Util.Verify    (VerificationRes (..))
 import           Universum
 
+import           Pos.Binary.Class        (encode)
 import           Pos.Crypto              (Threshold, deterministicVssKeyGen,
                                           toVssPublicKey)
 import           Pos.FollowTheSatoshi    (followTheSatoshi)
@@ -40,7 +40,7 @@ import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (.
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Ssc.Class.Workers   (SscWorkersClass (..))
 import           Pos.Types               (EpochIndex, SharedSeed (..), SlotLeaders, Utxo)
-import           Pos.Util                (serialize)
+import           Pos.Util                (asBinary)
 
 -- | Data type tag for Nist Beacon implementation of Shared Seed Calculation.
 data SscNistBeacon
@@ -78,7 +78,8 @@ instance SscStorageClass SscNistBeacon where
 
     sscGetOurShares _ = pure HM.empty
 
-    sscGetParticipants _ _  = pure $ Just $ pure $ serialize $ toVssPublicKey $ deterministicVssKeyGen ""
+    sscGetParticipants _ _  =
+        pure $ Just $ pure $ asBinary $ toVssPublicKey $ deterministicVssKeyGen ""
     sscCalculateLeaders = calculateLeaders
 
 instance SscHelpersClass SscNistBeacon where
@@ -97,7 +98,7 @@ calculateLeaders
     -> Query (Either () SlotLeaders)
 calculateLeaders epoch utxo _ = do
     let seed = coerce . ByteArray.convert @_ @ByteString .
-               Hash.hashlazy @SHA256 . Binary.encode $ epoch
+               Hash.hashlazy @SHA256 . encode $ epoch
     return $ Right $ followTheSatoshi seed utxo
 
 instance SscWorkersClass SscNistBeacon where

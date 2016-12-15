@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies     #-}
 
 module Pos.Ssc.GodTossing.Functions
        (
@@ -42,16 +43,18 @@ import           Serokell.Util                  (VerificationRes, verifyGeneric)
 import           Serokell.Util.Verify           (isVerSuccess)
 import           Universum
 
+import           Pos.Binary.Class               (Bi)
+import           Pos.Binary.Crypto              ()
 import           Pos.Constants                  (k)
-import           Pos.Crypto                     (LShare, LVssPublicKey, Secret, SecretKey,
-                                                 SecureRandom (..), Threshold, checkSig,
-                                                 genSharedSecret, getDhSecret,
+import           Pos.Crypto                     (EncShare, Share, VssPublicKey, Secret,
+                                                 SecretKey, SecureRandom (..), Threshold,
+                                                 checkSig, genSharedSecret, getDhSecret,
                                                  secretToDhSecret, sign, toPublic,
                                                  verifyEncShare, verifySecretProof,
                                                  verifyShare)
 import           Pos.Ssc.Class.Types            (Ssc (..))
-import           Pos.Ssc.GodTossing.Types.Base  (InnerSharesMap, Commitment (..),
-                                                 CommitmentsMap, Opening (..),
+import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap,
+                                                 InnerSharesMap, Opening (..),
                                                  SignedCommitment, VssCertificate (..),
                                                  VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..))
@@ -59,7 +62,8 @@ import           Pos.Types.Types                (Address (..), EpochIndex, Local
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), checkPubKeyAddress,
                                                  headerSlot)
-import           Pos.Util                       (deserializeM, diffDoubleMap, serialize)
+import           Pos.Util                       (AsBinary, fromBinaryM, diffDoubleMap,
+                                                 asBinary)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -71,21 +75,23 @@ secretToSharedSeed = SharedSeed . getDhSecret . secretToDhSecret
 -- | Generate securely random SharedSeed.
 genCommitmentAndOpening
     :: (MonadFail m, MonadIO m)
-    => Threshold -> NonEmpty LVssPublicKey -> m (Commitment, Opening)
+    => Threshold -> NonEmpty (AsBinary VssPublicKey) -> m (Commitment, Opening)
 genCommitmentAndOpening n pks = do
-    pks' <- traverse deserializeM pks
+    pks' <- traverse fromBinaryM pks
     liftIO . runSecureRandom . fmap convertRes . genSharedSecret n $ pks'
   where
     convertRes (extra, secret, proof, shares) =
         ( Commitment
-          { commExtra = serialize extra
-          , commProof = serialize proof
-          , commShares = HM.fromList $ zip (toList pks) $ map serialize shares
+          { commExtra = asBinary extra
+          , commProof = asBinary proof
+          , commShares = HM.fromList $ zip (toList pks) $ map asBinary shares
           }
-        , Opening $ serialize secret)
+        , Opening $ asBinary secret)
 
 -- | Make signed commitment from commitment and epoch index using secret key.
-mkSignedCommitment :: SecretKey -> EpochIndex -> Commitment -> SignedCommitment
+mkSignedCommitment
+    :: Bi Commitment
+    => SecretKey -> EpochIndex -> Commitment -> SignedCommitment
 mkSignedCommitment sk i c = (toPublic sk, c, sign sk (i, c))
 
 ----------------------------------------------------------------------------
@@ -130,22 +136,29 @@ hasVssCertificate addr = HM.member addr . _gsVssCertificates
 -- | Verify that Commitment is correct.
 verifyCommitment :: Commitment -> Bool
 verifyCommitment Commitment {..} = fromMaybe False $ do
-    extra <- deserializeM commExtra
-    all (verifyCommitmentDo extra) <$> traverse deserializeM (HM.toList commShares)
+    extra <- fromBinaryM commExtra
+    all (verifyCommitmentDo extra) <$> traverse tupleFromBinaryM (HM.toList commShares)
   where
     verifyCommitmentDo extra = uncurry (verifyEncShare extra)
+    tupleFromBinaryM
+        :: (AsBinary VssPublicKey, AsBinary EncShare)
+        -> Maybe (VssPublicKey, EncShare)
+    tupleFromBinaryM =
+        uncurry (liftA2 (,)) . bimap fromBinaryM fromBinaryM
 
 -- | Verify public key contained in SignedCommitment against given address
 verifyCommitmentPK :: Address -> SignedCommitment -> Bool
 verifyCommitmentPK addr (pk, _, _) = checkPubKeyAddress pk addr
 
 -- | Verify signature in SignedCommitment using epoch index.
-verifyCommitmentSignature :: EpochIndex -> SignedCommitment -> Bool
+verifyCommitmentSignature :: Bi Commitment => EpochIndex -> SignedCommitment -> Bool
 verifyCommitmentSignature epoch (pk, comm, commSig) =
     checkSig pk (epoch, comm) commSig
 
 -- | Verify SignedCommitment using public key and epoch index.
-verifySignedCommitment :: Address -> EpochIndex -> SignedCommitment -> VerificationRes
+verifySignedCommitment
+    :: Bi Commitment
+    => Address -> EpochIndex -> SignedCommitment -> VerificationRes
 verifySignedCommitment addr epoch sc@(_, comm, _) =
     verifyGeneric
         [ ( verifyCommitmentPK addr sc
@@ -160,9 +173,9 @@ verifySignedCommitment addr epoch sc@(_, comm, _) =
 verifyOpening :: Commitment -> Opening -> Bool
 verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
     verifySecretProof
-      <$> deserializeM commExtra
-      <*> deserializeM secret
-      <*> deserializeM commProof
+      <$> fromBinaryM commExtra
+      <*> fromBinaryM secret
+      <*> fromBinaryM commProof
 
 -- | Check that the VSS certificate is signed properly
 checkCert :: (Address, VssCertificate) -> Bool
@@ -176,14 +189,14 @@ checkShare :: (SetContainer set, ContainerKey set ~ Address)
            => CommitmentsMap
            -> set --set of opening's addresses
            -> VssCertificatesMap
-           -> (Address, Address, LShare)
+           -> (Address, Address, AsBinary Share)
            -> Bool
 checkShare globalCommitments globalOpeningsPK globalCertificates (addrTo, addrFrom, share) =
     fromMaybe False $ case tuple of
       Just (eS, pk, s) -> verifyShare
-                            <$> deserializeM eS
-                            <*> deserializeM pk
-                            <*> deserializeM s
+                            <$> fromBinaryM eS
+                            <*> fromBinaryM pk
+                            <*> fromBinaryM s
       _ -> return False
   where
     tuple = do
@@ -210,7 +223,7 @@ checkShares :: (SetContainer set, ContainerKey set ~ Address)
             -> InnerSharesMap
             -> Bool
 checkShares globalCommitments globalOpeningsPK globalCertificates addrTo shares =
-    let listShares :: [(Address, Address, LShare)]
+    let listShares :: [(Address, Address, AsBinary Share)]
         listShares = map convert $ HM.toList shares
         convert (addrFrom, share) = (addrTo, addrFrom, share)
     in all
@@ -244,7 +257,7 @@ For each DS datum we check:
 We also do some general sanity checks.
 -}
 verifyGtPayload
-    :: (SscPayload ssc ~ GtPayload)
+    :: (SscPayload ssc ~ GtPayload, Bi Commitment)
     => MainBlockHeader ssc -> SscPayload ssc -> VerificationRes
 verifyGtPayload header payload =
     verifyGeneric $ otherChecks ++

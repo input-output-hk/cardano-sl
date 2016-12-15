@@ -20,9 +20,12 @@ import           Formatting          (build, int, sformat, (%))
 import           Serokell.Util       (VerificationRes, verifyGeneric)
 import           Universum
 
-import           Pos.Crypto          (Hash, WithHash (..), checkSig)
+import           Pos.Binary.Class    (Bi)
+import           Pos.Crypto          (Hash, WithHash (..), checkSig, hash)
+import           Pos.Script          (txScriptCheck)
 import           Pos.Types.Types     (Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
-                                      TxWitness, checkPubKeyAddress, coinF)
+                                      TxWitness, checkPubKeyAddress, checkScriptAddress,
+                                      coinF)
 
 -- | Verify that Tx itself is correct. Most likely you will also want
 -- to verify that inputs are legal, signed properly and have enough coins;
@@ -51,7 +54,8 @@ verifyTxAlone Tx {..} =
 -- * every input is signed properly;
 -- * every input is a known unspent output.
 verifyTx
-    :: (TxIn -> Maybe TxOut)
+    :: Bi TxOut
+    => (TxIn -> Maybe TxOut)
     -> (Tx, TxWitness)
     -> VerificationRes
 verifyTx inputResolver (tx@Tx{..}, witnesses) =
@@ -62,8 +66,10 @@ verifyTx inputResolver (tx@Tx{..}, witnesses) =
     extendedInputs :: [Maybe (TxIn, TxOut)]
     extendedInputs = fmap extendInput txInputs
     extendInput txIn = (txIn,) <$> inputResolver txIn
+    resolvedInputs = catMaybes extendedInputs
     inpSum :: Integer
-    inpSum = sum $ fmap (toInteger . txOutValue . snd) $ catMaybes extendedInputs
+    inpSum = sum $ fmap (toInteger . txOutValue . snd) resolvedInputs
+    txOutHash = hash txOutputs
     verifyCounts =
         verifyGeneric
             [ ( length txInputs == length witnesses
@@ -72,13 +78,21 @@ verifyTx inputResolver (tx@Tx{..}, witnesses) =
                   (length txInputs) (length witnesses) )
             ]
     verifySum =
-        verifyGeneric
-            [ ( inpSum >= outSum
-              , sformat
-                    ("sum of outputs is more than sum of inputs ("
-                     %int%" > "%int%"), maybe some inputs are invalid")
-                    outSum inpSum)
-            ]
+        let resInps = length resolvedInputs
+            extInps = length extendedInputs
+            allInputsExist = resInps == extInps
+            verifier =
+                if allInputsExist
+                    then ( inpSum >= outSum
+                         , sformat
+                               ("sum of outputs is more than sum of inputs ("
+                                %int%" > "%int)
+                                outSum inpSum)
+                    else ( False
+                         , sformat
+                               (int%" inputs could not be resolved")
+                               (abs $ resInps - extInps))
+        in verifyGeneric [verifier]
     verifyInputs =
         verifyGeneric $ concat $
             zipWith3 inputPredicates [0..] extendedInputs (toList witnesses)
@@ -97,14 +111,20 @@ verifyTx inputResolver (tx@Tx{..}, witnesses) =
                 i txOutAddress txIn
           )
         , ( validateTxIn txIn witness
-          , sformat ("input #"%int%" is not signed properly: ("%build%")")
-                i txIn
+          , sformat ("input #"%int%" isn't validated by its witness\n"%
+                     "  input: "%build%"\n"%
+                     "  witness: "%build)
+                i txIn witness
           )
         ]
 
-    checkAddrHash addr PkWitness{..} = checkPubKeyAddress twKey addr
+    checkAddrHash addr PkWitness{..}     = checkPubKeyAddress twKey addr
+    checkAddrHash addr ScriptWitness{..} = checkScriptAddress twValidator addr
+
     validateTxIn TxIn{..} PkWitness{..} =
-        checkSig twKey (txInHash, txInIndex, txOutputs) twSig
+        checkSig twKey (txInHash, txInIndex, txOutHash) twSig
+    validateTxIn TxIn{..} ScriptWitness{..} =
+        isRight (txScriptCheck twValidator twRedeemer)
 
 data TopsortState a = TopsortState
     { _tsVisited     :: HS.HashSet (Hash Tx)

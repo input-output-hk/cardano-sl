@@ -8,6 +8,7 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
 {-# LANGUAGE ViewPatterns          #-}
 
 -- | Instance of SscStorageClass.
@@ -30,7 +31,7 @@ import           Serokell.Util.Verify              (VerificationRes (..), isVerS
                                                     verifyGeneric)
 import           Universum
 
-import           Pos.Crypto                        (LEncShare, LVssPublicKey, Threshold)
+import           Pos.Crypto                        (EncShare, VssPublicKey, Threshold)
 import           Pos.FollowTheSatoshi              (followTheSatoshi)
 import           Pos.Ssc.Class.Storage             (HasSscStorage (..), SscQuery,
                                                     SscStorageClass (..), SscUpdate)
@@ -49,14 +50,14 @@ import           Pos.Ssc.GodTossing.Types.Base     (Commitment (..), VssCertific
 import           Pos.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types    (GtGlobalState (..), GtPayload (..),
-                                                    _gpCertificates)
+                                                    SscBi, _gpCertificates)
 import           Pos.State.Storage.Types           (AltChain)
 import           Pos.Types                         (Address (..), Block, EpochIndex,
                                                     SlotId (..), SlotLeaders, Utxo,
                                                     blockMpc, blockSlot, blockSlot,
                                                     gbHeader, txOutAddress)
-import           Pos.Util                          (magnify', readerToState, zoom',
-                                                    _neHead)
+import           Pos.Util                          (AsBinary, magnify', readerToState,
+                                                    zoom', _neHead)
 
 -- acid-state requires this instance because of a bug
 instance SafeCopy SscGodTossing
@@ -64,7 +65,7 @@ instance Serialize SscGodTossing where
     put = panic "put@SscGodTossing: can't happen"
     get = panic "get@SscGodTossing: can't happen"
 
-instance SscStorageClass SscGodTossing where
+instance SscBi => SscStorageClass SscGodTossing where
     sscApplyBlocks = mpcApplyBlocks
     sscRollback = mpcRollback
     sscGetGlobalState = getGlobalMpcData
@@ -118,7 +119,7 @@ getGlobalMpcDataByDepth (fromIntegral -> depth) =
 --
 --   1. It was a stakeholder.
 --   2. It had already sent us its VSS key by that time.
-getParticipants :: Word -> Utxo -> Query (Maybe (NonEmpty LVssPublicKey))
+getParticipants :: Word -> Utxo -> Query (Maybe (NonEmpty (AsBinary VssPublicKey)))
 getParticipants depth utxo = do
     mKeymap <- fmap _gsVssCertificates <$> getGlobalMpcDataByDepth depth
     return $
@@ -146,7 +147,7 @@ calculateLeaders _ utxo threshold = do --GodTossing doesn't use epoch, but NistB
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
 mpcVerifyBlock
-    :: forall ssc . (SscPayload ssc ~ GtPayload)
+    :: forall ssc . (SscPayload ssc ~ GtPayload, SscBi)
     => Block ssc -> Query VerificationRes
 -- Genesis blocks don't have any SSC data.
 mpcVerifyBlock (Left _) = return VerSuccess
@@ -235,7 +236,7 @@ mpcVerifyBlock (Right b) = magnify' lastVer $ do
 -- TODO:
 --   ★ verification messages should include block hash/slotId
 --   ★ we should stop at first failing block
-mpcVerifyBlocks :: Word -> AltChain SscGodTossing -> Query VerificationRes
+mpcVerifyBlocks :: SscBi => Word -> AltChain SscGodTossing -> Query VerificationRes
 mpcVerifyBlocks toRollback blocks = do
     curState <- view (sscStorage @SscGodTossing)
     return $ flip evalState curState $ do
@@ -296,8 +297,8 @@ mpcProcessBlock blk = do
 
 -- | Decrypt shares (in commitments) that we can decrypt.
 getOurShares
-    :: LVssPublicKey                           -- ^ Our VSS key
-    -> Query (HashMap Address LEncShare)
+    :: AsBinary VssPublicKey                           -- ^ Our VSS key
+    -> Query (HashMap Address (AsBinary EncShare))
 getOurShares ourPK = do
     comms <- view (lastVer . dsGlobalCommitments)
     opens <- view (lastVer . dsGlobalOpenings)

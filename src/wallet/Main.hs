@@ -7,8 +7,6 @@
 
 module Main where
 
-import           Universum
-#ifdef WITH_WALLET
 import           Control.Monad.Reader   (MonadReader (..), ReaderT, asks, runReaderT)
 import           Control.TimeWarp.Rpc   (NetworkAddress)
 import           Control.TimeWarp.Timed (for, wait)
@@ -17,20 +15,22 @@ import           Formatting             (build, int, sformat, (%))
 import           Options.Applicative    (execParser)
 import           System.IO              (hFlush, stdout)
 import           Test.QuickCheck        (arbitrary, generate)
+import           Universum
 
 import           Pos.Constants          (slotDuration)
 import           Pos.Crypto             (KeyPair (..), SecretKey, toPublic)
-import           Pos.DHT                (DHTNodeType (..), dhtAddr, discoverPeers)
+import           Pos.DHT.Model          (DHTNodeType (..), dhtAddr, discoverPeers)
 import           Pos.Genesis            (genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
                                          NodeParams (..), bracketDHTInstance,
-                                         runNodeProduction, runTimeSlaveReal, stakesDistr)
+                                         runTimeSlaveReal, stakesDistr)
+import           Pos.Ssc.Class          (SscConstraint)
 import           Pos.Ssc.GodTossing     (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon     (SscNistBeacon)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 import           Pos.Types              (makePubKeyAddress, txwF)
-import           Pos.Wallet             (getBalance, submitTx)
-import           Pos.WorkMode           (WorkMode)
+import           Pos.Wallet             (WalletMode, WalletRealMode, getBalance,
+                                         runWallet, submitTx)
 #ifdef WITH_WEB
 import           Pos.Wallet.Web         (walletServeWeb)
 #endif
@@ -40,7 +40,7 @@ import           WalletOptions          (WalletAction (..), WalletOptions (..), 
 
 type CmdRunner = ReaderT ([SecretKey], [NetworkAddress])
 
-evalCmd :: WorkMode ssc m => Command -> CmdRunner m ()
+evalCmd :: WalletMode ssc m => Command -> CmdRunner m ()
 evalCmd (Balance addr) = lift (getBalance addr) >>=
                          putText . sformat ("Current balance: "%int) >>
                          evalCommands
@@ -69,7 +69,7 @@ evalCmd ListAddresses = do
     evalCommands
 evalCmd Quit = pure ()
 
-evalCommands :: WorkMode ssc m => CmdRunner m ()
+evalCommands :: WalletMode ssc m => CmdRunner m ()
 evalCommands = do
     putStr @Text "> "
     liftIO $ hFlush stdout
@@ -79,7 +79,7 @@ evalCommands = do
         Left err  -> putStrLn err >> evalCommands
         Right cmd -> evalCmd cmd
 
-runWalletRepl :: WorkMode ssc m => WalletOptions -> m ()
+runWalletRepl :: WalletMode ssc m => WalletOptions -> m ()
 runWalletRepl WalletOptions{..} = do
     -- Wait some time to ensure blockchain is fetched
     putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
@@ -88,11 +88,6 @@ runWalletRepl WalletOptions{..} = do
     na <- fmap dhtAddr <$> discoverPeers DHTFull
     putText "Welcome to Wallet CLI Node"
     runReaderT (evalCmd Help) (genesisSecretKeys, na)
-
-#ifdef WITH_WEB
-runWalletApi :: WorkMode ssc m => Word16 -> m ()
-runWalletApi = walletServeWeb
-#endif
 
 main :: IO ()
 main = do
@@ -126,6 +121,7 @@ main = do
         let params =
                 NodeParams
                 { npDbPath      = Just woDbPath
+                , npDbPathM     = woDbPath
                 , npRebuildDb   = woRebuildDb
                 , npSystemStart = systemStart
                 , npSecretKey   = sk
@@ -134,6 +130,7 @@ main = do
                                   stakesDistr woFlatDistr woBitcoinDistr
                 , npTimeLord    = False
                 , npJLFile      = woJLFile
+                , npPropagation = not woDisablePropagation
                 }
             gtParams =
                 GtParams
@@ -143,19 +140,15 @@ main = do
                 , gtpVssKeyPair = vssKeyPair
                 }
 
-            plugins :: WorkMode ssc m => [m ()]
+            plugins :: SscConstraint ssc => [WalletRealMode ssc ()]
             plugins = case woAction of
                 Repl          -> [runWalletRepl opts]
 #ifdef WITH_WEB
-                Serve webPort -> [runWalletApi webPort]
+                Serve webPort -> [walletServeWeb webPort]
 #endif
 
         case woSscAlgo of
             GodTossingAlgo -> putText "Using MPC coin tossing" *>
-                              runNodeProduction @SscGodTossing inst plugins params gtParams
+                              runWallet @SscGodTossing inst plugins params gtParams
             NistBeaconAlgo -> putText "Using NIST beacon" *>
-                              runNodeProduction @SscNistBeacon inst plugins params ()
-#else
-main :: IO ()
-main = panic "Wallet is disabled!"
-#endif
+                              runWallet @SscNistBeacon inst plugins params ()

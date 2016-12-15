@@ -1,9 +1,11 @@
 {-# LANGUAGE CPP                    #-}
+{-# LANGUAGE ConstraintKinds        #-}
 {-# LANGUAGE DefaultSignatures      #-}
 {-# LANGUAGE DeriveGeneric          #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE LambdaCase             #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE StandaloneDeriving     #-}
@@ -30,8 +32,11 @@ module Pos.Types.Types
 
        , Address (..)
        , makePubKeyAddress
+       , makeScriptAddress
        , checkPubKeyAddress
+       , checkScriptAddress
        , addressF
+       , decodeTextAddress
 
        , TxInWitness (..)
        , TxWitness
@@ -42,10 +47,13 @@ module Pos.Types.Types
        , Tx (..)
        , txF
        , txwF
+       , IdTxWitness
 
        , Utxo
        , formatUtxo
        , utxoF
+
+       , Undo
 
        , SharedSeed (..)
        , SlotLeaders
@@ -59,6 +67,8 @@ module Pos.Types.Types
 
        , MainBlockchain
        , MainBlockHeader
+       , BiSsc
+       , BlockSignature (..)
        , ChainDifficulty (..)
        , MainToSign
        , MainBlock
@@ -114,8 +124,6 @@ import           Control.Lens           (Getter, Lens', choosing, makeLenses, to
 import           Control.Monad.Fail     (fail)
 import           Data.Aeson             (ToJSON (toJSON))
 import           Data.Aeson.TH          (deriveToJSON)
-import           Data.Binary            (Binary)
-import           Data.Binary.Orphans    ()
 import qualified Data.ByteString        as BS (pack, zipWith)
 import qualified Data.ByteString.Char8  as BSC (pack)
 import           Data.Data              (Data)
@@ -127,6 +135,7 @@ import qualified Data.Map               as M (toList)
 import           Data.SafeCopy          (SafeCopy (..), base, contain,
                                          deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Semigroup         (Semigroup (..))
+import qualified Data.Serialize         as Cereal (getWord8, putWord8)
 import           Data.Tagged            (untag)
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
@@ -141,13 +150,18 @@ import           Serokell.Util.Text     (listJson, listJsonIndent, mapBuilderJso
                                          pairBuilder)
 import           Universum
 
+import           Pos.Binary.Address     ()
+import           Pos.Binary.Class       (Bi)
+import           Pos.Binary.Script      ()
 import           Pos.Constants          (sharedSeedLength)
-import           Pos.Crypto             (Hash, PublicKey, Signature, hash, hashHexF,
-                                         shortHashF)
+import           Pos.Crypto             (Hash, ProxySignature, PublicKey, Signature, hash,
+                                         hashHexF, shortHashF)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
+import           Pos.Script             (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
 import           Pos.Types.Address      (Address (..), addressF, checkPubKeyAddress,
-                                         makePubKeyAddress)
+                                         checkScriptAddress, decodeTextAddress,
+                                         makePubKeyAddress, makeScriptAddress)
 import           Pos.Util               (Color (Magenta), colorize)
 
 
@@ -158,7 +172,7 @@ import           Pos.Util               (Color (Magenta), colorize)
 -- | Coin is the least possible unit of currency.
 newtype Coin = Coin
     { getCoin :: Word64
-    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Binary, Hashable, Data, NFData, ToJSON)
+    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Hashable, Data, NFData, ToJSON)
 
 instance Buildable Coin where
     build = bprint (int%" coin(s)")
@@ -174,7 +188,7 @@ coinF = build
 -- | Index of epoch.
 newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Binary, Hashable, ToJSON)
+    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable, ToJSON)
 
 instance Buildable EpochIndex where
     build = bprint ("epoch #"%int)
@@ -182,7 +196,7 @@ instance Buildable EpochIndex where
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex
     { getSlotIndex :: Word16
-    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Binary, Hashable, Buildable, ToJSON)
+    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Buildable, ToJSON)
 
 -- | Slot is identified by index of epoch and local index of slot in
 -- this epoch. This is a global index
@@ -191,7 +205,6 @@ data SlotId = SlotId
     , siSlot  :: !LocalSlotIndex
     } deriving (Show, Eq, Ord, Generic)
 
-instance Binary SlotId
 
 $(deriveToJSON defaultOptions ''SlotId)
 
@@ -236,7 +249,7 @@ instance Buildable EpochOrSlot where
 type TxId = Hash Tx
 
 -- | 'Signature' of addrId.
-type TxSig = Signature (TxId, Word32, [TxOut])
+type TxSig = Signature (TxId, Word32, Hash [TxOut])
 
 -- | A witness for a single input.
 data TxInWitness
@@ -244,14 +257,21 @@ data TxInWitness
         { twKey :: PublicKey
         , twSig :: TxSig
         }
-    deriving (Eq, Ord, Show, Generic)
+    | ScriptWitness
+        { twValidator :: Script
+        , twRedeemer  :: Script
+        }
+    deriving (Eq, Show, Generic)
 
-instance Binary TxInWitness
 instance Hashable TxInWitness
 
-instance Buildable TxInWitness where
+instance Bi Script => Buildable TxInWitness where
     build (PkWitness key sig) =
         bprint ("PkWitness: key = "%build%", sig = "%build) key sig
+    build (ScriptWitness val red) =
+        bprint ("ScriptWitness: "%
+                "validator hash = "%shortHashF%", "%
+                "redeemer hash = "%shortHashF) (hash val) (hash red)
 
 -- | A witness is a proof that a transaction is allowed to spend the funds it
 -- spends (by providing signatures, redeeming scripts, etc). A separate proof
@@ -266,7 +286,6 @@ data TxIn = TxIn
     , txInIndex :: !Word32
     } deriving (Eq, Ord, Show, Generic)
 
-instance Binary TxIn
 instance Hashable TxIn
 
 instance Buildable TxIn where
@@ -276,9 +295,8 @@ instance Buildable TxIn where
 data TxOut = TxOut
     { txOutAddress :: !Address
     , txOutValue   :: !Coin
-    } deriving (Eq, Ord, Show, Generic)
+    } deriving (Eq, Ord, Generic, Show)
 
-instance Binary TxOut
 instance Hashable TxOut
 
 instance Buildable TxOut where
@@ -291,9 +309,10 @@ instance Buildable TxOut where
 data Tx = Tx
     { txInputs  :: ![TxIn]   -- ^ Inputs of transaction.
     , txOutputs :: ![TxOut]  -- ^ Outputs of transaction.
-    } deriving (Eq, Ord, Show, Generic)
+    } deriving (Eq, Ord, Generic, Show)
 
-instance Binary Tx
+type IdTxWitness = (TxId, (Tx, TxWitness))
+
 instance Hashable Tx
 
 instance Buildable Tx where
@@ -307,7 +326,7 @@ txF :: Format r (Tx -> r)
 txF = build
 
 -- | Specialized formatter for 'Tx' with a witness.
-txwF :: Format r ((Tx, TxWitness) -> r)
+txwF :: Bi Script => Format r ((Tx, TxWitness) -> r)
 txwF = later $ \(tx, w) ->
     bprint (build%"\n"%"witnesses:"%listJsonIndent 4) tx w
 
@@ -330,6 +349,12 @@ utxoF :: Format r (Utxo -> r)
 utxoF = later formatUtxo
 
 ----------------------------------------------------------------------------
+-- UNDO
+----------------------------------------------------------------------------
+-- | Structure for undo block during rollback
+type Undo = [[TxOut]]
+
+----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw
 ----------------------------------------------------------------------------
 
@@ -338,7 +363,7 @@ utxoF = later formatUtxo
 -- same value.
 newtype SharedSeed = SharedSeed
     { getSharedSeed :: ByteString
-    } deriving (Show, Eq, Ord, Generic, Binary, NFData)
+    } deriving (Show, Eq, Ord, Generic, NFData)
 
 instance ToJSON SharedSeed where
     toJSON = toJSON . pretty
@@ -413,12 +438,6 @@ deriving instance
           Eq (ExtraHeaderData b)) =>
          Eq (GenericBlockHeader b)
 
-instance ( Binary (BodyProof b)
-         , Binary (ConsensusData b)
-         , Binary (ExtraHeaderData b)
-         ) =>
-         Binary (GenericBlockHeader b)
-
 -- | In general Block consists of header and body. It may contain
 -- extra data as well.
 data GenericBlock b = GenericBlock
@@ -437,14 +456,6 @@ deriving instance
           Eq (Body b), Eq (ExtraBodyData b)) =>
          Eq (GenericBlock b)
 
-instance ( Binary (BodyProof b)
-         , Binary (ConsensusData b)
-         , Binary (ExtraHeaderData b)
-         , Binary (Body b)
-         , Binary (ExtraBodyData b)
-         ) =>
-         Binary (GenericBlock b)
-
 ----------------------------------------------------------------------------
 -- MainBlock
 ----------------------------------------------------------------------------
@@ -457,12 +468,22 @@ data MainBlockchain ssc
 -- chain. In the simplest case it can be number of blocks in chain.
 newtype ChainDifficulty = ChainDifficulty
     { getChainDifficulty :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Binary, Buildable)
+    } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Buildable)
 
 -- | Constraint for data to be signed in main block.
 type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
 
-instance Ssc ssc => Blockchain (MainBlockchain ssc) where
+-- TODO replace _mcdSignature with this
+-- | Signature of the block. Can be either regular signature from the
+-- issuer or delegated signature having a constraint on epoch indices
+-- (it means the signature is valid only if block's slot id has epoch
+-- inside the constrained interval).
+data BlockSignature ssc
+    = BlockSignature (Signature (MainToSign ssc))
+    | BlockPSignature (ProxySignature (EpochIndex, EpochIndex) (MainToSign ssc))
+    deriving Show
+
+instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
     data BodyProof (MainBlockchain ssc) = MainProof
         { mpNumber        :: !Word32
@@ -478,7 +499,7 @@ instance Ssc ssc => Blockchain (MainBlockchain ssc) where
         , -- | Difficulty of chain ending in this block.
         _mcdDifficulty :: !ChainDifficulty
         , -- | Signature given by slot leader.
-        _mcdSignature  :: !(Signature (MainToSign ssc))
+        _mcdSignature  :: !(BlockSignature ssc)
         } deriving (Generic, Show)
     type BBlockHeader (MainBlockchain ssc) = BlockHeader ssc
 
@@ -514,14 +535,16 @@ instance Ssc ssc => Blockchain (MainBlockchain ssc) where
 deriving instance Ssc ssc => Eq (BodyProof (MainBlockchain ssc))
 deriving instance Ssc ssc => Show (Body (MainBlockchain ssc))
 
-instance Ssc ssc => Binary (BodyProof (MainBlockchain ssc))
-instance Ssc ssc => Binary (ConsensusData (MainBlockchain ssc))
-instance Ssc ssc => Binary (Body (MainBlockchain ssc))
-
 -- | Header of generic main block.
 type MainBlockHeader ssc = GenericBlockHeader (MainBlockchain ssc)
 
-instance Ssc ssc => Buildable (MainBlockHeader ssc) where
+-- | Ssc w/ buildable blockchain
+type BiSsc ssc =
+    ( Ssc ssc
+    , Bi (GenericBlockHeader (GenesisBlockchain ssc))
+    , Bi (GenericBlockHeader (MainBlockchain ssc)))
+
+instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
     build gbh@GenericBlockHeader {..} =
         bprint
             ("MainBlockHeader:\n"%
@@ -545,7 +568,7 @@ instance Ssc ssc => Buildable (MainBlockHeader ssc) where
 -- main part of our consensus algorithm.
 type MainBlock ssc = GenericBlock (MainBlockchain ssc)
 
-instance Ssc ssc => Buildable (MainBlock ssc) where
+instance BiSsc ssc => Buildable (MainBlock ssc) where
     build GenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -592,19 +615,15 @@ instance Blockchain (GenesisBlockchain ssc) where
     -- associated with this block.
     data Body (GenesisBlockchain ssc) = GenesisBody
         { _gbLeaders :: !SlotLeaders
-        } deriving (Show, Generic)
+        } deriving (Generic, Show)
     type BBlock (GenesisBlockchain ssc) = Block ssc
 
     mkBodyProof = GenesisProof . hash . _gbLeaders
 
-instance Binary (BodyProof (GenesisBlockchain ssc))
-instance Binary (ConsensusData (GenesisBlockchain ssc))
-instance Binary (Body (GenesisBlockchain ssc))
-
 -- | Genesis block parametrized by 'GenesisBlockchain'.
 type GenesisBlock ssc = GenericBlock (GenesisBlockchain ssc)
 
-instance Ssc ssc => Buildable (GenesisBlock ssc) where
+instance BiSsc ssc => Buildable (GenesisBlock ssc) where
     build GenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -620,7 +639,7 @@ instance Ssc ssc => Buildable (GenesisBlock ssc) where
         formatLeaders = formatIfNotNull
             ("  leaders: "%listJson%"\n") _gbLeaders
 
-instance Ssc ssc => Buildable (GenesisBlockHeader ssc) where
+instance BiSsc ssc => Buildable (GenesisBlockHeader ssc) where
     build gbh@GenericBlockHeader {..} =
         bprint
             ("GenesisBlockHeader:\n"%
@@ -683,7 +702,7 @@ mcdDifficulty :: Lens' (ConsensusData (MainBlockchain ssc)) ChainDifficulty
 MAKE_LENS(mcdDifficulty, _mcdDifficulty)
 
 -- | Lens for 'Signature' of 'MainBlockchain' in 'ConsensusData'.
-mcdSignature :: Lens' (ConsensusData (MainBlockchain ssc)) (Signature (MainToSign ssc))
+mcdSignature :: Lens' (ConsensusData (MainBlockchain ssc)) (BlockSignature ssc)
 MAKE_LENS(mcdSignature, _mcdSignature)
 
 -- makeLensesData ''ConsensusData ''(GenesisBlockchain ssc)
@@ -729,7 +748,7 @@ headerLeaderKey :: Lens' (MainBlockHeader ssc) PublicKey
 headerLeaderKey = gbhConsensus . mcdLeaderKey
 
 -- | Lens from 'MainBlockHeader' to 'Signature'.
-headerSignature :: Lens' (MainBlockHeader ssc) (Signature (MainToSign ssc))
+headerSignature :: Lens' (MainBlockHeader ssc) (BlockSignature ssc)
 headerSignature = gbhConsensus . mcdSignature
 
 -- | Type class for something that has 'ChainDifficulty'.
@@ -782,22 +801,22 @@ class HasHeaderHash a ssc | a -> ssc where
     headerHashG :: Getter a (HeaderHash ssc)
     headerHashG = to headerHash
 
-instance Ssc ssc => HasHeaderHash (MainBlockHeader ssc) ssc where
+instance BiSsc ssc => HasHeaderHash (MainBlockHeader ssc) ssc where
     headerHash = hash . Right
 
-instance Ssc ssc => HasHeaderHash (GenesisBlockHeader ssc) ssc where
+instance BiSsc ssc => HasHeaderHash (GenesisBlockHeader ssc) ssc where
     headerHash = hash . Left
 
-instance Ssc ssc => HasHeaderHash (BlockHeader ssc) ssc where
+instance BiSsc ssc => HasHeaderHash (BlockHeader ssc) ssc where
     headerHash = hash
 
-instance Ssc ssc => HasHeaderHash (MainBlock ssc) ssc where
+instance BiSsc ssc => HasHeaderHash (MainBlock ssc) ssc where
     headerHash = hash . Right . view gbHeader
 
-instance Ssc ssc => HasHeaderHash (GenesisBlock ssc) ssc where
+instance BiSsc ssc => HasHeaderHash (GenesisBlock ssc) ssc where
     headerHash = hash . Left  . view gbHeader
 
-instance Ssc ssc => HasHeaderHash (Block ssc) ssc where
+instance BiSsc ssc => HasHeaderHash (Block ssc) ssc where
     headerHash = hash . getBlockHeader
 
 -- | Class for something that has 'EpochIndex'.
@@ -832,7 +851,7 @@ blockLeaderKey :: Lens' (MainBlock ssc) PublicKey
 blockLeaderKey = gbHeader . headerLeaderKey
 
 -- | Lens from 'MainBlock' to 'Signature'.
-blockSignature :: Lens' (MainBlock ssc) (Signature (MainToSign ssc))
+blockSignature :: Lens' (MainBlock ssc) (BlockSignature ssc)
 blockSignature = gbHeader . headerSignature
 
 -- | Lens from 'MainBlock' to 'SscPayload'.
@@ -970,6 +989,14 @@ instance SafeCopy (BodyProof (GenesisBlockchain ssc)) where
         contain $
         do safePut x
 
+instance SafeCopy (BlockSignature ssc) where
+    getCopy = contain $ Cereal.getWord8 >>= \case
+        0 -> BlockSignature <$> safeGet
+        1 -> BlockPSignature <$> safeGet
+        t -> fail $ "getCopy@BlockSignature: couldn't read tag: " <> show t
+    putCopy (BlockSignature sig)       = contain $ Cereal.putWord8 0 >> safePut sig
+    putCopy (BlockPSignature proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
+
 instance SafeCopy (ConsensusData (MainBlockchain ssc)) where
     getCopy =
         contain $
@@ -1027,4 +1054,11 @@ instance SafeCopy (Body (GenesisBlockchain ssc)) where
 ----------------------------------------------------------------------------
 -- Other derived instances
 ----------------------------------------------------------------------------
+derive makeNFData ''TxIn
+derive makeNFData ''TxInWitness
 derive makeNFData ''TxOut
+derive makeNFData ''Tx
+
+deriveToJSON defaultOptions ''TxIn
+deriveToJSON defaultOptions ''TxOut
+deriveToJSON defaultOptions ''Tx

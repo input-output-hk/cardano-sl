@@ -9,17 +9,16 @@ module Test.Pos.Util
        , showRead
        ) where
 
-import           Data.Binary      (Binary)
-import qualified Data.Binary      as Binary
-import           Data.SafeCopy    (SafeCopy, safeGet, safePut)
-import           Data.Serialize   (runGet, runPut)
-import           Pos.Util         (Serialized (..))
-import           Prelude          (read)
-import           Test.QuickCheck  (Property, (===))
+import           Data.SafeCopy   (SafeCopy, safeGet, safePut)
+import           Data.Serialize  (runGet, runPut)
+import           Pos.Binary      (Bi, decode, encode)
+import           Pos.Util        (AsBinaryClass (..))
+import           Prelude         (read)
+import           Test.QuickCheck (Property, (===))
 import           Universum
 
-binaryEncodeDecode :: (Show a, Eq a, Binary a) => a -> Property
-binaryEncodeDecode a = Binary.decode (Binary.encode a) === a
+binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
+binaryEncodeDecode a = decode (encode a) === a
 
 safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
 safeCopyEncodeDecode a =
@@ -29,7 +28,7 @@ safeCopyEncodeDecode a =
 showRead :: (Show a, Eq a, Read a) => a -> Property
 showRead a = read (show a) === a
 
-serDeserId :: forall t lt . (Show t, Eq t, Serialized t lt) => t -> Property
+serDeserId :: forall t . (Show t, Eq t, AsBinaryClass t) => t -> Property
 serDeserId a =
-    let serDeser = either (panic . toText) identity . deserialize @t @lt . serialize @t @lt
+    let serDeser = either (panic . toText) identity . fromBinary . asBinary @t
     in a === serDeser a

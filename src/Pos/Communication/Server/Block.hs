@@ -12,13 +12,15 @@ module Pos.Communication.Server.Block
        , handleBlock
        , handleBlockHeader
        , handleBlockRequest
+       , handleBlockchainPartRequest
        ) where
 
 import           Control.Lens              ((^.))
-import           Control.TimeWarp.Rpc      (BinaryP, MonadDialog)
+import qualified Data.HashMap.Strict       as HM
 import qualified Data.HashSet              as HS
 import           Data.List.NonEmpty        (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty        as NE
+import           Data.Maybe                (fromJust)
 import           Formatting                (bprint, build, int, sformat, stext, (%))
 import           Serokell.Util             (VerificationRes (..), listJson,
                                             listJsonIndent)
@@ -26,41 +28,53 @@ import           System.Wlog               (logDebug, logError, logInfo, logNoti
                                             logWarning)
 import           Universum
 
+import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (announceBlock)
-import           Pos.Communication.Types   (RequestBlock (..), ResponseMode,
-                                            SendBlock (..), SendBlockHeader (..))
+import           Pos.Communication.Types   (RequestBlock (..), RequestBlockchainPart (..),
+                                            ResponseMode, SendBlock (..),
+                                            SendBlockHeader (..), SendBlockchainPart (..))
+import           Pos.Context               (getNodeContext, ncPropagation)
 import           Pos.Crypto                (hash, shortHashF)
-import           Pos.DHT                   (ListenerDHT (..), replyToNode)
+import           Pos.DHT.Model             (ListenerDHT (..), MonadDHTDialog, replyToNode)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class.LocalData   (sscApplyGlobalState)
 import qualified Pos.State                 as St
+import           Pos.Txp.LocalData         (getLocalTxs, txApplyHeadUtxo,
+                                            txLocalDataRollback)
 import           Pos.Types                 (HeaderHash, Tx, blockTxs, getBlockHeader,
                                             headerHash)
 import           Pos.Util                  (inAssertMode)
 import           Pos.Util.JsonLog          (jlAdoptedBlock, jlLog)
-import           Pos.WorkMode              (WorkMode)
+import           Pos.WorkMode              (SocketState, WorkMode)
 
 -- | Listeners for requests related to blocks processing.
 blockListeners
-    :: (MonadDialog BinaryP m, WorkMode ssc m)
-    => [ListenerDHT m]
+    :: (MonadDHTDialog SocketState m, WorkMode ssc m)
+    => [ListenerDHT SocketState m]
 blockListeners =
     [ ListenerDHT handleBlock
     , ListenerDHT handleBlockHeader
     , ListenerDHT handleBlockRequest
+    , ListenerDHT handleBlockchainPartRequest
     ]
 
 -- | Handler 'SendBlock' event.
-handleBlock :: forall ssc m . (ResponseMode ssc m)
-            => SendBlock ssc -> m ()
+handleBlock
+    :: forall ssc m.
+       (ResponseMode ssc m)
+    => SendBlock ssc -> m ()
 handleBlock (SendBlock block) = do
     slotId <- getCurrentSlot
-    pbr <- St.processBlock slotId block
-    let globalChanged =
+    localTxs <- HM.toList <$> getLocalTxs
+    pbr <- St.processBlock localTxs slotId block
+    let (globalChanged, toRollback) =
             case pbr of
-                St.PBRgood _ -> True
-                _            -> False
-    when globalChanged $ sscApplyGlobalState =<< St.getGlobalMpcData
+                St.PBRgood (toRoll, _) -> (True, toRoll)
+                _                      -> (False, 0)
+    when globalChanged $ do --synchronize local data with global data
+        sscApplyGlobalState =<< St.getGlobalMpcData
+        txLocalDataRollback toRollback
+        txApplyHeadUtxo =<< fromJust <$> St.getUtxoByDepth 0
     let blkHash = headerHash block
     case pbr of
         St.PBRabort msg -> do
@@ -87,7 +101,7 @@ handleBlock (SendBlock block) = do
                     blkHash
                     h
             replyToNode $ RequestBlock h
-    propagateBlock pbr
+    whenM (ncPropagation <$> getNodeContext) $ propagateBlock pbr
     -- We assert that the chain is consistent – none of the transactions in a
     -- block are present in previous blocks. This is an expensive check and
     -- we only do it when asserts are turned on.
@@ -114,8 +128,9 @@ handleBlock (SendBlock block) = do
                         else bprint (shortHashF % ": " %listJsonIndent 4) h txs
                    | (h, txs) <- reverse dups ]
 
-propagateBlock :: WorkMode ssc m
-               => St.ProcessBlockRes ssc -> m ()
+propagateBlock
+    :: (WorkMode ssc m)
+    => St.ProcessBlockRes ssc -> m ()
 propagateBlock (St.PBRgood (_, blocks)) =
     either (const pass) announceBlock header
   where
@@ -125,7 +140,7 @@ propagateBlock _ = pass
 
 -- | Handle 'SendBlockHeader' message.
 handleBlockHeader
-    :: ResponseMode ssc m
+    :: (ResponseMode ssc m)
     => SendBlockHeader ssc -> m ()
 handleBlockHeader (SendBlockHeader header) =
     whenM checkUsefulness $ replyToNode (RequestBlock h)
@@ -149,7 +164,7 @@ handleBlockHeader (SendBlockHeader header) =
 
 -- | Handle 'RequsetBlock' message.
 handleBlockRequest
-    :: ResponseMode ssc m
+    :: (ResponseMode ssc m)
     => RequestBlock ssc -> m ()
 handleBlockRequest (RequestBlock h) = do
     logDebug $ sformat ("Block " %build % " is requested") h
@@ -159,3 +174,21 @@ handleBlockRequest (RequestBlock h) = do
     sendBlockBack block = do
         logDebug $ sformat ("Sending block " %build % " in reply") h
         replyToNode $ SendBlock block
+
+-- | Handle 'RequestBlockchainPart' message
+handleBlockchainPartRequest
+    :: (ResponseMode ssc m)
+    => RequestBlockchainPart ssc -> m ()
+handleBlockchainPartRequest RequestBlockchainPart {..} = do
+    logDebug $ sformat ("Blockchain part (range "%build%".."%build%
+                        ", count "%build%" is requested")
+        rbFromBlock rbUntilBlock rbCount
+    either logErr sendChainPart =<< St.getChainPart rbFromBlock rbUntilBlock rbCount
+  where
+    logErr = logWarning . sformat ("Error while fetching part of blockchain: "%stext)
+    sendChainPart cp = do
+        let fstH = headerHash <$> head cp
+            lc = length cp
+        logDebug $ sformat ("Sending chain part of length "%int%
+                            ", starting with "%build) lc fstH
+        replyToNode $ SendBlockchainPart cp

@@ -22,12 +22,17 @@ module Pos.State.Storage
        , getBlockByDepth
        , getHeadBlock
        , getBestChain
+       , getChainPart
        , getGlobalSscState
        , getGlobalSscStateByDepth
        , getLeaders
-       , getLocalTxs
+
+       , getUtxo
        , getUtxoByDepth
+       , getOldestUtxo
        , isTxVerified
+       , processTx
+
        , getOurShares
        , getParticipants
        , getThreshold
@@ -40,17 +45,16 @@ module Pos.State.Storage
        , createNewBlock
        , processBlock
        , processNewSlot
-       , processTx
        ) where
 
 import           Universum
 
-import           Control.Lens            (makeClassy, use, (%~), (.=), (^.), _1)
+import           Control.Lens            (makeClassy, use, (.=), (^.))
 import           Control.Monad.TM        ((.=<<.))
 import           Data.Acid               ()
 import           Data.Default            (Default, def)
-import qualified Data.HashMap.Strict     as HM
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
+import           Data.Maybe              (fromJust)
 import           Data.SafeCopy           (SafeCopy (..), contain, safeGet, safePut)
 import           Data.Tagged             (untag)
 import           Formatting              (build, sformat, (%))
@@ -59,8 +63,7 @@ import           Serokell.Util           (VerificationRes (..))
 import           System.Wlog             (WithLogger, logDebug)
 
 import           Pos.Constants           (k)
-import           Pos.Crypto              (LEncShare, LVssPublicKey, SecretKey, Threshold,
-                                          WithHash (whData))
+import           Pos.Crypto              (EncShare, VssPublicKey, SecretKey, Threshold)
 import           Pos.Genesis             (genesisUtxo)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
@@ -69,21 +72,24 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
                                           blkCleanUp, blkCreateGenesisBlock,
                                           blkCreateNewBlock, blkProcessBlock, blkRollback,
                                           blkSetHead, getBestChain, getBlock,
-                                          getBlockByDepth, getHeadBlock, getLeaders,
-                                          getSlotDepth, mayBlockBeUseful, mkBlockStorage)
-import           Pos.State.Storage.Tx    (HasTxStorage (txStorage), TxStorage,
-                                          getLocalTxs, getUtxoByDepth, isTxVerified,
-                                          processTx, txApplyBlocks, txRollback,
-                                          txStorageFromUtxo, txVerifyBlocks)
+                                          getBlockByDepth, getChainPart, getHeadBlock,
+                                          getLeaders, getSlotDepth, mayBlockBeUseful,
+                                          mkBlockStorage)
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
                                           ProcessTxRes (..), mkPBRabort)
+import           Pos.Txp.Storage         (HasTxStorage (txStorage), TxStorage,
+                                          filterLocalTxs, getOldestUtxo, getUtxo,
+                                          getUtxoByDepth, isTxVerified, processTx,
+                                          txApplyBlocks, txRollback, txStorageFromUtxo,
+                                          txVerifyBlocks)
 import           Pos.Types               (Address, Block, EpochIndex, EpochOrSlot (..),
-                                          GenesisBlock, MainBlock, SlotId (..),
-                                          SlotLeaders, Utxo, blockMpc, blockTxs,
-                                          epochIndexL, epochOrSlot, flattenSlotId,
-                                          gbHeader, getEpochOrSlot, headerHashG, slotIdF,
-                                          unflattenSlotId, verifyTxAlone)
-import           Pos.Util                (readerToState, _neLast)
+                                          GenesisBlock, IdTxWitness, MainBlock,
+                                          SlotId (..), SlotLeaders, Utxo, blockMpc,
+                                          blockTxs, epochIndexL, epochOrSlot,
+                                          flattenSlotId, gbHeader, getEpochOrSlot,
+                                          headerHashG, slotIdF, unflattenSlotId,
+                                          verifyTxAlone)
+import           Pos.Util                (AsBinary, readerToState, _neLast)
 
 
 -- | Main cardano-sl state, combining sub-states into single one.
@@ -174,26 +180,28 @@ getGlobalSscStateByDepth = sscGetGlobalStateByDepth @ssc
 -- given SlotId
 createNewBlock
     :: (SscStorageClass ssc)
-    => SecretKey
+    => [IdTxWitness]
+    -> SecretKey
     -> SlotId
     -> SscPayload ssc
     -> Update ssc (Either Text (MainBlock ssc))
-createNewBlock sk sId sscPayload =
-    maybe (Right <$> createNewBlockDo sk sId sscPayload) (pure . Left) =<<
+createNewBlock localTxs sk sId sscPayload =
+    maybe (Right <$> createNewBlockDo localTxs sk sId sscPayload) (pure . Left) =<<
     readerToState (canCreateBlock sId)
 
 createNewBlockDo
     :: forall ssc.
        (SscStorageClass ssc)
-    => SecretKey -> SlotId -> SscPayload ssc -> Update ssc (MainBlock ssc)
-createNewBlockDo sk sId sscPayload = do
+    => [IdTxWitness] -> SecretKey -> SlotId -> SscPayload ssc -> Update ssc (MainBlock ssc)
+createNewBlockDo localTxs sk sId sscPayload = do
     globalPayload <- readerToState $ getGlobalSscState
     let filteredPayload = sscFilterPayload @ssc sscPayload globalPayload
-    txs <- readerToState $ HM.toList <$> getLocalTxs
-    blk <- blkCreateNewBlock sk sId (map (_1 %~ whData) txs) filteredPayload
+    headUtxo <- readerToState $ fromJust <$> getUtxoByDepth 0
+    let filteredTxs = filterLocalTxs localTxs headUtxo
+    blk <- blkCreateNewBlock sk sId (map snd filteredTxs) filteredPayload
     let blocks = Right blk :| []
     sscApplyBlocks blocks
-    blk <$ txApplyBlocks blocks
+    blk <$ txApplyBlocks filteredTxs blocks
 
 canCreateBlock :: SlotId -> Query ssc (Maybe Text)
 canCreateBlock sId = do
@@ -211,22 +219,22 @@ canCreateBlock sId = do
 
 -- | Do all necessary changes when a block is received.
 processBlock :: (SscHelpersClass ssc, SscStorageClass ssc)
-    => SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
-processBlock curSlotId blk = do
+    =>[IdTxWitness] -> SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
+processBlock localTxs curSlotId blk = do
     let txs =
             case blk of
                 Left _        -> []
                 Right mainBlk -> toList $ mainBlk ^. blockTxs
     let txRes = foldMap verifyTxAlone txs
     case txRes of
-        VerSuccess        -> processBlockDo curSlotId blk
+        VerSuccess        -> processBlockDo localTxs curSlotId blk
         VerFailure errors -> return $ mkPBRabort errors
 
 processBlockDo
     :: forall ssc.
        (SscHelpersClass ssc, SscStorageClass ssc)
-    => SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
-processBlockDo curSlotId blk = do
+    => [IdTxWitness] -> SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
+processBlockDo localTxs curSlotId blk = do
     let verifyMpc mainBlk =
             untag sscVerifyPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
     let mpcResPure = either (const mempty) verifyMpc blk
@@ -236,11 +244,11 @@ processBlockDo curSlotId blk = do
             mpcRes <- readerToState $ sscVerifyBlocks @ssc toRollback chain
             txRes <- readerToState $ txVerifyBlocks toRollback chain
             case mpcRes <> eitherToVerResult txRes of
-                VerSuccess        -> processBlockFinally toRollback chain
+                VerSuccess        -> processBlockFinally localTxs toRollback chain
                 VerFailure errors -> return $ mkPBRabort errors
         -- if we need block which we already know, we just use it
         PBRmore h ->
-            maybe (pure r) (processBlockDo curSlotId) =<<
+            maybe (pure r) (processBlockDo localTxs curSlotId) =<<
             readerToState (getBlock h)
         _ -> return r
   where
@@ -248,14 +256,16 @@ processBlockDo curSlotId blk = do
 
 -- At this point all checks have been passed and we know that we can
 -- adopt this AltChain.
-processBlockFinally :: forall ssc . SscStorageClass ssc => Word
+processBlockFinally :: forall ssc . SscStorageClass ssc
+                    => [IdTxWitness]
+                    -> Word
                     -> AltChain ssc
                     -> Update ssc (ProcessBlockRes ssc)
-processBlockFinally toRollback blocks = do
+processBlockFinally localTxs toRollback blocks = do
     sscRollback @ssc toRollback
     sscApplyBlocks @ssc blocks
-    txRollback toRollback
-    txApplyBlocks blocks
+    txRollback localTxs toRollback
+    txApplyBlocks localTxs blocks
     blkRollback toRollback
     blkSetHead (blocks ^. _neLast . headerHashG)
     knownEpoch <- use (slotId . epochIndexL)
@@ -328,7 +338,6 @@ createGenesisBlockDo
        SscStorageClass ssc
     => EpochIndex -> Update ssc (GenesisBlock ssc)
 createGenesisBlockDo epoch = do
-    --traceMpcLastVer
     leaders <- readerToState $ calculateLeaders epoch
     genBlock <- blkCreateGenesisBlock epoch leaders
     -- Genesis block contains no transactions,
@@ -366,7 +375,7 @@ calculateLeaders epoch = do
 getParticipants
     :: forall ssc.
        SscStorageClass ssc
-    => EpochIndex -> Query ssc (Maybe (NonEmpty LVssPublicKey))
+    => EpochIndex -> Query ssc (Maybe (NonEmpty (AsBinary VssPublicKey)))
 getParticipants epoch = do
     mDepth <- getMpcCrucialDepth epoch
     mUtxo <- getUtxoByDepth .=<<. mDepth
@@ -398,6 +407,6 @@ getMpcCrucialDepth epoch = do
 getOurShares
     :: forall ssc.
        SscStorageClass ssc
-    => LVssPublicKey -- ^ Our VSS key
-    -> Query ssc (HashMap Address LEncShare)
+    => AsBinary VssPublicKey -- ^ Our VSS key
+    -> Query ssc (HashMap Address (AsBinary EncShare))
 getOurShares = sscGetOurShares @ssc

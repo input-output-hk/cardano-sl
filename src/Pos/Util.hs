@@ -48,12 +48,15 @@ module Pos.Util
        , logWarningWaitInf
        , runWithRandomIntervals
        , waitRandomInterval
+       , waitAnyUnexceptional
 
        -- * LRU
        , clearLRU
 
-       , Serialized (..)
-       , deserializeM
+       -- * Binary serialization
+       , AsBinary (..)
+       , AsBinaryClass (..)
+       , fromBinaryM
 
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
@@ -66,8 +69,6 @@ import           Control.Monad.Fail            (MonadFail, fail)
 import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
 import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
                                                 Second, for, killThread)
-import           Data.Binary                   (Binary)
-import qualified Data.Binary                   as Binary (encode)
 import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
@@ -82,7 +83,6 @@ import           Data.Time.Units               (convertUnit)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
 import           Serokell.Util                 (VerificationRes)
-import           Serokell.Util.Binary          as Binary (decodeFull)
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
                                                 SGR (Reset, SetColor), setSGRCode)
@@ -90,6 +90,8 @@ import           System.Wlog                   (WithLogger, logWarning)
 import           Universum
 import           Unsafe                        (unsafeInit, unsafeLast)
 
+import           Pos.Binary.Class              (Bi)
+import qualified Pos.Binary.Class              as Bi
 import           Pos.Crypto.Random             (randomNumber)
 import           Pos.Util.Arbitrary
 import           Pos.Util.NotImplemented       ()
@@ -101,15 +103,15 @@ newtype Raw = Raw ByteString
 
 -- | A helper for "Data.SafeCopy" that creates 'putCopy' given a 'Binary'
 -- instance.
-putCopyBinary :: Binary a => a -> Contained Cereal.Put
-putCopyBinary x = contain $ safePut (Binary.encode x)
+putCopyBinary :: Bi a => a -> Contained Cereal.Put
+putCopyBinary x = contain $ safePut (Bi.encode x)
 
 -- | A helper for "Data.SafeCopy" that creates 'getCopy' given a 'Binary'
 -- instance.
-getCopyBinary :: Binary a => String -> Contained (Cereal.Get a)
+getCopyBinary :: Bi a => String -> Contained (Cereal.Get a)
 getCopyBinary typeName = contain $ do
     bs <- safeGet
-    case Binary.decodeFull bs of
+    case Bi.decodeFull bs of
         Left err -> fail ("getCopy@" ++ typeName ++ ": " ++ err)
         Right x  -> return x
 
@@ -332,6 +334,20 @@ runWithRandomIntervals minT maxT action = do
   action
   runWithRandomIntervals minT maxT action
 
+-- [TW-84]: move to serokell-core or time-warp?
+waitAnyUnexceptional
+    :: (MonadIO m, WithLogger m)
+    => [Async a] -> m (Maybe (Async a, a))
+waitAnyUnexceptional asyncs = liftIO (waitAnyCatch asyncs) >>= handleRes
+  where
+    handleRes (async', Right res) = pure $ Just (async', res)
+    handleRes (async', Left e) = do
+      logWarning $ sformat ("waitAnyUnexceptional: caught error " % shown) e
+      if null asyncs'
+         then pure Nothing
+         else waitAnyUnexceptional asyncs'
+      where asyncs' = filter (/= async') asyncs
+
 ----------------------------------------------------------------------------
 -- LRU cache
 ----------------------------------------------------------------------------
@@ -358,13 +374,19 @@ getKeys = fromMap . void
 -- Deserialized wrapper
 ----------------------------------------------------------------------------
 
-class Binary b => Serialized a b where
-  serialize :: a -> b
-  deserialize :: b -> Either [Char] a
+-- | See `Pos.Crypto.SerTypes` for details on this types
 
-deserializeM :: (Serialized a b, MonadFail m) => b -> m a
-deserializeM = either fail return . deserialize
+newtype AsBinary a = AsBinary
+    { getAsBinary :: ByteString
+    } deriving (Show, Eq)
 
-instance (Serialized a c, Serialized b d) => Serialized (a, b) (c, d) where
-    serialize (a, b) = (serialize a, serialize b)
-    deserialize (c, d) = (,) <$> deserialize c <*> deserialize d
+instance SafeCopy (AsBinary a) where
+    getCopy = contain $ AsBinary <$> safeGet
+    putCopy = contain . safePut . getAsBinary
+
+class AsBinaryClass a where
+  asBinary :: a -> AsBinary a
+  fromBinary :: AsBinary a -> Either [Char] a
+
+fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
+fromBinaryM = either fail return . fromBinary

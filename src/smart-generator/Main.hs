@@ -1,13 +1,10 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns        #-}
 
 module Main where
 
-import           Universum                       hiding (forConcurrently)
-#ifdef WITH_WALLET
 import           Control.Concurrent.Async.Lifted (forConcurrently)
 import           Control.Concurrent.STM.TVar     (modifyTVar', newTVarIO, readTVarIO)
 import           Control.TimeWarp.Rpc            (NetworkAddress)
@@ -21,10 +18,11 @@ import           System.FilePath.Posix           ((</>))
 import           System.Random.Shuffle           (shuffleM)
 import           System.Wlog                     (logInfo)
 import           Test.QuickCheck                 (arbitrary, generate)
+import           Universum                       hiding (forConcurrently)
 
 import           Pos.Constants                   (k, neighborsSendThreshold, slotDuration)
 import           Pos.Crypto                      (KeyPair (..), hash)
-import           Pos.DHT                         (DHTNodeType (..), MonadDHT, dhtAddr,
+import           Pos.DHT.Model                   (DHTNodeType (..), MonadDHT, dhtAddr,
                                                   discoverPeers, getKnownPeers)
 import           Pos.DHT.Real                    (KademliaDHT (..), KademliaDHTInstance)
 import           Pos.Genesis                     (genesisSecretKeys, genesisUtxo)
@@ -242,6 +240,7 @@ main = do
         let params =
                 NodeParams
                 { npDbPath      = Nothing
+                , npDbPathM      = "zhogovo"
                 , npRebuildDb   = False
                 , npSystemStart = systemStart
                 , npSecretKey   = sk
@@ -250,6 +249,7 @@ main = do
                                   stakesDistr goFlatDistr goBitcoinDistr
                 , npTimeLord    = False
                 , npJLFile      = goJLFile
+                , npPropagation = not goDisablePropagation
                 }
             gtParams =
                 GtParams
@@ -264,7 +264,3 @@ main = do
                               runSmartGen @SscGodTossing inst params gtParams opts
             NistBeaconAlgo -> putText "Using NIST beacon" *>
                               runSmartGen @SscNistBeacon inst params () opts
-#else
-main :: IO ()
-main = panic "Wallet is necessary for smart generator"
-#endif

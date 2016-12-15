@@ -1,4 +1,6 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Arbitrary instances for GodTossing types.
 
@@ -7,18 +9,17 @@ module Pos.Ssc.GodTossing.Arbitrary
        ) where
 
 import           Data.List.NonEmpty             (NonEmpty ((:|)))
-import           Test.QuickCheck                (Arbitrary (..), oneof, elements)
+import           Test.QuickCheck                (Arbitrary (..), elements, oneof)
 import           Universum
 
-import           Pos.Crypto                     (LSecretProof, LSecretSharingExtra,
-                                                 deterministicVssKeyGen, toVssPublicKey)
-import           Pos.Crypto.Arbitrary           ()
+import           Pos.Binary.Class               (Bi)
+import           Pos.Crypto                     (deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Ssc.GodTossing.Functions   (genCommitmentAndOpening)
-import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), Opening,
-                                                 VssCertificate (..), mkVssCertificate)
+import           Pos.Ssc.GodTossing.Types.Base  (Commitment, Opening, VssCertificate (..),
+                                                 mkVssCertificate)
 import           Pos.Ssc.GodTossing.Types.Types (GtProof (..))
 import           Pos.Types.Arbitrary.Unsafe     ()
-import           Pos.Util                       (serialize)
+import           Pos.Util                       (asBinary)
 import           Pos.Util.Arbitrary             (Nonrepeating (..), sublistN,
                                                  unsafeMakePool)
 
@@ -34,7 +35,7 @@ commitmentsAndOpenings :: [CommitmentOpening]
 commitmentsAndOpenings =
     map (uncurry CommitmentOpening) $
     unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $
-       genCommitmentAndOpening 1 (serialize vssPk :| [])
+       genCommitmentAndOpening 1 (asBinary vssPk :| [])
   where
     vssPk = toVssPublicKey $ deterministicVssKeyGen "aaaaaaaaaaaaaaaaaaaaaassss"
 {-# NOINLINE commitmentsAndOpenings #-}
@@ -54,13 +55,7 @@ instance Arbitrary Opening where
 instance Arbitrary VssCertificate where
     arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary
 
-instance Arbitrary LSecretSharingExtra where
-    arbitrary = commExtra <$> arbitrary
-
-instance Arbitrary LSecretProof where
-    arbitrary = commProof <$> arbitrary
-
-instance Arbitrary GtProof where
+instance (Bi Commitment, Bi Opening, Bi VssCertificate) => Arbitrary GtProof where
     arbitrary = oneof [
                         CommitmentsProof <$> arbitrary <*> arbitrary
                       , OpeningsProof <$> arbitrary <*> arbitrary

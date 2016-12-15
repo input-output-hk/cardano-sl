@@ -9,7 +9,7 @@ module Pos.Communication.Types
          -- * Request types
        , module Pos.Communication.Types.Block
        , module Pos.Communication.Types.SysStart
-       , module Pos.Communication.Types.Tx
+       , module Pos.Txp.Types.Communication
 
        , noCacheMessageNames
        ) where
@@ -19,12 +19,12 @@ import           Data.Proxy                       (Proxy (..))
 
 import           Pos.Communication.Types.Block
 import           Pos.Communication.Types.SysStart
-import           Pos.Communication.Types.Tx
-import           Pos.DHT                          (MonadResponseDHT)
-import           Pos.WorkMode                     (WorkMode)
+import           Pos.DHT.Model                    (MonadResponseDHT)
+import           Pos.Txp.Types.Communication
+import           Pos.WorkMode                     (SocketState, WorkMode)
 
 -- | Constraint alias for 'WorkMode' with 'MonadResponseDHT'.
-type ResponseMode ssc m = (WorkMode ssc m, MonadResponseDHT m)
+type ResponseMode ssc m = (WorkMode ssc m, MonadResponseDHT SocketState m)
 
 -- | 'MessageName'`s that shouldn't be cached.
 noCacheMessageNames :: [MessageName]

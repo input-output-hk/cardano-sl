@@ -9,7 +9,11 @@
 -- | Web server.
 
 module Pos.Web.Server
-       ( serveWebBase
+       ( MyWorkMode
+       , WebHandler
+       , serveImpl
+       , nat
+       , serveWebBase
        , applicationBase
        , serveWebGT
        , applicationGT
@@ -30,6 +34,9 @@ import           Servant.Server                       (Handler, ServantErr (errB
 import           Servant.Utils.Enter                  ((:~>) (Nat), enter)
 import           Universum
 
+import           Pos.Context                          (ContextHolder, NodeContext,
+                                                       getNodeContext, ncPublicKey,
+                                                       ncSscContext, runContextHolder)
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, getOpening,
@@ -38,18 +45,16 @@ import           Pos.Ssc.GodTossing                   (SscGodTossing, getOpening
                                                        secretToSharedSeed)
 import           Pos.Ssc.GodTossing.SecretStorage     (getSecret)
 import qualified Pos.State                            as St
+import           Pos.Txp.LocalData                    (TxLocalData, getLocalTxs,
+                                                       getTxLocalData, setTxLocalData)
 import           Pos.Types                            (EpochIndex (..), SharedSeed,
                                                        SlotId (siEpoch, siSlot),
                                                        SlotLeaders, headerHash)
-import           Pos.Util                             (deserializeM)
+import           Pos.Util                             (fromBinaryM)
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
 import           Pos.Web.Types                        (GodTossingStage (..))
-import           Pos.WorkMode                         (ContextHolder, DBHolder,
-                                                       NodeContext, WorkMode,
-                                                       getNodeContext, ncPublicKey,
-                                                       ncSscContext, runContextHolder,
-                                                       runDBHolder)
+import           Pos.WorkMode                         (TxLDImpl, WorkMode, runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -83,13 +88,22 @@ serveImpl application port =
 -- Servant infrastructure
 ----------------------------------------------------------------------------
 
-type WebHandler ssc = ContextHolder ssc (DBHolder ssc TimedIO)
+type WebHandler ssc = TxLDImpl (ContextHolder ssc (St.DBHolder ssc TimedIO))
 
 convertHandler
     :: forall ssc a.
-       NodeContext ssc -> St.NodeState ssc -> WebHandler ssc a -> Handler a
-convertHandler nc ns handler =
-    liftIO (runTimedIO (runDBHolder ns (runContextHolder nc handler))) `Catch.catches`
+       TxLocalData
+    -> NodeContext ssc
+    -> St.NodeState ssc
+    -> WebHandler ssc a
+    -> Handler a
+convertHandler tld nc ns handler =
+    liftIO (runTimedIO .
+            St.runDBHolder ns .
+            runContextHolder nc .
+            runTxLDImpl $
+            setTxLocalData tld >> handler)
+    `Catch.catches`
     excHandlers
   where
     excHandlers = [Catch.Handler catchServant]
@@ -97,9 +111,10 @@ convertHandler nc ns handler =
 
 nat :: MyWorkMode ssc m => m (WebHandler ssc :~> Handler)
 nat = do
+    tld <- getTxLocalData
     nc <- getNodeContext
     ns <- St.getNodeState
-    return $ Nat (convertHandler nc ns)
+    return $ Nat (convertHandler tld nc ns)
 
 servantServerBase :: forall ssc m . MyWorkMode ssc m => m (Server (BaseNodeApi ssc))
 servantServerBase = flip enter baseServantHandlers <$> (nat @ssc @m)
@@ -137,7 +152,7 @@ getLeadersDo Nothing  = St.getLeaders . siEpoch =<< getCurrentSlot
 getLeadersDo (Just e) = St.getLeaders e
 
 getLocalTxsNum :: SscConstraint ssc => WebHandler ssc Word
-getLocalTxsNum = fromIntegral . length <$> St.getLocalTxs
+getLocalTxsNum = fromIntegral . length <$> getLocalTxs
 
 ----------------------------------------------------------------------------
 -- GodTossing handlers
@@ -164,7 +179,7 @@ getOurSecret = maybe (throwM err) (pure . convertGtSecret) =<< getSecret
     doPanic = panic "our secret is malformed"
     convertGtSecret =
         secretToSharedSeed .
-        fromMaybe doPanic . deserializeM . getOpening . view _3
+        fromMaybe doPanic . fromBinaryM . getOpening . view _3
 
 getGtStage :: GtWebHandler GodTossingStage
 getGtStage = do

@@ -1,33 +1,40 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+
 -- | Wrappers on top of communication methods.
 
 module Pos.Communication.Methods
        ( announceBlock
-       , announceTx
-       , announceTxs
        , sendToNeighborsSafe
        , sendTx
+
+       -- * Blockchain part queries
+       , queryBlockchainPart
+       , queryBlockchainUntil
+       , queryBlockchainFresh
        ) where
 
-import           Control.TimeWarp.Rpc    (Message, NetworkAddress)
-import           Control.TimeWarp.Timed  (fork_)
-import           Data.Binary             (Binary)
-import           Data.List.NonEmpty      (NonEmpty ((:|)))
-import           Formatting              (bprint, build, sformat, (%))
-import           System.Wlog             (logDebug)
+import           Control.TimeWarp.Rpc        (Message, NetworkAddress)
+import           Control.TimeWarp.Timed      (fork_)
+import           Formatting                  (build, sformat, (%))
+import           Pos.State                   (getHeadBlock)
+import           System.Wlog                 (logDebug)
 import           Universum
 
-import           Pos.Communication.Types (SendBlockHeader (..), SendTx (..), SendTxs (..))
-import           Pos.DHT                 (sendToNeighbors, sendToNode)
-import           Pos.Types               (MainBlockHeader, Tx, TxWitness, txwF)
-import           Pos.Util                (logWarningWaitLinear, messageName')
-import           Pos.WorkMode            (WorkMode)
-import           Serokell.Util.Text      (listJson)
+import           Pos.Binary.Class            (Bi)
+import           Pos.Communication.Types     (RequestBlockchainPart (..),
+                                              SendBlockHeader (..))
+import           Pos.DHT.Model               (MonadMessageDHT, sendToNeighbors,
+                                              sendToNode)
+import           Pos.Txp.Types.Communication (TxDataMsg (..))
+import           Pos.Types                   (HeaderHash, MainBlockHeader, Tx, TxWitness,
+                                              headerHash)
+import           Pos.Util                    (logWarningWaitLinear, messageName')
+import           Pos.WorkMode                (WorkMode)
 
 -- | Wrapper on top of sendToNeighbors which does it in separate
 -- thread and controls how much time action takes.
-sendToNeighborsSafe :: (Binary r, Message r, WorkMode ssc m) => r -> m ()
+sendToNeighborsSafe :: (Bi r, Message r, WorkMode ssc m) => r -> m ()
 sendToNeighborsSafe msg = do
     let msgName = messageName' msg
     let action = () <$ sendToNeighbors msg
@@ -37,29 +44,36 @@ sendToNeighborsSafe msg = do
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.
 announceBlock
-    :: WorkMode ssc m
+    :: (WorkMode ssc m, Bi (SendBlockHeader ssc))
     => MainBlockHeader ssc -> m ()
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     sendToNeighborsSafe . SendBlockHeader $ header
 
--- | Announce new transaction to all known peers. Intended to be used when
--- tx is created.
-announceTx :: WorkMode ssc m => (Tx, TxWitness) -> m ()
-announceTx txw@(tx,w) = do
-    logDebug $ sformat ("Announcing tx to others:\n"%txwF) txw
-    sendToNeighborsSafe $ SendTx tx w
+-- | Query the blockchain part. Generic method.
+queryBlockchainPart
+    :: (WorkMode ssc m, Bi (RequestBlockchainPart ssc))
+    => Maybe (HeaderHash ssc) -> Maybe (HeaderHash ssc) -> Maybe Word
+    -> m ()
+queryBlockchainPart fromH toH mLen = do
+    logDebug $ sformat ("Querying blockchain part "%build%".."%build%
+                        " (maxlen "%build%")") fromH toH mLen
+    sendToNeighborsSafe $ RequestBlockchainPart fromH toH mLen
 
--- | Announce known transactions to all known peers. Intended to be used
--- to relay transactions.
-announceTxs :: WorkMode ssc m => [(Tx,TxWitness)] -> m ()
-announceTxs [] = pure ()
-announceTxs txs@(tx:txs') = do
-    logDebug $
-        sformat ("Announcing txs to others:\n" %listJson)
-                (fmap (bprint txwF) txs)
-    sendToNeighborsSafe . SendTxs $ tx :| txs'
+-- | Query for all the newest blocks until some given hash
+queryBlockchainUntil
+    :: (WorkMode ssc m, Bi (RequestBlockchainPart ssc))
+    => HeaderHash ssc -> m ()
+queryBlockchainUntil hash = queryBlockchainPart Nothing (Just hash) Nothing
+
+-- | Query for possible new blocks on top of new blockchain.
+queryBlockchainFresh
+    :: (WorkMode ssc m, Bi (RequestBlockchainPart ssc))
+    => m ()
+queryBlockchainFresh = queryBlockchainUntil . headerHash =<< getHeadBlock
 
 -- | Send Tx to given address.
-sendTx :: WorkMode ssc m => NetworkAddress -> (Tx, TxWitness) -> m ()
-sendTx addr (tx,w) = sendToNode addr $ SendTx tx w
+sendTx
+    :: (MonadMessageDHT s m, Bi TxDataMsg)
+    => NetworkAddress -> (Tx, TxWitness) -> m ()
+sendTx addr (tx,w) = sendToNode addr $ TxDataMsg tx w

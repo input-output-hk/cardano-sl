@@ -6,6 +6,7 @@
 
 module Pos.Wallet.WalletMode
        ( WalletMode
+       , WalletRealMode
        ) where
 
 import           Pos.Context           (WithNodeContext)
@@ -15,7 +16,7 @@ import qualified Pos.Modern.DB         as Modern
 import           Pos.Ssc.Class.Storage (SscStorageMode)
 import           Pos.State             (MonadDB)
 import           Pos.Txp.LocalData     (MonadTxLD)
-import           Pos.WorkMode          (MinWorkMode)
+import           Pos.WorkMode          (MinWorkMode, RawRealMode)
 
 type WalletMode ssc m
     = ( MinWorkMode m
@@ -27,3 +28,8 @@ type WalletMode ssc m
       , WithNodeContext ssc m
       , SscStorageMode ssc
       )
+
+---------------------------------------------------------------
+-- Implementations of 'WalletMode'
+---------------------------------------------------------------
+type WalletRealMode ssc = RawRealMode ssc

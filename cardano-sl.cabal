@@ -59,6 +59,7 @@ library
                         Pos.DHT.Class.MonadDHT
                         Pos.DHT.Class.MonadMessageDHT
                         Pos.FollowTheSatoshi
+                        Pos.Script
                         Pos.Ssc.Class
                         Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon
@@ -138,7 +139,6 @@ library
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
-                        Pos.Script
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
@@ -610,6 +610,7 @@ benchmark cardano-bench-criterion
   main-is:             Local/Criterion.hs
   other-modules:       Bench.Pos.Criterion.FollowTheSatoshiBench
                        Bench.Pos.Criterion.TxSigningBench
+                       Bench.Pos.Criterion.TxVerifyingBench
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
                      , base
@@ -618,10 +619,15 @@ benchmark cardano-bench-criterion
                      , cardano-sl
                      , containers
                      , criterion
+                     , derive
                      , formatting
                      , hashtables
+                     , lens
                      , log-warper >= 0.1.0
+                     , serokell-util
+                     , text-format
                      , universum >= 0.1.11
+                     , vector
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -with-rtsopts=-N

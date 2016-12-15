@@ -27,8 +27,7 @@ import           Universum
 import           Pos.Binary            ()
 import           Pos.Communication     (sendTx)
 import           Pos.Context           (NodeContext (..), getNodeContext)
-import           Pos.Crypto            (SecretKey)
-import           Pos.Crypto            (hash, sign, toPublic, withHash)
+import           Pos.Crypto            (SecretKey, hash, sign, toPublic, withHash)
 import           Pos.Ssc.Class.Storage (SscStorageMode)
 import           Pos.State             (WorkModeDB, getBestChain, getOldestUtxo, getUtxo)
 import           Pos.Types             (Address, Block, Coin, MainBlock, Tx (..), TxId,
@@ -51,11 +50,12 @@ makePubKeyTx :: SecretKey -> TxInputs -> TxOutputs -> (Tx, TxWitness)
 makePubKeyTx sk inputs txOutputs = (Tx {..}, txWitness)
   where pk = toPublic sk
         txInputs = map makeTxIn inputs
+        txOutHash = hash txOutputs
         makeTxIn (txInHash, txInIndex) = TxIn {..}
         makeTxInWitness (txInHash, txInIndex) =
             PkWitness {
                 twKey = pk,
-                twSig = sign sk (txInHash, txInIndex, txOutputs) }
+                twSig = sign sk (txInHash, txInIndex, txOutHash) }
         txWitness = V.fromList (map makeTxInWitness inputs)
 
 -- | Select only TxOuts for given addresses

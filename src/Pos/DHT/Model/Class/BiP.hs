@@ -5,7 +5,7 @@
 -- | BiP datatype and related instance for time-warp abstracted
 -- serialization.
 
-module Pos.DHT.Class.BiP
+module Pos.DHT.Model.Class.BiP
        (
          BiP(..)
        , plainBiP

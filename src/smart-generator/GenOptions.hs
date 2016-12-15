@@ -12,7 +12,7 @@ import           Universum
 
 
 import           Pos.CLI                (dhtNodeParser, sscAlgoParser)
-import           Pos.DHT                (DHTNode)
+import           Pos.DHT.Model          (DHTNode)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 
 data GenOptions = GenOptions

@@ -9,7 +9,7 @@ module Pos.Ssc.Class.Listeners
 
 import           Data.Tagged         (Tagged)
 
-import           Pos.DHT             (ListenerDHT (..), MonadDHTDialog)
+import           Pos.DHT.Model       (ListenerDHT (..), MonadDHTDialog)
 import           Pos.Ssc.Class.Types (Ssc (..))
 import           Pos.WorkMode        (SocketState, WorkMode)
 

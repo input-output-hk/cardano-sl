@@ -43,7 +43,7 @@ import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData, gtGlobalCertif
                                                      gtLocalCommitments, gtLocalOpenings,
                                                      gtLocalShares)
 
-import           Pos.Crypto                         (LShare)
+import           Pos.Crypto                         (Share)
 import           Pos.Ssc.GodTossing.Storage.Storage ()
 import           Pos.Ssc.GodTossing.Types.Base      (Commitment, Opening,
                                                      SignedCommitment, VssCertificate,
@@ -56,7 +56,7 @@ import           Pos.Ssc.GodTossing.Types.Types     (GtGlobalState (..), GtPaylo
 import           Pos.Ssc.GodTossing.Utils           (verifiedVssCertificates)
 import           Pos.State                          (WorkModeDB)
 import           Pos.Types                          (Address (..), SlotId (..))
-import           Pos.Util                           (diffDoubleMap, getKeys,
+import           Pos.Util                           (AsBinary, diffDoubleMap, getKeys,
                                                      readerToState)
 
 type LDQuery a = LocalQuery SscGodTossing a
@@ -176,7 +176,7 @@ matchOpening :: Address -> Opening -> LDQuery Bool
 matchOpening addr opening =
     flip checkOpeningMatchesCommitment (addr, opening) <$> view gtGlobalCommitments
 
-processShares :: VssCertificatesMap -> Address -> HashMap Address LShare -> LDUpdate Bool
+processShares :: VssCertificatesMap -> Address -> HashMap Address (AsBinary Share) -> LDUpdate Bool
 processShares certs addr s
     | null s = pure False
     | otherwise = do
@@ -198,7 +198,7 @@ processShares certs addr s
         ok <- andM checks
         ok <$ when ok (gtLocalShares . at addr .= Just newLocalShares)
 
-checkSharesLastVer :: VssCertificatesMap -> Address -> HashMap Address LShare -> LDQuery Bool
+checkSharesLastVer :: VssCertificatesMap -> Address -> HashMap Address (AsBinary Share) -> LDQuery Bool
 checkSharesLastVer certs addr shares =
     (\comms openings -> checkShares comms openings certs addr shares) <$>
     view gtGlobalCommitments <*>

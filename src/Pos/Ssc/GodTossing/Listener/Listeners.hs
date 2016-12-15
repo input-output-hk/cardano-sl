@@ -25,7 +25,7 @@ import           Pos.Communication.Methods              (sendToNeighborsSafe)
 import           Pos.Communication.Types                (ResponseMode)
 import           Pos.Context                            (WithNodeContext (getNodeContext),
                                                          ncPropagation)
-import           Pos.DHT                                (ListenerDHT (..), replyToNode)
+import           Pos.DHT.Model                          (ListenerDHT (..), replyToNode)
 import           Pos.Slotting                           (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
 import           Pos.Ssc.Class.LocalData                (sscGetLocalPayload)

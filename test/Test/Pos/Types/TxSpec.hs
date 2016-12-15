@@ -139,7 +139,7 @@ overflowTx (SmallOverflowTx (getOverflowTx -> ls)) =
 signatureIsValid :: [TxOut] -> (Maybe (TxIn, TxOut), TxInWitness) -> Bool
 signatureIsValid txOutputs (Just (TxIn{..}, TxOut{..}), PkWitness{..}) =
     checkPubKeyAddress twKey txOutAddress &&
-    checkSig twKey (txInHash, txInIndex, txOutputs) twSig
+    checkSig twKey (txInHash, txInIndex, hash txOutputs) twSig
 signatureIsValid _ _ = False
 
 signatureIsNotValid :: [TxOut] -> (Maybe (TxIn, TxOut), TxInWitness) -> Bool

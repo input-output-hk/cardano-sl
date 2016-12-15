@@ -35,7 +35,7 @@ import           Pos.Communication.Types   (RequestBlock (..), RequestBlockchain
                                             SendBlockHeader (..), SendBlockchainPart (..))
 import           Pos.Context               (getNodeContext, ncPropagation)
 import           Pos.Crypto                (hash, shortHashF)
-import           Pos.DHT                   (ListenerDHT (..), MonadDHTDialog, replyToNode)
+import           Pos.DHT.Model             (ListenerDHT (..), MonadDHTDialog, replyToNode)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class.LocalData   (sscApplyGlobalState)
 import qualified Pos.State                 as St

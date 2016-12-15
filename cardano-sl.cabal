@@ -186,7 +186,7 @@ library
                         Pos.Modern.Types.Utxo
                         Pos.Modern.Txp.Storage.Storage
                         Pos.Modern.Txp.Storage.UtxoView
-                        Pos.Modern.Txp.Storage.MemPool
+                        Pos.Modern.Txp.Storage.Types
                         Pos.Modern.Txp.Class
                         Pos.Modern.Txp.Holder
                         Pos.Modern.Txp.Listeners

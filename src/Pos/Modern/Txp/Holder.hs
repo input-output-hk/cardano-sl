@@ -39,8 +39,7 @@ import           Pos.Util.JsonLog                (MonadJL (..))
 import qualified Pos.Modern.DB                   as Modern
 import           Pos.Modern.Txp.Class            (MonadTxpLD (..), MonadUtxo (..),
                                                   MonadUtxoRead (..))
-import           Pos.Modern.Txp.Storage.MemPool  (MemPool)
-import           Pos.Modern.Txp.Storage.UtxoView (UtxoView)
+import           Pos.Modern.Txp.Storage.Types    (MemPool, UtxoView)
 import qualified Pos.Modern.Txp.Storage.UtxoView as UV
 import           Pos.Types                       (HeaderHash)
 
@@ -51,7 +50,7 @@ data TxpLDWrap ssc = TxpLDWrap
     {
       utxoView :: !(STM.TVar (UtxoView ssc))
     , memPool  :: !(STM.TVar MemPool)
-    , tip      :: !(STM.TVar (HeaderHash ssc))
+    , ldTip    :: !(STM.TVar (HeaderHash ssc))
     }
 
 newtype TxpLDHolder ssc m a = TxpLDHolder
@@ -99,11 +98,11 @@ instance MonadIO m => MonadTxpLD ssc (TxpLDHolder ssc m) where
     modifyTxpLD f = TxpLDHolder ask >>= \txld -> atomically $ do
                 curUV  <- STM.readTVar (utxoView txld)
                 curMP  <- STM.readTVar (memPool txld)
-                curTip <- STM.readTVar (tip txld)
+                curTip <- STM.readTVar (ldTip txld)
                 let (res, (newUV, newMP, newTip)) = f (curUV, curMP, curTip)
                 STM.writeTVar (utxoView txld) newUV
                 STM.writeTVar (memPool txld) newMP
-                STM.writeTVar (tip txld) newTip
+                STM.writeTVar (ldTip txld) newTip
                 return res
 
 instance Monad m => WrappedM (TxpLDHolder ssc m) where

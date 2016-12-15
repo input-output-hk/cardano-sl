@@ -37,7 +37,7 @@ import           Pos.Modern.DB.Utxo              (BatchOp (..), getTip, writeBat
 import           Pos.Modern.Txp.Class            (MonadTxpLD (..), MonadUtxo, TxpLD,
                                                   getTxOut)
 import           Pos.Modern.Txp.Holder           (runTxpLDHolderUV)
-import           Pos.Modern.Txp.Storage.MemPool  (MemPool (..))
+import           Pos.Modern.Txp.Storage.Types    (MemPool (..), UtxoView (..))
 import qualified Pos.Modern.Txp.Storage.UtxoView as UV
 import           Pos.Modern.Types.Tx             (topsortTxs, verifyTx)
 import           Pos.Modern.Types.Utxo           (applyTxToUtxo', verifyAndApplyTxs,
@@ -166,16 +166,16 @@ processTxDo ld@(uv, mp, tip) resolvedIns utxoDB (id, (tx, txw)) =
     let
         locTxs = localTxs mp
         locTxsSize = localTxsSize mp
-        addUtxo = UV.addUtxo uv
-        delUtxo = UV.delUtxo uv in
+        addUtxo' = addUtxo uv
+        delUtxo' = delUtxo uv in
     if not $ HM.member id locTxs then
         let verifyRes =
               runIdentity $
                 verifyTx
                   (\tin -> return $
-                      if HS.member tin delUtxo then Nothing
+                      if HS.member tin delUtxo' then Nothing
                       else maybe
-                            (HM.lookup tin addUtxo)
+                            (HM.lookup tin addUtxo')
                             Just
                             (HM.lookup tin resolvedIns))
                   (tx, txw) in
@@ -183,9 +183,9 @@ processTxDo ld@(uv, mp, tip) resolvedIns utxoDB (id, (tx, txw)) =
             VerSuccess ->
                 let
                     keys = zipWith TxIn (repeat id) [0..]
-                    addUtxo' = foldl' (\r (x, y) -> HM.insert x y r) addUtxo $ zip keys (txOutputs tx)
-                    delUtxo' = foldl' (flip HS.insert) delUtxo (txInputs tx) in
-                (PTRadded, (UV.UtxoView addUtxo' delUtxo' utxoDB,
+                    newAddUtxo' = foldl' (\r (x, y) -> HM.insert x y r) addUtxo' $ zip keys (txOutputs tx)
+                    newDelUtxo' = foldl' (flip HS.insert) delUtxo' (txInputs tx) in
+                (PTRadded, (UtxoView newAddUtxo' newDelUtxo' utxoDB,
                             MemPool (HM.insert id (tx, txw) locTxs) (locTxsSize + 1),
                             tip))
             VerFailure errors ->

@@ -12,7 +12,7 @@ module Pos.Modern.DB.Utxo
 import qualified Database.RocksDB        as Rocks
 import           Universum
 
-import           Pos.Binary              (Bi, encodeStrict)
+import           Pos.Binary.Class        (Bi, encodeStrict)
 import           Pos.Modern.DB.Class     (MonadDB, getUtxoDB)
 import           Pos.Modern.DB.Error     (DBError (..))
 import           Pos.Modern.DB.Functions (rocksDelete, rocksGetBi, rocksPutBi,

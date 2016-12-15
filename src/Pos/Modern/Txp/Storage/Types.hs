@@ -1,22 +1,23 @@
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE StandaloneDeriving     #-}
-{-# LANGUAGE TupleSections          #-}
-{-# LANGUAGE TypeFamilies           #-}
-{-# LANGUAGE UndecidableInstances   #-}
-
-module Pos.Modern.Txp.Storage.MemPool
+module Pos.Modern.Txp.Storage.Types
        (
-         MemPool (..)
+         UtxoView (..)
+       , MemPool (..)
        ) where
 import           Data.Default        (Default, def)
 import qualified Data.HashMap.Strict as HM
+import           Data.HashSet        (HashSet)
 import           Universum
 
-import           Pos.Types           (Tx, TxId, TxWitness)
+import           Pos.Modern.DB.Types (DB)
+import           Pos.Types           (Tx, TxId, TxIn, TxOut, TxWitness)
 
+
+data UtxoView ssc = UtxoView
+    {
+      addUtxo :: !(HashMap TxIn TxOut)
+    , delUtxo :: !(HashSet TxIn)
+    , utxoDB  :: !(DB ssc)
+    }
 
 type TxMap = HashMap TxId (Tx, TxWitness)
 
@@ -33,4 +34,3 @@ instance Default MemPool where
           localTxs = HM.empty
         , localTxsSize = 0
         }
-

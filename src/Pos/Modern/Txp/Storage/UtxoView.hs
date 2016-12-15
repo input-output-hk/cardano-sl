@@ -1,27 +1,19 @@
 module Pos.Modern.Txp.Storage.UtxoView
        (
-         UtxoView (..)
-       , getTxOut
+         getTxOut
        , putTxOut
        , delTxIn
        , createFromDB
        ) where
 
-import qualified Data.HashMap.Strict as HM
-import           Data.HashSet        (HashSet)
-import qualified Data.HashSet        as HS
+import qualified Data.HashMap.Strict          as HM
+import qualified Data.HashSet                 as HS
 import           Universum
 
-import           Pos.Modern.DB.Types (DB)
-import           Pos.Modern.DB.Utxo  (getTxOutFromDB)
-import           Pos.Types           (TxIn (..), TxOut)
-
-data UtxoView ssc = UtxoView
-    {
-      addUtxo :: !(HashMap TxIn TxOut)
-    , delUtxo :: !(HashSet TxIn)
-    , utxoDB  :: !(DB ssc)
-    }
+import           Pos.Modern.DB.Types          (DB)
+import           Pos.Modern.DB.Utxo           (getTxOutFromDB)
+import           Pos.Modern.Txp.Storage.Types (UtxoView (..))
+import           Pos.Types                    (TxIn (..), TxOut)
 
 createFromDB :: DB ssc -> UtxoView ssc
 createFromDB = UtxoView HM.empty HS.empty

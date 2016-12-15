@@ -24,7 +24,7 @@ import           Servant.Server       (Handler, ServantErr (errBody), Server, Se
 import           Servant.Utils.Enter  ((:~>) (..), enter)
 import           Universum
 
-import           Pos.DHT              (DHTPacking, dhtAddr, getKnownPeers)
+import           Pos.DHT.Model              (DHTPacking, dhtAddr, getKnownPeers)
 import           Pos.DHT.Real         (KademliaDHTContext, getKademliaDHTCtx,
                                        runKademliaDHTRaw)
 import           Pos.Genesis          (genesisAddresses, genesisSecretKeys)

@@ -14,7 +14,7 @@ import           System.Wlog             (logError, logInfo)
 import           Universum
 
 import           Pos.Context             (NodeContext (..), getNodeContext, ncPublicKey)
-import           Pos.DHT                 (DHTNodeType (DHTFull), discoverPeers)
+import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Ssc.Class           (SscConstraint)
 import           Pos.State               (initFirstSlot)
 #ifdef WITH_ROCKS

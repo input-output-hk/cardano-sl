@@ -11,7 +11,7 @@ import           Pos.Binary.Address       ()
 import           Pos.Binary.Class
 import           Pos.Binary.Communication ()
 import           Pos.Binary.Crypto        ()
-import           Pos.Binary.DHT           ()
+import           Pos.Binary.DHTModel      ()
 import           Pos.Binary.Merkle        ()
 #ifdef WITH_ROCKS
 import           Pos.Binary.Modern.DB     ()

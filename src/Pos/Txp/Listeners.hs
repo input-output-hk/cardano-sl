@@ -20,7 +20,7 @@ import           Pos.Communication.Types     (ResponseMode)
 import           Pos.Context                 (WithNodeContext (getNodeContext),
                                               ncPropagation)
 import           Pos.Crypto                  (hash)
-import           Pos.DHT                     (ListenerDHT (..), MonadDHTDialog,
+import           Pos.DHT.Model               (ListenerDHT (..), MonadDHTDialog,
                                               replyToNode)
 import           Pos.State                   (ProcessTxRes (..))
 import qualified Pos.State                   as St

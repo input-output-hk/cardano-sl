@@ -32,9 +32,9 @@ import           System.Wlog               (CanLog, HasLoggerName)
 import           Universum                 hiding (async, fromStrict, mapConcurrently,
                                             toStrict)
 
-import           Pos.DHT.Class             (DHTMsgHeader (..), ListenerDHT (..),
+import           Pos.DHT.Model.Class       (DHTMsgHeader (..), ListenerDHT (..),
                                             WithDefaultMsgHeader (..))
-import           Pos.DHT.Types             (DHTData, DHTKey, DHTNode (..),
+import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..),
                                             DHTNodeType (..))
 #ifdef WITH_ROCKS
 import           Pos.Modern.Txp.Class      (MonadTxpLD (..))

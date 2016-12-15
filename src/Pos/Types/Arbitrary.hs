@@ -21,18 +21,6 @@ import           Control.Lens               (set, view, _3, _4)
 import qualified Data.ByteString            as BS (pack)
 import           Data.DeriveTH              (derive, makeArbitrary, makeNFData)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
-import           Pos.Constants              (epochSlots, sharedSeedLength)
-import           Pos.Crypto                 (Share, PublicKey, SecretKey, hash, sign,
-                                             toPublic)
-import           Pos.Types.Timestamp        (Timestamp (..))
-import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
-                                             Coin (..), EpochIndex (..),
-                                             LocalSlotIndex (..), SharedSeed (..),
-                                             SlotId (..), Tx (..), TxIn (..),
-                                             TxInWitness (..), TxOut (..),
-
-                                             makePubKeyAddress, makeScriptAddress)
-import           Pos.Util                   (AsBinary)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
                                              NonZero (..), choose, elements, oneof, scale,
@@ -41,9 +29,20 @@ import           Test.QuickCheck.Instances  ()
 import           Universum
 
 import           Pos.Binary.Class           (Bi)
+import           Pos.Constants              (epochSlots, sharedSeedLength)
+import           Pos.Crypto                 (PublicKey, SecretKey, Share, hash, sign,
+                                             toPublic)
 import           Pos.Crypto.Arbitrary       ()
 import           Pos.Script                 (Script, parseRedeemer, parseValidator)
 import           Pos.Types.Arbitrary.Unsafe ()
+import           Pos.Types.Timestamp        (Timestamp (..))
+import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
+                                             Coin (..), EpochIndex (..),
+                                             LocalSlotIndex (..), SharedSeed (..),
+                                             SlotId (..), Tx (..), TxIn (..),
+                                             TxInWitness (..), TxOut (..),
+                                             makePubKeyAddress, makeScriptAddress)
+import           Pos.Util                   (AsBinary)
 
 makeSmall :: Gen a -> Gen a
 makeSmall = scale f

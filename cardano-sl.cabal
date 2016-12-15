@@ -48,16 +48,16 @@ library
                         Pos.CompileConfig
                         Pos.Constants
                         Pos.Crypto
-                        Pos.DHT
+                        Pos.DHT.Model
+                        Pos.DHT.Model.Types
+                        Pos.DHT.Model.Util
+                        Pos.DHT.Model.Class
+                        Pos.DHT.Model.Class.BiP
+                        Pos.DHT.Model.Class.MonadDHT
+                        Pos.DHT.Model.Class.MonadMessageDHT
                         Pos.DHT.Real
                         Pos.DHT.Real.Real
                         Pos.DHT.Real.Types
-                        Pos.DHT.Types
-                        Pos.DHT.Util
-                        Pos.DHT.Class
-                        Pos.DHT.Class.BiP
-                        Pos.DHT.Class.MonadDHT
-                        Pos.DHT.Class.MonadMessageDHT
                         Pos.FollowTheSatoshi
                         Pos.Script
                         Pos.Ssc.Class
@@ -108,7 +108,7 @@ library
                         Pos.Binary.Class
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
-                        Pos.Binary.DHT
+                        Pos.Binary.DHTModel
                         Pos.Binary.Merkle
                         Pos.Binary.Script
                         Pos.Binary.Ssc

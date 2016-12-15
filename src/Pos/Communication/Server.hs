@@ -18,7 +18,7 @@ import           Pos.Binary.Communication          ()
 import           Pos.Communication.Server.Block    (blockListeners)
 import           Pos.Communication.Server.SysStart
 import           Pos.Communication.Util            (modifyListenerLogger)
-import           Pos.DHT                           (ListenerDHT, MonadDHTDialog)
+import           Pos.DHT.Model                     (ListenerDHT, MonadDHTDialog)
 import           Pos.Ssc.Class.Listeners           (SscListenersClass, sscListeners)
 import           Pos.Txp.Listeners                 (txListeners)
 import           Pos.WorkMode                      (SocketState, WorkMode)

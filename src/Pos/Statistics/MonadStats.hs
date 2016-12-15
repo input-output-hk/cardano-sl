@@ -45,7 +45,7 @@ import           Universum
 import qualified Pos.Modern.DB               as Modern
 import           Pos.Modern.Txp.Class        (MonadTxpLD (..))
 #endif
-import           Pos.DHT                     (DHTResponseT, MonadDHT,
+import           Pos.DHT.Model               (DHTResponseT, MonadDHT,
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))

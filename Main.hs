@@ -9,7 +9,7 @@
 module Main where
 
 import qualified NodeLowLevel as LL
-import NodeLowLevel (NodeId)
+import NodeLowLevel (NodeId, ChannelIn, ChannelOut)
 
 import Data.Binary     as Bin
 import Data.Binary.Put as Bin
@@ -36,34 +36,48 @@ data Node = Node {
        nodeWorkers :: [ThreadId]
      }
 
-type Worker = SendAction -> IO ()
+type Worker = SendActions -> IO ()
 
 type MessageName = BS.ByteString
 
 data Listener = Listener MessageName ListenerAction
 
 data ListenerAction where
-  ListenerAction :: Binary msg
-                 => (SendAction -> ReplyAction -> msg -> IO ())
-                 -> ListenerAction
+  -- | A listener that handles a single isolated incoming message
+  ListenerActionOneMsg
+    :: Binary msg
+    => (NodeId -> SendActions -> msg -> IO ())
+    -> ListenerAction
 
+  -- | A listener that handles an incoming bi-directional conversation.
+  ListenerActionConversation
+    :: (NodeId -> ConversationActions -> IO ())
+    -> ListenerAction
 
-data SendAction = SendAction {
-       send :: forall body. Binary body =>
-               NodeId -> MessageName -> body -> IO ()
+data SendActions = SendActions {
+       -- | Send a isolated (sessionless) message to a node
+       sendTo :: forall body. Binary body => NodeId -> MessageName -> body -> IO (),
+
+       -- | Establish a bi-direction conversation session with a node
+       connect :: NodeId -> IO ConversationActions
      }
 
--- This is just a special case of 'SendAction' when we know who to send to
-data ReplyAction = ReplyAction {
-       reply :: forall body. Binary body =>
-                MessageName -> body -> IO ()
+data ConversationActions = ConversationActions {
+       -- | Send a message within the context of this conversation
+       send  :: forall msg. Binary msg => msg -> IO (),
+
+       -- | Receive a message within the context of this conversation
+       recv  :: forall msg. Binary msg => IO msg,
+
+       -- | Close the outbound side of this conversation
+       close :: IO ()  -- TODO: needed? if so only for early close. Should by automatic.
      }
 
 
 startNode :: NT.Transport -> [Worker] -> [Listener] -> IO Node
 startNode transport workers listeners = do
-    node <- LL.startNode transport handler
-    let sendAction = SendAction { send = sendMsg node }
+    node <- LL.startNode transport handlerIn handlerInOut
+    let sendAction = SendActions { sendTo = sendMsg node, connect = undefined }
     tids <- sequence
               [ forkIO $ worker sendAction
               | worker <- workers ]
@@ -72,12 +86,16 @@ startNode transport workers listeners = do
       nodeWorkers = tids
     }
   where
-    handler :: NodeId -> Chan (Maybe BS.ByteString) -> IO ()
-    handler peer chan = return ()
+    handlerIn :: NodeId -> ChannelIn -> IO ()
+    handlerIn peer chan = return ()
     --TODO: fill in the dispatcher impl:
     --      it needs to decode the MessageName
     --      then lookup the listener(s)
     --      then decode the body and fork the listener with the decoded message
+
+    handlerInOut :: NodeId -> ChannelIn -> ChannelOut -> IO ()
+    handlerInOut peer inchan outchan = return ()
+    --TODO: fill in the dispatcher impl:
 
 stopNode :: Node -> IO ()
 stopNode Node {..} = do
@@ -109,10 +127,11 @@ recvMsg :: Binary msg
          -> BS.ByteString               -- prefix
          -> IO (msg, BS.ByteString)     -- trailing
 recvMsg chan prefix =
-    go (Bin.pushChunk prefix (Bin.runGetIncremental Bin.get))
+    go (Bin.pushChunk (Bin.runGetIncremental Bin.get) prefix)
   where
     go (Bin.Done trailing _ a) = return (a, trailing)
     go (Bin.Fail _trailing _ err) = fail "TODO"
     go (Bin.Partial continue) = do
       mx <- readChan chan
-      --TODO...
+      go (continue mx)
+

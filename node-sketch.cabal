@@ -16,4 +16,5 @@ executable node-sketch
                      , binary >= 0.8
                      , bytestring
                      , text
+                     , random
 

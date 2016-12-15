@@ -58,8 +58,9 @@ import           Pos.DHT.Model               (DHTPacking, DHTResponseT (..),
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT (..))
 #ifdef WITH_ROCKS
-import qualified Pos.Modern.DB.Class         as Modern
-import qualified Pos.Modern.DB.Holder        as Modern
+import qualified Pos.Modern.DB               as Modern
+import           Pos.Modern.Txp.Class        (MonadTxpLD (..))
+import           Pos.Modern.Txp.Holder       (TxpLDHolder)
 #endif
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
@@ -81,6 +82,7 @@ type WorkMode ssc m
       , MonadDB ssc m
 #ifdef WITH_ROCKS
       , Modern.MonadDB ssc m
+      , MonadTxpLD ssc m
 #endif
       , MonadTxLD m
       , SscStorageMode ssc
@@ -196,7 +198,11 @@ type SocketState = ()
 ----------------------------------------------------------------------------
 
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
-type RawRealMode ssc = KademliaDHT (TxLDImpl (
+type RawRealMode ssc = KademliaDHT (
+#ifdef WITH_ROCKS
+                               TxpLDHolder ssc (
+#endif
+                                   TxLDImpl (
                                        SscLDImpl ssc (
                                            ContextHolder ssc (
 #ifdef WITH_ROCKS
@@ -204,7 +210,7 @@ type RawRealMode ssc = KademliaDHT (TxLDImpl (
 #endif
                                                    DBHolder ssc (Dialog DHTPacking (Transfer SocketState))))))
 #ifdef WITH_ROCKS
-                                   )
+                                   ))
 #endif
 
 -- | ProductionMode is an instance of WorkMode which is used

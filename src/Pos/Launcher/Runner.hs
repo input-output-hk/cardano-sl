@@ -28,64 +28,69 @@ module Pos.Launcher.Runner
        , runTimed
        ) where
 
-import           Control.Concurrent.MVar      (newEmptyMVar, newMVar, takeMVar,
-                                               tryReadMVar)
-import           Control.Monad                (fail)
-import           Control.Monad.Catch          (bracket)
-import           Control.Monad.Trans.Control  (MonadBaseControl)
-import           Control.Monad.Trans.Resource (allocate, runResourceT)
-import           Control.TimeWarp.Rpc         (Dialog, Transfer, commLoggerName,
-                                               runDialog, runTransfer)
-import           Control.TimeWarp.Timed       (MonadTimed, currentTime, fork, killThread,
-                                               repeatForever, runTimedIO, sec)
+import           Control.Concurrent.MVar         (newEmptyMVar, newMVar, takeMVar,
+                                                  tryReadMVar)
+import           Control.Monad                   (fail)
+import           Control.Monad.Catch             (bracket)
+import           Control.Monad.Trans.Control     (MonadBaseControl)
+import           Control.Monad.Trans.Resource    (allocate, runResourceT)
+import           Control.TimeWarp.Rpc            (Dialog, Transfer, commLoggerName,
+                                                  runDialog, runTransfer)
+import           Control.TimeWarp.Timed          (MonadTimed, currentTime, fork,
+                                                  killThread, repeatForever, runTimedIO,
+                                                  sec)
 
-import           Data.Acquire                 (withEx)
-import           Data.List                    (nub)
-import qualified Data.Time                    as Time
-import           Formatting                   (build, sformat, shown, (%))
-import           System.Directory             (doesDirectoryExist,
-                                               removeDirectoryRecursive)
-import           System.FilePath              ((</>))
-import           System.Wlog                  (LoggerName (..), WithLogger, logDebug,
-                                               logInfo, logWarning, releaseAllHandlers,
-                                               traverseLoggerConfig, usingLoggerName)
+import           Data.Acquire                    (withEx)
+import           Data.List                       (nub)
+import qualified Data.Time                       as Time
+import           Formatting                      (build, sformat, shown, (%))
+import           System.Directory                (doesDirectoryExist,
+                                                  removeDirectoryRecursive)
+import           System.FilePath                 ((</>))
+import           System.Wlog                     (LoggerName (..), WithLogger, logDebug,
+                                                  logInfo, logWarning, releaseAllHandlers,
+                                                  traverseLoggerConfig, usingLoggerName)
 import           Universum
 
-import           Pos.Binary                   ()
-import           Pos.CLI                      (readLoggerConfig)
-import           Pos.Communication            (SysStartRequest (..), allListeners,
-                                               noCacheMessageNames, sysStartReqListener,
-                                               sysStartReqListenerSlave,
-                                               sysStartRespListener)
-import           Pos.Constants                (RunningMode (..), defaultPeers,
-                                               isDevelopment, runningMode)
-import           Pos.DHT.Model                (BiP (..), ListenerDHT, MonadDHT (..),
-                                               mapListenerDHT, sendToNeighbors)
+import           Pos.Binary                      ()
+import           Pos.CLI                         (readLoggerConfig)
+import           Pos.Communication               (SysStartRequest (..), allListeners,
+                                                  noCacheMessageNames,
+                                                  sysStartReqListener,
+                                                  sysStartReqListenerSlave,
+                                                  sysStartRespListener)
+import           Pos.Constants                   (RunningMode (..), defaultPeers,
+                                                  isDevelopment, runningMode)
+import           Pos.DHT.Model                   (BiP (..), ListenerDHT, MonadDHT (..),
+                                                  mapListenerDHT, sendToNeighbors)
 #ifdef WITH_ROCKS
-import qualified Pos.Modern.DB                as Modern
+import qualified Pos.Modern.DB                   as Modern
+import qualified Pos.Modern.Txp.Holder           as Modern
+import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 #endif
-import           Pos.Context                  (ContextHolder (..), NodeContext (..),
-                                               runContextHolder)
-import           Pos.DHT.Model.Class          (DHTPacking, MonadDHTDialog)
-import           Pos.DHT.Real                 (KademliaDHT, KademliaDHTConfig (..),
-                                               KademliaDHTInstance,
-                                               KademliaDHTInstanceConfig (..),
-                                               runKademliaDHT, startDHTInstance,
-                                               stopDHTInstance)
-import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (..),
-                                               NodeParams (..))
-import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
-                                               sscCreateNodeContext)
-import           Pos.Ssc.LocalData            (runSscLDImpl)
-import           Pos.State                    (NodeState, closeState, openMemState,
-                                               openState, runDBHolder)
-import           Pos.State.Storage            (storageFromUtxo)
-import           Pos.Statistics               (getNoStatsT, runStatsT)
-import           Pos.Types                    (Timestamp (Timestamp), timestampF)
-import           Pos.Util                     (runWithRandomIntervals)
-import           Pos.Worker                   (statsWorkers)
-import           Pos.WorkMode                 (ProductionMode, RawRealMode, ServiceMode,
-                                               SocketState, StatsMode, runTxLDImpl)
+import           Pos.Context                     (ContextHolder (..), NodeContext (..),
+                                                  runContextHolder)
+import           Pos.DHT.Model.Class             (DHTPacking, MonadDHTDialog)
+import           Pos.DHT.Real                    (KademliaDHT, KademliaDHTConfig (..),
+                                                  KademliaDHTInstance,
+                                                  KademliaDHTInstanceConfig (..),
+                                                  runKademliaDHT, startDHTInstance,
+                                                  stopDHTInstance)
+import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
+                                                  NodeParams (..))
+import           Pos.Ssc.Class                   (SscConstraint, SscNodeContext,
+                                                  SscParams, sscCreateNodeContext)
+import           Pos.Ssc.LocalData               (runSscLDImpl)
+import           Pos.State                       (NodeState, closeState, openMemState,
+                                                  openState, runDBHolder)
+import           Pos.State.Storage               (storageFromUtxo)
+import           Pos.Statistics                  (getNoStatsT, runStatsT)
+import           Pos.Types                       (Timestamp (Timestamp), timestampF)
+import           Pos.Util                        (runWithRandomIntervals)
+import           Pos.Worker                      (statsWorkers)
+import           Pos.WorkMode                    (ProductionMode, RawRealMode,
+                                                  ServiceMode, SocketState, StatsMode,
+                                                  runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Service node runners
@@ -152,6 +157,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     legacyDB <- snd <$> allocate openDb closeDb
 #ifdef WITH_ROCKS
     modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo")
+    let initTip = notImplemented -- init tip must be here
 #endif
     let run db =
             runTimed lpRunnerTag .
@@ -162,6 +168,9 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
             withEx (sscCreateNodeContext @ssc sscnp) $ flip (runCH np) .
             runSscLDImpl .
             runTxLDImpl .
+#ifdef WITH_ROCKS
+            flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDBs) .
+#endif
             runKDHT inst npBaseParams listeners $
             nodeStartMsg npBaseParams >> action
     lift $ run legacyDB

@@ -185,9 +185,13 @@ library
                         Pos.Modern.DB.Types
                         Pos.Modern.DB.Utxo
                         Pos.Modern.Types.Utxo
-                        Pos.Modern.Txp.Storage
-                        Pos.Modern.Txp.LocalData
+                        Pos.Modern.Txp.Storage.Storage
+                        Pos.Modern.Txp.Storage.UtxoView
+                        Pos.Modern.Txp.Storage.Types
+                        Pos.Modern.Txp.Class
+                        Pos.Modern.Txp.Holder
                         Pos.Modern.Txp.Listeners
+                        Pos.Modern.Types.Tx
   if flag(with-web)
     other-modules:      Pos.Web.Api
                         Pos.Web.Doc

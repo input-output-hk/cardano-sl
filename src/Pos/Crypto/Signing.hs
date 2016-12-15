@@ -238,7 +238,7 @@ deriveSafeCopySimple 0 'base ''ProxySecretKey
 -- | Creates proxy secret key
 createProxySecretKey :: (Bi w) => SecretKey -> PublicKey -> w -> ProxySecretKey w
 createProxySecretKey issuerSk delegatePk w =
-    ProxySecretKey w delegatePk $ createProxyCert issuerSk delegatePk w
+    ProxySecretKey w (toPublic issuerSk) $ createProxyCert issuerSk delegatePk w
 
 
 -- | Delegate signature made with certificate-based permission. @a@

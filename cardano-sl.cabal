@@ -201,6 +201,7 @@ library
     other-modules:      Pos.Wallet.Tx
                       , Pos.Wallet.WalletMode
                       , Pos.Wallet.Launcher
+                      , Pos.Wallet.KeyStorage
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc

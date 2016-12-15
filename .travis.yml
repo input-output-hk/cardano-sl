@@ -2,6 +2,8 @@ sudo: false
 os:
   - linux
   - osx
+env:
+  - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/77adcfb59f9167108c984049d71a26323b523697.tar.gz
 language: nix
 cache:
   directories:

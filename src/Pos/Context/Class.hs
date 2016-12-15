@@ -11,7 +11,7 @@ module Pos.Context.Class
 import           Universum
 
 import           Pos.Context.Context       (NodeContext)
-import           Pos.DHT                   (DHTResponseT)
+import           Pos.DHT.Model             (DHTResponseT)
 import           Pos.DHT.Real              (KademliaDHT)
 import           Pos.Statistics.MonadStats (NoStatsT, StatsT)
 

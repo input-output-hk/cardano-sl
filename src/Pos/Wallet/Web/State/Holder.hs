@@ -15,15 +15,16 @@ import           Control.Lens               (iso)
 import           Control.Monad.Trans        (MonadTrans (..))
 import           Control.TimeWarp.Rpc       (MonadDialog, MonadTransfer)
 import           Control.TimeWarp.Timed     (MonadTimed, ThreadId)
-import           Pos.DHT                    (MonadDHT, MonadMessageDHT,
-                                             WithDefaultMsgHeader)
 import           Serokell.Util.Lens         (WrappedM (..))
 import           System.Wlog                (CanLog, HasLoggerName)
 
 import           Pos.Context                (WithNodeContext)
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB              as Modern (MonadDB)
+import qualified Pos.Modern.Txp.Class       as Modern (MonadTxpLD)
 #endif
+import           Pos.DHT.Model              (MonadDHT, MonadMessageDHT,
+                                             WithDefaultMsgHeader)
 import           Pos.Slotting               (MonadSlots)
 import           Pos.Ssc.Class              (MonadSscLD)
 import           Pos.State                  (MonadDB)
@@ -40,7 +41,7 @@ newtype WalletWebDB m a = WalletWebDB
                 MonadMask, MonadIO, MonadDB ssc, HasLoggerName, WithNodeContext ssc,
                 MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots, MonadSscLD ssc,
 #ifdef WITH_ROCKS
-                Modern.MonadDB ssc,
+                Modern.MonadDB ssc, Modern.MonadTxpLD ssc,
 #endif
                 WithDefaultMsgHeader, MonadJL, CanLog, MonadTxLD, MonadStats)
 

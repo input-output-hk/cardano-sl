@@ -48,16 +48,16 @@ library
                         Pos.CompileConfig
                         Pos.Constants
                         Pos.Crypto
-                        Pos.DHT
+                        Pos.DHT.Model
+                        Pos.DHT.Model.Types
+                        Pos.DHT.Model.Util
+                        Pos.DHT.Model.Class
+                        Pos.DHT.Model.Class.BiP
+                        Pos.DHT.Model.Class.MonadDHT
+                        Pos.DHT.Model.Class.MonadMessageDHT
                         Pos.DHT.Real
                         Pos.DHT.Real.Real
                         Pos.DHT.Real.Types
-                        Pos.DHT.Types
-                        Pos.DHT.Util
-                        Pos.DHT.Class
-                        Pos.DHT.Class.BiP
-                        Pos.DHT.Class.MonadDHT
-                        Pos.DHT.Class.MonadMessageDHT
                         Pos.FollowTheSatoshi
                         Pos.Script
                         Pos.Ssc.Class
@@ -108,7 +108,7 @@ library
                         Pos.Binary.Class
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
-                        Pos.Binary.DHT
+                        Pos.Binary.DHTModel
                         Pos.Binary.Merkle
                         Pos.Binary.Script
                         Pos.Binary.Ssc
@@ -185,9 +185,13 @@ library
                         Pos.Modern.DB.Types
                         Pos.Modern.DB.Utxo
                         Pos.Modern.Types.Utxo
-                        Pos.Modern.Txp.Storage
-                        Pos.Modern.Txp.LocalData
+                        Pos.Modern.Txp.Storage.Storage
+                        Pos.Modern.Txp.Storage.UtxoView
+                        Pos.Modern.Txp.Storage.Types
+                        Pos.Modern.Txp.Class
+                        Pos.Modern.Txp.Holder
                         Pos.Modern.Txp.Listeners
+                        Pos.Modern.Types.Tx
   if flag(with-web)
     other-modules:      Pos.Web.Api
                         Pos.Web.Doc

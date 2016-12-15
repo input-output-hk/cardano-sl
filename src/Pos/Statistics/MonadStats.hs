@@ -43,8 +43,9 @@ import           Universum
 
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB               as Modern
+import           Pos.Modern.Txp.Class        (MonadTxpLD (..))
 #endif
-import           Pos.DHT                     (DHTResponseT, MonadDHT,
+import           Pos.DHT.Model               (DHTResponseT, MonadDHT,
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
@@ -87,7 +88,7 @@ newtype NoStatsT m a = NoStatsT
                MonadDHT, MonadMessageDHT s, MonadSlots, WithDefaultMsgHeader,
                MonadJL, CanLog
 #ifdef WITH_ROCKS
-               , Modern.MonadDB ssc
+               , Modern.MonadDB ssc, MonadTxpLD ssc
 #endif
                )
 
@@ -143,6 +144,14 @@ newtype StatsT m a = StatsT
 
                )
 
+#ifdef WITH_ROCKS
+instance MonadTxpLD ssc m => MonadTxpLD ssc (StatsT m) where
+    getUtxoView = lift getUtxoView
+    setUtxoView = lift . setUtxoView
+    getMemPool  = lift  getMemPool
+    setMemPool  = lift . setMemPool
+    modifyTxpLD = lift . modifyTxpLD
+#endif
 instance Monad m => WrappedM (StatsT m) where
     type UnwrappedM (StatsT m) = ReaderT StatsMap m
     _WrappedM = iso getStatsT StatsT

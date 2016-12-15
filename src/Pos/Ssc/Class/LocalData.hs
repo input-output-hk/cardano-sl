@@ -25,7 +25,7 @@ module Pos.Ssc.Class.LocalData
        ) where
 
 import           Control.Lens        (Lens')
-import           Pos.DHT             (DHTResponseT)
+import           Pos.DHT.Model       (DHTResponseT)
 import           Pos.DHT.Real        (KademliaDHT)
 import           Universum
 

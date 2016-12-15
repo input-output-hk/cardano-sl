@@ -17,7 +17,7 @@ import           Control.Monad                      (fail)
 import           Control.TimeWarp.Rpc               (NetworkAddress)
 import           Data.Default                       (def)
 import           Data.Either                        (either)
-import           Pos.DHT.Types                      (DHTKey, DHTNode (..), bytesToDHTKey)
+import           Pos.DHT.Model.Types                (DHTKey, DHTNode (..), bytesToDHTKey)
 import           Pos.Ssc.SscAlgo                    (SscAlgo (..))
 import qualified Serokell.Util.Parse                as P
 import           System.Wlog                        (LoggerConfig (..),

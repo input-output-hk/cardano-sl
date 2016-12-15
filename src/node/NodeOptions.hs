@@ -15,7 +15,7 @@ import           Serokell.Util.OptParse     (fromParsec)
 import           Universum
 
 import           Pos.CLI                    (dhtKeyParser, dhtNodeParser, sscAlgoParser)
-import           Pos.DHT                    (DHTKey, DHTNode)
+import           Pos.DHT.Model              (DHTKey, DHTNode)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 
 

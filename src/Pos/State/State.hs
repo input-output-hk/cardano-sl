@@ -60,14 +60,14 @@ import           Data.Default             (Default)
 import qualified Data.HashMap.Strict      as HM
 import           Data.List.NonEmpty       (NonEmpty)
 import           Formatting               (build, sformat, (%))
-import           Pos.DHT                  (DHTResponseT)
+import           Pos.DHT.Model            (DHTResponseT)
 import           Pos.DHT.Real             (KademliaDHT)
 import           Serokell.Util            (VerificationRes)
 import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            dispatchEvents, getLoggerName, logWarning,
                                            runPureLog, usingLoggerName)
 
-import           Pos.Crypto               (VssPublicKey, SecretKey, Share, VssKeyPair,
+import           Pos.Crypto               (SecretKey, Share, VssKeyPair, VssPublicKey,
                                            decryptShare, toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
@@ -82,7 +82,7 @@ import           Pos.Types                (Address, Block, EpochIndex, GenesisBl
                                            HeaderHash, IdTxWitness, MainBlock,
                                            MainBlockHeader, SlotId, SlotLeaders, Tx, TxId,
                                            TxWitness, Utxo)
-import           Pos.Util                 (AsBinary, fromBinaryM, asBinary)
+import           Pos.Util                 (AsBinary, asBinary, fromBinaryM)
 
 -- | NodeState encapsulates all the state stored by node.
 class Monad m => MonadDB ssc m | m -> ssc where

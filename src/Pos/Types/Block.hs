@@ -16,6 +16,8 @@ module Pos.Types.Block
        , mkGenesisHeader
        , mkGenesisBlock
 
+       , genesisHash
+
        , VerifyBlockParams (..)
        , VerifyHeaderParams (..)
        , verifyBlock

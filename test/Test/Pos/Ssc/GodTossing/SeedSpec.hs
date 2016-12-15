@@ -17,15 +17,13 @@ import           Test.QuickCheck          (Property, choose, counterexample, gen
 import           Test.QuickCheck.Property (failed, succeeded)
 import           Universum
 
-import           Pos.Binary               (Serialized (..))
-import           Pos.Crypto               (KeyPair (..), LSecret, LShare, Secret, Share,
-                                           Threshold, VssKeyPair, decryptShare, sign,
-                                           toVssPublicKey)
+import           Pos.Crypto               (KeyPair (..), Share, Threshold, VssKeyPair,
+                                           decryptShare, sign, toVssPublicKey)
 import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Opening (..),
                                            SeedError (..), calculateSeed,
                                            genCommitmentAndOpening, secretToSharedSeed)
 import           Pos.Types                (Address, SharedSeed (..), makePubKeyAddress)
-import           Pos.Util                 (nonrepeating, sublistN)
+import           Pos.Util                 (AsBinaryClass (..), nonrepeating, sublistN)
 
 getPubAddr :: KeyPair -> Address
 getPubAddr = makePubKeyAddress . getPub
@@ -126,7 +124,7 @@ recoverSecretsProp n n_openings n_shares n_overlap
 recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
     let threshold = pickThreshold n
     (keys, vssKeys, comms, opens) <- generateKeysAndMpc threshold n
-    let des = deserialize :: LSecret -> Either [Char] Secret
+    let des = fromBinary
         seeds :: [SharedSeed]
         seeds = rights $ map (fmap secretToSharedSeed . des . getOpening) opens
     let expectedSharedSeed :: SharedSeed
@@ -156,7 +154,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
     -- @sharesMap ! X@ = shares that X received from others
     let sharesMap = HM.fromList $ do
              addr <- getPubAddr <$> keys
-             let ser = serialize :: Share -> LShare
+             let ser = asBinary @Share
                  receivedShares = HM.fromList $ do
                      (sender, senderShares) <- HM.toList generatedShares
                      case HM.lookup addr senderShares of
@@ -215,7 +213,7 @@ generateKeysAndMpc _         0 = panic "generateKeysAndMpc: 0 is passed"
 generateKeysAndMpc threshold n = do
     keys           <- generate $ nonrepeating n
     vssKeys        <- generate $ nonrepeating n
-    let lvssPubKeys = NE.fromList $ map (serialize . toVssPublicKey) vssKeys
+    let lvssPubKeys = NE.fromList $ map (asBinary . toVssPublicKey) vssKeys
     (comms, opens) <-
         unzip <$>
             replicateM n (genCommitmentAndOpening threshold lvssPubKeys)
@@ -233,9 +231,9 @@ getDecryptedShares
     :: MonadRandom m
     => NE.NonEmpty VssKeyPair -> Commitment -> m [Share]
 getDecryptedShares vssKeys comm =
-    forM (fmap (second deserialize) $ HM.toList (commShares comm)) $
+    forM (fmap (second fromBinary) $ HM.toList (commShares comm)) $
         \(pubKey, encShare) -> do
-            let secKey = case find ((== pubKey) . serialize . toVssPublicKey) vssKeys of
+            let secKey = case find ((== pubKey) . asBinary . toVssPublicKey) vssKeys of
                     Just k  -> k
                     Nothing -> panic $
                         sformat ("getDecryptedShares: counldn't \

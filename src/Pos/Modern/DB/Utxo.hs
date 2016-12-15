@@ -5,28 +5,30 @@ module Pos.Modern.DB.Utxo
        , deleteTxOut
        , getTxOut
        , writeBatchToUtxo
+       , prepareUtxoDB
        , BatchOp (..)
        ) where
 
 import qualified Database.RocksDB        as Rocks
 import           Universum
 
-import           Pos.Binary              (Bi, encode)
+import           Pos.Binary              (Bi)
 import           Pos.Binary              (encodeStrict)
-import           Pos.Modern.DB           (MonadDB, getUtxoDB)
+import           Pos.Modern.DB.Class     (MonadDB, getUtxoDB)
+import           Pos.Modern.DB.Error     (DBError (..))
 import           Pos.Modern.DB.Functions (rocksDelete, rocksGetBi, rocksPutBi,
                                           rocksWriteBatch)
-import           Pos.Types               (HeaderHash, TxIn (..), TxOut)
+import           Pos.Types               (HeaderHash, TxIn (..), TxOut, genesisHash)
 
 data BatchOp = DelTxIn TxIn | AddTxOut TxIn TxOut
 
 -- | Get current TIP from Utxo DB.
-getTip :: MonadDB ssc m => m (Maybe (HeaderHash ssc))
-getTip = getUtxoDB >>= rocksGetBi "tip"
+getTip :: (MonadThrow m, MonadDB ssc m) => m (HeaderHash ssc)
+getTip = maybe (throwM $ DBMalformed "no tip in Utxo DB") pure =<< getTipMaybe
 
 -- | Put new TIP to Utxo DB.
 putTip :: MonadDB ssc m => HeaderHash ssc -> m ()
-putTip h = getUtxoDB >>= rocksPutBi "tip" h
+putTip h = getUtxoDB >>= rocksPutBi tipKey h
 
 putTxOut :: MonadDB ssc m => TxIn -> TxOut -> m ()
 putTxOut = putBi . utxoKey
@@ -39,6 +41,11 @@ getTxOut = getBi . utxoKey
 
 writeBatchToUtxo :: MonadDB ssc m => [BatchOp] -> m ()
 writeBatchToUtxo batch = rocksWriteBatch (map toRocksOp batch) =<< getUtxoDB
+
+prepareUtxoDB :: MonadDB ssc m => m ()
+prepareUtxoDB = maybe putGenesisTip (const pass) =<< getTipMaybe
+  where
+    putGenesisTip = putTip genesisHash
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -61,5 +68,11 @@ toRocksOp :: BatchOp -> Rocks.BatchOp
 toRocksOp (AddTxOut txIn txOut) = Rocks.Put (utxoKey txIn) (encodeStrict txOut)
 toRocksOp (DelTxIn txIn)        = Rocks.Del $ utxoKey txIn
 
+tipKey :: ByteString
+tipKey = "tip"
+
 utxoKey :: TxIn -> ByteString
 utxoKey = (<>) "t" . encodeStrict
+
+getTipMaybe :: (MonadDB ssc m) => m (Maybe (HeaderHash ssc))
+getTipMaybe = getUtxoDB >>= rocksGetBi tipKey

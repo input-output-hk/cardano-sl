@@ -58,7 +58,8 @@ import           Pos.DHT                     (DHTPacking, DHTResponseT (..),
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT (..))
 #ifdef WITH_ROCKS
-import qualified Pos.Modern.DB               as Modern
+import qualified Pos.Modern.DB.Class         as Modern
+import qualified Pos.Modern.DB.Holder        as Modern
 #endif
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))

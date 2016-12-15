@@ -59,6 +59,7 @@ library
                         Pos.DHT.Class.MonadDHT
                         Pos.DHT.Class.MonadMessageDHT
                         Pos.FollowTheSatoshi
+                        Pos.Script
                         Pos.Ssc.Class
                         Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon
@@ -94,6 +95,7 @@ library
                         Pos.Types.Utxo
                         Pos.Util
                         Pos.Util.JsonLog
+                        Pos.Util.UserSecret
                         Pos.Worker
                         Pos.WorkMode
   if flag(with-web)
@@ -131,14 +133,12 @@ library
                         Pos.Crypto.Hashing
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
-                        Pos.Crypto.SerTypes
                         Pos.Crypto.Signing
                         Pos.Launcher.Launcher
                         Pos.Launcher.Options
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
-                        Pos.Script
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
@@ -177,11 +177,13 @@ library
                         Pos.Binary.Modern.DB
                         Pos.Modern.DB
                         Pos.Modern.DB.Block
-                        Pos.Modern.DB.Utxo
                         Pos.Modern.DB.Class
+                        Pos.Modern.DB.DB
+                        Pos.Modern.DB.Error
                         Pos.Modern.DB.Functions
                         Pos.Modern.DB.Holder
                         Pos.Modern.DB.Types
+                        Pos.Modern.DB.Utxo
                         Pos.Modern.Types.Utxo
                         Pos.Modern.Txp.Storage
                         Pos.Modern.Txp.LocalData
@@ -230,6 +232,7 @@ library
                       , ed25519
                       , exceptions
                       , file-embed >= 0.0.10
+                      , filelock >= 0.1.0.1
                       , filepath
                       , focus
                       , formatting
@@ -608,6 +611,7 @@ benchmark cardano-bench-criterion
   main-is:             Local/Criterion.hs
   other-modules:       Bench.Pos.Criterion.FollowTheSatoshiBench
                        Bench.Pos.Criterion.TxSigningBench
+                       Bench.Pos.Criterion.TxVerifyingBench
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
                      , base
@@ -616,10 +620,15 @@ benchmark cardano-bench-criterion
                      , cardano-sl
                      , containers
                      , criterion
+                     , derive
                      , formatting
                      , hashtables
+                     , lens
                      , log-warper >= 0.1.0
+                     , serokell-util
+                     , text-format
                      , universum >= 0.1.11
+                     , vector
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -with-rtsopts=-N

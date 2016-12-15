@@ -28,6 +28,7 @@ module Pos.State.State
        , getLeaders
        , getUtxo
        , getUtxoByDepth
+       , getOldestUtxo
        , isTxVerified
        , getGlobalMpcData
        , getGlobalMpcDataByDepth
@@ -66,8 +67,7 @@ import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            dispatchEvents, getLoggerName, logWarning,
                                            runPureLog, usingLoggerName)
 
-import           Pos.Binary.Class         (deserializeM, serialize)
-import           Pos.Crypto               (LVssPublicKey, SecretKey, Share, VssKeyPair,
+import           Pos.Crypto               (VssPublicKey, SecretKey, Share, VssKeyPair,
                                            decryptShare, toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
@@ -82,6 +82,7 @@ import           Pos.Types                (Address, Block, EpochIndex, GenesisBl
                                            HeaderHash, IdTxWitness, MainBlock,
                                            MainBlockHeader, SlotId, SlotLeaders, Tx, TxId,
                                            TxWitness, Utxo)
+import           Pos.Util                 (AsBinary, fromBinaryM, asBinary)
 
 -- | NodeState encapsulates all the state stored by node.
 class Monad m => MonadDB ssc m | m -> ssc where
@@ -208,6 +209,10 @@ getUtxoByDepth = queryDisk . A.GetUtxoByDepth
 getUtxo :: QUConstraint ssc m => m Utxo
 getUtxo = queryDisk A.GetUtxo
 
+-- | Get oldest (genesis) utxo
+getOldestUtxo :: QUConstraint ssc m => m Utxo
+getOldestUtxo = queryDisk A.GetOldestUtxo
+
 -- | Checks if tx is verified
 isTxVerified :: QUConstraint ssc m => (Tx, TxWitness) -> m Bool
 isTxVerified = queryDisk . A.IsTxVerified
@@ -256,7 +261,7 @@ processBlock localTxs si = updateDisk . A.ProcessBlock localTxs si
 getParticipants
     :: QUConstraint ssc m
     => EpochIndex
-    -> m (Maybe (NonEmpty LVssPublicKey))
+    -> m (Maybe (NonEmpty (AsBinary VssPublicKey)))
 getParticipants = queryDisk . A.GetParticipants
 
 ----------------------------------------------------------------------------
@@ -270,12 +275,12 @@ getOurShares
     => VssKeyPair -> m (HashMap Address Share)
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
-    let ourPK = serialize $ toVssPublicKey ourKey
+    let ourPK = asBinary $ toVssPublicKey ourKey
     encSharesM <- queryDisk $ A.GetOurShares ourPK
     let drg = drgNewSeed randSeed
         (res, pLog) = fst . withDRG drg . runPureLog . usingLoggerName mempty <$>
                         flip traverse (HM.toList encSharesM) $ \(pk, lEncSh) -> do
-                          let mEncSh = deserializeM lEncSh
+                          let mEncSh = fromBinaryM lEncSh
                           case mEncSh of
                             Just encShare -> lift . lift $ Just . (,) pk <$> decryptShare ourKey encShare
                             _             -> do

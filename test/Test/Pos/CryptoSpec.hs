@@ -13,17 +13,16 @@ import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
 import           Pos.Binary            (Bi)
-import           Pos.Crypto            (EncShare, Hash, KeyPair (..), LEncShare, LSecret,
-                                        LSecretProof, LSecretSharingExtra, LShare,
-                                        LVssPublicKey, ProxyCert, ProxySecretKey,
-                                        ProxySignature, PublicKey, Secret, SecretKey,
-                                        SecretProof, SecretSharingExtra, Share, Signature,
-                                        Signed, VssPublicKey, checkSig,
+import           Pos.Crypto            (EncShare, Hash, KeyPair (..), ProxyCert,
+                                        ProxySecretKey, ProxySignature, PublicKey, Secret,
+                                        SecretKey, SecretProof, SecretSharingExtra, Share,
+                                        Signature, Signed, VssPublicKey, checkSig,
                                         createProxySecretKey, deterministic,
                                         fullPublicKeyF, hash, parseFullPublicKey,
                                         proxySign, proxyVerify, randomNumber, sign,
                                         toPublic)
 import           Pos.Ssc.GodTossing    ()
+import           Pos.Util              (AsBinary)
 
 import           Test.Pos.Util         (binaryEncodeDecode, safeCopyEncodeDecode,
                                         serDeserId)
@@ -70,44 +69,57 @@ spec = describe "Crypto" $ do
     describe "Signing" $ do
         describe "Identity testing" $ do
             describe "Bi instances" $ do
-                prop "SecretKey"           (binaryEncodeDecode @SecretKey)
-                prop "PublicKey"           (binaryEncodeDecode @PublicKey)
-                prop "Signature"           (binaryEncodeDecode @(Signature ()))
-                prop "ProxyCert"           (binaryEncodeDecode @(ProxyCert Int))
-                prop "ProxySecretKey"      (binaryEncodeDecode @(ProxySecretKey Int))
-                prop "ProxySignature"      (binaryEncodeDecode @(ProxySignature Int Int))
-                prop "Signed"              (binaryEncodeDecode @(Signed Bool))
-                prop "VssPublicKey"        (binaryEncodeDecode @VssPublicKey)
-                prop "LVssPublicKey"       (binaryEncodeDecode @LVssPublicKey)
-                prop "LSecret"             (binaryEncodeDecode @LSecret)
-                prop "LShare"              (binaryEncodeDecode @LShare)
-                prop "LEncShare"           (binaryEncodeDecode @LEncShare)
-                prop "LSecretProof"        (binaryEncodeDecode @LSecretProof)
-                prop "LSecretSharingExtra" (binaryEncodeDecode @LSecretSharingExtra)
+                prop "SecretKey"                (binaryEncodeDecode @SecretKey)
+                prop "PublicKey"                (binaryEncodeDecode @PublicKey)
+                prop "Signature"                (binaryEncodeDecode @(Signature ()))
+                prop "ProxyCert"                (binaryEncodeDecode @(ProxyCert Int))
+                prop "ProxySecretKey"           (binaryEncodeDecode @(ProxySecretKey Int))
+                prop "ProxySignature"
+                    (binaryEncodeDecode @(ProxySignature Int Int))
+                prop "Signed"                   (binaryEncodeDecode @(Signed Bool))
+                prop "VssPublicKey"             (binaryEncodeDecode @VssPublicKey)
+                prop "AsBinary VssPublicKey"
+                    (binaryEncodeDecode @(AsBinary VssPublicKey))
+                prop "AsBinary Secret"
+                    (binaryEncodeDecode @(AsBinary Secret))
+                prop "AsBinary Share"
+                    (binaryEncodeDecode @(AsBinary Share))
+                prop "AsBinary EncShare"
+                    (binaryEncodeDecode @(AsBinary EncShare))
+                prop "AsBinary SecretProof"
+                    (binaryEncodeDecode @(AsBinary SecretProof))
+                prop "AsBinary SecretSharingExtra"
+                    (binaryEncodeDecode @(AsBinary SecretSharingExtra))
             describe "SafeCopy instances" $ do
-                prop "SecretKey"           (safeCopyEncodeDecode @SecretKey)
-                prop "PublicKey"           (safeCopyEncodeDecode @PublicKey)
-                prop "Signature"           (safeCopyEncodeDecode @(Signature ()))
-                prop "Signed"              (safeCopyEncodeDecode @(Signed Bool))
-                prop "LVssPublicKey"       (safeCopyEncodeDecode @LVssPublicKey)
-                prop "LSecret"             (safeCopyEncodeDecode @LSecret)
-                prop "LShare"              (safeCopyEncodeDecode @LShare)
-                prop "LEncShare"           (safeCopyEncodeDecode @LEncShare)
-                prop "LSecretProof"        (safeCopyEncodeDecode @LSecretProof)
-                prop "LSecretSharingExtra" (safeCopyEncodeDecode @LSecretSharingExtra)
-        describe "Serialized" $ do
-            prop "VssPublicKey <-> LVssPublicKey"
-                (serDeserId @VssPublicKey @LVssPublicKey)
-            prop "Secret <-> LSecret"
-                (serDeserId @Secret @LSecret)
-            prop "Share <-> LShare"
-                (serDeserId @Share @LShare)
-            prop "EncShare <-> LEncShare"
-                (serDeserId @EncShare @LEncShare)
-            prop "SecretProof <-> LSecretProof"
-                (serDeserId @SecretProof @LSecretProof)
-            prop "SecretSharingExtra <-> LSecretSharingExtra"
-                (serDeserId @SecretSharingExtra @LSecretSharingExtra)
+                prop "SecretKey" (safeCopyEncodeDecode @SecretKey)
+                prop "PublicKey" (safeCopyEncodeDecode @PublicKey)
+                prop "Signature" (safeCopyEncodeDecode @(Signature ()))
+                prop "Signed"    (safeCopyEncodeDecode @(Signed Bool))
+                prop "AsBinary VssPublicKey"
+                    (safeCopyEncodeDecode @(AsBinary VssPublicKey))
+                prop "AsBinary Secret"
+                    (safeCopyEncodeDecode @(AsBinary Secret))
+                prop "AsBinary Share"
+                    (safeCopyEncodeDecode @(AsBinary Share))
+                prop "AsBinary EncShare"
+                    (safeCopyEncodeDecode @(AsBinary EncShare))
+                prop "AsBinary SecretProof"
+                    (safeCopyEncodeDecode @(AsBinary SecretProof))
+                prop "AsBinary SecretSharingExtra"
+                    (safeCopyEncodeDecode @(AsBinary SecretSharingExtra))
+        describe "AsBinaryClass" $ do
+            prop "VssPublicKey <-> AsBinary VssPublicKey"
+                (serDeserId @VssPublicKey)
+            prop "Secret <-> AsBinary Secret"
+                (serDeserId @Secret)
+            prop "Share <-> AsBinary Share"
+                (serDeserId @Share)
+            prop "EncShare <-> AsBinary EncShare"
+                (serDeserId @EncShare)
+            prop "SecretProof <-> AsBinary SecretProof"
+                (serDeserId @SecretProof)
+            prop "SecretSharingExtra <-> AsBinary SecretSharingExtra"
+                (serDeserId @SecretSharingExtra)
         describe "keys" $ do
             prop
                 "derived pubkey equals to generated pubkey"

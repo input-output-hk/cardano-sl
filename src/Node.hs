@@ -5,99 +5,102 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
-module Main where
+module Node where
 
-import qualified NodeLowLevel as LL
-import NodeLowLevel (NodeId, ChannelIn, ChannelOut)
-
+import qualified Node.Internal as LL
+import Node.Internal (NodeId, ChannelIn, ChannelOut)
 import Data.Binary     as Bin
 import Data.Binary.Put as Bin
 import Data.Binary.Get as Bin
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString      as BS
-import qualified Data.ByteString.Builder as BS
 import qualified Data.ByteString.Builder.Extra as BS
-import Data.Text (Text)
-import qualified Data.Text as T
-import Data.Map (Map)
-import qualified Data.Map.Strict as Map
-import Data.Typeable
-import Control.Exception
-import Control.Concurrent
 import qualified Network.Transport as NT
+import System.Random (RandomGen)
+import Mockable.Class
+import Mockable.Concurrent
+import Mockable.Channel
+import Mockable.SharedAtomic
+import Mockable.Exception
 
-main = do
-  return ()
-
-
-data Node = Node {
-       nodeLL      :: LL.Node,
-       nodeWorkers :: [ThreadId]
+data Node (m :: * -> *) = Node {
+       nodeLL      :: LL.Node m,
+       nodeWorkers :: [ThreadId m]
      }
 
-type Worker = SendActions -> IO ()
+type Worker m = SendActions m -> m ()
 
 type MessageName = BS.ByteString
 
-data Listener = Listener MessageName ListenerAction
+data Listener m = Listener MessageName (ListenerAction m)
 
-data ListenerAction where
+data ListenerAction m where
   -- | A listener that handles a single isolated incoming message
   ListenerActionOneMsg
     :: Binary msg
-    => (NodeId -> SendActions -> msg -> IO ())
-    -> ListenerAction
+    => (NodeId -> SendActions m -> msg -> m ())
+    -> ListenerAction m
 
   -- | A listener that handles an incoming bi-directional conversation.
   ListenerActionConversation
-    :: (NodeId -> ConversationActions -> IO ())
-    -> ListenerAction
+    :: (NodeId -> ConversationActions m -> m ())
+    -> ListenerAction m
 
-data SendActions = SendActions {
+data SendActions m = SendActions {
        -- | Send a isolated (sessionless) message to a node
-       sendTo :: forall body. Binary body => NodeId -> MessageName -> body -> IO (),
+       sendTo :: forall body. Binary body => NodeId -> MessageName -> body -> m (),
 
        -- | Establish a bi-direction conversation session with a node
-       connect :: NodeId -> IO ConversationActions
+       connect :: NodeId -> m (ConversationActions m)
      }
 
-data ConversationActions = ConversationActions {
+data ConversationActions m = ConversationActions {
        -- | Send a message within the context of this conversation
-       send  :: forall msg. Binary msg => msg -> IO (),
+       send  :: forall msg. Binary msg => msg -> m (),
 
        -- | Receive a message within the context of this conversation
-       recv  :: forall msg. Binary msg => IO msg,
+       recv  :: forall msg. Binary msg => m msg,
 
        -- | Close the outbound side of this conversation
-       close :: IO ()  -- TODO: needed? if so only for early close. Should by automatic.
+       close :: m ()  -- TODO: needed? if so only for early close. Should by automatic.
      }
 
-
-startNode :: NT.Transport -> [Worker] -> [Listener] -> IO Node
-startNode transport workers listeners = do
-    node <- LL.startNode transport handlerIn handlerInOut
+startNode
+    :: forall m g .
+       ( Mockable Fork m, Mockable RunInUnboundThread m, Mockable Throw m
+       , Mockable Channel m, Mockable SharedAtomic m, RandomGen g )
+    => NT.Transport m
+    -> g
+    -> [Worker m]
+    -> [Listener m]
+    -> m (Node m)
+startNode transport prng workers listeners = do
+    node <- LL.startNode transport prng handlerIn handlerInOut
     let sendAction = SendActions { sendTo = sendMsg node, connect = undefined }
     tids <- sequence
-              [ forkIO $ worker sendAction
+              [ fork $ worker sendAction
               | worker <- workers ]
     return Node {
       nodeLL      = node,
       nodeWorkers = tids
     }
   where
-    handlerIn :: NodeId -> ChannelIn -> IO ()
+    handlerIn :: NodeId -> ChannelIn m -> m ()
     handlerIn peer chan = return ()
     --TODO: fill in the dispatcher impl:
     --      it needs to decode the MessageName
     --      then lookup the listener(s)
     --      then decode the body and fork the listener with the decoded message
 
-    handlerInOut :: NodeId -> ChannelIn -> ChannelOut -> IO ()
+    handlerInOut :: NodeId -> ChannelIn m -> ChannelOut m -> m ()
     handlerInOut peer inchan outchan = return ()
     --TODO: fill in the dispatcher impl:
 
-stopNode :: Node -> IO ()
+stopNode :: ( Mockable Fork m ) => Node m -> m ()
 stopNode Node {..} = do
     LL.stopNode nodeLL
 
@@ -107,7 +110,13 @@ stopNode Node {..} = do
     -- and wait for all handlers to finish
 
 
-sendMsg :: Binary body => LL.Node -> NodeId -> MessageName -> body -> IO ()
+sendMsg
+    :: ( Monad m, Binary body )
+    => LL.Node m
+    -> NodeId
+    -> MessageName
+    -> body
+    -> m ()
 sendMsg node nodeid name body =
     LL.sendMsg node nodeid (serialiseMsg name body)
 
@@ -122,16 +131,16 @@ serialiseMsg name body =
                  LBS.empty
               . Bin.execPut
 
-recvMsg :: Binary msg
-         => Chan (Maybe BS.ByteString)  -- source
-         -> BS.ByteString               -- prefix
-         -> IO (msg, BS.ByteString)     -- trailing
+recvMsg
+    :: ( Mockable Channel m, Binary msg )
+    => ChannelT m (Maybe BS.ByteString)  -- source
+    -> BS.ByteString                     -- prefix
+    -> m (msg, BS.ByteString)            -- trailing
 recvMsg chan prefix =
     go (Bin.pushChunk (Bin.runGetIncremental Bin.get) prefix)
   where
     go (Bin.Done trailing _ a) = return (a, trailing)
     go (Bin.Fail _trailing _ err) = fail "TODO"
     go (Bin.Partial continue) = do
-      mx <- readChan chan
+      mx <- readChannel chan
       go (continue mx)
-

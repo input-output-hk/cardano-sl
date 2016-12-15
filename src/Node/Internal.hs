@@ -4,8 +4,11 @@
 {-# LANGUAGE GADTSyntax #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
-module NodeLowLevel (
+module Node.Internal (
     NodeId,
     Node,
     startNode,
@@ -23,33 +26,32 @@ module NodeLowLevel (
   ) where
 
 import Data.Binary     as Bin
-import Data.Binary.Put as Bin
-import Data.Binary.Get as Bin
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Builder as BS
 import qualified Data.ByteString.Builder.Extra as BS
-import Data.Text (Text)
-import qualified Data.Text as T
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map
-import Data.Word
 import Data.Monoid
 import Data.Typeable
-import Control.Exception
-import Control.Concurrent
-import System.Random
+import Control.Exception hiding (bracket, throw)
 import qualified Network.Transport as NT
+import System.Random (RandomGen, random)
+import Mockable.Class
+import Mockable.Concurrent
+import Mockable.Exception
+import qualified Mockable.Channel as Channel
+import Mockable.SharedAtomic
 
 
 -- A node id wraps a network-transport endpoint address
 newtype NodeId = NodeId NT.EndPointAddress
   deriving (Eq, Ord)
 
-data Node = Node {
-       nodeEndPoint         :: NT.EndPoint,
-       nodeDispatcherThread :: ThreadId,
-       nodeExpectedIncoming :: MVar (StdGen, Map Nonce (ThreadId, ChannelIn))
+data Node (m :: * -> *) = forall g . RandomGen g => Node {
+       nodeEndPoint         :: NT.EndPoint m,
+       nodeDispatcherThread :: ThreadId m,
+       nodeExpectedIncoming :: SharedAtomicT m (g, Map Nonce (ThreadId m, ChannelIn m))
      }
 
 type Nonce = Word64
@@ -61,19 +63,22 @@ data NodeException =
 
 instance Exception NodeException
 
-newtype ChannelIn = ChannelIn (Chan (Maybe BS.ByteString))
+newtype ChannelIn m = ChannelIn (Channel.ChannelT m (Maybe BS.ByteString))
 
-newtype ChannelOut = ChannelOut NT.Connection
+newtype ChannelOut m = ChannelOut (NT.Connection m)
 
-startNode :: NT.Transport
-          -> (NodeId -> ChannelIn -> IO ())
-          -> (NodeId -> ChannelIn -> ChannelOut -> IO ())
-          -> IO Node
-startNode transport handlerIn handlerOut = do
+startNode :: ( Mockable SharedAtomic m, Mockable Fork m
+             , Mockable Channel.Channel m, Mockable Throw m
+             , Mockable RunInUnboundThread m, RandomGen g )
+          => NT.Transport m
+          -> g
+          -> (NodeId -> ChannelIn m -> m ())
+          -> (NodeId -> ChannelIn m -> ChannelOut m -> m ())
+          -> m (Node m)
+startNode transport prng handlerIn handlerOut = do
     Right endpoint <- NT.newEndPoint transport --TODO: error handling
-    prng           <- newStdGen
-    incomingVar    <- newMVar (prng, Map.empty)
-    tid  <- forkIO (nodeDispatcher endpoint incomingVar handlerIn handlerOut)
+    incomingVar    <- newSharedAtomic (prng, Map.empty)
+    tid  <- fork (nodeDispatcher endpoint incomingVar handlerIn handlerOut)
     --TODO: exceptions in the forkIO
     return Node {
       nodeEndPoint         = endpoint,
@@ -82,7 +87,7 @@ startNode transport handlerIn handlerOut = do
     }
 
 
-stopNode :: Node -> IO ()
+stopNode :: Node m -> m ()
 stopNode Node {..} =
     NT.closeEndPoint nodeEndPoint
     -- This eventually will shut down the dispatcher thread, which in turn
@@ -90,8 +95,8 @@ stopNode Node {..} =
     -- It'll also close all TCP connections.
 
 
-type DispatcherState = Map NT.ConnectionId ConnectionState
-data ConnectionState =
+type DispatcherState m = Map NT.ConnectionId (ConnectionState m)
+data ConnectionState m =
 
        -- We got a new connection and are waiting on the first chunk of data
        ConnectionNew !NodeId
@@ -104,12 +109,12 @@ data ConnectionState =
        -- We've forked a thread to handle the message. The connection is still
        -- open and data is still arriving. We have a channel to pass the
        -- incoming chunks off to the other thread.
-     | ConnectionReceiving !ThreadId !(Chan (Maybe BS.ByteString))
+     | ConnectionReceiving !(ThreadId m) !(Channel.ChannelT m (Maybe BS.ByteString))
 
        -- We've forked a thread to handle the message. The connection is now
        -- closed and we have all the data already, but the thread we forked
        -- to handle it is still active.
-     | ConnectionClosed !ThreadId
+     | ConnectionClosed !(ThreadId m)
 
 --TODO: extend this to keep track of the number of active threads and total
 -- amount of in flight incoming data. This will be needed to inform the
@@ -123,15 +128,19 @@ data ConnectionState =
 -- | The one thread that handles /all/ incoming messages and dispatches them
 -- to various handlers.
 --
-nodeDispatcher :: NT.EndPoint
-               -> MVar (StdGen, Map Nonce (ThreadId, ChannelIn))
-               -> (NodeId -> ChannelIn -> IO ())
-               -> (NodeId -> ChannelIn -> ChannelOut -> IO ())
-               -> IO ()
+nodeDispatcher :: forall m g .
+                  ( Mockable SharedAtomic m, Mockable Fork m
+                  , Mockable Channel.Channel m, Mockable RunInUnboundThread m
+                  , Mockable Throw m, RandomGen g )
+               => NT.EndPoint m
+               -> SharedAtomicT m (g, Map Nonce (ThreadId m, ChannelIn m))
+               -> (NodeId -> ChannelIn m -> m ())
+               -> (NodeId -> ChannelIn m -> ChannelOut m -> m ())
+               -> m ()
 nodeDispatcher endpoint incomingVar handlerIn handlerInOut =
     runInUnboundThread $ loop Map.empty
   where
-    loop :: DispatcherState -> IO ()
+    loop :: DispatcherState m -> m ()
 --    loop state
 --      | overloaded = do ... TODO
 
@@ -147,7 +156,7 @@ nodeDispatcher endpoint incomingVar handlerIn handlerInOut =
         NT.Received connid chunks ->
           case Map.lookup connid state of
             Nothing ->
-              throwIO (InternalError "received data on unknown connection")
+              throw (InternalError "received data on unknown connection")
 
             -- TODO: need policy here on queue size
             Just (ConnectionNew peer) ->
@@ -159,9 +168,9 @@ nodeDispatcher endpoint incomingVar handlerIn handlerInOut =
                 Nothing -> loop state -- all empty, wait for more data
                 Just (w, ws)
                   | w == controlHeaderCodeUnidirectional -> do
-                    chan <- newChan
-                    mapM_ (writeChan chan . Just) (LBS.toChunks ws)
-                    tid  <- forkIO (handlerIn peer (ChannelIn chan))
+                    chan <- Channel.newChannel
+                    mapM_ (Channel.writeChannel chan . Just) (LBS.toChunks ws)
+                    tid  <- fork (handlerIn peer (ChannelIn chan))
                     loop (Map.insert connid (ConnectionReceiving tid chan) state)
 
                   | w == controlHeaderCodeBidirectionalAck ||
@@ -171,16 +180,16 @@ nodeDispatcher endpoint incomingVar handlerIn handlerInOut =
 
                   | w == controlHeaderCodeBidirectionalSyn
                   , Right (ws',_,nonce) <- decodeOrFail ws -> do
-                    chan <- newChan
-                    mapM_ (writeChan chan . Just) (LBS.toChunks ws')
-                    tid <- forkIO $ do
+                    chan <- Channel.newChannel
+                    mapM_ (Channel.writeChannel chan . Just) (LBS.toChunks ws')
+                    tid <- fork $ do
                       mconn <- NT.connect
                                  endpoint
                                  peerEndpointAddr
                                  NT.ReliableOrdered
                                  NT.ConnectHints{ connectTimeout = Nothing } --TODO use timeout
                       case mconn of
-                        Left  err  -> throwIO err
+                        Left  err  -> throw err
                         Right conn -> do
                           NT.send conn [controlHeaderBidirectionalSyn nonce]
                           handlerInOut peer (ChannelIn chan) (ChannelOut conn)
@@ -189,51 +198,51 @@ nodeDispatcher endpoint incomingVar handlerIn handlerInOut =
 
                   | w == controlHeaderCodeBidirectionalAck
                   , Right (ws',_,nonce) <- decodeOrFail ws -> do
-                    (tid, ChannelIn chan) <- modifyMVar incomingVar $ \(prng, expected) -> do
+                    (tid, ChannelIn chan) <- modifySharedAtomic incomingVar $ \(prng, expected) ->
                       case Map.lookup nonce expected of
-                        Nothing -> throwIO (ProtocolError $ "unexpected ack nonce " ++ show nonce)
+                        Nothing -> throw (ProtocolError $ "unexpected ack nonce " ++ show nonce)
                         Just info -> do
                           let !expected' = Map.delete nonce expected
                           return ((prng, expected'), info)
-                    mapM_ (writeChan chan . Just) (LBS.toChunks ws')
+                    mapM_ (Channel.writeChannel chan . Just) (LBS.toChunks ws')
                     loop (Map.insert connid (ConnectionReceiving tid chan) state)
 
                   | otherwise ->
-                    throwIO (ProtocolError $ "unexpected control header " ++ show w)
+                      throw (ProtocolError $ "unexpected control header " ++ show w)
 
             Just (ConnectionReceiving tid chan) -> do
-              mapM_ (writeChan chan . Just) chunks
+              mapM_ (Channel.writeChannel chan . Just) chunks
               loop state
 
             Just (ConnectionClosed tid) ->
-              throwIO (InternalError "received data on closed connection")
+              throw (InternalError "received data on closed connection")
 
         NT.ConnectionClosed connid ->
           case Map.lookup connid state of
             Nothing ->
-              throwIO (InternalError "closed unknown connection")
+              throw (InternalError "closed unknown connection")
 
             -- empty message
             Just (ConnectionNew peer) -> do
-              chan <- newChan
-              writeChan chan Nothing
-              tid  <- forkIO (handlerIn peer (ChannelIn chan))
+              chan <- Channel.newChannel
+              Channel.writeChannel chan Nothing
+              tid  <- fork (handlerIn peer (ChannelIn chan))
               loop (Map.insert connid (ConnectionClosed tid) state)
 
             -- small message
             Just (ConnectionNewChunks peer chunks0) -> do
-              chan <- newChan
-              mapM_ (writeChan chan . Just) chunks0
-              writeChan chan Nothing
-              tid  <- forkIO (handlerIn peer (ChannelIn chan))
+              chan <- Channel.newChannel
+              mapM_ (Channel.writeChannel chan . Just) chunks0
+              Channel.writeChannel chan Nothing
+              tid  <- fork (handlerIn peer (ChannelIn chan))
               loop (Map.insert connid (ConnectionClosed tid) state)
 
             Just (ConnectionReceiving tid chan) -> do
-              writeChan chan Nothing
+              Channel.writeChannel chan Nothing
               loop (Map.insert connid (ConnectionClosed tid) state)
 
             Just (ConnectionClosed tid) ->
-              throwIO (InternalError "closed a closed connection")
+              throw (InternalError "closed a closed connection")
 
 
         NT.EndPointClosed ->
@@ -247,12 +256,9 @@ nodeDispatcher endpoint incomingVar handlerIn handlerInOut =
         NT.ErrorEvent (NT.TransportError NT.EventTransportFailed msg) -> undefined
 
         NT.ConnectionOpened _ _ _ ->
-          throwIO (ProtocolError "unexpected connection reliability")
+          throw (ProtocolError "unexpected connection reliability")
 
-        NT.ReceivedMulticast {} ->
-          throwIO (ProtocolError "unexpected multicast")
-
-sendMsg :: Node -> NodeId -> LBS.ByteString -> IO ()
+sendMsg :: forall m . ( Monad m ) => Node m -> NodeId -> LBS.ByteString -> m ()
 sendMsg Node{nodeEndPoint} (NodeId endpointaddr) msg = do
     mconn <- NT.connect
                nodeEndPoint
@@ -268,7 +274,7 @@ sendMsg Node{nodeEndPoint} (NodeId endpointaddr) msg = do
       Right conn -> sendChunks conn (LBS.toChunks msg)
 
   where
-    sendChunks :: NT.Connection -> [BS.ByteString] -> IO ()
+    sendChunks :: NT.Connection m -> [BS.ByteString] -> m ()
     sendChunks conn [] = NT.close conn
     sendChunks conn (chunk:chunks) = do
       res <- NT.send conn [chunk]
@@ -309,7 +315,12 @@ fixedSizeBuilder :: Int -> BS.Builder -> BS.ByteString
 fixedSizeBuilder n =
     LBS.toStrict . BS.toLazyByteStringWith (BS.untrimmedStrategy n n) LBS.empty
 
-connectInOutChannel :: Node -> NodeId -> IO (ChannelIn, ChannelOut)
+connectInOutChannel
+    :: ( Mockable Channel.Channel m, Mockable Fork m, Mockable SharedAtomic m
+       , Mockable Throw m )
+    => Node m
+    -> NodeId
+    -> m (ChannelIn m, ChannelOut m)
 connectInOutChannel node@Node{nodeEndPoint, nodeExpectedIncoming}
                     nodeid@(NodeId endpointaddr) = do
     mconn <- NT.connect
@@ -322,7 +333,7 @@ connectInOutChannel node@Node{nodeEndPoint, nodeExpectedIncoming}
     -- reported via the dispatcher thread. It means we cannot establish a
     -- connection in the first place, e.g. timeout.
     case mconn of
-      Left  err  -> throwIO err
+      Left  err  -> throw err
       Right outconn -> do
         (nonce, inchan) <- allocateInChannel
         NT.send outconn [controlHeaderBidirectionalSyn nonce]
@@ -330,14 +341,18 @@ connectInOutChannel node@Node{nodeEndPoint, nodeExpectedIncoming}
   where
     allocateInChannel = do
       tid   <- myThreadId
-      chan  <- newChan
-      nonce <- modifyMVar nodeExpectedIncoming $ \(prng, expected) -> do
+      chan  <- Channel.newChannel
+      nonce <- modifySharedAtomic nodeExpectedIncoming $ \(prng, expected) -> do
                  let (nonce, !prng') = random prng
                      !expected' = Map.insert nonce (tid, ChannelIn chan) expected
-                 return ((prng', expected), nonce)
+                 pure ((prng', expected), nonce)
       return (nonce, chan)
 
-connectOutChannel :: Node -> NodeId -> IO ChannelOut
+connectOutChannel
+    :: ( Monad m, Mockable Throw m )
+    => Node m
+    -> NodeId
+    -> m (ChannelOut m)
 connectOutChannel Node{nodeEndPoint} (NodeId endpointaddr) = do
     mconn <- NT.connect
                nodeEndPoint
@@ -349,25 +364,36 @@ connectOutChannel Node{nodeEndPoint} (NodeId endpointaddr) = do
     -- reported via the dispatcher thread. It means we cannot establish a
     -- connection in the first place, e.g. timeout.
     case mconn of
-      Left  err  -> throwIO err
+      Left  err  -> throw err
       Right conn -> do
         NT.send conn [controlHeaderUnidirectional]
         return (ChannelOut conn)
 
-closeChannel :: ChannelOut -> IO ()
+closeChannel :: ChannelOut m -> m ()
 closeChannel (ChannelOut conn) = NT.close conn
 
-withInOutChannel :: Node -> NodeId -> (ChannelIn -> ChannelOut -> IO a) -> IO a
+withInOutChannel
+    :: ( Mockable Bracket m, Mockable Fork m, Mockable Channel.Channel m
+       , Mockable SharedAtomic m, Mockable Throw m )
+    => Node m
+    -> NodeId
+    -> (ChannelIn m -> ChannelOut m -> m a)
+    -> m a
 withInOutChannel node nodeid action =
     bracket (connectInOutChannel node nodeid)
             (\(_, outchan) -> closeChannel outchan)
             (\(inchan, outchan) -> action inchan outchan)
 
-withOutChannel :: Node -> NodeId -> (ChannelOut -> IO a) -> IO a
+withOutChannel
+    :: ( Mockable Bracket m, Mockable Throw m )
+    => Node m
+    -> NodeId
+    -> (ChannelOut m -> m a)
+    -> m a
 withOutChannel node nodeid =
     bracket (connectOutChannel node nodeid) closeChannel
 
-writeChannel :: ChannelOut -> [BS.ByteString] -> IO ()
+writeChannel :: ( Monad m ) => ChannelOut m -> [BS.ByteString] -> m ()
 writeChannel (ChannelOut conn) [] = NT.close conn
 writeChannel (ChannelOut conn) (chunk:chunks) = do
     res <- NT.send conn [chunk]
@@ -378,6 +404,5 @@ writeChannel (ChannelOut conn) (chunk:chunks) = do
       Left _err -> return ()
       Right _   -> writeChannel (ChannelOut conn) chunks
 
-readChannel :: ChannelIn -> IO (Maybe BS.ByteString)
-readChannel (ChannelIn chan) = readChan chan
-
+readChannel :: ( Mockable Channel.Channel m ) => ChannelIn m -> m (Maybe BS.ByteString)
+readChannel (ChannelIn chan) = Channel.readChannel chan

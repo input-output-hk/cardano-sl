@@ -28,7 +28,6 @@ import qualified Data.ByteString as BS (copy)
 import qualified Data.ByteString.Char8 as BSC (unpack)
 import Control.DeepSeq (NFData(rnf))
 import Control.Exception (Exception)
-import Control.Applicative ((<$>))
 import Data.Typeable (Typeable)
 import Data.Binary (Binary(..))
 import Data.Hashable

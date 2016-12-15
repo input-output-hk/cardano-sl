@@ -1,22 +1,16 @@
 sudo: false
-language: c
+os:
+  - linux
+  - osx
+language: nix
 cache:
   directories:
   - "$HOME/.stack"
   - "$HOME/build/input-output-hk/pos-haskell-prototype/.stack-work"
-addons:
-  apt:
-    packages:
-    - libgmp-dev
-before_install:
-- mkdir -p ~/.local/bin
-- export PATH=$HOME/.local/bin:$PATH
-- travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards
-  --strip-components=1 -C ~/.local/bin '*/stack'
 install:
-- stack --no-terminal --install-ghc build --only-dependencies --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks
+- nix-shell -p stack --run "stack --no-terminal --install-ghc build --nix --only-dependencies --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks"
 script:
-- stack --no-terminal build --test --haddock --no-haddock-deps --bench --jobs=4 --no-run-benchmarks --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks
+- nix-shell -p stack --run "stack --no-terminal build --nix --test --haddock --no-haddock-deps --bench --jobs=4 --no-run-benchmarks --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks"
 notifications:
   email: false
   slack:

@@ -62,8 +62,8 @@ import           Pos.Types.Types                (Address (..), EpochIndex, Local
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), checkPubKeyAddress,
                                                  headerSlot)
-import           Pos.Util                       (AsBinary, deserializeM, diffDoubleMap,
-                                                 serialize)
+import           Pos.Util                       (AsBinary, fromBinaryM, diffDoubleMap,
+                                                 asBinary)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -77,16 +77,16 @@ genCommitmentAndOpening
     :: (MonadFail m, MonadIO m)
     => Threshold -> NonEmpty (AsBinary VssPublicKey) -> m (Commitment, Opening)
 genCommitmentAndOpening n pks = do
-    pks' <- traverse deserializeM pks
+    pks' <- traverse fromBinaryM pks
     liftIO . runSecureRandom . fmap convertRes . genSharedSecret n $ pks'
   where
     convertRes (extra, secret, proof, shares) =
         ( Commitment
-          { commExtra = serialize extra
-          , commProof = serialize proof
-          , commShares = HM.fromList $ zip (toList pks) $ map serialize shares
+          { commExtra = asBinary extra
+          , commProof = asBinary proof
+          , commShares = HM.fromList $ zip (toList pks) $ map asBinary shares
           }
-        , Opening $ serialize secret)
+        , Opening $ asBinary secret)
 
 -- | Make signed commitment from commitment and epoch index using secret key.
 mkSignedCommitment
@@ -136,15 +136,15 @@ hasVssCertificate addr = HM.member addr . _gsVssCertificates
 -- | Verify that Commitment is correct.
 verifyCommitment :: Commitment -> Bool
 verifyCommitment Commitment {..} = fromMaybe False $ do
-    extra <- deserializeM commExtra
-    all (verifyCommitmentDo extra) <$> traverse tupleDeserializeM (HM.toList commShares)
+    extra <- fromBinaryM commExtra
+    all (verifyCommitmentDo extra) <$> traverse tupleFromBinaryM (HM.toList commShares)
   where
     verifyCommitmentDo extra = uncurry (verifyEncShare extra)
-    tupleDeserializeM
+    tupleFromBinaryM
         :: (AsBinary VssPublicKey, AsBinary EncShare)
         -> Maybe (VssPublicKey, EncShare)
-    tupleDeserializeM =
-        uncurry (liftA2 (,)) . bimap deserializeM deserializeM
+    tupleFromBinaryM =
+        uncurry (liftA2 (,)) . bimap fromBinaryM fromBinaryM
 
 -- | Verify public key contained in SignedCommitment against given address
 verifyCommitmentPK :: Address -> SignedCommitment -> Bool
@@ -173,9 +173,9 @@ verifySignedCommitment addr epoch sc@(_, comm, _) =
 verifyOpening :: Commitment -> Opening -> Bool
 verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
     verifySecretProof
-      <$> deserializeM commExtra
-      <*> deserializeM secret
-      <*> deserializeM commProof
+      <$> fromBinaryM commExtra
+      <*> fromBinaryM secret
+      <*> fromBinaryM commProof
 
 -- | Check that the VSS certificate is signed properly
 checkCert :: (Address, VssCertificate) -> Bool
@@ -194,9 +194,9 @@ checkShare :: (SetContainer set, ContainerKey set ~ Address)
 checkShare globalCommitments globalOpeningsPK globalCertificates (addrTo, addrFrom, share) =
     fromMaybe False $ case tuple of
       Just (eS, pk, s) -> verifyShare
-                            <$> deserializeM eS
-                            <*> deserializeM pk
-                            <*> deserializeM s
+                            <$> fromBinaryM eS
+                            <*> fromBinaryM pk
+                            <*> fromBinaryM s
       _ -> return False
   where
     tuple = do

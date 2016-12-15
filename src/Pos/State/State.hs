@@ -82,7 +82,7 @@ import           Pos.Types                (Address, Block, EpochIndex, GenesisBl
                                            HeaderHash, IdTxWitness, MainBlock,
                                            MainBlockHeader, SlotId, SlotLeaders, Tx, TxId,
                                            TxWitness, Utxo)
-import           Pos.Util                 (AsBinary, deserializeM, serialize)
+import           Pos.Util                 (AsBinary, fromBinaryM, asBinary)
 
 -- | NodeState encapsulates all the state stored by node.
 class Monad m => MonadDB ssc m | m -> ssc where
@@ -275,12 +275,12 @@ getOurShares
     => VssKeyPair -> m (HashMap Address Share)
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
-    let ourPK = serialize $ toVssPublicKey ourKey
+    let ourPK = asBinary $ toVssPublicKey ourKey
     encSharesM <- queryDisk $ A.GetOurShares ourPK
     let drg = drgNewSeed randSeed
         (res, pLog) = fst . withDRG drg . runPureLog . usingLoggerName mempty <$>
                         flip traverse (HM.toList encSharesM) $ \(pk, lEncSh) -> do
-                          let mEncSh = deserializeM lEncSh
+                          let mEncSh = fromBinaryM lEncSh
                           case mEncSh of
                             Just encShare -> lift . lift $ Just . (,) pk <$> decryptShare ourKey encShare
                             _             -> do

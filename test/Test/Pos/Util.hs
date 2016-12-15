@@ -30,5 +30,5 @@ showRead a = read (show a) === a
 
 serDeserId :: forall t . (Show t, Eq t, AsBinaryClass t) => t -> Property
 serDeserId a =
-    let serDeser = either (panic . toText) identity . deserialize . serialize @t
+    let serDeser = either (panic . toText) identity . fromBinary . asBinary @t
     in a === serDeser a

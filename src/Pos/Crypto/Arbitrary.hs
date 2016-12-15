@@ -26,8 +26,7 @@ import           Pos.Crypto.SecretSharing   (EncShare,Secret, SecretProof,
 import           Pos.Crypto.Signing          (ProxyCert, ProxySecretKey, ProxySignature,
                                               PublicKey, SecretKey, Signature, Signed,
                                               createProxyCert, createProxySecretKey,
-                                              keyGen, mkSigned, proxyDSign, proxyISign,
-                                              sign)
+                                              keyGen, mkSigned, proxySign, sign)
 import           Pos.Util                    (AsBinary (..), AsBinaryClass (..))
 import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakePool)
 
@@ -87,7 +86,7 @@ instance Arbitrary VssPublicKey where
     arbitrary = toVssPublicKey <$> arbitrary
 
 instance Arbitrary (AsBinary VssPublicKey) where
-    arbitrary = serialize @VssPublicKey <$> arbitrary
+    arbitrary = asBinary @VssPublicKey <$> arbitrary
 
 instance Nonrepeating VssKeyPair where
     nonrepeating n = sublistN n vssKeys
@@ -132,16 +131,16 @@ instance Arbitrary SecretSharingExtra where
     arbitrary = elements . fmap (view _1) $ sharedSecrets
 
 instance Arbitrary (AsBinary SecretSharingExtra) where
-    arbitrary = serialize @SecretSharingExtra <$> arbitrary
+    arbitrary = asBinary @SecretSharingExtra <$> arbitrary
 
 instance Arbitrary (AsBinary SecretProof) where
-    arbitrary = serialize @SecretProof <$> arbitrary
+    arbitrary = asBinary @SecretProof <$> arbitrary
 
 instance Arbitrary Secret where
     arbitrary = elements . fmap (view _2) $ sharedSecrets
 
 instance Arbitrary (AsBinary Secret) where
-    arbitrary = serialize @Secret <$> arbitrary
+    arbitrary = asBinary @Secret <$> arbitrary
 
 instance Arbitrary SecretProof where
     arbitrary = elements . fmap (view _3) $ sharedSecrets
@@ -150,10 +149,10 @@ instance Arbitrary EncShare where
     arbitrary = elements . concat . fmap (view _4) $ sharedSecrets
 
 instance Arbitrary (AsBinary EncShare) where
-    arbitrary = serialize @EncShare <$> arbitrary
+    arbitrary = asBinary @EncShare <$> arbitrary
 
 instance Arbitrary Share where
     arbitrary = unsafePerformIO <$> (decryptShare <$> arbitrary <*> arbitrary)
 
 instance Arbitrary (AsBinary Share) where
-    arbitrary = serialize @Share <$> arbitrary
+    arbitrary = asBinary @Share <$> arbitrary

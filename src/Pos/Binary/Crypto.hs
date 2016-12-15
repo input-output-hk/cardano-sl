@@ -113,8 +113,8 @@ checkLen action name len bs =
     put (AsBinary bs) = putByteString bs ;\
     get = AsBinary <$> getByteString Bytes}; \
   instance AsBinaryClass B where {\
-    serialize = AsBinary . LBS.toStrict . checkLen "serialize" Name Bytes . encode ;\
-    deserialize = decodeFull . checkLen "deserialize" Name Bytes . encode }; \
+    asBinary = AsBinary . LBS.toStrict . checkLen "asBinary" Name Bytes . encode ;\
+    fromBinary = decodeFull . checkLen "fromBinary" Name Bytes . encode }; \
 
 Ser(VssPublicKey, 33, "VssPublicKey")
 Ser(Secret, 33, "Secret")
@@ -140,8 +140,8 @@ instance Buildable (AsBinary VssPublicKey) where
 deriving instance Bi (AsBinary SecretSharingExtra)
 
 instance AsBinaryClass SecretSharingExtra where
-    serialize = AsBinary . LBS.toStrict . encode
-    deserialize = decodeFull . LBS.fromStrict . getAsBinary
+    asBinary = AsBinary . LBS.toStrict . encode
+    fromBinary = decodeFull . LBS.fromStrict . getAsBinary
 
 ----------------------------------------------------------------------------
 -- Signing

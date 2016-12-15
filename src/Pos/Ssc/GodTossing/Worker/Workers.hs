@@ -69,7 +69,7 @@ import           Pos.Types                              (Address (..), EpochInde
                                                          LocalSlotIndex, SlotId (..),
                                                          Timestamp (..),
                                                          makePubKeyAddress)
-import           Pos.Util                               (serialize)
+import           Pos.Util                               (asBinary)
 import           Pos.WorkMode                           (WorkMode)
 
 instance (Bi VssCertificate
@@ -111,7 +111,7 @@ onStart = do
           Nothing -> do
             ourSk         <- ncSecretKey <$> getNodeContext
             ourVssKeyPair <- getOurVssKeyPair
-            let vssKey  = serialize $ toVssPublicKey ourVssKeyPair
+            let vssKey  = asBinary $ toVssPublicKey ourVssKeyPair
                 ourCert = VssCertificate { vcVssKey     = vssKey
                                          , vcSignature  = sign ourSk vssKey
                                          , vcSigningKey = ourPk
@@ -230,7 +230,7 @@ onNewSlotShares SlotId {..} = do
     when shouldSendShares $ do
         ourVss <- gtcVssKeyPair . ncSscContext <$> getNodeContext
         shares <- getOurShares ourVss
-        let lShares = fmap serialize shares
+        let lShares = fmap asBinary shares
         unless (null shares) $ do
             _ <- sscProcessMessage $ DMShares ourAddr lShares
             sendOurData SharesMsg siEpoch 4 ourAddr

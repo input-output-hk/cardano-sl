@@ -21,7 +21,7 @@ import           Pos.Ssc.GodTossing.Functions  (secretToSharedSeed, verifyOpenin
 import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
                                                 getOpening)
 import           Pos.Types                     (Address (..), SharedSeed)
-import           Pos.Util                      (deserializeM, getKeys)
+import           Pos.Util                      (fromBinaryM, getKeys)
 
 
 -- | Calculate SharedSeed. SharedSeed is a random bytestring that all
@@ -67,7 +67,7 @@ calculateSeed (fromIntegral -> t) commitments openings lShares = do
     let mustBeRecovered :: HashSet Address
         mustBeRecovered = HS.difference participants (getKeys openings)
 
-    shares <- mapHelper BrokenShare (traverse deserializeM) lShares
+    shares <- mapHelper BrokenShare (traverse fromBinaryM) lShares
 
     -- Secrets recovered from actual share lists (but only those we need –
     -- i.e. ones which are in mustBeRecovered)
@@ -90,7 +90,7 @@ calculateSeed (fromIntegral -> t) commitments openings lShares = do
                          then Nothing
                          else Just $ unsafeRecoverSecret (take t secrets))
 
-    secrets0 <- mapHelper BrokenSecret deserializeM $ getOpening <$> openings
+    secrets0 <- mapHelper BrokenSecret fromBinaryM $ getOpening <$> openings
 
     -- All secrets, both recovered and from openings
     let secrets :: HashMap Address Secret

@@ -56,7 +56,7 @@ module Pos.Util
        -- * Binary serialization
        , AsBinary (..)
        , AsBinaryClass (..)
-       , deserializeM
+       , fromBinaryM
 
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
@@ -385,8 +385,8 @@ instance SafeCopy (AsBinary a) where
     putCopy = contain . safePut . getAsBinary
 
 class AsBinaryClass a where
-  serialize :: a -> AsBinary a
-  deserialize :: AsBinary a -> Either [Char] a
+  asBinary :: a -> AsBinary a
+  fromBinary :: AsBinary a -> Either [Char] a
 
-deserializeM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
-deserializeM = either fail return . deserialize
+fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
+fromBinaryM = either fail return . fromBinary

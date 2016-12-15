@@ -19,7 +19,7 @@ import           Pos.Ssc.GodTossing.Types.Base  (Commitment, Opening, VssCertifi
                                                  mkVssCertificate)
 import           Pos.Ssc.GodTossing.Types.Types (GtProof (..))
 import           Pos.Types.Arbitrary.Unsafe     ()
-import           Pos.Util                       (serialize)
+import           Pos.Util                       (asBinary)
 import           Pos.Util.Arbitrary             (Nonrepeating (..), sublistN,
                                                  unsafeMakePool)
 
@@ -35,7 +35,7 @@ commitmentsAndOpenings :: [CommitmentOpening]
 commitmentsAndOpenings =
     map (uncurry CommitmentOpening) $
     unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $
-       genCommitmentAndOpening 1 (serialize vssPk :| [])
+       genCommitmentAndOpening 1 (asBinary vssPk :| [])
   where
     vssPk = toVssPublicKey $ deterministicVssKeyGen "aaaaaaaaaaaaaaaaaaaaaassss"
 {-# NOINLINE commitmentsAndOpenings #-}

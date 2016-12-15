@@ -17,7 +17,7 @@ import           Pos.Crypto                    (VssKeyPair, VssPublicKey,
 import           Pos.Genesis                   (genesisKeyPairs)
 import           Pos.Ssc.GodTossing.Types.Base (VssCertificatesMap, mkVssCertificate)
 import           Pos.Types                     (makePubKeyAddress)
-import           Pos.Util                      (serialize)
+import           Pos.Util                      (asBinary)
 
 -- | List of 'VssKeyPair' in genesis.
 genesisVssKeyPairs :: [VssKeyPair]
@@ -39,6 +39,6 @@ genesisCertificates :: VssCertificatesMap
 genesisCertificates =
     HM.fromList $
     zipWith
-        (\(pk, sk) vssPk -> (makePubKeyAddress pk, mkVssCertificate sk $ serialize vssPk))
+        (\(pk, sk) vssPk -> (makePubKeyAddress pk, mkVssCertificate sk $ asBinary vssPk))
         genesisKeyPairs
         genesisVssPublicKeys

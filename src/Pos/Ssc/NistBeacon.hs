@@ -28,7 +28,7 @@ import           Data.Text.Buildable     (Buildable (build))
 import           Serokell.Util.Verify    (VerificationRes (..))
 import           Universum
 
-import           Pos.Binary.Class        (encode, serialize)
+import           Pos.Binary.Class        (encode)
 import           Pos.Crypto              (Threshold, deterministicVssKeyGen,
                                           toVssPublicKey)
 import           Pos.FollowTheSatoshi    (followTheSatoshi)
@@ -40,6 +40,7 @@ import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (.
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Ssc.Class.Workers   (SscWorkersClass (..))
 import           Pos.Types               (EpochIndex, SharedSeed (..), SlotLeaders, Utxo)
+import           Pos.Util                (asBinary)
 
 -- | Data type tag for Nist Beacon implementation of Shared Seed Calculation.
 data SscNistBeacon
@@ -78,7 +79,7 @@ instance SscStorageClass SscNistBeacon where
     sscGetOurShares _ = pure HM.empty
 
     sscGetParticipants _ _  =
-        pure $ Just $ pure $ serialize $ toVssPublicKey $ deterministicVssKeyGen ""
+        pure $ Just $ pure $ asBinary $ toVssPublicKey $ deterministicVssKeyGen ""
     sscCalculateLeaders = calculateLeaders
 
 instance SscHelpersClass SscNistBeacon where

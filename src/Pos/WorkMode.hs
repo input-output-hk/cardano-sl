@@ -111,21 +111,7 @@ type MinWorkMode m
 ----------------------------------------------------------------------------
 -- MonadTxpLD
 ----------------------------------------------------------------------------
--- | WE NEED MACROS!
-instance MonadTxpLD ssc m => MonadTxpLD ssc (NoStatsT m) where
-    getUtxoView = lift getUtxoView
-    setUtxoView = lift . setUtxoView
-    getMemPool  = lift  getMemPool
-    setMemPool  = lift . setMemPool
-    modifyTxpLD = lift . modifyTxpLD
-
-instance MonadTxpLD ssc m => MonadTxpLD ssc (StatsT m) where
-    getUtxoView = lift getUtxoView
-    setUtxoView = lift . setUtxoView
-    getMemPool  = lift  getMemPool
-    setMemPool  = lift . setMemPool
-    modifyTxpLD = lift . modifyTxpLD
-
+#ifdef WITH_ROCKS
 instance MonadTxpLD ssc m => MonadTxpLD ssc (DHTResponseT m) where
     getUtxoView = lift getUtxoView
     setUtxoView = lift . setUtxoView
@@ -146,6 +132,7 @@ instance MonadTxpLD ssc m => MonadTxpLD ssc (ReaderT r m) where
     getMemPool  = lift  getMemPool
     setMemPool  = lift . setMemPool
     modifyTxpLD = lift . modifyTxpLD
+#endif
 
 ----------------------------------------------------------------------------
 -- MonadTxLD

@@ -20,6 +20,7 @@ import           System.Wlog                (CanLog, HasLoggerName)
 import           Pos.Context                (WithNodeContext)
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB              as Modern (MonadDB)
+import qualified Pos.Modern.Txp.Class       as Modern (MonadTxpLD)
 #endif
 import           Pos.Slotting               (MonadSlots)
 import           Pos.Ssc.Class              (MonadSscLD)
@@ -37,7 +38,7 @@ newtype WalletWebDB m a = WalletWebDB
                 MonadMask, MonadIO, MonadDB ssc, HasLoggerName, WithNodeContext ssc,
                 MonadDialog p, MonadDHT, MonadMessageDHT, MonadSlots, MonadSscLD ssc,
 #ifdef WITH_ROCKS
-                Modern.MonadDB ssc,
+                Modern.MonadDB ssc, Modern.MonadTxpLD ssc,
 #endif
                 WithDefaultMsgHeader, MonadJL, CanLog, MonadTxLD, MonadStats)
 

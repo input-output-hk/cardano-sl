@@ -31,6 +31,8 @@ import           Pos.Genesis          (genesisAddresses, genesisSecretKeys)
 import           Pos.Launcher         (runTimed)
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB        as Modern
+import qualified Pos.Modern.Txp.Holder           as Modern
+import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 #endif
 import           Pos.Context          (ContextHolder, NodeContext, getNodeContext,
                                        runContextHolder)
@@ -68,7 +70,11 @@ walletApplication = bracket openDB closeDB $ \ws ->
 ----------------------------------------------------------------------------
 
 type WebHandler ssc = WalletWebDB (ProductionMode ssc)
-type SubKademlia ssc = (TxLDImpl (
+type SubKademlia ssc = (
+#ifdef WITH_ROCKS
+                   Modern.TxpLDHolder ssc (
+#endif
+                       TxLDImpl (
                            SscLDImpl ssc (
                                ContextHolder ssc (
 #ifdef WITH_ROCKS
@@ -76,7 +82,7 @@ type SubKademlia ssc = (TxLDImpl (
 #endif
                                        St.DBHolder ssc (UserDialog Transfer)))))
 #ifdef WITH_ROCKS
-                       )
+                       ))
 #endif
 
 convertHandler
@@ -93,9 +99,9 @@ convertHandler
     -> Handler a
 #ifdef WITH_ROCKS
 convertHandler kctx tld nc ns modernDB ws handler =
--- #else
--- convertHandler kctx tld nc ns ws handler =
--- #endif
+#else
+convertHandler kctx tld nc ns ws handler =
+#endif
     liftIO (runTimed "wallet-api" .
             St.runDBHolder ns .
 #ifdef WITH_ROCKS
@@ -104,6 +110,9 @@ convertHandler kctx tld nc ns modernDB ws handler =
             runContextHolder nc .
             runSscLDImpl .
             runTxLDImpl .
+#ifdef WITH_ROCKS
+            flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDB) .
+#endif
             runKademliaDHTRaw kctx .
             getNoStatsT .
             runWalletWebDB ws $

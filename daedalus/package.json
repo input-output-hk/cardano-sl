@@ -6,11 +6,14 @@
   "scripts": {
     "postinstall": "bower cache clean && bower install",
     "clean": "rimraf dist && rimraf output",
-    "build": "npm run clean && mkdir dist && pulp build --to dist/index.js",
-    "build-production": "npm run clean && mkdir dist && pulp browserify --optimise --to dist/index.js",
-    "build-standalone": "echo 'Look into https://github.com/bodil/pulp#reimporting-browserified-bundles'",
+    "build": "rimraf dist && NODE_ENV=production ./node_modules/.bin/webpack --config ./webpack.config.js --progress --profile --colors",
+    "build-w-pulp": "npm run clean && mkdir dist && pulp build --to dist/index.js",
+    "build-production-w-pulp": "npm run clean && mkdir dist && pulp browserify --optimise --to dist/index.js",
+    "build-standalone-w-pulp": "echo 'Look into https://github.com/bodil/pulp#reimporting-browserified-bundles'",
     "docs": "pulp docs --with-tests",
     "repl": "pulp psci",
+    "start": "npm run server:dev",
+    "server:dev": "rimraf output && ./node_modules/.bin/webpack-dev-server --hot --config webpack.config.js --inline --progress --profile --colors --watch --display-error-details --display-cached --content-base src/",
     "test": "pulp test",
     "watch": "pulp --watch build",
     "watch-test": "pulp --watch test"
@@ -25,8 +28,26 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "babel-core": "^6.20.0",
+    "babel-loader": "^6.2.9",
+    "babel-plugin-transform-es2015-destructuring": "^6.19.0",
+    "babel-preset-es2015": "^6.18.0",
+    "babel-preset-stage-2": "^6.18.0",
     "bower": "^1.8.0",
+    "extract-text-webpack-plugin": "^1.0.1",
+    "html-webpack-plugin": "^2.24.1",
     "pulp": "^10.0.0",
-    "purescript": "^0.9.3"
+    "purescript": "^0.9.3",
+    "purescript-psa": "^0.4.0",
+    "purs-loader": "^2.1.1",
+    "rimraf": "^2.5.4",
+    "webpack": "^1.14.0",
+    "webpack-dev-server": "^1.16.2"
+  },
+  "babel": {
+    "presets": [
+      "es2015",
+      "stage-2"
+    ]
   }
 }

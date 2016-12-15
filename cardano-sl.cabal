@@ -187,6 +187,7 @@ library
                         Pos.Modern.DB.Holder
                         Pos.Modern.DB.Types
                         Pos.Modern.DB.Utxo
+                        Pos.Modern.Types.Tx
                         Pos.Modern.Types.Utxo
                         Pos.Modern.Txp.Storage.Storage
                         Pos.Modern.Txp.Storage.UtxoView
@@ -194,7 +195,11 @@ library
                         Pos.Modern.Txp.Class
                         Pos.Modern.Txp.Holder
                         Pos.Modern.Txp.Listeners
-                        Pos.Modern.Types.Tx
+                        Pos.Modern.Ssc.GodTossing.Types.Type
+                        Pos.Modern.Ssc.GodTossing.Types.Instance
+                        Pos.Modern.Ssc.GodTossing.LocalData.LocalData
+                        Pos.Modern.Ssc.GodTossing.LocalData.Types
+                        Pos.Modern.Ssc.GodTossing.LocalData.Helpers
   if flag(with-web)
     other-modules:      Pos.Web.Api
                         Pos.Web.Doc

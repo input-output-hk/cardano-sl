@@ -1,5 +1,7 @@
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE DefaultSignatures     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
@@ -9,6 +11,7 @@
 module Pos.Ssc.Class.Storage
        ( SscStorageClass(..)
        , HasSscStorage(..)
+       , MonadSscGS (..)
 
        , SscUpdate
        , SscQuery
@@ -16,12 +19,13 @@ module Pos.Ssc.Class.Storage
        ) where
 
 import           Control.Lens            (Lens')
+import           Control.Monad.Trans     (MonadTrans)
 import           Data.List.NonEmpty      (NonEmpty)
 import           Data.SafeCopy           (SafeCopy)
 import           Serokell.Util.Verify    (VerificationRes)
 import           Universum
 
-import           Pos.Crypto              (EncShare, VssPublicKey, Threshold)
+import           Pos.Crypto              (EncShare, Threshold, VssPublicKey)
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types.Types         (Address, EpochIndex, SlotLeaders, Utxo)
@@ -40,6 +44,21 @@ type SscUpdate ssc a =
 -- | Monad reader on something containing `SscStorage` inside.
 type SscQuery ssc a =
     forall m x. (HasSscStorage ssc x, MonadReader x m) => m a
+
+class Monad m => MonadSscGS ssc m | m -> ssc where
+    getGlobalState     :: m (SscGlobalState ssc)
+    setGlobalState    :: SscLocalData ssc -> m ()
+    modifyGlobalState :: (SscGlobalState ssc -> (a, SscGlobalState ssc)) -> m a
+
+    default getGlobalState :: MonadTrans t => t m (SscGlobalState ssc)
+    getGlobalState = lift getGlobalState
+
+    default setGlobalState :: MonadTrans t => SscLocalData ssc -> t m ()
+    setGlobalState = lift . setGlobalState
+
+    default modifyGlobalState :: MonadTrans t =>
+                                 (SscGlobalState ssc -> (a, SscGlobalState ssc)) -> t m a
+    modifyGlobalState = lift . modifyGlobalState
 
 -- | Class of objects that we can retrieve 'SscStorage' from.
 class HasSscStorage ssc a where

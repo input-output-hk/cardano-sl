@@ -73,6 +73,7 @@ instance MonadIO m =>
          MonadSscLD ssc (SscLDImpl ssc m) where
     getLocalData = atomically . STM.readTVar =<< SscLDImpl ask
     setLocalData d = atomically . flip STM.writeTVar d =<< SscLDImpl ask
+    modifyLocalData d = notImplemented
 
 runSscLDImpl
     :: forall ssc m a.

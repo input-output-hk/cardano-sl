@@ -31,6 +31,7 @@
     "purescript-eff": "^1.0.0",
     "purescript-argonaut": "^1.0.0",
     "purescript-argonaut-generic-codecs": "^3.0.1",
-    "purescript-aff": "^1.1.0"
+    "purescript-aff": "^1.1.0",
+    "purescript-aff-promise": "0.2.1"
   }
 }

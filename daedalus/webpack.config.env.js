@@ -3,7 +3,9 @@ const path = require('path');
 const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
-const DEBUG = process.env.NODE_ENV !== 'production'
+const DEBUG = process.env.NODE_ENV !== 'production';
+
+const libName = 'Daedalus';
 
 export default {
   path: path.join(__dirname, '/dist/'),
@@ -29,6 +31,11 @@ export default {
   entry: [
     path.join(__dirname, 'src/index.js')
   ],
+  output: {
+    path: __dirname + '/dist/',
+    filename: `${libName}.js` ,
+    library: libName
+  },
   resolveLoader: {
     root: [path.join(__dirname, 'node_modules')]
   },

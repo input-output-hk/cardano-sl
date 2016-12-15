@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+    <script type="text/javascript">
+      // function () { }
+      var a = new Promise(undefined, undefined);
+    </script>
+		<title></title>
+	</head>
+	<body>
+    <h1>Let's talk Daedalus!</h1>
+    <p>Check console to get some feedback.</p>
+    <ul>
+      <li><input type="button" value="Say hello" onclick="Daedalus.ClientApi.hello('Daedalus')();"/></li>
+      <li><input type="button" value="Hello callback" onclick="Daedalus.ClientApi.helloCallback(function(msg) { console.log(msg + ' Daedalus')});"/></li>
+      <li><input type="button" value="Debug getAddresses" onclick="Daedalus.Debug.debugAddresses()();"/></li>
+    </ul>
+	</body>
+</html>

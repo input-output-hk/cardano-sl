@@ -12,8 +12,8 @@ import           Data.Maybe            (isJust, isNothing)
 import qualified Data.Vector           as V (fromList)
 import           Pos.Crypto            (hash, unsafeHash, withHash)
 import           Pos.Types             (GoodTx (..), SmallGoodTx (..), Tx (..), TxIn (..),
-                                        TxOut, Utxo, applyTxToUtxo, deleteTxIn, findTxIn,
-                                        verifyTxUtxo)
+                                        TxOut, Utxo, applyTxToUtxoPure, deleteTxIn,
+                                        findTxIn, verifyTxUtxoPure)
 import           Serokell.Util.Verify  (isVerSuccess)
 
 import           Test.Hspec            (Spec, describe, it)
@@ -28,9 +28,9 @@ spec = describe "Types.Utxo" $ do
         prop description_findTxInUtxo findTxInUtxo
     describe "deleteTxIn" $ do
         prop description_deleteTxInUtxo deleteTxInUtxo
-    describe "verifyTxUtxo" $ do
+    describe "verifyTxUtxoPure" $ do
         prop description_verifyTxInUtxo verifyTxInUtxo
-    describe "applyTxToUtxo" $ do
+    describe "applyTxToUtxoPure" $ do
         prop description_applyTxToUtxoGood applyTxToUtxoGood
   where
     myTx = (TxIn myHash 0)
@@ -67,8 +67,8 @@ verifyTxInUtxo (SmallGoodTx (getGoodTx -> ls)) =
     let txs = fmap (view _1) ls
         witness = V.fromList $ fmap (view _4) ls
         newTx = uncurry Tx $ unzip $ map (\(_, tIs, tOs, _) -> (tIs, tOs)) ls
-        utxo = foldr applyTxToUtxo mempty (map withHash txs)
-    in isVerSuccess $ verifyTxUtxo utxo (newTx, witness)
+        utxo = foldr applyTxToUtxoPure mempty (map withHash txs)
+    in isVerSuccess $ verifyTxUtxoPure utxo (newTx, witness)
 
 applyTxToUtxoGood :: M.Map TxIn TxOut -> [TxOut] -> Bool
 applyTxToUtxoGood txMap txOuts =
@@ -77,7 +77,7 @@ applyTxToUtxoGood txMap txOuts =
         inpFun = (\(TxIn h i) -> (h,i))
         inpList = map inpFun txInps
         utxoMap = M.fromList $ zip inpList (M.elems txMap)
-        newUtxoMap = applyTxToUtxo (withHash $ Tx txInps txOuts) utxoMap
+        newUtxoMap = applyTxToUtxoPure (withHash $ Tx txInps txOuts) utxoMap
         newUtxos = ((repeat hashTx) `zip` [0 ..]) `zip` txOuts
         rmvUtxo = foldr M.delete utxoMap inpList
         insNewUtxo = foldr (uncurry M.insert) rmvUtxo newUtxos

@@ -108,9 +108,10 @@ startNode
     -> [Worker m]
     -> [Listener m]
     -> m (Node m)
-startNode transport prng workers listeners = mdo
-    node <- LL.startNode transport prng (handlerIn node sendAction) (handlerInOut node)
-    let sendAction = SendActions { sendTo = sendMsg node, connect = undefined }
+startNode transport prng workers listeners = do
+    rec { node <- LL.startNode transport prng (handlerIn node sendAction) (handlerInOut node)
+        ; let sendAction = SendActions { sendTo = sendMsg node, connect = undefined }
+        }
     tids <- sequence
               [ fork $ worker sendAction
               | worker <- workers ]

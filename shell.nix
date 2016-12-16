@@ -6,7 +6,7 @@ in
      name = "cardano-sl";
      ghc = hsPkgs.ghc;
      buildInputs =
-       [ zlib openssh autoreconfHook openssl
-         gmp rocksdb git ];
+       [ zlib glib git cabal-install openssh autoreconfHook stack openssl
+         sshpass gmp rocksdb ];
      LANG = "en_US.UTF-8";
   }

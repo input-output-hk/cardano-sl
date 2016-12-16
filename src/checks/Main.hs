@@ -3,33 +3,37 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-import qualified Control.Foldl as F
-import qualified Data.Map      as M
-import qualified Data.Text     as T
+import qualified Control.Foldl   as F
+import           Data.List       (foldl')
+import qualified Data.Map.Strict as M
+import qualified Data.Text       as T
 import           Turtle
-import           Prelude       hiding (FilePath)
+import           Prelude         hiding (FilePath)
 
-main = putStrLn "to be implemented!"
-
-{-
 main :: IO ()
 main = do
     xs <- arguments
     case xs of
-        [folder, file] -> pandoc file $ folderMarkDown folder
-        _              -> err "Expected source folder and output file as arguments."
--}
+      [folder, file] -> do
+          folder' <- realpath $ fromText folder
+          let file' = fromText file
+              md    = filesToMd $ hsFiles folder'
+          case extension file' of
+            Just "md"  -> output file' md
+            Just "pdf" -> pandoc file md
+            _          -> err "Expected *.md or *.pdf extension for output file."
+      _              -> err "Expected source folder and output file as arguments."
 
 type Tag = Text
 
-type ModuleName = Text
+type ModuleName = Maybe Text
 
-type ErrorMessage = Text
+type Body = [Either Tag Text]
 
 data Check = Check
     { chTag  :: !(Maybe Tag)
     , chPos  :: !Int
-    , chBody :: ![Either Tag Text]
+    , chBody :: !Body
     } deriving Show
 
 data Module = Module
@@ -37,18 +41,84 @@ data Module = Module
     , modChecks :: ![Check]
     } deriving Show
 
-toModule :: [Text] -> Either ErrorMessage Module
-toModule xs = Module <$> getModuleName xs <*> pure (getChecks xs)
+hsFiles :: FilePath -> Shell FilePath
+hsFiles folder = do
+    file <- lstree folder
+    case extension file of
+        Just "hs" -> return file
+        _         -> mzero
+
+filesToMd :: Shell FilePath -> Shell Text
+filesToMd files = do
+    ms <- fold (files >>= fileToModule) F.list
+    select $ renderModules ms
+
+pandoc :: Text -> Shell Text -> IO ()
+pandoc file markdown = procs
+    "pandoc"
+    [ "-f"
+    , "markdown"
+    , "-t"
+    , "latex"
+    , "-o"
+    , file
+    ]
+    markdown
+
+fileToModule :: FilePath -> Shell Module
+fileToModule file = toModule <$> fold (input file) F.list
+
+renderModules :: [Module] -> [Text]
+renderModules xs =
+    let checks = concat $ modChecks <$> xs
+        m      = tagToBody checks
+    in  "# Checks" : concatMap (renderModule m) xs
 
   where
 
-    getModuleName :: [Text] -> Either ErrorMessage ModuleName
-    getModuleName []     = Left "no module name"
+    tagToBody :: [Check] -> M.Map Tag Body
+    tagToBody = foldl' h M.empty where
+
+        h :: M.Map Tag Body -> Check -> M.Map Tag Body
+        h m c = case chTag c of
+            Nothing -> m
+            Just t  -> M.insert t (chBody c) m
+
+    renderModule :: M.Map Tag Body -> Module -> [Text]
+    renderModule m md =
+        case modChecks md of
+          [] -> []
+          cs -> "" : renderModuleName (modName md) : concatMap (renderCheck m) cs
+
+    renderModuleName :: ModuleName -> Text
+    renderModuleName Nothing  = "## Unknown Module"
+    renderModuleName (Just n) = "## Module " <> n
+
+    renderCheck :: M.Map Tag Body -> Check -> [Text]
+    renderCheck m c = "" : renderBody m (chBody c) ++ renderPos (chPos c)
+
+    renderBody :: M.Map Tag Body -> Body -> [Text]
+    renderBody m bs = do
+        b <- bs
+        case b of
+          Left t  -> renderBody m $ m M.! t
+          Right t -> return t
+
+    renderPos :: Int -> [Text]
+    renderPos p = ["", fromString $ "_(line " ++ show p ++ ")_"]
+
+toModule :: [Text] -> Module
+toModule xs = Module (getModuleName xs) (getChecks xs)
+
+  where
+
+    getModuleName :: [Text] -> ModuleName
+    getModuleName []     = Nothing
     getModuleName (t:ts) = case match moduleNamePattern t of
-        [y] -> Right y
+        [y] -> Just y
         _   -> getModuleName ts
 
-    moduleNamePattern :: Pattern ModuleName
+    moduleNamePattern :: Pattern Text
     moduleNamePattern = text "module " *> star (noneOf " ") <* (char ' ' <* chars <|> eof *> pure ' ')
 
     getChecks :: [Text] -> [Check]
@@ -64,73 +134,20 @@ toModule xs = Module <$> getModuleName xs <*> pure (getChecks xs)
             | otherwise       -> loop' acc (succ i) i Nothing           [Right c]         ts
         _                     -> loop  acc (succ i)                                       ts
 
-    loop' :: [Check] -> Int -> Int -> Maybe Tag -> [Either Tag Text] -> [Text] -> [Check]
+    loop' :: [Check] -> Int -> Int -> Maybe Tag -> Body -> [Text] -> [Check]
     loop' acc _ j mt bs []       = reverse (Check mt j (reverse bs) : acc)
     loop' acc i j mt bs (t : ts) = case match checkComment t of
         [c]
-            | T.null c        -> loop  (Check mt j (reverse bs) : acc) (succ i)                             ts
-            | T.head c == '#' -> loop' acc                             (succ i) j mt (Left (T.tail c) : bs) ts
-            | otherwise       -> loop' acc                             (succ i) j mt (Right c : bs)         ts
-        _                     -> loop  (Check mt j (reverse bs) : acc) (succ i)                             ts
+            | (not $ T.null c) && T.head c == '#' -> loop' acc                             (succ i) j mt (Left (T.tail c) : bs) ts
+            | otherwise                           -> loop' acc                             (succ i) j mt (Right c : bs)         ts
+        _                                         -> loop  (Check mt j (reverse bs) : acc) (succ i)                             ts
 
     checkPattern :: Pattern Text
-    checkPattern = chars *> text "-- CHECK: " *> chars
+    checkPattern = chars *> (text "-- CHECK: " <|> text "-- | CHECK: ") *> chars
 
     checkComment :: Pattern Text
-    checkComment = chars *> text "-- " *> chars
-
-{-
-hsFiles :: FilePath -> Shell FilePath
-hsFiles folder = do
-    file <- lstree folder
-    case extension file of
-        Just "hs" -> return file
-        _         -> mzero
-
-
-folderMarkDown :: Text -> Shell Text
-folderMarkDown folder' = do
-    folder <- realpath $ fromText folder'
-    (return "# Checks") <|> (hsFiles folder >>= handleFile)
-
-pandoc :: Text -> Shell Text -> IO ()
-pandoc file markdown = procs
-    "pandoc"
-    [ "-f"
-    , "markdown"
-    , "-t"
-    , "latex"
-    , "-o"
-    , file
-    ]
-    markdown
-
-handleFile :: FilePath -> Shell Text
-handleFile file = do
-    let checks = do
-            (n, l) <- nl $ input file
-            case match (checkPattern n) l of
-                [c] -> return c
-                _   -> mzero
-    l <- fold checks Fold.length
-    guard (l > 1)
-    checks >>= fromCheck
-
-  where
-
-    checkPattern :: Int -> Pattern Check
-    checkPattern n =
-            (Module               <$> (text "module " *> star (noneOf " ") <* rest))
-        <|> (CheckHeader (succ n) <$> (chars *> text "-- CHECK # " *> chars))
-        <|> (CheckItem   (succ n) <$> (chars *> text "-- CHECK ## " *> chars))
-
-    rest = (char ' ' <* chars <|> eof *> pure ' ')
-
-    fromCheck :: Check -> Shell Text
-    fromCheck (Module t)        = return "" <|> return ("## " <> t)
-    fromCheck (CheckHeader n t) = return "" <|> (return $ "### " <> t <> line n)
-    fromCheck (CheckItem   n t) = return ("  * " <> t <> line n)
-
-    line :: Int -> Text
-    line n = " _(line " <> fromString (show n) <> ")_"
-    -}
+    checkComment = do
+        ys <- chars *> ((text "-- " *> chars) <|> (text "--" *> pure ""))
+        return $ if T.length ys <= 1 || T.head ys /= '|'
+           then ys
+           else T.tail $ T.tail ys

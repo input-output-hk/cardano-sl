@@ -46,11 +46,11 @@ verifyTxAlone Tx {..} =
         , sformat
               ("output #"%int%" has non-positive value: "%coinF) i txOutValue)
 
--- | Verify Tx correctness using magic function which resolves input
+-- | CHECK: Verify Tx correctness using magic function which resolves input
 -- into Address and Coin. It does checks from 'verifyTxAlone' and the
 -- following:
 --
--- * sum of inputs ≥ sum of outputs;
+-- * sum of inputs >= sum of outputs;
 -- * every input is signed properly;
 -- * every input is a known unspent output.
 verifyTx

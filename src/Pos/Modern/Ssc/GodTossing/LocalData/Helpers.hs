@@ -12,12 +12,12 @@ import           Control.Lens                              (makeClassy)
 import           Universum
 
 import qualified Pos.Modern.Ssc.GodTossing.LocalData.Types as LD
+import qualified Pos.Modern.Ssc.GodTossing.Storage.Types   as GS
 import           Pos.Modern.Ssc.GodTossing.Types.Instance  ()
 import           Pos.Modern.Ssc.GodTossing.Types.Type      (SscGodTossing)
 import           Pos.Ssc.Class.LocalData                   (MonadSscLD (modifyLocalData))
 import           Pos.Ssc.GodTossing.Types.Base             (CommitmentsMap, OpeningsMap,
                                                             SharesMap, VssCertificatesMap)
-import qualified Pos.Ssc.GodTossing.Types.Types            as GS
 import           Pos.Types                                 (SlotId)
 
 -- | This wrapper using for pass local and global state to

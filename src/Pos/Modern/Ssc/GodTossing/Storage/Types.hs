@@ -9,79 +9,57 @@
 {-# LANGUAGE TupleSections          #-}
 {-# LANGUAGE TypeFamilies           #-}
 
--- | GodTossing storage.
+-- | GodTossing global state.
 
-module Pos.Ssc.GodTossing.Storage.Types
-       ( GtStorage (..)
-       , GtStorageVersion (..)
-
+module Pos.Modern.Ssc.GodTossing.Storage.Types
+       ( GtGlobalState (..)
        -- * Lenses
-       -- ** GtStorage
-       , dsVersionedL
-       -- ** GtStorageVersion
-       , dsGlobalCommitments
-       , dsGlobalShares
-       , dsGlobalOpenings
-       , dsGlobalCertificates
+       -- ** GtGlobalState
+       , gsCommitments
+       , gsOpenings
+       , gsShares
+       , gsVssCertificates
+       , gsBlocksMpc
        ) where
 
-import           Control.Lens                  (makeLenses, makeLensesFor)
-import           Data.Default                  (Default (..))
-import           Data.List.NonEmpty            (NonEmpty ((:|)))
-import           Data.SafeCopy                 (base, deriveSafeCopySimple)
+import           Control.Lens                   (makeLenses)
+import           Data.Default                   (Default (..))
+import           Data.List.NonEmpty             (NonEmpty ((:|)))
+import           Data.SafeCopy                  (base, deriveSafeCopySimple)
 import           Universum
 
-import           Pos.Ssc.GodTossing.Genesis    (genesisCertificates)
-import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
-                                                VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Types.Base  (CommitmentsMap, OpeningsMap, SharesMap,
+                                                 VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Types.Types (GtPayload)
 
--- | @GodTossing@ storage inside one version.
-data GtStorageVersion = GtStorageVersion
-     {
-      -- | Set of 'Commitment's stored in blocks for current epoch. This can
-      -- be calculated by 'mconcat'ing stored commitments, but it would be
-      -- inefficient to do it every time we need to know if commitments is
-      -- stored in blocks.
-      _dsGlobalCommitments  :: !CommitmentsMap
-    , -- | Openings stored in blocks
-      _dsGlobalOpenings     :: !OpeningsMap
-    , -- | Decrypted shares stored in blocks. These shares are guaranteed to
-      -- match encrypted shares stored in 'dsGlobalCommitments'.
-      _dsGlobalShares       :: !SharesMap
-    , -- | VSS certificates stored in blocks (for all time, not just for
-      -- current epoch)
-      _dsGlobalCertificates :: !VssCertificatesMap
-    } deriving Show
+-- | MPC-related content of main body.
+data GtGlobalState = GtGlobalState
+    { -- | Commitments are added during the first phase of epoch.
+      _gsCommitments     :: !CommitmentsMap
+      -- | Openings are added during the second phase of epoch.
+    , _gsOpenings        :: !OpeningsMap
+      -- | Decrypted shares to be used in the third phase.
+    , _gsShares          :: !SharesMap
+      -- | Vss certificates are added at any time if they are valid and
+      -- received from stakeholders.
+    , _gsVssCertificates :: !VssCertificatesMap
+      -- | MPC data from last several blocks.
+      -- Head - last arrived block.
+      -- _gsCommitments, _gsOpenings, _gsShares and _gsVssCertificates are
+      -- unions by all blocks in this list.
+    , _gsBlocksMpc       :: NonEmpty GtPayload
+    } deriving (Show, Generic)
 
-makeLenses ''GtStorageVersion
-deriveSafeCopySimple 0 'base ''GtStorageVersion
+deriveSafeCopySimple 0 'base ''GtGlobalState
+makeLenses ''GtGlobalState
 
-instance Default GtStorageVersion where
+instance Default GtGlobalState where
     def =
-        GtStorageVersion
-        { _dsGlobalCommitments = mempty
-        , _dsGlobalOpenings = mempty
-        , _dsGlobalShares = mempty
-        , _dsGlobalCertificates = genesisCertificates
-        }
-
--- | @GotTossing@ storage with versioning.
-data GtStorage = GtStorage
-    { -- | Last several versions of MPC storage, a version for each received
-      -- block. To bring storage to the state as it was just before the last
-      -- block arrived, just remove the head. All incoming commitments/etc
-      -- which aren't parts of blocks are applied to the head, too.
-      _dsVersioned         :: NonEmpty GtStorageVersion
-    }
-
-flip makeLensesFor ''GtStorage
-    [ ("_dsVersioned", "dsVersionedL")
-    , ("_dsLastProcessedSlot", "dsLastProcessedSlotL")
-    ]
-deriveSafeCopySimple 0 'base ''GtStorage
-
-instance Default GtStorage where
-    def =
-        GtStorage
-        { _dsVersioned = (def :| [])
+        GtGlobalState
+        {
+          _gsCommitments = mempty
+        , _gsOpenings = mempty
+        , _gsShares = mempty
+        , _gsVssCertificates = mempty
+        , _gsBlocksMpc = def :| []
         }

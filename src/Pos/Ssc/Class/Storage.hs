@@ -1,21 +1,25 @@
+{-# LANGUAGE AllowAmbiguousTypes    #-}
+{-# LANGUAGE ConstraintKinds        #-}
+{-# LANGUAGE DefaultSignatures      #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE AllowAmbiguousTypes   #-}
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE DefaultSignatures     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE TypeFamilies           #-}
 
 -- | Storage for generic Shared Seed calculation implementation.
 
 module Pos.Ssc.Class.Storage
        ( SscStorageClass(..)
        , HasSscStorage(..)
+       , SscStorageClassM (..)
        , MonadSscGS (..)
 
        , SscUpdate
        , SscQuery
        , SscStorageMode
+       , sscRunGlobalQuery
+       , sscRunGlobalModify
        ) where
 
 import           Control.Lens            (Lens')
@@ -46,10 +50,21 @@ type SscQuery ssc a =
     forall m x. (HasSscStorage ssc x, MonadReader x m) => m a
 
 class Monad m => MonadSscGS ssc m | m -> ssc where
-    getGlobalState     :: m (SscGlobalState ssc)
-    setGlobalState    :: SscLocalData ssc -> m ()
+    getGlobalState    :: m (SscGlobalState ssc)
+    setGlobalState    :: SscGlobalState ssc -> m ()
     modifyGlobalState :: (SscGlobalState ssc -> (a, SscGlobalState ssc)) -> m a
 
+    default getGlobalState :: MonadTrans t => t m (SscGlobalState ssc)
+    getGlobalState = lift getGlobalState
+
+    default setGlobalState :: MonadTrans t => SscGlobalState ssc -> t m ()
+    setGlobalState = lift . setGlobalState
+
+    default modifyGlobalState :: MonadTrans t =>
+                                 (SscGlobalState ssc -> (a, SscGlobalState ssc)) -> t m a
+    modifyGlobalState = lift . modifyGlobalState
+
+class Monad m => SscStorageClassM ssc m | m -> ssc where
     -- This must be here. We should remove SscStorageClass, right?
     sscApplyBlocksM :: AltChain ssc -> m ()
 
@@ -74,16 +89,6 @@ class Monad m => MonadSscGS ssc m | m -> ssc where
                           m (Maybe (NonEmpty (AsBinary VssPublicKey)))
     sscCalculateLeadersM :: EpochIndex -> Utxo -> Threshold ->
                            m (Either (SscSeedError ssc) SlotLeaders)
-
-    default getGlobalState :: MonadTrans t => t m (SscGlobalState ssc)
-    getGlobalState = lift getGlobalState
-
-    default setGlobalState :: MonadTrans t => SscLocalData ssc -> t m ()
-    setGlobalState = lift . setGlobalState
-
-    default modifyGlobalState :: MonadTrans t =>
-                                 (SscGlobalState ssc -> (a, SscGlobalState ssc)) -> t m a
-    modifyGlobalState = lift . modifyGlobalState
 
 -- | Class of objects that we can retrieve 'SscStorage' from.
 class HasSscStorage ssc a where
@@ -119,3 +124,22 @@ class Ssc ssc => SscStorageClass ssc where
 
 -- | Type constraint for actions to operate withing @SSC@ storage.
 type SscStorageMode ssc = (SscStorageClass ssc, SafeCopy ssc)
+
+sscRunGlobalQuery
+    :: forall ssc m a.
+       MonadSscGS ssc m
+    => Reader (SscGlobalState ssc) a -> m a
+sscRunGlobalQuery query = runReader query <$> getGlobalState @ssc
+
+-- | Convenient wrapper to run LocalUpdate in MonadSscLD.
+-- sscRunGlobalUpdate
+--     :: MonadSscGS ssc m
+--     => State (SscLocalData ssc) a -> m a
+-- sscRunGlobalUpdate upd =
+--     modifyLocalData (\(_, l) -> runState upd l)
+
+sscRunGlobalModify
+    :: forall ssc m a .
+    MonadSscGS ssc m
+    => State (SscGlobalState ssc) a -> m a
+sscRunGlobalModify upd = modifyGlobalState $ runState upd

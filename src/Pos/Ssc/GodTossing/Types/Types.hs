@@ -33,6 +33,7 @@ import           Control.Concurrent.STM                  (newTVarIO)
 import qualified Control.Concurrent.STM                  as STM
 import           Control.Lens                            (makeLenses)
 import           Data.Acquire                            (Acquire, mkAcquire)
+import           Data.Default                            (Default, def)
 import qualified Data.HashMap.Strict                     as HM
 import           Data.SafeCopy                           (base, deriveSafeCopySimple)
 import qualified Data.Text                               as T
@@ -45,6 +46,7 @@ import           Universum
 
 import           Pos.Binary.Class                        (Bi)
 import           Pos.Crypto                              (Hash, VssKeyPair, hash)
+import           Pos.Ssc.GodTossing.Genesis              (genesisCertificates)
 import           Pos.Ssc.GodTossing.SecretStorage.Acidic (SecretStorage,
                                                           closeSecretStorage,
                                                           openGtSecretStorage,
@@ -53,6 +55,7 @@ import           Pos.Ssc.GodTossing.Types.Base           (Commitment, Commitment
                                                           Opening, OpeningsMap, SharesMap,
                                                           VssCertificate,
                                                           VssCertificatesMap)
+
 ----------------------------------------------------------------------------
 -- SscGlobalState
 ----------------------------------------------------------------------------
@@ -117,6 +120,9 @@ data GtPayload
     | SharesPayload       !SharesMap      !VssCertificatesMap
     | CertificatesPayload !VssCertificatesMap
     deriving (Show, Generic)
+
+instance Default GtPayload where
+    def = CertificatesPayload genesisCertificates
 
 _gpCertificates :: GtPayload -> VssCertificatesMap
 _gpCertificates (CommitmentsPayload _ certs) = certs

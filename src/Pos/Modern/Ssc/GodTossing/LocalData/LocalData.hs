@@ -43,6 +43,7 @@ import           Pos.Modern.Ssc.GodTossing.LocalData.Helpers (GtState,
 import           Pos.Modern.Ssc.GodTossing.LocalData.Types   (ldCertificates,
                                                               ldCommitments, ldOpenings,
                                                               ldShares)
+import           Pos.Modern.Ssc.GodTossing.Storage.Types     (GtGlobalState (..))
 import           Pos.Modern.Ssc.GodTossing.Types.Instance    ()
 import           Pos.Modern.Ssc.GodTossing.Types.Type        (SscGodTossing)
 import           Pos.Ssc.Class.LocalData                     (LocalQuery, LocalUpdate,
@@ -59,8 +60,7 @@ import           Pos.Ssc.GodTossing.Types.Base               (Commitment, Openin
                                                               VssCertificate,
                                                               VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Message            (DataMsg (..), MsgTag (..))
-import           Pos.Ssc.GodTossing.Types.Types              (GtGlobalState (..),
-                                                              GtPayload (..), SscBi)
+import           Pos.Ssc.GodTossing.Types.Types              (GtPayload (..), SscBi)
 import           Pos.Ssc.GodTossing.Utils                    (verifiedVssCertificates)
 import           Pos.State                                   (WorkModeDB)
 import           Pos.Types                                   (Address (..), SlotId (..))

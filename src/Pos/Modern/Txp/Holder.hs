@@ -62,7 +62,6 @@ newtype TxpLDHolder ssc m a = TxpLDHolder
 instance MonadTransfer s m => MonadTransfer s (TxpLDHolder ssc m)
 type instance ThreadId (TxpLDHolder ssc m) = ThreadId m
 
-
 instance MonadBase IO m => MonadBase IO (TxpLDHolder ssc m) where
     liftBase = lift . liftBase
 

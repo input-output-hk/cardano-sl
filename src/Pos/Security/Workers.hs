@@ -6,12 +6,13 @@ module Pos.Security.Workers
        ( SecurityWorkersClass (..)
        ) where
 
+import           Control.Concurrent.STM            (TVar, newTVar, readTVar, writeTVar)
 import           Control.Lens                      ((^.))
-import           Control.Monad.Trans.State         (StateT (..), get, put)
+import           Control.Monad.Trans.Reader        (ReaderT (..), ask)
 import qualified Data.HashMap.Strict               as HM
 import           Data.Tagged                       (Tagged (..))
 import           System.Wlog                       (logWarning)
-import           Universum                         hiding (modify)
+import           Universum                         hiding (ask)
 
 import           Pos.Constants                     (k)
 import           Pos.Context                       (getNodeContext, ncPublicKey)
@@ -66,21 +67,23 @@ checkForReceivedBlocksWorker = onNewSlot True $ \slotId -> do
 
 checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => m ()
 checkForIgnoredCommitmentsWorker = do
-    _ <- runStateT (onNewSlot True checkForIgnoredCommitmentsWorkerImpl) 0
+    epochIdx <- atomically (newTVar 0)
+    _ <- runReaderT (onNewSlot True checkForIgnoredCommitmentsWorkerImpl) epochIdx
     return ()
 
 checkForIgnoredCommitmentsWorkerImpl
     :: forall m. WorkMode SscGodTossing m
-    => SlotId -> StateT EpochIndex m ()
+    => SlotId -> ReaderT (TVar EpochIndex) m ()
 checkForIgnoredCommitmentsWorkerImpl slotId = do
     checkCommitmentsInPreviousBlocks slotId
-    lastCommitment <- get
+    tvar <- ask
+    lastCommitment <- lift $ atomically $ readTVar tvar
     when (siEpoch slotId - lastCommitment > commitmentsAreIgnoredThreshold) $ do
         lift reportAboutEclipsed
 
 checkCommitmentsInPreviousBlocks
     :: forall m. WorkMode SscGodTossing m
-    => SlotId -> StateT EpochIndex m ()
+    => SlotId -> ReaderT (TVar EpochIndex) m ()
 checkCommitmentsInPreviousBlocks slotId = do
     forM_ [0 .. k - 1] $ \depth -> do
         headBlock <- getBlockByDepth depth
@@ -90,12 +93,13 @@ checkCommitmentsInPreviousBlocks slotId = do
 
 checkCommitmentsInBlock
     :: forall m. WorkMode SscGodTossing m
-    => SlotId -> MainBlock SscGodTossing -> StateT EpochIndex m ()
+    => SlotId -> MainBlock SscGodTossing -> ReaderT (TVar EpochIndex) m ()
 checkCommitmentsInBlock slotId block = do
     ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
     let commitmentInBlockchain = isCommitmentInPayload ourAddr (block ^. blockMpc)
-    when commitmentInBlockchain $
-        put $ siEpoch slotId
+    when commitmentInBlockchain $ do
+        tvar <- ask
+        lift $ atomically $ writeTVar tvar $ siEpoch slotId
   where
     isCommitmentInPayload addr (CommitmentsPayload commitments _) = HM.member addr commitments
     isCommitmentInPayload _ _ = False

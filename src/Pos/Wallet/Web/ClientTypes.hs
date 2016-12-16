@@ -32,7 +32,7 @@ import           Data.Text     (Text)
 import           GHC.Generics  (Generic)
 import           Universum
 
-import           Data.Aeson    (ToJSON (toJSON))
+import           Data.Aeson    (ToJSON)
 import           Data.Aeson.TH (defaultOptions, deriveToJSON)
 import           Formatting    (build, sformat)
 import           Pos.Types     (Address (..), Coin, TxId)
@@ -61,8 +61,8 @@ addressToCAddress = CAddress . CHash . sformat build
 newtype CTxId = CTxId CHash deriving (Show, Generic, ToJSON)
 
 -- | transform TxId into CTxId
-txIdToCTxId :: TxId -> CTxId
-txIdToCTxId = undefined
+-- txIdToCTxId :: TxId -> CTxId
+-- txIdToCTxId = undefined
 
 ----------------------------------------------------------------------------
 -- wallet

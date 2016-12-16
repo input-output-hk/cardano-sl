@@ -13,7 +13,7 @@ import           Servant.API                ((:<|>), (:>), Capture, Get, JSON, P
 import           Universum
 
 import           Pos.Types                  (Address, Coin)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CWallet)
+import           Pos.Wallet.Web.ClientTypes (CAddress)
 
 -- | Servant API which provides access to wallet.
 type WalletApi =

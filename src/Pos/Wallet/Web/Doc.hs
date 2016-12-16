@@ -28,6 +28,7 @@ import           Pos.Genesis                (genesisAddresses)
 import           Pos.Types                  (Address, Coin)
 import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CHash, addressToCAddress)
+import           Prelude                    (fail)
 
 walletDocs :: API
 walletDocs = docsWith defaultDocOptions intros extras (SD.pretty walletApi)
@@ -98,7 +99,7 @@ instance ToSample Address where
     toSamples Proxy = singleSample $ genesisAddresses !! 0
 
 instance ToSample CHash where
-    toSamples Proxy = singleSample $ undefined
+    toSamples Proxy = fail "ToSample CHash: Not Implemented!"
 
 instance ToSample CAddress where
     toSamples Proxy = singleSample . addressToCAddress $ genesisAddresses !! 0

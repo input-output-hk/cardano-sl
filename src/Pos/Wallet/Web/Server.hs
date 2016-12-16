@@ -48,8 +48,6 @@ import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletState,
 import           Pos.Web.Server             (serveImpl)
 import           Pos.Wallet.Web.ClientTypes (CWallet, addressToCAddress, CAddress)
 import           Pos.WorkMode               (ProductionMode, TxLDImpl, SocketState, runTxLDImpl)
-import           Prelude                    (read)
-import qualified Data.Text                  as T (unpack)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -164,8 +162,8 @@ send srcIdx dstAddr c
               sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
               c srcIdx dstAddr
 
-getWallets :: SscConstraint ssc => WebHandler ssc [CWallet]
-getWallets = undefined
+-- getWallets :: SscConstraint ssc => WebHandler ssc [CWallet]
+-- getWallets = undefined
 
 ----------------------------------------------------------------------------
 -- Orphan instances

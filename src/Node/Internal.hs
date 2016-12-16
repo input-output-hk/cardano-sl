@@ -129,12 +129,12 @@ data ConnectionState m =
 -- | The one thread that handles /all/ incoming messages and dispatches them
 -- to various handlers.
 --
-nodeDispatcher :: forall m g .
+nodeDispatcher :: forall m .
                   ( Mockable SharedAtomic m, Mockable Fork m
                   , Mockable Channel.Channel m, Mockable RunInUnboundThread m
                   , Mockable Throw m )
                => NT.EndPoint m
-               -> SharedAtomicT m (g, Map Nonce (ThreadId m, ChannelIn m))
+               -> SharedAtomicT m (StdGen, Map Nonce (ThreadId m, ChannelIn m))
                -> (NodeId -> ChannelIn m -> m ())
                -> (NodeId -> ChannelIn m -> ChannelOut m -> m ())
                -> m ()

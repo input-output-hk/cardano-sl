@@ -34,7 +34,7 @@ import           Pos.Types             (Address, Block, Coin, MainBlock, Tx (..)
                                         TxIn (..), TxInWitness (..), TxOut (..),
                                         TxWitness, Utxo, applyTxToUtxo, blockTxs,
                                         makePubKeyAddress, txwF)
-import           Pos.Wallet.WalletMode (WalletMode)
+import           Pos.Wallet.WalletMode (TxMode)
 
 type TxOutIdx = (TxId, Word32)
 type TxInputs = [TxOutIdx]
@@ -153,7 +153,7 @@ deriveAddrHistoryPartial histData addr chain = foldr updateAll histData chain
 
 -- | Construct Tx with a single input and single output and send it to
 -- the given network addresses.
-submitSimpleTx :: WalletMode ssc m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m (Tx, TxWitness)
+submitSimpleTx :: TxMode ssc m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m (Tx, TxWitness)
 submitSimpleTx [] _ _ =
     logError "No addresses to send" >> fail "submitSimpleTx failed"
 submitSimpleTx na input output = do
@@ -163,7 +163,7 @@ submitSimpleTx na input output = do
     pure tx
 
 -- | Construct Tx using secret key and given list of desired outputs
-submitTx :: WalletMode ssc m => SecretKey -> [NetworkAddress] -> TxOutputs -> m (Tx, TxWitness)
+submitTx :: TxMode ssc m => SecretKey -> [NetworkAddress] -> TxOutputs -> m (Tx, TxWitness)
 submitTx _ [] _ = logError "No addresses to send" >> fail "submitTx failed"
 submitTx sk na outputs = do
     utxo <- getUtxo
@@ -176,7 +176,7 @@ getBalance :: (SscStorageMode ssc, WorkModeDB ssc m) => Address -> m Coin
 getBalance addr = getUtxo >>= return . sum . M.map txOutValue . filterUtxo addr
 
 -- | Send the ready-to-use transaction
-submitTxRaw :: WalletMode ssc m => [NetworkAddress] -> (Tx, TxWitness) -> m ()
+submitTxRaw :: TxMode ssc m => [NetworkAddress] -> (Tx, TxWitness) -> m ()
 submitTxRaw na tx = do
     let txId = hash tx
     logInfo $ sformat ("Submitting transaction: "%txwF) tx
@@ -184,7 +184,7 @@ submitTxRaw na tx = do
     mapM_ (`sendTx` tx) na
 
 -- | Get tx history for Address
-getTxHistory :: WalletMode ssc m => Address -> m ([Tx], [Tx])
+getTxHistory :: TxMode ssc m => Address -> m ([Tx], [Tx])
 getTxHistory addr = do
     chain <- getBestChain
     utxo <- getOldestUtxo

@@ -50,6 +50,7 @@ import           Pos.Wallet.Web.Api              (WalletApi, walletApi)
 import           Pos.Wallet.Web.State            (MonadWalletWebDB (..), WalletState,
                                                   WalletWebDB, closeState, openState,
                                                   runWalletWebDB)
+import Pos.Wallet.KeyStorage (runKeyStorageRaw, KeyData)
 import           Pos.Web.Server                  (serveImpl)
 import           Pos.WorkMode                    (SocketState, TxLDImpl, runTxLDImpl)
 
@@ -98,13 +99,14 @@ convertHandler
 #ifdef WITH_ROCKS
     -> Modern.NodeDBs ssc
 #endif
+    -> KeyData
     -> WalletState
     -> WebHandler ssc a
     -> Handler a
 #ifdef WITH_ROCKS
-convertHandler kctx tld nc ns modernDB ws handler =
+convertHandler kctx tld nc ns modernDB kd ws handler =
 #else
-convertHandler kctx tld nc ns ws handler =
+convertHandler kctx tld nc ns ws kd handler =
 #endif
     liftIO (runTimed "wallet-api" .
             St.runDBHolder ns .
@@ -118,6 +120,7 @@ convertHandler kctx tld nc ns ws handler =
             flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDB) .
 #endif
             runKademliaDHTRaw kctx .
+            flip runKeyStorageRaw kd .
             runWalletWebDB ws $
             setTxLocalData tld >> handler)
     `Catch.catches`
@@ -129,15 +132,16 @@ convertHandler kctx tld nc ns ws handler =
 nat :: SscConstraint ssc => WebHandler ssc (WebHandler ssc :~> Handler)
 nat = do
     ws <- getWalletWebState
-    kctx <- lift getKademliaDHTCtx
+    kd <- lift ask
+    kctx <- lift $ lift getKademliaDHTCtx
     tld <- getTxLocalData
     nc <- getNodeContext
     ns <- St.getNodeState
 #ifdef WITH_ROCKS
     modernDB <- Modern.getNodeDBs
-    return $ Nat (convertHandler kctx tld nc ns modernDB ws)
+    return $ Nat (convertHandler kctx tld nc ns modernDB kd ws)
 #else
-    return $ Nat (convertHandler kctx tld nc ns ws)
+    return $ Nat (convertHandler kctx tld nc ns kd ws)
 #endif
 
 servantServer :: forall ssc . SscConstraint ssc => WebHandler ssc (Server WalletApi)

@@ -25,6 +25,7 @@ import           Servant.Server                  (Handler, ServantErr (errBody),
 import           Servant.Utils.Enter             ((:~>) (..), enter)
 import           Universum
 
+import           Pos.Crypto                      (toPublic)
 import           Pos.DHT.Model                   (DHTPacking, dhtAddr, getKnownPeers)
 import           Pos.DHT.Real                    (KademliaDHTContext, getKademliaDHTCtx,
                                                   runKademliaDHTRaw)
@@ -43,14 +44,16 @@ import qualified Pos.State                       as St
 import           Pos.Txp.LocalData               (TxLocalData, getTxLocalData,
                                                   setTxLocalData)
 import           Pos.Types                       (Address, Coin (Coin), Tx, TxOut (..),
-                                                  addressF, coinF, decodeTextAddress)
+                                                  addressF, coinF, decodeTextAddress,
+                                                  makePubKeyAddress)
+import           Pos.Wallet.KeyStorage           (KeyData, MonadKeys (..),
+                                                  runKeyStorageRaw)
 import           Pos.Wallet.Tx                   (getBalance, getTxHistory, submitTx)
 import           Pos.Wallet.WalletMode           (WalletRealMode)
 import           Pos.Wallet.Web.Api              (WalletApi, walletApi)
 import           Pos.Wallet.Web.State            (MonadWalletWebDB (..), WalletState,
                                                   WalletWebDB, closeState, openState,
                                                   runWalletWebDB)
-import Pos.Wallet.KeyStorage (runKeyStorageRaw, KeyData)
 import           Pos.Web.Server                  (serveImpl)
 import           Pos.WorkMode                    (SocketState, TxLDImpl, runTxLDImpl)
 
@@ -155,7 +158,8 @@ servantHandlers :: SscConstraint ssc => ServerT WalletApi (WebHandler ssc)
 servantHandlers = getAddresses :<|> getBalances :<|> send :<|> getHistory
 
 getAddresses :: WebHandler ssc [Address]
-getAddresses = pure genesisAddresses
+getAddresses = (genesisAddresses ++) . map (makePubKeyAddress . toPublic) <$>
+               getSecretKeys
 
 getBalances :: SscConstraint ssc => WebHandler ssc [(Address, Coin)]
 getBalances = mapM gb genesisAddresses

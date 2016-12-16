@@ -70,7 +70,7 @@ export default {
       debug: true,
       devtool: 'cheap-module-eval-source-map',
       devServer: {
-        port: 3000,
+        port: 3080,
         host: 'localhost',
         historyApiFallback: true,
         watchOptions: {

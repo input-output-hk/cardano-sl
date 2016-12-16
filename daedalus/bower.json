@@ -25,6 +25,7 @@
     "purescript-psci-support": "^1.0.0"
   },
   "dependencies": {
+    "purescript-debug": "^1.0.0",
     "purescript-console": "^1.0.0",
     "purescript-affjax": "^2.0.1",
     "purescript-eff-functions": "^1.0.0",

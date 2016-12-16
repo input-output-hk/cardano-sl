@@ -272,8 +272,8 @@ instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
 -- | Make a proxy delegate signature with help of certificate.
 proxySign
     :: (Bi a)
-    => SecretKey -> PublicKey -> ProxySecretKey w -> a -> ProxySignature w a
-proxySign sk@(SecretKey delegateSk) (PublicKey issuerPk) (ProxySecretKey o _ cert) m =
+    => SecretKey -> ProxySecretKey w -> a -> ProxySignature w a
+proxySign sk@(SecretKey delegateSk) (ProxySecretKey o (PublicKey issuerPk) cert) m =
     ProxySignature
     { pdOmega = o
     , pdDelegatePk = toPublic sk
@@ -322,4 +322,4 @@ checkProxySecretKey delegateSk pSk@ProxySecretKey{..} =
   where
     dummyData :: ByteString
     dummyData = "nakshtalt"
-    sig = proxySign delegateSk pskIssuerPk pSk dummyData
+    sig = proxySign delegateSk pSk dummyData

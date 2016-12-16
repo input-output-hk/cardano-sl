@@ -36,9 +36,8 @@ import           Universum
 import           Pos.Binary.Class     (Bi (..))
 import           Pos.Binary.Types     ()
 import           Pos.Constants        (epochSlots)
-import           Pos.Crypto           (Hash, ProxySecretKey, PublicKey, SecretKey,
-                                       checkSig, hash, proxySign, proxyVerify, sign,
-                                       toPublic, unsafeHash)
+import           Pos.Crypto           (Hash, ProxySecretKey, SecretKey, checkSig, hash,
+                                       proxySign, proxyVerify, sign, toPublic, unsafeHash)
 import           Pos.Merkle           (mkMerkleTree)
 import           Pos.Ssc.Class.Types  (Ssc (..))
 -- Unqualified import is used here because of GHC bug (trac 12127).
@@ -101,7 +100,7 @@ mkMainHeader
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
-    -> Maybe (PublicKey, ProxySecretKey (EpochIndex,EpochIndex))
+    -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
     -> Body (MainBlockchain ssc)
     -> MainBlockHeader ssc
 mkMainHeader prevHeader slotId sk proxyInfo body =
@@ -111,7 +110,7 @@ mkMainHeader prevHeader slotId sk proxyInfo body =
     signature prevHash proof =
         let toSign = (prevHash, proof, slotId, difficulty)
         in maybe (BlockSignature $ sign sk toSign)
-                 (\(pk,proxySk) -> BlockPSignature $ proxySign sk pk proxySk toSign)
+                 (\(proxySk) -> BlockPSignature $ proxySign sk proxySk toSign)
                  proxyInfo
     consensus prevHash proof =
         MainConsensusData
@@ -127,7 +126,7 @@ mkMainBlock
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
-    -> Maybe (PublicKey, ProxySecretKey (EpochIndex,EpochIndex))
+    -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
     -> Body (MainBlockchain ssc)
     -> MainBlock ssc
 mkMainBlock prevHeader slotId sk proxyInfo body =

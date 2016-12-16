@@ -192,7 +192,7 @@ proxySignVerify issuerSk delegateSk w m =
   where
     issuerPk = toPublic issuerSk
     proxySk = createProxySecretKey issuerSk (toPublic delegateSk) w
-    signature = proxySign delegateSk issuerPk proxySk m
+    signature = proxySign delegateSk proxySk m
 
 proxySignVerifyDifferentKey
     :: (Bi a, Bi w, Eq w)
@@ -201,7 +201,7 @@ proxySignVerifyDifferentKey issuerSk delegateSk pk2 w m =
     (toPublic issuerSk /= pk2) ==> not (proxyVerify pk2 signature (== w) m)
   where
     proxySk = createProxySecretKey issuerSk (toPublic delegateSk) w
-    signature = proxySign delegateSk (toPublic issuerSk) proxySk m
+    signature = proxySign delegateSk proxySk m
 
 proxySignVerifyDifferentData
     :: (Bi a, Eq a, Bi w, Eq w)
@@ -211,7 +211,7 @@ proxySignVerifyDifferentData issuerSk delegateSk w m m2 =
   where
     issuerPk = toPublic issuerSk
     proxySk = createProxySecretKey issuerSk (toPublic delegateSk) w
-    signature = proxySign delegateSk issuerPk proxySk m
+    signature = proxySign delegateSk proxySk m
 
 proxySecretKeyCheckCorrect
     :: (Bi w) => SecretKey -> SecretKey -> w -> Bool

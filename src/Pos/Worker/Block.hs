@@ -1,7 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
 
 -- | Block processing related workers.
@@ -24,16 +26,19 @@ import           Universum
 import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
-import           Pos.Context               (getNodeContext, ncPropagation, ncPublicKey,
-                                            ncSecretKey)
+import           Pos.Context               (getNodeContext, ncPropagation,
+                                            ncProxySecretKeys, ncProxyStorage,
+                                            ncPublicKey, ncSecretKey)
+import           Pos.Crypto                (ProxySecretKey, pskIssuerPk, pskOmega)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
 import           Pos.Ssc.Class             (sscApplyGlobalState, sscGetLocalPayload,
                                             sscVerifyPayload)
 import           Pos.State                 (createNewBlock, getGlobalMpcData,
                                             getHeadBlock, getLeaders, processNewSlot)
 import           Pos.Txp.LocalData         (getLocalTxs)
-import           Pos.Types                 (SlotId (..), Timestamp (Timestamp), blockMpc,
-                                            gbHeader, makePubKeyAddress, slotIdF)
+import           Pos.Types                 (EpochIndex, SlotId (..),
+                                            Timestamp (Timestamp), blockMpc, gbHeader,
+                                            makePubKeyAddress, slotIdF)
 import           Pos.Util                  (logWarningWaitLinear)
 import           Pos.Util.JsonLog          (jlCreatedBlock, jlLog)
 import           Pos.WorkMode              (WorkMode)
@@ -60,10 +65,26 @@ blkOnNewSlot slotId@SlotId {..} = do
             logLeadersF (sformat ("Slot leaders: " %listJson) leaders)
             ourPkAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
             let leader = leaders ^? ix (fromIntegral siSlot)
-            when (leader == Just ourPkAddr) $ onNewSlotWhenLeader slotId
+            proxyCerts <-
+                (\v -> ncProxySecretKeys <$> liftIO (readMVar v)) =<<
+                ncProxyStorage <$> getNodeContext
+            let validCerts =
+                    filter (\pSk -> let (w0,w1) = pskOmega pSk
+                                    in siEpoch >= w0 && siEpoch <= w1) proxyCerts
+                validCert =
+                    find (\pSk -> Just (makePubKeyAddress $ pskIssuerPk pSk) == leader)
+                         validCerts
+            if | leader == Just ourPkAddr -> onNewSlotWhenLeader slotId Nothing
+               | isJust validCert -> onNewSlotWhenLeader slotId validCert
+               | otherwise -> pure ()
 
-onNewSlotWhenLeader :: WorkMode ssc m => SlotId -> m ()
-onNewSlotWhenLeader slotId = do
+
+onNewSlotWhenLeader
+    :: WorkMode ssc m
+    => SlotId
+    -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
+    -> m ()
+onNewSlotWhenLeader slotId pSk = do
     logInfo $
         sformat
             ("I am leader of " %slotIdF % ", I will create block soon")
@@ -99,7 +120,7 @@ onNewSlotWhenLeader slotId = do
             let whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
             sscData <- sscGetLocalPayload slotId
             localTxs <- HM.toList <$> getLocalTxs
-            either whenNotCreated whenCreated =<< createNewBlock localTxs sk slotId sscData
+            either whenNotCreated whenCreated =<< createNewBlock localTxs sk pSk slotId sscData
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
 -- | All workers specific to block processing.

@@ -197,24 +197,22 @@ txRollbackBlocks (fromIntegral -> n) = replicateM_ n txRollbackBlock
 
 -- | Rollback last block
 txRollbackBlock :: (Ssc ssc, WithLogger m, MonadDB ssc m, MonadThrow m) => m ()
-txRollbackBlock = getTip >>=
-    (\tip ->
-        aifM (getBlock tip) (\block ->
-            aifM (getUndo tip) (\undo -> do
-                let txs = getTxs block
-                --TODO more detailed message must be here
-                unless (length undo == length txs)
-                    $ panic "Number of txs must be equal length of undo"
-                let batchOrError = foldl' prependToBatch (Right []) $ zip txs undo
-                case batchOrError of
-                    Left msg    -> panic msg
-                    Right batch -> writeBatchToUtxo $ PutTip (headerHash block) : batch
-                    -- If we store block cache in UtxoView we must invalidate it
-                )
+txRollbackBlock = do
+    tip <- getTip
+    aifM (getBlock tip) (\block ->
+        aifM (getUndo tip) (\undo -> do
+            let txs = getTxs block
+            --TODO more detailed message must be here
+            unless (length undo == length txs)
+                $ panic "Number of txs must be equal length of undo"
+            let batchOrError = foldl' prependToBatch (Right []) $ zip txs undo
+            case batchOrError of
+                Left msg    -> panic msg
+                Right batch -> writeBatchToUtxo $ PutTip (headerHash block) : batch
+                -- If we store block cache in UtxoView we must invalidate it
+            )
             (errorMsg "No Undo for block")) -- should we use here panic, right?
-            --(errorMsg $ sformat ("No Undo for block with hash: "%build) tip)
-        (errorMsg "No Block"))
-        --(errorMsg $ sformat ("No Block with hash: "%build) tip)
+        (errorMsg "No Block")
   where
     getTxs (Left _)   = []
     getTxs (Right mb) = map fst $ mb ^. blockTxws

@@ -13,7 +13,12 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RecursiveDo #-}
 
-module Node where
+module Node (
+
+      module Node
+    , LL.NodeId(..)
+
+    ) where
 
 import Control.Monad.Fix (MonadFix)
 import qualified Node.Internal as LL
@@ -41,10 +46,11 @@ data Node (m :: * -> *) = Node {
        nodeWorkers :: [ThreadId m]
      }
 
-type NodeId = LL.NodeId
-
-nodeId :: Node m -> NodeId
+nodeId :: Node m -> LL.NodeId
 nodeId = LL.NodeId . NT.address . LL.nodeEndPoint . nodeLL
+
+nodeEndPointAddress :: Node m -> NT.EndPointAddress
+nodeEndPointAddress x = let LL.NodeId y = nodeId x in y
 
 type Worker m = SendActions m -> m ()
 
@@ -62,20 +68,20 @@ data ListenerAction m where
   -- | A listener that handles a single isolated incoming message
   ListenerActionOneMsg
     :: Binary msg
-    => (NodeId -> SendActions m -> msg -> m ())
+    => (LL.NodeId -> SendActions m -> msg -> m ())
     -> ListenerAction m
 
   -- | A listener that handles an incoming bi-directional conversation.
   ListenerActionConversation
-    :: (NodeId -> ConversationActions m -> m ())
+    :: (LL.NodeId -> ConversationActions m -> m ())
     -> ListenerAction m
 
 data SendActions m = SendActions {
        -- | Send a isolated (sessionless) message to a node
-       sendTo :: forall body. Binary body => NodeId -> MessageName -> body -> m (),
+       sendTo :: forall body. Binary body => LL.NodeId -> MessageName -> body -> m (),
 
        -- | Establish a bi-direction conversation session with a node
-       connect :: NodeId -> m (ConversationActions m)
+       connect :: LL.NodeId -> m (ConversationActions m)
      }
 
 data ConversationActions m = ConversationActions {
@@ -102,7 +108,7 @@ makeListenerIndex = foldr combine (M.empty, [])
 startNode
     :: forall m .
        ( Mockable Fork m, Mockable Throw m, Mockable Channel m
-       , Mockable SharedAtomic m, MonadFix m )
+       , Mockable SharedAtomic m, Mockable Bracket m, MonadFix m )
     => NT.Transport m
     -> StdGen
     -> [Worker m]
@@ -124,7 +130,7 @@ startNode transport prng workers listeners = do
     listenerIndex :: ListenerIndex m
     (listenerIndex, conflictingNames) = makeListenerIndex listeners
 
-    handlerIn :: LL.Node m -> SendActions m -> NodeId -> ChannelIn m -> m ()
+    handlerIn :: LL.Node m -> SendActions m -> LL.NodeId -> ChannelIn m -> m ()
     handlerIn node sendActions peerId (ChannelIn chan) = do
         (msgName :: MessageName, rest) <- recvPart chan (fromString "")
         let listener = M.lookup msgName listenerIndex
@@ -140,7 +146,7 @@ startNode transport prng workers listeners = do
             Nothing -> error ("No listener! " ++ show msgName)
         pure ()
 
-    handlerInOut :: LL.Node m -> NodeId -> ChannelIn m -> ChannelOut m -> m ()
+    handlerInOut :: LL.Node m -> LL.NodeId -> ChannelIn m -> ChannelOut m -> m ()
     handlerInOut node peerId (ChannelIn inchan) (ChannelOut outchan) = do
         (msgName :: MessageName, rest) <- recvPart inchan (fromString "")
         let listener = M.lookup msgName listenerIndex
@@ -179,7 +185,7 @@ stopNode Node {..} = do
 sendMsg
     :: ( Monad m, Binary body )
     => LL.Node m
-    -> NodeId
+    -> LL.NodeId
     -> MessageName
     -> body
     -> m ()
@@ -200,7 +206,7 @@ serialiseMsg name body =
 sendBody
     :: ( Monad m, Binary body )
     => LL.Node m
-    -> NodeId
+    -> LL.NodeId
     -> body
     -> m ()
 sendBody node nodeid body =

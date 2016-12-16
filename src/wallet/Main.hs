@@ -149,6 +149,6 @@ main = do
 
         case woSscAlgo of
             GodTossingAlgo -> putText "Using MPC coin tossing" *>
-                              runWallet @SscGodTossing inst plugins params gtParams
+                              runWallet @SscGodTossing inst plugins params gtParams "secret.key"
             NistBeaconAlgo -> putText "Using NIST beacon" *>
-                              runWallet @SscNistBeacon inst plugins params ()
+                              runWallet @SscNistBeacon inst plugins params () "secret.key"

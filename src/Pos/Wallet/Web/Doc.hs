@@ -99,6 +99,13 @@ instance ToCapture (Capture "address" Address) where
         , _capDesc = "Address, history of which should be fetched"
         }
 
+instance ToCapture (Capture "index" Word) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "index"
+        , _capDesc = "Index of address to delete"
+        }
+
 instance ToSample Coin where
     toSamples Proxy = singleSample 100500
 

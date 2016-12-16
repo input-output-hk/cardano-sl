@@ -4,6 +4,7 @@
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 module Pos.Wallet.KeyStorage
        ( MonadKeys (..)
@@ -46,7 +47,7 @@ import           Pos.Util.UserSecret    (UserSecret, peekUserSecret, usKeys,
 class Monad m => MonadKeys m where
     getSecretKeys :: m [SecretKey]
     addSecretKey :: SecretKey -> m ()
-    deleteSecretKey :: Int -> m ()
+    deleteSecretKey :: Word -> m ()
 
 -- | Instances for common transformers
 instance MonadKeys m => MonadKeys (ReaderT r m) where
@@ -108,6 +109,6 @@ runKeyStorageRaw = runReaderT . getKeyStorage
 instance MonadIO m => MonadKeys (KeyStorage m) where
     getSecretKeys = use usKeys
     addSecretKey sk = usKeys <>= [sk]
-    deleteSecretKey i = usKeys %= deleteAt i
+    deleteSecretKey (fromIntegral -> i) = usKeys %= deleteAt i
       where deleteAt j ls = let (l, r) = splitAt j ls
                             in l ++ drop 1 r

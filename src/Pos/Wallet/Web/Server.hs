@@ -23,13 +23,14 @@ import           Servant.API                     ((:<|>) ((:<|>)),
 import           Servant.Server                  (Handler, ServantErr (errBody), Server,
                                                   ServerT, err404, serve)
 import           Servant.Utils.Enter             ((:~>) (..), enter)
+import           System.Wlog                     (logInfo)
 import           Universum
 
-import           Pos.Crypto                      (toPublic)
+import           Pos.Crypto                      (SecretKey, toPublic)
 import           Pos.DHT.Model                   (DHTPacking, dhtAddr, getKnownPeers)
 import           Pos.DHT.Real                    (KademliaDHTContext, getKademliaDHTCtx,
                                                   runKademliaDHTRaw)
-import           Pos.Genesis                     (genesisAddresses, genesisSecretKeys)
+import           Pos.Genesis                     (genesisSecretKeys)
 import           Pos.Launcher                    (runTimed)
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB                   as Modern
@@ -46,7 +47,7 @@ import           Pos.Txp.LocalData               (TxLocalData, getTxLocalData,
 import           Pos.Types                       (Address, Coin (Coin), Tx, TxOut (..),
                                                   addressF, coinF, decodeTextAddress,
                                                   makePubKeyAddress)
-import           Pos.Wallet.KeyStorage           (KeyData, MonadKeys (..),
+import           Pos.Wallet.KeyStorage           (KeyData, MonadKeys (..), newSecretKey,
                                                   runKeyStorageRaw)
 import           Pos.Wallet.Tx                   (getBalance, getTxHistory, submitTx)
 import           Pos.Wallet.WalletMode           (WalletRealMode)
@@ -109,7 +110,7 @@ convertHandler
 #ifdef WITH_ROCKS
 convertHandler kctx tld nc ns modernDB kd ws handler =
 #else
-convertHandler kctx tld nc ns ws kd handler =
+convertHandler kctx tld nc ns kd ws handler =
 #endif
     liftIO (runTimed "wallet-api" .
             St.runDBHolder ns .
@@ -155,35 +156,51 @@ servantServer = flip enter servantHandlers <$> (nat @ssc)
 ----------------------------------------------------------------------------
 
 servantHandlers :: SscConstraint ssc => ServerT WalletApi (WebHandler ssc)
-servantHandlers = getAddresses :<|> getBalances :<|> send :<|> getHistory
+servantHandlers = getAddresses :<|> getBalances :<|> send :<|>
+                  getHistory :<|> newAddress :<|> deleteAddress
 
 getAddresses :: WebHandler ssc [Address]
-getAddresses = (genesisAddresses ++) . map (makePubKeyAddress . toPublic) <$>
-               getSecretKeys
+getAddresses = map (makePubKeyAddress . toPublic) <$> mySecretKeys
 
 getBalances :: SscConstraint ssc => WebHandler ssc [(Address, Coin)]
-getBalances = mapM gb genesisAddresses
+getBalances = join $ mapM gb <$> getAddresses
   where gb addr = (,) addr <$> getBalance addr
 
 send :: SscConstraint ssc
      => Word -> Address -> Coin -> WebHandler ssc ()
-send srcIdx dstAddr c
-    | fromIntegral srcIdx > length genesisAddresses =
-        throwM err404 {
-          errBody = encodeUtf8 $
-                    sformat ("There are only "%int%" addresses in wallet") $
-                    length genesisAddresses
-          }
-    | otherwise = do
-          let sk = genesisSecretKeys !! fromIntegral srcIdx
-          na <- fmap dhtAddr <$> getKnownPeers
-          () <$ submitTx sk na [TxOut dstAddr c]
-          putText $
+send srcIdx dstAddr c = do
+    sks <- mySecretKeys
+    let skCount = length sks
+    if fromIntegral srcIdx > skCount
+    then throwM err404 {
+        errBody = encodeUtf8 $
+                  sformat ("There are only "%int%" addresses in wallet") $ skCount
+        }
+    else do
+        let sk = sks !! fromIntegral srcIdx
+        na <- fmap dhtAddr <$> getKnownPeers
+        () <$ submitTx sk na [TxOut dstAddr c]
+        logInfo $
               sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
               c srcIdx dstAddr
 
 getHistory :: SscConstraint ssc => Address -> WebHandler ssc ([Tx], [Tx])
 getHistory = getTxHistory
+
+newAddress :: WebHandler ssc Address
+newAddress = makePubKeyAddress . toPublic <$> newSecretKey
+
+deleteAddress :: Word -> WebHandler ssc ()
+deleteAddress = deleteSecretKey
+
+----------------------------------------------------------------------------
+-- Helpers
+----------------------------------------------------------------------------
+
+-- TODO: @flyingleafe provide a `debug` flag (in some `WalletContext`?)
+-- to disable/enable inclusion of genesis keys
+mySecretKeys :: MonadKeys m => m [SecretKey]
+mySecretKeys = (genesisSecretKeys ++) <$> getSecretKeys
 
 ----------------------------------------------------------------------------
 -- Orphan instances

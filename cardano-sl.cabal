@@ -554,7 +554,9 @@ executable cardano-checks
   hs-source-dirs:      src/checks
   main-is:             Main.hs
   build-depends:       base
+                     , containers
                      , foldl
+                     , text
                      , turtle
   default-language:    Haskell2010
   ghc-options:         -threaded

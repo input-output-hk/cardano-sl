@@ -35,6 +35,7 @@ import           Pos.Modern.DB                   (DB, MonadDB, getUtxoDB)
 import           Pos.Modern.DB.Block             (getBlock, getUndo)
 import           Pos.Modern.DB.Utxo              (BatchOp (..), getTip, writeBatchToUtxo)
 import           Pos.Modern.Txp.Class            (MonadTxpLD (..), TxpLD)
+import           Pos.Modern.Txp.Error            (TxpError (..))
 import           Pos.Modern.Txp.Holder           (TxpLDHolder, runTxpLDHolderUV)
 import           Pos.Modern.Txp.Storage.Types    (MemPool (..), UtxoView (..))
 import qualified Pos.Modern.Txp.Storage.UtxoView as UV
@@ -49,6 +50,7 @@ import           Pos.Types                       (Block, IdTxWitness, MonadUtxo,
                                                   prevBlockL, slotIdF, topsortTxs,
                                                   verifyTxPure)
 import           Pos.Types.Utxo                  (verifyAndApplyTxs, verifyTxUtxo)
+import           Pos.Util                        (_neHead)
 
 type TxpWorkMode ssc m = ( Ssc ssc
                          , WithLogger m
@@ -62,11 +64,14 @@ type MinTxpWorkMode ssc m = (
                             , MonadTxpLD ssc m
                             , MonadUtxo m
                             , MonadThrow m)
--- | Apply chain of /definitely/ valid blocks which go right after
--- last applied block. If invalid block is passed, this function will
--- panic.
+
+-- | Apply chain of /definitely/ valid blocks to state on transactions
+-- processing.
 txApplyBlocks :: TxpWorkMode ssc m => AltChain ssc -> m ()
 txApplyBlocks blocks = do
+    tip <- getTip
+    when (tip /= blocks ^. _neHead . prevBlockL) $
+        throwM $ TxpCantApplyBlocks "oldest block in AltChain is not based on tip"
     verdict <- txVerifyBlocks blocks
     case verdict of
         -- TODO Consider using `MonadError` and throwing `InternalError`.
@@ -84,23 +89,22 @@ txApplyBlocks blocks = do
 txApplyBlock :: TxpWorkMode ssc m
              => (Block ssc, [IdTxWitness]) -> m ()
 txApplyBlock (b, txs) = do
-    when (not . isGenesisBlock $ b) $ do
-        let hashPrevHeader = b ^. prevBlockL
-        tip <- getTip
-        if hashPrevHeader == tip then do
-            let batch = foldr' prependToBatch [] txs
-            filterMemPool txs
-            writeBatchToUtxo (PutTip (headerHash b) : batch)
-        else
-            logError "Error during application of block to Undo DB: No TIP"
+    when (not . isGenesisBlock $ b) $
+        do let hashPrevHeader = b ^. prevBlockL
+           tip <- getTip
+           when (tip /= hashPrevHeader) $
+               panic
+                   "disaster, tip mismatch in txApplyBlock, probably semaphore doesn't work"
+           let batch = foldr' prependToBatch [] txs
+           filterMemPool txs
+           writeBatchToUtxo (PutTip (headerHash b) : batch)
   where
     prependToBatch :: IdTxWitness -> [BatchOp ssc] -> [BatchOp ssc]
-    prependToBatch (txId, (Tx{..}, _)) batch =
-        let
-            keys = zipWith TxIn (repeat txId) [0..]
+    prependToBatch (txId, (Tx {..}, _)) batch =
+        let keys = zipWith TxIn (repeat txId) [0 ..]
             delIn = map DelTxIn txInputs
-            putOut = map (uncurry AddTxOut) $ zip keys txOutputs in
-        foldr' (:) (foldr' (:) batch putOut) delIn --how we could simplify it?
+            putOut = map (uncurry AddTxOut) $ zip keys txOutputs
+        in foldr' (:) (foldr' (:) batch putOut) delIn --how we could simplify it?
 
 -- | Given number of blocks to rollback and some sidechain to adopt it
 -- checks if it can be done prior to transaction validity. Returns a
@@ -112,12 +116,7 @@ txVerifyBlocks newChain = do
     verifyRes <- runTxpLDHolderUV
                      (foldM verifyDo (Right []) newChainTxs)
                      (UV.createFromDB utxoDB)
-    return $
-        case verifyRes of
-          Left msg     ->
-              Left msg
-          Right accTxs ->
-              Right (map convertFrom' . reverse $ accTxs)
+    return $ (map convertFrom' . reverse) <$> verifyRes
   where
     newChainTxs :: [(SlotId, [(WithHash Tx, TxWitness)])]
     newChainTxs =

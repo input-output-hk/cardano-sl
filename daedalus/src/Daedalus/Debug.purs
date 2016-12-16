@@ -6,7 +6,7 @@ import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (log, error)
-import Daedalus.BackendApi (getAddresses, getBalances)
+import Daedalus.BackendApi (getAddresses, getBalances, newAddress)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.Argonaut.Printer (printJson)
 import Data.Either (Either(..))
@@ -23,7 +23,7 @@ logFail msg err = error $ msg <> " " <> err
 logSuccess :: forall e a. (Generic a) => String -> a -> Eff (console :: CONSOLE| e) Unit
 logSuccess msg result = log <<< (<>) msg <<< printJson $ encodeJson result
 
--- | log result or error of '/address'
+-- | debug '/address'
 logAddresses :: forall e. Aff (ajax :: AJAX, console :: CONSOLE| e) Unit
 logAddresses = do
   result <- getAddresses
@@ -31,10 +31,18 @@ logAddresses = do
     Right addr -> liftEff $ logSuccess "[RESULT of '/address'] " addr
     Left err -> liftEff $ logFail "[Error of '/address']" err
 
--- | log result or error of '/address'
+-- | debug '/balances'
 logBalances :: forall e. Aff (ajax :: AJAX, console :: CONSOLE| e) Unit
 logBalances = do
   result <- getBalances
   case result of
     Right addr -> liftEff $ logSuccess "[RESULT of '/balances'] " addr
     Left err -> liftEff $ logFail "[Error of '/balances']" err
+
+-- | debug '/new_address'
+logNewAddress :: forall e. Aff (ajax :: AJAX, console :: CONSOLE| e) Unit
+logNewAddress = do
+  result <- newAddress
+  case result of
+    Right addr -> liftEff $ logSuccess "[RESULT of '/new_address'] " addr
+    Left err -> liftEff $ logFail "[Error of '/new_address']" err

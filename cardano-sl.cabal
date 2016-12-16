@@ -466,13 +466,13 @@ executable cardano-wallet-hs2purs
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  -- if flag(with-wallet)
-  --   buildable:         True
-  -- else
-  --   buildable:         False
-  --
-  -- if flag(with-web)
-  --   cpp-options: -DWITH_WEB
+  if flag(with-wallet)
+    buildable:         True
+  else
+    buildable:         False
+
+  if flag(with-web)
+    cpp-options: -DWITH_WEB
 
 executable cardano-smart-generator
   hs-source-dirs:      src/smart-generator

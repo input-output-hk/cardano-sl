@@ -32,7 +32,7 @@ import           Pos.Ssc.Class.Storage (SscStorageMode)
 import           Pos.State             (WorkModeDB, getBestChain, getOldestUtxo, getUtxo)
 import           Pos.Types             (Address, Block, Coin, MainBlock, Tx (..), TxId,
                                         TxIn (..), TxInWitness (..), TxOut (..),
-                                        TxWitness, Utxo, applyTxToUtxo, blockTxs,
+                                        TxWitness, Utxo, applyTxToUtxoPure, blockTxs,
                                         makePubKeyAddress, txwF)
 import           Pos.Wallet.WalletMode (TxMode)
 
@@ -140,7 +140,7 @@ deriveAddrHistoryPartial
 deriveAddrHistoryPartial histData addr chain = foldr updateAll histData chain
   where updateAll (Left _) hdata = hdata
         updateAll (Right blk) (utxo, incoming, outgoing) =
-            let applyAllToUtxo = foldl' $ flip (applyTxToUtxo . withHash)
+            let applyAllToUtxo = foldl' $ flip (applyTxToUtxoPure . withHash)
                 newIncoming = getIncomingTxs addr blk
                 utxo' = applyAllToUtxo utxo newIncoming
                 newOutgoing = getOutgoingTxs utxo' addr blk

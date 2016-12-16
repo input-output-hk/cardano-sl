@@ -56,6 +56,9 @@ instance Mockable Bracket IO where
 instance Mockable Throw IO where
     liftMockable (Throw e) = Exception.throwIO e
 
+instance Mockable Catch IO where
+    liftMockable (Catch io handler) = io `Exception.catch` handler
+
 workers :: ( RandomGen g ) => NodeId -> g -> NetworkDiscovery K.KademliaDiscoveryErrorCode IO -> [Worker IO]
 workers id gen discovery = [pingWorker gen]
     where
@@ -79,7 +82,7 @@ listeners id = [Listener (fromString "ping") pongWorker]
     pongWorker = ListenerActionOneMsg $ \peerId sendActions () -> do
         putStrLn (show id ++  " heard a ping from " ++ show peerId)
 
-makeNode transport i = mdo
+makeNode transport i = do
     let port = 3000 + i
     let host = "127.0.0.1"
     let id = makeId i
@@ -93,15 +96,16 @@ makeNode transport i = mdo
     let prng1 = mkStdGen (2 * i)
     let prng2 = mkStdGen ((2 * i) + 1)
     putStrLn $ "Starting node " ++ show i
-    node <- startNode transport prng1 (workers (nodeId node) prng2 discovery) (listeners (nodeId node))
-    let localAddress = nodeEndPointAddress node
-    putStrLn $ "Making discovery for node " ++ show i
-    discovery <- K.kademliaDiscovery kademliaConfig initialPeer localAddress
+    rec { node <- startNode transport prng1 (workers (nodeId node) prng2 discovery) (listeners (nodeId node))
+        ; let localAddress = nodeEndPointAddress node
+        ; putStrLn $ "Making discovery for node " ++ show i
+        ; discovery <- K.kademliaDiscovery kademliaConfig initialPeer localAddress
+        }
     pure (node, discovery)
     where
     makeId i = B8.pack ("node_identifier_" ++ show i)
 
-main = mdo
+main = do
 
     [arg0] <- getArgs
     let number = read arg0

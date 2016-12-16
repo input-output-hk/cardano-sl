@@ -34,7 +34,8 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Monoid
 import Data.Typeable
-import Control.Exception hiding (bracket, throw)
+import Data.List (foldl')
+import Control.Exception hiding (bracket, throw, catch)
 import qualified Network.Transport.Abstract as NT
 import qualified Network.Transport as NT (EventErrorCode(EventConnectionLost, EventEndPointFailed, EventTransportFailed))
 import System.Random (StdGen, random)
@@ -69,7 +70,7 @@ newtype ChannelIn m = ChannelIn (Channel.ChannelT m (Maybe BS.ByteString))
 newtype ChannelOut m = ChannelOut (NT.Connection m)
 
 startNode :: ( Mockable SharedAtomic m, Mockable Fork m, Mockable Bracket m
-             , Mockable Channel.Channel m, Mockable Throw m )
+             , Mockable Channel.Channel m, Mockable Throw m, Mockable Catch m )
           => NT.Transport m
           -> StdGen
           -> (NodeId -> ChannelIn m -> m ())
@@ -78,8 +79,8 @@ startNode :: ( Mockable SharedAtomic m, Mockable Fork m, Mockable Bracket m
 startNode transport prng handlerIn handlerOut = do
     Right endpoint <- NT.newEndPoint transport --TODO: error handling
     incomingVar    <- newSharedAtomic (prng, Map.empty)
-    finishedChan   <- Channel.newChannel
-    tid  <- fork (nodeDispatcher endpoint incomingVar finishedChan handlerIn handlerOut)
+    finishedVar    <- newSharedAtomic []
+    tid  <- fork (nodeDispatcher endpoint incomingVar finishedVar handlerIn handlerOut)
     --TODO: exceptions in the forkIO
     return Node {
       nodeEndPoint         = endpoint,
@@ -131,36 +132,58 @@ data ConnectionState m =
 --
 nodeDispatcher :: forall m .
                   ( Mockable SharedAtomic m, Mockable Fork m, Mockable Bracket m
-                  , Mockable Channel.Channel m, Mockable Throw m )
+                  , Mockable Channel.Channel m, Mockable Throw m
+                  , Mockable Catch m )
                => NT.EndPoint m
                -> SharedAtomicT m (StdGen, Map Nonce (ThreadId m, ChannelIn m))
-               -> Channel.ChannelT m NT.ConnectionId
+               -> SharedAtomicT m ([(NT.ConnectionId, Maybe SomeException)])
                -> (NodeId -> ChannelIn m -> m ())
                -> (NodeId -> ChannelIn m -> ChannelOut m -> m ())
                -> m ()
 nodeDispatcher endpoint incomingVar finished handlerIn handlerInOut =
     loop Map.empty
   where
-    signalFinished :: NT.ConnectionId -> m ()
-    signalFinished = Channel.writeChannel finished
 
-    finally :: m t -> m () -> m t
-    finally action after = bracket (pure ()) (const after) (const action)
+    -- | Signal that a thread handling a given ConnectionId is finished.
+    --   It's very important that this is run to completion for every spawned
+    --   thread, else the DispatcherState will never forget the entry for
+    --   this ConnectionId.
+    --
+    --   FIXME must be sure that this is uninterruptible. That depends upon the
+    --   semantics of the chosen SharedAtomic! If an MVar is used then it
+    --   should be OK; docs in Control.Exception say that a takeMVar is
+    --   uninterruptible if the MVar is full, putMVar uninterruptible if the
+    --   MVar is empty, so a modifyMVar should be uninterruptible.
+    signalFinished :: (NT.ConnectionId, Maybe SomeException) -> m ()
+    signalFinished outcome = modifySharedAtomic finished (\lst -> pure (outcome : lst, ()))
 
+    -- | Augment some m term so that it always reports its ConnectionId when
+    --   finished, along with the exception if one was raised. We catch all
+    --   exceptions but it's rethrown.
+    reportConnidAndException :: NT.ConnectionId -> m () -> m ()
+    reportConnidAndException connid action = normal `catch` exceptional
+        where
+        normal :: m ()
+        normal = do
+            _ <- action
+            signalFinished (connid, Nothing)
+        exceptional :: SomeException -> m ()
+        exceptional e = do
+            signalFinished (connid, Just e)
+            throw e
+
+    -- Take the dead threads from the shared atomic and release them all from
+    -- the map.
+    -- TBD use the reported exceptions to inform the dispatcher somehow?
+    -- If a lot of threads are giving exceptions, should we change dispatcher
+    -- behavior?
+    clearDeadThreads :: DispatcherState m -> m (DispatcherState m)
     clearDeadThreads state = do
-        next <- Channel.tryReadChannel finished
-        case next of
-            Nothing -> pure state
-            Just connid -> clearDeadThreads (Map.delete connid state)
+        finished <- modifySharedAtomic finished (\lst -> pure ([], lst))
+        pure $ foldl' (\state (connid, _) -> Map.delete connid state) state finished
 
     loop :: DispatcherState m -> m ()
---    loop state
---      | overloaded = do ... TODO
-
     loop !state = do
-      -- TODO shouldn't just race them, should round-robin instead.
-      -- But then, it doesn't take long to clear the channel so maybe it's
-      -- all good.
       !state <- clearDeadThreads state
       event <- NT.receive endpoint
       case event of
@@ -187,7 +210,7 @@ nodeDispatcher endpoint incomingVar finished handlerIn handlerInOut =
                     | w == controlHeaderCodeUnidirectional -> do
                       chan <- Channel.newChannel
                       mapM_ (Channel.writeChannel chan . Just) (LBS.toChunks ws)
-                      tid  <- fork (handlerIn peer (ChannelIn chan) `finally` signalFinished connid)
+                      tid  <- fork $ reportConnidAndException connid (handlerIn peer (ChannelIn chan))
                       loop (Map.insert connid (ConnectionReceiving tid chan) state)
 
                     | w == controlHeaderCodeBidirectionalAck ||
@@ -210,7 +233,7 @@ nodeDispatcher endpoint incomingVar finished handlerIn handlerInOut =
                                 Right conn -> do
                                   NT.send conn [controlHeaderBidirectionalSyn nonce]
                                   handlerInOut peer (ChannelIn chan) (ChannelOut conn)
-                      tid <- fork $ action `finally` signalFinished connid
+                      tid <- fork $ reportConnidAndException connid action
                       loop (Map.insert connid (ConnectionReceiving tid chan) state)
 
 
@@ -244,7 +267,7 @@ nodeDispatcher endpoint incomingVar finished handlerIn handlerInOut =
               Just (ConnectionNew peer) -> do
                 chan <- Channel.newChannel
                 Channel.writeChannel chan Nothing
-                tid  <- fork (handlerIn peer (ChannelIn chan) `finally` signalFinished connid)
+                tid  <- fork $ reportConnidAndException connid (handlerIn peer (ChannelIn chan))
                 loop (Map.insert connid (ConnectionClosed tid) state)
 
               -- small message
@@ -252,7 +275,7 @@ nodeDispatcher endpoint incomingVar finished handlerIn handlerInOut =
                 chan <- Channel.newChannel
                 mapM_ (Channel.writeChannel chan . Just) chunks0
                 Channel.writeChannel chan Nothing
-                tid  <- fork (handlerIn peer (ChannelIn chan) `finally` signalFinished connid)
+                tid  <- fork $ reportConnidAndException connid (handlerIn peer (ChannelIn chan))
                 loop (Map.insert connid (ConnectionClosed tid) state)
 
               Just (ConnectionReceiving tid chan) -> do

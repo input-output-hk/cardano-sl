@@ -30,9 +30,10 @@ import           Universum
 
 import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (announceBlock)
-import           Pos.Communication.Types   (RequestBlock (..), RequestBlockchainPart (..),
-                                            ResponseMode, SendBlock (..),
-                                            SendBlockHeader (..), SendBlockchainPart (..))
+import           Pos.Communication.Types   (MutSocketState, RequestBlock (..),
+                                            RequestBlockchainPart (..), ResponseMode,
+                                            SendBlock (..), SendBlockHeader (..),
+                                            SendBlockchainPart (..))
 import           Pos.Context               (getNodeContext, ncPropagation)
 import           Pos.Crypto                (hash, shortHashF)
 import           Pos.DHT.Model             (ListenerDHT (..), MonadDHTDialog, replyToNode)
@@ -45,12 +46,12 @@ import           Pos.Types                 (HeaderHash, Tx, blockTxs, getBlockHe
                                             headerHash)
 import           Pos.Util                  (inAssertMode)
 import           Pos.Util.JsonLog          (jlAdoptedBlock, jlLog)
-import           Pos.WorkMode              (SocketState, WorkMode)
+import           Pos.WorkMode              (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
 blockListeners
-    :: (MonadDHTDialog SocketState m, WorkMode ssc m)
-    => [ListenerDHT SocketState m]
+    :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
+    => [ListenerDHT (MutSocketState ssc) m]
 blockListeners =
     [ ListenerDHT handleBlock
     , ListenerDHT handleBlockHeader

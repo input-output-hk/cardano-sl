@@ -245,30 +245,29 @@ normalizeTxpLD :: (MonadDB ssc m, MonadTxpLD ssc m, MonadThrow m)
 normalizeTxpLD = do
     utxoTip <- getTip
     mpTxs <- HM.toList . localTxs <$> getMemPool
-    emptyUtxoView <- return . UV.createFromDB =<< getUtxoDB
-    let emptyMemPool = MemPool HM.empty 0
-    maybe (modifyTxpLD (setTxpLd ((), (emptyUtxoView, emptyMemPool, utxoTip))))
-          (\topsorted -> do
-              (validTxs, newUtxoView) <- -- we run this code in temporary TxpLDHolder
-                  runTxpLDHolderUV (findValid topsorted) emptyUtxoView
-              modifyTxpLD (setTxpLd $ newState newUtxoView validTxs utxoTip)
-          ) (topsortTxs (\(i, (t, _)) -> WithHash t i) mpTxs)
+    emptyUtxoView <- UV.createFromDB <$> getUtxoDB
+    let emptyMemPool = MemPool mempty 0
+    maybe
+        (setTxpLD (emptyUtxoView, emptyMemPool, utxoTip))
+        (\topsorted -> do
+             (validTxs, newUtxoView) -- we run this code in temporary TxpLDHolder
+                  <-
+                 runTxpLDHolderUV (findValid topsorted) emptyUtxoView
+             setTxpLD (newState newUtxoView validTxs utxoTip))
+        (topsortTxs (\(i, (t, _)) -> WithHash t i) mpTxs)
   where
-    setTxpLd val = \(_, _, _) -> val
     findValid topsorted = do
         validTxs' <- foldlM canApply [] topsorted
         newUtxoView' <- getUtxoView
         return (validTxs', newUtxoView')
     newState newUtxoView validTxs utxoTip =
-        ((), ( newUtxoView
-              , MemPool (HM.fromList validTxs) (length validTxs)
-              , utxoTip))
+        (newUtxoView, MemPool (HM.fromList validTxs) (length validTxs), utxoTip)
     canApply xs itw@(_, (tx, txw)) = do
         verifyRes <- verifyTxUtxo (tx, txw)
         case verifyRes of
-            VerSuccess   -> do
-               applyTxToUtxo' itw
-               return (itw : xs)
+            VerSuccess -> do
+                applyTxToUtxo' itw
+                return (itw : xs)
             VerFailure _ -> return xs
 
 isGenesisBlock :: Block ssc -> Bool

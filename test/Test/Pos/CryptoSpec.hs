@@ -65,7 +65,8 @@ spec = describe "Crypto" $ do
         describe "check hash sample" $ do
             specify "1 :: Int" $
                 checkHash (1 :: Int)
-                    "009d179ba955ae9b0690b8f6a96a866972b1606d97b0c9d8094073a374de77b7612d4ae35ac3e38f4092aced0f1680295a0bc95722ad039253ee6aa275569848"
+                    -- "009d179ba955ae9b0690b8f6a96a866972b1606d97b0c9d8094073a374de77b7612d4ae35ac3e38f4092aced0f1680295a0bc95722ad039253ee6aa275569848" -- Blake2b_512
+                    "c43b29d95a3585cb5264b3223d70e853f899a82e01cb3e62b0bdd871" -- Blake2s_224
 
     describe "Signing" $ do
         describe "Identity testing" $ do

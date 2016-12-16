@@ -1,0 +1,10 @@
+node_modules/
+bower_components/
+dist/
+output/
+.psci_modules/
+.pulp-cache/
+.psc-ide-port
+./src/Generated/ # generated types by purescript-bridge
+!src/index.html # override ignoring *.html defined in global *.gitignore
+npm-debug.log

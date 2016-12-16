@@ -1,0 +1,38 @@
+version: 1.0.{build}
+image: Visual Studio 2015
+
+build: off
+
+branches:
+  only:
+    - appveyor.yml
+
+cache:
+  - "c:\\sr"
+  - '.stack-work'
+
+environment:
+  global:
+    STACK_ROOT: "c:\\sr"
+
+before_test:
+# Install stack
+- curl -sS -ostack.zip -L --insecure http://www.stackage.org/stack/windows-x86_64
+- 7z x stack.zip stack.exe
+
+# Install openssl
+- ps: Start-FileDownload 'http://slproweb.com/download/Win64OpenSSL-1_0_2j.exe' 
+- ps: Start-Process "Win64OpenSSL-1_0_2j.exe" -ArgumentList "/silent /verysilent /sp- /suppressmsgboxes" -Wait
+
+# Install rocksdb
+- git clone https://github.com/facebook/rocksdb.git
+- mkdir rocksdb\build
+- cd rocksdb\build
+- cmake -G "Visual Studio 14 2015 Win64" -DOPTDBG=1 -DXPRESS=1 ..
+- msbuild rocksdb.sln /p:Configuration=Release /m:4
+- cd ..\..
+
+test_script:
+  - stack setup
+  # No parallelization due to https://github.com/haskell/cabal/issues/4005   
+  - stack --no-terminal build --test --haddock --no-haddock-deps --bench --no-run-benchmarks --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks --extra-include-dirs="C:\OpenSSL-Win64\include" --extra-lib-dirs="C:\OpenSSL-Win64" --extra-lib-dirs="C:\projects\pos-haskell-prototype\rocksdb\build\Release"

@@ -19,22 +19,22 @@ import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import qualified Data.Vector          as V (Vector, fromList)
 import           Formatting           (bprint, build, int, sformat, (%))
+import           Serokell.Util.Verify (VerificationRes, isVerSuccess, verifyGeneric)
 import           Test.QuickCheck      (Arbitrary, Gen, NonEmptyList (..), arbitrary,
                                        generate)
 import           Universum
-import           Serokell.Util.Verify (VerificationRes, isVerSuccess, verifyGeneric)
 
 import           Pos.Binary           (Bi)
-import           Pos.Crypto           (PublicKey, SecretKey, Signature, checkSig,
-                                       hash, shortHashF, sign, toPublic, withHash)
+import           Pos.Crypto           (PublicKey, SecretKey, Signature, checkSig, hash,
+                                       shortHashF, sign, toPublic, withHash)
 import           Pos.Script           (Script, txScriptCheck)
-import           Pos.Types            (Coin, GoodTx (..), Tx (..), TxId,
-                                       TxIn (..), TxOut (..), TxWitness, Utxo, applyTxToUtxo,
+import           Pos.Types            (Coin, GoodTx (..), Tx (..), TxId, TxIn (..),
+                                       TxOut (..), TxWitness, Utxo, applyTxToUtxoPure,
                                        checkPubKeyAddress, checkScriptAddress, findTxIn,
-                                       makePubKeyAddress, verifyTxAlone, verifyTxUtxo)
+                                       makePubKeyAddress, verifyTxAlone, verifyTxUtxoPure)
 
 newVerifyTx :: (Utxo, Tx, TxWitness) -> Bool
-newVerifyTx (u, tx, tw) = isVerSuccess $ verifyTxUtxo u (tx, tw)
+newVerifyTx (u, tx, tw) = isVerSuccess $ verifyTxUtxoPure u (tx, tw)
 
 oldVerifyTx :: (Utxo, Tx, OldTxWitness) -> Bool
 oldVerifyTx (u, tx, tw) = isVerSuccess $ oldVerifyTxUtxo u (tx, tw)
@@ -45,7 +45,7 @@ genArgs txGetter = generate $ do
     let txs = fmap (view _1) ls
         witness = V.fromList $ fmap (view _4) ls
         newTx = uncurry Tx $ unzip $ fmap (\(_, tIs, tOs, _) -> (tIs, tOs)) ls
-        utxo = foldl' (flip applyTxToUtxo) mempty (fmap withHash txs)
+        utxo = foldl' (flip applyTxToUtxoPure) mempty (fmap withHash txs)
     return (utxo, newTx, witness)
 
 newTxVerifyBench :: Benchmark

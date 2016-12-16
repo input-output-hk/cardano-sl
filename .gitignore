@@ -36,7 +36,6 @@ nohup.out
 logs
 stats-node-*
 .ipynb_checkpoints
-*.json
 *.ipynb
 testRun
 *.csv
@@ -45,3 +44,4 @@ tags
 run
 *.swp
 .ghci
+*.key

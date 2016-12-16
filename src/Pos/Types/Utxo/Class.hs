@@ -5,13 +5,28 @@ module Pos.Types.Utxo.Class
        , MonadUtxo (..)
        ) where
 
+import           Control.Monad.Except (ExceptT)
 import           Universum
 
-import           Pos.Types.Types (TxIn, TxOut)
+import           Pos.Types.Types      (TxIn, TxOut)
 
 class Monad m => MonadUtxoRead m where
-    getTxOut :: TxIn -> m (Maybe TxOut)
+    utxoGet :: TxIn -> m (Maybe TxOut)
 
 class MonadUtxoRead m => MonadUtxo m where
-    putTxOut :: TxIn -> TxOut -> m ()
-    delTxIn :: TxIn -> m ()
+    utxoPut :: TxIn -> TxOut -> m ()
+    utxoDel :: TxIn -> m ()
+
+instance MonadUtxoRead m => MonadUtxoRead (ReaderT e m) where
+    utxoGet = lift . utxoGet
+
+instance MonadUtxo m => MonadUtxo (ReaderT e m) where
+    utxoPut a = lift . utxoPut a
+    utxoDel = lift . utxoDel
+
+instance MonadUtxoRead m => MonadUtxoRead (ExceptT e m) where
+    utxoGet = lift . utxoGet
+
+instance MonadUtxo m => MonadUtxo (ExceptT e m) where
+    utxoPut a = lift . utxoPut a
+    utxoDel = lift . utxoDel

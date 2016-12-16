@@ -31,6 +31,7 @@ import           Pos.State                  (MonadDB)
 import           Pos.Statistics             (MonadStats)
 import           Pos.Txp.LocalData          (MonadTxLD)
 import           Pos.Util.JsonLog           (MonadJL)
+import           Pos.Wallet.KeyStorage      (MonadKeys)
 import           Pos.Wallet.Web.State.State (MonadWalletWebDB (..), WalletState)
 import           Pos.WorkMode               ()
 
@@ -43,7 +44,7 @@ newtype WalletWebDB m a = WalletWebDB
 #ifdef WITH_ROCKS
                 Modern.MonadDB ssc, Modern.MonadTxpLD ssc,
 #endif
-                WithDefaultMsgHeader, MonadJL, CanLog, MonadTxLD, MonadStats)
+                WithDefaultMsgHeader, MonadJL, CanLog, MonadTxLD, MonadStats, MonadKeys)
 
 instance Monad m => WrappedM (WalletWebDB m) where
     type UnwrappedM (WalletWebDB m) = ReaderT WalletState m

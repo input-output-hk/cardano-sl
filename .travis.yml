@@ -1,27 +1,22 @@
 sudo: false
-os:
-  - linux
-  - osx
-language: nix
-env:
-  - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/0e8e4a08f35187285105a4a586fe2eec727a552a.tar.gz
+language: c
 cache:
   directories:
   - "$HOME/.stack"
   - "$HOME/build/input-output-hk/pos-haskell-prototype/.stack-work"
-
-# Until https://github.com/NixOS/nixpkgs/issues/21200 is fixed
+addons:
+  apt:
+    packages:
+    - libgmp-dev
 before_install:
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
-- travis_retry curl -L https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64 | tar xz --strip-components=1 -C ~/.local/bin
-- nix-shell --run ":"
-- stack --nix --no-terminal build --nix --test --no-haddock-deps --only-dependencies --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks
-
+- travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards
+  --strip-components=1 -C ~/.local/bin '*/stack'
+install:
+- stack --no-terminal --install-ghc build --only-dependencies --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks
 script:
-- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then stack --nix --no-terminal build --nix --test --no-haddock-deps --bench --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks; fi
-- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then stack --nix --no-terminal build --nix --test --no-haddock-deps --bench --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet; fi
-
+- stack --no-terminal build --test --haddock --no-haddock-deps --bench --jobs=4 --no-run-benchmarks --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks
 notifications:
   email: false
   slack:

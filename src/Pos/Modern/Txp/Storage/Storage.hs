@@ -24,7 +24,6 @@ import           Control.Monad.IfElse            (aifM)
 import qualified Data.HashMap.Strict             as HM
 import qualified Data.HashSet                    as HS
 import qualified Data.List.NonEmpty              as NE
-import           Data.Maybe                      (fromJust)
 import           Formatting                      (build, sformat, text, (%))
 import           Serokell.Util                   (VerificationRes (..))
 import           System.Wlog                     (WithLogger, logError)
@@ -79,20 +78,17 @@ txApplyBlocks blocks = do
             -- I can improve it, if it is bottlneck
 
             -- We apply all blocks and filter mempool for every block
-            mapM_ (uncurry txApplyBlock)
-                  (zip (NE.toList blocks `zip` txs) (repeat Nothing))
+            mapM_ txApplyBlock (NE.toList blocks `zip` txs)
             normalizeTxpLD
 
 txApplyBlock :: TxpWorkMode ssc m
-             => (Block ssc, [IdTxWitness]) -> Maybe [BatchOp ssc] -> m ()
-txApplyBlock (b, txs) computedBatch = do
+             => (Block ssc, [IdTxWitness]) -> m ()
+txApplyBlock (b, txs) = do
     when (not . isGenesisBlock $ b) $ do
         let hashPrevHeader = b ^. prevBlockL
         tip <- getTip
-        if (hashPrevHeader == tip) then do
-            -- SIMPLIFY IT!!!
-            let batch = fromJust (computedBatch <|>
-                                 (Just $ foldr' prependToBatch [] txs))
+        if hashPrevHeader == tip then do
+            let batch = foldr' prependToBatch [] txs
             filterMemPool txs
             writeBatchToUtxo (PutTip (headerHash b) : batch)
         else
@@ -220,8 +216,8 @@ txRollbackBlock = do
     errorMsg msg = logError $ sformat ("Error during rollback block from Undo DB: "%text) msg
 
     prependToBatch :: Either Text [BatchOp ssc] -> (Tx, [TxOut]) -> Either Text [BatchOp ssc]
-    prependToBatch er@(Left _) _ = er
-    prependToBatch (Right batch) (tx@Tx{..}, undoTx) = do
+    prependToBatch batchOrError (tx@Tx{..}, undoTx) = do
+        batch <- batchOrError
         --TODO more detailed message must be here
         unless (length undoTx == length txInputs) $ Left "Number of txInputs must be equal length of undo"
         let txId = hash tx

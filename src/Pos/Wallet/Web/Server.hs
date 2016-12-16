@@ -56,7 +56,7 @@ import           Pos.Wallet.Web.State            (MonadWalletWebDB (..), WalletS
                                                   WalletWebDB, closeState, openState,
                                                   runWalletWebDB)
 import           Pos.Web.Server                  (serveImpl)
-import           Pos.Wallet.Web.ClientTypes      (CWallet, addressToCAddress, CAddress)
+import           Pos.Wallet.Web.ClientTypes      (addressToCAddress, CAddress)
 import           Pos.WorkMode                    (SocketState, TxLDImpl, runTxLDImpl)
 
 ----------------------------------------------------------------------------
@@ -158,7 +158,7 @@ servantHandlers :: SscConstraint ssc => ServerT WalletApi (WebHandler ssc)
 servantHandlers = getAddresses :<|> getBalances :<|> send :<|>
                   getHistory :<|> newAddress :<|> deleteAddress
 
-getAddresses :: WebHandler ssc [CAddress]
+getAddresses :: SscConstraint ssc => WebHandler ssc [CAddress]
 getAddresses = map fst <$> getBalances
 
 getBalances :: SscConstraint ssc => WebHandler ssc [(CAddress, Coin)]

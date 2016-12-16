@@ -93,7 +93,6 @@ txApplyBlock (b, txs) computedBatch = do
             -- SIMPLIFY IT!!!
             let batch = fromJust (computedBatch <|>
                                  (Just $ foldr' prependToBatch [] txs))
-            filterMemPool txs
             writeBatchToUtxo (PutTip (headerHash b) : batch)
         else
             logError "Error during application of block to Undo DB: No TIP"
@@ -231,12 +230,6 @@ txRollbackBlock = getTip >>=
             putIn = map (uncurry AddTxOut) $ zip txInputs undoTx
             delOut = map DelTxIn $ take (length txOutputs) keys
         return $ foldr' (:) (foldr' (:) batch putIn) delOut --how we could simplify it?
-
--- | Remove from mem pool transactions from block
-filterMemPool :: MonadTxpLD ssc m => [IdTxWitness]  -> m ()
-filterMemPool blockTxs = modifyTxpLD (\(uv, mp, tip) ->
-    let newMPTxs = (localTxs mp) `HM.difference` (HM.fromList blockTxs) in
-    ((), (uv, MemPool newMPTxs (HM.size newMPTxs), tip)))
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Removed from MemPool invalid transactions

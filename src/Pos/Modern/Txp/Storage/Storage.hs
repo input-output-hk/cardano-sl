@@ -48,7 +48,7 @@ import           Pos.Types                       (Block, IdTxWitness, MonadUtxo,
                                                   applyTxToUtxo', blockSlot, blockTxws,
                                                   blockTxws, convertFrom', headerHash,
                                                   prevBlockL, slotIdF, topsortTxs,
-                                                  verifyTx)
+                                                  verifyTxPure)
 import           Pos.Types.Utxo                  (verifyAndApplyTxs, verifyTxUtxo)
 
 type TxpWorkMode ssc m = ( Ssc ssc
@@ -147,13 +147,11 @@ processTx :: MinTxpWorkMode ssc m => IdTxWitness -> m ProcessTxRes
 processTx itw@(_, (tx, _)) = do
     tipBefore <- getTip
     resolved <-
-      foldM (\s inp -> utxoGet inp >>=
-                       maybe (pure s) (\x -> pure $ HM.insert inp x s))
-            HM.empty (txInputs tx)
+      foldM (\s inp -> maybe s (\x -> HM.insert inp x s) <$> utxoGet inp)
+            mempty (txInputs tx)
     db <- getUtxoDB
     modifyTxpLD (\txld@(_, mp, tip) ->
-        let
-            localSize = localTxsSize mp in
+        let localSize = localTxsSize mp in
         if tipBefore == tip then
             if localSize < maxLocalTxs
                 then processTxDo txld resolved db itw
@@ -164,32 +162,31 @@ processTx itw@(_, (tx, _)) = do
 
 processTxDo :: TxpLD ssc -> HM.HashMap TxIn TxOut -> DB ssc
             -> IdTxWitness -> (ProcessTxRes, TxpLD ssc)
-processTxDo ld@(uv, mp, tip) resolvedIns utxoDB (id, (tx, txw)) =
-    let
-        locTxs = localTxs mp
-        locTxsSize = localTxsSize mp
-        addUtxo' = addUtxo uv
-        delUtxo' = delUtxo uv
-        inputResolver tin = return $
-            if HS.member tin delUtxo' then Nothing
-            else maybe (HM.lookup tin addUtxo') Just (HM.lookup tin resolvedIns) in
-    if not $ HM.member id locTxs then
-        let verifyRes = runIdentity $ verifyTx inputResolver (tx, txw) in
+processTxDo ld@(uv, mp, tip) resolvedIns utxoDB (id, (tx, txw))
+    | HM.member id locTxs = (PTRknown, ld)
+    | otherwise =
         case verifyRes of
             VerSuccess        -> newState addUtxo' delUtxo' locTxs locTxsSize
             VerFailure errors -> ((mkPTRinvalid errors), ld)
-     else
-         (PTRknown, ld)
   where
+    verifyRes = verifyTxPure inputResolver (tx, txw)
+    locTxs = localTxs mp
+    locTxsSize = localTxsSize mp
+    addUtxo' = addUtxo uv
+    delUtxo' = delUtxo uv
+    inputResolver tin
+        | HS.member tin delUtxo' = Nothing
+        | otherwise =
+            maybe (HM.lookup tin addUtxo') Just (HM.lookup tin resolvedIns)
     newState nAddUtxo nDelUtxo oldTxs oldSize =
-        let
-            keys = zipWith TxIn (repeat id) [0..]
+        let keys = zipWith TxIn (repeat id) [0 ..]
             zipKeys = zip keys (txOutputs tx)
             newAddUtxo' = foldl' (flip $ uncurry HM.insert) nAddUtxo zipKeys
-            newDelUtxo' = foldl' (flip HS.insert) nDelUtxo (txInputs tx) in
-        (PTRadded, (UtxoView newAddUtxo' newDelUtxo' utxoDB,
-                    MemPool (HM.insert id (tx, txw) oldTxs) (oldSize + 1),
-                    tip))
+            newDelUtxo' = foldl' (flip HS.insert) nDelUtxo (txInputs tx)
+        in ( PTRadded
+           , ( UtxoView newAddUtxo' newDelUtxo' utxoDB
+             , MemPool (HM.insert id (tx, txw) oldTxs) (oldSize + 1)
+             , tip))
 
 -- | Rollback last @n@ blocks. This will replace current utxo to utxo
 -- of desired depth block and also filter local transactions so they

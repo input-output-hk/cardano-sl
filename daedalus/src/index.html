@@ -16,8 +16,9 @@
     <ul>
       <li><button onclick="Daedalus.ClientApi.hello('Daedalus')()">Say hello</button></li>
       <li><button onclick="Daedalus.ClientApi.helloCallback(function(msg) { console.log(msg + ' Daedalus') });">Hello callback</button></li>
-      <li><button onclick="Daedalus.Debug.debugAddresses()();">getAddresses</button></li>
+      <li><button onclick="Daedalus.Debug.logAddresses(function(){})();">getAddresses</button></li>
       <li><button onclick="logAddressesP();"/>getAddresses w/Promise</li>
+      <li><button onclick="Daedalus.Debug.logBalances(function(){})();">getBalances</button></li>
     </ul>
 	</body>
 </html>

@@ -81,6 +81,10 @@ export default {
           '/addresses': {
             target: 'http://localhost:8090',  // proxy port of wallet-api
             secure: false
+          },
+          '/balances': {
+            target: 'http://localhost:8090',  // proxy port of wallet-api
+            secure: false
           }
         }
       }

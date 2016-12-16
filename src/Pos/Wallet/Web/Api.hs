@@ -23,6 +23,10 @@ type WalletApi =
     "send" :> Capture "from" Word :> Capture "to" Address :> Capture "amount" Coin :> Post '[JSON] ()
   :<|>
     "history" :> Capture "address" Address :> Get '[JSON] ([Tx], [Tx])
+  :<|>
+    "new_address" :> Post '[JSON] Address
+  :<|>
+    "delete_address" :> Capture "index" Word :> Post '[JSON] ()
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

@@ -234,9 +234,9 @@ txRollbackBlock = getTip >>=
 
 -- | Remove from mem pool transactions from block
 filterMemPool :: MonadTxpLD ssc m => [IdTxWitness]  -> m ()
-filterMemPool blockTxs = modifyTxpLD (\(uv, mp, tip) ->
+filterMemPool blockTxs = modifyTxpLD_ (\(uv, mp, tip) ->
     let newMPTxs = (localTxs mp) `HM.difference` (HM.fromList blockTxs) in
-    ((), (uv, MemPool newMPTxs (HM.size newMPTxs), tip)))
+    (uv, MemPool newMPTxs (HM.size newMPTxs), tip))
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Removed from MemPool invalid transactions

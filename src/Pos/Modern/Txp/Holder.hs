@@ -31,7 +31,6 @@ import           Universum
 import           Pos.Context                     (WithNodeContext)
 import           Pos.Slotting                    (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData         (MonadSscLD (..))
-import           Pos.Ssc.Class.Types             (Ssc (SscLocalData))
 import           Pos.State                       (MonadDB (..))
 import           Pos.Txp.LocalData               (MonadTxLD (..))
 import           Pos.Util.JsonLog                (MonadJL (..))
@@ -67,7 +66,7 @@ instance MonadBase IO m => MonadBase IO (TxpLDHolder ssc m) where
     liftBase = lift . liftBase
 
 instance MonadTransControl (TxpLDHolder ssc) where
-    type StT (TxpLDHolder ssc) a = StT (ReaderT (STM.TVar (SscLocalData ssc))) a
+    type StT (TxpLDHolder ssc) a = StT (ReaderT (TxpLDWrap ssc)) a
     liftWith = defaultLiftWith TxpLDHolder getTxpLDHolder
     restoreT = defaultRestoreT TxpLDHolder
 

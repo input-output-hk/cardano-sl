@@ -3,10 +3,6 @@ image: Visual Studio 2015
 
 build: off
 
-branches:
-  only:
-    - appveyor.yml
-
 cache:
   - "c:\\sr"
   - '.stack-work'

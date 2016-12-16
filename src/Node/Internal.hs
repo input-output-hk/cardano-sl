@@ -69,8 +69,7 @@ newtype ChannelIn m = ChannelIn (Channel.ChannelT m (Maybe BS.ByteString))
 newtype ChannelOut m = ChannelOut (NT.Connection m)
 
 startNode :: ( Mockable SharedAtomic m, Mockable Fork m
-             , Mockable Channel.Channel m, Mockable Throw m
-             , Mockable RunInUnboundThread m )
+             , Mockable Channel.Channel m, Mockable Throw m )
           => NT.Transport m
           -> StdGen
           -> (NodeId -> ChannelIn m -> m ())
@@ -131,15 +130,14 @@ data ConnectionState m =
 --
 nodeDispatcher :: forall m .
                   ( Mockable SharedAtomic m, Mockable Fork m
-                  , Mockable Channel.Channel m, Mockable RunInUnboundThread m
-                  , Mockable Throw m )
+                  , Mockable Channel.Channel m, Mockable Throw m )
                => NT.EndPoint m
                -> SharedAtomicT m (StdGen, Map Nonce (ThreadId m, ChannelIn m))
                -> (NodeId -> ChannelIn m -> m ())
                -> (NodeId -> ChannelIn m -> ChannelOut m -> m ())
                -> m ()
 nodeDispatcher endpoint incomingVar handlerIn handlerInOut =
-    runInUnboundThread $ loop Map.empty
+    loop Map.empty
   where
     loop :: DispatcherState m -> m ()
 --    loop state

@@ -101,8 +101,8 @@ makeListenerIndex = foldr combine (M.empty, [])
 
 startNode
     :: forall m .
-       ( Mockable Fork m, Mockable RunInUnboundThread m, Mockable Throw m
-       , Mockable Channel m, Mockable SharedAtomic m, MonadFix m )
+       ( Mockable Fork m, Mockable Throw m, Mockable Channel m
+       , Mockable SharedAtomic m, MonadFix m )
     => NT.Transport m
     -> StdGen
     -> [Worker m]

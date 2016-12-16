@@ -50,6 +50,31 @@ class Monad m => MonadSscGS ssc m | m -> ssc where
     setGlobalState    :: SscLocalData ssc -> m ()
     modifyGlobalState :: (SscGlobalState ssc -> (a, SscGlobalState ssc)) -> m a
 
+    -- This must be here. We should remove SscStorageClass, right?
+    sscApplyBlocksM :: AltChain ssc -> m ()
+
+    -- | Rollback application of last 'n' blocks.  blocks. If there
+    -- are less blocks than 'n' is, just leaves an empty ('def')
+    -- version.
+    sscRollbackM :: Word -> m ()
+
+    -- | Get global SSC data for the state that was observed N blocks ago.
+    sscGetGlobalStateByDepthM :: Word -> m (Maybe (SscGlobalState ssc)) -- does it actually need?
+    -- | Verify Ssc-related predicates of block sequence which is
+    -- about to be applied. It should check that SSC payload will be
+    -- consistent if this blocks are applied (after possible rollback
+    -- if first argument isn't zero).
+    sscVerifyBlocksM :: Word -> AltChain ssc -> m VerificationRes
+
+    -- [CSL-103]: these 3 functions should be replaced with something different.
+    sscGetOurSharesM
+        :: (AsBinary VssPublicKey)
+        -> m (HashMap Address (AsBinary EncShare))
+    sscGetParticipantsM :: Word -> Utxo ->
+                          m (Maybe (NonEmpty (AsBinary VssPublicKey)))
+    sscCalculateLeadersM :: EpochIndex -> Utxo -> Threshold ->
+                           m (Either (SscSeedError ssc) SlotLeaders)
+
     default getGlobalState :: MonadTrans t => t m (SscGlobalState ssc)
     getGlobalState = lift getGlobalState
 
@@ -66,8 +91,6 @@ class HasSscStorage ssc a where
 
 -- | Class for @SSC@ storage.
 class Ssc ssc => SscStorageClass ssc where
-    -- sscCalculateSeed :: SscQuery ssc (Either (SscSeedError ssc) SharedSeed)
-
     sscApplyBlocks :: AltChain ssc -> SscUpdate ssc ()
 
     -- | Rollback application of last 'n' blocks.  blocks. If there

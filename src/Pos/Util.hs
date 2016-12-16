@@ -53,6 +53,11 @@ module Pos.Util
        -- * LRU
        , clearLRU
 
+       -- * Binary serialization
+       , AsBinary (..)
+       , AsBinaryClass (..)
+       , fromBinaryM
+
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
        ) where
@@ -60,7 +65,7 @@ module Pos.Util
 import           Control.Lens                  (Lens', LensLike', Magnified, Zoomed,
                                                 lensRules, magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
-import           Control.Monad.Fail            (fail)
+import           Control.Monad.Fail            (MonadFail, fail)
 import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
 import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
                                                 Second, for, killThread)
@@ -364,3 +369,24 @@ instance (Ord k, SafeCopy k, SafeCopy v) =>
 -- | Create HashSet from HashMap's keys
 getKeys :: HashMap k v -> HashSet k
 getKeys = fromMap . void
+
+----------------------------------------------------------------------------
+-- Deserialized wrapper
+----------------------------------------------------------------------------
+
+-- | See `Pos.Crypto.SerTypes` for details on this types
+
+newtype AsBinary a = AsBinary
+    { getAsBinary :: ByteString
+    } deriving (Show, Eq)
+
+instance SafeCopy (AsBinary a) where
+    getCopy = contain $ AsBinary <$> safeGet
+    putCopy = contain . safePut . getAsBinary
+
+class AsBinaryClass a where
+  asBinary :: a -> AsBinary a
+  fromBinary :: AsBinary a -> Either [Char] a
+
+fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
+fromBinaryM = either fail return . fromBinary

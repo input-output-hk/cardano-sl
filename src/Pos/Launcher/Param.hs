@@ -6,12 +6,12 @@ module Pos.Launcher.Param
        , NodeParams (..)
        ) where
 
-import           System.Wlog (LoggerName)
+import           System.Wlog   (LoggerName)
 import           Universum
 
-import           Pos.Crypto  (SecretKey)
-import           Pos.DHT     (DHTKey, DHTNode, DHTNodeType)
-import           Pos.Types   (Timestamp, Utxo)
+import           Pos.Crypto    (SecretKey)
+import           Pos.DHT.Model (DHTKey, DHTNode, DHTNodeType)
+import           Pos.Types     (Timestamp, Utxo)
 
 -- | Contains all parameters required for hierarchical logger initialization.
 data LoggingParams = LoggingParams

@@ -14,7 +14,7 @@ module Pos.Wallet.Web.Server
 
 import qualified Control.Monad.Catch        as Catch
 import           Control.Monad.Except       (MonadError (throwError))
-import           Control.TimeWarp.Rpc       (Transfer, Dialog)
+import           Control.TimeWarp.Rpc       (Dialog, Transfer)
 import           Data.List                  ((!!))
 import           Formatting                 (int, ords, sformat, (%))
 import           Network.Wai                (Application)
@@ -24,13 +24,15 @@ import           Servant.Server             (Handler, ServantErr (errBody), Serv
 import           Servant.Utils.Enter        ((:~>) (..), enter)
 import           Universum
 
-import           Pos.DHT                    (dhtAddr, getKnownPeers, DHTPacking)
+import           Pos.DHT.Model              (DHTPacking, dhtAddr, getKnownPeers)
 import           Pos.DHT.Real               (KademliaDHTContext, getKademliaDHTCtx,
                                              runKademliaDHTRaw)
 import           Pos.Genesis                (genesisAddresses, genesisSecretKeys)
 import           Pos.Launcher               (runTimed)
 #ifdef WITH_ROCKS
-import qualified Pos.Modern.DB              as Modern
+import qualified Pos.Modern.DB                   as Modern
+import qualified Pos.Modern.Txp.Holder           as Modern
+import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 #endif
 import           Pos.Context                (ContextHolder, NodeContext, getNodeContext,
                                              runContextHolder)
@@ -39,15 +41,15 @@ import           Pos.Ssc.LocalData          (SscLDImpl, runSscLDImpl)
 import qualified Pos.State                  as St
 import           Pos.Statistics             (getNoStatsT)
 import           Pos.Txp.LocalData          (TxLocalData, getTxLocalData, setTxLocalData)
-import           Pos.Types                  (Address, Coin (Coin), TxOut (..), addressF, coinF,
-                                             decodeTextAddress, TxId)
-import           Pos.Wallet.Tx              (getBalance, submitTx)
+import           Pos.Types                  (Address, Coin (Coin), Tx, TxOut (..), addressF,
+                                             coinF, decodeTextAddress)
+import           Pos.Wallet.Tx              (getBalance, getTxHistory, submitTx)
 import           Pos.Wallet.Web.Api         (WalletApi, walletApi)
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletState, WalletWebDB,
                                              closeState, openState, runWalletWebDB)
 import           Pos.Web.Server             (serveImpl)
 import           Pos.Wallet.Web.ClientTypes (CWallet, addressToCAddress, CAddress)
-import           Pos.WorkMode               (ProductionMode, TxLDImpl, SocketState, runTxLDImpl)
+import           Pos.WorkMode               (ProductionMode, SocketState, TxLDImpl, runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -67,7 +69,11 @@ walletApplication daedalusDbPath = bracket openDB closeDB $ \ws ->
 ----------------------------------------------------------------------------
 
 type WebHandler ssc = WalletWebDB (ProductionMode ssc)
-type SubKademlia ssc = (TxLDImpl (
+type SubKademlia ssc = (
+#ifdef WITH_ROCKS
+                   Modern.TxpLDHolder ssc (
+#endif
+                       TxLDImpl (
                            SscLDImpl ssc (
                                ContextHolder ssc (
 #ifdef WITH_ROCKS
@@ -76,7 +82,7 @@ type SubKademlia ssc = (TxLDImpl (
                                        St.DBHolder ssc (Dialog DHTPacking
                                             (Transfer SocketState))))))
 #ifdef WITH_ROCKS
-                       )
+                       ))
 #endif
 
 convertHandler
@@ -104,6 +110,9 @@ convertHandler kctx tld nc ns ws handler =
             runContextHolder nc .
             runSscLDImpl .
             runTxLDImpl .
+#ifdef WITH_ROCKS
+            flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDB) .
+#endif
             runKademliaDHTRaw kctx .
             getNoStatsT .
             runWalletWebDB ws $
@@ -136,7 +145,7 @@ servantServer = flip enter servantHandlers <$> (nat @ssc)
 ----------------------------------------------------------------------------
 
 servantHandlers :: SscConstraint ssc => ServerT WalletApi (WebHandler ssc)
-servantHandlers = getAddresses :<|> getBalances :<|> send -- :<|> getWallets
+servantHandlers = getAddresses :<|> getBalances :<|> send :<|> getHistory
 
 getAddresses :: WebHandler ssc [CAddress]
 getAddresses = pure $ map addressToCAddress genesisAddresses
@@ -162,8 +171,8 @@ send srcIdx dstAddr c
               sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
               c srcIdx dstAddr
 
--- getWallets :: SscConstraint ssc => WebHandler ssc [CWallet]
--- getWallets = undefined
+getHistory :: SscConstraint ssc => Address -> WebHandler ssc ([Tx], [Tx])
+getHistory = getTxHistory
 
 ----------------------------------------------------------------------------
 -- Orphan instances

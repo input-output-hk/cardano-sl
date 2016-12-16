@@ -15,7 +15,8 @@ import           Universum
 
 import           Pos.Binary.Class        (Bi)
 import           Pos.Communication.Types (SysStartRequest (..), SysStartResponse (..))
-import           Pos.DHT                 (ListenerDHT (..), closeResponse, replyToNode, MonadDHTDialog)
+import           Pos.DHT.Model           (ListenerDHT (..), MonadDHTDialog, closeResponse,
+                                          replyToNode)
 import           Pos.Types               (Timestamp)
 import           Pos.WorkMode            (MinWorkMode, SocketState)
 

@@ -34,7 +34,6 @@ import           Servant.Server                       (Handler, ServantErr (errB
 import           Servant.Utils.Enter                  ((:~>) (Nat), enter)
 import           Universum
 
-import           Pos.Binary                           (deserializeM)
 import           Pos.Context                          (ContextHolder, NodeContext,
                                                        getNodeContext, ncPublicKey,
                                                        ncSscContext, runContextHolder)
@@ -51,6 +50,7 @@ import           Pos.Txp.LocalData                    (TxLocalData, getLocalTxs,
 import           Pos.Types                            (EpochIndex (..), SharedSeed,
                                                        SlotId (siEpoch, siSlot),
                                                        SlotLeaders, headerHash)
+import           Pos.Util                             (fromBinaryM)
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
 import           Pos.Web.Types                        (GodTossingStage (..))
@@ -179,7 +179,7 @@ getOurSecret = maybe (throwM err) (pure . convertGtSecret) =<< getSecret
     doPanic = panic "our secret is malformed"
     convertGtSecret =
         secretToSharedSeed .
-        fromMaybe doPanic . deserializeM . getOpening . view _3
+        fromMaybe doPanic . fromBinaryM . getOpening . view _3
 
 getGtStage :: GtWebHandler GodTossingStage
 getGtStage = do

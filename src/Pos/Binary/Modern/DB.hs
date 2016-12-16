@@ -8,7 +8,7 @@ import           Universum
 
 import           Pos.Binary.Class    (Bi (..))
 import           Pos.Modern.DB.Types (StoredBlock (..))
-import           Pos.Ssc.Class       (Ssc)
+import           Pos.Ssc.Class.Types (Ssc)
 
 instance Ssc ssc =>
          Bi (StoredBlock ssc) where

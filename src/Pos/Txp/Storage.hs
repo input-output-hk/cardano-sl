@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -19,6 +18,7 @@ module Pos.Txp.Storage
 
        , getUtxoByDepth
        , getUtxo
+       , getOldestUtxo
        , isTxVerified
        , txVerifyBlocks
        , txApplyBlocks
@@ -27,8 +27,9 @@ module Pos.Txp.Storage
        , filterLocalTxs
        ) where
 
-import           Control.Lens            (each, ix, makeClassy, over, preview, use, uses,
-                                          view, (%=), (.=), (<&>), (<~), (^.), _1)
+import           Control.Lens            (each, ix, makeClassy, over, preview, to, use,
+                                          uses, view, (%=), (.=), (<&>), (<~), (^.), _1)
+import           Data.List               (last)
 import qualified Data.List.NonEmpty      as NE
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Formatting              (build, int, sformat, (%))
@@ -39,9 +40,9 @@ import           Pos.Constants           (k)
 import           Pos.Crypto              (WithHash (..), withHash)
 import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types               (Block, IdTxWitness, SlotId, Tx (..), TxWitness,
-                                          Utxo, applyTxToUtxo', blockSlot, blockTxws,
-                                          convertFrom', normalizeTxs', slotIdF,
-                                          verifyAndApplyTxs, verifyTxUtxo)
+                                          Utxo, applyTxToUtxoPure', blockSlot, blockTxws,
+                                          convertFrom', normalizeTxsPure', slotIdF,
+                                          verifyAndApplyTxsPure, verifyTxUtxoPure)
 
 -- | Transaction-related state part, includes transactions, utxo and
 -- auxiliary structures needed for transaction processing.
@@ -70,7 +71,7 @@ type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
 -- | Applies transaction to current utxo. Should be called only if
 -- it's possible to do so (see 'verifyTx').
 applyTx :: IdTxWitness -> Update ()
-applyTx tx = txUtxo %= applyTxToUtxo' tx
+applyTx tx = txUtxo %= applyTxToUtxoPure' tx
 
 -- | Given number of blocks to rollback and some sidechain to adopt it
 -- checks if it can be done prior to transaction validity. Returns a
@@ -91,7 +92,7 @@ txVerifyBlocks (fromIntegral -> toRollback) newChain = do
              -> (SlotId, [(WithHash Tx, TxWitness)])
              -> Either Text (Utxo, [[(WithHash Tx, TxWitness)]])
     verifyDo (utxo, accTxs) (slotId, txws) =
-        case verifyAndApplyTxs txws utxo of
+        case verifyAndApplyTxsPure txws utxo of
           Left reason         -> Left $ sformat eFormat slotId reason
           Right (txws',utxo') -> Right (utxo',txws':accTxs)
     eFormat =
@@ -106,6 +107,10 @@ getUtxo = view txUtxo
 getUtxoByDepth :: Word -> Query (Maybe Utxo)
 getUtxoByDepth (fromIntegral -> depth) = preview $ txUtxoHistory . ix depth
 
+-- | Get the very first (genesis) utxo.
+getOldestUtxo :: Query Utxo
+getOldestUtxo = view $ txUtxoHistory . to last
+
 -- | Check if given transaction is verified, e. g.
 -- is present in `k` and more blocks deeper
 isTxVerified :: (Tx, TxWitness) -> Query Bool
@@ -113,7 +118,7 @@ isTxVerified tx = do
     mutxo <- getUtxoByDepth k
     case mutxo of
         Nothing   -> pure False
-        Just utxo -> case verifyTxUtxo utxo tx of
+        Just utxo -> case verifyTxUtxoPure utxo tx of
             VerSuccess   -> pure True
             VerFailure _ -> pure False
 
@@ -176,7 +181,7 @@ resetLocalUtxo = do
 -- spends utxo we were counting on). Returns new transaction list,
 -- sorted.
 filterLocalTxs :: [IdTxWitness] -> Utxo -> [IdTxWitness]
-filterLocalTxs localTxs = normalizeTxs' localTxs
+filterLocalTxs localTxs = normalizeTxsPure' localTxs
 
 -- | Takes the utxo we have now, reset it to head of utxo history and
 -- apply all localtransactions we have. It applies @filterLocalTxs@

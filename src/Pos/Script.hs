@@ -79,6 +79,8 @@ txScriptCheck validator redeemer = do
 -- Orphan instances, to be included into plutus-prototype
 ----------------------------------------------------------------------------
 
+deriving instance Show PLCore.PrimData
+
 deriving instance (Show a, Show (PLCore.ClauseF a)) => Show (PLCore.TermF a)
 deriving instance (Eq a, Eq (PLCore.ClauseF a)) => Eq (PLCore.TermF a)
 
@@ -104,6 +106,7 @@ instance Binary r => Binary (PLCore.ClauseF r)
 instance Binary a => Binary (PLCore.TermF a)
 instance Binary a => Binary (PLCore.PatternF a)
 instance Binary PLCore.TermDeclaration
+instance Binary PLCore.PrimData
 instance Binary PLCore.Program
 
 instance NFData Vars.FreeVar
@@ -116,6 +119,9 @@ instance NFData (f (ABT.Scope f)) => NFData (ABT.Scope f)
 instance NFData r => NFData (PLCore.ClauseF r)
 instance NFData a => NFData (PLCore.TermF a)
 instance NFData a => NFData (PLCore.PatternF a)
+instance NFData PLCore.TermDeclaration
+instance NFData PLCore.PrimData
+instance NFData Script
 
 instance Bi PLCore.Term => SafeCopy PLCore.Term where
     getCopy = getCopyBinary "Term"

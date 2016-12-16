@@ -29,6 +29,7 @@ module Pos.State.Storage
 
        , getUtxo
        , getUtxoByDepth
+       , getOldestUtxo
        , isTxVerified
        , processTx
 
@@ -62,7 +63,7 @@ import           Serokell.Util           (VerificationRes (..))
 import           System.Wlog             (WithLogger, logDebug)
 
 import           Pos.Constants           (k)
-import           Pos.Crypto              (LEncShare, LVssPublicKey, SecretKey, Threshold)
+import           Pos.Crypto              (EncShare, VssPublicKey, SecretKey, Threshold)
 import           Pos.Genesis             (genesisUtxo)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
@@ -77,9 +78,10 @@ import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockSt
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
                                           ProcessTxRes (..), mkPBRabort)
 import           Pos.Txp.Storage         (HasTxStorage (txStorage), TxStorage,
-                                          filterLocalTxs, getUtxo, getUtxoByDepth,
-                                          isTxVerified, processTx, txApplyBlocks,
-                                          txRollback, txStorageFromUtxo, txVerifyBlocks)
+                                          filterLocalTxs, getOldestUtxo, getUtxo,
+                                          getUtxoByDepth, isTxVerified, processTx,
+                                          txApplyBlocks, txRollback, txStorageFromUtxo,
+                                          txVerifyBlocks)
 import           Pos.Types               (Address, Block, EpochIndex, EpochOrSlot (..),
                                           GenesisBlock, IdTxWitness, MainBlock,
                                           SlotId (..), SlotLeaders, Utxo, blockMpc,
@@ -87,7 +89,7 @@ import           Pos.Types               (Address, Block, EpochIndex, EpochOrSlo
                                           flattenSlotId, gbHeader, getEpochOrSlot,
                                           headerHashG, slotIdF, unflattenSlotId,
                                           verifyTxAlone)
-import           Pos.Util                (readerToState, _neLast)
+import           Pos.Util                (AsBinary, readerToState, _neLast)
 
 
 -- | Main cardano-sl state, combining sub-states into single one.
@@ -373,7 +375,7 @@ calculateLeaders epoch = do
 getParticipants
     :: forall ssc.
        SscStorageClass ssc
-    => EpochIndex -> Query ssc (Maybe (NonEmpty LVssPublicKey))
+    => EpochIndex -> Query ssc (Maybe (NonEmpty (AsBinary VssPublicKey)))
 getParticipants epoch = do
     mDepth <- getMpcCrucialDepth epoch
     mUtxo <- getUtxoByDepth .=<<. mDepth
@@ -405,6 +407,6 @@ getMpcCrucialDepth epoch = do
 getOurShares
     :: forall ssc.
        SscStorageClass ssc
-    => LVssPublicKey -- ^ Our VSS key
-    -> Query ssc (HashMap Address LEncShare)
+    => AsBinary VssPublicKey -- ^ Our VSS key
+    -> Query ssc (HashMap Address (AsBinary EncShare))
 getOurShares = sscGetOurShares @ssc

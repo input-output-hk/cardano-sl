@@ -22,12 +22,12 @@ decodeResult :: forall a eff. (Generic a) => {response :: Json | eff} -> Either 
 decodeResult res = decodeJson res.response
 
 getAddresses :: forall eff. Aff (ajax :: AJAX | eff) (Either String (Array CAddress))
-getAddresses = makeRequest "/addresses"
+getAddresses = makeRequest "/api/addresses"
 
 getBalances :: forall eff. Aff (ajax :: AJAX | eff) (Either String (Array (Tuple CAddress Coin)))
-getBalances = makeRequest "/balances"
+getBalances = makeRequest "/api/balances"
 
 newAddress :: forall eff. Aff (ajax::AJAX | eff) (Either String CAddress)
 newAddress = do
-  res <- attempt $ affjax $ defaultRequest { url = "/new_address", method = Left POST }
+  res <- attempt $ affjax $ defaultRequest { url = "/api/new_address", method = Left POST }
   pure $ either (Left <<< show) decodeResult res

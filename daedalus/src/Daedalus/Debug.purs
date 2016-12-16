@@ -23,26 +23,26 @@ logFail msg err = error $ msg <> " " <> err
 logSuccess :: forall e a. (Generic a) => String -> a -> Eff (console :: CONSOLE| e) Unit
 logSuccess msg result = log <<< (<>) msg <<< printJson $ encodeJson result
 
--- | debug '/address'
+-- | debug '/api/address'
 logAddresses :: forall e. Aff (ajax :: AJAX, console :: CONSOLE| e) Unit
 logAddresses = do
   result <- getAddresses
   case result of
-    Right addr -> liftEff $ logSuccess "[RESULT of '/address'] " addr
-    Left err -> liftEff $ logFail "[Error of '/address']" err
+    Right addr -> liftEff $ logSuccess "[RESULT of '/api/address'] " addr
+    Left err -> liftEff $ logFail "[Error of '/api/address']" err
 
--- | debug '/balances'
+-- | debug '/api/balances'
 logBalances :: forall e. Aff (ajax :: AJAX, console :: CONSOLE| e) Unit
 logBalances = do
   result <- getBalances
   case result of
-    Right addr -> liftEff $ logSuccess "[RESULT of '/balances'] " addr
-    Left err -> liftEff $ logFail "[Error of '/balances']" err
+    Right addr -> liftEff $ logSuccess "[RESULT of '/api/balances'] " addr
+    Left err -> liftEff $ logFail "[Error of '/api/balances']" err
 
--- | debug '/new_address'
+-- | debug '/api/new_address'
 logNewAddress :: forall e. Aff (ajax :: AJAX, console :: CONSOLE| e) Unit
 logNewAddress = do
   result <- newAddress
   case result of
-    Right addr -> liftEff $ logSuccess "[RESULT of '/new_address'] " addr
-    Left err -> liftEff $ logFail "[Error of '/new_address']" err
+    Right addr -> liftEff $ logSuccess "[RESULT of '/api/new_address'] " addr
+    Left err -> liftEff $ logFail "[Error of '/api/apinew_address']" err

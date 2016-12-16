@@ -6,10 +6,6 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const DEBUG = process.env.NODE_ENV !== 'production';
 
 const libName = 'Daedalus';
-const proxyWalletApi = {
-  target: 'http://localhost:8090',  // proxy port of wallet-api
-  secure: false
-}
 
 export default {
   path: path.join(__dirname, '/dist/'),
@@ -82,9 +78,10 @@ export default {
           poll: 1000
         },
         proxy: {
-          '/addresses': proxyWalletApi,
-          '/balances': proxyWalletApi,
-          '/new_address': proxyWalletApi
+          '/api': {
+            target: 'http://localhost:8090',  // proxy port of wallet-api
+            secure: false
+          }
         }
       }
     } : {}

@@ -37,7 +37,7 @@ import Data.Typeable
 import Control.Exception hiding (bracket, throw)
 import qualified Network.Transport.Abstract as NT
 import qualified Network.Transport as NT (EventErrorCode(EventConnectionLost, EventEndPointFailed, EventTransportFailed))
-import System.Random (RandomGen, random)
+import System.Random (StdGen, random)
 import Mockable.Class
 import Mockable.Concurrent
 import Mockable.Exception
@@ -49,10 +49,10 @@ import Mockable.SharedAtomic
 newtype NodeId = NodeId NT.EndPointAddress
   deriving (Eq, Ord, Show)
 
-data Node (m :: * -> *) = forall g . RandomGen g => Node {
+data Node (m :: * -> *) = Node {
        nodeEndPoint         :: NT.EndPoint m,
        nodeDispatcherThread :: ThreadId m,
-       nodeExpectedIncoming :: SharedAtomicT m (g, Map Nonce (ThreadId m, ChannelIn m))
+       nodeExpectedIncoming :: SharedAtomicT m (StdGen, Map Nonce (ThreadId m, ChannelIn m))
      }
 
 type Nonce = Word64
@@ -70,9 +70,9 @@ newtype ChannelOut m = ChannelOut (NT.Connection m)
 
 startNode :: ( Mockable SharedAtomic m, Mockable Fork m
              , Mockable Channel.Channel m, Mockable Throw m
-             , Mockable RunInUnboundThread m, RandomGen g )
+             , Mockable RunInUnboundThread m )
           => NT.Transport m
-          -> g
+          -> StdGen
           -> (NodeId -> ChannelIn m -> m ())
           -> (NodeId -> ChannelIn m -> ChannelOut m -> m ())
           -> m (Node m)
@@ -132,7 +132,7 @@ data ConnectionState m =
 nodeDispatcher :: forall m g .
                   ( Mockable SharedAtomic m, Mockable Fork m
                   , Mockable Channel.Channel m, Mockable RunInUnboundThread m
-                  , Mockable Throw m, RandomGen g )
+                  , Mockable Throw m )
                => NT.EndPoint m
                -> SharedAtomicT m (g, Map Nonce (ThreadId m, ChannelIn m))
                -> (NodeId -> ChannelIn m -> m ())

@@ -28,7 +28,7 @@ import qualified Data.ByteString.Builder.Extra as BS
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import qualified Network.Transport.Abstract as NT
-import System.Random (RandomGen)
+import System.Random (StdGen)
 import Mockable.Class
 import Mockable.Concurrent
 import Mockable.Channel
@@ -100,12 +100,11 @@ makeListenerIndex = foldr combine (M.empty, [])
         in  (map', overlapping ++ existing)
 
 startNode
-    :: forall m g .
+    :: forall m .
        ( Mockable Fork m, Mockable RunInUnboundThread m, Mockable Throw m
-       , Mockable Channel m, Mockable SharedAtomic m, RandomGen g
-       , MonadFix m )
+       , Mockable Channel m, Mockable SharedAtomic m, MonadFix m )
     => NT.Transport m
-    -> g
+    -> StdGen
     -> [Worker m]
     -> [Listener m]
     -> m (Node m)

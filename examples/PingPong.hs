@@ -82,10 +82,11 @@ main = mdo
     let prng4 = mkStdGen 3
 
     putStrLn "Starting nodes"
-    node1 <- startNode transport prng1 (workers nodeId1 prng2 [nodeId2]) (listeners nodeId1)
-    node2 <- startNode transport prng4 (workers nodeId2 prng4 [nodeId1]) (listeners nodeId2)
-    let nodeId1 = nodeId node1
-    let nodeId2 = nodeId node2
+    rec { node1 <- startNode transport prng1 (workers nodeId1 prng2 [nodeId2]) (listeners nodeId1)
+        ; node2 <- startNode transport prng3 (workers nodeId2 prng4 [nodeId1]) (listeners nodeId2)
+        ; let nodeId1 = nodeId node1
+        ; let nodeId2 = nodeId node2
+        }
 
     putStrLn "Hit return to stop"
     _ <- getChar

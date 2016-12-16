@@ -1,0 +1,9 @@
+resolver: lts-7.13
+packages:
+  - '.'
+nix:
+  enable: false
+  packages: []
+extra-deps: []
+flags: {}
+extra-package-dbs: []

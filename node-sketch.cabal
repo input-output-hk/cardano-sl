@@ -27,3 +27,20 @@ Library
                      , network-transport
                      , transformers
  hs-source-dirs:     src
+
+executable ping-pong
+  main-is:             PingPong.hs
+  build-depends:       base >= 4.8 && < 5
+                     , network-transport-inmemory
+                     , network-transport-tcp
+                     , node-sketch
+                     , random
+
+  hs-source-dirs:      examples
+  default-language:    Haskell2010
+  ghc-options:         -threaded -Wall -fno-warn-orphans
+  default-extensions:  DeriveGeneric
+                       DeriveDataTypeable
+                       GeneralizedNewtypeDeriving
+                       OverloadedStrings
+                       RecordWildCards

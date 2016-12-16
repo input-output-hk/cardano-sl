@@ -466,7 +466,7 @@ executable cardano-wallet-hs2purs
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-wallet)
+  if flag(with-wallet) && flag(with-web)
     buildable:         True
   else
     buildable:         False

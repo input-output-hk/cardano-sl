@@ -120,6 +120,7 @@ library
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Server
                         Pos.Communication.Server.Block
+                        Pos.Communication.Server.Cert
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Util
                         Pos.CompileConfig.Parser

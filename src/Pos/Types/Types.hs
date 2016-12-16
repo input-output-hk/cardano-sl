@@ -147,7 +147,7 @@ import           Serokell.AcidState     ()
 import           Serokell.Aeson.Options (defaultOptions)
 import qualified Serokell.Util.Base16   as B16
 import           Serokell.Util.Text     (listJson, listJsonIndent, mapBuilderJson,
-                                         pairBuilder)
+                                         pairBuilder, pairF)
 import           Universum
 
 import           Pos.Binary.Address     ()
@@ -192,6 +192,9 @@ newtype EpochIndex = EpochIndex
 
 instance Buildable EpochIndex where
     build = bprint ("epoch #"%int)
+
+instance Buildable (EpochIndex,EpochIndex) where
+    build = bprint ("epochIndices: "%pairF)
 
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex

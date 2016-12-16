@@ -69,7 +69,7 @@ import qualified Pos.Modern.Txp.Holder           as Modern
 import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 #endif
 import           Pos.Context                     (ContextHolder (..), NodeContext (..),
-                                                  runContextHolder)
+                                                  defaultProxyStorage, runContextHolder)
 import           Pos.DHT.Model.Class             (DHTPacking, MonadDHTDialog)
 import           Pos.DHT.Real                    (KademliaDHT, KademliaDHTConfig (..),
                                                   KademliaDHTInstance,
@@ -260,22 +260,23 @@ runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
 
 runCH :: MonadIO m
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
-runCH NodeParams {..} sscNodeContext act =
-    flip runContextHolder act . ctx =<<
-    (,) <$> liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile) <*>
-    liftIO newEmptyMVar
-  where
-    ctx (jlFile, semaphore) =
-        NodeContext
-        { ncSystemStart = npSystemStart
-        , ncSecretKey = npSecretKey
-        , ncTimeLord = npTimeLord
-        , ncJLFile = jlFile
-        , ncDbPath = npDbPath
-        , ncSscContext = sscNodeContext
-        , ncPropagation = npPropagation
-        , ncBlkSemaphore = semaphore
-        }
+runCH NodeParams {..} sscNodeContext act = do
+    jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
+    semaphore <- liftIO newEmptyMVar
+    proxyStorage <- liftIO $ newMVar defaultProxyStorage
+    let ctx =
+            NodeContext
+            { ncSystemStart = npSystemStart
+            , ncSecretKey = npSecretKey
+            , ncTimeLord = npTimeLord
+            , ncJLFile = jlFile
+            , ncDbPath = npDbPath
+            , ncProxyStorage = proxyStorage
+            , ncSscContext = sscNodeContext
+            , ncPropagation = npPropagation
+            , ncBlkSemaphore = semaphore
+            }
+    runContextHolder ctx act
 
 runTimed :: LoggerName -> Dialog DHTPacking (Transfer SocketState) a -> IO a
 runTimed loggerName =

@@ -20,5 +20,5 @@ debugAddresses = launchAff do
   case result of
     Right addr -> liftEff <<< log <<< (<>) "RESULT of '[CAddress]': " <<<
       printJson $ encodeJson addr
-    Left err -> do
+    Left err ->
       liftEff <<< error $ "ERROR " <> err

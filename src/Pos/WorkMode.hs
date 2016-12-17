@@ -59,7 +59,8 @@ import           Pos.DHT.Model                 (DHTPacking, DHTResponseT (..),
                                                 WithDefaultMsgHeader)
 import           Pos.DHT.Real                  (KademliaDHT (..))
 #ifdef WITH_ROCKS
-import qualified Pos.Modern.DB                 as Modern
+import qualified Pos.Modern.DB.Class           as Modern
+import qualified Pos.Modern.DB.Holder          as Modern
 import           Pos.Modern.Txp.Class          (MonadTxpLD (..))
 import           Pos.Modern.Txp.Holder         (TxpLDHolder)
 #endif

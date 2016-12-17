@@ -195,9 +195,10 @@ library
                         Pos.Modern.DB.Utxo
                         Pos.Modern.Txp.Class
                         Pos.Modern.Txp.Error
+                        Pos.Modern.Txp.Storage
                         Pos.Modern.Txp.Storage.Storage
-                        Pos.Modern.Txp.Storage.UtxoView
                         Pos.Modern.Txp.Storage.Types
+                        Pos.Modern.Txp.Storage.UtxoView
                         Pos.Modern.Txp.Holder
                         Pos.Modern.Txp.Listeners
   if flag(with-web)

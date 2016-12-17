@@ -15,6 +15,8 @@ module Pos.Crypto.Hashing
          -- * WithHash
          WithHash (..)
        , withHash
+       , _whData
+       , _whHash
 
          -- * AbstractHash
        , AbstractHash (..)
@@ -35,6 +37,7 @@ module Pos.Crypto.Hashing
        ) where
 
 import           Control.DeepSeq     (force)
+import           Control.Lens        (makeLensesFor)
 import           Crypto.Hash         (Blake2s_224, Digest, HashAlgorithm)
 import qualified Crypto.Hash         as Hash (hash, hashlazy)
 import           Data.Aeson          (ToJSON (toJSON))
@@ -142,3 +145,6 @@ class CastHash a b where
 
 instance CastHash a a where
     castHash = identity
+
+-- | Lenses for 'WithHash'
+makeLensesFor [("whData", "_whData"), ("whHash", "_whHash")] ''WithHash

@@ -115,6 +115,7 @@ library
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
                         Pos.Binary.Types
+                        Pos.Block.Logic
                         Pos.Block.Server
                         Pos.Block.Server.State
                         Pos.Block.Server.Listeners

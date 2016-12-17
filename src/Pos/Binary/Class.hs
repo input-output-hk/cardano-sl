@@ -12,11 +12,9 @@ module Pos.Binary.Class
        , decodeOrFail
        , decodeFull
 
-       , Serialized (..)
-       , deserializeM
        ) where
 
-import           Control.Monad.Fail          (MonadFail, fail)
+import           Control.Monad.Fail          (fail)
 import           Data.Binary                 (Get, Put)
 import qualified Data.Binary                 as Binary
 import           Data.Binary.Get             (ByteOffset, getWord8, runGet, runGetOrFail)
@@ -278,18 +276,3 @@ instance Bi a => Bi (V.Vector a) where
     put v = do
         put (G.length v)
         G.mapM_ put v
-
-----------------------------------------------------------------------------
--- Deserialized wrapper
-----------------------------------------------------------------------------
-
-class Bi b => Serialized a b where
-    serialize :: a -> b
-    deserialize :: b -> Either [Char] a
-
-deserializeM :: (Serialized a b, MonadFail m) => b -> m a
-deserializeM = either fail return . deserialize
-
-instance (Serialized a c, Serialized b d) => Serialized (a, b) (c, d) where
-    serialize (a, b) = (serialize a, serialize b)
-    deserialize (c, d) = (,) <$> deserialize c <*> deserialize d

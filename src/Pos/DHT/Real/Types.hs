@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
@@ -31,10 +32,13 @@ import           System.Wlog               (CanLog, HasLoggerName)
 import           Universum                 hiding (async, fromStrict, mapConcurrently,
                                             toStrict)
 
-import           Pos.DHT.Class             (DHTMsgHeader (..), ListenerDHT (..),
+import           Pos.DHT.Model.Class       (DHTMsgHeader (..), ListenerDHT (..),
                                             WithDefaultMsgHeader (..))
-import           Pos.DHT.Types             (DHTData, DHTKey, DHTNode (..),
+import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..),
                                             DHTNodeType (..))
+#ifdef WITH_ROCKS
+import           Pos.Modern.Txp.Class      (MonadTxpLD (..))
+#endif
 
 toBSBinary :: Bi b => b -> BS.ByteString
 toBSBinary = toStrict . encode
@@ -93,7 +97,11 @@ data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
 -- | Node of /Kademlia DHT/ algorithm with access to 'KademliaDHTContext'.
 newtype KademliaDHT m a = KademliaDHT { unKademliaDHT :: ReaderT (KademliaDHTContext m) m a }
     deriving (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadIO,
-             MonadMask, MonadTimed, MonadDialog s p, CanLog, HasLoggerName)
+             MonadMask, MonadTimed, MonadDialog s p, CanLog, HasLoggerName
+#ifdef WITH_ROCKS
+                , MonadTxpLD ssc
+#endif
+                )
 
 instance MonadResponse s m => MonadResponse s (KademliaDHT m) where
     replyRaw dat = KademliaDHT $ replyRaw (hoist unKademliaDHT dat)

@@ -22,7 +22,7 @@ import           Universum                       hiding (forConcurrently)
 
 import           Pos.Constants                   (k, neighborsSendThreshold, slotDuration)
 import           Pos.Crypto                      (KeyPair (..), hash)
-import           Pos.DHT                         (DHTNodeType (..), MonadDHT, dhtAddr,
+import           Pos.DHT.Model                   (DHTNodeType (..), MonadDHT, dhtAddr,
                                                   discoverPeers, getKnownPeers)
 import           Pos.DHT.Real                    (KademliaDHT (..), KademliaDHTInstance)
 import           Pos.Genesis                     (genesisSecretKeys, genesisUtxo)

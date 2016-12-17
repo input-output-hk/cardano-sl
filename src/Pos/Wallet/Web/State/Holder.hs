@@ -15,21 +15,23 @@ import           Control.Lens               (iso)
 import           Control.Monad.Trans        (MonadTrans (..))
 import           Control.TimeWarp.Rpc       (MonadDialog, MonadTransfer)
 import           Control.TimeWarp.Timed     (MonadTimed, ThreadId)
-import           Pos.DHT                    (MonadDHT, MonadMessageDHT,
-                                             WithDefaultMsgHeader)
 import           Serokell.Util.Lens         (WrappedM (..))
 import           System.Wlog                (CanLog, HasLoggerName)
 
 import           Pos.Context                (WithNodeContext)
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB              as Modern (MonadDB)
+import qualified Pos.Modern.Txp.Class       as Modern (MonadTxpLD)
 #endif
+import           Pos.DHT.Model              (MonadDHT, MonadMessageDHT,
+                                             WithDefaultMsgHeader)
 import           Pos.Slotting               (MonadSlots)
 import           Pos.Ssc.Class              (MonadSscLD)
 import           Pos.State                  (MonadDB)
 import           Pos.Statistics             (MonadStats)
 import           Pos.Txp.LocalData          (MonadTxLD)
 import           Pos.Util.JsonLog           (MonadJL)
+import           Pos.Wallet.KeyStorage      (MonadKeys)
 import           Pos.Wallet.Web.State.State (MonadWalletWebDB (..), WalletState)
 import           Pos.WorkMode               ()
 
@@ -40,9 +42,9 @@ newtype WalletWebDB m a = WalletWebDB
                 MonadMask, MonadIO, MonadDB ssc, HasLoggerName, WithNodeContext ssc,
                 MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots, MonadSscLD ssc,
 #ifdef WITH_ROCKS
-                Modern.MonadDB ssc,
+                Modern.MonadDB ssc, Modern.MonadTxpLD ssc,
 #endif
-                WithDefaultMsgHeader, MonadJL, CanLog, MonadTxLD, MonadStats)
+                WithDefaultMsgHeader, MonadJL, CanLog, MonadTxLD, MonadStats, MonadKeys)
 
 instance Monad m => WrappedM (WalletWebDB m) where
     type UnwrappedM (WalletWebDB m) = ReaderT WalletState m

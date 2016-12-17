@@ -26,7 +26,7 @@ import           Universum
 
 import           Pos.Binary.Types       ()
 import           Pos.Crypto             (Hash, hash, hashHexF)
-import           Pos.DHT                (DHTResponseT)
+import           Pos.DHT.Model          (DHTResponseT)
 import           Pos.Ssc.Class.Types    (Ssc)
 import           Pos.Types              (BiSsc, Block, SlotId (..), blockHeader, blockTxs,
                                          epochIndexL, gbHeader, gbhPrevBlock, headerHash,

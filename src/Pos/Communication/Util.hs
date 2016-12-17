@@ -4,10 +4,10 @@ module Pos.Communication.Util
        ( modifyListenerLogger
        ) where
 
-import           System.Wlog (HasLoggerName, LoggerName, modifyLoggerName)
+import           System.Wlog   (HasLoggerName, LoggerName, modifyLoggerName)
 import           Universum
 
-import           Pos.DHT     (ListenerDHT (..))
+import           Pos.DHT.Model (ListenerDHT (..))
 
 -- | Append given logger name to the name used by listener.
 modifyListenerLogger

@@ -6,16 +6,16 @@
 -- | Provides functionality of representing `Bi` instances as correct
 -- `Message`s used by time-warp.
 
-module Pos.Binary.DHT () where
+module Pos.Binary.DHTModel () where
 
-import           Control.Monad.Fail (fail)
-import           Data.Binary.Get    (getWord8)
-import           Data.Binary.Put    (putWord8)
+import           Control.Monad.Fail  (fail)
+import           Data.Binary.Get     (getWord8)
+import           Data.Binary.Put     (putWord8)
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..))
-import           Pos.DHT.Class      (DHTMsgHeader (..))
-import           Pos.DHT.Types      (DHTData (..), DHTKey (..))
+import           Pos.Binary.Class    (Bi (..))
+import           Pos.DHT.Model.Class (DHTMsgHeader (..))
+import           Pos.DHT.Model.Types (DHTData (..), DHTKey (..))
 
 instance Bi DHTMsgHeader where
     put BroadcastHeader  = putWord8 0

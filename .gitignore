@@ -36,12 +36,12 @@ nohup.out
 logs
 stats-node-*
 .ipynb_checkpoints
-*.json
 *.ipynb
 testRun
 *.csv
 my-log-template.yaml
 tags
 run
-bla
+*.swp
+.ghci
 *.key

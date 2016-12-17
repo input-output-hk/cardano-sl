@@ -56,21 +56,20 @@ import           Pos.Wallet.Web.State            (MonadWalletWebDB (..), WalletS
                                                   WalletWebDB, closeState, openState,
                                                   runWalletWebDB)
 import           Pos.Web.Server                  (serveImpl)
+import           Pos.Wallet.Web.ClientTypes      (addressToCAddress, CAddress)
 import           Pos.WorkMode                    (SocketState, TxLDImpl, runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
 ----------------------------------------------------------------------------
 
-walletServeWeb :: SscConstraint ssc => Word16 -> WalletRealMode ssc ()
-walletServeWeb webPort = serveImpl walletApplication webPort
+walletServeWeb :: SscConstraint ssc => FilePath -> Word16 -> WalletRealMode ssc ()
+walletServeWeb daedalusDbPath = serveImpl $ walletApplication daedalusDbPath
 
--- TODO: Make a configuration datatype for wallet web api
--- to make database path configurable
-walletApplication :: SscConstraint ssc => WalletRealMode ssc Application
-walletApplication = bracket openDB closeDB $ \ws ->
+walletApplication :: SscConstraint ssc => FilePath -> WalletRealMode ssc Application
+walletApplication daedalusDbPath = bracket openDB closeDB $ \ws ->
     runWalletWebDB ws servantServer >>= return . serve walletApi
-  where openDB = openState False "bla"
+  where openDB = openState False daedalusDbPath
         closeDB = closeState
 
 ----------------------------------------------------------------------------
@@ -159,12 +158,13 @@ servantHandlers :: SscConstraint ssc => ServerT WalletApi (WebHandler ssc)
 servantHandlers = getAddresses :<|> getBalances :<|> send :<|>
                   getHistory :<|> newAddress :<|> deleteAddress
 
-getAddresses :: WebHandler ssc [Address]
-getAddresses = map (makePubKeyAddress . toPublic) <$> mySecretKeys
+getAddresses :: SscConstraint ssc => WebHandler ssc [CAddress]
+getAddresses = map fst <$> getBalances
 
-getBalances :: SscConstraint ssc => WebHandler ssc [(Address, Coin)]
-getBalances = join $ mapM gb <$> getAddresses
-  where gb addr = (,) addr <$> getBalance addr
+getBalances :: SscConstraint ssc => WebHandler ssc [(CAddress, Coin)]
+getBalances = join $ mapM gb <$> addresses
+  where gb addr = (,) (addressToCAddress addr) <$> getBalance addr
+        addresses = map (makePubKeyAddress . toPublic) <$> mySecretKeys
 
 send :: SscConstraint ssc
      => Word -> Address -> Coin -> WebHandler ssc ()
@@ -187,8 +187,8 @@ send srcIdx dstAddr c = do
 getHistory :: SscConstraint ssc => Address -> WebHandler ssc ([Tx], [Tx])
 getHistory = getTxHistory
 
-newAddress :: WebHandler ssc Address
-newAddress = makePubKeyAddress . toPublic <$> newSecretKey
+newAddress :: WebHandler ssc CAddress
+newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
 
 deleteAddress :: Word -> WebHandler ssc ()
 deleteAddress = deleteSecretKey

@@ -1,0 +1,37 @@
+{
+  "name": "daedalus",
+  "description": "Daedalus wallet client library",
+  "main": "dist/index.js",
+  "authors": [
+    "Ante Kegalj <akegalj@gmail.com>"
+  ],
+  "license": "ISC",
+  "keywords": [
+    "daedalus",
+    "cryptocurrency",
+    "avm",
+    "cardano",
+    "wallet"
+  ],
+  "homepage": "https://github.com/input-output-hk/pos-haskell-prototype",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "devDependencies": {
+    "purescript-psci-support": "^1.0.0"
+  },
+  "dependencies": {
+    "purescript-console": "^1.0.0",
+    "purescript-affjax": "^2.0.1",
+    "purescript-eff-functions": "^1.0.0",
+    "purescript-eff": "^1.0.0",
+    "purescript-argonaut": "^1.0.0",
+    "purescript-argonaut-generic-codecs": "^3.0.1",
+    "purescript-aff": "^1.1.0",
+    "purescript-aff-promise": "0.2.1"
+  }
+}

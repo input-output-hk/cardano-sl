@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+    <script type="text/javascript">
+      var logAddressesP = function() {
+        Daedalus.ClientApi.getAddressesP()
+          .then(function(result) {console.log(result)})
+      };
+    </script>
+		<title></title>
+	</head>
+	<body>
+    <h1>Let's talk Daedalus!</h1>
+    <p>Check console to get some feedback.</p>
+    <ul>
+      <li><button onclick="Daedalus.ClientApi.hello('Daedalus')()">Say hello</button></li>
+      <li><button onclick="Daedalus.ClientApi.helloCallback(function(msg) { console.log(msg + ' Daedalus') });">Hello callback</button></li>
+      <li><button onclick="Daedalus.Debug.debugAddresses()();">getAddresses</button></li>
+      <li><button onclick="logAddressesP();"/>getAddresses w/Promise</li>
+    </ul>
+	</body>
+</html>

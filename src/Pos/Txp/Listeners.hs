@@ -103,6 +103,7 @@ handleTxDo tx = do
             logInfo $ sformat ("Node is overwhelmed, can't add tx: "%build) txId
     return (res == PTRadded)
 
+-- CHECK: #txLocalDataProcessTx
 processTx :: ResponseMode ssc m => IdTxWitness -> m ProcessTxRes
 processTx tx = do
     utxo <- St.getUtxo

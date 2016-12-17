@@ -9,26 +9,28 @@ module Pos.Wallet.Web.Doc
        ( walletDocsText
        ) where
 
-import           Control.Lens              ((.~), (<>~))
-import           Data.Default              (def)
-import qualified Data.HashMap.Strict       as HM
-import           Data.List                 ((!!))
-import qualified Data.Map                  as M
-import           Data.Proxy                (Proxy (..))
-import           Network.HTTP.Types.Method (methodPost)
-import           Servant.API               (Capture)
-import           Servant.Docs              (API, DocCapture (..), DocIntro (..),
-                                            DocNote (..), ExtraInfo (..),
-                                            ToCapture (toCapture), ToSample (toSamples),
-                                            defAction, defEndpoint, defaultDocOptions,
-                                            docsWith, markdown, method, notes, path,
-                                            singleSample)
-import qualified Servant.Docs              as SD
+import           Control.Lens               ((.~), (<>~))
+import           Data.Default               (def)
+import qualified Data.HashMap.Strict        as HM
+import           Data.List                  ((!!))
+import qualified Data.Map                   as M
+import           Data.Proxy                 (Proxy (..))
+import           Network.HTTP.Types.Method  (methodPost)
+import           Servant.API                (Capture)
+import           Servant.Docs               (API, DocCapture (..), DocIntro (..),
+                                             DocNote (..), ExtraInfo (..),
+                                             ToCapture (toCapture), ToSample (toSamples),
+                                             defAction, defEndpoint, defaultDocOptions,
+                                             docsWith, markdown, method, notes, path,
+                                             singleSample)
+import qualified Servant.Docs               as SD
 import           Universum
 
-import           Pos.Genesis               (genesisAddresses, genesisUtxo)
-import           Pos.Types                 (Address, Coin, Tx (..), TxIn (..))
-import           Pos.Wallet.Web.Api        (walletApi)
+import           Pos.Genesis                (genesisAddresses, genesisUtxo)
+import           Pos.Types                  (Address, Coin, Tx (..), TxIn (..))
+import           Pos.Wallet.Web.Api         (walletApi)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CHash, addressToCAddress)
+import           Prelude                    (fail)
 
 walletDocs :: API
 walletDocs = docsWith defaultDocOptions intros extras (SD.pretty walletApi)
@@ -111,6 +113,12 @@ instance ToSample Coin where
 
 instance ToSample Address where
     toSamples Proxy = singleSample $ genesisAddresses !! 0
+
+instance ToSample CHash where
+    toSamples Proxy = fail "ToSample CHash: Not Implemented!"
+
+instance ToSample CAddress where
+    toSamples Proxy = singleSample . addressToCAddress $ genesisAddresses !! 0
 
 instance ToSample () where
     toSamples Proxy = singleSample ()

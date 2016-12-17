@@ -111,6 +111,8 @@ getUtxoByDepth (fromIntegral -> depth) = preview $ txUtxoHistory . ix depth
 getOldestUtxo :: Query Utxo
 getOldestUtxo = view $ txUtxoHistory . to last
 
+-- CHECK # Checks whether transaction is at least `k` blocks deep in the blockchain.
+
 -- | Check if given transaction is verified, e. g.
 -- is present in `k` and more blocks deeper
 isTxVerified :: (Tx, TxWitness) -> Query Bool

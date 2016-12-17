@@ -82,6 +82,8 @@ txApplyHeadUtxo utxo = txRunUpdate $ applyHeadUtxoU utxo
 txLocalDataRollback :: MonadTxLD m => Word -> m ()
 txLocalDataRollback toRollback = txRunUpdate $ txLocalDataRollbackU toRollback
 
+-- CHECK: @txLocalDataProcessTx
+-- #processTxU
 txLocalDataProcessTx :: MonadTxLD m => IdTxWitness -> Utxo -> m ProcessTxRes
 txLocalDataProcessTx tx utxo = txRunUpdate $ processTxU tx utxo
 
@@ -90,6 +92,8 @@ getLocalTxsQ :: Query TxMap
 getLocalTxsQ = view txLocalTxs
 
 -- | Add transaction to storage if it is fully valid.
+-- CHECK: @processTxU
+-- #processTxDo
 processTxU :: IdTxWitness -> Utxo -> Update ProcessTxRes
 processTxU tx utxo = do
     localSetSize <- use txLocalTxsSize
@@ -97,6 +101,8 @@ processTxU tx utxo = do
         then processTxDo tx utxo
         else pure PTRoverwhelmed
 
+-- CHECK: @processTxDo
+-- #verifyTxUtxo
 processTxDo :: IdTxWitness -> Utxo -> Update ProcessTxRes
 processTxDo (id, tx) utxo =
     ifM isKnown (pure PTRknown) $

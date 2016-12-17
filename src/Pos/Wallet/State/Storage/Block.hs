@@ -25,7 +25,7 @@ import           Universum
 
 import           Pos.Crypto          (unsafeHash)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
-import           Pos.Types           (Block (..), HeaderHash (..))
+import           Pos.Types           (Block, HeaderHash)
 
 type Block' = Block SscGodTossing
 type HeaderHash' = HeaderHash SscGodTossing

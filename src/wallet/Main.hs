@@ -17,10 +17,13 @@ import           System.IO              (hFlush, stdout)
 import           Test.QuickCheck        (arbitrary, generate)
 import           Universum
 
+import           Pos.Communication      (sendProxySecretKey)
 import           Pos.Constants          (slotDuration)
-import           Pos.Crypto             (KeyPair (..), SecretKey, toPublic)
+import           Pos.Crypto             (KeyPair (..), SecretKey, createProxySecretKey,
+                                         toPublic)
 import           Pos.DHT.Model          (DHTNodeType (..), dhtAddr, discoverPeers)
-import           Pos.Genesis            (genesisSecretKeys, genesisUtxo)
+import           Pos.Genesis            (genesisPublicKeys, genesisSecretKeys,
+                                         genesisUtxo)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
                                          NodeParams (..), bracketDHTInstance,
                                          runTimeSlaveReal, stakesDistr)
@@ -28,7 +31,7 @@ import           Pos.Ssc.Class          (SscConstraint)
 import           Pos.Ssc.GodTossing     (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon     (SscNistBeacon)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
-import           Pos.Types              (makePubKeyAddress, txwF)
+import           Pos.Types              (EpochIndex (..), makePubKeyAddress, txwF)
 import           Pos.Wallet             (WalletMode, WalletRealMode, getBalance,
                                          runWallet, submitTx)
 #ifdef WITH_WEB
@@ -40,7 +43,7 @@ import           WalletOptions          (WalletAction (..), WalletOptions (..), 
 
 type CmdRunner = ReaderT ([SecretKey], [NetworkAddress])
 
-evalCmd :: WalletMode ssc m => Command -> CmdRunner m ()
+evalCmd :: (WalletMode ssc m) => Command -> CmdRunner m ()
 evalCmd (Balance addr) = lift (getBalance addr) >>=
                          putText . sformat ("Current balance: "%int) >>
                          evalCommands
@@ -57,15 +60,27 @@ evalCmd Help = do
             , "   send <N> [<address> <coins>]+  -- create and send transaction with given outputs"
             , "                                     from own address #N"
             , "   listaddr                       -- list own addresses"
+            , "   delegate <N> <M>               -- delegate secret key #N to #M (genesis)"
             , "   help                           -- show this message"
             , "   quit                           -- shutdown node wallet"
             ]
     evalCommands
 evalCmd ListAddresses = do
     addrs <- map (makePubKeyAddress . toPublic) <$> asks fst
-    putText "Available addresses:"
+    putText "Available addrsses:"
     forM_ (zip [0 :: Int ..] addrs) $
         putText . uncurry (sformat $ "    #"%int%":   "%build)
+    evalCommands
+evalCmd (Delegate i j) = do
+    let issuerSk = genesisSecretKeys !! i
+        delegatePk = genesisPublicKeys !! j
+        proxySig =
+            createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
+    putText $ pretty issuerSk
+    putText $ pretty delegatePk
+    putText "sending cert"
+    sendProxySecretKey proxySig
+    putText "sent cert"
     evalCommands
 evalCmd Quit = pure ()
 

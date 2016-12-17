@@ -153,6 +153,7 @@ runRawRealMode
     -> RawRealMode ssc c
     -> IO c
 runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ do
+    putText $ "Running listeners number: " <> show (length listeners)
     lift $ setupLoggers lp
     legacyDB <- snd <$> allocate openDb closeDb
 #ifdef WITH_ROCKS

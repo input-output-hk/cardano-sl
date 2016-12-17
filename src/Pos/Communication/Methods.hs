@@ -21,7 +21,7 @@ import           Control.TimeWarp.Rpc        (Message, NetworkAddress)
 import           Control.TimeWarp.Timed      (fork_)
 import           Formatting                  (build, sformat, (%))
 import           Pos.State                   (getHeadBlock)
-import           System.Wlog                 (logDebug)
+import           System.Wlog                 (logDebug, logNotice)
 import           Universum
 
 import           Pos.Binary.Class            (Bi)
@@ -38,11 +38,11 @@ import           Pos.Txp.Types.Communication (TxDataMsg (..))
 import           Pos.Types                   (EpochIndex, HeaderHash, MainBlockHeader, Tx,
                                               TxWitness, headerHash)
 import           Pos.Util                    (logWarningWaitLinear, messageName')
-import           Pos.WorkMode                (WorkMode)
+import           Pos.WorkMode                (MinWorkMode, WorkMode)
 
 -- | Wrapper on top of sendToNeighbors which does it in separate
 -- thread and controls how much time action takes.
-sendToNeighborsSafe :: (Bi r, Message r, WorkMode ssc m) => r -> m ()
+sendToNeighborsSafe :: (Bi r, Message r, MinWorkMode m) => r -> m ()
 sendToNeighborsSafe msg = do
     let msgName = messageName' msg
     let action = () <$ sendToNeighbors msg
@@ -80,8 +80,8 @@ sendTx addr (tx,w) = sendToNode addr $ TxDataMsg tx w
 
 -- | Sends proxy secret key to neighbours
 sendProxySecretKey
-    :: (WorkMode ssc m)
+    :: (MinWorkMode m)
     => ProxySecretKey (EpochIndex, EpochIndex) -> m ()
 sendProxySecretKey psk = do
-    logDebug $ sformat ("Sending proxySecretKey to neigbours:\n"%build) psk
+    logNotice $ sformat ("Sending proxySecretKey to neigbours:\n"%build) psk
     sendToNeighborsSafe $ SendProxySecretKey psk

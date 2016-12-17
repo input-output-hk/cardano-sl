@@ -86,9 +86,15 @@ onNewSlotWhenLeader
     -> m ()
 onNewSlotWhenLeader slotId pSk = do
     logInfo $
-        sformat
-            ("I am leader of " %slotIdF % ", I will create block soon")
-            slotId
+        maybe
+        (sformat
+            ("I'm the leader for the slot " %slotIdF % ", will create block soon.")
+            slotId)
+        (sformat
+            ("I have a right to create a delegated block for the slot "%slotIdF%
+             "using proxy signature key"%build%", will do it soon") slotId)
+        pSk
+    whenJust pSk $ logInfo . sformat ("Will use proxy signature key "%build)
     nextSlotStart <- getSlotStart (succ slotId)
     currentTime <- getCurrentTime
     let timeToCreate =

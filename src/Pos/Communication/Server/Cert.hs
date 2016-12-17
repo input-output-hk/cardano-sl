@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiWayIf       #-}
 {-# LANGUAGE RankNTypes       #-}
+{-# LANGUAGE TupleSections    #-}
 
 -- | Certificate (proxy secret key) propagation listeners and
 -- handlers. Small by design. Maybe it makes sense to rename it into
@@ -17,7 +18,7 @@ import qualified Data.HashMap.Strict       as HM
 import           Data.List                 (nub)
 import           Data.Time.Clock           (NominalDiffTime, addUTCTime, getCurrentTime)
 import           Formatting                (build, sformat, shown, (%))
-import           System.Wlog               (logDebug, logInfo)
+import           System.Wlog               (logDebug, logInfo, logNotice)
 import           Universum
 
 import           Pos.Binary.Communication  ()
@@ -38,23 +39,22 @@ certListeners = [ ListenerDHT handleProxySecretKey ]
 
 -- should be a constant
 cacheInvalidateTimeout :: NominalDiffTime
-cacheInvalidateTimeout = 30
+cacheInvalidateTimeout = 30 -- sec
 
-withProxyStorage :: (WorkMode ssc m) => (ProxyStorage -> m a) -> m a
+withProxyStorage :: (WorkMode ssc m) => (ProxyStorage -> m (a,ProxyStorage)) -> m a
 withProxyStorage action = do
     v <- ncProxyStorage <$> getNodeContext
-    action =<< liftIO (readMVar v)
-
-putProxyStorage :: (WorkMode ssc m) => ProxyStorage -> m ()
-putProxyStorage ps = do
-    v <- ncProxyStorage <$> getNodeContext
-    liftIO $ putMVar v ps
+    x <- liftIO $ takeMVar v
+    (res,modified) <- action x
+    liftIO $ putMVar v modified
+    pure res
 
 invalidateCaches :: (WorkMode ssc m) => m ()
 invalidateCaches = withProxyStorage $ \ProxyStorage{..} -> do
     curTime <- liftIO $ getCurrentTime
-    putProxyStorage $
-        ProxyStorage { ncProxyCache = HM.filter (\t -> addDelta t < curTime) ncProxyCache, .. }
+    pure $ ((), ProxyStorage
+                { ncProxyCache = HM.filter (\t -> addDelta t > curTime) ncProxyCache
+                , .. })
   where
     addDelta = addUTCTime cacheInvalidateTimeout
 
@@ -77,18 +77,16 @@ processProxySecretKey pSk = withProxyStorage $ \p@ProxyStorage{..} -> do
     let related = checkProxySecretKey sk pSk
         exists = pSk `elem` ncProxySecretKeys
         cached = HM.member pSk ncProxyCache
-    if | cached -> pure PSKCached
-       | exists -> pure PSKExists -- cache here too?
-       | not (related)-> cachePSK p >> pure PSKUnrelated
-       | otherwise -> addPSK p >> pure PSKAdded
+    if | cached -> pure (PSKCached, p)
+       | exists -> pure (PSKExists, p) -- cache here too?
+       | not (related) -> (PSKUnrelated,) <$> cachePSK p
+       | otherwise -> pure (PSKAdded, addPSK p)
   where
     addPSK ProxyStorage{..} =
-        putProxyStorage $
         ProxyStorage { ncProxySecretKeys = nub $ pSk : ncProxySecretKeys, .. }
     cachePSK ProxyStorage{..} = do
         curTime <- liftIO $ getCurrentTime
-        putProxyStorage $
-            ProxyStorage { ncProxyCache = HM.insert pSk curTime ncProxyCache, .. }
+        pure $ ProxyStorage { ncProxyCache = HM.insert pSk curTime ncProxyCache, .. }
 
 -- | Handler 'SendBlock' event.
 handleProxySecretKey
@@ -96,8 +94,8 @@ handleProxySecretKey
        (ResponseMode ssc m)
     => SendProxySecretKey -> m ()
 handleProxySecretKey (SendProxySecretKey pSk) = do
-    invalidateCaches -- do it in worker once in ~sometimes
     logDebug $ sformat ("Got request to handle proxy secret key: "%build) pSk
+    invalidateCaches -- do it in worker once in ~sometimes
     verdict <- processProxySecretKey pSk
     logResult verdict
     propagateProxySecretKey verdict pSk
@@ -105,7 +103,7 @@ handleProxySecretKey (SendProxySecretKey pSk) = do
     logResult PSKAdded =
         logInfo $ sformat ("Got valid related proxy secret key: "%build) pSk
     logResult verdict =
-        logInfo $
+        logDebug $
         sformat ("Got proxy signature that wasn't accepted. Reason: "%shown) verdict
 
 -- | Propagates proxy secret key depending on the decision

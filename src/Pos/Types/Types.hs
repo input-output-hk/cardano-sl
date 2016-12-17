@@ -486,6 +486,10 @@ data BlockSignature ssc
     | BlockPSignature (ProxySignature (EpochIndex, EpochIndex) (MainToSign ssc))
     deriving Show
 
+instance Buildable (BlockSignature ssc) where
+    build (BlockSignature s)  = bprint ("BlockSignature: "%build) s
+    build (BlockPSignature s) = bprint ("BlockPSignature: "%build) s
+
 instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
     data BodyProof (MainBlockchain ssc) = MainProof

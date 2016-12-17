@@ -7,14 +7,15 @@
 -- | Common things used in `Pos.Crypto.Arbitrary` and `Pos.Util.Arbitrary`
 
 module Pos.Util.Arbitrary
-    ( Nonrepeating (..)
-    , ArbitraryUnsafe (..)
-    , sublistN
-    , unsafeMakeList
-    , unsafeMakePool
-    , arbitrarySizedS
-    , arbitrarySizedSL
-    ) where
+       (
+         Nonrepeating (..)
+       , ArbitraryUnsafe (..)
+       , sublistN
+       , unsafeMakeList
+       , unsafeMakePool
+       , arbitrarySizedS
+       , arbitrarySizedSL
+       ) where
 
 import           Data.ByteString      (pack)
 import qualified Data.ByteString.Lazy as BL (ByteString, pack)

@@ -16,7 +16,7 @@ import           Universum
 import           Pos.Communication      (SysStartResponse (..))
 import           Pos.Constants          (slotDuration, sysTimeBroadcastSlots)
 import           Pos.Context            (NodeContext (..), getNodeContext)
-import           Pos.DHT                (sendToNetwork)
+import           Pos.DHT.Model                (sendToNetwork)
 import           Pos.Security.Workers   (SecurityWorkersClass, securityWorkers)
 import           Pos.Slotting           (onNewSlot)
 import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscWorkers)

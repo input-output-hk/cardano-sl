@@ -34,7 +34,7 @@ instance Default Storage where
         }
 
 type Query a = forall m. (MonadReader Storage m) => m a
-type Update a = forall m. (MonadThrow m, MonadState Storage m) => m a
+type Update a = forall m. ({-MonadThrow m, -}MonadState Storage m) => m a
 
 getDummyAttribute :: Query Int
 getDummyAttribute = view dummyAttribute

@@ -30,12 +30,14 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.State.State             (MonadDB (..), NodeState)
+import           Pos.Types                   (MonadUtxo, MonadUtxoRead)
 
 -- | Holder for database.
 newtype DBHolder ssc m a = DBHolder
     { getDBHolder :: ReaderT (NodeState ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
-               MonadCatch, MonadMask, MonadIO, HasLoggerName, CanLog, MonadDialog s p)
+               MonadCatch, MonadMask, MonadIO, HasLoggerName, CanLog, MonadDialog s p,
+               MonadUtxoRead, MonadUtxo)
 
 -- | Execute 'DBHolder' action with given 'NodeState'.
 runDBHolder :: NodeState ssc -> DBHolder ssc m a -> m a

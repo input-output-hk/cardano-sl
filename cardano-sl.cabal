@@ -48,17 +48,18 @@ library
                         Pos.CompileConfig
                         Pos.Constants
                         Pos.Crypto
-                        Pos.DHT
+                        Pos.DHT.Model
+                        Pos.DHT.Model.Types
+                        Pos.DHT.Model.Util
+                        Pos.DHT.Model.Class
+                        Pos.DHT.Model.Class.BiP
+                        Pos.DHT.Model.Class.MonadDHT
+                        Pos.DHT.Model.Class.MonadMessageDHT
                         Pos.DHT.Real
                         Pos.DHT.Real.Real
                         Pos.DHT.Real.Types
-                        Pos.DHT.Types
-                        Pos.DHT.Util
-                        Pos.DHT.Class
-                        Pos.DHT.Class.BiP
-                        Pos.DHT.Class.MonadDHT
-                        Pos.DHT.Class.MonadMessageDHT
                         Pos.FollowTheSatoshi
+                        Pos.Script
                         Pos.Ssc.Class
                         Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon
@@ -96,6 +97,7 @@ library
                         Pos.Types.Utxo
                         Pos.Util
                         Pos.Util.JsonLog
+                        Pos.Util.UserSecret
                         Pos.Worker
                         Pos.WorkMode
   if flag(with-web)
@@ -104,22 +106,28 @@ library
     exposed-modules:    Pos.Wallet
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
+                        Pos.Wallet.Web.ClientTypes
   other-modules:        Pos.Binary.Address
                         Pos.Binary.Class
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
-                        Pos.Binary.DHT
+                        Pos.Binary.DHTModel
                         Pos.Binary.Merkle
                         Pos.Binary.Script
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
                         Pos.Binary.Types
+                        Pos.Block.Server
+                        Pos.Block.Server.State
+                        Pos.Block.Server.Listeners
                         Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
+                        Pos.Communication.Types.State
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Server
                         Pos.Communication.Server.Block
+                        Pos.Communication.Server.Cert
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Util
                         Pos.CompileConfig.Parser
@@ -133,14 +141,12 @@ library
                         Pos.Crypto.Hashing
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
-                        Pos.Crypto.SerTypes
                         Pos.Crypto.Signing
                         Pos.Launcher.Launcher
                         Pos.Launcher.Options
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
-                        Pos.Script
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
@@ -170,6 +176,9 @@ library
                         Pos.Statistics.Tx
                         Pos.Txp.Types.Communication
                         Pos.Txp.LocalData
+                        Pos.Types.Utxo.Class
+                        Pos.Types.Utxo.Functions
+                        Pos.Types.Utxo.Pure
                         Pos.Worker.Block
                         Pos.Worker.Stats
                         Pos.Util.Arbitrary
@@ -179,14 +188,20 @@ library
                         Pos.Binary.Modern.DB
                         Pos.Modern.DB
                         Pos.Modern.DB.Block
-                        Pos.Modern.DB.Utxo
                         Pos.Modern.DB.Class
+                        Pos.Modern.DB.DB
+                        Pos.Modern.DB.Error
                         Pos.Modern.DB.Functions
                         Pos.Modern.DB.Holder
                         Pos.Modern.DB.Types
-                        Pos.Modern.Types.Utxo
+                        Pos.Modern.DB.Utxo
+                        Pos.Modern.Txp.Class
+                        Pos.Modern.Txp.Error
                         Pos.Modern.Txp.Storage
-                        Pos.Modern.Txp.LocalData
+                        Pos.Modern.Txp.Storage.Storage
+                        Pos.Modern.Txp.Storage.Types
+                        Pos.Modern.Txp.Storage.UtxoView
+                        Pos.Modern.Txp.Holder
                         Pos.Modern.Txp.Listeners
   if flag(with-web)
     other-modules:      Pos.Web.Api
@@ -196,6 +211,8 @@ library
   if flag(with-wallet)
     other-modules:      Pos.Wallet.Tx
                       , Pos.Wallet.WalletMode
+                      , Pos.Wallet.Launcher
+                      , Pos.Wallet.KeyStorage
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc
@@ -229,9 +246,11 @@ library
                       , deriving-compat
                       , digest
                       , directory
+                      , dlist
                       , ed25519
                       , exceptions
                       , file-embed >= 0.0.10
+                      , filelock >= 0.1.0.1
                       , filepath
                       , focus
                       , formatting
@@ -431,6 +450,40 @@ executable cardano-wallet
   if flag(with-web)
     cpp-options: -DWITH_WEB
 
+
+executable cardano-wallet-hs2purs
+  hs-source-dirs:      src/wallet-purescript
+  main-is:             Main.hs
+  other-modules:       PSTypes
+  build-depends:       base
+                     , cardano-sl
+                     , purescript-bridge
+                     , universum >= 0.1.11
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -with-rtsopts=-N
+                       -O2
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+  if flag(with-wallet) && flag(with-web)
+    buildable:         True
+  else
+    buildable:         False
+
+  if flag(with-web)
+    cpp-options: -DWITH_WEB
+
 executable cardano-smart-generator
   hs-source-dirs:      src/smart-generator
   main-is:             Main.hs
@@ -542,6 +595,20 @@ executable cardano-wallet-web-docs
   else
     buildable:         False
 
+executable cardano-checks
+  hs-source-dirs:      src/checks
+  main-is:             Main.hs
+  build-depends:       base
+                     , containers
+                     , foldl
+                     , text
+                     , turtle
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -Wall
+                       -O2
+  default-extensions:  OverloadedStrings
+
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec
@@ -610,6 +677,7 @@ benchmark cardano-bench-criterion
   main-is:             Local/Criterion.hs
   other-modules:       Bench.Pos.Criterion.FollowTheSatoshiBench
                        Bench.Pos.Criterion.TxSigningBench
+                       Bench.Pos.Criterion.TxVerifyingBench
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
                      , base
@@ -618,10 +686,15 @@ benchmark cardano-bench-criterion
                      , cardano-sl
                      , containers
                      , criterion
+                     , derive
                      , formatting
                      , hashtables
+                     , lens
                      , log-warper >= 0.1.0
+                     , serokell-util
+                     , text-format
                      , universum >= 0.1.11
+                     , vector
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -with-rtsopts=-N

@@ -20,7 +20,7 @@ import           System.Wlog              (WithLogger, logError, logInfo,
 import           Universum
 
 import           Pos.Constants            (slotDuration)
-import           Pos.DHT                  (DHTResponseT)
+import           Pos.DHT.Model            (DHTResponseT)
 import           Pos.DHT.Real             (KademliaDHT)
 import           Pos.Types                (FlatSlotId, SlotId (..), Timestamp (..),
                                            flattenSlotId, unflattenSlotId)

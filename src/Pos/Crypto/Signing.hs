@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric        #-}
 {-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -29,24 +30,15 @@ module Pos.Crypto.Signing
        , signRaw
        , verifyRaw
 
-       -- remove it when getting rid of cereal!
-       , secretKeyLength
-       , publicKeyLength
-       , signatureLength
-       , putAssertLength
-
        -- * Proxy signature scheme
-       , ProxyISignature (..)
-       , proxyISign
-       , proxyICheckSig
-
        , ProxyCert (..)
        , createProxyCert
        , ProxySecretKey (..)
        , createProxySecretKey
-       , ProxyDSignature (..)
-       , proxyDSign
-       , proxyDVerify
+       , ProxySignature (..)
+       , proxySign
+       , proxyVerify
+       , checkProxySecretKey
        ) where
 
 import           Control.Monad.Fail     (fail)
@@ -56,20 +48,19 @@ import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Coerce            (coerce)
 import           Data.Hashable          (Hashable)
-import           Data.SafeCopy          (SafeCopy (..), contain, safeGet, safePut)
-import qualified Data.Serialize         as Cereal
-import qualified Data.Text.Buildable    as Buildable
+import           Data.SafeCopy          (SafeCopy (..), base, contain,
+                                         deriveSafeCopySimple, safeGet, safePut)
+import qualified Data.Text.Buildable    as B
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (Format, bprint, int, later, sformat, stext, (%))
-import           Universum
-
+import           Formatting             (Format, bprint, build, later, sformat, (%))
 import qualified Serokell.Util.Base64   as Base64 (decode, encode)
+import           Universum
 
 import           Pos.Binary.Class       (Bi)
 import qualified Pos.Binary.Class       as Bi
 import           Pos.Crypto.Hashing     (hash, shortHashF)
 import           Pos.Crypto.Random      (secureRandomBS)
-import           Pos.Util               (Raw, getCopyBinary, putCopyBinary)
+import           Pos.Util               (Raw)
 
 ----------------------------------------------------------------------------
 -- Some orphan instances
@@ -83,76 +74,42 @@ instance NFData Ed25519.PublicKey
 instance NFData Ed25519.SecretKey
 instance NFData Ed25519.Signature
 
+deriveSafeCopySimple 0 'base ''Ed25519.PublicKey
+deriveSafeCopySimple 0 'base ''Ed25519.SecretKey
+deriveSafeCopySimple 0 'base ''Ed25519.Signature
+
 ----------------------------------------------------------------------------
 -- Keys, key generation & printing & decoding
 ----------------------------------------------------------------------------
 
 -- | Wrapper around 'Ed25519.PublicKey'.
 newtype PublicKey = PublicKey Ed25519.PublicKey
-    deriving (Eq, Ord, Show, Generic, NFData,
-              Cereal.Serialize, Hashable)
+    deriving (Eq, Ord, Show, Generic, NFData, Hashable)
 
 -- | Wrapper around 'Ed25519.SecretKey'.
 newtype SecretKey = SecretKey Ed25519.SecretKey
-    deriving (Eq, Ord, Show, Generic, NFData,
-              Cereal.Serialize, Hashable)
+    deriving (Eq, Ord, Show, Generic, NFData, Hashable)
 
-
--- TODO GET RID OF CEREAL STUFF HERE
-
-secretKeyLength, publicKeyLength, signatureLength :: Int
-secretKeyLength = 64
-publicKeyLength = 32
-signatureLength = 64
-
-putAssertLength :: Monad m => Text -> Int -> ByteString -> m ()
-putAssertLength typeName expectedLength bs =
-    when (BS.length bs /= expectedLength) $ panic $
-        sformat ("put@"%stext%": expected length "%int%", not "%int)
-                typeName expectedLength (BS.length bs)
-
--- Cereal (for safecopy -- todo write safecopy instead)
-
-instance Cereal.Serialize Ed25519.PublicKey where
-    put (Ed25519.PublicKey k) = do
-        putAssertLength "PublicKey" publicKeyLength k
-        Cereal.putByteString k
-    get = Ed25519.PublicKey <$> Cereal.getByteString publicKeyLength
-
-instance Cereal.Serialize Ed25519.SecretKey where
-    put (Ed25519.SecretKey k) = do
-        putAssertLength "SecretKey" secretKeyLength k
-        Cereal.putByteString k
-    get = Ed25519.SecretKey <$> Cereal.getByteString secretKeyLength
-
-instance Cereal.Serialize Ed25519.Signature where
-    put (Ed25519.Signature s) = do
-        putAssertLength "Signature" signatureLength s
-        Cereal.putByteString s
-    get = Ed25519.Signature <$> Cereal.getByteString signatureLength
-
-instance SafeCopy PublicKey where
-    -- an empty declaration uses Cereal.Serialize instance by default
-instance SafeCopy SecretKey where
-    -- an empty declaration uses Cereal.Serialize instance by default
+deriveSafeCopySimple 0 'base ''PublicKey
+deriveSafeCopySimple 0 'base ''SecretKey
 
 -- | Generate a public key from a secret key. Fast (it just drops some bytes
 -- off the secret key).
 toPublic :: SecretKey -> PublicKey
 toPublic (SecretKey k) = PublicKey (Ed25519.toPublicKey k)
 
-instance Bi PublicKey => Buildable.Buildable PublicKey where
+instance Bi PublicKey => B.Buildable PublicKey where
     -- Hash the key, take first 8 chars (that's how GPG does fingerprinting,
     -- except that their binary representation of the key is different)
     build = bprint ("pub:"%shortHashF) . hash
 
-instance Bi PublicKey => Buildable.Buildable SecretKey where
+instance Bi PublicKey => B.Buildable SecretKey where
     build = bprint ("sec:"%shortHashF) . hash . toPublic
 
 -- | 'Builder' for 'PublicKey' to show it in base64 encoded form.
 formatFullPublicKey :: PublicKey -> Builder
 formatFullPublicKey (PublicKey pk) =
-    Buildable.build . Base64.encode . Ed25519.unPublicKey $ pk
+    B.build . Base64.encode . Ed25519.unPublicKey $ pk
 
 -- | Specialized formatter for 'PublicKey' to show it in base64.
 fullPublicKeyF :: Format r (PublicKey -> r)
@@ -194,11 +151,11 @@ instance ToJSON PublicKey where
 newtype Signature a = Signature Ed25519.Signature
     deriving (Eq, Ord, Show, Generic, NFData, Hashable)
 
-instance Bi (Signature a) => SafeCopy (Signature a) where
-    putCopy = putCopyBinary
-    getCopy = getCopyBinary "Signature"
+instance SafeCopy (Signature a) where
+    putCopy (Signature sig) = contain $ safePut sig
+    getCopy = contain $ Signature <$> safeGet
 
-instance Buildable.Buildable (Signature a) where
+instance B.Buildable (Signature a) where
     build _ = "<signature>"
 
 -- | Encode something with 'Binary' and sign it.
@@ -239,35 +196,18 @@ instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
 -- Proxy signing
 ----------------------------------------------------------------------------
 
--- | Signature produced by issuer
-newtype ProxyISignature a = ProxyISignature { unProxyISignature :: Ed25519.Signature }
-    deriving (Eq, Ord, Show, Generic, NFData, Hashable)
-
-instance Buildable.Buildable (ProxyISignature a) where
-    build _ = "<proxy_i_signature>"
-
--- | Raw bytestring signing
-proxyISignRaw :: SecretKey -> ByteString -> ProxyISignature Raw
-proxyISignRaw (SecretKey k) m =
-    ProxyISignature (Ed25519.dsign k $ "11" `BS.append` m)
-
--- | Getting signature from binary representation of value
-proxyISign :: Bi a => SecretKey -> a -> ProxyISignature a
-proxyISign k = coerce . proxyISignRaw k . BSL.toStrict . Bi.encode
-
--- | Raw bytestring verification
-proxyIVerifyRaw :: PublicKey -> ByteString -> ProxyISignature Raw -> Bool
-proxyIVerifyRaw (PublicKey k) m (ProxyISignature s) =
-    Ed25519.dverify k ("11" `BS.append` m) s
-
--- | Verify a proxy issuer signature using value's binary
--- representation
-proxyICheckSig :: Bi a => PublicKey -> a -> ProxyISignature a -> Bool
-proxyICheckSig k m s = proxyIVerifyRaw k (BSL.toStrict (Bi.encode m)) (coerce s)
-
 -- | Proxy certificate, made of ω + public key of delegate.
 newtype ProxyCert w = ProxyCert { unProxyCert :: Ed25519.Signature }
     deriving (Eq, Ord, Show, Generic, NFData, Hashable)
+
+instance B.Buildable (ProxyCert w) where
+    build _ = "<proxy_cert>"
+
+-- Written by hand, because @deriveSafeCopySimple@ generates redundant
+-- constraint (SafeCopy w) though it's phantom.
+instance SafeCopy (ProxyCert w) where
+    putCopy (ProxyCert sig) = contain $ safePut sig
+    getCopy = contain $ ProxyCert <$> safeGet
 
 -- | Proxy certificate creation from secret key of issuer, public key
 -- of delegate and the message space ω.
@@ -281,36 +221,60 @@ createProxyCert (SecretKey issuerSk) (PublicKey delegatePk) o =
 
 -- | Convenient wrapper for secret key, that's basically ω plus
 -- certificate.
-data ProxySecretKey w = ProxySecretKey w (ProxyCert w)
-    deriving (Eq, Ord, Show, Generic)
+data ProxySecretKey w = ProxySecretKey
+    { pskOmega    :: w
+    , pskIssuerPk :: PublicKey
+    , pskCert     :: ProxyCert w
+    } deriving (Eq, Ord, Show, Generic)
 
 instance NFData w => NFData (ProxySecretKey w)
 instance Hashable w => Hashable (ProxySecretKey w)
 
+instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey w) where
+    build (ProxySecretKey w iPk _) =
+        bprint ("ProxySk { w = "%build%", iPk = "%build%" }") w iPk
+
+deriveSafeCopySimple 0 'base ''ProxySecretKey
+
 -- | Creates proxy secret key
 createProxySecretKey :: (Bi w) => SecretKey -> PublicKey -> w -> ProxySecretKey w
 createProxySecretKey issuerSk delegatePk w =
-    ProxySecretKey w $ createProxyCert issuerSk delegatePk w
+    ProxySecretKey w (toPublic issuerSk) $ createProxyCert issuerSk delegatePk w
+
 
 -- | Delegate signature made with certificate-based permission. @a@
 -- stays for message type used in proxy (ω in the implementation
 -- notes), @b@ for type of message signed.
-data ProxyDSignature w a = ProxyDSignature
+data ProxySignature w a = ProxySignature
     { pdOmega      :: w
     , pdDelegatePk :: PublicKey
     , pdCert       :: ProxyCert w
     , pdSig        :: Ed25519.Signature
     } deriving (Eq, Ord, Show, Generic)
 
-instance NFData w => NFData (ProxyDSignature w a)
-instance Hashable w => Hashable (ProxyDSignature w a)
+instance NFData w => NFData (ProxySignature w a)
+instance Hashable w => Hashable (ProxySignature w a)
+
+instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature w a) where
+    build ProxySignature{..} =
+        bprint ("Proxy signature { w = "%build%", delegatePk = "%build%" }")
+               pdOmega pdDelegatePk
+
+instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
+    putCopy ProxySignature{..} = contain $ do
+        safePut pdOmega
+        safePut pdDelegatePk
+        safePut pdCert
+        safePut pdSig
+    getCopy = contain $
+        ProxySignature <$> safeGet <*> safeGet <*> safeGet <*> safeGet
 
 -- | Make a proxy delegate signature with help of certificate.
-proxyDSign
+proxySign
     :: (Bi a)
-    => SecretKey -> PublicKey -> ProxySecretKey w -> a -> ProxyDSignature w a
-proxyDSign sk@(SecretKey delegateSk) (PublicKey issuerPk) (ProxySecretKey o cert) m =
-    ProxyDSignature
+    => SecretKey -> ProxySecretKey w -> a -> ProxySignature w a
+proxySign sk@(SecretKey delegateSk) (ProxySecretKey o (PublicKey issuerPk) cert) m =
+    ProxySignature
     { pdOmega = o
     , pdDelegatePk = toPublic sk
     , pdCert = cert
@@ -323,10 +287,10 @@ proxyDSign sk@(SecretKey delegateSk) (PublicKey issuerPk) (ProxySecretKey o cert
 
 -- | Verify delegated signature given issuer's pk, signature, message
 -- space predicate and message itself.
-proxyDVerify
+proxyVerify
     :: (Bi w, Bi a)
-    => PublicKey -> ProxyDSignature w a -> (w -> Bool) -> a -> Bool
-proxyDVerify (PublicKey issuerPk) ProxyDSignature {..} omegaPred m =
+    => PublicKey -> ProxySignature w a -> (w -> Bool) -> a -> Bool
+proxyVerify (PublicKey issuerPk) ProxySignature {..} omegaPred m =
     and [predCorrect, certValid, sigValid]
   where
     PublicKey pdDelegatePkRaw = pdDelegatePk
@@ -349,3 +313,13 @@ proxyDVerify (PublicKey issuerPk) ProxyDSignature {..} omegaPred m =
                  , BSL.toStrict $ Bi.encode m
                  ])
             pdSig
+
+-- | Checks if proxy secret key is consistent and is related to
+-- secretKey passed.
+checkProxySecretKey :: (Bi w) => SecretKey -> ProxySecretKey w -> Bool
+checkProxySecretKey delegateSk pSk@ProxySecretKey{..} =
+    proxyVerify pskIssuerPk sig (const True) dummyData
+  where
+    dummyData :: ByteString
+    dummyData = "nakshtalt"
+    sig = proxySign delegateSk pSk dummyData

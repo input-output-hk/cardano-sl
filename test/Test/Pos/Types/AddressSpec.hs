@@ -6,7 +6,6 @@ module Test.Pos.Types.AddressSpec
 
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Property, (===))
 import           Universum
 
 import           Pos.Binary            ()

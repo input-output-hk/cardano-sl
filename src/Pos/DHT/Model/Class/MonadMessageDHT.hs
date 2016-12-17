@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                       #-}
 {-# LANGUAGE ConstraintKinds           #-}
 {-# LANGUAGE DefaultSignatures         #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -9,8 +10,9 @@
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE UndecidableInstances      #-}
 
-module Pos.DHT.Class.MonadMessageDHT
-       ( DHTMsgHeader (..)
+module Pos.DHT.Model.Class.MonadMessageDHT
+       (
+         DHTMsgHeader (..)
        , MonadMessageDHT (..)
        , MonadResponseDHT (..)
        , DHTResponseT (..)
@@ -26,27 +28,27 @@ module Pos.DHT.Class.MonadMessageDHT
        , DHTDialog
        ) where
 
-import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow, catch)
-import           Control.Monad.Morph       (hoist)
-import           Control.Monad.Trans.Class (MonadTrans)
-import           Control.TimeWarp.Rpc      (Dialog, Message, MonadDialog,
-                                            MonadTransfer (..), NetworkAddress, ResponseT,
-                                            closeR, hoistRespCond, mapResponseT, peerAddr,
-                                            replyH, sendH)
-import           Control.TimeWarp.Timed    (MonadTimed, ThreadId)
-import           Formatting                (int, sformat, shown, (%))
-import qualified Formatting                as F
-import           System.Wlog               (CanLog, HasLoggerName, WithLogger, logDebug,
-                                            logInfo, logWarning)
+import           Control.Monad.Catch          (MonadCatch, MonadMask, MonadThrow, catch)
+import           Control.Monad.Morph          (hoist)
+import           Control.Monad.Trans.Class    (MonadTrans)
+import           Control.TimeWarp.Rpc         (Dialog, Message, MonadDialog,
+                                               MonadTransfer (..), NetworkAddress,
+                                               ResponseT, closeR, hoistRespCond,
+                                               mapResponseT, peerAddr, replyH, sendH)
+import           Control.TimeWarp.Timed       (MonadTimed, ThreadId)
+import           Formatting                   (int, sformat, shown, (%))
+import qualified Formatting                   as F
+import           System.Wlog                  (CanLog, HasLoggerName, WithLogger,
+                                               logDebug, logInfo, logWarning)
 import           Universum
 
-import           Pos.Binary.Class          (Bi (..))
-import           Pos.Constants             (neighborsSendThreshold)
-import           Pos.DHT.Class.BiP         (BiP)
-import           Pos.DHT.Class.MonadDHT
-import           Pos.DHT.Types             (DHTNode (..), DHTNodeType (..), dhtAddr,
-                                            filterByNodeType)
-import           Pos.Util                  (messageName')
+import           Pos.Binary.Class             (Bi (..))
+import           Pos.Constants                (neighborsSendThreshold)
+import           Pos.DHT.Model.Class.BiP      (BiP)
+import           Pos.DHT.Model.Class.MonadDHT
+import           Pos.DHT.Model.Types          (DHTNode (..), DHTNodeType (..), dhtAddr,
+                                               filterByNodeType)
+import           Pos.Util                     (messageName')
 
 -- | Monad that can send messages over distributed network.
 class MonadDHT m => MonadMessageDHT s m | m -> s where
@@ -104,7 +106,7 @@ instance MonadMessageDHT s m => MonadMessageDHT s (ResponseT s m) where
 instance (Monad m, WithDefaultMsgHeader m) => WithDefaultMsgHeader (ResponseT s m) where
   defaultMsgHeader = lift . defaultMsgHeader
 
--- | Packing type used by DHT to send messages.
+  -- | Packing type used by DHT to send messages.
 type DHTPacking = BiP DHTMsgHeader
 
 -- | Shortcut for `MonadDialog` with packing used by DHT.
@@ -119,7 +121,8 @@ newtype DHTResponseT s m a = DHTResponseT
     } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans,
                 MonadThrow, MonadCatch, MonadMask,
                 MonadState ss, WithDefaultMsgHeader, CanLog,
-                HasLoggerName, MonadTimed, MonadDialog s p, MonadDHT, MonadMessageDHT s)
+                HasLoggerName, MonadTimed, MonadDialog s p, MonadDHT, MonadMessageDHT s
+                )
 
 instance MonadTransfer s m => MonadTransfer s (DHTResponseT s m) where
     sendRaw addr p = DHTResponseT $ sendRaw addr (hoist getDHTResponseT p)

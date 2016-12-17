@@ -43,14 +43,16 @@ import           Universum
 
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB               as Modern
+import           Pos.Modern.Txp.Class        (MonadTxpLD (..))
 #endif
-import           Pos.DHT                     (DHTResponseT, MonadDHT,
+import           Pos.DHT.Model               (DHTResponseT, MonadDHT,
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData     (MonadSscLD (..))
 import           Pos.State                   (MonadDB)
 import           Pos.Statistics.StatEntry    (StatLabel (..))
+import           Pos.Types                   (MonadUtxo, MonadUtxoRead)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 
@@ -85,9 +87,9 @@ newtype NoStatsT m a = NoStatsT
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog s p,
                MonadDHT, MonadMessageDHT s, MonadSlots, WithDefaultMsgHeader,
-               MonadJL, CanLog
+               MonadJL, CanLog, MonadUtxoRead, MonadUtxo
 #ifdef WITH_ROCKS
-               , Modern.MonadDB ssc
+               , Modern.MonadDB ssc, MonadTxpLD ssc
 #endif
                )
 
@@ -136,13 +138,21 @@ newtype StatsT m a = StatsT
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog s p,
                MonadDHT, MonadMessageDHT s, MonadSlots, WithDefaultMsgHeader, MonadTrans,
-               MonadJL, CanLog
+               MonadJL, CanLog, MonadUtxoRead, MonadUtxo
 #ifdef WITH_ROCKS
                , Modern.MonadDB ssc
 #endif
 
                )
 
+#ifdef WITH_ROCKS
+instance MonadTxpLD ssc m => MonadTxpLD ssc (StatsT m) where
+    getUtxoView = lift getUtxoView
+    setUtxoView = lift . setUtxoView
+    getMemPool  = lift  getMemPool
+    setMemPool  = lift . setMemPool
+    modifyTxpLD = lift . modifyTxpLD
+#endif
 instance Monad m => WrappedM (StatsT m) where
     type UnwrappedM (StatsT m) = ReaderT StatsMap m
     _WrappedM = iso getStatsT StatsT

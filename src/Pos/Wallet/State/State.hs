@@ -11,13 +11,16 @@ module Pos.Wallet.State.State
 
        -- * Getters
        , getBlock
+       , getBestChain
 
        , getUtxo
+       , getOldestUtxo
        , getTxHistory
        ) where
 
 import           Data.Acid                (EventResult, EventState, QueryEvent,
                                            UpdateEvent)
+import           Pos.DHT.Real             (KademliaDHT)
 import           Universum
 
 import           Pos.Types                (Tx, Utxo)
@@ -37,6 +40,10 @@ instance MonadWalletDB m => MonadWalletDB (ReaderT r m) where
 instance MonadWalletDB m => MonadWalletDB (StateT s m) where
     getWalletState = lift getWalletState
 
+-- | Orphan instances for ancectors in monad stack
+instance MonadWalletDB m => MonadWalletDB (KademliaDHT m) where
+    getWalletState = lift getWalletState
+
 -- | Constraint for working with web wallet DB
 type WalletModeDB m = (MonadWalletDB m, MonadIO m)
 
@@ -53,8 +60,14 @@ updateDisk e = getWalletState >>= flip A.update e
 getBlock :: WalletModeDB m => HeaderHash' -> m (Maybe Block')
 getBlock = queryDisk . A.GetBlock
 
+getBestChain :: WalletModeDB m => m [Block']
+getBestChain = queryDisk A.GetBestChain
+
 getUtxo :: WalletModeDB m => m Utxo
 getUtxo = queryDisk A.GetUtxo
+
+getOldestUtxo :: WalletModeDB m => m Utxo
+getOldestUtxo = queryDisk A.GetOldestUtxo
 
 getTxHistory :: WalletModeDB m => m [Tx]
 getTxHistory = queryDisk A.GetTxHistory

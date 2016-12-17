@@ -15,7 +15,10 @@ module Pos.Wallet.State.Acidic
        , update
 
        , GetBlock (..)
+       , GetBestChain (..)
+
        , GetUtxo (..)
+       , GetOldestUtxo (..)
        , GetTxHistory (..)
        ) where
 
@@ -58,6 +61,8 @@ tidyState = tidyExtendedState
 makeAcidic ''Storage
     [
       'WS.getBlock
+    , 'WS.getBestChain
     , 'WS.getUtxo
+    , 'WS.getOldestUtxo
     , 'WS.getTxHistory
     ]

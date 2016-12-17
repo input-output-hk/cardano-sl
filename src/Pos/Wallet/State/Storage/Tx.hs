@@ -6,11 +6,13 @@ module Pos.Wallet.State.Storage.Tx
        , HasTxStorage (txStorage)
 
        , getUtxo
+       , getOldestUtxo
        , getTxHistory
        ) where
 
-import           Control.Lens  (makeClassy, view)
+import           Control.Lens  (makeClassy, to, view)
 import           Data.Default  (Default, def)
+import           Data.List     (last)
 import qualified Data.Map      as M
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Universum
@@ -42,6 +44,9 @@ type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
 
 getUtxo :: Query Utxo
 getUtxo = view txUtxo
+
+getOldestUtxo :: Query Utxo
+getOldestUtxo = view $ txUtxoHistory . to last
 
 getTxHistory :: Query [Tx]
 getTxHistory = view txHistory

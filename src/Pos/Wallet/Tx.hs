@@ -4,7 +4,6 @@
 
 module Pos.Wallet.Tx
        ( makePubKeyTx
-       , submitSimpleTx
        , submitTx
        , getBalance
        , getTxHistory
@@ -17,7 +16,7 @@ import           Control.Monad         (fail)
 import           Control.Monad.State   (StateT, evalStateT)
 import           Control.TimeWarp.Rpc  (NetworkAddress)
 import           Data.List             (tail)
-import           Data.List.NonEmpty    (NonEmpty)
+import           Data.List.NonEmpty    (NonEmpty (..))
 import qualified Data.Map              as M
 import qualified Data.Vector           as V
 import           Formatting            (build, sformat, (%))
@@ -26,14 +25,16 @@ import           Universum
 
 import           Pos.Binary            ()
 import           Pos.Communication     (sendTx)
-import           Pos.Context           (NodeContext (..), getNodeContext)
 import           Pos.Crypto            (SecretKey, hash, sign, toPublic, withHash)
 import           Pos.Ssc.Class.Storage (SscStorageMode)
-import           Pos.State             (WorkModeDB, getBestChain, getOldestUtxo, getUtxo)
 import           Pos.Types             (Address, Block, Coin, MainBlock, Tx (..), TxId,
                                         TxIn (..), TxInWitness (..), TxOut (..),
                                         TxWitness, Utxo, applyTxToUtxoPure, blockTxs,
                                         makePubKeyAddress, txwF)
+import           Pos.WorkMode          (MinWorkMode)
+
+import           Pos.Wallet.State      (MonadWalletDB, getBestChain, getOldestUtxo,
+                                        getUtxo)
 import           Pos.Wallet.WalletMode (TxMode)
 
 type TxOutIdx = (TxId, Word32)
@@ -151,19 +152,8 @@ deriveAddrHistoryPartial histData addr chain = foldr updateAll histData chain
 -- WorkMode scenarios
 ---------------------------------------------------------------------------------------
 
--- | Construct Tx with a single input and single output and send it to
--- the given network addresses.
-submitSimpleTx :: TxMode ssc m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m (Tx, TxWitness)
-submitSimpleTx [] _ _ =
-    logError "No addresses to send" >> fail "submitSimpleTx failed"
-submitSimpleTx na input output = do
-    sk <- ncSecretKey <$> getNodeContext
-    let tx = makePubKeyTx sk [input] [uncurry TxOut output]
-    submitTxRaw na tx
-    pure tx
-
 -- | Construct Tx using secret key and given list of desired outputs
-submitTx :: TxMode ssc m => SecretKey -> [NetworkAddress] -> TxOutputs -> m (Tx, TxWitness)
+submitTx :: TxMode m => SecretKey -> [NetworkAddress] -> TxOutputs -> m (Tx, TxWitness)
 submitTx _ [] _ = logError "No addresses to send" >> fail "submitTx failed"
 submitTx sk na outputs = do
     utxo <- getUtxo
@@ -172,11 +162,11 @@ submitTx sk na outputs = do
         Right tx -> tx <$ submitTxRaw na tx
 
 -- | Get current balance with given address
-getBalance :: (SscStorageMode ssc, WorkModeDB ssc m) => Address -> m Coin
+getBalance :: (MonadWalletDB m, MonadIO m) => Address -> m Coin
 getBalance addr = getUtxo >>= return . sum . M.map txOutValue . filterUtxo addr
 
 -- | Send the ready-to-use transaction
-submitTxRaw :: TxMode ssc m => [NetworkAddress] -> (Tx, TxWitness) -> m ()
+submitTxRaw :: MinWorkMode m => [NetworkAddress] -> (Tx, TxWitness) -> m ()
 submitTxRaw na tx = do
     let txId = hash tx
     logInfo $ sformat ("Submitting transaction: "%txwF) tx
@@ -184,9 +174,9 @@ submitTxRaw na tx = do
     mapM_ (`sendTx` tx) na
 
 -- | Get tx history for Address
-getTxHistory :: TxMode ssc m => Address -> m ([Tx], [Tx])
+getTxHistory :: TxMode m => Address -> m ([Tx], [Tx])
 getTxHistory addr = do
-    chain <- getBestChain
+    (c:cs) <- getBestChain
     utxo <- getOldestUtxo
-    let (_, incoming, outgoing) = deriveAddrHistory addr utxo chain
+    let (_, incoming, outgoing) = deriveAddrHistory addr utxo $ c :| cs
     return (incoming, outgoing)

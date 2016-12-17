@@ -204,6 +204,8 @@ library
     other-modules:      Pos.Wallet.Tx
                       , Pos.Wallet.WalletMode
                       , Pos.Wallet.Launcher
+                      , Pos.Wallet.Launcher.Runner
+                      , Pos.Wallet.Launcher.Param
                       , Pos.Wallet.KeyStorage
                       , Pos.Wallet.State
                       , Pos.Wallet.State.Acidic

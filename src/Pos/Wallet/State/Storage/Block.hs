@@ -12,20 +12,23 @@ module Pos.Wallet.State.Storage.Block
        , AltChain
 
        , getBlock
+       , getBestChain
 
        , blkSetHead
        ) where
 
-import           Control.Lens        (at, makeClassy, view, (.=))
-import           Data.Default        (Default, def)
-import qualified Data.HashMap.Strict as HM
-import           Data.List.NonEmpty  (NonEmpty (..))
-import           Data.SafeCopy       (base, deriveSafeCopySimple)
+import           Control.Lens              (at, makeClassy, view, (.=), (^.))
+import           Control.Monad.Loops       (unfoldrM)
+import           Control.Monad.Trans.Maybe (MaybeT (..))
+import           Data.Default              (Default, def)
+import qualified Data.HashMap.Strict       as HM
+import           Data.List.NonEmpty        (NonEmpty (..))
+import           Data.SafeCopy             (base, deriveSafeCopySimple)
 import           Universum
 
-import           Pos.Crypto          (unsafeHash)
-import           Pos.Ssc.GodTossing  (SscGodTossing)
-import           Pos.Types           (Block, HeaderHash)
+import           Pos.Crypto                (unsafeHash)
+import           Pos.Ssc.GodTossing        (SscGodTossing)
+import           Pos.Types                 (Block, HeaderHash, prevBlockL)
 
 type Block' = Block SscGodTossing
 type HeaderHash' = HeaderHash SscGodTossing
@@ -56,6 +59,16 @@ type Update a = forall m x. (HasBlockStorage x, MonadState x m) => m a
 -- | Get block by hash of its header.
 getBlock :: HeaderHash' -> Query (Maybe Block')
 getBlock h = view (blkBlocks . at h)
+
+getBestChain :: Query [Block']
+getBestChain = do
+    headHash <- view blkHead
+    botHash <- view blkBottom
+    flip unfoldrM headHash $ \h -> runMaybeT $
+        if h == botHash
+        then mzero
+        else do blk <- MaybeT $ getBlock h
+                return $ (blk, blk ^. prevBlockL)
 
 -- | Set head of main blockchain to block which is guaranteed to
 -- represent valid chain and be stored in blkBlocks.

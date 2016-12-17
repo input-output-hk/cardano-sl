@@ -9,8 +9,10 @@ module Pos.Wallet.State.Storage
 
        , Query
        , getBlock
+       , getBestChain
 
        , getUtxo
+       , getOldestUtxo
        , getTxHistory
 
        , Update
@@ -28,9 +30,9 @@ import           Pos.Crypto                     (ProxyCert)
 import           Pos.Types                      (Address, EpochIndex)
 import           Pos.Wallet.State.Storage.Block (Block', BlockStorage,
                                                  HasBlockStorage (..), HeaderHash',
-                                                 blkSetHead, getBlock)
+                                                 blkSetHead, getBestChain, getBlock)
 import           Pos.Wallet.State.Storage.Tx    (HasTxStorage (..), TxStorage,
-                                                 getTxHistory, getUtxo)
+                                                 getOldestUtxo, getTxHistory, getUtxo)
 
 data Storage = Storage
     { -- Block-related part of wallet storage

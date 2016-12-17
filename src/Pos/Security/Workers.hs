@@ -14,7 +14,7 @@ import           Data.Tagged                       (Tagged (..))
 import           System.Wlog                       (logWarning)
 import           Universum                         hiding (ask)
 
-import           Pos.Constants                     (k)
+import           Pos.Constants                     (k, mdSlotsThreshold, mdEpochsThreshold)
 import           Pos.Context                       (getNodeContext, ncPublicKey)
 import           Pos.Slotting                      (onNewSlot)
 import           Pos.Ssc.Class.Types               (Ssc (..))
@@ -41,14 +41,6 @@ instance SecurityWorkersClass SscNistBeacon where
     securityWorkers = Tagged [ checkForReceivedBlocksWorker
                              ]
 
--- TODO(voit): Move this to constants
-blocksNotReceivedThreshold :: Integral a => a
-blocksNotReceivedThreshold = 10
-
--- TODO(voit): Move this to constants
-commitmentsAreIgnoredThreshold :: Integral a => a
-commitmentsAreIgnoredThreshold = 5
-
 reportAboutEclipsed :: WorkMode ssc m => m ()
 reportAboutEclipsed = logWarning "We're doomed, we're eclipsed!"
 
@@ -62,7 +54,7 @@ checkForReceivedBlocksWorker = onNewSlot True $ \slotId -> do
     compareSlots slotId blockGeneratedId = do
         let fSlotId = flattenSlotId slotId
         let fBlockGeneratedSlotId = flattenSlotId blockGeneratedId
-        when (fSlotId - fBlockGeneratedSlotId > blocksNotReceivedThreshold)
+        when (fSlotId - fBlockGeneratedSlotId > mdSlotsThreshold)
             reportAboutEclipsed
 
 checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => m ()
@@ -78,7 +70,7 @@ checkForIgnoredCommitmentsWorkerImpl slotId = do
     checkCommitmentsInPreviousBlocks slotId
     tvar <- ask
     lastCommitment <- lift $ atomically $ readTVar tvar
-    when (siEpoch slotId - lastCommitment > commitmentsAreIgnoredThreshold) $ do
+    when (siEpoch slotId - lastCommitment > mdEpochsThreshold) $ do
         lift reportAboutEclipsed
 
 checkCommitmentsInPreviousBlocks

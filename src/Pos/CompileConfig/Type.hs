@@ -26,6 +26,8 @@ data CompileConfig = CompileConfig
     , ccDefaultPeers            :: ![[Char]]  -- ^ List of default peers
     , ccSysTimeBroadcastSlots   :: !Int       -- ^ Number of slots to broadcast system time
     , ccMpcSendInterval         :: !Word      -- ^ Length of interval for sending MPC message
+    , ccMdSlotsThreshold        :: !Int       -- ^ Threshold of slots for malicious activity detection
+    , ccMdEpochsThreshold       :: !Int       -- ^ Threshold of epochs for malicious activity detection
     } deriving (Show, Lift)
 
 $(A.deriveFromJSON defaultOptions ''CompileConfig)

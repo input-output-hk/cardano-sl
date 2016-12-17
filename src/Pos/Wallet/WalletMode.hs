@@ -10,19 +10,20 @@ module Pos.Wallet.WalletMode
        , WalletRealMode
        ) where
 
-import           Pos.Context           (WithNodeContext)
+import           Pos.Communication.Types (MutSocketState)
+import           Pos.Context             (WithNodeContext)
 #ifdef WITH_ROCKS
-import qualified Pos.Modern.DB         as Modern
+import qualified Pos.Modern.DB           as Modern
 #endif
-import           Pos.Ssc.Class.Storage (SscStorageMode)
-import           Pos.State             (MonadDB)
-import           Pos.Txp.LocalData     (MonadTxLD)
-import           Pos.WorkMode          (MinWorkMode, RawRealMode)
+import           Pos.Ssc.Class.Storage   (SscStorageMode)
+import           Pos.State               (MonadDB)
+import           Pos.Txp.LocalData       (MonadTxLD)
+import           Pos.WorkMode            (MinWorkMode, RawRealMode)
 
-import           Pos.Wallet.KeyStorage (KeyStorage, MonadKeys)
+import           Pos.Wallet.KeyStorage   (KeyStorage, MonadKeys)
 
 type TxMode ssc m
-    = ( MinWorkMode m
+    = ( MinWorkMode (MutSocketState ssc) m
       , MonadDB ssc m
 #ifdef WITH_ROCKS
       , Modern.MonadDB ssc m

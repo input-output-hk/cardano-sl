@@ -42,7 +42,7 @@ import           Pos.WorkMode                (MinWorkMode, WorkMode)
 
 -- | Wrapper on top of sendToNeighbors which does it in separate
 -- thread and controls how much time action takes.
-sendToNeighborsSafe :: (Bi r, Message r, MinWorkMode m) => r -> m ()
+sendToNeighborsSafe :: (Bi r, Message r, MinWorkMode ss m) => r -> m ()
 sendToNeighborsSafe msg = do
     let msgName = messageName' msg
     let action = () <$ sendToNeighbors msg
@@ -80,7 +80,7 @@ sendTx addr (tx,w) = sendToNode addr $ TxDataMsg tx w
 
 -- | Sends proxy secret key to neighbours
 sendProxySecretKey
-    :: (MinWorkMode m)
+    :: (MinWorkMode ss m)
     => ProxySecretKey (EpochIndex, EpochIndex) -> m ()
 sendProxySecretKey psk = do
     logNotice $ sformat ("Sending proxySecretKey to neigbours:\n"%build) psk

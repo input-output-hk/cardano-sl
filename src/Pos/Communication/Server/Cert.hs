@@ -13,28 +13,29 @@ module Pos.Communication.Server.Cert
        , handleProxySecretKey
        ) where
 
-import           Control.Concurrent.MVar   (putMVar, readMVar)
+import           Control.Concurrent.MVar   (putMVar)
 import qualified Data.HashMap.Strict       as HM
 import           Data.List                 (nub)
 import           Data.Time.Clock           (NominalDiffTime, addUTCTime, getCurrentTime)
 import           Formatting                (build, sformat, shown, (%))
-import           System.Wlog               (logDebug, logInfo, logNotice)
+import           System.Wlog               (logDebug, logInfo)
 import           Universum
 
 import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (sendProxySecretKey)
-import           Pos.Communication.Types   (ResponseMode, SendProxySecretKey (..))
+import           Pos.Communication.Types   (MutSocketState, ResponseMode,
+                                            SendProxySecretKey (..))
 import           Pos.Context               (ProxyStorage (..), getNodeContext,
                                             ncPropagation, ncProxyStorage, ncSecretKey)
 import           Pos.Crypto                (ProxySecretKey, checkProxySecretKey)
 import           Pos.DHT.Model             (ListenerDHT (..), MonadDHTDialog)
 import           Pos.Types                 (EpochIndex)
-import           Pos.WorkMode              (SocketState, WorkMode)
+import           Pos.WorkMode              (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
 certListeners
-    :: (MonadDHTDialog SocketState m, WorkMode ssc m)
-    => [ListenerDHT SocketState m]
+    :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
+    => [ListenerDHT (MutSocketState ssc) m]
 certListeners = [ ListenerDHT handleProxySecretKey ]
 
 -- should be a constant

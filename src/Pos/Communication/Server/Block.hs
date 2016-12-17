@@ -8,11 +8,6 @@
 
 module Pos.Communication.Server.Block
        ( blockListeners
-
-       , handleBlock
-       , handleBlockHeader
-       , handleBlockRequest
-       , handleBlockchainPartRequest
        ) where
 
 import           Control.Lens              ((^.))

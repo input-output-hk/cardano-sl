@@ -45,6 +45,8 @@ module Pos.Types.Types
        , TxIn (..)
        , TxOut (..)
        , Tx (..)
+       , _txInputs
+       , _txOutputs
        , txF
        , txwF
        , IdTxWitness
@@ -119,8 +121,8 @@ module Pos.Types.Types
        , mcdSignature
        ) where
 
-import           Control.Lens           (Getter, Lens', choosing, makeLenses, to, view,
-                                         (^.))
+import           Control.Lens           (Getter, Lens', choosing, makeLenses,
+                                         makeLensesFor, to, view, (^.))
 import           Control.Monad.Fail     (fail)
 import           Data.Aeson             (ToJSON (toJSON))
 import           Data.Aeson.TH          (deriveToJSON)
@@ -310,6 +312,8 @@ data Tx = Tx
     { txInputs  :: ![TxIn]   -- ^ Inputs of transaction.
     , txOutputs :: ![TxOut]  -- ^ Outputs of transaction.
     } deriving (Eq, Ord, Generic, Show)
+
+makeLensesFor [("txInputs", "_txInputs"), ("txOutputs", "_txOutputs")] ''Tx
 
 type IdTxWitness = (TxId, (Tx, TxWitness))
 

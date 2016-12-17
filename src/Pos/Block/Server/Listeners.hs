@@ -6,7 +6,7 @@
 
 -- | Server which deals with blocks processing.
 
-module Pos.Modern.Blockp.Server.Listeners
+module Pos.Block.Server.Listeners
        ( blockListeners
        ) where
 

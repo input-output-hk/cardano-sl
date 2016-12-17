@@ -5,7 +5,7 @@
 
 -- | Socket state of block processing server.
 
-module Pos.Modern.Blockp.Server.State
+module Pos.Block.Server.State
        ( BlockSocketState
        , HasBlockSocketState (blockSocketState)
        , bssRequestedBlocks

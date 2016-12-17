@@ -115,6 +115,9 @@ library
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
                         Pos.Binary.Types
+                        Pos.Block.Server
+                        Pos.Block.Server.State
+                        Pos.Block.Server.Listeners
                         Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
@@ -180,9 +183,6 @@ library
   if flag(with-rocks)
     other-modules:
                         Pos.Binary.Modern.DB
-                        Pos.Modern.Blockp.Server
-                        Pos.Modern.Blockp.Server.State
-                        Pos.Modern.Blockp.Server.Listeners
                         Pos.Modern.DB
                         Pos.Modern.DB.Block
                         Pos.Modern.DB.Class

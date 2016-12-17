@@ -12,13 +12,13 @@ module Pos.Communication.Types.State
        , newMutSocketState
        ) where
 
-import           Control.Concurrent.STM         (TVar, newTVarIO)
-import           Control.Lens                   (makeClassy)
-import           Data.Default                   (Default (def))
+import           Control.Concurrent.STM (TVar, newTVarIO)
+import           Control.Lens           (makeClassy)
+import           Data.Default           (Default (def))
 import           Universum
 
 #ifdef WITH_ROCKS
-import           Pos.Modern.Blockp.Server.State (BlockSocketState)
+import           Pos.Block.Server.State (BlockSocketState)
 #else
 type BlockSocketState ssc = ()
 #endif

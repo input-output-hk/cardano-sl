@@ -16,6 +16,7 @@ import           Universum
 
 import           Pos.Binary.Communication          ()
 import           Pos.Communication.Server.Block    (blockListeners)
+import           Pos.Communication.Server.Cert     (certListeners)
 import           Pos.Communication.Server.SysStart
 import           Pos.Communication.Types           (MutSocketState)
 import           Pos.Communication.Util            (modifyListenerLogger)
@@ -34,6 +35,7 @@ allListeners =
         [ map (modifyListenerLogger "block") blockListeners
         , map (modifyListenerLogger "ssc") $ untag sscListeners
         , map (modifyListenerLogger "tx") txListeners
+        , map (modifyListenerLogger "cert") certListeners
         ]
 
 -- | Logger name for server.

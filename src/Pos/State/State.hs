@@ -67,8 +67,8 @@ import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            dispatchEvents, getLoggerName, logWarning,
                                            runPureLog, usingLoggerName)
 
-import           Pos.Crypto               (SecretKey, Share, VssKeyPair, VssPublicKey,
-                                           decryptShare, toVssPublicKey)
+import           Pos.Crypto               (ProxySecretKey, SecretKey, Share, VssKeyPair,
+                                           VssPublicKey, decryptShare, toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
@@ -235,10 +235,11 @@ mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 createNewBlock :: QUConstraint ssc m
                => [IdTxWitness]
                -> SecretKey
+               -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
                -> SlotId
                -> SscPayload ssc
                -> m (Either Text (MainBlock ssc))
-createNewBlock localTxs sk si = updateDisk . A.CreateNewBlock localTxs sk si
+createNewBlock localTxs sk pSk si = updateDisk . A.CreateNewBlock localTxs sk pSk si
 
 -- | Process transaction received from other party.
 processTx :: QUConstraint ssc m => (TxId, (Tx, TxWitness)) -> m ()

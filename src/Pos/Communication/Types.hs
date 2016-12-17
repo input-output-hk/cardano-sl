@@ -1,31 +1,38 @@
 {-# LANGUAGE ConstraintKinds  #-}
+{-# LANGUAGE DeriveGeneric    #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell  #-}
+{-# LANGUAGE TypeFamilies     #-}
 
 -- | Types used for communication.
 
 module Pos.Communication.Types
        ( ResponseMode
 
-         -- * Message types
-       , module Pos.Communication.Types.Block
-       , module Pos.Communication.Types.SysStart
-       , module Pos.Txp.Types.Communication
-
-         -- * Socket state
-       , module Pos.Communication.Types.State
+         -- * Messages and socket state
+       , module Export
 
        , noCacheMessageNames
+
+       , SendProxySecretKey (..)
        ) where
 
-import           Control.TimeWarp.Rpc             (Message (messageName), MessageName)
+import           Control.TimeWarp.Rpc             (Message (..), MessageName,
+                                                   messageName')
 import           Data.Proxy                       (Proxy (..))
+import           Universum
 
-import           Pos.Communication.Types.Block
-import           Pos.Communication.Types.State
-import           Pos.Communication.Types.SysStart
+import           Pos.Communication.Types.State    (MutSocketState)
+import qualified Pos.Communication.Types.SysStart as SysStart
+import           Pos.Crypto                       (ProxySecretKey)
 import           Pos.DHT.Model                    (MonadResponseDHT)
-import           Pos.Txp.Types.Communication
+import           Pos.Types                        (EpochIndex)
 import           Pos.WorkMode                     (WorkMode)
+
+import           Pos.Communication.Types.Block    as Export
+import           Pos.Communication.Types.State    as Export
+import           Pos.Communication.Types.SysStart as Export
+import           Pos.Txp.Types.Communication      as Export
 
 -- | Constraint alias for 'WorkMode' with 'MonadResponseDHT'.
 type ResponseMode ssc m = (WorkMode ssc m, MonadResponseDHT (MutSocketState ssc) m)
@@ -35,6 +42,19 @@ noCacheMessageNames :: [MessageName]
 noCacheMessageNames =
     [ -- messageName (Proxy :: Proxy Block.RequestBlock)
       "RequestBlock"
-    , messageName (Proxy :: Proxy SysStartRequest)
-    , messageName (Proxy :: Proxy SysStartResponse)
+    , messageName (Proxy :: Proxy SysStart.SysStartRequest)
+    , messageName (Proxy :: Proxy SysStart.SysStartResponse)
     ]
+
+----------------------------------------------------------------------------
+-- Certificate
+----------------------------------------------------------------------------
+
+-- | Message: some node has sent a Block.
+data SendProxySecretKey =
+    SendProxySecretKey !(ProxySecretKey (EpochIndex, EpochIndex))
+    deriving (Generic)
+
+instance Message SendProxySecretKey where
+    messageName _ = "SendProxySecretKey"
+    formatMessage = messageName'

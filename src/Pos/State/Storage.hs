@@ -63,7 +63,8 @@ import           Serokell.Util           (VerificationRes (..))
 import           System.Wlog             (WithLogger, logDebug)
 
 import           Pos.Constants           (k)
-import           Pos.Crypto              (EncShare, VssPublicKey, SecretKey, Threshold)
+import           Pos.Crypto              (EncShare, ProxySecretKey, SecretKey, Threshold,
+                                          VssPublicKey)
 import           Pos.Genesis             (genesisUtxo)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
@@ -182,23 +183,29 @@ createNewBlock
     :: (SscStorageClass ssc)
     => [IdTxWitness]
     -> SecretKey
+    -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
     -> SlotId
     -> SscPayload ssc
     -> Update ssc (Either Text (MainBlock ssc))
-createNewBlock localTxs sk sId sscPayload =
-    maybe (Right <$> createNewBlockDo localTxs sk sId sscPayload) (pure . Left) =<<
+createNewBlock localTxs sk pSk sId sscPayload =
+    maybe (Right <$> createNewBlockDo localTxs sk pSk sId sscPayload) (pure . Left) =<<
     readerToState (canCreateBlock sId)
 
 createNewBlockDo
     :: forall ssc.
        (SscStorageClass ssc)
-    => [IdTxWitness] -> SecretKey -> SlotId -> SscPayload ssc -> Update ssc (MainBlock ssc)
-createNewBlockDo localTxs sk sId sscPayload = do
+    => [IdTxWitness]
+    -> SecretKey
+    -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
+    -> SlotId
+    -> SscPayload ssc
+    -> Update ssc (MainBlock ssc)
+createNewBlockDo localTxs sk pSk sId sscPayload = do
     globalPayload <- readerToState $ getGlobalSscState
     let filteredPayload = sscFilterPayload @ssc sscPayload globalPayload
     headUtxo <- readerToState $ fromJust <$> getUtxoByDepth 0
     let filteredTxs = filterLocalTxs localTxs headUtxo
-    blk <- blkCreateNewBlock sk sId (map snd filteredTxs) filteredPayload
+    blk <- blkCreateNewBlock sk pSk sId (map snd filteredTxs) filteredPayload
     let blocks = Right blk :| []
     sscApplyBlocks blocks
     blk <$ txApplyBlocks filteredTxs blocks

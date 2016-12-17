@@ -23,13 +23,13 @@ flag dev-mode
   description: Switch between Development and Production mode
 
 Flag with-web
-  default:     True
+  default:     False
   manual:      True
 
   description: Build with web part.
 
 Flag with-wallet
-  default:     True
+  default:     False
   manual:      True
 
   description: Build with wallet.

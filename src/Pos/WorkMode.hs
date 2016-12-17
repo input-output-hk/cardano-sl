@@ -72,6 +72,7 @@ import           Pos.Ssc.LocalData             (SscLDImpl)
 import           Pos.State                     (DBHolder, MonadDB (..))
 import           Pos.Statistics.MonadStats     (MonadStats, NoStatsT, StatsT)
 import           Pos.Txp.LocalData             (MonadTxLD (..), TxLocalData (..))
+import           Pos.Types                     (MonadUtxo)
 import           Pos.Util.JsonLog              (MonadJL (..))
 
 type MSockSt ssc = MutSocketState ssc
@@ -87,6 +88,7 @@ type WorkMode ssc m
 #ifdef WITH_ROCKS
       , Modern.MonadDB ssc m
       , MonadTxpLD ssc m
+      , MonadUtxo m
 #endif
       , MonadTxLD m
       , SscStorageMode ssc

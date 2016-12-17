@@ -25,7 +25,7 @@ module Pos.Launcher.Runner
        -- * Exported for custom usage in CLI utils
        , addDevListeners
        , bracketDHTInstance
-       , runTimed
+       , runOurDialog
        ) where
 
 import           Control.Concurrent.MVar         (newEmptyMVar, newMVar, takeMVar,
@@ -38,7 +38,7 @@ import           Control.TimeWarp.Rpc            (Dialog, Transfer, commLoggerNa
                                                   runDialog, runTransfer)
 import           Control.TimeWarp.Timed          (MonadTimed, currentTime, fork,
                                                   killThread, repeatForever, runTimedIO,
-                                                  sec)
+                                                  runTimedIO, sec)
 
 import           Data.Acquire                    (withEx)
 import           Data.List                       (nub)
@@ -54,7 +54,8 @@ import           Universum
 
 import           Pos.Binary                      ()
 import           Pos.CLI                         (readLoggerConfig)
-import           Pos.Communication               (SysStartRequest (..), allListeners,
+import           Pos.Communication               (MutSocketState, SysStartRequest (..),
+                                                  allListeners, newMutSocketState,
                                                   noCacheMessageNames,
                                                   sysStartReqListener,
                                                   sysStartReqListenerSlave,
@@ -89,7 +90,7 @@ import           Pos.Types                       (Timestamp (Timestamp), timesta
 import           Pos.Util                        (runWithRandomIntervals)
 import           Pos.Worker                      (statsWorkers)
 import           Pos.WorkMode                    (ProductionMode, RawRealMode,
-                                                  ServiceMode, SocketState, StatsMode,
+                                                  ServiceMode, StatsMode, TimedMode,
                                                   runTxLDImpl)
 
 ----------------------------------------------------------------------------
@@ -149,7 +150,7 @@ runRawRealMode
     => KademliaDHTInstance
     -> NodeParams
     -> SscParams ssc
-    -> [ListenerDHT SocketState (RawRealMode ssc)]
+    -> [ListenerDHT (MutSocketState ssc) (RawRealMode ssc)]
     -> RawRealMode ssc c
     -> IO c
 runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ do
@@ -160,7 +161,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     let initTip = notImplemented -- init tip must be here
 #endif
     let run db =
-            runTimed lpRunnerTag .
+            runOurDialog newMutSocketState lpRunnerTag .
             runDBHolder db .
 #ifdef WITH_ROCKS
             Modern.runDBHolder modernDBs .
@@ -185,7 +186,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
                 whenM ((npRebuildDb &&) <$> doesDirectoryExist fp) $
                 removeDirectoryRecursive fp
         whenJust npDbPath rebuild
-        runTimed lpRunnerTag $
+        runOurDialog newMutSocketState lpRunnerTag $
             maybe
                 (openMemState mStorage)
                 (openState mStorage False)
@@ -223,11 +224,11 @@ runStatsMode inst np sscnp action = runRawRealMode inst np sscnp listeners $ run
 runServiceMode
     :: KademliaDHTInstance
     -> BaseParams
-    -> [ListenerDHT SocketState ServiceMode]
+    -> [ListenerDHT () ServiceMode]
     -> ServiceMode a
     -> IO a
 runServiceMode inst bp@BaseParams{..} listeners action = loggerBracket bpLoggingParams $ do
-    runTimed (lpRunnerTag bpLoggingParams) . runKDHT inst bp listeners $
+    runOurDialog pass (lpRunnerTag bpLoggingParams) . runKDHT inst bp listeners $
         nodeStartMsg bp >> action
 
 ----------------------------------------------------------------------------
@@ -240,10 +241,10 @@ runKDHT
        , MonadIO m
        , MonadTimed m
        , MonadMask m
-       , MonadDHTDialog SocketState m)
+       , MonadDHTDialog socketState m)
     => KademliaDHTInstance
     -> BaseParams
-    -> [ListenerDHT SocketState (KademliaDHT m)]
+    -> [ListenerDHT socketState (KademliaDHT m)]
     -> KademliaDHT m a
     -> m a
 runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
@@ -277,13 +278,17 @@ runCH NodeParams {..} sscNodeContext act =
         , ncBlkSemaphore = semaphore
         }
 
-runTimed :: LoggerName -> Dialog DHTPacking (Transfer SocketState) a -> IO a
-runTimed loggerName =
+runOurDialog
+    :: IO socketState
+    -> LoggerName
+    -> Dialog DHTPacking (Transfer socketState) a
+    -> IO a
+runOurDialog ssInitializer loggerName =
     runTimedIO .
-    usingLoggerName loggerName . runTransfer initSocketState . runDialog BiP
-  where
-    initSocketState :: IO SocketState
-    initSocketState = return ()
+    usingLoggerName loggerName . runTransfer ssInitializer . runDialog BiP
+
+runTimed :: LoggerName -> TimedMode a -> IO a
+runTimed loggerName = runTimedIO . usingLoggerName loggerName
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -314,8 +319,8 @@ loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
 -- | RAII for node starter.
 addDevListeners :: NodeParams
-                -> [ListenerDHT SocketState (RawRealMode ssc)]
-                -> [ListenerDHT SocketState (RawRealMode ssc)]
+                -> [ListenerDHT (MutSocketState ssc) (RawRealMode ssc)]
+                -> [ListenerDHT (MutSocketState ssc) (RawRealMode ssc)]
 addDevListeners NodeParams{..} ls =
     if isDevelopment
     then sysStartReqListener npSystemStart : ls
@@ -329,9 +334,9 @@ bracketDHTInstance BaseParams {..} = bracket acquire release
     acquire = runTimed loggerName $ startDHTInstance instConfig
     release = runTimed loggerName . stopDHTInstance
     instConfig =
-      KademliaDHTInstanceConfig
-      { kdcKeyOrType = bpDHTKeyOrType
-      , kdcPort = bpPort
-      , kdcInitialPeers = nub $ bpDHTPeers ++ defaultPeers
-      , kdcExplicitInitial = bpDHTExplicitInitial
-      }
+        KademliaDHTInstanceConfig
+        { kdcKeyOrType = bpDHTKeyOrType
+        , kdcPort = bpPort
+        , kdcInitialPeers = nub $ bpDHTPeers ++ defaultPeers
+        , kdcExplicitInitial = bpDHTExplicitInitial
+        }

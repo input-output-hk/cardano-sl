@@ -242,6 +242,7 @@ library
                       , deriving-compat
                       , digest
                       , directory
+                      , dlist
                       , ed25519
                       , exceptions
                       , file-embed >= 0.0.10

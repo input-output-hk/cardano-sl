@@ -26,7 +26,7 @@ import           Servant.Utils.Enter             ((:~>) (..), enter)
 import           System.Wlog                     (logInfo)
 import           Universum
 
-import           Pos.Crypto                      (SecretKey, toPublic)
+import           Pos.Crypto                      (SecretKey, toPublic, whData)
 import           Pos.Communication.Types         (MutSocketState, newMutSocketState)
 import           Pos.DHT.Model                   (DHTPacking, dhtAddr, getKnownPeers)
 import           Pos.DHT.Real                    (KademliaDHTContext, getKademliaDHTCtx,
@@ -185,8 +185,8 @@ send srcIdx dstAddr c = do
               sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
               c srcIdx dstAddr
 
-getHistory :: SscConstraint ssc => Address -> WebHandler ssc ([Tx], [Tx])
-getHistory = getTxHistory
+getHistory :: SscConstraint ssc => Address -> WebHandler ssc [Tx]
+getHistory addr = map whData <$> getTxHistory addr
 
 newAddress :: WebHandler ssc CAddress
 newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey

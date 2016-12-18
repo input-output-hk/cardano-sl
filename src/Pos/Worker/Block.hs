@@ -78,7 +78,6 @@ blkOnNewSlot slotId@SlotId {..} = do
                | isJust validCert -> onNewSlotWhenLeader slotId validCert
                | otherwise -> pure ()
 
-
 onNewSlotWhenLeader
     :: WorkMode ssc m
     => SlotId

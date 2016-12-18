@@ -21,7 +21,7 @@ import           Control.Lens              (to, (%~), (^.))
 import           Control.Monad.Catch       (catch)
 import qualified Data.HashMap.Strict       as HM
 import           Data.List                 (nub)
-import           Data.Time.Clock           (NominalDiffTime, addUTCTime, getCurrentTime)
+import           Data.Time.Clock           (addUTCTime, getCurrentTime)
 import           Formatting                (build, sformat, shown, (%))
 import           System.Wlog               (logDebug, logInfo)
 import           Universum
@@ -36,7 +36,7 @@ import           Pos.Context               (ProxyStorage, getNodeContext, ncProp
                                             ncSecretKey)
 import           Pos.Crypto                (ProxySecretKey, ProxySignature,
                                             checkProxySecretKey, pdDelegatePk,
-                                            pdDelegatePk, proxyVerify)
+                                            pdDelegatePk, proxySign, proxyVerify)
 import           Pos.DHT.Model             (ListenerDHT (..), MonadDHTDialog)
 import           Pos.Types                 (EpochIndex)
 import           Pos.WorkMode              (WorkMode)
@@ -129,6 +129,11 @@ propagateSendProxySK PSKUnrelated pSk = do
     whenM (ncPropagation <$> getNodeContext) $ do
         logDebug $ sformat ("Propagating proxy secret key "%build) pSk
         sendProxySecretKey pSk
+propagateSendProxySK PSKAdded pSk = do
+    logDebug $ sformat ("Generating delivery proof and propagating it: "%build) pSk
+    sk <- ncSecretKey <$> getNodeContext
+    let proof = proxySign sk pSk pSk -- but still proving is nothing but fear
+    sendProxyConfirmSK $ ConfirmProxySK pSk proof
 propagateSendProxySK _ _ = pure ()
 
 ----------------------------------------------------------------------------

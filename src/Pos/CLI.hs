@@ -19,14 +19,18 @@ import           Control.Monad                      (fail)
 import           Control.TimeWarp.Rpc               (NetworkAddress)
 import           Data.Default                       (def)
 import           Data.Either                        (either)
+import           Data.Text                          (pack)
+import           Pos.Crypto                         (PublicKey)
 import           Pos.DHT.Model.Types                (DHTKey, DHTNode (..), bytesToDHTKey)
 import           Pos.Security.Types                 (AttackType (..), AttackTarget (..))
 import           Pos.Ssc.SscAlgo                    (SscAlgo (..))
-import           Pos.Types.Address                  (Address)
+import           Pos.Types.Address                  (AddressHash, decodeTextAddress, addrKeyHash)
+import           Pos.Binary.Address                 ()
 import qualified Serokell.Util.Parse                as P
 import           System.Wlog                        (LoggerConfig (..),
                                                      Severity (Info, Warning),
                                                      parseLoggerConfig)
+import           Text.ParserCombinators.Parsec      (many1, try)
 import qualified Text.ParserCombinators.Parsec.Char as P
 
 -- | Parser for DHT key.
@@ -52,9 +56,16 @@ attackTypeParser :: P.Parser AttackType
 attackTypeParser = AttackNoBlocks <$ (P.string "NoBlocks") <|>
                    AttackNoCommitments <$ (P.string "NoCommitments")
 
--- TODO(voit): Add address parsing impl
+base58AddrParser :: P.Parser (AddressHash PublicKey)
+base58AddrParser = do
+    token <- many1 $ P.noneOf " "
+    case decodeTextAddress $ pack token of
+      Left _ -> fail "Incorrect address"
+      Right r -> return $ addrKeyHash r
+
 attackTargetParser :: P.Parser AttackTarget
-attackTargetParser = NetworkAddressTarget <$> addrParser
+attackTargetParser = (PubKeyAddressTarget <$> try base58AddrParser) <|>
+                     (NetworkAddressTarget <$> addrParser)
 
 -- | Default logger config. Will be used if `--log-config` argument is not passed.
 -- Corresponds to next logger config:

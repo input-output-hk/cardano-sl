@@ -68,6 +68,8 @@ library
                         Pos.Launcher
                         Pos.Merkle
                         Pos.Security
+                        Pos.Security.Types
+                        Pos.Security.Util
                         Pos.Security.Workers
                         Pos.Slotting
                         Pos.Ssc.Class.Types

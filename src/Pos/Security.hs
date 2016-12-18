@@ -1,19 +1,9 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 module Pos.Security
-       ( module Pos.Security.Workers
-       , module Pos.Security.Types
-
-       , shouldIgnoreAddress
+       ( module Pos.Security.Types
+       , module Pos.Security.Util
+       , module Pos.Security.Workers
        ) where
 
-import           Control.TimeWarp.Rpc (NetworkAddress)
-import           Universum
-
-import           Pos.Context          (NodeContext, ncAttackTypes, ncAttackTargets)
 import           Pos.Security.Types
+import           Pos.Security.Util
 import           Pos.Security.Workers
-
-shouldIgnoreAddress :: NodeContext ssc -> NetworkAddress -> Bool
-shouldIgnoreAddress cont addr = and [ elem AttackNoBlocks $ ncAttackTypes cont
-                                    , elem addr $ map attNetworkAddr $ ncAttackTargets cont ]

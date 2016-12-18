@@ -187,8 +187,8 @@ instance Bi a => Bi (Signed a) where
 deriving instance Bi (ProxyCert w)
 
 instance (Bi w) => Bi (ProxySecretKey w) where
-    put (ProxySecretKey w cert) = put w >> put cert
-    get = liftM2 ProxySecretKey get get
+    put (ProxySecretKey w iPk cert) = put w >> put iPk >> put cert
+    get = liftM3 ProxySecretKey get get get
 
 instance (Bi w) => Bi (ProxySignature w a) where
     put ProxySignature{..} = do

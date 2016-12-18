@@ -16,7 +16,7 @@ import           Universum
 
 import           Pos.Binary.Txp              ()
 import           Pos.Communication.Methods   (sendToNeighborsSafe)
-import           Pos.Communication.Types     (ResponseMode)
+import           Pos.Communication.Types     (MutSocketState, ResponseMode)
 import           Pos.Context                 (WithNodeContext (getNodeContext),
                                               ncPropagation)
 import           Pos.Crypto                  (hash)
@@ -30,12 +30,12 @@ import           Pos.Txp.LocalData           (getLocalTxs)
 import           Pos.Txp.Types.Communication (TxDataMsg (..), TxInvMsg (..),
                                               TxReqMsg (..))
 import           Pos.Types                   (IdTxWitness, TxId)
-import           Pos.WorkMode                (SocketState, WorkMode)
+import           Pos.WorkMode                (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
 txListeners
-    :: (MonadDHTDialog SocketState m, WorkMode ssc m)
-    => [ListenerDHT SocketState m]
+    :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
+    => [ListenerDHT (MutSocketState ssc) m]
 txListeners =
     [
       ListenerDHT handleTxInv

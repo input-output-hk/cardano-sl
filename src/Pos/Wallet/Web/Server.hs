@@ -26,17 +26,17 @@ import           Servant.Utils.Enter        ((:~>) (..), enter)
 import           System.Wlog                (logInfo)
 import           Universum
 
-import           Pos.Crypto                 (SecretKey, toPublic)
+import           Pos.Communication          (newMutSocketState)
+import           Pos.Crypto                 (SecretKey, toPublic, whData)
 import           Pos.DHT.Model              (DHTPacking, dhtAddr, getKnownPeers)
 import           Pos.DHT.Real               (KademliaDHTContext, getKademliaDHTCtx,
                                              runKademliaDHTRaw)
 import           Pos.Genesis                (genesisSecretKeys)
-import           Pos.Launcher               (runTimed)
+import           Pos.Launcher               (runOurDialog)
 import           Pos.Types                  (Address, Coin (Coin), Tx, TxOut (..),
                                              addressF, coinF, decodeTextAddress,
                                              makePubKeyAddress)
 import           Pos.Web.Server             (serveImpl)
-import           Pos.WorkMode               (SocketState)
 
 import           Pos.Wallet.Context         (ContextHolder, WalletContext,
                                              getWalletContext, runContextHolder)
@@ -45,7 +45,7 @@ import           Pos.Wallet.KeyStorage      (KeyData, KeyStorage, MonadKeys (..)
 import           Pos.Wallet.State           (WalletDB, getWalletState, runWalletDB)
 import qualified Pos.Wallet.State           as WS
 import           Pos.Wallet.Tx              (getBalance, getTxHistory, submitTx)
-import           Pos.Wallet.WalletMode      (WalletRealMode)
+import           Pos.Wallet.WalletMode      (SState, WalletRealMode)
 import           Pos.Wallet.Web.Api         (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, addressToCAddress)
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletState,
@@ -73,7 +73,7 @@ type WebHandler = WalletWebDB WalletRealMode
 type SubKademlia = KeyStorage
                    (WalletDB
                     (ContextHolder
-                     (Dialog DHTPacking (Transfer SocketState))))
+                     (Dialog DHTPacking (Transfer SState))))
 
 type MainWalletState = WS.WalletState
 
@@ -86,7 +86,7 @@ convertHandler
     -> WebHandler a
     -> Handler a
 convertHandler kctx wc mws kd ws handler =
-    liftIO (runTimed "wallet-api" .
+    liftIO (runOurDialog newMutSocketState "wallet-api" .
             runContextHolder wc .
             runWalletDB mws .
             flip runKeyStorageRaw kd .
@@ -144,8 +144,8 @@ send srcIdx dstAddr c = do
               sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
               c srcIdx dstAddr
 
-getHistory :: Address -> WebHandler ([Tx], [Tx])
-getHistory = getTxHistory
+getHistory :: Address -> WebHandler [Tx]
+getHistory addr = map whData <$> getTxHistory addr
 
 newAddress :: WebHandler CAddress
 newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey

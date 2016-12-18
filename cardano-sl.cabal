@@ -115,12 +115,17 @@ library
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
                         Pos.Binary.Types
+                        Pos.Block.Server
+                        Pos.Block.Server.State
+                        Pos.Block.Server.Listeners
                         Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
+                        Pos.Communication.Types.State
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Server
                         Pos.Communication.Server.Block
+                        Pos.Communication.Server.Cert
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Util
                         Pos.CompileConfig.Parser
@@ -190,9 +195,10 @@ library
                         Pos.Modern.DB.Utxo
                         Pos.Modern.Txp.Class
                         Pos.Modern.Txp.Error
+                        Pos.Modern.Txp.Storage
                         Pos.Modern.Txp.Storage.Storage
-                        Pos.Modern.Txp.Storage.UtxoView
                         Pos.Modern.Txp.Storage.Types
+                        Pos.Modern.Txp.Storage.UtxoView
                         Pos.Modern.Txp.Holder
                         Pos.Modern.Txp.Listeners
   if flag(with-web)
@@ -251,6 +257,7 @@ library
                       , deriving-compat
                       , digest
                       , directory
+                      , dlist
                       , ed25519
                       , exceptions
                       , file-embed >= 0.0.10

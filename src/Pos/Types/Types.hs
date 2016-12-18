@@ -45,6 +45,8 @@ module Pos.Types.Types
        , TxIn (..)
        , TxOut (..)
        , Tx (..)
+       , _txInputs
+       , _txOutputs
        , txF
        , txwF
        , IdTxWitness
@@ -119,8 +121,8 @@ module Pos.Types.Types
        , mcdSignature
        ) where
 
-import           Control.Lens           (Getter, Lens', choosing, makeLenses, to, view,
-                                         (^.))
+import           Control.Lens           (Getter, Lens', choosing, makeLenses,
+                                         makeLensesFor, to, view, (^.))
 import           Control.Monad.Fail     (fail)
 import           Data.Aeson             (ToJSON (toJSON))
 import           Data.Aeson.TH          (deriveToJSON)
@@ -147,7 +149,7 @@ import           Serokell.AcidState     ()
 import           Serokell.Aeson.Options (defaultOptions)
 import qualified Serokell.Util.Base16   as B16
 import           Serokell.Util.Text     (listJson, listJsonIndent, mapBuilderJson,
-                                         pairBuilder)
+                                         pairBuilder, pairF)
 import           Universum
 
 import           Pos.Binary.Address     ()
@@ -192,6 +194,9 @@ newtype EpochIndex = EpochIndex
 
 instance Buildable EpochIndex where
     build = bprint ("epoch #"%int)
+
+instance Buildable (EpochIndex,EpochIndex) where
+    build = bprint ("epochIndices: "%pairF)
 
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex
@@ -310,6 +315,8 @@ data Tx = Tx
     { txInputs  :: ![TxIn]   -- ^ Inputs of transaction.
     , txOutputs :: ![TxOut]  -- ^ Outputs of transaction.
     } deriving (Eq, Ord, Generic, Show)
+
+makeLensesFor [("txInputs", "_txInputs"), ("txOutputs", "_txOutputs")] ''Tx
 
 type IdTxWitness = (TxId, (Tx, TxWitness))
 
@@ -482,6 +489,10 @@ data BlockSignature ssc
     = BlockSignature (Signature (MainToSign ssc))
     | BlockPSignature (ProxySignature (EpochIndex, EpochIndex) (MainToSign ssc))
     deriving Show
+
+instance Buildable (BlockSignature ssc) where
+    build (BlockSignature s)  = bprint ("BlockSignature: "%build) s
+    build (BlockPSignature s) = bprint ("BlockPSignature: "%build) s
 
 instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.

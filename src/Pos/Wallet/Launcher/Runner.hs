@@ -15,26 +15,26 @@ import           Formatting                   (build, sformat, (%))
 import           System.Wlog                  (logInfo)
 import           Universum
 
+import           Pos.Communication            (newMutSocketState)
 import           Pos.DHT.Model                (DHTNodeType (..), ListenerDHT,
                                                MonadDHTDialog, discoverPeers)
 import           Pos.DHT.Real                 (KademliaDHTInstance)
 import           Pos.Launcher                 (BaseParams (..), LoggingParams (..),
-                                               addDevListeners, runKDHT, runTimed,
+                                               addDevListeners, runKDHT, runOurDialog,
                                                setupLoggers)
-import           Pos.WorkMode                 (SocketState)
 
 import           Pos.Wallet.Context           (ctxFromParams, runContextHolder)
 import           Pos.Wallet.KeyStorage        (runKeyStorage)
 import           Pos.Wallet.Launcher.Param    (WalletParams (..))
 import           Pos.Wallet.State             (closeState, openMemState, openState,
                                                runWalletDB)
-import           Pos.Wallet.WalletMode        (WalletMode, WalletRealMode)
+import           Pos.Wallet.WalletMode        (SState, WalletMode, WalletRealMode)
 
 -- TODO: Move to some `Pos.Wallet.Communication` and provide
 -- meaningful listeners
 allListeners
-    :: (MonadDHTDialog SocketState m, WalletMode m)
-    => [ListenerDHT SocketState m]
+    :: (MonadDHTDialog SState m, WalletMode m)
+    => [ListenerDHT SState m]
 allListeners = []
 
 -- TODO: Move to some `Pos.Wallet.Worker` and provide
@@ -71,14 +71,14 @@ runWallet plugins = do
 runRawRealWallet
     :: KademliaDHTInstance
     -> WalletParams
-    -> [ListenerDHT SocketState WalletRealMode]
+    -> [ListenerDHT SState WalletRealMode]
     -> WalletRealMode a
     -> IO a
 runRawRealWallet inst wp@WalletParams {..} listeners action = runResourceT $ do
     setupLoggers lp
     db <- snd <$> allocate openDB closeDB
     lift $
-        runTimed lpRunnerTag .
+        runOurDialog newMutSocketState lpRunnerTag .
         runContextHolder (ctxFromParams wp) .
         runWalletDB db .
         runKeyStorage wpKeyFilePath .

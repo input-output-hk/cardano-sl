@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE TypeApplications     #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE TypeApplications #-}
 
 -- | `Arbitrary` instances for using in tests and benchmarks
 
@@ -19,7 +19,7 @@ import           Pos.Binary.Class            (Bi)
 import           Pos.Binary.Crypto           ()
 import           Pos.Crypto.Arbitrary.Hash   ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
-import           Pos.Crypto.SecretSharing   (EncShare,Secret, SecretProof,
+import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
                                               SecretSharingExtra, Share, VssKeyPair,
                                               VssPublicKey, decryptShare, genSharedSecret,
                                               toVssPublicKey, vssKeyGen)
@@ -112,7 +112,7 @@ instance (Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
 
 instance (Bi w, Arbitrary w, Bi a, Arbitrary a) =>
          Arbitrary (ProxySignature w a) where
-    arbitrary = proxySign <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = proxySign <$> arbitrary <*> arbitrary <*> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary secrets

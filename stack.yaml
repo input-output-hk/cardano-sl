@@ -40,7 +40,7 @@ nix:
 extra-deps:
 - pqueue-1.3.2
 - data-msgpack-0.0.8
-- double-conversion-2.0.2.0
+# - double-conversion-2.0.2.0
 - time-units-1.0.0
 - aeson-extra-0.4.0.0
 - recursion-schemes-5
@@ -52,3 +52,6 @@ extra-deps:
 - base58-bytestring-0.1.0
 
 resolver: lts-7.9
+
+# This is for CI to pass --fast to all dependencies
+apply-ghc-options: everything

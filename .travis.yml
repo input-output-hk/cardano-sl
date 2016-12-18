@@ -1,22 +1,29 @@
-sudo: false
-language: c
+sudo: true
+os:
+  - linux
+  # TODO: enable once rocksdb builds
+  #- osx
+language: nix
+env:
+  - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/e18dac705ad36482880e23d0a89c60c3514cb446.tar.gz
 cache:
   directories:
   - "$HOME/.stack"
   - "$HOME/build/input-output-hk/pos-haskell-prototype/.stack-work"
-addons:
-  apt:
-    packages:
-    - libgmp-dev
+
+# Until https://github.com/NixOS/nixpkgs/issues/21200 is fixed
 before_install:
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
-- travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards
-  --strip-components=1 -C ~/.local/bin '*/stack'
-install:
-- stack --no-terminal --install-ghc build --only-dependencies --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks
+- sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
+- travis_retry curl -L https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64 | tar xz --strip-components=1 -C ~/.local/bin
+- nix-shell --run ":" 
+- stack --nix --no-terminal build --nix --test --no-haddock-deps --ghc-options="-j +RTS -A128m -n2m -RTS" --only-dependencies --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks
+
+# --fast and ghc-options greatly improve CI build times
 script:
-- stack --no-terminal build --test --haddock --no-haddock-deps --bench --jobs=4 --no-run-benchmarks --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks
+- stack --nix --no-terminal build --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --test --no-haddock-deps --bench --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet
+
 notifications:
   email: false
   slack:

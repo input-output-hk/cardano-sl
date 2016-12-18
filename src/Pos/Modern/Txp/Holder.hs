@@ -35,7 +35,7 @@ import           Pos.State                       (MonadDB (..))
 import           Pos.Txp.LocalData               (MonadTxLD (..))
 import           Pos.Util.JsonLog                (MonadJL (..))
 
-import qualified Pos.Modern.DB                   as Modern
+import qualified Pos.Modern.DB.Class             as Modern
 import           Pos.Modern.Txp.Class            (MonadTxpLD (..))
 import           Pos.Modern.Txp.Storage.Types    (MemPool, UtxoView)
 import qualified Pos.Modern.Txp.Storage.UtxoView as UV

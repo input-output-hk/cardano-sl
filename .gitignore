@@ -45,3 +45,4 @@ run
 *.swp
 .ghci
 *.key
+wallet-db/

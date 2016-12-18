@@ -6,19 +6,15 @@ module GenOptions
 
 import           Options.Applicative    (Parser, ParserInfo, auto, fullDesc, help, helper,
                                          info, long, many, metavar, option, progDesc,
-                                         short, showDefault, switch, value)
-import           Serokell.Util.OptParse (fromParsec, strOption)
+                                         short, value)
 import           Universum
 
 
-import           Pos.CLI                (dhtNodeParser, sscAlgoParser)
-import           Pos.DHT.Model          (DHTNode)
-import           Pos.Ssc.SscAlgo        (SscAlgo (..))
+import qualified Pos.CLI                as CLI
 
 data GenOptions = GenOptions
     { goGenesisIdxs        :: ![Word]       -- ^ Index in genesis key pairs.
     -- , goRemoteAddr  :: !NetworkAddress -- ^ Remote node address
-    , goDHTPeers           :: ![DHTNode]  -- ^ Initial DHT nodes
     , goRoundPeriodRate    :: !Int        -- ^ R, where duration of one round is ((k + P) * (R + 1)) * slotDuration
     , goRoundNumber        :: !Int        -- ^ Number of rounds
     , goRoundPause         :: !Double     -- ^ Pause between rounds (in seconds)
@@ -27,14 +23,8 @@ data GenOptions = GenOptions
     , goTpsIncreaseStep    :: !Double     -- ^ When system is stable, increase TPS in next round by this value
     , goPropThreshold      :: !Int
     , goRecipientShare     :: !Double     -- ^ Which portion of neighbours to send on each round
-    , goDhtExplicitInitial :: !Bool
-    , goLogConfig          :: !(Maybe FilePath)
-    , goLogsPrefix         :: !(Maybe FilePath)
     , goJLFile             :: !(Maybe FilePath)
-    , goSscAlgo            :: !SscAlgo
-    , goFlatDistr          :: !(Maybe (Int, Int))
-    , goBitcoinDistr       :: !(Maybe (Int, Int))
-    , goDisablePropagation :: !Bool
+    , goCommonArgs         :: !CLI.CommonArgs -- ^ Common CLI arguments, including initial DHT nodes
     }
 
 optionsParser :: Parser GenOptions
@@ -48,10 +38,6 @@ optionsParser = GenOptions
     --         (long "peer"
     --       <> metavar "HOST:PORT"
     --       <> help "Node address to ZERG RUSH")
-    <*> many (option (fromParsec dhtNodeParser) $
-             long "peer"
-          <> metavar "HOST:PORT/HOST_ID"
-          <> help "Initial DHT peer (may be many)")
     <*> option auto
             (short 'R'
           <> long "round-period-rate"
@@ -89,45 +75,8 @@ optionsParser = GenOptions
             (long "recipients-share"
           <> value 1
           <> help "Which portion of neighbours to send on each round")
-    <*> switch
-        (long "explicit-initial" <>
-         help
-             "Explicitely contact to initial peers as to neighbors (even if they appeared offline once)")
-    <*> optional (strOption $
-                  long "log-config"
-               <> metavar "FILEPATH"
-               <> help "Path to logger configuration")
-    <*> optional (strOption $
-                  long "logs-prefix"
-               <> metavar "FILEPATH"
-               <> help "Prefix to logger output path")
-    <*> optional (strOption $
-                  long "json-log"
-               <> metavar "FILEPATH"
-               <> help "Path to json log file")
-    <*> option (fromParsec sscAlgoParser)
-        (long "ssc-algo"
-      <> metavar "ALGO"
-      <> value GodTossingAlgo
-      <> showDefault
-      <> help "Shared Seed Calculation algorithm which nodes will use")
-    <*> optional
-        (option auto $
-         mconcat
-            [ long "flat-distr"
-            , metavar "(INT,INT)"
-            , help "Use flat stake distribution with given parameters (nodes, coins)"
-            ])
-    <*> optional
-        (option auto $
-         mconcat
-            [ long "bitcoin-distr"
-            , metavar "(INT,INT)"
-            , help "Use bitcoin stake distribution with given parameters (nodes, coins)"
-            ])
-    <*> switch
-        (long "disable-propagation" <>
-         help "Disable network propagation (transactions, SSC data, blocks). I.e. all data is to be sent only by entity who creates data and entity is yosend it to all peers on his own")
+    <*> CLI.optionalJSONPath
+    <*> CLI.commonArgsParser "Initial DHT peer (may be many)"
 
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $

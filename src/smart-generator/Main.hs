@@ -20,6 +20,7 @@ import           System.Wlog                     (logInfo)
 import           Test.QuickCheck                 (arbitrary, generate)
 import           Universum                       hiding (forConcurrently)
 
+import qualified Pos.CLI                         as CLI
 import           Pos.Constants                   (k, neighborsSendThreshold, slotDuration)
 import           Pos.Crypto                      (KeyPair (..), hash)
 import           Pos.DHT.Model                   (DHTNodeType (..), MonadDHT, dhtAddr,
@@ -98,7 +99,7 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
     -- access to blockchain
     fork_ $ runNode @ssc []
 
-    let logsFilePrefix = fromMaybe "." goLogsPrefix
+    let logsFilePrefix = fromMaybe "." (CLI.logPrefix goCommonArgs)
     -- | Run the special worker to check new blocks and
     -- fill tx verification times
     fork_ $ checkWorker txTimestamps logsFilePrefix
@@ -217,16 +218,16 @@ main = do
     let logParams =
             LoggingParams
             { lpRunnerTag     = "smart-gen"
-            , lpHandlerPrefix = goLogsPrefix
-            , lpConfigPath    = goLogConfig
+            , lpHandlerPrefix = CLI.logPrefix goCommonArgs
+            , lpConfigPath    = CLI.logConfig goCommonArgs
             }
         baseParams =
             BaseParams
             { bpLoggingParams      = logParams
             , bpPort               = 24962 + (fromIntegral $ minimum goGenesisIdxs)
-            , bpDHTPeers           = goDHTPeers
+            , bpDHTPeers           = CLI.dhtPeers goCommonArgs
             , bpDHTKeyOrType       = Right DHTFull
-            , bpDHTExplicitInitial = goDhtExplicitInitial
+            , bpDHTExplicitInitial = CLI.dhtExplicitInitial goCommonArgs
             }
 
     bracketDHTInstance baseParams $ \inst -> do
@@ -246,10 +247,12 @@ main = do
                 , npSecretKey   = sk
                 , npBaseParams  = baseParams
                 , npCustomUtxo  = Just $ genesisUtxo $
-                                  stakesDistr goFlatDistr goBitcoinDistr
+                                      stakesDistr
+                                      (CLI.flatDistr goCommonArgs)
+                                      (CLI.bitcoinDistr goCommonArgs)
                 , npTimeLord    = False
                 , npJLFile      = goJLFile
-                , npPropagation = not goDisablePropagation
+                , npPropagation = not (CLI.disablePropagation goCommonArgs)
                 }
             gtParams =
                 GtParams
@@ -259,7 +262,7 @@ main = do
                 , gtpVssKeyPair = vssKeyPair
                 }
 
-        case goSscAlgo of
+        case CLI.sscAlgo goCommonArgs of
             GodTossingAlgo -> putText "Using MPC coin tossing" *>
                               runSmartGen @SscGodTossing inst params gtParams opts
             NistBeaconAlgo -> putText "Using NIST beacon" *>

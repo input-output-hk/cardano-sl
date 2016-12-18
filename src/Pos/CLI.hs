@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE OverloadedLists #-}
 
 -- | Module for command-line utilites, parsers and convenient handlers.
@@ -9,21 +10,39 @@ module Pos.CLI
        , dhtNodeParser
        , readLoggerConfig
        , sscAlgoParser
+
+       -- | CLI options and flags
+       , CommonArgs (..)
+       , commonArgsParser
+       , optionalJSONPath
+       , optionalLogPrefix
+       , portOption
+       , timeLordOption
+#ifdef WITH_WEB
+       , webPortOption
+#endif
        ) where
 
 import           Universum
 
-import           Control.Monad                      (fail)
-import           Control.TimeWarp.Rpc               (NetworkAddress)
-import           Data.Default                       (def)
-import           Data.Either                        (either)
-import           Pos.DHT.Model.Types                (DHTKey, DHTNode (..), bytesToDHTKey)
-import           Pos.Ssc.SscAlgo                    (SscAlgo (..))
-import qualified Serokell.Util.Parse                as P
-import           System.Wlog                        (LoggerConfig (..),
-                                                     Severity (Info, Warning),
-                                                     parseLoggerConfig)
-import qualified Text.ParserCombinators.Parsec.Char as P
+import           Control.Monad                        (fail)
+import           Control.TimeWarp.Rpc                 (NetworkAddress)
+import           Data.Default                         (def)
+import           Data.Either                          (either)
+import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
+import qualified Options.Applicative.Simple           as Opt (Mod, Parser, auto, help,
+                                                              long, metavar, option,
+                                                              optional, showDefault,
+                                                              strOption, switch, value)
+import           Pos.DHT.Model.Types                  (DHTKey, DHTNode (..),
+                                                       bytesToDHTKey)
+import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
+import           Serokell.Util.OptParse               (fromParsec)
+import qualified Serokell.Util.Parse                  as P
+import           System.Wlog                          (LoggerConfig (..),
+                                                       Severity (Info, Warning),
+                                                       parseLoggerConfig)
+import qualified Text.ParserCombinators.Parsec.Char   as P
 
 -- | Parser for DHT key.
 dhtKeyParser :: P.Parser DHTKey
@@ -69,3 +88,121 @@ defaultLoggerConfig = def { lcSubloggers = defSubloggers }
 -- | Reads logger config from given path. By default return 'defaultLoggerConfig'.
 readLoggerConfig :: MonadIO m => Maybe FilePath -> m LoggerConfig
 readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig
+
+------------------------------------------------------------------------------------------
+-- CLI Options
+------------------------------------------------------------------------------------------
+
+data CommonArgs = CommonArgs
+    { dhtExplicitInitial :: !Bool
+    , dhtPeers           :: ![DHTNode]
+    , logConfig          :: !(Maybe FilePath)
+    , logPrefix          :: !(Maybe FilePath)
+    , sscAlgo            :: !SscAlgo
+    , disablePropagation :: !Bool
+    , flatDistr          :: !(Maybe (Int, Int))
+    , bitcoinDistr       :: !(Maybe (Int, Int))
+    } deriving Show
+
+commonArgsParser :: [Char] -> Opt.Parser CommonArgs
+commonArgsParser peerHelpMsg = CommonArgs
+    <$> explicitInitial
+    <*> many (peerOption peerHelpMsg)
+    <*> optionalLogConfig
+    <*> optionalLogPrefix
+    <*> sscAlgoOption
+    <*> disablePropagationOption
+    <*> flatDistrOptional
+    <*> btcDistrOptional
+
+templateParser :: (HasName f, HasMetavar f) => [Char] -> [Char] -> [Char] -> Opt.Mod f a
+templateParser long metavar help =
+    Opt.long long
+    <> Opt.metavar metavar
+    <> Opt.help help
+
+explicitInitial :: Opt.Parser Bool
+explicitInitial =
+    Opt.switch
+        (Opt.long "explicit-initial" <>
+         Opt.help "Explicitely contact to initial peers as to neighbors (even if they\
+                  \ appeared offline once)")
+
+peerOption :: [Char] -> Opt.Parser DHTNode
+peerOption peerHelpMsg =
+    Opt.option (fromParsec dhtNodeParser) $
+        templateParser "peer" "HOST:PORT/HOST_ID" peerHelpMsg
+
+optionalLogConfig :: Opt.Parser (Maybe [Char])
+optionalLogConfig =
+    Opt.optional $ Opt.strOption $
+        templateParser "log-config" "FILEPATH" "Path to logger configuration"
+
+optionalLogPrefix :: Opt.Parser (Maybe [Char])
+optionalLogPrefix =
+    optional $ Opt.strOption $
+        templateParser "logs-prefix" "FILEPATH" "Prefix to logger output path"
+
+optionalJSONPath :: Opt.Parser (Maybe [Char])
+optionalJSONPath =
+    Opt.optional $ Opt.strOption $
+        templateParser "json-log" "FILEPATH" "Path to json log file"
+
+portOption :: Word16 -> Opt.Parser Word16
+portOption portNum =
+    Opt.option Opt.auto $
+        templateParser "port" "PORT" "Port to work on"
+        <> Opt.value portNum
+        <> Opt.showDefault
+
+sscAlgoOption :: Opt.Parser SscAlgo
+sscAlgoOption =
+    Opt.option (fromParsec sscAlgoParser)
+        (Opt.long "ssc-algo"
+        <> Opt.metavar "ALGO"
+        <> Opt.value GodTossingAlgo
+        <> Opt.showDefault
+        <> Opt.help "Shared Seed Calculation algorithm which nodes will use")
+
+disablePropagationOption :: Opt.Parser Bool
+disablePropagationOption =
+    Opt.switch
+        (Opt.long "disable-propagation" <>
+         Opt.help "Disable network propagation (transactions, SSC data, blocks). I.e.\
+                  \ all data is to be sent only by entity who creates data and entity is\
+                  \ yosend it to all peers on his own")
+
+flatDistrOptional :: Opt.Parser (Maybe (Int, Int))
+flatDistrOptional =
+    Opt.optional $
+        Opt.option Opt.auto $
+            templateParser
+                "flat-distr"
+                "(INT,INT)"
+                "Use flat stake distribution with given parameters (nodes, coins)"
+
+btcDistrOptional :: Opt.Parser (Maybe (Int, Int))
+btcDistrOptional =
+    Opt.optional $
+        Opt.option Opt.auto $
+            templateParser
+                "bitcoin-distr"
+                "(INT,INT)"
+                "Use bitcoin stake distribution with given parameters (nodes,\
+                \ coins)"
+
+timeLordOption :: Opt.Parser Bool
+timeLordOption =
+    Opt.switch
+        (Opt.long "time-lord" <>
+         Opt.help "Peer is time lord, i.e. one responsible for system start time decision\
+                  \ & propagation (used only in development)")
+
+#ifdef WITH_WEB
+webPortOption :: Word16 -> Opt.Parser Word16
+webPortOption portNum =
+    Opt.option Opt.auto $
+        templateParser "web-port" "PORT" "Port for web server"
+        <> Opt.value portNum
+        <> Opt.showDefault
+#endif

@@ -264,6 +264,8 @@ library
                       , monad-loops
                       , mono-traversable
                       , mtl
+                      , optparse-applicative
+                      , optparse-simple
                       , parsec
                       , plutus-prototype
                       , pvss

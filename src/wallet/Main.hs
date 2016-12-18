@@ -17,6 +17,7 @@ import           System.IO              (hFlush, stdout)
 import           Test.QuickCheck        (arbitrary, generate)
 import           Universum
 
+import qualified Pos.CLI                as CLI
 import           Pos.Communication      (sendProxySecretKey)
 import           Pos.Constants          (slotDuration)
 import           Pos.Crypto             (KeyPair (..), SecretKey, createProxySecretKey,
@@ -113,16 +114,16 @@ main = do
     let logParams =
             LoggingParams
             { lpRunnerTag     = "smart-wallet"
-            , lpHandlerPrefix = woLogsPrefix
-            , lpConfigPath    = woLogConfig
+            , lpHandlerPrefix = CLI.logPrefix woCommonArgs
+            , lpConfigPath    = CLI.logConfig woCommonArgs
             }
         baseParams =
             BaseParams
             { bpLoggingParams      = logParams
             , bpPort               = woPort
-            , bpDHTPeers           = woDHTPeers
+            , bpDHTPeers           = CLI.dhtPeers woCommonArgs
             , bpDHTKeyOrType       = Right DHTFull
-            , bpDHTExplicitInitial = woDhtExplicitInitial
+            , bpDHTExplicitInitial = CLI.dhtExplicitInitial woCommonArgs
             }
 
     bracketDHTInstance baseParams $ \inst -> do
@@ -142,10 +143,12 @@ main = do
                 , npSecretKey   = sk
                 , npBaseParams  = baseParams
                 , npCustomUtxo  = Just $ genesisUtxo $
-                                  stakesDistr woFlatDistr woBitcoinDistr
+                                      stakesDistr
+                                      (CLI.flatDistr woCommonArgs)
+                                      (CLI.bitcoinDistr woCommonArgs)
                 , npTimeLord    = False
                 , npJLFile      = woJLFile
-                , npPropagation = not woDisablePropagation
+                , npPropagation = not (CLI.disablePropagation woCommonArgs)
                 }
             gtParams =
                 GtParams
@@ -162,7 +165,7 @@ main = do
                 Serve webPort webDaedalusDbPath -> [walletServeWeb webDaedalusDbPath webPort]
 #endif
 
-        case woSscAlgo of
+        case CLI.sscAlgo woCommonArgs of
             GodTossingAlgo -> putText "Using MPC coin tossing" *>
                               runWallet @SscGodTossing inst plugins params gtParams "secret.key"
             NistBeaconAlgo -> putText "Using NIST beacon" *>

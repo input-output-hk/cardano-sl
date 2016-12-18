@@ -278,9 +278,6 @@ generateAndSetNewSecret sk epoch = do
                 logError "Wrong participants list: can't deserialize"
                 return Nothing
 
--- pathToSecret :: WorkMode SscGodTossing m => m (Maybe FilePath)
--- pathToSecret = fmap (</> "secret") <$> (ncDbPath <$> getNodeContext)
-
 randomTimeInInterval
     :: WorkMode SscGodTossing m
     => Microsecond -> m Microsecond

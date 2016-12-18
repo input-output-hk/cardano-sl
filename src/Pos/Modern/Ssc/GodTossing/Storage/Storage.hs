@@ -10,7 +10,6 @@
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
-{-# LANGUAGE ViewPatterns          #-}
 
 -- | Instance of SscStorageClass.
 
@@ -20,7 +19,9 @@ module Pos.Modern.Ssc.GodTossing.Storage.Storage
        ) where
 
 import           Control.Lens                             (Lens', ix, preview, to, use,
-                                                           view, (%=), (.=), (^.))
+                                                           view, zoom, (%=), (.=), (^.),
+                                                           _1, _2, _3)
+import           Control.Monad.IfElse                     (whileM)
 import           Control.Monad.Reader                     (ask)
 import           Data.Default                             (def)
 import qualified Data.HashMap.Strict                      as HM
@@ -36,11 +37,6 @@ import           Universum
 import           Pos.Crypto                               (EncShare, Threshold,
                                                            VssPublicKey)
 import           Pos.FollowTheSatoshi                     (followTheSatoshi)
-import           Pos.Modern.Ssc.GodTossing.Storage.Types  (GtGlobalState (..),
-                                                           gsBlocksMpc, gsCommitments,
-                                                           gsOpenings, gsShares,
-                                                           gsVssCertificates)
-import           Pos.Modern.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.Class.Storage                    (HasSscStorage (..),
                                                            MonadSscGS (..), SscQuery,
                                                            SscStorageClassM (..),
@@ -60,21 +56,31 @@ import           Pos.Ssc.GodTossing.Types.Types           (GtPayload (..), SscBi
                                                            emptyPayload, _gpCertificates)
 import           Pos.State.Storage.Types                  (AltChain)
 import           Pos.Types                                (Address (..), Block,
-                                                           EpochIndex, SlotId (..),
-                                                           SlotLeaders, Utxo, blockMpc,
-                                                           blockSlot, blockSlot, gbHeader,
+                                                           EpochIndex, HeaderHash,
+                                                           SlotId (..), SlotLeaders, Utxo,
+                                                           blockMpc, blockSlot, blockSlot,
+                                                           gbHeader, prevBlockL,
                                                            txOutAddress)
 import           Pos.Util                                 (AsBinary, magnify', neFromList,
-                                                           readerToState, zoom', _neHead)
+                                                           readerToState, _neHead)
+
+import           Pos.Modern.DB                            (MonadDB (..), getBlock, getTip)
+import           Pos.Modern.Ssc.GodTossing.Storage.Types  (GtGlobalState (..),
+                                                           gsCommitments, gsOpenings,
+                                                           gsShares, gsVssCertificates)
+import           Pos.Modern.Ssc.GodTossing.Types.Instance ()
+
 type GSQuery a  = forall m . Monad m => ReaderT GtGlobalState m a
 type GSUpdate a = forall m . Monad m => StateT GtGlobalState m a
+type DBMode ssc m = (MonadSscGS SscGodTossing m, MonadDB SscGodTossing m, MonadThrow m)
 
-instance (SscBi, Monad m, MonadSscGS SscGodTossing m
+instance (SscBi, Monad m, MonadDB SscGodTossing m, Ssc SscGodTossing
+         , MonadSscGS SscGodTossing m, MonadThrow m
          , SscPayload SscGodTossing ~ GtPayload
          , SscGlobalState SscGodTossing ~ GtGlobalState)
          => SscStorageClassM SscGodTossing m where
     sscApplyBlocksM = sscRunGlobalModify . mpcApplyBlocks
-    sscRollbackM = sscRunGlobalModify . mpcRollback
+    sscRollbackM = mpcRollback
     --getGlobalStateM = sscRunGlobalQuery $ getGlobalMpcData
     --sscGetGlobalStateByDepth = getGlobalMpcDataByDepth
     sscVerifyBlocksM _ = sscRunGlobalQuery . mpcVerifyBlocks
@@ -84,18 +90,18 @@ instance (SscBi, Monad m, MonadSscGS SscGodTossing m
     -- sscGetParticipants = getParticipants
     -- sscCalculateLeadersM = notImplemented
 
-getGlobalMpcData :: GSQuery GtGlobalState
-getGlobalMpcData =
-    fromMaybe (panic "No global SSC payload for depth 0") <$>
-    getGlobalMpcDataByDepth 0
+-- getGlobalMpcData :: GSQuery GtGlobalState
+-- getGlobalMpcData =
+--     fromMaybe (panic "No global SSC payload for depth 0") <$>
+--     getGlobalMpcDataByDepth 0
 
 -- TODO: check for off-by-one errors!!!!111
 --
 -- specifically, I'm not sure whether versioning here and versioning in .Tx
 -- are the same versionings
-getGlobalMpcDataByDepth :: Word -> GSQuery (Maybe GtGlobalState)
-getGlobalMpcDataByDepth (fromIntegral -> depth) =
-    Just . execState (mpcRollback depth) <$> ask
+-- getGlobalMpcDataByDepth :: Word -> GSQuery (Maybe GtGlobalState)
+-- getGlobalMpcDataByDepth (fromIntegral -> depth) =
+--     Just . execState (mpcRollback depth) <$> ask
 
 -- | Get keys of nodes participating in an epoch. A node participates if,
 -- when there were 'k' slots left before the end of the previous epoch, both
@@ -103,15 +109,29 @@ getGlobalMpcDataByDepth (fromIntegral -> depth) =
 --
 --   1. It was a stakeholder.
 --   2. It had already sent us its VSS key by that time.
-getParticipants :: Word -> Utxo -> GSQuery (Maybe (NonEmpty (AsBinary VssPublicKey)))
-getParticipants depth utxo = do
-    mKeymap <- fmap _gsVssCertificates <$> getGlobalMpcDataByDepth depth  -- it is verifiedVssCertificates
-    return $
-        do keymap <- mKeymap
-           let stakeholders =
-                   nub $ map txOutAddress (toList utxo)
-           NE.nonEmpty $
-               map vcVssKey $ mapMaybe (`HM.lookup` keymap) stakeholders
+-- getParticipants :: Word -> Utxo -> GSQuery (Maybe (NonEmpty (AsBinary VssPublicKey)))
+-- getParticipants depth utxo = do
+--     mKeymap <- fmap _gsVssCertificates <$> getGlobalMpcDataByDepth depth  -- it is verifiedVssCertificates
+--     return $
+--         do keymap <- mKeymap
+--            let stakeholders =
+--                    nub $ map txOutAddress (toList utxo)
+--            NE.nonEmpty $
+--                map vcVssKey $ mapMaybe (`HM.lookup` keymap) stakeholders
+
+-- | Decrypt shares (in commitments) that we can decrypt.
+-- getOurShares
+--     :: AsBinary VssPublicKey                           -- ^ Our VSS key
+--     -> Query (HashMap Address (AsBinary EncShare))
+-- getOurShares ourPK = do
+--     comms <- view (lastVer . dsGlobalCommitments)
+--     opens <- view (lastVer . dsGlobalOpenings)
+--     return .
+--         HM.fromList . catMaybes $
+--             flip fmap (HM.toList comms) $ \(theirAddr, (_, Commitment{..}, _)) ->
+--                 if not $ HM.member theirAddr opens
+--                    then (,) theirAddr <$> HM.lookup ourPK commShares
+--                    else Nothing -- if we have opening for theirAddr, we shouldn't send shares for it
 
 -- | Calculate leaders for the next epoch.
 calculateLeaders
@@ -252,52 +272,79 @@ mpcProcessBlock blk = do
             gsCommitments .= mempty
             gsOpenings    .= mempty
             gsShares      .= mempty
-            gsBlocksMpc   %= prependNShift emptyPayload
         -- Main blocks contain commitments, openings, shares, VSS certificates
-        Right b -> unionPayload (b ^. blockMpc)
-  where
-    unionPayload payload = do
-        let blockCertificates = _gpCertificates payload
-        gsBlocksMpc %= prependNShift payload
-        case payload of
-            CommitmentsPayload comms _ ->
-                gsCommitments %= HM.union comms
-            OpeningsPayload    opens _ ->
-                gsOpenings %= HM.union opens
-            SharesPayload     shares _ ->
-                gsShares %= HM.unionWith HM.union shares
-            CertificatesPayload      _ -> pure ()
-        gsVssCertificates %= HM.union blockCertificates
-    prependNShift payload = neFromList . NE.init . NE.cons payload
+        Right b -> modify (unionPayload (b ^. blockMpc))
 
-mpcRollback :: Word -> GSUpdate ()
-mpcRollback (fromIntegral -> n) = replicateM_ n rollbackLast
+unionPayload :: GtPayload -> GtGlobalState -> GtGlobalState
+unionPayload payload =
+    execState (do
+    let blockCertificates = _gpCertificates payload
+    case payload of
+        CommitmentsPayload comms _ ->
+            gsCommitments %= HM.union comms
+        OpeningsPayload    opens _ ->
+            gsOpenings %= HM.union opens
+        SharesPayload     shares _ ->
+            gsShares %= HM.unionWith HM.union shares
+        CertificatesPayload      _ -> pure ()
+    gsVssCertificates %= HM.union blockCertificates)
+
+mpcRollback :: forall m . (DBMode SscGodTossing m
+                          , SscPayload SscGodTossing ~ GtPayload
+                          , SscGlobalState SscGodTossing ~ GtGlobalState
+                          , Ssc SscGodTossing)
+            => Word -> m ()
+mpcRollback cn = do
+    initTip <- getTip
+    initGS <- getGlobalState
+    (curGS, curTip, wasGenesis) <- execStateT (rollbackN cn)
+                                              (initGS, initTip, False)
+    if not wasGenesis then
+        setGlobalState curGS
+    else
+        execStateT unionBlocks (def, curTip) >>= setGlobalState . fst
   where
-    rollbackLast = do
-        payload <- use (gsBlocksMpc . _neHead)
-        let payloadCertificates = _gpCertificates payload
+    rollbackN :: Word -> StateT (GtGlobalState, HeaderHash SscGodTossing, Bool) m ()
+    rollbackN n = do
+        forM_ [1..n] (\_->do
+            curTip <- use _2
+            block <- lift $ getBlock curTip
+            maybe (panic "No block with such tip")
+                  (\b-> do
+                      wasGenesis <- use _3
+                      -- TODO check here: if we meet MOST genesis block, then stop
+                      unless wasGenesis (differenceBlock b)
+                      _2 .= b ^. prevBlockL
+                  )
+                  block
+            )
+    differenceBlock :: Block SscGodTossing -> StateT (GtGlobalState, HeaderHash SscGodTossing, Bool) m ()
+    differenceBlock (Left _)  = _3 .= True
+    differenceBlock (Right b) = do
+        let payload = b ^. blockMpc
+            payloadCertificates = _gpCertificates payload
         case payload of
             CommitmentsPayload comms _ ->
-                gsCommitments %= (`HM.difference` comms)
+                _1 . gsCommitments %= (`HM.difference` comms) -- ugly
             OpeningsPayload    opens _ ->
-                gsOpenings %= (`HM.difference` opens)
+                _1 . gsOpenings %= (`HM.difference` opens)
             SharesPayload     shares _ ->
-                gsShares %= (`HM.difference` shares)
+                _1 . gsShares %= (`HM.difference` shares)
             CertificatesPayload      _ -> return ()
-        gsVssCertificates %= flip HM.difference payloadCertificates
-        gsBlocksMpc %= NE.fromList . NE.tail
+        _1 . gsVssCertificates %= (`HM.difference` payloadCertificates)
+    unionBlocks :: StateT (GtGlobalState,  HeaderHash SscGodTossing) m ()
+    unionBlocks = whileM
+        (do
+            curTip <- use _2
+            block <- lift $ getBlock curTip
+            maybe (panic "No block with such tip")
+                  (\b->
+                  case b of
+                      Left _   -> pure False
+                      Right mb -> do
+                          _1 %= unionPayload (mb ^. blockMpc)
+                          True <$ (_2 .= b ^. prevBlockL)
+                  )
+                  block
+        ) (pure ())
 
-
--- | Decrypt shares (in commitments) that we can decrypt.
--- getOurShares
---     :: AsBinary VssPublicKey                           -- ^ Our VSS key
---     -> Query (HashMap Address (AsBinary EncShare))
--- getOurShares ourPK = do
---     comms <- view (lastVer . dsGlobalCommitments)
---     opens <- view (lastVer . dsGlobalOpenings)
---     return .
---         HM.fromList . catMaybes $
---             flip fmap (HM.toList comms) $ \(theirAddr, (_, Commitment{..}, _)) ->
---                 if not $ HM.member theirAddr opens
---                    then (,) theirAddr <$> HM.lookup ourPK commShares
---                    else Nothing -- if we have opening for theirAddr, we shouldn't send shares for it

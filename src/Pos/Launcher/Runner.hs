@@ -160,6 +160,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     legacyDB <- snd <$> allocate openDb closeDb
 #ifdef WITH_ROCKS
     modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo")
+    (initTip1, initSsc) <- Modern.runDBHolder modernDBs loadInitDataFromDB
     let initTip = notImplemented -- init tip must be here
 #endif
     let run db =

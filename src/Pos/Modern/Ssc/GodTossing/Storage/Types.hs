@@ -19,18 +19,15 @@ module Pos.Modern.Ssc.GodTossing.Storage.Types
        , gsOpenings
        , gsShares
        , gsVssCertificates
-       , gsBlocksMpc
        ) where
 
 import           Control.Lens                   (makeLenses)
 import           Data.Default                   (Default (..))
-import           Data.List.NonEmpty             (NonEmpty ((:|)))
 import           Data.SafeCopy                  (base, deriveSafeCopySimple)
 import           Universum
 
 import           Pos.Ssc.GodTossing.Types.Base  (CommitmentsMap, OpeningsMap, SharesMap,
                                                  VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Types.Types (GtPayload)
 
 -- | MPC-related content of main body.
 data GtGlobalState = GtGlobalState
@@ -43,11 +40,6 @@ data GtGlobalState = GtGlobalState
       -- | Vss certificates are added at any time if they are valid and
       -- received from stakeholders.
     , _gsVssCertificates :: !VssCertificatesMap
-      -- | MPC data from last several blocks.
-      -- Head - last arrived block.
-      -- _gsCommitments, _gsOpenings, _gsShares and _gsVssCertificates are
-      -- unions by all blocks in this list.
-    , _gsBlocksMpc       :: NonEmpty GtPayload
     } deriving (Show, Generic)
 
 deriveSafeCopySimple 0 'base ''GtGlobalState
@@ -61,5 +53,4 @@ instance Default GtGlobalState where
         , _gsOpenings = mempty
         , _gsShares = mempty
         , _gsVssCertificates = mempty
-        , _gsBlocksMpc = def :| []
         }

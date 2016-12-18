@@ -18,7 +18,7 @@ import           Universum
 
 import           Pos.Context            (putBlkSemaphore, takeBlkSemaphore)
 import qualified Pos.Modern.DB          as DB
-import           Pos.Modern.Txp.Storage (txApplyBlocks)
+import           Pos.Modern.Txp.Storage (txApplyBlocks, txVerifyBlocks)
 import           Pos.Slotting           (getCurrentSlot)
 import           Pos.Types              (Block, BlockHeader, VerifyHeaderParams (..),
                                          blockHeader, difficultyL, headerHash, headerSlot,
@@ -76,10 +76,20 @@ classifyNewHeader (Right header) = do
             CHRuseless $
             "header doesn't continue main chain and is not more difficult"
 
+-- | Verify block received from network. If parent of this block is
+-- not our tip, verification fails. This function checks everything
+-- from block, including header, transactions, SSC data.
+--
+-- TODO: this function should be more complex and most likely take at
+-- least list of blocks.
 verifyBlock
     :: (WorkMode ssc m)
-    => Block ssc -> m ()
-verifyBlock _ = pass
+    => Block ssc -> m VerificationRes
+verifyBlock blk = do
+    -- [CSL-316] 'txVerifyBlocks' should return 'VerificationRes'
+    txsVerRes <- undefined <$> txVerifyBlocks (pure blk)
+    -- TODO: more checks of course
+    return txsVerRes
 
 -- | Apply definitely valid block. At this point we must have verified
 -- all predicates regarding block (including txs and ssc data checks).

@@ -25,6 +25,7 @@ module Pos.Ssc.GodTossing.Types.Types
        , mkGtProof
        , createGtContext
        , _gpCertificates
+       , emptyPayload
 
        , SscBi
        ) where
@@ -120,6 +121,9 @@ data GtPayload
     | SharesPayload       !SharesMap      !VssCertificatesMap
     | CertificatesPayload !VssCertificatesMap
     deriving (Show, Generic)
+
+emptyPayload :: GtPayload
+emptyPayload = CertificatesPayload mempty
 
 instance Default GtPayload where
     def = CertificatesPayload genesisCertificates

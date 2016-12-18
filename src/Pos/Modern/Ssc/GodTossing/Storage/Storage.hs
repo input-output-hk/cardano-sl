@@ -57,14 +57,14 @@ import           Pos.Ssc.GodTossing.Types.Base            (Commitment (..),
                                                            VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Type            (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types           (GtPayload (..), SscBi,
-                                                           _gpCertificates)
+                                                           emptyPayload, _gpCertificates)
 import           Pos.State.Storage.Types                  (AltChain)
 import           Pos.Types                                (Address (..), Block,
                                                            EpochIndex, SlotId (..),
                                                            SlotLeaders, Utxo, blockMpc,
                                                            blockSlot, blockSlot, gbHeader,
                                                            txOutAddress)
-import           Pos.Util                                 (AsBinary, magnify',
+import           Pos.Util                                 (AsBinary, magnify', neFromList,
                                                            readerToState, zoom', _neHead)
 type GSQuery a  = forall m . Monad m => ReaderT GtGlobalState m a
 type GSUpdate a = forall m . Monad m => StateT GtGlobalState m a
@@ -78,6 +78,7 @@ instance (SscBi, Monad m, MonadSscGS SscGodTossing m
     --getGlobalStateM = sscRunGlobalQuery $ getGlobalMpcData
     --sscGetGlobalStateByDepth = getGlobalMpcDataByDepth
     sscVerifyBlocksM _ = sscRunGlobalQuery . mpcVerifyBlocks
+    -- onNewSlot - we need it for mpcBlocks
 
     -- sscGetOurShares = getOurShares
     -- sscGetParticipants = getParticipants
@@ -242,8 +243,6 @@ mpcProcessBlock
     :: (SscPayload ssc ~ GtPayload)
     => Block ssc -> GSUpdate ()
 mpcProcessBlock blk = do
-    -- lv <- use lastVer
-    -- dsVersioned %= NE.cons lv
     case blk of
         -- Genesis blocks don't contain anything interesting, but when they
         -- “arrive”, we clear global commitments and other globals. Not
@@ -253,14 +252,13 @@ mpcProcessBlock blk = do
             gsCommitments .= mempty
             gsOpenings    .= mempty
             gsShares      .= mempty
-            -- TODO what must we do here?
-            --gsBlocksMpc   .= b ^. blockMpc :| []
+            gsBlocksMpc   %= prependNShift emptyPayload
         -- Main blocks contain commitments, openings, shares, VSS certificates
         Right b -> unionPayload (b ^. blockMpc)
   where
     unionPayload payload = do
         let blockCertificates = _gpCertificates payload
-        gsBlocksMpc %= (NE.fromList . NE.init . NE.cons payload)
+        gsBlocksMpc %= prependNShift payload
         case payload of
             CommitmentsPayload comms _ ->
                 gsCommitments %= HM.union comms
@@ -268,8 +266,9 @@ mpcProcessBlock blk = do
                 gsOpenings %= HM.union opens
             SharesPayload     shares _ ->
                 gsShares %= HM.unionWith HM.union shares
-            CertificatesPayload      _ -> return ()
+            CertificatesPayload      _ -> pure ()
         gsVssCertificates %= HM.union blockCertificates
+    prependNShift payload = neFromList . NE.init . NE.cons payload
 
 mpcRollback :: Word -> GSUpdate ()
 mpcRollback (fromIntegral -> n) = replicateM_ n rollbackLast

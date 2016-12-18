@@ -32,6 +32,7 @@ import           Pos.Binary.Types            ()
 import           Pos.Communication.Types     (RequestBlockchainPart (..),
                                               SendBlockHeader (..),
                                               SendProxySecretKey (..))
+import           Pos.Context                 (getNodeContext)
 import           Pos.Crypto                  (ProxySecretKey)
 import           Pos.DHT.Model               (MonadMessageDHT, defaultSendToNeighbors,
                                               sendToNode)
@@ -40,28 +41,28 @@ import           Pos.Txp.Types.Communication (TxDataMsg (..))
 import           Pos.Types                   (EpochIndex, HeaderHash, MainBlockHeader, Tx,
                                               TxWitness, headerHash)
 import           Pos.Util                    (logWarningWaitLinear, messageName')
-import           Pos.WorkMode                (WorkMode)
+import           Pos.WorkMode                (WorkMode, MinWorkMode)
 
--- | Wrapper on top of sendToNeighbors which does it in separate
 -- thread and controls how much time action takes.
-sendToNeighborsSafeImpl :: (Bi r, Message r, WorkMode ssc m) => Bool -> r -> m ()
-sendToNeighborsSafeImpl emulateMaliciousActions msg = do
+sendToNeighborsSafeImpl :: (Bi r, Message r, MinWorkMode ssc m) => (NetworkAddress -> Bool) -> r -> m ()
+sendToNeighborsSafeImpl shouldIgnore msg = do
     let msgName = messageName' msg
-    let sendToNode' = if emulateMaliciousActions then sendMalicious else sendToNode
     -- TODO(voit): sendToNeighbors should be done using seqConcurrentlyK
     let action = () <$ defaultSendToNeighbors sequence sendToNode' msg
     fork_ $
         logWarningWaitLinear 10 ("Sending " <> msgName <> " to neighbors") action
   where
-    sendMalicious addr message =
-        unlessM (shouldIgnoreAddress addr) $
+    sendToNode' addr message =
+        unless (shouldIgnore addr) $
             sendToNode addr message
 
-sendToNeighborsSafe :: (Bi r, Message r, WorkMode ssc m) => r -> m ()
-sendToNeighborsSafe = sendToNeighborsSafeImpl False
+sendToNeighborsSafe :: (Bi r, Message r, MinWorkMode ssc m) => r -> m ()
+sendToNeighborsSafe = sendToNeighborsSafeImpl $ const False
 
 sendToNeighborsSafeWithMaliciousEmulation :: (Bi r, Message r, WorkMode ssc m) => r -> m ()
-sendToNeighborsSafeWithMaliciousEmulation = sendToNeighborsSafeImpl True
+sendToNeighborsSafeWithMaliciousEmulation msg = do
+  cont <- getNodeContext
+  sendToNeighborsSafeImpl (shouldIgnoreAddress cont) msg
 
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.
@@ -94,7 +95,7 @@ sendTx addr (tx,w) = sendToNode addr $ TxDataMsg tx w
 
 -- | Sends proxy secret key to neighbours
 sendProxySecretKey
-    :: (WorkMode ss m)
+    :: (MinWorkMode ss m)
     => ProxySecretKey (EpochIndex, EpochIndex) -> m ()
 sendProxySecretKey psk = do
     logNotice $ sformat ("Sending proxySecretKey to neigbours:\n"%build) psk

@@ -8,14 +8,13 @@ module NodeOptions
        , getNodeOptions
        ) where
 
-import           Control.TimeWarp.Rpc       (NetworkAddress)
 import           Options.Applicative.Simple (Parser, auto, help, long, many, metavar,
                                              option, showDefault, simpleOptions,
                                              strOption, switch, value)
 import           Serokell.Util.OptParse     (fromParsec)
 import           Universum
 
-import           Pos.CLI                    (addrParser, dhtKeyParser, dhtNodeParser,
+import           Pos.CLI                    (dhtKeyParser, dhtNodeParser,
                                              sscAlgoParser, attackTypeParser,
                                              attackTargetParser)
 import           Pos.DHT.Model              (DHTKey, DHTNode)

@@ -135,17 +135,19 @@ main = do
 
         let params =
                 NodeParams
-                { npDbPath      = Just woDbPath
-                , npDbPathM     = woDbPath
-                , npRebuildDb   = woRebuildDb
-                , npSystemStart = systemStart
-                , npSecretKey   = sk
-                , npBaseParams  = baseParams
-                , npCustomUtxo  = Just $ genesisUtxo $
-                                  stakesDistr woFlatDistr woBitcoinDistr
-                , npTimeLord    = False
-                , npJLFile      = woJLFile
-                , npPropagation = not woDisablePropagation
+                { npDbPath        = Just woDbPath
+                , npDbPathM       = woDbPath
+                , npRebuildDb     = woRebuildDb
+                , npSystemStart   = systemStart
+                , npSecretKey     = sk
+                , npBaseParams    = baseParams
+                , npCustomUtxo    = Just $ genesisUtxo $
+                                    stakesDistr woFlatDistr woBitcoinDistr
+                , npTimeLord      = False
+                , npJLFile        = woJLFile
+                , npPropagation   = not woDisablePropagation
+                , npAttackTargets = []
+                , npAttackTypes   = []
                 }
             gtParams =
                 GtParams

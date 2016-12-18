@@ -10,12 +10,10 @@ module Pos.Security
 import           Control.TimeWarp.Rpc (NetworkAddress)
 import           Universum
 
-import           Pos.Context          (getNodeContext, ncAttackTypes, ncAttackTargets)
+import           Pos.Context          (NodeContext, ncAttackTypes, ncAttackTargets)
 import           Pos.Security.Types
 import           Pos.Security.Workers
-import           Pos.WorkMode         (WorkMode)
 
-shouldIgnoreAddress :: WorkMode scc m => NetworkAddress -> m Bool
-shouldIgnoreAddress addr = and <$> sequence
-                           [ elem AttackNoBlocks <$> ncAttackTypes <$> getNodeContext
-                           , elem addr <$> map attNetworkAddr <$> ncAttackTargets <$> getNodeContext ]
+shouldIgnoreAddress :: NodeContext ssc -> NetworkAddress -> Bool
+shouldIgnoreAddress cont addr = and [ elem AttackNoBlocks $ ncAttackTypes cont
+                                    , elem addr $ map attNetworkAddr $ ncAttackTargets cont ]

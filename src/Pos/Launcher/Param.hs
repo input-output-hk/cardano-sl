@@ -6,7 +6,6 @@ module Pos.Launcher.Param
        , NodeParams (..)
        ) where
 
-import           Control.TimeWarp.Rpc (NetworkAddress)
 import           System.Wlog          (LoggerName)
 import           Universum
 

@@ -8,7 +8,6 @@ module Pos.Communication.Methods
        -- * Sending data into network
          announceBlock
        , sendToNeighborsSafe
-       , sendToNeighborsSafe
        , sendToNeighborsSafeWithMaliciousEmulation
        , sendTx
        , sendProxySecretKey
@@ -33,10 +32,10 @@ import           Pos.Binary.Types            ()
 import           Pos.Communication.Types     (RequestBlockchainPart (..),
                                               SendBlockHeader (..),
                                               SendProxySecretKey (..))
-import           Pos.Context                 (getNodeContext, ncMalicious)
 import           Pos.Crypto                  (ProxySecretKey)
 import           Pos.DHT.Model               (MonadMessageDHT, defaultSendToNeighbors,
                                               sendToNode)
+import           Pos.Security                (shouldIgnoreAddress)
 import           Pos.Txp.Types.Communication (TxDataMsg (..))
 import           Pos.Types                   (EpochIndex, HeaderHash, MainBlockHeader, Tx,
                                               TxWitness, headerHash)
@@ -54,9 +53,8 @@ sendToNeighborsSafeImpl emulateMaliciousActions msg = do
     fork_ $
         logWarningWaitLinear 10 ("Sending " <> msgName <> " to neighbors") action
   where
-    sendMalicious addr message = do
-        malicious <- ncMalicious <$> getNodeContext
-        when (addr `notElem` malicious) $
+    sendMalicious addr message =
+        unlessM (shouldIgnoreAddress addr) $
             sendToNode addr message
 
 sendToNeighborsSafe :: (Bi r, Message r, WorkMode ssc m) => r -> m ()

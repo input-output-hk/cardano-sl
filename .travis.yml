@@ -1,7 +1,8 @@
 sudo: true
 os:
   - linux
-  - osx
+  # TODO: enable once rocksdb builds
+  #- osx
 language: nix
 env:
   - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/e18dac705ad36482880e23d0a89c60c3514cb446.tar.gz
@@ -21,8 +22,7 @@ before_install:
 
 # --fast and ghc-options greatly improve CI build times
 script:
-- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then stack --nix --no-terminal build --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --test --no-haddock-deps --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks; fi
-- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then stack --nix --no-terminal build --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --test --no-haddock-deps --bench --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet; fi
+- stack --nix --no-terminal build --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --test --no-haddock-deps --bench --jobs=4 --flag cardano-sl:with-web
 
 notifications:
   email: false

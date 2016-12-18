@@ -5,16 +5,15 @@ module Pos.Binary.Communication () where
 import           Universum
 
 import           Pos.Binary.Class        (Bi (..))
-import           Pos.Communication.Types (MsgBlock (..), MsgGetBlocks (..),
-                                          MsgGetHeaders (..), MsgHeaders (..),
-                                          RequestBlock (..), RequestBlockchainPart (..),
-                                          SendBlockHeader (..), SendBlockchainPart (..),
-                                          SendProxySecretKey (..), SysStartRequest (..),
-                                          SysStartResponse (..)
- CheckProxySKConfirmed (..),
+import           Pos.Communication.Types (CheckProxySKConfirmed (..),
                                           CheckProxySKConfirmedRes (..),
-                                          ConfirmProxySK (..),
-                                         )
+                                          ConfirmProxySK (..), MsgBlock (..),
+                                          MsgGetBlocks (..), MsgGetHeaders (..),
+                                          MsgHeaders (..), RequestBlock (..),
+                                          RequestBlockchainPart (..),
+                                          SendBlockHeader (..), SendBlockchainPart (..),
+                                          SendProxySK (..), SysStartRequest (..),
+                                          SysStartResponse (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Types               ()
 

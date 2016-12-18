@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
@@ -20,6 +19,8 @@ import           System.Wlog                (CanLog, HasLoggerName)
 
 import           Pos.DHT.Model              (MonadDHT, MonadMessageDHT,
                                              WithDefaultMsgHeader)
+import qualified Pos.Modern.DB              as Modern (MonadDB)
+import qualified Pos.Modern.Txp.Class       as Modern (MonadTxpLD)
 import           Pos.Slotting               (MonadSlots)
 import           Pos.WorkMode               ()
 

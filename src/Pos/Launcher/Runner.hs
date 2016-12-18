@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
-{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -64,15 +63,10 @@ import           Pos.Communication               (MutSocketState, SysStartReques
                                                   sysStartRespListener)
 import           Pos.Constants                   (RunningMode (..), defaultPeers,
                                                   isDevelopment, runningMode)
-import           Pos.DHT.Model                   (BiP (..), ListenerDHT, MonadDHT (..),
-                                                  mapListenerDHT, sendToNeighbors)
-#ifdef WITH_ROCKS
-import qualified Pos.Modern.DB                   as Modern
-import qualified Pos.Modern.Txp.Holder           as Modern
-import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
-#endif
 import           Pos.Context                     (ContextHolder (..), NodeContext (..),
                                                   defaultProxyStorage, runContextHolder)
+import           Pos.DHT.Model                   (BiP (..), ListenerDHT, MonadDHT (..),
+                                                  mapListenerDHT, sendToNeighbors)
 import           Pos.DHT.Model.Class             (DHTPacking, MonadDHTDialog)
 import           Pos.DHT.Real                    (KademliaDHT, KademliaDHTConfig (..),
                                                   KademliaDHTInstance,
@@ -81,6 +75,9 @@ import           Pos.DHT.Real                    (KademliaDHT, KademliaDHTConfig
                                                   stopDHTInstance)
 import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..))
+import qualified Pos.Modern.DB                   as Modern
+import qualified Pos.Modern.Txp.Holder           as Modern
+import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 import           Pos.Ssc.Class                   (SscConstraint, SscNodeContext,
                                                   SscParams, sscCreateNodeContext)
 import           Pos.Ssc.LocalData               (runSscLDImpl)
@@ -159,22 +156,16 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     putText $ "Running listeners number: " <> show (length listeners)
     lift $ setupLoggers lp
     legacyDB <- snd <$> allocate openDb closeDb
-#ifdef WITH_ROCKS
     modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo")
     let initTip = notImplemented -- init tip must be here
-#endif
     let run db =
             runOurDialog newMutSocketState lpRunnerTag .
             runDBHolder db .
-#ifdef WITH_ROCKS
             Modern.runDBHolder modernDBs .
-#endif
             withEx (sscCreateNodeContext @ssc sscnp) $ flip (runCH np) .
             runSscLDImpl .
             runTxLDImpl .
-#ifdef WITH_ROCKS
             flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDBs) .
-#endif
             runKDHT inst npBaseParams listeners $
             nodeStartMsg npBaseParams >> action
     lift $ run legacyDB

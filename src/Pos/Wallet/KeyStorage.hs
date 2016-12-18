@@ -76,7 +76,7 @@ type KeyData = STM.TVar UserSecret
 
 newtype KeyStorage m a = KeyStorage
     { getKeyStorage :: ReaderT KeyData m a
-    } deriving (Functor, Applicative, Monad, MonadTimed, 
+    } deriving (Functor, Applicative, Monad, MonadTimed,
                 MonadThrow, MonadSlots, MonadCatch, MonadIO,
                 HasLoggerName, MonadDialog s p, CanLog, MonadMask, MonadDHT,
                 MonadMessageDHT s, MonadReader KeyData, WithDefaultMsgHeader,

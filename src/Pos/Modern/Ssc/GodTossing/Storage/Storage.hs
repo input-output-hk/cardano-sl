@@ -80,17 +80,8 @@ instance (SscBi, Monad m, MonadSscGS SscGodTossing m
     sscVerifyBlocksM _ = sscRunGlobalQuery . mpcVerifyBlocks
 
     -- sscGetOurShares = getOurShares
-
     -- sscGetParticipants = getParticipants
     -- sscCalculateLeadersM = notImplemented
-
-instance (SscStorage ssc ~ GtGlobalState) => HasSscStorage ssc GtGlobalState where
-    sscStorage = identity
-
--- dsVersioned
---     :: HasSscStorage SscGodTossing a =>
---        Lens' a (NonEmpty GtStorageVersion)
--- dsVersioned = sscStorage @SscGodTossing . dsVersionedL
 
 getGlobalMpcData :: GSQuery GtGlobalState
 getGlobalMpcData =

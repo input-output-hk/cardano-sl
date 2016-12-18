@@ -36,6 +36,7 @@ import           Pos.Launcher                    (runOurDialog)
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB                   as Modern
 import qualified Pos.Modern.Txp.Holder           as Modern
+import qualified Pos.Modern.Ssc.Holder           as Modern
 import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 #endif
 import           Pos.Context                     (ContextHolder, NodeContext,
@@ -80,7 +81,8 @@ walletApplication daedalusDbPath = bracket openDB closeDB $ \ws ->
 type WebHandler ssc = WalletWebDB (WalletRealMode ssc)
 type SubKademlia ssc = (
 #ifdef WITH_ROCKS
-                   Modern.TxpLDHolder ssc (
+               Modern.TxpLDHolder ssc (
+                   Modern.SscHolder ssc (
 #endif
                        TxLDImpl (
                            SscLDImpl ssc (
@@ -91,7 +93,7 @@ type SubKademlia ssc = (
                                        St.DBHolder ssc (Dialog DHTPacking
                                             (Transfer (MutSocketState ssc)))))))
 #ifdef WITH_ROCKS
-                       ))
+                       )))
 #endif
 
 convertHandler
@@ -121,6 +123,7 @@ convertHandler kctx tld nc ns kd ws handler =
             runSscLDImpl .
             runTxLDImpl .
 #ifdef WITH_ROCKS
+            flip Modern.runSscHolder notImplemented . -- load mpc data from blocks (from rocksdb) here
             flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDB) .
 #endif
             runKademliaDHTRaw kctx .

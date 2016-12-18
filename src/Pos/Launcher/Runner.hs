@@ -67,6 +67,7 @@ import           Pos.DHT.Model                   (BiP (..), ListenerDHT, MonadDH
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB                   as Modern
 import qualified Pos.Modern.Txp.Holder           as Modern
+import qualified Pos.Modern.Ssc.Holder           as Modern
 import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 #endif
 import           Pos.Context                     (ContextHolder (..), NodeContext (..),
@@ -171,6 +172,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
             runSscLDImpl .
             runTxLDImpl .
 #ifdef WITH_ROCKS
+            flip Modern.runSscHolder notImplemented . -- load mpc data from blocks (from rocksdb) here
             flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDBs) .
 #endif
             runKDHT inst npBaseParams listeners $

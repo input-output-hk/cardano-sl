@@ -61,13 +61,15 @@ import           Pos.DHT.Real                  (KademliaDHT (..))
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB.Class           as Modern
 import qualified Pos.Modern.DB.Holder          as Modern
+import           Pos.Modern.Ssc.Holder         (SscHolder (..))
+import qualified Pos.Modern.Ssc.Holder         as Modern
 import           Pos.Modern.Txp.Class          (MonadTxpLD (..))
 import           Pos.Modern.Txp.Holder         (TxpLDHolder)
 #endif
 import           Pos.Slotting                  (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers         (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData       (MonadSscLD (..), SscLocalDataClass)
-import           Pos.Ssc.Class.Storage         (SscStorageMode)
+import           Pos.Ssc.Class.Storage         (SscStorageMode, MonadSscGS)
 import           Pos.Ssc.LocalData             (SscLDImpl)
 import           Pos.State                     (DBHolder, MonadDB (..))
 import           Pos.Statistics.MonadStats     (MonadStats, NoStatsT, StatsT)
@@ -89,6 +91,7 @@ type WorkMode ssc m
       , Modern.MonadDB ssc m
       , MonadTxpLD ssc m
       , MonadUtxo m
+      , MonadSscGS ssc m
 #endif
       , MonadTxLD m
       , SscStorageMode ssc
@@ -129,10 +132,6 @@ instance MonadTxLD m => MonadTxLD (DHTResponseT s m) where
     setTxLocalData = lift . setTxLocalData
 
 instance MonadTxLD m => MonadTxLD (KademliaDHT m) where
-    getTxLocalData = lift getTxLocalData
-    setTxLocalData = lift . setTxLocalData
-
-instance MonadTxLD m => MonadTxLD (ReaderT r m) where
     getTxLocalData = lift getTxLocalData
     setTxLocalData = lift . setTxLocalData
 
@@ -200,7 +199,8 @@ instance MonadJL m => MonadJL (KademliaDHT m) where
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
 type RawRealMode ssc = KademliaDHT (
 #ifdef WITH_ROCKS
-                               TxpLDHolder ssc (
+                           TxpLDHolder ssc (
+                               SscHolder ssc (
 #endif
                                    TxLDImpl (
                                        SscLDImpl ssc (
@@ -210,7 +210,7 @@ type RawRealMode ssc = KademliaDHT (
 #endif
                                                    DBHolder ssc (Dialog DHTPacking (Transfer (MSockSt ssc)))))))
 #ifdef WITH_ROCKS
-                                   ))
+                                   )))
 #endif
 
 -- | ProductionMode is an instance of WorkMode which is used

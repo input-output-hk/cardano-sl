@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE AllowAmbiguousTypes    #-}
 {-# LANGUAGE ConstraintKinds        #-}
 {-# LANGUAGE DefaultSignatures      #-}
@@ -23,13 +25,17 @@ module Pos.Ssc.Class.Storage
        ) where
 
 import           Control.Lens            (Lens')
+import           Control.Monad.Except    (ExceptT)
 import           Control.Monad.Trans     (MonadTrans)
+import           Control.TimeWarp.Rpc    (ResponseT)
 import           Data.List.NonEmpty      (NonEmpty)
 import           Data.SafeCopy           (SafeCopy)
 import           Serokell.Util.Verify    (VerificationRes)
 import           Universum
 
 import           Pos.Crypto              (EncShare, Threshold, VssPublicKey)
+import           Pos.DHT.Model.Class     (DHTResponseT)
+import           Pos.DHT.Real            (KademliaDHT)
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types.Types         (Address, EpochIndex, SlotLeaders, Utxo)
@@ -63,6 +69,12 @@ class Monad m => MonadSscGS ssc m | m -> ssc where
     default modifyGlobalState :: MonadTrans t =>
                                  (SscGlobalState ssc -> (a, SscGlobalState ssc)) -> t m a
     modifyGlobalState = lift . modifyGlobalState
+
+instance MonadSscGS ssc m => MonadSscGS ssc (ReaderT a m) where
+instance MonadSscGS ssc m => MonadSscGS ssc (ExceptT a m) where
+instance MonadSscGS ssc m => MonadSscGS ssc (ResponseT s m) where
+instance MonadSscGS ssc m => MonadSscGS ssc (DHTResponseT s m) where
+instance MonadSscGS ssc m => MonadSscGS ssc (KademliaDHT m) where
 
 class Monad m => SscStorageClassM ssc m | m -> ssc where
     -- This must be here. We should remove SscStorageClass, right?

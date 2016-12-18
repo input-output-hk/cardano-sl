@@ -50,6 +50,7 @@ import           Pos.DHT.Model               (DHTResponseT, MonadDHT,
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData     (MonadSscLD (..))
+import           Pos.Ssc.Class.Storage       (MonadSscGS (..))
 import           Pos.State                   (MonadDB)
 import           Pos.Statistics.StatEntry    (StatLabel (..))
 import           Pos.Types                   (MonadUtxo, MonadUtxoRead)
@@ -89,7 +90,7 @@ newtype NoStatsT m a = NoStatsT
                MonadDHT, MonadMessageDHT s, MonadSlots, WithDefaultMsgHeader,
                MonadJL, CanLog, MonadUtxoRead, MonadUtxo
 #ifdef WITH_ROCKS
-               , Modern.MonadDB ssc, MonadTxpLD ssc
+               , Modern.MonadDB ssc, MonadTxpLD ssc, MonadSscGS ssc
 #endif
                )
 
@@ -140,19 +141,10 @@ newtype StatsT m a = StatsT
                MonadDHT, MonadMessageDHT s, MonadSlots, WithDefaultMsgHeader, MonadTrans,
                MonadJL, CanLog, MonadUtxoRead, MonadUtxo
 #ifdef WITH_ROCKS
-               , Modern.MonadDB ssc
+               , Modern.MonadDB ssc, MonadTxpLD ssc, MonadSscGS ssc
 #endif
-
                )
 
-#ifdef WITH_ROCKS
-instance MonadTxpLD ssc m => MonadTxpLD ssc (StatsT m) where
-    getUtxoView = lift getUtxoView
-    setUtxoView = lift . setUtxoView
-    getMemPool  = lift  getMemPool
-    setMemPool  = lift . setMemPool
-    modifyTxpLD = lift . modifyTxpLD
-#endif
 instance Monad m => WrappedM (StatsT m) where
     type UnwrappedM (StatsT m) = ReaderT StatsMap m
     _WrappedM = iso getStatsT StatsT

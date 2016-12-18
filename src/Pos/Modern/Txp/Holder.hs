@@ -31,6 +31,7 @@ import           Universum
 import           Pos.Context                     (WithNodeContext)
 import           Pos.Slotting                    (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData         (MonadSscLD (..))
+import           Pos.Ssc.Class.Storage           (MonadSscGS (..))
 import           Pos.State                       (MonadDB (..))
 import           Pos.Txp.LocalData               (MonadTxLD (..))
 import           Pos.Util.JsonLog                (MonadJL (..))
@@ -56,7 +57,7 @@ newtype TxpLDHolder ssc m a = TxpLDHolder
     { getTxpLDHolder :: ReaderT (TxpLDWrap ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
                 MonadCatch, MonadIO, HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
-                MonadDB ssc, CanLog, MonadMask)
+                MonadDB ssc, CanLog, MonadMask, MonadTxLD, MonadSscLD ssc, MonadSscGS ssc)
 
 instance MonadTransfer s m => MonadTransfer s (TxpLDHolder ssc m)
 type instance ThreadId (TxpLDHolder ssc m) = ThreadId m
@@ -73,15 +74,6 @@ instance MonadBaseControl IO m => MonadBaseControl IO (TxpLDHolder ssc m) where
     type StM (TxpLDHolder ssc m) a = ComposeSt (TxpLDHolder ssc) m a
     liftBaseWith     = defaultLiftBaseWith
     restoreM         = defaultRestoreM
-
-instance (Monad m, MonadSscLD ssc m) =>
-         MonadSscLD ssc (TxpLDHolder ssc m) where
-    getLocalData = lift getLocalData
-    setLocalData = lift . setLocalData
-
-instance MonadTxLD m => MonadTxLD (TxpLDHolder ssc m) where
-    getTxLocalData = lift getTxLocalData
-    setTxLocalData = lift . setTxLocalData
 
 deriving instance Modern.MonadDB ssc m => Modern.MonadDB ssc (TxpLDHolder ssc m)
 

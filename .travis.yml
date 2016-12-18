@@ -22,7 +22,7 @@ before_install:
 
 # --fast and ghc-options greatly improve CI build times
 script:
-- stack --nix --no-terminal build --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --test --no-haddock-deps --bench --jobs=4 --flag cardano-sl:with-web
+- stack --nix --no-terminal build --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --test --no-haddock-deps --bench --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet
 
 notifications:
   email: false

@@ -13,7 +13,7 @@ module Pos.Worker.Block
        , blkWorkers
        ) where
 
-import           Control.Lens              (ix, (^.), (^?))
+import           Control.Lens              (ix, view, (^.), (^?))
 import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, wait)
 import qualified Data.HashMap.Strict       as HM
 import           Data.Tagged               (untag)
@@ -66,7 +66,7 @@ blkOnNewSlot slotId@SlotId {..} = do
             ourPkAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
             let leader = leaders ^? ix (fromIntegral siSlot)
             proxyCerts <-
-                (\v -> ncProxySecretKeys <$> liftIO (readMVar v)) =<<
+                (\v -> view ncProxySecretKeys <$> liftIO (readMVar v)) =<<
                 ncProxyStorage <$> getNodeContext
             let validCerts =
                     filter (\pSk -> let (w0,w1) = pskOmega pSk

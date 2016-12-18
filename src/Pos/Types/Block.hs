@@ -36,8 +36,8 @@ import           Universum
 import           Pos.Binary.Class     (Bi (..))
 import           Pos.Binary.Types     ()
 import           Pos.Constants        (epochSlots)
-import           Pos.Crypto           (Hash, ProxySecretKey, PublicKey, SecretKey,
-                                       checkSig, hash, proxySign, proxyVerify, sign,
+import           Pos.Crypto           (Hash, ProxySecretKey, SecretKey, checkSig, hash,
+                                       proxySign, proxyVerify, pskIssuerPk, sign,
                                        toPublic, unsafeHash)
 import           Pos.Merkle           (mkMerkleTree)
 import           Pos.Ssc.Class.Types  (Ssc (..))
@@ -101,22 +101,22 @@ mkMainHeader
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
-    -> Maybe (PublicKey, ProxySecretKey (EpochIndex,EpochIndex))
+    -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
     -> Body (MainBlockchain ssc)
     -> MainBlockHeader ssc
-mkMainHeader prevHeader slotId sk proxyInfo body =
+mkMainHeader prevHeader slotId sk pSk body =
     mkGenericHeader prevHeader body consensus ()
   where
     difficulty = maybe 0 (succ . view difficultyL) prevHeader
     signature prevHash proof =
         let toSign = (prevHash, proof, slotId, difficulty)
         in maybe (BlockSignature $ sign sk toSign)
-                 (\(pk,proxySk) -> BlockPSignature $ proxySign sk pk proxySk toSign)
-                 proxyInfo
+                 (\(proxySk) -> BlockPSignature $ proxySign sk proxySk toSign)
+                 pSk
     consensus prevHash proof =
         MainConsensusData
         { _mcdSlot = slotId
-        , _mcdLeaderKey = toPublic sk
+        , _mcdLeaderKey = maybe (toPublic sk) pskIssuerPk pSk
         , _mcdDifficulty = difficulty
         , _mcdSignature = signature prevHash proof
         }
@@ -127,7 +127,7 @@ mkMainBlock
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
-    -> Maybe (PublicKey, ProxySecretKey (EpochIndex,EpochIndex))
+    -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
     -> Body (MainBlockchain ssc)
     -> MainBlock ssc
 mkMainBlock prevHeader slotId sk proxyInfo body =
@@ -181,7 +181,7 @@ verifyConsensusLocal (Left _)       = mempty
 verifyConsensusLocal (Right header) =
     verifyGeneric
         [ ( verifyBlockSignature $ consensus ^. mcdSignature
-          , "can't verify simple signature")
+          , "can't verify signature")
         , (siSlot slotId < epochSlots, "slot index is not less than epochSlots")
         ]
   where

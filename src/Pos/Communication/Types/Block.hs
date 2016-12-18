@@ -1,27 +1,50 @@
-{-# LANGUAGE DeriveGeneric   #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TypeFamilies  #-}
 
 -- | Types used for communication about Blocks.
 
 module Pos.Communication.Types.Block
-       ( SendBlock (..)
+       ( MsgBlockHeaders (..)
+       , SendBlock (..)
+
        , SendBlockHeader (..)
        , SendBlockchainPart (..)
        , RequestBlock (..)
        , RequestBlockchainPart (..)
        ) where
 
+import           Data.List.NonEmpty   (NonEmpty)
 import           Universum
 
 import           Control.TimeWarp.Rpc (Message (..), messageName')
 import           Pos.Ssc.Class.Types  (Ssc)
-import           Pos.Types            (Block, HeaderHash, MainBlockHeader)
+import           Pos.Types            (Block, BlockHeader, HeaderHash, MainBlockHeader)
 
--- | Message: some node has sent a Block.
+----------------------------------------------------------------------------
+-- Messages from modern protocol specification
+----------------------------------------------------------------------------
+
+-- | 'Headers' message (see protocol specification).
+data MsgBlockHeaders ssc =
+    MsgBlockHeaders !(NonEmpty (BlockHeader ssc))
+    deriving (Generic)
+
+instance Ssc ssc => Message (MsgBlockHeaders ssc) where
+    messageName _ = "BlockHeaders"
+    formatMessage = messageName'
+
+-- | 'Block' message (see protocol specification).
 data SendBlock ssc =
     SendBlock !(Block ssc)
     deriving (Generic)
+
+instance Ssc ssc => Message (SendBlock ssc) where
+    messageName _ = "Block"
+    formatMessage = messageName'
+
+----------------------------------------------------------------------------
+-- Obsolete messages
+----------------------------------------------------------------------------
 
 -- | Message: some node has sent a BlockHeader.
 data SendBlockHeader ssc =
@@ -44,10 +67,6 @@ data RequestBlockchainPart ssc = RequestBlockchainPart
     , rbUntilBlock :: !(Maybe (HeaderHash ssc))
     , rbCount      :: !(Maybe Word)
     } deriving (Generic)
-
-instance Ssc ssc => Message (SendBlock ssc) where
-    messageName _ = "SendBlock"
-    formatMessage = messageName'
 
 instance Ssc ssc => Message (SendBlockHeader ssc) where
     messageName _ = "SendBlockHeader"

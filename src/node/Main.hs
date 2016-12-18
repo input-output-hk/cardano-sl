@@ -133,6 +133,7 @@ action args@Args {..} inst = do
                 currentPluginsGT = []
 #endif
             putText $ "Running using " <> show sscAlgo
+            putText $ "If stats is on: " <> show enableStats
             case (enableStats, sscAlgo) of
                 (True, GodTossingAlgo) ->
                     runNodeStats @SscGodTossing inst currentPluginsGT currentParams gtParams

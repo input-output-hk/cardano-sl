@@ -18,8 +18,8 @@ module Pos.Wallet.Web.State.Acidic
 
 import           Universum
 
-import           Data.Acid                    (EventResult, EventState, Query, QueryEvent,
-                                               Update, UpdateEvent, makeAcidic)
+import           Data.Acid                    (EventResult, EventState, QueryEvent,
+                                               UpdateEvent, makeAcidic)
 import           Data.Default                 (def)
 import           Pos.Wallet.Web.State.Storage (Storage)
 import           Pos.Wallet.Web.State.Storage as WS

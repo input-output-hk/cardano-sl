@@ -31,6 +31,7 @@ module Pos.Types.Utxo.Pure
 
 import           Control.Lens             (at, over, use, view, (.=), _1)
 import           Control.Monad.Reader     (runReaderT)
+import           Control.Monad.Trans      (MonadTrans (..))
 import           Data.List                ((\\))
 import           Serokell.Util.Verify     (VerificationRes (..))
 import           Universum
@@ -49,10 +50,13 @@ import           Pos.Types.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', conver
 
 newtype UtxoReaderT m a = UtxoReaderT
     { getUtxoReaderT :: ReaderT Utxo m a
-    } deriving (Functor, Applicative, Monad)
+    } deriving (Functor, Applicative, Monad, MonadReader Utxo)
 
 instance Monad m => MonadUtxoRead (UtxoReaderT m) where
     utxoGet TxIn {..} = UtxoReaderT $ view $ at (txInHash, txInIndex)
+
+instance MonadTrans UtxoReaderT where
+    lift = UtxoReaderT . lift
 
 runUtxoReaderT :: UtxoReaderT m a -> Utxo -> m a
 runUtxoReaderT = runReaderT . getUtxoReaderT
@@ -68,7 +72,7 @@ runUtxoReader r = runIdentity . runUtxoReaderT r
 
 newtype UtxoStateT m a = UtxoStateT
     { getUtxoStateT :: StateT Utxo m a
-    } deriving (Functor, Applicative, Monad)
+    } deriving (Functor, Applicative, Monad, MonadState Utxo)
 
 instance Monad m => MonadUtxoRead (UtxoStateT m) where
     utxoGet TxIn {..} = UtxoStateT $ use $ at (txInHash, txInIndex)
@@ -76,6 +80,9 @@ instance Monad m => MonadUtxoRead (UtxoStateT m) where
 instance Monad m => MonadUtxo (UtxoStateT m) where
     utxoPut TxIn {..} v = UtxoStateT $ at (txInHash, txInIndex) .= Just v
     utxoDel TxIn {..} = UtxoStateT $ at (txInHash, txInIndex) .= Nothing
+
+instance MonadTrans UtxoStateT where
+    lift = UtxoStateT . lift
 
 runUtxoStateT :: UtxoStateT m a -> Utxo -> m (a, Utxo)
 runUtxoStateT = runStateT . getUtxoStateT

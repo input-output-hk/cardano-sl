@@ -52,3 +52,6 @@ extra-deps:
 - base58-bytestring-0.1.0
 
 resolver: lts-7.9
+
+# This is for CI to pass --fast to all dependencies
+apply-ghc-options: everything

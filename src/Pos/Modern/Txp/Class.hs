@@ -11,9 +11,11 @@ module Pos.Modern.Txp.Class
        , TxpLD
        ) where
 
+import           Control.Monad.Trans          (MonadTrans)
 import           Universum
 
-import           Control.Monad.Trans          (MonadTrans)
+import           Pos.DHT.Model.Class          (DHTResponseT)
+import           Pos.DHT.Real                 (KademliaDHT)
 import           Pos.Modern.Txp.Storage.Types (MemPool, UtxoView)
 import           Pos.Types                    (HeaderHash)
 
@@ -56,3 +58,7 @@ class Monad m => MonadTxpLD ssc m | m -> ssc where
     modifyTxpLD = lift . modifyTxpLD
 
 instance MonadTxpLD ssc m => MonadTxpLD ssc (ReaderT r m)
+
+instance MonadTxpLD ssc m => MonadTxpLD ssc (DHTResponseT s m)
+
+instance MonadTxpLD ssc m => MonadTxpLD ssc (KademliaDHT m)

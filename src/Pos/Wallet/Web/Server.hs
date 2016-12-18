@@ -26,12 +26,13 @@ import           Servant.Utils.Enter             ((:~>) (..), enter)
 import           System.Wlog                     (logInfo)
 import           Universum
 
-import           Pos.Crypto                      (SecretKey, toPublic)
+import           Pos.Crypto                      (SecretKey, toPublic, whData)
+import           Pos.Communication.Types         (MutSocketState, newMutSocketState)
 import           Pos.DHT.Model                   (DHTPacking, dhtAddr, getKnownPeers)
 import           Pos.DHT.Real                    (KademliaDHTContext, getKademliaDHTCtx,
                                                   runKademliaDHTRaw)
 import           Pos.Genesis                     (genesisSecretKeys)
-import           Pos.Launcher                    (runTimed)
+import           Pos.Launcher                    (runOurDialog)
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB                   as Modern
 import qualified Pos.Modern.Txp.Holder           as Modern
@@ -57,7 +58,7 @@ import           Pos.Wallet.Web.State            (MonadWalletWebDB (..), WalletS
                                                   runWalletWebDB)
 import           Pos.Web.Server                  (serveImpl)
 import           Pos.Wallet.Web.ClientTypes      (addressToCAddress, CAddress)
-import           Pos.WorkMode                    (SocketState, TxLDImpl, runTxLDImpl)
+import           Pos.WorkMode                    (TxLDImpl, runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -88,7 +89,7 @@ type SubKademlia ssc = (
                                    Modern.DBHolder ssc (
 #endif
                                        St.DBHolder ssc (Dialog DHTPacking
-                                            (Transfer SocketState))))))
+                                            (Transfer (MutSocketState ssc)))))))
 #ifdef WITH_ROCKS
                        ))
 #endif
@@ -111,7 +112,7 @@ convertHandler kctx tld nc ns modernDB kd ws handler =
 #else
 convertHandler kctx tld nc ns kd ws handler =
 #endif
-    liftIO (runTimed "wallet-api" .
+    liftIO (runOurDialog newMutSocketState "wallet-api" .
             St.runDBHolder ns .
 #ifdef WITH_ROCKS
             Modern.runDBHolder modernDB .
@@ -184,8 +185,8 @@ send srcIdx dstAddr c = do
               sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
               c srcIdx dstAddr
 
-getHistory :: SscConstraint ssc => Address -> WebHandler ssc ([Tx], [Tx])
-getHistory = getTxHistory
+getHistory :: SscConstraint ssc => Address -> WebHandler ssc [Tx]
+getHistory addr = map whData <$> getTxHistory addr
 
 newAddress :: WebHandler ssc CAddress
 newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey

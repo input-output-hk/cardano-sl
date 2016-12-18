@@ -23,7 +23,7 @@ type WalletApi =
   :<|>
     "send" :> Capture "from" Word :> Capture "to" Address :> Capture "amount" Coin :> Post '[JSON] ()
   :<|>
-    "history" :> Capture "address" Address :> Get '[JSON] ([Tx], [Tx])
+    "history" :> Capture "address" Address :> Get '[JSON] [Tx]
   :<|>
     "new_address" :> Post '[JSON] CAddress
   :<|>

@@ -4,15 +4,14 @@ module Pos.Binary.Communication () where
 
 import           Universum
 
-import           Pos.Binary.Class                 (Bi (..))
-import           Pos.Communication.Types.Block    (RequestBlock (..),
-                                                   RequestBlockchainPart (..),
-                                                   SendBlock (..), SendBlockHeader (..),
-                                                   SendBlockchainPart (..))
-import           Pos.Communication.Types.SysStart (SysStartRequest (..),
-                                                   SysStartResponse (..))
-import           Pos.Ssc.Class.Types              (Ssc (..))
-import           Pos.Types                        ()
+import           Pos.Binary.Class        (Bi (..))
+import           Pos.Communication.Types (MsgBlockHeaders (..), RequestBlock (..),
+                                          RequestBlockchainPart (..), SendBlock (..),
+                                          SendBlockHeader (..), SendBlockchainPart (..),
+                                          SendProxySecretKey (..), SysStartRequest (..),
+                                          SysStartResponse (..))
+import           Pos.Ssc.Class.Types     (Ssc (..))
+import           Pos.Types               ()
 
 instance Bi SysStartRequest where
     put = mempty
@@ -25,6 +24,10 @@ instance Bi SysStartResponse where
 instance Ssc ssc => Bi (SendBlock ssc) where
     put (SendBlock b) = put b
     get = SendBlock <$> get
+
+instance Ssc ssc => Bi (MsgBlockHeaders ssc) where
+    put (MsgBlockHeaders b) = put b
+    get = MsgBlockHeaders <$> get
 
 instance Ssc ssc => Bi (SendBlockHeader ssc) where
     put (SendBlockHeader b) = put b
@@ -44,3 +47,7 @@ instance Bi (RequestBlockchainPart ssc) where
         put rbUntilBlock
         put rbCount
     get = RequestBlockchainPart <$> get <*> get <*> get
+
+instance Bi SendProxySecretKey where
+    put (SendProxySecretKey pSk) = put pSk
+    get = SendProxySecretKey <$> get

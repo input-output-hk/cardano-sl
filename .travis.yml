@@ -17,8 +17,8 @@ before_install:
 - export PATH=$HOME/.local/bin:$PATH
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
 - travis_retry curl -L https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64 | tar xz --strip-components=1 -C ~/.local/bin
-- nix-shell --run ":" 
-- stack --nix --no-terminal build --nix --test --no-haddock-deps --ghc-options="-j +RTS -A128m -n2m -RTS" --only-dependencies --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks
+- nix-shell --ru
+- stack --nix --no-terminal build --nix --test --no-haddock-deps --ghc-options="-j +RTS -A128m -n2m -RTS" --only-dependencies --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet
 
 # --fast and ghc-options greatly improve CI build times
 script:

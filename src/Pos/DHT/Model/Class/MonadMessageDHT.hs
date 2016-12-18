@@ -44,9 +44,6 @@ import           Universum
 
 import           Pos.Binary.Class             (Bi (..))
 import           Pos.Constants                (neighborsSendThreshold)
-#ifdef WITH_ROCKS
-import           Pos.Modern.Txp.Class         (MonadTxpLD (..))
-#endif
 import           Pos.DHT.Model.Class.BiP      (BiP)
 import           Pos.DHT.Model.Class.MonadDHT
 import           Pos.DHT.Model.Types          (DHTNode (..), DHTNodeType (..), dhtAddr,
@@ -109,10 +106,6 @@ instance MonadMessageDHT s m => MonadMessageDHT s (ResponseT s m) where
 instance (Monad m, WithDefaultMsgHeader m) => WithDefaultMsgHeader (ResponseT s m) where
   defaultMsgHeader = lift . defaultMsgHeader
 
-#ifdef WITH_ROCKS
-instance MonadTxpLD ssc m => MonadTxpLD ssc (ResponseT s m) where
-#endif
-
   -- | Packing type used by DHT to send messages.
 type DHTPacking = BiP DHTMsgHeader
 
@@ -129,9 +122,6 @@ newtype DHTResponseT s m a = DHTResponseT
                 MonadThrow, MonadCatch, MonadMask,
                 MonadState ss, WithDefaultMsgHeader, CanLog,
                 HasLoggerName, MonadTimed, MonadDialog s p, MonadDHT, MonadMessageDHT s
-#ifdef WITH_ROCKS
-                , MonadTxpLD ssc
-#endif
                 )
 
 instance MonadTransfer s m => MonadTransfer s (DHTResponseT s m) where

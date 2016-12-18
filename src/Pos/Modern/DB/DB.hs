@@ -19,8 +19,11 @@ openNodeDBs :: MonadResource m => FilePath -> m (NodeDBs ssc)
 openNodeDBs fp = do
     let blockPath = fp </> "blocks"
     let utxoPath = fp </> "utxo"
-    mapM_ ensureDirectoryExists [blockPath, utxoPath]
-    res <- NodeDBs <$> openDB (fp </> "blocks") <*> openDB (fp </> "utxo")
+    let miscPath = fp </> "misc"
+    mapM_ ensureDirectoryExists [blockPath, utxoPath, miscPath]
+    res <- NodeDBs <$> openDB blockPath
+                   <*> openDB utxoPath
+                   <*> openDB miscPath
     res <$ (runDBHolder res prepareUtxoDB)
   where
     ensureDirectoryExists :: MonadIO m => FilePath -> m ()

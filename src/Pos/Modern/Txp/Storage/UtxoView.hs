@@ -19,8 +19,9 @@ createFromDB :: DB ssc -> UtxoView ssc
 createFromDB = UtxoView HM.empty HS.empty
 
 putTxOut :: TxIn -> TxOut -> UtxoView ssc -> UtxoView ssc
-putTxOut key val mp@UtxoView{..} = -- what we should do if key contains into delUtxo?
-    mp {addUtxo = HM.insert key val addUtxo}
+putTxOut key val mp@UtxoView{..} =
+    mp { addUtxo = HM.insert key val addUtxo
+       , delUtxo = HS.delete key delUtxo}
 
 delTxIn :: TxIn -> UtxoView ssc -> UtxoView ssc
 delTxIn txIn mp@UtxoView{..} =

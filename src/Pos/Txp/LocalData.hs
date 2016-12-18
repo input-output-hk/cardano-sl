@@ -27,7 +27,7 @@ import           Universum
 import           Pos.Constants           (maxLocalTxs)
 import           Pos.State.Storage.Types (ProcessTxRes (..), mkPTRinvalid)
 import           Pos.Types               (IdTxWitness, Tx (..), TxId, TxWitness, Utxo,
-                                          normalizeTxs', verifyTxUtxo)
+                                          normalizeTxsPure', verifyTxUtxoPure)
 import           Pos.Util                (clearLRU)
 
 type TxMap = HashMap TxId (Tx, TxWitness)
@@ -82,6 +82,8 @@ txApplyHeadUtxo utxo = txRunUpdate $ applyHeadUtxoU utxo
 txLocalDataRollback :: MonadTxLD m => Word -> m ()
 txLocalDataRollback toRollback = txRunUpdate $ txLocalDataRollbackU toRollback
 
+-- CHECK: @txLocalDataProcessTx
+-- #processTxU
 txLocalDataProcessTx :: MonadTxLD m => IdTxWitness -> Utxo -> m ProcessTxRes
 txLocalDataProcessTx tx utxo = txRunUpdate $ processTxU tx utxo
 
@@ -90,6 +92,8 @@ getLocalTxsQ :: Query TxMap
 getLocalTxsQ = view txLocalTxs
 
 -- | Add transaction to storage if it is fully valid.
+-- CHECK: @processTxU
+-- #processTxDo
 processTxU :: IdTxWitness -> Utxo -> Update ProcessTxRes
 processTxU tx utxo = do
     localSetSize <- use txLocalTxsSize
@@ -97,10 +101,12 @@ processTxU tx utxo = do
         then processTxDo tx utxo
         else pure PTRoverwhelmed
 
+-- CHECK: @processTxDo
+-- #verifyTxUtxo
 processTxDo :: IdTxWitness -> Utxo -> Update ProcessTxRes
 processTxDo (id, tx) utxo =
     ifM isKnown (pure PTRknown) $
-    case verifyTxUtxo utxo tx of
+    case verifyTxUtxoPure utxo tx of
         VerSuccess -> do
             txLocalTxs %= HM.insert id tx
             txLocalTxsSize += 1
@@ -137,7 +143,7 @@ invalidateCache = txFilterCache %= clearLRU
 applyHeadUtxoU :: Utxo -> Update ()
 applyHeadUtxoU headUtxo = do
     localTxs <- uses txLocalTxs HM.toList
-    let txs' = normalizeTxs' localTxs headUtxo
+    let txs' = normalizeTxsPure' localTxs headUtxo
     txLocalTxs .= HM.fromList txs'
     txLocalTxsSize .= length txs'
     mapM_ cacheTx (map fst txs')

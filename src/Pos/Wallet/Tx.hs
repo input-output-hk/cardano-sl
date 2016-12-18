@@ -12,13 +12,17 @@ module Pos.Wallet.Tx
        , createTx
        ) where
 
-import           Control.Lens          (use, uses, (%=), (-=), (^.), _1, _2)
-import           Control.Monad         (fail)
-import           Control.Monad.State   (StateT, evalStateT)
+import           Control.Lens          (folded, to, use, uses, (%=), (%=), (%~), (-=),
+                                        (^..), _1, _2)
+import           Control.Monad         (fail, filterM)
+import           Control.Monad.Loops   (anyM)
+import           Control.Monad.State   (StateT (..), evalStateT)
 import           Control.TimeWarp.Rpc  (NetworkAddress)
+import qualified Data.DList            as DL
 import           Data.List             (tail)
-import           Data.List.NonEmpty    (NonEmpty)
+import qualified Data.List.NonEmpty    as NE
 import qualified Data.Map              as M
+import           Data.Maybe            (fromJust)
 import qualified Data.Vector           as V
 import           Formatting            (build, sformat, (%))
 import           System.Wlog           (logError, logInfo)
@@ -27,14 +31,17 @@ import           Universum
 import           Pos.Binary            ()
 import           Pos.Communication     (sendTx)
 import           Pos.Context           (NodeContext (..), getNodeContext)
-import           Pos.Crypto            (SecretKey, hash, sign, toPublic, withHash)
+import           Pos.Crypto            (SecretKey, WithHash (..), hash, sign, toPublic,
+                                        withHash, _whData)
 import           Pos.Ssc.Class.Storage (SscStorageMode)
 import           Pos.State             (WorkModeDB, getBestChain, getOldestUtxo, getUtxo)
-import           Pos.Types             (Address, Block, Coin, MainBlock, Tx (..), TxId,
-                                        TxIn (..), TxInWitness (..), TxOut (..),
-                                        TxWitness, Utxo, applyTxToUtxo, blockTxs,
-                                        makePubKeyAddress, txwF)
-import           Pos.Wallet.WalletMode (WalletMode)
+import           Pos.Types             (Address, Block, Coin, MainBlock,
+                                        MonadUtxoRead (..), Tx (..), TxId, TxIn (..),
+                                        TxInWitness (..), TxOut (..), TxWitness, Utxo,
+                                        UtxoStateT (..), applyTxToUtxo, blockTxs,
+                                        evalUtxoStateT, makePubKeyAddress, topsortTxs,
+                                        txwF, _txOutputs)
+import           Pos.Wallet.WalletMode (TxMode)
 
 type TxOutIdx = (TxId, Word32)
 type TxInputs = [TxOutIdx]
@@ -95,30 +102,37 @@ createTx utxo sk outputs = uncurry (makePubKeyTx sk) <$> inpOuts
                         _2 %= tail
                         pickInputs (inp:inps)
 
--- | Select transactions from block by given predicate
-selectBlockTxs :: (Tx -> Bool) -> MainBlock ssc -> [Tx]
-selectBlockTxs p blk = foldl' selectTxs [] $ blk ^. blockTxs
-  where selectTxs ls tx = if p tx then tx : ls else ls
-
--- | Select incoming transactions for given address from block
-getIncomingTxs :: Address -> MainBlock ssc -> [Tx]
-getIncomingTxs addr = selectBlockTxs (`hasReceiver` addr)
-
 -- | Check if given 'Address' is one of the receivers of 'Tx'
 hasReceiver :: Tx -> Address -> Bool
 hasReceiver Tx {..} addr = any ((== addr) . txOutAddress) txOutputs
 
--- | Given some 'Utxo', get outgoing transactions for given address
-getOutgoingTxs :: Utxo -> Address -> MainBlock ssc -> [Tx]
-getOutgoingTxs utxo addr = selectBlockTxs (hasSender utxo addr)
-
--- | Given some 'Utxo', check ig given 'Address' is one of the senders of 'Tx'
-hasSender :: Utxo -> Address -> Tx -> Bool
-hasSender utxo addr Tx {..} = any hasCorrespondingOutput txInputs
+-- | Given some 'Utxo', check if given 'Address' is one of the senders of 'Tx'
+hasSender :: MonadUtxoRead m => Address -> Tx -> m Bool
+hasSender addr Tx {..} = anyM hasCorrespondingOutput txInputs
   where hasCorrespondingOutput (TxIn h idx)  =
-            toBool $ (== addr) . txOutAddress <$> M.lookup (h, idx) utxo
+            fmap toBool $ fmap ((== addr) . txOutAddress) <$> utxoGet (TxIn h idx)
         toBool Nothing  = False
         toBool (Just b) = b
+
+-- | Checks if transaction is somehow related to address
+relatedToAddress :: MonadUtxoRead m => Address -> Tx -> m Bool
+relatedToAddress addr tx = if tx `hasReceiver` addr
+                           then pure True
+                           else hasSender addr tx
+
+-- | Leave only outputs to given address in Tx
+ownOutputs :: Address -> Tx -> Tx
+ownOutputs addr = _txOutputs %~ filter ((== addr) . txOutAddress)
+
+type TxSelector = UtxoStateT Maybe
+
+-- | Select transactions related to given address from block
+getRelatedTxs :: Address -> MainBlock ssc -> TxSelector [WithHash Tx]
+getRelatedTxs addr blk = do
+    txs <- lift $ topsortTxs identity (blk ^.. blockTxs . folded . to withHash)
+    flip filterM txs $ \wtx -> do
+        applyTxToUtxo $ wtx & _whData %~ ownOutputs addr
+        relatedToAddress addr $ whData wtx
 
 -- | Leave in Utxo only outputs of given addresses
 getOwnUtxo :: Address -> Utxo -> Utxo
@@ -128,24 +142,22 @@ getOwnUtxo addr = M.filter ((== addr) . txOutAddress)
 -- TODO: Such functionality will still be useful for merging
 -- blockchains when wallet state is ready, but some metadata for
 -- Tx will be required.
-deriveAddrHistory :: Address -> Utxo -> NonEmpty (Block ssc) -> (Utxo, [Tx], [Tx])
-deriveAddrHistory addr utxo = deriveAddrHistoryPartial (ownUtxo, [], []) addr
-  where ownUtxo = getOwnUtxo addr utxo
+deriveAddrHistory :: Address -> [Block ssc] -> TxSelector [WithHash Tx]
+deriveAddrHistory addr chain = identity %= getOwnUtxo addr >>
+                               deriveAddrHistoryPartial [] addr chain
 
 deriveAddrHistoryPartial
-    :: (Utxo, [Tx], [Tx])
+    :: [WithHash Tx]
     -> Address
-    -> NonEmpty (Block ssc)
-    -> (Utxo, [Tx], [Tx])
-deriveAddrHistoryPartial histData addr chain = foldr updateAll histData chain
-  where updateAll (Left _) hdata = hdata
-        updateAll (Right blk) (utxo, incoming, outgoing) =
-            let applyAllToUtxo = foldl' $ flip (applyTxToUtxo . withHash)
-                newIncoming = getIncomingTxs addr blk
-                utxo' = applyAllToUtxo utxo newIncoming
-                newOutgoing = getOutgoingTxs utxo' addr blk
-                utxo'' = applyAllToUtxo utxo' newOutgoing
-            in (getOwnUtxo addr utxo'', newIncoming ++ incoming, newOutgoing ++ outgoing)
+    -> [Block ssc]
+    -> TxSelector [WithHash Tx]
+deriveAddrHistoryPartial hist addr chain =
+    DL.toList <$> foldrM updateAll (DL.fromList hist) chain
+  where
+    updateAll (Left _) hst = pure hst
+    updateAll (Right blk) hst = do
+        txs <- getRelatedTxs addr blk
+        return $ DL.fromList txs <> hst
 
 ---------------------------------------------------------------------------------------
 -- WorkMode scenarios
@@ -153,7 +165,7 @@ deriveAddrHistoryPartial histData addr chain = foldr updateAll histData chain
 
 -- | Construct Tx with a single input and single output and send it to
 -- the given network addresses.
-submitSimpleTx :: WalletMode ssc m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m (Tx, TxWitness)
+submitSimpleTx :: TxMode ssc m => [NetworkAddress] -> (TxId, Word32) -> (Address, Coin) -> m (Tx, TxWitness)
 submitSimpleTx [] _ _ =
     logError "No addresses to send" >> fail "submitSimpleTx failed"
 submitSimpleTx na input output = do
@@ -163,7 +175,7 @@ submitSimpleTx na input output = do
     pure tx
 
 -- | Construct Tx using secret key and given list of desired outputs
-submitTx :: WalletMode ssc m => SecretKey -> [NetworkAddress] -> TxOutputs -> m (Tx, TxWitness)
+submitTx :: TxMode ssc m => SecretKey -> [NetworkAddress] -> TxOutputs -> m (Tx, TxWitness)
 submitTx _ [] _ = logError "No addresses to send" >> fail "submitTx failed"
 submitTx sk na outputs = do
     utxo <- getUtxo
@@ -176,7 +188,7 @@ getBalance :: (SscStorageMode ssc, WorkModeDB ssc m) => Address -> m Coin
 getBalance addr = getUtxo >>= return . sum . M.map txOutValue . filterUtxo addr
 
 -- | Send the ready-to-use transaction
-submitTxRaw :: WalletMode ssc m => [NetworkAddress] -> (Tx, TxWitness) -> m ()
+submitTxRaw :: TxMode ssc m => [NetworkAddress] -> (Tx, TxWitness) -> m ()
 submitTxRaw na tx = do
     let txId = hash tx
     logInfo $ sformat ("Submitting transaction: "%txwF) tx
@@ -184,9 +196,9 @@ submitTxRaw na tx = do
     mapM_ (`sendTx` tx) na
 
 -- | Get tx history for Address
-getTxHistory :: WalletMode ssc m => Address -> m ([Tx], [Tx])
+getTxHistory :: TxMode ssc m => Address -> m [WithHash Tx]
 getTxHistory addr = do
     chain <- getBestChain
     utxo <- getOldestUtxo
-    let (_, incoming, outgoing) = deriveAddrHistory addr utxo chain
-    return (incoming, outgoing)
+    return $ fromJust $ flip evalUtxoStateT utxo $
+        deriveAddrHistory addr $ NE.toList chain

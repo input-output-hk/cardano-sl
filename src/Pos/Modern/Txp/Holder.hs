@@ -31,12 +31,11 @@ import           Universum
 import           Pos.Context                     (WithNodeContext)
 import           Pos.Slotting                    (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData         (MonadSscLD (..))
-import           Pos.Ssc.Class.Types             (Ssc (SscLocalData))
 import           Pos.State                       (MonadDB (..))
 import           Pos.Txp.LocalData               (MonadTxLD (..))
 import           Pos.Util.JsonLog                (MonadJL (..))
 
-import qualified Pos.Modern.DB                   as Modern
+import qualified Pos.Modern.DB.Class             as Modern
 import           Pos.Modern.Txp.Class            (MonadTxpLD (..))
 import           Pos.Modern.Txp.Storage.Types    (MemPool, UtxoView)
 import qualified Pos.Modern.Txp.Storage.UtxoView as UV
@@ -66,7 +65,7 @@ instance MonadBase IO m => MonadBase IO (TxpLDHolder ssc m) where
     liftBase = lift . liftBase
 
 instance MonadTransControl (TxpLDHolder ssc) where
-    type StT (TxpLDHolder ssc) a = StT (ReaderT (STM.TVar (SscLocalData ssc))) a
+    type StT (TxpLDHolder ssc) a = StT (ReaderT (TxpLDWrap ssc)) a
     liftWith = defaultLiftWith TxpLDHolder getTxpLDHolder
     restoreT = defaultRestoreT TxpLDHolder
 
@@ -109,14 +108,14 @@ instance Monad m => WrappedM (TxpLDHolder ssc m) where
     _WrappedM = iso getTxpLDHolder TxpLDHolder
 
 instance MonadIO m => MonadUtxoRead (TxpLDHolder ssc m) where
-    getTxOut key = TxpLDHolder (asks utxoView) >>=
+    utxoGet key = TxpLDHolder (asks utxoView) >>=
                    (atomically . STM.readTVar >=> UV.getTxOut key)
 
 instance (MonadIO m, MonadUtxoRead (TxpLDHolder ssc m))
        => MonadUtxo (TxpLDHolder ssc m) where
-    putTxOut key val = TxpLDHolder (asks utxoView) >>=
+    utxoPut key val = TxpLDHolder (asks utxoView) >>=
                        atomically . flip STM.modifyTVar' (UV.putTxOut key val)
-    delTxIn key = TxpLDHolder (asks utxoView) >>=
+    utxoDel key = TxpLDHolder (asks utxoView) >>=
                   atomically . flip STM.modifyTVar' (UV.delTxIn key)
 
 instance Default (HeaderHash ssc) where

@@ -10,24 +10,23 @@ module Pos.Communication.Server.SysStart
        , sysStartRespListener
        ) where
 
-import           Control.Concurrent.MVar (MVar, tryPutMVar)
+import           Control.Concurrent.MVar  (MVar, tryPutMVar)
 import           Universum
 
-import           Pos.Binary.Class        (Bi)
-import           Pos.Communication.Types (SysStartRequest (..), SysStartResponse (..))
-import           Pos.DHT.Model           (ListenerDHT (..), MonadDHTDialog, closeResponse,
-                                          replyToNode)
-import           Pos.Types               (Timestamp)
-import           Pos.WorkMode            (MinWorkMode, SocketState)
+import           Pos.Binary.Communication ()
+import           Pos.Communication.Types  (SysStartRequest (..), SysStartResponse (..))
+import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog,
+                                           closeResponse, replyToNode)
+import           Pos.Types                (Timestamp)
+import           Pos.WorkMode             (MinWorkMode)
 
-sysStartReqListenerSlave :: (MonadDHTDialog s m, Bi SysStartRequest) => ListenerDHT s m
+sysStartReqListenerSlave :: (MonadDHTDialog s m) => ListenerDHT s m
 sysStartReqListenerSlave = ListenerDHT $ \(_ :: SysStartRequest) -> return ()
 
 -- | Listener for 'SysStartRequest' message.
 sysStartReqListener
-    :: (MonadDHTDialog SocketState m, MinWorkMode m, Bi SysStartRequest,
-        Bi SysStartResponse)
-    => Timestamp -> ListenerDHT SocketState m
+    :: (MonadDHTDialog ss m, MinWorkMode ss m)
+    => Timestamp -> ListenerDHT ss m
 sysStartReqListener sysStart = ListenerDHT $
     \(_ :: SysStartRequest) -> do
         replyToNode $ SysStartResponse sysStart Nothing
@@ -35,10 +34,8 @@ sysStartReqListener sysStart = ListenerDHT $
 
 -- | Listener for 'SysStartResponce' message.
 sysStartRespListener
-    :: (MonadDHTDialog SocketState m
-       ,MinWorkMode m
-       ,Bi SysStartResponse)
-    => MVar Timestamp -> ListenerDHT SocketState m
+    :: (MonadDHTDialog ss m, MinWorkMode ss m)
+    => MVar Timestamp -> ListenerDHT ss m
 sysStartRespListener mvar = ListenerDHT $
     \(SysStartResponse ts _ :: SysStartResponse) -> do
         liftIO . void . tryPutMVar mvar $ ts

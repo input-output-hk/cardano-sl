@@ -14,7 +14,7 @@ import           Universum
 import           Pos.Context            (putBlkSemaphore, takeBlkSemaphore)
 import qualified Pos.Modern.DB          as DB
 import           Pos.Modern.Txp.Storage (txApplyBlocks)
-import           Pos.Types              (Block, prevBlockL)
+import           Pos.Types              (Block, headerHash, prevBlockL)
 import           Pos.WorkMode           (WorkMode)
 
 verifyBlock
@@ -34,11 +34,13 @@ applyBlock :: (WorkMode ssc m) => Block ssc -> m Bool
 applyBlock blk = do
     tip <- takeBlkSemaphore
     let putBack = putBlkSemaphore tip
+    let putNew = putBlkSemaphore (headerHash blk)
     if blk ^. prevBlockL == tip
-        then True <$ onException (applyBlockDo blk) putBack
+        then True <$ onException (applyBlockDo blk >> putNew) putBack
         else False <$ putBack
 
 applyBlockDo :: (WorkMode ssc m) => Block ssc -> m ()
 applyBlockDo blk = do
-    DB.putBlock True blk
+    -- [CSL-331] Put actual Undo instead of empty list!
+    DB.putBlock [] True blk
     txApplyBlocks (pure blk)

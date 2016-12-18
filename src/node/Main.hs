@@ -159,7 +159,8 @@ nodeParams args@Args {..} spendingSK systemStart =
             stakesDistr flatDistr bitcoinDistr
     , npTimeLord = timeLord
     , npJLFile = jlPath
-    , npMalicious = maliciousEmulation
+    , npAttackTypes = maliciousEmulationAttacks
+    , npAttackTargets = maliciousEmulationTargets
     , npPropagation = not disablePropagation
     }
 

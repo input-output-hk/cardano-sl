@@ -9,6 +9,8 @@ module Pos.CLI
        , dhtNodeParser
        , readLoggerConfig
        , sscAlgoParser
+       , attackTypeParser
+       , attackTargetParser
        ) where
 
 import           Universum
@@ -18,7 +20,9 @@ import           Control.TimeWarp.Rpc               (NetworkAddress)
 import           Data.Default                       (def)
 import           Data.Either                        (either)
 import           Pos.DHT.Model.Types                (DHTKey, DHTNode (..), bytesToDHTKey)
+import           Pos.Security.Types                 (AttackType (..), AttackTarget (..))
 import           Pos.Ssc.SscAlgo                    (SscAlgo (..))
+import           Pos.Types.Address                  (Address)
 import qualified Serokell.Util.Parse                as P
 import           System.Wlog                        (LoggerConfig (..),
                                                      Severity (Info, Warning),
@@ -43,6 +47,14 @@ dhtNodeParser = DHTNode <$> addrParser <*> (P.char '/' *> dhtKeyParser)
 sscAlgoParser :: P.Parser SscAlgo
 sscAlgoParser = GodTossingAlgo <$ (P.string "GodTossing") <|>
                 NistBeaconAlgo   <$ (P.string "NistBeacon")
+
+attackTypeParser :: P.Parser AttackType
+attackTypeParser = AttackNoBlocks <$ (P.string "NoBlocks") <|>
+                   AttackNoCommitments <$ (P.string "NoCommitments")
+
+-- TODO(voit): Add address parsing impl
+attackTargetParser :: P.Parser AttackTarget
+attackTargetParser = NetworkAddressTarget <$> addrParser
 
 -- | Default logger config. Will be used if `--log-config` argument is not passed.
 -- Corresponds to next logger config:

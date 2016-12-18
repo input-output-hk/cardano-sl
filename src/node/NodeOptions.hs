@@ -16,38 +16,41 @@ import           Serokell.Util.OptParse     (fromParsec)
 import           Universum
 
 import           Pos.CLI                    (addrParser, dhtKeyParser, dhtNodeParser,
-                                             sscAlgoParser)
+                                             sscAlgoParser, attackTypeParser,
+                                             attackTargetParser)
 import           Pos.DHT.Model              (DHTKey, DHTNode)
+import           Pos.Security.Types         (AttackTarget, AttackType)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 
 
 data Args = Args
-    { dbPath             :: !FilePath
-    , rebuildDB          :: !Bool
-    , spendingGenesisI   :: !(Maybe Int)
-    , vssGenesisI        :: !(Maybe Int)
-    , spendingSecretPath :: !(Maybe FilePath)
-    , vssSecretPath      :: !(Maybe FilePath)
-    , port               :: !Word16
-    , flatDistr          :: !(Maybe (Int, Int))
-    , bitcoinDistr       :: !(Maybe (Int, Int))
-    , dhtPeers           :: ![DHTNode]
-    , supporterNode      :: !Bool
-    , dhtKey             :: !(Maybe DHTKey)
-    , logConfig          :: !(Maybe FilePath)
-    , logsPrefix         :: !(Maybe FilePath)
-    , timeLord           :: !Bool
-    , dhtExplicitInitial :: !Bool
-    , enableStats        :: !Bool
-    , jlPath             :: !(Maybe FilePath)
-    , sscAlgo            :: !SscAlgo
-    , memoryMode         :: !Bool
-    , maliciousEmulation :: ![NetworkAddress]
+    { dbPath                    :: !FilePath
+    , rebuildDB                 :: !Bool
+    , spendingGenesisI          :: !(Maybe Int)
+    , vssGenesisI               :: !(Maybe Int)
+    , spendingSecretPath        :: !(Maybe FilePath)
+    , vssSecretPath             :: !(Maybe FilePath)
+    , port                      :: !Word16
+    , flatDistr                 :: !(Maybe (Int, Int))
+    , bitcoinDistr              :: !(Maybe (Int, Int))
+    , dhtPeers                  :: ![DHTNode]
+    , supporterNode             :: !Bool
+    , dhtKey                    :: !(Maybe DHTKey)
+    , logConfig                 :: !(Maybe FilePath)
+    , logsPrefix                :: !(Maybe FilePath)
+    , timeLord                  :: !Bool
+    , dhtExplicitInitial        :: !Bool
+    , enableStats               :: !Bool
+    , jlPath                    :: !(Maybe FilePath)
+    , sscAlgo                   :: !SscAlgo
+    , memoryMode                :: !Bool
+    , maliciousEmulationAttacks :: ![AttackType]
+    , maliciousEmulationTargets :: ![AttackTarget]
 #ifdef WITH_WEB
-    , enableWeb          :: !Bool
-    , webPort            :: !Word16
+    , enableWeb                 :: !Bool
+    , webPort                   :: !Word16
 #endif
-    , disablePropagation :: !Bool
+    , disablePropagation        :: !Bool
     }
   deriving Show
 
@@ -134,8 +137,11 @@ argsParser =
         (long "memory-mode" <>
          help "Run DB in memory mode") <*>
     many
-        (option (fromParsec addrParser) $
-         long "malicious" <> metavar "HOST_ID" <> help "Node to cheat on")
+        (option (fromParsec attackTypeParser) $
+         long "attack" <> metavar "NoBlocks|NoCommitments" <> help "Attack type to emulate") <*>
+    many
+        (option (fromParsec attackTargetParser) $
+         long "attack-target" <> metavar "HOST:PORT|PUBKEYHASH")
 #ifdef WITH_WEB
     <*>
     switch

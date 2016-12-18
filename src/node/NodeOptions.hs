@@ -17,7 +17,7 @@ import           Universum
 
 import           Pos.CLI                    (addrParser, dhtKeyParser, dhtNodeParser,
                                              sscAlgoParser)
-import           Pos.DHT                    (DHTKey, DHTNode)
+import           Pos.DHT.Model              (DHTKey, DHTNode)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 
 

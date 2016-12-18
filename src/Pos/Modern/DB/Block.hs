@@ -13,11 +13,12 @@ module Pos.Modern.DB.Block
 import           Data.ByteArray          (convert)
 import           Universum
 
-import           Pos.Binary              (Bi)
+import           Pos.Binary.Class        (Bi)
+import           Pos.Binary.Modern.DB    ()
 import           Pos.Modern.DB.Class     (MonadDB, getBlockDB)
 import           Pos.Modern.DB.Functions (rocksDelete, rocksGetBi, rocksPutBi)
 import           Pos.Modern.DB.Types     (StoredBlock (..))
-import           Pos.Ssc.Class           (Ssc)
+import           Pos.Ssc.Class.Types     (Ssc)
 import           Pos.Types               (Block, HeaderHash, Undo, headerHash)
 
 -- | Get StoredBlock by hash from Block DB.

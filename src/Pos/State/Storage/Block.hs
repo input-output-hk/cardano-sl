@@ -53,7 +53,7 @@ import           Universum
 
 import           Pos.Binary.Types        ()
 import           Pos.Constants           (epochSlots, k)
-import           Pos.Crypto              (SecretKey, hash)
+import           Pos.Crypto              (ProxySecretKey, SecretKey, hash)
 import           Pos.Genesis             (genesisLeaders)
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
@@ -586,14 +586,15 @@ blocksToTestMergeDo commonAncestor =
 blkCreateNewBlock
     :: Ssc ssc
     => SecretKey
+    -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
     -> SlotId
     -> [(Tx,TxWitness)]
     -> SscPayload ssc
     -> Update ssc (MainBlock ssc)
-blkCreateNewBlock sk sId txs sscData = do
+blkCreateNewBlock sk pSk sId txs sscData = do
     prevHeader <- readerToState $ getBlockHeader <$> getHeadBlock
     let body = mkMainBody txs sscData
-    let blk = mkMainBlock (Just prevHeader) sId sk body
+    let blk = mkMainBlock (Just prevHeader) sId sk pSk body
     insertBlock $ Right blk
     blk <$ blkSetHead (headerHash blk)
 

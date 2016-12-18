@@ -42,23 +42,22 @@ import           Universum                       hiding (async, fromStrict,
                                                   mapConcurrently, toStrict)
 
 import           Pos.Binary.Class                (Bi (..))
-import           Pos.Binary.DHT                  ()
-import           Pos.DHT.Class                   (DHTException (..), DHTMsgHeader (..),
+import           Pos.Binary.DHTModel             ()
+import           Pos.DHT.Model.Class             (DHTException (..), DHTMsgHeader (..),
                                                   DHTPacking, DHTResponseT (..),
                                                   ListenerDHT (..), MonadDHT (..),
                                                   MonadDHTDialog, MonadMessageDHT (..),
                                                   MonadResponseDHT (closeResponse),
                                                   defaultSendToNeighbors,
                                                   defaultSendToNode, withDhtLogger)
+import           Pos.DHT.Model.Types             (DHTData, DHTKey, DHTNode (..),
+                                                  filterByNodeType, randomDHTKey)
+import           Pos.DHT.Model.Util              (joinNetworkNoThrow)
 import           Pos.DHT.Real.Types              (DHTHandle, KademliaDHT (..),
                                                   KademliaDHTConfig (..),
                                                   KademliaDHTContext (..),
                                                   KademliaDHTInstance (..),
                                                   KademliaDHTInstanceConfig (..))
-import           Pos.DHT.Types                   (DHTData, DHTKey, DHTNode (..),
-                                                  filterByNodeType, randomDHTKey)
-
-import           Pos.DHT.Util                    (joinNetworkNoThrow)
 import           Pos.Util                        (runWithRandomIntervals,
                                                   waitAnyUnexceptional)
 
@@ -270,8 +269,7 @@ instance ( MonadDHTDialog s m
     sendToNeighbors = defaultSendToNeighbors seqConcurrentlyK sendToNode
     sendToNode addr msg = do
         defaultSendToNode addr msg
-        listenOutbound
-        pure ()
+        () <$ listenOutbound
       where
         -- [CSL-4][TW-47]: temporary code, to refactor to subscriptions (after TW-47)
         listenOutboundDo = KademliaDHT (asks kdcListenByBinding) >>= ($ AtConnTo addr)

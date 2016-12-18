@@ -27,8 +27,8 @@ import           Pos.Types             (BadSigsTx (..), GoodTx (..), OverflowTx 
                                         SmallBadSigsTx (..), SmallGoodTx (..),
                                         SmallOverflowTx (..), Tx (..), TxIn (..),
                                         TxInWitness (..), TxOut (..), TxWitness,
-                                        checkPubKeyAddress, topsortTxs, verifyTx,
-                                        verifyTxAlone)
+                                        checkPubKeyAddress, topsortTxs, verifyTxAlone,
+                                        verifyTxPure)
 import           Pos.Util              (sublistN)
 
 
@@ -124,7 +124,7 @@ validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
     let quadruple@(tx, inpResolver, _, txWits) =
             getTxFromGoodTx ls
         transactionIsVerified =
-            isVerSuccess $ verifyTx inpResolver (tx, txWits)
+            isVerSuccess $ verifyTxPure inpResolver (tx, txWits)
         transactionReallyIsGood = individualTxPropertyVerifier quadruple
     in  transactionIsVerified == transactionReallyIsGood
 
@@ -132,14 +132,14 @@ overflowTx :: SmallOverflowTx -> Bool
 overflowTx (SmallOverflowTx (getOverflowTx -> ls)) =
     let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
-        transactionIsNotVerified = isVerFailure $ verifyTx inpResolver (tx, txWits)
+        transactionIsNotVerified = isVerFailure $ verifyTxPure inpResolver (tx, txWits)
         inpSumLessThanOutSum = not $ txChecksum extendedInputs txOutputs
     in inpSumLessThanOutSum == transactionIsNotVerified
 
 signatureIsValid :: [TxOut] -> (Maybe (TxIn, TxOut), TxInWitness) -> Bool
 signatureIsValid txOutputs (Just (TxIn{..}, TxOut{..}), PkWitness{..}) =
     checkPubKeyAddress twKey txOutAddress &&
-    checkSig twKey (txInHash, txInIndex, txOutputs) twSig
+    checkSig twKey (txInHash, txInIndex, hash txOutputs) twSig
 signatureIsValid _ _ = False
 
 signatureIsNotValid :: [TxOut] -> (Maybe (TxIn, TxOut), TxInWitness) -> Bool
@@ -149,7 +149,7 @@ badSigsTx :: SmallBadSigsTx -> Bool
 badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
     let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
-        transactionIsNotVerified = isVerFailure $ verifyTx inpResolver (tx, txWits)
+        transactionIsNotVerified = isVerFailure $ verifyTxPure inpResolver (tx, txWits)
         notAllSignaturesAreValid =
             any (signatureIsNotValid txOutputs) $ zip extendedInputs (V.toList txWits)
     in notAllSignaturesAreValid == transactionIsNotVerified

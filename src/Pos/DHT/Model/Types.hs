@@ -2,7 +2,7 @@
 
 -- | DHT types.
 
-module Pos.DHT.Types
+module Pos.DHT.Model.Types
        ( DHTData (..)
        , DHTKey (..)
        , DHTNode (..)
@@ -48,16 +48,16 @@ instance Show DHTKey where
 
 -- | Node type is determined by first byte of key.
 data DHTNodeType
-  -- | Node which participates only in supporting DHT, i.e. not a part of PoS communication.
-  = DHTSupporter
-  -- | Full node, i.e. fully participating in both DHT supporting and PoS.
-  | DHTFull
-  -- | Client node (for SPV). Key idea is that clients, being a part of DHT, are rarely queried.
-  | DHTClient
-  deriving (Eq, Ord, Show)
+    -- | Node which participates only in supporting DHT, i.e. not a part of PoS communication.
+    = DHTSupporter
+    -- | Full node, i.e. fully participating in both DHT supporting and PoS.
+    | DHTFull
+    -- | Client node (for SPV). Key idea is that clients, being a part of DHT, are rarely queried.
+    | DHTClient
+    deriving (Eq, Ord, Show)
 
 instance Buildable DHTNodeType where
-  build = build . show
+    build = build . show
 
 -- | Return type of DHT node by given key.
 dhtNodeType :: DHTKey -> Maybe DHTNodeType
@@ -86,9 +86,10 @@ instance Buildable [DHTNode] where
 
 -- | Converts 'BS.ByteString' into 'DHTKey' if possible.
 bytesToDHTKey :: IsString s => BS.ByteString -> Either s DHTKey
-bytesToDHTKey bs = if BS.length bs /= 20
-                      then Left "Key length must be exactly 20 bytes"
-                      else Right $ DHTKey bs
+bytesToDHTKey bs =
+    if BS.length bs /= 20
+    then Left "Key length must be exactly 20 bytes"
+    else Right $ DHTKey bs
 
 -- | Generate random 'DHTKey'.
 randomDHTKey :: MonadIO m => DHTNodeType -> m DHTKey

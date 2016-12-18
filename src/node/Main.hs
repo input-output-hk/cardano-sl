@@ -16,7 +16,7 @@ import           Universum
 import           Pos.Binary           (Bi, decode, encode)
 import           Pos.Constants        (RunningMode (..), runningMode)
 import           Pos.Crypto           (SecretKey, VssKeyPair, keyGen, vssKeyGen)
-import           Pos.DHT              (DHTKey, DHTNodeType (..), dhtNodeType)
+import           Pos.DHT.Model        (DHTKey, DHTNodeType (..), dhtNodeType)
 import           Pos.DHT.Real         (KademliaDHTInstance)
 import           Pos.Genesis          (genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
@@ -133,6 +133,7 @@ action args@Args {..} inst = do
                 currentPluginsGT = []
 #endif
             putText $ "Running using " <> show sscAlgo
+            putText $ "If stats is on: " <> show enableStats
             case (enableStats, sscAlgo) of
                 (True, GodTossingAlgo) ->
                     runNodeStats @SscGodTossing inst currentPluginsGT currentParams gtParams

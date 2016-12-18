@@ -10,18 +10,17 @@ module Pos.Txp.Listeners
 
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.List.NonEmpty          as NE
-import           Data.Maybe                  (fromJust)
 import           Formatting                  (build, sformat, stext, (%))
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Txp              ()
 import           Pos.Communication.Methods   (sendToNeighborsSafe)
-import           Pos.Communication.Types     (ResponseMode)
+import           Pos.Communication.Types     (MutSocketState, ResponseMode)
 import           Pos.Context                 (WithNodeContext (getNodeContext),
                                               ncPropagation)
 import           Pos.Crypto                  (hash)
-import           Pos.DHT                     (ListenerDHT (..), MonadDHTDialog,
+import           Pos.DHT.Model               (ListenerDHT (..), MonadDHTDialog,
                                               replyToNode)
 import           Pos.State                   (ProcessTxRes (..))
 import qualified Pos.State                   as St
@@ -31,12 +30,12 @@ import           Pos.Txp.LocalData           (getLocalTxs)
 import           Pos.Txp.Types.Communication (TxDataMsg (..), TxInvMsg (..),
                                               TxReqMsg (..))
 import           Pos.Types                   (IdTxWitness, TxId)
-import           Pos.WorkMode                (SocketState, WorkMode)
+import           Pos.WorkMode                (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
 txListeners
-    :: (MonadDHTDialog SocketState m, WorkMode ssc m)
-    => [ListenerDHT SocketState m]
+    :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
+    => [ListenerDHT (MutSocketState ssc) m]
 txListeners =
     [
       ListenerDHT handleTxInv
@@ -69,7 +68,7 @@ handleTxReq (TxReqMsg txIds_) = do
     localTxs <- getLocalTxs
     let txIds = NE.toList txIds_
         found = map (flip HM.lookup localTxs) txIds
-        addedItems = map fromJust . filter isJust $ found
+        addedItems = catMaybes found
     mapM_ (replyToNode . uncurry TxDataMsg) addedItems
 
 handleTxData :: (ResponseMode ssc m)
@@ -104,6 +103,7 @@ handleTxDo tx = do
             logInfo $ sformat ("Node is overwhelmed, can't add tx: "%build) txId
     return (res == PTRadded)
 
+-- CHECK: #txLocalDataProcessTx
 processTx :: ResponseMode ssc m => IdTxWitness -> m ProcessTxRes
 processTx tx = do
     utxo <- St.getUtxo

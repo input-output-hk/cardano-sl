@@ -8,6 +8,7 @@
 module Pos.Types.Tx
        ( verifyTxAlone
        , verifyTx
+       , verifyTxPure
        , topsortTxs
        ) where
 
@@ -20,8 +21,8 @@ import           Formatting          (build, int, sformat, (%))
 import           Serokell.Util       (VerificationRes, verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Class    (Bi)
-import           Pos.Crypto          (Hash, WithHash (..), checkSig)
+import           Pos.Binary.Types    ()
+import           Pos.Crypto          (Hash, WithHash (..), checkSig, hash)
 import           Pos.Script          (txScriptCheck)
 import           Pos.Types.Types     (Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
                                       TxWitness, checkPubKeyAddress, checkScriptAddress,
@@ -46,29 +47,33 @@ verifyTxAlone Tx {..} =
         , sformat
               ("output #"%int%" has non-positive value: "%coinF) i txOutValue)
 
--- | Verify Tx correctness using magic function which resolves input
+-- | CHECK: Verify Tx correctness using magic function which resolves input
 -- into Address and Coin. It does checks from 'verifyTxAlone' and the
 -- following:
 --
--- * sum of inputs ≥ sum of outputs;
+-- * sum of inputs >= sum of outputs;
 -- * every input is signed properly;
 -- * every input is a known unspent output.
 verifyTx
-    :: Bi TxOut
-    => (TxIn -> Maybe TxOut)
+    :: (Monad m)
+    => (TxIn -> m (Maybe TxOut))
     -> (Tx, TxWitness)
-    -> VerificationRes
-verifyTx inputResolver (tx@Tx{..}, witnesses) =
+    -> m VerificationRes
+verifyTx inputResolver txs@(Tx {..}, _) =
+    flip verifyTxDo txs <$> mapM extendInput txInputs
+  where
+    extendInput txIn = fmap (txIn, ) <$> inputResolver txIn
+
+verifyTxDo :: [Maybe (TxIn, TxOut)] -> (Tx, TxWitness) -> VerificationRes
+verifyTxDo extendedInputs (tx@Tx{..}, witnesses) =
     mconcat [verifyTxAlone tx, verifyCounts, verifySum, verifyInputs]
   where
     outSum :: Integer
     outSum = sum $ fmap (toInteger . txOutValue) txOutputs
-    extendedInputs :: [Maybe (TxIn, TxOut)]
-    extendedInputs = fmap extendInput txInputs
-    extendInput txIn = (txIn,) <$> inputResolver txIn
     resolvedInputs = catMaybes extendedInputs
     inpSum :: Integer
     inpSum = sum $ fmap (toInteger . txOutValue . snd) resolvedInputs
+    txOutHash = hash txOutputs
     verifyCounts =
         verifyGeneric
             [ ( length txInputs == length witnesses
@@ -121,9 +126,12 @@ verifyTx inputResolver (tx@Tx{..}, witnesses) =
     checkAddrHash addr ScriptWitness{..} = checkScriptAddress twValidator addr
 
     validateTxIn TxIn{..} PkWitness{..} =
-        checkSig twKey (txInHash, txInIndex, txOutputs) twSig
+        checkSig twKey (txInHash, txInIndex, txOutHash) twSig
     validateTxIn TxIn{..} ScriptWitness{..} =
         isRight (txScriptCheck twValidator twRedeemer)
+
+verifyTxPure :: (TxIn -> Maybe TxOut) -> (Tx, TxWitness) -> VerificationRes
+verifyTxPure resolver = runIdentity . verifyTx (Identity . resolver)
 
 data TopsortState a = TopsortState
     { _tsVisited     :: HS.HashSet (Hash Tx)

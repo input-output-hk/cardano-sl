@@ -1,8 +1,10 @@
 -- | Delegation-related message types
 
 module Pos.Communication.Types.Delegation
-       ( SendProxySK(..)
-       , ConfirmProxySK(..)
+       ( SendProxySK (..)
+       , ConfirmProxySK (..)
+       , CheckProxySKConfirmed (..)
+       , CheckProxySKConfirmedRes (..)
        ) where
 
 import           Control.TimeWarp.Rpc (Message (..), messageName')
@@ -14,7 +16,8 @@ import           Pos.Types            (EpochIndex)
 type PSK = ProxySecretKey (EpochIndex, EpochIndex)
 
 -- | Message with delegated proxy secret key.
-data SendProxySK = SendProxySK !PSK
+data SendProxySK =
+    SendProxySK !PSK
     deriving (Generic)
 
 instance Message SendProxySK where
@@ -29,7 +32,26 @@ instance Message SendProxySK where
 -- before lower cert's @EpochIndex@.
 data ConfirmProxySK =
     ConfirmProxySK !PSK !(ProxySignature (EpochIndex, EpochIndex) PSK)
+    deriving (Generic)
 
 instance Message ConfirmProxySK where
     messageName _ = "ConfirmProxySK"
+    formatMessage = messageName'
+
+-- | Request to check if a node has any info about PSK delivery.
+data CheckProxySKConfirmed =
+    CheckProxySKConfirmed !PSK
+    deriving (Generic)
+
+instance Message CheckProxySKConfirmed where
+    messageName _ = "CheckProxySKConfirmed"
+    formatMessage = messageName'
+
+-- | Response to the @CheckProxySKConfirmed@ call.
+data CheckProxySKConfirmedRes =
+    CheckProxySKConfirmedRes !Bool
+    deriving (Generic)
+
+instance Message CheckProxySKConfirmedRes where
+    messageName _ = "CheckProxySKConfirmedRes"
     formatMessage = messageName'

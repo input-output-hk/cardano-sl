@@ -5,7 +5,9 @@ module Pos.Binary.Communication () where
 import           Universum
 
 import           Pos.Binary.Class        (Bi (..))
-import           Pos.Communication.Types (ConfirmProxySK (..), RequestBlock (..),
+import           Pos.Communication.Types (CheckProxySKConfirmed (..),
+                                          CheckProxySKConfirmedRes (..),
+                                          ConfirmProxySK (..), RequestBlock (..),
                                           RequestBlockchainPart (..), SendBlock (..),
                                           SendBlockHeader (..), SendBlockchainPart (..),
                                           SendProxySK (..), SysStartRequest (..),
@@ -50,4 +52,12 @@ instance Bi SendProxySK where
 
 instance Bi ConfirmProxySK where
     put (ConfirmProxySK pSk proof) = put pSk >> put proof
-    get = ConfirmProxySK <$> get <*> get
+    get = liftA2 ConfirmProxySK get get
+
+instance Bi CheckProxySKConfirmed where
+    put (CheckProxySKConfirmed pSk) = put pSk
+    get = CheckProxySKConfirmed <$> get
+
+instance Bi CheckProxySKConfirmedRes where
+    put (CheckProxySKConfirmedRes res) = put res
+    get = CheckProxySKConfirmedRes <$> get

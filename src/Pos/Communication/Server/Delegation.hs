@@ -13,6 +13,7 @@ module Pos.Communication.Server.Delegation
 
        , handleSendProxySK
        , handleConfirmProxySK
+       , handleCheckProxySKConfirmed
        ) where
 
 import           Control.Concurrent.MVar   (putMVar)
@@ -28,7 +29,9 @@ import           Universum
 
 import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (sendProxyConfirmSK, sendProxySecretKey)
-import           Pos.Communication.Types   (ConfirmProxySK (..), MutSocketState,
+import           Pos.Communication.Types   (CheckProxySKConfirmed (..),
+                                            CheckProxySKConfirmedRes (..),
+                                            ConfirmProxySK (..), MutSocketState,
                                             ResponseMode, SendProxySK (..))
 import           Pos.Context               (ProxyStorage, getNodeContext, ncPropagation,
                                             ncProxyCache, ncProxyConfCache,
@@ -37,7 +40,7 @@ import           Pos.Context               (ProxyStorage, getNodeContext, ncProp
 import           Pos.Crypto                (ProxySecretKey, ProxySignature,
                                             checkProxySecretKey, pdDelegatePk,
                                             pdDelegatePk, proxySign, proxyVerify)
-import           Pos.DHT.Model             (ListenerDHT (..), MonadDHTDialog)
+import           Pos.DHT.Model             (ListenerDHT (..), MonadDHTDialog, replyToNode)
 import           Pos.Types                 (EpochIndex)
 import           Pos.WorkMode              (WorkMode)
 
@@ -48,6 +51,7 @@ delegationListeners
 delegationListeners =
     [ ListenerDHT handleSendProxySK
     , ListenerDHT handleConfirmProxySK
+    , ListenerDHT handleCheckProxySKConfirmed
     ]
 
 ----------------------------------------------------------------------------
@@ -180,3 +184,18 @@ propagateConfirmProxySK ConfirmPSKValid confPSK@(ConfirmProxySK pSk _) = do
         logDebug $ sformat ("Propagating psk confirmation for psk: "%build) pSk
         sendProxyConfirmSK confPSK
 propagateConfirmProxySK _ _ = pure ()
+
+----------------------------------------------------------------------------
+-- Check confirmation requests
+----------------------------------------------------------------------------
+
+handleCheckProxySKConfirmed
+    :: forall ssc m.
+       (ResponseMode ssc m)
+    => CheckProxySKConfirmed -> m ()
+handleCheckProxySKConfirmed (CheckProxySKConfirmed pSk) = do
+    logDebug $ sformat ("Got request to check if psk: "%build%" was delivered.") pSk
+    res <- withProxyStorage $ \p -> pure (p ^. ncProxyConfCache . to (HM.member pSk), p)
+    replyToNode $ CheckProxySKConfirmedRes res
+
+-- response listener should be defined ad-hoc where it's used

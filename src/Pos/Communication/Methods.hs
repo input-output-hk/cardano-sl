@@ -10,6 +10,7 @@ module Pos.Communication.Methods
        , sendToNeighborsSafe
        , sendTx
        , sendProxySecretKey
+       , sendProxyConfirmSK
 
        -- * Blockchain part queries
        , queryBlockchainPart
@@ -28,9 +29,9 @@ import           Pos.Binary.Class            (Bi)
 import           Pos.Binary.Communication    ()
 import           Pos.Binary.Txp              ()
 import           Pos.Binary.Types            ()
-import           Pos.Communication.Types     (RequestBlockchainPart (..),
-                                              SendBlockHeader (..),
-                                              SendProxySecretKey (..))
+import           Pos.Communication.Types     (ConfirmProxySK (..),
+                                              RequestBlockchainPart (..),
+                                              SendBlockHeader (..), SendProxySK (..))
 import           Pos.Crypto                  (ProxySecretKey)
 import           Pos.DHT.Model               (MonadMessageDHT, sendToNeighbors,
                                               sendToNode)
@@ -84,4 +85,10 @@ sendProxySecretKey
     => ProxySecretKey (EpochIndex, EpochIndex) -> m ()
 sendProxySecretKey psk = do
     logNotice $ sformat ("Sending proxySecretKey to neigbours:\n"%build) psk
-    sendToNeighborsSafe $ SendProxySecretKey psk
+    sendToNeighborsSafe $ SendProxySK psk
+
+sendProxyConfirmSK :: (MinWorkMode ss m) => ConfirmProxySK -> m ()
+sendProxyConfirmSK confirmPSK@(ConfirmProxySK psk _) = do
+    logNotice $
+        sformat ("Sending proxy receival confirmation for psk "%build%" to neigbours") psk
+    sendToNeighborsSafe confirmPSK

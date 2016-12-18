@@ -7,8 +7,8 @@
 -- handlers. Small by design. Maybe it makes sense to rename it into
 -- "other listeners" and put another stuff here.
 
-module Pos.Communication.Server.Cert
-       ( certListeners
+module Pos.Communication.Server.Delegation
+       ( delegationListeners
 
        , handleProxySecretKey
        ) where
@@ -24,7 +24,7 @@ import           Universum
 import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (sendProxySecretKey)
 import           Pos.Communication.Types   (MutSocketState, ResponseMode,
-                                            SendProxySecretKey (..))
+                                            SendProxySK (..))
 import           Pos.Context               (ProxyStorage (..), getNodeContext,
                                             ncPropagation, ncProxyStorage, ncSecretKey)
 import           Pos.Crypto                (ProxySecretKey, checkProxySecretKey)
@@ -33,10 +33,10 @@ import           Pos.Types                 (EpochIndex)
 import           Pos.WorkMode              (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
-certListeners
+delegationListeners
     :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
     => [ListenerDHT (MutSocketState ssc) m]
-certListeners = [ ListenerDHT handleProxySecretKey ]
+delegationListeners = [ ListenerDHT handleProxySecretKey ]
 
 -- should be a constant
 cacheInvalidateTimeout :: NominalDiffTime
@@ -93,8 +93,8 @@ processProxySecretKey pSk = withProxyStorage $ \p@ProxyStorage{..} -> do
 handleProxySecretKey
     :: forall ssc m.
        (ResponseMode ssc m)
-    => SendProxySecretKey -> m ()
-handleProxySecretKey (SendProxySecretKey pSk) = do
+    => SendProxySK -> m ()
+handleProxySecretKey (SendProxySK pSk) = do
     logDebug $ sformat ("Got request to handle proxy secret key: "%build) pSk
     invalidateCaches -- do it in worker once in ~sometimes
     verdict <- processProxySecretKey pSk

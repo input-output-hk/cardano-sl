@@ -71,6 +71,7 @@ handleTxReq (TxReqMsg txIds_) = do
         addedItems = catMaybes found
     mapM_ (replyToNode . uncurry TxDataMsg) addedItems
 
+-- CHECK: #handleTxDo
 handleTxData :: (ResponseMode ssc m)
              => TxDataMsg -> m ()
 handleTxData (TxDataMsg tx tw) = do
@@ -83,6 +84,8 @@ isTxUsefull :: ResponseMode ssc m => TxId -> m Bool
 isTxUsefull txId = not . HM.member txId <$> getLocalTxs
 
 -- Real tx processing
+-- CHECK: @handleTxDo
+-- #processTx
 handleTxDo
     :: ResponseMode ssc m
     => IdTxWitness -> m Bool
@@ -103,7 +106,8 @@ handleTxDo tx = do
             logInfo $ sformat ("Node is overwhelmed, can't add tx: "%build) txId
     return (res == PTRadded)
 
--- CHECK: #txLocalDataProcessTx
+-- CHECK: @processTx
+-- #txLocalDataProcessTx
 processTx :: ResponseMode ssc m => IdTxWitness -> m ProcessTxRes
 processTx tx = do
     utxo <- St.getUtxo

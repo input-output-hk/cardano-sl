@@ -116,11 +116,12 @@ library
                         Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
+                        Pos.Communication.Types.Delegation
                         Pos.Communication.Types.State
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Server
                         Pos.Communication.Server.Block
-                        Pos.Communication.Server.Cert
+                        Pos.Communication.Server.Delegation
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Util
                         Pos.CompileConfig.Parser
@@ -202,7 +203,20 @@ library
     other-modules:      Pos.Wallet.Tx
                       , Pos.Wallet.WalletMode
                       , Pos.Wallet.Launcher
+                      , Pos.Wallet.Launcher.Runner
+                      , Pos.Wallet.Launcher.Param
                       , Pos.Wallet.KeyStorage
+                      , Pos.Wallet.State
+                      , Pos.Wallet.State.Acidic
+                      , Pos.Wallet.State.Holder
+                      , Pos.Wallet.State.State
+                      , Pos.Wallet.State.Storage
+                      , Pos.Wallet.State.Storage.Block
+                      , Pos.Wallet.State.Storage.Tx
+                      , Pos.Wallet.Context
+                      , Pos.Wallet.Context.Class
+                      , Pos.Wallet.Context.Context
+                      , Pos.Wallet.Context.Holder
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc

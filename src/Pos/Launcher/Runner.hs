@@ -66,8 +66,8 @@ import           Pos.DHT.Model                   (BiP (..), ListenerDHT, MonadDH
                                                   mapListenerDHT, sendToNeighbors)
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB                   as Modern
-import qualified Pos.Modern.Txp.Holder           as Modern
 import qualified Pos.Modern.Ssc.Holder           as Modern
+import qualified Pos.Modern.Txp.Holder           as Modern
 import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 #endif
 import           Pos.Context                     (ContextHolder (..), NodeContext (..),
@@ -81,7 +81,8 @@ import           Pos.DHT.Real                    (KademliaDHT, KademliaDHTConfig
 import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..))
 import           Pos.Ssc.Class                   (SscConstraint, SscNodeContext,
-                                                  SscParams, sscCreateNodeContext)
+                                                  SscParams, loadGlobalState,
+                                                  sscCreateNodeContext)
 import           Pos.Ssc.LocalData               (runSscLDImpl)
 import           Pos.State                       (NodeState, closeState, openMemState,
                                                   openState, runDBHolder)
@@ -160,7 +161,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     legacyDB <- snd <$> allocate openDb closeDb
 #ifdef WITH_ROCKS
     modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo")
-    (initTip1, initSsc) <- Modern.runDBHolder modernDBs loadInitDataFromDB
+    --initGS <- Modern.runDBHolder modernDBs (loadGlobalState @ssc)
     let initTip = notImplemented -- init tip must be here
 #endif
     let run db =

@@ -185,7 +185,6 @@ library
     other-modules:
                         Pos.Binary.Modern.DB
                         Pos.Modern.DB
-                        Pos.Modern.Initialization
                         Pos.Modern.DB.Block
                         Pos.Modern.DB.Class
                         Pos.Modern.DB.DB

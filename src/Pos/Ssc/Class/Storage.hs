@@ -77,6 +77,7 @@ instance MonadSscGS ssc m => MonadSscGS ssc (DHTResponseT s m) where
 instance MonadSscGS ssc m => MonadSscGS ssc (KademliaDHT m) where
 
 class Monad m => SscStorageClassM ssc m | m -> ssc where
+    loadGlobalState :: m (SscGlobalState ssc)
     -- This must be here. We should remove SscStorageClass, right?
     sscApplyBlocksM :: AltChain ssc -> m ()
 

@@ -26,8 +26,7 @@ import           System.Wlog                            (logDebug, logError, log
 import           Universum
 
 import           Pos.Binary.Class                       (Bi)
-import           Pos.Communication.Methods              (sendToNeighborsSafe,
-                                                         sendToNeighborsSafeWithMaliciousEmulation)
+import           Pos.Communication.Methods              (sendToNeighborsSafe)
 import           Pos.Constants                          (k, mpcSendInterval)
 import           Pos.Context                            (getNodeContext, ncPublicKey,
                                                          ncSecretKey, ncSscContext)
@@ -246,7 +245,7 @@ sendOurData msgTag epoch kMultiplier ourAddr = do
     waitUntilSend msgTag epoch kMultiplier
     logDebug $ sformat ("Announcing our "%build) msgTag
     let msg = InvMsg {imType = msgTag, imKeys = pure ourAddr}
-    sendToNeighborsSafeWithMaliciousEmulation msg
+    sendToNeighborsSafe msg
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 
 -- | Generate new commitment and opening and use them for the current

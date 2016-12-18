@@ -102,6 +102,7 @@ handleData
     => DataMsg -> m ()
 handleData msg =
     whenM (isGoodSlotIdForTag (dataMsgTag msg) <$> getCurrentSlot) $
+    -- TODO: Add here malicious emulation when TW will support getting peer address properly
     do added <- sscProcessMessage msg
        let tag = dataMsgTag msg
            addr = dataMsgPublicKey msg

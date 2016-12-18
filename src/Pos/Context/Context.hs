@@ -1,14 +1,20 @@
+{-# LANGUAGE TemplateHaskell #-}
 -- | Runtime context of node.
 
 module Pos.Context.Context
        ( NodeContext (..)
+
        , ncPublicKey
        , ncPubKeyAddress
 
        , ProxyStorage (..)
+       , ncProxySecretKeys
+       , ncProxyCache
+       , ncProxyConfCache
        , defaultProxyStorage
        ) where
 
+import           Control.Lens        (makeLenses)
 import qualified Data.HashMap.Strict as HM
 import           Data.Time.Clock     (UTCTime)
 import           Universum
@@ -26,12 +32,15 @@ import           Pos.Types           (Address, EpochIndex, HeaderHash, Timestamp
 type PSK = ProxySecretKey (EpochIndex,EpochIndex)
 
 data ProxyStorage = ProxyStorage
-    { ncProxySecretKeys :: [PSK] -- ^ Proxy sertificates that authorize us
-    , ncProxyCache      :: HashMap PSK UTCTime -- ^ Cache. (psk, time added).
+    { _ncProxySecretKeys :: [PSK] -- ^ Proxy sertificates that authorize us
+    , _ncProxyCache      :: HashMap PSK UTCTime -- ^ Cache. (psk, time added).
+    , _ncProxyConfCache  :: HashMap PSK UTCTime -- ^ Confirmation cache
     } deriving Show
 
+makeLenses ''ProxyStorage
+
 defaultProxyStorage :: ProxyStorage
-defaultProxyStorage = ProxyStorage [] HM.empty
+defaultProxyStorage = ProxyStorage [] HM.empty HM.empty
 
 ----------------------------------------------------------------------------
 -- Node Context

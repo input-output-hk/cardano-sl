@@ -82,7 +82,9 @@ renderModules xs =
         h :: M.Map Tag Body -> Check -> M.Map Tag Body
         h m c = case chTag c of
             Nothing -> m
-            Just t  -> M.insert t (chBody c) m
+            Just t  -> case M.lookup t m of
+                         Nothing -> M.insert t (chBody c) m
+                         Just _  -> error $ "duplicate tag " ++ show t
 
     renderModule :: M.Map Tag Body -> Module -> [Text]
     renderModule m md =
@@ -101,7 +103,9 @@ renderModules xs =
     renderBody m bs = do
         b <- bs
         case b of
-          Left t  -> renderBody m $ m M.! t
+          Left t  -> case M.lookup t m of
+                       Nothing -> error $ "unknown tag " ++ show t
+                       Just b' -> renderBody m b'
           Right t -> return t
 
     renderPos :: Int -> [Text]
@@ -142,12 +146,15 @@ toModule xs = Module (getModuleName xs) (getChecks xs)
             | otherwise                           -> loop' acc                             (succ i) j mt (Right c : bs)         ts
         _                                         -> loop  (Check mt j (reverse bs) : acc) (succ i)                             ts
 
+    noHyphens :: Pattern Text
+    noHyphens = star $ notChar '-'
+
     checkPattern :: Pattern Text
-    checkPattern = chars *> (text "-- CHECK: " <|> text "-- | CHECK: ") *> chars
+    checkPattern = noHyphens *> (text "-- CHECK: " <|> text "-- | CHECK: ") *> chars
 
     checkComment :: Pattern Text
     checkComment = do
-        ys <- chars *> ((text "-- " *> chars) <|> (text "--" *> pure ""))
+        ys <- noHyphens *> ((text "-- " *> chars) <|> (text "--" *> pure ""))
         return $ if T.length ys <= 1 || T.head ys /= '|'
            then ys
            else T.tail $ T.tail ys

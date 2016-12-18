@@ -116,10 +116,15 @@ applyTxToUtxoPure tx = execUtxoState $ applyTxToUtxo tx
 applyTxToUtxoPure' :: IdTxWitness -> Utxo -> Utxo
 applyTxToUtxoPure' w = execUtxoState $ applyTxToUtxo' w
 
+-- CHECK: @TxUtxoPure
+-- #verifyTxUtxo
+
 -- | Pure version of verifyTxUtxo.
 verifyTxUtxoPure :: Utxo -> (Tx, TxWitness) -> VerificationRes
 verifyTxUtxoPure utxo txw = runUtxoReader (verifyTxUtxo txw) utxo
 
+-- CHECK: @verifyAndApplyTxsPure
+-- #verifyAndApplyTxs
 verifyAndApplyTxsPure
     :: [(WithHash Tx, TxWitness)]
     -> Utxo
@@ -128,11 +133,14 @@ verifyAndApplyTxsPure txws utxo =
     let (res, newUtxo) = runUtxoState (verifyAndApplyTxs txws) utxo
     in (, newUtxo) <$> res
 
+-- CHECK: @verifyAndApplyTxsPure'
+-- #verifyAndApplyTxs'
 verifyAndApplyTxsPure' :: [IdTxWitness] -> Utxo -> Either Text ([IdTxWitness], Utxo)
 verifyAndApplyTxsPure' txws utxo =
     let (res, newUtxo) = runUtxoState (verifyAndApplyTxs' txws) utxo
     in (, newUtxo) <$> res
 
+-- CHECK: @normalizeTxsPure
 -- | Takes the set of transactions and utxo, returns only those
 -- transactions that can be applied inside. Bonus -- returns them
 -- sorted (topographically).
@@ -161,6 +169,8 @@ normalizeTxsPure = normGo []
                then result
                else normGo newResult newPending newUtxo
 
+-- CHECK: @normalizeTxsPure'
+-- #normalizeTxsPure
 normalizeTxsPure' :: [IdTxWitness] -> Utxo -> [IdTxWitness]
 normalizeTxsPure' tx utxo =
     let converted = convertTo' tx in

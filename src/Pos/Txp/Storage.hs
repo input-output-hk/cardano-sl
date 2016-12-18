@@ -73,6 +73,7 @@ type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
 applyTx :: IdTxWitness -> Update ()
 applyTx tx = txUtxo %= applyTxToUtxoPure' tx
 
+-- CHECK: @txVerifyBlocks
 -- | Given number of blocks to rollback and some sidechain to adopt it
 -- checks if it can be done prior to transaction validity. Returns a
 -- list of topsorted transactions, head ~ deepest block on success.

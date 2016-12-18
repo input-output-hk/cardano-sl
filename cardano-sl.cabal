@@ -211,7 +211,20 @@ library
     other-modules:      Pos.Wallet.Tx
                       , Pos.Wallet.WalletMode
                       , Pos.Wallet.Launcher
+                      , Pos.Wallet.Launcher.Runner
+                      , Pos.Wallet.Launcher.Param
                       , Pos.Wallet.KeyStorage
+                      , Pos.Wallet.State
+                      , Pos.Wallet.State.Acidic
+                      , Pos.Wallet.State.Holder
+                      , Pos.Wallet.State.State
+                      , Pos.Wallet.State.Storage
+                      , Pos.Wallet.State.Storage.Block
+                      , Pos.Wallet.State.Storage.Tx
+                      , Pos.Wallet.Context
+                      , Pos.Wallet.Context.Class
+                      , Pos.Wallet.Context.Context
+                      , Pos.Wallet.Context.Holder
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc

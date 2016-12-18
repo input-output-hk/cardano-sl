@@ -24,7 +24,9 @@ module Pos.Launcher.Runner
 
        -- * Exported for custom usage in CLI utils
        , addDevListeners
+       , setupLoggers
        , bracketDHTInstance
+       , runKDHT
        , runOurDialog
        ) where
 
@@ -89,9 +91,9 @@ import           Pos.Statistics                  (getNoStatsT, runStatsT)
 import           Pos.Types                       (Timestamp (Timestamp), timestampF)
 import           Pos.Util                        (runWithRandomIntervals)
 import           Pos.Worker                      (statsWorkers)
-import           Pos.WorkMode                    (ProductionMode, RawRealMode,
-                                                  ServiceMode, StatsMode, TimedMode,
-                                                  runTxLDImpl)
+import           Pos.WorkMode                    (MinWorkMode, ProductionMode,
+                                                  RawRealMode, ServiceMode, StatsMode,
+                                                  TimedMode, runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Service node runners
@@ -201,9 +203,10 @@ runProductionMode
        SscConstraint ssc
     => KademliaDHTInstance -> NodeParams -> SscParams ssc ->
        ProductionMode ssc a -> IO a
-runProductionMode inst np sscnp = runRawRealMode inst np sscnp listeners . getNoStatsT
+runProductionMode inst np@NodeParams {..} sscnp =
+    runRawRealMode inst np sscnp listeners . getNoStatsT
   where
-    listeners = addDevListeners @ssc np noStatsListeners
+    listeners = addDevListeners npSystemStart noStatsListeners
     noStatsListeners = map (mapListenerDHT getNoStatsT) (allListeners @ssc)
 
 -- | StatsMode runner.
@@ -214,11 +217,12 @@ runStatsMode
        SscConstraint ssc
     => KademliaDHTInstance -> NodeParams -> SscParams ssc -> StatsMode ssc a
     -> IO a
-runStatsMode inst np sscnp action = runRawRealMode inst np sscnp listeners $ runStatsT $ do
+runStatsMode inst np@NodeParams {..} sscnp action =
+    runRawRealMode inst np sscnp listeners $ runStatsT $ do
     mapM_ fork statsWorkers
     action
   where
-    listeners = addDevListeners @ssc np sListeners
+    listeners = addDevListeners npSystemStart sListeners
     sListeners = map (mapListenerDHT runStatsT) $ allListeners @ssc
 
 -- | ServiceMode runner.
@@ -320,12 +324,15 @@ loggerBracket :: LoggingParams -> IO a -> IO a
 loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
 -- | RAII for node starter.
-addDevListeners :: NodeParams
-                -> [ListenerDHT (MutSocketState ssc) (RawRealMode ssc)]
-                -> [ListenerDHT (MutSocketState ssc) (RawRealMode ssc)]
-addDevListeners NodeParams{..} ls =
+addDevListeners
+    :: (MonadDHTDialog (MutSocketState ssc) m,
+        MinWorkMode (MutSocketState ssc) m)
+    => Timestamp
+    -> [ListenerDHT (MutSocketState ssc) m]
+    -> [ListenerDHT (MutSocketState ssc) m]
+addDevListeners sysStart ls =
     if isDevelopment
-    then sysStartReqListener npSystemStart : ls
+    then sysStartReqListener sysStart : ls
     else ls
 
 bracketDHTInstance

@@ -28,10 +28,11 @@ type PSK = ProxySecretKey (EpochIndex,EpochIndex)
 data ProxyStorage = ProxyStorage
     { ncProxySecretKeys :: [PSK] -- ^ Proxy sertificates that authorize us
     , ncProxyCache      :: HashMap PSK UTCTime -- ^ Cache. (psk, time added).
+    , ncProxyConfCache  :: HashMap PSK UTCTime -- ^ Confirmation cache
     } deriving Show
 
 defaultProxyStorage :: ProxyStorage
-defaultProxyStorage = ProxyStorage [] HM.empty
+defaultProxyStorage = ProxyStorage [] HM.empty HM.empty
 
 ----------------------------------------------------------------------------
 -- Node Context

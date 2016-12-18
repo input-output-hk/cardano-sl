@@ -1,7 +1,8 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiWayIf       #-}
-{-# LANGUAGE RankNTypes       #-}
-{-# LANGUAGE TupleSections    #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE MultiWayIf          #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 
 -- | Certificate (proxy secret key) propagation listeners and
 -- handlers. Small by design. Maybe it makes sense to rename it into
@@ -14,6 +15,8 @@ module Pos.Communication.Server.Delegation
        ) where
 
 import           Control.Concurrent.MVar   (putMVar)
+import           Control.Exception         (SomeException)
+import           Control.Monad.Catch       (catch)
 import qualified Data.HashMap.Strict       as HM
 import           Data.List                 (nub)
 import           Data.Time.Clock           (NominalDiffTime, addUTCTime, getCurrentTime)
@@ -38,6 +41,10 @@ delegationListeners
     => [ListenerDHT (MutSocketState ssc) m]
 delegationListeners = [ ListenerDHT handleProxySecretKey ]
 
+----------------------------------------------------------------------------
+-- Logic of delegation-storage related stuff
+----------------------------------------------------------------------------
+
 -- should be a constant
 cacheInvalidateTimeout :: NominalDiffTime
 cacheInvalidateTimeout = 30 -- sec
@@ -46,7 +53,8 @@ withProxyStorage :: (WorkMode ssc m) => (ProxyStorage -> m (a,ProxyStorage)) -> 
 withProxyStorage action = do
     v <- ncProxyStorage <$> getNodeContext
     x <- liftIO $ takeMVar v
-    (res,modified) <- action x
+    (res,modified) <-
+        action x `catch` (\(e :: SomeException) -> liftIO (putMVar v x) >> throwM e)
     liftIO $ putMVar v modified
     pure res
 
@@ -58,6 +66,10 @@ invalidateCaches = withProxyStorage $ \ProxyStorage{..} -> do
                 , .. })
   where
     addDelta = addUTCTime cacheInvalidateTimeout
+
+----------------------------------------------------------------------------
+-- Proxy signing key propagation
+----------------------------------------------------------------------------
 
 -- | PSK check verdict. It can be unrelated (other key or spoiled, no
 -- way to differ), exist in storage already or be cached.
@@ -116,3 +128,9 @@ propagateProxySecretKey PSKUnrelated pSk = do
         logDebug $ sformat ("Propagating proxy secret key "%build) pSk
         sendProxySecretKey pSk
 propagateProxySecretKey _ _ = pure ()
+
+----------------------------------------------------------------------------
+-- PSK Confirmatio back propagation
+----------------------------------------------------------------------------
+
+-- TBD

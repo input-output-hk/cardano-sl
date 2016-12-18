@@ -34,12 +34,6 @@ Flag with-wallet
 
   description: Build with wallet.
 
-Flag with-rocks
-  default:     True
-  manual:      True
-
-  description: Build with RocksDB.
-
 library
   exposed-modules:      Pos.Binary
                         Pos.CLI
@@ -111,6 +105,7 @@ library
                         Pos.Binary.Communication
                         Pos.Binary.DHTModel
                         Pos.Binary.Merkle
+                        Pos.Binary.Modern.DB
                         Pos.Binary.Script
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
@@ -145,6 +140,23 @@ library
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
+                        Pos.Modern.DB
+                        Pos.Modern.DB.Block
+                        Pos.Modern.DB.Class
+                        Pos.Modern.DB.DB
+                        Pos.Modern.DB.Error
+                        Pos.Modern.DB.Functions
+                        Pos.Modern.DB.Holder
+                        Pos.Modern.DB.Types
+                        Pos.Modern.DB.Utxo
+                        Pos.Modern.Txp.Class
+                        Pos.Modern.Txp.Error
+                        Pos.Modern.Txp.Storage
+                        Pos.Modern.Txp.Storage.Storage
+                        Pos.Modern.Txp.Storage.Types
+                        Pos.Modern.Txp.Storage.UtxoView
+                        Pos.Modern.Txp.Holder
+                        Pos.Modern.Txp.Listeners
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
@@ -181,26 +193,6 @@ library
                         Pos.Worker.Stats
                         Pos.Util.Arbitrary
                         Pos.Util.NotImplemented
-  if flag(with-rocks)
-    other-modules:
-                        Pos.Binary.Modern.DB
-                        Pos.Modern.DB
-                        Pos.Modern.DB.Block
-                        Pos.Modern.DB.Class
-                        Pos.Modern.DB.DB
-                        Pos.Modern.DB.Error
-                        Pos.Modern.DB.Functions
-                        Pos.Modern.DB.Holder
-                        Pos.Modern.DB.Types
-                        Pos.Modern.DB.Utxo
-                        Pos.Modern.Txp.Class
-                        Pos.Modern.Txp.Error
-                        Pos.Modern.Txp.Storage
-                        Pos.Modern.Txp.Storage.Storage
-                        Pos.Modern.Txp.Storage.Types
-                        Pos.Modern.Txp.Storage.UtxoView
-                        Pos.Modern.Txp.Holder
-                        Pos.Modern.Txp.Listeners
   if flag(with-web)
     other-modules:      Pos.Web.Api
                         Pos.Web.Doc
@@ -270,6 +262,7 @@ library
                       , quickcheck-instances
                       , random
                       , resourcet
+                      , rocksdb
                       , safecopy
                       , serokell-util
                       , stm
@@ -287,9 +280,6 @@ library
                       , unordered-containers
                       , vector
                       , yaml
-
-  if flag(with-rocks)
-    build-depends:      rocksdb
 
   if flag(with-web)
     build-depends:      http-types
@@ -323,8 +313,6 @@ library
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
-  if flag(with-rocks)
-    cpp-options: -DWITH_ROCKS
 
 executable cardano-node
   hs-source-dirs:      src/node

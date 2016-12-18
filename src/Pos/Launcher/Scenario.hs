@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP              #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 -- | High-level scenarios which can be launched.
@@ -15,11 +14,9 @@ import           Universum
 
 import           Pos.Context             (NodeContext (..), getNodeContext, ncPublicKey)
 import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
+import           Pos.Modern.DB.Utxo      (getTip)
 import           Pos.Ssc.Class           (SscConstraint)
 import           Pos.State               (initFirstSlot)
-#ifdef WITH_ROCKS
-import           Pos.Modern.DB.Utxo      (getTip)
-#endif
 import           Pos.Types               (Timestamp (Timestamp))
 import           Pos.Util                (inAssertMode)
 import           Pos.Worker              (runWorkers)
@@ -34,9 +31,7 @@ runNode plugins = do
     peers <- discoverPeers DHTFull
     logInfo $ sformat ("Known peers: " % build) peers
 
-#ifdef WITH_ROCKS
     initSemaphore
-#endif
     initFirstSlot
     waitSystemStart
     runWorkers
@@ -51,7 +46,6 @@ waitSystemStart = do
     cur <- currentTime
     when (cur < start) $ wait (for (start - cur))
 
-#ifdef WITH_ROCKS
 initSemaphore :: (WorkMode ssc m) => m ()
 initSemaphore = do
     semaphore <- ncBlkSemaphore <$> getNodeContext
@@ -60,4 +54,3 @@ initSemaphore = do
         (logError "ncBlkSemaphore is not empty at the very beginning")
     tip <- getTip
     liftIO $ putMVar semaphore tip
-#endif

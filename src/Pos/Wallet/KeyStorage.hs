@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE StandaloneDeriving    #-}
@@ -29,15 +28,13 @@ import           Universum
 
 import           Pos.Context            (WithNodeContext)
 import           Pos.Crypto             (SecretKey, keyGen)
-import           Pos.Txp.LocalData      (MonadTxLD)
-#ifdef WITH_ROCKS
+import           Pos.DHT.Model          (MonadDHT, MonadMessageDHT, WithDefaultMsgHeader)
 import qualified Pos.Modern.DB          as Modern (MonadDB)
 import qualified Pos.Modern.Txp.Class   as Modern (MonadTxpLD)
-#endif
-import           Pos.DHT.Model          (MonadDHT, MonadMessageDHT, WithDefaultMsgHeader)
 import           Pos.Slotting           (MonadSlots)
 import           Pos.Ssc.Class          (MonadSscLD)
 import           Pos.State              (MonadDB)
+import           Pos.Txp.LocalData      (MonadTxLD)
 import           Pos.Util               ()
 import           Pos.Util.JsonLog       (MonadJL)
 import           Pos.Util.UserSecret    (UserSecret, peekUserSecret, usKeys,
@@ -94,10 +91,8 @@ instance MonadIO m => MonadState UserSecret (KeyStorage m) where
     put s = KeyStorage ask >>= atomically . flip STM.writeTVar s >>
             writeUserSecret s
 
-#ifdef WITH_ROCKS
 deriving instance Modern.MonadDB ssc m => Modern.MonadDB ssc (KeyStorage m)
 deriving instance Modern.MonadTxpLD ssc m => Modern.MonadTxpLD ssc (KeyStorage m)
-#endif
 
 runKeyStorage :: MonadIO m => FilePath -> KeyStorage m a -> m a
 runKeyStorage fp ks =

@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP              #-}
 {-# LANGUAGE ConstraintKinds  #-}
 {-# LANGUAGE FlexibleContexts #-}
 
@@ -12,9 +11,7 @@ module Pos.Wallet.WalletMode
 
 import           Pos.Communication.Types (MutSocketState)
 import           Pos.Context             (WithNodeContext)
-#ifdef WITH_ROCKS
 import qualified Pos.Modern.DB           as Modern
-#endif
 import           Pos.Ssc.Class.Storage   (SscStorageMode)
 import           Pos.State               (MonadDB)
 import           Pos.Txp.LocalData       (MonadTxLD)
@@ -25,9 +22,7 @@ import           Pos.Wallet.KeyStorage   (KeyStorage, MonadKeys)
 type TxMode ssc m
     = ( MinWorkMode (MutSocketState ssc) m
       , MonadDB ssc m
-#ifdef WITH_ROCKS
       , Modern.MonadDB ssc m
-#endif
       , MonadTxLD m
       , WithNodeContext ssc m
       , SscStorageMode ssc

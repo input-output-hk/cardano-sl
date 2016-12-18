@@ -5,9 +5,9 @@ module Pos.Binary.Communication () where
 import           Universum
 
 import           Pos.Binary.Class        (Bi (..))
-import           Pos.Communication.Types (RequestBlock (..), RequestBlockchainPart (..),
-                                          SendBlock (..), SendBlockHeader (..),
-                                          SendBlockchainPart (..),
+import           Pos.Communication.Types (MsgBlockHeaders (..), RequestBlock (..),
+                                          RequestBlockchainPart (..), SendBlock (..),
+                                          SendBlockHeader (..), SendBlockchainPart (..),
                                           SendProxySecretKey (..), SysStartRequest (..),
                                           SysStartResponse (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
@@ -24,6 +24,10 @@ instance Bi SysStartResponse where
 instance Ssc ssc => Bi (SendBlock ssc) where
     put (SendBlock b) = put b
     get = SendBlock <$> get
+
+instance Ssc ssc => Bi (MsgBlockHeaders ssc) where
+    put (MsgBlockHeaders b) = put b
+    get = MsgBlockHeaders <$> get
 
 instance Ssc ssc => Bi (SendBlockHeader ssc) where
     put (SendBlockHeader b) = put b

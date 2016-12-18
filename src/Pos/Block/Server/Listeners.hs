@@ -13,7 +13,7 @@ module Pos.Block.Server.Listeners
 import           Universum
 
 import           Pos.Binary.Communication ()
-import           Pos.Communication.Types  (MutSocketState, ResponseMode, SendBlock (..))
+import           Pos.Communication.Types  (MsgBlock (..), MutSocketState, ResponseMode)
 import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog)
 import           Pos.WorkMode             (WorkMode)
 
@@ -28,5 +28,5 @@ blockListeners =
 handleBlock
     :: forall ssc m.
        (ResponseMode ssc m)
-    => SendBlock ssc -> m ()
-handleBlock (SendBlock _) = pass
+    => MsgBlock ssc -> m ()
+handleBlock (MsgBlock _) = pass

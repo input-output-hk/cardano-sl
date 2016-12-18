@@ -57,6 +57,7 @@ applyTxToUtxo tx = do
 applyTxToUtxo' :: MonadUtxo m => IdTxWitness -> m ()
 applyTxToUtxo' (i, (t, _)) = applyTxToUtxo $ WithHash t i
 
+-- CHECK: @verifyAndApplyTxs
 -- | Accepts list of transactions and verifies its overall properties
 -- plus validity of every transaction in particular. Return value is
 -- verification failure (first) or topsorted list of transactions (if
@@ -95,6 +96,8 @@ convertTo' = map (\(i, (t, w)) -> (WithHash t i, w))
 convertFrom' :: [(WithHash Tx, TxWitness)] -> [IdTxWitness]
 convertFrom' = map (\(WithHash t h, w) -> (h, (t, w)))
 
+-- CHECK: @verifyAndApplyTxs'
+-- #verifyAndApplyTxs
 verifyAndApplyTxs'
     :: MonadUtxo m
     => [IdTxWitness] -> m (Either Text [IdTxWitness])

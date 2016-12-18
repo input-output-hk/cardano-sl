@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
@@ -18,33 +17,26 @@ import           Control.TimeWarp.Timed     (MonadTimed, ThreadId)
 import           Serokell.Util.Lens         (WrappedM (..))
 import           System.Wlog                (CanLog, HasLoggerName)
 
-import           Pos.Context                (WithNodeContext)
-#ifdef WITH_ROCKS
-import qualified Pos.Modern.DB              as Modern (MonadDB)
-import qualified Pos.Modern.Txp.Class       as Modern (MonadTxpLD)
-#endif
 import           Pos.DHT.Model              (MonadDHT, MonadMessageDHT,
                                              WithDefaultMsgHeader)
+import qualified Pos.Modern.DB              as Modern (MonadDB)
+import qualified Pos.Modern.Txp.Class       as Modern (MonadTxpLD)
 import           Pos.Slotting               (MonadSlots)
-import           Pos.Ssc.Class              (MonadSscLD)
-import           Pos.State                  (MonadDB)
-import           Pos.Statistics             (MonadStats)
-import           Pos.Txp.LocalData          (MonadTxLD)
-import           Pos.Util.JsonLog           (MonadJL)
-import           Pos.Wallet.KeyStorage      (MonadKeys)
-import           Pos.Wallet.Web.State.State (MonadWalletWebDB (..), WalletState)
 import           Pos.WorkMode               ()
+
+import           Pos.Wallet.Context         (WithWalletContext)
+import           Pos.Wallet.KeyStorage      (MonadKeys)
+import           Pos.Wallet.State           (MonadWalletDB)
+
+import           Pos.Wallet.Web.State.State (MonadWalletWebDB (..), WalletState)
 
 -- | Holder for web wallet data
 newtype WalletWebDB m a = WalletWebDB
     { getWalletWebDB :: ReaderT WalletState m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-                MonadMask, MonadIO, MonadDB ssc, HasLoggerName, WithNodeContext ssc,
-                MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots, MonadSscLD ssc,
-#ifdef WITH_ROCKS
-                Modern.MonadDB ssc, Modern.MonadTxpLD ssc,
-#endif
-                WithDefaultMsgHeader, MonadJL, CanLog, MonadTxLD, MonadStats, MonadKeys)
+                MonadMask, MonadIO, HasLoggerName, MonadWalletDB, WithWalletContext,
+                MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots,
+                WithDefaultMsgHeader, CanLog, MonadKeys)
 
 instance Monad m => WrappedM (WalletWebDB m) where
     type UnwrappedM (WalletWebDB m) = ReaderT WalletState m

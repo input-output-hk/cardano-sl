@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                    #-}
 {-# LANGUAGE ConstraintKinds        #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
@@ -58,12 +57,10 @@ import           Pos.DHT.Model                 (DHTPacking, DHTResponseT (..),
                                                 MonadMessageDHT (..),
                                                 WithDefaultMsgHeader)
 import           Pos.DHT.Real                  (KademliaDHT (..))
-#ifdef WITH_ROCKS
 import qualified Pos.Modern.DB.Class           as Modern
 import qualified Pos.Modern.DB.Holder          as Modern
 import           Pos.Modern.Txp.Class          (MonadTxpLD (..))
 import           Pos.Modern.Txp.Holder         (TxpLDHolder)
-#endif
 import           Pos.Slotting                  (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers         (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData       (MonadSscLD (..), SscLocalDataClass)
@@ -85,11 +82,9 @@ type WorkMode ssc m
       , MonadMask m
       , MonadSlots m
       , MonadDB ssc m
-#ifdef WITH_ROCKS
       , Modern.MonadDB ssc m
       , MonadTxpLD ssc m
       , MonadUtxo m
-#endif
       , MonadTxLD m
       , SscStorageMode ssc
       , SscLocalDataClass ssc
@@ -144,9 +139,7 @@ newtype TxLDImpl m a = TxLDImpl
 
 type instance ThreadId (TxLDImpl m) = ThreadId m
 
-#ifdef WITH_ROCKS
 deriving instance Modern.MonadDB ssc m => Modern.MonadDB ssc (TxLDImpl m)
-#endif
 
 instance Monad m => WrappedM (TxLDImpl m) where
     type UnwrappedM (TxLDImpl m) = ReaderT (STM.TVar TxLocalData) m
@@ -199,19 +192,12 @@ instance MonadJL m => MonadJL (KademliaDHT m) where
 
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
 type RawRealMode ssc = KademliaDHT (
-#ifdef WITH_ROCKS
                                TxpLDHolder ssc (
-#endif
                                    TxLDImpl (
                                        SscLDImpl ssc (
                                            ContextHolder ssc (
-#ifdef WITH_ROCKS
                                                Modern.DBHolder ssc (
-#endif
-                                                   DBHolder ssc (Dialog DHTPacking (Transfer (MSockSt ssc)))))))
-#ifdef WITH_ROCKS
-                                   ))
-#endif
+                                                   DBHolder ssc (Dialog DHTPacking (Transfer (MSockSt ssc)))))))))
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.

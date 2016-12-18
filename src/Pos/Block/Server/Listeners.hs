@@ -17,8 +17,8 @@ import           Universum
 
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (ClassifyHeaderRes (..), classifyNewHeader)
-import           Pos.Communication.Types  (MsgBlockHeaders (..), MutSocketState,
-                                           ResponseMode, SendBlock (..))
+import           Pos.Communication.Types  (MsgBlock (..), MsgHeaders (..), MutSocketState,
+                                           ResponseMode)
 import           Pos.Crypto               (shortHashF)
 import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog)
 import           Pos.Types                (BlockHeader, headerHash)
@@ -36,8 +36,8 @@ blockListeners =
 handleBlockHeaders
     :: forall ssc m.
        (ResponseMode ssc m)
-    => MsgBlockHeaders ssc -> m ()
-handleBlockHeaders (MsgBlockHeaders headers) = do
+    => MsgHeaders ssc -> m ()
+handleBlockHeaders (MsgHeaders headers) = do
     -- TODO: decide what to do depending on socket state
     handleUnsolicitedHeaders headers
 
@@ -62,5 +62,5 @@ handleUnsolicitedHeaders _ = pass
 handleBlock
     :: forall ssc m.
        (ResponseMode ssc m)
-    => SendBlock ssc -> m ()
-handleBlock (SendBlock _) = pass
+    => MsgBlock ssc -> m ()
+handleBlock (MsgBlock _) = pass

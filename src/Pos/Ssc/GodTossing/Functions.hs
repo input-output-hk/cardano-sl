@@ -37,6 +37,7 @@ import           Control.Lens                   ((^.))
 import           Control.Monad.Fail             (MonadFail)
 import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
+import qualified Data.HashSet                   as HS (fromList, size)
 import           Data.Ix                        (inRange)
 import           Data.List.NonEmpty             (NonEmpty (..))
 import           Serokell.Util                  (VerificationRes, verifyGeneric)
@@ -48,10 +49,10 @@ import           Pos.Binary.Crypto              ()
 import           Pos.Constants                  (k)
 import           Pos.Crypto                     (EncShare, Share, VssPublicKey, Secret,
                                                  SecretKey, SecureRandom (..), Threshold,
-                                                 checkSig, genSharedSecret, getDhSecret,
-                                                 secretToDhSecret, sign, toPublic,
-                                                 verifyEncShare, verifySecretProof,
-                                                 verifyShare)
+                                                 checkSig, encShareId, genSharedSecret,
+                                                 getDhSecret, secretToDhSecret, sign,
+                                                 toPublic, verifyEncShare,
+                                                 verifySecretProof, verifyShare)
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap,
                                                  InnerSharesMap, Opening (..),
@@ -137,7 +138,10 @@ hasVssCertificate addr = HM.member addr . _gsVssCertificates
 verifyCommitment :: Commitment -> Bool
 verifyCommitment Commitment {..} = fromMaybe False $ do
     extra <- fromBinaryM commExtra
-    all (verifyCommitmentDo extra) <$> traverse tupleFromBinaryM (HM.toList commShares)
+    commMap <- traverse tupleFromBinaryM (HM.toList commShares)
+    let encShares = map encShareId . toList <$> commMap
+    return $ all (verifyCommitmentDo extra) commMap &&
+        (length encShares) == (HS.size $ HS.fromList encShares)
   where
     verifyCommitmentDo extra = uncurry (verifyEncShare extra)
     tupleFromBinaryM

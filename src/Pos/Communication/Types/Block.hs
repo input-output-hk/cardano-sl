@@ -4,8 +4,10 @@
 -- | Types used for communication about Blocks.
 
 module Pos.Communication.Types.Block
-       ( MsgBlockHeaders (..)
-       , SendBlock (..)
+       ( MsgGetHeaders (..)
+       , MsgGetBlocks (..)
+       , MsgHeaders (..)
+       , MsgBlock (..)
 
        , SendBlockHeader (..)
        , SendBlockchainPart (..)
@@ -24,21 +26,41 @@ import           Pos.Types            (Block, BlockHeader, HeaderHash, MainBlock
 -- Messages from modern protocol specification
 ----------------------------------------------------------------------------
 
+-- | 'GetHeaders' message (see protocol specification).
+data MsgGetHeaders ssc = MsgGetHeaders
+    { mghFrom :: ![HeaderHash ssc]
+    , mghTo   :: !(Maybe (HeaderHash ssc))
+    } deriving (Generic)
+
+instance Typeable ssc => Message (MsgGetHeaders ssc) where
+    messageName _ = "GetHeaders"
+    formatMessage = messageName'
+
+-- | 'GetHeaders' message (see protocol specification).
+data MsgGetBlocks ssc = MsgGetBlocks
+    { mgbFrom :: ![HeaderHash ssc]
+    , mgbTo   :: !(Maybe (HeaderHash ssc))
+    } deriving (Generic)
+
+instance Typeable ssc => Message (MsgGetBlocks ssc) where
+    messageName _ = "GetBlocks"
+    formatMessage = messageName'
+
 -- | 'Headers' message (see protocol specification).
-data MsgBlockHeaders ssc =
-    MsgBlockHeaders !(NonEmpty (BlockHeader ssc))
+newtype MsgHeaders ssc =
+    MsgHeaders (NonEmpty (BlockHeader ssc))
     deriving (Generic)
 
-instance Ssc ssc => Message (MsgBlockHeaders ssc) where
+instance Typeable ssc => Message (MsgHeaders ssc) where
     messageName _ = "BlockHeaders"
     formatMessage = messageName'
 
 -- | 'Block' message (see protocol specification).
-data SendBlock ssc =
-    SendBlock !(Block ssc)
+newtype MsgBlock ssc =
+    MsgBlock (Block ssc)
     deriving (Generic)
 
-instance Ssc ssc => Message (SendBlock ssc) where
+instance Typeable ssc => Message (MsgBlock ssc) where
     messageName _ = "Block"
     formatMessage = messageName'
 

@@ -24,8 +24,8 @@ module Pos.Types.Utxo.Pure
        , applyTxToUtxoPure'
        , normalizeTxsPure
        , normalizeTxsPure'
-       , verifyAndApplyTxsPure
-       , verifyAndApplyTxsPure'
+       , verifyAndApplyTxsOldPure
+       , verifyAndApplyTxsOldPure'
        , verifyTxUtxoPure
        ) where
 
@@ -41,8 +41,8 @@ import           Pos.Crypto               (WithHash (..))
 import           Pos.Types.Types          (IdTxWitness, Tx, TxIn (..), TxWitness, Utxo)
 import           Pos.Types.Utxo.Class     (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Types.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', convertFrom',
-                                           convertTo', verifyAndApplyTxs,
-                                           verifyAndApplyTxs', verifyTxUtxo)
+                                           convertTo', verifyAndApplyTxsOld,
+                                           verifyAndApplyTxsOld', verifyTxUtxo)
 
 ----------------------------------------------------------------------------
 -- Reader
@@ -123,21 +123,21 @@ applyTxToUtxoPure' w = execUtxoState $ applyTxToUtxo' w
 verifyTxUtxoPure :: Utxo -> (Tx, TxWitness) -> VerificationRes
 verifyTxUtxoPure utxo txw = runUtxoReader (verifyTxUtxo txw) utxo
 
--- CHECK: @verifyAndApplyTxsPure
--- #verifyAndApplyTxs
-verifyAndApplyTxsPure
+-- CHECK: @verifyAndApplyTxsOldPure
+-- #verifyAndApplyTxsOld
+verifyAndApplyTxsOldPure
     :: [(WithHash Tx, TxWitness)]
     -> Utxo
     -> Either Text ([(WithHash Tx, TxWitness)], Utxo)
-verifyAndApplyTxsPure txws utxo =
-    let (res, newUtxo) = runUtxoState (verifyAndApplyTxs txws) utxo
+verifyAndApplyTxsOldPure txws utxo =
+    let (res, newUtxo) = runUtxoState (verifyAndApplyTxsOld txws) utxo
     in (, newUtxo) <$> res
 
--- CHECK: @verifyAndApplyTxsPure'
--- #verifyAndApplyTxs'
-verifyAndApplyTxsPure' :: [IdTxWitness] -> Utxo -> Either Text ([IdTxWitness], Utxo)
-verifyAndApplyTxsPure' txws utxo =
-    let (res, newUtxo) = runUtxoState (verifyAndApplyTxs' txws) utxo
+-- CHECK: @verifyAndApplyTxsOldPure'
+-- #verifyAndApplyOldTxs'
+verifyAndApplyTxsOldPure' :: [IdTxWitness] -> Utxo -> Either Text ([IdTxWitness], Utxo)
+verifyAndApplyTxsOldPure' txws utxo =
+    let (res, newUtxo) = runUtxoState (verifyAndApplyTxsOld' txws) utxo
     in (, newUtxo) <$> res
 
 -- CHECK: @normalizeTxsPure

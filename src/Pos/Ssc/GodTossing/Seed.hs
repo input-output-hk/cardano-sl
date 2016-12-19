@@ -7,7 +7,7 @@ module Pos.Ssc.GodTossing.Seed
        ( calculateSeed
        ) where
 
-import           Control.Arrow                 ((&&&))
+
 import           Control.Lens                  (view, _2)
 import qualified Data.HashMap.Strict           as HM (fromList, lookup, mapMaybe, toList,
                                                       traverseWithKey)

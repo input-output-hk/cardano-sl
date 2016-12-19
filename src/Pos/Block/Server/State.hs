@@ -22,7 +22,8 @@ module Pos.Block.Server.State
 import           Control.Concurrent.STM        (TVar, modifyTVar, readTVar)
 import           Control.Lens                  (makeClassy, over, set, view, (.~), (^.))
 import           Data.Default                  (Default (def))
-import           Data.List.NonEmpty            (NonEmpty)
+import           Data.List.NonEmpty            (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty            as NE
 import           Universum
 
 import           Pos.Communication.Types.Block (MsgBlock (..), MsgGetHeaders)
@@ -93,16 +94,16 @@ recordBlocksRequest fromHash toHash var =
            Just _ -> retry
 
 -- | Possible results of processBlockMsg.
-data ProcessBlockMsgRes
-    = PBMfinal         -- ^ Block is the last requested block.
-    | PBMintermediate  -- ^ Block is expected one, but not last.
-    | PBMunsolicited   -- ^ Block is not an expected one.
+data ProcessBlockMsgRes ssc
+    = PBMfinal (NonEmpty (Block ssc)) -- ^ Block is the last requested block.
+    | PBMintermediate                 -- ^ Block is expected one, but not last.
+    | PBMunsolicited                  -- ^ Block is not an expected one.
 
 -- | Process 'Block' message received from peer.
 processBlockMsg
     :: forall m s ssc.
        (Ssc ssc, MonadIO m, HasBlockSocketState s ssc)
-    => MsgBlock ssc -> TVar s -> m ProcessBlockMsgRes
+    => MsgBlock ssc -> TVar s -> m (ProcessBlockMsgRes ssc)
 processBlockMsg (MsgBlock blk) var =
     atomically $
     do st <- readTVar var
@@ -111,13 +112,14 @@ processBlockMsg (MsgBlock blk) var =
            Just range -> processBlockDo range (st ^. bssReceivedBlocks)
   where
     processBlockDo (start, end) []
-        | headerHash blk == start = processBlockFinally end
+        | headerHash blk == start = processBlockFinally end []
         | otherwise = pure PBMunsolicited
-    processBlockDo (start, end) (lastReceived:_)
-        | blk ^. prevBlockL == start = processBlockFinally end
+    processBlockDo (start, end) received@(lastReceived:_)
+        | blk ^. prevBlockL == start = processBlockFinally end received
         | otherwise = pure PBMunsolicited
-    processBlockFinally end
-        | headerHash blk == end = PBMfinal <$ modifyTVar var invalidateBlocks
+    processBlockFinally end received
+        | headerHash blk == end =
+            (PBMfinal $ NE.reverse $ blk :| received) <$ modifyTVar var invalidateBlocks
         | otherwise =
             PBMintermediate <$ modifyTVar var (over bssReceivedBlocks (blk :))
     invalidateBlocks :: s -> s

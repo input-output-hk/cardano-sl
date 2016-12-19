@@ -4,26 +4,30 @@
 
 module Pos.Block.Logic
        ( ClassifyHeaderRes (..)
-       , applyBlock
+       , applyBlocks
        , classifyNewHeader
        , classifyHeaders
-       , verifyBlock
+       , rollbackBlocks
+       , verifyBlocks
+       , withBlkSemaphore
        ) where
 
 import           Control.Lens           ((^.))
 import           Control.Monad.Catch    (onException)
 import           Data.Default           (Default (def))
+import           Data.List.NonEmpty     (NonEmpty)
 import qualified Data.Text              as T
 import           Serokell.Util.Verify   (VerificationRes (..))
 import           Universum
 
 import           Pos.Context            (putBlkSemaphore, takeBlkSemaphore)
 import qualified Pos.Modern.DB          as DB
-import           Pos.Modern.Txp.Storage (txApplyBlocks, txVerifyBlocks)
+import           Pos.Modern.Txp.Storage (txApplyBlocks, txRollbackBlocks, txVerifyBlocks)
 import           Pos.Slotting           (getCurrentSlot)
-import           Pos.Types              (Block, BlockHeader, VerifyHeaderParams (..),
-                                         blockHeader, difficultyL, headerHash, headerSlot,
-                                         prevBlockL, verifyHeader, vhpVerifyConsensus)
+import           Pos.Types              (Block, BlockHeader, HeaderHash, Undo,
+                                         VerifyHeaderParams (..), blockHeader,
+                                         difficultyL, headerSlot, prevBlockL,
+                                         verifyHeader, vhpVerifyConsensus)
 import           Pos.WorkMode           (WorkMode)
 
 -- | Result of header classification.
@@ -90,39 +94,46 @@ classifyHeaders
     => [BlockHeader ssc] -> m ClassifyHeaderRes
 classifyHeaders = notImplemented
 
--- | Verify block received from network. If parent of this block is
--- not our tip, verification fails. This function checks everything
--- from block, including header, transactions, SSC data.
---
--- TODO: this function should be more complex and most likely take at
--- least list of blocks.
-verifyBlock
-    :: (WorkMode ssc m)
-    => Block ssc -> m VerificationRes
-verifyBlock blk = do
-    txsVerRes <- txVerifyBlocks (pure blk)
+-- | Verify blocks received from network. Head is expected to be the
+-- oldest blocks. If parent of head is not our tip, verification
+-- fails. This function checks everything from block, including
+-- header, transactions, SSC data.
+verifyBlocks
+    :: WorkMode ssc m
+    => NonEmpty (Block ssc) -> m VerificationRes
+verifyBlocks blocks = do
+    txsVerRes <- txVerifyBlocks blocks
     -- TODO: more checks of course. Consider doing CSL-39 first.
     return txsVerRes
 
--- | Apply definitely valid block. At this point we must have verified
--- all predicates regarding block (including txs and ssc data checks).
--- This function takes lock on block application and releases it after
--- finishing. It can fail if previous block of applied block differs
--- from stored tip.
---
--- TODO: this function should be more complex and most likely take at
--- least list of blocks.
-applyBlock :: (WorkMode ssc m) => Block ssc -> m Bool
-applyBlock blk = do
+-- | Run action acquiring lock on block application. Argument of
+-- action is an old tip, result is put as a new tip.
+withBlkSemaphore
+    :: WorkMode ssc m
+    => (HeaderHash ssc -> m (HeaderHash ssc)) -> m ()
+withBlkSemaphore action = do
     tip <- takeBlkSemaphore
     let putBack = putBlkSemaphore tip
-    let putNew = putBlkSemaphore $ headerHash blk
-    if blk ^. prevBlockL == tip
-        then True <$ onException (applyBlockDo blk >> putNew) putBack
-        else False <$ putBack
+    onException (action tip >>= putBlkSemaphore) putBack
 
-applyBlockDo :: (WorkMode ssc m) => Block ssc -> m ()
-applyBlockDo blk = do
+-- | Apply definitely valid sequence of blocks. At this point we must
+-- have verified all predicates regarding block (including txs and ssc
+-- data checks).  We almost must have taken lock on block application
+-- and ensured that chain is based on our tip.
+applyBlocks :: WorkMode ssc m => NonEmpty (Block ssc) -> m ()
+applyBlocks = mapM_ applyBlock
+
+applyBlock :: (WorkMode ssc m) => Block ssc -> m ()
+applyBlock blk = do
     -- [CSL-331] Put actual Undo instead of empty list!
     DB.putBlock [] True blk
     txApplyBlocks (pure blk)
+    -- TODO: apply to SSC, maybe something else.
+
+-- | Rollback sequence of blocks, head block corresponds to tip,
+-- further blocks are parents. It's assumed that lock on block
+-- application is taken.
+rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Block ssc, Undo) -> m ()
+rollbackBlocks toRollback = do
+    -- TODO: rollback SSC, maybe something else.
+    txRollbackBlocks toRollback

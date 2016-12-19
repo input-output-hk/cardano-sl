@@ -39,15 +39,14 @@ main = do
 
     usingLoggerName "receiver" $ do
         receiverNode <- startNode transport prng []
-            -- TODO: call them "ping" & "pong"
             [Listener "ping" $ pingListener noPong]
 
-        threadDelay $ (fromIntegral duration :: Second)
+        threadDelay (fromIntegral duration :: Second)
         stopNode receiverNode
   where
     pingListener noPong =
         -- TODO: `ListenerActionConversation` is not supported in such context
-        -- why? how should it be used then?
+        -- why? how should it be used?
         ListenerActionOneMsg $ \peerId sendActions (Ping mid payload) -> do
             logMeasure PingReceived mid payload
             unless noPong $ do

@@ -16,7 +16,8 @@ import           Control.Lens           (makeClassy)
 import           Data.Default           (Default (def))
 import           Universum
 
-import           Pos.Block.Server.State (BlockSocketState)
+import           Pos.Block.Server.State (BlockSocketState,
+                                         HasBlockSocketState (blockSocketState))
 
 -- | SocketState type aggregates socket states needed for different
 -- parts of system.
@@ -32,6 +33,9 @@ instance Default (SocketState ssc) where
         SocketState
         { __blockSocketState = def
         }
+
+instance HasBlockSocketState (SocketState ssc) ssc where
+    blockSocketState = _blockSocketState
 
 -- | Mutable SocketState.
 type MutSocketState ssc = TVar (SocketState ssc)

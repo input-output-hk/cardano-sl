@@ -6,14 +6,18 @@
 
 module Pos.Context.Class
        ( WithNodeContext (..)
+       , putBlkSemaphore
+       , takeBlkSemaphore
        ) where
 
+import           Control.Concurrent.MVar   (putMVar, takeMVar)
 import           Universum
 
-import           Pos.Context.Context       (NodeContext)
+import           Pos.Context.Context       (NodeContext, ncBlkSemaphore)
 import           Pos.DHT.Model             (DHTResponseT)
 import           Pos.DHT.Real              (KademliaDHT)
 import           Pos.Statistics.MonadStats (NoStatsT, StatsT)
+import           Pos.Types                 (HeaderHash)
 
 -- | Class for something that has 'NodeContext' inside.
 class WithNodeContext ssc m | m -> ssc where
@@ -42,3 +46,13 @@ instance (Monad m, WithNodeContext ssc m) =>
 instance (Monad m, WithNodeContext ssc m) =>
          WithNodeContext ssc (NoStatsT m) where
     getNodeContext = lift getNodeContext
+
+takeBlkSemaphore
+    :: (MonadIO m, WithNodeContext ssc m)
+    => m (HeaderHash ssc)
+takeBlkSemaphore = liftIO . takeMVar . ncBlkSemaphore =<< getNodeContext
+
+putBlkSemaphore
+    :: (MonadIO m, WithNodeContext ssc m)
+    => HeaderHash ssc -> m ()
+putBlkSemaphore tip = liftIO . flip putMVar tip . ncBlkSemaphore =<< getNodeContext

@@ -18,7 +18,7 @@ import           Universum
 
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (ClassifyHeaderRes (..), classifyNewHeader)
-import           Pos.Block.Requests       (replyWithBlockRequest)
+import           Pos.Block.Requests       (replyWithBlockRequest, replyWithHeadersRequest)
 import           Pos.Block.Server.State   (matchRequestedHeaders)
 import           Pos.Communication.Types  (MsgBlock (..), MsgGetBlocks (..),
                                            MsgGetHeaders (..), MsgHeaders (..),
@@ -72,10 +72,11 @@ handleUnsolicitedHeaders
     => NonEmpty (BlockHeader ssc) -> m ()
 handleUnsolicitedHeaders (header :| []) = do
     classificationRes <- classifyNewHeader header
+    -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
     case classificationRes of
         CHRcontinues ->
             replyWithBlockRequest (header ^. prevBlockL) (headerHash header)
-        CHRalternative -> pass -- TODO: request multiple blocks or headers, dunno
+        CHRalternative -> replyWithHeadersRequest (Just $ headerHash header)
         CHRuseless reason ->
             logDebug $
             sformat

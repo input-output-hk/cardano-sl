@@ -54,7 +54,7 @@ handleTxInv (TxInvMsg txHashes_) = do
     safeReply [] _      = pure ()
     safeReply xs constr = replyToNode . constr . NE.fromList $ xs
     handleSingle txHash =
-        ifM (isTxUsefull txHash)
+        ifM (isTxUseful txHash)
             (True <$ requestingLogMsg txHash)
             (False <$ ingoringLogMsg txHash)
     requestingLogMsg txHash = logDebug $
@@ -79,8 +79,8 @@ handleTxData (TxDataMsg tx tw) = do
     when added $ sendToNeighborsSafe $ TxInvMsg $ pure txId
 
 -- Should we check utxo?
-isTxUsefull :: ResponseMode ssc m => TxId -> m Bool
-isTxUsefull txId = not . HM.member txId <$> getLocalTxs
+isTxUseful :: ResponseMode ssc m => TxId -> m Bool
+isTxUseful txId = not . HM.member txId <$> getLocalTxs
 
 -- -- Real tx processing
 handleTxDo

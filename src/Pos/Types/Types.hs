@@ -45,6 +45,8 @@ module Pos.Types.Types
        , TxIn (..)
        , TxOut (..)
        , Tx (..)
+       , _txInputs
+       , _txOutputs
        , txF
        , txwF
        , IdTxWitness
@@ -119,11 +121,9 @@ module Pos.Types.Types
        , mcdSignature
        ) where
 
-import           Control.Lens           (Getter, Lens', choosing, makeLenses, to, view,
-                                         (^.))
+import           Control.Lens           (Getter, Lens', choosing, makeLenses,
+                                         makeLensesFor, to, view, (^.))
 import           Control.Monad.Fail     (fail)
-import           Data.Aeson             (ToJSON (toJSON))
-import           Data.Aeson.TH          (deriveToJSON)
 import qualified Data.ByteString        as BS (pack, zipWith)
 import qualified Data.ByteString.Char8  as BSC (pack)
 import           Data.Data              (Data)
@@ -144,10 +144,9 @@ import           Data.Vector            (Vector)
 import           Formatting             (Format, bprint, build, int, later, ords, sformat,
                                          stext, (%))
 import           Serokell.AcidState     ()
-import           Serokell.Aeson.Options (defaultOptions)
 import qualified Serokell.Util.Base16   as B16
 import           Serokell.Util.Text     (listJson, listJsonIndent, mapBuilderJson,
-                                         pairBuilder)
+                                         pairBuilder, pairF)
 import           Universum
 
 import           Pos.Binary.Address     ()
@@ -172,7 +171,7 @@ import           Pos.Util               (Color (Magenta), colorize)
 -- | Coin is the least possible unit of currency.
 newtype Coin = Coin
     { getCoin :: Word64
-    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Hashable, Data, NFData, ToJSON)
+    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Hashable, Data, NFData)
 
 instance Buildable Coin where
     build = bprint (int%" coin(s)")
@@ -188,15 +187,18 @@ coinF = build
 -- | Index of epoch.
 newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable, ToJSON)
+    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable)
 
 instance Buildable EpochIndex where
     build = bprint ("epoch #"%int)
 
+instance Buildable (EpochIndex,EpochIndex) where
+    build = bprint ("epochIndices: "%pairF)
+
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex
     { getSlotIndex :: Word16
-    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Buildable, ToJSON)
+    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Buildable)
 
 -- | Slot is identified by index of epoch and local index of slot in
 -- this epoch. This is a global index
@@ -205,8 +207,6 @@ data SlotId = SlotId
     , siSlot  :: !LocalSlotIndex
     } deriving (Show, Eq, Ord, Generic)
 
-
-$(deriveToJSON defaultOptions ''SlotId)
 
 instance Buildable SlotId where
     build SlotId {..} =
@@ -311,6 +311,8 @@ data Tx = Tx
     , txOutputs :: ![TxOut]  -- ^ Outputs of transaction.
     } deriving (Eq, Ord, Generic, Show)
 
+makeLensesFor [("txInputs", "_txInputs"), ("txOutputs", "_txOutputs")] ''Tx
+
 type IdTxWitness = (TxId, (Tx, TxWitness))
 
 instance Hashable Tx
@@ -364,9 +366,6 @@ type Undo = [[TxOut]]
 newtype SharedSeed = SharedSeed
     { getSharedSeed :: ByteString
     } deriving (Show, Eq, Ord, Generic, NFData)
-
-instance ToJSON SharedSeed where
-    toJSON = toJSON . pretty
 
 instance Buildable SharedSeed where
     build = B16.formatBase16 . getSharedSeed
@@ -482,6 +481,10 @@ data BlockSignature ssc
     = BlockSignature (Signature (MainToSign ssc))
     | BlockPSignature (ProxySignature (EpochIndex, EpochIndex) (MainToSign ssc))
     deriving Show
+
+instance Buildable (BlockSignature ssc) where
+    build (BlockSignature s)  = bprint ("BlockSignature: "%build) s
+    build (BlockPSignature s) = bprint ("BlockPSignature: "%build) s
 
 instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
@@ -1058,7 +1061,3 @@ derive makeNFData ''TxIn
 derive makeNFData ''TxInWitness
 derive makeNFData ''TxOut
 derive makeNFData ''Tx
-
-deriveToJSON defaultOptions ''TxIn
-deriveToJSON defaultOptions ''TxOut
-deriveToJSON defaultOptions ''Tx

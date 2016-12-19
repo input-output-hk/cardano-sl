@@ -14,23 +14,19 @@ import           Data.List              ((!!))
 import           Formatting             (build, int, sformat, (%))
 import           Options.Applicative    (execParser)
 import           System.IO              (hFlush, stdout)
-import           Test.QuickCheck        (arbitrary, generate)
 import           Universum
 
+import           Pos.Communication      (sendProxySecretKey)
 import           Pos.Constants          (slotDuration)
-import           Pos.Crypto             (KeyPair (..), SecretKey, toPublic)
+import           Pos.Crypto             (SecretKey, createProxySecretKey, toPublic)
 import           Pos.DHT.Model          (DHTNodeType (..), dhtAddr, discoverPeers)
-import           Pos.Genesis            (genesisSecretKeys, genesisUtxo)
+import           Pos.Genesis            (genesisPublicKeys, genesisSecretKeys)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
-                                         NodeParams (..), bracketDHTInstance,
-                                         runTimeSlaveReal, stakesDistr)
-import           Pos.Ssc.Class          (SscConstraint)
-import           Pos.Ssc.GodTossing     (GtParams (..), SscGodTossing)
-import           Pos.Ssc.NistBeacon     (SscNistBeacon)
+                                         bracketDHTInstance, runTimeSlaveReal)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
-import           Pos.Types              (makePubKeyAddress, txwF)
-import           Pos.Wallet             (WalletMode, WalletRealMode, getBalance,
-                                         runWallet, submitTx)
+import           Pos.Types              (EpochIndex (..), makePubKeyAddress, txwF)
+import           Pos.Wallet             (WalletMode, WalletParams (..), WalletRealMode,
+                                         getBalance, runWalletReal, submitTx)
 #ifdef WITH_WEB
 import           Pos.Wallet.Web         (walletServeWeb)
 #endif
@@ -40,7 +36,7 @@ import           WalletOptions          (WalletAction (..), WalletOptions (..), 
 
 type CmdRunner = ReaderT ([SecretKey], [NetworkAddress])
 
-evalCmd :: WalletMode ssc m => Command -> CmdRunner m ()
+evalCmd :: WalletMode m => Command -> CmdRunner m ()
 evalCmd (Balance addr) = lift (getBalance addr) >>=
                          putText . sformat ("Current balance: "%int) >>
                          evalCommands
@@ -57,19 +53,31 @@ evalCmd Help = do
             , "   send <N> [<address> <coins>]+  -- create and send transaction with given outputs"
             , "                                     from own address #N"
             , "   listaddr                       -- list own addresses"
+            , "   delegate <N> <M>               -- delegate secret key #N to #M (genesis)"
             , "   help                           -- show this message"
             , "   quit                           -- shutdown node wallet"
             ]
     evalCommands
 evalCmd ListAddresses = do
     addrs <- map (makePubKeyAddress . toPublic) <$> asks fst
-    putText "Available addresses:"
+    putText "Available addrsses:"
     forM_ (zip [0 :: Int ..] addrs) $
         putText . uncurry (sformat $ "    #"%int%":   "%build)
     evalCommands
+evalCmd (Delegate i j) = do
+    let issuerSk = genesisSecretKeys !! i
+        delegatePk = genesisPublicKeys !! j
+        proxySig =
+            createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
+    putText $ pretty issuerSk
+    putText $ pretty delegatePk
+    putText "sending cert"
+    sendProxySecretKey proxySig
+    putText "sent cert"
+    evalCommands
 evalCmd Quit = pure ()
 
-evalCommands :: WalletMode ssc m => CmdRunner m ()
+evalCommands :: WalletMode m => CmdRunner m ()
 evalCommands = do
     putStr @Text "> "
     liftIO $ hFlush stdout
@@ -79,7 +87,7 @@ evalCommands = do
         Left err  -> putStrLn err >> evalCommands
         Right cmd -> evalCmd cmd
 
-runWalletRepl :: WalletMode ssc m => WalletOptions -> m ()
+runWalletRepl :: WalletMode m => WalletOptions -> m ()
 runWalletRepl WalletOptions{..} = do
     -- Wait some time to ensure blockchain is fetched
     putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
@@ -92,9 +100,6 @@ runWalletRepl WalletOptions{..} = do
 main :: IO ()
 main = do
     opts@WalletOptions {..} <- execParser optsInfo
-
-    KeyPair _ sk <- generate arbitrary
-    vssKeyPair <- generate arbitrary
     let logParams =
             LoggingParams
             { lpRunnerTag     = "smart-wallet"
@@ -119,28 +124,16 @@ main = do
         systemStart <- runTimeSlaveReal inst timeSlaveParams
 
         let params =
-                NodeParams
-                { npDbPath      = Just woDbPath
-                , npDbPathM     = woDbPath
-                , npRebuildDb   = woRebuildDb
-                , npSystemStart = systemStart
-                , npSecretKey   = sk
-                , npBaseParams  = baseParams
-                , npCustomUtxo  = Just $ genesisUtxo $
-                                  stakesDistr woFlatDistr woBitcoinDistr
-                , npTimeLord    = False
-                , npJLFile      = woJLFile
-                , npPropagation = not woDisablePropagation
-                }
-            gtParams =
-                GtParams
-                { gtpRebuildDb  = False
-                , gtpDbPath     = Nothing
-                , gtpSscEnabled = False
-                , gtpVssKeyPair = vssKeyPair
+                WalletParams
+                { wpDbPath      = Just woDbPath
+                , wpRebuildDb   = woRebuildDb
+                , wpKeyFilePath = woKeyFilePath
+                , wpSystemStart = systemStart
+                , wpGenesisKeys = woDebug
+                , wpBaseParams  = baseParams
                 }
 
-            plugins :: SscConstraint ssc => [WalletRealMode ssc ()]
+            plugins :: [WalletRealMode ()]
             plugins = case woAction of
                 Repl          -> [runWalletRepl opts]
 #ifdef WITH_WEB
@@ -149,6 +142,5 @@ main = do
 
         case woSscAlgo of
             GodTossingAlgo -> putText "Using MPC coin tossing" *>
-                              runWallet @SscGodTossing inst plugins params gtParams "secret.key"
-            NistBeaconAlgo -> putText "Using NIST beacon" *>
-                              runWallet @SscNistBeacon inst plugins params () "secret.key"
+                              runWalletReal inst params plugins
+            NistBeaconAlgo -> putText "Wallet does not support NIST beacon!"

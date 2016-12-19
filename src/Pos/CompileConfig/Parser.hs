@@ -10,6 +10,7 @@ import           Data.Yaml                  (decodeEither)
 import           Language.Haskell.TH.Syntax (lift)
 import           Universum                  hiding (lift)
 
+import           Pos.Aeson.CompileConfig    ()
 import           Pos.CompileConfig.Type     (CompileConfig)
 
 -- | Used in code compile-time configuration from /constants.yaml/ file.

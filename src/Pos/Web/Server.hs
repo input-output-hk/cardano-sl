@@ -34,6 +34,7 @@ import           Servant.Server                       (Handler, ServantErr (errB
 import           Servant.Utils.Enter                  ((:~>) (Nat), enter)
 import           Universum
 
+import           Pos.Aeson.Types                      ()
 import           Pos.Context                          (ContextHolder, NodeContext,
                                                        getNodeContext, ncPublicKey,
                                                        ncSscContext, runContextHolder)
@@ -151,7 +152,7 @@ getLeadersDo
 getLeadersDo Nothing  = St.getLeaders . siEpoch =<< getCurrentSlot
 getLeadersDo (Just e) = St.getLeaders e
 
-getLocalTxsNum :: SscConstraint ssc => WebHandler ssc Word
+getLocalTxsNum :: WebHandler ssc Word
 getLocalTxsNum = fromIntegral . length <$> getLocalTxs
 
 ----------------------------------------------------------------------------

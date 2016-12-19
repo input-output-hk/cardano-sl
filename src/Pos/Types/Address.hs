@@ -20,7 +20,6 @@ module Pos.Types.Address
 import           Control.Lens           (view, _3)
 import           Crypto.Hash            (Blake2s_224, Digest, SHA3_256, hashlazy)
 import qualified Crypto.Hash            as CryptoHash
-import           Data.Aeson             (ToJSON (toJSON))
 import           Data.Bits              ((.|.))
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58,
                                          encodeBase58)
@@ -32,7 +31,7 @@ import           Data.Hashable          (Hashable (..))
 import           Data.List              (span)
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
-import           Formatting             (Format, build, sformat)
+import           Formatting             (Format, build)
 import           Prelude                (String, readsPrec, show)
 import           Universum              hiding (show)
 
@@ -86,9 +85,6 @@ instance Bi Address => Buildable Address where
     build = Buildable.build . decodeUtf8 @Text . addrToBase58
 
 instance NFData Address
-
-instance Bi Address => ToJSON Address where
-    toJSON = toJSON . sformat build
 
 instance Bi Address => Read Address where
     readsPrec _ str =

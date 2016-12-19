@@ -10,6 +10,7 @@ module Pos.Modern.DB.Types
        , NodeDBs (..)
        , blockDB
        , utxoDB
+       , miscDB
 
         -- * Block DB related types.
        , StoredBlock (..)
@@ -36,6 +37,7 @@ data DB ssc = DB
 data NodeDBs ssc = NodeDBs
     { _blockDB :: DB ssc -- ^ Blocks, block index, undo data.
     , _utxoDB  :: DB ssc -- ^ Txs-related data.
+    , _miscDB  :: DB ssc -- ^ Everything small and insignificant
     }
 
 makeLenses ''NodeDBs

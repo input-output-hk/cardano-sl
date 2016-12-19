@@ -82,9 +82,7 @@ calculateSeed (fromIntegral -> t) commitments openings lShares = do
             -- TODO: can we be sure that here different IDs mean different
             -- shares? maybe it'd be better to 'assert' it.
             let secrets :: [Share]
-                secrets = toList . HM.fromList $
-                          map (shareId &&& identity) $
-                          mapMaybe (HM.lookup k) (toList shares)
+                secrets = mapMaybe (HM.lookup k) (toList shares)
             -- Then we recover the secret
             return (k, if length secrets < t
                          then Nothing

@@ -31,6 +31,7 @@ module Pos.Types.Utxo.Pure
 
 import           Control.Lens             (at, over, use, view, (.=), _1)
 import           Control.Monad.Reader     (runReaderT)
+import           Control.Monad.Trans      (MonadTrans (..))
 import           Data.List                ((\\))
 import           Serokell.Util.Verify     (VerificationRes (..))
 import           Universum
@@ -49,10 +50,13 @@ import           Pos.Types.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', conver
 
 newtype UtxoReaderT m a = UtxoReaderT
     { getUtxoReaderT :: ReaderT Utxo m a
-    } deriving (Functor, Applicative, Monad)
+    } deriving (Functor, Applicative, Monad, MonadReader Utxo)
 
 instance Monad m => MonadUtxoRead (UtxoReaderT m) where
     utxoGet TxIn {..} = UtxoReaderT $ view $ at (txInHash, txInIndex)
+
+instance MonadTrans UtxoReaderT where
+    lift = UtxoReaderT . lift
 
 runUtxoReaderT :: UtxoReaderT m a -> Utxo -> m a
 runUtxoReaderT = runReaderT . getUtxoReaderT
@@ -68,7 +72,7 @@ runUtxoReader r = runIdentity . runUtxoReaderT r
 
 newtype UtxoStateT m a = UtxoStateT
     { getUtxoStateT :: StateT Utxo m a
-    } deriving (Functor, Applicative, Monad)
+    } deriving (Functor, Applicative, Monad, MonadState Utxo)
 
 instance Monad m => MonadUtxoRead (UtxoStateT m) where
     utxoGet TxIn {..} = UtxoStateT $ use $ at (txInHash, txInIndex)
@@ -76,6 +80,9 @@ instance Monad m => MonadUtxoRead (UtxoStateT m) where
 instance Monad m => MonadUtxo (UtxoStateT m) where
     utxoPut TxIn {..} v = UtxoStateT $ at (txInHash, txInIndex) .= Just v
     utxoDel TxIn {..} = UtxoStateT $ at (txInHash, txInIndex) .= Nothing
+
+instance MonadTrans UtxoStateT where
+    lift = UtxoStateT . lift
 
 runUtxoStateT :: UtxoStateT m a -> Utxo -> m (a, Utxo)
 runUtxoStateT = runStateT . getUtxoStateT
@@ -109,10 +116,15 @@ applyTxToUtxoPure tx = execUtxoState $ applyTxToUtxo tx
 applyTxToUtxoPure' :: IdTxWitness -> Utxo -> Utxo
 applyTxToUtxoPure' w = execUtxoState $ applyTxToUtxo' w
 
+-- CHECK: @TxUtxoPure
+-- #verifyTxUtxo
+
 -- | Pure version of verifyTxUtxo.
 verifyTxUtxoPure :: Utxo -> (Tx, TxWitness) -> VerificationRes
 verifyTxUtxoPure utxo txw = runUtxoReader (verifyTxUtxo txw) utxo
 
+-- CHECK: @verifyAndApplyTxsPure
+-- #verifyAndApplyTxs
 verifyAndApplyTxsPure
     :: [(WithHash Tx, TxWitness)]
     -> Utxo
@@ -121,11 +133,14 @@ verifyAndApplyTxsPure txws utxo =
     let (res, newUtxo) = runUtxoState (verifyAndApplyTxs txws) utxo
     in (, newUtxo) <$> res
 
+-- CHECK: @verifyAndApplyTxsPure'
+-- #verifyAndApplyTxs'
 verifyAndApplyTxsPure' :: [IdTxWitness] -> Utxo -> Either Text ([IdTxWitness], Utxo)
 verifyAndApplyTxsPure' txws utxo =
     let (res, newUtxo) = runUtxoState (verifyAndApplyTxs' txws) utxo
     in (, newUtxo) <$> res
 
+-- CHECK: @normalizeTxsPure
 -- | Takes the set of transactions and utxo, returns only those
 -- transactions that can be applied inside. Bonus -- returns them
 -- sorted (topographically).
@@ -154,6 +169,8 @@ normalizeTxsPure = normGo []
                then result
                else normGo newResult newPending newUtxo
 
+-- CHECK: @normalizeTxsPure'
+-- #normalizeTxsPure
 normalizeTxsPure' :: [IdTxWitness] -> Utxo -> [IdTxWitness]
 normalizeTxsPure' tx utxo =
     let converted = convertTo' tx in

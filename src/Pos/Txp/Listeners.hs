@@ -16,7 +16,7 @@ import           Universum
 
 import           Pos.Binary.Txp              ()
 import           Pos.Communication.Methods   (sendToNeighborsSafe)
-import           Pos.Communication.Types     (ResponseMode)
+import           Pos.Communication.Types     (MutSocketState, ResponseMode)
 import           Pos.Context                 (WithNodeContext (getNodeContext),
                                               ncPropagation)
 import           Pos.Crypto                  (hash)
@@ -30,12 +30,12 @@ import           Pos.Txp.LocalData           (getLocalTxs)
 import           Pos.Txp.Types.Communication (TxDataMsg (..), TxInvMsg (..),
                                               TxReqMsg (..))
 import           Pos.Types                   (IdTxWitness, TxId)
-import           Pos.WorkMode                (SocketState, WorkMode)
+import           Pos.WorkMode                (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
 txListeners
-    :: (MonadDHTDialog SocketState m, WorkMode ssc m)
-    => [ListenerDHT SocketState m]
+    :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
+    => [ListenerDHT (MutSocketState ssc) m]
 txListeners =
     [
       ListenerDHT handleTxInv
@@ -71,6 +71,7 @@ handleTxReq (TxReqMsg txIds_) = do
         addedItems = catMaybes found
     mapM_ (replyToNode . uncurry TxDataMsg) addedItems
 
+-- CHECK: #handleTxDo
 handleTxData :: (ResponseMode ssc m)
              => TxDataMsg -> m ()
 handleTxData (TxDataMsg tx tw) = do
@@ -83,6 +84,8 @@ isTxUsefull :: ResponseMode ssc m => TxId -> m Bool
 isTxUsefull txId = not . HM.member txId <$> getLocalTxs
 
 -- Real tx processing
+-- CHECK: @handleTxDo
+-- #processTx
 handleTxDo
     :: ResponseMode ssc m
     => IdTxWitness -> m Bool
@@ -103,6 +106,8 @@ handleTxDo tx = do
             logInfo $ sformat ("Node is overwhelmed, can't add tx: "%build) txId
     return (res == PTRadded)
 
+-- CHECK: @processTx
+-- #txLocalDataProcessTx
 processTx :: ResponseMode ssc m => IdTxWitness -> m ProcessTxRes
 processTx tx = do
     utxo <- St.getUtxo

@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP              #-}
 {-# LANGUAGE ConstraintKinds  #-}
 {-# LANGUAGE FlexibleContexts #-}
 
@@ -8,36 +7,38 @@ module Pos.Wallet.WalletMode
        ( TxMode
        , WalletMode
        , WalletRealMode
+       , SState
        ) where
 
-import           Pos.Context           (WithNodeContext)
-#ifdef WITH_ROCKS
-import qualified Pos.Modern.DB         as Modern
-#endif
-import           Pos.Ssc.Class.Storage (SscStorageMode)
-import           Pos.State             (MonadDB)
-import           Pos.Txp.LocalData     (MonadTxLD)
-import           Pos.WorkMode          (MinWorkMode, RawRealMode)
+import           Control.TimeWarp.Rpc          (Dialog, Transfer)
+import           Pos.Communication.Types.State (MutSocketState)
+import           Pos.DHT.Model                 (DHTPacking)
+import           Pos.DHT.Real                  (KademliaDHT)
+import           Pos.Ssc.GodTossing            (SscGodTossing)
+import           Pos.WorkMode                  (MinWorkMode)
 
-import           Pos.Wallet.KeyStorage (KeyStorage, MonadKeys)
+import           Pos.Wallet.Context            (ContextHolder, WithWalletContext)
+import           Pos.Wallet.KeyStorage         (KeyStorage, MonadKeys)
+import           Pos.Wallet.State              (MonadWalletDB, WalletDB)
 
-type TxMode ssc m
-    = ( MinWorkMode m
-      , MonadDB ssc m
-#ifdef WITH_ROCKS
-      , Modern.MonadDB ssc m
-#endif
-      , MonadTxLD m
-      , WithNodeContext ssc m
-      , SscStorageMode ssc
+type SState = MutSocketState SscGodTossing
+
+type TxMode m
+    = ( MinWorkMode SState m
+      , MonadWalletDB m
+      , WithWalletContext m
       )
 
-type WalletMode ssc m
-    = ( TxMode ssc m
+type WalletMode m
+    = ( TxMode m
       , MonadKeys m
       )
 
 ---------------------------------------------------------------
 -- Implementations of 'WalletMode'
 ---------------------------------------------------------------
-type WalletRealMode ssc = KeyStorage (RawRealMode ssc)
+type WalletRealMode = KademliaDHT
+                      (KeyStorage
+                       (WalletDB
+                        (ContextHolder
+                         (Dialog DHTPacking (Transfer SState)))))

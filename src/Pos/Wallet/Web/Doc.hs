@@ -26,6 +26,7 @@ import           Servant.Docs               (API, DocCapture (..), DocIntro (..)
 import qualified Servant.Docs               as SD
 import           Universum
 
+import           Pos.Aeson.ClientTypes      ()
 import           Pos.Genesis                (genesisAddresses, genesisUtxo)
 import           Pos.Types                  (Address, Coin, Tx (..), TxIn (..))
 import           Pos.Wallet.Web.Api         (walletApi)

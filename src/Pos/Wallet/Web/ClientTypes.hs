@@ -2,7 +2,6 @@
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -28,14 +27,13 @@ module Pos.Wallet.Web.ClientTypes
       , addressToCAddress
       ) where
 
-import           Data.Text     (Text)
-import           GHC.Generics  (Generic)
+import           Data.Text       (Text)
+import           GHC.Generics    (Generic)
 import           Universum
 
-import           Data.Aeson    (ToJSON)
-import           Data.Aeson.TH (defaultOptions, deriveToJSON)
-import           Formatting    (build, sformat)
-import           Pos.Types     (Address (..), Coin, TxId)
+import           Formatting      (build, sformat)
+import           Pos.Aeson.Types ()
+import           Pos.Types       (Address (..), Coin, TxId)
 
 
 -- | currencies handled by client
@@ -47,10 +45,10 @@ data CCurrency
     deriving (Show, Generic)
 
 -- | Client hash
-newtype CHash = CHash Text deriving (Show, Generic, ToJSON)
+newtype CHash = CHash Text deriving (Show, Generic)
 
 -- | Client address
-newtype CAddress = CAddress CHash deriving (Show, Generic, ToJSON)
+newtype CAddress = CAddress CHash deriving (Show, Generic)
 
 -- | transform Address into CAddress
 -- TODO: this is not complitely safe. If someone changes implementation of Buildable Address. It should be probably more safe to introduce `class PSSimplified` that would have the same implementation has it is with Buildable Address but then person will know it will probably change something for purescript.
@@ -58,7 +56,7 @@ addressToCAddress :: Address -> CAddress
 addressToCAddress = CAddress . CHash . sformat build
 
 -- | Client transaction id
-newtype CTxId = CTxId CHash deriving (Show, Generic, ToJSON)
+newtype CTxId = CTxId CHash deriving (Show, Generic)
 
 -- | transform TxId into CTxId
 -- txIdToCTxId :: TxId -> CTxId
@@ -150,13 +148,3 @@ data CTExMeta = CTExMeta
     , cexLabel       :: Text -- counter part of client's 'exchange' value
     , cexAddress     :: CAddress
     } deriving (Show, Generic)
-
-$(deriveToJSON defaultOptions ''CCurrency)
-$(deriveToJSON defaultOptions ''CWalletType)
-$(deriveToJSON defaultOptions ''CWalletMeta)
-$(deriveToJSON defaultOptions ''CWallet)
-$(deriveToJSON defaultOptions ''CProfile)
-$(deriveToJSON defaultOptions ''CTx)
-$(deriveToJSON defaultOptions ''CTxMeta)
-$(deriveToJSON defaultOptions ''CTType)
-$(deriveToJSON defaultOptions ''CTExMeta)

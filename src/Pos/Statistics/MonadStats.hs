@@ -44,6 +44,7 @@ import           Universum
 #ifdef WITH_ROCKS
 import qualified Pos.Modern.DB               as Modern
 import           Pos.Modern.Txp.Class        (MonadTxpLD (..))
+import           Pos.Ssc.Class.Storage       (SscStorageClassM)
 #endif
 import           Pos.DHT.Model               (DHTResponseT, MonadDHT,
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
@@ -90,7 +91,7 @@ newtype NoStatsT m a = NoStatsT
                MonadDHT, MonadMessageDHT s, MonadSlots, WithDefaultMsgHeader,
                MonadJL, CanLog, MonadUtxoRead, MonadUtxo
 #ifdef WITH_ROCKS
-               , Modern.MonadDB ssc, MonadTxpLD ssc, MonadSscGS ssc
+               , Modern.MonadDB ssc, MonadTxpLD ssc, MonadSscGS ssc, SscStorageClassM ssc
 #endif
                )
 
@@ -141,7 +142,7 @@ newtype StatsT m a = StatsT
                MonadDHT, MonadMessageDHT s, MonadSlots, WithDefaultMsgHeader, MonadTrans,
                MonadJL, CanLog, MonadUtxoRead, MonadUtxo
 #ifdef WITH_ROCKS
-               , Modern.MonadDB ssc, MonadTxpLD ssc, MonadSscGS ssc
+               , Modern.MonadDB ssc, MonadTxpLD ssc, MonadSscGS ssc, SscStorageClassM ssc
 #endif
                )
 

@@ -81,8 +81,7 @@ import           Pos.DHT.Real                    (KademliaDHT, KademliaDHTConfig
 import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..))
 import           Pos.Ssc.Class                   (SscConstraint, SscNodeContext,
-                                                  SscParams, loadGlobalState,
-                                                  sscCreateNodeContext)
+                                                  SscParams, sscCreateNodeContext)
 import           Pos.Ssc.LocalData               (runSscLDImpl)
 import           Pos.State                       (NodeState, closeState, openMemState,
                                                   openState, runDBHolder)

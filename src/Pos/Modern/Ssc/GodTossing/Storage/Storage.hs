@@ -68,7 +68,6 @@ import           Pos.Modern.DB                            (MonadDB (..), getBloc
 import           Pos.Modern.Ssc.GodTossing.Storage.Types  (GtGlobalState (..),
                                                            gsCommitments, gsOpenings,
                                                            gsShares, gsVssCertificates)
-import           Pos.Modern.Ssc.GodTossing.Types.Instance ()
 
 type GSQuery a  = forall m . Monad m => ReaderT GtGlobalState m a
 type GSUpdate a = forall m . Monad m => StateT GtGlobalState m a
@@ -76,20 +75,19 @@ type DBMode ssc m = (MonadSscGS SscGodTossing m
                     , MonadDB SscGodTossing m
                     , MonadThrow m
                     , SscPayload SscGodTossing ~ GtPayload
-                    , SscGlobalState SscGodTossing ~ GtGlobalState
+                    , SscGlobalStateM SscGodTossing ~ GtGlobalState
                     , Ssc SscGodTossing)
 
 instance (SscBi, Monad m, MonadDB SscGodTossing m, Ssc SscGodTossing
          , MonadSscGS SscGodTossing m, MonadThrow m
          , SscPayload SscGodTossing ~ GtPayload
-         , SscGlobalState SscGodTossing ~ GtGlobalState)
+         , SscGlobalStateM SscGodTossing ~ GtGlobalState)
          => SscStorageClassM SscGodTossing m where
-    loadGlobalState = mpcLoadGlobalState
+    sscEmptyGlobalState = pure def
+    sscLoadGlobalState = mpcLoadGlobalState
     sscApplyBlocksM = sscRunGlobalModify . mpcApplyBlocks
     sscRollbackM = mpcRollback
-    --getGlobalStateM = sscRunGlobalQuery $ getGlobalMpcData
-    --sscGetGlobalStateByDepth = getGlobalMpcDataByDepth
-    sscVerifyBlocksM _ = sscRunGlobalQuery . mpcVerifyBlocks
+    sscVerifyBlocksM = sscRunGlobalQuery . mpcVerifyBlocks
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
@@ -292,7 +290,5 @@ unionBlocks = whileM
               block
     ) (pure ())
 
-mpcLoadGlobalState :: DBMode SscGodTossing m => m GtGlobalState
-mpcLoadGlobalState = do
-    initTip <- getTip
-    fst <$> execStateT unionBlocks (def, initTip)
+mpcLoadGlobalState :: DBMode SscGodTossing m => HeaderHash SscGodTossing -> m GtGlobalState
+mpcLoadGlobalState tip = fst <$> execStateT unionBlocks (def, tip)

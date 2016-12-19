@@ -13,8 +13,8 @@ import           Universum
 
 import qualified Pos.Modern.Ssc.GodTossing.LocalData.Types as LD
 import qualified Pos.Modern.Ssc.GodTossing.Storage.Types   as GS
-import           Pos.Modern.Ssc.GodTossing.Types.Instance  ()
-import           Pos.Ssc.Class.LocalData                   (MonadSscLD (modifyLocalData))
+import           Pos.Ssc.GodTossing.Types.Instance  ()
+import           Pos.Ssc.Class.LocalData                   (MonadSscLDM (modifyLocalDataM))
 import           Pos.Ssc.GodTossing.Types.Base             (CommitmentsMap, OpeningsMap,
                                                             SharesMap, VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Type             (SscGodTossing)
@@ -55,10 +55,10 @@ data GtState = GtState
 makeClassy ''GtState
 
 gtRunModify
-    :: MonadSscLD SscGodTossing m
+    :: MonadSscLDM SscGodTossing m
     => State GtState a -> m a
 gtRunModify upd =
-    modifyLocalData (
+    modifyLocalDataM (
         \(g, l) ->
           let (res, newState) = runState upd (toGtState g l) in
           (res, fromGtState newState))
@@ -66,10 +66,10 @@ gtRunModify upd =
  -- TODO maybe should we add readLocalData :: ((SscGlobalState, SscLolalData) ->
  --                                           (a, SscLolalData)) -> m a
 gtRunRead
-    :: MonadSscLD SscGodTossing m
+    :: MonadSscLDM SscGodTossing m
     => Reader GtState a -> m a
 gtRunRead rd =
-    modifyLocalData (
+    modifyLocalDataM (
         \(g, l) ->
           let res = runReader rd (toGtState g l) in
           (res, l))

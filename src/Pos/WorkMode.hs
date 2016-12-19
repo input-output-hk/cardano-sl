@@ -69,7 +69,8 @@ import           Pos.Modern.Txp.Holder         (TxpLDHolder)
 import           Pos.Slotting                  (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers         (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData       (MonadSscLD (..), SscLocalDataClass)
-import           Pos.Ssc.Class.Storage         (SscStorageMode, MonadSscGS)
+import           Pos.Ssc.Class.Storage         (MonadSscGS, SscStorageClassM,
+                                                SscStorageMode)
 import           Pos.Ssc.LocalData             (SscLDImpl)
 import           Pos.State                     (DBHolder, MonadDB (..))
 import           Pos.Statistics.MonadStats     (MonadStats, NoStatsT, StatsT)
@@ -92,6 +93,7 @@ type WorkMode ssc m
       , MonadTxpLD ssc m
       , MonadUtxo m
       , MonadSscGS ssc m
+     -- , SscStorageClassM ssc m
 #endif
       , MonadTxLD m
       , SscStorageMode ssc

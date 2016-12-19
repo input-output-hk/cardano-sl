@@ -19,6 +19,7 @@ import           Pos.Ssc.Class           (SscConstraint)
 import           Pos.State               (initFirstSlot)
 #ifdef WITH_ROCKS
 import           Pos.Modern.DB.Utxo      (getTip)
+import           Pos.Ssc.Class           (setGlobalState, sscLoadGlobalState)
 #endif
 import           Pos.Types               (Timestamp (Timestamp))
 import           Pos.Util                (inAssertMode)
@@ -36,6 +37,7 @@ runNode plugins = do
 
 #ifdef WITH_ROCKS
     initSemaphore
+--    initSsc
 #endif
     initFirstSlot
     waitSystemStart
@@ -60,4 +62,10 @@ initSemaphore = do
         (logError "ncBlkSemaphore is not empty at the very beginning")
     tip <- getTip
     liftIO $ putMVar semaphore tip
+
+-- initSsc :: WorkMode ssc m => m ()
+-- initSsc = do
+--     tip <- getTip
+--     gs <- sscLoadGlobalState tip
+--     setGlobalState gs
 #endif

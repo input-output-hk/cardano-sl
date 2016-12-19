@@ -27,7 +27,7 @@ import           Pos.Util              (AsBinary)
 
 -- | Generic @SSC@ query.
 type SscQueryH ssc a =
-    forall m . (MonadReader (SscGlobalState ssc) m) => m a
+    forall m . (MonadReader (SscGlobalStateM ssc) m) => m a
 
 class Ssc ssc => SscHelpersClass ssc where
     sscVerifyPayload :: Tagged ssc (MainBlockHeader ssc -> SscPayload ssc -> VerificationRes)

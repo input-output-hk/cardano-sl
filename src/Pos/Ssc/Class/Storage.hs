@@ -1,13 +1,13 @@
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE AllowAmbiguousTypes    #-}
 {-# LANGUAGE ConstraintKinds        #-}
 {-# LANGUAGE DefaultSignatures      #-}
+{-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TypeFamilies           #-}
+{-# LANGUAGE UndecidableInstances   #-}
 
 -- | Storage for generic Shared Seed calculation implementation.
 
@@ -38,7 +38,8 @@ import           Pos.DHT.Model.Class     (DHTResponseT)
 import           Pos.DHT.Real            (KademliaDHT)
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types.Types         (Address, EpochIndex, SlotLeaders, Utxo)
+import           Pos.Types.Types         (Address, EpochIndex, HeaderHash, SlotLeaders,
+                                          Utxo)
 import           Pos.Util                (AsBinary)
 
 -- | Generic @SSC@ query.
@@ -56,18 +57,18 @@ type SscQuery ssc a =
     forall m x. (HasSscStorage ssc x, MonadReader x m) => m a
 
 class Monad m => MonadSscGS ssc m | m -> ssc where
-    getGlobalState    :: m (SscGlobalState ssc)
-    setGlobalState    :: SscGlobalState ssc -> m ()
-    modifyGlobalState :: (SscGlobalState ssc -> (a, SscGlobalState ssc)) -> m a
+    getGlobalState    :: m (SscGlobalStateM ssc)
+    setGlobalState    :: SscGlobalStateM ssc -> m ()
+    modifyGlobalState :: (SscGlobalStateM ssc -> (a, SscGlobalStateM ssc)) -> m a
 
-    default getGlobalState :: MonadTrans t => t m (SscGlobalState ssc)
+    default getGlobalState :: MonadTrans t => t m (SscGlobalStateM ssc)
     getGlobalState = lift getGlobalState
 
-    default setGlobalState :: MonadTrans t => SscGlobalState ssc -> t m ()
+    default setGlobalState :: MonadTrans t => SscGlobalStateM ssc -> t m ()
     setGlobalState = lift . setGlobalState
 
     default modifyGlobalState :: MonadTrans t =>
-                                 (SscGlobalState ssc -> (a, SscGlobalState ssc)) -> t m a
+                                 (SscGlobalStateM ssc -> (a, SscGlobalStateM ssc)) -> t m a
     modifyGlobalState = lift . modifyGlobalState
 
 instance MonadSscGS ssc m => MonadSscGS ssc (ReaderT a m) where
@@ -77,7 +78,9 @@ instance MonadSscGS ssc m => MonadSscGS ssc (DHTResponseT s m) where
 instance MonadSscGS ssc m => MonadSscGS ssc (KademliaDHT m) where
 
 class Monad m => SscStorageClassM ssc m | m -> ssc where
-    loadGlobalState :: m (SscGlobalState ssc)
+    sscEmptyGlobalState :: m (SscGlobalStateM ssc)
+    sscLoadGlobalState :: HeaderHash ssc -> m (SscGlobalStateM ssc)
+
     -- This must be here. We should remove SscStorageClass, right?
     sscApplyBlocksM :: AltChain ssc -> m ()
 
@@ -86,13 +89,32 @@ class Monad m => SscStorageClassM ssc m | m -> ssc where
     -- version.
     sscRollbackM :: Word -> m ()
 
-    -- | Get global SSC data for the state that was observed N blocks ago.
-    sscGetGlobalStateByDepthM :: Word -> m (Maybe (SscGlobalState ssc)) -- does it actually need?
     -- | Verify Ssc-related predicates of block sequence which is
     -- about to be applied. It should check that SSC payload will be
     -- consistent if this blocks are applied (after possible rollback
     -- if first argument isn't zero).
-    sscVerifyBlocksM :: Word -> AltChain ssc -> m VerificationRes
+    sscVerifyBlocksM :: AltChain ssc -> m VerificationRes
+
+    default sscEmptyGlobalState :: MonadTrans t => t m (SscGlobalStateM ssc)
+    sscEmptyGlobalState = lift sscEmptyGlobalState
+
+    default sscLoadGlobalState :: MonadTrans t => HeaderHash ssc -> t m (SscGlobalStateM ssc)
+    sscLoadGlobalState = lift . sscLoadGlobalState
+
+    default sscApplyBlocksM :: MonadTrans t => AltChain ssc -> t m ()
+    sscApplyBlocksM = lift . sscApplyBlocksM
+
+    default sscRollbackM :: MonadTrans t => Word -> t m ()
+    sscRollbackM = lift . sscRollbackM
+
+    default sscVerifyBlocksM :: MonadTrans t => AltChain ssc -> t m VerificationRes
+    sscVerifyBlocksM = lift . sscVerifyBlocksM
+
+instance SscStorageClassM ssc m => SscStorageClassM ssc (ReaderT a m) where
+instance SscStorageClassM ssc m => SscStorageClassM ssc (ExceptT a m) where
+instance SscStorageClassM ssc m => SscStorageClassM ssc (ResponseT s m) where
+instance SscStorageClassM ssc m => SscStorageClassM ssc (DHTResponseT s m) where
+instance SscStorageClassM ssc m => SscStorageClassM ssc (KademliaDHT m) where
 
 -- | Class of objects that we can retrieve 'SscStorage' from.
 class HasSscStorage ssc a where
@@ -132,11 +154,11 @@ type SscStorageMode ssc = (SscStorageClass ssc, SafeCopy ssc)
 sscRunGlobalQuery
     :: forall ssc m a.
        MonadSscGS ssc m
-    => Reader (SscGlobalState ssc) a -> m a
+    => Reader (SscGlobalStateM ssc) a -> m a
 sscRunGlobalQuery query = runReader query <$> getGlobalState @ssc
 
 sscRunGlobalModify
     :: forall ssc m a .
     MonadSscGS ssc m
-    => State (SscGlobalState ssc) a -> m a
+    => State (SscGlobalStateM ssc) a -> m a
 sscRunGlobalModify upd = modifyGlobalState $ runState upd

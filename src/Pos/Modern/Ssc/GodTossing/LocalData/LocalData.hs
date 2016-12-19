@@ -43,11 +43,11 @@ import           Pos.Modern.Ssc.GodTossing.LocalData.Helpers (GtState,
 import           Pos.Modern.Ssc.GodTossing.LocalData.Types   (ldCertificates,
                                                               ldCommitments, ldOpenings,
                                                               ldShares)
+import           Pos.Modern.Ssc.GodTossing.LocalData.Types   (GtLocalData (..))
 import           Pos.Modern.Ssc.GodTossing.Storage.Types     (GtGlobalState (..))
-import           Pos.Modern.Ssc.GodTossing.Types.Instance    ()
-import           Pos.Ssc.Class.LocalData                     (LocalQuery, LocalUpdate,
-                                                              MonadSscLD,
-                                                              SscLocalDataClass (..))
+import           Pos.Ssc.Class.LocalData                     (LocalQueryM, LocalUpdateM,
+                                                              MonadSscLDM,
+                                                              SscLocalDataClassM (..))
 import           Pos.Ssc.Class.Types                         (Ssc (..))
 import           Pos.Ssc.GodTossing.Functions                (checkOpeningMatchesCommitment,
                                                               checkShares,
@@ -58,6 +58,7 @@ import           Pos.Ssc.GodTossing.Types.Base               (Commitment, Openin
                                                               SignedCommitment,
                                                               VssCertificate,
                                                               VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Types.Instance           ()
 import           Pos.Ssc.GodTossing.Types.Message            (DataMsg (..), MsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Type               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types              (GtPayload (..), SscBi)
@@ -70,17 +71,18 @@ import           Pos.Util                                    (AsBinary, diffDoub
 type LDQuery a = forall m .  MonadReader GtState m => m a
 type LDUpdate a = forall m . MonadState GtState m  => m a
 
-instance (SscBi, SscGlobalState SscGodTossing ~ GtGlobalState)
-        => SscLocalDataClass SscGodTossing where
-    sscEmptyLocalData = def
-    sscGetLocalPayloadQ = getLocalPayload
-    sscApplyGlobalStateU = applyGlobal
+instance (SscBi, SscGlobalStateM SscGodTossing ~ GtGlobalState
+         , SscLocalDataM SscGodTossing ~ GtLocalData)
+        => SscLocalDataClassM SscGodTossing where
+    sscEmptyLocalDataM = def
+    sscGetLocalPayloadMQ = getLocalPayload
+    sscApplyGlobalStateMU = applyGlobal
 
 ----------------------------------------------------------------------------
 -- Apply Global State
 ----------------------------------------------------------------------------
 
-applyGlobal :: GtGlobalState -> LocalUpdate SscGodTossing ()
+applyGlobal :: GtGlobalState -> LocalUpdateM SscGodTossing ()
 applyGlobal globalData = do
     let globalCommitments = _gsCommitments globalData
         globalOpenings = _gsOpenings globalData
@@ -95,7 +97,7 @@ applyGlobal globalData = do
 -- Get Local Payload
 ----------------------------------------------------------------------------
 
-getLocalPayload :: SlotId -> LocalQuery SscGodTossing GtPayload
+getLocalPayload :: SlotId -> LocalQueryM SscGodTossing GtPayload
 getLocalPayload SlotId{..} =
     (if isCommitmentIdx siSlot then
         CommitmentsPayload <$> view ldCommitments
@@ -113,7 +115,7 @@ getLocalPayload SlotId{..} =
 
 -- | Clean-up some data when new slot starts.
 localOnNewSlot
-    :: MonadSscLD SscGodTossing m
+    :: MonadSscLDM SscGodTossing m
     => SlotId -> m ()
 localOnNewSlot = gtRunModify . localOnNewSlotU
 
@@ -131,7 +133,7 @@ localOnNewSlotU si@SlotId {siSlot = slotIdx} = do
 -- | Check whether SSC data with given tag and public key can be added
 -- to local data.
 sscIsDataUseful
-    :: MonadSscLD SscGodTossing m
+    :: MonadSscLDM SscGodTossing m
     => MsgTag -> Address -> m Bool
 sscIsDataUseful tag = gtRunRead . sscIsDataUsefulQ tag
 
@@ -168,7 +170,7 @@ sscIsDataUsefulSetImpl localG globalG addr =
 -- | Process message and save it if needed. Result is whether message
 -- has been actually added.
 sscProcessMessage ::
-       (MonadSscLD SscGodTossing m, WorkModeDB SscGodTossing m, SscBi)
+       (MonadSscLDM SscGodTossing m, WorkModeDB SscGodTossing m, SscBi)
     => DataMsg -> m Bool
 sscProcessMessage msg = do
     --certs <- verifiedVssCertificates -- TODO I must fix here

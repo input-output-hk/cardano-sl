@@ -17,8 +17,9 @@ import           Universum
 
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (ClassifyHeaderRes (..), classifyNewHeader)
-import           Pos.Communication.Types  (MsgBlock (..), MsgHeaders (..), MutSocketState,
-                                           ResponseMode)
+import           Pos.Communication.Types  (MsgBlock (..), MsgGetBlocks (..),
+                                           MsgGetHeaders (..), MsgHeaders (..),
+                                           MutSocketState, ResponseMode)
 import           Pos.Crypto               (shortHashF)
 import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog)
 import           Pos.Types                (BlockHeader, headerHash)
@@ -29,9 +30,23 @@ blockListeners
     :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
     => [ListenerDHT (MutSocketState ssc) m]
 blockListeners =
-    [ ListenerDHT handleBlockHeaders
+    [ ListenerDHT handleGetHeaders
+    , ListenerDHT handleGetBlocks
+    , ListenerDHT handleBlockHeaders
     , ListenerDHT handleBlock
     ]
+
+handleGetHeaders
+    :: forall ssc m.
+       (ResponseMode ssc m)
+    => MsgGetHeaders ssc -> m ()
+handleGetHeaders MsgGetHeaders {..} = pass
+
+handleGetBlocks
+    :: forall ssc m.
+       (ResponseMode ssc m)
+    => MsgGetBlocks ssc -> m ()
+handleGetBlocks MsgGetBlocks {..} = pass
 
 handleBlockHeaders
     :: forall ssc m.

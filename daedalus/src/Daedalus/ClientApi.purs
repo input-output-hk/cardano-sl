@@ -17,11 +17,11 @@ hello = log <<< (<>) "Hello "
 helloCallback :: forall cb. (String -> cb) -> cb
 helloCallback cb = cb "hello"
 
-getAddressesP :: forall eff. Eff(ajax :: AJAX | eff) (Promise (Either String (Array CAddress)))
+getAddressesP :: forall eff. Eff(ajax :: AJAX | eff) (Promise (Array CAddress))
 getAddressesP = fromAff getAddresses
 
-getBalancesP :: forall eff. Eff(ajax :: AJAX | eff) (Promise (Either String (Array (Tuple CAddress Coin))))
+getBalancesP :: forall eff. Eff(ajax :: AJAX | eff) (Promise (Array (Tuple CAddress Coin)))
 getBalancesP = fromAff getBalances
 
-newAddressP :: forall eff. Eff(ajax :: AJAX | eff) (Promise (Either String CAddress))
+newAddressP :: forall eff. Eff(ajax :: AJAX | eff) (Promise CAddress)
 newAddressP = fromAff newAddress

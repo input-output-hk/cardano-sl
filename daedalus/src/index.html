@@ -5,7 +5,8 @@
     <script type="text/javascript">
       var logAddressesP = function() {
         Daedalus.ClientApi.getAddressesP()
-          .then(function(result) {console.log(result)})
+            .then(function(result) {console.log(result)}
+          ,     function(reason) {console.log(reason)})
       };
     </script>
 		<title></title>

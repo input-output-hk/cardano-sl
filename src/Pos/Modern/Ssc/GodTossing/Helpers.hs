@@ -29,9 +29,9 @@ import           Pos.Util                                (AsBinary)
 import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
                                                           gsCommitments, gsOpenings,
                                                           gsShares, gsVssCertificates)
-import           Pos.Ssc.Class.Helpers                   (SscHelpersClassM (..), SscQuery)
+import           Pos.Ssc.Class.Helpers                   (SscHelpersClassM (..), SscQueryH)
 
-type GSQuery a = SscQuery SscGodTossing a
+type GSQuery a = SscQueryH SscGodTossing a
 
 instance (Ssc SscGodTossing
          , SscGlobalState SscGodTossing ~ GtGlobalState

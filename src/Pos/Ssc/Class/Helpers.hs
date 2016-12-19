@@ -9,8 +9,8 @@ module Pos.Ssc.Class.Helpers
        (
          SscHelpersClass (..)
        , SscHelpersClassM (..)
-       , SscQuery
-       , sscGetOurShares
+       , SscQueryH
+       , sscGetOurSharesM
        ) where
 
 import           Data.List.NonEmpty    (NonEmpty)
@@ -26,26 +26,26 @@ import           Pos.Types.Types       (Address, EpochIndex, SlotLeaders, Utxo)
 import           Pos.Util              (AsBinary)
 
 -- | Generic @SSC@ query.
-type SscQuery ssc a =
+type SscQueryH ssc a =
     forall m . (MonadReader (SscGlobalState ssc) m) => m a
 
 class Ssc ssc => SscHelpersClass ssc where
     sscVerifyPayload :: Tagged ssc (MainBlockHeader ssc -> SscPayload ssc -> VerificationRes)
 
 class Ssc ssc => SscHelpersClassM ssc where
-    sscVerifyPayloadQ :: Tagged ssc (MainBlockHeader ssc -> SscPayload ssc -> VerificationRes)
+    sscVerifyPayloadM :: Tagged ssc (MainBlockHeader ssc -> SscPayload ssc -> VerificationRes)
 
     sscGetOurSharesQ
         :: (AsBinary VssPublicKey)
-        -> SscQuery ssc (HashMap Address (AsBinary EncShare))
+        -> SscQueryH ssc (HashMap Address (AsBinary EncShare))
 
     sscGetParticipantsQ :: Word -> Utxo ->
-                          SscQuery ssc (Maybe (NonEmpty (AsBinary VssPublicKey)))
+                          SscQueryH ssc (Maybe (NonEmpty (AsBinary VssPublicKey)))
     sscCalculateLeadersQ :: EpochIndex -> Utxo -> Threshold ->
-                           SscQuery ssc (Either (SscSeedError ssc)  SlotLeaders)
+                           SscQueryH ssc (Either (SscSeedError ssc)  SlotLeaders)
 
-sscGetOurShares
+sscGetOurSharesM
     :: forall ssc m.
        (MonadSscGS ssc m, SscHelpersClassM ssc)
     => (AsBinary VssPublicKey) -> m (HashMap Address (AsBinary EncShare))
-sscGetOurShares = sscRunGlobalQuery . sscGetOurSharesQ @ssc
+sscGetOurSharesM = sscRunGlobalQuery . sscGetOurSharesQ @ssc

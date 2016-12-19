@@ -6,7 +6,6 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
-{-# LANGUAGE ViewPatterns          #-}
 
 -- | Internal state of the transaction-handling worker. Trasnaction
 -- processing logic.
@@ -20,19 +19,18 @@ module Pos.Modern.Txp.Storage.Storage
        ) where
 
 import           Control.Lens                    (each, over, (^.), _1)
-import           Control.Monad.IfElse            (aifM)
 import qualified Data.HashMap.Strict             as HM
 import qualified Data.HashSet                    as HS
+import           Data.List.NonEmpty              (NonEmpty)
 import qualified Data.List.NonEmpty              as NE
-import           Formatting                      (build, sformat, text, (%))
+import           Formatting                      (build, sformat, (%))
 import           Serokell.Util                   (VerificationRes (..))
-import           System.Wlog                     (WithLogger, logError)
+import           System.Wlog                     (WithLogger)
 import           Universum
 
 import           Pos.Constants                   (maxLocalTxs)
 import           Pos.Crypto                      (WithHash (..), hash, withHash)
 import           Pos.Modern.DB                   (DB, MonadDB, getUtxoDB)
-import           Pos.Modern.DB.Block             (getBlock, getUndo)
 import           Pos.Modern.DB.Utxo              (BatchOp (..), getTip, writeBatchToUtxo)
 import           Pos.Modern.Txp.Class            (MonadTxpLD (..), TxpLD)
 import           Pos.Modern.Txp.Error            (TxpError (..))
@@ -45,10 +43,10 @@ import           Pos.State.Storage.Types         (AltChain, ProcessTxRes (..),
 import           Pos.Types                       (Block, IdTxWitness, MonadUtxo,
                                                   MonadUtxoRead (utxoGet), SlotId,
                                                   Tx (..), TxIn (..), TxOut, TxWitness,
-                                                  applyTxToUtxo', blockSlot, blockTxws,
-                                                  blockTxws, convertFrom', headerHash,
-                                                  prevBlockL, slotIdF, topsortTxs,
-                                                  verifyTxPure)
+                                                  Undo, applyTxToUtxo', blockSlot,
+                                                  blockTxws, blockTxws, convertFrom',
+                                                  headerHash, prevBlockL, slotIdF,
+                                                  topsortTxs, verifyTxPure)
 import           Pos.Types.Utxo                  (verifyAndApplyTxs, verifyTxUtxo)
 import           Pos.Util                        (_neHead)
 
@@ -183,36 +181,27 @@ processTxDo ld@(uv, mp, tip) resolvedIns utxoDB (id, (tx, txw))
              , MemPool (HM.insert id (tx, txw) oldTxs) (oldSize + 1)
              , tip))
 
--- | Rollback last @n@ blocks. This will replace current utxo to utxo
--- of desired depth block and also filter local transactions so they
--- can be applied. @tx@ prefix is used, because rollback may happen in
--- other storages as well.
-txRollbackBlocks :: (Ssc ssc, WithLogger m, MonadDB ssc m, MonadThrow m) => Word -> m ()
-txRollbackBlocks (fromIntegral -> n) = replicateM_ n txRollbackBlock
+-- | Head of list is the youngest block
+txRollbackBlocks :: (WithLogger m, MonadDB ssc m)
+                 => NonEmpty (Block ssc, Undo) -> m ()
+txRollbackBlocks = mapM_ txRollbackBlock
 
--- | Rollback last block
-txRollbackBlock :: (Ssc ssc, WithLogger m, MonadDB ssc m, MonadThrow m) => m ()
-txRollbackBlock = do
-    tip <- getTip
-    aifM (getBlock tip) (\block ->
-        aifM (getUndo tip) (\undo -> do
-            let txs = getTxs block
-            --TODO more detailed message must be here
-            unless (length undo == length txs)
-                $ panic "Number of txs must be equal length of undo"
-            let batchOrError = foldl' prependToBatch (Right []) $ zip txs undo
-            case batchOrError of
-                Left msg    -> panic msg
-                Right batch -> writeBatchToUtxo $ PutTip (headerHash block) : batch
-                -- If we store block cache in UtxoView we must invalidate it
-            )
-            (errorMsg "No Undo for block")) -- should we use here panic, right?
-        (errorMsg "No Block")
+-- | Rollback block
+txRollbackBlock :: (WithLogger m, MonadDB ssc m)
+                => (Block ssc, Undo) -> m ()
+txRollbackBlock (block, undo) = do
+    let txs = getTxs block
+    --TODO more detailed message must be here
+    unless (length undo == length txs)
+        $ panic "Number of txs must be equal length of undo"
+    let batchOrError = foldl' prependToBatch (Right []) $ zip txs undo
+    case batchOrError of
+        Left msg    -> panic msg
+        Right batch -> writeBatchToUtxo $ PutTip (block ^. prevBlockL) : batch
+        -- If we store block cache in UtxoView we must invalidate it
   where
     getTxs (Left _)   = []
     getTxs (Right mb) = map fst $ mb ^. blockTxws
-
-    errorMsg msg = logError $ sformat ("Error during rollback block from Undo DB: "%text) msg
 
     prependToBatch :: Either Text [BatchOp ssc] -> (Tx, [TxOut]) -> Either Text [BatchOp ssc]
     prependToBatch batchOrError (tx@Tx{..}, undoTx) = do

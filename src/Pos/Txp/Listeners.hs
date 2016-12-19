@@ -91,7 +91,6 @@ handleTxData (TxDataMsg tx tw) = do
     when added $ sendToNeighborsSafe $ TxInvMsg $ pure txId
 
 -- Real tx processing
--- CHECK: @handleTxDo
 -- #processTxDo
 handleTxDo
     :: ResponseMode ssc m

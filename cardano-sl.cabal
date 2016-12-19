@@ -196,7 +196,8 @@ library
                         Pos.Util.Arbitrary
                         Pos.Util.NotImplemented
   if flag(with-web)
-    other-modules:      Pos.Aeson.Types
+    other-modules:      Pos.Aeson.Crypto
+                        Pos.Aeson.Types
                         Pos.Web.Api
                         Pos.Web.Doc
                         Pos.Web.Server

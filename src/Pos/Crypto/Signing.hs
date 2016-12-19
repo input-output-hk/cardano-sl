@@ -43,7 +43,6 @@ module Pos.Crypto.Signing
 
 import           Control.Monad.Fail     (fail)
 import qualified Crypto.Sign.Ed25519    as Ed25519
-import           Data.Aeson             (ToJSON (toJSON))
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Coerce            (coerce)
@@ -52,7 +51,7 @@ import           Data.SafeCopy          (SafeCopy (..), base, contain,
                                          deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text.Buildable    as B
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (Format, bprint, build, later, sformat, (%))
+import           Formatting             (Format, bprint, build, later, (%))
 import qualified Serokell.Util.Base64   as Base64 (decode, encode)
 import           Universum
 
@@ -139,9 +138,6 @@ keyGen = liftIO $ do
 deterministicKeyGen :: BS.ByteString -> Maybe (PublicKey, SecretKey)
 deterministicKeyGen seed =
     bimap PublicKey SecretKey <$> Ed25519.createKeypairFromSeed_ seed
-
-instance ToJSON PublicKey where
-    toJSON = toJSON . sformat fullPublicKeyF
 
 ----------------------------------------------------------------------------
 -- Signatures

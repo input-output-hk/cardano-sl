@@ -35,7 +35,7 @@ import           Pos.Communication.Types     (RequestBlockchainPart (..),
 import           Pos.Context                 (getNodeContext)
 import           Pos.Crypto                  (ProxySecretKey)
 import           Pos.DHT.Model               (MonadMessageDHT, defaultSendToNeighbors,
-                                              sendToNode)
+                                              sendToNeighbors, sendToNode)
 import           Pos.Security                (shouldIgnoreAddress)
 import           Pos.Txp.Types.Communication (TxDataMsg (..))
 import           Pos.Types                   (EpochIndex, HeaderHash, MainBlockHeader, Tx,
@@ -44,25 +44,25 @@ import           Pos.Util                    (logWarningWaitLinear, messageName'
 import           Pos.WorkMode                (WorkMode, MinWorkMode)
 
 -- thread and controls how much time action takes.
-sendToNeighborsSafeImpl :: (Bi r, Message r, MinWorkMode ssc m) => (NetworkAddress -> Bool) -> r -> m ()
-sendToNeighborsSafeImpl shouldIgnore msg = do
+sendToNeighborsSafeImpl :: (Message r, MinWorkMode ssc m) => (r -> m ()) -> r -> m ()
+sendToNeighborsSafeImpl sender msg = do
     let msgName = messageName' msg
-    -- TODO(voit): sendToNeighbors should be done using seqConcurrentlyK
-    let action = () <$ defaultSendToNeighbors sequence sendToNode' msg
+    let action = () <$ sender msg
     fork_ $
         logWarningWaitLinear 10 ("Sending " <> msgName <> " to neighbors") action
-  where
-    sendToNode' addr message =
-        unless (shouldIgnore addr) $
-            sendToNode addr message
 
 sendToNeighborsSafe :: (Bi r, Message r, MinWorkMode ssc m) => r -> m ()
-sendToNeighborsSafe = sendToNeighborsSafeImpl $ const False
+sendToNeighborsSafe = sendToNeighborsSafeImpl $ void . sendToNeighbors
 
 sendToNeighborsSafeWithMaliciousEmulation :: (Bi r, Message r, WorkMode ssc m) => r -> m ()
 sendToNeighborsSafeWithMaliciousEmulation msg = do
-  cont <- getNodeContext
-  sendToNeighborsSafeImpl (shouldIgnoreAddress cont) msg
+    cont <- getNodeContext
+      -- [CSL-336] Make this parallel
+    sendToNeighborsSafeImpl (void . defaultSendToNeighbors sequence (sendToNode' cont)) msg
+  where
+    sendToNode' cont addr message =
+        unless (shouldIgnoreAddress cont addr) $
+            sendToNode addr message
 
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.

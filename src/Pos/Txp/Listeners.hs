@@ -31,7 +31,7 @@ import           Pos.Txp.Types.Communication  (TxDataMsg (..), TxInvMsg (..),
 import           Pos.Types                    (IdTxWitness, TxId)
 import           Pos.WorkMode                 (WorkMode)
 
-#if 0
+#ifdef MODERN
 import           Pos.Modern.Txp.Class         (MonadTxpLD (getMemPool))
 import           Pos.Modern.Txp.Storage       (processTx)
 import           Pos.Modern.Txp.Storage.Types (MemPool (..), TxMap)
@@ -54,7 +54,7 @@ txListeners =
 isTxUseful :: ResponseMode ssc m => TxId -> m Bool
 isTxUseful txId = not . HM.member txId <$> getLocalTxs
 
-#if 0
+#ifdef MODERN
 handleTxInv :: (ResponseMode ssc m) => TxInvMsg -> m ()
 handleTxInv (TxInvMsg txHashes_) = do
     let txHashes = NE.toList txHashes_

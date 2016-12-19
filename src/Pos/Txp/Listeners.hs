@@ -9,35 +9,35 @@ module Pos.Txp.Listeners
        ( txListeners
        ) where
 
-import qualified Data.HashMap.Strict         as HM
-import qualified Data.List.NonEmpty          as NE
-import           Formatting                  (build, sformat, stext, (%))
-import           System.Wlog                 (logDebug, logInfo, logWarning)
+import qualified Data.HashMap.Strict          as HM
+import qualified Data.List.NonEmpty           as NE
+import           Formatting                   (build, sformat, stext, (%))
+import           System.Wlog                  (logDebug, logInfo, logWarning)
 import           Universum
 
-import           Pos.Binary.Txp              ()
-import           Pos.Communication.Methods   (sendToNeighborsSafe)
-import           Pos.Communication.Types     (MutSocketState, ResponseMode)
-import           Pos.Context                 (WithNodeContext (getNodeContext),
-                                              ncPropagation)
-import           Pos.Crypto                  (hash)
-import           Pos.DHT.Model               (ListenerDHT (..), MonadDHTDialog,
-                                              replyToNode)
-import           Pos.State                   (ProcessTxRes (..))
-import qualified Pos.State                   as St
-import           Pos.Statistics              (StatProcessTx (..), statlogCountEvent)
-import           Pos.Txp.Types.Communication (TxDataMsg (..), TxInvMsg (..),
-                                              TxReqMsg (..))
-import           Pos.Types                   (IdTxWitness, TxId)
-import           Pos.WorkMode                (WorkMode)
+import           Pos.Binary.Txp               ()
+import           Pos.Communication.Methods    (sendToNeighborsSafe)
+import           Pos.Communication.Types      (MutSocketState, ResponseMode)
+import           Pos.Context                  (WithNodeContext (getNodeContext),
+                                               ncPropagation)
+import           Pos.Crypto                   (hash)
+import           Pos.DHT.Model                (ListenerDHT (..), MonadDHTDialog,
+                                               replyToNode)
+import           Pos.State                    (ProcessTxRes (..))
+import qualified Pos.State                    as St
+import           Pos.Statistics               (StatProcessTx (..), statlogCountEvent)
+import           Pos.Txp.Types.Communication  (TxDataMsg (..), TxInvMsg (..),
+                                               TxReqMsg (..))
+import           Pos.Types                    (IdTxWitness, TxId)
+import           Pos.WorkMode                 (WorkMode)
 
 #if 0
 import           Pos.Modern.Txp.Class         (MonadTxpLD (getMemPool))
 import           Pos.Modern.Txp.Storage       (processTx)
 import           Pos.Modern.Txp.Storage.Types (MemPool (..), TxMap)
 #else
-import           Pos.Txp.LocalData           (txLocalDataProcessTx)
-import           Pos.Txp.LocalData           (getLocalTxs)
+import           Pos.Txp.LocalData            (txLocalDataProcessTx)
+import           Pos.Txp.LocalData            (getLocalTxs)
 #endif
 
 -- | Listeners for requests related to blocks processing.
@@ -50,6 +50,10 @@ txListeners =
     , ListenerDHT handleTxReq
     , ListenerDHT handleTxData
     ]
+
+isTxUseful :: ResponseMode ssc m => TxId -> m Bool
+isTxUseful txId = not . HM.member txId <$> getLocalTxs
+
 #if 0
 handleTxInv :: (ResponseMode ssc m) => TxInvMsg -> m ()
 handleTxInv (TxInvMsg txHashes_) = do
@@ -85,9 +89,6 @@ handleTxData (TxDataMsg tx tw) = do
     let txId = hash tx
     added <- handleTxDo (txId, (tx, tw))
     when added $ sendToNeighborsSafe $ TxInvMsg $ pure txId
-
-isTxUseful :: ResponseMode ssc m => TxId -> m Bool
-isTxUseful txId = not . HM.member txId <$> getLocalTxs
 
 -- Real tx processing
 -- CHECK: @handleTxDo
@@ -138,7 +139,7 @@ handleTxInv (TxInvMsg txHashes_) = do
     safeReply [] _      = pure ()
     safeReply xs constr = replyToNode . constr . NE.fromList $ xs
     handleSingle txHash =
-        ifM (isTxUsefull txHash)
+        ifM (isTxUseful txHash)
             (return True)
             (False <$ ingoringLogMsg txHash)
     ingoringLogMsg txHash = logDebug $
@@ -162,9 +163,6 @@ handleTxData (TxDataMsg tx tw) = do
     added <- handleTxDo (txId, (tx, tw))
     needPropagate <- ncPropagation <$> getNodeContext
     when (added && needPropagate) $ sendToNeighborsSafe $ TxInvMsg $ pure txId
-
-isTxUsefull :: ResponseMode ssc m => TxId -> m Bool
-isTxUsefull txId = not . HM.member txId <$> getLocalTxs
 
 -- Real tx processing
 -- CHECK: @handleTxDo

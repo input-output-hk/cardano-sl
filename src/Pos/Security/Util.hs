@@ -14,9 +14,9 @@ import           Pos.Types.Address    (Address (..))
 
 shouldIgnoreAddress :: NodeContext ssc -> NetworkAddress -> Bool
 shouldIgnoreAddress cont addr = and [ elem AttackNoBlocks $ ncAttackTypes cont
-                                    , elem addr $ map attNetworkAddr $ ncAttackTargets cont ]
+                                    , elem (NetworkAddressTarget addr) $ ncAttackTargets cont ]
 
 shouldIgnorePkAddress :: NodeContext ssc -> Address -> Bool
 shouldIgnorePkAddress cont PubKeyAddress {..} = and [ elem AttackNoCommitments $ ncAttackTypes cont
-                                                    , elem addrKeyHash $ map attPkAddr $ ncAttackTargets cont ]
-shouldIgnorePkAddress cont _ = False
+                                                    , elem (PubKeyAddressTarget addrKeyHash) $ ncAttackTargets cont ]
+shouldIgnorePkAddress _ _ = False

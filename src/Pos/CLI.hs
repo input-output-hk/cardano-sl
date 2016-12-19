@@ -53,8 +53,9 @@ sscAlgoParser = GodTossingAlgo <$ (P.string "GodTossing") <|>
                 NistBeaconAlgo   <$ (P.string "NistBeacon")
 
 attackTypeParser :: P.Parser AttackType
-attackTypeParser = AttackNoBlocks <$ (P.string "NoBlocks") <|>
-                   AttackNoCommitments <$ (P.string "NoCommitments")
+attackTypeParser = P.string "No" >>
+    AttackNoBlocks <$ (P.string "Blocks") <|>
+    AttackNoCommitments <$ (P.string "Commitments")
 
 base58AddrParser :: P.Parser (AddressHash PublicKey)
 base58AddrParser = do

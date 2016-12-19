@@ -104,9 +104,10 @@ handleData
 handleData msg =
     let tag = dataMsgTag msg
         addr = dataMsgPublicKey msg in
+    -- TODO: Add here malicious emulation for network addresses
+    -- when TW will support getting peer address properly
     whenM (and <$> sequence [ isGoodSlotIdForTag tag <$> getCurrentSlot
                             , not <$> flip shouldIgnorePkAddress addr <$> getNodeContext ]) $
-    -- TODO: Add here malicious emulation when TW will support getting peer address properly
     do added <- sscProcessMessage msg
        loggerAction tag added addr
        needPropagate <- ncPropagation <$> getNodeContext

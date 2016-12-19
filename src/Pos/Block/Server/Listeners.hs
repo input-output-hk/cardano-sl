@@ -17,8 +17,10 @@ import           System.Wlog              (logDebug)
 import           Universum
 
 import           Pos.Binary.Communication ()
-import           Pos.Block.Logic          (ClassifyHeaderRes (..), classifyNewHeader)
-import           Pos.Block.Requests       (replyWithBlockRequest, replyWithHeadersRequest)
+import           Pos.Block.Logic          (ClassifyHeaderRes (..), classifyHeaders,
+                                           classifyNewHeader)
+import           Pos.Block.Requests       (replyWithBlocksRequest,
+                                           replyWithHeadersRequest)
 import           Pos.Block.Server.State   (matchRequestedHeaders)
 import           Pos.Communication.Types  (MsgBlock (..), MsgGetBlocks (..),
                                            MsgGetHeaders (..), MsgHeaders (..),
@@ -26,6 +28,7 @@ import           Pos.Communication.Types  (MsgBlock (..), MsgGetBlocks (..),
 import           Pos.Crypto               (shortHashF)
 import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog, getUserState)
 import           Pos.Types                (BlockHeader, headerHash, prevBlockL)
+import           Pos.Util                 (_neHead, _neLast)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
@@ -64,7 +67,25 @@ handleRequestedHeaders
     :: forall ssc m.
        (ResponseMode ssc m)
     => NonEmpty (BlockHeader ssc) -> m ()
-handleRequestedHeaders _ = notImplemented
+handleRequestedHeaders headers = do
+    classificationRes <- classifyHeaders $ toList headers
+    let startHeader = headers ^. _neHead
+        startHash = headerHash startHeader
+        endHeader = headers ^. _neLast
+        endHash = headerHash endHeader
+    case classificationRes of
+        CHRcontinues ->
+            replyWithBlocksRequest startHash endHash
+        CHRalternative -> do
+            lcaChild <- undefined
+            replyWithBlocksRequest lcaChild endHash
+        CHRuseless reason ->
+            logDebug $
+            sformat
+                ("Chain of headers from " %shortHashF % " to " %shortHashF %
+                 " is useless for the following reason: " %stext)
+                startHash endHash reason
+        CHRinvalid _ -> pass -- TODO: ban node for sending invalid block.
 
 handleUnsolicitedHeaders
     :: forall ssc m.
@@ -75,7 +96,7 @@ handleUnsolicitedHeaders (header :| []) = do
     -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
     case classificationRes of
         CHRcontinues ->
-            replyWithBlockRequest (header ^. prevBlockL) (headerHash header)
+            replyWithBlocksRequest (header ^. prevBlockL) (headerHash header)
         CHRalternative -> replyWithHeadersRequest (Just $ headerHash header)
         CHRuseless reason ->
             logDebug $

@@ -7,8 +7,8 @@
 module Pos.Block.Requests
        ( mkHeadersRequest
        , replyWithHeadersRequest
-       , mkBlockRequest
-       , replyWithBlockRequest
+       , mkBlocksRequest
+       , replyWithBlocksRequest
        ) where
 
 import           Universum
@@ -37,21 +37,21 @@ replyWithHeadersRequest upto = do
     recordHeadersRequest msg =<< getUserState
     replyToNode msg
 
--- | Make message which requests a single block which is based on our tip.
-mkBlockRequest :: HeaderHash ssc -> HeaderHash ssc -> MsgGetBlocks ssc
-mkBlockRequest ourTip wantedBlock =
+-- | Make message which requests chain of blocks which is based on our tip.
+mkBlocksRequest :: HeaderHash ssc -> HeaderHash ssc -> MsgGetBlocks ssc
+mkBlocksRequest ourTip wantedBlock =
     MsgGetBlocks
     { mgbFrom = [ourTip]
     , mgbTo = Just wantedBlock
     }
 
--- | Reply with message which requests a single block which is based
+-- | Reply with message which requests chain of blocks which is based
 -- on our tip. This request is recorded in SocketState.
-replyWithBlockRequest
+replyWithBlocksRequest
     :: forall ssc m . ResponseMode ssc m
     => HeaderHash ssc -> HeaderHash ssc -> m ()
-replyWithBlockRequest ourTip wantedBlock = do
+replyWithBlocksRequest ourTip wantedBlock = do
     recordBlocksRequest ourTip wantedBlock =<< getUserState
     replyToNode msg
   where
-    msg = mkBlockRequest ourTip wantedBlock
+    msg = mkBlocksRequest ourTip wantedBlock

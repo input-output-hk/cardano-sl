@@ -6,6 +6,7 @@ module Pos.Block.Logic
        ( ClassifyHeaderRes (..)
        , applyBlock
        , classifyNewHeader
+       , classifyHeaders
        , verifyBlock
        ) where
 
@@ -75,6 +76,19 @@ classifyNewHeader (Right header) = do
         | otherwise =
             CHRuseless $
             "header doesn't continue main chain and is not more difficult"
+
+-- | Classify headers received in response to 'GetHeaders' message.
+-- • If there are any errors in chain of headers, CHRinvalid is returned.
+-- • If chain of headers is a valid continuation of our main chain,
+-- CHRcontinues is returned.
+-- • If chain of headers forks from our main chain but not too much,
+-- CHRalternative is returned.
+-- • If chain of headers forks from our main chain too much, CHRuseless
+-- is returned, because paper suggests doing so.
+classifyHeaders
+    :: WorkMode ssc m
+    => [BlockHeader ssc] -> m ClassifyHeaderRes
+classifyHeaders = notImplemented
 
 -- | Verify block received from network. If parent of this block is
 -- not our tip, verification fails. This function checks everything

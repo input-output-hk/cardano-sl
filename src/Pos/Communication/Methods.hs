@@ -32,11 +32,11 @@ import           Pos.Binary.Types            ()
 import           Pos.Communication.Types     (RequestBlockchainPart (..),
                                               SendBlockHeader (..),
                                               SendProxySecretKey (..))
-import           Pos.Context                 (getNodeContext)
+import           Pos.Context                 (getNodeContext, ncAttackTypes)
 import           Pos.Crypto                  (ProxySecretKey)
 import           Pos.DHT.Model               (MonadMessageDHT, defaultSendToNeighbors,
                                               sendToNeighbors, sendToNode)
-import           Pos.Security                (shouldIgnoreAddress)
+import           Pos.Security                (AttackType (..), shouldIgnoreAddress)
 import           Pos.Txp.Types.Communication (TxDataMsg (..))
 import           Pos.Types                   (EpochIndex, HeaderHash, MainBlockHeader, Tx,
                                               TxWitness, headerHash)
@@ -57,8 +57,11 @@ sendToNeighborsSafe = sendToNeighborsSafeImpl $ void . sendToNeighbors
 sendToNeighborsSafeWithMaliciousEmulation :: (Bi r, Message r, WorkMode ssc m) => r -> m ()
 sendToNeighborsSafeWithMaliciousEmulation msg = do
     cont <- getNodeContext
-      -- [CSL-336] Make this parallel
-    sendToNeighborsSafeImpl (void . defaultSendToNeighbors sequence (sendToNode' cont)) msg
+    -- [CSL-336] Make this parallel
+    let sender = if AttackNoBlocks `elem` ncAttackTypes cont
+                 then defaultSendToNeighbors sequence (sendToNode' cont)
+                 else sendToNeighbors
+    sendToNeighborsSafeImpl (void . sender) msg
   where
     sendToNode' cont addr message =
         unless (shouldIgnoreAddress cont addr) $

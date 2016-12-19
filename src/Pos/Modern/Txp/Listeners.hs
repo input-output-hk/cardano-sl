@@ -11,7 +11,6 @@ module Pos.Modern.Txp.Listeners
 
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.List.NonEmpty           as NE
-import           Data.Maybe                   (fromJust)
 import           Formatting                   (build, sformat, stext, (%))
 import           System.Wlog                  (logDebug, logInfo, logWarning)
 import           Universum
@@ -69,7 +68,7 @@ handleTxReq (TxReqMsg txIds_) = do
     localTxs <- getLocalTxs
     let txIds = NE.toList txIds_
         found = map (flip HM.lookup localTxs) txIds
-        addedItems = map fromJust . filter isJust $ found
+        addedItems = catMaybes found
     mapM_ (replyToNode . uncurry TxDataMsg) addedItems
 
 handleTxData :: (ResponseMode ssc m)

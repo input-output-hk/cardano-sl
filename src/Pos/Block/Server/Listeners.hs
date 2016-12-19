@@ -162,6 +162,7 @@ handleBlocks blocks = do
                 VerFailure errors ->
                     reportErrors errors >> applyBlocks (fmap fst toRollback) $>
                     tip
+    -- TODO: ban node on error!
     reportErrors =
         logWarning . sformat ("Failed to verify blocks: " %stext) .
         T.intercalate ";"

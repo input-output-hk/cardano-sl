@@ -17,8 +17,7 @@ import           Bench.Network.Commons      (MeasureEvent (..), Payload (..), Pi
                                              Pong (..), loadLogConfig, logMeasure)
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP      as TCP
-import           Node                       (ConversationActions (..), Listener (..),
-                                             ListenerAction (..), connect, sendTo,
+import           Node                       (Listener (..), ListenerAction (..), sendTo,
                                              startNode, stopNode)
 import           Node.Internal              (NodeId (..))
 import           SenderOptions              (Args (..), argsParser)

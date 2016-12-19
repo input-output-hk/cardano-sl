@@ -10,7 +10,7 @@ module Pos.Block.Server.State
        , HasBlockSocketState (blockSocketState)
        , bssRequestedBlocks
 
-       , tryRequestBlocks
+       , recordBlocksRequest
        ) where
 
 import           Control.Concurrent.STM        (TVar, modifyTVar, readTVar)
@@ -37,12 +37,14 @@ instance Default (BlockSocketState ssc) where
         { _bssRequestedBlocks = Nothing
         }
 
-tryRequestBlocks
+-- | Record blocks request in BlockSocketState. This function blocks
+-- if some blocks are requsted already.
+recordBlocksRequest
     :: (MonadIO m, HasBlockSocketState s ssc)
-    => MsgGetBlocks ssc -> TVar s -> m Bool
-tryRequestBlocks msg var =
+    => MsgGetBlocks ssc -> TVar s -> m ()
+recordBlocksRequest msg var =
     atomically $
     do existingMessage <- view bssRequestedBlocks <$> readTVar var
        case existingMessage of
-           Nothing -> True <$ modifyTVar var (set bssRequestedBlocks (Just msg))
-           Just _  -> pure False
+           Nothing -> modifyTVar var (set bssRequestedBlocks (Just msg))
+           Just _  -> retry

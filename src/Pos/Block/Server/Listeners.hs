@@ -10,6 +10,7 @@ module Pos.Block.Server.Listeners
        ( blockListeners
        ) where
 
+import           Control.Lens             ((^.))
 import           Data.List.NonEmpty       (NonEmpty ((:|)))
 import           Formatting               (sformat, stext, (%))
 import           System.Wlog              (logDebug)
@@ -17,12 +18,13 @@ import           Universum
 
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (ClassifyHeaderRes (..), classifyNewHeader)
+import           Pos.Block.Requests       (replyWithBlockRequest)
 import           Pos.Communication.Types  (MsgBlock (..), MsgGetBlocks (..),
                                            MsgGetHeaders (..), MsgHeaders (..),
                                            MutSocketState, ResponseMode)
 import           Pos.Crypto               (shortHashF)
 import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog)
-import           Pos.Types                (BlockHeader, headerHash)
+import           Pos.Types                (BlockHeader, headerHash, prevBlockL)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
@@ -63,13 +65,16 @@ handleUnsolicitedHeaders
 handleUnsolicitedHeaders (header :| []) = do
     classificationRes <- classifyNewHeader header
     case classificationRes of
-        CHRcontinues -> pass -- TODO: request block
+        CHRcontinues ->
+            replyWithBlockRequest (header ^. prevBlockL) (headerHash header)
         CHRalternative -> pass -- TODO: request multiple blocks or headers, dunno
         CHRuseless reason ->
             logDebug $
             sformat
-                ("Header "%shortHashF%" is useless for the following reason: "%stext)
-                (headerHash header) reason
+                ("Header " %shortHashF %
+                 " is useless for the following reason: " %stext)
+                (headerHash header)
+                reason
         CHRinvalid _ -> pass -- TODO: ban node for sending invalid block.
 -- TODO: ban node for sending more than one unsolicited header.
 handleUnsolicitedHeaders _ = pass

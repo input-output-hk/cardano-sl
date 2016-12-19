@@ -94,15 +94,6 @@ class Monad m => SscStorageClassM ssc m | m -> ssc where
     -- if first argument isn't zero).
     sscVerifyBlocksM :: Word -> AltChain ssc -> m VerificationRes
 
-    -- [CSL-103]: these 3 functions should be replaced with something different.
-    sscGetOurSharesM
-        :: (AsBinary VssPublicKey)
-        -> m (HashMap Address (AsBinary EncShare))
-    sscGetParticipantsM :: Word -> Utxo ->
-                          m (Maybe (NonEmpty (AsBinary VssPublicKey)))
-    sscCalculateLeadersM :: EpochIndex -> Utxo -> Threshold ->
-                           m (Either (SscSeedError ssc) SlotLeaders)
-
 -- | Class of objects that we can retrieve 'SscStorage' from.
 class HasSscStorage ssc a where
     sscStorage :: Lens' a (SscStorage ssc)
@@ -126,7 +117,7 @@ class Ssc ssc => SscStorageClass ssc where
     -- if first argument isn't zero).
     sscVerifyBlocks :: Word -> AltChain ssc -> SscQuery ssc VerificationRes
 
-    -- [CSL-103]: these 3 functions should be replaced with something different.
+        -- [CSL-103]: these 3 functions should be replaced with something different.
     sscGetOurShares
         :: (AsBinary VssPublicKey)
         -> SscQuery ssc (HashMap Address (AsBinary EncShare))
@@ -143,13 +134,6 @@ sscRunGlobalQuery
        MonadSscGS ssc m
     => Reader (SscGlobalState ssc) a -> m a
 sscRunGlobalQuery query = runReader query <$> getGlobalState @ssc
-
--- | Convenient wrapper to run LocalUpdate in MonadSscLD.
--- sscRunGlobalUpdate
---     :: MonadSscGS ssc m
---     => State (SscLocalData ssc) a -> m a
--- sscRunGlobalUpdate upd =
---     modifyLocalData (\(_, l) -> runState upd l)
 
 sscRunGlobalModify
     :: forall ssc m a .

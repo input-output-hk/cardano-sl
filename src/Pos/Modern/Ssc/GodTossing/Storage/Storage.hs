@@ -58,9 +58,9 @@ import           Pos.State.Storage.Types                  (AltChain)
 import           Pos.Types                                (Address (..), Block,
                                                            EpochIndex, HeaderHash,
                                                            SlotId (..), SlotLeaders, Utxo,
-                                                           blockMpc, blockSlot, blockSlot,
-                                                           gbHeader, genesisHash,
-                                                           prevBlockL, txOutAddress)
+                                                           blockMpc, blockSlot, gbHeader,
+                                                           genesisHash, prevBlockL,
+                                                           txOutAddress)
 import           Pos.Util                                 (AsBinary, magnify', neFromList,
                                                            readerToState, _neHead)
 
@@ -90,68 +90,6 @@ instance (SscBi, Monad m, MonadDB SscGodTossing m, Ssc SscGodTossing
     --getGlobalStateM = sscRunGlobalQuery $ getGlobalMpcData
     --sscGetGlobalStateByDepth = getGlobalMpcDataByDepth
     sscVerifyBlocksM _ = sscRunGlobalQuery . mpcVerifyBlocks
-
-    -- sscGetOurShares = getOurShares
-    -- sscGetParticipants = getParticipants
-    -- sscCalculateLeadersM = notImplemented
-
--- getGlobalMpcData :: GSQuery GtGlobalState
--- getGlobalMpcData =
---     fromMaybe (panic "No global SSC payload for depth 0") <$>
---     getGlobalMpcDataByDepth 0
-
--- TODO: check for off-by-one errors!!!!111
---
--- specifically, I'm not sure whether versioning here and versioning in .Tx
--- are the same versionings
--- getGlobalMpcDataByDepth :: Word -> GSQuery (Maybe GtGlobalState)
--- getGlobalMpcDataByDepth (fromIntegral -> depth) =
---     Just . execState (mpcRollback depth) <$> ask
-
--- | Get keys of nodes participating in an epoch. A node participates if,
--- when there were 'k' slots left before the end of the previous epoch, both
--- of these were true:
---
---   1. It was a stakeholder.
---   2. It had already sent us its VSS key by that time.
--- getParticipants :: Word -> Utxo -> GSQuery (Maybe (NonEmpty (AsBinary VssPublicKey)))
--- getParticipants depth utxo = do
---     mKeymap <- fmap _gsVssCertificates <$> getGlobalMpcDataByDepth depth  -- it is verifiedVssCertificates
---     return $
---         do keymap <- mKeymap
---            let stakeholders =
---                    nub $ map txOutAddress (toList utxo)
---            NE.nonEmpty $
---                map vcVssKey $ mapMaybe (`HM.lookup` keymap) stakeholders
-
--- | Decrypt shares (in commitments) that we can decrypt.
--- getOurShares
---     :: AsBinary VssPublicKey                           -- ^ Our VSS key
---     -> Query (HashMap Address (AsBinary EncShare))
--- getOurShares ourPK = do
---     comms <- view (lastVer . dsGlobalCommitments)
---     opens <- view (lastVer . dsGlobalOpenings)
---     return .
---         HM.fromList . catMaybes $
---             flip fmap (HM.toList comms) $ \(theirAddr, (_, Commitment{..}, _)) ->
---                 if not $ HM.member theirAddr opens
---                    then (,) theirAddr <$> HM.lookup ourPK commShares
---                    else Nothing -- if we have opening for theirAddr, we shouldn't send shares for it
-
--- | Calculate leaders for the next epoch.
-calculateLeaders
-    :: EpochIndex
-    -> Utxo            -- ^ Utxo (k slots before the end of epoch)
-    -> Threshold
-    -> GSQuery (Either SeedError SlotLeaders)
-calculateLeaders _ utxo threshold = do --GodTossing doesn't use epoch, but NistBeacon use it
-    mbSeed <- calculateSeed threshold
-                            <$> view gsCommitments
-                            <*> view gsOpenings
-                            <*> view gsShares
-    return $ case mbSeed of
-        Left e     -> Left e
-        Right seed -> Right $ followTheSatoshi seed utxo
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
@@ -257,6 +195,20 @@ mpcVerifyBlocks  blocks = do
             return v
         return (fold vs)
 
+unionPayload :: GtPayload -> GtGlobalState -> GtGlobalState
+unionPayload payload =
+    execState (do
+    let blockCertificates = _gpCertificates payload
+    case payload of
+        CommitmentsPayload comms _ ->
+            gsCommitments %= HM.union comms
+        OpeningsPayload    opens _ ->
+            gsOpenings %= HM.union opens
+        SharesPayload     shares _ ->
+            gsShares %= HM.unionWith HM.union shares
+        CertificatesPayload      _ -> pure ()
+    gsVssCertificates %= HM.union blockCertificates)
+
 -- | Apply sequence of blocks to state. Sequence must be based on last
 -- applied block and must be valid.
 mpcApplyBlocks
@@ -279,20 +231,6 @@ mpcProcessBlock blk = do
             gsShares      .= mempty
         -- Main blocks contain commitments, openings, shares, VSS certificates
         Right b -> modify (unionPayload (b ^. blockMpc))
-
-unionPayload :: GtPayload -> GtGlobalState -> GtGlobalState
-unionPayload payload =
-    execState (do
-    let blockCertificates = _gpCertificates payload
-    case payload of
-        CommitmentsPayload comms _ ->
-            gsCommitments %= HM.union comms
-        OpeningsPayload    opens _ ->
-            gsOpenings %= HM.union opens
-        SharesPayload     shares _ ->
-            gsShares %= HM.unionWith HM.union shares
-        CertificatesPayload      _ -> pure ()
-    gsVssCertificates %= HM.union blockCertificates)
 
 mpcRollback :: forall m . DBMode SscGodTossing m
             => Word -> m ()

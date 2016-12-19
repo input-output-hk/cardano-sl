@@ -208,6 +208,7 @@ library
                         Pos.Modern.Ssc.GodTossing.LocalData.Types
                         Pos.Modern.Ssc.GodTossing.LocalData.Helpers
                         Pos.Modern.Ssc.GodTossing.Storage.Storage
+                        Pos.Modern.Ssc.GodTossing.Helpers
                         Pos.Modern.Ssc.GodTossing.Storage.Types
   if flag(with-web)
     other-modules:      Pos.Web.Api

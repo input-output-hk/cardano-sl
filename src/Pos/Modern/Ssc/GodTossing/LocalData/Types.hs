@@ -6,7 +6,7 @@
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Pos.Modern.Ssc.GodTossing.LocalData.Types
-       ( GtLocalData (..)
+       ( GtLocalDataM (..)
        , ldCommitments
        , ldOpenings
        , ldShares
@@ -22,7 +22,7 @@ import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, Sha
                                                 VssCertificatesMap)
 import           Pos.Types                     (SlotId, unflattenSlotId)
 
-data GtLocalData = GtLocalData
+data GtLocalDataM = GtLocalDataM
     { -- | Local set of 'Commitment's. These are valid commitments which are
       -- known to the node and not stored in blockchain. It is useful only
       -- for the first 'k' slots, after that it should be discarded.
@@ -37,11 +37,11 @@ data GtLocalData = GtLocalData
     , -- | Last slot we are aware of.
       _ldLastProcessedSlot :: !SlotId
     }
-makeLenses ''GtLocalData
+makeLenses ''GtLocalDataM
 
-instance Default GtLocalData where
+instance Default GtLocalDataM where
     def =
-        GtLocalData
+        GtLocalDataM
         { _ldCertificates = mempty
         , _ldShares = mempty
         , _ldOpenings = mempty

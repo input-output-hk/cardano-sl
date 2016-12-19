@@ -65,24 +65,24 @@ import           Pos.Util                                 (AsBinary, magnify', n
                                                            readerToState, _neHead)
 
 import           Pos.Modern.DB                            (MonadDB (..), getBlock, getTip)
-import           Pos.Modern.Ssc.GodTossing.Storage.Types  (GtGlobalState (..),
+import           Pos.Modern.Ssc.GodTossing.Storage.Types  (GtGlobalStateM (..),
                                                            gsCommitments, gsOpenings,
                                                            gsShares, gsVssCertificates)
 import           Pos.Modern.Ssc.GodTossing.Types.Instance ()
 
-type GSQuery a  = forall m . Monad m => ReaderT GtGlobalState m a
-type GSUpdate a = forall m . Monad m => StateT GtGlobalState m a
+type GSQuery a  = forall m . Monad m => ReaderT GtGlobalStateM m a
+type GSUpdate a = forall m . Monad m => StateT GtGlobalStateM m a
 type DBMode ssc m = (MonadSscGS SscGodTossing m
                     , MonadDB SscGodTossing m
                     , MonadThrow m
                     , SscPayload SscGodTossing ~ GtPayload
-                    , SscGlobalState SscGodTossing ~ GtGlobalState
+                    , SscGlobalState SscGodTossing ~ GtGlobalStateM
                     , Ssc SscGodTossing)
 
 instance (SscBi, Monad m, MonadDB SscGodTossing m, Ssc SscGodTossing
          , MonadSscGS SscGodTossing m, MonadThrow m
          , SscPayload SscGodTossing ~ GtPayload
-         , SscGlobalState SscGodTossing ~ GtGlobalState)
+         , SscGlobalState SscGodTossing ~ GtGlobalStateM)
          => SscStorageClassM SscGodTossing m where
     loadGlobalState = mpcLoadGlobalState
     sscApplyBlocksM = sscRunGlobalModify . mpcApplyBlocks
@@ -195,7 +195,7 @@ mpcVerifyBlocks  blocks = do
             return v
         return (fold vs)
 
-unionPayload :: GtPayload -> GtGlobalState -> GtGlobalState
+unionPayload :: GtPayload -> GtGlobalStateM -> GtGlobalStateM
 unionPayload payload =
     execState (do
     let blockCertificates = _gpCertificates payload
@@ -244,7 +244,7 @@ mpcRollback cn = do
     else
         execStateT unionBlocks (def, curTip) >>= setGlobalState . fst
   where
-    rollbackN :: Word -> StateT (GtGlobalState, HeaderHash SscGodTossing, Bool) m ()
+    rollbackN :: Word -> StateT (GtGlobalStateM, HeaderHash SscGodTossing, Bool) m ()
     rollbackN n = do
         forM_ [1..n] (\_->do
             curTip <- use _2
@@ -258,7 +258,7 @@ mpcRollback cn = do
                   )
                   block
             )
-    differenceBlock :: Block SscGodTossing -> StateT (GtGlobalState, HeaderHash SscGodTossing, Bool) m ()
+    differenceBlock :: Block SscGodTossing -> StateT (GtGlobalStateM, HeaderHash SscGodTossing, Bool) m ()
     differenceBlock (Left _)  = _3 .= True
     differenceBlock (Right b) = do
         let payload = b ^. blockMpc
@@ -276,7 +276,7 @@ mpcRollback cn = do
 
 -- TODO union of certificats is invalid
 -- | Union payloads of blocks until meet genesis block
-unionBlocks :: DBMode SscGodTossing m => StateT (GtGlobalState, HeaderHash SscGodTossing) m ()
+unionBlocks :: DBMode SscGodTossing m => StateT (GtGlobalStateM, HeaderHash SscGodTossing) m ()
 unionBlocks = whileM
     (do
         curTip <- use _2
@@ -292,7 +292,7 @@ unionBlocks = whileM
               block
     ) (pure ())
 
-mpcLoadGlobalState :: DBMode SscGodTossing m => m GtGlobalState
+mpcLoadGlobalState :: DBMode SscGodTossing m => m GtGlobalStateM
 mpcLoadGlobalState = do
     initTip <- getTip
     fst <$> execStateT unionBlocks (def, initTip)

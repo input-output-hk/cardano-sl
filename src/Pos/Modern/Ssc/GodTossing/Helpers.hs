@@ -26,7 +26,7 @@ import           Pos.Types                               (Address (..), EpochInd
                                                           SlotLeaders, Utxo, txOutAddress)
 import           Pos.Util                                (AsBinary)
 
-import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
+import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalStateM (..),
                                                           gsCommitments, gsOpenings,
                                                           gsShares, gsVssCertificates)
 import           Pos.Ssc.Class.Helpers                   (SscHelpersClassM (..), SscQueryH)
@@ -34,7 +34,7 @@ import           Pos.Ssc.Class.Helpers                   (SscHelpersClassM (..),
 type GSQuery a = SscQueryH SscGodTossing a
 
 instance (Ssc SscGodTossing
-         , SscGlobalState SscGodTossing ~ GtGlobalState
+         , SscGlobalState SscGodTossing ~ GtGlobalStateM
          , SscSeedError SscGodTossing ~ SeedError)
          => SscHelpersClassM SscGodTossing where
     sscGetOurSharesQ = getOurShares
@@ -48,7 +48,7 @@ instance (Ssc SscGodTossing
 --   1. It was a stakeholder.
 --   2. It had already sent us its VSS key by that time.
 getParticipants
-    :: (SscGlobalState SscGodTossing ~ GtGlobalState)
+    :: (SscGlobalState SscGodTossing ~ GtGlobalStateM)
     => Word -> Utxo -> GSQuery (Maybe (NonEmpty (AsBinary VssPublicKey)))
 getParticipants depth utxo = do
     mKeymap <- Just <$> view gsVssCertificates
@@ -63,7 +63,7 @@ getParticipants depth utxo = do
 
 -- | Decrypt shares (in commitments) that we can decrypt.
 getOurShares
-    :: (SscGlobalState SscGodTossing ~ GtGlobalState)
+    :: (SscGlobalState SscGodTossing ~ GtGlobalStateM)
     => AsBinary VssPublicKey                           -- ^ Our VSS key
     -> GSQuery (HashMap Address (AsBinary EncShare))
 getOurShares ourPK = do
@@ -78,7 +78,7 @@ getOurShares ourPK = do
 
 -- | Calculate leaders for the next epoch.
 calculateLeaders
-    :: (SscGlobalState SscGodTossing ~ GtGlobalState)
+    :: (SscGlobalState SscGodTossing ~ GtGlobalStateM)
     => EpochIndex
     -> Utxo            -- ^ Utxo (k slots before the end of epoch)
     -> Threshold

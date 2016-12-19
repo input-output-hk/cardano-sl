@@ -202,7 +202,6 @@ library
                         Pos.Modern.Txp.Holder
                         Pos.Modern.Txp.Listeners
                         Pos.Modern.Ssc.Holder
-                        Pos.Modern.Ssc.GodTossing.Types.Type
                         Pos.Modern.Ssc.GodTossing.Types.Instance
                         Pos.Modern.Ssc.GodTossing.LocalData.LocalData
                         Pos.Modern.Ssc.GodTossing.LocalData.Types

@@ -12,7 +12,7 @@
 -- | GodTossing global state.
 
 module Pos.Modern.Ssc.GodTossing.Storage.Types
-       ( GtGlobalState (..)
+       ( GtGlobalStateM (..)
        -- * Lenses
        -- ** GtGlobalState
        , gsCommitments
@@ -30,7 +30,7 @@ import           Pos.Ssc.GodTossing.Types.Base  (CommitmentsMap, OpeningsMap, Sh
                                                  VssCertificatesMap)
 
 -- | MPC-related content of main body.
-data GtGlobalState = GtGlobalState
+data GtGlobalStateM = GtGlobalStateM
     { -- | Commitments are added during the first phase of epoch.
       _gsCommitments     :: !CommitmentsMap
       -- | Openings are added during the second phase of epoch.
@@ -42,12 +42,12 @@ data GtGlobalState = GtGlobalState
     , _gsVssCertificates :: !VssCertificatesMap
     } deriving (Show, Generic)
 
-deriveSafeCopySimple 0 'base ''GtGlobalState
-makeLenses ''GtGlobalState
+deriveSafeCopySimple 0 'base ''GtGlobalStateM
+makeLenses ''GtGlobalStateM
 
-instance Default GtGlobalState where
+instance Default GtGlobalStateM where
     def =
-        GtGlobalState
+        GtGlobalStateM
         {
           _gsCommitments = mempty
         , _gsOpenings = mempty

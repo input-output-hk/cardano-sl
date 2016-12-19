@@ -14,10 +14,10 @@ import           Universum
 import qualified Pos.Modern.Ssc.GodTossing.LocalData.Types as LD
 import qualified Pos.Modern.Ssc.GodTossing.Storage.Types   as GS
 import           Pos.Modern.Ssc.GodTossing.Types.Instance  ()
-import           Pos.Modern.Ssc.GodTossing.Types.Type      (SscGodTossing)
 import           Pos.Ssc.Class.LocalData                   (MonadSscLD (modifyLocalData))
 import           Pos.Ssc.GodTossing.Types.Base             (CommitmentsMap, OpeningsMap,
                                                             SharesMap, VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Types.Type             (SscGodTossing)
 import           Pos.Types                                 (SlotId)
 
 -- | This wrapper using for pass local and global state to
@@ -74,7 +74,7 @@ gtRunRead rd =
           let res = runReader rd (toGtState g l) in
           (res, l))
 
-toGtState :: GS.GtGlobalState -> LD.GtLocalData -> GtState
+toGtState :: GS.GtGlobalStateM -> LD.GtLocalDataM -> GtState
 toGtState g l =
     GtState
     { -- Can I simplify it?
@@ -89,9 +89,9 @@ toGtState g l =
     , _gtLastProcessedSlot  = LD._ldLastProcessedSlot l
     }
 
-fromGtState :: GtState -> LD.GtLocalData
+fromGtState :: GtState -> LD.GtLocalDataM
 fromGtState st =
-    LD.GtLocalData
+    LD.GtLocalDataM
     {
       _ldCommitments       = _gtLocalCommitments st
     , _ldOpenings          = _gtLocalOpenings st

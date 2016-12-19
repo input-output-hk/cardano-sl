@@ -1,11 +1,15 @@
-sudo: true
-os:
-  - linux
-  # TODO: enable once rocksdb builds
-  #- osx
 language: nix
+sudo: true
+matrix:
+    include:
+        - os: osx
+          osx_image: xcode7.3
+        - os: osx
+          osx_image: xcode8
+        - os: osx
+          osx_image: xcode8.2
 env:
-  - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/e18dac705ad36482880e23d0a89c60c3514cb446.tar.gz
+  - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/addcb0dddf2b7db505dae5c38fceb691c7ed85f9.tar.gz
 cache:
   directories:
   - "$HOME/.stack"
@@ -18,7 +22,7 @@ before_install:
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
 - travis_retry curl -L https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64 | tar xz --strip-components=1 -C ~/.local/bin
 - nix-shell --run ":"
-- stack --nix --no-terminal build --nix --test --no-haddock-deps --ghc-options="-j +RTS -A128m -n2m -RTS" --only-dependencies --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet
+- stack --nix --no-terminal build --nix --fast --test --no-haddock-deps --ghc-options="-j +RTS -A128m -n2m -RTS" --only-dependencies --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet
 
 # --fast and ghc-options greatly improve CI build times
 script:

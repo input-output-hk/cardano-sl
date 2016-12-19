@@ -11,15 +11,18 @@ module Pos.Block.Server.State
        , bssRequestedBlocks
 
        , recordHeadersRequest
+       , matchRequestedHeaders
        , recordBlocksRequest
        ) where
 
 import           Control.Concurrent.STM        (TVar, modifyTVar, readTVar)
 import           Control.Lens                  (makeClassy, set, view)
 import           Data.Default                  (Default (def))
+import           Data.List.NonEmpty            (NonEmpty)
 import           Universum
 
 import           Pos.Communication.Types.Block (MsgGetBlocks, MsgGetHeaders)
+import           Pos.Types                     (BlockHeader)
 
 -- | SocketState used for Block server.
 data BlockSocketState ssc = BlockSocketState
@@ -54,6 +57,17 @@ recordHeadersRequest msg var =
        case existingMessage of
            Nothing -> modifyTVar var (set bssRequestedHeaders (Just msg))
            Just _  -> retry
+
+-- | Try to match headers from 'Headers' message with requested
+-- headers.  If 'bssRequestedHeaders' in socket state is Nothing or
+-- `bssRequestedHeaders` doesn't match `Headers' message, nothing is
+-- done and 'False' is returned.  If 'bssRequestedHeaders' in socket
+-- state matches 'Headers' message, it's invalidated and 'True' is
+-- returned.
+matchRequestedHeaders
+    :: (MonadIO m, HasBlockSocketState s ssc)
+    => NonEmpty (BlockHeader ssc) -> TVar s -> m Bool
+matchRequestedHeaders = notImplemented
 
 -- | Record blocks request in BlockSocketState. This function blocks
 -- if some blocks are requsted already.

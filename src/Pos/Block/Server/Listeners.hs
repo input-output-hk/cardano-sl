@@ -19,11 +19,12 @@ import           Universum
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (ClassifyHeaderRes (..), classifyNewHeader)
 import           Pos.Block.Requests       (replyWithBlockRequest)
+import           Pos.Block.Server.State   (matchRequestedHeaders)
 import           Pos.Communication.Types  (MsgBlock (..), MsgGetBlocks (..),
                                            MsgGetHeaders (..), MsgHeaders (..),
                                            MutSocketState, ResponseMode)
 import           Pos.Crypto               (shortHashF)
-import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog)
+import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog, getUserState)
 import           Pos.Types                (BlockHeader, headerHash, prevBlockL)
 import           Pos.WorkMode             (WorkMode)
 
@@ -55,8 +56,15 @@ handleBlockHeaders
        (ResponseMode ssc m)
     => MsgHeaders ssc -> m ()
 handleBlockHeaders (MsgHeaders headers) = do
-    -- TODO: decide what to do depending on socket state
-    handleUnsolicitedHeaders headers
+    ifM (matchRequestedHeaders headers =<< getUserState)
+        (handleRequestedHeaders headers)
+        (handleUnsolicitedHeaders headers)
+
+handleRequestedHeaders
+    :: forall ssc m.
+       (ResponseMode ssc m)
+    => NonEmpty (BlockHeader ssc) -> m ()
+handleRequestedHeaders _ = notImplemented
 
 handleUnsolicitedHeaders
     :: forall ssc m.

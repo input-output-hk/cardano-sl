@@ -51,7 +51,7 @@ replyWithBlockRequest
     :: forall ssc m . ResponseMode ssc m
     => HeaderHash ssc -> HeaderHash ssc -> m ()
 replyWithBlockRequest ourTip wantedBlock = do
-    recordBlocksRequest msg =<< getUserState
+    recordBlocksRequest ourTip wantedBlock =<< getUserState
     replyToNode msg
   where
     msg = mkBlockRequest ourTip wantedBlock

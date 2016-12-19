@@ -14,7 +14,7 @@ import qualified Data.HashMap.Strict           as HM (fromList, lookup, mapMaybe
 import qualified Data.HashSet                  as HS (difference)
 import           Universum
 
-import           Pos.Crypto                    (Secret, Share, Threshold, shareId,
+import           Pos.Crypto                    (Secret, Share, Threshold,
                                                 unsafeRecoverSecret)
 import           Pos.Ssc.GodTossing.Error      (SeedError (..))
 import           Pos.Ssc.GodTossing.Functions  (secretToSharedSeed, verifyOpening)

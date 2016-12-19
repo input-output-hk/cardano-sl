@@ -51,7 +51,7 @@ import           Data.SafeCopy          (SafeCopy (..), base, contain,
                                          deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text.Buildable    as B
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (Format, bprint, build, later, sformat, (%))
+import           Formatting             (Format, bprint, build, later, (%))
 import qualified Serokell.Util.Base64   as Base64 (decode, encode)
 import           Universum
 

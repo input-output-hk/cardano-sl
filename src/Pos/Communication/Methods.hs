@@ -22,7 +22,7 @@ import           Control.TimeWarp.Rpc        (Message, NetworkAddress)
 import           Control.TimeWarp.Timed      (fork_)
 import           Formatting                  (build, sformat, (%))
 import           Pos.State                   (getHeadBlock)
-import           System.Wlog                 (logDebug, logNotice)
+import           System.Wlog                 (logDebug)
 import           Universum
 
 import           Pos.Binary.Class            (Bi)
@@ -84,11 +84,11 @@ sendProxySecretKey
     :: (MinWorkMode ss m)
     => ProxySecretKey (EpochIndex, EpochIndex) -> m ()
 sendProxySecretKey psk = do
-    logNotice $ sformat ("Sending proxySecretKey to neigbours:\n"%build) psk
+    logDebug $ sformat ("Sending proxySecretKey to neigbours:\n"%build) psk
     sendToNeighborsSafe $ SendProxySK psk
 
 sendProxyConfirmSK :: (MinWorkMode ss m) => ConfirmProxySK -> m ()
 sendProxyConfirmSK confirmPSK@(ConfirmProxySK psk _) = do
-    logNotice $
+    logDebug $
         sformat ("Sending proxy receival confirmation for psk "%build%" to neigbours") psk
     sendToNeighborsSafe confirmPSK

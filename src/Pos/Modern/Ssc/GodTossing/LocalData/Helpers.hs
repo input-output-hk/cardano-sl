@@ -74,7 +74,7 @@ gtRunRead rd =
           let res = runReader rd (toGtState g l) in
           (res, l))
 
-toGtState :: GS.GtGlobalStateM -> LD.GtLocalDataM -> GtState
+toGtState :: GS.GtGlobalState -> LD.GtLocalData -> GtState
 toGtState g l =
     GtState
     { -- Can I simplify it?
@@ -89,9 +89,9 @@ toGtState g l =
     , _gtLastProcessedSlot  = LD._ldLastProcessedSlot l
     }
 
-fromGtState :: GtState -> LD.GtLocalDataM
+fromGtState :: GtState -> LD.GtLocalData
 fromGtState st =
-    LD.GtLocalDataM
+    LD.GtLocalData
     {
       _ldCommitments       = _gtLocalCommitments st
     , _ldOpenings          = _gtLocalOpenings st

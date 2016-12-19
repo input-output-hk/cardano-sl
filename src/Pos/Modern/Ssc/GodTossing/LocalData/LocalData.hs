@@ -43,7 +43,7 @@ import           Pos.Modern.Ssc.GodTossing.LocalData.Helpers (GtState,
 import           Pos.Modern.Ssc.GodTossing.LocalData.Types   (ldCertificates,
                                                               ldCommitments, ldOpenings,
                                                               ldShares)
-import           Pos.Modern.Ssc.GodTossing.Storage.Types     (GtGlobalStateM (..))
+import           Pos.Modern.Ssc.GodTossing.Storage.Types     (GtGlobalState (..))
 import           Pos.Modern.Ssc.GodTossing.Types.Instance    ()
 import           Pos.Ssc.Class.LocalData                     (LocalQuery, LocalUpdate,
                                                               MonadSscLD,
@@ -70,7 +70,7 @@ import           Pos.Util                                    (AsBinary, diffDoub
 type LDQuery a = forall m .  MonadReader GtState m => m a
 type LDUpdate a = forall m . MonadState GtState m  => m a
 
-instance (SscBi, SscGlobalState SscGodTossing ~ GtGlobalStateM)
+instance (SscBi, SscGlobalState SscGodTossing ~ GtGlobalState)
         => SscLocalDataClass SscGodTossing where
     sscEmptyLocalData = def
     sscGetLocalPayloadQ = getLocalPayload
@@ -80,7 +80,7 @@ instance (SscBi, SscGlobalState SscGodTossing ~ GtGlobalStateM)
 -- Apply Global State
 ----------------------------------------------------------------------------
 
-applyGlobal :: GtGlobalStateM -> LocalUpdate SscGodTossing ()
+applyGlobal :: GtGlobalState -> LocalUpdate SscGodTossing ()
 applyGlobal globalData = do
     let globalCommitments = _gsCommitments globalData
         globalOpenings = _gsOpenings globalData

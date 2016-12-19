@@ -70,7 +70,7 @@ export default {
       debug: true,
       devtool: 'cheap-module-eval-source-map',
       devServer: {
-        port: 3000,
+        port: 3080,
         host: 'localhost',
         historyApiFallback: true,
         watchOptions: {
@@ -78,7 +78,7 @@ export default {
           poll: 1000
         },
         proxy: {
-          '/addresses': {
+          '/api': {
             target: 'http://localhost:8090',  // proxy port of wallet-api
             secure: false
           }

@@ -17,17 +17,17 @@ import           Pos.Wallet.Web.ClientTypes (CAddress)
 
 -- | Servant API which provides access to wallet.
 type WalletApi =
-    "addresses" :> Get '[JSON] [CAddress]
-  :<|>
-    "balances" :> Get '[JSON] [(CAddress, Coin)]
-  :<|>
-    "send" :> Capture "from" Word :> Capture "to" Address :> Capture "amount" Coin :> Post '[JSON] ()
-  :<|>
-    "history" :> Capture "address" Address :> Get '[JSON] [Tx]
-  :<|>
-    "new_address" :> Post '[JSON] CAddress
-  :<|>
-    "delete_address" :> Capture "index" Word :> Post '[JSON] ()
+     "api" :> "addresses" :> Get '[JSON] [CAddress]
+    :<|>
+     "api" :> "balances" :> Get '[JSON] [(CAddress, Coin)]
+    :<|>
+     "api" :> "send" :> Capture "from" Word :> Capture "to" Address :> Capture "amount" Coin :> Post '[JSON] ()
+    :<|>
+     "api" :> "history" :> Capture "address" Address :> Get '[JSON] [Tx]
+    :<|>
+     "api" :> "new_address" :> Post '[JSON] CAddress
+    :<|>
+     "api" :> "delete_address" :> Capture "index" Word :> Post '[JSON] ()
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

@@ -1,5 +1,4 @@
-{-# LANGUAGE DeriveLift      #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveLift #-}
 
 {-| Compile-time configuration is represented by 'CompileConfig' data type.
     This configuration is parsed at compile-time using /file-embed/ library
@@ -10,9 +9,7 @@ module Pos.CompileConfig.Type
     ( CompileConfig (..)
     ) where
 
-import qualified Data.Aeson.TH              as A
 import           Language.Haskell.TH.Syntax (Lift)
-import           Serokell.Aeson.Options     (defaultOptions)
 import           Universum
 
 -- | Compile time configuration. See example in /constants.yaml/ file.
@@ -27,5 +24,3 @@ data CompileConfig = CompileConfig
     , ccSysTimeBroadcastSlots   :: !Int       -- ^ Number of slots to broadcast system time
     , ccMpcSendInterval         :: !Word      -- ^ Length of interval for sending MPC message
     } deriving (Show, Lift)
-
-$(A.deriveFromJSON defaultOptions ''CompileConfig)

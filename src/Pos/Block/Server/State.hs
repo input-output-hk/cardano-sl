@@ -9,16 +9,23 @@ module Pos.Block.Server.State
        ( BlockSocketState
        , HasBlockSocketState (blockSocketState)
        , bssRequestedBlocks
+
+       , tryRequestBlocks
        ) where
 
-import           Control.Lens (makeClassy)
-import           Data.Default (Default (def))
+import           Control.Concurrent.STM        (TVar, modifyTVar, readTVar)
+import           Control.Lens                  (makeClassy, set, view)
+import           Data.Default                  (Default (def))
 import           Universum
 
-import           Pos.Types    (HeaderHash)
+import           Pos.Communication.Types.Block (MsgGetBlocks)
 
+-- | SocketState used for Block server.
 data BlockSocketState ssc = BlockSocketState
-    { _bssRequestedBlocks :: [HeaderHash ssc]
+    { -- | This field is filled when we request blocks (sending
+      -- `GetBlocks` message) and is invalidated when we get all
+      -- requested blocks.
+      _bssRequestedBlocks :: !(Maybe (MsgGetBlocks ssc))
     }
 
 -- | Classy lenses generated for BlockSocketState.
@@ -27,5 +34,15 @@ makeClassy ''BlockSocketState
 instance Default (BlockSocketState ssc) where
     def =
         BlockSocketState
-        { _bssRequestedBlocks = mempty
+        { _bssRequestedBlocks = Nothing
         }
+
+tryRequestBlocks
+    :: (MonadIO m, HasBlockSocketState s ssc)
+    => MsgGetBlocks ssc -> TVar s -> m Bool
+tryRequestBlocks msg var =
+    atomically $
+    do existingMessage <- view bssRequestedBlocks <$> readTVar var
+       case existingMessage of
+           Nothing -> True <$ modifyTVar var (set bssRequestedBlocks (Just msg))
+           Just _  -> pure False

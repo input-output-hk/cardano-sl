@@ -17,7 +17,7 @@ import           System.Wlog                  (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Communication.Methods    (sendToNeighborsSafe)
-import           Pos.Communication.Types      (ResponseMode, MutSocketState)
+import           Pos.Communication.Types      (MutSocketState, ResponseMode)
 import           Pos.Crypto                   (hash)
 import           Pos.DHT.Model                (ListenerDHT (..), MonadDHTDialog,
                                                replyToNode)
@@ -56,8 +56,10 @@ handleTxInv (TxInvMsg txHashes_) = do
     safeReply xs constr = replyToNode . constr . NE.fromList $ xs
     handleSingle txHash =
         ifM (isTxUsefull txHash)
-            (return True)
+            (True <$ requestingLogMsg txHash)
             (False <$ ingoringLogMsg txHash)
+    requestingLogMsg txHash = logDebug $
+        sformat ("Requesting tx with hash "%build) txHash
     ingoringLogMsg txHash = logDebug $
         sformat ("Ignoring tx with hash ("%build%"), because it's useless") txHash
 

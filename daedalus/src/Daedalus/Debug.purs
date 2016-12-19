@@ -1,7 +1,7 @@
 module Daedalus.Debug where
 
 import Prelude
-import Control.Monad.Aff (Aff)
+import Control.Monad.Aff (attempt, Aff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
@@ -26,23 +26,23 @@ logSuccess msg result = log <<< (<>) msg <<< printJson $ encodeJson result
 -- | debug '/api/address'
 logAddresses :: forall e. Aff (ajax :: AJAX, console :: CONSOLE| e) Unit
 logAddresses = do
-  result <- getAddresses
+  result <- attempt getAddresses
   case result of
     Right addr -> liftEff $ logSuccess "[RESULT of '/api/address'] " addr
-    Left err -> liftEff $ logFail "[Error of '/api/address']" err
+    Left err -> liftEff $ logFail "[Error of '/api/address']" $ show err
 
 -- | debug '/api/balances'
 logBalances :: forall e. Aff (ajax :: AJAX, console :: CONSOLE| e) Unit
 logBalances = do
-  result <- getBalances
+  result <- attempt getBalances
   case result of
     Right addr -> liftEff $ logSuccess "[RESULT of '/api/balances'] " addr
-    Left err -> liftEff $ logFail "[Error of '/api/balances']" err
+    Left err -> liftEff $ logFail "[Error of '/api/balances']" $ show err
 
 -- | debug '/api/new_address'
 logNewAddress :: forall e. Aff (ajax :: AJAX, console :: CONSOLE| e) Unit
 logNewAddress = do
-  result <- newAddress
+  result <- attempt newAddress
   case result of
     Right addr -> liftEff $ logSuccess "[RESULT of '/api/new_address'] " addr
-    Left err -> liftEff $ logFail "[Error of '/api/apinew_address']" err
+    Left err -> liftEff $ logFail "[Error of '/api/apinew_address']" $ show err

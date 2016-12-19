@@ -99,7 +99,8 @@ library
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
                         Pos.Wallet.Web.ClientTypes
-  other-modules:        Pos.Binary.Address
+  other-modules:        Pos.Aeson.CompileConfig
+                        Pos.Binary.Address
                         Pos.Binary.Class
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
@@ -158,7 +159,6 @@ library
                         Pos.Modern.Txp.Storage.Types
                         Pos.Modern.Txp.Storage.UtxoView
                         Pos.Modern.Txp.Holder
-                        Pos.Modern.Txp.Listeners
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
@@ -196,30 +196,32 @@ library
                         Pos.Util.Arbitrary
                         Pos.Util.NotImplemented
   if flag(with-web)
-    other-modules:      Pos.Web.Api
+    other-modules:      Pos.Aeson.Types
+                        Pos.Web.Api
                         Pos.Web.Doc
                         Pos.Web.Server
                         Pos.Web.Types
   if flag(with-wallet)
     other-modules:      Pos.Wallet.Tx
-                      , Pos.Wallet.WalletMode
-                      , Pos.Wallet.Launcher
-                      , Pos.Wallet.Launcher.Runner
-                      , Pos.Wallet.Launcher.Param
-                      , Pos.Wallet.KeyStorage
-                      , Pos.Wallet.State
-                      , Pos.Wallet.State.Acidic
-                      , Pos.Wallet.State.Holder
-                      , Pos.Wallet.State.State
-                      , Pos.Wallet.State.Storage
-                      , Pos.Wallet.State.Storage.Block
-                      , Pos.Wallet.State.Storage.Tx
-                      , Pos.Wallet.Context
-                      , Pos.Wallet.Context.Class
-                      , Pos.Wallet.Context.Context
-                      , Pos.Wallet.Context.Holder
+                        Pos.Wallet.WalletMode
+                        Pos.Wallet.Launcher
+                        Pos.Wallet.Launcher.Runner
+                        Pos.Wallet.Launcher.Param
+                        Pos.Wallet.KeyStorage
+                        Pos.Wallet.State
+                        Pos.Wallet.State.Acidic
+                        Pos.Wallet.State.Holder
+                        Pos.Wallet.State.State
+                        Pos.Wallet.State.Storage
+                        Pos.Wallet.State.Storage.Block
+                        Pos.Wallet.State.Storage.Tx
+                        Pos.Wallet.Context
+                        Pos.Wallet.Context.Class
+                        Pos.Wallet.Context.Context
+                        Pos.Wallet.Context.Holder
   if (flag(with-wallet) && flag(with-web))
-    other-modules:      Pos.Wallet.Web.Api
+    other-modules:      Pos.Aeson.ClientTypes
+                        Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Server
                         Pos.Wallet.Web.State
@@ -613,24 +615,24 @@ executable cardano-checks
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec
-                     , Test.Pos.CryptoSpec
-                     , Test.Pos.FollowTheSatoshiSpec
-                     , Test.Pos.MerkleSpec
-                     , Test.Pos.SlottingSpec
-                     , Test.Pos.Ssc.GodTossing.Identity.BinarySpec
-                     , Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
-                     , Test.Pos.Ssc.GodTossing.SeedSpec
-                     , Test.Pos.Ssc.GodTossing.Types.BaseSpec
-                     , Test.Pos.Types.AddressSpec
-                     , Test.Pos.Types.BlockSpec
-                     , Test.Pos.Types.Identity.BinarySpec
-                     , Test.Pos.Types.Identity.SafeCopySpec
-                     , Test.Pos.Types.Identity.TimestampSpec
-                     , Test.Pos.Types.SlottingSpec
-                     , Test.Pos.Types.TxSpec
-                     , Test.Pos.Types.UtxoSpec
-                     , Test.Pos.Util
-                     , Test.Pos.UtilSpec
+                       Test.Pos.CryptoSpec
+                       Test.Pos.FollowTheSatoshiSpec
+                       Test.Pos.MerkleSpec
+                       Test.Pos.SlottingSpec
+                       Test.Pos.Ssc.GodTossing.Identity.BinarySpec
+                       Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
+                       Test.Pos.Ssc.GodTossing.SeedSpec
+                       Test.Pos.Ssc.GodTossing.Types.BaseSpec
+                       Test.Pos.Types.AddressSpec
+                       Test.Pos.Types.BlockSpec
+                       Test.Pos.Types.Identity.BinarySpec
+                       Test.Pos.Types.Identity.SafeCopySpec
+                       Test.Pos.Types.Identity.TimestampSpec
+                       Test.Pos.Types.SlottingSpec
+                       Test.Pos.Types.TxSpec
+                       Test.Pos.Types.UtxoSpec
+                       Test.Pos.Util
+                       Test.Pos.UtilSpec
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
                      , base

@@ -37,6 +37,7 @@ import           Pos.Types                  (Address, Coin (Coin), Tx, TxOut (..
                                              makePubKeyAddress)
 import           Pos.Web.Server             (serveImpl)
 
+import           Pos.Aeson.ClientTypes      ()
 import           Pos.Wallet.Context         (ContextHolder, WalletContext,
                                              getWalletContext, runContextHolder)
 import           Pos.Wallet.KeyStorage      (KeyData, KeyStorage, MonadKeys (..),

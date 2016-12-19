@@ -6,7 +6,6 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
-{-# LANGUAGE ViewPatterns          #-}
 
 -- | Internal state of the transaction-handling worker. Trasnaction
 -- processing logic.
@@ -20,19 +19,19 @@ module Pos.Modern.Txp.Storage.Storage
        ) where
 
 import           Control.Lens                    (each, over, (^.), _1)
-import           Control.Monad.IfElse            (aifM)
 import qualified Data.HashMap.Strict             as HM
 import qualified Data.HashSet                    as HS
+import           Data.List.NonEmpty              (NonEmpty)
 import qualified Data.List.NonEmpty              as NE
-import           Formatting                      (build, sformat, text, (%))
+import qualified Data.Text                       as T
+import           Formatting                      (sformat, stext, (%))
 import           Serokell.Util                   (VerificationRes (..))
-import           System.Wlog                     (WithLogger, logError)
+import           System.Wlog                     (WithLogger)
 import           Universum
 
 import           Pos.Constants                   (maxLocalTxs)
 import           Pos.Crypto                      (WithHash (..), hash, withHash)
 import           Pos.Modern.DB                   (DB, MonadDB, getUtxoDB)
-import           Pos.Modern.DB.Block             (getBlock, getUndo)
 import           Pos.Modern.DB.Utxo              (BatchOp (..), getTip, writeBatchToUtxo)
 import           Pos.Modern.Txp.Class            (MonadTxpLD (..), TxpLD)
 import           Pos.Modern.Txp.Error            (TxpError (..))
@@ -44,13 +43,13 @@ import           Pos.State.Storage.Types         (AltChain, ProcessTxRes (..),
                                                   mkPTRinvalid)
 import           Pos.Types                       (Block, IdTxWitness, MonadUtxo,
                                                   MonadUtxoRead (utxoGet), SlotId,
-                                                  Tx (..), TxIn (..), TxOut, TxWitness,
-                                                  applyTxToUtxo', blockSlot, blockTxws,
-                                                  blockTxws, convertFrom', headerHash,
-                                                  prevBlockL, slotIdF, topsortTxs,
-                                                  verifyTxPure)
+                                                  Tx (..), TxId, TxIn (..), TxOut,
+                                                  TxWitness, Undo, applyTxToUtxo',
+                                                  blockSlot, blockTxs, blockTxws,
+                                                  blockTxws, headerHash, prevBlockL,
+                                                  slotIdF, topsortTxs, verifyTxPure)
 import           Pos.Types.Utxo                  (verifyAndApplyTxs, verifyTxUtxo)
-import           Pos.Util                        (_neHead)
+import           Pos.Util                        (inAssertMode, _neHead)
 
 type TxpWorkMode ssc m = ( Ssc ssc
                          , WithLogger m
@@ -70,73 +69,72 @@ type MinTxpWorkMode ssc m = (
 txApplyBlocks :: TxpWorkMode ssc m => AltChain ssc -> m ()
 txApplyBlocks blocks = do
     tip <- getTip
-    when (tip /= blocks ^. _neHead . prevBlockL) $
-        throwM $ TxpCantApplyBlocks "oldest block in AltChain is not based on tip"
-    verdict <- txVerifyBlocks blocks
-    case verdict of
-        -- TODO Consider using `MonadError` and throwing `InternalError`.
-        Left _ -> panic "Attempted to apply blocks that don't pass txVerifyBlocks"
-        Right txs -> do
-            -- Apply all the blocks' transactions
-            -- TODO actually, we can improve it: we can use UtxoView from txVerifyBlocks
-            -- Now we recalculate TxIn which must be removed from Utxo DB or added to Utxo DB
-            -- I can improve it, if it is bottlneck
+    when (tip /= blocks ^. _neHead . prevBlockL) $ throwM $
+        TxpCantApplyBlocks "oldest block in AltChain is not based on tip"
+    inAssertMode $
+        do verdict <- txVerifyBlocks blocks
+           case verdict of
+               VerSuccess -> pass
+               VerFailure errors ->
+                   panic $ "txVerifyBlocks failed in txApplyBlocks: " <>
+                   T.intercalate "; " errors
+    -- Apply all the blocks' transactions
+    -- TODO actually, we can improve it: we can use UtxoView from txVerifyBlocks
+    -- Now we recalculate TxIn which must be removed from Utxo DB or added to Utxo DB
+    -- I can improve it, if it is bottlneck
+    -- We apply all blocks and filter mempool for every block
+    mapM_ txApplyBlock $ NE.toList blocks
+    normalizeTxpLD
 
-            -- We apply all blocks and filter mempool for every block
-            mapM_ txApplyBlock (NE.toList blocks `zip` txs)
-            normalizeTxpLD
-
-txApplyBlock :: TxpWorkMode ssc m
-             => (Block ssc, [IdTxWitness]) -> m ()
-txApplyBlock (b, txs) = do
-    when (not . isGenesisBlock $ b) $
-        do let hashPrevHeader = b ^. prevBlockL
-           tip <- getTip
-           when (tip /= hashPrevHeader) $
-               panic
-                   "disaster, tip mismatch in txApplyBlock, probably semaphore doesn't work"
-           let batch = foldr' prependToBatch [] txs
-           filterMemPool txs
-           writeBatchToUtxo (PutTip (headerHash b) : batch)
+txApplyBlock
+    :: TxpWorkMode ssc m
+    => Block ssc -> m ()
+txApplyBlock (Left _) = pass
+txApplyBlock (Right blk) = do
+    let hashPrevHeader = blk ^. prevBlockL
+    tip <- getTip
+    when (tip /= hashPrevHeader) $
+        panic
+            "disaster, tip mismatch in txApplyBlock, probably semaphore doesn't work"
+    let batch = foldr' prependToBatch [] txsAndIds
+    filterMemPool txsAndIds
+    writeBatchToUtxo (PutTip (headerHash blk) : batch)
   where
-    prependToBatch :: IdTxWitness -> [BatchOp ssc] -> [BatchOp ssc]
-    prependToBatch (txId, (Tx {..}, _)) batch =
+    txs = toList $ blk ^. blockTxs
+    txsAndIds = map (\tx -> (hash tx, tx)) txs
+    prependToBatch :: (TxId, Tx) -> [BatchOp ssc] -> [BatchOp ssc]
+    prependToBatch (txId, Tx {..}) batch =
         let keys = zipWith TxIn (repeat txId) [0 ..]
             delIn = map DelTxIn txInputs
             putOut = map (uncurry AddTxOut) $ zip keys txOutputs
         in foldr' (:) (foldr' (:) batch putOut) delIn --how we could simplify it?
 
--- | Given number of blocks to rollback and some sidechain to adopt it
--- checks if it can be done prior to transaction validity. Returns a
--- list of topsorted transactions, head ~ deepest block on success.
-txVerifyBlocks :: forall ssc m . MonadDB ssc m => AltChain ssc
-               -> m (Either Text [[IdTxWitness]])
+-- | Verify whether sequence of blocks can be applied to current Tx state.
+txVerifyBlocks
+    :: forall ssc m.
+       MonadDB ssc m
+    => AltChain ssc -> m VerificationRes
 txVerifyBlocks newChain = do
     utxoDB <- getUtxoDB
-    verifyRes <- runTxpLDHolderUV
-                     (foldM verifyDo (Right []) newChainTxs)
-                     (UV.createFromDB utxoDB)
-    return $ (map convertFrom' . reverse) <$> verifyRes
+    runTxpLDHolderUV
+        (foldM verifyDo mempty newChainTxs)
+        (UV.createFromDB utxoDB)
   where
     newChainTxs :: [(SlotId, [(WithHash Tx, TxWitness)])]
     newChainTxs =
-        map (\b -> (b ^. blockSlot,
-                    over (each._1) withHash (b ^. blockTxws))) $
+        map (\b -> (b ^. blockSlot, over (each . _1) withHash (b ^. blockTxws))) $
         rights (NE.toList newChain)
-
-    verifyDo  :: Either Text [[(WithHash Tx, TxWitness)]]
-              -> (SlotId, [(WithHash Tx, TxWitness)])
-              ->  TxpLDHolder ssc m (Either Text [[(WithHash Tx, TxWitness)]])
-    verifyDo er@(Left _) _ = return er
-    verifyDo (Right accTxs) (slotId, txws) = do
-        res <- verifyAndApplyTxs txws
-        return $
-            case res of
-              Left reason -> Left  (sformat eFormat slotId reason)
-              Right txws' -> Right (txws':accTxs)
-    eFormat =
-        "Failed to apply transactions on block from slot " %
-        slotIdF%", error: "%build
+    verifyDo
+        :: VerificationRes
+        -> (SlotId, [(WithHash Tx, TxWitness)])
+        -> TxpLDHolder ssc m VerificationRes
+    verifyDo failure@(VerFailure _) _ = pure failure
+    verifyDo VerSuccess (slotId, txws) = do
+        attachSlotId slotId <$> verifyAndApplyTxs txws
+    attachSlotId _ VerSuccess = VerSuccess
+    attachSlotId sId (VerFailure errors) =
+        VerFailure $ map (sformat ("[Block's slot = "%slotIdF % "]"%stext) sId)
+            errors
 
 processTx :: MinTxpWorkMode ssc m => IdTxWitness -> m ProcessTxRes
 processTx itw@(_, (tx, _)) = do
@@ -183,36 +181,27 @@ processTxDo ld@(uv, mp, tip) resolvedIns utxoDB (id, (tx, txw))
              , MemPool (HM.insert id (tx, txw) oldTxs) (oldSize + 1)
              , tip))
 
--- | Rollback last @n@ blocks. This will replace current utxo to utxo
--- of desired depth block and also filter local transactions so they
--- can be applied. @tx@ prefix is used, because rollback may happen in
--- other storages as well.
-txRollbackBlocks :: (Ssc ssc, WithLogger m, MonadDB ssc m, MonadThrow m) => Word -> m ()
-txRollbackBlocks (fromIntegral -> n) = replicateM_ n txRollbackBlock
+-- | Head of list is the youngest block
+txRollbackBlocks :: (WithLogger m, MonadDB ssc m)
+                 => NonEmpty (Block ssc, Undo) -> m ()
+txRollbackBlocks = mapM_ txRollbackBlock
 
--- | Rollback last block
-txRollbackBlock :: (Ssc ssc, WithLogger m, MonadDB ssc m, MonadThrow m) => m ()
-txRollbackBlock = do
-    tip <- getTip
-    aifM (getBlock tip) (\block ->
-        aifM (getUndo tip) (\undo -> do
-            let txs = getTxs block
-            --TODO more detailed message must be here
-            unless (length undo == length txs)
-                $ panic "Number of txs must be equal length of undo"
-            let batchOrError = foldl' prependToBatch (Right []) $ zip txs undo
-            case batchOrError of
-                Left msg    -> panic msg
-                Right batch -> writeBatchToUtxo $ PutTip (headerHash block) : batch
-                -- If we store block cache in UtxoView we must invalidate it
-            )
-            (errorMsg "No Undo for block")) -- should we use here panic, right?
-        (errorMsg "No Block")
+-- | Rollback block
+txRollbackBlock :: (WithLogger m, MonadDB ssc m)
+                => (Block ssc, Undo) -> m ()
+txRollbackBlock (block, undo) = do
+    let txs = getTxs block
+    --TODO more detailed message must be here
+    unless (length undo == length txs)
+        $ panic "Number of txs must be equal length of undo"
+    let batchOrError = foldl' prependToBatch (Right []) $ zip txs undo
+    case batchOrError of
+        Left msg    -> panic msg
+        Right batch -> writeBatchToUtxo $ PutTip (block ^. prevBlockL) : batch
+        -- If we store block cache in UtxoView we must invalidate it
   where
     getTxs (Left _)   = []
     getTxs (Right mb) = map fst $ mb ^. blockTxws
-
-    errorMsg msg = logError $ sformat ("Error during rollback block from Undo DB: "%text) msg
 
     prependToBatch :: Either Text [BatchOp ssc] -> (Tx, [TxOut]) -> Either Text [BatchOp ssc]
     prependToBatch batchOrError (tx@Tx{..}, undoTx) = do
@@ -226,9 +215,9 @@ txRollbackBlock = do
         return $ foldr' (:) (foldr' (:) batch putIn) delOut --how we could simplify it?
 
 -- | Remove from mem pool transactions from block
-filterMemPool :: MonadTxpLD ssc m => [IdTxWitness]  -> m ()
-filterMemPool blockTxs = modifyTxpLD_ (\(uv, mp, tip) ->
-    let newMPTxs = (localTxs mp) `HM.difference` (HM.fromList blockTxs) in
+filterMemPool :: MonadTxpLD ssc m => [(TxId, Tx)]  -> m ()
+filterMemPool txs = modifyTxpLD_ (\(uv, mp, tip) ->
+    let newMPTxs = (localTxs mp) `HM.difference` (HM.fromList txs) in
     (uv, MemPool newMPTxs (HM.size newMPTxs), tip))
 
 -- | 1. Recompute UtxoView by current MemPool
@@ -262,7 +251,3 @@ normalizeTxpLD = do
                 applyTxToUtxo' itw
                 return (itw : xs)
             VerFailure _ -> return xs
-
-isGenesisBlock :: Block ssc -> Bool
-isGenesisBlock (Left _) = True
-isGenesisBlock _        = False

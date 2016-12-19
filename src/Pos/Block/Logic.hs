@@ -86,9 +86,8 @@ verifyBlock
     :: (WorkMode ssc m)
     => Block ssc -> m VerificationRes
 verifyBlock blk = do
-    -- [CSL-316] 'txVerifyBlocks' should return 'VerificationRes'
-    txsVerRes <- undefined <$> txVerifyBlocks (pure blk)
-    -- TODO: more checks of course
+    txsVerRes <- txVerifyBlocks (pure blk)
+    -- TODO: more checks of course. Consider doing CSL-39 first.
     return txsVerRes
 
 -- | Apply definitely valid block. At this point we must have verified

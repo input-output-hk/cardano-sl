@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TemplateHaskell        #-}
 
 -- | Socket state of block processing server.
@@ -13,16 +14,21 @@ module Pos.Block.Server.State
        , recordHeadersRequest
        , matchRequestedHeaders
        , recordBlocksRequest
+
+       , ProcessBlockMsgRes (..)
+       , processBlockMsg
        ) where
 
 import           Control.Concurrent.STM        (TVar, modifyTVar, readTVar)
-import           Control.Lens                  (makeClassy, set, view)
+import           Control.Lens                  (makeClassy, over, set, view, (.~), (^.))
 import           Data.Default                  (Default (def))
 import           Data.List.NonEmpty            (NonEmpty)
 import           Universum
 
-import           Pos.Communication.Types.Block (MsgGetHeaders)
-import           Pos.Types                     (BlockHeader, HeaderHash)
+import           Pos.Communication.Types.Block (MsgBlock (..), MsgGetHeaders)
+import           Pos.Ssc.Class.Types           (Ssc)
+import           Pos.Types                     (Block, BlockHeader, HeaderHash,
+                                                headerHash, prevBlockL)
 
 -- | SocketState used for Block server.
 data BlockSocketState ssc = BlockSocketState
@@ -34,6 +40,9 @@ data BlockSocketState ssc = BlockSocketState
       -- `GetBlocks` message) and is invalidated when we get all
       -- requested blocks.
       _bssRequestedBlocks  :: !(Maybe (HeaderHash ssc, HeaderHash ssc))
+    , -- | Received blocks are accumulated to be processed later.
+      -- IMPORTANT: head is the last received block.
+      _bssReceivedBlocks   :: ![Block ssc]
     }
 
 -- | Classy lenses generated for BlockSocketState.
@@ -44,6 +53,7 @@ instance Default (BlockSocketState ssc) where
         BlockSocketState
         { _bssRequestedHeaders = Nothing
         , _bssRequestedBlocks = Nothing
+        , _bssReceivedBlocks = []
         }
 
 -- | Record headers request in BlockSocketState. This function blocks
@@ -76,8 +86,40 @@ recordBlocksRequest
     => HeaderHash ssc -> HeaderHash ssc -> TVar s -> m ()
 recordBlocksRequest fromHash toHash var =
     atomically $
-    do existingMessage <- view bssRequestedBlocks <$> readTVar var
-       case existingMessage of
+    do existing <- view bssRequestedBlocks <$> readTVar var
+       case existing of
            Nothing ->
                modifyTVar var (set bssRequestedBlocks (Just (fromHash, toHash)))
            Just _ -> retry
+
+-- | Possible results of processBlockMsg.
+data ProcessBlockMsgRes
+    = PBMfinal         -- ^ Block is the last requested block.
+    | PBMintermediate  -- ^ Block is expected one, but not last.
+    | PBMunsolicited   -- ^ Block is not an expected one.
+
+-- | Process 'Block' message received from peer.
+processBlockMsg
+    :: forall m s ssc.
+       (Ssc ssc, MonadIO m, HasBlockSocketState s ssc)
+    => MsgBlock ssc -> TVar s -> m ProcessBlockMsgRes
+processBlockMsg (MsgBlock blk) var =
+    atomically $
+    do st <- readTVar var
+       case st ^. bssRequestedBlocks of
+           Nothing    -> pure PBMunsolicited
+           Just range -> processBlockDo range (st ^. bssReceivedBlocks)
+  where
+    processBlockDo (start, end) []
+        | headerHash blk == start = processBlockFinally end
+        | otherwise = pure PBMunsolicited
+    processBlockDo (start, end) (lastReceived:_)
+        | blk ^. prevBlockL == start = processBlockFinally end
+        | otherwise = pure PBMunsolicited
+    processBlockFinally end
+        | headerHash blk == end = PBMfinal <$ modifyTVar var invalidateBlocks
+        | otherwise =
+            PBMintermediate <$ modifyTVar var (over bssReceivedBlocks (blk :))
+    invalidateBlocks :: s -> s
+    invalidateBlocks st =
+        st & bssRequestedBlocks .~ Nothing & bssReceivedBlocks .~ []

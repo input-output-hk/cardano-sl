@@ -21,7 +21,8 @@ import           Pos.Block.Logic          (ClassifyHeaderRes (..), classifyHeade
                                            classifyNewHeader)
 import           Pos.Block.Requests       (replyWithBlocksRequest,
                                            replyWithHeadersRequest)
-import           Pos.Block.Server.State   (matchRequestedHeaders)
+import           Pos.Block.Server.State   (ProcessBlockMsgRes (..), matchRequestedHeaders,
+                                           processBlockMsg)
 import           Pos.Communication.Types  (MsgBlock (..), MsgGetBlocks (..),
                                            MsgGetHeaders (..), MsgHeaders (..),
                                            MutSocketState, ResponseMode)
@@ -113,4 +114,9 @@ handleBlock
     :: forall ssc m.
        (ResponseMode ssc m)
     => MsgBlock ssc -> m ()
-handleBlock (MsgBlock _) = pass
+handleBlock msg@(MsgBlock blk) = do
+    pbmr <- processBlockMsg msg =<< getUserState
+    case pbmr of
+        PBMintermediate -> pass
+        PBMfinal        -> undefined
+        PBMunsolicited  -> pass -- TODO: ban node for sending unsolicited block.

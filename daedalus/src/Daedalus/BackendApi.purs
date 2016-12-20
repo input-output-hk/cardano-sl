@@ -9,11 +9,10 @@ import Data.Argonaut.Generic.Aeson (decodeJson)
 import Data.Bifunctor (bimap)
 import Data.Either (either, Either(Left))
 import Data.Generic (class Generic)
-import Data.HTTP.Method (Method(POST))
+import Data.HTTP.Method (Method(POST, DELETE))
 import Data.Tuple (Tuple)
 import Network.HTTP.Affjax (affjax, defaultRequest, AJAX, get)
-import Pos.Types.Types (Coin)
-import Pos.Wallet.Web.ClientTypes (CAddress)
+import Daedalus.Types (CAddress, Coin, _address, _coin)
 
 -- TODO: remove traces, they are adding to increase verbosity in development
 makeRequest :: forall eff a. (Generic a) => String -> Aff (ajax :: AJAX | eff) a
@@ -30,7 +29,24 @@ getAddresses = makeRequest "/api/addresses"
 getBalances :: forall eff. Aff (ajax :: AJAX | eff) (Array (Tuple CAddress Coin))
 getBalances = makeRequest "/api/balances"
 
+-- getHistory :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) (Array (Tuple CAddress Coin))
+-- getHistory = makeRequest "/api/history" <<< _address
+
+send :: forall eff. CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) Unit
+send addrFrom addrTo amount = do
+  res <- affjax $ defaultRequest
+    -- TODO: use url constructor
+    { url = "/api/send/" <> _address addrFrom <> "/" <> _address addrTo <> "/" <> show (_coin amount)
+    , method = Left POST
+    }
+  either throwError pure $ decodeResult res
+
 newAddress :: forall eff. Aff (ajax :: AJAX | eff) CAddress
 newAddress = do
   res <- affjax $ defaultRequest { url = "/api/new_address", method = Left POST }
+  either throwError pure $ decodeResult res
+
+deleteAddress :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) Unit
+deleteAddress addr = do
+  res <- affjax $ defaultRequest { url = "/api/delete_address/" <> _address addr, method = Left DELETE }
   either throwError pure $ decodeResult res

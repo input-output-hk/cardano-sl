@@ -3,8 +3,28 @@
 	<head>
 		<meta charset="utf-8">
     <script type="text/javascript">
-      var logAddressesP = function() {
-        Daedalus.ClientApi.getAddressesP()
+      var getWallets = function() {
+        Daedalus.ClientApi.getWallets()
+            .then(function(result) {console.log(result)})
+            .catch(function(reason) {console.log(reason)})
+      };
+      var getBalances = function() {
+        Daedalus.ClientApi.getBalances()
+            .then(function(result) {console.log(result)})
+            .catch(function(reason) {console.log(reason)})
+      };
+      var send = function(from, to, amount) {
+        Daedalus.ClientApi.send(from)(to)(amount)()
+            .then(function(result) {console.log(result)})
+            .catch(function(reason) {console.log(reason)})
+      };
+      var newWallet = function() {
+        Daedalus.ClientApi.newWallet()
+            .then(function(result) {console.log(result)})
+            .catch(function(reason) {console.log(reason)})
+      };
+      var deleteWallet = function(wallet) {
+        Daedalus.ClientApi.deleteWallet(wallet)()
             .then(function(result) {console.log(result)})
             .catch(function(reason) {console.log(reason)})
       };
@@ -15,12 +35,11 @@
     <h1>Let's talk Daedalus!</h1>
     <p>Check console to get some feedback.</p>
     <ul>
-      <li><button onclick="Daedalus.ClientApi.hello('Daedalus')()">Say hello</button></li>
-      <li><button onclick="Daedalus.ClientApi.helloCallback(function(msg) { console.log(msg + ' Daedalus') });">Hello callback</button></li>
-      <li><button onclick="Daedalus.Debug.logAddresses(function(){})();">getAddresses</button></li>
-      <li><button onclick="logAddressesP();"/>getAddresses w/Promise</li>
-      <li><button onclick="Daedalus.Debug.logBalances(function(){})();">getBalances</button></li>
-      <li><button onclick="Daedalus.Debug.logNewAddress(function(){})();">newAddress</button></li>
+      <li><button onclick="getWallets();"/>getWallets</li>
+      <li><button onclick="getBalances();"/>getBalances</li>
+      <li><button onclick="send('a', 'b', 1);"/>send from a to b 1 coin</li>
+      <li><button onclick="newWallet();"/>newWallet</li>
+      <li><button onclick="deleteWallet('a');"/>deleteWallet</li>
     </ul>
 	</body>
 </html>

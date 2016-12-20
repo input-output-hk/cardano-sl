@@ -8,7 +8,7 @@
 
 -- | Block processing related workers.
 
-module Pos.Worker.Block
+module Pos.Modern.Worker.Block
        (
        ) where
 
@@ -51,7 +51,7 @@ lpcOnNewSlot slotId@SlotId{..} = withBlkSemaphore $ \tip -> do
 --
 --   1. It was a stakeholder.
 --   2. It had already sent us its VSS key by that time.
-getParticipants :: WorkMode ssc m => Int -> m Participants
+getParticipants :: WorkMode ssc m => VssCertificatesMap -> m Participants
 getParticipants certs = notImplemented
     --iterator here
     -- mKeymap <- Just <$> view gsVssCertificates

@@ -7,7 +7,6 @@ module Pos.Modern.Ssc.GodTossing.Functions
        , hasOpening
        , hasShares
        , hasVssCertificate
-       , getThreshold
        ) where
 
 import qualified Data.HashMap.Strict                     as HM
@@ -32,8 +31,3 @@ hasShares addr = HM.member addr . _gsShares
 
 hasVssCertificate :: Address -> GtGlobalState -> Bool
 hasVssCertificate addr = HM.member addr . _gsVssCertificates
-
--- | Figure out the threshold (i.e. how many secret shares would be required
--- to recover each node's secret) using number of participants.
-getThreshold :: Integral a => a -> Threshold
-getThreshold len = fromIntegral $ len `div` 2 + len `mod` 2

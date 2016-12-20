@@ -13,18 +13,22 @@
 -- | Storage for generic Shared Seed calculation implementation.
 
 module Pos.Ssc.Class.Storage
-       ( SscStorageClass(..)
-       , HasSscStorage(..)
+       (
+         -- * Modern
+         HasSscStorage(..)
        , SscStorageClassM (..)
        , MonadSscGS (..)
 
-       , SscUpdate
-       , SscQuery
        , SscGlobalQueryM
        , SscGlobalUpdateM
-       , SscStorageMode
        , sscRunGlobalQuery
        , sscRunGlobalModify
+
+         -- * Old
+       , SscUpdate
+       , SscQuery
+       , SscStorageClass(..)
+       , SscStorageMode
        ) where
 
 import           Control.Lens            (Lens')
@@ -45,22 +49,12 @@ import           Pos.Types.Types         (Address, EpochIndex, HeaderHash, SlotL
                                           Utxo)
 import           Pos.Util                (AsBinary)
 
+----------------------------------------------------------------------------
+-- Modern
+----------------------------------------------------------------------------
+
 type SscGlobalQueryM ssc a =  forall m . (MonadReader (SscGlobalStateM ssc) m) => m a
 type SscGlobalUpdateM ssc a = forall m . (MonadState (SscGlobalStateM ssc) m) => m a
-
--- | Generic @SSC@ query.
-type SscUpdate ssc a =
-    forall m x. (HasSscStorage ssc x, MonadState x m) => m a
-
--- | Generic @SSC@ update.
---
--- If this type ever changes to include side effects (error reporting, etc)
--- we might have to change 'mpcVerifyBlock' because currently it works by
--- simulating block application and we don't want block verification to have
--- any side effects. The compiler will warn us if it happens, though.
--- | Monad reader on something containing `SscStorage` inside.
-type SscQuery ssc a =
-    forall m x. (HasSscStorage ssc x, MonadReader x m) => m a
 
 class Monad m => MonadSscGS ssc m | m -> ssc where
     getGlobalState    :: m (SscGlobalStateM ssc)
@@ -122,6 +116,36 @@ instance SscStorageClassM ssc m => SscStorageClassM ssc (ResponseT s m) where
 instance SscStorageClassM ssc m => SscStorageClassM ssc (DHTResponseT s m) where
 instance SscStorageClassM ssc m => SscStorageClassM ssc (KademliaDHT m) where
 
+sscRunGlobalQuery
+    :: forall ssc m a.
+       MonadSscGS ssc m
+    => Reader (SscGlobalStateM ssc) a -> m a
+sscRunGlobalQuery query = runReader query <$> getGlobalState @ssc
+
+sscRunGlobalModify
+    :: forall ssc m a .
+    MonadSscGS ssc m
+    => State (SscGlobalStateM ssc) a -> m a
+sscRunGlobalModify upd = modifyGlobalState $ runState upd
+
+----------------------------------------------------------------------------
+-- Old
+----------------------------------------------------------------------------
+
+-- | Generic @SSC@ update.
+--
+-- If this type ever changes to include side effects (error reporting, etc)
+-- we might have to change 'mpcVerifyBlock' because currently it works by
+-- simulating block application and we don't want block verification to have
+-- any side effects. The compiler will warn us if it happens, though.
+-- | Monad reader on something containing `SscStorage` inside.
+type SscUpdate ssc a =
+    forall m x. (HasSscStorage ssc x, MonadState x m) => m a
+
+-- | Generic @SSC@ query.
+type SscQuery ssc a =
+    forall m x. (HasSscStorage ssc x, MonadReader x m) => m a
+
 -- | Class of objects that we can retrieve 'SscStorage' from.
 class HasSscStorage ssc a where
     sscStorage :: Lens' a (SscStorage ssc)
@@ -156,15 +180,3 @@ class Ssc ssc => SscStorageClass ssc where
 
 -- | Type constraint for actions to operate withing @SSC@ storage.
 type SscStorageMode ssc = (SscStorageClass ssc, SafeCopy ssc)
-
-sscRunGlobalQuery
-    :: forall ssc m a.
-       MonadSscGS ssc m
-    => Reader (SscGlobalStateM ssc) a -> m a
-sscRunGlobalQuery query = runReader query <$> getGlobalState @ssc
-
-sscRunGlobalModify
-    :: forall ssc m a .
-    MonadSscGS ssc m
-    => State (SscGlobalStateM ssc) a -> m a
-sscRunGlobalModify upd = modifyGlobalState $ runState upd

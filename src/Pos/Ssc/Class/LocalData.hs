@@ -13,22 +13,25 @@
 -- as convenient wrappers.
 
 module Pos.Ssc.Class.LocalData
-       ( LocalQuery
-       , LocalUpdate
-       , LocalQueryM
+       (
+         -- * Modern
+         LocalQueryM
        , LocalUpdateM
-       , SscLocalDataClass (..)
        , SscLocalDataClassM (..)
-       , HasSscLocalData (..)
-       , MonadSscLD (..)
        , MonadSscLDM (..)
+       , sscApplyGlobalStateM
+       , sscGetLocalPayloadM
 
+         -- * Old
+       , HasSscLocalData (..)
+       , LocalQuery
+       , LocalUpdate
+       , MonadSscLD (..)
+       , SscLocalDataClass (..)
        , sscRunLocalQuery
        , sscRunLocalUpdate
        , sscGetLocalPayload
        , sscApplyGlobalState
-       , sscApplyGlobalStateM
-       , sscGetLocalPayloadM
        ) where
 
 import           Control.Lens        (Lens')
@@ -41,34 +44,9 @@ import           Universum
 import           Pos.Ssc.Class.Types (Ssc (..))
 import           Pos.Types.Types     (SlotId)
 
-type LocalQuery ssc a = forall m . ( HasSscLocalData ssc (SscLocalData ssc)
-                                   , MonadReader (SscLocalData ssc) m
-                                   ) => m a
-type LocalUpdate ssc a = forall m . ( HasSscLocalData ssc (SscLocalData ssc)
-                                    , MonadState (SscLocalData ssc) m
-                                    ) => m a
-
--- | Type class which allows usage of classy pattern.
-class HasSscLocalData ssc a where
-    sscLocalData :: Lens' a (SscLocalData ssc)
-
-instance (SscLocalData ssc ~ a) => HasSscLocalData ssc a where
-    sscLocalData = identity
-
--- | Monad which has read-write access to LocalData.
-class Monad m => MonadSscLD ssc m | m -> ssc where
-    getLocalData :: m (SscLocalData ssc)
-    setLocalData :: SscLocalData ssc -> m ()
-
-    default getLocalData :: MonadTrans t => t m (SscLocalData ssc)
-    getLocalData = lift getLocalData
-
-    default setLocalData :: MonadTrans t => SscLocalData ssc -> t m ()
-    setLocalData = lift . setLocalData
-
-instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (ReaderT x m)
-instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (DHTResponseT s m)
-instance (MonadSscLD ssc m, Monad m) => MonadSscLD ssc (KademliaDHT m)
+----------------------------------------------------------------------------
+-- Modern
+----------------------------------------------------------------------------
 
 class Monad m => MonadSscLDM ssc m | m -> ssc where
     getLocalDataM :: m (SscLocalDataM ssc)
@@ -90,20 +68,9 @@ instance (Monad m, MonadSscLDM ssc m) => MonadSscLDM ssc (ReaderT x m)
 instance (Monad m, MonadSscLDM ssc m) => MonadSscLDM ssc (DHTResponseT s m)
 instance (MonadSscLDM ssc m, Monad m) => MonadSscLDM ssc (KademliaDHT m)
 
--- | This type class abstracts local data used for SSC. Local means
--- that it is not stored in blocks.
-class Ssc ssc => SscLocalDataClass ssc where
-    -- | Empty local data which is created on start.
-    sscEmptyLocalData :: SscLocalData ssc
-    -- | Get local payload to be put into main block corresponding to
-    -- given SlotId.
-    sscGetLocalPayloadQ :: SlotId -> LocalQuery ssc (SscPayload ssc)
-    -- | Update LocalData using global data from blocks (last version
-    -- of best known chain).
-    sscApplyGlobalStateU :: SscGlobalState ssc -> LocalUpdate ssc ()
-
 type LocalQueryM ssc a = forall m . (MonadReader (SscLocalDataM ssc) m) => m a
 type LocalUpdateM ssc a = forall m .(MonadState (SscLocalDataM ssc) m) => m a
+
 -- | This type class abstracts local data used for SSC. Local means
 -- that it is not stored in blocks.
 class Ssc ssc => SscLocalDataClassM ssc where
@@ -151,9 +118,52 @@ sscApplyGlobalStateM = sscRunLocalUpdateM . sscApplyGlobalStateMU @ssc
 ----------------------------------------------------------------------------
 -- LEGACY
 ----------------------------------------------------------------------------
+
+type LocalQuery ssc a = forall m . ( HasSscLocalData ssc (SscLocalData ssc)
+                                   , MonadReader (SscLocalData ssc) m
+                                   ) => m a
+type LocalUpdate ssc a = forall m . ( HasSscLocalData ssc (SscLocalData ssc)
+                                    , MonadState (SscLocalData ssc) m
+                                    ) => m a
+
+-- | Type class which allows usage of classy pattern.
+class HasSscLocalData ssc a where
+    sscLocalData :: Lens' a (SscLocalData ssc)
+
+instance (SscLocalData ssc ~ a) => HasSscLocalData ssc a where
+    sscLocalData = identity
+
+-- | Monad which has read-write access to LocalData.
+class Monad m => MonadSscLD ssc m | m -> ssc where
+    getLocalData :: m (SscLocalData ssc)
+    setLocalData :: SscLocalData ssc -> m ()
+
+    default getLocalData :: MonadTrans t => t m (SscLocalData ssc)
+    getLocalData = lift getLocalData
+
+    default setLocalData :: MonadTrans t => SscLocalData ssc -> t m ()
+    setLocalData = lift . setLocalData
+
+instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (ReaderT x m)
+instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (DHTResponseT s m)
+instance (MonadSscLD ssc m, Monad m) => MonadSscLD ssc (KademliaDHT m)
+
+-- | This type class abstracts local data used for SSC. Local means
+-- that it is not stored in blocks.
+class Ssc ssc => SscLocalDataClass ssc where
+    -- | Empty local data which is created on start.
+    sscEmptyLocalData :: SscLocalData ssc
+    -- | Get local payload to be put into main block corresponding to
+    -- given SlotId.
+    sscGetLocalPayloadQ :: SlotId -> LocalQuery ssc (SscPayload ssc)
+    -- | Update LocalData using global data from blocks (last version
+    -- of best known chain).
+    sscApplyGlobalStateU :: SscGlobalState ssc -> LocalUpdate ssc ()
+
 ----------------------------------------------------------------------------
 -- Helpers for transform from MonadSscLD to Reader/State monad and back
 ----------------------------------------------------------------------------
+
 -- | Convenient wrapper to run LocalQuery in MonadSscLD.
 sscRunLocalQuery
     :: forall ssc m a.

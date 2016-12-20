@@ -149,7 +149,3 @@ blocksTransmitter = whenM (ncPropagation <$> getNodeContext) impl
     onError e =
         blocksTransmitterInterval <$
         logWarning (sformat ("Error occured in blocksTransmitter: " %build) e)
-
-lpcOnNewSlot :: WorkMode ssc m => SlotId -> m () --Leaders and Participants computation
-lpcOnNewSlot slotId@SlotId{..} = withBlkSemaphore $ \tip -> do notImplemented
-

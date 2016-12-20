@@ -9,19 +9,18 @@ module Pos.Ssc.Class.Helpers
        (
          SscHelpersClass (..)
        , SscHelpersClassM (..)
+       , sscCalculateSeed
        ) where
 
-import           Data.List.NonEmpty    (NonEmpty)
 import           Data.Tagged           (Tagged)
 import           Serokell.Util.Verify  (VerificationRes)
 import           Universum
 
-import           Pos.Crypto            (Threshold, VssPublicKey)
+import           Pos.Crypto            (Threshold)
 import           Pos.Ssc.Class.Storage (MonadSscGS, SscGlobalQueryM, sscRunGlobalQuery)
 import           Pos.Ssc.Class.Types   (Ssc (..))
-import           Pos.Types.Types       (MainBlockHeader)
-import           Pos.Types.Types       (EpochIndex, SlotLeaders, Utxo)
-import           Pos.Util              (AsBinary)
+import           Pos.Types.Types       (MainBlockHeader, SharedSeed)
+import           Pos.Types.Types       (EpochIndex)
 
 class Ssc ssc => SscHelpersClass ssc where
     sscVerifyPayload :: Tagged ssc (MainBlockHeader ssc -> SscPayload ssc -> VerificationRes)
@@ -29,13 +28,10 @@ class Ssc ssc => SscHelpersClass ssc where
 class Ssc ssc => SscHelpersClassM ssc where
     sscVerifyPayloadM :: Tagged ssc (MainBlockHeader ssc -> SscPayload ssc -> VerificationRes)
 
-    sscGetParticipantsQ :: Word -> Utxo ->
-                          SscGlobalQueryM ssc (Maybe (NonEmpty (AsBinary VssPublicKey)))
-    sscCalculateLeadersQ :: EpochIndex -> Utxo -> Threshold ->
-                           SscGlobalQueryM ssc (Either (SscSeedError ssc)  SlotLeaders)
+    sscCalculateSeedQ :: EpochIndex -> Threshold -> SscGlobalQueryM ssc (Either (SscSeedError ssc) SharedSeed)
 
--- sscGetOurSharesM
---     :: forall ssc m.
---        (MonadSscGS ssc m, SscHelpersClassM ssc)
---     => (AsBinary VssPublicKey) -> m (HashMap Address (AsBinary EncShare))
--- sscGetOurSharesM = sscRunGlobalQuery . sscGetOurSharesQ @ssc
+sscCalculateSeed
+    :: forall ssc m.
+       (MonadSscGS ssc m, SscHelpersClassM ssc)
+    => EpochIndex -> Threshold -> m (Either (SscSeedError ssc) SharedSeed)
+sscCalculateSeed e = sscRunGlobalQuery . sscCalculateSeedQ @ssc e

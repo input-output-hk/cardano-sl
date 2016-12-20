@@ -144,6 +144,7 @@ library
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
+                        Pos.Modern.FollowTheSatoshi
                         Pos.Modern.DB
                         Pos.Modern.DB.Block
                         Pos.Modern.DB.Class
@@ -169,6 +170,7 @@ library
                         Pos.Modern.Ssc.GodTossing.Storage.Types
                         Pos.Modern.Ssc.GodTossing.Workers
                         Pos.Modern.Ssc.GodTossing.Functions
+                        Pos.Modern.Worker.Block
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions

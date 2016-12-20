@@ -21,8 +21,8 @@ import           Universum
 
 import           Pos.Crypto          (ProxySecretKey, PublicKey, SecretKey, toPublic)
 import           Pos.Ssc.Class.Types (Ssc (SscNodeContext))
-import           Pos.Types           (Address, EpochIndex, HeaderHash, Timestamp (..),
-                                      makePubKeyAddress)
+import           Pos.Types           (Address, EpochIndex, HeaderHash, Participants,
+                                      SlotLeaders, Timestamp (..), makePubKeyAddress)
 
 
 -- TODO FIXME HALP HALP!!
@@ -48,17 +48,19 @@ defaultProxyStorage = ProxyStorage [] HM.empty HM.empty
 
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
-    { ncSystemStart  :: !Timestamp -- ^ Time when system started working.
-    , ncSecretKey    :: !SecretKey -- ^ Secret key used for blocks creation.
-    , ncTimeLord     :: !Bool      -- ^ Is time lord
-    , ncJLFile       :: !(Maybe (MVar FilePath))
-    , ncDbPath       :: !(Maybe FilePath) -- ^ Path to the database
-    , ncSscContext   :: !(SscNodeContext ssc)
-    , ncProxyStorage :: !(MVar ProxyStorage)
-    , ncPropagation  :: !Bool -- ^ Whether to propagate txs, ssc data, blocks to neighbors
+    { ncSystemStart     :: !Timestamp -- ^ Time when system started working.
+    , ncSecretKey       :: !SecretKey -- ^ Secret key used for blocks creation.
+    , ncTimeLord        :: !Bool      -- ^ Is time lord
+    , ncJLFile          :: !(Maybe (MVar FilePath))
+    , ncDbPath          :: !(Maybe FilePath) -- ^ Path to the database
+    , ncSscContext      :: !(SscNodeContext ssc)
+    , ncProxyStorage    :: !(MVar ProxyStorage)
+    , ncPropagation     :: !Bool -- ^ Whether to propagate txs, ssc data, blocks to neighbors
       -- | Semaphore which manages access to block application.
       -- Stored hash is a hash of last applied block.
-    , ncBlkSemaphore :: !(MVar (HeaderHash ssc))
+    , ncBlkSemaphore    :: !(MVar (HeaderHash ssc))
+    , ncSscLeaders      :: !(MVar SlotLeaders)
+    , ncSscParticipants :: !(MVar Participants)
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

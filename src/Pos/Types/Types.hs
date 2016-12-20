@@ -59,6 +59,7 @@ module Pos.Types.Types
 
        , SharedSeed (..)
        , SlotLeaders
+       , Participants
 
        , Blockchain (..)
        , BodyProof (..)
@@ -153,15 +154,15 @@ import           Pos.Binary.Address     ()
 import           Pos.Binary.Class       (Bi)
 import           Pos.Binary.Script      ()
 import           Pos.Constants          (sharedSeedLength)
-import           Pos.Crypto             (Hash, ProxySignature, PublicKey, Signature, hash,
-                                         hashHexF, shortHashF)
+import           Pos.Crypto             (Hash, ProxySignature, PublicKey, Signature,
+                                         VssPublicKey, hash, hashHexF, shortHashF)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Script             (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
 import           Pos.Types.Address      (Address (..), addressF, checkPubKeyAddress,
                                          checkScriptAddress, decodeTextAddress,
                                          makePubKeyAddress, makeScriptAddress)
-import           Pos.Util               (Color (Magenta), colorize)
+import           Pos.Util               (AsBinary, Color (Magenta), colorize)
 
 
 ----------------------------------------------------------------------------
@@ -381,6 +382,8 @@ instance Monoid SharedSeed where
 
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty Address
+
+type Participants = NonEmpty (AsBinary VssPublicKey)
 
 ----------------------------------------------------------------------------
 -- GenericBlock

@@ -27,6 +27,7 @@ import           Pos.FollowTheSatoshi                    (followTheSatoshi)
 import           Pos.Crypto                              (ProxySecretKey, SecretKey,
                                                           Share, VssKeyPair, VssPublicKey,
                                                           decryptShare, toVssPublicKey)
+import           Pos.Modern.Ssc.GodTossing.Functions     (getThreshold)
 import           Pos.Ssc.Class.Storage                   (MonadSscGS, SscGlobalQueryM,
                                                           sscRunGlobalQuery)
 import           Pos.Ssc.Class.Types                     (Ssc (..))
@@ -36,7 +37,8 @@ import           Pos.Ssc.GodTossing.Types.Base           (Commitment (..),
                                                           VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
 import           Pos.Types                               (Address (..), EpochIndex,
-                                                          SlotLeaders, Utxo, txOutAddress)
+                                                          SharedSeed, SlotLeaders, Utxo,
+                                                          txOutAddress)
 import           Pos.Util                                (AsBinary, asBinary, fromBinaryM)
 
 import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
@@ -50,9 +52,7 @@ instance (Ssc SscGodTossing
          , SscGlobalStateM SscGodTossing ~ GtGlobalState
          , SscSeedError SscGodTossing ~ SeedError)
          => SscHelpersClassM SscGodTossing where
---    sscGetOurSharesQ = getOurShares
-    sscGetParticipantsQ = getParticipants
-    sscCalculateLeadersQ = calculateLeaders
+    sscCalculateSeedQ = calculateSeedQ
 
 -- | Get keys of nodes participating in an epoch. A node participates if,
 -- when there were 'k' slots left before the end of the previous epoch, both
@@ -75,21 +75,16 @@ getParticipants depth utxo = do
                map vcVssKey $ mapMaybe (`HM.lookup` keymap) stakeholders
 
 -- | Calculate leaders for the next epoch.
-calculateLeaders
+calculateSeedQ
     :: (SscGlobalStateM SscGodTossing ~ GtGlobalState)
     => EpochIndex
-    -> Utxo            -- ^ Utxo (k slots before the end of epoch)
     -> Threshold
-    -> GSQuery (Either SeedError SlotLeaders)
-calculateLeaders _ utxo threshold = do --GodTossing doesn't use epoch, but NistBeacon use it
-    mbSeed <- calculateSeed
-                  threshold
+    -> GSQuery (Either SeedError SharedSeed)
+calculateSeedQ _ threshold = do --GodTossing doesn't use epoch, but NistBeacon use it
+    calculateSeed threshold
                   <$> view gsCommitments
                   <*> view gsOpenings
                   <*> view gsShares
-    return $ case mbSeed of
-        Left e     -> Left e
-        Right seed -> Right $ followTheSatoshi seed utxo
 
 ----------------------------------------------------------------------------
 -- Worker Helper

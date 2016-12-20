@@ -37,8 +37,8 @@ lpcOnNewSlot slotId@SlotId{..} = withBlkSemaphore $ \tip -> do
     blockUndos <- loadLastNBlocksWithUndo tip k
     rollbackBlocks blockUndos
     -- [CSL-93] Use eligibility threshold here
-    richmens <- getRichmens 0
-    let threshold = getThreshold $ length richmens -- no, its wrong.....
+    richmen <- getRichmen 0
+    let threshold = getThreshold $ length richmen -- no, its wrong.....
     --mbSeed <- sscCalculateSeed siEpoch threshold -- SscHelperClassM needded
     let mbSeed = notImplemented
     leaders <-
@@ -47,16 +47,17 @@ lpcOnNewSlot slotId@SlotId{..} = withBlkSemaphore $ \tip -> do
           Right seed -> followTheSatoshi seed
     nc <- getNodeContext
     liftIO $ putMVar (ncSscLeaders nc) leaders
-    liftIO $ putMVar (ncSscParticipants nc) richmens
+    liftIO $ putMVar (ncSscParticipants nc) richmen
     applyBlocks (map fst blockUndos)
     pure tip
 
 -- | Second argument - T, min money. Int is too small, I guess
-getRichmens :: forall ssc m . WorkMode ssc m => Coin -> m Participants
-getRichmens moneyT =
-    NE.fromList . HM.keys . HM.filter (>= moneyT) <$>
+getRichmen :: forall ssc m . WorkMode ssc m => Coin -> m Participants
+getRichmen moneyT =
+    fromMaybe onNoRichmen . NE.nonEmpty . HM.keys . HM.filter (>= moneyT) <$>
     execStateT (iterateByUtxo @ssc countMoneys) mempty
   where
+    onNoRichmen = panic "There are no richmen!"
     countMoneys :: (TxIn, TxOut) -> StateT (HM.HashMap Address Coin) m ()
     countMoneys (_, TxOut {..}) = do
         money <- get

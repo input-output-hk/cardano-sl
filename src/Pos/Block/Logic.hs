@@ -140,7 +140,7 @@ rollbackBlocks toRollback = do
     txRollbackBlocks toRollback
 
 loadLastNBlocksWithUndo :: WorkMode ssc m
-                        => HeaderHash ssc -> Int -> m (NonEmpty (Block ssc, Undo))
+                        => HeaderHash ssc -> Word -> m (NonEmpty (Block ssc, Undo))
 loadLastNBlocksWithUndo _    0 = panic "Number of blocks must be nonzero"
 loadLastNBlocksWithUndo hash 1 = (:| []) <$> getBlockWithUndo hash
 loadLastNBlocksWithUndo hash n = do
@@ -149,6 +149,6 @@ loadLastNBlocksWithUndo hash n = do
 
 getBlockWithUndo :: WorkMode ssc m
                  => HeaderHash ssc -> m (Block ssc, Undo) --should it located in DB.Block?
-getBlockWithUndo hash = maybe (panic "No block or undo with such tip")
-                              pure
-                               =<< (liftA2 (,) <$> DB.getBlock hash <*> DB.getUndo hash)
+getBlockWithUndo hash =
+    fromMaybe (panic "getBlockWithUndo: no block or undo with such HeaderHash") <$>
+    (liftA2 (,) <$> DB.getBlock hash <*> DB.getUndo hash)

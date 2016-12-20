@@ -1,3 +1,5 @@
+{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE StandaloneDeriving    #-}
@@ -14,32 +16,37 @@ module Pos.Wallet.KeyStorage
        , runKeyStorageRaw
        ) where
 
+import qualified Control.Concurrent.STM      as STM
+import           Control.Lens                (iso, use, (%=), (<>=))
 import           Control.Monad.Base          (MonadBase (..))
+import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Reader        (ReaderT (..), ask)
+import           Control.Monad.State         (MonadState (..))
+import           Control.Monad.Trans         (MonadTrans (..))
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import qualified Control.Concurrent.STM as STM
-import           Control.Lens           (iso, use, (%=), (<>=))
-import           Control.Monad.Catch    (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Reader   (ReaderT (..), ask)
-import           Control.Monad.State    (MonadState (..))
-import           Control.Monad.Trans    (MonadTrans (..))
-import           Control.TimeWarp.Rpc   (MonadDialog, MonadTransfer (..))
-import           Control.TimeWarp.Timed (MonadTimed (..), ThreadId)
-import           Serokell.Util.Lens     (WrappedM (..))
-import           System.Wlog            (CanLog, HasLoggerName)
+import           Control.TimeWarp.Rpc        (MonadDialog, MonadTransfer (..))
+import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
+import           Serokell.Util.Lens          (WrappedM (..))
+import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Crypto             (SecretKey, keyGen)
-import           Pos.DHT.Model          (MonadDHT, MonadMessageDHT, WithDefaultMsgHeader)
-import Pos.DHT.Real (KademliaDHT)
-import           Pos.Slotting           (MonadSlots)
-import           Pos.Util               ()
-import           Pos.Util.UserSecret    (UserSecret, peekUserSecret, usKeys,
-                                         writeUserSecret)
+import           Pos.Context                 (WithNodeContext)
+import           Pos.Crypto                  (SecretKey, keyGen)
+import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
+                                              WithDefaultMsgHeader)
+import           Pos.DHT.Real                (KademliaDHT)
+import qualified Pos.Modern.DB               as Modern
+import           Pos.Slotting                (MonadSlots)
+import qualified Pos.State                   as St
+import           Pos.Txp.LocalData           (MonadTxLD)
+import           Pos.Util                    ()
+import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,
+                                              writeUserSecret)
 
-import Pos.Wallet.Context (WithWalletContext)
+import           Pos.Wallet.Context          (WithWalletContext)
 import           Pos.Wallet.State.State      (MonadWalletDB)
 
 -- | Typeclass of monad with access to secret keys
@@ -48,22 +55,21 @@ class Monad m => MonadKeys m where
     addSecretKey :: SecretKey -> m ()
     deleteSecretKey :: Word -> m ()
 
+    default getSecretKeys :: MonadTrans t => t m [SecretKey]
+    getSecretKeys = lift getSecretKeys
+
+    default addSecretKey :: MonadTrans t => SecretKey -> t m ()
+    addSecretKey = lift . addSecretKey
+
+    default deleteSecretKey :: MonadTrans t => Word -> t m ()
+    deleteSecretKey = lift . deleteSecretKey
+
 -- | Instances for common transformers
-instance MonadKeys m => MonadKeys (ReaderT r m) where
-    getSecretKeys = lift getSecretKeys
-    addSecretKey = lift . addSecretKey
-    deleteSecretKey = lift . deleteSecretKey
+instance MonadKeys m => MonadKeys (ReaderT r m)
+instance MonadKeys m => MonadKeys (StateT s m)
 
-instance MonadKeys m => MonadKeys (StateT s m) where
-    getSecretKeys = lift getSecretKeys
-    addSecretKey = lift . addSecretKey
-    deleteSecretKey = lift . deleteSecretKey
-
--- | Orphan instances for stack ancestors
-instance MonadKeys m => MonadKeys (KademliaDHT m) where
-    getSecretKeys = lift getSecretKeys
-    addSecretKey = lift . addSecretKey
-    deleteSecretKey = lift . deleteSecretKey
+-- | Instances for ancestor in the monadic stack
+instance MonadKeys m => MonadKeys (KademliaDHT m)
 
 -- | Helper for generating a new secret key
 newSecretKey :: (MonadIO m, MonadKeys m) => m SecretKey
@@ -80,7 +86,8 @@ newtype KeyStorage m a = KeyStorage
                 MonadThrow, MonadSlots, MonadCatch, MonadIO,
                 HasLoggerName, MonadDialog s p, CanLog, MonadMask, MonadDHT,
                 MonadMessageDHT s, MonadReader KeyData, WithDefaultMsgHeader,
-                MonadWalletDB, WithWalletContext)
+                MonadWalletDB, WithWalletContext, MonadTxLD, WithNodeContext ssc,
+                St.MonadDB ssc, Modern.MonadDB ssc)
 
 type instance ThreadId (KeyStorage m) = ThreadId m
 

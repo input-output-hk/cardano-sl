@@ -220,6 +220,7 @@ library
                         Pos.Web.Types
   if flag(with-wallet)
     other-modules:      Pos.Wallet.Tx
+                        Pos.Wallet.Tx.Pure
                         Pos.Wallet.WalletMode
                         Pos.Wallet.Launcher
                         Pos.Wallet.Launcher.Runner
@@ -241,6 +242,9 @@ library
                         Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Server
+                        Pos.Wallet.Web.Server.Methods
+                        Pos.Wallet.Web.Server.Full
+                        Pos.Wallet.Web.Server.Lite
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.Holder

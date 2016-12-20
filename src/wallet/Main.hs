@@ -28,7 +28,7 @@ import           Pos.Types              (EpochIndex (..), makePubKeyAddress, txw
 import           Pos.Wallet             (WalletMode, WalletParams (..), WalletRealMode,
                                          getBalance, runWalletReal, submitTx)
 #ifdef WITH_WEB
-import           Pos.Wallet.Web         (walletServeWeb)
+import           Pos.Wallet.Web         (walletServeWebLite)
 #endif
 
 import           Command                (Command (..), parseCommand)
@@ -36,7 +36,7 @@ import           WalletOptions          (WalletAction (..), WalletOptions (..), 
 
 type CmdRunner = ReaderT ([SecretKey], [NetworkAddress])
 
-evalCmd :: WalletMode m => Command -> CmdRunner m ()
+evalCmd :: WalletMode ssc m => Command -> CmdRunner m ()
 evalCmd (Balance addr) = lift (getBalance addr) >>=
                          putText . sformat ("Current balance: "%int) >>
                          evalCommands
@@ -77,7 +77,7 @@ evalCmd (Delegate i j) = do
     evalCommands
 evalCmd Quit = pure ()
 
-evalCommands :: WalletMode m => CmdRunner m ()
+evalCommands :: WalletMode ssc m => CmdRunner m ()
 evalCommands = do
     putStr @Text "> "
     liftIO $ hFlush stdout
@@ -87,7 +87,7 @@ evalCommands = do
         Left err  -> putStrLn err >> evalCommands
         Right cmd -> evalCmd cmd
 
-runWalletRepl :: WalletMode m => WalletOptions -> m ()
+runWalletRepl :: WalletMode ssc m => WalletOptions -> m ()
 runWalletRepl WalletOptions{..} = do
     -- Wait some time to ensure blockchain is fetched
     putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
@@ -137,7 +137,7 @@ main = do
             plugins = case woAction of
                 Repl          -> [runWalletRepl opts]
 #ifdef WITH_WEB
-                Serve webPort webDaedalusDbPath -> [walletServeWeb webDaedalusDbPath webPort]
+                Serve webPort webDaedalusDbPath -> [walletServeWebLite webDaedalusDbPath webPort]
 #endif
 
         case woSscAlgo of

@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                    #-}
 {-# LANGUAGE ConstraintKinds        #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
@@ -58,16 +57,15 @@ import           Pos.DHT.Model                 (DHTPacking, DHTResponseT (..),
                                                 MonadMessageDHT (..),
                                                 WithDefaultMsgHeader)
 import           Pos.DHT.Real                  (KademliaDHT (..))
-#ifdef WITH_ROCKS
 import qualified Pos.Modern.DB.Class           as Modern
 import qualified Pos.Modern.DB.Holder          as Modern
+import           Pos.Modern.Ssc.Holder         (SscHolder (..))
 import           Pos.Modern.Txp.Class          (MonadTxpLD (..))
 import           Pos.Modern.Txp.Holder         (TxpLDHolder)
-#endif
 import           Pos.Slotting                  (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers         (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData       (MonadSscLD (..), SscLocalDataClass)
-import           Pos.Ssc.Class.Storage         (SscStorageMode)
+import           Pos.Ssc.Class.Storage         (MonadSscGS, SscStorageMode)
 import           Pos.Ssc.LocalData             (SscLDImpl)
 import           Pos.State                     (DBHolder, MonadDB (..))
 import           Pos.Statistics.MonadStats     (MonadStats, NoStatsT, StatsT)
@@ -85,11 +83,11 @@ type WorkMode ssc m
       , MonadMask m
       , MonadSlots m
       , MonadDB ssc m
-#ifdef WITH_ROCKS
       , Modern.MonadDB ssc m
       , MonadTxpLD ssc m
       , MonadUtxo m
-#endif
+      , MonadSscGS ssc m
+     -- , SscStorageClassM ssc m
       , MonadTxLD m
       , SscStorageMode ssc
       , SscLocalDataClass ssc
@@ -132,10 +130,6 @@ instance MonadTxLD m => MonadTxLD (KademliaDHT m) where
     getTxLocalData = lift getTxLocalData
     setTxLocalData = lift . setTxLocalData
 
-instance MonadTxLD m => MonadTxLD (ReaderT r m) where
-    getTxLocalData = lift getTxLocalData
-    setTxLocalData = lift . setTxLocalData
-
 newtype TxLDImpl m a = TxLDImpl
     { getTxLDImpl :: ReaderT (STM.TVar TxLocalData) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
@@ -144,9 +138,7 @@ newtype TxLDImpl m a = TxLDImpl
 
 type instance ThreadId (TxLDImpl m) = ThreadId m
 
-#ifdef WITH_ROCKS
 deriving instance Modern.MonadDB ssc m => Modern.MonadDB ssc (TxLDImpl m)
-#endif
 
 instance Monad m => WrappedM (TxLDImpl m) where
     type UnwrappedM (TxLDImpl m) = ReaderT (STM.TVar TxLocalData) m
@@ -199,19 +191,13 @@ instance MonadJL m => MonadJL (KademliaDHT m) where
 
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
 type RawRealMode ssc = KademliaDHT (
-#ifdef WITH_ROCKS
-                               TxpLDHolder ssc (
-#endif
+                           TxpLDHolder ssc (
+                               SscHolder ssc (
                                    TxLDImpl (
                                        SscLDImpl ssc (
                                            ContextHolder ssc (
-#ifdef WITH_ROCKS
                                                Modern.DBHolder ssc (
-#endif
-                                                   DBHolder ssc (Dialog DHTPacking (Transfer (MSockSt ssc)))))))
-#ifdef WITH_ROCKS
-                                   ))
-#endif
+                                                   DBHolder ssc (Dialog DHTPacking (Transfer (MSockSt ssc))))))))))
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.

@@ -13,7 +13,7 @@ module Pos.Worker.Block
        , blkWorkers
        ) where
 
-import           Control.Lens              (ix, (^.), (^?))
+import           Control.Lens              (ix, view, (^.), (^?))
 import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, wait)
 import qualified Data.HashMap.Strict       as HM
 import           Data.Tagged               (untag)
@@ -29,7 +29,8 @@ import           Pos.Constants             (networkDiameter, slotDuration)
 import           Pos.Context               (getNodeContext, ncPropagation,
                                             ncProxySecretKeys, ncProxyStorage,
                                             ncPublicKey, ncSecretKey)
-import           Pos.Crypto                (ProxySecretKey, pskIssuerPk, pskOmega)
+import           Pos.Crypto                (ProxySecretKey, WithHash (WithHash),
+                                            pskIssuerPk, pskOmega)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
 import           Pos.Ssc.Class             (sscApplyGlobalState, sscGetLocalPayload,
                                             sscVerifyPayload)
@@ -38,7 +39,7 @@ import           Pos.State                 (createNewBlock, getGlobalMpcData,
 import           Pos.Txp.LocalData         (getLocalTxs)
 import           Pos.Types                 (EpochIndex, SlotId (..),
                                             Timestamp (Timestamp), blockMpc, gbHeader,
-                                            makePubKeyAddress, slotIdF)
+                                            makePubKeyAddress, slotIdF, topsortTxs)
 import           Pos.Util                  (logWarningWaitLinear)
 import           Pos.Util.JsonLog          (jlCreatedBlock, jlLog)
 import           Pos.WorkMode              (WorkMode)
@@ -66,7 +67,7 @@ blkOnNewSlot slotId@SlotId {..} = do
             ourPkAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
             let leader = leaders ^? ix (fromIntegral siSlot)
             proxyCerts <-
-                (\v -> ncProxySecretKeys <$> liftIO (readMVar v)) =<<
+                (\v -> view ncProxySecretKeys <$> liftIO (readMVar v)) =<<
                 ncProxyStorage <$> getNodeContext
             let validCerts =
                     filter (\pSk -> let (w0,w1) = pskOmega pSk
@@ -77,7 +78,6 @@ blkOnNewSlot slotId@SlotId {..} = do
             if | leader == Just ourPkAddr -> onNewSlotWhenLeader slotId Nothing
                | isJust validCert -> onNewSlotWhenLeader slotId validCert
                | otherwise -> pure ()
-
 
 onNewSlotWhenLeader
     :: WorkMode ssc m
@@ -126,7 +126,12 @@ onNewSlotWhenLeader slotId pSk = do
             let whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
             sscData <- sscGetLocalPayload slotId
             localTxs <- HM.toList <$> getLocalTxs
-            either whenNotCreated whenCreated =<< createNewBlock localTxs sk pSk slotId sscData
+            let panicTopsort = panic "Topology of local transactions is broken!"
+            let convertTx (txId, (tx, _)) = WithHash tx txId
+            let sortedTxs = fromMaybe panicTopsort $
+                            topsortTxs convertTx localTxs
+            createdBlock <- createNewBlock sortedTxs sk pSk slotId sscData
+            either whenNotCreated whenCreated createdBlock
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
 -- | All workers specific to block processing.

@@ -24,6 +24,7 @@ import           Servant.Docs        (API, DocCapture (..), DocIntro (..), DocNo
 import qualified Servant.Docs        as SD
 import           Universum
 
+import           Pos.Aeson.Types     ()
 import           Pos.Crypto          (Hash, PublicKey, deterministicKeyGen, unsafeHash)
 import           Pos.Genesis         (genesisLeaders, genesisUtxo)
 import           Pos.Types           (EpochIndex, SharedSeed (..), SlotId (..),

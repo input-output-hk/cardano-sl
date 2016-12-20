@@ -25,9 +25,9 @@ import           Universum
 
 import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (announceBlock)
-import           Pos.Communication.Types   (MutSocketState, RequestBlock (..),
-                                            RequestBlockchainPart (..), ResponseMode,
-                                            SendBlock (..), SendBlockHeader (..),
+import           Pos.Communication.Types   (MsgBlock (..), MutSocketState,
+                                            RequestBlock (..), RequestBlockchainPart (..),
+                                            ResponseMode, SendBlockHeader (..),
                                             SendBlockchainPart (..))
 import           Pos.Context               (getNodeContext, ncPropagation)
 import           Pos.Crypto                (hash, shortHashF)
@@ -54,12 +54,12 @@ blockListeners =
     , ListenerDHT handleBlockchainPartRequest
     ]
 
--- | Handler 'SendBlock' event.
+-- | Handler 'MsgBlock' event.
 handleBlock
     :: forall ssc m.
        (ResponseMode ssc m)
-    => SendBlock ssc -> m ()
-handleBlock (SendBlock block) = do
+    => MsgBlock ssc -> m ()
+handleBlock (MsgBlock block) = do
     slotId <- getCurrentSlot
     localTxs <- HM.toList <$> getLocalTxs
     pbr <- St.processBlock localTxs slotId block
@@ -169,7 +169,7 @@ handleBlockRequest (RequestBlock h) = do
     logNotFound = logWarning $ sformat ("Block " %build % " wasn't found") h
     sendBlockBack block = do
         logDebug $ sformat ("Sending block " %build % " in reply") h
-        replyToNode $ SendBlock block
+        replyToNode $ MsgBlock block
 
 -- | Handle 'RequestBlockchainPart' message
 handleBlockchainPartRequest

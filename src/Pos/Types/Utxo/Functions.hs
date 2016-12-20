@@ -11,8 +11,9 @@ module Pos.Types.Utxo.Functions
        , findTxIn
        , verifyTxUtxo
        , verifyAndApplyTxs
+       , verifyAndApplyTxsOld
        , applyTxToUtxo'
-       , verifyAndApplyTxs'
+       , verifyAndApplyTxsOld'
        , convertTo'
        , convertFrom'
        ) where
@@ -57,7 +58,27 @@ applyTxToUtxo tx = do
 applyTxToUtxo' :: MonadUtxo m => IdTxWitness -> m ()
 applyTxToUtxo' (i, (t, _)) = applyTxToUtxo $ WithHash t i
 
--- | Accepts list of transactions and verifies its overall properties
+-- CHECK: @verifyAndApplyTxs
+-- | Verify transactions correctness with respect to Utxo applying
+-- them one-by-one.
+-- Note: transactions must be topsorted to pass check.
+-- Warning: this function may apply some transactions and fail
+-- eventually. Use it only on temporary data.
+verifyAndApplyTxs
+    :: forall m.
+       MonadUtxo m
+    => [(WithHash Tx, TxWitness)] -> m VerificationRes
+verifyAndApplyTxs = foldM applyDo mempty
+  where
+    applyDo :: VerificationRes -> (WithHash Tx, TxWitness) -> m VerificationRes
+    applyDo failure@(VerFailure _) _ = pure failure
+    applyDo VerSuccess txw = do
+        verRes <- verifyTxUtxo (over _1 whData txw)
+        verRes <$ applyTxToUtxo (fst txw)
+
+-- CHECK: @verifyAndApplyTxsOld
+-- | DEPRECATED
+-- Accepts list of transactions and verifies its overall properties
 -- plus validity of every transaction in particular. Return value is
 -- verification failure (first) or topsorted list of transactions (if
 -- topsort succeeded -- no loops were found) plus new
@@ -65,11 +86,11 @@ applyTxToUtxo' (i, (t, _)) = applyTxToUtxo $ WithHash t i
 -- applied -- no more than one error can happen. Either transactions
 -- can't be topsorted at all or the first incorrect transaction is
 -- encountered so we can't proceed further.
-verifyAndApplyTxs
+verifyAndApplyTxsOld
     :: forall m.
        MonadUtxo m
     => [(WithHash Tx, TxWitness)] -> m (Either Text [(WithHash Tx, TxWitness)])
-verifyAndApplyTxs txws =
+verifyAndApplyTxsOld txws =
     runExceptT $
     maybe (throwError brokenMsg) (\txs' -> txs' <$ applyAll txs') topsorted
   where
@@ -95,8 +116,10 @@ convertTo' = map (\(i, (t, w)) -> (WithHash t i, w))
 convertFrom' :: [(WithHash Tx, TxWitness)] -> [IdTxWitness]
 convertFrom' = map (\(WithHash t h, w) -> (h, (t, w)))
 
-verifyAndApplyTxs'
+-- CHECK: @verifyAndApplyTxsOld'
+-- #verifyAndApplyTxsOld
+verifyAndApplyTxsOld'
     :: MonadUtxo m
     => [IdTxWitness] -> m (Either Text [IdTxWitness])
-verifyAndApplyTxs' txws =
-    fmap convertFrom' <$> verifyAndApplyTxs (convertTo' txws)
+verifyAndApplyTxsOld' txws =
+    fmap convertFrom' <$> verifyAndApplyTxsOld (convertTo' txws)

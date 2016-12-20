@@ -45,17 +45,19 @@ getUndo
     => HeaderHash ssc -> m (Maybe Undo)
 getUndo = getBi . undoKey
 
--- | Put given block and its metadata into Block DB.
+-- | Put given block, its metadata and Undo data into Block DB.
 putBlock
     :: (Ssc ssc, MonadDB ssc m)
-    => Bool -> Block ssc -> m ()
-putBlock inMainChain blk =
+    => Undo -> Bool -> Block ssc -> m ()
+putBlock undo inMainChain blk = do
+    let h = headerHash blk
     putBi
-        (blockKey $ headerHash blk)
+        (blockKey h)
         StoredBlock
         { sbBlock = blk
         , sbInMain = inMainChain
         }
+    putBi (undoKey h) undo
 
 deleteBlock :: (MonadDB ssc m) => HeaderHash ssc -> m ()
 deleteBlock = delete . blockKey

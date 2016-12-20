@@ -34,7 +34,8 @@ import           Control.Monad.Trans.Class    (MonadTrans)
 import           Control.TimeWarp.Rpc         (Dialog, Message, MonadDialog,
                                                MonadTransfer (..), NetworkAddress,
                                                ResponseT, closeR, hoistRespCond,
-                                               mapResponseT, peerAddr, replyH, sendH)
+                                               mapResponseT, peerAddr, replyH, sendH,
+                                               userStateR)
 import           Control.TimeWarp.Timed       (MonadTimed, ThreadId)
 import           Formatting                   (int, sformat, shown, (%))
 import qualified Formatting                   as F
@@ -77,9 +78,11 @@ class MonadDHT m => MonadMessageDHT s m | m -> s where
     sendToNeighbors = defaultSendToNeighbors sequence sendToNode
 
 -- | Monad that can respond on messages for DHT algorithm.
-class MonadMessageDHT s m => MonadResponseDHT s m | m -> s where
-  replyToNode :: (Bi r, Message r) => r -> m ()
-  closeResponse :: m ()
+class MonadMessageDHT s m =>
+      MonadResponseDHT s m  | m -> s where
+    replyToNode :: (Bi r, Message r) => r -> m ()
+    closeResponse :: m ()
+    getUserState :: m s
 
 instance MonadMessageDHT s m => MonadMessageDHT s (ReaderT r m) where
     sendToNetwork = lift . sendToNetwork
@@ -133,22 +136,26 @@ instance MonadTransfer s m => MonadTransfer s (DHTResponseT s m) where
 
 type instance ThreadId (DHTResponseT s m) = ThreadId m
 
-instance ( WithLogger m
-         , WithDefaultMsgHeader m
-         , MonadMessageDHT s m
-         , MonadDHTDialog s m
-         , MonadIO m
-         , MonadMask m
-         , Bi DHTMsgHeader
-         ) => MonadResponseDHT s (DHTResponseT s m) where
-  replyToNode msg = do
-    addr <- DHTResponseT $ peerAddr
-    withDhtLogger $
-      logDebug $
-      sformat ("Replying with message "%F.build%" to "%F.build) (messageName' msg) addr
-    header <- defaultMsgHeader msg
-    DHTResponseT $ replyH header msg
-  closeResponse = DHTResponseT closeR
+instance (WithLogger m
+         ,WithDefaultMsgHeader m
+         ,MonadMessageDHT s m
+         ,MonadDHTDialog s m
+         ,MonadIO m
+         ,MonadMask m
+         ,Bi DHTMsgHeader) =>
+         MonadResponseDHT s (DHTResponseT s m) where
+    replyToNode msg = do
+        addr <- DHTResponseT $ peerAddr
+        withDhtLogger $
+            logDebug $
+            sformat
+                ("Replying with message " % F.build % " to " % F.build)
+                (messageName' msg)
+                addr
+        header <- defaultMsgHeader msg
+        DHTResponseT $ replyH header msg
+    closeResponse = DHTResponseT closeR
+    getUserState = DHTResponseT userStateR
 
 -- | Listener of DHT messages.
 data ListenerDHT s m =

@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                    #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -38,11 +37,9 @@ import           System.Wlog                 (CanLog, HasLoggerName, WithLogger,
                                               logWarning)
 import           Universum
 
-#ifdef WITH_ROCKS
-import qualified Pos.Modern.DB               as Modern
-#endif
 import           Pos.Context.Class           (WithNodeContext (..))
 import           Pos.Context.Context         (NodeContext (..))
+import qualified Pos.Modern.DB               as Modern
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.State                   (MonadDB (..))
 import           Pos.Types                   (Timestamp (..))
@@ -58,9 +55,7 @@ newtype ContextHolder ssc m a = ContextHolder
 runContextHolder :: NodeContext ssc -> ContextHolder ssc m a -> m a
 runContextHolder ctx = flip runReaderT ctx . getContextHolder
 
-#ifdef WITH_ROCKS
 deriving instance Modern.MonadDB ssc m => Modern.MonadDB ssc (ContextHolder ssc m)
-#endif
 
 instance Monad m => WrappedM (ContextHolder ssc m) where
     type UnwrappedM (ContextHolder ssc m) = ReaderT (NodeContext ssc) m

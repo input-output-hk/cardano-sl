@@ -31,7 +31,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/rocksdb-haskell.git
-    commit: 0a5bced2c0372e5d0dff886595841406cf6a73a2
+    commit: 5c17f60dad1fd91d47f05cd8b02e859aa26a3547
   extra-dep: true
 
 nix:
@@ -52,3 +52,6 @@ extra-deps:
 - base58-bytestring-0.1.0
 
 resolver: lts-7.9
+
+# This is for CI to pass --fast to all dependencies
+apply-ghc-options: everything

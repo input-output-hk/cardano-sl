@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                    #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -32,9 +31,7 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context                 (WithNodeContext)
-#ifdef WITH_ROCKS
 import qualified Pos.Modern.DB               as Modern
-#endif
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData     (MonadSscLD (..),
                                               SscLocalDataClass (sscEmptyLocalData))
@@ -52,9 +49,7 @@ instance Monad m => WrappedM (SscLDImpl ssc m) where
     type UnwrappedM (SscLDImpl ssc m) = ReaderT (STM.TVar (SscLocalData ssc)) m
     _WrappedM = iso getSscLDImpl SscLDImpl
 
-#ifdef WITH_ROCKS
 deriving instance Modern.MonadDB ssc m => Modern.MonadDB ssc (SscLDImpl ssc m)
-#endif
 
 monadMaskHelper
     :: (ReaderT (STM.TVar (SscLocalData ssc)) m a -> ReaderT (STM.TVar (SscLocalData ssc)) m a)

@@ -34,6 +34,7 @@ import           Servant.Server                       (Handler, ServantErr (errB
 import           Servant.Utils.Enter                  ((:~>) (Nat), enter)
 import           Universum
 
+import           Pos.Aeson.Types                      ()
 import           Pos.Context                          (ContextHolder, NodeContext,
                                                        getNodeContext, ncPublicKey,
                                                        ncSscContext, runContextHolder)

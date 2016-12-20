@@ -10,6 +10,7 @@ module Pos.Communication.Methods
        , sendToNeighborsSafe
        , sendTx
        , sendProxySecretKey
+       , sendProxyConfirmSK
 
        -- * Blockchain part queries
        , queryBlockchainPart
@@ -21,16 +22,16 @@ import           Control.TimeWarp.Rpc        (Message, NetworkAddress)
 import           Control.TimeWarp.Timed      (fork_)
 import           Formatting                  (build, sformat, (%))
 import           Pos.State                   (getHeadBlock)
-import           System.Wlog                 (logDebug, logNotice)
+import           System.Wlog                 (logDebug)
 import           Universum
 
 import           Pos.Binary.Class            (Bi)
 import           Pos.Binary.Communication    ()
 import           Pos.Binary.Txp              ()
 import           Pos.Binary.Types            ()
-import           Pos.Communication.Types     (RequestBlockchainPart (..),
-                                              SendBlockHeader (..),
-                                              SendProxySecretKey (..))
+import           Pos.Communication.Types     (ConfirmProxySK (..),
+                                              RequestBlockchainPart (..),
+                                              SendBlockHeader (..), SendProxySK (..))
 import           Pos.Crypto                  (ProxySecretKey)
 import           Pos.DHT.Model               (MonadMessageDHT, sendToNeighbors,
                                               sendToNode)
@@ -83,5 +84,11 @@ sendProxySecretKey
     :: (MinWorkMode ss m)
     => ProxySecretKey (EpochIndex, EpochIndex) -> m ()
 sendProxySecretKey psk = do
-    logNotice $ sformat ("Sending proxySecretKey to neigbours:\n"%build) psk
-    sendToNeighborsSafe $ SendProxySecretKey psk
+    logDebug $ sformat ("Sending proxySecretKey to neigbours:\n"%build) psk
+    sendToNeighborsSafe $ SendProxySK psk
+
+sendProxyConfirmSK :: (MinWorkMode ss m) => ConfirmProxySK -> m ()
+sendProxyConfirmSK confirmPSK@(ConfirmProxySK psk _) = do
+    logDebug $
+        sformat ("Sending proxy receival confirmation for psk "%build%" to neigbours") psk
+    sendToNeighborsSafe confirmPSK

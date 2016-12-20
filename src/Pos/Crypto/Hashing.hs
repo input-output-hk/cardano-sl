@@ -40,7 +40,6 @@ import           Control.DeepSeq     (force)
 import           Control.Lens        (makeLensesFor)
 import           Crypto.Hash         (Blake2s_224, Digest, HashAlgorithm)
 import qualified Crypto.Hash         as Hash (hash, hashlazy)
-import           Data.Aeson          (ToJSON (toJSON))
 import qualified Data.ByteArray      as ByteArray
 import           Data.Hashable       (Hashable (hashWithSalt), hashPtrWithSalt)
 import           Data.SafeCopy       (SafeCopy (..))
@@ -113,9 +112,6 @@ unsafeAbstractHash = AbstractHash . Hash.hashlazy . Bi.encode
 
 -- | Type alias for commonly used hash
 type Hash = AbstractHash Blake2s_224
-
-instance ToJSON (Hash a) where
-    toJSON = toJSON . pretty
 
 -- | Short version of 'unsafeHash'.
 hash :: Bi a => a -> Hash a

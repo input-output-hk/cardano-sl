@@ -186,7 +186,7 @@ newtype OldTx = OldTx
     { getOldTx :: [(Tx, TxIn, TxOut, OldTxInWitness)]
     } deriving (Show)
 
-instance Bi Tx => Arbitrary OldTx where
+instance Arbitrary OldTx where
     arbitrary = OldTx <$> do
         txsList <- getNonEmpty <$>
             (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))

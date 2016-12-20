@@ -26,8 +26,10 @@ data WalletOptions = WalletOptions
     , woDHTPeers           :: ![DHTNode]  -- ^ Initial DHT nodes
     , woDhtExplicitInitial :: !Bool
     , woPort               :: !Word16     -- ^ DHT/Blockchain port
-    , woInitialPause       :: !Int     -- ^ Pause between connecting to network
-                                       -- and starting accepting commands (in slots)
+    , woInitialPause       :: !Int        -- ^ Pause between connecting to network
+                                          -- and starting accepting commands (in slots)
+    , woKeyFilePath        :: !FilePath   -- ^ Path to file with secret keys
+    , woDebug              :: !Bool       -- ^ Run in debug mode (with genesis keys included)
     , woLogConfig          :: !(Maybe FilePath)
     , woLogsPrefix         :: !(Maybe FilePath)
     , woJLFile             :: !(Maybe FilePath)
@@ -96,7 +98,13 @@ optionsParser = WalletOptions
                   <> value 1
                   <> metavar "SLOTS_NUM"
                   <> help "Pause between connecting to network and starting accepting commands")
-   <*> optional (strOption $
+    <*> strOption (long "keys-path"
+                <> metavar "FILEPATH"
+                <> value "secret.key"
+                <> help "Path to file with secret keys")
+    <*> switch (long "debug"
+             <> help "Run in debug mode (with genesis keys included)")
+    <*> optional (strOption $
                   long "log-config"
                <> metavar "FILEPATH"
                <> help "Path to logger configuration")

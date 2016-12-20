@@ -174,6 +174,8 @@ mkMainBody txws mpc = MainBody {
     _mbWitnesses = map snd txws,
     _mbMpc = mpc }
 
+-- CHECK: @verifyConsensusLocal
+-- Verifies block signature (also proxy) and that slot id is in the correct range.
 verifyConsensusLocal
     :: BiSsc ssc
     => BlockHeader ssc -> VerificationRes
@@ -225,8 +227,11 @@ instance Default (VerifyHeaderParams ssc) where
 maybeEmpty :: Monoid m => (a -> m) -> Maybe a -> m
 maybeEmpty = maybe mempty
 
+-- CHECK: @verifyHeader
 -- | Check some predicates (determined by VerifyHeaderParams) about
 -- BlockHeader.
+-- #verifyConsensusLocal
+--
 verifyHeader
     :: BiSsc ssc
     => VerifyHeaderParams ssc -> BlockHeader ssc -> VerificationRes
@@ -269,6 +274,12 @@ verifyHeader VerifyHeaderParams {..} h =
               ("two adjacent blocks are from different epochs ("%build%" > "%build%")")
               oldEpoch newEpoch
         )
+
+    -- CHECK: Performs checks related to the previous header:
+    --
+    --   * Difficulty is correct.
+    --   * Hash is correct.
+    --   * Epoch/slot are consistent.
     relatedToPrevHeader prevHeader =
         [ checkDifficulty
               (prevHeader ^. difficultyL + headerDifficulty h)
@@ -279,6 +290,12 @@ verifyHeader VerifyHeaderParams {..} h =
               Left  _ -> (True, "") -- check that epochId prevHeader < epochId h performed above
               Right _ -> sameEpoch (prevHeader ^. epochIndexL) (h ^. epochIndexL)
         ]
+
+    -- CHECK: Performs checks related to the next header:
+    --
+    --  * Difficulty is correct.
+    --  * Hash is correct.
+    --  * Epoch/slot are consistent.
     relatedToNextHeader nextHeader =
         [ checkDifficulty
               (nextHeader ^. difficultyL - headerDifficulty nextHeader)
@@ -289,10 +306,14 @@ verifyHeader VerifyHeaderParams {..} h =
               Left  _ -> (True, "") -- check that epochId h  < epochId nextHeader performed above
               Right _ -> sameEpoch (h ^. epochIndexL) (nextHeader ^. epochIndexL)
         ]
+
+    -- CHECK: Verifies that the slot does not lie in the future.
     relatedToCurrentSlot curSlotId =
         [ ( either (const True) ((<= curSlotId) . view headerSlot) h
           , "block is from slot which hasn't happened yet")
         ]
+
+    -- CHECK: Checks that the block leader is the expected one.
     relatedToLeaders leaders =
         case h of
             Left _ -> []
@@ -303,6 +324,7 @@ verifyHeader VerifyHeaderParams {..} h =
                   , "block's leader is different from expected one")
                 ]
 
+-- CHECK: @verifyGenericBlock
 -- | Perform cheap checks of GenericBlock, which can be done using
 -- only block itself. Checks which can be done using only header are
 -- ignored here. It is assumed that they will be done separately.
@@ -329,7 +351,10 @@ instance Default (VerifyBlockParams ssc) where
         , vbpVerifyGeneric = False
         }
 
+-- CHECK: @verifyBlock
 -- | Check predicates defined by VerifyBlockParams.
+-- #verifyHeader
+-- #verifyGenericBlock
 verifyBlock :: BiSsc ssc => VerifyBlockParams ssc -> Block ssc -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
@@ -341,6 +366,10 @@ verifyBlock VerifyBlockParams {..} blk =
         if vbpVerifyGeneric
             then either verifyGenericBlock verifyGenericBlock blk
             else mempty
+
+-- CHECK: @verifyBlocks
+-- Verifies a sequence of blocks.
+-- #verifyBlock
 
 -- | Verify sequence of blocks. It is assumed that the leftmost block
 -- is the oldest one.

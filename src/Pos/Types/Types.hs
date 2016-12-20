@@ -124,8 +124,6 @@ module Pos.Types.Types
 import           Control.Lens           (Getter, Lens', choosing, makeLenses,
                                          makeLensesFor, to, view, (^.))
 import           Control.Monad.Fail     (fail)
-import           Data.Aeson             (ToJSON (toJSON))
-import           Data.Aeson.TH          (deriveToJSON)
 import qualified Data.ByteString        as BS (pack, zipWith)
 import qualified Data.ByteString.Char8  as BSC (pack)
 import           Data.Data              (Data)
@@ -146,7 +144,6 @@ import           Data.Vector            (Vector)
 import           Formatting             (Format, bprint, build, int, later, ords, sformat,
                                          stext, (%))
 import           Serokell.AcidState     ()
-import           Serokell.Aeson.Options (defaultOptions)
 import qualified Serokell.Util.Base16   as B16
 import           Serokell.Util.Text     (listJson, listJsonIndent, mapBuilderJson,
                                          pairBuilder, pairF)
@@ -174,7 +171,7 @@ import           Pos.Util               (Color (Magenta), colorize)
 -- | Coin is the least possible unit of currency.
 newtype Coin = Coin
     { getCoin :: Word64
-    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Hashable, Data, NFData, ToJSON)
+    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Hashable, Data, NFData)
 
 instance Buildable Coin where
     build = bprint (int%" coin(s)")
@@ -190,7 +187,7 @@ coinF = build
 -- | Index of epoch.
 newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable, ToJSON)
+    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable)
 
 instance Buildable EpochIndex where
     build = bprint ("epoch #"%int)
@@ -201,7 +198,7 @@ instance Buildable (EpochIndex,EpochIndex) where
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex
     { getSlotIndex :: Word16
-    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Buildable, ToJSON)
+    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Buildable)
 
 -- | Slot is identified by index of epoch and local index of slot in
 -- this epoch. This is a global index
@@ -210,8 +207,6 @@ data SlotId = SlotId
     , siSlot  :: !LocalSlotIndex
     } deriving (Show, Eq, Ord, Generic)
 
-
-$(deriveToJSON defaultOptions ''SlotId)
 
 instance Buildable SlotId where
     build SlotId {..} =
@@ -371,9 +366,6 @@ type Undo = [[TxOut]]
 newtype SharedSeed = SharedSeed
     { getSharedSeed :: ByteString
     } deriving (Show, Eq, Ord, Generic, NFData)
-
-instance ToJSON SharedSeed where
-    toJSON = toJSON . pretty
 
 instance Buildable SharedSeed where
     build = B16.formatBase16 . getSharedSeed
@@ -1069,7 +1061,3 @@ derive makeNFData ''TxIn
 derive makeNFData ''TxInWitness
 derive makeNFData ''TxOut
 derive makeNFData ''Tx
-
-deriveToJSON defaultOptions ''TxIn
-deriveToJSON defaultOptions ''TxOut
-deriveToJSON defaultOptions ''Tx

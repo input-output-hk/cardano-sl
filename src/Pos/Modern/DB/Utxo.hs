@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 module Pos.Modern.DB.Utxo
        ( BatchOp (..)
        , getTip
@@ -51,7 +52,7 @@ prepareUtxoDB = maybe putGenesisTip (const pass) =<< getTipMaybe
 putTip :: MonadDB ssc m => HeaderHash ssc -> m ()
 putTip h = getUtxoDB >>= rocksPutBi tipKey h
 
-iterateByUtxo :: (MonadDB ssc m, MonadMask m, MonadIO m) => ((TxIn, TxOut) -> m ()) -> m ()
+iterateByUtxo :: forall ssc m . (MonadDB ssc m, MonadMask m) => ((TxIn, TxOut) -> m ()) -> m ()
 iterateByUtxo callback = getUtxoDB >>= flip iterateByAllEntries callback
 
 ----------------------------------------------------------------------------

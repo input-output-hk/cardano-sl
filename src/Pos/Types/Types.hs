@@ -384,7 +384,7 @@ instance Monoid SharedSeed where
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty Address
 
-type Participants = NonEmpty (AsBinary VssPublicKey)
+type Participants = NonEmpty Address
 
 ----------------------------------------------------------------------------
 -- GenericBlock

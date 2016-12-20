@@ -127,12 +127,9 @@ instance SscLocalDataClassM SscNistBeacon where
 
 instance SscHelpersClassM SscNistBeacon where
     sscVerifyPayloadM = sscVerifyPayload
-    sscGetParticipantsQ _ _ =
-        pure $ Just $ pure $ asBinary $ toVssPublicKey $ deterministicVssKeyGen ""
-    sscCalculateLeadersQ epoch utxo _ = do
-        let seed = coerce . ByteArray.convert @_ @ByteString .
-                Hash.hashlazy @SHA256 . encode $ epoch
-        return $ Right $ followTheSatoshi seed utxo
+    sscCalculateSeedQ epoch  _ =
+        pure . Right . coerce . ByteArray.convert @_ @ByteString .
+            Hash.hashlazy @SHA256 . encode $ epoch
 
 -- instance SscStorageClassM SscNistBeacon m where
 --     sscEmptyGlobalState = pure ()

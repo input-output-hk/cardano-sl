@@ -19,6 +19,7 @@ import           Control.Monad.Trans.Maybe                     (runMaybeT)
 import           Control.TimeWarp.Timed                        (Microsecond, Millisecond,
                                                                 currentTime, for, wait)
 import           Data.HashMap.Strict                           (insert, lookup, member)
+import qualified Data.List.NonEmpty                            as NE (fromList, toList)
 import           Data.Tagged                                   (Tagged (..))
 import           Data.Time.Units                               (convertUnit)
 import           Formatting                                    (build, ords, sformat,
@@ -33,9 +34,7 @@ import           Pos.Communication.Methods                     (sendToNeighborsS
 import           Pos.Constants                                 (k, mpcSendInterval)
 import           Pos.Context                                   (getNodeContext,
                                                                 ncPublicKey, ncSecretKey,
-                                                                ncSscContext)
-import           Pos.Context                                   (getNodeContext)
-import           Pos.Context.Context                           (ncSscParticipants)
+                                                                ncSscContext, ncSscParticipants)
 import           Pos.Crypto                                    (SecretKey, VssKeyPair,
                                                                 randomNumber,
                                                                 runSecureRandom, toPublic)
@@ -270,7 +269,10 @@ generateAndSetNewSecret sk epoch = do
     -- getParticipants returns 'Just res' it will always return 'Just
     -- res' unless key assumption is broken. But if it's broken,
     -- nothing else matters.
-    ps <- takeParticipants
+    richmens <- takeParticipants
+    certs <- getGlobalCertificates
+    let ps = NE.fromList .
+                map vcVssKey . mapMaybe (`lookup` certs) . NE.toList $ richmens
     let threshold = getThreshold $ length ps
     mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
     case mPair of

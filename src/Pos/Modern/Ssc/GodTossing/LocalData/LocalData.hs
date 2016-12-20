@@ -172,9 +172,9 @@ sscIsDataUsefulSetImpl localG globalG addr =
 sscProcessMessage ::
        (MonadSscLDM SscGodTossing m, WorkModeDB SscGodTossing m, SscBi)
     => DataMsg -> m Bool
-sscProcessMessage msg = do
-    --certs <- verifiedVssCertificates -- TODO I must fix here
-    gtRunModify $ sscProcessMessageU notImplemented msg
+sscProcessMessage msg = gtRunModify $ do
+    certs <- use gtGlobalCertificates
+    sscProcessMessageU certs msg
 
 sscProcessMessageU :: SscBi => VssCertificatesMap -> DataMsg -> LDUpdate Bool
 sscProcessMessageU certs (DMCommitment addr comm)     = processCommitment certs addr comm

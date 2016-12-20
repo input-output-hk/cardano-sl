@@ -3,10 +3,14 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 import Control.Monad (forM_, forM)
 import Control.Monad.IO.Class (liftIO)
 import Data.String (fromString)
+import Data.Binary
+import Data.Void (Void)
 import qualified Data.Set as S
 import qualified Data.ByteString.Char8 as B8
 import Node
@@ -19,10 +23,20 @@ import System.Random
 import Mockable.Concurrent (delay)
 import Mockable.Production
 
-workers :: ( RandomGen g ) => NodeId -> g -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> [Worker Production]
+data Pong = Pong
+deriving instance Show Pong
+instance Binary Pong where
+    put _ = putWord8 (fromIntegral 1)
+    get = do
+        w <- getWord8
+        if w == fromIntegral 1
+        then pure Pong
+        else fail "no parse pong"
+
+workers :: NodeId -> StdGen -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> [Worker Production]
 workers id gen discovery = [pingWorker gen]
     where
-    pingWorker :: ( RandomGen g ) => g -> SendActions Production -> Production ()
+    pingWorker :: StdGen -> SendActions Production -> Production ()
     pingWorker gen sendActions = loop gen
         where
         loop gen = do
@@ -32,15 +46,19 @@ workers id gen discovery = [pingWorker gen]
             _ <- discoverPeers discovery
             peerSet <- knownPeers discovery
             liftIO . putStrLn $ show id ++ " has peer set: " ++ show peerSet
-            forM_ (S.toList peerSet) (\addr -> sendTo sendActions (NodeId addr) (fromString "ping") ())
+            forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) (fromString "ping") $
+                \(cactions :: ConversationActions Void Pong Production) -> do
+                    Pong <- recv cactions
+                    liftIO . putStrLn $ show id ++ " heard PONG from " ++ show addr
             loop gen'
 
 listeners :: NodeId -> [Listener Production]
-listeners id = [Listener (fromString "ping") pongWorker]
+listeners id = [Listener (fromString "ping") pongListener]
     where
-    pongWorker :: ListenerAction Production
-    pongWorker = ListenerActionOneMsg $ \peerId sendActions () -> do
-        liftIO . putStrLn $ show id ++  " heard a ping from " ++ show peerId
+    pongListener :: ListenerAction Production
+    pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Void Production) -> do
+        liftIO . putStrLn $ show id ++  " heard PING from " ++ show peerId
+        send cactions Pong
 
 makeNode transport i = do
     let port = 3000 + i

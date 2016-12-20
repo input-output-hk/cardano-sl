@@ -27,16 +27,6 @@ import Mockable.Production
 -- TBD should we fix this in network-transport? Maybe every chunk is prefixed
 -- by a byte giving its length? Wasteful I guess but maybe not a problem.
 
-data Ping = Ping
-deriving instance Show Ping
-instance Binary Ping where
-    put _ = putWord8 (fromIntegral 0)
-    get = do
-        w <- getWord8
-        if w == fromIntegral 0
-        then pure Ping
-        else fail "no parse ping"
-
 data Pong = Pong
 deriving instance Show Pong
 instance Binary Pong where

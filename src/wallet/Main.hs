@@ -28,7 +28,7 @@ import           Pos.Types              (EpochIndex (..), makePubKeyAddress, txw
 import           Pos.Wallet             (WalletMode, WalletParams (..), WalletRealMode,
                                          getBalance, runWalletReal, submitTx)
 #ifdef WITH_WEB
-import           Pos.Wallet.Web         (walletServeWeb)
+import           Pos.Wallet.Web         (walletServeWebLite)
 #endif
 
 import           Command                (Command (..), parseCommand)
@@ -137,7 +137,7 @@ main = do
             plugins = case woAction of
                 Repl          -> [runWalletRepl opts]
 #ifdef WITH_WEB
-                Serve webPort webDaedalusDbPath -> [walletServeWeb webDaedalusDbPath webPort]
+                Serve webPort webDaedalusDbPath -> [walletServeWebLite webDaedalusDbPath webPort]
 #endif
 
         case woSscAlgo of

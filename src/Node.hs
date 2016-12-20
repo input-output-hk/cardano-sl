@@ -15,8 +15,21 @@
 
 module Node (
 
-      module Node
+      Node
+    , startNode
+    , stopNode
+
+    , MessageName
+
+    , SendActions(sendTo, withConnectionTo)
+    , ConversationActions(send, recv)
+    , Worker
+    , Listener(..)
+    , ListenerAction(..)
+
     , LL.NodeId(..)
+    , nodeId
+    , nodeEndPointAddress
 
     ) where
 
@@ -40,8 +53,6 @@ import Mockable.Channel
 import Mockable.SharedAtomic
 import Mockable.Exception
 import GHC.Generics (Generic)
-
-import qualified Debug.Trace as Debug
 
 data Node (m :: * -> *) = Node {
        nodeLL      :: LL.Node m,
@@ -112,6 +123,62 @@ makeListenerIndex = foldr combine (M.empty, [])
             overlapping = maybe [] (const [name]) replaced
         in  (map', overlapping ++ existing)
 
+-- | Send actions for a given 'LL.Node'.
+nodeSendActions
+    :: forall m .
+       ( Mockable Channel m, Mockable Throw m, Mockable Catch m
+       , Mockable Bracket m, Mockable Fork m, Mockable SharedAtomic m )
+    => LL.Node m
+    -> SendActions m
+nodeSendActions node = SendActions nodeSendTo nodeWithConnectionTo
+    where
+
+    nodeSendTo
+        :: forall body .
+           ( Binary body )
+        => LL.NodeId
+        -> MessageName
+        -> body
+        -> m ()
+    nodeSendTo = \nodeId msgName body -> LL.withOutChannel node nodeId $ \channelOut ->
+        LL.writeChannel channelOut (LBS.toChunks (serialiseMsg msgName body))
+
+    nodeWithConnectionTo
+        :: forall snd rcv .
+           ( Binary snd, Binary rcv )
+        => LL.NodeId
+        -> MessageName
+        -> (ConversationActions snd rcv m -> m ())
+        -> m ()
+    nodeWithConnectionTo = \nodeId msgName f ->
+        LL.withInOutChannel node nodeId $ \inchan outchan -> do
+            let cactions :: ConversationActions snd rcv m
+                cactions = nodeConversationActions nodeId inchan outchan
+            LL.writeChannel outchan (LBS.toChunks (serialiseMsgName msgName))
+            f cactions
+
+-- | Conversation actions for a given peer and in/out channels.
+nodeConversationActions
+    :: forall snd rcv m .
+       ( Binary snd, Binary rcv, Mockable Channel m )
+    => LL.NodeId
+    -> ChannelIn m
+    -> ChannelOut m
+    -> ConversationActions snd rcv m
+nodeConversationActions nodeId inchan outchan = ConversationActions nodeSend nodeRecv
+    where
+
+    nodeSend = \body -> LL.writeChannel outchan (LBS.toChunks (serialiseBody body))
+
+    nodeRecv = do
+        next <- recvNext inchan
+        case next of
+            End -> pure Nothing
+            NoParse -> error "Unexpected end of conversation input"
+            Input t -> pure (Just t)
+
+-- | Spin up a node given a set of workers and listeners, using a given network
+--   transport to drive it.
 startNode
     :: forall m .
        ( Mockable Fork m, Mockable Throw m, Mockable Channel m
@@ -124,31 +191,7 @@ startNode
     -> m (Node m)
 startNode transport prng workers listeners = do
     rec { node <- LL.startNode transport prng (handlerIn node sendActions) (handlerInOut node)
-
-        -- The sendActions, to be given to the workers, so that they can send
-        -- unidirectional messages and also establish bidirectional
-        -- conversations.
-        ; let sendActions :: SendActions m
-              sendActions = SendActions {
-                    -- LL.withOutChannel safely establishes a connection for
-                    -- us, and closes it when we're done.
-                    sendTo = \nodeId msgName body -> LL.withOutChannel node nodeId $ \channelOut ->
-                        LL.writeChannel channelOut (LBS.toChunks (serialiseMsg msgName body))
-                    -- LL.withInOutChannel safely establishes a bidirectional
-                    -- connection, and closes it when we're done.
-                  , withConnectionTo = \nodeId msgName f -> LL.withInOutChannel node nodeId $ \inchan channelOut -> do
-                        let cactions = ConversationActions {
-                                  send = \body -> LL.writeChannel channelOut (LBS.toChunks (serialiseBody body))
-                                , recv = do
-                                      next <- recvNext inchan
-                                      case next of
-                                          End -> pure Nothing
-                                          NoParse -> error "Failed to parse peer's conversation response"
-                                          Input msg -> pure (Just msg)
-                                }
-                        LL.writeChannel channelOut (LBS.toChunks (serialiseMsgName msgName))
-                        f cactions
-                  }
+        ; let sendActions = nodeSendActions node
         }
     tids <- sequence
               [ fork $ worker sendActions
@@ -159,6 +202,8 @@ startNode transport prng workers listeners = do
     }
   where
     -- Index the listeners by message name, for faster lookup.
+    -- TODO: report conflicting names, or statically eliminate them using
+    -- DataKinds and TypeFamilies.
     listenerIndex :: ListenerIndex m
     (listenerIndex, conflictingNames) = makeListenerIndex listeners
 
@@ -166,7 +211,7 @@ startNode transport prng workers listeners = do
     -- message name, use it to determine a listener, parse the body, then
     -- run the listener.
     handlerIn :: LL.Node m -> SendActions m -> LL.NodeId -> ChannelIn m -> m ()
-    handlerIn node sendActions peerId inchan = do
+    handlerIn _ sendActions peerId inchan = do
         (input :: Input MessageName) <- recvNext inchan
         case input of
             End -> error "handerIn : unexpected end of input"
@@ -181,15 +226,6 @@ startNode transport prng workers listeners = do
                             End -> error "handerIn : unexpected end of input"
                             NoParse -> error "handlerIn : failed to parse message body"
                             Input msgBody -> do
-                                -- What if more data comes in after this point?
-                                -- Does it matter? It'll be discarded eventually,
-                                -- but if the peer keeps piling on data and our
-                                -- action is relatively long-running, all that
-                                -- useless data will be retained for a while.
-                                --
-                                -- Do we need a way for the handlers (like
-                                -- handlerIn) to signal that they don't expect
-                                -- any more input?
                                 action peerId sendActions msgBody
                     -- If it's a conversation listener, then that's an error, no?
                     Just (ListenerActionConversation _) -> error ("handlerIn : wrong listener type. Expected unidirectional for " ++ show msgName)
@@ -198,7 +234,7 @@ startNode transport prng workers listeners = do
     -- Handle incoming data from a bidirectional connection: try to read the
     -- message name, then choose a listener and fork a thread to run it.
     handlerInOut :: LL.Node m -> LL.NodeId -> ChannelIn m -> ChannelOut m -> m ()
-    handlerInOut node peerId inchan outchan = do
+    handlerInOut _ peerId inchan outchan = do
         (input :: Input MessageName) <- recvNext inchan
         case input of
             End -> error "handlerInOut : unexpected end of input"
@@ -207,16 +243,7 @@ startNode transport prng workers listeners = do
                 let listener = M.lookup msgName listenerIndex
                 case listener of
                     Just (ListenerActionConversation action) ->
-                        let cactions = ConversationActions {
-                                  send = \body -> do
-                                      LL.writeChannel outchan (LBS.toChunks (serialiseBody body))
-                                , recv = do
-                                      next <- recvNext inchan
-                                      case next of
-                                          End -> pure Nothing
-                                          NoParse -> error "Failed to parse peer's conversation input"
-                                          Input msg -> pure (Just msg)
-                                }
+                        let cactions = nodeConversationActions peerId inchan outchan
                         in  action peerId cactions
                     Just (ListenerActionOneMsg _) -> error ("handlerInOut : wrong listener type. Expected bidirectional for " ++ show msgName)
                     Nothing -> error ("handlerInOut : no listener for " ++ show msgName)
@@ -256,7 +283,6 @@ serialiseMsg name body =
                  (BS.untrimmedStrategy 256 4096)
                  LBS.empty
               . Bin.execPut
-
 
 data Input t where
     End :: Input t
@@ -300,7 +326,7 @@ recvPart chan prefix =
     go (Bin.pushChunk (Bin.runGetIncremental Bin.get) prefix)
   where
     go (Bin.Done trailing _ a) = return (Just a, trailing)
-    go (Bin.Fail trailing _ err) = return (Nothing, trailing)
+    go (Bin.Fail trailing _ _) = return (Nothing, trailing)
     go (Bin.Partial continue) = do
       mx <- readChannel chan
       go (continue mx)

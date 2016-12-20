@@ -42,6 +42,7 @@ import           Pos.Types                 (EpochIndex, SlotId (..),
 import           Pos.Util                  (logWarningWaitLinear)
 import           Pos.Util.JsonLog          (jlCreatedBlock, jlLog)
 import           Pos.WorkMode              (WorkMode)
+import Pos.Block.Logic (withBlkSemaphore)
 
 -- | Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode ssc m => SlotId -> m ()
@@ -148,3 +149,7 @@ blocksTransmitter = whenM (ncPropagation <$> getNodeContext) impl
     onError e =
         blocksTransmitterInterval <$
         logWarning (sformat ("Error occured in blocksTransmitter: " %build) e)
+
+lpcOnNewSlot :: WorkMode ssc m => SlotId -> m () --Leaders and Participants computation
+lpcOnNewSlot slotId@SlotId{..} = withBlkSemaphore $ \tip -> do notImplemented
+

@@ -1,4 +1,4 @@
-module Deadalus.FrontendApi where
+module Daedalus.ClientApi where
 
 import Prelude
 import Control.Monad.Eff (Eff)

@@ -5,6 +5,7 @@
 {-# LANGUAGE RecursiveDo #-}
 
 import Control.Monad (forM_, forM)
+import Control.Monad.IO.Class (liftIO)
 import Data.String (fromString)
 import qualified Data.Set as S
 import qualified Data.ByteString.Char8 as B8
@@ -15,73 +16,31 @@ import Network.Discovery.Abstract
 import qualified Network.Discovery.Transport.Kademlia as K
 import System.Environment (getArgs)
 import System.Random
-import qualified Control.Concurrent as Conc
-import qualified Control.Concurrent.STM.TChan as Conc
-import qualified Control.Concurrent.STM as STM
-import qualified Control.Concurrent.MVar as Conc
-import qualified Control.Exception as Exception
-import Mockable.Class
-import Mockable.Concurrent
-import Mockable.SharedAtomic
-import Mockable.Channel
-import Mockable.Exception
+import Mockable.Concurrent (delay)
+import Mockable.Production
 
-type instance ThreadId IO = Conc.ThreadId
-
-instance Mockable Fork IO where
-    liftMockable (Fork m) = Conc.forkIO m
-    liftMockable (MyThreadId) = Conc.myThreadId
-    liftMockable (KillThread tid) = Conc.killThread tid
-
-instance Mockable RunInUnboundThread IO where
-    liftMockable (RunInUnboundThread m) = Conc.runInUnboundThread m
-
-type instance SharedAtomicT IO = Conc.MVar
-
-instance Mockable SharedAtomic IO where
-    liftMockable (NewSharedAtomic t) = Conc.newMVar t
-    liftMockable (ModifySharedAtomic atomic f) = Conc.modifyMVar atomic f
-
-type instance ChannelT IO = Conc.TChan
-
-instance Mockable Channel IO where
-    liftMockable (NewChannel) = STM.atomically Conc.newTChan
-    liftMockable (ReadChannel channel) = STM.atomically $ Conc.readTChan channel
-    liftMockable (TryReadChannel channel) = STM.atomically $ Conc.tryReadTChan channel
-    liftMockable (UnGetChannel channel t) = STM.atomically $ Conc.unGetTChan channel t
-    liftMockable (WriteChannel channel t) = STM.atomically $ Conc.writeTChan channel t
-
-instance Mockable Bracket IO where
-    liftMockable (Bracket acquire release act) = Exception.bracket acquire release act
-
-instance Mockable Throw IO where
-    liftMockable (Throw e) = Exception.throwIO e
-
-instance Mockable Catch IO where
-    liftMockable (Catch io handler) = io `Exception.catch` handler
-
-workers :: ( RandomGen g ) => NodeId -> g -> NetworkDiscovery K.KademliaDiscoveryErrorCode IO -> [Worker IO]
+workers :: ( RandomGen g ) => NodeId -> g -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> [Worker Production]
 workers id gen discovery = [pingWorker gen]
     where
-    pingWorker :: ( RandomGen g ) => g -> SendActions IO -> IO ()
+    pingWorker :: ( RandomGen g ) => g -> SendActions Production -> Production ()
     pingWorker gen sendActions = loop gen
         where
         loop gen = do
             let (i, gen') = randomR (1000,2000000) gen
             --putStrLn (show id ++ " is waiting for " ++ show i ++ "us before discovering peers and sending pings")
-            Conc.threadDelay i
+            delay i
             _ <- discoverPeers discovery
             peerSet <- knownPeers discovery
-            putStrLn (show id ++ " has peer set: " ++ show peerSet)
+            liftIO . putStrLn $ show id ++ " has peer set: " ++ show peerSet
             forM_ (S.toList peerSet) (\addr -> sendTo sendActions (NodeId addr) (fromString "ping") ())
             loop gen'
 
-listeners :: NodeId -> [Listener IO]
+listeners :: NodeId -> [Listener Production]
 listeners id = [Listener (fromString "ping") pongWorker]
     where
-    pongWorker :: ListenerAction IO
+    pongWorker :: ListenerAction Production
     pongWorker = ListenerActionOneMsg $ \peerId sendActions () -> do
-        putStrLn (show id ++  " heard a ping from " ++ show peerId)
+        liftIO . putStrLn $ show id ++  " heard a ping from " ++ show peerId
 
 makeNode transport i = do
     let port = 3000 + i
@@ -96,29 +55,29 @@ makeNode transport i = do
     let kademliaConfig = K.KademliaConfiguration (fromIntegral port) id
     let prng1 = mkStdGen (2 * i)
     let prng2 = mkStdGen ((2 * i) + 1)
-    putStrLn $ "Starting node " ++ show i
+    liftIO . putStrLn $ "Starting node " ++ show i
     rec { node <- startNode transport prng1 (workers (nodeId node) prng2 discovery) (listeners (nodeId node))
         ; let localAddress = nodeEndPointAddress node
-        ; putStrLn $ "Making discovery for node " ++ show i
+        ; liftIO . putStrLn $ "Making discovery for node " ++ show i
         ; discovery <- K.kademliaDiscovery kademliaConfig initialPeer localAddress
         }
     pure (node, discovery)
     where
     makeId i = B8.pack ("node_identifier_" ++ show i)
 
-main = do
+main = runProduction $ do
 
-    [arg0] <- getArgs
+    [arg0] <- liftIO getArgs
     let number = read arg0
 
-    Right transport_ <- TCP.createTransport ("127.0.0.1") ("10128") TCP.defaultTCPParameters
+    Right transport_ <- liftIO $ TCP.createTransport ("127.0.0.1") ("10128") TCP.defaultTCPParameters
     let transport = concrete transport_
 
-    putStrLn $ "Spawning " ++ show number ++ " nodes"
+    liftIO . putStrLn $ "Spawning " ++ show number ++ " nodes"
     nodesAndDiscoveries <- forM [0..number] (makeNode transport)
 
-    putStrLn "Hit return to stop"
-    _ <- getChar
+    liftIO $ putStrLn "Hit return to stop"
+    _ <- liftIO $ getChar
 
-    putStrLn "Stopping nodes"
+    liftIO $ putStrLn "Stopping nodes"
     forM_ nodesAndDiscoveries (\(n, d) -> stopNode n >> closeDiscovery d)

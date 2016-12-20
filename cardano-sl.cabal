@@ -167,6 +167,8 @@ library
                         Pos.Modern.Ssc.GodTossing.Storage.Storage
                         Pos.Modern.Ssc.GodTossing.Helpers
                         Pos.Modern.Ssc.GodTossing.Storage.Types
+                        Pos.Modern.Ssc.GodTossing.Workers
+                        Pos.Modern.Ssc.GodTossing.Functions
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions

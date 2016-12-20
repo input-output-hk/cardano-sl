@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE AllowAmbiguousTypes    #-}
 {-# LANGUAGE ConstraintKinds        #-}
 {-# LANGUAGE DefaultSignatures      #-}
@@ -19,6 +20,8 @@ module Pos.Ssc.Class.Storage
 
        , SscUpdate
        , SscQuery
+       , SscGlobalQueryM
+       , SscGlobalUpdateM
        , SscStorageMode
        , sscRunGlobalQuery
        , sscRunGlobalModify
@@ -41,6 +44,9 @@ import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types.Types         (Address, EpochIndex, HeaderHash, SlotLeaders,
                                           Utxo)
 import           Pos.Util                (AsBinary)
+
+type SscGlobalQueryM ssc a =  forall m . (MonadReader (SscGlobalStateM ssc) m) => m a
+type SscGlobalUpdateM ssc a = forall m . (MonadState (SscGlobalStateM ssc) m) => m a
 
 -- | Generic @SSC@ query.
 type SscUpdate ssc a =

@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -45,8 +46,8 @@ import           Pos.Wallet.KeyStorage      (KeyData, KeyStorage, MonadKeys (..)
 import           Pos.Wallet.State           (WalletDB, getWalletState, runWalletDB)
 import qualified Pos.Wallet.State           as WS
 import           Pos.Wallet.Tx              (submitTx)
-import           Pos.Wallet.WalletMode      (SState, WalletRealMode, getBalance,
-                                             getTxHistory)
+import           Pos.Wallet.WalletMode      (SState, WalletMode, WalletRealMode,
+                                             getBalance, getTxHistory)
 import           Pos.Wallet.Web.Api         (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, addressToCAddress)
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletState,
@@ -69,6 +70,11 @@ walletApplication daedalusDbPath = bracket openDB closeDB $ \ws ->
 ----------------------------------------------------------------------------
 -- Servant infrastructure
 ----------------------------------------------------------------------------
+
+type WalletWebMode ssc m
+    = ( WalletMode ssc m
+      , MonadWalletWebDB m
+      )
 
 type WebHandler = WalletWebDB WalletRealMode
 type SubKademlia = KeyStorage
@@ -116,19 +122,19 @@ servantServer = flip enter servantHandlers <$> nat
 -- Handlers
 ----------------------------------------------------------------------------
 
-servantHandlers :: ServerT WalletApi WebHandler
+servantHandlers :: WalletWebMode ssc m => ServerT WalletApi m
 servantHandlers = getAddresses :<|> getBalances :<|> send :<|>
                   getHistory :<|> newAddress :<|> deleteAddress
 
-getAddresses :: WebHandler [CAddress]
+getAddresses :: WalletWebMode ssc m => m [CAddress]
 getAddresses = map fst <$> getBalances
 
-getBalances :: WebHandler [(CAddress, Coin)]
+getBalances :: WalletWebMode ssc m => m [(CAddress, Coin)]
 getBalances = join $ mapM gb <$> addresses
   where gb addr = (,) (addressToCAddress addr) <$> getBalance addr
         addresses = map (makePubKeyAddress . toPublic) <$> mySecretKeys
 
-send :: Word -> Address -> Coin -> WebHandler ()
+send :: WalletWebMode ssc m => Word -> Address -> Coin -> m ()
 send srcIdx dstAddr c = do
     sks <- mySecretKeys
     let skCount = length sks
@@ -145,13 +151,13 @@ send srcIdx dstAddr c = do
               sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
               c srcIdx dstAddr
 
-getHistory :: Address -> WebHandler [Tx]
+getHistory :: WalletWebMode ssc m => Address -> m [Tx]
 getHistory addr = map whData <$> getTxHistory addr
 
-newAddress :: WebHandler CAddress
+newAddress :: WalletWebMode ssc m => m CAddress
 newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
 
-deleteAddress :: Word -> WebHandler ()
+deleteAddress :: WalletWebMode ssc m => Word -> m ()
 deleteAddress = deleteSecretKey
 
 ----------------------------------------------------------------------------

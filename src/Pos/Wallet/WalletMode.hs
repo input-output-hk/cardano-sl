@@ -22,7 +22,6 @@ import           Pos.Communication.Types.State (MutSocketState)
 import           Pos.Crypto                    (WithHash)
 import           Pos.DHT.Model                 (DHTPacking)
 import           Pos.DHT.Real                  (KademliaDHT)
-import           Pos.DHT.Real                  (KademliaDHT)
 import           Pos.Modern.DB                 (DBHolder)
 import qualified Pos.Modern.DB                 as DB
 import           Pos.Ssc.GodTossing            (SscGodTossing)
@@ -91,6 +90,7 @@ type TxMode ssc m
 
 type WalletMode ssc m
     = ( TxMode ssc m
+      , MonadTxHistory m
       , MonadKeys m
       , WithWalletContext m
       )

@@ -39,8 +39,7 @@ import           Pos.Crypto                                    (SecretKey, VssKe
                                                                 runSecureRandom, toPublic)
 import           Pos.Crypto.SecretSharing                      (toVssPublicKey)
 import           Pos.Crypto.Signing                            (PublicKey, sign)
-import           Pos.Modern.Ssc.GodTossing.Functions           (getThreshold,
-                                                                hasCommitment, hasOpening,
+import           Pos.Modern.Ssc.GodTossing.Functions           (hasCommitment, hasOpening,
                                                                 hasShares)
 import           Pos.Modern.Ssc.GodTossing.Helpers             (getOurShares)
 import           Pos.Modern.Ssc.GodTossing.LocalData.LocalData (localOnNewSlot,
@@ -58,6 +57,7 @@ import           Pos.Ssc.GodTossing.Functions                  (genCommitmentAnd
                                                                 isCommitmentIdx,
                                                                 isOpeningIdx, isSharesIdx,
                                                                 mkSignedCommitment)
+import           Pos.Ssc.GodTossing.Functions                  (getThreshold)
 import           Pos.Ssc.GodTossing.LocalData.Types            (gtLocalCertificates)
 import           Pos.Ssc.GodTossing.SecretStorage.State        (checkpointSecret,
                                                                 getSecret,

@@ -54,6 +54,7 @@ library
                         Pos.DHT.Real.Types
                         Pos.FollowTheSatoshi
                         Pos.Script
+                        Pos.Script.Examples
                         Pos.Ssc.Class
                         Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon
@@ -61,6 +62,10 @@ library
                         Pos.Genesis
                         Pos.Launcher
                         Pos.Merkle
+                        Pos.Security
+                        Pos.Security.Types
+                        Pos.Security.Util
+                        Pos.Security.Workers
                         Pos.Slotting
                         Pos.Ssc.Class.Types
                         Pos.Ssc.Class.Helpers
@@ -151,6 +156,7 @@ library
                         Pos.Modern.DB.Error
                         Pos.Modern.DB.Functions
                         Pos.Modern.DB.Holder
+                        Pos.Modern.DB.Misc
                         Pos.Modern.DB.Types
                         Pos.Modern.DB.Utxo
                         Pos.Modern.Txp.Class
@@ -667,6 +673,8 @@ test-suite cardano-test
                      , random
                      , safecopy
                      , serokell-util
+                     , regex-tdfa
+                     , regex-tdfa-text
                      , time-units
                      , time-warp
                      , universum >= 0.1.11

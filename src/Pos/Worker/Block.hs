@@ -26,11 +26,11 @@ import           Universum
 import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
-import           Pos.Context               (getNodeContext, ncPropagation,
-                                            ncProxySecretKeys, ncProxyStorage,
-                                            ncPublicKey, ncSecretKey)
+import           Pos.Context               (getNodeContext, ncPropagation, ncPublicKey,
+                                            ncSecretKey)
 import           Pos.Crypto                (ProxySecretKey, WithHash (WithHash),
                                             pskIssuerPk, pskOmega)
+import           Pos.Modern.DB.Misc        (getProxySecretKeys)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
 import           Pos.Ssc.Class             (sscApplyGlobalState, sscGetLocalPayload,
                                             sscVerifyPayload)
@@ -66,9 +66,7 @@ blkOnNewSlot slotId@SlotId {..} = do
             logLeadersF (sformat ("Slot leaders: " %listJson) leaders)
             ourPkAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
             let leader = leaders ^? ix (fromIntegral siSlot)
-            proxyCerts <-
-                (\v -> view ncProxySecretKeys <$> liftIO (readMVar v)) =<<
-                ncProxyStorage <$> getNodeContext
+            proxyCerts <- getProxySecretKeys
             let validCerts =
                     filter (\pSk -> let (w0,w1) = pskOmega pSk
                                     in siEpoch >= w0 && siEpoch <= w1) proxyCerts
@@ -150,7 +148,8 @@ blocksTransmitter = whenM (ncPropagation <$> getNodeContext) impl
         do headBlock <- getHeadBlock
            case headBlock of
                Left _          -> logDebug "Head block is genesis block ⇒ no announcement"
-               Right mainBlock -> announceBlock (mainBlock ^. gbHeader)
+               Right mainBlock -> do
+                   announceBlock (mainBlock ^. gbHeader)
     onError e =
         blocksTransmitterInterval <$
         logWarning (sformat ("Error occured in blocksTransmitter: " %build) e)

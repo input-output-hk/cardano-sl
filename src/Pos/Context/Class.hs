@@ -1,23 +1,37 @@
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE TupleSections          #-}
 {-# LANGUAGE UndecidableInstances   #-}
 
 -- | Class which provides access to NodeContext.
 
 module Pos.Context.Class
        ( WithNodeContext (..)
+
        , putBlkSemaphore
        , takeBlkSemaphore
+
+       , withProxyCaches
+       , invalidateProxyCaches
        ) where
 
-import           Control.Concurrent.MVar   (putMVar, takeMVar)
+import           Control.Concurrent.MVar   (putMVar)
+import           Control.Exception         (SomeException)
+import           Control.Lens              ((%~))
+import           Control.Monad.Catch       (catch)
+import qualified Data.HashMap.Strict       as HM
+import           Data.Time.Clock           (addUTCTime, getCurrentTime)
 import           Universum
 
-import           Pos.Context.Context       (NodeContext, ncBlkSemaphore)
+import           Pos.Context.Context       (NodeContext, ProxyCaches, ncBlkSemaphore,
+                                            ncProxyCaches, ncProxyConfCache,
+                                            ncProxyMsgCache)
 import           Pos.DHT.Model             (DHTResponseT)
 import           Pos.DHT.Real              (KademliaDHT)
 import           Pos.Statistics.MonadStats (NoStatsT, StatsT)
 import           Pos.Types                 (HeaderHash)
+
 
 -- | Class for something that has 'NodeContext' inside.
 class WithNodeContext ssc m | m -> ssc where
@@ -47,6 +61,15 @@ instance (Monad m, WithNodeContext ssc m) =>
          WithNodeContext ssc (NoStatsT m) where
     getNodeContext = lift getNodeContext
 
+
+
+-- TODO Refactor it out of this module when dealing with in-memory
+-- things
+
+----------------------------------------------------------------------------
+-- Semaphore-related logic
+----------------------------------------------------------------------------
+
 takeBlkSemaphore
     :: (MonadIO m, WithNodeContext ssc m)
     => m (HeaderHash ssc)
@@ -56,3 +79,30 @@ putBlkSemaphore
     :: (MonadIO m, WithNodeContext ssc m)
     => HeaderHash ssc -> m ()
 putBlkSemaphore tip = liftIO . flip putMVar tip . ncBlkSemaphore =<< getNodeContext
+
+
+----------------------------------------------------------------------------
+-- ProxyCache logic
+----------------------------------------------------------------------------
+
+-- | Effectively takes a lock on ProxyCaches mvar in NodeContext and
+-- allows you to run some computation producing updated ProxyCaches
+-- and return value. Will put MVar back on exception.
+withProxyCaches
+    :: (MonadIO m, WithNodeContext ssc m, MonadCatch m)
+    => (ProxyCaches -> m (a, ProxyCaches)) -> m a
+withProxyCaches action = do
+    v <- ncProxyCaches <$> getNodeContext
+    x <- liftIO $ takeMVar v
+    (res,modified) <-
+        action x `catch` (\(e :: SomeException) -> liftIO (putMVar v x) >> throwM e)
+    liftIO $ putMVar v modified
+    pure res
+
+-- | Invalidates proxy caches using built-in constants.
+invalidateProxyCaches :: (MonadIO m, WithNodeContext ssc m, MonadCatch m) => m ()
+invalidateProxyCaches = withProxyCaches $ \p -> do
+    curTime <- liftIO $ getCurrentTime
+    pure $ ((),) $
+        p & ncProxyMsgCache %~ HM.filter (\t -> addUTCTime 60 t > curTime)
+          & ncProxyConfCache %~ HM.filter (\t -> addUTCTime 500 t > curTime)

@@ -36,9 +36,9 @@ import           Universum
 import           Pos.Binary.Class     (Bi (..))
 import           Pos.Binary.Types     ()
 import           Pos.Constants        (epochSlots)
-import           Pos.Crypto           (Hash, ProxySecretKey, SecretKey, checkSig, hash,
-                                       proxySign, proxyVerify, pskIssuerPk, sign,
-                                       toPublic, unsafeHash)
+import           Pos.Crypto           (Hash, SecretKey, checkSig, hash, proxySign,
+                                       proxyVerify, pskIssuerPk, sign, toPublic,
+                                       unsafeHash)
 import           Pos.Merkle           (mkMerkleTree)
 import           Pos.Ssc.Class.Types  (Ssc (..))
 -- Unqualified import is used here because of GHC bug (trac 12127).
@@ -101,7 +101,7 @@ mkMainHeader
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
-    -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
+    -> Maybe ProxySKEpoch
     -> Body (MainBlockchain ssc)
     -> MainBlockHeader ssc
 mkMainHeader prevHeader slotId sk pSk body =
@@ -127,7 +127,7 @@ mkMainBlock
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
-    -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
+    -> Maybe ProxySKEpoch
     -> Body (MainBlockchain ssc)
     -> MainBlock ssc
 mkMainBlock prevHeader slotId sk proxyInfo body =

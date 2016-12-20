@@ -9,7 +9,7 @@
 
 -- | Block processing related workers.
 
-module Pos.Modern.Worker.Block
+module Pos.Block.Worker
        (
        ) where
 

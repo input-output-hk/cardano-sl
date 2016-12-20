@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes    #-}
+{-# LANGUAGE DefaultSignatures      #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -12,12 +13,21 @@
 -- as convenient wrappers.
 
 module Pos.Ssc.Class.LocalData
-       ( LocalQuery
-       , LocalUpdate
-       , SscLocalDataClass (..)
-       , HasSscLocalData (..)
-       , MonadSscLD (..)
+       (
+         -- * Modern
+         LocalQueryM
+       , LocalUpdateM
+       , SscLocalDataClassM (..)
+       , MonadSscLDM (..)
+       , sscApplyGlobalStateM
+       , sscGetLocalPayloadM
 
+         -- * Old
+       , HasSscLocalData (..)
+       , LocalQuery
+       , LocalUpdate
+       , MonadSscLD (..)
+       , SscLocalDataClass (..)
        , sscRunLocalQuery
        , sscRunLocalUpdate
        , sscGetLocalPayload
@@ -25,12 +35,89 @@ module Pos.Ssc.Class.LocalData
        ) where
 
 import           Control.Lens        (Lens')
+import           Control.Monad.Trans (MonadTrans)
+
 import           Pos.DHT.Model       (DHTResponseT)
 import           Pos.DHT.Real        (KademliaDHT)
 import           Universum
 
 import           Pos.Ssc.Class.Types (Ssc (..))
 import           Pos.Types.Types     (SlotId)
+
+----------------------------------------------------------------------------
+-- Modern
+----------------------------------------------------------------------------
+
+class Monad m => MonadSscLDM ssc m | m -> ssc where
+    getLocalDataM :: m (SscLocalDataM ssc)
+    setLocalDataM :: SscLocalDataM ssc -> m ()
+    modifyLocalDataM :: ((SscGlobalStateM ssc, SscLocalDataM ssc)
+                     -> (a, SscLocalDataM ssc)) -> m a
+
+    default getLocalDataM :: MonadTrans t => t m (SscLocalDataM ssc)
+    getLocalDataM = lift getLocalDataM
+
+    default setLocalDataM :: MonadTrans t => SscLocalDataM ssc -> t m ()
+    setLocalDataM = lift . setLocalDataM
+
+    default modifyLocalDataM :: MonadTrans t => ((SscGlobalStateM ssc, SscLocalDataM ssc)
+                     -> (a, SscLocalDataM ssc)) -> t m a
+    modifyLocalDataM = lift . modifyLocalDataM
+
+instance (Monad m, MonadSscLDM ssc m) => MonadSscLDM ssc (ReaderT x m)
+instance (Monad m, MonadSscLDM ssc m) => MonadSscLDM ssc (DHTResponseT s m)
+instance (MonadSscLDM ssc m, Monad m) => MonadSscLDM ssc (KademliaDHT m)
+
+type LocalQueryM ssc a = forall m . (MonadReader (SscLocalDataM ssc) m) => m a
+type LocalUpdateM ssc a = forall m .(MonadState (SscLocalDataM ssc) m) => m a
+
+-- | This type class abstracts local data used for SSC. Local means
+-- that it is not stored in blocks.
+class Ssc ssc => SscLocalDataClassM ssc where
+    -- | Empty local data which is created on start.
+    sscEmptyLocalDataM :: SscLocalDataM ssc
+    -- | Get local payload to be put into main block corresponding to
+    -- given SlotId.
+    sscGetLocalPayloadMQ :: SlotId -> LocalQueryM ssc (SscPayload ssc)
+    -- | Update LocalData using global data from blocks (last version
+    -- of best known chain).
+    sscApplyGlobalStateMU :: SscGlobalStateM ssc -> LocalUpdateM ssc ()
+
+----------------------------------------------------------------------------
+-- Helpers for transform from MonadSscLD to Reader/State monad and back
+----------------------------------------------------------------------------
+-- | Convenient wrapper to run LocalQuery in MonadSscLD.
+sscRunLocalQueryM
+    :: forall ssc m a.
+       MonadSscLDM ssc m
+    => Reader (SscLocalDataM ssc) a -> m a
+sscRunLocalQueryM query = runReader query <$> getLocalDataM @ssc
+
+-- | Convenient wrapper to run LocalUpdate in MonadSscLD.
+sscRunLocalUpdateM
+    :: MonadSscLDM ssc m
+    => State (SscLocalDataM ssc) a -> m a
+sscRunLocalUpdateM upd =
+    modifyLocalDataM (\(_, l) -> runState upd l)
+
+----------------------------------------------------------------------------
+-- Methods for using in MonadSscLD
+----------------------------------------------------------------------------
+sscGetLocalPayloadM
+    :: forall ssc m.
+       (MonadSscLDM ssc m, SscLocalDataClassM ssc)
+    => SlotId -> m (SscPayload ssc)
+sscGetLocalPayloadM = sscRunLocalQueryM . sscGetLocalPayloadMQ @ssc
+
+sscApplyGlobalStateM
+    :: forall ssc m.
+       (MonadSscLDM ssc m, SscLocalDataClassM ssc)
+    =>  SscGlobalStateM ssc -> m ()
+sscApplyGlobalStateM = sscRunLocalUpdateM . sscApplyGlobalStateMU @ssc
+
+----------------------------------------------------------------------------
+-- LEGACY
+----------------------------------------------------------------------------
 
 type LocalQuery ssc a = forall m . ( HasSscLocalData ssc (SscLocalData ssc)
                                    , MonadReader (SscLocalData ssc) m
@@ -51,20 +138,15 @@ class Monad m => MonadSscLD ssc m | m -> ssc where
     getLocalData :: m (SscLocalData ssc)
     setLocalData :: SscLocalData ssc -> m ()
 
-instance (Monad m, MonadSscLD ssc m) =>
-         MonadSscLD ssc (ReaderT x m) where
+    default getLocalData :: MonadTrans t => t m (SscLocalData ssc)
     getLocalData = lift getLocalData
+
+    default setLocalData :: MonadTrans t => SscLocalData ssc -> t m ()
     setLocalData = lift . setLocalData
 
-instance (Monad m, MonadSscLD ssc m) =>
-         MonadSscLD ssc (DHTResponseT s m) where
-    getLocalData = lift getLocalData
-    setLocalData = lift . setLocalData
-
-instance (MonadSscLD ssc m, Monad m) =>
-         MonadSscLD ssc (KademliaDHT m) where
-    getLocalData = lift getLocalData
-    setLocalData = lift . setLocalData
+instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (ReaderT x m)
+instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (DHTResponseT s m)
+instance (MonadSscLD ssc m, Monad m) => MonadSscLD ssc (KademliaDHT m)
 
 -- | This type class abstracts local data used for SSC. Local means
 -- that it is not stored in blocks.
@@ -77,6 +159,10 @@ class Ssc ssc => SscLocalDataClass ssc where
     -- | Update LocalData using global data from blocks (last version
     -- of best known chain).
     sscApplyGlobalStateU :: SscGlobalState ssc -> LocalUpdate ssc ()
+
+----------------------------------------------------------------------------
+-- Helpers for transform from MonadSscLD to Reader/State monad and back
+----------------------------------------------------------------------------
 
 -- | Convenient wrapper to run LocalQuery in MonadSscLD.
 sscRunLocalQuery
@@ -92,7 +178,9 @@ sscRunLocalUpdate
 sscRunLocalUpdate upd = do
     (res, newLocalData) <- runState upd <$> getLocalData
     res <$ setLocalData newLocalData
-
+----------------------------------------------------------------------------
+-- Methods for using in MonadSscLD
+----------------------------------------------------------------------------
 sscGetLocalPayload
     :: forall ssc m.
        (MonadSscLD ssc m, SscLocalDataClass ssc)

@@ -16,13 +16,9 @@ module Pos.Communication.Server.Delegation
        , handleCheckProxySKConfirmed
        ) where
 
-import           Control.Concurrent.MVar   (putMVar)
-import           Control.Exception         (SomeException)
 import           Control.Lens              (to, (%~), (^.))
-import           Control.Monad.Catch       (catch)
 import qualified Data.HashMap.Strict       as HM
-import           Data.List                 (nub)
-import           Data.Time.Clock           (addUTCTime, getCurrentTime)
+import           Data.Time.Clock           (getCurrentTime)
 import           Formatting                (build, sformat, shown, (%))
 import           System.Wlog               (logDebug, logInfo)
 import           Universum
@@ -33,15 +29,15 @@ import           Pos.Communication.Types   (CheckProxySKConfirmed (..),
                                             CheckProxySKConfirmedRes (..),
                                             ConfirmProxySK (..), MutSocketState,
                                             ResponseMode, SendProxySK (..))
-import           Pos.Context               (ProxyStorage, getNodeContext, ncPropagation,
-                                            ncProxyCache, ncProxyConfCache,
-                                            ncProxySecretKeys, ncProxyStorage,
-                                            ncSecretKey)
-import           Pos.Crypto                (ProxySecretKey, ProxySignature,
-                                            checkProxySecretKey, pdDelegatePk,
-                                            pdDelegatePk, proxySign, proxyVerify)
+import           Pos.Context               (getNodeContext, invalidateProxyCaches,
+                                            ncPropagation, ncProxyConfCache,
+                                            ncProxyMsgCache, ncSecretKey, withProxyCaches)
+import           Pos.Crypto                (ProxySecretKey, checkProxySecretKey,
+                                            pdDelegatePk, pdDelegatePk, proxySign,
+                                            proxyVerify)
 import           Pos.DHT.Model             (ListenerDHT (..), MonadDHTDialog, replyToNode)
-import           Pos.Types                 (EpochIndex)
+import           Pos.Modern.DB.Misc        (addProxySecretKey, getProxySecretKeys)
+import           Pos.Types                 (EpochIndex, ProxySKEpoch, ProxySigEpoch)
 import           Pos.WorkMode              (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
@@ -53,26 +49,6 @@ delegationListeners =
     , ListenerDHT handleConfirmProxySK
     , ListenerDHT handleCheckProxySKConfirmed
     ]
-
-----------------------------------------------------------------------------
--- Logic of delegation-storage related stuff
-----------------------------------------------------------------------------
-
-withProxyStorage :: (WorkMode ssc m) => (ProxyStorage -> m (a,ProxyStorage)) -> m a
-withProxyStorage action = do
-    v <- ncProxyStorage <$> getNodeContext
-    x <- liftIO $ takeMVar v
-    (res,modified) <-
-        action x `catch` (\(e :: SomeException) -> liftIO (putMVar v x) >> throwM e)
-    liftIO $ putMVar v modified
-    pure res
-
-invalidateCaches :: (WorkMode ssc m) => m ()
-invalidateCaches = withProxyStorage $ \p -> do
-    curTime <- liftIO $ getCurrentTime
-    pure $ ((),) $
-        p & ncProxyCache %~ HM.filter (\t -> addUTCTime 30 t > curTime)
-          & ncProxyConfCache %~ HM.filter (\t -> addUTCTime 500 t > curTime)
 
 ----------------------------------------------------------------------------
 -- Proxy signing key propagation
@@ -89,23 +65,21 @@ data PSKVerdict
 
 -- | Processes proxy secret key (understands do we need it,
 -- adds/caches on decision, returns this decision).
-processProxySecretKey
-    :: (WorkMode ssc m)
-    => ProxySecretKey (EpochIndex, EpochIndex) -> m PSKVerdict
-processProxySecretKey pSk = withProxyStorage $ \p -> do
+processProxySecretKey :: (WorkMode ssc m) => ProxySKEpoch -> m PSKVerdict
+processProxySecretKey pSk = withProxyCaches $ \p -> do
     sk <- ncSecretKey <$> getNodeContext
+    pSks <- getProxySecretKeys
     let related = checkProxySecretKey sk pSk
-        exists = p ^. ncProxySecretKeys . to (elem pSk)
-        cached = p ^. ncProxyCache . to (HM.member pSk)
+        exists = pSk `elem` pSks
+        cached = p ^. ncProxyMsgCache . to (HM.member pSk)
     if | cached -> pure (PSKCached, p)
        | exists -> pure (PSKExists, p) -- cache here too?
        | not (related) -> (PSKUnrelated,) <$> cachePSK p
-       | otherwise -> pure (PSKAdded, addPSK p)
+       | otherwise -> addProxySecretKey pSk $> (PSKAdded, p)
   where
-    addPSK p = p & ncProxySecretKeys %~ nub . (pSk:)
     cachePSK p = do
         curTime <- liftIO $ getCurrentTime
-        pure $ p & ncProxyCache %~ HM.insert pSk curTime
+        pure $ p & ncProxyMsgCache %~ HM.insert pSk curTime
 
 -- | Handler 'SendProxySK' event.
 handleSendProxySK
@@ -114,7 +88,7 @@ handleSendProxySK
     => SendProxySK -> m ()
 handleSendProxySK (SendProxySK pSk) = do
     logDebug $ sformat ("Got request to handle proxy secret key: "%build) pSk
-    invalidateCaches -- do it in worker once in ~sometimes
+    invalidateProxyCaches -- do it in worker once in ~sometimes
     verdict <- processProxySecretKey pSk
     logResult verdict
     propagateSendProxySK verdict pSk
@@ -145,18 +119,18 @@ propagateSendProxySK _ _ = pure ()
 ----------------------------------------------------------------------------
 
 data ConfirmPSKVerdict
-    = ConfirmPSKValid -- ^ Valid, saved
+    = ConfirmPSKValid   -- ^ Valid, saved
     | ConfirmPSKInvalid -- ^ Invalid, throw away
-    | ConfirmPSKCached -- ^ Already saved
+    | ConfirmPSKCached  -- ^ Already saved
+    deriving (Show)
 
 processConfirmProxySk
     :: (WorkMode ssc m)
-    => ProxySecretKey (EpochIndex, EpochIndex)
-    -> ProxySignature (EpochIndex, EpochIndex)
-                      (ProxySecretKey (EpochIndex, EpochIndex))
+    => ProxySKEpoch
+    -> ProxySigEpoch ProxySKEpoch
     -> m ConfirmPSKVerdict
 processConfirmProxySk pSk proof =
-    withProxyStorage $ \p -> do
+    withProxyCaches $ \p -> do
         let valid = proxyVerify (pdDelegatePk proof) proof (const True) pSk
             cached = p ^. ncProxyConfCache . to (HM.member pSk)
         if | cached -> pure (ConfirmPSKCached, p)
@@ -195,7 +169,7 @@ handleCheckProxySKConfirmed
     => CheckProxySKConfirmed -> m ()
 handleCheckProxySKConfirmed (CheckProxySKConfirmed pSk) = do
     logDebug $ sformat ("Got request to check if psk: "%build%" was delivered.") pSk
-    res <- withProxyStorage $ \p -> pure (p ^. ncProxyConfCache . to (HM.member pSk), p)
+    res <- withProxyCaches $ \p -> pure (p ^. ncProxyConfCache . to (HM.member pSk), p)
     replyToNode $ CheckProxySKConfirmedRes res
 
 -- response listener should be defined ad-hoc where it's used

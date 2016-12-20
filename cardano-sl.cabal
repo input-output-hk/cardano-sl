@@ -62,6 +62,10 @@ library
                         Pos.Genesis
                         Pos.Launcher
                         Pos.Merkle
+                        Pos.Security
+                        Pos.Security.Types
+                        Pos.Security.Util
+                        Pos.Security.Workers
                         Pos.Slotting
                         Pos.Ssc.Class.Types
                         Pos.Ssc.Class.Helpers
@@ -112,6 +116,8 @@ library
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
                         Pos.Binary.Types
+                        Pos.Block.Logic
+                        Pos.Block.Requests
                         Pos.Block.Server
                         Pos.Block.Server.State
                         Pos.Block.Server.Listeners
@@ -150,6 +156,7 @@ library
                         Pos.Modern.DB.Error
                         Pos.Modern.DB.Functions
                         Pos.Modern.DB.Holder
+                        Pos.Modern.DB.Misc
                         Pos.Modern.DB.Types
                         Pos.Modern.DB.Utxo
                         Pos.Modern.Txp.Class
@@ -159,6 +166,15 @@ library
                         Pos.Modern.Txp.Storage.Types
                         Pos.Modern.Txp.Storage.UtxoView
                         Pos.Modern.Txp.Holder
+                        Pos.Modern.Ssc.Holder
+                        Pos.Modern.Ssc.GodTossing.LocalData.LocalData
+                        Pos.Modern.Ssc.GodTossing.LocalData.Types
+                        Pos.Modern.Ssc.GodTossing.LocalData.Helpers
+                        Pos.Modern.Ssc.GodTossing.Storage.Storage
+                        Pos.Modern.Ssc.GodTossing.Helpers
+                        Pos.Modern.Ssc.GodTossing.Storage.Types
+                        Pos.Modern.Ssc.GodTossing.Workers
+                        Pos.Modern.Ssc.GodTossing.Functions
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions

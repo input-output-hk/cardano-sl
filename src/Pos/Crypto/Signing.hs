@@ -162,6 +162,7 @@ sign k = coerce . signRaw k . BSL.toStrict . Bi.encode
 signRaw :: SecretKey -> ByteString -> Signature Raw
 signRaw (SecretKey k) x = Signature (Ed25519.dsign k x)
 
+-- CHECK: @checkSig
 -- | Verify a signature.
 checkSig :: Bi a => PublicKey -> a -> Signature a -> Bool
 checkSig k x s = verifyRaw k (BSL.toStrict (Bi.encode x)) (coerce s)
@@ -281,6 +282,7 @@ proxySign sk@(SecretKey delegateSk) (ProxySecretKey o (PublicKey issuerPk) cert)
         Ed25519.dsign delegateSk $
         mconcat ["01", Ed25519.unPublicKey issuerPk, BSL.toStrict $ Bi.encode m]
 
+-- CHECK: @proxyVerify
 -- | Verify delegated signature given issuer's pk, signature, message
 -- space predicate and message itself.
 proxyVerify

@@ -134,7 +134,7 @@ verifyAndApplyTxsOldPure txws utxo =
     in (, newUtxo) <$> res
 
 -- CHECK: @verifyAndApplyTxsOldPure'
--- #verifyAndApplyOldTxs'
+-- #verifyAndApplyTxsOld'
 verifyAndApplyTxsOldPure' :: [IdTxWitness] -> Utxo -> Either Text ([IdTxWitness], Utxo)
 verifyAndApplyTxsOldPure' txws utxo =
     let (res, newUtxo) = runUtxoState (verifyAndApplyTxsOld' txws) utxo

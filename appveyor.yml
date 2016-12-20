@@ -25,10 +25,10 @@ before_test:
 - mkdir rocksdb\build
 - cd rocksdb\build
 - cmake -G "Visual Studio 14 2015 Win64" -DOPTDBG=1 -DXPRESS=1 ..
-- msbuild rocksdb.sln /p:Configuration=Release /m:4
+- msbuild rocksdb.sln /p:Configuration=Release /m
 - cd ..\..
 
 test_script:
   - stack setup
   # No parallelization due to https://github.com/haskell/cabal/issues/4005   
-  - stack --no-terminal build --test --haddock --no-haddock-deps --bench --no-run-benchmarks --flag cardano-sl:with-web --flag cardano-sl:with-wallet --flag cardano-sl:-with-rocks --extra-include-dirs="C:\OpenSSL-Win64\include" --extra-lib-dirs="C:\OpenSSL-Win64" --extra-lib-dirs="C:\projects\pos-haskell-prototype\rocksdb\build\Release"
+  - stack --no-terminal build --test --haddock --no-haddock-deps --bench --no-run-benchmarks --flag cardano-sl:with-web --flag cardano-sl:with-wallet --extra-include-dirs="C:\OpenSSL-Win64\include" --extra-lib-dirs="C:\OpenSSL-Win64" --extra-lib-dirs="C:\projects\pos-haskell-prototype\rocksdb\build\Release" --extra-include-dirs="C:\projects\pos-haskell-prototype\rocksdb\include"

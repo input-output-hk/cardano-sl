@@ -1,27 +1,31 @@
-module Deadalus.FrontendApi where
+module Daedalus.ClientApi where
 
 import Prelude
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (log, CONSOLE)
 import Control.Promise (Promise, fromAff)
-import Daedalus.BackendApi (newAddress, getBalances, getAddresses)
-import Data.Either (Either)
+import Daedalus.BackendApi as B
 import Data.Tuple (Tuple)
 import Network.HTTP.Affjax (AJAX)
-import Pos.Types.Types (Coin)
-import Pos.Wallet.Web.ClientTypes (CAddress)
+import Daedalus.Types (mkCAddress, mkCoin, CAddress, Coin)
 
-hello :: String -> Eff (console :: CONSOLE) Unit
-hello = log <<< (<>) "Hello "
+getWallets :: forall eff. Eff(ajax :: AJAX | eff) (Promise (Array CAddress))
+getWallets = fromAff B.getAddresses
 
-helloCallback :: forall cb. (String -> cb) -> cb
-helloCallback cb = cb "hello"
+getBalances :: forall eff. Eff(ajax :: AJAX | eff) (Promise (Array (Tuple CAddress Coin)))
+getBalances = fromAff B.getBalances
 
-getAddressesP :: forall eff. Eff(ajax :: AJAX | eff) (Promise (Either String (Array CAddress)))
-getAddressesP = fromAff getAddresses
+-- getHistory :: forall eff. String -> Eff(ajax :: AJAX | eff) (Promise (Array Tx)))
+-- getHistory = fromAff <<< B.getBalances <<< mkCAddress
 
-getBalancesP :: forall eff. Eff(ajax :: AJAX | eff) (Promise (Either String (Array (Tuple CAddress Coin))))
-getBalancesP = fromAff getBalances
+send :: forall eff. String -> String -> Int -> Eff(ajax :: AJAX | eff) (Promise Unit)
+send addrTo addrFrom amount = fromAff $
+    B.send
+        (mkCAddress addrTo)
+        (mkCAddress addrFrom)
+        (mkCoin amount)
 
-newAddressP :: forall eff. Eff(ajax :: AJAX | eff) (Promise (Either String CAddress))
-newAddressP = fromAff newAddress
+newWallet :: forall eff. Eff(ajax :: AJAX | eff) (Promise CAddress)
+newWallet = fromAff B.newAddress
+
+deleteWallet :: forall eff. String -> Eff(ajax :: AJAX | eff) (Promise Unit)
+deleteWallet = fromAff <<< B.deleteAddress <<< mkCAddress

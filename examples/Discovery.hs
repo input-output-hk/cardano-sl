@@ -48,6 +48,7 @@ instance Mockable Channel IO where
     liftMockable (NewChannel) = STM.atomically Conc.newTChan
     liftMockable (ReadChannel channel) = STM.atomically $ Conc.readTChan channel
     liftMockable (TryReadChannel channel) = STM.atomically $ Conc.tryReadTChan channel
+    liftMockable (UnGetChannel channel t) = STM.atomically $ Conc.unGetTChan channel t
     liftMockable (WriteChannel channel t) = STM.atomically $ Conc.writeTChan channel t
 
 instance Mockable Bracket IO where

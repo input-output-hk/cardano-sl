@@ -7,6 +7,7 @@ module Pos.Modern.DB.Utxo
        , writeBatchToUtxo
        , getTxOutFromDB
        , prepareUtxoDB
+       , getFilteredUtxo
        ) where
 
 import qualified Database.RocksDB        as Rocks
@@ -18,7 +19,8 @@ import           Pos.Modern.DB.Error     (DBError (..))
 import           Pos.Modern.DB.Functions (rocksDelete, rocksGetBi, rocksPutBi,
                                           rocksWriteBatch)
 import           Pos.Modern.DB.Types     (DB)
-import           Pos.Types               (HeaderHash, TxIn (..), TxOut, genesisHash)
+import           Pos.Types               (Address, HeaderHash, TxIn (..), TxOut, Utxo,
+                                          genesisHash)
 
 data BatchOp ssc = DelTxIn TxIn | AddTxOut TxIn TxOut | PutTip (HeaderHash ssc)
 
@@ -49,6 +51,12 @@ prepareUtxoDB = maybe putGenesisTip (const pass) =<< getTipMaybe
 -- | Put new TIP to Utxo DB.
 putTip :: MonadDB ssc m => HeaderHash ssc -> m ()
 putTip h = getUtxoDB >>= rocksPutBi tipKey h
+
+
+-- | Get small sub-utxo containing only outputs of given address
+getFilteredUtxo :: MonadDB ssc m => Address -> m Utxo
+getFilteredUtxo = undefined
+
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------

@@ -44,8 +44,9 @@ import           Pos.Wallet.KeyStorage      (KeyData, KeyStorage, MonadKeys (..)
                                              newSecretKey, runKeyStorageRaw)
 import           Pos.Wallet.State           (WalletDB, getWalletState, runWalletDB)
 import qualified Pos.Wallet.State           as WS
-import           Pos.Wallet.Tx              (getBalance, getTxHistory, submitTx)
-import           Pos.Wallet.WalletMode      (SState, WalletRealMode)
+import           Pos.Wallet.Tx              (submitTx)
+import           Pos.Wallet.WalletMode      (SState, WalletRealMode, getBalance,
+                                             getTxHistory)
 import           Pos.Wallet.Web.Api         (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, addressToCAddress)
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletState,

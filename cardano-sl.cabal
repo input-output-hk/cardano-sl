@@ -214,6 +214,7 @@ library
                         Pos.Web.Types
   if flag(with-wallet)
     other-modules:      Pos.Wallet.Tx
+                        Pos.Wallet.Tx.Pure
                         Pos.Wallet.WalletMode
                         Pos.Wallet.Launcher
                         Pos.Wallet.Launcher.Runner

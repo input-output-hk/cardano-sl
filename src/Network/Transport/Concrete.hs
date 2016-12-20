@@ -1,0 +1,56 @@
+{-# LANGUAGE RecordWildCards #-}
+
+module Network.Transport.Concrete (
+
+      concrete
+
+    ) where
+
+import Control.Monad.IO.Class (liftIO, MonadIO)
+import Network.Transport.Abstract
+import qualified Network.Transport as NT
+
+-- | Use a concrete network-transport within the abstract framework,
+--   specializing it to some MonadIO.
+concrete :: MonadIO m => NT.Transport -> Transport m
+concrete transport = Transport {
+      newEndPoint = concreteNewEndPoint (NT.newEndPoint transport)
+    , closeTransport = liftIO $ NT.closeTransport transport
+    }
+
+concreteNewEndPoint
+    :: ( MonadIO m )
+    => IO (Either (TransportError NewEndPointErrorCode) NT.EndPoint)
+    -> m (Either (TransportError NewEndPointErrorCode) (EndPoint m))
+concreteNewEndPoint ntNewEndPoint = (fmap . fmap) concreteEndPoint (liftIO ntNewEndPoint)
+
+concreteEndPoint :: ( MonadIO m ) => NT.EndPoint -> EndPoint m
+concreteEndPoint ep = EndPoint {
+      receive = fmap concreteEvent (liftIO $ NT.receive ep)
+    , address = NT.address ep
+    , connect = concreteConnect (NT.connect ep)
+    , closeEndPoint = liftIO $ NT.closeEndPoint ep
+    }
+
+concreteEvent :: NT.Event -> Event
+concreteEvent ev = case ev of
+    NT.Received id chunks -> Received id chunks
+    NT.ConnectionClosed id -> ConnectionClosed id
+    NT.ConnectionOpened id reliability address -> ConnectionOpened id reliability address
+    NT.EndPointClosed -> EndPointClosed
+    NT.ErrorEvent (TransportError err str) -> ErrorEvent (TransportError (EventErrorCode err) str)
+    _ -> ErrorEvent (TransportError UnsupportedEvent "Unsupported event")
+
+concreteConnect
+    :: ( MonadIO m )
+    => (EndPointAddress -> Reliability -> ConnectHints -> IO (Either (TransportError ConnectErrorCode) NT.Connection))
+    -> (EndPointAddress -> Reliability -> ConnectHints -> m (Either (TransportError ConnectErrorCode) (Connection m)))
+concreteConnect ntConnect endPointAddress reliability hints = do
+    choice <- liftIO $ ntConnect endPointAddress reliability hints
+    pure (fmap concreteConnection choice)
+
+concreteConnection :: ( MonadIO m ) => NT.Connection -> Connection m
+concreteConnection ntConnection = Connection {
+      send = liftIO . NT.send ntConnection
+    , close = liftIO $ NT.close ntConnection
+    }

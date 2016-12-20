@@ -33,7 +33,8 @@ import           Pos.Constants              (epochSlots, sharedSeedLength)
 import           Pos.Crypto                 (PublicKey, SecretKey, Share, hash, sign,
                                              toPublic)
 import           Pos.Crypto.Arbitrary       ()
-import           Pos.Script                 (Script, parseRedeemer, parseValidator)
+import           Pos.Script                 (Script)
+import           Pos.Script.Examples        (badTfRedeemer, goodTfRedeemer, tfValidator)
 import           Pos.Types.Arbitrary.Unsafe ()
 import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
@@ -56,28 +57,6 @@ makeSmall = scale f
       | n < 0 = n
       | otherwise =
           (round . (sqrt :: Double -> Double) . realToFrac . (`div` 3)) n
-
-----------------------------------------------------------------------------
--- Validator and redeemer scripts
-----------------------------------------------------------------------------
-
-tfValidator :: Script
-Right tfValidator = parseValidator $ unlines [
-    "data Bool = { True | False }",
-    "validator : (forall a . a -> a -> a) -> Comp Bool {",
-    "  validator f = case f True False of {",
-    "    True  -> success True : Comp Bool;",
-    "    False -> failure : Comp Bool } }" ]
-
-goodTfRedeemer :: Script
-Right goodTfRedeemer = parseRedeemer $ unlines [
-    "redeemer : Comp (forall a . a -> a -> a) {",
-    "  redeemer = success (\\t f -> t) }" ]
-
-badTfRedeemer :: Script
-Right badTfRedeemer = parseRedeemer $ unlines [
-    "redeemer : Comp (forall a . a -> a -> a) {",
-    "  redeemer = success (\\t f -> f) }" ]
 
 ----------------------------------------------------------------------------
 -- Arbitrary core types

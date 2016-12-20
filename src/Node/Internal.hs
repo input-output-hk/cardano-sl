@@ -11,20 +11,16 @@
 module Node.Internal (
     NodeId(..),
     Node(..),
-    startNode,
-    stopNode,
-    sendMsg,
     ChannelIn(..),
     ChannelOut(..),
-    connectOutChannel,
-    closeChannel,
+    startNode,
+    stopNode,
     withOutChannel,
     withInOutChannel,
     writeChannel,
-    readChannel,
+    readChannel
   ) where
 
-import Data.String (fromString)
 import Data.Binary     as Bin
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString      as BS
@@ -151,7 +147,7 @@ data ConnectionState m =
 instance Show (ConnectionState m) where
     show term = case term of
         ConnectionNew nodeid -> "ConnectionNew " ++ show nodeid
-        ConnectionNewChunks nodeid chunks -> "ConnectionNewChunks " ++ show nodeid
+        ConnectionNewChunks nodeid _ -> "ConnectionNewChunks " ++ show nodeid
         ConnectionReceiving _ _ -> "ConnectionReceiving"
         ConnectionClosed _ -> "ConnectionClosed"
         ConnectionHandlerFinished e -> "ConnectionHandlerFinished " ++ show e
@@ -202,8 +198,6 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
     loop Map.empty
   where
 
-    nodeid = NodeId $ NT.address endpoint
-
     finally :: m t -> m () -> m t
     finally action after = bracket (pure ()) (const after) (const action)
 
@@ -241,9 +235,6 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
             Left connid -> (Map.update (connUpdater e) connid connIdState, nonces)
             Right nonce -> folderNonce (connIdState, nonces) (nonce, e)
 
-        folderConn (connIdState, nonces) (connid, e) =
-            (Map.update (connUpdater e) connid connIdState, nonces)
-
         folderNonce (connIdState, nonces) (nonce, e) = case Map.lookup nonce nonces of
             Nothing -> error "Handler for unknown nonce finished"
             Just (NonceHandlerNotConnected _ _) ->
@@ -259,13 +250,16 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
             _ -> Just (ConnectionHandlerFinished e)
 
     -- Handle the first chunks received, interpreting the control byte(s).
+    -- TODO: review this. It currently does not use the 'DispatcherState' but
+    -- that's dubious. Implementing good error handling will probably demand
+    -- using it.
     handleFirstChunks
         :: NT.ConnectionId
         -> NodeId
         -> [BS.ByteString]
         -> DispatcherState m
         -> m (Maybe (ConnectionState m))
-    handleFirstChunks connid peer@(NodeId peerEndpointAddr) chunks !state =
+    handleFirstChunks connid peer@(NodeId peerEndpointAddr) chunks _ =
         case LBS.uncons (LBS.fromChunks chunks) of
             -- Empty. Wait for more data.
             Nothing -> pure Nothing
@@ -302,6 +296,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                           case mconn of
                             Left  err  -> throw err
                             Right conn -> do
+                              -- TODO: error handling
                               NT.send conn [controlHeaderBidirectionalAck nonce]
                               handlerInOut peer (ChannelIn chan) (ChannelOut conn)
                                   `finally`
@@ -360,7 +355,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                   Just (ConnectionNew peer) ->
                       loop (Map.insert connid (ConnectionNewChunks peer chunks) state)
 
-                  Just (ConnectionNewChunks peer@(NodeId peerEndpointAddr) chunks0) -> do
+                  Just (ConnectionNewChunks peer@(NodeId _) chunks0) -> do
                       mConnState <- handleFirstChunks connid peer (chunks0 ++ chunks) state
                       loop (maybe state (\cs -> Map.insert connid cs state) mConnState)
 
@@ -474,37 +469,6 @@ finishHandler stateVar connidOrNonce action = normal `catch` exceptional
     signalFinished outcome = modifySharedAtomic stateVar $ \(NodeState prng nonces finished) ->
             pure ((NodeState prng nonces (outcome : finished)), ())
 
-
--- TBD would we ever want to use this? It doesn't send the control header to
--- establish a unidirectional flow.
-sendMsg :: forall m . ( Monad m ) => Node m -> NodeId -> LBS.ByteString -> m ()
-sendMsg Node{nodeEndPoint} (NodeId endpointaddr) msg = do
-    mconn <- NT.connect
-               nodeEndPoint
-               endpointaddr
-               NT.ReliableOrdered
-               NT.ConnectHints{ connectTimeout = Nothing } --TODO use timeout
-
-    -- TODO: Any error detected here needs to be reported because it's not
-    -- reported via the dispatcher thread. It means we cannot establish a
-    -- connection in the first place, e.g. timeout.
-    case mconn of
-      Left  _err -> return ()
-      Right conn -> sendChunks conn (LBS.toChunks msg)
-
-  where
-    sendChunks :: NT.Connection m -> [BS.ByteString] -> m ()
-    sendChunks conn [] = NT.close conn
-    sendChunks conn (chunk:chunks) = do
-      res <- NT.send conn [chunk]
-      -- Any error detected here will be reported to the dispatcher thread
-      -- so we don't need to do anything
-       --TODO: though we could log here
-      case res of
-        Left _err -> return ()
-        Right _   -> sendChunks conn chunks
-
-
 controlHeaderCodeBidirectionalSyn :: Word8
 controlHeaderCodeBidirectionalSyn = fromIntegral (fromEnum 'S')
 
@@ -534,6 +498,7 @@ fixedSizeBuilder :: Int -> BS.Builder -> BS.ByteString
 fixedSizeBuilder n =
     LBS.toStrict . BS.toLazyByteStringWith (BS.untrimmedStrategy n n) LBS.empty
 
+-- | Connect to a peer given by a 'NodeId' bidirectionally.
 connectInOutChannel
     :: ( Mockable Channel.Channel m, Mockable Fork m, Mockable SharedAtomic m
        , Mockable Throw m )
@@ -541,7 +506,7 @@ connectInOutChannel
     -> NodeId
     -> m (Nonce, ChannelIn m, ChannelOut m)
 connectInOutChannel node@Node{nodeEndPoint, nodeState}
-                    nodeid@(NodeId endpointaddr) = do
+                    (NodeId endpointaddr) = do
     mconn <- NT.connect
                nodeEndPoint
                endpointaddr
@@ -555,11 +520,10 @@ connectInOutChannel node@Node{nodeEndPoint, nodeState}
       Left  err  -> throw err
       Right outconn -> do
         (nonce, inchan) <- allocateInChannel
+        -- TODO: error handling
         NT.send outconn [controlHeaderBidirectionalSyn nonce]
         return (nonce, ChannelIn inchan, ChannelOut outconn)
   where
-    -- FIXME remove the nonce from the map and cleanup if timed out.
-    -- That's probably the dispatcher's responsibility.
     allocateInChannel = do
       tid   <- myThreadId
       chan  <- Channel.newChannel
@@ -571,6 +535,7 @@ connectInOutChannel node@Node{nodeEndPoint, nodeState}
                  pure ((NodeState prng' expected' finished), nonce)
       return (nonce, chan)
 
+-- | Connect to a peer given by a 'NodeId' unidirectionally.
 connectOutChannel
     :: ( Monad m, Mockable Throw m )
     => Node m
@@ -589,15 +554,15 @@ connectOutChannel Node{nodeEndPoint} (NodeId endpointaddr) = do
     case mconn of
       Left  err  -> throw err
       Right conn -> do
+        -- TODO error handling
         NT.send conn [controlHeaderUnidirectional]
         return (ChannelOut conn)
 
 closeChannel :: ChannelOut m -> m ()
 closeChannel (ChannelOut conn) = NT.close conn
 
--- | Create a conversation channel with a given peer (NodeId) and run some
---   actions against its in/out channels. This is the only way to start a
---   conversation.
+-- | Create, use, and tear down a conversation channel with a given peer
+--   (NodeId).
 withInOutChannel
     :: forall m a .
        ( Mockable Bracket m, Mockable Fork m, Mockable Channel.Channel m
@@ -617,6 +582,8 @@ withInOutChannel node@Node{nodeState} nodeid action =
     -- Updates the nonce state map always, and re-throws any caught exception.
     action' nonce inchan outchan = finishHandler nodeState (Right nonce) (action inchan outchan)
 
+-- | Create, use, and tear down a unidirectional channel to a peer identified
+--   by 'NodeId'.
 withOutChannel
     :: ( Mockable Bracket m, Mockable Throw m )
     => Node m
@@ -627,12 +594,10 @@ withOutChannel node nodeid =
     bracket (connectOutChannel node nodeid) closeChannel
 
 -- | Write some ByteStrings to an out channel. It does not close the
---   transport when finished. If you want that, try this motif:
---
---     withOutChannel node nodeId $ \out -> writeChannel out bss
---
+--   transport when finished. If you want that, use withOutChannel or
+--   withInOutChannel.
 writeChannel :: ( Monad m ) => ChannelOut m -> [BS.ByteString] -> m ()
-writeChannel (ChannelOut conn) [] = pure ()
+writeChannel (ChannelOut _) [] = pure ()
 writeChannel (ChannelOut conn) (chunk:chunks) = do
     res <- NT.send conn [chunk]
     -- Any error detected here will be reported to the dispatcher thread
@@ -642,5 +607,7 @@ writeChannel (ChannelOut conn) (chunk:chunks) = do
       Left _err -> return ()
       Right _   -> writeChannel (ChannelOut conn) chunks
 
+-- | Read a 'ChannelIn', blocking until the next 'ByteString' arrives, or end
+--   of input is signalled via 'Nothing'.
 readChannel :: ( Mockable Channel.Channel m ) => ChannelIn m -> m (Maybe BS.ByteString)
 readChannel (ChannelIn chan) = Channel.readChannel chan

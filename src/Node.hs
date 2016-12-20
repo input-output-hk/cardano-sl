@@ -229,27 +229,6 @@ stopNode Node {..} = do
     -- alternatively we could try stopping new incoming messages
     -- and wait for all handlers to finish
 
--- | Send a message (name and body).
-sendMsg
-    :: ( Monad m, Binary body )
-    => LL.Node m
-    -> LL.NodeId
-    -> MessageName
-    -> body
-    -> m ()
-sendMsg node nodeid name body =
-    LL.sendMsg node nodeid (serialiseMsg name body)
-
--- | Send a body (message without a name).
-sendBody
-    :: ( Monad m, Binary body )
-    => LL.Node m
-    -> LL.NodeId
-    -> body
-    -> m ()
-sendBody node nodeid body =
-    LL.sendMsg node nodeid (serialiseBody body)
-
 serialiseMsgName
     :: MessageName
     -> LBS.ByteString

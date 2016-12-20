@@ -1,7 +1,7 @@
 {
   "name": "daedalus",
   "description": "Daedalus wallet client library",
-  "main": "dist/index.js",
+  "main": "dist/daedalus.js",
   "authors": [
     "Ante Kegalj <akegalj@gmail.com>"
   ],

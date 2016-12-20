@@ -45,30 +45,33 @@ import Mockable.Exception
 import qualified Mockable.Channel as Channel
 import Mockable.SharedAtomic
 
--- A node id wraps a network-transport endpoint address
+-- | A 'NodeId' wraps a network-transport endpoint address
 newtype NodeId = NodeId NT.EndPointAddress
   deriving (Eq, Ord, Show)
 
 -- | The state of a Node, to be held in a shared atomic cell because other
 --   threads will mutate it in order to set up bidirectional connections.
 data NodeState m = NodeState {
-      nodeStateGen :: StdGen
+      nodeStateGen :: !StdGen
       -- ^ To generate nonces.
-    , nodeStateNonces :: Map Nonce (NonceState m)
+    , nodeStateNonces :: !(Map Nonce (NonceState m))
       -- ^ Nonces identify bidirectional connections, and this gives the state
       --   of each one.
-    , nodeStateFinished :: [(Either NT.ConnectionId Nonce, Maybe SomeException)]
+    , nodeStateFinished :: ![(Either NT.ConnectionId Nonce, Maybe SomeException)]
       -- ^ Connection identifiers or nonces for handlers which have finished.
       --   'Nonce's for bidirectional connections, 'ConnectionId's for handlers
       --   spawned to respond to incoming connections.
     }
 
+-- | A 'Node' is a network-transport 'EndPoint' with bidirectional connection
+--   state and a thread to dispatch network-transport events.
 data Node (m :: * -> *) = Node {
        nodeEndPoint         :: NT.EndPoint m,
        nodeDispatcherThread :: ThreadId m,
        nodeState :: SharedAtomicT m (NodeState m)
      }
 
+-- | Used to identify bidirectional connections.
 type Nonce = Word64
 
 data NodeException =
@@ -95,15 +98,16 @@ startNode :: ( Mockable SharedAtomic m, Mockable Fork m, Mockable Bracket m
           -- ^ Handle incoming bidirectional connections.
           -> m (Node m)
 startNode transport prng handlerIn handlerOut = do
-    Right endpoint       <- NT.newEndPoint transport --TODO: error handling
-    sharedState          <- newSharedAtomic (NodeState prng Map.empty [])
-    tid                  <- fork $
+    Right endpoint <- NT.newEndPoint transport --TODO: error handling
+    sharedState    <- newSharedAtomic (NodeState prng Map.empty [])
+    tid            <- fork $
         nodeDispatcher endpoint sharedState handlerIn handlerOut
     --TODO: exceptions in the forkIO
+    --they should be raised in this thread.
     return Node {
       nodeEndPoint         = endpoint,
       nodeDispatcherThread = tid,
-      nodeState = sharedState
+      nodeState            = sharedState
     }
 
 -- | Stop a 'Node', closing its network transport endpoint.
@@ -180,7 +184,6 @@ instance Show (NonceState m) where
 
 -- | The one thread that handles /all/ incoming messages and dispatches them
 -- to various handlers.
---
 nodeDispatcher :: forall m .
                   ( Mockable SharedAtomic m, Mockable Fork m, Mockable Bracket m
                   , Mockable Channel.Channel m, Mockable Throw m
@@ -203,32 +206,6 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
 
     finally :: m t -> m () -> m t
     finally action after = bracket (pure ()) (const after) (const action)
-
-    -- | Signal that a thread handling a given ConnectionId is finished.
-    --   It's very important that this is run to completion for every spawned
-    --   thread, else the DispatcherState will never forget the entry for
-    --   this ConnectionId.
-    signalFinished :: (Either NT.ConnectionId Nonce, Maybe SomeException) -> m ()
-    signalFinished outcome = modifySharedAtomic nodeState $ \(NodeState prng nonces finished) ->
-            pure ((NodeState prng nonces (outcome : finished)), ())
-
-    -- | Augment some m term so that it always reports its ConnectionId when
-    --   finished, along with the exception if one was raised. We catch all
-    --   exceptions in order to do this, but they are re-thrown.
-    --
-    --   The motif is also used in withInOutChannel, the only other place where
-    --   a connection handler is created and tracked.
-    finishHandler :: Either NT.ConnectionId Nonce -> m () -> m ()
-    finishHandler connidOrNonce action = normal `catch` exceptional
-        where
-        normal :: m ()
-        normal = do
-            _ <- action
-            signalFinished (connidOrNonce, Nothing)
-        exceptional :: SomeException -> m ()
-        exceptional e = do
-            signalFinished (connidOrNonce, Just e)
-            throw e
 
     -- Take the dead threads from the shared atomic and release them all from
     -- the map if their connection is also closed.
@@ -299,7 +276,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                 | w == controlHeaderCodeUnidirectional -> do
                   chan <- Channel.newChannel
                   mapM_ (Channel.writeChannel chan . Just) (LBS.toChunks ws)
-                  tid  <- fork $ finishHandler (Left connid) (handlerIn peer (ChannelIn chan))
+                  tid  <- fork $ finishHandler nodeState (Left connid) (handlerIn peer (ChannelIn chan))
                   pure . Just $ ConnectionReceiving tid chan
 
                 -- Bidirectional header without the nonce
@@ -329,7 +306,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                               handlerInOut peer (ChannelIn chan) (ChannelOut conn)
                                   `finally`
                                   closeChannel (ChannelOut conn)
-                  tid <- fork $ finishHandler (Left connid) action
+                  tid <- fork $ finishHandler nodeState (Left connid) action
                   pure . Just $ ConnectionReceiving tid chan
 
                 -- We want a bidirectional connection and the
@@ -423,7 +400,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                   Just (ConnectionNew peer) -> do
                       chan <- Channel.newChannel
                       Channel.writeChannel chan Nothing
-                      tid  <- fork $ finishHandler (Left connid) (handlerIn peer (ChannelIn chan))
+                      tid  <- fork $ finishHandler nodeState (Left connid) (handlerIn peer (ChannelIn chan))
                       loop (Map.insert connid (ConnectionClosed tid) state)
 
                   -- Small message
@@ -464,6 +441,39 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
 
           NT.ConnectionOpened _ _ _ ->
               throw (ProtocolError "unexpected connection reliability")
+
+-- | Augment some m term so that it always updates a 'NodeState' mutable
+--   cell when finished, along with the exception if one was raised. We catch
+--   all exceptions in order to do this, but they are re-thrown.
+--   Use an 'NT.ConnectionId' if the handler is spawned in response to a
+--   connection, or a 'Nonce' if the handler is spawned for a locally
+--   initiated bidirectional connection.
+finishHandler
+    :: forall m t .
+       ( Mockable SharedAtomic m, Mockable Throw m, Mockable Catch m )
+    => SharedAtomicT m (NodeState m)
+    -> Either NT.ConnectionId Nonce
+    -> m t
+    -> m t
+finishHandler stateVar connidOrNonce action = normal `catch` exceptional
+    where
+    normal :: m t
+    normal = do
+        t <- action
+        signalFinished (connidOrNonce, Nothing)
+        pure t
+    exceptional :: SomeException -> m t
+    exceptional e = do
+        signalFinished (connidOrNonce, Just e)
+        throw e
+    -- Signal that a thread handling a given ConnectionId is finished.
+    -- It's very important that this is run to completion for every thread
+    -- spawned by the dispatcher, else the DispatcherState will never forget
+    -- the entry for this ConnectionId.
+    signalFinished :: (Either NT.ConnectionId Nonce, Maybe SomeException) -> m ()
+    signalFinished outcome = modifySharedAtomic stateVar $ \(NodeState prng nonces finished) ->
+            pure ((NodeState prng nonces (outcome : finished)), ())
+
 
 -- TBD would we ever want to use this? It doesn't send the control header to
 -- establish a unidirectional flow.
@@ -605,22 +615,7 @@ withInOutChannel node@Node{nodeState} nodeid action =
             (\(nonce, inchan, outchan) -> action' nonce inchan outchan)
     where
     -- Updates the nonce state map always, and re-throws any caught exception.
-    action' nonce inchan outchan =
-        normal nonce inchan outchan
-        `catch`
-        exceptional nonce
-    normal nonce inchan outchan = do
-        a <- action inchan outchan
-        modifySharedAtomic nodeState $ \(NodeState prng map finished) -> do
-            -- We don't delete the nonce from the map here. The dispatcher
-            -- thread does that.
-            -- Why? It's probably inconsequential...
-            pure ((NodeState prng map ((Right nonce, Nothing) : finished)), ())
-        pure a
-    exceptional nonce (e :: SomeException) = do
-        modifySharedAtomic nodeState $ \(NodeState prng map finished) -> do
-            pure ((NodeState prng map ((Right nonce, Just e) : finished)), ())
-        throw e
+    action' nonce inchan outchan = finishHandler nodeState (Right nonce) (action inchan outchan)
 
 withOutChannel
     :: ( Mockable Bracket m, Mockable Throw m )

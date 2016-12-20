@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -7,70 +8,80 @@
 
 -- | Instance of SscWorkersClass.
 
-module Pos.Ssc.GodTossing.Worker.Workers
+module Pos.Modern.Ssc.GodTossing.Workers
        ( -- * Instances
          -- ** instance SscWorkersClass SscGodTossing
        ) where
 
-import           Control.Concurrent.STM                 (TVar, readTVar, writeTVar)
-import           Control.Lens                           (view, (%=), _2, _3)
-import           Control.Monad.Trans.Maybe              (runMaybeT)
-import           Control.TimeWarp.Timed                 (Microsecond, Millisecond,
-                                                         currentTime, for, wait)
-import           Data.HashMap.Strict                    (insert, lookup, member)
-import           Data.Tagged                            (Tagged (..))
-import           Data.Time.Units                        (convertUnit)
-import           Formatting                             (build, ords, sformat, shown, (%))
-import           Serokell.Util.Exceptions               ()
-import           System.Wlog                            (logDebug, logError, logWarning)
+import           Control.Concurrent.STM                        (readTVar)
+import           Control.Lens                                  (view, (%=), _2, _3)
+import           Control.Monad.Trans.Maybe                     (runMaybeT)
+import           Control.TimeWarp.Timed                        (Microsecond, Millisecond,
+                                                                currentTime, for, wait)
+import           Data.HashMap.Strict                           (insert, lookup, member)
+import           Data.Tagged                                   (Tagged (..))
+import           Data.Time.Units                               (convertUnit)
+import           Formatting                                    (build, ords, sformat,
+                                                                shown, (%))
+import           Serokell.Util.Exceptions                      ()
+import           System.Wlog                                   (logDebug, logError,
+                                                                logWarning)
 import           Universum
 
-import           Pos.Binary.Class                       (Bi)
-import           Pos.Communication.Methods              (sendToNeighborsSafe)
-import           Pos.Constants                          (k, mpcSendInterval)
-import           Pos.Context                            (getNodeContext, ncPublicKey,
-                                                         ncSecretKey, ncSscContext)
-import           Pos.Crypto                             (SecretKey, VssKeyPair,
-                                                         randomNumber, runSecureRandom,
-                                                         toPublic)
-import           Pos.Crypto.SecretSharing               (toVssPublicKey)
-import           Pos.Crypto.Signing                     (PublicKey, sign)
-import           Pos.Slotting                           (getSlotStart, onNewSlot)
-import           Pos.Ssc.Class.LocalData                (sscRunLocalQuery,
-                                                         sscRunLocalUpdate)
-import           Pos.Ssc.Class.Workers                  (SscWorkersClass (..))
-import           Pos.Ssc.GodTossing.Functions           (genCommitmentAndOpening,
-                                                         genCommitmentAndOpening,
-                                                         hasCommitment, hasOpening,
-                                                         hasShares, isCommitmentIdx,
-                                                         isOpeningIdx, isSharesIdx,
-                                                         mkSignedCommitment)
-import           Pos.Ssc.GodTossing.LocalData.LocalData (localOnNewSlot,
-                                                         sscProcessMessage)
-import           Pos.Ssc.GodTossing.LocalData.Types     (gtLocalCertificates)
-import           Pos.Ssc.GodTossing.SecretStorage.State (checkpointSecret, getSecret,
-                                                         prepareSecretToNewSlot,
-                                                         setSecret)
-import           Pos.Ssc.GodTossing.Types.Base          (Commitment, Opening,
-                                                         SignedCommitment,
-                                                         VssCertificate (..))
-import           Pos.Ssc.GodTossing.Types.Instance      ()
-import           Pos.Ssc.GodTossing.Types.Message       (DataMsg (..), InvMsg (..),
-                                                         MsgTag (..))
-import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types         (GtPayload, GtProof,
-                                                         gtcParticipateSsc,
-                                                         gtcVssCertificateVerified,
-                                                         gtcVssKeyPair)
-import           Pos.Ssc.GodTossing.Utils               (verifiedVssCertificates)
-import           Pos.State                              (getGlobalMpcData, getOurShares,
-                                                         getParticipants, getThreshold)
-import           Pos.Types                              (Address (..), EpochIndex,
-                                                         LocalSlotIndex, SlotId (..),
-                                                         Timestamp (..),
-                                                         makePubKeyAddress)
-import           Pos.Util                               (asBinary)
-import           Pos.WorkMode                           (WorkMode)
+import           Pos.Binary.Class                              (Bi)
+import           Pos.Communication.Methods                     (sendToNeighborsSafe)
+import           Pos.Constants                                 (k, mpcSendInterval)
+import           Pos.Context                                   (getNodeContext,
+                                                                ncPublicKey, ncSecretKey,
+                                                                ncSscContext)
+import           Pos.Crypto                                    (SecretKey, VssKeyPair,
+                                                                randomNumber,
+                                                                runSecureRandom, toPublic)
+import           Pos.Crypto.SecretSharing                      (toVssPublicKey)
+import           Pos.Crypto.Signing                            (PublicKey, sign)
+import           Pos.Modern.Ssc.GodTossing.Functions           (hasCommitment, hasOpening,
+                                                                hasShares)
+import           Pos.Modern.Ssc.GodTossing.Helpers             (getOurShares)
+import           Pos.Modern.Ssc.GodTossing.LocalData.LocalData (localOnNewSlot,
+                                                                sscProcessMessage)
+import           Pos.Modern.Ssc.GodTossing.Storage.Storage     (getGlobalCertificates)
+import           Pos.Slotting                                  (getSlotStart, onNewSlot)
+import           Pos.Ssc.Class.Helpers                         (SscHelpersClassM)
+import           Pos.Ssc.Class.LocalData                       (MonadSscLDM,
+                                                                sscRunLocalQuery,
+                                                                sscRunLocalUpdate)
+import           Pos.Ssc.Class.Storage                         (getGlobalState)
+import           Pos.Ssc.Class.Workers                         (SscWorkersClass (..))
+import           Pos.Ssc.GodTossing.Functions                  (genCommitmentAndOpening,
+                                                                genCommitmentAndOpening,
+                                                                isCommitmentIdx,
+                                                                isOpeningIdx, isSharesIdx,
+                                                                mkSignedCommitment)
+import           Pos.Ssc.GodTossing.Functions                  (getThreshold)
+import           Pos.Ssc.GodTossing.LocalData.Types            (gtLocalCertificates)
+import           Pos.Ssc.GodTossing.SecretStorage.State        (checkpointSecret,
+                                                                getSecret,
+                                                                prepareSecretToNewSlot,
+                                                                setSecret)
+import           Pos.Ssc.GodTossing.Types.Base                 (Commitment, Opening,
+                                                                SignedCommitment,
+                                                                VssCertificate (..))
+import           Pos.Ssc.GodTossing.Types.Instance             ()
+import           Pos.Ssc.GodTossing.Types.Message              (DataMsg (..), InvMsg (..),
+                                                                MsgTag (..))
+import           Pos.Ssc.GodTossing.Types.Type                 (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types                (GtPayload, GtProof,
+                                                                gtcParticipateSsc,
+                                                                gtcVssKeyPair)
+import           Pos.Types                                     (Address (..), EpochIndex,
+                                                                LocalSlotIndex,
+                                                                SlotId (..),
+                                                                Timestamp (..),
+                                                                makePubKeyAddress)
+import           Pos.Util                                      (asBinary)
+import           Pos.WorkMode                                  (WorkMode)
+
+type MyWorkMode ssc m = (WorkMode ssc m, MonadSscLDM ssc m, SscHelpersClassM ssc)
 
 instance (Bi VssCertificate
          ,Bi Opening
@@ -80,27 +91,28 @@ instance (Bi VssCertificate
          ,Bi InvMsg
          ,Bi GtProof) =>
          SscWorkersClass SscGodTossing where
-    sscWorkers = Tagged [onStart, onNewSlotSsc]
+    --sscWorkers = Tagged [onStart, onNewSlotSsc]
+    sscWorkers = Tagged []
 
+-- CHECK: @onStart
+-- Checks whether 'our' VSS certificate has been announced
 onStart :: forall m. (WorkMode SscGodTossing m, Bi DataMsg) => m ()
-onStart = do
-    isVerified <- isVssCertificateVerified
-    if isVerified
-       then do
-           logDebug "Our VssCertificate is verified."
-           b <- getGtcVssCertificateVerified
-           atomically $ writeTVar b True
-       else do
-           logDebug "Our VssCertificate is not verified yet, we will announce it now."
-           (_, ourAddr)      <- getOurPkAndAddr
-           ourVssCertificate <- getOurVssCertificate
-           let msg = DMVssCertificate ourAddr ourVssCertificate
-           -- [CSL-245]: do not catch all, catch something more concrete.
-           (sendToNeighborsSafe msg >> logDebug "Announced our VssCertificate.")
-               `catchAll` \e ->
-               logError $ sformat ("Error announcing our VssCertificate: " % shown) e
-           wait (for mpcSendInterval)
-           onStart -- retry
+onStart = checkNSendOurCert
+
+checkNSendOurCert :: forall m . (WorkMode SscGodTossing m, Bi DataMsg) => m ()
+checkNSendOurCert = do
+    (_, ourAddr) <- getOurPkAndAddr
+    isCertInBlockhain <- member ourAddr <$> getGlobalCertificates
+    if isCertInBlockhain then
+       logDebug "Our VssCertificate has been already announced."
+    else do
+        logDebug "Our VssCertificate hasn't been announced yet, we will announce it now."
+        ourVssCertificate <- getOurVssCertificate
+        let msg = DMVssCertificate ourAddr ourVssCertificate
+        -- [CSL-245]: do not catch all, catch something more concrete.
+        (sendToNeighborsSafe msg >> logDebug "Announced our VssCertificate.")
+            `catchAll` \e ->
+            logError $ sformat ("Error announcing our VssCertificate: " % shown) e
   where
     getOurVssCertificate :: m VssCertificate
     getOurVssCertificate = do
@@ -119,15 +131,6 @@ onStart = do
             sscRunLocalUpdate $ gtLocalCertificates %= insert ourAddr ourCert
             return ourCert
 
--- CHECK: @isVssCertificateVerified
--- Checks whether 'our' VSS certificate has been verified,
--- i.e. is at least k blocks deep in the blockchain.
-isVssCertificateVerified :: forall m. WorkMode SscGodTossing m => m Bool
-isVssCertificateVerified = do
-    (_, ourAddr) <- getOurPkAndAddr
-    certs        <- verifiedVssCertificates
-    return $ ourAddr `member` certs
-
 getOurPkAndAddr :: WorkMode SscGodTossing m => m (PublicKey, Address)
 getOurPkAndAddr = do
     ourPk <- ncPublicKey <$> getNodeContext
@@ -136,37 +139,31 @@ getOurPkAndAddr = do
 getOurVssKeyPair :: WorkMode SscGodTossing m => m VssKeyPair
 getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
 
-getGtcVssCertificateVerified :: WorkMode SscGodTossing m => m (TVar Bool)
-getGtcVssCertificateVerified = gtcVssCertificateVerified . ncSscContext <$> getNodeContext
-
 -- CHECK: @onNewSlotSsc
--- Checks whether 'our' VSS certificate has been verified
--- (is at least k blocks deep in the blockchain) before starting VSS actions.
+-- Checks whether 'our' VSS certificate has been announced
 onNewSlotSsc
-    :: (WorkMode SscGodTossing m
-       ,Bi Commitment
-       ,Bi VssCertificate
-       ,Bi Opening
-       ,Bi InvMsg)
+    :: ( MyWorkMode SscGodTossing m
+       , Bi Commitment
+       , Bi VssCertificate
+       , Bi Opening
+       , Bi InvMsg
+       , Bi DataMsg)
     => m ()
 onNewSlotSsc = onNewSlot True $ \slotId-> do
     localOnNewSlot slotId
-    verified <- getGtcVssCertificateVerified >>= atomically . readTVar
-    if verified
-       then do
-           prepareSecretToNewSlot slotId
-           participationEnabled <- getNodeContext >>=
-               atomically . readTVar . gtcParticipateSsc . ncSscContext
-           when participationEnabled $ do
-               onNewSlotCommitment slotId
-               onNewSlotOpening slotId
-               onNewSlotShares slotId
-               checkpointSecret
-       else logDebug "Our VssCertificate has not been verified yet."
+    checkNSendOurCert
+    prepareSecretToNewSlot slotId
+    participationEnabled <- getNodeContext >>=
+        atomically . readTVar . gtcParticipateSsc . ncSscContext
+    when participationEnabled $ do
+        onNewSlotCommitment slotId
+        onNewSlotOpening slotId
+        onNewSlotShares slotId
+        checkpointSecret
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
-    :: (WorkMode SscGodTossing m
+    :: (MyWorkMode SscGodTossing m
        ,Bi Commitment
        ,Bi VssCertificate
        ,Bi Opening
@@ -186,7 +183,7 @@ onNewSlotCommitment SlotId {..} = do
             Just _ -> logDebug $
                 sformat ("Generated secret for "%ords%" epoch") siEpoch
     shouldSendCommitment <- do
-        commitmentInBlockchain <- hasCommitment ourAddr <$> getGlobalMpcData
+        commitmentInBlockchain <- hasCommitment ourAddr <$> getGlobalState
         return $ isCommitmentIdx siSlot && not commitmentInBlockchain
     when shouldSendCommitment $ do
         mbComm <- fmap (view _2) <$> getSecret
@@ -196,7 +193,7 @@ onNewSlotCommitment SlotId {..} = do
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
-    :: (WorkMode SscGodTossing m
+    :: (MyWorkMode SscGodTossing m
        ,Bi VssCertificate
        ,Bi Opening
        ,Bi InvMsg
@@ -205,7 +202,7 @@ onNewSlotOpening
 onNewSlotOpening SlotId {..} = do
     ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
     shouldSendOpening <- do
-        globalData <- getGlobalMpcData
+        globalData <- getGlobalState
         let openingInBlockchain = hasOpening ourAddr globalData
         let commitmentInBlockchain = hasCommitment ourAddr globalData
         return $ and [ isOpeningIdx siSlot
@@ -219,7 +216,7 @@ onNewSlotOpening SlotId {..} = do
 
 -- Shares-related part of new slot processing
 onNewSlotShares
-    :: (WorkMode SscGodTossing m
+    :: (MyWorkMode SscGodTossing m
        ,Bi VssCertificate
        ,Bi InvMsg
        ,Bi Opening
@@ -231,7 +228,7 @@ onNewSlotShares SlotId {..} = do
     shouldSendShares <- do
         -- [CSL-203]: here we assume that all shares are always sent
         -- as a whole package.
-        sharesInBlockchain <- hasShares ourAddr <$> getGlobalMpcData
+        sharesInBlockchain <- hasShares ourAddr <$> getGlobalState
         return $ isSharesIdx siSlot && not sharesInBlockchain
     when shouldSendShares $ do
         ourVss <- gtcVssKeyPair . ncSscContext <$> getNodeContext
@@ -271,7 +268,7 @@ generateAndSetNewSecret sk epoch = do
     -- getParticipants returns 'Just res' it will always return 'Just
     -- res' unless key assumption is broken. But if it's broken,
     -- nothing else matters.
-    participants <- getParticipants epoch
+    participants <- notImplemented --getParticipants epoch
     case participants of
         Nothing -> return Nothing
         Just ps -> do

@@ -76,6 +76,7 @@ import           Pos.DHT.Real                    (KademliaDHT, KademliaDHTConfig
 import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..))
 import qualified Pos.Modern.DB                   as Modern
+import qualified Pos.Modern.Ssc.Holder           as Modern
 import qualified Pos.Modern.Txp.Holder           as Modern
 import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 import           Pos.Ssc.Class                   (SscConstraint, SscNodeContext,
@@ -157,6 +158,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     lift $ setupLoggers lp
     legacyDB <- snd <$> allocate openDb closeDb
     modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo")
+    --initGS <- Modern.runDBHolder modernDBs (loadGlobalState @ssc)
     let initTip = notImplemented -- init tip must be here
     let run db =
             runOurDialog newMutSocketState lpRunnerTag .
@@ -165,6 +167,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
             withEx (sscCreateNodeContext @ssc sscnp) $ flip (runCH np) .
             runSscLDImpl .
             runTxLDImpl .
+            flip Modern.runSscHolder notImplemented . -- load mpc data from blocks (from rocksdb) here
             flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDBs) .
             runKDHT inst npBaseParams listeners $
             nodeStartMsg npBaseParams >> action
@@ -270,6 +273,8 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncDbPath = npDbPath
             , ncProxyCaches = proxyCaches
             , ncSscContext = sscNodeContext
+            , ncAttackTypes = npAttackTypes
+            , ncAttackTargets = npAttackTargets
             , ncPropagation = npPropagation
             , ncBlkSemaphore = semaphore
             }

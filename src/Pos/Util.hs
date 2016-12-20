@@ -32,6 +32,7 @@ module Pos.Util
        , _neHead
        , _neTail
        , _neLast
+       , neFromList
        , zoom'
 
        -- * Prettification
@@ -206,6 +207,10 @@ _neTail f (x :| xs) = (x :|) <$> f xs
 _neLast :: Lens' (NonEmpty a) a
 _neLast f (x :| []) = (:| []) <$> f x
 _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
+
+neFromList :: [a] -> NonEmpty a
+neFromList [] = panic "Empty list can't be passed to NonEmpty.fromList"
+neFromList xs = NE.fromList xs
 
 -- [SRK-51]: we should try to get this one into safecopy itself though it's
 -- unlikely that they will choose a different implementation (if they do

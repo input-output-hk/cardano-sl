@@ -107,6 +107,7 @@ module Pos.Types.Types
        , gbHeader
        , gcdDifficulty
        , gcdEpoch
+       , gbhConsensus
        , gbhExtra
        , gbhPrevBlock
        , gbhBodyProof

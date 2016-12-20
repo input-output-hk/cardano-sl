@@ -69,7 +69,7 @@ delete k = rocksDelete k =<< getUtxoDB
 toRocksOp :: BatchOp ssc -> Rocks.BatchOp
 toRocksOp (AddTxOut txIn txOut) = Rocks.Put (utxoKey txIn) (encodeStrict txOut)
 toRocksOp (DelTxIn txIn)        = Rocks.Del $ utxoKey txIn
-toRocksOp (PutTip h)            = Rocks.Put "tip" (encodeStrict h)
+toRocksOp (PutTip h)            = Rocks.Put tipKey (encodeStrict h)
 
 tipKey :: ByteString
 tipKey = "tip"

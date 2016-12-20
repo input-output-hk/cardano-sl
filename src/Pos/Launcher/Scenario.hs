@@ -15,7 +15,7 @@ import           Universum
 import           Pos.Context             (NodeContext (..), getNodeContext, ncPublicKey)
 import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Modern.DB.Utxo      (getTip)
-import           Pos.Ssc.Class           (SscConstraint)
+import           Pos.Ssc.Class           (setGlobalState, sscLoadGlobalState, SscConstraint)
 import           Pos.State               (initFirstSlot)
 import           Pos.Types               (Timestamp (Timestamp))
 import           Pos.Util                (inAssertMode)
@@ -32,6 +32,7 @@ runNode plugins = do
     logInfo $ sformat ("Known peers: " % build) peers
 
     initSemaphore
+--    initSsc
     initFirstSlot
     waitSystemStart
     runWorkers
@@ -54,3 +55,9 @@ initSemaphore = do
         (logError "ncBlkSemaphore is not empty at the very beginning")
     tip <- getTip
     liftIO $ putMVar semaphore tip
+
+-- initSsc :: WorkMode ssc m => m ()
+-- initSsc = do
+--     tip <- getTip
+--     gs <- sscLoadGlobalState tip
+--     setGlobalState gs

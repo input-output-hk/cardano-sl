@@ -8,6 +8,7 @@ module Pos.Communication.Methods
        -- * Sending data into network
          announceBlock
        , sendToNeighborsSafe
+       , sendToNeighborsSafeWithMaliciousEmulation
        , sendTx
        , sendProxySecretKey
        , sendProxyConfirmSK
@@ -32,30 +33,47 @@ import           Pos.Binary.Types            ()
 import           Pos.Communication.Types     (ConfirmProxySK (..),
                                               RequestBlockchainPart (..),
                                               SendBlockHeader (..), SendProxySK (..))
+import           Pos.Context                 (getNodeContext, ncAttackTypes)
 import           Pos.Crypto                  (ProxySecretKey)
-import           Pos.DHT.Model               (MonadMessageDHT, sendToNeighbors,
-                                              sendToNode)
+import           Pos.DHT.Model               (MonadMessageDHT, defaultSendToNeighbors,
+                                              sendToNeighbors, sendToNode)
+import           Pos.Security                (AttackType (..), shouldIgnoreAddress)
 import           Pos.Txp.Types.Communication (TxDataMsg (..))
 import           Pos.Types                   (EpochIndex, HeaderHash, MainBlockHeader, Tx,
                                               TxWitness, headerHash)
 import           Pos.Util                    (logWarningWaitLinear, messageName')
-import           Pos.WorkMode                (MinWorkMode, WorkMode)
+import           Pos.WorkMode                (WorkMode, MinWorkMode)
 
--- | Wrapper on top of sendToNeighbors which does it in separate
 -- thread and controls how much time action takes.
-sendToNeighborsSafe :: (Bi r, Message r, MinWorkMode ss m) => r -> m ()
-sendToNeighborsSafe msg = do
+sendToNeighborsSafeImpl :: (Message r, MinWorkMode ssc m) => (r -> m ()) -> r -> m ()
+sendToNeighborsSafeImpl sender msg = do
     let msgName = messageName' msg
-    let action = () <$ sendToNeighbors msg
+    let action = () <$ sender msg
     fork_ $
         logWarningWaitLinear 10 ("Sending " <> msgName <> " to neighbors") action
+
+sendToNeighborsSafe :: (Bi r, Message r, MinWorkMode ssc m) => r -> m ()
+sendToNeighborsSafe = sendToNeighborsSafeImpl $ void . sendToNeighbors
+
+sendToNeighborsSafeWithMaliciousEmulation :: (Bi r, Message r, WorkMode ssc m) => r -> m ()
+sendToNeighborsSafeWithMaliciousEmulation msg = do
+    cont <- getNodeContext
+    -- [CSL-336] Make this parallel
+    let sender = if AttackNoBlocks `elem` ncAttackTypes cont
+                 then defaultSendToNeighbors sequence (sendToNode' cont)
+                 else sendToNeighbors
+    sendToNeighborsSafeImpl (void . sender) msg
+  where
+    sendToNode' cont addr message =
+        unless (shouldIgnoreAddress cont addr) $
+            sendToNode addr message
 
 -- | Announce new block to all known peers. Intended to be used when
 -- block is created.
 announceBlock :: (WorkMode ssc m) => MainBlockHeader ssc -> m ()
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
-    sendToNeighborsSafe . SendBlockHeader $ header
+    sendToNeighborsSafeWithMaliciousEmulation . SendBlockHeader $ header
 
 -- | Query the blockchain part. Generic method.
 queryBlockchainPart

@@ -14,7 +14,7 @@ import           Data.Tagged                       (Tagged (..))
 import           System.Wlog                       (logWarning)
 import           Universum                         hiding (ask)
 
-import           Pos.Constants                     (k, mdSlotsThreshold, mdEpochsThreshold)
+import           Pos.Constants                     (k, mdNoBlocksSlotThreshold, mdNoCommitmentsEpochThreshold)
 import           Pos.Context                       (getNodeContext, ncPublicKey)
 import           Pos.Slotting                      (onNewSlot)
 import           Pos.Ssc.Class.Types               (Ssc (..))
@@ -54,7 +54,7 @@ checkForReceivedBlocksWorker = onNewSlot True $ \slotId -> do
     compareSlots slotId blockGeneratedId = do
         let fSlotId = flattenSlotId slotId
         let fBlockGeneratedSlotId = flattenSlotId blockGeneratedId
-        when (fSlotId - fBlockGeneratedSlotId > mdSlotsThreshold)
+        when (fSlotId - fBlockGeneratedSlotId > mdNoBlocksSlotThreshold)
             reportAboutEclipsed
 
 checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => m ()
@@ -70,7 +70,7 @@ checkForIgnoredCommitmentsWorkerImpl slotId = do
     checkCommitmentsInPreviousBlocks slotId
     tvar <- ask
     lastCommitment <- lift $ atomically $ readTVar tvar
-    when (siEpoch slotId - lastCommitment > mdEpochsThreshold) $ do
+    when (siEpoch slotId - lastCommitment > mdNoCommitmentsEpochThreshold) $ do
         lift reportAboutEclipsed
 
 checkCommitmentsInPreviousBlocks

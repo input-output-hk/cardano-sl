@@ -22,8 +22,8 @@ module Pos.Constants
        , defaultPeers
        , sysTimeBroadcastSlots
        , mpcSendInterval
-       , mdSlotsThreshold
-       , mdEpochsThreshold
+       , mdNoBlocksSlotThreshold
+       , mdNoCommitmentsEpochThreshold
        ) where
 
 import           Control.TimeWarp.Timed (Microsecond, sec)
@@ -126,10 +126,10 @@ mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ compileConfig
 
 -- | Number of slots used by malicious actions detection to check if
 -- we are not receiving generated blocks.
-mdSlotsThreshold :: Integral i => i
-mdSlotsThreshold = fromIntegral . ccMdSlotsThreshold $ compileConfig
+mdNoBlocksSlotThreshold :: Integral i => i
+mdNoBlocksSlotThreshold = fromIntegral . ccMdNoBlocksSlotThreshold $ compileConfig
 
 -- | Number of epochs used by malicious actions detection to check if
 -- our commitments are not included in blockchain.
-mdEpochsThreshold :: Integral i => i
-mdEpochsThreshold = fromIntegral . ccMdEpochsThreshold $ compileConfig
+mdNoCommitmentsEpochThreshold :: Integral i => i
+mdNoCommitmentsEpochThreshold = fromIntegral . ccMdNoCommitmentsEpochThreshold $ compileConfig

@@ -12,48 +12,19 @@ module Pos.Worker.Block
        (
        ) where
 
-import           Control.Lens                        (ix, view, (^.), (^?))
-import           Control.TimeWarp.Timed              (Microsecond, for, repeatForever,
-                                                      wait)
-import qualified Data.HashMap.Strict                 as HM
-import           Data.Tagged                         (untag)
-import           Formatting                          (build, sformat, shown, (%))
-import           Serokell.Util                       (VerificationRes (..), listJson)
 import           Serokell.Util.Exceptions            ()
-import           System.Wlog                         (dispatchEvents, logDebug, logInfo,
-                                                      logWarning)
 import           Universum
 
 import           Pos.Binary.Communication            ()
 import           Pos.Block.Logic                     (applyBlocks,
                                                       loadLastNBlocksWithUndo,
                                                       rollbackBlocks, withBlkSemaphore)
-import           Pos.Communication.Methods           (announceBlock)
-import           Pos.Constants                       (k, networkDiameter, slotDuration)
-import           Pos.Context                         (getNodeContext, ncPropagation,
-                                                      ncProxySecretKeys, ncProxyStorage,
-                                                      ncPublicKey, ncSecretKey)
+import           Pos.Constants                       (k)
+import           Pos.Context                         (getNodeContext)
 import           Pos.Context.Context                 (ncSscLeaders, ncSscParticipants)
-import           Pos.Crypto                          (ProxySecretKey, pskIssuerPk,
-                                                      pskOmega)
 import           Pos.Modern.FollowTheSatoshi         (followTheSatoshi)
 import           Pos.Modern.Ssc.GodTossing.Functions (getThreshold)
-import           Pos.Slotting                        (MonadSlots (getCurrentTime),
-                                                      getSlotStart)
-import           Pos.Ssc.Class                       (sscApplyGlobalState,
-                                                      sscGetLocalPayload,
-                                                      sscVerifyPayload)
-import           Pos.Ssc.Class.Helpers               (sscCalculateSeed)
-import           Pos.State                           (createNewBlock, getGlobalMpcData,
-                                                      getHeadBlock, getLeaders,
-                                                      processNewSlot)
-import           Pos.Txp.LocalData                   (getLocalTxs)
-import           Pos.Types                           (EpochIndex, Participants,
-                                                      SlotId (..), Timestamp (Timestamp),
-                                                      blockMpc, gbHeader,
-                                                      makePubKeyAddress, slotIdF)
-import           Pos.Util                            (logWarningWaitLinear)
-import           Pos.Util.JsonLog                    (jlCreatedBlock, jlLog)
+import           Pos.Types                           (Participants, SlotId (..))
 import           Pos.WorkMode                        (WorkMode)
 
 lpcOnNewSlot :: WorkMode ssc m => SlotId -> m () --Leaders and Participants computation

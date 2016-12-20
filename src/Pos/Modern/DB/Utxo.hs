@@ -7,6 +7,7 @@ module Pos.Modern.DB.Utxo
        , writeBatchToUtxo
        , getTxOutFromDB
        , prepareUtxoDB
+       , iterateByUtxo
        ) where
 
 import qualified Database.RocksDB        as Rocks
@@ -16,7 +17,7 @@ import           Pos.Binary.Class        (Bi, encodeStrict)
 import           Pos.Modern.DB.Class     (MonadDB, getUtxoDB)
 import           Pos.Modern.DB.Error     (DBError (..))
 import           Pos.Modern.DB.Functions (rocksDelete, rocksGetBi, rocksPutBi,
-                                          rocksWriteBatch)
+                                          rocksWriteBatch, iterateByAllEntries)
 import           Pos.Modern.DB.Types     (DB)
 import           Pos.Types               (HeaderHash, TxIn (..), TxOut, genesisHash)
 
@@ -49,6 +50,10 @@ prepareUtxoDB = maybe putGenesisTip (const pass) =<< getTipMaybe
 -- | Put new TIP to Utxo DB.
 putTip :: MonadDB ssc m => HeaderHash ssc -> m ()
 putTip h = getUtxoDB >>= rocksPutBi tipKey h
+
+iterateByUtxo :: (MonadDB ssc m, MonadMask m, MonadIO m) => ((TxIn, TxOut) -> m ()) -> m ()
+iterateByUtxo callback = getUtxoDB >>= flip iterateByAllEntries callback
+
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------

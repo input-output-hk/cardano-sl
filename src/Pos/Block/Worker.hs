@@ -27,7 +27,6 @@ import           Pos.Context                  (getNodeContext)
 import           Pos.Context.Context          (ncSscLeaders, ncSscParticipants)
 import           Pos.Modern.DB.Utxo           (iterateByUtxo)
 import           Pos.Modern.FollowTheSatoshi  (followTheSatoshi)
-import           Pos.Ssc.Class.Helpers        (sscCalculateSeed)
 import           Pos.Ssc.GodTossing.Functions (getThreshold)
 import           Pos.Types                    (Address, Coin, Participants, SlotId (..),
                                                TxIn, TxOut (..))
@@ -37,7 +36,8 @@ lpcOnNewSlot :: WorkMode ssc m => SlotId -> m () --Leaders and Participants comp
 lpcOnNewSlot slotId@SlotId{..} = withBlkSemaphore $ \tip -> do
     blockUndos <- loadLastNBlocksWithUndo tip k
     rollbackBlocks blockUndos
-    richmens <- getRichmens 10000 -- read T from config
+    -- [CSL-93] Use eligibility threshold here
+    richmens <- getRichmens 0
     let threshold = getThreshold $ length richmens -- no, its wrong.....
     --mbSeed <- sscCalculateSeed siEpoch threshold -- SscHelperClassM needded
     let mbSeed = notImplemented
@@ -54,10 +54,11 @@ lpcOnNewSlot slotId@SlotId{..} = withBlkSemaphore $ \tip -> do
 -- | Second argument - T, min money. Int is too small, I guess
 getRichmens :: forall ssc m . WorkMode ssc m => Coin -> m Participants
 getRichmens moneyT =
-    NE.fromList . HM.keys . HM.filter (>= moneyT) <$> execStateT (iterateByUtxo @ssc countMoneys) mempty
+    NE.fromList . HM.keys . HM.filter (>= moneyT) <$>
+    execStateT (iterateByUtxo @ssc countMoneys) mempty
   where
     countMoneys :: (TxIn, TxOut) -> StateT (HM.HashMap Address Coin) m ()
-    countMoneys (_, TxOut{..}) = do
+    countMoneys (_, TxOut {..}) = do
         money <- get
         let val = HM.lookupDefault 0 txOutAddress money
         modify (HM.insert txOutAddress (val + txOutValue))

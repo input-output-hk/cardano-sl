@@ -26,10 +26,10 @@ import           Universum
 import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (announceBlock)
 import           Pos.Constants             (networkDiameter, slotDuration)
-import           Pos.Context               (getNodeContext, ncPropagation,
-                                            ncProxySecretKeys, ncProxyStorage,
-                                            ncPublicKey, ncSecretKey)
+import           Pos.Context               (getNodeContext, ncPropagation, ncPublicKey,
+                                            ncSecretKey)
 import           Pos.Crypto                (ProxySecretKey, pskIssuerPk, pskOmega)
+import           Pos.Modern.DB.Misc        (getProxySecretKeys)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
 import           Pos.Ssc.Class             (sscApplyGlobalState, sscGetLocalPayload,
                                             sscVerifyPayload)
@@ -65,9 +65,7 @@ blkOnNewSlot slotId@SlotId {..} = do
             logLeadersF (sformat ("Slot leaders: " %listJson) leaders)
             ourPkAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
             let leader = leaders ^? ix (fromIntegral siSlot)
-            proxyCerts <-
-                (\v -> view ncProxySecretKeys <$> liftIO (readMVar v)) =<<
-                ncProxyStorage <$> getNodeContext
+            proxyCerts <- getProxySecretKeys
             let validCerts =
                     filter (\pSk -> let (w0,w1) = pskOmega pSk
                                     in siEpoch >= w0 && siEpoch <= w1) proxyCerts

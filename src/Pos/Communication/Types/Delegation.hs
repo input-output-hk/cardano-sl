@@ -10,14 +10,11 @@ module Pos.Communication.Types.Delegation
 import           Control.TimeWarp.Rpc (Message (..), messageName')
 import           Universum
 
-import           Pos.Crypto           (ProxySecretKey, ProxySignature)
-import           Pos.Types            (EpochIndex)
-
-type PSK = ProxySecretKey (EpochIndex, EpochIndex)
+import           Pos.Types            (ProxySKEpoch, ProxySigEpoch)
 
 -- | Message with delegated proxy secret key.
 data SendProxySK =
-    SendProxySK !PSK
+    SendProxySK !ProxySKEpoch
     deriving (Generic)
 
 instance Message SendProxySK where
@@ -31,7 +28,7 @@ instance Message SendProxySK where
 -- predicate, because certificate may be sent in epoch id that's
 -- before lower cert's @EpochIndex@.
 data ConfirmProxySK =
-    ConfirmProxySK !PSK !(ProxySignature (EpochIndex, EpochIndex) PSK)
+    ConfirmProxySK !ProxySKEpoch !(ProxySigEpoch ProxySKEpoch)
     deriving (Generic)
 
 instance Message ConfirmProxySK where
@@ -40,7 +37,7 @@ instance Message ConfirmProxySK where
 
 -- | Request to check if a node has any info about PSK delivery.
 data CheckProxySKConfirmed =
-    CheckProxySKConfirmed !PSK
+    CheckProxySKConfirmed !ProxySKEpoch
     deriving (Generic)
 
 instance Message CheckProxySKConfirmed where

@@ -1,14 +1,22 @@
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 module Main where
 
 import           Control.Applicative        (empty)
+import qualified Control.Exception.Lifted   as Exception
 import           Control.Monad              (unless)
+
 import           Data.Time.Units            (Second)
 import           GHC.IO.Encoding            (setLocaleEncoding, utf8)
 import qualified Network.Transport.TCP      as TCP
 import           Options.Applicative.Simple (simpleOptions)
 import           Serokell.Util.Concurrent   (threadDelay)
 import           System.Random              (mkStdGen)
-import           System.Wlog                (usingLoggerName)
+import           System.Wlog                (LoggerNameBox, usingLoggerName)
+
+import           Mockable.Class             (Mockable (..))
+import           Mockable.Exception         (Catch (..))
 
 import           Bench.Network.Commons      (MeasureEvent (..), Ping (..), Pong (..),
                                              loadLogConfig, logMeasure)
@@ -17,6 +25,8 @@ import           Node                       (Listener (..), ListenerAction (..),
                                              startNode, stopNode)
 import           ReceiverOptions            (Args (..), argsParser)
 
+instance Mockable Catch (LoggerNameBox IO) where
+    liftMockable (Catch action handler) = action `Exception.catch` handler
 
 main :: IO ()
 main = do

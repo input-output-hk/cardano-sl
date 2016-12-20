@@ -1,17 +1,24 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Main where
 
 import           Control.Applicative        (empty)
+import qualified Control.Exception.Lifted   as Exception
 import           Control.Monad              (forM_, liftM2)
 import           Control.Monad.Random       (evalRandT, getRandomR)
 import           Control.Monad.Trans        (lift, liftIO)
+
 import           Data.Time.Units            (Second)
 import           GHC.IO.Encoding            (setLocaleEncoding, utf8)
 import           Options.Applicative.Simple (simpleOptions)
 import           Serokell.Util.Concurrent   (threadDelay)
 import           System.Random              (mkStdGen)
-import           System.Wlog                (usingLoggerName)
+import           System.Wlog                (LoggerNameBox, usingLoggerName)
+
+import           Mockable.Class             (Mockable (..))
+import           Mockable.Exception         (Catch (..))
 
 import           Bench.Network.Commons      (MeasureEvent (..), Payload (..), Ping (..),
                                              Pong (..), loadLogConfig, logMeasure)
@@ -22,6 +29,8 @@ import           Node                       (Listener (..), ListenerAction (..),
 import           Node.Internal              (NodeId (..))
 import           SenderOptions              (Args (..), argsParser)
 
+instance Mockable Catch (LoggerNameBox IO) where
+    liftMockable (Catch action handler) = action `Exception.catch` handler
 
 sendDelay :: Maybe Int -> Second
 sendDelay Nothing     = 0

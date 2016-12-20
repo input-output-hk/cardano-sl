@@ -102,6 +102,7 @@ executable bench-sender
                      , extra >= 1.4
                      , formatting
                      , hslogger
+                     , lifted-base
                      , log-warper >= 0.2.0
                      , MonadRandom >= 0.4.2.3
                      , monad-control >= 1.0.1
@@ -142,6 +143,7 @@ executable bench-receiver
                      , exceptions >= 0.8.2.1
                      , formatting
                      , hslogger
+                     , lifted-base
                      , log-warper >= 0.2.0
                      , mtl
                      , network-transport-tcp >= 0.5.1

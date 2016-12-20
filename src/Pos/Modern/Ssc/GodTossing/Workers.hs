@@ -13,7 +13,7 @@ module Pos.Modern.Ssc.GodTossing.Workers
          -- ** instance SscWorkersClass SscGodTossing
        ) where
 
-import           Control.Concurrent.STM                        (TVar, readTVar, writeTVar)
+import           Control.Concurrent.STM                        (readTVar)
 import           Control.Lens                                  (view, (%=), _2, _3)
 import           Control.Monad.Trans.Maybe                     (runMaybeT)
 import           Control.TimeWarp.Timed                        (Microsecond, Millisecond,
@@ -45,6 +45,7 @@ import           Pos.Modern.Ssc.GodTossing.Functions           (getThreshold,
 import           Pos.Modern.Ssc.GodTossing.Helpers             (getOurShares)
 import           Pos.Modern.Ssc.GodTossing.LocalData.LocalData (localOnNewSlot,
                                                                 sscProcessMessage)
+import           Pos.Modern.Ssc.GodTossing.Storage.Storage     (getGlobalCertificates)
 import           Pos.Slotting                                  (getSlotStart, onNewSlot)
 import           Pos.Ssc.Class.Helpers                         (SscHelpersClassM)
 import           Pos.Ssc.Class.LocalData                       (MonadSscLDM,
@@ -71,9 +72,7 @@ import           Pos.Ssc.GodTossing.Types.Message              (DataMsg (..), In
 import           Pos.Ssc.GodTossing.Types.Type                 (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types                (GtPayload, GtProof,
                                                                 gtcParticipateSsc,
-                                                                gtcVssCertificateVerified,
                                                                 gtcVssKeyPair)
-import           Pos.Ssc.GodTossing.Utils                      (verifiedVssCertificates)
 import           Pos.Types                                     (Address (..), EpochIndex,
                                                                 LocalSlotIndex,
                                                                 SlotId (..),
@@ -95,25 +94,25 @@ instance (Bi VssCertificate
     --sscWorkers = Tagged [onStart, onNewSlotSsc]
     sscWorkers = Tagged []
 
+-- CHECK: @onStart
+-- Checks whether 'our' VSS certificate has been announced
 onStart :: forall m. (WorkMode SscGodTossing m, Bi DataMsg) => m ()
-onStart = do
-    isVerified <- isVssCertificateVerified
-    if isVerified
-       then do
-           logDebug "Our VssCertificate is verified."
-           b <- getGtcVssCertificateVerified
-           atomically $ writeTVar b True
-       else do
-           logDebug "Our VssCertificate is not verified yet, we will announce it now."
-           (_, ourAddr)      <- getOurPkAndAddr
-           ourVssCertificate <- getOurVssCertificate
-           let msg = DMVssCertificate ourAddr ourVssCertificate
-           -- [CSL-245]: do not catch all, catch something more concrete.
-           (sendToNeighborsSafe msg >> logDebug "Announced our VssCertificate.")
-               `catchAll` \e ->
-               logError $ sformat ("Error announcing our VssCertificate: " % shown) e
-           wait (for mpcSendInterval)
-           onStart -- retry
+onStart = checkNSendOurCert
+
+checkNSendOurCert :: forall m . (WorkMode SscGodTossing m, Bi DataMsg) => m ()
+checkNSendOurCert = do
+    (_, ourAddr) <- getOurPkAndAddr
+    isCertInBlockhain <- member ourAddr <$> getGlobalCertificates
+    if isCertInBlockhain then
+       logDebug "Our VssCertificate has been already announced."
+    else do
+        logDebug "Our VssCertificate hasn't been announced yet, we will announce it now."
+        ourVssCertificate <- getOurVssCertificate
+        let msg = DMVssCertificate ourAddr ourVssCertificate
+        -- [CSL-245]: do not catch all, catch something more concrete.
+        (sendToNeighborsSafe msg >> logDebug "Announced our VssCertificate.")
+            `catchAll` \e ->
+            logError $ sformat ("Error announcing our VssCertificate: " % shown) e
   where
     getOurVssCertificate :: m VssCertificate
     getOurVssCertificate = do
@@ -132,15 +131,6 @@ onStart = do
             sscRunLocalUpdate $ gtLocalCertificates %= insert ourAddr ourCert
             return ourCert
 
--- CHECK: @isVssCertificateVerified
--- Checks whether 'our' VSS certificate has been verified,
--- i.e. is at least k blocks deep in the blockchain.
-isVssCertificateVerified :: forall m. WorkMode SscGodTossing m => m Bool
-isVssCertificateVerified = do
-    (_, ourAddr) <- getOurPkAndAddr
-    certs        <- verifiedVssCertificates
-    return $ ourAddr `member` certs
-
 getOurPkAndAddr :: WorkMode SscGodTossing m => m (PublicKey, Address)
 getOurPkAndAddr = do
     ourPk <- ncPublicKey <$> getNodeContext
@@ -149,33 +139,27 @@ getOurPkAndAddr = do
 getOurVssKeyPair :: WorkMode SscGodTossing m => m VssKeyPair
 getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
 
-getGtcVssCertificateVerified :: WorkMode SscGodTossing m => m (TVar Bool)
-getGtcVssCertificateVerified = gtcVssCertificateVerified . ncSscContext <$> getNodeContext
-
 -- CHECK: @onNewSlotSsc
--- Checks whether 'our' VSS certificate has been verified
--- (is at least k blocks deep in the blockchain) before starting VSS actions.
+-- Checks whether 'our' VSS certificate has been announced
 onNewSlotSsc
-    :: (MyWorkMode SscGodTossing m
-       ,Bi Commitment
-       ,Bi VssCertificate
-       ,Bi Opening
-       ,Bi InvMsg)
+    :: ( MyWorkMode SscGodTossing m
+       , Bi Commitment
+       , Bi VssCertificate
+       , Bi Opening
+       , Bi InvMsg
+       , Bi DataMsg)
     => m ()
 onNewSlotSsc = onNewSlot True $ \slotId-> do
     localOnNewSlot slotId
-    verified <- getGtcVssCertificateVerified >>= atomically . readTVar
-    if verified
-       then do
-           prepareSecretToNewSlot slotId
-           participationEnabled <- getNodeContext >>=
-               atomically . readTVar . gtcParticipateSsc . ncSscContext
-           when participationEnabled $ do
-               onNewSlotCommitment slotId
-               onNewSlotOpening slotId
-               onNewSlotShares slotId
-               checkpointSecret
-       else logDebug "Our VssCertificate has not been verified yet."
+    checkNSendOurCert
+    prepareSecretToNewSlot slotId
+    participationEnabled <- getNodeContext >>=
+        atomically . readTVar . gtcParticipateSsc . ncSscContext
+    when participationEnabled $ do
+        onNewSlotCommitment slotId
+        onNewSlotOpening slotId
+        onNewSlotShares slotId
+        checkpointSecret
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment

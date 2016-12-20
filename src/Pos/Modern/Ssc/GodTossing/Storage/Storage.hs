@@ -16,6 +16,7 @@
 module Pos.Modern.Ssc.GodTossing.Storage.Storage
        ( -- * Instances
          -- ** instance SscStorageClass SscGodTossing
+         getGlobalCertificates
        ) where
 
 import           Control.Lens                            (use, view, (%=), (.=), (^.), _1,
@@ -41,6 +42,7 @@ import           Pos.Ssc.GodTossing.Functions            (checkOpeningMatchesCom
                                                           checkShares, isCommitmentIdx,
                                                           isOpeningIdx, isSharesIdx,
                                                           verifyGtPayload)
+import           Pos.Ssc.GodTossing.Types.Base           (VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types          (GtPayload (..), SscBi,
                                                           _gpCertificates)
@@ -75,6 +77,10 @@ instance (SscBi, MonadDB SscGodTossing m
     sscApplyBlocksM = sscRunGlobalModify . mpcApplyBlocks
     sscRollbackM = sscRunGlobalModify . mpcRollback
     sscVerifyBlocksM = sscRunGlobalQuery . mpcVerifyBlocks
+
+getGlobalCertificates :: (MonadSscGS SscGodTossing m, SscGlobalStateM SscGodTossing ~ GtGlobalState)
+                      => m VssCertificatesMap
+getGlobalCertificates = sscRunGlobalQuery $ view gsVssCertificates
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.

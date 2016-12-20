@@ -237,6 +237,7 @@ library
                         Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Server
                         Pos.Wallet.Web.Server.Methods
+                        Pos.Wallet.Web.Server.Full
                         Pos.Wallet.Web.Server.Lite
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic

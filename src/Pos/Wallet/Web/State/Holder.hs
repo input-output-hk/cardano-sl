@@ -17,9 +17,13 @@ import           Control.TimeWarp.Timed     (MonadTimed, ThreadId)
 import           Serokell.Util.Lens         (WrappedM (..))
 import           System.Wlog                (CanLog, HasLoggerName)
 
+import           Pos.Context                (WithNodeContext)
 import           Pos.DHT.Model              (MonadDHT, MonadMessageDHT,
                                              WithDefaultMsgHeader)
+import qualified Pos.Modern.DB              as Modern
 import           Pos.Slotting               (MonadSlots)
+import qualified Pos.State                  as St
+import           Pos.Txp.LocalData          (MonadTxLD)
 import           Pos.WorkMode               ()
 
 import           Pos.Wallet.Context         (WithWalletContext)
@@ -35,7 +39,8 @@ newtype WalletWebDB m a = WalletWebDB
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                 MonadMask, MonadIO, HasLoggerName, MonadWalletDB, WithWalletContext,
                 MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots,
-                WithDefaultMsgHeader, CanLog, MonadKeys, MonadBalances, MonadTxHistory)
+                WithDefaultMsgHeader, CanLog, MonadKeys, MonadBalances, MonadTxHistory,
+                MonadTxLD, WithNodeContext ssc, St.MonadDB ssc, Modern.MonadDB ssc)
 
 instance Monad m => WrappedM (WalletWebDB m) where
     type UnwrappedM (WalletWebDB m) = ReaderT WalletState m

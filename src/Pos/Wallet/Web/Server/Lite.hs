@@ -1,7 +1,7 @@
--- | Module for lite-wallet implementation of Daedalus API
-
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
+
+-- | Module for lite-wallet implementation of Daedalus API
 
 module Pos.Wallet.Web.Server.Lite
        ( walletServeWebLite

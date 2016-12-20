@@ -3,6 +3,7 @@
 module Pos.Wallet.Context.Context
        ( WalletContext (..)
        , ctxFromParams
+       , fromNodeCtx
        ) where
 
 import           Pos.Context               (NodeContext (..))

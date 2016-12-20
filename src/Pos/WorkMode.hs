@@ -19,7 +19,7 @@ module Pos.WorkMode
        , MinWorkMode
 
        -- * Tx local data
-       , TxLDImpl
+       , TxLDImpl (..)
        , runTxLDImpl
        , runTxLDImplRaw
 

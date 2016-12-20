@@ -33,11 +33,15 @@ import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
+import           Pos.Context                 (WithNodeContext)
 import           Pos.Crypto                  (SecretKey, keyGen)
 import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
+import qualified Pos.Modern.DB               as Modern
 import           Pos.Slotting                (MonadSlots)
+import qualified Pos.State                   as St
+import           Pos.Txp.LocalData           (MonadTxLD)
 import           Pos.Util                    ()
 import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,
                                               writeUserSecret)
@@ -82,7 +86,8 @@ newtype KeyStorage m a = KeyStorage
                 MonadThrow, MonadSlots, MonadCatch, MonadIO,
                 HasLoggerName, MonadDialog s p, CanLog, MonadMask, MonadDHT,
                 MonadMessageDHT s, MonadReader KeyData, WithDefaultMsgHeader,
-                MonadWalletDB, WithWalletContext)
+                MonadWalletDB, WithWalletContext, MonadTxLD, WithNodeContext ssc,
+                St.MonadDB ssc, Modern.MonadDB ssc)
 
 type instance ThreadId (KeyStorage m) = ThreadId m
 

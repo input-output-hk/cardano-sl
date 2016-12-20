@@ -34,6 +34,8 @@ import           Pos.Constants                                 (k, mpcSendInterv
 import           Pos.Context                                   (getNodeContext,
                                                                 ncPublicKey, ncSecretKey,
                                                                 ncSscContext)
+import           Pos.Context                                   (getNodeContext)
+import           Pos.Context.Context                           (ncSscParticipants)
 import           Pos.Crypto                                    (SecretKey, VssKeyPair,
                                                                 randomNumber,
                                                                 runSecureRandom, toPublic)
@@ -75,7 +77,7 @@ import           Pos.Ssc.GodTossing.Types.Types                (GtPayload, GtPro
                                                                 gtcVssKeyPair)
 import           Pos.Types                                     (Address (..), EpochIndex,
                                                                 LocalSlotIndex,
-                                                                SlotId (..),
+                                                                Participants, SlotId (..),
                                                                 Timestamp (..),
                                                                 makePubKeyAddress)
 import           Pos.Util                                      (asBinary)
@@ -268,18 +270,15 @@ generateAndSetNewSecret sk epoch = do
     -- getParticipants returns 'Just res' it will always return 'Just
     -- res' unless key assumption is broken. But if it's broken,
     -- nothing else matters.
-    participants <- notImplemented --getParticipants epoch
-    case participants of
-        Nothing -> return Nothing
-        Just ps -> do
-            let threshold = getThreshold $ length ps
-            mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
-            case mPair of
-              Just (mkSignedCommitment sk epoch -> comm, op) ->
-                  Just (comm, op) <$ setSecret (toPublic sk, comm, op)
-              _ -> do
-                logError "Wrong participants list: can't deserialize"
-                return Nothing
+    ps <- takeParticipants
+    let threshold = getThreshold $ length ps
+    mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
+    case mPair of
+      Just (mkSignedCommitment sk epoch -> comm, op) ->
+          Just (comm, op) <$ setSecret (toPublic sk, comm, op)
+      _ -> do
+        logError "Wrong participants list: can't deserialize"
+        return Nothing
 
 randomTimeInInterval
     :: WorkMode SscGodTossing m
@@ -309,3 +308,6 @@ waitUntilSend msgTag epoch kMultiplier = do
             sformat ("Waiting for "%shown%" before sending "%build)
                 ttwMillisecond msgTag
         wait $ for timeToWait
+
+takeParticipants :: WorkMode SscGodTossing m => m Participants
+takeParticipants = getNodeContext >>= liftIO . readMVar . ncSscParticipants

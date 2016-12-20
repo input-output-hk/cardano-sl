@@ -50,8 +50,10 @@ workers id gen peerIds = [pingWorker gen]
             let pong :: NodeId -> ConversationActions Void Pong Production -> Production ()
                 pong peerId cactions = do
                     liftIO . putStrLn $ show id ++ " sent PING to " ++ show peerId
-                    Pong <- recv cactions
-                    liftIO . putStrLn $ show id ++ " heard PONG from " ++ show peerId
+                    received <- recv cactions
+                    case received of
+                        Just Pong -> liftIO . putStrLn $ show id ++ " heard PONG from " ++ show peerId
+                        Nothing -> error "Unexpected end of input"
             forM_ peerIds $ \peerId -> withConnectionTo sendActions peerId (fromString "ping") (pong peerId)
             loop gen'
 

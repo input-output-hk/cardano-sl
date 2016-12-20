@@ -49,11 +49,19 @@ import Mockable.SharedAtomic
 newtype NodeId = NodeId NT.EndPointAddress
   deriving (Eq, Ord, Show)
 
-type NodeState m =
-    ( StdGen
-    , Map Nonce (NonceState m)
-    , [(Either NT.ConnectionId Nonce, Maybe SomeException)]
-    )
+-- | The state of a Node, to be held in a shared atomic cell because other
+--   threads will mutate it in order to set up bidirectional connections.
+data NodeState m = NodeState {
+      nodeStateGen :: StdGen
+      -- ^ To generate nonces.
+    , nodeStateNonces :: Map Nonce (NonceState m)
+      -- ^ Nonces identify bidirectional connections, and this gives the state
+      --   of each one.
+    , nodeStateFinished :: [(Either NT.ConnectionId Nonce, Maybe SomeException)]
+      -- ^ Connection identifiers or nonces for handlers which have finished.
+      --   'Nonce's for bidirectional connections, 'ConnectionId's for handlers
+      --   spawned to respond to incoming connections.
+    }
 
 data Node (m :: * -> *) = Node {
        nodeEndPoint         :: NT.EndPoint m,
@@ -76,16 +84,19 @@ newtype ChannelIn m = ChannelIn (Channel.ChannelT m (Maybe BS.ByteString))
 -- | Output to the wire.
 newtype ChannelOut m = ChannelOut (NT.Connection m)
 
+-- | Bring up a 'Node' using a network transport.
 startNode :: ( Mockable SharedAtomic m, Mockable Fork m, Mockable Bracket m
              , Mockable Channel.Channel m, Mockable Throw m, Mockable Catch m )
           => NT.Transport m
           -> StdGen
           -> (NodeId -> ChannelIn m -> m ())
+          -- ^ Handle incoming unidirectional connections.
           -> (NodeId -> ChannelIn m -> ChannelOut m -> m ())
+          -- ^ Handle incoming bidirectional connections.
           -> m (Node m)
 startNode transport prng handlerIn handlerOut = do
     Right endpoint       <- NT.newEndPoint transport --TODO: error handling
-    sharedState          <- newSharedAtomic (prng, Map.empty, [])
+    sharedState          <- newSharedAtomic (NodeState prng Map.empty [])
     tid                  <- fork $
         nodeDispatcher endpoint sharedState handlerIn handlerOut
     --TODO: exceptions in the forkIO
@@ -95,7 +106,7 @@ startNode transport prng handlerIn handlerOut = do
       nodeState = sharedState
     }
 
-
+-- | Stop a 'Node', closing its network transport endpoint.
 stopNode :: Node m -> m ()
 stopNode Node {..} =
     NT.closeEndPoint nodeEndPoint
@@ -103,11 +114,12 @@ stopNode Node {..} =
     -- ought to stop the connection handling threads.
     -- It'll also close all TCP connections.
 
-
 -- | State which is local to the dispatcher, and need not be accessible to
 --   any other thread.
 type DispatcherState m = Map NT.ConnectionId (ConnectionState m)
 
+-- | The state of a connection (associated with a 'ConnectionId', see
+--   'DispatcherState'.
 data ConnectionState m =
 
        -- | We got a new connection and are waiting on the first chunk of data
@@ -132,8 +144,16 @@ data ConnectionState m =
       --   Subsequent incoming data has nowhere to go.
     | ConnectionHandlerFinished !(Maybe SomeException)
 
+instance Show (ConnectionState m) where
+    show term = case term of
+        ConnectionNew nodeid -> "ConnectionNew " ++ show nodeid
+        ConnectionNewChunks nodeid chunks -> "ConnectionNewChunks " ++ show nodeid
+        ConnectionReceiving _ _ -> "ConnectionReceiving"
+        ConnectionClosed _ -> "ConnectionClosed"
+        ConnectionHandlerFinished e -> "ConnectionHandlerFinished " ++ show e
+
 -- | Bidirectional connections (conversations) are identified not by
---   ConnectionId but by a nonce, because their handlers run before any
+--   'ConnectionId' but by 'Nonce', because their handlers run before any
 --   connection is established.
 --
 --   Once a connection for a conversation is established, its nonce is
@@ -149,13 +169,10 @@ data NonceState m =
 
     | NonceHandlerConnected !NT.ConnectionId
 
-instance Show (ConnectionState m) where
+instance Show (NonceState m) where
     show term = case term of
-        ConnectionNew nodeid -> "ConnectionNew " ++ show nodeid
-        ConnectionNewChunks nodeid chunks -> "ConnectionNewChunks " ++ show nodeid
-        ConnectionReceiving _ _ -> "ConnectionReceiving"
-        ConnectionClosed _ -> "ConnectionClosed"
-        ConnectionHandlerFinished e -> "ConnectionHandlerFinished " ++ show e
+        NonceHandlerNotConnected _ _ -> "NonceHandlerNotConnected"
+        NonceHandlerConnected connid -> "NonceHandlerConnected " ++ show connid
 
 --TODO: extend this to keep track of the number of active threads and total
 -- amount of in flight incoming data. This will be needed to inform the
@@ -192,8 +209,8 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
     --   thread, else the DispatcherState will never forget the entry for
     --   this ConnectionId.
     signalFinished :: (Either NT.ConnectionId Nonce, Maybe SomeException) -> m ()
-    signalFinished outcome = modifySharedAtomic nodeState $ \(prng, nonces, finished) ->
-            pure ((prng, nonces, outcome : finished), ())
+    signalFinished outcome = modifySharedAtomic nodeState $ \(NodeState prng nonces finished) ->
+            pure ((NodeState prng nonces (outcome : finished)), ())
 
     -- | Augment some m term so that it always reports its ConnectionId when
     --   finished, along with the exception if one was raised. We catch all
@@ -226,7 +243,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
     -- If a lot of threads are giving exceptions, should we change dispatcher
     -- behavior?
     updateStateForFinishedHandlers :: DispatcherState m -> m (DispatcherState m)
-    updateStateForFinishedHandlers state = modifySharedAtomic nodeState $ \(prng, nonces, finished) -> do
+    updateStateForFinishedHandlers state = modifySharedAtomic nodeState $ \(NodeState prng nonces finished) -> do
         -- For every Left (c :: NT.ConnectionId) we can remove it from the map
         -- if its connection is closed, or indicate that the handler is finished
         -- so that it will be removed when the connection is closed.
@@ -239,7 +256,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
         let (state', nonces') = foldl' folder (state, nonces) finished
         --() <- trace ("DEBUG: state map size is " ++ show (Map.size state')) (pure ())
         --() <- trace ("DEBUG: nonce map size is " ++ show (Map.size nonces')) (pure ())
-        pure ((prng, nonces', []), state')
+        pure ((NodeState prng nonces' []), state')
         where
 
         -- Updates connection and nonce states in a left fold.
@@ -333,12 +350,12 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                 --
                 | w == controlHeaderCodeBidirectionalAck
                 , Right (ws',_,nonce) <- decodeOrFail ws -> do
-                  (tid, ChannelIn chan) <- modifySharedAtomic nodeState $ \(prng, expected, finished) ->
+                  (tid, ChannelIn chan) <- modifySharedAtomic nodeState $ \(NodeState prng expected finished) ->
                       case Map.lookup nonce expected of
                           Nothing -> throw (ProtocolError $ "unexpected ack nonce " ++ show nonce)
                           Just (NonceHandlerNotConnected tid inchan) -> do
                               let !expected' = Map.insert nonce (NonceHandlerConnected connid) expected
-                              return ((prng, expected', finished), (tid, inchan))
+                              return ((NodeState prng expected' finished), (tid, inchan))
                           Just _ -> throw (InternalError $ "duplicate or delayed ACK for " ++ show nonce)
                   mapM_ (Channel.writeChannel chan . Just) (LBS.toChunks ws')
                   pure . Just $ ConnectionReceiving tid chan
@@ -538,10 +555,10 @@ connectInOutChannel node@Node{nodeEndPoint, nodeState}
       chan  <- Channel.newChannel
       -- Create a nonce and update the shared atomic so that the nonce indicates
       -- that there's a handler for it.
-      nonce <- modifySharedAtomic nodeState $ \(prng, expected, finished) -> do
+      nonce <- modifySharedAtomic nodeState $ \(NodeState prng expected finished) -> do
                  let (nonce, !prng') = random prng
                      !expected' = Map.insert nonce (NonceHandlerNotConnected tid (ChannelIn chan)) expected
-                 pure ((prng', expected', finished), nonce)
+                 pure ((NodeState prng' expected' finished), nonce)
       return (nonce, chan)
 
 connectOutChannel
@@ -594,15 +611,15 @@ withInOutChannel node@Node{nodeState} nodeid action =
         exceptional nonce
     normal nonce inchan outchan = do
         a <- action inchan outchan
-        modifySharedAtomic nodeState $ \(prng, map, finished) -> do
+        modifySharedAtomic nodeState $ \(NodeState prng map finished) -> do
             -- We don't delete the nonce from the map here. The dispatcher
             -- thread does that.
             -- Why? It's probably inconsequential...
-            pure ((prng, map, (Right nonce, Nothing) : finished), ())
+            pure ((NodeState prng map ((Right nonce, Nothing) : finished)), ())
         pure a
     exceptional nonce (e :: SomeException) = do
-        modifySharedAtomic nodeState $ \(prng, map, finished) -> do
-            pure ((prng, map, (Right nonce, Just e) : finished), ())
+        modifySharedAtomic nodeState $ \(NodeState prng map finished) -> do
+            pure ((NodeState prng map ((Right nonce, Just e) : finished)), ())
         throw e
 
 withOutChannel

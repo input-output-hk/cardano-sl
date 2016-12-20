@@ -48,8 +48,10 @@ workers id gen discovery = [pingWorker gen]
             liftIO . putStrLn $ show id ++ " has peer set: " ++ show peerSet
             forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) (fromString "ping") $
                 \(cactions :: ConversationActions Void Pong Production) -> do
-                    Pong <- recv cactions
-                    liftIO . putStrLn $ show id ++ " heard PONG from " ++ show addr
+                    received <- recv cactions
+                    case received of
+                        Just Pong -> liftIO . putStrLn $ show id ++ " heard PONG from " ++ show addr
+                        Nothing -> error "Unexpected end of input"
             loop gen'
 
 listeners :: NodeId -> [Listener Production]

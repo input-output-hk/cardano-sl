@@ -23,7 +23,7 @@ module Node (
 import Control.Monad.Fix (MonadFix)
 import qualified Node.Internal as LL
 import Node.Internal (ChannelIn(..), ChannelOut(..))
-import Data.String (fromString, IsString)
+import Data.String (IsString)
 import Data.Binary     as Bin
 import Data.Binary.Put as Bin
 import Data.Binary.Get as Bin
@@ -32,7 +32,6 @@ import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Builder.Extra as BS
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
-import Data.Proxy (Proxy(..))
 import qualified Network.Transport.Abstract as NT
 import System.Random (StdGen)
 import Mockable.Class
@@ -98,8 +97,9 @@ data ConversationActions snd rcv m = ConversationActions {
        -- | Send a message within the context of this conversation
        send  :: snd -> m (),
 
-       -- | Receive a message within the context of this conversation
-       recv  :: m rcv
+       -- | Receive a message within the context of this conversation.
+       --   'Nothing' means end of input (peer ended conversation).
+       recv  :: m (Maybe rcv)
      }
 
 type ListenerIndex m = Map MessageName (ListenerAction m)
@@ -142,9 +142,9 @@ startNode transport prng workers listeners = do
                                 , recv = do
                                       next <- recvNext inchan
                                       case next of
-                                          End -> error "End of peer's conversation response"
+                                          End -> pure Nothing
                                           NoParse -> error "Failed to parse peer's conversation response"
-                                          Input msg -> pure msg
+                                          Input msg -> pure (Just msg)
                                 }
                         LL.writeChannel channelOut (LBS.toChunks (serialiseMsgName msgName))
                         f cactions
@@ -213,9 +213,9 @@ startNode transport prng workers listeners = do
                                 , recv = do
                                       next <- recvNext inchan
                                       case next of
-                                          End -> error "End of peer's conversation input"
+                                          End -> pure Nothing
                                           NoParse -> error "Failed to parse peer's conversation input"
-                                          Input msg -> pure msg
+                                          Input msg -> pure (Just msg)
                                 }
                         in  action peerId cactions
                     Just (ListenerActionOneMsg _) -> error ("handlerInOut : wrong listener type. Expected bidirectional for " ++ show msgName)

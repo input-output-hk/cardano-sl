@@ -87,7 +87,7 @@ class Monad m => SscStorageClassM ssc m | m -> ssc where
     -- | Rollback application of last 'n' blocks.  blocks. If there
     -- are less blocks than 'n' is, just leaves an empty ('def')
     -- version.
-    sscRollbackM :: Word -> m ()
+    sscRollbackM :: AltChain ssc -> m ()
 
     -- | Verify Ssc-related predicates of block sequence which is
     -- about to be applied. It should check that SSC payload will be
@@ -104,7 +104,7 @@ class Monad m => SscStorageClassM ssc m | m -> ssc where
     default sscApplyBlocksM :: MonadTrans t => AltChain ssc -> t m ()
     sscApplyBlocksM = lift . sscApplyBlocksM
 
-    default sscRollbackM :: MonadTrans t => Word -> t m ()
+    default sscRollbackM :: MonadTrans t => AltChain ssc -> t m ()
     sscRollbackM = lift . sscRollbackM
 
     default sscVerifyBlocksM :: MonadTrans t => AltChain ssc -> t m VerificationRes

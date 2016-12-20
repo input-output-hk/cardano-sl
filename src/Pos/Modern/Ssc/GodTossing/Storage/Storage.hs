@@ -18,75 +18,62 @@ module Pos.Modern.Ssc.GodTossing.Storage.Storage
          -- ** instance SscStorageClass SscGodTossing
        ) where
 
-import           Control.Lens                             (Lens', ix, preview, to, use,
-                                                           view, zoom, (%=), (.=), (^.),
-                                                           _1, _2, _3)
-import           Control.Monad.IfElse                     (whileM)
-import           Control.Monad.Reader                     (ask)
-import           Data.Default                             (def)
-import qualified Data.HashMap.Strict                      as HM
-import           Data.List                                (nub)
-import           Data.List.NonEmpty                       (NonEmpty ((:|)), (<|))
-import qualified Data.List.NonEmpty                       as NE
-import           Data.SafeCopy                            (SafeCopy)
-import           Data.Serialize                           (Serialize (..))
-import           Serokell.Util.Verify                     (VerificationRes (..),
-                                                           isVerSuccess, verifyGeneric)
+import           Control.Lens                            (use, view, (%=), (.=), (^.), _1,
+                                                          _2)
+import           Control.Monad.IfElse                    (whileM)
+import           Control.Monad.Reader                    (ask)
+import           Data.Default                            (def)
+import qualified Data.HashMap.Strict                     as HM
+import           Serokell.Util.Verify                    (VerificationRes (..),
+                                                          isVerSuccess, verifyGeneric)
 import           Universum
 
-import           Pos.Crypto                               (EncShare, Threshold,
-                                                           VssPublicKey)
-import           Pos.FollowTheSatoshi                     (followTheSatoshi)
-import           Pos.Ssc.Class.Storage                    (HasSscStorage (..),
-                                                           MonadSscGS (..), SscQuery,
-                                                           SscStorageClassM (..),
-                                                           SscUpdate, sscRunGlobalModify,
-                                                           sscRunGlobalQuery)
-import           Pos.Ssc.Class.Types                      (Ssc (..))
-import           Pos.Ssc.GodTossing.Error                 (SeedError)
-import           Pos.Ssc.GodTossing.Functions             (checkOpeningMatchesCommitment,
-                                                           checkShares, isCommitmentIdx,
-                                                           isOpeningIdx, isSharesIdx,
-                                                           verifyGtPayload)
-import           Pos.Ssc.GodTossing.Seed                  (calculateSeed)
-import           Pos.Ssc.GodTossing.Types.Base            (Commitment (..),
-                                                           VssCertificate (..))
-import           Pos.Ssc.GodTossing.Types.Type            (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types           (GtPayload (..), SscBi,
-                                                           emptyPayload, _gpCertificates)
-import           Pos.State.Storage.Types                  (AltChain)
-import           Pos.Types                                (Address (..), Block,
-                                                           EpochIndex, HeaderHash,
-                                                           SlotId (..), SlotLeaders, Utxo,
-                                                           blockMpc, blockSlot, gbHeader,
-                                                           genesisHash, prevBlockL,
-                                                           txOutAddress)
-import           Pos.Util                                 (AsBinary, magnify', neFromList,
-                                                           readerToState, _neHead)
-
-import           Pos.Modern.DB                            (MonadDB (..), getBlock, getTip)
-import           Pos.Modern.Ssc.GodTossing.Storage.Types  (GtGlobalState (..),
-                                                           gsCommitments, gsOpenings,
-                                                           gsShares, gsVssCertificates)
+import           Pos.Modern.DB                           (MonadDB, getBlock)
+import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
+                                                          gsCommitments, gsOpenings,
+                                                          gsShares, gsVssCertificates)
+import           Pos.Ssc.Class.Storage                   (MonadSscGS (..),
+                                                          SscStorageClassM (..),
+                                                          sscRunGlobalModify,
+                                                          sscRunGlobalQuery)
+import           Pos.Ssc.Class.Types                     (Ssc (..))
+import           Pos.Ssc.GodTossing.Functions            (checkOpeningMatchesCommitment,
+                                                          checkShares, isCommitmentIdx,
+                                                          isOpeningIdx, isSharesIdx,
+                                                          verifyGtPayload)
+import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types          (GtPayload (..), SscBi,
+                                                          _gpCertificates)
+import           Pos.State.Storage.Types                 (AltChain)
+import           Pos.Types                               (Block, HeaderHash, SlotId (..),
+                                                          blockMpc, blockSlot, gbHeader,
+                                                          prevBlockL)
+import           Pos.Util                                (readerToState)
 
 type GSQuery a  = forall m . Monad m => ReaderT GtGlobalState m a
 type GSUpdate a = forall m . Monad m => StateT GtGlobalState m a
-type DBMode ssc m = (MonadSscGS SscGodTossing m
-                    , MonadDB SscGodTossing m
+
+type Pure ssc m = ( SscPayload SscGodTossing ~ GtPayload
+                       , SscGlobalStateM SscGodTossing ~ GtGlobalState
+                       , Ssc SscGodTossing)
+
+type WithDB ssc m = ( MonadSscGS SscGodTossing m
                     , MonadThrow m
+                    , MonadDB SscGodTossing m
                     , SscPayload SscGodTossing ~ GtPayload
                     , SscGlobalStateM SscGodTossing ~ GtGlobalState
                     , Ssc SscGodTossing)
 
-instance (SscBi, Monad m, MonadDB SscGodTossing m, Ssc SscGodTossing
+instance (SscBi, MonadDB SscGodTossing m
          , MonadSscGS SscGodTossing m, MonadThrow m
+         , Ssc SscGodTossing
          , SscPayload SscGodTossing ~ GtPayload
          , SscGlobalStateM SscGodTossing ~ GtGlobalState)
          => SscStorageClassM SscGodTossing m where
     sscEmptyGlobalState = pure def
     sscLoadGlobalState = mpcLoadGlobalState
     sscApplyBlocksM = sscRunGlobalModify . mpcApplyBlocks
-    sscRollbackM = mpcRollback
+    sscRollbackM = sscRunGlobalModify . mpcRollback
     sscVerifyBlocksM = sscRunGlobalQuery . mpcVerifyBlocks
 
 -- | Verify that if one adds given block to the current chain, it will
@@ -223,58 +210,44 @@ mpcProcessBlock blk = do
         -- “arrive”, we clear global commitments and other globals. Not
         -- certificates, though, because we don't want to make nodes resend
         -- them in each epoch.
-        Left _ -> do
-            gsCommitments .= mempty
-            gsOpenings    .= mempty
-            gsShares      .= mempty
+        Left _  -> resetGS
         -- Main blocks contain commitments, openings, shares, VSS certificates
         Right b -> modify (unionPayload (b ^. blockMpc))
 
-mpcRollback :: forall m . DBMode SscGodTossing m
-            => Word -> m ()
-mpcRollback cn = do
-    initTip <- getTip
-    initGS <- getGlobalState
-    (curGS, curTip, wasGenesis) <- execStateT (rollbackN cn)
-                                              (initGS, initTip, False)
-    if not wasGenesis then
-        setGlobalState curGS
-    else
-        execStateT unionBlocks (def, curTip) >>= setGlobalState . fst
+resetGS :: GSUpdate ()
+resetGS = do
+    gsCommitments .= mempty
+    gsOpenings    .= mempty
+    gsShares      .= mempty
+
+-- | Head - younges
+mpcRollback :: forall m . Pure SscGodTossing m
+            => AltChain SscGodTossing -> GSUpdate ()
+mpcRollback blocks = do
+    wasGenesis <- foldM (\wasGen b -> if wasGen then pure wasGen else differenceBlock b)
+                         False blocks
+    when wasGenesis resetGS
   where
-    rollbackN :: Word -> StateT (GtGlobalState, HeaderHash SscGodTossing, Bool) m ()
-    rollbackN n = do
-        forM_ [1..n] (\_->do
-            curTip <- use _2
-            block <- lift $ getBlock curTip
-            maybe (panic "No block with such tip")
-                  (\b-> do
-                      wasGenesis <- use _3
-                      unless wasGenesis (differenceBlock b)
-                      curHash <- use _2
-                      when (curHash /= genesisHash) $ _2 .= b ^. prevBlockL
-                  )
-                  block
-            )
-    differenceBlock :: Block SscGodTossing -> StateT (GtGlobalState, HeaderHash SscGodTossing, Bool) m ()
-    differenceBlock (Left _)  = _3 .= True
+    differenceBlock :: Block SscGodTossing -> GSUpdate Bool
+    differenceBlock (Left _)  = pure True
     differenceBlock (Right b) = do
         let payload = b ^. blockMpc
             payloadCertificates = _gpCertificates payload
         -- Gromak, don't beat me please, I tried to use zoom, but poslan
         case payload of
             CommitmentsPayload comms _ ->
-                _1 . gsCommitments %= (`HM.difference` comms) -- ugly
+                gsCommitments %= (`HM.difference` comms) -- ugly
             OpeningsPayload    opens _ ->
-                _1 . gsOpenings %= (`HM.difference` opens)
+                gsOpenings %= (`HM.difference` opens)
             SharesPayload     shares _ ->
-                _1 . gsShares %= (`HM.difference` shares)
+                gsShares %= (`HM.difference` shares)
             CertificatesPayload      _ -> return ()
-        _1 . gsVssCertificates %= (`HM.difference` payloadCertificates)
+        gsVssCertificates %= (`HM.difference` payloadCertificates)
+        pure False
 
 -- TODO union of certificats is invalid
 -- | Union payloads of blocks until meet genesis block
-unionBlocks :: DBMode SscGodTossing m => StateT (GtGlobalState, HeaderHash SscGodTossing) m ()
+unionBlocks :: WithDB SscGodTossing m => StateT (GtGlobalState, HeaderHash SscGodTossing) m ()
 unionBlocks = whileM
     (do
         curTip <- use _2
@@ -290,5 +263,5 @@ unionBlocks = whileM
               block
     ) (pure ())
 
-mpcLoadGlobalState :: DBMode SscGodTossing m => HeaderHash SscGodTossing -> m GtGlobalState
+mpcLoadGlobalState :: WithDB SscGodTossing m => HeaderHash SscGodTossing -> m GtGlobalState
 mpcLoadGlobalState tip = fst <$> execStateT unionBlocks (def, tip)

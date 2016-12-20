@@ -7,3 +7,5 @@ maxLocalTxs: 10000
 defaultPeers: []
 sysTimeBroadcastSlots: 6
 mpcSendInterval: 12 # must be less than (k * slotDuration - networkDiameter)
+mdNoBlocksSlotThreshold: 10
+mdNoCommitmentsEpochThreshold: 3

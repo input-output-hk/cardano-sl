@@ -150,7 +150,8 @@ blocksTransmitter = whenM (ncPropagation <$> getNodeContext) impl
         do headBlock <- getHeadBlock
            case headBlock of
                Left _          -> logDebug "Head block is genesis block ⇒ no announcement"
-               Right mainBlock -> announceBlock (mainBlock ^. gbHeader)
+               Right mainBlock -> do
+                   announceBlock (mainBlock ^. gbHeader)
     onError e =
         blocksTransmitterInterval <$
         logWarning (sformat ("Error occured in blocksTransmitter: " %build) e)

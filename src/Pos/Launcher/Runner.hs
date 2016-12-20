@@ -273,6 +273,8 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncDbPath = npDbPath
             , ncProxyStorage = proxyStorage
             , ncSscContext = sscNodeContext
+            , ncAttackTypes = npAttackTypes
+            , ncAttackTargets = npAttackTargets
             , ncPropagation = npPropagation
             , ncBlkSemaphore = semaphore
             }

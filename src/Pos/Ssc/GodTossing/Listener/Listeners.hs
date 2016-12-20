@@ -31,6 +31,7 @@ import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
 import           Pos.Ssc.Class.LocalData                (sscGetLocalPayload)
 import           Pos.Ssc.GodTossing.LocalData.LocalData (sscIsDataUseful,
                                                          sscProcessMessage)
+import           Pos.Security (shouldIgnorePkAddress)
 import           Pos.Ssc.GodTossing.Types.Base          (Commitment, Opening,
                                                          VssCertificate)
 import           Pos.Ssc.GodTossing.Types.Instance      ()
@@ -101,10 +102,13 @@ handleData
        ,WorkMode SscGodTossing m)
     => DataMsg -> m ()
 handleData msg =
-    whenM (isGoodSlotIdForTag (dataMsgTag msg) <$> getCurrentSlot) $
+    let tag = dataMsgTag msg
+        addr = dataMsgPublicKey msg in
+    -- TODO: Add here malicious emulation for network addresses
+    -- when TW will support getting peer address properly
+    whenM (and <$> sequence [ isGoodSlotIdForTag tag <$> getCurrentSlot
+                            , not <$> flip shouldIgnorePkAddress addr <$> getNodeContext ]) $
     do added <- sscProcessMessage msg
-       let tag = dataMsgTag msg
-           addr = dataMsgPublicKey msg
        loggerAction tag added addr
        needPropagate <- ncPropagation <$> getNodeContext
        when (added && needPropagate) $ sendToNeighborsSafe $ InvMsg tag $ pure addr

@@ -7,9 +7,10 @@
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE UndecidableInstances   #-}
 
-module Pos.Modern.Ssc.Holder
-       (
-         SscHolder (..)
+-- | Monad transformer which stores SSC data.
+
+module Pos.Ssc.Extra.Holder
+       ( SscHolder (..)
        , runSscHolder
        ) where
 
@@ -40,8 +41,6 @@ import           Pos.Txp.LocalData           (MonadTxLD (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 import qualified Pos.Modern.DB               as Modern (MonadDB (..))
-
-
 
 data SscState ssc =
     SscState

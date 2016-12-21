@@ -149,7 +149,6 @@ library
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
-                        Pos.Modern.FollowTheSatoshi
                         Pos.Modern.DB
                         Pos.Modern.DB.Block
                         Pos.Modern.DB.Class
@@ -159,6 +158,8 @@ library
                         Pos.Modern.DB.Holder
                         Pos.Modern.DB.Types
                         Pos.Modern.DB.Utxo
+                        Pos.Modern.DB.DBIterator
+                        Pos.Modern.Iterator
                         Pos.Modern.Txp.Class
                         Pos.Modern.Txp.Error
                         Pos.Modern.Txp.Storage

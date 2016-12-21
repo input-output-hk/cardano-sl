@@ -11,6 +11,7 @@ module Pos.Modern.DB.Functions
        , rocksPutBytes
        , rocksWriteBatch
        , iterateByAllEntries
+       , rocksDecode
        ) where
 
 import           Control.Monad.Fail           (fail)
@@ -42,10 +43,10 @@ rocksGetBi
     => ByteString -> DB ssc -> m (Maybe v)
 rocksGetBi key db = do
     bytes <- rocksGetBytes key db
-    bytes .>>=. decodeRocks
+    bytes .>>=. rocksDecode
 
-decodeRocks :: (Bi v, MonadIO m) => ByteString -> m v
-decodeRocks key = either onParseError pure . decodeFull . BSL.fromStrict $ key
+rocksDecode :: (Bi v, MonadIO m) => ByteString -> m v
+rocksDecode key = either onParseError pure . decodeFull . BSL.fromStrict $ key
   where
     onParseError msg =
         liftIO . fail $
@@ -79,9 +80,9 @@ iterateByAllEntries DB{..} callback =
                        (do
                             kv <- Rocks.iterEntry it
                             case kv of
-                                Nothing     -> pure ()
+                                Nothing     -> pure () --should we call panic here?
                                 Just (k, v) ->
-                                    ((,) <$> decodeRocks k <*> decodeRocks v)
+                                    ((,) <$> rocksDecode k <*> rocksDecode v)
                                     >>= callback
                             Rocks.iterNext it
                        )

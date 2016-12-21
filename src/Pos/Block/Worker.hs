@@ -25,15 +25,16 @@ import           Pos.Block.Logic              (applyBlocks, loadLastNBlocksWithU
 import           Pos.Constants                (k)
 import           Pos.Context                  (getNodeContext)
 import           Pos.Context.Context          (ncSscLeaders, ncSscParticipants)
-import           Pos.Modern.DB.Utxo           (iterateByUtxo)
-import           Pos.Modern.FollowTheSatoshi  (followTheSatoshi)
+import           Pos.FollowTheSatoshi         (followTheSatoshiM)
+import           Pos.Modern.DB.DBIterator     ()
+import           Pos.Modern.DB.Utxo           (iterateByUtxo, mapUtxoIterator)
 import           Pos.Ssc.GodTossing.Functions (getThreshold)
 import           Pos.Types                    (Address, Coin, Participants, SlotId (..),
                                                TxIn, TxOut (..))
 import           Pos.WorkMode                 (WorkMode)
 
 lpcOnNewSlot :: WorkMode ssc m => SlotId -> m () --Leaders and Participants computation
-lpcOnNewSlot slotId@SlotId{..} = withBlkSemaphore $ \tip -> do
+lpcOnNewSlot SlotId{..} = withBlkSemaphore $ \tip -> do
     blockUndos <- loadLastNBlocksWithUndo tip k
     rollbackBlocks blockUndos
     -- [CSL-93] Use eligibility threshold here
@@ -44,14 +45,15 @@ lpcOnNewSlot slotId@SlotId{..} = withBlkSemaphore $ \tip -> do
     leaders <-
         case mbSeed of
           Left e     -> panic "SSC couldn't compute seed"
-          Right seed -> followTheSatoshi seed
+          Right seed -> mapUtxoIterator @(TxIn, TxOut) @TxOut
+                        (followTheSatoshiM seed notImplemented) snd --balance
     nc <- getNodeContext
     liftIO $ putMVar (ncSscLeaders nc) leaders
     liftIO $ putMVar (ncSscParticipants nc) richmen
     applyBlocks (map fst blockUndos)
     pure tip
 
--- | Second argument - T, min money. Int is too small, I guess
+-- | Second argument - T, min money.
 getRichmen :: forall ssc m . WorkMode ssc m => Coin -> m Participants
 getRichmen moneyT =
     fromMaybe onNoRichmen . NE.nonEmpty . HM.keys . HM.filter (>= moneyT) <$>

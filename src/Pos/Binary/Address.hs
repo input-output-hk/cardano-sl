@@ -20,7 +20,7 @@ instance Bi Address where
                 then do addrDestKeyHash <- get
                         let addrVersion = AddressVersion ver
                         let addrDestination = PubKeyDestination{..}
-                        addrDistribution <- get
+                        let addrDistribution = []
                         return Address{..}
                 else do addrDestScriptHash <- get
                         let addrVersion = AddressVersion (ver `xor` 128)
@@ -34,9 +34,11 @@ instance Bi Address where
     put addr = do
         let AddressVersion ver = addrVersion addr
         case addrDestination addr of
-            PubKeyDestination{..} ->
-                putWord8 ver >> put addrDestKeyHash
-            ScriptDestination{..} ->
-                putWord8 (ver .|. 128) >> put addrDestScriptHash
-        put (addrDistribution addr)
+            PubKeyDestination{..} -> do
+                putWord8 ver
+                put addrDestKeyHash
+            ScriptDestination{..} -> do
+                putWord8 (ver .|. 128)
+                put addrDestScriptHash
+                put (addrDistribution addr)
         putWord32be $ crc32 addr

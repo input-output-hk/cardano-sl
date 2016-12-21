@@ -22,7 +22,7 @@ deriving instance ArbitraryUnsafe LocalSlotIndex
 instance ArbitraryUnsafe Address where
     arbitraryUnsafe = do
         h <- arbitraryUnsafe
-        return (Address curPubKeyAddrVersion (PubKeyDestination h) Nothing)
+        return (Address curPubKeyAddrVersion (PubKeyDestination h) [])
 
 instance ArbitraryUnsafe SlotId where
     arbitraryUnsafe = SlotId <$> arbitraryUnsafe <*> arbitraryUnsafe

@@ -19,7 +19,7 @@ spec = describe "Address" $ do
 
 pkAndShAreShownDifferently :: Int -> Bool
 pkAndShAreShownDifferently x =
-    (show (Address (AddressVersion 0) (PubKeyDestination h) Nothing)) /=
-    (show (Address (AddressVersion 0) (ScriptDestination h) Nothing) :: Text)
+    (show (Address (AddressVersion 0) (PubKeyDestination h) [])) /=
+    (show (Address (AddressVersion 0) (ScriptDestination h) []) :: Text)
   where
     h = unsafeAddressHash x

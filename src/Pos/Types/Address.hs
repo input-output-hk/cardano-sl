@@ -60,7 +60,7 @@ curScriptAddrVersion = AddressVersion 0       -- encoded as “128”
 data Address = Address
     { addrVersion      :: !AddressVersion
     , addrDestination  :: !AddressDestination
-    , addrDistribution :: !(Maybe [(PublicKey, Int)])
+    , addrDistribution :: ![(PublicKey, Int)]  -- always [] for PK addresses
     } deriving (Eq, Generic, Ord)
 
 data AddressDestination
@@ -69,17 +69,14 @@ data AddressDestination
     deriving (Eq, Generic, Ord)
 
 instance CRC32 Address where
-    crc32Update seed Address{..} =
-        seed & flip crc32Update [ver]
-             & flip crc32Update dest
-             & flip crc32Update (Bi.encode addrDistribution)
-      where
-        ver = case addrDestination of
-            PubKeyDestination{} -> unwrapAddressVersion addrVersion
-            ScriptDestination{} -> unwrapAddressVersion addrVersion .|. 128
-        dest = case addrDestination of
-            PubKeyDestination x -> Bi.encode x
-            ScriptDestination x -> Bi.encode x
+    crc32Update seed Address{..} = case addrDestination of
+        PubKeyDestination dest ->
+            seed & flip crc32Update [unwrapAddressVersion addrVersion]
+                 & flip crc32Update (Bi.encode dest)
+        ScriptDestination dest ->
+            seed & flip crc32Update [unwrapAddressVersion addrVersion .|. 128]
+                 & flip crc32Update (Bi.encode dest)
+                 & flip crc32Update (Bi.encode addrDistribution)
 
 instance Bi Address => Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.encode
@@ -127,14 +124,14 @@ makePubKeyAddress :: PublicKey -> Address
 makePubKeyAddress key = Address {
     addrVersion = curPubKeyAddrVersion,
     addrDestination = PubKeyDestination (addressHash key),
-    addrDistribution = Nothing }
+    addrDistribution = [] }
 
 -- | A function for making an address from a validation script
 makeScriptAddress :: Bi Script => Script -> Address
 makeScriptAddress scr = Address {
     addrVersion = curScriptAddrVersion,
     addrDestination = ScriptDestination (addressHash scr),
-    addrDistribution = Nothing }
+    addrDistribution = [] }
 
 -- | Check if given 'Address' is created from given 'PublicKey'
 checkPubKeyAddress :: PublicKey -> Address -> Bool
@@ -158,16 +155,13 @@ addressF = build
 addressDetailedF :: Format r (Address -> r)
 addressDetailedF = later $ \Address {..} ->
     let ver = unwrapAddressVersion addrVersion
-    in bprint
-           ("Address dest = " %build%", "%build)
-           (case addrDestination of
-                PubKeyDestination x ->
-                    bprint ("pubkey(v"%int%"):"%build) ver x
-                ScriptDestination x ->
-                    bprint ("script(v"%int%"):"%build) ver x)
-           (case addrDistribution of
-                Nothing -> "no distribution"
-                Just d  -> bprint ("distr = "%shown) d)
+    in case addrDestination of
+           PubKeyDestination x ->
+               bprint ("Address dest = pubkey(v"%int%"):"%build) ver x
+           ScriptDestination x ->
+               bprint ("Address dest = script(v"%int%"):"%build%
+                       ", distr = "%shown)
+                      ver x addrDistribution
 
 ----------------------------------------------------------------------------
 -- Hashing

@@ -99,7 +99,7 @@ kademliaJoinAndUpdate kademliaInst peersTVar initialPeer = do
         K.IDClash -> pure $ Left (DiscoveryError KademliaIdClash "ID clash in network")
         K.NodeDown -> pure $ Left (DiscoveryError KademliaInitialPeerDown "Initial peer is down")
         -- [sic]
-        K.JoinSucces -> do
+        K.JoinSuccess -> do
             peerList <- K.dumpPeers kademliaInst
             -- We have the peers, but we do not have the 'EndPointAddress'es for
             -- them. We must ask the network for them.

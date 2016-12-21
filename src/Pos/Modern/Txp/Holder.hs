@@ -35,7 +35,6 @@ import           Pos.Modern.Txp.Storage.Types    (MemPool, UtxoView)
 import qualified Pos.Modern.Txp.Storage.UtxoView as UV
 import           Pos.Slotting                    (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData         (MonadSscLD (..))
-import           Pos.Ssc.Class.Storage           (SscStorageClassM)
 import           Pos.Ssc.Extra                   (MonadSscGS (..), MonadSscLDM (..))
 import           Pos.State                       (MonadDB (..))
 import           Pos.Txp.LocalData               (MonadTxLD (..))
@@ -58,7 +57,7 @@ newtype TxpLDHolder ssc m a = TxpLDHolder
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
                 MonadCatch, MonadIO, HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
                 MonadDB ssc, CanLog, MonadMask, MonadTxLD, MonadSscLD ssc, MonadSscGS ssc,
-                SscStorageClassM ssc, MonadSscLDM ssc)
+                MonadSscLDM ssc)
 
 instance MonadTransfer s m => MonadTransfer s (TxpLDHolder ssc m)
 type instance ThreadId (TxpLDHolder ssc m) = ThreadId m

@@ -1,14 +1,13 @@
-{-# LANGUAGE AllowAmbiguousTypes    #-}
-{-# LANGUAGE ConstraintKinds        #-}
-{-# LANGUAGE DefaultSignatures      #-}
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE RankNTypes             #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE TypeFamilies           #-}
-{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 -- | Storage for generic Shared Seed calculation implementation.
 
@@ -28,17 +27,13 @@ module Pos.Ssc.Class.Storage
        ) where
 
 import           Control.Lens            (Lens')
-import           Control.Monad.Except    (ExceptT)
-import           Control.Monad.Trans     (MonadTrans)
-import           Control.TimeWarp.Rpc    (ResponseT)
 import           Data.List.NonEmpty      (NonEmpty)
 import           Data.SafeCopy           (SafeCopy)
 import           Serokell.Util.Verify    (VerificationRes)
 import           Universum
 
 import           Pos.Crypto              (EncShare, Threshold, VssPublicKey)
-import           Pos.DHT.Model.Class     (DHTResponseT)
-import           Pos.DHT.Real            (KademliaDHT)
+import           Pos.Modern.DB.Class     (MonadDB)
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types.Types         (Address, EpochIndex, HeaderHash, SlotLeaders,
@@ -52,44 +47,21 @@ import           Pos.Util                (AsBinary)
 type SscGlobalQueryM ssc a =  forall m . (MonadReader (SscGlobalStateM ssc) m) => m a
 type SscGlobalUpdateM ssc a = forall m . (MonadState (SscGlobalStateM ssc) m) => m a
 
-class Monad m => SscStorageClassM ssc m | m -> ssc where
-    sscEmptyGlobalState :: m (SscGlobalStateM ssc)
-    sscLoadGlobalState :: HeaderHash ssc -> m (SscGlobalStateM ssc)
+class Ssc ssc => SscStorageClassM ssc where
+    sscLoadGlobalState :: (MonadDB ssc m) => HeaderHash ssc -> m (SscGlobalStateM ssc)
 
-    -- This must be here. We should remove SscStorageClass, right?
-    sscApplyBlocksM :: AltChain ssc -> m ()
+    sscApplyBlocksM :: AltChain ssc -> SscGlobalUpdateM ssc ()
 
     -- | Rollback application of last 'n' blocks.  blocks. If there
     -- are less blocks than 'n' is, just leaves an empty ('def')
     -- version.
-    sscRollbackM :: AltChain ssc -> m ()
+    sscRollbackM :: AltChain ssc -> SscGlobalUpdateM ssc ()
 
     -- | Verify Ssc-related predicates of block sequence which is
     -- about to be applied. It should check that SSC payload will be
     -- consistent if this blocks are applied (after possible rollback
     -- if first argument isn't zero).
-    sscVerifyBlocksM :: AltChain ssc -> m VerificationRes
-
-    default sscEmptyGlobalState :: MonadTrans t => t m (SscGlobalStateM ssc)
-    sscEmptyGlobalState = lift sscEmptyGlobalState
-
-    default sscLoadGlobalState :: MonadTrans t => HeaderHash ssc -> t m (SscGlobalStateM ssc)
-    sscLoadGlobalState = lift . sscLoadGlobalState
-
-    default sscApplyBlocksM :: MonadTrans t => AltChain ssc -> t m ()
-    sscApplyBlocksM = lift . sscApplyBlocksM
-
-    default sscRollbackM :: MonadTrans t => AltChain ssc -> t m ()
-    sscRollbackM = lift . sscRollbackM
-
-    default sscVerifyBlocksM :: MonadTrans t => AltChain ssc -> t m VerificationRes
-    sscVerifyBlocksM = lift . sscVerifyBlocksM
-
-instance SscStorageClassM ssc m => SscStorageClassM ssc (ReaderT a m) where
-instance SscStorageClassM ssc m => SscStorageClassM ssc (ExceptT a m) where
-instance SscStorageClassM ssc m => SscStorageClassM ssc (ResponseT s m) where
-instance SscStorageClassM ssc m => SscStorageClassM ssc (DHTResponseT s m) where
-instance SscStorageClassM ssc m => SscStorageClassM ssc (KademliaDHT m) where
+    sscVerifyBlocksM :: AltChain ssc -> SscGlobalQueryM ssc VerificationRes
 
 ----------------------------------------------------------------------------
 -- Old

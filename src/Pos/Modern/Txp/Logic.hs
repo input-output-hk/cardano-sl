@@ -10,7 +10,7 @@
 -- | Internal state of the transaction-handling worker. Trasnaction
 -- processing logic.
 
-module Pos.Modern.Txp.Storage.Storage
+module Pos.Modern.Txp.Logic
        (
          txVerifyBlocks
        , txApplyBlocks
@@ -23,9 +23,7 @@ import qualified Data.HashMap.Strict             as HM
 import qualified Data.HashSet                    as HS
 import           Data.List.NonEmpty              (NonEmpty)
 import qualified Data.List.NonEmpty              as NE
-import qualified Data.Text                       as T
 import           Formatting                      (sformat, stext, (%))
-import           Serokell.Util                   (VerificationRes (..))
 import           System.Wlog                     (WithLogger)
 import           Universum
 
@@ -74,10 +72,9 @@ txApplyBlocks blocks = do
     inAssertMode $
         do verdict <- txVerifyBlocks blocks
            case verdict of
-               VerSuccess -> pass
-               VerFailure errors ->
-                   panic $ "txVerifyBlocks failed in txApplyBlocks: " <>
-                   T.intercalate "; " errors
+               Right _ -> pass
+               Left errors ->
+                   panic $ "txVerifyBlocks failed: " <> errors
     -- Apply all the blocks' transactions
     -- TODO actually, we can improve it: we can use UtxoView from txVerifyBlocks
     -- Now we recalculate TxIn which must be removed from Utxo DB or added to Utxo DB
@@ -113,11 +110,12 @@ txApplyBlock (Right blk) = do
 txVerifyBlocks
     :: forall ssc m.
        MonadDB ssc m
-    => AltChain ssc -> m VerificationRes
+    => AltChain ssc -> m (Either Text [Undo])
 txVerifyBlocks newChain = do
     utxoDB <- getUtxoDB
-    runTxpLDHolderUV
-        (foldM verifyDo mempty newChainTxs)
+    fmap reverse <$>
+      runTxpLDHolderUV
+        (foldM verifyDo (Right []) newChainTxs)
         (UV.createFromDB utxoDB)
   where
     newChainTxs :: [(SlotId, [(WithHash Tx, TxWitness)])]
@@ -125,16 +123,17 @@ txVerifyBlocks newChain = do
         map (\b -> (b ^. blockSlot, over (each . _1) withHash (b ^. blockTxws))) $
         rights (NE.toList newChain)
     verifyDo
-        :: VerificationRes
+        :: Either Text [Undo]
         -> (SlotId, [(WithHash Tx, TxWitness)])
-        -> TxpLDHolder ssc m VerificationRes
-    verifyDo failure@(VerFailure _) _ = pure failure
-    verifyDo VerSuccess (slotId, txws) = do
-        attachSlotId slotId <$> verifyAndApplyTxs txws
-    attachSlotId _ VerSuccess = VerSuccess
-    attachSlotId sId (VerFailure errors) =
-        VerFailure $ map (sformat ("[Block's slot = "%slotIdF % "]"%stext) sId)
-            errors
+        -> TxpLDHolder ssc m (Either Text [Undo])
+    verifyDo failure@(Left _) _ = pure failure
+    verifyDo undos (slotId, txws) =
+        attachSlotId slotId <$>
+        (liftA2 (flip (:)) undos) <$>
+        verifyAndApplyTxs txws
+    attachSlotId _ suc@(Right _) = suc
+    attachSlotId sId (Left errors) =
+        Left $ (sformat ("[Block's slot = "%slotIdF % "]"%stext) sId) errors
 
 processTx :: MinTxpWorkMode ssc m => IdTxWitness -> m ProcessTxRes
 processTx itw@(_, (tx, _)) = do
@@ -159,8 +158,8 @@ processTxDo ld@(uv, mp, tip) resolvedIns utxoDB (id, (tx, txw))
     | HM.member id locTxs = (PTRknown, ld)
     | otherwise =
         case verifyRes of
-            VerSuccess        -> newState addUtxo' delUtxo' locTxs locTxsSize
-            VerFailure errors -> ((mkPTRinvalid errors), ld)
+            Right _     -> newState addUtxo' delUtxo' locTxs locTxsSize
+            Left errors -> (PTRinvalid errors, ld)
   where
     verifyRes = verifyTxPure inputResolver (tx, txw)
     locTxs = localTxs mp
@@ -222,7 +221,7 @@ filterMemPool txs = modifyTxpLD_ (\(uv, mp, tip) ->
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Removed from MemPool invalid transactions
-normalizeTxpLD :: (MonadDB ssc m, MonadTxpLD ssc m, MonadThrow m)
+normalizeTxpLD :: (MonadDB ssc m, MonadTxpLD ssc m)
                => m ()
 normalizeTxpLD = do
     utxoTip <- getTip
@@ -247,7 +246,7 @@ normalizeTxpLD = do
     canApply xs itw@(_, (tx, txw)) = do
         verifyRes <- verifyTxUtxo (tx, txw)
         case verifyRes of
-            VerSuccess -> do
+            Right _ -> do
                 applyTxToUtxo' itw
                 return (itw : xs)
-            VerFailure _ -> return xs
+            Left _ -> return xs

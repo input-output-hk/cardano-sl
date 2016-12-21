@@ -12,23 +12,24 @@ module Pos.Block.Logic
        , withBlkSemaphore
        ) where
 
-import           Control.Lens           ((^.))
-import           Control.Monad.Catch    (onException)
-import           Data.Default           (Default (def))
-import           Data.List.NonEmpty     (NonEmpty)
-import qualified Data.Text              as T
-import           Serokell.Util.Verify   (VerificationRes (..))
+import           Control.Lens         ((^.))
+import           Control.Monad.Catch  (onException)
+import           Data.Default         (Default (def))
+import           Data.List.NonEmpty   (NonEmpty)
+import qualified Data.Text            as T
+import           Serokell.Util.Verify (VerificationRes (..))
 import           Universum
 
-import           Pos.Context            (putBlkSemaphore, takeBlkSemaphore)
-import qualified Pos.Modern.DB          as DB
-import           Pos.Modern.Txp.Storage (txApplyBlocks, txRollbackBlocks, txVerifyBlocks)
-import           Pos.Slotting           (getCurrentSlot)
-import           Pos.Types              (Block, BlockHeader, HeaderHash, Undo,
-                                         VerifyHeaderParams (..), blockHeader,
-                                         difficultyL, headerSlot, prevBlockL,
-                                         verifyHeader, vhpVerifyConsensus)
-import           Pos.WorkMode           (WorkMode)
+import           Pos.Context          (putBlkSemaphore, takeBlkSemaphore)
+import qualified Pos.Modern.DB        as DB
+import           Pos.Modern.Txp.Logic (txApplyBlocks, txRollbackBlocks, txVerifyBlocks)
+import           Pos.Slotting         (getCurrentSlot)
+import           Pos.Types            (Block, BlockHeader, HeaderHash, Undo,
+                                       VerifyHeaderParams (..), blockHeader, difficultyL,
+                                       headerSlot, prevBlockL, verifyHeader,
+                                       vhpVerifyConsensus)
+import           Pos.Util             (eitherToVerRes)
+import           Pos.WorkMode         (WorkMode)
 
 -- | Result of header classification.
 data ClassifyHeaderRes
@@ -107,7 +108,7 @@ verifyBlocks
 verifyBlocks blocks = do
     txsVerRes <- txVerifyBlocks blocks
     -- TODO: more checks of course. Consider doing CSL-39 first.
-    return txsVerRes
+    return $ eitherToVerRes txsVerRes
 
 -- | Run action acquiring lock on block application. Argument of
 -- action is an old tip, result is put as a new tip.

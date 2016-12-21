@@ -59,6 +59,9 @@ module Pos.Util
        , AsBinaryClass (..)
        , fromBinaryM
 
+       , verResToEither
+       , eitherToVerRes
+
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
        ) where
@@ -80,10 +83,11 @@ import           Data.SafeCopy                 (Contained, SafeCopy (..), base, 
                                                 deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (String)
+import qualified Data.Text                     as T
 import           Data.Time.Units               (convertUnit)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
-import           Serokell.Util                 (VerificationRes)
+import           Serokell.Util                 (VerificationRes (..))
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
                                                 SGR (Reset, SetColor), setSGRCode)
@@ -395,3 +399,13 @@ class AsBinaryClass a where
 
 fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
 fromBinaryM = either fail return . fromBinary
+
+verResToEither :: VerificationRes -> a -> Either Text a
+verResToEither res val =
+    case res of
+        VerFailure errors -> Left $ T.intercalate "; " errors
+        VerSuccess        -> Right val
+
+eitherToVerRes :: Either Text a -> VerificationRes
+eitherToVerRes (Left errors) = VerFailure [errors]
+eitherToVerRes (Right _ )    = VerSuccess

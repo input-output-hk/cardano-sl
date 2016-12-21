@@ -16,9 +16,9 @@ import           Test.QuickCheck             (Arbitrary (..), choose, elements, 
 import           Universum
 
 import           Pos.Binary.Class            (Bi)
-import           Pos.Binary.Crypto           ()
 import           Pos.Crypto.Arbitrary.Hash   ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
+import           Pos.Crypto.AsBinary         ()
 import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
                                               SecretSharingExtra, Share, VssKeyPair,
                                               VssPublicKey, decryptShare, genSharedSecret,

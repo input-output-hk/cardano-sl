@@ -263,6 +263,8 @@ runCH :: MonadIO m
 runCH NodeParams {..} sscNodeContext act = do
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
+    sscPart <- liftIO newEmptyMVar
+    sscLeaders <- liftIO newEmptyMVar
     proxyCaches <- liftIO $ newMVar defaultProxyCaches
     let ctx =
             NodeContext
@@ -277,6 +279,8 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncAttackTargets = npAttackTargets
             , ncPropagation = npPropagation
             , ncBlkSemaphore = semaphore
+            , ncSscParticipants = sscPart
+            , ncSscLeaders = sscLeaders
             }
     runContextHolder ctx act
 

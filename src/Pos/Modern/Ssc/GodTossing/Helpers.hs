@@ -14,18 +14,13 @@ import           Data.List                               (nub)
 import           Data.List.NonEmpty                      (NonEmpty)
 import qualified Data.List.NonEmpty                      as NE
 import           Formatting                              (build, sformat, (%))
-import           System.Wlog                             (HasLoggerName, LogEvent,
-                                                          LoggerName, dispatchEvents,
+import           System.Wlog                             (HasLoggerName, dispatchEvents,
                                                           getLoggerName, logWarning,
                                                           runPureLog, usingLoggerName)
 import           Universum
 
 import           Pos.Crypto                              (EncShare, Share, Threshold,
-                                                          VssKeyPair, VssPublicKey)
-import           Pos.FollowTheSatoshi                    (followTheSatoshi)
-
-import           Pos.Crypto                              (ProxySecretKey, SecretKey,
-                                                          Share, VssKeyPair, VssPublicKey,
+                                                          VssKeyPair, VssPublicKey,
                                                           decryptShare, toVssPublicKey)
 import           Pos.Ssc.Class.Storage                   (MonadSscGS, SscGlobalQueryM,
                                                           sscRunGlobalQuery)
@@ -36,23 +31,24 @@ import           Pos.Ssc.GodTossing.Types.Base           (Commitment (..),
                                                           VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
 import           Pos.Types                               (Address (..), EpochIndex,
-                                                          SlotLeaders, Utxo, txOutAddress)
+                                                          SharedSeed, Utxo, txOutAddress)
 import           Pos.Util                                (AsBinary, asBinary, fromBinaryM)
 
 import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
                                                           gsCommitments, gsOpenings,
                                                           gsShares, gsVssCertificates)
-import           Pos.Ssc.Class.Helpers                   (SscHelpersClassM (..))
+import           Pos.Ssc.Class.Helpers                   (SscHelpersClass (sscVerifyPayload),
+                                                          SscHelpersClassM (..))
 
 type GSQuery a = SscGlobalQueryM SscGodTossing a
 
 instance (Ssc SscGodTossing
+         , SscHelpersClass SscGodTossing
          , SscGlobalStateM SscGodTossing ~ GtGlobalState
          , SscSeedError SscGodTossing ~ SeedError)
          => SscHelpersClassM SscGodTossing where
---    sscGetOurSharesQ = getOurShares
-    sscGetParticipantsQ = getParticipants
-    sscCalculateLeadersQ = calculateLeaders
+    sscVerifyPayloadM = sscVerifyPayload
+    sscCalculateSeedQ = calculateSeedQ
 
 -- | Get keys of nodes participating in an epoch. A node participates if,
 -- when there were 'k' slots left before the end of the previous epoch, both
@@ -75,21 +71,16 @@ getParticipants depth utxo = do
                map vcVssKey $ mapMaybe (`HM.lookup` keymap) stakeholders
 
 -- | Calculate leaders for the next epoch.
-calculateLeaders
+calculateSeedQ
     :: (SscGlobalStateM SscGodTossing ~ GtGlobalState)
     => EpochIndex
-    -> Utxo            -- ^ Utxo (k slots before the end of epoch)
     -> Threshold
-    -> GSQuery (Either SeedError SlotLeaders)
-calculateLeaders _ utxo threshold = do --GodTossing doesn't use epoch, but NistBeacon use it
-    mbSeed <- calculateSeed
-                  threshold
+    -> GSQuery (Either SeedError SharedSeed)
+calculateSeedQ _ threshold = do --GodTossing doesn't use epoch, but NistBeacon use it
+    calculateSeed threshold
                   <$> view gsCommitments
                   <*> view gsOpenings
                   <*> view gsShares
-    return $ case mbSeed of
-        Left e     -> Left e
-        Right seed -> Right $ followTheSatoshi seed utxo
 
 ----------------------------------------------------------------------------
 -- Worker Helper

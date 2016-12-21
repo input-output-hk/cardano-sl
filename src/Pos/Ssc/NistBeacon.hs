@@ -36,7 +36,7 @@ import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..), SscHelpersClassM
 import           Pos.Ssc.Class.Listeners (SscListenersClass (..))
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..), SscLocalDataClassM (..))
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscQuery,
-                                          SscStorageClass (..))
+                                          SscStorageClass (..), SscStorageClassM (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Ssc.Class.Workers   (SscWorkersClass (..))
 import           Pos.Types               (EpochIndex, SharedSeed (..), SlotLeaders, Utxo)
@@ -131,9 +131,8 @@ instance SscHelpersClassM SscNistBeacon where
         pure . Right . coerce . ByteArray.convert @_ @ByteString .
             Hash.hashlazy @SHA256 . encode $ epoch
 
--- instance SscStorageClassM SscNistBeacon m where
---     sscEmptyGlobalState = pure ()
---     sscLoadGlobalState _ = pure ()
---     sscApplyBlocksM _ = pure ()
---     sscRollbackM _ = pure ()
---     sscVerifyBlocksM _ = pure mempty
+instance SscStorageClassM SscNistBeacon where
+    sscLoadGlobalState _ = pure ()
+    sscApplyBlocksM _ = pure ()
+    sscRollbackM _ = pure ()
+    sscVerifyBlocksM _ = pure mempty

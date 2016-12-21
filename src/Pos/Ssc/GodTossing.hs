@@ -12,6 +12,7 @@ module Pos.Ssc.GodTossing ( module GodTossing ) where
 import           Pos.Binary.Ssc                                ()
 import           Pos.Modern.Ssc.GodTossing.Helpers             ()
 import           Pos.Modern.Ssc.GodTossing.LocalData.LocalData ()
+import           Pos.Modern.Ssc.GodTossing.Storage.Storage     ()
 import           Pos.Ssc.GodTossing.Arbitrary                  as GodTossing
 import           Pos.Ssc.GodTossing.Error                      as GodTossing
 import           Pos.Ssc.GodTossing.Functions                  as GodTossing

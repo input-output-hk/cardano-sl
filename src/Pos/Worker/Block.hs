@@ -13,7 +13,7 @@ module Pos.Worker.Block
        , blkWorkers
        ) where
 
-import           Control.Lens              (ix, view, (^.), (^?))
+import           Control.Lens              (ix, (^.), (^?))
 import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, wait)
 import qualified Data.HashMap.Strict       as HM
 import           Data.Tagged               (untag)
@@ -43,7 +43,6 @@ import           Pos.Types                 (EpochIndex, SlotId (..),
 import           Pos.Util                  (logWarningWaitLinear)
 import           Pos.Util.JsonLog          (jlCreatedBlock, jlLog)
 import           Pos.WorkMode              (WorkMode)
-import Pos.Block.Logic (withBlkSemaphore)
 
 -- | Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode ssc m => SlotId -> m ()

@@ -165,7 +165,7 @@ import           Pos.Ssc.Class.Types    (Ssc (..))
 import           Pos.Types.Address      (Address (..), addressF, checkPubKeyAddress,
                                          checkScriptAddress, decodeTextAddress,
                                          makePubKeyAddress, makeScriptAddress)
-import           Pos.Util               (AsBinary, Color (Magenta), colorize)
+import           Pos.Util               (Color (Magenta), colorize)
 
 
 ----------------------------------------------------------------------------

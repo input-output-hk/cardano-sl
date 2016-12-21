@@ -19,12 +19,11 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Time.Clock     (UTCTime)
 import           Universum
 
-import           Pos.Crypto          (ProxySecretKey, PublicKey, SecretKey, toPublic)
+import           Pos.Crypto          (PublicKey, SecretKey, toPublic)
 import           Pos.Security.Types  (AttackTarget, AttackType)
 import           Pos.Ssc.Class.Types (Ssc (SscNodeContext))
-import           Pos.Types           (Address, EpochIndex, HeaderHash, Participants,
-                                      ProxySKEpoch, SlotLeaders, Timestamp (..),
-                                      makePubKeyAddress)
+import           Pos.Types           (Address, HeaderHash, Participants, ProxySKEpoch,
+                                      SlotLeaders, Timestamp (..), makePubKeyAddress)
 
 ---------------------------------------------------------------------------
 -- Delegation in-memory data

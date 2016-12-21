@@ -14,16 +14,13 @@ import           Data.List                               (nub)
 import           Data.List.NonEmpty                      (NonEmpty)
 import qualified Data.List.NonEmpty                      as NE
 import           Formatting                              (build, sformat, (%))
-import           System.Wlog                             (HasLoggerName, LogEvent,
-                                                          LoggerName, dispatchEvents,
+import           System.Wlog                             (HasLoggerName, dispatchEvents,
                                                           getLoggerName, logWarning,
                                                           runPureLog, usingLoggerName)
 import           Universum
 
 import           Pos.Crypto                              (EncShare, Share, Threshold,
                                                           VssKeyPair, VssPublicKey)
-import           Pos.FollowTheSatoshi                    (followTheSatoshi)
-
 import           Pos.Crypto                              (ProxySecretKey, SecretKey,
                                                           Share, VssKeyPair, VssPublicKey,
                                                           decryptShare, toVssPublicKey)
@@ -44,7 +41,8 @@ import           Pos.Util                                (AsBinary, asBinary, fr
 import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
                                                           gsCommitments, gsOpenings,
                                                           gsShares, gsVssCertificates)
-import           Pos.Ssc.Class.Helpers                   (SscHelpersClassM (..))
+import           Pos.Ssc.Class.Helpers                   (SscHelpersClassM (..),
+                                                          sscVerifyPayload)
 
 type GSQuery a = SscGlobalQueryM SscGodTossing a
 
@@ -52,6 +50,7 @@ instance (Ssc SscGodTossing
          , SscGlobalStateM SscGodTossing ~ GtGlobalState
          , SscSeedError SscGodTossing ~ SeedError)
          => SscHelpersClassM SscGodTossing where
+    sscVerifyPayloadM = sscVerifyPayload
     sscCalculateSeedQ = calculateSeedQ
 
 -- | Get keys of nodes participating in an epoch. A node participates if,

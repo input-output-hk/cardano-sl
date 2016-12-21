@@ -7,6 +7,8 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Node.Internal (
     NodeId(..),
@@ -34,7 +36,7 @@ import Data.List (foldl')
 import Control.Exception hiding (bracket, throw, catch, finally)
 import qualified Network.Transport.Abstract as NT
 import qualified Network.Transport as NT (EventErrorCode(EventConnectionLost, EventEndPointFailed, EventTransportFailed))
-import System.Random (StdGen, random)
+import System.Random (StdGen, random, Random)
 import Mockable.Class
 import Mockable.Concurrent
 import Mockable.Exception
@@ -68,7 +70,15 @@ data Node (m :: * -> *) = Node {
      }
 
 -- | Used to identify bidirectional connections.
-type Nonce = Word64
+newtype Nonce = Nonce {
+      getNonce :: Word64
+    }
+
+deriving instance Show Nonce
+deriving instance Eq Nonce
+deriving instance Ord Nonce
+deriving instance Random Nonce
+deriving instance Binary Nonce
 
 data NodeException =
        ProtocolError String
@@ -483,13 +493,13 @@ controlHeaderUnidirectional =
     BS.singleton controlHeaderCodeUnidirectional
 
 controlHeaderBidirectionalSyn :: Nonce -> BS.ByteString
-controlHeaderBidirectionalSyn nonce =
+controlHeaderBidirectionalSyn (Nonce nonce) =
     fixedSizeBuilder 9 $
         BS.word8 controlHeaderCodeBidirectionalSyn
      <> BS.word64BE nonce
 
 controlHeaderBidirectionalAck :: Nonce -> BS.ByteString
-controlHeaderBidirectionalAck nonce =
+controlHeaderBidirectionalAck (Nonce nonce) =
     fixedSizeBuilder 9 $
         BS.word8 controlHeaderCodeBidirectionalAck
      <> BS.word64BE nonce

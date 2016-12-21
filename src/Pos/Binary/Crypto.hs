@@ -85,6 +85,21 @@ instance Bi SecretSharingExtra where
 deriving instance Bi (AsBinary SecretSharingExtra)
 
 ----------------------------------------------------------------------------
+-- SecretSharing AsBinary
+----------------------------------------------------------------------------
+
+#define BiMacro(B, Bytes) \
+  instance Bi (AsBinary B) where {\
+    put (AsBinary bs) = putByteString bs ;\
+    get = AsBinary <$> getByteString Bytes}; \
+
+BiMacro(VssPublicKey, 33)
+BiMacro(Secret, 33)
+BiMacro(Share, 101) --4+33+64
+BiMacro(EncShare, 101)
+BiMacro(SecretProof, 64)
+
+----------------------------------------------------------------------------
 -- Signing
 ----------------------------------------------------------------------------
 

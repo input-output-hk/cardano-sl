@@ -32,9 +32,9 @@ import           Universum              hiding ((.&.))
 
 import           Pos.Crypto             (checkSig, hash, unsafeHash, whData, withHash)
 import           Pos.Script             (Script)
-import           Pos.Script.Examples    (alwaysSuccessValidator, badTfRedeemer,
-                                         goodTfRedeemer, goodTfRedeemerWithBlah,
-                                         idValidator, tfValidator, tfValidatorWithBlah)
+import           Pos.Script.Examples    (alwaysSuccessValidator, badIntRedeemer,
+                                         goodIntRedeemer, goodIntRedeemerWithBlah,
+                                         idValidator, intValidator, intValidatorWithBlah)
 import           Pos.Types              (BadSigsTx (..), GoodTx (..), OverflowTx (..),
                                          SmallBadSigsTx (..), SmallGoodTx (..),
                                          SmallOverflowTx (..), Tx (..), TxIn (..),
@@ -81,10 +81,10 @@ spec = describe "Types.Tx" $ do
 scriptTxSpec :: Spec
 scriptTxSpec = describe "script transactions" $ do
     describe "good cases" $ do
-        it "goodTfRedeemer + tfValidator" $ do
+        it "goodIntRedeemer + intValidator" $ do
             let res = checkScriptTx
-                    tfValidator
-                    (ScriptWitness tfValidator goodTfRedeemer)
+                    intValidator
+                    (ScriptWitness intValidator goodIntRedeemer)
             res `shouldSatisfy` isVerSuccess
 
     describe "bad cases" $ do
@@ -103,7 +103,7 @@ scriptTxSpec = describe "script transactions" $ do
            \the validator for which the address was created" $ do
             let res = checkScriptTx
                     alwaysSuccessValidator
-                    (ScriptWitness tfValidator goodTfRedeemer)
+                    (ScriptWitness intValidator goodIntRedeemer)
             res `errorsShouldMatch` [
                 "input #0's witness doesn't match address.*\
                      \address details: ScriptAddress.*\
@@ -112,8 +112,8 @@ scriptTxSpec = describe "script transactions" $ do
         it "validator script isn't a proper validator, \
            \redeemer script isn't a proper redeemer" $ do
             let res = checkScriptTx
-                    goodTfRedeemer
-                    (ScriptWitness goodTfRedeemer tfValidator)
+                    goodIntRedeemer
+                    (ScriptWitness goodIntRedeemer intValidator)
             res `errorsShouldMatch` [
                 "input #0 isn't validated by its witness.*\
                     \reason: The validator script is missing `validator`.*\
@@ -122,15 +122,16 @@ scriptTxSpec = describe "script transactions" $ do
         it "redeemer >>= validator doesn't typecheck" $ do
             let res = checkScriptTx
                     idValidator
-                    (ScriptWitness idValidator goodTfRedeemer)
+                    (ScriptWitness idValidator goodIntRedeemer)
             res `errorsShouldMatch` [
                 "input #0 isn't validated by its witness.*\
                     \reason: The validation result isn't of type Comp.*"]
 
         it "redeemer and validator define same names" $ do
             let res = checkScriptTx
-                    tfValidatorWithBlah
-                    (ScriptWitness tfValidatorWithBlah goodTfRedeemerWithBlah)
+                    intValidatorWithBlah
+                    (ScriptWitness intValidatorWithBlah
+                                   goodIntRedeemerWithBlah)
             res `errorsShouldMatch` [
                 "input #0 isn't validated by its witness.*\
                     \reason: The following names are used in both \
@@ -138,8 +139,8 @@ scriptTxSpec = describe "script transactions" $ do
 
         it "redeemer >>= validator outputs 'failure'" $ do
             let res = checkScriptTx
-                    tfValidator
-                    (ScriptWitness tfValidator badTfRedeemer)
+                    intValidator
+                    (ScriptWitness intValidator badIntRedeemer)
             res `errorsShouldMatch` [
                 "input #0 isn't validated by its witness.*\
                     \reason: result of evaluation is 'failure'.*"]

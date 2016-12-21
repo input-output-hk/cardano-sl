@@ -34,7 +34,8 @@ import           Pos.Crypto                 (PublicKey, SecretKey, Share, hash, 
                                              toPublic)
 import           Pos.Crypto.Arbitrary       ()
 import           Pos.Script                 (Script)
-import           Pos.Script.Examples        (badTfRedeemer, goodTfRedeemer, tfValidator)
+import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
+                                             intValidator)
 import           Pos.Types.Arbitrary.Unsafe ()
 import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
@@ -64,7 +65,7 @@ makeSmall = scale f
 
 instance Arbitrary Script where
     arbitrary = elements
-        [tfValidator, goodTfRedeemer, badTfRedeemer]
+        [intValidator, goodIntRedeemer, badIntRedeemer]
 
 instance Arbitrary Address where
     arbitrary = oneof [

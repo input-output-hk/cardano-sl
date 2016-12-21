@@ -5,14 +5,14 @@ module Pos.Script.Examples
        , alwaysFailureValidator
        , idValidator
 
-         -- * T/F
-       , tfValidator
-       , goodTfRedeemer
-       , badTfRedeemer
+         -- * Int
+       , intValidator
+       , goodIntRedeemer
+       , badIntRedeemer
 
          -- * Extra names
-       , tfValidatorWithBlah
-       , goodTfRedeemerWithBlah
+       , intValidatorWithBlah
+       , goodIntRedeemerWithBlah
        ) where
 
 import           Universum
@@ -26,59 +26,59 @@ import           Pos.Script (Script, parseRedeemer, parseValidator)
 alwaysSuccessValidator :: Script
 Right alwaysSuccessValidator = parseValidator $ unlines [
     "data Unit = { Unit }",
-    "validator : forall a . a -> Comp Unit {",
+    "validator : Int -> Comp Unit {",
     "  validator x = success Unit }" ]
 
 alwaysFailureValidator :: Script
 Right alwaysFailureValidator = parseValidator $ unlines [
     "data Unit = { Unit }",
-    "validator : forall a . a -> Comp Unit {",
+    "validator : Int -> Comp Unit {",
     "  validator x = failure }" ]
 
 idValidator :: Script
 Right idValidator = parseValidator $ unlines [
-    "validator : forall a . Comp a -> Comp a {",
+    "validator : Comp Int -> Comp Int {",
     "  validator x = x }" ]
 
 ----------------------------------------------------------------------------
--- True/false validator/redeemer pairs
+-- Int validator/redeemer pairs
 ----------------------------------------------------------------------------
 
-tfValidator :: Script
-Right tfValidator = parseValidator $ unlines [
+intValidator :: Script
+Right intValidator = parseValidator $ unlines [
     "data Bool = { True | False }",
-    "validator : (forall a . a -> a -> a) -> Comp Bool {",
-    "  validator f = case f True False of {",
-    "    True  -> success True ;",
-    "    False -> failure } }" ]
+    "validator : Int -> Comp Bool {",
+    "  validator x = case x of {",
+    "    1 -> success True ;",
+    "    _ -> failure } }" ]
 
-goodTfRedeemer :: Script
-Right goodTfRedeemer = parseRedeemer $ unlines [
-    "redeemer : Comp (forall a . a -> a -> a) {",
-    "  redeemer = success (\\t f -> t) }" ]
+goodIntRedeemer :: Script
+Right goodIntRedeemer = parseRedeemer $ unlines [
+    "redeemer : Comp Int {",
+    "  redeemer = success 1 }" ]
 
-badTfRedeemer :: Script
-Right badTfRedeemer = parseRedeemer $ unlines [
-    "redeemer : Comp (forall a . a -> a -> a) {",
-    "  redeemer = success (\\t f -> f) }" ]
+badIntRedeemer :: Script
+Right badIntRedeemer = parseRedeemer $ unlines [
+    "redeemer : Comp Int {",
+    "  redeemer = success 0 }" ]
 
 ----------------------------------------------------------------------------
 -- A pair with extra names
 ----------------------------------------------------------------------------
 
-tfValidatorWithBlah :: Script
-Right tfValidatorWithBlah = parseValidator $ unlines [
+intValidatorWithBlah :: Script
+Right intValidatorWithBlah = parseValidator $ unlines [
     "data Bool = { True | False }",
-    "validator : (forall a . a -> a -> a) -> Comp Bool {",
-    "  validator f = case f True False of {",
-    "    True  -> success True ;",
-    "    False -> failure } }",
-    "blah : forall a . a -> a {",
+    "validator : Int -> Comp Bool {",
+    "  validator x = case x of {",
+    "    1 -> success True ;",
+    "    _ -> failure } }",
+    "blah : Int -> Int {",
     "  blah x = x }" ]
 
-goodTfRedeemerWithBlah :: Script
-Right goodTfRedeemerWithBlah = parseRedeemer $ unlines [
-    "redeemer : Comp (forall a . a -> a -> a) {",
-    "  redeemer = success (\\t f -> t) }",
-    "blah : forall a . a -> a {",
+goodIntRedeemerWithBlah :: Script
+Right goodIntRedeemerWithBlah = parseRedeemer $ unlines [
+    "redeemer : Comp Int {",
+    "  redeemer = success 1 }",
+    "blah : Int -> Int {",
     "  blah x = x }" ]

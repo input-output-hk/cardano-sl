@@ -161,9 +161,11 @@ import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, P
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Script             (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
-import           Pos.Types.Address      (Address (..), addressF, checkPubKeyAddress,
-                                         checkScriptAddress, decodeTextAddress,
-                                         makePubKeyAddress, makeScriptAddress)
+import           Pos.Types.Address      (Address (..), AddressDestination (..),
+                                         AddressVersion (..), addressF,
+                                         checkPubKeyAddress, checkScriptAddress,
+                                         decodeTextAddress, makePubKeyAddress,
+                                         makeScriptAddress)
 import           Pos.Util               (Color (Magenta), colorize)
 
 
@@ -927,6 +929,8 @@ deriveSafeCopySimple 0 'base ''EpochIndex
 deriveSafeCopySimple 0 'base ''LocalSlotIndex
 deriveSafeCopySimple 0 'base ''SlotId
 deriveSafeCopySimple 0 'base ''Coin
+deriveSafeCopySimple 0 'base ''AddressVersion
+deriveSafeCopySimple 0 'base ''AddressDestination
 deriveSafeCopySimple 0 'base ''Address
 deriveSafeCopySimple 0 'base ''TxInWitness
 deriveSafeCopySimple 0 'base ''TxIn

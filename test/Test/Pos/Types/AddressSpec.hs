@@ -9,7 +9,8 @@ import           Test.Hspec.QuickCheck (prop)
 import           Universum
 
 import           Pos.Binary            ()
-import           Pos.Types.Address     (Address (..), curAddrVersion, unsafeAddressHash)
+import           Pos.Types.Address     (Address (..), AddressDestination (..),
+                                        AddressVersion (..), unsafeAddressHash)
 
 spec :: Spec
 spec = describe "Address" $ do
@@ -18,5 +19,7 @@ spec = describe "Address" $ do
 
 pkAndShAreShownDifferently :: Int -> Bool
 pkAndShAreShownDifferently x =
-     show (PubKeyAddress curAddrVersion (unsafeAddressHash x)) /=
-    (show (ScriptAddress curAddrVersion (unsafeAddressHash x)) :: Text)
+    (show (Address (AddressVersion 0) (PubKeyDestination h) Nothing)) /=
+    (show (Address (AddressVersion 0) (ScriptDestination h) Nothing) :: Text)
+  where
+    h = unsafeAddressHash x

@@ -7,6 +7,8 @@ module Pos.Types.Arbitrary.Unsafe () where
 import           Universum
 
 import           Pos.Crypto.Arbitrary.Unsafe ()
+import           Pos.Types.Address           (AddressDestination (PubKeyDestination),
+                                              curPubKeyAddrVersion)
 import           Pos.Types.Types             (Address (..), Coin (..), EpochIndex (..),
                                               LocalSlotIndex (..), SharedSeed (..),
                                               SlotId (..), TxOut (..))
@@ -18,7 +20,9 @@ deriving instance ArbitraryUnsafe EpochIndex
 deriving instance ArbitraryUnsafe LocalSlotIndex
 
 instance ArbitraryUnsafe Address where
-    arbitraryUnsafe = PubKeyAddress 0 <$> arbitraryUnsafe
+    arbitraryUnsafe = do
+        h <- arbitraryUnsafe
+        return (Address curPubKeyAddrVersion (PubKeyDestination h) Nothing)
 
 instance ArbitraryUnsafe SlotId where
     arbitraryUnsafe = SlotId <$> arbitraryUnsafe <*> arbitraryUnsafe

@@ -22,9 +22,9 @@ import           Universum
 import           Pos.Crypto                              (EncShare, Share, Threshold,
                                                           VssKeyPair, VssPublicKey,
                                                           decryptShare, toVssPublicKey)
-import           Pos.Ssc.Class.Storage                   (MonadSscGS, SscGlobalQueryM,
-                                                          sscRunGlobalQuery)
+import           Pos.Ssc.Class.Storage                   (SscGlobalQueryM)
 import           Pos.Ssc.Class.Types                     (Ssc (..))
+import           Pos.Ssc.Extra.MonadGS                   (MonadSscGS, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Error                (SeedError)
 import           Pos.Ssc.GodTossing.Seed                 (calculateSeed)
 import           Pos.Ssc.GodTossing.Types.Base           (Commitment (..),

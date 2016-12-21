@@ -32,7 +32,7 @@ import           Pos.Modern.DB.Block          (loadBlocksWithUndoWhile)
 import           Pos.Modern.DB.DBIterator     ()
 import           Pos.Modern.DB.Utxo           (getTotalCoins)
 import           Pos.Modern.DB.Utxo           (iterateByUtxo, mapUtxoIterator)
-import           Pos.Ssc.Class.Helpers        (sscCalculateSeed)
+import           Pos.Ssc.Extra                (sscCalculateSeed)
 import           Pos.Ssc.GodTossing.Functions (getThreshold)
 import           Pos.Types                    (Address, Coin, EpochOrSlot (..),
                                                Participants, SlotId (..), TxIn,

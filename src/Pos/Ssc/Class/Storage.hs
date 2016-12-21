@@ -15,16 +15,12 @@
 module Pos.Ssc.Class.Storage
        (
          -- * Modern
-         HasSscStorage(..)
-       , SscStorageClassM (..)
-       , MonadSscGS (..)
-
+         SscStorageClassM (..)
        , SscGlobalQueryM
        , SscGlobalUpdateM
-       , sscRunGlobalQuery
-       , sscRunGlobalModify
 
          -- * Old
+       , HasSscStorage(..)
        , SscUpdate
        , SscQuery
        , SscStorageClass(..)
@@ -55,27 +51,6 @@ import           Pos.Util                (AsBinary)
 
 type SscGlobalQueryM ssc a =  forall m . (MonadReader (SscGlobalStateM ssc) m) => m a
 type SscGlobalUpdateM ssc a = forall m . (MonadState (SscGlobalStateM ssc) m) => m a
-
-class Monad m => MonadSscGS ssc m | m -> ssc where
-    getGlobalState    :: m (SscGlobalStateM ssc)
-    setGlobalState    :: SscGlobalStateM ssc -> m ()
-    modifyGlobalState :: (SscGlobalStateM ssc -> (a, SscGlobalStateM ssc)) -> m a
-
-    default getGlobalState :: MonadTrans t => t m (SscGlobalStateM ssc)
-    getGlobalState = lift getGlobalState
-
-    default setGlobalState :: MonadTrans t => SscGlobalStateM ssc -> t m ()
-    setGlobalState = lift . setGlobalState
-
-    default modifyGlobalState :: MonadTrans t =>
-                                 (SscGlobalStateM ssc -> (a, SscGlobalStateM ssc)) -> t m a
-    modifyGlobalState = lift . modifyGlobalState
-
-instance MonadSscGS ssc m => MonadSscGS ssc (ReaderT a m) where
-instance MonadSscGS ssc m => MonadSscGS ssc (ExceptT a m) where
-instance MonadSscGS ssc m => MonadSscGS ssc (ResponseT s m) where
-instance MonadSscGS ssc m => MonadSscGS ssc (DHTResponseT s m) where
-instance MonadSscGS ssc m => MonadSscGS ssc (KademliaDHT m) where
 
 class Monad m => SscStorageClassM ssc m | m -> ssc where
     sscEmptyGlobalState :: m (SscGlobalStateM ssc)
@@ -115,18 +90,6 @@ instance SscStorageClassM ssc m => SscStorageClassM ssc (ExceptT a m) where
 instance SscStorageClassM ssc m => SscStorageClassM ssc (ResponseT s m) where
 instance SscStorageClassM ssc m => SscStorageClassM ssc (DHTResponseT s m) where
 instance SscStorageClassM ssc m => SscStorageClassM ssc (KademliaDHT m) where
-
-sscRunGlobalQuery
-    :: forall ssc m a.
-       MonadSscGS ssc m
-    => Reader (SscGlobalStateM ssc) a -> m a
-sscRunGlobalQuery query = runReader query <$> getGlobalState @ssc
-
-sscRunGlobalModify
-    :: forall ssc m a .
-    MonadSscGS ssc m
-    => State (SscGlobalStateM ssc) a -> m a
-sscRunGlobalModify upd = modifyGlobalState $ runState upd
 
 ----------------------------------------------------------------------------
 -- Old

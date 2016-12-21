@@ -33,11 +33,11 @@ import           Pos.Modern.DB                           (MonadDB, getBlock)
 import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
                                                           gsCommitments, gsOpenings,
                                                           gsShares, gsVssCertificates)
-import           Pos.Ssc.Class.Storage                   (MonadSscGS (..),
-                                                          SscStorageClassM (..),
+import           Pos.Ssc.Class.Storage                   (SscStorageClassM (..))
+import           Pos.Ssc.Class.Types                     (Ssc (..))
+import           Pos.Ssc.Extra.MonadGS                   (MonadSscGS (..),
                                                           sscRunGlobalModify,
                                                           sscRunGlobalQuery)
-import           Pos.Ssc.Class.Types                     (Ssc (..))
 import           Pos.Ssc.GodTossing.Functions            (checkOpeningMatchesCommitment,
                                                           checkShares, isCommitmentIdx,
                                                           isOpeningIdx, isSharesIdx,

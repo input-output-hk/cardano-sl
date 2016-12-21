@@ -67,7 +67,7 @@ deriving instance MonadBalances m => MonadBalances (SscHolder ssc m)
 instance MonadIO m => MonadBalances (WalletDB m) where
     getOwnUtxo addr = WS.getUtxo >>= return . filterUtxoByAddr addr
 
-instance (MonadThrow m, MonadIO m) => MonadBalances (DBHolder ssc m) where
+instance (MonadThrow m, MonadIO m, MonadMask m) => MonadBalances (DBHolder ssc m) where
     getOwnUtxo = DB.getFilteredUtxo
 
 -- | A class which have methods to get transaction history
@@ -98,8 +98,9 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
             flip evalUtxoStateT utxo $
             deriveAddrHistory addr chain
 
+-- TODO: make a working instance
 instance MonadIO m => MonadTxHistory (DBHolder ssc m) where
-    getTxHistory = undefined
+    getTxHistory _ = pure []
 
 type TxMode ssc m
     = ( MinWorkMode (MutSocketState ssc) m

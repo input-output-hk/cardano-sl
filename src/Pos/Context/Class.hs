@@ -16,21 +16,20 @@ module Pos.Context.Class
        , invalidateProxyCaches
        ) where
 
-import           Control.Concurrent.MVar   (putMVar)
-import           Control.Exception         (SomeException)
-import           Control.Lens              ((%~))
-import           Control.Monad.Catch       (catch)
-import qualified Data.HashMap.Strict       as HM
-import           Data.Time.Clock           (addUTCTime, getCurrentTime)
+import           Control.Concurrent.MVar (putMVar)
+import           Control.Exception       (SomeException)
+import           Control.Lens            ((%~))
+import           Control.Monad.Catch     (catch)
+import qualified Data.HashMap.Strict     as HM
+import           Data.Time.Clock         (addUTCTime, getCurrentTime)
 import           Universum
 
-import           Pos.Context.Context       (NodeContext, ProxyCaches, ncBlkSemaphore,
-                                            ncProxyCaches, ncProxyConfCache,
-                                            ncProxyMsgCache)
-import           Pos.DHT.Model             (DHTResponseT)
-import           Pos.DHT.Real              (KademliaDHT)
-import           Pos.Statistics.MonadStats (NoStatsT, StatsT)
-import           Pos.Types                 (HeaderHash)
+import           Pos.Context.Context     (NodeContext, ProxyCaches, ncBlkSemaphore,
+                                          ncProxyCaches, ncProxyConfCache,
+                                          ncProxyMsgCache)
+import           Pos.DHT.Model           (DHTResponseT)
+import           Pos.DHT.Real            (KademliaDHT)
+import           Pos.Types               (HeaderHash)
 
 
 -- | Class for something that has 'NodeContext' inside.
@@ -52,15 +51,6 @@ instance (Monad m, WithNodeContext ssc m) =>
 instance (Monad m, WithNodeContext ssc m) =>
          WithNodeContext ssc (DHTResponseT s m) where
     getNodeContext = lift getNodeContext
-
-instance (Monad m, WithNodeContext ssc m) =>
-         WithNodeContext ssc (StatsT m) where
-    getNodeContext = lift getNodeContext
-
-instance (Monad m, WithNodeContext ssc m) =>
-         WithNodeContext ssc (NoStatsT m) where
-    getNodeContext = lift getNodeContext
-
 
 
 -- TODO Refactor it out of this module when dealing with in-memory

@@ -34,7 +34,8 @@ import           Pos.Communication.Methods                     (sendToNeighborsS
 import           Pos.Constants                                 (k, mpcSendInterval)
 import           Pos.Context                                   (getNodeContext,
                                                                 ncPublicKey, ncSecretKey,
-                                                                ncSscContext, ncSscParticipants)
+                                                                ncSscContext,
+                                                                ncSscParticipants)
 import           Pos.Crypto                                    (SecretKey, VssKeyPair,
                                                                 randomNumber,
                                                                 runSecureRandom, toPublic)
@@ -48,11 +49,11 @@ import           Pos.Modern.Ssc.GodTossing.LocalData.LocalData (localOnNewSlot,
 import           Pos.Modern.Ssc.GodTossing.Storage.Storage     (getGlobalCertificates)
 import           Pos.Slotting                                  (getSlotStart, onNewSlot)
 import           Pos.Ssc.Class.Helpers                         (SscHelpersClassM)
-import           Pos.Ssc.Class.LocalData                       (MonadSscLDM,
-                                                                sscRunLocalQuery,
+import           Pos.Ssc.Class.LocalData                       (sscRunLocalQuery,
                                                                 sscRunLocalUpdate)
 import           Pos.Ssc.Class.Storage                         (getGlobalState)
 import           Pos.Ssc.Class.Workers                         (SscWorkersClass (..))
+import           Pos.Ssc.Extra.MonadLD                         (MonadSscLDM)
 import           Pos.Ssc.GodTossing.Functions                  (genCommitmentAndOpening,
                                                                 genCommitmentAndOpening,
                                                                 isCommitmentIdx,

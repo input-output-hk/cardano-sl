@@ -10,7 +10,7 @@ module Pos.Modern.DB.Functions
        , rocksPutBi
        , rocksPutBytes
        , rocksWriteBatch
-       , iterateByAllEntries
+       , traverseAllEntries
        , rocksDecode
        ) where
 
@@ -56,6 +56,9 @@ rocksDecode key = either onParseError pure . decodeFull . BSL.fromStrict $ key
             key
             msg
 
+rocksDecodeKeyVal :: (Bi k, Bi v, MonadIO m) => (ByteString, ByteString) -> m (k, v)
+rocksDecodeKeyVal (k, v) = (,) <$> rocksDecode k <*> rocksDecode v
+
 -- | Write ByteString to RocksDB for given key.
 rocksPutBytes :: (MonadIO m) => ByteString -> ByteString -> DB ssc -> m ()
 rocksPutBytes k v DB {..} = Rocks.put rocksDB rocksWriteOpts k v
@@ -71,19 +74,19 @@ rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k
 rocksWriteBatch :: MonadIO m => [Rocks.BatchOp] -> DB ssc -> m ()
 rocksWriteBatch batch DB{..} = Rocks.write rocksDB rocksWriteOpts batch
 
-iterateByAllEntries :: (Bi k, Bi v, MonadMask m, MonadIO m) => DB ssc -> ((k, v) -> m ()) -> m ()
-iterateByAllEntries DB{..} callback =
-    bracket (Rocks.createIter rocksDB rocksReadOpts) (Rocks.releaseIter)
-            (\it -> do
-                Rocks.iterFirst it
-                whileM (Rocks.iterValid it)
-                       (do
-                            kv <- Rocks.iterEntry it
-                            case kv of
-                                Nothing     -> pure () --should we call panic here?
-                                Just (k, v) ->
-                                    ((,) <$> rocksDecode k <*> rocksDecode v)
-                                    >>= callback
-                            Rocks.iterNext it
-                       )
-             )
+traverseAllEntries
+    :: (Bi k, Bi v, MonadMask m, MonadIO m)
+    => DB ssc
+    -> m b
+    -> (b -> k -> v -> m b)
+    -> m b
+traverseAllEntries DB{..} init folder =
+    bracket (Rocks.createIter rocksDB rocksReadOpts) (Rocks.releaseIter) $
+    \it -> do
+        Rocks.iterFirst it
+        let step = do
+                kv <- Rocks.iterEntry it
+                Rocks.iterNext it
+                traverse rocksDecodeKeyVal kv
+            run b = step >>= maybe (pure b) (uncurry (folder b) >=> run)
+        init >>= run

@@ -18,6 +18,7 @@ module Pos.Modern.DB.Utxo
        , getFilteredUtxo
        ) where
 
+import qualified Data.Map                 as M
 import qualified Database.RocksDB         as Rocks
 import           Universum
 
@@ -26,11 +27,11 @@ import           Pos.Modern.DB.Class      (MonadDB, getUtxoDB)
 import           Pos.Modern.DB.DBIterator (DBIterator, DBMapIterator, mapIterator,
                                            withIterator)
 import           Pos.Modern.DB.Error      (DBError (..))
-import           Pos.Modern.DB.Functions  (iterateByAllEntries, rocksDelete, rocksGetBi,
-                                           rocksPutBi, rocksWriteBatch)
+import           Pos.Modern.DB.Functions  (rocksDelete, rocksGetBi, rocksPutBi,
+                                           rocksWriteBatch, traverseAllEntries)
 import           Pos.Modern.DB.Types      (DB)
 import           Pos.Types                (Address, Coin, HeaderHash, TxIn (..), TxOut,
-                                           Utxo, genesisHash)
+                                           Utxo, belongsTo, genesisHash)
 
 data BatchOp ssc
     = DelTxIn TxIn
@@ -81,20 +82,36 @@ putTip h = getUtxoDB >>= rocksPutBi tipKey h
 putTotalCoins :: MonadDB ssc m => Coin -> m ()
 putTotalCoins c = getUtxoDB >>= rocksPutBi sumKey c
 
-iterateByUtxo :: forall ssc m . (MonadDB ssc m, MonadMask m) => ((TxIn, TxOut) -> m ()) -> m ()
-iterateByUtxo callback = getUtxoDB >>= flip iterateByAllEntries callback
+iterateByUtxo
+    :: forall ssc m . (MonadDB ssc m, MonadMask m)
+    => ((TxIn, TxOut) -> m ())
+    -> m ()
+iterateByUtxo callback = do
+    db <- getUtxoDB
+    traverseAllEntries db (pure ()) $ const $ curry callback
+
+filterUtxo
+    :: forall ssc m . (MonadDB ssc m, MonadMask m)
+    => ((TxIn, TxOut) -> Bool)
+    -> m Utxo
+filterUtxo p = do
+    db <- getUtxoDB
+    traverseAllEntries db (pure M.empty) $ \m k v ->
+        if p (k, v)
+        then return $ M.insert (txInHash k, txInIndex k) v m
+        else return m
 
 withUtxoIterator :: (MonadDB ssc m, MonadMask m)
                  => DBIterator m a -> m a
 withUtxoIterator iter = withIterator iter =<< getUtxoDB
 
 mapUtxoIterator :: forall u v m ssc a . (MonadDB ssc m, MonadMask m)
-                 => DBMapIterator (u->v) m a -> (u->v) -> m a
+                => DBMapIterator (u -> v) m a -> (u -> v) -> m a
 mapUtxoIterator iter f = mapIterator @u @v iter f =<< getUtxoDB
 
 -- | Get small sub-utxo containing only outputs of given address
-getFilteredUtxo :: MonadDB ssc m => Address -> m Utxo
-getFilteredUtxo = undefined
+getFilteredUtxo :: (MonadDB ssc m, MonadMask m) => Address -> m Utxo
+getFilteredUtxo addr = filterUtxo $ \(_, out) -> out `belongsTo` addr
 
 ----------------------------------------------------------------------------
 -- Helpers

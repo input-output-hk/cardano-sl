@@ -7,14 +7,14 @@ module Pos.Ssc.GodTossing.Seed
        ( calculateSeed
        ) where
 
-import           Control.Arrow                 ((&&&))
+
 import           Control.Lens                  (view, _2)
 import qualified Data.HashMap.Strict           as HM (fromList, lookup, mapMaybe, toList,
                                                       traverseWithKey)
 import qualified Data.HashSet                  as HS (difference)
 import           Universum
 
-import           Pos.Crypto                    (Secret, Share, Threshold, shareId,
+import           Pos.Crypto                    (Secret, Share, Threshold,
                                                 unsafeRecoverSecret)
 import           Pos.Ssc.GodTossing.Error      (SeedError (..))
 import           Pos.Ssc.GodTossing.Functions  (secretToSharedSeed, verifyOpening)

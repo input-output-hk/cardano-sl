@@ -62,3 +62,6 @@ class (Typeable ssc
 
     -- | Create SscNodeContext
     sscCreateNodeContext :: SscParams ssc -> Acquire (SscNodeContext ssc)
+
+    type SscGlobalStateM ssc
+    type SscLocalDataM ssc

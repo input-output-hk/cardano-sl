@@ -4,11 +4,12 @@ module Pos.Aeson.Types
        (
        ) where
 
-import           Data.Aeson      (ToJSON (toJSON))
-import           Data.Aeson.TH   (defaultOptions, deriveToJSON)
-import           Pos.Types.Types (Address, Coin, EpochIndex, LocalSlotIndex, SharedSeed,
-                                  SlotId, Tx, TxIn, TxOut)
-import           Pos.Web.Types   (GodTossingStage)
+import           Data.Aeson       (ToJSON (toJSON))
+import           Data.Aeson.TH    (defaultOptions, deriveToJSON)
+import           Pos.Aeson.Crypto ()
+import           Pos.Types.Types  (Address, Coin, EpochIndex, LocalSlotIndex, SharedSeed,
+                                   SlotId, Tx, TxIn, TxOut)
+import           Pos.Web.Types    (GodTossingStage)
 
 import           Universum
 

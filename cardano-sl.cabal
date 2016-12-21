@@ -54,6 +54,7 @@ library
                         Pos.DHT.Real.Types
                         Pos.FollowTheSatoshi
                         Pos.Script
+                        Pos.Script.Examples
                         Pos.Ssc.Class
                         Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon
@@ -61,6 +62,10 @@ library
                         Pos.Genesis
                         Pos.Launcher
                         Pos.Merkle
+                        Pos.Security
+                        Pos.Security.Types
+                        Pos.Security.Util
+                        Pos.Security.Workers
                         Pos.Slotting
                         Pos.Ssc.Class.Types
                         Pos.Ssc.Class.Helpers
@@ -111,6 +116,8 @@ library
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
                         Pos.Binary.Types
+                        Pos.Block.Logic
+                        Pos.Block.Requests
                         Pos.Block.Server
                         Pos.Block.Server.State
                         Pos.Block.Server.Listeners
@@ -133,6 +140,7 @@ library
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
+                        Pos.Crypto.AsBinary
                         Pos.Crypto.Hashing
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
@@ -149,6 +157,7 @@ library
                         Pos.Modern.DB.Error
                         Pos.Modern.DB.Functions
                         Pos.Modern.DB.Holder
+                        Pos.Modern.DB.Misc
                         Pos.Modern.DB.Types
                         Pos.Modern.DB.Utxo
                         Pos.Modern.Txp.Class
@@ -158,6 +167,15 @@ library
                         Pos.Modern.Txp.Storage.Types
                         Pos.Modern.Txp.Storage.UtxoView
                         Pos.Modern.Txp.Holder
+                        Pos.Modern.Ssc.Holder
+                        Pos.Modern.Ssc.GodTossing.LocalData.LocalData
+                        Pos.Modern.Ssc.GodTossing.LocalData.Types
+                        Pos.Modern.Ssc.GodTossing.LocalData.Helpers
+                        Pos.Modern.Ssc.GodTossing.Storage.Storage
+                        Pos.Modern.Ssc.GodTossing.Helpers
+                        Pos.Modern.Ssc.GodTossing.Storage.Types
+                        Pos.Modern.Ssc.GodTossing.Workers
+                        Pos.Modern.Ssc.GodTossing.Functions
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
@@ -195,34 +213,39 @@ library
                         Pos.Util.Arbitrary
                         Pos.Util.NotImplemented
   if flag(with-web)
-    other-modules:      Pos.Aeson.Types
+    other-modules:      Pos.Aeson.Crypto
+                        Pos.Aeson.Types
                         Pos.Web.Api
                         Pos.Web.Doc
                         Pos.Web.Server
                         Pos.Web.Types
   if flag(with-wallet)
     other-modules:      Pos.Wallet.Tx
-                      , Pos.Wallet.WalletMode
-                      , Pos.Wallet.Launcher
-                      , Pos.Wallet.Launcher.Runner
-                      , Pos.Wallet.Launcher.Param
-                      , Pos.Wallet.KeyStorage
-                      , Pos.Wallet.State
-                      , Pos.Wallet.State.Acidic
-                      , Pos.Wallet.State.Holder
-                      , Pos.Wallet.State.State
-                      , Pos.Wallet.State.Storage
-                      , Pos.Wallet.State.Storage.Block
-                      , Pos.Wallet.State.Storage.Tx
-                      , Pos.Wallet.Context
-                      , Pos.Wallet.Context.Class
-                      , Pos.Wallet.Context.Context
-                      , Pos.Wallet.Context.Holder
+                        Pos.Wallet.Tx.Pure
+                        Pos.Wallet.WalletMode
+                        Pos.Wallet.Launcher
+                        Pos.Wallet.Launcher.Runner
+                        Pos.Wallet.Launcher.Param
+                        Pos.Wallet.KeyStorage
+                        Pos.Wallet.State
+                        Pos.Wallet.State.Acidic
+                        Pos.Wallet.State.Holder
+                        Pos.Wallet.State.State
+                        Pos.Wallet.State.Storage
+                        Pos.Wallet.State.Storage.Block
+                        Pos.Wallet.State.Storage.Tx
+                        Pos.Wallet.Context
+                        Pos.Wallet.Context.Class
+                        Pos.Wallet.Context.Context
+                        Pos.Wallet.Context.Holder
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
                         Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Server
+                        Pos.Wallet.Web.Server.Methods
+                        Pos.Wallet.Web.Server.Full
+                        Pos.Wallet.Web.Server.Lite
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.Holder
@@ -614,24 +637,24 @@ executable cardano-checks
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec
-                     , Test.Pos.CryptoSpec
-                     , Test.Pos.FollowTheSatoshiSpec
-                     , Test.Pos.MerkleSpec
-                     , Test.Pos.SlottingSpec
-                     , Test.Pos.Ssc.GodTossing.Identity.BinarySpec
-                     , Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
-                     , Test.Pos.Ssc.GodTossing.SeedSpec
-                     , Test.Pos.Ssc.GodTossing.Types.BaseSpec
-                     , Test.Pos.Types.AddressSpec
-                     , Test.Pos.Types.BlockSpec
-                     , Test.Pos.Types.Identity.BinarySpec
-                     , Test.Pos.Types.Identity.SafeCopySpec
-                     , Test.Pos.Types.Identity.TimestampSpec
-                     , Test.Pos.Types.SlottingSpec
-                     , Test.Pos.Types.TxSpec
-                     , Test.Pos.Types.UtxoSpec
-                     , Test.Pos.Util
-                     , Test.Pos.UtilSpec
+                       Test.Pos.CryptoSpec
+                       Test.Pos.FollowTheSatoshiSpec
+                       Test.Pos.MerkleSpec
+                       Test.Pos.SlottingSpec
+                       Test.Pos.Ssc.GodTossing.Identity.BinarySpec
+                       Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
+                       Test.Pos.Ssc.GodTossing.SeedSpec
+                       Test.Pos.Ssc.GodTossing.Types.BaseSpec
+                       Test.Pos.Types.AddressSpec
+                       Test.Pos.Types.BlockSpec
+                       Test.Pos.Types.Identity.BinarySpec
+                       Test.Pos.Types.Identity.SafeCopySpec
+                       Test.Pos.Types.Identity.TimestampSpec
+                       Test.Pos.Types.SlottingSpec
+                       Test.Pos.Types.TxSpec
+                       Test.Pos.Types.UtxoSpec
+                       Test.Pos.Util
+                       Test.Pos.UtilSpec
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
                      , base
@@ -651,6 +674,8 @@ test-suite cardano-test
                      , random
                      , safecopy
                      , serokell-util
+                     , regex-tdfa
+                     , regex-tdfa-text
                      , time-units
                      , time-warp
                      , universum >= 0.1.11

@@ -18,6 +18,7 @@ module Pos.Txp.LocalData
 
 import           Control.Lens            (makeClassy, use, uses, view, (%=), (+=), (-=),
                                           (.=))
+import           Control.Monad.Trans     (MonadTrans)
 import qualified Data.Cache.LRU          as LRU
 import           Data.Default            (Default (..))
 import qualified Data.HashMap.Strict     as HM
@@ -55,6 +56,14 @@ instance Default TxLocalData where
 class Monad m => MonadTxLD m where
     getTxLocalData :: m TxLocalData
     setTxLocalData :: TxLocalData -> m ()
+
+    default getTxLocalData :: MonadTrans t => t m TxLocalData
+    getTxLocalData = lift getTxLocalData
+
+    default setTxLocalData :: MonadTrans t => TxLocalData -> t m ()
+    setTxLocalData = lift . setTxLocalData
+
+instance MonadTxLD m => MonadTxLD (ReaderT a m) where
 
 makeClassy ''TxLocalData
 type Query a = forall m x. (HasTxLocalData x, MonadReader x m) => m a

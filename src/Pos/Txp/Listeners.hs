@@ -2,6 +2,7 @@
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 -- | Server which handles transactions.
 
@@ -56,8 +57,7 @@ isTxUseful txId = not . HM.member txId <$> getLocalTxs
 
 #ifdef MODERN
 handleTxInv :: (ResponseMode ssc m) => TxInvMsg -> m ()
-handleTxInv (TxInvMsg txHashes_) = do
-    let txHashes = NE.toList txHashes_
+handleTxInv (TxInvMsg (NE.toList -> txHashes)) = do
     added <- mapM handleSingle txHashes
     let addedItems = map snd . filter fst . zip added $ txHashes
     safeReply addedItems TxReqMsg
@@ -91,13 +91,12 @@ handleTxData (TxDataMsg tx tw) = do
     when added $ sendToNeighborsSafe $ TxInvMsg $ pure txId
 
 -- Real tx processing
--- CHECK: @handleTxDo
 -- #processTxDo
 handleTxDo
     :: ResponseMode ssc m
     => IdTxWitness -> m Bool
 handleTxDo tx = do
-    res <- processTxDo tx
+    res <- processTx tx
     let txId = fst tx
     case res of
         PTRadded -> do
@@ -112,15 +111,6 @@ handleTxDo tx = do
         PTRoverwhelmed ->
             logInfo $ sformat ("Node is overwhelmed, can't add tx: "%build) txId
     return (res == PTRadded)
-
--- CHECK: @processTx
--- #processTx
-processTxDo :: ResponseMode ssc m => IdTxWitness -> m ProcessTxRes
-processTxDo tx = do
-    locRes <- processTx tx
-    case locRes of
-        PTRadded -> PTRadded <$ St.processTx tx
-        r        -> return r
 
 getLocalTxs :: MonadTxpLD ssc m => m TxMap
 getLocalTxs = localTxs <$> getMemPool

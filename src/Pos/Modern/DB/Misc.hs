@@ -1,9 +1,12 @@
+{-# LANGUAGE RankNTypes #-}
 -- | Interface for the Misc DB
 
 module Pos.Modern.DB.Misc
        (
          getProxySecretKeys
        , addProxySecretKey
+       , dropOldProxySecretKeys
+
        , putSecretKeyHash
        , checkSecretKeyHash
        ) where
@@ -11,38 +14,52 @@ module Pos.Modern.DB.Misc
 import           Universum
 
 import           Pos.Binary              (Bi)
-import           Pos.Crypto              (Hash, ProxySecretKey, SecretKey)
+import           Pos.Crypto              (Hash, SecretKey, pskOmega)
 import           Pos.Modern.DB.Class     (MonadDB, getMiscDB)
-import           Pos.Modern.DB.Functions (rocksDelete, rocksGetBi, rocksPutBi)
-import           Pos.Types               (EpochIndex)
+import           Pos.Modern.DB.Functions (rocksGetBi, rocksPutBi)
+import           Pos.Types               (EpochIndex, ProxySKEpoch)
 
 ----------------------------------------------------------------------------
--- Functions
+-- Delegation and proxy signing
 ----------------------------------------------------------------------------
-
-type PSK = ProxySecretKey (EpochIndex, EpochIndex)
 
 -- | Gets proxy secret keys stored by node
-getProxySecretKeys :: MonadDB ssc m => m [PSK]
+getProxySecretKeys :: MonadDB ssc m => m [ProxySKEpoch]
 getProxySecretKeys = do
-    curCerts <- getBi @([PSK]) certsKey
+    curCerts <- getBi @([ProxySKEpoch]) proxySKKey
     maybe onNothing pure curCerts
   where
     onNothing = do
-        putBi certsKey ([] :: [PSK])
+        putBi proxySKKey ([] :: [ProxySKEpoch])
         pure []
 
 -- | Adds proxy secret key if not present. Nothing if present.
-addProxySecretKey :: MonadDB ssc m => PSK -> m ()
+addProxySecretKey :: MonadDB ssc m => ProxySKEpoch -> m ()
 addProxySecretKey psk = do
     keys <- getProxySecretKeys
-    putBi certsKey (psk:keys)
+    putBi proxySKKey (psk:keys)
+
+-- | Given epochindex, throws away all outdated PSKs. Remark: it
+-- doesn't remove keys that can be used in future.
+dropOldProxySecretKeys :: MonadDB ssc m => EpochIndex -> m ()
+dropOldProxySecretKeys eId = do
+    keys <- filter (\p -> eId <= snd (pskOmega p)) <$>
+            getProxySecretKeys
+    putBi proxySKKey keys
+
+----------------------------------------------------------------------------
+-- Secret key storage & verification
+--
+-- Currently node is allowed to have only one secret key, so its hash
+-- is stored in the storage and can be checked/overwritten (e.g. in order
+-- to exit if tried to launch with another key).
+----------------------------------------------------------------------------
 
 -- | Puts or overwrites secret key of the node. Returns if it was
 -- overwritten.
 putSecretKeyHash :: MonadDB ssc m => Hash SecretKey -> m Bool
 putSecretKeyHash h = do
-    curSkHash <- getBi @(Hash SecretKey) certsKey
+    curSkHash <- getBi @(Hash SecretKey) skHashKey
     putBi skHashKey h
     pure $ isJust curSkHash
 
@@ -51,7 +68,7 @@ putSecretKeyHash h = do
 -- stored there.
 checkSecretKeyHash :: MonadDB ssc m => Hash SecretKey -> m Bool
 checkSecretKeyHash h = do
-    curSkHash <- getBi @(Hash SecretKey) certsKey
+    curSkHash <- getBi @(Hash SecretKey) skHashKey
     maybe (putBi skHashKey h >> pure True) (pure . (== h)) curSkHash
 
 ----------------------------------------------------------------------------
@@ -68,8 +85,8 @@ putBi
     => ByteString -> v -> m ()
 putBi k v = rocksPutBi k v =<< getMiscDB
 
-certsKey :: ByteString
-certsKey = "certs"
+proxySKKey :: ByteString
+proxySKKey = "psk_"
 
 skHashKey :: ByteString
-skHashKey = "skhash"
+skHashKey = "skhash_"

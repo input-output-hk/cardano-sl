@@ -36,7 +36,13 @@ instance (Bi k, Bi v, MonadIO m)
         kv <- Rocks.iterEntry it
         Rocks.iterNext it
         case kv of
-            Nothing     -> pure Nothing --should we call panic here?
+            Nothing     -> pure Nothing
+            Just (k, v) ->
+                Just <$> ((,) <$> rocksDecode k <*> rocksDecode v)
+    curItem = DBIterator ask >>= \it -> do
+        kv <- Rocks.iterEntry it
+        case kv of
+            Nothing     -> pure Nothing
             Just (k, v) ->
                 Just <$> ((,) <$> rocksDecode k <*> rocksDecode v)
 
@@ -51,6 +57,8 @@ instance (MonadIO m, MonadIterator (DBIterator m) u)
          => MonadIterator (DBMapIterator (u->v) m) v where
     nextItem = DBMapIterator ask >>= \f ->
         DBMapIterator $ ReaderT $ const $ (fmap f) <$> nextItem
+    curItem = DBMapIterator ask >>= \f ->
+        DBMapIterator $ ReaderT $ const $ (fmap f) <$> curItem
 
 withIterator :: forall b m ssc . (MonadIO m, MonadMask m)
              => DBIterator m b -> DB ssc -> m b

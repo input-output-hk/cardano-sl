@@ -15,9 +15,13 @@ import           Universum
 
 class Monad m => MonadIterator m a where
     nextItem :: m (Maybe a)
+    curItem  :: m (Maybe a)
 
     default nextItem :: MonadTrans t => t m (Maybe a)
     nextItem = lift nextItem
+
+    default curItem :: MonadTrans t => t m (Maybe a)
+    curItem = lift curItem
 
 instance MonadIterator m a => MonadIterator (StateT s m) a
 
@@ -29,6 +33,10 @@ instance MonadIterator (ListHolder a) a where
         case s of
             []     -> (Nothing, [])
             (x:xs) -> (Just x, xs)
+    curItem = ListHolder $ state $ \s->
+        case s of
+            []       -> (Nothing, [])
+            l@(x:_) -> (Just x, l)
 
 runListHolder :: ListHolder s a -> [s] -> a
 runListHolder (ListHolder s) = evalState s

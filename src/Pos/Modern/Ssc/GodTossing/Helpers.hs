@@ -27,11 +27,11 @@ import           Pos.FollowTheSatoshi                    (followTheSatoshi)
 import           Pos.Crypto                              (ProxySecretKey, SecretKey,
                                                           Share, VssKeyPair, VssPublicKey,
                                                           decryptShare, toVssPublicKey)
-import           Pos.Ssc.GodTossing.Functions     (getThreshold)
 import           Pos.Ssc.Class.Storage                   (MonadSscGS, SscGlobalQueryM,
                                                           sscRunGlobalQuery)
 import           Pos.Ssc.Class.Types                     (Ssc (..))
 import           Pos.Ssc.GodTossing.Error                (SeedError)
+import           Pos.Ssc.GodTossing.Functions            (getThreshold)
 import           Pos.Ssc.GodTossing.Seed                 (calculateSeed)
 import           Pos.Ssc.GodTossing.Types.Base           (Commitment (..),
                                                           VssCertificate (..))

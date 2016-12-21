@@ -41,12 +41,13 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
                 (c:cs) ->
                     maybe (panic "followTheSatoshi: indices out of range")
                     (\TxOut{..} -> do
-                    _2 .= sm + txOutValue -- is lens usage dangerous for perfomance?
-                    if sm + txOutValue >= fst c then do
-                        _1 .= cs
-                        ((txOutAddress, snd c):) <$> findLeaders
-                    else
-                        findLeaders) =<< nextItem
+                        if sm + txOutValue >= fst c then do
+                            _1 .= cs
+                            ((txOutAddress, snd c):) <$> findLeaders
+                        else do
+                            _2 .= sm + txOutValue -- is lens usage dangerous for perfomance?
+                            _ <- nextItem @_ @TxOut
+                            findLeaders) =<< curItem
     res <- evalStateT findLeaders (sortOn fst $ zip coinIndices [1..], 0::Coin)
     pure . fromList . map fst . sortOn snd $ res
 

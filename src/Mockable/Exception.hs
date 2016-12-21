@@ -11,6 +11,9 @@ module Mockable.Exception (
     , Throw(..)
     , throw
 
+    , Catch(..)
+    , catch
+
     ) where
 
 import Mockable.Class
@@ -27,3 +30,9 @@ data Throw (m :: * -> *) (t :: *) where
 
 throw :: ( Mockable Throw m ) => Exception e => e -> m t
 throw e = liftMockable $ Throw e
+
+data Catch (m :: * -> *) (t :: *) where
+    Catch :: Exception e => m t -> (e -> m t) -> Catch m t
+
+catch :: ( Mockable Catch m, Exception e ) => m t -> (e -> m t) -> m t
+catch action handler = liftMockable $ Catch action handler

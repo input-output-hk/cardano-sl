@@ -11,6 +11,9 @@ module Mockable.Concurrent (
   , myThreadId
   , killThread
 
+  , Delay(..)
+  , delay
+
   , RunInUnboundThread(..)
   , runInUnboundThread
 
@@ -33,6 +36,13 @@ myThreadId = liftMockable MyThreadId
 
 killThread :: ( Mockable Fork m ) => ThreadId m -> m ()
 killThread tid = liftMockable $ KillThread tid
+
+data Delay (m :: * -> *) (t :: *) where
+    -- | Delay in microseconds
+    Delay :: Int -> Delay m ()
+
+delay :: ( Mockable Delay m ) => Int -> m ()
+delay us = liftMockable $ Delay us
 
 data RunInUnboundThread m t where
     RunInUnboundThread :: m t -> RunInUnboundThread m t

@@ -3,77 +3,73 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 import Control.Monad (forM_)
+import Control.Monad.IO.Class (liftIO)
 import Data.String (fromString)
+import Data.Void (Void)
+import Data.Binary
 import Node
 import qualified Network.Transport.TCP as TCP
 import qualified Network.Transport.InMemory as InMemory
 import Network.Transport.Concrete (concrete)
 import System.Random
-import qualified Control.Concurrent as Conc
-import qualified Control.Concurrent.Chan as Conc
-import qualified Control.Concurrent.MVar as Conc
-import qualified Control.Exception as Exception
-import Mockable.Class
-import Mockable.Concurrent
-import Mockable.SharedAtomic
-import Mockable.Channel
-import Mockable.Exception
+import Mockable.Concurrent (delay)
+import Mockable.Production
 
-type instance ThreadId IO = Conc.ThreadId
+-- Sending a message which encodes to "" is problematic!
+-- The receiver can't distinuish this from the case in which the sender sent
+-- nothing at all.
+-- So we give custom Ping and Pong types with non-generic Binary instances.
+--
+-- TBD should we fix this in network-transport? Maybe every chunk is prefixed
+-- by a byte giving its length? Wasteful I guess but maybe not a problem.
 
-instance Mockable Fork IO where
-    liftMockable (Fork m) = Conc.forkIO m
-    liftMockable (MyThreadId) = Conc.myThreadId
-    liftMockable (KillThread tid) = Conc.killThread tid
+data Pong = Pong
+deriving instance Show Pong
+instance Binary Pong where
+    put _ = putWord8 (fromIntegral 1)
+    get = do
+        w <- getWord8
+        if w == fromIntegral 1
+        then pure Pong
+        else fail "no parse pong"
 
-instance Mockable RunInUnboundThread IO where
-    liftMockable (RunInUnboundThread m) = Conc.runInUnboundThread m
-
-type instance SharedAtomicT IO = Conc.MVar
-
-instance Mockable SharedAtomic IO where
-    liftMockable (NewSharedAtomic t) = Conc.newMVar t
-    liftMockable (ModifySharedAtomic atomic f) = Conc.modifyMVar atomic f
-
-type instance ChannelT IO = Conc.Chan
-
-instance Mockable Channel IO where
-    liftMockable (NewChannel) = Conc.newChan
-    liftMockable (ReadChannel channel) = Conc.readChan channel
-    liftMockable (WriteChannel channel t) = Conc.writeChan channel t
-
-instance Mockable Bracket IO where
-    liftMockable (Bracket acquire release act) = Exception.bracket acquire release act
-
-instance Mockable Throw IO where
-    liftMockable (Throw e) = Exception.throwIO e
-
-workers :: ( RandomGen g ) => NodeId -> g -> [NodeId] -> [Worker IO]
+workers :: NodeId -> StdGen -> [NodeId] -> [Worker Production]
 workers id gen peerIds = [pingWorker gen]
     where
-    pingWorker :: ( RandomGen g ) => g -> SendActions IO -> IO ()
+    pingWorker :: StdGen -> SendActions Production -> Production ()
     pingWorker gen sendActions = loop gen
         where
+        loop :: StdGen -> Production ()
         loop gen = do
             let (i, gen') = randomR (0,1000000) gen
-            putStrLn (show id ++ " is waiting for " ++ show i ++ "us before sending pings")
-            Conc.threadDelay i
-            forM_ peerIds (\peerId -> sendTo sendActions peerId (fromString "ping") ())
+            delay i
+            let pong :: NodeId -> ConversationActions Void Pong Production -> Production ()
+                pong peerId cactions = do
+                    liftIO . putStrLn $ show id ++ " sent PING to " ++ show peerId
+                    received <- recv cactions
+                    case received of
+                        Just Pong -> liftIO . putStrLn $ show id ++ " heard PONG from " ++ show peerId
+                        Nothing -> error "Unexpected end of input"
+            forM_ peerIds $ \peerId -> withConnectionTo sendActions peerId (fromString "ping") (pong peerId)
             loop gen'
 
-listeners :: NodeId -> [Listener IO]
+listeners :: NodeId -> [Listener Production]
 listeners id = [Listener (fromString "ping") pongWorker]
     where
-    pongWorker :: ListenerAction IO
-    pongWorker = ListenerActionOneMsg $ \peerId sendActions () -> do
-        putStrLn (show id ++  " heard a pong from " ++ show peerId)
+    pongWorker :: ListenerAction Production
+    pongWorker = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Void Production) -> do
+        liftIO . putStrLn $ show id ++  " heard PING from " ++ show peerId
+        send cactions Pong
+        liftIO . putStrLn $ show id ++ " sent PONG to " ++ show peerId
 
-main = mdo
+main = runProduction $ do
 
     --transport_ <- InMemory.createTransport
-    Right transport_ <- TCP.createTransport ("127.0.0.1") ("10128") TCP.defaultTCPParameters
+    Right transport_ <- liftIO $ TCP.createTransport ("127.0.0.1") ("10128") TCP.defaultTCPParameters
     let transport = concrete transport_
 
     let prng1 = mkStdGen 0
@@ -81,16 +77,16 @@ main = mdo
     let prng3 = mkStdGen 2
     let prng4 = mkStdGen 3
 
-    putStrLn "Starting nodes"
+    liftIO . putStrLn $ "Starting nodes"
     rec { node1 <- startNode transport prng1 (workers nodeId1 prng2 [nodeId2]) (listeners nodeId1)
         ; node2 <- startNode transport prng3 (workers nodeId2 prng4 [nodeId1]) (listeners nodeId2)
         ; let nodeId1 = nodeId node1
         ; let nodeId2 = nodeId node2
         }
 
-    putStrLn "Hit return to stop"
-    _ <- getChar
+    liftIO . putStrLn $ "Hit return to stop"
+    _ <- liftIO getChar
 
-    putStrLn "Stopping node"
+    liftIO . putStrLn $ "Stopping node"
     stopNode node1
     stopNode node2

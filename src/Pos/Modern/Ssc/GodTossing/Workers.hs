@@ -64,14 +64,13 @@ import           Pos.Ssc.GodTossing.Functions                   (genCommitmentAn
                                                                  mkSignedCommitment)
 import           Pos.Ssc.GodTossing.Functions                   (getThreshold)
 import           Pos.Ssc.GodTossing.LocalData.Types             (gtLocalCertificates)
-import           Pos.Ssc.GodTossing.Types.Base                  (Commitment, Opening,
+import           Pos.Ssc.GodTossing.Types                       (Commitment, DataMsg (..),
+                                                                 GtPayload, GtProof,
+                                                                 InvMsg (..), MsgTag (..),
+                                                                 Opening,
                                                                  SignedCommitment,
-                                                                 VssCertificate (..))
-import           Pos.Ssc.GodTossing.Types.Instance              ()
-import           Pos.Ssc.GodTossing.Types.Message               (DataMsg (..),
-                                                                 InvMsg (..), MsgTag (..))
-import           Pos.Ssc.GodTossing.Types.Type                  (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types                 (GtPayload, GtProof,
+                                                                 SscGodTossing,
+                                                                 VssCertificate (..),
                                                                  gtcParticipateSsc,
                                                                  gtcVssKeyPair)
 import           Pos.Types                                      (Address (..), EpochIndex,

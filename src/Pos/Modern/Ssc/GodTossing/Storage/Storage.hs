@@ -43,10 +43,9 @@ import           Pos.Ssc.GodTossing.Functions            (checkOpeningMatchesCom
                                                           checkShares, isCommitmentIdx,
                                                           isOpeningIdx, isSharesIdx,
                                                           verifyGtPayload)
-import           Pos.Ssc.GodTossing.Types.Base           (VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Types.Instance       ()
-import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types          (GtPayload (..), _gpCertificates)
+import           Pos.Ssc.GodTossing.Types                (GtPayload (..), SscGodTossing,
+                                                          VssCertificatesMap,
+                                                          _gpCertificates)
 import           Pos.State.Storage.Types                 (AltChain)
 import           Pos.Types                               (Block, HeaderHash, SlotId (..),
                                                           blockMpc, blockSlot, gbHeader,

@@ -20,33 +20,30 @@ import           System.Wlog                             (HasLoggerName, dispatc
 import           Universum
 
 import           Pos.Crypto                              (EncShare, Share, Threshold,
-                                                          VssKeyPair, VssPublicKey)
-import           Pos.Crypto                              (ProxySecretKey, SecretKey,
-                                                          Share, VssKeyPair, VssPublicKey,
+                                                          VssKeyPair, VssPublicKey,
                                                           decryptShare, toVssPublicKey)
 import           Pos.Ssc.Class.Storage                   (MonadSscGS, SscGlobalQueryM,
                                                           sscRunGlobalQuery)
 import           Pos.Ssc.Class.Types                     (Ssc (..))
 import           Pos.Ssc.GodTossing.Error                (SeedError)
-import           Pos.Ssc.GodTossing.Functions            (getThreshold)
 import           Pos.Ssc.GodTossing.Seed                 (calculateSeed)
 import           Pos.Ssc.GodTossing.Types.Base           (Commitment (..),
                                                           VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
 import           Pos.Types                               (Address (..), EpochIndex,
-                                                          SharedSeed, SlotLeaders, Utxo,
-                                                          txOutAddress)
+                                                          SharedSeed, Utxo, txOutAddress)
 import           Pos.Util                                (AsBinary, asBinary, fromBinaryM)
 
 import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
                                                           gsCommitments, gsOpenings,
                                                           gsShares, gsVssCertificates)
-import           Pos.Ssc.Class.Helpers                   (SscHelpersClassM (..),
-                                                          sscVerifyPayload)
+import           Pos.Ssc.Class.Helpers                   (SscHelpersClass (sscVerifyPayload),
+                                                          SscHelpersClassM (..))
 
 type GSQuery a = SscGlobalQueryM SscGodTossing a
 
 instance (Ssc SscGodTossing
+         , SscHelpersClass SscGodTossing
          , SscGlobalStateM SscGodTossing ~ GtGlobalState
          , SscSeedError SscGodTossing ~ SeedError)
          => SscHelpersClassM SscGodTossing where

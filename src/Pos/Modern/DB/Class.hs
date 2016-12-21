@@ -26,7 +26,7 @@ import           Pos.Modern.DB.Types  (DB, NodeDBs, blockDB, miscDB, utxoDB)
 
 -- TODO write a documentation. LensLike' is just a lens. Written using
 -- LensLike' to avoid rankntypes.
-class MonadIO m => MonadDB ssc m | m -> ssc where
+class (MonadIO m, MonadThrow m) => MonadDB ssc m | m -> ssc where
     getNodeDBs :: m (NodeDBs ssc)
     usingReadOptions :: Rocks.ReadOptions -> ASetter' (NodeDBs ssc) (DB ssc) -> m a -> m a
     usingWriteOptions :: Rocks.WriteOptions -> ASetter' (NodeDBs ssc) (DB ssc) -> m a -> m a

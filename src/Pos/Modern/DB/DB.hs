@@ -5,7 +5,6 @@ module Pos.Modern.DB.DB
        , getTipBlock
        ) where
 
-import           Control.Lens                 ((^.))
 import           Control.Monad.Trans.Resource (MonadResource)
 import           System.Directory             (createDirectoryIfMissing)
 import           System.FilePath              ((</>))
@@ -19,7 +18,7 @@ import           Pos.Modern.DB.Holder         (runDBHolder)
 import           Pos.Modern.DB.Types          (NodeDBs (..))
 import           Pos.Modern.DB.Utxo           (getTip, prepareUtxoDB)
 import           Pos.Ssc.Class.Types          (Ssc)
-import           Pos.Types                    (Block, prevBlockL)
+import           Pos.Types                    (Block)
 
 -- | Open all DBs stored on disk.
 openNodeDBs :: MonadResource m => FilePath -> m (NodeDBs ssc)

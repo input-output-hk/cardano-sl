@@ -16,6 +16,7 @@ module Pos.Block.Worker
 import           Control.Monad.State          (get)
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.List.NonEmpty           as NE
+import           Formatting                   (build, sformat, (%))
 import           Serokell.Util.Exceptions     ()
 import           System.Wlog                  (logDebug)
 import           Universum
@@ -29,6 +30,7 @@ import           Pos.Context.Context          (ncSscLeaders, ncSscParticipants)
 import           Pos.FollowTheSatoshi         (followTheSatoshiM)
 import           Pos.Modern.DB.Block          (loadBlocksWithUndoWhile)
 import           Pos.Modern.DB.DBIterator     ()
+import           Pos.Modern.DB.Utxo           (getTotalCoins)
 import           Pos.Modern.DB.Utxo           (iterateByUtxo, mapUtxoIterator)
 import           Pos.Ssc.Class.Helpers        (sscCalculateSeed)
 import           Pos.Ssc.GodTossing.Functions (getThreshold)
@@ -49,12 +51,13 @@ lpcOnNewSlot SlotId{siSlot = slotId, siEpoch = epochId} = withBlkSemaphore $ \ti
         -- [CSL-93] Use eligibility threshold here
         richmen <- getRichmen 0
         let threshold = getThreshold $ length richmen -- no, its wrong.....
-        mbSeed <- sscCalculateSeed epochId threshold -- SscHelperClassM needded
+        mbSeed <- sscCalculateSeed epochId threshold
+        totalCoins <- getTotalCoins
         leaders <-
             case mbSeed of
-              Left e     -> panic "SSC couldn't compute seed"
+              Left e     -> panic $ sformat ("SSC couldn't compute seed: "%build) e
               Right seed -> mapUtxoIterator @(TxIn, TxOut) @TxOut
-                            (followTheSatoshiM seed notImplemented) snd --balance
+                            (followTheSatoshiM seed totalCoins) snd
         nc <- getNodeContext
         let clearMVar = liftIO . void . tryTakeMVar
         clearMVar $ ncSscLeaders nc

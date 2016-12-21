@@ -57,7 +57,7 @@ deleteTxOut = delete . utxoKey
 getTxOut :: MonadDB ssc m => TxIn -> m (Maybe TxOut)
 getTxOut = getBi . utxoKey
 
-getTxOutFromDB :: MonadIO m => TxIn -> DB ssc -> m (Maybe TxOut)
+getTxOutFromDB :: (MonadIO m, MonadThrow m) => TxIn -> DB ssc -> m (Maybe TxOut)
 getTxOutFromDB txIn = rocksGetBi (utxoKey txIn)
 
 writeBatchToUtxo :: MonadDB ssc m => [BatchOp ssc] -> m ()

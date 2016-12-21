@@ -1,6 +1,6 @@
 name:                node-sketch
 version:             0.1.0.0
-license:             AllRightsReserved
+license:             MIT
 license-file:        LICENSE
 category:            Network
 build-type:          Simple

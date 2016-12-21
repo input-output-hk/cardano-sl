@@ -138,7 +138,7 @@ getOurPkAndAddr = do
 getOurVssKeyPair :: WorkMode SscGodTossing m => m VssKeyPair
 getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
 
--- CHECK: @onNewSlotSsc
+-- CHECK: @onNewSlotSscModern
 -- Checks whether 'our' VSS certificate has been announced
 onNewSlotSsc
     :: ( WorkMode SscGodTossing m

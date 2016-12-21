@@ -178,16 +178,19 @@ getValidShares t = map Share . Pvss.getValidRecoveryShares t . map convert
   where
     convert (EncShare es, VssPublicKey p, Share s) = (es, p, s)
 
+-- CHECK: @verifyEncShare
 -- | Verify an encrypted share using SecretSharingExtra.
 verifyEncShare :: SecretSharingExtra -> VssPublicKey -> EncShare -> Bool
 verifyEncShare (SecretSharingExtra e c) (VssPublicKey pk) (EncShare es) =
     Pvss.verifyEncryptedShare e c (es, pk)
 
+-- CHECK: @verifyShare
 -- | Verify that Share has been decrypted correctly.
 verifyShare :: EncShare -> VssPublicKey -> Share -> Bool
 verifyShare (EncShare es) (VssPublicKey pk) (Share sh) =
     Pvss.verifyDecryptedShare (es, pk, sh)
 
+-- CHECK: @verifySecretProof
 -- | Verify that SecretProof corresponds to Secret.
 verifySecretProof :: SecretSharingExtra -> Secret -> SecretProof -> Bool
 verifySecretProof (SecretSharingExtra e c) (Secret s) (SecretProof p) =

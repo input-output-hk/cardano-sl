@@ -4,8 +4,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Modern.Ssc.GodTossing.Helpers
-       (
-         getOurShares
+       ( calculateSeedQ
+       , getOurShares
        ) where
 import           Control.Lens                            (view)
 import           Crypto.Random                           (drgNewSeed, seedNew, withDRG)
@@ -22,9 +22,9 @@ import           Universum
 import           Pos.Crypto                              (EncShare, Share, Threshold,
                                                           VssKeyPair, VssPublicKey,
                                                           decryptShare, toVssPublicKey)
-import           Pos.Ssc.Class.Storage                   (MonadSscGS, SscGlobalQueryM,
-                                                          sscRunGlobalQuery)
+import           Pos.Ssc.Class.Storage                   (SscGlobalQueryM)
 import           Pos.Ssc.Class.Types                     (Ssc (..))
+import           Pos.Ssc.Extra.MonadGS                   (MonadSscGS, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Error                (SeedError)
 import           Pos.Ssc.GodTossing.Seed                 (calculateSeed)
 import           Pos.Ssc.GodTossing.Types.Base           (Commitment (..),
@@ -37,18 +37,8 @@ import           Pos.Util                                (AsBinary, asBinary, fr
 import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
                                                           gsCommitments, gsOpenings,
                                                           gsShares, gsVssCertificates)
-import           Pos.Ssc.Class.Helpers                   (SscHelpersClass (sscVerifyPayload),
-                                                          SscHelpersClassM (..))
 
 type GSQuery a = SscGlobalQueryM SscGodTossing a
-
-instance (Ssc SscGodTossing
-         , SscHelpersClass SscGodTossing
-         , SscGlobalStateM SscGodTossing ~ GtGlobalState
-         , SscSeedError SscGodTossing ~ SeedError)
-         => SscHelpersClassM SscGodTossing where
-    sscVerifyPayloadM = sscVerifyPayload
-    sscCalculateSeedQ = calculateSeedQ
 
 -- | Get keys of nodes participating in an epoch. A node participates if,
 -- when there were 'k' slots left before the end of the previous epoch, both

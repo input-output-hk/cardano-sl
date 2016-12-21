@@ -54,8 +54,8 @@ import           Pos.Modern.Ssc.GodTossing.Storage.Storage      (getGlobalCertif
 import           Pos.Slotting                                   (getSlotStart, onNewSlot)
 import           Pos.Ssc.Class.LocalData                        (sscRunLocalQuery,
                                                                  sscRunLocalUpdate)
-import           Pos.Ssc.Class.Storage                          (getGlobalState)
 import           Pos.Ssc.Class.Workers                          (SscWorkersClass (..))
+import           Pos.Ssc.Extra                                  (getGlobalState)
 import           Pos.Ssc.GodTossing.Functions                   (genCommitmentAndOpening,
                                                                  genCommitmentAndOpening,
                                                                  isCommitmentIdx,

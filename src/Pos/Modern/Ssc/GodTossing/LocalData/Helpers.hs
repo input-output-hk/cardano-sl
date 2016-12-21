@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell  #-}
+
 module Pos.Modern.Ssc.GodTossing.LocalData.Helpers
        (
          HasGtState (..)
@@ -13,10 +14,10 @@ import           Universum
 
 import qualified Pos.Modern.Ssc.GodTossing.LocalData.Types as LD
 import qualified Pos.Modern.Ssc.GodTossing.Storage.Types   as GS
-import           Pos.Ssc.GodTossing.Types.Instance  ()
-import           Pos.Ssc.Class.LocalData                   (MonadSscLDM (modifyLocalDataM))
+import           Pos.Ssc.Extra                             (MonadSscLDM (modifyLocalDataM))
 import           Pos.Ssc.GodTossing.Types.Base             (CommitmentsMap, OpeningsMap,
                                                             SharesMap, VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Types.Instance         ()
 import           Pos.Ssc.GodTossing.Types.Type             (SscGodTossing)
 import           Pos.Types                                 (SlotId)
 

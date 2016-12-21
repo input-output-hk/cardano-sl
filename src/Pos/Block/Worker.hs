@@ -51,6 +51,9 @@ lpcOnNewSlot SlotId{..} = withBlkSemaphore $ \tip -> do
               Right seed -> mapUtxoIterator @(TxIn, TxOut) @TxOut
                             (followTheSatoshiM seed notImplemented) snd --balance
         nc <- getNodeContext
+        let clearMVar = liftIO . void . tryTakeMVar
+        clearMVar $ ncSscLeaders nc
+        clearMVar $ ncSscParticipants nc
         liftIO $ putMVar (ncSscLeaders nc) leaders
         liftIO $ putMVar (ncSscParticipants nc) richmen
         applyBlocks (map fst blockUndos)

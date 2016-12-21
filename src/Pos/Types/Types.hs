@@ -59,6 +59,7 @@ module Pos.Types.Types
 
        , SharedSeed (..)
        , SlotLeaders
+       , Participants
 
        , Blockchain (..)
        , BodyProof (..)
@@ -164,7 +165,7 @@ import           Pos.Ssc.Class.Types    (Ssc (..))
 import           Pos.Types.Address      (Address (..), addressF, checkPubKeyAddress,
                                          checkScriptAddress, decodeTextAddress,
                                          makePubKeyAddress, makeScriptAddress)
-import           Pos.Util               (Color (Magenta), colorize)
+import           Pos.Util               (AsBinary, Color (Magenta), colorize)
 
 
 ----------------------------------------------------------------------------
@@ -384,6 +385,8 @@ instance Monoid SharedSeed where
 
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty Address
+
+type Participants = NonEmpty Address
 
 ----------------------------------------------------------------------------
 -- GenericBlock

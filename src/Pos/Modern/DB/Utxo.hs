@@ -1,3 +1,7 @@
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Pos.Modern.DB.Utxo
        ( BatchOp (..)
        , getTip
@@ -7,20 +11,25 @@ module Pos.Modern.DB.Utxo
        , writeBatchToUtxo
        , getTxOutFromDB
        , prepareUtxoDB
+       , iterateByUtxo
+       , withUtxoIterator
+       , mapUtxoIterator
        , getFilteredUtxo
        ) where
 
-import qualified Database.RocksDB        as Rocks
+import qualified Database.RocksDB         as Rocks
 import           Universum
 
-import           Pos.Binary.Class        (Bi, encodeStrict)
-import           Pos.Modern.DB.Class     (MonadDB, getUtxoDB)
-import           Pos.Modern.DB.Error     (DBError (..))
-import           Pos.Modern.DB.Functions (rocksDelete, rocksGetBi, rocksPutBi,
-                                          rocksWriteBatch)
-import           Pos.Modern.DB.Types     (DB)
-import           Pos.Types               (Address, HeaderHash, TxIn (..), TxOut, Utxo,
-                                          genesisHash)
+import           Pos.Binary.Class         (Bi, encodeStrict)
+import           Pos.Modern.DB.Class      (MonadDB, getUtxoDB)
+import           Pos.Modern.DB.DBIterator (DBIterator, DBMapIterator, mapIterator,
+                                           withIterator)
+import           Pos.Modern.DB.Error      (DBError (..))
+import           Pos.Modern.DB.Functions  (iterateByAllEntries, rocksDelete, rocksGetBi,
+                                           rocksPutBi, rocksWriteBatch)
+import           Pos.Modern.DB.Types      (DB)
+import           Pos.Types                (Address, HeaderHash, TxIn (..), TxOut, Utxo,
+                                           genesisHash)
 
 data BatchOp ssc = DelTxIn TxIn | AddTxOut TxIn TxOut | PutTip (HeaderHash ssc)
 
@@ -52,6 +61,16 @@ prepareUtxoDB = maybe putGenesisTip (const pass) =<< getTipMaybe
 putTip :: MonadDB ssc m => HeaderHash ssc -> m ()
 putTip h = getUtxoDB >>= rocksPutBi tipKey h
 
+iterateByUtxo :: forall ssc m . (MonadDB ssc m, MonadMask m) => ((TxIn, TxOut) -> m ()) -> m ()
+iterateByUtxo callback = getUtxoDB >>= flip iterateByAllEntries callback
+
+withUtxoIterator :: (MonadDB ssc m, MonadMask m)
+                 => DBIterator m a -> m a
+withUtxoIterator iter = withIterator iter =<< getUtxoDB
+
+mapUtxoIterator :: forall u v m ssc a . (MonadDB ssc m, MonadMask m)
+                 => DBMapIterator (u->v) m a -> (u->v) -> m a
+mapUtxoIterator iter f = mapIterator @u @v iter f =<< getUtxoDB
 
 -- | Get small sub-utxo containing only outputs of given address
 getFilteredUtxo :: MonadDB ssc m => Address -> m Utxo

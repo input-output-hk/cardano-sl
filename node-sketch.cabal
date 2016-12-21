@@ -111,6 +111,7 @@ executable bench-sender
                      , node-sketch
                      , optparse-simple >= 0.0.3
                      , serokell-util
+                     , stm
                      , random >= 1.1
                      , text-format >= 0.3.1
                      , time >= 1.6
@@ -151,6 +152,7 @@ executable bench-receiver
                      , optparse-simple >= 0.0.3
                      , random >= 1.1
                      , serokell-util
+                     , stm
                      , text-format >= 0.3.1
                      , time >= 1.6
                      , time-units >= 1.0.0
@@ -191,6 +193,7 @@ executable bench-log-reader
                      , node-sketch
                      , optparse-simple >= 0.0.3
                      , resourcet >= 1.1.7
+                     , stm
                      , text >= 1.2.2
                      , text-format >= 0.3.1
                      , time >= 1.6

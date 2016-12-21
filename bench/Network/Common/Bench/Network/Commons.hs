@@ -22,30 +22,31 @@ module Bench.Network.Commons
     , logMessageParser
     ) where
 
-import           Control.Applicative   ((<|>))
-import qualified Control.Concurrent    as Conc
-import qualified Control.Exception     as Exception
-import           Control.Monad         (join)
-import           Control.Monad.Trans   (MonadIO (..), lift)
-import           Data.Attoparsec.Text  (Parser, char, decimal, string, takeWhile)
-import           Data.Binary           (Binary)
-import           Data.Binary           (Binary (..))
-import qualified Data.ByteString.Lazy  as BL
-import           Data.Data             (Data)
-import           Data.Default          (def)
-import           Data.Functor          (($>))
-import qualified Data.HashMap.Strict   as M
-import           Data.Int              (Int64)
-import           Data.Monoid           ((<>))
-import           Data.Text.Buildable   (Buildable, build)
-import           Data.Time.Clock.POSIX (getPOSIXTime)
-import qualified Formatting            as F
-import           GHC.Generics          (Generic)
-import           Prelude               hiding (takeWhile)
-import           System.Wlog           (LoggerConfig (..), LoggerNameBox, Severity (..),
-                                        WithLogger, getLoggerName, logInfo,
-                                        parseLoggerConfig, traverseLoggerConfig,
-                                        usingLoggerName)
+import           Control.Applicative    ((<|>))
+import qualified Control.Concurrent     as Conc
+import qualified Control.Concurrent.STM as Conc
+import qualified Control.Exception      as Exception
+import           Control.Monad          (join)
+import           Control.Monad.Trans    (MonadIO (..), lift)
+import           Data.Attoparsec.Text   (Parser, char, decimal, string, takeWhile)
+import           Data.Binary            (Binary)
+import           Data.Binary            (Binary (..))
+import qualified Data.ByteString.Lazy   as BL
+import           Data.Data              (Data)
+import           Data.Default           (def)
+import           Data.Functor           (($>))
+import qualified Data.HashMap.Strict    as M
+import           Data.Int               (Int64)
+import           Data.Monoid            ((<>))
+import           Data.Text.Buildable    (Buildable, build)
+import           Data.Time.Clock.POSIX  (getPOSIXTime)
+import qualified Formatting             as F
+import           GHC.Generics           (Generic)
+import           Prelude                hiding (takeWhile)
+import           System.Wlog            (LoggerConfig (..), LoggerNameBox, Severity (..),
+                                         WithLogger, getLoggerName, logInfo,
+                                         parseLoggerConfig, traverseLoggerConfig,
+                                         usingLoggerName)
 
 import           Mockable.Channel
 import           Mockable.Class
@@ -213,12 +214,14 @@ instance Mockable SharedAtomic (LoggerNameBox IO) where
     liftMockable (ModifySharedAtomic atomic f) = getLoggerName >>=
         \lname -> lift $ Conc.modifyMVar atomic $ usingLoggerName lname . f
 
-type instance ChannelT (LoggerNameBox IO) = Conc.Chan
+type instance ChannelT (LoggerNameBox IO) = Conc.TChan
 
 instance Mockable Channel (LoggerNameBox IO) where
-    liftMockable (NewChannel) = lift $ Conc.newChan
-    liftMockable (ReadChannel channel) = lift $ Conc.readChan channel
-    liftMockable (WriteChannel channel t) = lift $ Conc.writeChan channel t
+    liftMockable (NewChannel)             = lift $ Conc.atomically $ Conc.newTChan
+    liftMockable (ReadChannel channel)    = lift $ Conc.atomically $ Conc.readTChan channel
+    liftMockable (WriteChannel channel t) = lift $ Conc.atomically $ Conc.writeTChan channel t
+    liftMockable (TryReadChannel channel) = lift $ Conc.atomically $ Conc.tryReadTChan channel
+    liftMockable (UnGetChannel channel t) = lift $ Conc.atomically $ Conc.unGetTChan channel t
 
 instance Mockable Bracket (LoggerNameBox IO) where
     liftMockable (Bracket acquire release act) = getLoggerName >>=

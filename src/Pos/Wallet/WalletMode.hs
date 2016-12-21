@@ -68,7 +68,7 @@ deriving instance MonadBalances m => MonadBalances (Modern.SscHolder ssc m)
 instance MonadIO m => MonadBalances (WalletDB m) where
     getOwnUtxo addr = WS.getUtxo >>= return . filterUtxoByAddr addr
 
-instance MonadIO m => MonadBalances (DBHolder ssc m) where
+instance (MonadThrow m, MonadIO m) => MonadBalances (DBHolder ssc m) where
     getOwnUtxo = DB.getFilteredUtxo
 
 -- | A class which have methods to get transaction history

@@ -140,6 +140,7 @@ library
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
+                        Pos.Crypto.AsBinary
                         Pos.Crypto.Hashing
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing

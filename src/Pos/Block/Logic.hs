@@ -1,4 +1,7 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE MultiWayIf          #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Logic of blocks processing.
 
@@ -7,6 +10,8 @@ module Pos.Block.Logic
        , applyBlocks
        , classifyNewHeader
        , classifyHeaders
+       , loadHeadersUntil
+       , retrieveHeadersFromTo
        , rollbackBlocks
        , verifyBlocks
        , withBlkSemaphore
@@ -27,8 +32,8 @@ import           Pos.Modern.Txp.Storage (txApplyBlocks, txRollbackBlocks, txVeri
 import           Pos.Slotting           (getCurrentSlot)
 import           Pos.Types              (Block, BlockHeader, HeaderHash, Undo,
                                          VerifyHeaderParams (..), blockHeader,
-                                         difficultyL, headerSlot, prevBlockL,
-                                         verifyHeader, vhpVerifyConsensus)
+                                         difficultyL, getEpochOrSlot, headerSlot,
+                                         prevBlockL, verifyHeader, vhpVerifyConsensus)
 import           Pos.WorkMode           (WorkMode)
 
 -- | Result of header classification.
@@ -94,6 +99,47 @@ classifyHeaders
     :: WorkMode ssc m
     => [BlockHeader ssc] -> m ClassifyHeaderRes
 classifyHeaders = notImplemented
+
+-- | Takes a starting header hash and queries blockchain until some
+-- condition is true or parent wasn't found.
+loadHeadersUntil
+    :: forall ssc m.
+       WorkMode ssc m
+    => HeaderHash ssc
+    -> (BlockHeader ssc -> Bool)
+    -> m [BlockHeader ssc]
+loadHeadersUntil startHHash cond = reverse <$> loadHeadersUntilDo startHHash
+  where
+    loadHeadersUntilDo :: HeaderHash ssc -> m [BlockHeader ssc]
+    loadHeadersUntilDo curH = do
+        curHeaderM <- DB.getBlockHeader curH
+        let guarded' = curHeaderM >>= \v -> guard (cond v) >> pure v
+        maybe (pure [])
+              (\curHeader ->
+                 (curHeader:) <$>
+                 loadHeadersUntilDo (curHeader ^. prevBlockL ))
+              guarded'
+
+-- | Given a set of checkpoints to stop at, we take second header hash
+-- block (or tip if latter is @Nothing@) and fetch the blocks until we
+-- reach genesis block or one of checkpoints.
+retrieveHeadersFromTo
+    :: WorkMode ssc m
+    => [HeaderHash ssc] -> Maybe (HeaderHash ssc) -> m [BlockHeader ssc]
+retrieveHeadersFromTo checkpoints startM = do
+    validCheckpoints <- catMaybes <$> mapM DB.getBlockHeader checkpoints
+    tip <- DB.getTip
+    let startFrom = fromMaybe tip startM
+        neq = (/=) `on` getEpochOrSlot
+        untilCond bh = all (neq bh) validCheckpoints
+    headers <- loadHeadersUntil startFrom untilCond
+    -- in case we didn't reach the very-first block we take one more
+    -- because "until" predicate will stop us before we get
+    -- checkpoint block and we do want to return it as well
+    oneMore <- case headers of
+        []       -> pure Nothing
+        (last:_) -> DB.getBlockHeader $ last ^. prevBlockL
+    pure $ reverse $ maybe identity (:) oneMore $ headers
 
 -- | Verify blocks received from network. Head is expected to be the
 -- oldest blocks. If parent of head is not our tip, verification

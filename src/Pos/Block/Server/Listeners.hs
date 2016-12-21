@@ -21,7 +21,8 @@ import           Universum
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (ClassifyHeaderRes (..), applyBlocks,
                                            classifyHeaders, classifyNewHeader,
-                                           rollbackBlocks, verifyBlocks, withBlkSemaphore)
+                                           retrieveHeadersFromTo, rollbackBlocks,
+                                           verifyBlocks, withBlkSemaphore)
 import           Pos.Block.Requests       (replyWithBlocksRequest,
                                            replyWithHeadersRequest)
 import           Pos.Block.Server.State   (ProcessBlockMsgRes (..), matchRequestedHeaders,
@@ -30,7 +31,8 @@ import           Pos.Communication.Types  (MsgBlock (..), MsgGetBlocks (..),
                                            MsgGetHeaders (..), MsgHeaders (..),
                                            MutSocketState, ResponseMode)
 import           Pos.Crypto               (shortHashF)
-import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog, getUserState)
+import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog, getUserState,
+                                           replyToNode)
 import           Pos.Types                (Block, BlockHeader, HeaderHash, Undo,
                                            headerHash, headerHashG, prevBlockL)
 import           Pos.Util                 (_neHead, _neLast)
@@ -51,7 +53,12 @@ handleGetHeaders
     :: forall ssc m.
        (ResponseMode ssc m)
     => MsgGetHeaders ssc -> m ()
-handleGetHeaders MsgGetHeaders {..} = notImplemented
+handleGetHeaders MsgGetHeaders {..} = do
+    rhResult <- retrieveHeadersFromTo mghFrom mghTo
+    case nonEmpty rhResult of
+        Nothing ->
+            logWarning "retrieveHeadersFromTo returned empty list, not responding to node"
+        Just ne -> replyToNode $ MsgHeaders ne
 
 handleGetBlocks
     :: forall ssc m.

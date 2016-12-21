@@ -36,8 +36,8 @@ import           Pos.Crypto              (EncShare, Threshold, VssPublicKey)
 import           Pos.Modern.DB.Class     (MonadDB)
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types.Types         (Address, EpochIndex, HeaderHash, SlotLeaders,
-                                          Utxo)
+import           Pos.Types.Types         (Address, EpochIndex, HeaderHash, SharedSeed,
+                                          SlotLeaders, Utxo)
 import           Pos.Util                (AsBinary)
 
 ----------------------------------------------------------------------------
@@ -62,6 +62,9 @@ class Ssc ssc => SscStorageClassM ssc where
     -- consistent if this blocks are applied (after possible rollback
     -- if first argument isn't zero).
     sscVerifyBlocksM :: AltChain ssc -> SscGlobalQueryM ssc VerificationRes
+
+    sscCalculateSeedM :: EpochIndex -> Threshold ->
+                         SscGlobalQueryM ssc (Either (SscSeedError ssc) SharedSeed)
 
 ----------------------------------------------------------------------------
 -- Old

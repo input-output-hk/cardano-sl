@@ -26,7 +26,6 @@ type SscConstraint ssc =
                 SscLocalDataClass ssc,
                 SscLocalDataClassM ssc,
                 SscHelpersClass ssc,
-                SscHelpersClassM ssc,
                 SscStorageMode ssc,
                 SscStorageClassM ssc,
                 SscWorkersClass ssc,

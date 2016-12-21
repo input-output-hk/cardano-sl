@@ -13,31 +13,29 @@ module Pos.Block.Worker
        ( lpcOnNewSlot
        ) where
 
-import           Control.Monad.State          (get)
-import qualified Data.HashMap.Strict          as HM
-import qualified Data.List.NonEmpty           as NE
-import           Formatting                   (build, sformat, (%))
-import           Serokell.Util.Exceptions     ()
-import           System.Wlog                  (logDebug)
+import           Control.Monad.State      (get)
+import qualified Data.HashMap.Strict      as HM
+import qualified Data.List.NonEmpty       as NE
+import           Formatting               (build, sformat, (%))
+import           Serokell.Util.Exceptions ()
+import           System.Wlog              (logDebug)
 import           Universum
 
-import           Pos.Binary.Communication     ()
-import           Pos.Block.Logic              (applyBlocks, rollbackBlocks,
-                                               withBlkSemaphore)
-import           Pos.Constants                (k)
-import           Pos.Context                  (getNodeContext)
-import           Pos.Context.Context          (ncSscLeaders, ncSscParticipants)
-import           Pos.FollowTheSatoshi         (followTheSatoshiM)
-import           Pos.Modern.DB.Block          (loadBlocksWithUndoWhile)
-import           Pos.Modern.DB.DBIterator     ()
-import           Pos.Modern.DB.Utxo           (getTotalCoins)
-import           Pos.Modern.DB.Utxo           (iterateByUtxo, mapUtxoIterator)
-import           Pos.Ssc.Extra                (sscCalculateSeed)
-import           Pos.Ssc.GodTossing.Functions (getThreshold)
-import           Pos.Types                    (Address, Coin, EpochOrSlot (..),
-                                               Participants, SlotId (..), TxIn,
-                                               TxOut (..), getEpochOrSlot)
-import           Pos.WorkMode                 (WorkMode)
+import           Pos.Binary.Communication ()
+import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkSemaphore)
+import           Pos.Constants            (k)
+import           Pos.Context              (getNodeContext)
+import           Pos.Context.Context      (ncSscLeaders, ncSscParticipants)
+import           Pos.FollowTheSatoshi     (followTheSatoshiM)
+import           Pos.Modern.DB.Block      (loadBlocksWithUndoWhile)
+import           Pos.Modern.DB.DBIterator ()
+import           Pos.Modern.DB.Utxo       (getTotalCoins)
+import           Pos.Modern.DB.Utxo       (iterateByUtxo, mapUtxoIterator)
+import           Pos.Ssc.Extra            (sscCalculateSeed)
+import           Pos.Ssc.GodTossing       (getThreshold)
+import           Pos.Types                (Address, Coin, EpochOrSlot (..), Participants,
+                                           SlotId (..), TxIn, TxOut (..), getEpochOrSlot)
+import           Pos.WorkMode             (WorkMode)
 
 lpcOnNewSlot :: WorkMode ssc m => SlotId -> m () --Leaders and Participants computation
 lpcOnNewSlot SlotId{siSlot = slotId, siEpoch = epochId} = withBlkSemaphore $ \tip -> do

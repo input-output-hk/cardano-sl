@@ -4,8 +4,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Modern.Ssc.GodTossing.Helpers
-       (
-         getOurShares
+       ( calculateSeedQ
+       , getOurShares
        ) where
 import           Control.Lens                            (view)
 import           Crypto.Random                           (drgNewSeed, seedNew, withDRG)
@@ -37,18 +37,8 @@ import           Pos.Util                                (AsBinary, asBinary, fr
 import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
                                                           gsCommitments, gsOpenings,
                                                           gsShares, gsVssCertificates)
-import           Pos.Ssc.Class.Helpers                   (SscHelpersClass (sscVerifyPayload),
-                                                          SscHelpersClassM (..))
 
 type GSQuery a = SscGlobalQueryM SscGodTossing a
-
-instance (Ssc SscGodTossing
-         , SscHelpersClass SscGodTossing
-         , SscGlobalStateM SscGodTossing ~ GtGlobalState
-         , SscSeedError SscGodTossing ~ SeedError)
-         => SscHelpersClassM SscGodTossing where
-    sscVerifyPayloadM = sscVerifyPayload
-    sscCalculateSeedQ = calculateSeedQ
 
 -- | Get keys of nodes participating in an epoch. A node participates if,
 -- when there were 'k' slots left before the end of the previous epoch, both

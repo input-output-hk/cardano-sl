@@ -32,7 +32,6 @@ import           Universum
 import           Pos.Crypto              (Threshold)
 import           Pos.DHT.Model.Class     (DHTResponseT)
 import           Pos.DHT.Real            (KademliaDHT)
-import           Pos.Ssc.Class.Helpers   (SscHelpersClassM (sscCalculateSeedQ))
 import           Pos.Ssc.Class.Storage   (SscStorageClassM (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain)
@@ -73,9 +72,9 @@ sscRunGlobalModify upd = modifyGlobalState $ runState upd
 
 sscCalculateSeed
     :: forall ssc m.
-       (MonadSscGS ssc m, SscHelpersClassM ssc)
+       (MonadSscGS ssc m, SscStorageClassM ssc)
     => EpochIndex -> Threshold -> m (Either (SscSeedError ssc) SharedSeed)
-sscCalculateSeed e = sscRunGlobalQuery . sscCalculateSeedQ @ssc e
+sscCalculateSeed e = sscRunGlobalQuery . sscCalculateSeedM @ssc e
 
 sscApplyBlocks
     :: forall ssc m.

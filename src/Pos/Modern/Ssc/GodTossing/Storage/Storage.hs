@@ -31,6 +31,7 @@ import           Universum
 
 import           Pos.Binary.Ssc                          ()
 import           Pos.Modern.DB                           (MonadDB, getBlock)
+import           Pos.Modern.Ssc.GodTossing.Helpers       (calculateSeedQ)
 import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
                                                           gsCommitments, gsOpenings,
                                                           gsShares, gsVssCertificates)
@@ -60,6 +61,7 @@ instance SscStorageClassM SscGodTossing where
     sscApplyBlocksM = mpcApplyBlocks
     sscRollbackM = mpcRollback
     sscVerifyBlocksM = mpcVerifyBlocks
+    sscCalculateSeedM = calculateSeedQ
 
 getGlobalCertificates
     :: (MonadSscGS SscGodTossing m)

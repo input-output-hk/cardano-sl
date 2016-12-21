@@ -32,7 +32,7 @@ import           Pos.Binary.Class        (encode)
 import           Pos.Crypto              (Threshold, deterministicVssKeyGen,
                                           toVssPublicKey)
 import           Pos.FollowTheSatoshi    (followTheSatoshi)
-import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..), SscHelpersClassM (..))
+import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Listeners (SscListenersClass (..))
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..), SscLocalDataClassM (..))
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscQuery,
@@ -125,14 +125,11 @@ instance SscLocalDataClassM SscNistBeacon where
     sscGetLocalPayloadMQ _ = pure ()
     sscApplyGlobalStateMU _ = pure ()
 
-instance SscHelpersClassM SscNistBeacon where
-    sscVerifyPayloadM = sscVerifyPayload
-    sscCalculateSeedQ epoch  _ =
-        pure . Right . coerce . ByteArray.convert @_ @ByteString .
-            Hash.hashlazy @SHA256 . encode $ epoch
-
 instance SscStorageClassM SscNistBeacon where
     sscLoadGlobalState _ = pure ()
     sscApplyBlocksM _ = pure ()
     sscRollbackM _ = pure ()
     sscVerifyBlocksM _ = pure mempty
+    sscCalculateSeedM epoch  _ =
+        pure . Right . coerce . ByteArray.convert @_ @ByteString .
+            Hash.hashlazy @SHA256 . encode $ epoch

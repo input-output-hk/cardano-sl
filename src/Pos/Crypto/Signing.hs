@@ -164,9 +164,11 @@ signRaw (SecretKey k) x = Signature (Ed25519.dsign k x)
 
 -- CHECK: @checkSig
 -- | Verify a signature.
+-- #verifyRaw
 checkSig :: Bi a => PublicKey -> a -> Signature a -> Bool
 checkSig k x s = verifyRaw k (BSL.toStrict (Bi.encode x)) (coerce s)
 
+-- CHECK: @verifyRaw
 -- | Verify raw 'ByteString'.
 verifyRaw :: PublicKey -> ByteString -> Signature Raw -> Bool
 verifyRaw (PublicKey k) x (Signature s) = Ed25519.dverify k x s
@@ -312,6 +314,7 @@ proxyVerify (PublicKey issuerPk) ProxySignature {..} omegaPred m =
                  ])
             pdSig
 
+-- CHECK: @checkProxySecretKey
 -- | Checks if proxy secret key is consistent and is related to
 -- secretKey passed.
 checkProxySecretKey :: (Bi w) => SecretKey -> ProxySecretKey w -> Bool

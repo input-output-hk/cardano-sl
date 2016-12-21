@@ -1,5 +1,6 @@
-{-# LANGUAGE BangPatterns  #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TupleSections         #-}
 
 -- | Pure version of UTXO.
 
@@ -43,7 +44,6 @@ import           Pos.Types.Utxo.Class     (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Types.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', convertFrom',
                                            convertTo', verifyAndApplyTxsOld,
                                            verifyAndApplyTxsOld', verifyTxUtxo)
-
 ----------------------------------------------------------------------------
 -- Reader
 ----------------------------------------------------------------------------

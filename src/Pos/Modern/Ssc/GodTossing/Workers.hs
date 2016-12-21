@@ -269,10 +269,10 @@ generateAndSetNewSecret sk epoch = do
     -- getParticipants returns 'Just res' it will always return 'Just
     -- res' unless key assumption is broken. But if it's broken,
     -- nothing else matters.
-    richmens <- takeParticipants
+    richmen <- takeParticipants
     certs <- getGlobalCertificates
     let ps = NE.fromList .
-                map vcVssKey . mapMaybe (`lookup` certs) . NE.toList $ richmens
+                map vcVssKey . mapMaybe (`lookup` certs) . NE.toList $ richmen
     let threshold = getThreshold $ length ps
     mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
     case mPair of

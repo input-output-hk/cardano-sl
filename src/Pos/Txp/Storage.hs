@@ -42,7 +42,7 @@ import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types               (Block, IdTxWitness, SlotId, Tx (..), TxWitness,
                                           Utxo, applyTxToUtxoPure', blockSlot, blockTxws,
                                           convertFrom', normalizeTxsPure', slotIdF,
-                                          verifyAndApplyTxsPure, verifyTxUtxoPure)
+                                          verifyAndApplyTxsOldPure, verifyTxUtxoPure)
 
 -- | Transaction-related state part, includes transactions, utxo and
 -- auxiliary structures needed for transaction processing.
@@ -93,7 +93,7 @@ txVerifyBlocks (fromIntegral -> toRollback) newChain = do
              -> (SlotId, [(WithHash Tx, TxWitness)])
              -> Either Text (Utxo, [[(WithHash Tx, TxWitness)]])
     verifyDo (utxo, accTxs) (slotId, txws) =
-        case verifyAndApplyTxsPure txws utxo of
+        case verifyAndApplyTxsOldPure txws utxo of
           Left reason         -> Left $ sformat eFormat slotId reason
           Right (txws',utxo') -> Right (utxo',txws':accTxs)
     eFormat =

@@ -49,48 +49,50 @@ module Pos.State.Storage
 
 import           Universum
 
-import           Control.Lens            (makeClassy, use, (.=), (^.))
-import           Control.Monad.TM        ((.=<<.))
-import           Data.Acid               ()
-import           Data.Default            (Default, def)
-import           Data.List.NonEmpty      (NonEmpty ((:|)))
-import           Data.Maybe              (fromJust)
-import           Data.SafeCopy           (SafeCopy (..), contain, safeGet, safePut)
-import           Data.Tagged             (untag)
-import           Formatting              (build, sformat, (%))
-import           Serokell.AcidState      ()
-import           Serokell.Util           (VerificationRes (..))
-import           System.Wlog             (WithLogger, logDebug)
+import           Control.Lens                 (makeClassy, use, (.=), (^.))
+import           Control.Monad.TM             ((.=<<.))
+import           Data.Acid                    ()
+import           Data.Default                 (Default, def)
+import           Data.List.NonEmpty           (NonEmpty ((:|)))
+import           Data.Maybe                   (fromJust)
+import           Data.SafeCopy                (SafeCopy (..), contain, safeGet, safePut)
+import           Data.Tagged                  (untag)
+import           Formatting                   (build, sformat, (%))
+import           Serokell.AcidState           ()
+import           Serokell.Util                (VerificationRes (..))
+import           System.Wlog                  (WithLogger, logDebug)
 
-import           Pos.Constants           (k)
-import           Pos.Crypto              (EncShare, ProxySecretKey, SecretKey, Threshold,
-                                          VssPublicKey)
-import           Pos.Genesis             (genesisUtxo)
-import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
-import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
-import           Pos.Ssc.Class.Types     (Ssc (..))
-import           Pos.State.Storage.Block (BlockStorage, HasBlockStorage (blockStorage),
-                                          blkCleanUp, blkCreateGenesisBlock,
-                                          blkCreateNewBlock, blkProcessBlock, blkRollback,
-                                          blkSetHead, getBestChain, getBlock,
-                                          getBlockByDepth, getChainPart, getHeadBlock,
-                                          getLeaders, getSlotDepth, mayBlockBeUseful,
-                                          mkBlockStorage)
-import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..),
-                                          ProcessTxRes (..), mkPBRabort)
-import           Pos.Txp.Storage         (HasTxStorage (txStorage), TxStorage,
-                                          filterLocalTxs, getOldestUtxo, getUtxo,
-                                          getUtxoByDepth, isTxVerified, processTx,
-                                          txApplyBlocks, txRollback, txStorageFromUtxo,
-                                          txVerifyBlocks)
-import           Pos.Types               (Address, Block, EpochIndex, EpochOrSlot (..),
-                                          GenesisBlock, IdTxWitness, MainBlock,
-                                          SlotId (..), SlotLeaders, Utxo, blockMpc,
-                                          blockTxs, epochIndexL, epochOrSlot,
-                                          flattenSlotId, gbHeader, getEpochOrSlot,
-                                          headerHashG, slotIdF, unflattenSlotId,
-                                          verifyTxAlone)
-import           Pos.Util                (AsBinary, readerToState, _neLast)
+import           Pos.Constants                (k)
+import           Pos.Crypto                   (EncShare, ProxySecretKey, SecretKey,
+                                               VssPublicKey)
+import           Pos.Genesis                  (genesisUtxo)
+import           Pos.Ssc.Class.Helpers        (SscHelpersClass (..))
+import           Pos.Ssc.Class.Storage        (HasSscStorage (..), SscStorageClass (..))
+import           Pos.Ssc.Class.Types          (Ssc (..))
+import           Pos.Ssc.GodTossing.Functions (getThreshold)
+import           Pos.State.Storage.Block      (BlockStorage,
+                                               HasBlockStorage (blockStorage), blkCleanUp,
+                                               blkCreateGenesisBlock, blkCreateNewBlock,
+                                               blkProcessBlock, blkRollback, blkSetHead,
+                                               getBestChain, getBlock, getBlockByDepth,
+                                               getChainPart, getHeadBlock, getLeaders,
+                                               getSlotDepth, mayBlockBeUseful,
+                                               mkBlockStorage)
+import           Pos.State.Storage.Types      (AltChain, ProcessBlockRes (..),
+                                               ProcessTxRes (..), mkPBRabort)
+import           Pos.Txp.Storage              (HasTxStorage (txStorage), TxStorage,
+                                               filterLocalTxs, getOldestUtxo, getUtxo,
+                                               getUtxoByDepth, isTxVerified, processTx,
+                                               txApplyBlocks, txRollback,
+                                               txStorageFromUtxo, txVerifyBlocks)
+import           Pos.Types                    (Address, Block, EpochIndex,
+                                               EpochOrSlot (..), GenesisBlock,
+                                               IdTxWitness, MainBlock, SlotId (..),
+                                               SlotLeaders, Utxo, blockMpc, blockTxs,
+                                               epochIndexL, epochOrSlot, flattenSlotId,
+                                               gbHeader, getEpochOrSlot, headerHashG,
+                                               slotIdF, unflattenSlotId, verifyTxAlone)
+import           Pos.Util                     (AsBinary, readerToState, _neLast)
 
 
 -- | Main cardano-sl state, combining sub-states into single one.
@@ -389,12 +391,6 @@ getParticipants epoch = do
     case (,) <$> mDepth <*> mUtxo of
         Nothing            -> return Nothing
         Just (depth, utxo) -> sscGetParticipants @ssc depth utxo
-
--- [CSL-103]: it shouldn't be here.
--- | Figure out the threshold (i.e. how many secret shares would be required
--- to recover each node's secret) using number of participants.
-getThreshold :: Integral a => a -> Threshold
-getThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
 
 -- slot such that data after it is used for MPC in given epoch
 mpcCrucialSlot :: EpochIndex -> SlotId

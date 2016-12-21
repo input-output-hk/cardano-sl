@@ -119,6 +119,9 @@ onStart = do
             sscRunLocalUpdate $ gtLocalCertificates %= insert ourAddr ourCert
             return ourCert
 
+-- CHECK: @isVssCertificateVerified
+-- Checks whether 'our' VSS certificate has been verified,
+-- i.e. is at least k blocks deep in the blockchain.
 isVssCertificateVerified :: forall m. WorkMode SscGodTossing m => m Bool
 isVssCertificateVerified = do
     (_, ourAddr) <- getOurPkAndAddr
@@ -136,6 +139,9 @@ getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
 getGtcVssCertificateVerified :: WorkMode SscGodTossing m => m (TVar Bool)
 getGtcVssCertificateVerified = gtcVssCertificateVerified . ncSscContext <$> getNodeContext
 
+-- CHECK: @onNewSlotSsc
+-- Checks whether 'our' VSS certificate has been verified
+-- (is at least k blocks deep in the blockchain) before starting VSS actions.
 onNewSlotSsc
     :: (WorkMode SscGodTossing m
        ,Bi Commitment
@@ -277,9 +283,6 @@ generateAndSetNewSecret sk epoch = do
               _ -> do
                 logError "Wrong participants list: can't deserialize"
                 return Nothing
-
--- pathToSecret :: WorkMode SscGodTossing m => m (Maybe FilePath)
--- pathToSecret = fmap (</> "secret") <$> (ncDbPath <$> getNodeContext)
 
 randomTimeInInterval
     :: WorkMode SscGodTossing m

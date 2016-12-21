@@ -4,6 +4,7 @@
 module Pos.Types.Address
        ( Address (..)
        , addressF
+       , addressDetailedF
        , checkPubKeyAddress
        , checkScriptAddress
        , makePubKeyAddress
@@ -20,7 +21,6 @@ module Pos.Types.Address
 import           Control.Lens           (view, _3)
 import           Crypto.Hash            (Blake2s_224, Digest, SHA3_256, hashlazy)
 import qualified Crypto.Hash            as CryptoHash
-import           Data.Aeson             (ToJSON (toJSON))
 import           Data.Bits              ((.|.))
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58,
                                          encodeBase58)
@@ -32,7 +32,7 @@ import           Data.Hashable          (Hashable (..))
 import           Data.List              (span)
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
-import           Formatting             (Format, build, sformat)
+import           Formatting             (Format, bprint, build, int, later, (%))
 import           Prelude                (String, readsPrec, show)
 import           Universum              hiding (show)
 
@@ -87,9 +87,6 @@ instance Bi Address => Buildable Address where
 
 instance NFData Address
 
-instance Bi Address => ToJSON Address where
-    toJSON = toJSON . sformat build
-
 instance Bi Address => Read Address where
     readsPrec _ str =
         let trimmedStr = dropWhile isSpace str
@@ -132,6 +129,14 @@ checkScriptAddress _ _                   = False
 -- | Specialized formatter for 'Address'.
 addressF :: Bi Address => Format r (Address -> r)
 addressF = build
+
+-- | A formatter showing guts of an 'Address'.
+addressDetailedF :: Format r (Address -> r)
+addressDetailedF = later $ \x -> case x of
+    PubKeyAddress ver keyHash ->
+        bprint ("PubKeyAddress v"%int%" "%build) ver keyHash
+    ScriptAddress ver scrHash ->
+        bprint ("ScriptAddress v"%int%" "%build) ver scrHash
 
 ----------------------------------------------------------------------------
 -- Hashing

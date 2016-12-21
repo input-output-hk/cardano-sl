@@ -6,7 +6,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-import Control.Monad (forM_, forM)
+import Control.Monad (forM_, forM, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.String (fromString)
 import Data.Binary
@@ -15,6 +15,7 @@ import qualified Data.Set as S
 import qualified Data.ByteString.Char8 as B8
 import Node
 import qualified Network.Transport.TCP as TCP
+import qualified Network.Transport.InMemory as InMemory
 import Network.Transport.Concrete (concrete)
 import Network.Discovery.Abstract
 import qualified Network.Discovery.Transport.Kademlia as K
@@ -41,9 +42,9 @@ workers id gen discovery = [pingWorker gen]
         where
         loop gen = do
             let (i, gen') = randomR (1000,2000000) gen
-            --putStrLn (show id ++ " is waiting for " ++ show i ++ "us before discovering peers and sending pings")
             delay i
-            _ <- discoverPeers discovery
+            peerSet_ <- knownPeers discovery
+            discoverPeers discovery
             peerSet <- knownPeers discovery
             liftIO . putStrLn $ show id ++ " has peer set: " ++ show peerSet
             forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) (fromString "ping") $
@@ -83,13 +84,18 @@ makeNode transport i = do
         }
     pure (node, discovery)
     where
-    makeId i = B8.pack ("node_identifier_" ++ show i)
+    makeId i
+        | i < 10 = B8.pack ("node_identifier_0" ++ show i)
+        | otherwise = B8.pack ("node_identifier_" ++ show i)
 
 main = runProduction $ do
 
     [arg0] <- liftIO getArgs
     let number = read arg0
 
+    when (number > 99 || number < 1) $ error "Give a number in [1,99]"
+
+    --transport_ <- liftIO $ InMemory.createTransport
     Right transport_ <- liftIO $ TCP.createTransport ("127.0.0.1") ("10128") TCP.defaultTCPParameters
     let transport = concrete transport_
 

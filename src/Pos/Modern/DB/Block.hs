@@ -8,9 +8,14 @@ module Pos.Modern.DB.Block
 
        , deleteBlock
        , putBlock
+       , loadLastNBlocksWithUndo
+       , getBlockWithUndo
+       , loadBlocksWithUndoWhile
        ) where
 
+import           Control.Lens            ((^.))
 import           Data.ByteArray          (convert)
+import           Data.List.NonEmpty      (NonEmpty (..), (<|))
 import           Universum
 
 import           Pos.Binary.Class        (Bi)
@@ -19,7 +24,7 @@ import           Pos.Modern.DB.Class     (MonadDB, getBlockDB)
 import           Pos.Modern.DB.Functions (rocksDelete, rocksGetBi, rocksPutBi)
 import           Pos.Modern.DB.Types     (StoredBlock (..))
 import           Pos.Ssc.Class.Types     (Ssc)
-import           Pos.Types               (Block, HeaderHash, Undo, headerHash)
+import           Pos.Types               (Block, HeaderHash, Undo, headerHash, prevBlockL)
 
 -- | Get StoredBlock by hash from Block DB.
 getStoredBlock
@@ -61,6 +66,29 @@ putBlock undo inMainChain blk = do
 
 deleteBlock :: (MonadDB ssc m) => HeaderHash ssc -> m ()
 deleteBlock = delete . blockKey
+
+loadLastNBlocksWithUndo :: (Ssc ssc, MonadDB ssc m)
+                        => HeaderHash ssc -> Word -> m (NonEmpty (Block ssc, Undo))
+loadLastNBlocksWithUndo _    0 = panic "Number of blocks must be nonzero"
+loadLastNBlocksWithUndo hash 1 = (:| []) <$> getBlockWithUndo hash
+loadLastNBlocksWithUndo hash n = do
+    bu@(b, _) <- getBlockWithUndo hash
+    (bu<|) <$> loadLastNBlocksWithUndo (b ^. prevBlockL) (n - 1)
+
+getBlockWithUndo :: (Ssc ssc, MonadDB ssc m)
+                 => HeaderHash ssc -> m (Block ssc, Undo)
+getBlockWithUndo hash =
+    fromMaybe (panic "getBlockWithUndo: no block or undo with such HeaderHash") <$>
+    (liftA2 (,) <$> getBlock hash <*> getUndo hash)
+
+loadBlocksWithUndoWhile :: (Ssc ssc, MonadDB ssc m)
+                        => HeaderHash ssc -> (Block ssc -> Bool) -> m [(Block ssc, Undo)]
+loadBlocksWithUndoWhile hash predicate = do
+    bu@(b, _) <- getBlockWithUndo hash
+    if predicate b then
+        (bu:) <$> loadBlocksWithUndoWhile (b ^. prevBlockL) predicate
+    else
+        return []
 
 ----------------------------------------------------------------------------
 -- Helpers

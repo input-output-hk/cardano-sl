@@ -180,6 +180,8 @@ library
                         Pos.Modern.Ssc.GodTossing.Functions
                         Pos.Ssc.Extra.LocalData
                         Pos.Ssc.Extra.Holder
+                        Pos.Modern.Ssc.GodTossing.Secret.SecretStorage
+                        Pos.Modern.Ssc.GodTossing.Secret.Types
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions

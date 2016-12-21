@@ -137,7 +137,7 @@ toRocksOp (PutTip h)            = Rocks.Put tipKey (encodeStrict h)
 toRocksOp (PutTotal c)          = Rocks.Put sumKey (encodeStrict c)
 
 tipKey :: ByteString
-tipKey = "tip"
+tipKey = "btip"
 
 utxoKey :: TxIn -> ByteString
 utxoKey = (<>) "t" . encodeStrict

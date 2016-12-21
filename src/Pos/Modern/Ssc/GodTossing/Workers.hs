@@ -82,7 +82,9 @@ import           Pos.Types                                     (Address (..), Ep
 import           Pos.Util                                      (asBinary)
 import           Pos.WorkMode                                  (WorkMode)
 
-type MyWorkMode ssc m = (WorkMode ssc m, MonadSscLDM ssc m, SscHelpersClassM ssc)
+type MyWorkMode ssc m = ( WorkMode ssc m
+                        , MonadSscLDM ssc m
+                        , SscHelpersClassM ssc)
 
 instance (Bi VssCertificate
          ,Bi Opening
@@ -92,8 +94,7 @@ instance (Bi VssCertificate
          ,Bi InvMsg
          ,Bi GtProof) =>
          SscWorkersClass SscGodTossing where
-    --sscWorkers = Tagged [onStart, onNewSlotSsc]
-    sscWorkers = Tagged []
+    sscWorkers = Tagged [onStart, onNewSlotSsc]
 
 -- CHECK: @onStart
 -- Checks whether 'our' VSS certificate has been announced

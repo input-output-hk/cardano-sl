@@ -10,7 +10,7 @@
 -- | Block processing related workers.
 
 module Pos.Block.Worker
-       (
+       ( lpcOnNewSlot
        ) where
 
 import           Control.Monad.State          (get)
@@ -30,6 +30,7 @@ import           Pos.FollowTheSatoshi         (followTheSatoshiM)
 import           Pos.Modern.DB.Block          (loadBlocksWithUndoWhile)
 import           Pos.Modern.DB.DBIterator     ()
 import           Pos.Modern.DB.Utxo           (iterateByUtxo, mapUtxoIterator)
+import           Pos.Ssc.Class.Helpers        (sscCalculateSeed)
 import           Pos.Ssc.GodTossing.Functions (getThreshold)
 import           Pos.Types                    (Address, Coin, EpochOrSlot (..),
                                                Participants, SlotId (..), TxIn,
@@ -48,8 +49,7 @@ lpcOnNewSlot SlotId{siSlot = slotId, siEpoch = epochId} = withBlkSemaphore $ \ti
         -- [CSL-93] Use eligibility threshold here
         richmen <- getRichmen 0
         let threshold = getThreshold $ length richmen -- no, its wrong.....
-        --mbSeed <- sscCalculateSeed siEpoch threshold -- SscHelperClassM needded
-        let mbSeed = notImplemented
+        mbSeed <- sscCalculateSeed epochId threshold -- SscHelperClassM needded
         leaders <-
             case mbSeed of
               Left e     -> panic "SSC couldn't compute seed"

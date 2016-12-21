@@ -25,14 +25,13 @@ import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkSemaphore)
 import           Pos.Constants            (k)
 import           Pos.Context              (getNodeContext)
-import           Pos.Context.Context      (ncSscLeaders, ncSscParticipants)
+import           Pos.Context.Context      (ncSscLeaders, ncSscRichmen)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
 import           Pos.Modern.DB.Block      (loadBlocksWithUndoWhile)
 import           Pos.Modern.DB.DBIterator ()
 import           Pos.Modern.DB.Utxo       (getTotalCoins)
 import           Pos.Modern.DB.Utxo       (iterateByUtxo, mapUtxoIterator)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
-import           Pos.Ssc.GodTossing       (getThreshold)
 import           Pos.Types                (Address, Coin, EpochOrSlot (..), Participants,
                                            SlotId (..), TxIn, TxOut (..), getEpochOrSlot)
 import           Pos.WorkMode             (WorkMode)
@@ -48,20 +47,19 @@ lpcOnNewSlot SlotId{siSlot = slotId, siEpoch = epochId} = withBlkSemaphore $ \ti
         rollbackBlocks blockUndos
         -- [CSL-93] Use eligibility threshold here
         richmen <- getRichmen 0
-        let threshold = getThreshold $ length richmen -- no, its wrong.....
-        mbSeed <- sscCalculateSeed epochId threshold
+        nc <- getNodeContext
+        let clearMVar = liftIO . void . tryTakeMVar
+        clearMVar $ ncSscRichmen nc
+        liftIO $ putMVar (ncSscRichmen nc) richmen
+        mbSeed <- sscCalculateSeed epochId
         totalCoins <- getTotalCoins
         leaders <-
             case mbSeed of
               Left e     -> panic $ sformat ("SSC couldn't compute seed: "%build) e
               Right seed -> mapUtxoIterator @(TxIn, TxOut) @TxOut
                             (followTheSatoshiM seed totalCoins) snd
-        nc <- getNodeContext
-        let clearMVar = liftIO . void . tryTakeMVar
         clearMVar $ ncSscLeaders nc
-        clearMVar $ ncSscParticipants nc
         liftIO $ putMVar (ncSscLeaders nc) leaders
-        liftIO $ putMVar (ncSscParticipants nc) richmen
         applyBlocks (map fst blockUndos)
     else
         logDebug $ "It is too early compute leaders and parts"

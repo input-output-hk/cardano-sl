@@ -130,6 +130,6 @@ instance SscStorageClassM SscNistBeacon where
     sscApplyBlocksM _ = pure ()
     sscRollbackM _ = pure ()
     sscVerifyBlocksM _ = pure mempty
-    sscCalculateSeedM epoch  _ =
+    sscCalculateSeedM =
         pure . Right . coerce . ByteArray.convert @_ @ByteString .
-            Hash.hashlazy @SHA256 . encode $ epoch
+            Hash.hashlazy @SHA256 . encode

@@ -29,7 +29,7 @@ import           Control.TimeWarp.Rpc    (ResponseT)
 import           Serokell.Util           (VerificationRes)
 import           Universum
 
-import           Pos.Crypto              (Threshold)
+import           Pos.Context             (WithNodeContext)
 import           Pos.DHT.Model.Class     (DHTResponseT)
 import           Pos.DHT.Real            (KademliaDHT)
 import           Pos.Ssc.Class.Storage   (SscStorageClassM (..))
@@ -70,11 +70,17 @@ sscRunGlobalModify
     => State (SscGlobalStateM ssc) a -> m a
 sscRunGlobalModify upd = modifyGlobalState $ runState upd
 
+sscRunImpureQuery
+    :: forall ssc m a.
+       (MonadSscGS ssc m)
+    => ReaderT (SscGlobalStateM ssc) m a -> m a
+sscRunImpureQuery query = runReaderT query =<< getGlobalState @ssc
+
 sscCalculateSeed
     :: forall ssc m.
-       (MonadSscGS ssc m, SscStorageClassM ssc)
-    => EpochIndex -> Threshold -> m (Either (SscSeedError ssc) SharedSeed)
-sscCalculateSeed e = sscRunGlobalQuery . sscCalculateSeedM @ssc e
+       (MonadSscGS ssc m, SscStorageClassM ssc, MonadIO m, WithNodeContext ssc m)
+    => EpochIndex -> m (Either (SscSeedError ssc) SharedSeed)
+sscCalculateSeed = sscRunImpureQuery . sscCalculateSeedM @ssc
 
 sscApplyBlocks
     :: forall ssc m.

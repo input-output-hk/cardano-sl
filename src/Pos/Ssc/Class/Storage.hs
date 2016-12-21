@@ -16,6 +16,7 @@ module Pos.Ssc.Class.Storage
          -- * Modern
          SscStorageClassM (..)
        , SscGlobalQueryM
+       , SscImpureQueryM
        , SscGlobalUpdateM
 
          -- * Old
@@ -32,6 +33,7 @@ import           Data.SafeCopy           (SafeCopy)
 import           Serokell.Util.Verify    (VerificationRes)
 import           Universum
 
+import           Pos.Context.Class       (WithNodeContext)
 import           Pos.Crypto              (EncShare, Threshold, VssPublicKey)
 import           Pos.Modern.DB.Class     (MonadDB)
 import           Pos.Ssc.Class.Types     (Ssc (..))
@@ -46,6 +48,11 @@ import           Pos.Util                (AsBinary)
 
 type SscGlobalQueryM ssc a =  forall m . (MonadReader (SscGlobalStateM ssc) m) => m a
 type SscGlobalUpdateM ssc a = forall m . (MonadState (SscGlobalStateM ssc) m) => m a
+
+type SscImpureQueryM ssc a = forall m. ( MonadReader (SscGlobalStateM ssc) m
+                                       , WithNodeContext ssc m
+                                       , MonadIO m) =>
+                                       m a
 
 class Ssc ssc => SscStorageClassM ssc where
     sscLoadGlobalState :: (MonadDB ssc m) => HeaderHash ssc -> m (SscGlobalStateM ssc)
@@ -63,8 +70,8 @@ class Ssc ssc => SscStorageClassM ssc where
     -- if first argument isn't zero).
     sscVerifyBlocksM :: AltChain ssc -> SscGlobalQueryM ssc VerificationRes
 
-    sscCalculateSeedM :: EpochIndex -> Threshold ->
-                         SscGlobalQueryM ssc (Either (SscSeedError ssc) SharedSeed)
+    sscCalculateSeedM :: EpochIndex ->
+                         SscImpureQueryM ssc (Either (SscSeedError ssc) SharedSeed)
 
 ----------------------------------------------------------------------------
 -- Old

@@ -10,22 +10,23 @@ module Pos.Modern.Ssc.GodTossing.Helpers
 import           Control.Lens                            (view)
 import           Crypto.Random                           (drgNewSeed, seedNew, withDRG)
 import qualified Data.HashMap.Strict                     as HM
-import           Data.List                               (nub)
-import           Data.List.NonEmpty                      (NonEmpty)
-import qualified Data.List.NonEmpty                      as NE
+import           Data.List.NonEmpty                      (nonEmpty)
 import           Formatting                              (build, sformat, (%))
 import           System.Wlog                             (HasLoggerName, dispatchEvents,
                                                           getLoggerName, logWarning,
                                                           runPureLog, usingLoggerName)
 import           Universum
 
-import           Pos.Crypto                              (EncShare, Share, Threshold,
-                                                          VssKeyPair, VssPublicKey,
-                                                          decryptShare, toVssPublicKey)
-import           Pos.Ssc.Class.Storage                   (SscGlobalQueryM)
+import           Pos.Context.Class                       (readRichmen)
+import           Pos.Crypto                              (EncShare, Share, VssKeyPair,
+                                                          VssPublicKey, decryptShare,
+                                                          toVssPublicKey)
+import           Pos.Ssc.Class.Storage                   (SscGlobalQueryM,
+                                                          SscImpureQueryM)
 import           Pos.Ssc.Class.Types                     (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS                   (MonadSscGS, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Error                (SeedError)
+import           Pos.Ssc.GodTossing.Functions            (getThreshold)
 import           Pos.Ssc.GodTossing.Seed                 (calculateSeed)
 import           Pos.Ssc.GodTossing.Types.Base           (Commitment (..),
                                                           VssCertificate (..))
@@ -39,6 +40,7 @@ import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
                                                           gsShares, gsVssCertificates)
 
 type GSQuery a = SscGlobalQueryM SscGodTossing a
+type GSImpureQuery a = SscImpureQueryM SscGodTossing a
 
 -- | Get keys of nodes participating in an epoch. A node participates if,
 -- when there were 'k' slots left before the end of the previous epoch, both
@@ -46,31 +48,32 @@ type GSQuery a = SscGlobalQueryM SscGodTossing a
 --
 --   1. It was a stakeholder.
 --   2. It had already sent us its VSS key by that time.
-getParticipants
-    :: (SscGlobalStateM SscGodTossing ~ GtGlobalState)
-    => Word -> Utxo -> GSQuery (Maybe (NonEmpty (AsBinary VssPublicKey)))
-getParticipants depth utxo = do
-    mKeymap <- Just <$> view gsVssCertificates
-    --mKeymap <- fmap _gsVssCertificates <$> getGlobalMpcDataByDepth depth :
-    -- is it right? or we don't care about verified certs
-    return $
-        do keymap <- mKeymap
-           let stakeholders =
-                   nub $ map txOutAddress (toList utxo)
-           NE.nonEmpty $
-               map vcVssKey $ mapMaybe (`HM.lookup` keymap) stakeholders
+
+-- getParticipants
+--     :: (SscGlobalStateM SscGodTossing ~ GtGlobalState)
+--     => Word -> Utxo -> GSQuery (Maybe (NonEmpty (AsBinary VssPublicKey)))
+-- getParticipants depth utxo = do
+--     mKeymap <- Just <$> view gsVssCertificates
+--     --mKeymap <- fmap _gsVssCertificates <$> getGlobalMpcDataByDepth depth :
+--     -- is it right? or we don't care about verified certs
+--     return $
+--         do keymap <- mKeymap
+--            let stakeholders =
+--                    nub $ map txOutAddress (toList utxo)
 
 -- | Calculate leaders for the next epoch.
 calculateSeedQ
     :: (SscGlobalStateM SscGodTossing ~ GtGlobalState)
     => EpochIndex
-    -> Threshold
-    -> GSQuery (Either SeedError SharedSeed)
-calculateSeedQ _ threshold = do --GodTossing doesn't use epoch, but NistBeacon use it
-    calculateSeed threshold
-                  <$> view gsCommitments
-                  <*> view gsOpenings
-                  <*> view gsShares
+    -> GSImpureQuery (Either SeedError SharedSeed)
+calculateSeedQ _ = do
+    richmen <- readRichmen
+    keymap <- view gsVssCertificates
+    let participants =
+            nonEmpty $ map vcVssKey $ mapMaybe (`HM.lookup` keymap) $ toList richmen
+    let threshold = maybe (panic "No participants") (getThreshold . length) participants
+    calculateSeed threshold <$> view gsCommitments <*> view gsOpenings <*>
+        view gsShares
 
 ----------------------------------------------------------------------------
 -- Worker Helper

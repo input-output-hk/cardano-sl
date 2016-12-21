@@ -48,7 +48,6 @@ import qualified Pos.Modern.DB               as Modern
 import           Pos.Modern.Txp.Class        (MonadTxpLD (..))
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData     (MonadSscLD (..))
-import           Pos.Ssc.Class.Storage       (SscStorageClassM)
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLDM (..))
 import           Pos.State                   (MonadDB)
 import           Pos.Statistics.StatEntry    (StatLabel (..))

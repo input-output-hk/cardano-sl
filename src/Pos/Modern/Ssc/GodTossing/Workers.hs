@@ -35,7 +35,7 @@ import           Pos.Constants                                  (k, mpcSendInter
 import           Pos.Context                                    (getNodeContext,
                                                                  ncPublicKey, ncSecretKey,
                                                                  ncSscContext,
-                                                                 ncSscParticipants)
+                                                                 readRichmen)
 import           Pos.Crypto                                     (SecretKey, VssKeyPair,
                                                                  randomNumber,
                                                                  runSecureRandom,
@@ -75,7 +75,6 @@ import           Pos.Ssc.GodTossing.Types                       (Commitment, Dat
                                                                  gtcVssKeyPair)
 import           Pos.Types                                      (Address (..), EpochIndex,
                                                                  LocalSlotIndex,
-                                                                 Participants,
                                                                  SlotId (..),
                                                                  Timestamp (..),
                                                                  makePubKeyAddress)
@@ -265,7 +264,7 @@ generateAndSetNewSecret sk epoch = do
     -- getParticipants returns 'Just res' it will always return 'Just
     -- res' unless key assumption is broken. But if it's broken,
     -- nothing else matters.
-    richmen <- takeParticipants
+    richmen <- readRichmen
     certs <- getGlobalCertificates
     let ps = NE.fromList .
                 map vcVssKey . mapMaybe (`lookup` certs) . NE.toList $ richmen
@@ -306,6 +305,3 @@ waitUntilSend msgTag epoch kMultiplier = do
             sformat ("Waiting for "%shown%" before sending "%build)
                 ttwMillisecond msgTag
         wait $ for timeToWait
-
-takeParticipants :: WorkMode SscGodTossing m => m Participants
-takeParticipants = getNodeContext >>= liftIO . readMVar . ncSscParticipants

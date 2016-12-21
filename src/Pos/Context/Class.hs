@@ -14,6 +14,8 @@ module Pos.Context.Class
 
        , withProxyCaches
        , invalidateProxyCaches
+
+       , readRichmen
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
@@ -24,13 +26,12 @@ import qualified Data.HashMap.Strict     as HM
 import           Data.Time.Clock         (addUTCTime, getCurrentTime)
 import           Universum
 
-import           Pos.Context.Context     (NodeContext, ProxyCaches, ncBlkSemaphore,
-                                          ncProxyCaches, ncProxyConfCache,
+import           Pos.Context.Context     (NodeContext (ncBlkSemaphore, ncSscRichmen),
+                                          ProxyCaches, ncProxyCaches, ncProxyConfCache,
                                           ncProxyMsgCache)
 import           Pos.DHT.Model           (DHTResponseT)
 import           Pos.DHT.Real            (KademliaDHT)
-import           Pos.Types               (HeaderHash)
-
+import           Pos.Types               (HeaderHash, Participants)
 
 -- | Class for something that has 'NodeContext' inside.
 class WithNodeContext ssc m | m -> ssc where
@@ -96,3 +97,10 @@ invalidateProxyCaches = withProxyCaches $ \p -> do
     pure $ ((),) $
         p & ncProxyMsgCache %~ HM.filter (\t -> addUTCTime 60 t > curTime)
           & ncProxyConfCache %~ HM.filter (\t -> addUTCTime 500 t > curTime)
+
+-- | Read richmen from node context. This function blocks if
+-- participants are not available.
+readRichmen
+    :: (MonadIO m, WithNodeContext ssc m)
+    => m Participants
+readRichmen = getNodeContext >>= liftIO . readMVar . ncSscRichmen

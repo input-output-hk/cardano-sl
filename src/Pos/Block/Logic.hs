@@ -94,10 +94,13 @@ classifyHeaders
     => [BlockHeader ssc] -> m ClassifyHeaderRes
 classifyHeaders = notImplemented
 
+-- CHECK: @verifyBlocksLogic
 -- | Verify blocks received from network. Head is expected to be the
 -- oldest blocks. If parent of head is not our tip, verification
 -- fails. This function checks everything from block, including
 -- header, transactions, SSC data.
+--
+-- #txVerifyBlocks
 verifyBlocks
     :: WorkMode ssc m
     => NonEmpty (Block ssc) -> m VerificationRes

@@ -7,40 +7,58 @@ build-type:          Simple
 cabal-version:       >=1.20
 
 Library
- exposed-modules:      Network.Transport.Abstract
-                     , Network.Transport.Concrete
-                     , Node
-                     , Mockable.Class
-                     , Mockable.Concurrent
-                     , Mockable.Exception
-                     , Mockable.Channel
-                     , Mockable.SharedAtomic
- other-modules:        Node.Internal
- default-language:     Haskell2010
- build-depends:        base
-                     , containers
-                     , binary >= 0.8
-                     , bytestring
-                     , random
-                     , deepseq
-                     , hashable
-                     , network-transport
-                     , transformers
- hs-source-dirs:     src
+  exposed-modules:      Network.Discovery.Abstract
+                        Network.Discovery.Transport.InMemory
+                        Network.Discovery.Transport.Kademlia
+                        Network.Transport.Abstract
+                        Network.Transport.Concrete
+
+                        Node
+
+                        Mockable.Channel
+                        Mockable.Class
+                        Mockable.Concurrent
+                        Mockable.Exception
+                        Mockable.Production
+                        Mockable.SharedAtomic
+  other-modules:        Node.Internal
+
+  build-depends:        base
+                      , containers
+                      , binary >= 0.8
+                      , bytestring
+                      , random
+                      , deepseq
+                      , hashable
+                      , kademlia
+                      , network-transport
+                      , network-transport-inmemory
+                      , stm
+                      , transformers
+  hs-source-dirs:       src
+  default-language:     Haskell2010
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
 
 executable ping-pong
-  main-is:             PingPong.hs
-  build-depends:       base >= 4.8 && < 5
-                     , network-transport-inmemory
-                     , network-transport-tcp
-                     , node-sketch
-                     , random
+  main-is:              PingPong.hs
+  build-depends:        base >= 4.8 && < 5
+                      , binary
+                      , network-transport-inmemory
+                      , network-transport-tcp
+                      , node-sketch
+                      , random
 
-  hs-source-dirs:      examples
-  default-language:    Haskell2010
-  ghc-options:         -threaded -Wall -fno-warn-orphans
-  default-extensions:  DeriveGeneric
-                       DeriveDataTypeable
-                       GeneralizedNewtypeDeriving
-                       OverloadedStrings
-                       RecordWildCards
+  hs-source-dirs:       examples
+  default-language:     Haskell2010
+  ghc-options:          -threaded -Wall -fno-warn-orphans
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications

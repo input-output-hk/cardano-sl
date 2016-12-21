@@ -1,24 +1,24 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
+-- | This module contains in-memory implementation of Kademlia P2P-discovery.
 
-module Network.Discovery.Transport.InMemory (
+module Network.Discovery.Transport.InMemory
+       ( InMemoryDiscoveryErrorCode
+       , inMemoryDiscovery
+       ) where
 
-      inMemoryDiscovery
-    , InMemoryDiscoveryErrorCode
+import qualified Control.Concurrent.STM              as STM
+import qualified Control.Concurrent.STM.TVar         as TVar
+import           Control.Monad.IO.Class              (MonadIO, liftIO)
+import qualified Data.Map                            as M
+import           Data.Set                            (Set)
+import qualified Data.Set                            as S
+import           Data.Typeable                       (Typeable)
+import           GHC.Generics                        (Generic)
+import           Network.Transport.InMemory
+import           Network.Transport.InMemory.Internal (TransportState (..),
+                                                      ValidTransportState (..))
 
-    ) where
-
-import GHC.Generics (Generic)
-import Data.Typeable (Typeable)
-import Data.Set (Set)
-import qualified Data.Set as S
-import qualified Data.Map as M
-import Network.Discovery.Abstract
-import Network.Transport
-import Network.Transport.InMemory
-import qualified Control.Concurrent.STM as STM
-import qualified Control.Concurrent.STM.TVar as TVar
-import Control.Monad.IO.Class (MonadIO, liftIO)
+import           Network.Discovery.Abstract
+import           Network.Transport
 
 -- | An InMemory network transport can be used as a NetworkDiscovery. It takes
 --   addresses from the transport's internal state.

@@ -1,32 +1,29 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Network.Discovery.Transport.Kademlia (
+module Network.Discovery.Transport.Kademlia
+       ( K.Node (..)
+       , K.Peer (..)
+       , KademliaConfiguration (..)
+       , KademliaDiscoveryErrorCode (..)
+       , kademliaDiscovery
+       ) where
 
-      K.Node(..)
-    , K.Peer(..)
-    , KademliaConfiguration(..)
-    , kademliaDiscovery
-    , KademliaDiscoveryErrorCode(..)
-
-    ) where
-
-import GHC.Generics (Generic)
-import Control.Monad (forM)
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Data.Typeable (Typeable)
-import Data.Set (Set)
-import qualified Data.Set as S
-import qualified Data.Map.Strict as M
-import qualified Data.ByteString.Lazy as BL
-import Data.Word (Word16)
-import Data.Binary (encode, decodeOrFail, Binary)
-import Network.Discovery.Abstract
-import qualified Network.Kademlia as K
-import Network.Transport
-import qualified Control.Concurrent.STM as STM
+import qualified Control.Concurrent.STM      as STM
 import qualified Control.Concurrent.STM.TVar as TVar
+import           Control.Monad               (forM)
+import           Control.Monad.IO.Class      (MonadIO, liftIO)
+import           Data.Binary                 (Binary, decodeOrFail, encode)
+import qualified Data.ByteString.Lazy        as BL
+import qualified Data.Map.Strict             as M
+import           Data.Set                    (Set)
+import qualified Data.Set                    as S
+import           Data.Typeable               (Typeable)
+import           Data.Word                   (Word16)
+import           GHC.Generics                (Generic)
+import qualified Network.Kademlia            as K
+
+import           Network.Discovery.Abstract
+import           Network.Transport
 
 -- | Wrapper which provides a 'K.Serialize' instance for any type with a
 --   'Binary' instance.
@@ -35,7 +32,7 @@ newtype KSerialize i = KSerialize i
 
 instance Binary i => K.Serialize (KSerialize i) where
     fromBS bs = case decodeOrFail (BL.fromStrict bs) of
-        Left (_, _, str) -> Left str
+        Left (_, _, str)         -> Left str
         Right (unconsumed, _, i) -> Right (KSerialize i, BL.toStrict unconsumed)
     toBS (KSerialize i) = BL.toStrict . encode $ i
 
@@ -43,7 +40,7 @@ instance Binary i => K.Serialize (KSerialize i) where
 data KademliaConfiguration i = KademliaConfiguration {
       kademliaPort :: Word16
       -- ^ The port on which to run the server (it's UDP)
-    , kademliaId :: i
+    , kademliaId   :: i
       -- ^ Some value to use as the identifier for this node. To use it, it must
       --   have a 'Binary' instance. You may want to take a random value, and
       --   it should serialize to something long enough for your expected
@@ -60,7 +57,7 @@ data KademliaConfiguration i = KademliaConfiguration {
 --   been joined.
 kademliaDiscovery
     :: forall m i .
-       ( MonadIO m, Binary i, Ord i )
+       (MonadIO m, Binary i, Ord i, Show i)
     => KademliaConfiguration i
     -> K.Node i
     -- ^ A known peer, necessary in order to join the network.
@@ -152,7 +149,7 @@ kademliaLookupEndPointAddresses kademliaInst recordedPeers currentPeers = do
     pure $ M.fromList assoc
   where
   isJust (Just _) = True
-  isJust _ = False
+  isJust _        = False
 
 -- | Look up the 'EndPointAddress' for a given node. The host and port of
 --   the node are known, along with its Kademlia identifier, but the
@@ -174,7 +171,7 @@ kademliaLookupEndPointAddress kademliaInst recordedPeers peer@(K.Node _ id) =
         Nothing -> do
             outcome <- K.lookup kademliaInst id
             pure $ case outcome of
-                Nothing -> Nothing
+                Nothing                              -> Nothing
                 Just (KSerialize endPointAddress, _) -> Just endPointAddress
         Just address -> pure (Just address)
 

@@ -1,9 +1,19 @@
 resolver: lts-7.13
+
 packages:
   - '.'
+  - location:
+      git: https://github.com/serokell/kademlia.git
+      commit: 062053ed11b92c8e25d4d61ea943506fd0482fa6
+    extra-dep: true
+
+extra-deps:
+  - network-transport-inmemory-0.5.2
+
 nix:
   enable: false
   packages: []
-extra-deps: []
+
+
 flags: {}
 extra-package-dbs: []

@@ -51,7 +51,7 @@ handleGetHeaders
     :: forall ssc m.
        (ResponseMode ssc m)
     => MsgGetHeaders ssc -> m ()
-handleGetHeaders MsgGetHeaders {..} = pass
+handleGetHeaders MsgGetHeaders {..} = notImplemented
 
 handleGetBlocks
     :: forall ssc m.

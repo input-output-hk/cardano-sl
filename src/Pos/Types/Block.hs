@@ -25,6 +25,7 @@ module Pos.Types.Block
        , verifyGenericBlock
        -- , verifyGenericHeader
        , verifyHeader
+       , verifyHeaders
        ) where
 
 import           Control.Lens         (ix, view, (^.), (^?), _3)
@@ -250,13 +251,13 @@ verifyHeader VerifyHeaderParams {..} h =
     checkHash expectedHash actualHash =
         ( expectedHash == actualHash
         , sformat
-              ("inconsistent hash (expected " %build % ", found" %build % ")")
+              ("inconsistent hash (expected "%build%", found"%build%")")
               expectedHash
               actualHash)
     checkDifficulty expectedDifficulty actualDifficulty =
         ( expectedDifficulty == actualDifficulty
         , sformat
-              ("incorrect difficulty (expected " %int % ", found " %int % ")")
+              ("incorrect difficulty (expected "%int%", found "%int%")")
               expectedDifficulty
               actualDifficulty)
     checkSlot :: EpochOrSlot
@@ -265,7 +266,7 @@ verifyHeader VerifyHeaderParams {..} h =
     checkSlot oldSlot newSlot =
         ( oldSlot < newSlot
         , sformat
-              ("slots are not monotonic (" %build% " > " %build% ")")
+              ("slots are not monotonic ("%build%" > "%build%")")
               oldSlot newSlot
         )
     sameEpoch oldEpoch newEpoch =
@@ -323,6 +324,17 @@ verifyHeader VerifyHeaderParams {..} h =
                      ix (fromIntegral $ siSlot $ mainHeader ^. headerSlot))
                   , "block's leader is different from expected one")
                 ]
+
+-- | Verifies a set of block headers, where head is the newest one.
+verifyHeaders
+    :: BiSsc ssc
+    => Bool -> [BlockHeader ssc] -> VerificationRes
+verifyHeaders _ [] = mempty
+verifyHeaders checkConsensus headers@(_:xh) = mconcat verified
+  where
+    verified = map (\(cur,prev) -> verifyHeader (toVHP prev) cur) $ headers `zip` xh
+    toVHP p = def { vhpVerifyConsensus = checkConsensus
+                  , vhpPrevHeader = Just p }
 
 -- CHECK: @verifyGenericBlock
 -- | Perform cheap checks of GenericBlock, which can be done using

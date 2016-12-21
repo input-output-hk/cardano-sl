@@ -71,6 +71,8 @@ module Pos.Types.Types
        , MainBlockchain
        , MainBlockHeader
        , BiSsc
+       , ProxySigEpoch
+       , ProxySKEpoch
        , BlockSignature (..)
        , ChainDifficulty (..)
        , MainToSign
@@ -155,8 +157,8 @@ import           Pos.Binary.Address     ()
 import           Pos.Binary.Class       (Bi)
 import           Pos.Binary.Script      ()
 import           Pos.Constants          (sharedSeedLength)
-import           Pos.Crypto             (Hash, ProxySignature, PublicKey, Signature,
-                                         VssPublicKey, hash, hashHexF, shortHashF)
+import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
+                                         Signature, hash, hashHexF, shortHashF)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Script             (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
@@ -476,14 +478,20 @@ newtype ChainDifficulty = ChainDifficulty
 -- | Constraint for data to be signed in main block.
 type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
 
--- TODO replace _mcdSignature with this
+-- | Proxy signature used in csl -- holds a pair of epoch
+-- indices. Block is valid if it's epoch index is inside this range.
+type ProxySigEpoch a = ProxySignature (EpochIndex, EpochIndex) a
+
+-- | Same alias for the proxy secret key (see 'ProxySigEpoch').
+type ProxySKEpoch = ProxySecretKey (EpochIndex, EpochIndex)
+
 -- | Signature of the block. Can be either regular signature from the
 -- issuer or delegated signature having a constraint on epoch indices
 -- (it means the signature is valid only if block's slot id has epoch
 -- inside the constrained interval).
 data BlockSignature ssc
     = BlockSignature (Signature (MainToSign ssc))
-    | BlockPSignature (ProxySignature (EpochIndex, EpochIndex) (MainToSign ssc))
+    | BlockPSignature (ProxySigEpoch (MainToSign ssc))
     deriving Show
 
 instance Buildable (BlockSignature ssc) where

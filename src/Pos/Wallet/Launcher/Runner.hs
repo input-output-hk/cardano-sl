@@ -22,6 +22,7 @@ import           Pos.DHT.Real                 (KademliaDHTInstance)
 import           Pos.Launcher                 (BaseParams (..), LoggingParams (..),
                                                addDevListeners, runKDHT, runOurDialog,
                                                setupLoggers)
+import           Pos.Ssc.GodTossing           (SscGodTossing)
 
 import           Pos.Wallet.Context           (ctxFromParams, runContextHolder)
 import           Pos.Wallet.KeyStorage        (runKeyStorage)
@@ -33,13 +34,13 @@ import           Pos.Wallet.WalletMode        (SState, WalletMode, WalletRealMod
 -- TODO: Move to some `Pos.Wallet.Communication` and provide
 -- meaningful listeners
 allListeners
-    :: (MonadDHTDialog SState m, WalletMode m)
+    :: (MonadDHTDialog SState m, WalletMode SscGodTossing m)
     => [ListenerDHT SState m]
 allListeners = []
 
 -- TODO: Move to some `Pos.Wallet.Worker` and provide
 -- meaningful ones
-allWorkers :: WalletMode m => [m ()]
+allWorkers :: WalletMode ssc m => [m ()]
 allWorkers = []
 
 -- | WalletMode runner.
@@ -59,7 +60,7 @@ runWalletReal
     -> IO ()
 runWalletReal inst wp  = runWalletRealMode inst wp . runWallet
 
-runWallet :: WalletMode m => [m ()] -> m ()
+runWallet :: WalletMode ssc m => [m ()] -> m ()
 runWallet plugins = do
     logInfo "Wallet is initialized!"
     peers <- discoverPeers DHTFull

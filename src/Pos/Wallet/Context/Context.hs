@@ -3,8 +3,10 @@
 module Pos.Wallet.Context.Context
        ( WalletContext (..)
        , ctxFromParams
+       , fromNodeCtx
        ) where
 
+import           Pos.Context               (NodeContext (..))
 import           Pos.Types                 (Timestamp)
 import           Universum
 
@@ -17,4 +19,9 @@ data WalletContext = WalletContext
 ctxFromParams :: WalletParams -> WalletContext
 ctxFromParams WalletParams {..} = WalletContext
     { wcSystemStart = wpSystemStart
+    }
+
+fromNodeCtx :: NodeContext ssc -> WalletContext
+fromNodeCtx NodeContext {..} = WalletContext
+    { wcSystemStart = ncSystemStart
     }

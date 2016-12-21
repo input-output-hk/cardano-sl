@@ -14,6 +14,7 @@ module Pos.Modern.DB.Utxo
        , iterateByUtxo
        , withUtxoIterator
        , mapUtxoIterator
+       , getFilteredUtxo
        ) where
 
 import qualified Database.RocksDB         as Rocks
@@ -27,7 +28,8 @@ import           Pos.Modern.DB.Error      (DBError (..))
 import           Pos.Modern.DB.Functions  (iterateByAllEntries, rocksDelete, rocksGetBi,
                                            rocksPutBi, rocksWriteBatch)
 import           Pos.Modern.DB.Types      (DB)
-import           Pos.Types                (HeaderHash, TxIn (..), TxOut, genesisHash)
+import           Pos.Types                (Address, HeaderHash, TxIn (..), TxOut, Utxo,
+                                           genesisHash)
 
 data BatchOp ssc = DelTxIn TxIn | AddTxOut TxIn TxOut | PutTip (HeaderHash ssc)
 
@@ -69,6 +71,10 @@ withUtxoIterator iter = withIterator iter =<< getUtxoDB
 mapUtxoIterator :: forall u v m ssc a . (MonadDB ssc m, MonadMask m)
                  => DBMapIterator (u->v) m a -> (u->v) -> m a
 mapUtxoIterator iter f = mapIterator @u @v iter f =<< getUtxoDB
+
+-- | Get small sub-utxo containing only outputs of given address
+getFilteredUtxo :: MonadDB ssc m => Address -> m Utxo
+getFilteredUtxo = undefined
 
 ----------------------------------------------------------------------------
 -- Helpers

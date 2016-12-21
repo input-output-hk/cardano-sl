@@ -54,6 +54,7 @@ library
                         Pos.DHT.Real.Types
                         Pos.FollowTheSatoshi
                         Pos.Script
+                        Pos.Script.Examples
                         Pos.Ssc.Class
                         Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon
@@ -140,6 +141,7 @@ library
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
+                        Pos.Crypto.AsBinary
                         Pos.Crypto.Hashing
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
@@ -156,6 +158,7 @@ library
                         Pos.Modern.DB.Error
                         Pos.Modern.DB.Functions
                         Pos.Modern.DB.Holder
+                        Pos.Modern.DB.Misc
                         Pos.Modern.DB.Types
                         Pos.Modern.DB.Utxo
                         Pos.Modern.DB.DBIterator
@@ -221,6 +224,7 @@ library
                         Pos.Web.Types
   if flag(with-wallet)
     other-modules:      Pos.Wallet.Tx
+                        Pos.Wallet.Tx.Pure
                         Pos.Wallet.WalletMode
                         Pos.Wallet.Launcher
                         Pos.Wallet.Launcher.Runner
@@ -242,6 +246,9 @@ library
                         Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Server
+                        Pos.Wallet.Web.Server.Methods
+                        Pos.Wallet.Web.Server.Full
+                        Pos.Wallet.Web.Server.Lite
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.Holder
@@ -670,6 +677,8 @@ test-suite cardano-test
                      , random
                      , safecopy
                      , serokell-util
+                     , regex-tdfa
+                     , regex-tdfa-text
                      , time-units
                      , time-warp
                      , universum >= 0.1.11

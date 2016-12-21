@@ -64,7 +64,7 @@ import           Pos.Communication               (MutSocketState, SysStartReques
 import           Pos.Constants                   (RunningMode (..), defaultPeers,
                                                   isDevelopment, runningMode)
 import           Pos.Context                     (ContextHolder (..), NodeContext (..),
-                                                  defaultProxyStorage, runContextHolder)
+                                                  defaultProxyCaches, runContextHolder)
 import           Pos.DHT.Model                   (BiP (..), ListenerDHT, MonadDHT (..),
                                                   mapListenerDHT, sendToNeighbors)
 import           Pos.DHT.Model.Class             (DHTPacking, MonadDHTDialog)
@@ -265,7 +265,7 @@ runCH NodeParams {..} sscNodeContext act = do
     semaphore <- liftIO newEmptyMVar
     sscPart <- liftIO newEmptyMVar
     sscLeaders <- liftIO newEmptyMVar
-    proxyStorage <- liftIO $ newMVar defaultProxyStorage
+    proxyCaches <- liftIO $ newMVar defaultProxyCaches
     let ctx =
             NodeContext
             { ncSystemStart = npSystemStart
@@ -273,7 +273,7 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncTimeLord = npTimeLord
             , ncJLFile = jlFile
             , ncDbPath = npDbPath
-            , ncProxyStorage = proxyStorage
+            , ncProxyCaches = proxyCaches
             , ncSscContext = sscNodeContext
             , ncAttackTypes = npAttackTypes
             , ncAttackTargets = npAttackTargets

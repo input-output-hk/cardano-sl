@@ -16,6 +16,8 @@ module Pos.Types.Utxo.Functions
        , verifyAndApplyTxsOld'
        , convertTo'
        , convertFrom'
+       , belongsTo
+       , filterUtxoByAddr
        ) where
 
 import           Control.Lens         (over, _1)
@@ -27,8 +29,8 @@ import           Universum
 import           Pos.Binary.Types     ()
 import           Pos.Crypto           (WithHash (..))
 import           Pos.Types.Tx         (topsortTxs, verifyTx)
-import           Pos.Types.Types      (IdTxWitness, Tx (..), TxIn (..), TxOut (..),
-                                       TxWitness, Utxo)
+import           Pos.Types.Types      (Address, IdTxWitness, Tx (..), TxIn (..),
+                                       TxOut (..), TxWitness, Utxo)
 import           Pos.Types.Utxo.Class (MonadUtxo (..), MonadUtxoRead (utxoGet))
 
 -- | Find transaction input in Utxo assuming it is valid.
@@ -123,3 +125,11 @@ verifyAndApplyTxsOld'
     => [IdTxWitness] -> m (Either Text [IdTxWitness])
 verifyAndApplyTxsOld' txws =
     fmap convertFrom' <$> verifyAndApplyTxsOld (convertTo' txws)
+
+-- | A predicate for `TxOut` which selects outputs for given address
+belongsTo :: TxOut -> Address -> Bool
+out `belongsTo` addr = addr == txOutAddress out
+
+-- | Select only TxOuts for given addresses
+filterUtxoByAddr :: Address -> Utxo -> Utxo
+filterUtxoByAddr addr = M.filter (`belongsTo` addr)

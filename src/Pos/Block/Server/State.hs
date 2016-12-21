@@ -134,7 +134,7 @@ processBlockMsg (MsgBlock blk) var =
     processBlockDo (start, end) []
         | headerHash blk == start = processBlockFinally end []
         | otherwise = pure PBMunsolicited
-    processBlockDo (start, end) received@(lastReceived:_)
+    processBlockDo (start, end) received
         | blk ^. prevBlockL == start = processBlockFinally end received
         | otherwise = pure PBMunsolicited
     processBlockFinally end received

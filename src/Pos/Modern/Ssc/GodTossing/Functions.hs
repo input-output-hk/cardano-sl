@@ -12,7 +12,6 @@ module Pos.Modern.Ssc.GodTossing.Functions
 import qualified Data.HashMap.Strict                     as HM
 import           Universum
 
-import           Pos.Crypto                              (Threshold)
 import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..))
 import           Pos.Types.Types                         (Address (..))
 

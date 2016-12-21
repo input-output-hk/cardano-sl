@@ -59,6 +59,7 @@ module Pos.Types.Types
 
        , SharedSeed (..)
        , SlotLeaders
+       , Participants
 
        , Blockchain (..)
        , BodyProof (..)
@@ -384,6 +385,8 @@ instance Monoid SharedSeed where
 
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty Address
+
+type Participants = NonEmpty Address
 
 ----------------------------------------------------------------------------
 -- GenericBlock

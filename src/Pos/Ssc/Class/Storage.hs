@@ -176,7 +176,7 @@ class Ssc ssc => SscStorageClass ssc where
     sscGetParticipants :: Word -> Utxo ->
                           SscQuery ssc (Maybe (NonEmpty (AsBinary VssPublicKey)))
     sscCalculateLeaders :: EpochIndex -> Utxo -> Threshold ->
-                           SscQuery ssc (Either (SscSeedError ssc)  SlotLeaders)
+                           SscQuery ssc (Either (SscSeedError ssc) SlotLeaders)
 
 -- | Type constraint for actions to operate withing @SSC@ storage.
 type SscStorageMode ssc = (SscStorageClass ssc, SafeCopy ssc)

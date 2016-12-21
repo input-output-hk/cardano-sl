@@ -10,12 +10,13 @@ module Pos.Block.Logic
        , rollbackBlocks
        , verifyBlocks
        , withBlkSemaphore
+       , loadLastNBlocksWithUndo
        ) where
 
 import           Control.Lens           ((^.))
 import           Control.Monad.Catch    (onException)
 import           Data.Default           (Default (def))
-import           Data.List.NonEmpty     (NonEmpty)
+import           Data.List.NonEmpty     (NonEmpty ((:|)), (<|))
 import qualified Data.Text              as T
 import           Serokell.Util.Verify   (VerificationRes (..))
 import           Universum
@@ -137,3 +138,17 @@ rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Block ssc, Undo) -> m ()
 rollbackBlocks toRollback = do
     -- TODO: rollback SSC, maybe something else.
     txRollbackBlocks toRollback
+
+loadLastNBlocksWithUndo :: WorkMode ssc m
+                        => HeaderHash ssc -> Word -> m (NonEmpty (Block ssc, Undo))
+loadLastNBlocksWithUndo _    0 = panic "Number of blocks must be nonzero"
+loadLastNBlocksWithUndo hash 1 = (:| []) <$> getBlockWithUndo hash
+loadLastNBlocksWithUndo hash n = do
+    bu@(b, _) <- getBlockWithUndo hash
+    (bu<|) <$> loadLastNBlocksWithUndo (b ^. prevBlockL) (n - 1)
+
+getBlockWithUndo :: WorkMode ssc m
+                 => HeaderHash ssc -> m (Block ssc, Undo) --should it located in DB.Block?
+getBlockWithUndo hash =
+    fromMaybe (panic "getBlockWithUndo: no block or undo with such HeaderHash") <$>
+    (liftA2 (,) <$> DB.getBlock hash <*> DB.getUndo hash)

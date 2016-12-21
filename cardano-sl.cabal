@@ -121,6 +121,7 @@ library
                         Pos.Block.Server
                         Pos.Block.Server.State
                         Pos.Block.Server.Listeners
+                        Pos.Block.Worker
                         Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
@@ -140,6 +141,7 @@ library
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
+                        Pos.Crypto.AsBinary
                         Pos.Crypto.Hashing
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
@@ -159,6 +161,8 @@ library
                         Pos.Modern.DB.Misc
                         Pos.Modern.DB.Types
                         Pos.Modern.DB.Utxo
+                        Pos.Modern.DB.DBIterator
+                        Pos.Modern.Iterator
                         Pos.Modern.Txp.Class
                         Pos.Modern.Txp.Error
                         Pos.Modern.Txp.Storage

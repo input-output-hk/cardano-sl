@@ -13,7 +13,7 @@ module Pos.Worker.Block
        , blkWorkers
        ) where
 
-import           Control.Lens              (ix, view, (^.), (^?))
+import           Control.Lens              (ix, (^.), (^?))
 import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, wait)
 import qualified Data.HashMap.Strict       as HM
 import           Data.Tagged               (untag)

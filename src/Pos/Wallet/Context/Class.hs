@@ -15,9 +15,8 @@ import           Universum
 import qualified Pos.Context                as PC
 import           Pos.DHT.Model              (DHTResponseT)
 import           Pos.DHT.Real               (KademliaDHT)
-import qualified Pos.Modern.Ssc.Holder      as Modern
 import qualified Pos.Modern.Txp.Holder      as Modern
-import           Pos.Ssc.LocalData          (SscLDImpl (..))
+import           Pos.Ssc.Extra              (SscHolder (..), SscLDImpl (..))
 import           Pos.WorkMode               (TxLDImpl (..))
 
 import           Pos.Wallet.Context.Context (WalletContext, fromNodeCtx)
@@ -39,4 +38,4 @@ instance Monad m => WithWalletContext (PC.ContextHolder ssc m) where
 deriving instance (Monad m, WithWalletContext m) => WithWalletContext (TxLDImpl m)
 deriving instance (Monad m, WithWalletContext m) => WithWalletContext (SscLDImpl ssc m)
 deriving instance (Monad m, WithWalletContext m) => WithWalletContext (Modern.TxpLDHolder ssc m)
-deriving instance (Monad m, WithWalletContext m) => WithWalletContext (Modern.SscHolder ssc m)
+deriving instance (Monad m, WithWalletContext m) => WithWalletContext (SscHolder ssc m)

@@ -73,7 +73,7 @@ library
                         Pos.Ssc.Class.Workers
                         Pos.Ssc.Class.Listeners
                         Pos.Ssc.Class.LocalData
-                        Pos.Ssc.LocalData
+                        Pos.Ssc.Extra
                         Pos.State
                         Pos.State.Acidic
                         Pos.State.Holder
@@ -170,7 +170,6 @@ library
                         Pos.Modern.Txp.Storage.Types
                         Pos.Modern.Txp.Storage.UtxoView
                         Pos.Modern.Txp.Holder
-                        Pos.Modern.Ssc.Holder
                         Pos.Modern.Ssc.GodTossing.LocalData.LocalData
                         Pos.Modern.Ssc.GodTossing.LocalData.Types
                         Pos.Modern.Ssc.GodTossing.LocalData.Helpers
@@ -179,6 +178,10 @@ library
                         Pos.Modern.Ssc.GodTossing.Storage.Types
                         Pos.Modern.Ssc.GodTossing.Workers
                         Pos.Modern.Ssc.GodTossing.Functions
+                        Pos.Ssc.Extra.LocalData
+                        Pos.Ssc.Extra.Holder
+                        Pos.Modern.Ssc.GodTossing.Secret.SecretStorage
+                        Pos.Modern.Ssc.GodTossing.Secret.Types
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions

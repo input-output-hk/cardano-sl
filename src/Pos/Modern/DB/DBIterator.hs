@@ -28,11 +28,12 @@ import           Pos.Modern.Iterator     (MonadIterator (..))
 
 newtype DBIterator m a = DBIterator
     { getDBIterator :: ReaderT Rocks.Iterator m a
-    } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans)
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadThrow)
 
-instance (Bi k, Bi v, MonadIO m)
+instance (Bi k, Bi v, MonadIO m, MonadThrow m)
          => MonadIterator (DBIterator m) (k, v) where
-    nextItem = DBIterator ask >>= \it -> do
+    nextItem = do
+        it <- DBIterator ask
         kv <- Rocks.iterEntry it
         Rocks.iterNext it
         case kv of
@@ -48,17 +49,15 @@ instance (Bi k, Bi v, MonadIO m)
 
 newtype DBMapIterator f m a = DBMapIterator
     { getDBMapIterator :: ReaderT f (DBIterator m) a
-    } deriving (Functor, Applicative, Monad, MonadIO)
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow)
 
 instance MonadTrans (DBMapIterator f)  where
     lift x = DBMapIterator $ ReaderT $ const $ lift x
 
-instance (MonadIO m, MonadIterator (DBIterator m) u)
+instance (Monad m, MonadIterator (DBIterator m) u)
          => MonadIterator (DBMapIterator (u->v) m) v where
-    nextItem = DBMapIterator ask >>= \f ->
-        DBMapIterator $ ReaderT $ const $ (fmap f) <$> nextItem
-    curItem = DBMapIterator ask >>= \f ->
-        DBMapIterator $ ReaderT $ const $ (fmap f) <$> curItem
+    nextItem = DBMapIterator $ ReaderT $ \f -> fmap f <$> nextItem
+    curItem = DBMapIterator $ ReaderT $ \f -> fmap f <$> curItem
 
 withIterator :: forall b m ssc . (MonadIO m, MonadMask m)
              => DBIterator m b -> DB ssc -> m b

@@ -30,7 +30,7 @@ import           Universum
 
 import           Pos.Context                     (WithNodeContext)
 import           Pos.Slotting                    (MonadSlots (..))
-import           Pos.Ssc.Class.LocalData         (MonadSscLD (..))
+import           Pos.Ssc.Class.LocalData         (MonadSscLD (..), MonadSscLDM (..))
 import           Pos.Ssc.Class.Storage           (MonadSscGS (..), SscStorageClassM)
 import           Pos.State                       (MonadDB (..))
 import           Pos.Txp.LocalData               (MonadTxLD (..))
@@ -57,7 +57,8 @@ newtype TxpLDHolder ssc m a = TxpLDHolder
     { getTxpLDHolder :: ReaderT (TxpLDWrap ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
                 MonadCatch, MonadIO, HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
-                MonadDB ssc, CanLog, MonadMask, MonadTxLD, MonadSscLD ssc, MonadSscGS ssc, SscStorageClassM ssc)
+                MonadDB ssc, CanLog, MonadMask, MonadTxLD, MonadSscLD ssc, MonadSscGS ssc,
+                SscStorageClassM ssc, MonadSscLDM ssc)
 
 instance MonadTransfer s m => MonadTransfer s (TxpLDHolder ssc m)
 type instance ThreadId (TxpLDHolder ssc m) = ThreadId m
@@ -99,7 +100,7 @@ instance Monad m => WrappedM (TxpLDHolder ssc m) where
     type UnwrappedM (TxpLDHolder ssc m) = ReaderT (TxpLDWrap ssc) m
     _WrappedM = iso getTxpLDHolder TxpLDHolder
 
-instance MonadIO m => MonadUtxoRead (TxpLDHolder ssc m) where
+instance (MonadIO m, MonadThrow m) => MonadUtxoRead (TxpLDHolder ssc m) where
     utxoGet key = TxpLDHolder (asks utxoView) >>=
                    (atomically . STM.readTVar >=> UV.getTxOut key)
 

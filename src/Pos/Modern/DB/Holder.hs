@@ -52,7 +52,7 @@ deriving instance MonadResource m => MonadResource (DBHolder ssc m)
 
 type instance ThreadId (DBHolder ssc m) = ThreadId m
 
-instance MonadIO m =>
+instance (MonadIO m, MonadThrow m) =>
          MonadDB ssc (DBHolder ssc m) where
     getNodeDBs = DBHolder $ ask
     usingReadOptions opts l (DBHolder rdr)

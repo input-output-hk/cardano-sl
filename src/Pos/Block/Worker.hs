@@ -10,46 +10,54 @@
 -- | Block processing related workers.
 
 module Pos.Block.Worker
-       (
+       ( lpcOnNewSlot
        ) where
 
 import           Control.Monad.State          (get)
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.List.NonEmpty           as NE
+import           Formatting                   (build, sformat, (%))
 import           Serokell.Util.Exceptions     ()
 import           System.Wlog                  (logDebug)
 import           Universum
 
 import           Pos.Binary.Communication     ()
-import           Pos.Block.Logic              (applyBlocks, loadLastNBlocksWithUndo,
-                                               rollbackBlocks, withBlkSemaphore)
+import           Pos.Block.Logic              (applyBlocks, rollbackBlocks,
+                                               withBlkSemaphore)
 import           Pos.Constants                (k)
 import           Pos.Context                  (getNodeContext)
 import           Pos.Context.Context          (ncSscLeaders, ncSscParticipants)
 import           Pos.FollowTheSatoshi         (followTheSatoshiM)
+import           Pos.Modern.DB.Block          (loadBlocksWithUndoWhile)
 import           Pos.Modern.DB.DBIterator     ()
+import           Pos.Modern.DB.Utxo           (getTotalCoins)
 import           Pos.Modern.DB.Utxo           (iterateByUtxo, mapUtxoIterator)
+import           Pos.Ssc.Class.Helpers        (sscCalculateSeed)
 import           Pos.Ssc.GodTossing.Functions (getThreshold)
-import           Pos.Types                    (Address, Coin, Participants, SlotId (..),
-                                               TxIn, TxOut (..))
+import           Pos.Types                    (Address, Coin, EpochOrSlot (..),
+                                               Participants, SlotId (..), TxIn,
+                                               TxOut (..), getEpochOrSlot)
 import           Pos.WorkMode                 (WorkMode)
 
 lpcOnNewSlot :: WorkMode ssc m => SlotId -> m () --Leaders and Participants computation
-lpcOnNewSlot SlotId{..} = withBlkSemaphore $ \tip -> do
-    if siSlot == 0 then do
+lpcOnNewSlot SlotId{siSlot = slotId, siEpoch = epochId} = withBlkSemaphore $ \tip -> do
+    if slotId == 0 then do
         logDebug $ "It's time to compute leaders and parts"
-        blockUndos <- loadLastNBlocksWithUndo tip k
+        blockUndoList <- loadBlocksWithUndoWhile tip while5k
+        when (null blockUndoList) $
+            panic "No one block hasn't been generated during last k slots"
+        let blockUndos = NE.fromList blockUndoList
         rollbackBlocks blockUndos
         -- [CSL-93] Use eligibility threshold here
         richmen <- getRichmen 0
         let threshold = getThreshold $ length richmen -- no, its wrong.....
-        --mbSeed <- sscCalculateSeed siEpoch threshold -- SscHelperClassM needded
-        let mbSeed = notImplemented
+        mbSeed <- sscCalculateSeed epochId threshold
+        totalCoins <- getTotalCoins
         leaders <-
             case mbSeed of
-              Left e     -> panic "SSC couldn't compute seed"
+              Left e     -> panic $ sformat ("SSC couldn't compute seed: "%build) e
               Right seed -> mapUtxoIterator @(TxIn, TxOut) @TxOut
-                            (followTheSatoshiM seed notImplemented) snd --balance
+                            (followTheSatoshiM seed totalCoins) snd
         nc <- getNodeContext
         let clearMVar = liftIO . void . tryTakeMVar
         clearMVar $ ncSscLeaders nc
@@ -60,6 +68,11 @@ lpcOnNewSlot SlotId{..} = withBlkSemaphore $ \tip -> do
     else
         logDebug $ "It is too early compute leaders and parts"
     pure tip
+  where
+    while5k b = getEpochOrSlot b >= crucialSlot
+    crucialSlot = EpochOrSlot $ Right $
+                  if epochId == 0 then SlotId {siEpoch = 0, siSlot = 0}
+                  else SlotId {siEpoch = epochId - 1, siSlot = 5 * k - 1}
 
 -- | Second argument - T, min money.
 getRichmen :: forall ssc m . WorkMode ssc m => Coin -> m Participants

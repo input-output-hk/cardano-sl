@@ -14,17 +14,17 @@ module Pos.Modern.DB.Functions
        , rocksDecode
        ) where
 
-import           Control.Monad.Fail           (fail)
 import           Control.Monad.IfElse         (whileM)
 import           Control.Monad.TM             ((.>>=.))
 import           Control.Monad.Trans.Resource (MonadResource)
 import qualified Data.ByteString.Lazy         as BSL
 import           Data.Default                 (def)
 import qualified Database.RocksDB             as Rocks
-import           Formatting                   (formatToString, shown, string, (%))
+import           Formatting                   (sformat, shown, string, (%))
 import           Universum
 
 import           Pos.Binary.Class             (Bi, decodeFull, encodeStrict)
+import           Pos.Modern.DB.Error          (DBError (DBMalformed))
 import           Pos.Modern.DB.Types          (DB (..))
 
 -- | Open DB stored on disk.
@@ -39,18 +39,18 @@ rocksGetBytes key DB {..} = Rocks.get rocksDB rocksReadOpts key
 -- | Read serialized value from RocksDB using given key.
 rocksGetBi
     :: forall v m ssc.
-       (Bi v, MonadIO m)
+       (Bi v, MonadIO m, MonadThrow m)
     => ByteString -> DB ssc -> m (Maybe v)
 rocksGetBi key db = do
     bytes <- rocksGetBytes key db
     bytes .>>=. rocksDecode
 
-rocksDecode :: (Bi v, MonadIO m) => ByteString -> m v
+rocksDecode :: (Bi v, MonadIO m, MonadThrow m) => ByteString -> m v
 rocksDecode key = either onParseError pure . decodeFull . BSL.fromStrict $ key
   where
     onParseError msg =
-        liftIO . fail $
-        formatToString
+        throwM $ DBMalformed $
+        sformat
             ("rocksGetBi: stored value is malformed, key = " %shown %
               ", err: " %string)
             key

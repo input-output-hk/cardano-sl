@@ -100,7 +100,7 @@ instance Monad m => WrappedM (TxpLDHolder ssc m) where
     type UnwrappedM (TxpLDHolder ssc m) = ReaderT (TxpLDWrap ssc) m
     _WrappedM = iso getTxpLDHolder TxpLDHolder
 
-instance MonadIO m => MonadUtxoRead (TxpLDHolder ssc m) where
+instance (MonadIO m, MonadThrow m) => MonadUtxoRead (TxpLDHolder ssc m) where
     utxoGet key = TxpLDHolder (asks utxoView) >>=
                    (atomically . STM.readTVar >=> UV.getTxOut key)
 

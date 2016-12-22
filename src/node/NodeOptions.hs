@@ -9,7 +9,8 @@ module NodeOptions
        ) where
 
 import           Options.Applicative.Simple (Parser, auto, help, long, metavar, option,
-                                             simpleOptions, strOption, switch, value)
+                                             showDefault, simpleOptions, strOption,
+                                             switch, value)
 import           Serokell.Util.OptParse     (fromParsec)
 import           Universum
 
@@ -37,6 +38,12 @@ data Args = Args
 #ifdef WITH_WEB
     , enableWeb                 :: !Bool
     , webPort                   :: !Word16
+#ifdef WITH_WALLET
+    , enableWallet              :: !Bool
+    , walletPort                :: !Word16
+    , keyfilePath               :: !FilePath
+    , walletDbPath              :: !FilePath
+#endif
 #endif
     , commonArgs                :: !CLI.CommonArgs
     }
@@ -95,6 +102,26 @@ argsParser =
         (long "web" <>
          help "Run web server") <*>
     CLI.webPortOption 8080
+#ifdef WITH_WALLET
+    <*>
+    switch
+        (long "wallet" <>
+         help "Run wallet web api") <*>
+    option auto
+        (long "wallet-port" <>
+         metavar "PORT" <>
+         value 8090 <>
+         showDefault <>
+         help "Port for Daedalus Wallet API") <*>
+    strOption
+        (long "keyfile-path" <>
+         help "Path to the secret keys storage" <>
+         value "secret.key") <*>
+    strOption
+        (long "wallet-db-path" <>
+         help "Path to the wallet acid-state" <>
+         value "wallet-db")
+#endif
 #endif
     <*> CLI.commonArgsParser peerHelpMsg
   where

@@ -116,7 +116,7 @@ classifyHeaders
     => NonEmpty (BlockHeader ssc) -> m ClassifyHeaderRes
 classifyHeaders headers@(h:|hs) = do
     haveLast <- isJust <$> DB.getBlockHeader (hash $ NE.last headers)
-    let headersValid = (isVerSuccess $ verifyHeaders True $ h : hs) && haveLast
+    let headersValid = isVerSuccess $ verifyHeaders True $ h : hs
     if | not headersValid ->
              pure $ CHRinvalid "Header chain is invalid"
        | not haveLast ->

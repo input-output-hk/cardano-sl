@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
-{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DefaultSignatures     #-}
 {-# LANGUAGE FlexibleContexts      #-}
@@ -41,15 +40,15 @@ import qualified STMContainers.Map           as SM
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
-#ifdef WITH_ROCKS
-import qualified Pos.Modern.DB               as Modern
-import           Pos.Modern.Txp.Class        (MonadTxpLD (..))
-#endif
+import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DHT.Model               (DHTResponseT, MonadDHT,
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
+import qualified Pos.Modern.DB               as Modern
+import           Pos.Modern.Txp.Class        (MonadTxpLD (..))
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData     (MonadSscLD (..))
+import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLDM (..))
 import           Pos.State                   (MonadDB)
 import           Pos.Statistics.StatEntry    (StatLabel (..))
 import           Pos.Types                   (MonadUtxo, MonadUtxoRead)
@@ -87,11 +86,9 @@ newtype NoStatsT m a = NoStatsT
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog s p,
                MonadDHT, MonadMessageDHT s, MonadSlots, WithDefaultMsgHeader,
-               MonadJL, CanLog, MonadUtxoRead, MonadUtxo
-#ifdef WITH_ROCKS
-               , Modern.MonadDB ssc, MonadTxpLD ssc
-#endif
-               )
+               MonadJL, CanLog, MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc,
+               MonadTxpLD ssc, MonadSscGS ssc, MonadSscLDM ssc,
+               WithNodeContext ssc)
 
 instance Monad m => WrappedM (NoStatsT m) where
     type UnwrappedM (NoStatsT m) = m
@@ -138,21 +135,9 @@ newtype StatsT m a = StatsT
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog s p,
                MonadDHT, MonadMessageDHT s, MonadSlots, WithDefaultMsgHeader, MonadTrans,
-               MonadJL, CanLog, MonadUtxoRead, MonadUtxo
-#ifdef WITH_ROCKS
-               , Modern.MonadDB ssc
-#endif
+               MonadJL, CanLog, MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc, MonadTxpLD ssc,
+               MonadSscGS ssc, MonadSscLDM ssc, WithNodeContext ssc)
 
-               )
-
-#ifdef WITH_ROCKS
-instance MonadTxpLD ssc m => MonadTxpLD ssc (StatsT m) where
-    getUtxoView = lift getUtxoView
-    setUtxoView = lift . setUtxoView
-    getMemPool  = lift  getMemPool
-    setMemPool  = lift . setMemPool
-    modifyTxpLD = lift . modifyTxpLD
-#endif
 instance Monad m => WrappedM (StatsT m) where
     type UnwrappedM (StatsT m) = ReaderT StatsMap m
     _WrappedM = iso getStatsT StatsT

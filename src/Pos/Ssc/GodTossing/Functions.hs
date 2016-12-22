@@ -31,12 +31,16 @@ module Pos.Ssc.GodTossing.Functions
        -- * GtPayload
        , verifyGtPayload
        , filterLocalPayload
+
+       -- * Modern
+       , getThreshold
        ) where
 
 import           Control.Lens                   ((^.))
 import           Control.Monad.Fail             (MonadFail)
 import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
+import qualified Data.HashSet                   as HS (fromList, size)
 import           Data.Ix                        (inRange)
 import           Data.List.NonEmpty             (NonEmpty (..))
 import           Serokell.Util                  (VerificationRes, verifyGeneric)
@@ -46,9 +50,10 @@ import           Universum
 import           Pos.Binary.Class               (Bi)
 import           Pos.Binary.Crypto              ()
 import           Pos.Constants                  (k)
-import           Pos.Crypto                     (EncShare, Share, VssPublicKey, Secret,
-                                                 SecretKey, SecureRandom (..), Threshold,
-                                                 checkSig, genSharedSecret, getDhSecret,
+import           Pos.Crypto                     (EncShare, Secret, SecretKey,
+                                                 SecureRandom (..), Share, Threshold,
+                                                 VssPublicKey, checkSig, encShareId,
+                                                 genSharedSecret, getDhSecret,
                                                  secretToDhSecret, sign, toPublic,
                                                  verifyEncShare, verifySecretProof,
                                                  verifyShare)
@@ -62,8 +67,8 @@ import           Pos.Types.Types                (Address (..), EpochIndex, Local
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), checkPubKeyAddress,
                                                  headerSlot)
-import           Pos.Util                       (AsBinary, fromBinaryM, diffDoubleMap,
-                                                 asBinary)
+import           Pos.Util                       (AsBinary, asBinary, diffDoubleMap,
+                                                 fromBinaryM)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -137,7 +142,10 @@ hasVssCertificate addr = HM.member addr . _gsVssCertificates
 verifyCommitment :: Commitment -> Bool
 verifyCommitment Commitment {..} = fromMaybe False $ do
     extra <- fromBinaryM commExtra
-    all (verifyCommitmentDo extra) <$> traverse tupleFromBinaryM (HM.toList commShares)
+    commMap <- traverse tupleFromBinaryM (HM.toList commShares)
+    let encShares = map encShareId . toList <$> commMap
+    return $ all (verifyCommitmentDo extra) commMap &&
+        (length encShares) == (HS.size $ HS.fromList encShares)
   where
     verifyCommitmentDo extra = uncurry (verifyEncShare extra)
     tupleFromBinaryM
@@ -356,3 +364,12 @@ filterLocalPayload localPay GtGlobalState {..} =
                               _gsOpenings
                               _gsVssCertificates
                               (pkTo, pkFrom, share)) shares
+
+----------------------------------------------------------------------------
+-- Modern
+----------------------------------------------------------------------------
+
+-- | Figure out the threshold (i.e. how many secret shares would be required
+-- to recover each node's secret) using number of participants.
+getThreshold :: Integral a => a -> Threshold
+getThreshold len = fromIntegral $ len `div` 2 + len `mod` 2

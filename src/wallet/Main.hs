@@ -14,29 +14,22 @@ import           Data.List              ((!!))
 import           Formatting             (build, int, sformat, (%))
 import           Options.Applicative    (execParser)
 import           System.IO              (hFlush, stdout)
-import           Test.QuickCheck        (arbitrary, generate)
 import           Universum
 
 import qualified Pos.CLI                as CLI
 import           Pos.Communication      (sendProxySecretKey)
 import           Pos.Constants          (slotDuration)
-import           Pos.Crypto             (KeyPair (..), SecretKey, createProxySecretKey,
-                                         toPublic)
+import           Pos.Crypto             (SecretKey, createProxySecretKey, toPublic)
 import           Pos.DHT.Model          (DHTNodeType (..), dhtAddr, discoverPeers)
-import           Pos.Genesis            (genesisPublicKeys, genesisSecretKeys,
-                                         genesisUtxo)
+import           Pos.Genesis            (genesisPublicKeys, genesisSecretKeys)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
-                                         NodeParams (..), bracketDHTInstance,
-                                         runTimeSlaveReal, stakesDistr)
-import           Pos.Ssc.Class          (SscConstraint)
-import           Pos.Ssc.GodTossing     (GtParams (..), SscGodTossing)
-import           Pos.Ssc.NistBeacon     (SscNistBeacon)
+                                         bracketDHTInstance, runTimeSlaveReal)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 import           Pos.Types              (EpochIndex (..), makePubKeyAddress, txwF)
-import           Pos.Wallet             (WalletMode, WalletRealMode, getBalance,
-                                         runWallet, submitTx)
+import           Pos.Wallet             (WalletMode, WalletParams (..), WalletRealMode,
+                                         getBalance, runWalletReal, submitTx)
 #ifdef WITH_WEB
-import           Pos.Wallet.Web         (walletServeWeb)
+import           Pos.Wallet.Web         (walletServeWebLite)
 #endif
 
 import           Command                (Command (..), parseCommand)
@@ -44,7 +37,7 @@ import           WalletOptions          (WalletAction (..), WalletOptions (..), 
 
 type CmdRunner = ReaderT ([SecretKey], [NetworkAddress])
 
-evalCmd :: (WalletMode ssc m) => Command -> CmdRunner m ()
+evalCmd :: WalletMode ssc m => Command -> CmdRunner m ()
 evalCmd (Balance addr) = lift (getBalance addr) >>=
                          putText . sformat ("Current balance: "%int) >>
                          evalCommands
@@ -108,9 +101,6 @@ runWalletRepl WalletOptions{..} = do
 main :: IO ()
 main = do
     opts@WalletOptions {..} <- execParser optsInfo
-
-    KeyPair _ sk <- generate arbitrary
-    vssKeyPair <- generate arbitrary
     let logParams =
             LoggingParams
             { lpRunnerTag     = "smart-wallet"
@@ -156,17 +146,23 @@ main = do
                 , gtpDbPath     = Nothing
                 , gtpSscEnabled = False
                 , gtpVssKeyPair = vssKeyPair
+                WalletParams
+                { wpDbPath      = Just woDbPath
+                , wpRebuildDb   = woRebuildDb
+                , wpKeyFilePath = woKeyFilePath
+                , wpSystemStart = systemStart
+                , wpGenesisKeys = woDebug
+                , wpBaseParams  = baseParams
                 }
 
-            plugins :: SscConstraint ssc => [WalletRealMode ssc ()]
+            plugins :: [WalletRealMode ()]
             plugins = case woAction of
                 Repl          -> [runWalletRepl opts]
 #ifdef WITH_WEB
-                Serve webPort webDaedalusDbPath -> [walletServeWeb webDaedalusDbPath webPort]
+                Serve webPort webDaedalusDbPath -> [walletServeWebLite webDaedalusDbPath webPort]
 #endif
 
         case CLI.sscAlgo woCommonArgs of
             GodTossingAlgo -> putText "Using MPC coin tossing" *>
-                              runWallet @SscGodTossing inst plugins params gtParams "secret.key"
-            NistBeaconAlgo -> putText "Using NIST beacon" *>
-                              runWallet @SscNistBeacon inst plugins params () "secret.key"
+                              runWalletReal inst params plugins
+            NistBeaconAlgo -> putText "Wallet does not support NIST beacon!"

@@ -21,9 +21,10 @@ import qualified Pos.CLI                as CLI
 data WalletOptions = WalletOptions
     { woDbPath             :: !FilePath
     , woRebuildDb          :: !Bool
-    , woPort               :: !Word16     -- ^ DHT/Blockchain port
-    , woInitialPause       :: !Int     -- ^ Pause between connecting to network
-                                       -- and starting accepting commands (in slots)
+    , woPort               :: !Word16         -- ^ DHT/Blockchain port
+    , woInitialPause       :: !Int            -- ^ Pause between connecting to network
+                                             -- and starting accepting commands (in slots)
+    , woDebug              :: !Bool           -- ^ Run in debug mode (with genesis keys included)
     , woJLFile             :: !(Maybe FilePath)
     , woCommonArgs         :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
     , woAction             :: !WalletAction
@@ -72,6 +73,9 @@ optionsParser = WalletOptions
                   <> value 1
                   <> metavar "SLOTS_NUM"
                   <> help "Pause between connecting to network and starting accepting commands")
+<<<<<<< HEAD
+    <*> switch (long "debug"
+             <> help "Run in debug mode (with genesis keys included)")
     <*> CLI.optionalJSONPath
     <*> CLI.commonArgsParser "Initial DHT peer (may be many)"
     <*> actionParser

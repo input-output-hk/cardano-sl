@@ -1,5 +1,6 @@
-{-# LANGUAGE BangPatterns  #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TupleSections         #-}
 
 -- | Pure version of UTXO.
 
@@ -24,8 +25,8 @@ module Pos.Types.Utxo.Pure
        , applyTxToUtxoPure'
        , normalizeTxsPure
        , normalizeTxsPure'
-       , verifyAndApplyTxsPure
-       , verifyAndApplyTxsPure'
+       , verifyAndApplyTxsOldPure
+       , verifyAndApplyTxsOldPure'
        , verifyTxUtxoPure
        ) where
 
@@ -41,9 +42,9 @@ import           Pos.Crypto               (WithHash (..))
 import           Pos.Types.Types          (IdTxWitness, Tx, TxIn (..), TxWitness, Utxo)
 import           Pos.Types.Utxo.Class     (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Types.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', convertFrom',
-                                           convertTo', verifyAndApplyTxs,
-                                           verifyAndApplyTxs', verifyTxUtxo)
-
+                                           convertTo', verifyAndApplyTxsOld,
+                                           verifyAndApplyTxsOld', verifyTxUtxo)
+import           Pos.Util                 (eitherToVerRes)
 ----------------------------------------------------------------------------
 -- Reader
 ----------------------------------------------------------------------------
@@ -116,23 +117,31 @@ applyTxToUtxoPure tx = execUtxoState $ applyTxToUtxo tx
 applyTxToUtxoPure' :: IdTxWitness -> Utxo -> Utxo
 applyTxToUtxoPure' w = execUtxoState $ applyTxToUtxo' w
 
+-- CHECK: @TxUtxoPure
+-- #verifyTxUtxo
+
 -- | Pure version of verifyTxUtxo.
 verifyTxUtxoPure :: Utxo -> (Tx, TxWitness) -> VerificationRes
-verifyTxUtxoPure utxo txw = runUtxoReader (verifyTxUtxo txw) utxo
+verifyTxUtxoPure utxo txw = eitherToVerRes $ runUtxoReader (verifyTxUtxo txw) utxo
 
-verifyAndApplyTxsPure
+-- CHECK: @verifyAndApplyTxsOldPure
+-- #verifyAndApplyTxsOld
+verifyAndApplyTxsOldPure
     :: [(WithHash Tx, TxWitness)]
     -> Utxo
     -> Either Text ([(WithHash Tx, TxWitness)], Utxo)
-verifyAndApplyTxsPure txws utxo =
-    let (res, newUtxo) = runUtxoState (verifyAndApplyTxs txws) utxo
+verifyAndApplyTxsOldPure txws utxo =
+    let (res, newUtxo) = runUtxoState (verifyAndApplyTxsOld txws) utxo
     in (, newUtxo) <$> res
 
-verifyAndApplyTxsPure' :: [IdTxWitness] -> Utxo -> Either Text ([IdTxWitness], Utxo)
-verifyAndApplyTxsPure' txws utxo =
-    let (res, newUtxo) = runUtxoState (verifyAndApplyTxs' txws) utxo
+-- CHECK: @verifyAndApplyTxsOldPure'
+-- #verifyAndApplyTxsOld'
+verifyAndApplyTxsOldPure' :: [IdTxWitness] -> Utxo -> Either Text ([IdTxWitness], Utxo)
+verifyAndApplyTxsOldPure' txws utxo =
+    let (res, newUtxo) = runUtxoState (verifyAndApplyTxsOld' txws) utxo
     in (, newUtxo) <$> res
 
+-- CHECK: @normalizeTxsPure
 -- | Takes the set of transactions and utxo, returns only those
 -- transactions that can be applied inside. Bonus -- returns them
 -- sorted (topographically).
@@ -161,6 +170,8 @@ normalizeTxsPure = normGo []
                then result
                else normGo newResult newPending newUtxo
 
+-- CHECK: @normalizeTxsPure'
+-- #normalizeTxsPure
 normalizeTxsPure' :: [IdTxWitness] -> Utxo -> [IdTxWitness]
 normalizeTxsPure' tx utxo =
     let converted = convertTo' tx in

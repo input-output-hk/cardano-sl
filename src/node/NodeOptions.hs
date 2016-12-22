@@ -15,27 +15,30 @@ import           Universum
 
 import qualified Pos.CLI                    as CLI
 import           Pos.DHT.Model              (DHTKey)
+import           Pos.Security.Types         (AttackTarget, AttackType)
 
 
 data Args = Args
-    { dbPath             :: !FilePath
-    , rebuildDB          :: !Bool
-    , spendingGenesisI   :: !(Maybe Int)
-    , vssGenesisI        :: !(Maybe Int)
-    , spendingSecretPath :: !(Maybe FilePath)
-    , vssSecretPath      :: !(Maybe FilePath)
-    , port               :: !Word16
-    , supporterNode      :: !Bool
-    , dhtKey             :: !(Maybe DHTKey)
-    , timeLord           :: !Bool
-    , enableStats        :: !Bool
-    , jlPath             :: !(Maybe FilePath)
-    , memoryMode         :: !Bool
+    { dbPath                    :: !FilePath
+    , rebuildDB                 :: !Bool
+    , spendingGenesisI          :: !(Maybe Int)
+    , vssGenesisI               :: !(Maybe Int)
+    , spendingSecretPath        :: !(Maybe FilePath)
+    , vssSecretPath             :: !(Maybe FilePath)
+    , port                      :: !Word16
+    , supporterNode             :: !Bool
+    , dhtKey                    :: !(Maybe DHTKey)
+    , timeLord                  :: !Bool
+    , enableStats               :: !Bool
+    , jlPath                    :: !(Maybe FilePath)
+    , memoryMode                :: !Bool
+    , maliciousEmulationAttacks :: ![AttackType]
+    , maliciousEmulationTargets :: ![AttackTarget]
 #ifdef WITH_WEB
-    , enableWeb          :: !Bool
-    , webPort            :: !Word16
+    , enableWeb                 :: !Bool
+    , webPort                   :: !Word16
 #endif
-    , commonArgs         :: !CLI.CommonArgs
+    , commonArgs                :: !CLI.CommonArgs
     }
   deriving Show
 
@@ -48,7 +51,8 @@ argsParser =
     switch
         (long "rebuild-db" <>
          help
-             "If we DB already exist, discard it's contents and create new one from scratch") <*>
+             "If we DB already exist, discard it's contents and create new one from\
+             \ scratch") <*>
     optional
         (option
              auto
@@ -77,7 +81,14 @@ argsParser =
     CLI.optionalJSONPath <*>
     switch
         (long "memory-mode" <>
-         help "Run DB in memory mode")
+         help "Run DB in memory mode") <*>
+    many
+        (option (fromParsec CLI.attackTypeParser) $
+         long "attack" <> metavar "NoBlocks|NoCommitments"
+         <> help "Attack type to emulate") <*>
+    many
+        (option (fromParsec CLI.attackTargetParser) $
+         long "attack-target" <> metavar "HOST:PORT|PUBKEYHASH")
 #ifdef WITH_WEB
     <*>
     switch
@@ -88,7 +99,8 @@ argsParser =
     <*> CLI.commonArgsParser peerHelpMsg
   where
     peerHelpMsg =
-        "Peer to connect to for initial peer discovery. Format example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""
+        "Peer to connect to for initial peer discovery. Format\
+        \ example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""
 
 getNodeOptions :: IO Args
 getNodeOptions = do

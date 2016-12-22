@@ -1,3 +1,4 @@
+{-# LANGUAGE DefaultSignatures      #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
@@ -14,6 +15,7 @@ module Pos.Modern.DB.Class
        ) where
 
 import           Control.Lens         (ASetter', view)
+import           Control.Monad.State  (StateT (..), get)
 import           Control.TimeWarp.Rpc (ResponseT (..))
 import qualified Database.RocksDB     as Rocks
 import           Universum
@@ -24,7 +26,7 @@ import           Pos.Modern.DB.Types  (DB, NodeDBs, blockDB, miscDB, utxoDB)
 
 -- TODO write a documentation. LensLike' is just a lens. Written using
 -- LensLike' to avoid rankntypes.
-class MonadIO m => MonadDB ssc m | m -> ssc where
+class (MonadIO m, MonadThrow m) => MonadDB ssc m | m -> ssc where
     getNodeDBs :: m (NodeDBs ssc)
     usingReadOptions :: Rocks.ReadOptions -> ASetter' (NodeDBs ssc) (DB ssc) -> m a -> m a
     usingWriteOptions :: Rocks.WriteOptions -> ASetter' (NodeDBs ssc) (DB ssc) -> m a -> m a
@@ -44,6 +46,13 @@ instance (MonadDB ssc m) => MonadDB ssc (ReaderT a m) where
         ask >>= lift . usingReadOptions how l . runReaderT m
     usingWriteOptions how l m =
         ask >>= lift . usingWriteOptions how l . runReaderT m
+
+instance (MonadDB ssc m) => MonadDB ssc (StateT a m) where
+    getNodeDBs = lift getNodeDBs
+    usingReadOptions how l m =
+        get >>= lift . usingReadOptions how l . evalStateT m
+    usingWriteOptions how l m =
+        get >>= lift . usingWriteOptions how l . evalStateT m
 
 deriving instance (MonadDB ssc m) => MonadDB ssc (ResponseT s m)
 deriving instance (MonadDB ssc m) => MonadDB ssc (KademliaDHT m)

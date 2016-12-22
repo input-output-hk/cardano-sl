@@ -160,6 +160,8 @@ nodeParams args@Args {..} spendingSK systemStart =
             stakesDistr (CLI.flatDistr commonArgs) (CLI.bitcoinDistr commonArgs)
     , npTimeLord = timeLord
     , npJLFile = jlPath
+    , npAttackTypes = maliciousEmulationAttacks
+    , npAttackTargets = maliciousEmulationTargets
     , npPropagation = not (CLI.disablePropagation commonArgs)
     }
 

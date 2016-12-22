@@ -34,9 +34,9 @@ import           Pos.Crypto              (Threshold, deterministicVssKeyGen,
 import           Pos.FollowTheSatoshi    (followTheSatoshi)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Listeners (SscListenersClass (..))
-import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
-import           Pos.Ssc.Class.Storage   (SscQuery)
-import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscStorageClass (..))
+import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..), SscLocalDataClassM (..))
+import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscQuery,
+                                          SscStorageClass (..), SscStorageClassM (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Ssc.Class.Workers   (SscWorkersClass (..))
 import           Pos.Types               (EpochIndex, SharedSeed (..), SlotLeaders, Utxo)
@@ -68,6 +68,10 @@ instance Ssc SscNistBeacon where
     mkSscProof = Tagged $ const ()
     sscFilterPayload _ _ = ()
     sscCreateNodeContext _ = return ()
+
+    -- Modern
+    type SscGlobalStateM SscNistBeacon = ()
+    type SscLocalDataM SscNistBeacon = ()
 
 instance SscStorageClass SscNistBeacon where
     sscApplyBlocks _ = pass
@@ -111,3 +115,21 @@ instance SscLocalDataClass SscNistBeacon where
     sscEmptyLocalData = ()
     sscGetLocalPayloadQ _ = pure ()
     sscApplyGlobalStateU _ = pure ()
+
+----------------------------------------------------------------------------
+-- Modern
+----------------------------------------------------------------------------
+
+instance SscLocalDataClassM SscNistBeacon where
+    sscEmptyLocalDataM = ()
+    sscGetLocalPayloadMQ _ = pure ()
+    sscApplyGlobalStateMU _ = pure ()
+
+instance SscStorageClassM SscNistBeacon where
+    sscLoadGlobalState _ = pure ()
+    sscApplyBlocksM _ = pure ()
+    sscRollbackM _ = pure ()
+    sscVerifyBlocksM _ = pure mempty
+    sscCalculateSeedM =
+        pure . Right . coerce . ByteArray.convert @_ @ByteString .
+            Hash.hashlazy @SHA256 . encode

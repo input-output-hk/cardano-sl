@@ -32,6 +32,7 @@ module Pos.Util
        , _neHead
        , _neTail
        , _neLast
+       , neFromList
        , zoom'
 
        -- * Prettification
@@ -58,6 +59,9 @@ module Pos.Util
        , AsBinaryClass (..)
        , fromBinaryM
 
+       , verResToEither
+       , eitherToVerRes
+
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
        ) where
@@ -79,10 +83,11 @@ import           Data.SafeCopy                 (Contained, SafeCopy (..), base, 
                                                 deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (String)
+import qualified Data.Text                     as T
 import           Data.Time.Units               (convertUnit)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
-import           Serokell.Util                 (VerificationRes)
+import           Serokell.Util                 (VerificationRes (..))
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
                                                 SGR (Reset, SetColor), setSGRCode)
@@ -206,6 +211,10 @@ _neTail f (x :| xs) = (x :|) <$> f xs
 _neLast :: Lens' (NonEmpty a) a
 _neLast f (x :| []) = (:| []) <$> f x
 _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
+
+neFromList :: [a] -> NonEmpty a
+neFromList [] = panic "Empty list can't be passed to NonEmpty.fromList"
+neFromList xs = NE.fromList xs
 
 -- [SRK-51]: we should try to get this one into safecopy itself though it's
 -- unlikely that they will choose a different implementation (if they do
@@ -390,3 +399,14 @@ class AsBinaryClass a where
 
 fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
 fromBinaryM = either fail return . fromBinary
+
+verResToEither :: VerificationRes -> a -> Either Text a
+verResToEither res val =
+    case res of
+        VerFailure errors -> Left $ T.intercalate "; " errors
+        VerSuccess        -> Right val
+
+eitherToVerRes :: Either Text a -> VerificationRes
+eitherToVerRes (Left errors) = if T.null errors then VerFailure []
+                               else VerFailure $ T.split (==';') errors
+eitherToVerRes (Right _ )    = VerSuccess

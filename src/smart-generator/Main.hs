@@ -240,19 +240,21 @@ main = do
 
         let params =
                 NodeParams
-                { npDbPath      = Nothing
-                , npDbPathM      = "zhogovo"
-                , npRebuildDb   = False
-                , npSystemStart = systemStart
-                , npSecretKey   = sk
-                , npBaseParams  = baseParams
-                , npCustomUtxo  = Just $ genesisUtxo $
-                                      stakesDistr
-                                      (CLI.flatDistr goCommonArgs)
-                                      (CLI.bitcoinDistr goCommonArgs)
-                , npTimeLord    = False
-                , npJLFile      = goJLFile
-                , npPropagation = not (CLI.disablePropagation goCommonArgs)
+                { npDbPath        = Nothing
+                , npDbPathM       = "zhogovo"
+                , npRebuildDb     = False
+                , npSystemStart   = systemStart
+                , npSecretKey     = sk
+                , npBaseParams    = baseParams
+                , npCustomUtxo    = Just $ genesisUtxo $
+                                        stakesDistr
+                                        (CLI.flatDistr goCommonArgs)
+                                        (CLI.bitcoinDistr goCommonArgs)
+                , npTimeLord      = False
+                , npJLFile        = goJLFile
+                , npAttackTypes   = []
+                , npAttackTargets = []
+                , npPropagation   = not (CLI.disablePropagation goCommonArgs)
                 }
             gtParams =
                 GtParams

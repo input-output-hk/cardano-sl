@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
-{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -24,7 +23,9 @@ module Pos.Launcher.Runner
 
        -- * Exported for custom usage in CLI utils
        , addDevListeners
+       , setupLoggers
        , bracketDHTInstance
+       , runKDHT
        , runOurDialog
        ) where
 
@@ -62,15 +63,10 @@ import           Pos.Communication               (MutSocketState, SysStartReques
                                                   sysStartRespListener)
 import           Pos.Constants                   (RunningMode (..), defaultPeers,
                                                   isDevelopment, runningMode)
+import           Pos.Context                     (ContextHolder (..), NodeContext (..),
+                                                  defaultProxyCaches, runContextHolder)
 import           Pos.DHT.Model                   (BiP (..), ListenerDHT, MonadDHT (..),
                                                   mapListenerDHT, sendToNeighbors)
-#ifdef WITH_ROCKS
-import qualified Pos.Modern.DB                   as Modern
-import qualified Pos.Modern.Txp.Holder           as Modern
-import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
-#endif
-import           Pos.Context                     (ContextHolder (..), NodeContext (..),
-                                                  defaultProxyStorage, runContextHolder)
 import           Pos.DHT.Model.Class             (DHTPacking, MonadDHTDialog)
 import           Pos.DHT.Real                    (KademliaDHT, KademliaDHTConfig (..),
                                                   KademliaDHTInstance,
@@ -79,9 +75,12 @@ import           Pos.DHT.Real                    (KademliaDHT, KademliaDHTConfig
                                                   stopDHTInstance)
 import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..))
+import qualified Pos.Modern.DB                   as Modern
+import qualified Pos.Modern.Txp.Holder           as Modern
+import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 import           Pos.Ssc.Class                   (SscConstraint, SscNodeContext,
                                                   SscParams, sscCreateNodeContext)
-import           Pos.Ssc.LocalData               (runSscLDImpl)
+import           Pos.Ssc.Extra                   (runSscHolder, runSscLDImpl)
 import           Pos.State                       (NodeState, closeState, openMemState,
                                                   openState, runDBHolder)
 import           Pos.State.Storage               (storageFromUtxo)
@@ -89,9 +88,9 @@ import           Pos.Statistics                  (getNoStatsT, runStatsT)
 import           Pos.Types                       (Timestamp (Timestamp), timestampF)
 import           Pos.Util                        (runWithRandomIntervals)
 import           Pos.Worker                      (statsWorkers)
-import           Pos.WorkMode                    (ProductionMode, RawRealMode,
-                                                  ServiceMode, StatsMode, TimedMode,
-                                                  runTxLDImpl)
+import           Pos.WorkMode                    (MinWorkMode, ProductionMode,
+                                                  RawRealMode, ServiceMode, StatsMode,
+                                                  TimedMode, runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Service node runners
@@ -157,22 +156,18 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     putText $ "Running listeners number: " <> show (length listeners)
     lift $ setupLoggers lp
     legacyDB <- snd <$> allocate openDb closeDb
-#ifdef WITH_ROCKS
     modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo")
+    --initGS <- Modern.runDBHolder modernDBs (loadGlobalState @ssc)
     let initTip = notImplemented -- init tip must be here
-#endif
     let run db =
             runOurDialog newMutSocketState lpRunnerTag .
             runDBHolder db .
-#ifdef WITH_ROCKS
             Modern.runDBHolder modernDBs .
-#endif
             withEx (sscCreateNodeContext @ssc sscnp) $ flip (runCH np) .
             runSscLDImpl .
             runTxLDImpl .
-#ifdef WITH_ROCKS
+            flip runSscHolder notImplemented . -- load mpc data from blocks (from rocksdb) here
             flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDBs) .
-#endif
             runKDHT inst npBaseParams listeners $
             nodeStartMsg npBaseParams >> action
     lift $ run legacyDB
@@ -201,9 +196,10 @@ runProductionMode
        SscConstraint ssc
     => KademliaDHTInstance -> NodeParams -> SscParams ssc ->
        ProductionMode ssc a -> IO a
-runProductionMode inst np sscnp = runRawRealMode inst np sscnp listeners . getNoStatsT
+runProductionMode inst np@NodeParams {..} sscnp =
+    runRawRealMode inst np sscnp listeners . getNoStatsT
   where
-    listeners = addDevListeners @ssc np noStatsListeners
+    listeners = addDevListeners npSystemStart noStatsListeners
     noStatsListeners = map (mapListenerDHT getNoStatsT) (allListeners @ssc)
 
 -- | StatsMode runner.
@@ -214,11 +210,12 @@ runStatsMode
        SscConstraint ssc
     => KademliaDHTInstance -> NodeParams -> SscParams ssc -> StatsMode ssc a
     -> IO a
-runStatsMode inst np sscnp action = runRawRealMode inst np sscnp listeners $ runStatsT $ do
+runStatsMode inst np@NodeParams {..} sscnp action =
+    runRawRealMode inst np sscnp listeners $ runStatsT $ do
     mapM_ fork statsWorkers
     action
   where
-    listeners = addDevListeners @ssc np sListeners
+    listeners = addDevListeners npSystemStart sListeners
     sListeners = map (mapListenerDHT runStatsT) $ allListeners @ssc
 
 -- | ServiceMode runner.
@@ -265,7 +262,9 @@ runCH :: MonadIO m
 runCH NodeParams {..} sscNodeContext act = do
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
-    proxyStorage <- liftIO $ newMVar defaultProxyStorage
+    sscRichmen <- liftIO newEmptyMVar
+    sscLeaders <- liftIO newEmptyMVar
+    proxyCaches <- liftIO $ newMVar defaultProxyCaches
     let ctx =
             NodeContext
             { ncSystemStart = npSystemStart
@@ -273,10 +272,14 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncTimeLord = npTimeLord
             , ncJLFile = jlFile
             , ncDbPath = npDbPath
-            , ncProxyStorage = proxyStorage
+            , ncProxyCaches = proxyCaches
             , ncSscContext = sscNodeContext
+            , ncAttackTypes = npAttackTypes
+            , ncAttackTargets = npAttackTargets
             , ncPropagation = npPropagation
             , ncBlkSemaphore = semaphore
+            , ncSscRichmen = sscRichmen
+            , ncSscLeaders = sscLeaders
             }
     runContextHolder ctx act
 
@@ -320,12 +323,15 @@ loggerBracket :: LoggingParams -> IO a -> IO a
 loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
 -- | RAII for node starter.
-addDevListeners :: NodeParams
-                -> [ListenerDHT (MutSocketState ssc) (RawRealMode ssc)]
-                -> [ListenerDHT (MutSocketState ssc) (RawRealMode ssc)]
-addDevListeners NodeParams{..} ls =
+addDevListeners
+    :: (MonadDHTDialog (MutSocketState ssc) m,
+        MinWorkMode (MutSocketState ssc) m)
+    => Timestamp
+    -> [ListenerDHT (MutSocketState ssc) m]
+    -> [ListenerDHT (MutSocketState ssc) m]
+addDevListeners sysStart ls =
     if isDevelopment
-    then sysStartReqListener npSystemStart : ls
+    then sysStartReqListener sysStart : ls
     else ls
 
 bracketDHTInstance

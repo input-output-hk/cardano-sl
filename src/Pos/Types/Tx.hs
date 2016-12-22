@@ -24,9 +24,11 @@ import           Universum
 import           Pos.Binary.Types    ()
 import           Pos.Crypto          (Hash, WithHash (..), checkSig, hash)
 import           Pos.Script          (txScriptCheck)
+import           Pos.Types.Address   (addressDetailedF)
 import           Pos.Types.Types     (Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
                                       TxWitness, checkPubKeyAddress, checkScriptAddress,
                                       coinF)
+import           Pos.Util            (verResToEither)
 
 -- | Verify that Tx itself is correct. Most likely you will also want
 -- to verify that inputs are legal, signed properly and have enough coins;
@@ -58,11 +60,14 @@ verifyTx
     :: (Monad m)
     => (TxIn -> m (Maybe TxOut))
     -> (Tx, TxWitness)
-    -> m VerificationRes
+    -> m (Either Text [TxOut])
 verifyTx inputResolver txs@(Tx {..}, _) =
-    flip verifyTxDo txs <$> mapM extendInput txInputs
+    liftA2 verResToEither
+        (flip verifyTxDo txs <$> extendedInputs)
+        (map snd . catMaybes <$> extendedInputs)
   where
     extendInput txIn = fmap (txIn, ) <$> inputResolver txIn
+    extendedInputs = mapM extendInput txInputs
 
 verifyTxDo :: [Maybe (TxIn, TxOut)] -> (Tx, TxWitness) -> VerificationRes
 verifyTxDo extendedInputs (tx@Tx{..}, witnesses) =
@@ -108,29 +113,38 @@ verifyTxDo extendedInputs (tx@Tx{..}, witnesses) =
         -> [(Bool, Text)]
     inputPredicates i Nothing _ =
         [(False, sformat ("input #"%int%" is not an unspent output") i)]
-    inputPredicates i (Just (txIn@TxIn{..}, TxOut{..})) witness =
+    inputPredicates i (Just (txIn@TxIn{..}, txOut@TxOut{..})) witness =
         [ ( checkAddrHash txOutAddress witness
-          , sformat ("input #"%int%" doesn't match address "
-                     %build%" of corresponding output: ("%build%")")
-                i txOutAddress txIn
-          )
-        , ( validateTxIn txIn witness
-          , sformat ("input #"%int%" isn't validated by its witness\n"%
+          , sformat ("input #"%int%"'s witness doesn't match address "%
+                     "of corresponding output:\n"%
                      "  input: "%build%"\n"%
+                     "  output spent by this input: "%build%"\n"%
+                     "  address details: "%addressDetailedF%"\n"%
                      "  witness: "%build)
-                i txIn witness
+                i txIn txOut txOutAddress witness
           )
+        , case validateTxIn txIn witness of
+              Right _ -> (True, panic "can't happen")
+              Left err -> (False, sformat
+                  ("input #"%int%" isn't validated by its witness:\n"%
+                   "  reason: "%build%"\n"%
+                   "  input: "%build%"\n"%
+                   "  output spent by this input: "%build%"\n"%
+                   "  witness: "%build)
+                  i err txIn txOut witness)
         ]
 
     checkAddrHash addr PkWitness{..}     = checkPubKeyAddress twKey addr
     checkAddrHash addr ScriptWitness{..} = checkScriptAddress twValidator addr
 
     validateTxIn TxIn{..} PkWitness{..} =
-        checkSig twKey (txInHash, txInIndex, txOutHash) twSig
+        if checkSig twKey (txInHash, txInIndex, txOutHash) twSig
+            then Right ()
+            else Left "signature check failed"
     validateTxIn TxIn{..} ScriptWitness{..} =
-        isRight (txScriptCheck twValidator twRedeemer)
+        txScriptCheck twValidator twRedeemer
 
-verifyTxPure :: (TxIn -> Maybe TxOut) -> (Tx, TxWitness) -> VerificationRes
+verifyTxPure :: (TxIn -> Maybe TxOut) -> (Tx, TxWitness) -> Either Text [TxOut]
 verifyTxPure resolver = runIdentity . verifyTx (Identity . resolver)
 
 data TopsortState a = TopsortState

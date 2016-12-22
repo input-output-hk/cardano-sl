@@ -1,6 +1,7 @@
-{-# LANGUAGE LambdaCase    #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE ViewPatterns  #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE TupleSections    #-}
+{-# LANGUAGE ViewPatterns     #-}
 
 -- | Specification for transaction-related functions
 -- (Pos.Types.Tx)
@@ -8,28 +9,40 @@ module Test.Pos.Types.TxSpec
        ( spec
        ) where
 
-import           Control.Lens          (view, _2, _3, _4)
-import           Control.Monad         (join)
-import qualified Data.HashMap.Strict   as HM
-import           Data.List             (elemIndex, lookup, (\\))
-import qualified Data.Vector           as V (fromList, toList)
-import           Serokell.Util.Verify  (isVerFailure, isVerSuccess)
-import           Test.Hspec            (Spec, describe)
-import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (NonNegative (..), Positive (..), Property,
-                                        arbitrary, forAll, resize, shuffle, vectorOf,
-                                        (.&.), (===))
-import           Test.QuickCheck.Gen   (Gen)
-import           Universum             hiding ((.&.))
+import           Control.Lens           (view, _2, _3, _4)
+import           Control.Monad          (join)
+import qualified Data.HashMap.Strict    as HM
+import           Data.List              (elemIndex, lookup, zipWith3, (\\))
+import qualified Data.Map               as M (singleton)
+import qualified Data.Vector            as V (fromList, singleton, toList)
+import           Formatting             (build, int, sformat, shown, (%))
+import           Serokell.Util.Text     (listJsonIndent)
+import           Serokell.Util.Verify   (VerificationRes (..), isVerFailure, isVerSuccess)
+import           Test.Hspec             (Expectation, Spec, describe, expectationFailure,
+                                         it, shouldSatisfy)
+import           Test.Hspec.QuickCheck  (prop)
+import           Test.QuickCheck        (NonNegative (..), Positive (..), Property,
+                                         arbitrary, forAll, resize, shuffle, vectorOf,
+                                         (.&.), (===))
+import           Test.QuickCheck.Gen    (Gen, unGen)
+import           Test.QuickCheck.Random (mkQCGen)
+import qualified Text.Regex.TDFA        as TDFA
+import qualified Text.Regex.TDFA.Text   as TDFA
+import           Universum              hiding ((.&.))
 
-import           Pos.Crypto            (checkSig, hash, whData, withHash)
-import           Pos.Types             (BadSigsTx (..), GoodTx (..), OverflowTx (..),
-                                        SmallBadSigsTx (..), SmallGoodTx (..),
-                                        SmallOverflowTx (..), Tx (..), TxIn (..),
-                                        TxInWitness (..), TxOut (..), TxWitness,
-                                        checkPubKeyAddress, topsortTxs, verifyTxAlone,
-                                        verifyTxPure)
-import           Pos.Util              (sublistN)
+import           Pos.Crypto             (checkSig, hash, unsafeHash, whData, withHash)
+import           Pos.Script             (Script)
+import           Pos.Script.Examples    (alwaysSuccessValidator, badIntRedeemer,
+                                         goodIntRedeemer, goodIntRedeemerWithBlah,
+                                         idValidator, intValidator, intValidatorWithBlah)
+import           Pos.Types              (BadSigsTx (..), GoodTx (..), OverflowTx (..),
+                                         SmallBadSigsTx (..), SmallGoodTx (..),
+                                         SmallOverflowTx (..), Tx (..), TxIn (..),
+                                         TxInWitness (..), TxOut (..), TxWitness, Utxo,
+                                         checkPubKeyAddress, makePubKeyAddress,
+                                         makeScriptAddress, topsortTxs, verifyTxAlone,
+                                         verifyTxPure, verifyTxUtxoPure)
+import           Pos.Util               (eitherToVerRes, sublistN)
 
 
 spec :: Spec
@@ -52,6 +65,7 @@ spec = describe "Types.Tx" $ do
             isJust $ topsortTxs identity shuffled
         prop "does correct topsort on bamboo" $ testTopsort True
         prop "does correct topsort on arbitrary acyclic graph" $ testTopsort False
+    scriptTxSpec
   where
     description_validateGoodTxAlone =
         "validates Txs with positive coins and non-empty inputs and outputs"
@@ -63,6 +77,136 @@ spec = describe "Types.Tx" $ do
         "a well-formed transaction with input and output sums above maxBound :: Coin \
         \is validated successfully"
     description_badSigsTx = "a transaction with inputs improperly signed is never validated"
+
+scriptTxSpec :: Spec
+scriptTxSpec = describe "script transactions" $ do
+    describe "good cases" $ do
+        it "goodIntRedeemer + intValidator" $ do
+            let res = checkScriptTx
+                    intValidator
+                    (ScriptWitness intValidator goodIntRedeemer)
+            res `shouldSatisfy` isVerSuccess
+
+    describe "bad cases" $ do
+        it "a P2PK tx spending a P2SH tx" $ do
+            let res = checkScriptTx
+                    alwaysSuccessValidator
+                    randomPkWitness
+            res `errorsShouldMatch` [
+                "input #0's witness doesn't match address.*\
+                    \address details: ScriptAddress.*\
+                    \witness: PkWitness.*",
+                "input #0 isn't validated by its witness.*\
+                    \signature check failed.*" ]
+
+        it "validator script provided in witness doesn't match \
+           \the validator for which the address was created" $ do
+            let res = checkScriptTx
+                    alwaysSuccessValidator
+                    (ScriptWitness intValidator goodIntRedeemer)
+            res `errorsShouldMatch` [
+                "input #0's witness doesn't match address.*\
+                     \address details: ScriptAddress.*\
+                     \witness: ScriptWitness.*" ]
+
+        it "validator script isn't a proper validator, \
+           \redeemer script isn't a proper redeemer" $ do
+            let res = checkScriptTx
+                    goodIntRedeemer
+                    (ScriptWitness goodIntRedeemer intValidator)
+            res `errorsShouldMatch` [
+                "input #0 isn't validated by its witness.*\
+                    \reason: The validator script is missing `validator`.*\
+                    \the redeemer script is missing `redeemer`"]
+
+        it "redeemer >>= validator doesn't typecheck" $ do
+            let res = checkScriptTx
+                    idValidator
+                    (ScriptWitness idValidator goodIntRedeemer)
+            res `errorsShouldMatch` [
+                "input #0 isn't validated by its witness.*\
+                    \reason: The validation result isn't of type Comp.*"]
+
+        it "redeemer and validator define same names" $ do
+            let res = checkScriptTx
+                    intValidatorWithBlah
+                    (ScriptWitness intValidatorWithBlah
+                                   goodIntRedeemerWithBlah)
+            res `errorsShouldMatch` [
+                "input #0 isn't validated by its witness.*\
+                    \reason: The following names are used in both \
+                    \validator and redeemer scripts: blah.*"]
+
+        it "redeemer >>= validator outputs 'failure'" $ do
+            let res = checkScriptTx
+                    intValidator
+                    (ScriptWitness intValidator badIntRedeemer)
+            res `errorsShouldMatch` [
+                "input #0 isn't validated by its witness.*\
+                    \reason: result of evaluation is 'failure'.*"]
+
+  where
+    -- Some random stuff we're going to use when building transactions
+    randomPkOutput = runGen $ do
+        key <- arbitrary
+        return (TxOut (makePubKeyAddress key) 1)
+    randomPkWitness = runGen $
+        PkWitness <$> arbitrary <*> arbitrary
+    -- Make utxo with a single output; return utxo, the output, and an
+    -- input that can be used to spend that output
+    mkUtxo :: TxOut -> (TxIn, TxOut, Utxo)
+    mkUtxo outp =
+        let txid = unsafeHash ("nonexistent tx" :: Text)
+        in  (TxIn txid 0, outp, M.singleton (txid, 0) outp)
+    -- Try to apply a transaction (with given utxo as context) and say
+    -- whether it applied successfully
+    tryApplyTx :: Utxo -> Tx -> TxWitness -> VerificationRes
+    tryApplyTx utxo tx txwit = verifyTxUtxoPure utxo (tx, txwit)
+
+    -- Test tx1 against tx0. Tx0 will be a script transaction with given
+    -- validator. Tx1 will be a P2PK transaction spending tx0 (with given
+    -- input witness).
+    checkScriptTx :: Script -> TxInWitness -> VerificationRes
+    checkScriptTx val wit =
+        let (inp, _, utxo) = mkUtxo $
+                TxOut (makeScriptAddress val) 1
+            tx = Tx [inp] [randomPkOutput]
+        in tryApplyTx utxo tx (V.singleton wit)
+
+-- | Test that errors in a 'VerFailure' match given regexes.
+errorsShouldMatch :: VerificationRes -> [Text] -> Expectation
+errorsShouldMatch VerSuccess _ =
+    expectationFailure "expected to have errors, but there were none"
+errorsShouldMatch (VerFailure xs) ys = do
+    let lx = length xs
+        ly = length ys
+    when (lx /= ly) $ expectationFailure $ toString $ sformat
+        ("expected "%int%" errors: "%listJsonIndent 0%"\n"%
+         "but there were "%int%" errors: "%listJsonIndent 0)
+        ly ys lx xs
+    sequence_ $ zipWith3 tryMatch [1 :: Int ..] xs ys
+  where
+    tryMatch i x y = do
+        let mbRegexp = TDFA.compile
+                         TDFA.defaultCompOpt{TDFA.multiline = False}
+                         TDFA.defaultExecOpt
+                         y
+        regexp <- case mbRegexp of
+            Right r -> return r
+            Left e -> do expectationFailure $ toString $ sformat
+                             ("couldn't compile regex for #"%int%": "%build)
+                             i e
+                         return (panic "fail")
+        unless (TDFA.matchTest regexp x) $
+            expectationFailure $ toString $ sformat
+                ("error #"%int%" doesn't match the regexp:\n"%
+                 shown%"\n\n"%
+                 build)
+                i y x
+
+-- | Get something out of a Gen without IO
+runGen :: Gen a -> a
+runGen g = unGen g (mkQCGen 31415926) 30
 
 validateGoodTxAlone :: Tx -> Bool
 validateGoodTxAlone tx = isVerSuccess $ verifyTxAlone tx
@@ -124,7 +268,7 @@ validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
     let quadruple@(tx, inpResolver, _, txWits) =
             getTxFromGoodTx ls
         transactionIsVerified =
-            isVerSuccess $ verifyTxPure inpResolver (tx, txWits)
+            isVerSuccess $ eitherToVerRes $ verifyTxPure inpResolver (tx, txWits)
         transactionReallyIsGood = individualTxPropertyVerifier quadruple
     in  transactionIsVerified == transactionReallyIsGood
 
@@ -132,7 +276,8 @@ overflowTx :: SmallOverflowTx -> Bool
 overflowTx (SmallOverflowTx (getOverflowTx -> ls)) =
     let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
-        transactionIsNotVerified = isVerFailure $ verifyTxPure inpResolver (tx, txWits)
+        transactionIsNotVerified =
+            isVerFailure $ eitherToVerRes $ verifyTxPure inpResolver (tx, txWits)
         inpSumLessThanOutSum = not $ txChecksum extendedInputs txOutputs
     in inpSumLessThanOutSum == transactionIsNotVerified
 
@@ -149,7 +294,8 @@ badSigsTx :: SmallBadSigsTx -> Bool
 badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
     let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
-        transactionIsNotVerified = isVerFailure $ verifyTxPure inpResolver (tx, txWits)
+        transactionIsNotVerified = isVerFailure $
+                                       eitherToVerRes $ verifyTxPure inpResolver (tx, txWits)
         notAllSignaturesAreValid =
             any (signatureIsNotValid txOutputs) $ zip extendedInputs (V.toList txWits)
     in notAllSignaturesAreValid == transactionIsNotVerified

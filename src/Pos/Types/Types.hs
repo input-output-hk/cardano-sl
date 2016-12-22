@@ -59,6 +59,7 @@ module Pos.Types.Types
 
        , SharedSeed (..)
        , SlotLeaders
+       , Participants
 
        , Blockchain (..)
        , BodyProof (..)
@@ -70,6 +71,8 @@ module Pos.Types.Types
        , MainBlockchain
        , MainBlockHeader
        , BiSsc
+       , ProxySigEpoch
+       , ProxySKEpoch
        , BlockSignature (..)
        , ChainDifficulty (..)
        , MainToSign
@@ -105,6 +108,7 @@ module Pos.Types.Types
        , gbHeader
        , gcdDifficulty
        , gcdEpoch
+       , gbhConsensus
        , gbhExtra
        , gbhPrevBlock
        , gbhBodyProof
@@ -124,8 +128,6 @@ module Pos.Types.Types
 import           Control.Lens           (Getter, Lens', choosing, makeLenses,
                                          makeLensesFor, to, view, (^.))
 import           Control.Monad.Fail     (fail)
-import           Data.Aeson             (ToJSON (toJSON))
-import           Data.Aeson.TH          (deriveToJSON)
 import qualified Data.ByteString        as BS (pack, zipWith)
 import qualified Data.ByteString.Char8  as BSC (pack)
 import           Data.Data              (Data)
@@ -146,7 +148,6 @@ import           Data.Vector            (Vector)
 import           Formatting             (Format, bprint, build, int, later, ords, sformat,
                                          stext, (%))
 import           Serokell.AcidState     ()
-import           Serokell.Aeson.Options (defaultOptions)
 import qualified Serokell.Util.Base16   as B16
 import           Serokell.Util.Text     (listJson, listJsonIndent, mapBuilderJson,
                                          pairBuilder, pairF)
@@ -156,8 +157,8 @@ import           Pos.Binary.Address     ()
 import           Pos.Binary.Class       (Bi)
 import           Pos.Binary.Script      ()
 import           Pos.Constants          (sharedSeedLength)
-import           Pos.Crypto             (Hash, ProxySignature, PublicKey, Signature, hash,
-                                         hashHexF, shortHashF)
+import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
+                                         Signature, hash, hashHexF, shortHashF)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Script             (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
@@ -174,7 +175,7 @@ import           Pos.Util               (Color (Magenta), colorize)
 -- | Coin is the least possible unit of currency.
 newtype Coin = Coin
     { getCoin :: Word64
-    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Hashable, Data, NFData, ToJSON)
+    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Hashable, Data, NFData)
 
 instance Buildable Coin where
     build = bprint (int%" coin(s)")
@@ -190,7 +191,7 @@ coinF = build
 -- | Index of epoch.
 newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable, ToJSON)
+    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable)
 
 instance Buildable EpochIndex where
     build = bprint ("epoch #"%int)
@@ -201,7 +202,7 @@ instance Buildable (EpochIndex,EpochIndex) where
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex
     { getSlotIndex :: Word16
-    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Buildable, ToJSON)
+    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Buildable)
 
 -- | Slot is identified by index of epoch and local index of slot in
 -- this epoch. This is a global index
@@ -210,8 +211,6 @@ data SlotId = SlotId
     , siSlot  :: !LocalSlotIndex
     } deriving (Show, Eq, Ord, Generic)
 
-
-$(deriveToJSON defaultOptions ''SlotId)
 
 instance Buildable SlotId where
     build SlotId {..} =
@@ -372,9 +371,6 @@ newtype SharedSeed = SharedSeed
     { getSharedSeed :: ByteString
     } deriving (Show, Eq, Ord, Generic, NFData)
 
-instance ToJSON SharedSeed where
-    toJSON = toJSON . pretty
-
 instance Buildable SharedSeed where
     build = B16.formatBase16 . getSharedSeed
 
@@ -389,6 +385,8 @@ instance Monoid SharedSeed where
 
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty Address
+
+type Participants = NonEmpty Address
 
 ----------------------------------------------------------------------------
 -- GenericBlock
@@ -480,14 +478,20 @@ newtype ChainDifficulty = ChainDifficulty
 -- | Constraint for data to be signed in main block.
 type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
 
--- TODO replace _mcdSignature with this
+-- | Proxy signature used in csl -- holds a pair of epoch
+-- indices. Block is valid if it's epoch index is inside this range.
+type ProxySigEpoch a = ProxySignature (EpochIndex, EpochIndex) a
+
+-- | Same alias for the proxy secret key (see 'ProxySigEpoch').
+type ProxySKEpoch = ProxySecretKey (EpochIndex, EpochIndex)
+
 -- | Signature of the block. Can be either regular signature from the
 -- issuer or delegated signature having a constraint on epoch indices
 -- (it means the signature is valid only if block's slot id has epoch
 -- inside the constrained interval).
 data BlockSignature ssc
     = BlockSignature (Signature (MainToSign ssc))
-    | BlockPSignature (ProxySignature (EpochIndex, EpochIndex) (MainToSign ssc))
+    | BlockPSignature (ProxySigEpoch (MainToSign ssc))
     deriving Show
 
 instance Buildable (BlockSignature ssc) where
@@ -1069,7 +1073,3 @@ derive makeNFData ''TxIn
 derive makeNFData ''TxInWitness
 derive makeNFData ''TxOut
 derive makeNFData ''Tx
-
-deriveToJSON defaultOptions ''TxIn
-deriveToJSON defaultOptions ''TxOut
-deriveToJSON defaultOptions ''Tx

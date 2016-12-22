@@ -4,23 +4,69 @@
 -- | Types used for communication about Blocks.
 
 module Pos.Communication.Types.Block
-       ( SendBlock (..)
+       ( MsgGetHeaders (..)
+       , MsgGetBlocks (..)
+       , MsgHeaders (..)
+       , MsgBlock (..)
+
        , SendBlockHeader (..)
        , SendBlockchainPart (..)
        , RequestBlock (..)
        , RequestBlockchainPart (..)
        ) where
 
+import           Data.List.NonEmpty   (NonEmpty)
 import           Universum
 
 import           Control.TimeWarp.Rpc (Message (..), messageName')
 import           Pos.Ssc.Class.Types  (Ssc)
-import           Pos.Types            (Block, HeaderHash, MainBlockHeader)
+import           Pos.Types            (Block, BlockHeader, HeaderHash, MainBlockHeader)
 
--- | Message: some node has sent a Block.
-data SendBlock ssc =
-    SendBlock !(Block ssc)
+----------------------------------------------------------------------------
+-- Messages from modern protocol specification
+----------------------------------------------------------------------------
+
+-- | 'GetHeaders' message (see protocol specification).
+data MsgGetHeaders ssc = MsgGetHeaders
+    { mghFrom :: ![HeaderHash ssc]
+    , mghTo   :: !(Maybe (HeaderHash ssc))
+    } deriving (Generic)
+
+instance Typeable ssc => Message (MsgGetHeaders ssc) where
+    messageName _ = "GetHeaders"
+    formatMessage = messageName'
+
+-- | 'GetHeaders' message (see protocol specification).
+data MsgGetBlocks ssc = MsgGetBlocks
+    { mgbFrom :: ![HeaderHash ssc]
+    , mgbTo   :: !(Maybe (HeaderHash ssc))
+    } deriving (Generic)
+
+instance Typeable ssc => Message (MsgGetBlocks ssc) where
+    messageName _ = "GetBlocks"
+    formatMessage = messageName'
+
+-- | 'Headers' message (see protocol specification).
+newtype MsgHeaders ssc =
+    MsgHeaders (NonEmpty (BlockHeader ssc))
     deriving (Generic)
+
+instance Typeable ssc => Message (MsgHeaders ssc) where
+    messageName _ = "BlockHeaders"
+    formatMessage = messageName'
+
+-- | 'Block' message (see protocol specification).
+newtype MsgBlock ssc =
+    MsgBlock (Block ssc)
+    deriving (Generic)
+
+instance Typeable ssc => Message (MsgBlock ssc) where
+    messageName _ = "Block"
+    formatMessage = messageName'
+
+----------------------------------------------------------------------------
+-- Obsolete messages
+----------------------------------------------------------------------------
 
 -- | Message: some node has sent a BlockHeader.
 data SendBlockHeader ssc =
@@ -43,10 +89,6 @@ data RequestBlockchainPart ssc = RequestBlockchainPart
     , rbUntilBlock :: !(Maybe (HeaderHash ssc))
     , rbCount      :: !(Maybe Word)
     } deriving (Generic)
-
-instance Ssc ssc => Message (SendBlock ssc) where
-    messageName _ = "SendBlock"
-    formatMessage = messageName'
 
 instance Ssc ssc => Message (SendBlockHeader ssc) where
     messageName _ = "SendBlockHeader"

@@ -46,7 +46,7 @@ rocksGetBi key db = do
     bytes <- rocksGetBytes key db
     bytes .>>=. rocksDecode
 
-rocksDecode :: (Bi v, MonadIO m, MonadThrow m) => ByteString -> m v
+rocksDecode :: (Bi v, MonadThrow m) => ByteString -> m v
 rocksDecode key = either onParseError pure . decodeFull . BSL.fromStrict $ key
   where
     onParseError msg =
@@ -57,16 +57,17 @@ rocksDecode key = either onParseError pure . decodeFull . BSL.fromStrict $ key
             key
             msg
 
-rocksDecodeMaybe :: (Bi v, MonadIO m) => ByteString -> m (Maybe v)
-rocksDecodeMaybe = pure . either (const Nothing) identity . decodeFull . BSL.fromStrict
+rocksDecodeMaybe :: (Bi v) => ByteString -> Maybe v
+rocksDecodeMaybe = rightToMaybe . decodeFull . BSL.fromStrict
 
-rocksDecodeKeyVal :: (Bi k, Bi v, MonadIO m, MonadThrow m)
+rocksDecodeKeyVal :: (Bi k, Bi v, MonadThrow m)
                   => (ByteString, ByteString) -> m (k, v)
 rocksDecodeKeyVal (k, v) = (,) <$> rocksDecode k <*> rocksDecode v
 
-rocksDecodeKeyValMaybe :: (Bi k, Bi v, MonadIO m)
-                  => (ByteString, ByteString) -> m (Maybe (k, v))
-rocksDecodeKeyValMaybe (k, v) = liftA2 (,) <$> rocksDecodeMaybe k <*> rocksDecodeMaybe v
+rocksDecodeKeyValMaybe
+    :: (Bi k, Bi v)
+    => (ByteString, ByteString) -> Maybe (k, v)
+rocksDecodeKeyValMaybe (k, v) = (,) <$> rocksDecodeMaybe k <*> rocksDecodeMaybe v
 
 -- | Write ByteString to RocksDB for given key.
 rocksPutBytes :: (MonadIO m) => ByteString -> ByteString -> DB ssc -> m ()

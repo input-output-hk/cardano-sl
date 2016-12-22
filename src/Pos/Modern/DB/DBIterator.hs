@@ -49,15 +49,9 @@ instance (Bi k, Bi v, MonadIO m, MonadThrow m)
             Success v   -> pure $ Just v
 
 parseIterator :: (Bi k, Bi v, MonadIO m) => Rocks.Iterator -> m (ParseResult (k, v))
-parseIterator it = do
-    kv <- Rocks.iterEntry it
-    maybe (pure FetchError)
-        (\bs -> do
-            parsed <- rocksDecodeKeyValMaybe bs
-            case parsed of
-                Nothing -> pure DecodeError
-                Just p  -> pure $ Success p
-        ) kv
+parseIterator it =
+    maybe FetchError (maybe DecodeError Success . rocksDecodeKeyValMaybe) <$>
+    Rocks.iterEntry it
 
 newtype DBMapIterator f m a = DBMapIterator
     { getDBMapIterator :: ReaderT f (DBIterator m) a

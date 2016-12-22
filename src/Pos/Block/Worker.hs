@@ -60,7 +60,6 @@ lpcOnNewSlot SlotId{siSlot = slotId, siEpoch = epochId} = withBlkSemaphore $ \ti
                             (followTheSatoshiM seed totalCoins) snd
         clearMVar $ ncSscLeaders nc
         liftIO $ putMVar (ncSscLeaders nc) leaders
-        liftIO $ putMVar (ncSscRichmen nc) richmen
         applyBlocks blockUndos
     else
         logDebug $ "It is too early compute leaders and parts"

@@ -82,7 +82,7 @@ getBalances = join $ mapM gb <$> myAddresses
 send :: WalletWebMode ssc m => Address -> Address -> Coin -> m ()
 send srcAddr dstAddr c = do
     idx <- getAddrIdx srcAddr
-    sks <- mySecretKeys
+    sks <- getSecretKeys
     let sk = sks !! idx
     na <- fmap dhtAddr <$> getKnownPeers
     () <$ submitTx sk na [TxOut dstAddr c]
@@ -105,13 +105,8 @@ deleteAddress addr = do
 -- Helpers
 ----------------------------------------------------------------------------
 
--- TODO: @flyingleafe provide a `debug` flag (in some `WalletContext`?)
--- to disable/enable inclusion of genesis keys
-mySecretKeys :: MonadKeys m => m [SecretKey]
-mySecretKeys = (genesisSecretKeys ++) <$> getSecretKeys
-
 myAddresses :: MonadKeys m => m [Address]
-myAddresses = map (makePubKeyAddress . toPublic) <$> mySecretKeys
+myAddresses = map (makePubKeyAddress . toPublic) <$> getSecretKeys
 
 getAddrIdx :: WalletWebMode ssc m => Address -> m Int
 getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound return

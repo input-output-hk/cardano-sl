@@ -43,6 +43,7 @@ data Args = Args
     , walletPort                :: !Word16
     , keyfilePath               :: !FilePath
     , walletDbPath              :: !FilePath
+    , walletDebug               :: !Bool
 #endif
 #endif
     , commonArgs                :: !CLI.CommonArgs
@@ -120,7 +121,10 @@ argsParser =
     strOption
         (long "wallet-db-path" <>
          help "Path to the wallet acid-state" <>
-         value "wallet-db")
+         value "wallet-db") <*>
+    switch
+        (long "wallet-debug" <>
+         help "Run wallet with debug params (e. g. include all the genesis keys in the set of secret keys)")
 #endif
 #endif
     <*> CLI.commonArgsParser peerHelpMsg

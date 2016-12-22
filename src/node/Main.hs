@@ -199,7 +199,7 @@ pluginsGT Args {..}
 walletServe :: SscConstraint ssc => Args -> [RawRealMode ssc ()]
 walletServe Args {..} =
     if enableWallet
-    then [walletServeWebFull keyfilePath walletDbPath walletPort]
+    then [walletServeWebFull keyfilePath walletDbPath walletDebug walletPort]
     else []
 
 walletProd :: SscConstraint ssc => Args -> [ProductionMode ssc ()]

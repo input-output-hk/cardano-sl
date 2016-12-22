@@ -17,6 +17,7 @@ module Pos.Block.Logic
        , rollbackBlocks
        , verifyBlocks
        , withBlkSemaphore
+       , lcaWithMainChain
        ) where
 
 import           Control.Lens         (view, (^.))
@@ -29,7 +30,7 @@ import           Formatting           (int, sformat, (%))
 import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess)
 import           Universum
 
-import           Pos.Constants        (epochSlots, k)
+import           Pos.Constants        (k)
 import           Pos.Context          (putBlkSemaphore, takeBlkSemaphore)
 import           Pos.Crypto           (hash)
 import           Pos.DB               (MonadDB)
@@ -96,12 +97,6 @@ classifyNewHeader (Right header) = do
         | otherwise =
             CHRuseless $
             "header doesn't continue main chain and is not more difficult"
-
--- Given two nodes, tries to find their LCA
-findLca
-    :: (MonadDB ssc m)
-    => HeaderHash ssc -> HeaderHash ssc -> m (Maybe (BlockHeader ssc))
-findLca = notImplemented
 
 -- | Classify headers received in response to 'GetHeaders' message.
 -- • If there are any errors in chain of headers, CHRinvalid is returned.
@@ -258,3 +253,14 @@ rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Block ssc, Undo) -> m ()
 rollbackBlocks toRollback = do
     -- TODO: rollback SSC, maybe something else.
     txRollbackBlocks toRollback
+
+-- | Find lca headers and main chain.
+-- Head - oldest block.
+lcaWithMainChain :: (WorkMode ssc m)
+                 => NonEmpty (BlockHeader ssc) -> m (Maybe (HeaderHash ssc))
+lcaWithMainChain (h:|hs) =
+    fmap fst <$> find snd <$>
+        mapM (\hh -> (hh,) <$> DB.isBlockInMainChain hh)
+             (reverse (h ^. prevBlockL : map hash (h : hs)))
+             -- take hash of parent of last BlockHeader and convert all headers to hashes
+             -- and reverse

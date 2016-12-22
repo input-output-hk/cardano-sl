@@ -20,8 +20,8 @@ import           Universum
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (ClassifyHeaderRes (..), applyBlocks,
                                            classifyHeaders, classifyNewHeader,
-                                           retrieveHeadersFromTo, rollbackBlocks,
-                                           verifyBlocks, withBlkSemaphore)
+                                           lcaWithMainChain, retrieveHeadersFromTo,
+                                           rollbackBlocks, verifyBlocks, withBlkSemaphore)
 import           Pos.Block.Requests       (replyWithBlocksRequest,
                                            replyWithHeadersRequest)
 import           Pos.Block.Server.State   (ProcessBlockMsgRes (..), matchRequestedHeaders,
@@ -30,10 +30,11 @@ import           Pos.Communication.Types  (MsgBlock (..), MsgGetBlocks (..),
                                            MsgGetHeaders (..), MsgHeaders (..),
                                            MutSocketState, ResponseMode)
 import           Pos.Crypto               (shortHashF)
+import           Pos.DB                   (getTip, loadBlocksWithUndoWhile)
 import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog, getUserState,
                                            replyToNode)
 import           Pos.Types                (Block, BlockHeader, HeaderHash, Undo,
-                                           headerHash, headerHashG, prevBlockL)
+                                           headerHash, headerHashG, prevBlockL, blockHeader)
 import           Pos.Util                 (_neHead, _neLast)
 import           Pos.WorkMode             (WorkMode)
 
@@ -139,10 +140,15 @@ handleBlocks
 -- Head block is the oldest one here.
 handleBlocks blocks = do
     -- TODO: find LCA. Head block in result is the newest one.
-    toRollback <- undefined blocks
-    case nonEmpty toRollback of
-        Nothing           -> whenNoRollback
-        Just toRollbackNE -> withBlkSemaphore $ whenRollback toRollbackNE
+    lcaHashMb <- lcaWithMainChain (map (^. blockHeader) blocks)
+    maybe (logDebug "Invalid blocks, LCA not found")
+        (\lcaHash -> do
+            tip <- getTip
+            toRollback <- loadBlocksWithUndoWhile tip ((lcaHash /= ). headerHash)
+            case nonEmpty toRollback of
+                Nothing           -> whenNoRollback
+                Just toRollbackNE -> withBlkSemaphore $ whenRollback toRollbackNE lcaHash
+        ) lcaHashMb
   where
     newTip = blocks ^. _neLast . headerHashG
     whenNoRollback :: m ()
@@ -157,17 +163,22 @@ handleBlocks blocks = do
         | otherwise = newTip <$ applyBlocks blund
     whenRollback :: NonEmpty (Block ssc, Undo)
                  -> HeaderHash ssc
+                 -> HeaderHash ssc
                  -> m (HeaderHash ssc)
-    whenRollback toRollback tip
+    whenRollback toRollback lca tip
         | tip /= toRollback ^. _neHead . _1 . headerHashG = pure tip
         | otherwise = do
             rollbackBlocks toRollback
-            verRes <- verifyBlocks blocks
-            case verRes of
-                Right undos -> newTip <$ applyBlocks (NE.zip blocks undos)
-                Left errors ->
-                    reportError errors >> applyBlocks toRollback $>
-                    tip
+            let newBlocksList = NE.dropWhile ((lca /=) . (^. prevBlockL)) blocks
+            maybe (panic "Pizdos")
+                (\newBlocks -> do
+                  verRes <- verifyBlocks newBlocks
+                  case verRes of
+                      Right undos -> newTip <$ applyBlocks (NE.zip newBlocks undos)
+                      Left errors ->
+                          reportError errors >> applyBlocks toRollback $>
+                          tip
+                ) (nonEmpty newBlocksList)
     -- TODO: ban node on error!
     reportError =
         logWarning . sformat ("Failed to verify blocks: " %stext)

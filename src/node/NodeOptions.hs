@@ -14,9 +14,8 @@ import           Options.Applicative.Simple (Parser, auto, help, long, many, met
 import           Serokell.Util.OptParse     (fromParsec)
 import           Universum
 
-import           Pos.CLI                    (dhtKeyParser, dhtNodeParser,
-                                             sscAlgoParser, attackTypeParser,
-                                             attackTargetParser)
+import           Pos.CLI                    (attackTargetParser, attackTypeParser,
+                                             dhtKeyParser, dhtNodeParser, sscAlgoParser)
 import           Pos.DHT.Model              (DHTKey, DHTNode)
 import           Pos.Security.Types         (AttackTarget, AttackType)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
@@ -48,6 +47,12 @@ data Args = Args
 #ifdef WITH_WEB
     , enableWeb                 :: !Bool
     , webPort                   :: !Word16
+#ifdef WITH_WALLET
+    , enableWallet              :: !Bool
+    , walletPort                :: !Word16
+    , keyfilePath               :: !FilePath
+    , walletDbPath              :: !FilePath
+#endif
 #endif
     , disablePropagation        :: !Bool
     }
@@ -149,6 +154,26 @@ argsParser =
     option auto
         (long "web-port" <> metavar "PORT" <> value 8080 <> showDefault <>
          help "Port for web server")
+#ifdef WITH_WALLET
+    <*>
+    switch
+        (long "wallet" <>
+         help "Run wallet web api") <*>
+    option auto
+        (long "wallet-port" <>
+         metavar "PORT" <>
+         value 8090 <>
+         showDefault <>
+         help "Port for Daedalus Wallet API") <*>
+    strOption
+        (long "keyfile-path" <>
+         help "Path to the secret keys storage" <>
+         value "secret.key") <*>
+    strOption
+        (long "wallet-db-path" <>
+         help "Path to the wallet acid-state" <>
+         value "wallet-db")
+#endif
 #endif
     <*> switch
         (long "disable-propagation" <>

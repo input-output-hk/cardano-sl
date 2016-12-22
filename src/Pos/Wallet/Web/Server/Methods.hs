@@ -50,7 +50,7 @@ walletApplication
     -> m Application
 walletApplication server daedalusDbPath = bracket openDB closeDB $ \ws ->
     runWalletWebDB ws server >>= return . serve walletApi
-  where openDB = openState False daedalusDbPath
+  where openDB = openState True daedalusDbPath
         closeDB = closeState
 
 walletServer

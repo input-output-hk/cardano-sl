@@ -32,6 +32,11 @@ import           Pos.Types            (Timestamp)
 import           Pos.Ssc.Class        (SscConstraint)
 import           Pos.Web              (serveWebBase, serveWebGT)
 import           Pos.WorkMode         (WorkMode)
+#ifdef WITH_WALLET
+import           Pos.WorkMode         (ProductionMode, RawRealMode, StatsMode)
+
+import           Pos.Wallet.Web       (walletServeWebFull)
+#endif
 #endif
 
 import           NodeOptions          (Args (..), getNodeOptions)
@@ -136,13 +141,13 @@ action args@Args {..} inst = do
             putText $ "If stats is on: " <> show enableStats
             case (enableStats, sscAlgo) of
                 (True, GodTossingAlgo) ->
-                    runNodeStats @SscGodTossing inst currentPluginsGT currentParams gtParams
+                    runNodeStats @SscGodTossing inst (currentPluginsGT ++ walletStats args) currentParams gtParams
                 (True, NistBeaconAlgo) ->
-                    runNodeStats @SscNistBeacon inst currentPlugins currentParams ()
+                    runNodeStats @SscNistBeacon inst (currentPlugins ++ walletStats args) currentParams ()
                 (False, GodTossingAlgo) ->
-                    runNodeProduction @SscGodTossing inst currentPluginsGT currentParams gtParams
+                    runNodeProduction @SscGodTossing inst (currentPluginsGT ++ walletProd args) currentParams gtParams
                 (False, NistBeaconAlgo) ->
-                    runNodeProduction @SscNistBeacon inst currentPlugins currentParams ()
+                    runNodeProduction @SscNistBeacon inst (currentPlugins ++ walletProd args) currentParams ()
 
 nodeParams :: Args -> SecretKey -> Timestamp -> NodeParams
 nodeParams args@Args {..} spendingSK systemStart =
@@ -187,6 +192,24 @@ pluginsGT :: (WorkMode SscGodTossing m) => Args -> [m ()]
 pluginsGT Args {..}
     | enableWeb = [serveWebGT webPort]
     | otherwise = []
+#endif
+
+#if defined WITH_WEB && defined WITH_WALLET
+walletServe :: SscConstraint ssc => Args -> [RawRealMode ssc ()]
+walletServe Args {..} =
+    if enableWallet
+    then [walletServeWebFull keyfilePath walletDbPath walletPort]
+    else []
+
+walletProd :: SscConstraint ssc => Args -> [ProductionMode ssc ()]
+walletProd = map lift . walletServe
+
+walletStats :: SscConstraint ssc => Args -> [StatsMode ssc ()]
+walletStats = map lift . walletServe
+#else
+walletProd, walletStats :: [a]
+walletProd = []
+walletStats = []
 #endif
 
 main :: IO ()

@@ -394,6 +394,8 @@ executable cardano-node
 
   if flag(with-web)
     cpp-options: -DWITH_WEB
+  if flag(with-wallet)
+    cpp-options: -DWITH_WALLET
 
 executable cardano-analyzer
   hs-source-dirs:      src/analyzer

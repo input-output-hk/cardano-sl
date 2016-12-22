@@ -137,11 +137,11 @@ handleBlocks
     => NonEmpty (Block ssc) -> m ()
 -- Head block is the oldest one here.
 handleBlocks blocks = do
-    -- TODO: find LCA. Head block in result is the newest one.
     lcaHashMb <- lcaWithMainChain (map (^. blockHeader) blocks)
     maybe (panic "Invalid blocks, LCA not found")
         (\lcaHash -> do
             tip <- getTip
+            -- Head block in result is the newest one.
             toRollback <- loadBlocksWithUndoWhile tip ((lcaHash /= ). headerHash)
             case nonEmpty toRollback of
                 Nothing           -> whenNoRollback

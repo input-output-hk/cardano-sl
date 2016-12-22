@@ -33,7 +33,7 @@ import           Pos.Communication.Types  (MsgBlock (..), MsgGetBlocks (..),
                                            MsgGetHeaders (..), MsgHeaders (..),
                                            MutSocketState, ResponseMode)
 import           Pos.Crypto               (hash, shortHashF)
-import           Pos.DB                   (getTip, loadBlocksWithUndoWhile)
+import           Pos.DB                   (getTip, loadBlocksFromTipWhile)
 import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog, getUserState,
                                            replyToNode)
 import           Pos.Types                (Block, BlockHeader, HeaderHash, Undo,
@@ -187,7 +187,7 @@ handleBlocks blocks = do
     let lcaHash = fromMaybe (panic "Invalid blocks, LCA not found") lcaHashMb
     tip <- getTip
     -- Head block in result is the newest one.
-    toRollback <- loadBlocksWithUndoWhile tip ((lcaHash /= ). headerHash)
+    toRollback <- loadBlocksFromTipWhile ((lcaHash /= ). headerHash)
     case nonEmpty toRollback of
         Nothing           -> whenNoRollback
         Just toRollbackNE -> withBlkSemaphore $ whenRollback toRollbackNE lcaHash

@@ -12,6 +12,8 @@ module Pos.Modern.DB.Functions
        , rocksWriteBatch
        , traverseAllEntries
        , rocksDecode
+       , rocksDecodeMaybe
+       , rocksDecodeKeyValMaybe
        ) where
 
 import           Control.Monad.TM             ((.>>=.))
@@ -55,9 +57,16 @@ rocksDecode key = either onParseError pure . decodeFull . BSL.fromStrict $ key
             key
             msg
 
+rocksDecodeMaybe :: (Bi v, MonadIO m) => ByteString -> m (Maybe v)
+rocksDecodeMaybe = pure . either (const Nothing) identity . decodeFull . BSL.fromStrict
+
 rocksDecodeKeyVal :: (Bi k, Bi v, MonadIO m, MonadThrow m)
                   => (ByteString, ByteString) -> m (k, v)
 rocksDecodeKeyVal (k, v) = (,) <$> rocksDecode k <*> rocksDecode v
+
+rocksDecodeKeyValMaybe :: (Bi k, Bi v, MonadIO m)
+                  => (ByteString, ByteString) -> m (Maybe (k, v))
+rocksDecodeKeyValMaybe (k, v) = liftA2 (,) <$> rocksDecodeMaybe k <*> rocksDecodeMaybe v
 
 -- | Write ByteString to RocksDB for given key.
 rocksPutBytes :: (MonadIO m) => ByteString -> ByteString -> DB ssc -> m ()

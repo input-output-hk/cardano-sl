@@ -44,6 +44,7 @@ import           Pos.Crypto            (Hash, SecretKey, checkSig, hash, proxySi
 import           Pos.Merkle            (mkMerkleTree)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
+import           Pos.Types.Address     (addressHash)
 -- Unqualified import is used here because of GHC bug (trac 12127).
 -- See: https://ghc.haskell.org/trac/ghc/ticket/12127
 import           Pos.Types.Tx          (verifyTxAlone)
@@ -322,7 +323,7 @@ verifyHeader VerifyHeaderParams {..} h =
         case h of
             Left _ -> []
             Right mainHeader ->
-                [ ( (Just (makePubKeyAddress $ mainHeader ^. headerLeaderKey) ==
+                [ ( (Just (addressHash $ mainHeader ^. headerLeaderKey) ==
                      leaders ^?
                      ix (fromIntegral $ siSlot $ mainHeader ^. headerSlot))
                   , "block's leader is different from expected one")

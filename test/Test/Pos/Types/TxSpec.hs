@@ -94,7 +94,7 @@ scriptTxSpec = describe "script transactions" $ do
                     randomPkWitness
             res `errorsShouldMatch` [
                 "input #0's witness doesn't match address.*\
-                    \address details: ScriptAddress.*\
+                    \address details: Address dest = script.*\
                     \witness: PkWitness.*",
                 "input #0 isn't validated by its witness.*\
                     \signature check failed.*" ]
@@ -106,7 +106,7 @@ scriptTxSpec = describe "script transactions" $ do
                     (ScriptWitness intValidator goodIntRedeemer)
             res `errorsShouldMatch` [
                 "input #0's witness doesn't match address.*\
-                     \address details: ScriptAddress.*\
+                     \address details: Address dest = script.*\
                      \witness: ScriptWitness.*" ]
 
         it "validator script isn't a proper validator, \

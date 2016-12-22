@@ -25,15 +25,17 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletType (..)
       , CWalletMeta (..)
       , addressToCAddress
+      , cAddressToAddress
       ) where
 
 import           Data.Text       (Text)
 import           GHC.Generics    (Generic)
 import           Universum
 
+import           Data.Hashable   (Hashable (..))
 import           Formatting      (build, sformat)
 import           Pos.Aeson.Types ()
-import           Pos.Types       (Address (..), Coin)
+import           Pos.Types       (Address (..), Coin, decodeTextAddress)
 
 
 -- | currencies handled by client
@@ -45,15 +47,21 @@ data CCurrency
     deriving (Show, Generic)
 
 -- | Client hash
-newtype CHash = CHash Text deriving (Show, Generic)
+newtype CHash = CHash Text deriving (Show, Eq, Generic)
 
 -- | Client address
-newtype CAddress = CAddress CHash deriving (Show, Generic)
+newtype CAddress = CAddress CHash deriving (Show, Eq, Generic)
+
+instance Hashable CAddress where
+    hashWithSalt s (CAddress (CHash h)) = hashWithSalt s h
 
 -- | transform Address into CAddress
 -- TODO: this is not complitely safe. If someone changes implementation of Buildable Address. It should be probably more safe to introduce `class PSSimplified` that would have the same implementation has it is with Buildable Address but then person will know it will probably change something for purescript.
 addressToCAddress :: Address -> CAddress
 addressToCAddress = CAddress . CHash . sformat build
+
+cAddressToAddress :: CAddress -> Either Text Address
+cAddressToAddress (CAddress (CHash h)) = decodeTextAddress h
 
 -- | Client transaction id
 newtype CTxId = CTxId CHash deriving (Show, Generic)
@@ -78,7 +86,6 @@ data CWalletMeta = CWalletMeta
     { cwType     :: CWalletType
     , cwCurrency :: CCurrency
     , cwName     :: Text
-    , cwLastUsed :: Bool
     } deriving (Show, Generic)
 
 -- | Client Wallet (CW)

@@ -35,9 +35,12 @@ import           Pos.Wallet.KeyStorage      (MonadKeys (..), newSecretKey)
 import           Pos.Wallet.Tx              (submitTx)
 import           Pos.Wallet.WalletMode      (WalletMode, getBalance, getTxHistory)
 import           Pos.Wallet.Web.Api         (Cors, WalletApi, walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, addressToCAddress)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CWallet (..), addressToCAddress,
+                                             cAddressToAddress)
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
-                                             closeState, openState, runWalletWebDB)
+                                             closeState, getWalletMeta, openState,
+                                             runWalletWebDB)
+
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -69,18 +72,43 @@ type WalletWebMode ssc m
       )
 
 servantHandlers :: WalletWebMode ssc m => ServerT WalletApi m
-servantHandlers = getAddresses :<|> getBalances :<|> send :<|>
-                  getHistory :<|> newAddress :<|> deleteAddress
+servantHandlers =
+     addCors getAddresses
+    :<|>
+     addCors getBalances
+    :<|>
+     (\a b -> addCors . send a b)
+    :<|>
+     addCors . getHistory
+    :<|>
+     addCors newAddress
+    :<|>
+     addCors . getWallet
+    :<|>
+     addCors . deleteAddress
+  where
+    addCors :: Monad m => m a -> m (Cors a)
+    addCors = fmap (addHeader "*")
 
-getAddresses :: WalletWebMode ssc m => m (Cors [CAddress])
-getAddresses = fmap (map fst) <$> getBalances
+getAddresses :: WalletWebMode ssc m => m [CAddress]
+getAddresses = map fst <$> getBalances
 
-getBalances :: WalletWebMode ssc m => m (Cors [(CAddress, Coin)])
-getBalances = fmap (addHeader "*") $ join $ mapM gb <$> myAddresses
+getBalances :: WalletWebMode ssc m => m [(CAddress, Coin)]
+getBalances = join $ mapM gb <$> myAddresses
   where gb addr = (,) (addressToCAddress addr) <$> getBalance addr
 
-send :: WalletWebMode ssc m => Address -> Address -> Coin -> m (Cors ())
-send srcAddr dstAddr c = fmap (addHeader "*") $ do
+getWallet :: WalletWebMode ssc m => CAddress -> m CWallet
+getWallet cAddr = undefined
+--    balance <- getBalance <$> cAddressToAddress cAddr >>= either wrongAddress pure
+--    meta <- getWalletMeta cAddr >>= maybe noWallet pure
+--    pure $ CWallet cAddr balance meta
+--  where
+--    -- TODO: improve error handling
+--    wrongAddress = throwM err404
+--    noWallet = throwM err404
+
+send :: WalletWebMode ssc m => Address -> Address -> Coin -> m ()
+send srcAddr dstAddr c = do
     idx <- getAddrIdx srcAddr
     sks <- getSecretKeys
     let sk = sks !! idx
@@ -90,14 +118,22 @@ send srcAddr dstAddr c = fmap (addHeader "*") $ do
         sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
         c idx dstAddr
 
-getHistory :: WalletWebMode ssc m => Address -> m (Cors [Tx])
-getHistory addr = addHeader "*" . map whData <$> getTxHistory addr
+getHistory :: WalletWebMode ssc m => Address -> m [Tx]
+getHistory addr = map whData <$> getTxHistory addr
 
-newAddress :: WalletWebMode ssc m => m (Cors CAddress)
-newAddress = addHeader "*" . addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
+newAddress :: WalletWebMode ssc m => m CAddress
+newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
 
-deleteAddress :: WalletWebMode ssc m => Address -> m (Cors ())
-deleteAddress addr = fmap (addHeader "*") $ do
+-- newWallet :: WalletWebMode ssc m => CWalletMeta -> m (Cors CWallet)
+-- newWallet wMeta = addCors $ do
+--     cAddr <- addressToCAddress <$> newAddress
+--     addWalletMeta cAddr wMeta
+--
+--   where
+--     newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
+--
+deleteAddress :: WalletWebMode ssc m => Address -> m ()
+deleteAddress addr = do
     idx <- getAddrIdx addr
     deleteSecretKey $ fromIntegral idx
 

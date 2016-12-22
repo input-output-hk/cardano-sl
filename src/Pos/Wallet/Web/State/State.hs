@@ -10,20 +10,22 @@ module Pos.Wallet.Web.State.State
        , closeState
 
        -- * Getters
-       , getDummyAttribute
+       , getWalletMetas
+       , getWalletMeta
 
        -- * Setters
-       , setDummyAttribute
+       , addWalletMeta
        ) where
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
                                                UpdateEvent)
 import           Universum
 
+import           Pos.Wallet.Web.ClientTypes   (CAddress, CWalletMeta)
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
-import           Pos.Wallet.Web.State.Storage (Storage)
+import           Pos.Wallet.Web.State.Storage (WalletStorage)
 
 -- | MonadWalletWebDB stands for monad which is able to get web wallet state
 class Monad m => MonadWalletWebDB m where
@@ -40,17 +42,20 @@ instance MonadWalletWebDB m => MonadWalletWebDB (StateT s m) where
 type WebWalletModeDB m = (MonadWalletWebDB m, MonadIO m)
 
 queryDisk
-    :: (EventState event ~ Storage, QueryEvent event, WebWalletModeDB m)
+    :: (EventState event ~ WalletStorage, QueryEvent event, WebWalletModeDB m)
     => event -> m (EventResult event)
 queryDisk e = getWalletWebState >>= flip A.query e
 
 updateDisk
-    :: (EventState event ~ Storage, UpdateEvent event, WebWalletModeDB m)
+    :: (EventState event ~ WalletStorage, UpdateEvent event, WebWalletModeDB m)
     => event -> m (EventResult event)
 updateDisk e = getWalletWebState >>= flip A.update e
 
-getDummyAttribute :: WebWalletModeDB m => m Int
-getDummyAttribute = queryDisk A.GetDummyAttribute
+getWalletMetas :: WebWalletModeDB m => m [CWalletMeta]
+getWalletMetas = queryDisk A.GetWalletMetas
 
-setDummyAttribute :: WebWalletModeDB m => Int -> m ()
-setDummyAttribute = updateDisk . A.SetDummyAttribute
+getWalletMeta :: WebWalletModeDB m => CAddress -> m (Maybe CWalletMeta)
+getWalletMeta = queryDisk . A.GetWalletMeta
+
+addWalletMeta :: WebWalletModeDB m => CAddress -> CWalletMeta -> m ()
+addWalletMeta addr = updateDisk . A.AddWalletMeta addr

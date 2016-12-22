@@ -5,39 +5,56 @@
 -- @jens: this document is inspired by https://github.com/input-output-hk/rscoin-haskell/blob/master/src/RSCoin/Explorer/Storage.hs
 module Pos.Wallet.Web.State.Storage
        (
-         Storage (..)
+         WalletStorage (..)
        , Query
        , Update
-       , getDummyAttribute
-       , setDummyAttribute
+       , getWalletMetas
+       , getWalletMeta
+       , addWalletMeta
        ) where
 
-import           Control.Lens  (makeClassy, view, (.=))
-import           Data.Default  (Default, def)
-import           Data.SafeCopy (base, deriveSafeCopySimple)
+import           Control.Lens               (makeClassy, view, (.=))
+import           Data.Default               (Default, def)
+import           Data.SafeCopy              (base, deriveSafeCopySimple)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CWalletMeta,
+                                             CWalletType)
 import           Universum
 
-data Storage = Storage
+data WalletStorage = WalletStorage
     {
-      _dummyAttribute :: Int
+      _wsWalletMetas :: !(HashMap CAddress CWalletMeta)
     }
 
-makeClassy ''Storage
+makeClassy ''WalletStorage
 
-deriveSafeCopySimple 0 'base ''Storage
-
-instance Default Storage where
+instance Default WalletStorage where
     def =
-        Storage
+        WalletStorage
         {
-          _dummyAttribute = 0
+          _wsWalletMetas = mempty
         }
 
-type Query a = forall m. (MonadReader Storage m) => m a
-type Update a = forall m. ({-MonadThrow m, -}MonadState Storage m) => m a
+type Query a = forall m. (MonadReader WalletStorage m) => m a
+type Update a = forall m. ({-MonadThrow m, -}MonadState WalletStorage m) => m a
 
-getDummyAttribute :: Query Int
-getDummyAttribute = view dummyAttribute
+-- getDummyAttribute :: Query Int
+-- getDummyAttribute = view dummyAttribute
+--
+-- setDummyAttribute :: Int -> Update ()
+-- setDummyAttribute x = dummyAttribute .= x
 
-setDummyAttribute :: Int -> Update ()
-setDummyAttribute x = dummyAttribute .= x
+getWalletMetas :: Query [CWalletMeta]
+getWalletMetas = undefined
+
+getWalletMeta :: CAddress -> Query (Maybe CWalletMeta)
+getWalletMeta = undefined
+
+addWalletMeta :: CAddress -> CWalletMeta -> Update ()
+addWalletMeta = undefined
+
+deriveSafeCopySimple 0 'base ''CHash
+deriveSafeCopySimple 0 'base ''CAddress
+deriveSafeCopySimple 0 'base ''CCurrency
+deriveSafeCopySimple 0 'base ''CWalletType
+deriveSafeCopySimple 0 'base ''CWalletMeta
+deriveSafeCopySimple 0 'base ''WalletStorage

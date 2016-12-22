@@ -407,5 +407,6 @@ verResToEither res val =
         VerSuccess        -> Right val
 
 eitherToVerRes :: Either Text a -> VerificationRes
-eitherToVerRes (Left errors) = VerFailure [errors]
+eitherToVerRes (Left errors) = if T.null errors then VerFailure []
+                               else VerFailure $ T.split (==';') errors
 eitherToVerRes (Right _ )    = VerSuccess

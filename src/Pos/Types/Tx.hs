@@ -76,13 +76,13 @@ verifyTx
     -> (TxIn -> m (Maybe TxOut))
     -> (Tx, TxWitness)
     -> m (Either Text [TxOut])
-verifyTx verifyAlone inputResolver txs@(Tx {..}, _) =
-    liftA2 verResToEither
-        (flip (verifyTxDo verifyAlone) txs <$> extendedInputs)
-        (map snd . catMaybes <$> extendedInputs)
+verifyTx verifyAlone inputResolver txs@(Tx {..}, _) = do
+    extendedInputs <- mapM extendInput txInputs
+    pure $ verResToEither
+        (verifyTxDo verifyAlone extendedInputs txs)
+        (map snd . catMaybes $ extendedInputs)
   where
     extendInput txIn = fmap (txIn, ) <$> inputResolver txIn
-    extendedInputs = mapM extendInput txInputs
 
 verifyTxDo :: Bool -> [Maybe (TxIn, TxOut)] -> (Tx, TxWitness) -> VerificationRes
 verifyTxDo verifyAlone extendedInputs (tx@Tx{..}, witnesses) =

@@ -40,12 +40,14 @@ replyWithHeadersRequest upto = do
     recordHeadersRequest msg =<< getUserState
     replyToNode msg
 
--- | Make message which requests chain of blocks which is based on our tip.
+-- | Make message which requests chain of blocks which is based on our
+-- tip. LcdChild is the first block after LCD we don't
+-- know. WantedBlock is the newest one we want to get.
 mkBlocksRequest :: HeaderHash ssc -> HeaderHash ssc -> MsgGetBlocks ssc
-mkBlocksRequest ourTip wantedBlock =
+mkBlocksRequest lcdChild wantedBlock =
     MsgGetBlocks
-    { mgbFrom = [ourTip]
-    , mgbTo = Just wantedBlock
+    { mgbFrom = lcdChild
+    , mgbTo = wantedBlock
     }
 
 -- | Reply with message which requests chain of blocks which is based

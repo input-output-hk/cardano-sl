@@ -115,9 +115,9 @@ recordBlocksRequest fromHash toHash var =
 
 -- | Possible results of processBlockMsg.
 data ProcessBlockMsgRes ssc
-    = PBMfinal (NonEmpty (Block ssc)) -- ^ Block is the last requested block.
-    | PBMintermediate                 -- ^ Block is expected one, but not last.
-    | PBMunsolicited                  -- ^ Block is not an expected one.
+    = PBmFinal (NonEmpty (Block ssc)) -- ^ Block is the last requested block.
+    | PBmIntermediate                 -- ^ Block is expected one, but not last.
+    | PBmUnsolicited                  -- ^ Block is not an expected one.
 
 -- | Process 'Block' message received from peer.
 processBlockMsg
@@ -128,20 +128,20 @@ processBlockMsg (MsgBlock blk) var =
     atomically $
     do st <- readTVar var
        case st ^. bssRequestedBlocks of
-           Nothing    -> pure PBMunsolicited
+           Nothing    -> pure PBmUnsolicited
            Just range -> processBlockDo range (st ^. bssReceivedBlocks)
   where
     processBlockDo (start, end) []
         | headerHash blk == start = processBlockFinally end []
-        | otherwise = pure PBMunsolicited
+        | otherwise = pure PBmUnsolicited
     processBlockDo (start, end) received
         | blk ^. prevBlockL == start = processBlockFinally end received
-        | otherwise = pure PBMunsolicited
+        | otherwise = pure PBmUnsolicited
     processBlockFinally end received
         | headerHash blk == end =
-            (PBMfinal $ NE.reverse $ blk :| received) <$ modifyTVar var invalidateBlocks
+            (PBmFinal $ NE.reverse $ blk :| received) <$ modifyTVar var invalidateBlocks
         | otherwise =
-            PBMintermediate <$ modifyTVar var (over bssReceivedBlocks (blk :))
+            PBmIntermediate <$ modifyTVar var (over bssReceivedBlocks (blk :))
     invalidateBlocks :: s -> s
     invalidateBlocks st =
         st & bssRequestedBlocks .~ Nothing & bssReceivedBlocks .~ []

@@ -38,8 +38,8 @@ instance Typeable ssc => Message (MsgGetHeaders ssc) where
 
 -- | 'GetHeaders' message (see protocol specification).
 data MsgGetBlocks ssc = MsgGetBlocks
-    { mgbFrom :: ![HeaderHash ssc]
-    , mgbTo   :: !(Maybe (HeaderHash ssc))
+    { mgbFrom :: !(HeaderHash ssc)
+    , mgbTo   :: !(HeaderHash ssc)
     } deriving (Generic)
 
 instance Typeable ssc => Message (MsgGetBlocks ssc) where

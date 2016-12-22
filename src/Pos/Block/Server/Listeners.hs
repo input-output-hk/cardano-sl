@@ -21,8 +21,9 @@ import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (ClassifyHeaderRes (..),
                                            ClassifyHeadersRes (..), applyBlocks,
                                            classifyHeaders, classifyNewHeader,
-                                           lcaWithMainChain, retrieveHeadersFromTo,
-                                           rollbackBlocks, verifyBlocks, withBlkSemaphore)
+                                           getBlocksByHeaders, lcaWithMainChain,
+                                           retrieveHeadersFromTo, rollbackBlocks,
+                                           verifyBlocks, withBlkSemaphore)
 import           Pos.Block.Requests       (replyWithBlocksRequest,
                                            replyWithHeadersRequest)
 import           Pos.Block.Server.State   (ProcessBlockMsgRes (..), matchRequestedHeaders,
@@ -51,23 +52,42 @@ blockListeners =
     , ListenerDHT handleBlock
     ]
 
+-- | Handles GetHeaders request which means client wants to get
+-- headers from some checkpoints that are older than optional @to@
+-- field.
 handleGetHeaders
     :: forall ssc m.
        (ResponseMode ssc m)
     => MsgGetHeaders ssc -> m ()
 handleGetHeaders MsgGetHeaders {..} = do
+    logDebug "Got request on handleGetHeaders"
     rhResult <- retrieveHeadersFromTo mghFrom mghTo
     case nonEmpty rhResult of
         Nothing ->
-            logWarning "retrieveHeadersFromTo returned empty list, not responding to node"
+            logWarning $
+            "handleGetHeaders@retrieveHeadersFromTo returned empty " <>
+            "list, not responding to node"
         Just ne -> replyToNode $ MsgHeaders ne
 
 handleGetBlocks
     :: forall ssc m.
        (ResponseMode ssc m)
     => MsgGetBlocks ssc -> m ()
-handleGetBlocks MsgGetBlocks {..} = pass
+handleGetBlocks MsgGetBlocks {..} = do
+    logDebug "Got request on handleGetBlocks"
+    blocks <- getBlocksByHeaders mgbFrom mgbTo
+    maybe warn sendMsg blocks
+  where
+    warn = logWarning $ "getBLocksByHeaers@retrieveHeaders returned Nothing"
+    sendMsg blocksToSend = do
+        logDebug "handleGetBlocks: started sending blocks one-by-one"
+        forM_ blocksToSend $ replyToNode . MsgBlock
+        logDebug "handleGetBlocks: blocks sending done"
 
+-- | Handles MsgHeaders request. There are two usecases:
+--
+-- * If we've requested MsgGetHeaders, that's a response
+-- * If we didn't, probably somebody wanted to share the block (e.g. new one)
 handleBlockHeaders
     :: forall ssc m.
        (ResponseMode ssc m)
@@ -77,6 +97,7 @@ handleBlockHeaders (MsgHeaders headers) = do
         (handleRequestedHeaders headers)
         (handleUnsolicitedHeaders headers)
 
+-- First case of 'handleBlockheaders'
 handleRequestedHeaders
     :: forall ssc m.
        (ResponseMode ssc m)
@@ -88,7 +109,8 @@ handleRequestedHeaders headers = do
         oldestHeader = headers ^. _neLast
         oldestHash = headerHash oldestHeader
     case classificationRes of
-        CHsValid lca -> replyWithBlocksRequest (hash lca) newestHash
+        CHsValid lcaChild ->
+            replyWithBlocksRequest (hash lcaChild) newestHash
         CHsUseless reason ->
             logDebug $
             sformat
@@ -97,6 +119,7 @@ handleRequestedHeaders headers = do
                 oldestHash newestHash reason
         CHsInvalid _ -> pass -- TODO: ban node for sending invalid block.
 
+-- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
     :: forall ssc m.
        (ResponseMode ssc m)
@@ -119,6 +142,7 @@ handleUnsolicitedHeaders (header :| []) = do
 -- TODO: ban node for sending more than one unsolicited header.
 handleUnsolicitedHeaders _ = pass
 
+-- | Handle MsgBlock request. That's a response for @mkBlocksRequest@.
 handleBlock
     :: forall ssc m.
        (ResponseMode ssc m)
@@ -127,9 +151,9 @@ handleBlock msg = do
     pbmr <- processBlockMsg msg =<< getUserState
     case pbmr of
         -- [CSL-335] Process intermediate blocks ASAP.
-        PBMintermediate -> pass
-        PBMfinal blocks -> handleBlocks blocks
-        PBMunsolicited  -> pass -- TODO: ban node for sending unsolicited block.
+        PBmIntermediate -> pass
+        PBmFinal blocks -> handleBlocks blocks
+        PBmUnsolicited  -> pass -- TODO: ban node for sending unsolicited block.
 
 handleBlocks
     :: forall ssc m.

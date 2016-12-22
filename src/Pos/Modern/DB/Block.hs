@@ -2,6 +2,7 @@
 
 module Pos.Modern.DB.Block
        ( getBlock
+       , getBlockHeader
        , getStoredBlock
        , getUndo
        , isBlockInMainChain
@@ -24,7 +25,10 @@ import           Pos.Modern.DB.Class     (MonadDB, getBlockDB)
 import           Pos.Modern.DB.Functions (rocksDelete, rocksGetBi, rocksPutBi)
 import           Pos.Modern.DB.Types     (StoredBlock (..))
 import           Pos.Ssc.Class.Types     (Ssc)
-import           Pos.Types               (Block, HeaderHash, Undo, headerHash, prevBlockL)
+import           Pos.Types               (Block, BlockHeader, HeaderHash, Undo,
+                                          headerHash, prevBlockL)
+import qualified Pos.Types               as T
+
 
 -- | Get StoredBlock by hash from Block DB.
 getStoredBlock
@@ -37,6 +41,12 @@ getBlock
     :: (Ssc ssc, MonadDB ssc m)
     => HeaderHash ssc -> m (Maybe (Block ssc))
 getBlock = fmap (fmap sbBlock) . getStoredBlock
+
+-- | Returns header of block that was requested from Block DB.
+getBlockHeader
+    :: (Ssc ssc, MonadDB ssc m)
+    => HeaderHash ssc -> m (Maybe (BlockHeader ssc))
+getBlockHeader h = fmap T.getBlockHeader <$> getBlock h
 
 -- | Get block with given hash from Block DB.
 isBlockInMainChain

@@ -7,7 +7,7 @@ module Pos.Binary.Modern.DB
 import           Universum
 
 import           Pos.Binary.Class    (Bi (..))
-import           Pos.Modern.DB.Types (StoredBlock (..))
+import           Pos.DB.Types        (StoredBlock (..))
 import           Pos.Ssc.Class.Types (Ssc)
 
 instance Ssc ssc =>

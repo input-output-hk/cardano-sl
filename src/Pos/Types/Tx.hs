@@ -63,30 +63,33 @@ verifyTxAlone Tx {..} =
                             i sumDist txOutValue)
       ]
 
--- | CHECK: Verify Tx correctness using magic function which resolves input
--- into Address and Coin. It does checks from 'verifyTxAlone' and the
--- following:
+-- | CHECK: Verify Tx correctness using magic function which resolves
+-- input into Address and Coin. It optionally does checks from
+-- 'verifyTxAlone' and also the following checks:
 --
 -- * sum of inputs >= sum of outputs;
 -- * every input is signed properly;
 -- * every input is a known unspent output.
 verifyTx
     :: (Monad m)
-    => (TxIn -> m (Maybe TxOut))
+    => Bool
+    -> (TxIn -> m (Maybe TxOut))
     -> (Tx, TxWitness)
     -> m (Either Text [TxOut])
-verifyTx inputResolver txs@(Tx {..}, _) =
+verifyTx verifyAlone inputResolver txs@(Tx {..}, _) =
     liftA2 verResToEither
-        (flip verifyTxDo txs <$> extendedInputs)
+        (flip (verifyTxDo verifyAlone) txs <$> extendedInputs)
         (map snd . catMaybes <$> extendedInputs)
   where
     extendInput txIn = fmap (txIn, ) <$> inputResolver txIn
     extendedInputs = mapM extendInput txInputs
 
-verifyTxDo :: [Maybe (TxIn, TxOut)] -> (Tx, TxWitness) -> VerificationRes
-verifyTxDo extendedInputs (tx@Tx{..}, witnesses) =
-    mconcat [verifyTxAlone tx, verifyCounts, verifySum, verifyInputs]
+verifyTxDo :: Bool -> [Maybe (TxIn, TxOut)] -> (Tx, TxWitness) -> VerificationRes
+verifyTxDo verifyAlone extendedInputs (tx@Tx{..}, witnesses) =
+    mconcat [verifyAloneRes, verifyCounts, verifySum, verifyInputs]
   where
+    verifyAloneRes | verifyAlone = verifyTxAlone tx
+                   | otherwise = mempty
     outSum :: Integer
     outSum = sum $ fmap (toInteger . txOutValue) txOutputs
     resolvedInputs = catMaybes extendedInputs
@@ -158,8 +161,12 @@ verifyTxDo extendedInputs (tx@Tx{..}, witnesses) =
     validateTxIn TxIn{..} ScriptWitness{..} =
         txScriptCheck twValidator twRedeemer
 
-verifyTxPure :: (TxIn -> Maybe TxOut) -> (Tx, TxWitness) -> Either Text [TxOut]
-verifyTxPure resolver = runIdentity . verifyTx (Identity . resolver)
+verifyTxPure :: Bool
+             -> (TxIn -> Maybe TxOut)
+             -> (Tx, TxWitness)
+             -> Either Text [TxOut]
+verifyTxPure verifyAlone resolver =
+    runIdentity . verifyTx verifyAlone (Identity . resolver)
 
 data TopsortState a = TopsortState
     { _tsVisited     :: HS.HashSet (Hash Tx)

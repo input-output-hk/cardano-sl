@@ -41,7 +41,7 @@ import           Pos.State                   (MonadDB (..))
 import           Pos.Txp.LocalData           (MonadTxLD (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
-import qualified Pos.Modern.DB               as Modern (MonadDB (..))
+import qualified Pos.DB                      as Modern (MonadDB (..))
 
 data SscState ssc =
     SscState

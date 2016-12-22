@@ -3,7 +3,7 @@
 
 -- | Types related to DB.
 
-module Pos.Modern.DB.Types
+module Pos.DB.Types
        (
          -- * General types.
          DB (..)

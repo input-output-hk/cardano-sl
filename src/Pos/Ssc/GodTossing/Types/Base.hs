@@ -25,9 +25,9 @@ import           Data.SafeCopy       (base, deriveSafeCopySimple)
 import           Data.Text.Buildable (Buildable (..))
 import           Universum
 
-import           Pos.Crypto          (EncShare, PublicKey, Secret, Share, SecretKey,
-                                      SecretProof, SecretSharingExtra, Signature,
-                                      VssPublicKey, sign, toPublic)
+import           Pos.Crypto          (EncShare, PublicKey, Secret, SecretKey, SecretProof,
+                                      SecretSharingExtra, Share, Signature, VssPublicKey,
+                                      sign, toPublic)
 import           Pos.Types.Types     (Address (..), EpochIndex)
 import           Pos.Util            (AsBinary (..))
 

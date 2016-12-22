@@ -153,17 +153,17 @@ library
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
-                        Pos.Modern.DB
-                        Pos.Modern.DB.Block
-                        Pos.Modern.DB.Class
-                        Pos.Modern.DB.DB
-                        Pos.Modern.DB.Error
-                        Pos.Modern.DB.Functions
-                        Pos.Modern.DB.Holder
-                        Pos.Modern.DB.Misc
-                        Pos.Modern.DB.Types
-                        Pos.Modern.DB.Utxo
-                        Pos.Modern.DB.DBIterator
+                        Pos.DB
+                        Pos.DB.Block
+                        Pos.DB.Class
+                        Pos.DB.DB
+                        Pos.DB.Error
+                        Pos.DB.Functions
+                        Pos.DB.Holder
+                        Pos.DB.Misc
+                        Pos.DB.Types
+                        Pos.DB.Utxo
+                        Pos.DB.DBIterator
                         Pos.Modern.Iterator
                         Pos.Modern.Txp.Class
                         Pos.Modern.Txp.Error

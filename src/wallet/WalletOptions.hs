@@ -19,16 +19,16 @@ import           Universum
 import qualified Pos.CLI                as CLI
 
 data WalletOptions = WalletOptions
-    { woDbPath             :: !FilePath
-    , woRebuildDb          :: !Bool
-    , woPort               :: !Word16         -- ^ DHT/Blockchain port
-    , woInitialPause       :: !Int            -- ^ Pause between connecting to network
+    { woDbPath       :: !FilePath
+    , woRebuildDb    :: !Bool
+    , woPort         :: !Word16         -- ^ DHT/Blockchain port
+    , woInitialPause :: !Int            -- ^ Pause between connecting to network
                                              -- and starting accepting commands (in slots)
-    , woKeyFilePath        :: !FilePath       -- ^ Path to file with secret keys
-    , woDebug              :: !Bool           -- ^ Run in debug mode (with genesis keys included)
-    , woJLFile             :: !(Maybe FilePath)
-    , woCommonArgs         :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
-    , woAction             :: !WalletAction
+    , woKeyFilePath  :: !FilePath       -- ^ Path to file with secret keys
+    , woDebug        :: !Bool           -- ^ Run in debug mode (with genesis keys included)
+    , woJLFile       :: !(Maybe FilePath)
+    , woCommonArgs   :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
+    , woAction       :: !WalletAction
     }
 
 data WalletAction = Repl

@@ -19,11 +19,11 @@ import           Universum
 import           Pos.Communication               (MutSocketState, newMutSocketState)
 import           Pos.Context                     (ContextHolder, NodeContext,
                                                   getNodeContext, runContextHolder)
+import qualified Pos.DB                          as Modern
 import           Pos.DHT.Model                   (DHTPacking)
 import           Pos.DHT.Real                    (KademliaDHTContext, getKademliaDHTCtx,
                                                   runKademliaDHTRaw)
 import           Pos.Launcher                    (runOurDialog)
-import qualified Pos.Modern.DB                   as Modern
 import qualified Pos.Modern.Txp.Holder           as Modern
 import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 import           Pos.Ssc.Class                   (SscConstraint)

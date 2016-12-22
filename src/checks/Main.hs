@@ -8,8 +8,8 @@ import           Data.Function   (on)
 import           Data.List       (foldl', sortBy)
 import qualified Data.Map.Strict as M
 import qualified Data.Text       as T
-import           Turtle
 import           Prelude         hiding (FilePath)
+import           Turtle
 
 main :: IO ()
 main = do

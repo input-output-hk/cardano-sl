@@ -24,10 +24,10 @@ import           Universum
 import           Pos.Communication.Types.State (MutSocketState)
 import qualified Pos.Context                   as PC
 import           Pos.Crypto                    (WithHash)
+import           Pos.DB                        (DBHolder)
+import qualified Pos.DB                        as DB
 import           Pos.DHT.Model                 (DHTPacking)
 import           Pos.DHT.Real                  (KademliaDHT)
-import           Pos.Modern.DB                 (DBHolder)
-import qualified Pos.Modern.DB                 as DB
 import qualified Pos.Modern.Txp.Holder         as Modern
 import           Pos.Ssc.Extra                 (SscHolder (..), SscLDImpl (..))
 import           Pos.Ssc.GodTossing            (SscGodTossing)

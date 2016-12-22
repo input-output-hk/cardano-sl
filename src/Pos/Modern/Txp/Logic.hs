@@ -29,8 +29,8 @@ import           Universum
 
 import           Pos.Constants                   (maxLocalTxs)
 import           Pos.Crypto                      (WithHash (..), hash, withHash)
-import           Pos.Modern.DB                   (DB, MonadDB, getUtxoDB)
-import           Pos.Modern.DB.Utxo              (BatchOp (..), getTip, writeBatchToUtxo)
+import           Pos.DB                          (DB, MonadDB, getUtxoDB)
+import           Pos.DB.Utxo                     (BatchOp (..), getTip, writeBatchToUtxo)
 import           Pos.Modern.Txp.Class            (MonadTxpLD (..), TxpLD)
 import           Pos.Modern.Txp.Error            (TxpError (..))
 import           Pos.Modern.Txp.Holder           (TxpLDHolder, runTxpLDHolderUV)
@@ -106,7 +106,9 @@ txApplyBlock (Right blk) = do
             putOut = map (uncurry AddTxOut) $ zip keys txOutputs
         in foldr' (:) (foldr' (:) batch putOut) delIn --how we could simplify it?
 
--- | Verify whether sequence of blocks can be applied to current Tx state.
+-- | Verify whether sequence of blocks can be applied to current Tx
+-- state.  This function doesn't make pure checks for transactions,
+-- they are assumed to be done earlier.
 txVerifyBlocks
     :: forall ssc m.
        MonadDB ssc m
@@ -130,7 +132,7 @@ txVerifyBlocks newChain = do
     verifyDo undos (slotId, txws) =
         attachSlotId slotId <$>
         (liftA2 (flip (:)) undos) <$>
-        verifyAndApplyTxs txws
+        verifyAndApplyTxs False txws
     attachSlotId _ suc@(Right _) = suc
     attachSlotId sId (Left errors) =
         Left $ (sformat ("[Block's slot = "%slotIdF % "]"%stext) sId) errors
@@ -161,7 +163,7 @@ processTxDo ld@(uv, mp, tip) resolvedIns utxoDB (id, (tx, txw))
             Right _     -> newState addUtxo' delUtxo' locTxs locTxsSize
             Left errors -> (PTRinvalid errors, ld)
   where
-    verifyRes = verifyTxPure inputResolver (tx, txw)
+    verifyRes = verifyTxPure True inputResolver (tx, txw)
     locTxs = localTxs mp
     locTxsSize = localTxsSize mp
     addUtxo' = addUtxo uv
@@ -244,7 +246,9 @@ normalizeTxpLD = do
     newState newUtxoView validTxs utxoTip =
         (newUtxoView, MemPool (HM.fromList validTxs) (length validTxs), utxoTip)
     canApply xs itw@(_, (tx, txw)) = do
-        verifyRes <- verifyTxUtxo (tx, txw)
+        -- Pure checks are not done here, because they are done
+        -- earlier, when we accept transaction.
+        verifyRes <- verifyTxUtxo False (tx, txw)
         case verifyRes of
             Right _ -> do
                 applyTxToUtxo' itw

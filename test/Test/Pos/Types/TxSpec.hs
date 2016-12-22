@@ -42,7 +42,7 @@ import           Pos.Types              (BadSigsTx (..), GoodTx (..), OverflowTx
                                          checkPubKeyAddress, makePubKeyAddress,
                                          makeScriptAddress, topsortTxs, verifyTxAlone,
                                          verifyTxPure, verifyTxUtxoPure)
-import           Pos.Util               (eitherToVerRes, sublistN)
+import           Pos.Util               (sublistN)
 
 
 spec :: Spec
@@ -161,7 +161,7 @@ scriptTxSpec = describe "script transactions" $ do
     -- Try to apply a transaction (with given utxo as context) and say
     -- whether it applied successfully
     tryApplyTx :: Utxo -> Tx -> TxWitness -> VerificationRes
-    tryApplyTx utxo tx txwit = verifyTxUtxoPure utxo (tx, txwit)
+    tryApplyTx utxo tx txwit = verifyTxUtxoPure True utxo (tx, txwit)
 
     -- Test tx1 against tx0. Tx0 will be a script transaction with given
     -- validator. Tx1 will be a P2PK transaction spending tx0 (with given
@@ -268,7 +268,7 @@ validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
     let quadruple@(tx, inpResolver, _, txWits) =
             getTxFromGoodTx ls
         transactionIsVerified =
-            isVerSuccess $ eitherToVerRes $ verifyTxPure inpResolver (tx, txWits)
+            isRight $ verifyTxPure True inpResolver (tx, txWits)
         transactionReallyIsGood = individualTxPropertyVerifier quadruple
     in  transactionIsVerified == transactionReallyIsGood
 
@@ -277,7 +277,7 @@ overflowTx (SmallOverflowTx (getOverflowTx -> ls)) =
     let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
         transactionIsNotVerified =
-            isVerFailure $ eitherToVerRes $ verifyTxPure inpResolver (tx, txWits)
+            isLeft $ verifyTxPure True inpResolver (tx, txWits)
         inpSumLessThanOutSum = not $ txChecksum extendedInputs txOutputs
     in inpSumLessThanOutSum == transactionIsNotVerified
 
@@ -294,8 +294,7 @@ badSigsTx :: SmallBadSigsTx -> Bool
 badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
     let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
-        transactionIsNotVerified = isVerFailure $
-                                       eitherToVerRes $ verifyTxPure inpResolver (tx, txWits)
+        transactionIsNotVerified = isLeft $ verifyTxPure True inpResolver (tx, txWits)
         notAllSignaturesAreValid =
             any (signatureIsNotValid txOutputs) $ zip extendedInputs (V.toList txWits)
     in notAllSignaturesAreValid == transactionIsNotVerified

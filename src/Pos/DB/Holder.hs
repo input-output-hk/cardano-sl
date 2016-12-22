@@ -9,7 +9,7 @@
 
 -- | Default implementation of MonadDB.
 
-module Pos.Modern.DB.Holder
+module Pos.DB.Holder
        ( DBHolder
        , runDBHolder
        ) where
@@ -28,8 +28,8 @@ import           Serokell.Util.Lens           (WrappedM (..))
 import           System.Wlog                  (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Modern.DB.Class          (MonadDB (..))
-import           Pos.Modern.DB.Types          (DB (..), NodeDBs (..))
+import           Pos.DB.Class                 (MonadDB (..))
+import           Pos.DB.Types                 (DB (..), NodeDBs (..))
 import qualified Pos.State.State              as Legacy
 
 

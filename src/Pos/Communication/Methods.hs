@@ -42,7 +42,7 @@ import           Pos.Txp.Types.Communication (TxDataMsg (..))
 import           Pos.Types                   (EpochIndex, HeaderHash, MainBlockHeader, Tx,
                                               TxWitness, headerHash)
 import           Pos.Util                    (logWarningWaitLinear, messageName')
-import           Pos.WorkMode                (WorkMode, MinWorkMode)
+import           Pos.WorkMode                (MinWorkMode, WorkMode)
 
 -- thread and controls how much time action takes.
 sendToNeighborsSafeImpl :: (Message r, MinWorkMode ssc m) => (r -> m ()) -> r -> m ()

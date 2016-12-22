@@ -4,27 +4,27 @@ module GenOptions
        , optsInfo
        ) where
 
-import           Options.Applicative    (Parser, ParserInfo, auto, fullDesc, help, helper,
-                                         info, long, many, metavar, option, progDesc,
-                                         short, value)
+import           Options.Applicative (Parser, ParserInfo, auto, fullDesc, help, helper,
+                                      info, long, many, metavar, option, progDesc, short,
+                                      value)
 import           Universum
 
 
-import qualified Pos.CLI                as CLI
+import qualified Pos.CLI             as CLI
 
 data GenOptions = GenOptions
-    { goGenesisIdxs        :: ![Word]       -- ^ Index in genesis key pairs.
+    { goGenesisIdxs     :: ![Word]       -- ^ Index in genesis key pairs.
     -- , goRemoteAddr  :: !NetworkAddress -- ^ Remote node address
-    , goRoundPeriodRate    :: !Int        -- ^ R, where duration of one round is ((k + P) * (R + 1)) * slotDuration
-    , goRoundNumber        :: !Int        -- ^ Number of rounds
-    , goRoundPause         :: !Double     -- ^ Pause between rounds (in seconds)
-    , goInitBalance        :: !Int        -- ^ Total coins in init utxo per address
-    , goInitTps            :: !Double     -- ^ Start TPS rate (it adjusts over time)
-    , goTpsIncreaseStep    :: !Double     -- ^ When system is stable, increase TPS in next round by this value
-    , goPropThreshold      :: !Int
-    , goRecipientShare     :: !Double     -- ^ Which portion of neighbours to send on each round
-    , goJLFile             :: !(Maybe FilePath)
-    , goCommonArgs         :: !CLI.CommonArgs -- ^ Common CLI arguments, including initial DHT nodes
+    , goRoundPeriodRate :: !Int        -- ^ R, where duration of one round is ((k + P) * (R + 1)) * slotDuration
+    , goRoundNumber     :: !Int        -- ^ Number of rounds
+    , goRoundPause      :: !Double     -- ^ Pause between rounds (in seconds)
+    , goInitBalance     :: !Int        -- ^ Total coins in init utxo per address
+    , goInitTps         :: !Double     -- ^ Start TPS rate (it adjusts over time)
+    , goTpsIncreaseStep :: !Double     -- ^ When system is stable, increase TPS in next round by this value
+    , goPropThreshold   :: !Int
+    , goRecipientShare  :: !Double     -- ^ Which portion of neighbours to send on each round
+    , goJLFile          :: !(Maybe FilePath)
+    , goCommonArgs      :: !CLI.CommonArgs -- ^ Common CLI arguments, including initial DHT nodes
     }
 
 optionsParser :: Parser GenOptions

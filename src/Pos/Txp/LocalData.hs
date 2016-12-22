@@ -115,7 +115,7 @@ processTxU tx utxo = do
 processTxDo :: IdTxWitness -> Utxo -> Update ProcessTxRes
 processTxDo (id, tx) utxo =
     ifM isKnown (pure PTRknown) $
-    case verifyTxUtxoPure utxo tx of
+    case verifyTxUtxoPure True utxo tx of
         VerSuccess -> do
             txLocalTxs %= HM.insert id tx
             txLocalTxsSize += 1

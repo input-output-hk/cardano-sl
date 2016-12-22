@@ -9,7 +9,7 @@ module Pos.Crypto
        ) where
 
 import           Pos.Crypto.Arbitrary
-import           Pos.Crypto.AsBinary ()
+import           Pos.Crypto.AsBinary      ()
 import           Pos.Crypto.Hashing
 import           Pos.Crypto.Random
 import           Pos.Crypto.SecretSharing

@@ -53,12 +53,12 @@ import           Universum
 
 import           Pos.Communication.Types.State (MutSocketState)
 import           Pos.Context                   (ContextHolder, WithNodeContext)
+import qualified Pos.DB.Class                  as Modern
+import qualified Pos.DB.Holder                 as Modern
 import           Pos.DHT.Model                 (DHTPacking, DHTResponseT (..),
                                                 MonadMessageDHT (..),
                                                 WithDefaultMsgHeader)
 import           Pos.DHT.Real                  (KademliaDHT (..))
-import qualified Pos.Modern.DB.Class           as Modern
-import qualified Pos.Modern.DB.Holder          as Modern
 import           Pos.Modern.Txp.Class          (MonadTxpLD (..))
 import           Pos.Modern.Txp.Holder         (TxpLDHolder)
 import           Pos.Slotting                  (MonadSlots (..))

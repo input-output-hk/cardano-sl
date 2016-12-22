@@ -29,7 +29,7 @@ import           System.Wlog                     (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context                     (WithNodeContext)
-import qualified Pos.Modern.DB.Class             as Modern
+import qualified Pos.DB.Class                    as Modern
 import           Pos.Modern.Txp.Class            (MonadTxpLD (..))
 import           Pos.Modern.Txp.Storage.Types    (MemPool, UtxoView)
 import qualified Pos.Modern.Txp.Storage.UtxoView as UV

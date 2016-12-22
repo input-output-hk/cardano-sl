@@ -4,9 +4,8 @@ module Main
 
 import           Data.Proxy                         (Proxy (..))
 import           Language.PureScript.Bridge         (BridgePart, buildBridge,
-                                                     defaultBridge, mkSumType,
-                                                     typeName, writePSTypes,
-                                                     (<|>), (^==))
+                                                     defaultBridge, mkSumType, typeName,
+                                                     writePSTypes, (<|>), (^==))
 import           Language.PureScript.Bridge.PSTypes (psInt)
 import           Universum
 

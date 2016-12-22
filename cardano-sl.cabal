@@ -219,6 +219,7 @@ library
                         Pos.Types.Utxo.Functions
                         Pos.Types.Utxo.Pure
                         Pos.Worker.Block
+                        Pos.Worker.Lrc
                         Pos.Worker.Stats
                         Pos.Util.Arbitrary
                         Pos.Util.Iterator

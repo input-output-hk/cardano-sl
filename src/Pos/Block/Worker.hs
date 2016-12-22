@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE MultiWayIf            #-}
@@ -35,8 +36,13 @@ import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlot
                                             onNewSlot)
 import           Pos.Ssc.Class             (sscApplyGlobalState, sscGetLocalPayload,
                                             sscVerifyPayload)
+#ifdef MODERN
+import           Pos.Block.Logic           (createMainBlock, processNewSlot)
+import           Pos.Context.Class         (tryReadLeaders)
+#else
 import           Pos.State                 (createNewBlock, getGlobalMpcData,
                                             getHeadBlock, getLeaders, processNewSlot)
+#endif
 import           Pos.Txp.LocalData         (getLocalTxs)
 import           Pos.Types                 (EpochIndex, SlotId (..),
                                             Timestamp (Timestamp), blockMpc, gbHeader,
@@ -48,7 +54,11 @@ import           Pos.WorkMode              (WorkMode)
 
 -- | All workers specific to block processing.
 blkWorkers :: WorkMode ssc m => [m ()]
+#ifdef MODERN
+blkWorkers = [blkOnNewSlotWorker]
+#else
 blkWorkers = [blocksTransmitter, blkOnNewSlotWorker]
+#endif
 
 blkOnNewSlotWorker :: WorkMode ssc m => m ()
 blkOnNewSlotWorker = onNewSlot True blkOnNewSlot
@@ -57,14 +67,22 @@ blkOnNewSlotWorker = onNewSlot True blkOnNewSlot
 blkOnNewSlot :: WorkMode ssc m => SlotId -> m ()
 blkOnNewSlot slotId@SlotId {..} = do
     -- First of all we create genesis block if necessary.
+#ifdef MODERN
+    mGenBlock <- processNewSlot slotId
+#else
     (mGenBlock, pnsLog) <- processNewSlot slotId
     dispatchEvents pnsLog
+#endif
     forM_ mGenBlock $ \createdBlk -> do
         logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
         jlLog $ jlCreatedBlock (Left createdBlk)
 
     -- Then we get leaders for current epoch.
+#ifdef MODERN
+    leadersMaybe <- tryReadLeaders
+#else
     leadersMaybe <- getLeaders siEpoch
+#endif
     case leadersMaybe of
         -- If we don't know leaders, we can't do anything.
         Nothing -> logWarning "Leaders are not known for new slot"
@@ -115,7 +133,6 @@ onNewSlotWhenLeader slotId pSk = do
             (blk ^. gbHeader) (blk ^. blockMpc)
     let onNewSlotWhenLeaderDo = do
             logInfo "It's time to create a block for current slot"
-            sk <- ncSecretKey <$> getNodeContext
             let whenCreated createdBlk = do
                     logInfo $
                         sformat ("Created a new block:\n" %build) createdBlk
@@ -125,22 +142,34 @@ onNewSlotWhenLeader slotId pSk = do
                         VerFailure warnings -> logWarning $ sformat
                             ("New block failed some checks: "%listJson)
                             warnings
+#ifndef MODERN
                     globalData <- logWarningWaitLinear 6 "getGlobalMpcData"
                         getGlobalMpcData
                     logWarningWaitLinear 7 "sscApplyGlobalState" $
                         sscApplyGlobalState globalData
+#endif
                     announceBlock $ createdBlk ^. gbHeader
             let whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
+#ifdef MODERN
+            createdBlock <- createMainBlock pSk
+#else
             sscData <- sscGetLocalPayload slotId
             localTxs <- HM.toList <$> getLocalTxs
             let panicTopsort = panic "Topology of local transactions is broken!"
             let convertTx (txId, (tx, _)) = WithHash tx txId
             let sortedTxs = fromMaybe panicTopsort $
                             topsortTxs convertTx localTxs
+            sk <- ncSecretKey <$> getNodeContext
             createdBlock <- createNewBlock sortedTxs sk pSk slotId sscData
+#endif
             either whenNotCreated whenCreated createdBlock
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
+----------------------------------------------------------------------------
+-- Obsolete transmitter
+----------------------------------------------------------------------------
+
+#ifndef MODERN
 blocksTransmitterInterval :: Microsecond
 blocksTransmitterInterval = slotDuration `div` 2
 
@@ -156,3 +185,4 @@ blocksTransmitter = whenM (ncPropagation <$> getNodeContext) impl
     onError e =
         blocksTransmitterInterval <$
         logWarning (sformat ("Error occured in blocksTransmitter: " %build) e)
+#endif

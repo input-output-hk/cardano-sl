@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -17,12 +18,17 @@ module Pos.Script
        , stdlib
        ) where
 
+import           Control.Exception          (ArithException (..), ArrayException (..),
+                                             ErrorCall (..), Handler (..),
+                                             PatternMatchFail (..), SomeException (..),
+                                             catches, displayException, throwIO)
 import           Control.Monad.Fail         (fail)
 import           Data.FileEmbed             (embedStringFile, makeRelativeToProject)
 import           Data.String                (String)
 import qualified Interface.Integration      as PL
 import           Language.Haskell.TH.Syntax (Lift (..))
 import qualified PlutusCore.Program         as PLCore
+import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum                  hiding (lift)
 
 import           Pos.Script.Type            (Script)
@@ -49,6 +55,8 @@ data TxScriptError
       -- | The validator and the redeemer have incompatible types and can't
       -- be combined.
     | TypeMismatch
+      -- | Some error (like an 'error' being thrown by script evaluator)
+    | Exception
       -- | Everything typechecks but the result of evaluation isn't @success@
       -- and so the transaction is invalid.
     | ValidationFail
@@ -62,10 +70,16 @@ txScriptCheck
     :: Script                     -- ^ Validator
     -> Script                     -- ^ Redeemer
     -> Either TxScriptError ()
-txScriptCheck validator redeemer = do
-    (script, env) <- PL.buildValidationScript stdlib validator redeemer
-    result <- PL.checkValidationResult (script, env)
-    if result then Right () else Left "result of evaluation is 'failure'"
+txScriptCheck validator redeemer = case spoon result of
+    Left x              -> Left ("exception when evaluating a script: " ++ x)
+    Right (Left x)      -> Left x
+    Right (Right False) -> Left "result of evaluation is 'failure'"
+    Right (Right True)  -> Right ()
+  where
+    result :: Either String Bool
+    result = do
+        (script, env) <- PL.buildValidationScript stdlib validator redeemer
+        PL.checkValidationResult (script, env)
 
 stdlib :: PLCore.Program
 stdlib =
@@ -73,3 +87,21 @@ stdlib =
          case PL.loadProgram file of
              Left a  -> fail ("couldn't parse script standard library: " ++ a)
              Right x -> lift x)
+
+----------------------------------------------------------------------------
+-- Error catching
+----------------------------------------------------------------------------
+
+{-# INLINEABLE defaultHandles #-}
+defaultHandles :: [Handler (Either String a)]
+defaultHandles =
+    [ Handler $ \(x :: ArithException)   -> return (Left (displayException x))
+    , Handler $ \(x :: ArrayException)   -> return (Left (displayException x))
+    , Handler $ \(x :: ErrorCall)        -> return (Left (displayException x))
+    , Handler $ \(x :: PatternMatchFail) -> return (Left (displayException x))
+    , Handler $ \(x :: SomeException)    -> throwIO x ]
+
+{-# INLINE spoon #-}
+spoon :: NFData a => a -> Either String a
+spoon a = unsafePerformIO $
+    deepseq a (Right `fmap` return a) `catches` defaultHandles

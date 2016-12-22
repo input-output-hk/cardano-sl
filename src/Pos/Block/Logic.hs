@@ -32,8 +32,8 @@ import           Universum
 import           Pos.Constants        (epochSlots, k)
 import           Pos.Context          (putBlkSemaphore, takeBlkSemaphore)
 import           Pos.Crypto           (hash)
-import           Pos.Modern.DB        (MonadDB)
-import qualified Pos.Modern.DB        as DB
+import           Pos.DB               (MonadDB)
+import qualified Pos.DB               as DB
 import           Pos.Modern.Txp.Logic (txApplyBlocks, txRollbackBlocks, txVerifyBlocks)
 import           Pos.Slotting         (getCurrentSlot)
 import           Pos.Ssc.Class        (Ssc)

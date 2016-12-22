@@ -30,7 +30,7 @@ import           Serokell.Util.Verify                    (VerificationRes (..),
 import           Universum
 
 import           Pos.Binary.Ssc                          ()
-import           Pos.Modern.DB                           (MonadDB, getBlock)
+import           Pos.DB                                  (MonadDB, getBlock)
 import           Pos.Modern.Ssc.GodTossing.Helpers       (calculateSeedQ)
 import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
                                                           gsCommitments, gsOpenings,

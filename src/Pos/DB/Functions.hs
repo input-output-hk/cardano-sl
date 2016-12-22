@@ -2,7 +2,7 @@
 
 -- | Basically wrappers over RocksDB library.
 
-module Pos.Modern.DB.Functions
+module Pos.DB.Functions
        ( openDB
        , rocksDelete
        , rocksGetBi
@@ -25,8 +25,8 @@ import           Formatting                   (sformat, shown, string, (%))
 import           Universum
 
 import           Pos.Binary.Class             (Bi, decodeFull, encodeStrict)
-import           Pos.Modern.DB.Error          (DBError (DBMalformed))
-import           Pos.Modern.DB.Types          (DB (..))
+import           Pos.DB.Error                 (DBError (DBMalformed))
+import           Pos.DB.Types                 (DB (..))
 
 -- | Open DB stored on disk.
 openDB :: MonadResource m => FilePath -> m (DB ssc)

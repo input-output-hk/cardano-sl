@@ -1,8 +1,8 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes       #-}
 -- | Interface for the Misc DB
 
-module Pos.Modern.DB.Misc
+module Pos.DB.Misc
        (
          getProxySecretKeys
        , addProxySecretKey
@@ -20,8 +20,8 @@ import           Universum
 
 import           Pos.Binary                             (Bi)
 import           Pos.Crypto                             (Hash, SecretKey, pskOmega)
-import           Pos.Modern.DB.Class                    (MonadDB, getMiscDB)
-import           Pos.Modern.DB.Functions                (rocksGetBi, rocksPutBi)
+import           Pos.DB.Class                           (MonadDB, getMiscDB)
+import           Pos.DB.Functions                       (rocksGetBi, rocksPutBi)
 import           Pos.Modern.Ssc.GodTossing.Secret.Types (GtSecretStorage)
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
 import           Pos.Types                              (EpochIndex, ProxySKEpoch)

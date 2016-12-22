@@ -35,7 +35,7 @@ instance MonadIterator (ListHolder a) a where
             (x:xs) -> (Just x, xs)
     curItem = ListHolder $ state $ \s->
         case s of
-            []       -> (Nothing, [])
+            []      -> (Nothing, [])
             l@(x:_) -> (Just x, l)
 
 runListHolder :: ListHolder s a -> [s] -> a

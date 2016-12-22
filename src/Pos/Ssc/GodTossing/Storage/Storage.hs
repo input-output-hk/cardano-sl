@@ -31,7 +31,7 @@ import           Serokell.Util.Verify              (VerificationRes (..), isVerS
                                                     verifyGeneric)
 import           Universum
 
-import           Pos.Crypto                        (EncShare, VssPublicKey, Threshold)
+import           Pos.Crypto                        (EncShare, Threshold, VssPublicKey)
 import           Pos.FollowTheSatoshi              (followTheSatoshi)
 import           Pos.Ssc.Class.Storage             (HasSscStorage (..), SscQuery,
                                                     SscStorageClass (..), SscUpdate)

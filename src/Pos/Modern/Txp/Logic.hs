@@ -29,8 +29,8 @@ import           Universum
 
 import           Pos.Constants                   (maxLocalTxs)
 import           Pos.Crypto                      (WithHash (..), hash, withHash)
-import           Pos.Modern.DB                   (DB, MonadDB, getUtxoDB)
-import           Pos.Modern.DB.Utxo              (BatchOp (..), getTip, writeBatchToUtxo)
+import           Pos.DB                          (DB, MonadDB, getUtxoDB)
+import           Pos.DB.Utxo                     (BatchOp (..), getTip, writeBatchToUtxo)
 import           Pos.Modern.Txp.Class            (MonadTxpLD (..), TxpLD)
 import           Pos.Modern.Txp.Error            (TxpError (..))
 import           Pos.Modern.Txp.Holder           (TxpLDHolder, runTxpLDHolderUV)

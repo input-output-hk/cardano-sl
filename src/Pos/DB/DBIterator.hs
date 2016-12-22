@@ -7,7 +7,7 @@
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
-module Pos.Modern.DB.DBIterator
+module Pos.DB.DBIterator
        (
          DBIterator (..)
        , DBMapIterator (..)
@@ -15,15 +15,15 @@ module Pos.Modern.DB.DBIterator
        , mapIterator
        ) where
 
-import           Control.Monad.Reader    (ReaderT (..))
-import           Control.Monad.Trans     (MonadTrans)
-import qualified Database.RocksDB        as Rocks
+import           Control.Monad.Reader (ReaderT (..))
+import           Control.Monad.Trans  (MonadTrans)
+import qualified Database.RocksDB     as Rocks
 import           Universum
 
-import           Pos.Binary.Class        (Bi)
-import           Pos.Modern.DB.Functions (rocksDecodeKeyValMaybe)
-import           Pos.Modern.DB.Types     (DB (..))
-import           Pos.Modern.Iterator     (MonadIterator (..))
+import           Pos.Binary.Class     (Bi)
+import           Pos.DB.Functions     (rocksDecodeKeyValMaybe)
+import           Pos.DB.Types         (DB (..))
+import           Pos.Modern.Iterator  (MonadIterator (..))
 
 
 newtype DBIterator m a = DBIterator

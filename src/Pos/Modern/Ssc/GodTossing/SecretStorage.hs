@@ -3,13 +3,13 @@ module Pos.Modern.Ssc.GodTossing.SecretStorage
          GtSecret
        ) where
 
-import           Data.Default                           (Default (..))
+import           Data.Default                  (Default (..))
 import           Universum
 
-import           Pos.Crypto                             (PublicKey)
-import           Pos.Ssc.GodTossing.Types.Base          (Opening, SignedCommitment)
-import           Pos.Types                              (SlotId (..), unflattenSlotId)
-import Pos.Modern.DB.Misc (getSecretStorage)
+import           Pos.Crypto                    (PublicKey)
+import           Pos.DB.Misc                   (getSecretStorage)
+import           Pos.Ssc.GodTossing.Types.Base (Opening, SignedCommitment)
+import           Pos.Types                     (SlotId (..), unflattenSlotId)
 
 type GtSecret = (PublicKey, SignedCommitment, Opening)
 

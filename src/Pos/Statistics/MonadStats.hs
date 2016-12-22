@@ -41,10 +41,10 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context.Class           (WithNodeContext)
+import qualified Pos.DB                      as Modern
 import           Pos.DHT.Model               (DHTResponseT, MonadDHT,
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
-import qualified Pos.Modern.DB               as Modern
 import           Pos.Modern.Txp.Class        (MonadTxpLD (..))
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData     (MonadSscLD (..))

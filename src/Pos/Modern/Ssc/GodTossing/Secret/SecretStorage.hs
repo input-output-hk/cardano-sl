@@ -8,8 +8,8 @@ module Pos.Modern.Ssc.GodTossing.Secret.SecretStorage
 
 import           Universum
 
-import           Pos.Modern.DB                          (MonadDB)
-import           Pos.Modern.DB.Misc                     (getSecretStorage,
+import           Pos.DB                                 (MonadDB)
+import           Pos.DB.Misc                            (getSecretStorage,
                                                          putSecretStorage)
 import           Pos.Modern.Ssc.GodTossing.Secret.Types (GtSecret, GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)

@@ -35,7 +35,7 @@ import           Universum
 
 import           Pos.Context.Class       (WithNodeContext)
 import           Pos.Crypto              (EncShare, Threshold, VssPublicKey)
-import           Pos.Modern.DB.Class     (MonadDB)
+import           Pos.DB.Class            (MonadDB)
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types.Types         (Address, EpochIndex, HeaderHash, SharedSeed,

@@ -1,6 +1,6 @@
 -- | Higher-level DB functionality.
 
-module Pos.Modern.DB.DB
+module Pos.DB.DB
        ( openNodeDBs
        , getTipBlock
        ) where
@@ -10,13 +10,13 @@ import           System.Directory             (createDirectoryIfMissing)
 import           System.FilePath              ((</>))
 import           Universum
 
-import           Pos.Modern.DB.Block          (getBlock)
-import           Pos.Modern.DB.Class          (MonadDB)
-import           Pos.Modern.DB.Error          (DBError (DBMalformed))
-import           Pos.Modern.DB.Functions      (openDB)
-import           Pos.Modern.DB.Holder         (runDBHolder)
-import           Pos.Modern.DB.Types          (NodeDBs (..))
-import           Pos.Modern.DB.Utxo           (getTip, prepareUtxoDB)
+import           Pos.DB.Block                 (getBlock)
+import           Pos.DB.Class                 (MonadDB)
+import           Pos.DB.Error                 (DBError (DBMalformed))
+import           Pos.DB.Functions             (openDB)
+import           Pos.DB.Holder                (runDBHolder)
+import           Pos.DB.Types                 (NodeDBs (..))
+import           Pos.DB.Utxo                  (getTip, prepareUtxoDB)
 import           Pos.Ssc.Class.Types          (Ssc)
 import           Pos.Types                    (Block)
 

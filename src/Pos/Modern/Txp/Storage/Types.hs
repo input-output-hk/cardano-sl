@@ -9,7 +9,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.HashSet        (HashSet)
 import           Universum
 
-import           Pos.Modern.DB.Types (DB)
+import           Pos.DB.Types        (DB)
 import           Pos.Types           (Tx, TxId, TxIn, TxOut, TxWitness)
 
 

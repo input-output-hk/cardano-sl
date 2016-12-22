@@ -26,12 +26,12 @@ import           Pos.Communication.Types                (ResponseMode)
 import           Pos.Context                            (WithNodeContext (getNodeContext),
                                                          ncPropagation)
 import           Pos.DHT.Model                          (ListenerDHT (..), replyToNode)
+import           Pos.Security                           (shouldIgnorePkAddress)
 import           Pos.Slotting                           (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
 import           Pos.Ssc.Class.LocalData                (sscGetLocalPayload)
 import           Pos.Ssc.GodTossing.LocalData.LocalData (sscIsDataUseful,
                                                          sscProcessMessage)
-import           Pos.Security (shouldIgnorePkAddress)
 import           Pos.Ssc.GodTossing.Types.Base          (Commitment, Opening,
                                                          VssCertificate)
 import           Pos.Ssc.GodTossing.Types.Instance      ()

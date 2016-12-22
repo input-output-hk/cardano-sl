@@ -30,7 +30,7 @@ import           Pos.Context               (getNodeContext, ncPropagation, ncPub
                                             ncSecretKey)
 import           Pos.Crypto                (ProxySecretKey, WithHash (WithHash),
                                             pskIssuerPk, pskOmega)
-import           Pos.Modern.DB.Misc        (getProxySecretKeys)
+import           Pos.DB.Misc               (getProxySecretKeys)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
 import           Pos.Ssc.Class             (sscApplyGlobalState, sscGetLocalPayload,
                                             sscVerifyPayload)

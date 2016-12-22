@@ -32,7 +32,7 @@ import           Pos.Ssc.GodTossing.Types.Base           (Commitment (..),
                                                           VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
 import           Pos.Types                               (Address (..), EpochIndex,
-                                                          SharedSeed, Utxo, txOutAddress)
+                                                          SharedSeed)
 import           Pos.Util                                (AsBinary, asBinary, fromBinaryM)
 
 import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),

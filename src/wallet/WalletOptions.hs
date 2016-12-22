@@ -24,6 +24,7 @@ data WalletOptions = WalletOptions
     , woPort               :: !Word16         -- ^ DHT/Blockchain port
     , woInitialPause       :: !Int            -- ^ Pause between connecting to network
                                              -- and starting accepting commands (in slots)
+    , woKeyFilePath        :: !FilePath       -- ^ Path to file with secret keys
     , woDebug              :: !Bool           -- ^ Run in debug mode (with genesis keys included)
     , woJLFile             :: !(Maybe FilePath)
     , woCommonArgs         :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
@@ -72,8 +73,12 @@ optionsParser = WalletOptions
                   <> short 'p'
                   <> value 1
                   <> metavar "SLOTS_NUM"
-                  <> help "Pause between connecting to network and starting accepting commands")
-<<<<<<< HEAD
+                  <> help "Pause between connecting to network and starting accepting\
+                          \ commands")
+    <*> strOption (long "keys-path"
+            <> metavar "FILEPATH"
+            <> value "secret.key"
+            <> help "Path to file with secret keys")
     <*> switch (long "debug"
              <> help "Run in debug mode (with genesis keys included)")
     <*> CLI.optionalJSONPath

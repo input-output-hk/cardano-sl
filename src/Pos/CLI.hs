@@ -183,12 +183,12 @@ portOption portNum =
 
 sscAlgoOption :: Opt.Parser SscAlgo
 sscAlgoOption =
-    Opt.option (fromParsec sscAlgoParser)
-        (Opt.long "ssc-algo"
-        <> Opt.metavar "ALGO"
+    Opt.option (fromParsec sscAlgoParser) $
+        templateParser "ssc-algo"
+                       "ALGO"
+                       "Shared Seed Calculation algorithm which nodes will use"
         <> Opt.value GodTossingAlgo
         <> Opt.showDefault
-        <> Opt.help "Shared Seed Calculation algorithm which nodes will use")
 
 disablePropagationOption :: Opt.Parser Bool
 disablePropagationOption =

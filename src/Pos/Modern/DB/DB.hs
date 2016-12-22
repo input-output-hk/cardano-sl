@@ -36,7 +36,7 @@ openNodeDBs fp = do
     ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 
 getTipBlock
-    :: (Ssc ssc, MonadDB ssc m, MonadThrow m)
+    :: (Ssc ssc, MonadDB ssc m)
     => m (Block ssc)
 getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
   where

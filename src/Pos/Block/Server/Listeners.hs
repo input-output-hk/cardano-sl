@@ -13,9 +13,7 @@ module Pos.Block.Server.Listeners
 import           Control.Lens             ((^.), _1)
 import           Data.List.NonEmpty       (NonEmpty ((:|)), nonEmpty)
 import qualified Data.List.NonEmpty       as NE
-import qualified Data.Text                as T
 import           Formatting               (sformat, stext, (%))
-import           Serokell.Util.Verify     (VerificationRes (..))
 import           System.Wlog              (logDebug, logWarning)
 import           Universum
 

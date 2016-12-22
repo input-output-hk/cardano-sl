@@ -68,7 +68,7 @@ verifyTxInUtxo (SmallGoodTx (getGoodTx -> ls)) =
         witness = V.fromList $ fmap (view _4) ls
         newTx = uncurry Tx $ unzip $ map (\(_, tIs, tOs, _) -> (tIs, tOs)) ls
         utxo = foldr applyTxToUtxoPure mempty (map withHash txs)
-    in isVerSuccess $ verifyTxUtxoPure utxo (newTx, witness)
+    in isVerSuccess $ verifyTxUtxoPure True utxo (newTx, witness)
 
 applyTxToUtxoGood :: M.Map TxIn TxOut -> [TxOut] -> Bool
 applyTxToUtxoGood txMap txOuts =

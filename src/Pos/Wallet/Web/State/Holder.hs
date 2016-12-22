@@ -18,9 +18,9 @@ import           Serokell.Util.Lens         (WrappedM (..))
 import           System.Wlog                (CanLog, HasLoggerName)
 
 import           Pos.Context                (WithNodeContext)
+import qualified Pos.DB                     as Modern
 import           Pos.DHT.Model              (MonadDHT, MonadMessageDHT,
                                              WithDefaultMsgHeader)
-import qualified Pos.Modern.DB              as Modern
 import           Pos.Slotting               (MonadSlots)
 import qualified Pos.State                  as St
 import           Pos.Txp.LocalData          (MonadTxLD)

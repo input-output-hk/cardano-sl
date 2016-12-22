@@ -5,18 +5,19 @@
 
 module Pos.Binary.Ssc () where
 
-import           Control.Monad.Fail               (fail)
-import           Data.Binary.Get                  (getWord8)
-import           Data.Binary.Put                  (putWord8)
+import           Control.Monad.Fail                     (fail)
+import           Data.Binary.Get                        (getWord8)
+import           Data.Binary.Put                        (putWord8)
 import           Universum
 
-import           Pos.Binary.Class                 (Bi (..))
-import           Pos.Binary.Crypto                ()
-import           Pos.Ssc.GodTossing.Types.Base    (Commitment (..), Opening (..),
-                                                   VssCertificate (..))
-import           Pos.Ssc.GodTossing.Types.Message (DataMsg (..), InvMsg (..), MsgTag (..),
-                                                   ReqMsg (..))
-import           Pos.Ssc.GodTossing.Types.Types   (GtPayload (..), GtProof (..))
+import           Pos.Binary.Class                       (Bi (..))
+import           Pos.Binary.Crypto                      ()
+import           Pos.Modern.Ssc.GodTossing.Secret.Types (GtSecretStorage (..))
+import           Pos.Ssc.GodTossing.Types.Base          (Commitment (..), Opening (..),
+                                                         VssCertificate (..))
+import           Pos.Ssc.GodTossing.Types.Message       (DataMsg (..), InvMsg (..),
+                                                         MsgTag (..), ReqMsg (..))
+import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), GtProof (..))
 
 ----------------------------------------------------------------------------
 -- Types.Base
@@ -107,3 +108,10 @@ instance Bi DataMsg where
         2 -> liftM2 DMShares get get
         3 -> liftM2 DMVssCertificate get get
         tag -> fail ("get@DataMsg: invalid tag: " ++ show tag)
+
+----------------------------------------------------------------------------
+-- SecretStorage Type
+----------------------------------------------------------------------------
+instance Bi GtSecretStorage where
+    put (GtSecretStorage s last) = put s >> put last
+    get = GtSecretStorage <$> get <*> get

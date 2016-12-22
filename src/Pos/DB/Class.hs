@@ -7,7 +7,7 @@
 
 -- | Class which provides access to database.
 
-module Pos.Modern.DB.Class
+module Pos.DB.Class
        ( MonadDB (..)
        , getBlockDB
        , getUtxoDB
@@ -20,9 +20,9 @@ import           Control.TimeWarp.Rpc (ResponseT (..))
 import qualified Database.RocksDB     as Rocks
 import           Universum
 
+import           Pos.DB.Types         (DB, NodeDBs, blockDB, miscDB, utxoDB)
 import           Pos.DHT.Model        (DHTResponseT (..))
 import           Pos.DHT.Real         (KademliaDHT (..))
-import           Pos.Modern.DB.Types  (DB, NodeDBs, blockDB, miscDB, utxoDB)
 
 -- TODO write a documentation. LensLike' is just a lens. Written using
 -- LensLike' to avoid rankntypes.

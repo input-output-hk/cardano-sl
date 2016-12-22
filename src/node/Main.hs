@@ -14,6 +14,7 @@ import           System.Wlog          (LoggerName)
 import           Universum
 
 import           Pos.Binary           (Bi, decode, encode)
+import qualified Pos.CLI              as CLI
 import           Pos.Constants        (RunningMode (..), runningMode)
 import           Pos.Crypto           (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.DHT.Model        (DHTKey, DHTNodeType (..), dhtNodeType)
@@ -72,8 +73,8 @@ getSystemStart inst args =
 loggingParams :: LoggerName -> Args -> LoggingParams
 loggingParams tag Args{..} =
     LoggingParams
-    { lpHandlerPrefix = logsPrefix
-    , lpConfigPath    = logConfig
+    { lpHandlerPrefix = CLI.logPrefix commonArgs
+    , lpConfigPath    = CLI.logConfig commonArgs
     , lpRunnerTag = tag
     }
 
@@ -82,9 +83,9 @@ baseParams loggingTag args@Args {..} =
     BaseParams
     { bpLoggingParams = loggingParams loggingTag args
     , bpPort = port
-    , bpDHTPeers = dhtPeers
+    , bpDHTPeers = CLI.dhtPeers commonArgs
     , bpDHTKeyOrType = dhtKeyOrType
-    , bpDHTExplicitInitial = dhtExplicitInitial
+    , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs
     }
   where
     dhtKeyOrType
@@ -137,9 +138,9 @@ action args@Args {..} inst = do
                 currentPluginsGT :: [a]
                 currentPluginsGT = []
 #endif
-            putText $ "Running using " <> show sscAlgo
+            putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
             putText $ "If stats is on: " <> show enableStats
-            case (enableStats, sscAlgo) of
+            case (enableStats, CLI.sscAlgo commonArgs) of
                 (True, GodTossingAlgo) ->
                     runNodeStats @SscGodTossing inst (currentPluginsGT ++ walletStats args) currentParams gtParams
                 (True, NistBeaconAlgo) ->
@@ -161,12 +162,12 @@ nodeParams args@Args {..} spendingSK systemStart =
     , npBaseParams = baseParams "node" args
     , npCustomUtxo =
             Just . genesisUtxo $
-            stakesDistr flatDistr bitcoinDistr
+            stakesDistr (CLI.flatDistr commonArgs) (CLI.bitcoinDistr commonArgs)
     , npTimeLord = timeLord
     , npJLFile = jlPath
     , npAttackTypes = maliciousEmulationAttacks
     , npAttackTargets = maliciousEmulationTargets
-    , npPropagation = not disablePropagation
+    , npPropagation = not (CLI.disablePropagation commonArgs)
     }
 
 gtSscParams :: Args -> VssKeyPair -> GtParams

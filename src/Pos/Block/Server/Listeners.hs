@@ -12,16 +12,16 @@ module Pos.Block.Server.Listeners
 
 import           Control.Lens             ((^.), _1)
 import           Data.List.NonEmpty       (NonEmpty ((:|)), nonEmpty)
-import qualified Data.Text                as T
+import qualified Data.List.NonEmpty       as NE
 import           Formatting               (sformat, stext, (%))
-import           Serokell.Util.Verify     (VerificationRes (..))
 import           System.Wlog              (logDebug, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (ClassifyHeaderRes (..), applyBlocks,
                                            classifyHeaders, classifyNewHeader,
-                                           rollbackBlocks, verifyBlocks, withBlkSemaphore)
+                                           retrieveHeadersFromTo, rollbackBlocks,
+                                           verifyBlocks, withBlkSemaphore)
 import           Pos.Block.Requests       (replyWithBlocksRequest,
                                            replyWithHeadersRequest)
 import           Pos.Block.Server.State   (ProcessBlockMsgRes (..), matchRequestedHeaders,
@@ -30,7 +30,8 @@ import           Pos.Communication.Types  (MsgBlock (..), MsgGetBlocks (..),
                                            MsgGetHeaders (..), MsgHeaders (..),
                                            MutSocketState, ResponseMode)
 import           Pos.Crypto               (shortHashF)
-import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog, getUserState)
+import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog, getUserState,
+                                           replyToNode)
 import           Pos.Types                (Block, BlockHeader, HeaderHash, Undo,
                                            headerHash, headerHashG, prevBlockL)
 import           Pos.Util                 (_neHead, _neLast)
@@ -51,7 +52,12 @@ handleGetHeaders
     :: forall ssc m.
        (ResponseMode ssc m)
     => MsgGetHeaders ssc -> m ()
-handleGetHeaders MsgGetHeaders {..} = pass
+handleGetHeaders MsgGetHeaders {..} = do
+    rhResult <- retrieveHeadersFromTo mghFrom mghTo
+    case nonEmpty rhResult of
+        Nothing ->
+            logWarning "retrieveHeadersFromTo returned empty list, not responding to node"
+        Just ne -> replyToNode $ MsgHeaders ne
 
 handleGetBlocks
     :: forall ssc m.
@@ -73,7 +79,7 @@ handleRequestedHeaders
        (ResponseMode ssc m)
     => NonEmpty (BlockHeader ssc) -> m ()
 handleRequestedHeaders headers = do
-    classificationRes <- classifyHeaders $ toList headers
+    classificationRes <- classifyHeaders headers
     let startHeader = headers ^. _neHead
         startHash = headerHash startHeader
         endHeader = headers ^. _neLast
@@ -143,12 +149,12 @@ handleBlocks blocks = do
     whenNoRollback = do
         verRes <- verifyBlocks blocks
         case verRes of
-            VerSuccess        -> withBlkSemaphore whenNoRollbackDo
-            VerFailure errors -> reportErrors errors
-    whenNoRollbackDo :: HeaderHash ssc -> m (HeaderHash ssc)
-    whenNoRollbackDo tip
-        | tip /= blocks ^. _neHead . headerHashG = pure tip
-        | otherwise = newTip <$ applyBlocks blocks
+            Right undos -> withBlkSemaphore $ whenNoRollbackDo (NE.zip blocks undos)
+            Left errors -> reportError errors
+    whenNoRollbackDo :: NonEmpty (Block ssc, Undo) -> HeaderHash ssc -> m (HeaderHash ssc)
+    whenNoRollbackDo blund tip
+        | tip /= blund ^. _neHead . _1 . headerHashG = pure tip
+        | otherwise = newTip <$ applyBlocks blund
     whenRollback :: NonEmpty (Block ssc, Undo)
                  -> HeaderHash ssc
                  -> m (HeaderHash ssc)
@@ -158,11 +164,10 @@ handleBlocks blocks = do
             rollbackBlocks toRollback
             verRes <- verifyBlocks blocks
             case verRes of
-                VerSuccess -> newTip <$ applyBlocks blocks
-                VerFailure errors ->
-                    reportErrors errors >> applyBlocks (fmap fst toRollback) $>
+                Right undos -> newTip <$ applyBlocks (NE.zip blocks undos)
+                Left errors ->
+                    reportError errors >> applyBlocks toRollback $>
                     tip
     -- TODO: ban node on error!
-    reportErrors =
-        logWarning . sformat ("Failed to verify blocks: " %stext) .
-        T.intercalate ";"
+    reportError =
+        logWarning . sformat ("Failed to verify blocks: " %stext)

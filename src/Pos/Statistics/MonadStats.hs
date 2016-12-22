@@ -40,15 +40,15 @@ import qualified STMContainers.Map           as SM
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
+import           Pos.Context.Class           (WithNodeContext)
+import qualified Pos.DB                      as Modern
 import           Pos.DHT.Model               (DHTResponseT, MonadDHT,
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
-import qualified Pos.Modern.DB               as Modern
 import           Pos.Modern.Txp.Class        (MonadTxpLD (..))
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Class.LocalData     (MonadSscLD (..), MonadSscLDM (..))
-import           Pos.Ssc.Class.Storage       (SscStorageClassM)
-import           Pos.Ssc.Class.Storage       (MonadSscGS (..))
+import           Pos.Ssc.Class.LocalData     (MonadSscLD (..))
+import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLDM (..))
 import           Pos.State                   (MonadDB)
 import           Pos.Statistics.StatEntry    (StatLabel (..))
 import           Pos.Types                   (MonadUtxo, MonadUtxoRead)
@@ -87,7 +87,8 @@ newtype NoStatsT m a = NoStatsT
                MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog s p,
                MonadDHT, MonadMessageDHT s, MonadSlots, WithDefaultMsgHeader,
                MonadJL, CanLog, MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc,
-               MonadTxpLD ssc, MonadSscGS ssc, SscStorageClassM ssc, MonadSscLDM ssc)
+               MonadTxpLD ssc, MonadSscGS ssc, MonadSscLDM ssc,
+               WithNodeContext ssc)
 
 instance Monad m => WrappedM (NoStatsT m) where
     type UnwrappedM (NoStatsT m) = m
@@ -135,7 +136,7 @@ newtype StatsT m a = StatsT
                MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog s p,
                MonadDHT, MonadMessageDHT s, MonadSlots, WithDefaultMsgHeader, MonadTrans,
                MonadJL, CanLog, MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc, MonadTxpLD ssc,
-               MonadSscGS ssc, SscStorageClassM ssc, MonadSscLDM ssc)
+               MonadSscGS ssc, MonadSscLDM ssc, WithNodeContext ssc)
 
 instance Monad m => WrappedM (StatsT m) where
     type UnwrappedM (StatsT m) = ReaderT StatsMap m

@@ -1,7 +1,8 @@
 -- | Interface to Blocks DB.
 
-module Pos.Modern.DB.Block
+module Pos.DB.Block
        ( getBlock
+       , getBlockHeader
        , getStoredBlock
        , getUndo
        , isBlockInMainChain
@@ -13,18 +14,21 @@ module Pos.Modern.DB.Block
        , loadBlocksWithUndoWhile
        ) where
 
-import           Control.Lens            ((^.))
-import           Data.ByteArray          (convert)
-import           Data.List.NonEmpty      (NonEmpty (..), (<|))
+import           Control.Lens         ((^.))
+import           Data.ByteArray       (convert)
+import           Data.List.NonEmpty   (NonEmpty (..), (<|))
 import           Universum
 
-import           Pos.Binary.Class        (Bi)
-import           Pos.Binary.Modern.DB    ()
-import           Pos.Modern.DB.Class     (MonadDB, getBlockDB)
-import           Pos.Modern.DB.Functions (rocksDelete, rocksGetBi, rocksPutBi)
-import           Pos.Modern.DB.Types     (StoredBlock (..))
-import           Pos.Ssc.Class.Types     (Ssc)
-import           Pos.Types               (Block, HeaderHash, Undo, headerHash, prevBlockL)
+import           Pos.Binary.Class     (Bi)
+import           Pos.Binary.Modern.DB ()
+import           Pos.DB.Class         (MonadDB, getBlockDB)
+import           Pos.DB.Functions     (rocksDelete, rocksGetBi, rocksPutBi)
+import           Pos.DB.Types         (StoredBlock (..))
+import           Pos.Ssc.Class.Types  (Ssc)
+import           Pos.Types            (Block, BlockHeader, HeaderHash, Undo, headerHash,
+                                       prevBlockL)
+import qualified Pos.Types            as T
+
 
 -- | Get StoredBlock by hash from Block DB.
 getStoredBlock
@@ -37,6 +41,12 @@ getBlock
     :: (Ssc ssc, MonadDB ssc m)
     => HeaderHash ssc -> m (Maybe (Block ssc))
 getBlock = fmap (fmap sbBlock) . getStoredBlock
+
+-- | Returns header of block that was requested from Block DB.
+getBlockHeader
+    :: (Ssc ssc, MonadDB ssc m)
+    => HeaderHash ssc -> m (Maybe (BlockHeader ssc))
+getBlockHeader h = fmap T.getBlockHeader <$> getBlock h
 
 -- | Get block with given hash from Block DB.
 isBlockInMainChain

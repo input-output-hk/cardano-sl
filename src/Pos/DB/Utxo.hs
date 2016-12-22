@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Pos.Modern.DB.Utxo
+module Pos.DB.Utxo
        ( BatchOp (..)
        , getTip
        , getTotalCoins
@@ -18,20 +18,19 @@ module Pos.Modern.DB.Utxo
        , getFilteredUtxo
        ) where
 
-import qualified Data.Map                 as M
-import qualified Database.RocksDB         as Rocks
+import qualified Data.Map          as M
+import qualified Database.RocksDB  as Rocks
 import           Universum
 
-import           Pos.Binary.Class         (Bi, encodeStrict)
-import           Pos.Modern.DB.Class      (MonadDB, getUtxoDB)
-import           Pos.Modern.DB.DBIterator (DBIterator, DBMapIterator, mapIterator,
-                                           withIterator)
-import           Pos.Modern.DB.Error      (DBError (..))
-import           Pos.Modern.DB.Functions  (rocksDelete, rocksGetBi, rocksPutBi,
-                                           rocksWriteBatch, traverseAllEntries)
-import           Pos.Modern.DB.Types      (DB)
-import           Pos.Types                (Address, Coin, HeaderHash, TxIn (..), TxOut,
-                                           Utxo, belongsTo, genesisHash)
+import           Pos.Binary.Class  (Bi, encodeStrict)
+import           Pos.DB.Class      (MonadDB, getUtxoDB)
+import           Pos.DB.DBIterator (DBIterator, DBMapIterator, mapIterator, withIterator)
+import           Pos.DB.Error      (DBError (..))
+import           Pos.DB.Functions  (rocksDelete, rocksGetBi, rocksPutBi, rocksWriteBatch,
+                                    traverseAllEntries)
+import           Pos.DB.Types      (DB)
+import           Pos.Types         (Address, Coin, HeaderHash, TxIn (..), TxOut, Utxo,
+                                    belongsTo, genesisHash)
 
 data BatchOp ssc
     = DelTxIn TxIn
@@ -137,7 +136,7 @@ toRocksOp (PutTip h)            = Rocks.Put tipKey (encodeStrict h)
 toRocksOp (PutTotal c)          = Rocks.Put sumKey (encodeStrict c)
 
 tipKey :: ByteString
-tipKey = "tip"
+tipKey = "btip"
 
 utxoKey :: TxIn -> ByteString
 utxoKey = (<>) "t" . encodeStrict

@@ -107,8 +107,8 @@ type WorkModeDB ssc m = (MonadIO m, MonadDB ssc m)
 -- | State of the node.
 type NodeState ssc = DiskState ssc
 
-type QUConstraint  ssc m = (SscStorageMode ssc, WorkModeDB ssc m)
-type QULConstraint ssc m = (SscStorageMode ssc, WorkModeDB ssc m, HasLoggerName m)
+type QUConstraint  ssc m = (SscHelpersClass ssc, SscStorageMode ssc, WorkModeDB ssc m)
+type QULConstraint ssc m = (SscHelpersClass ssc, SscStorageMode ssc, WorkModeDB ssc m, HasLoggerName m)
 
 -- | Open NodeState, reading existing state from disk (if any).
 openState
@@ -251,7 +251,7 @@ processNewSlot :: QULConstraint ssc m => SlotId -> m (Maybe (GenesisBlock ssc), 
 processNewSlot = updateDiskWithLog . A.ProcessNewSlotL
 
 -- | Process some Block received from the network.
-processBlock :: (SscHelpersClass ssc, QUConstraint ssc m)
+processBlock :: (QUConstraint ssc m)
              => [IdTxWitness]
              -> SlotId
              -> Block ssc

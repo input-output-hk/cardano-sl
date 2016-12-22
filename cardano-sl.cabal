@@ -55,6 +55,7 @@ library
                         Pos.FollowTheSatoshi
                         Pos.Script
                         Pos.Script.Examples
+                        Pos.Script.Type
                         Pos.Ssc.Class
                         Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon
@@ -87,6 +88,7 @@ library
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block
+                        Pos.Types.Coin
                         Pos.Types.Slotting
                         Pos.Types.Timestamp
                         Pos.Types.Tx
@@ -107,6 +109,7 @@ library
   other-modules:        Pos.Aeson.CompileConfig
                         Pos.Binary.Address
                         Pos.Binary.Class
+                        Pos.Binary.Coin
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
                         Pos.Binary.DHTModel
@@ -151,25 +154,24 @@ library
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
-                        Pos.Modern.DB
-                        Pos.Modern.DB.Block
-                        Pos.Modern.DB.Class
-                        Pos.Modern.DB.DB
-                        Pos.Modern.DB.Error
-                        Pos.Modern.DB.Functions
-                        Pos.Modern.DB.Holder
-                        Pos.Modern.DB.Misc
-                        Pos.Modern.DB.Types
-                        Pos.Modern.DB.Utxo
-                        Pos.Modern.DB.DBIterator
+                        Pos.DB
+                        Pos.DB.Block
+                        Pos.DB.Class
+                        Pos.DB.DB
+                        Pos.DB.Error
+                        Pos.DB.Functions
+                        Pos.DB.Holder
+                        Pos.DB.Misc
+                        Pos.DB.Types
+                        Pos.DB.Utxo
+                        Pos.DB.DBIterator
                         Pos.Modern.Iterator
                         Pos.Modern.Txp.Class
                         Pos.Modern.Txp.Error
-                        Pos.Modern.Txp.Storage
-                        Pos.Modern.Txp.Storage.Storage
                         Pos.Modern.Txp.Storage.Types
                         Pos.Modern.Txp.Storage.UtxoView
                         Pos.Modern.Txp.Holder
+                        Pos.Modern.Txp.Logic
                         Pos.Modern.Ssc.GodTossing.LocalData.LocalData
                         Pos.Modern.Ssc.GodTossing.LocalData.Types
                         Pos.Modern.Ssc.GodTossing.LocalData.Helpers
@@ -178,8 +180,12 @@ library
                         Pos.Modern.Ssc.GodTossing.Storage.Types
                         Pos.Modern.Ssc.GodTossing.Workers
                         Pos.Modern.Ssc.GodTossing.Functions
-                        Pos.Ssc.Extra.LocalData
                         Pos.Ssc.Extra.Holder
+                        Pos.Ssc.Extra.LocalData
+                        Pos.Ssc.Extra.MonadGS
+                        Pos.Ssc.Extra.MonadLD
+                        Pos.Modern.Ssc.GodTossing.Secret.SecretStorage
+                        Pos.Modern.Ssc.GodTossing.Secret.Types
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
@@ -195,6 +201,7 @@ library
                         Pos.Ssc.GodTossing.Storage.Types
                         Pos.Ssc.GodTossing.Worker.Workers
                         Pos.Ssc.GodTossing.Seed
+                        Pos.Ssc.GodTossing.Types
                         Pos.Ssc.GodTossing.Types.Base
                         Pos.Ssc.GodTossing.Types.Instance
                         Pos.Ssc.GodTossing.Types.Message
@@ -299,6 +306,8 @@ library
                       , monad-loops
                       , mono-traversable
                       , mtl
+                      , optparse-applicative
+                      , optparse-simple
                       , parsec
                       , plutus-prototype
                       , pvss
@@ -314,6 +323,7 @@ library
                       , template-haskell
                       , text
                       , text-format
+                      , th-lift-instances
                       , time
                       , time-units
                       , time-warp

@@ -29,19 +29,18 @@ import           System.Wlog                     (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context                     (WithNodeContext)
-import           Pos.Slotting                    (MonadSlots (..))
-import           Pos.Ssc.Class.LocalData         (MonadSscLD (..), MonadSscLDM (..))
-import           Pos.Ssc.Class.Storage           (MonadSscGS (..), SscStorageClassM)
-import           Pos.State                       (MonadDB (..))
-import           Pos.Txp.LocalData               (MonadTxLD (..))
-import           Pos.Util.JsonLog                (MonadJL (..))
-
-import qualified Pos.Modern.DB.Class             as Modern
+import qualified Pos.DB.Class                    as Modern
 import           Pos.Modern.Txp.Class            (MonadTxpLD (..))
 import           Pos.Modern.Txp.Storage.Types    (MemPool, UtxoView)
 import qualified Pos.Modern.Txp.Storage.UtxoView as UV
+import           Pos.Slotting                    (MonadSlots (..))
+import           Pos.Ssc.Class.LocalData         (MonadSscLD (..))
+import           Pos.Ssc.Extra                   (MonadSscGS (..), MonadSscLDM (..))
+import           Pos.State                       (MonadDB (..))
+import           Pos.Txp.LocalData               (MonadTxLD (..))
 import           Pos.Types                       (HeaderHash, MonadUtxo (..),
                                                   MonadUtxoRead (..))
+import           Pos.Util.JsonLog                (MonadJL (..))
 
 ----------------------------------------------------------------------------
 -- Holder
@@ -58,7 +57,7 @@ newtype TxpLDHolder ssc m a = TxpLDHolder
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
                 MonadCatch, MonadIO, HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
                 MonadDB ssc, CanLog, MonadMask, MonadTxLD, MonadSscLD ssc, MonadSscGS ssc,
-                SscStorageClassM ssc, MonadSscLDM ssc)
+                MonadSscLDM ssc)
 
 instance MonadTransfer s m => MonadTransfer s (TxpLDHolder ssc m)
 type instance ThreadId (TxpLDHolder ssc m) = ThreadId m

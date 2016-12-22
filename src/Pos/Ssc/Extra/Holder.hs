@@ -32,15 +32,16 @@ import           Universum
 
 import           Pos.Context                 (WithNodeContext)
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Class.LocalData     (MonadSscLD (..), MonadSscLDM (..),
+import           Pos.Ssc.Class.LocalData     (MonadSscLD (..),
                                               SscLocalDataClass (sscEmptyLocalData))
-import           Pos.Ssc.Class.Storage       (MonadSscGS (..))
 import           Pos.Ssc.Class.Types         (Ssc (..))
+import           Pos.Ssc.Extra.MonadGS       (MonadSscGS (..))
+import           Pos.Ssc.Extra.MonadLD       (MonadSscLDM (..))
 import           Pos.State                   (MonadDB (..))
 import           Pos.Txp.LocalData           (MonadTxLD (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
-import qualified Pos.Modern.DB               as Modern (MonadDB (..))
+import qualified Pos.DB                      as Modern (MonadDB (..))
 
 data SscState ssc =
     SscState

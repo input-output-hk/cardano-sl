@@ -25,10 +25,6 @@ instance Bi T.Timestamp where
     get = fromInteger <$> get
     put = put . toInteger
 
-instance Bi T.Coin where
-    get = T.Coin <$> get
-    put (T.Coin c) = put c
-
 instance Bi T.EpochIndex where
     get = T.EpochIndex <$> get
     put (T.EpochIndex c) = put c

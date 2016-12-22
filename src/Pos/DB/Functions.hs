@@ -2,7 +2,7 @@
 
 -- | Basically wrappers over RocksDB library.
 
-module Pos.Modern.DB.Functions
+module Pos.DB.Functions
        ( openDB
        , rocksDelete
        , rocksGetBi
@@ -12,9 +12,10 @@ module Pos.Modern.DB.Functions
        , rocksWriteBatch
        , traverseAllEntries
        , rocksDecode
+       , rocksDecodeMaybe
+       , rocksDecodeKeyValMaybe
        ) where
 
-import           Control.Monad.IfElse         (whileM)
 import           Control.Monad.TM             ((.>>=.))
 import           Control.Monad.Trans.Resource (MonadResource)
 import qualified Data.ByteString.Lazy         as BSL
@@ -24,8 +25,8 @@ import           Formatting                   (sformat, shown, string, (%))
 import           Universum
 
 import           Pos.Binary.Class             (Bi, decodeFull, encodeStrict)
-import           Pos.Modern.DB.Error          (DBError (DBMalformed))
-import           Pos.Modern.DB.Types          (DB (..))
+import           Pos.DB.Error                 (DBError (DBMalformed))
+import           Pos.DB.Types                 (DB (..))
 
 -- | Open DB stored on disk.
 openDB :: MonadResource m => FilePath -> m (DB ssc)
@@ -45,7 +46,7 @@ rocksGetBi key db = do
     bytes <- rocksGetBytes key db
     bytes .>>=. rocksDecode
 
-rocksDecode :: (Bi v, MonadIO m, MonadThrow m) => ByteString -> m v
+rocksDecode :: (Bi v, MonadThrow m) => ByteString -> m v
 rocksDecode key = either onParseError pure . decodeFull . BSL.fromStrict $ key
   where
     onParseError msg =
@@ -56,9 +57,17 @@ rocksDecode key = either onParseError pure . decodeFull . BSL.fromStrict $ key
             key
             msg
 
-rocksDecodeKeyVal :: (Bi k, Bi v, MonadIO m, MonadThrow m)
+rocksDecodeMaybe :: (Bi v) => ByteString -> Maybe v
+rocksDecodeMaybe = rightToMaybe . decodeFull . BSL.fromStrict
+
+rocksDecodeKeyVal :: (Bi k, Bi v, MonadThrow m)
                   => (ByteString, ByteString) -> m (k, v)
 rocksDecodeKeyVal (k, v) = (,) <$> rocksDecode k <*> rocksDecode v
+
+rocksDecodeKeyValMaybe
+    :: (Bi k, Bi v)
+    => (ByteString, ByteString) -> Maybe (k, v)
+rocksDecodeKeyValMaybe (k, v) = (,) <$> rocksDecodeMaybe k <*> rocksDecodeMaybe v
 
 -- | Write ByteString to RocksDB for given key.
 rocksPutBytes :: (MonadIO m) => ByteString -> ByteString -> DB ssc -> m ()
@@ -76,7 +85,7 @@ rocksWriteBatch :: MonadIO m => [Rocks.BatchOp] -> DB ssc -> m ()
 rocksWriteBatch batch DB{..} = Rocks.write rocksDB rocksWriteOpts batch
 
 traverseAllEntries
-    :: (Bi k, Bi v, MonadMask m, MonadIO m, MonadThrow m)
+    :: (Bi k, Bi v, MonadMask m, MonadIO m)
     => DB ssc
     -> m b
     -> (b -> k -> v -> m b)

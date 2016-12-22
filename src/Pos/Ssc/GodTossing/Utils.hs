@@ -8,6 +8,7 @@ import           Control.Lens                      ((^.))
 import           Data.HashMap.Strict               (union)
 import           Universum
 
+import           Pos.Binary.Ssc                    ()
 import           Pos.Constants                     (k)
 import           Pos.Ssc.Class.Storage             (SscStorageMode)
 import           Pos.Ssc.GodTossing.Genesis        (genesisCertificates)

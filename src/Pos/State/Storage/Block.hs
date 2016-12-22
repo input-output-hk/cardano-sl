@@ -55,6 +55,7 @@ import           Pos.Binary.Types        ()
 import           Pos.Constants           (epochSlots, k)
 import           Pos.Crypto              (ProxySecretKey, SecretKey, hash)
 import           Pos.Genesis             (genesisLeaders)
+import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Address, Block, BlockHeader, ChainDifficulty,
@@ -235,7 +236,7 @@ getSlotDepth slotId = do
 -- | Check that block header is correct and claims to represent block
 -- which may become part of blockchain.
 mayBlockBeUseful
-    :: Ssc ssc
+    :: (Ssc ssc, SscHelpersClass ssc)
     => SlotId -> MainBlockHeader ssc -> Query ssc VerificationRes
 mayBlockBeUseful currentSlotId header = do
     leaders <- getLeaders (siEpoch hSlot)
@@ -261,7 +262,7 @@ mayBlockBeUseful currentSlotId header = do
 
 -- Can we continue concrete AltChain (given its index).
 canContinueAltChainI
-    :: Ssc ssc
+    :: (Ssc ssc, SscHelpersClass ssc)
     => Block ssc -> Int -> Query ssc Bool
 canContinueAltChainI blk i = do
     -- We only need to check that block can be previous block of the
@@ -299,7 +300,7 @@ insertBlock blk = blkBlocks . at (headerHash blk) .= Just blk
 -- block if necessary.
 blkProcessBlock
     :: forall ssc.
-       Ssc ssc
+       (Ssc ssc, SscHelpersClass ssc)
     => SlotId -> Block ssc -> Query ssc VerificationRes -> Update ssc (ProcessBlockRes ssc)
 blkProcessBlock currentSlotId blk hardChecks = do
     -- First of all we do the simplest general checks.
@@ -351,7 +352,9 @@ guardVerResSt
 guardVerResSt checks action = readerToState checks >>= flip guardVerRes action
 
 
-canContinueBestChain :: Ssc ssc => Block ssc -> Query ssc Bool
+canContinueBestChain
+    :: (Ssc ssc, SscHelpersClass ssc)
+    => Block ssc -> Query ssc Bool
 -- We don't continue best chain with received genesis block. It is
 -- added automatically when last block in epoch is added.
 canContinueBestChain (Left _) = pure False
@@ -367,7 +370,7 @@ canContinueBestChain blk = do
 -- alternative chain. If we succeed, we do it, instead of adopting a
 -- single block.
 continueBestChain
-    :: Ssc ssc
+    :: (Ssc ssc, SscHelpersClass ssc)
     => Block ssc -> Update ssc (ProcessBlockRes ssc)
 continueBestChain blk = do
     insertBlock blk
@@ -378,7 +381,7 @@ continueBestChain blk = do
 
 -- Here we try to start alternative chain and/or continue existing one.
 proceedToAltChains
-    :: Ssc ssc
+    :: (Ssc ssc, SscHelpersClass ssc)
     => Block ssc -> Query ssc VerificationRes -> Update ssc (ProcessBlockRes ssc)
 proceedToAltChains blk hardChecks = do
     tryStartRes <- tryStartAltChain blk hardChecks
@@ -402,7 +405,7 @@ proceedToAltChains blk hardChecks = do
 -- + block is not head of existing alternative chain.
 tryStartAltChain
     :: forall ssc.
-       Ssc ssc
+       (Ssc ssc, SscHelpersClass ssc)
     => Block ssc -> Query ssc VerificationRes -> Update ssc (Maybe (ProcessBlockRes ssc))
 tryStartAltChain (Left _) _ = pure Nothing
 tryStartAltChain (Right blk) hardChecks = do
@@ -432,7 +435,7 @@ isHeadOfAlternative header = do
 -- PBRmore is returned if more blocks are needed.
 startAltChain
     :: forall ssc.
-       Ssc ssc
+       (Ssc ssc, SscHelpersClass ssc)
     => MainBlock ssc -> Update ssc (ProcessBlockRes ssc)
 startAltChain blk = do
     insertBlock $ Right blk
@@ -452,7 +455,7 @@ pbrUseless = mkPBRabort ["block can't be added to any chain"]
 -- case we return PBRgood and expect `blkRollback` and `blkSetHeader`
 -- to be called.
 tryContinueAltChain
-    :: forall ssc. Ssc ssc
+    :: forall ssc. (Ssc ssc, SscHelpersClass ssc)
     => Block ssc -> Query ssc VerificationRes -> Update ssc (ProcessBlockRes ssc)
 tryContinueAltChain blk hardChecks = do
     n <- length <$> use blkAltChains
@@ -483,7 +486,7 @@ tryContinueAltChain blk hardChecks = do
 
 -- Here we know that block is a good continuation of i-th chain.
 continueAltChain
-    :: Ssc ssc
+    :: (Ssc ssc, SscHelpersClass ssc)
     => Block ssc -> Int -> Update ssc (ProcessBlockRes ssc)
 continueAltChain blk i = do
     insertBlock blk
@@ -494,7 +497,7 @@ continueAltChain blk i = do
 -- On success number of blocks to rollback is returned, as well as chain which can be merged.
 -- Note that it doesn't actually merge chain, more checks are required before merge.
 tryMergeAltChain
-    :: Ssc ssc
+    :: forall ssc. (Ssc ssc, SscHelpersClass ssc)
     => Int -> Update ssc (Maybe (Word, AltChain ssc))
 tryMergeAltChain i = do
     altChain <- uses blkAltChains (!! i)
@@ -520,7 +523,7 @@ tryMergeAltChain i = do
                     Nothing -> return Nothing
                     Just x ->
                         ifM
-                            (testMergeAltChain x altChain)
+                            (testMergeAltChain @ssc x altChain)
                             (return rollback)
                             (return Nothing)
 
@@ -555,7 +558,9 @@ findRollback maxDifficulty neededParent =
 -- result to be sure that nothing went wrong.
 -- We ignore check related to current slot, because we ensure that no blocks
 -- from non-existing slot can appear in this storage.
-testMergeAltChain :: Ssc ssc => Word -> AltChain ssc -> Query ssc Bool
+testMergeAltChain
+    :: (Ssc ssc, SscHelpersClass ssc)
+    => Word -> AltChain ssc -> Query ssc Bool
 testMergeAltChain toRollback altChain =
     isVerSuccess . verifyBlocks Nothing . (++ toList altChain) <$>
     blocksToTestMerge toRollback

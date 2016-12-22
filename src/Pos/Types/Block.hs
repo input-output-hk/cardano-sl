@@ -28,23 +28,25 @@ module Pos.Types.Block
        , verifyHeaders
        ) where
 
-import           Control.Lens         (ix, view, (^.), (^?), _3)
-import           Data.Default         (Default (def))
-import           Formatting           (build, int, sformat, (%))
-import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
+import           Control.Lens          (ix, view, (^.), (^?), _3)
+import           Data.Default          (Default (def))
+import           Data.Tagged           (untag)
+import           Formatting            (build, int, sformat, (%))
+import           Serokell.Util.Verify  (VerificationRes (..), verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Class     (Bi (..))
-import           Pos.Binary.Types     ()
-import           Pos.Constants        (epochSlots)
-import           Pos.Crypto           (Hash, SecretKey, checkSig, hash, proxySign,
-                                       proxyVerify, pskIssuerPk, sign, toPublic,
-                                       unsafeHash)
-import           Pos.Merkle           (mkMerkleTree)
-import           Pos.Ssc.Class.Types  (Ssc (..))
+import           Pos.Binary.Class      (Bi (..))
+import           Pos.Binary.Types      ()
+import           Pos.Constants         (epochSlots)
+import           Pos.Crypto            (Hash, SecretKey, checkSig, hash, proxySign,
+                                        proxyVerify, pskIssuerPk, sign, toPublic,
+                                        unsafeHash)
+import           Pos.Merkle            (mkMerkleTree)
+import           Pos.Ssc.Class.Helpers (SscHelpersClass (..))
+import           Pos.Ssc.Class.Types   (Ssc (..))
 -- Unqualified import is used here because of GHC bug (trac 12127).
 -- See: https://ghc.haskell.org/trac/ghc/ticket/12127
-import           Pos.Types.Tx         (verifyTxAlone)
+import           Pos.Types.Tx          (verifyTxAlone)
 import           Pos.Types.Types
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
@@ -355,6 +357,7 @@ data VerifyBlockParams ssc = VerifyBlockParams
     { vbpVerifyHeader  :: !(Maybe (VerifyHeaderParams ssc))
     , vbpVerifyGeneric :: !Bool
     , vbpVerifyTxs     :: !Bool
+    , vbpVerifySsc     :: !Bool
     }
 
 -- | By default nothing is checked.
@@ -364,18 +367,22 @@ instance Default (VerifyBlockParams ssc) where
         { vbpVerifyHeader = Nothing
         , vbpVerifyGeneric = False
         , vbpVerifyTxs = False
+        , vbpVerifySsc = False
         }
 
 -- CHECK: @verifyBlock
 -- | Check predicates defined by VerifyBlockParams.
 -- #verifyHeader
 -- #verifyGenericBlock
-verifyBlock :: BiSsc ssc => VerifyBlockParams ssc -> Block ssc -> VerificationRes
+verifyBlock
+    :: (SscHelpersClass ssc, BiSsc ssc)
+    => VerifyBlockParams ssc -> Block ssc -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
         [ verifyG
         , maybeEmpty (flip verifyHeader (getBlockHeader blk)) vbpVerifyHeader
         , verifyTxs
+        , verifySsc
         ]
   where
     verifyG
@@ -386,6 +393,16 @@ verifyBlock VerifyBlockParams {..} blk =
             case blk of
                 Left _        -> mempty
                 Right mainBlk -> foldMap verifyTxAlone $ mainBlk ^. blockTxs
+        | otherwise = mempty
+    verifySsc
+        | vbpVerifySsc =
+            case blk of
+                Left _ -> mempty
+                Right mainBlk ->
+                    untag
+                        sscVerifyPayload
+                        (mainBlk ^. gbHeader)
+                        (mainBlk ^. blockMpc)
         | otherwise = mempty
 
 -- CHECK: @verifyBlocks
@@ -398,7 +415,7 @@ verifyBlock VerifyBlockParams {..} blk =
 -- It doesn't affect laziness of 'VerificationRes' which is good
 -- because laziness for this data type is crucial.
 verifyBlocks
-    :: forall ssc t. (BiSsc ssc, Foldable t)
+    :: forall ssc t. (SscHelpersClass ssc, BiSsc ssc, Foldable t)
     => Maybe SlotId -> t (Block ssc) -> VerificationRes
 verifyBlocks curSlotId = (view _3) . foldl' step start
   where
@@ -426,5 +443,6 @@ verifyBlocks curSlotId = (view _3) . foldl' step start
                 { vbpVerifyHeader = Just vhp
                 , vbpVerifyGeneric = True
                 , vbpVerifyTxs = True
+                , vbpVerifySsc = True
                 }
         in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)

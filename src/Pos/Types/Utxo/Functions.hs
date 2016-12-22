@@ -42,8 +42,8 @@ deleteTxIn TxIn{..} = M.delete (txInHash, txInIndex)
 
 -- CHECK: @verifyTxUtxo
 -- | Verify single Tx using MonadUtxoRead as TxIn resolver.
-verifyTxUtxo :: MonadUtxoRead m => (Tx, TxWitness) -> m (Either Text [TxOut])
-verifyTxUtxo = verifyTx utxoGet
+verifyTxUtxo :: MonadUtxoRead m => Bool -> (Tx, TxWitness) -> m (Either Text [TxOut])
+verifyTxUtxo verifyAlone = verifyTx verifyAlone utxoGet
 
 -- | Remove unspent outputs used in given transaction, add new unspent
 -- outputs.
@@ -68,13 +68,13 @@ applyTxToUtxo' (i, (t, _)) = applyTxToUtxo $ WithHash t i
 verifyAndApplyTxs
     :: forall m.
        MonadUtxo m
-    => [(WithHash Tx, TxWitness)] -> m (Either Text Undo)
-verifyAndApplyTxs txs = fmap reverse <$> foldM applyDo (Right []) txs
+    => Bool -> [(WithHash Tx, TxWitness)] -> m (Either Text Undo)
+verifyAndApplyTxs verifyAlone txs = fmap reverse <$> foldM applyDo (Right []) txs
   where
     applyDo :: Either Text Undo -> (WithHash Tx, TxWitness) -> m (Either Text Undo)
     applyDo failure@(Left _) _ = pure failure
     applyDo txouts txw = do
-        verRes <- verifyTxUtxo (over _1 whData txw)
+        verRes <- verifyTxUtxo verifyAlone (over _1 whData txw)
         ((:) <$> verRes <*> txouts) <$ applyTxToUtxo (fst txw)
 
 -- CHECK: @verifyAndApplyTxsOld
@@ -100,7 +100,7 @@ verifyAndApplyTxsOld txws =
     applyAll [] = pass
     applyAll (txw:xs) = do
         applyAll xs
-        () <$ ExceptT (verifyTxUtxo (over _1 whData txw))
+        () <$ ExceptT (verifyTxUtxo True (over _1 whData txw))
         applyTxToUtxo $ fst txw
     topsorted = reverse <$> topsortTxs fst txws -- head is the last one to check
 

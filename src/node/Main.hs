@@ -208,9 +208,9 @@ walletProd = map lift . walletServe
 walletStats :: SscConstraint ssc => Args -> [StatsMode ssc ()]
 walletStats = map lift . walletServe
 #else
-walletProd, walletStats :: [a]
-walletProd = []
-walletStats = []
+walletProd, walletStats :: Args -> [a]
+walletProd _ = []
+walletStats _ = []
 #endif
 
 main :: IO ()

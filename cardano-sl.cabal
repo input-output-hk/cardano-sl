@@ -55,6 +55,7 @@ library
                         Pos.FollowTheSatoshi
                         Pos.Script
                         Pos.Script.Examples
+                        Pos.Script.Type
                         Pos.Ssc.Class
                         Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon

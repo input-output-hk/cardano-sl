@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiWayIf          #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 
 -- | Logic of blocks processing.
 
@@ -21,12 +22,14 @@ module Pos.Block.Logic
 import           Control.Lens         (view, (^.))
 import           Control.Monad.Catch  (onException)
 import           Data.Default         (Default (def))
-import           Data.List.NonEmpty   (NonEmpty)
+import           Data.List.NonEmpty   (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty   as NE
 import qualified Data.Text            as T
-import           Serokell.Util.Verify (VerificationRes (..))
+import           Formatting           (int, sformat, (%))
+import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess)
 import           Universum
 
-import           Pos.Constants        (k)
+import           Pos.Constants        (epochSlots, k)
 import           Pos.Context          (putBlkSemaphore, takeBlkSemaphore)
 import           Pos.Crypto           (hash)
 import           Pos.Modern.DB        (MonadDB)
@@ -34,10 +37,12 @@ import qualified Pos.Modern.DB        as DB
 import           Pos.Modern.Txp.Logic (txApplyBlocks, txRollbackBlocks, txVerifyBlocks)
 import           Pos.Slotting         (getCurrentSlot)
 import           Pos.Ssc.Class        (Ssc)
-import           Pos.Types            (Block, BlockHeader, HeaderHash, Undo,
-                                       VerifyHeaderParams (..), blockHeader, difficultyL,
-                                       getEpochOrSlot, headerSlot, prevBlockL,
-                                       verifyHeader, vhpVerifyConsensus)
+import           Pos.Types            (Block, BlockHeader, EpochIndex (..), HeaderHash,
+                                       SlotId (..), Undo, VerifyHeaderParams (..),
+                                       blockHeader, difficultyL, flattenEpochOrSlot,
+                                       getBlockHeader, getEpochOrSlot, getSlotIndex,
+                                       headerSlot, prevBlockL, verifyHeader,
+                                       verifyHeaders, vhpVerifyConsensus, _getEpochOrSlot)
 import           Pos.WorkMode         (WorkMode)
 
 
@@ -92,6 +97,12 @@ classifyNewHeader (Right header) = do
             CHRuseless $
             "header doesn't continue main chain and is not more difficult"
 
+-- Given two nodes, tries to find their LCA
+findLca
+    :: (MonadDB ssc m)
+    => HeaderHash ssc -> HeaderHash ssc -> m (Maybe (BlockHeader ssc))
+findLca = notImplemented
+
 -- | Classify headers received in response to 'GetHeaders' message.
 -- • If there are any errors in chain of headers, CHRinvalid is returned.
 -- • If chain of headers is a valid continuation of our main chain,
@@ -102,8 +113,32 @@ classifyNewHeader (Right header) = do
 -- is returned, because paper suggests doing so.
 classifyHeaders
     :: WorkMode ssc m
-    => [BlockHeader ssc] -> m ClassifyHeaderRes
-classifyHeaders = notImplemented
+    => NonEmpty (BlockHeader ssc) -> m ClassifyHeaderRes
+classifyHeaders headers@(h:|hs) = do
+    haveLast <- isJust <$> DB.getBlockHeader (hash $ NE.last headers)
+    let headersValid = (isVerSuccess $ verifyHeaders True $ h : hs) && haveLast
+    if | not headersValid ->
+             pure $ CHRinvalid "Header chain is invalid"
+       | not haveLast ->
+             pure $ CHRinvalid "Last block of the passed chain wasn't found locally"
+       | otherwise -> processClassify
+  where
+    processClassify = do
+        tipHeader <- view blockHeader <$> DB.getTipBlock
+        lca <- fst . fromMaybe (panic "lca should exist") . find snd <$>
+               mapM (\bh -> (bh,) <$> DB.isBlockInMainChain (hash bh)) (h:hs)
+            -- depth in terms of slots, not difficulty
+        let depthDiff =
+                flattenEpochOrSlot tipHeader -
+                flattenEpochOrSlot lca
+        if | hash lca == hash tipHeader -> pure CHRcontinues
+           | depthDiff < 0 -> panic "classifyHeaders@depthDiff is negative"
+           | depthDiff > k ->
+                 pure $ CHRuseless $
+                 sformat ("Slot difference of (tip,lca) is "%int%
+                          " which is more than k = "%int)
+                         depthDiff (k :: Int)
+           | otherwise -> pure CHRalternative
 
 -- | Takes a starting header hash and queries blockchain until some
 -- condition is true or parent wasn't found. Returns headers newest

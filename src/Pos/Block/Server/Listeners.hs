@@ -79,7 +79,7 @@ handleRequestedHeaders
        (ResponseMode ssc m)
     => NonEmpty (BlockHeader ssc) -> m ()
 handleRequestedHeaders headers = do
-    classificationRes <- classifyHeaders $ toList headers
+    classificationRes <- classifyHeaders headers
     let startHeader = headers ^. _neHead
         startHash = headerHash startHeader
         endHeader = headers ^. _neLast

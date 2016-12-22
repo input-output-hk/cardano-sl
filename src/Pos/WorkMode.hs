@@ -59,14 +59,14 @@ import           Pos.DHT.Model                 (DHTPacking, DHTResponseT (..),
 import           Pos.DHT.Real                  (KademliaDHT (..))
 import qualified Pos.Modern.DB.Class           as Modern
 import qualified Pos.Modern.DB.Holder          as Modern
-import           Pos.Modern.Ssc.Holder         (SscHolder (..))
 import           Pos.Modern.Txp.Class          (MonadTxpLD (..))
 import           Pos.Modern.Txp.Holder         (TxpLDHolder)
 import           Pos.Slotting                  (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers         (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData       (MonadSscLD (..), SscLocalDataClass)
-import           Pos.Ssc.Class.Storage         (MonadSscGS, SscStorageMode)
-import           Pos.Ssc.LocalData             (SscLDImpl)
+import           Pos.Ssc.Class.Storage         (SscStorageClassM, SscStorageMode)
+import           Pos.Ssc.Extra                 (MonadSscGS, MonadSscLDM, SscHolder,
+                                                SscLDImpl)
 import           Pos.State                     (DBHolder, MonadDB (..))
 import           Pos.Statistics.MonadStats     (MonadStats, NoStatsT, StatsT)
 import           Pos.Txp.LocalData             (MonadTxLD (..), TxLocalData (..))
@@ -87,9 +87,10 @@ type WorkMode ssc m
       , MonadTxpLD ssc m
       , MonadUtxo m
       , MonadSscGS ssc m
-     -- , SscStorageClassM ssc m
       , MonadTxLD m
+      , MonadSscLDM ssc m
       , SscStorageMode ssc
+      , SscStorageClassM ssc
       , SscLocalDataClass ssc
       , SscHelpersClass ssc
       , MonadSscLD ssc m

@@ -9,8 +9,7 @@ module Pos.Wallet.Web.Api
        ) where
 
 import           Data.Proxy                 (Proxy (Proxy))
-import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
-                                             Post)
+import           Servant.API                ((:<|>), (:>), Capture, Get, JSON, Post)
 import           Universum
 
 import           Pos.Types                  (Address, Coin, Tx)

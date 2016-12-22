@@ -14,6 +14,7 @@ module Pos.Block.Requests
 import           Universum
 
 import           Pos.Binary.Communication ()
+import           Pos.Block.Logic          (getHeadersOlderExp)
 import           Pos.Block.Server.State   (recordBlocksRequest, recordHeadersRequest)
 import           Pos.Communication.Types  (MsgGetBlocks (..), MsgGetHeaders (..),
                                            ResponseMode)
@@ -27,7 +28,9 @@ import           Pos.WorkMode             (WorkMode)
 mkHeadersRequest
     :: WorkMode ssc m
     => Maybe (HeaderHash ssc) -> m (MsgGetHeaders ssc)
-mkHeadersRequest _ = notImplemented
+mkHeadersRequest upto = do
+    headers <- getHeadersOlderExp upto
+    pure $ MsgGetHeaders headers upto
 
 replyWithHeadersRequest
     :: forall ssc m . ResponseMode ssc m

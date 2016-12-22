@@ -46,9 +46,9 @@ import           Pos.Modern.Ssc.GodTossing.LocalData.Types   (ldCertificates,
 import           Pos.Modern.Ssc.GodTossing.LocalData.Types   (GtLocalData (..))
 import           Pos.Modern.Ssc.GodTossing.Storage.Types     (GtGlobalState (..))
 import           Pos.Ssc.Class.LocalData                     (LocalQueryM, LocalUpdateM,
-                                                              MonadSscLDM,
                                                               SscLocalDataClassM (..))
 import           Pos.Ssc.Class.Types                         (Ssc (..))
+import           Pos.Ssc.Extra.MonadLD                       (MonadSscLDM)
 import           Pos.Ssc.GodTossing.Functions                (checkOpeningMatchesCommitment,
                                                               checkShares,
                                                               isCommitmentIdx,
@@ -242,4 +242,3 @@ processVssCertificate :: Address -> VssCertificate -> LDUpdate Bool
 processVssCertificate addr c = do
     ok <- not . HM.member addr <$> use gtGlobalCertificates
     ok <$ when ok (gtLocalCertificates %= HM.insert addr c)
-

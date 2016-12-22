@@ -24,11 +24,11 @@ import           Pos.DHT.Real                    (KademliaDHTContext, getKademli
                                                   runKademliaDHTRaw)
 import           Pos.Launcher                    (runOurDialog)
 import qualified Pos.Modern.DB                   as Modern
-import qualified Pos.Modern.Ssc.Holder           as Modern
 import qualified Pos.Modern.Txp.Holder           as Modern
 import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 import           Pos.Ssc.Class                   (SscConstraint)
-import           Pos.Ssc.LocalData               (SscLDImpl, runSscLDImpl)
+import           Pos.Ssc.Extra                   (SscHolder, SscLDImpl, runSscHolder,
+                                                  runSscLDImpl)
 import qualified Pos.State                       as St
 import           Pos.Txp.LocalData               (TxLocalData, getTxLocalData,
                                                   setTxLocalData)
@@ -54,7 +54,7 @@ walletServeWebFull daedalusDbPath keyfilePath = serveImpl $
 
 type WebHandler ssc = WalletWebDB (KeyStorage (RawRealMode ssc))
 type SubKademlia ssc = (Modern.TxpLDHolder ssc
-                        (Modern.SscHolder ssc
+                        (SscHolder ssc
                          (TxLDImpl
                           (SscLDImpl ssc
                            (ContextHolder ssc
@@ -80,7 +80,7 @@ convertHandler kctx tld nc ns modernDB kd ws handler =
             runContextHolder nc .
             runSscLDImpl .
             runTxLDImpl .
-            flip Modern.runSscHolder notImplemented .
+            flip runSscHolder notImplemented .
             flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDB) .
             runKademliaDHTRaw kctx .
             flip runKeyStorageRaw kd .

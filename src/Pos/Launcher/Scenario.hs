@@ -15,7 +15,7 @@ import           Universum
 import           Pos.Context             (NodeContext (..), getNodeContext, ncPublicKey)
 import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Modern.DB.Utxo      (getTip)
-import           Pos.Ssc.Class           (setGlobalState, sscLoadGlobalState, SscConstraint)
+import           Pos.Ssc.Class           (SscConstraint)
 import           Pos.State               (initFirstSlot)
 import           Pos.Types               (Timestamp (Timestamp))
 import           Pos.Util                (inAssertMode)

@@ -42,7 +42,7 @@ import           Pos.Types              (BadSigsTx (..), GoodTx (..), OverflowTx
                                          checkPubKeyAddress, makePubKeyAddress,
                                          makeScriptAddress, topsortTxs, verifyTxAlone,
                                          verifyTxPure, verifyTxUtxoPure)
-import           Pos.Util               (sublistN)
+import           Pos.Util               (eitherToVerRes, sublistN)
 
 
 spec :: Spec
@@ -268,7 +268,7 @@ validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
     let quadruple@(tx, inpResolver, _, txWits) =
             getTxFromGoodTx ls
         transactionIsVerified =
-            isVerSuccess $ verifyTxPure inpResolver (tx, txWits)
+            isVerSuccess $ eitherToVerRes $ verifyTxPure inpResolver (tx, txWits)
         transactionReallyIsGood = individualTxPropertyVerifier quadruple
     in  transactionIsVerified == transactionReallyIsGood
 
@@ -276,7 +276,8 @@ overflowTx :: SmallOverflowTx -> Bool
 overflowTx (SmallOverflowTx (getOverflowTx -> ls)) =
     let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
-        transactionIsNotVerified = isVerFailure $ verifyTxPure inpResolver (tx, txWits)
+        transactionIsNotVerified =
+            isVerFailure $ eitherToVerRes $ verifyTxPure inpResolver (tx, txWits)
         inpSumLessThanOutSum = not $ txChecksum extendedInputs txOutputs
     in inpSumLessThanOutSum == transactionIsNotVerified
 
@@ -293,7 +294,8 @@ badSigsTx :: SmallBadSigsTx -> Bool
 badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
     let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
-        transactionIsNotVerified = isVerFailure $ verifyTxPure inpResolver (tx, txWits)
+        transactionIsNotVerified = isVerFailure $
+                                       eitherToVerRes $ verifyTxPure inpResolver (tx, txWits)
         notAllSignaturesAreValid =
             any (signatureIsNotValid txOutputs) $ zip extendedInputs (V.toList txWits)
     in notAllSignaturesAreValid == transactionIsNotVerified

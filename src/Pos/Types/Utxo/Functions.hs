@@ -21,16 +21,15 @@ module Pos.Types.Utxo.Functions
        ) where
 
 import           Control.Lens         (over, _1)
-import           Control.Monad.Except (ExceptT, runExceptT, throwError)
+import           Control.Monad.Except (ExceptT (ExceptT), runExceptT, throwError)
 import qualified Data.Map.Strict      as M
-import           Serokell.Util        (VerificationRes (..))
 import           Universum
 
 import           Pos.Binary.Types     ()
 import           Pos.Crypto           (WithHash (..))
 import           Pos.Types.Tx         (topsortTxs, verifyTx)
 import           Pos.Types.Types      (Address, IdTxWitness, Tx (..), TxIn (..),
-                                       TxOut (..), TxWitness, Utxo)
+                                       TxOut (..), TxWitness, Undo, Utxo)
 import           Pos.Types.Utxo.Class (MonadUtxo (..), MonadUtxoRead (utxoGet))
 
 -- | Find transaction input in Utxo assuming it is valid.
@@ -43,7 +42,7 @@ deleteTxIn TxIn{..} = M.delete (txInHash, txInIndex)
 
 -- CHECK: @verifyTxUtxo
 -- | Verify single Tx using MonadUtxoRead as TxIn resolver.
-verifyTxUtxo :: MonadUtxoRead m => (Tx, TxWitness) -> m VerificationRes
+verifyTxUtxo :: MonadUtxoRead m => (Tx, TxWitness) -> m (Either Text [TxOut])
 verifyTxUtxo = verifyTx utxoGet
 
 -- | Remove unspent outputs used in given transaction, add new unspent
@@ -69,14 +68,14 @@ applyTxToUtxo' (i, (t, _)) = applyTxToUtxo $ WithHash t i
 verifyAndApplyTxs
     :: forall m.
        MonadUtxo m
-    => [(WithHash Tx, TxWitness)] -> m VerificationRes
-verifyAndApplyTxs = foldM applyDo mempty
+    => [(WithHash Tx, TxWitness)] -> m (Either Text Undo)
+verifyAndApplyTxs txs = fmap reverse <$> foldM applyDo (Right []) txs
   where
-    applyDo :: VerificationRes -> (WithHash Tx, TxWitness) -> m VerificationRes
-    applyDo failure@(VerFailure _) _ = pure failure
-    applyDo VerSuccess txw = do
+    applyDo :: Either Text Undo -> (WithHash Tx, TxWitness) -> m (Either Text Undo)
+    applyDo failure@(Left _) _ = pure failure
+    applyDo txouts txw = do
         verRes <- verifyTxUtxo (over _1 whData txw)
-        verRes <$ applyTxToUtxo (fst txw)
+        ((:) <$> verRes <*> txouts) <$ applyTxToUtxo (fst txw)
 
 -- CHECK: @verifyAndApplyTxsOld
 -- | DEPRECATED
@@ -101,13 +100,8 @@ verifyAndApplyTxsOld txws =
     applyAll [] = pass
     applyAll (txw:xs) = do
         applyAll xs
-        verRes <- verifyTxUtxo (over _1 whData txw)
-        case verRes of
-            VerSuccess -> applyTxToUtxo $ fst txw
-            VerFailure reason ->
-                throwError $
-                fromMaybe "Transaction application failed, reason not specified" $
-                head reason
+        () <$ ExceptT (verifyTxUtxo (over _1 whData txw))
+        applyTxToUtxo $ fst txw
     topsorted = reverse <$> topsortTxs fst txws -- head is the last one to check
 
 -- TODO change types of normalizeTxs and related

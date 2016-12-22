@@ -27,7 +27,9 @@ delTxIn :: TxIn -> UtxoView ssc -> UtxoView ssc
 delTxIn txIn mp@UtxoView{..} =
     mp {delUtxo = HS.insert txIn delUtxo}
 
-getTxOut :: MonadIO m => TxIn -> UtxoView ssc -> m (Maybe TxOut)
+getTxOut
+    :: (MonadIO m, MonadThrow m)
+    => TxIn -> UtxoView ssc -> m (Maybe TxOut)
 getTxOut key UtxoView{..}
     | HS.member key delUtxo = return Nothing
     | otherwise             = maybe (getTxOutFromDB key utxoDB)

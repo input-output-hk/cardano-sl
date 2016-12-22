@@ -29,6 +29,7 @@ import           Pos.Types.Address   (Address (..), AddressDestination (..),
 import           Pos.Types.Types     (Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
                                       TxWitness, checkPubKeyAddress, checkScriptAddress,
                                       coinF)
+import           Pos.Util            (verResToEither)
 
 -- | Verify that Tx itself is correct. Most likely you will also want
 -- to verify that inputs are legal, signed properly and have enough coins;
@@ -73,11 +74,14 @@ verifyTx
     :: (Monad m)
     => (TxIn -> m (Maybe TxOut))
     -> (Tx, TxWitness)
-    -> m VerificationRes
+    -> m (Either Text [TxOut])
 verifyTx inputResolver txs@(Tx {..}, _) =
-    flip verifyTxDo txs <$> mapM extendInput txInputs
+    liftA2 verResToEither
+        (flip verifyTxDo txs <$> extendedInputs)
+        (map snd . catMaybes <$> extendedInputs)
   where
     extendInput txIn = fmap (txIn, ) <$> inputResolver txIn
+    extendedInputs = mapM extendInput txInputs
 
 verifyTxDo :: [Maybe (TxIn, TxOut)] -> (Tx, TxWitness) -> VerificationRes
 verifyTxDo extendedInputs (tx@Tx{..}, witnesses) =
@@ -154,7 +158,7 @@ verifyTxDo extendedInputs (tx@Tx{..}, witnesses) =
     validateTxIn TxIn{..} ScriptWitness{..} =
         txScriptCheck twValidator twRedeemer
 
-verifyTxPure :: (TxIn -> Maybe TxOut) -> (Tx, TxWitness) -> VerificationRes
+verifyTxPure :: (TxIn -> Maybe TxOut) -> (Tx, TxWitness) -> Either Text [TxOut]
 verifyTxPure resolver = runIdentity . verifyTx (Identity . resolver)
 
 data TopsortState a = TopsortState

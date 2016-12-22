@@ -32,11 +32,11 @@ import           Pos.Binary.Class        (encode)
 import           Pos.Crypto              (Threshold, deterministicVssKeyGen,
                                           toVssPublicKey)
 import           Pos.FollowTheSatoshi    (followTheSatoshi)
-import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..), SscHelpersClassM (..))
+import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Listeners (SscListenersClass (..))
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..), SscLocalDataClassM (..))
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscQuery,
-                                          SscStorageClass (..))
+                                          SscStorageClass (..), SscStorageClassM (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Ssc.Class.Workers   (SscWorkersClass (..))
 import           Pos.Types               (EpochIndex, SharedSeed (..), SlotLeaders, Utxo)
@@ -125,18 +125,11 @@ instance SscLocalDataClassM SscNistBeacon where
     sscGetLocalPayloadMQ _ = pure ()
     sscApplyGlobalStateMU _ = pure ()
 
-instance SscHelpersClassM SscNistBeacon where
-    sscVerifyPayloadM = sscVerifyPayload
-    sscGetParticipantsQ _ _ =
-        pure $ Just $ pure $ asBinary $ toVssPublicKey $ deterministicVssKeyGen ""
-    sscCalculateLeadersQ epoch utxo _ = do
-        let seed = coerce . ByteArray.convert @_ @ByteString .
-                Hash.hashlazy @SHA256 . encode $ epoch
-        return $ Right $ followTheSatoshi seed utxo
-
--- instance SscStorageClassM SscNistBeacon m where
---     sscEmptyGlobalState = pure ()
---     sscLoadGlobalState _ = pure ()
---     sscApplyBlocksM _ = pure ()
---     sscRollbackM _ = pure ()
---     sscVerifyBlocksM _ = pure mempty
+instance SscStorageClassM SscNistBeacon where
+    sscLoadGlobalState _ = pure ()
+    sscApplyBlocksM _ = pure ()
+    sscRollbackM _ = pure ()
+    sscVerifyBlocksM _ = pure mempty
+    sscCalculateSeedM =
+        pure . Right . coerce . ByteArray.convert @_ @ByteString .
+            Hash.hashlazy @SHA256 . encode

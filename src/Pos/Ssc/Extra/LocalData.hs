@@ -9,7 +9,7 @@
 
 -- | Default implementation of MonadSscLD.
 
-module Pos.Ssc.LocalData
+module Pos.Ssc.Extra.LocalData
        ( SscLDImpl (..)
        , runSscLDImpl
        ) where

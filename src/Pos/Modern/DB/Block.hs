@@ -2,15 +2,21 @@
 
 module Pos.Modern.DB.Block
        ( getBlock
+       , getBlockHeader
        , getStoredBlock
        , getUndo
        , isBlockInMainChain
 
        , deleteBlock
        , putBlock
+       , loadLastNBlocksWithUndo
+       , getBlockWithUndo
+       , loadBlocksWithUndoWhile
        ) where
 
+import           Control.Lens            ((^.))
 import           Data.ByteArray          (convert)
+import           Data.List.NonEmpty      (NonEmpty (..), (<|))
 import           Universum
 
 import           Pos.Binary.Class        (Bi)
@@ -19,7 +25,10 @@ import           Pos.Modern.DB.Class     (MonadDB, getBlockDB)
 import           Pos.Modern.DB.Functions (rocksDelete, rocksGetBi, rocksPutBi)
 import           Pos.Modern.DB.Types     (StoredBlock (..))
 import           Pos.Ssc.Class.Types     (Ssc)
-import           Pos.Types               (Block, HeaderHash, Undo, headerHash)
+import           Pos.Types               (Block, BlockHeader, HeaderHash, Undo,
+                                          headerHash, prevBlockL)
+import qualified Pos.Types               as T
+
 
 -- | Get StoredBlock by hash from Block DB.
 getStoredBlock
@@ -32,6 +41,12 @@ getBlock
     :: (Ssc ssc, MonadDB ssc m)
     => HeaderHash ssc -> m (Maybe (Block ssc))
 getBlock = fmap (fmap sbBlock) . getStoredBlock
+
+-- | Returns header of block that was requested from Block DB.
+getBlockHeader
+    :: (Ssc ssc, MonadDB ssc m)
+    => HeaderHash ssc -> m (Maybe (BlockHeader ssc))
+getBlockHeader h = fmap T.getBlockHeader <$> getBlock h
 
 -- | Get block with given hash from Block DB.
 isBlockInMainChain
@@ -61,6 +76,29 @@ putBlock undo inMainChain blk = do
 
 deleteBlock :: (MonadDB ssc m) => HeaderHash ssc -> m ()
 deleteBlock = delete . blockKey
+
+loadLastNBlocksWithUndo :: (Ssc ssc, MonadDB ssc m)
+                        => HeaderHash ssc -> Word -> m (NonEmpty (Block ssc, Undo))
+loadLastNBlocksWithUndo _    0 = panic "Number of blocks must be nonzero"
+loadLastNBlocksWithUndo hash 1 = (:| []) <$> getBlockWithUndo hash
+loadLastNBlocksWithUndo hash n = do
+    bu@(b, _) <- getBlockWithUndo hash
+    (bu<|) <$> loadLastNBlocksWithUndo (b ^. prevBlockL) (n - 1)
+
+getBlockWithUndo :: (Ssc ssc, MonadDB ssc m)
+                 => HeaderHash ssc -> m (Block ssc, Undo)
+getBlockWithUndo hash =
+    fromMaybe (panic "getBlockWithUndo: no block or undo with such HeaderHash") <$>
+    (liftA2 (,) <$> getBlock hash <*> getUndo hash)
+
+loadBlocksWithUndoWhile :: (Ssc ssc, MonadDB ssc m)
+                        => HeaderHash ssc -> (Block ssc -> Bool) -> m [(Block ssc, Undo)]
+loadBlocksWithUndoWhile hash predicate = do
+    bu@(b, _) <- getBlockWithUndo hash
+    if predicate b then
+        (bu:) <$> loadBlocksWithUndoWhile (b ^. prevBlockL) predicate
+    else
+        return []
 
 ----------------------------------------------------------------------------
 -- Helpers

@@ -11,15 +11,15 @@ module Pos.FollowTheSatoshi
        , followTheSatoshiM
        ) where
 
-import           Data.List.NonEmpty  (NonEmpty, fromList)
+import           Data.List.NonEmpty (NonEmpty, fromList)
 import           Universum
 
-import           Pos.Constants       (epochSlots)
-import           Pos.Crypto          (PublicKey, deterministic, randomNumber)
-import           Pos.Modern.Iterator (ListHolder, MonadIterator (..), runListHolder)
-import           Pos.Types.Address   (AddressHash)
-import           Pos.Types.Types     (Coin (..), SharedSeed (..), TxOut (..), Utxo,
-                                      txOutStake)
+import           Pos.Constants      (epochSlots)
+import           Pos.Crypto         (PublicKey, deterministic, randomNumber)
+import           Pos.Types.Address  (AddressHash)
+import           Pos.Types.Types    (Coin (..), SharedSeed (..), TxOut (..), Utxo,
+                                     txOutStake)
+import           Pos.Util.Iterator  (ListHolder, MonadIterator (..), runListHolder)
 
 -- | A version of 'followTheSatoshi' that uses an iterator over 'TxOut's
 -- instead of 'Utxo'.

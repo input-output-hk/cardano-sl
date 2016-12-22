@@ -23,8 +23,7 @@ import           Universum
 import           Pos.Binary.Class     (Bi)
 import           Pos.DB.Functions     (rocksDecodeKeyValMaybe)
 import           Pos.DB.Types         (DB (..))
-import           Pos.Modern.Iterator  (MonadIterator (..))
-
+import           Pos.Util.Iterator    (MonadIterator (..))
 
 newtype DBIterator m a = DBIterator
     { getDBIterator :: ReaderT Rocks.Iterator m a

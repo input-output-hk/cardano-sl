@@ -165,7 +165,6 @@ library
                         Pos.DB.Types
                         Pos.DB.Utxo
                         Pos.DB.DBIterator
-                        Pos.Modern.Iterator
                         Pos.Modern.Txp.Class
                         Pos.Modern.Txp.Error
                         Pos.Modern.Txp.Storage.Types
@@ -222,6 +221,7 @@ library
                         Pos.Worker.Block
                         Pos.Worker.Stats
                         Pos.Util.Arbitrary
+                        Pos.Util.Iterator
                         Pos.Util.NotImplemented
   if flag(with-web)
     other-modules:      Pos.Aeson.Crypto

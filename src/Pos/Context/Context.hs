@@ -65,21 +65,21 @@ defaultProxyCaches = ProxyCaches HM.empty HM.empty
 
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
-    { ncSystemStart     :: !Timestamp -- ^ Time when system started working.
-    , ncSecretKey       :: !SecretKey -- ^ Secret key used for blocks creation.
-    , ncTimeLord        :: !Bool      -- ^ Is time lord
-    , ncJLFile          :: !(Maybe (MVar FilePath))
-    , ncDbPath          :: !(Maybe FilePath) -- ^ Path to the database
-    , ncSscContext      :: !(SscNodeContext ssc)
-    , ncProxyCaches     :: !(MVar ProxyCaches) -- ^ Holds proxy caches
-    , ncAttackTypes     :: ![AttackType] -- ^ Attack types used by malicious emulation
-    , ncAttackTargets   :: ![AttackTarget] -- ^ Attack targets used by malicious emulation
-    , ncPropagation     :: !Bool -- ^ Whether to propagate txs, ssc data, blocks to neighbors
+    { ncSystemStart   :: !Timestamp -- ^ Time when system started working.
+    , ncSecretKey     :: !SecretKey -- ^ Secret key used for blocks creation.
+    , ncTimeLord      :: !Bool      -- ^ Is time lord
+    , ncJLFile        :: !(Maybe (MVar FilePath))
+    , ncDbPath        :: !(Maybe FilePath) -- ^ Path to the database
+    , ncSscContext    :: !(SscNodeContext ssc)
+    , ncProxyCaches   :: !(MVar ProxyCaches) -- ^ Holds proxy caches
+    , ncAttackTypes   :: ![AttackType] -- ^ Attack types used by malicious emulation
+    , ncAttackTargets :: ![AttackTarget] -- ^ Attack targets used by malicious emulation
+    , ncPropagation   :: !Bool -- ^ Whether to propagate txs, ssc data, blocks to neighbors
       -- | Semaphore which manages access to block application.
       -- Stored hash is a hash of last applied block.
-    , ncBlkSemaphore    :: !(MVar (HeaderHash ssc))
-    , ncSscLeaders      :: !(MVar SlotLeaders)
-    , ncSscParticipants :: !(MVar Participants)
+    , ncBlkSemaphore  :: !(MVar (HeaderHash ssc))
+    , ncSscLeaders    :: !(MVar SlotLeaders)
+    , ncSscRichmen    :: !(MVar Participants)
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

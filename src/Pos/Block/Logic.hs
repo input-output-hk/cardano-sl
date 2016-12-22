@@ -18,27 +18,28 @@ module Pos.Block.Logic
        , withBlkSemaphore
        ) where
 
-import           Control.Lens           (view, (^.))
-import           Control.Monad.Catch    (onException)
-import           Data.Default           (Default (def))
-import           Data.List.NonEmpty     (NonEmpty)
-import qualified Data.Text              as T
-import           Serokell.Util.Verify   (VerificationRes (..))
+import           Control.Lens         (view, (^.))
+import           Control.Monad.Catch  (onException)
+import           Data.Default         (Default (def))
+import           Data.List.NonEmpty   (NonEmpty)
+import qualified Data.Text            as T
+import           Serokell.Util.Verify (VerificationRes (..))
 import           Universum
 
-import           Pos.Constants          (k)
-import           Pos.Context            (putBlkSemaphore, takeBlkSemaphore)
-import           Pos.Crypto             (hash)
-import           Pos.Modern.DB          (MonadDB)
-import qualified Pos.Modern.DB          as DB
-import           Pos.Modern.Txp.Storage (txApplyBlocks, txRollbackBlocks, txVerifyBlocks)
-import           Pos.Slotting           (getCurrentSlot)
-import           Pos.Ssc.Class          (Ssc)
-import           Pos.Types              (Block, BlockHeader, HeaderHash, Undo,
-                                         VerifyHeaderParams (..), blockHeader,
-                                         difficultyL, getEpochOrSlot, headerSlot,
-                                         prevBlockL, verifyHeader, vhpVerifyConsensus)
-import           Pos.WorkMode           (WorkMode)
+import           Pos.Constants        (k)
+import           Pos.Context          (putBlkSemaphore, takeBlkSemaphore)
+import           Pos.Crypto           (hash)
+import           Pos.Modern.DB        (MonadDB)
+import qualified Pos.Modern.DB        as DB
+import           Pos.Modern.Txp.Logic (txApplyBlocks, txRollbackBlocks, txVerifyBlocks)
+import           Pos.Slotting         (getCurrentSlot)
+import           Pos.Ssc.Class        (Ssc)
+import           Pos.Types            (Block, BlockHeader, HeaderHash, Undo,
+                                       VerifyHeaderParams (..), blockHeader, difficultyL,
+                                       getEpochOrSlot, headerSlot, prevBlockL,
+                                       verifyHeader, vhpVerifyConsensus)
+import           Pos.WorkMode         (WorkMode)
+
 
 -- | Result of header classification.
 data ClassifyHeaderRes
@@ -177,13 +178,16 @@ getHeadersOlderExp upto = do
                 | otherwise    = selGo es ii $ succ skipped
         in selGo elems ixs 0
 
+-- CHECK: @verifyBlocksLogic
 -- | Verify blocks received from network. Head is expected to be the
 -- oldest blocks. If parent of head is not our tip, verification
 -- fails. This function checks everything from block, including
 -- header, transactions, SSC data.
+--
+-- #txVerifyBlocks
 verifyBlocks
     :: WorkMode ssc m
-    => NonEmpty (Block ssc) -> m VerificationRes
+    => NonEmpty (Block ssc) -> m (Either Text (NonEmpty Undo))
 verifyBlocks blocks = do
     txsVerRes <- txVerifyBlocks blocks
     -- TODO: more checks of course. Consider doing CSL-39 first.
@@ -203,13 +207,12 @@ withBlkSemaphore action = do
 -- have verified all predicates regarding block (including txs and ssc
 -- data checks).  We almost must have taken lock on block application
 -- and ensured that chain is based on our tip.
-applyBlocks :: WorkMode ssc m => NonEmpty (Block ssc) -> m ()
+applyBlocks :: WorkMode ssc m => NonEmpty (Block ssc, Undo) -> m ()
 applyBlocks = mapM_ applyBlock
 
-applyBlock :: (WorkMode ssc m) => Block ssc -> m ()
-applyBlock blk = do
-    -- [CSL-331] Put actual Undo instead of empty list!
-    DB.putBlock [] True blk
+applyBlock :: (WorkMode ssc m) => (Block ssc, Undo) -> m ()
+applyBlock (blk, undo) = do
+    DB.putBlock undo True blk
     txApplyBlocks (pure blk)
     -- TODO: apply to SSC, maybe something else.
 

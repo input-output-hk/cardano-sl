@@ -14,24 +14,24 @@ module Pos.Context.Class
 
        , withProxyCaches
        , invalidateProxyCaches
+
+       , readRichmen
        ) where
 
-import           Control.Concurrent.MVar   (putMVar)
-import           Control.Exception         (SomeException)
-import           Control.Lens              ((%~))
-import           Control.Monad.Catch       (catch)
-import qualified Data.HashMap.Strict       as HM
-import           Data.Time.Clock           (addUTCTime, getCurrentTime)
+import           Control.Concurrent.MVar (putMVar)
+import           Control.Exception       (SomeException)
+import           Control.Lens            ((%~))
+import           Control.Monad.Catch     (catch)
+import qualified Data.HashMap.Strict     as HM
+import           Data.Time.Clock         (addUTCTime, getCurrentTime)
 import           Universum
 
-import           Pos.Context.Context       (NodeContext, ProxyCaches, ncBlkSemaphore,
-                                            ncProxyCaches, ncProxyConfCache,
-                                            ncProxyMsgCache)
-import           Pos.DHT.Model             (DHTResponseT)
-import           Pos.DHT.Real              (KademliaDHT)
-import           Pos.Statistics.MonadStats (NoStatsT, StatsT)
-import           Pos.Types                 (HeaderHash)
-
+import           Pos.Context.Context     (NodeContext (ncBlkSemaphore, ncSscRichmen),
+                                          ProxyCaches, ncProxyCaches, ncProxyConfCache,
+                                          ncProxyMsgCache)
+import           Pos.DHT.Model           (DHTResponseT)
+import           Pos.DHT.Real            (KademliaDHT)
+import           Pos.Types               (HeaderHash, Participants)
 
 -- | Class for something that has 'NodeContext' inside.
 class WithNodeContext ssc m | m -> ssc where
@@ -52,15 +52,6 @@ instance (Monad m, WithNodeContext ssc m) =>
 instance (Monad m, WithNodeContext ssc m) =>
          WithNodeContext ssc (DHTResponseT s m) where
     getNodeContext = lift getNodeContext
-
-instance (Monad m, WithNodeContext ssc m) =>
-         WithNodeContext ssc (StatsT m) where
-    getNodeContext = lift getNodeContext
-
-instance (Monad m, WithNodeContext ssc m) =>
-         WithNodeContext ssc (NoStatsT m) where
-    getNodeContext = lift getNodeContext
-
 
 
 -- TODO Refactor it out of this module when dealing with in-memory
@@ -106,3 +97,10 @@ invalidateProxyCaches = withProxyCaches $ \p -> do
     pure $ ((),) $
         p & ncProxyMsgCache %~ HM.filter (\t -> addUTCTime 60 t > curTime)
           & ncProxyConfCache %~ HM.filter (\t -> addUTCTime 500 t > curTime)
+
+-- | Read richmen from node context. This function blocks if
+-- participants are not available.
+readRichmen
+    :: (MonadIO m, WithNodeContext ssc m)
+    => m Participants
+readRichmen = getNodeContext >>= liftIO . readMVar . ncSscRichmen

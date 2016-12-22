@@ -16,6 +16,7 @@ import           Options.Applicative    (execParser)
 import           System.IO              (hFlush, stdout)
 import           Universum
 
+import qualified Pos.CLI                as CLI
 import           Pos.Communication      (sendProxySecretKey)
 import           Pos.Constants          (slotDuration)
 import           Pos.Crypto             (SecretKey, createProxySecretKey, toPublic)
@@ -103,16 +104,16 @@ main = do
     let logParams =
             LoggingParams
             { lpRunnerTag     = "smart-wallet"
-            , lpHandlerPrefix = woLogsPrefix
-            , lpConfigPath    = woLogConfig
+            , lpHandlerPrefix = CLI.logPrefix woCommonArgs
+            , lpConfigPath    = CLI.logConfig woCommonArgs
             }
         baseParams =
             BaseParams
             { bpLoggingParams      = logParams
             , bpPort               = woPort
-            , bpDHTPeers           = woDHTPeers
+            , bpDHTPeers           = CLI.dhtPeers woCommonArgs
             , bpDHTKeyOrType       = Right DHTFull
-            , bpDHTExplicitInitial = woDhtExplicitInitial
+            , bpDHTExplicitInitial = CLI.dhtExplicitInitial woCommonArgs
             }
 
     bracketDHTInstance baseParams $ \inst -> do
@@ -140,7 +141,7 @@ main = do
                 Serve webPort webDaedalusDbPath -> [walletServeWebLite webDaedalusDbPath webPort]
 #endif
 
-        case woSscAlgo of
+        case CLI.sscAlgo woCommonArgs of
             GodTossingAlgo -> putText "Using MPC coin tossing" *>
                               runWalletReal inst params plugins
             NistBeaconAlgo -> putText "Wallet does not support NIST beacon!"

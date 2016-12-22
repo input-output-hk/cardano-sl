@@ -12,9 +12,8 @@ module Pos.Block.Server.Listeners
 
 import           Control.Lens             ((^.), _1)
 import           Data.List.NonEmpty       (NonEmpty ((:|)), nonEmpty)
-import qualified Data.Text                as T
+import qualified Data.List.NonEmpty       as NE
 import           Formatting               (sformat, stext, (%))
-import           Serokell.Util.Verify     (VerificationRes (..))
 import           System.Wlog              (logDebug, logWarning)
 import           Universum
 
@@ -150,12 +149,12 @@ handleBlocks blocks = do
     whenNoRollback = do
         verRes <- verifyBlocks blocks
         case verRes of
-            VerSuccess        -> withBlkSemaphore whenNoRollbackDo
-            VerFailure errors -> reportErrors errors
-    whenNoRollbackDo :: HeaderHash ssc -> m (HeaderHash ssc)
-    whenNoRollbackDo tip
-        | tip /= blocks ^. _neHead . headerHashG = pure tip
-        | otherwise = newTip <$ applyBlocks blocks
+            Right undos -> withBlkSemaphore $ whenNoRollbackDo (NE.zip blocks undos)
+            Left errors -> reportError errors
+    whenNoRollbackDo :: NonEmpty (Block ssc, Undo) -> HeaderHash ssc -> m (HeaderHash ssc)
+    whenNoRollbackDo blund tip
+        | tip /= blund ^. _neHead . _1 . headerHashG = pure tip
+        | otherwise = newTip <$ applyBlocks blund
     whenRollback :: NonEmpty (Block ssc, Undo)
                  -> HeaderHash ssc
                  -> m (HeaderHash ssc)
@@ -165,11 +164,10 @@ handleBlocks blocks = do
             rollbackBlocks toRollback
             verRes <- verifyBlocks blocks
             case verRes of
-                VerSuccess -> newTip <$ applyBlocks blocks
-                VerFailure errors ->
-                    reportErrors errors >> applyBlocks (fmap fst toRollback) $>
+                Right undos -> newTip <$ applyBlocks (NE.zip blocks undos)
+                Left errors ->
+                    reportError errors >> applyBlocks toRollback $>
                     tip
     -- TODO: ban node on error!
-    reportErrors =
-        logWarning . sformat ("Failed to verify blocks: " %stext) .
-        T.intercalate ";"
+    reportError =
+        logWarning . sformat ("Failed to verify blocks: " %stext)

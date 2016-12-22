@@ -14,7 +14,6 @@ module Pos.Modern.DB.Functions
        , rocksDecode
        ) where
 
-import           Control.Monad.IfElse         (whileM)
 import           Control.Monad.TM             ((.>>=.))
 import           Control.Monad.Trans.Resource (MonadResource)
 import qualified Data.ByteString.Lazy         as BSL
@@ -76,7 +75,7 @@ rocksWriteBatch :: MonadIO m => [Rocks.BatchOp] -> DB ssc -> m ()
 rocksWriteBatch batch DB{..} = Rocks.write rocksDB rocksWriteOpts batch
 
 traverseAllEntries
-    :: (Bi k, Bi v, MonadMask m, MonadIO m, MonadThrow m)
+    :: (Bi k, Bi v, MonadMask m, MonadIO m)
     => DB ssc
     -> m b
     -> (b -> k -> v -> m b)

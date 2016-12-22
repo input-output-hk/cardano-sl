@@ -35,7 +35,7 @@ import           Pos.Constants                                  (k, mpcSendInter
 import           Pos.Context                                    (getNodeContext,
                                                                  ncPublicKey, ncSecretKey,
                                                                  ncSscContext,
-                                                                 ncSscParticipants)
+                                                                 readRichmen)
 import           Pos.Crypto                                     (SecretKey, VssKeyPair,
                                                                  randomNumber,
                                                                  runSecureRandom,
@@ -54,8 +54,8 @@ import           Pos.Modern.Ssc.GodTossing.Storage.Storage      (getGlobalCertif
 import           Pos.Slotting                                   (getSlotStart, onNewSlot)
 import           Pos.Ssc.Class.LocalData                        (sscRunLocalQuery,
                                                                  sscRunLocalUpdate)
-import           Pos.Ssc.Class.Storage                          (getGlobalState)
 import           Pos.Ssc.Class.Workers                          (SscWorkersClass (..))
+import           Pos.Ssc.Extra                                  (getGlobalState)
 import           Pos.Ssc.GodTossing.Functions                   (genCommitmentAndOpening,
                                                                  genCommitmentAndOpening,
                                                                  isCommitmentIdx,
@@ -64,19 +64,17 @@ import           Pos.Ssc.GodTossing.Functions                   (genCommitmentAn
                                                                  mkSignedCommitment)
 import           Pos.Ssc.GodTossing.Functions                   (getThreshold)
 import           Pos.Ssc.GodTossing.LocalData.Types             (gtLocalCertificates)
-import           Pos.Ssc.GodTossing.Types.Base                  (Commitment, Opening,
+import           Pos.Ssc.GodTossing.Types                       (Commitment, DataMsg (..),
+                                                                 GtPayload, GtProof,
+                                                                 InvMsg (..), MsgTag (..),
+                                                                 Opening,
                                                                  SignedCommitment,
-                                                                 VssCertificate (..))
-import           Pos.Ssc.GodTossing.Types.Instance              ()
-import           Pos.Ssc.GodTossing.Types.Message               (DataMsg (..),
-                                                                 InvMsg (..), MsgTag (..))
-import           Pos.Ssc.GodTossing.Types.Type                  (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types                 (GtPayload, GtProof,
+                                                                 SscGodTossing,
+                                                                 VssCertificate (..),
                                                                  gtcParticipateSsc,
                                                                  gtcVssKeyPair)
 import           Pos.Types                                      (Address (..), EpochIndex,
                                                                  LocalSlotIndex,
-                                                                 Participants,
                                                                  SlotId (..),
                                                                  Timestamp (..),
                                                                  makePubKeyAddress)
@@ -138,7 +136,7 @@ getOurPkAndAddr = do
 getOurVssKeyPair :: WorkMode SscGodTossing m => m VssKeyPair
 getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
 
--- CHECK: @onNewSlotSsc
+-- CHECK: @onNewSlotSscModern
 -- Checks whether 'our' VSS certificate has been announced
 onNewSlotSsc
     :: ( WorkMode SscGodTossing m
@@ -266,7 +264,7 @@ generateAndSetNewSecret sk epoch = do
     -- getParticipants returns 'Just res' it will always return 'Just
     -- res' unless key assumption is broken. But if it's broken,
     -- nothing else matters.
-    richmen <- takeParticipants
+    richmen <- readRichmen
     certs <- getGlobalCertificates
     let ps = NE.fromList .
                 map vcVssKey . mapMaybe (`lookup` certs) . NE.toList $ richmen
@@ -307,6 +305,3 @@ waitUntilSend msgTag epoch kMultiplier = do
             sformat ("Waiting for "%shown%" before sending "%build)
                 ttwMillisecond msgTag
         wait $ for timeToWait
-
-takeParticipants :: WorkMode SscGodTossing m => m Participants
-takeParticipants = getNodeContext >>= liftIO . readMVar . ncSscParticipants

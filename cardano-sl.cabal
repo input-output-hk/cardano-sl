@@ -165,11 +165,10 @@ library
                         Pos.Modern.Iterator
                         Pos.Modern.Txp.Class
                         Pos.Modern.Txp.Error
-                        Pos.Modern.Txp.Storage
-                        Pos.Modern.Txp.Storage.Storage
                         Pos.Modern.Txp.Storage.Types
                         Pos.Modern.Txp.Storage.UtxoView
                         Pos.Modern.Txp.Holder
+                        Pos.Modern.Txp.Logic
                         Pos.Modern.Ssc.GodTossing.LocalData.LocalData
                         Pos.Modern.Ssc.GodTossing.LocalData.Types
                         Pos.Modern.Ssc.GodTossing.LocalData.Helpers
@@ -178,8 +177,10 @@ library
                         Pos.Modern.Ssc.GodTossing.Storage.Types
                         Pos.Modern.Ssc.GodTossing.Workers
                         Pos.Modern.Ssc.GodTossing.Functions
-                        Pos.Ssc.Extra.LocalData
                         Pos.Ssc.Extra.Holder
+                        Pos.Ssc.Extra.LocalData
+                        Pos.Ssc.Extra.MonadGS
+                        Pos.Ssc.Extra.MonadLD
                         Pos.Modern.Ssc.GodTossing.Secret.SecretStorage
                         Pos.Modern.Ssc.GodTossing.Secret.Types
                         Pos.Ssc.GodTossing.Arbitrary
@@ -197,6 +198,7 @@ library
                         Pos.Ssc.GodTossing.Storage.Types
                         Pos.Ssc.GodTossing.Worker.Workers
                         Pos.Ssc.GodTossing.Seed
+                        Pos.Ssc.GodTossing.Types
                         Pos.Ssc.GodTossing.Types.Base
                         Pos.Ssc.GodTossing.Types.Instance
                         Pos.Ssc.GodTossing.Types.Message
@@ -301,6 +303,8 @@ library
                       , monad-loops
                       , mono-traversable
                       , mtl
+                      , optparse-applicative
+                      , optparse-simple
                       , parsec
                       , plutus-prototype
                       , pvss

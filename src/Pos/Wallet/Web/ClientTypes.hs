@@ -33,7 +33,7 @@ import           Universum
 
 import           Formatting      (build, sformat)
 import           Pos.Aeson.Types ()
-import           Pos.Types       (Address (..), Coin, TxId)
+import           Pos.Types       (Address (..), Coin)
 
 
 -- | currencies handled by client

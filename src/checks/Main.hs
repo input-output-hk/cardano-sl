@@ -4,7 +4,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import qualified Control.Foldl   as F
-import           Data.List       (foldl')
+import           Data.Function   (on)
+import           Data.List       (foldl', sortBy)
 import qualified Data.Map.Strict as M
 import qualified Data.Text       as T
 import           Turtle
@@ -50,7 +51,7 @@ hsFiles folder = do
 
 filesToMd :: Shell FilePath -> Shell Text
 filesToMd files = do
-    ms <- fold (files >>= fileToModule) F.list
+    ms <- sortBy (compare `on` modName) <$> fold (files >>= fileToModule) F.list
     select $ renderModules ms
 
 pandoc :: Text -> Shell Text -> IO ()

@@ -29,22 +29,22 @@ import           Serokell.Util.Verify                    (VerificationRes (..),
                                                           isVerSuccess, verifyGeneric)
 import           Universum
 
+import           Pos.Binary.Ssc                          ()
 import           Pos.Modern.DB                           (MonadDB, getBlock)
+import           Pos.Modern.Ssc.GodTossing.Helpers       (calculateSeedQ)
 import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
                                                           gsCommitments, gsOpenings,
                                                           gsShares, gsVssCertificates)
-import           Pos.Ssc.Class.Storage                   (MonadSscGS (..),
-                                                          SscStorageClassM (..),
-                                                          sscRunGlobalModify,
-                                                          sscRunGlobalQuery)
+import           Pos.Ssc.Class.Storage                   (SscStorageClassM (..))
 import           Pos.Ssc.Class.Types                     (Ssc (..))
+import           Pos.Ssc.Extra.MonadGS                   (MonadSscGS (..),
+                                                          sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Functions            (checkOpeningMatchesCommitment,
                                                           checkShares, isCommitmentIdx,
                                                           isOpeningIdx, isSharesIdx,
                                                           verifyGtPayload)
-import           Pos.Ssc.GodTossing.Types.Base           (VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types          (GtPayload (..), SscBi,
+import           Pos.Ssc.GodTossing.Types                (GtPayload (..), SscGodTossing,
+                                                          VssCertificatesMap,
                                                           _gpCertificates)
 import           Pos.State.Storage.Types                 (AltChain)
 import           Pos.Types                               (Block, HeaderHash, SlotId (..),
@@ -52,41 +52,24 @@ import           Pos.Types                               (Block, HeaderHash, Slo
                                                           prevBlockL)
 import           Pos.Util                                (readerToState)
 
-type GSQuery a  = forall m . Monad m => ReaderT GtGlobalState m a
-type GSUpdate a = forall m . Monad m => StateT GtGlobalState m a
+type GSQuery a  = forall m . (MonadReader GtGlobalState m) => m a
+type GSUpdate a = forall m . (MonadState GtGlobalState m) => m a
 
-type Pure ssc m = ( SscPayload SscGodTossing ~ GtPayload
-                       , SscGlobalStateM SscGodTossing ~ GtGlobalState
-                       , Ssc SscGodTossing)
-
-type WithDB ssc m = ( MonadSscGS SscGodTossing m
-                    , MonadThrow m
-                    , MonadDB SscGodTossing m
-                    , SscPayload SscGodTossing ~ GtPayload
-                    , SscGlobalStateM SscGodTossing ~ GtGlobalState
-                    , Ssc SscGodTossing)
-
-instance (SscBi, MonadDB SscGodTossing m
-         , MonadSscGS SscGodTossing m, MonadThrow m
-         , Ssc SscGodTossing
-         , SscPayload SscGodTossing ~ GtPayload
-         , SscGlobalStateM SscGodTossing ~ GtGlobalState)
-         => SscStorageClassM SscGodTossing m where
-    sscEmptyGlobalState = pure def
+instance SscStorageClassM SscGodTossing where
     sscLoadGlobalState = mpcLoadGlobalState
-    sscApplyBlocksM = sscRunGlobalModify . mpcApplyBlocks
-    sscRollbackM = sscRunGlobalModify . mpcRollback
-    sscVerifyBlocksM = sscRunGlobalQuery . mpcVerifyBlocks
+    sscApplyBlocksM = mpcApplyBlocks
+    sscRollbackM = mpcRollback
+    sscVerifyBlocksM = mpcVerifyBlocks
+    sscCalculateSeedM = calculateSeedQ
 
-getGlobalCertificates :: (MonadSscGS SscGodTossing m, SscGlobalStateM SscGodTossing ~ GtGlobalState)
-                      => m VssCertificatesMap
+getGlobalCertificates
+    :: (MonadSscGS SscGodTossing m)
+    => m VssCertificatesMap
 getGlobalCertificates = sscRunGlobalQuery $ view gsVssCertificates
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
-mpcVerifyBlock
-    :: forall ssc . (SscPayload ssc ~ GtPayload, SscBi)
-    => Block ssc -> GSQuery VerificationRes
+mpcVerifyBlock :: Block SscGodTossing -> GSQuery VerificationRes
 -- Genesis blocks don't have any SSC data.
 mpcVerifyBlock (Left _) = return VerSuccess
 -- Main blocks have commitments, openings, shares and VSS certificates.
@@ -169,13 +152,12 @@ mpcVerifyBlock (Right b) = do
                 OpeningsPayload        opens _ -> openChecks opens
                 SharesPayload         shares _ -> shareChecks shares
                 CertificatesPayload          _ -> []
-    return (verifyGtPayload @ssc (b ^. gbHeader) payload <> ourRes)
+    return (verifyGtPayload (b ^. gbHeader) payload <> ourRes)
 
 -- TODO:
 --   ★ verification messages should include block hash/slotId
 --   ★ we should stop at first failing block
-mpcVerifyBlocks :: (SscBi, SscPayload SscGodTossing ~ GtPayload)
-                => AltChain SscGodTossing -> GSQuery VerificationRes
+mpcVerifyBlocks :: AltChain SscGodTossing -> GSQuery VerificationRes
 mpcVerifyBlocks  blocks = do
     curState <- ask
     return $ flip evalState curState $ do
@@ -202,9 +184,7 @@ unionPayload payload =
 
 -- | Apply sequence of blocks to state. Sequence must be based on last
 -- applied block and must be valid.
-mpcApplyBlocks
-    :: forall ssc . SscPayload ssc ~ GtPayload
-    => AltChain ssc -> GSUpdate ()
+mpcApplyBlocks :: AltChain SscGodTossing -> GSUpdate ()
 mpcApplyBlocks = mapM_ mpcProcessBlock
 
 mpcProcessBlock
@@ -227,8 +207,7 @@ resetGS = do
     gsShares      .= mempty
 
 -- | Head - younges
-mpcRollback :: forall m . Pure SscGodTossing m
-            => AltChain SscGodTossing -> GSUpdate ()
+mpcRollback :: AltChain SscGodTossing -> GSUpdate ()
 mpcRollback blocks = do
     wasGenesis <- foldM (\wasGen b -> if wasGen then pure wasGen else differenceBlock b)
                          False blocks
@@ -253,7 +232,7 @@ mpcRollback blocks = do
 
 -- TODO union of certificats is invalid
 -- | Union payloads of blocks until meet genesis block
-unionBlocks :: WithDB SscGodTossing m => StateT (GtGlobalState, HeaderHash SscGodTossing) m ()
+unionBlocks :: MonadDB SscGodTossing m => StateT (GtGlobalState, HeaderHash SscGodTossing) m ()
 unionBlocks = whileM
     (do
         curTip <- use _2
@@ -269,5 +248,5 @@ unionBlocks = whileM
               block
     ) (pure ())
 
-mpcLoadGlobalState :: WithDB SscGodTossing m => HeaderHash SscGodTossing -> m GtGlobalState
+mpcLoadGlobalState :: MonadDB SscGodTossing m => HeaderHash SscGodTossing -> m GtGlobalState
 mpcLoadGlobalState tip = fst <$> execStateT unionBlocks (def, tip)

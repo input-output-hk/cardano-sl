@@ -246,7 +246,7 @@ main = do
                 , npSystemStart   = systemStart
                 , npSecretKey     = sk
                 , npBaseParams    = baseParams
-                , npCustomUtxo    = Just $ genesisUtxo $
+                , npCustomUtxo    = genesisUtxo $
                                         stakesDistr
                                         (CLI.flatDistr goCommonArgs)
                                         (CLI.bitcoinDistr goCommonArgs)

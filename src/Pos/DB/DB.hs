@@ -18,11 +18,11 @@ import           Pos.DB.Holder                (runDBHolder)
 import           Pos.DB.Types                 (NodeDBs (..))
 import           Pos.DB.Utxo                  (getTip, prepareUtxoDB)
 import           Pos.Ssc.Class.Types          (Ssc)
-import           Pos.Types                    (Block)
+import           Pos.Types                    (Block, Utxo)
 
 -- | Open all DBs stored on disk.
-openNodeDBs :: MonadResource m => FilePath -> m (NodeDBs ssc)
-openNodeDBs fp = do
+openNodeDBs :: MonadResource m => FilePath -> Utxo -> m (NodeDBs ssc)
+openNodeDBs fp customUtxo = do
     let blockPath = fp </> "blocks"
     let utxoPath = fp </> "utxo"
     let miscPath = fp </> "misc"
@@ -30,7 +30,7 @@ openNodeDBs fp = do
     res <- NodeDBs <$> openDB blockPath
                    <*> openDB utxoPath
                    <*> openDB miscPath
-    res <$ (runDBHolder res prepareUtxoDB)
+    res <$ (runDBHolder res $ prepareUtxoDB customUtxo)
   where
     ensureDirectoryExists :: MonadIO m => FilePath -> m ()
     ensureDirectoryExists = liftIO . createDirectoryIfMissing True

@@ -161,8 +161,8 @@ nodeParams args@Args {..} spendingSK systemStart =
     , npSystemStart = systemStart
     , npBaseParams = baseParams "node" args
     , npCustomUtxo =
-            Just . genesisUtxo $
-            stakesDistr (CLI.flatDistr commonArgs) (CLI.bitcoinDistr commonArgs)
+            genesisUtxo $
+                stakesDistr (CLI.flatDistr commonArgs) (CLI.bitcoinDistr commonArgs)
     , npTimeLord = timeLord
     , npJLFile = jlPath
     , npAttackTypes = maliciousEmulationAttacks

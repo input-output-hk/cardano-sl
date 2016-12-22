@@ -38,7 +38,7 @@ data NodeParams = NodeParams
     , npSystemStart   :: !Timestamp         -- ^ System start
     , npSecretKey     :: !SecretKey         -- ^ Secret key of this node
     , npBaseParams    :: !BaseParams        -- ^ See 'BaseParams'
-    , npCustomUtxo    :: !(Maybe Utxo)      -- ^ predefined custom utxo
+    , npCustomUtxo    :: !Utxo              -- ^ predefined custom utxo
     , npTimeLord      :: !Bool              -- ^ @True@ if node started as time-lord
     , npJLFile        :: !(Maybe FilePath)
     , npAttackTypes   :: ![AttackType]      -- ^ List of attack types used by malicious emulation

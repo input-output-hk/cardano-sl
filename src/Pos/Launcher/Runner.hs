@@ -156,7 +156,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     putText $ "Running listeners number: " <> show (length listeners)
     lift $ setupLoggers lp
     legacyDB <- snd <$> allocate openDb closeDb
-    modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo")
+    modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo") npCustomUtxo
     --initGS <- Modern.runDBHolder modernDBs (loadGlobalState @ssc)
     let initTip = notImplemented -- init tip must be here
     let run db =
@@ -173,7 +173,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     lift $ run legacyDB
   where
     lp@LoggingParams {..} = bpLoggingParams npBaseParams
-    mStorage = storageFromUtxo <$> npCustomUtxo
+    mStorage = Just $ storageFromUtxo npCustomUtxo
     openDb :: IO (NodeState ssc)
     openDb = do
         -- we rebuild DB manually, because we need to remove

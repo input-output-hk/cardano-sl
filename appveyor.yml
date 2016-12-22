@@ -49,3 +49,9 @@ test_script:
 artifacts:
   - path: installers/cardano-installer.exe
     name: CardanoWindows64Installer.exe
+
+notifications:
+  - provider: Slack
+    incoming_webhook:
+      secure: 3KXYR8gCzuhyML2adCU1HayVFPi5TfDUhiQcffkf8QNcwqmZRL+IY/idxf951NNYJ8+GJQDhek7LWLhKrr4d08J9erBw8GePrCwTaBfwQkQ=
+

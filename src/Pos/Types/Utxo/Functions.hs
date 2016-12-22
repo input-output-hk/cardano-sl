@@ -21,7 +21,7 @@ module Pos.Types.Utxo.Functions
        ) where
 
 import           Control.Lens         (over, _1)
-import           Control.Monad.Except (ExceptT, runExceptT, throwError)
+import           Control.Monad.Except (ExceptT (ExceptT), runExceptT, throwError)
 import qualified Data.Map.Strict      as M
 import           Universum
 
@@ -100,12 +100,8 @@ verifyAndApplyTxsOld txws =
     applyAll [] = pass
     applyAll (txw:xs) = do
         applyAll xs
-        verRes <- verifyTxUtxo (over _1 whData txw)
-        case verRes of
-            Right _    -> applyTxToUtxo $ fst txw
-            Left errors ->
-                throwError $
-                    "Transaction application failed, reason not specified: " <> errors
+        () <$ ExceptT (verifyTxUtxo (over _1 whData txw))
+        applyTxToUtxo $ fst txw
     topsorted = reverse <$> topsortTxs fst txws -- head is the last one to check
 
 -- TODO change types of normalizeTxs and related

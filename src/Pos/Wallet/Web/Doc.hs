@@ -121,6 +121,11 @@ instance ToSample CHash where
 instance ToSample CAddress where
     toSamples Proxy = singleSample . addressToCAddress $ genesisAddresses !! 0
 
+-- FIXME: this is required because of Wallet.Web.Api `type Cors...`
+-- I don't really what should be sample for Cors ?
+instance ToSample Text where
+    toSamples Proxy = fail "ToSample CORS: Not Implemented!"
+
 instance ToSample () where
     toSamples Proxy = singleSample ()
 

@@ -6,30 +6,33 @@
 module Pos.Wallet.Web.Api
        ( WalletApi
        , walletApi
+       , Cors
        ) where
 
 import           Data.Proxy                 (Proxy (Proxy))
-import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
-                                             Post)
+import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, Header,
+                                             Headers, JSON, Post)
 import           Universum
 
 import           Pos.Types                  (Address, Coin, Tx)
 import           Pos.Wallet.Web.ClientTypes (CAddress)
 
+type Cors a = Headers '[Header "Access-Control-Allow-Origin" Text] a
+
 -- | Servant API which provides access to wallet.
 type WalletApi =
-     "api" :> "addresses" :> Get '[JSON] [CAddress]
+     "api" :> "addresses" :> Get '[JSON] (Cors [CAddress])
     :<|>
-     "api" :> "balances" :> Get '[JSON] [(CAddress, Coin)]
+     "api" :> "balances" :> Get '[JSON] (Cors [(CAddress, Coin)])
     :<|>
-     "api" :> "send" :> Capture "from" Word :> Capture "to" Address :> Capture "amount" Coin :> Post '[JSON] ()
+     "api" :> "send" :> Capture "from" Word :> Capture "to" Address :> Capture "amount" Coin :> Post '[JSON] (Cors ())
     :<|>
-     "api" :> "history" :> Capture "address" Address :> Get '[JSON] [Tx]
+     "api" :> "history" :> Capture "address" Address :> Get '[JSON] (Cors [Tx])
     :<|>
-     "api" :> "new_address" :> Post '[JSON] CAddress
+     "api" :> "new_address" :> Post '[JSON] (Cors CAddress)
     :<|>
     -- FIXME: this should be DELETE method
-     "api" :> "delete_address" :> Capture "index" Word :> Post '[JSON] ()
+     "api" :> "delete_address" :> Capture "index" Word :> Post '[JSON] (Cors ())
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

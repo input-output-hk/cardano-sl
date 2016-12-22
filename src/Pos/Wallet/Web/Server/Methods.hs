@@ -16,7 +16,7 @@ import           Data.List                  ((!!))
 import           Formatting                 (int, ords, sformat, (%))
 import           Network.Wai                (Application)
 import           Servant.API                ((:<|>) ((:<|>)),
-                                             FromHttpApiData (parseUrlPiece))
+                                             FromHttpApiData (parseUrlPiece), addHeader)
 import           Servant.Server             (Handler, ServantErr (errBody), Server,
                                              ServerT, err404, serve)
 import           Servant.Utils.Enter        ((:~>) (..), enter)
@@ -34,7 +34,7 @@ import           Pos.Aeson.ClientTypes      ()
 import           Pos.Wallet.KeyStorage      (MonadKeys (..), newSecretKey)
 import           Pos.Wallet.Tx              (submitTx)
 import           Pos.Wallet.WalletMode      (WalletMode, getBalance, getTxHistory)
-import           Pos.Wallet.Web.Api         (WalletApi, walletApi)
+import           Pos.Wallet.Web.Api         (Cors, WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, addressToCAddress)
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
                                              closeState, openState, runWalletWebDB)
@@ -72,16 +72,16 @@ servantHandlers :: WalletWebMode ssc m => ServerT WalletApi m
 servantHandlers = getAddresses :<|> getBalances :<|> send :<|>
                   getHistory :<|> newAddress :<|> deleteAddress
 
-getAddresses :: WalletWebMode ssc m => m [CAddress]
-getAddresses = map fst <$> getBalances
+getAddresses :: WalletWebMode ssc m => m (Cors [CAddress])
+getAddresses = fmap (map fst) <$> getBalances
 
-getBalances :: WalletWebMode ssc m => m [(CAddress, Coin)]
-getBalances = join $ mapM gb <$> addresses
+getBalances :: WalletWebMode ssc m => m (Cors [(CAddress, Coin)])
+getBalances = fmap (addHeader "*") $ join $ mapM gb <$> addresses
   where gb addr = (,) (addressToCAddress addr) <$> getBalance addr
         addresses = map (makePubKeyAddress . toPublic) <$> mySecretKeys
 
-send :: WalletWebMode ssc m => Word -> Address -> Coin -> m ()
-send srcIdx dstAddr c = do
+send :: WalletWebMode ssc m => Word -> Address -> Coin -> m (Cors ())
+send srcIdx dstAddr c = fmap (addHeader "*") $ do
     sks <- mySecretKeys
     let skCount = length sks
     if fromIntegral srcIdx > skCount
@@ -97,14 +97,14 @@ send srcIdx dstAddr c = do
               sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
               c srcIdx dstAddr
 
-getHistory :: WalletWebMode ssc m => Address -> m [Tx]
-getHistory addr = map whData <$> getTxHistory addr
+getHistory :: WalletWebMode ssc m => Address -> m (Cors [Tx])
+getHistory addr = addHeader "*" . map whData <$> getTxHistory addr
 
-newAddress :: WalletWebMode ssc m => m CAddress
-newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
+newAddress :: WalletWebMode ssc m => m (Cors CAddress)
+newAddress = addHeader "*" . addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
 
-deleteAddress :: WalletWebMode ssc m => Word -> m ()
-deleteAddress = deleteSecretKey
+deleteAddress :: WalletWebMode ssc m => Word -> m (Cors ())
+deleteAddress key = addHeader "*" <$> deleteSecretKey key
 
 ----------------------------------------------------------------------------
 -- Helpers

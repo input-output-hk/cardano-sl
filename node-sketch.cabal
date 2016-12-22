@@ -69,6 +69,7 @@ executable discovery
                       , binary
                       , bytestring
                       , containers
+                      , network-transport-inmemory
                       , network-transport-tcp
                       , node-sketch
                       , random

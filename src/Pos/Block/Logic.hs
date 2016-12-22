@@ -27,12 +27,14 @@ module Pos.Block.Logic
 
 import           Control.Lens         (view, (^.))
 import           Control.Monad.Catch  (onException)
+import           Control.Monad.Except (ExceptT (ExceptT), runExceptT)
 import           Data.Default         (Default (def))
 import           Data.List.NonEmpty   (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty   as NE
 import qualified Data.Text            as T
 import           Formatting           (int, sformat, (%))
-import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess)
+import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors,
+                                       isVerSuccess, verResToMonadError)
 import           Universum
 
 import           Pos.Constants        (k)
@@ -43,11 +45,13 @@ import qualified Pos.DB               as DB
 import           Pos.Modern.Txp.Logic (txApplyBlocks, txRollbackBlocks, txVerifyBlocks)
 import           Pos.Slotting         (getCurrentSlot)
 import           Pos.Ssc.Class        (Ssc)
+import           Pos.Ssc.Extra        (sscApplyBlocks, sscRollback, sscVerifyBlocks)
 import           Pos.Types            (Block, BlockHeader, HeaderHash, Undo,
                                        VerifyHeaderParams (..), blockHeader, difficultyL,
                                        flattenEpochOrSlot, getEpochOrSlot, headerSlot,
                                        prevBlockL, verifyHeader, verifyHeaders,
                                        vhpVerifyConsensus)
+import qualified Pos.Types            as Types
 import           Pos.WorkMode         (WorkMode)
 
 
@@ -243,10 +247,12 @@ getHeadersOlderExp upto = do
 verifyBlocks
     :: WorkMode ssc m
     => NonEmpty (Block ssc) -> m (Either Text (NonEmpty Undo))
-verifyBlocks blocks = do
-    txsVerRes <- txVerifyBlocks blocks
-    -- TODO: more checks of course. Consider doing CSL-39 first.
-    return txsVerRes
+verifyBlocks blocks =
+    runExceptT $
+    do curSlot <- getCurrentSlot
+       verResToMonadError formatAllErrors $ Types.verifyBlocks (Just curSlot) blocks
+       verResToMonadError formatAllErrors =<< sscVerifyBlocks blocks
+       ExceptT $ txVerifyBlocks blocks
 
 -- | Run action acquiring lock on block application. Argument of
 -- action is an old tip, result is put as a new tip.
@@ -263,18 +269,19 @@ withBlkSemaphore action = do
 -- data checks).  We almost must have taken lock on block application
 -- and ensured that chain is based on our tip.
 applyBlocks :: WorkMode ssc m => NonEmpty (Block ssc, Undo) -> m ()
-applyBlocks = mapM_ applyBlock
-
-applyBlock :: (WorkMode ssc m) => (Block ssc, Undo) -> m ()
-applyBlock (blk, undo) = do
-    DB.putBlock undo True blk
-    txApplyBlocks (pure blk)
-    -- TODO: apply to SSC, maybe something else.
+applyBlocks blksUndos = do
+    let blks = fmap fst blksUndos
+    mapM_ putToDB blksUndos
+    txApplyBlocks blks
+    sscApplyBlocks blks
+  where
+    putToDB (blk, undo) = DB.putBlock undo True blk
 
 -- | Rollback sequence of blocks, head block corresponds to tip,
 -- further blocks are parents. It's assumed that lock on block
 -- application is taken.
 rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Block ssc, Undo) -> m ()
 rollbackBlocks toRollback = do
-    -- TODO: rollback SSC, maybe something else.
+    -- [CSL-378] Update sbInMain
     txRollbackBlocks toRollback
+    sscRollback $ fmap fst toRollback

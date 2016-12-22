@@ -137,7 +137,7 @@ handleBlocks
     => NonEmpty (Block ssc) -> m ()
 -- Head block is the oldest one here.
 handleBlocks blocks = do
-    lcaHashMb <- lcaWithMainChain (map (^. blockHeader) blocks)
+    lcaHashMb <- lcaWithMainChain $ map (^. blockHeader) $ NE.reverse blocks
     maybe (panic "Invalid blocks, LCA not found")
         (\lcaHash -> do
             tip <- getTip

@@ -16,13 +16,13 @@ module Pos.Block.Logic
        , loadHeadersUntil
        , retrieveHeadersFromTo
        , getHeadersOlderExp
+       , lcaWithMainChain
 
          -- * Blocks
        , applyBlocks
        , rollbackBlocks
        , verifyBlocks
        , withBlkSemaphore
-       , lcaWithMainChain
        ) where
 
 import           Control.Lens         (view, (^.))
@@ -45,9 +45,9 @@ import           Pos.Slotting         (getCurrentSlot)
 import           Pos.Ssc.Class        (Ssc)
 import           Pos.Types            (Block, BlockHeader, HeaderHash, Undo,
                                        VerifyHeaderParams (..), blockHeader, difficultyL,
-                                       flattenEpochOrSlot, getEpochOrSlot, getSlotIndex,
-                                       headerSlot, prevBlockL, verifyHeader,
-                                       verifyHeaders, vhpVerifyConsensus)
+                                       flattenEpochOrSlot, getEpochOrSlot, headerSlot,
+                                       prevBlockL, verifyHeader, verifyHeaders,
+                                       vhpVerifyConsensus)
 import           Pos.WorkMode         (WorkMode)
 
 
@@ -102,19 +102,33 @@ classifyNewHeader (Right header) = do
             CHUseless $
             "header doesn't continue main chain and is not more difficult"
 
+-- | Find lca headers and main chain, including oldest header's parent
+-- hash. Headers passed are newest first.
+lcaWithMainChain
+    :: (WorkMode ssc m)
+    => NonEmpty (BlockHeader ssc) -> m (Maybe (HeaderHash ssc))
+lcaWithMainChain headers@(h:|hs) =
+    fmap fst . find snd <$>
+        mapM (\hh -> (hh,) <$> DB.isBlockInMainChain hh)
+             (map hash (h : hs) ++ [NE.last headers ^. prevBlockL])
+             -- take hash of parent of last BlockHeader and convert all headers to hashes
+             -- and reverse
+
 -- | Result of multiple headers classification.
 data ClassifyHeadersRes ssc
     = CHsValid (BlockHeader ssc) -- ^ Header list can be applied, LCA attached.
     | CHsUseless !Text          -- ^ Header is useless.
     | CHsInvalid !Text          -- ^ Header is invalid.
 
--- | Classify headers received in response to 'GetHeaders' message.
--- • If there are any errors in chain of headers, CHRinvalid is returned.
--- • If chain of headers is a valid continuation of our main chain,
+-- | Classify headers received in response to 'GetHeaders'
+-- message. Should be passed in newest-head order.
+--
+-- * If there are any errors in chain of headers, CHRinvalid is returned.
+-- * If chain of headers is a valid continuation of our main chain,
 -- CHRcontinues is returned.
--- • If chain of headers forks from our main chain but not too much,
+-- * If chain of headers forks from our main chain but not too much,
 -- CHRalternative is returned.
--- • If chain of headers forks from our main chain too much, CHRuseless
+-- * If chain of headers forks from our main chain too much, CHRuseless
 -- is returned, because paper suggests doing so.
 classifyHeaders
     :: WorkMode ssc m
@@ -130,9 +144,9 @@ classifyHeaders headers@(h:|hs) = do
   where
     processClassify = do
         tipHeader <- view blockHeader <$> DB.getTipBlock
-        lca <- fst . fromMaybe (panic "lca should exist") . find snd <$>
-               mapM (\bh -> (bh,) <$> DB.isBlockInMainChain (hash bh)) (h:hs)
-            -- depth in terms of slots, not difficulty
+        lcaHash <- fromMaybe (panic "lca should exist") <$> lcaWithMainChain headers
+        lca <- fromMaybe (panic "lca should be resolvable") <$> DB.getBlockHeader lcaHash
+        -- depth in terms of slots, not difficulty
         let depthDiff =
                 flattenEpochOrSlot tipHeader -
                 flattenEpochOrSlot lca
@@ -264,14 +278,3 @@ rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Block ssc, Undo) -> m ()
 rollbackBlocks toRollback = do
     -- TODO: rollback SSC, maybe something else.
     txRollbackBlocks toRollback
-
--- | Find lca headers and main chain.
--- Head - oldest block.
-lcaWithMainChain :: (WorkMode ssc m)
-                 => NonEmpty (BlockHeader ssc) -> m (Maybe (HeaderHash ssc))
-lcaWithMainChain (h:|hs) =
-    fmap fst <$> find snd <$>
-        mapM (\hh -> (hh,) <$> DB.isBlockInMainChain hh)
-             (reverse (h ^. prevBlockL : map hash (h : hs)))
-             -- take hash of parent of last BlockHeader and convert all headers to hashes
-             -- and reverse

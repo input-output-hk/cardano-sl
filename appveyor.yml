@@ -6,7 +6,7 @@ build: off
 cache:
   - "c:\\sr"
   - '.stack-work'
-  - 'rocksdb\build'
+  - 'rocksdb'
 
 environment:
   global:
@@ -19,7 +19,7 @@ before_test:
 - 7z x stack.zip stack.exe
 
 # Install rocksdb
-- git clone https://github.com/facebook/rocksdb.git --branch v4.13.5
+- git clone https://github.com/facebook/rocksdb.git --branch v4.13.5 || timeout /t 0
 - mkdir rocksdb\build || timeout /t 0
 - cd rocksdb\build
 - cmake -G "Visual Studio 14 2015 Win64" -DOPTDBG=1 -DXPRESS=1 ..

@@ -12,7 +12,7 @@ module Pos.Wallet.Web.Server.Methods
        , walletServer
        ) where
 
-import           Data.List                  ((!!))
+import           Data.List                  (elemIndex, (!!))
 import           Formatting                 (int, ords, sformat, (%))
 import           Network.Wai                (Application)
 import           Servant.API                ((:<|>) ((:<|>)),
@@ -76,26 +76,19 @@ getAddresses :: WalletWebMode ssc m => m [CAddress]
 getAddresses = map fst <$> getBalances
 
 getBalances :: WalletWebMode ssc m => m [(CAddress, Coin)]
-getBalances = join $ mapM gb <$> addresses
+getBalances = join $ mapM gb <$> myAddresses
   where gb addr = (,) (addressToCAddress addr) <$> getBalance addr
-        addresses = map (makePubKeyAddress . toPublic) <$> mySecretKeys
 
-send :: WalletWebMode ssc m => Word -> Address -> Coin -> m ()
-send srcIdx dstAddr c = do
+send :: WalletWebMode ssc m => Address -> Address -> Coin -> m ()
+send srcAddr dstAddr c = do
+    idx <- getAddrIdx srcAddr
     sks <- mySecretKeys
-    let skCount = length sks
-    if fromIntegral srcIdx > skCount
-    then throwM err404 {
-        errBody = encodeUtf8 $
-                  sformat ("There are only "%int%" addresses in wallet") $ skCount
-        }
-    else do
-        let sk = sks !! fromIntegral srcIdx
-        na <- fmap dhtAddr <$> getKnownPeers
-        () <$ submitTx sk na [TxOut dstAddr c]
-        logInfo $
-              sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
-              c srcIdx dstAddr
+    let sk = sks !! idx
+    na <- fmap dhtAddr <$> getKnownPeers
+    () <$ submitTx sk na [TxOut dstAddr c]
+    logInfo $
+        sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
+        c idx dstAddr
 
 getHistory :: WalletWebMode ssc m => Address -> m [Tx]
 getHistory addr = map whData <$> getTxHistory addr
@@ -103,8 +96,10 @@ getHistory addr = map whData <$> getTxHistory addr
 newAddress :: WalletWebMode ssc m => m CAddress
 newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
 
-deleteAddress :: WalletWebMode ssc m => Word -> m ()
-deleteAddress = deleteSecretKey
+deleteAddress :: WalletWebMode ssc m => Address -> m ()
+deleteAddress addr = do
+    idx <- getAddrIdx addr
+    deleteSecretKey $ fromIntegral idx
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -114,6 +109,16 @@ deleteAddress = deleteSecretKey
 -- to disable/enable inclusion of genesis keys
 mySecretKeys :: MonadKeys m => m [SecretKey]
 mySecretKeys = (genesisSecretKeys ++) <$> getSecretKeys
+
+myAddresses :: MonadKeys m => m [Address]
+myAddresses = map (makePubKeyAddress . toPublic) <$> mySecretKeys
+
+getAddrIdx :: WalletWebMode ssc m => Address -> m Int
+getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound return
+  where notFound = throwM err404 {
+            errBody = encodeUtf8 $
+                sformat ("Address "%addressF%" is not found in wallet") $ addr
+            }
 
 ----------------------------------------------------------------------------
 -- Orphan instances

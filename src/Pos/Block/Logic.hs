@@ -28,7 +28,6 @@ import           Pos.Types            (Block, BlockHeader, HeaderHash, Undo,
                                        VerifyHeaderParams (..), blockHeader, difficultyL,
                                        headerSlot, prevBlockL, verifyHeader,
                                        vhpVerifyConsensus)
-import           Pos.Util             (eitherToVerRes)
 import           Pos.WorkMode         (WorkMode)
 
 -- | Result of header classification.
@@ -104,11 +103,11 @@ classifyHeaders = notImplemented
 -- #txVerifyBlocks
 verifyBlocks
     :: WorkMode ssc m
-    => NonEmpty (Block ssc) -> m VerificationRes
+    => NonEmpty (Block ssc) -> m (Either Text (NonEmpty Undo))
 verifyBlocks blocks = do
     txsVerRes <- txVerifyBlocks blocks
     -- TODO: more checks of course. Consider doing CSL-39 first.
-    return $ eitherToVerRes txsVerRes
+    return txsVerRes
 
 -- | Run action acquiring lock on block application. Argument of
 -- action is an old tip, result is put as a new tip.
@@ -124,13 +123,12 @@ withBlkSemaphore action = do
 -- have verified all predicates regarding block (including txs and ssc
 -- data checks).  We almost must have taken lock on block application
 -- and ensured that chain is based on our tip.
-applyBlocks :: WorkMode ssc m => NonEmpty (Block ssc) -> m ()
+applyBlocks :: WorkMode ssc m => NonEmpty (Block ssc, Undo) -> m ()
 applyBlocks = mapM_ applyBlock
 
-applyBlock :: (WorkMode ssc m) => Block ssc -> m ()
-applyBlock blk = do
-    -- [CSL-331] Put actual Undo instead of empty list!
-    DB.putBlock [] True blk
+applyBlock :: (WorkMode ssc m) => (Block ssc, Undo) -> m ()
+applyBlock (blk, undo) = do
+    DB.putBlock undo True blk
     txApplyBlocks (pure blk)
     -- TODO: apply to SSC, maybe something else.
 

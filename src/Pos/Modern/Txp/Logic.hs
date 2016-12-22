@@ -110,10 +110,10 @@ txApplyBlock (Right blk) = do
 txVerifyBlocks
     :: forall ssc m.
        MonadDB ssc m
-    => AltChain ssc -> m (Either Text [Undo])
+    => AltChain ssc -> m (Either Text (NonEmpty Undo))
 txVerifyBlocks newChain = do
     utxoDB <- getUtxoDB
-    fmap reverse <$>
+    fmap (NE.fromList . reverse) <$>
       runTxpLDHolderUV
         (foldM verifyDo (Right []) newChainTxs)
         (UV.createFromDB utxoDB)

@@ -42,7 +42,6 @@ deriving instance (Eq a, Eq (PLCore.ClauseF a)) => Eq (PLCore.TermF a)
 
 deriving instance Eq PLTypes.TyConSig
 deriving instance Eq PLTypes.ConSig
-deriving instance Eq PLCore.TermDeclaration
 deriving instance Eq PLCore.Program
 
 deriveEq1 ''PLCore.PatternF
@@ -67,7 +66,6 @@ instance Binary r => Binary (PLCore.ClauseF r)
 instance Binary a => Binary (PLCore.TermF a)
 instance Binary a => Binary (PLCore.PatternF a)
 instance Binary a => Binary (PLTypes.TypeF a)
-instance Binary PLCore.TermDeclaration
 instance Binary PLCore.PrimData
 instance Binary PLCore.Program
 
@@ -84,7 +82,6 @@ instance NFData r => NFData (PLCore.ClauseF r)
 instance NFData a => NFData (PLCore.TermF a)
 instance NFData a => NFData (PLCore.PatternF a)
 instance NFData a => NFData (PLTypes.TypeF a)
-instance NFData PLCore.TermDeclaration
 instance NFData PLCore.PrimData
 instance NFData Script
 
@@ -101,7 +98,6 @@ deriving instance Lift r => Lift (PLCore.ClauseF r)
 deriving instance Lift a => Lift (PLCore.TermF a)
 deriving instance Lift a => Lift (PLCore.PatternF a)
 deriving instance Lift a => Lift (PLTypes.TypeF a)
-deriving instance Lift PLCore.TermDeclaration
 deriving instance Lift PLCore.PrimData
 deriving instance Lift Script
 

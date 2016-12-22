@@ -36,12 +36,12 @@ import           Pos.Script.Type            (Script)
 -- | Parse a script intended to serve as a validator (or “lock”) in a
 -- transaction output.
 parseValidator :: Text -> Either String Script
-parseValidator t = PL.loadValidator (toString t)
+parseValidator t = PL.runElabInContext stdlib $ PL.loadValidator (toString t)
 
 -- | Parse a script intended to serve as a redeemer (or “proof”) in a
 -- transaction input.
 parseRedeemer :: Text -> Either String Script
-parseRedeemer t = PL.loadRedeemer (toString t)
+parseRedeemer t = PL.runElabInContext stdlib $ PL.loadRedeemer (toString t)
 
 {-
 
@@ -82,11 +82,11 @@ txScriptCheck validator redeemer = case spoon result of
         PL.checkValidationResult (script, env)
 
 stdlib :: PLCore.Program
-stdlib =
-    $(do let file = $(embedStringFile =<< makeRelativeToProject "stdlib.pls")
-         case PL.loadProgram file of
-             Left a  -> fail ("couldn't parse script standard library: " ++ a)
-             Right x -> lift x)
+stdlib = $(do
+    let file = $(embedStringFile =<< makeRelativeToProject "stdlib.pls")
+    case PL.runElabNoContext (PL.loadProgram file) of
+        Left a  -> fail ("couldn't parse script standard library: " ++ a)
+        Right x -> lift x)
 
 ----------------------------------------------------------------------------
 -- Error catching

@@ -168,7 +168,7 @@ handleBlocks blocks = do
         | otherwise = do
             rollbackBlocks toRollback
             let newBlocksList = NE.dropWhile ((lca /=) . (^. prevBlockL)) blocks
-            maybe (panic "Pizdos")
+            maybe (panic "No new blocks")
                 (\newBlocks -> do
                   verRes <- verifyBlocks newBlocks
                   case verRes of

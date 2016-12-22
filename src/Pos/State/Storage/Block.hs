@@ -57,8 +57,8 @@ import           Pos.Crypto              (ProxySecretKey, PublicKey, SecretKey, 
 import           Pos.Genesis             (genesisLeaders)
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
-import           Pos.Types               (Address, Block, BlockHeader, ChainDifficulty,
-                                          EpochIndex, GenesisBlock, HeaderHash, MainBlock,
+import           Pos.Types               (Block, BlockHeader, ChainDifficulty, EpochIndex,
+                                          GenesisBlock, HeaderHash, MainBlock,
                                           MainBlockHeader, SlotId (..), SlotLeaders, Tx,
                                           TxWitness, Utxo, VerifyBlockParams (..),
                                           VerifyHeaderParams (..), blockHeader,

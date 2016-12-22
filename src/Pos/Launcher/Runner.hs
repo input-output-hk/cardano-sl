@@ -65,6 +65,7 @@ import           Pos.Constants                   (RunningMode (..), defaultPeers
                                                   isDevelopment, runningMode)
 import           Pos.Context                     (ContextHolder (..), NodeContext (..),
                                                   defaultProxyCaches, runContextHolder)
+import qualified Pos.DB                          as Modern
 import           Pos.DHT.Model                   (BiP (..), ListenerDHT, MonadDHT (..),
                                                   mapListenerDHT, sendToNeighbors)
 import           Pos.DHT.Model.Class             (DHTPacking, MonadDHTDialog)
@@ -75,13 +76,11 @@ import           Pos.DHT.Real                    (KademliaDHT, KademliaDHTConfig
                                                   stopDHTInstance)
 import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..))
-import qualified Pos.Modern.DB                   as Modern
-import qualified Pos.Modern.Ssc.Holder           as Modern
 import qualified Pos.Modern.Txp.Holder           as Modern
 import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 import           Pos.Ssc.Class                   (SscConstraint, SscNodeContext,
                                                   SscParams, sscCreateNodeContext)
-import           Pos.Ssc.LocalData               (runSscLDImpl)
+import           Pos.Ssc.Extra                   (runSscHolder, runSscLDImpl)
 import           Pos.State                       (NodeState, closeState, openMemState,
                                                   openState, runDBHolder)
 import           Pos.State.Storage               (storageFromUtxo)
@@ -167,7 +166,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
             withEx (sscCreateNodeContext @ssc sscnp) $ flip (runCH np) .
             runSscLDImpl .
             runTxLDImpl .
-            flip Modern.runSscHolder notImplemented . -- load mpc data from blocks (from rocksdb) here
+            flip runSscHolder notImplemented . -- load mpc data from blocks (from rocksdb) here
             flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDBs) .
             runKDHT inst npBaseParams listeners $
             nodeStartMsg npBaseParams >> action
@@ -263,6 +262,8 @@ runCH :: MonadIO m
 runCH NodeParams {..} sscNodeContext act = do
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
+    sscRichmen <- liftIO newEmptyMVar
+    sscLeaders <- liftIO newEmptyMVar
     proxyCaches <- liftIO $ newMVar defaultProxyCaches
     let ctx =
             NodeContext
@@ -277,6 +278,8 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncAttackTargets = npAttackTargets
             , ncPropagation = npPropagation
             , ncBlkSemaphore = semaphore
+            , ncSscRichmen = sscRichmen
+            , ncSscLeaders = sscLeaders
             }
     runContextHolder ctx act
 

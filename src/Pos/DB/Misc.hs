@@ -1,23 +1,30 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes       #-}
 -- | Interface for the Misc DB
 
-module Pos.Modern.DB.Misc
+module Pos.DB.Misc
        (
          getProxySecretKeys
        , addProxySecretKey
        , dropOldProxySecretKeys
 
+       , getSecretStorage
+       , putSecretStorage
+
        , putSecretKeyHash
        , checkSecretKeyHash
        ) where
 
+import           Data.Default                           (def)
 import           Universum
 
-import           Pos.Binary              (Bi)
-import           Pos.Crypto              (Hash, SecretKey, pskOmega)
-import           Pos.Modern.DB.Class     (MonadDB, getMiscDB)
-import           Pos.Modern.DB.Functions (rocksGetBi, rocksPutBi)
-import           Pos.Types               (EpochIndex, ProxySKEpoch)
+import           Pos.Binary                             (Bi)
+import           Pos.Crypto                             (Hash, SecretKey, pskOmega)
+import           Pos.DB.Class                           (MonadDB, getMiscDB)
+import           Pos.DB.Functions                       (rocksGetBi, rocksPutBi)
+import           Pos.Modern.Ssc.GodTossing.Secret.Types (GtSecretStorage)
+import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
+import           Pos.Types                              (EpochIndex, ProxySKEpoch)
 
 ----------------------------------------------------------------------------
 -- Delegation and proxy signing
@@ -72,6 +79,23 @@ checkSecretKeyHash h = do
     maybe (putBi skHashKey h >> pure True) (pure . (== h)) curSkHash
 
 ----------------------------------------------------------------------------
+-- Ssc Secret Storage
+----------------------------------------------------------------------------
+getSecretStorage :: MonadDB SscGodTossing m => m GtSecretStorage
+getSecretStorage =
+    getBi @GtSecretStorage secretStorageKey >>=
+    maybe createSecretStorage pure
+  where
+    createSecretStorage =
+        def <$ putBi @GtSecretStorage secretStorageKey def
+
+putSecretStorage :: MonadDB SscGodTossing m => GtSecretStorage -> m ()
+putSecretStorage = putBi @GtSecretStorage secretStorageKey
+
+secretStorageKey :: ByteString
+secretStorageKey = "gtSecretStorageKey"
+
+----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
@@ -81,7 +105,7 @@ getBi
 getBi k = rocksGetBi k =<< getMiscDB
 
 putBi
-    :: (MonadDB ssc m, Bi v)
+    :: forall v ssc m . (MonadDB ssc m, Bi v)
     => ByteString -> v -> m ()
 putBi k v = rocksPutBi k v =<< getMiscDB
 

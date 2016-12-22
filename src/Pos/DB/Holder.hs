@@ -9,7 +9,7 @@
 
 -- | Default implementation of MonadDB.
 
-module Pos.Modern.DB.Holder
+module Pos.DB.Holder
        ( DBHolder
        , runDBHolder
        ) where
@@ -28,8 +28,8 @@ import           Serokell.Util.Lens           (WrappedM (..))
 import           System.Wlog                  (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Modern.DB.Class          (MonadDB (..))
-import           Pos.Modern.DB.Types          (DB (..), NodeDBs (..))
+import           Pos.DB.Class                 (MonadDB (..))
+import           Pos.DB.Types                 (DB (..), NodeDBs (..))
 import qualified Pos.State.State              as Legacy
 
 
@@ -52,7 +52,7 @@ deriving instance MonadResource m => MonadResource (DBHolder ssc m)
 
 type instance ThreadId (DBHolder ssc m) = ThreadId m
 
-instance MonadIO m =>
+instance (MonadIO m, MonadThrow m) =>
          MonadDB ssc (DBHolder ssc m) where
     getNodeDBs = DBHolder $ ask
     usingReadOptions opts l (DBHolder rdr)

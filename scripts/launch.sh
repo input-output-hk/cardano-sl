@@ -60,9 +60,16 @@ while [[ $i -lt $n ]]; do
     fi
   fi
 
+  wallet_args=''
+  if [[ $WALLET_TEST != "" ]]; then
+      if (( $i == $n - 1 )); then
+          wallet_args=' --wallet'
+      fi
+  fi
+
   stake_distr=" --flat-distr \"($n, 100000)\" "
 
-  tmux send-keys "$(node_cmd $i "$time_lord" "$dht_conf" "$stats" "$stake_distr")" C-m
+  tmux send-keys "$(node_cmd $i "$time_lord" "$dht_conf" "$stats" "$stake_distr" "$wallet_args")" C-m
   i=$((i+1))
 done
 

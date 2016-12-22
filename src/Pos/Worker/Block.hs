@@ -13,7 +13,7 @@ module Pos.Worker.Block
        , blkWorkers
        ) where
 
-import           Control.Lens              (ix, view, (^.), (^?))
+import           Control.Lens              (ix, (^.), (^?))
 import           Control.TimeWarp.Timed    (Microsecond, for, repeatForever, wait)
 import qualified Data.HashMap.Strict       as HM
 import           Data.Tagged               (untag)
@@ -30,7 +30,7 @@ import           Pos.Context               (getNodeContext, ncPropagation, ncPub
                                             ncSecretKey)
 import           Pos.Crypto                (ProxySecretKey, WithHash (WithHash),
                                             pskIssuerPk, pskOmega)
-import           Pos.Modern.DB.Misc        (getProxySecretKeys)
+import           Pos.DB.Misc               (getProxySecretKeys)
 import           Pos.Slotting              (MonadSlots (getCurrentTime), getSlotStart)
 import           Pos.Ssc.Class             (sscApplyGlobalState, sscGetLocalPayload,
                                             sscVerifyPayload)
@@ -39,7 +39,8 @@ import           Pos.State                 (createNewBlock, getGlobalMpcData,
 import           Pos.Txp.LocalData         (getLocalTxs)
 import           Pos.Types                 (EpochIndex, SlotId (..),
                                             Timestamp (Timestamp), blockMpc, gbHeader,
-                                            makePubKeyAddress, slotIdF, topsortTxs)
+                                            slotIdF, topsortTxs)
+import           Pos.Types.Address         (addressHash)
 import           Pos.Util                  (logWarningWaitLinear)
 import           Pos.Util.JsonLog          (jlCreatedBlock, jlLog)
 import           Pos.WorkMode              (WorkMode)
@@ -63,17 +64,17 @@ blkOnNewSlot slotId@SlotId {..} = do
         -- create a new block if we are.
         Just leaders -> do
             let logLeadersF = if siSlot == 0 then logInfo else logDebug
-            logLeadersF (sformat ("Slot leaders: " %listJson) leaders)
-            ourPkAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
+            logLeadersF (sformat ("Slot leaders: "%listJson) leaders)
+            ourPkHash <- addressHash . ncPublicKey <$> getNodeContext
             let leader = leaders ^? ix (fromIntegral siSlot)
             proxyCerts <- getProxySecretKeys
             let validCerts =
                     filter (\pSk -> let (w0,w1) = pskOmega pSk
                                     in siEpoch >= w0 && siEpoch <= w1) proxyCerts
                 validCert =
-                    find (\pSk -> Just (makePubKeyAddress $ pskIssuerPk pSk) == leader)
+                    find (\pSk -> Just (addressHash $ pskIssuerPk pSk) == leader)
                          validCerts
-            if | leader == Just ourPkAddr -> onNewSlotWhenLeader slotId Nothing
+            if | leader == Just ourPkHash -> onNewSlotWhenLeader slotId Nothing
                | isJust validCert -> onNewSlotWhenLeader slotId validCert
                | otherwise -> pure ()
 

@@ -35,10 +35,10 @@ import           Universum
 
 import           Pos.Context                 (WithNodeContext)
 import           Pos.Crypto                  (SecretKey, keyGen)
+import qualified Pos.DB                      as Modern
 import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
-import qualified Pos.Modern.DB               as Modern
 import           Pos.Slotting                (MonadSlots)
 import qualified Pos.State                   as St
 import           Pos.Txp.LocalData           (MonadTxLD)

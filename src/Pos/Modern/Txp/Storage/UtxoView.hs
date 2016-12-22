@@ -10,8 +10,8 @@ import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
 import           Universum
 
-import           Pos.Modern.DB.Types          (DB)
-import           Pos.Modern.DB.Utxo           (getTxOutFromDB)
+import           Pos.DB.Types                 (DB)
+import           Pos.DB.Utxo                  (getTxOutFromDB)
 import           Pos.Modern.Txp.Storage.Types (UtxoView (..))
 import           Pos.Types                    (TxIn (..), TxOut)
 
@@ -27,7 +27,9 @@ delTxIn :: TxIn -> UtxoView ssc -> UtxoView ssc
 delTxIn txIn mp@UtxoView{..} =
     mp {delUtxo = HS.insert txIn delUtxo}
 
-getTxOut :: MonadIO m => TxIn -> UtxoView ssc -> m (Maybe TxOut)
+getTxOut
+    :: (MonadIO m, MonadThrow m)
+    => TxIn -> UtxoView ssc -> m (Maybe TxOut)
 getTxOut key UtxoView{..}
     | HS.member key delUtxo = return Nothing
     | otherwise             = maybe (getTxOutFromDB key utxoDB)

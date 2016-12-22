@@ -12,6 +12,7 @@ module Pos.Slotting
        ) where
 
 import           Control.Monad.Catch      (MonadCatch, catch)
+import           Control.Monad.Except     (ExceptT)
 import           Control.TimeWarp.Timed   (Microsecond, MonadTimed, for, fork_, wait)
 import           Formatting               (build, sformat, shown, (%))
 import           Serokell.Util.Exceptions ()
@@ -32,6 +33,10 @@ class Monad m => MonadSlots m where
     getCurrentTime :: m Timestamp
 
 instance MonadSlots m => MonadSlots (ReaderT s m) where
+    getSystemStartTime = lift getSystemStartTime
+    getCurrentTime = lift getCurrentTime
+
+instance MonadSlots m => MonadSlots (ExceptT s m) where
     getSystemStartTime = lift getSystemStartTime
     getCurrentTime = lift getCurrentTime
 

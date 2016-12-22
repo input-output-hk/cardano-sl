@@ -98,6 +98,7 @@ function node_cmd {
   local dht_cmd=$3
   local is_stat=$4
   local stake_distr=$5
+  local wallet_args=$6
   local st=''
   local reb=''
   local ssc_algo=''
@@ -134,6 +135,7 @@ function node_cmd {
   echo -n " $(logs node$i.log) $time_lord $stats"
   echo -n " $stake_distr $ssc_algo "
   echo -n " $web "
+  echo -n " $wallet_args "
   echo ''
 }
 

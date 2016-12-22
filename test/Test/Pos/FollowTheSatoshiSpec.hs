@@ -11,18 +11,20 @@ module Test.Pos.FollowTheSatoshiSpec
        ) where
 
 import           Data.List             (scanl1)
-import qualified Data.Map              as M (elems, fromList, insert)
-import qualified Data.Set              as S (deleteFindMin, fromList, size, toList)
-import           Pos.Constants         (epochSlots)
-import           Pos.Crypto            (unsafeHash)
-import           Pos.FollowTheSatoshi  (followTheSatoshi)
-import           Pos.Types             (Address, Coin (..), SharedSeed, TxId, TxOut (..),
-                                        Utxo)
-
+import qualified Data.Map              as M (elems, fromList, insert, singleton)
+import qualified Data.Set              as S (deleteFindMin, fromList, size)
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Arbitrary (..), Gen, infiniteListOf, suchThat)
 import           Universum
+
+import           Pos.Constants         (epochSlots)
+import           Pos.Crypto            (PublicKey, unsafeHash)
+import           Pos.FollowTheSatoshi  (followTheSatoshi)
+import           Pos.Types             (Address, Coin (..), SharedSeed, TxId, TxOut (..),
+                                        Utxo)
+import           Pos.Types.Address     (Address (..), AddressDestination (..),
+                                        AddressHash, curPubKeyAddrVersion)
 
 spec :: Spec
 spec = do
@@ -55,45 +57,52 @@ spec = do
     lowStakeTolerance  = (< round (fromIntegral numberOfRuns * lowStake)  + 50)  -- < ~250
     highStakeTolerance = (> round (fromIntegral numberOfRuns * highStake) - 50)  -- > ~9750
 
--- | Type used to generate random Utxo and an address that is not in this map,
--- meaning it does not hold any stake in the system's current state.
+mkAddress :: AddressHash PublicKey -> Address
+mkAddress h = Address {
+    addrVersion = curPubKeyAddrVersion,
+    addrDestination = PubKeyDestination h,
+    addrDistribution = [] }
+
+-- | Type used to generate random Utxo and a pubkey hash (addrhash) that is
+-- not in this map, meaning it does not hold any stake in the system's
+-- current state.
 --
--- Two necessarily different addresses are generated, as well as a list of
--- addresses who will be our other stakeholders. To guarantee a non-empty utxo
--- map, one these addresses is inserted in the list, which is converted to a
--- set and then to a map, where each address is given as key a random pair
--- (TxId, Coin).
+-- Two necessarily different addrhashes are generated, as well as a list of
+-- addrhashes who will be our other stakeholders. To guarantee a non-empty
+-- utxo map, one of these addrhashes is inserted in the list, which is
+-- converted to a set and then to a map, where each addrhash is given as key
+-- a random pair (TxId, Coin).
 newtype StakeAndHolder = StakeAndHolder
-    { getNoStake :: (Address, Utxo)
+    { getNoStake :: (AddressHash PublicKey, Utxo)
     } deriving Show
 
 instance Arbitrary StakeAndHolder where
     arbitrary = StakeAndHolder <$> do
-        adr1 <- arbitrary
-        adr2 <- arbitrary `suchThat` ((/=) adr1)
-        listAdr <- arbitrary :: Gen [Address]
+        addrHash1 <- arbitrary
+        addrHash2 <- arbitrary `suchThat` ((/=) addrHash1)
+        listAdr <- arbitrary :: Gen [AddressHash PublicKey]
         txId <- arbitrary
         coins <- arbitrary :: Gen Coin
-        let setAdr = S.fromList $ adr1 : adr2 : listAdr
-            (myAdr, setUtxo) = S.deleteFindMin setAdr
+        let setAdr = S.fromList $ addrHash1 : addrHash2 : listAdr
+            (myAddrHash, setUtxo) = S.deleteFindMin setAdr
             nAdr = S.size setUtxo
             values = scanl1 (+) $ replicate nAdr coins
             utxoList =
                 (replicate nAdr txId `zip` [0 .. fromIntegral nAdr]) `zip`
-                (zipWith (flip TxOut) values $ S.toList setUtxo)
-        return (myAdr, M.fromList utxoList)
+                (zipWith (\ah v -> TxOut (mkAddress ah) v) (toList setUtxo) values)
+        return (myAddrHash, M.fromList utxoList)
 
 ftsListLength :: SharedSeed -> StakeAndHolder -> Bool
 ftsListLength fts (getNoStake -> (_, utxo)) =
-    (length $ followTheSatoshi fts utxo) == epochSlots
+    length (followTheSatoshi fts utxo) == epochSlots
 
 ftsNoStake
     :: SharedSeed
     -> StakeAndHolder
     -> Bool
-ftsNoStake fts (getNoStake -> (txOutAddress, utxo)) =
+ftsNoStake fts (getNoStake -> (addrHash, utxo)) =
     let nonEmpty = followTheSatoshi fts utxo
-    in notElem txOutAddress nonEmpty
+    in notElem addrHash nonEmpty
 
 -- | This test looks useless, but since transactions with
 -- zero coins are not allowed, the Utxo map will never have
@@ -102,11 +111,13 @@ ftsNoStake fts (getNoStake -> (txOutAddress, utxo)) =
 -- map has a single element.
 ftsAllStake
     :: SharedSeed
-    -> ((TxId, Word32), TxOut)
+    -> (TxId, Word32)
+    -> AddressHash PublicKey
+    -> Coin
     -> Bool
-ftsAllStake fts (key, t@TxOut{..}) =
-    let utxo = M.fromList [(key, t)]
-    in all (== txOutAddress) $ followTheSatoshi fts utxo
+ftsAllStake fts key ah v =
+    let utxo = M.singleton key (TxOut (mkAddress ah) v)
+    in all (== ah) $ followTheSatoshi fts utxo
 
 -- | Constant specifying the number of times 'ftsReasonableStake' will be run.
 numberOfRuns :: Int
@@ -159,11 +170,11 @@ ftsReasonableStake
     go 0 p  _  _ = p
     go _ p []  _ = p
     go _ p  _ [] = p
-    go total !present (fts : nextSeed) ((getNoStake -> (adr, utxo)) : nextUtxo) =
+    go total !present (fts : nextSeed) ((getNoStake -> (adrH, utxo)) : nextUtxo) =
         let totalStake = fromIntegral $ sum $ map (getCoin . txOutValue) $ M.elems utxo
             newStake   = round $ (stakeProbability * totalStake) / (1 - stakeProbability)
-            newUtxo    = M.insert key (TxOut adr newStake) utxo
-            newPresent = if elem adr (followTheSatoshi fts newUtxo)
+            newUtxo    = M.insert key (TxOut (mkAddress adrH) newStake) utxo
+            newPresent = if elem adrH (followTheSatoshi fts newUtxo)
                          then present + 1
                          else present
         in go (total - 1) newPresent nextSeed nextUtxo

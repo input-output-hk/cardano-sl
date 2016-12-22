@@ -33,7 +33,7 @@ import           Data.List               (last)
 import qualified Data.List.NonEmpty      as NE
 import           Data.SafeCopy           (base, deriveSafeCopySimple)
 import           Formatting              (build, int, sformat, (%))
-import           Serokell.Util           (VerificationRes (..))
+import           Serokell.Util           (isVerSuccess)
 import           Universum
 
 import           Pos.Constants           (k)
@@ -117,13 +117,9 @@ getOldestUtxo = view $ txUtxoHistory . to last
 -- | Check if given transaction is verified, e. g.
 -- is present in `k` and more blocks deeper
 isTxVerified :: (Tx, TxWitness) -> Query Bool
-isTxVerified tx = do
-    mutxo <- getUtxoByDepth k
-    case mutxo of
-        Nothing   -> pure False
-        Just utxo -> case verifyTxUtxoPure utxo tx of
-            VerSuccess   -> pure True
-            VerFailure _ -> pure False
+isTxVerified tx =
+    maybe False (isVerSuccess . flip (verifyTxUtxoPure True) tx) <$>
+    getUtxoByDepth k
 
 type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
 

@@ -74,11 +74,11 @@ extras =
 -- Orphan instances
 ----------------------------------------------------------------------------
 
-instance ToCapture (Capture "from" Word) where
+instance ToCapture (Capture "from" Address) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "from"
-        , _capDesc = "Index of address from which coins should be sent."
+        , _capDesc = "Address from which coins should be sent."
         }
 
 instance ToCapture (Capture "to" Address) where

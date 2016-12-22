@@ -22,9 +22,8 @@ import           Universum
 import           Pos.Crypto          (PublicKey, SecretKey, toPublic)
 import           Pos.Security.Types  (AttackTarget, AttackType)
 import           Pos.Ssc.Class.Types (Ssc (SscNodeContext))
-import           Pos.Types           (Address, HeaderHash, ProxySKEpoch, Timestamp (..),
-                                      makePubKeyAddress)
-
+import           Pos.Types           (Address, HeaderHash, Participants, ProxySKEpoch,
+                                      SlotLeaders, Timestamp (..), makePubKeyAddress)
 
 ---------------------------------------------------------------------------
 -- Delegation in-memory data
@@ -79,6 +78,8 @@ data NodeContext ssc = NodeContext
       -- | Semaphore which manages access to block application.
       -- Stored hash is a hash of last applied block.
     , ncBlkSemaphore  :: !(MVar (HeaderHash ssc))
+    , ncSscLeaders    :: !(MVar SlotLeaders)
+    , ncSscRichmen    :: !(MVar Participants)
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

@@ -21,13 +21,13 @@ module Pos.Modern.Ssc.GodTossing.Storage.Types
        , gsVssCertificates
        ) where
 
-import           Control.Lens                   (makeLenses)
-import           Data.Default                   (Default (..))
-import           Data.SafeCopy                  (base, deriveSafeCopySimple)
+import           Control.Lens                  (makeLenses)
+import           Data.Default                  (Default (..))
+import           Data.SafeCopy                 (base, deriveSafeCopySimple)
 import           Universum
 
-import           Pos.Ssc.GodTossing.Types.Base  (CommitmentsMap, OpeningsMap, SharesMap,
-                                                 VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
+                                                VssCertificatesMap)
 
 -- | MPC-related content of main body.
 data GtGlobalState = GtGlobalState

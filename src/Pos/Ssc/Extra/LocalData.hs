@@ -9,7 +9,7 @@
 
 -- | Default implementation of MonadSscLD.
 
-module Pos.Ssc.LocalData
+module Pos.Ssc.Extra.LocalData
        ( SscLDImpl (..)
        , runSscLDImpl
        ) where
@@ -31,7 +31,7 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context                 (WithNodeContext)
-import qualified Pos.Modern.DB               as Modern
+import qualified Pos.DB                      as Modern
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData     (MonadSscLD (..),
                                               SscLocalDataClass (sscEmptyLocalData))

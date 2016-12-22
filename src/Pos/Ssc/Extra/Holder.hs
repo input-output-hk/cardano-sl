@@ -7,52 +7,41 @@
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE UndecidableInstances   #-}
 
-module Pos.Modern.Ssc.Holder
-       (
-         SscHolder (..)
+-- | Monad transformer which stores SSC data.
+
+module Pos.Ssc.Extra.Holder
+       ( SscHolder (..)
        , runSscHolder
        ) where
 
-import qualified Control.Concurrent.STM                    as STM
-import           Control.Lens                              (iso)
-import           Control.Monad.Base                        (MonadBase (..))
-import           Control.Monad.Catch                       (MonadCatch, MonadMask,
-                                                            MonadThrow)
-import           Control.Monad.Reader                      (ReaderT (ReaderT))
-import           Control.Monad.Trans.Class                 (MonadTrans)
-import           Control.Monad.Trans.Control               (ComposeSt,
-                                                            MonadBaseControl (..),
-                                                            MonadTransControl (..), StM,
-                                                            defaultLiftBaseWith,
-                                                            defaultLiftWith,
-                                                            defaultRestoreM,
-                                                            defaultRestoreT)
-import           Control.TimeWarp.Rpc                      (MonadDialog,
-                                                            MonadTransfer (..))
-import           Control.TimeWarp.Timed                    (MonadTimed (..), ThreadId)
-import           Serokell.Util.Lens                        (WrappedM (..))
-import           System.Wlog                               (CanLog, HasLoggerName)
+import qualified Control.Concurrent.STM      as STM
+import           Control.Lens                (iso)
+import           Control.Monad.Base          (MonadBase (..))
+import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Reader        (ReaderT (ReaderT))
+import           Control.Monad.Trans.Class   (MonadTrans)
+import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
+                                              MonadTransControl (..), StM,
+                                              defaultLiftBaseWith, defaultLiftWith,
+                                              defaultRestoreM, defaultRestoreT)
+import           Control.TimeWarp.Rpc        (MonadDialog, MonadTransfer (..))
+import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
+import           Serokell.Util.Lens          (WrappedM (..))
+import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Context                               (WithNodeContext)
-import           Pos.Modern.Ssc.GodTossing.Storage.Storage ()
---import           Pos.Modern.Ssc.GodTossing.Storage.Types   (GtGlobalState)
-import           Pos.Slotting                              (MonadSlots (..))
-import           Pos.Ssc.Class.LocalData                   (MonadSscLD (..),
-                                                            MonadSscLDM (..),
-                                                            SscLocalDataClass (sscEmptyLocalData))
-import           Pos.Ssc.Class.Storage                     (MonadSscGS (..))
- --                                                           SscStorageClassM)
-import           Pos.Ssc.Class.Types                       (Ssc (..))
---import           Pos.Ssc.GodTossing.Types.Type             (SscGodTossing)
---import           Pos.Ssc.GodTossing.Types.Types            (GtPayload, SscBi)
-import           Pos.State                                 (MonadDB (..))
-import           Pos.Txp.LocalData                         (MonadTxLD (..))
-import           Pos.Util.JsonLog                          (MonadJL (..))
+import           Pos.Context                 (WithNodeContext)
+import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Ssc.Class.LocalData     (MonadSscLD (..),
+                                              SscLocalDataClass (sscEmptyLocalData))
+import           Pos.Ssc.Class.Types         (Ssc (..))
+import           Pos.Ssc.Extra.MonadGS       (MonadSscGS (..))
+import           Pos.Ssc.Extra.MonadLD       (MonadSscLDM (..))
+import           Pos.State                   (MonadDB (..))
+import           Pos.Txp.LocalData           (MonadTxLD (..))
+import           Pos.Util.JsonLog            (MonadJL (..))
 
-import qualified Pos.Modern.DB                             as Modern (MonadDB (..))
-
-
+import qualified Pos.DB                      as Modern (MonadDB (..))
 
 data SscState ssc =
     SscState

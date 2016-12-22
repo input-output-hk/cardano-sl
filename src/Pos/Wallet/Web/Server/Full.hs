@@ -19,16 +19,17 @@ import           Universum
 import           Pos.Communication               (MutSocketState, newMutSocketState)
 import           Pos.Context                     (ContextHolder, NodeContext,
                                                   getNodeContext, runContextHolder)
+import qualified Pos.DB                          as Modern
 import           Pos.DHT.Model                   (DHTPacking)
 import           Pos.DHT.Real                    (KademliaDHTContext, getKademliaDHTCtx,
                                                   runKademliaDHTRaw)
+import           Pos.Genesis                     (genesisSecretKeys)
 import           Pos.Launcher                    (runOurDialog)
-import qualified Pos.Modern.DB                   as Modern
-import qualified Pos.Modern.Ssc.Holder           as Modern
 import qualified Pos.Modern.Txp.Holder           as Modern
 import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 import           Pos.Ssc.Class                   (SscConstraint)
-import           Pos.Ssc.LocalData               (SscLDImpl, runSscLDImpl)
+import           Pos.Ssc.Extra                   (SscHolder, SscLDImpl, runSscHolder,
+                                                  runSscLDImpl)
 import qualified Pos.State                       as St
 import           Pos.Txp.LocalData               (TxLocalData, getTxLocalData,
                                                   setTxLocalData)
@@ -36,8 +37,8 @@ import           Pos.WorkMode                    (RawRealMode, TxLDImpl, runTxLD
 
 import           Pos.Web.Server                  (serveImpl)
 
-import           Pos.Wallet.KeyStorage           (KeyData, KeyStorage, runKeyStorage,
-                                                  runKeyStorageRaw)
+import           Pos.Wallet.KeyStorage           (KeyData, KeyStorage, addSecretKey,
+                                                  runKeyStorage, runKeyStorageRaw)
 import           Pos.Wallet.Web.Server.Methods   (walletApplication, walletServer)
 import           Pos.Wallet.Web.State            (MonadWalletWebDB (..), WalletState,
                                                   WalletWebDB, runWalletWebDB)
@@ -46,15 +47,17 @@ walletServeWebFull
     :: SscConstraint ssc
     => FilePath           -- to Daedalus acid-state
     -> FilePath           -- to key file
+    -> Bool               -- whether to include genesis keys
     -> Word16
     -> RawRealMode ssc ()
-walletServeWebFull daedalusDbPath keyfilePath = serveImpl $
-    runKeyStorage keyfilePath $
-    walletApplication (walletServer nat) daedalusDbPath
+walletServeWebFull daedalusDbPath keyfilePath debug = serveImpl $
+    runKeyStorage keyfilePath $ do
+        when debug $ mapM_ addSecretKey genesisSecretKeys
+        walletApplication (walletServer nat) daedalusDbPath
 
 type WebHandler ssc = WalletWebDB (KeyStorage (RawRealMode ssc))
 type SubKademlia ssc = (Modern.TxpLDHolder ssc
-                        (Modern.SscHolder ssc
+                        (SscHolder ssc
                          (TxLDImpl
                           (SscLDImpl ssc
                            (ContextHolder ssc
@@ -80,7 +83,7 @@ convertHandler kctx tld nc ns modernDB kd ws handler =
             runContextHolder nc .
             runSscLDImpl .
             runTxLDImpl .
-            flip Modern.runSscHolder notImplemented .
+            flip runSscHolder notImplemented .
             flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDB) .
             runKademliaDHTRaw kctx .
             flip runKeyStorageRaw kd .

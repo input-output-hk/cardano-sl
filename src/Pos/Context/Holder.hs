@@ -39,7 +39,7 @@ import           Universum
 
 import           Pos.Context.Class           (WithNodeContext (..))
 import           Pos.Context.Context         (NodeContext (..))
-import qualified Pos.Modern.DB               as Modern
+import qualified Pos.DB                      as Modern
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.State                   (MonadDB (..))
 import           Pos.Types                   (Timestamp (..))

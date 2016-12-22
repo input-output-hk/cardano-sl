@@ -35,8 +35,8 @@ import           Pos.Context               (getNodeContext, invalidateProxyCache
 import           Pos.Crypto                (ProxySecretKey, checkProxySecretKey,
                                             pdDelegatePk, pdDelegatePk, proxySign,
                                             proxyVerify)
+import           Pos.DB.Misc               (addProxySecretKey, getProxySecretKeys)
 import           Pos.DHT.Model             (ListenerDHT (..), MonadDHTDialog, replyToNode)
-import           Pos.Modern.DB.Misc        (addProxySecretKey, getProxySecretKeys)
 import           Pos.Types                 (EpochIndex, ProxySKEpoch, ProxySigEpoch)
 import           Pos.WorkMode              (WorkMode)
 

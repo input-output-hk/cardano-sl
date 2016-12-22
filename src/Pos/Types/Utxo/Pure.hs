@@ -1,5 +1,6 @@
-{-# LANGUAGE BangPatterns  #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TupleSections         #-}
 
 -- | Pure version of UTXO.
 
@@ -43,7 +44,7 @@ import           Pos.Types.Utxo.Class     (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Types.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', convertFrom',
                                            convertTo', verifyAndApplyTxsOld,
                                            verifyAndApplyTxsOld', verifyTxUtxo)
-
+import           Pos.Util                 (eitherToVerRes)
 ----------------------------------------------------------------------------
 -- Reader
 ----------------------------------------------------------------------------
@@ -120,8 +121,9 @@ applyTxToUtxoPure' w = execUtxoState $ applyTxToUtxo' w
 -- #verifyTxUtxo
 
 -- | Pure version of verifyTxUtxo.
-verifyTxUtxoPure :: Utxo -> (Tx, TxWitness) -> VerificationRes
-verifyTxUtxoPure utxo txw = runUtxoReader (verifyTxUtxo txw) utxo
+verifyTxUtxoPure :: Bool -> Utxo -> (Tx, TxWitness) -> VerificationRes
+verifyTxUtxoPure verifyAlone utxo txw =
+    eitherToVerRes $ runUtxoReader (verifyTxUtxo verifyAlone txw) utxo
 
 -- CHECK: @verifyAndApplyTxsOldPure
 -- #verifyAndApplyTxsOld
@@ -153,7 +155,7 @@ normalizeTxsPure = normGo []
              -> ([(WithHash Tx, TxWitness)], Utxo)
              -> ([(WithHash Tx, TxWitness)], Utxo)
     canApply txw prev@(txws, utxo) =
-        case verifyTxUtxoPure utxo (over _1 whData txw) of
+        case verifyTxUtxoPure True utxo (over _1 whData txw) of
             VerFailure _ -> prev
             VerSuccess   -> (txw : txws, fst txw `applyTxToUtxoPure` utxo)
 

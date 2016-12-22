@@ -27,7 +27,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
-    commit: 9829c02adcf68a2dc97d979eae0456ff92cd3748
+    commit: 8a4f74577357f4bed1cbb12dd2cfbd4002bd83e9
   extra-dep: true
 - location:
     git: https://github.com/serokell/rocksdb-haskell.git
@@ -47,7 +47,7 @@ extra-deps:
 - QuickCheck-2.9.2
 - cryptonite-openssl-0.3
 - UtilityTM-0.0.4
-- serokell-util-0.1.2.2
+- serokell-util-0.1.3.0
 - pvss-0.1
 - base58-bytestring-0.1.0
 

@@ -14,7 +14,8 @@ import           Data.Tagged                       (Tagged (..))
 import           System.Wlog                       (logWarning)
 import           Universum                         hiding (ask)
 
-import           Pos.Constants                     (k, mdNoBlocksSlotThreshold, mdNoCommitmentsEpochThreshold)
+import           Pos.Constants                     (k, mdNoBlocksSlotThreshold,
+                                                    mdNoCommitmentsEpochThreshold)
 import           Pos.Context                       (getNodeContext, ncPublicKey)
 import           Pos.Slotting                      (onNewSlot)
 import           Pos.Ssc.Class.Types               (Ssc (..))

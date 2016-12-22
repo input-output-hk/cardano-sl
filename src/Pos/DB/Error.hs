@@ -1,6 +1,6 @@
 -- | Types describing runtime errors related to DB.
 
-module Pos.Modern.DB.Error
+module Pos.DB.Error
        ( DBError (..)
        ) where
 

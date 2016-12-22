@@ -22,14 +22,17 @@ module Pos.Block.Server.State
 import           Control.Concurrent.STM        (TVar, modifyTVar, readTVar)
 import           Control.Lens                  (makeClassy, over, set, view, (.~), (^.))
 import           Data.Default                  (Default (def))
+import           Data.List                     (last)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty            as NE
+import           Serokell.Util.Verify          (isVerSuccess)
 import           Universum
 
-import           Pos.Communication.Types.Block (MsgBlock (..), MsgGetHeaders)
+import           Pos.Communication.Types.Block (MsgBlock (..), MsgGetHeaders (..))
+import           Pos.Crypto                    (hash)
 import           Pos.Ssc.Class.Types           (Ssc)
 import           Pos.Types                     (Block, BlockHeader, HeaderHash,
-                                                headerHash, prevBlockL)
+                                                headerHash, prevBlockL, verifyHeaders)
 
 -- | SocketState used for Block server.
 data BlockSocketState ssc = BlockSocketState
@@ -76,9 +79,26 @@ recordHeadersRequest msg var =
 -- state matches 'Headers' message, it's invalidated and 'True' is
 -- returned.
 matchRequestedHeaders
-    :: (MonadIO m, HasBlockSocketState s ssc)
+    :: (Ssc ssc, MonadIO m, HasBlockSocketState s ssc)
     => NonEmpty (BlockHeader ssc) -> TVar s -> m Bool
-matchRequestedHeaders = notImplemented
+matchRequestedHeaders (newTip :| hs) var =
+    atomically $
+    do blockSS <- readTVar var
+       let res = maybe False
+                       matchRequestedHeadersDo
+                       (blockSS ^. bssRequestedHeaders)
+       when res $ modifyTVar var $ bssRequestedHeaders .~ Nothing
+       pure res
+  where
+    formChain = isVerSuccess (verifyHeaders True $ newTip:hs)
+    matchRequestedHeadersDo mgh =
+        let startHeader = bool (last hs) newTip $ null hs
+            startMatches = hash startHeader `elem` mghFrom mgh
+            mghToMatches = Just (hash newTip) == mghTo mgh
+        in and [ startMatches
+               , mghToMatches
+               , formChain
+               ]
 
 -- | Record blocks request in BlockSocketState. This function blocks
 -- if some blocks are requsted already.
@@ -114,7 +134,7 @@ processBlockMsg (MsgBlock blk) var =
     processBlockDo (start, end) []
         | headerHash blk == start = processBlockFinally end []
         | otherwise = pure PBMunsolicited
-    processBlockDo (start, end) received@(lastReceived:_)
+    processBlockDo (start, end) received
         | blk ^. prevBlockL == start = processBlockFinally end received
         | otherwise = pure PBMunsolicited
     processBlockFinally end received

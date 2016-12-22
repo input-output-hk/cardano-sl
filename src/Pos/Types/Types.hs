@@ -31,6 +31,8 @@ module Pos.Types.Types
        , epochOrSlot
 
        , Address (..)
+       , AddressVersion (..)
+       , AddressDestination (..)
        , makePubKeyAddress
        , makeScriptAddress
        , checkPubKeyAddress
@@ -44,6 +46,7 @@ module Pos.Types.Types
        , TxId
        , TxIn (..)
        , TxOut (..)
+       , txOutStake
        , Tx (..)
        , _txInputs
        , _txOutputs
@@ -59,6 +62,7 @@ module Pos.Types.Types
 
        , SharedSeed (..)
        , SlotLeaders
+       , Participants
 
        , Blockchain (..)
        , BodyProof (..)
@@ -129,7 +133,6 @@ import           Control.Lens           (Getter, Lens', choosing, makeLenses,
 import           Control.Monad.Fail     (fail)
 import qualified Data.ByteString        as BS (pack, zipWith)
 import qualified Data.ByteString.Char8  as BSC (pack)
-import           Data.Data              (Data)
 import           Data.DeriveTH          (derive, makeNFData)
 import           Data.Hashable          (Hashable)
 import           Data.Ix                (Ix)
@@ -161,27 +164,14 @@ import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, P
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Script             (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
-import           Pos.Types.Address      (Address (..), addressF, checkPubKeyAddress,
-                                         checkScriptAddress, decodeTextAddress,
-                                         makePubKeyAddress, makeScriptAddress)
+import           Pos.Types.Address      (Address (..), AddressDestination (..),
+                                         AddressHash, AddressVersion (..), addressF,
+                                         checkPubKeyAddress, checkScriptAddress,
+                                         decodeTextAddress, makePubKeyAddress,
+                                         makeScriptAddress)
+import           Pos.Types.Coin         (Coin (..), coinF)
 import           Pos.Util               (Color (Magenta), colorize)
 
-
-----------------------------------------------------------------------------
--- Coin
-----------------------------------------------------------------------------
-
--- | Coin is the least possible unit of currency.
-newtype Coin = Coin
-    { getCoin :: Word64
-    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Hashable, Data, NFData)
-
-instance Buildable Coin where
-    build = bprint (int%" coin(s)")
-
--- | Coin formatter which restricts type.
-coinF :: Format r (Coin -> r)
-coinF = build
 
 ----------------------------------------------------------------------------
 -- Slotting
@@ -306,6 +296,13 @@ instance Buildable TxOut where
     build TxOut {..} =
         bprint ("TxOut "%coinF%" -> "%build) txOutValue txOutAddress
 
+-- | Use this function if you need to know how a 'TxOut' distributes stake
+-- (e.g. for the purpose of running follow-the-satoshi).
+txOutStake :: TxOut -> [(AddressHash PublicKey, Coin)]
+txOutStake TxOut{..} = case addrDestination txOutAddress of
+    PubKeyDestination x -> [(x, txOutValue)]
+    ScriptDestination _ -> addrDistribution txOutAddress
+
 -- | Transaction.
 --
 -- NB: transaction witnesses are stored separately.
@@ -383,7 +380,9 @@ instance Monoid SharedSeed where
     mconcat = foldl' mappend mempty
 
 -- | 'NonEmpty' list of slot leaders.
-type SlotLeaders = NonEmpty Address
+type SlotLeaders = NonEmpty (AddressHash PublicKey)
+
+type Participants = NonEmpty Address
 
 ----------------------------------------------------------------------------
 -- GenericBlock
@@ -927,6 +926,8 @@ deriveSafeCopySimple 0 'base ''EpochIndex
 deriveSafeCopySimple 0 'base ''LocalSlotIndex
 deriveSafeCopySimple 0 'base ''SlotId
 deriveSafeCopySimple 0 'base ''Coin
+deriveSafeCopySimple 0 'base ''AddressVersion
+deriveSafeCopySimple 0 'base ''AddressDestination
 deriveSafeCopySimple 0 'base ''Address
 deriveSafeCopySimple 0 'base ''TxInWitness
 deriveSafeCopySimple 0 'base ''TxIn

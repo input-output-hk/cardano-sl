@@ -14,6 +14,7 @@ import           System.Wlog          (LoggerName)
 import           Universum
 
 import           Pos.Binary           (Bi, decode, encode)
+import qualified Pos.CLI              as CLI
 import           Pos.Constants        (RunningMode (..), runningMode)
 import           Pos.Crypto           (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.DHT.Model        (DHTKey, DHTNodeType (..), dhtNodeType)
@@ -32,6 +33,11 @@ import           Pos.Types            (Timestamp)
 import           Pos.Ssc.Class        (SscConstraint)
 import           Pos.Web              (serveWebBase, serveWebGT)
 import           Pos.WorkMode         (WorkMode)
+#ifdef WITH_WALLET
+import           Pos.WorkMode         (ProductionMode, RawRealMode, StatsMode)
+
+import           Pos.Wallet.Web       (walletServeWebFull)
+#endif
 #endif
 
 import           NodeOptions          (Args (..), getNodeOptions)
@@ -67,8 +73,8 @@ getSystemStart inst args =
 loggingParams :: LoggerName -> Args -> LoggingParams
 loggingParams tag Args{..} =
     LoggingParams
-    { lpHandlerPrefix = logsPrefix
-    , lpConfigPath    = logConfig
+    { lpHandlerPrefix = CLI.logPrefix commonArgs
+    , lpConfigPath    = CLI.logConfig commonArgs
     , lpRunnerTag = tag
     }
 
@@ -77,9 +83,9 @@ baseParams loggingTag args@Args {..} =
     BaseParams
     { bpLoggingParams = loggingParams loggingTag args
     , bpPort = port
-    , bpDHTPeers = dhtPeers
+    , bpDHTPeers = CLI.dhtPeers commonArgs
     , bpDHTKeyOrType = dhtKeyOrType
-    , bpDHTExplicitInitial = dhtExplicitInitial
+    , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs
     }
   where
     dhtKeyOrType
@@ -132,17 +138,17 @@ action args@Args {..} inst = do
                 currentPluginsGT :: [a]
                 currentPluginsGT = []
 #endif
-            putText $ "Running using " <> show sscAlgo
+            putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
             putText $ "If stats is on: " <> show enableStats
-            case (enableStats, sscAlgo) of
+            case (enableStats, CLI.sscAlgo commonArgs) of
                 (True, GodTossingAlgo) ->
-                    runNodeStats @SscGodTossing inst currentPluginsGT currentParams gtParams
+                    runNodeStats @SscGodTossing inst (currentPluginsGT ++ walletStats args) currentParams gtParams
                 (True, NistBeaconAlgo) ->
-                    runNodeStats @SscNistBeacon inst currentPlugins currentParams ()
+                    runNodeStats @SscNistBeacon inst (currentPlugins ++ walletStats args) currentParams ()
                 (False, GodTossingAlgo) ->
-                    runNodeProduction @SscGodTossing inst currentPluginsGT currentParams gtParams
+                    runNodeProduction @SscGodTossing inst (currentPluginsGT ++ walletProd args) currentParams gtParams
                 (False, NistBeaconAlgo) ->
-                    runNodeProduction @SscNistBeacon inst currentPlugins currentParams ()
+                    runNodeProduction @SscNistBeacon inst (currentPlugins ++ walletProd args) currentParams ()
 
 nodeParams :: Args -> SecretKey -> Timestamp -> NodeParams
 nodeParams args@Args {..} spendingSK systemStart =
@@ -156,12 +162,12 @@ nodeParams args@Args {..} spendingSK systemStart =
     , npBaseParams = baseParams "node" args
     , npCustomUtxo =
             Just . genesisUtxo $
-            stakesDistr flatDistr bitcoinDistr
+            stakesDistr (CLI.flatDistr commonArgs) (CLI.bitcoinDistr commonArgs)
     , npTimeLord = timeLord
     , npJLFile = jlPath
     , npAttackTypes = maliciousEmulationAttacks
     , npAttackTargets = maliciousEmulationTargets
-    , npPropagation = not disablePropagation
+    , npPropagation = not (CLI.disablePropagation commonArgs)
     }
 
 gtSscParams :: Args -> VssKeyPair -> GtParams
@@ -187,6 +193,24 @@ pluginsGT :: (WorkMode SscGodTossing m) => Args -> [m ()]
 pluginsGT Args {..}
     | enableWeb = [serveWebGT webPort]
     | otherwise = []
+#endif
+
+#if defined WITH_WEB && defined WITH_WALLET
+walletServe :: SscConstraint ssc => Args -> [RawRealMode ssc ()]
+walletServe Args {..} =
+    if enableWallet
+    then [walletServeWebFull keyfilePath walletDbPath walletDebug walletPort]
+    else []
+
+walletProd :: SscConstraint ssc => Args -> [ProductionMode ssc ()]
+walletProd = map lift . walletServe
+
+walletStats :: SscConstraint ssc => Args -> [StatsMode ssc ()]
+walletStats = map lift . walletServe
+#else
+walletProd, walletStats :: Args -> [a]
+walletProd _ = []
+walletStats _ = []
 #endif
 
 main :: IO ()

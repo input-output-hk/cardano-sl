@@ -94,7 +94,7 @@ scriptTxSpec = describe "script transactions" $ do
                     randomPkWitness
             res `errorsShouldMatch` [
                 "input #0's witness doesn't match address.*\
-                    \address details: ScriptAddress.*\
+                    \address details: Address dest = script.*\
                     \witness: PkWitness.*",
                 "input #0 isn't validated by its witness.*\
                     \signature check failed.*" ]
@@ -106,7 +106,7 @@ scriptTxSpec = describe "script transactions" $ do
                     (ScriptWitness intValidator goodIntRedeemer)
             res `errorsShouldMatch` [
                 "input #0's witness doesn't match address.*\
-                     \address details: ScriptAddress.*\
+                     \address details: Address dest = script.*\
                      \witness: ScriptWitness.*" ]
 
         it "validator script isn't a proper validator, \
@@ -134,8 +134,8 @@ scriptTxSpec = describe "script transactions" $ do
                                    goodIntRedeemerWithBlah)
             res `errorsShouldMatch` [
                 "input #0 isn't validated by its witness.*\
-                    \reason: The following names are used in both \
-                    \validator and redeemer scripts: blah.*"]
+                    \reason: The following names are \
+                    \declared more than once: blah.*"]
 
         it "redeemer >>= validator outputs 'failure'" $ do
             let res = checkScriptTx
@@ -161,7 +161,7 @@ scriptTxSpec = describe "script transactions" $ do
     -- Try to apply a transaction (with given utxo as context) and say
     -- whether it applied successfully
     tryApplyTx :: Utxo -> Tx -> TxWitness -> VerificationRes
-    tryApplyTx utxo tx txwit = verifyTxUtxoPure utxo (tx, txwit)
+    tryApplyTx utxo tx txwit = verifyTxUtxoPure True utxo (tx, txwit)
 
     -- Test tx1 against tx0. Tx0 will be a script transaction with given
     -- validator. Tx1 will be a P2PK transaction spending tx0 (with given
@@ -268,7 +268,7 @@ validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
     let quadruple@(tx, inpResolver, _, txWits) =
             getTxFromGoodTx ls
         transactionIsVerified =
-            isVerSuccess $ verifyTxPure inpResolver (tx, txWits)
+            isRight $ verifyTxPure True inpResolver (tx, txWits)
         transactionReallyIsGood = individualTxPropertyVerifier quadruple
     in  transactionIsVerified == transactionReallyIsGood
 
@@ -276,7 +276,8 @@ overflowTx :: SmallOverflowTx -> Bool
 overflowTx (SmallOverflowTx (getOverflowTx -> ls)) =
     let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
-        transactionIsNotVerified = isVerFailure $ verifyTxPure inpResolver (tx, txWits)
+        transactionIsNotVerified =
+            isLeft $ verifyTxPure True inpResolver (tx, txWits)
         inpSumLessThanOutSum = not $ txChecksum extendedInputs txOutputs
     in inpSumLessThanOutSum == transactionIsNotVerified
 
@@ -293,7 +294,7 @@ badSigsTx :: SmallBadSigsTx -> Bool
 badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
     let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
-        transactionIsNotVerified = isVerFailure $ verifyTxPure inpResolver (tx, txWits)
+        transactionIsNotVerified = isLeft $ verifyTxPure True inpResolver (tx, txWits)
         notAllSignaturesAreValid =
             any (signatureIsNotValid txOutputs) $ zip extendedInputs (V.toList txWits)
     in notAllSignaturesAreValid == transactionIsNotVerified

@@ -12,15 +12,16 @@ module Pos.Block.Server.Listeners
 
 import           Control.Lens             ((^.), _1)
 import           Data.List.NonEmpty       (NonEmpty ((:|)), nonEmpty)
-import qualified Data.Text                as T
+import qualified Data.List.NonEmpty       as NE
 import           Formatting               (sformat, stext, (%))
-import           Serokell.Util.Verify     (VerificationRes (..))
 import           System.Wlog              (logDebug, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication ()
-import           Pos.Block.Logic          (ClassifyHeaderRes (..), applyBlocks,
+import           Pos.Block.Logic          (ClassifyHeaderRes (..),
+                                           ClassifyHeadersRes (..), applyBlocks,
                                            classifyHeaders, classifyNewHeader,
+                                           lcaWithMainChain, retrieveHeadersFromTo,
                                            rollbackBlocks, verifyBlocks, withBlkSemaphore)
 import           Pos.Block.Requests       (replyWithBlocksRequest,
                                            replyWithHeadersRequest)
@@ -29,10 +30,13 @@ import           Pos.Block.Server.State   (ProcessBlockMsgRes (..), matchRequest
 import           Pos.Communication.Types  (MsgBlock (..), MsgGetBlocks (..),
                                            MsgGetHeaders (..), MsgHeaders (..),
                                            MutSocketState, ResponseMode)
-import           Pos.Crypto               (shortHashF)
-import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog, getUserState)
+import           Pos.Crypto               (hash, shortHashF)
+import           Pos.DB                   (getTip, loadBlocksWithUndoWhile)
+import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog, getUserState,
+                                           replyToNode)
 import           Pos.Types                (Block, BlockHeader, HeaderHash, Undo,
-                                           headerHash, headerHashG, prevBlockL)
+                                           blockHeader, headerHash, headerHashG,
+                                           prevBlockL)
 import           Pos.Util                 (_neHead, _neLast)
 import           Pos.WorkMode             (WorkMode)
 
@@ -51,7 +55,12 @@ handleGetHeaders
     :: forall ssc m.
        (ResponseMode ssc m)
     => MsgGetHeaders ssc -> m ()
-handleGetHeaders MsgGetHeaders {..} = pass
+handleGetHeaders MsgGetHeaders {..} = do
+    rhResult <- retrieveHeadersFromTo mghFrom mghTo
+    case nonEmpty rhResult of
+        Nothing ->
+            logWarning "retrieveHeadersFromTo returned empty list, not responding to node"
+        Just ne -> replyToNode $ MsgHeaders ne
 
 handleGetBlocks
     :: forall ssc m.
@@ -73,24 +82,20 @@ handleRequestedHeaders
        (ResponseMode ssc m)
     => NonEmpty (BlockHeader ssc) -> m ()
 handleRequestedHeaders headers = do
-    classificationRes <- classifyHeaders $ toList headers
-    let startHeader = headers ^. _neHead
-        startHash = headerHash startHeader
-        endHeader = headers ^. _neLast
-        endHash = headerHash endHeader
+    classificationRes <- classifyHeaders headers
+    let newestHeader = headers ^. _neHead
+        newestHash = headerHash newestHeader
+        oldestHeader = headers ^. _neLast
+        oldestHash = headerHash oldestHeader
     case classificationRes of
-        CHRcontinues ->
-            replyWithBlocksRequest startHash endHash
-        CHRalternative -> do
-            lcaChild <- undefined
-            replyWithBlocksRequest lcaChild endHash
-        CHRuseless reason ->
+        CHsValid lca -> replyWithBlocksRequest (hash lca) newestHash
+        CHsUseless reason ->
             logDebug $
             sformat
-                ("Chain of headers from " %shortHashF % " to " %shortHashF %
-                 " is useless for the following reason: " %stext)
-                startHash endHash reason
-        CHRinvalid _ -> pass -- TODO: ban node for sending invalid block.
+                ("Chain of headers from "%shortHashF%" to "%shortHashF%
+                 " is useless for the following reason: "%stext)
+                oldestHash newestHash reason
+        CHsInvalid _ -> pass -- TODO: ban node for sending invalid block.
 
 handleUnsolicitedHeaders
     :: forall ssc m.
@@ -100,17 +105,17 @@ handleUnsolicitedHeaders (header :| []) = do
     classificationRes <- classifyNewHeader header
     -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
     case classificationRes of
-        CHRcontinues ->
+        CHContinues ->
             replyWithBlocksRequest (header ^. prevBlockL) (headerHash header)
-        CHRalternative -> replyWithHeadersRequest (Just $ headerHash header)
-        CHRuseless reason ->
+        CHAlternative -> replyWithHeadersRequest (Just $ headerHash header)
+        CHUseless reason ->
             logDebug $
             sformat
                 ("Header " %shortHashF %
                  " is useless for the following reason: " %stext)
                 (headerHash header)
                 reason
-        CHRinvalid _ -> pass -- TODO: ban node for sending invalid block.
+        CHInvalid _ -> pass -- TODO: ban node for sending invalid block.
 -- TODO: ban node for sending more than one unsolicited header.
 handleUnsolicitedHeaders _ = pass
 
@@ -132,37 +137,46 @@ handleBlocks
     => NonEmpty (Block ssc) -> m ()
 -- Head block is the oldest one here.
 handleBlocks blocks = do
-    -- TODO: find LCA. Head block in result is the newest one.
-    toRollback <- undefined blocks
-    case nonEmpty toRollback of
-        Nothing           -> whenNoRollback
-        Just toRollbackNE -> withBlkSemaphore $ whenRollback toRollbackNE
+    lcaHashMb <- lcaWithMainChain $ map (^. blockHeader) $ NE.reverse blocks
+    maybe (panic "Invalid blocks, LCA not found")
+        (\lcaHash -> do
+            tip <- getTip
+            -- Head block in result is the newest one.
+            toRollback <- loadBlocksWithUndoWhile tip ((lcaHash /= ). headerHash)
+            case nonEmpty toRollback of
+                Nothing           -> whenNoRollback
+                Just toRollbackNE -> withBlkSemaphore $ whenRollback toRollbackNE lcaHash
+        ) lcaHashMb
   where
     newTip = blocks ^. _neLast . headerHashG
     whenNoRollback :: m ()
     whenNoRollback = do
         verRes <- verifyBlocks blocks
         case verRes of
-            VerSuccess        -> withBlkSemaphore whenNoRollbackDo
-            VerFailure errors -> reportErrors errors
-    whenNoRollbackDo :: HeaderHash ssc -> m (HeaderHash ssc)
-    whenNoRollbackDo tip
-        | tip /= blocks ^. _neHead . headerHashG = pure tip
-        | otherwise = newTip <$ applyBlocks blocks
+            Right undos -> withBlkSemaphore $ whenNoRollbackDo (NE.zip blocks undos)
+            Left errors -> reportError errors
+    whenNoRollbackDo :: NonEmpty (Block ssc, Undo) -> HeaderHash ssc -> m (HeaderHash ssc)
+    whenNoRollbackDo blund tip
+        | tip /= blund ^. _neHead . _1 . headerHashG = pure tip
+        | otherwise = newTip <$ applyBlocks blund
     whenRollback :: NonEmpty (Block ssc, Undo)
                  -> HeaderHash ssc
+                 -> HeaderHash ssc
                  -> m (HeaderHash ssc)
-    whenRollback toRollback tip
+    whenRollback toRollback lca tip
         | tip /= toRollback ^. _neHead . _1 . headerHashG = pure tip
         | otherwise = do
             rollbackBlocks toRollback
-            verRes <- verifyBlocks blocks
-            case verRes of
-                VerSuccess -> newTip <$ applyBlocks blocks
-                VerFailure errors ->
-                    reportErrors errors >> applyBlocks (fmap fst toRollback) $>
-                    tip
+            let newBlocksList = NE.dropWhile ((lca /=) . (^. prevBlockL)) blocks
+            maybe (panic "No new blocks")
+                (\newBlocks -> do
+                  verRes <- verifyBlocks newBlocks
+                  case verRes of
+                      Right undos -> newTip <$ applyBlocks (NE.zip newBlocks undos)
+                      Left errors ->
+                          reportError errors >> applyBlocks toRollback $>
+                          tip
+                ) (nonEmpty newBlocksList)
     -- TODO: ban node on error!
-    reportErrors =
-        logWarning . sformat ("Failed to verify blocks: " %stext) .
-        T.intercalate ";"
+    reportError =
+        logWarning . sformat ("Failed to verify blocks: " %stext)

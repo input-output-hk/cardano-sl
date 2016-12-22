@@ -18,7 +18,8 @@ import           Pos.Constants       (epochSlots)
 import           Pos.Crypto          (PublicKey, deterministic, randomNumber)
 import           Pos.Modern.Iterator (ListHolder, MonadIterator (..), runListHolder)
 import           Pos.Types.Address   (Address (..), AddressDestination (..), AddressHash)
-import           Pos.Types.Types     (Coin (..), SharedSeed (..), TxOut (..), Utxo)
+import           Pos.Types.Types     (Coin (..), SharedSeed (..), TxOut (..), Utxo,
+                                      txOutStake)
 
 -- | A version of 'followTheSatoshi' that uses an iterator over 'TxOut's
 -- instead of 'Utxo'.
@@ -51,7 +52,7 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
         stake <- case mbOut of
             Nothing -> panic "followTheSatoshiM: indices out of range"
             Just out -> do _ <- nextItem @_ @TxOut
-                           return (outputStake out)
+                           return (txOutStake out)
         findLeaders cs sm stake
     -- We check whether `c` is covered by current item in the buffer
     findLeaders (c:cs) sm buf@((adr, val):bufRest)
@@ -84,9 +85,4 @@ followTheSatoshi seed utxo
     | otherwise    = runListHolder (followTheSatoshiM @(ListHolder TxOut) seed totalCoins) outputs
   where
     outputs = toList utxo
-    totalCoins = sum (map snd (concatMap outputStake outputs))
-
-outputStake :: TxOut -> [(AddressHash PublicKey, Coin)]
-outputStake TxOut{..} = case addrDestination txOutAddress of
-    PubKeyDestination x -> [(x, txOutValue)]
-    ScriptDestination _ -> addrDistribution txOutAddress
+    totalCoins = sum (map snd (concatMap txOutStake outputs))

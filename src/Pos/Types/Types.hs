@@ -44,6 +44,7 @@ module Pos.Types.Types
        , TxId
        , TxIn (..)
        , TxOut (..)
+       , txOutStake
        , Tx (..)
        , _txInputs
        , _txOutputs
@@ -292,6 +293,13 @@ instance Hashable TxOut
 instance Buildable TxOut where
     build TxOut {..} =
         bprint ("TxOut "%coinF%" -> "%build) txOutValue txOutAddress
+
+-- | Use this function if you need to know how a 'TxOut' distributes stake
+-- (e.g. for the purpose of running follow-the-satoshi).
+txOutStake :: TxOut -> [(AddressHash PublicKey, Coin)]
+txOutStake TxOut{..} = case addrDestination txOutAddress of
+    PubKeyDestination x -> [(x, txOutValue)]
+    ScriptDestination _ -> addrDistribution txOutAddress
 
 -- | Transaction.
 --

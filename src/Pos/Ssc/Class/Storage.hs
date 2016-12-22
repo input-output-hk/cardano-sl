@@ -68,7 +68,7 @@ class Ssc ssc => SscStorageClassM ssc where
     -- about to be applied. It should check that SSC payload will be
     -- consistent if this blocks are applied (after possible rollback
     -- if first argument isn't zero).
-    sscVerifyBlocksM :: AltChain ssc -> SscGlobalQueryM ssc VerificationRes
+    sscVerifyBlocksM :: Bool -> AltChain ssc -> SscGlobalQueryM ssc VerificationRes
 
     sscCalculateSeedM :: EpochIndex ->
                          SscImpureQueryM ssc (Either (SscSeedError ssc) SharedSeed)

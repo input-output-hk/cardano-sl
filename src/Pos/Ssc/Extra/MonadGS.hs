@@ -97,5 +97,5 @@ sscRollback = sscRunGlobalModify . sscRollbackM @ssc
 sscVerifyBlocks
     :: forall ssc m.
        (MonadSscGS ssc m, SscStorageClassM ssc)
-    => AltChain ssc -> m VerificationRes
-sscVerifyBlocks = sscRunGlobalQuery . sscVerifyBlocksM @ssc
+    => Bool -> AltChain ssc -> m VerificationRes
+sscVerifyBlocks verPure = sscRunGlobalQuery . sscVerifyBlocksM @ssc verPure

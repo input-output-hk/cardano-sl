@@ -69,13 +69,14 @@ getGlobalCertificates = sscRunGlobalQuery $ view gsVssCertificates
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
-mpcVerifyBlock :: Block SscGodTossing -> GSQuery VerificationRes
+mpcVerifyBlock :: Bool -> Block SscGodTossing -> GSQuery VerificationRes
 -- Genesis blocks don't have any SSC data.
-mpcVerifyBlock (Left _) = return VerSuccess
--- Main blocks have commitments, openings, shares and VSS certificates.
--- We use verifyGtPayload to make the most general checks and also use
--- global data to make more checks using this data.
-mpcVerifyBlock (Right b) = do
+mpcVerifyBlock _ (Left _) = return VerSuccess
+-- Main blocks have commitments, openings, shares and VSS
+-- certificates.  We optionally (depending on verifyPure argument) use
+-- verifyGtPayload to make the most general checks and also use global
+-- data to make more checks using this data.
+mpcVerifyBlock verifyPure (Right b) = do
     let SlotId{siSlot = slotId} = b ^. blockSlot
     let payload      = b ^. blockMpc
 
@@ -152,17 +153,20 @@ mpcVerifyBlock (Right b) = do
                 OpeningsPayload        opens _ -> openChecks opens
                 SharesPayload         shares _ -> shareChecks shares
                 CertificatesPayload          _ -> []
-    return (verifyGtPayload (b ^. gbHeader) payload <> ourRes)
+    let pureRes = if verifyPure
+                  then verifyGtPayload (b ^. gbHeader) payload
+                  else mempty
+    return (pureRes <> ourRes)
 
 -- TODO:
 --   ★ verification messages should include block hash/slotId
 --   ★ we should stop at first failing block
-mpcVerifyBlocks :: AltChain SscGodTossing -> GSQuery VerificationRes
-mpcVerifyBlocks  blocks = do
+mpcVerifyBlocks :: Bool -> AltChain SscGodTossing -> GSQuery VerificationRes
+mpcVerifyBlocks verifyPure blocks = do
     curState <- ask
     return $ flip evalState curState $ do
         vs <- forM blocks $ \b -> do
-            v <- readerToState $ mpcVerifyBlock b
+            v <- readerToState $ mpcVerifyBlock verifyPure b
             when (isVerSuccess v) $
                 mpcProcessBlock b
             return v

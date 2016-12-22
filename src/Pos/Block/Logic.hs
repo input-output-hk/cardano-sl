@@ -251,7 +251,7 @@ verifyBlocks blocks =
     runExceptT $
     do curSlot <- getCurrentSlot
        verResToMonadError formatAllErrors $ Types.verifyBlocks (Just curSlot) blocks
-       verResToMonadError formatAllErrors =<< sscVerifyBlocks blocks
+       verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
        ExceptT $ txVerifyBlocks blocks
 
 -- | Run action acquiring lock on block application. Argument of

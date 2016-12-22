@@ -44,6 +44,7 @@ import           Pos.Merkle           (mkMerkleTree)
 import           Pos.Ssc.Class.Types  (Ssc (..))
 -- Unqualified import is used here because of GHC bug (trac 12127).
 -- See: https://ghc.haskell.org/trac/ghc/ticket/12127
+import           Pos.Types.Tx         (verifyTxAlone)
 import           Pos.Types.Types
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
@@ -353,6 +354,7 @@ verifyGenericBlock blk =
 data VerifyBlockParams ssc = VerifyBlockParams
     { vbpVerifyHeader  :: !(Maybe (VerifyHeaderParams ssc))
     , vbpVerifyGeneric :: !Bool
+    , vbpVerifyTxs     :: !Bool
     }
 
 -- | By default nothing is checked.
@@ -361,6 +363,7 @@ instance Default (VerifyBlockParams ssc) where
         VerifyBlockParams
         { vbpVerifyHeader = Nothing
         , vbpVerifyGeneric = False
+        , vbpVerifyTxs = False
         }
 
 -- CHECK: @verifyBlock
@@ -372,12 +375,18 @@ verifyBlock VerifyBlockParams {..} blk =
     mconcat
         [ verifyG
         , maybeEmpty (flip verifyHeader (getBlockHeader blk)) vbpVerifyHeader
+        , verifyTxs
         ]
   where
-    verifyG =
-        if vbpVerifyGeneric
-            then either verifyGenericBlock verifyGenericBlock blk
-            else mempty
+    verifyG
+        | vbpVerifyGeneric = either verifyGenericBlock verifyGenericBlock blk
+        | otherwise = mempty
+    verifyTxs
+        | vbpVerifyTxs =
+            case blk of
+                Left _        -> mempty
+                Right mainBlk -> foldMap verifyTxAlone $ mainBlk ^. blockTxs
+        | otherwise = mempty
 
 -- CHECK: @verifyBlocks
 -- Verifies a sequence of blocks.
@@ -414,5 +423,8 @@ verifyBlocks curSlotId = (view _3) . foldl' step start
                 }
             vbp =
                 VerifyBlockParams
-                {vbpVerifyHeader = Just vhp, vbpVerifyGeneric = True}
+                { vbpVerifyHeader = Just vhp
+                , vbpVerifyGeneric = True
+                , vbpVerifyTxs = True
+                }
         in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)

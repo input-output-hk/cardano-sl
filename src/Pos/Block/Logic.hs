@@ -7,13 +7,18 @@
 -- | Logic of blocks processing.
 
 module Pos.Block.Logic
-       ( ClassifyHeaderRes (..)
-       , applyBlocks
+       (
+         -- * Headers
+         ClassifyHeaderRes (..)
        , classifyNewHeader
+       , ClassifyHeadersRes (..)
        , classifyHeaders
        , loadHeadersUntil
        , retrieveHeadersFromTo
        , getHeadersOlderExp
+
+         -- * Blocks
+       , applyBlocks
        , rollbackBlocks
        , verifyBlocks
        , withBlkSemaphore
@@ -38,29 +43,28 @@ import qualified Pos.DB               as DB
 import           Pos.Modern.Txp.Logic (txApplyBlocks, txRollbackBlocks, txVerifyBlocks)
 import           Pos.Slotting         (getCurrentSlot)
 import           Pos.Ssc.Class        (Ssc)
-import           Pos.Types            (Block, BlockHeader, EpochIndex (..), HeaderHash,
-                                       SlotId (..), Undo, VerifyHeaderParams (..),
-                                       blockHeader, difficultyL, flattenEpochOrSlot,
-                                       getBlockHeader, getEpochOrSlot, getSlotIndex,
+import           Pos.Types            (Block, BlockHeader, HeaderHash, Undo,
+                                       VerifyHeaderParams (..), blockHeader, difficultyL,
+                                       flattenEpochOrSlot, getEpochOrSlot, getSlotIndex,
                                        headerSlot, prevBlockL, verifyHeader,
-                                       verifyHeaders, vhpVerifyConsensus, _getEpochOrSlot)
+                                       verifyHeaders, vhpVerifyConsensus)
 import           Pos.WorkMode         (WorkMode)
 
 
--- | Result of header classification.
+-- | Result of single (new) header classification.
 data ClassifyHeaderRes
-    = CHRcontinues      -- ^ Header continues our main chain.
-    | CHRalternative    -- ^ Header continues alternative chain which
-                        -- is more difficult.
-    | CHRuseless !Text  -- ^ Header is useless.
-    | CHRinvalid !Text  -- ^ Header is invalid.
+    = CHContinues      -- ^ Header continues our main chain.
+    | CHAlternative    -- ^ Header continues alternative chain which
+                       -- is more difficult.
+    | CHUseless !Text  -- ^ Header is useless.
+    | CHInvalid !Text  -- ^ Header is invalid.
 
 -- | Make `ClassifyHeaderRes` from list of error messages using
 -- `CHRinvalid` constructor. Intended to be used with `VerificationRes`.
 -- Note: this version forces computation of all error messages. It can be
 -- made more efficient but less informative by using head, for example.
 mkCHRinvalid :: [Text] -> ClassifyHeaderRes
-mkCHRinvalid = CHRinvalid . T.intercalate "; "
+mkCHRinvalid = CHInvalid . T.intercalate "; "
 
 -- | Classify new header announced by some node. Result is represented
 -- as ClassifyHeaderRes type.
@@ -68,14 +72,14 @@ classifyNewHeader
     :: (WorkMode ssc m)
     => BlockHeader ssc -> m ClassifyHeaderRes
 -- Genesis headers seem useless, we can create them by ourselves.
-classifyNewHeader (Left _) = pure $ CHRuseless "genesis header is useless"
+classifyNewHeader (Left _) = pure $ CHUseless "genesis header is useless"
 classifyNewHeader (Right header) = do
     curSlot <- getCurrentSlot
     -- First of all we check whether header is from current slot and
     -- ignore it if it's not.
     if curSlot == header ^. headerSlot
         then classifyNewHeaderDo <$> DB.getTip <*> DB.getTipBlock
-        else return $ CHRuseless "header is not for current slot"
+        else return $ CHUseless "header is not for current slot"
   where
     classifyNewHeaderDo tip tipBlock
         -- If header's parent is our tip, we verify it against tip's header.
@@ -87,16 +91,22 @@ classifyNewHeader (Right header) = do
                     }
                 verRes = verifyHeader vhp (Right header)
             in case verRes of
-                   VerSuccess        -> CHRcontinues
+                   VerSuccess        -> CHContinues
                    VerFailure errors -> mkCHRinvalid errors
         -- If header's parent is not our tip, we check whether it's
         -- more difficult than our main chain.
-        | tipBlock ^. difficultyL < header ^. difficultyL = CHRalternative
+        | tipBlock ^. difficultyL < header ^. difficultyL = CHAlternative
         -- If header can't continue main chain and is not more
         -- difficult than main chain, it's useless.
         | otherwise =
-            CHRuseless $
+            CHUseless $
             "header doesn't continue main chain and is not more difficult"
+
+-- | Result of multiple headers classification.
+data ClassifyHeadersRes ssc
+    = CHsValid (BlockHeader ssc) -- ^ Header list can be applied, LCA attached.
+    | CHsUseless !Text          -- ^ Header is useless.
+    | CHsInvalid !Text          -- ^ Header is invalid.
 
 -- | Classify headers received in response to 'GetHeaders' message.
 -- • If there are any errors in chain of headers, CHRinvalid is returned.
@@ -108,14 +118,14 @@ classifyNewHeader (Right header) = do
 -- is returned, because paper suggests doing so.
 classifyHeaders
     :: WorkMode ssc m
-    => NonEmpty (BlockHeader ssc) -> m ClassifyHeaderRes
+    => NonEmpty (BlockHeader ssc) -> m (ClassifyHeadersRes ssc)
 classifyHeaders headers@(h:|hs) = do
     haveLast <- isJust <$> DB.getBlockHeader (hash $ NE.last headers)
-    let headersValid = (isVerSuccess $ verifyHeaders True $ h : hs) && haveLast
+    let headersValid = isVerSuccess $ verifyHeaders True $ h : hs
     if | not headersValid ->
-             pure $ CHRinvalid "Header chain is invalid"
+             pure $ CHsInvalid "Header chain is invalid"
        | not haveLast ->
-             pure $ CHRinvalid "Last block of the passed chain wasn't found locally"
+             pure $ CHsInvalid "Last block of the passed chain wasn't found locally"
        | otherwise -> processClassify
   where
     processClassify = do
@@ -126,14 +136,15 @@ classifyHeaders headers@(h:|hs) = do
         let depthDiff =
                 flattenEpochOrSlot tipHeader -
                 flattenEpochOrSlot lca
-        if | hash lca == hash tipHeader -> pure CHRcontinues
-           | depthDiff < 0 -> panic "classifyHeaders@depthDiff is negative"
-           | depthDiff > k ->
-                 pure $ CHRuseless $
-                 sformat ("Slot difference of (tip,lca) is "%int%
-                          " which is more than k = "%int)
-                         depthDiff (k :: Int)
-           | otherwise -> pure CHRalternative
+        pure $ if
+            | hash lca == hash tipHeader -> CHsValid tipHeader
+            | depthDiff < 0 -> panic "classifyHeaders@depthDiff is negative"
+            | depthDiff > k ->
+                  CHsUseless $
+                  sformat ("Slot difference of (tip,lca) is "%int%
+                           " which is more than k = "%int)
+                          depthDiff (k :: Int)
+            | otherwise -> CHsValid lca
 
 -- | Takes a starting header hash and queries blockchain until some
 -- condition is true or parent wasn't found. Returns headers newest

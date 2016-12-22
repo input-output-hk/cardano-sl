@@ -18,7 +18,8 @@ import           System.Wlog              (logDebug, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication ()
-import           Pos.Block.Logic          (ClassifyHeaderRes (..), applyBlocks,
+import           Pos.Block.Logic          (ClassifyHeaderRes (..),
+                                           ClassifyHeadersRes (..), applyBlocks,
                                            classifyHeaders, classifyNewHeader,
                                            lcaWithMainChain, retrieveHeadersFromTo,
                                            rollbackBlocks, verifyBlocks, withBlkSemaphore)
@@ -29,12 +30,13 @@ import           Pos.Block.Server.State   (ProcessBlockMsgRes (..), matchRequest
 import           Pos.Communication.Types  (MsgBlock (..), MsgGetBlocks (..),
                                            MsgGetHeaders (..), MsgHeaders (..),
                                            MutSocketState, ResponseMode)
-import           Pos.Crypto               (shortHashF)
+import           Pos.Crypto               (hash, shortHashF)
 import           Pos.DB                   (getTip, loadBlocksWithUndoWhile)
 import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog, getUserState,
                                            replyToNode)
 import           Pos.Types                (Block, BlockHeader, HeaderHash, Undo,
-                                           headerHash, headerHashG, prevBlockL, blockHeader)
+                                           blockHeader, headerHash, headerHashG,
+                                           prevBlockL)
 import           Pos.Util                 (_neHead, _neLast)
 import           Pos.WorkMode             (WorkMode)
 
@@ -86,18 +88,14 @@ handleRequestedHeaders headers = do
         endHeader = headers ^. _neLast
         endHash = headerHash endHeader
     case classificationRes of
-        CHRcontinues ->
-            replyWithBlocksRequest startHash endHash
-        CHRalternative -> do
-            lcaChild <- undefined
-            replyWithBlocksRequest lcaChild endHash
-        CHRuseless reason ->
+        CHsValid lca -> replyWithBlocksRequest (hash lca) endHash
+        CHsUseless reason ->
             logDebug $
             sformat
                 ("Chain of headers from " %shortHashF % " to " %shortHashF %
                  " is useless for the following reason: " %stext)
                 startHash endHash reason
-        CHRinvalid _ -> pass -- TODO: ban node for sending invalid block.
+        CHsInvalid _ -> pass -- TODO: ban node for sending invalid block.
 
 handleUnsolicitedHeaders
     :: forall ssc m.
@@ -107,17 +105,17 @@ handleUnsolicitedHeaders (header :| []) = do
     classificationRes <- classifyNewHeader header
     -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
     case classificationRes of
-        CHRcontinues ->
+        CHContinues ->
             replyWithBlocksRequest (header ^. prevBlockL) (headerHash header)
-        CHRalternative -> replyWithHeadersRequest (Just $ headerHash header)
-        CHRuseless reason ->
+        CHAlternative -> replyWithHeadersRequest (Just $ headerHash header)
+        CHUseless reason ->
             logDebug $
             sformat
                 ("Header " %shortHashF %
                  " is useless for the following reason: " %stext)
                 (headerHash header)
                 reason
-        CHRinvalid _ -> pass -- TODO: ban node for sending invalid block.
+        CHInvalid _ -> pass -- TODO: ban node for sending invalid block.
 -- TODO: ban node for sending more than one unsolicited header.
 handleUnsolicitedHeaders _ = pass
 
@@ -141,7 +139,7 @@ handleBlocks
 handleBlocks blocks = do
     -- TODO: find LCA. Head block in result is the newest one.
     lcaHashMb <- lcaWithMainChain (map (^. blockHeader) blocks)
-    maybe (logDebug "Invalid blocks, LCA not found")
+    maybe (panic "Invalid blocks, LCA not found")
         (\lcaHash -> do
             tip <- getTip
             toRollback <- loadBlocksWithUndoWhile tip ((lcaHash /= ). headerHash)

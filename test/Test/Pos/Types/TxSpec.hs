@@ -134,8 +134,8 @@ scriptTxSpec = describe "script transactions" $ do
                                    goodIntRedeemerWithBlah)
             res `errorsShouldMatch` [
                 "input #0 isn't validated by its witness.*\
-                    \reason: The following names are used in both \
-                    \validator and redeemer scripts: blah.*"]
+                    \reason: The following names are \
+                    \declared more than once: blah.*"]
 
         it "redeemer >>= validator outputs 'failure'" $ do
             let res = checkScriptTx

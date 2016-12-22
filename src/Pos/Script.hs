@@ -13,27 +13,19 @@ module Pos.Script
 
        , parseValidator
        , parseRedeemer
+
+       , stdlib
        ) where
 
-import           Data.Binary           (Binary)
-import qualified Data.Binary           as Binary
-import           Data.Eq.Deriving      (deriveEq1)
-import           Data.Hashable         (Hashable, hashWithSalt)
-import           Data.SafeCopy         (SafeCopy (..))
-import           Data.String           (String)
-import qualified Interface.Integration as PL
-import qualified PlutusCore.Program    as PLCore
-import qualified PlutusCore.Term       as PLCore
-import qualified PlutusTypes.ConSig    as PLTypes
-import qualified PlutusTypes.Type      as PLTypes
-import           Universum
-import qualified Utils.ABT             as ABT
-import qualified Utils.Names           as Names
-import qualified Utils.Vars            as Vars
+import           Control.Monad.Fail         (fail)
+import           Data.FileEmbed             (embedStringFile, makeRelativeToProject)
+import           Data.String                (String)
+import qualified Interface.Integration      as PL
+import           Language.Haskell.TH.Syntax (Lift (..))
+import qualified PlutusCore.Program         as PLCore
+import           Universum                  hiding (lift)
 
-import           Pos.Binary.Class      (Bi)
-import           Pos.Script.Type       (Script)
-import           Pos.Util              (getCopyBinary, putCopyBinary)
+import           Pos.Script.Type            (Script)
 
 -- | Parse a script intended to serve as a validator (or “lock”) in a
 -- transaction output.
@@ -71,6 +63,13 @@ txScriptCheck
     -> Script                     -- ^ Redeemer
     -> Either TxScriptError ()
 txScriptCheck validator redeemer = do
-    (script, env) <- PL.buildValidationScript validator redeemer
+    (script, env) <- PL.buildValidationScript stdlib validator redeemer
     result <- PL.checkValidationResult (script, env)
     if result then Right () else Left "result of evaluation is 'failure'"
+
+stdlib :: PLCore.Program
+stdlib =
+    $(do let file = $(embedStringFile =<< makeRelativeToProject "stdlib.pls")
+         case PL.loadProgram file of
+             Left a  -> fail ("couldn't parse script standard library: " ++ a)
+             Right x -> lift x)

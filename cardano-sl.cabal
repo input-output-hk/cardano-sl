@@ -323,6 +323,7 @@ library
                       , template-haskell
                       , text
                       , text-format
+                      , th-lift-instances
                       , time
                       , time-units
                       , time-warp

@@ -15,28 +15,32 @@ module Pos.Script.Examples
        , goodIntRedeemerWithBlah
        ) where
 
+import           Data.String (String)
 import           Universum
 
-import           Pos.Script (Script, parseRedeemer, parseValidator)
+import           Pos.Script  (Script, parseRedeemer, parseValidator)
+
+fromE :: Either String Script -> Script
+fromE = either (panic . toText) identity
 
 ----------------------------------------------------------------------------
 -- Trivial validators/redeemers
 ----------------------------------------------------------------------------
 
 alwaysSuccessValidator :: Script
-Right alwaysSuccessValidator = parseValidator $ unlines [
+alwaysSuccessValidator = fromE $ parseValidator $ unlines [
     "data Unit = { Unit }",
     "validator : Int -> Comp Unit {",
     "  validator x = success Unit }" ]
 
 alwaysFailureValidator :: Script
-Right alwaysFailureValidator = parseValidator $ unlines [
+alwaysFailureValidator = fromE $ parseValidator $ unlines [
     "data Unit = { Unit }",
     "validator : Int -> Comp Unit {",
     "  validator x = failure }" ]
 
 idValidator :: Script
-Right idValidator = parseValidator $ unlines [
+idValidator = fromE $ parseValidator $ unlines [
     "validator : Comp Int -> Comp Int {",
     "  validator x = x }" ]
 
@@ -45,7 +49,7 @@ Right idValidator = parseValidator $ unlines [
 ----------------------------------------------------------------------------
 
 intValidator :: Script
-Right intValidator = parseValidator $ unlines [
+intValidator = fromE $ parseValidator $ unlines [
     "data Bool = { True | False }",
     "validator : Int -> Comp Bool {",
     "  validator x = case x of {",
@@ -53,12 +57,12 @@ Right intValidator = parseValidator $ unlines [
     "    _ -> failure } }" ]
 
 goodIntRedeemer :: Script
-Right goodIntRedeemer = parseRedeemer $ unlines [
+goodIntRedeemer = fromE $ parseRedeemer $ unlines [
     "redeemer : Comp Int {",
     "  redeemer = success 1 }" ]
 
 badIntRedeemer :: Script
-Right badIntRedeemer = parseRedeemer $ unlines [
+badIntRedeemer = fromE $ parseRedeemer $ unlines [
     "redeemer : Comp Int {",
     "  redeemer = success 0 }" ]
 
@@ -67,7 +71,7 @@ Right badIntRedeemer = parseRedeemer $ unlines [
 ----------------------------------------------------------------------------
 
 intValidatorWithBlah :: Script
-Right intValidatorWithBlah = parseValidator $ unlines [
+intValidatorWithBlah = fromE $ parseValidator $ unlines [
     "data Bool = { True | False }",
     "validator : Int -> Comp Bool {",
     "  validator x = case x of {",
@@ -77,7 +81,7 @@ Right intValidatorWithBlah = parseValidator $ unlines [
     "  blah x = x }" ]
 
 goodIntRedeemerWithBlah :: Script
-Right goodIntRedeemerWithBlah = parseRedeemer $ unlines [
+goodIntRedeemerWithBlah = fromE $ parseRedeemer $ unlines [
     "redeemer : Comp Int {",
     "  redeemer = success 1 }",
     "blah : Int -> Int {",

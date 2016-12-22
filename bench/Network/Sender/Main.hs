@@ -49,7 +49,7 @@ main = do
     loadLogConfig logsPrefix logConfig
     setLocaleEncoding utf8
 
-    Right transport_ <- TCP.createTransport ("127.0.0.1") "3432"
+    Right transport_ <- TCP.createTransport "0.0.0.0" "3432"
         TCP.defaultTCPParameters
     let transport = concrete transport_
 

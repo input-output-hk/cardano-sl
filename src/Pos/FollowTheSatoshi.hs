@@ -17,7 +17,7 @@ import           Universum
 import           Pos.Constants       (epochSlots)
 import           Pos.Crypto          (PublicKey, deterministic, randomNumber)
 import           Pos.Modern.Iterator (ListHolder, MonadIterator (..), runListHolder)
-import           Pos.Types.Address   (Address (..), AddressDestination (..), AddressHash)
+import           Pos.Types.Address   (AddressHash)
 import           Pos.Types.Types     (Coin (..), SharedSeed (..), TxOut (..), Utxo,
                                       txOutStake)
 

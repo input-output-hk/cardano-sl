@@ -31,6 +31,8 @@ module Pos.Types.Types
        , epochOrSlot
 
        , Address (..)
+       , AddressVersion (..)
+       , AddressDestination (..)
        , makePubKeyAddress
        , makeScriptAddress
        , checkPubKeyAddress

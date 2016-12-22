@@ -83,18 +83,18 @@ handleRequestedHeaders
     => NonEmpty (BlockHeader ssc) -> m ()
 handleRequestedHeaders headers = do
     classificationRes <- classifyHeaders headers
-    let startHeader = headers ^. _neHead
-        startHash = headerHash startHeader
-        endHeader = headers ^. _neLast
-        endHash = headerHash endHeader
+    let newestHeader = headers ^. _neHead
+        newestHash = headerHash newestHeader
+        oldestHeader = headers ^. _neLast
+        oldestHash = headerHash oldestHeader
     case classificationRes of
-        CHsValid lca -> replyWithBlocksRequest (hash lca) endHash
+        CHsValid lca -> replyWithBlocksRequest (hash lca) newestHash
         CHsUseless reason ->
             logDebug $
             sformat
-                ("Chain of headers from " %shortHashF % " to " %shortHashF %
-                 " is useless for the following reason: " %stext)
-                startHash endHash reason
+                ("Chain of headers from "%shortHashF%" to "%shortHashF%
+                 " is useless for the following reason: "%stext)
+                oldestHash newestHash reason
         CHsInvalid _ -> pass -- TODO: ban node for sending invalid block.
 
 handleUnsolicitedHeaders

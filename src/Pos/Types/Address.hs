@@ -41,9 +41,11 @@ import           Universum              hiding (show)
 
 import           Pos.Binary.Class       (Bi)
 import qualified Pos.Binary.Class       as Bi
+import           Pos.Binary.Coin        ()
 import           Pos.Binary.Crypto      ()
 import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey)
 import           Pos.Script             (Script)
+import           Pos.Types.Coin         (Coin)
 
 -- | Address versions are here for dealing with possible backwards
 -- compatibility issues in the future
@@ -60,7 +62,8 @@ curScriptAddrVersion = AddressVersion 0       -- encoded as “128”
 data Address = Address
     { addrVersion      :: !AddressVersion
     , addrDestination  :: !AddressDestination
-    , addrDistribution :: ![(PublicKey, Int)]  -- always [] for PK addresses
+      -- always [] for PK addresses
+    , addrDistribution :: ![(AddressHash PublicKey, Coin)]
     } deriving (Eq, Generic, Ord)
 
 data AddressDestination

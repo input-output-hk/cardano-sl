@@ -129,7 +129,6 @@ import           Control.Lens           (Getter, Lens', choosing, makeLenses,
 import           Control.Monad.Fail     (fail)
 import qualified Data.ByteString        as BS (pack, zipWith)
 import qualified Data.ByteString.Char8  as BSC (pack)
-import           Data.Data              (Data)
 import           Data.DeriveTH          (derive, makeNFData)
 import           Data.Hashable          (Hashable)
 import           Data.Ix                (Ix)
@@ -162,28 +161,13 @@ import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Script             (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
 import           Pos.Types.Address      (Address (..), AddressDestination (..),
-                                         AddressVersion (..), addressF,
+                                         AddressHash, AddressVersion (..), addressF,
                                          checkPubKeyAddress, checkScriptAddress,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
+import           Pos.Types.Coin         (Coin (..), coinF)
 import           Pos.Util               (Color (Magenta), colorize)
 
-
-----------------------------------------------------------------------------
--- Coin
-----------------------------------------------------------------------------
-
--- | Coin is the least possible unit of currency.
-newtype Coin = Coin
-    { getCoin :: Word64
-    } deriving (Num, Enum, Integral, Show, Ord, Real, Eq, Bounded, Generic, Hashable, Data, NFData)
-
-instance Buildable Coin where
-    build = bprint (int%" coin(s)")
-
--- | Coin formatter which restricts type.
-coinF :: Format r (Coin -> r)
-coinF = build
 
 ----------------------------------------------------------------------------
 -- Slotting
@@ -385,7 +369,7 @@ instance Monoid SharedSeed where
     mconcat = foldl' mappend mempty
 
 -- | 'NonEmpty' list of slot leaders.
-type SlotLeaders = NonEmpty Address
+type SlotLeaders = NonEmpty (AddressHash PublicKey)
 
 ----------------------------------------------------------------------------
 -- GenericBlock

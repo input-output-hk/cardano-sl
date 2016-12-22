@@ -1,5 +1,4 @@
 -- | Binary serialization of Pos.Types.Address
-
 module Pos.Binary.Address () where
 
 import           Control.Monad.Fail (fail)
@@ -10,6 +9,7 @@ import           Data.Digest.CRC32  (crc32)
 import           Universum
 
 import           Pos.Binary.Class   (Bi (..))
+import           Pos.Binary.Coin    ()
 import           Pos.Types.Address  (Address (..), AddressDestination (..),
                                      AddressVersion (..))
 

@@ -53,7 +53,7 @@ import           Universum
 
 import           Pos.Binary.Types        ()
 import           Pos.Constants           (epochSlots, k)
-import           Pos.Crypto              (ProxySecretKey, SecretKey, hash)
+import           Pos.Crypto              (ProxySecretKey, PublicKey, SecretKey, hash)
 import           Pos.Genesis             (genesisLeaders)
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
@@ -68,6 +68,7 @@ import           Pos.Types               (Address, Block, BlockHeader, ChainDiff
                                           mkGenesisBlock, mkMainBlock, mkMainBody,
                                           prevBlockL, siEpoch, verifyBlock, verifyBlocks,
                                           verifyHeader)
+import           Pos.Types.Address       (AddressHash)
 import           Pos.Util                (readerToState, _neHead, _neLast)
 
 -- | Block-related part of the state. Includes blockchain itself,
@@ -208,7 +209,7 @@ getLeaders (fromIntegral -> epoch) = do
     leadersFromBlock _                      = Nothing
 
 -- | Get leader of the given slot if it's known.
-getLeader :: SlotId -> Query ssc (Maybe Address)
+getLeader :: SlotId -> Query ssc (Maybe (AddressHash PublicKey))
 getLeader SlotId {..} =
     preview (_Just . ix (fromIntegral siSlot)) <$> getLeaders siEpoch
 

@@ -23,4 +23,3 @@ shouldIgnorePkAddress cont addr = case addrDestination addr of
         elem AttackNoCommitments $ ncAttackTypes cont,
         elem (PubKeyAddressTarget addrDestKeyHash) $ ncAttackTargets cont ]
     _ -> False
-shouldIgnorePkAddress _ _ = False

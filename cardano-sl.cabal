@@ -87,6 +87,7 @@ library
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block
+                        Pos.Types.Coin
                         Pos.Types.Slotting
                         Pos.Types.Timestamp
                         Pos.Types.Tx
@@ -107,6 +108,7 @@ library
   other-modules:        Pos.Aeson.CompileConfig
                         Pos.Binary.Address
                         Pos.Binary.Class
+                        Pos.Binary.Coin
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
                         Pos.Binary.DHTModel

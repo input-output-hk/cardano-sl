@@ -29,7 +29,7 @@ module Pos.Block.Logic
 import           Control.Lens              (view, (^.))
 import           Control.Monad.Catch       (onException)
 import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT)
-import           Control.Monad.Trans.Maybe (MaybeT, runMaybeT)
+import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
 import           Data.List.NonEmpty        (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty        as NE
@@ -302,10 +302,8 @@ getBlocksByHeaders
     => HeaderHash ssc -> HeaderHash ssc -> m (Maybe (NonEmpty (Block ssc)))
 getBlocksByHeaders older newer = runMaybeT $ do
     -- oldest and newest blocks do exist
-    guard =<< lift (isJust <$> DB.getBlockHeader older)
-    guard =<< lift (isJust <$> DB.getBlockHeader newer)
-    start <- fromMaybe guardsFail <$> lift (DB.getBlock newer)
-    end <- fromMaybe guardsFail <$> lift (DB.getBlock older)
+    start <- MaybeT $ DB.getBlock newer
+    end <- MaybeT $ DB.getBlock older
     guard $ flattenEpochOrSlot start >= flattenEpochOrSlot end
     let lowerBound = getEpochOrSlot end
     other <- bool
@@ -314,14 +312,12 @@ getBlocksByHeaders older newer = runMaybeT $ do
         (newer == older)
     pure $ start :| other
   where
-    guardsFail = panic "getBlocksByHeaders guards fail"
     loadBlocksDo :: EpochOrSlot -> HeaderHash ssc -> MaybeT m [Block ssc]
     loadBlocksDo _ curH | curH == older = do
-        last <- fromMaybe guardsFail <$> lift (DB.getBlock newer)
+        last <- MaybeT $ DB.getBlock newer
         pure [last]
     loadBlocksDo lowerBound curH = do
-        curBlockM <- lift $ DB.getBlock curH
-        flip (maybe mzero) curBlockM $ \curBlock -> do
-            guard $ getEpochOrSlot curBlock > lowerBound
-            others <- loadBlocksDo lowerBound (curBlock ^. prevBlockL)
-            pure $ curBlock : others
+        curBlock <- MaybeT $ DB.getBlock curH
+        guard $ getEpochOrSlot curBlock > lowerBound
+        others <- loadBlocksDo lowerBound (curBlock ^. prevBlockL)
+        pure $ curBlock : others

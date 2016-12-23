@@ -260,7 +260,6 @@ main = do
             gtParams =
                 GtParams
                 { gtpRebuildDb  = False
-                , gtpDbPath     = Nothing
                 , gtpSscEnabled = False
                 , gtpVssKeyPair = vssKeyPair
                 }

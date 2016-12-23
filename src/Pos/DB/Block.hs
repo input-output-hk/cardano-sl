@@ -8,6 +8,7 @@ module Pos.DB.Block
        , getBlockHeader
        , getStoredBlock
        , getUndo
+       , setBlockInMainChain
        , isBlockInMainChain
 
        , deleteBlock
@@ -52,6 +53,16 @@ getBlockHeader
     :: (Ssc ssc, MonadDB ssc m)
     => HeaderHash ssc -> m (Maybe (BlockHeader ssc))
 getBlockHeader h = fmap T.getBlockHeader <$> getBlock h
+
+-- | Sets block's inMainChain flag to supplied value. Does nothing if
+-- block wasn't found.
+setBlockInMainChain
+    :: (Ssc ssc, MonadDB ssc m)
+    => HeaderHash ssc -> Bool -> m ()
+setBlockInMainChain h inMainChain = do
+    getBlock <- getBlock h
+    whenJust getBlock $ \blk -> do
+        putBi (blockKey h) $ StoredBlock blk inMainChain
 
 -- | Get block with given hash from Block DB.
 isBlockInMainChain

@@ -271,8 +271,10 @@ applyBlocks blksUndos = do
 -- application is taken.
 rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Block ssc, Undo) -> m ()
 rollbackBlocks toRollback = do
-    -- [CSL-378] Update sbInMain
+    -- [CSL-378] Update sbInMain properly (in transaction)
     txRollbackBlocks toRollback
+    forM_ (NE.toList toRollback) $
+        \(blk,_) -> DB.setBlockInMainChain (hash $ blk ^. blockHeader) False
     sscRollback $ fmap fst toRollback
 
 -- | Given a set of headers, returns (Just blocks) if all blocks were

@@ -145,7 +145,9 @@ tipKey :: ByteString
 tipKey = "btip"
 
 utxoKey :: TxIn -> ByteString
-utxoKey = (<>) "t" . encodeStrict
+-- [CSL-379] Restore prefix after we have proper iterator
+-- utxoKey = (<> "t") . encodeStrict
+utxoKey = encodeStrict
 
 sumKey :: ByteString
 sumKey = "sum"

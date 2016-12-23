@@ -158,7 +158,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     legacyDB <- snd <$> allocate openDb closeDb
     modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo") npCustomUtxo
     --initGS <- Modern.runDBHolder modernDBs (loadGlobalState @ssc)
-    let initTip = notImplemented -- init tip must be here
+    initTip <- Modern.runDBHolder modernDBs Modern.getTip
     let run db =
             runOurDialog newMutSocketState lpRunnerTag .
             runDBHolder db .

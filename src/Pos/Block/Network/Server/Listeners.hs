@@ -25,6 +25,7 @@ import           Pos.Block.Logic                (ClassifyHeaderRes (..),
                                                  getBlocksByHeaders, lcaWithMainChain,
                                                  retrieveHeadersFromTo, rollbackBlocks,
                                                  verifyBlocks, withBlkSemaphore_)
+import           Pos.Block.Network.Announce     (announceBlock)
 import           Pos.Block.Network.Request      (replyWithBlocksRequest,
                                                  replyWithHeadersRequest)
 import           Pos.Block.Network.Server.State (ProcessBlockMsgRes (..),
@@ -38,7 +39,7 @@ import           Pos.DHT.Model                  (ListenerDHT (..), MonadDHTDialo
                                                  getUserState, replyToNode)
 import           Pos.Types                      (Block, BlockHeader, Blund,
                                                  HasHeaderHash (..), HeaderHash,
-                                                 blockHeader, prevBlockL)
+                                                 blockHeader, gbHeader, prevBlockL)
 import           Pos.Util                       (inAssertMode, _neHead, _neLast)
 import           Pos.WorkMode                   (WorkMode)
 
@@ -231,6 +232,7 @@ applyWithoutRollback blocks = do
         | otherwise = newTip <$ do
             applyBlocks blunds
             logInfo $ blocksAppliedMsg @ssc blunds
+            relayBlock $ fst $ NE.last blunds
 
 applyWithRollback
     :: forall ssc m.
@@ -259,11 +261,19 @@ applyWithRollback toApply lca toRollback = do
                 Right undos -> newTip <$ do
                     applyBlocks (NE.zip toApplyAfterLca undos)
                     logInfo $ blocksAppliedMsg toApplyAfterLca
+                    relayBlock $ NE.last toApplyAfterLca
                 Left errors -> tip <$ do
                     onFailedVerifyBlocks errors
                     logDebug "Applying rollbacked blocks…"
                     applyBlocks toRollback
                     logDebug "Finished applying rollback blocks"
+
+relayBlock
+    :: forall ssc m.
+       (WorkMode ssc m)
+    => Block ssc -> m ()
+relayBlock (Left _)        = pass
+relayBlock (Right mainBlk) = announceBlock $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------
 -- Logging formats

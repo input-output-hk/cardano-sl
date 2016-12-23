@@ -59,6 +59,7 @@ module Pos.Types.Types
        , utxoF
 
        , Undo
+       , Blund
 
        , SharedSeed (..)
        , SlotLeaders
@@ -355,6 +356,9 @@ utxoF = later formatUtxo
 ----------------------------------------------------------------------------
 -- | Structure for undo block during rollback
 type Undo = [[TxOut]]
+
+-- | Block and its Undo.
+type Blund ssc = (Block ssc, Undo)
 
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw

@@ -13,7 +13,7 @@ module Pos.Wallet.Web.Server.Methods
        ) where
 
 import           Data.List                  (elemIndex, (!!))
-import           Formatting                 (int, ords, sformat, (%))
+import           Formatting                 (int, ords, sformat, stext, (%))
 import           Network.Wai                (Application)
 import           Servant.API                ((:<|>) ((:<|>)),
                                              FromHttpApiData (parseUrlPiece), addHeader)
@@ -35,11 +35,11 @@ import           Pos.Wallet.KeyStorage      (MonadKeys (..), newSecretKey)
 import           Pos.Wallet.Tx              (submitTx)
 import           Pos.Wallet.WalletMode      (WalletMode, getBalance, getTxHistory)
 import           Pos.Wallet.Web.Api         (Cors, WalletApi, walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CWallet (..), addressToCAddress,
-                                             cAddressToAddress)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CWallet (..), CWalletMeta (..),
+                                             addressToCAddress, cAddressToAddress)
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
-                                             closeState, getWalletMeta, openState,
-                                             runWalletWebDB)
+                                             addWalletMeta, closeState, getWalletMeta,
+                                             openState, runWalletWebDB)
 
 
 ----------------------------------------------------------------------------
@@ -86,9 +86,6 @@ servantHandlers =
      addCors newAddress
     :<|>
      addCors . deleteAddress
-  where
-    addCors :: Monad m => m a -> m (Cors a)
-    addCors = fmap (addHeader "*")
 
 getAddresses :: WalletWebMode ssc m => m [CAddress]
 getAddresses = map fst <$> getBalances
@@ -99,13 +96,17 @@ getBalances = join $ mapM gb <$> myAddresses
 
 getWallet :: WalletWebMode ssc m => CAddress -> m CWallet
 getWallet cAddr = do
-    balance <- getBalance <$> cAddressToAddress cAddr >>= either wrongAddress pure
+    balance <- getBalance =<< (either wrongAddress pure $ cAddressToAddress cAddr)
     meta <- getWalletMeta cAddr >>= maybe noWallet pure
     pure $ CWallet cAddr balance meta
   where
     -- TODO: improve error handling
-    wrongAddress = throwM err404
     noWallet = throwM err404
+    wrongAddress err = throwM err404 {
+        errBody = encodeUtf8 $
+            sformat ("Error while decoding CAddress: "%stext) err
+        }
+
 
 send :: WalletWebMode ssc m => Address -> Address -> Coin -> m ()
 send srcAddr dstAddr c = do
@@ -124,14 +125,12 @@ getHistory addr = map whData <$> getTxHistory addr
 newAddress :: WalletWebMode ssc m => m CAddress
 newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
 
--- newWallet :: WalletWebMode ssc m => CWalletMeta -> m (Cors CWallet)
--- newWallet wMeta = addCors $ do
---     cAddr <- addressToCAddress <$> newAddress
---     addWalletMeta cAddr wMeta
---
---   where
---     newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
---
+newWallet :: WalletWebMode ssc m => CWalletMeta -> m (Cors CWallet)
+newWallet wMeta = addCors $ do
+    cAddr <- newAddress
+    addWalletMeta cAddr wMeta
+    return $ CWallet cAddr 0 wMeta
+
 deleteAddress :: WalletWebMode ssc m => Address -> m ()
 deleteAddress addr = do
     idx <- getAddrIdx addr
@@ -150,6 +149,9 @@ getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound return
             errBody = encodeUtf8 $
                 sformat ("Address "%addressF%" is not found in wallet") $ addr
             }
+
+addCors :: Monad m => m a -> m (Cors a)
+addCors = fmap (addHeader "*")
 
 ----------------------------------------------------------------------------
 -- Orphan instances

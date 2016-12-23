@@ -59,9 +59,8 @@ getBlockHeader h = fmap T.getBlockHeader <$> getBlock h
 setBlockInMainChain
     :: (Ssc ssc, MonadDB ssc m)
     => HeaderHash ssc -> Bool -> m ()
-setBlockInMainChain h inMainChain = do
-    getBlock <- getBlock h
-    whenJust getBlock $ \blk -> do
+setBlockInMainChain h inMainChain =
+    whenJustM (getBlock h) $ \blk ->
         putBi (blockKey h) $ StoredBlock blk inMainChain
 
 -- | Get block with given hash from Block DB.

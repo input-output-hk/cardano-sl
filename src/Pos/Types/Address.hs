@@ -57,6 +57,10 @@ curPubKeyAddrVersion = AddressVersion 0       -- encoded as “0”
 
 curScriptAddrVersion :: AddressVersion
 curScriptAddrVersion = AddressVersion 0       -- encoded as “128”
+                                              -- (no it's not a typo,
+                                              --   ask @neongreen)
+                                              -- (but yeah, it's weird, I'll
+                                              --   change it in [CSL-400])
 
 -- | Address is where you can send coins.
 data Address = Address

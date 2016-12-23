@@ -98,6 +98,10 @@ invalidateProxyCaches = withProxyCaches $ \p -> do
         p & ncProxyMsgCache %~ HM.filter (\t -> addUTCTime 60 t > curTime)
           & ncProxyConfCache %~ HM.filter (\t -> addUTCTime 500 t > curTime)
 
+----------------------------------------------------------------------------
+-- LRC data
+----------------------------------------------------------------------------
+
 -- | Read richmen from node context. This function blocks if
 -- participants are not available.
 readRichmen

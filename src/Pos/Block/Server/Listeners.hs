@@ -78,7 +78,7 @@ handleGetBlocks MsgGetBlocks {..} = do
     blocks <- getBlocksByHeaders mgbFrom mgbTo
     maybe warn sendMsg blocks
   where
-    warn = logWarning $ "getBLocksByHeaers@retrieveHeaders returned Nothing"
+    warn = logWarning $ "getBLocksByHeaders@retrieveHeaders returned Nothing"
     sendMsg blocksToSend = do
         logDebug "handleGetBlocks: started sending blocks one-by-one"
         forM_ blocksToSend $ replyToNode . MsgBlock
@@ -106,8 +106,7 @@ handleRequestedHeaders headers = do
     classificationRes <- classifyHeaders headers
     let newestHeader = headers ^. _neHead
         newestHash = headerHash newestHeader
-        oldestHeader = headers ^. _neLast
-        oldestHash = headerHash oldestHeader
+        oldestHash = headerHash $ headers ^. _neLast
     case classificationRes of
         CHsValid lcaChild -> do
             let lcaHash = hash lcaChild
@@ -142,7 +141,7 @@ handleUnsolicitedHeader header = do
     case classificationRes of
         CHContinues -> do
             logDebug $ sformat continuesFormat hHash
-            replyWithBlocksRequest (header ^. prevBlockL) hHash
+            replyWithBlocksRequest hHash hHash -- exactly one block in the range
         CHAlternative -> do
             logInfo $ sformat alternativeFormat hHash
             replyWithHeadersRequest (Just hHash)
@@ -193,9 +192,9 @@ handleBlocks blocks = do
         lcaWithMainChain (map (view blockHeader) $ NE.reverse blocks)
     inAssertMode $ logDebug $ "Finished processing sequence of blocks"
   where
-    onNoLca =
-        logWarning
-            "Sequence of blocks can't be processed, because there is no LCA. Probably rollback happened in parallel"
+    onNoLca = logWarning $
+        "Sequence of blocks can't be processed, because there is no LCA. " <>
+        "Probably rollback happened in parallel"
 
 handleBlocksWithLca :: forall ssc m.
        (ResponseMode ssc m)

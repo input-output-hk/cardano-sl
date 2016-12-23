@@ -182,7 +182,8 @@ classifyHeaders headers@(h:|hs) = do
 
 -- | Given a set of checkpoints to stop at, we take second header hash
 -- block (or tip if latter is @Nothing@) and fetch the blocks until we
--- reach genesis block or one of checkpoints.
+-- reach genesis block or one of checkpoints. Returned headers are
+-- newest-first.
 retrieveHeadersFromTo
     :: (MonadDB ssc m, Ssc ssc)
     => [HeaderHash ssc] -> Maybe (HeaderHash ssc) -> m [BlockHeader ssc]
@@ -292,9 +293,12 @@ rollbackBlocks toRollback = do
         \(blk,_) -> DB.setBlockInMainChain (hash $ blk ^. blockHeader) False
     sscRollback $ fmap fst toRollback
 
--- | Given a set of headers, returns (Just blocks) if all blocks were
--- found and Nothing otherwise. Return order is exactly the same as
--- input order.
+-- CSL-396 don't load all the blocks into memory at once
+-- | Given @from@ and @to@ headers where @from@ is older (not strict)
+-- than @to@, and valid chain in between can be found, all blocks in
+-- range @[from..to]@ will be found. Blocks are returned oldest-first.
+--
+-- Returns nothing otherwise.
 getBlocksByHeaders
     :: forall ssc m .
        (MonadDB ssc m, Ssc ssc)
@@ -309,7 +313,7 @@ getBlocksByHeaders older newer = runMaybeT $ do
         (loadBlocksDo lowerBound (start ^. prevBlockL))
         (pure [])
         (newer == older)
-    pure $ start :| other
+    pure $ NE.reverse $ start :| other
   where
     loadBlocksDo :: EpochOrSlot -> HeaderHash ssc -> MaybeT m [Block ssc]
     loadBlocksDo _ curH | curH == older = do

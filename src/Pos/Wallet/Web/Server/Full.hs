@@ -86,7 +86,7 @@ convertHandler kctx tld nc ns modernDBs kd ws handler = do
             runSscLDImpl .
             runTxLDImpl .
             flip runSscHolder initGS .
-            flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDBs) .
+            Modern.runTxpLDHolder (Modern.createFromDB . Modern._utxoDB $ modernDBs) tip .
             runKademliaDHTRaw kctx .
             flip runKeyStorageRaw kd .
             runWalletWebDB ws $

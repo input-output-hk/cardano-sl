@@ -33,7 +33,7 @@ import           Pos.DB                          (DB, MonadDB, getUtxoDB)
 import           Pos.DB.Utxo                     (BatchOp (..), getTip, writeBatchToUtxo)
 import           Pos.Modern.Txp.Class            (MonadTxpLD (..), TxpLD)
 import           Pos.Modern.Txp.Error            (TxpError (..))
-import           Pos.Modern.Txp.Holder           (TxpLDHolder, runTxpLDHolderUV)
+import           Pos.Modern.Txp.Holder           (TxpLDHolder, runLocalTxpLDHolder)
 import           Pos.Modern.Txp.Storage.Types    (MemPool (..), UtxoView (..))
 import qualified Pos.Modern.Txp.Storage.UtxoView as UV
 import           Pos.Ssc.Class.Types             (Ssc)
@@ -116,7 +116,7 @@ txVerifyBlocks
 txVerifyBlocks newChain = do
     utxoDB <- getUtxoDB
     fmap (NE.fromList . reverse) <$>
-      runTxpLDHolderUV
+      runLocalTxpLDHolder
         (foldM verifyDo (Right []) newChainTxs)
         (UV.createFromDB utxoDB)
   where
@@ -235,7 +235,7 @@ normalizeTxpLD = do
         (\topsorted -> do
              (validTxs, newUtxoView) -- we run this code in temporary TxpLDHolder
                   <-
-                 runTxpLDHolderUV (findValid topsorted) emptyUtxoView
+                 runLocalTxpLDHolder (findValid topsorted) emptyUtxoView
              setTxpLD (newState newUtxoView validTxs utxoTip))
         (topsortTxs (\(i, (t, _)) -> WithHash t i) mpTxs)
   where

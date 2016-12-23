@@ -168,7 +168,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
             runSscLDImpl .
             runTxLDImpl .
             flip runSscHolder initGS .
-            flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDBs) .
+            Modern.runTxpLDHolder (Modern.createFromDB . Modern._utxoDB $ modernDBs) initTip .
             runKDHT inst npBaseParams listeners $
             nodeStartMsg npBaseParams >> action
     lift $ run legacyDB

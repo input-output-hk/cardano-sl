@@ -4,11 +4,12 @@
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
+
 module Pos.Modern.Txp.Holder
        (
          TxpLDHolder (..)
        , runTxpLDHolder
-       , runTxpLDHolderUV
+       , runLocalTxpLDHolder
        ) where
 
 import qualified Control.Concurrent.STM          as STM
@@ -23,7 +24,7 @@ import           Control.Monad.Trans.Control     (ComposeSt, MonadBaseControl (.
                                                   defaultRestoreM, defaultRestoreT)
 import           Control.TimeWarp.Rpc            (MonadDialog, MonadTransfer (..))
 import           Control.TimeWarp.Timed          (MonadTimed (..), ThreadId)
-import           Data.Default                    (Default, def)
+import           Data.Default                    (def)
 import           Serokell.Util.Lens              (WrappedM (..))
 import           System.Wlog                     (CanLog, HasLoggerName)
 import           Universum
@@ -39,7 +40,7 @@ import           Pos.Ssc.Extra                   (MonadSscGS (..), MonadSscLDM (
 import           Pos.State                       (MonadDB (..))
 import           Pos.Txp.LocalData               (MonadTxLD (..))
 import           Pos.Types                       (HeaderHash, MonadUtxo (..),
-                                                  MonadUtxoRead (..))
+                                                  MonadUtxoRead (..), genesisHash)
 import           Pos.Util.JsonLog                (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -110,18 +111,19 @@ instance (MonadIO m, MonadUtxoRead (TxpLDHolder ssc m))
     utxoDel key = TxpLDHolder (asks utxoView) >>=
                   atomically . flip STM.modifyTVar' (UV.delTxIn key)
 
-runTxpLDHolder :: MonadIO m => TxpLDHolder ssc m a
-               -> UtxoView ssc -> HeaderHash ssc -> m a
-runTxpLDHolder holder uv initTip = TxpLDWrap
+runTxpLDHolder :: MonadIO m
+               => UtxoView ssc -> HeaderHash ssc -> TxpLDHolder ssc m a -> m a
+runTxpLDHolder uv initTip holder = TxpLDWrap
                        <$> liftIO (STM.newTVarIO uv)
                        <*> liftIO (STM.newTVarIO def)
                        <*> liftIO (STM.newTVarIO initTip)
                        >>= runReaderT (getTxpLDHolder holder)
 
-runTxpLDHolderUV :: MonadIO m => TxpLDHolder ssc m a
-               -> UtxoView ssc -> m a
-runTxpLDHolderUV holder uv = TxpLDWrap
+-- | Local run needed for validation txs. For validation need only UtxoView.
+runLocalTxpLDHolder :: MonadIO m
+                    => TxpLDHolder ssc m a -> UtxoView ssc -> m a
+runLocalTxpLDHolder holder uv = TxpLDWrap
                        <$> liftIO (STM.newTVarIO uv)
                        <*> liftIO (STM.newTVarIO def)
-                       <*> liftIO (STM.newTVarIO def)
+                       <*> liftIO (STM.newTVarIO genesisHash)
                        >>= runReaderT (getTxpLDHolder holder)

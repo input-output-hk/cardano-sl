@@ -41,12 +41,15 @@ import qualified Pos.DB                      as Modern
 import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
+import           Pos.Modern.Txp.Holder       (TxpLDHolder (..))
 import           Pos.Slotting                (MonadSlots)
+import           Pos.Ssc.Extra               (SscHolder (..), SscLDImpl (..))
 import qualified Pos.State                   as St
 import           Pos.Txp.LocalData           (MonadTxLD)
 import           Pos.Util                    ()
 import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,
                                               writeUserSecret)
+import           Pos.WorkMode                (TxLDImpl (..))
 
 import           Pos.Wallet.Context          (WithWalletContext)
 import           Pos.Wallet.State.State      (MonadWalletDB)
@@ -178,3 +181,9 @@ instance (MonadIO m, MonadThrow m) => MonadKeys (ContextHolder ssc m) where
     deleteSecretKey (fromIntegral -> i)
         | i == 0 = throwM $ PrimaryKey "Cannot delete a primary secret key"
         | otherwise = usKeys %= deleteAt i
+
+-- | Derived instances for ancestors in monad stack
+deriving instance MonadKeys m => MonadKeys (SscLDImpl ssc m)
+deriving instance MonadKeys m => MonadKeys (TxLDImpl m)
+deriving instance MonadKeys m => MonadKeys (SscHolder ssc m)
+deriving instance MonadKeys m => MonadKeys (TxpLDHolder ssc m)

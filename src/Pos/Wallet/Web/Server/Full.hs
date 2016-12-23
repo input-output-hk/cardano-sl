@@ -37,8 +37,7 @@ import           Pos.WorkMode                    (RawRealMode, TxLDImpl, runTxLD
 
 import           Pos.Web.Server                  (serveImpl)
 
-import           Pos.Wallet.KeyStorage           (KeyData, KeyStorage, addSecretKey,
-                                                  runKeyStorage, runKeyStorageRaw)
+import           Pos.Wallet.KeyStorage           (addSecretKey)
 import           Pos.Wallet.Web.Server.Methods   (walletApplication, walletServer)
 import           Pos.Wallet.Web.State            (MonadWalletWebDB (..), WalletState,
                                                   WalletWebDB, runWalletWebDB)
@@ -50,12 +49,11 @@ walletServeWebFull
     -> Bool               -- whether to include genesis keys
     -> Word16
     -> RawRealMode ssc ()
-walletServeWebFull daedalusDbPath keyfilePath debug = serveImpl $
-    runKeyStorage keyfilePath $ do
-        when debug $ mapM_ addSecretKey genesisSecretKeys
-        walletApplication (walletServer nat) daedalusDbPath
+walletServeWebFull daedalusDbPath keyfilePath debug = serveImpl $ do
+    when debug $ mapM_ addSecretKey genesisSecretKeys
+    walletApplication (walletServer nat) daedalusDbPath
 
-type WebHandler ssc = WalletWebDB (KeyStorage (RawRealMode ssc))
+type WebHandler ssc = WalletWebDB (RawRealMode ssc)
 type SubKademlia ssc = (Modern.TxpLDHolder ssc
                         (SscHolder ssc
                          (TxLDImpl
@@ -72,11 +70,10 @@ convertHandler
     -> NodeContext ssc
     -> St.NodeState ssc
     -> Modern.NodeDBs ssc
-    -> KeyData
     -> WalletState
     -> WebHandler ssc a
     -> Handler a
-convertHandler kctx tld nc ns modernDBs kd ws handler = do
+convertHandler kctx tld nc ns modernDBs ws handler = do
     tip <- Modern.runDBHolder modernDBs Modern.getTip
     initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc tip)
     liftIO (runOurDialog newMutSocketState "wallet-api" .
@@ -88,7 +85,6 @@ convertHandler kctx tld nc ns modernDBs kd ws handler = do
             flip runSscHolder initGS .
             Modern.runTxpLDHolder (Modern.createFromDB . Modern._utxoDB $ modernDBs) tip .
             runKademliaDHTRaw kctx .
-            flip runKeyStorageRaw kd .
             runWalletWebDB ws $
             setTxLocalData tld >> handler)
     `Catch.catches`
@@ -100,10 +96,9 @@ convertHandler kctx tld nc ns modernDBs kd ws handler = do
 nat :: SscConstraint ssc => WebHandler ssc (WebHandler ssc :~> Handler)
 nat = do
     ws <- getWalletWebState
-    kd <- lift ask
-    kctx <- lift $ lift getKademliaDHTCtx
+    kctx <- lift getKademliaDHTCtx
     tld <- getTxLocalData
     nc <- getNodeContext
     ns <- St.getNodeState
     modernDB <- Modern.getNodeDBs
-    return $ Nat (convertHandler kctx tld nc ns modernDB kd ws)
+    return $ Nat (convertHandler kctx tld nc ns modernDB ws)

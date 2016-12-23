@@ -13,7 +13,6 @@ flag benchmarks
 
 Library
   exposed-modules:      Network.Discovery.Abstract
-                        Network.Discovery.Transport.InMemory
                         Network.Discovery.Transport.Kademlia
                         Network.Transport.Abstract
                         Network.Transport.Concrete

@@ -21,6 +21,7 @@ import           Mockable.Exception         (Catch (..))
 import           Bench.Network.Commons      (MeasureEvent (..), Ping (..), Pong (..),
                                              loadLogConfig, logMeasure)
 import           Network.Transport.Concrete (concrete)
+import           Network.Transport.Abstract (newEndPoint)
 import           Node                       (Listener (..), ListenerAction (..), sendTo,
                                              startNode, stopNode)
 import           ReceiverOptions            (Args (..), argsParser)
@@ -48,7 +49,8 @@ main = do
     let prng = mkStdGen 0
 
     usingLoggerName "receiver" $ do
-        receiverNode <- startNode transport prng []
+        Right endPoint <- newEndPoint transport
+        receiverNode <- startNode endPoint prng []
             [Listener "ping" $ pingListener noPong]
 
         threadDelay (fromIntegral duration :: Second)

@@ -6,7 +6,7 @@ module Main where
 
 import           Control.Applicative        (empty)
 import qualified Control.Exception.Lifted   as Exception
-import           Control.Monad              (forM_, liftM2)
+import           Control.Monad              (forM_, forM, liftM2)
 import           Control.Monad.Random       (evalRandT, getRandomR)
 import           Control.Monad.Trans        (lift, liftIO)
 
@@ -23,11 +23,13 @@ import           Mockable.Exception         (Catch (..))
 import           Bench.Network.Commons      (MeasureEvent (..), Payload (..), Ping (..),
                                              Pong (..), loadLogConfig, logMeasure)
 import           Network.Transport.Concrete (concrete)
+import qualified Network.Transport.Abstract as NT
 import qualified Network.Transport.TCP      as TCP
 import           Node                       (Listener (..), ListenerAction (..), sendTo,
                                              startNode, stopNode)
 import           Node.Internal              (NodeId (..))
 import           SenderOptions              (Args (..), argsParser)
+import qualified Network.Transport.Abstract as NT
 
 instance Mockable Catch (LoggerNameBox IO) where
     liftMockable (Catch action handler) = action `Exception.catch` handler
@@ -61,7 +63,9 @@ main = do
     let tasksIds = [[tid, tid + threadNum .. msgNum] | tid <- [1..threadNum]]
 
     usingLoggerName "sender" $ do
-        senderNode <- startNode transport prngNode
+        Right endPoint <- NT.newEndPoint transport
+        drones <- forM nodeIds (startDrone endPoint)
+        senderNode <- startNode endPoint prngNode
             -- TODO: is it good idea to start (recipients number * thread number) threads?
             (liftM2 (pingSender prngWork payloadBound delay)
                 tasksIds
@@ -69,6 +73,7 @@ main = do
             [Listener "pong" pongListener]
 
         threadDelay (fromIntegral duration :: Second)
+        forM_ drones stopDrone
         stopNode senderNode
   where
     pongListener = ListenerActionOneMsg $ \_ _ (Pong mid payload) ->
@@ -84,3 +89,9 @@ main = do
                 -- but `connect` is not implemented yet
                 lift $ sendTo sendActions peerId "ping" $ Ping sMsgId payload
                 threadDelay delay
+
+    startDrone endPoint (NodeId addr) = do
+        Right conn <- NT.connect endPoint addr NT.ReliableOrdered (NT.ConnectHints Nothing)
+        pure conn
+
+    stopDrone = NT.close

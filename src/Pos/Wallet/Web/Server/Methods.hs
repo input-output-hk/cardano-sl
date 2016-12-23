@@ -84,6 +84,8 @@ servantHandlers =
     :<|>
      addCors . newWallet
     :<|>
+     (\a -> addCors . updateWallet a)
+    :<|>
      addCors . deleteWallet
 
 getAddresses :: WalletWebMode ssc m => m [CAddress]
@@ -137,6 +139,11 @@ newWallet wMeta = do
     getWallet cAddr
   where
     newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
+
+updateWallet :: WalletWebMode ssc m => CAddress -> CWalletMeta -> m CWallet
+updateWallet cAddr wMeta = do
+    addWalletMeta cAddr wMeta
+    getWallet cAddr
 
 deleteWallet :: WalletWebMode ssc m => CAddress -> m ()
 deleteWallet cAddr = do

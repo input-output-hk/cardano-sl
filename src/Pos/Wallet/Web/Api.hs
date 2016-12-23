@@ -30,6 +30,8 @@ type WalletApi =
     :<|>
      "api" :> "new_wallet" :> ReqBody '[JSON] CWalletMeta :> Post '[JSON] (Cors CWallet)
     :<|>
+     "api" :> "update_wallet" :> Capture "address" CAddress :> ReqBody '[JSON] CWalletMeta :> Post '[JSON] (Cors CWallet)
+    :<|>
     -- FIXME: this should be DELETE method
      "api" :> "delete_wallet" :> Capture "address" CAddress :> Post '[JSON] (Cors ())
 

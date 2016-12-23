@@ -44,7 +44,7 @@ rocksGetBi
     => ByteString -> DB ssc -> m (Maybe v)
 rocksGetBi key db = do
     bytes <- rocksGetBytes key db
-    bytes .>>=. rocksDecode
+    traverse rocksDecode bytes
 
 rocksDecode :: (Bi v, MonadThrow m) => ByteString -> m v
 rocksDecode key = either onParseError pure . decodeFull . BSL.fromStrict $ key

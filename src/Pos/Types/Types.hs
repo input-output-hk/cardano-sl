@@ -59,6 +59,7 @@ module Pos.Types.Types
        , utxoF
 
        , Undo
+       , Blund
 
        , SharedSeed (..)
        , SlotLeaders
@@ -355,6 +356,9 @@ utxoF = later formatUtxo
 ----------------------------------------------------------------------------
 -- | Structure for undo block during rollback
 type Undo = [[TxOut]]
+
+-- | Block and its Undo.
+type Blund ssc = (Block ssc, Undo)
 
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw
@@ -829,6 +833,9 @@ instance BiSsc ssc => HasHeaderHash (GenesisBlock ssc) ssc where
 
 instance BiSsc ssc => HasHeaderHash (Block ssc) ssc where
     headerHash = hash . getBlockHeader
+
+instance BiSsc ssc => HasHeaderHash (Blund ssc) ssc where
+    headerHash = headerHash . fst
 
 -- | Class for something that has 'EpochIndex'.
 class HasEpochIndex a where

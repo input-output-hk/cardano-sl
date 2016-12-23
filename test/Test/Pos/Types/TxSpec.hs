@@ -34,7 +34,8 @@ import           Pos.Crypto             (checkSig, hash, unsafeHash, whData, wit
 import           Pos.Script             (Script)
 import           Pos.Script.Examples    (alwaysSuccessValidator, badIntRedeemer,
                                          goodIntRedeemer, goodIntRedeemerWithBlah,
-                                         idValidator, intValidator, intValidatorWithBlah)
+                                         goodStdlibRedeemer, idValidator, intValidator,
+                                         intValidatorWithBlah, stdlibValidator)
 import           Pos.Types              (BadSigsTx (..), GoodTx (..), OverflowTx (..),
                                          SmallBadSigsTx (..), SmallGoodTx (..),
                                          SmallOverflowTx (..), Tx (..), TxIn (..),
@@ -87,6 +88,12 @@ scriptTxSpec = describe "script transactions" $ do
                     (ScriptWitness intValidator goodIntRedeemer)
             res `shouldSatisfy` isVerSuccess
 
+        it "goodStdlibRedeemer + stdlibValidator" $ do
+            let res = checkScriptTx
+                    stdlibValidator
+                    (ScriptWitness stdlibValidator goodStdlibRedeemer)
+            res `shouldSatisfy` isVerSuccess
+
     describe "bad cases" $ do
         it "a P2PK tx spending a P2SH tx" $ do
             let res = checkScriptTx
@@ -134,8 +141,8 @@ scriptTxSpec = describe "script transactions" $ do
                                    goodIntRedeemerWithBlah)
             res `errorsShouldMatch` [
                 "input #0 isn't validated by its witness.*\
-                    \reason: The following names are \
-                    \declared more than once: blah.*"]
+                    \reason: There are overlapping declared names \
+                    \in these scripts: User \"blah\"*"]
 
         it "redeemer >>= validator outputs 'failure'" $ do
             let res = checkScriptTx

@@ -16,6 +16,7 @@ module Pos.Context.Context
 
 import qualified Control.Concurrent.STM as STM
 import           Control.Lens           (makeLenses)
+import           Data.HashMap.Strict    (HashMap)
 import qualified Data.HashMap.Strict    as HM
 import           Data.Time.Clock        (UTCTime)
 import           Universum

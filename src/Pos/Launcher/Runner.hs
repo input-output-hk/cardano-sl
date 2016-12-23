@@ -84,7 +84,8 @@ import           Pos.Launcher.Param              (BaseParams (..), LoggingParams
 import qualified Pos.Modern.Txp.Holder           as Modern
 import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 import           Pos.Ssc.Class                   (SscConstraint, SscNodeContext,
-                                                  SscParams, sscCreateNodeContext)
+                                                  SscParams, sscCreateNodeContext,
+                                                  sscLoadGlobalState)
 import           Pos.Ssc.Extra                   (runSscHolder, runSscLDImpl)
 import           Pos.State                       (NodeState, closeState, openMemState,
                                                   openState, runDBHolder)
@@ -162,9 +163,9 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     putText $ "Running listeners number: " <> show (length listeners)
     lift $ setupLoggers lp
     legacyDB <- snd <$> allocate openDb closeDb
-    modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo")
-    --initGS <- Modern.runDBHolder modernDBs (loadGlobalState @ssc)
-    let initTip = notImplemented -- init tip must be here
+    modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo") npCustomUtxo
+    initTip <- Modern.runDBHolder modernDBs Modern.getTip
+    initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
     let run db =
             runOurDialog newMutSocketState lpRunnerTag .
             runDBHolder db .
@@ -172,14 +173,14 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
             withEx (sscCreateNodeContext @ssc sscnp) $ flip (runCH np) .
             runSscLDImpl .
             runTxLDImpl .
-            flip runSscHolder notImplemented . -- load mpc data from blocks (from rocksdb) here
-            flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDBs) .
+            flip runSscHolder initGS .
+            Modern.runTxpLDHolder (Modern.createFromDB . Modern._utxoDB $ modernDBs) initTip .
             runKDHT inst npBaseParams listeners $
             nodeStartMsg npBaseParams >> action
     lift $ run legacyDB
   where
     lp@LoggingParams {..} = bpLoggingParams npBaseParams
-    mStorage = storageFromUtxo <$> npCustomUtxo
+    mStorage = Just $ storageFromUtxo npCustomUtxo
     openDb :: IO (NodeState ssc)
     openDb = do
         -- we rebuild DB manually, because we need to remove

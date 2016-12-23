@@ -13,7 +13,6 @@ module Pos.Block.Logic
        , classifyNewHeader
        , ClassifyHeadersRes (..)
        , classifyHeaders
-       , loadHeadersUntil
        , retrieveHeadersFromTo
        , getHeadersOlderExp
        , lcaWithMainChain
@@ -22,37 +21,46 @@ module Pos.Block.Logic
        , applyBlocks
        , rollbackBlocks
        , verifyBlocks
+       , getBlocksByHeaders
        , withBlkSemaphore
+       , processNewSlot
+       , createMainBlock
        ) where
 
-import           Control.Lens         (view, (^.))
-import           Control.Monad.Catch  (onException)
-import           Control.Monad.Except (ExceptT (ExceptT), runExceptT)
-import           Data.Default         (Default (def))
-import           Data.List.NonEmpty   (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty   as NE
-import qualified Data.Text            as T
-import           Formatting           (int, sformat, (%))
-import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors,
-                                       isVerSuccess, verResToMonadError)
+import           Control.Lens              (view, (^.))
+import           Control.Monad.Catch       (onException)
+import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT)
+import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
+import           Data.Default              (Default (def))
+import           Data.List.NonEmpty        (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty        as NE
+import qualified Data.Text                 as T
+import           Formatting                (int, sformat, (%))
+import           Serokell.Util.Verify      (VerificationRes (..), formatAllErrors,
+                                            isVerSuccess, verResToMonadError)
 import           Universum
 
-import           Pos.Constants        (k)
-import           Pos.Context          (putBlkSemaphore, takeBlkSemaphore)
-import           Pos.Crypto           (hash)
-import           Pos.DB               (MonadDB)
-import qualified Pos.DB               as DB
-import           Pos.Modern.Txp.Logic (txApplyBlocks, txRollbackBlocks, txVerifyBlocks)
-import           Pos.Slotting         (getCurrentSlot)
-import           Pos.Ssc.Class        (Ssc)
-import           Pos.Ssc.Extra        (sscApplyBlocks, sscRollback, sscVerifyBlocks)
-import           Pos.Types            (Block, BlockHeader, HeaderHash, Undo,
-                                       VerifyHeaderParams (..), blockHeader, difficultyL,
-                                       flattenEpochOrSlot, getEpochOrSlot, headerSlot,
-                                       prevBlockL, verifyHeader, verifyHeaders,
-                                       vhpVerifyConsensus)
-import qualified Pos.Types            as Types
-import           Pos.WorkMode         (WorkMode)
+import           Pos.Constants             (k)
+import           Pos.Context               (putBlkSemaphore, takeBlkSemaphore)
+import           Pos.Crypto                (ProxySecretKey, hash)
+import           Pos.DB                    (MonadDB)
+import qualified Pos.DB                    as DB
+import           Pos.DB.Block              (loadHeadersUntil)
+import           Pos.Modern.Txp.Logic      (txApplyBlocks, txRollbackBlocks,
+                                            txVerifyBlocks)
+import           Pos.Slotting              (getCurrentSlot)
+import           Pos.Ssc.Class             (Ssc)
+import           Pos.Ssc.Extra             (sscApplyBlocks, sscRollback, sscVerifyBlocks)
+import           Pos.Types                 (Block, BlockHeader, Blund, EpochIndex,
+                                            EpochOrSlot, GenesisBlock, HeaderHash,
+                                            MainBlock, SlotId, Undo,
+                                            VerifyHeaderParams (..), blockHeader,
+                                            difficultyL, flattenEpochOrSlot,
+                                            getEpochOrSlot, headerSlot, prevBlockL,
+                                            verifyHeader, verifyHeaders,
+                                            vhpVerifyConsensus)
+import qualified Pos.Types                 as Types
+import           Pos.WorkMode              (WorkMode)
 
 
 -- | Result of single (new) header classification.
@@ -120,19 +128,19 @@ lcaWithMainChain headers@(h:|hs) =
 
 -- | Result of multiple headers classification.
 data ClassifyHeadersRes ssc
-    = CHsValid (BlockHeader ssc) -- ^ Header list can be applied, LCA attached.
-    | CHsUseless !Text          -- ^ Header is useless.
-    | CHsInvalid !Text          -- ^ Header is invalid.
+    = CHsValid (BlockHeader ssc) -- ^ Header list can be applied, LCA child attached.
+    | CHsUseless !Text           -- ^ Header is useless.
+    | CHsInvalid !Text           -- ^ Header is invalid.
 
 -- | Classify headers received in response to 'GetHeaders'
 -- message. Should be passed in newest-head order.
 --
--- * If there are any errors in chain of headers, CHRinvalid is returned.
--- * If chain of headers is a valid continuation of our main chain,
--- CHRcontinues is returned.
+-- * If there are any errors in chain of headers, CHsInvalid is returned.
+-- * If chain of headers is a valid continuation of main chain or
+-- alternative one (but not too deep), CHsValid is returned.,
 -- * If chain of headers forks from our main chain but not too much,
--- CHRalternative is returned.
--- * If chain of headers forks from our main chain too much, CHRuseless
+-- CHsAlternative is returned.
+-- * If chain of headers forks from our main chain too much, CHsUseless
 -- is returned, because paper suggests doing so.
 classifyHeaders
     :: WorkMode ssc m
@@ -154,6 +162,9 @@ classifyHeaders headers@(h:|hs) = do
         let depthDiff =
                 flattenEpochOrSlot tipHeader -
                 flattenEpochOrSlot lca
+        let lcaChild =
+                fromMaybe (panic "procsessClassify@classifyHeaders") $
+                find (\bh -> bh ^. prevBlockL == hash lca) (h:hs)
         pure $ if
             | hash lca == hash tipHeader -> CHsValid tipHeader
             | depthDiff < 0 -> panic "classifyHeaders@depthDiff is negative"
@@ -162,28 +173,7 @@ classifyHeaders headers@(h:|hs) = do
                   sformat ("Slot difference of (tip,lca) is "%int%
                            " which is more than k = "%int)
                           depthDiff (k :: Int)
-            | otherwise -> CHsValid lca
-
--- | Takes a starting header hash and queries blockchain until some
--- condition is true or parent wasn't found. Returns headers newest
--- first.
-loadHeadersUntil
-    :: forall ssc m.
-       (MonadDB ssc m, Ssc ssc)
-    => HeaderHash ssc
-    -> (BlockHeader ssc -> Int -> Bool)
-    -> m [BlockHeader ssc]
-loadHeadersUntil startHHash cond = reverse <$> loadHeadersUntilDo startHHash 0
-  where
-    loadHeadersUntilDo :: HeaderHash ssc -> Int -> m [BlockHeader ssc]
-    loadHeadersUntilDo curH depth = do
-        curHeaderM <- DB.getBlockHeader curH
-        let guarded' = curHeaderM >>= \v -> guard (cond v depth) >> pure v
-        maybe (pure [])
-              (\curHeader ->
-                 (curHeader:) <$>
-                 loadHeadersUntilDo (curHeader ^. prevBlockL ) (succ depth))
-              guarded'
+            | otherwise -> CHsValid lcaChild
 
 -- | Given a set of checkpoints to stop at, we take second header hash
 -- block (or tip if latter is @Nothing@) and fetch the blocks until we
@@ -268,10 +258,11 @@ withBlkSemaphore action = do
 -- have verified all predicates regarding block (including txs and ssc
 -- data checks).  We almost must have taken lock on block application
 -- and ensured that chain is based on our tip.
-applyBlocks :: WorkMode ssc m => NonEmpty (Block ssc, Undo) -> m ()
-applyBlocks blksUndos = do
-    let blks = fmap fst blksUndos
-    mapM_ putToDB blksUndos
+applyBlocks :: WorkMode ssc m => NonEmpty (Blund ssc) -> m ()
+applyBlocks blunds = do
+    let blks = fmap fst blunds
+    -- Note: it's important to put blocks first
+    mapM_ putToDB blunds
     txApplyBlocks blks
     sscApplyBlocks blks
   where
@@ -282,6 +273,61 @@ applyBlocks blksUndos = do
 -- application is taken.
 rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Block ssc, Undo) -> m ()
 rollbackBlocks toRollback = do
-    -- [CSL-378] Update sbInMain
+    -- [CSL-378] Update sbInMain properly (in transaction)
     txRollbackBlocks toRollback
+    forM_ (NE.toList toRollback) $
+        \(blk,_) -> DB.setBlockInMainChain (hash $ blk ^. blockHeader) False
     sscRollback $ fmap fst toRollback
+
+-- | Given a set of headers, returns (Just blocks) if all blocks were
+-- found and Nothing otherwise. Return order is exactly the same as
+-- input order.
+getBlocksByHeaders
+    :: forall ssc m .
+       (MonadDB ssc m, Ssc ssc)
+    => HeaderHash ssc -> HeaderHash ssc -> m (Maybe (NonEmpty (Block ssc)))
+getBlocksByHeaders older newer = runMaybeT $ do
+    -- oldest and newest blocks do exist
+    start <- MaybeT $ DB.getBlock newer
+    end <- MaybeT $ DB.getBlock older
+    guard $ flattenEpochOrSlot start >= flattenEpochOrSlot end
+    let lowerBound = getEpochOrSlot end
+    other <- bool
+        (loadBlocksDo lowerBound (start ^. prevBlockL))
+        (pure [])
+        (newer == older)
+    pure $ start :| other
+  where
+    loadBlocksDo :: EpochOrSlot -> HeaderHash ssc -> MaybeT m [Block ssc]
+    loadBlocksDo _ curH | curH == older = do
+        last <- MaybeT $ DB.getBlock newer
+        pure [last]
+    loadBlocksDo lowerBound curH = do
+        curBlock <- MaybeT $ DB.getBlock curH
+        guard $ getEpochOrSlot curBlock > lowerBound
+        others <- loadBlocksDo lowerBound (curBlock ^. prevBlockL)
+        pure $ curBlock : others
+
+----------------------------------------------------------------------------
+-- Blocks creation
+----------------------------------------------------------------------------
+
+-- | Do all necessary changes when new slot starts.  Specifically this
+-- function creates genesis block if necessary and does some clean-up.
+processNewSlot
+    :: forall ssc m.
+       WorkMode ssc m
+    => SlotId -> m (Maybe (GenesisBlock ssc))
+processNewSlot _ = notImplemented
+
+-- | Create a new main block on top of best chain if possible.
+-- Block can be created if:
+-- • we know genesis block for epoch from given SlotId
+-- • last known block is not more than k slots away from
+-- given SlotId
+createMainBlock
+    :: forall ssc m.
+       WorkMode ssc m
+    => Maybe (ProxySecretKey (EpochIndex, EpochIndex))
+    -> m (Either Text (MainBlock ssc))
+createMainBlock = notImplemented

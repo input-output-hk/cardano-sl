@@ -40,12 +40,14 @@ replyWithHeadersRequest upto = do
     recordHeadersRequest msg =<< getUserState
     replyToNode msg
 
--- | Make message which requests chain of blocks which is based on our tip.
+-- | Make message which requests chain of blocks which is based on our
+-- tip. LcaChild is the first block after LCA we don't
+-- know. WantedBlock is the newest one we want to get.
 mkBlocksRequest :: HeaderHash ssc -> HeaderHash ssc -> MsgGetBlocks ssc
-mkBlocksRequest ourTip wantedBlock =
+mkBlocksRequest lcaChild wantedBlock =
     MsgGetBlocks
-    { mgbFrom = [ourTip]
-    , mgbTo = Just wantedBlock
+    { mgbFrom = lcaChild
+    , mgbTo = wantedBlock
     }
 
 -- | Reply with message which requests chain of blocks which is based

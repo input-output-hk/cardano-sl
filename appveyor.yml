@@ -6,6 +6,7 @@ build: off
 cache:
   - "c:\\sr"
   - '.stack-work'
+  - 'rocksdb'
 
 environment:
   global:
@@ -13,22 +14,44 @@ environment:
 
 before_test:
 # Install stack
+#- if %PLATFORM% == Win32 curl -sS -ostack.zip -L --insecure http://www.stackage.org/stack/windows-i386
 - curl -sS -ostack.zip -L --insecure http://www.stackage.org/stack/windows-x86_64
 - 7z x stack.zip stack.exe
 
-# Install openssl
-- ps: Start-FileDownload 'http://slproweb.com/download/Win64OpenSSL-1_0_2j.exe' 
-- ps: Start-Process "Win64OpenSSL-1_0_2j.exe" -ArgumentList "/silent /verysilent /sp- /suppressmsgboxes" -Wait
-
 # Install rocksdb
-- git clone https://github.com/facebook/rocksdb.git
-- mkdir rocksdb\build
+- git clone https://github.com/facebook/rocksdb.git --branch v4.13.5 || timeout /t 0
+- mkdir rocksdb\build || timeout /t 0
 - cd rocksdb\build
 - cmake -G "Visual Studio 14 2015 Win64" -DOPTDBG=1 -DXPRESS=1 ..
 - msbuild rocksdb.sln /p:Configuration=Release /m
 - cd ..\..
+- xcopy rocksdb\build\Release\rocksdb.dll .
+- xcopy rocksdb\build\Release\rocksdb.dll installers
 
 test_script:
-  - stack setup
+  - stack setup --no-reinstall
   # No parallelization due to https://github.com/haskell/cabal/issues/4005   
-  - stack --no-terminal build --test --haddock --no-haddock-deps --bench --no-run-benchmarks --flag cardano-sl:with-web --flag cardano-sl:with-wallet --extra-include-dirs="C:\OpenSSL-Win64\include" --extra-lib-dirs="C:\OpenSSL-Win64" --extra-lib-dirs="C:\projects\pos-haskell-prototype\rocksdb\build\Release" --extra-include-dirs="C:\projects\pos-haskell-prototype\rocksdb\include"
+  - stack --no-terminal --local-bin-path installers 
+      build -j 1 --test --no-haddock-deps --bench --no-run-benchmarks 
+      --flag cardano-sl:with-web 
+      --flag cardano-sl:with-wallet 
+      --extra-include-dirs="C:\OpenSSL-Win64\include" 
+      --extra-lib-dirs="C:\OpenSSL-Win64" 
+      --extra-lib-dirs="C:\projects\pos-haskell-prototype\rocksdb\build\Release" 
+      --extra-include-dirs="C:\projects\pos-haskell-prototype\rocksdb\include" 
+      --copy-bins
+  - xcopy stack.exe installers
+  - cd installers
+  - SET PATH=C:\Program Files\NSIS\;C:\Program Files (x86)\NSIS\;%PATH%
+  - stack --no-terminal build -j 1 --exec windows-installer
+  - cd ..
+
+artifacts:
+  - path: installers/cardano-win64-installer.exe
+    name: CardanoWindows64Installer.exe
+
+notifications:
+  - provider: Slack
+    incoming_webhook:
+      secure: 3KXYR8gCzuhyML2adCU1HayVFPi5TfDUhiQcffkf8QNcwqmZRL+IY/idxf951NNYJ8+GJQDhek7LWLhKrr4d08J9erBw8GePrCwTaBfwQkQ=
+

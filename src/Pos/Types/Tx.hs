@@ -23,7 +23,7 @@ import           Universum
 
 import           Pos.Binary.Types    ()
 import           Pos.Crypto          (Hash, WithHash (..), checkSig, hash)
-import           Pos.Script          (txScriptCheck)
+import           Pos.Script          (Script (..), isKnownScriptVersion, txScriptCheck)
 import           Pos.Types.Address   (Address (..), AddressDestination (..),
                                       addressDetailedF)
 import           Pos.Types.Types     (Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
@@ -68,8 +68,15 @@ verifyTxAlone Tx {..} =
 -- 'verifyTxAlone' and also the following checks:
 --
 -- * sum of inputs >= sum of outputs;
--- * every input is signed properly;
+-- * every input has a proper witness verifying that input;
+-- * script witnesses have matching script versions;
 -- * every input is a known unspent output.
+--
+-- Note that 'verifyTx' doesn't attempt to verify scripts with versions
+-- higher than maximum script version we can handle. That's because we want
+-- blocks with such transactions to be accepted (to avoid hard
+-- forks). However, we won't include such transactions into blocks when we're
+-- creating a block.
 verifyTx
     :: (Monad m)
     => Bool
@@ -158,8 +165,13 @@ verifyTxDo verifyAlone extendedInputs (tx@Tx{..}, witnesses) =
         if checkSig twKey (txInHash, txInIndex, txOutHash) twSig
             then Right ()
             else Left "signature check failed"
-    validateTxIn TxIn{..} ScriptWitness{..} =
-        txScriptCheck twValidator twRedeemer
+    validateTxIn TxIn{..} ScriptWitness{..}
+        | scrVersion twValidator /= scrVersion twRedeemer =
+            Left "validator and redeemer have different versions"
+        | not (isKnownScriptVersion (scrVersion twValidator)) =
+            Right ()
+        | otherwise =
+            txScriptCheck twValidator twRedeemer
 
 verifyTxPure :: Bool
              -> (TxIn -> Maybe TxOut)

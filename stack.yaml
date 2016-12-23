@@ -27,13 +27,17 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
-    commit: 8a4f74577357f4bed1cbb12dd2cfbd4002bd83e9
+    commit: 712bfc9830626a72850d7272a66709e08c7bb8a0
   extra-dep: true
 - location:
     git: https://github.com/serokell/rocksdb-haskell.git
     commit: 5c17f60dad1fd91d47f05cd8b02e859aa26a3547
   extra-dep: true
-
+# https://github.com/thoughtpolice/hs-ed25519/pull/18
+- location:
+    git: https://github.com/domenkozar/hs-ed25519.git
+    commit: 96e5db162d88482bc0e120dc61cadd45c168c275
+  extra-dep: true
 nix:
   shell-file: shell.nix
 
@@ -55,3 +59,10 @@ resolver: lts-7.9
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
+
+
+flags:
+  ed25519:
+    test-doctests: false
+    test-properties: false
+    test-hlint: false

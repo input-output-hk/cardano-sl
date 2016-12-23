@@ -247,7 +247,7 @@ main = do
                 , npSecretKey     = Just sk
                 , npKeyfilePath   = "smartgen-secret.sk"
                 , npBaseParams    = baseParams
-                , npCustomUtxo    = Just $ genesisUtxo $
+                , npCustomUtxo    = genesisUtxo $
                                         stakesDistr
                                         (CLI.flatDistr goCommonArgs)
                                         (CLI.bitcoinDistr goCommonArgs)

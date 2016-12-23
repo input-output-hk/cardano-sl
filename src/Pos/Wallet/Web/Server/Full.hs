@@ -27,7 +27,7 @@ import           Pos.Genesis                     (genesisSecretKeys)
 import           Pos.Launcher                    (runOurDialog)
 import qualified Pos.Modern.Txp.Holder           as Modern
 import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
-import           Pos.Ssc.Class                   (SscConstraint)
+import           Pos.Ssc.Class                   (SscConstraint, sscLoadGlobalState)
 import           Pos.Ssc.Extra                   (SscHolder, SscLDImpl, runSscHolder,
                                                   runSscLDImpl)
 import qualified Pos.State                       as St
@@ -76,15 +76,17 @@ convertHandler
     -> WalletState
     -> WebHandler ssc a
     -> Handler a
-convertHandler kctx tld nc ns modernDB kd ws handler =
+convertHandler kctx tld nc ns modernDBs kd ws handler = do
+    tip <- Modern.runDBHolder modernDBs Modern.getTip
+    initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc tip)
     liftIO (runOurDialog newMutSocketState "wallet-api" .
             St.runDBHolder ns .
-            Modern.runDBHolder modernDB .
+            Modern.runDBHolder modernDBs .
             runContextHolder nc .
             runSscLDImpl .
             runTxLDImpl .
-            flip runSscHolder notImplemented .
-            flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDB) .
+            flip runSscHolder initGS .
+            Modern.runTxpLDHolder (Modern.createFromDB . Modern._utxoDB $ modernDBs) tip .
             runKademliaDHTRaw kctx .
             flip runKeyStorageRaw kd .
             runWalletWebDB ws $

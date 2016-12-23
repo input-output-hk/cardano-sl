@@ -16,6 +16,7 @@ module Pos.Context.Class
        , invalidateProxyCaches
 
        , readRichmen
+       , tryReadLeaders
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
@@ -26,12 +27,11 @@ import qualified Data.HashMap.Strict     as HM
 import           Data.Time.Clock         (addUTCTime, getCurrentTime)
 import           Universum
 
-import           Pos.Context.Context     (NodeContext (ncBlkSemaphore, ncSscRichmen),
-                                          ProxyCaches, ncProxyCaches, ncProxyConfCache,
-                                          ncProxyMsgCache)
+import           Pos.Context.Context     (NodeContext (..), ProxyCaches, ncProxyCaches,
+                                          ncProxyConfCache, ncProxyMsgCache)
 import           Pos.DHT.Model           (DHTResponseT)
 import           Pos.DHT.Real            (KademliaDHT)
-import           Pos.Types               (HeaderHash, Participants)
+import           Pos.Types               (HeaderHash, Participants, SlotLeaders)
 
 -- | Class for something that has 'NodeContext' inside.
 class WithNodeContext ssc m | m -> ssc where
@@ -104,3 +104,10 @@ readRichmen
     :: (MonadIO m, WithNodeContext ssc m)
     => m Participants
 readRichmen = getNodeContext >>= liftIO . readMVar . ncSscRichmen
+
+-- | Read slot leaders from node context. Nothing is returned if
+-- leaders are not available.
+tryReadLeaders
+    :: (MonadIO m, WithNodeContext ssc m)
+    => m (Maybe SlotLeaders)
+tryReadLeaders = getNodeContext >>= liftIO . tryReadMVar . ncSscLeaders

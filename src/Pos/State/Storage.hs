@@ -220,7 +220,7 @@ canCreateBlock sId = do
     if | sId > maxSlotId ->
            retRes "slot id is too big, we don't know recent block"
        | (EpochOrSlot $ Right sId) < headSlot ->
-           retRes "slot id is not biger than one from last known block"
+           retRes "slot id is not bigger than one from last known block"
        | otherwise -> return Nothing
   where
 

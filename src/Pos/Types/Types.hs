@@ -517,7 +517,7 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         { -- | Transactions are the main payload.
           -- TODO: currently we don't know for sure whether it should be
           -- serialized as a MerkleTree or something list-like.
-          _mbTxs         :: !(MerkleTree Tx)
+          _mbTxs :: !(MerkleTree Tx)
         , -- | Transaction witnesses. Invariant: there are as many witnesses
           -- as there are transactions in the block. This is checked during
           -- deserialisation. We can't put them into the same Merkle tree
@@ -526,9 +526,9 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
           --
           -- TODO: should they be put into a separate Merkle tree or left as
           -- a list?
-          _mbWitnesses   :: ![TxWitness]
+          _mbWitnesses :: ![TxWitness]
         , -- | Data necessary for MPC.
-          _mbMpc  :: !(SscPayload ssc)
+          _mbMpc :: !(SscPayload ssc)
         } deriving (Generic)
     type BBlock (MainBlockchain ssc) = Block ssc
 

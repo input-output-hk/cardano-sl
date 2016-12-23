@@ -7,7 +7,7 @@
 
 -- | A wrapper over Plutus (the scripting language used in transactions).
 module Pos.Script
-       ( Script
+       ( Script(..)
        , TxScriptError
 
        , txScriptCheck
@@ -16,6 +16,8 @@ module Pos.Script
        , parseRedeemer
 
        , stdlib
+
+       , isKnownScriptVersion
        ) where
 
 import           Control.Exception          (ArithException (..), ArrayException (..),
@@ -44,6 +46,9 @@ Here's what would lead to script version increment:
   * changing serialization in any way
   * adding anything to the stdlib
 -}
+
+isKnownScriptVersion :: Word32 -> Bool
+isKnownScriptVersion v = v == 0
 
 -- | Parse a script intended to serve as a validator (or “lock”) in a
 -- transaction output.

@@ -23,12 +23,13 @@ import           System.Wlog               (logDebug, logError, logInfo, logNoti
                                             logWarning)
 import           Universum
 
+import           Pos.Binary.Block.Network  ()
 import           Pos.Binary.Communication  ()
+import           Pos.Block.Network.Types   (MsgBlock (..))
 import           Pos.Communication.Methods (announceBlock)
-import           Pos.Communication.Types   (MsgBlock (..), MutSocketState,
-                                            RequestBlock (..), RequestBlockchainPart (..),
-                                            ResponseMode, SendBlockHeader (..),
-                                            SendBlockchainPart (..))
+import           Pos.Communication.Types   (MutSocketState, RequestBlock (..),
+                                            RequestBlockchainPart (..), ResponseMode,
+                                            SendBlockHeader (..), SendBlockchainPart (..))
 import           Pos.Context               (getNodeContext, ncPropagation)
 import           Pos.Crypto                (hash, shortHashF)
 import           Pos.DHT.Model             (ListenerDHT (..), MonadDHTDialog, replyToNode)

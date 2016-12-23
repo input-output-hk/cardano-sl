@@ -10,7 +10,7 @@ import           Universum
 
 import           Pos.Context          (NodeContext, ncAttackTargets, ncAttackTypes)
 import           Pos.Security.Types   (AttackTarget (..), AttackType (..))
-import           Pos.Types.Address    (Address (..), AddressDestination (..))
+import           Pos.Types.Address    (Address (..))
 
 shouldIgnoreAddress :: NodeContext ssc -> NetworkAddress -> Bool
 shouldIgnoreAddress cont addr = and [
@@ -18,8 +18,8 @@ shouldIgnoreAddress cont addr = and [
     elem (NetworkAddressTarget addr) $ ncAttackTargets cont ]
 
 shouldIgnorePkAddress :: NodeContext ssc -> Address -> Bool
-shouldIgnorePkAddress cont addr = case addrDestination addr of
-    PubKeyDestination{..} -> and [
+shouldIgnorePkAddress cont addr = case addr of
+    PubKeyAddress{..} -> and [
         elem AttackNoCommitments $ ncAttackTypes cont,
-        elem (PubKeyAddressTarget addrDestKeyHash) $ ncAttackTargets cont ]
+        elem (PubKeyAddressTarget addrKeyHash) $ ncAttackTargets cont ]
     _ -> False

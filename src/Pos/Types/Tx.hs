@@ -26,8 +26,7 @@ import           Universum
 import           Pos.Binary.Types    ()
 import           Pos.Crypto          (Hash, WithHash (..), checkSig, hash)
 import           Pos.Script          (Script (..), isKnownScriptVersion, txScriptCheck)
-import           Pos.Types.Address   (Address (..), AddressDestination (..),
-                                      addressDetailedF)
+import           Pos.Types.Address   (Address (..), addressDetailedF)
 import           Pos.Types.Types     (Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
                                       TxWitness, checkPubKeyAddress, checkScriptAddress,
                                       coinF)
@@ -53,22 +52,19 @@ verifyTxAlone Tx {..} =
   where
     verifyOutputs = verifyGeneric $ concat $
                     zipWith outputPredicates [0..] txOutputs
-    outputPredicates (i :: Word) TxOut{txOutAddress = Address{..}, ..} =
-      [ ( txOutValue > 0
-        , sformat ("output #"%int%" has non-positive value: "%coinF)
-                  i txOutValue)
-      , case addrDestination of
-            PubKeyDestination _ ->
-                (null addrDistribution,
-                 sformat ("pubkey output #"%int%" has non-null distribution")
-                         i)
-            ScriptDestination _ ->
-                let sumDist = sum (map (toInteger . snd) addrDistribution)
-                in (sumDist <= toInteger txOutValue,
+    outputPredicates (i :: Word) TxOut{..} =
+      ( txOutValue > 0
+      , sformat ("output #"%int%" has non-positive value: "%coinF)
+                i txOutValue)
+      :
+      case txOutAddress of
+          PubKeyAddress _ -> []
+          ScriptAddress{..} ->
+              let sumDist = sum (map (toInteger . snd) addrDistribution)
+              in [ (sumDist <= toInteger txOutValue,
                     sformat ("output #"%int%" has distribution "%
                              "sum("%int%") > txOutValue("%coinF%")")
-                            i sumDist txOutValue)
-      ]
+                            i sumDist txOutValue) ]
 
 -- CSL-366 Add context-dependent variables to scripts
 -- Postponed for now, should be done in near future.

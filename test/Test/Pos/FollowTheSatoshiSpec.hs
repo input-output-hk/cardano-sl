@@ -23,8 +23,7 @@ import           Pos.Crypto            (PublicKey, unsafeHash)
 import           Pos.FollowTheSatoshi  (followTheSatoshi)
 import           Pos.Types             (Address, Coin (..), SharedSeed, TxId, TxOut (..),
                                         Utxo)
-import           Pos.Types.Address     (Address (..), AddressDestination (..),
-                                        AddressHash, curPubKeyAddrVersion)
+import           Pos.Types.Address     (Address (..), AddressHash)
 
 spec :: Spec
 spec = do
@@ -57,12 +56,6 @@ spec = do
     lowStakeTolerance  = (< round (fromIntegral numberOfRuns * lowStake)  + 50)  -- < ~250
     highStakeTolerance = (> round (fromIntegral numberOfRuns * highStake) - 50)  -- > ~9750
 
-mkAddress :: AddressHash PublicKey -> Address
-mkAddress h = Address {
-    addrVersion = curPubKeyAddrVersion,
-    addrDestination = PubKeyDestination h,
-    addrDistribution = [] }
-
 -- | Type used to generate random Utxo and a pubkey hash (addrhash) that is
 -- not in this map, meaning it does not hold any stake in the system's
 -- current state.
@@ -89,7 +82,7 @@ instance Arbitrary StakeAndHolder where
             values = scanl1 (+) $ replicate nAdr coins
             utxoList =
                 (replicate nAdr txId `zip` [0 .. fromIntegral nAdr]) `zip`
-                (zipWith (\ah v -> TxOut (mkAddress ah) v) (toList setUtxo) values)
+                (zipWith (\ah v -> TxOut (PubKeyAddress ah) v) (toList setUtxo) values)
         return (myAddrHash, M.fromList utxoList)
 
 ftsListLength :: SharedSeed -> StakeAndHolder -> Bool
@@ -104,10 +97,9 @@ ftsNoStake fts (getNoStake -> (addrHash, utxo)) =
     let nonEmpty = followTheSatoshi fts utxo
     in notElem addrHash nonEmpty
 
--- | This test looks useless, but since transactions with
--- zero coins are not allowed, the Utxo map will never have
--- any addresses with 0 coins to them, meaning a situation
--- where a stakeholder has 100% of stake is one where the
+-- | This test looks useless, but since transactions with zero coins are not
+-- allowed, the Utxo map will never have any addresses with 0 coins to them,
+-- meaning a situation where a stakeholder has 100% of stake is one where the
 -- map has a single element.
 ftsAllStake
     :: SharedSeed
@@ -116,10 +108,11 @@ ftsAllStake
     -> Coin
     -> Bool
 ftsAllStake fts key ah v =
-    let utxo = M.singleton key (TxOut (mkAddress ah) v)
+    let utxo = M.singleton key (TxOut (PubKeyAddress ah) v)
     in all (== ah) $ followTheSatoshi fts utxo
 
--- | Constant specifying the number of times 'ftsReasonableStake' will be run.
+-- | Constant specifying the number of times 'ftsReasonableStake' will be
+-- run.
 numberOfRuns :: Int
 numberOfRuns = 10000
 
@@ -173,7 +166,7 @@ ftsReasonableStake
     go total !present (fts : nextSeed) ((getNoStake -> (adrH, utxo)) : nextUtxo) =
         let totalStake = fromIntegral $ sum $ map (getCoin . txOutValue) $ M.elems utxo
             newStake   = round $ (stakeProbability * totalStake) / (1 - stakeProbability)
-            newUtxo    = M.insert key (TxOut (mkAddress adrH) newStake) utxo
+            newUtxo    = M.insert key (TxOut (PubKeyAddress adrH) newStake) utxo
             newPresent = if elem adrH (followTheSatoshi fts newUtxo)
                          then present + 1
                          else present

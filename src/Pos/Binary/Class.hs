@@ -11,7 +11,6 @@ module Pos.Binary.Class
        , decode
        , decodeOrFail
        , decodeFull
-
        ) where
 
 import           Control.Monad.Fail          (fail)

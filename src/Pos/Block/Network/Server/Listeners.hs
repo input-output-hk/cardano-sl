@@ -6,40 +6,42 @@
 
 -- | Server which deals with blocks processing.
 
-module Pos.Block.Server.Listeners
+module Pos.Block.Network.Server.Listeners
        ( blockListeners
        ) where
 
-import           Control.Lens             (view, (^.), _1)
-import           Data.List.NonEmpty       (NonEmpty ((:|)), nonEmpty)
-import qualified Data.List.NonEmpty       as NE
-import           Formatting               (sformat, stext, (%))
-import           Serokell.Util.Text       (listJson)
-import           System.Wlog              (logDebug, logInfo, logWarning)
+import           Control.Lens                   (view, (^.), _1)
+import           Data.List.NonEmpty             (NonEmpty ((:|)), nonEmpty)
+import qualified Data.List.NonEmpty             as NE
+import           Formatting                     (sformat, stext, (%))
+import           Serokell.Util.Text             (listJson)
+import           System.Wlog                    (logDebug, logInfo, logWarning)
 import           Universum
 
-import           Pos.Binary.Communication ()
-import           Pos.Block.Logic          (ClassifyHeaderRes (..),
-                                           ClassifyHeadersRes (..), applyBlocks,
-                                           classifyHeaders, classifyNewHeader,
-                                           getBlocksByHeaders, lcaWithMainChain,
-                                           retrieveHeadersFromTo, rollbackBlocks,
-                                           verifyBlocks, withBlkSemaphore_)
-import           Pos.Block.Requests       (replyWithBlocksRequest,
-                                           replyWithHeadersRequest)
-import           Pos.Block.Server.State   (ProcessBlockMsgRes (..), matchRequestedHeaders,
-                                           processBlockMsg)
-import           Pos.Communication.Types  (MsgBlock (..), MsgGetBlocks (..),
-                                           MsgGetHeaders (..), MsgHeaders (..),
-                                           MutSocketState, ResponseMode)
-import           Pos.Crypto               (hash, shortHashF)
-import           Pos.DB                   (loadBlocksFromTipWhile)
-import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog, getUserState,
-                                           replyToNode)
-import           Pos.Types                (Block, BlockHeader, Blund, HasHeaderHash (..),
-                                           HeaderHash, blockHeader, prevBlockL)
-import           Pos.Util                 (inAssertMode, _neHead, _neLast)
-import           Pos.WorkMode             (WorkMode)
+import           Pos.Binary.Communication       ()
+import           Pos.Block.Logic                (ClassifyHeaderRes (..),
+                                                 ClassifyHeadersRes (..), applyBlocks,
+                                                 classifyHeaders, classifyNewHeader,
+                                                 getBlocksByHeaders, lcaWithMainChain,
+                                                 retrieveHeadersFromTo, rollbackBlocks,
+                                                 verifyBlocks, withBlkSemaphore_)
+import           Pos.Block.Network.Announce     (announceBlock)
+import           Pos.Block.Network.Request      (replyWithBlocksRequest,
+                                                 replyWithHeadersRequest)
+import           Pos.Block.Network.Server.State (ProcessBlockMsgRes (..),
+                                                 matchRequestedHeaders, processBlockMsg)
+import           Pos.Block.Network.Types        (MsgBlock (..), MsgGetBlocks (..),
+                                                 MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Communication.Types        (MutSocketState, ResponseMode)
+import           Pos.Crypto                     (hash, shortHashF)
+import           Pos.DB                         (loadBlocksFromTipWhile)
+import           Pos.DHT.Model                  (ListenerDHT (..), MonadDHTDialog,
+                                                 getUserState, replyToNode)
+import           Pos.Types                      (Block, BlockHeader, Blund,
+                                                 HasHeaderHash (..), HeaderHash,
+                                                 blockHeader, gbHeader, prevBlockL)
+import           Pos.Util                       (inAssertMode, _neHead, _neLast)
+import           Pos.WorkMode                   (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
 blockListeners
@@ -230,6 +232,7 @@ applyWithoutRollback blocks = do
         | otherwise = newTip <$ do
             applyBlocks blunds
             logInfo $ blocksAppliedMsg @ssc blunds
+            relayBlock $ fst $ NE.last blunds
 
 applyWithRollback
     :: forall ssc m.
@@ -258,11 +261,19 @@ applyWithRollback toApply lca toRollback = do
                 Right undos -> newTip <$ do
                     applyBlocks (NE.zip toApplyAfterLca undos)
                     logInfo $ blocksAppliedMsg toApplyAfterLca
+                    relayBlock $ NE.last toApplyAfterLca
                 Left errors -> tip <$ do
                     onFailedVerifyBlocks errors
                     logDebug "Applying rollbacked blocks…"
                     applyBlocks toRollback
                     logDebug "Finished applying rollback blocks"
+
+relayBlock
+    :: forall ssc m.
+       (WorkMode ssc m)
+    => Block ssc -> m ()
+relayBlock (Left _)        = pass
+relayBlock (Right mainBlk) = announceBlock $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------
 -- Logging formats

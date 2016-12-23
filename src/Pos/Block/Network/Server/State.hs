@@ -6,7 +6,7 @@
 
 -- | Socket state of block processing server.
 
-module Pos.Block.Server.State
+module Pos.Block.Network.Server.State
        ( BlockSocketState
        , HasBlockSocketState (blockSocketState)
        , bssRequestedBlocks
@@ -19,20 +19,20 @@ module Pos.Block.Server.State
        , processBlockMsg
        ) where
 
-import           Control.Concurrent.STM        (TVar, modifyTVar, readTVar)
-import           Control.Lens                  (makeClassy, over, set, view, (.~), (^.))
-import           Data.Default                  (Default (def))
-import           Data.List                     (last)
-import           Data.List.NonEmpty            (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty            as NE
-import           Serokell.Util.Verify          (isVerSuccess)
+import           Control.Concurrent.STM  (TVar, modifyTVar, readTVar)
+import           Control.Lens            (makeClassy, over, set, view, (.~), (^.))
+import           Data.Default            (Default (def))
+import           Data.List               (last)
+import           Data.List.NonEmpty      (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty      as NE
+import           Serokell.Util.Verify    (isVerSuccess)
 import           Universum
 
-import           Pos.Communication.Types.Block (MsgBlock (..), MsgGetHeaders (..))
-import           Pos.Crypto                    (hash)
-import           Pos.Ssc.Class.Types           (Ssc)
-import           Pos.Types                     (Block, BlockHeader, HeaderHash,
-                                                headerHash, prevBlockL, verifyHeaders)
+import           Pos.Block.Network.Types (MsgBlock (..), MsgGetHeaders (..))
+import           Pos.Crypto              (hash)
+import           Pos.Ssc.Class.Types     (Ssc)
+import           Pos.Types               (Block, BlockHeader, HeaderHash, headerHash,
+                                          prevBlockL, verifyHeaders)
 
 -- | SocketState used for Block server.
 data BlockSocketState ssc = BlockSocketState

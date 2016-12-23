@@ -31,8 +31,6 @@ module Pos.Types.Types
        , epochOrSlot
 
        , Address (..)
-       , AddressVersion (..)
-       , AddressDestination (..)
        , makePubKeyAddress
        , makeScriptAddress
        , checkPubKeyAddress
@@ -165,8 +163,7 @@ import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, P
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Script             (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
-import           Pos.Types.Address      (Address (..), AddressDestination (..),
-                                         AddressHash, AddressVersion (..), addressF,
+import           Pos.Types.Address      (Address (..), AddressHash, addressF,
                                          checkPubKeyAddress, checkScriptAddress,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
@@ -296,9 +293,9 @@ instance Buildable TxOut where
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).
 txOutStake :: TxOut -> [(AddressHash PublicKey, Coin)]
-txOutStake TxOut{..} = case addrDestination txOutAddress of
-    PubKeyDestination x -> [(x, txOutValue)]
-    ScriptDestination _ -> addrDistribution txOutAddress
+txOutStake TxOut{..} = case txOutAddress of
+    PubKeyAddress x   -> [(x, txOutValue)]
+    ScriptAddress _ d -> d
 
 -- | Transaction.
 --
@@ -929,8 +926,6 @@ deriveSafeCopySimple 0 'base ''EpochIndex
 deriveSafeCopySimple 0 'base ''LocalSlotIndex
 deriveSafeCopySimple 0 'base ''SlotId
 deriveSafeCopySimple 0 'base ''Coin
-deriveSafeCopySimple 0 'base ''AddressVersion
-deriveSafeCopySimple 0 'base ''AddressDestination
 deriveSafeCopySimple 0 'base ''Address
 deriveSafeCopySimple 0 'base ''TxInWitness
 deriveSafeCopySimple 0 'base ''TxIn

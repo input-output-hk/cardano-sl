@@ -32,7 +32,8 @@ module Pos.Launcher.Runner
 import           Control.Concurrent.MVar         (newEmptyMVar, newMVar, takeMVar,
                                                   tryReadMVar)
 import           Control.Concurrent.STM.TVar     (newTVar)
-import           Control.Lens                    ((%~), (^.), (^?), _head)
+import           Control.Lens                    (each, to, (%~), (^..), (^?), _head,
+                                                  _tail)
 import           Control.Monad                   (fail)
 import           Control.Monad.Catch             (bracket)
 import           Control.Monad.Trans.Control     (MonadBaseControl)
@@ -67,7 +68,9 @@ import           Pos.Constants                   (RunningMode (..), defaultPeers
                                                   isDevelopment, runningMode)
 import           Pos.Context                     (ContextHolder (..), NodeContext (..),
                                                   defaultProxyCaches, runContextHolder)
+import           Pos.Crypto                      (createProxySecretKey, toPublic)
 import qualified Pos.DB                          as Modern
+import           Pos.DB.Misc                     (addProxySecretKey)
 import           Pos.DHT.Model                   (BiP (..), ListenerDHT, MonadDHT (..),
                                                   mapListenerDHT, sendToNeighbors)
 import           Pos.DHT.Model.Class             (DHTPacking, MonadDHTDialog)
@@ -260,7 +263,7 @@ runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
       , kdcDHTInstance = dhtInstance
       }
 
-runCH :: MonadIO m
+runCH :: Modern.MonadDB ssc m
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH NodeParams {..} sscNodeContext act = do
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
@@ -270,11 +273,20 @@ runCH NodeParams {..} sscNodeContext act = do
     proxyCaches <- liftIO $ newMVar defaultProxyCaches
     userSecret <- peekUserSecret npKeyfilePath
 
+    -- Get primary secret key
     (primarySecretKey, userSecret') <- case npSecretKey of
         Nothing -> case userSecret ^? usKeys . _head of
             Nothing -> fail $ "No secret keys are found in " ++ npKeyfilePath
             Just sk -> return (sk, userSecret)
-        Just sk -> return (sk, userSecret & usKeys %~ (sk :) . filter (/= sk))
+        Just sk -> do
+            let us = userSecret & usKeys %~ (sk :) . filter (/= sk)
+            writeUserSecret us
+            return (sk, us)
+
+    let eternity = (minBound, maxBound)
+        makeOwnPSK = flip (createProxySecretKey primarySecretKey) eternity . toPublic
+        ownPSKs = userSecret' ^.. usKeys._tail.each.to makeOwnPSK
+    forM_ ownPSKs addProxySecretKey
 
     userSecretVar <- liftIO . atomically . newTVar $ userSecret'
     let ctx =

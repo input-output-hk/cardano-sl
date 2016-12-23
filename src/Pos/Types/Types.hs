@@ -180,7 +180,7 @@ import           Pos.Util               (Color (Magenta), colorize)
 -- | Index of epoch.
 newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable)
+    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable, Bounded)
 
 instance Buildable EpochIndex where
     build = bprint ("epoch #"%int)

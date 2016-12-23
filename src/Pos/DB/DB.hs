@@ -3,6 +3,7 @@
 module Pos.DB.DB
        ( openNodeDBs
        , getTipBlock
+       , getTipBlockHeader
        , loadBlocksFromTipWhile
        ) where
 
@@ -19,7 +20,8 @@ import           Pos.DB.Holder                (runDBHolder)
 import           Pos.DB.Types                 (NodeDBs (..))
 import           Pos.DB.Utxo                  (getTip, prepareUtxoDB)
 import           Pos.Ssc.Class.Types          (Ssc)
-import           Pos.Types                    (Block, Undo, Utxo)
+import           Pos.Types                    (Block, BlockHeader, Undo, Utxo,
+                                               getBlockHeader)
 
 -- | Open all DBs stored on disk.
 openNodeDBs :: MonadResource m => FilePath -> Utxo -> m (NodeDBs ssc)
@@ -43,6 +45,12 @@ getTipBlock
 getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
   where
     onFailure = throwM $ DBMalformed "there is no block corresponding to tip"
+
+-- | Get BlockHeader corresponding to tip.
+getTipBlockHeader
+    :: (Ssc ssc, MonadDB ssc m)
+    => m (BlockHeader ssc)
+getTipBlockHeader = getBlockHeader <$> getTipBlock
 
 -- | Load blocks from BlockDB starting from tip and while @condition@ is true.
 -- The head of returned list is the youngest block.

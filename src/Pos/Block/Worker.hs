@@ -16,22 +16,22 @@ module Pos.Block.Worker
 
 import           Control.Lens                  (ix, (^.), (^?))
 import           Control.TimeWarp.Timed        (Microsecond, for, repeatForever, wait)
+import           Data.Default                  (def)
 import qualified Data.HashMap.Strict           as HM
-import           Data.Tagged                   (untag)
 import           Formatting                    (build, sformat, shown, (%))
 import           Serokell.Util                 (VerificationRes (..), listJson)
 import           Serokell.Util.Exceptions      ()
-import           System.Wlog                   (dispatchEvents, logDebug, logInfo,
-                                                logWarning)
+import           System.Wlog                   (WithLogger, dispatchEvents, logDebug,
+                                                logError, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication      ()
 #ifdef MODERN
-import           Pos.Communication.Types.Block (MsgHeaders)
+import           Pos.Communication.Methods     (sendToNeighborsSafeWithMaliciousEmulation)
+import           Pos.Communication.Types.Block (MsgHeaders (..))
 #endif
 #ifndef MODERN
-import           Pos.Communication.Methods     (announceBlock,
-                                                sendToNeighborsSafeWithMaliciousEmulation)
+import           Pos.Communication.Methods     (announceBlock)
 #endif
 import           Pos.Constants                 (networkDiameter, slotDuration)
 import           Pos.Context                   (getNodeContext, ncPropagation,
@@ -41,8 +41,8 @@ import           Pos.Crypto                    (ProxySecretKey, WithHash (WithHa
 import           Pos.DB.Misc                   (getProxySecretKeys)
 import           Pos.Slotting                  (MonadSlots (getCurrentTime), getSlotStart,
                                                 onNewSlot)
-import           Pos.Ssc.Class                 (sscApplyGlobalState, sscGetLocalPayload,
-                                                sscVerifyPayload)
+import           Pos.Ssc.Class                 (SscHelpersClass, sscApplyGlobalState,
+                                                sscGetLocalPayload)
 #ifdef MODERN
 import           Pos.Block.Logic               (createMainBlock, processNewSlot)
 import           Pos.Context.Class             (tryReadLeaders)
@@ -51,11 +51,13 @@ import           Pos.State                     (createNewBlock, getGlobalMpcData
                                                 getHeadBlock, getLeaders, processNewSlot)
 #endif
 import           Pos.Txp.LocalData             (getLocalTxs)
-import           Pos.Types                     (EpochIndex, MainBlockHeader, SlotId (..),
-                                                Timestamp (Timestamp), blockMpc, gbHeader,
-                                                slotIdF, topsortTxs)
+import           Pos.Types                     (EpochIndex, MainBlock, MainBlockHeader,
+                                                SlotId (..), Timestamp (Timestamp),
+                                                VerifyBlockParams (..), blockMpc,
+                                                gbHeader, slotIdF, topsortTxs,
+                                                verifyBlock)
 import           Pos.Types.Address             (addressHash)
-import           Pos.Util                      (logWarningWaitLinear)
+import           Pos.Util                      (inAssertMode, logWarningWaitLinear)
 import           Pos.Util.JsonLog              (jlCreatedBlock, jlLog)
 import           Pos.WorkMode                  (WorkMode)
 
@@ -76,7 +78,7 @@ announceBlock
     => MainBlockHeader ssc -> m ()
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
-    sendToNeighborsSafeWithMaliciousEmulation . MsgHeaders $ pure header
+    sendToNeighborsSafeWithMaliciousEmulation . MsgHeaders $ pure $ Right header
 #endif
 
 -- Action which should be done when new slot starts.
@@ -147,20 +149,13 @@ onNewSlotWhenLeader slotId pSk = do
     logInfo $
         sformat ("Waiting for "%shown%" before creating block") timeToWait
     wait (for timeToWait)
-    let verifyCreatedBlock blk =
-            untag sscVerifyPayload
-            (blk ^. gbHeader) (blk ^. blockMpc)
     let onNewSlotWhenLeaderDo = do
             logInfo "It's time to create a block for current slot"
             let whenCreated createdBlk = do
                     logInfo $
                         sformat ("Created a new block:\n" %build) createdBlk
                     jlLog $ jlCreatedBlock (Right createdBlk)
-                    case verifyCreatedBlock createdBlk of
-                        VerSuccess -> return ()
-                        VerFailure warnings -> logWarning $ sformat
-                            ("New block failed some checks: "%listJson)
-                            warnings
+                    verifyCreatedBlock createdBlk
 #ifndef MODERN
                     globalData <- logWarningWaitLinear 6 "getGlobalMpcData"
                         getGlobalMpcData
@@ -170,7 +165,7 @@ onNewSlotWhenLeader slotId pSk = do
                     announceBlock $ createdBlk ^. gbHeader
             let whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
 #ifdef MODERN
-            createdBlock <- createMainBlock pSk
+            createdBlock <- createMainBlock slotId pSk
 #else
             sscData <- sscGetLocalPayload slotId
             localTxs <- HM.toList <$> getLocalTxs
@@ -183,6 +178,21 @@ onNewSlotWhenLeader slotId pSk = do
 #endif
             either whenNotCreated whenCreated createdBlock
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
+
+verifyCreatedBlock :: (WithLogger m, SscHelpersClass ssc) => MainBlock ssc -> m ()
+verifyCreatedBlock blk =
+    inAssertMode $
+    case verifyBlock vbp (Right blk) of
+        VerSuccess -> pass
+        VerFailure errors ->
+            logError $ sformat ("New block failed some checks: " %listJson) errors
+  where
+    vbp =
+        def
+        { vbpVerifyGeneric = True
+        , vbpVerifyTxs = True
+        , vbpVerifySsc = True
+        }
 
 ----------------------------------------------------------------------------
 -- Obsolete transmitter

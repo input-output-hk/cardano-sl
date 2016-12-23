@@ -24,7 +24,7 @@ import           Pos.Block.Logic          (ClassifyHeaderRes (..),
                                            classifyHeaders, classifyNewHeader,
                                            getBlocksByHeaders, lcaWithMainChain,
                                            retrieveHeadersFromTo, rollbackBlocks,
-                                           verifyBlocks, withBlkSemaphore)
+                                           verifyBlocks, withBlkSemaphore_)
 import           Pos.Block.Requests       (replyWithBlocksRequest,
                                            replyWithHeadersRequest)
 import           Pos.Block.Server.State   (ProcessBlockMsgRes (..), matchRequestedHeaders,
@@ -216,7 +216,7 @@ applyWithoutRollback blocks = do
     verRes <- verifyBlocks blocks
     either
         onFailedVerifyBlocks
-        (withBlkSemaphore . applyWithoutRollbackDo . NE.zip blocks)
+        (withBlkSemaphore_ . applyWithoutRollbackDo . NE.zip blocks)
         verRes
     logDebug "Finished applying blocks w/o rollback"
   where
@@ -238,7 +238,7 @@ applyWithRollback
     => NonEmpty (Block ssc) -> HeaderHash ssc -> NonEmpty (Blund ssc) -> m ()
 applyWithRollback toApply lca toRollback = do
     logDebug "Trying to apply blocks w/ rollback…"
-    withBlkSemaphore applyWithRollbackDo
+    withBlkSemaphore_ applyWithRollbackDo
     logDebug "Finished applying blocks w/ rollback"
   where
     newestToRollback = toRollback ^. _neHead . _1 . headerHashG

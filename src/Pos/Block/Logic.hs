@@ -23,6 +23,7 @@ module Pos.Block.Logic
        , verifyBlocks
        , getBlocksByHeaders
        , withBlkSemaphore
+       , withBlkSemaphore_
        , processNewSlot
        , createMainBlock
        ) where
@@ -41,23 +42,27 @@ import           Serokell.Util.Verify      (VerificationRes (..), formatAllError
 import           Universum
 
 import           Pos.Constants             (k)
-import           Pos.Context               (putBlkSemaphore, takeBlkSemaphore)
-import           Pos.Crypto                (ProxySecretKey, hash)
-import           Pos.DB                    (MonadDB)
+import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
+                                            putBlkSemaphore, takeBlkSemaphore)
+import           Pos.Crypto                (ProxySecretKey, SecretKey,
+                                            WithHash (WithHash), hash)
+import           Pos.DB                    (MonadDB, getTipBlockHeader, loadHeadersUntil)
 import qualified Pos.DB                    as DB
-import           Pos.DB.Block              (loadHeadersUntil)
+import           Pos.Modern.Txp.Class      (getLocalTxs)
 import           Pos.Modern.Txp.Logic      (txApplyBlocks, txRollbackBlocks,
                                             txVerifyBlocks)
 import           Pos.Slotting              (getCurrentSlot)
-import           Pos.Ssc.Class             (Ssc)
-import           Pos.Ssc.Extra             (sscApplyBlocks, sscRollback, sscVerifyBlocks)
+import           Pos.Ssc.Class             (Ssc (..))
+import           Pos.Ssc.Extra             (sscApplyBlocks, sscGetLocalPayloadM,
+                                            sscRollback, sscVerifyBlocks)
 import           Pos.Types                 (Block, BlockHeader, Blund, EpochIndex,
-                                            EpochOrSlot, GenesisBlock, HeaderHash,
-                                            MainBlock, SlotId, Undo,
+                                            EpochOrSlot (..), GenesisBlock, HeaderHash,
+                                            IdTxWitness, MainBlock, SlotId (..), Undo,
                                             VerifyHeaderParams (..), blockHeader,
-                                            difficultyL, flattenEpochOrSlot,
-                                            getEpochOrSlot, headerSlot, prevBlockL,
-                                            verifyHeader, verifyHeaders,
+                                            difficultyL, epochOrSlot, flattenEpochOrSlot,
+                                            getEpochOrSlot, headerHash, headerSlot,
+                                            mkMainBlock, mkMainBody, prevBlockL,
+                                            topsortTxs, verifyHeader, verifyHeaders,
                                             vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
 import           Pos.WorkMode              (WorkMode)
@@ -248,11 +253,19 @@ verifyBlocks blocks =
 -- action is an old tip, result is put as a new tip.
 withBlkSemaphore
     :: WorkMode ssc m
-    => (HeaderHash ssc -> m (HeaderHash ssc)) -> m ()
+    => (HeaderHash ssc -> m (a, HeaderHash ssc)) -> m a
 withBlkSemaphore action = do
     tip <- takeBlkSemaphore
-    let putBack = putBlkSemaphore tip
-    onException (action tip >>= putBlkSemaphore) putBack
+    let impl = do
+            (res, newTip) <- action tip
+            res <$ putBlkSemaphore newTip
+    impl `onException` putBlkSemaphore tip
+
+-- | Version of withBlkSemaphore which doesn't have any result.
+withBlkSemaphore_
+    :: WorkMode ssc m
+    => (HeaderHash ssc -> m (HeaderHash ssc)) -> m ()
+withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
 
 -- | Apply definitely valid sequence of blocks. At this point we must
 -- have verified all predicates regarding block (including txs and ssc
@@ -328,6 +341,59 @@ processNewSlot _ = notImplemented
 createMainBlock
     :: forall ssc m.
        WorkMode ssc m
-    => Maybe (ProxySecretKey (EpochIndex, EpochIndex))
+    => SlotId
+    -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
     -> m (Either Text (MainBlock ssc))
-createMainBlock = notImplemented
+createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
+  where
+    createMainBlockDo tip = do
+        tipHeader <- getTipBlockHeader
+        case canCreateBlock sId tipHeader of
+            Nothing  -> convertRes <$> createMainBlockFinish sId pSk tipHeader
+            Just err -> return (Left err, tip)
+    convertRes blk = (Right blk, headerHash blk)
+
+canCreateBlock :: SlotId -> BlockHeader ssc -> Maybe Text
+canCreateBlock sId tipHeader
+       | sId > maxSlotId =
+           Just "slot id is too big, we don't know recent block"
+       | (EpochOrSlot $ Right sId) < headSlot =
+           Just "slot id is not biger than one from last known block"
+       | otherwise = Nothing
+  where
+    addKSafe si = si {siSlot = min (6 * k - 1) (siSlot si + k)}
+    headSlot = getEpochOrSlot tipHeader
+    maxSlotId = addKSafe $ epochOrSlot (`SlotId` 0) identity headSlot
+
+-- Here we assume that blkSemaphore has been taken.
+createMainBlockFinish
+    :: forall ssc m.
+       WorkMode ssc m
+    => SlotId
+    -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
+    -> BlockHeader ssc
+    -> m (MainBlock ssc)
+createMainBlockFinish slotId pSk prevHeader = do
+    localTxs <- getLocalTxs
+    sscData <- sscGetLocalPayloadM slotId
+    let panicTopsort = panic "Topology of local transactions is broken!"
+    let convertTx (txId, (tx, _)) = WithHash tx txId
+    let sortedTxs = fromMaybe panicTopsort $ topsortTxs convertTx localTxs
+    sk <- ncSecretKey <$> getNodeContext
+    let blk = createMainBlockPure prevHeader sortedTxs pSk slotId sscData sk
+    -- [CSL-403] Obtain Undo.
+    blk <$ applyBlocks (pure (Right blk, []))
+
+createMainBlockPure
+    :: Ssc ssc
+    => BlockHeader ssc
+    -> [IdTxWitness]
+    -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
+    -> SlotId
+    -> SscPayload ssc
+    -> SecretKey
+    -> MainBlock ssc
+createMainBlockPure prevHeader txs pSk sId sscData sk =
+    mkMainBlock (Just prevHeader) sId sk pSk body
+  where
+    body = mkMainBody (fmap snd txs) sscData

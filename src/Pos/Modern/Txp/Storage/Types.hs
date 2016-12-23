@@ -4,6 +4,7 @@ module Pos.Modern.Txp.Storage.Types
        , MemPool (..)
        , TxMap
        ) where
+
 import           Data.Default        (Default, def)
 import qualified Data.HashMap.Strict as HM
 import           Data.HashSet        (HashSet)

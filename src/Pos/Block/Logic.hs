@@ -13,7 +13,6 @@ module Pos.Block.Logic
        , classifyNewHeader
        , ClassifyHeadersRes (..)
        , classifyHeaders
-       , loadHeadersUntil
        , retrieveHeadersFromTo
        , getHeadersOlderExp
        , lcaWithMainChain
@@ -46,6 +45,7 @@ import           Pos.Context               (putBlkSemaphore, takeBlkSemaphore)
 import           Pos.Crypto                (ProxySecretKey, hash)
 import           Pos.DB                    (MonadDB)
 import qualified Pos.DB                    as DB
+import           Pos.DB.Block              (loadHeadersUntil)
 import           Pos.Modern.Txp.Logic      (txApplyBlocks, txRollbackBlocks,
                                             txVerifyBlocks)
 import           Pos.Slotting              (getCurrentSlot)
@@ -173,27 +173,6 @@ classifyHeaders headers@(h:|hs) = do
                            " which is more than k = "%int)
                           depthDiff (k :: Int)
             | otherwise -> CHsValid lcaChild
-
--- | Takes a starting header hash and queries blockchain until some
--- condition is true or parent wasn't found. Returns headers newest
--- first.
-loadHeadersUntil
-    :: forall ssc m.
-       (MonadDB ssc m, Ssc ssc)
-    => HeaderHash ssc
-    -> (BlockHeader ssc -> Int -> Bool)
-    -> m [BlockHeader ssc]
-loadHeadersUntil startHHash cond = reverse <$> loadHeadersUntilDo startHHash 0
-  where
-    loadHeadersUntilDo :: HeaderHash ssc -> Int -> m [BlockHeader ssc]
-    loadHeadersUntilDo curH depth = do
-        curHeaderM <- DB.getBlockHeader curH
-        let guarded' = curHeaderM >>= \v -> guard (cond v depth) >> pure v
-        maybe (pure [])
-              (\curHeader ->
-                 (curHeader:) <$>
-                 loadHeadersUntilDo (curHeader ^. prevBlockL ) (succ depth))
-              guarded'
 
 -- | Given a set of checkpoints to stop at, we take second header hash
 -- block (or tip if latter is @Nothing@) and fetch the blocks until we

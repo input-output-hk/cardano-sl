@@ -136,6 +136,7 @@ makeScriptAddress scr = Address {
     addrDestination = ScriptDestination (addressHash scr),
     addrDistribution = [] }
 
+-- CHECK: @checkPubKeyAddress
 -- | Check if given 'Address' is created from given 'PublicKey'
 checkPubKeyAddress :: PublicKey -> Address -> Bool
 checkPubKeyAddress key Address{..} =

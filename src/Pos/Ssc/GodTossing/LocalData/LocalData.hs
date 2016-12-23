@@ -95,6 +95,9 @@ localOnNewSlotU si@SlotId {siSlot = slotIdx} = do
 -- Check knowledge of data
 ----------------------------------------------------------------------------
 
+-- CHECK: @sscIsDataUseful
+-- #sscIsDataUsefulQ
+
 -- | Check whether SSC data with given tag and public key can be added
 -- to local data.
 sscIsDataUseful
@@ -102,6 +105,9 @@ sscIsDataUseful
     => MsgTag -> Address -> m Bool
 sscIsDataUseful tag = sscRunLocalQuery . sscIsDataUsefulQ tag
 
+-- CHECK: @sscIsDataUsefulQ
+-- | Check whether SSC data with given tag and public key can be added
+-- to local data.
 sscIsDataUsefulQ :: MsgTag -> Address -> LDQuery Bool
 sscIsDataUsefulQ CommitmentMsg =
     sscIsDataUsefulImpl gtLocalCommitments gtGlobalCommitments
@@ -198,6 +204,7 @@ processShares certs addr s
         ok <- andM checks
         ok <$ when ok (gtLocalShares . at addr .= Just newLocalShares)
 
+-- CHECK: #checkShares
 checkSharesLastVer :: VssCertificatesMap -> Address -> HashMap Address (AsBinary Share) -> LDQuery Bool
 checkSharesLastVer certs addr shares =
     (\comms openings -> checkShares comms openings certs addr shares) <$>

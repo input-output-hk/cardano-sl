@@ -170,7 +170,7 @@ onNewSlotWhenLeader slotId pSk = do
                     announceBlock $ createdBlk ^. gbHeader
             let whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
 #ifdef MODERN
-            createdBlock <- createMainBlock pSk
+            createdBlock <- createMainBlock slotId pSk
 #else
             sscData <- sscGetLocalPayload slotId
             localTxs <- HM.toList <$> getLocalTxs

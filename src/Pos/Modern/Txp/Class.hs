@@ -9,15 +9,17 @@ module Pos.Modern.Txp.Class
        (
          MonadTxpLD (..)
        , TxpLD
+       , getLocalTxs
        ) where
 
 import           Control.Monad.Trans          (MonadTrans)
+import qualified Data.HashMap.Strict          as HM
 import           Universum
 
 import           Pos.DHT.Model.Class          (DHTResponseT)
 import           Pos.DHT.Real                 (KademliaDHT)
-import           Pos.Modern.Txp.Storage.Types (MemPool, UtxoView)
-import           Pos.Types                    (HeaderHash)
+import           Pos.Modern.Txp.Storage.Types (MemPool (localTxs), UtxoView)
+import           Pos.Types                    (HeaderHash, IdTxWitness)
 
 -- | LocalData of transactions processing.
 -- There are two invariants which must hold for local data
@@ -62,3 +64,6 @@ instance MonadTxpLD ssc m => MonadTxpLD ssc (ReaderT r m)
 instance MonadTxpLD ssc m => MonadTxpLD ssc (DHTResponseT s m)
 
 instance MonadTxpLD ssc m => MonadTxpLD ssc (KademliaDHT m)
+
+getLocalTxs :: MonadTxpLD ssc m => m [IdTxWitness]
+getLocalTxs = HM.toList . localTxs <$> getMemPool

@@ -21,7 +21,7 @@ import           System.Wlog              (logDebug)
 import           Universum
 
 import           Pos.Binary.Communication ()
-import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkSemaphore)
+import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkSemaphore_)
 import           Pos.Constants            (k)
 import           Pos.Context              (getNodeContext)
 import           Pos.Context.Context      (ncSscLeaders, ncSscRichmen)
@@ -35,7 +35,7 @@ import           Pos.Types                (Address, Coin, EpochOrSlot (..), Part
 import           Pos.WorkMode             (WorkMode)
 
 lrcOnNewSlot :: WorkMode ssc m => SlotId -> m () --Leaders and Participants computation
-lrcOnNewSlot SlotId{siSlot = slotId, siEpoch = epochId} = withBlkSemaphore $ \tip -> do
+lrcOnNewSlot SlotId{siSlot = slotId, siEpoch = epochId} = withBlkSemaphore_ $ \tip -> do
     if slotId == 0 then do
         logDebug $ "It's time to compute leaders and parts"
         blockUndoList <- loadBlocksFromTipWhile whileMoreOrEq5k

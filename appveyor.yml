@@ -47,7 +47,7 @@ test_script:
   - cd ..
 
 artifacts:
-  - path: installers/cardano-installer.exe
+  - path: installers/cardano-win64-installer.exe
     name: CardanoWindows64Installer.exe
 
 notifications:

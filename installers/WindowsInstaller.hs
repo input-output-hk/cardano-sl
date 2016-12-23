@@ -7,7 +7,7 @@ import System.Directory
 writeNSIS :: IO ()
 writeNSIS = writeFile "cardano.nsi" $ nsis $ do
      name "Cardano"                  -- The name of the installer
-     outFile "cardano-installer.exe"           -- Where to produce the installer
+     outFile "cardano-win64-installer.exe"           -- Where to produce the installer
      installDir "$PROGRAMFILES/Cardano"   -- The default installation directory
      installDirRegKey HKLM "Software/Cardano" "Install_Dir"
      requestExecutionLevel User       -- Request application privileges for Windows Vista
@@ -36,5 +36,5 @@ main = do
   copyFile "C:\\Windows\\System32\\advapi32.dll" "advapi32.dll"
   echo "Writing cardano.nsi"
   writeNSIS
-  echo "Generating NSIS installer cardano-installer.exe"
+  echo "Generating NSIS installer cardano-win64-installer.exe"
   procs "makensis" ["cardano.nsi"] mempty

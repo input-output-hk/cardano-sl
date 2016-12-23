@@ -40,6 +40,7 @@ import           Pos.Types              (BadSigsTx (..), GoodTx (..), OverflowTx
                                          SmallBadSigsTx (..), SmallGoodTx (..),
                                          SmallOverflowTx (..), Tx (..), TxIn (..),
                                          TxInWitness (..), TxOut (..), TxWitness, Utxo,
+                                         VTxGlobalContext (..), VTxLocalContext (..),
                                          checkPubKeyAddress, makePubKeyAddress,
                                          makeScriptAddress, topsortTxs, verifyTxAlone,
                                          verifyTxPure, verifyTxUtxoPure)
@@ -275,7 +276,8 @@ validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
     let quadruple@(tx, inpResolver, _, txWits) =
             getTxFromGoodTx ls
         transactionIsVerified =
-            isRight $ verifyTxPure True inpResolver (tx, txWits)
+            isRight $ verifyTxPure True
+            VTxGlobalContext (fmap VTxLocalContext <$> inpResolver) (tx, txWits)
         transactionReallyIsGood = individualTxPropertyVerifier quadruple
     in  transactionIsVerified == transactionReallyIsGood
 
@@ -284,7 +286,8 @@ overflowTx (SmallOverflowTx (getOverflowTx -> ls)) =
     let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
         transactionIsNotVerified =
-            isLeft $ verifyTxPure True inpResolver (tx, txWits)
+            isLeft $ verifyTxPure True
+            VTxGlobalContext (fmap VTxLocalContext <$> inpResolver) (tx, txWits)
         inpSumLessThanOutSum = not $ txChecksum extendedInputs txOutputs
     in inpSumLessThanOutSum == transactionIsNotVerified
 
@@ -301,7 +304,9 @@ badSigsTx :: SmallBadSigsTx -> Bool
 badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
     let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
-        transactionIsNotVerified = isLeft $ verifyTxPure True inpResolver (tx, txWits)
+        transactionIsNotVerified =
+            isLeft $ verifyTxPure True VTxGlobalContext
+            (fmap VTxLocalContext <$> inpResolver) (tx, txWits)
         notAllSignaturesAreValid =
             any (signatureIsNotValid txOutputs) $ zip extendedInputs (V.toList txWits)
     in notAllSignaturesAreValid == transactionIsNotVerified

@@ -7,6 +7,8 @@
 
 module Pos.Types.Tx
        ( verifyTxAlone
+       , VTxGlobalContext (..)
+       , VTxLocalContext (..)
        , verifyTx
        , verifyTxPure
        , topsortTxs
@@ -29,6 +31,11 @@ import           Pos.Types.Types     (Tx (..), TxIn (..), TxInWitness (..), TxOu
                                       TxWitness, checkPubKeyAddress, checkScriptAddress,
                                       coinF)
 import           Pos.Util            (verResToEither)
+
+
+----------------------------------------------------------------------------
+-- Verification
+----------------------------------------------------------------------------
 
 -- | Verify that Tx itself is correct. Most likely you will also want
 -- to verify that inputs are legal, signed properly and have enough coins;
@@ -59,6 +66,24 @@ verifyTxAlone Tx {..} =
                              "sum("%int%") > txOutValue("%coinF%")")
                             i sumDist txOutValue) ]
 
+-- CSL-366 Add context-dependent variables to scripts
+-- Postponed for now, should be done in near future.
+-- Maybe these datatypes should be moved to Types.
+-- | Global context data needed for script execution -- is same for
+-- the whole transaction. VT stands for "Verify Tx". Currently empty.
+data VTxGlobalContext = VTxGlobalContext
+    {
+--      vtgSlotId   :: SlotId                  -- ^ Slot id of block transaction is checked in
+--    , vtgLeaderId :: AddressHash (PublicKey) -- ^ Leader id of block transaction is checked in
+    } deriving (Show)
+
+-- | Local context data for scripts -- differs per input.
+data VTxLocalContext = VTxLocalContext
+    {
+--      vtlSlotId :: SlotId -- ^ Slot of the block transaction output was declared in
+     vtlTxOut  :: TxOut  -- ^ Transaction output
+    } deriving (Show)
+
 -- | CHECK: Verify Tx correctness using magic function which resolves
 -- input into Address and Coin. It optionally does checks from
 -- 'verifyTxAlone' and also the following checks:
@@ -76,19 +101,24 @@ verifyTxAlone Tx {..} =
 verifyTx
     :: (Monad m)
     => Bool
-    -> (TxIn -> m (Maybe TxOut))
+    -> VTxGlobalContext
+    -> (TxIn -> m (Maybe VTxLocalContext))
     -> (Tx, TxWitness)
     -> m (Either Text [TxOut])
-verifyTx verifyAlone inputResolver txs@(Tx {..}, _) = do
+verifyTx verifyAlone gContext inputResolver txs@(Tx {..}, _) = do
     extendedInputs <- mapM extendInput txInputs
     pure $ verResToEither
-        (verifyTxDo verifyAlone extendedInputs txs)
-        (map snd . catMaybes $ extendedInputs)
+        (verifyTxDo verifyAlone gContext extendedInputs txs)
+        (map (vtlTxOut . snd) . catMaybes $ extendedInputs)
   where
     extendInput txIn = fmap (txIn, ) <$> inputResolver txIn
 
-verifyTxDo :: Bool -> [Maybe (TxIn, TxOut)] -> (Tx, TxWitness) -> VerificationRes
-verifyTxDo verifyAlone extendedInputs (tx@Tx{..}, witnesses) =
+verifyTxDo :: Bool
+           -> VTxGlobalContext
+           -> [Maybe (TxIn, VTxLocalContext)]
+           -> (Tx, TxWitness)
+           -> VerificationRes
+verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses) =
     mconcat [verifyAloneRes, verifyCounts, verifySum, verifyInputs]
   where
     verifyAloneRes | verifyAlone = verifyTxAlone tx
@@ -97,7 +127,8 @@ verifyTxDo verifyAlone extendedInputs (tx@Tx{..}, witnesses) =
     outSum = sum $ fmap (toInteger . txOutValue) txOutputs
     resolvedInputs = catMaybes extendedInputs
     inpSum :: Integer
-    inpSum = sum $ fmap (toInteger . txOutValue . snd) resolvedInputs
+    inpSum =
+        sum $ fmap (toInteger . txOutValue . vtlTxOut . snd) resolvedInputs
     txOutHash = hash txOutputs
     verifyCounts =
         verifyGeneric
@@ -110,30 +141,29 @@ verifyTxDo verifyAlone extendedInputs (tx@Tx{..}, witnesses) =
         let resInps = length resolvedInputs
             extInps = length extendedInputs
             allInputsExist = resInps == extInps
-            verifier =
-                if allInputsExist
-                    then ( inpSum >= outSum
-                         , sformat
-                               ("sum of outputs is more than sum of inputs ("
-                                %int%" > "%int)
-                                outSum inpSum)
-                    else ( False
-                         , sformat
-                               (int%" inputs could not be resolved")
-                               (abs $ resInps - extInps))
+            verifier
+                | allInputsExist =
+                    ( inpSum >= outSum
+                    , sformat ("sum of outputs is more than sum of inputs ("%int%" > "%int)
+                               outSum inpSum)
+                | otherwise =
+                    ( False
+                    , sformat (int%" inputs could not be resolved")
+                              (abs $ resInps - extInps))
         in verifyGeneric [verifier]
     verifyInputs =
         verifyGeneric $ concat $
             zipWith3 inputPredicates [0..] extendedInputs (toList witnesses)
 
     inputPredicates
-        :: Word                     -- ^ Input index
-        -> Maybe (TxIn, TxOut)      -- ^ Input and corresponding output
+        :: Word                          -- ^ Input index
+        -> Maybe (TxIn, VTxLocalContext) -- ^ Input and corresponding output data
         -> TxInWitness
         -> [(Bool, Text)]
     inputPredicates i Nothing _ =
         [(False, sformat ("input #"%int%" is not an unspent output") i)]
-    inputPredicates i (Just (txIn@TxIn{..}, txOut@TxOut{..})) witness =
+    inputPredicates i (Just (txIn@TxIn{..}, lContext)) witness =
+        let txOut@TxOut{..} = vtlTxOut lContext in
         [ ( checkAddrHash txOutAddress witness
           , sformat ("input #"%int%"'s witness doesn't match address "%
                      "of corresponding output:\n"%
@@ -143,7 +173,7 @@ verifyTxDo verifyAlone extendedInputs (tx@Tx{..}, witnesses) =
                      "  witness: "%build)
                 i txIn txOut txOutAddress witness
           )
-        , case validateTxIn txIn witness of
+        , case validateTxIn txIn lContext witness of
               Right _ -> (True, panic "can't happen")
               Left err -> (False, sformat
                   ("input #"%int%" isn't validated by its witness:\n"%
@@ -157,24 +187,31 @@ verifyTxDo verifyAlone extendedInputs (tx@Tx{..}, witnesses) =
     checkAddrHash addr PkWitness{..}     = checkPubKeyAddress twKey addr
     checkAddrHash addr ScriptWitness{..} = checkScriptAddress twValidator addr
 
-    validateTxIn TxIn{..} PkWitness{..} =
+    validateTxIn TxIn{..} _ PkWitness{..} =
         if checkSig twKey (txInHash, txInIndex, txOutHash) twSig
             then Right ()
             else Left "signature check failed"
-    validateTxIn TxIn{..} ScriptWitness{..}
+    -- second argument here is local context, can be used for scripts
+    validateTxIn TxIn{..} lContext ScriptWitness{..}
         | scrVersion twValidator /= scrVersion twRedeemer =
             Left "validator and redeemer have different versions"
         | not (isKnownScriptVersion (scrVersion twValidator)) =
             Right ()
-        | otherwise =
-            txScriptCheck twValidator twRedeemer
+        | False = let hole = hole in hole gContext lContext
+        | otherwise = txScriptCheck twValidator twRedeemer
 
 verifyTxPure :: Bool
-             -> (TxIn -> Maybe TxOut)
+             -> VTxGlobalContext
+             -> (TxIn -> Maybe VTxLocalContext)
              -> (Tx, TxWitness)
              -> Either Text [TxOut]
-verifyTxPure verifyAlone resolver =
-    runIdentity . verifyTx verifyAlone (Identity . resolver)
+verifyTxPure verifyAlone gContext resolver =
+    runIdentity . verifyTx verifyAlone gContext (Identity . resolver)
+
+
+----------------------------------------------------------------------------
+-- Topsorting
+----------------------------------------------------------------------------
 
 data TopsortState a = TopsortState
     { _tsVisited     :: HS.HashSet (Hash Tx)

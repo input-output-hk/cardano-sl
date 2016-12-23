@@ -180,8 +180,6 @@ library
                         Pos.Ssc.Extra.LocalData
                         Pos.Ssc.Extra.MonadGS
                         Pos.Ssc.Extra.MonadLD
-                        Pos.Modern.Ssc.GodTossing.Secret.SecretStorage
-                        Pos.Modern.Ssc.GodTossing.Secret.Types
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
@@ -190,19 +188,19 @@ library
                         Pos.Ssc.GodTossing.LocalData.LocalData
                         Pos.Ssc.GodTossing.LocalData.Types
                         Pos.Ssc.GodTossing.Storage.Types
-                        Pos.Ssc.GodTossing.Workers
+                        Pos.Ssc.GodTossing.Secret.SecretStorage
+                        Pos.Ssc.GodTossing.Secret.Types
                         Pos.Ssc.GodTossing.Seed
+                        Pos.Ssc.GodTossing.Storage.Storage
+                        Pos.Ssc.GodTossing.Storage.Types
                         Pos.Ssc.GodTossing.Types
                         Pos.Ssc.GodTossing.Types.Base
                         Pos.Ssc.GodTossing.Types.Instance
                         Pos.Ssc.GodTossing.Types.Message
                         Pos.Ssc.GodTossing.Types.Type
                         Pos.Ssc.GodTossing.Types.Types
-                        Pos.Ssc.GodTossing.Secret.SecretStorage
-                        Pos.Ssc.GodTossing.Secret.Types
-                        Pos.Ssc.GodTossing.Storage.Storage
-                        Pos.Ssc.GodTossing.Storage.Types
                         Pos.Ssc.GodTossing.Utils
+                        Pos.Ssc.GodTossing.Workers
                         Pos.State.Storage.Block
                         Pos.State.Storage.Types
                         Pos.Statistics.Helpers

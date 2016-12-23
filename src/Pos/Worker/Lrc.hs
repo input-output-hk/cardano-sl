@@ -7,7 +7,7 @@
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
 
--- | Block processing related workers.
+-- | Workers responsible for Leaders and Richmen calculation.
 
 module Pos.Worker.Lrc
        ( lrcOnNewSlot

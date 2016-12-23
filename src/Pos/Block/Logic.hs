@@ -23,6 +23,8 @@ module Pos.Block.Logic
        , verifyBlocks
        , getBlocksByHeaders
        , withBlkSemaphore
+       , processNewSlot
+       , createMainBlock
        ) where
 
 import           Control.Lens              (view, (^.))
@@ -40,7 +42,7 @@ import           Universum
 
 import           Pos.Constants             (k)
 import           Pos.Context               (putBlkSemaphore, takeBlkSemaphore)
-import           Pos.Crypto                (hash)
+import           Pos.Crypto                (ProxySecretKey, hash)
 import           Pos.DB                    (MonadDB)
 import qualified Pos.DB                    as DB
 import           Pos.DB.Block              (loadHeadersUntil)
@@ -49,7 +51,8 @@ import           Pos.Modern.Txp.Logic      (txApplyBlocks, txRollbackBlocks,
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class             (Ssc)
 import           Pos.Ssc.Extra             (sscApplyBlocks, sscRollback, sscVerifyBlocks)
-import           Pos.Types                 (Block, BlockHeader, EpochOrSlot, HeaderHash,
+import           Pos.Types                 (Block, BlockHeader, EpochIndex, EpochOrSlot,
+                                            GenesisBlock, HeaderHash, MainBlock, SlotId,
                                             Undo, VerifyHeaderParams (..), blockHeader,
                                             difficultyL, flattenEpochOrSlot,
                                             getEpochOrSlot, headerSlot, prevBlockL,
@@ -300,3 +303,27 @@ getBlocksByHeaders older newer = runMaybeT $ do
         guard $ getEpochOrSlot curBlock > lowerBound
         others <- loadBlocksDo lowerBound (curBlock ^. prevBlockL)
         pure $ curBlock : others
+
+----------------------------------------------------------------------------
+-- Blocks creation
+----------------------------------------------------------------------------
+
+-- | Do all necessary changes when new slot starts.  Specifically this
+-- function creates genesis block if necessary and does some clean-up.
+processNewSlot
+    :: forall ssc m.
+       WorkMode ssc m
+    => SlotId -> m (Maybe (GenesisBlock ssc))
+processNewSlot _ = notImplemented
+
+-- | Create a new main block on top of best chain if possible.
+-- Block can be created if:
+-- • we know genesis block for epoch from given SlotId
+-- • last known block is not more than k slots away from
+-- given SlotId
+createMainBlock
+    :: forall ssc m.
+       WorkMode ssc m
+    => Maybe (ProxySecretKey (EpochIndex, EpochIndex))
+    -> m (Either Text (MainBlock ssc))
+createMainBlock = notImplemented

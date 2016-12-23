@@ -124,7 +124,6 @@ library
                         Pos.Block.Server
                         Pos.Block.Server.State
                         Pos.Block.Server.Listeners
-                        Pos.Block.Worker
                         Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Block

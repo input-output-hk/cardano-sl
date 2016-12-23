@@ -7,12 +7,11 @@
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
 
--- | Workers responsible for Leaders and Richmen calculation.
+-- | Block processing related workers.
 
 module Pos.Worker.Lrc
        ( lrcOnNewSlot
        ) where
-
 import           Control.Monad.State      (get)
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.List.NonEmpty       as NE
@@ -26,7 +25,7 @@ import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkS
 import           Pos.Constants            (k)
 import           Pos.Context              (getNodeContext)
 import           Pos.Context.Context      (ncSscLeaders, ncSscRichmen)
-import           Pos.DB.Block             (loadBlocksWithUndoWhile)
+import           Pos.DB                   (loadBlocksFromTipWhile)
 import           Pos.DB.DBIterator        ()
 import           Pos.DB.Utxo              (getTotalCoins, iterateByUtxo, mapUtxoIterator)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
@@ -39,7 +38,7 @@ lrcOnNewSlot :: WorkMode ssc m => SlotId -> m () --Leaders and Participants comp
 lrcOnNewSlot SlotId{siSlot = slotId, siEpoch = epochId} = withBlkSemaphore $ \tip -> do
     if slotId == 0 then do
         logDebug $ "It's time to compute leaders and parts"
-        blockUndoList <- loadBlocksWithUndoWhile tip while5k
+        blockUndoList <- loadBlocksFromTipWhile whileMoreOrEq5k
         when (null blockUndoList) $
             panic "No one block hasn't been generated during last k slots"
         let blockUndos = NE.fromList blockUndoList
@@ -64,7 +63,7 @@ lrcOnNewSlot SlotId{siSlot = slotId, siEpoch = epochId} = withBlkSemaphore $ \ti
         logDebug $ "It is too early compute leaders and parts"
     pure tip
   where
-    while5k b = getEpochOrSlot b >= crucialSlot
+    whileMoreOrEq5k b = getEpochOrSlot b >= crucialSlot
     crucialSlot = EpochOrSlot $ Right $
                   if epochId == 0 then SlotId {siEpoch = 0, siSlot = 0}
                   else SlotId {siEpoch = epochId - 1, siSlot = 5 * k - 1}

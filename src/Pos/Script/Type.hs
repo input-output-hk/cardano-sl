@@ -35,13 +35,12 @@ import           Pos.Util                   (getCopyBinary, putCopyBinary)
 
 -- | A script for inclusion into a transaction.
 data Script = Script {
-    scrScript  :: LByteString,      -- ^ Serialized script
-    scrVersion :: Word32 }          -- ^ Version
+    scrVersion :: Word32,           -- ^ Version
+    scrScript  :: LByteString}      -- ^ Serialized script
   deriving (Eq, Show, Generic)
 
 instance NFData Script
 instance Hashable Script
-instance Binary Script
 
 instance Buildable Script where
     build Script{..} = bprint ("<script v"%int%">") scrVersion

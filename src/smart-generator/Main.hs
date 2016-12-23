@@ -244,7 +244,8 @@ main = do
                 , npDbPathM       = "zhogovo"
                 , npRebuildDb     = False
                 , npSystemStart   = systemStart
-                , npSecretKey     = sk
+                , npSecretKey     = Just sk
+                , npKeyfilePath   = "smartgen-secret.sk"
                 , npBaseParams    = baseParams
                 , npCustomUtxo    = genesisUtxo $
                                         stakesDistr

@@ -12,12 +12,13 @@ module Pos.Wallet.KeyStorage
        , newSecretKey
        , KeyStorage (..)
        , KeyData
+       , KeyError (..)
        , runKeyStorage
        , runKeyStorageRaw
        ) where
 
 import qualified Control.Concurrent.STM      as STM
-import           Control.Lens                (iso, use, (%=), (<>=))
+import           Control.Lens                (Lens', iso, lens, use, (%=), (%~), (<>=))
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Reader        (ReaderT (..), ask)
@@ -33,7 +34,8 @@ import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Context                 (WithNodeContext)
+import           Pos.Context                 (ContextHolder (..), NodeContext (..),
+                                              WithNodeContext (..))
 import           Pos.Crypto                  (SecretKey, keyGen)
 import qualified Pos.DB                      as Modern
 import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
@@ -49,7 +51,12 @@ import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys
 import           Pos.Wallet.Context          (WithWalletContext)
 import           Pos.Wallet.State.State      (MonadWalletDB)
 
--- | Typeclass of monad with access to secret keys
+type KeyData = STM.TVar UserSecret
+
+----------------------------------------------------------------------
+-- MonadKeys class
+----------------------------------------------------------------------
+
 class Monad m => MonadKeys m where
     getSecretKeys :: m [SecretKey]
     addSecretKey :: SecretKey -> m ()
@@ -78,7 +85,22 @@ newSecretKey = do
     addSecretKey sk
     return sk
 
-type KeyData = STM.TVar UserSecret
+------------------------------------------------------------------------
+-- Common functions
+------------------------------------------------------------------------
+
+getSecret :: (MonadIO m, MonadReader KeyData m) => m UserSecret
+getSecret = ask >>= atomically . STM.readTVar
+
+putSecret :: (MonadIO m, MonadReader KeyData m) => UserSecret -> m ()
+putSecret s = ask >>= atomically . flip STM.writeTVar s >> writeUserSecret s
+
+deleteAt :: Int -> [a] -> [a]
+deleteAt j ls = let (l, r) = splitAt j ls in l ++ drop 1 r
+
+------------------------------------------------------------------------
+-- KeyStorage transformer
+------------------------------------------------------------------------
 
 newtype KeyStorage m a = KeyStorage
     { getKeyStorage :: ReaderT KeyData m a
@@ -101,9 +123,8 @@ instance MonadTrans KeyStorage where
     lift = KeyStorage . lift
 
 instance MonadIO m => MonadState UserSecret (KeyStorage m) where
-    get = KeyStorage ask >>= atomically . STM.readTVar
-    put s = KeyStorage ask >>= atomically . flip STM.writeTVar s >>
-            writeUserSecret s
+    get = KeyStorage getSecret
+    put = KeyStorage . putSecret
 
 instance MonadBase IO m => MonadBase IO (KeyStorage m) where
     liftBase = lift . liftBase
@@ -129,5 +150,31 @@ instance MonadIO m => MonadKeys (KeyStorage m) where
     getSecretKeys = use usKeys
     addSecretKey sk = usKeys <>= [sk]
     deleteSecretKey (fromIntegral -> i) = usKeys %= deleteAt i
-      where deleteAt j ls = let (l, r) = splitAt j ls
-                            in l ++ drop 1 r
+
+-------------------------------------------------------------------------
+-- ContextHolder instance
+-------------------------------------------------------------------------
+
+data KeyError =
+    PrimaryKey !Text -- ^ Failed attempt to delete primary key
+    deriving (Show)
+
+instance Exception KeyError
+
+usLens :: Lens' (NodeContext ssc) KeyData
+usLens = lens ncUserSecret $ \c us -> c { ncUserSecret = us }
+
+instance Monad m => MonadReader KeyData (ContextHolder ssc m) where
+    ask = ncUserSecret <$> getNodeContext
+    local f = ContextHolder . local (usLens %~ f) . getContextHolder
+
+instance MonadIO m => MonadState UserSecret (ContextHolder ssc m) where
+    get = getSecret
+    put = putSecret
+
+instance (MonadIO m, MonadThrow m) => MonadKeys (ContextHolder ssc m) where
+    getSecretKeys = use usKeys
+    addSecretKey sk = usKeys <>= [sk]
+    deleteSecretKey (fromIntegral -> i)
+        | i == 0 = throwM $ PrimaryKey "Cannot delete a primary secret key"
+        | otherwise = usKeys %= deleteAt i

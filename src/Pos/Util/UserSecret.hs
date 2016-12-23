@@ -20,7 +20,7 @@ import           System.FileLock      (FileLock, SharedExclusive (..), lockFile,
                                        unlockFile, withFileLock)
 import           Universum
 
-import           Pos.Binary           (Bi (..), decode, decodeFull, encode)
+import           Pos.Binary.Class     (Bi (..), decode, decodeFull, encode)
 import           Pos.Crypto           (SecretKey)
 
 -- | User secret data. Includes secret keys only for now (not

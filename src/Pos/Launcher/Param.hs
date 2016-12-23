@@ -36,7 +36,9 @@ data NodeParams = NodeParams
     , npDbPathM       :: !FilePath          -- ^ Modern path to node's data-base.
     , npRebuildDb     :: !Bool              -- ^ @True@ if data-base should be rebuilt
     , npSystemStart   :: !Timestamp         -- ^ System start
-    , npSecretKey     :: !SecretKey         -- ^ Secret key of this node
+    , npSecretKey     :: !(Maybe SecretKey) -- ^ Secret key of this node (if specified explicitly, if not - see next option)
+    , npKeyfilePath   :: !FilePath          -- ^ Path to a file with secret keys. If `npSecretKey` is `Nothing`,
+                                            -- then first key in file is used as block signing key
     , npBaseParams    :: !BaseParams        -- ^ See 'BaseParams'
     , npCustomUtxo    :: !Utxo              -- ^ predefined custom utxo
     , npTimeLord      :: !Bool              -- ^ @True@ if node started as time-lord

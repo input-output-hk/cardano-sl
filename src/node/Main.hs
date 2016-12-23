@@ -170,8 +170,6 @@ gtSscParams Args {..} vssSK =
     GtParams
     {
       gtpRebuildDb  = rebuildDB
-    , gtpDbPath     = if memoryMode then Nothing
-                      else Just dbPath
     , gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
     }

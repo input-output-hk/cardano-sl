@@ -42,7 +42,6 @@ import           Control.TimeWarp.Rpc         (Dialog, Transfer, commLoggerName,
 import           Control.TimeWarp.Timed       (MonadTimed, currentTime, fork, killThread,
                                                repeatForever, runTimedIO, runTimedIO, sec)
 
-import           Data.Acquire                 (withEx)
 import           Data.List                    (nub)
 import qualified Data.Time                    as Time
 import           Formatting                   (build, sformat, shown, (%))
@@ -162,11 +161,12 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo") npCustomUtxo
     initTip <- Modern.runDBHolder modernDBs Modern.getTip
     initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
+    initNC <- sscCreateNodeContext @ssc sscnp
     let run db =
             runOurDialog newMutSocketState lpRunnerTag .
             runDBHolder db .
             Modern.runDBHolder modernDBs .
-            withEx (sscCreateNodeContext @ssc sscnp) $ flip (runCH np) .
+            runCH np initNC .
             runSscLDImpl .
             runTxLDImpl .
             flip runSscHolder initGS .

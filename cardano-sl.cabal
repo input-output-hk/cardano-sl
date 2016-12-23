@@ -189,13 +189,8 @@ library
                         Pos.Ssc.GodTossing.Listener.Listeners
                         Pos.Ssc.GodTossing.LocalData.LocalData
                         Pos.Ssc.GodTossing.LocalData.Types
-                        Pos.Ssc.GodTossing.SecretStorage
-                        Pos.Ssc.GodTossing.SecretStorage.Acidic
-                        Pos.Ssc.GodTossing.SecretStorage.State
-                        Pos.Ssc.GodTossing.SecretStorage.Types
-                        Pos.Ssc.GodTossing.Storage.Storage
                         Pos.Ssc.GodTossing.Storage.Types
-                        Pos.Ssc.GodTossing.Worker.Workers
+                        Pos.Ssc.GodTossing.Workers
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Types
                         Pos.Ssc.GodTossing.Types.Base
@@ -203,6 +198,10 @@ library
                         Pos.Ssc.GodTossing.Types.Message
                         Pos.Ssc.GodTossing.Types.Type
                         Pos.Ssc.GodTossing.Types.Types
+                        Pos.Ssc.GodTossing.Secret.SecretStorage
+                        Pos.Ssc.GodTossing.Secret.Types
+                        Pos.Ssc.GodTossing.Storage.Storage
+                        Pos.Ssc.GodTossing.Storage.Types
                         Pos.Ssc.GodTossing.Utils
                         Pos.State.Storage.Block
                         Pos.State.Storage.Types

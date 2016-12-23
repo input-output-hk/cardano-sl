@@ -30,32 +30,25 @@ module Pos.Ssc.GodTossing.Types.Types
        , SscBi
        ) where
 
-import           Control.Concurrent.STM                  (newTVarIO)
-import qualified Control.Concurrent.STM                  as STM
-import           Control.Lens                            (makeLenses)
-import           Data.Acquire                            (Acquire, mkAcquire)
-import           Data.Default                            (Default, def)
-import qualified Data.HashMap.Strict                     as HM
-import           Data.SafeCopy                           (base, deriveSafeCopySimple)
-import qualified Data.Text                               as T
-import           Data.Text.Buildable                     (Buildable (..))
-import           Data.Text.Lazy.Builder                  (Builder, fromText)
-import           Formatting                              (bprint, sformat, (%))
-import           Serokell.Util                           (listJson)
-import           System.FilePath                         ((</>))
+import           Control.Concurrent.STM        (newTVarIO)
+import qualified Control.Concurrent.STM        as STM
+import           Control.Lens                  (makeLenses)
+import           Data.Default                  (Default, def)
+import qualified Data.HashMap.Strict           as HM
+import           Data.SafeCopy                 (base, deriveSafeCopySimple)
+import qualified Data.Text                     as T
+import           Data.Text.Buildable           (Buildable (..))
+import           Data.Text.Lazy.Builder        (Builder, fromText)
+import           Formatting                    (bprint, sformat, (%))
+import           Serokell.Util                 (listJson)
 import           Universum
 
-import           Pos.Binary.Class                        (Bi)
-import           Pos.Crypto                              (Hash, VssKeyPair, hash)
-import           Pos.Ssc.GodTossing.Genesis              (genesisCertificates)
-import           Pos.Ssc.GodTossing.SecretStorage.Acidic (SecretStorage,
-                                                          closeSecretStorage,
-                                                          openGtSecretStorage,
-                                                          openMemGtSecretStorage)
-import           Pos.Ssc.GodTossing.Types.Base           (Commitment, CommitmentsMap,
-                                                          Opening, OpeningsMap, SharesMap,
-                                                          VssCertificate,
-                                                          VssCertificatesMap)
+import           Pos.Binary.Class              (Bi)
+import           Pos.Crypto                    (Hash, VssKeyPair, hash)
+import           Pos.Ssc.GodTossing.Genesis    (genesisCertificates)
+import           Pos.Ssc.GodTossing.Types.Base (Commitment, CommitmentsMap, Opening,
+                                                OpeningsMap, SharesMap, VssCertificate,
+                                                VssCertificatesMap)
 
 ----------------------------------------------------------------------------
 -- SscGlobalState
@@ -214,7 +207,6 @@ mkGtProof payload =
 data GtParams = GtParams
     {
       gtpRebuildDb  :: !Bool
-    , gtpDbPath     :: !(Maybe FilePath)
     , gtpSscEnabled :: !Bool              -- ^ Whether node should participate in SSC
                                           -- in case SSC requires participation.
     , gtpVssKeyPair :: !VssKeyPair        -- ^ Key pair used for secret sharing
@@ -225,21 +217,14 @@ data GtContext = GtContext
       -- | Vss key pair used for MPC.
       gtcVssKeyPair             :: !VssKeyPair
     , gtcParticipateSsc         :: !(STM.TVar Bool)
-    , gtcSecretStorage          :: !SecretStorage
     , gtcVssCertificateVerified :: !(STM.TVar Bool)
     }
 
-createGtContext :: GtParams -> Acquire GtContext
-createGtContext GtParams {..} = mkAcquire
-    (GtContext gtpVssKeyPair
+createGtContext :: MonadIO m => GtParams -> m GtContext
+createGtContext GtParams {..} =
+    GtContext gtpVssKeyPair
            <$> liftIO (newTVarIO gtpSscEnabled)
-           <*> maybe openMemGtSecretStorage
-                  (openGtSecretStorage gtpRebuildDb)
-                  secretPath
-           <*> liftIO (newTVarIO False))
-    (closeSecretStorage . gtcSecretStorage)
-  where
-    secretPath = (</> "secret") <$> gtpDbPath
+           <*> liftIO (newTVarIO False)
 
 ----------------------------------------------------------------------------
 -- Convinient binary type alias

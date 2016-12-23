@@ -116,6 +116,7 @@ recordBlocksRequest fromHash toHash var =
 -- | Possible results of processBlockMsg.
 data ProcessBlockMsgRes ssc
     = PBMfinal (NonEmpty (Block ssc)) -- ^ Block is the last requested block.
+                                      --   Head is the oldest block here.
     | PBMintermediate                 -- ^ Block is expected one, but not last.
     | PBMunsolicited                  -- ^ Block is not an expected one.
 
@@ -134,8 +135,9 @@ processBlockMsg (MsgBlock blk) var =
     processBlockDo (start, end) []
         | headerHash blk == start = processBlockFinally end []
         | otherwise = pure PBMunsolicited
-    processBlockDo (start, end) received
-        | blk ^. prevBlockL == start = processBlockFinally end received
+    processBlockDo (_, end) received@(lastReceived:_)
+        | blk ^. prevBlockL == (headerHash lastReceived) =
+            processBlockFinally end received
         | otherwise = pure PBMunsolicited
     processBlockFinally end received
         | headerHash blk == end =

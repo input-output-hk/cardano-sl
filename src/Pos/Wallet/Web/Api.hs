@@ -11,7 +11,7 @@ module Pos.Wallet.Web.Api
 
 import           Data.Proxy                 (Proxy (Proxy))
 import           Pos.Types                  (Address, Coin, Tx)
-import           Pos.Wallet.Web.ClientTypes (CAddress)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CWallet)
 import           Servant.API                ((:<|>), (:>), Capture, Get, Header, Headers,
                                              JSON, Post)
 import           Universum                  (Text)
@@ -21,6 +21,8 @@ type Cors a = Headers '[Header "Access-Control-Allow-Origin" Text] a
 -- | Servant API which provides access to wallet.
 type WalletApi =
      "api" :> "addresses" :> Get '[JSON] (Cors [CAddress])
+    :<|>
+     "api" :> "get_wallet" :> Capture "address" CAddress :> Get '[JSON] (Cors CWallet)
     :<|>
      "api" :> "balances" :> Get '[JSON] (Cors [(CAddress, Coin)])
     :<|>

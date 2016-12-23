@@ -75,6 +75,8 @@ servantHandlers :: WalletWebMode ssc m => ServerT WalletApi m
 servantHandlers =
      addCors getAddresses
     :<|>
+     addCors . getWallet
+    :<|>
      addCors getBalances
     :<|>
      (\a b -> addCors . send a b)
@@ -82,8 +84,6 @@ servantHandlers =
      addCors . getHistory
     :<|>
      addCors newAddress
-    :<|>
-     addCors . getWallet
     :<|>
      addCors . deleteAddress
   where
@@ -98,14 +98,14 @@ getBalances = join $ mapM gb <$> myAddresses
   where gb addr = (,) (addressToCAddress addr) <$> getBalance addr
 
 getWallet :: WalletWebMode ssc m => CAddress -> m CWallet
-getWallet cAddr = undefined
---    balance <- getBalance <$> cAddressToAddress cAddr >>= either wrongAddress pure
---    meta <- getWalletMeta cAddr >>= maybe noWallet pure
---    pure $ CWallet cAddr balance meta
---  where
---    -- TODO: improve error handling
---    wrongAddress = throwM err404
---    noWallet = throwM err404
+getWallet cAddr = do
+    balance <- getBalance <$> cAddressToAddress cAddr >>= either wrongAddress pure
+    meta <- getWalletMeta cAddr >>= maybe noWallet pure
+    pure $ CWallet cAddr balance meta
+  where
+    -- TODO: improve error handling
+    wrongAddress = throwM err404
+    noWallet = throwM err404
 
 send :: WalletWebMode ssc m => Address -> Address -> Coin -> m ()
 send srcAddr dstAddr c = do
@@ -159,3 +159,6 @@ deriving instance FromHttpApiData Coin
 
 instance FromHttpApiData Address where
     parseUrlPiece = decodeTextAddress
+
+instance FromHttpApiData CAddress where
+    parseUrlPiece = fmap addressToCAddress . decodeTextAddress

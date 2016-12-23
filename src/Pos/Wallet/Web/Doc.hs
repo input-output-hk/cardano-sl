@@ -30,7 +30,7 @@ import           Pos.Aeson.ClientTypes      ()
 import           Pos.Genesis                (genesisAddresses, genesisUtxo)
 import           Pos.Types                  (Address, Coin, Tx (..), TxIn (..))
 import           Pos.Wallet.Web.Api         (walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CHash, addressToCAddress)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CHash, CWallet, addressToCAddress)
 import           Prelude                    (fail)
 
 walletDocs :: API
@@ -102,6 +102,9 @@ instance ToCapture (Capture "address" Address) where
         , _capDesc = "Address, history of which should be fetched"
         }
 
+instance ToCapture (Capture "address" CAddress) where
+    toCapture Proxy = toCapture (Proxy :: Proxy (Capture "address" Address))
+
 instance ToCapture (Capture "index" Word) where
     toCapture Proxy =
         DocCapture
@@ -115,8 +118,13 @@ instance ToSample Coin where
 instance ToSample Address where
     toSamples Proxy = singleSample $ genesisAddresses !! 0
 
+-- FIXME!
 instance ToSample CHash where
     toSamples Proxy = fail "ToSample CHash: Not Implemented!"
+
+-- FIXME!
+instance ToSample CWallet where
+    toSamples Proxy = fail "ToSample CWallet: Not Implemented!"
 
 instance ToSample CAddress where
     toSamples Proxy = singleSample . addressToCAddress $ genesisAddresses !! 0

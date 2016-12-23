@@ -138,7 +138,11 @@ hasVssCertificate addr = HM.member addr . _gsVssCertificates
 ----------------------------------------------------------------------------
 -- Verifications for GodTossing.Types.Base
 ----------------------------------------------------------------------------
+
+-- CHECK: @verifyCommitment
 -- | Verify that Commitment is correct.
+--
+-- #verifyEncShare
 verifyCommitment :: Commitment -> Bool
 verifyCommitment Commitment {..} = fromMaybe False $ do
     extra <- fromBinaryM commExtra
@@ -154,16 +158,27 @@ verifyCommitment Commitment {..} = fromMaybe False $ do
     tupleFromBinaryM =
         uncurry (liftA2 (,)) . bimap fromBinaryM fromBinaryM
 
+-- CHECK: @verifyCommitmentPK
 -- | Verify public key contained in SignedCommitment against given address
+--
+-- #checkPubKeyAddress
 verifyCommitmentPK :: Address -> SignedCommitment -> Bool
 verifyCommitmentPK addr (pk, _, _) = checkPubKeyAddress pk addr
 
+-- CHECK: @verifyCommitmentSignature
 -- | Verify signature in SignedCommitment using epoch index.
+--
+-- #checkSig
 verifyCommitmentSignature :: Bi Commitment => EpochIndex -> SignedCommitment -> Bool
 verifyCommitmentSignature epoch (pk, comm, commSig) =
     checkSig pk (epoch, comm) commSig
 
+-- CHECK: @verifySignedCommitment
 -- | Verify SignedCommitment using public key and epoch index.
+--
+-- #verifyCommitmentPK
+-- #verifyCommitmentSignature
+-- #verifyCommitment
 verifySignedCommitment
     :: Bi Commitment
     => Address -> EpochIndex -> SignedCommitment -> VerificationRes
@@ -177,7 +192,10 @@ verifySignedCommitment addr epoch sc@(_, comm, _) =
           , "commitment itself is bad (e. g. bad shares")
         ]
 
+-- CHECK: @verifyOpening
 -- | Verify that Secret provided with Opening corresponds to given commitment.
+--
+-- #verifySecretProof
 verifyOpening :: Commitment -> Opening -> Bool
 verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
     verifySecretProof
@@ -185,14 +203,20 @@ verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
       <*> fromBinaryM secret
       <*> fromBinaryM commProof
 
+-- CHECK: @checkCert
 -- | Check that the VSS certificate is signed properly
+-- #checkPubKeyAddress
+-- #checkSig
 checkCert :: (Address, VssCertificate) -> Bool
 checkCert (addr, VssCertificate {..}) =
     checkPubKeyAddress vcSigningKey addr &&
     checkSig vcSigningKey vcVssKey vcSignature
 
+-- CHECK: @checkShare
 -- | Check that the decrypted share matches the encrypted share in the
 -- commitment
+--
+-- #verifyShare
 checkShare :: (SetContainer set, ContainerKey set ~ Address)
            => CommitmentsMap
            -> set --set of opening's addresses
@@ -212,9 +236,9 @@ checkShare globalCommitments globalOpeningsPK globalCertificates (addrTo, addrFr
         -- addrTo must decrypt share from addrFrom on shares phase,
         -- if addrFrom didn't send its opening
 
-        -- Check that addrFrom really didn't send its opening
+        -- CHECK: Check that addrFrom really didn't send its opening
         guard $ notMember addrFrom globalOpeningsPK
-        -- Check that addrFrom really sent its commitment
+        -- CHECK: Check that addrFrom really sent its commitment
         (_, comm, _) <- HM.lookup addrFrom globalCommitments
         -- Get pkTo's vss certificate
         vssKey <- vcVssKey <$> HM.lookup addrTo globalCertificates
@@ -222,7 +246,10 @@ checkShare globalCommitments globalOpeningsPK globalCertificates (addrTo, addrFr
         encShare <- HM.lookup vssKey (commShares comm)
         return (encShare, vssKey, share)
 
+-- CHECK: @checkShares
 -- Apply checkShare to all shares in map.
+--
+-- #checkShare
 checkShares :: (SetContainer set, ContainerKey set ~ Address)
             => CommitmentsMap
             -> set --set of opening's PK. TODO Should we add phantom type for more typesafety?
@@ -238,6 +265,7 @@ checkShares globalCommitments globalOpeningsPK globalCertificates addrTo shares 
            (checkShare globalCommitments globalOpeningsPK globalCertificates)
            listShares
 
+-- CHECK: @checkOpeningMatchesCommitment
 -- | Check that the secret revealed in the opening matches the secret proof
 -- in the commitment
 checkOpeningMatchesCommitment
@@ -250,20 +278,19 @@ checkOpeningMatchesCommitment globalCommitments (addr, opening) =
 ----------------------------------------------------------------------------
 -- GtPayload Part
 ----------------------------------------------------------------------------
-{- |
 
-Verify payload using header containing this payload.
-
-For each DS datum we check:
-
-  1. Whether it's stored in the correct block (e.g. commitments have to be in
-     first k blocks, etc.)
-
-  2. Whether the message itself is correct (e.g. commitment signature is
-     valid, etc.)
-
-We also do some general sanity checks.
--}
+-- CHECK: @verifyGtPayLoad
+-- Verify payload using header containing this payload.
+--
+-- For each DS datum we check:
+--
+--   1. Whether it's stored in the correct block (e.g. commitments have to be in
+--      first k blocks, etc.)
+--
+--   2. Whether the message itself is correct (e.g. commitment signature is
+--      valid, etc.)
+--
+-- We also do some general sanity checks.
 verifyGtPayload
     :: (SscPayload ssc ~ GtPayload, Bi Commitment)
     => MainBlockHeader ssc -> SscPayload ssc -> VerificationRes
@@ -290,11 +317,14 @@ verifyGtPayload header payload =
     -- because it's the miner's responsibility not to include them into the
     -- block if they're late.
     --
-    -- For commitments specifically, we also
+    -- CHECK: For commitments specifically, we also
+    --
     --   * check there are only commitments in the block
     --   * use verifySignedCommitment, which checks commitments themselves,
     --     e.g. checks their signatures (which includes checking that the
     --     commitment has been generated for this particular epoch)
+    --
+    -- #verifySignedCommitment
     commChecks commitments =
         (let checkSignedComm =
                  isVerSuccess .
@@ -303,13 +333,17 @@ verifyGtPayload header payload =
             "verifySignedCommitment has failed for some commitments")
         -- [CSL-206]: check that share IDs are different.
 
-    -- Vss certificates checker
+    -- CHECK: Vss certificates checker
+    --
     --   * VSS certificates are signed properly
+    --
+    -- #checkCert
     certsChecks certs =
         (all checkCert (HM.toList certs),
             "some VSS certificates aren't signed properly")
 
-    -- For all blocks (no matter the type), we check that
+    -- CHECK: For all blocks (no matter the type), we check that
+    --
     --   * slot ID is in range
     otherChecks =
         [ (inRange (0, 6 * k - 1) (siSlot slotId),

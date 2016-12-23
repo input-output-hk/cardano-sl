@@ -36,9 +36,8 @@ import           Pos.Crypto               (hash, shortHashF)
 import           Pos.DB                   (loadBlocksFromTipWhile)
 import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog, getUserState,
                                            replyToNode)
-import           Pos.Types                (Block, BlockHeader, Blund, HeaderHash,
-                                           blockHeader, headerHash, headerHashG,
-                                           prevBlockL)
+import           Pos.Types                (Block, BlockHeader, Blund, HasHeaderHash (..),
+                                           HeaderHash, blockHeader, prevBlockL)
 import           Pos.Util                 (inAssertMode, _neHead, _neLast)
 import           Pos.WorkMode             (WorkMode)
 
@@ -188,10 +187,11 @@ handleBlocks
 handleBlocks blocks = do
     inAssertMode $
         logDebug $
-        sformat ("Processing sequence of blocks: " %listJson) $
+        sformat ("Processing sequence of blocks: " %listJson % "…") $
         fmap headerHash blocks
     maybe onNoLca (handleBlocksWithLca blocks) =<<
         lcaWithMainChain (map (view blockHeader) $ NE.reverse blocks)
+    inAssertMode $ logDebug $ "Finished processing sequence of blocks"
   where
     onNoLca =
         logWarning
@@ -212,26 +212,36 @@ applyWithoutRollback
        (ResponseMode ssc m)
     => NonEmpty (Block ssc) -> m ()
 applyWithoutRollback blocks = do
+    logDebug "Trying to apply blocks w/o rollback…"
     verRes <- verifyBlocks blocks
     either
         onFailedVerifyBlocks
         (withBlkSemaphore . applyWithoutRollbackDo . NE.zip blocks)
         verRes
+    logDebug "Finished applying blocks w/o rollback"
   where
+    oldestToApply = blocks ^. _neHead . headerHashG
     newTip = blocks ^. _neLast . headerHashG
     applyWithoutRollbackDo :: NonEmpty (Blund ssc)
                            -> HeaderHash ssc
                            -> m (HeaderHash ssc)
-    applyWithoutRollbackDo blund tip
-        | tip /= blund ^. _neHead . _1 . headerHashG = pure tip
-        | otherwise = newTip <$ applyBlocks blund
+    applyWithoutRollbackDo blunds tip
+        | tip /= oldestToApply =
+            tip <$ logWarning (tipMismatchMsg "apply" tip oldestToApply)
+        | otherwise = newTip <$ do
+            applyBlocks blunds
+            logInfo $ blocksAppliedMsg @ssc blunds
 
 applyWithRollback
     :: forall ssc m.
        (ResponseMode ssc m)
     => NonEmpty (Block ssc) -> HeaderHash ssc -> NonEmpty (Blund ssc) -> m ()
-applyWithRollback toApply lca toRollback = withBlkSemaphore applyWithRollbackDo
+applyWithRollback toApply lca toRollback = do
+    logDebug "Trying to apply blocks w/ rollback…"
+    withBlkSemaphore applyWithRollbackDo
+    logDebug "Finished applying blocks w/ rollback"
   where
+    newestToRollback = toRollback ^. _neHead . _1 . headerHashG
     newTip = toApply ^. _neLast . headerHashG
     panicBrokenLca = panic "applyWithRollback: nothing after LCA :/"
     toApplyAfterLca =
@@ -239,15 +249,25 @@ applyWithRollback toApply lca toRollback = withBlkSemaphore applyWithRollbackDo
         NE.dropWhile ((lca /=) . (^. prevBlockL)) toApply
     applyWithRollbackDo :: HeaderHash ssc -> m (HeaderHash ssc)
     applyWithRollbackDo tip
-        | tip /= toRollback ^. _neHead . _1 . headerHashG = pure tip
+        | tip /= newestToRollback =
+            tip <$ logWarning (tipMismatchMsg "rollback" tip newestToRollback)
         | otherwise = do
             rollbackBlocks toRollback
+            logInfo $ blocksRolledBackMsg toRollback
             verRes <- verifyBlocks toApplyAfterLca
             case verRes of
-                Right undos ->
-                    newTip <$ applyBlocks (NE.zip toApplyAfterLca undos)
-                Left errors ->
-                    onFailedVerifyBlocks errors >> applyBlocks toRollback $> tip
+                Right undos -> newTip <$ do
+                    applyBlocks (NE.zip toApplyAfterLca undos)
+                    logInfo $ blocksAppliedMsg toApplyAfterLca
+                Left errors -> tip <$ do
+                    onFailedVerifyBlocks errors
+                    logDebug "Applying rollbacked blocks…"
+                    applyBlocks toRollback
+                    logDebug "Finished applying rollback blocks"
+
+----------------------------------------------------------------------------
+-- Logging formats
+----------------------------------------------------------------------------
 
 -- TODO: ban node for it!
 onFailedVerifyBlocks
@@ -255,3 +275,26 @@ onFailedVerifyBlocks
        (ResponseMode ssc m)
     => Text -> m ()
 onFailedVerifyBlocks = logWarning . sformat ("Failed to verify blocks: " %stext)
+
+tipMismatchMsg :: Text -> HeaderHash ssc -> HeaderHash ssc -> Text
+tipMismatchMsg action storedTip attemptedTip =
+    sformat
+        ("Can't "%stext%" block because of tip mismatch (stored is "
+         %shortHashF%", attempted is "%shortHashF%")")
+        action storedTip attemptedTip
+
+blocksAppliedMsg
+    :: forall ssc a.
+       HasHeaderHash a ssc
+    => NonEmpty a -> Text
+blocksAppliedMsg (block :| []) =
+    sformat ("Block has been adopted "%shortHashF) (headerHash block)
+blocksAppliedMsg blocks =
+    sformat ("Blocks have been adopted: "%listJson) (fmap (headerHash @a @ssc) blocks)
+
+blocksRolledBackMsg
+    :: forall ssc a.
+       HasHeaderHash a ssc
+    => NonEmpty a -> Text
+blocksRolledBackMsg =
+    sformat ("Blocks have been rolled back: "%listJson) . fmap (headerHash @a @ssc)

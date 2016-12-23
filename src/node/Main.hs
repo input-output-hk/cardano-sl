@@ -16,7 +16,7 @@ import           Universum
 import           Pos.Binary           (Bi, decode, encode)
 import qualified Pos.CLI              as CLI
 import           Pos.Constants        (RunningMode (..), runningMode)
-import           Pos.Crypto           (SecretKey, VssKeyPair, keyGen, vssKeyGen)
+import           Pos.Crypto           (VssKeyPair, vssKeyGen)
 import           Pos.DHT.Model        (DHTKey, DHTNodeType (..), dhtNodeType)
 import           Pos.DHT.Real         (KademliaDHTInstance)
 import           Pos.Genesis          (genesisSecretKeys, genesisUtxo)

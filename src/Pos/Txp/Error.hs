@@ -1,6 +1,6 @@
 -- | Types describing runtime errors related to Txp.
 
-module Pos.Modern.Txp.Error
+module Pos.Txp.Error
        ( TxpError (..)
        ) where
 

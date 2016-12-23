@@ -7,10 +7,9 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
 
--- | Internal state of the transaction-handling worker. Trasnaction
--- processing logic.
+-- | Transaction processing logic.
 
-module Pos.Modern.Txp.Logic
+module Pos.Txp.Logic
        (
          txVerifyBlocks
        , txApplyBlocks
@@ -18,36 +17,34 @@ module Pos.Modern.Txp.Logic
        , txRollbackBlocks
        ) where
 
-import           Control.Lens                    (each, over, (^.), _1)
-import qualified Data.HashMap.Strict             as HM
-import qualified Data.HashSet                    as HS
-import           Data.List.NonEmpty              (NonEmpty)
-import qualified Data.List.NonEmpty              as NE
-import           Formatting                      (sformat, stext, (%))
-import           System.Wlog                     (WithLogger)
+import           Control.Lens            (each, over, (^.), _1)
+import qualified Data.HashMap.Strict     as HM
+import qualified Data.HashSet            as HS
+import           Data.List.NonEmpty      (NonEmpty)
+import qualified Data.List.NonEmpty      as NE
+import           Formatting              (sformat, stext, (%))
+import           System.Wlog             (WithLogger)
 import           Universum
 
-import           Pos.Constants                   (maxLocalTxs)
-import           Pos.Crypto                      (WithHash (..), hash, withHash)
-import           Pos.DB                          (DB, MonadDB, getUtxoDB)
-import           Pos.DB.Utxo                     (BatchOp (..), getTip, writeBatchToUtxo)
-import           Pos.Modern.Txp.Class            (MonadTxpLD (..), TxpLD)
-import           Pos.Modern.Txp.Error            (TxpError (..))
-import           Pos.Modern.Txp.Holder           (TxpLDHolder, runLocalTxpLDHolder)
-import           Pos.Modern.Txp.Storage.Types    (MemPool (..), UtxoView (..))
-import qualified Pos.Modern.Txp.Storage.UtxoView as UV
-import           Pos.Ssc.Class.Types             (Ssc)
-import           Pos.State.Storage.Types         (AltChain, ProcessTxRes (..),
-                                                  mkPTRinvalid)
-import           Pos.Types                       (Block, IdTxWitness, MonadUtxo,
-                                                  MonadUtxoRead (utxoGet), SlotId,
-                                                  Tx (..), TxId, TxIn (..), TxOut,
-                                                  TxWitness, Undo, applyTxToUtxo',
-                                                  blockSlot, blockTxs, blockTxws,
-                                                  blockTxws, headerHash, prevBlockL,
-                                                  slotIdF, topsortTxs, verifyTxPure)
-import           Pos.Types.Utxo                  (verifyAndApplyTxs, verifyTxUtxo)
-import           Pos.Util                        (inAssertMode, _neHead)
+import           Pos.Constants           (maxLocalTxs)
+import           Pos.Crypto              (WithHash (..), hash, withHash)
+import           Pos.DB                  (DB, MonadDB, getUtxoDB)
+import           Pos.DB.Utxo             (BatchOp (..), getTip, writeBatchToUtxo)
+import           Pos.Ssc.Class.Types     (Ssc)
+import           Pos.State.Storage.Types (AltChain, ProcessTxRes (..), mkPTRinvalid)
+import           Pos.Txp.Class           (MonadTxpLD (..), TxpLD)
+import           Pos.Txp.Error           (TxpError (..))
+import           Pos.Txp.Holder          (TxpLDHolder, runLocalTxpLDHolder)
+import           Pos.Txp.Types           (MemPool (..), UtxoView (..))
+import qualified Pos.Txp.Types.UtxoView  as UV
+import           Pos.Types               (Block, IdTxWitness, MonadUtxo,
+                                          MonadUtxoRead (utxoGet), SlotId, Tx (..), TxId,
+                                          TxIn (..), TxOut, TxWitness, Undo,
+                                          applyTxToUtxo', blockSlot, blockTxs, blockTxws,
+                                          blockTxws, headerHash, prevBlockL, slotIdF,
+                                          topsortTxs, verifyTxPure)
+import           Pos.Types.Utxo          (verifyAndApplyTxs, verifyTxUtxo)
+import           Pos.Util                (inAssertMode, _neHead)
 
 type TxpWorkMode ssc m = ( Ssc ssc
                          , WithLogger m

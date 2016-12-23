@@ -1,4 +1,4 @@
-module Pos.Modern.Txp.Storage.Types
+module Pos.Txp.Types.Types
        (
          UtxoView (..)
        , MemPool (..)

@@ -51,13 +51,13 @@ import           Pos.Crypto                (ProxySecretKey, SecretKey,
 import           Pos.DB                    (MonadDB, getTipBlockHeader, loadHeadersUntil)
 import qualified Pos.DB                    as DB
 import           Pos.DB.Error              (DBError (..))
-import           Pos.Modern.Txp.Class      (getLocalTxs)
-import           Pos.Modern.Txp.Logic      (txApplyBlocks, txRollbackBlocks,
-                                            txVerifyBlocks)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class             (Ssc (..))
 import           Pos.Ssc.Extra             (sscApplyBlocks, sscGetLocalPayloadM,
                                             sscRollback, sscVerifyBlocks)
+import           Pos.Txp.Class             (getLocalTxs)
+import           Pos.Txp.Logic             (txApplyBlocks, txRollbackBlocks,
+                                            txVerifyBlocks)
 import           Pos.Types                 (Block, BlockHeader, Blund, EpochIndex,
                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
                                             IdTxWitness, MainBlock, SlotId (..), Undo,

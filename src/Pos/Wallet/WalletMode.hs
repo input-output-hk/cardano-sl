@@ -28,9 +28,9 @@ import           Pos.DB                        (DBHolder)
 import qualified Pos.DB                        as DB
 import           Pos.DHT.Model                 (DHTPacking)
 import           Pos.DHT.Real                  (KademliaDHT)
-import qualified Pos.Modern.Txp.Holder         as Modern
 import           Pos.Ssc.Extra                 (SscHolder (..), SscLDImpl (..))
 import           Pos.Ssc.GodTossing            (SscGodTossing)
+import qualified Pos.Txp.Holder                as Modern
 import           Pos.Types                     (Address, Coin, Tx, Utxo, evalUtxoStateT,
                                                 txOutValue)
 import           Pos.Types.Utxo.Functions      (filterUtxoByAddr)

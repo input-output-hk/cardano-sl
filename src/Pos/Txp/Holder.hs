@@ -5,43 +5,43 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Pos.Modern.Txp.Holder
+module Pos.Txp.Holder
        (
          TxpLDHolder (..)
        , runTxpLDHolder
        , runLocalTxpLDHolder
        ) where
 
-import qualified Control.Concurrent.STM          as STM
-import           Control.Lens                    (iso)
-import           Control.Monad.Base              (MonadBase (..))
-import           Control.Monad.Catch             (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Reader            (ReaderT (ReaderT))
-import           Control.Monad.Trans.Class       (MonadTrans)
-import           Control.Monad.Trans.Control     (ComposeSt, MonadBaseControl (..),
-                                                  MonadTransControl (..), StM,
-                                                  defaultLiftBaseWith, defaultLiftWith,
-                                                  defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Rpc            (MonadDialog, MonadTransfer (..))
-import           Control.TimeWarp.Timed          (MonadTimed (..), ThreadId)
-import           Data.Default                    (def)
-import           Serokell.Util.Lens              (WrappedM (..))
-import           System.Wlog                     (CanLog, HasLoggerName)
+import qualified Control.Concurrent.STM      as STM
+import           Control.Lens                (iso)
+import           Control.Monad.Base          (MonadBase (..))
+import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Reader        (ReaderT (ReaderT))
+import           Control.Monad.Trans.Class   (MonadTrans)
+import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
+                                              MonadTransControl (..), StM,
+                                              defaultLiftBaseWith, defaultLiftWith,
+                                              defaultRestoreM, defaultRestoreT)
+import           Control.TimeWarp.Rpc        (MonadDialog, MonadTransfer (..))
+import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
+import           Data.Default                (def)
+import           Serokell.Util.Lens          (WrappedM (..))
+import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Context                     (WithNodeContext)
-import qualified Pos.DB.Class                    as Modern
-import           Pos.Modern.Txp.Class            (MonadTxpLD (..))
-import           Pos.Modern.Txp.Storage.Types    (MemPool, UtxoView)
-import qualified Pos.Modern.Txp.Storage.UtxoView as UV
-import           Pos.Slotting                    (MonadSlots (..))
-import           Pos.Ssc.Class.LocalData         (MonadSscLD (..))
-import           Pos.Ssc.Extra                   (MonadSscGS (..), MonadSscLDM (..))
-import           Pos.State                       (MonadDB (..))
-import           Pos.Txp.LocalData               (MonadTxLD (..))
-import           Pos.Types                       (HeaderHash, MonadUtxo (..),
-                                                  MonadUtxoRead (..), genesisHash)
-import           Pos.Util.JsonLog                (MonadJL (..))
+import           Pos.Context                 (WithNodeContext)
+import qualified Pos.DB.Class                (MonadDB)
+import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Ssc.Class.LocalData     (MonadSscLD (..))
+import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLDM (..))
+import           Pos.State                   (MonadDB (..))
+import           Pos.Txp.Class               (MonadTxpLD (..))
+import           Pos.Txp.LocalData           (MonadTxLD (..))
+import           Pos.Txp.Types               (MemPool, UtxoView)
+import qualified Pos.Txp.Types.UtxoView      as UV
+import           Pos.Types                   (HeaderHash, MonadUtxo (..),
+                                              MonadUtxoRead (..), genesisHash)
+import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
 -- Holder
@@ -76,7 +76,7 @@ instance MonadBaseControl IO m => MonadBaseControl IO (TxpLDHolder ssc m) where
     liftBaseWith     = defaultLiftBaseWith
     restoreM         = defaultRestoreM
 
-deriving instance Modern.MonadDB ssc m => Modern.MonadDB ssc (TxpLDHolder ssc m)
+deriving instance Pos.DB.Class.MonadDB ssc m => Pos.DB.Class.MonadDB ssc (TxpLDHolder ssc m)
 
 ----------------------------------------------------------------------------
 -- Useful instances

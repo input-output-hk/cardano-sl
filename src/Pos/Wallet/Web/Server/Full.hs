@@ -14,6 +14,7 @@ import           Control.Monad.Except          (MonadError (throwError))
 import           Control.TimeWarp.Rpc          (Dialog, Transfer)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
+import           System.Wlog                   (logInfo)
 import           Universum
 
 import           Pos.Communication             (MutSocketState, newMutSocketState)
@@ -45,11 +46,11 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletSta
 walletServeWebFull
     :: SscConstraint ssc
     => FilePath           -- to Daedalus acid-state
-    -> FilePath           -- to key file
     -> Bool               -- whether to include genesis keys
     -> Word16
     -> RawRealMode ssc ()
-walletServeWebFull daedalusDbPath keyfilePath debug = serveImpl $ do
+walletServeWebFull daedalusDbPath debug = serveImpl $ do
+    logInfo "DAEDALUS is STARTED!"
     when debug $ mapM_ addSecretKey genesisSecretKeys
     walletApplication (walletServer nat) daedalusDbPath
 

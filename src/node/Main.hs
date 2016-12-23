@@ -152,7 +152,7 @@ nodeParams args@Args {..} systemStart =
     , npDbPathM = dbPath
     , npRebuildDb = rebuildDB
     , npSecretKey = (genesisSecretKeys !!) <$> spendingGenesisI
-    , npKeyfilePath = keyfilePath
+    , npKeyfilePath = maybe keyfilePath (\i -> "node-" ++ show i ++ "." ++ keyfilePath) spendingGenesisI
     , npSystemStart = systemStart
     , npBaseParams = baseParams "node" args
     , npCustomUtxo =
@@ -194,7 +194,7 @@ pluginsGT Args {..}
 walletServe :: SscConstraint ssc => Args -> [RawRealMode ssc ()]
 walletServe Args {..} =
     if enableWallet
-    then [walletServeWebFull keyfilePath walletDbPath walletDebug walletPort]
+    then [walletServeWebFull walletDbPath walletDebug walletPort]
     else []
 
 walletProd :: SscConstraint ssc => Args -> [ProductionMode ssc ()]

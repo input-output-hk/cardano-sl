@@ -72,7 +72,7 @@ servantHandlers = getAddresses :<|> getBalances :<|> send :<|>
                   getHistory :<|> newAddress :<|> deleteAddress
 
 getAddresses :: WalletWebMode ssc m => m [CAddress]
-getAddresses = map fst <$> getBalances
+getAddresses = map addressToCAddress <$> myAddresses
 
 getBalances :: WalletWebMode ssc m => m [(CAddress, Coin)]
 getBalances = join $ mapM gb <$> myAddresses

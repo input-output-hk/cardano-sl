@@ -95,7 +95,8 @@ traverseAllEntries DB{..} init folder =
         Rocks.iterFirst it
         let step = do
                 kv <- Rocks.iterEntry it
+                traceShowM kv
                 Rocks.iterNext it
-                traverse rocksDecodeKeyVal kv
+                traverse rocksDecodeKeyVal kv `catch` \(_ :: DBError) -> step
             run b = step >>= maybe (pure b) (uncurry (folder b) >=> run)
         init >>= run

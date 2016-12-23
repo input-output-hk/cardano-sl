@@ -10,7 +10,7 @@ module Pos.Block.Server.Listeners
        ( blockListeners
        ) where
 
-import           Control.Lens             ((^.), _1)
+import           Control.Lens             (view, (^.), _1)
 import           Data.List.NonEmpty       (NonEmpty ((:|)), nonEmpty)
 import qualified Data.List.NonEmpty       as NE
 import           Formatting               (sformat, stext, (%))
@@ -36,7 +36,7 @@ import           Pos.Crypto               (hash, shortHashF)
 import           Pos.DB                   (loadBlocksFromTipWhile)
 import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog, getUserState,
                                            replyToNode)
-import           Pos.Types                (Block, BlockHeader, HeaderHash, Undo,
+import           Pos.Types                (Block, BlockHeader, Blund, HeaderHash,
                                            blockHeader, headerHash, headerHashG,
                                            prevBlockL)
 import           Pos.Util                 (inAssertMode, _neHead, _neLast)
@@ -160,6 +160,10 @@ handleUnsolicitedHeader header = do
     uselessFormat =
         "Header " %shortHashF % " is useless for the following reason: " %stext
 
+----------------------------------------------------------------------------
+-- Handle Block
+----------------------------------------------------------------------------
+
 -- | Handle MsgBlock request. That's a response for @mkBlocksRequest@.
 handleBlock
     :: forall ssc m.
@@ -182,48 +186,72 @@ handleBlocks
     => NonEmpty (Block ssc) -> m ()
 -- Head block is the oldest one here.
 handleBlocks blocks = do
-    inAssertMode $ logDebug $ sformat ("Processing sequence of blocks: "%listJson) $ fmap headerHash blocks
-    lcaHashMb <- lcaWithMainChain $ map (^. blockHeader) $ NE.reverse blocks
-    let lcaHash = fromMaybe (panic "Invalid blocks, LCA not found") lcaHashMb
+    inAssertMode $
+        logDebug $
+        sformat ("Processing sequence of blocks: " %listJson) $
+        fmap headerHash blocks
+    maybe onNoLca (handleBlocksWithLca blocks) =<<
+        lcaWithMainChain (map (view blockHeader) $ NE.reverse blocks)
+  where
+    onNoLca =
+        logWarning
+            "Sequence of blocks can't be processed, because there is no LCA. Probably rollback happened in parallel"
+
+handleBlocksWithLca :: forall ssc m.
+       (ResponseMode ssc m)
+    => NonEmpty (Block ssc) -> HeaderHash ssc -> m ()
+handleBlocksWithLca blocks lcaHash = do
     -- Head block in result is the newest one.
-    toRollback <- loadBlocksFromTipWhile ((lcaHash /= ). headerHash)
-    case nonEmpty toRollback of
-        Nothing           -> whenNoRollback
-        Just toRollbackNE -> withBlkSemaphore $ whenRollback toRollbackNE lcaHash
+    toRollback <- loadBlocksFromTipWhile ((lcaHash /=) . headerHash)
+    maybe (applyWithoutRollback blocks)
+          (applyWithRollback blocks lcaHash)
+          (nonEmpty toRollback)
+
+applyWithoutRollback
+    :: forall ssc m.
+       (ResponseMode ssc m)
+    => NonEmpty (Block ssc) -> m ()
+applyWithoutRollback blocks = do
+    verRes <- verifyBlocks blocks
+    either
+        onFailedVerifyBlocks
+        (withBlkSemaphore . applyWithoutRollbackDo . NE.zip blocks)
+        verRes
   where
     newTip = blocks ^. _neLast . headerHashG
-    whenNoRollback :: m ()
-    whenNoRollback = do
-        verRes <- verifyBlocks blocks
-        case verRes of
-            Right undos -> withBlkSemaphore $ whenNoRollbackDo (NE.zip blocks undos)
-            Left errors -> onFailedVerify errors
-    whenNoRollbackDo :: NonEmpty (Block ssc, Undo) -> HeaderHash ssc -> m (HeaderHash ssc)
-    whenNoRollbackDo blund tip
+    applyWithoutRollbackDo :: NonEmpty (Blund ssc)
+                           -> HeaderHash ssc
+                           -> m (HeaderHash ssc)
+    applyWithoutRollbackDo blund tip
         | tip /= blund ^. _neHead . _1 . headerHashG = pure tip
         | otherwise = newTip <$ applyBlocks blund
-    whenRollback :: NonEmpty (Block ssc, Undo)
-                 -> HeaderHash ssc
-                 -> HeaderHash ssc
-                 -> m (HeaderHash ssc)
-    whenRollback toRollback lca tip
+
+applyWithRollback
+    :: forall ssc m.
+       (ResponseMode ssc m)
+    => NonEmpty (Block ssc) -> HeaderHash ssc -> NonEmpty (Blund ssc) -> m ()
+applyWithRollback toApply lca toRollback = withBlkSemaphore applyWithRollbackDo
+  where
+    newTip = toApply ^. _neLast . headerHashG
+    panicBrokenLca = panic "applyWithRollback: nothing after LCA :/"
+    toApplyAfterLca =
+        fromMaybe panicBrokenLca $ NE.nonEmpty $
+        NE.dropWhile ((lca /=) . (^. prevBlockL)) toApply
+    applyWithRollbackDo :: HeaderHash ssc -> m (HeaderHash ssc)
+    applyWithRollbackDo tip
         | tip /= toRollback ^. _neHead . _1 . headerHashG = pure tip
         | otherwise = do
             rollbackBlocks toRollback
-            let newBlocksList = NE.dropWhile ((lca /=) . (^. prevBlockL)) blocks
-            maybe (panic "No new blocks")
-                (\newBlocks -> do
-                  verRes <- verifyBlocks newBlocks
-                  case verRes of
-                      Right undos -> newTip <$ applyBlocks (NE.zip newBlocks undos)
-                      Left errors ->
-                          onFailedVerify errors >> applyBlocks toRollback $>
-                          tip
-                ) (nonEmpty newBlocksList)
+            verRes <- verifyBlocks toApplyAfterLca
+            case verRes of
+                Right undos ->
+                    newTip <$ applyBlocks (NE.zip toApplyAfterLca undos)
+                Left errors ->
+                    onFailedVerifyBlocks errors >> applyBlocks toRollback $> tip
 
 -- TODO: ban node for it!
-onFailedVerify
+onFailedVerifyBlocks
     :: forall ssc m.
        (ResponseMode ssc m)
     => Text -> m ()
-onFailedVerify = logWarning . sformat ("Failed to verify blocks: " %stext)
+onFailedVerifyBlocks = logWarning . sformat ("Failed to verify blocks: " %stext)

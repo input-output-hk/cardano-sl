@@ -16,6 +16,8 @@ module Pos.DB.Block
        , loadLastNBlocksWithUndo
        , loadBlocksWithUndoWhile
        , loadHeadersUntil
+
+       , prepareBlockDB
        ) where
 
 import           Control.Lens         ((^.))
@@ -31,8 +33,8 @@ import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (rocksDelete, rocksGetBi, rocksPutBi)
 import           Pos.DB.Types         (StoredBlock (..))
 import           Pos.Ssc.Class.Types  (Ssc)
-import           Pos.Types            (Block, BlockHeader, HeaderHash, Undo, headerHash,
-                                       prevBlockL)
+import           Pos.Types            (Block, BlockHeader, GenesisBlock, HeaderHash, Undo,
+                                       headerHash, prevBlockL)
 import qualified Pos.Types            as T
 
 
@@ -146,6 +148,16 @@ loadHeadersUntil startHHash cond = reverse <$> loadHeadersUntilDo startHHash 0
                  (curHeader:) <$>
                  loadHeadersUntilDo (curHeader ^. prevBlockL ) (succ depth))
               guarded'
+
+----------------------------------------------------------------------------
+-- Initialization
+----------------------------------------------------------------------------
+
+prepareBlockDB
+    :: forall ssc m.
+       (Ssc ssc, MonadDB ssc m)
+    => GenesisBlock ssc -> m ()
+prepareBlockDB = putBlock [] True . Left
 
 ----------------------------------------------------------------------------
 -- Helpers

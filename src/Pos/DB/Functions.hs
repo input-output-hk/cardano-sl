@@ -16,7 +16,6 @@ module Pos.DB.Functions
        , rocksDecodeKeyValMaybe
        ) where
 
-import           Control.Monad.TM             ((.>>=.))
 import           Control.Monad.Trans.Resource (MonadResource)
 import qualified Data.ByteString.Lazy         as BSL
 import           Data.Default                 (def)

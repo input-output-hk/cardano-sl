@@ -29,8 +29,8 @@ import           Pos.DB.Error      (DBError (..))
 import           Pos.DB.Functions  (rocksDelete, rocksGetBi, rocksPutBi, rocksWriteBatch,
                                     traverseAllEntries)
 import           Pos.DB.Types      (DB)
-import           Pos.Types         (Address, Coin, HeaderHash, TxIn (..), TxOut (..), Utxo,
-                                    belongsTo, genesisHash)
+import           Pos.Types         (Address, Coin, HeaderHash, TxIn (..), TxOut (..),
+                                    Utxo, belongsTo)
 
 data BatchOp ssc
     = DelTxIn TxIn
@@ -62,8 +62,11 @@ getTxOutFromDB txIn = rocksGetBi (utxoKey txIn)
 writeBatchToUtxo :: MonadDB ssc m => [BatchOp ssc] -> m ()
 writeBatchToUtxo batch = rocksWriteBatch (map toRocksOp batch) =<< getUtxoDB
 
-prepareUtxoDB :: forall ssc m . MonadDB ssc m => Utxo -> m ()
-prepareUtxoDB customUtxo = do
+prepareUtxoDB
+    :: forall ssc m.
+       MonadDB ssc m
+    => Utxo -> HeaderHash ssc -> m ()
+prepareUtxoDB customUtxo initialTip = do
     putIfEmpty getTipMaybe putGenesisTip
     putIfEmpty getSumMaybe putUtxo
     putIfEmpty getSumMaybe putGenesisSum
@@ -73,7 +76,7 @@ prepareUtxoDB customUtxo = do
         :: forall a.
            (m (Maybe a)) -> m () -> m ()
     putIfEmpty getter putter = maybe putter (const pass) =<< getter
-    putGenesisTip = putTip genesisHash
+    putGenesisTip = putTip initialTip
     putGenesisSum = putTotalCoins totalCoins
     putUtxo = mapM_ putTxOut' $ M.toList customUtxo
     putTxOut' ((txid, id), txout) = putTxOut (TxIn txid id) txout

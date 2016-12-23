@@ -4,7 +4,7 @@
 
 -- | Wrappers for network requests.
 
-module Pos.Block.Requests
+module Pos.Block.Network.Request
        ( mkHeadersRequest
        , replyWithHeadersRequest
        , mkBlocksRequest
@@ -13,14 +13,15 @@ module Pos.Block.Requests
 
 import           Universum
 
-import           Pos.Binary.Communication ()
-import           Pos.Block.Logic          (getHeadersOlderExp)
-import           Pos.Block.Server.State   (recordBlocksRequest, recordHeadersRequest)
-import           Pos.Communication.Types  (MsgGetBlocks (..), MsgGetHeaders (..),
-                                           ResponseMode)
-import           Pos.DHT.Model            (getUserState, replyToNode)
-import           Pos.Types                (HeaderHash)
-import           Pos.WorkMode             (WorkMode)
+import           Pos.Binary.Block.Network       ()
+import           Pos.Block.Logic                (getHeadersOlderExp)
+import           Pos.Block.Network.Server.State (recordBlocksRequest,
+                                                 recordHeadersRequest)
+import           Pos.Block.Network.Types        (MsgGetBlocks (..), MsgGetHeaders (..))
+import           Pos.Communication.Types        (ResponseMode)
+import           Pos.DHT.Model                  (getUserState, replyToNode)
+import           Pos.Types                      (HeaderHash)
+import           Pos.WorkMode                   (WorkMode)
 
 -- | Make 'GetHeaders' message using our main chain. This function
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'

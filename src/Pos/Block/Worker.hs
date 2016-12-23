@@ -27,7 +27,7 @@ import           Universum
 
 import           Pos.Binary.Communication      ()
 #ifdef MODERN
-import           Pos.Communication.Methods     (sendToNeighborsSafeWithMaliciousEmulation)
+import           Pos.Block.Network.Announce    (announceBlock)
 import           Pos.Communication.Types.Block (MsgHeaders (..))
 #endif
 #ifndef MODERN
@@ -71,15 +71,6 @@ blkWorkers = [blocksTransmitter, blkOnNewSlotWorker]
 
 blkOnNewSlotWorker :: WorkMode ssc m => m ()
 blkOnNewSlotWorker = onNewSlot True blkOnNewSlot
-
-#ifdef MODERN
-announceBlock
-    :: WorkMode ssc m
-    => MainBlockHeader ssc -> m ()
-announceBlock header = do
-    logDebug $ sformat ("Announcing header to others:\n"%build) header
-    sendToNeighborsSafeWithMaliciousEmulation . MsgHeaders $ pure $ Right header
-#endif
 
 -- Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode ssc m => SlotId -> m ()

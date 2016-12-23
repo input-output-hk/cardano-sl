@@ -108,6 +108,7 @@ library
                         Pos.Wallet.Web.ClientTypes
   other-modules:        Pos.Aeson.CompileConfig
                         Pos.Binary.Address
+                        Pos.Binary.Block.Network
                         Pos.Binary.Class
                         Pos.Binary.Coin
                         Pos.Binary.Crypto
@@ -120,10 +121,12 @@ library
                         Pos.Binary.Txp
                         Pos.Binary.Types
                         Pos.Block.Logic
-                        Pos.Block.Requests
-                        Pos.Block.Server
-                        Pos.Block.Server.State
-                        Pos.Block.Server.Listeners
+                        Pos.Block.Network.Announce
+                        Pos.Block.Network.Request
+                        Pos.Block.Network.Types
+                        Pos.Block.Network.Server
+                        Pos.Block.Network.Server.State
+                        Pos.Block.Network.Server.Listeners
                         Pos.Block.Worker
                         Pos.Communication.Methods
                         Pos.Communication.Types

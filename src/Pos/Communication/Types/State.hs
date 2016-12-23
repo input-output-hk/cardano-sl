@@ -11,13 +11,13 @@ module Pos.Communication.Types.State
        , newMutSocketState
        ) where
 
-import           Control.Concurrent.STM (TVar, newTVarIO)
-import           Control.Lens           (makeClassy)
-import           Data.Default           (Default (def))
+import           Control.Concurrent.STM         (TVar, newTVarIO)
+import           Control.Lens                   (makeClassy)
+import           Data.Default                   (Default (def))
 import           Universum
 
-import           Pos.Block.Server.State (BlockSocketState,
-                                         HasBlockSocketState (blockSocketState))
+import           Pos.Block.Network.Server.State (BlockSocketState,
+                                                 HasBlockSocketState (blockSocketState))
 
 -- | SocketState type aggregates socket states needed for different
 -- parts of system.

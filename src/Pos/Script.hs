@@ -31,17 +31,37 @@ import qualified PlutusCore.Program         as PLCore
 import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum                  hiding (lift)
 
-import           Pos.Script.Type            (Script)
+import           Pos.Binary.Class           (Bi)
+import qualified Pos.Binary.Class           as Bi
+import           Pos.Script.Type            (Script (..), Script_v0)
+
+{- NOTE
+
+Scripts are versioned. The current version is 0. All functions below work
+with version 0 scripts.
+
+Here's what would lead to script version increment:
+  * changing serialization in any way
+  * adding anything to the stdlib
+-}
 
 -- | Parse a script intended to serve as a validator (or “lock”) in a
 -- transaction output.
-parseValidator :: Text -> Either String Script
-parseValidator t = PL.runElabInContext stdlib $ PL.loadValidator (toString t)
+parseValidator :: Bi Script_v0 => Text -> Either String Script
+parseValidator t = do
+    scr <- PL.runElabInContext stdlib $ PL.loadValidator (toString t)
+    return Script {
+        scrScript = Bi.encode scr,
+        scrVersion = 0 }
 
 -- | Parse a script intended to serve as a redeemer (or “proof”) in a
 -- transaction input.
-parseRedeemer :: Text -> Either String Script
-parseRedeemer t = PL.runElabInContext stdlib $ PL.loadRedeemer (toString t)
+parseRedeemer :: Bi Script_v0 => Text -> Either String Script
+parseRedeemer t = do
+    scr <- PL.runElabInContext stdlib $ PL.loadRedeemer (toString t)
+    return Script {
+        scrScript = Bi.encode scr,
+        scrVersion = 0 }
 
 {-
 
@@ -67,7 +87,8 @@ type TxScriptError = String
 
 -- | Validate a transaction, given a validator and a redeemer.
 txScriptCheck
-    :: Script                     -- ^ Validator
+    :: Bi Script_v0
+    => Script                     -- ^ Validator
     -> Script                     -- ^ Redeemer
     -> Either TxScriptError ()
 txScriptCheck validator redeemer = case spoon result of
@@ -78,7 +99,15 @@ txScriptCheck validator redeemer = case spoon result of
   where
     result :: Either String Bool
     result = do
-        (script, env) <- PL.buildValidationScript stdlib validator redeemer
+        -- TODO: when we support more than one version, complain if versions
+        -- don't match
+        valScr <- case scrVersion validator of
+            0 -> Bi.decodeFull (scrScript validator)
+            v -> Left ("unknown script version of validator: " ++ show v)
+        redScr <- case scrVersion redeemer of
+            0 -> Bi.decodeFull (scrScript redeemer)
+            v -> Left ("unknown script version of redeemer: " ++ show v)
+        (script, env) <- PL.buildValidationScript stdlib valScr redScr
         PL.checkValidationResult (script, env)
 
 stdlib :: PLCore.Program

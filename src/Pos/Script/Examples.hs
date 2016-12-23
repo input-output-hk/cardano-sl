@@ -19,10 +19,11 @@ module Pos.Script.Examples
        , goodIntRedeemerWithBlah
        ) where
 
-import           Data.String (String)
+import           Data.String       (String)
 import           Universum
 
-import           Pos.Script  (Script, parseRedeemer, parseValidator)
+import           Pos.Binary.Script ()
+import           Pos.Script        (Script, parseRedeemer, parseValidator)
 
 fromE :: Either String Script -> Script
 fromE = either (panic . toText) identity

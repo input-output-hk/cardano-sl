@@ -6,7 +6,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Script.Type
-       ( Script
+       ( Script(..)
+       , Script_v0
        ) where
 
 import           Data.Binary                (Binary)
@@ -14,6 +15,10 @@ import qualified Data.Binary                as Binary
 import           Data.Eq.Deriving           (deriveEq1)
 import           Data.Hashable              (Hashable, hashWithSalt)
 import           Data.SafeCopy              (SafeCopy (..))
+import           Data.SafeCopy              (base, deriveSafeCopySimple)
+import           Data.Text.Buildable        (Buildable)
+import qualified Data.Text.Buildable        as Buildable
+import           Formatting                 (bprint, int, (%))
 import           Instances.TH.Lift          ()
 import           Language.Haskell.TH.Syntax (Lift (..))
 import qualified PlutusCore.Program         as PLCore
@@ -29,7 +34,22 @@ import           Pos.Binary.Class           (Bi)
 import           Pos.Util                   (getCopyBinary, putCopyBinary)
 
 -- | A script for inclusion into a transaction.
-type Script = PLCore.Program
+data Script = Script {
+    scrScript  :: LByteString,      -- ^ Serialized script
+    scrVersion :: Word32 }          -- ^ Version
+  deriving (Eq, Show, Generic)
+
+instance NFData Script
+instance Hashable Script
+instance Binary Script
+
+instance Buildable Script where
+    build Script{..} = bprint ("<script v"%int%">") scrVersion
+
+deriveSafeCopySimple 0 'base ''Script
+
+-- | Deserialized script (i.e. an AST), version 0.
+type Script_v0 = PLCore.Program
 
 ----------------------------------------------------------------------------
 -- Orphan instances, to be included into plutus-prototype
@@ -83,7 +103,7 @@ instance NFData a => NFData (PLCore.TermF a)
 instance NFData a => NFData (PLCore.PatternF a)
 instance NFData a => NFData (PLTypes.TypeF a)
 instance NFData PLCore.PrimData
-instance NFData Script
+instance NFData PLCore.Program
 
 deriving instance Lift Vars.FreeVar
 deriving instance Lift Vars.MetaVar
@@ -99,7 +119,7 @@ deriving instance Lift a => Lift (PLCore.TermF a)
 deriving instance Lift a => Lift (PLCore.PatternF a)
 deriving instance Lift a => Lift (PLTypes.TypeF a)
 deriving instance Lift PLCore.PrimData
-deriving instance Lift Script
+deriving instance Lift PLCore.Program
 
 instance Bi PLCore.Term => SafeCopy PLCore.Term where
     getCopy = getCopyBinary "Term"

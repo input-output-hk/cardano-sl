@@ -24,13 +24,13 @@ import           Serokell.Util       (VerificationRes, verifyGeneric)
 import           Universum
 
 import           Pos.Binary.Types    ()
-import           Pos.Crypto          (Hash, PublicKey, WithHash (..), checkSig, hash)
+import           Pos.Crypto          (Hash, WithHash (..), checkSig, hash)
 import           Pos.Script          (Script (..), isKnownScriptVersion, txScriptCheck)
-import           Pos.Types.Address   (Address (..), AddressDestination (..), AddressHash,
+import           Pos.Types.Address   (Address (..), AddressDestination (..),
                                       addressDetailedF)
-import           Pos.Types.Types     (SlotId, Tx (..), TxIn (..), TxInWitness (..),
-                                      TxOut (..), TxWitness, checkPubKeyAddress,
-                                      checkScriptAddress, coinF)
+import           Pos.Types.Types     (Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
+                                      TxWitness, checkPubKeyAddress, checkScriptAddress,
+                                      coinF)
 import           Pos.Util            (verResToEither)
 
 
@@ -70,17 +70,22 @@ verifyTxAlone Tx {..} =
                             i sumDist txOutValue)
       ]
 
+-- CSL-366 Add context-dependent variables to scripts
+-- Postponed for now, should be done in near future.
+-- Maybe these datatypes should be moved to Types.
 -- | Global context data needed for script execution -- is same for
--- the whole transaction. VT stands for "Verify Tx".
+-- the whole transaction. VT stands for "Verify Tx". Currently empty.
 data VTxGlobalContext = VTxGlobalContext
-    { vtgSlotId   :: SlotId                  -- ^ Slot id of block transaction is checked in
-    , vtgLeaderId :: AddressHash (PublicKey) -- ^ Leader id of block transaction is checked in
+    {
+--      vtgSlotId   :: SlotId                  -- ^ Slot id of block transaction is checked in
+--    , vtgLeaderId :: AddressHash (PublicKey) -- ^ Leader id of block transaction is checked in
     } deriving (Show)
 
 -- | Local context data for scripts -- differs per input.
 data VTxLocalContext = VTxLocalContext
-    { vtlSlotId :: SlotId -- ^ Slot of the block transaction output was declared in
-    , vtlTxOut  :: TxOut  -- ^ Transaction output
+    {
+--      vtlSlotId :: SlotId -- ^ Slot of the block transaction output was declared in
+     vtlTxOut  :: TxOut  -- ^ Transaction output
     } deriving (Show)
 
 -- | CHECK: Verify Tx correctness using magic function which resolves
@@ -196,8 +201,8 @@ verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses) =
             Left "validator and redeemer have different versions"
         | not (isKnownScriptVersion (scrVersion twValidator)) =
             Right ()
+        | False = let hole = hole in hole gContext lContext
         | otherwise = txScriptCheck twValidator twRedeemer
-        | False = notImplemented gContext lContext
 
 verifyTxPure :: Bool
              -> VTxGlobalContext

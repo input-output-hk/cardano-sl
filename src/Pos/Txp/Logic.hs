@@ -40,6 +40,7 @@ import qualified Pos.Txp.Types.UtxoView  as UV
 import           Pos.Types               (Block, IdTxWitness, MonadUtxo,
                                           MonadUtxoRead (utxoGet), SlotId, Tx (..), TxId,
                                           TxIn (..), TxOut, TxWitness, Undo,
+                                          VTxGlobalContext (..), VTxLocalContext (..),
                                           applyTxToUtxo', blockSlot, blockTxs, blockTxws,
                                           blockTxws, headerHash, prevBlockL, slotIdF,
                                           topsortTxs, verifyTxPure)
@@ -160,7 +161,8 @@ processTxDo ld@(uv, mp, tip) resolvedIns utxoDB (id, (tx, txw))
             Right _     -> newState addUtxo' delUtxo' locTxs locTxsSize
             Left errors -> (PTRinvalid errors, ld)
   where
-    verifyRes = verifyTxPure True inputResolver (tx, txw)
+    verifyRes =
+        verifyTxPure True VTxGlobalContext inputResolver (tx, txw)
     locTxs = localTxs mp
     locTxsSize = localTxsSize mp
     addUtxo' = addUtxo uv
@@ -168,6 +170,7 @@ processTxDo ld@(uv, mp, tip) resolvedIns utxoDB (id, (tx, txw))
     inputResolver tin
         | HS.member tin delUtxo' = Nothing
         | otherwise =
+            VTxLocalContext <$>
             maybe (HM.lookup tin addUtxo') Just (HM.lookup tin resolvedIns)
     newState nAddUtxo nDelUtxo oldTxs oldSize =
         let keys = zipWith TxIn (repeat id) [0 ..]

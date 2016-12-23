@@ -1,0 +1,10 @@
+severity: Warning
+sender:
+    severity: Info
+    comm:
+        severity: Error
+receiver:
+    severity: Info
+    comm:
+        severity: Error
+

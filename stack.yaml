@@ -6,6 +6,10 @@ packages:
       git: https://github.com/serokell/kademlia.git
       commit: 7a0bdfe8bba2503ab96bddd9021ba36e50e5ccc2
     extra-dep: true
+  - location:
+      git: https://github.com/serokell/log-warper.git
+      commit: 14d0d2f391e2ebb6a9679f1dd117c325aff53637
+    extra-dep: true
 
 extra-deps:
   - network-transport-inmemory-0.5.2
@@ -14,6 +18,12 @@ nix:
   enable: false
   packages: []
 
+extra-deps:
+  - serokell-util-0.1.2.3
+  - time-units-1.0.0
+  - aeson-extra-0.4.0.0
+  - data-msgpack-0.0.8
+  - recursion-schemes-5.0.1
 
 flags: {}
 extra-package-dbs: []

@@ -1,14 +1,18 @@
 name:                node-sketch
 version:             0.1.0.0
-license:             AllRightsReserved
+license:             MIT
 license-file:        LICENSE
 category:            Network
 build-type:          Simple
 cabal-version:       >=1.20
 
+flag benchmarks
+  description:       Build benchmarks
+  default:           True
+  manual:            True
+
 Library
   exposed-modules:      Network.Discovery.Abstract
-                        Network.Discovery.Transport.InMemory
                         Network.Discovery.Transport.Kademlia
                         Network.Transport.Abstract
                         Network.Transport.Concrete
@@ -21,7 +25,7 @@ Library
                         Mockable.Exception
                         Mockable.Production
                         Mockable.SharedAtomic
-  other-modules:        Node.Internal
+                        Node.Internal
 
   build-depends:        base
                       , containers
@@ -42,26 +46,6 @@ Library
                         GeneralizedNewtypeDeriving
                         OverloadedStrings
                         RecordWildCards
-                        TypeApplications
-
-executable ping-pong
-  main-is:              PingPong.hs
-  build-depends:        base >= 4.8 && < 5
-                      , binary
-                      , network-transport-inmemory
-                      , network-transport-tcp
-                      , node-sketch
-                      , random
-
-  hs-source-dirs:       examples
-  default-language:     Haskell2010
-  ghc-options:          -threaded -Wall -fno-warn-orphans
-  default-extensions:   DeriveDataTypeable
-                        DeriveGeneric
-                        GeneralizedNewtypeDeriving
-                        OverloadedStrings
-                        RecordWildCards
-                        TypeApplications
 
 executable discovery
   main-is:              Discovery.hs
@@ -82,4 +66,147 @@ executable discovery
                         GeneralizedNewtypeDeriving
                         OverloadedStrings
                         RecordWildCards
-                        TypeApplications
+
+executable ping-pong
+  main-is:             PingPong.hs
+  build-depends:       base >= 4.8 && < 5
+                     , binary
+                     , network-transport-inmemory
+                     , network-transport-tcp
+                     , node-sketch
+                     , random
+                     , stm
+
+  hs-source-dirs:      examples
+  default-language:    Haskell2010
+  ghc-options:         -threaded -Wall -fno-warn-orphans
+  default-extensions:  DeriveGeneric
+                       DeriveDataTypeable
+                       GeneralizedNewtypeDeriving
+                       OverloadedStrings
+                       RecordWildCards
+
+executable bench-sender
+  main-is:             Main.hs
+  other-modules:       Bench.Network.Commons
+                       SenderOptions
+  build-depends:       async >= 2.1
+                     , attoparsec >= 0.13.1
+                     , base == 4.*
+                     , binary >= 0.8.3
+                     , bytestring >= 0.10.6.0
+                     , data-default >= 0.7
+                     , directory >= 1.2.6
+                     , exceptions >= 0.8.2.1
+                     , extra >= 1.4
+                     , formatting
+                     , hslogger
+                     , lifted-base
+                     , log-warper >= 0.2.0
+                     , MonadRandom >= 0.4.2.3
+                     , monad-control >= 1.0.1
+                     , mtl
+                     , network-transport-tcp >= 0.5.1
+                     , node-sketch
+                     , optparse-simple >= 0.0.3
+                     , serokell-util
+                     , stm
+                     , random >= 1.1
+                     , text-format >= 0.3.1
+                     , time >= 1.6
+                     , time-units >= 1.0.0
+                     , transformers >= 0.5.2
+                     , unordered-containers >= 0.2.7
+  hs-source-dirs:      bench/Network/Sender
+                     , bench/Network/Common
+  if flag(benchmarks)
+    buildable:         True
+  else
+    buildable:         False
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -fno-warn-orphans
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , GeneralizedNewtypeDeriving
+
+executable bench-receiver
+  main-is:             Main.hs
+  other-modules:       Bench.Network.Commons
+                       ReceiverOptions
+  build-depends:       attoparsec >= 0.13.1
+                     , base == 4.*
+                     , binary >= 0.8.3
+                     , bytestring >= 0.10.6.0
+                     , data-default >= 0.7
+                     , directory >= 1.2.6
+                     , exceptions >= 0.8.2.1
+                     , formatting
+                     , hslogger
+                     , lifted-base
+                     , log-warper >= 0.2.0
+                     , mtl
+                     , network-transport-tcp >= 0.5.1
+                     , node-sketch
+                     , optparse-simple >= 0.0.3
+                     , random >= 1.1
+                     , serokell-util
+                     , stm
+                     , text-format >= 0.3.1
+                     , time >= 1.6
+                     , time-units >= 1.0.0
+                     , unordered-containers >= 0.2.7
+  hs-source-dirs:      bench/Network/Receiver
+                     , bench/Network/Common
+  if flag(benchmarks)
+    buildable:         True
+  else
+    buildable:         False
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -fno-warn-orphans
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , GeneralizedNewtypeDeriving
+
+executable bench-log-reader
+  main-is:             Main.hs
+  other-modules:       Bench.Network.Commons
+                       LogReaderOptions
+  build-depends:       attoparsec >= 0.13.1
+                     , base == 4.*
+                     , binary >= 0.8.3
+                     , bytestring >= 0.10.6.0
+                     , conduit >= 1.2.7
+                     , conduit-extra >= 1.1.13
+                     , containers >= 0.5.7
+                     , data-default >= 0.7
+                     , directory >= 1.2.6
+                     , exceptions >= 0.8.2.1
+                     , formatting
+                     , hslogger
+                     , log-warper >= 0.2.0
+                     , lens >= 4.14
+                     , mtl
+                     , network-transport-tcp >= 0.5.1
+                     , node-sketch
+                     , optparse-simple >= 0.0.3
+                     , resourcet >= 1.1.7
+                     , stm
+                     , text >= 1.2.2
+                     , text-format >= 0.3.1
+                     , time >= 1.6
+                     , time-units >= 1.0.0
+                     , unordered-containers >= 0.2.7
+  hs-source-dirs:      bench/Network/LogReader
+                     , bench/Network/Common
+  if flag(benchmarks)
+    buildable:         True
+  else
+    buildable:         False
+  default-language:    Haskell2010
+  ghc-options:         -threaded -Wall -fno-warn-orphans
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , GeneralizedNewtypeDeriving

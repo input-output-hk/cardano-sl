@@ -247,14 +247,10 @@ type TxSig = Signature (TxId, Word32, Hash [TxOut])
 
 -- | A witness for a single input.
 data TxInWitness
-    = PkWitness
-        { twKey :: PublicKey
-        , twSig :: TxSig
-        }
-    | ScriptWitness
-        { twValidator :: Script
-        , twRedeemer  :: Script
-        }
+    = PkWitness { twKey :: PublicKey
+                , twSig :: TxSig}
+    | ScriptWitness { twValidator :: Script
+                    , twRedeemer  :: Script}
     deriving (Eq, Show, Generic)
 
 instance Hashable TxInWitness

@@ -834,6 +834,9 @@ instance BiSsc ssc => HasHeaderHash (GenesisBlock ssc) ssc where
 instance BiSsc ssc => HasHeaderHash (Block ssc) ssc where
     headerHash = hash . getBlockHeader
 
+instance BiSsc ssc => HasHeaderHash (Blund ssc) ssc where
+    headerHash = headerHash . fst
+
 -- | Class for something that has 'EpochIndex'.
 class HasEpochIndex a where
     epochIndexL :: Lens' a EpochIndex

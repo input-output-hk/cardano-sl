@@ -15,6 +15,7 @@ module Pos.Context.Context
        ) where
 
 import           Control.Lens        (makeLenses)
+import           Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
 import           Data.Time.Clock     (UTCTime)
 import           Universum

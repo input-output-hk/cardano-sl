@@ -110,9 +110,6 @@ instance (MonadIO m, MonadUtxoRead (TxpLDHolder ssc m))
     utxoDel key = TxpLDHolder (asks utxoView) >>=
                   atomically . flip STM.modifyTVar' (UV.delTxIn key)
 
-instance Default (HeaderHash ssc) where
-    def = notImplemented -- TODO we must implement
-
 runTxpLDHolder :: MonadIO m => TxpLDHolder ssc m a
                -> UtxoView ssc -> HeaderHash ssc -> m a
 runTxpLDHolder holder uv initTip = TxpLDWrap

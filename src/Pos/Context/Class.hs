@@ -16,6 +16,7 @@ module Pos.Context.Class
        , invalidateProxyCaches
 
        , readRichmen
+       , readLeaders
        , tryReadLeaders
        ) where
 
@@ -98,12 +99,23 @@ invalidateProxyCaches = withProxyCaches $ \p -> do
         p & ncProxyMsgCache %~ HM.filter (\t -> addUTCTime 60 t > curTime)
           & ncProxyConfCache %~ HM.filter (\t -> addUTCTime 500 t > curTime)
 
+----------------------------------------------------------------------------
+-- LRC data
+----------------------------------------------------------------------------
+
 -- | Read richmen from node context. This function blocks if
 -- participants are not available.
 readRichmen
     :: (MonadIO m, WithNodeContext ssc m)
     => m Participants
 readRichmen = getNodeContext >>= liftIO . readMVar . ncSscRichmen
+
+-- | Read slot leaders from node context. This function blocks if
+-- leaders are not available.
+readLeaders
+    :: (MonadIO m, WithNodeContext ssc m)
+    => m SlotLeaders
+readLeaders = getNodeContext >>= liftIO . readMVar . ncSscLeaders
 
 -- | Read slot leaders from node context. Nothing is returned if
 -- leaders are not available.

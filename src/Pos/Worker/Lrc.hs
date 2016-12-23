@@ -7,7 +7,7 @@
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
 
--- | Workers responsible for Leaders and Richmen calculation.
+-- | Workers responsible for Leaders and Richmen computation.
 
 module Pos.Worker.Lrc
        ( lrcOnNewSlot
@@ -30,38 +30,52 @@ import           Pos.DB.DBIterator        ()
 import           Pos.DB.Utxo              (getTotalCoins, iterateByUtxo, mapUtxoIterator)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
-import           Pos.Types                (Address, Coin, EpochOrSlot (..), Participants,
-                                           SlotId (..), TxIn, TxOut (..), getEpochOrSlot)
+import           Pos.Types                (Address, Coin, EpochOrSlot (..), HeaderHash,
+                                           Participants, SlotId (..), TxIn, TxOut (..),
+                                           getEpochOrSlot)
 import           Pos.WorkMode             (WorkMode)
 
-lrcOnNewSlot :: WorkMode ssc m => SlotId -> m () --Leaders and Participants computation
-lrcOnNewSlot SlotId{siSlot = slotId, siEpoch = epochId} = withBlkSemaphore_ $ \tip -> do
-    if slotId == 0 then do
-        logDebug $ "It's time to compute leaders and parts"
-        blockUndoList <- loadBlocksFromTipWhile whileMoreOrEq5k
-        when (null blockUndoList) $
-            panic "No one block hasn't been generated during last k slots"
-        let blockUndos = NE.fromList blockUndoList
-        rollbackBlocks blockUndos
-        -- [CSL-93] Use eligibility threshold here
-        richmen <- getRichmen 0
+lrcOnNewSlot :: WorkMode ssc m => SlotId -> m ()
+lrcOnNewSlot slotId
+    | siSlot slotId < k = do
+        nc <- getNodeContext
+        richmenEmpty <- liftIO . isEmptyMVar . ncSscRichmen $ nc
+        leadersEmpty <- liftIO . isEmptyMVar . ncSscLeaders $ nc
+        when (richmenEmpty || leadersEmpty) $
+            withBlkSemaphore_ $ lrcOnNewSlotDo slotId
+    | otherwise = do
         nc <- getNodeContext
         let clearMVar = liftIO . void . tryTakeMVar
         clearMVar $ ncSscRichmen nc
-        liftIO $ putMVar (ncSscRichmen nc) richmen
+        clearMVar $ ncSscLeaders nc
+
+lrcOnNewSlotDo
+    :: WorkMode ssc m
+    => SlotId -> HeaderHash ssc -> m (HeaderHash ssc)
+lrcOnNewSlotDo SlotId {siEpoch = epochId} tip = tip <$ do
+    logDebug $ "It's time to compute leaders and parts"
+    blockUndoList <- loadBlocksFromTipWhile whileMoreOrEq5k
+    when (null blockUndoList) $
+        panic "No one block hasn't been generated during last k slots"
+    let blockUndos = NE.fromList blockUndoList
+    rollbackBlocks blockUndos
+    nc <- getNodeContext
+    let richmenMVar = ncSscRichmen nc
+        leadersMVar = ncSscLeaders nc
+    whenM (liftIO $ isEmptyMVar richmenMVar) $ do
+        -- [CSL-93] Use eligibility threshold here
+        richmen <- getRichmen 0
+        liftIO $ putMVar richmenMVar richmen
+    whenM (liftIO $ isEmptyMVar leadersMVar) $ do
         mbSeed <- sscCalculateSeed epochId
         totalCoins <- getTotalCoins
         leaders <-
             case mbSeed of
-              Left e     -> panic $ sformat ("SSC couldn't compute seed: "%build) e
-              Right seed -> mapUtxoIterator @(TxIn, TxOut) @TxOut
+                Left e     -> panic $ sformat ("SSC couldn't compute seed: "%build) e
+                Right seed -> mapUtxoIterator @(TxIn, TxOut) @TxOut
                             (followTheSatoshiM seed totalCoins) snd
-        clearMVar $ ncSscLeaders nc
-        liftIO $ putMVar (ncSscLeaders nc) leaders
-        applyBlocks blockUndos
-    else
-        logDebug $ "It is too early compute leaders and parts"
-    pure tip
+        liftIO $ putMVar leadersMVar leaders
+    applyBlocks blockUndos
   where
     whileMoreOrEq5k b = getEpochOrSlot b >= crucialSlot
     crucialSlot = EpochOrSlot $ Right $

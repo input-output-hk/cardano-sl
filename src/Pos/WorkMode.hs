@@ -59,8 +59,6 @@ import           Pos.DHT.Model                 (DHTPacking, DHTResponseT (..),
                                                 MonadMessageDHT (..),
                                                 WithDefaultMsgHeader)
 import           Pos.DHT.Real                  (KademliaDHT (..))
-import           Pos.Modern.Txp.Class          (MonadTxpLD (..))
-import           Pos.Modern.Txp.Holder         (TxpLDHolder)
 import           Pos.Slotting                  (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers         (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData       (MonadSscLD (..), SscLocalDataClass,
@@ -70,6 +68,8 @@ import           Pos.Ssc.Extra                 (MonadSscGS, MonadSscLDM, SscHold
                                                 SscLDImpl)
 import           Pos.State                     (DBHolder, MonadDB (..))
 import           Pos.Statistics.MonadStats     (MonadStats, NoStatsT, StatsT)
+import           Pos.Txp.Class                 (MonadTxpLD (..))
+import           Pos.Txp.Holder                (TxpLDHolder)
 import           Pos.Txp.LocalData             (MonadTxLD (..), TxLocalData (..))
 import           Pos.Types                     (MonadUtxo)
 import           Pos.Util.JsonLog              (MonadJL (..))

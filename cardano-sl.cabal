@@ -165,12 +165,6 @@ library
                         Pos.DB.Types
                         Pos.DB.Utxo
                         Pos.DB.DBIterator
-                        Pos.Modern.Txp.Class
-                        Pos.Modern.Txp.Error
-                        Pos.Modern.Txp.Storage.Types
-                        Pos.Modern.Txp.Storage.UtxoView
-                        Pos.Modern.Txp.Holder
-                        Pos.Modern.Txp.Logic
                         Pos.Modern.Ssc.GodTossing.LocalData.LocalData
                         Pos.Modern.Ssc.GodTossing.LocalData.Types
                         Pos.Modern.Ssc.GodTossing.LocalData.Helpers
@@ -213,8 +207,15 @@ library
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
-                        Pos.Txp.Types.Communication
+                        Pos.Txp.Class
+                        Pos.Txp.Error
+                        Pos.Txp.Holder
                         Pos.Txp.LocalData
+                        Pos.Txp.Logic
+                        Pos.Txp.Types
+                        Pos.Txp.Types.Communication
+                        Pos.Txp.Types.Types
+                        Pos.Txp.Types.UtxoView
                         Pos.Types.Utxo.Class
                         Pos.Types.Utxo.Functions
                         Pos.Types.Utxo.Pure

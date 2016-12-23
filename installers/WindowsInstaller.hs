@@ -1,7 +1,7 @@
-import Development.NSIS
-import Development.NSIS.Plugins.EnvVarUpdate
-import Turtle
-import System.Directory
+import           Development.NSIS
+import           Development.NSIS.Plugins.EnvVarUpdate
+import           System.Directory
+import           Turtle
 
 
 writeNSIS :: IO ()

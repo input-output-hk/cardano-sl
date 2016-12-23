@@ -15,8 +15,8 @@ import           Universum
 import qualified Pos.Context                as PC
 import           Pos.DHT.Model              (DHTResponseT)
 import           Pos.DHT.Real               (KademliaDHT)
-import qualified Pos.Modern.Txp.Holder      as Modern
 import           Pos.Ssc.Extra              (SscHolder (..), SscLDImpl (..))
+import qualified Pos.Txp.Holder             as Modern
 import           Pos.WorkMode               (TxLDImpl (..))
 
 import           Pos.Wallet.Context.Context (WalletContext, fromNodeCtx)

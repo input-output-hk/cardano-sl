@@ -4,11 +4,19 @@ module Pos.Binary.Script () where
 
 import qualified PlutusCore.Program as PLCore
 import qualified PlutusCore.Term    as PLCore
+import           Universum
 
 import           Pos.Binary.Class   (Bi (..))
-import           Pos.Script         (Script)
+import           Pos.Script         (Script (..))
 
 instance Bi PLCore.Term
-instance Bi PLCore.Program    -- Script = PLCore.Program
+instance Bi PLCore.Program
 
-instance Bi Script
+instance Bi Script where
+    get = do
+        scrVersion <- get
+        scrScript <- get
+        return Script{..}
+    put Script{..} = do
+        put scrVersion
+        put scrScript

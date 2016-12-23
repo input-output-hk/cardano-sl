@@ -12,31 +12,36 @@ import           System.Directory             (createDirectoryIfMissing)
 import           System.FilePath              ((</>))
 import           Universum
 
-import           Pos.DB.Block                 (getBlock, loadBlocksWithUndoWhile)
+import           Pos.DB.Block                 (getBlock, loadBlocksWithUndoWhile,
+                                               prepareBlockDB)
 import           Pos.DB.Class                 (MonadDB)
 import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.Functions             (openDB)
 import           Pos.DB.Holder                (runDBHolder)
 import           Pos.DB.Types                 (NodeDBs (..))
 import           Pos.DB.Utxo                  (getTip, prepareUtxoDB)
+import           Pos.Genesis                  (genesisLeaders)
 import           Pos.Ssc.Class.Types          (Ssc)
 import           Pos.Types                    (Block, BlockHeader, Undo, Utxo,
-                                               getBlockHeader)
+                                               getBlockHeader, headerHash, mkGenesisBlock)
 
 -- | Open all DBs stored on disk.
-openNodeDBs :: MonadResource m => FilePath -> Utxo -> m (NodeDBs ssc)
+openNodeDBs :: (Ssc ssc, MonadResource m) => FilePath -> Utxo -> m (NodeDBs ssc)
 openNodeDBs fp customUtxo = do
     let blockPath = fp </> "blocks"
     let utxoPath = fp </> "utxo"
     let miscPath = fp </> "misc"
     mapM_ ensureDirectoryExists [blockPath, utxoPath, miscPath]
-    res <- NodeDBs <$> openDB blockPath
-                   <*> openDB utxoPath
-                   <*> openDB miscPath
-    res <$ (runDBHolder res $ prepareUtxoDB customUtxo)
+    res <- NodeDBs <$> openDB blockPath <*> openDB utxoPath <*> openDB miscPath
+    res <$ runDBHolder res
+        (prepareBlockDB genesisBlock0 >> prepareUtxoDB customUtxo initialTip)
   where
-    ensureDirectoryExists :: MonadIO m => FilePath -> m ()
+    ensureDirectoryExists
+        :: MonadIO m
+        => FilePath -> m ()
     ensureDirectoryExists = liftIO . createDirectoryIfMissing True
+    genesisBlock0 = mkGenesisBlock Nothing 0 $ genesisLeaders customUtxo
+    initialTip = headerHash genesisBlock0
 
 -- | Get block corresponding to tip.
 getTipBlock

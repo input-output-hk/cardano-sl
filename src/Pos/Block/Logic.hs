@@ -3,6 +3,7 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 -- | Logic of blocks processing.
 
@@ -24,7 +25,7 @@ module Pos.Block.Logic
        , getBlocksByHeaders
        , withBlkSemaphore
        , withBlkSemaphore_
-       , processNewSlot
+       , createGenesisBlock
        , createMainBlock
        ) where
 
@@ -43,27 +44,29 @@ import           Universum
 
 import           Pos.Constants             (k)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
-                                            putBlkSemaphore, takeBlkSemaphore)
+                                            putBlkSemaphore, readLeaders,
+                                            takeBlkSemaphore)
 import           Pos.Crypto                (ProxySecretKey, SecretKey,
                                             WithHash (WithHash), hash)
 import           Pos.DB                    (MonadDB, getTipBlockHeader, loadHeadersUntil)
 import qualified Pos.DB                    as DB
-import           Pos.Modern.Txp.Class      (getLocalTxs)
-import           Pos.Modern.Txp.Logic      (txApplyBlocks, txRollbackBlocks,
-                                            txVerifyBlocks)
+import           Pos.DB.Error              (DBError (..))
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class             (Ssc (..))
 import           Pos.Ssc.Extra             (sscApplyBlocks, sscGetLocalPayloadM,
                                             sscRollback, sscVerifyBlocks)
+import           Pos.Txp.Class             (getLocalTxs)
+import           Pos.Txp.Logic             (txApplyBlocks, txRollbackBlocks,
+                                            txVerifyBlocks)
 import           Pos.Types                 (Block, BlockHeader, Blund, EpochIndex,
                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
                                             IdTxWitness, MainBlock, SlotId (..), Undo,
                                             VerifyHeaderParams (..), blockHeader,
                                             difficultyL, epochOrSlot, flattenEpochOrSlot,
                                             getEpochOrSlot, headerHash, headerSlot,
-                                            mkMainBlock, mkMainBody, prevBlockL,
-                                            topsortTxs, verifyHeader, verifyHeaders,
-                                            vhpVerifyConsensus)
+                                            mkGenesisBlock, mkMainBlock, mkMainBody,
+                                            prevBlockL, topsortTxs, verifyHeader,
+                                            verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
 import           Pos.WorkMode              (WorkMode)
 
@@ -326,16 +329,59 @@ getBlocksByHeaders older newer = runMaybeT $ do
         pure $ curBlock : others
 
 ----------------------------------------------------------------------------
--- Blocks creation
+-- GenesisBlock creation
 ----------------------------------------------------------------------------
 
--- | Do all necessary changes when new slot starts.  Specifically this
--- function creates genesis block if necessary and does some clean-up.
-processNewSlot
+-- | Create genesis block if necessary.
+
+-- We create genesis block for current epoch when head of currently known
+-- best chain is MainBlock corresponding to one of last `k` slots of
+-- (i - 1)-th epoch. Main check is that epoch is `(last stored epoch +
+-- 1)`, but we also don't want to create genesis block on top of blocks
+-- from previous epoch which are not from last k slots, because it's
+-- practically impossible for them to be valid.
+createGenesisBlock
     :: forall ssc m.
        WorkMode ssc m
     => SlotId -> m (Maybe (GenesisBlock ssc))
-processNewSlot _ = notImplemented
+createGenesisBlock (siEpoch -> epochIndex) =
+    ifM (shouldCreateGenesisBlock epochIndex . getEpochOrSlot <$> getTipBlockHeader)
+        (createGenesisBlockDo epochIndex)
+        (pure Nothing)
+
+shouldCreateGenesisBlock :: EpochIndex -> EpochOrSlot -> Bool
+-- Genesis block for 0-th epoch is hardcoded.
+shouldCreateGenesisBlock 0 _ = False
+shouldCreateGenesisBlock epoch headEpochOrSlot =
+    doCheck $ epochOrSlot (`SlotId` 0) identity headEpochOrSlot
+  where
+    doCheck SlotId {..} = siEpoch == epoch - 1 && siSlot >= 5 * k
+
+createGenesisBlockDo
+    :: forall ssc m.
+       WorkMode ssc m
+    => EpochIndex -> m (Maybe (GenesisBlock ssc))
+createGenesisBlockDo epoch = do
+    leaders <- readLeaders
+    withBlkSemaphore (createGenesisBlockCheckAgain leaders)
+  where
+    createGenesisBlockCheckAgain leaders tip = do
+        let noHeaderMsg =
+                "There is no header is DB corresponding to tip from semaphore"
+        tipHeader <-
+            maybe (throwM $ DBMalformed noHeaderMsg) pure =<<
+            DB.getBlockHeader tip
+        createGenesisBlockFinally leaders tip tipHeader
+    createGenesisBlockFinally leaders tip tipHeader
+        | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
+              let blk = mkGenesisBlock (Just tipHeader) epoch leaders
+              let newTip = headerHash blk
+              applyBlocks (pure (Left blk, [])) $> (Just blk, newTip)
+        | otherwise = pure (Nothing, tip)
+
+----------------------------------------------------------------------------
+-- MainBlock creation
+----------------------------------------------------------------------------
 
 -- | Create a new main block on top of best chain if possible.
 -- Block can be created if:

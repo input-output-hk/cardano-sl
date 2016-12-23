@@ -16,7 +16,7 @@ import           Universum
 import           Pos.Binary           (Bi, decode, encode)
 import qualified Pos.CLI              as CLI
 import           Pos.Constants        (RunningMode (..), runningMode)
-import           Pos.Crypto           (SecretKey, VssKeyPair, keyGen, vssKeyGen)
+import           Pos.Crypto           (VssKeyPair, vssKeyGen)
 import           Pos.DHT.Model        (DHTKey, DHTNodeType (..), dhtNodeType)
 import           Pos.DHT.Real         (KademliaDHTInstance)
 import           Pos.Genesis          (genesisSecretKeys, genesisUtxo)
@@ -152,7 +152,7 @@ nodeParams args@Args {..} systemStart =
     , npDbPathM = dbPath
     , npRebuildDb = rebuildDB
     , npSecretKey = (genesisSecretKeys !!) <$> spendingGenesisI
-    , npKeyfilePath = keyfilePath
+    , npKeyfilePath = maybe keyfilePath (\i -> "node-" ++ show i ++ "." ++ keyfilePath) spendingGenesisI
     , npSystemStart = systemStart
     , npBaseParams = baseParams "node" args
     , npCustomUtxo =
@@ -194,7 +194,7 @@ pluginsGT Args {..}
 walletServe :: SscConstraint ssc => Args -> [RawRealMode ssc ()]
 walletServe Args {..} =
     if enableWallet
-    then [walletServeWebFull keyfilePath walletDbPath walletDebug walletPort]
+    then [walletServeWebFull walletDbPath walletDebug walletPort]
     else []
 
 walletProd :: SscConstraint ssc => Args -> [ProductionMode ssc ()]

@@ -41,10 +41,10 @@ import qualified Pos.DB                      as Modern
 import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
-import           Pos.Modern.Txp.Holder       (TxpLDHolder (..))
 import           Pos.Slotting                (MonadSlots)
 import           Pos.Ssc.Extra               (SscHolder (..), SscLDImpl (..))
 import qualified Pos.State                   as St
+import           Pos.Txp.Holder              (TxpLDHolder (..))
 import           Pos.Txp.LocalData           (MonadTxLD)
 import           Pos.Util                    ()
 import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,

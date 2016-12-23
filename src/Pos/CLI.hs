@@ -44,9 +44,8 @@ import           Pos.DHT.Model.Types                  (DHTKey, DHTNode (..),
                                                        bytesToDHTKey)
 import           Pos.Security.Types                   (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
-import           Pos.Types.Address                    (Address (..),
-                                                       AddressDestination (..),
-                                                       AddressHash, decodeTextAddress)
+import           Pos.Types.Address                    (Address (..), AddressHash,
+                                                       decodeTextAddress)
 import           Serokell.Util.OptParse               (fromParsec)
 import qualified Serokell.Util.Parse                  as P
 import           System.Wlog                          (LoggerConfig (..),
@@ -84,7 +83,7 @@ base58AddrParser = do
     token <- many1 $ P.noneOf " "
     case decodeTextAddress $ pack token of
       Left _  -> fail "Incorrect address"
-      Right r -> return $ addrDestKeyHash (addrDestination r)
+      Right r -> return $ addrKeyHash r
 
 attackTargetParser :: P.Parser AttackTarget
 attackTargetParser = (PubKeyAddressTarget <$> try base58AddrParser) <|>

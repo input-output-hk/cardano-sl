@@ -16,6 +16,7 @@ module Pos.Context.Class
        , invalidateProxyCaches
 
        , readRichmen
+       , readLeaders
        , tryReadLeaders
        ) where
 
@@ -108,6 +109,13 @@ readRichmen
     :: (MonadIO m, WithNodeContext ssc m)
     => m Participants
 readRichmen = getNodeContext >>= liftIO . readMVar . ncSscRichmen
+
+-- | Read slot leaders from node context. This function blocks if
+-- leaders are not available.
+readLeaders
+    :: (MonadIO m, WithNodeContext ssc m)
+    => m SlotLeaders
+readLeaders = getNodeContext >>= liftIO . readMVar . ncSscLeaders
 
 -- | Read slot leaders from node context. Nothing is returned if
 -- leaders are not available.

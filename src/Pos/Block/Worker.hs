@@ -44,7 +44,7 @@ import           Pos.Slotting                  (MonadSlots (getCurrentTime), get
 import           Pos.Ssc.Class                 (SscHelpersClass, sscApplyGlobalState,
                                                 sscGetLocalPayload)
 #ifdef MODERN
-import           Pos.Block.Logic               (createMainBlock, processNewSlot)
+import           Pos.Block.Logic               (createGenesisBlock, createMainBlock)
 import           Pos.Context.Class             (tryReadLeaders)
 #else
 import           Pos.State                     (createNewBlock, getGlobalMpcData,
@@ -86,7 +86,7 @@ blkOnNewSlot :: WorkMode ssc m => SlotId -> m ()
 blkOnNewSlot slotId@SlotId {..} = do
     -- First of all we create genesis block if necessary.
 #ifdef MODERN
-    mGenBlock <- processNewSlot slotId
+    mGenBlock <- createGenesisBlock slotId
 #else
     (mGenBlock, pnsLog) <- processNewSlot slotId
     dispatchEvents pnsLog

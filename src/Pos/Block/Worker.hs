@@ -27,11 +27,11 @@ import           Universum
 
 import           Pos.Binary.Communication      ()
 #ifdef MODERN
-import           Pos.Communication.Types.Block (MsgHeaders)
+import           Pos.Communication.Methods     (sendToNeighborsSafeWithMaliciousEmulation)
+import           Pos.Communication.Types.Block (MsgHeaders (..))
 #endif
 #ifndef MODERN
-import           Pos.Communication.Methods     (announceBlock,
-                                                sendToNeighborsSafeWithMaliciousEmulation)
+import           Pos.Communication.Methods     (announceBlock)
 #endif
 import           Pos.Constants                 (networkDiameter, slotDuration)
 import           Pos.Context                   (getNodeContext, ncPropagation,
@@ -78,7 +78,7 @@ announceBlock
     => MainBlockHeader ssc -> m ()
 announceBlock header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
-    sendToNeighborsSafeWithMaliciousEmulation . MsgHeaders $ pure header
+    sendToNeighborsSafeWithMaliciousEmulation . MsgHeaders $ pure $ Right header
 #endif
 
 -- Action which should be done when new slot starts.

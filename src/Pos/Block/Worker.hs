@@ -79,6 +79,8 @@ blkOnNewSlot slotId@SlotId {..} = do
 
     -- Then we get leaders for current epoch.
 #ifdef MODERN
+    -- Note: if genesis block is created above, we will read
+    -- leaders. If genesis block is not created, we can't do anything.
     leadersMaybe <- tryReadLeaders
 #else
     leadersMaybe <- getLeaders siEpoch
@@ -87,7 +89,8 @@ blkOnNewSlot slotId@SlotId {..} = do
         -- If we don't know leaders, we can't do anything.
         Nothing -> logWarning "Leaders are not known for new slot"
         -- If we know leaders, we check whether we are leader and
-        -- create a new block if we are.
+        -- create a new block if we are. We also create block if we
+        -- have suitable PSK.
         Just leaders -> do
             let logLeadersF = if siSlot == 0 then logInfo else logDebug
             logLeadersF (sformat ("Slot leaders: "%listJson) leaders)

@@ -79,7 +79,8 @@ import           Pos.Launcher.Param              (BaseParams (..), LoggingParams
 import qualified Pos.Modern.Txp.Holder           as Modern
 import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
 import           Pos.Ssc.Class                   (SscConstraint, SscNodeContext,
-                                                  SscParams, sscCreateNodeContext)
+                                                  SscParams, sscCreateNodeContext,
+                                                  sscLoadGlobalState)
 import           Pos.Ssc.Extra                   (runSscHolder, runSscLDImpl)
 import           Pos.State                       (NodeState, closeState, openMemState,
                                                   openState, runDBHolder)
@@ -157,8 +158,8 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     lift $ setupLoggers lp
     legacyDB <- snd <$> allocate openDb closeDb
     modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo") npCustomUtxo
-    --initGS <- Modern.runDBHolder modernDBs (loadGlobalState @ssc)
     initTip <- Modern.runDBHolder modernDBs Modern.getTip
+    initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
     let run db =
             runOurDialog newMutSocketState lpRunnerTag .
             runDBHolder db .
@@ -166,7 +167,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
             withEx (sscCreateNodeContext @ssc sscnp) $ flip (runCH np) .
             runSscLDImpl .
             runTxLDImpl .
-            flip runSscHolder notImplemented . -- load mpc data from blocks (from rocksdb) here
+            flip runSscHolder initGS .
             flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDBs) .
             runKDHT inst npBaseParams listeners $
             nodeStartMsg npBaseParams >> action

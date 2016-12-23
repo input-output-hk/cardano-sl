@@ -12,7 +12,6 @@ module Pos.Ssc.Class.Helpers
 
 import           Data.Tagged          (Tagged)
 import           Serokell.Util.Verify (VerificationRes)
--- import           Universum
 
 import           Pos.Ssc.Class.Types  (Ssc (..))
 import           Pos.Types.Types      (MainBlockHeader)

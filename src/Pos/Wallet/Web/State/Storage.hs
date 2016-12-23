@@ -14,8 +14,9 @@ module Pos.Wallet.Web.State.Storage
        , removeWallet
        ) where
 
-import           Control.Lens               (makeClassy, view, (.=))
+import           Control.Lens               (at, makeClassy, view, (.=))
 import           Data.Default               (Default, def)
+import           Data.HashMap.Strict        (elems)
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CWalletMeta,
                                              CWalletType)
@@ -45,16 +46,16 @@ type Update a = forall m. ({-MonadThrow m, -}MonadState WalletStorage m) => m a
 -- setDummyAttribute x = dummyAttribute .= x
 
 getWalletMetas :: Query [CWalletMeta]
-getWalletMetas = undefined
+getWalletMetas = elems <$> view wsWalletMetas
 
 getWalletMeta :: CAddress -> Query (Maybe CWalletMeta)
-getWalletMeta = undefined
+getWalletMeta cAddr = view (wsWalletMetas . at cAddr)
 
 addWalletMeta :: CAddress -> CWalletMeta -> Update ()
-addWalletMeta = undefined
+addWalletMeta cAddr wMeta = wsWalletMetas . at cAddr .= Just wMeta
 
 removeWallet :: CAddress -> Update ()
-removeWallet = undefined
+removeWallet cAddr = wsWalletMetas . at cAddr .= Nothing
 
 deriveSafeCopySimple 0 'base ''CHash
 deriveSafeCopySimple 0 'base ''CAddress

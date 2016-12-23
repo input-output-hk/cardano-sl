@@ -15,6 +15,7 @@ module Pos.Wallet.Web.State.Acidic
        , GetWalletMetas (..)
        , GetWalletMeta (..)
        , AddWalletMeta (..)
+       , RemoveWallet (..)
        ) where
 
 import           Universum
@@ -58,4 +59,5 @@ makeAcidic ''WalletStorage
       'WS.getWalletMetas
     , 'WS.getWalletMeta
     , 'WS.addWalletMeta
+    , 'WS.removeWallet
     ]

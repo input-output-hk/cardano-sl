@@ -39,7 +39,8 @@ import           Pos.Wallet.Web.ClientTypes (CAddress, CWallet (..), CWalletMeta
                                              addressToCAddress, cAddressToAddress)
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
                                              addWalletMeta, closeState, getWalletMeta,
-                                             openState, runWalletWebDB)
+                                             openState, removeWallet, runWalletWebDB)
+
 
 
 ----------------------------------------------------------------------------
@@ -73,19 +74,17 @@ type WalletWebMode ssc m
 
 servantHandlers :: WalletWebMode ssc m => ServerT WalletApi m
 servantHandlers =
-     addCors getAddresses
-    :<|>
      addCors . getWallet
     :<|>
-     addCors getBalances
+     addCors getWallets
     :<|>
      (\a b -> addCors . send a b)
     :<|>
      addCors . getHistory
     :<|>
-     addCors newAddress
+     addCors . newWallet
     :<|>
-     addCors . deleteAddress
+     addCors . deleteWallet
 
 getAddresses :: WalletWebMode ssc m => m [CAddress]
 getAddresses = map fst <$> getBalances
@@ -96,20 +95,29 @@ getBalances = join $ mapM gb <$> myAddresses
 
 getWallet :: WalletWebMode ssc m => CAddress -> m CWallet
 getWallet cAddr = do
-    balance <- getBalance =<< (either wrongAddress pure $ cAddressToAddress cAddr)
+    balance <- getBalance =<< decodeCAddressOrFail cAddr
     meta <- getWalletMeta cAddr >>= maybe noWallet pure
     pure $ CWallet cAddr balance meta
   where
     -- TODO: improve error handling
     noWallet = throwM err404
+
+-- TODO: probably poor naming
+decodeCAddressOrFail :: WalletWebMode ssc m => CAddress -> m Address
+decodeCAddressOrFail = either wrongAddress pure . cAddressToAddress
+  where
     wrongAddress err = throwM err404 {
         errBody = encodeUtf8 $
             sformat ("Error while decoding CAddress: "%stext) err
         }
 
+getWallets :: WalletWebMode ssc m => m [CWallet]
+getWallets = join $ mapM getWallet <$> myCAddresses
 
-send :: WalletWebMode ssc m => Address -> Address -> Coin -> m ()
-send srcAddr dstAddr c = do
+send :: WalletWebMode ssc m => CAddress -> CAddress -> Coin -> m ()
+send srcCAddr dstCAddr c = do
+    srcAddr <- decodeCAddressOrFail srcCAddr
+    dstAddr <- decodeCAddressOrFail dstCAddr
     idx <- getAddrIdx srcAddr
     sks <- getSecretKeys
     let sk = sks !! idx
@@ -119,22 +127,25 @@ send srcAddr dstAddr c = do
         sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
         c idx dstAddr
 
-getHistory :: WalletWebMode ssc m => Address -> m [Tx]
-getHistory addr = map whData <$> getTxHistory addr
+getHistory :: WalletWebMode ssc m => CAddress -> m [Tx]
+getHistory cAddr = map whData <$> (getTxHistory =<< decodeCAddressOrFail cAddr)
 
-newAddress :: WalletWebMode ssc m => m CAddress
-newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
-
-newWallet :: WalletWebMode ssc m => CWalletMeta -> m (Cors CWallet)
-newWallet wMeta = addCors $ do
+newWallet :: WalletWebMode ssc m => CWalletMeta -> m CWallet
+newWallet wMeta = do
     cAddr <- newAddress
     addWalletMeta cAddr wMeta
-    return $ CWallet cAddr 0 wMeta
+    getWallet cAddr
+  where
+    newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
 
-deleteAddress :: WalletWebMode ssc m => Address -> m ()
-deleteAddress addr = do
-    idx <- getAddrIdx addr
-    deleteSecretKey $ fromIntegral idx
+deleteWallet :: WalletWebMode ssc m => CAddress -> m ()
+deleteWallet cAddr = do
+    removeWallet cAddr
+    deleteAddress =<< decodeCAddressOrFail cAddr
+  where
+    deleteAddress addr = do
+        idx <- getAddrIdx addr
+        deleteSecretKey $ fromIntegral idx
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -142,6 +153,9 @@ deleteAddress addr = do
 
 myAddresses :: MonadKeys m => m [Address]
 myAddresses = map (makePubKeyAddress . toPublic) <$> getSecretKeys
+
+myCAddresses :: MonadKeys m => m [CAddress]
+myCAddresses = map addressToCAddress <$> myAddresses
 
 getAddrIdx :: WalletWebMode ssc m => Address -> m Int
 getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound return

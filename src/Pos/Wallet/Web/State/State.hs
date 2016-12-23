@@ -15,6 +15,7 @@ module Pos.Wallet.Web.State.State
 
        -- * Setters
        , addWalletMeta
+       , removeWallet
        ) where
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
@@ -59,3 +60,6 @@ getWalletMeta = queryDisk . A.GetWalletMeta
 
 addWalletMeta :: WebWalletModeDB m => CAddress -> CWalletMeta -> m ()
 addWalletMeta addr = updateDisk . A.AddWalletMeta addr
+
+removeWallet :: WebWalletModeDB m => CAddress -> m ()
+removeWallet = updateDisk . A.RemoveWallet

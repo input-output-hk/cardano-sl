@@ -4,17 +4,18 @@ module Pos.Aeson.ClientTypes
        (
        ) where
 
-import           Data.Aeson.TH              (defaultOptions, deriveToJSON)
+import           Data.Aeson.TH              (defaultOptions, deriveJSON, deriveToJSON)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile,
                                              CTExMeta, CTType, CTx, CTxId, CTxMeta,
                                              CWallet, CWalletMeta, CWalletType)
 
+deriveJSON defaultOptions ''CCurrency
+deriveJSON defaultOptions ''CWalletType
+deriveJSON defaultOptions ''CWalletMeta
+
 deriveToJSON defaultOptions ''CHash
 deriveToJSON defaultOptions ''CAddress
 deriveToJSON defaultOptions ''CTxId
-deriveToJSON defaultOptions ''CCurrency
-deriveToJSON defaultOptions ''CWalletType
-deriveToJSON defaultOptions ''CWalletMeta
 deriveToJSON defaultOptions ''CWallet
 deriveToJSON defaultOptions ''CProfile
 deriveToJSON defaultOptions ''CTx

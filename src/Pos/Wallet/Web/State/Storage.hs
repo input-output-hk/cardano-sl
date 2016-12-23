@@ -11,6 +11,7 @@ module Pos.Wallet.Web.State.Storage
        , getWalletMetas
        , getWalletMeta
        , addWalletMeta
+       , removeWallet
        ) where
 
 import           Control.Lens               (makeClassy, view, (.=))
@@ -51,6 +52,9 @@ getWalletMeta = undefined
 
 addWalletMeta :: CAddress -> CWalletMeta -> Update ()
 addWalletMeta = undefined
+
+removeWallet :: CAddress -> Update ()
+removeWallet = undefined
 
 deriveSafeCopySimple 0 'base ''CHash
 deriveSafeCopySimple 0 'base ''CAddress

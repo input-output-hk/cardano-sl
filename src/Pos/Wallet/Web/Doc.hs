@@ -30,7 +30,8 @@ import           Pos.Aeson.ClientTypes      ()
 import           Pos.Genesis                (genesisAddresses, genesisUtxo)
 import           Pos.Types                  (Address, Coin, Tx (..), TxIn (..))
 import           Pos.Wallet.Web.Api         (walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CHash, CWallet, addressToCAddress)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CHash, CWallet, CWalletMeta,
+                                             addressToCAddress)
 import           Prelude                    (fail)
 
 walletDocs :: API
@@ -74,14 +75,14 @@ extras =
 -- Orphan instances
 ----------------------------------------------------------------------------
 
-instance ToCapture (Capture "from" Address) where
+instance ToCapture (Capture "from" CAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "from"
         , _capDesc = "Address from which coins should be sent."
         }
 
-instance ToCapture (Capture "to" Address) where
+instance ToCapture (Capture "to" CAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "to"
@@ -95,15 +96,12 @@ instance ToCapture (Capture "amount" Coin) where
         , _capDesc = "Amount of coins to send."
         }
 
-instance ToCapture (Capture "address" Address) where
+instance ToCapture (Capture "address" CAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "address"
         , _capDesc = "Address, history of which should be fetched"
         }
-
-instance ToCapture (Capture "address" CAddress) where
-    toCapture Proxy = toCapture (Proxy :: Proxy (Capture "address" Address))
 
 instance ToCapture (Capture "index" Word) where
     toCapture Proxy =
@@ -125,6 +123,10 @@ instance ToSample CHash where
 -- FIXME!
 instance ToSample CWallet where
     toSamples Proxy = fail "ToSample CWallet: Not Implemented!"
+
+-- FIXME!
+instance ToSample CWalletMeta where
+    toSamples Proxy = fail "ToSample CWalletMeta: Not Implemented!"
 
 instance ToSample CAddress where
     toSamples Proxy = singleSample . addressToCAddress $ genesisAddresses !! 0

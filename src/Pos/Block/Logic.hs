@@ -51,9 +51,10 @@ import           Pos.Modern.Txp.Logic      (txApplyBlocks, txRollbackBlocks,
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class             (Ssc)
 import           Pos.Ssc.Extra             (sscApplyBlocks, sscRollback, sscVerifyBlocks)
-import           Pos.Types                 (Block, BlockHeader, EpochIndex, EpochOrSlot,
-                                            GenesisBlock, HeaderHash, MainBlock, SlotId,
-                                            Undo, VerifyHeaderParams (..), blockHeader,
+import           Pos.Types                 (Block, BlockHeader, Blund, EpochIndex,
+                                            EpochOrSlot, GenesisBlock, HeaderHash,
+                                            MainBlock, SlotId, Undo,
+                                            VerifyHeaderParams (..), blockHeader,
                                             difficultyL, flattenEpochOrSlot,
                                             getEpochOrSlot, headerSlot, prevBlockL,
                                             verifyHeader, verifyHeaders,
@@ -257,10 +258,11 @@ withBlkSemaphore action = do
 -- have verified all predicates regarding block (including txs and ssc
 -- data checks).  We almost must have taken lock on block application
 -- and ensured that chain is based on our tip.
-applyBlocks :: WorkMode ssc m => NonEmpty (Block ssc, Undo) -> m ()
-applyBlocks blksUndos = do
-    let blks = fmap fst blksUndos
-    mapM_ putToDB blksUndos
+applyBlocks :: WorkMode ssc m => NonEmpty (Blund ssc) -> m ()
+applyBlocks blunds = do
+    let blks = fmap fst blunds
+    -- Note: it's important to put blocks first
+    mapM_ putToDB blunds
     txApplyBlocks blks
     sscApplyBlocks blks
   where

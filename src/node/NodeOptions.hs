@@ -24,7 +24,7 @@ data Args = Args
     , rebuildDB                 :: !Bool
     , spendingGenesisI          :: !(Maybe Int)
     , vssGenesisI               :: !(Maybe Int)
-    , spendingSecretPath        :: !(Maybe FilePath)
+    , keyfilePath               :: !FilePath
     , vssSecretPath             :: !(Maybe FilePath)
     , port                      :: !Word16
     , supporterNode             :: !Bool
@@ -41,7 +41,6 @@ data Args = Args
 #ifdef WITH_WALLET
     , enableWallet              :: !Bool
     , walletPort                :: !Word16
-    , keyfilePath               :: !FilePath
     , walletDbPath              :: !FilePath
     , walletDebug               :: !Bool
 #endif
@@ -70,10 +69,11 @@ argsParser =
         (option
              auto
              (long "vss-genesis" <> metavar "INT" <> help "Use genesis vss #i")) <*>
-    optional
-        (strOption
-             (long "spending-sk" <> metavar "FILEPATH" <>
-              help "Path to spending secret key")) <*>
+    strOption
+        (long "keyfile" <>
+         metavar "FILEPATH" <>
+         value "secret.key" <>
+         help "Path to file with secret keys") <*>
     optional
         (strOption
              (long "vss-sk" <> metavar "FILEPATH" <>
@@ -114,10 +114,6 @@ argsParser =
          value 8090 <>
          showDefault <>
          help "Port for Daedalus Wallet API") <*>
-    strOption
-        (long "keyfile-path" <>
-         help "Path to the secret keys storage" <>
-         value "secret.key") <*>
     strOption
         (long "wallet-db-path" <>
          help "Path to the wallet acid-state" <>

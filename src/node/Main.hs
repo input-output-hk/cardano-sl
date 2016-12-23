@@ -112,12 +112,6 @@ action args@Args {..} inst = do
     if supporterNode
         then runSupporterReal inst (baseParams "supporter" args)
         else do
-            spendingSK <-
-                getKey
-                    ((genesisSecretKeys !!) <$> spendingGenesisI)
-                    spendingSecretPath
-                    "spending"
-                    (snd <$> keyGen)
             vssSK <-
                 getKey
                     ((genesisVssKeyPairs !!) <$> vssGenesisI)
@@ -125,7 +119,7 @@ action args@Args {..} inst = do
                     "vss.keypair"
                     vssKeyGen
             systemStart <- getSystemStart inst args
-            let currentParams = nodeParams args spendingSK systemStart
+            let currentParams = nodeParams args systemStart
                 gtParams = gtSscParams args vssSK
 #ifdef WITH_WEB
                 currentPlugins :: (SscConstraint ssc, WorkMode ssc m) => [m ()]
@@ -150,14 +144,15 @@ action args@Args {..} inst = do
                 (False, NistBeaconAlgo) ->
                     runNodeProduction @SscNistBeacon inst (currentPlugins ++ walletProd args) currentParams ()
 
-nodeParams :: Args -> SecretKey -> Timestamp -> NodeParams
-nodeParams args@Args {..} spendingSK systemStart =
+nodeParams :: Args -> Timestamp -> NodeParams
+nodeParams args@Args {..} systemStart =
     NodeParams
     { npDbPath = if memoryMode then Nothing
                  else Just dbPath
     , npDbPathM = dbPath
     , npRebuildDb = rebuildDB
-    , npSecretKey = spendingSK
+    , npSecretKey = (genesisSecretKeys !!) <$> spendingGenesisI
+    , npKeyfilePath = keyfilePath
     , npSystemStart = systemStart
     , npBaseParams = baseParams "node" args
     , npCustomUtxo =

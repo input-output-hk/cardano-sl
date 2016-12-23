@@ -31,6 +31,8 @@ module Pos.Launcher.Runner
 
 import           Control.Concurrent.MVar         (newEmptyMVar, newMVar, takeMVar,
                                                   tryReadMVar)
+import           Control.Concurrent.STM.TVar     (newTVar)
+import           Control.Lens                    ((%~), (^.), (^?), _head)
 import           Control.Monad                   (fail)
 import           Control.Monad.Catch             (bracket)
 import           Control.Monad.Trans.Control     (MonadBaseControl)
@@ -87,6 +89,7 @@ import           Pos.State.Storage               (storageFromUtxo)
 import           Pos.Statistics                  (getNoStatsT, runStatsT)
 import           Pos.Types                       (Timestamp (Timestamp), timestampF)
 import           Pos.Util                        (runWithRandomIntervals)
+import           Pos.Util.UserSecret             (peekUserSecret, usKeys, writeUserSecret)
 import           Pos.Worker                      (statsWorkers)
 import           Pos.WorkMode                    (MinWorkMode, ProductionMode,
                                                   RawRealMode, ServiceMode, StatsMode,
@@ -265,10 +268,19 @@ runCH NodeParams {..} sscNodeContext act = do
     sscRichmen <- liftIO newEmptyMVar
     sscLeaders <- liftIO newEmptyMVar
     proxyCaches <- liftIO $ newMVar defaultProxyCaches
+    userSecret <- peekUserSecret npKeyfilePath
+
+    (primarySecretKey, userSecret') <- case npSecretKey of
+        Nothing -> case userSecret ^? usKeys . _head of
+            Nothing -> fail $ "No secret keys are found in " ++ npKeyfilePath
+            Just sk -> return (sk, userSecret)
+        Just sk -> return (sk, userSecret & usKeys %~ (sk :) . filter (/= sk))
+
+    userSecretVar <- liftIO . atomically . newTVar $ userSecret'
     let ctx =
             NodeContext
             { ncSystemStart = npSystemStart
-            , ncSecretKey = npSecretKey
+            , ncSecretKey = primarySecretKey
             , ncTimeLord = npTimeLord
             , ncJLFile = jlFile
             , ncDbPath = npDbPath
@@ -280,6 +292,7 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncBlkSemaphore = semaphore
             , ncSscRichmen = sscRichmen
             , ncSscLeaders = sscLeaders
+            , ncUserSecret = userSecretVar
             }
     runContextHolder ctx act
 

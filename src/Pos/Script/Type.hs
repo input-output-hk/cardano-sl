@@ -35,7 +35,7 @@ import           Pos.Util                   (getCopyBinary, putCopyBinary)
 
 -- | A script for inclusion into a transaction.
 data Script = Script {
-    scrVersion :: Word32,           -- ^ Version
+    scrVersion :: Word16,           -- ^ Version
     scrScript  :: LByteString}      -- ^ Serialized script
   deriving (Eq, Show, Generic)
 

@@ -47,7 +47,7 @@ Here's what would lead to script version increment:
   * adding anything to the stdlib
 -}
 
-isKnownScriptVersion :: Word32 -> Bool
+isKnownScriptVersion :: Word16 -> Bool
 isKnownScriptVersion v = v == 0
 
 -- | Parse a script intended to serve as a validator (or “lock”) in a

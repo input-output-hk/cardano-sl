@@ -184,13 +184,13 @@ startNode
        ( Mockable Fork m, Mockable Throw m, Mockable Channel m
        , Mockable SharedAtomic m, Mockable Bracket m, Mockable Catch m
        , MonadFix m )
-    => NT.Transport m
+    => NT.EndPoint m
     -> StdGen
     -> [Worker m]
     -> [Listener m]
     -> m (Node m)
-startNode transport prng workers listeners = do
-    rec { node <- LL.startNode transport prng (handlerIn node sendActions) (handlerInOut node)
+startNode endPoint prng workers listeners = do
+    rec { node <- LL.startNode endPoint prng (handlerIn node sendActions) (handlerInOut node)
         ; let sendActions = nodeSendActions node
         }
     tids <- sequence

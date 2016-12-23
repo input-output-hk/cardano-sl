@@ -96,22 +96,21 @@ newtype ChannelOut m = ChannelOut (NT.Connection m)
 -- | Bring up a 'Node' using a network transport.
 startNode :: ( Mockable SharedAtomic m, Mockable Fork m, Mockable Bracket m
              , Mockable Channel.Channel m, Mockable Throw m, Mockable Catch m )
-          => NT.Transport m
+          => NT.EndPoint m
           -> StdGen
           -> (NodeId -> ChannelIn m -> m ())
           -- ^ Handle incoming unidirectional connections.
           -> (NodeId -> ChannelIn m -> ChannelOut m -> m ())
           -- ^ Handle incoming bidirectional connections.
           -> m (Node m)
-startNode transport prng handlerIn handlerOut = do
-    Right endpoint <- NT.newEndPoint transport --TODO: error handling
-    sharedState    <- newSharedAtomic (NodeState prng Map.empty [])
-    tid            <- fork $
-        nodeDispatcher endpoint sharedState handlerIn handlerOut
+startNode endPoint prng handlerIn handlerOut = do
+    sharedState <- newSharedAtomic (NodeState prng Map.empty [])
+    tid <- fork $
+        nodeDispatcher endPoint sharedState handlerIn handlerOut
     --TODO: exceptions in the forkIO
     --they should be raised in this thread.
     return Node {
-      nodeEndPoint         = endpoint,
+      nodeEndPoint         = endPoint,
       nodeDispatcherThread = tid,
       nodeState            = sharedState
     }

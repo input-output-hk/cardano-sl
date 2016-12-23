@@ -14,6 +14,7 @@ import Data.Binary
 import Node
 import qualified Network.Transport.TCP as TCP
 import qualified Network.Transport.InMemory as InMemory
+import Network.Transport.Abstract (newEndPoint)
 import Network.Transport.Concrete (concrete)
 import System.Random
 import Mockable.Concurrent (delay)
@@ -71,6 +72,8 @@ main = runProduction $ do
     --transport_ <- InMemory.createTransport
     Right transport_ <- liftIO $ TCP.createTransport ("127.0.0.1") ("10128") TCP.defaultTCPParameters
     let transport = concrete transport_
+    Right endpoint1 <- newEndPoint transport
+    Right endpoint2 <- newEndPoint transport
 
     let prng1 = mkStdGen 0
     let prng2 = mkStdGen 1
@@ -78,8 +81,8 @@ main = runProduction $ do
     let prng4 = mkStdGen 3
 
     liftIO . putStrLn $ "Starting nodes"
-    rec { node1 <- startNode transport prng1 (workers nodeId1 prng2 [nodeId2]) (listeners nodeId1)
-        ; node2 <- startNode transport prng3 (workers nodeId2 prng4 [nodeId1]) (listeners nodeId2)
+    rec { node1 <- startNode endpoint1 prng1 (workers nodeId1 prng2 [nodeId2]) (listeners nodeId1)
+        ; node2 <- startNode endpoint2 prng3 (workers nodeId2 prng4 [nodeId1]) (listeners nodeId2)
         ; let nodeId1 = nodeId node1
         ; let nodeId2 = nodeId node2
         }

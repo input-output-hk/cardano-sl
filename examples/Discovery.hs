@@ -17,6 +17,7 @@ import Node
 import qualified Network.Transport.TCP as TCP
 import qualified Network.Transport.InMemory as InMemory
 import Network.Transport.Concrete (concrete)
+import Network.Transport.Abstract (newEndPoint)
 import Network.Discovery.Abstract
 import qualified Network.Discovery.Transport.Kademlia as K
 import System.Environment (getArgs)
@@ -77,7 +78,8 @@ makeNode transport i = do
     let prng1 = mkStdGen (2 * i)
     let prng2 = mkStdGen ((2 * i) + 1)
     liftIO . putStrLn $ "Starting node " ++ show i
-    rec { node <- startNode transport prng1 (workers (nodeId node) prng2 discovery) (listeners (nodeId node))
+    Right endPoint <- newEndPoint transport
+    rec { node <- startNode endPoint prng1 (workers (nodeId node) prng2 discovery) (listeners (nodeId node))
         ; let localAddress = nodeEndPointAddress node
         ; liftIO . putStrLn $ "Making discovery for node " ++ show i
         ; discovery <- K.kademliaDiscovery kademliaConfig initialPeer localAddress

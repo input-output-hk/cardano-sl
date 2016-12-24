@@ -8,7 +8,9 @@ module Pos.DB.DB
        ) where
 
 import           Control.Monad.Trans.Resource (MonadResource)
-import           System.Directory             (createDirectoryIfMissing)
+import           System.Directory             (createDirectoryIfMissing,
+                                               doesDirectoryExist,
+                                               removeDirectoryRecursive)
 import           System.FilePath              ((</>))
 import           Universum
 
@@ -26,8 +28,13 @@ import           Pos.Types                    (Block, BlockHeader, Undo, Utxo,
                                                getBlockHeader, headerHash, mkGenesisBlock)
 
 -- | Open all DBs stored on disk.
-openNodeDBs :: (Ssc ssc, MonadResource m) => FilePath -> Utxo -> m (NodeDBs ssc)
-openNodeDBs fp customUtxo = do
+openNodeDBs
+    :: (Ssc ssc, MonadResource m)
+    => Bool -> FilePath -> Utxo -> m (NodeDBs ssc)
+openNodeDBs recreate fp customUtxo = do
+    liftIO $
+        whenM ((recreate &&) <$> doesDirectoryExist fp) $
+            removeDirectoryRecursive fp
     let blockPath = fp </> "blocks"
     let utxoPath = fp </> "utxo"
     let miscPath = fp </> "misc"

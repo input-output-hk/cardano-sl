@@ -72,7 +72,7 @@ data NodeContext ssc = NodeContext
     , ncSecretKey     :: !SecretKey -- ^ Secret key used for blocks creation.
     , ncTimeLord      :: !Bool      -- ^ Is time lord
     , ncJLFile        :: !(Maybe (MVar FilePath))
-    , ncDbPath        :: !(Maybe FilePath) -- ^ Path to the database
+    , ncDbPath        :: !FilePath -- ^ Path to the database
     , ncSscContext    :: !(SscNodeContext ssc)
     , ncProxyCaches   :: !(MVar ProxyCaches) -- ^ Holds proxy caches
     , ncAttackTypes   :: ![AttackType] -- ^ Attack types used by malicious emulation

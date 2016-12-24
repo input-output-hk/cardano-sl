@@ -45,8 +45,6 @@ import           Control.TimeWarp.Timed       (MonadTimed, currentTime, fork, ki
 import           Data.List                    (nub)
 import qualified Data.Time                    as Time
 import           Formatting                   (build, sformat, shown, (%))
-import           System.Directory             (doesDirectoryExist,
-                                               removeDirectoryRecursive)
 import           System.FilePath              ((</>))
 import           System.Wlog                  (LoggerName (..), WithLogger, logDebug,
                                                logInfo, logWarning, releaseAllHandlers,
@@ -80,8 +78,7 @@ import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (.
 import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
                                                sscCreateNodeContext, sscLoadGlobalState)
 import           Pos.Ssc.Extra                (runSscHolder, runSscLDImpl)
-import           Pos.State                    (NodeState, closeState, openMemState,
-                                               openState, runDBHolder)
+import           Pos.State                    (NodeState, runDBHolder)
 import           Pos.Statistics               (getNoStatsT, runStatsT)
 import           Pos.Txp.Holder               (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView       as UV
@@ -277,7 +274,7 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncSecretKey = primarySecretKey
             , ncTimeLord = npTimeLord
             , ncJLFile = jlFile
-            , ncDbPath = npDbPath
+            , ncDbPath = npDbPathM
             , ncProxyCaches = proxyCaches
             , ncSscContext = sscNodeContext
             , ncAttackTypes = npAttackTypes

@@ -240,8 +240,7 @@ main = do
 
         let params =
                 NodeParams
-                { npDbPath        = Nothing
-                , npDbPathM       = "zhogovo"
+                { npDbPathM       = "rocks-smartwallet"
                 , npRebuildDb     = False
                 , npSystemStart   = systemStart
                 , npSecretKey     = Just sk

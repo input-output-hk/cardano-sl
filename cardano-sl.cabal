@@ -80,7 +80,6 @@ library
                         Pos.State.State
                         Pos.Statistics
                         Pos.Txp.Listeners
-                        Pos.Txp.Storage
                         Pos.Types
                         Pos.Types.Address
                         Pos.Types.Arbitrary

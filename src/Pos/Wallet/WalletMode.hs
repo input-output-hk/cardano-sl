@@ -41,6 +41,7 @@ import           Pos.Txp.Class                 (MonadTxpLD (..))
 import           Pos.Txp.Logic                 (processTx)
 import           Pos.Txp.Types                 (MemPool (..), UtxoView (..))
 #else
+import qualified Data.List.NonEmpty            as NE
 import           Pos.Ssc.Class                 (SscConstraint)
 import qualified Pos.State                     as St
 import           Pos.Txp.Listeners             (processTx)
@@ -148,7 +149,12 @@ instance (MonadDB ssc m, MonadThrow m) => MonadTxHistory (Modern.TxpLDHolder ssc
 deriving instance MonadTxHistory m => MonadTxHistory (TxLDImpl m)
 #else
 instance (SscConstraint ssc, St.MonadDB ssc m, MonadIO m) => MonadTxHistory (TxLDImpl m) where
-    getTxHistory _ = pure []
+    getTxHistory addr = do
+        chain <- St.getBestChain
+        utxo <- St.getOldestUtxo
+        return $ fromMaybe (fail "deriveAddrHistory: Nothing") $
+            flip evalUtxoStateT utxo $
+            deriveAddrHistory addr $ NE.toList chain
     saveTx txw = () <$ processTx txw
 
 deriving instance MonadTxHistory m => MonadTxHistory (Modern.TxpLDHolder ssc m)

@@ -104,18 +104,13 @@ argsParser =
     switch
         (long "web" <>
          help "Run web server") <*>
-    CLI.webPortOption 8080
+    CLI.webPortOption 8080 "Port for web server"
 #ifdef WITH_WALLET
     <*>
     switch
         (long "wallet" <>
          help "Run wallet web api") <*>
-    option auto
-        (long "wallet-port" <>
-         metavar "PORT" <>
-         value 8090 <>
-         showDefault <>
-         help "Port for Daedalus Wallet API") <*>
+    CLI.webPortOption 8090 "Port for Daedalus Wallet API" <*>
     strOption
         (long "wallet-db-path" <>
          help "Path to the wallet acid-state" <>

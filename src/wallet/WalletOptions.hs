@@ -52,6 +52,7 @@ replParser = command "repl" $ info (pure Repl) $
 serveParser :: Mod CommandFields WalletAction
 serveParser = command "serve" $ info opts desc
   where opts = Serve <$> CLI.webPortOption 8090    -- to differ from node's default port
+                                           "Port for web server"
                      <*> option auto (long "daedalus-db-path"
                                    <> metavar "FILEPATH"
                                    <> value "run/daedalus-db"

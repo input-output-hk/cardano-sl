@@ -20,9 +20,7 @@ module Pos.CLI
        , optionalLogPrefix
        , portOption
        , timeLordOption
-#ifdef WITH_WEB
        , webPortOption
-#endif
        ) where
 
 import           Universum
@@ -224,11 +222,9 @@ timeLordOption =
          Opt.help "Peer is time lord, i.e. one responsible for system start time decision\
                   \ & propagation (used only in development)")
 
-#ifdef WITH_WEB
-webPortOption :: Word16 -> Opt.Parser Word16
-webPortOption portNum =
+webPortOption :: Word16 -> [Char] -> Opt.Parser Word16
+webPortOption portNum help =
     Opt.option Opt.auto $
-        templateParser "web-port" "PORT" "Port for web server"
+        templateParser "web-port" "PORT" help -- "Port for web server"
         <> Opt.value portNum
         <> Opt.showDefault
-#endif

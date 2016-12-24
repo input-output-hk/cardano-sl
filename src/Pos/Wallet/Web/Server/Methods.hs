@@ -12,6 +12,7 @@ module Pos.Wallet.Web.Server.Methods
        , walletServer
        ) where
 
+import           Control.Lens               (view, _2)
 import           Data.List                  (elemIndex, (!!))
 import           Formatting                 (ords, sformat, (%))
 import           Network.Wai                (Application)
@@ -23,7 +24,7 @@ import           Servant.Utils.Enter        ((:~>) (..), enter)
 import           System.Wlog                (logInfo)
 import           Universum
 
-import           Pos.Crypto                 (toPublic, whData)
+import           Pos.Crypto                 (toPublic)
 import           Pos.DHT.Model              (dhtAddr, getKnownPeers)
 import           Pos.Types                  (Address, Coin (Coin), Tx, TxOut (..),
                                              addressF, coinF, decodeTextAddress,
@@ -90,7 +91,7 @@ send srcAddr dstAddr c = do
         c idx dstAddr
 
 getHistory :: WalletWebMode ssc m => Address -> m [Tx]
-getHistory addr = map whData <$> getTxHistory addr
+getHistory addr = map (view _2) <$> getTxHistory addr
 
 newAddress :: WalletWebMode ssc m => m CAddress
 newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey

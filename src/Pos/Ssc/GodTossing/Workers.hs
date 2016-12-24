@@ -28,6 +28,7 @@ import           System.Wlog                             (logDebug, logError, lo
 import           Universum
 
 import           Pos.Binary.Class                        (Bi)
+import           Pos.Binary.Ssc                          ()
 import           Pos.Communication.Methods               (sendToNeighborsSafe)
 import           Pos.Constants                           (k, mpcSendInterval)
 import           Pos.Context                             (getNodeContext, ncPublicKey,
@@ -74,20 +75,16 @@ import           Pos.Types                               (Address (..), EpochInd
 import           Pos.Util                                (asBinary)
 import           Pos.WorkMode                            (WorkMode)
 
-instance (Bi VssCertificate
-         ,Bi Opening
-         ,Bi Commitment
-         ,Bi GtPayload
-         ,Bi DataMsg
-         ,Bi InvMsg
-         ,Bi GtProof) =>
-         SscWorkersClass SscGodTossing where
+instance SscWorkersClass SscGodTossing where
     sscWorkers = Tagged [onStart, onNewSlotSsc]
+
 -- CHECK: @onStart
--- Checks whether 'our' VSS certificate has been announced
+-- #checkNSendOurCert
 onStart :: forall m. (WorkMode SscGodTossing m, Bi DataMsg) => m ()
 onStart = checkNSendOurCert
 
+-- CHECK: @checkNSendOurCert
+-- Checks whether 'our' VSS certificate has been announced
 checkNSendOurCert :: forall m . (WorkMode SscGodTossing m, Bi DataMsg) => m ()
 checkNSendOurCert = do
     (_, ourAddr) <- getOurPkAndAddr
@@ -106,7 +103,6 @@ checkNSendOurCert = do
     getOurVssCertificate :: m VssCertificate
     getOurVssCertificate = do
         (ourPk, ourAddr) <- getOurPkAndAddr
-        -- Dratuti
         localCerts       <- sscRunLocalQueryM $ view ldCertificates
         case lookup ourAddr localCerts of
           Just c  -> return c
@@ -129,16 +125,10 @@ getOurPkAndAddr = do
 getOurVssKeyPair :: WorkMode SscGodTossing m => m VssKeyPair
 getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
 
-
--- CHECK: @onNewSlotSscModern
--- Checks whether 'our' VSS certificate has been announced
+-- CHECK: @onNewSlotSsc
+-- #checkNSendOurCert
 onNewSlotSsc
-    :: ( WorkMode SscGodTossing m
-       , Bi Commitment
-       , Bi VssCertificate
-       , Bi Opening
-       , Bi InvMsg
-       , Bi DataMsg)
+    :: (WorkMode SscGodTossing m)
     => m ()
 onNewSlotSsc = onNewSlot True $ \slotId-> do
     localOnNewSlot slotId
@@ -153,11 +143,7 @@ onNewSlotSsc = onNewSlot True $ \slotId-> do
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
-    :: (WorkMode SscGodTossing m
-       ,Bi Commitment
-       ,Bi VssCertificate
-       ,Bi Opening
-       ,Bi InvMsg)
+    :: (WorkMode SscGodTossing m)
     => SlotId -> m ()
 onNewSlotCommitment SlotId {..} = do
     ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
@@ -208,11 +194,7 @@ onNewSlotOpening SlotId {..} = do
 
 -- Shares-related part of new slot processing
 onNewSlotShares
-    :: (WorkMode SscGodTossing m
-       ,Bi VssCertificate
-       ,Bi InvMsg
-       ,Bi Opening
-       ,Bi Commitment)
+    :: (WorkMode SscGodTossing m)
     => SlotId -> m ()
 onNewSlotShares SlotId {..} = do
     ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext

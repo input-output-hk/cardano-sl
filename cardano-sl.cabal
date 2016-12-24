@@ -168,13 +168,9 @@ library
                         Pos.DB.Types
                         Pos.DB.Utxo
                         Pos.DB.DBIterator
-                        Pos.Modern.Ssc.GodTossing.LocalData.LocalData
-                        Pos.Modern.Ssc.GodTossing.LocalData.Types
-                        Pos.Modern.Ssc.GodTossing.LocalData.Helpers
                         Pos.Modern.Ssc.GodTossing.Storage.Storage
                         Pos.Modern.Ssc.GodTossing.Helpers
                         Pos.Modern.Ssc.GodTossing.Storage.Types
-                        Pos.Modern.Ssc.GodTossing.Workers
                         Pos.Modern.Ssc.GodTossing.Functions
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.LocalData
@@ -185,6 +181,7 @@ library
                         Pos.Ssc.GodTossing.Functions
                         Pos.Ssc.GodTossing.Genesis
                         Pos.Ssc.GodTossing.Listener.Listeners
+                        Pos.Ssc.GodTossing.LocalData.Helpers
                         Pos.Ssc.GodTossing.LocalData.LocalData
                         Pos.Ssc.GodTossing.LocalData.Types
                         Pos.Ssc.GodTossing.Storage.Types

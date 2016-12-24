@@ -24,7 +24,6 @@ type SscConstraint ssc =
                 Default (SscStorage ssc),
                 SscListenersClass ssc,
                 SscLocalDataClass ssc,
-                SscLocalDataClassM ssc,
                 SscHelpersClass ssc,
                 SscStorageMode ssc,
                 SscStorageClassM ssc,

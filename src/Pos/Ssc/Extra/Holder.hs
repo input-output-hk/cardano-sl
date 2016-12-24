@@ -32,11 +32,10 @@ import           Universum
 
 import           Pos.Context                 (WithNodeContext)
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Class.LocalData     (MonadSscLD (..),
-                                              SscLocalDataClassM (sscEmptyLocalDataM))
+import           Pos.Ssc.Class.LocalData     (SscLocalDataClass (sscEmptyLocalData))
 import           Pos.Ssc.Class.Types         (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS       (MonadSscGS (..))
-import           Pos.Ssc.Extra.MonadLD       (MonadSscLDM (..))
+import           Pos.Ssc.Extra.MonadLD       (MonadSscLD (..), MonadSscLDM (..))
 import           Pos.State                   (MonadDB (..))
 import           Pos.Txp.LocalData           (MonadTxLD (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
@@ -47,7 +46,7 @@ data SscState ssc =
     SscState
     {
       sscGlobal :: !(STM.TVar (SscGlobalStateM ssc))
-    , sscLocal  :: !(STM.TVar (SscLocalDataM ssc))
+    , sscLocal  :: !(STM.TVar (SscLocalData ssc))
     }
 
 newtype SscHolder ssc m a =
@@ -100,9 +99,9 @@ instance MonadSscLD ssc m => MonadSscLD ssc (SscHolder ssc m) where
     getLocalData = lift  getLocalData
     setLocalData = lift . setLocalData
 
-runSscHolder :: forall ssc m a. (SscLocalDataClassM ssc, MonadIO m)
+runSscHolder :: forall ssc m a. (SscLocalDataClass ssc, MonadIO m)
              => SscHolder ssc m a -> SscGlobalStateM ssc -> m a
 runSscHolder holder glob = SscState
                        <$> liftIO (STM.newTVarIO glob)
-                       <*> liftIO (STM.newTVarIO (sscEmptyLocalDataM @ssc))
+                       <*> liftIO (STM.newTVarIO (sscEmptyLocalData @ssc))
                        >>= runReaderT (getSscHolder holder)

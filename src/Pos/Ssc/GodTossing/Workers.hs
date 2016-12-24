@@ -12,68 +12,54 @@ module Pos.Ssc.GodTossing.Workers
          -- ** instance SscWorkersClass SscGodTossing
        ) where
 
-import           Control.Concurrent.STM                  (TVar, readTVar, writeTVar)
-import           Control.Lens                            (view, (%=), _2, _3)
-import           Control.Monad.Trans.Maybe               (runMaybeT)
-import           Control.TimeWarp.Timed                  (Microsecond, Millisecond,
-                                                          currentTime, for, wait)
-import           Data.HashMap.Strict                     (insert, lookup, member)
-import qualified Data.List.NonEmpty                      as NE (fromList, toList)
-import           Data.Tagged                             (Tagged (..))
-import           Data.Time.Units                         (convertUnit)
-import           Formatting                              (build, ords, sformat, shown,
-                                                          (%))
-import           Serokell.Util.Exceptions                ()
-import           System.Wlog                             (logDebug, logError, logWarning)
+import           Control.Concurrent.STM           (readTVar)
+import           Control.Lens                     (view, (%=), _2, _3)
+import           Control.Monad.Trans.Maybe        (runMaybeT)
+import           Control.TimeWarp.Timed           (Microsecond, Millisecond, currentTime,
+                                                   for, wait)
+import           Data.HashMap.Strict              (insert, lookup, member)
+import qualified Data.List.NonEmpty               as NE (fromList, toList)
+import           Data.Tagged                      (Tagged (..))
+import           Data.Time.Units                  (convertUnit)
+import           Formatting                       (build, ords, sformat, shown, (%))
+import           Serokell.Util.Exceptions         ()
+import           System.Wlog                      (logDebug, logError, logWarning)
 import           Universum
 
-import           Pos.Binary.Class                        (Bi)
-import           Pos.Binary.Ssc                          ()
-import           Pos.Communication.Methods               (sendToNeighborsSafe)
-import           Pos.Constants                           (k, mpcSendInterval)
-import           Pos.Context                             (getNodeContext, ncPublicKey,
-                                                          ncSecretKey, ncSscContext,
-                                                          readRichmen)
-import           Pos.Crypto                              (SecretKey, VssKeyPair,
-                                                          randomNumber, runSecureRandom,
-                                                          toPublic)
-import           Pos.Crypto.SecretSharing                (toVssPublicKey)
-import           Pos.Crypto.Signing                      (PublicKey, sign)
-import           Pos.Slotting                            (getSlotStart, onNewSlot)
-import           Pos.Ssc.Class.Workers                   (SscWorkersClass (..))
-import           Pos.Ssc.GodTossing.Functions            (genCommitmentAndOpening,
-                                                          genCommitmentAndOpening,
-                                                          getThreshold, hasCommitment,
-                                                          hasOpening, hasShares,
-                                                          isCommitmentIdx, isOpeningIdx,
-                                                          isSharesIdx, mkSignedCommitment)
-import           Pos.Ssc.GodTossing.LocalData.LocalData  (localOnNewSlot,
-                                                          sscProcessMessage)
-import           Pos.Ssc.GodTossing.Secret.SecretStorage (getSecret,
-                                                          prepareSecretToNewSlot,
-                                                          setSecret)
-import           Pos.Ssc.GodTossing.Types.Base           (Commitment, Opening,
-                                                          SignedCommitment,
-                                                          VssCertificate (..))
-import           Pos.Ssc.GodTossing.Types.Instance       ()
-import           Pos.Ssc.GodTossing.Types.Message        (DataMsg (..), InvMsg (..),
-                                                          MsgTag (..))
-import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types          (GtPayload, GtProof,
-                                                          gtcParticipateSsc,
-                                                          gtcVssCertificateVerified,
-                                                          gtcVssKeyPair)
+import           Pos.Binary.Class                 (Bi)
+import           Pos.Binary.Ssc                   ()
+import           Pos.Communication.Methods        (sendToNeighborsSafe)
+import           Pos.Constants                    (k, mpcSendInterval)
+import           Pos.Context                      (getNodeContext, ncPublicKey,
+                                                   ncSecretKey, ncSscContext, readRichmen)
+import           Pos.Crypto                       (SecretKey, VssKeyPair, randomNumber,
+                                                   runSecureRandom, toPublic)
+import           Pos.Crypto.SecretSharing         (toVssPublicKey)
+import           Pos.Crypto.Signing               (PublicKey, sign)
+import           Pos.Slotting                     (getSlotStart, onNewSlot)
+import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
+import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, getThreshold,
+                                                   hasCommitment, hasOpening, hasShares,
+                                                   isCommitmentIdx, isOpeningIdx,
+                                                   isSharesIdx, mkSignedCommitment)
+import           Pos.Ssc.GodTossing.LocalData     (ldCertificates, localOnNewSlot,
+                                                   sscProcessMessage)
+import           Pos.Ssc.GodTossing.SecretStorage (getSecret, prepareSecretToNewSlot,
+                                                   setSecret)
+import           Pos.Ssc.GodTossing.Shares        (getOurShares)
+import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCommitment,
+                                                   SscGodTossing, VssCertificate (..))
+import           Pos.Ssc.GodTossing.Types.Message (DataMsg (..), InvMsg (..), MsgTag (..))
+import           Pos.Ssc.GodTossing.Types.Types   (gtcParticipateSsc, gtcVssKeyPair)
 -- import           Pos.Ssc.GodTossing.Utils                  (verifiedVssCertificates)
-import           Pos.Ssc.Extra.MonadLD                   (sscRunLocalQueryM,
-                                                          sscRunLocalUpdateM)
-import           Pos.Ssc.GodTossing.LocalData.Types      (ldCertificates)
-import           Pos.Ssc.GodTossing.Storage              (getGlobalCertificates)
-import           Pos.Types                               (Address (..), EpochIndex,
-                                                          LocalSlotIndex, SlotId (..),
-                                                          Timestamp (..),
-                                                          makePubKeyAddress)
-import           Pos.Util                                (asBinary)
-import           Pos.WorkMode                            (WorkMode)
+import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQueryM, sscRunLocalUpdateM)
+import           Pos.Ssc.GodTossing.Storage       (getGlobalCertificates,
+                                                   gtGetGlobalState)
+import           Pos.Types                        (Address (..), EpochIndex,
+                                                   LocalSlotIndex, SlotId (..),
+                                                   Timestamp (..), makePubKeyAddress)
+import           Pos.Util                         (asBinary)
+import           Pos.WorkMode                     (WorkMode)
 
 instance SscWorkersClass SscGodTossing where
     sscWorkers = Tagged [onStart, onNewSlotSsc]
@@ -159,8 +145,7 @@ onNewSlotCommitment SlotId {..} = do
             Just _ -> logDebug $
                 sformat ("Generated secret for "%ords%" epoch") siEpoch
     shouldSendCommitment <- do
-        --commitmentInBlockchain <- hasCommitment ourAddr <$> getGlobalMpcData
-        commitmentInBlockchain <- hasCommitment ourAddr <$> undefined
+        commitmentInBlockchain <- hasCommitment ourAddr <$> gtGetGlobalState
         return $ isCommitmentIdx siSlot && not commitmentInBlockchain
     when shouldSendCommitment $ do
         mbComm <- fmap (view _2) <$> getSecret
@@ -179,8 +164,7 @@ onNewSlotOpening
 onNewSlotOpening SlotId {..} = do
     ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
     shouldSendOpening <- do
-        --globalData <- getGlobalMpcData
-        globalData <- undefined
+        globalData <- gtGetGlobalState
         let openingInBlockchain = hasOpening ourAddr globalData
         let commitmentInBlockchain = hasCommitment ourAddr globalData
         return $ and [ isOpeningIdx siSlot
@@ -202,13 +186,11 @@ onNewSlotShares SlotId {..} = do
     shouldSendShares <- do
         -- [CSL-203]: here we assume that all shares are always sent
         -- as a whole package.
-        --sharesInBlockchain <- hasShares ourAddr <$> getGlobalMpcData
-        sharesInBlockchain <- hasShares ourAddr <$> undefined
+        sharesInBlockchain <- hasShares ourAddr <$> gtGetGlobalState
         return $ isSharesIdx siSlot && not sharesInBlockchain
     when shouldSendShares $ do
         ourVss <- gtcVssKeyPair . ncSscContext <$> getNodeContext
-        --shares <- getOurShares ourVss
-        shares <- undefined ourVss
+        shares <- getOurShares ourVss
         let lShares = fmap asBinary shares
         unless (null shares) $ do
             _ <- sscProcessMessage $ DMShares ourAddr lShares

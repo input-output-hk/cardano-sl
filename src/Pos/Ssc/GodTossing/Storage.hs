@@ -17,6 +17,7 @@ module Pos.Ssc.GodTossing.Storage
        ( -- * Instances
          -- ** instance SscStorageClass SscGodTossing
          getGlobalCertificates
+       , gtGetGlobalState
        ) where
 
 import           Control.Lens                 (over, use, view, (%=), (.=), (^.), _1, _2)
@@ -62,6 +63,11 @@ instance SscStorageClass SscGodTossing where
     sscRollbackM = mpcRollback
     sscVerifyBlocksM = mpcVerifyBlocks
     sscCalculateSeedM = calculateSeedQ
+
+gtGetGlobalState
+    :: (MonadSscGS SscGodTossing m)
+    => m GtGlobalState
+gtGetGlobalState = sscRunGlobalQuery ask
 
 getGlobalCertificates
     :: (MonadSscGS SscGodTossing m)

@@ -10,7 +10,7 @@ module Pos.Wallet.Tx.Pure
 
 import           Control.Lens        (folded, to, use, uses, (%=), (%=), (%~), (-=),
                                       (^..), _1, _2)
-import           Control.Monad       (fail, filterM)
+import           Control.Monad       (fail)
 import           Control.Monad.Loops (anyM)
 import           Control.Monad.State (StateT (..), evalStateT)
 import qualified Data.DList          as DL
@@ -22,11 +22,11 @@ import           Universum
 import           Pos.Binary          ()
 import           Pos.Crypto          (SecretKey, WithHash (..), hash, sign, toPublic,
                                       withHash, _whData)
-import           Pos.Types           (Address, Block, Coin, MainBlock, MonadUtxoRead (..),
-                                      Tx (..), TxId, TxIn (..), TxInWitness (..),
-                                      TxOut (..), TxWitness, Utxo, UtxoStateT (..),
-                                      applyTxToUtxo, blockTxs, filterUtxoByAddr,
-                                      makePubKeyAddress, topsortTxs, _txOutputs)
+import           Pos.Types           (Address, Block, Coin, MonadUtxoRead (..), Tx (..),
+                                      TxId, TxIn (..), TxInWitness (..), TxOut (..),
+                                      TxWitness, Utxo, UtxoStateT (..), applyTxToUtxo,
+                                      blockTxs, filterUtxoByAddr, makePubKeyAddress,
+                                      topsortTxs, _txOutputs)
 
 type TxOutIdx = (TxId, Word32)
 type TxInputs = [TxOutIdx]
@@ -92,18 +92,12 @@ hasReceiver :: Tx -> Address -> Bool
 hasReceiver Tx {..} addr = any ((== addr) . txOutAddress) txOutputs
 
 -- | Given some 'Utxo', check if given 'Address' is one of the senders of 'Tx'
-hasSender :: MonadUtxoRead m => Address -> Tx -> m Bool
-hasSender addr Tx {..} = anyM hasCorrespondingOutput txInputs
-  where hasCorrespondingOutput (TxIn h idx)  =
-            fmap toBool $ fmap ((== addr) . txOutAddress) <$> utxoGet (TxIn h idx)
+hasSender :: MonadUtxoRead m => Tx -> Address -> m Bool
+hasSender Tx {..} addr = anyM hasCorrespondingOutput txInputs
+  where hasCorrespondingOutput txIn =
+            fmap toBool $ fmap ((== addr) . txOutAddress) <$> utxoGet txIn
         toBool Nothing  = False
         toBool (Just b) = b
-
--- | Checks if transaction is somehow related to address
-relatedToAddress :: MonadUtxoRead m => Address -> Tx -> m Bool
-relatedToAddress addr tx = if tx `hasReceiver` addr
-                           then pure True
-                           else hasSender addr tx
 
 -- | Leave only outputs to given address in Tx
 ownOutputs :: Address -> Tx -> Tx
@@ -111,27 +105,35 @@ ownOutputs addr = _txOutputs %~ filter ((== addr) . txOutAddress)
 
 type TxSelector = UtxoStateT Maybe
 
--- | Select transactions related to given address
-getRelatedTxs :: Address -> [WithHash Tx] -> TxSelector [WithHash Tx]
-getRelatedTxs addr txs = do
-    txs <- lift $ topsortTxs identity txs
-    flip filterM txs $ \wtx -> do
-        applyTxToUtxo $ wtx & _whData %~ ownOutputs addr
-        relatedToAddress addr $ whData wtx
+-- | Select transactions related to given address. `Bool` indicates
+-- whether the transaction is outgoing (i. e. is sent from given address)
+getRelatedTxs :: Address -> [WithHash Tx] -> TxSelector [(TxId, Tx, Bool)]
+getRelatedTxs addr txs = lift (topsortTxs identity txs) >>=
+                         foldlM step DL.empty >>= return . DL.toList
+  where step ls wtx = do
+            let tx = whData wtx
+                txId = whHash wtx
+                isIncoming = tx `hasReceiver` addr
+            isOutgoing <- tx `hasSender` addr
+            if isOutgoing || isIncoming
+                then do
+                applyTxToUtxo $ wtx & _whData %~ ownOutputs addr
+                return $ ls <> DL.singleton (txId, tx, isOutgoing)
+                else return ls
 
 -- | Given a full blockchain, derive address history and Utxo
 -- TODO: Such functionality will still be useful for merging
 -- blockchains when wallet state is ready, but some metadata for
 -- Tx will be required.
-deriveAddrHistory :: Address -> [Block ssc] -> TxSelector [WithHash Tx]
+deriveAddrHistory :: Address -> [Block ssc] -> TxSelector [(TxId, Tx, Bool)]
 deriveAddrHistory addr chain = identity %= filterUtxoByAddr addr >>
                                deriveAddrHistoryPartial [] addr chain
 
 deriveAddrHistoryPartial
-    :: [WithHash Tx]
+    :: [(TxId, Tx, Bool)]
     -> Address
     -> [Block ssc]
-    -> TxSelector [WithHash Tx]
+    -> TxSelector [(TxId, Tx, Bool)]
 deriveAddrHistoryPartial hist addr chain =
     DL.toList <$> foldrM updateAll (DL.fromList hist) chain
   where

@@ -16,8 +16,7 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
          -- ** instance SscLocalDataClass SscGodTossing
        ) where
 
-import           Control.Lens                         (at, use, view, (%=), (.=))
-import           Control.Lens                         (Getter)
+import           Control.Lens                         (Getter, at, use, view, (%=), (.=))
 import           Control.Monad.Loops                  (andM)
 import           Data.Containers                      (ContainerKey,
                                                        SetContainer (notMember))
@@ -54,7 +53,6 @@ import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
                                                        VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Instance    ()
 import           Pos.Ssc.GodTossing.Types.Message     (DataMsg (..), MsgTag (..))
-import           Pos.State                            (WorkModeDB)
 import           Pos.Types                            (Address (..), SlotId (..))
 import           Pos.Util                             (AsBinary, diffDoubleMap, getKeys,
                                                        readerToState)

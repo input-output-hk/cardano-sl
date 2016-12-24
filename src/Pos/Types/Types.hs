@@ -63,6 +63,7 @@ module Pos.Types.Types
        , SharedSeed (..)
        , SlotLeaders
        , Participants
+       , Richmen
 
        , Blockchain (..)
        , BodyProof (..)
@@ -384,7 +385,11 @@ instance Monoid SharedSeed where
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty (AddressHash PublicKey)
 
+-- FIXME: remove!
 type Participants = NonEmpty Address
+
+-- | Addresses which have enough stake for participation in SSC.
+type Richmen = NonEmpty Address
 
 ----------------------------------------------------------------------------
 -- GenericBlock

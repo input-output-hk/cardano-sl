@@ -20,6 +20,7 @@ import           Pos.DB.Class                 (MonadDB)
 import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.Functions             (openDB)
 import           Pos.DB.Holder                (runDBHolder)
+import           Pos.DB.Misc                  (prepareMiscDB)
 import           Pos.DB.Types                 (NodeDBs (..))
 import           Pos.DB.Utxo                  (getTip, prepareUtxoDB)
 import           Pos.Genesis                  (genesisLeaders)
@@ -40,14 +41,18 @@ openNodeDBs recreate fp customUtxo = do
     let miscPath = fp </> "misc"
     mapM_ ensureDirectoryExists [blockPath, utxoPath, miscPath]
     res <- NodeDBs <$> openDB blockPath <*> openDB utxoPath <*> openDB miscPath
-    res <$ runDBHolder res
-        (prepareBlockDB genesisBlock0 >> prepareUtxoDB customUtxo initialTip)
+    let prepare = do
+          prepareBlockDB genesisBlock0
+          prepareUtxoDB customUtxo initialTip
+          prepareMiscDB leaders0 undefined
+    res <$ runDBHolder res prepare
   where
+    leaders0 = genesisLeaders customUtxo
     ensureDirectoryExists
         :: MonadIO m
         => FilePath -> m ()
     ensureDirectoryExists = liftIO . createDirectoryIfMissing True
-    genesisBlock0 = mkGenesisBlock Nothing 0 $ genesisLeaders customUtxo
+    genesisBlock0 = mkGenesisBlock Nothing 0 leaders0
     initialTip = headerHash genesisBlock0
 
 -- | Get block corresponding to tip.

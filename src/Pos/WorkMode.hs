@@ -27,23 +27,11 @@ module Pos.WorkMode
        ) where
 
 
-import qualified Control.Concurrent.STM        as STM
-import           Control.Lens                  (iso)
-import           Control.Monad.Base            (MonadBase (..))
 import           Control.Monad.Catch           (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Reader          (ReaderT (ReaderT), ask)
-import           Control.Monad.Trans.Class     (MonadTrans)
-import           Control.Monad.Trans.Control   (ComposeSt, MonadBaseControl (..),
-                                                MonadTransControl (..), StM,
-                                                defaultLiftBaseWith, defaultLiftWith,
-                                                defaultRestoreM, defaultRestoreT)
 import           Control.TimeWarp.Rpc          (Dialog, MonadDialog, MonadTransfer (..),
                                                 Transfer)
 import           Control.TimeWarp.Timed        (MonadTimed (..), ThreadId, TimedIO)
-import           Data.Default                  (def)
-import           Serokell.Util.Lens            (WrappedM (..))
-import           System.Wlog                   (CanLog, HasLoggerName, LoggerNameBox,
-                                                WithLogger)
+import           System.Wlog                   (LoggerNameBox, WithLogger)
 import           Universum
 
 import           Pos.Communication.Types.State (MutSocketState)

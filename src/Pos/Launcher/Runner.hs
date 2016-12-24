@@ -45,7 +45,6 @@ import           Control.TimeWarp.Timed       (MonadTimed, currentTime, fork, ki
 import           Data.List                    (nub)
 import qualified Data.Time                    as Time
 import           Formatting                   (build, sformat, shown, (%))
-import           System.FilePath              ((</>))
 import           System.Wlog                  (LoggerName (..), WithLogger, logDebug,
                                                logInfo, logWarning, releaseAllHandlers,
                                                traverseLoggerConfig, usingLoggerName)
@@ -78,7 +77,6 @@ import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (.
 import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
                                                sscCreateNodeContext, sscLoadGlobalState)
 import           Pos.Ssc.Extra                (runSscHolder, runSscLDImpl)
-import           Pos.State                    (NodeState, runDBHolder)
 import           Pos.Statistics               (getNoStatsT, runStatsT)
 import           Pos.Txp.Holder               (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView       as UV

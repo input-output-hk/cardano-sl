@@ -1,10 +1,15 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes       #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Interface for the Misc DB
 
 module Pos.DB.Misc
        (
-         getProxySecretKeys
+         prepareMiscDB
+
+
+       , getProxySecretKeys
        , addProxySecretKey
        , dropOldProxySecretKeys
 
@@ -13,18 +18,40 @@ module Pos.DB.Misc
 
        , putSecretKeyHash
        , checkSecretKeyHash
+
+       , getLrc
+       , putLrc
        ) where
 
 import           Data.Default                    (def)
 import           Universum
 
-import           Pos.Binary                      (Bi)
+import           Pos.Binary.Class                (Bi)
+import           Pos.Binary.Modern.DB            ()
+import           Pos.Binary.Ssc                  ()
 import           Pos.Crypto                      (Hash, SecretKey, pskOmega)
 import           Pos.DB.Class                    (MonadDB, getMiscDB)
+import           Pos.DB.Error                    (DBError (DBMalformed))
 import           Pos.DB.Functions                (rocksGetBi, rocksPutBi)
+import           Pos.DB.Types                    (LrcStorage (..))
 import           Pos.Ssc.GodTossing.Secret.Types (GtSecretStorage)
 import           Pos.Ssc.GodTossing.Types.Type   (SscGodTossing)
-import           Pos.Types                       (EpochIndex, ProxySKEpoch)
+import           Pos.Types                       (EpochIndex, ProxySKEpoch, Richmen,
+                                                  SlotLeaders)
+
+----------------------------------------------------------------------------
+-- Initialization
+----------------------------------------------------------------------------
+
+prepareMiscDB
+    :: forall ssc m.
+       (MonadDB ssc m)
+    => SlotLeaders -> Richmen -> m ()
+prepareMiscDB leaders richmen = do
+    existing <- getBi @(LrcStorage ssc) lrcKey
+    case existing of
+        Nothing -> putLrc 0 leaders richmen
+        Just _  -> pass
 
 ----------------------------------------------------------------------------
 -- Delegation and proxy signing
@@ -96,6 +123,33 @@ secretStorageKey :: ByteString
 secretStorageKey = "gtSecretStorageKey"
 
 ----------------------------------------------------------------------------
+-- LRC
+----------------------------------------------------------------------------
+
+-- | Get SlotLeaders and Richmen for last known epoch.
+getLrc
+    :: forall ssc m.
+       (MonadDB ssc m)
+    => m (EpochIndex, SlotLeaders, Richmen)
+getLrc =
+    maybe (throwM (DBMalformed "No LRC in MiscDB")) (pure . convert) =<< getBi lrcKey
+  where
+    convert LrcStorage {..} = (lrcEpoch, lrcLeaders, lrcRichmen)
+
+-- | Put SlotLeaders and Richmen for given epoch.
+putLrc :: forall ssc m.
+       (MonadDB ssc m)
+    => EpochIndex -> SlotLeaders -> Richmen -> m ()
+putLrc epoch leaders richmen =
+    putBi
+        lrcKey
+        LrcStorage
+        { lrcEpoch = epoch
+        , lrcLeaders = leaders
+        , lrcRichmen = richmen
+        }
+
+----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
@@ -114,3 +168,6 @@ proxySKKey = "psk_"
 
 skHashKey :: ByteString
 skHashKey = "skhash_"
+
+lrcKey :: ByteString
+lrcKey = "lrc_"

@@ -13,7 +13,7 @@
 
 -- | Instance of SscStorageClass.
 
-module Pos.Ssc.GodTossing.Storage.Storage
+module Pos.Ssc.GodTossing.Storage
        ( -- * Instances
          -- ** instance SscStorageClass SscGodTossing
          getGlobalCertificates
@@ -40,11 +40,10 @@ import           Pos.Ssc.GodTossing.Functions      (checkOpeningMatchesCommitmen
                                                     isOpeningIdx, isSharesIdx,
                                                     verifyGtPayload)
 import           Pos.Ssc.GodTossing.Genesis        (genesisCertificates)
-import           Pos.Ssc.GodTossing.Storage.Types  (GtGlobalState (..), gsCommitments,
-                                                    gsOpenings, gsShares,
-                                                    gsVssCertificates)
-import           Pos.Ssc.GodTossing.Types          (GtPayload (..), SscGodTossing,
-                                                    VssCertificatesMap, _gpCertificates)
+import           Pos.Ssc.GodTossing.Types          (GtGlobalState (..), GtPayload (..),
+                                                    SscGodTossing, VssCertificatesMap,
+                                                    gsCommitments, gsOpenings, gsShares,
+                                                    gsVssCertificates, _gpCertificates)
 import           Pos.State.Storage.Types           (AltChain)
 import           Pos.Types                         (Block, HeaderHash, SlotId (..),
                                                     blockMpc, blockSlot, gbHeader,

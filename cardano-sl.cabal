@@ -164,7 +164,6 @@ library
                         Pos.DB.Utxo
                         Pos.DB.DBIterator
                         Pos.Modern.Ssc.GodTossing.Helpers
-                        Pos.Modern.Ssc.GodTossing.Functions
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.LocalData
                         Pos.Ssc.Extra.MonadGS
@@ -180,8 +179,7 @@ library
                         Pos.Ssc.GodTossing.Secret.SecretStorage
                         Pos.Ssc.GodTossing.Secret.Types
                         Pos.Ssc.GodTossing.Seed
-                        Pos.Ssc.GodTossing.Storage.Storage
-                        Pos.Ssc.GodTossing.Storage.Types
+                        Pos.Ssc.GodTossing.Storage
                         Pos.Ssc.GodTossing.Types
                         Pos.Ssc.GodTossing.Types.Base
                         Pos.Ssc.GodTossing.Types.Instance

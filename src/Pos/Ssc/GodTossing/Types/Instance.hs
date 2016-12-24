@@ -23,12 +23,10 @@ import           Pos.Ssc.GodTossing.Types.Types     (GtContext, GtGlobalState, G
                                                      GtPayload, GtProof, SscBi,
                                                      createGtContext, mkGtProof)
 
-import qualified Pos.Ssc.GodTossing.Storage.Types   as Modern
-
 instance SscBi => Ssc SscGodTossing where
     type SscLocalData   SscGodTossing = GtLocalData
     type SscPayload     SscGodTossing = GtPayload
-    type SscGlobalState SscGodTossing = Modern.GtGlobalState
+    type SscGlobalState SscGodTossing = GtGlobalState
     type SscProof       SscGodTossing = GtProof
     type SscSeedError   SscGodTossing = SeedError
     type SscNodeContext SscGodTossing = GtContext

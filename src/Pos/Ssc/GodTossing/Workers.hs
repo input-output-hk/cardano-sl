@@ -39,15 +39,14 @@ import           Pos.Crypto                              (SecretKey, VssKeyPair,
                                                           toPublic)
 import           Pos.Crypto.SecretSharing                (toVssPublicKey)
 import           Pos.Crypto.Signing                      (PublicKey, sign)
-import           Pos.Modern.Ssc.GodTossing.Functions     (hasCommitment, hasOpening,
-                                                          hasShares)
 import           Pos.Slotting                            (getSlotStart, onNewSlot)
 import           Pos.Ssc.Class.Workers                   (SscWorkersClass (..))
 import           Pos.Ssc.GodTossing.Functions            (genCommitmentAndOpening,
                                                           genCommitmentAndOpening,
-                                                          getThreshold, isCommitmentIdx,
-                                                          isOpeningIdx, isSharesIdx,
-                                                          mkSignedCommitment)
+                                                          getThreshold, hasCommitment,
+                                                          hasOpening, hasShares,
+                                                          isCommitmentIdx, isOpeningIdx,
+                                                          isSharesIdx, mkSignedCommitment)
 import           Pos.Ssc.GodTossing.LocalData.LocalData  (localOnNewSlot,
                                                           sscProcessMessage)
 import           Pos.Ssc.GodTossing.Secret.SecretStorage (getSecret,
@@ -65,6 +64,10 @@ import           Pos.Ssc.GodTossing.Types.Types          (GtPayload, GtProof,
                                                           gtcVssCertificateVerified,
                                                           gtcVssKeyPair)
 -- import           Pos.Ssc.GodTossing.Utils                  (verifiedVssCertificates)
+import           Pos.Ssc.Extra.MonadLD                   (sscRunLocalQueryM,
+                                                          sscRunLocalUpdateM)
+import           Pos.Ssc.GodTossing.LocalData.Types      (ldCertificates)
+import           Pos.Ssc.GodTossing.Storage              (getGlobalCertificates)
 import           Pos.State                               (getGlobalMpcData, getOurShares,
                                                           getParticipants)
 import           Pos.Types                               (Address (..), EpochIndex,
@@ -73,16 +76,6 @@ import           Pos.Types                               (Address (..), EpochInd
                                                           makePubKeyAddress)
 import           Pos.Util                                (asBinary)
 import           Pos.WorkMode                            (WorkMode)
-#ifdef MODERN
-import           Pos.Ssc.Extra.MonadLD                   (sscRunLocalQueryM,
-                                                          sscRunLocalUpdateM)
-import           Pos.Ssc.GodTossing.LocalData.Types      (ldCertificates)
-import           Pos.Ssc.GodTossing.Storage.Storage      (getGlobalCertificates)
-#else
-import           Pos.Ssc.Extra.MonadLD                   (sscRunLocalQuery,
-                                                          sscRunLocalUpdate)
-import           Pos.Ssc.GodTossing.LocalData.Types      (gtLocalCertificates)
-#endif
 
 instance (Bi VssCertificate
          ,Bi Opening

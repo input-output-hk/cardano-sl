@@ -62,8 +62,10 @@ blkOnNewSlot slotId@SlotId {..} = do
         jlLog $ jlCreatedBlock (Left createdBlk)
 
     -- Then we get leaders for current epoch.
-    -- Note: if genesis block is created above, we will read
-    -- leaders. If genesis block is not created, we can't do anything.
+    -- Note: we are using non-blocking version here.  If we known
+    -- genesis block for current epoch, then we either have calculated
+    -- it before and it implies presense of leaders in MVar or we have
+    -- read leaders from DB during initialization.
     leadersMaybe <- tryReadLeaders
     case leadersMaybe of
         -- If we don't know leaders, we can't do anything.

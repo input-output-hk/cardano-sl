@@ -7,7 +7,11 @@ module Pos.DB.DB
        , loadBlocksFromTipWhile
        ) where
 
+import           Control.Monad.State          (get)
 import           Control.Monad.Trans.Resource (MonadResource)
+import qualified Data.HashMap.Strict          as HM
+import           Data.List.NonEmpty           (nonEmpty)
+import qualified Data.Map.Strict              as M
 import           System.Directory             (createDirectoryIfMissing,
                                                doesDirectoryExist,
                                                removeDirectoryRecursive)
@@ -25,8 +29,25 @@ import           Pos.DB.Types                 (NodeDBs (..))
 import           Pos.DB.Utxo                  (getTip, prepareUtxoDB)
 import           Pos.Genesis                  (genesisLeaders)
 import           Pos.Ssc.Class.Types          (Ssc)
-import           Pos.Types                    (Block, BlockHeader, Undo, Utxo,
+import           Pos.Types                    (Address, Block, BlockHeader, Coin,
+                                               Participants, TxOut (..), Undo, Utxo,
                                                getBlockHeader, headerHash, mkGenesisBlock)
+
+-- TODO: copy-pasted from Worker.Lrc :(
+getRichmen :: Utxo -> Participants
+getRichmen =
+    fromMaybe onNoRichmen .
+    nonEmpty .
+    HM.keys .
+    HM.filter (>= threshold) . flip execState mempty . mapM countMoneys . M.toList
+  where
+    threshold = 0 -- TODO
+    onNoRichmen = panic "There are no richmen!"
+    countMoneys :: (a, TxOut) -> State (HM.HashMap Address Coin) ()
+    countMoneys (_, TxOut {..}) = do
+        money <- get
+        let val = HM.lookupDefault 0 txOutAddress money
+        modify (HM.insert txOutAddress (val + txOutValue))
 
 -- | Open all DBs stored on disk.
 openNodeDBs
@@ -44,10 +65,11 @@ openNodeDBs recreate fp customUtxo = do
     let prepare = do
           prepareBlockDB genesisBlock0
           prepareUtxoDB customUtxo initialTip
-          prepareMiscDB leaders0 undefined
+          prepareMiscDB leaders0 richmen0
     res <$ runDBHolder res prepare
   where
     leaders0 = genesisLeaders customUtxo
+    richmen0 = getRichmen customUtxo
     ensureDirectoryExists
         :: MonadIO m
         => FilePath -> m ()

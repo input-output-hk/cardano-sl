@@ -67,7 +67,7 @@ import           Pos.Crypto               (ProxySecretKey, SecretKey, Share, Vss
                                            VssPublicKey, decryptShare, toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
-import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
+import           Pos.Ssc.Class.Storage    (SscStorageClass (..))
 import           Pos.Ssc.Class.Types      (Ssc (SscGlobalState, SscPayload, SscStorage))
 import           Pos.State.Storage.Types  (ProcessBlockRes (..))
 import           Pos.Statistics.StatEntry ()
@@ -102,12 +102,12 @@ type Storage ssc = ()
 -- | State of the node.
 type NodeState ssc = ()
 
-type QUConstraint  ssc m = (SscHelpersClass ssc, SscStorageMode ssc, WorkModeDB ssc m)
-type QULConstraint ssc m = (SscHelpersClass ssc, SscStorageMode ssc, WorkModeDB ssc m, HasLoggerName m)
+type QUConstraint  ssc m = (WorkModeDB ssc m)
+type QULConstraint ssc m = (WorkModeDB ssc m, HasLoggerName m)
 
 -- | Open NodeState, reading existing state from disk (if any).
 openState
-    :: (SscHelpersClass ssc, SscStorageMode ssc, Default (SscStorage ssc),
+    :: (Default (SscStorage ssc),
         MonadIO m)
     => Maybe (Storage ssc)
     -> Bool
@@ -118,7 +118,7 @@ openState = undefined
 -- | Open NodeState which doesn't store anything on disk. Everything
 -- is stored in memory and will be lost after shutdown.
 openMemState
-    :: (SscHelpersClass ssc, SscStorageMode ssc, Default (SscStorage ssc),
+    :: (Default (SscStorage ssc),
         MonadIO m)
     => Maybe (Storage ssc)
     -> m (NodeState ssc)

@@ -44,7 +44,7 @@ import qualified Pos.DB                      as Modern (MonadDB (..))
 data SscState ssc =
     SscState
     {
-      sscGlobal :: !(STM.TVar (SscGlobalStateM ssc))
+      sscGlobal :: !(STM.TVar (SscGlobalState ssc))
     , sscLocal  :: !(STM.TVar (SscLocalData ssc))
     }
 
@@ -99,7 +99,7 @@ instance MonadSscLD ssc m => MonadSscLD ssc (SscHolder ssc m) where
     setLocalData = lift . setLocalData
 
 runSscHolder :: forall ssc m a. (SscLocalDataClass ssc, MonadIO m)
-             => SscHolder ssc m a -> SscGlobalStateM ssc -> m a
+             => SscHolder ssc m a -> SscGlobalState ssc -> m a
 runSscHolder holder glob = SscState
                        <$> liftIO (STM.newTVarIO glob)
                        <*> liftIO (STM.newTVarIO (sscEmptyLocalData @ssc))

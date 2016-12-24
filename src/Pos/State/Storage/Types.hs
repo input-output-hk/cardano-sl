@@ -13,8 +13,7 @@ module Pos.State.Storage.Types
 
 import           Control.Monad.Fail  (fail)
 import           Data.List.NonEmpty  (NonEmpty)
-import           Data.SafeCopy       (SafeCopy (..), base, contain, deriveSafeCopySimple,
-                                      safeGet, safePut)
+import           Data.SafeCopy       (SafeCopy (..), contain, safeGet, safePut)
 import qualified Data.Serialize      as Cereal (getWord8, putWord8)
 import qualified Data.Text           as T
 import           Universum

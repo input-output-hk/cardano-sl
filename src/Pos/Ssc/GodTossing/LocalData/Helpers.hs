@@ -1,15 +1,12 @@
-{-# LANGUAGE CPP              #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell  #-}
 
 module Pos.Ssc.GodTossing.LocalData.Helpers
        (
-#ifdef MODERN
          HasGtState (..)
        , GtState
        , gtRunModify
        , gtRunRead
-#endif
        ) where
 
 import           Control.Lens                            (makeClassy)
@@ -58,7 +55,6 @@ data GtState = GtState
 
 makeClassy ''GtState
 
-#ifdef MODERN
 gtRunModify
     :: MonadSscLDM SscGodTossing m
     => State GtState a -> m a
@@ -104,4 +100,3 @@ fromGtState st =
     , _ldCertificates      = _gtLocalCertificates st
     , _ldLastProcessedSlot = _gtLastProcessedSlot st
     }
-#endif

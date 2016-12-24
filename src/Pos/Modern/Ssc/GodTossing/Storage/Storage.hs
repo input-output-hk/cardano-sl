@@ -35,7 +35,7 @@ import           Pos.Modern.Ssc.GodTossing.Helpers       (calculateSeedQ)
 import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
                                                           gsCommitments, gsOpenings,
                                                           gsShares, gsVssCertificates)
-import           Pos.Ssc.Class.Storage                   (SscStorageClassM (..))
+import           Pos.Ssc.Class.Storage                   (SscStorageClass (..))
 import           Pos.Ssc.Class.Types                     (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS                   (MonadSscGS (..),
                                                           sscRunGlobalQuery)
@@ -56,7 +56,7 @@ import           Pos.Util                                (readerToState)
 type GSQuery a  = forall m . (MonadReader GtGlobalState m) => m a
 type GSUpdate a = forall m . (MonadState GtGlobalState m) => m a
 
-instance SscStorageClassM SscGodTossing where
+instance SscStorageClass SscGodTossing where
     sscLoadGlobalState = mpcLoadGlobalState
     sscApplyBlocksM = mpcApplyBlocks
     sscRollbackM = mpcRollback

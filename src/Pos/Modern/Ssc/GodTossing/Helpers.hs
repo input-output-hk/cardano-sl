@@ -21,16 +21,13 @@ import           Pos.Context.Class                       (readRichmen)
 import           Pos.Crypto                              (EncShare, Share, VssKeyPair,
                                                           VssPublicKey, decryptShare,
                                                           toVssPublicKey)
-import           Pos.Ssc.Class.Storage                   (SscGlobalQueryM,
-                                                          SscImpureQueryM)
-import           Pos.Ssc.Class.Types                     (Ssc (..))
+import           Pos.Ssc.Class.Storage                   (SscGlobalQuery, SscImpureQuery)
 import           Pos.Ssc.Extra.MonadGS                   (MonadSscGS, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Error                (SeedError)
 import           Pos.Ssc.GodTossing.Functions            (getThreshold)
 import           Pos.Ssc.GodTossing.Seed                 (calculateSeed)
-import           Pos.Ssc.GodTossing.Types.Base           (Commitment (..),
+import           Pos.Ssc.GodTossing.Types                (Commitment (..), SscGodTossing,
                                                           VssCertificate (..))
-import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
 import           Pos.Types                               (Address (..), EpochIndex,
                                                           SharedSeed)
 import           Pos.Util                                (AsBinary, asBinary, fromBinaryM)
@@ -39,8 +36,8 @@ import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
                                                           gsCommitments, gsOpenings,
                                                           gsShares, gsVssCertificates)
 
-type GSQuery a = SscGlobalQueryM SscGodTossing a
-type GSImpureQuery a = SscImpureQueryM SscGodTossing a
+type GSQuery a = SscGlobalQuery SscGodTossing a
+type GSImpureQuery a = SscImpureQuery SscGodTossing a
 
 -- | Get keys of nodes participating in an epoch. A node participates if,
 -- when there were 'k' slots left before the end of the previous epoch, both
@@ -62,10 +59,7 @@ type GSImpureQuery a = SscImpureQueryM SscGodTossing a
 --                    nub $ map txOutAddress (toList utxo)
 
 -- | Calculate leaders for the next epoch.
-calculateSeedQ
-    :: (SscGlobalStateM SscGodTossing ~ GtGlobalState)
-    => EpochIndex
-    -> GSImpureQuery (Either SeedError SharedSeed)
+calculateSeedQ :: EpochIndex -> GSImpureQuery (Either SeedError SharedSeed)
 calculateSeedQ _ = do
     richmen <- readRichmen
     keymap <- view gsVssCertificates
@@ -82,8 +76,7 @@ calculateSeedQ _ = do
 -- | Decrypt shares (in commitments) that are intended for us and that we can
 -- decrypt.
 getOurShares :: ( MonadSscGS SscGodTossing m
-                , MonadIO m, HasLoggerName m
-                , SscGlobalStateM SscGodTossing ~ GtGlobalState)
+                , MonadIO m, HasLoggerName m)
              => VssKeyPair -> m (HashMap Address Share)
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
@@ -107,8 +100,7 @@ getOurShares ourKey = do
 
 -- | Decrypt shares (in commitments) that we can decrypt.
 decryptOurShares
-    :: (SscGlobalStateM SscGodTossing ~ GtGlobalState)
-    => AsBinary VssPublicKey                           -- ^ Our VSS key
+    :: AsBinary VssPublicKey                           -- ^ Our VSS key
     -> GSQuery (HashMap Address (AsBinary EncShare))
 decryptOurShares ourPK = do
     comms <- view gsCommitments

@@ -40,15 +40,15 @@ import           Pos.Crypto                                (SecretKey, VssKeyPai
                                                             toPublic)
 import           Pos.Crypto.SecretSharing                  (toVssPublicKey)
 import           Pos.Crypto.Signing                        (PublicKey, sign)
+import           Pos.Modern.Ssc.GodTossing.Functions       (hasCommitment, hasOpening,
+                                                            hasShares)
 import           Pos.Slotting                              (getSlotStart, onNewSlot)
 import           Pos.Ssc.Class.Workers                     (SscWorkersClass (..))
 import           Pos.Ssc.GodTossing.Functions              (genCommitmentAndOpening,
                                                             genCommitmentAndOpening,
-                                                            hasCommitment, hasOpening,
-                                                            hasShares, isCommitmentIdx,
+                                                            getThreshold, isCommitmentIdx,
                                                             isOpeningIdx, isSharesIdx,
                                                             mkSignedCommitment)
-import           Pos.Ssc.GodTossing.Functions              (getThreshold)
 import           Pos.Ssc.GodTossing.LocalData.LocalData    (localOnNewSlot,
                                                             sscProcessMessage)
 import           Pos.Ssc.GodTossing.Secret.SecretStorage   (getSecret,
@@ -65,7 +65,7 @@ import           Pos.Ssc.GodTossing.Types.Types            (GtPayload, GtProof,
                                                             gtcParticipateSsc,
                                                             gtcVssCertificateVerified,
                                                             gtcVssKeyPair)
-import           Pos.Ssc.GodTossing.Utils                  (verifiedVssCertificates)
+-- import           Pos.Ssc.GodTossing.Utils                  (verifiedVssCertificates)
 import           Pos.State                                 (getGlobalMpcData,
                                                             getOurShares, getParticipants)
 import           Pos.Types                                 (Address (..), EpochIndex,

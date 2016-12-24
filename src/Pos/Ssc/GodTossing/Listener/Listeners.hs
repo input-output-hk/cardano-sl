@@ -29,7 +29,7 @@ import           Pos.DHT.Model                          (ListenerDHT (..), reply
 import           Pos.Security                           (shouldIgnorePkAddress)
 import           Pos.Slotting                           (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
-import           Pos.Ssc.Extra.MonadLD                  (sscGetLocalPayload)
+import           Pos.Ssc.Extra.MonadLD                  (sscGetLocalPayloadM)
 import           Pos.Ssc.GodTossing.LocalData.LocalData (sscIsDataUseful,
                                                          sscProcessMessage)
 import           Pos.Ssc.GodTossing.Types.Base          (Commitment, Opening,
@@ -80,7 +80,7 @@ handleInvDo tag keys = mapM_ handleSingle keys
 
 handleReq :: (Bi DataMsg) => ResponseMode SscGodTossing m => ReqMsg -> m ()
 handleReq (ReqMsg tag addr) = do
-    localPayload <- sscGetLocalPayload =<< getCurrentSlot
+    localPayload <- sscGetLocalPayloadM =<< getCurrentSlot
     whenJust (toDataMsg tag addr localPayload) (replyToNode @_ @_ @DataMsg)
 
 toDataMsg :: MsgTag -> Address -> GtPayload -> Maybe DataMsg

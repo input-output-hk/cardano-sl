@@ -32,24 +32,24 @@ import           Universum
 import           Pos.Context             (WithNodeContext)
 import           Pos.DHT.Model.Class     (DHTResponseT)
 import           Pos.DHT.Real            (KademliaDHT)
-import           Pos.Ssc.Class.Storage   (SscStorageClassM (..))
+import           Pos.Ssc.Class.Storage   (SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain)
 import           Pos.Types.Types         (EpochIndex, SharedSeed)
 
 class Monad m => MonadSscGS ssc m | m -> ssc where
-    getGlobalState    :: m (SscGlobalStateM ssc)
-    setGlobalState    :: SscGlobalStateM ssc -> m ()
-    modifyGlobalState :: (SscGlobalStateM ssc -> (a, SscGlobalStateM ssc)) -> m a
+    getGlobalState    :: m (SscGlobalState ssc)
+    setGlobalState    :: SscGlobalState ssc -> m ()
+    modifyGlobalState :: (SscGlobalState ssc -> (a, SscGlobalState ssc)) -> m a
 
-    default getGlobalState :: MonadTrans t => t m (SscGlobalStateM ssc)
+    default getGlobalState :: MonadTrans t => t m (SscGlobalState ssc)
     getGlobalState = lift getGlobalState
 
-    default setGlobalState :: MonadTrans t => SscGlobalStateM ssc -> t m ()
+    default setGlobalState :: MonadTrans t => SscGlobalState ssc -> t m ()
     setGlobalState = lift . setGlobalState
 
     default modifyGlobalState :: MonadTrans t =>
-                                 (SscGlobalStateM ssc -> (a, SscGlobalStateM ssc)) -> t m a
+                                 (SscGlobalState ssc -> (a, SscGlobalState ssc)) -> t m a
     modifyGlobalState = lift . modifyGlobalState
 
 instance MonadSscGS ssc m => MonadSscGS ssc (ReaderT a m) where
@@ -61,41 +61,41 @@ instance MonadSscGS ssc m => MonadSscGS ssc (KademliaDHT m) where
 sscRunGlobalQuery
     :: forall ssc m a.
        MonadSscGS ssc m
-    => Reader (SscGlobalStateM ssc) a -> m a
+    => Reader (SscGlobalState ssc) a -> m a
 sscRunGlobalQuery query = runReader query <$> getGlobalState @ssc
 
 sscRunGlobalModify
     :: forall ssc m a .
     MonadSscGS ssc m
-    => State (SscGlobalStateM ssc) a -> m a
+    => State (SscGlobalState ssc) a -> m a
 sscRunGlobalModify upd = modifyGlobalState $ runState upd
 
 sscRunImpureQuery
     :: forall ssc m a.
        (MonadSscGS ssc m)
-    => ReaderT (SscGlobalStateM ssc) m a -> m a
+    => ReaderT (SscGlobalState ssc) m a -> m a
 sscRunImpureQuery query = runReaderT query =<< getGlobalState @ssc
 
 sscCalculateSeed
     :: forall ssc m.
-       (MonadSscGS ssc m, SscStorageClassM ssc, MonadIO m, WithNodeContext ssc m)
+       (MonadSscGS ssc m, SscStorageClass ssc, MonadIO m, WithNodeContext ssc m)
     => EpochIndex -> m (Either (SscSeedError ssc) SharedSeed)
 sscCalculateSeed = sscRunImpureQuery . sscCalculateSeedM @ssc
 
 sscApplyBlocks
     :: forall ssc m.
-       (MonadSscGS ssc m, SscStorageClassM ssc)
+       (MonadSscGS ssc m, SscStorageClass ssc)
     => AltChain ssc -> m ()
 sscApplyBlocks = sscRunGlobalModify . sscApplyBlocksM @ssc
 
 sscRollback
     :: forall ssc m.
-       (MonadSscGS ssc m, SscStorageClassM ssc)
+       (MonadSscGS ssc m, SscStorageClass ssc)
     => AltChain ssc -> m ()
 sscRollback = sscRunGlobalModify . sscRollbackM @ssc
 
 sscVerifyBlocks
     :: forall ssc m.
-       (MonadSscGS ssc m, SscStorageClassM ssc)
+       (MonadSscGS ssc m, SscStorageClass ssc)
     => Bool -> AltChain ssc -> m VerificationRes
 sscVerifyBlocks verPure = sscRunGlobalQuery . sscVerifyBlocksM @ssc verPure

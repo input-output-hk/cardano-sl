@@ -52,7 +52,7 @@ class Ssc ssc => SscLocalDataClass ssc where
     -- | Update LocalData using global data from blocks (last version
     -- of best known chain).
 #ifdef MODERN
-    sscApplyGlobalStateU :: SscGlobalStateM ssc -> LocalUpdate ssc ()
+    sscApplyGlobalStateU :: SscGlobalState ssc -> LocalUpdate ssc ()
 #else
     sscApplyGlobalStateU :: SscGlobalState ssc -> LocalUpdate ssc ()
 #endif

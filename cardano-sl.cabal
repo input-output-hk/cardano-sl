@@ -76,10 +76,8 @@ library
                         Pos.Ssc.Class.LocalData
                         Pos.Ssc.Extra
                         Pos.State
-                        Pos.State.Acidic
                         Pos.State.Holder
                         Pos.State.State
-                        Pos.State.Storage
                         Pos.Statistics
                         Pos.Txp.Listeners
                         Pos.Txp.Storage
@@ -196,7 +194,6 @@ library
                         Pos.Ssc.GodTossing.Types.Types
                         Pos.Ssc.GodTossing.Utils
                         Pos.Ssc.GodTossing.Workers
-                        Pos.State.Storage.Block
                         Pos.State.Storage.Types
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats

@@ -82,7 +82,6 @@ import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, Ss
 import           Pos.Ssc.Extra                (runSscHolder, runSscLDImpl)
 import           Pos.State                    (NodeState, closeState, openMemState,
                                                openState, runDBHolder)
-import           Pos.State.Storage            (storageFromUtxo)
 import           Pos.Statistics               (getNoStatsT, runStatsT)
 import           Pos.Txp.Holder               (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView       as UV
@@ -176,22 +175,23 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     lift $ run legacyDB
   where
     lp@LoggingParams {..} = bpLoggingParams npBaseParams
-    mStorage = Just $ storageFromUtxo npCustomUtxo
+    mStorage = Just ()
     openDb :: IO (NodeState ssc)
     openDb = do
         -- we rebuild DB manually, because we need to remove
         -- everything in npDbPath
-        let rebuild fp =
-                whenM ((npRebuildDb &&) <$> doesDirectoryExist fp) $
-                removeDirectoryRecursive fp
-        whenJust npDbPath rebuild
-        runOurDialog newMutSocketState lpRunnerTag $
-            maybe
-                (openMemState mStorage)
-                (openState mStorage False)
-                ((</> "main") <$> npDbPath)
+        pure ()
+        -- let rebuild fp =
+        --         whenM ((npRebuildDb &&) <$> doesDirectoryExist fp) $
+        --         removeDirectoryRecursive fp
+        -- whenJust npDbPath rebuild
+        -- runOurDialog newMutSocketState lpRunnerTag $
+        --     maybe
+        --         (openMemState mStorage)
+        --         (openState mStorage False)
+        --         ((</> "main") <$> npDbPath)
     closeDb :: NodeState ssc -> IO ()
-    closeDb = closeState
+    closeDb = const pass
 
 -- | ProductionMode runner.
 runProductionMode

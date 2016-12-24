@@ -16,7 +16,6 @@ import           Pos.Context             (NodeContext (..), getNodeContext, ncPu
 import           Pos.DB.Utxo             (getTip)
 import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Ssc.Class           (SscConstraint)
-import           Pos.State               (initFirstSlot)
 import           Pos.Types               (Timestamp (Timestamp))
 import           Pos.Util                (inAssertMode)
 import           Pos.Worker              (runWorkers)
@@ -33,7 +32,6 @@ runNode plugins = do
 
     initSemaphore
 --    initSsc
-    initFirstSlot
     waitSystemStart
     runWorkers
     mapM_ fork plugins

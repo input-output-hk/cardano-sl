@@ -48,6 +48,7 @@ import           Pos.Ssc.GodTossing.Functions              (genCommitmentAndOpen
                                                             hasShares, isCommitmentIdx,
                                                             isOpeningIdx, isSharesIdx,
                                                             mkSignedCommitment)
+import           Pos.Ssc.GodTossing.Functions              (getThreshold)
 import           Pos.Ssc.GodTossing.LocalData.LocalData    (localOnNewSlot,
                                                             sscProcessMessage)
 import           Pos.Ssc.GodTossing.Secret.SecretStorage   (getSecret,
@@ -66,8 +67,7 @@ import           Pos.Ssc.GodTossing.Types.Types            (GtPayload, GtProof,
                                                             gtcVssKeyPair)
 import           Pos.Ssc.GodTossing.Utils                  (verifiedVssCertificates)
 import           Pos.State                                 (getGlobalMpcData,
-                                                            getOurShares, getParticipants,
-                                                            getThreshold)
+                                                            getOurShares, getParticipants)
 import           Pos.Types                                 (Address (..), EpochIndex,
                                                             LocalSlotIndex, SlotId (..),
                                                             Timestamp (..),

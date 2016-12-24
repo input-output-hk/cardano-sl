@@ -13,8 +13,9 @@ import           System.Wlog             (logError, logInfo)
 import           Universum
 
 import           Pos.Constants           (k)
-import           Pos.Context             (NodeContext (..), getNodeContext, ncPublicKey,
-                                          putLeaders, putRichmen)
+import           Pos.Context             (NodeContext (..), getNodeContext,
+                                          ncPubKeyAddress, ncPublicKey, putLeaders,
+                                          putRichmen)
 import qualified Pos.DB                  as DB
 import           Pos.DB.Utxo             (getTip)
 import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
@@ -31,7 +32,8 @@ runNode :: (SscConstraint ssc, WorkMode ssc m) => [m ()] -> m ()
 runNode plugins = do
     inAssertMode $ logInfo "Assert mode on"
     pk <- ncPublicKey <$> getNodeContext
-    logInfo $ sformat ("My public key is: "%build) pk
+    addr <- ncPubKeyAddress <$> getNodeContext
+    logInfo $ sformat ("My public key is: "%build%", address: "%build) pk addr
     peers <- discoverPeers DHTFull
     logInfo $ sformat ("Known peers: " % build) peers
 

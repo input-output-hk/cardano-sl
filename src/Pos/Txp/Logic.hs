@@ -136,6 +136,8 @@ txVerifyBlocks newChain = do
     attachSlotId sId (Left errors) =
         Left $ (sformat ("[Block's slot = "%slotIdF % "]"%stext) sId) errors
 
+-- CHECK: @processTx
+-- #processTxDo
 processTx :: MinTxpWorkMode ssc m => IdTxWitness -> m ProcessTxRes
 processTx itw@(_, (tx, _)) = do
     tipBefore <- getTip
@@ -153,6 +155,8 @@ processTx itw@(_, (tx, _)) = do
             (mkPTRinvalid ["Tips aren't same"], txld)
         )
 
+-- CHECK: @processTxDo
+-- #verifyTxPure
 processTxDo :: TxpLD ssc -> HM.HashMap TxIn TxOut -> DB ssc
             -> IdTxWitness -> (ProcessTxRes, TxpLD ssc)
 processTxDo ld@(uv, mp, undos, tip) resolvedIns utxoDB (id, (tx, txw))

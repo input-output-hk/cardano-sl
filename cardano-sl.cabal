@@ -23,13 +23,13 @@ flag dev-mode
   description: Switch between Development and Production mode
 
 Flag with-web
-  default:     False
+  default:     True
   manual:      True
 
   description: Build with web part.
 
 Flag with-wallet
-  default:     False
+  default:     True
   manual:      True
 
   description: Build with wallet.
@@ -184,6 +184,7 @@ library
                         Pos.Ssc.GodTossing.LocalData.Types
                         Pos.Ssc.GodTossing.Secret.SecretStorage
                         Pos.Ssc.GodTossing.Secret.Types
+                        Pos.Ssc.GodTossing.SecretStorage
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Shares
                         Pos.Ssc.GodTossing.Storage

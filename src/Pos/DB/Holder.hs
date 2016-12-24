@@ -10,7 +10,7 @@
 -- | Default implementation of MonadDB.
 
 module Pos.DB.Holder
-       ( DBHolder
+       ( DBHolder (..)
        , runDBHolder
        ) where
 

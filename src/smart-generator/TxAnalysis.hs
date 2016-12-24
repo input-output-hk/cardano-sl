@@ -24,7 +24,6 @@ import           Pos.Crypto             (hash)
 import           Pos.DB                 (loadBlocksFromTipWhile)
 import           Pos.Slotting           (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.Class          (SscConstraint)
-import           Pos.State              (getBlockByDepth)
 import           Pos.Types              (SlotId (..), TxId, blockSlot, blockTxs)
 import           Pos.WorkMode           (ProductionMode)
 

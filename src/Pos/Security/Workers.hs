@@ -26,9 +26,9 @@ import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types    (GtPayload (..), SscBi)
 import           Pos.Ssc.NistBeacon                (SscNistBeacon)
 import           Pos.Types                         (EpochIndex, MainBlock, SlotId (..),
-                                                    blockHeader, blockMpc, flattenSlotId,
-                                                    gbHeader, gbhConsensus, gcdEpoch,
-                                                    headerSlot, makePubKeyAddress)
+                                                    blockMpc, flattenSlotId, gbHeader,
+                                                    gbhConsensus, gcdEpoch, headerSlot,
+                                                    makePubKeyAddress)
 import           Pos.WorkMode                      (WorkMode)
 
 class Ssc ssc => SecurityWorkersClass ssc where

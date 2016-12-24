@@ -28,8 +28,7 @@ import           Pos.Binary.Communication   ()
 import           Pos.Block.Logic            (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Constants              (networkDiameter)
-import           Pos.Context                (getNodeContext, ncPropagation, ncPublicKey,
-                                             ncSecretKey)
+import           Pos.Context                (getNodeContext, ncPublicKey)
 import           Pos.Context.Class          (tryReadLeaders)
 import           Pos.Crypto                 (ProxySecretKey, pskIssuerPk, pskOmega,
                                              shortHashF)

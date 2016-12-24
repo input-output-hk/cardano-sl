@@ -30,11 +30,11 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context                 (WithNodeContext)
-import qualified Pos.DB.Class                (MonadDB)
+import           Pos.DB.Class                (MonadDB)
+import           Pos.DB.Holder               (DBHolder (..))
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..),
                                               MonadSscLDM (..))
-import           Pos.State                   (MonadDB (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Txp.Types               (MemPool, UtxoView)
 import qualified Pos.Txp.Types.UtxoView      as UV
@@ -46,6 +46,7 @@ import           Pos.Util.JsonLog            (MonadJL (..))
 ----------------------------------------------------------------------------
 -- Holder
 ----------------------------------------------------------------------------
+
 data TxpLDWrap ssc = TxpLDWrap
     {
       utxoView :: !(STM.TVar (UtxoView ssc))
@@ -77,11 +78,12 @@ instance MonadBaseControl IO m => MonadBaseControl IO (TxpLDHolder ssc m) where
     liftBaseWith     = defaultLiftBaseWith
     restoreM         = defaultRestoreM
 
-deriving instance Pos.DB.Class.MonadDB ssc m => Pos.DB.Class.MonadDB ssc (TxpLDHolder ssc m)
+deriving instance MonadTxpLD ssc m => MonadTxpLD ssc (DBHolder ssc m)
 
 ----------------------------------------------------------------------------
 -- Useful instances
 ----------------------------------------------------------------------------
+
 instance MonadIO m => MonadTxpLD ssc (TxpLDHolder ssc m) where
     setUtxoView uv = TxpLDHolder (asks utxoView) >>= atomically . flip STM.writeTVar uv
     setMemPool mp = TxpLDHolder (asks memPool) >>= atomically . flip STM.writeTVar mp

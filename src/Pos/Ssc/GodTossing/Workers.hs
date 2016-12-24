@@ -68,8 +68,6 @@ import           Pos.Ssc.Extra.MonadLD                   (sscRunLocalQueryM,
                                                           sscRunLocalUpdateM)
 import           Pos.Ssc.GodTossing.LocalData.Types      (ldCertificates)
 import           Pos.Ssc.GodTossing.Storage              (getGlobalCertificates)
-import           Pos.State                               (getGlobalMpcData, getOurShares,
-                                                          getParticipants)
 import           Pos.Types                               (Address (..), EpochIndex,
                                                           LocalSlotIndex, SlotId (..),
                                                           Timestamp (..),
@@ -86,7 +84,6 @@ instance (Bi VssCertificate
          ,Bi GtProof) =>
          SscWorkersClass SscGodTossing where
     sscWorkers = Tagged [onStart, onNewSlotSsc]
-#ifdef MODERN
 -- CHECK: @onStart
 -- Checks whether 'our' VSS certificate has been announced
 onStart :: forall m. (WorkMode SscGodTossing m, Bi DataMsg) => m ()
@@ -110,12 +107,8 @@ checkNSendOurCert = do
     getOurVssCertificate :: m VssCertificate
     getOurVssCertificate = do
         (ourPk, ourAddr) <- getOurPkAndAddr
-#ifdef MODERN
--- Dratuti
+        -- Dratuti
         localCerts       <- sscRunLocalQueryM $ view ldCertificates
-#else
-        localCerts       <- sscRunLocalQuery $ view gtLocalCertificates
-#endif
         case lookup ourAddr localCerts of
           Just c  -> return c
           Nothing -> do
@@ -126,11 +119,7 @@ checkNSendOurCert = do
                                          , vcSignature  = sign ourSk vssKey
                                          , vcSigningKey = ourPk
                                          }
-#ifdef MODERN
             sscRunLocalUpdateM $ ldCertificates %= insert ourAddr ourCert
-#else
-            sscRunLocalUpdate $ gtLocalCertificates %= insert ourAddr ourCert
-#endif
             return ourCert
 
 getOurPkAndAddr :: WorkMode SscGodTossing m => m (PublicKey, Address)
@@ -141,66 +130,7 @@ getOurPkAndAddr = do
 getOurVssKeyPair :: WorkMode SscGodTossing m => m VssKeyPair
 getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
 
-#else
-onStart :: forall m. (WorkMode SscGodTossing m, Bi DataMsg) => m ()
-onStart = do
-    isVerified <- isVssCertificateVerified
-    if isVerified
-       then do
-           logDebug "Our VssCertificate is verified."
-           b <- getGtcVssCertificateVerified
-           atomically $ writeTVar b True
-       else do
-           logDebug "Our VssCertificate is not verified yet, we will announce it now."
-           (_, ourAddr)      <- getOurPkAndAddr
-           ourVssCertificate <- getOurVssCertificate
-           let msg = DMVssCertificate ourAddr ourVssCertificate
-           -- [CSL-245]: do not catch all, catch something more concrete.
-           (sendToNeighborsSafe msg >> logDebug "Announced our VssCertificate.")
-               `catchAll` \e ->
-               logError $ sformat ("Error announcing our VssCertificate: " % shown) e
-           wait (for mpcSendInterval)
-           onStart -- retry
-  where
-    getOurVssCertificate :: m VssCertificate
-    getOurVssCertificate = do
-        (ourPk, ourAddr) <- getOurPkAndAddr
-        localCerts       <- sscRunLocalQuery $ view gtLocalCertificates
-        case lookup ourAddr localCerts of
-          Just c  -> return c
-          Nothing -> do
-            ourSk         <- ncSecretKey <$> getNodeContext
-            ourVssKeyPair <- getOurVssKeyPair
-            let vssKey  = asBinary $ toVssPublicKey ourVssKeyPair
-                ourCert = VssCertificate { vcVssKey     = vssKey
-                                         , vcSignature  = sign ourSk vssKey
-                                         , vcSigningKey = ourPk
-                                         }
-            sscRunLocalUpdate $ gtLocalCertificates %= insert ourAddr ourCert
-            return ourCert
 
--- CHECK: @isVssCertificateVerified
--- Checks whether 'our' VSS certificate has been verified,
--- i.e. is at least k blocks deep in the blockchain.
-isVssCertificateVerified :: forall m. WorkMode SscGodTossing m => m Bool
-isVssCertificateVerified = do
-    (_, ourAddr) <- getOurPkAndAddr
-    certs        <- verifiedVssCertificates
-    return $ ourAddr `member` certs
-
-getOurPkAndAddr :: WorkMode SscGodTossing m => m (PublicKey, Address)
-getOurPkAndAddr = do
-    ourPk <- ncPublicKey <$> getNodeContext
-    return (ourPk, makePubKeyAddress ourPk)
-
-getOurVssKeyPair :: WorkMode SscGodTossing m => m VssKeyPair
-getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
-
-getGtcVssCertificateVerified :: WorkMode SscGodTossing m => m (TVar Bool)
-getGtcVssCertificateVerified = gtcVssCertificateVerified . ncSscContext <$> getNodeContext
-#endif
-
-#ifdef MODERN
 -- CHECK: @onNewSlotSscModern
 -- Checks whether 'our' VSS certificate has been announced
 onNewSlotSsc
@@ -221,31 +151,6 @@ onNewSlotSsc = onNewSlot True $ \slotId-> do
         onNewSlotCommitment slotId
         onNewSlotOpening slotId
         onNewSlotShares slotId
-#else
--- CHECK: @onNewSlotSsc
--- Checks whether 'our' VSS certificate has been verified
--- (is at least k blocks deep in the blockchain) before starting VSS actions.
-onNewSlotSsc
-    :: (WorkMode SscGodTossing m
-       ,Bi Commitment
-       ,Bi VssCertificate
-       ,Bi Opening
-       ,Bi InvMsg)
-    => m ()
-onNewSlotSsc = onNewSlot True $ \slotId-> do
-    localOnNewSlot slotId
-    verified <- getGtcVssCertificateVerified >>= atomically . readTVar
-    if verified
-       then do
-           prepareSecretToNewSlot slotId
-           participationEnabled <- getNodeContext >>=
-               atomically . readTVar . gtcParticipateSsc . ncSscContext
-           when participationEnabled $ do
-               onNewSlotCommitment slotId
-               onNewSlotOpening slotId
-               onNewSlotShares slotId
-       else logDebug "Our VssCertificate has not been verified yet."
-#endif
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
@@ -269,7 +174,8 @@ onNewSlotCommitment SlotId {..} = do
             Just _ -> logDebug $
                 sformat ("Generated secret for "%ords%" epoch") siEpoch
     shouldSendCommitment <- do
-        commitmentInBlockchain <- hasCommitment ourAddr <$> getGlobalMpcData
+        --commitmentInBlockchain <- hasCommitment ourAddr <$> getGlobalMpcData
+        commitmentInBlockchain <- hasCommitment ourAddr <$> undefined
         return $ isCommitmentIdx siSlot && not commitmentInBlockchain
     when shouldSendCommitment $ do
         mbComm <- fmap (view _2) <$> getSecret
@@ -288,7 +194,8 @@ onNewSlotOpening
 onNewSlotOpening SlotId {..} = do
     ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
     shouldSendOpening <- do
-        globalData <- getGlobalMpcData
+        --globalData <- getGlobalMpcData
+        globalData <- undefined
         let openingInBlockchain = hasOpening ourAddr globalData
         let commitmentInBlockchain = hasCommitment ourAddr globalData
         return $ and [ isOpeningIdx siSlot
@@ -314,11 +221,13 @@ onNewSlotShares SlotId {..} = do
     shouldSendShares <- do
         -- [CSL-203]: here we assume that all shares are always sent
         -- as a whole package.
-        sharesInBlockchain <- hasShares ourAddr <$> getGlobalMpcData
+        --sharesInBlockchain <- hasShares ourAddr <$> getGlobalMpcData
+        sharesInBlockchain <- hasShares ourAddr <$> undefined
         return $ isSharesIdx siSlot && not sharesInBlockchain
     when shouldSendShares $ do
         ourVss <- gtcVssKeyPair . ncSscContext <$> getNodeContext
-        shares <- getOurShares ourVss
+        --shares <- getOurShares ourVss
+        shares <- undefined ourVss
         let lShares = fmap asBinary shares
         unless (null shares) $ do
             _ <- sscProcessMessage $ DMShares ourAddr lShares
@@ -343,7 +252,6 @@ sendOurData msgTag epoch kMultiplier ourAddr = do
 -- Nothing is returned if node is not ready (usually it means that
 -- node doesn't have recent enough blocks and needs to be
 -- synchronized).
-#ifdef MODERN
 generateAndSetNewSecret
     :: (WorkMode SscGodTossing m, Bi Commitment)
     => SecretKey
@@ -367,31 +275,6 @@ generateAndSetNewSecret sk epoch = do
       _ -> do
         logError "Wrong participants list: can't deserialize"
         return Nothing
-#else
-generateAndSetNewSecret
-    :: (WorkMode SscGodTossing m, Bi Commitment)
-    => SecretKey
-    -> EpochIndex                         -- ^ Current epoch
-    -> m (Maybe (SignedCommitment, Opening))
-generateAndSetNewSecret sk epoch = do
-    -- It should be safe here to perform 2 operations (get and set)
-    -- which aren't grouped into a single transaction here, because if
-    -- getParticipants returns 'Just res' it will always return 'Just
-    -- res' unless key assumption is broken. But if it's broken,
-    -- nothing else matters.
-    participants <- getParticipants epoch
-    case participants of
-        Nothing -> return Nothing
-        Just ps -> do
-            let threshold = getThreshold $ length ps
-            mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
-            case mPair of
-              Just (mkSignedCommitment sk epoch -> comm, op) ->
-                  Just (comm, op) <$ setSecret (toPublic sk, comm, op)
-              _ -> do
-                logError "Wrong participants list: can't deserialize"
-                return Nothing
-#endif
 
 randomTimeInInterval
     :: WorkMode SscGodTossing m

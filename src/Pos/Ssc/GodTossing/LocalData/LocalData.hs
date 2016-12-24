@@ -161,7 +161,7 @@ sscIsDataUsefulSetImpl localG globalG addr =
 -- | Process message and save it if needed. Result is whether message
 -- has been actually added.
 sscProcessMessage ::
-       (MonadSscLDM SscGodTossing m, WorkModeDB SscGodTossing m, SscBi)
+       (MonadSscLDM SscGodTossing m, SscBi)
     => DataMsg -> m Bool
 sscProcessMessage msg = gtRunModify $ do
     certs <- use gtGlobalCertificates

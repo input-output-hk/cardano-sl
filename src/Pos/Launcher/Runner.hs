@@ -155,11 +155,9 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     modernDBs <- Modern.openNodeDBs (npDbPathM </> "rocksDBzhogovo") npCustomUtxo
     initTip <- Modern.runDBHolder modernDBs Modern.getTip
     initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
-    legacyDB <- snd <$> allocate openDb closeDb
     initNC <- sscCreateNodeContext @ssc sscnp
-    let run db =
+    let run =
             runOurDialog newMutSocketState lpRunnerTag .
-            runDBHolder db .
             Modern.runDBHolder modernDBs .
             runCH np initNC .
             runSscLDImpl .
@@ -167,13 +165,9 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
             runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip .
             runKDHT inst npBaseParams listeners $
             nodeStartMsg npBaseParams >> action
-    lift $ run legacyDB
+    lift run
   where
     lp@LoggingParams {..} = bpLoggingParams npBaseParams
-    openDb :: IO (NodeState ssc)
-    openDb = pure ()
-    closeDb :: NodeState ssc -> IO ()
-    closeDb = const pass
 
 -- | ProductionMode runner.
 runProductionMode

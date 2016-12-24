@@ -23,9 +23,9 @@ import           Universum
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkSemaphore_)
 import           Pos.Constants            (k)
-import           Pos.Context              (getNodeContext)
+import           Pos.Context              (getNodeContext, readLeaders, readRichmen)
 import           Pos.Context.Context      (ncSscLeaders, ncSscRichmen)
-import           Pos.DB                   (loadBlocksFromTipWhile)
+import           Pos.DB                   (loadBlocksFromTipWhile, putLrc)
 import           Pos.DB.DBIterator        ()
 import           Pos.DB.Utxo              (getTotalCoins, iterateByUtxo, mapUtxoIterator)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
@@ -75,6 +75,9 @@ lrcOnNewSlotDo SlotId {siEpoch = epochId} tip = tip <$ do
                 Right seed -> mapUtxoIterator @(TxIn, TxOut) @TxOut
                             (followTheSatoshiM seed totalCoins) snd
         liftIO $ putMVar leadersMVar leaders
+    leaders <- readLeaders
+    richmen <- readRichmen
+    putLrc epochId leaders richmen
     applyBlocks blockUndos
   where
     whileMoreOrEq5k b = getEpochOrSlot b >= crucialSlot

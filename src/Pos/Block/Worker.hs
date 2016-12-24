@@ -31,7 +31,8 @@ import           Pos.Constants              (networkDiameter)
 import           Pos.Context                (getNodeContext, ncPropagation, ncPublicKey,
                                              ncSecretKey)
 import           Pos.Context.Class          (tryReadLeaders)
-import           Pos.Crypto                 (ProxySecretKey, pskIssuerPk, pskOmega)
+import           Pos.Crypto                 (ProxySecretKey, pskIssuerPk, pskOmega,
+                                             shortHashF)
 import           Pos.DB.Misc                (getProxySecretKeys)
 import           Pos.Slotting               (MonadSlots (getCurrentTime), getSlotStart,
                                              onNewSlot)
@@ -75,7 +76,8 @@ blkOnNewSlot slotId@SlotId {..} = do
         -- have suitable PSK.
         Just leaders -> do
             let logLeadersF = if siSlot == 0 then logInfo else logDebug
-            logLeadersF (sformat ("Slot leaders: "%listJson) leaders)
+            logLeadersF (sformat ("Slot leaders: "%listJson) $
+                         map (sformat shortHashF) leaders)
             ourPkHash <- addressHash . ncPublicKey <$> getNodeContext
             let leader = leaders ^? ix (fromIntegral siSlot)
             proxyCerts <- getProxySecretKeys

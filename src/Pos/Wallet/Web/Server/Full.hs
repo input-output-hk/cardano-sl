@@ -29,7 +29,6 @@ import           Pos.Launcher                  (runOurDialog)
 import           Pos.Ssc.Class                 (SscConstraint, sscLoadGlobalState)
 import           Pos.Ssc.Extra                 (SscHolder, SscLDImpl, runSscHolder,
                                                 runSscLDImpl)
-import qualified Pos.State                     as St
 import qualified Pos.Txp.Holder                as Modern
 import qualified Pos.Txp.Types.UtxoView        as UV
 import           Pos.WorkMode                  (RawRealMode)
@@ -58,23 +57,20 @@ type SubKademlia ssc = (Modern.TxpLDHolder ssc
                           (SscLDImpl ssc
                            (ContextHolder ssc
                             (Modern.DBHolder ssc
-                             (St.DBHolder ssc
-                              (Dialog DHTPacking (Transfer (MutSocketState ssc)))))))))
+                              (Dialog DHTPacking (Transfer (MutSocketState ssc))))))))
 
 convertHandler
     :: forall ssc a . SscConstraint ssc
     => KademliaDHTContext (SubKademlia ssc)
     -> NodeContext ssc
-    -> St.NodeState ssc
     -> Modern.NodeDBs ssc
     -> WalletState
     -> WebHandler ssc a
     -> Handler a
-convertHandler kctx nc ns modernDBs ws handler = do
+convertHandler kctx nc modernDBs ws handler = do
     tip <- Modern.runDBHolder modernDBs Modern.getTip
     initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc tip)
     liftIO (runOurDialog newMutSocketState "wallet-api" .
-            St.runDBHolder ns .
             Modern.runDBHolder modernDBs .
             runContextHolder nc .
             runSscLDImpl .
@@ -94,6 +90,5 @@ nat = do
     ws <- getWalletWebState
     kctx <- lift getKademliaDHTCtx
     nc <- getNodeContext
-    ns <- St.getNodeState
     modernDB <- Modern.getNodeDBs
-    return $ Nat (convertHandler kctx nc ns modernDB ws)
+    return $ Nat (convertHandler kctx nc modernDB ws)

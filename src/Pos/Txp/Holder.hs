@@ -84,9 +84,7 @@ deriving instance Pos.DB.Class.MonadDB ssc m => Pos.DB.Class.MonadDB ssc (TxpLDH
 -- Useful instances
 ----------------------------------------------------------------------------
 instance MonadIO m => MonadTxpLD ssc (TxpLDHolder ssc m) where
-    getUtxoView = TxpLDHolder (asks utxoView) >>= atomically . STM.readTVar
     setUtxoView uv = TxpLDHolder (asks utxoView) >>= atomically . flip STM.writeTVar uv
-    getMemPool = TxpLDHolder (asks memPool) >>= atomically . STM.readTVar
     setMemPool mp = TxpLDHolder (asks memPool) >>= atomically . flip STM.writeTVar mp
     getTxpLD = TxpLDHolder ask >>= \txld -> atomically $
         (,,,) <$> STM.readTVar (utxoView txld)

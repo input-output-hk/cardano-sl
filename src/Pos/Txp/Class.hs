@@ -12,6 +12,8 @@ module Pos.Txp.Class
        , getLocalTxs
        , getLocalUndo
        , getLocalTxsNUndo
+       , getUtxoView
+       , getMemPool
        ) where
 
 import           Control.Monad.Trans (MonadTrans)
@@ -36,8 +38,6 @@ import           Pos.Types           (HeaderHash, IdTxWitness, TxId, TxOut)
 type TxpLD ssc = (UtxoView ssc, MemPool, HashMap TxId [TxOut], HeaderHash ssc)
 
 class Monad m => MonadTxpLD ssc m | m -> ssc where
-    getUtxoView  :: m (UtxoView ssc)
-    getMemPool   :: m MemPool
     setUtxoView  :: UtxoView ssc -> m ()
     setMemPool   :: MemPool -> m ()
     modifyTxpLD  :: (TxpLD ssc -> (a, TxpLD ssc)) -> m a
@@ -47,14 +47,11 @@ class Monad m => MonadTxpLD ssc m | m -> ssc where
     setTxpLD     :: TxpLD ssc -> m ()
     setTxpLD txpLD = modifyTxpLD_ $ const txpLD
 
-    default getUtxoView :: MonadTrans t => t m (UtxoView ssc)
-    getUtxoView = lift  getUtxoView
+    -- default getUtxoView :: MonadTrans t => t m (UtxoView ssc)
+    -- getUtxoView = lift  getUtxoView
 
     default setUtxoView :: MonadTrans t => UtxoView ssc -> t m ()
     setUtxoView = lift . setUtxoView
-
-    default getMemPool :: MonadTrans t => t m MemPool
-    getMemPool = lift getMemPool
 
     default setMemPool :: MonadTrans t => MemPool -> t m ()
     setMemPool  = lift . setMemPool
@@ -75,11 +72,14 @@ getLocalTxs :: MonadTxpLD ssc m => m [IdTxWitness]
 getLocalTxs = HM.toList . localTxs <$> getMemPool
 
 getLocalUndo :: MonadTxpLD ssc m => m (HashMap TxId [TxOut])
-getLocalUndo = do
-    (_, _, undos, _) <- getTxpLD
-    pure undos
+getLocalUndo = (\(_, _, undos, _) -> undos) <$> getTxpLD
 
 getLocalTxsNUndo :: MonadTxpLD ssc m => m ([IdTxWitness], HashMap TxId [TxOut])
-getLocalTxsNUndo = do
-    (_, mp, undos, _) <- getTxpLD
-    pure (HM.toList . localTxs $ mp, undos)
+getLocalTxsNUndo = (\(_, mp, undos, _) -> (HM.toList . localTxs $ mp, undos))
+                <$> getTxpLD
+
+getUtxoView :: MonadTxpLD ssc m => m (UtxoView ssc)
+getUtxoView = (\(uv, _, _, _) -> uv) <$> getTxpLD
+
+getMemPool :: MonadTxpLD ssc m => m MemPool
+getMemPool = (\(_, mp, _, _) -> mp) <$> getTxpLD

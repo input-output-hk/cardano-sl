@@ -45,12 +45,12 @@ import qualified Pos.DB                      as Modern
 import           Pos.DHT.Model               (DHTResponseT, MonadDHT,
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
-import           Pos.Modern.Txp.Class        (MonadTxpLD (..))
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Class.LocalData     (MonadSscLD (..))
-import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLDM (..))
+import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..),
+                                              MonadSscLDM (..))
 import           Pos.State                   (MonadDB)
 import           Pos.Statistics.StatEntry    (StatLabel (..))
+import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types                   (MonadUtxo, MonadUtxoRead)
 import           Pos.Util.JsonLog            (MonadJL (..))
 

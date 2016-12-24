@@ -95,7 +95,7 @@ deriveSafeCopySimple 0 'base ''SecretKey
 -- | Generate a public key from a secret key. Fast (it just drops some bytes
 -- off the secret key).
 toPublic :: SecretKey -> PublicKey
-toPublic (SecretKey k) = PublicKey (Ed25519.toPublicKey k)
+toPublic (SecretKey k) = PublicKey (Ed25519.secretToPublicKey k)
 
 instance Bi PublicKey => B.Buildable PublicKey where
     -- Hash the key, take first 8 chars (that's how GPG does fingerprinting,
@@ -108,7 +108,7 @@ instance Bi PublicKey => B.Buildable SecretKey where
 -- | 'Builder' for 'PublicKey' to show it in base64 encoded form.
 formatFullPublicKey :: PublicKey -> Builder
 formatFullPublicKey (PublicKey pk) =
-    B.build . Base64.encode . Ed25519.unPublicKey $ pk
+    B.build . Base64.encode . Ed25519.openPublicKey $ pk
 
 -- | Specialized formatter for 'PublicKey' to show it in base64.
 fullPublicKeyF :: Format r (PublicKey -> r)
@@ -216,7 +216,7 @@ createProxyCert (SecretKey issuerSk) (PublicKey delegatePk) o =
     ProxyCert $
     Ed25519.dsign issuerSk $
     mconcat
-        ["00", Ed25519.unPublicKey delegatePk, BSL.toStrict $ Bi.encode o]
+        ["00", Ed25519.openPublicKey delegatePk, BSL.toStrict $ Bi.encode o]
 
 -- | Convenient wrapper for secret key, that's basically ω plus
 -- certificate.
@@ -282,7 +282,7 @@ proxySign sk@(SecretKey delegateSk) (ProxySecretKey o (PublicKey issuerPk) cert)
   where
     sigma =
         Ed25519.dsign delegateSk $
-        mconcat ["01", Ed25519.unPublicKey issuerPk, BSL.toStrict $ Bi.encode m]
+        mconcat ["01", Ed25519.openPublicKey issuerPk, BSL.toStrict $ Bi.encode m]
 
 -- CHECK: @proxyVerify
 -- | Verify delegated signature given issuer's pk, signature, message
@@ -300,7 +300,7 @@ proxyVerify (PublicKey issuerPk) ProxySignature {..} omegaPred m =
             issuerPk
             (mconcat
                  [ "00"
-                 , Ed25519.unPublicKey pdDelegatePkRaw
+                 , Ed25519.openPublicKey pdDelegatePkRaw
                  , BSL.toStrict $ Bi.encode pdOmega
                  ])
             (unProxyCert pdCert)
@@ -309,7 +309,7 @@ proxyVerify (PublicKey issuerPk) ProxySignature {..} omegaPred m =
             pdDelegatePkRaw
             (mconcat
                  [ "01"
-                 , Ed25519.unPublicKey issuerPk
+                 , Ed25519.openPublicKey issuerPk
                  , BSL.toStrict $ Bi.encode m
                  ])
             pdSig

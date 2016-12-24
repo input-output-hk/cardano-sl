@@ -14,16 +14,19 @@ module Pos.Context.Context
        , defaultProxyCaches
        ) where
 
-import           Control.Lens        (makeLenses)
-import qualified Data.HashMap.Strict as HM
-import           Data.Time.Clock     (UTCTime)
+import qualified Control.Concurrent.STM as STM
+import           Control.Lens           (makeLenses)
+import           Data.HashMap.Strict    (HashMap)
+import qualified Data.HashMap.Strict    as HM
+import           Data.Time.Clock        (UTCTime)
 import           Universum
 
-import           Pos.Crypto          (PublicKey, SecretKey, toPublic)
-import           Pos.Security.Types  (AttackTarget, AttackType)
-import           Pos.Ssc.Class.Types (Ssc (SscNodeContext))
-import           Pos.Types           (Address, HeaderHash, Participants, ProxySKEpoch,
-                                      SlotLeaders, Timestamp (..), makePubKeyAddress)
+import           Pos.Crypto             (PublicKey, SecretKey, toPublic)
+import           Pos.Security.Types     (AttackTarget, AttackType)
+import           Pos.Ssc.Class.Types    (Ssc (SscNodeContext))
+import           Pos.Types              (Address, HeaderHash, Participants, ProxySKEpoch,
+                                         SlotLeaders, Timestamp (..), makePubKeyAddress)
+import           Pos.Util.UserSecret    (UserSecret)
 
 ---------------------------------------------------------------------------
 -- Delegation in-memory data
@@ -80,6 +83,7 @@ data NodeContext ssc = NodeContext
     , ncBlkSemaphore  :: !(MVar (HeaderHash ssc))
     , ncSscLeaders    :: !(MVar SlotLeaders)
     , ncSscRichmen    :: !(MVar Participants)
+    , ncUserSecret    :: !(STM.TVar UserSecret) -- ^ Secret keys (and path to file) which are used to send transactions
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

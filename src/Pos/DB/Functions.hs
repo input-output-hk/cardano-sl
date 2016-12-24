@@ -16,7 +16,6 @@ module Pos.DB.Functions
        , rocksDecodeKeyValMaybe
        ) where
 
-import           Control.Monad.TM             ((.>>=.))
 import           Control.Monad.Trans.Resource (MonadResource)
 import qualified Data.ByteString.Lazy         as BSL
 import           Data.Default                 (def)
@@ -44,7 +43,7 @@ rocksGetBi
     => ByteString -> DB ssc -> m (Maybe v)
 rocksGetBi key db = do
     bytes <- rocksGetBytes key db
-    bytes .>>=. rocksDecode
+    traverse rocksDecode bytes
 
 rocksDecode :: (Bi v, MonadThrow m) => ByteString -> m v
 rocksDecode key = either onParseError pure . decodeFull . BSL.fromStrict $ key
@@ -97,6 +96,6 @@ traverseAllEntries DB{..} init folder =
         let step = do
                 kv <- Rocks.iterEntry it
                 Rocks.iterNext it
-                traverse rocksDecodeKeyVal kv
+                traverse rocksDecodeKeyVal kv `catch` \(_ :: DBError) -> step
             run b = step >>= maybe (pure b) (uncurry (folder b) >=> run)
         init >>= run

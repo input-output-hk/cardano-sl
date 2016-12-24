@@ -20,9 +20,7 @@ module Pos.CLI
        , optionalLogPrefix
        , portOption
        , timeLordOption
-#ifdef WITH_WEB
        , webPortOption
-#endif
        ) where
 
 import           Universum
@@ -44,9 +42,8 @@ import           Pos.DHT.Model.Types                  (DHTKey, DHTNode (..),
                                                        bytesToDHTKey)
 import           Pos.Security.Types                   (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
-import           Pos.Types.Address                    (Address (..),
-                                                       AddressDestination (..),
-                                                       AddressHash, decodeTextAddress)
+import           Pos.Types.Address                    (Address (..), AddressHash,
+                                                       decodeTextAddress)
 import           Serokell.Util.OptParse               (fromParsec)
 import qualified Serokell.Util.Parse                  as P
 import           System.Wlog                          (LoggerConfig (..),
@@ -84,7 +81,7 @@ base58AddrParser = do
     token <- many1 $ P.noneOf " "
     case decodeTextAddress $ pack token of
       Left _  -> fail "Incorrect address"
-      Right r -> return $ addrDestKeyHash (addrDestination r)
+      Right r -> return $ addrKeyHash r
 
 attackTargetParser :: P.Parser AttackTarget
 attackTargetParser = (PubKeyAddressTarget <$> try base58AddrParser) <|>
@@ -225,11 +222,9 @@ timeLordOption =
          Opt.help "Peer is time lord, i.e. one responsible for system start time decision\
                   \ & propagation (used only in development)")
 
-#ifdef WITH_WEB
-webPortOption :: Word16 -> Opt.Parser Word16
-webPortOption portNum =
+webPortOption :: Word16 -> [Char] -> Opt.Parser Word16
+webPortOption portNum help =
     Opt.option Opt.auto $
-        templateParser "web-port" "PORT" "Port for web server"
+        templateParser "web-port" "PORT" help -- "Port for web server"
         <> Opt.value portNum
         <> Opt.showDefault
-#endif

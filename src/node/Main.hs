@@ -16,7 +16,7 @@ import           Universum
 import           Pos.Binary           (Bi, decode, encode)
 import qualified Pos.CLI              as CLI
 import           Pos.Constants        (RunningMode (..), runningMode)
-import           Pos.Crypto           (SecretKey, VssKeyPair, keyGen, vssKeyGen)
+import           Pos.Crypto           (VssKeyPair, vssKeyGen)
 import           Pos.DHT.Model        (DHTKey, DHTNodeType (..), dhtNodeType)
 import           Pos.DHT.Real         (KademliaDHTInstance)
 import           Pos.Genesis          (genesisSecretKeys, genesisUtxo)
@@ -112,12 +112,6 @@ action args@Args {..} inst = do
     if supporterNode
         then runSupporterReal inst (baseParams "supporter" args)
         else do
-            spendingSK <-
-                getKey
-                    ((genesisSecretKeys !!) <$> spendingGenesisI)
-                    spendingSecretPath
-                    "spending"
-                    (snd <$> keyGen)
             vssSK <-
                 getKey
                     ((genesisVssKeyPairs !!) <$> vssGenesisI)
@@ -125,7 +119,7 @@ action args@Args {..} inst = do
                     "vss.keypair"
                     vssKeyGen
             systemStart <- getSystemStart inst args
-            let currentParams = nodeParams args spendingSK systemStart
+            let currentParams = nodeParams args systemStart
                 gtParams = gtSscParams args vssSK
 #ifdef WITH_WEB
                 currentPlugins :: (SscConstraint ssc, WorkMode ssc m) => [m ()]
@@ -150,19 +144,20 @@ action args@Args {..} inst = do
                 (False, NistBeaconAlgo) ->
                     runNodeProduction @SscNistBeacon inst (currentPlugins ++ walletProd args) currentParams ()
 
-nodeParams :: Args -> SecretKey -> Timestamp -> NodeParams
-nodeParams args@Args {..} spendingSK systemStart =
+nodeParams :: Args -> Timestamp -> NodeParams
+nodeParams args@Args {..} systemStart =
     NodeParams
     { npDbPath = if memoryMode then Nothing
                  else Just dbPath
     , npDbPathM = dbPath
     , npRebuildDb = rebuildDB
-    , npSecretKey = spendingSK
+    , npSecretKey = (genesisSecretKeys !!) <$> spendingGenesisI
+    , npKeyfilePath = maybe keyfilePath (\i -> "node-" ++ show i ++ "." ++ keyfilePath) spendingGenesisI
     , npSystemStart = systemStart
     , npBaseParams = baseParams "node" args
     , npCustomUtxo =
-            Just . genesisUtxo $
-            stakesDistr (CLI.flatDistr commonArgs) (CLI.bitcoinDistr commonArgs)
+            genesisUtxo $
+                stakesDistr (CLI.flatDistr commonArgs) (CLI.bitcoinDistr commonArgs)
     , npTimeLord = timeLord
     , npJLFile = jlPath
     , npAttackTypes = maliciousEmulationAttacks
@@ -175,8 +170,6 @@ gtSscParams Args {..} vssSK =
     GtParams
     {
       gtpRebuildDb  = rebuildDB
-    , gtpDbPath     = if memoryMode then Nothing
-                      else Just dbPath
     , gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
     }
@@ -199,7 +192,7 @@ pluginsGT Args {..}
 walletServe :: SscConstraint ssc => Args -> [RawRealMode ssc ()]
 walletServe Args {..} =
     if enableWallet
-    then [walletServeWebFull keyfilePath walletDbPath walletDebug walletPort]
+    then [walletServeWebFull walletDbPath walletDebug walletPort]
     else []
 
 walletProd :: SscConstraint ssc => Args -> [ProductionMode ssc ()]

@@ -171,16 +171,18 @@ toggleGtParticipation enable =
     atomically . flip writeTVar enable . gtcParticipateSsc . ncSscContext
 
 gtHasSecret :: GtWebHandler Bool
-gtHasSecret = isJust <$> getSecret
+gtHasSecret = notImplemented
+-- gtHasSecret = isJust <$> getSecret
 
 getOurSecret :: GtWebHandler SharedSeed
-getOurSecret = maybe (throwM err) (pure . convertGtSecret) =<< getSecret
-  where
-    err = err404 { errBody = "I don't have secret" }
-    doPanic = panic "our secret is malformed"
-    convertGtSecret =
-        secretToSharedSeed .
-        fromMaybe doPanic . fromBinaryM . getOpening . view _3
+getOurSecret = notImplemented
+-- getOurSecret = maybe (throwM err) (pure . convertGtSecret) =<< getSecret
+--   where
+--     err = err404 { errBody = "I don't have secret" }
+--     doPanic = panic "our secret is malformed"
+--     convertGtSecret =
+--         secretToSharedSeed .
+--         fromMaybe doPanic . fromBinaryM . getOpening . view _3
 
 getGtStage :: GtWebHandler GodTossingStage
 getGtStage = do

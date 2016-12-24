@@ -12,7 +12,7 @@ import           Universum
 
 import           Pos.Binary.Class                       (Bi (..))
 import           Pos.Binary.Crypto                      ()
-import           Pos.Modern.Ssc.GodTossing.Secret.Types (GtSecretStorage (..))
+import           Pos.Ssc.GodTossing.Secret.Types (GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.Types.Base          (Commitment (..), Opening (..),
                                                          VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Message       (DataMsg (..), InvMsg (..),

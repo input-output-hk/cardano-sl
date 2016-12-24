@@ -29,7 +29,7 @@ import           Pos.DHT.Model                          (ListenerDHT (..), reply
 import           Pos.Security                           (shouldIgnorePkAddress)
 import           Pos.Slotting                           (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
-import           Pos.Ssc.Class.LocalData                (sscGetLocalPayload)
+import           Pos.Ssc.Extra.MonadLD                  (sscGetLocalPayload)
 import           Pos.Ssc.GodTossing.LocalData.LocalData (sscIsDataUseful,
                                                          sscProcessMessage)
 import           Pos.Ssc.GodTossing.Types.Base          (Commitment, Opening,

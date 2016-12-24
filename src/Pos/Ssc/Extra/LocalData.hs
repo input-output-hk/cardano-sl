@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                    #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -33,9 +34,9 @@ import           Universum
 import           Pos.Context                 (WithNodeContext)
 import qualified Pos.DB                      as Modern
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Class.LocalData     (MonadSscLD (..),
-                                              SscLocalDataClass (sscEmptyLocalData))
+import           Pos.Ssc.Class.LocalData     (SscLocalDataClass (sscEmptyLocalData))
 import           Pos.Ssc.Class.Types         (Ssc (SscLocalData))
+import           Pos.Ssc.Extra.MonadLD       (MonadSscLD (..))
 import           Pos.State                   (MonadDB (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 

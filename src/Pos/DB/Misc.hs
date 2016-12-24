@@ -15,16 +15,16 @@ module Pos.DB.Misc
        , checkSecretKeyHash
        ) where
 
-import           Data.Default                           (def)
+import           Data.Default                    (def)
 import           Universum
 
-import           Pos.Binary                             (Bi)
-import           Pos.Crypto                             (Hash, SecretKey, pskOmega)
-import           Pos.DB.Class                           (MonadDB, getMiscDB)
-import           Pos.DB.Functions                       (rocksGetBi, rocksPutBi)
-import           Pos.Modern.Ssc.GodTossing.Secret.Types (GtSecretStorage)
-import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
-import           Pos.Types                              (EpochIndex, ProxySKEpoch)
+import           Pos.Binary                      (Bi)
+import           Pos.Crypto                      (Hash, SecretKey, pskOmega)
+import           Pos.DB.Class                    (MonadDB, getMiscDB)
+import           Pos.DB.Functions                (rocksGetBi, rocksPutBi)
+import           Pos.Ssc.GodTossing.Secret.Types (GtSecretStorage)
+import           Pos.Ssc.GodTossing.Types.Type   (SscGodTossing)
+import           Pos.Types                       (EpochIndex, ProxySKEpoch)
 
 ----------------------------------------------------------------------------
 -- Delegation and proxy signing

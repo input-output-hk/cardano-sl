@@ -29,8 +29,8 @@ import           Pos.DB.Error      (DBError (..))
 import           Pos.DB.Functions  (rocksDelete, rocksGetBi, rocksPutBi, rocksWriteBatch,
                                     traverseAllEntries)
 import           Pos.DB.Types      (DB)
-import           Pos.Types         (Address, Coin, HeaderHash, TxIn (..), TxOut, Utxo,
-                                    belongsTo, genesisHash)
+import           Pos.Types         (Address, Coin, HeaderHash, TxIn (..), TxOut (..),
+                                    Utxo, belongsTo)
 
 data BatchOp ssc
     = DelTxIn TxIn
@@ -62,18 +62,24 @@ getTxOutFromDB txIn = rocksGetBi (utxoKey txIn)
 writeBatchToUtxo :: MonadDB ssc m => [BatchOp ssc] -> m ()
 writeBatchToUtxo batch = rocksWriteBatch (map toRocksOp batch) =<< getUtxoDB
 
-prepareUtxoDB :: forall ssc m . MonadDB ssc m => m ()
-prepareUtxoDB = do
+prepareUtxoDB
+    :: forall ssc m.
+       MonadDB ssc m
+    => Utxo -> HeaderHash ssc -> m ()
+prepareUtxoDB customUtxo initialTip = do
     putIfEmpty getTipMaybe putGenesisTip
+    putIfEmpty getSumMaybe putUtxo
     putIfEmpty getSumMaybe putGenesisSum
   where
+    totalCoins = sum $ map txOutValue $ toList customUtxo
     putIfEmpty
         :: forall a.
            (m (Maybe a)) -> m () -> m ()
     putIfEmpty getter putter = maybe putter (const pass) =<< getter
-    putGenesisTip = putTip genesisHash
-    -- [CSL-308] Put correct value instead of 1.
-    putGenesisSum = putTotalCoins 1
+    putGenesisTip = putTip initialTip
+    putGenesisSum = putTotalCoins totalCoins
+    putUtxo = mapM_ putTxOut' $ M.toList customUtxo
+    putTxOut' ((txid, id), txout) = putTxOut (TxIn txid id) txout
 
 putTip :: MonadDB ssc m => HeaderHash ssc -> m ()
 putTip h = getUtxoDB >>= rocksPutBi tipKey h
@@ -139,7 +145,9 @@ tipKey :: ByteString
 tipKey = "btip"
 
 utxoKey :: TxIn -> ByteString
-utxoKey = (<>) "t" . encodeStrict
+-- [CSL-379] Restore prefix after we have proper iterator
+-- utxoKey = (<> "t") . encodeStrict
+utxoKey = encodeStrict
 
 sumKey :: ByteString
 sumKey = "sum"

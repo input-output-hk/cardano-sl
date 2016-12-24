@@ -1,9 +1,10 @@
-module Pos.Modern.Txp.Storage.Types
+module Pos.Txp.Types.Types
        (
          UtxoView (..)
        , MemPool (..)
        , TxMap
        ) where
+
 import           Data.Default        (Default, def)
 import qualified Data.HashMap.Strict as HM
 import           Data.HashSet        (HashSet)

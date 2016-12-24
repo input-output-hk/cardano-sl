@@ -8,37 +8,41 @@
 
 module Pos.Txp.Listeners
        ( txListeners
+#ifndef MODERN
+       , processTx
+#endif
        ) where
 
-import qualified Data.HashMap.Strict          as HM
-import qualified Data.List.NonEmpty           as NE
-import           Formatting                   (build, sformat, stext, (%))
-import           System.Wlog                  (logDebug, logInfo, logWarning)
+import qualified Data.HashMap.Strict         as HM
+import qualified Data.List.NonEmpty          as NE
+import           Formatting                  (build, sformat, stext, (%))
+import           System.Wlog                 (logDebug, logInfo, logWarning)
 import           Universum
 
-import           Pos.Binary.Txp               ()
-import           Pos.Communication.Methods    (sendToNeighborsSafe)
-import           Pos.Communication.Types      (MutSocketState, ResponseMode)
-import           Pos.Context                  (WithNodeContext (getNodeContext),
-                                               ncPropagation)
-import           Pos.Crypto                   (hash)
-import           Pos.DHT.Model                (ListenerDHT (..), MonadDHTDialog,
-                                               replyToNode)
-import           Pos.State                    (ProcessTxRes (..))
-import qualified Pos.State                    as St
-import           Pos.Statistics               (StatProcessTx (..), statlogCountEvent)
-import           Pos.Txp.Types.Communication  (TxDataMsg (..), TxInvMsg (..),
-                                               TxReqMsg (..))
-import           Pos.Types                    (IdTxWitness, TxId)
-import           Pos.WorkMode                 (WorkMode)
+import           Pos.Binary.Txp              ()
+import           Pos.Communication.Methods   (sendToNeighborsSafe)
+import           Pos.Communication.Types     (MutSocketState, ResponseMode)
+import           Pos.Context                 (WithNodeContext (getNodeContext),
+                                              ncPropagation)
+import           Pos.Crypto                  (hash)
+import           Pos.DHT.Model               (ListenerDHT (..), MonadDHTDialog,
+                                              replyToNode)
+import           Pos.State                   (ProcessTxRes (..))
+import qualified Pos.State                   as St
+import           Pos.Statistics              (StatProcessTx (..), statlogCountEvent)
+import           Pos.Txp.Types.Communication (TxDataMsg (..), TxInvMsg (..),
+                                              TxReqMsg (..))
+import           Pos.Types                   (IdTxWitness, TxId)
+import           Pos.WorkMode                (WorkMode)
 
 #ifdef MODERN
-import           Pos.Modern.Txp.Class         (MonadTxpLD (getMemPool))
-import           Pos.Modern.Txp.Storage       (processTx)
-import           Pos.Modern.Txp.Storage.Types (MemPool (..), TxMap)
+import           Pos.Txp.Class               (MonadTxpLD, getMemPool)
+import           Pos.Txp.Logic               (processTx)
+import           Pos.Txp.Types.Types         (MemPool (..), TxMap)
 #else
-import           Pos.Txp.LocalData            (txLocalDataProcessTx)
-import           Pos.Txp.LocalData            (getLocalTxs)
+import           Pos.Ssc.Class               (WorkModeSsc)
+import           Pos.Txp.LocalData           (MonadTxLD, getLocalTxs,
+                                              txLocalDataProcessTx)
 #endif
 
 -- | Listeners for requests related to blocks processing.
@@ -179,7 +183,9 @@ handleTxDo tx = do
 
 -- CHECK: @processTx
 -- #txLocalDataProcessTx
-processTx :: ResponseMode ssc m => IdTxWitness -> m ProcessTxRes
+processTx
+    :: (WorkModeSsc ssc, MonadTxLD m, St.MonadDB ssc m, MonadIO m)
+    => IdTxWitness -> m ProcessTxRes
 processTx tx = do
     utxo <- St.getUtxo
     locRes <- txLocalDataProcessTx tx utxo

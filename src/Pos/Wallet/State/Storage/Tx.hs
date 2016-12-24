@@ -40,7 +40,7 @@ instance Default TxStorage where
     def = TxStorage [] M.empty []
 
 type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
-type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
+--type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a
 
 getUtxo :: Query Utxo
 getUtxo = view txUtxo

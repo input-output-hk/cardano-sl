@@ -4,7 +4,7 @@
 
 -- | Wrappers for network requests.
 
-module Pos.Block.Requests
+module Pos.Block.Network.Request
        ( mkHeadersRequest
        , replyWithHeadersRequest
        , mkBlocksRequest
@@ -13,14 +13,15 @@ module Pos.Block.Requests
 
 import           Universum
 
-import           Pos.Binary.Communication ()
-import           Pos.Block.Logic          (getHeadersOlderExp)
-import           Pos.Block.Server.State   (recordBlocksRequest, recordHeadersRequest)
-import           Pos.Communication.Types  (MsgGetBlocks (..), MsgGetHeaders (..),
-                                           ResponseMode)
-import           Pos.DHT.Model            (getUserState, replyToNode)
-import           Pos.Types                (HeaderHash)
-import           Pos.WorkMode             (WorkMode)
+import           Pos.Binary.Block.Network       ()
+import           Pos.Block.Logic                (getHeadersOlderExp)
+import           Pos.Block.Network.Server.State (recordBlocksRequest,
+                                                 recordHeadersRequest)
+import           Pos.Block.Network.Types        (MsgGetBlocks (..), MsgGetHeaders (..))
+import           Pos.Communication.Types        (ResponseMode)
+import           Pos.DHT.Model                  (getUserState, replyToNode)
+import           Pos.Types                      (HeaderHash)
+import           Pos.WorkMode                   (WorkMode)
 
 -- | Make 'GetHeaders' message using our main chain. This function
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
@@ -40,12 +41,14 @@ replyWithHeadersRequest upto = do
     recordHeadersRequest msg =<< getUserState
     replyToNode msg
 
--- | Make message which requests chain of blocks which is based on our tip.
+-- | Make message which requests chain of blocks which is based on our
+-- tip. LcaChild is the first block after LCA we don't
+-- know. WantedBlock is the newest one we want to get.
 mkBlocksRequest :: HeaderHash ssc -> HeaderHash ssc -> MsgGetBlocks ssc
-mkBlocksRequest ourTip wantedBlock =
+mkBlocksRequest lcaChild wantedBlock =
     MsgGetBlocks
-    { mgbFrom = [ourTip]
-    , mgbTo = Just wantedBlock
+    { mgbFrom = lcaChild
+    , mgbTo = wantedBlock
     }
 
 -- | Reply with message which requests chain of blocks which is based

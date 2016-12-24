@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Pos.Modern.Iterator
+module Pos.Util.Iterator
        (
          MonadIterator (..)
        , ListHolder

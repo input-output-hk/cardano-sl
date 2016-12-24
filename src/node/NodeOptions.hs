@@ -8,9 +8,11 @@ module NodeOptions
        , getNodeOptions
        ) where
 
+#ifdef WITH_WALLET
+import           Options.Applicative.Simple (showDefault)
+#endif
 import           Options.Applicative.Simple (Parser, auto, help, long, metavar, option,
-                                             showDefault, simpleOptions, strOption,
-                                             switch, value)
+                                             simpleOptions, strOption, switch, value)
 import           Serokell.Util.OptParse     (fromParsec)
 import           Universum
 
@@ -24,7 +26,7 @@ data Args = Args
     , rebuildDB                 :: !Bool
     , spendingGenesisI          :: !(Maybe Int)
     , vssGenesisI               :: !(Maybe Int)
-    , spendingSecretPath        :: !(Maybe FilePath)
+    , keyfilePath               :: !FilePath
     , vssSecretPath             :: !(Maybe FilePath)
     , port                      :: !Word16
     , supporterNode             :: !Bool
@@ -41,7 +43,6 @@ data Args = Args
 #ifdef WITH_WALLET
     , enableWallet              :: !Bool
     , walletPort                :: !Word16
-    , keyfilePath               :: !FilePath
     , walletDbPath              :: !FilePath
     , walletDebug               :: !Bool
 #endif
@@ -70,10 +71,11 @@ argsParser =
         (option
              auto
              (long "vss-genesis" <> metavar "INT" <> help "Use genesis vss #i")) <*>
-    optional
-        (strOption
-             (long "spending-sk" <> metavar "FILEPATH" <>
-              help "Path to spending secret key")) <*>
+    strOption
+        (long "keyfile" <>
+         metavar "FILEPATH" <>
+         value "secret.key" <>
+         help "Path to file with secret keys") <*>
     optional
         (strOption
              (long "vss-sk" <> metavar "FILEPATH" <>
@@ -102,22 +104,13 @@ argsParser =
     switch
         (long "web" <>
          help "Run web server") <*>
-    CLI.webPortOption 8080
+    CLI.webPortOption 8080 "Port for web server"
 #ifdef WITH_WALLET
     <*>
     switch
         (long "wallet" <>
          help "Run wallet web api") <*>
-    option auto
-        (long "wallet-port" <>
-         metavar "PORT" <>
-         value 8090 <>
-         showDefault <>
-         help "Port for Daedalus Wallet API") <*>
-    strOption
-        (long "keyfile-path" <>
-         help "Path to the secret keys storage" <>
-         value "secret.key") <*>
+    CLI.webPortOption 8090 "Port for Daedalus Wallet API" <*>
     strOption
         (long "wallet-db-path" <>
          help "Path to the wallet acid-state" <>

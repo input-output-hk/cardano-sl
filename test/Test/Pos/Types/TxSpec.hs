@@ -34,11 +34,13 @@ import           Pos.Crypto             (checkSig, hash, unsafeHash, whData, wit
 import           Pos.Script             (Script)
 import           Pos.Script.Examples    (alwaysSuccessValidator, badIntRedeemer,
                                          goodIntRedeemer, goodIntRedeemerWithBlah,
-                                         idValidator, intValidator, intValidatorWithBlah)
+                                         goodStdlibRedeemer, idValidator, intValidator,
+                                         intValidatorWithBlah, stdlibValidator)
 import           Pos.Types              (BadSigsTx (..), GoodTx (..), OverflowTx (..),
                                          SmallBadSigsTx (..), SmallGoodTx (..),
                                          SmallOverflowTx (..), Tx (..), TxIn (..),
                                          TxInWitness (..), TxOut (..), TxWitness, Utxo,
+                                         VTxGlobalContext (..), VTxLocalContext (..),
                                          checkPubKeyAddress, makePubKeyAddress,
                                          makeScriptAddress, topsortTxs, verifyTxAlone,
                                          verifyTxPure, verifyTxUtxoPure)
@@ -87,6 +89,12 @@ scriptTxSpec = describe "script transactions" $ do
                     (ScriptWitness intValidator goodIntRedeemer)
             res `shouldSatisfy` isVerSuccess
 
+        it "goodStdlibRedeemer + stdlibValidator" $ do
+            let res = checkScriptTx
+                    stdlibValidator
+                    (ScriptWitness stdlibValidator goodStdlibRedeemer)
+            res `shouldSatisfy` isVerSuccess
+
     describe "bad cases" $ do
         it "a P2PK tx spending a P2SH tx" $ do
             let res = checkScriptTx
@@ -94,7 +102,7 @@ scriptTxSpec = describe "script transactions" $ do
                     randomPkWitness
             res `errorsShouldMatch` [
                 "input #0's witness doesn't match address.*\
-                    \address details: Address dest = script.*\
+                    \address details: ScriptAddress.*\
                     \witness: PkWitness.*",
                 "input #0 isn't validated by its witness.*\
                     \signature check failed.*" ]
@@ -106,7 +114,7 @@ scriptTxSpec = describe "script transactions" $ do
                     (ScriptWitness intValidator goodIntRedeemer)
             res `errorsShouldMatch` [
                 "input #0's witness doesn't match address.*\
-                     \address details: Address dest = script.*\
+                     \address details: ScriptAddress.*\
                      \witness: ScriptWitness.*" ]
 
         it "validator script isn't a proper validator, \
@@ -134,8 +142,8 @@ scriptTxSpec = describe "script transactions" $ do
                                    goodIntRedeemerWithBlah)
             res `errorsShouldMatch` [
                 "input #0 isn't validated by its witness.*\
-                    \reason: The following names are \
-                    \declared more than once: blah.*"]
+                    \reason: There are overlapping declared names \
+                    \in these scripts: User \"blah\"*"]
 
         it "redeemer >>= validator outputs 'failure'" $ do
             let res = checkScriptTx
@@ -268,7 +276,8 @@ validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
     let quadruple@(tx, inpResolver, _, txWits) =
             getTxFromGoodTx ls
         transactionIsVerified =
-            isRight $ verifyTxPure True inpResolver (tx, txWits)
+            isRight $ verifyTxPure True
+            VTxGlobalContext (fmap VTxLocalContext <$> inpResolver) (tx, txWits)
         transactionReallyIsGood = individualTxPropertyVerifier quadruple
     in  transactionIsVerified == transactionReallyIsGood
 
@@ -277,7 +286,8 @@ overflowTx (SmallOverflowTx (getOverflowTx -> ls)) =
     let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
         transactionIsNotVerified =
-            isLeft $ verifyTxPure True inpResolver (tx, txWits)
+            isLeft $ verifyTxPure True
+            VTxGlobalContext (fmap VTxLocalContext <$> inpResolver) (tx, txWits)
         inpSumLessThanOutSum = not $ txChecksum extendedInputs txOutputs
     in inpSumLessThanOutSum == transactionIsNotVerified
 
@@ -294,7 +304,9 @@ badSigsTx :: SmallBadSigsTx -> Bool
 badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
     let (tx@Tx{..}, inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
-        transactionIsNotVerified = isLeft $ verifyTxPure True inpResolver (tx, txWits)
+        transactionIsNotVerified =
+            isLeft $ verifyTxPure True VTxGlobalContext
+            (fmap VTxLocalContext <$> inpResolver) (tx, txWits)
         notAllSignaturesAreValid =
             any (signatureIsNotValid txOutputs) $ zip extendedInputs (V.toList txWits)
     in notAllSignaturesAreValid == transactionIsNotVerified

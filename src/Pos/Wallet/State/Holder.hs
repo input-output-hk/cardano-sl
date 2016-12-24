@@ -9,32 +9,33 @@ module Pos.Wallet.State.Holder
        , runWalletDB
        ) where
 
+import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))
+import           Control.Monad.Trans         (MonadTrans (..))
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
+import           Control.TimeWarp.Rpc        (MonadDialog, MonadTransfer)
+import           Control.TimeWarp.Timed      (MonadTimed, ThreadId)
+import           Serokell.Util.Lens          (WrappedM (..))
+import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
-import           Control.Lens           (iso)
-import           Control.Monad.Trans    (MonadTrans (..))
-import           Control.TimeWarp.Rpc   (MonadDialog, MonadTransfer)
-import           Control.TimeWarp.Timed (MonadTimed, ThreadId)
-import           Serokell.Util.Lens     (WrappedM (..))
-import           System.Wlog            (CanLog, HasLoggerName)
 
-import           Pos.Context            (WithNodeContext)
-import           Pos.DHT.Model          (MonadDHT, MonadMessageDHT, WithDefaultMsgHeader)
-import           Pos.Slotting           (MonadSlots)
-import           Pos.Ssc.Class          (MonadSscLD)
-import           Pos.State              (MonadDB)
-import           Pos.Statistics         (MonadStats)
-import           Pos.Txp.LocalData      (MonadTxLD)
-import           Pos.Util.JsonLog       (MonadJL)
+import           Pos.Context                 (WithNodeContext)
+import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
+                                              WithDefaultMsgHeader)
+import           Pos.Slotting                (MonadSlots)
+import           Pos.Ssc.Extra.MonadLD       (MonadSscLD)
+import           Pos.State                   (MonadDB)
+import           Pos.Statistics              (MonadStats)
+import           Pos.Txp.LocalData           (MonadTxLD)
+import           Pos.Util.JsonLog            (MonadJL)
 
-import Pos.Wallet.Context (WithWalletContext)
-import           Pos.Wallet.KeyStorage  (MonadKeys)
-import           Pos.Wallet.State.State (MonadWalletDB (..), WalletState)
-import           Pos.WorkMode           ()
+import           Pos.Wallet.Context          (WithWalletContext)
+import           Pos.Wallet.KeyStorage       (MonadKeys)
+import           Pos.Wallet.State.State      (MonadWalletDB (..), WalletState)
+import           Pos.WorkMode                ()
 
 -- | Holder for web wallet data
 newtype WalletDB m a = WalletDB

@@ -27,7 +27,8 @@ import           Universum
 
 import           Pos.Binary.Types     ()
 import           Pos.Crypto           (WithHash (..))
-import           Pos.Types.Tx         (topsortTxs, verifyTx)
+import           Pos.Types.Tx         (VTxGlobalContext (..), VTxLocalContext (..),
+                                       topsortTxs, verifyTx)
 import           Pos.Types.Types      (Address, IdTxWitness, Tx (..), TxIn (..),
                                        TxOut (..), TxWitness, Undo, Utxo)
 import           Pos.Types.Utxo.Class (MonadUtxo (..), MonadUtxoRead (utxoGet))
@@ -43,7 +44,9 @@ deleteTxIn TxIn{..} = M.delete (txInHash, txInIndex)
 -- CHECK: @verifyTxUtxo
 -- | Verify single Tx using MonadUtxoRead as TxIn resolver.
 verifyTxUtxo :: MonadUtxoRead m => Bool -> (Tx, TxWitness) -> m (Either Text [TxOut])
-verifyTxUtxo verifyAlone = verifyTx verifyAlone utxoGet
+verifyTxUtxo verifyAlone = verifyTx verifyAlone VTxGlobalContext utxoGet'
+  where
+    utxoGet' x = fmap VTxLocalContext <$> utxoGet x
 
 -- | Remove unspent outputs used in given transaction, add new unspent
 -- outputs.

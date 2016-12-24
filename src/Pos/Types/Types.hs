@@ -31,8 +31,6 @@ module Pos.Types.Types
        , epochOrSlot
 
        , Address (..)
-       , AddressVersion (..)
-       , AddressDestination (..)
        , makePubKeyAddress
        , makeScriptAddress
        , checkPubKeyAddress
@@ -45,6 +43,7 @@ module Pos.Types.Types
        , TxSig
        , TxId
        , TxIn (..)
+       , toPair
        , TxOut (..)
        , txOutStake
        , Tx (..)
@@ -59,6 +58,7 @@ module Pos.Types.Types
        , utxoF
 
        , Undo
+       , Blund
 
        , SharedSeed (..)
        , SlotLeaders
@@ -164,8 +164,7 @@ import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, P
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Script             (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
-import           Pos.Types.Address      (Address (..), AddressDestination (..),
-                                         AddressHash, AddressVersion (..), addressF,
+import           Pos.Types.Address      (Address (..), AddressHash, addressF,
                                          checkPubKeyAddress, checkScriptAddress,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
@@ -180,7 +179,7 @@ import           Pos.Util               (Color (Magenta), colorize)
 -- | Index of epoch.
 newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable)
+    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable, Bounded)
 
 instance Buildable EpochIndex where
     build = bprint ("epoch #"%int)
@@ -246,14 +245,10 @@ type TxSig = Signature (TxId, Word32, Hash [TxOut])
 
 -- | A witness for a single input.
 data TxInWitness
-    = PkWitness
-        { twKey :: PublicKey
-        , twSig :: TxSig
-        }
-    | ScriptWitness
-        { twValidator :: Script
-        , twRedeemer  :: Script
-        }
+    = PkWitness { twKey :: PublicKey
+                , twSig :: TxSig}
+    | ScriptWitness { twValidator :: Script
+                    , twRedeemer  :: Script}
     deriving (Eq, Show, Generic)
 
 instance Hashable TxInWitness
@@ -284,6 +279,10 @@ instance Hashable TxIn
 instance Buildable TxIn where
     build TxIn {..} = bprint ("TxIn "%shortHashF%" #"%int) txInHash txInIndex
 
+-- | Make pair from TxIn
+toPair :: TxIn -> (TxId, Word32)
+toPair (TxIn h i) = (h, i)
+
 -- | Transaction output.
 data TxOut = TxOut
     { txOutAddress :: !Address
@@ -299,9 +298,9 @@ instance Buildable TxOut where
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).
 txOutStake :: TxOut -> [(AddressHash PublicKey, Coin)]
-txOutStake TxOut{..} = case addrDestination txOutAddress of
-    PubKeyDestination x -> [(x, txOutValue)]
-    ScriptDestination _ -> addrDistribution txOutAddress
+txOutStake TxOut{..} = case txOutAddress of
+    PubKeyAddress x   -> [(x, txOutValue)]
+    ScriptAddress _ d -> d
 
 -- | Transaction.
 --
@@ -355,6 +354,9 @@ utxoF = later formatUtxo
 ----------------------------------------------------------------------------
 -- | Structure for undo block during rollback
 type Undo = [[TxOut]]
+
+-- | Block and its Undo.
+type Blund ssc = (Block ssc, Undo)
 
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw
@@ -830,6 +832,9 @@ instance BiSsc ssc => HasHeaderHash (GenesisBlock ssc) ssc where
 instance BiSsc ssc => HasHeaderHash (Block ssc) ssc where
     headerHash = hash . getBlockHeader
 
+instance BiSsc ssc => HasHeaderHash (Blund ssc) ssc where
+    headerHash = headerHash . fst
+
 -- | Class for something that has 'EpochIndex'.
 class HasEpochIndex a where
     epochIndexL :: Lens' a EpochIndex
@@ -926,8 +931,6 @@ deriveSafeCopySimple 0 'base ''EpochIndex
 deriveSafeCopySimple 0 'base ''LocalSlotIndex
 deriveSafeCopySimple 0 'base ''SlotId
 deriveSafeCopySimple 0 'base ''Coin
-deriveSafeCopySimple 0 'base ''AddressVersion
-deriveSafeCopySimple 0 'base ''AddressDestination
 deriveSafeCopySimple 0 'base ''Address
 deriveSafeCopySimple 0 'base ''TxInWitness
 deriveSafeCopySimple 0 'base ''TxIn

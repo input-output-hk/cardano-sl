@@ -34,6 +34,12 @@ Flag with-wallet
 
   description: Build with wallet.
 
+Flag modern
+  default:     False
+  manual:      True
+
+  description: Switch between modern DB endpoits and old onex
+
 library
   exposed-modules:      Pos.Binary
                         Pos.CLI
@@ -108,6 +114,7 @@ library
                         Pos.Wallet.Web.ClientTypes
   other-modules:        Pos.Aeson.CompileConfig
                         Pos.Binary.Address
+                        Pos.Binary.Block.Network
                         Pos.Binary.Class
                         Pos.Binary.Coin
                         Pos.Binary.Crypto
@@ -120,10 +127,12 @@ library
                         Pos.Binary.Txp
                         Pos.Binary.Types
                         Pos.Block.Logic
-                        Pos.Block.Requests
-                        Pos.Block.Server
-                        Pos.Block.Server.State
-                        Pos.Block.Server.Listeners
+                        Pos.Block.Network.Announce
+                        Pos.Block.Network.Request
+                        Pos.Block.Network.Types
+                        Pos.Block.Network.Server
+                        Pos.Block.Network.Server.State
+                        Pos.Block.Network.Server.Listeners
                         Pos.Block.Worker
                         Pos.Communication.Methods
                         Pos.Communication.Types
@@ -165,42 +174,28 @@ library
                         Pos.DB.Types
                         Pos.DB.Utxo
                         Pos.DB.DBIterator
-                        Pos.Modern.Iterator
-                        Pos.Modern.Txp.Class
-                        Pos.Modern.Txp.Error
-                        Pos.Modern.Txp.Storage.Types
-                        Pos.Modern.Txp.Storage.UtxoView
-                        Pos.Modern.Txp.Holder
-                        Pos.Modern.Txp.Logic
-                        Pos.Modern.Ssc.GodTossing.LocalData.LocalData
-                        Pos.Modern.Ssc.GodTossing.LocalData.Types
-                        Pos.Modern.Ssc.GodTossing.LocalData.Helpers
                         Pos.Modern.Ssc.GodTossing.Storage.Storage
                         Pos.Modern.Ssc.GodTossing.Helpers
                         Pos.Modern.Ssc.GodTossing.Storage.Types
-                        Pos.Modern.Ssc.GodTossing.Workers
                         Pos.Modern.Ssc.GodTossing.Functions
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.LocalData
                         Pos.Ssc.Extra.MonadGS
                         Pos.Ssc.Extra.MonadLD
-                        Pos.Modern.Ssc.GodTossing.Secret.SecretStorage
-                        Pos.Modern.Ssc.GodTossing.Secret.Types
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
                         Pos.Ssc.GodTossing.Genesis
                         Pos.Ssc.GodTossing.Listener.Listeners
+                        Pos.Ssc.GodTossing.LocalData.Helpers
                         Pos.Ssc.GodTossing.LocalData.LocalData
                         Pos.Ssc.GodTossing.LocalData.Types
-                        Pos.Ssc.GodTossing.SecretStorage
-                        Pos.Ssc.GodTossing.SecretStorage.Acidic
-                        Pos.Ssc.GodTossing.SecretStorage.State
-                        Pos.Ssc.GodTossing.SecretStorage.Types
+                        Pos.Ssc.GodTossing.Storage.Types
+                        Pos.Ssc.GodTossing.Secret.SecretStorage
+                        Pos.Ssc.GodTossing.Secret.Types
+                        Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Storage.Storage
                         Pos.Ssc.GodTossing.Storage.Types
-                        Pos.Ssc.GodTossing.Worker.Workers
-                        Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Types
                         Pos.Ssc.GodTossing.Types.Base
                         Pos.Ssc.GodTossing.Types.Instance
@@ -208,20 +203,29 @@ library
                         Pos.Ssc.GodTossing.Types.Type
                         Pos.Ssc.GodTossing.Types.Types
                         Pos.Ssc.GodTossing.Utils
+                        Pos.Ssc.GodTossing.Workers
                         Pos.State.Storage.Block
                         Pos.State.Storage.Types
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
-                        Pos.Txp.Types.Communication
+                        Pos.Txp.Class
+                        Pos.Txp.Error
+                        Pos.Txp.Holder
                         Pos.Txp.LocalData
+                        Pos.Txp.Logic
+                        Pos.Txp.Types
+                        Pos.Txp.Types.Communication
+                        Pos.Txp.Types.Types
+                        Pos.Txp.Types.UtxoView
                         Pos.Types.Utxo.Class
                         Pos.Types.Utxo.Functions
                         Pos.Types.Utxo.Pure
-                        Pos.Worker.Block
+                        Pos.Worker.Lrc
                         Pos.Worker.Stats
                         Pos.Util.Arbitrary
+                        Pos.Util.Iterator
                         Pos.Util.NotImplemented
   if flag(with-web)
     other-modules:      Pos.Aeson.Crypto
@@ -366,6 +370,8 @@ library
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
+  if flag(modern)
+    cpp-options: -DMODERN
 
 executable cardano-node
   hs-source-dirs:      src/node

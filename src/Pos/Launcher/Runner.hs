@@ -29,68 +29,70 @@ module Pos.Launcher.Runner
        , runOurDialog
        ) where
 
-import           Control.Concurrent.MVar         (newEmptyMVar, newMVar, takeMVar,
-                                                  tryReadMVar)
-import           Control.Monad                   (fail)
-import           Control.Monad.Catch             (bracket)
-import           Control.Monad.Trans.Control     (MonadBaseControl)
-import           Control.Monad.Trans.Resource    (allocate, runResourceT)
-import           Control.TimeWarp.Rpc            (Dialog, Transfer, commLoggerName,
-                                                  runDialog, runTransfer)
-import           Control.TimeWarp.Timed          (MonadTimed, currentTime, fork,
-                                                  killThread, repeatForever, runTimedIO,
-                                                  runTimedIO, sec)
+import           Control.Concurrent.MVar      (newEmptyMVar, newMVar, takeMVar,
+                                               tryReadMVar)
+import           Control.Concurrent.STM.TVar  (newTVar)
+import           Control.Lens                 (each, to, (%~), (^..), (^?), _head, _tail)
+import           Control.Monad                (fail)
+import           Control.Monad.Catch          (bracket)
+import           Control.Monad.Trans.Control  (MonadBaseControl)
+import           Control.Monad.Trans.Resource (allocate, runResourceT)
+import           Control.TimeWarp.Rpc         (Dialog, Transfer, commLoggerName,
+                                               runDialog, runTransfer)
+import           Control.TimeWarp.Timed       (MonadTimed, currentTime, fork, killThread,
+                                               repeatForever, runTimedIO, runTimedIO, sec)
 
-import           Data.Acquire                    (withEx)
-import           Data.List                       (nub)
-import qualified Data.Time                       as Time
-import           Formatting                      (build, sformat, shown, (%))
-import           System.Directory                (doesDirectoryExist,
-                                                  removeDirectoryRecursive)
-import           System.FilePath                 ((</>))
-import           System.Wlog                     (LoggerName (..), WithLogger, logDebug,
-                                                  logInfo, logWarning, releaseAllHandlers,
-                                                  traverseLoggerConfig, usingLoggerName)
+import           Data.List                    (nub)
+import qualified Data.Time                    as Time
+import           Formatting                   (build, sformat, shown, (%))
+import           System.Directory             (doesDirectoryExist,
+                                               removeDirectoryRecursive)
+import           System.FilePath              ((</>))
+import           System.Wlog                  (LoggerName (..), WithLogger, logDebug,
+                                               logInfo, logWarning, releaseAllHandlers,
+                                               traverseLoggerConfig, usingLoggerName)
 import           Universum
 
-import           Pos.Binary                      ()
-import           Pos.CLI                         (readLoggerConfig)
-import           Pos.Communication               (MutSocketState, SysStartRequest (..),
-                                                  allListeners, newMutSocketState,
-                                                  noCacheMessageNames,
-                                                  sysStartReqListener,
-                                                  sysStartReqListenerSlave,
-                                                  sysStartRespListener)
-import           Pos.Constants                   (RunningMode (..), defaultPeers,
-                                                  isDevelopment, runningMode)
-import           Pos.Context                     (ContextHolder (..), NodeContext (..),
-                                                  defaultProxyCaches, runContextHolder)
-import qualified Pos.DB                          as Modern
-import           Pos.DHT.Model                   (BiP (..), ListenerDHT, MonadDHT (..),
-                                                  mapListenerDHT, sendToNeighbors)
-import           Pos.DHT.Model.Class             (DHTPacking, MonadDHTDialog)
-import           Pos.DHT.Real                    (KademliaDHT, KademliaDHTConfig (..),
-                                                  KademliaDHTInstance,
-                                                  KademliaDHTInstanceConfig (..),
-                                                  runKademliaDHT, startDHTInstance,
-                                                  stopDHTInstance)
-import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
-                                                  NodeParams (..))
-import qualified Pos.Modern.Txp.Holder           as Modern
-import qualified Pos.Modern.Txp.Storage.UtxoView as Modern
-import           Pos.Ssc.Class                   (SscConstraint, SscNodeContext,
-                                                  SscParams, sscCreateNodeContext)
-import           Pos.Ssc.Extra                   (runSscHolder, runSscLDImpl)
-import           Pos.State                       (NodeState, closeState, openMemState,
-                                                  openState, runDBHolder)
-import           Pos.State.Storage               (storageFromUtxo)
-import           Pos.Statistics                  (getNoStatsT, runStatsT)
-import           Pos.Types                       (Timestamp (Timestamp), timestampF)
-import           Pos.Util                        (runWithRandomIntervals)
-import           Pos.Worker                      (statsWorkers)
-import           Pos.WorkMode                    (MinWorkMode, ProductionMode,
-                                                  RawRealMode, ServiceMode, StatsMode,
-                                                  TimedMode, runTxLDImpl)
+import           Pos.Binary                   ()
+import           Pos.CLI                      (readLoggerConfig)
+import           Pos.Communication            (MutSocketState, SysStartRequest (..),
+                                               allListeners, newMutSocketState,
+                                               noCacheMessageNames, sysStartReqListener,
+                                               sysStartReqListenerSlave,
+                                               sysStartRespListener)
+import           Pos.Constants                (RunningMode (..), defaultPeers,
+                                               isDevelopment, runningMode)
+import           Pos.Context                  (ContextHolder (..), NodeContext (..),
+                                               defaultProxyCaches, runContextHolder)
+import           Pos.Crypto                   (createProxySecretKey, toPublic)
+import qualified Pos.DB                       as Modern
+import           Pos.DB.Misc                  (addProxySecretKey)
+import           Pos.DHT.Model                (BiP (..), ListenerDHT, MonadDHT (..),
+                                               mapListenerDHT, sendToNeighbors)
+import           Pos.DHT.Model.Class          (DHTPacking, MonadDHTDialog)
+import           Pos.DHT.Real                 (KademliaDHT, KademliaDHTConfig (..),
+                                               KademliaDHTInstance,
+                                               KademliaDHTInstanceConfig (..),
+                                               runKademliaDHT, startDHTInstance,
+                                               stopDHTInstance)
+import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (..),
+                                               NodeParams (..))
+import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
+                                               sscCreateNodeContext, sscLoadGlobalState)
+import           Pos.Ssc.Extra                (runSscHolder, runSscLDImpl)
+import           Pos.State                    (NodeState, closeState, openMemState,
+                                               openState, runDBHolder)
+import           Pos.State.Storage            (storageFromUtxo)
+import           Pos.Statistics               (getNoStatsT, runStatsT)
+import           Pos.Txp.Holder               (runTxpLDHolder)
+import qualified Pos.Txp.Types.UtxoView       as UV
+import           Pos.Types                    (Timestamp (Timestamp), timestampF)
+import           Pos.Util                     (runWithRandomIntervals)
+import           Pos.Util.UserSecret          (peekUserSecret, usKeys, writeUserSecret)
+import           Pos.Worker                   (statsWorkers)
+import           Pos.WorkMode                 (MinWorkMode, ProductionMode, RawRealMode,
+                                               ServiceMode, StatsMode, TimedMode,
+                                               runTxLDImpl)
 
 ----------------------------------------------------------------------------
 -- Service node runners
@@ -156,24 +158,25 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     putText $ "Running listeners number: " <> show (length listeners)
     lift $ setupLoggers lp
     legacyDB <- snd <$> allocate openDb closeDb
-    modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo")
-    --initGS <- Modern.runDBHolder modernDBs (loadGlobalState @ssc)
-    let initTip = notImplemented -- init tip must be here
+    modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo") npCustomUtxo
+    initTip <- Modern.runDBHolder modernDBs Modern.getTip
+    initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
+    initNC <- sscCreateNodeContext @ssc sscnp
     let run db =
             runOurDialog newMutSocketState lpRunnerTag .
             runDBHolder db .
             Modern.runDBHolder modernDBs .
-            withEx (sscCreateNodeContext @ssc sscnp) $ flip (runCH np) .
+            runCH np initNC .
             runSscLDImpl .
             runTxLDImpl .
-            flip runSscHolder notImplemented . -- load mpc data from blocks (from rocksdb) here
-            flip Modern.runTxpLDHolderUV (Modern.createFromDB . Modern._utxoDB $ modernDBs) .
+            flip runSscHolder initGS .
+            runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip .
             runKDHT inst npBaseParams listeners $
             nodeStartMsg npBaseParams >> action
     lift $ run legacyDB
   where
     lp@LoggingParams {..} = bpLoggingParams npBaseParams
-    mStorage = storageFromUtxo <$> npCustomUtxo
+    mStorage = Just $ storageFromUtxo npCustomUtxo
     openDb :: IO (NodeState ssc)
     openDb = do
         -- we rebuild DB manually, because we need to remove
@@ -257,7 +260,7 @@ runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
       , kdcDHTInstance = dhtInstance
       }
 
-runCH :: MonadIO m
+runCH :: Modern.MonadDB ssc m
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH NodeParams {..} sscNodeContext act = do
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
@@ -265,10 +268,28 @@ runCH NodeParams {..} sscNodeContext act = do
     sscRichmen <- liftIO newEmptyMVar
     sscLeaders <- liftIO newEmptyMVar
     proxyCaches <- liftIO $ newMVar defaultProxyCaches
+    userSecret <- peekUserSecret npKeyfilePath
+
+    -- Get primary secret key
+    (primarySecretKey, userSecret') <- case npSecretKey of
+        Nothing -> case userSecret ^? usKeys . _head of
+            Nothing -> fail $ "No secret keys are found in " ++ npKeyfilePath
+            Just sk -> return (sk, userSecret)
+        Just sk -> do
+            let us = userSecret & usKeys %~ (sk :) . filter (/= sk)
+            writeUserSecret us
+            return (sk, us)
+
+    let eternity = (minBound, maxBound)
+        makeOwnPSK = flip (createProxySecretKey primarySecretKey) eternity . toPublic
+        ownPSKs = userSecret' ^.. usKeys._tail.each.to makeOwnPSK
+    forM_ ownPSKs addProxySecretKey
+
+    userSecretVar <- liftIO . atomically . newTVar $ userSecret'
     let ctx =
             NodeContext
             { ncSystemStart = npSystemStart
-            , ncSecretKey = npSecretKey
+            , ncSecretKey = primarySecretKey
             , ncTimeLord = npTimeLord
             , ncJLFile = jlFile
             , ncDbPath = npDbPath
@@ -280,6 +301,7 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncBlkSemaphore = semaphore
             , ncSscRichmen = sscRichmen
             , ncSscLeaders = sscLeaders
+            , ncUserSecret = userSecretVar
             }
     runContextHolder ctx act
 

@@ -1,13 +1,9 @@
-{-# LANGUAGE TemplateHaskell #-}
-
-module Pos.Ssc.GodTossing.SecretStorage.Types
-       (
-         GtSecret
+module Pos.Ssc.GodTossing.Secret.Types
+       ( GtSecret
        , GtSecretStorage (..)
        ) where
 
-import           Data.Default                  (Default, def)
-import           Data.SafeCopy                 (base, deriveSafeCopySimple)
+import           Data.Default                  (Default (..))
 import           Universum
 
 import           Pos.Crypto                    (PublicKey)
@@ -23,8 +19,6 @@ data GtSecretStorage = GtSecretStorage
     , -- | Last slot we are aware of.
       _dsLastProcessedSlot :: !SlotId
     }
-
-deriveSafeCopySimple 0 'base ''GtSecretStorage
 
 instance Default GtSecretStorage where
     def =

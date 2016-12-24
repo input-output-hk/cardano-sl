@@ -1,10 +1,9 @@
 {-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Types.Address
-       ( AddressVersion (..)
-       , AddressDestination (..)
-       , Address (..)
+       ( Address (..)
        , addressF
        , addressDetailedF
        , checkPubKeyAddress
@@ -17,25 +16,21 @@ module Pos.Types.Address
        , AddressHash
        , addressHash
        , unsafeAddressHash
-       , curPubKeyAddrVersion
-       , curScriptAddrVersion
        ) where
 
 import           Control.Lens           (view, _3)
 import           Crypto.Hash            (Blake2s_224, Digest, SHA3_256, hashlazy)
 import qualified Crypto.Hash            as CryptoHash
-import           Data.Bits              ((.|.))
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58,
                                          encodeBase58)
 import qualified Data.ByteString.Char8  as BSC (elem, unpack)
 import qualified Data.ByteString.Lazy   as BSL (fromStrict, toStrict)
 import           Data.Char              (isSpace)
-import           Data.Digest.CRC32      (CRC32 (..))
 import           Data.Hashable          (Hashable (..))
 import           Data.List              (span)
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
-import           Formatting             (Format, bprint, build, int, later, shown, (%))
+import           Formatting             (Format, bprint, build, later, shown, (%))
 import           Prelude                (String, readsPrec, show)
 import           Universum              hiding (show)
 
@@ -47,44 +42,20 @@ import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey)
 import           Pos.Script             (Script)
 import           Pos.Types.Coin         (Coin)
 
--- | Address versions are here for dealing with possible backwards
--- compatibility issues in the future
-newtype AddressVersion = AddressVersion {unwrapAddressVersion :: Word8}
-  deriving (Eq, Generic, Ord)
-
-curPubKeyAddrVersion :: AddressVersion
-curPubKeyAddrVersion = AddressVersion 0       -- encoded as “0”
-
-curScriptAddrVersion :: AddressVersion
-curScriptAddrVersion = AddressVersion 0       -- encoded as “128”
-
 -- | Address is where you can send coins.
-data Address = Address
-    { addrVersion      :: !AddressVersion
-    , addrDestination  :: !AddressDestination
-      -- always [] for PK addresses
-    , addrDistribution :: ![(AddressHash PublicKey, Coin)]
-    } deriving (Eq, Generic, Ord)
-
-data AddressDestination
-    = PubKeyDestination { addrDestKeyHash :: !(AddressHash PublicKey)}
-    | ScriptDestination { addrDestScriptHash :: !(AddressHash Script)}
-    deriving (Eq, Generic, Ord)
-
-instance CRC32 Address where
-    crc32Update seed Address{..} = case addrDestination of
-        PubKeyDestination dest ->
-            seed & flip crc32Update [unwrapAddressVersion addrVersion]
-                 & flip crc32Update (Bi.encode dest)
-        ScriptDestination dest ->
-            seed & flip crc32Update [unwrapAddressVersion addrVersion .|. 128]
-                 & flip crc32Update (Bi.encode dest)
-                 & flip crc32Update (Bi.encode addrDistribution)
+data Address
+    = PubKeyAddress
+          { addrKeyHash :: !(AddressHash PublicKey) }
+    | ScriptAddress
+          { addrScriptHash   :: !(AddressHash Script)
+          , addrDistribution :: ![(AddressHash PublicKey, Coin)] }
+    deriving (Eq, Ord, Generic)
 
 instance Bi Address => Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.encode
 
--- | Currently we gonna use Bitcoin alphabet for representing addresses in base58
+-- | Currently we gonna use Bitcoin alphabet for representing addresses in
+-- base58
 addrAlphabet :: Alphabet
 addrAlphabet = bitcoinAlphabet
 
@@ -97,8 +68,6 @@ instance Bi Address => Show Address where
 instance Bi Address => Buildable Address where
     build = Buildable.build . decodeUtf8 @Text . addrToBase58
 
-instance NFData AddressVersion
-instance NFData AddressDestination
 instance NFData Address
 
 instance Bi Address => Read Address where
@@ -124,31 +93,22 @@ decodeTextAddress = first toText . decodeAddress . encodeUtf8
 
 -- | A function for making an address from PublicKey
 makePubKeyAddress :: PublicKey -> Address
-makePubKeyAddress key = Address {
-    addrVersion = curPubKeyAddrVersion,
-    addrDestination = PubKeyDestination (addressHash key),
-    addrDistribution = [] }
+makePubKeyAddress key = PubKeyAddress (addressHash key)
 
 -- | A function for making an address from a validation script
 makeScriptAddress :: Bi Script => Script -> Address
-makeScriptAddress scr = Address {
-    addrVersion = curScriptAddrVersion,
-    addrDestination = ScriptDestination (addressHash scr),
-    addrDistribution = [] }
+makeScriptAddress scr = ScriptAddress (addressHash scr) []
 
+-- CHECK: @checkPubKeyAddress
 -- | Check if given 'Address' is created from given 'PublicKey'
 checkPubKeyAddress :: PublicKey -> Address -> Bool
-checkPubKeyAddress key Address{..} =
-    case addrDestination of
-        PubKeyDestination x -> x == addressHash key
-        _                   -> False
+checkPubKeyAddress key (PubKeyAddress h) = addressHash key == h
+checkPubKeyAddress _ _                   = False
 
 -- | Check if given 'Address' is created from given validation script
 checkScriptAddress :: Bi Script => Script -> Address -> Bool
-checkScriptAddress scr Address{..} =
-    case addrDestination of
-        ScriptDestination x -> x == addressHash scr
-        _                   -> False
+checkScriptAddress scr (ScriptAddress h _) = addressHash scr == h
+checkScriptAddress _ _                     = False
 
 -- | Specialized formatter for 'Address'.
 addressF :: Bi Address => Format r (Address -> r)
@@ -156,15 +116,11 @@ addressF = build
 
 -- | A formatter showing guts of an 'Address'.
 addressDetailedF :: Format r (Address -> r)
-addressDetailedF = later $ \Address {..} ->
-    let ver = unwrapAddressVersion addrVersion
-    in case addrDestination of
-           PubKeyDestination x ->
-               bprint ("Address dest = pubkey(v"%int%"):"%build) ver x
-           ScriptDestination x ->
-               bprint ("Address dest = script(v"%int%"):"%build%
-                       ", distr = "%shown)
-                      ver x addrDistribution
+addressDetailedF = later $ \case
+    PubKeyAddress x ->
+        bprint ("PubKeyAddress "%build) x
+    ScriptAddress x d ->
+        bprint ("ScriptAddress "%build%" (distr = "%shown%")") x d
 
 ----------------------------------------------------------------------------
 -- Hashing

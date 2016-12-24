@@ -6,6 +6,7 @@ module Pos.Binary
        ) where
 
 import           Pos.Binary.Address       ()
+import           Pos.Binary.Block.Network ()
 import           Pos.Binary.Class
 import           Pos.Binary.Communication ()
 import           Pos.Binary.Crypto        ()

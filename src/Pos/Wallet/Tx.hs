@@ -22,7 +22,7 @@ import           Pos.Types             (Tx, TxOut, TxWitness, makePubKeyAddress,
 import           Pos.WorkMode          (MinWorkMode)
 
 import           Pos.Wallet.Tx.Pure    (createTx, makePubKeyTx)
-import           Pos.Wallet.WalletMode (TxMode, getOwnUtxo)
+import           Pos.Wallet.WalletMode (TxMode, getOwnUtxo, saveTx)
 
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx
@@ -36,7 +36,11 @@ submitTx sk na outputs = do
     utxo <- getOwnUtxo $ makePubKeyAddress $ toPublic sk
     case createTx utxo sk outputs of
         Left err -> fail $ toString err
-        Right tx -> tx <$ submitTxRaw na tx
+        Right txw -> do
+            let txId = hash $ fst txw
+            submitTxRaw na txw
+            saveTx (txId, txw)
+            return txw
 
 -- | Send the ready-to-use transaction
 submitTxRaw :: MinWorkMode ss m => [NetworkAddress] -> (Tx, TxWitness) -> m ()

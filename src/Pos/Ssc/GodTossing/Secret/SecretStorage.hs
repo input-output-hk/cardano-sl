@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Pos.Modern.Ssc.GodTossing.Secret.SecretStorage
+
+module Pos.Ssc.GodTossing.Secret.SecretStorage
        (
          getSecret
        , setSecret
@@ -8,12 +9,11 @@ module Pos.Modern.Ssc.GodTossing.Secret.SecretStorage
 
 import           Universum
 
-import           Pos.DB                                 (MonadDB)
-import           Pos.DB.Misc                            (getSecretStorage,
-                                                         putSecretStorage)
-import           Pos.Modern.Ssc.GodTossing.Secret.Types (GtSecret, GtSecretStorage (..))
-import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
-import           Pos.Types                              (SlotId (..))
+import           Pos.DB                          (MonadDB)
+import           Pos.DB.Misc                     (getSecretStorage, putSecretStorage)
+import           Pos.Ssc.GodTossing.Secret.Types (GtSecret, GtSecretStorage (..))
+import           Pos.Ssc.GodTossing.Types.Type   (SscGodTossing)
+import           Pos.Types                       (SlotId (..))
 
 getSecret :: MonadDB SscGodTossing m => m (Maybe GtSecret)
 getSecret = _dsCurrentSecret <$> getSecretStorage

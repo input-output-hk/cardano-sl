@@ -13,7 +13,7 @@ module Pos.Wallet.Web.Server.Methods
        ) where
 
 import           Data.List                  (elemIndex, (!!))
-import           Formatting                 (int, ords, sformat, stext, (%))
+import           Formatting                 (ords, sformat, stext, (%))
 import           Network.Wai                (Application)
 import           Servant.API                ((:<|>) ((:<|>)),
                                              FromHttpApiData (parseUrlPiece), addHeader)
@@ -23,9 +23,8 @@ import           Servant.Utils.Enter        ((:~>) (..), enter)
 import           System.Wlog                (logInfo)
 import           Universum
 
-import           Pos.Crypto                 (SecretKey, toPublic, whData)
+import           Pos.Crypto                 (toPublic, whData)
 import           Pos.DHT.Model              (dhtAddr, getKnownPeers)
-import           Pos.Genesis                (genesisSecretKeys)
 import           Pos.Types                  (Address, Coin (Coin), Tx, TxOut (..),
                                              addressF, coinF, decodeTextAddress,
                                              makePubKeyAddress)
@@ -89,7 +88,7 @@ servantHandlers =
      addCors . deleteWallet
 
 getAddresses :: WalletWebMode ssc m => m [CAddress]
-getAddresses = map fst <$> getBalances
+getAddresses = map addressToCAddress <$> myAddresses
 
 getBalances :: WalletWebMode ssc m => m [(CAddress, Coin)]
 getBalances = join $ mapM gb <$> myAddresses

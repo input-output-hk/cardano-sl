@@ -32,11 +32,10 @@ import           Universum
 
 import           Pos.Context                 (WithNodeContext)
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Class.LocalData     (MonadSscLD (..),
-                                              SscLocalDataClass (sscEmptyLocalData))
+import           Pos.Ssc.Class.LocalData     (SscLocalDataClass (sscEmptyLocalData))
 import           Pos.Ssc.Class.Types         (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS       (MonadSscGS (..))
-import           Pos.Ssc.Extra.MonadLD       (MonadSscLDM (..))
+import           Pos.Ssc.Extra.MonadLD       (MonadSscLD (..), MonadSscLDM (..))
 import           Pos.State                   (MonadDB (..))
 import           Pos.Txp.LocalData           (MonadTxLD (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
@@ -47,7 +46,7 @@ data SscState ssc =
     SscState
     {
       sscGlobal :: !(STM.TVar (SscGlobalStateM ssc))
-    , sscLocal  :: !(STM.TVar (SscLocalDataM ssc))
+    , sscLocal  :: !(STM.TVar (SscLocalData ssc))
     }
 
 newtype SscHolder ssc m a =
@@ -56,12 +55,6 @@ newtype SscHolder ssc m a =
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
                 MonadCatch, MonadIO, HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
                 MonadDB ssc, CanLog, MonadMask, MonadTxLD, Modern.MonadDB ssc)
-
--- instance (SscBi, Monad m, Modern.MonadDB SscGodTossing m, Ssc SscGodTossing
---          , MonadSscGS SscGodTossing m, MonadThrow m
---          , SscPayload SscGodTossing ~ GtPayload
---          , SscGlobalState SscGodTossing ~ GtGlobalState)
---          => SscStorageClassM SscGodTossing (SscHolder SscGodTossing m)
 
 instance MonadTransfer s m => MonadTransfer s (SscHolder ssc m)
 type instance ThreadId (SscHolder ssc m) = ThreadId m
@@ -106,11 +99,9 @@ instance MonadSscLD ssc m => MonadSscLD ssc (SscHolder ssc m) where
     getLocalData = lift  getLocalData
     setLocalData = lift . setLocalData
 
--- runSscHolder :: forall ssc m a. (SscLocalDataClassM ssc, MonadIO m)
---              => SscHolder ssc m a -> SscGlobalStateM ssc -> m a
 runSscHolder :: forall ssc m a. (SscLocalDataClass ssc, MonadIO m)
              => SscHolder ssc m a -> SscGlobalStateM ssc -> m a
 runSscHolder holder glob = SscState
                        <$> liftIO (STM.newTVarIO glob)
-                       <*> liftIO (STM.newTVarIO notImplemented)
+                       <*> liftIO (STM.newTVarIO (sscEmptyLocalData @ssc))
                        >>= runReaderT (getSscHolder holder)

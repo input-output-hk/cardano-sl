@@ -19,8 +19,8 @@ module Pos.Modern.Ssc.GodTossing.Storage.Storage
          getGlobalCertificates
        ) where
 
-import           Control.Lens                            (use, view, (%=), (.=), (^.), _1,
-                                                          _2)
+import           Control.Lens                            (over, use, view, (%=), (.=),
+                                                          (^.), _1, _2)
 import           Control.Monad.IfElse                    (whileM)
 import           Control.Monad.Reader                    (ask)
 import           Data.Default                            (def)
@@ -43,6 +43,7 @@ import           Pos.Ssc.GodTossing.Functions            (checkOpeningMatchesCom
                                                           checkShares, isCommitmentIdx,
                                                           isOpeningIdx, isSharesIdx,
                                                           verifyGtPayload)
+import           Pos.Ssc.GodTossing.Genesis              (genesisCertificates)
 import           Pos.Ssc.GodTossing.Types                (GtPayload (..), SscGodTossing,
                                                           VssCertificatesMap,
                                                           _gpCertificates)
@@ -241,16 +242,15 @@ unionBlocks = whileM
     (do
         curTip <- use _2
         block <- lift $ getBlock curTip
-        maybe (panic "No block with such tip")
-              (\b->
-              case b of
-                  Left _   -> pure False
-                  Right mb -> do
-                      _1 %= unionPayload (mb ^. blockMpc)
-                      True <$ (_2 .= b ^. prevBlockL)
-              )
-              block
+        let b = fromMaybe (panic "No block with such tip") block
+        case b of
+            Left _   -> pure False
+            Right mb -> do
+                _1 %= unionPayload (mb ^. blockMpc)
+                True <$ (_2 .= b ^. prevBlockL)
     ) (pure ())
 
 mpcLoadGlobalState :: MonadDB SscGodTossing m => HeaderHash SscGodTossing -> m GtGlobalState
-mpcLoadGlobalState tip = fst <$> execStateT unionBlocks (def, tip)
+mpcLoadGlobalState tip = do
+    global <- fst <$> execStateT unionBlocks (def, tip)
+    pure $ over gsVssCertificates (`HM.union` genesisCertificates) global

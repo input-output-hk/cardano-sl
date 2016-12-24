@@ -26,7 +26,6 @@ import           Pos.Ssc.GodTossing.Types.Types            (GtContext, GtGlobalS
                                                             SscBi, createGtContext,
                                                             mkGtProof)
 
-import qualified Pos.Modern.Ssc.GodTossing.LocalData.Types as Modern
 import qualified Pos.Modern.Ssc.GodTossing.Storage.Types   as Modern
 
 instance SscBi => Ssc SscGodTossing where
@@ -39,7 +38,6 @@ instance SscBi => Ssc SscGodTossing where
     type SscNodeContext SscGodTossing = GtContext
     type SscParams      SscGodTossing = GtParams
     type SscGlobalStateM SscGodTossing = Modern.GtGlobalState
-    type SscLocalDataM SscGodTossing = Modern.GtLocalData
     mkSscProof = Tagged mkGtProof
     sscFilterPayload = filterLocalPayload
     sscCreateNodeContext = createGtContext

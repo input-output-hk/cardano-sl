@@ -7,7 +7,6 @@
 module Pos.Ssc.Class.Types
        ( Ssc(..)
        ) where
-import           Data.Acquire        (Acquire)
 import           Data.SafeCopy       (SafeCopy)
 import           Data.Tagged         (Tagged)
 import           Data.Text.Buildable (Buildable)
@@ -61,7 +60,6 @@ class (Typeable ssc
     sscFilterPayload :: SscPayload ssc -> SscGlobalState ssc -> SscPayload ssc
 
     -- | Create SscNodeContext
-    sscCreateNodeContext :: SscParams ssc -> Acquire (SscNodeContext ssc)
+    sscCreateNodeContext :: MonadIO m => SscParams ssc -> m (SscNodeContext ssc)
 
     type SscGlobalStateM ssc
-    type SscLocalDataM ssc

@@ -172,6 +172,7 @@ library
                         Pos.Ssc.GodTossing.Functions
                         Pos.Ssc.GodTossing.Genesis
                         Pos.Ssc.GodTossing.Listener.Listeners
+                        Pos.Ssc.GodTossing.LocalData
                         Pos.Ssc.GodTossing.LocalData.Helpers
                         Pos.Ssc.GodTossing.LocalData.LocalData
                         Pos.Ssc.GodTossing.LocalData.Types

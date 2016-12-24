@@ -36,7 +36,7 @@ import           Pos.Types                   (IdTxWitness, TxId)
 import           Pos.WorkMode                (WorkMode)
 
 #ifdef MODERN
-import           Pos.Txp.Class               (MonadTxpLD (getMemPool))
+import           Pos.Txp.Class               (MonadTxpLD, getMemPool)
 import           Pos.Txp.Logic               (processTx)
 import           Pos.Txp.Types.Types         (MemPool (..), TxMap)
 #else

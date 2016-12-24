@@ -37,7 +37,7 @@ import qualified Pos.Txp.Holder                as Modern
 #ifdef MODERN
 import           Pos.DB                        (MonadDB)
 import qualified Pos.DB                        as DB
-import           Pos.Txp.Class                 (MonadTxpLD (..))
+import           Pos.Txp.Class                 (MonadTxpLD (..), getUtxoView)
 import           Pos.Txp.Logic                 (processTx)
 import           Pos.Txp.Types                 (MemPool (..), UtxoView (..))
 #else

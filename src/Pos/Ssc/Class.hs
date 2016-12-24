@@ -6,6 +6,7 @@
 module Pos.Ssc.Class
        ( module Class
        , SscConstraint
+       , WorkModeSsc
        ) where
 
 
@@ -18,11 +19,17 @@ import           Pos.Ssc.Class.Workers   as Class
 
 import           Pos.Security            (SecurityWorkersClass)
 
+type WorkModeSsc ssc =
+    ( SscLocalDataClass ssc
+    , SscHelpersClass ssc
+    )
+
 type SscConstraint ssc =
-               (Ssc ssc,
-                SscListenersClass ssc,
-                SscLocalDataClass ssc,
-                SscHelpersClass ssc,
-                SscStorageClass ssc,
-                SscWorkersClass ssc,
-                SecurityWorkersClass ssc)
+    ( Ssc ssc
+    , SscListenersClass ssc
+    , SscLocalDataClass ssc
+    , SscHelpersClass ssc
+    , SscStorageClass ssc
+    , SscWorkersClass ssc
+    , SecurityWorkersClass ssc
+    )

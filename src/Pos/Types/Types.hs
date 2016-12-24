@@ -43,6 +43,7 @@ module Pos.Types.Types
        , TxSig
        , TxId
        , TxIn (..)
+       , toPair
        , TxOut (..)
        , txOutStake
        , Tx (..)
@@ -277,6 +278,10 @@ instance Hashable TxIn
 
 instance Buildable TxIn where
     build TxIn {..} = bprint ("TxIn "%shortHashF%" #"%int) txInHash txInIndex
+
+-- | Make pair from TxIn
+toPair :: TxIn -> (TxId, Word32)
+toPair (TxIn h i) = (h, i)
 
 -- | Transaction output.
 data TxOut = TxOut

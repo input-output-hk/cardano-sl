@@ -34,6 +34,12 @@ Flag with-wallet
 
   description: Build with wallet.
 
+Flag modern
+  default:     False
+  manual:      True
+
+  description: Switch between modern DB endpoits and old onex
+
 library
   exposed-modules:      Pos.Binary
                         Pos.CLI
@@ -353,6 +359,8 @@ library
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
+  if flag(modern)
+    cpp-options: -DMODERN
 
 executable cardano-node
   hs-source-dirs:      src/node

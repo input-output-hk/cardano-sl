@@ -8,6 +8,7 @@
 
 module Pos.Txp.Listeners
        ( txListeners
+       , processTx
        ) where
 
 import qualified Data.HashMap.Strict         as HM
@@ -26,10 +27,13 @@ import           Pos.DHT.Model               (ListenerDHT (..), MonadDHTDialog,
                                               replyToNode)
 import           Pos.Statistics              (StatProcessTx (..), statlogCountEvent)
 import           Pos.Txp.Class               (MonadTxpLD, getMemPool)
+import           Pos.Txp.Class               (MonadTxpLD, getMemPool)
+import           Pos.Txp.Logic               (processTx)
 import           Pos.Txp.Logic               (processTx)
 import           Pos.Txp.Types.Communication (TxDataMsg (..), TxInvMsg (..),
                                               TxReqMsg (..))
 import           Pos.Txp.Types.Types         (MemPool (..), ProcessTxRes (..), TxMap)
+import           Pos.Txp.Types.Types         (MemPool (..), TxMap)
 import           Pos.Types                   (IdTxWitness, TxId)
 import           Pos.WorkMode                (WorkMode)
 

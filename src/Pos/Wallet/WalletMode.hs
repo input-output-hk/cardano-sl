@@ -34,7 +34,6 @@ import qualified Pos.Txp.Holder                as Modern
 import           Pos.Types                     (Address, Coin, Tx, Utxo, evalUtxoStateT,
                                                 txOutValue)
 import           Pos.Types.Utxo.Functions      (filterUtxoByAddr)
-import           Pos.WorkMode                  (TxLDImpl (..))
 import           Pos.WorkMode                  (MinWorkMode)
 
 import           Pos.Wallet.Context            (ContextHolder, WithWalletContext)
@@ -58,7 +57,6 @@ instance MonadBalances m => MonadBalances (KademliaDHT m)
 instance MonadBalances m => MonadBalances (KeyStorage m)
 
 deriving instance MonadBalances m => MonadBalances (PC.ContextHolder ssc m)
-deriving instance MonadBalances m => MonadBalances (TxLDImpl m)
 deriving instance MonadBalances m => MonadBalances (SscLDImpl ssc m)
 deriving instance MonadBalances m => MonadBalances (Modern.TxpLDHolder ssc m)
 deriving instance MonadBalances m => MonadBalances (SscHolder ssc m)
@@ -82,7 +80,6 @@ instance MonadTxHistory m => MonadTxHistory (KademliaDHT m)
 instance MonadTxHistory m => MonadTxHistory (KeyStorage m)
 
 deriving instance MonadTxHistory m => MonadTxHistory (PC.ContextHolder ssc m)
-deriving instance MonadTxHistory m => MonadTxHistory (TxLDImpl m)
 deriving instance MonadTxHistory m => MonadTxHistory (SscLDImpl ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (Modern.TxpLDHolder ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (SscHolder ssc m)

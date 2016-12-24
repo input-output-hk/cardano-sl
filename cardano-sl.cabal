@@ -201,7 +201,6 @@ library
                         Pos.Txp.Class
                         Pos.Txp.Error
                         Pos.Txp.Holder
-                        Pos.Txp.LocalData
                         Pos.Txp.Logic
                         Pos.Txp.Types
                         Pos.Txp.Types.Communication

@@ -18,11 +18,6 @@ module Pos.WorkMode
        ( WorkMode
        , MinWorkMode
 
-       -- * Tx local data
-       , TxLDImpl (..)
-       , runTxLDImpl
-       , runTxLDImplRaw
-
        -- * Actual modes
        , ProductionMode
        , RawRealMode
@@ -69,7 +64,6 @@ import           Pos.State                     (DBHolder, MonadDB (..))
 import           Pos.Statistics.MonadStats     (MonadStats, NoStatsT, StatsT)
 import           Pos.Txp.Class                 (MonadTxpLD (..))
 import           Pos.Txp.Holder                (TxpLDHolder)
-import           Pos.Txp.LocalData             (MonadTxLD (..), TxLocalData (..))
 import           Pos.Types                     (MonadUtxo)
 import           Pos.Util.JsonLog              (MonadJL (..))
 
@@ -87,7 +81,6 @@ type WorkMode ssc m
       , MonadTxpLD ssc m
       , MonadUtxo m
       , MonadSscGS ssc m
-      , MonadTxLD m
       , MonadSscLDM ssc m
       , SscStorageMode ssc
       , SscStorageClassM ssc
@@ -112,74 +105,6 @@ type MinWorkMode ss m
       )
 
 ----------------------------------------------------------------------------
--- MonadTxLD
-----------------------------------------------------------------------------
-
-instance MonadTxLD m => MonadTxLD (NoStatsT m) where
-    getTxLocalData = lift getTxLocalData
-    setTxLocalData = lift . setTxLocalData
-
-instance MonadTxLD m => MonadTxLD (StatsT m) where
-    getTxLocalData = lift getTxLocalData
-    setTxLocalData = lift . setTxLocalData
-
-instance MonadTxLD m => MonadTxLD (DHTResponseT s m) where
-    getTxLocalData = lift getTxLocalData
-    setTxLocalData = lift . setTxLocalData
-
-instance MonadTxLD m => MonadTxLD (KademliaDHT m) where
-    getTxLocalData = lift getTxLocalData
-    setTxLocalData = lift . setTxLocalData
-
-newtype TxLDImpl m a = TxLDImpl
-    { getTxLDImpl :: ReaderT (STM.TVar TxLocalData) m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
-                MonadCatch, MonadIO, HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
-                MonadDB ssc, CanLog, MonadMask)
-
-type instance ThreadId (TxLDImpl m) = ThreadId m
-
-deriving instance Modern.MonadDB ssc m => Modern.MonadDB ssc (TxLDImpl m)
-
-instance Monad m => WrappedM (TxLDImpl m) where
-    type UnwrappedM (TxLDImpl m) = ReaderT (STM.TVar TxLocalData) m
-    _WrappedM = iso getTxLDImpl TxLDImpl
-
-instance MonadTransfer s m => MonadTransfer s (TxLDImpl m)
-
-instance MonadBase IO m => MonadBase IO (TxLDImpl m) where
-    liftBase = lift . liftBase
-
-instance MonadTransControl TxLDImpl where
-    type StT TxLDImpl a = StT (ReaderT (STM.TVar TxLocalData)) a
-    liftWith = defaultLiftWith TxLDImpl getTxLDImpl
-    restoreT = defaultRestoreT TxLDImpl
-
-instance MonadBaseControl IO m => MonadBaseControl IO (TxLDImpl m) where
-    type StM (TxLDImpl m) a = ComposeSt TxLDImpl m a
-    liftBaseWith     = defaultLiftBaseWith
-    restoreM         = defaultRestoreM
-
-instance MonadIO m =>
-         MonadTxLD (TxLDImpl m) where
-    getTxLocalData = atomically . STM.readTVar =<< TxLDImpl ask
-    setTxLocalData d = atomically . flip STM.writeTVar d =<< TxLDImpl ask
-
-runTxLDImpl :: MonadIO m => TxLDImpl m a -> m a
-runTxLDImpl action = liftIO (STM.newTVarIO def) >>= runTxLDImplRaw action
-
-runTxLDImplRaw :: TxLDImpl m a -> STM.TVar TxLocalData -> m a
-runTxLDImplRaw = runReaderT . getTxLDImpl
-
-----------------------------------------------------------------------------
--- MonadSscLD
-----------------------------------------------------------------------------
-
-instance MonadSscLD ssc m => MonadSscLD ssc (TxLDImpl m) where
-    getLocalData = lift getLocalData
-    setLocalData = lift . setLocalData
-
-----------------------------------------------------------------------------
 -- HZ
 ----------------------------------------------------------------------------
 
@@ -194,11 +119,10 @@ instance MonadJL m => MonadJL (KademliaDHT m) where
 type RawRealMode ssc = KademliaDHT (
                            TxpLDHolder ssc (
                                SscHolder ssc (
-                                   TxLDImpl (
-                                       SscLDImpl ssc (
-                                           ContextHolder ssc (
-                                               Modern.DBHolder ssc (
-                                                   DBHolder ssc (Dialog DHTPacking (Transfer (MSockSt ssc))))))))))
+                                   SscLDImpl ssc (
+                                       ContextHolder ssc (
+                                           Modern.DBHolder ssc (
+                                               DBHolder ssc (Dialog DHTPacking (Transfer (MSockSt ssc)))))))))
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.

@@ -17,7 +17,6 @@ import           Pos.DHT.Model              (DHTResponseT)
 import           Pos.DHT.Real               (KademliaDHT)
 import           Pos.Ssc.Extra              (SscHolder (..), SscLDImpl (..))
 import qualified Pos.Txp.Holder             as Modern
-import           Pos.WorkMode               (TxLDImpl (..))
 
 import           Pos.Wallet.Context.Context (WalletContext, fromNodeCtx)
 
@@ -35,7 +34,6 @@ instance (Monad m, WithWalletContext m) => WithWalletContext (DHTResponseT s m)
 instance Monad m => WithWalletContext (PC.ContextHolder ssc m) where
     getWalletContext = fromNodeCtx <$> PC.getNodeContext
 
-deriving instance (Monad m, WithWalletContext m) => WithWalletContext (TxLDImpl m)
 deriving instance (Monad m, WithWalletContext m) => WithWalletContext (SscLDImpl ssc m)
 deriving instance (Monad m, WithWalletContext m) => WithWalletContext (Modern.TxpLDHolder ssc m)
 deriving instance (Monad m, WithWalletContext m) => WithWalletContext (SscHolder ssc m)

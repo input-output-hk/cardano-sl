@@ -36,7 +36,6 @@ import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..),
                                               MonadSscLDM (..))
 import           Pos.State                   (MonadDB (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
-import           Pos.Txp.LocalData           (MonadTxLD (..))
 import           Pos.Txp.Types               (MemPool, UtxoView)
 import qualified Pos.Txp.Types.UtxoView      as UV
 import           Pos.Types                   (HeaderHash, MonadUtxo (..),
@@ -59,7 +58,7 @@ newtype TxpLDHolder ssc m a = TxpLDHolder
     { getTxpLDHolder :: ReaderT (TxpLDWrap ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
                 MonadCatch, MonadIO, HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
-                MonadDB ssc, CanLog, MonadMask, MonadTxLD, MonadSscLD ssc, MonadSscGS ssc,
+                MonadDB ssc, CanLog, MonadMask, MonadSscLD ssc, MonadSscGS ssc,
                 MonadSscLDM ssc)
 
 instance MonadTransfer s m => MonadTransfer s (TxpLDHolder ssc m)

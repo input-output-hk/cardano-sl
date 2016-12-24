@@ -90,8 +90,7 @@ import           Pos.Util                     (runWithRandomIntervals)
 import           Pos.Util.UserSecret          (peekUserSecret, usKeys, writeUserSecret)
 import           Pos.Worker                   (statsWorkers)
 import           Pos.WorkMode                 (MinWorkMode, ProductionMode, RawRealMode,
-                                               ServiceMode, StatsMode, TimedMode,
-                                               runTxLDImpl)
+                                               ServiceMode, StatsMode, TimedMode)
 
 ----------------------------------------------------------------------------
 -- Service node runners
@@ -167,7 +166,6 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
             Modern.runDBHolder modernDBs .
             runCH np initNC .
             runSscLDImpl .
-            runTxLDImpl .
             flip runSscHolder initGS .
             runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip .
             runKDHT inst npBaseParams listeners $

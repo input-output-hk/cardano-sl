@@ -46,8 +46,6 @@ import           Pos.Ssc.GodTossing                   (SscGodTossing, getOpening
                                                        secretToSharedSeed)
 import           Pos.Ssc.GodTossing.SecretStorage     (getSecret)
 import qualified Pos.State                            as St
-import           Pos.Txp.LocalData                    (TxLocalData, getLocalTxs,
-                                                       getTxLocalData, setTxLocalData)
 import           Pos.Types                            (EpochIndex (..), SharedSeed,
                                                        SlotId (siEpoch, siSlot),
                                                        SlotLeaders, headerHash)
@@ -55,7 +53,7 @@ import           Pos.Util                             (fromBinaryM)
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
 import           Pos.Web.Types                        (GodTossingStage (..))
-import           Pos.WorkMode                         (TxLDImpl, WorkMode, runTxLDImpl)
+import           Pos.WorkMode                         (WorkMode)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -89,21 +87,23 @@ serveImpl application port =
 -- Servant infrastructure
 ----------------------------------------------------------------------------
 
-type WebHandler ssc = TxLDImpl (ContextHolder ssc (St.DBHolder ssc TimedIO))
+type WebHandler ssc = ContextHolder ssc (St.DBHolder ssc TimedIO)
+-- type WebHandler ssc = TxLDImpl (ContextHolder ssc (St.DBHolder ssc TimedIO))
 
 convertHandler
     :: forall ssc a.
-       TxLocalData
-    -> NodeContext ssc
+       -- TxLocalData
+       NodeContext ssc
     -> St.NodeState ssc
     -> WebHandler ssc a
     -> Handler a
-convertHandler tld nc ns handler =
+convertHandler nc ns handler =
     liftIO (runTimedIO .
             St.runDBHolder ns .
-            runContextHolder nc .
-            runTxLDImpl $
-            setTxLocalData tld >> handler)
+            runContextHolder nc $
+            handler)
+            -- runTxLDImpl $
+            -- setTxLocalData tld >> handler)
     `Catch.catches`
     excHandlers
   where
@@ -112,10 +112,12 @@ convertHandler tld nc ns handler =
 
 nat :: MyWorkMode ssc m => m (WebHandler ssc :~> Handler)
 nat = do
-    tld <- getTxLocalData
+    tld <- notImplemented
+    -- tld <- getTxLocalData
     nc <- getNodeContext
     ns <- St.getNodeState
-    return $ Nat (convertHandler tld nc ns)
+    -- return $ Nat (convertHandler tld nc ns)
+    return $ Nat (convertHandler nc ns)
 
 servantServerBase :: forall ssc m . MyWorkMode ssc m => m (Server (BaseNodeApi ssc))
 servantServerBase = flip enter baseServantHandlers <$> (nat @ssc @m)
@@ -153,7 +155,8 @@ getLeadersDo Nothing  = St.getLeaders . siEpoch =<< getCurrentSlot
 getLeadersDo (Just e) = St.getLeaders e
 
 getLocalTxsNum :: WebHandler ssc Word
-getLocalTxsNum = fromIntegral . length <$> getLocalTxs
+getLocalTxsNum = notImplemented
+-- getLocalTxsNum = fromIntegral . length <$> getLocalTxs
 
 ----------------------------------------------------------------------------
 -- GodTossing handlers

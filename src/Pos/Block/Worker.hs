@@ -36,7 +36,6 @@ import           Pos.DB.Misc                (getProxySecretKeys)
 import           Pos.Slotting               (MonadSlots (getCurrentTime), getSlotStart,
                                              onNewSlot)
 import           Pos.Ssc.Class              (SscHelpersClass)
-import           Pos.Txp.LocalData          (getLocalTxs)
 import           Pos.Types                  (EpochIndex, MainBlock, SlotId (..),
                                              Timestamp (Timestamp),
                                              VerifyBlockParams (..), gbHeader, slotIdF,

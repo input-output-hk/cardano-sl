@@ -19,4 +19,3 @@ stakesDistr (Just (nodes, coins)) Nothing =
     FlatStakes (fromIntegral nodes) (fromIntegral coins)
 stakesDistr Nothing (Just (nodes, coins)) =
     BitcoinStakes (fromIntegral nodes) (fromIntegral coins)
-

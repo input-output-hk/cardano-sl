@@ -156,10 +156,10 @@ runRawRealMode
 runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ do
     putText $ "Running listeners number: " <> show (length listeners)
     lift $ setupLoggers lp
-    legacyDB <- snd <$> allocate openDb closeDb
-    modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo") npCustomUtxo
+    modernDBs <- Modern.openNodeDBs (npDbPathM </> "rocksDBzhogovo") npCustomUtxo
     initTip <- Modern.runDBHolder modernDBs Modern.getTip
     initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
+    legacyDB <- snd <$> allocate openDb closeDb
     initNC <- sscCreateNodeContext @ssc sscnp
     let run db =
             runOurDialog newMutSocketState lpRunnerTag .
@@ -175,21 +175,8 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
     lift $ run legacyDB
   where
     lp@LoggingParams {..} = bpLoggingParams npBaseParams
-    mStorage = Just ()
     openDb :: IO (NodeState ssc)
-    openDb = do
-        -- we rebuild DB manually, because we need to remove
-        -- everything in npDbPath
-        pure ()
-        -- let rebuild fp =
-        --         whenM ((npRebuildDb &&) <$> doesDirectoryExist fp) $
-        --         removeDirectoryRecursive fp
-        -- whenJust npDbPath rebuild
-        -- runOurDialog newMutSocketState lpRunnerTag $
-        --     maybe
-        --         (openMemState mStorage)
-        --         (openState mStorage False)
-        --         ((</> "main") <$> npDbPath)
+    openDb = pure ()
     closeDb :: NodeState ssc -> IO ()
     closeDb = const pass
 

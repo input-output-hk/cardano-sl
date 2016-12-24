@@ -130,12 +130,10 @@ library
                         Pos.Block.Worker
                         Pos.Communication.Methods
                         Pos.Communication.Types
-                        Pos.Communication.Types.Block
                         Pos.Communication.Types.Delegation
                         Pos.Communication.Types.State
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Server
-                        Pos.Communication.Server.Block
                         Pos.Communication.Server.Delegation
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Util

@@ -10,6 +10,7 @@ module Pos.Binary.Types () where
 import           Control.Monad.Fail  (fail)
 import           Data.Binary.Get     (getWord8)
 import           Data.Binary.Put     (putWord8)
+import           Formatting          (int, sformat, (%))
 import           Universum
 
 import           Pos.Binary.Class    (Bi (..))
@@ -132,7 +133,37 @@ instance Ssc ssc => Bi (T.Body (T.MainBlockchain ssc)) where
         put _mbTxs
         put _mbWitnesses
         put _mbMpc
-    get = T.MainBody <$> get <*> get <*> get
+    get = do
+        _mbTxs <- get
+        _mbWitnesses <- get
+        _mbTxAddrDistributions <- get
+        _mbMpc <- get
+        let lenTxs = length _mbTxs
+            lenWit = length _mbWitnesses
+        let lenDistrs = length _mbTxAddrDistributions
+        when (lenTxs /= lenWit) $ fail $ toString $
+            sformat ("get@(Body MainBlockchain): "%
+                     "size of txs tree ("%int%") /= "%
+                     "length of witness list ("%int%")")
+                    lenTxs lenWit
+        when (lenTxs /= lenDistrs) $ fail $ toString $
+            sformat ("get@(Body MainBlockchain): "%
+                     "size of txs tree ("%int%") /= "%
+                     "length of address distrs list ("%int%")")
+                    lenTxs lenDistrs
+        for_ (zip3 [0 :: Int ..] (toList _mbTxs) _mbTxAddrDistributions) $
+            \(i, tx, mbDs) -> case mbDs of
+                Nothing -> return ()
+                Just ds -> do
+                  let lenOut = length (T.txOutputs tx)
+                      lenDist = length ds
+                  when (lenOut /= lenDist) $ fail $ toString $
+                      sformat ("get@(Body MainBlockchain): "%
+                               "amount of outputs ("%int%") of tx "%
+                               "#"%int%" /= amount of distributions "%
+                               "for this tx ("%int%")")
+                              lenOut i lenDist
+        return T.MainBody{..}
 
 ----------------------------------------------------------------------------
 -- GenesisBlock

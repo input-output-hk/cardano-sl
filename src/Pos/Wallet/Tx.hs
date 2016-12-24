@@ -9,6 +9,7 @@ module Pos.Wallet.Tx
        , createTx
        ) where
 
+import           Control.Lens          ((^.), _1)
 import           Control.Monad         (fail)
 import           Control.TimeWarp.Rpc  (NetworkAddress)
 import           Formatting            (build, sformat, (%))
@@ -18,7 +19,7 @@ import           Universum
 import           Pos.Binary            ()
 import           Pos.Communication     (sendTx)
 import           Pos.Crypto            (SecretKey, hash, toPublic)
-import           Pos.Types             (Tx, TxOut, TxWitness, makePubKeyAddress, txwF)
+import           Pos.Types             (Tx, TxAux, TxOut, makePubKeyAddress, txaF)
 import           Pos.WorkMode          (MinWorkMode)
 
 import           Pos.Wallet.Tx.Pure    (createTx, makePubKeyTx)
@@ -30,7 +31,7 @@ submitTx
     => SecretKey
     -> [NetworkAddress]
     -> [TxOut]
-    -> m (Tx, TxWitness)
+    -> m TxAux
 submitTx _ [] _ = logError "No addresses to send" >> fail "submitTx failed"
 submitTx sk na outputs = do
     utxo <- getOwnUtxo $ makePubKeyAddress $ toPublic sk
@@ -39,9 +40,9 @@ submitTx sk na outputs = do
         Right tx -> tx <$ submitTxRaw na tx
 
 -- | Send the ready-to-use transaction
-submitTxRaw :: MinWorkMode ss m => [NetworkAddress] -> (Tx, TxWitness) -> m ()
+submitTxRaw :: MinWorkMode ss m => [NetworkAddress] -> TxAux -> m ()
 submitTxRaw na tx = do
-    let txId = hash $ fst tx
-    logInfo $ sformat ("Submitting transaction: "%txwF) tx
+    let txId = hash (tx ^. _1)
+    logInfo $ sformat ("Submitting transaction: "%txaF) tx
     logInfo $ sformat ("Transaction id: "%build) txId
     mapM_ (`sendTx` tx) na

@@ -79,9 +79,8 @@ import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (.
                                            Storage, getThreshold)
 import           Pos.Statistics.StatEntry ()
 import           Pos.Types                (Address, Block, EpochIndex, GenesisBlock,
-                                           HeaderHash, IdTxWitness, MainBlock,
-                                           MainBlockHeader, SlotId, SlotLeaders, Tx, TxId,
-                                           TxWitness, Utxo)
+                                           HeaderHash, MainBlock, MainBlockHeader, SlotId,
+                                           SlotLeaders, TxAux, TxId, TxId, Utxo)
 import           Pos.Util                 (AsBinary, asBinary, fromBinaryM)
 
 -- | NodeState encapsulates all the state stored by node.
@@ -214,7 +213,7 @@ getOldestUtxo :: QUConstraint ssc m => m Utxo
 getOldestUtxo = queryDisk A.GetOldestUtxo
 
 -- | Checks if tx is verified
-isTxVerified :: QUConstraint ssc m => (Tx, TxWitness) -> m Bool
+isTxVerified :: QUConstraint ssc m => TxAux -> m Bool
 isTxVerified = queryDisk . A.IsTxVerified
 
 -- | Get global SSC data.
@@ -233,7 +232,7 @@ mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 -- | Create new block on top of currently known best chain, assuming
 -- we are slot leader.
 createNewBlock :: QUConstraint ssc m
-               => [IdTxWitness]
+               => [(TxId, TxAux)]
                -> SecretKey
                -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
                -> SlotId
@@ -242,7 +241,7 @@ createNewBlock :: QUConstraint ssc m
 createNewBlock localTxs sk pSk si = updateDisk . A.CreateNewBlock localTxs sk pSk si
 
 -- | Process transaction received from other party.
-processTx :: QUConstraint ssc m => (TxId, (Tx, TxWitness)) -> m ()
+processTx :: QUConstraint ssc m => (TxId, TxAux) -> m ()
 processTx = updateDisk . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot. Ideally it should
@@ -252,7 +251,7 @@ processNewSlot = updateDiskWithLog . A.ProcessNewSlotL
 
 -- | Process some Block received from the network.
 processBlock :: (QUConstraint ssc m)
-             => [IdTxWitness]
+             => [(TxId, TxAux)]
              -> SlotId
              -> Block ssc
              -> m (ProcessBlockRes ssc)

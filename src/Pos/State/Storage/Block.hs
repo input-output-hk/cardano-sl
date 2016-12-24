@@ -61,14 +61,14 @@ import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRa
 import           Pos.Types               (Block, BlockHeader, ChainDifficulty, EpochIndex,
                                           GenesisBlock, HeaderHash, MainBlock,
                                           MainBlockHeader, SlotId (..), SlotLeaders, Tx,
-                                          TxWitness, Utxo, VerifyBlockParams (..),
-                                          VerifyHeaderParams (..), blockHeader,
-                                          blockLeaders, blockSlot, difficultyL,
-                                          epochIndexL, gbHeader, getBlockHeader,
-                                          headerDifficulty, headerHash, headerSlot,
-                                          mkGenesisBlock, mkMainBlock, mkMainBody,
-                                          prevBlockL, siEpoch, verifyBlock, verifyBlocks,
-                                          verifyHeader)
+                                          TxDistribution, TxWitness, Utxo,
+                                          VerifyBlockParams (..), VerifyHeaderParams (..),
+                                          blockHeader, blockLeaders, blockSlot,
+                                          difficultyL, epochIndexL, gbHeader,
+                                          getBlockHeader, headerDifficulty, headerHash,
+                                          headerSlot, mkGenesisBlock, mkMainBlock,
+                                          mkMainBody, prevBlockL, siEpoch, verifyBlock,
+                                          verifyBlocks, verifyHeader)
 import           Pos.Types.Address       (AddressHash)
 import           Pos.Util                (readerToState, _neHead, _neLast)
 
@@ -594,7 +594,7 @@ blkCreateNewBlock
     => SecretKey
     -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
     -> SlotId
-    -> [(Tx,TxWitness)]
+    -> [(Tx, TxWitness, TxDistribution)]
     -> SscPayload ssc
     -> Update ssc (MainBlock ssc)
 blkCreateNewBlock sk pSk sId txs sscData = do

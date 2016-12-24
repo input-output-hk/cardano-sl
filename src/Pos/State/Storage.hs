@@ -86,12 +86,12 @@ import           Pos.Txp.Storage              (HasTxStorage (txStorage), TxStora
                                                txApplyBlocks, txRollback,
                                                txStorageFromUtxo, txVerifyBlocks)
 import           Pos.Types                    (Address, Block, EpochIndex,
-                                               EpochOrSlot (..), GenesisBlock,
-                                               IdTxWitness, MainBlock, SlotId (..),
-                                               SlotLeaders, Utxo, blockMpc, blockTxs,
-                                               epochIndexL, epochOrSlot, flattenSlotId,
-                                               gbHeader, getEpochOrSlot, headerHashG,
-                                               slotIdF, unflattenSlotId, verifyTxAlone)
+                                               EpochOrSlot (..), GenesisBlock, MainBlock,
+                                               SlotId (..), SlotLeaders, TxAux, TxId,
+                                               Utxo, blockMpc, blockTxs, epochIndexL,
+                                               epochOrSlot, flattenSlotId, gbHeader,
+                                               getEpochOrSlot, headerHashG, slotIdF,
+                                               unflattenSlotId, verifyTxAlone)
 import           Pos.Util                     (AsBinary, readerToState, _neLast)
 
 
@@ -183,7 +183,7 @@ getGlobalSscStateByDepth = sscGetGlobalStateByDepth @ssc
 -- given SlotId
 createNewBlock
     :: (SscStorageClass ssc)
-    => [IdTxWitness]
+    => [(TxId, TxAux)]
     -> SecretKey
     -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
     -> SlotId
@@ -196,7 +196,7 @@ createNewBlock localTxs sk pSk sId sscPayload =
 createNewBlockDo
     :: forall ssc.
        (SscStorageClass ssc)
-    => [IdTxWitness]
+    => [(TxId, TxAux)]
     -> SecretKey
     -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
     -> SlotId
@@ -228,7 +228,7 @@ canCreateBlock sId = do
 
 -- | Do all necessary changes when a block is received.
 processBlock :: (SscHelpersClass ssc, SscStorageClass ssc)
-    =>[IdTxWitness] -> SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
+    =>[(TxId, TxAux)] -> SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
 processBlock localTxs curSlotId blk = do
     let txs =
             case blk of
@@ -242,7 +242,7 @@ processBlock localTxs curSlotId blk = do
 processBlockDo
     :: forall ssc.
        (SscHelpersClass ssc, SscStorageClass ssc)
-    => [IdTxWitness] -> SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
+    => [(TxId, TxAux)] -> SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
 processBlockDo localTxs curSlotId blk = do
     let verifyMpc mainBlk =
             untag sscVerifyPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
@@ -266,7 +266,7 @@ processBlockDo localTxs curSlotId blk = do
 -- At this point all checks have been passed and we know that we can
 -- adopt this AltChain.
 processBlockFinally :: forall ssc . SscStorageClass ssc
-                    => [IdTxWitness]
+                    => [(TxId, TxAux)]
                     -> Word
                     -> AltChain ssc
                     -> Update ssc (ProcessBlockRes ssc)

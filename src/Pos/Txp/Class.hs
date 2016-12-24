@@ -23,7 +23,7 @@ import           Universum
 import           Pos.DHT.Model.Class (DHTResponseT)
 import           Pos.DHT.Real        (KademliaDHT)
 import           Pos.Txp.Types       (MemPool (localTxs), UtxoView)
-import           Pos.Types           (HeaderHash, IdTxWitness, TxId, TxOut)
+import           Pos.Types           (HeaderHash, TxAux, TxId, TxOut)
 
 -- | LocalData of transactions processing.
 -- There are two invariants which must hold for local data
@@ -68,13 +68,13 @@ instance MonadTxpLD ssc m => MonadTxpLD ssc (DHTResponseT s m)
 
 instance MonadTxpLD ssc m => MonadTxpLD ssc (KademliaDHT m)
 
-getLocalTxs :: MonadTxpLD ssc m => m [IdTxWitness]
+getLocalTxs :: MonadTxpLD ssc m => m [(TxId, TxAux)]
 getLocalTxs = HM.toList . localTxs <$> getMemPool
 
 getLocalUndo :: MonadTxpLD ssc m => m (HashMap TxId [TxOut])
 getLocalUndo = (\(_, _, undos, _) -> undos) <$> getTxpLD
 
-getLocalTxsNUndo :: MonadTxpLD ssc m => m ([IdTxWitness], HashMap TxId [TxOut])
+getLocalTxsNUndo :: MonadTxpLD ssc m => m ([(TxId, TxAux)], HashMap TxId [TxOut])
 getLocalTxsNUndo = (\(_, mp, undos, _) -> (HM.toList . localTxs $ mp, undos))
                 <$> getTxpLD
 

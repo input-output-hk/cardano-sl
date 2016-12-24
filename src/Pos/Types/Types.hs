@@ -40,6 +40,7 @@ module Pos.Types.Types
 
        , TxInWitness (..)
        , TxWitness
+       , TxDistribution
        , TxSig
        , TxId
        , TxIn (..)
@@ -49,8 +50,8 @@ module Pos.Types.Types
        , _txInputs
        , _txOutputs
        , txF
-       , txwF
-       , IdTxWitness
+       , txaF
+       , TxAux
 
        , Utxo
        , formatUtxo
@@ -103,7 +104,7 @@ module Pos.Types.Types
        , blockSignature
        , blockSlot
        , blockTxs
-       , blockTxws
+       , blockTxas
        , gbBody
        , gbBodyProof
        , gbExtra
@@ -150,8 +151,8 @@ import           Formatting             (Format, bprint, build, int, later, ords
                                          stext, (%))
 import           Serokell.AcidState     ()
 import qualified Serokell.Util.Base16   as B16
-import           Serokell.Util.Text     (listJson, listJsonIndent, mapBuilderJson,
-                                         pairBuilder, pairF)
+import           Serokell.Util.Text     (listBuilderJSON, listJson, listJsonIndent,
+                                         mapBuilderJson, pairBuilder, pairF)
 import           Universum
 
 import           Pos.Binary.Address     ()
@@ -265,6 +266,11 @@ instance Bi Script => Buildable TxInWitness where
 -- is provided for each input.
 type TxWitness = Vector TxInWitness
 
+-- | Distribution of “fake” stake that follow-the-satoshi would use for a
+-- particular transaction. 'Nothing' = there's no distribution for any
+-- addresses in the transaction.
+type TxDistribution = Maybe [Maybe (AddressHash PublicKey, Coin)]
+
 -- | Transaction input.
 data TxIn = TxIn
     { -- | Which transaction's output is used
@@ -307,7 +313,8 @@ data Tx = Tx
 
 makeLensesFor [("txInputs", "_txInputs"), ("txOutputs", "_txOutputs")] ''Tx
 
-type IdTxWitness = (TxId, (Tx, TxWitness))
+-- | Transaction + auxiliary data
+type TxAux = (Tx, TxWitness, TxDistribution)
 
 instance Hashable Tx
 
@@ -321,10 +328,15 @@ instance Buildable Tx where
 txF :: Format r (Tx -> r)
 txF = build
 
--- | Specialized formatter for 'Tx' with a witness.
-txwF :: Bi Script => Format r ((Tx, TxWitness) -> r)
-txwF = later $ \(tx, w) ->
-    bprint (build%"\n"%"witnesses:"%listJsonIndent 4) tx w
+-- | Specialized formatter for 'Tx' with auxiliary data
+txaF :: Bi Script => Format r (TxAux -> r)
+txaF = later $ \(tx, w, d) ->
+    bprint (build%"\n"%
+            "witnesses: "%listJsonIndent 4%"\n"%
+            "distribution: "%distF) tx w d
+  where
+    distF = later $
+        maybe "Nothing" (listBuilderJSON . map (maybe "-" pairBuilder))
 
 ----------------------------------------------------------------------------
 -- UTXO
@@ -518,6 +530,16 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
           -- TODO: currently we don't know for sure whether it should be
           -- serialized as a MerkleTree or something list-like.
           _mbTxs :: !(MerkleTree Tx)
+        , -- | Distributions for P2SH addresses in transaction outputs.
+          --     * length mbTxAddrDistributions == length mbTxs
+          --     * i-th element is 'Just' if at least one output of i-th
+          --         transaction is P2SH
+          --     * n-th element of i-th element is 'Just' if n-th output
+          --         of i-th transaction is P2SH
+          -- Ask @neongreen if you don't understand wtf is going on.
+          -- Basically, address distributions are needed so that (potential)
+          -- receivers of P2SH funds would count as stakeholders.
+          _mbTxAddrDistributions :: ![TxDistribution]
         , -- | Transaction witnesses. Invariant: there are as many witnesses
           -- as there are transactions in the block. This is checked during
           -- deserialisation. We can't put them into the same Merkle tree
@@ -733,6 +755,10 @@ MAKE_LENS(mbTxs, _mbTxs)
 mbWitnesses :: Lens' (Body (MainBlockchain ssc)) [TxWitness]
 MAKE_LENS(mbWitnesses, _mbWitnesses)
 
+-- | Lens for distributions list in main block body.
+mbTxAddrDistributions :: Lens' (Body (MainBlockchain ssc)) [TxDistribution]
+MAKE_LENS(mbTxAddrDistributions, _mbTxAddrDistributions)
+
 -- | Lens for 'SscPayload' in main block body.
 mbMpc :: Lens' (Body (MainBlockchain ssc)) (SscPayload ssc)
 MAKE_LENS(mbMpc, _mbMpc)
@@ -873,9 +899,14 @@ blockMpc = gbBody . mbMpc
 blockTxs :: Lens' (MainBlock ssc) (MerkleTree Tx)
 blockTxs = gbBody . mbTxs
 
--- | Getter from 'MainBlock' to a list of transactions with their witnesses.
-blockTxws :: Getter (MainBlock ssc) [(Tx,TxWitness)]
-blockTxws = gbBody . to (\b -> zip (toList (b ^. mbTxs)) (b ^. mbWitnesses))
+-- | Getter from 'MainBlock' to a list of transactions together with
+-- auxiliary data.
+blockTxas :: Getter (MainBlock ssc) [TxAux]
+blockTxas =
+    gbBody .
+    to (\b -> zip3 (toList (b ^. mbTxs))
+                   (b ^. mbWitnesses)
+                   (b ^. mbTxAddrDistributions))
 
 -- | Lens from 'GenesisBlock' to 'SlotLeaders'.
 blockLeaders :: Lens' (GenesisBlock ssc) SlotLeaders
@@ -1039,18 +1070,14 @@ instance Ssc ssc => SafeCopy (Body (MainBlockchain ssc)) where
         contain $
         do _mbTxs <- safeGet
            _mbWitnesses <- safeGet
-           let lenTxs = length _mbTxs
-               lenWit = length _mbWitnesses
-           when (lenTxs /= lenWit) $ fail $ toString $
-               sformat ("getCopy@(Body MainBlockchain): "%
-                        "size of txs tree ("%int%") /= "%
-                        "length of witness list ("%int%")") lenTxs lenWit
+           _mbTxAddrDistributions <- safeGet
            _mbMpc <- safeGet
            return $! MainBody {..}
     putCopy MainBody {..} =
         contain $
         do safePut _mbTxs
            safePut _mbWitnesses
+           safePut _mbTxAddrDistributions
            safePut _mbMpc
 
 instance SafeCopy (Body (GenesisBlockchain ssc)) where

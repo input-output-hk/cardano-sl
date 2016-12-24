@@ -34,7 +34,8 @@ import           Pos.Types            (Coin, GoodTx (..), Tx (..), TxId, TxIn (.
                                        makePubKeyAddress, verifyTxAlone, verifyTxUtxoPure)
 
 newVerifyTx :: (Utxo, Tx, TxWitness) -> Bool
-newVerifyTx (u, tx, tw) = isVerSuccess $ verifyTxUtxoPure True u (tx, tw)
+newVerifyTx (u, tx, tw) =
+    isVerSuccess $ verifyTxUtxoPure True u (tx, tw, Nothing)
 
 oldVerifyTx :: (Utxo, Tx, OldTxWitness) -> Bool
 oldVerifyTx (u, tx, tw) = isVerSuccess $ oldVerifyTxUtxo u (tx, tw)

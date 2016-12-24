@@ -27,8 +27,8 @@ import           Pos.Binary.Types    ()
 import           Pos.Crypto          (Hash, WithHash (..), checkSig, hash)
 import           Pos.Script          (Script (..), isKnownScriptVersion, txScriptCheck)
 import           Pos.Types.Address   (Address (..), addressDetailedF)
-import           Pos.Types.Types     (Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
-                                      TxWitness, checkPubKeyAddress, checkScriptAddress,
+import           Pos.Types.Types     (TxAux, Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
+                                      checkPubKeyAddress, checkScriptAddress,
                                       coinF)
 import           Pos.Util            (verResToEither)
 
@@ -103,9 +103,9 @@ verifyTx
     => Bool
     -> VTxGlobalContext
     -> (TxIn -> m (Maybe VTxLocalContext))
-    -> (Tx, TxWitness)
+    -> TxAux
     -> m (Either Text [TxOut])
-verifyTx verifyAlone gContext inputResolver txs@(Tx {..}, _) = do
+verifyTx verifyAlone gContext inputResolver txs@(Tx {..}, _, _) = do
     extendedInputs <- mapM extendInput txInputs
     pure $ verResToEither
         (verifyTxDo verifyAlone gContext extendedInputs txs)
@@ -116,9 +116,9 @@ verifyTx verifyAlone gContext inputResolver txs@(Tx {..}, _) = do
 verifyTxDo :: Bool
            -> VTxGlobalContext
            -> [Maybe (TxIn, VTxLocalContext)]
-           -> (Tx, TxWitness)
+           -> TxAux
            -> VerificationRes
-verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses) =
+verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses, distr) =
     mconcat [verifyAloneRes, verifyCounts, verifySum, verifyInputs]
   where
     verifyAloneRes | verifyAlone = verifyTxAlone tx
@@ -203,7 +203,7 @@ verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses) =
 verifyTxPure :: Bool
              -> VTxGlobalContext
              -> (TxIn -> Maybe VTxLocalContext)
-             -> (Tx, TxWitness)
+             -> TxAux
              -> Either Text [TxOut]
 verifyTxPure verifyAlone gContext resolver =
     runIdentity . verifyTx verifyAlone gContext (Identity . resolver)

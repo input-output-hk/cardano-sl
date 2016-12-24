@@ -25,7 +25,7 @@ import           Pos.Genesis            (genesisPublicKeys, genesisSecretKeys)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
                                          bracketDHTInstance, runTimeSlaveReal)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
-import           Pos.Types              (EpochIndex (..), makePubKeyAddress, txwF)
+import           Pos.Types              (EpochIndex (..), makePubKeyAddress, txaF)
 import           Pos.Wallet             (WalletMode, WalletParams (..), WalletRealMode,
                                          getBalance, runWalletReal, submitTx)
 #ifdef WITH_WEB
@@ -44,7 +44,7 @@ evalCmd (Balance addr) = lift (getBalance addr) >>=
 evalCmd (Send idx outputs) = do
     (skeys, na) <- ask
     tx <- lift $ submitTx (skeys !! idx) na outputs
-    putText $ sformat ("Submitted transaction: "%txwF) tx
+    putText $ sformat ("Submitted transaction: "%txaF) tx
     evalCommands
 evalCmd Help = do
     putText $

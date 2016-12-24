@@ -22,10 +22,10 @@ import           Pos.Binary          ()
 import           Pos.Crypto          (SecretKey, WithHash (..), hash, sign, toPublic,
                                       withHash, _whData)
 import           Pos.Types           (Address, Block, Coin, MainBlock, MonadUtxoRead (..),
-                                      Tx (..), TxId, TxIn (..), TxInWitness (..),
-                                      TxOut (..), TxWitness, Utxo, UtxoStateT (..),
-                                      applyTxToUtxo, blockTxs, filterUtxoByAddr,
-                                      makePubKeyAddress, topsortTxs, _txOutputs)
+                                      Tx (..), TxAux, TxId, TxIn (..), TxInWitness (..),
+                                      TxOut (..), Utxo, UtxoStateT (..), applyTxToUtxo,
+                                      blockTxs, filterUtxoByAddr, makePubKeyAddress,
+                                      topsortTxs, _txOutputs)
 
 type TxOutIdx = (TxId, Word32)
 type TxInputs = [TxOutIdx]
@@ -37,8 +37,8 @@ type TxError = Text
 -----------------------------------------------------------------------------
 
 -- | Makes a transaction which use P2PKH addresses as a source
-makePubKeyTx :: SecretKey -> TxInputs -> TxOutputs -> (Tx, TxWitness)
-makePubKeyTx sk inputs txOutputs = (Tx {..}, txWitness)
+makePubKeyTx :: SecretKey -> TxInputs -> TxOutputs -> TxAux
+makePubKeyTx sk inputs txOutputs = (Tx {..}, txWitness, Nothing)
   where pk = toPublic sk
         txInputs = map makeTxIn inputs
         txOutHash = hash txOutputs
@@ -53,7 +53,7 @@ type FlatUtxo = [(TxOutIdx, TxOut)]
 type InputPicker = StateT (Coin, FlatUtxo) (Either TxError)
 
 -- | Make a multi-transaction using given secret key and info for outputs
-createTx :: Utxo -> SecretKey -> TxOutputs -> Either TxError (Tx, TxWitness)
+createTx :: Utxo -> SecretKey -> TxOutputs -> Either TxError TxAux
 createTx utxo sk outputs = uncurry (makePubKeyTx sk) <$> inpOuts
   where totalMoney = sum $ map txOutValue outputs
         ourAddr = makePubKeyAddress $ toPublic sk

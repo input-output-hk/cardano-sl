@@ -38,7 +38,7 @@ import           Pos.Script.Examples    (alwaysSuccessValidator, badIntRedeemer,
                                          intValidatorWithBlah, stdlibValidator)
 import           Pos.Types              (BadSigsTx (..), GoodTx (..), OverflowTx (..),
                                          SmallBadSigsTx (..), SmallGoodTx (..),
-                                         SmallOverflowTx (..), Tx (..), TxIn (..),
+                                         SmallOverflowTx (..), Tx (..), TxAux, TxIn (..),
                                          TxInWitness (..), TxOut (..), TxWitness, Utxo,
                                          VTxGlobalContext (..), VTxLocalContext (..),
                                          checkPubKeyAddress, makePubKeyAddress,
@@ -168,8 +168,8 @@ scriptTxSpec = describe "script transactions" $ do
         in  (TxIn txid 0, outp, M.singleton (txid, 0) outp)
     -- Try to apply a transaction (with given utxo as context) and say
     -- whether it applied successfully
-    tryApplyTx :: Utxo -> Tx -> TxWitness -> VerificationRes
-    tryApplyTx utxo tx txwit = verifyTxUtxoPure True utxo (tx, txwit)
+    tryApplyTx :: Utxo -> TxAux -> VerificationRes
+    tryApplyTx utxo txa = verifyTxUtxoPure True utxo txa
 
     -- Test tx1 against tx0. Tx0 will be a script transaction with given
     -- validator. Tx1 will be a P2PK transaction spending tx0 (with given
@@ -179,7 +179,7 @@ scriptTxSpec = describe "script transactions" $ do
         let (inp, _, utxo) = mkUtxo $
                 TxOut (makeScriptAddress val) 1
             tx = Tx [inp] [randomPkOutput]
-        in tryApplyTx utxo tx (V.singleton wit)
+        in tryApplyTx utxo (tx, V.singleton wit, Nothing)
 
 -- | Test that errors in a 'VerFailure' match given regexes.
 errorsShouldMatch :: VerificationRes -> [Text] -> Expectation
@@ -277,7 +277,7 @@ validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
             getTxFromGoodTx ls
         transactionIsVerified =
             isRight $ verifyTxPure True
-            VTxGlobalContext (fmap VTxLocalContext <$> inpResolver) (tx, txWits)
+            VTxGlobalContext (fmap VTxLocalContext <$> inpResolver) (tx, txWits, Nothing)
         transactionReallyIsGood = individualTxPropertyVerifier quadruple
     in  transactionIsVerified == transactionReallyIsGood
 
@@ -287,7 +287,7 @@ overflowTx (SmallOverflowTx (getOverflowTx -> ls)) =
             getTxFromGoodTx ls
         transactionIsNotVerified =
             isLeft $ verifyTxPure True
-            VTxGlobalContext (fmap VTxLocalContext <$> inpResolver) (tx, txWits)
+            VTxGlobalContext (fmap VTxLocalContext <$> inpResolver) (tx, txWits, Nothing)
         inpSumLessThanOutSum = not $ txChecksum extendedInputs txOutputs
     in inpSumLessThanOutSum == transactionIsNotVerified
 
@@ -306,7 +306,7 @@ badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
             getTxFromGoodTx ls
         transactionIsNotVerified =
             isLeft $ verifyTxPure True VTxGlobalContext
-            (fmap VTxLocalContext <$> inpResolver) (tx, txWits)
+            (fmap VTxLocalContext <$> inpResolver) (tx, txWits, Nothing)
         notAllSignaturesAreValid =
             any (signatureIsNotValid txOutputs) $ zip extendedInputs (V.toList txWits)
     in notAllSignaturesAreValid == transactionIsNotVerified

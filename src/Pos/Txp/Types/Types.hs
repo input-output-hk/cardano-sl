@@ -11,7 +11,7 @@ import           Data.HashSet        (HashSet)
 import           Universum
 
 import           Pos.DB.Types        (DB)
-import           Pos.Types           (Tx, TxId, TxIn, TxOut, TxWitness)
+import           Pos.Types           (TxAux, TxId, TxIn, TxOut)
 
 
 data UtxoView ssc = UtxoView
@@ -21,7 +21,7 @@ data UtxoView ssc = UtxoView
     , utxoDB  :: !(DB ssc)
     }
 
-type TxMap = HashMap TxId (Tx, TxWitness)
+type TxMap = HashMap TxId TxAux
 
 data MemPool = MemPool
     {

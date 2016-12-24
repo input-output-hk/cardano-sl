@@ -20,7 +20,7 @@ module Pos.Types.Utxo.Functions
        , filterUtxoByAddr
        ) where
 
-import           Control.Lens         (over, _1)
+import           Control.Lens         (over, view, (^.), _1)
 import           Control.Monad.Except (ExceptT (ExceptT), runExceptT, throwError)
 import qualified Data.Map.Strict      as M
 import           Universum
@@ -29,8 +29,8 @@ import           Pos.Binary.Types     ()
 import           Pos.Crypto           (WithHash (..))
 import           Pos.Types.Tx         (VTxGlobalContext (..), VTxLocalContext (..),
                                        topsortTxs, verifyTx)
-import           Pos.Types.Types      (Address, IdTxWitness, Tx (..), TxIn (..),
-                                       TxOut (..), TxWitness, Undo, Utxo)
+import           Pos.Types.Types      (Address, Tx (..), TxAux, TxDistribution, TxId,
+                                       TxIn (..), TxOut (..), TxWitness, Undo, Utxo)
 import           Pos.Types.Utxo.Class (MonadUtxo (..), MonadUtxoRead (utxoGet))
 
 -- | Find transaction input in Utxo assuming it is valid.
@@ -43,7 +43,7 @@ deleteTxIn TxIn{..} = M.delete (txInHash, txInIndex)
 
 -- CHECK: @verifyTxUtxo
 -- | Verify single Tx using MonadUtxoRead as TxIn resolver.
-verifyTxUtxo :: MonadUtxoRead m => Bool -> (Tx, TxWitness) -> m (Either Text [TxOut])
+verifyTxUtxo :: MonadUtxoRead m => Bool -> TxAux -> m (Either Text [TxOut])
 verifyTxUtxo verifyAlone = verifyTx verifyAlone VTxGlobalContext utxoGet'
   where
     utxoGet' x = fmap VTxLocalContext <$> utxoGet x
@@ -59,8 +59,8 @@ applyTxToUtxo tx = do
     applyInput = utxoDel
     applyOutput idx = utxoPut $ TxIn (whHash tx) idx
 
-applyTxToUtxo' :: MonadUtxo m => IdTxWitness -> m ()
-applyTxToUtxo' (i, (t, _)) = applyTxToUtxo $ WithHash t i
+applyTxToUtxo' :: MonadUtxo m => (TxId, TxAux) -> m ()
+applyTxToUtxo' (i, (t, _, _)) = applyTxToUtxo $ WithHash t i
 
 -- CHECK: @verifyAndApplyTxs
 -- | Verify transactions correctness with respect to Utxo applying
@@ -71,14 +71,18 @@ applyTxToUtxo' (i, (t, _)) = applyTxToUtxo $ WithHash t i
 verifyAndApplyTxs
     :: forall m.
        MonadUtxo m
-    => Bool -> [(WithHash Tx, TxWitness)] -> m (Either Text Undo)
+    => Bool
+    -> [(WithHash Tx, TxWitness, TxDistribution)]
+    -> m (Either Text Undo)
 verifyAndApplyTxs verifyAlone txs = fmap reverse <$> foldM applyDo (Right []) txs
   where
-    applyDo :: Either Text Undo -> (WithHash Tx, TxWitness) -> m (Either Text Undo)
+    applyDo :: Either Text Undo
+            -> (WithHash Tx, TxWitness, TxDistribution)
+            -> m (Either Text Undo)
     applyDo failure@(Left _) _ = pure failure
     applyDo txouts txw = do
         verRes <- verifyTxUtxo verifyAlone (over _1 whData txw)
-        ((:) <$> verRes <*> txouts) <$ applyTxToUtxo (fst txw)
+        ((:) <$> verRes <*> txouts) <$ applyTxToUtxo (txw ^. _1)
 
 -- CHECK: @verifyAndApplyTxsOld
 -- | DEPRECATED
@@ -93,33 +97,36 @@ verifyAndApplyTxs verifyAlone txs = fmap reverse <$> foldM applyDo (Right []) tx
 verifyAndApplyTxsOld
     :: forall m.
        MonadUtxo m
-    => [(WithHash Tx, TxWitness)] -> m (Either Text [(WithHash Tx, TxWitness)])
+    => [(WithHash Tx, TxWitness, TxDistribution)]
+    -> m (Either Text [(WithHash Tx, TxWitness, TxDistribution)])
 verifyAndApplyTxsOld txws =
     runExceptT $
     maybe (throwError brokenMsg) (\txs' -> txs' <$ applyAll txs') topsorted
   where
     brokenMsg = "Topsort on transactions failed -- topology is broken"
-    applyAll :: [(WithHash Tx, TxWitness)] -> ExceptT Text m ()
+    applyAll :: [(WithHash Tx, TxWitness, TxDistribution)]
+             -> ExceptT Text m ()
     applyAll [] = pass
     applyAll (txw:xs) = do
         applyAll xs
         () <$ ExceptT (verifyTxUtxo True (over _1 whData txw))
-        applyTxToUtxo $ fst txw
-    topsorted = reverse <$> topsortTxs fst txws -- head is the last one to check
+        applyTxToUtxo $ txw ^. _1
+     -- 'reverse' because head is the last one to check
+    topsorted = reverse <$> topsortTxs (view _1) txws
 
 -- TODO change types of normalizeTxs and related
 
-convertTo' :: [IdTxWitness] -> [(WithHash Tx, TxWitness)]
-convertTo' = map (\(i, (t, w)) -> (WithHash t i, w))
+convertTo' :: [(TxId, TxAux)] -> [(WithHash Tx, TxWitness, TxDistribution)]
+convertTo' = map (\(i, (t, w, d)) -> (WithHash t i, w, d))
 
-convertFrom' :: [(WithHash Tx, TxWitness)] -> [IdTxWitness]
-convertFrom' = map (\(WithHash t h, w) -> (h, (t, w)))
+convertFrom' :: [(WithHash Tx, TxWitness, TxDistribution)] -> [(TxId, TxAux)]
+convertFrom' = map (\(WithHash t h, w, d) -> (h, (t, w, d)))
 
 -- CHECK: @verifyAndApplyTxsOld'
 -- #verifyAndApplyTxsOld
 verifyAndApplyTxsOld'
     :: MonadUtxo m
-    => [IdTxWitness] -> m (Either Text [IdTxWitness])
+    => [(TxId, TxAux)] -> m (Either Text [(TxId, TxAux)])
 verifyAndApplyTxsOld' txws =
     fmap convertFrom' <$> verifyAndApplyTxsOld (convertTo' txws)
 

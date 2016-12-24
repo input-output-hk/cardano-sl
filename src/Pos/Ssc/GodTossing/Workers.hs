@@ -13,76 +13,75 @@ module Pos.Ssc.GodTossing.Workers
          -- ** instance SscWorkersClass SscGodTossing
        ) where
 
-import           Control.Concurrent.STM                    (TVar, readTVar, writeTVar)
-import           Control.Lens                              (view, (%=), _2, _3)
-import           Control.Monad.Trans.Maybe                 (runMaybeT)
-import           Control.TimeWarp.Timed                    (Microsecond, Millisecond,
-                                                            currentTime, for, wait)
-import           Data.HashMap.Strict                       (insert, lookup, member)
-import qualified Data.List.NonEmpty                        as NE (fromList, toList)
-import           Data.Tagged                               (Tagged (..))
-import           Data.Time.Units                           (convertUnit)
-import           Formatting                                (build, ords, sformat, shown,
-                                                            (%))
-import           Serokell.Util.Exceptions                  ()
-import           System.Wlog                               (logDebug, logError,
-                                                            logWarning)
+import           Control.Concurrent.STM                  (TVar, readTVar, writeTVar)
+import           Control.Lens                            (view, (%=), _2, _3)
+import           Control.Monad.Trans.Maybe               (runMaybeT)
+import           Control.TimeWarp.Timed                  (Microsecond, Millisecond,
+                                                          currentTime, for, wait)
+import           Data.HashMap.Strict                     (insert, lookup, member)
+import qualified Data.List.NonEmpty                      as NE (fromList, toList)
+import           Data.Tagged                             (Tagged (..))
+import           Data.Time.Units                         (convertUnit)
+import           Formatting                              (build, ords, sformat, shown,
+                                                          (%))
+import           Serokell.Util.Exceptions                ()
+import           System.Wlog                             (logDebug, logError, logWarning)
 import           Universum
 
-import           Pos.Binary.Class                          (Bi)
-import           Pos.Communication.Methods                 (sendToNeighborsSafe)
-import           Pos.Constants                             (k, mpcSendInterval)
-import           Pos.Context                               (getNodeContext, ncPublicKey,
-                                                            ncSecretKey, ncSscContext,
-                                                            readRichmen)
-import           Pos.Crypto                                (SecretKey, VssKeyPair,
-                                                            randomNumber, runSecureRandom,
-                                                            toPublic)
-import           Pos.Crypto.SecretSharing                  (toVssPublicKey)
-import           Pos.Crypto.Signing                        (PublicKey, sign)
-import           Pos.Modern.Ssc.GodTossing.Functions       (hasCommitment, hasOpening,
-                                                            hasShares)
-import           Pos.Slotting                              (getSlotStart, onNewSlot)
-import           Pos.Ssc.Class.Workers                     (SscWorkersClass (..))
-import           Pos.Ssc.GodTossing.Functions              (genCommitmentAndOpening,
-                                                            genCommitmentAndOpening,
-                                                            getThreshold, isCommitmentIdx,
-                                                            isOpeningIdx, isSharesIdx,
-                                                            mkSignedCommitment)
-import           Pos.Ssc.GodTossing.LocalData.LocalData    (localOnNewSlot,
-                                                            sscProcessMessage)
-import           Pos.Ssc.GodTossing.Secret.SecretStorage   (getSecret,
-                                                            prepareSecretToNewSlot,
-                                                            setSecret)
-import           Pos.Ssc.GodTossing.Types.Base             (Commitment, Opening,
-                                                            SignedCommitment,
-                                                            VssCertificate (..))
-import           Pos.Ssc.GodTossing.Types.Instance         ()
-import           Pos.Ssc.GodTossing.Types.Message          (DataMsg (..), InvMsg (..),
-                                                            MsgTag (..))
-import           Pos.Ssc.GodTossing.Types.Type             (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types            (GtPayload, GtProof,
-                                                            gtcParticipateSsc,
-                                                            gtcVssCertificateVerified,
-                                                            gtcVssKeyPair)
+import           Pos.Binary.Class                        (Bi)
+import           Pos.Communication.Methods               (sendToNeighborsSafe)
+import           Pos.Constants                           (k, mpcSendInterval)
+import           Pos.Context                             (getNodeContext, ncPublicKey,
+                                                          ncSecretKey, ncSscContext,
+                                                          readRichmen)
+import           Pos.Crypto                              (SecretKey, VssKeyPair,
+                                                          randomNumber, runSecureRandom,
+                                                          toPublic)
+import           Pos.Crypto.SecretSharing                (toVssPublicKey)
+import           Pos.Crypto.Signing                      (PublicKey, sign)
+import           Pos.Modern.Ssc.GodTossing.Functions     (hasCommitment, hasOpening,
+                                                          hasShares)
+import           Pos.Slotting                            (getSlotStart, onNewSlot)
+import           Pos.Ssc.Class.Workers                   (SscWorkersClass (..))
+import           Pos.Ssc.GodTossing.Functions            (genCommitmentAndOpening,
+                                                          genCommitmentAndOpening,
+                                                          getThreshold, isCommitmentIdx,
+                                                          isOpeningIdx, isSharesIdx,
+                                                          mkSignedCommitment)
+import           Pos.Ssc.GodTossing.LocalData.LocalData  (localOnNewSlot,
+                                                          sscProcessMessage)
+import           Pos.Ssc.GodTossing.Secret.SecretStorage (getSecret,
+                                                          prepareSecretToNewSlot,
+                                                          setSecret)
+import           Pos.Ssc.GodTossing.Types.Base           (Commitment, Opening,
+                                                          SignedCommitment,
+                                                          VssCertificate (..))
+import           Pos.Ssc.GodTossing.Types.Instance       ()
+import           Pos.Ssc.GodTossing.Types.Message        (DataMsg (..), InvMsg (..),
+                                                          MsgTag (..))
+import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types          (GtPayload, GtProof,
+                                                          gtcParticipateSsc,
+                                                          gtcVssCertificateVerified,
+                                                          gtcVssKeyPair)
 -- import           Pos.Ssc.GodTossing.Utils                  (verifiedVssCertificates)
-import           Pos.State                                 (getGlobalMpcData,
-                                                            getOurShares, getParticipants)
-import           Pos.Types                                 (Address (..), EpochIndex,
-                                                            LocalSlotIndex, SlotId (..),
-                                                            Timestamp (..),
-                                                            makePubKeyAddress)
-import           Pos.Util                                  (asBinary)
-import           Pos.WorkMode                              (WorkMode)
+import           Pos.State                               (getGlobalMpcData, getOurShares,
+                                                          getParticipants)
+import           Pos.Types                               (Address (..), EpochIndex,
+                                                          LocalSlotIndex, SlotId (..),
+                                                          Timestamp (..),
+                                                          makePubKeyAddress)
+import           Pos.Util                                (asBinary)
+import           Pos.WorkMode                            (WorkMode)
 #ifdef MODERN
-import           Pos.Modern.Ssc.GodTossing.Storage.Storage (getGlobalCertificates)
-import           Pos.Ssc.Extra.MonadLD                     (sscRunLocalQueryM,
-                                                            sscRunLocalUpdateM)
-import           Pos.Ssc.GodTossing.LocalData.Types        (ldCertificates)
+import           Pos.Ssc.Extra.MonadLD                   (sscRunLocalQueryM,
+                                                          sscRunLocalUpdateM)
+import           Pos.Ssc.GodTossing.LocalData.Types      (ldCertificates)
+import           Pos.Ssc.GodTossing.Storage.Storage      (getGlobalCertificates)
 #else
-import           Pos.Ssc.Extra.MonadLD                     (sscRunLocalQuery,
-                                                            sscRunLocalUpdate)
-import           Pos.Ssc.GodTossing.LocalData.Types        (gtLocalCertificates)
+import           Pos.Ssc.Extra.MonadLD                   (sscRunLocalQuery,
+                                                          sscRunLocalUpdate)
+import           Pos.Ssc.GodTossing.LocalData.Types      (gtLocalCertificates)
 #endif
 
 instance (Bi VssCertificate

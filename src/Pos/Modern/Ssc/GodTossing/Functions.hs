@@ -9,11 +9,11 @@ module Pos.Modern.Ssc.GodTossing.Functions
        , hasVssCertificate
        ) where
 
-import qualified Data.HashMap.Strict                     as HM
+import qualified Data.HashMap.Strict              as HM
 import           Universum
 
-import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..))
-import           Pos.Types.Types                         (Address (..))
+import           Pos.Ssc.GodTossing.Storage.Types (GtGlobalState (..))
+import           Pos.Types.Types                  (Address (..))
 
 ----------------------------------------------------------------------------
 -- Helpers

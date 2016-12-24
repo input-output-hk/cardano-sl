@@ -10,22 +10,20 @@ module Pos.Ssc.GodTossing.Types.Instance
          -- ** instance Ssc SscGodTossing
        ) where
 
-import           Data.Tagged                             (Tagged (..))
+import           Data.Tagged                        (Tagged (..))
 
-import           Pos.Binary.Types                        ()
-import           Pos.Ssc.Class.Helpers                   (SscHelpersClass (..))
-import           Pos.Ssc.Class.Types                     (Ssc (..))
-import           Pos.Ssc.GodTossing.Error                (SeedError)
-import           Pos.Ssc.GodTossing.Functions            (filterLocalPayload,
-                                                          verifyGtPayload)
-import           Pos.Ssc.GodTossing.LocalData.Types      (GtLocalData)
-import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types          (GtContext, GtGlobalState,
-                                                          GtParams, GtPayload, GtProof,
-                                                          SscBi, createGtContext,
-                                                          mkGtProof)
+import           Pos.Binary.Types                   ()
+import           Pos.Ssc.Class.Helpers              (SscHelpersClass (..))
+import           Pos.Ssc.Class.Types                (Ssc (..))
+import           Pos.Ssc.GodTossing.Error           (SeedError)
+import           Pos.Ssc.GodTossing.Functions       (filterLocalPayload, verifyGtPayload)
+import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData)
+import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types     (GtContext, GtGlobalState, GtParams,
+                                                     GtPayload, GtProof, SscBi,
+                                                     createGtContext, mkGtProof)
 
-import qualified Pos.Modern.Ssc.GodTossing.Storage.Types as Modern
+import qualified Pos.Ssc.GodTossing.Storage.Types   as Modern
 
 instance SscBi => Ssc SscGodTossing where
     type SscLocalData   SscGodTossing = GtLocalData

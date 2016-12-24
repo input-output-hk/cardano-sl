@@ -9,17 +9,17 @@ module Pos.Ssc.GodTossing.LocalData.Helpers
        , gtRunRead
        ) where
 
-import           Control.Lens                            (makeClassy)
+import           Control.Lens                       (makeClassy)
 import           Universum
 
-import qualified Pos.Modern.Ssc.GodTossing.Storage.Types as GS
-import           Pos.Ssc.Extra                           (MonadSscLDM (modifyLocalDataM))
-import qualified Pos.Ssc.GodTossing.LocalData.Types      as LD
-import           Pos.Ssc.GodTossing.Types.Base           (CommitmentsMap, OpeningsMap,
-                                                          SharesMap, VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Types.Instance       ()
-import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
-import           Pos.Types                               (SlotId)
+import           Pos.Ssc.Extra                      (MonadSscLDM (modifyLocalDataM))
+import qualified Pos.Ssc.GodTossing.LocalData.Types as LD
+import qualified Pos.Ssc.GodTossing.Storage.Types   as GS
+import           Pos.Ssc.GodTossing.Types.Base      (CommitmentsMap, OpeningsMap,
+                                                     SharesMap, VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Types.Instance  ()
+import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
+import           Pos.Types                          (SlotId)
 
 -- | This wrapper using for pass local and global state to
 -- | functions which works with state using lens.

@@ -11,7 +11,7 @@
 
 -- | GodTossing global state.
 
-module Pos.Modern.Ssc.GodTossing.Storage.Types
+module Pos.Ssc.GodTossing.Storage.Types
        ( GtGlobalState (..)
        -- * Lenses
        -- ** GtGlobalState

@@ -16,51 +16,49 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
          -- ** instance SscLocalDataClass SscGodTossing
        ) where
 
-import           Control.Lens                            (at, use, view, (%=), (.=))
-import           Control.Lens                            (Getter)
-import           Control.Monad.Loops                     (andM)
-import           Data.Containers                         (ContainerKey,
-                                                          SetContainer (notMember))
-import           Data.Default                            (Default (def))
-import qualified Data.HashMap.Strict                     as HM
-import qualified Data.HashSet                            as HS
-import           Serokell.Util.Verify                    (isVerSuccess)
+import           Control.Lens                         (at, use, view, (%=), (.=))
+import           Control.Lens                         (Getter)
+import           Control.Monad.Loops                  (andM)
+import           Data.Containers                      (ContainerKey,
+                                                       SetContainer (notMember))
+import           Data.Default                         (Default (def))
+import qualified Data.HashMap.Strict                  as HM
+import qualified Data.HashSet                         as HS
+import           Serokell.Util.Verify                 (isVerSuccess)
 import           Universum
 
-import           Pos.Binary.Class                        (Bi)
-import           Pos.Crypto                              (Share)
-import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..))
-import           Pos.Ssc.Class.LocalData                 (LocalQuery, LocalUpdate,
-                                                          SscLocalDataClass (..))
-import           Pos.Ssc.Extra.MonadLD                   (MonadSscLDM)
-import           Pos.Ssc.GodTossing.Functions            (checkOpeningMatchesCommitment,
-                                                          checkShares, inLastKSlotsId,
-                                                          isCommitmentIdx, isOpeningIdx,
-                                                          isSharesIdx,
-                                                          verifySignedCommitment)
-import           Pos.Ssc.GodTossing.LocalData.Helpers    (GtState, gtGlobalCertificates,
-                                                          gtGlobalCommitments,
-                                                          gtGlobalOpenings,
-                                                          gtGlobalShares,
-                                                          gtLastProcessedSlot,
-                                                          gtLocalCertificates,
-                                                          gtLocalCommitments,
-                                                          gtLocalOpenings, gtLocalShares,
-                                                          gtRunModify, gtRunRead)
-import           Pos.Ssc.GodTossing.LocalData.Types      (ldCertificates, ldCommitments,
-                                                          ldOpenings, ldShares)
-import           Pos.Ssc.GodTossing.Types.Base           (Commitment, Opening,
-                                                          SignedCommitment,
-                                                          VssCertificate,
-                                                          VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Types.Instance       ()
-import           Pos.Ssc.GodTossing.Types.Message        (DataMsg (..), MsgTag (..))
-import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types          (GtPayload (..), SscBi)
-import           Pos.State                               (WorkModeDB)
-import           Pos.Types                               (Address (..), SlotId (..))
-import           Pos.Util                                (AsBinary, diffDoubleMap,
-                                                          getKeys, readerToState)
+import           Pos.Binary.Class                     (Bi)
+import           Pos.Crypto                           (Share)
+import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
+                                                       SscLocalDataClass (..))
+import           Pos.Ssc.Extra.MonadLD                (MonadSscLDM)
+import           Pos.Ssc.GodTossing.Functions         (checkOpeningMatchesCommitment,
+                                                       checkShares, inLastKSlotsId,
+                                                       isCommitmentIdx, isOpeningIdx,
+                                                       isSharesIdx,
+                                                       verifySignedCommitment)
+import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertificates,
+                                                       gtGlobalCommitments,
+                                                       gtGlobalOpenings, gtGlobalShares,
+                                                       gtLastProcessedSlot,
+                                                       gtLocalCertificates,
+                                                       gtLocalCommitments,
+                                                       gtLocalOpenings, gtLocalShares,
+                                                       gtRunModify, gtRunRead)
+import           Pos.Ssc.GodTossing.LocalData.Types   (ldCertificates, ldCommitments,
+                                                       ldOpenings, ldShares)
+import           Pos.Ssc.GodTossing.Storage.Types     (GtGlobalState (..))
+import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
+                                                       SignedCommitment, VssCertificate,
+                                                       VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Types.Instance    ()
+import           Pos.Ssc.GodTossing.Types.Message     (DataMsg (..), MsgTag (..))
+import           Pos.Ssc.GodTossing.Types.Type        (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types       (GtPayload (..), SscBi)
+import           Pos.State                            (WorkModeDB)
+import           Pos.Types                            (Address (..), SlotId (..))
+import           Pos.Util                             (AsBinary, diffDoubleMap, getKeys,
+                                                       readerToState)
 
 instance SscBi => SscLocalDataClass SscGodTossing where
     sscEmptyLocalData = def

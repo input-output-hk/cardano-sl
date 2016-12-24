@@ -30,7 +30,7 @@ import           Pos.Aeson.ClientTypes      ()
 import           Pos.Genesis                (genesisAddresses, genesisUtxo)
 import           Pos.Types                  (Address, Coin, Tx (..), TxIn (..))
 import           Pos.Wallet.Web.Api         (walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CHash, CWallet, CWalletMeta,
+import           Pos.Wallet.Web.ClientTypes (CAddress, CHash, CTx, CWallet, CWalletMeta,
                                              addressToCAddress)
 import           Prelude                    (fail)
 
@@ -138,6 +138,9 @@ instance ToSample Text where
 
 instance ToSample () where
     toSamples Proxy = singleSample ()
+
+instance ToSample CTx where
+    toSamples Proxy = fail "ToSample CTx: Not Implemented!"
 
 instance ToSample Tx where
     toSamples Proxy = singleSample $ Tx [TxIn hsh idx] [out]

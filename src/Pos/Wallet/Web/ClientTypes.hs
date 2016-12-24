@@ -26,16 +26,19 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletMeta (..)
       , addressToCAddress
       , cAddressToAddress
+      , mkCTx
       ) where
 
-import           Data.Text       (Text)
-import           GHC.Generics    (Generic)
+import           Data.Text             (Text)
+import           GHC.Generics          (Generic)
 import           Universum
 
-import           Data.Hashable   (Hashable (..))
-import           Formatting      (build, sformat)
-import           Pos.Aeson.Types ()
-import           Pos.Types       (Address (..), Coin, decodeTextAddress)
+import           Data.Hashable         (Hashable (..))
+import           Data.Time.Clock.POSIX (POSIXTime)
+import           Formatting            (build, sformat)
+import           Pos.Aeson.Types       ()
+import           Pos.Types             (Address (..), Coin, Tx, TxId, decodeTextAddress,
+                                        txOutValue, txOutputs)
 
 
 -- | currencies handled by client
@@ -64,11 +67,17 @@ cAddressToAddress :: CAddress -> Either Text Address
 cAddressToAddress (CAddress (CHash h)) = decodeTextAddress h
 
 -- | Client transaction id
-newtype CTxId = CTxId CHash deriving (Show, Generic)
+newtype CTxId = CTxId CHash deriving (Show, Eq, Generic)
 
 -- | transform TxId into CTxId
--- txIdToCTxId :: TxId -> CTxId
--- txIdToCTxId = undefined
+txIdToCTxId :: TxId -> CTxId
+txIdToCTxId = CTxId . CHash . sformat build
+
+mkCTx :: (TxId, Tx, Bool) -> CTxMeta -> CTx
+mkCTx (txId, tx, isInput) = CTx (txIdToCTxId txId) outputCoins . meta
+  where
+    outputCoins = sum . map txOutValue $ txOutputs tx
+    meta = if isInput then CTIn else CTOut
 
 ----------------------------------------------------------------------------
 -- wallet
@@ -124,7 +133,7 @@ data CTxMeta = CTxMeta
     { ctmCurrency    :: CCurrency
     , ctmTitle       :: Text
     , ctmDescription :: Text
-    , ctmDate        :: Text -- TODO jk: should be NominalDiffTime
+    , ctmDate        :: POSIXTime
     } deriving (Show, Generic)
 
 -- | type of transactions
@@ -132,7 +141,7 @@ data CTxMeta = CTxMeta
 data CTType
     = CTIn CTxMeta
     | CTOut CTxMeta
-    | CTInOut CTExMeta -- Ex == exchange
+    -- | CTInOut CTExMeta -- Ex == exchange
     deriving (Show, Generic)
 
 -- | Client transaction (CTx)

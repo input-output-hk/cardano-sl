@@ -152,7 +152,7 @@ runRawRealMode
 runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ do
     putText $ "Running listeners number: " <> show (length listeners)
     lift $ setupLoggers lp
-    modernDBs <- Modern.openNodeDBs npDbPathM npCustomUtxo
+    modernDBs <- Modern.openNodeDBs npRebuildDb npDbPathM npCustomUtxo
     initTip <- Modern.runDBHolder modernDBs Modern.getTip
     initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
     initNC <- sscCreateNodeContext @ssc sscnp

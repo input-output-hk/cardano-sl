@@ -3,6 +3,7 @@
 module Pos.Wallet.Tx.Pure
        ( makePubKeyTx
        , createTx
+       , getRelatedTxs
        , deriveAddrHistory
        , deriveAddrHistoryPartial
        ) where
@@ -110,10 +111,10 @@ ownOutputs addr = _txOutputs %~ filter ((== addr) . txOutAddress)
 
 type TxSelector = UtxoStateT Maybe
 
--- | Select transactions related to given address from block
-getRelatedTxs :: Address -> MainBlock ssc -> TxSelector [WithHash Tx]
-getRelatedTxs addr blk = do
-    txs <- lift $ topsortTxs identity (blk ^.. blockTxs . folded . to withHash)
+-- | Select transactions related to given address
+getRelatedTxs :: Address -> [WithHash Tx] -> TxSelector [WithHash Tx]
+getRelatedTxs addr txs = do
+    txs <- lift $ topsortTxs identity txs
     flip filterM txs $ \wtx -> do
         applyTxToUtxo $ wtx & _whData %~ ownOutputs addr
         relatedToAddress addr $ whData wtx
@@ -136,5 +137,5 @@ deriveAddrHistoryPartial hist addr chain =
   where
     updateAll (Left _) hst = pure hst
     updateAll (Right blk) hst = do
-        txs <- getRelatedTxs addr blk
+        txs <- getRelatedTxs addr $ blk ^.. blockTxs . folded . to withHash
         return $ DL.fromList txs <> hst

@@ -15,9 +15,11 @@ module Pos.Context.Class
        , withProxyCaches
        , invalidateProxyCaches
 
-       , readRichmen
        , readLeaders
+       , readRichmen
        , tryReadLeaders
+       , putLeaders
+       , putRichmen
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
@@ -32,7 +34,7 @@ import           Pos.Context.Context     (NodeContext (..), ProxyCaches, ncProxy
                                           ncProxyConfCache, ncProxyMsgCache)
 import           Pos.DHT.Model           (DHTResponseT)
 import           Pos.DHT.Real            (KademliaDHT)
-import           Pos.Types               (HeaderHash, Participants, SlotLeaders)
+import           Pos.Types               (HeaderHash, Richmen, SlotLeaders)
 
 -- | Class for something that has 'NodeContext' inside.
 class WithNodeContext ssc m | m -> ssc where
@@ -107,7 +109,7 @@ invalidateProxyCaches = withProxyCaches $ \p -> do
 -- participants are not available.
 readRichmen
     :: (MonadIO m, WithNodeContext ssc m)
-    => m Participants
+    => m Richmen
 readRichmen = getNodeContext >>= liftIO . readMVar . ncSscRichmen
 
 -- | Read slot leaders from node context. This function blocks if
@@ -123,3 +125,15 @@ tryReadLeaders
     :: (MonadIO m, WithNodeContext ssc m)
     => m (Maybe SlotLeaders)
 tryReadLeaders = getNodeContext >>= liftIO . tryReadMVar . ncSscLeaders
+
+-- | Put richmen into MVar, assuming it's empty.
+putRichmen
+    :: (MonadIO m, WithNodeContext ssc m)
+    => Richmen -> m ()
+putRichmen richmen = getNodeContext >>= liftIO . flip putMVar richmen . ncSscRichmen
+
+-- | Put leaders into MVar, assuming it's empty.
+putLeaders
+    :: (MonadIO m, WithNodeContext ssc m)
+    => SlotLeaders -> m ()
+putLeaders leaders = getNodeContext >>= liftIO . flip putMVar leaders . ncSscLeaders

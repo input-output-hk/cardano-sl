@@ -12,12 +12,16 @@ import           Formatting              (build, sformat, (%))
 import           System.Wlog             (logError, logInfo)
 import           Universum
 
-import           Pos.Context             (NodeContext (..), getNodeContext, ncPublicKey)
+import           Pos.Constants           (k)
+import           Pos.Context             (NodeContext (..), getNodeContext, ncPublicKey,
+                                          putLeaders, putRichmen)
+import qualified Pos.DB                  as DB
 import           Pos.DB.Utxo             (getTip)
 import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
+import           Pos.Slotting            (getCurrentSlot)
 import           Pos.Ssc.Class           (SscConstraint)
 import           Pos.State               (initFirstSlot)
-import           Pos.Types               (Timestamp (Timestamp))
+import           Pos.Types               (SlotId (..), Timestamp (Timestamp))
 import           Pos.Util                (inAssertMode)
 import           Pos.Worker              (runWorkers)
 import           Pos.WorkMode            (WorkMode)
@@ -32,6 +36,7 @@ runNode plugins = do
     logInfo $ sformat ("Known peers: " % build) peers
 
     initSemaphore
+    initLrc
 --    initSsc
     initFirstSlot
     waitSystemStart
@@ -55,6 +60,14 @@ initSemaphore = do
         (logError "ncBlkSemaphore is not empty at the very beginning")
     tip <- getTip
     liftIO $ putMVar semaphore tip
+
+initLrc :: WorkMode ssc m => m ()
+initLrc = do
+    (epochIndex, leaders, richmen) <- DB.getLrc
+    SlotId {..} <- getCurrentSlot
+    when (siSlot < k && siEpoch == epochIndex) $ do
+        putLeaders leaders
+        putRichmen richmen
 
 -- initSsc :: WorkMode ssc m => m ()
 -- initSsc = do

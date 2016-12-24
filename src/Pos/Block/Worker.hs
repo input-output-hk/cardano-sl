@@ -14,52 +14,51 @@ module Pos.Block.Worker
        , blkWorkers
        ) where
 
-import           Control.Lens                  (ix, (^.), (^?))
-import           Control.TimeWarp.Timed        (Microsecond, for, repeatForever, wait)
-import           Data.Default                  (def)
-import qualified Data.HashMap.Strict           as HM
-import           Formatting                    (build, sformat, shown, (%))
-import           Serokell.Util                 (VerificationRes (..), listJson)
-import           Serokell.Util.Exceptions      ()
-import           System.Wlog                   (WithLogger, dispatchEvents, logDebug,
-                                                logError, logInfo, logWarning)
+import           Control.Lens               (ix, (^.), (^?))
+import           Control.TimeWarp.Timed     (Microsecond, for, repeatForever, wait)
+import           Data.Default               (def)
+import qualified Data.HashMap.Strict        as HM
+import           Formatting                 (build, sformat, shown, (%))
+import           Serokell.Util              (VerificationRes (..), listJson)
+import           Serokell.Util.Exceptions   ()
+import           System.Wlog                (WithLogger, dispatchEvents, logDebug,
+                                             logError, logInfo, logWarning)
 import           Universum
 
-import           Pos.Binary.Communication      ()
+import           Pos.Binary.Communication   ()
 #ifdef MODERN
-import           Pos.Block.Network.Announce    (announceBlock)
-import           Pos.Communication.Types.Block (MsgHeaders (..))
+import           Pos.Block.Network.Announce (announceBlock)
+import           Pos.Block.Network.Types    (MsgHeaders (..))
 #endif
 #ifndef MODERN
-import           Pos.Communication.Methods     (announceBlock)
+import           Pos.Communication.Methods  (announceBlock)
 #endif
-import           Pos.Constants                 (networkDiameter, slotDuration)
-import           Pos.Context                   (getNodeContext, ncPropagation,
-                                                ncPublicKey, ncSecretKey)
-import           Pos.Crypto                    (ProxySecretKey, WithHash (WithHash),
-                                                pskIssuerPk, pskOmega)
-import           Pos.DB.Misc                   (getProxySecretKeys)
-import           Pos.Slotting                  (MonadSlots (getCurrentTime), getSlotStart,
-                                                onNewSlot)
-import           Pos.Ssc.Class                 (SscHelpersClass, sscApplyGlobalState,
-                                                sscGetLocalPayload)
+import           Pos.Constants              (networkDiameter, slotDuration)
+import           Pos.Context                (getNodeContext, ncPropagation, ncPublicKey,
+                                             ncSecretKey)
+import           Pos.Crypto                 (ProxySecretKey, WithHash (WithHash),
+                                             pskIssuerPk, pskOmega)
+import           Pos.DB.Misc                (getProxySecretKeys)
+import           Pos.Slotting               (MonadSlots (getCurrentTime), getSlotStart,
+                                             onNewSlot)
+import           Pos.Ssc.Class              (SscHelpersClass)
+import           Pos.Ssc.Extra.MonadLD      (sscApplyGlobalState, sscGetLocalPayload)
 #ifdef MODERN
-import           Pos.Block.Logic               (createGenesisBlock, createMainBlock)
-import           Pos.Context.Class             (tryReadLeaders)
+import           Pos.Block.Logic            (createGenesisBlock, createMainBlock)
+import           Pos.Context.Class          (tryReadLeaders)
 #else
-import           Pos.State                     (createNewBlock, getGlobalMpcData,
-                                                getHeadBlock, getLeaders, processNewSlot)
+import           Pos.State                  (createNewBlock, getGlobalMpcData,
+                                             getHeadBlock, getLeaders, processNewSlot)
 #endif
-import           Pos.Txp.LocalData             (getLocalTxs)
-import           Pos.Types                     (EpochIndex, MainBlock, MainBlockHeader,
-                                                SlotId (..), Timestamp (Timestamp),
-                                                VerifyBlockParams (..), blockMpc,
-                                                gbHeader, slotIdF, topsortTxs,
-                                                verifyBlock)
-import           Pos.Types.Address             (addressHash)
-import           Pos.Util                      (inAssertMode, logWarningWaitLinear)
-import           Pos.Util.JsonLog              (jlCreatedBlock, jlLog)
-import           Pos.WorkMode                  (WorkMode)
+import           Pos.Txp.LocalData          (getLocalTxs)
+import           Pos.Types                  (EpochIndex, MainBlock, MainBlockHeader,
+                                             SlotId (..), Timestamp (Timestamp),
+                                             VerifyBlockParams (..), blockMpc, gbHeader,
+                                             slotIdF, topsortTxs, verifyBlock)
+import           Pos.Types.Address          (addressHash)
+import           Pos.Util                   (inAssertMode, logWarningWaitLinear)
+import           Pos.Util.JsonLog           (jlCreatedBlock, jlLog)
+import           Pos.WorkMode               (WorkMode)
 
 -- | All workers specific to block processing.
 blkWorkers :: WorkMode ssc m => [m ()]

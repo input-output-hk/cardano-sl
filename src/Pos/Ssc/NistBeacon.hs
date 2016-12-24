@@ -34,7 +34,7 @@ import           Pos.Crypto              (Threshold, deterministicVssKeyGen,
 import           Pos.FollowTheSatoshi    (followTheSatoshi)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Listeners (SscListenersClass (..))
-import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..), SscLocalDataClassM (..))
+import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage   (HasSscStorage (..), SscQuery,
                                           SscStorageClass (..), SscStorageClassM (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
@@ -71,7 +71,6 @@ instance Ssc SscNistBeacon where
 
     -- Modern
     type SscGlobalStateM SscNistBeacon = ()
-    type SscLocalDataM SscNistBeacon = ()
 
 instance SscStorageClass SscNistBeacon where
     sscApplyBlocks _ = pass
@@ -119,11 +118,6 @@ instance SscLocalDataClass SscNistBeacon where
 ----------------------------------------------------------------------------
 -- Modern
 ----------------------------------------------------------------------------
-
-instance SscLocalDataClassM SscNistBeacon where
-    sscEmptyLocalDataM = ()
-    sscGetLocalPayloadMQ _ = pure ()
-    sscApplyGlobalStateMU _ = pure ()
 
 instance SscStorageClassM SscNistBeacon where
     sscLoadGlobalState _ = pure ()

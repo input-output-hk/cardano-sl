@@ -38,7 +38,7 @@ import           Pos.WorkMode                (WorkMode)
 #ifdef MODERN
 import           Pos.Txp.Class               (MonadTxpLD (getMemPool))
 import           Pos.Txp.Logic               (processTx)
-import           Pos.Txp.Storage.Types       (MemPool (..), TxMap)
+import           Pos.Txp.Types.Types         (MemPool (..), TxMap)
 #else
 import           Pos.Ssc.Class               (WorkModeSsc)
 import           Pos.Txp.LocalData           (MonadTxLD, getLocalTxs,

@@ -24,7 +24,6 @@ type WorkModeSsc ssc =
     ( SscStorageMode ssc
     , SscStorageClassM ssc
     , SscLocalDataClass ssc
-    , SscLocalDataClassM ssc
     , SscHelpersClass ssc
     )
 

@@ -353,8 +353,6 @@ library
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
 
-  cpp-options: -DMODERN
-
 executable cardano-node
   hs-source-dirs:      src/node
   main-is:             Main.hs

@@ -49,8 +49,8 @@ import           Pos.Txp.LocalData             (MonadTxLD (..), _txLocalTxs)
 import           Pos.Types                     (execUtxoStateT)
 import           Pos.Wallet.Tx.Pure            (getRelatedTxs)
 #endif
-import           Pos.Types                     (Address, Coin, IdTxWitness, Tx, Utxo,
-                                                evalUtxoStateT, toPair, txOutValue)
+import           Pos.Types                     (Address, Coin, IdTxWitness, Tx, TxId,
+                                                Utxo, evalUtxoStateT, toPair, txOutValue)
 import           Pos.Types.Utxo.Functions      (belongsTo, filterUtxoByAddr)
 import           Pos.WorkMode                  (TxLDImpl (..))
 import           Pos.WorkMode                  (MinWorkMode)
@@ -110,10 +110,10 @@ deriving instance MonadBalances m => MonadBalances (Modern.TxpLDHolder ssc m)
 
 -- | A class which have methods to get transaction history
 class Monad m => MonadTxHistory m where
-    getTxHistory :: Address -> m [WithHash Tx]
+    getTxHistory :: Address -> m [(TxId, Tx, Bool)]
     saveTx :: IdTxWitness -> m ()
 
-    default getTxHistory :: MonadTrans t => Address -> t m [WithHash Tx]
+    default getTxHistory :: MonadTrans t => Address -> t m [(TxId, Tx, Bool)]
     getTxHistory = lift . getTxHistory
 
     default saveTx :: MonadTrans t => IdTxWitness -> t m ()

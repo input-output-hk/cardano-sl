@@ -4,37 +4,29 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Modern.Ssc.GodTossing.Helpers
-       ( calculateSeedQ
-       , getOurShares
+       (
+         getOurShares
        ) where
-import           Control.Lens                 (view)
-import           Crypto.Random                (drgNewSeed, seedNew, withDRG)
-import qualified Data.HashMap.Strict          as HM
-import           Data.List.NonEmpty           (nonEmpty)
-import           Formatting                   (build, sformat, (%))
-import           System.Wlog                  (HasLoggerName, dispatchEvents,
-                                               getLoggerName, logWarning, runPureLog,
-                                               usingLoggerName)
+import           Control.Lens             (view)
+import           Crypto.Random            (drgNewSeed, seedNew, withDRG)
+import qualified Data.HashMap.Strict      as HM
+import           Formatting               (build, sformat, (%))
+import           System.Wlog              (HasLoggerName, dispatchEvents, getLoggerName,
+                                           logWarning, runPureLog, usingLoggerName)
 import           Universum
 
-import           Pos.Context.Class            (readRichmen)
-import           Pos.Crypto                   (EncShare, Share, VssKeyPair, VssPublicKey,
-                                               decryptShare, toVssPublicKey)
-import           Pos.Ssc.Class.Storage        (SscGlobalQuery, SscImpureQuery)
-import           Pos.Ssc.Extra.MonadGS        (MonadSscGS, sscRunGlobalQuery)
-import           Pos.Ssc.GodTossing.Error     (SeedError)
-import           Pos.Ssc.GodTossing.Functions (getThreshold)
-import           Pos.Ssc.GodTossing.Seed      (calculateSeed)
-import           Pos.Ssc.GodTossing.Types     (Commitment (..), SscGodTossing,
-                                               VssCertificate (..))
-import           Pos.Types                    (Address (..), EpochIndex, SharedSeed)
-import           Pos.Util                     (AsBinary, asBinary, fromBinaryM)
-
-import           Pos.Ssc.GodTossing.Types     (gsCommitments, gsOpenings, gsShares,
-                                               gsVssCertificates)
+import           Pos.Crypto               (EncShare, Share, VssKeyPair, VssPublicKey,
+                                           decryptShare, toVssPublicKey)
+import           Pos.Ssc.Class.Storage    (SscGlobalQuery, SscImpureQuery)
+import           Pos.Ssc.Extra.MonadGS    (MonadSscGS, sscRunGlobalQuery)
+import           Pos.Ssc.GodTossing.Types (Commitment (..), SscGodTossing,
+                                           VssCertificate (..))
+import           Pos.Ssc.GodTossing.Types (gsCommitments, gsOpenings, gsShares,
+                                           gsVssCertificates)
+import           Pos.Types                (Address (..), EpochIndex, SharedSeed)
+import           Pos.Util                 (AsBinary, asBinary, fromBinaryM)
 
 type GSQuery a = SscGlobalQuery SscGodTossing a
-type GSImpureQuery a = SscImpureQuery SscGodTossing a
 
 -- | Get keys of nodes participating in an epoch. A node participates if,
 -- when there were 'k' slots left before the end of the previous epoch, both
@@ -54,17 +46,6 @@ type GSImpureQuery a = SscImpureQuery SscGodTossing a
 --         do keymap <- mKeymap
 --            let stakeholders =
 --                    nub $ map txOutAddress (toList utxo)
-
--- | Calculate leaders for the next epoch.
-calculateSeedQ :: EpochIndex -> GSImpureQuery (Either SeedError SharedSeed)
-calculateSeedQ _ = do
-    richmen <- readRichmen
-    keymap <- view gsVssCertificates
-    let participants =
-            nonEmpty $ map vcVssKey $ mapMaybe (`HM.lookup` keymap) $ toList richmen
-    let threshold = maybe (panic "No participants") (getThreshold . length) participants
-    calculateSeed threshold <$> view gsCommitments <*> view gsOpenings <*>
-        view gsShares
 
 ----------------------------------------------------------------------------
 -- Worker Helper

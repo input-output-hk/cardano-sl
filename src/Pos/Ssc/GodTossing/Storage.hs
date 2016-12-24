@@ -19,39 +19,42 @@ module Pos.Ssc.GodTossing.Storage
          getGlobalCertificates
        ) where
 
-import           Control.Lens                      (over, use, view, (%=), (.=), (^.), _1,
-                                                    _2)
-import           Control.Monad.IfElse              (whileM)
-import           Control.Monad.Reader              (ask)
-import           Data.Default                      (def)
-import qualified Data.HashMap.Strict               as HM
-import           Serokell.Util.Verify              (VerificationRes (..), isVerSuccess,
-                                                    verifyGeneric)
+import           Control.Lens                 (over, use, view, (%=), (.=), (^.), _1, _2)
+import           Control.Monad.IfElse         (whileM)
+import           Control.Monad.Reader         (ask)
+import           Data.Default                 (def)
+import qualified Data.HashMap.Strict          as HM
+import           Data.List.NonEmpty           (nonEmpty)
+import           Serokell.Util.Verify         (VerificationRes (..), isVerSuccess,
+                                               verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Ssc                    ()
-import           Pos.DB                            (MonadDB, getBlock)
-import           Pos.Modern.Ssc.GodTossing.Helpers (calculateSeedQ)
-import           Pos.Ssc.Class.Storage             (SscStorageClass (..))
-import           Pos.Ssc.Class.Types               (Ssc (..))
-import           Pos.Ssc.Extra.MonadGS             (MonadSscGS (..), sscRunGlobalQuery)
-import           Pos.Ssc.GodTossing.Functions      (checkOpeningMatchesCommitment,
-                                                    checkShares, isCommitmentIdx,
-                                                    isOpeningIdx, isSharesIdx,
-                                                    verifyGtPayload)
-import           Pos.Ssc.GodTossing.Genesis        (genesisCertificates)
-import           Pos.Ssc.GodTossing.Types          (GtGlobalState (..), GtPayload (..),
-                                                    SscGodTossing, VssCertificatesMap,
-                                                    gsCommitments, gsOpenings, gsShares,
-                                                    gsVssCertificates, _gpCertificates)
-import           Pos.State.Storage.Types           (AltChain)
-import           Pos.Types                         (Block, HeaderHash, SlotId (..),
-                                                    blockMpc, blockSlot, gbHeader,
-                                                    prevBlockL)
-import           Pos.Util                          (readerToState)
+import           Pos.Binary.Ssc               ()
+import           Pos.Context.Class            (readRichmen)
+import           Pos.DB                       (MonadDB, getBlock)
+import           Pos.Ssc.Class.Storage        (SscImpureQuery, SscStorageClass (..))
+import           Pos.Ssc.Class.Types          (Ssc (..))
+import           Pos.Ssc.Extra.MonadGS        (MonadSscGS (..), sscRunGlobalQuery)
+import           Pos.Ssc.GodTossing.Error     (SeedError)
+import           Pos.Ssc.GodTossing.Functions (checkOpeningMatchesCommitment, checkShares,
+                                               getThreshold, isCommitmentIdx,
+                                               isOpeningIdx, isSharesIdx, verifyGtPayload)
+import           Pos.Ssc.GodTossing.Genesis   (genesisCertificates)
+import           Pos.Ssc.GodTossing.Seed      (calculateSeed)
+import           Pos.Ssc.GodTossing.Types     (GtGlobalState (..), GtPayload (..),
+                                               SscGodTossing, VssCertificatesMap,
+                                               gsCommitments, gsOpenings, gsShares,
+                                               gsVssCertificates, vcVssKey,
+                                               _gpCertificates)
+import           Pos.State.Storage.Types      (AltChain)
+import           Pos.Types                    (Block, EpochIndex, HeaderHash, SharedSeed,
+                                               SlotId (..), blockMpc, blockSlot, gbHeader,
+                                               prevBlockL)
+import           Pos.Util                     (readerToState)
 
 type GSQuery a  = forall m . (MonadReader GtGlobalState m) => m a
 type GSUpdate a = forall m . (MonadState GtGlobalState m) => m a
+type GSImpureQuery a = SscImpureQuery SscGodTossing a
 
 instance SscStorageClass SscGodTossing where
     sscLoadGlobalState = mpcLoadGlobalState
@@ -251,3 +254,14 @@ mpcLoadGlobalState :: MonadDB SscGodTossing m => HeaderHash SscGodTossing -> m G
 mpcLoadGlobalState tip = do
     global <- fst <$> execStateT unionBlocks (def, tip)
     pure $ over gsVssCertificates (`HM.union` genesisCertificates) global
+
+-- | Calculate leaders for the next epoch.
+calculateSeedQ :: EpochIndex -> GSImpureQuery (Either SeedError SharedSeed)
+calculateSeedQ _ = do
+    richmen <- readRichmen
+    keymap <- view gsVssCertificates
+    let participants =
+            nonEmpty $ map vcVssKey $ mapMaybe (`HM.lookup` keymap) $ toList richmen
+    let threshold = maybe (panic "No participants") (getThreshold . length) participants
+    calculateSeed threshold <$> view gsCommitments <*> view gsOpenings <*>
+        view gsShares

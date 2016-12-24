@@ -49,13 +49,8 @@ module Pos.State.State
 
 import           Universum
 
-import           Crypto.Random            (drgNewSeed, seedNew, withDRG)
-import           Data.Acid                (EventResult, EventState, QueryEvent,
-                                           UpdateEvent)
 import           Data.Default             (Default)
-import qualified Data.HashMap.Strict      as HM
 import           Data.List.NonEmpty       (NonEmpty)
-import           Formatting               (build, sformat, (%))
 import           Pos.DHT.Model            (DHTResponseT)
 import           Pos.DHT.Real             (KademliaDHT)
 import           Serokell.Util            (VerificationRes)
@@ -65,8 +60,6 @@ import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
 
 import           Pos.Crypto               (ProxySecretKey, SecretKey, Share, VssKeyPair,
                                            VssPublicKey, decryptShare, toVssPublicKey)
-import           Pos.Slotting             (MonadSlots, getCurrentSlot)
-import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..))
 import           Pos.Ssc.Class.Types      (Ssc (SscGlobalState, SscPayload, SscStorage))
 import           Pos.State.Storage.Types  (ProcessBlockRes (..))

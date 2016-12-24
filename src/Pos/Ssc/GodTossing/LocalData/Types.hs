@@ -18,7 +18,6 @@ import           Control.Lens                  (makeLenses)
 import           Data.Default                  (Default (def))
 import           Universum
 
-import           Pos.Ssc.GodTossing.Genesis    (genesisCertificates)
 import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, PKSet,
                                                 SharesMap, VssCertificatesMap)
 import           Pos.Types                     (Address, SlotId, unflattenSlotId)

@@ -40,7 +40,8 @@ import           Pos.Txp.LocalData           (MonadTxLD (..))
 import           Pos.Txp.Types               (MemPool, UtxoView)
 import qualified Pos.Txp.Types.UtxoView      as UV
 import           Pos.Types                   (HeaderHash, MonadUtxo (..),
-                                              MonadUtxoRead (..), genesisHash)
+                                              MonadUtxoRead (..), TxId, TxOut,
+                                              genesisHash)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -50,6 +51,7 @@ data TxpLDWrap ssc = TxpLDWrap
     {
       utxoView :: !(STM.TVar (UtxoView ssc))
     , memPool  :: !(STM.TVar MemPool)
+    , undos    :: !(STM.TVar (HashMap TxId [TxOut]))
     , ldTip    :: !(STM.TVar (HeaderHash ssc))
     }
 
@@ -86,13 +88,21 @@ instance MonadIO m => MonadTxpLD ssc (TxpLDHolder ssc m) where
     setUtxoView uv = TxpLDHolder (asks utxoView) >>= atomically . flip STM.writeTVar uv
     getMemPool = TxpLDHolder (asks memPool) >>= atomically . STM.readTVar
     setMemPool mp = TxpLDHolder (asks memPool) >>= atomically . flip STM.writeTVar mp
+    getTxpLD = TxpLDHolder ask >>= \txld -> atomically $
+        (,,,) <$> STM.readTVar (utxoView txld)
+              <*> STM.readTVar (memPool txld)
+              <*> STM.readTVar (undos txld)
+              <*> STM.readTVar (ldTip txld)
     modifyTxpLD f = TxpLDHolder ask >>= \txld -> atomically $ do
                 curUV  <- STM.readTVar (utxoView txld)
                 curMP  <- STM.readTVar (memPool txld)
+                curUndos <- STM.readTVar (undos txld)
                 curTip <- STM.readTVar (ldTip txld)
-                let (res, (newUV, newMP, newTip)) = f (curUV, curMP, curTip)
+                let (res, (newUV, newMP, newUndos, newTip))
+                      = f (curUV, curMP, curUndos, curTip)
                 STM.writeTVar (utxoView txld) newUV
                 STM.writeTVar (memPool txld) newMP
+                STM.writeTVar (undos txld) newUndos
                 STM.writeTVar (ldTip txld) newTip
                 return res
 
@@ -116,6 +126,7 @@ runTxpLDHolder :: MonadIO m
 runTxpLDHolder uv initTip holder = TxpLDWrap
                        <$> liftIO (STM.newTVarIO uv)
                        <*> liftIO (STM.newTVarIO def)
+                       <*> liftIO (STM.newTVarIO mempty)
                        <*> liftIO (STM.newTVarIO initTip)
                        >>= runReaderT (getTxpLDHolder holder)
 
@@ -125,5 +136,6 @@ runLocalTxpLDHolder :: MonadIO m
 runLocalTxpLDHolder holder uv = TxpLDWrap
                        <$> liftIO (STM.newTVarIO uv)
                        <*> liftIO (STM.newTVarIO def)
+                       <*> liftIO (STM.newTVarIO mempty)
                        <*> liftIO (STM.newTVarIO genesisHash)
                        >>= runReaderT (getTxpLDHolder holder)

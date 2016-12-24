@@ -142,7 +142,7 @@ processTx itw@(_, (tx, _)) = do
       foldM (\s inp -> maybe s (\x -> HM.insert inp x s) <$> utxoGet inp)
             mempty (txInputs tx)
     db <- getUtxoDB
-    modifyTxpLD (\txld@(_, mp, tip) ->
+    modifyTxpLD (\txld@(_, mp, _, tip) ->
         let localSize = localTxsSize mp in
         if tipBefore == tip then
             if localSize < maxLocalTxs
@@ -154,11 +154,11 @@ processTx itw@(_, (tx, _)) = do
 
 processTxDo :: TxpLD ssc -> HM.HashMap TxIn TxOut -> DB ssc
             -> IdTxWitness -> (ProcessTxRes, TxpLD ssc)
-processTxDo ld@(uv, mp, tip) resolvedIns utxoDB (id, (tx, txw))
+processTxDo ld@(uv, mp, undos, tip) resolvedIns utxoDB (id, (tx, txw))
     | HM.member id locTxs = (PTRknown, ld)
     | otherwise =
         case verifyRes of
-            Right _     -> newState addUtxo' delUtxo' locTxs locTxsSize
+            Right _     -> newState addUtxo' delUtxo' locTxs locTxsSize undos
             Left errors -> (PTRinvalid errors, ld)
   where
     verifyRes =
@@ -172,14 +172,19 @@ processTxDo ld@(uv, mp, tip) resolvedIns utxoDB (id, (tx, txw))
         | otherwise =
             VTxLocalContext <$>
             maybe (HM.lookup tin addUtxo') Just (HM.lookup tin resolvedIns)
-    newState nAddUtxo nDelUtxo oldTxs oldSize =
+    prependToUndo undo inp =
+        fromMaybe (panic "Input not resolved")
+                  (HM.lookup inp resolvedIns) : undo
+    newState nAddUtxo nDelUtxo oldTxs oldSize oldUndos =
         let keys = zipWith TxIn (repeat id) [0 ..]
             zipKeys = zip keys (txOutputs tx)
             newAddUtxo' = foldl' (flip $ uncurry HM.insert) nAddUtxo zipKeys
             newDelUtxo' = foldl' (flip HS.insert) nDelUtxo (txInputs tx)
+            newUndos = HM.insert id (reverse $ foldl' prependToUndo [] (txInputs tx)) oldUndos
         in ( PTRadded
            , ( UtxoView newAddUtxo' newDelUtxo' utxoDB
              , MemPool (HM.insert id (tx, txw) oldTxs) (oldSize + 1)
+             , newUndos
              , tip))
 
 -- | Head of list is the youngest block
@@ -217,9 +222,11 @@ txRollbackBlock (block, undo) = do
 
 -- | Remove from mem pool transactions from block
 filterMemPool :: MonadTxpLD ssc m => [(TxId, Tx)]  -> m ()
-filterMemPool txs = modifyTxpLD_ (\(uv, mp, tip) ->
-    let newMPTxs = (localTxs mp) `HM.difference` (HM.fromList txs) in
-    (uv, MemPool newMPTxs (HM.size newMPTxs), tip))
+filterMemPool txs = modifyTxpLD_ (\(uv, mp, undos, tip) ->
+    let blkTxs = HM.fromList txs
+        newMPTxs = (localTxs mp) `HM.difference` blkTxs
+        newUndos = undos `HM.difference` blkTxs in
+    (uv, MemPool newMPTxs (HM.size newMPTxs), newUndos, tip))
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Removed from MemPool invalid transactions
@@ -227,24 +234,26 @@ normalizeTxpLD :: (MonadDB ssc m, MonadTxpLD ssc m)
                => m ()
 normalizeTxpLD = do
     utxoTip <- getTip
-    mpTxs <- HM.toList . localTxs <$> getMemPool
+    (_, memPool, undos, _) <- getTxpLD
+    let mpTxs = HM.toList . localTxs $ memPool
     emptyUtxoView <- UV.createFromDB <$> getUtxoDB
     let emptyMemPool = MemPool mempty 0
     maybe
-        (setTxpLD (emptyUtxoView, emptyMemPool, utxoTip))
+        (setTxpLD (emptyUtxoView, emptyMemPool, mempty, utxoTip))
         (\topsorted -> do
-             (validTxs, newUtxoView) -- we run this code in temporary TxpLDHolder
-                  <-
+             -- we run this code in temporary TxpLDHolder
+             (validTxs, newUtxoView) <-
                  runLocalTxpLDHolder (findValid topsorted) emptyUtxoView
-             setTxpLD (newState newUtxoView validTxs utxoTip))
+             setTxpLD $ newState newUtxoView validTxs undos utxoTip)
         (topsortTxs (\(i, (t, _)) -> WithHash t i) mpTxs)
   where
     findValid topsorted = do
         validTxs' <- foldlM canApply [] topsorted
         newUtxoView' <- getUtxoView
         return (validTxs', newUtxoView')
-    newState newUtxoView validTxs utxoTip =
-        (newUtxoView, MemPool (HM.fromList validTxs) (length validTxs), utxoTip)
+    newState newUtxoView validTxs undos utxoTip =
+        let newTxs = HM.fromList validTxs in
+        (newUtxoView, MemPool newTxs (length validTxs), undos, utxoTip)
     canApply xs itw@(_, (tx, txw)) = do
         -- Pure checks are not done here, because they are done
         -- earlier, when we accept transaction.

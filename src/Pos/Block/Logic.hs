@@ -34,6 +34,7 @@ import           Control.Monad.Catch       (onException)
 import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
+import qualified Data.HashMap.Strict       as HM
 import           Data.List.NonEmpty        (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
@@ -55,7 +56,7 @@ import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class             (Ssc (..))
 import           Pos.Ssc.Extra             (sscApplyBlocks, sscGetLocalPayloadM,
                                             sscRollback, sscVerifyBlocks)
-import           Pos.Txp.Class             (getLocalTxs)
+import           Pos.Txp.Class             (getLocalTxsNUndo)
 import           Pos.Txp.Logic             (txApplyBlocks, txRollbackBlocks,
                                             txVerifyBlocks)
 import           Pos.Types                 (Block, BlockHeader, Blund, EpochIndex,
@@ -424,15 +425,18 @@ createMainBlockFinish
     -> BlockHeader ssc
     -> m (MainBlock ssc)
 createMainBlockFinish slotId pSk prevHeader = do
-    localTxs <- getLocalTxs
+    (localTxs, localUndo) <- getLocalTxsNUndo
     sscData <- sscGetLocalPayloadM slotId
     let panicTopsort = panic "Topology of local transactions is broken!"
     let convertTx (txId, (tx, _)) = WithHash tx txId
     let sortedTxs = fromMaybe panicTopsort $ topsortTxs convertTx localTxs
     sk <- ncSecretKey <$> getNodeContext
     let blk = createMainBlockPure prevHeader sortedTxs pSk slotId sscData sk
-    -- [CSL-403] Obtain Undo.
-    blk <$ applyBlocks (pure (Right blk, []))
+    let prependToUndo undos tx =
+            fromMaybe (panic "Undo for tx not found")
+                      (HM.lookup (fst tx) localUndo) : undos
+    let blockUndo = reverse $ foldl' prependToUndo [] localTxs
+    blk <$ applyBlocks (pure (Right blk, blockUndo))
 
 createMainBlockPure
     :: Ssc ssc

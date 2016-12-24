@@ -16,20 +16,19 @@ module Pos.Txp.LocalData
        , txLocalDataProcessTx
        ) where
 
-import           Control.Lens            (makeClassy, use, uses, view, (%=), (+=), (-=),
-                                          (.=))
-import           Control.Monad.Trans     (MonadTrans)
-import qualified Data.Cache.LRU          as LRU
-import           Data.Default            (Default (..))
-import qualified Data.HashMap.Strict     as HM
-import           Serokell.Util           (VerificationRes (..))
+import           Control.Lens        (makeClassy, use, uses, view, (%=), (+=), (-=), (.=))
+import           Control.Monad.Trans (MonadTrans)
+import qualified Data.Cache.LRU      as LRU
+import           Data.Default        (Default (..))
+import qualified Data.HashMap.Strict as HM
+import           Serokell.Util       (VerificationRes (..))
 import           Universum
 
-import           Pos.Constants           (maxLocalTxs)
-import           Pos.State.Storage.Types (ProcessTxRes (..), mkPTRinvalid)
-import           Pos.Types               (IdTxWitness, Tx (..), TxId, TxWitness, Utxo,
-                                          normalizeTxsPure', verifyTxUtxoPure)
-import           Pos.Util                (clearLRU)
+import           Pos.Constants       (maxLocalTxs)
+import           Pos.Txp.Types       (ProcessTxRes (..), mkPTRinvalid)
+import           Pos.Types           (IdTxWitness, Tx (..), TxId, TxWitness, Utxo,
+                                      normalizeTxsPure', verifyTxUtxoPure)
+import           Pos.Util            (clearLRU)
 
 type TxMap = HashMap TxId (Tx, TxWitness)
 

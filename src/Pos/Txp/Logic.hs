@@ -31,11 +31,12 @@ import           Pos.Crypto              (WithHash (..), hash, withHash)
 import           Pos.DB                  (DB, MonadDB, getUtxoDB)
 import           Pos.DB.Utxo             (BatchOp (..), getTip, writeBatchToUtxo)
 import           Pos.Ssc.Class.Types     (Ssc)
-import           Pos.State.Storage.Types (AltChain, ProcessTxRes (..), mkPTRinvalid)
-import           Pos.Txp.Class           (MonadTxpLD (..), TxpLD, getMemPool, getUtxoView)
+import           Pos.State.Storage.Types (AltChain)
+import           Pos.Txp.Class           (MonadTxpLD (..), TxpLD, getUtxoView)
 import           Pos.Txp.Error           (TxpError (..))
 import           Pos.Txp.Holder          (TxpLDHolder, runLocalTxpLDHolder)
 import           Pos.Txp.Types           (MemPool (..), UtxoView (..))
+import           Pos.Txp.Types.Types     (ProcessTxRes (..), mkPTRinvalid)
 import qualified Pos.Txp.Types.UtxoView  as UV
 import           Pos.Types               (Block, IdTxWitness, MonadUtxo,
                                           MonadUtxoRead (utxoGet), SlotId, Tx (..), TxId,

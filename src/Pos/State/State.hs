@@ -35,11 +35,9 @@ module Pos.State.State
 
        -- * Operations with effects.
        , ProcessBlockRes (..)
-       , ProcessTxRes (..)
        , createNewBlock
        , processBlock
        , processNewSlot
-       , processTx
 
        -- [CSL-103]: these function should be moved to GodTossing.
        -- * Functions for generating seed by SSC algorithm.
@@ -71,7 +69,7 @@ import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
 import           Pos.Ssc.Class.Types      (Ssc (SscGlobalState, SscPayload, SscStorage))
-import           Pos.State.Storage.Types  (ProcessBlockRes (..), ProcessTxRes (..))
+import           Pos.State.Storage.Types  (ProcessBlockRes (..))
 import           Pos.Statistics.StatEntry ()
 import           Pos.Types                (Address, Block, EpochIndex, GenesisBlock,
                                            HeaderHash, IdTxWitness, MainBlock,
@@ -196,10 +194,6 @@ createNewBlock :: QUConstraint ssc m
                -> SscPayload ssc
                -> m (Either Text (MainBlock ssc))
 createNewBlock = undefined
-
--- | Process transaction received from other party.
-processTx :: QUConstraint ssc m => (TxId, (Tx, TxWitness)) -> m ()
-processTx = undefined
 
 -- | Notify NodeState about beginning of new slot. Ideally it should
 -- be used before all other updates within this slot.

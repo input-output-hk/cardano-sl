@@ -9,8 +9,6 @@ module Pos.State.Storage.Types
        ( AltChain
        , ProcessBlockRes (..)
        , mkPBRabort
-       , ProcessTxRes (..)
-       , mkPTRinvalid
        ) where
 
 import           Control.Monad.Fail  (fail)
@@ -66,17 +64,3 @@ instance Ssc ssc => SafeCopy (ProcessBlockRes ssc) where
                PBRmore a  -> Cereal.putWord8 0 >> safePut a
                PBRgood a  -> Cereal.putWord8 1 >> safePut a
                PBRabort a -> Cereal.putWord8 2 >> safePut a
-
--- | Result of transaction processing
-data ProcessTxRes
-    = PTRadded -- ^ Transaction has ben successfully added to the storage
-    | PTRknown -- ^ Transaction is already in the storage (cache)
-    | PTRinvalid !Text -- ^ Can't add transaction
-    | PTRoverwhelmed -- ^ Local transaction storage is full -- can't accept more txs
-    deriving (Show, Eq)
-
-deriveSafeCopySimple 0 'base ''ProcessTxRes
-
--- | Similar to mkPBRabort
-mkPTRinvalid :: [Text] -> ProcessTxRes
-mkPTRinvalid = PTRinvalid . T.intercalate "; "

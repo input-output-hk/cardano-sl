@@ -26,7 +26,7 @@ import           Pos.Context                 (WithNodeContext)
 import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
                                               WithDefaultMsgHeader)
 import           Pos.Slotting                (MonadSlots)
-import           Pos.Ssc.Class               (MonadSscLD)
+import           Pos.Ssc.Extra.MonadLD       (MonadSscLD)
 import           Pos.State                   (MonadDB)
 import           Pos.Statistics              (MonadStats)
 import           Pos.Txp.LocalData           (MonadTxLD)

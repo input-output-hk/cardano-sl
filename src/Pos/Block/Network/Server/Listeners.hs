@@ -203,7 +203,7 @@ handleBlocksWithLca :: forall ssc m.
     => NonEmpty (Block ssc) -> HeaderHash ssc -> m ()
 handleBlocksWithLca blocks lcaHash = do
     -- Head block in result is the newest one.
-    toRollback <- loadBlocksFromTipWhile ((lcaHash /=) . headerHash)
+    toRollback <- loadBlocksFromTipWhile $ \blk _ -> headerHash blk /= lcaHash
     maybe (applyWithoutRollback blocks)
           (applyWithRollback blocks lcaHash)
           (nonEmpty toRollback)

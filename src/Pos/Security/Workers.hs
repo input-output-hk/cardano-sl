@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -17,17 +18,17 @@ import           Universum                         hiding (ask)
 import           Pos.Constants                     (k, mdNoBlocksSlotThreshold,
                                                     mdNoCommitmentsEpochThreshold)
 import           Pos.Context                       (getNodeContext, ncPublicKey)
+import           Pos.DB                            (getTipBlock, loadBlocksFromTipWhile)
 import           Pos.Slotting                      (onNewSlot)
 import           Pos.Ssc.Class.Types               (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types    (GtPayload (..), SscBi)
 import           Pos.Ssc.NistBeacon                (SscNistBeacon)
-import           Pos.State                         (getBlockByDepth, getHeadBlock)
 import           Pos.Types                         (EpochIndex, MainBlock, SlotId (..),
-                                                    blockMpc, flattenSlotId, gbHeader,
-                                                    gbhConsensus, gcdEpoch, headerSlot,
-                                                    makePubKeyAddress)
+                                                    blockHeader, blockMpc, flattenSlotId,
+                                                    gbHeader, gbhConsensus, gcdEpoch,
+                                                    headerSlot, makePubKeyAddress)
 import           Pos.WorkMode                      (WorkMode)
 
 class Ssc ssc => SecurityWorkersClass ssc where
@@ -47,7 +48,7 @@ reportAboutEclipsed = logWarning "We're doomed, we're eclipsed!"
 
 checkForReceivedBlocksWorker :: WorkMode ssc m => m ()
 checkForReceivedBlocksWorker = onNewSlot True $ \slotId -> do
-    headBlock <- getHeadBlock
+    headBlock <- getTipBlock
     case headBlock of
         Left genesis -> compareSlots slotId $ SlotId (genesis ^. gbHeader . gbhConsensus . gcdEpoch) 0
         Right blk    -> compareSlots slotId (blk ^. gbHeader . headerSlot)
@@ -78,11 +79,10 @@ checkCommitmentsInPreviousBlocks
     :: forall m. WorkMode SscGodTossing m
     => SlotId -> ReaderT (TVar EpochIndex) m ()
 checkCommitmentsInPreviousBlocks slotId = do
-    forM_ [0 .. k - 1] $ \depth -> do
-        headBlock <- getBlockByDepth depth
-        case headBlock of
-            Just (Right blk) -> checkCommitmentsInBlock slotId blk
-            _                -> return ()
+    kBlocks <- map fst <$> loadBlocksFromTipWhile (\_ depth -> depth < k)
+    forM_ kBlocks $ \case
+        Right blk -> checkCommitmentsInBlock slotId blk
+        _         -> return ()
 
 checkCommitmentsInBlock
     :: forall m. WorkMode SscGodTossing m

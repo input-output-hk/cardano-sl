@@ -77,7 +77,7 @@ lrcOnNewSlotDo SlotId {siEpoch = epochId} tip = tip <$ do
         liftIO $ putMVar leadersMVar leaders
     applyBlocks blockUndos
   where
-    whileMoreOrEq5k b = getEpochOrSlot b >= crucialSlot
+    whileMoreOrEq5k b _ = getEpochOrSlot b >= crucialSlot
     crucialSlot = EpochOrSlot $ Right $
                   if epochId == 0 then SlotId {siEpoch = 0, siSlot = 0}
                   else SlotId {siEpoch = epochId - 1, siSlot = 5 * k - 1}

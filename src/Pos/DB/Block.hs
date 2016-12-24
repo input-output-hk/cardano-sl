@@ -118,15 +118,14 @@ getBlockWithUndo hash =
 -- | Load blocks starting from block with header hash equals @hash@ and while @predicate@ is true.
 -- The head of returned list is the youngest block.
 loadBlocksWithUndoWhile :: (Ssc ssc, MonadDB ssc m)
-                        => HeaderHash ssc -> (Block ssc -> Bool) -> m [(Block ssc, Undo)]
-loadBlocksWithUndoWhile hash predicate = reverse <$> doIt hash
+                        => HeaderHash ssc -> (Block ssc -> Int -> Bool) -> m [(Block ssc, Undo)]
+loadBlocksWithUndoWhile hash predicate = reverse <$> doIt 0 hash
   where
-    doIt h = do
+    doIt depth h = do
         bu@(b, _) <- getBlockWithUndo h
-        if predicate b then
-            (bu:) <$> doIt (b ^. prevBlockL)
-        else
-            return []
+        if predicate b depth
+            then (bu:) <$> doIt (succ depth) (b ^. prevBlockL)
+            else pure []
 
 -- | Takes a starting header hash and queries blockchain until some
 -- condition is true or parent wasn't found. Returns headers newest

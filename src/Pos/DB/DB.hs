@@ -59,5 +59,7 @@ getTipBlockHeader = getBlockHeader <$> getTipBlock
 
 -- | Load blocks from BlockDB starting from tip and while @condition@ is true.
 -- The head of returned list is the youngest block.
-loadBlocksFromTipWhile :: (Ssc ssc, MonadDB ssc m) => (Block ssc -> Bool) -> m [(Block ssc, Undo)]
+loadBlocksFromTipWhile
+    :: (Ssc ssc, MonadDB ssc m)
+    => (Block ssc -> Int -> Bool) -> m [(Block ssc, Undo)]
 loadBlocksFromTipWhile condition = getTip >>= flip loadBlocksWithUndoWhile condition

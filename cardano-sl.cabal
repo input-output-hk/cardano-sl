@@ -42,6 +42,7 @@ library
                         Pos.CompileConfig
                         Pos.Constants
                         Pos.Crypto
+                        Pos.DB
                         Pos.DHT.Model
                         Pos.DHT.Model.Types
                         Pos.DHT.Model.Util
@@ -152,7 +153,6 @@ library
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
-                        Pos.DB
                         Pos.DB.Block
                         Pos.DB.Class
                         Pos.DB.DB

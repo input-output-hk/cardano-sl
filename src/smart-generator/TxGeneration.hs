@@ -8,6 +8,7 @@ module TxGeneration
        , peekTx
        , nextValidTx
        , resetBamboo
+       , isTxVerified
        ) where
 
 import           Control.Concurrent.STM.TArray (TArray)
@@ -20,10 +21,10 @@ import           Universum                     hiding (head)
 
 import           Pos.Constants                 (k, slotDuration)
 import           Pos.Crypto                    (SecretKey, hash, toPublic, unsafeHash)
+import           Pos.DB                        (getTxOut)
 import           Pos.Genesis                   (genesisAddresses, genesisSecretKeys)
-import           Pos.State                     (isTxVerified)
-import           Pos.Types                     (Tx (..), TxId, TxOut (..), TxWitness,
-                                                makePubKeyAddress)
+import           Pos.Types                     (Tx (..), TxId, TxIn (..), TxOut (..),
+                                                TxWitness, makePubKeyAddress)
 import           Pos.Wallet                    (makePubKeyTx)
 import           Pos.WorkMode                  (WorkMode)
 
@@ -60,10 +61,12 @@ data BambooPool = BambooPool
     }
 
 createBambooPool :: SecretKey -> (Tx, TxWitness) -> IO BambooPool
-createBambooPool sk (tx, w) = atomically $ BambooPool <$> newListArray (0, outputsN - 1) bamboos <*> newTVar 0
-    where outputsN = length $ txOutputs tx
-          bamboos = map ((tx, w) :) $
-                    map (genChain sk (hash tx) . fromIntegral) [0 .. outputsN - 1]
+createBambooPool sk (tx, w) =
+    atomically $ BambooPool <$> newListArray (0, outputsN - 1) bamboos <*> newTVar 0
+  where
+    outputsN = length $ txOutputs tx
+    bamboos = map ((tx, w) :) $
+              map (genChain sk (hash tx) . fromIntegral) [0 .. outputsN - 1]
 
 shiftTx :: BambooPool -> IO ()
 shiftTx BambooPool {..} = atomically $ do
@@ -91,6 +94,13 @@ curBambooTx bp@BambooPool {..} idx = atomically $
 peekTx :: BambooPool -> IO (Tx, TxWitness)
 peekTx bp = curBambooTx bp 0
 
+isTxVerified :: (WorkMode ssc m) => Tx -> m Bool
+isTxVerified tx = do
+    let txHash = hash tx
+        txOutputsAsInputs =
+            map (\i -> TxIn txHash (fromIntegral i)) $ [0..length (txOutputs tx)]
+    and <$> mapM (fmap isJust . getTxOut) txOutputsAsInputs
+
 nextValidTx
     :: WorkMode ssc m
     => BambooPool
@@ -99,13 +109,14 @@ nextValidTx
     -> m (Either (Tx, TxWitness) (Tx, TxWitness))
 nextValidTx bp curTps propThreshold = do
     curTx <- liftIO $ curBambooTx bp 1
-    isVer <- isTxVerified curTx
-    liftIO $ if isVer
+    isVer <- isTxVerified $ fst curTx
+    liftIO $
+        if isVer
         then do
-        shiftTx bp
-        nextBamboo bp curTps propThreshold
-        return $ Right curTx
+            shiftTx bp
+            nextBamboo bp curTps propThreshold
+            return $ Right curTx
         else do
-        parentTx <- peekTx bp
-        nextBamboo bp curTps propThreshold
-        return $ Left parentTx
+            parentTx <- peekTx bp
+            nextBamboo bp curTps propThreshold
+            return $ Left parentTx

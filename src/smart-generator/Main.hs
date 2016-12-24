@@ -35,7 +35,6 @@ import           Pos.Ssc.Class                   (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing              (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon              (SscNistBeacon)
 import           Pos.Ssc.SscAlgo                 (SscAlgo (..))
-import           Pos.State                       (isTxVerified)
 import           Pos.Statistics                  (NoStatsT (..))
 import           Pos.Types                       (Tx (..), TxWitness)
 import           Pos.Util.JsonLog                ()
@@ -47,7 +46,7 @@ import           TxAnalysis                      (checkWorker, createTxTimestamp
                                                   registerSentTx)
 import           TxGeneration                    (BambooPool, createBambooPool,
                                                   curBambooTx, initTransaction,
-                                                  nextValidTx, resetBamboo)
+                                                  isTxVerified, nextValidTx, resetBamboo)
 import           Util
 
 
@@ -62,7 +61,7 @@ seedInitTx recipShare bp initTx = do
     wait $ for slotDuration
     -- If next tx is present in utxo, then everything is all right
     tx <- liftIO $ curBambooTx bp 1
-    isVer <- isTxVerified tx
+    isVer <- isTxVerified $ fst tx
     if isVer
         then pure ()
         else seedInitTx recipShare bp initTx

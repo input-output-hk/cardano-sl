@@ -25,7 +25,7 @@ getAsciiString1b typeName limit = getWord8 >>= \sz -> do
     checkAscii (chr . fromIntegral -> c) =
         if isAscii c
            then return c
-           else fail $ "Not an asscii symbol in " ++ typeName ++ " " ++ show c
+           else fail $ "Not an ascii symbol in " ++ typeName ++ " " ++ show c
 
 putAsciiString1b :: [Char] -> Put
 putAsciiString1b str =  putWord8 (fromIntegral $ length str)

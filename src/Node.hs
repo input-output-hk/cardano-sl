@@ -57,7 +57,6 @@ import Mockable.SharedAtomic
 import Mockable.Exception
 import GHC.Generics (Generic)
 
-import Debug.Trace
 
 data Node (m :: * -> *) = Node {
        nodeLL      :: LL.Node m,
@@ -291,7 +290,7 @@ serialiseHeaderAndBody
 serialiseHeaderAndBody header body =
     serialise $ do
       Bin.put header
-      Bin.put body
+      Bin.put $ Bin.encode body
   where
     serialise = BS.toLazyByteStringWith
                  (BS.untrimmedStrategy 256 4096)
@@ -308,7 +307,7 @@ serialiseMsg name header body =
     serialise $ do
       Bin.put name
       Bin.put header
-      Bin.put body
+      Bin.put $ Bin.encode body
   where
     serialise = BS.toLazyByteStringWith
                  (BS.untrimmedStrategy 256 4096)
@@ -326,14 +325,12 @@ recvHeaderAndBody
     -> m (Input (header, body))
 recvHeaderAndBody channelIn = do
     headerInput <- recvNext channelIn
-    traceM "stage 1"
     forInput headerInput $ \header -> do
         rawBodyInput <- recvNext channelIn
-        traceM "stage 2"
-        forInput rawBodyInput $ \rawBody -> return $ Input (header, rawBody)
-            {-case Bin.runGet (optional get) rawBody of
-                Nothing   -> traceM "gore :(" >> return NoParse
-                Just body -> return $ Input (header, body)-}
+        forInput rawBodyInput $ \rawBody ->
+            case Bin.runGet (optional get) rawBody of
+                Nothing   -> return NoParse
+                Just body -> return $ Input (header, body)
   where
     forInput :: Input t -> (t -> m (Input a)) -> m (Input a)
     forInput End       _ = pure End

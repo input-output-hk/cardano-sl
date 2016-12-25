@@ -30,7 +30,7 @@ module Pos.Types.Utxo.Pure
        , verifyTxUtxoPure
        ) where
 
-import           Control.Lens             (at, over, use, view, (.=), _1)
+import           Control.Lens             (at, over, use, view, (.=), (^.), _1, _3)
 import           Control.Monad.Reader     (runReaderT)
 import           Control.Monad.Trans      (MonadTrans (..))
 import           Data.List                ((\\))
@@ -39,7 +39,8 @@ import           Universum
 
 import           Pos.Binary.Types         ()
 import           Pos.Crypto               (WithHash (..))
-import           Pos.Types.Types          (IdTxWitness, Tx, TxIn (..), TxWitness, Utxo)
+import           Pos.Types.Types          (Tx, TxAux, TxDistribution, TxId, TxIn (..),
+                                           TxWitness, Utxo)
 import           Pos.Types.Utxo.Class     (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Types.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', convertFrom',
                                            convertTo', verifyAndApplyTxsOld,
@@ -110,34 +111,34 @@ execUtxoState r = runIdentity . execUtxoStateT r
 ----------------------------------------------------------------------------
 
 -- | Pure version of applyTxToUtxo.
-applyTxToUtxoPure :: WithHash Tx -> Utxo -> Utxo
-applyTxToUtxoPure tx = execUtxoState $ applyTxToUtxo tx
+applyTxToUtxoPure :: WithHash Tx -> TxDistribution -> Utxo -> Utxo
+applyTxToUtxoPure tx d = execUtxoState $ applyTxToUtxo tx d
 
 -- | Pure version of applyTxToUtxo'.
-applyTxToUtxoPure' :: IdTxWitness -> Utxo -> Utxo
+applyTxToUtxoPure' :: (TxId, TxAux) -> Utxo -> Utxo
 applyTxToUtxoPure' w = execUtxoState $ applyTxToUtxo' w
 
 -- CHECK: @TxUtxoPure
 -- #verifyTxUtxo
 
 -- | Pure version of verifyTxUtxo.
-verifyTxUtxoPure :: Bool -> Utxo -> (Tx, TxWitness) -> VerificationRes
+verifyTxUtxoPure :: Bool -> Utxo -> TxAux -> VerificationRes
 verifyTxUtxoPure verifyAlone utxo txw =
     eitherToVerRes $ runUtxoReader (verifyTxUtxo verifyAlone txw) utxo
 
 -- CHECK: @verifyAndApplyTxsOldPure
 -- #verifyAndApplyTxsOld
 verifyAndApplyTxsOldPure
-    :: [(WithHash Tx, TxWitness)]
+    :: [(WithHash Tx, TxWitness, TxDistribution)]
     -> Utxo
-    -> Either Text ([(WithHash Tx, TxWitness)], Utxo)
+    -> Either Text ([(WithHash Tx, TxWitness, TxDistribution)], Utxo)
 verifyAndApplyTxsOldPure txws utxo =
     let (res, newUtxo) = runUtxoState (verifyAndApplyTxsOld txws) utxo
     in (, newUtxo) <$> res
 
 -- CHECK: @verifyAndApplyTxsOldPure'
 -- #verifyAndApplyTxsOld'
-verifyAndApplyTxsOldPure' :: [IdTxWitness] -> Utxo -> Either Text ([IdTxWitness], Utxo)
+verifyAndApplyTxsOldPure' :: [(TxId, TxAux)] -> Utxo -> Either Text ([(TxId, TxAux)], Utxo)
 verifyAndApplyTxsOldPure' txws utxo =
     let (res, newUtxo) = runUtxoState (verifyAndApplyTxsOld' txws) utxo
     in (, newUtxo) <$> res
@@ -146,23 +147,23 @@ verifyAndApplyTxsOldPure' txws utxo =
 -- | Takes the set of transactions and utxo, returns only those
 -- transactions that can be applied inside. Bonus -- returns them
 -- sorted (topographically).
-normalizeTxsPure :: [(WithHash Tx, TxWitness)] -> Utxo -> [(WithHash Tx, TxWitness)]
+normalizeTxsPure :: [(WithHash Tx, TxWitness, TxDistribution)] -> Utxo -> [(WithHash Tx, TxWitness, TxDistribution)]
 normalizeTxsPure = normGo []
   where
     -- checks if transaction can be applied, adds it to first arg and
     -- to utxo if ok, does nothing otherwise
-    canApply :: (WithHash Tx, TxWitness)
-             -> ([(WithHash Tx, TxWitness)], Utxo)
-             -> ([(WithHash Tx, TxWitness)], Utxo)
+    canApply :: (WithHash Tx, TxWitness, TxDistribution)
+             -> ([(WithHash Tx, TxWitness, TxDistribution)], Utxo)
+             -> ([(WithHash Tx, TxWitness, TxDistribution)], Utxo)
     canApply txw prev@(txws, utxo) =
         case verifyTxUtxoPure True utxo (over _1 whData txw) of
             VerFailure _ -> prev
-            VerSuccess   -> (txw : txws, fst txw `applyTxToUtxoPure` utxo)
+            VerSuccess   -> (txw : txws, applyTxToUtxoPure (txw^._1) (txw^._3) utxo)
 
-    normGo :: [(WithHash Tx, TxWitness)]
-           -> [(WithHash Tx, TxWitness)]
+    normGo :: [(WithHash Tx, TxWitness, TxDistribution)]
+           -> [(WithHash Tx, TxWitness, TxDistribution)]
            -> Utxo
-           -> [(WithHash Tx, TxWitness)]
+           -> [(WithHash Tx, TxWitness, TxDistribution)]
     normGo result pending curUtxo =
         let !(!canBeApplied, !newUtxo) = foldr' canApply ([], curUtxo) pending
             newPending = pending \\ canBeApplied
@@ -173,7 +174,7 @@ normalizeTxsPure = normGo []
 
 -- CHECK: @normalizeTxsPure'
 -- #normalizeTxsPure
-normalizeTxsPure' :: [IdTxWitness] -> Utxo -> [IdTxWitness]
+normalizeTxsPure' :: [(TxId, TxAux)] -> Utxo -> [(TxId, TxAux)]
 normalizeTxsPure' tx utxo =
     let converted = convertTo' tx in
     convertFrom' $ normalizeTxsPure converted utxo

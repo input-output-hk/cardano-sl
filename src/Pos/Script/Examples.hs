@@ -34,13 +34,11 @@ fromE = either (panic . toText) identity
 
 alwaysSuccessValidator :: Script
 alwaysSuccessValidator = fromE $ parseValidator $ unlines [
-    "data Unit = { Unit }",
     "validator : Int -> Comp Unit {",
-    "  validator x = success Unit }" ]
+    "  validator x = success MkUnit }" ]
 
 alwaysFailureValidator :: Script
 alwaysFailureValidator = fromE $ parseValidator $ unlines [
-    "data Unit = { Unit }",
     "validator : Int -> Comp Unit {",
     "  validator x = failure }" ]
 
@@ -62,12 +60,12 @@ intValidator = fromE $ parseValidator $ unlines [
     "    _ -> failure } }" ]
 
 goodIntRedeemer :: Script
-goodIntRedeemer = fromE $ parseRedeemer $ unlines [
+goodIntRedeemer = fromE $ parseRedeemer (Just intValidator) $ unlines [
     "redeemer : Comp Int {",
     "  redeemer = success 1 }" ]
 
 badIntRedeemer :: Script
-badIntRedeemer = fromE $ parseRedeemer $ unlines [
+badIntRedeemer = fromE $ parseRedeemer (Just intValidator) $ unlines [
     "redeemer : Comp Int {",
     "  redeemer = success 0 }" ]
 
@@ -83,7 +81,7 @@ stdlibValidator = fromE $ parseValidator $ unlines [
     "    _    -> failure } }" ]
 
 goodStdlibRedeemer :: Script
-goodStdlibRedeemer = fromE $ parseRedeemer $ unlines [
+goodStdlibRedeemer = fromE $ parseRedeemer (Just stdlibValidator) $ unlines [
     "redeemer : Comp Bool {",
     "  redeemer = success (not False) }" ]
 
@@ -102,7 +100,7 @@ intValidatorWithBlah = fromE $ parseValidator $ unlines [
     "  blah x = x }" ]
 
 goodIntRedeemerWithBlah :: Script
-goodIntRedeemerWithBlah = fromE $ parseRedeemer $ unlines [
+goodIntRedeemerWithBlah = fromE $ parseRedeemer Nothing $ unlines [
     "redeemer : Comp Int {",
     "  redeemer = success 1 }",
     "blah : Int -> Int {",

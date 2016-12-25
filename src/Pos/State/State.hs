@@ -58,16 +58,17 @@ import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            dispatchEvents, getLoggerName, logWarning,
                                            runPureLog, usingLoggerName)
 
-import           Pos.Crypto               (ProxySecretKey, SecretKey, Share, VssKeyPair,
-                                           VssPublicKey, decryptShare, toVssPublicKey)
+import           Pos.Crypto               (ProxySecretKey, PublicKey, SecretKey, Share,
+                                           VssKeyPair, VssPublicKey, decryptShare,
+                                           toVssPublicKey)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..))
 import           Pos.Ssc.Class.Types      (Ssc (SscGlobalState, SscPayload, SscStorage))
 import           Pos.State.Storage.Types  (ProcessBlockRes (..))
 import           Pos.Statistics.StatEntry ()
-import           Pos.Types                (Address, Block, EpochIndex, GenesisBlock,
-                                           HeaderHash, IdTxWitness, MainBlock,
-                                           MainBlockHeader, SlotId, SlotLeaders, Tx, TxId,
-                                           TxWitness, Utxo)
+import           Pos.Types                (Block, EpochIndex, GenesisBlock, HeaderHash,
+                                           MainBlock, MainBlockHeader, SlotId,
+                                           SlotLeaders, TxAux, TxId, TxId, Utxo)
+import           Pos.Types.Address        (AddressHash)
 import           Pos.Util                 (AsBinary, asBinary, fromBinaryM)
 
 -- | NodeState encapsulates all the state stored by node.
@@ -161,7 +162,7 @@ getOldestUtxo :: QUConstraint ssc m => m Utxo
 getOldestUtxo = undefined
 
 -- | Checks if tx is verified
-isTxVerified :: QUConstraint ssc m => (Tx, TxWitness) -> m Bool
+isTxVerified :: QUConstraint ssc m => TxAux -> m Bool
 isTxVerified = undefined
 
 -- | Get global SSC data.
@@ -180,7 +181,7 @@ mayBlockBeUseful = undefined
 -- | Create new block on top of currently known best chain, assuming
 -- we are slot leader.
 createNewBlock :: QUConstraint ssc m
-               => [IdTxWitness]
+               => [(TxId, TxAux)]
                -> SecretKey
                -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
                -> SlotId
@@ -195,7 +196,7 @@ processNewSlot = undefined
 
 -- | Process some Block received from the network.
 processBlock :: (QUConstraint ssc m)
-             => [IdTxWitness]
+             => [(TxId, TxAux)]
              -> SlotId
              -> Block ssc
              -> m (ProcessBlockRes ssc)
@@ -216,5 +217,5 @@ getParticipants = undefined
 -- decrypt.
 getOurShares
     :: QULConstraint ssc m
-    => VssKeyPair -> m (HashMap Address Share)
+    => VssKeyPair -> m (HashMap (AddressHash PublicKey) Share)
 getOurShares = undefined

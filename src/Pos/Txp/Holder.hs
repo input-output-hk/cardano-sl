@@ -40,11 +40,10 @@ import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..),
                                               MonadSscLDM (..))
 import           Pos.Txp.Class               (MonadTxpLD (..), TxpLDWrap (..))
-import           Pos.Txp.Types               (MemPool, UtxoView)
+import           Pos.Txp.Types               (UtxoView)
 import qualified Pos.Txp.Types.UtxoView      as UV
 import           Pos.Types                   (HeaderHash, MonadUtxo (..),
-                                              MonadUtxoRead (..), TxId, TxOut,
-                                              genesisHash)
+                                              MonadUtxoRead (..), genesisHash)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------

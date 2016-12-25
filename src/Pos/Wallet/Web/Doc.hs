@@ -27,6 +27,7 @@ import qualified Servant.Docs               as SD
 import           Universum
 
 import           Pos.Aeson.ClientTypes      ()
+import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Genesis                (genesisAddresses, genesisUtxo)
 import           Pos.Types                  (Address, Coin, Tx (..), TxIn (..))
 import           Pos.Wallet.Web.Api         (walletApi)
@@ -125,5 +126,5 @@ instance ToSample () where
     toSamples Proxy = singleSample ()
 
 instance ToSample Tx where
-    toSamples Proxy = singleSample $ Tx [TxIn hsh idx] [out]
-      where ((hsh, idx), out) = M.toList (genesisUtxo def) !! 0
+    toSamples Proxy = singleSample $ Tx [TxIn hsh idx] [out] (mkAttributes ())
+      where ((hsh, idx), (out, _)) = M.toList (genesisUtxo def) !! 0

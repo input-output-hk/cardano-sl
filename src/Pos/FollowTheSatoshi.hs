@@ -17,14 +17,15 @@ import           Universum
 import           Pos.Constants      (epochSlots)
 import           Pos.Crypto         (PublicKey, deterministic, randomNumber)
 import           Pos.Types.Address  (AddressHash)
-import           Pos.Types.Types    (Coin (..), SharedSeed (..), TxOut (..), Utxo,
+import           Pos.Types.Types    (Coin (..), SharedSeed (..), TxOutAux, Utxo,
                                      txOutStake)
 import           Pos.Util.Iterator  (ListHolder, MonadIterator (..), runListHolder)
 
 -- | A version of 'followTheSatoshi' that uses an iterator over 'TxOut's
 -- instead of 'Utxo'.
-followTheSatoshiM :: forall m . MonadIterator m TxOut
-                  => SharedSeed -> Coin -> m (NonEmpty (AddressHash PublicKey))
+followTheSatoshiM
+    :: forall m. MonadIterator m TxOutAux
+    => SharedSeed -> Coin -> m (NonEmpty (AddressHash PublicKey))
 followTheSatoshiM (SharedSeed seed) totalCoins = do
     res <- findLeaders (sortOn fst $ zip coinIndices [1..]) 0 []
     pure . fromList . map fst . sortOn snd $ res
@@ -51,7 +52,7 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
         mbOut <- curItem
         stake <- case mbOut of
             Nothing -> panic "followTheSatoshiM: indices out of range"
-            Just out -> do _ <- nextItem @_ @TxOut
+            Just out -> do _ <- nextItem @_ @TxOutAux
                            return (txOutStake out)
         findLeaders cs sm stake
     -- We check whether `c` is covered by current item in the buffer
@@ -82,7 +83,7 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
 followTheSatoshi :: SharedSeed -> Utxo -> NonEmpty (AddressHash PublicKey)
 followTheSatoshi seed utxo
     | null outputs = panic "followTheSatoshi: utxo is empty"
-    | otherwise    = runListHolder (followTheSatoshiM @(ListHolder TxOut) seed totalCoins) outputs
+    | otherwise    = runListHolder (followTheSatoshiM @(ListHolder TxOutAux) seed totalCoins) outputs
   where
     outputs = toList utxo
     totalCoins = sum (map snd (concatMap txOutStake outputs))

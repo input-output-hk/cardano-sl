@@ -14,7 +14,7 @@ import           Control.TimeWarp.Rpc (Message (..), messageName')
 import           Data.List.NonEmpty   (NonEmpty)
 import           Universum
 
-import           Pos.Types            (Tx, TxId, TxWitness)
+import           Pos.Types            (Tx, TxDistribution, TxId, TxWitness)
 
 ----------------------------------------------------------------------------
 -- Inventory, Request and Data messages
@@ -42,8 +42,9 @@ instance Message TxReqMsg where
 
 -- | Data message. Can be used to send one transaction per message.
 data TxDataMsg = TxDataMsg
-    { dmTx      :: !Tx
-    , dmWitness :: !TxWitness
+    { dmTx           :: !Tx
+    , dmWitness      :: !TxWitness
+    , dmDistribution :: !TxDistribution
     } deriving (Generic)
 
 instance Message TxDataMsg where

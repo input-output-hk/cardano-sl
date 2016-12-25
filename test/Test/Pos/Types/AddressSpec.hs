@@ -19,6 +19,6 @@ spec = describe "Address" $ do
 pkAndShAreShownDifferently :: Int -> Bool
 pkAndShAreShownDifferently x =
     (show (PubKeyAddress h)) /=
-    (show (ScriptAddress h []) :: Text)
+    (show (ScriptAddress h) :: Text)
   where
     h = unsafeAddressHash x

@@ -31,7 +31,7 @@ import           Pos.Txp.Logic               (processTx)
 import           Pos.Txp.Types.Communication (TxDataMsg (..), TxInvMsg (..),
                                               TxReqMsg (..))
 import           Pos.Txp.Types.Types         (MemPool (..), ProcessTxRes (..), TxMap)
-import           Pos.Types                   (IdTxWitness, TxId)
+import           Pos.Types                   (TxAux, TxId)
 import           Pos.WorkMode                (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
@@ -72,14 +72,14 @@ handleTxReq (TxReqMsg txIds_) = do
     let txIds = NE.toList txIds_
         found = map (flip HM.lookup localTxs) txIds
         addedItems = catMaybes found
-    mapM_ (replyToNode . uncurry TxDataMsg) addedItems
+    mapM_ (\(tx,tw,td) -> replyToNode (TxDataMsg tx tw td)) addedItems
 
 -- CHECK: #handleTxDo
 handleTxData :: (ResponseMode ssc m)
              => TxDataMsg -> m ()
-handleTxData (TxDataMsg tx tw) = do
+handleTxData (TxDataMsg tx tw td) = do
     let txId = hash tx
-    added <- handleTxDo (txId, (tx, tw))
+    added <- handleTxDo (txId, (tx, tw, td))
     needPropagate <- ncPropagation <$> getNodeContext
     when (added && needPropagate) $ sendToNeighborsSafe $ TxInvMsg $ pure txId
 
@@ -88,7 +88,7 @@ handleTxData (TxDataMsg tx tw) = do
 -- #processTx
 handleTxDo
     :: ResponseMode ssc m
-    => IdTxWitness -> m Bool
+    => (TxId, TxAux) -> m Bool
 handleTxDo tx = do
     res <- processTx tx
     let txId = fst tx

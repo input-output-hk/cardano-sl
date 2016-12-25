@@ -7,7 +7,7 @@
 
 -- | This module defines methods which operate on GtLocalData.
 
-module Pos.Ssc.GodTossing.LocalData.LocalData
+module Pos.Modern.Ssc.GodTossing.LocalData.LocalData
        (
          localOnNewSlot
        , sscIsDataUseful
@@ -16,62 +16,73 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
          -- ** instance SscLocalDataClass SscGodTossing
        ) where
 
-import           Control.Lens                         (Getter, at, use, view, (%=), (.=))
-import           Control.Monad.Loops                  (andM)
-import           Data.Containers                      (ContainerKey,
-                                                       SetContainer (notMember))
-import           Data.Default                         (Default (def))
-import qualified Data.HashMap.Strict                  as HM
-import qualified Data.HashSet                         as HS
-import           Serokell.Util.Verify                 (isVerSuccess)
+import           Control.Lens                                (at, use, view, (%=), (.=))
+import           Control.Lens                                (Getter)
+import           Control.Monad.Loops                         (andM)
+import           Data.Containers                             (ContainerKey,
+                                                              SetContainer (notMember))
+import           Data.Default                                (Default (def))
+import qualified Data.HashMap.Strict                         as HM
+import qualified Data.HashSet                                as HS
+import           Serokell.Util.Verify                        (isVerSuccess)
 import           Universum
 
-import           Pos.Binary.Class                     (Bi)
-import           Pos.Crypto                           (PublicKey, Share)
-import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
-                                                       SscLocalDataClass (..))
-import           Pos.Ssc.Extra.MonadLD                (MonadSscLDM)
-import           Pos.Ssc.GodTossing.Functions         (checkOpeningMatchesCommitment,
-                                                       checkShares, inLastKSlotsId,
-                                                       isCommitmentIdx, isOpeningIdx,
-                                                       isSharesIdx,
-                                                       verifySignedCommitment)
-import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertificates,
-                                                       gtGlobalCommitments,
-                                                       gtGlobalOpenings, gtGlobalShares,
-                                                       gtLastProcessedSlot,
-                                                       gtLocalCertificates,
-                                                       gtLocalCommitments,
-                                                       gtLocalOpenings, gtLocalShares,
-                                                       gtRunModify, gtRunRead)
-import           Pos.Ssc.GodTossing.LocalData.Types   (ldCertificates, ldCommitments,
-                                                       ldOpenings, ldShares)
-import           Pos.Ssc.GodTossing.Types             (GtGlobalState (..), GtPayload (..),
-                                                       SscBi, SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
-                                                       SignedCommitment, VssCertificate,
-                                                       VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Types.Instance    ()
-import           Pos.Ssc.GodTossing.Types.Message     (DataMsg (..), MsgTag (..))
-import           Pos.Types                            (Address (..), SlotId (..))
-import           Pos.Types                            (Address (..), SlotId (..))
-import           Pos.Types.Address                    (AddressHash)
-import           Pos.Util                             (AsBinary, diffDoubleMap, getKeys,
-                                                       readerToState)
---import           Pos.Ssc.GodTossing.Types.Instance       ()
-
-instance SscBi => SscLocalDataClass SscGodTossing where
-    sscEmptyLocalData = def
-    sscGetLocalPayloadQ = getLocalPayload
-    sscApplyGlobalStateU = applyGlobal
+import           Pos.Binary.Class                            (Bi)
+import           Pos.Crypto                                  (PublicKey, Share)
+import           Pos.Modern.Ssc.GodTossing.LocalData.Helpers (GtState,
+                                                              gtGlobalCertificates,
+                                                              gtGlobalCommitments,
+                                                              gtGlobalOpenings,
+                                                              gtGlobalShares,
+                                                              gtLastProcessedSlot,
+                                                              gtLocalCertificates,
+                                                              gtLocalCommitments,
+                                                              gtLocalOpenings,
+                                                              gtLocalShares, gtRunModify,
+                                                              gtRunRead)
+import           Pos.Modern.Ssc.GodTossing.LocalData.Types   (ldCertificates,
+                                                              ldCommitments, ldOpenings,
+                                                              ldShares)
+import           Pos.Modern.Ssc.GodTossing.LocalData.Types   (GtLocalData (..))
+import           Pos.Modern.Ssc.GodTossing.Storage.Types     (GtGlobalState (..))
+import           Pos.Ssc.Class.LocalData                     (LocalQueryM, LocalUpdateM,
+                                                              SscLocalDataClassM (..))
+import           Pos.Ssc.Class.Types                         (Ssc (..))
+import           Pos.Ssc.Extra.MonadLD                       (MonadSscLDM)
+import           Pos.Ssc.GodTossing.Functions                (checkOpeningMatchesCommitment,
+                                                              checkShares,
+                                                              isCommitmentIdx,
+                                                              isOpeningIdx, isSharesIdx,
+                                                              verifySignedCommitment)
+import           Pos.Ssc.GodTossing.Types.Base               (Commitment, Opening,
+                                                              SignedCommitment,
+                                                              VssCertificate,
+                                                              VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Types.Instance           ()
+import           Pos.Ssc.GodTossing.Types.Message            (DataMsg (..), MsgTag (..))
+import           Pos.Ssc.GodTossing.Types.Type               (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types              (GtPayload (..), SscBi)
+import           Pos.State                                   (WorkModeDB)
+import           Pos.Types                                   (SlotId (..))
+import           Pos.Types.Address                           (AddressHash)
+import           Pos.Util                                    (AsBinary, diffDoubleMap,
+                                                              getKeys, readerToState)
 
 type LDQuery a = forall m .  MonadReader GtState m => m a
 type LDUpdate a = forall m . MonadState GtState m  => m a
 
+instance (SscBi, SscGlobalStateM SscGodTossing ~ GtGlobalState
+         , SscLocalDataM SscGodTossing ~ GtLocalData)
+        => SscLocalDataClassM SscGodTossing where
+    sscEmptyLocalDataM = def
+    sscGetLocalPayloadMQ = getLocalPayload
+    sscApplyGlobalStateMU = applyGlobal
+
 ----------------------------------------------------------------------------
 -- Apply Global State
 ----------------------------------------------------------------------------
-applyGlobal :: GtGlobalState -> LocalUpdate SscGodTossing ()
+
+applyGlobal :: GtGlobalState -> LocalUpdateM SscGodTossing ()
 applyGlobal globalData = do
     let globalCommitments = _gsCommitments globalData
         globalOpenings = _gsOpenings globalData
@@ -85,7 +96,8 @@ applyGlobal globalData = do
 ----------------------------------------------------------------------------
 -- Get Local Payload
 ----------------------------------------------------------------------------
-getLocalPayload :: SlotId -> LocalQuery SscGodTossing GtPayload
+
+getLocalPayload :: SlotId -> LocalQueryM SscGodTossing GtPayload
 getLocalPayload SlotId{..} =
     (if isCommitmentIdx siSlot then
         CommitmentsPayload <$> view ldCommitments
@@ -98,8 +110,9 @@ getLocalPayload SlotId{..} =
     <*> view ldCertificates
 
 ----------------------------------------------------------------------------
--- Process New Slot
+-- Functions used only in GodTossing Listeners and Workers
 ----------------------------------------------------------------------------
+
 -- | Clean-up some data when new slot starts.
 localOnNewSlot
     :: MonadSscLDM SscGodTossing m
@@ -117,9 +130,6 @@ localOnNewSlotU si@SlotId {siSlot = slotIdx} = do
 -- Check knowledge of data
 ----------------------------------------------------------------------------
 
--- CHECK: @sscIsDataUseful
--- #sscIsDataUsefulQ
-
 -- | Check whether SSC data with given tag and public key can be added
 -- to local data.
 sscIsDataUseful
@@ -127,9 +137,6 @@ sscIsDataUseful
     => MsgTag -> AddressHash PublicKey -> m Bool
 sscIsDataUseful tag = gtRunRead . sscIsDataUsefulQ tag
 
--- CHECK: @sscIsDataUsefulQ
--- | Check whether SSC data with given tag and public key can be added
--- to local data.
 sscIsDataUsefulQ :: MsgTag -> AddressHash PublicKey -> LDQuery Bool
 sscIsDataUsefulQ CommitmentMsg =
     sscIsDataUsefulImpl gtLocalCommitments gtGlobalCommitments
@@ -140,7 +147,7 @@ sscIsDataUsefulQ SharesMsg =
 sscIsDataUsefulQ VssCertificateMsg =
     sscIsDataUsefulImpl gtLocalCertificates gtGlobalCertificates
 
-type MapGetter a = Getter GtState (HashMap (AddressHash PublicKey) a)
+type MapGetter a =   Getter GtState (HashMap (AddressHash PublicKey) a)
 type SetGetter set = Getter GtState set
 
 sscIsDataUsefulImpl :: MapGetter a
@@ -163,10 +170,11 @@ sscIsDataUsefulSetImpl localG globalG addr =
 ----------------------------------------------------------------------------
 -- Ssc Process Message
 ----------------------------------------------------------------------------
+
 -- | Process message and save it if needed. Result is whether message
 -- has been actually added.
 sscProcessMessage ::
-       (MonadSscLDM SscGodTossing m, SscBi)
+       (MonadSscLDM SscGodTossing m, WorkModeDB SscGodTossing m, SscBi)
     => DataMsg -> m Bool
 sscProcessMessage msg = gtRunModify $ do
     certs <- use gtGlobalCertificates
@@ -209,7 +217,11 @@ matchOpening :: AddressHash PublicKey -> Opening -> LDQuery Bool
 matchOpening addr opening =
     flip checkOpeningMatchesCommitment (addr, opening) <$> view gtGlobalCommitments
 
-processShares :: VssCertificatesMap -> AddressHash PublicKey -> HashMap (AddressHash PublicKey) (AsBinary Share) -> LDUpdate Bool
+processShares
+    :: VssCertificatesMap
+    -> AddressHash PublicKey
+    -> HashMap (AddressHash PublicKey) (AsBinary Share)
+    -> LDUpdate Bool
 processShares certs addr s
     | null s = pure False
     | otherwise = do
@@ -221,7 +233,7 @@ processShares certs addr s
         globalSharesPKForPK <- getKeys . HM.lookupDefault mempty addr <$> use gtGlobalShares
         localSharesForPk <- HM.lookupDefault mempty addr <$> use gtLocalShares
         let s' = s `HM.difference` (HS.toMap globalSharesPKForPK)
-        let newLocalShares = localSharesForPk `HM.union` s'
+            newLocalShares = localSharesForPk `HM.union` s'
         -- Note: size is O(n), but union is also O(n + m), so
         -- it doesn't matter.
         let checks =
@@ -231,7 +243,6 @@ processShares certs addr s
         ok <- andM checks
         ok <$ when ok (gtLocalShares . at addr .= Just newLocalShares)
 
--- CHECK: #checkShares
 checkSharesLastVer
     :: VssCertificatesMap
     -> AddressHash PublicKey

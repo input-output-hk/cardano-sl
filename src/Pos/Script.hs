@@ -28,7 +28,8 @@ import           Control.Monad.Fail         (fail)
 import           Data.FileEmbed             (embedStringFile, makeRelativeToProject)
 import           Data.String                (String)
 import qualified Interface.Integration      as PL
-import           Language.Haskell.TH.Syntax (Lift (..))
+import qualified Interface.Prelude          as PL
+import           Language.Haskell.TH.Syntax (Lift (..), runIO)
 import qualified PlutusCore.Program         as PLCore
 import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum                  hiding (lift)
@@ -54,16 +55,25 @@ isKnownScriptVersion v = v == 0
 -- transaction output.
 parseValidator :: Bi Script_v0 => Text -> Either String Script
 parseValidator t = do
-    scr <- PL.runElabInContext stdlib $ PL.loadValidator (toString t)
+    scr <- PL.runElabInContexts [stdlib] $ PL.loadValidator (toString t)
     return Script {
         scrScript = Bi.encode scr,
         scrVersion = 0 }
 
 -- | Parse a script intended to serve as a redeemer (or “proof”) in a
 -- transaction input.
-parseRedeemer :: Bi Script_v0 => Text -> Either String Script
-parseRedeemer t = do
-    scr <- PL.runElabInContext stdlib $ PL.loadRedeemer (toString t)
+--
+-- Can be given an optional validator (e.g. if the redeemer uses functions or
+-- types defined by the validator).
+parseRedeemer :: Bi Script_v0 => Maybe Script -> Text -> Either String Script
+parseRedeemer mbV t = do
+    mbValScr <- case (\x -> (scrVersion x, x)) <$> mbV of
+        Nothing       -> return Nothing
+        Just (0, val) -> Just <$> Bi.decodeFull (scrScript val)
+        Just (v, _)   -> Left ("unknown script version of validator: " ++
+                               show v)
+    scr <- PL.runElabInContexts (stdlib : maybeToList mbValScr) $
+               PL.loadRedeemer (toString t)
     return Script {
         scrScript = Bi.encode scr,
         scrVersion = 0 }
@@ -117,10 +127,8 @@ txScriptCheck validator redeemer = case spoon result of
 
 stdlib :: PLCore.Program
 stdlib = $(do
-    let file = $(embedStringFile =<< makeRelativeToProject "stdlib.pls")
-    case PL.runElabNoContext (PL.loadProgram file) of
-        Left a  -> fail ("couldn't parse script standard library: " ++ a)
-        Right x -> lift x)
+    pr <- runIO PL.prelude
+    lift pr)
 
 ----------------------------------------------------------------------------
 -- Error catching

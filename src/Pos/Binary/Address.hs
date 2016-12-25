@@ -19,10 +19,9 @@ putAddressIncomplete = \case
     PubKeyAddress keyHash -> do
         putWord8 0
         put keyHash
-    ScriptAddress scrHash distr -> do
+    ScriptAddress scrHash -> do
         putWord8 1
         put scrHash
-        put distr
 
 -- | Decode everything except for CRC32
 getAddressIncomplete :: Get Address
@@ -30,7 +29,7 @@ getAddressIncomplete = do
     tag <- getWord8
     case tag of
         0 -> PubKeyAddress <$> get
-        1 -> ScriptAddress <$> get <*> get
+        1 -> ScriptAddress <$> get
         _ -> fail ("getAddressIncomplete: unknown tag " ++ show tag)
 
 instance CRC32 Address where

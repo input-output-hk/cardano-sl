@@ -30,7 +30,8 @@ import           Pos.DHT.Model               (MonadMessageDHT, defaultSendToNeig
                                               sendToNeighbors, sendToNode)
 import           Pos.Security                (AttackType (..), shouldIgnoreAddress)
 import           Pos.Txp.Types.Communication (TxDataMsg (..))
-import           Pos.Types                   (EpochIndex, Tx, TxWitness)
+import           Pos.Types                   (EpochIndex, HeaderHash, MainBlockHeader,
+                                              TxAux, headerHash)
 import           Pos.Util                    (logWarningWaitLinear, messageName')
 import           Pos.WorkMode                (MinWorkMode, WorkMode)
 
@@ -59,8 +60,8 @@ sendToNeighborsSafeWithMaliciousEmulation msg = do
             sendToNode addr message
 
 -- | Send Tx to given address.
-sendTx :: (MonadMessageDHT s m) => NetworkAddress -> (Tx, TxWitness) -> m ()
-sendTx addr (tx,w) = sendToNode addr $ TxDataMsg tx w
+sendTx :: (MonadMessageDHT s m) => NetworkAddress -> TxAux -> m ()
+sendTx addr (tx,w,d) = sendToNode addr $ TxDataMsg tx w d
 
 -- | Sends proxy secret key to neighbours
 sendProxySecretKey

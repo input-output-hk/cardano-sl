@@ -18,15 +18,16 @@ import           System.Wlog              (HasLoggerName, dispatchEvents, getLog
                                            logWarning, runPureLog, usingLoggerName)
 import           Universum
 
-import           Pos.Crypto               (EncShare, Share, VssKeyPair, VssPublicKey,
-                                           decryptShare, toVssPublicKey)
+import           Pos.Crypto               (EncShare, PublicKey, Share, VssKeyPair,
+                                           VssPublicKey, decryptShare, toVssPublicKey)
 import           Pos.Ssc.Class.Storage    (SscGlobalQuery, SscImpureQuery)
 import           Pos.Ssc.Extra.MonadGS    (MonadSscGS, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Types (Commitment (..), SscGodTossing,
                                            VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types (gsCommitments, gsOpenings, gsShares,
                                            gsVssCertificates)
-import           Pos.Types                (Address (..), EpochIndex, SharedSeed)
+import           Pos.Types                (Address (..), AddressHash, EpochIndex,
+                                           SharedSeed)
 import           Pos.Util                 (AsBinary, asBinary, fromBinaryM)
 
 type GSQuery a = SscGlobalQuery SscGodTossing a
@@ -35,7 +36,7 @@ type GSQuery a = SscGlobalQuery SscGodTossing a
 -- decrypt.
 getOurShares :: ( MonadSscGS SscGodTossing m
                 , MonadIO m, HasLoggerName m)
-             => VssKeyPair -> m (HashMap Address Share)
+             => VssKeyPair -> m (HashMap (AddressHash PublicKey) Share)
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
     let ourPK = asBinary $ toVssPublicKey ourKey
@@ -59,7 +60,7 @@ getOurShares ourKey = do
 -- | Decrypt shares (in commitments) that we can decrypt.
 decryptOurShares
     :: AsBinary VssPublicKey                           -- ^ Our VSS key
-    -> GSQuery (HashMap Address (AsBinary EncShare))
+    -> GSQuery (HashMap (AddressHash PublicKey) (AsBinary EncShare))
 decryptOurShares ourPK = do
     comms <- view gsCommitments
     opens <- view gsOpenings

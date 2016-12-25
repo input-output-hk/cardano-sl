@@ -24,6 +24,8 @@ module Pos.Constants
        , mpcSendInterval
        , mdNoBlocksSlotThreshold
        , mdNoCommitmentsEpochThreshold
+       , curProtocolVersion
+       , curSoftwareVersion
        ) where
 
 import           Control.TimeWarp.Timed (Microsecond, sec)
@@ -34,6 +36,9 @@ import           Pos.CLI                (dhtNodeParser)
 import           Pos.CompileConfig      (CompileConfig (..), compileConfig)
 import           Pos.DHT.Model.Types    (DHTNode)
 import           Pos.Types.Timestamp    (Timestamp)
+import           Pos.Types.Version      (ApplicationName, ProtocolVersion (..),
+                                         SoftwareVersion (..), mkApplicationName)
+import           Pos.Util               ()
 
 -- | Consensus guarantee (i.e. after what amount of blocks can we consider
 -- blocks stable?).
@@ -133,3 +138,15 @@ mdNoBlocksSlotThreshold = fromIntegral . ccMdNoBlocksSlotThreshold $ compileConf
 -- our commitments are not included in blockchain.
 mdNoCommitmentsEpochThreshold :: Integral i => i
 mdNoCommitmentsEpochThreshold = fromIntegral . ccMdNoCommitmentsEpochThreshold $ compileConfig
+
+cardanoSlAppName :: ApplicationName
+cardanoSlAppName = either (panic . (<>) "Failed to init cardanoSlAppName: ")
+                      identity $ mkApplicationName "cardano-sl"
+
+-- ^ Protocol version application uses
+curProtocolVersion :: ProtocolVersion
+curProtocolVersion = ProtocolVersion 0 0 0
+
+-- ^ Version of application (code running)
+curSoftwareVersion :: SoftwareVersion
+curSoftwareVersion = SoftwareVersion cardanoSlAppName 1 0

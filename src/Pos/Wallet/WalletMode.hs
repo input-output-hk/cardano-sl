@@ -17,6 +17,7 @@ module Pos.Wallet.WalletMode
        , SState
        ) where
 
+import           Control.Lens                  (over, _1)
 import           Control.Monad                 (fail)
 import           Control.Monad.Trans           (MonadTrans)
 import           Control.TimeWarp.Rpc          (Dialog, Transfer)
@@ -37,10 +38,8 @@ import           Pos.Txp.Class                 (MonadTxpLD (..), getUtxoView)
 import qualified Pos.Txp.Holder                as Modern
 import           Pos.Txp.Logic                 (processTx)
 import           Pos.Txp.Types                 (MemPool (..), UtxoView (..))
-import           Pos.Types                     (Address, Coin, Tx, Utxo, evalUtxoStateT,
-                                                txOutValue)
-import           Pos.Types                     (Address, Coin, IdTxWitness, Tx, TxId,
-                                                Utxo, evalUtxoStateT, toPair, txOutValue)
+import           Pos.Types                     (Address, Coin, Tx, TxAux, TxId, Utxo,
+                                                evalUtxoStateT, toPair, txOutValue)
 import           Pos.Types.Utxo.Functions      (filterUtxoByAddr)
 import           Pos.Types.Utxo.Functions      (belongsTo, filterUtxoByAddr)
 import           Pos.WorkMode                  (MinWorkMode)
@@ -55,7 +54,9 @@ import           Pos.Wallet.Tx.Pure            (deriveAddrHistory)
 class Monad m => MonadBalances m where
     getOwnUtxo :: Address -> m Utxo
     getBalance :: Address -> m Coin
-    getBalance addr = getOwnUtxo addr >>= return . sum . M.map txOutValue
+    getBalance addr = sum . fmap (txOutValue . fst) <$> getOwnUtxo addr
+    -- TODO: add a function to get amount of stake (it's different from
+    -- balance because of distributions)
 
     default getOwnUtxo :: MonadTrans t => Address -> t m Utxo
     getOwnUtxo = lift . getOwnUtxo
@@ -87,12 +88,12 @@ instance (MonadDB ssc m, MonadMask m) => MonadBalances (Modern.TxpLDHolder ssc m
 -- | A class which have methods to get transaction history
 class Monad m => MonadTxHistory m where
     getTxHistory :: Address -> m [(TxId, Tx, Bool)]
-    saveTx :: IdTxWitness -> m ()
+    saveTx :: (TxId, TxAux) -> m ()
 
     default getTxHistory :: MonadTrans t => Address -> t m [(TxId, Tx, Bool)]
     getTxHistory = lift . getTxHistory
 
-    default saveTx :: MonadTrans t => IdTxWitness -> t m ()
+    default saveTx :: MonadTrans t => (TxId, TxAux) -> t m ()
     saveTx = lift . saveTx
 
 instance MonadTxHistory m => MonadTxHistory (ReaderT r m)

@@ -25,6 +25,7 @@ import           Pos.Communication.Methods              (sendToNeighborsSafe)
 import           Pos.Communication.Types                (ResponseMode)
 import           Pos.Context                            (WithNodeContext (getNodeContext),
                                                          ncPropagation)
+import           Pos.Crypto                             (PublicKey)
 import           Pos.DHT.Model                          (ListenerDHT (..), replyToNode)
 import           Pos.Security                           (shouldIgnorePkAddress)
 import           Pos.Slotting                           (getCurrentSlot)
@@ -43,6 +44,7 @@ import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), GtProof,
                                                          _gpCertificates)
 import           Pos.Types                              (Address)
+import           Pos.Types.Address                      (AddressHash)
 import           Pos.WorkMode                           (WorkMode)
 
 instance (Bi VssCertificate
@@ -68,7 +70,7 @@ handleInv (InvMsg tag keys) =
         (logDebug $
          sformat ("Ignoring "%build%", because slot is not appropriate") tag)
 
-handleInvDo :: (Bi ReqMsg) => ResponseMode SscGodTossing m => MsgTag -> NonEmpty Address -> m ()
+handleInvDo :: (Bi ReqMsg) => ResponseMode SscGodTossing m => MsgTag -> NonEmpty (AddressHash PublicKey) -> m ()
 handleInvDo tag keys = mapM_ handleSingle keys
   where
     handleSingle addr =
@@ -83,7 +85,7 @@ handleReq (ReqMsg tag addr) = do
     localPayload <- sscGetLocalPayloadM =<< getCurrentSlot
     whenJust (toDataMsg tag addr localPayload) (replyToNode @_ @_ @DataMsg)
 
-toDataMsg :: MsgTag -> Address -> GtPayload -> Maybe DataMsg
+toDataMsg :: MsgTag -> AddressHash PublicKey -> GtPayload -> Maybe DataMsg
 toDataMsg CommitmentMsg addr (CommitmentsPayload comm _) =
     DMCommitment addr <$> lookup addr comm
 toDataMsg OpeningMsg addr (OpeningsPayload opens _) =
@@ -114,7 +116,7 @@ handleData msg =
        when (added && needPropagate) $ sendToNeighborsSafe $ InvMsg tag $ pure addr
 
 loggerAction :: WorkMode SscGodTossing m
-             => MsgTag -> Bool -> Address -> m ()
+             => MsgTag -> Bool -> AddressHash PublicKey -> m ()
 loggerAction msgTag added addr = logAction msg
   where
       msgAction | added = "added to local storage"

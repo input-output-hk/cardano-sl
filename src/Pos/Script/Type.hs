@@ -8,6 +8,7 @@
 module Pos.Script.Type
        ( Script(..)
        , Script_v0
+       , ScriptVersion
        ) where
 
 import           Data.Binary                (Binary)
@@ -33,9 +34,12 @@ import qualified Utils.Vars                 as Vars
 import           Pos.Binary.Class           (Bi)
 import           Pos.Util                   (getCopyBinary, putCopyBinary)
 
+-- | Version of script
+type ScriptVersion = Word16
+
 -- | A script for inclusion into a transaction.
 data Script = Script {
-    scrVersion :: Word16,           -- ^ Version
+    scrVersion :: ScriptVersion,           -- ^ Version
     scrScript  :: LByteString}      -- ^ Serialized script
   deriving (Eq, Show, Generic)
 

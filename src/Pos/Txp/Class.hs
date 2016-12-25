@@ -25,7 +25,7 @@ import           Universum
 import           Pos.DHT.Model.Class    (DHTResponseT)
 import           Pos.DHT.Real           (KademliaDHT)
 import           Pos.Txp.Types          (MemPool (localTxs), UtxoView)
-import           Pos.Types              (HeaderHash, IdTxWitness, TxId, TxOut)
+import           Pos.Types              (HeaderHash, TxAux, TxId, TxOutAux)
 
 -- | LocalData of transactions processing.
 -- There are two invariants which must hold for local data
@@ -37,13 +37,13 @@ import           Pos.Types              (HeaderHash, IdTxWitness, TxId, TxOut)
 -- 2. If one applies all transactions from 'memPool' to 'utxo1',
 -- resulting Utxo will be equivalent to 'uv' with respect to
 -- MonadUtxo.
-type TxpLD ssc = (UtxoView ssc, MemPool, HashMap TxId [TxOut], HeaderHash ssc)
+type TxpLD ssc = (UtxoView ssc, MemPool, HashMap TxId [TxOutAux], HeaderHash ssc)
 
 -- | Real data inside TxpLDHolder
 data TxpLDWrap ssc = TxpLDWrap
     { utxoView :: !(STM.TVar (UtxoView ssc))
     , memPool  :: !(STM.TVar MemPool)
-    , undos    :: !(STM.TVar (HashMap TxId [TxOut]))
+    , undos    :: !(STM.TVar (HashMap TxId [TxOutAux]))
     , ldTip    :: !(STM.TVar (HeaderHash ssc))
     }
 
@@ -84,13 +84,13 @@ instance MonadTxpLD ssc m => MonadTxpLD ssc (DHTResponseT s m)
 
 instance MonadTxpLD ssc m => MonadTxpLD ssc (KademliaDHT m)
 
-getLocalTxs :: MonadTxpLD ssc m => m [IdTxWitness]
+getLocalTxs :: MonadTxpLD ssc m => m [(TxId, TxAux)]
 getLocalTxs = HM.toList . localTxs <$> getMemPool
 
-getLocalUndo :: MonadTxpLD ssc m => m (HashMap TxId [TxOut])
+getLocalUndo :: MonadTxpLD ssc m => m (HashMap TxId [TxOutAux])
 getLocalUndo = (\(_, _, undos, _) -> undos) <$> getTxpLD
 
-getLocalTxsNUndo :: MonadTxpLD ssc m => m ([IdTxWitness], HashMap TxId [TxOut])
+getLocalTxsNUndo :: MonadTxpLD ssc m => m ([(TxId, TxAux)], HashMap TxId [TxOutAux])
 getLocalTxsNUndo = (\(_, mp, undos, _) -> (HM.toList . localTxs $ mp, undos))
                 <$> getTxpLD
 

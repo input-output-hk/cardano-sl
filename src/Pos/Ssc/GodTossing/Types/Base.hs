@@ -28,14 +28,15 @@ import           Universum
 import           Pos.Crypto          (EncShare, PublicKey, Secret, SecretKey, SecretProof,
                                       SecretSharingExtra, Share, Signature, VssPublicKey,
                                       sign, toPublic)
-import           Pos.Types.Types     (Address (..), EpochIndex)
+import           Pos.Types.Address   (AddressHash)
+import           Pos.Types.Types     (EpochIndex)
 import           Pos.Util            (AsBinary (..))
 
 ----------------------------------------------------------------------------
 -- Types, instances
 ----------------------------------------------------------------------------
 
-type PKSet = HashSet Address
+type PKSet = HashSet (AddressHash PublicKey)
 
 -- | Commitment is a message generated during the first stage of
 -- MPC. It contains encrypted shares and proof of secret.
@@ -51,14 +52,14 @@ type CommitmentSignature = Signature (EpochIndex, Commitment)
 
 type SignedCommitment = (PublicKey, Commitment, CommitmentSignature)
 
-type CommitmentsMap = HashMap Address SignedCommitment
+type CommitmentsMap = HashMap (AddressHash PublicKey) SignedCommitment
 
 -- | Opening reveals secret.
 newtype Opening = Opening
     { getOpening :: (AsBinary Secret)
     } deriving (Show, Eq, Generic, Buildable)
 
-type OpeningsMap = HashMap Address Opening
+type OpeningsMap = HashMap (AddressHash PublicKey) Opening
 
 -- | Each node generates a 'SharedSeed', breaks it into 'Share's, and sends
 -- those encrypted shares to other nodes. In a 'SharesMap', for each node we
@@ -67,9 +68,9 @@ type OpeningsMap = HashMap Address Opening
 -- Specifically, if node identified by 'Address' X has received a share
 -- from node identified by key Y, this share will be at @sharesMap ! X ! Y@.
 
-type InnerSharesMap = HashMap Address (AsBinary Share)
+type InnerSharesMap = HashMap (AddressHash PublicKey) (AsBinary Share)
 
-type SharesMap = HashMap Address InnerSharesMap
+type SharesMap = HashMap (AddressHash PublicKey) InnerSharesMap
 
 -- | VssCertificate allows VssPublicKey to participate in MPC.
 -- Each stakeholder should create a Vss keypair, sign public key with signing
@@ -92,7 +93,7 @@ mkVssCertificate sk vk = VssCertificate vk (sign sk vk) $ toPublic sk
 
 -- | VssCertificatesMap contains all valid certificates collected
 -- during some period of time.
-type VssCertificatesMap = HashMap Address VssCertificate
+type VssCertificatesMap = HashMap (AddressHash PublicKey) VssCertificate
 
 deriveSafeCopySimple 0 'base ''VssCertificate
 deriveSafeCopySimple 0 'base ''Opening

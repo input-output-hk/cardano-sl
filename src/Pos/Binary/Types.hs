@@ -10,16 +10,24 @@ module Pos.Binary.Types () where
 import           Control.Monad.Fail  (fail)
 import           Data.Binary.Get     (getWord8)
 import           Data.Binary.Put     (putWord8)
+import           Formatting          (int, sformat, (%))
 import           Universum
 
 import           Pos.Binary.Class    (Bi (..))
 import           Pos.Binary.Merkle   ()
+import           Pos.Binary.Update   ()
+import           Pos.Binary.Version  ()
+import qualified Pos.Data.Attributes as A
 import           Pos.Ssc.Class.Types (Ssc (..))
 import qualified Pos.Types.Timestamp as T
 import qualified Pos.Types.Types     as T
 
 -- kind of boilerplate, but anyway that's what it was made for --
 -- verbosity and clarity
+
+instance Bi (A.Attributes ()) where
+    get = A.getAttributes (\_ () -> Nothing) (128 * 1024 * 1024) ()
+    put = A.putAttributes (\() -> [])
 
 instance Bi T.Timestamp where
     get = fromInteger <$> get
@@ -46,8 +54,8 @@ instance Bi T.TxOut where
     get = T.TxOut <$> get <*> get
 
 instance Bi T.Tx where
-    put (T.Tx ins outs) = put ins >> put outs
-    get = T.Tx <$> get <*> get
+    put (T.Tx ins outs attrs) = put ins >> put outs >> put attrs
+    get = T.Tx <$> get <*> get <*> get
 
 instance Bi T.TxInWitness where
     put (T.PkWitness key sig)     = put (0 :: Word8) >> put key >> put sig
@@ -58,6 +66,10 @@ instance Bi T.TxInWitness where
             0 -> T.PkWitness <$> get <*> get
             1 -> T.ScriptWitness <$> get <*> get
             t -> fail $ "get@TxInWitness: unknown tag " <> show t
+
+instance Bi T.TxDistribution where
+    put (T.TxDistribution x) = put x
+    get = T.TxDistribution <$> get
 
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
@@ -132,7 +144,35 @@ instance Ssc ssc => Bi (T.Body (T.MainBlockchain ssc)) where
         put _mbTxs
         put _mbWitnesses
         put _mbMpc
-    get = T.MainBody <$> get <*> get <*> get
+    get = do
+        _mbTxs <- get
+        _mbWitnesses <- get
+        _mbTxAddrDistributions <- get
+        _mbMpc <- get
+        let lenTxs    = length _mbTxs
+            lenWit    = length _mbWitnesses
+            lenDistrs = length _mbTxAddrDistributions
+        when (lenTxs /= lenWit) $ fail $ toString $
+            sformat ("get@(Body MainBlockchain): "%
+                     "size of txs tree ("%int%") /= "%
+                     "length of witness list ("%int%")")
+                    lenTxs lenWit
+        when (lenTxs /= lenDistrs) $ fail $ toString $
+            sformat ("get@(Body MainBlockchain): "%
+                     "size of txs tree ("%int%") /= "%
+                     "length of address distrs list ("%int%")")
+                    lenTxs lenDistrs
+        for_ (zip3 [0 :: Int ..] (toList _mbTxs) _mbTxAddrDistributions) $
+            \(i, tx, ds) -> do
+                let lenOut = length (T.txOutputs tx)
+                    lenDist = length (T.getTxDistribution ds)
+                when (lenOut /= lenDist) $ fail $ toString $
+                    sformat ("get@(Body MainBlockchain): "%
+                             "amount of outputs ("%int%") of tx "%
+                             "#"%int%" /= amount of distributions "%
+                             "for this tx ("%int%")")
+                            lenOut i lenDist
+        return T.MainBody{..}
 
 ----------------------------------------------------------------------------
 -- GenesisBlock
@@ -149,3 +189,15 @@ instance Bi (T.ConsensusData (T.GenesisBlockchain ssc)) where
 instance Bi (T.Body (T.GenesisBlockchain ssc)) where
     put (T.GenesisBody leaders) = put leaders
     get = T.GenesisBody <$> get
+
+instance Bi T.MainExtraHeaderData where
+    put T.MainExtraHeaderData {..} =  put _mehAttributes
+                                   *> put _mehProtocolVersion
+                                   *> put _mehSoftwareVersion
+    get = T.MainExtraHeaderData <$> get <*> get <*> get
+
+instance Bi T.MainExtraBodyData where
+    put T.MainExtraBodyData {..} =  put _mebAttributes
+                                 *> put _mebUpdate
+                                 *> put _mebUpdateVotes
+    get = T.MainExtraBodyData <$> get <*> get <*> get

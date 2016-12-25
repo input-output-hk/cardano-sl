@@ -51,7 +51,7 @@ data GtStorageVersion = GtStorageVersion
     , -- | VSS certificates stored in blocks (for all time, not just for
       -- current epoch)
       _dsGlobalCertificates :: !VssCertificatesMap
-    } deriving Show
+    } deriving (Show, Eq)
 
 makeLenses ''GtStorageVersion
 deriveSafeCopySimple 0 'base ''GtStorageVersion
@@ -72,7 +72,7 @@ data GtStorage = GtStorage
       -- block arrived, just remove the head. All incoming commitments/etc
       -- which aren't parts of blocks are applied to the head, too.
       _dsVersioned         :: NonEmpty GtStorageVersion
-    }
+    } deriving (Show, Eq)
 
 flip makeLensesFor ''GtStorage
     [ ("_dsVersioned", "dsVersionedL")

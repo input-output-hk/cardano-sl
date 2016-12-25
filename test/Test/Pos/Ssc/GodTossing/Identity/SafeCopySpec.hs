@@ -17,8 +17,13 @@ import           Test.Pos.Util         (safeCopyEncodeDecode)
 spec :: Spec
 spec = describe "GodTossing" $ do
     describe "SafeCopy instances" $ do
-        prop "Commitment" (safeCopyEncodeDecode @GT.Commitment)
+        prop "Commitment"          (safeCopyEncodeDecode @GT.Commitment)
         prop "CommitmentSignature" (safeCopyEncodeDecode @GT.CommitmentSignature)
-        prop "SignedCommitment" (safeCopyEncodeDecode @GT.SignedCommitment)
-        prop "Opening" (safeCopyEncodeDecode @GT.Opening)
-        prop "VssCertificate" (safeCopyEncodeDecode @GT.VssCertificate)
+        prop "SignedCommitment"    (safeCopyEncodeDecode @GT.SignedCommitment)
+        prop "Opening"             (safeCopyEncodeDecode @GT.Opening)
+        prop "VssCertificate"      (safeCopyEncodeDecode @GT.VssCertificate)
+        prop "GtPayload"           (safeCopyEncodeDecode @GT.GtPayload)
+        prop "GtProof"             (safeCopyEncodeDecode @GT.GtProof)
+        prop "GtGlobalState"       (safeCopyEncodeDecode @GT.GtGlobalState)
+        prop "GtStorageVersion"    (safeCopyEncodeDecode @GT.GtStorageVersion)
+        prop "GtStorage"           (safeCopyEncodeDecode @GT.GtStorage)

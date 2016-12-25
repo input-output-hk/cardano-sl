@@ -23,7 +23,7 @@ import           Data.DeriveTH              (derive, makeArbitrary, makeNFData)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
-                                             NonZero (..), choose, elements, oneof, scale,
+                                             NonZero (..), choose, elements, oneof,
                                              vector)
 import           Test.QuickCheck.Instances  ()
 import           Universum
@@ -44,20 +44,7 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              SlotId (..), Tx (..), TxIn (..),
                                              TxInWitness (..), TxOut (..),
                                              makePubKeyAddress, makeScriptAddress)
-import           Pos.Util                   (AsBinary)
-
-makeSmall :: Gen a -> Gen a
-makeSmall = scale f
-  where
-    f 0 = 0
-    f 1 = 1
-    f 2 = 2
-    f 3 = 3
-    f 4 = 3
-    f n
-      | n < 0 = n
-      | otherwise =
-          (round . (sqrt :: Double -> Double) . realToFrac . (`div` 3)) n
+import           Pos.Util                   (AsBinary, makeSmall)
 
 ----------------------------------------------------------------------------
 -- Arbitrary core types

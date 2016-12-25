@@ -9,3 +9,4 @@ module Pos.Communication
 import           Pos.Communication.Methods
 import           Pos.Communication.Server
 import           Pos.Communication.Types
+import           Pos.Communication.Arbitrary ()

@@ -20,6 +20,7 @@ spec = describe "Types" $ do
         prop "SlotId" (binaryEncodeDecode @T.SlotId)
         prop "Coin" (binaryEncodeDecode @T.Coin)
         prop "Address" (binaryEncodeDecode @T.Address)
+        prop "TxInWitness" (binaryEncodeDecode @T.TxInWitness)
         prop "TxIn" (binaryEncodeDecode @T.TxIn)
         prop "TxOut" (binaryEncodeDecode @T.TxOut)
         prop "Tx" (binaryEncodeDecode @T.Tx)

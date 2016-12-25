@@ -48,6 +48,7 @@ library
                         Pos.CompileConfig
                         Pos.Constants
                         Pos.Crypto
+                        Pos.DHT
                         Pos.DHT.Model
                         Pos.DHT.Model.Types
                         Pos.DHT.Model.Util
@@ -134,6 +135,7 @@ library
                         Pos.Block.Network.Server.State
                         Pos.Block.Network.Server.Listeners
                         Pos.Block.Worker
+                        Pos.Communication.Arbitrary
                         Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Block
@@ -174,6 +176,7 @@ library
                         Pos.DB.Types
                         Pos.DB.Utxo
                         Pos.DB.DBIterator
+                        Pos.DHT.Arbitrary
                         Pos.Modern.Ssc.GodTossing.Storage.Storage
                         Pos.Modern.Ssc.GodTossing.Helpers
                         Pos.Modern.Ssc.GodTossing.Storage.Types
@@ -659,9 +662,12 @@ executable cardano-checks
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec
+                       Test.Pos.Communication.Identity.BinarySpec
                        Test.Pos.CryptoSpec
+                       Test.Pos.DHT.Identity.BinarySpec
                        Test.Pos.FollowTheSatoshiSpec
                        Test.Pos.MerkleSpec
+                       Test.Pos.Script.Identity.BinarySpec
                        Test.Pos.SlottingSpec
                        Test.Pos.Ssc.GodTossing.Identity.BinarySpec
                        Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec

@@ -12,7 +12,7 @@ import Data.Generic (class Generic)
 import Data.HTTP.Method (Method(POST, DELETE))
 import Data.Tuple (Tuple)
 import Network.HTTP.Affjax (affjax, defaultRequest, AJAX, get)
-import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet)
+import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx)
 import Daedalus.Constants (backendPrefix)
 
 -- TODO: remove traces, they are adding to increase verbosity in development
@@ -30,8 +30,8 @@ getWallets = makeRequest $ "/api/get_wallets"
 getWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) CWallet
 getWallet addr = makeRequest $ "/api/get_wallet/" <> _address addr
 
--- getHistory :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) (Array (Tuple CAddress Coin))
--- getHistory = makeRequest "/api/history" <<< _address
+getHistory :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) (Array CTx)
+getHistory addr = makeRequest $ "/api/history/" <> _address addr
 
 send :: forall eff. CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) Unit
 send addrFrom addrTo amount = do

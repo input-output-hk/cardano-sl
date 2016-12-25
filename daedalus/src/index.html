@@ -18,6 +18,11 @@
             .then(function(result) {console.log(result)})
             .catch(function(reason) {console.log(reason)})
       };
+      var getHistory = function(address) {
+        Daedalus.ClientApi.getHistory(address)
+            .then(function(result) {console.log(result)})
+            .catch(function(reason) {console.log(reason)})
+      };
       var newWallet = function() {
         Daedalus.ClientApi.newWallet()
             .then(function(result) {console.log(result)})
@@ -38,7 +43,8 @@
       <li><button onclick="getWallets();"/>getWallets</li>
       <li><button onclick="getWallet('wallet_address');"/>getWallet</li>
       <li><button onclick="getBalances();"/>getBalances</li>
-      <li><button onclick="send('a', 'b', 1);"/>send from a to b 1 coin</li>
+      <li><button onclick="send('wallet_address1', 'wallet_address2', 1);"/>send from a to b 1 coin</li>
+      <li><button onclick="getHistory('wallet_address')"/>get wallet history</li>
       <li><button onclick="newWallet();"/>newWallet</li>
       <li><button onclick="deleteWallet('a');"/>deleteWallet</li>
     </ul>

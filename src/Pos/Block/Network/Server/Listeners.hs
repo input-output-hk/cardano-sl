@@ -221,7 +221,7 @@ applyWithoutRollback blocks = do
         verRes
     logDebug "Finished applying blocks w/o rollback"
   where
-    oldestToApply = blocks ^. _neHead . headerHashG
+    oldestToApply = blocks ^. _neHead . prevBlockL
     newTip = blocks ^. _neLast . headerHashG
     applyWithoutRollbackDo :: NonEmpty (Blund ssc)
                            -> HeaderHash ssc
@@ -243,7 +243,7 @@ applyWithRollback toApply lca toRollback = do
     withBlkSemaphore_ applyWithRollbackDo
     logDebug "Finished applying blocks w/ rollback"
   where
-    newestToRollback = toRollback ^. _neHead . _1 . headerHashG
+    newestToRollback = toRollback ^. _neHead . _1 . prevBlockL
     newTip = toApply ^. _neLast . headerHashG
     panicBrokenLca = panic "applyWithRollback: nothing after LCA :/"
     toApplyAfterLca =

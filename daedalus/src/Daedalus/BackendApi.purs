@@ -12,7 +12,7 @@ import Data.Generic (class Generic)
 import Data.HTTP.Method (Method(POST, DELETE))
 import Data.Tuple (Tuple)
 import Network.HTTP.Affjax (affjax, defaultRequest, AJAX, get)
-import Daedalus.Types (CAddress, Coin, _address, _coin)
+import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet)
 import Daedalus.Constants (backendPrefix)
 
 -- TODO: remove traces, they are adding to increase verbosity in development
@@ -24,8 +24,8 @@ makeRequest url = do
 decodeResult :: forall a eff. (Generic a) => {response :: Json | eff} -> Either Error a
 decodeResult res = bimap error id $ decodeJson res.response
 
-getAddresses :: forall eff. Aff (ajax :: AJAX | eff) (Array CAddress)
-getAddresses = makeRequest "/api/addresses"
+getWallets :: forall eff. Aff (ajax :: AJAX | eff) (Array CWallet)
+getWallets = makeRequest $ "/api/get_wallets"
 
 getBalances :: forall eff. Aff (ajax :: AJAX | eff) (Array (Tuple CAddress Coin))
 getBalances = makeRequest "/api/balances"

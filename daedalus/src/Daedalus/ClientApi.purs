@@ -6,10 +6,10 @@ import Control.Promise (Promise, fromAff)
 import Daedalus.BackendApi as B
 import Data.Tuple (Tuple)
 import Network.HTTP.Affjax (AJAX)
-import Daedalus.Types (mkCAddress, mkCoin, CAddress, Coin)
+import Daedalus.Types (mkCAddress, mkCoin, CAddress, Coin, CWallet)
 
-getWallets :: forall eff. Eff(ajax :: AJAX | eff) (Promise (Array CAddress))
-getWallets = fromAff B.getAddresses
+getWallets :: forall eff. Eff(ajax :: AJAX | eff) (Promise (Array CWallet))
+getWallets = fromAff B.getWallets
 
 getBalances :: forall eff. Eff(ajax :: AJAX | eff) (Promise (Array (Tuple CAddress Coin)))
 getBalances = fromAff B.getBalances

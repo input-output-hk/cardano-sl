@@ -191,9 +191,10 @@ instance Bi (T.Body (T.GenesisBlockchain ssc)) where
     get = T.GenesisBody <$> get
 
 instance Bi T.MainExtraHeaderData where
-    put T.MainExtraHeaderData {..} =  put _mehAttributes
-                                   *> put _mehProtocolVersion
+    put T.MainExtraHeaderData {..} =  put _mehProtocolVersion
                                    *> put _mehSoftwareVersion
+                                   *> put _mehAttributes
+
     get = T.MainExtraHeaderData <$> get <*> get <*> get
 
 instance Bi T.MainExtraBodyData where

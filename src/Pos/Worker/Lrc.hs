@@ -27,7 +27,8 @@ import           Pos.Context.Context      (ncSscLeaders, ncSscRichmen)
 import           Pos.Crypto               (PublicKey)
 import           Pos.DB                   (loadBlocksFromTipWhile, putLrc)
 import           Pos.DB.DBIterator        ()
-import           Pos.DB.Utxo              (getTotalCoins, iterateByUtxo, mapUtxoIterator)
+import           Pos.DB.Utxo              (getTotalFtsStake, iterateByUtxo,
+                                           mapUtxoIterator)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
 import           Pos.Types                (Address, Coin, EpochOrSlot (..), HeaderHash,
@@ -69,12 +70,12 @@ lrcOnNewSlotDo SlotId {siEpoch = epochId} tip = tip <$ do
         liftIO $ putMVar richmenMVar richmen
     whenM (liftIO $ isEmptyMVar leadersMVar) $ do
         mbSeed <- sscCalculateSeed epochId
-        totalCoins <- getTotalCoins
+        totalStake <- getTotalFtsStake
         leaders <-
             case mbSeed of
                 Left e     -> panic $ sformat ("SSC couldn't compute seed: "%build) e
                 Right seed -> mapUtxoIterator @(TxIn, TxOutAux) @TxOutAux
-                              (followTheSatoshiM seed totalCoins) snd
+                              (followTheSatoshiM seed totalStake) snd
         liftIO $ putMVar leadersMVar leaders
     leaders <- readLeaders
     richmen <- readRichmen

@@ -90,15 +90,14 @@ txApplyBlock blk = do
     when (tip /= hashPrevHeader) $
         panic
             "disaster, tip mismatch in txApplyBlock, probably semaphore doesn't work"
-    let txs = either (const []) (toList . view blockTxs) blk
-    let txsAndIds = map (\tx -> (hash tx, tx)) txs
     let batch = foldr' prependToBatch [] txsAndIds
     filterMemPool txsAndIds
     writeBatchToUtxo (PutTip (headerHash blk) : batch)
   where
-    txas = toList $ blk ^. blockTxas
+    txas = either (const []) (toList . view blockTxas) blk
     txsAndIds = map (\tx -> (hash (tx ^. _1), (tx ^. _1, tx ^. _3))) txas
-    prependToBatch :: (TxId, Tx, TxDistribution) -> [BatchOp ssc] -> [BatchOp ssc]
+    prependToBatch :: (TxId, (Tx, TxDistribution))
+                   -> [BatchOp ssc] -> [BatchOp ssc]
     prependToBatch (txId, (Tx{..}, distr)) batch =
         let keys = zipWith TxIn (repeat txId) [0 ..]
             delIn = map DelTxIn txInputs

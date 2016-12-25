@@ -170,7 +170,7 @@ verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
             zipWith3 inputPredicates [0..] extendedInputs (toList witnesses)
 
     inputPredicates
-        :: Word                          -- ^ Input index
+        :: Word32                        -- ^ Input index
         -> Maybe (TxIn, VTxLocalContext) -- ^ Input and corresponding output data
         -> TxInWitness
         -> [(Bool, Text)]
@@ -187,7 +187,7 @@ verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
                      "  witness: "%build)
                 i txIn txOut txOutAddress witness
           )
-        , case validateTxIn txIn lContext witness of
+        , case validateTxIn i txIn lContext witness of
               Right _ -> (True, panic "can't happen")
               Left err -> (False, sformat
                   ("input #"%int%" isn't validated by its witness:\n"%
@@ -201,18 +201,20 @@ verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
     checkAddrHash addr PkWitness{..}     = checkPubKeyAddress twKey addr
     checkAddrHash addr ScriptWitness{..} = checkScriptAddress twValidator addr
 
-    validateTxIn TxIn{..} _ PkWitness{..} =
+    validateTxIn _ TxIn{..} _ PkWitness{..} =
         if checkSig twKey (txInHash, txInIndex, txOutHash, distrsHash) twSig
             then Right ()
             else Left "signature check failed"
     -- second argument here is local context, can be used for scripts
-    validateTxIn TxIn{..} lContext ScriptWitness{..}
+    validateTxIn i TxIn{..} lContext ScriptWitness{..}
         | scrVersion twValidator /= scrVersion twRedeemer =
             Left "validator and redeemer have different versions"
         | not (isKnownScriptVersion (scrVersion twValidator)) =
             Right ()
         | False = let hole = hole in hole gContext lContext
-        | otherwise = txScriptCheck twValidator twRedeemer
+        | otherwise =
+              let txSigData = (hash tx, i, hash txOutputs, hash distrs)
+              in txScriptCheck txSigData twValidator twRedeemer
 
 verifyTxPure :: Bool
              -> VTxGlobalContext

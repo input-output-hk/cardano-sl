@@ -143,16 +143,16 @@ loadHeadersWhile
 loadHeadersWhile startHHash cond = reverse <$> loadHeadersWhileDo startHHash 0
   where
     errFmt =
-        ("getBlockWithUndo: no block or undo with such HeaderHash: " %shortHashF)
+        ("loadHeadersWhile: no header parent with such HeaderHash: " %shortHashF)
     loadHeadersWhileDo :: HeaderHash ssc -> Int -> m [BlockHeader ssc]
+    loadHeadersWhileDo curH _ | curH == genesisHash = pure []
     loadHeadersWhileDo curH depth = do
         curHeaderM <- getBlockHeader curH
         case curHeaderM of
             Nothing -> throwM $ DBMalformed $ sformat errFmt curH
             Just curHeader
-                | cond curHeader depth && (curHeader ^. prevBlockL) /= genesisHash ->
-                    (curHeader :) <$>
-                    loadHeadersWhileDo (curHeader ^. prevBlockL) (succ depth)
+                | cond curHeader depth ->
+                  (curHeader :) <$> loadHeadersWhileDo (curHeader ^. prevBlockL) (succ depth)
                 | otherwise -> pure []
 
 ----------------------------------------------------------------------------

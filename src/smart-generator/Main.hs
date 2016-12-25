@@ -241,7 +241,7 @@ main = do
         let params =
                 NodeParams
                 { npDbPathM       = "rocks-smartwallet"
-                , npRebuildDb     = False
+                , npRebuildDb     = True
                 , npSystemStart   = systemStart
                 , npSecretKey     = Just sk
                 , npKeyfilePath   = "smartgen-secret.sk"

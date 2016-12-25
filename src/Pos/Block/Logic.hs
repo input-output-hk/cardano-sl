@@ -39,6 +39,7 @@ import           Data.List.NonEmpty        (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
 import           Formatting                (build, int, sformat, (%))
+import           Serokell.Util.Text        (listJson)
 import           Serokell.Util.Verify      (VerificationRes (..), formatAllErrors,
                                             isVerSuccess, verResToMonadError)
 import           System.Wlog               (logDebug)
@@ -150,10 +151,8 @@ data ClassifyHeadersRes ssc
 -- message. Should be passed in newest-head order.
 --
 -- * If there are any errors in chain of headers, CHsInvalid is returned.
--- * If chain of headers is a valid continuation of main chain or
--- alternative one (but not too deep), CHsValid is returned.,
--- * If chain of headers forks from our main chain but not too much,
--- CHsAlternative is returned.
+-- * If chain of headers is a valid continuation or alternative branch,
+-- lca child is returned.
 -- * If chain of headers forks from our main chain too much, CHsUseless
 -- is returned, because paper suggests doing so.
 classifyHeaders
@@ -180,7 +179,7 @@ classifyHeaders headers@(h:|hs) = do
                 fromMaybe (panic "procsessClassify@classifyHeaders") $
                 find (\bh -> bh ^. prevBlockL == hash lca) (h:hs)
         pure $ if
-            | hash lca == hash tipHeader -> CHsValid tipHeader
+            | hash lca == hash tipHeader -> CHsValid lcaChild
             | depthDiff < 0 -> panic "classifyHeaders@depthDiff is negative"
             | depthDiff > k ->
                   CHsUseless $
@@ -222,7 +221,8 @@ getHeadersOlderExp upto = do
     let upToReal = fromMaybe tip upto
         whileCond _ depth = depth <= k
     allHeaders <- loadHeadersWhile upToReal whileCond
-    pure $ selectIndices (takeHashes allHeaders) twoPowers
+    let selected = selectIndices (takeHashes allHeaders) twoPowers
+    pure selected
   where
     -- Given list of headers newest first, maps it to their hashes
     takeHashes [] = []
@@ -244,7 +244,7 @@ getHeadersOlderExp upto = do
 
 -- CHECK: @verifyBlocksLogic
 -- | Verify blocks received from network. Head is expected to be the
--- oldest blocks. If parent of head is not our tip, verification
+-- oldest block. If parent of head is not our tip, verification
 -- fails. This function checks everything from block, including
 -- header, transactions, SSC data.
 --
@@ -327,7 +327,7 @@ getBlocksByHeaders older newer = runMaybeT $ do
   where
     loadBlocksDo :: EpochOrSlot -> HeaderHash ssc -> MaybeT m [Block ssc]
     loadBlocksDo _ curH | curH == older = do
-        last <- MaybeT $ DB.getBlock newer
+        last <- MaybeT $ DB.getBlock older
         pure [last]
     loadBlocksDo lowerBound curH = do
         curBlock <- MaybeT $ DB.getBlock curH

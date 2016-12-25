@@ -55,8 +55,9 @@ import qualified Pos.DB                    as DB
 import           Pos.DB.Error              (DBError (..))
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class             (Ssc (..))
-import           Pos.Ssc.Extra             (sscApplyBlocks, sscGetLocalPayload,
-                                            sscRollback, sscVerifyBlocks)
+import           Pos.Ssc.Extra             (sscApplyBlocks, sscApplyGlobalState,
+                                            sscGetLocalPayload, sscRollback,
+                                            sscVerifyBlocks)
 import           Pos.Txp.Class             (getLocalTxsNUndo)
 import           Pos.Txp.Logic             (txApplyBlocks, txRollbackBlocks,
                                             txVerifyBlocks)
@@ -284,6 +285,7 @@ applyBlocks blunds = do
     mapM_ putToDB blunds
     txApplyBlocks blks
     sscApplyBlocks blks
+    sscApplyGlobalState
   where
     putToDB (blk, undo) = DB.putBlock undo True blk
 

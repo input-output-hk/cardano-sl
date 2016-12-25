@@ -163,7 +163,7 @@ onNewSlotWhenLeader slotId pSk = do
             sscData <- sscGetLocalPayload slotId
             localTxs <- HM.toList <$> getLocalTxs
             let panicTopsort = panic "Topology of local transactions is broken!"
-            let convertTx (txId, (tx, _)) = WithHash tx txId
+            let convertTx (txId, (tx, _, _)) = WithHash tx txId
             let sortedTxs = fromMaybe panicTopsort $
                             topsortTxs convertTx localTxs
             sk <- ncSecretKey <$> getNodeContext

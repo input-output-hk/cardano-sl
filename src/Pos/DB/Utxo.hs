@@ -30,12 +30,12 @@ import           Pos.DB.Functions  (rocksDelete, rocksGetBi, rocksPutBi, rocksWr
                                     traverseAllEntries)
 import           Pos.DB.Types      (DB)
 import           Pos.Types         (Address, Coin, HeaderHash, TxIn (..), TxOut (..),
-                                    Utxo, belongsTo)
+                                    TxOutAux, Utxo, belongsTo)
 
 data BatchOp ssc
     = DelTxIn TxIn
     | AddTxOut TxIn
-               TxOut
+               TxOutAux
     | PutTip (HeaderHash ssc)
     | PutTotal Coin
 
@@ -47,16 +47,16 @@ getTip = maybe (throwM $ DBMalformed "no tip in Utxo DB") pure =<< getTipMaybe
 getTotalCoins :: (MonadThrow m, MonadDB ssc m) => m Coin
 getTotalCoins = maybe (throwM $ DBMalformed "no 'sum' in Utxo DB") pure =<< getSumMaybe
 
-putTxOut :: MonadDB ssc m => TxIn -> TxOut -> m ()
+putTxOut :: MonadDB ssc m => TxIn -> TxOutAux -> m ()
 putTxOut = putBi . utxoKey
 
 deleteTxOut :: MonadDB ssc m => TxIn -> m ()
 deleteTxOut = delete . utxoKey
 
-getTxOut :: MonadDB ssc m => TxIn -> m (Maybe TxOut)
+getTxOut :: MonadDB ssc m => TxIn -> m (Maybe TxOutAux)
 getTxOut = getBi . utxoKey
 
-getTxOutFromDB :: (MonadIO m, MonadThrow m) => TxIn -> DB ssc -> m (Maybe TxOut)
+getTxOutFromDB :: (MonadIO m, MonadThrow m) => TxIn -> DB ssc -> m (Maybe TxOutAux)
 getTxOutFromDB txIn = rocksGetBi (utxoKey txIn)
 
 writeBatchToUtxo :: MonadDB ssc m => [BatchOp ssc] -> m ()
@@ -71,7 +71,10 @@ prepareUtxoDB customUtxo initialTip = do
     putIfEmpty getSumMaybe putUtxo
     putIfEmpty getSumMaybe putGenesisSum
   where
-    totalCoins = sum $ map txOutValue $ toList customUtxo
+    -- [CSL-390] not sure whether this totalCoins is going to be used for
+    -- follow-the-satoshi or not, someone please look at it when you do
+    -- [CSL-390]
+    totalCoins = sum $ map (txOutValue . fst) $ toList customUtxo
     putIfEmpty
         :: forall a.
            (m (Maybe a)) -> m () -> m ()
@@ -89,7 +92,7 @@ putTotalCoins c = getUtxoDB >>= rocksPutBi sumKey c
 
 iterateByUtxo
     :: forall ssc m . (MonadDB ssc m, MonadMask m)
-    => ((TxIn, TxOut) -> m ())
+    => ((TxIn, TxOutAux) -> m ())
     -> m ()
 iterateByUtxo callback = do
     db <- getUtxoDB
@@ -97,7 +100,7 @@ iterateByUtxo callback = do
 
 filterUtxo
     :: forall ssc m . (MonadDB ssc m, MonadMask m)
-    => ((TxIn, TxOut) -> Bool)
+    => ((TxIn, TxOutAux) -> Bool)
     -> m Utxo
 filterUtxo p = do
     db <- getUtxoDB

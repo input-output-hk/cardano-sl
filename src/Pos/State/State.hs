@@ -67,8 +67,9 @@ import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            dispatchEvents, getLoggerName, logWarning,
                                            runPureLog, usingLoggerName)
 
-import           Pos.Crypto               (ProxySecretKey, SecretKey, Share, VssKeyPair,
-                                           VssPublicKey, decryptShare, toVssPublicKey)
+import           Pos.Crypto               (ProxySecretKey, PublicKey, SecretKey, Share,
+                                           VssKeyPair, VssPublicKey, decryptShare,
+                                           toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
@@ -78,10 +79,10 @@ import qualified Pos.State.Acidic         as A
 import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (..),
                                            Storage, getThreshold)
 import           Pos.Statistics.StatEntry ()
-import           Pos.Types                (Address, Block, EpochIndex, GenesisBlock,
-                                           HeaderHash, IdTxWitness, MainBlock,
-                                           MainBlockHeader, SlotId, SlotLeaders, Tx, TxId,
-                                           TxWitness, Utxo)
+import           Pos.Types                (Block, EpochIndex, GenesisBlock, HeaderHash,
+                                           MainBlock, MainBlockHeader, SlotId,
+                                           SlotLeaders, TxAux, TxId, TxId, Utxo)
+import           Pos.Types.Address        (AddressHash)
 import           Pos.Util                 (AsBinary, asBinary, fromBinaryM)
 
 -- | NodeState encapsulates all the state stored by node.
@@ -214,7 +215,7 @@ getOldestUtxo :: QUConstraint ssc m => m Utxo
 getOldestUtxo = queryDisk A.GetOldestUtxo
 
 -- | Checks if tx is verified
-isTxVerified :: QUConstraint ssc m => (Tx, TxWitness) -> m Bool
+isTxVerified :: QUConstraint ssc m => TxAux -> m Bool
 isTxVerified = queryDisk . A.IsTxVerified
 
 -- | Get global SSC data.
@@ -233,7 +234,7 @@ mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
 -- | Create new block on top of currently known best chain, assuming
 -- we are slot leader.
 createNewBlock :: QUConstraint ssc m
-               => [IdTxWitness]
+               => [(TxId, TxAux)]
                -> SecretKey
                -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
                -> SlotId
@@ -242,7 +243,7 @@ createNewBlock :: QUConstraint ssc m
 createNewBlock localTxs sk pSk si = updateDisk . A.CreateNewBlock localTxs sk pSk si
 
 -- | Process transaction received from other party.
-processTx :: QUConstraint ssc m => (TxId, (Tx, TxWitness)) -> m ()
+processTx :: QUConstraint ssc m => (TxId, TxAux) -> m ()
 processTx = updateDisk . A.ProcessTx
 
 -- | Notify NodeState about beginning of new slot. Ideally it should
@@ -252,7 +253,7 @@ processNewSlot = updateDiskWithLog . A.ProcessNewSlotL
 
 -- | Process some Block received from the network.
 processBlock :: (QUConstraint ssc m)
-             => [IdTxWitness]
+             => [(TxId, TxAux)]
              -> SlotId
              -> Block ssc
              -> m (ProcessBlockRes ssc)
@@ -273,7 +274,7 @@ getParticipants = queryDisk . A.GetParticipants
 -- decrypt.
 getOurShares
     :: QULConstraint ssc m
-    => VssKeyPair -> m (HashMap Address Share)
+    => VssKeyPair -> m (HashMap (AddressHash PublicKey) Share)
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
     let ourPK = asBinary $ toVssPublicKey ourKey

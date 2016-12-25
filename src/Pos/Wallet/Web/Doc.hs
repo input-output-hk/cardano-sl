@@ -126,4 +126,4 @@ instance ToSample () where
 
 instance ToSample Tx where
     toSamples Proxy = singleSample $ Tx [TxIn hsh idx] [out]
-      where ((hsh, idx), out) = M.toList (genesisUtxo def) !! 0
+      where ((hsh, idx), (out, _)) = M.toList (genesisUtxo def) !! 0

@@ -17,18 +17,18 @@ module Pos.Wallet.WalletMode
        , SState
        ) where
 
+import           Control.Lens                  (over, _1)
 import           Control.Monad                 (fail)
 import           Control.Monad.Trans           (MonadTrans)
 import           Control.TimeWarp.Rpc          (Dialog, Transfer)
 #ifdef MODERN
 import qualified Data.HashMap.Strict           as HM
 #endif
-import qualified Data.Map                      as M
 import           Universum
 
 import           Pos.Communication.Types.State (MutSocketState)
 import qualified Pos.Context                   as PC
-import           Pos.Crypto                    (WithHash, withHash)
+import           Pos.Crypto                    (withHash)
 import           Pos.DHT.Model                 (DHTPacking)
 import           Pos.DHT.Real                  (KademliaDHT)
 import           Pos.Ssc.Extra                 (SscHolder (..), SscLDImpl (..))
@@ -49,9 +49,9 @@ import           Pos.Txp.LocalData             (MonadTxLD (..), _txLocalTxs)
 import           Pos.Types                     (execUtxoStateT)
 import           Pos.Wallet.Tx.Pure            (getRelatedTxs)
 #endif
-import           Pos.Types                     (Address, Coin, IdTxWitness, Tx, TxId,
-                                                Utxo, evalUtxoStateT, toPair, txOutValue)
-import           Pos.Types.Utxo.Functions      (belongsTo, filterUtxoByAddr)
+import           Pos.Types                     (Address, Coin, Tx, TxAux, TxId, Utxo,
+                                                evalUtxoStateT, txOutValue)
+import           Pos.Types.Utxo.Functions      (filterUtxoByAddr)
 import           Pos.WorkMode                  (TxLDImpl (..))
 import           Pos.WorkMode                  (MinWorkMode)
 
@@ -65,7 +65,9 @@ import           Pos.Wallet.Tx.Pure            (deriveAddrHistory)
 class Monad m => MonadBalances m where
     getOwnUtxo :: Address -> m Utxo
     getBalance :: Address -> m Coin
-    getBalance addr = getOwnUtxo addr >>= return . sum . M.map txOutValue
+    getBalance addr = sum . fmap (txOutValue . fst) <$> getOwnUtxo addr
+    -- TODO: add a function to get amount of stake (it's different from
+    -- balance because of distributions)
 
     default getOwnUtxo :: MonadTrans t => Address -> t m Utxo
     getOwnUtxo = lift . getOwnUtxo
@@ -100,7 +102,7 @@ instance (SscConstraint ssc, St.MonadDB ssc m, MonadIO m) => MonadBalances (TxLD
         utxo <- St.getUtxo
         localTxs <- _txLocalTxs <$> getTxLocalData
         let utxo' = filterUtxoByAddr addr utxo
-            wtxs = map (withHash . fst) . toList $ localTxs
+            wtxs = map (over _1 withHash) . toList $ localTxs
         case execUtxoStateT (getRelatedTxs addr wtxs) utxo' of
             Nothing     -> fail "Inconsistent local txs state!"
             Just utxo'' -> return utxo''
@@ -111,12 +113,12 @@ deriving instance MonadBalances m => MonadBalances (Modern.TxpLDHolder ssc m)
 -- | A class which have methods to get transaction history
 class Monad m => MonadTxHistory m where
     getTxHistory :: Address -> m [(TxId, Tx, Bool)]
-    saveTx :: IdTxWitness -> m ()
+    saveTx :: (TxId, TxAux) -> m ()
 
     default getTxHistory :: MonadTrans t => Address -> t m [(TxId, Tx, Bool)]
     getTxHistory = lift . getTxHistory
 
-    default saveTx :: MonadTrans t => IdTxWitness -> t m ()
+    default saveTx :: MonadTrans t => (TxId, TxAux) -> t m ()
     saveTx = lift . saveTx
 
 instance MonadTxHistory m => MonadTxHistory (ReaderT r m)

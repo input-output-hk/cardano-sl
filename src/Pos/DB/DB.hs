@@ -16,6 +16,7 @@ import           System.Directory             (createDirectoryIfMissing)
 import           System.FilePath              ((</>))
 import           Universum
 
+import           Pos.Crypto                   (PublicKey)
 import           Pos.DB.Block                 (getBlock, loadBlocksWithUndoWhile,
                                                prepareBlockDB)
 import           Pos.DB.Class                 (MonadDB)
@@ -27,9 +28,10 @@ import           Pos.DB.Types                 (NodeDBs (..))
 import           Pos.DB.Utxo                  (getTip, prepareUtxoDB)
 import           Pos.Genesis                  (genesisLeaders)
 import           Pos.Ssc.Class.Types          (Ssc)
-import           Pos.Types                    (Address, Block, BlockHeader, Coin,
-                                               Participants, TxOut (..), Undo, Utxo,
-                                               getBlockHeader, headerHash, mkGenesisBlock)
+import           Pos.Types                    (Block, BlockHeader, Coin, Participants,
+                                               TxOutAux, Undo, Utxo, getBlockHeader,
+                                               headerHash, mkGenesisBlock, txOutStake)
+import           Pos.Types.Address            (AddressHash)
 
 -- TODO: copy-pasted from Worker.Lrc :(
 getRichmen :: Utxo -> Participants
@@ -41,11 +43,12 @@ getRichmen =
   where
     threshold = 0 -- TODO
     onNoRichmen = panic "There are no richmen!"
-    countMoneys :: (a, TxOut) -> State (HM.HashMap Address Coin) ()
-    countMoneys (_, TxOut {..}) = do
+    countMoneys :: Monad m => (a, TxOutAux)
+                -> StateT (HM.HashMap (AddressHash PublicKey) Coin) m ()
+    countMoneys (_, txo) = for_ (txOutStake txo) $ \(a, c) -> do
         money <- get
-        let val = HM.lookupDefault 0 txOutAddress money
-        modify (HM.insert txOutAddress (val + txOutValue))
+        let val = HM.lookupDefault 0 a money
+        modify (HM.insert a (val + c))
 
 -- | Open all DBs stored on disk.
 openNodeDBs :: (Ssc ssc, MonadResource m) => FilePath -> Utxo -> m (NodeDBs ssc)

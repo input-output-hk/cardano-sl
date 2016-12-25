@@ -61,7 +61,7 @@ import           Pos.Txp.Logic             (txApplyBlocks, txRollbackBlocks,
                                             txVerifyBlocks)
 import           Pos.Types                 (Block, BlockHeader, Blund, EpochIndex,
                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
-                                            IdTxWitness, MainBlock, SlotId (..), Undo,
+                                            MainBlock, SlotId (..), TxAux, TxId, Undo,
                                             VerifyHeaderParams (..), blockHeader,
                                             difficultyL, epochOrSlot, flattenEpochOrSlot,
                                             getEpochOrSlot, headerHash, headerSlot,
@@ -428,7 +428,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     (localTxs, localUndo) <- getLocalTxsNUndo
     sscData <- sscGetLocalPayloadM slotId
     let panicTopsort = panic "Topology of local transactions is broken!"
-    let convertTx (txId, (tx, _)) = WithHash tx txId
+    let convertTx (txId, (tx, _, _)) = WithHash tx txId
     let sortedTxs = fromMaybe panicTopsort $ topsortTxs convertTx localTxs
     sk <- ncSecretKey <$> getNodeContext
     let blk = createMainBlockPure prevHeader sortedTxs pSk slotId sscData sk
@@ -441,7 +441,7 @@ createMainBlockFinish slotId pSk prevHeader = do
 createMainBlockPure
     :: Ssc ssc
     => BlockHeader ssc
-    -> [IdTxWitness]
+    -> [(TxId, TxAux)]
     -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
     -> SlotId
     -> SscPayload ssc

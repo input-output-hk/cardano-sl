@@ -72,6 +72,7 @@ import           Pos.Types                                 (Address (..), EpochI
                                                             LocalSlotIndex, SlotId (..),
                                                             Timestamp (..),
                                                             makePubKeyAddress)
+import           Pos.Types.Address                         (AddressHash, addressHash)
 import           Pos.Util                                  (asBinary)
 import           Pos.WorkMode                              (WorkMode)
 #ifdef MODERN
@@ -196,10 +197,12 @@ isVssCertificateVerified = do
     certs        <- verifiedVssCertificates
     return $ ourAddr `member` certs
 
-getOurPkAndAddr :: WorkMode SscGodTossing m => m (PublicKey, Address)
+getOurPkAndAddr
+    :: WorkMode SscGodTossing m
+    => m (PublicKey, AddressHash PublicKey)
 getOurPkAndAddr = do
     ourPk <- ncPublicKey <$> getNodeContext
-    return (ourPk, makePubKeyAddress ourPk)
+    return (ourPk, addressHash ourPk)
 
 getOurVssKeyPair :: WorkMode SscGodTossing m => m VssKeyPair
 getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
@@ -264,7 +267,7 @@ onNewSlotCommitment
        ,Bi InvMsg)
     => SlotId -> m ()
 onNewSlotCommitment SlotId {..} = do
-    ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
+    ourAddr <- addressHash . ncPublicKey <$> getNodeContext
     ourSk <- ncSecretKey <$> getNodeContext
     shouldCreateCommitment <- do
         secret <- getSecret
@@ -294,7 +297,7 @@ onNewSlotOpening
        ,Bi Commitment)
     => SlotId -> m ()
 onNewSlotOpening SlotId {..} = do
-    ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
+    ourAddr <- addressHash . ncPublicKey <$> getNodeContext
     shouldSendOpening <- do
         globalData <- getGlobalMpcData
         let openingInBlockchain = hasOpening ourAddr globalData
@@ -317,7 +320,7 @@ onNewSlotShares
        ,Bi Commitment)
     => SlotId -> m ()
 onNewSlotShares SlotId {..} = do
-    ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
+    ourAddr <- addressHash . ncPublicKey <$> getNodeContext
     -- Send decrypted shares that others have sent us
     shouldSendShares <- do
         -- [CSL-203]: here we assume that all shares are always sent
@@ -334,7 +337,7 @@ onNewSlotShares SlotId {..} = do
 
 sendOurData
     :: (WorkMode SscGodTossing m, Bi InvMsg)
-    => MsgTag -> EpochIndex -> LocalSlotIndex -> Address -> m ()
+    => MsgTag -> EpochIndex -> LocalSlotIndex -> AddressHash PublicKey -> m ()
 sendOurData msgTag epoch kMultiplier ourAddr = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one

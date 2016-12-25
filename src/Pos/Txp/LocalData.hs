@@ -28,11 +28,11 @@ import           Universum
 
 import           Pos.Constants           (maxLocalTxs)
 import           Pos.State.Storage.Types (ProcessTxRes (..), mkPTRinvalid)
-import           Pos.Types               (IdTxWitness, Tx (..), TxId, TxWitness, Utxo,
-                                          normalizeTxsPure', verifyTxUtxoPure)
+import           Pos.Types               (TxAux, TxId, Utxo, normalizeTxsPure',
+                                          verifyTxUtxoPure)
 import           Pos.Util                (clearLRU)
 
-type TxMap = HashMap TxId (Tx, TxWitness)
+type TxMap = HashMap TxId TxAux
 
 data TxLocalData = TxLocalData
     { -- | Local set of transactions. These are valid (with respect to
@@ -83,7 +83,7 @@ txRunUpdate upd = do
 getLocalTxs :: MonadTxLD m => m TxMap
 getLocalTxs = txRunQuery getLocalTxsQ
 
-removeLocalTx :: MonadTxLD m => IdTxWitness -> m ()
+removeLocalTx :: MonadTxLD m => (TxId, TxAux) -> m ()
 removeLocalTx tx = txRunUpdate . removeLocalTxU . fst $ tx
 
 txApplyHeadUtxo :: MonadTxLD m => Utxo -> m ()
@@ -94,7 +94,7 @@ txLocalDataRollback toRollback = txRunUpdate $ txLocalDataRollbackU toRollback
 
 -- CHECK: @txLocalDataProcessTx
 -- #processTxU
-txLocalDataProcessTx :: MonadTxLD m => IdTxWitness -> Utxo -> m ProcessTxRes
+txLocalDataProcessTx :: MonadTxLD m => (TxId, TxAux) -> Utxo -> m ProcessTxRes
 txLocalDataProcessTx tx utxo = txRunUpdate $ processTxU tx utxo
 
 -- | Query returning '_txLocalTxs'
@@ -104,7 +104,7 @@ getLocalTxsQ = view txLocalTxs
 -- | Add transaction to storage if it is fully valid.
 -- CHECK: @processTxU
 -- #processTxDo
-processTxU :: IdTxWitness -> Utxo -> Update ProcessTxRes
+processTxU :: (TxId, TxAux) -> Utxo -> Update ProcessTxRes
 processTxU tx utxo = do
     localSetSize <- use txLocalTxsSize
     if localSetSize < maxLocalTxs
@@ -113,7 +113,7 @@ processTxU tx utxo = do
 
 -- CHECK: @processTxDo
 -- #verifyTxUtxo
-processTxDo :: IdTxWitness -> Utxo -> Update ProcessTxRes
+processTxDo :: (TxId, TxAux) -> Utxo -> Update ProcessTxRes
 processTxDo (id, tx) utxo =
     ifM isKnown (pure PTRknown) $
     case verifyTxUtxoPure True utxo tx of

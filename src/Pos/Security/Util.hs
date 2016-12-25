@@ -9,17 +9,16 @@ import           Control.TimeWarp.Rpc (NetworkAddress)
 import           Universum
 
 import           Pos.Context          (NodeContext, ncAttackTargets, ncAttackTypes)
+import           Pos.Crypto           (PublicKey)
 import           Pos.Security.Types   (AttackTarget (..), AttackType (..))
-import           Pos.Types.Address    (Address (..))
+import           Pos.Types.Address    (AddressHash)
 
 shouldIgnoreAddress :: NodeContext ssc -> NetworkAddress -> Bool
 shouldIgnoreAddress cont addr = and [
     elem AttackNoBlocks $ ncAttackTypes cont,
     elem (NetworkAddressTarget addr) $ ncAttackTargets cont ]
 
-shouldIgnorePkAddress :: NodeContext ssc -> Address -> Bool
-shouldIgnorePkAddress cont addr = case addr of
-    PubKeyAddress{..} -> and [
-        elem AttackNoCommitments $ ncAttackTypes cont,
-        elem (PubKeyAddressTarget addrKeyHash) $ ncAttackTargets cont ]
-    _ -> False
+shouldIgnorePkAddress :: NodeContext ssc -> AddressHash PublicKey -> Bool
+shouldIgnorePkAddress cont addr = and [
+    elem AttackNoCommitments $ ncAttackTypes cont,
+    elem (PubKeyAddressTarget addr) $ ncAttackTargets cont ]

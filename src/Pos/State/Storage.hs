@@ -63,8 +63,8 @@ import           Serokell.Util                (VerificationRes (..))
 import           System.Wlog                  (WithLogger, logDebug)
 
 import           Pos.Constants                (k)
-import           Pos.Crypto                   (EncShare, ProxySecretKey, SecretKey,
-                                               VssPublicKey)
+import           Pos.Crypto                   (EncShare, ProxySecretKey, PublicKey,
+                                               SecretKey, VssPublicKey)
 import           Pos.Genesis                  (genesisUtxo)
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass (..))
 import           Pos.Ssc.Class.Storage        (HasSscStorage (..), SscStorageClass (..))
@@ -85,13 +85,14 @@ import           Pos.Txp.Storage              (HasTxStorage (txStorage), TxStora
                                                getUtxoByDepth, isTxVerified, processTx,
                                                txApplyBlocks, txRollback,
                                                txStorageFromUtxo, txVerifyBlocks)
-import           Pos.Types                    (Address, Block, EpochIndex,
-                                               EpochOrSlot (..), GenesisBlock,
-                                               IdTxWitness, MainBlock, SlotId (..),
-                                               SlotLeaders, Utxo, blockMpc, blockTxs,
-                                               epochIndexL, epochOrSlot, flattenSlotId,
-                                               gbHeader, getEpochOrSlot, headerHashG,
-                                               slotIdF, unflattenSlotId, verifyTxAlone)
+import           Pos.Types                    (Block, EpochIndex, EpochOrSlot (..),
+                                               GenesisBlock, MainBlock, SlotId (..),
+                                               SlotLeaders, TxAux, TxId, Utxo, blockMpc,
+                                               blockTxs, epochIndexL, epochOrSlot,
+                                               flattenSlotId, gbHeader, getEpochOrSlot,
+                                               headerHashG, slotIdF, unflattenSlotId,
+                                               verifyTxAlone)
+import           Pos.Types.Address            (AddressHash)
 import           Pos.Util                     (AsBinary, readerToState, _neLast)
 
 
@@ -183,7 +184,7 @@ getGlobalSscStateByDepth = sscGetGlobalStateByDepth @ssc
 -- given SlotId
 createNewBlock
     :: (SscStorageClass ssc)
-    => [IdTxWitness]
+    => [(TxId, TxAux)]
     -> SecretKey
     -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
     -> SlotId
@@ -196,7 +197,7 @@ createNewBlock localTxs sk pSk sId sscPayload =
 createNewBlockDo
     :: forall ssc.
        (SscStorageClass ssc)
-    => [IdTxWitness]
+    => [(TxId, TxAux)]
     -> SecretKey
     -> Maybe (ProxySecretKey (EpochIndex,EpochIndex))
     -> SlotId
@@ -220,7 +221,7 @@ canCreateBlock sId = do
     if | sId > maxSlotId ->
            retRes "slot id is too big, we don't know recent block"
        | (EpochOrSlot $ Right sId) < headSlot ->
-           retRes "slot id is not biger than one from last known block"
+           retRes "slot id is not bigger than one from last known block"
        | otherwise -> return Nothing
   where
 
@@ -228,7 +229,7 @@ canCreateBlock sId = do
 
 -- | Do all necessary changes when a block is received.
 processBlock :: (SscHelpersClass ssc, SscStorageClass ssc)
-    =>[IdTxWitness] -> SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
+    =>[(TxId, TxAux)] -> SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
 processBlock localTxs curSlotId blk = do
     let txs =
             case blk of
@@ -242,7 +243,7 @@ processBlock localTxs curSlotId blk = do
 processBlockDo
     :: forall ssc.
        (SscHelpersClass ssc, SscStorageClass ssc)
-    => [IdTxWitness] -> SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
+    => [(TxId, TxAux)] -> SlotId -> Block ssc -> Update ssc (ProcessBlockRes ssc)
 processBlockDo localTxs curSlotId blk = do
     let verifyMpc mainBlk =
             untag sscVerifyPayload (mainBlk ^. gbHeader) (mainBlk ^. blockMpc)
@@ -266,7 +267,7 @@ processBlockDo localTxs curSlotId blk = do
 -- At this point all checks have been passed and we know that we can
 -- adopt this AltChain.
 processBlockFinally :: forall ssc . SscStorageClass ssc
-                    => [IdTxWitness]
+                    => [(TxId, TxAux)]
                     -> Word
                     -> AltChain ssc
                     -> Update ssc (ProcessBlockRes ssc)
@@ -411,5 +412,5 @@ getOurShares
     :: forall ssc.
        SscStorageClass ssc
     => AsBinary VssPublicKey -- ^ Our VSS key
-    -> Query ssc (HashMap Address (AsBinary EncShare))
+    -> Query ssc (HashMap (AddressHash PublicKey) (AsBinary EncShare))
 getOurShares = sscGetOurShares @ssc

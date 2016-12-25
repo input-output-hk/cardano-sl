@@ -13,6 +13,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RecursiveDo #-}
 
+{-# LANGUAGE TypeApplications #-}
+
 module Node (
 
       Node
@@ -33,6 +35,7 @@ module Node (
 
     ) where
 
+import Control.Applicative (optional)
 import Control.Monad.Fix (MonadFix)
 import qualified Node.Internal as LL
 import Node.Internal (ChannelIn(..), ChannelOut(..))
@@ -53,6 +56,8 @@ import Mockable.Channel
 import Mockable.SharedAtomic
 import Mockable.Exception
 import GHC.Generics (Generic)
+
+import Debug.Trace
 
 data Node (m :: * -> *) = Node {
        nodeLL      :: LL.Node m,
@@ -86,27 +91,36 @@ data ListenerAction m where
 
   -- | A listener that handles an incoming bi-directional conversation.
   ListenerActionConversation
-    :: ( Binary snd, Binary rcv )
-    => (LL.NodeId -> ConversationActions snd rcv m -> m ())
+    :: ( Binary header, Binary body, Binary rcv )
+    => (LL.NodeId -> ConversationActions header body rcv m -> m ())
     -> ListenerAction m
+
+newtype RawData = RawData LBS.ByteString
+
+type PreListener header m = header -> RawData -> m Bool
 
 data SendActions m = SendActions {
        -- | Send a isolated (sessionless) message to a node
-       sendTo :: forall body. Binary body => LL.NodeId -> MessageName -> body -> m (),
+       sendTo :: forall header body. ( Binary header, Binary body )
+              => LL.NodeId
+              -> MessageName
+              -> header
+              -> body
+              -> m (),
 
        -- | Establish a bi-direction conversation session with a node.
        withConnectionTo
-           :: forall snd rcv.
-              ( Binary snd, Binary rcv )
+           :: forall header body rcv.
+              ( Binary header, Binary body, Binary rcv )
            => LL.NodeId
            -> MessageName
-           -> (ConversationActions snd rcv m -> m ())
+           -> (ConversationActions header body rcv m -> m ())
            -> m ()
      }
 
-data ConversationActions snd rcv m = ConversationActions {
+data ConversationActions header body rcv m = ConversationActions {
        -- | Send a message within the context of this conversation
-       send  :: snd -> m (),
+       send  :: header -> body -> m (),
 
        -- | Receive a message within the context of this conversation.
        --   'Nothing' means end of input (peer ended conversation).
@@ -134,62 +148,66 @@ nodeSendActions node = SendActions nodeSendTo nodeWithConnectionTo
     where
 
     nodeSendTo
-        :: forall body .
-           ( Binary body )
+        :: forall header body .
+           ( Binary header, Binary body )
         => LL.NodeId
         -> MessageName
+        -> header
         -> body
         -> m ()
-    nodeSendTo = \nodeId msgName body -> LL.withOutChannel node nodeId $ \channelOut ->
-        LL.writeChannel channelOut (LBS.toChunks (serialiseMsg msgName body))
+    nodeSendTo = \nodeId msgName header body ->
+        LL.withOutChannel node nodeId $ \channelOut ->
+            LL.writeChannel channelOut (LBS.toChunks (serialiseMsg msgName header body))
 
     nodeWithConnectionTo
-        :: forall snd rcv .
-           ( Binary snd, Binary rcv )
+        :: forall header body rcv .
+           ( Binary header, Binary body, Binary rcv )
         => LL.NodeId
         -> MessageName
-        -> (ConversationActions snd rcv m -> m ())
+        -> (ConversationActions header body rcv m -> m ())
         -> m ()
     nodeWithConnectionTo = \nodeId msgName f ->
         LL.withInOutChannel node nodeId $ \inchan outchan -> do
-            let cactions :: ConversationActions snd rcv m
+            let cactions :: ConversationActions header body rcv m
                 cactions = nodeConversationActions nodeId inchan outchan
             LL.writeChannel outchan (LBS.toChunks (serialiseMsgName msgName))
             f cactions
 
 -- | Conversation actions for a given peer and in/out channels.
 nodeConversationActions
-    :: forall snd rcv m .
-       ( Binary snd, Binary rcv, Mockable Channel m )
+    :: forall header snd rcv m .
+       ( Binary header, Binary snd, Binary rcv, Mockable Channel m )
     => LL.NodeId
     -> ChannelIn m
     -> ChannelOut m
-    -> ConversationActions snd rcv m
+    -> ConversationActions header snd rcv m
 nodeConversationActions nodeId inchan outchan = ConversationActions nodeSend nodeRecv
     where
 
-    nodeSend = \body -> LL.writeChannel outchan (LBS.toChunks (serialiseBody body))
+    nodeSend = \header body ->
+        LL.writeChannel outchan (LBS.toChunks (serialiseHeaderAndBody header body))
 
     nodeRecv = do
-        next <- recvNext inchan
+        next <- recvHeaderAndBody inchan
         case next of
             End -> pure Nothing
             NoParse -> error "Unexpected end of conversation input"
-            Input t -> pure (Just t)
+            Input (_ :: header, body) -> pure (Just body)
 
 -- | Spin up a node given a set of workers and listeners, using a given network
 --   transport to drive it.
 startNode
-    :: forall m .
+    :: forall header m .
        ( Mockable Fork m, Mockable Throw m, Mockable Channel m
        , Mockable SharedAtomic m, Mockable Bracket m, Mockable Catch m
-       , MonadFix m )
+       , MonadFix m, Binary header )
     => NT.EndPoint m
     -> StdGen
     -> [Worker m]
+    -> Maybe (PreListener header m)
     -> [Listener m]
     -> m (Node m)
-startNode endPoint prng workers listeners = do
+startNode endPoint prng workers prelistener listeners = do
     rec { node <- LL.startNode endPoint prng (handlerIn node sendActions) (handlerInOut node)
         ; let sendActions = nodeSendActions node
         }
@@ -221,11 +239,11 @@ startNode endPoint prng workers listeners = do
                 let listener = M.lookup msgName listenerIndex
                 case listener of
                     Just (ListenerActionOneMsg action) -> do
-                        input' <- recvNext inchan
+                        input' <- recvHeaderAndBody inchan
                         case input' of
                             End -> error "handerIn : unexpected end of input"
                             NoParse -> error "handlerIn : failed to parse message body"
-                            Input msgBody -> do
+                            Input (_ :: header, msgBody) -> do
                                 action peerId sendActions msgBody
                     -- If it's a conversation listener, then that's an error, no?
                     Just (ListenerActionConversation _) -> error ("handlerIn : wrong listener type. Expected unidirectional for " ++ show msgName)
@@ -264,19 +282,31 @@ serialiseMsgName =
     . Bin.execPut
     . put
 
-serialiseBody
-    :: ( Binary body )
-    => body
+serialiseHeaderAndBody
+    :: ( Binary header, Binary body )
+    => header
+    -> body
     -> LBS.ByteString
-serialiseBody =
-    BS.toLazyByteStringWith (BS.untrimmedStrategy 256 4096) LBS.empty
-    . Bin.execPut
-    . put
+serialiseHeaderAndBody header body =
+    serialise $ do
+      Bin.put header
+      Bin.put body
+  where
+    serialise = BS.toLazyByteStringWith
+                 (BS.untrimmedStrategy 256 4096)
+                 LBS.empty
+              . Bin.execPut
 
-serialiseMsg :: Binary body => MessageName -> body -> LBS.ByteString
-serialiseMsg name body =
+serialiseMsg
+    :: ( Binary header, Binary body )
+    => MessageName
+    -> header
+    -> body
+    -> LBS.ByteString
+serialiseMsg name header body =
     serialise $ do
       Bin.put name
+      Bin.put header
       Bin.put body
   where
     serialise = BS.toLazyByteStringWith
@@ -288,6 +318,27 @@ data Input t where
     End :: Input t
     NoParse :: Input t
     Input :: t -> Input t
+
+recvHeaderAndBody
+    :: forall header body m . ( Mockable Channel m, Binary header, Binary body )
+    => ChannelIn m
+    -> m (Input (header, body))
+recvHeaderAndBody channelIn = do
+    headerInput <- recvNext channelIn
+    traceM "stage 1"
+    forInput headerInput $ \header -> do
+        rawBodyInput <- recvNext channelIn
+        traceM "stage 2"
+        forInput rawBodyInput $ \rawBody -> return $ Input (header, rawBody)
+            {-case Bin.runGet (optional get) rawBody of
+                Nothing   -> traceM "gore :(" >> return NoParse
+                Just body -> return $ Input (header, body)-}
+  where
+    forInput :: Input t -> (t -> m (Input a)) -> m (Input a)
+    forInput End       _ = pure End
+    forInput NoParse   _ = pure NoParse
+    forInput (Input t) f = f t
+
 
 -- | Receive input from a ChannelIn.
 --   If the channel's first element is 'Nothing' then it's the end of

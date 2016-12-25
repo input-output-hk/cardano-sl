@@ -1,24 +1,25 @@
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE RecursiveDo           #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeApplications      #-}
 
-import Control.Monad (forM_)
-import Control.Monad.IO.Class (liftIO)
-import Data.String (fromString)
-import Data.Void (Void)
-import Data.Binary
-import Node
-import qualified Network.Transport.TCP as TCP
+import           Control.Monad              (forM_)
+import           Control.Monad.IO.Class     (liftIO)
+import           Data.Binary
+import           Data.String                (fromString)
+import           Data.Void                  (Void)
+import           Mockable.Concurrent        (delay)
+import           Mockable.Production
+import           Network.Transport.Abstract (newEndPoint)
+import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.InMemory as InMemory
-import Network.Transport.Abstract (newEndPoint)
-import Network.Transport.Concrete (concrete)
-import System.Random
-import Mockable.Concurrent (delay)
-import Mockable.Production
+import qualified Network.Transport.TCP      as TCP
+import           Node
+import           System.Random
 
 -- Sending a message which encodes to "" is problematic!
 -- The receiver can't distinuish this from the case in which the sender sent
@@ -48,7 +49,7 @@ workers id gen peerIds = [pingWorker gen]
         loop gen = do
             let (i, gen') = randomR (0,1000000) gen
             delay i
-            let pong :: NodeId -> ConversationActions Void Pong Production -> Production ()
+            let pong :: NodeId -> ConversationActions () Void Pong Production -> Production ()
                 pong peerId cactions = do
                     liftIO . putStrLn $ show id ++ " sent PING to " ++ show peerId
                     received <- recv cactions
@@ -62,9 +63,9 @@ listeners :: NodeId -> [Listener Production]
 listeners id = [Listener (fromString "ping") pongWorker]
     where
     pongWorker :: ListenerAction Production
-    pongWorker = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Void Production) -> do
+    pongWorker = ListenerActionConversation $ \peerId (cactions :: ConversationActions () Pong Void Production) -> do
         liftIO . putStrLn $ show id ++  " heard PING from " ++ show peerId
-        send cactions Pong
+        send cactions () Pong
         liftIO . putStrLn $ show id ++ " sent PONG to " ++ show peerId
 
 main = runProduction $ do
@@ -81,8 +82,10 @@ main = runProduction $ do
     let prng4 = mkStdGen 3
 
     liftIO . putStrLn $ "Starting nodes"
-    rec { node1 <- startNode endpoint1 prng1 (workers nodeId1 prng2 [nodeId2]) (listeners nodeId1)
-        ; node2 <- startNode endpoint2 prng3 (workers nodeId2 prng4 [nodeId1]) (listeners nodeId2)
+    rec { node1 <- startNode @() endpoint1 prng1 (workers nodeId1 prng2 [nodeId2])
+            Nothing (listeners nodeId1)
+        ; node2 <- startNode @() endpoint2 prng3 (workers nodeId2 prng4 [nodeId1])
+            Nothing (listeners nodeId2)
         ; let nodeId1 = nodeId node1
         ; let nodeId2 = nodeId node2
         }

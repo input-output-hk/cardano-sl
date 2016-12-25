@@ -1,29 +1,30 @@
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RecursiveDo           #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeFamilies          #-}
 
-import Control.Monad (forM_, forM, when)
-import Control.Monad.IO.Class (liftIO)
-import Data.String (fromString)
-import Data.Binary
-import Data.Void (Void)
-import qualified Data.Set as S
-import qualified Data.ByteString.Char8 as B8
-import Node
-import qualified Network.Transport.TCP as TCP
-import qualified Network.Transport.InMemory as InMemory
-import Network.Transport.Concrete (concrete)
-import Network.Transport.Abstract (newEndPoint)
-import Network.Discovery.Abstract
+import           Control.Monad                        (forM, forM_, when)
+import           Control.Monad.IO.Class               (liftIO)
+import           Data.Binary
+import qualified Data.ByteString.Char8                as B8
+import qualified Data.Set                             as S
+import           Data.String                          (fromString)
+import           Data.Void                            (Void)
+import           Mockable.Concurrent                  (delay)
+import           Mockable.Production
+import           Network.Discovery.Abstract
 import qualified Network.Discovery.Transport.Kademlia as K
-import System.Environment (getArgs)
-import System.Random
-import Mockable.Concurrent (delay)
-import Mockable.Production
+import           Network.Transport.Abstract           (newEndPoint)
+import           Network.Transport.Concrete           (concrete)
+import qualified Network.Transport.InMemory           as InMemory
+import qualified Network.Transport.TCP                as TCP
+import           Node
+import           System.Environment                   (getArgs)
+import           System.Random
 
 data Pong = Pong
 deriving instance Show Pong
@@ -49,7 +50,7 @@ workers id gen discovery = [pingWorker gen]
             peerSet <- knownPeers discovery
             liftIO . putStrLn $ show id ++ " has peer set: " ++ show peerSet
             forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) (fromString "ping") $
-                \(cactions :: ConversationActions Void Pong Production) -> do
+                \(cactions :: ConversationActions () Void Pong Production) -> do
                     received <- recv cactions
                     case received of
                         Just Pong -> liftIO . putStrLn $ show id ++ " heard PONG from " ++ show addr
@@ -60,9 +61,9 @@ listeners :: NodeId -> [Listener Production]
 listeners id = [Listener (fromString "ping") pongListener]
     where
     pongListener :: ListenerAction Production
-    pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Void Production) -> do
+    pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions () Pong Void Production) -> do
         liftIO . putStrLn $ show id ++  " heard PING from " ++ show peerId
-        send cactions Pong
+        send cactions () Pong
 
 makeNode transport i = do
     let port = 3000 + i
@@ -79,7 +80,8 @@ makeNode transport i = do
     let prng2 = mkStdGen ((2 * i) + 1)
     liftIO . putStrLn $ "Starting node " ++ show i
     Right endPoint <- newEndPoint transport
-    rec { node <- startNode endPoint prng1 (workers (nodeId node) prng2 discovery) (listeners (nodeId node))
+    rec { node <- startNode @() endPoint prng1 (workers (nodeId node) prng2 discovery)
+            Nothing (listeners (nodeId node))
         ; let localAddress = nodeEndPointAddress node
         ; liftIO . putStrLn $ "Making discovery for node " ++ show i
         ; discovery <- K.kademliaDiscovery kademliaConfig initialPeer localAddress

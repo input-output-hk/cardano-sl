@@ -1,12 +1,13 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Main where
 
 import           Control.Applicative        (empty)
 import qualified Control.Exception.Lifted   as Exception
-import           Control.Monad              (forM_, forM, liftM2)
+import           Control.Monad              (forM, forM_, liftM2)
 import           Control.Monad.Random       (evalRandT, getRandomR)
 import           Control.Monad.Trans        (lift, liftIO)
 
@@ -22,14 +23,13 @@ import           Mockable.Exception         (Catch (..))
 
 import           Bench.Network.Commons      (MeasureEvent (..), Payload (..), Ping (..),
                                              Pong (..), loadLogConfig, logMeasure)
-import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.Abstract as NT
+import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP      as TCP
 import           Node                       (Listener (..), ListenerAction (..), sendTo,
                                              startNode, stopNode)
 import           Node.Internal              (NodeId (..))
 import           SenderOptions              (Args (..), argsParser)
-import qualified Network.Transport.Abstract as NT
 
 instance Mockable Catch (LoggerNameBox IO) where
     liftMockable (Catch action handler) = action `Exception.catch` handler
@@ -65,11 +65,12 @@ main = do
     usingLoggerName "sender" $ do
         Right endPoint <- NT.newEndPoint transport
         drones <- forM nodeIds (startDrone endPoint)
-        senderNode <- startNode endPoint prngNode
+        senderNode <- startNode @() endPoint prngNode
             -- TODO: is it good idea to start (recipients number * thread number) threads?
             (liftM2 (pingSender prngWork payloadBound delay)
                 tasksIds
                 (zip [0, msgNum..] nodeIds))
+            Nothing
             [Listener "pong" pongListener]
 
         threadDelay (fromIntegral duration :: Second)
@@ -87,7 +88,7 @@ main = do
                 lift $ logMeasure PingSent sMsgId payload
                 -- TODO: better to use `connect` + `send`,
                 -- but `connect` is not implemented yet
-                lift $ sendTo sendActions peerId "ping" $ Ping sMsgId payload
+                lift $ sendTo sendActions peerId "ping" () $ Ping sMsgId payload
                 threadDelay delay
 
     startDrone endPoint (NodeId addr) = do

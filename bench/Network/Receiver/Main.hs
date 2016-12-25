@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
@@ -20,8 +21,8 @@ import           Mockable.Exception         (Catch (..))
 
 import           Bench.Network.Commons      (MeasureEvent (..), Ping (..), Pong (..),
                                              loadLogConfig, logMeasure)
-import           Network.Transport.Concrete (concrete)
 import           Network.Transport.Abstract (newEndPoint)
+import           Network.Transport.Concrete (concrete)
 import           Node                       (Listener (..), ListenerAction (..), sendTo,
                                              startNode, stopNode)
 import           ReceiverOptions            (Args (..), argsParser)
@@ -50,7 +51,7 @@ main = do
 
     usingLoggerName "receiver" $ do
         Right endPoint <- newEndPoint transport
-        receiverNode <- startNode endPoint prng []
+        receiverNode <- startNode @() endPoint prng [] Nothing
             [Listener "ping" $ pingListener noPong]
 
         threadDelay (fromIntegral duration :: Second)
@@ -63,4 +64,4 @@ main = do
             logMeasure PingReceived mid payload
             unless noPong $ do
                 logMeasure PongSent mid payload
-                sendTo sendActions peerId "pong" $ Pong mid payload
+                sendTo sendActions peerId "pong" () $ Pong mid payload

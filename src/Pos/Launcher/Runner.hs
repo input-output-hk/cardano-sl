@@ -36,7 +36,7 @@ import           Control.Lens                 (each, to, (%~), (^..), (^?), _hea
 import           Control.Monad                (fail)
 import           Control.Monad.Catch          (bracket)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
-import           Control.Monad.Trans.Resource (allocate, runResourceT)
+import           Control.Monad.Trans.Resource (runResourceT)
 import           Control.TimeWarp.Rpc         (Dialog, Transfer, commLoggerName,
                                                runDialog, runTransfer)
 import           Control.TimeWarp.Timed       (MonadTimed, currentTime, fork, killThread,

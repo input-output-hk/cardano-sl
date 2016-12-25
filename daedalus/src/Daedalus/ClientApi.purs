@@ -27,5 +27,11 @@ send addrTo addrFrom amount = fromAff $
 newWallet :: forall eff. String -> String -> String -> Eff(ajax :: AJAX | eff) (Promise CWallet)
 newWallet wType wCurrency wName = fromAff <<< B.newWallet $ mkCWalletMeta wType wCurrency wName
 
+updateWallet :: forall eff. String -> String -> String -> String -> Eff(ajax :: AJAX | eff) (Promise CWallet)
+updateWallet addr wType wCurrency wName = fromAff <<<
+    B.updateWallet
+        (mkCAddress addr)
+        $ mkCWalletMeta wType wCurrency wName
+
 deleteWallet :: forall eff. String -> Eff(ajax :: AJAX | eff) (Promise Unit)
 deleteWallet = fromAff <<< B.deleteWallet <<< mkCAddress

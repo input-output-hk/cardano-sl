@@ -52,6 +52,15 @@ newWallet wMeta = do
     }
   either throwError pure $ decodeResult res
 
+updateWallet :: forall eff. CAddress -> CWalletMeta -> Aff (ajax :: AJAX | eff) CWallet
+updateWallet addr wMeta = do
+  res <- affjax $ defaultRequest
+    { url = backendPrefix <> "/api/update_wallet" <> _address addr
+    , method = Left POST
+    , content = Just $ encodeJson wMeta
+    }
+  either throwError pure $ decodeResult res
+
 deleteWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) Unit
 deleteWallet addr = do
   -- FIXME: use DELETE method

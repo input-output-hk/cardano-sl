@@ -17,6 +17,7 @@ module Pos.Wallet.Web.State.State
        -- * Setters
        , createWallet
        , setWalletMeta
+       , setWalletTransactionMeta
        , setWalletHistory
        , addOnlyNewHistory
        , removeWallet
@@ -70,6 +71,9 @@ createWallet addr = updateDisk . A.CreateWallet addr
 
 setWalletMeta :: WebWalletModeDB m => CAddress -> CWalletMeta -> m ()
 setWalletMeta addr = updateDisk . A.SetWalletMeta addr
+
+setWalletTransactionMeta :: WebWalletModeDB m => CAddress -> CTxId -> CTxMeta -> m ()
+setWalletTransactionMeta addr ctxId = updateDisk . A.SetWalletTransactionMeta addr ctxId
 
 setWalletHistory :: WebWalletModeDB m => CAddress -> [(CTxId, CTxMeta)] -> m ()
 setWalletHistory addr = updateDisk . A.SetWalletHistory addr

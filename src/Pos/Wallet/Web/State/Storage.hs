@@ -15,6 +15,7 @@ module Pos.Wallet.Web.State.Storage
        , setWalletHistory
        , getWalletHistory
        , addOnlyNewHistory
+       , setWalletTransactionMeta
        , removeWallet
        ) where
 
@@ -71,8 +72,9 @@ setWalletHistory cAddr ctxs = () <$ mapM (uncurry $ addWalletHistoryTx cAddr) ct
 addOnlyNewHistory :: CAddress -> [(CTxId, CTxMeta)] -> Update ()
 addOnlyNewHistory cAddr ctxs = wsWalletMetas . at cAddr . _Just . _2 %= HM.union (HM.fromList ctxs)
 
+-- NOTE: sets transaction meta only for transactions ids that are already seen
 setWalletTransactionMeta :: CAddress -> CTxId -> CTxMeta -> Update ()
-setWalletTransactionMeta cAddr ctxId ctxMeta = wsWalletMetas . at cAddr . _Just . _2 . at ctxId .= Just ctxMeta
+setWalletTransactionMeta cAddr ctxId ctxMeta = wsWalletMetas . at cAddr . _Just . _2 . at ctxId %= fmap (const ctxMeta)
 
 removeWallet :: CAddress -> Update ()
 removeWallet cAddr = wsWalletMetas . at cAddr .= Nothing

@@ -44,7 +44,8 @@ import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency (ADA), CHash (.
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
                                              addOnlyNewHistory, closeState, createWallet,
                                              getWalletHistory, getWalletMeta, openState,
-                                             removeWallet, runWalletWebDB, setWalletMeta)
+                                             removeWallet, runWalletWebDB, setWalletMeta,
+                                             setWalletTransactionMeta)
 
 
 
@@ -86,6 +87,8 @@ servantHandlers =
      (\a b -> addCors . send a b)
     :<|>
      addCors . getHistory
+--    :<|>
+--     updateTransaction
     :<|>
      addCors . newWallet
     :<|>
@@ -158,6 +161,9 @@ updateWallet cAddr wMeta = do
     setWalletMeta cAddr wMeta
     getWallet cAddr
 
+updateTransaction :: WalletWebMode ssc m => CAddress -> CTxId -> CTxMeta -> m (Cors ())
+updateTransaction a b c = addCors $ setWalletTransactionMeta a b c
+
 deleteWallet :: WalletWebMode ssc m => CAddress -> m ()
 deleteWallet cAddr = do
     removeWallet cAddr
@@ -199,6 +205,7 @@ instance FromHttpApiData Address where
 instance FromHttpApiData CAddress where
     parseUrlPiece = fmap addressToCAddress . decodeTextAddress
 
--- TODO: unsafe (temporary, will be removed probably in future)
+-- FIXME: unsafe (temporary, will be removed probably in future)
+-- we are not checking is receaved Text really vald CTxId
 instance FromHttpApiData CTxId where
     parseUrlPiece = pure . mkCTxId

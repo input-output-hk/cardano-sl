@@ -30,7 +30,7 @@ type WalletApi =
     :<|>
      "api" :> "history" :> Capture "address" CAddress :> Get '[JSON] (Cors [CTx])
 --    :<|>
---     "api" :> "update_tx" :> Capture "address" CAddress :> Capture "tx" CTxId :> ReqBody '[JSON] CTxMeta :> Get '[JSON] (Cors [CTx])
+--     "api" :> "update_transaction" :> Capture "address" CAddress :> Capture "transaction" CTxId :> ReqBody '[JSON] CTxMeta :> Post '[JSON] ()
     :<|>
      "api" :> "new_wallet" :> ReqBody '[JSON] CWalletMeta :> Post '[JSON] (Cors CWallet)
     :<|>

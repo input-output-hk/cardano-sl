@@ -75,8 +75,9 @@ sscGetLocalPayload = sscRunLocalQueryM . sscGetLocalPayloadQ @ssc
 sscApplyGlobalState
     :: forall ssc m.
        (MonadSscLDM ssc m, SscLocalDataClass ssc)
-    =>  SscGlobalState ssc -> m ()
-sscApplyGlobalState = sscRunLocalUpdateM . sscApplyGlobalStateU @ssc
+    =>  m ()
+sscApplyGlobalState =
+    modifyLocalDataM (\(gs, ld) -> runState (sscApplyGlobalStateU @ssc gs) ld)
 
 ----------------------------------------------------------------------------
 -- OBSOLETE

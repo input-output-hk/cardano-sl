@@ -108,9 +108,10 @@ mkMainHeader
     -> SecretKey
     -> Maybe ProxySKEpoch
     -> Body (MainBlockchain ssc)
+    -> MainExtraHeaderData
     -> MainBlockHeader ssc
-mkMainHeader prevHeader slotId sk pSk body =
-    mkGenericHeader prevHeader body consensus ()
+mkMainHeader prevHeader slotId sk pSk body extra =
+    mkGenericHeader prevHeader body consensus extra
   where
     difficulty = maybe 0 (succ . view difficultyL) prevHeader
     signature prevHash proof =
@@ -134,12 +135,14 @@ mkMainBlock
     -> SecretKey
     -> Maybe ProxySKEpoch
     -> Body (MainBlockchain ssc)
+    -> MainExtraHeaderData
+    -> MainExtraBodyData
     -> MainBlock ssc
-mkMainBlock prevHeader slotId sk proxyInfo body =
+mkMainBlock prevHeader slotId sk proxyInfo body extraH extraB =
     GenericBlock
-    { _gbHeader = mkMainHeader prevHeader slotId sk proxyInfo body
+    { _gbHeader = mkMainHeader prevHeader slotId sk proxyInfo body extraH
     , _gbBody = body
-    , _gbExtra = ()
+    , _gbExtra = extraB
     }
 
 -- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.

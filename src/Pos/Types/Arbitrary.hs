@@ -33,6 +33,7 @@ import           Pos.Constants              (epochSlots, sharedSeedLength)
 import           Pos.Crypto                 (PublicKey, SecretKey, Share, hash, sign,
                                              toPublic)
 import           Pos.Crypto.Arbitrary       ()
+import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Script                 (Script)
 import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
@@ -113,7 +114,7 @@ instance Bi Tx => Arbitrary Tx where
     arbitrary = do
         txIns <- getNonEmpty <$> arbitrary
         txOuts <- getNonEmpty <$> arbitrary
-        return $ Tx txIns txOuts
+        return $ Tx txIns txOuts (mkAttributes ())
 
 -- | Type used to generate valid (w.r.t 'verifyTxAlone' and 'verifyTx')
 -- transactions and accompanying input information.
@@ -137,10 +138,10 @@ buildProperTx
     -> (Coin -> Coin, Coin -> Coin)
     -> Gen [(Tx, TxIn, TxOut, TxInWitness)]
 buildProperTx triplesList (inCoin, outCoin)= do
-        let fun (Tx txIn txOut, fromSk, toSk, c) =
+        let fun (Tx txIn txOut _, fromSk, toSk, c) =
                 let inC = inCoin c
                     outC = outCoin c
-                    txToBeSpent = Tx txIn $ (makeTxOutput fromSk inC) : txOut
+                    txToBeSpent = Tx txIn ((makeTxOutput fromSk inC) : txOut) (mkAttributes ())
                 in (txToBeSpent, fromSk, makeTxOutput toSk outC)
             -- why is it called txList? I've no idea what's going on here
             txList = fmap fun triplesList

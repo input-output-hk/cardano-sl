@@ -3,6 +3,7 @@
 module Pos.Binary
        (
          module Pos.Binary.Class
+       , module Pos.Binary.Util
        ) where
 
 import           Pos.Binary.Address       ()
@@ -16,3 +17,6 @@ import           Pos.Binary.Modern.DB     ()
 import           Pos.Binary.Ssc           ()
 import           Pos.Binary.Txp           ()
 import           Pos.Binary.Types         ()
+import           Pos.Binary.Update        ()
+import           Pos.Binary.Util
+import           Pos.Binary.Version       ()

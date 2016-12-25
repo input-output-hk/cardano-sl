@@ -52,23 +52,27 @@ import           Serokell.Util.Verify    (VerificationRes (..), isVerFailure,
 import           Universum
 
 import           Pos.Binary.Types        ()
-import           Pos.Constants           (epochSlots, k)
+import           Pos.Constants           (curProtocolVersion, curSoftwareVersion,
+                                          epochSlots, k)
 import           Pos.Crypto              (ProxySecretKey, PublicKey, SecretKey, hash)
+import           Pos.Data.Attributes     (mkAttributes)
 import           Pos.Genesis             (genesisLeaders)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain, ProcessBlockRes (..), mkPBRabort)
 import           Pos.Types               (Block, BlockHeader, ChainDifficulty, EpochIndex,
                                           GenesisBlock, HeaderHash, MainBlock,
-                                          MainBlockHeader, SlotId (..), SlotLeaders, Tx,
-                                          TxDistribution, TxWitness, Utxo,
-                                          VerifyBlockParams (..), VerifyHeaderParams (..),
-                                          blockHeader, blockLeaders, blockSlot,
-                                          difficultyL, epochIndexL, gbHeader,
-                                          getBlockHeader, headerDifficulty, headerHash,
-                                          headerSlot, mkGenesisBlock, mkMainBlock,
-                                          mkMainBody, prevBlockL, siEpoch, verifyBlock,
-                                          verifyBlocks, verifyHeader)
+                                          MainBlockHeader, MainExtraBodyData (..),
+                                          MainExtraHeaderData (..), SlotId (..),
+                                          SlotLeaders, Tx, TxDistribution, TxWitness,
+                                          Utxo, VerifyBlockParams (..),
+                                          VerifyHeaderParams (..), blockHeader,
+                                          blockLeaders, blockSlot, difficultyL,
+                                          epochIndexL, gbHeader, getBlockHeader,
+                                          headerDifficulty, headerHash, headerSlot,
+                                          mkGenesisBlock, mkMainBlock, mkMainBody,
+                                          prevBlockL, siEpoch, verifyBlock, verifyBlocks,
+                                          verifyHeader)
 import           Pos.Types.Address       (AddressHash)
 import           Pos.Util                (readerToState, _neHead, _neLast)
 
@@ -600,7 +604,10 @@ blkCreateNewBlock
 blkCreateNewBlock sk pSk sId txs sscData = do
     prevHeader <- readerToState $ getBlockHeader <$> getHeadBlock
     let body = mkMainBody txs sscData
-    let blk = mkMainBlock (Just prevHeader) sId sk pSk body
+        -- TODO [CSL-351] inlclude proposal, votes into block
+        extraB = MainExtraBodyData (mkAttributes ()) Nothing []
+        extraH = MainExtraHeaderData curProtocolVersion curSoftwareVersion (mkAttributes ())
+    let blk = mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
     insertBlock $ Right blk
     blk <$ blkSetHead (headerHash blk)
 

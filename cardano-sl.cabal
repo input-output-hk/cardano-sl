@@ -48,6 +48,7 @@ library
                         Pos.CompileConfig
                         Pos.Constants
                         Pos.Crypto
+                        Pos.Data.Attributes
                         Pos.DHT.Model
                         Pos.DHT.Model.Types
                         Pos.DHT.Model.Util
@@ -99,7 +100,9 @@ library
                         Pos.Types.Timestamp
                         Pos.Types.Tx
                         Pos.Types.Types
+                        Pos.Types.Update
                         Pos.Types.Utxo
+                        Pos.Types.Version
                         Pos.Util
                         Pos.Util.JsonLog
                         Pos.Util.UserSecret
@@ -126,6 +129,9 @@ library
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
                         Pos.Binary.Types
+                        Pos.Binary.Update
+                        Pos.Binary.Util
+                        Pos.Binary.Version
                         Pos.Block.Logic
                         Pos.Block.Network.Announce
                         Pos.Block.Network.Request

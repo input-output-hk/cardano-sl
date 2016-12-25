@@ -43,12 +43,13 @@ import           Serokell.Util.Verify      (VerificationRes (..), formatAllError
                                             isVerSuccess, verResToMonadError)
 import           Universum
 
-import           Pos.Constants             (k)
+import           Pos.Constants             (curProtocolVersion, curSoftwareVersion, k)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
                                             putBlkSemaphore, readLeaders,
                                             takeBlkSemaphore)
 import           Pos.Crypto                (ProxySecretKey, SecretKey,
                                             WithHash (WithHash), hash)
+import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.DB                    (MonadDB, getTipBlockHeader, loadHeadersUntil)
 import qualified Pos.DB                    as DB
 import           Pos.DB.Error              (DBError (..))
@@ -61,13 +62,15 @@ import           Pos.Txp.Logic             (txApplyBlocks, txRollbackBlocks,
                                             txVerifyBlocks)
 import           Pos.Types                 (Block, BlockHeader, Blund, EpochIndex,
                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
-                                            MainBlock, SlotId (..), TxAux, TxId, Undo,
-                                            VerifyHeaderParams (..), blockHeader,
-                                            difficultyL, epochOrSlot, flattenEpochOrSlot,
-                                            getEpochOrSlot, headerHash, headerSlot,
-                                            mkGenesisBlock, mkMainBlock, mkMainBody,
-                                            prevBlockL, topsortTxs, verifyHeader,
-                                            verifyHeaders, vhpVerifyConsensus)
+                                            MainBlock, MainExtraBodyData (..),
+                                            MainExtraHeaderData (..), SlotId (..), TxAux,
+                                            TxId, Undo, VerifyHeaderParams (..),
+                                            blockHeader, difficultyL, epochOrSlot,
+                                            flattenEpochOrSlot, getEpochOrSlot,
+                                            headerHash, headerSlot, mkGenesisBlock,
+                                            mkMainBlock, mkMainBody, prevBlockL,
+                                            topsortTxs, verifyHeader, verifyHeaders,
+                                            vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
 import           Pos.WorkMode              (WorkMode)
 
@@ -448,6 +451,9 @@ createMainBlockPure
     -> SecretKey
     -> MainBlock ssc
 createMainBlockPure prevHeader txs pSk sId sscData sk =
-    mkMainBlock (Just prevHeader) sId sk pSk body
+    mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where
+    -- TODO [CSL-351] inlclude proposal, votes into block
+    extraB = MainExtraBodyData (mkAttributes ()) Nothing []
+    extraH = MainExtraHeaderData curProtocolVersion curSoftwareVersion (mkAttributes ())
     body = mkMainBody (fmap snd txs) sscData

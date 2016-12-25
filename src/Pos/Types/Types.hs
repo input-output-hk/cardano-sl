@@ -38,6 +38,7 @@ module Pos.Types.Types
        , addressF
        , decodeTextAddress
 
+       , TxAttributes
        , TxInWitness (..)
        , TxWitness
        , TxDistribution (..)
@@ -50,6 +51,7 @@ module Pos.Types.Types
        , Tx (..)
        , _txInputs
        , _txOutputs
+       , _txAttributes
        , txF
        , txaF
        , TxAux
@@ -76,6 +78,10 @@ module Pos.Types.Types
 
        , MainBlockchain
        , MainBlockHeader
+       , MainExtraBodyData (..)
+       , MainExtraHeaderData (..)
+       , BlockHeaderAttributes
+       , BlockBodyAttributes
        , BiSsc
        , ProxySigEpoch
        , ProxySKEpoch
@@ -164,6 +170,7 @@ import           Pos.Binary.Script      ()
 import           Pos.Constants          (sharedSeedLength)
 import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
                                          Signature, hash, hashHexF, shortHashF)
+import           Pos.Data.Attributes    (Attributes)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Script             (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
@@ -172,8 +179,9 @@ import           Pos.Types.Address      (Address (..), AddressHash, addressF,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
 import           Pos.Types.Coin         (Coin (..), coinF)
+import           Pos.Types.Update       (UpdateProposal, UpdateVote)
+import           Pos.Types.Version      (ProtocolVersion, SoftwareVersion)
 import           Pos.Util               (Color (Magenta), colorize)
-
 
 ----------------------------------------------------------------------------
 -- Slotting
@@ -239,6 +247,11 @@ instance Buildable EpochOrSlot where
 ----------------------------------------------------------------------------
 -- Transaction
 ----------------------------------------------------------------------------
+
+-- | Represents transaction attributes: map from 1-byte integer to
+-- arbitrary-type value. To be used for extending transaction with new
+-- fields via softfork.
+type TxAttributes = Attributes ()
 
 -- | Represents transaction identifier as 'Hash' of 'Tx'.
 type TxId = Hash Tx
@@ -321,11 +334,13 @@ txOutStake (TxOut{..}, mb) = case txOutAddress of
 --
 -- NB: transaction witnesses are stored separately.
 data Tx = Tx
-    { txInputs  :: ![TxIn]   -- ^ Inputs of transaction.
-    , txOutputs :: ![TxOut]  -- ^ Outputs of transaction.
+    { txInputs     :: ![TxIn]   -- ^ Inputs of transaction.
+    , txOutputs    :: ![TxOut]  -- ^ Outputs of transaction.
+    , txAttributes :: !TxAttributes -- ^ Attributes of transaction
     } deriving (Eq, Ord, Generic, Show)
 
-makeLensesFor [("txInputs", "_txInputs"), ("txOutputs", "_txOutputs")] ''Tx
+makeLensesFor [("txInputs", "_txInputs"), ("txOutputs", "_txOutputs")
+              , ("txAttributes", "_txAttributes")] ''Tx
 
 -- | Transaction + auxiliary data
 type TxAux = (Tx, TxWitness, TxDistribution)
@@ -521,6 +536,49 @@ instance Buildable (BlockSignature ssc) where
     build (BlockSignature s)  = bprint ("BlockSignature: "%build) s
     build (BlockPSignature s) = bprint ("BlockPSignature: "%build) s
 
+-- | Represents main block body attributes: map from 1-byte integer to
+-- arbitrary-type value. To be used for extending block with new
+-- fields via softfork.
+type BlockBodyAttributes = Attributes ()
+
+-- | Represents main block header attributes: map from 1-byte integer to
+-- arbitrary-type value. To be used for extending header with new
+-- fields via softfork.
+type BlockHeaderAttributes = Attributes ()
+
+-- | Represents main block header extra data
+data MainExtraHeaderData = MainExtraHeaderData
+    { -- | Version of protocol.
+      _mehProtocolVersion :: !ProtocolVersion
+    , -- | Software version.
+      _mehSoftwareVersion :: !SoftwareVersion
+    , -- | Header attributes
+      _mehAttributes      :: !BlockHeaderAttributes
+    }
+    deriving (Eq, Show, Generic)
+
+instance Buildable MainExtraHeaderData where
+    build MainExtraHeaderData {..} =
+      bprint ( "    protocol: v"%build%"\n"
+             % "    software: "%build%"\n"
+             )
+            _mehProtocolVersion
+            _mehSoftwareVersion
+
+-- | Represents main block extra data
+data MainExtraBodyData = MainExtraBodyData
+    { _mebAttributes  :: !BlockBodyAttributes
+    , _mebUpdate      :: !(Maybe UpdateProposal)
+    , _mebUpdateVotes :: ![UpdateVote]
+    }
+    deriving (Eq, Show, Generic)
+
+instance Buildable MainExtraBodyData where
+    build MainExtraBodyData {..} =
+      bprint ("    update: "%build%", "%int%" votes\n")
+             (maybe "no proposal" Buildable.build  _mebUpdate)
+             (length _mebUpdateVotes)
+
 instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
     data BodyProof (MainBlockchain ssc) = MainProof
@@ -540,6 +598,7 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         _mcdSignature  :: !(BlockSignature ssc)
         } deriving (Generic, Show)
     type BBlockHeader (MainBlockchain ssc) = BlockHeader ssc
+    type ExtraHeaderData (MainBlockchain ssc) = MainExtraHeaderData
 
     -- | In our cryptocurrency, body consists of a list of transactions
     -- and MPC messages.
@@ -570,6 +629,8 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         , -- | Data necessary for MPC.
           _mbMpc :: !(SscPayload ssc)
         } deriving (Generic)
+
+    type ExtraBodyData (MainBlockchain ssc) = MainExtraBodyData
     type BBlock (MainBlockchain ssc) = Block ssc
 
     mkBodyProof MainBody {..} =
@@ -600,13 +661,15 @@ instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
              "    previous block: "%hashHexF%"\n"%
              "    slot: "%slotIdF%"\n"%
              "    leader: "%build%"\n"%
-             "    difficulty: "%int%"\n"
+             "    difficulty: "%int%"\n"%
+             build
             )
             headerHash
             _gbhPrevBlock
             _mcdSlot
             _mcdLeaderKey
             _mcdDifficulty
+            _gbhExtra
       where
         headerHash :: HeaderHash ssc
         headerHash = hash $ Right gbh
@@ -621,13 +684,16 @@ instance BiSsc ssc => Buildable (MainBlock ssc) where
         bprint
             (stext%":\n"%
              "  "%build%
-             "  transactions: "%listJson%"\n"%
+             "  transactions ("%int%" items): "%listJson%"\n"%
+             build%
              build
             )
             (colorize Magenta "MainBlock")
             _gbHeader
+            (length _mbTxs)
             _mbTxs
             _mbMpc
+            _gbExtra
       where
         MainBody {..} = _gbBody
 
@@ -984,6 +1050,9 @@ deriveSafeCopySimple 0 'base ''TxIn
 deriveSafeCopySimple 0 'base ''TxOut
 deriveSafeCopySimple 0 'base ''Tx
 deriveSafeCopySimple 0 'base ''SharedSeed
+
+deriveSafeCopySimple 0 'base ''MainExtraBodyData
+deriveSafeCopySimple 0 'base ''MainExtraHeaderData
 
 -- Manually written instances can't be derived because
 -- 'deriveSafeCopySimple' is not clever enough to add

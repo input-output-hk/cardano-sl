@@ -15,12 +15,19 @@ import           Universum
 
 import           Pos.Binary.Class    (Bi (..))
 import           Pos.Binary.Merkle   ()
+import           Pos.Binary.Update   ()
+import           Pos.Binary.Version  ()
+import qualified Pos.Data.Attributes as A
 import           Pos.Ssc.Class.Types (Ssc (..))
 import qualified Pos.Types.Timestamp as T
 import qualified Pos.Types.Types     as T
 
 -- kind of boilerplate, but anyway that's what it was made for --
 -- verbosity and clarity
+
+instance Bi (A.Attributes ()) where
+    get = A.getAttributes (\_ () -> Nothing) (128 * 1024 * 1024) ()
+    put = A.putAttributes (\() -> [])
 
 instance Bi T.Timestamp where
     get = fromInteger <$> get
@@ -47,8 +54,8 @@ instance Bi T.TxOut where
     get = T.TxOut <$> get <*> get
 
 instance Bi T.Tx where
-    put (T.Tx ins outs) = put ins >> put outs
-    get = T.Tx <$> get <*> get
+    put (T.Tx ins outs attrs) = put ins >> put outs >> put attrs
+    get = T.Tx <$> get <*> get <*> get
 
 instance Bi T.TxInWitness where
     put (T.PkWitness key sig)     = put (0 :: Word8) >> put key >> put sig
@@ -182,3 +189,15 @@ instance Bi (T.ConsensusData (T.GenesisBlockchain ssc)) where
 instance Bi (T.Body (T.GenesisBlockchain ssc)) where
     put (T.GenesisBody leaders) = put leaders
     get = T.GenesisBody <$> get
+
+instance Bi T.MainExtraHeaderData where
+    put T.MainExtraHeaderData {..} =  put _mehAttributes
+                                   *> put _mehProtocolVersion
+                                   *> put _mehSoftwareVersion
+    get = T.MainExtraHeaderData <$> get <*> get <*> get
+
+instance Bi T.MainExtraBodyData where
+    put T.MainExtraBodyData {..} =  put _mebAttributes
+                                 *> put _mebUpdate
+                                 *> put _mebUpdateVotes
+    get = T.MainExtraBodyData <$> get <*> get <*> get

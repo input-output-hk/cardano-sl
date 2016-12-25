@@ -7,6 +7,7 @@ module Mockable.Exception (
 
       Bracket(..)
     , bracket
+    , finally
 
     , Throw(..)
     , throw
@@ -24,6 +25,9 @@ data Bracket (m :: * -> *) (t :: *) where
 
 bracket :: ( Mockable Bracket m ) => m r -> (r -> m b) -> (r -> m c) -> m c
 bracket acquire release act = liftMockable $ Bracket acquire release act
+
+finally :: ( Mockable Bracket m ) => m a -> m b -> m a
+finally act end = bracket (return ()) (const end) (const act)
 
 data Throw (m :: * -> *) (t :: *) where
     Throw :: Exception e => e -> Throw m t

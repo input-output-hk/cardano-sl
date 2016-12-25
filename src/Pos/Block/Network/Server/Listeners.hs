@@ -202,11 +202,14 @@ handleBlocksWithLca :: forall ssc m.
        (ResponseMode ssc m)
     => NonEmpty (Block ssc) -> HeaderHash ssc -> m ()
 handleBlocksWithLca blocks lcaHash = do
+    logDebug $ sformat lcaFmt lcaHash
     -- Head block in result is the newest one.
     toRollback <- loadBlocksFromTipWhile $ \blk _ -> headerHash blk /= lcaHash
     maybe (applyWithoutRollback blocks)
           (applyWithRollback blocks lcaHash)
           (nonEmpty toRollback)
+  where
+    lcaFmt = "LCA is "%shortHashF
 
 applyWithoutRollback
     :: forall ssc m.
@@ -240,6 +243,8 @@ applyWithRollback
     => NonEmpty (Block ssc) -> HeaderHash ssc -> NonEmpty (Blund ssc) -> m ()
 applyWithRollback toApply lca toRollback = do
     logDebug "Trying to apply blocks w/ rollback…"
+    logDebug $
+        sformat ("Blocks to rollback "%listJson) (fmap headerHash toRollback)
     withBlkSemaphore_ applyWithRollbackDo
     logDebug "Finished applying blocks w/ rollback"
   where

@@ -34,6 +34,8 @@ import           SenderOptions              (Args (..), argsParser)
 instance Mockable Catch (LoggerNameBox IO) where
     liftMockable (Catch action handler) = action `Exception.catch` handler
 
+type Header = ()
+
 sendDelay :: Maybe Int -> Second
 sendDelay Nothing     = 0
 sendDelay (Just rate) = fromIntegral $ 1000000 `div` rate
@@ -65,7 +67,7 @@ main = do
     usingLoggerName "sender" $ do
         Right endPoint <- NT.newEndPoint transport
         drones <- forM nodeIds (startDrone endPoint)
-        senderNode <- startNode @() endPoint prngNode
+        senderNode <- startNode @Header endPoint prngNode
             -- TODO: is it good idea to start (recipients number * thread number) threads?
             (liftM2 (pingSender prngWork payloadBound delay)
                 tasksIds

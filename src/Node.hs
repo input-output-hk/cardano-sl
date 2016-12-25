@@ -70,7 +70,7 @@ nodeId = LL.NodeId . NT.address . LL.nodeEndPoint . nodeLL
 nodeEndPointAddress :: Node m -> NT.EndPointAddress
 nodeEndPointAddress x = let LL.NodeId y = nodeId x in y
 
-type Worker m = SendActions m -> m ()
+type Worker header m = SendActions header m -> m ()
 
 newtype MessageName = MessageName BS.ByteString
 deriving instance Eq MessageName
@@ -80,28 +80,28 @@ deriving instance Generic MessageName
 deriving instance IsString MessageName
 instance Binary MessageName
 
-data Listener m = Listener MessageName (ListenerAction m)
+data Listener header m = Listener MessageName (ListenerAction header m)
 
-data ListenerAction m where
+data ListenerAction header m where
   -- | A listener that handles a single isolated incoming message
   ListenerActionOneMsg
     :: Binary msg
-    => (LL.NodeId -> SendActions m -> msg -> m ())
-    -> ListenerAction m
+    => (LL.NodeId -> SendActions header m -> msg -> m ())
+    -> ListenerAction header m
 
   -- | A listener that handles an incoming bi-directional conversation.
   ListenerActionConversation
     :: ( Binary header, Binary body, Binary rcv )
     => (LL.NodeId -> ConversationActions header body rcv m -> m ())
-    -> ListenerAction m
+    -> ListenerAction header m
 
 newtype RawData = RawData LBS.ByteString
 
 type PreListener header m = header -> RawData -> m Bool
 
-data SendActions m = SendActions {
+data SendActions header m = SendActions {
        -- | Send a isolated (sessionless) message to a node
-       sendTo :: forall header body. ( Binary header, Binary body )
+       sendTo :: forall body. ( Binary header, Binary body )
               => LL.NodeId
               -> MessageName
               -> header
@@ -110,7 +110,7 @@ data SendActions m = SendActions {
 
        -- | Establish a bi-direction conversation session with a node.
        withConnectionTo
-           :: forall header body rcv.
+           :: forall body rcv.
               ( Binary header, Binary body, Binary rcv )
            => LL.NodeId
            -> MessageName
@@ -127,9 +127,9 @@ data ConversationActions header body rcv m = ConversationActions {
        recv  :: m (Maybe rcv)
      }
 
-type ListenerIndex m = Map MessageName (ListenerAction m)
+type ListenerIndex header m = Map MessageName (ListenerAction header m)
 
-makeListenerIndex :: [Listener m] -> (ListenerIndex m, [MessageName])
+makeListenerIndex :: [Listener header m] -> (ListenerIndex header m, [MessageName])
 makeListenerIndex = foldr combine (M.empty, [])
     where
     combine (Listener name action) (map, existing) =
@@ -139,17 +139,18 @@ makeListenerIndex = foldr combine (M.empty, [])
 
 -- | Send actions for a given 'LL.Node'.
 nodeSendActions
-    :: forall m .
+    :: forall m header .
        ( Mockable Channel m, Mockable Throw m, Mockable Catch m
-       , Mockable Bracket m, Mockable Fork m, Mockable SharedAtomic m )
+       , Mockable Bracket m, Mockable Fork m, Mockable SharedAtomic m
+       , Binary header )
     => LL.Node m
-    -> SendActions m
+    -> SendActions header m
 nodeSendActions node = SendActions nodeSendTo nodeWithConnectionTo
     where
 
     nodeSendTo
-        :: forall header body .
-           ( Binary header, Binary body )
+        :: forall body .
+           ( Binary body )
         => LL.NodeId
         -> MessageName
         -> header
@@ -160,8 +161,8 @@ nodeSendActions node = SendActions nodeSendTo nodeWithConnectionTo
             LL.writeChannel channelOut (LBS.toChunks (serialiseMsg msgName header body))
 
     nodeWithConnectionTo
-        :: forall header body rcv .
-           ( Binary header, Binary body, Binary rcv )
+        :: forall body rcv .
+           ( Binary body, Binary rcv )
         => LL.NodeId
         -> MessageName
         -> (ConversationActions header body rcv m -> m ())
@@ -203,9 +204,9 @@ startNode
        , MonadFix m, Binary header )
     => NT.EndPoint m
     -> StdGen
-    -> [Worker m]
+    -> [Worker header m]
     -> Maybe (PreListener header m)
-    -> [Listener m]
+    -> [Listener header m]
     -> m (Node m)
 startNode endPoint prng workers prelistener listeners = do
     rec { node <- LL.startNode endPoint prng (handlerIn node sendActions) (handlerInOut node)
@@ -222,13 +223,13 @@ startNode endPoint prng workers prelistener listeners = do
     -- Index the listeners by message name, for faster lookup.
     -- TODO: report conflicting names, or statically eliminate them using
     -- DataKinds and TypeFamilies.
-    listenerIndex :: ListenerIndex m
+    listenerIndex :: ListenerIndex header m
     (listenerIndex, conflictingNames) = makeListenerIndex listeners
 
     -- Handle incoming data from unidirectional connections: try to read the
     -- message name, use it to determine a listener, parse the body, then
     -- run the listener.
-    handlerIn :: LL.Node m -> SendActions m -> LL.NodeId -> ChannelIn m -> m ()
+    handlerIn :: LL.Node m -> SendActions header m -> LL.NodeId -> ChannelIn m -> m ()
     handlerIn _ sendActions peerId inchan = do
         (input :: Input MessageName) <- recvNext inchan
         case input of

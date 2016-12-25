@@ -36,10 +36,12 @@ instance Binary Pong where
         then pure Pong
         else fail "no parse pong"
 
-workers :: NodeId -> StdGen -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> [Worker Production]
+type Header = ()
+
+workers :: NodeId -> StdGen -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> [Worker Header Production]
 workers id gen discovery = [pingWorker gen]
     where
-    pingWorker :: StdGen -> SendActions Production -> Production ()
+    pingWorker :: StdGen -> SendActions Header Production -> Production ()
     pingWorker gen sendActions = loop gen
         where
         loop gen = do
@@ -50,18 +52,18 @@ workers id gen discovery = [pingWorker gen]
             peerSet <- knownPeers discovery
             liftIO . putStrLn $ show id ++ " has peer set: " ++ show peerSet
             forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) (fromString "ping") $
-                \(cactions :: ConversationActions () Void Pong Production) -> do
+                \(cactions :: ConversationActions Header Void Pong Production) -> do
                     received <- recv cactions
                     case received of
                         Just Pong -> liftIO . putStrLn $ show id ++ " heard PONG from " ++ show addr
                         Nothing -> error "Unexpected end of input"
             loop gen'
 
-listeners :: NodeId -> [Listener Production]
+listeners :: NodeId -> [Listener Header Production]
 listeners id = [Listener (fromString "ping") pongListener]
     where
-    pongListener :: ListenerAction Production
-    pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions () Pong Void Production) -> do
+    pongListener :: ListenerAction Header Production
+    pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions Header Pong Void Production) -> do
         liftIO . putStrLn $ show id ++  " heard PING from " ++ show peerId
         send cactions () Pong
 

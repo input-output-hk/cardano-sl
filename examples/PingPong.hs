@@ -39,17 +39,19 @@ instance Binary Pong where
         then pure Pong
         else fail "no parse pong"
 
-workers :: NodeId -> StdGen -> [NodeId] -> [Worker Production]
+type Header = ()
+
+workers :: NodeId -> StdGen -> [NodeId] -> [Worker Header Production]
 workers id gen peerIds = [pingWorker gen]
     where
-    pingWorker :: StdGen -> SendActions Production -> Production ()
+    pingWorker :: StdGen -> SendActions Header Production -> Production ()
     pingWorker gen sendActions = loop gen
         where
         loop :: StdGen -> Production ()
         loop gen = do
             let (i, gen') = randomR (0,1000000) gen
             delay i
-            let pong :: NodeId -> ConversationActions () Void Pong Production -> Production ()
+            let pong :: NodeId -> ConversationActions Header Void Pong Production -> Production ()
                 pong peerId cactions = do
                     liftIO . putStrLn $ show id ++ " sent PING to " ++ show peerId
                     received <- recv cactions
@@ -59,11 +61,11 @@ workers id gen peerIds = [pingWorker gen]
             forM_ peerIds $ \peerId -> withConnectionTo sendActions peerId (fromString "ping") (pong peerId)
             loop gen'
 
-listeners :: NodeId -> [Listener Production]
+listeners :: NodeId -> [Listener Header Production]
 listeners id = [Listener (fromString "ping") pongWorker]
     where
-    pongWorker :: ListenerAction Production
-    pongWorker = ListenerActionConversation $ \peerId (cactions :: ConversationActions () Pong Void Production) -> do
+    pongWorker :: ListenerAction Header Production
+    pongWorker = ListenerActionConversation $ \peerId (cactions :: ConversationActions Header Pong Void Production) -> do
         liftIO . putStrLn $ show id ++  " heard PING from " ++ show peerId
         send cactions () Pong
         liftIO . putStrLn $ show id ++ " sent PONG to " ++ show peerId

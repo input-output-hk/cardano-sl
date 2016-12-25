@@ -30,6 +30,8 @@ import           ReceiverOptions            (Args (..), argsParser)
 instance Mockable Catch (LoggerNameBox IO) where
     liftMockable (Catch action handler) = action `Exception.catch` handler
 
+type Header = ()
+
 main :: IO ()
 main = do
     (Args {..}, ()) <-
@@ -51,7 +53,7 @@ main = do
 
     usingLoggerName "receiver" $ do
         Right endPoint <- newEndPoint transport
-        receiverNode <- startNode @() endPoint prng [] Nothing
+        receiverNode <- startNode @Header endPoint prng [] Nothing
             [Listener "ping" $ pingListener noPong]
 
         threadDelay (fromIntegral duration :: Second)

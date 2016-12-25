@@ -5,14 +5,15 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Eff.Exception (error, Error)
 import Data.Argonaut (Json)
-import Data.Argonaut.Generic.Aeson (decodeJson)
+import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (bimap)
 import Data.Either (either, Either(Left))
 import Data.Generic (class Generic)
 import Data.HTTP.Method (Method(POST, DELETE))
+import Data.Maybe (Maybe (Just))
 import Data.Tuple (Tuple)
 import Network.HTTP.Affjax (affjax, defaultRequest, AJAX, get)
-import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx)
+import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta)
 import Daedalus.Constants (backendPrefix)
 
 -- TODO: remove traces, they are adding to increase verbosity in development
@@ -42,9 +43,13 @@ send addrFrom addrTo amount = do
     }
   either throwError pure $ decodeResult res
 
-newAddress :: forall eff. Aff (ajax :: AJAX | eff) CAddress
-newAddress = do
-  res <- affjax $ defaultRequest { url = backendPrefix <> "/api/new_address", method = Left POST }
+newWallet :: forall eff. CWalletMeta -> Aff (ajax :: AJAX | eff) CWallet
+newWallet wMeta = do
+  res <- affjax $ defaultRequest
+    { url = backendPrefix <> "/api/new_wallet"
+    , method = Left POST
+    , content = Just $ encodeJson wMeta
+    }
   either throwError pure $ decodeResult res
 
 deleteWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) Unit

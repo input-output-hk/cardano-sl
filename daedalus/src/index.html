@@ -9,7 +9,7 @@
             .catch(function(reason) {console.log(reason)})
       };
       var getWallet = function(address) {
-        Daedalus.ClientApi.getWallet(address)
+        Daedalus.ClientApi.getWallet(address)()
             .then(function(result) {console.log(result)})
             .catch(function(reason) {console.log(reason)})
       };
@@ -19,12 +19,12 @@
             .catch(function(reason) {console.log(reason)})
       };
       var getHistory = function(address) {
-        Daedalus.ClientApi.getHistory(address)
+        Daedalus.ClientApi.getHistory(address)()
             .then(function(result) {console.log(result)})
             .catch(function(reason) {console.log(reason)})
       };
-      var newWallet = function() {
-        Daedalus.ClientApi.newWallet()
+      var newWallet = function(type, currency, name) {
+        Daedalus.ClientApi.newWallet(type)(currency)(name)()
             .then(function(result) {console.log(result)})
             .catch(function(reason) {console.log(reason)})
       };
@@ -45,7 +45,7 @@
       <li><button onclick="getBalances();"/>getBalances</li>
       <li><button onclick="send('wallet_address1', 'wallet_address2', 1);"/>send from a to b 1 coin</li>
       <li><button onclick="getHistory('wallet_address')"/>get wallet history</li>
-      <li><button onclick="newWallet();"/>newWallet</li>
+      <li><button onclick="newWallet('personal', 'ADA', 'wallet_name');"/>newWallet</li>
       <li><button onclick="deleteWallet('wallet_address');"/>deleteWallet</li>
     </ul>
 	</body>

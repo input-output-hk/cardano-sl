@@ -5,6 +5,7 @@ module Daedalus.Types
        , _coin
        , mkCoin
        , mkCAddress
+       , mkCWalletMeta
        ) where
 
 import Prelude
@@ -28,3 +29,20 @@ _coin (Coin c) = c.getCoin
 
 mkCoin :: Int -> Coin
 mkCoin amount = Coin { getCoin: amount }
+
+-- FIXME: unsafe, use Just CT.CWalletType
+mkCWalletType :: String -> CT.CWalletType
+mkCWalletType "shared" = CT.CWTShared
+mkCWalletType _ = CT.CWTPersonal
+
+mkCCurrency :: String -> CT.CCurrency
+mkCCurrency "BTC" = CT.BTC
+mkCCurrency "ETH" = CT.ETH
+mkCCurrency _ = CT.ETH
+
+mkCWalletMeta :: String -> String -> String -> CT.CWalletMeta
+mkCWalletMeta wType wCurrency wName =
+    CT.CWalletMeta { cwType: mkCWalletType wType
+                , cwCurrency: mkCCurrency wCurrency
+                , cwName: wName
+                }

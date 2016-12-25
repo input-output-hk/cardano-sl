@@ -125,16 +125,15 @@ classifyNewHeader (Right header) = do
             "header doesn't continue main chain and is not more difficult"
 
 -- | Find lca headers and main chain, including oldest header's parent
--- hash. Headers passed are newest first.
+-- hash. Headers passed are __newest first__.
 lcaWithMainChain
     :: (WorkMode ssc m)
     => NonEmpty (BlockHeader ssc) -> m (Maybe (HeaderHash ssc))
 lcaWithMainChain headers@(h:|hs) =
     fmap fst . find snd <$>
         mapM (\hh -> (hh,) <$> DB.isBlockInMainChain hh)
-             (NE.last headers ^. prevBlockL : reverse (map hash (h : hs)))
              -- take hash of parent of last BlockHeader and convert all headers to hashes
-             -- and reverse
+             (map hash (h : hs) ++ [NE.last headers ^. prevBlockL])
 
 -- | Result of multiple headers classification.
 data ClassifyHeadersRes ssc

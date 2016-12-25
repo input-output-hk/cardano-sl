@@ -71,7 +71,7 @@ setBlockInMainChain h inMainChain =
 isBlockInMainChain
     :: (Ssc ssc, MonadDB ssc m)
     => HeaderHash ssc -> m Bool
-isBlockInMainChain = fmap (maybe True sbInMain) . getStoredBlock
+isBlockInMainChain = fmap (maybe False sbInMain) . getStoredBlock
 
 -- | Get undo data for block with given hash from Block DB.
 getUndo

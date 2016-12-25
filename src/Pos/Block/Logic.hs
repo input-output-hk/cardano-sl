@@ -131,7 +131,7 @@ lcaWithMainChain
 lcaWithMainChain headers@(h:|hs) =
     fmap fst . find snd <$>
         mapM (\hh -> (hh,) <$> DB.isBlockInMainChain hh)
-             (map hash (h : hs) ++ [NE.last headers ^. prevBlockL])
+             (NE.last headers ^. prevBlockL : reverse (map hash (h : hs)))
              -- take hash of parent of last BlockHeader and convert all headers to hashes
              -- and reverse
 

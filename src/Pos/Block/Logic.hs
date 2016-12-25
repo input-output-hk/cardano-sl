@@ -398,7 +398,7 @@ createMainBlock
     -> m (Either Text (MainBlock ssc))
 createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
   where
-    msgFmt = "We are trying to create main block, our tip header is "%build
+    msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockDo tip = do
         tipHeader <- getTipBlockHeader
         logDebug $ sformat msgFmt tipHeader

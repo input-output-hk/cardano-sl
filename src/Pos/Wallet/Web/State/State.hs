@@ -26,7 +26,7 @@ import           Data.Acid                    (EventResult, EventState, QueryEve
                                                UpdateEvent)
 import           Universum
 
-import           Pos.Wallet.Web.ClientTypes   (CAddress, CTx, CWalletMeta)
+import           Pos.Wallet.Web.ClientTypes   (CAddress, CTxId, CTxMeta, CWalletMeta)
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
@@ -62,7 +62,7 @@ getWalletMetas = queryDisk A.GetWalletMetas
 getWalletMeta :: WebWalletModeDB m => CAddress -> m (Maybe CWalletMeta)
 getWalletMeta = queryDisk . A.GetWalletMeta
 
-getWalletHistory :: WebWalletModeDB m => CAddress -> m (Maybe [CTx])
+getWalletHistory :: WebWalletModeDB m => CAddress -> m (Maybe [CTxMeta])
 getWalletHistory = queryDisk . A.GetWalletHistory
 
 createWallet :: WebWalletModeDB m => CAddress -> CWalletMeta -> m ()
@@ -71,10 +71,10 @@ createWallet addr = updateDisk . A.CreateWallet addr
 setWalletMeta :: WebWalletModeDB m => CAddress -> CWalletMeta -> m ()
 setWalletMeta addr = updateDisk . A.SetWalletMeta addr
 
-setWalletHistory :: WebWalletModeDB m => CAddress -> [CTx] -> m ()
+setWalletHistory :: WebWalletModeDB m => CAddress -> [(CTxId, CTxMeta)] -> m ()
 setWalletHistory addr = updateDisk . A.SetWalletHistory addr
 
-addOnlyNewHistory :: WebWalletModeDB m => CAddress -> [CTx] -> m ()
+addOnlyNewHistory :: WebWalletModeDB m => CAddress -> [(CTxId, CTxMeta)] -> m ()
 addOnlyNewHistory addr = updateDisk . A.AddOnlyNewHistory addr
 
 removeWallet :: WebWalletModeDB m => CAddress -> m ()

@@ -36,9 +36,11 @@ import           Pos.Wallet.KeyStorage      (MonadKeys (..), newSecretKey)
 import           Pos.Wallet.Tx              (submitTx)
 import           Pos.Wallet.WalletMode      (WalletMode, getBalance, getTxHistory)
 import           Pos.Wallet.Web.Api         (Cors, WalletApi, walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency (ADA), CTx, CTxMeta (..),
-                                             CWallet (..), CWalletMeta (..),
-                                             addressToCAddress, cAddressToAddress, mkCTx)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency (ADA), CHash (..), CTx,
+                                             CTx, CTxId, CTxMeta (..), CWallet (..),
+                                             CWalletMeta (..), addressToCAddress,
+                                             cAddressToAddress, ctId, ctType, ctTypeMeta,
+                                             mkCTx, mkCTxId)
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
                                              addOnlyNewHistory, closeState, createWallet,
                                              getWalletHistory, getWalletMeta, openState,
@@ -140,7 +142,8 @@ getHistory cAddr = do
     -- TODO: this should be removed in production
     meta <- CTxMeta ADA mempty mempty <$> liftIO getPOSIXTime
     history <- map (flip mkCTx meta) <$> (getTxHistory =<< decodeCAddressOrFail cAddr)
-    history <$ addOnlyNewHistory cAddr history
+    let txMeta = map (\ctx -> (ctId ctx, ctTypeMeta $ ctType ctx)) history
+    history <$ addOnlyNewHistory cAddr txMeta
 
 newWallet :: WalletWebMode ssc m => CWalletMeta -> m CWallet
 newWallet wMeta = do
@@ -195,3 +198,7 @@ instance FromHttpApiData Address where
 
 instance FromHttpApiData CAddress where
     parseUrlPiece = fmap addressToCAddress . decodeTextAddress
+
+-- TODO: unsafe (temporary, will be removed probably in future)
+instance FromHttpApiData CTxId where
+    parseUrlPiece = pure . mkCTxId

@@ -11,7 +11,8 @@ module Pos.Wallet.Web.Api
 
 import           Data.Proxy                 (Proxy (Proxy))
 import           Pos.Types                  (Coin, Tx)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CTx, CWallet, CWalletMeta)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CTx, CTxId, CTxMeta, CWallet,
+                                             CWalletMeta)
 import           Servant.API                ((:<|>), (:>), Capture, Get, Header, Headers,
                                              JSON, Post, ReqBody)
 import           Universum                  (Text)
@@ -28,6 +29,8 @@ type WalletApi =
      "api" :> "send" :> Capture "from" CAddress :> Capture "to" CAddress :> Capture "amount" Coin :> Post '[JSON] (Cors ())
     :<|>
      "api" :> "history" :> Capture "address" CAddress :> Get '[JSON] (Cors [CTx])
+--    :<|>
+--     "api" :> "update_tx" :> Capture "address" CAddress :> Capture "tx" CTxId :> ReqBody '[JSON] CTxMeta :> Get '[JSON] (Cors [CTx])
     :<|>
      "api" :> "new_wallet" :> ReqBody '[JSON] CWalletMeta :> Post '[JSON] (Cors CWallet)
     :<|>

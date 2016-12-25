@@ -27,6 +27,8 @@ module Pos.Wallet.Web.ClientTypes
       , addressToCAddress
       , cAddressToAddress
       , mkCTx
+      , mkCTxId
+      , ctTypeMeta
       ) where
 
 import           Data.Text             (Text)
@@ -52,11 +54,11 @@ data CCurrency
 -- | Client hash
 newtype CHash = CHash Text deriving (Show, Eq, Generic)
 
--- | Client address
-newtype CAddress = CAddress CHash deriving (Show, Eq, Generic)
+instance Hashable CHash where
+    hashWithSalt s (CHash h) = hashWithSalt s h
 
-instance Hashable CAddress where
-    hashWithSalt s (CAddress (CHash h)) = hashWithSalt s h
+-- | Client address
+newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable)
 
 -- | transform Address into CAddress
 -- TODO: this is not complitely safe. If someone changes implementation of Buildable Address. It should be probably more safe to introduce `class PSSimplified` that would have the same implementation has it is with Buildable Address but then person will know it will probably change something for purescript.
@@ -67,7 +69,10 @@ cAddressToAddress :: CAddress -> Either Text Address
 cAddressToAddress (CAddress (CHash h)) = decodeTextAddress h
 
 -- | Client transaction id
-newtype CTxId = CTxId CHash deriving (Show, Eq, Generic)
+newtype CTxId = CTxId CHash deriving (Show, Eq, Generic, Hashable)
+
+mkCTxId :: Text -> CTxId
+mkCTxId = CTxId . CHash
 
 -- | transform TxId into CTxId
 txIdToCTxId :: TxId -> CTxId
@@ -143,6 +148,10 @@ data CTType
     | CTOut CTxMeta
     -- | CTInOut CTExMeta -- Ex == exchange
     deriving (Show, Generic)
+
+ctTypeMeta :: CTType -> CTxMeta
+ctTypeMeta (CTIn meta)  = meta
+ctTypeMeta (CTOut meta) = meta
 
 -- | Client transaction (CTx)
 -- Provides all Data about a transaction needed by client.

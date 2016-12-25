@@ -30,8 +30,8 @@ import           Pos.Aeson.ClientTypes      ()
 import           Pos.Genesis                (genesisAddresses, genesisUtxo)
 import           Pos.Types                  (Address, Coin, Tx (..), TxIn (..))
 import           Pos.Wallet.Web.Api         (walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CHash, CTx, CWallet, CWalletMeta,
-                                             addressToCAddress)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CHash, CTx, CTxId, CTxMeta,
+                                             CWallet, CWalletMeta, addressToCAddress)
 import           Prelude                    (fail)
 
 walletDocs :: API
@@ -110,6 +110,13 @@ instance ToCapture (Capture "index" Word) where
         , _capDesc = "Index of address to delete"
         }
 
+instance ToCapture (Capture "tx" CTxId) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "tx"
+        , _capDesc = "Transaction id"
+        }
+
 instance ToSample Coin where
     toSamples Proxy = singleSample 100500
 
@@ -141,6 +148,9 @@ instance ToSample () where
 
 instance ToSample CTx where
     toSamples Proxy = fail "ToSample CTx: Not Implemented!"
+
+instance ToSample CTxMeta where
+    toSamples Proxy = fail "ToSample CTxMeta: Not Implemented!"
 
 instance ToSample Tx where
     toSamples Proxy = singleSample $ Tx [TxIn hsh idx] [out]

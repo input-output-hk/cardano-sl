@@ -46,10 +46,10 @@ import           Universum
 
 import           Pos.Constants             (k)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
-                                            putBlkSemaphore, readLeaders,
-                                            takeBlkSemaphore)
+                                            putBlkSemaphore, readBlkSemaphore,
+                                            readLeaders, takeBlkSemaphore)
 import           Pos.Crypto                (ProxySecretKey, SecretKey,
-                                            WithHash (WithHash), hash)
+                                            WithHash (WithHash), hash, shortHashF)
 import           Pos.DB                    (MonadDB, getTipBlockHeader, loadHeadersWhile)
 import qualified Pos.DB                    as DB
 import           Pos.DB.Error              (DBError (..))
@@ -70,6 +70,7 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             prevBlockL, topsortTxs, verifyHeader,
                                             verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
+import           Pos.Util                  (inAssertMode)
 import           Pos.WorkMode              (WorkMode)
 
 
@@ -364,8 +365,10 @@ createGenesisBlockDo
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
 createGenesisBlockDo epoch = do
     leaders <- readLeaders
-    withBlkSemaphore (createGenesisBlockCheckAgain leaders)
+    res <- withBlkSemaphore (createGenesisBlockCheckAgain leaders)
+    res <$ inAssertMode (logDebug . sformat newTipFmt =<< readBlkSemaphore)
   where
+    newTipFmt = "After creatingGenesisBlock our tip is: "%shortHashF
     createGenesisBlockCheckAgain leaders tip = do
         let noHeaderMsg =
                 "There is no header is DB corresponding to tip from semaphore"

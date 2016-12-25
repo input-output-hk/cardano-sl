@@ -32,8 +32,8 @@ import           Universum
 import           Pos.Context                 (WithNodeContext)
 import qualified Pos.DB.Class                (MonadDB)
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Class.LocalData     (MonadSscLD (..))
-import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLDM (..))
+import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..),
+                                              MonadSscLDM (..))
 import           Pos.State                   (MonadDB (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Txp.LocalData           (MonadTxLD (..))

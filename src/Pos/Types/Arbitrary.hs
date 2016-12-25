@@ -43,8 +43,7 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              LocalSlotIndex (..), SharedSeed (..),
                                              SlotId (..), Tx (..), TxDistribution (..),
                                              TxIn (..), TxInWitness (..), TxOut (..),
-                                             TxOutAux, makePubKeyAddress,
-                                             makeScriptAddress)
+                                             makePubKeyAddress, makeScriptAddress)
 import           Pos.Util                   (AsBinary)
 
 makeSmall :: Gen a -> Gen a

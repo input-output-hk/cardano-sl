@@ -14,13 +14,16 @@ module Pos.DB.Types
 
         -- * Block DB related types.
        , StoredBlock (..)
+
+        -- * LRC related types.
+       , LrcStorage (..)
        ) where
 
 import           Control.Lens     (makeLenses)
 import qualified Database.RocksDB as Rocks
 import           Universum
 
-import           Pos.Types        (Block)
+import           Pos.Types        (Block, EpochIndex, Richmen, SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- General
@@ -49,4 +52,14 @@ makeLenses ''NodeDBs
 data StoredBlock ssc = StoredBlock
     { sbBlock  :: !(Block ssc)  -- ^ Block itself.
     , sbInMain :: !Bool         -- ^ Whether block is part of our main chain.
+    } deriving (Generic)
+
+----------------------------------------------------------------------------
+-- LRC
+----------------------------------------------------------------------------
+
+data LrcStorage ssc = LrcStorage
+    { lrcEpoch   :: !EpochIndex
+    , lrcLeaders :: !SlotLeaders
+    , lrcRichmen :: !Richmen
     } deriving (Generic)

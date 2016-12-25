@@ -44,6 +44,7 @@ module Pos.Types.Types
        , TxSig
        , TxId
        , TxIn (..)
+       , toPair
        , TxOut (..)
        , txOutStake
        , Tx (..)
@@ -64,6 +65,7 @@ module Pos.Types.Types
        , SharedSeed (..)
        , SlotLeaders
        , Participants
+       , Richmen
 
        , Blockchain (..)
        , BodyProof (..)
@@ -290,6 +292,10 @@ instance Hashable TxIn
 instance Buildable TxIn where
     build TxIn {..} = bprint ("TxIn "%shortHashF%" #"%int) txInHash txInIndex
 
+-- | Make pair from TxIn
+toPair :: TxIn -> (TxId, Word32)
+toPair (TxIn h i) = (h, i)
+
 -- | Transaction output.
 data TxOut = TxOut
     { txOutAddress :: !Address
@@ -399,7 +405,11 @@ instance Monoid SharedSeed where
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty (AddressHash PublicKey)
 
+-- FIXME: remove!
 type Participants = NonEmpty (AddressHash PublicKey)
+
+-- | Addresses which have enough stake for participation in SSC.
+type Richmen = NonEmpty (AddressHash PublicKey)
 
 ----------------------------------------------------------------------------
 -- GenericBlock

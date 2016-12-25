@@ -8,6 +8,9 @@
 
 module Pos.Txp.Listeners
        ( txListeners
+#ifndef MODERN
+       , processTx
+#endif
        ) where
 
 import qualified Data.HashMap.Strict         as HM
@@ -33,12 +36,13 @@ import           Pos.Types                   (TxAux, TxId)
 import           Pos.WorkMode                (WorkMode)
 
 #ifdef MODERN
-import           Pos.Txp.Class               (MonadTxpLD (getMemPool))
+import           Pos.Txp.Class               (MonadTxpLD, getMemPool)
 import           Pos.Txp.Logic               (processTx)
-import           Pos.Txp.Storage.Types       (MemPool (..), TxMap)
+import           Pos.Txp.Types.Types         (MemPool (..), TxMap)
 #else
-import           Pos.Txp.LocalData           (txLocalDataProcessTx)
-import           Pos.Txp.LocalData           (getLocalTxs)
+import           Pos.Ssc.Class               (WorkModeSsc)
+import           Pos.Txp.LocalData           (MonadTxLD, getLocalTxs,
+                                              txLocalDataProcessTx)
 #endif
 
 -- | Listeners for requests related to blocks processing.
@@ -179,7 +183,9 @@ handleTxDo tx = do
 
 -- CHECK: @processTx
 -- #txLocalDataProcessTx
-processTx :: ResponseMode ssc m => (TxId, TxAux) -> m ProcessTxRes
+processTx
+    :: (WorkModeSsc ssc, MonadTxLD m, St.MonadDB ssc m, MonadIO m)
+    => (TxId, TxAux) -> m ProcessTxRes
 processTx tx = do
     utxo <- St.getUtxo
     locRes <- txLocalDataProcessTx tx utxo

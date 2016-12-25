@@ -63,4 +63,3 @@ class (Typeable ssc
     sscCreateNodeContext :: MonadIO m => SscParams ssc -> m (SscNodeContext ssc)
 
     type SscGlobalStateM ssc
-    type SscLocalDataM ssc

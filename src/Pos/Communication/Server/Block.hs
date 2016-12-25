@@ -34,7 +34,7 @@ import           Pos.Context               (getNodeContext, ncPropagation)
 import           Pos.Crypto                (hash, shortHashF)
 import           Pos.DHT.Model             (ListenerDHT (..), MonadDHTDialog, replyToNode)
 import           Pos.Slotting              (getCurrentSlot)
-import           Pos.Ssc.Class.LocalData   (sscApplyGlobalState)
+import           Pos.Ssc.Extra             (sscApplyGlobalState)
 import qualified Pos.State                 as St
 import           Pos.Txp.LocalData         (getLocalTxs, txApplyHeadUtxo,
                                             txLocalDataRollback)

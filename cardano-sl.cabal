@@ -34,6 +34,12 @@ Flag with-wallet
 
   description: Build with wallet.
 
+Flag modern
+  default:     False
+  manual:      True
+
+  description: Switch between modern DB endpoits and old onex
+
 library
   exposed-modules:      Pos.Binary
                         Pos.CLI
@@ -168,13 +174,9 @@ library
                         Pos.DB.Types
                         Pos.DB.Utxo
                         Pos.DB.DBIterator
-                        Pos.Modern.Ssc.GodTossing.LocalData.LocalData
-                        Pos.Modern.Ssc.GodTossing.LocalData.Types
-                        Pos.Modern.Ssc.GodTossing.LocalData.Helpers
                         Pos.Modern.Ssc.GodTossing.Storage.Storage
                         Pos.Modern.Ssc.GodTossing.Helpers
                         Pos.Modern.Ssc.GodTossing.Storage.Types
-                        Pos.Modern.Ssc.GodTossing.Workers
                         Pos.Modern.Ssc.GodTossing.Functions
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.LocalData
@@ -185,6 +187,7 @@ library
                         Pos.Ssc.GodTossing.Functions
                         Pos.Ssc.GodTossing.Genesis
                         Pos.Ssc.GodTossing.Listener.Listeners
+                        Pos.Ssc.GodTossing.LocalData.Helpers
                         Pos.Ssc.GodTossing.LocalData.LocalData
                         Pos.Ssc.GodTossing.LocalData.Types
                         Pos.Ssc.GodTossing.Storage.Types
@@ -367,6 +370,8 @@ library
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
+  if flag(modern)
+    cpp-options: -DMODERN
 
 executable cardano-node
   hs-source-dirs:      src/node

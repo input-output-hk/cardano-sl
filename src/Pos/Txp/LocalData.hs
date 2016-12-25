@@ -6,6 +6,7 @@ module Pos.Txp.LocalData
        (
          TxLocalData (..)
        , MonadTxLD (..)
+
        , txRunQuery
        , txRunUpdate
 

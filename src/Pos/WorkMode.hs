@@ -61,11 +61,10 @@ import           Pos.DHT.Model                 (DHTPacking, DHTResponseT (..),
 import           Pos.DHT.Real                  (KademliaDHT (..))
 import           Pos.Slotting                  (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers         (SscHelpersClass (..))
-import           Pos.Ssc.Class.LocalData       (MonadSscLD (..), SscLocalDataClass,
-                                                SscLocalDataClassM)
+import           Pos.Ssc.Class.LocalData       (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage         (SscStorageClassM, SscStorageMode)
-import           Pos.Ssc.Extra                 (MonadSscGS, MonadSscLDM, SscHolder,
-                                                SscLDImpl)
+import           Pos.Ssc.Extra                 (MonadSscGS, MonadSscLD (..), MonadSscLDM,
+                                                SscHolder, SscLDImpl)
 import           Pos.State                     (DBHolder, MonadDB (..))
 import           Pos.Statistics.MonadStats     (MonadStats, NoStatsT, StatsT)
 import           Pos.Txp.Class                 (MonadTxpLD (..))
@@ -93,7 +92,6 @@ type WorkMode ssc m
       , SscStorageMode ssc
       , SscStorageClassM ssc
       , SscLocalDataClass ssc
-      , SscLocalDataClassM ssc
       , SscHelpersClass ssc
       , MonadSscLD ssc m
       , WithNodeContext ssc m

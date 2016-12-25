@@ -47,7 +47,8 @@ newAddress = do
   res <- affjax $ defaultRequest { url = backendPrefix <> "/api/new_address", method = Left POST }
   either throwError pure $ decodeResult res
 
-deleteAddress :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) Unit
-deleteAddress addr = do
-  res <- affjax $ defaultRequest { url = backendPrefix <> "/api/delete_address/" <> _address addr, method = Left DELETE }
+deleteWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) Unit
+deleteWallet addr = do
+  -- FIXME: use DELETE method
+  res <- affjax $ defaultRequest { url = backendPrefix <> "/api/delete_wallet/" <> _address addr, method = Left POST }
   either throwError pure $ decodeResult res

@@ -28,4 +28,4 @@ newWallet :: forall eff. Eff(ajax :: AJAX | eff) (Promise CAddress)
 newWallet = fromAff B.newAddress
 
 deleteWallet :: forall eff. String -> Eff(ajax :: AJAX | eff) (Promise Unit)
-deleteWallet = fromAff <<< B.deleteAddress <<< mkCAddress
+deleteWallet = fromAff <<< B.deleteWallet <<< mkCAddress

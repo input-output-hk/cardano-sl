@@ -23,11 +23,13 @@ module Pos.DB.Block
 import           Control.Lens         ((^.))
 import           Data.ByteArray       (convert)
 import           Data.List.NonEmpty   (NonEmpty (..), (<|))
+import qualified Data.List.NonEmpty   as NE
+import           Formatting           (sformat, (%))
 import           Universum
 
-import qualified Data.List.NonEmpty   as NE
 import           Pos.Binary.Class     (Bi)
 import           Pos.Binary.Modern.DB ()
+import           Pos.Crypto           (shortHashF)
 import           Pos.DB.Class         (MonadDB, getBlockDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (rocksDelete, rocksGetBi, rocksPutBi)
@@ -110,10 +112,11 @@ loadLastNBlocksWithUndo hash count = NE.reverse <$> doIt hash count
 getBlockWithUndo :: (Ssc ssc, MonadDB ssc m)
                  => HeaderHash ssc -> m (Block ssc, Undo)
 getBlockWithUndo hash =
-    maybe (throwM $
-               DBMalformed "getBlockWithUndo: no block or undo with such HeaderHash")
-          pure
-    =<< (liftA2 (,) <$> getBlock hash <*> getUndo hash)
+    maybe (throwM $ DBMalformed $ sformat errFmt hash) pure =<<
+    (liftA2 (,) <$> getBlock hash <*> getUndo hash)
+  where
+    errFmt =
+        ("getBlockWithUndo: no block or undo with such HeaderHash: " %shortHashF)
 
 -- | Load blocks starting from block with header hash equals @hash@ and while @predicate@ is true.
 -- The head of returned list is the youngest block.

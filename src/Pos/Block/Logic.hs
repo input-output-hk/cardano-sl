@@ -38,9 +38,10 @@ import qualified Data.HashMap.Strict       as HM
 import           Data.List.NonEmpty        (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
-import           Formatting                (int, sformat, (%))
+import           Formatting                (build, int, sformat, (%))
 import           Serokell.Util.Verify      (VerificationRes (..), formatAllErrors,
                                             isVerSuccess, verResToMonadError)
+import           System.Wlog               (logDebug)
 import           Universum
 
 import           Pos.Constants             (k)
@@ -397,8 +398,10 @@ createMainBlock
     -> m (Either Text (MainBlock ssc))
 createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
   where
+    msgFmt = "We are trying to create main block, our tip header is "%build
     createMainBlockDo tip = do
         tipHeader <- getTipBlockHeader
+        logDebug $ sformat msgFmt tipHeader
         case canCreateBlock sId tipHeader of
             Nothing  -> convertRes <$> createMainBlockFinish sId pSk tipHeader
             Just err -> return (Left err, tip)

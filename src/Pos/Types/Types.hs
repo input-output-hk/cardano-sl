@@ -684,6 +684,9 @@ type BlockHeader ssc = Either (GenesisBlockHeader ssc) (MainBlockHeader ssc)
 -- | 'Hash' of block header.
 type HeaderHash ssc = Hash (BlockHeader ssc)
 
+instance BiSsc ssc => Buildable (BlockHeader ssc) where
+    build = either Buildable.build Buildable.build
+
 -- | Specialized formatter for 'HeaderHash'.
 headerHashF :: Format r (HeaderHash ssc -> r)
 headerHashF = build

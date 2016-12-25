@@ -46,18 +46,19 @@ import           Universum
 
 import           Pos.Constants             (curProtocolVersion, curSoftwareVersion, k)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
-                                            putBlkSemaphore, readLeaders,
-                                            takeBlkSemaphore)
+                                            putBlkSemaphore, readBlkSemaphore,
+                                            readLeaders, takeBlkSemaphore)
 import           Pos.Crypto                (ProxySecretKey, SecretKey,
-                                            WithHash (WithHash), hash)
+                                            WithHash (WithHash), hash, shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.DB                    (MonadDB, getTipBlockHeader, loadHeadersWhile)
 import qualified Pos.DB                    as DB
 import           Pos.DB.Error              (DBError (..))
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class             (Ssc (..))
-import           Pos.Ssc.Extra             (sscApplyBlocks, sscGetLocalPayloadM,
-                                            sscRollback, sscVerifyBlocks)
+import           Pos.Ssc.Extra             (sscApplyBlocks, sscApplyGlobalState,
+                                            sscGetLocalPayload, sscRollback,
+                                            sscVerifyBlocks)
 import           Pos.Txp.Class             (getLocalTxsNUndo)
 import           Pos.Txp.Logic             (txApplyBlocks, txRollbackBlocks,
                                             txVerifyBlocks)
@@ -73,6 +74,7 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             topsortTxs, verifyHeader, verifyHeaders,
                                             vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
+import           Pos.Util                  (inAssertMode)
 import           Pos.WorkMode              (WorkMode)
 
 
@@ -128,16 +130,15 @@ classifyNewHeader (Right header) = do
             "header doesn't continue main chain and is not more difficult"
 
 -- | Find lca headers and main chain, including oldest header's parent
--- hash. Headers passed are newest first.
+-- hash. Headers passed are __newest first__.
 lcaWithMainChain
     :: (WorkMode ssc m)
     => NonEmpty (BlockHeader ssc) -> m (Maybe (HeaderHash ssc))
 lcaWithMainChain headers@(h:|hs) =
     fmap fst . find snd <$>
         mapM (\hh -> (hh,) <$> DB.isBlockInMainChain hh)
-             (NE.last headers ^. prevBlockL : reverse (map hash (h : hs)))
              -- take hash of parent of last BlockHeader and convert all headers to hashes
-             -- and reverse
+             (map hash (h : hs) ++ [NE.last headers ^. prevBlockL])
 
 -- | Result of multiple headers classification.
 data ClassifyHeadersRes ssc
@@ -287,6 +288,7 @@ applyBlocks blunds = do
     mapM_ putToDB blunds
     txApplyBlocks blks
     sscApplyBlocks blks
+    sscApplyGlobalState
   where
     putToDB (blk, undo) = DB.putBlock undo True blk
 
@@ -368,8 +370,10 @@ createGenesisBlockDo
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
 createGenesisBlockDo epoch = do
     leaders <- readLeaders
-    withBlkSemaphore (createGenesisBlockCheckAgain leaders)
+    res <- withBlkSemaphore (createGenesisBlockCheckAgain leaders)
+    res <$ inAssertMode (logDebug . sformat newTipFmt =<< readBlkSemaphore)
   where
+    newTipFmt = "After creatingGenesisBlock our tip is: "%shortHashF
     createGenesisBlockCheckAgain leaders tip = do
         let noHeaderMsg =
                 "There is no header is DB corresponding to tip from semaphore"
@@ -432,7 +436,7 @@ createMainBlockFinish
     -> m (MainBlock ssc)
 createMainBlockFinish slotId pSk prevHeader = do
     (localTxs, localUndo) <- getLocalTxsNUndo
-    sscData <- sscGetLocalPayloadM slotId
+    sscData <- sscGetLocalPayload slotId
     let panicTopsort = panic "Topology of local transactions is broken!"
     let convertTx (txId, (tx, _, _)) = WithHash tx txId
     let sortedTxs = fromMaybe panicTopsort $ topsortTxs convertTx localTxs

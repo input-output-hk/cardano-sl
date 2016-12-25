@@ -32,6 +32,13 @@ updateWallet addr wType wCurrency wName = fromAff <<<
     B.updateWallet
         (mkCAddress addr)
         $ mkCWalletMeta wType wCurrency wName
-
+--
+-- updateTransaction :: forall eff. String -> String -> String -> String -> String -> NominalDateTime -> Eff(ajax :: AJAX | eff) (Promise CWallet)
+-- updateTransaction addr ctxId ctmCurrency ctmTitle ctmDescription ctmDate = fromAff <<<
+--     B.updateTransaction
+--         (mkCAddress addr)
+--         (mkCTxId ctxId)
+--         $ mkCWalletMeta wType wCurrency wName
+--
 deleteWallet :: forall eff. String -> Eff(ajax :: AJAX | eff) (Promise Unit)
 deleteWallet = fromAff <<< B.deleteWallet <<< mkCAddress

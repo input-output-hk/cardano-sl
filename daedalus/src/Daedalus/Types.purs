@@ -6,6 +6,7 @@ module Daedalus.Types
        , mkCoin
        , mkCAddress
        , mkCWalletMeta
+       , _ctxIdValue
        ) where
 
 import Prelude
@@ -46,3 +47,6 @@ mkCWalletMeta wType wCurrency wName =
                 , cwCurrency: mkCCurrency wCurrency
                 , cwName: wName
                 }
+
+_ctxIdValue :: CT.CTxId -> String
+_ctxIdValue (CT.CTxId (CT.CHash h)) = h

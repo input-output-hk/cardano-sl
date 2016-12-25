@@ -25,15 +25,22 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletType (..)
       , CWalletMeta (..)
       , addressToCAddress
+      , cAddressToAddress
+      , mkCTx
+      , mkCTxId
+      , ctTypeMeta
       ) where
 
-import           Data.Text       (Text)
-import           GHC.Generics    (Generic)
+import           Data.Text             (Text)
+import           GHC.Generics          (Generic)
 import           Universum
 
-import           Formatting      (build, sformat)
-import           Pos.Aeson.Types ()
-import           Pos.Types       (Address (..), Coin)
+import           Data.Hashable         (Hashable (..))
+import           Data.Time.Clock.POSIX (POSIXTime)
+import           Formatting            (build, sformat)
+import           Pos.Aeson.Types       ()
+import           Pos.Types             (Address (..), Coin, Tx, TxId, decodeTextAddress,
+                                        txOutValue, txOutputs)
 
 
 -- | currencies handled by client
@@ -45,22 +52,37 @@ data CCurrency
     deriving (Show, Generic)
 
 -- | Client hash
-newtype CHash = CHash Text deriving (Show, Generic)
+newtype CHash = CHash Text deriving (Show, Eq, Generic)
+
+instance Hashable CHash where
+    hashWithSalt s (CHash h) = hashWithSalt s h
 
 -- | Client address
-newtype CAddress = CAddress CHash deriving (Show, Generic)
+newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable)
 
 -- | transform Address into CAddress
 -- TODO: this is not complitely safe. If someone changes implementation of Buildable Address. It should be probably more safe to introduce `class PSSimplified` that would have the same implementation has it is with Buildable Address but then person will know it will probably change something for purescript.
 addressToCAddress :: Address -> CAddress
 addressToCAddress = CAddress . CHash . sformat build
 
+cAddressToAddress :: CAddress -> Either Text Address
+cAddressToAddress (CAddress (CHash h)) = decodeTextAddress h
+
 -- | Client transaction id
-newtype CTxId = CTxId CHash deriving (Show, Generic)
+newtype CTxId = CTxId CHash deriving (Show, Eq, Generic, Hashable)
+
+mkCTxId :: Text -> CTxId
+mkCTxId = CTxId . CHash
 
 -- | transform TxId into CTxId
--- txIdToCTxId :: TxId -> CTxId
--- txIdToCTxId = undefined
+txIdToCTxId :: TxId -> CTxId
+txIdToCTxId = CTxId . CHash . sformat build
+
+mkCTx :: (TxId, Tx, Bool) -> CTxMeta -> CTx
+mkCTx (txId, tx, isInput) = CTx (txIdToCTxId txId) outputCoins . meta
+  where
+    outputCoins = sum . map txOutValue $ txOutputs tx
+    meta = if isInput then CTIn else CTOut
 
 ----------------------------------------------------------------------------
 -- wallet
@@ -78,7 +100,6 @@ data CWalletMeta = CWalletMeta
     { cwType     :: CWalletType
     , cwCurrency :: CCurrency
     , cwName     :: Text
-    , cwLastUsed :: Bool
     } deriving (Show, Generic)
 
 -- | Client Wallet (CW)
@@ -117,7 +138,7 @@ data CTxMeta = CTxMeta
     { ctmCurrency    :: CCurrency
     , ctmTitle       :: Text
     , ctmDescription :: Text
-    , ctmDate        :: Text -- TODO jk: should be NominalDiffTime
+    , ctmDate        :: POSIXTime
     } deriving (Show, Generic)
 
 -- | type of transactions
@@ -125,8 +146,12 @@ data CTxMeta = CTxMeta
 data CTType
     = CTIn CTxMeta
     | CTOut CTxMeta
-    | CTInOut CTExMeta -- Ex == exchange
+    -- | CTInOut CTExMeta -- Ex == exchange
     deriving (Show, Generic)
+
+ctTypeMeta :: CTType -> CTxMeta
+ctTypeMeta (CTIn meta)  = meta
+ctTypeMeta (CTOut meta) = meta
 
 -- | Client transaction (CTx)
 -- Provides all Data about a transaction needed by client.

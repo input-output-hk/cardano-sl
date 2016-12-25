@@ -45,6 +45,7 @@ makePubKeyTx sk inputs outputs = (Tx {..}, txWitness, txDist)
   where pk = toPublic sk
         txInputs = map makeTxIn inputs
         txOutputs = map fst outputs
+        txAttributes = mkAttributes ()
         txOutHash = hash txOutputs
         txDist = TxDistribution (map snd outputs)
         txDistHash = hash txDist
@@ -54,7 +55,6 @@ makePubKeyTx sk inputs outputs = (Tx {..}, txWitness, txDist)
                 twKey = pk,
                 twSig = sign sk (txInHash, txInIndex, txOutHash, txDistHash) }
         txWitness = V.fromList (map makeTxInWitness inputs)
-        txAttributes = mkAttributes ()
 
 type FlatUtxo = [(TxOutIdx, TxOutAux)]
 type InputPicker = StateT (Coin, FlatUtxo) (Either TxError)

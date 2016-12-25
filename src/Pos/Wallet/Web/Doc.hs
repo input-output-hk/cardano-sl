@@ -29,9 +29,10 @@ import           Universum
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Genesis                (genesisAddresses, genesisUtxo)
-import           Pos.Types                  (Address, Coin, Tx (..), TxIn (..))
+import           Pos.Types                  (Coin)
 import           Pos.Wallet.Web.Api         (walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CHash, addressToCAddress)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CHash, CTx, CTxId, CTxMeta,
+                                             CWallet, CWalletMeta, addressToCAddress)
 import           Prelude                    (fail)
 
 walletDocs :: API
@@ -75,14 +76,14 @@ extras =
 -- Orphan instances
 ----------------------------------------------------------------------------
 
-instance ToCapture (Capture "from" Address) where
+instance ToCapture (Capture "from" CAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "from"
         , _capDesc = "Address from which coins should be sent."
         }
 
-instance ToCapture (Capture "to" Address) where
+instance ToCapture (Capture "to" CAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "to"
@@ -96,7 +97,7 @@ instance ToCapture (Capture "amount" Coin) where
         , _capDesc = "Amount of coins to send."
         }
 
-instance ToCapture (Capture "address" Address) where
+instance ToCapture (Capture "address" CAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "address"
@@ -110,21 +111,48 @@ instance ToCapture (Capture "index" Word) where
         , _capDesc = "Index of address to delete"
         }
 
+instance ToCapture (Capture "tx" CTxId) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "tx"
+        , _capDesc = "Transaction id"
+        }
+
 instance ToSample Coin where
     toSamples Proxy = singleSample 100500
 
-instance ToSample Address where
-    toSamples Proxy = singleSample $ genesisAddresses !! 0
-
+-- instance ToSample Address where
+--     toSamples Proxy = singleSample $ genesisAddresses !! 0
+--
+-- FIXME!
 instance ToSample CHash where
     toSamples Proxy = fail "ToSample CHash: Not Implemented!"
+
+-- FIXME!
+instance ToSample CWallet where
+    toSamples Proxy = fail "ToSample CWallet: Not Implemented!"
+
+-- FIXME!
+instance ToSample CWalletMeta where
+    toSamples Proxy = fail "ToSample CWalletMeta: Not Implemented!"
 
 instance ToSample CAddress where
     toSamples Proxy = singleSample . addressToCAddress $ genesisAddresses !! 0
 
+-- FIXME: this is required because of Wallet.Web.Api `type Cors...`
+-- I don't really what should be sample for Cors ?
+instance ToSample Text where
+    toSamples Proxy = fail "ToSample CORS: Not Implemented!"
+
 instance ToSample () where
     toSamples Proxy = singleSample ()
 
-instance ToSample Tx where
-    toSamples Proxy = singleSample $ Tx [TxIn hsh idx] [out] (mkAttributes ())
-      where ((hsh, idx), (out, _)) = M.toList (genesisUtxo def) !! 0
+instance ToSample CTx where
+    toSamples Proxy = fail "ToSample CTx: Not Implemented!"
+
+instance ToSample CTxMeta where
+    toSamples Proxy = fail "ToSample CTxMeta: Not Implemented!"
+--
+--instance ToSample Tx where
+--    toSamples Proxy = singleSample $ Tx [TxIn hsh idx] [out]
+--      where ((hsh, idx), (out, _)) = M.toList (genesisUtxo def) !! 0

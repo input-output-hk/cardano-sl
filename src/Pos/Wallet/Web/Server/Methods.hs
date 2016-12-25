@@ -14,10 +14,10 @@ module Pos.Wallet.Web.Server.Methods
 
 import           Control.Lens               (view, _2)
 import           Data.List                  (elemIndex, (!!))
-import           Formatting                 (ords, sformat, (%))
+import           Formatting                 (ords, sformat, stext, (%))
 import           Network.Wai                (Application)
 import           Servant.API                ((:<|>) ((:<|>)),
-                                             FromHttpApiData (parseUrlPiece))
+                                             FromHttpApiData (parseUrlPiece), addHeader)
 import           Servant.Server             (Handler, ServantErr (errBody), Server,
                                              ServerT, err404, serve)
 import           Servant.Utils.Enter        ((:~>) (..), enter)
@@ -30,14 +30,23 @@ import           Pos.Types                  (Address, Coin (Coin), Tx, TxOut (..
                                              addressF, coinF, decodeTextAddress,
                                              makePubKeyAddress)
 
+import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Wallet.KeyStorage      (MonadKeys (..), newSecretKey)
 import           Pos.Wallet.Tx              (submitTx)
 import           Pos.Wallet.WalletMode      (WalletMode, getBalance, getTxHistory)
-import           Pos.Wallet.Web.Api         (WalletApi, walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, addressToCAddress)
+import           Pos.Wallet.Web.Api         (Cors, WalletApi, walletApi)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency (ADA), CHash (..), CTx,
+                                             CTx, CTxId, CTxMeta (..), CWallet (..),
+                                             CWalletMeta (..), addressToCAddress,
+                                             cAddressToAddress, ctId, ctType, ctTypeMeta,
+                                             mkCTx, mkCTxId)
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
-                                             closeState, openState, runWalletWebDB)
+                                             addOnlyNewHistory, closeState, createWallet,
+                                             getWalletHistory, getWalletMeta, openState,
+                                             removeWallet, runWalletWebDB, setWalletMeta)
+
+
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -69,8 +78,20 @@ type WalletWebMode ssc m
       )
 
 servantHandlers :: WalletWebMode ssc m => ServerT WalletApi m
-servantHandlers = getAddresses :<|> getBalances :<|> send :<|>
-                  getHistory :<|> newAddress :<|> deleteAddress
+servantHandlers =
+     addCors . getWallet
+    :<|>
+     addCors getWallets
+    :<|>
+     (\a b -> addCors . send a b)
+    :<|>
+     addCors . getHistory
+    :<|>
+     addCors . newWallet
+    :<|>
+     (\a -> addCors . updateWallet a)
+    :<|>
+     addCors . deleteWallet
 
 getAddresses :: WalletWebMode ssc m => m [CAddress]
 getAddresses = map addressToCAddress <$> myAddresses
@@ -79,27 +100,72 @@ getBalances :: WalletWebMode ssc m => m [(CAddress, Coin)]
 getBalances = join $ mapM gb <$> myAddresses
   where gb addr = (,) (addressToCAddress addr) <$> getBalance addr
 
-send :: WalletWebMode ssc m => Address -> Address -> Coin -> m ()
-send srcAddr dstAddr c = do
+getWallet :: WalletWebMode ssc m => CAddress -> m CWallet
+getWallet cAddr = do
+    balance <- getBalance =<< decodeCAddressOrFail cAddr
+    meta <- getWalletMeta cAddr >>= maybe noWallet pure
+    pure $ CWallet cAddr balance meta
+  where
+    -- TODO: improve error handling
+    noWallet = throwM err404
+
+-- TODO: probably poor naming
+decodeCAddressOrFail :: WalletWebMode ssc m => CAddress -> m Address
+decodeCAddressOrFail = either wrongAddress pure . cAddressToAddress
+  where
+    wrongAddress err = throwM err404 {
+        errBody = encodeUtf8 $
+            sformat ("Error while decoding CAddress: "%stext) err
+        }
+
+getWallets :: WalletWebMode ssc m => m [CWallet]
+getWallets = join $ mapM getWallet <$> myCAddresses
+
+send :: WalletWebMode ssc m => CAddress -> CAddress -> Coin -> m ()
+send srcCAddr dstCAddr c = do
+    srcAddr <- decodeCAddressOrFail srcCAddr
+    dstAddr <- decodeCAddressOrFail dstCAddr
     idx <- getAddrIdx srcAddr
     sks <- getSecretKeys
     let sk = sks !! idx
     na <- fmap dhtAddr <$> getKnownPeers
     () <$ submitTx sk na [(TxOut dstAddr c, [])]
+    -- TODO: this should be removed in production
+    () <$ getHistory srcCAddr
+    () <$ getHistory dstCAddr
     logInfo $
         sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
         c idx dstAddr
 
-getHistory :: WalletWebMode ssc m => Address -> m [Tx]
-getHistory addr = map (view _2) <$> getTxHistory addr
+getHistory :: WalletWebMode ssc m => CAddress -> m [CTx]
+getHistory cAddr = do
+    -- TODO: this should be removed in production
+    meta <- CTxMeta ADA mempty mempty <$> liftIO getPOSIXTime
+    history <- map (flip mkCTx meta) <$> (getTxHistory =<< decodeCAddressOrFail cAddr)
+    let txMeta = map (\ctx -> (ctId ctx, ctTypeMeta $ ctType ctx)) history
+    history <$ addOnlyNewHistory cAddr txMeta
 
-newAddress :: WalletWebMode ssc m => m CAddress
-newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
+newWallet :: WalletWebMode ssc m => CWalletMeta -> m CWallet
+newWallet wMeta = do
+    cAddr <- newAddress
+    createWallet cAddr wMeta
+    getWallet cAddr
+  where
+    newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
 
-deleteAddress :: WalletWebMode ssc m => Address -> m ()
-deleteAddress addr = do
-    idx <- getAddrIdx addr
-    deleteSecretKey $ fromIntegral idx
+updateWallet :: WalletWebMode ssc m => CAddress -> CWalletMeta -> m CWallet
+updateWallet cAddr wMeta = do
+    setWalletMeta cAddr wMeta
+    getWallet cAddr
+
+deleteWallet :: WalletWebMode ssc m => CAddress -> m ()
+deleteWallet cAddr = do
+    removeWallet cAddr
+    deleteAddress =<< decodeCAddressOrFail cAddr
+  where
+    deleteAddress addr = do
+        idx <- getAddrIdx addr
+        deleteSecretKey $ fromIntegral idx
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -108,12 +174,18 @@ deleteAddress addr = do
 myAddresses :: MonadKeys m => m [Address]
 myAddresses = map (makePubKeyAddress . toPublic) <$> getSecretKeys
 
+myCAddresses :: MonadKeys m => m [CAddress]
+myCAddresses = map addressToCAddress <$> myAddresses
+
 getAddrIdx :: WalletWebMode ssc m => Address -> m Int
 getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound return
   where notFound = throwM err404 {
             errBody = encodeUtf8 $
                 sformat ("Address "%addressF%" is not found in wallet") $ addr
             }
+
+addCors :: Monad m => m a -> m (Cors a)
+addCors = fmap (addHeader "*")
 
 ----------------------------------------------------------------------------
 -- Orphan instances
@@ -123,3 +195,10 @@ deriving instance FromHttpApiData Coin
 
 instance FromHttpApiData Address where
     parseUrlPiece = decodeTextAddress
+
+instance FromHttpApiData CAddress where
+    parseUrlPiece = fmap addressToCAddress . decodeTextAddress
+
+-- TODO: unsafe (temporary, will be removed probably in future)
+instance FromHttpApiData CTxId where
+    parseUrlPiece = pure . mkCTxId

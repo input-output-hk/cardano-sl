@@ -12,8 +12,14 @@ module Pos.Wallet.Web.State.Acidic
        , tidyState
        , update
 
-       , GetDummyAttribute (..)
-       , SetDummyAttribute (..)
+       , GetWalletMetas (..)
+       , GetWalletMeta (..)
+       , CreateWallet (..)
+       , SetWalletMeta (..)
+       , SetWalletHistory (..)
+       , GetWalletHistory (..)
+       , AddOnlyNewHistory (..)
+       , RemoveWallet (..)
        ) where
 
 import           Universum
@@ -21,22 +27,22 @@ import           Universum
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
                                                UpdateEvent, makeAcidic)
 import           Data.Default                 (def)
-import           Pos.Wallet.Web.State.Storage (Storage)
+import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.State.Storage as WS
 import           Serokell.AcidState           (ExtendedState, closeExtendedState,
                                                openLocalExtendedState,
                                                openMemoryExtendedState, queryExtended,
                                                tidyExtendedState, updateExtended)
 
-type WalletState = ExtendedState Storage
+type WalletState = ExtendedState WalletStorage
 
 query
-    :: (EventState event ~ Storage, QueryEvent event, MonadIO m)
+    :: (EventState event ~ WalletStorage, QueryEvent event, MonadIO m)
     => WalletState -> event -> m (EventResult event)
 query = queryExtended
 
 update
-    :: (EventState event ~ Storage, UpdateEvent event, MonadIO m)
+    :: (EventState event ~ WalletStorage, UpdateEvent event, MonadIO m)
     => WalletState -> event -> m (EventResult event)
 update = updateExtended
 
@@ -52,8 +58,14 @@ closeState = closeExtendedState
 tidyState :: MonadIO m => WalletState -> m ()
 tidyState = tidyExtendedState
 
-makeAcidic ''Storage
+makeAcidic ''WalletStorage
     [
-      'WS.getDummyAttribute
-    , 'WS.setDummyAttribute
+      'WS.getWalletMetas
+    , 'WS.getWalletMeta
+    , 'WS.createWallet
+    , 'WS.setWalletMeta
+    , 'WS.setWalletHistory
+    , 'WS.getWalletHistory
+    , 'WS.addOnlyNewHistory
+    , 'WS.removeWallet
     ]

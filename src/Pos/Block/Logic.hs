@@ -55,7 +55,7 @@ import qualified Pos.DB                    as DB
 import           Pos.DB.Error              (DBError (..))
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class             (Ssc (..))
-import           Pos.Ssc.Extra             (sscApplyBlocks, sscGetLocalPayloadM,
+import           Pos.Ssc.Extra             (sscApplyBlocks, sscGetLocalPayload,
                                             sscRollback, sscVerifyBlocks)
 import           Pos.Txp.Class             (getLocalTxsNUndo)
 import           Pos.Txp.Logic             (txApplyBlocks, txRollbackBlocks,
@@ -431,7 +431,7 @@ createMainBlockFinish
     -> m (MainBlock ssc)
 createMainBlockFinish slotId pSk prevHeader = do
     (localTxs, localUndo) <- getLocalTxsNUndo
-    sscData <- sscGetLocalPayloadM slotId
+    sscData <- sscGetLocalPayload slotId
     let panicTopsort = panic "Topology of local transactions is broken!"
     let convertTx (txId, (tx, _)) = WithHash tx txId
     let sortedTxs = fromMaybe panicTopsort $ topsortTxs convertTx localTxs

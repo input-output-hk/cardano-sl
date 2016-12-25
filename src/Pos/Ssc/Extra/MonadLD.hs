@@ -13,8 +13,8 @@
 
 module Pos.Ssc.Extra.MonadLD
        ( MonadSscLDM (..)
-       , sscApplyGlobalStateM
-       , sscGetLocalPayloadM
+       , sscApplyGlobalState
+       , sscGetLocalPayload
        , sscRunLocalQueryM
        , sscRunLocalUpdateM
        -- * Old
@@ -66,21 +66,21 @@ sscRunLocalUpdateM
 sscRunLocalUpdateM upd =
     modifyLocalDataM (\(_, l) -> runState upd l)
 
-----------------------------------------------------------------------------
--- Methods for using in MonadSscLD
-----------------------------------------------------------------------------
-
-sscGetLocalPayloadM
+sscGetLocalPayload
     :: forall ssc m.
        (MonadSscLDM ssc m, SscLocalDataClass ssc)
     => SlotId -> m (SscPayload ssc)
-sscGetLocalPayloadM = sscRunLocalQueryM . sscGetLocalPayloadQ @ssc
+sscGetLocalPayload = sscRunLocalQueryM . sscGetLocalPayloadQ @ssc
 
-sscApplyGlobalStateM
+sscApplyGlobalState
     :: forall ssc m.
        (MonadSscLDM ssc m, SscLocalDataClass ssc)
     =>  SscGlobalState ssc -> m ()
-sscApplyGlobalStateM = notImplemented --sscRunLocalUpdateM . sscApplyGlobalStateU @ssc
+sscApplyGlobalState = sscRunLocalUpdateM . sscApplyGlobalStateU @ssc
+
+----------------------------------------------------------------------------
+-- OBSOLETE
+----------------------------------------------------------------------------
 
 -- | Monad which has read-write access to LocalData.
 class Monad m => MonadSscLD ssc m | m -> ssc where

@@ -8,8 +8,8 @@
             .then(function(result) {console.log(result)})
             .catch(function(reason) {console.log(reason)})
       };
-      var getBalances = function() {
-        Daedalus.ClientApi.getBalances()
+      var getWallet = function(address) {
+        Daedalus.ClientApi.getWallet(address)
             .then(function(result) {console.log(result)})
             .catch(function(reason) {console.log(reason)})
       };
@@ -36,6 +36,7 @@
     <p>Check console to get some feedback.</p>
     <ul>
       <li><button onclick="getWallets();"/>getWallets</li>
+      <li><button onclick="getWallet('wallet_address');"/>getWallet</li>
       <li><button onclick="getBalances();"/>getBalances</li>
       <li><button onclick="send('a', 'b', 1);"/>send from a to b 1 coin</li>
       <li><button onclick="newWallet();"/>newWallet</li>

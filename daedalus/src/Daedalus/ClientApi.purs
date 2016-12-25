@@ -11,8 +11,8 @@ import Daedalus.Types (mkCAddress, mkCoin, CAddress, Coin, CWallet)
 getWallets :: forall eff. Eff(ajax :: AJAX | eff) (Promise (Array CWallet))
 getWallets = fromAff B.getWallets
 
-getBalances :: forall eff. Eff(ajax :: AJAX | eff) (Promise (Array (Tuple CAddress Coin)))
-getBalances = fromAff B.getBalances
+getWallet :: forall eff. String -> Eff(ajax :: AJAX | eff) (Promise CWallet)
+getWallet = fromAff <<< B.getWallet <<< mkCAddress
 
 -- getHistory :: forall eff. String -> Eff(ajax :: AJAX | eff) (Promise (Array Tx)))
 -- getHistory = fromAff <<< B.getBalances <<< mkCAddress

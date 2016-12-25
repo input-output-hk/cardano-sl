@@ -27,8 +27,8 @@ decodeResult res = bimap error id $ decodeJson res.response
 getWallets :: forall eff. Aff (ajax :: AJAX | eff) (Array CWallet)
 getWallets = makeRequest $ "/api/get_wallets"
 
-getBalances :: forall eff. Aff (ajax :: AJAX | eff) (Array (Tuple CAddress Coin))
-getBalances = makeRequest "/api/balances"
+getWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) CWallet
+getWallet addr = makeRequest $ "/api/get_wallet/" <> _address addr
 
 -- getHistory :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) (Array (Tuple CAddress Coin))
 -- getHistory = makeRequest "/api/history" <<< _address

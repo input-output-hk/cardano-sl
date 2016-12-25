@@ -22,6 +22,7 @@ import           Universum
 import           Pos.Binary          ()
 import           Pos.Crypto          (SecretKey, WithHash (..), hash, sign, toPublic,
                                       withHash)
+import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Types           (Address, Block, Coin, MonadUtxoRead (..), Tx (..),
                                       TxAux, TxDistribution (..), TxId, TxIn (..),
                                       TxInWitness (..), TxOut (..), TxOutAux, TxWitness,
@@ -44,6 +45,7 @@ makePubKeyTx sk inputs outputs = (Tx {..}, txWitness, txDist)
   where pk = toPublic sk
         txInputs = map makeTxIn inputs
         txOutputs = map fst outputs
+        txAttributes = mkAttributes ()
         txOutHash = hash txOutputs
         txDist = TxDistribution (map snd outputs)
         txDistHash = hash txDist

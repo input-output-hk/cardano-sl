@@ -2,6 +2,7 @@
 
 module Pos.Types
        ( module Pos.Types.Arbitrary
+       , module Pos.Types.Address
        , module Pos.Types.Block
        , module Pos.Types.Slotting
        , module Pos.Types.Timestamp
@@ -12,6 +13,7 @@ module Pos.Types
 
 import           Pos.Binary.Address  ()
 import           Pos.Binary.Types    ()
+import           Pos.Types.Address
 import           Pos.Types.Arbitrary
 import           Pos.Types.Block
 import           Pos.Types.Slotting

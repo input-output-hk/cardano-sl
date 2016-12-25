@@ -88,7 +88,7 @@ servantHandlers =
     :<|>
      addCors . getHistory
     :<|>
-     updateTransaction
+     (\a b -> addCors . updateTransaction a b)
     :<|>
      addCors . newWallet
     :<|>
@@ -161,8 +161,8 @@ updateWallet cAddr wMeta = do
     setWalletMeta cAddr wMeta
     getWallet cAddr
 
-updateTransaction :: WalletWebMode ssc m => CAddress -> CTxId -> CTxMeta -> m (Cors ())
-updateTransaction a b c = addCors $ setWalletTransactionMeta a b c
+updateTransaction :: WalletWebMode ssc m => CAddress -> CTxId -> CTxMeta -> m ()
+updateTransaction = setWalletTransactionMeta
 
 deleteWallet :: WalletWebMode ssc m => CAddress -> m ()
 deleteWallet cAddr = do

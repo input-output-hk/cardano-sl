@@ -74,10 +74,9 @@ blkOnNewSlot slotId@SlotId {..} = do
         -- create a new block if we are. We also create block if we
         -- have suitable PSK.
         Just leaders -> do
+            ourPk <- ncPublicKey <$> getNodeContext
+            let ourPkHash = addressHash ourPk
             let logLeadersF = if siSlot == 0 then logInfo else logDebug
-            logLeadersF (sformat ("Slot leaders: "%listJson) $
-                         map (sformat shortHashF) leaders)
-            ourPkHash <- addressHash . ncPublicKey <$> getNodeContext
             let leader = leaders ^? ix (fromIntegral siSlot)
             proxyCerts <- getProxySecretKeys
             let validCerts =
@@ -86,6 +85,11 @@ blkOnNewSlot slotId@SlotId {..} = do
                 validCert =
                     find (\pSk -> Just (addressHash $ pskIssuerPk pSk) == leader)
                          validCerts
+            logLeadersF (sformat ("Our pk: "%build%", our pkHash: "%build)
+                         ourPk ourPkHash)
+            logLeadersF (sformat ("Slot leaders: "%listJson) $
+                         map (sformat shortHashF) leaders)
+            logDebug $ sformat ("Available proxy certificates: "%listJson) validCerts
             if | leader == Just ourPkHash -> onNewSlotWhenLeader slotId Nothing
                | isJust validCert -> onNewSlotWhenLeader slotId validCert
                | otherwise -> pure ()

@@ -30,6 +30,7 @@ import qualified Text.Regex.TDFA.Text   as TDFA
 import           Universum              hiding ((.&.))
 
 import           Pos.Crypto             (checkSig, hash, unsafeHash, whData, withHash)
+import           Pos.Data.Attributes    (mkAttributes)
 import           Pos.Script             (Script)
 import           Pos.Script.Examples    (alwaysSuccessValidator, badIntRedeemer,
                                          goodIntRedeemer, goodIntRedeemerWithBlah,
@@ -178,7 +179,7 @@ scriptTxSpec = describe "script transactions" $ do
     checkScriptTx val wit =
         let (inp, _, utxo) = mkUtxo $
                 TxOut (makeScriptAddress val) 1
-            tx = Tx [inp] [randomPkOutput]
+            tx = Tx [inp] [randomPkOutput] (mkAttributes ())
         in tryApplyTx utxo (tx, V.singleton wit, TxDistribution [[]])
 
 -- | Test that errors in a 'VerFailure' match given regexes.

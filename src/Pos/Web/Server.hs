@@ -4,6 +4,7 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving  #-}
+{-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
 -- | Web server.
@@ -46,11 +47,11 @@ import           Pos.Ssc.GodTossing                   (SscGodTossing, getOpening
                                                        isOpeningIdx, isSharesIdx,
                                                        secretToSharedSeed)
 import           Pos.Ssc.GodTossing.SecretStorage     (getSecret)
-import           Pos.Txp.Class                        (getLocalTxs, getUtxoView)
-import           Pos.Txp.Holder                       (TxpLDHolder, runTxpLDHolder)
-import           Pos.Txp.Types                        (UtxoView)
-import           Pos.Types                            (EpochIndex (..), HeaderHash,
-                                                       SharedSeed, SlotLeaders, siSlot)
+import           Pos.Txp.Class                        (getLocalTxs, getTxpLDWrap)
+import           Pos.Txp.Holder                       (TxpLDHolder, TxpLDWrap,
+                                                       runTxpLDHolderReader)
+import           Pos.Types                            (EpochIndex (..), SharedSeed,
+                                                       SlotLeaders, siSlot)
 import           Pos.Util                             (fromBinaryM)
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
@@ -97,14 +98,13 @@ convertHandler
        -- TxLocalData
        NodeContext ssc
     -> DB.NodeDBs ssc
-    -> UtxoView ssc
-    -> HeaderHash ssc
+    -> TxpLDWrap ssc
     -> WebHandler ssc a
     -> Handler a
-convertHandler nc nodeDBs utxoView hh handler =
+convertHandler nc nodeDBs wrap handler =
     liftIO (runTimedIO .
             DB.runDBHolder nodeDBs .
-            runTxpLDHolder utxoView hh .
+            runTxpLDHolderReader wrap .
             runContextHolder nc $
             handler)
             -- runTxLDImpl $
@@ -115,19 +115,19 @@ convertHandler nc nodeDBs utxoView hh handler =
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
 
-nat :: MyWorkMode ssc m => m (WebHandler ssc :~> Handler)
+nat :: forall ssc m . (MyWorkMode ssc m)
+    => m (WebHandler ssc :~> Handler)
 nat = do
     nc <- getNodeContext
     nodeDBs <- DB.getNodeDBs
     -- Is this legal at all???
-    uv <- getUtxoView
-    tipHash <- DB.getTip
-    return $ Nat (convertHandler nc nodeDBs uv tipHash)
+    (txpldwrap :: TxpLDWrap ssc) <- getTxpLDWrap
+    return $ Nat (convertHandler nc nodeDBs txpldwrap)
 
 servantServerBase :: forall ssc m . MyWorkMode ssc m => m (Server (BaseNodeApi ssc))
 servantServerBase = flip enter baseServantHandlers <$> (nat @ssc @m)
 
-servantServerGT :: forall m . WorkMode SscGodTossing m => m (Server GtNodeApi)
+servantServerGT :: forall m . MyWorkMode SscGodTossing m => m (Server GtNodeApi)
 servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
     (nat @SscGodTossing @m)
 

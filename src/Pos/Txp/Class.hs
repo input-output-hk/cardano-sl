@@ -3,11 +3,12 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE TupleSections          #-}
+{-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE UndecidableInstances   #-}
 
 module Pos.Txp.Class
-       (
-         MonadTxpLD (..)
+       ( TxpLDWrap (..)
+       , MonadTxpLD (..)
        , TxpLD
        , getLocalTxs
        , getLocalUndo
@@ -16,14 +17,15 @@ module Pos.Txp.Class
        , getMemPool
        ) where
 
-import           Control.Monad.Trans (MonadTrans)
-import qualified Data.HashMap.Strict as HM
+import qualified Control.Concurrent.STM as STM
+import           Control.Monad.Trans    (MonadTrans)
+import qualified Data.HashMap.Strict    as HM
 import           Universum
 
-import           Pos.DHT.Model.Class (DHTResponseT)
-import           Pos.DHT.Real        (KademliaDHT)
-import           Pos.Txp.Types       (MemPool (localTxs), UtxoView)
-import           Pos.Types           (HeaderHash, IdTxWitness, TxId, TxOut)
+import           Pos.DHT.Model.Class    (DHTResponseT)
+import           Pos.DHT.Real           (KademliaDHT)
+import           Pos.Txp.Types          (MemPool (localTxs), UtxoView)
+import           Pos.Types              (HeaderHash, IdTxWitness, TxId, TxOut)
 
 -- | LocalData of transactions processing.
 -- There are two invariants which must hold for local data
@@ -37,7 +39,21 @@ import           Pos.Types           (HeaderHash, IdTxWitness, TxId, TxOut)
 -- MonadUtxo.
 type TxpLD ssc = (UtxoView ssc, MemPool, HashMap TxId [TxOut], HeaderHash ssc)
 
+-- | Real data inside TxpLDHolder
+data TxpLDWrap ssc = TxpLDWrap
+    { utxoView :: !(STM.TVar (UtxoView ssc))
+    , memPool  :: !(STM.TVar MemPool)
+    , undos    :: !(STM.TVar (HashMap TxId [TxOut]))
+    , ldTip    :: !(STM.TVar (HeaderHash ssc))
+    }
+
+-- TODO: this monad class is stupid and should be removed. Method
+-- `getTxpLDWrap` returns inside implementation and it's needed in
+-- Pos.Web.Server. So practically all other methods of these class can
+-- be implemented using 'getTxpLDWrap', so this class is just
+-- MonadReader instantiated to 'TxpLDWrap'.
 class Monad m => MonadTxpLD ssc m | m -> ssc where
+    getTxpLDWrap :: m (TxpLDWrap ssc)
     setUtxoView  :: UtxoView ssc -> m ()
     setMemPool   :: MemPool -> m ()
     modifyTxpLD  :: (TxpLD ssc -> (a, TxpLD ssc)) -> m a

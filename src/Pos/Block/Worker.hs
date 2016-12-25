@@ -37,7 +37,7 @@ import           Pos.Constants              (networkDiameter, slotDuration)
 import           Pos.Context                (getNodeContext, ncPropagation, ncPublicKey,
                                              ncSecretKey)
 import           Pos.Crypto                 (ProxySecretKey, WithHash (WithHash),
-                                             pskIssuerPk, pskOmega)
+                                             pskIssuerPk, pskOmega, shortHashF)
 import           Pos.DB.Misc                (getProxySecretKeys)
 import           Pos.Slotting               (MonadSlots (getCurrentTime), getSlotStart,
                                              onNewSlot)
@@ -87,8 +87,10 @@ blkOnNewSlot slotId@SlotId {..} = do
 
     -- Then we get leaders for current epoch.
 #ifdef MODERN
-    -- Note: if genesis block is created above, we will read
-    -- leaders. If genesis block is not created, we can't do anything.
+    -- Note: we are using non-blocking version here.  If we known
+    -- genesis block for current epoch, then we either have calculated
+    -- it before and it implies presense of leaders in MVar or we have
+    -- read leaders from DB during initialization.
     leadersMaybe <- tryReadLeaders
 #else
     leadersMaybe <- getLeaders siEpoch
@@ -101,7 +103,8 @@ blkOnNewSlot slotId@SlotId {..} = do
         -- have suitable PSK.
         Just leaders -> do
             let logLeadersF = if siSlot == 0 then logInfo else logDebug
-            logLeadersF (sformat ("Slot leaders: "%listJson) leaders)
+            logLeadersF (sformat ("Slot leaders: "%listJson) $
+                         map (sformat shortHashF) leaders)
             ourPkHash <- addressHash . ncPublicKey <$> getNodeContext
             let leader = leaders ^? ix (fromIntegral siSlot)
             proxyCerts <- getProxySecretKeys
@@ -160,7 +163,7 @@ onNewSlotWhenLeader slotId pSk = do
             sscData <- sscGetLocalPayload slotId
             localTxs <- HM.toList <$> getLocalTxs
             let panicTopsort = panic "Topology of local transactions is broken!"
-            let convertTx (txId, (tx, _)) = WithHash tx txId
+            let convertTx (txId, (tx, _, _)) = WithHash tx txId
             let sortedTxs = fromMaybe panicTopsort $
                             topsortTxs convertTx localTxs
             sk <- ncSecretKey <$> getNodeContext

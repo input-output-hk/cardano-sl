@@ -129,7 +129,7 @@ send srcCAddr dstCAddr c = do
     sks <- getSecretKeys
     let sk = sks !! idx
     na <- fmap dhtAddr <$> getKnownPeers
-    () <$ submitTx sk na [TxOut dstAddr c]
+    () <$ submitTx sk na [(TxOut dstAddr c, [])]
     -- TODO: this should be removed in production
     () <$ getHistory srcCAddr
     () <$ getHistory dstCAddr

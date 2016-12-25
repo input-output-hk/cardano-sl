@@ -33,6 +33,7 @@ import           Pos.Constants              (epochSlots, sharedSeedLength)
 import           Pos.Crypto                 (PublicKey, SecretKey, Share, hash, sign,
                                              toPublic)
 import           Pos.Crypto.Arbitrary       ()
+import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Script                 (Script)
 import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
@@ -41,8 +42,8 @@ import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              Coin (..), EpochIndex (..),
                                              LocalSlotIndex (..), SharedSeed (..),
-                                             SlotId (..), Tx (..), TxIn (..),
-                                             TxInWitness (..), TxOut (..),
+                                             SlotId (..), Tx (..), TxDistribution (..),
+                                             TxIn (..), TxInWitness (..), TxOut (..),
                                              makePubKeyAddress, makeScriptAddress)
 import           Pos.Util                   (AsBinary)
 
@@ -93,7 +94,7 @@ deriving instance Random LocalSlotIndex
 instance Arbitrary LocalSlotIndex where
     arbitrary = choose (0, epochSlots - 1)
 
-instance (Bi TxOut, Bi Tx) => Arbitrary TxInWitness where
+instance (Bi TxOut, Bi Tx, Bi TxDistribution) => Arbitrary TxInWitness where
     arbitrary = oneof [
         PkWitness <$> arbitrary <*> arbitrary,
         -- this can generate a redeemer script where a validator script is
@@ -113,7 +114,7 @@ instance Bi Tx => Arbitrary Tx where
     arbitrary = do
         txIns <- getNonEmpty <$> arbitrary
         txOuts <- getNonEmpty <$> arbitrary
-        return $ Tx txIns txOuts
+        return $ Tx txIns txOuts (mkAttributes ())
 
 -- | Type used to generate valid (w.r.t 'verifyTxAlone' and 'verifyTx')
 -- transactions and accompanying input information.
@@ -132,24 +133,26 @@ instance Bi Tx => Arbitrary Tx where
 -- signatures in the transaction's inputs have been replaced with a bogus one.
 
 buildProperTx
-    :: (Bi Tx, Bi TxOut)
+    :: (Bi Tx, Bi TxOut, Bi TxDistribution)
     => [(Tx, SecretKey, SecretKey, Coin)]
     -> (Coin -> Coin, Coin -> Coin)
     -> Gen [(Tx, TxIn, TxOut, TxInWitness)]
 buildProperTx triplesList (inCoin, outCoin)= do
-        let fun (Tx txIn txOut, fromSk, toSk, c) =
+        let fun (Tx txIn txOut _, fromSk, toSk, c) =
                 let inC = inCoin c
                     outC = outCoin c
-                    txToBeSpent = Tx txIn $ (makeTxOutput fromSk inC) : txOut
+                    txToBeSpent = Tx txIn ((makeTxOutput fromSk inC) : txOut) (mkAttributes ())
                 in (txToBeSpent, fromSk, makeTxOutput toSk outC)
+            -- why is it called txList? I've no idea what's going on here
             txList = fmap fun triplesList
-            thisTxOutputsHash = hash $ fmap (view _3) txList
+            txOutsHash = hash $ fmap (view _3) txList
+            distrHash = hash (TxDistribution (replicate (length txList) []))
             newTx (tx, fromSk, txOutput) =
                 let txHash = hash tx
                     txIn = TxIn txHash 0
                     witness = PkWitness {
                         twKey = toPublic fromSk,
-                        twSig = sign fromSk (txHash, 0, thisTxOutputsHash) }
+                        twSig = sign fromSk (txHash, 0, txOutsHash, distrHash) }
                 in (tx, txIn, txOutput, witness)
             makeTxOutput s c = TxOut (makePubKeyAddress $ toPublic s) c
             goodTx = fmap newTx txList
@@ -164,13 +167,13 @@ newtype SmallGoodTx =
     SmallGoodTx GoodTx
     deriving Show
 
-instance (Bi Tx, Bi TxOut) => Arbitrary GoodTx where
+instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary GoodTx where
     arbitrary = GoodTx <$> do
         txsList <- getNonEmpty <$>
             (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
         buildProperTx txsList (identity, identity)
 
-instance (Bi Tx, Bi TxOut) => Arbitrary SmallGoodTx where
+instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary SmallGoodTx where
     arbitrary = SmallGoodTx <$> makeSmall arbitrary
 
 -- | Ill-formed 'Tx' with overflow.
@@ -182,14 +185,14 @@ newtype SmallOverflowTx =
     SmallOverflowTx OverflowTx
     deriving Show
 
-instance (Bi Tx, Bi TxOut) => Arbitrary OverflowTx where
+instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary OverflowTx where
     arbitrary = OverflowTx <$> do
         txsList <- getNonEmpty <$>
             (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
         let halfBound = maxBound `div` 2
         buildProperTx txsList ((halfBound +), (halfBound -))
 
-instance (Bi Tx, Bi TxOut) => Arbitrary SmallOverflowTx where
+instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary SmallOverflowTx where
     arbitrary = SmallOverflowTx <$> makeSmall arbitrary
 
 -- | Ill-formed 'Tx' with bad signatures.
@@ -201,13 +204,13 @@ newtype SmallBadSigsTx =
     SmallBadSigsTx BadSigsTx
     deriving Show
 
-instance (Bi Tx, Bi TxOut) => Arbitrary BadSigsTx where
+instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary BadSigsTx where
     arbitrary = BadSigsTx <$> do
         goodTxList <- getGoodTx <$> arbitrary
         badSig <- arbitrary
         return $ map (set _4 badSig) goodTxList
 
-instance (Bi Tx, Bi TxOut) => Arbitrary SmallBadSigsTx where
+instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary SmallBadSigsTx where
     arbitrary = SmallBadSigsTx <$> makeSmall arbitrary
 
 instance Arbitrary SharedSeed where

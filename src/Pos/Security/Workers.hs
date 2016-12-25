@@ -26,8 +26,8 @@ import           Pos.Ssc.NistBeacon                (SscNistBeacon)
 import           Pos.State                         (getBlockByDepth, getHeadBlock)
 import           Pos.Types                         (EpochIndex, MainBlock, SlotId (..),
                                                     blockMpc, flattenSlotId, gbHeader,
-                                                    gbhConsensus, gcdEpoch, headerSlot,
-                                                    makePubKeyAddress)
+                                                    gbhConsensus, gcdEpoch, headerSlot)
+import           Pos.Types.Address                 (addressHash)
 import           Pos.WorkMode                      (WorkMode)
 
 class Ssc ssc => SecurityWorkersClass ssc where
@@ -88,7 +88,7 @@ checkCommitmentsInBlock
     :: forall m. WorkMode SscGodTossing m
     => SlotId -> MainBlock SscGodTossing -> ReaderT (TVar EpochIndex) m ()
 checkCommitmentsInBlock slotId block = do
-    ourAddr <- makePubKeyAddress . ncPublicKey <$> getNodeContext
+    ourAddr <- addressHash . ncPublicKey <$> getNodeContext
     let commitmentInBlockchain = isCommitmentInPayload ourAddr (block ^. blockMpc)
     when commitmentInBlockchain $ do
         tvar <- ask

@@ -26,9 +26,9 @@ import           Universum
 import           Pos.Binary.Types    ()
 import           Pos.Crypto          (Hash, WithHash (..), checkSig, hash)
 import           Pos.Script          (Script (..), isKnownScriptVersion, txScriptCheck)
-import           Pos.Types.Address   (Address (..), addressDetailedF)
-import           Pos.Types.Types     (Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
-                                      TxWitness, checkPubKeyAddress, checkScriptAddress,
+import           Pos.Types.Address   (addressDetailedF)
+import           Pos.Types.Types     (Address(..), TxDistribution(..), TxOutAux, TxAux, Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
+                                      checkPubKeyAddress, checkScriptAddress,
                                       coinF)
 import           Pos.Util            (verResToEither)
 
@@ -52,19 +52,10 @@ verifyTxAlone Tx {..} =
   where
     verifyOutputs = verifyGeneric $ concat $
                     zipWith outputPredicates [0..] txOutputs
-    outputPredicates (i :: Word) TxOut{..} =
+    outputPredicates (i :: Word) TxOut{..} = [
       ( txOutValue > 0
       , sformat ("output #"%int%" has non-positive value: "%coinF)
-                i txOutValue)
-      :
-      case txOutAddress of
-          PubKeyAddress _ -> []
-          ScriptAddress{..} ->
-              let sumDist = sum (map (toInteger . snd) addrDistribution)
-              in [ (sumDist <= toInteger txOutValue,
-                    sformat ("output #"%int%" has distribution "%
-                             "sum("%int%") > txOutValue("%coinF%")")
-                            i sumDist txOutValue) ]
+                i txOutValue) ]
 
 -- CSL-366 Add context-dependent variables to scripts
 -- Postponed for now, should be done in near future.
@@ -81,7 +72,7 @@ data VTxGlobalContext = VTxGlobalContext
 data VTxLocalContext = VTxLocalContext
     {
 --      vtlSlotId :: SlotId -- ^ Slot of the block transaction output was declared in
-     vtlTxOut  :: TxOut  -- ^ Transaction output
+     vtlTxOut  :: TxOutAux  -- ^ Transaction output
     } deriving (Show)
 
 -- | CHECK: Verify Tx correctness using magic function which resolves
@@ -103,9 +94,9 @@ verifyTx
     => Bool
     -> VTxGlobalContext
     -> (TxIn -> m (Maybe VTxLocalContext))
-    -> (Tx, TxWitness)
-    -> m (Either Text [TxOut])
-verifyTx verifyAlone gContext inputResolver txs@(Tx {..}, _) = do
+    -> TxAux
+    -> m (Either Text [TxOutAux])
+verifyTx verifyAlone gContext inputResolver txs@(Tx {..}, _, _) = do
     extendedInputs <- mapM extendInput txInputs
     pure $ verResToEither
         (verifyTxDo verifyAlone gContext extendedInputs txs)
@@ -116,10 +107,11 @@ verifyTx verifyAlone gContext inputResolver txs@(Tx {..}, _) = do
 verifyTxDo :: Bool
            -> VTxGlobalContext
            -> [Maybe (TxIn, VTxLocalContext)]
-           -> (Tx, TxWitness)
+           -> TxAux
            -> VerificationRes
-verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses) =
-    mconcat [verifyAloneRes, verifyCounts, verifySum, verifyInputs]
+verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
+    mconcat [verifyAloneRes, verifyCounts, verifySum, verifyInputs,
+             verifyDistributions]
   where
     verifyAloneRes | verifyAlone = verifyTxAlone tx
                    | otherwise = mempty
@@ -128,8 +120,9 @@ verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses) =
     resolvedInputs = catMaybes extendedInputs
     inpSum :: Integer
     inpSum =
-        sum $ fmap (toInteger . txOutValue . vtlTxOut . snd) resolvedInputs
+        sum $ fmap (toInteger . txOutValue . fst . vtlTxOut . snd) resolvedInputs
     txOutHash = hash txOutputs
+    distrsHash = hash distrs
     verifyCounts =
         verifyGeneric
             [ ( length txInputs == length witnesses
@@ -137,6 +130,27 @@ verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses) =
                          "("%int%" != "%int%")")
                   (length txInputs) (length witnesses) )
             ]
+    verifyDistributions =
+        verifyGeneric $
+            [ ( length txOutputs == length (getTxDistribution distrs)
+              , "length of outputs != length of tx distribution")
+            ]
+            ++
+            do (i, (TxOut{..}, d)) <-
+                   zip [0 :: Int ..] (zip txOutputs (getTxDistribution distrs))
+               case txOutAddress of
+                   PubKeyAddress _ ->
+                       [ ( null d
+                         , sformat ("output #"%int%" with pubkey address "%
+                                    "has non-empty distribution") i)
+                       ]
+                   ScriptAddress _ ->
+                       let sumDist = sum (map (toInteger . snd) d)
+                       in [ (sumDist <= toInteger txOutValue,
+                             sformat ("output #"%int%" has distribution "%
+                                      "sum("%int%") > txOutValue("%coinF%")")
+                                     i sumDist txOutValue)
+                          ]
     verifySum =
         let resInps = length resolvedInputs
             extInps = length extendedInputs
@@ -163,7 +177,7 @@ verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses) =
     inputPredicates i Nothing _ =
         [(False, sformat ("input #"%int%" is not an unspent output") i)]
     inputPredicates i (Just (txIn@TxIn{..}, lContext)) witness =
-        let txOut@TxOut{..} = vtlTxOut lContext in
+        let (txOut@TxOut{..}, _distr) = vtlTxOut lContext in
         [ ( checkAddrHash txOutAddress witness
           , sformat ("input #"%int%"'s witness doesn't match address "%
                      "of corresponding output:\n"%
@@ -188,7 +202,7 @@ verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses) =
     checkAddrHash addr ScriptWitness{..} = checkScriptAddress twValidator addr
 
     validateTxIn TxIn{..} _ PkWitness{..} =
-        if checkSig twKey (txInHash, txInIndex, txOutHash) twSig
+        if checkSig twKey (txInHash, txInIndex, txOutHash, distrsHash) twSig
             then Right ()
             else Left "signature check failed"
     -- second argument here is local context, can be used for scripts
@@ -203,8 +217,8 @@ verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses) =
 verifyTxPure :: Bool
              -> VTxGlobalContext
              -> (TxIn -> Maybe VTxLocalContext)
-             -> (Tx, TxWitness)
-             -> Either Text [TxOut]
+             -> TxAux
+             -> Either Text [TxOutAux]
 verifyTxPure verifyAlone gContext resolver =
     runIdentity . verifyTx verifyAlone gContext (Identity . resolver)
 

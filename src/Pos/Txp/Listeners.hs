@@ -32,7 +32,7 @@ import qualified Pos.State                   as St
 import           Pos.Statistics              (StatProcessTx (..), statlogCountEvent)
 import           Pos.Txp.Types.Communication (TxDataMsg (..), TxInvMsg (..),
                                               TxReqMsg (..))
-import           Pos.Types                   (IdTxWitness, TxId)
+import           Pos.Types                   (TxAux, TxId)
 import           Pos.WorkMode                (WorkMode)
 
 #ifdef MODERN
@@ -89,16 +89,16 @@ handleTxReq (TxReqMsg txIds_) = do
 -- CHECK: #handleTxDo
 handleTxData :: (ResponseMode ssc m)
              => TxDataMsg -> m ()
-handleTxData (TxDataMsg tx tw) = do
+handleTxData (TxDataMsg tx tw td) = do
     let txId = hash tx
-    added <- handleTxDo (txId, (tx, tw))
+    added <- handleTxDo (txId, (tx, tw, td))
     when added $ sendToNeighborsSafe $ TxInvMsg $ pure txId
 
 -- Real tx processing
 -- #processTxDo
 handleTxDo
     :: ResponseMode ssc m
-    => IdTxWitness -> m Bool
+    => (TxId, TxAux) -> m Bool
 handleTxDo tx = do
     res <- processTx tx
     let txId = fst tx
@@ -147,14 +147,14 @@ handleTxReq (TxReqMsg txIds_) = do
     let txIds = NE.toList txIds_
         found = map (flip HM.lookup localTxs) txIds
         addedItems = catMaybes found
-    mapM_ (replyToNode . uncurry TxDataMsg) addedItems
+    mapM_ (\(tx,tw,td) -> replyToNode (TxDataMsg tx tw td)) addedItems
 
 -- CHECK: #handleTxDo
 handleTxData :: (ResponseMode ssc m)
              => TxDataMsg -> m ()
-handleTxData (TxDataMsg tx tw) = do
+handleTxData (TxDataMsg tx tw td) = do
     let txId = hash tx
-    added <- handleTxDo (txId, (tx, tw))
+    added <- handleTxDo (txId, (tx, tw, td))
     needPropagate <- ncPropagation <$> getNodeContext
     when (added && needPropagate) $ sendToNeighborsSafe $ TxInvMsg $ pure txId
 
@@ -163,7 +163,7 @@ handleTxData (TxDataMsg tx tw) = do
 -- #processTx
 handleTxDo
     :: ResponseMode ssc m
-    => IdTxWitness -> m Bool
+    => (TxId, TxAux) -> m Bool
 handleTxDo tx = do
     res <- processTx tx
     let txId = fst tx
@@ -185,7 +185,7 @@ handleTxDo tx = do
 -- #txLocalDataProcessTx
 processTx
     :: (WorkModeSsc ssc, MonadTxLD m, St.MonadDB ssc m, MonadIO m)
-    => IdTxWitness -> m ProcessTxRes
+    => (TxId, TxAux) -> m ProcessTxRes
 processTx tx = do
     utxo <- St.getUtxo
     locRes <- txLocalDataProcessTx tx utxo

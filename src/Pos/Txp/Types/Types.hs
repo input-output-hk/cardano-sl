@@ -11,17 +11,17 @@ import           Data.HashSet        (HashSet)
 import           Universum
 
 import           Pos.DB.Types        (DB)
-import           Pos.Types           (Tx, TxId, TxIn, TxOut, TxWitness)
+import           Pos.Types           (TxAux, TxId, TxIn, TxOutAux)
 
 
 data UtxoView ssc = UtxoView
     {
-      addUtxo :: !(HashMap TxIn TxOut)
+      addUtxo :: !(HashMap TxIn TxOutAux)
     , delUtxo :: !(HashSet TxIn)
     , utxoDB  :: !(DB ssc)
     }
 
-type TxMap = HashMap TxId (Tx, TxWitness)
+type TxMap = HashMap TxId TxAux
 
 data MemPool = MemPool
     {

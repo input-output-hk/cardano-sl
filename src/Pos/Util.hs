@@ -82,7 +82,7 @@ import qualified Data.List.NonEmpty            as NE
 import           Data.SafeCopy                 (Contained, SafeCopy (..), base, contain,
                                                 deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
-import           Data.String                   (String)
+import           Data.String                   (IsString (fromString), String)
 import qualified Data.Text                     as T
 import           Data.Time.Units               (convertUnit)
 import           Formatting                    (sformat, shown, stext, (%))
@@ -94,6 +94,9 @@ import           System.Console.ANSI           (Color (..), ColorIntensity (Vivi
 import           System.Wlog                   (WithLogger, logWarning)
 import           Universum
 import           Unsafe                        (unsafeInit, unsafeLast)
+
+-- SafeCopy instance for HashMap
+import           Serokell.AcidState.Instances  ()
 
 import           Pos.Binary.Class              (Bi)
 import qualified Pos.Binary.Class              as Bi
@@ -410,3 +413,6 @@ eitherToVerRes :: Either Text a -> VerificationRes
 eitherToVerRes (Left errors) = if T.null errors then VerFailure []
                                else VerFailure $ T.split (==';') errors
 eitherToVerRes (Right _ )    = VerSuccess
+
+instance IsString s => MonadFail (Either s) where
+    fail = Left . fromString

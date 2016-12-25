@@ -28,7 +28,7 @@ module Pos.Types.Block
        , verifyHeaders
        ) where
 
-import           Control.Lens          (ix, view, (^.), (^?), _3)
+import           Control.Lens          (ix, view, (^.), (^?), _1, _2, _3)
 import           Data.Default          (Default (def))
 import           Data.Tagged           (untag)
 import           Formatting            (build, int, sformat, (%))
@@ -108,9 +108,10 @@ mkMainHeader
     -> SecretKey
     -> Maybe ProxySKEpoch
     -> Body (MainBlockchain ssc)
+    -> MainExtraHeaderData
     -> MainBlockHeader ssc
-mkMainHeader prevHeader slotId sk pSk body =
-    mkGenericHeader prevHeader body consensus ()
+mkMainHeader prevHeader slotId sk pSk body extra =
+    mkGenericHeader prevHeader body consensus extra
   where
     difficulty = maybe 0 (succ . view difficultyL) prevHeader
     signature prevHash proof =
@@ -134,12 +135,14 @@ mkMainBlock
     -> SecretKey
     -> Maybe ProxySKEpoch
     -> Body (MainBlockchain ssc)
+    -> MainExtraHeaderData
+    -> MainExtraBodyData
     -> MainBlock ssc
-mkMainBlock prevHeader slotId sk proxyInfo body =
+mkMainBlock prevHeader slotId sk proxyInfo body extraH extraB =
     GenericBlock
-    { _gbHeader = mkMainHeader prevHeader slotId sk proxyInfo body
+    { _gbHeader = mkMainHeader prevHeader slotId sk proxyInfo body extraH
     , _gbBody = body
-    , _gbExtra = ()
+    , _gbExtra = extraB
     }
 
 -- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.
@@ -173,10 +176,14 @@ mkGenesisBlock prevHeader epoch leaders =
     body = GenesisBody leaders
 
 -- | Smart constructor for 'Body' of 'MainBlockchain'.
-mkMainBody :: [(Tx, TxWitness)] -> SscPayload ssc -> Body (MainBlockchain ssc)
+mkMainBody
+    :: [(Tx, TxWitness, TxDistribution)]
+    -> SscPayload ssc
+    -> Body (MainBlockchain ssc)
 mkMainBody txws mpc = MainBody {
-    _mbTxs = mkMerkleTree (map fst txws),
-    _mbWitnesses = map snd txws,
+    _mbTxs = mkMerkleTree (map (^. _1) txws),
+    _mbWitnesses = map (^. _2) txws,
+    _mbTxAddrDistributions = map (^. _3) txws,
     _mbMpc = mpc }
 
 -- CHECK: @verifyConsensusLocal

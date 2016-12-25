@@ -34,12 +34,13 @@ import           Serokell.Util.Verify    (VerificationRes)
 import           Universum
 
 import           Pos.Context.Class       (WithNodeContext)
-import           Pos.Crypto              (EncShare, Threshold, VssPublicKey)
+import           Pos.Crypto              (EncShare, PublicKey, Threshold, VssPublicKey)
 import           Pos.DB.Class            (MonadDB)
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types.Types         (Address, EpochIndex, HeaderHash, SharedSeed,
-                                          SlotLeaders, Utxo)
+import           Pos.Types.Address       (AddressHash)
+import           Pos.Types.Types         (EpochIndex, HeaderHash, SharedSeed, SlotLeaders,
+                                          Utxo)
 import           Pos.Util                (AsBinary)
 
 ----------------------------------------------------------------------------
@@ -117,7 +118,7 @@ class Ssc ssc => SscStorageClass ssc where
         -- [CSL-103]: these 3 functions should be replaced with something different.
     sscGetOurShares
         :: (AsBinary VssPublicKey)
-        -> SscQuery ssc (HashMap Address (AsBinary EncShare))
+        -> SscQuery ssc (HashMap (AddressHash PublicKey) (AsBinary EncShare))
     sscGetParticipants :: Word -> Utxo ->
                           SscQuery ssc (Maybe (NonEmpty (AsBinary VssPublicKey)))
     sscCalculateLeaders :: EpochIndex -> Utxo -> Threshold ->

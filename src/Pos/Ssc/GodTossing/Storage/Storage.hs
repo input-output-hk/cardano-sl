@@ -31,7 +31,8 @@ import           Serokell.Util.Verify              (VerificationRes (..), isVerS
                                                     verifyGeneric)
 import           Universum
 
-import           Pos.Crypto                        (EncShare, Threshold, VssPublicKey)
+import           Pos.Crypto                        (EncShare, PublicKey, Threshold,
+                                                    VssPublicKey)
 import           Pos.FollowTheSatoshi              (followTheSatoshi)
 import           Pos.Ssc.Class.Storage             (HasSscStorage (..), SscQuery,
                                                     SscStorageClass (..), SscUpdate)
@@ -52,10 +53,11 @@ import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types    (GtGlobalState (..), GtPayload (..),
                                                     SscBi, _gpCertificates)
 import           Pos.State.Storage.Types           (AltChain)
-import           Pos.Types                         (Address (..), Block, EpochIndex,
-                                                    SlotId (..), SlotLeaders, Utxo,
-                                                    blockMpc, blockSlot, blockSlot,
-                                                    gbHeader, txOutAddress)
+import           Pos.Types                         (Block, EpochIndex, SlotId (..),
+                                                    SlotLeaders, Utxo, blockMpc,
+                                                    blockSlot, blockSlot, gbHeader,
+                                                    txOutStake)
+import           Pos.Types.Address                 (AddressHash)
 import           Pos.Util                          (AsBinary, magnify', readerToState,
                                                     zoom', _neHead)
 
@@ -124,8 +126,9 @@ getParticipants depth utxo = do
     mKeymap <- fmap _gsVssCertificates <$> getGlobalMpcDataByDepth depth
     return $
         do keymap <- mKeymap
-           let stakeholders =
-                   nub $ map txOutAddress (toList utxo)
+           let stakeholders :: [AddressHash PublicKey]
+               stakeholders =
+                   nub $ concatMap (map fst . txOutStake) (toList utxo)
            NE.nonEmpty $
                map vcVssKey $ mapMaybe (`HM.lookup` keymap) stakeholders
 
@@ -298,7 +301,7 @@ mpcProcessBlock blk = do
 -- | Decrypt shares (in commitments) that we can decrypt.
 getOurShares
     :: AsBinary VssPublicKey                           -- ^ Our VSS key
-    -> Query (HashMap Address (AsBinary EncShare))
+    -> Query (HashMap (AddressHash PublicKey) (AsBinary EncShare))
 getOurShares ourPK = do
     comms <- view (lastVer . dsGlobalCommitments)
     opens <- view (lastVer . dsGlobalOpenings)

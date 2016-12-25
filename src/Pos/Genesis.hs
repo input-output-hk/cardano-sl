@@ -117,7 +117,7 @@ genesisUtxo :: StakeDistribution -> Utxo
 genesisUtxo sd =
     M.fromList . zipWith zipF (stakeDistribution sd) $ genesisAddresses
   where
-    zipF coin addr = ((unsafeHash addr, 0), TxOut addr coin)
+    zipF coin addr = ((unsafeHash addr, 0), (TxOut addr coin, []))
 
 ----------------------------------------------------------------------------
 -- Slot leaders

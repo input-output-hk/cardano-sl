@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE MultiWayIf            #-}
@@ -23,16 +22,18 @@ import           Universum
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkSemaphore_)
 import           Pos.Constants            (k)
-import           Pos.Context              (getNodeContext)
+import           Pos.Context              (getNodeContext, readLeaders, readRichmen)
 import           Pos.Context.Context      (ncSscLeaders, ncSscRichmen)
-import           Pos.DB                   (loadBlocksFromTipWhile)
+import           Pos.Crypto               (PublicKey)
+import           Pos.DB                   (loadBlocksFromTipWhile, putLrc)
 import           Pos.DB.DBIterator        ()
 import           Pos.DB.Utxo              (getTotalCoins, iterateByUtxo, mapUtxoIterator)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
 import           Pos.Types                (Address, Coin, EpochOrSlot (..), HeaderHash,
                                            Participants, SlotId (..), TxIn, TxOut (..),
-                                           getEpochOrSlot)
+                                           TxOutAux, getEpochOrSlot, txOutStake)
+import           Pos.Types.Address        (AddressHash)
 import           Pos.WorkMode             (WorkMode)
 
 lrcOnNewSlot :: WorkMode ssc m => SlotId -> m ()
@@ -72,9 +73,12 @@ lrcOnNewSlotDo SlotId {siEpoch = epochId} tip = tip <$ do
         leaders <-
             case mbSeed of
                 Left e     -> panic $ sformat ("SSC couldn't compute seed: "%build) e
-                Right seed -> mapUtxoIterator @(TxIn, TxOut) @TxOut
-                            (followTheSatoshiM seed totalCoins) snd
+                Right seed -> mapUtxoIterator @(TxIn, TxOutAux) @TxOutAux
+                              (followTheSatoshiM seed totalCoins) snd
         liftIO $ putMVar leadersMVar leaders
+    leaders <- readLeaders
+    richmen <- readRichmen
+    putLrc epochId leaders richmen
     applyBlocks blockUndos
   where
     whileMoreOrEq5k b = getEpochOrSlot b >= crucialSlot
@@ -82,15 +86,20 @@ lrcOnNewSlotDo SlotId {siEpoch = epochId} tip = tip <$ do
                   if epochId == 0 then SlotId {siEpoch = 0, siSlot = 0}
                   else SlotId {siEpoch = epochId - 1, siSlot = 5 * k - 1}
 
--- Second argument is eligiblity threshold.
-getRichmen :: forall ssc m . WorkMode ssc m => Coin -> m Participants
+-- | Get nodes which have enough stake to participate in SSC.
+getRichmen
+    :: forall ssc m.
+       WorkMode ssc m
+    => Coin                  -- ^ Eligibility threshold
+    -> m Participants
 getRichmen moneyT =
     fromMaybe onNoRichmen . NE.nonEmpty . HM.keys . HM.filter (>= moneyT) <$>
     execStateT (iterateByUtxo @ssc countMoneys) mempty
   where
     onNoRichmen = panic "There are no richmen!"
-    countMoneys :: (TxIn, TxOut) -> StateT (HM.HashMap Address Coin) m ()
-    countMoneys (_, TxOut {..}) = do
+    countMoneys :: (TxIn, TxOutAux)
+                -> StateT (HM.HashMap (AddressHash PublicKey) Coin) m ()
+    countMoneys (_, txo) = for_ (txOutStake txo) $ \(a, c) -> do
         money <- get
-        let val = HM.lookupDefault 0 txOutAddress money
-        modify (HM.insert txOutAddress (val + txOutValue))
+        let val = HM.lookupDefault 0 a money
+        modify (HM.insert a (val + c))

@@ -38,8 +38,10 @@ module Pos.Types.Types
        , addressF
        , decodeTextAddress
 
+       , TxAttributes
        , TxInWitness (..)
        , TxWitness
+       , TxDistribution (..)
        , TxSig
        , TxId
        , TxIn (..)
@@ -49,9 +51,11 @@ module Pos.Types.Types
        , Tx (..)
        , _txInputs
        , _txOutputs
+       , _txAttributes
        , txF
-       , txwF
-       , IdTxWitness
+       , txaF
+       , TxAux
+       , TxOutAux
 
        , Utxo
        , formatUtxo
@@ -63,6 +67,7 @@ module Pos.Types.Types
        , SharedSeed (..)
        , SlotLeaders
        , Participants
+       , Richmen
 
        , Blockchain (..)
        , BodyProof (..)
@@ -73,6 +78,10 @@ module Pos.Types.Types
 
        , MainBlockchain
        , MainBlockHeader
+       , MainExtraBodyData (..)
+       , MainExtraHeaderData (..)
+       , BlockHeaderAttributes
+       , BlockBodyAttributes
        , BiSsc
        , ProxySigEpoch
        , ProxySKEpoch
@@ -104,7 +113,7 @@ module Pos.Types.Types
        , blockSignature
        , blockSlot
        , blockTxs
-       , blockTxws
+       , blockTxas
        , gbBody
        , gbBodyProof
        , gbExtra
@@ -151,8 +160,8 @@ import           Formatting             (Format, bprint, build, int, later, ords
                                          stext, (%))
 import           Serokell.AcidState     ()
 import qualified Serokell.Util.Base16   as B16
-import           Serokell.Util.Text     (listJson, listJsonIndent, mapBuilderJson,
-                                         pairBuilder, pairF)
+import           Serokell.Util.Text     (listBuilderJSON, listJson, listJsonIndent,
+                                         mapBuilderJson, pairBuilder, pairF)
 import           Universum
 
 import           Pos.Binary.Address     ()
@@ -161,6 +170,7 @@ import           Pos.Binary.Script      ()
 import           Pos.Constants          (sharedSeedLength)
 import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
                                          Signature, hash, hashHexF, shortHashF)
+import           Pos.Data.Attributes    (Attributes)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Script             (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
@@ -169,8 +179,9 @@ import           Pos.Types.Address      (Address (..), AddressHash, addressF,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
 import           Pos.Types.Coin         (Coin (..), coinF)
+import           Pos.Types.Update       (UpdateProposal, UpdateVote)
+import           Pos.Types.Version      (ProtocolVersion, SoftwareVersion)
 import           Pos.Util               (Color (Magenta), colorize)
-
 
 ----------------------------------------------------------------------------
 -- Slotting
@@ -237,11 +248,16 @@ instance Buildable EpochOrSlot where
 -- Transaction
 ----------------------------------------------------------------------------
 
+-- | Represents transaction attributes: map from 1-byte integer to
+-- arbitrary-type value. To be used for extending transaction with new
+-- fields via softfork.
+type TxAttributes = Attributes ()
+
 -- | Represents transaction identifier as 'Hash' of 'Tx'.
 type TxId = Hash Tx
 
 -- | 'Signature' of addrId.
-type TxSig = Signature (TxId, Word32, Hash [TxOut])
+type TxSig = Signature (TxId, Word32, Hash [TxOut], Hash TxDistribution)
 
 -- | A witness for a single input.
 data TxInWitness
@@ -265,6 +281,16 @@ instance Bi Script => Buildable TxInWitness where
 -- spends (by providing signatures, redeeming scripts, etc). A separate proof
 -- is provided for each input.
 type TxWitness = Vector TxInWitness
+
+-- | Distribution of “fake” stake that follow-the-satoshi would use for a
+-- particular transaction.
+newtype TxDistribution = TxDistribution {
+    getTxDistribution :: [[(AddressHash PublicKey, Coin)]] }
+    deriving (Eq, Show, Generic)
+
+instance Buildable TxDistribution where
+    build (TxDistribution x) =
+        listBuilderJSON . map (listBuilderJSON . map pairBuilder) $ x
 
 -- | Transaction input.
 data TxIn = TxIn
@@ -295,24 +321,29 @@ instance Buildable TxOut where
     build TxOut {..} =
         bprint ("TxOut "%coinF%" -> "%build) txOutValue txOutAddress
 
+type TxOutAux = (TxOut, [(AddressHash PublicKey, Coin)])
+
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).
-txOutStake :: TxOut -> [(AddressHash PublicKey, Coin)]
-txOutStake TxOut{..} = case txOutAddress of
-    PubKeyAddress x   -> [(x, txOutValue)]
-    ScriptAddress _ d -> d
+txOutStake :: TxOutAux -> [(AddressHash PublicKey, Coin)]
+txOutStake (TxOut{..}, mb) = case txOutAddress of
+    PubKeyAddress x -> [(x, txOutValue)]
+    ScriptAddress _ -> mb
 
 -- | Transaction.
 --
 -- NB: transaction witnesses are stored separately.
 data Tx = Tx
-    { txInputs  :: ![TxIn]   -- ^ Inputs of transaction.
-    , txOutputs :: ![TxOut]  -- ^ Outputs of transaction.
+    { txInputs     :: ![TxIn]   -- ^ Inputs of transaction.
+    , txOutputs    :: ![TxOut]  -- ^ Outputs of transaction.
+    , txAttributes :: !TxAttributes -- ^ Attributes of transaction
     } deriving (Eq, Ord, Generic, Show)
 
-makeLensesFor [("txInputs", "_txInputs"), ("txOutputs", "_txOutputs")] ''Tx
+makeLensesFor [("txInputs", "_txInputs"), ("txOutputs", "_txOutputs")
+              , ("txAttributes", "_txAttributes")] ''Tx
 
-type IdTxWitness = (TxId, (Tx, TxWitness))
+-- | Transaction + auxiliary data
+type TxAux = (Tx, TxWitness, TxDistribution)
 
 instance Hashable Tx
 
@@ -326,10 +357,12 @@ instance Buildable Tx where
 txF :: Format r (Tx -> r)
 txF = build
 
--- | Specialized formatter for 'Tx' with a witness.
-txwF :: Bi Script => Format r ((Tx, TxWitness) -> r)
-txwF = later $ \(tx, w) ->
-    bprint (build%"\n"%"witnesses:"%listJsonIndent 4) tx w
+-- | Specialized formatter for 'Tx' with auxiliary data
+txaF :: Bi Script => Format r (TxAux -> r)
+txaF = later $ \(tx, w, d) ->
+    bprint (build%"\n"%
+            "witnesses: "%listJsonIndent 4%"\n"%
+            "distribution: "%build) tx w d
 
 ----------------------------------------------------------------------------
 -- UTXO
@@ -339,11 +372,14 @@ txwF = later $ \(tx, w) ->
 --
 -- Transaction inputs are identified by (transaction ID, index in list of
 -- output) pairs.
-type Utxo = Map (TxId, Word32) TxOut
+type Utxo = Map (TxId, Word32) TxOutAux
 
 -- | Format 'Utxo' map as json.
 formatUtxo :: Utxo -> Builder
-formatUtxo = mapBuilderJson . map (first pairBuilder) . M.toList
+formatUtxo =
+    mapBuilderJson .
+    map (first pairBuilder . second (show @_ @Text)) .
+    M.toList
 
 -- | Specialized formatter for 'Utxo'.
 utxoF :: Format r (Utxo -> r)
@@ -353,7 +389,7 @@ utxoF = later formatUtxo
 -- UNDO
 ----------------------------------------------------------------------------
 -- | Structure for undo block during rollback
-type Undo = [[TxOut]]
+type Undo = [[TxOutAux]]
 
 -- | Block and its Undo.
 type Blund ssc = (Block ssc, Undo)
@@ -384,7 +420,11 @@ instance Monoid SharedSeed where
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty (AddressHash PublicKey)
 
-type Participants = NonEmpty Address
+-- FIXME: remove!
+type Participants = NonEmpty (AddressHash PublicKey)
+
+-- | Addresses which have enough stake for participation in SSC.
+type Richmen = NonEmpty (AddressHash PublicKey)
 
 ----------------------------------------------------------------------------
 -- GenericBlock
@@ -496,6 +536,49 @@ instance Buildable (BlockSignature ssc) where
     build (BlockSignature s)  = bprint ("BlockSignature: "%build) s
     build (BlockPSignature s) = bprint ("BlockPSignature: "%build) s
 
+-- | Represents main block body attributes: map from 1-byte integer to
+-- arbitrary-type value. To be used for extending block with new
+-- fields via softfork.
+type BlockBodyAttributes = Attributes ()
+
+-- | Represents main block header attributes: map from 1-byte integer to
+-- arbitrary-type value. To be used for extending header with new
+-- fields via softfork.
+type BlockHeaderAttributes = Attributes ()
+
+-- | Represents main block header extra data
+data MainExtraHeaderData = MainExtraHeaderData
+    { -- | Version of protocol.
+      _mehProtocolVersion :: !ProtocolVersion
+    , -- | Software version.
+      _mehSoftwareVersion :: !SoftwareVersion
+    , -- | Header attributes
+      _mehAttributes      :: !BlockHeaderAttributes
+    }
+    deriving (Eq, Show, Generic)
+
+instance Buildable MainExtraHeaderData where
+    build MainExtraHeaderData {..} =
+      bprint ( "    protocol: v"%build%"\n"
+             % "    software: "%build%"\n"
+             )
+            _mehProtocolVersion
+            _mehSoftwareVersion
+
+-- | Represents main block extra data
+data MainExtraBodyData = MainExtraBodyData
+    { _mebAttributes  :: !BlockBodyAttributes
+    , _mebUpdate      :: !(Maybe UpdateProposal)
+    , _mebUpdateVotes :: ![UpdateVote]
+    }
+    deriving (Eq, Show, Generic)
+
+instance Buildable MainExtraBodyData where
+    build MainExtraBodyData {..} =
+      bprint ("    update: "%build%", "%int%" votes\n")
+             (maybe "no proposal" Buildable.build  _mebUpdate)
+             (length _mebUpdateVotes)
+
 instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
     data BodyProof (MainBlockchain ssc) = MainProof
@@ -515,6 +598,7 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         _mcdSignature  :: !(BlockSignature ssc)
         } deriving (Generic, Show)
     type BBlockHeader (MainBlockchain ssc) = BlockHeader ssc
+    type ExtraHeaderData (MainBlockchain ssc) = MainExtraHeaderData
 
     -- | In our cryptocurrency, body consists of a list of transactions
     -- and MPC messages.
@@ -522,7 +606,17 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         { -- | Transactions are the main payload.
           -- TODO: currently we don't know for sure whether it should be
           -- serialized as a MerkleTree or something list-like.
-          _mbTxs         :: !(MerkleTree Tx)
+          _mbTxs :: !(MerkleTree Tx)
+        , -- | Distributions for P2SH addresses in transaction outputs.
+          --     * length mbTxAddrDistributions == length mbTxs
+          --     * i-th element is 'Just' if at least one output of i-th
+          --         transaction is P2SH
+          --     * n-th element of i-th element is 'Just' if n-th output
+          --         of i-th transaction is P2SH
+          -- Ask @neongreen if you don't understand wtf is going on.
+          -- Basically, address distributions are needed so that (potential)
+          -- receivers of P2SH funds would count as stakeholders.
+          _mbTxAddrDistributions :: ![TxDistribution]
         , -- | Transaction witnesses. Invariant: there are as many witnesses
           -- as there are transactions in the block. This is checked during
           -- deserialisation. We can't put them into the same Merkle tree
@@ -531,10 +625,12 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
           --
           -- TODO: should they be put into a separate Merkle tree or left as
           -- a list?
-          _mbWitnesses   :: ![TxWitness]
+          _mbWitnesses :: ![TxWitness]
         , -- | Data necessary for MPC.
-          _mbMpc  :: !(SscPayload ssc)
+          _mbMpc :: !(SscPayload ssc)
         } deriving (Generic)
+
+    type ExtraBodyData (MainBlockchain ssc) = MainExtraBodyData
     type BBlock (MainBlockchain ssc) = Block ssc
 
     mkBodyProof MainBody {..} =
@@ -565,13 +661,15 @@ instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
              "    previous block: "%hashHexF%"\n"%
              "    slot: "%slotIdF%"\n"%
              "    leader: "%build%"\n"%
-             "    difficulty: "%int%"\n"
+             "    difficulty: "%int%"\n"%
+             build
             )
             headerHash
             _gbhPrevBlock
             _mcdSlot
             _mcdLeaderKey
             _mcdDifficulty
+            _gbhExtra
       where
         headerHash :: HeaderHash ssc
         headerHash = hash $ Right gbh
@@ -586,13 +684,16 @@ instance BiSsc ssc => Buildable (MainBlock ssc) where
         bprint
             (stext%":\n"%
              "  "%build%
-             "  transactions: "%listJson%"\n"%
+             "  transactions ("%int%" items): "%listJson%"\n"%
+             build%
              build
             )
             (colorize Magenta "MainBlock")
             _gbHeader
+            (length _mbTxs)
             _mbTxs
             _mbMpc
+            _gbExtra
       where
         MainBody {..} = _gbBody
 
@@ -738,6 +839,10 @@ MAKE_LENS(mbTxs, _mbTxs)
 mbWitnesses :: Lens' (Body (MainBlockchain ssc)) [TxWitness]
 MAKE_LENS(mbWitnesses, _mbWitnesses)
 
+-- | Lens for distributions list in main block body.
+mbTxAddrDistributions :: Lens' (Body (MainBlockchain ssc)) [TxDistribution]
+MAKE_LENS(mbTxAddrDistributions, _mbTxAddrDistributions)
+
 -- | Lens for 'SscPayload' in main block body.
 mbMpc :: Lens' (Body (MainBlockchain ssc)) (SscPayload ssc)
 MAKE_LENS(mbMpc, _mbMpc)
@@ -878,9 +983,14 @@ blockMpc = gbBody . mbMpc
 blockTxs :: Lens' (MainBlock ssc) (MerkleTree Tx)
 blockTxs = gbBody . mbTxs
 
--- | Getter from 'MainBlock' to a list of transactions with their witnesses.
-blockTxws :: Getter (MainBlock ssc) [(Tx,TxWitness)]
-blockTxws = gbBody . to (\b -> zip (toList (b ^. mbTxs)) (b ^. mbWitnesses))
+-- | Getter from 'MainBlock' to a list of transactions together with
+-- auxiliary data.
+blockTxas :: Getter (MainBlock ssc) [TxAux]
+blockTxas =
+    gbBody .
+    to (\b -> zip3 (toList (b ^. mbTxs))
+                   (b ^. mbWitnesses)
+                   (b ^. mbTxAddrDistributions))
 
 -- | Lens from 'GenesisBlock' to 'SlotLeaders'.
 blockLeaders :: Lens' (GenesisBlock ssc) SlotLeaders
@@ -933,10 +1043,16 @@ deriveSafeCopySimple 0 'base ''SlotId
 deriveSafeCopySimple 0 'base ''Coin
 deriveSafeCopySimple 0 'base ''Address
 deriveSafeCopySimple 0 'base ''TxInWitness
+-- TODO: in many cases TxDistribution would just be lots of empty lists, so
+-- its SafeCopy instance could be optimised
+deriveSafeCopySimple 0 'base ''TxDistribution
 deriveSafeCopySimple 0 'base ''TxIn
 deriveSafeCopySimple 0 'base ''TxOut
 deriveSafeCopySimple 0 'base ''Tx
 deriveSafeCopySimple 0 'base ''SharedSeed
+
+deriveSafeCopySimple 0 'base ''MainExtraBodyData
+deriveSafeCopySimple 0 'base ''MainExtraHeaderData
 
 -- Manually written instances can't be derived because
 -- 'deriveSafeCopySimple' is not clever enough to add
@@ -1044,18 +1160,14 @@ instance Ssc ssc => SafeCopy (Body (MainBlockchain ssc)) where
         contain $
         do _mbTxs <- safeGet
            _mbWitnesses <- safeGet
-           let lenTxs = length _mbTxs
-               lenWit = length _mbWitnesses
-           when (lenTxs /= lenWit) $ fail $ toString $
-               sformat ("getCopy@(Body MainBlockchain): "%
-                        "size of txs tree ("%int%") /= "%
-                        "length of witness list ("%int%")") lenTxs lenWit
+           _mbTxAddrDistributions <- safeGet
            _mbMpc <- safeGet
            return $! MainBody {..}
     putCopy MainBody {..} =
         contain $
         do safePut _mbTxs
            safePut _mbWitnesses
+           safePut _mbTxAddrDistributions
            safePut _mbMpc
 
 instance SafeCopy (Body (GenesisBlockchain ssc)) where
@@ -1073,4 +1185,5 @@ instance SafeCopy (Body (GenesisBlockchain ssc)) where
 derive makeNFData ''TxIn
 derive makeNFData ''TxInWitness
 derive makeNFData ''TxOut
+derive makeNFData ''TxDistribution
 derive makeNFData ''Tx

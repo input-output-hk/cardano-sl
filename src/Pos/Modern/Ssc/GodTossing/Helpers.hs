@@ -18,9 +18,12 @@ import           System.Wlog                             (HasLoggerName, dispatc
 import           Universum
 
 import           Pos.Context.Class                       (readRichmen)
-import           Pos.Crypto                              (EncShare, Share, VssKeyPair,
-                                                          VssPublicKey, decryptShare,
-                                                          toVssPublicKey)
+import           Pos.Crypto                              (EncShare, PublicKey, Share,
+                                                          VssKeyPair, VssPublicKey,
+                                                          decryptShare, toVssPublicKey)
+import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
+                                                          gsCommitments, gsOpenings,
+                                                          gsShares, gsVssCertificates)
 import           Pos.Ssc.Class.Storage                   (SscGlobalQueryM,
                                                           SscImpureQueryM)
 import           Pos.Ssc.Class.Types                     (Ssc (..))
@@ -31,13 +34,9 @@ import           Pos.Ssc.GodTossing.Seed                 (calculateSeed)
 import           Pos.Ssc.GodTossing.Types.Base           (Commitment (..),
                                                           VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
-import           Pos.Types                               (Address (..), EpochIndex,
-                                                          SharedSeed)
+import           Pos.Types                               (EpochIndex, SharedSeed)
+import           Pos.Types.Address                       (AddressHash)
 import           Pos.Util                                (AsBinary, asBinary, fromBinaryM)
-
-import           Pos.Modern.Ssc.GodTossing.Storage.Types (GtGlobalState (..),
-                                                          gsCommitments, gsOpenings,
-                                                          gsShares, gsVssCertificates)
 
 type GSQuery a = SscGlobalQueryM SscGodTossing a
 type GSImpureQuery a = SscImpureQueryM SscGodTossing a
@@ -84,7 +83,7 @@ calculateSeedQ _ = do
 getOurShares :: ( MonadSscGS SscGodTossing m
                 , MonadIO m, HasLoggerName m
                 , SscGlobalStateM SscGodTossing ~ GtGlobalState)
-             => VssKeyPair -> m (HashMap Address Share)
+             => VssKeyPair -> m (HashMap (AddressHash PublicKey) Share)
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
     let ourPK = asBinary $ toVssPublicKey ourKey
@@ -109,7 +108,7 @@ getOurShares ourKey = do
 decryptOurShares
     :: (SscGlobalStateM SscGodTossing ~ GtGlobalState)
     => AsBinary VssPublicKey                           -- ^ Our VSS key
-    -> GSQuery (HashMap Address (AsBinary EncShare))
+    -> GSQuery (HashMap (AddressHash PublicKey) (AsBinary EncShare))
 decryptOurShares ourPK = do
     comms <- view gsCommitments
     opens <- view gsOpenings

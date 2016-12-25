@@ -13,12 +13,12 @@ import           Universum
 import           Pos.DB.Types        (DB)
 import           Pos.DB.Utxo         (getTxOutFromDB)
 import           Pos.Txp.Types.Types (UtxoView (..))
-import           Pos.Types           (TxIn (..), TxOut)
+import           Pos.Types           (TxIn (..), TxOutAux)
 
 createFromDB :: DB ssc -> UtxoView ssc
 createFromDB = UtxoView HM.empty HS.empty
 
-putTxOut :: TxIn -> TxOut -> UtxoView ssc -> UtxoView ssc
+putTxOut :: TxIn -> TxOutAux -> UtxoView ssc -> UtxoView ssc
 putTxOut key val mp@UtxoView{..} =
     mp { addUtxo = HM.insert key val addUtxo
        , delUtxo = HS.delete key delUtxo}
@@ -29,7 +29,7 @@ delTxIn txIn mp@UtxoView{..} =
 
 getTxOut
     :: (MonadIO m, MonadThrow m)
-    => TxIn -> UtxoView ssc -> m (Maybe TxOut)
+    => TxIn -> UtxoView ssc -> m (Maybe TxOutAux)
 getTxOut key UtxoView{..}
     | HS.member key delUtxo = return Nothing
     | otherwise             = maybe (getTxOutFromDB key utxoDB)

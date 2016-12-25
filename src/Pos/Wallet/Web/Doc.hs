@@ -28,7 +28,7 @@ import           Universum
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Genesis                (genesisAddresses, genesisUtxo)
-import           Pos.Types                  (Address, Coin, Tx (..), TxIn (..))
+import           Pos.Types                  (Coin)
 import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CHash, CTx, CTxId, CTxMeta,
                                              CWallet, CWalletMeta, addressToCAddress)
@@ -120,9 +120,9 @@ instance ToCapture (Capture "tx" CTxId) where
 instance ToSample Coin where
     toSamples Proxy = singleSample 100500
 
-instance ToSample Address where
-    toSamples Proxy = singleSample $ genesisAddresses !! 0
-
+-- instance ToSample Address where
+--     toSamples Proxy = singleSample $ genesisAddresses !! 0
+--
 -- FIXME!
 instance ToSample CHash where
     toSamples Proxy = fail "ToSample CHash: Not Implemented!"
@@ -151,7 +151,7 @@ instance ToSample CTx where
 
 instance ToSample CTxMeta where
     toSamples Proxy = fail "ToSample CTxMeta: Not Implemented!"
-
-instance ToSample Tx where
-    toSamples Proxy = singleSample $ Tx [TxIn hsh idx] [out]
-      where ((hsh, idx), out) = M.toList (genesisUtxo def) !! 0
+--
+--instance ToSample Tx where
+--    toSamples Proxy = singleSample $ Tx [TxIn hsh idx] [out]
+--      where ((hsh, idx), (out, _)) = M.toList (genesisUtxo def) !! 0

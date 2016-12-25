@@ -34,13 +34,11 @@ fromE = either (panic . toText) identity
 
 alwaysSuccessValidator :: Script
 alwaysSuccessValidator = fromE $ parseValidator $ unlines [
-    "data Unit = { Unit }",
     "validator : Int -> Comp Unit {",
-    "  validator x = success Unit }" ]
+    "  validator x = success MkUnit }" ]
 
 alwaysFailureValidator :: Script
 alwaysFailureValidator = fromE $ parseValidator $ unlines [
-    "data Unit = { Unit }",
     "validator : Int -> Comp Unit {",
     "  validator x = failure }" ]
 

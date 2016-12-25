@@ -28,7 +28,8 @@ import           Control.Monad.Fail         (fail)
 import           Data.FileEmbed             (embedStringFile, makeRelativeToProject)
 import           Data.String                (String)
 import qualified Interface.Integration      as PL
-import           Language.Haskell.TH.Syntax (Lift (..))
+import qualified Interface.Prelude          as PL
+import           Language.Haskell.TH.Syntax (Lift (..), runIO)
 import qualified PlutusCore.Program         as PLCore
 import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum                  hiding (lift)
@@ -126,10 +127,8 @@ txScriptCheck validator redeemer = case spoon result of
 
 stdlib :: PLCore.Program
 stdlib = $(do
-    let file = $(embedStringFile =<< makeRelativeToProject "stdlib.pls")
-    case PL.runElabInContexts [] (PL.loadProgram file) of
-        Left a  -> fail ("couldn't parse script standard library: " ++ a)
-        Right x -> lift x)
+    pr <- runIO PL.prelude
+    lift pr)
 
 ----------------------------------------------------------------------------
 -- Error catching

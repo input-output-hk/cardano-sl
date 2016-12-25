@@ -141,7 +141,7 @@ mdNoCommitmentsEpochThreshold = fromIntegral . ccMdNoCommitmentsEpochThreshold $
 
 cardanoSlAppName :: ApplicationName
 cardanoSlAppName = either (panic . (<>) "Failed to init cardanoSlAppName: ")
-                      identity $ mkApplicationName "cardano-sl"
+                      identity $ mkApplicationName "cardano"
 
 -- ^ Protocol version application uses
 curProtocolVersion :: ProtocolVersion

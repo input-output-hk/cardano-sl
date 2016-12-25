@@ -143,6 +143,7 @@ instance Ssc ssc => Bi (T.Body (T.MainBlockchain ssc)) where
     put T.MainBody{..} = do
         put _mbTxs
         put _mbWitnesses
+        put _mbTxAddrDistributions
         put _mbMpc
     get = do
         _mbTxs <- get
@@ -191,7 +192,7 @@ instance Bi (T.Body (T.GenesisBlockchain ssc)) where
     get = T.GenesisBody <$> get
 
 instance Bi T.MainExtraHeaderData where
-    put T.MainExtraHeaderData {..} =  put _mehProtocolVersion
+    put T.MainExtraHeaderData {..} = put _mehProtocolVersion
                                    *> put _mehSoftwareVersion
                                    *> put _mehAttributes
 

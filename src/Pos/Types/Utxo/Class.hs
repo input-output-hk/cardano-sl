@@ -14,16 +14,16 @@ import           Universum
 
 import           Pos.DHT.Model.Class  (DHTResponseT)
 import           Pos.DHT.Real         (KademliaDHT)
-import           Pos.Types.Types      (TxIn, TxOut)
+import           Pos.Types.Types      (TxIn, TxOutAux)
 
 class Monad m => MonadUtxoRead m where
-    utxoGet :: TxIn -> m (Maybe TxOut)
-    default utxoGet :: MonadTrans t => TxIn -> t m (Maybe TxOut)
+    utxoGet :: TxIn -> m (Maybe TxOutAux)
+    default utxoGet :: MonadTrans t => TxIn -> t m (Maybe TxOutAux)
     utxoGet = lift . utxoGet
 
 class MonadUtxoRead m => MonadUtxo m where
-    utxoPut :: TxIn -> TxOut -> m ()
-    default utxoPut :: MonadTrans t => TxIn -> TxOut -> t m ()
+    utxoPut :: TxIn -> TxOutAux -> m ()
+    default utxoPut :: MonadTrans t => TxIn -> TxOutAux -> t m ()
     utxoPut a = lift . utxoPut a
     utxoDel :: TxIn -> m ()
     default utxoDel :: MonadTrans t => TxIn -> t m ()

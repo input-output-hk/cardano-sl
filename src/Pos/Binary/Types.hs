@@ -60,6 +60,10 @@ instance Bi T.TxInWitness where
             1 -> T.ScriptWitness <$> get <*> get
             t -> fail $ "get@TxInWitness: unknown tag " <> show t
 
+instance Bi T.TxDistribution where
+    put (T.TxDistribution x) = put x
+    get = T.TxDistribution <$> get
+
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
 
@@ -138,9 +142,9 @@ instance Ssc ssc => Bi (T.Body (T.MainBlockchain ssc)) where
         _mbWitnesses <- get
         _mbTxAddrDistributions <- get
         _mbMpc <- get
-        let lenTxs = length _mbTxs
-            lenWit = length _mbWitnesses
-        let lenDistrs = length _mbTxAddrDistributions
+        let lenTxs    = length _mbTxs
+            lenWit    = length _mbWitnesses
+            lenDistrs = length _mbTxAddrDistributions
         when (lenTxs /= lenWit) $ fail $ toString $
             sformat ("get@(Body MainBlockchain): "%
                      "size of txs tree ("%int%") /= "%
@@ -152,17 +156,15 @@ instance Ssc ssc => Bi (T.Body (T.MainBlockchain ssc)) where
                      "length of address distrs list ("%int%")")
                     lenTxs lenDistrs
         for_ (zip3 [0 :: Int ..] (toList _mbTxs) _mbTxAddrDistributions) $
-            \(i, tx, mbDs) -> case mbDs of
-                Nothing -> return ()
-                Just ds -> do
-                  let lenOut = length (T.txOutputs tx)
-                      lenDist = length ds
-                  when (lenOut /= lenDist) $ fail $ toString $
-                      sformat ("get@(Body MainBlockchain): "%
-                               "amount of outputs ("%int%") of tx "%
-                               "#"%int%" /= amount of distributions "%
-                               "for this tx ("%int%")")
-                              lenOut i lenDist
+            \(i, tx, ds) -> do
+                let lenOut = length (T.txOutputs tx)
+                    lenDist = length (T.getTxDistribution ds)
+                when (lenOut /= lenDist) $ fail $ toString $
+                    sformat ("get@(Body MainBlockchain): "%
+                             "amount of outputs ("%int%") of tx "%
+                             "#"%int%" /= amount of distributions "%
+                             "for this tx ("%int%")")
+                            lenOut i lenDist
         return T.MainBody{..}
 
 ----------------------------------------------------------------------------

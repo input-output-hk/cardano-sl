@@ -40,7 +40,7 @@ module Pos.Types.Types
 
        , TxInWitness (..)
        , TxWitness
-       , TxDistribution
+       , TxDistribution (..)
        , TxSig
        , TxId
        , TxIn (..)
@@ -52,6 +52,7 @@ module Pos.Types.Types
        , txF
        , txaF
        , TxAux
+       , TxOutAux
 
        , Utxo
        , formatUtxo
@@ -241,7 +242,7 @@ instance Buildable EpochOrSlot where
 type TxId = Hash Tx
 
 -- | 'Signature' of addrId.
-type TxSig = Signature (TxId, Word32, Hash [TxOut])
+type TxSig = Signature (TxId, Word32, Hash [TxOut], Hash TxDistribution)
 
 -- | A witness for a single input.
 data TxInWitness
@@ -267,9 +268,14 @@ instance Bi Script => Buildable TxInWitness where
 type TxWitness = Vector TxInWitness
 
 -- | Distribution of “fake” stake that follow-the-satoshi would use for a
--- particular transaction. 'Nothing' = there's no distribution for any
--- addresses in the transaction.
-type TxDistribution = Maybe [Maybe (AddressHash PublicKey, Coin)]
+-- particular transaction.
+newtype TxDistribution = TxDistribution {
+    getTxDistribution :: [[(AddressHash PublicKey, Coin)]] }
+    deriving (Eq, Show, Generic)
+
+instance Buildable TxDistribution where
+    build (TxDistribution x) =
+        listBuilderJSON . map (listBuilderJSON . map pairBuilder) $ x
 
 -- | Transaction input.
 data TxIn = TxIn
@@ -296,12 +302,14 @@ instance Buildable TxOut where
     build TxOut {..} =
         bprint ("TxOut "%coinF%" -> "%build) txOutValue txOutAddress
 
+type TxOutAux = (TxOut, [(AddressHash PublicKey, Coin)])
+
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).
-txOutStake :: TxOut -> [(AddressHash PublicKey, Coin)]
-txOutStake TxOut{..} = case txOutAddress of
-    PubKeyAddress x   -> [(x, txOutValue)]
-    ScriptAddress _ d -> d
+txOutStake :: TxOutAux -> [(AddressHash PublicKey, Coin)]
+txOutStake (TxOut{..}, mb) = case txOutAddress of
+    PubKeyAddress x -> [(x, txOutValue)]
+    ScriptAddress _ -> mb
 
 -- | Transaction.
 --
@@ -333,10 +341,7 @@ txaF :: Bi Script => Format r (TxAux -> r)
 txaF = later $ \(tx, w, d) ->
     bprint (build%"\n"%
             "witnesses: "%listJsonIndent 4%"\n"%
-            "distribution: "%distF) tx w d
-  where
-    distF = later $
-        maybe "Nothing" (listBuilderJSON . map (maybe "-" pairBuilder))
+            "distribution: "%build) tx w d
 
 ----------------------------------------------------------------------------
 -- UTXO
@@ -346,11 +351,14 @@ txaF = later $ \(tx, w, d) ->
 --
 -- Transaction inputs are identified by (transaction ID, index in list of
 -- output) pairs.
-type Utxo = Map (TxId, Word32) TxOut
+type Utxo = Map (TxId, Word32) TxOutAux
 
 -- | Format 'Utxo' map as json.
 formatUtxo :: Utxo -> Builder
-formatUtxo = mapBuilderJson . map (first pairBuilder) . M.toList
+formatUtxo =
+    mapBuilderJson .
+    map (first pairBuilder . second (show @_ @Text)) .
+    M.toList
 
 -- | Specialized formatter for 'Utxo'.
 utxoF :: Format r (Utxo -> r)
@@ -360,7 +368,7 @@ utxoF = later formatUtxo
 -- UNDO
 ----------------------------------------------------------------------------
 -- | Structure for undo block during rollback
-type Undo = [[TxOut]]
+type Undo = [[TxOutAux]]
 
 -- | Block and its Undo.
 type Blund ssc = (Block ssc, Undo)
@@ -391,7 +399,7 @@ instance Monoid SharedSeed where
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty (AddressHash PublicKey)
 
-type Participants = NonEmpty Address
+type Participants = NonEmpty (AddressHash PublicKey)
 
 ----------------------------------------------------------------------------
 -- GenericBlock
@@ -959,6 +967,9 @@ deriveSafeCopySimple 0 'base ''SlotId
 deriveSafeCopySimple 0 'base ''Coin
 deriveSafeCopySimple 0 'base ''Address
 deriveSafeCopySimple 0 'base ''TxInWitness
+-- TODO: in many cases TxDistribution would just be lots of empty lists, so
+-- its SafeCopy instance could be optimised
+deriveSafeCopySimple 0 'base ''TxDistribution
 deriveSafeCopySimple 0 'base ''TxIn
 deriveSafeCopySimple 0 'base ''TxOut
 deriveSafeCopySimple 0 'base ''Tx
@@ -1095,4 +1106,5 @@ instance SafeCopy (Body (GenesisBlockchain ssc)) where
 derive makeNFData ''TxIn
 derive makeNFData ''TxInWitness
 derive makeNFData ''TxOut
+derive makeNFData ''TxDistribution
 derive makeNFData ''Tx

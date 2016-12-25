@@ -40,7 +40,8 @@ tpsTxBound tps propThreshold =
 genChain :: SecretKey -> TxId -> Word32 -> [TxAux]
 genChain sk txInHash txInIndex =
     let addr = makePubKeyAddress $ toPublic sk
-        (tx, w, d) = makePubKeyTx sk [(txInHash, txInIndex)] [TxOut addr 1]
+        (tx, w, d) = makePubKeyTx sk [(txInHash, txInIndex)]
+                                     [(TxOut addr 1, [])]
     in (tx, w, d) : genChain sk (hash tx) 0
 
 initTransaction :: GenOptions -> Int -> TxAux
@@ -51,7 +52,7 @@ initTransaction GenOptions {..} i =
         addr = genesisAddresses !! i
         sk = genesisSecretKeys !! i
         input = (unsafeHash addr, 0)
-        outputs = replicate n $ TxOut addr 1
+        outputs = replicate n (TxOut addr 1, [])
     in makePubKeyTx sk [input] outputs
 
 data BambooPool = BambooPool

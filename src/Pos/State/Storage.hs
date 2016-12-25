@@ -63,8 +63,8 @@ import           Serokell.Util                (VerificationRes (..))
 import           System.Wlog                  (WithLogger, logDebug)
 
 import           Pos.Constants                (k)
-import           Pos.Crypto                   (EncShare, ProxySecretKey, SecretKey,
-                                               VssPublicKey)
+import           Pos.Crypto                   (EncShare, ProxySecretKey, PublicKey,
+                                               SecretKey, VssPublicKey)
 import           Pos.Genesis                  (genesisUtxo)
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass (..))
 import           Pos.Ssc.Class.Storage        (HasSscStorage (..), SscStorageClass (..))
@@ -85,13 +85,14 @@ import           Pos.Txp.Storage              (HasTxStorage (txStorage), TxStora
                                                getUtxoByDepth, isTxVerified, processTx,
                                                txApplyBlocks, txRollback,
                                                txStorageFromUtxo, txVerifyBlocks)
-import           Pos.Types                    (Address, Block, EpochIndex,
-                                               EpochOrSlot (..), GenesisBlock, MainBlock,
-                                               SlotId (..), SlotLeaders, TxAux, TxId,
-                                               Utxo, blockMpc, blockTxs, epochIndexL,
-                                               epochOrSlot, flattenSlotId, gbHeader,
-                                               getEpochOrSlot, headerHashG, slotIdF,
-                                               unflattenSlotId, verifyTxAlone)
+import           Pos.Types                    (Block, EpochIndex, EpochOrSlot (..),
+                                               GenesisBlock, MainBlock, SlotId (..),
+                                               SlotLeaders, TxAux, TxId, Utxo, blockMpc,
+                                               blockTxs, epochIndexL, epochOrSlot,
+                                               flattenSlotId, gbHeader, getEpochOrSlot,
+                                               headerHashG, slotIdF, unflattenSlotId,
+                                               verifyTxAlone)
+import           Pos.Types.Address            (AddressHash)
 import           Pos.Util                     (AsBinary, readerToState, _neLast)
 
 
@@ -411,5 +412,5 @@ getOurShares
     :: forall ssc.
        SscStorageClass ssc
     => AsBinary VssPublicKey -- ^ Our VSS key
-    -> Query ssc (HashMap Address (AsBinary EncShare))
+    -> Query ssc (HashMap (AddressHash PublicKey) (AsBinary EncShare))
 getOurShares = sscGetOurShares @ssc

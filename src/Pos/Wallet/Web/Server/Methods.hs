@@ -84,7 +84,7 @@ send srcAddr dstAddr c = do
     sks <- getSecretKeys
     let sk = sks !! idx
     na <- fmap dhtAddr <$> getKnownPeers
-    () <$ submitTx sk na [TxOut dstAddr c]
+    () <$ submitTx sk na [(TxOut dstAddr c, [])]
     logInfo $
         sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
         c idx dstAddr

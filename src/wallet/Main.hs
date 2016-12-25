@@ -3,6 +3,7 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeApplications    #-}
 
 module Main where
@@ -43,7 +44,7 @@ evalCmd (Balance addr) = lift (getBalance addr) >>=
                          evalCommands
 evalCmd (Send idx outputs) = do
     (skeys, na) <- ask
-    tx <- lift $ submitTx (skeys !! idx) na outputs
+    tx <- lift $ submitTx (skeys !! idx) na (map (,[]) outputs)
     putText $ sformat ("Submitted transaction: "%txaF) tx
     evalCommands
 evalCmd Help = do

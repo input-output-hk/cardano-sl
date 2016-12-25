@@ -17,7 +17,7 @@ module Pos.Txp.Logic
        , txRollbackBlocks
        ) where
 
-import           Control.Lens            (each, over, (^.), _1)
+import           Control.Lens            (each, over, (^.), _1, _3)
 import qualified Data.HashMap.Strict     as HM
 import qualified Data.HashSet            as HS
 import           Data.List.NonEmpty      (NonEmpty)
@@ -38,10 +38,10 @@ import           Pos.Txp.Holder          (TxpLDHolder, runLocalTxpLDHolder)
 import           Pos.Txp.Types           (MemPool (..), UtxoView (..))
 import qualified Pos.Txp.Types.UtxoView  as UV
 import           Pos.Types               (Block, MonadUtxo, MonadUtxoRead (utxoGet),
-                                          SlotId, Tx (..), TxAux, TxDistribution, TxId,
-                                          TxIn (..), TxOut, TxWitness, Undo,
+                                          SlotId, Tx (..), TxAux, TxDistribution (..),
+                                          TxId, TxIn (..), TxOutAux, TxWitness, Undo,
                                           VTxGlobalContext (..), VTxLocalContext (..),
-                                          applyTxToUtxo', blockSlot, blockTxas, blockTxs,
+                                          applyTxToUtxo', blockSlot, blockTxas,
                                           headerHash, prevBlockL, slotIdF, topsortTxs,
                                           verifyTxPure)
 import           Pos.Types.Utxo          (verifyAndApplyTxs, verifyTxUtxo)
@@ -54,8 +54,7 @@ type TxpWorkMode ssc m = ( Ssc ssc
                          , MonadUtxo m
                          , MonadThrow m)
 
-type MinTxpWorkMode ssc m = (
-                              MonadDB ssc m
+type MinTxpWorkMode ssc m = ( MonadDB ssc m
                             , MonadTxpLD ssc m
                             , MonadUtxo m
                             , MonadThrow m)
@@ -95,13 +94,17 @@ txApplyBlock (Right blk) = do
     filterMemPool txsAndIds
     writeBatchToUtxo (PutTip (headerHash blk) : batch)
   where
-    txs = toList $ blk ^. blockTxs
-    txsAndIds = map (\tx -> (hash tx, tx)) txs
-    prependToBatch :: (TxId, Tx) -> [BatchOp ssc] -> [BatchOp ssc]
-    prependToBatch (txId, Tx {..}) batch =
+    txas = toList $ blk ^. blockTxas
+    txsAndIds = map (\tx -> (hash (tx ^. _1), (tx ^. _1, tx ^. _3))) txas
+    prependToBatch :: (TxId, (Tx, TxDistribution))
+                   -> [BatchOp ssc]
+                   -> [BatchOp ssc]
+    prependToBatch (txId, (Tx{..}, distr)) batch =
         let keys = zipWith TxIn (repeat txId) [0 ..]
             delIn = map DelTxIn txInputs
-            putOut = map (uncurry AddTxOut) $ zip keys txOutputs
+            putOut = zipWith AddTxOut
+                         keys
+                         (zip txOutputs (getTxDistribution distr))
         in foldr' (:) (foldr' (:) batch putOut) delIn --how we could simplify it?
 
 -- | Verify whether sequence of blocks can be applied to current Tx
@@ -152,7 +155,7 @@ processTx itw@(_, (tx, _, _)) = do
             (mkPTRinvalid ["Tips aren't same"], txld)
         )
 
-processTxDo :: TxpLD ssc -> HM.HashMap TxIn TxOut -> DB ssc
+processTxDo :: TxpLD ssc -> HM.HashMap TxIn TxOutAux -> DB ssc
             -> (TxId, TxAux) -> (ProcessTxRes, TxpLD ssc)
 processTxDo ld@(uv, mp, undos, tip) resolvedIns utxoDB (id, (tx, txw, txd))
     | HM.member id locTxs = (PTRknown, ld)
@@ -177,7 +180,7 @@ processTxDo ld@(uv, mp, undos, tip) resolvedIns utxoDB (id, (tx, txw, txd))
                   (HM.lookup inp resolvedIns) : undo
     newState nAddUtxo nDelUtxo oldTxs oldSize oldUndos =
         let keys = zipWith TxIn (repeat id) [0 ..]
-            zipKeys = zip keys (txOutputs tx)
+            zipKeys = zip keys (txOutputs tx `zip` getTxDistribution txd)
             newAddUtxo' = foldl' (flip $ uncurry HM.insert) nAddUtxo zipKeys
             newDelUtxo' = foldl' (flip HS.insert) nDelUtxo (txInputs tx)
             newUndos = HM.insert id (reverse $ foldl' prependToUndo [] (txInputs tx)) oldUndos
@@ -209,7 +212,7 @@ txRollbackBlock (block, undo) = do
     getTxs (Left _)   = []
     getTxs (Right mb) = map (^. _1) $ mb ^. blockTxas
 
-    prependToBatch :: Either Text [BatchOp ssc] -> (Tx, [TxOut]) -> Either Text [BatchOp ssc]
+    prependToBatch :: Either Text [BatchOp ssc] -> (Tx, [TxOutAux]) -> Either Text [BatchOp ssc]
     prependToBatch batchOrError (tx@Tx{..}, undoTx) = do
         batch <- batchOrError
         --TODO more detailed message must be here
@@ -221,7 +224,7 @@ txRollbackBlock (block, undo) = do
         return $ foldr' (:) (foldr' (:) batch putIn) delOut --how we could simplify it?
 
 -- | Remove from mem pool transactions from block
-filterMemPool :: MonadTxpLD ssc m => [(TxId, Tx)]  -> m ()
+filterMemPool :: MonadTxpLD ssc m => [(TxId, (Tx, TxDistribution))]  -> m ()
 filterMemPool txs = modifyTxpLD_ (\(uv, mp, undos, tip) ->
     let blkTxs = HM.fromList txs
         newMPTxs = (localTxs mp) `HM.difference` blkTxs

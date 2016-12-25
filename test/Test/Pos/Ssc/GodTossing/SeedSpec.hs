@@ -17,16 +17,17 @@ import           Test.QuickCheck          (Property, choose, counterexample, gen
 import           Test.QuickCheck.Property (failed, succeeded)
 import           Universum
 
-import           Pos.Crypto               (KeyPair (..), Share, Threshold, VssKeyPair,
-                                           decryptShare, sign, toVssPublicKey)
+import           Pos.Crypto               (KeyPair (..), PublicKey, Share, Threshold,
+                                           VssKeyPair, decryptShare, sign, toVssPublicKey)
 import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Opening (..),
                                            SeedError (..), calculateSeed,
                                            genCommitmentAndOpening, secretToSharedSeed)
-import           Pos.Types                (Address, SharedSeed (..), makePubKeyAddress)
+import           Pos.Types                (SharedSeed (..))
+import           Pos.Types.Address        (AddressHash, addressHash)
 import           Pos.Util                 (AsBinaryClass (..), nonrepeating, sublistN)
 
-getPubAddr :: KeyPair -> Address
-getPubAddr = makePubKeyAddress . getPub
+getPubAddr :: KeyPair -> AddressHash PublicKey
+getPubAddr = addressHash . getPub
 
 spec :: Spec
 spec = do
@@ -225,7 +226,7 @@ mkCommitmentsMap keys comms =
         (KeyPair pk sk, comm) <- zip keys comms
         let epochIdx = 0  -- we don't care here
         let sig = sign sk (epochIdx, comm)
-        return (makePubKeyAddress pk, (pk, comm, sig))
+        return (addressHash pk, (pk, comm, sig))
 
 getDecryptedShares
     :: MonadRandom m

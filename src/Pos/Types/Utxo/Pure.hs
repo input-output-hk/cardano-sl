@@ -30,7 +30,7 @@ module Pos.Types.Utxo.Pure
        , verifyTxUtxoPure
        ) where
 
-import           Control.Lens             (at, over, use, view, (.=), (^.), _1)
+import           Control.Lens             (at, over, use, view, (.=), (^.), _1, _3)
 import           Control.Monad.Reader     (runReaderT)
 import           Control.Monad.Trans      (MonadTrans (..))
 import           Data.List                ((\\))
@@ -111,8 +111,8 @@ execUtxoState r = runIdentity . execUtxoStateT r
 ----------------------------------------------------------------------------
 
 -- | Pure version of applyTxToUtxo.
-applyTxToUtxoPure :: WithHash Tx -> Utxo -> Utxo
-applyTxToUtxoPure tx = execUtxoState $ applyTxToUtxo tx
+applyTxToUtxoPure :: WithHash Tx -> TxDistribution -> Utxo -> Utxo
+applyTxToUtxoPure tx d = execUtxoState $ applyTxToUtxo tx d
 
 -- | Pure version of applyTxToUtxo'.
 applyTxToUtxoPure' :: (TxId, TxAux) -> Utxo -> Utxo
@@ -158,7 +158,7 @@ normalizeTxsPure = normGo []
     canApply txw prev@(txws, utxo) =
         case verifyTxUtxoPure True utxo (over _1 whData txw) of
             VerFailure _ -> prev
-            VerSuccess   -> (txw : txws, (txw ^. _1) `applyTxToUtxoPure` utxo)
+            VerSuccess   -> (txw : txws, applyTxToUtxoPure (txw^._1) (txw^._3) utxo)
 
     normGo :: [(WithHash Tx, TxWitness, TxDistribution)]
            -> [(WithHash Tx, TxWitness, TxDistribution)]

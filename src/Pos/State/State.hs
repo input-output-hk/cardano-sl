@@ -67,8 +67,9 @@ import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
                                            dispatchEvents, getLoggerName, logWarning,
                                            runPureLog, usingLoggerName)
 
-import           Pos.Crypto               (ProxySecretKey, SecretKey, Share, VssKeyPair,
-                                           VssPublicKey, decryptShare, toVssPublicKey)
+import           Pos.Crypto               (ProxySecretKey, PublicKey, SecretKey, Share,
+                                           VssKeyPair, VssPublicKey, decryptShare,
+                                           toVssPublicKey)
 import           Pos.Slotting             (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
 import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
@@ -78,9 +79,10 @@ import qualified Pos.State.Acidic         as A
 import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (..),
                                            Storage, getThreshold)
 import           Pos.Statistics.StatEntry ()
-import           Pos.Types                (Address, Block, EpochIndex, GenesisBlock,
-                                           HeaderHash, MainBlock, MainBlockHeader, SlotId,
+import           Pos.Types                (Block, EpochIndex, GenesisBlock, HeaderHash,
+                                           MainBlock, MainBlockHeader, SlotId,
                                            SlotLeaders, TxAux, TxId, TxId, Utxo)
+import           Pos.Types.Address        (AddressHash)
 import           Pos.Util                 (AsBinary, asBinary, fromBinaryM)
 
 -- | NodeState encapsulates all the state stored by node.
@@ -272,7 +274,7 @@ getParticipants = queryDisk . A.GetParticipants
 -- decrypt.
 getOurShares
     :: QULConstraint ssc m
-    => VssKeyPair -> m (HashMap Address Share)
+    => VssKeyPair -> m (HashMap (AddressHash PublicKey) Share)
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
     let ourPK = asBinary $ toVssPublicKey ourKey

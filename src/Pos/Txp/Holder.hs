@@ -40,7 +40,7 @@ import           Pos.Txp.LocalData           (MonadTxLD (..))
 import           Pos.Txp.Types               (MemPool, UtxoView)
 import qualified Pos.Txp.Types.UtxoView      as UV
 import           Pos.Types                   (HeaderHash, MonadUtxo (..),
-                                              MonadUtxoRead (..), TxId, TxOut,
+                                              MonadUtxoRead (..), TxId, TxOutAux,
                                               genesisHash)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
@@ -51,7 +51,7 @@ data TxpLDWrap ssc = TxpLDWrap
     {
       utxoView :: !(STM.TVar (UtxoView ssc))
     , memPool  :: !(STM.TVar MemPool)
-    , undos    :: !(STM.TVar (HashMap TxId [TxOut]))
+    , undos    :: !(STM.TVar (HashMap TxId [TxOutAux]))
     , ldTip    :: !(STM.TVar (HeaderHash ssc))
     }
 

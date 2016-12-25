@@ -19,7 +19,7 @@ import           Universum
 import           Pos.Binary            ()
 import           Pos.Communication     (sendTx)
 import           Pos.Crypto            (SecretKey, hash, toPublic)
-import           Pos.Types             (Tx, TxAux, TxOut, makePubKeyAddress, txaF)
+import           Pos.Types             (Tx, TxAux, TxOutAux, makePubKeyAddress, txaF)
 import           Pos.WorkMode          (MinWorkMode)
 
 import           Pos.Wallet.Tx.Pure    (createTx, makePubKeyTx)
@@ -30,7 +30,7 @@ submitTx
     :: TxMode ssc m
     => SecretKey
     -> [NetworkAddress]
-    -> [TxOut]
+    -> [TxOutAux]
     -> m TxAux
 submitTx _ [] _ = logError "No addresses to send" >> fail "submitTx failed"
 submitTx sk na outputs = do

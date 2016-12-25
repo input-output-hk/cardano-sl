@@ -20,7 +20,7 @@ module Pos.Types.Utxo.Functions
        , filterUtxoByAddr
        ) where
 
-import           Control.Lens         (over, view, (^.), _1)
+import           Control.Lens         (over, view, (^.), _1, _3)
 import           Control.Monad.Except (ExceptT (ExceptT), runExceptT, throwError)
 import qualified Data.Map.Strict      as M
 import           Universum
@@ -29,12 +29,13 @@ import           Pos.Binary.Types     ()
 import           Pos.Crypto           (WithHash (..))
 import           Pos.Types.Tx         (VTxGlobalContext (..), VTxLocalContext (..),
                                        topsortTxs, verifyTx)
-import           Pos.Types.Types      (Address, Tx (..), TxAux, TxDistribution, TxId,
-                                       TxIn (..), TxOut (..), TxWitness, Undo, Utxo)
+import           Pos.Types.Types      (Address, Tx (..), TxAux, TxDistribution (..), TxId,
+                                       TxIn (..), TxOut (..), TxOutAux, TxWitness, Undo,
+                                       Utxo)
 import           Pos.Types.Utxo.Class (MonadUtxo (..), MonadUtxoRead (utxoGet))
 
 -- | Find transaction input in Utxo assuming it is valid.
-findTxIn :: TxIn -> Utxo -> Maybe TxOut
+findTxIn :: TxIn -> Utxo -> Maybe TxOutAux
 findTxIn TxIn{..} = M.lookup (txInHash, txInIndex)
 
 -- | Delete given TxIn from Utxo if any.
@@ -43,24 +44,25 @@ deleteTxIn TxIn{..} = M.delete (txInHash, txInIndex)
 
 -- CHECK: @verifyTxUtxo
 -- | Verify single Tx using MonadUtxoRead as TxIn resolver.
-verifyTxUtxo :: MonadUtxoRead m => Bool -> TxAux -> m (Either Text [TxOut])
+verifyTxUtxo :: MonadUtxoRead m => Bool -> TxAux -> m (Either Text [TxOutAux])
 verifyTxUtxo verifyAlone = verifyTx verifyAlone VTxGlobalContext utxoGet'
   where
     utxoGet' x = fmap VTxLocalContext <$> utxoGet x
 
 -- | Remove unspent outputs used in given transaction, add new unspent
 -- outputs.
-applyTxToUtxo :: MonadUtxo m => WithHash Tx -> m ()
-applyTxToUtxo tx = do
+applyTxToUtxo :: MonadUtxo m => WithHash Tx -> TxDistribution -> m ()
+applyTxToUtxo tx distr = do
     mapM_ applyInput txInputs
-    mapM_ (uncurry applyOutput) (zip [0..] txOutputs)
+    mapM_ (uncurry applyOutput)
+      (zip [0..] (zip txOutputs (getTxDistribution distr)))
   where
     Tx {..} = whData tx
     applyInput = utxoDel
-    applyOutput idx = utxoPut $ TxIn (whHash tx) idx
+    applyOutput idx (out, ds) = utxoPut (TxIn (whHash tx) idx) (out, ds)
 
 applyTxToUtxo' :: MonadUtxo m => (TxId, TxAux) -> m ()
-applyTxToUtxo' (i, (t, _, _)) = applyTxToUtxo $ WithHash t i
+applyTxToUtxo' (i, (t, _, d)) = applyTxToUtxo (WithHash t i) d
 
 -- CHECK: @verifyAndApplyTxs
 -- | Verify transactions correctness with respect to Utxo applying
@@ -80,9 +82,9 @@ verifyAndApplyTxs verifyAlone txs = fmap reverse <$> foldM applyDo (Right []) tx
             -> (WithHash Tx, TxWitness, TxDistribution)
             -> m (Either Text Undo)
     applyDo failure@(Left _) _ = pure failure
-    applyDo txouts txw = do
-        verRes <- verifyTxUtxo verifyAlone (over _1 whData txw)
-        ((:) <$> verRes <*> txouts) <$ applyTxToUtxo (txw ^. _1)
+    applyDo txouts txa = do
+        verRes <- verifyTxUtxo verifyAlone (over _1 whData txa)
+        ((:) <$> verRes <*> txouts) <$ applyTxToUtxo (txa ^. _1) (txa ^. _3)
 
 -- CHECK: @verifyAndApplyTxsOld
 -- | DEPRECATED
@@ -99,7 +101,7 @@ verifyAndApplyTxsOld
        MonadUtxo m
     => [(WithHash Tx, TxWitness, TxDistribution)]
     -> m (Either Text [(WithHash Tx, TxWitness, TxDistribution)])
-verifyAndApplyTxsOld txws =
+verifyAndApplyTxsOld txas =
     runExceptT $
     maybe (throwError brokenMsg) (\txs' -> txs' <$ applyAll txs') topsorted
   where
@@ -107,12 +109,12 @@ verifyAndApplyTxsOld txws =
     applyAll :: [(WithHash Tx, TxWitness, TxDistribution)]
              -> ExceptT Text m ()
     applyAll [] = pass
-    applyAll (txw:xs) = do
+    applyAll (txa:xs) = do
         applyAll xs
-        () <$ ExceptT (verifyTxUtxo True (over _1 whData txw))
-        applyTxToUtxo $ txw ^. _1
+        () <$ ExceptT (verifyTxUtxo True (over _1 whData txa))
+        applyTxToUtxo (txa ^. _1) (txa ^. _3)
      -- 'reverse' because head is the last one to check
-    topsorted = reverse <$> topsortTxs (view _1) txws
+    topsorted = reverse <$> topsortTxs (view _1) txas
 
 -- TODO change types of normalizeTxs and related
 
@@ -127,12 +129,12 @@ convertFrom' = map (\(WithHash t h, w, d) -> (h, (t, w, d)))
 verifyAndApplyTxsOld'
     :: MonadUtxo m
     => [(TxId, TxAux)] -> m (Either Text [(TxId, TxAux)])
-verifyAndApplyTxsOld' txws =
-    fmap convertFrom' <$> verifyAndApplyTxsOld (convertTo' txws)
+verifyAndApplyTxsOld' txas =
+    fmap convertFrom' <$> verifyAndApplyTxsOld (convertTo' txas)
 
 -- | A predicate for `TxOut` which selects outputs for given address
-belongsTo :: TxOut -> Address -> Bool
-out `belongsTo` addr = addr == txOutAddress out
+belongsTo :: TxOutAux -> Address -> Bool
+(out, _) `belongsTo` addr = addr == txOutAddress out
 
 -- | Select only TxOuts for given addresses
 filterUtxoByAddr :: Address -> Utxo -> Utxo

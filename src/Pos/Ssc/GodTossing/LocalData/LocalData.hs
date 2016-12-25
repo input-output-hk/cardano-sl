@@ -43,7 +43,7 @@ import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData, gtGlobalCertif
                                                      gtLocalCommitments, gtLocalOpenings,
                                                      gtLocalShares)
 
-import           Pos.Crypto                         (Share)
+import           Pos.Crypto                         (PublicKey, Share)
 import           Pos.Ssc.GodTossing.Storage.Storage ()
 import           Pos.Ssc.GodTossing.Types.Base      (Commitment, Opening,
                                                      SignedCommitment, VssCertificate,
@@ -55,7 +55,8 @@ import           Pos.Ssc.GodTossing.Types.Types     (GtGlobalState (..), GtPaylo
                                                      SscBi)
 import           Pos.Ssc.GodTossing.Utils           (verifiedVssCertificates)
 import           Pos.State                          (WorkModeDB)
-import           Pos.Types                          (Address (..), SlotId (..))
+import           Pos.Types                          (SlotId (..))
+import           Pos.Types.Address                  (AddressHash)
 import           Pos.Util                           (AsBinary, diffDoubleMap, getKeys,
                                                      readerToState)
 
@@ -102,13 +103,13 @@ localOnNewSlotU si@SlotId {siSlot = slotIdx} = do
 -- to local data.
 sscIsDataUseful
     :: MonadSscLD SscGodTossing m
-    => MsgTag -> Address -> m Bool
+    => MsgTag -> AddressHash PublicKey -> m Bool
 sscIsDataUseful tag = sscRunLocalQuery . sscIsDataUsefulQ tag
 
 -- CHECK: @sscIsDataUsefulQ
 -- | Check whether SSC data with given tag and public key can be added
 -- to local data.
-sscIsDataUsefulQ :: MsgTag -> Address -> LDQuery Bool
+sscIsDataUsefulQ :: MsgTag -> AddressHash PublicKey -> LDQuery Bool
 sscIsDataUsefulQ CommitmentMsg =
     sscIsDataUsefulImpl gtLocalCommitments gtGlobalCommitments
 sscIsDataUsefulQ OpeningMsg =
@@ -118,17 +119,21 @@ sscIsDataUsefulQ SharesMsg =
 sscIsDataUsefulQ VssCertificateMsg =
     sscIsDataUsefulImpl gtLocalCertificates gtGlobalCertificates
 
-type MapGetter a = Getter GtLocalData (HashMap Address a)
+type MapGetter a = Getter GtLocalData (HashMap (AddressHash PublicKey) a)
 type SetGetter set = Getter GtLocalData set
 
-sscIsDataUsefulImpl :: MapGetter a -> MapGetter a -> Address -> LDQuery Bool
+sscIsDataUsefulImpl :: MapGetter a
+                    -> MapGetter a
+                    -> AddressHash PublicKey
+                    -> LDQuery Bool
 sscIsDataUsefulImpl localG globalG addr =
     (&&) <$>
         (notMember addr <$> view globalG) <*>
         (notMember addr <$> view localG)
 
-sscIsDataUsefulSetImpl :: (SetContainer set, ContainerKey set ~ Address)
-                       => MapGetter a -> SetGetter set -> Address -> LDQuery Bool
+sscIsDataUsefulSetImpl
+    :: (SetContainer set, ContainerKey set ~ AddressHash PublicKey)
+    => MapGetter a -> SetGetter set -> AddressHash PublicKey -> LDQuery Bool
 sscIsDataUsefulSetImpl localG globalG addr =
     (&&) <$>
         (notMember addr <$> view localG) <*>
@@ -156,7 +161,10 @@ sscProcessMessageU _     (DMVssCertificate addr cert) = processVssCertificate ad
 
 processCommitment
     :: Bi Commitment
-    => VssCertificatesMap -> Address -> SignedCommitment -> LDUpdate Bool
+    => VssCertificatesMap
+    -> AddressHash PublicKey
+    -> SignedCommitment
+    -> LDUpdate Bool
 processCommitment certs addr c = do
     epochIdx <- siEpoch <$> use gtLastProcessedSlot
     ok <- readerToState $ andM $ checks epochIdx
@@ -169,7 +177,7 @@ processCommitment certs addr c = do
         , pure . isVerSuccess $ verifySignedCommitment addr epochIndex c
         ]
 
-processOpening :: Address -> Opening -> LDUpdate Bool
+processOpening :: AddressHash PublicKey -> Opening -> LDUpdate Bool
 processOpening addr o = do
     ok <- readerToState $ andM checks
     ok <$ when ok (gtLocalOpenings %= HM.insert addr o)
@@ -178,11 +186,11 @@ processOpening addr o = do
     checks = [checkAbsence addr, matchOpening addr o]
 
 -- Match opening to commitment from globalCommitments
-matchOpening :: Address -> Opening -> LDQuery Bool
+matchOpening :: AddressHash PublicKey -> Opening -> LDQuery Bool
 matchOpening addr opening =
     flip checkOpeningMatchesCommitment (addr, opening) <$> view gtGlobalCommitments
 
-processShares :: VssCertificatesMap -> Address -> HashMap Address (AsBinary Share) -> LDUpdate Bool
+processShares :: VssCertificatesMap -> AddressHash PublicKey -> HashMap (AddressHash PublicKey) (AsBinary Share) -> LDUpdate Bool
 processShares certs addr s
     | null s = pure False
     | otherwise = do
@@ -205,13 +213,17 @@ processShares certs addr s
         ok <$ when ok (gtLocalShares . at addr .= Just newLocalShares)
 
 -- CHECK: #checkShares
-checkSharesLastVer :: VssCertificatesMap -> Address -> HashMap Address (AsBinary Share) -> LDQuery Bool
+checkSharesLastVer
+    :: VssCertificatesMap
+    -> AddressHash PublicKey
+    -> HashMap (AddressHash PublicKey) (AsBinary Share)
+    -> LDQuery Bool
 checkSharesLastVer certs addr shares =
     (\comms openings -> checkShares comms openings certs addr shares) <$>
     view gtGlobalCommitments <*>
     view gtGlobalOpenings
 
-processVssCertificate :: Address -> VssCertificate -> LDUpdate Bool
+processVssCertificate :: AddressHash PublicKey -> VssCertificate -> LDUpdate Bool
 processVssCertificate addr c = do
     ok <- not . HM.member addr <$> use gtGlobalCertificates
     ok <$ when ok (gtLocalCertificates %= HM.insert addr c)

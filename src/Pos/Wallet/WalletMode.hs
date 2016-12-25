@@ -18,7 +18,6 @@ module Pos.Wallet.WalletMode
 import           Control.Monad                 (fail)
 import           Control.Monad.Trans           (MonadTrans)
 import           Control.TimeWarp.Rpc          (Dialog, Transfer)
-import qualified Data.Map                      as M
 import           Universum
 
 import           Pos.Communication.Types.State (MutSocketState)
@@ -47,7 +46,9 @@ import           Pos.Wallet.Tx.Pure            (deriveAddrHistory)
 class Monad m => MonadBalances m where
     getOwnUtxo :: Address -> m Utxo
     getBalance :: Address -> m Coin
-    getBalance addr = getOwnUtxo addr >>= return . sum . M.map txOutValue
+    getBalance addr = sum . fmap (txOutValue . fst) <$> getOwnUtxo addr
+    -- TODO: add a function to get amount of stake (it's different from
+    -- balance because of distributions)
 
     default getOwnUtxo :: MonadTrans t => Address -> t m Utxo
     getOwnUtxo = lift . getOwnUtxo

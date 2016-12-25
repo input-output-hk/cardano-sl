@@ -49,7 +49,7 @@ import           Pos.Context               (NodeContext (ncSecretKey), getNodeCo
                                             takeBlkSemaphore)
 import           Pos.Crypto                (ProxySecretKey, SecretKey,
                                             WithHash (WithHash), hash)
-import           Pos.DB                    (MonadDB, getTipBlockHeader, loadHeadersUntil)
+import           Pos.DB                    (MonadDB, getTipBlockHeader, loadHeadersWhile)
 import qualified Pos.DB                    as DB
 import           Pos.DB.Error              (DBError (..))
 import           Pos.Slotting              (getCurrentSlot)
@@ -196,8 +196,8 @@ retrieveHeadersFromTo checkpoints startM = do
     tip <- DB.getTip
     let startFrom = fromMaybe tip startM
         neq = (/=) `on` getEpochOrSlot
-        untilCond bh _ = all (neq bh) validCheckpoints
-    headers <- loadHeadersUntil startFrom untilCond
+        whileCond bh _ = all (neq bh) validCheckpoints
+    headers <- loadHeadersWhile startFrom whileCond
     -- In case we didn't reach the very-first block we take one more
     -- because "until" predicate will stop us before we get
     -- checkpoint block and we do want to return it as well
@@ -215,8 +215,8 @@ getHeadersOlderExp
 getHeadersOlderExp upto = do
     tip <- DB.getTip
     let upToReal = fromMaybe tip upto
-        untilCond _ depth = depth <= k
-    allHeaders <- loadHeadersUntil upToReal untilCond
+        whileCond _ depth = depth <= k
+    allHeaders <- loadHeadersWhile upToReal whileCond
     pure $ selectIndices (takeHashes allHeaders) twoPowers
   where
     -- Given list of headers newest first, maps it to their hashes

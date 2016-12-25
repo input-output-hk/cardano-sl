@@ -29,8 +29,8 @@ type WalletApi =
      "api" :> "send" :> Capture "from" CAddress :> Capture "to" CAddress :> Capture "amount" Coin :> Post '[JSON] (Cors ())
     :<|>
      "api" :> "history" :> Capture "address" CAddress :> Get '[JSON] (Cors [CTx])
---    :<|>
---     "api" :> "update_transaction" :> Capture "address" CAddress :> Capture "transaction" CTxId :> ReqBody '[JSON] CTxMeta :> Post '[JSON] ()
+    :<|>
+     "api" :> "update_transaction" :> Capture "address" CAddress :> Capture "transaction" CTxId :> ReqBody '[JSON] CTxMeta :> Post '[JSON] (Cors ())
     :<|>
      "api" :> "new_wallet" :> ReqBody '[JSON] CWalletMeta :> Post '[JSON] (Cors CWallet)
     :<|>

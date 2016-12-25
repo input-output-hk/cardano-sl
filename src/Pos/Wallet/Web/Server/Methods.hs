@@ -87,8 +87,8 @@ servantHandlers =
      (\a b -> addCors . send a b)
     :<|>
      addCors . getHistory
---    :<|>
---     updateTransaction
+    :<|>
+     updateTransaction
     :<|>
      addCors . newWallet
     :<|>

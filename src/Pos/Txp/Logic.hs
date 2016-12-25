@@ -17,7 +17,7 @@ module Pos.Txp.Logic
        , txRollbackBlocks
        ) where
 
-import           Control.Lens            (each, over, (^.), _1)
+import           Control.Lens            (each, over, view, (^.), _1)
 import qualified Data.HashMap.Strict     as HM
 import qualified Data.HashSet            as HS
 import           Data.List.NonEmpty      (NonEmpty)
@@ -85,19 +85,18 @@ txApplyBlocks blocks = do
 txApplyBlock
     :: TxpWorkMode ssc m
     => Block ssc -> m ()
-txApplyBlock (Left _) = pass
-txApplyBlock (Right blk) = do
+txApplyBlock blk = do
     let hashPrevHeader = blk ^. prevBlockL
     tip <- getTip
     when (tip /= hashPrevHeader) $
         panic
             "disaster, tip mismatch in txApplyBlock, probably semaphore doesn't work"
+    let txs = either (const []) (toList . view blockTxs) blk
+    let txsAndIds = map (\tx -> (hash tx, tx)) txs
     let batch = foldr' prependToBatch [] txsAndIds
     filterMemPool txsAndIds
     writeBatchToUtxo (PutTip (headerHash blk) : batch)
   where
-    txs = toList $ blk ^. blockTxs
-    txsAndIds = map (\tx -> (hash tx, tx)) txs
     prependToBatch :: (TxId, Tx) -> [BatchOp ssc] -> [BatchOp ssc]
     prependToBatch (txId, Tx {..}) batch =
         let keys = zipWith TxIn (repeat txId) [0 ..]

@@ -43,7 +43,6 @@ import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots)
 import           Pos.Ssc.Extra               (SscHolder (..), SscLDImpl (..))
-import qualified Pos.State                   as St
 import           Pos.Txp.Holder              (TxpLDHolder (..))
 import           Pos.Util                    ()
 import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,
@@ -110,7 +109,7 @@ newtype KeyStorage m a = KeyStorage
                 HasLoggerName, MonadDialog s p, CanLog, MonadMask, MonadDHT,
                 MonadMessageDHT s, MonadReader KeyData, WithDefaultMsgHeader,
                 MonadWalletDB, WithWalletContext, WithNodeContext ssc,
-                St.MonadDB ssc, Modern.MonadDB ssc)
+                Modern.MonadDB ssc)
 
 type instance ThreadId (KeyStorage m) = ThreadId m
 

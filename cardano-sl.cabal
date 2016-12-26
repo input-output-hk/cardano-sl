@@ -77,8 +77,6 @@ library
                         Pos.Ssc.Class.Listeners
                         Pos.Ssc.Class.LocalData
                         Pos.Ssc.Extra
-                        Pos.State
-                        Pos.State.State
                         Pos.Statistics
                         Pos.Txp.Listeners
                         Pos.Types
@@ -195,7 +193,6 @@ library
                         Pos.Ssc.GodTossing.Types.Types
                         Pos.Ssc.GodTossing.Utils
                         Pos.Ssc.GodTossing.Workers
-                        Pos.State.Storage.Types
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry

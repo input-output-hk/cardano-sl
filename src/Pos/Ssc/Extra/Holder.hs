@@ -31,15 +31,13 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context                 (WithNodeContext)
+import qualified Pos.DB                      as Modern (MonadDB (..))
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass (sscEmptyLocalData))
 import           Pos.Ssc.Class.Types         (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS       (MonadSscGS (..))
 import           Pos.Ssc.Extra.MonadLD       (MonadSscLD (..), MonadSscLDM (..))
-import           Pos.State                   (MonadDB (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
-
-import qualified Pos.DB                      as Modern (MonadDB (..))
 
 data SscState ssc =
     SscState
@@ -53,7 +51,7 @@ newtype SscHolder ssc m a =
     { getSscHolder :: ReaderT (SscState ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
                 MonadCatch, MonadIO, HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
-                MonadDB ssc, CanLog, MonadMask, Modern.MonadDB ssc)
+                CanLog, MonadMask, Modern.MonadDB ssc)
 
 instance MonadTransfer s m => MonadTransfer s (SscHolder ssc m)
 type instance ThreadId (SscHolder ssc m) = ThreadId m

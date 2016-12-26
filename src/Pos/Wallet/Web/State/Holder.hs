@@ -22,7 +22,6 @@ import qualified Pos.DB                     as Modern
 import           Pos.DHT.Model              (MonadDHT, MonadMessageDHT,
                                              WithDefaultMsgHeader)
 import           Pos.Slotting               (MonadSlots)
-import qualified Pos.State                  as St
 
 import           Pos.Wallet.Context         (WithWalletContext)
 import           Pos.Wallet.KeyStorage      (MonadKeys)
@@ -38,7 +37,7 @@ newtype WalletWebDB m a = WalletWebDB
                 MonadMask, MonadIO, HasLoggerName, MonadWalletDB, WithWalletContext,
                 MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots,
                 WithDefaultMsgHeader, CanLog, MonadKeys, MonadBalances, MonadTxHistory,
-                WithNodeContext ssc, St.MonadDB ssc, Modern.MonadDB ssc)
+                WithNodeContext ssc, Modern.MonadDB ssc)
 
 instance Monad m => WrappedM (WalletWebDB m) where
     type UnwrappedM (WalletWebDB m) = ReaderT WalletState m

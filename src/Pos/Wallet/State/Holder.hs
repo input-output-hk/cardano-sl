@@ -27,7 +27,6 @@ import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
                                               WithDefaultMsgHeader)
 import           Pos.Slotting                (MonadSlots)
 import           Pos.Ssc.Extra.MonadLD       (MonadSscLD)
-import           Pos.State                   (MonadDB)
 import           Pos.Statistics              (MonadStats)
 import           Pos.Util.JsonLog            (MonadJL)
 
@@ -40,7 +39,7 @@ import           Pos.WorkMode                ()
 newtype WalletDB m a = WalletDB
     { getWalletDB :: ReaderT WalletState m a
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-                MonadMask, MonadIO, MonadDB ssc, HasLoggerName, WithNodeContext ssc,
+                MonadMask, MonadIO, HasLoggerName, WithNodeContext ssc,
                 MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots, MonadSscLD ssc,
                 WithDefaultMsgHeader, MonadJL, CanLog, MonadStats, MonadKeys,
                 WithWalletContext)

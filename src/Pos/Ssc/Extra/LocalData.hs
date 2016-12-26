@@ -36,14 +36,13 @@ import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass (sscEmptyLocalData))
 import           Pos.Ssc.Class.Types         (Ssc (SscLocalData))
 import           Pos.Ssc.Extra.MonadLD       (MonadSscLD (..))
-import           Pos.State                   (MonadDB (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 newtype SscLDImpl ssc m a = SscLDImpl
     { getSscLDImpl :: ReaderT (STM.TVar (SscLocalData ssc)) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
                 MonadCatch, MonadIO, HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
-                MonadDB ssc, CanLog)
+                CanLog)
 
 instance Monad m => WrappedM (SscLDImpl ssc m) where
     type UnwrappedM (SscLDImpl ssc m) = ReaderT (STM.TVar (SscLocalData ssc)) m

@@ -27,8 +27,7 @@ import           Test.Util                   (Parcel (..), TalkStyle (..), activ
 spec :: Spec
 spec = describe "Node" $
     describe "delivery (client -> server)" $
-        -- TODO: ConversationStyle doesn't work
-        for_ [SingleMessageStyle {-, ConversationStyle -}] $
+        for_ [SingleMessageStyle, ConversationStyle] $
         \talkStyle -> describe (show talkStyle) $ do
             prop "plain" $
                 plainDeliveryTest talkStyle

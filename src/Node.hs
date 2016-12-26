@@ -37,7 +37,7 @@ module Node (
     ) where
 
 import Control.Applicative (optional)
-import Control.Monad (when)
+import Control.Monad (when, unless)
 import Control.Monad.Fix (MonadFix)
 import qualified Node.Internal as LL
 import Node.Internal (ChannelIn(..), ChannelOut(..))
@@ -408,7 +408,8 @@ recvNext (ChannelIn chan) = do
         Nothing -> pure End
         Just bs -> do
             (part, trailing) <- recvPart chan bs
-            unGetChannel chan (Just trailing)
+            unless (BS.null trailing) $
+                unGetChannel chan (Just trailing)
             case part of
                 Nothing -> pure NoParse
                 Just t -> pure (Input t)

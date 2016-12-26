@@ -106,10 +106,14 @@ modifyTestState ts how = liftIO . atomically $ modifyTVarS ts how
 addFail :: MonadIO m => TVar TestState -> String -> m ()
 addFail testState desc = modifyTestState testState $ fails %= (desc :)
 
+reportingFail :: TVar TestState -> String -> Production () -> Production ()
+reportingFail testState actionName act = do
+    act `catch` \(SomeException e) ->
+        addFail testState $ "Error thrown in " ++ actionName ++ ": " ++ show e
+
 newWork :: TVar TestState -> String -> Production () -> Production ()
 newWork testState workerName act = do
-    act `catch` \(SomeException e) ->
-        addFail testState $ "Error thrown in " ++ workerName ++ ": " ++ show e
+    reportingFail testState workerName act
     modifyTestState testState $ activeWorkers -= 1
 
 

@@ -5,37 +5,37 @@
     <script type="text/javascript">
       var getWallets = function() {
         Daedalus.ClientApi.getWallets()
-            .then(function(result) {console.log(result)})
+            .then(function(result) {console.log(JSON.parse(result))})
             .catch(function(reason) {console.log(reason)})
       };
       var getWallet = function(address) {
         Daedalus.ClientApi.getWallet(address)()
-            .then(function(result) {console.log(result)})
+            .then(function(result) {console.log(JSON.parse(result))})
             .catch(function(reason) {console.log(reason)})
       };
       var send = function(from, to, amount) {
         Daedalus.ClientApi.send(from)(to)(amount)()
-            .then(function(result) {console.log(result)})
+            .then(function() {})
             .catch(function(reason) {console.log(reason)})
       };
       var getHistory = function(address) {
         Daedalus.ClientApi.getHistory(address)()
-            .then(function(result) {console.log(result)})
+            .then(function(result) {console.log(JSON.parse(result))})
             .catch(function(reason) {console.log(reason)})
       };
       var newWallet = function(type, currency, name) {
         Daedalus.ClientApi.newWallet(type)(currency)(name)()
-            .then(function(result) {console.log(result)})
+            .then(function(result) {console.log(JSON.parse(result))})
             .catch(function(reason) {console.log(reason)})
       };
       var updateWallet = function(address, type, currency, name) {
         Daedalus.ClientApi.updateWallet(address)(type)(currency)(name)()
-            .then(function(result) {console.log(result)})
+            .then(function(result) {console.log(JSON.parse(result))})
             .catch(function(reason) {console.log(reason)})
       };
       var deleteWallet = function(wallet) {
         Daedalus.ClientApi.deleteWallet(wallet)()
-            .then(function(result) {console.log(result)})
+            .then(function() {})
             .catch(function(reason) {console.log(reason)})
       };
     </script>

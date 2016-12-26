@@ -103,6 +103,6 @@ putAttributes putMapper Attributes {..} = do
     kvs = M.toAscList $ M.fromList $ putMapper attrData
     totalLen :: Word32
     totalLen = fromIntegral $ BS.length attrRemain
-             + (foldr' (\(_, bs) s -> s + (BS.length bs) + 1) 0 kvs)
+             + (foldr' (\(_, bs) s -> s + BS.length bs + 1) 0 kvs)
 
 derive makeNFData ''Attributes

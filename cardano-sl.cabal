@@ -745,5 +745,3 @@ benchmark cardano-bench-criterion
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-
-  buildable: False

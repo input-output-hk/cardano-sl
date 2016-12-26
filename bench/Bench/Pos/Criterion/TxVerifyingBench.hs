@@ -33,6 +33,10 @@ import           Pos.Types            (Coin, GoodTx (..), Tx (..), TxId, TxIn (.
                                        checkPubKeyAddress, checkScriptAddress, findTxIn,
                                        makePubKeyAddress, verifyTxAlone, verifyTxUtxoPure)
 
+runBenchmark :: IO ()
+runBenchmark = return ()
+
+{-
 newVerifyTx :: (Utxo, Tx, TxWitness) -> Bool
 newVerifyTx (u, tx, tw) =
     isVerSuccess $ verifyTxUtxoPure True u (tx, tw, Nothing)
@@ -197,3 +201,5 @@ oldVerifyTxUtxo :: Utxo -> (Tx, OldTxWitness) -> VerificationRes
 oldVerifyTxUtxo utxo txw = verifyTx (`findTxIn` utxo) txw
 
 derive makeNFData ''OldTxInWitness
+
+-}

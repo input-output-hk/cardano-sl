@@ -13,6 +13,7 @@ import           Pos.Crypto      (SecretKey, hash, sign)
 import           Pos.Types       (TxId, TxOut, TxSig)
 import           Pos.Util        (arbitraryUnsafe)
 
+{-
 signTx :: (SecretKey, TxId, Word32, [TxOut]) -> TxSig
 signTx (sk, thash, tidx, touts) = sign sk (thash, tidx, hash touts)
 
@@ -28,6 +29,7 @@ txSignConfig :: Config
 txSignConfig = defaultConfig
     { reportFile = Just "txSigning.html"
     }
+-}
 
 runBenchmark :: IO ()
-runBenchmark = defaultMainWith txSignConfig [txSignBench]
+runBenchmark = return () --defaultMainWith txSignConfig [txSignBench]

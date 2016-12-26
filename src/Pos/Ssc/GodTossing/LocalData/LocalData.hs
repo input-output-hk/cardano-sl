@@ -32,9 +32,8 @@ import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
                                                        SscLocalDataClass (..))
 import           Pos.Ssc.Extra.MonadLD                (MonadSscLDM)
 import           Pos.Ssc.GodTossing.Functions         (checkOpeningMatchesCommitment,
-                                                       checkShares, inLastKSlotsId,
-                                                       isCommitmentIdx, isOpeningIdx,
-                                                       isSharesIdx,
+                                                       checkShares, isCommitmentIdx,
+                                                       isOpeningIdx, isSharesIdx,
                                                        verifySignedCommitment)
 import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertificates,
                                                        gtGlobalCommitments,
@@ -52,8 +51,7 @@ import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
                                                        SignedCommitment, VssCertificate,
                                                        VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Message     (DataMsg (..), MsgTag (..))
-import           Pos.Types                            (Address (..), SlotId (..))
-import           Pos.Types.Address                    (AddressHash)
+import           Pos.Types                            (AddressHash, SlotId (..))
 import           Pos.Util                             (AsBinary, diffDoubleMap, getKeys,
                                                        readerToState)
 

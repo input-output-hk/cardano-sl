@@ -51,7 +51,6 @@ instance Buildable () where
 
 instance Ssc SscNistBeacon where
     type SscLocalData   SscNistBeacon = ()
-    type SscStorage     SscNistBeacon = ()
     type SscPayload     SscNistBeacon = ()
     type SscProof       SscNistBeacon = ()
     type SscSeedError   SscNistBeacon = ()

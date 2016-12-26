@@ -9,7 +9,7 @@ import           Data.Aeson.TH       (defaultOptions, deriveToJSON)
 import           Pos.Aeson.Crypto    ()
 import           Pos.Data.Attributes (Attributes (..))
 import           Pos.Types.Types     (Address, Coin, EpochIndex, LocalSlotIndex,
-                                      SharedSeed, SlotId, Tx, TxIn, TxOut)
+                                      SharedSeed, SlotId)
 import           Pos.Web.Types       (GodTossingStage)
 import           Universum
 

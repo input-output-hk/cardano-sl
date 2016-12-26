@@ -51,16 +51,14 @@ import           Pos.Ssc.GodTossing.Shares        (getOurShares)
 import           Pos.Ssc.GodTossing.Storage       (getGlobalCertificates,
                                                    gtGetGlobalState)
 import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCommitment,
-                                                   SscGodTossing, VssCertificate (..))
+                                                   SscGodTossing, VssCertificate (..),
+                                                   gtcParticipateSsc, gtcVssKeyPair)
 import           Pos.Ssc.GodTossing.Types.Message (DataMsg (..), InvMsg (..), MsgTag (..))
-import           Pos.Ssc.GodTossing.Types.Types   (gtcParticipateSsc, gtcVssKeyPair)
-import           Pos.Types                        (Address (..), EpochIndex,
-                                                   LocalSlotIndex, SlotId (..),
-                                                   Timestamp (..), makePubKeyAddress)
+import           Pos.Types                        (EpochIndex, LocalSlotIndex,
+                                                   SlotId (..), Timestamp (..))
 import           Pos.Types.Address                (AddressHash, addressHash)
 import           Pos.Util                         (asBinary)
 import           Pos.WorkMode                     (WorkMode)
--- import           Pos.Ssc.GodTossing.Types.Instance         ()
 
 instance SscWorkersClass SscGodTossing where
     sscWorkers = Tagged [onStart, onNewSlotSsc]

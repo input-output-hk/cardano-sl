@@ -1104,14 +1104,18 @@ instance ( SafeCopy (BodyProof b)
 
 deriveSafeCopySimple 0 'base ''ChainDifficulty
 
-instance Ssc ssc => SafeCopy (BodyProof (MainBlockchain ssc)) where
+instance (Ssc ssc, SafeCopy (SscProof ssc)) =>
+         SafeCopy (BodyProof (MainBlockchain ssc)) where
     getCopy =
         contain $
         do mpNumber <- safeGet
            mpRoot <- safeGet
            mpWitnessesHash <- safeGet
            mpMpcProof <- safeGet
-           return $! MainProof {..}
+           return $!
+               MainProof
+               { ..
+               }
     putCopy MainProof {..} =
         contain $
         do safePut mpNumber
@@ -1162,14 +1166,18 @@ instance SafeCopy (ConsensusData (GenesisBlockchain ssc)) where
         do safePut _gcdEpoch
            safePut _gcdDifficulty
 
-instance Ssc ssc => SafeCopy (Body (MainBlockchain ssc)) where
+instance (Ssc ssc, SafeCopy (SscPayload ssc)) =>
+         SafeCopy (Body (MainBlockchain ssc)) where
     getCopy =
         contain $
         do _mbTxs <- safeGet
            _mbWitnesses <- safeGet
            _mbTxAddrDistributions <- safeGet
            _mbMpc <- safeGet
-           return $! MainBody {..}
+           return $!
+               MainBody
+               { ..
+               }
     putCopy MainBody {..} =
         contain $
         do safePut _mbTxs

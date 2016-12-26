@@ -7,7 +7,7 @@
 module Pos.Ssc.Class.Types
        ( Ssc(..)
        ) where
-import           Data.SafeCopy       (SafeCopy)
+
 import           Data.Tagged         (Tagged)
 import           Data.Text.Buildable (Buildable)
 import           Universum
@@ -27,13 +27,9 @@ class (Typeable ssc
       ,Buildable (SscSeedError ssc)
       ,Bi (SscProof ssc)
       ,Bi (SscPayload ssc)
-      ,SafeCopy (SscProof ssc)
-      ,SafeCopy (SscPayload ssc)
       ) =>
       Ssc ssc where
 
-    -- | Internal SSC state stored on disk
-    type SscStorage ssc
     -- | Internal SSC state stored in memory
     type SscLocalData ssc
     -- | Payload which will be stored in main blocks
@@ -52,9 +48,6 @@ class (Typeable ssc
 
     -- | Create proof (for inclusion into block header) from payload
     mkSscProof :: Tagged ssc (SscPayload ssc -> SscProof ssc)
-
-    -- -- | Remove from all data, which can make global state inconsistent
-    -- sscFilterPayload :: SscPayload ssc -> SscGlobalState ssc -> SscPayload ssc
 
     -- | Create SscNodeContext
     sscCreateNodeContext :: MonadIO m => SscParams ssc -> m (SscNodeContext ssc)

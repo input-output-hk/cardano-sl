@@ -20,14 +20,11 @@ import           Universum
 
 import           Pos.Crypto               (EncShare, PublicKey, Share, VssKeyPair,
                                            VssPublicKey, decryptShare, toVssPublicKey)
-import           Pos.Ssc.Class.Storage    (SscGlobalQuery, SscImpureQuery)
+import           Pos.Ssc.Class.Storage    (SscGlobalQuery)
 import           Pos.Ssc.Extra.MonadGS    (MonadSscGS, sscRunGlobalQuery)
-import           Pos.Ssc.GodTossing.Types (Commitment (..), SscGodTossing,
-                                           VssCertificate (..))
-import           Pos.Ssc.GodTossing.Types (gsCommitments, gsOpenings, gsShares,
-                                           gsVssCertificates)
-import           Pos.Types                (Address (..), AddressHash, EpochIndex,
-                                           SharedSeed)
+import           Pos.Ssc.GodTossing.Types (Commitment (..), SscGodTossing, gsCommitments,
+                                           gsOpenings)
+import           Pos.Types                (AddressHash)
 import           Pos.Util                 (AsBinary, asBinary, fromBinaryM)
 
 type GSQuery a = SscGlobalQuery SscGodTossing a

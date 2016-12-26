@@ -27,10 +27,9 @@ module Pos.WorkMode
        ) where
 
 
-import           Control.Monad.Catch           (MonadCatch, MonadMask, MonadThrow)
-import           Control.TimeWarp.Rpc          (Dialog, MonadDialog, MonadTransfer (..),
-                                                Transfer)
-import           Control.TimeWarp.Timed        (MonadTimed (..), ThreadId, TimedIO)
+import           Control.Monad.Catch           (MonadMask)
+import           Control.TimeWarp.Rpc          (Dialog, Transfer)
+import           Control.TimeWarp.Timed        (MonadTimed (..), TimedIO)
 import           System.Wlog                   (LoggerNameBox, WithLogger)
 import           Universum
 
@@ -38,8 +37,7 @@ import           Pos.Communication.Types.State (MutSocketState)
 import           Pos.Context                   (ContextHolder, WithNodeContext)
 import qualified Pos.DB.Class                  as Modern
 import qualified Pos.DB.Holder                 as Modern
-import           Pos.DHT.Model                 (DHTPacking, DHTResponseT (..),
-                                                MonadMessageDHT (..),
+import           Pos.DHT.Model                 (DHTPacking, MonadMessageDHT (..),
                                                 WithDefaultMsgHeader)
 import           Pos.DHT.Real                  (KademliaDHT (..))
 import           Pos.Slotting                  (MonadSlots (..))

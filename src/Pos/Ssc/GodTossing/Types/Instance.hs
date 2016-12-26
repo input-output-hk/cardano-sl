@@ -16,7 +16,7 @@ import           Pos.Binary.Types                   ()
 import           Pos.Ssc.Class.Helpers              (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types                (Ssc (..))
 import           Pos.Ssc.GodTossing.Error           (SeedError)
-import           Pos.Ssc.GodTossing.Functions       (filterLocalPayload, verifyGtPayload)
+import           Pos.Ssc.GodTossing.Functions       (verifyGtPayload)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData)
 import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types     (GtContext, GtGlobalState, GtParams,
@@ -32,7 +32,6 @@ instance SscBi => Ssc SscGodTossing where
     type SscNodeContext SscGodTossing = GtContext
     type SscParams      SscGodTossing = GtParams
     mkSscProof = Tagged mkGtProof
-    -- sscFilterPayload = filterLocalPayload
     sscCreateNodeContext = createGtContext
 
 instance SscBi => SscHelpersClass SscGodTossing where

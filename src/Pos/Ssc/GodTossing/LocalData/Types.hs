@@ -18,8 +18,8 @@ import           Control.Lens                  (makeLenses)
 import           Data.Default                  (Default (def))
 import           Universum
 
-import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, PKSet,
-                                                SharesMap, VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
+                                                VssCertificatesMap)
 import           Pos.Types                     (SlotId, unflattenSlotId)
 
 data GtLocalData = GtLocalData

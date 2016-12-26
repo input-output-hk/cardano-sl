@@ -30,6 +30,7 @@ import           Pos.Types                  (Address, Coin (Coin), Tx, TxOut (..
                                              addressF, coinF, decodeTextAddress,
                                              makePubKeyAddress)
 
+import           Data.Default               (def)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Wallet.KeyStorage      (MonadKeys (..), newSecretKey)
@@ -67,7 +68,12 @@ walletServer
     :: WalletMode ssc m
     => WalletWebDB m (WalletWebDB m :~> Handler)
     -> WalletWebDB m (Server WalletApi)
-walletServer nat = flip enter servantHandlers <$> nat
+walletServer nat = do
+    join $ mapM insertAddressMeta <$> myCAddresses
+    flip enter servantHandlers <$> nat
+  where
+    insertAddressMeta cAddr =
+        getWalletMeta cAddr >>= createWallet cAddr . fromMaybe def
 
 ----------------------------------------------------------------------------
 -- Handlers
@@ -184,7 +190,7 @@ myCAddresses :: MonadKeys m => m [CAddress]
 myCAddresses = map addressToCAddress <$> myAddresses
 
 getAddrIdx :: WalletWebMode ssc m => Address -> m Int
-getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound return
+getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound pure
   where notFound = throwM err404 {
             errBody = encodeUtf8 $
                 sformat ("Address "%addressF%" is not found in wallet") $ addr

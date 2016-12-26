@@ -35,6 +35,7 @@ import           Data.Text             (Text)
 import           GHC.Generics          (Generic)
 import           Universum
 
+import           Data.Default          (Default, def)
 import           Data.Hashable         (Hashable (..))
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting            (build, sformat)
@@ -101,6 +102,9 @@ data CWalletMeta = CWalletMeta
     , cwCurrency :: CCurrency
     , cwName     :: Text
     } deriving (Show, Generic)
+
+instance Default CWalletMeta where
+    def = CWalletMeta CWTPersonal ADA ""
 
 -- | Client Wallet (CW)
 -- (Flow type: walletType)

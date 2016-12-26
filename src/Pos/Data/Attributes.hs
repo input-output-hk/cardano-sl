@@ -6,11 +6,11 @@
 -- Values are either parsed and put to some constructor or left as unparsed.
 
 module Pos.Data.Attributes
-  ( Attributes(attrData, attrRemain)
-  , getAttributes
-  , putAttributes
-  , mkAttributes
-  ) where
+       ( Attributes(attrData, attrRemain)
+       , getAttributes
+       , putAttributes
+       , mkAttributes
+       ) where
 
 import           Control.Monad.Fail  (MonadFail (fail))
 import           Data.Binary.Get     (Get, getByteString, getWord32be, getWord8)
@@ -90,10 +90,7 @@ getAttributes keyGetMapper maxLen initData = do
     attrRemain <- getByteString $ fromIntegral totalLen - fromIntegral read
     return $ Attributes {..}
 
-putAttributes
-  :: (h -> [(Word8, ByteString)])
-  -> Attributes h
-  -> Put
+putAttributes :: (h -> [(Word8, ByteString)]) -> Attributes h -> Put
 putAttributes putMapper Attributes {..} = do
     putWord32be totalLen
     mapM_ putAttr kvs

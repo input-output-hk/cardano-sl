@@ -26,6 +26,7 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               defaultRestoreM, defaultRestoreT)
 import           Control.TimeWarp.Rpc        (MonadDialog, MonadTransfer (..))
 import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
+import           Data.Default                (Default (def))
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
@@ -33,7 +34,7 @@ import           Universum
 import           Pos.Context                 (WithNodeContext)
 import qualified Pos.DB                      as Modern
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Class.LocalData     (SscLocalDataClass (sscEmptyLocalData))
+import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Types         (Ssc (SscLocalData))
 import           Pos.Ssc.Extra.MonadLD       (MonadSscLD (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
@@ -73,7 +74,7 @@ runSscLDImpl
        (MonadIO m, SscLocalDataClass ssc)
     => SscLDImpl ssc m a -> m a
 runSscLDImpl action = do
-  ref <- liftIO $ STM.newTVarIO (sscEmptyLocalData @ssc)
+  ref <- liftIO $ STM.newTVarIO def
   flip runReaderT ref . getSscLDImpl @ssc $ action
 
 instance MonadBase IO m => MonadBase IO (SscLDImpl ssc m) where

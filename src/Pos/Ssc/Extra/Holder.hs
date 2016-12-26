@@ -26,6 +26,7 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               defaultRestoreM, defaultRestoreT)
 import           Control.TimeWarp.Rpc        (MonadDialog, MonadTransfer (..))
 import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
+import           Data.Default                (Default (def))
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
@@ -33,7 +34,7 @@ import           Universum
 import           Pos.Context                 (WithNodeContext)
 import qualified Pos.DB                      as Modern (MonadDB (..))
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Class.LocalData     (SscLocalDataClass (sscEmptyLocalData))
+import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Types         (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS       (MonadSscGS (..))
 import           Pos.Ssc.Extra.MonadLD       (MonadSscLD (..), MonadSscLDM (..))
@@ -100,5 +101,5 @@ runSscHolder :: forall ssc m a. (SscLocalDataClass ssc, MonadIO m)
              => SscHolder ssc m a -> SscGlobalState ssc -> m a
 runSscHolder holder glob = SscState
                        <$> liftIO (STM.newTVarIO glob)
-                       <*> liftIO (STM.newTVarIO (sscEmptyLocalData @ssc))
+                       <*> liftIO (STM.newTVarIO def)
                        >>= runReaderT (getSscHolder holder)

@@ -72,7 +72,6 @@ instance SscListenersClass SscNistBeacon where
     sscListeners = Tagged []
 
 instance SscLocalDataClass SscNistBeacon where
-    sscEmptyLocalData = ()
     sscGetLocalPayloadQ _ = pure ()
     sscApplyGlobalStateU _ = pure ()
 

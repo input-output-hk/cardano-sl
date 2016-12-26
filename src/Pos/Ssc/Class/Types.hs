@@ -8,6 +8,7 @@ module Pos.Ssc.Class.Types
        ( Ssc(..)
        ) where
 
+import           Data.Default        (Default)
 import           Data.Tagged         (Tagged)
 import           Data.Text.Buildable (Buildable)
 import           Universum
@@ -27,6 +28,7 @@ class (Typeable ssc
       ,Buildable (SscSeedError ssc)
       ,Bi (SscProof ssc)
       ,Bi (SscPayload ssc)
+      ,Default (SscLocalData ssc)
       ) =>
       Ssc ssc where
 

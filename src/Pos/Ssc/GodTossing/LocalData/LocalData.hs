@@ -20,7 +20,6 @@ import           Control.Lens                         (Getter, at, use, view, (%
 import           Control.Monad.Loops                  (andM)
 import           Data.Containers                      (ContainerKey,
                                                        SetContainer (notMember))
-import           Data.Default                         (Default (def))
 import qualified Data.HashMap.Strict                  as HM
 import qualified Data.HashSet                         as HS
 import           Serokell.Util.Verify                 (isVerSuccess)
@@ -56,7 +55,6 @@ import           Pos.Util                             (AsBinary, diffDoubleMap, 
                                                        readerToState)
 
 instance SscBi => SscLocalDataClass SscGodTossing where
-    sscEmptyLocalData = def
     sscGetLocalPayloadQ = getLocalPayload
     sscApplyGlobalStateU = applyGlobal
 

@@ -32,7 +32,7 @@ import           Pos.DB.Utxo              (getTotalFtsStake, iterateByUtxo,
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
 import           Pos.Types                (Address, Coin, EpochOrSlot (..), HeaderHash,
-                                           Participants, SlotId (..), TxIn, TxOut (..),
+                                           Richmen, SlotId (..), TxIn, TxOut (..),
                                            TxOutAux, getEpochOrSlot, txOutStake)
 import           Pos.Types.Address        (AddressHash)
 import           Pos.WorkMode             (WorkMode)
@@ -92,7 +92,7 @@ getRichmen
     :: forall ssc m.
        WorkMode ssc m
     => Coin                  -- ^ Eligibility threshold
-    -> m Participants
+    -> m Richmen
 getRichmen moneyT =
     fromMaybe onNoRichmen . NE.nonEmpty . HM.keys . HM.filter (>= moneyT) <$>
     execStateT (iterateByUtxo @ssc countMoneys) mempty

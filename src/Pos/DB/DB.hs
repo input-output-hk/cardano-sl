@@ -30,13 +30,13 @@ import           Pos.DB.Types                 (NodeDBs (..))
 import           Pos.DB.Utxo                  (getTip, prepareUtxoDB)
 import           Pos.Genesis                  (genesisLeaders)
 import           Pos.Ssc.Class.Types          (Ssc)
-import           Pos.Types                    (Block, BlockHeader, Coin, Participants,
+import           Pos.Types                    (Block, BlockHeader, Coin, Richmen,
                                                TxOutAux, Undo, Utxo, getBlockHeader,
                                                headerHash, mkGenesisBlock, txOutStake)
 import           Pos.Types.Address            (AddressHash)
 
 -- TODO: copy-pasted from Worker.Lrc :(
-getRichmen :: Utxo -> Participants
+getRichmen :: Utxo -> Richmen
 getRichmen =
     fromMaybe onNoRichmen .
     nonEmpty .

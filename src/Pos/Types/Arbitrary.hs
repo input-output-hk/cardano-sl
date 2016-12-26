@@ -46,7 +46,8 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              LocalSlotIndex (..), SharedSeed (..),
                                              SlotId (..), Tx (..), TxDistribution (..),
                                              TxIn (..), TxInWitness (..), TxOut (..),
-                                             makePubKeyAddress, makeScriptAddress)
+                                             TxOutAux, makePubKeyAddress,
+                                             makeScriptAddress)
 import           Pos.Types.Update           (SystemTag, UpdateData (..),
                                              UpdateProposal (..), UpdateVote (..),
                                              mkSystemTag)
@@ -140,8 +141,8 @@ instance Arbitrary Tx where
 buildProperTx
     :: [(Tx, SecretKey, SecretKey, Coin)]
     -> (Coin -> Coin, Coin -> Coin)
-    -> Gen [(Tx, TxIn, TxOut, TxInWitness)]
-buildProperTx triplesList (inCoin, outCoin)= do
+    -> Gen [((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)]
+buildProperTx triplesList (inCoin, outCoin) = do
         let fun (Tx txIn txOut _, fromSk, toSk, c) =
                 let inC = inCoin c
                     outC = outCoin c
@@ -151,20 +152,23 @@ buildProperTx triplesList (inCoin, outCoin)= do
             txList = fmap fun triplesList
             txOutsHash = hash $ fmap (view _3) txList
             distrHash = hash (TxDistribution (replicate (length txList) []))
+            makeNullDistribution tx =
+                TxDistribution (replicate (length (txOutputs tx)) [])
             newTx (tx, fromSk, txOutput) =
                 let txHash = hash tx
                     txIn = TxIn txHash 0
                     witness = PkWitness {
                         twKey = toPublic fromSk,
                         twSig = sign fromSk (txHash, 0, txOutsHash, distrHash) }
-                in (tx, txIn, txOutput, witness)
+                in ((tx, makeNullDistribution tx),
+                    txIn, (txOutput, []), witness)
             makeTxOutput s c = TxOut (makePubKeyAddress $ toPublic s) c
             goodTx = fmap newTx txList
         return goodTx
 
 -- | Well-formed transaction 'Tx'.
 newtype GoodTx = GoodTx
-    { getGoodTx :: [(Tx, TxIn, TxOut, TxInWitness)]
+    { getGoodTx :: [((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)]
     } deriving (Show)
 
 newtype SmallGoodTx =
@@ -182,7 +186,7 @@ instance Arbitrary SmallGoodTx where
 
 -- | Ill-formed 'Tx' with overflow.
 newtype OverflowTx = OverflowTx
-    { getOverflowTx :: [(Tx, TxIn, TxOut, TxInWitness)]
+    { getOverflowTx :: [((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)]
     } deriving (Show)
 
 newtype SmallOverflowTx =
@@ -201,7 +205,7 @@ instance Arbitrary SmallOverflowTx where
 
 -- | Ill-formed 'Tx' with bad signatures.
 newtype BadSigsTx = BadSigsTx
-    { getBadSigsTx :: [(Tx, TxIn, TxOut, TxInWitness)]
+    { getBadSigsTx :: [((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)]
     } deriving (Show)
 
 newtype SmallBadSigsTx =

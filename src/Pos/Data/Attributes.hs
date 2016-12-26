@@ -32,7 +32,7 @@ mkAttributes dat = Attributes dat BS.empty
 data Attributes h = Attributes
     { -- Data, containing known keys (deserialized)
       attrData   :: h
-      -- Unprased ByteString
+      -- Unparsed ByteString
     , attrRemain :: ByteString
     }
   deriving (Eq, Ord, Generic)

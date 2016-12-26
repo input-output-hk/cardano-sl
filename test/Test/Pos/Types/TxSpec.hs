@@ -10,7 +10,6 @@ module Test.Pos.Types.TxSpec
        ) where
 
 import           Control.Lens           (view, _2, _3, _4)
-import           Control.Monad          (join)
 import qualified Data.HashMap.Strict    as HM
 import           Data.List              (elemIndex, lookup, zipWith3, (\\))
 import qualified Data.Map               as M (singleton)
@@ -59,7 +58,6 @@ spec = describe "Types.Tx" $ do
         prop description_validateGoodTx validateGoodTx
         prop description_overflowTx overflowTx
         prop description_badSigsTx badSigsTx
-{-
     describe "topsortTxs" $ do
         prop "doesn't change the random set of transactions" $
             forAll (resize 10 $ arbitrary) $ \(NonNegative l) ->
@@ -70,7 +68,7 @@ spec = describe "Types.Tx" $ do
             forAll (shuffle $ map withHash txs) $ \shuffled ->
             isJust $ topsortTxs identity shuffled
         prop "does correct topsort on bamboo" $ testTopsort True
-        prop "does correct topsort on arbitrary acyclic graph" $ testTopsort False -}
+        prop "does correct topsort on arbitrary acyclic graph" $ testTopsort False
     scriptTxSpec
   where
     description_validateGoodTxAlone =
@@ -332,8 +330,6 @@ badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
                 (zip extendedInputs (V.toList txWits))
     in notAllSignaturesAreValid == transactionIsNotVerified
 
-{-
-
 -- | Primitive transaction generator with restriction on
 -- inputs/outputs size
 txGen :: Int -> Gen Tx
@@ -343,7 +339,7 @@ txGen size = do
     inputs <- replicateM inputsN $ (\h -> TxIn h 0) <$> arbitrary
     outputs <- replicateM outputsN $
         (\addr (Positive c) -> TxOut addr c) <$> arbitrary <*> arbitrary
-    pure $ Tx inputs outputs
+    pure $ Tx inputs outputs (mkAttributes ())
 
 testTopsort :: Bool -> Property
 testTopsort isBamboo =
@@ -396,12 +392,10 @@ txAcyclicGen isBamboo size = do
         outputs <- replicateM outputsN $
             (\addr (Positive c) -> TxOut addr c) <$> arbitrary <*> arbitrary
         -- calculate new utxo & add vertex
-        let tx = Tx inputs outputs
+        let tx = Tx inputs outputs (mkAttributes ())
             producedUtxo = map (tx,) $ [0..(length outputs) - 1]
             newVertices = tx : vertices
             newUtxo = (unusedUtxo \\ chosenUtxo) ++ producedUtxo
             newReachableV = tx : concat (mapMaybe (\(x,_) -> HM.lookup x reachable) chosenUtxo)
             newReachable = HM.insert tx newReachableV reachable
         continueGraph newVertices newUtxo newReachable (k-1)
-
--}

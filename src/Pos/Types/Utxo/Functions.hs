@@ -11,24 +11,21 @@ module Pos.Types.Utxo.Functions
        , findTxIn
        , verifyTxUtxo
        , verifyAndApplyTxs
-       , verifyAndApplyTxsOld
        , applyTxToUtxo'
-       , verifyAndApplyTxsOld'
        , convertTo'
        , convertFrom'
        , belongsTo
        , filterUtxoByAddr
        ) where
 
-import           Control.Lens         (over, view, (^.), _1, _3)
-import           Control.Monad.Except (ExceptT (ExceptT), runExceptT, throwError)
+import           Control.Lens         (over, (^.), _1, _3)
 import qualified Data.Map.Strict      as M
 import           Universum
 
 import           Pos.Binary.Types     ()
 import           Pos.Crypto           (WithHash (..))
 import           Pos.Types.Tx         (VTxGlobalContext (..), VTxLocalContext (..),
-                                       topsortTxs, verifyTx)
+                                       verifyTx)
 import           Pos.Types.Types      (Address, Tx (..), TxAux, TxDistribution (..), TxId,
                                        TxIn (..), TxOut (..), TxOutAux, TxWitness, Undo,
                                        Utxo)
@@ -86,36 +83,6 @@ verifyAndApplyTxs verifyAlone txs = fmap reverse <$> foldM applyDo (Right []) tx
         verRes <- verifyTxUtxo verifyAlone (over _1 whData txa)
         ((:) <$> verRes <*> txouts) <$ applyTxToUtxo (txa ^. _1) (txa ^. _3)
 
--- CHECK: @verifyAndApplyTxsOld
--- | DEPRECATED
--- Accepts list of transactions and verifies its overall properties
--- plus validity of every transaction in particular. Return value is
--- verification failure (first) or topsorted list of transactions (if
--- topsort succeeded -- no loops were found) plus new
--- utxo. @VerificationRes@ is not used here because it can't be
--- applied -- no more than one error can happen. Either transactions
--- can't be topsorted at all or the first incorrect transaction is
--- encountered so we can't proceed further.
-verifyAndApplyTxsOld
-    :: forall m.
-       MonadUtxo m
-    => [(WithHash Tx, TxWitness, TxDistribution)]
-    -> m (Either Text [(WithHash Tx, TxWitness, TxDistribution)])
-verifyAndApplyTxsOld txas =
-    runExceptT $
-    maybe (throwError brokenMsg) (\txs' -> txs' <$ applyAll txs') topsorted
-  where
-    brokenMsg = "Topsort on transactions failed -- topology is broken"
-    applyAll :: [(WithHash Tx, TxWitness, TxDistribution)]
-             -> ExceptT Text m ()
-    applyAll [] = pass
-    applyAll (txa:xs) = do
-        applyAll xs
-        () <$ ExceptT (verifyTxUtxo True (over _1 whData txa))
-        applyTxToUtxo (txa ^. _1) (txa ^. _3)
-     -- 'reverse' because head is the last one to check
-    topsorted = reverse <$> topsortTxs (view _1) txas
-
 -- TODO change types of normalizeTxs and related
 
 convertTo' :: [(TxId, TxAux)] -> [(WithHash Tx, TxWitness, TxDistribution)]
@@ -123,14 +90,6 @@ convertTo' = map (\(i, (t, w, d)) -> (WithHash t i, w, d))
 
 convertFrom' :: [(WithHash Tx, TxWitness, TxDistribution)] -> [(TxId, TxAux)]
 convertFrom' = map (\(WithHash t h, w, d) -> (h, (t, w, d)))
-
--- CHECK: @verifyAndApplyTxsOld'
--- #verifyAndApplyTxsOld
-verifyAndApplyTxsOld'
-    :: MonadUtxo m
-    => [(TxId, TxAux)] -> m (Either Text [(TxId, TxAux)])
-verifyAndApplyTxsOld' txas =
-    fmap convertFrom' <$> verifyAndApplyTxsOld (convertTo' txas)
 
 -- | A predicate for `TxOut` which selects outputs for given address
 belongsTo :: TxOutAux -> Address -> Bool

@@ -25,8 +25,6 @@ module Pos.Types.Utxo.Pure
        , applyTxToUtxoPure'
        , normalizeTxsPure
        , normalizeTxsPure'
-       , verifyAndApplyTxsOldPure
-       , verifyAndApplyTxsOldPure'
        , verifyTxUtxoPure
        ) where
 
@@ -43,8 +41,7 @@ import           Pos.Types.Types          (Tx, TxAux, TxDistribution, TxId, TxIn
                                            TxWitness, Utxo)
 import           Pos.Types.Utxo.Class     (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Types.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', convertFrom',
-                                           convertTo', verifyAndApplyTxsOld,
-                                           verifyAndApplyTxsOld', verifyTxUtxo)
+                                           convertTo', verifyTxUtxo)
 import           Pos.Util                 (eitherToVerRes)
 ----------------------------------------------------------------------------
 -- Reader
@@ -125,23 +122,6 @@ applyTxToUtxoPure' w = execUtxoState $ applyTxToUtxo' w
 verifyTxUtxoPure :: Bool -> Utxo -> TxAux -> VerificationRes
 verifyTxUtxoPure verifyAlone utxo txw =
     eitherToVerRes $ runUtxoReader (verifyTxUtxo verifyAlone txw) utxo
-
--- CHECK: @verifyAndApplyTxsOldPure
--- #verifyAndApplyTxsOld
-verifyAndApplyTxsOldPure
-    :: [(WithHash Tx, TxWitness, TxDistribution)]
-    -> Utxo
-    -> Either Text ([(WithHash Tx, TxWitness, TxDistribution)], Utxo)
-verifyAndApplyTxsOldPure txws utxo =
-    let (res, newUtxo) = runUtxoState (verifyAndApplyTxsOld txws) utxo
-    in (, newUtxo) <$> res
-
--- CHECK: @verifyAndApplyTxsOldPure'
--- #verifyAndApplyTxsOld'
-verifyAndApplyTxsOldPure' :: [(TxId, TxAux)] -> Utxo -> Either Text ([(TxId, TxAux)], Utxo)
-verifyAndApplyTxsOldPure' txws utxo =
-    let (res, newUtxo) = runUtxoState (verifyAndApplyTxsOld' txws) utxo
-    in (, newUtxo) <$> res
 
 -- CHECK: @normalizeTxsPure
 -- | Takes the set of transactions and utxo, returns only those

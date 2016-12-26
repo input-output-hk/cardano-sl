@@ -63,8 +63,8 @@ class Monad m => MonadTxpLD ssc m | m -> ssc where
     setTxpLD     :: TxpLD ssc -> m ()
     setTxpLD txpLD = modifyTxpLD_ $ const txpLD
 
-    -- default getUtxoView :: MonadTrans t => t m (UtxoView ssc)
-    -- getUtxoView = lift  getUtxoView
+    default getTxpLDWrap :: MonadTrans t => t m (TxpLDWrap ssc)
+    getTxpLDWrap = lift getTxpLDWrap
 
     default setUtxoView :: MonadTrans t => UtxoView ssc -> t m ()
     setUtxoView = lift . setUtxoView

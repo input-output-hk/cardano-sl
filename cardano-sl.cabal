@@ -116,7 +116,7 @@ library
                         Pos.Binary.Communication
                         Pos.Binary.DHTModel
                         Pos.Binary.Merkle
-                        Pos.Binary.Modern.DB
+                        Pos.Binary.DB
                         Pos.Binary.Script
                         Pos.Binary.Ssc
                         Pos.Binary.Txp

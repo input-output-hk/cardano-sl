@@ -20,24 +20,24 @@ module Pos.DB.Block
        , prepareBlockDB
        ) where
 
-import           Control.Lens         ((^.))
-import           Data.ByteArray       (convert)
-import           Data.List.NonEmpty   (NonEmpty (..), (<|))
-import qualified Data.List.NonEmpty   as NE
-import           Formatting           (sformat, (%))
+import           Control.Lens        ((^.))
+import           Data.ByteArray      (convert)
+import           Data.List.NonEmpty  (NonEmpty (..), (<|))
+import qualified Data.List.NonEmpty  as NE
+import           Formatting          (sformat, (%))
 import           Universum
 
-import           Pos.Binary.Class     (Bi)
-import           Pos.Binary.Modern.DB ()
-import           Pos.Crypto           (shortHashF)
-import           Pos.DB.Class         (MonadDB, getBlockDB)
-import           Pos.DB.Error         (DBError (..))
-import           Pos.DB.Functions     (rocksDelete, rocksGetBi, rocksPutBi)
-import           Pos.DB.Types         (StoredBlock (..))
-import           Pos.Ssc.Class.Types  (Ssc)
-import           Pos.Types            (Block, BlockHeader, GenesisBlock, HeaderHash, Undo,
-                                       genesisHash, headerHash, prevBlockL)
-import qualified Pos.Types            as T
+import           Pos.Binary.Class    (Bi)
+import           Pos.Binary.DB       ()
+import           Pos.Crypto          (shortHashF)
+import           Pos.DB.Class        (MonadDB, getBlockDB)
+import           Pos.DB.Error        (DBError (..))
+import           Pos.DB.Functions    (rocksDelete, rocksGetBi, rocksPutBi)
+import           Pos.DB.Types        (StoredBlock (..))
+import           Pos.Ssc.Class.Types (Ssc)
+import           Pos.Types           (Block, BlockHeader, GenesisBlock, HeaderHash, Undo,
+                                      genesisHash, headerHash, prevBlockL)
+import qualified Pos.Types           as T
 
 
 -- | Get StoredBlock by hash from Block DB.

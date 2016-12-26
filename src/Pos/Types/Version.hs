@@ -43,7 +43,7 @@ newtype ApplicationName = ApplicationName
   deriving (Eq, Ord, Show, Generic)
 
 applicationNameMaxLength :: Integral i => i
-applicationNameMaxLength = 7
+applicationNameMaxLength = 10
 
 mkApplicationName :: MonadFail m => Text -> m ApplicationName
 mkApplicationName appName | T.length appName > applicationNameMaxLength

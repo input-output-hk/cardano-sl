@@ -7,23 +7,33 @@
 -}
 
 module Pos.Constants
-       ( k
+       (
+         -- * Constants mentioned in paper
+         k
        , slotDuration
        , epochSlots
        , epochDuration
+       , networkDiameter
+
+         -- * SSC constants
        , sharedSeedLength
+
+         -- * Other constants
        , genesisN
        , maxLocalTxs
        , neighborsSendThreshold
-       , networkDiameter
        , RunningMode (..)
        , runningMode
        , isDevelopment
        , defaultPeers
        , sysTimeBroadcastSlots
        , mpcSendInterval
+
+         -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
        , mdNoCommitmentsEpochThreshold
+
+         -- * Update system constants
        , curProtocolVersion
        , curSoftwareVersion
        ) where
@@ -39,6 +49,10 @@ import           Pos.Types.Timestamp    (Timestamp)
 import           Pos.Types.Version      (ApplicationName, ProtocolVersion (..),
                                          SoftwareVersion (..), mkApplicationName)
 import           Pos.Util               ()
+
+----------------------------------------------------------------------------
+-- Main constants mentioned in paper
+----------------------------------------------------------------------------
 
 -- | Consensus guarantee (i.e. after what amount of blocks can we consider
 -- blocks stable?).
@@ -57,9 +71,28 @@ epochSlots = 6 * k
 epochDuration :: Microsecond
 epochDuration = epochSlots * slotDuration
 
+-- | Estimated time needed to broadcast message from one node to all
+-- other nodes. Also see 'Pos.CompileConfig.ccNetworkDiameter'.
+networkDiameter :: Microsecond
+networkDiameter = sec . ccNetworkDiameter $ compileConfig
+
+----------------------------------------------------------------------------
+-- SSC
+----------------------------------------------------------------------------
+
 -- | Length of shared seed.
 sharedSeedLength :: Integral a => a
 sharedSeedLength = 32
+
+-- | Length of interval during which node should send her MPC
+-- message. Relevant only for one SSC implementation.
+-- Also see 'Pos.CompileConfig.ccMpcSendInterval'.
+mpcSendInterval :: Microsecond
+mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ compileConfig
+
+----------------------------------------------------------------------------
+-- Other constants
+----------------------------------------------------------------------------
 
 -- | See 'Pos.CompileConfig.ccGenesisN'.
 genesisN :: Integral i => i
@@ -84,11 +117,6 @@ maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
 -- during first 'Pos.CompileConfig.ccSysTimeBroadcastSlots' slots.
 sysTimeBroadcastSlots :: Integral i => i
 sysTimeBroadcastSlots = fromIntegral . ccSysTimeBroadcastSlots $ compileConfig
-
--- | Estimated time needed to broadcast message from one node to all
--- other nodes. Also see 'Pos.CompileConfig.ccNetworkDiameter'.
-networkDiameter :: Microsecond
-networkDiameter = sec . ccNetworkDiameter $ compileConfig
 
 -- | See 'Pos.CompileConfig.ccNeighboursSendThreshold'.
 neighborsSendThreshold :: Integral a => a
@@ -123,11 +151,9 @@ defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
         either (panic . show) identity .
         P.parse dhtNodeParser "Compile time config"
 
--- | Length of interval during which node should send her MPC
--- message. Relevant only for one SSC implementation.
--- Also see 'Pos.CompileConfig.ccMpcSendInterval'.
-mpcSendInterval :: Microsecond
-mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ compileConfig
+----------------------------------------------------------------------------
+-- Malicious activity
+----------------------------------------------------------------------------
 
 -- | Number of slots used by malicious actions detection to check if
 -- we are not receiving generated blocks.
@@ -139,14 +165,18 @@ mdNoBlocksSlotThreshold = fromIntegral . ccMdNoBlocksSlotThreshold $ compileConf
 mdNoCommitmentsEpochThreshold :: Integral i => i
 mdNoCommitmentsEpochThreshold = fromIntegral . ccMdNoCommitmentsEpochThreshold $ compileConfig
 
+----------------------------------------------------------------------------
+-- Update system
+----------------------------------------------------------------------------
+
 cardanoSlAppName :: ApplicationName
 cardanoSlAppName = either (panic . (<>) "Failed to init cardanoSlAppName: ")
                       identity $ mkApplicationName "cardano"
 
--- ^ Protocol version application uses
+-- | Protocol version application uses
 curProtocolVersion :: ProtocolVersion
 curProtocolVersion = ProtocolVersion 0 0 0
 
--- ^ Version of application (code running)
+-- | Version of application (code running)
 curSoftwareVersion :: SoftwareVersion
 curSoftwareVersion = SoftwareVersion cardanoSlAppName 1 0

@@ -98,7 +98,7 @@ isTxVerified :: (WorkMode ssc m) => Tx -> m Bool
 isTxVerified tx = do
     let txHash = hash tx
         txOutputsAsInputs =
-            map (\i -> TxIn txHash (fromIntegral i)) $ [0..length (txOutputs tx)]
+            map (\i -> TxIn txHash (fromIntegral i)) $ [0..length (txOutputs tx) - 1]
     and <$> mapM (fmap isJust . getTxOut) txOutputsAsInputs
 
 nextValidTx

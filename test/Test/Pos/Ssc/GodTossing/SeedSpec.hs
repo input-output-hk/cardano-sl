@@ -16,6 +16,7 @@ import           Test.QuickCheck          (Property, choose, counterexample, gen
                                            ioProperty, property, sized, (===))
 import           Test.QuickCheck.Property (failed, succeeded)
 import           Universum
+import           Unsafe                   (unsafeHead)
 
 import           Pos.Crypto               (KeyPair (..), PublicKey, Share, Threshold,
                                            VssKeyPair, decryptShare, sign, toVssPublicKey)

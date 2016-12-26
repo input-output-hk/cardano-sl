@@ -6,7 +6,10 @@
 
 -- | Binary serialization of Pos.Types.* modules
 
-module Pos.Binary.Util (getAsciiString1b, putAsciiString1b) where
+module Pos.Binary.Util
+  ( getAsciiString1b
+  , putAsciiString1b
+  ) where
 
 import           Control.Monad.Fail (fail)
 import           Data.Binary.Get    (Get, getByteString, getWord8)

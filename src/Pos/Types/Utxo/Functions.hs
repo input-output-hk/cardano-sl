@@ -12,8 +12,6 @@ module Pos.Types.Utxo.Functions
        , verifyTxUtxo
        , verifyAndApplyTxs
        , applyTxToUtxo'
-       , convertTo'
-       , convertFrom'
        , belongsTo
        , filterUtxoByAddr
        ) where

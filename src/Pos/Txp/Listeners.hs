@@ -52,10 +52,9 @@ handleTxInv :: (ResponseMode ssc m) => TxInvMsg -> m ()
 handleTxInv (TxInvMsg (NE.toList -> txHashes)) = do
     added <- mapM handleSingle txHashes
     let addedItems = map snd . filter fst . zip added $ txHashes
-    safeReply addedItems TxReqMsg
+    safeReply addedItems
   where
-    safeReply [] _      = pure ()
-    safeReply xs constr = replyToNode . constr . NE.fromList $ xs
+    safeReply = maybe pass (replyToNode . TxReqMsg) . NE.nonEmpty
     handleSingle txHash =
         ifM (isTxUseful txHash)
             (True <$ requestingLogMsg txHash)

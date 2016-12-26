@@ -50,9 +50,10 @@ import           Pos.Util               (sublistN)
 
 spec :: Spec
 spec = describe "Types.Tx" $ do
-{-    describe "verifyTxAlone" $ do
+    describe "verifyTxAlone" $ do
         prop description_validateGoodTxAlone validateGoodTxAlone
         prop description_invalidateBadTxAlone invalidateBadTxAlone
+{-
     describe "verifyTx" $ do
         prop description_validateGoodTx validateGoodTx
         prop description_overflowTx overflowTx
@@ -69,7 +70,7 @@ spec = describe "Types.Tx" $ do
         prop "does correct topsort on bamboo" $ testTopsort True
         prop "does correct topsort on arbitrary acyclic graph" $ testTopsort False -}
     scriptTxSpec
-{-  where
+  where
     description_validateGoodTxAlone =
         "validates Txs with positive coins and non-empty inputs and outputs"
     description_invalidateBadTxAlone =
@@ -79,7 +80,7 @@ spec = describe "Types.Tx" $ do
     description_overflowTx =
         "a well-formed transaction with input and output sums above maxBound :: Coin \
         \is validated successfully"
-    description_badSigsTx = "a transaction with inputs improperly signed is never validated" -}
+    description_badSigsTx = "a transaction with inputs improperly signed is never validated"
 
 scriptTxSpec :: Spec
 scriptTxSpec = describe "script transactions" $ do
@@ -217,8 +218,6 @@ errorsShouldMatch (VerFailure xs) ys = do
 runGen :: Gen a -> a
 runGen g = unGen g (mkQCGen 31415926) 30
 
-{-
-
 validateGoodTxAlone :: Tx -> Bool
 validateGoodTxAlone tx = isVerSuccess $ verifyTxAlone tx
 
@@ -227,8 +226,10 @@ invalidateBadTxAlone Tx {..} = all (isVerFailure . verifyTxAlone) badTxs
   where
     zeroOutputs = fmap (\(TxOut a _) -> TxOut a (negate 0)) txOutputs
     badTxs =
-        map (uncurry Tx) $
+        map (\(is, os) -> Tx is os (mkAttributes ())) $
         [([], txOutputs), (txInputs, []), (txInputs, zeroOutputs)]
+
+{-
 
 type TxVerifyingTools = (Tx, TxIn -> Maybe TxOut, [Maybe (TxIn, TxOut)], TxWitness)
 

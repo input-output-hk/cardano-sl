@@ -17,36 +17,35 @@ module Pos.Txp.Logic
        , txRollbackBlocks
        ) where
 
-import           Control.Lens            (each, over, view, (^.), _1, _3)
-import qualified Data.HashMap.Strict     as HM
-import qualified Data.HashSet            as HS
-import           Data.List.NonEmpty      (NonEmpty)
-import qualified Data.List.NonEmpty      as NE
-import           Formatting              (sformat, stext, (%))
-import           System.Wlog             (WithLogger)
+import           Control.Lens           (each, over, view, (^.), _1, _3)
+import qualified Data.HashMap.Strict    as HM
+import qualified Data.HashSet           as HS
+import           Data.List.NonEmpty     (NonEmpty)
+import qualified Data.List.NonEmpty     as NE
+import           Formatting             (sformat, stext, (%))
+import           System.Wlog            (WithLogger)
 import           Universum
 
-import           Pos.Constants           (maxLocalTxs)
-import           Pos.Crypto              (WithHash (..), hash, withHash)
-import           Pos.DB                  (DB, MonadDB, getUtxoDB)
-import           Pos.DB.Utxo             (BatchOp (..), getTip, writeBatchToUtxo)
-import           Pos.Ssc.Class.Types     (Ssc)
-import           Pos.State.Storage.Types (AltChain)
-import           Pos.Txp.Class           (MonadTxpLD (..), TxpLD, getUtxoView)
-import           Pos.Txp.Error           (TxpError (..))
-import           Pos.Txp.Holder          (TxpLDHolder, runLocalTxpLDHolder)
-import           Pos.Txp.Types           (MemPool (..), UtxoView (..))
-import           Pos.Txp.Types.Types     (ProcessTxRes (..), mkPTRinvalid)
-import qualified Pos.Txp.Types.UtxoView  as UV
-import           Pos.Types               (Block, MonadUtxo, MonadUtxoRead (utxoGet),
-                                          SlotId, Tx (..), TxAux, TxDistribution (..),
-                                          TxId, TxIn (..), TxOutAux, TxWitness, Undo,
-                                          VTxGlobalContext (..), VTxLocalContext (..),
-                                          applyTxToUtxo', blockSlot, blockTxas,
-                                          headerHash, prevBlockL, slotIdF, topsortTxs,
-                                          verifyTxPure)
-import           Pos.Types.Utxo          (verifyAndApplyTxs, verifyTxUtxo)
-import           Pos.Util                (inAssertMode, _neHead)
+import           Pos.Constants          (maxLocalTxs)
+import           Pos.Crypto             (WithHash (..), hash, withHash)
+import           Pos.DB                 (DB, MonadDB, getUtxoDB)
+import           Pos.DB.Utxo            (BatchOp (..), getTip, writeBatchToUtxo)
+import           Pos.Ssc.Class.Types    (Ssc)
+import           Pos.Txp.Class          (MonadTxpLD (..), TxpLD, getUtxoView)
+import           Pos.Txp.Error          (TxpError (..))
+import           Pos.Txp.Holder         (TxpLDHolder, runLocalTxpLDHolder)
+import           Pos.Txp.Types          (MemPool (..), UtxoView (..))
+import           Pos.Txp.Types.Types    (ProcessTxRes (..), mkPTRinvalid)
+import qualified Pos.Txp.Types.UtxoView as UV
+import           Pos.Types              (Block, MonadUtxo, MonadUtxoRead (utxoGet),
+                                         NEBlocks, SlotId, Tx (..), TxAux,
+                                         TxDistribution (..), TxId, TxIn (..), TxOutAux,
+                                         TxWitness, Undo, VTxGlobalContext (..),
+                                         VTxLocalContext (..), applyTxToUtxo', blockSlot,
+                                         blockTxas, headerHash, prevBlockL, slotIdF,
+                                         topsortTxs, verifyTxPure)
+import           Pos.Types.Utxo         (verifyAndApplyTxs, verifyTxUtxo)
+import           Pos.Util               (inAssertMode, _neHead)
 
 type TxpWorkMode ssc m = ( Ssc ssc
                          , WithLogger m
@@ -62,11 +61,11 @@ type MinTxpWorkMode ssc m = ( MonadDB ssc m
 
 -- | Apply chain of /definitely/ valid blocks to state on transactions
 -- processing.
-txApplyBlocks :: TxpWorkMode ssc m => AltChain ssc -> m ()
+txApplyBlocks :: TxpWorkMode ssc m => NEBlocks ssc -> m ()
 txApplyBlocks blocks = do
     tip <- getTip
     when (tip /= blocks ^. _neHead . prevBlockL) $ throwM $
-        TxpCantApplyBlocks "oldest block in AltChain is not based on tip"
+        TxpCantApplyBlocks "oldest block in NEBlocks is not based on tip"
     inAssertMode $
         do verdict <- txVerifyBlocks blocks
            case verdict of
@@ -112,7 +111,7 @@ txApplyBlock blk = do
 txVerifyBlocks
     :: forall ssc m.
        MonadDB ssc m
-    => AltChain ssc -> m (Either Text (NonEmpty Undo))
+    => NEBlocks ssc -> m (Either Text (NonEmpty Undo))
 txVerifyBlocks newChain = do
     utxoDB <- getUtxoDB
     fmap (NE.fromList . reverse) <$>

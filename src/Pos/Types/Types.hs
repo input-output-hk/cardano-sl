@@ -97,6 +97,7 @@ module Pos.Types.Types
        , BlockHeader
        , HeaderHash
        , Block
+       , NEBlocks
        , headerHashF
 
        -- * Lenses
@@ -789,6 +790,9 @@ headerHashF = build
 
 -- | Block.
 type Block ssc = Either (GenesisBlock ssc) (MainBlock ssc)
+
+-- | Non-empty list of blocks. This type is useful in some cases.
+type NEBlocks ssc = NonEmpty (Block ssc)
 
 ----------------------------------------------------------------------------
 -- Lenses. [CSL-193]: move to Block.hs and other modules or leave them here?

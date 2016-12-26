@@ -6,8 +6,7 @@
 -- | Extra types used in Storage modules.
 
 module Pos.State.Storage.Types
-       ( AltChain
-       , ProcessBlockRes (..)
+       ( ProcessBlockRes (..)
        , mkPBRabort
        ) where
 
@@ -19,11 +18,8 @@ import qualified Data.Text           as T
 import           Universum
 
 import           Pos.Ssc.Class.Types (Ssc)
-import           Pos.Types           (Block, BodyProof, HeaderHash, MainBlockchain)
-
--- | Alternative chain is a list of blocks which potentially
--- represents valid blockchain. Head of this list is the /oldest/ block.
-type AltChain ssc = NonEmpty (Block ssc)
+import           Pos.Types           (Block, BodyProof, HeaderHash, MainBlockchain,
+                                      NEBlocks)
 
 -- | Result of processNewBlock.
 data ProcessBlockRes ssc
@@ -33,7 +29,7 @@ data ProcessBlockRes ssc
     | -- | Block has been adopted, head of main chain has been
       -- changed. Attached data is number of blocks to rollback and
       -- blocks which should be used instead.
-      PBRgood !(Word, AltChain ssc)
+      PBRgood !(Word, NEBlocks ssc)
     | -- | Block has been discarded because it's not interesting or invalid.
       PBRabort !Text
 

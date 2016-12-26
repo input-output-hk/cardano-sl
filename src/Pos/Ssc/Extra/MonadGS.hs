@@ -23,19 +23,18 @@ module Pos.Ssc.Extra.MonadGS
        , sscVerifyBlocks
        ) where
 
-import           Control.Monad.Except    (ExceptT)
-import           Control.Monad.Trans     (MonadTrans)
-import           Control.TimeWarp.Rpc    (ResponseT)
-import           Serokell.Util           (VerificationRes)
+import           Control.Monad.Except  (ExceptT)
+import           Control.Monad.Trans   (MonadTrans)
+import           Control.TimeWarp.Rpc  (ResponseT)
+import           Serokell.Util         (VerificationRes)
 import           Universum
 
-import           Pos.Context             (WithNodeContext)
-import           Pos.DHT.Model.Class     (DHTResponseT)
-import           Pos.DHT.Real            (KademliaDHT)
-import           Pos.Ssc.Class.Storage   (SscStorageClass (..))
-import           Pos.Ssc.Class.Types     (Ssc (..))
-import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types.Types         (EpochIndex, SharedSeed)
+import           Pos.Context           (WithNodeContext)
+import           Pos.DHT.Model.Class   (DHTResponseT)
+import           Pos.DHT.Real          (KademliaDHT)
+import           Pos.Ssc.Class.Storage (SscStorageClass (..))
+import           Pos.Ssc.Class.Types   (Ssc (..))
+import           Pos.Types.Types       (EpochIndex, NEBlocks, SharedSeed)
 
 class Monad m => MonadSscGS ssc m | m -> ssc where
     getGlobalState    :: m (SscGlobalState ssc)
@@ -85,17 +84,17 @@ sscCalculateSeed = sscRunImpureQuery . sscCalculateSeedM @ssc
 sscApplyBlocks
     :: forall ssc m.
        (MonadSscGS ssc m, SscStorageClass ssc)
-    => AltChain ssc -> m ()
+    => NEBlocks ssc -> m ()
 sscApplyBlocks = sscRunGlobalModify . sscApplyBlocksM @ssc
 
 sscRollback
     :: forall ssc m.
        (MonadSscGS ssc m, SscStorageClass ssc)
-    => AltChain ssc -> m ()
+    => NEBlocks ssc -> m ()
 sscRollback = sscRunGlobalModify . sscRollbackM @ssc
 
 sscVerifyBlocks
     :: forall ssc m.
        (MonadSscGS ssc m, SscStorageClass ssc)
-    => Bool -> AltChain ssc -> m VerificationRes
+    => Bool -> NEBlocks ssc -> m VerificationRes
 sscVerifyBlocks verPure = sscRunGlobalQuery . sscVerifyBlocksM @ssc verPure

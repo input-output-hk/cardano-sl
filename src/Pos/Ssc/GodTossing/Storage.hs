@@ -47,10 +47,9 @@ import           Pos.Ssc.GodTossing.Types     (GtGlobalState (..), GtPayload (..
                                                gsCommitments, gsOpenings, gsShares,
                                                gsVssCertificates, vcVssKey,
                                                _gpCertificates)
-import           Pos.State.Storage.Types      (AltChain)
-import           Pos.Types                    (Block, EpochIndex, HeaderHash, SharedSeed,
-                                               SlotId (..), blockMpc, blockSlot, gbHeader,
-                                               prevBlockL)
+import           Pos.Types                    (Block, EpochIndex, HeaderHash, NEBlocks,
+                                               SharedSeed, SlotId (..), blockMpc,
+                                               blockSlot, gbHeader, prevBlockL)
 import           Pos.Util                     (readerToState)
 
 type GSQuery a  = forall m . (MonadReader GtGlobalState m) => m a
@@ -168,7 +167,7 @@ mpcVerifyBlock verifyPure (Right b) = do
 -- TODO:
 --   ★ verification messages should include block hash/slotId
 --   ★ we should stop at first failing block
-mpcVerifyBlocks :: Bool -> AltChain SscGodTossing -> GSQuery VerificationRes
+mpcVerifyBlocks :: Bool -> NEBlocks SscGodTossing -> GSQuery VerificationRes
 mpcVerifyBlocks verifyPure blocks = do
     curState <- ask
     return $ flip evalState curState $ do
@@ -195,7 +194,7 @@ unionPayload payload =
 
 -- | Apply sequence of blocks to state. Sequence must be based on last
 -- applied block and must be valid.
-mpcApplyBlocks :: AltChain SscGodTossing -> GSUpdate ()
+mpcApplyBlocks :: NEBlocks SscGodTossing -> GSUpdate ()
 mpcApplyBlocks = mapM_ mpcProcessBlock
 
 mpcProcessBlock
@@ -218,7 +217,7 @@ resetGS = do
     gsShares      .= mempty
 
 -- | Head - younges
-mpcRollback :: AltChain SscGodTossing -> GSUpdate ()
+mpcRollback :: NEBlocks SscGodTossing -> GSUpdate ()
 mpcRollback blocks = do
     wasGenesis <- foldM (\wasGen b -> if wasGen then pure wasGen else differenceBlock b)
                          False blocks

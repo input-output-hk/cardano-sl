@@ -20,14 +20,13 @@ module Pos.Ssc.Class.Storage
        , SscGlobalUpdate
        ) where
 
-import           Serokell.Util.Verify    (VerificationRes)
+import           Serokell.Util.Verify (VerificationRes)
 import           Universum
 
-import           Pos.Context.Class       (WithNodeContext)
-import           Pos.DB.Class            (MonadDB)
-import           Pos.Ssc.Class.Types     (Ssc (..))
-import           Pos.State.Storage.Types (AltChain)
-import           Pos.Types.Types         (EpochIndex, HeaderHash, SharedSeed)
+import           Pos.Context.Class    (WithNodeContext)
+import           Pos.DB.Class         (MonadDB)
+import           Pos.Ssc.Class.Types  (Ssc (..))
+import           Pos.Types            (EpochIndex, HeaderHash, NEBlocks, SharedSeed)
 
 ----------------------------------------------------------------------------
 -- Modern
@@ -44,18 +43,18 @@ type SscImpureQuery ssc a = forall m. ( MonadReader (SscGlobalState ssc) m
 class Ssc ssc => SscStorageClass ssc where
     sscLoadGlobalState :: (MonadDB ssc m) => HeaderHash ssc -> m (SscGlobalState ssc)
 
-    sscApplyBlocksM :: AltChain ssc -> SscGlobalUpdate ssc ()
+    sscApplyBlocksM :: NEBlocks ssc -> SscGlobalUpdate ssc ()
 
     -- | Rollback application of last 'n' blocks.  blocks. If there
     -- are less blocks than 'n' is, just leaves an empty ('def')
     -- version.
-    sscRollbackM :: AltChain ssc -> SscGlobalUpdate ssc ()
+    sscRollbackM :: NEBlocks ssc -> SscGlobalUpdate ssc ()
 
     -- | Verify Ssc-related predicates of block sequence which is
     -- about to be applied. It should check that SSC payload will be
     -- consistent if this blocks are applied (after possible rollback
     -- if first argument isn't zero).
-    sscVerifyBlocksM :: Bool -> AltChain ssc -> SscGlobalQuery ssc VerificationRes
+    sscVerifyBlocksM :: Bool -> NEBlocks ssc -> SscGlobalQuery ssc VerificationRes
 
     sscCalculateSeedM :: EpochIndex ->
                          SscImpureQuery ssc (Either (SscSeedError ssc) SharedSeed)

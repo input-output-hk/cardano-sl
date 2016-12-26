@@ -1,21 +1,27 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 -- | Server part.
 
 module Pos.Communication.Server
        ( allListeners
+       , forkStrategy
        , serverLoggerName
        , module Pos.Communication.Server.SysStart
        ) where
 
+import           Control.TimeWarp.Rpc                (ForkStrategy (ForkStrategy),
+                                                      MessageName)
+import           Control.TimeWarp.Timed              (MonadTimed, fork_)
 import           Data.Tagged                         (untag)
 import           System.Wlog                         (LoggerName)
 import           Universum
 
 import           Pos.Binary.Communication            ()
-import           Pos.Block.Network.Server            (blockListeners)
+import           Pos.Block.Network.Server            (blkForkStrategy, blockListeners)
 import           Pos.Communication.Server.Delegation (delegationListeners)
 import           Pos.Communication.Server.SysStart
 import           Pos.Communication.Types             (MutSocketState)
@@ -37,6 +43,19 @@ allListeners =
         , map (modifyListenerLogger "tx") txListeners
         , map (modifyListenerLogger "delegation") delegationListeners
         ]
+
+-- | ForkStrategy of whole server.
+forkStrategy
+    :: forall ssc.
+       Typeable ssc
+    => ForkStrategy MessageName
+forkStrategy = ForkStrategy forkStrategyImpl
+  where
+    forkStrategyImpl
+        :: forall m.
+           (MonadTimed m)
+        => MessageName -> m () -> m ()
+    forkStrategyImpl = fromMaybe fork_ . (blkForkStrategy @ssc)
 
 -- | Logger name for server.
 serverLoggerName :: LoggerName

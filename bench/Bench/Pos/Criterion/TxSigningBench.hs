@@ -10,12 +10,13 @@ import           Test.QuickCheck (generate)
 import           Universum
 
 import           Pos.Crypto      (SecretKey, hash, sign)
-import           Pos.Types       (TxId, TxOut, TxSig)
+import           Pos.Types       (TxDistribution (..), TxId, TxOut, TxSig)
 import           Pos.Util        (arbitraryUnsafe)
 
-{-
 signTx :: (SecretKey, TxId, Word32, [TxOut]) -> TxSig
-signTx (sk, thash, tidx, touts) = sign sk (thash, tidx, hash touts)
+signTx (sk, thash, tidx, touts) = sign sk (thash, tidx, hash touts, hash distr)
+  where
+    distr = TxDistribution (replicate (length touts) [])
 
 txSignBench :: Benchmark
 txSignBench = env genArgs $ bench "Transactions signing" . whnf signTx
@@ -29,7 +30,6 @@ txSignConfig :: Config
 txSignConfig = defaultConfig
     { reportFile = Just "txSigning.html"
     }
--}
 
 runBenchmark :: IO ()
-runBenchmark = return () --defaultMainWith txSignConfig [txSignBench]
+runBenchmark = defaultMainWith txSignConfig [txSignBench]

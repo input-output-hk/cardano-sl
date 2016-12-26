@@ -43,7 +43,6 @@ import           Pos.Ssc.GodTossing.Types.Message       (DataMsg (..), InvMsg (.
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), GtProof,
                                                          _gpCertificates)
-import           Pos.Types                              (Address)
 import           Pos.Types.Address                      (AddressHash)
 import           Pos.WorkMode                           (WorkMode)
 

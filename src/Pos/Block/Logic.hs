@@ -39,7 +39,6 @@ import           Data.List.NonEmpty        (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
 import           Formatting                (build, int, sformat, (%))
-import           Serokell.Util.Text        (listJson)
 import           Serokell.Util.Verify      (VerificationRes (..), formatAllErrors,
                                             isVerSuccess, verResToMonadError)
 import           System.Wlog               (logDebug)

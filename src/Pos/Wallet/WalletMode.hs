@@ -17,7 +17,6 @@ module Pos.Wallet.WalletMode
        , SState
        ) where
 
-import           Control.Lens                  (over, _1)
 import           Control.Monad                 (fail)
 import           Control.Monad.Trans           (MonadTrans)
 import           Control.TimeWarp.Rpc          (Dialog, Transfer)
@@ -27,7 +26,6 @@ import           Universum
 
 import           Pos.Communication.Types.State (MutSocketState)
 import qualified Pos.Context                   as PC
-import           Pos.Crypto                    (WithHash, withHash)
 import           Pos.DB                        (MonadDB)
 import qualified Pos.DB                        as DB
 import           Pos.DHT.Model                 (DHTPacking)

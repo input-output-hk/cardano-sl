@@ -22,13 +22,9 @@ module Pos.Block.Network.Server.State
 import           Control.Concurrent.STM  (TVar, modifyTVar, readTVar)
 import           Control.Lens            (makeClassy, over, set, view, (.~), (^.))
 import           Data.Default            (Default (def))
-import           Data.List               (last)
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty      as NE
-import           Formatting              (build, sformat, stext, (%))
-import           Serokell.Util.Text      (listJson)
 import           Serokell.Util.Verify    (isVerSuccess)
-import           System.Wlog             (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Block.Network.Types (MsgBlock (..), MsgGetHeaders (..))

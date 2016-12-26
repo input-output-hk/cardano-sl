@@ -51,14 +51,11 @@ import           Pos.Ssc.GodTossing.Types             (GtGlobalState (..), GtPay
 import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
                                                        SignedCommitment, VssCertificate,
                                                        VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Types.Instance    ()
 import           Pos.Ssc.GodTossing.Types.Message     (DataMsg (..), MsgTag (..))
-import           Pos.Types                            (Address (..), SlotId (..))
 import           Pos.Types                            (Address (..), SlotId (..))
 import           Pos.Types.Address                    (AddressHash)
 import           Pos.Util                             (AsBinary, diffDoubleMap, getKeys,
                                                        readerToState)
---import           Pos.Ssc.GodTossing.Types.Instance       ()
 
 instance SscBi => SscLocalDataClass SscGodTossing where
     sscEmptyLocalData = def

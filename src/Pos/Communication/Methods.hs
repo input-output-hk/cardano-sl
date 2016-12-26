@@ -30,8 +30,7 @@ import           Pos.DHT.Model               (MonadMessageDHT, defaultSendToNeig
                                               sendToNeighbors, sendToNode)
 import           Pos.Security                (AttackType (..), shouldIgnoreAddress)
 import           Pos.Txp.Types.Communication (TxDataMsg (..))
-import           Pos.Types                   (EpochIndex, HeaderHash, MainBlockHeader,
-                                              TxAux, headerHash)
+import           Pos.Types                   (EpochIndex, TxAux)
 import           Pos.Util                    (logWarningWaitLinear, messageName')
 import           Pos.WorkMode                (MinWorkMode, WorkMode)
 

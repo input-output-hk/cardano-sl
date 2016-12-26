@@ -22,8 +22,8 @@ import           Universum
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkSemaphore_)
 import           Pos.Constants            (k)
-import           Pos.Context              (getNodeContext, readLeaders, readRichmen)
-import           Pos.Context.Context      (ncSscLeaders, ncSscRichmen)
+import           Pos.Context              (getNodeContext, ncSscLeaders, ncSscRichmen,
+                                           readLeaders, readRichmen)
 import           Pos.Crypto               (PublicKey)
 import           Pos.DB                   (loadBlocksFromTipWhile, putLrc)
 import           Pos.DB.DBIterator        ()
@@ -31,10 +31,9 @@ import           Pos.DB.Utxo              (getTotalFtsStake, iterateByUtxo,
                                            mapUtxoIterator)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
-import           Pos.Types                (Address, Coin, EpochOrSlot (..), HeaderHash,
-                                           Richmen, SlotId (..), TxIn, TxOut (..),
+import           Pos.Types                (AddressHash, Coin, EpochOrSlot (..),
+                                           HeaderHash, Richmen, SlotId (..), TxIn,
                                            TxOutAux, getEpochOrSlot, txOutStake)
-import           Pos.Types.Address        (AddressHash)
 import           Pos.WorkMode             (WorkMode)
 
 lrcOnNewSlot :: WorkMode ssc m => SlotId -> m ()

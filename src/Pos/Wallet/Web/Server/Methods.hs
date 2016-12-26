@@ -12,8 +12,8 @@ module Pos.Wallet.Web.Server.Methods
        , walletServer
        ) where
 
-import           Control.Lens               (view, _2)
 import           Data.List                  (elemIndex, (!!))
+import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (ords, sformat, stext, (%))
 import           Network.Wai                (Application)
 import           Servant.API                ((:<|>) ((:<|>)),
@@ -24,14 +24,12 @@ import           Servant.Utils.Enter        ((:~>) (..), enter)
 import           System.Wlog                (logInfo)
 import           Universum
 
+import           Pos.Aeson.ClientTypes      ()
 import           Pos.Crypto                 (toPublic)
 import           Pos.DHT.Model              (dhtAddr, getKnownPeers)
 import           Pos.Types                  (Address, Coin (Coin), Tx, TxOut (..),
                                              addressF, coinF, decodeTextAddress,
                                              makePubKeyAddress)
-
-import           Data.Time.Clock.POSIX      (getPOSIXTime)
-import           Pos.Aeson.ClientTypes      ()
 import           Pos.Wallet.KeyStorage      (MonadKeys (..), newSecretKey)
 import           Pos.Wallet.Tx              (submitTx)
 import           Pos.Wallet.WalletMode      (WalletMode, getBalance, getTxHistory)
@@ -45,8 +43,6 @@ import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
                                              addOnlyNewHistory, closeState, createWallet,
                                              getWalletHistory, getWalletMeta, openState,
                                              removeWallet, runWalletWebDB, setWalletMeta)
-
-
 
 ----------------------------------------------------------------------------
 -- Top level functionality

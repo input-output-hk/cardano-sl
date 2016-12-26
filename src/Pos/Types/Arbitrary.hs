@@ -28,7 +28,6 @@ import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
-import           Pos.Binary.Class           (Bi)
 import           Pos.Binary.Types           ()
 import           Pos.Binary.Update          ()
 import           Pos.Constants              (curProtocolVersion, curSoftwareVersion,
@@ -100,14 +99,14 @@ deriving instance Random LocalSlotIndex
 instance Arbitrary LocalSlotIndex where
     arbitrary = choose (0, epochSlots - 1)
 
-instance (Bi TxOut, Bi Tx, Bi TxDistribution) => Arbitrary TxInWitness where
+instance Arbitrary TxInWitness where
     arbitrary = oneof [
         PkWitness <$> arbitrary <*> arbitrary,
         -- this can generate a redeemer script where a validator script is
         -- needed and vice-versa, but it doesn't matter
         ScriptWitness <$> arbitrary <*> arbitrary ]
 
-instance Bi Tx => Arbitrary TxIn where
+instance Arbitrary TxIn where
     arbitrary = do
         txId <- arbitrary
         txIdx <- arbitrary
@@ -116,7 +115,7 @@ instance Bi Tx => Arbitrary TxIn where
 -- | Arbitrary transactions generated from this instance will only be valid
 -- with regards to 'verifyTxAlone'
 
-instance Bi Tx => Arbitrary Tx where
+instance Arbitrary Tx where
     arbitrary = do
         txIns <- getNonEmpty <$> arbitrary
         txOuts <- getNonEmpty <$> arbitrary
@@ -172,13 +171,13 @@ newtype SmallGoodTx =
     SmallGoodTx GoodTx
     deriving Show
 
-instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary GoodTx where
+instance Arbitrary GoodTx where
     arbitrary = GoodTx <$> do
         txsList <- getNonEmpty <$>
             (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
         buildProperTx txsList (identity, identity)
 
-instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary SmallGoodTx where
+instance Arbitrary SmallGoodTx where
     arbitrary = SmallGoodTx <$> makeSmall arbitrary
 
 -- | Ill-formed 'Tx' with overflow.
@@ -190,14 +189,14 @@ newtype SmallOverflowTx =
     SmallOverflowTx OverflowTx
     deriving Show
 
-instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary OverflowTx where
+instance Arbitrary OverflowTx where
     arbitrary = OverflowTx <$> do
         txsList <- getNonEmpty <$>
             (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
         let halfBound = maxBound `div` 2
         buildProperTx txsList ((halfBound +), (halfBound -))
 
-instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary SmallOverflowTx where
+instance Arbitrary SmallOverflowTx where
     arbitrary = SmallOverflowTx <$> makeSmall arbitrary
 
 -- | Ill-formed 'Tx' with bad signatures.
@@ -209,13 +208,13 @@ newtype SmallBadSigsTx =
     SmallBadSigsTx BadSigsTx
     deriving Show
 
-instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary BadSigsTx where
+instance Arbitrary BadSigsTx where
     arbitrary = BadSigsTx <$> do
         goodTxList <- getGoodTx <$> arbitrary
         badSig <- arbitrary
         return $ map (set _4 badSig) goodTxList
 
-instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary SmallBadSigsTx where
+instance Arbitrary SmallBadSigsTx where
     arbitrary = SmallBadSigsTx <$> makeSmall arbitrary
 
 instance Arbitrary SharedSeed where

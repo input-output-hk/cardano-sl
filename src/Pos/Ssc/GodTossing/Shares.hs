@@ -67,22 +67,3 @@ decryptOurShares ourPK = do
                 if not $ HM.member theirAddr opens
                    then (,) theirAddr <$> HM.lookup ourPK commShares
                    else Nothing -- if we have opening for theirAddr, we shouldn't send shares for it
-
--- | Get keys of nodes participating in an epoch. A node participates if,
--- when there were 'k' slots left before the end of the previous epoch, both
--- of these were true:
---
---   1. It was a stakeholder.
---   2. It had already sent us its VSS key by that time.
-
--- getParticipants
---     :: (SscGlobalStateM SscGodTossing ~ GtGlobalState)
---     => Word -> Utxo -> GSQuery (Maybe (NonEmpty (AsBinary VssPublicKey)))
--- getParticipants depth utxo = do
---     mKeymap <- Just <$> view gsVssCertificates
---     --mKeymap <- fmap _gsVssCertificates <$> getGlobalMpcDataByDepth depth :
---     -- is it right? or we don't care about verified certs
---     return $
---         do keymap <- mKeymap
---            let stakeholders =
---                    nub $ map txOutAddress (toList utxo)

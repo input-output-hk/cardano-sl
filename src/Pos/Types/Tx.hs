@@ -14,24 +14,24 @@ module Pos.Types.Tx
        , topsortTxs
        ) where
 
-import           Control.Lens        (makeLenses, use, uses, (%=), (.=), (^.))
-import           Data.Bifunctor      (first)
-import qualified Data.HashMap.Strict as HM
-import qualified Data.HashSet        as HS
-import           Data.List           (tail, zipWith3)
-import           Formatting          (build, int, sformat, (%))
-import           Serokell.Util       (VerificationRes, verifyGeneric)
+import           Control.Lens         (makeLenses, use, uses, (%=), (.=), (^.))
+import           Control.Monad.Except (runExceptT)
+import           Data.Bifunctor       (first)
+import qualified Data.HashMap.Strict  as HM
+import qualified Data.HashSet         as HS
+import           Data.List            (tail, zipWith3)
+import           Formatting           (build, int, sformat, (%))
+import           Serokell.Util        (VerificationRes, formatAllErrors,
+                                       verResToMonadError, verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Types    ()
-import           Pos.Crypto          (Hash, WithHash (..), checkSig, hash)
-import           Pos.Script          (Script (..), isKnownScriptVersion, txScriptCheck)
-import           Pos.Types.Address   (addressDetailedF)
-import           Pos.Types.Types     (Address(..), TxDistribution(..), TxOutAux, TxAux, Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
-                                      checkPubKeyAddress, checkScriptAddress,
-                                      coinF)
-import           Pos.Util            (verResToEither)
-
+import           Pos.Binary.Types     ()
+import           Pos.Crypto           (Hash, WithHash (..), checkSig, hash)
+import           Pos.Script           (Script (..), isKnownScriptVersion, txScriptCheck)
+import           Pos.Types.Address    (addressDetailedF)
+import           Pos.Types.Types      (Address (..), Tx (..), TxAux, TxDistribution (..),
+                                       TxIn (..), TxInWitness (..), TxOut (..), TxOutAux,
+                                       checkPubKeyAddress, checkScriptAddress, coinF)
 
 ----------------------------------------------------------------------------
 -- Verification
@@ -98,9 +98,10 @@ verifyTx
     -> m (Either Text [TxOutAux])
 verifyTx verifyAlone gContext inputResolver txs@(Tx {..}, _, _) = do
     extendedInputs <- mapM extendInput txInputs
-    pure $ verResToEither
-        (verifyTxDo verifyAlone gContext extendedInputs txs)
-        (map (vtlTxOut . snd) . catMaybes $ extendedInputs)
+    runExceptT $ do
+        verResToMonadError formatAllErrors $
+            verifyTxDo verifyAlone gContext extendedInputs txs
+        return $ map (vtlTxOut . snd) . catMaybes $ extendedInputs
   where
     extendInput txIn = fmap (txIn, ) <$> inputResolver txIn
 

@@ -59,7 +59,6 @@ module Pos.Util
        , AsBinaryClass (..)
        , fromBinaryM
 
-       , verResToEither
        , eitherToVerRes
 
        -- * Instances
@@ -402,12 +401,6 @@ class AsBinaryClass a where
 
 fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
 fromBinaryM = either fail return . fromBinary
-
-verResToEither :: VerificationRes -> a -> Either Text a
-verResToEither res val =
-    case res of
-        VerFailure errors -> Left $ T.intercalate "; " errors
-        VerSuccess        -> Right val
 
 eitherToVerRes :: Either Text a -> VerificationRes
 eitherToVerRes (Left errors) = if T.null errors then VerFailure []

@@ -88,6 +88,10 @@ putTip h = getUtxoDB >>= rocksPutBi tipKey h
 putTotalCoins :: MonadDB ssc m => Coin -> m ()
 putTotalCoins c = getUtxoDB >>= rocksPutBi ftsSumKey c
 
+----------------------------------------------------------------------------
+-- Iteration
+----------------------------------------------------------------------------
+
 iterateByUtxo
     :: forall ssc m . (MonadDB ssc m, MonadMask m)
     => ((TxIn, TxOutAux) -> m ())

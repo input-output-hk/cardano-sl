@@ -54,6 +54,8 @@ library
                         Pos.DHT.Real
                         Pos.DHT.Real.Real
                         Pos.DHT.Real.Types
+                        Pos.Eligibility
+                        Pos.Genesis
                         Pos.FollowTheSatoshi
                         Pos.Script
                         Pos.Script.Examples
@@ -62,7 +64,6 @@ library
                         Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon
                         Pos.Ssc.SscAlgo
-                        Pos.Genesis
                         Pos.Launcher
                         Pos.Merkle
                         Pos.Security

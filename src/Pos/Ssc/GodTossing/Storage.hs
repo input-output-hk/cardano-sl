@@ -240,7 +240,6 @@ mpcRollback blocks = do
         gsVssCertificates %= (`HM.difference` payloadCertificates)
         pure False
 
--- TODO union of certificats is invalid
 -- | Union payloads of blocks until meet genesis block
 unionBlocks :: MonadDB SscGodTossing m => StateT (GtGlobalState, HeaderHash SscGodTossing) m ()
 unionBlocks = whileM
@@ -255,6 +254,7 @@ unionBlocks = whileM
                 True <$ (_2 .= b ^. prevBlockL)
     ) (pure ())
 
+-- [CSL-364] This function has bug, see issue.
 mpcLoadGlobalState :: MonadDB SscGodTossing m => HeaderHash SscGodTossing -> m GtGlobalState
 mpcLoadGlobalState tip = do
     global <- fst <$> execStateT unionBlocks (def, tip)

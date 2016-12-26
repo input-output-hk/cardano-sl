@@ -13,7 +13,7 @@ module Pos.DB.Utxo
        , getTxOutFromDB
        , prepareUtxoDB
        , iterateByUtxo
-       , withUtxoIterator
+       , runUtxoIterator
        , mapUtxoIterator
        , getFilteredUtxo
        ) where
@@ -24,7 +24,7 @@ import           Universum
 
 import           Pos.Binary.Class  (Bi, encodeStrict)
 import           Pos.DB.Class      (MonadDB, getUtxoDB)
-import           Pos.DB.DBIterator (DBIterator, DBMapIterator, mapIterator, withIterator)
+import           Pos.DB.DBIterator (DBIterator, DBMapIterator, mapIterator, runIterator)
 import           Pos.DB.Error      (DBError (..))
 import           Pos.DB.Functions  (rocksDelete, rocksGetBi, rocksPutBi, rocksWriteBatch,
                                     traverseAllEntries)
@@ -111,9 +111,9 @@ filterUtxo p = do
         then return $ M.insert (txInHash k, txInIndex k) v m
         else return m
 
-withUtxoIterator :: (MonadDB ssc m, MonadMask m)
+runUtxoIterator :: (MonadDB ssc m, MonadMask m)
                  => DBIterator m a -> m a
-withUtxoIterator iter = withIterator iter =<< getUtxoDB
+runUtxoIterator iter = runIterator iter =<< getUtxoDB
 
 mapUtxoIterator :: forall u v m ssc a . (MonadDB ssc m, MonadMask m)
                 => DBMapIterator (u -> v) m a -> (u -> v) -> m a

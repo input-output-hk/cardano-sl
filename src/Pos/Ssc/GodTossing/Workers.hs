@@ -18,7 +18,7 @@ import           Control.Monad.Trans.Maybe        (runMaybeT)
 import           Control.TimeWarp.Timed           (Microsecond, Millisecond, currentTime,
                                                    for, wait)
 import           Data.HashMap.Strict              (insert, lookup, member)
-import qualified Data.List.NonEmpty               as NE (fromList, toList)
+import           Data.List.NonEmpty               (nonEmpty)
 import           Data.Tagged                      (Tagged (..))
 import           Data.Time.Units                  (convertUnit)
 import           Formatting                       (build, ords, sformat, shown, (%))
@@ -224,8 +224,9 @@ generateAndSetNewSecret
 generateAndSetNewSecret sk epoch = do
     richmen <- readRichmen
     certs <- getGlobalCertificates
-    let ps = NE.fromList .
-                map vcVssKey . mapMaybe (`lookup` certs) . NE.toList $ richmen
+    let noPsErr = panic "generateAndSetNewSecret: no participants"
+    let ps = fromMaybe (panic noPsErr) . nonEmpty .
+                map vcVssKey . mapMaybe (`lookup` certs) . toList $ richmen
     let threshold = getThreshold $ length ps
     mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
     case mPair of

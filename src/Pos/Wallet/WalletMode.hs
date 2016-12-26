@@ -30,7 +30,7 @@ import           Pos.DB                        (MonadDB)
 import qualified Pos.DB                        as DB
 import           Pos.DHT.Model                 (DHTPacking)
 import           Pos.DHT.Real                  (KademliaDHT)
-import           Pos.Ssc.Extra                 (SscHolder (..), SscLDImpl (..))
+import           Pos.Ssc.Extra                 (SscHolder (..))
 import           Pos.Ssc.GodTossing            (SscGodTossing)
 import           Pos.Txp.Class                 (MonadTxpLD (..), getUtxoView)
 import qualified Pos.Txp.Holder                as Modern
@@ -65,7 +65,6 @@ instance MonadBalances m => MonadBalances (KademliaDHT m)
 instance MonadBalances m => MonadBalances (KeyStorage m)
 
 deriving instance MonadBalances m => MonadBalances (PC.ContextHolder ssc m)
-deriving instance MonadBalances m => MonadBalances (SscLDImpl ssc m)
 deriving instance MonadBalances m => MonadBalances (SscHolder ssc m)
 
 -- | Instances of 'MonadBalances' for wallet's and node's DBs
@@ -100,7 +99,6 @@ instance MonadTxHistory m => MonadTxHistory (KademliaDHT m)
 instance MonadTxHistory m => MonadTxHistory (KeyStorage m)
 
 deriving instance MonadTxHistory m => MonadTxHistory (PC.ContextHolder ssc m)
-deriving instance MonadTxHistory m => MonadTxHistory (SscLDImpl ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (SscHolder ssc m)
 
 -- | Instances of 'MonadTxHistory' for wallet's and node's DBs

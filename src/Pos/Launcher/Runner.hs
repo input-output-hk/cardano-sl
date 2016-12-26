@@ -76,7 +76,7 @@ import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (.
                                                NodeParams (..))
 import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
                                                sscCreateNodeContext, sscLoadGlobalState)
-import           Pos.Ssc.Extra                (runSscHolder, runSscLDImpl)
+import           Pos.Ssc.Extra                (runSscHolder)
 import           Pos.Statistics               (getNoStatsT, runStatsT)
 import           Pos.Txp.Holder               (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView       as UV
@@ -158,7 +158,6 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ d
             runOurDialog newMutSocketState lpRunnerTag .
             Modern.runDBHolder modernDBs .
             runCH np initNC .
-            runSscLDImpl .
             flip runSscHolder initGS .
             runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip .
             runKDHT inst npBaseParams listeners $

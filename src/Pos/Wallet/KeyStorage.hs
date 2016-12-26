@@ -42,7 +42,7 @@ import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots)
-import           Pos.Ssc.Extra               (SscHolder (..), SscLDImpl (..))
+import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Holder              (TxpLDHolder (..))
 import           Pos.Util                    ()
 import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,
@@ -180,6 +180,5 @@ instance (MonadIO m, MonadThrow m) => MonadKeys (ContextHolder ssc m) where
         | otherwise = usKeys %= deleteAt i
 
 -- | Derived instances for ancestors in monad stack
-deriving instance MonadKeys m => MonadKeys (SscLDImpl ssc m)
 deriving instance MonadKeys m => MonadKeys (SscHolder ssc m)
 deriving instance MonadKeys m => MonadKeys (TxpLDHolder ssc m)

@@ -44,8 +44,7 @@ import           Pos.Slotting                  (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers         (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData       (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage         (SscStorageClass)
-import           Pos.Ssc.Extra                 (MonadSscGS, MonadSscLD (..), MonadSscLDM,
-                                                SscHolder, SscLDImpl)
+import           Pos.Ssc.Extra                 (MonadSscGS, MonadSscLD, SscHolder)
 import           Pos.Statistics.MonadStats     (MonadStats, NoStatsT, StatsT)
 import           Pos.Txp.Class                 (MonadTxpLD (..))
 import           Pos.Txp.Holder                (TxpLDHolder)
@@ -65,7 +64,6 @@ type WorkMode ssc m
       , MonadTxpLD ssc m
       , MonadUtxo m
       , MonadSscGS ssc m
-      , MonadSscLDM ssc m
       , SscStorageClass ssc
       , SscLocalDataClass ssc
       , SscHelpersClass ssc
@@ -103,12 +101,11 @@ type RawRealMode ssc =
     KademliaDHT (
     TxpLDHolder ssc (
     SscHolder ssc (
-    SscLDImpl ssc (
     ContextHolder ssc (
     Modern.DBHolder ssc (
     Dialog DHTPacking (
     Transfer (
-    MSockSt ssc))))))))
+    MSockSt ssc)))))))
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.

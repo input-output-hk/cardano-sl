@@ -29,7 +29,7 @@ import           Pos.Binary.Class                     (Bi)
 import           Pos.Crypto                           (PublicKey, Share)
 import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
                                                        SscLocalDataClass (..))
-import           Pos.Ssc.Extra.MonadLD                (MonadSscLDM)
+import           Pos.Ssc.Extra.MonadLD                (MonadSscLD)
 import           Pos.Ssc.GodTossing.Functions         (checkOpeningMatchesCommitment,
                                                        checkShares, isCommitmentIdx,
                                                        isOpeningIdx, isSharesIdx,
@@ -95,7 +95,7 @@ getLocalPayload SlotId{..} =
 ----------------------------------------------------------------------------
 -- | Clean-up some data when new slot starts.
 localOnNewSlot
-    :: MonadSscLDM SscGodTossing m
+    :: MonadSscLD SscGodTossing m
     => SlotId -> m ()
 localOnNewSlot = gtRunModify . localOnNewSlotU
 
@@ -116,7 +116,7 @@ localOnNewSlotU si@SlotId {siSlot = slotIdx} = do
 -- | Check whether SSC data with given tag and public key can be added
 -- to local data.
 sscIsDataUseful
-    :: MonadSscLDM SscGodTossing m
+    :: MonadSscLD SscGodTossing m
     => MsgTag -> AddressHash PublicKey -> m Bool
 sscIsDataUseful tag = gtRunRead . sscIsDataUsefulQ tag
 
@@ -159,7 +159,7 @@ sscIsDataUsefulSetImpl localG globalG addr =
 -- | Process message and save it if needed. Result is whether message
 -- has been actually added.
 sscProcessMessage ::
-       (MonadSscLDM SscGodTossing m, SscBi)
+       (MonadSscLD SscGodTossing m, SscBi)
     => DataMsg -> m Bool
 sscProcessMessage msg = gtRunModify $ do
     certs <- use gtGlobalCertificates

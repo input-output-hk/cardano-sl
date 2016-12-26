@@ -8,9 +8,6 @@ module NodeOptions
        , getNodeOptions
        ) where
 
-#ifdef WITH_WALLET
-import           Options.Applicative.Simple (showDefault)
-#endif
 import           Options.Applicative.Simple (Parser, auto, help, long, metavar, option,
                                              simpleOptions, strOption, switch, value)
 import           Serokell.Util.OptParse     (fromParsec)

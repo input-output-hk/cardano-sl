@@ -27,8 +27,7 @@ import           Pos.DHT.Real                  (KademliaDHTContext, getKademliaD
 import           Pos.Genesis                   (genesisSecretKeys)
 import           Pos.Launcher                  (runOurDialog)
 import           Pos.Ssc.Class                 (SscConstraint, sscLoadGlobalState)
-import           Pos.Ssc.Extra                 (SscHolder, SscLDImpl, runSscHolder,
-                                                runSscLDImpl)
+import           Pos.Ssc.Extra                 (SscHolder, runSscHolder)
 import qualified Pos.Txp.Holder                as Modern
 import qualified Pos.Txp.Types.UtxoView        as UV
 import           Pos.WorkMode                  (RawRealMode)
@@ -54,10 +53,9 @@ walletServeWebFull daedalusDbPath debug = serveImpl $ do
 type WebHandler ssc = WalletWebDB (RawRealMode ssc)
 type SubKademlia ssc = (Modern.TxpLDHolder ssc
                         (SscHolder ssc
-                          (SscLDImpl ssc
                            (ContextHolder ssc
                             (Modern.DBHolder ssc
-                              (Dialog DHTPacking (Transfer (MutSocketState ssc))))))))
+                              (Dialog DHTPacking (Transfer (MutSocketState ssc)))))))
 
 convertHandler
     :: forall ssc a . SscConstraint ssc
@@ -73,7 +71,6 @@ convertHandler kctx nc modernDBs ws handler = do
     liftIO (runOurDialog newMutSocketState "wallet-api" .
             Modern.runDBHolder modernDBs .
             runContextHolder nc .
-            runSscLDImpl .
             flip runSscHolder initGS .
             Modern.runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) tip .
             runKademliaDHTRaw kctx .

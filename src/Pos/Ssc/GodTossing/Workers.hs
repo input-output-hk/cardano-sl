@@ -38,7 +38,7 @@ import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey, sign)
 import           Pos.Slotting                     (getSlotStart, onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
-import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQueryM, sscRunLocalUpdateM)
+import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery, sscRunLocalUpdate)
 import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, getThreshold,
                                                    hasCommitment, hasOpening, hasShares,
                                                    isCommitmentIdx, isOpeningIdx,
@@ -88,7 +88,7 @@ checkNSendOurCert = do
     getOurVssCertificate :: m VssCertificate
     getOurVssCertificate = do
         (ourPk, ourAddr) <- getOurPkAndAddr
-        localCerts       <- sscRunLocalQueryM $ view ldCertificates
+        localCerts       <- sscRunLocalQuery $ view ldCertificates
         case lookup ourAddr localCerts of
           Just c  -> return c
           Nothing -> do
@@ -99,7 +99,7 @@ checkNSendOurCert = do
                                          , vcSignature  = sign ourSk vssKey
                                          , vcSigningKey = ourPk
                                          }
-            sscRunLocalUpdateM $ ldCertificates %= insert ourAddr ourCert
+            sscRunLocalUpdate $ ldCertificates %= insert ourAddr ourCert
             return ourCert
 
 getOurPkAndAddr

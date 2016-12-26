@@ -168,7 +168,6 @@ library
                         Pos.DB.Utxo
                         Pos.DB.DBIterator
                         Pos.Ssc.Extra.Holder
-                        Pos.Ssc.Extra.LocalData
                         Pos.Ssc.Extra.MonadGS
                         Pos.Ssc.Extra.MonadLD
                         Pos.Ssc.GodTossing.Arbitrary

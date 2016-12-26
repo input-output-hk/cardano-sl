@@ -37,7 +37,7 @@ import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Types         (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS       (MonadSscGS (..))
-import           Pos.Ssc.Extra.MonadLD       (MonadSscLD (..), MonadSscLDM (..))
+import           Pos.Ssc.Extra.MonadLD       (MonadSscLD (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 data SscState ssc =
@@ -83,19 +83,15 @@ instance MonadIO m => MonadSscGS ssc (SscHolder ssc m) where
                 return res
     setGlobalState newSt = SscHolder (asks sscGlobal) >>= atomically . flip STM.writeTVar newSt
 
-instance MonadIO m => MonadSscLDM ssc (SscHolder ssc m) where
-    getLocalDataM = SscHolder (asks sscLocal) >>= atomically . STM.readTVar
-    modifyLocalDataM f = SscHolder ask >>= \sscSt -> atomically $ do
+instance MonadIO m => MonadSscLD ssc (SscHolder ssc m) where
+    getLocalData = SscHolder (asks sscLocal) >>= atomically . STM.readTVar
+    modifyLocalData f = SscHolder ask >>= \sscSt -> atomically $ do
                 g <- STM.readTVar (sscGlobal sscSt)
                 l <- STM.readTVar (sscLocal sscSt)
                 let (res, nl) = f (g, l)
                 STM.writeTVar (sscLocal sscSt) nl
                 return res
-    setLocalDataM newSt = SscHolder (asks sscLocal) >>= atomically . flip STM.writeTVar newSt
-
-instance MonadSscLD ssc m => MonadSscLD ssc (SscHolder ssc m) where
-    getLocalData = lift  getLocalData
-    setLocalData = lift . setLocalData
+    setLocalData newSt = SscHolder (asks sscLocal) >>= atomically . flip STM.writeTVar newSt
 
 runSscHolder :: forall ssc m a. (SscLocalDataClass ssc, MonadIO m)
              => SscHolder ssc m a -> SscGlobalState ssc -> m a

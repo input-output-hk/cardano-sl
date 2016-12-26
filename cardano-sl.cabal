@@ -78,7 +78,6 @@ library
                         Pos.Ssc.Class.LocalData
                         Pos.Ssc.Extra
                         Pos.State
-                        Pos.State.Holder
                         Pos.State.State
                         Pos.Statistics
                         Pos.Txp.Listeners

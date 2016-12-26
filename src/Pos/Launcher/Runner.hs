@@ -38,7 +38,7 @@ import           Control.Monad.Catch          (bracket)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Control.Monad.Trans.Resource (runResourceT)
 import           Control.TimeWarp.Rpc         (Dialog, Transfer, commLoggerName,
-                                               runDialog, runTransfer)
+                                               runDialog, runTransfer, setForkStrategy)
 import           Control.TimeWarp.Timed       (MonadTimed, currentTime, fork, killThread,
                                                repeatForever, runTimedIO, runTimedIO, sec)
 
@@ -53,8 +53,9 @@ import           Universum
 import           Pos.Binary                   ()
 import           Pos.CLI                      (readLoggerConfig)
 import           Pos.Communication            (MutSocketState, SysStartRequest (..),
-                                               allListeners, newMutSocketState,
-                                               noCacheMessageNames, sysStartReqListener,
+                                               allListeners, forkStrategy,
+                                               newMutSocketState, noCacheMessageNames,
+                                               sysStartReqListener,
                                                sysStartReqListenerSlave,
                                                sysStartRespListener)
 import           Pos.Constants                (RunningMode (..), defaultPeers,
@@ -147,22 +148,25 @@ runRawRealMode
     -> [ListenerDHT (MutSocketState ssc) (RawRealMode ssc)]
     -> RawRealMode ssc c
     -> IO c
-runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ do
-    putText $ "Running listeners number: " <> show (length listeners)
-    lift $ setupLoggers lp
-    modernDBs <- Modern.openNodeDBs npRebuildDb npDbPathM npCustomUtxo
-    initTip <- Modern.runDBHolder modernDBs Modern.getTip
-    initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
-    initNC <- sscCreateNodeContext @ssc sscnp
-    let run =
-            runOurDialog newMutSocketState lpRunnerTag .
-            Modern.runDBHolder modernDBs .
-            runCH np initNC .
-            flip runSscHolder initGS .
-            runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip .
-            runKDHT inst npBaseParams listeners $
-            nodeStartMsg npBaseParams >> action
-    lift run
+runRawRealMode inst np@NodeParams {..} sscnp listeners action =
+    runResourceT $
+    do putText $ "Running listeners number: " <> show (length listeners)
+       lift $ setupLoggers lp
+       modernDBs <- Modern.openNodeDBs npRebuildDb npDbPathM npCustomUtxo
+       initTip <- Modern.runDBHolder modernDBs Modern.getTip
+       initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
+       initNC <- sscCreateNodeContext @ssc sscnp
+       let actionWithMsg = nodeStartMsg npBaseParams >> action
+       let kademliazedAction = runKDHT inst npBaseParams listeners actionWithMsg
+       let finalAction = setForkStrategy (forkStrategy @ssc) kademliazedAction
+       let run =
+               runOurDialog newMutSocketState lpRunnerTag .
+               Modern.runDBHolder modernDBs .
+               runCH np initNC .
+               flip runSscHolder initGS .
+               runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip $
+               finalAction
+       lift run
   where
     lp@LoggingParams {..} = bpLoggingParams npBaseParams
 

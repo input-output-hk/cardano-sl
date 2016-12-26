@@ -7,7 +7,7 @@
 
 -- | Instance of SscListenersClass
 
-module Pos.Ssc.GodTossing.Listener.Listeners
+module Pos.Ssc.GodTossing.Listeners
        ( -- * Instances
          -- ** instance SscListenersClass SscGodTossing
        ) where

@@ -80,10 +80,10 @@ txIdToCTxId :: TxId -> CTxId
 txIdToCTxId = CTxId . CHash . sformat build
 
 mkCTx :: (TxId, Tx, Bool) -> CTxMeta -> CTx
-mkCTx (txId, tx, isInput) = CTx (txIdToCTxId txId) outputCoins . meta
+mkCTx (txId, tx, isOutgoing) = CTx (txIdToCTxId txId) outputCoins . meta
   where
     outputCoins = sum . map txOutValue $ txOutputs tx
-    meta = if isInput then CTIn else CTOut
+    meta = if isOutgoing then CTOut else CTIn
 
 ----------------------------------------------------------------------------
 -- wallet

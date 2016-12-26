@@ -7,6 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 
 module Test.Util
@@ -21,6 +22,10 @@ module Test.Util
        , addFail
        , newWork
 
+       , TalkStyle (..)
+       , sendAll
+       , receiveAll
+
        , deliveryTest
        ) where
 
@@ -28,12 +33,14 @@ import           Control.Concurrent.STM      (STM, atomically, check)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, writeTVar)
 import           Control.Exception           (Exception, SomeException (..))
 import           Control.Lens                (makeLenses, (%=), (-=))
-import           Control.Monad               (void)
+import           Control.Monad               (forM_, void)
 import           Control.Monad.IO.Class      (MonadIO (..))
 import           Control.Monad.State         (StateT)
 import           Data.Binary                 (Binary)
+import           Data.Foldable               (for_)
 import qualified Data.List                   as L
 import qualified Data.Set                    as S
+import           Data.Void                   (Void)
 import           GHC.Generics                (Generic)
 import           Mockable.Concurrent         (delay, fork)
 import           Mockable.Exception          (catch, throw)
@@ -41,7 +48,9 @@ import           Mockable.Production         (Production (..))
 import           Network.Transport.Abstract  (closeTransport, newEndPoint)
 import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
-import           Node                        (Listener (..), NodeId, PreListener, Worker,
+import           Node                        (ConversationActions (..), Listener (..),
+                                              ListenerAction (..), MessageName, NodeId,
+                                              PreListener, SendActions (..), Worker,
                                               nodeId, startNode, stopNode)
 import           Serokell.Util.Concurrent    (modifyTVarS)
 import           System.Random               (mkStdGen)
@@ -50,8 +59,8 @@ import           Test.QuickCheck.Arbitrary   (Arbitrary (..))
 import           Test.QuickCheck.Modifiers   (getLarge)
 import           Test.QuickCheck.Property    (Testable (..), failed, reason, succeeded)
 
--- Spec can be found at bottom of module.
--- It's there to allow TH usage
+
+-- * Parcel
 
 data Parcel = Parcel
     { parcelNo  :: Int
@@ -62,6 +71,9 @@ instance Binary Parcel
 
 instance Arbitrary Parcel where
     arbitrary = Parcel <$> (getLarge <$> arbitrary) <*> arbitrary
+
+
+-- * TestState
 
 data TestState = TestState
     { _fails         :: [String]
@@ -100,7 +112,10 @@ newWork testState workerName act = do
         addFail testState $ "Error thrown in " ++ workerName ++ ": " ++ show e
     modifyTestState testState $ activeWorkers -= 1
 
--- I guess, errors in network-transport wasn't supposed to be processed in such way
+
+-- * Misc
+
+-- I guess, errors in network-transport wasn't supposed to be processed in such way ^^
 throwLeft :: Exception e => Production (Either e a) -> Production a
 throwLeft = (>>= f)
   where
@@ -116,6 +131,49 @@ awaitSTM time predicate = do
         liftIO . atomically $ writeTVar tvar True
     liftIO . atomically $
         check =<< (||) <$> predicate <*> readTVar tvar
+
+
+-- * Talk style
+
+-- | Way to send pack of messages
+data TalkStyle
+    = SingleMessageStyle
+    | ConversationStyle
+
+instance Show TalkStyle where
+    show SingleMessageStyle = "single-message style"
+    show ConversationStyle  = "conversation style"
+
+sendAll
+    :: ( Binary header, Binary body, Monad m )
+    => TalkStyle
+    -> SendActions header m
+    -> NodeId
+    -> MessageName
+    -> [(header, body)]
+    -> m ()
+sendAll SingleMessageStyle sendActions peerId msgName msgs =
+    forM_ msgs $ uncurry $ sendTo sendActions peerId msgName
+
+sendAll ConversationStyle  sendActions peerId msgName msgs =
+    withConnectionTo sendActions @_ @Void peerId msgName $
+        \cactions -> forM_ msgs $ uncurry $ send cactions
+
+receiveAll
+    :: ( Binary header, Binary body, Monad m )
+    => TalkStyle
+    -> (body -> m ())
+    -> ListenerAction header m
+receiveAll SingleMessageStyle handler =
+    ListenerActionOneMsg $ \_ _ -> handler
+receiveAll ConversationStyle  handler =
+    ListenerActionConversation @_ @_ @Void $ \_ cactions ->
+        let loop = do mmsg <- recv cactions
+                      for_ mmsg $ \msg -> handler msg >> loop
+        in  loop
+
+
+-- * Test template
 
 deliveryTest :: Binary header
              => TVar TestState

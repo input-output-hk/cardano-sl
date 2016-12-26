@@ -12,7 +12,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RecursiveDo #-}
-
 {-# LANGUAGE TypeApplications #-}
 
 module Node (

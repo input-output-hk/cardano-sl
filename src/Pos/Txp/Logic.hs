@@ -17,7 +17,7 @@ module Pos.Txp.Logic
        , txRollbackBlocks
        ) where
 
-import           Control.Lens            (each, over, (^.), _1, _3)
+import           Control.Lens            (each, over, view, (^.), _1, _3)
 import qualified Data.HashMap.Strict     as HM
 import qualified Data.HashSet            as HS
 import           Data.List.NonEmpty      (NonEmpty)
@@ -31,11 +31,12 @@ import           Pos.Crypto              (WithHash (..), hash, withHash)
 import           Pos.DB                  (DB, MonadDB, getUtxoDB)
 import           Pos.DB.Utxo             (BatchOp (..), getTip, writeBatchToUtxo)
 import           Pos.Ssc.Class.Types     (Ssc)
-import           Pos.State.Storage.Types (AltChain, ProcessTxRes (..), mkPTRinvalid)
-import           Pos.Txp.Class           (MonadTxpLD (..), TxpLD, getMemPool, getUtxoView)
+import           Pos.State.Storage.Types (AltChain)
+import           Pos.Txp.Class           (MonadTxpLD (..), TxpLD, getUtxoView)
 import           Pos.Txp.Error           (TxpError (..))
 import           Pos.Txp.Holder          (TxpLDHolder, runLocalTxpLDHolder)
 import           Pos.Txp.Types           (MemPool (..), UtxoView (..))
+import           Pos.Txp.Types.Types     (ProcessTxRes (..), mkPTRinvalid)
 import qualified Pos.Txp.Types.UtxoView  as UV
 import           Pos.Types               (Block, MonadUtxo, MonadUtxoRead (utxoGet),
                                           SlotId, Tx (..), TxAux, TxDistribution (..),
@@ -83,8 +84,7 @@ txApplyBlocks blocks = do
 txApplyBlock
     :: TxpWorkMode ssc m
     => Block ssc -> m ()
-txApplyBlock (Left _) = pass
-txApplyBlock (Right blk) = do
+txApplyBlock blk = do
     let hashPrevHeader = blk ^. prevBlockL
     tip <- getTip
     when (tip /= hashPrevHeader) $
@@ -94,11 +94,10 @@ txApplyBlock (Right blk) = do
     filterMemPool txsAndIds
     writeBatchToUtxo (PutTip (headerHash blk) : batch)
   where
-    txas = toList $ blk ^. blockTxas
+    txas = either (const []) (toList . view blockTxas) blk
     txsAndIds = map (\tx -> (hash (tx ^. _1), (tx ^. _1, tx ^. _3))) txas
     prependToBatch :: (TxId, (Tx, TxDistribution))
-                   -> [BatchOp ssc]
-                   -> [BatchOp ssc]
+                   -> [BatchOp ssc] -> [BatchOp ssc]
     prependToBatch (txId, (Tx{..}, distr)) batch =
         let keys = zipWith TxIn (repeat txId) [0 ..]
             delIn = map DelTxIn txInputs
@@ -138,6 +137,8 @@ txVerifyBlocks newChain = do
     attachSlotId sId (Left errors) =
         Left $ (sformat ("[Block's slot = "%slotIdF % "]"%stext) sId) errors
 
+-- CHECK: @processTx
+-- #processTxDo
 processTx :: MinTxpWorkMode ssc m => (TxId, TxAux) -> m ProcessTxRes
 processTx itw@(_, (tx, _, _)) = do
     tipBefore <- getTip
@@ -155,6 +156,8 @@ processTx itw@(_, (tx, _, _)) = do
             (mkPTRinvalid ["Tips aren't same"], txld)
         )
 
+-- CHECK: @processTxDo
+-- #verifyTxPure
 processTxDo :: TxpLD ssc -> HM.HashMap TxIn TxOutAux -> DB ssc
             -> (TxId, TxAux) -> (ProcessTxRes, TxpLD ssc)
 processTxDo ld@(uv, mp, undos, tip) resolvedIns utxoDB (id, (tx, txw, txd))

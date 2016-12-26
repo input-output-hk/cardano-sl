@@ -5,7 +5,7 @@
 module Pos.DB.Utxo
        ( BatchOp (..)
        , getTip
-       , getTotalCoins
+       , getTotalFtsStake
        , putTxOut
        , deleteTxOut
        , getTxOut
@@ -29,23 +29,24 @@ import           Pos.DB.Error      (DBError (..))
 import           Pos.DB.Functions  (rocksDelete, rocksGetBi, rocksPutBi, rocksWriteBatch,
                                     traverseAllEntries)
 import           Pos.DB.Types      (DB)
-import           Pos.Types         (Address, Coin, HeaderHash, TxIn (..), TxOut (..),
-                                    TxOutAux, Utxo, belongsTo)
+import           Pos.Types         (Address, Coin, HeaderHash, TxIn (..), TxOutAux, Utxo,
+                                    belongsTo, txOutStake)
 
 data BatchOp ssc
     = DelTxIn TxIn
     | AddTxOut TxIn
                TxOutAux
     | PutTip (HeaderHash ssc)
-    | PutTotal Coin
+    | PutFtsSum Coin
 
 -- | Get current TIP from Utxo DB.
 getTip :: (MonadThrow m, MonadDB ssc m) => m (HeaderHash ssc)
 getTip = maybe (throwM $ DBMalformed "no tip in Utxo DB") pure =<< getTipMaybe
 
--- | Get current TIP from Utxo DB.
-getTotalCoins :: (MonadThrow m, MonadDB ssc m) => m Coin
-getTotalCoins = maybe (throwM $ DBMalformed "no 'sum' in Utxo DB") pure =<< getSumMaybe
+-- | Get total amount of stake to be used for follow-the-satoshi. It's
+-- different from total amount of coins in the system.
+getTotalFtsStake :: (MonadThrow m, MonadDB ssc m) => m Coin
+getTotalFtsStake = maybe (throwM $ DBMalformed "no 'ftssum' in Utxo DB") pure =<< getFtsSumMaybe
 
 putTxOut :: MonadDB ssc m => TxIn -> TxOutAux -> m ()
 putTxOut = putBi . utxoKey
@@ -68,13 +69,10 @@ prepareUtxoDB
     => Utxo -> HeaderHash ssc -> m ()
 prepareUtxoDB customUtxo initialTip = do
     putIfEmpty getTipMaybe putGenesisTip
-    putIfEmpty getSumMaybe putUtxo
-    putIfEmpty getSumMaybe putGenesisSum
+    putIfEmpty getFtsSumMaybe putUtxo
+    putIfEmpty getFtsSumMaybe putGenesisSum
   where
-    -- [CSL-390] not sure whether this totalCoins is going to be used for
-    -- follow-the-satoshi or not, someone please look at it when you do
-    -- [CSL-390]
-    totalCoins = sum $ map (txOutValue . fst) $ toList customUtxo
+    totalCoins = sum $ map snd $ concatMap txOutStake $ toList customUtxo
     putIfEmpty
         :: forall a.
            (m (Maybe a)) -> m () -> m ()
@@ -88,7 +86,7 @@ putTip :: MonadDB ssc m => HeaderHash ssc -> m ()
 putTip h = getUtxoDB >>= rocksPutBi tipKey h
 
 putTotalCoins :: MonadDB ssc m => Coin -> m ()
-putTotalCoins c = getUtxoDB >>= rocksPutBi sumKey c
+putTotalCoins c = getUtxoDB >>= rocksPutBi ftsSumKey c
 
 iterateByUtxo
     :: forall ssc m . (MonadDB ssc m, MonadMask m)
@@ -142,7 +140,7 @@ toRocksOp :: BatchOp ssc -> Rocks.BatchOp
 toRocksOp (AddTxOut txIn txOut) = Rocks.Put (utxoKey txIn) (encodeStrict txOut)
 toRocksOp (DelTxIn txIn)        = Rocks.Del $ utxoKey txIn
 toRocksOp (PutTip h)            = Rocks.Put tipKey (encodeStrict h)
-toRocksOp (PutTotal c)          = Rocks.Put sumKey (encodeStrict c)
+toRocksOp (PutFtsSum c)         = Rocks.Put ftsSumKey (encodeStrict c)
 
 tipKey :: ByteString
 tipKey = "btip"
@@ -152,11 +150,11 @@ utxoKey :: TxIn -> ByteString
 -- utxoKey = (<> "t") . encodeStrict
 utxoKey = encodeStrict
 
-sumKey :: ByteString
-sumKey = "sum"
+ftsSumKey :: ByteString
+ftsSumKey = "ftssum"
 
 getTipMaybe :: (MonadDB ssc m) => m (Maybe (HeaderHash ssc))
 getTipMaybe = getUtxoDB >>= rocksGetBi tipKey
 
-getSumMaybe :: (MonadDB ssc m) => m (Maybe Coin)
-getSumMaybe = getUtxoDB >>= rocksGetBi sumKey
+getFtsSumMaybe :: (MonadDB ssc m) => m (Maybe Coin)
+getFtsSumMaybe = getUtxoDB >>= rocksGetBi ftsSumKey

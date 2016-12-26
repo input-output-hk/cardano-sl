@@ -39,7 +39,7 @@ import qualified Pos.Binary.Class       as Bi
 import           Pos.Binary.Coin        ()
 import           Pos.Binary.Crypto      ()
 import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey)
-import           Pos.Script             (Script)
+import           Pos.Script.Type        (Script)
 
 -- | Address is where you can send coins.
 data Address

@@ -37,7 +37,6 @@ import           Pos.Ssc.Class.Types         (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS       (MonadSscGS (..))
 import           Pos.Ssc.Extra.MonadLD       (MonadSscLD (..), MonadSscLDM (..))
 import           Pos.State                   (MonadDB (..))
-import           Pos.Txp.LocalData           (MonadTxLD (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 import qualified Pos.DB                      as Modern (MonadDB (..))
@@ -45,7 +44,7 @@ import qualified Pos.DB                      as Modern (MonadDB (..))
 data SscState ssc =
     SscState
     {
-      sscGlobal :: !(STM.TVar (SscGlobalStateM ssc))
+      sscGlobal :: !(STM.TVar (SscGlobalState ssc))
     , sscLocal  :: !(STM.TVar (SscLocalData ssc))
     }
 
@@ -54,7 +53,7 @@ newtype SscHolder ssc m a =
     { getSscHolder :: ReaderT (SscState ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
                 MonadCatch, MonadIO, HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
-                MonadDB ssc, CanLog, MonadMask, MonadTxLD, Modern.MonadDB ssc)
+                MonadDB ssc, CanLog, MonadMask, Modern.MonadDB ssc)
 
 instance MonadTransfer s m => MonadTransfer s (SscHolder ssc m)
 type instance ThreadId (SscHolder ssc m) = ThreadId m
@@ -100,7 +99,7 @@ instance MonadSscLD ssc m => MonadSscLD ssc (SscHolder ssc m) where
     setLocalData = lift . setLocalData
 
 runSscHolder :: forall ssc m a. (SscLocalDataClass ssc, MonadIO m)
-             => SscHolder ssc m a -> SscGlobalStateM ssc -> m a
+             => SscHolder ssc m a -> SscGlobalState ssc -> m a
 runSscHolder holder glob = SscState
                        <$> liftIO (STM.newTVarIO glob)
                        <*> liftIO (STM.newTVarIO (sscEmptyLocalData @ssc))

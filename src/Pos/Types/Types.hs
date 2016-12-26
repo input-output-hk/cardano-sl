@@ -42,6 +42,7 @@ module Pos.Types.Types
        , TxInWitness (..)
        , TxWitness
        , TxDistribution (..)
+       , TxSigData
        , TxSig
        , TxId
        , TxIn (..)
@@ -172,7 +173,7 @@ import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, P
                                          Signature, hash, hashHexF, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
-import           Pos.Script             (Script)
+import           Pos.Script.Type        (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
 import           Pos.Types.Address      (Address (..), AddressHash, addressF,
                                          checkPubKeyAddress, checkScriptAddress,
@@ -256,8 +257,11 @@ type TxAttributes = Attributes ()
 -- | Represents transaction identifier as 'Hash' of 'Tx'.
 type TxId = Hash Tx
 
+-- | Data that is being signed when creating a TxSig.
+type TxSigData = (TxId, Word32, Hash [TxOut], Hash TxDistribution)
+
 -- | 'Signature' of addrId.
-type TxSig = Signature (TxId, Word32, Hash [TxOut], Hash TxDistribution)
+type TxSig = Signature TxSigData
 
 -- | A witness for a single input.
 data TxInWitness
@@ -779,6 +783,9 @@ instance BiSsc ssc => Buildable (GenesisBlockHeader ssc) where
 type BlockHeader ssc = Either (GenesisBlockHeader ssc) (MainBlockHeader ssc)
 -- | 'Hash' of block header.
 type HeaderHash ssc = Hash (BlockHeader ssc)
+
+instance BiSsc ssc => Buildable (BlockHeader ssc) where
+    build = either Buildable.build Buildable.build
 
 -- | Specialized formatter for 'HeaderHash'.
 headerHashF :: Format r (HeaderHash ssc -> r)

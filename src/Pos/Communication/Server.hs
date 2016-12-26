@@ -15,7 +15,7 @@ import           System.Wlog                         (LoggerName)
 import           Universum
 
 import           Pos.Binary.Communication            ()
-import           Pos.Communication.Server.Block      (blockListeners)
+import           Pos.Block.Network.Server            (blockListeners)
 import           Pos.Communication.Server.Delegation (delegationListeners)
 import           Pos.Communication.Server.SysStart
 import           Pos.Communication.Types             (MutSocketState)

@@ -29,7 +29,10 @@ import           Test.QuickCheck.Instances  ()
 import           Universum
 
 import           Pos.Binary.Class           (Bi)
-import           Pos.Constants              (epochSlots, sharedSeedLength)
+import           Pos.Binary.Types           ()
+import           Pos.Binary.Update          ()
+import           Pos.Constants              (curProtocolVersion, curSoftwareVersion,
+                                             epochSlots, sharedSeedLength)
 import           Pos.Crypto                 (PublicKey, SecretKey, Share, hash, sign,
                                              toPublic)
 import           Pos.Crypto.Arbitrary       ()
@@ -45,6 +48,9 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              SlotId (..), Tx (..), TxDistribution (..),
                                              TxIn (..), TxInWitness (..), TxOut (..),
                                              makePubKeyAddress, makeScriptAddress)
+import           Pos.Types.Update           (SystemTag, UpdateData (..),
+                                             UpdateProposal (..), UpdateVote (..),
+                                             mkSystemTag)
 import           Pos.Util                   (AsBinary)
 
 makeSmall :: Gen a -> Gen a
@@ -133,8 +139,7 @@ instance Bi Tx => Arbitrary Tx where
 -- signatures in the transaction's inputs have been replaced with a bogus one.
 
 buildProperTx
-    :: (Bi Tx, Bi TxOut, Bi TxDistribution)
-    => [(Tx, SecretKey, SecretKey, Coin)]
+    :: [(Tx, SecretKey, SecretKey, Coin)]
     -> (Coin -> Coin, Coin -> Coin)
     -> Gen [(Tx, TxIn, TxOut, TxInWitness)]
 buildProperTx triplesList (inCoin, outCoin)= do
@@ -235,3 +240,23 @@ instance Arbitrary SmallHashMap where
     arbitrary = SmallHashMap <$> makeSmall arbitrary
 
 derive makeNFData ''GoodTx
+
+----------------------------------------------------------------------------
+-- Update
+----------------------------------------------------------------------------
+
+instance Arbitrary SystemTag where
+    arbitrary =
+        oneof $
+        map (pure . fromMaybe onFail) [mkSystemTag "win64", mkSystemTag "mac32"]
+      where
+        onFail = panic "instance Arbitrary SystemTag: disaster"
+
+instance Arbitrary UpdateVote where
+    arbitrary = UpdateVote <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary UpdateData where
+    arbitrary = UpdateData <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary UpdateProposal where
+    arbitrary = pure $ UpdateProposal curProtocolVersion 0 curSoftwareVersion mempty

@@ -8,11 +8,13 @@ module TxGeneration
        , peekTx
        , nextValidTx
        , resetBamboo
+       , isTxVerified
        ) where
 
 import           Control.Concurrent.STM.TArray (TArray)
 import           Control.Concurrent.STM.TVar   (TVar, modifyTVar', newTVar, readTVar,
                                                 writeTVar)
+import           Control.Lens                  (view, _1)
 import           Control.TimeWarp.Timed        (sec)
 import           Data.Array.MArray             (newListArray, readArray, writeArray)
 import           Data.List                     (tail, (!!))
@@ -20,10 +22,10 @@ import           Universum                     hiding (head)
 
 import           Pos.Constants                 (k, slotDuration)
 import           Pos.Crypto                    (SecretKey, hash, toPublic, unsafeHash)
+import           Pos.DB                        (getTxOut)
 import           Pos.Genesis                   (genesisAddresses, genesisSecretKeys)
-import           Pos.State                     (isTxVerified)
-import           Pos.Types                     (Tx (..), TxAux, TxId, TxOut (..),
-                                                makePubKeyAddress)
+import           Pos.Types                     (Tx (..), TxAux, TxId, TxIn (..),
+                                                TxOut (..), makePubKeyAddress)
 import           Pos.Wallet                    (makePubKeyTx)
 import           Pos.WorkMode                  (WorkMode)
 
@@ -92,6 +94,13 @@ curBambooTx bp@BambooPool {..} idx = atomically $
 peekTx :: BambooPool -> IO TxAux
 peekTx bp = curBambooTx bp 0
 
+isTxVerified :: (WorkMode ssc m) => Tx -> m Bool
+isTxVerified tx = do
+    let txHash = hash tx
+        txOutputsAsInputs =
+            map (\i -> TxIn txHash (fromIntegral i)) $ [0..length (txOutputs tx)]
+    and <$> mapM (fmap isJust . getTxOut) txOutputsAsInputs
+
 nextValidTx
     :: WorkMode ssc m
     => BambooPool
@@ -100,13 +109,14 @@ nextValidTx
     -> m (Either TxAux TxAux)
 nextValidTx bp curTps propThreshold = do
     curTx <- liftIO $ curBambooTx bp 1
-    isVer <- isTxVerified curTx
-    liftIO $ if isVer
+    isVer <- isTxVerified $ view _1 curTx
+    liftIO $
+        if isVer
         then do
-        shiftTx bp
-        nextBamboo bp curTps propThreshold
-        return $ Right curTx
+            shiftTx bp
+            nextBamboo bp curTps propThreshold
+            return $ Right curTx
         else do
-        parentTx <- peekTx bp
-        nextBamboo bp curTps propThreshold
-        return $ Left parentTx
+            parentTx <- peekTx bp
+            nextBamboo bp curTps propThreshold
+            return $ Left parentTx

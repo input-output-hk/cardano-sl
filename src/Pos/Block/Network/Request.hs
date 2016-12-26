@@ -11,6 +11,8 @@ module Pos.Block.Network.Request
        , replyWithBlocksRequest
        ) where
 
+import           Formatting                     (build, sformat, (%))
+import           System.Wlog                    (logDebug)
 import           Universum
 
 import           Pos.Binary.Block.Network       ()
@@ -30,16 +32,18 @@ mkHeadersRequest
     :: WorkMode ssc m
     => Maybe (HeaderHash ssc) -> m (MsgGetHeaders ssc)
 mkHeadersRequest upto = do
-    headers <- getHeadersOlderExp upto
+    headers <- getHeadersOlderExp Nothing
     pure $ MsgGetHeaders headers upto
 
 replyWithHeadersRequest
     :: forall ssc m . ResponseMode ssc m
     => Maybe (HeaderHash ssc) -> m ()
 replyWithHeadersRequest upto = do
+    logDebug "replyWithHeadersRequest: preparing request to be sent"
     msg <- mkHeadersRequest upto
     recordHeadersRequest msg =<< getUserState
     replyToNode msg
+    logDebug "replyWithHeadersRequest: data sent"
 
 -- | Make message which requests chain of blocks which is based on our
 -- tip. LcaChild is the first block after LCA we don't
@@ -56,8 +60,13 @@ mkBlocksRequest lcaChild wantedBlock =
 replyWithBlocksRequest
     :: forall ssc m . ResponseMode ssc m
     => HeaderHash ssc -> HeaderHash ssc -> m ()
-replyWithBlocksRequest ourTip wantedBlock = do
-    recordBlocksRequest ourTip wantedBlock =<< getUserState
+replyWithBlocksRequest lcaChild wantedBlock = do
+    logDebug $
+        sformat ("replyWithBlocksRequest: asking from (lca child) "%build%" to (new tip) "%build)
+                lcaChild wantedBlock
+    recordBlocksRequest lcaChild wantedBlock =<< getUserState
+    logDebug "replyWithBlocksRequest: replying to node"
     replyToNode msg
+    logDebug "replyWithBlocksRequest: replied"
   where
-    msg = mkBlocksRequest ourTip wantedBlock
+    msg = mkBlocksRequest lcaChild wantedBlock

@@ -10,6 +10,7 @@ module Pos.Context.Class
        ( WithNodeContext (..)
 
        , putBlkSemaphore
+       , readBlkSemaphore
        , takeBlkSemaphore
 
        , withProxyCaches
@@ -74,6 +75,10 @@ putBlkSemaphore
     => HeaderHash ssc -> m ()
 putBlkSemaphore tip = liftIO . flip putMVar tip . ncBlkSemaphore =<< getNodeContext
 
+readBlkSemaphore
+    :: (MonadIO m, WithNodeContext ssc m)
+    => m (HeaderHash ssc)
+readBlkSemaphore = liftIO . readMVar . ncBlkSemaphore =<< getNodeContext
 
 ----------------------------------------------------------------------------
 -- ProxyCache logic

@@ -15,7 +15,7 @@ module Pos.DB.Block
        , putBlock
        , loadLastNBlocksWithUndo
        , loadBlocksWithUndoWhile
-       , loadHeadersUntil
+       , loadHeadersWhile
 
        , prepareBlockDB
        ) where
@@ -23,18 +23,20 @@ module Pos.DB.Block
 import           Control.Lens         ((^.))
 import           Data.ByteArray       (convert)
 import           Data.List.NonEmpty   (NonEmpty (..), (<|))
+import qualified Data.List.NonEmpty   as NE
+import           Formatting           (sformat, (%))
 import           Universum
 
-import qualified Data.List.NonEmpty   as NE
 import           Pos.Binary.Class     (Bi)
 import           Pos.Binary.Modern.DB ()
+import           Pos.Crypto           (shortHashF)
 import           Pos.DB.Class         (MonadDB, getBlockDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (rocksDelete, rocksGetBi, rocksPutBi)
 import           Pos.DB.Types         (StoredBlock (..))
 import           Pos.Ssc.Class.Types  (Ssc)
 import           Pos.Types            (Block, BlockHeader, GenesisBlock, HeaderHash, Undo,
-                                       headerHash, prevBlockL)
+                                       genesisHash, headerHash, prevBlockL)
 import qualified Pos.Types            as T
 
 
@@ -69,7 +71,7 @@ setBlockInMainChain h inMainChain =
 isBlockInMainChain
     :: (Ssc ssc, MonadDB ssc m)
     => HeaderHash ssc -> m Bool
-isBlockInMainChain = fmap (maybe True sbInMain) . getStoredBlock
+isBlockInMainChain = fmap (maybe False sbInMain) . getStoredBlock
 
 -- | Get undo data for block with given hash from Block DB.
 getUndo
@@ -110,44 +112,48 @@ loadLastNBlocksWithUndo hash count = NE.reverse <$> doIt hash count
 getBlockWithUndo :: (Ssc ssc, MonadDB ssc m)
                  => HeaderHash ssc -> m (Block ssc, Undo)
 getBlockWithUndo hash =
-    maybe (throwM $
-               DBMalformed "getBlockWithUndo: no block or undo with such HeaderHash")
-          pure
-    =<< (liftA2 (,) <$> getBlock hash <*> getUndo hash)
+    maybe (throwM $ DBMalformed $ sformat errFmt hash) pure =<<
+    (liftA2 (,) <$> getBlock hash <*> getUndo hash)
+  where
+    errFmt =
+        ("getBlockWithUndo: no block or undo with such HeaderHash: " %shortHashF)
 
 -- | Load blocks starting from block with header hash equals @hash@ and while @predicate@ is true.
 -- The head of returned list is the youngest block.
 loadBlocksWithUndoWhile :: (Ssc ssc, MonadDB ssc m)
-                        => HeaderHash ssc -> (Block ssc -> Bool) -> m [(Block ssc, Undo)]
-loadBlocksWithUndoWhile hash predicate = reverse <$> doIt hash
+                        => HeaderHash ssc -> (Block ssc -> Int -> Bool) -> m [(Block ssc, Undo)]
+loadBlocksWithUndoWhile hash predicate = reverse <$> doIt 0 hash
   where
-    doIt h = do
+    doIt depth h = do
         bu@(b, _) <- getBlockWithUndo h
-        if predicate b then
-            (bu:) <$> doIt (b ^. prevBlockL)
-        else
-            return []
+        let prev = b ^. prevBlockL
+        if predicate b depth && (prev /= genesisHash)
+            then (bu:) <$> doIt (succ depth) prev
+            else pure []
 
--- | Takes a starting header hash and queries blockchain until some
+-- | Takes a starting header hash and queries blockchain while some
 -- condition is true or parent wasn't found. Returns headers newest
 -- first.
-loadHeadersUntil
+loadHeadersWhile
     :: forall ssc m.
        (MonadDB ssc m, Ssc ssc)
     => HeaderHash ssc
     -> (BlockHeader ssc -> Int -> Bool)
     -> m [BlockHeader ssc]
-loadHeadersUntil startHHash cond = reverse <$> loadHeadersUntilDo startHHash 0
+loadHeadersWhile startHHash cond = reverse <$> loadHeadersWhileDo startHHash 0
   where
-    loadHeadersUntilDo :: HeaderHash ssc -> Int -> m [BlockHeader ssc]
-    loadHeadersUntilDo curH depth = do
+    errFmt =
+        ("loadHeadersWhile: no header parent with such HeaderHash: " %shortHashF)
+    loadHeadersWhileDo :: HeaderHash ssc -> Int -> m [BlockHeader ssc]
+    loadHeadersWhileDo curH _ | curH == genesisHash = pure []
+    loadHeadersWhileDo curH depth = do
         curHeaderM <- getBlockHeader curH
-        let guarded' = curHeaderM >>= \v -> guard (cond v depth) >> pure v
-        maybe (throwM $ DBMalformed "No header with such hash")
-              (\curHeader ->
-                 (curHeader:) <$>
-                 loadHeadersUntilDo (curHeader ^. prevBlockL ) (succ depth))
-              guarded'
+        case curHeaderM of
+            Nothing -> throwM $ DBMalformed $ sformat errFmt curH
+            Just curHeader
+                | cond curHeader depth ->
+                  (curHeader :) <$> loadHeadersWhileDo (curHeader ^. prevBlockL) (succ depth)
+                | otherwise -> pure []
 
 ----------------------------------------------------------------------------
 -- Initialization

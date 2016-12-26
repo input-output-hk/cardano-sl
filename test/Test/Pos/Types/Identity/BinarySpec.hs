@@ -25,3 +25,6 @@ spec = describe "Types" $ do
         prop "Tx" (binaryEncodeDecode @T.Tx)
         prop "SharedSeed" (binaryEncodeDecode @T.SharedSeed)
         prop "Chaindifficulty" (binaryEncodeDecode @T.ChainDifficulty)
+        prop "UpdateVote" (binaryEncodeDecode @T.UpdateVote)
+        prop "UpdateData" (binaryEncodeDecode @T.UpdateData)
+        prop "SystemTag" (binaryEncodeDecode @T.SystemTag)

@@ -7,12 +7,8 @@ import           Universum
 import           Pos.Binary.Class        (Bi (..))
 import           Pos.Communication.Types (CheckProxySKConfirmed (..),
                                           CheckProxySKConfirmedRes (..),
-                                          ConfirmProxySK (..), RequestBlock (..),
-                                          RequestBlockchainPart (..),
-                                          SendBlockHeader (..), SendBlockchainPart (..),
-                                          SendProxySK (..), SysStartRequest (..),
-                                          SysStartResponse (..))
-import           Pos.Ssc.Class.Types     (Ssc (..))
+                                          ConfirmProxySK (..), SendProxySK (..),
+                                          SysStartRequest (..), SysStartResponse (..))
 import           Pos.Types               ()
 
 instance Bi SysStartRequest where
@@ -22,25 +18,6 @@ instance Bi SysStartRequest where
 instance Bi SysStartResponse where
     put (SysStartResponse t msid) = put t >> put msid
     get = SysStartResponse <$> get <*> get
-
-instance Ssc ssc => Bi (SendBlockHeader ssc) where
-    put (SendBlockHeader b) = put b
-    get = SendBlockHeader <$> get
-
-instance Ssc ssc => Bi (SendBlockchainPart ssc) where
-    put (SendBlockchainPart b) = put b
-    get = SendBlockchainPart <$> get
-
-instance Bi (RequestBlock ssc) where
-    put (RequestBlock b) = put b
-    get = RequestBlock <$> get
-
-instance Bi (RequestBlockchainPart ssc) where
-    put RequestBlockchainPart{..} = do
-        put rbFromBlock
-        put rbUntilBlock
-        put rbCount
-    get = RequestBlockchainPart <$> get <*> get <*> get
 
 instance Bi SendProxySK where
     put (SendProxySK pSk) = put pSk

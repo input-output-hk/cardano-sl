@@ -25,7 +25,10 @@ import           Data.Default            (Default (def))
 import           Data.List               (last)
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty      as NE
+import           Formatting              (build, sformat, stext, (%))
+import           Serokell.Util.Text      (listJson)
 import           Serokell.Util.Verify    (isVerSuccess)
+import           System.Wlog             (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Block.Network.Types (MsgBlock (..), MsgGetHeaders (..))
@@ -81,7 +84,7 @@ recordHeadersRequest msg var =
 matchRequestedHeaders
     :: (Ssc ssc, MonadIO m, HasBlockSocketState s ssc)
     => NonEmpty (BlockHeader ssc) -> TVar s -> m Bool
-matchRequestedHeaders (newTip :| hs) var =
+matchRequestedHeaders headers@(newTip :| hs) var =
     atomically $
     do blockSS <- readTVar var
        let res = maybe False
@@ -92,7 +95,7 @@ matchRequestedHeaders (newTip :| hs) var =
   where
     formChain = isVerSuccess (verifyHeaders True $ newTip:hs)
     matchRequestedHeadersDo mgh =
-        let startHeader = bool (last hs) newTip $ null hs
+        let startHeader = NE.last headers
             startMatches = hash startHeader `elem` mghFrom mgh
             mghToMatches = Just (hash newTip) == mghTo mgh
         in and [ startMatches

@@ -12,7 +12,9 @@ import           Control.Monad.Trans.Resource (MonadResource)
 import qualified Data.HashMap.Strict          as HM
 import           Data.List.NonEmpty           (nonEmpty)
 import qualified Data.Map.Strict              as M
-import           System.Directory             (createDirectoryIfMissing)
+import           System.Directory             (createDirectoryIfMissing,
+                                               doesDirectoryExist,
+                                               removeDirectoryRecursive)
 import           System.FilePath              ((</>))
 import           Universum
 
@@ -51,8 +53,13 @@ getRichmen =
         modify (HM.insert a (val + c))
 
 -- | Open all DBs stored on disk.
-openNodeDBs :: (Ssc ssc, MonadResource m) => FilePath -> Utxo -> m (NodeDBs ssc)
-openNodeDBs fp customUtxo = do
+openNodeDBs
+    :: (Ssc ssc, MonadResource m)
+    => Bool -> FilePath -> Utxo -> m (NodeDBs ssc)
+openNodeDBs recreate fp customUtxo = do
+    liftIO $
+        whenM ((recreate &&) <$> doesDirectoryExist fp) $
+            removeDirectoryRecursive fp
     let blockPath = fp </> "blocks"
     let utxoPath = fp </> "utxo"
     let miscPath = fp </> "misc"
@@ -89,5 +96,7 @@ getTipBlockHeader = getBlockHeader <$> getTipBlock
 
 -- | Load blocks from BlockDB starting from tip and while @condition@ is true.
 -- The head of returned list is the youngest block.
-loadBlocksFromTipWhile :: (Ssc ssc, MonadDB ssc m) => (Block ssc -> Bool) -> m [(Block ssc, Undo)]
+loadBlocksFromTipWhile
+    :: (Ssc ssc, MonadDB ssc m)
+    => (Block ssc -> Int -> Bool) -> m [(Block ssc, Undo)]
 loadBlocksFromTipWhile condition = getTip >>= flip loadBlocksWithUndoWhile condition

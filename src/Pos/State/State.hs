@@ -16,7 +16,6 @@ module Pos.State.State
        , WorkModeDB
        , openState
        , openMemState
-       , initFirstSlot
        , closeState
 
        -- * Simple getters.
@@ -36,16 +35,13 @@ module Pos.State.State
 
        -- * Operations with effects.
        , ProcessBlockRes (..)
-       , ProcessTxRes (..)
        , createNewBlock
        , processBlock
        , processNewSlot
-       , processTx
 
        -- [CSL-103]: these function should be moved to GodTossing.
        -- * Functions for generating seed by SSC algorithm.
        , getParticipants
-       , getThreshold
 
        -- * SscGodTossing simple getters and setters.
        , getOurShares
@@ -53,13 +49,8 @@ module Pos.State.State
 
 import           Universum
 
-import           Crypto.Random            (drgNewSeed, seedNew, withDRG)
-import           Data.Acid                (EventResult, EventState, QueryEvent,
-                                           UpdateEvent)
 import           Data.Default             (Default)
-import qualified Data.HashMap.Strict      as HM
 import           Data.List.NonEmpty       (NonEmpty)
-import           Formatting               (build, sformat, (%))
 import           Pos.DHT.Model            (DHTResponseT)
 import           Pos.DHT.Real             (KademliaDHT)
 import           Serokell.Util            (VerificationRes)
@@ -70,14 +61,9 @@ import           System.Wlog              (HasLoggerName, LogEvent, LoggerName,
 import           Pos.Crypto               (ProxySecretKey, PublicKey, SecretKey, Share,
                                            VssKeyPair, VssPublicKey, decryptShare,
                                            toVssPublicKey)
-import           Pos.Slotting             (MonadSlots, getCurrentSlot)
-import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
-import           Pos.Ssc.Class.Storage    (SscStorageClass (..), SscStorageMode)
+import           Pos.Ssc.Class.Storage    (SscStorageClass (..))
 import           Pos.Ssc.Class.Types      (Ssc (SscGlobalState, SscPayload, SscStorage))
-import           Pos.State.Acidic         (DiskState, tidyState)
-import qualified Pos.State.Acidic         as A
-import           Pos.State.Storage        (ProcessBlockRes (..), ProcessTxRes (..),
-                                           Storage, getThreshold)
+import           Pos.State.Storage.Types  (ProcessBlockRes (..))
 import           Pos.Statistics.StatEntry ()
 import           Pos.Types                (Block, EpochIndex, GenesisBlock, HeaderHash,
                                            MainBlock, MainBlockHeader, SlotId,
@@ -105,131 +91,92 @@ instance (MonadDB ssc m, Monad m) => MonadDB ssc (KademliaDHT m) where
 -- | IO monad with db access.
 type WorkModeDB ssc m = (MonadIO m, MonadDB ssc m)
 
--- | State of the node.
-type NodeState ssc = DiskState ssc
+type Storage ssc = ()
 
-type QUConstraint  ssc m = (SscHelpersClass ssc, SscStorageMode ssc, WorkModeDB ssc m)
-type QULConstraint ssc m = (SscHelpersClass ssc, SscStorageMode ssc, WorkModeDB ssc m, HasLoggerName m)
+-- | State of the node.
+type NodeState ssc = ()
+
+type QUConstraint  ssc m = (WorkModeDB ssc m)
+type QULConstraint ssc m = (WorkModeDB ssc m, HasLoggerName m)
 
 -- | Open NodeState, reading existing state from disk (if any).
 openState
-    :: (SscHelpersClass ssc, SscStorageMode ssc, Default (SscStorage ssc),
+    :: (Default (SscStorage ssc),
         MonadIO m)
     => Maybe (Storage ssc)
     -> Bool
     -> FilePath
     -> m (NodeState ssc)
-openState storage deleteIfExists fp =
-    maybe (A.openState deleteIfExists fp)
-        (\s -> A.openStateCustom s deleteIfExists fp)
-        storage
+openState = undefined
 
 -- | Open NodeState which doesn't store anything on disk. Everything
 -- is stored in memory and will be lost after shutdown.
 openMemState
-    :: (SscHelpersClass ssc, SscStorageMode ssc, Default (SscStorage ssc),
+    :: (Default (SscStorage ssc),
         MonadIO m)
     => Maybe (Storage ssc)
     -> m (NodeState ssc)
-openMemState = maybe A.openMemState A.openMemStateCustom
-
-initFirstSlot
-    :: forall ssc m .
-       (MonadIO m, MonadSlots m, SscStorageMode ssc
-       , HasLoggerName m
-       , WorkModeDB ssc m)
-    => m ()
-initFirstSlot = do
-    st <- getNodeState
-    _  <- A.updateWithLog st . A.ProcessNewSlotL =<< getCurrentSlot
-    tidyState st
+openMemState = undefined
 
 -- | Safely close NodeState.
 closeState :: (MonadIO m, SscStorageClass ssc) => NodeState ssc -> m ()
-closeState = A.closeState
-
-queryDisk
-    :: (SscStorageClass ssc,
-        EventState event ~ (Storage ssc),
-        QueryEvent event, WorkModeDB ssc m)
-    => event
-    -> m (EventResult event)
-queryDisk e = flip A.query e =<< getNodeState
-
-updateDisk
-    :: (SscStorageClass ssc,
-        EventState event ~ (Storage ssc),
-        UpdateEvent event, WorkModeDB ssc m)
-    => event
-    -> m (EventResult event)
-updateDisk e = flip A.update e =<< getNodeState
-
-updateDiskWithLog
-     :: ( SscStorageClass ssc
-        , EventState event ~ (Storage ssc)
-        , EventResult event ~ (a, [LogEvent])
-        , UpdateEvent event
-        , WorkModeDB ssc m
-        , HasLoggerName m)
-     => (LoggerName -> event)
-     -> m (a, [LogEvent])
-updateDiskWithLog le = flip A.updateWithLog le =<< getNodeState
+closeState = const pass
 
 -- | Get list of slot leaders for the given epoch. Empty list is returned
 -- if no information is available.
 getLeaders :: QUConstraint ssc m => EpochIndex -> m (Maybe SlotLeaders)
-getLeaders = queryDisk . A.GetLeaders
+getLeaders = undefined
 
 -- | Get Block by hash.
 getBlock :: QUConstraint ssc m => HeaderHash ssc -> m (Maybe (Block ssc))
-getBlock = queryDisk . A.GetBlock
+getBlock = undefined
 
 -- | Get Block by depth
 getBlockByDepth :: QUConstraint ssc m => Word -> m (Maybe (Block ssc))
-getBlockByDepth = queryDisk . A.GetBlockByDepth
+getBlockByDepth = undefined
 
 -- | Get block which is the head of the __best chain__.
 getHeadBlock :: QUConstraint ssc m => m (Block ssc)
-getHeadBlock = queryDisk A.GetHeadBlock
+getHeadBlock = undefined
 
 -- | Return current best chain.
 getBestChain :: QUConstraint ssc m => m (NonEmpty (Block ssc))
-getBestChain = queryDisk A.GetBestChain
+getBestChain = undefined
 
 -- | Return part of best chain with given limits
 getChainPart :: QUConstraint ssc m
              => Maybe (HeaderHash ssc) -> Maybe (HeaderHash ssc) -> Maybe Word
              -> m (Either Text [Block ssc])
-getChainPart toH fromH = queryDisk . A.GetChainPart toH fromH
+getChainPart = undefined
 
 -- | Get Utxo by depth
 getUtxoByDepth :: QUConstraint ssc m => Word -> m (Maybe Utxo)
-getUtxoByDepth = queryDisk . A.GetUtxoByDepth
+getUtxoByDepth = undefined
 
 -- | Get current Utxo
 getUtxo :: QUConstraint ssc m => m Utxo
-getUtxo = queryDisk A.GetUtxo
+getUtxo = undefined
 
 -- | Get oldest (genesis) utxo
 getOldestUtxo :: QUConstraint ssc m => m Utxo
-getOldestUtxo = queryDisk A.GetOldestUtxo
+getOldestUtxo = undefined
 
 -- | Checks if tx is verified
 isTxVerified :: QUConstraint ssc m => TxAux -> m Bool
-isTxVerified = queryDisk . A.IsTxVerified
+isTxVerified = undefined
 
 -- | Get global SSC data.
 getGlobalMpcData :: QUConstraint ssc m => m (SscGlobalState ssc)
-getGlobalMpcData = queryDisk A.GetGlobalSscState
+getGlobalMpcData = undefined
 
 -- | Get global SSC data that was observed N blocks ago.
 getGlobalMpcDataByDepth :: QUConstraint ssc m => Word ->  m (Maybe (SscGlobalState ssc))
-getGlobalMpcDataByDepth = queryDisk . A.GetGlobalSscStateByDepth
+getGlobalMpcDataByDepth = undefined
 
 -- | Check that block header is correct and claims to represent block
 -- which may become part of blockchain.
 mayBlockBeUseful :: QUConstraint ssc m => SlotId -> MainBlockHeader ssc -> m VerificationRes
-mayBlockBeUseful si = queryDisk . A.MayBlockBeUseful si
+mayBlockBeUseful = undefined
 
 -- | Create new block on top of currently known best chain, assuming
 -- we are slot leader.
@@ -240,16 +187,12 @@ createNewBlock :: QUConstraint ssc m
                -> SlotId
                -> SscPayload ssc
                -> m (Either Text (MainBlock ssc))
-createNewBlock localTxs sk pSk si = updateDisk . A.CreateNewBlock localTxs sk pSk si
-
--- | Process transaction received from other party.
-processTx :: QUConstraint ssc m => (TxId, TxAux) -> m ()
-processTx = updateDisk . A.ProcessTx
+createNewBlock = undefined
 
 -- | Notify NodeState about beginning of new slot. Ideally it should
 -- be used before all other updates within this slot.
 processNewSlot :: QULConstraint ssc m => SlotId -> m (Maybe (GenesisBlock ssc), [LogEvent])
-processNewSlot = updateDiskWithLog . A.ProcessNewSlotL
+processNewSlot = undefined
 
 -- | Process some Block received from the network.
 processBlock :: (QUConstraint ssc m)
@@ -257,14 +200,14 @@ processBlock :: (QUConstraint ssc m)
              -> SlotId
              -> Block ssc
              -> m (ProcessBlockRes ssc)
-processBlock localTxs si = updateDisk . A.ProcessBlock localTxs si
+processBlock = undefined
 
 -- | Functions for generating seed by SSC algorithm
 getParticipants
     :: QUConstraint ssc m
     => EpochIndex
     -> m (Maybe (NonEmpty (AsBinary VssPublicKey)))
-getParticipants = queryDisk . A.GetParticipants
+getParticipants = undefined
 
 ----------------------------------------------------------------------------
 -- Related to SscGodTossing
@@ -275,21 +218,4 @@ getParticipants = queryDisk . A.GetParticipants
 getOurShares
     :: QULConstraint ssc m
     => VssKeyPair -> m (HashMap (AddressHash PublicKey) Share)
-getOurShares ourKey = do
-    randSeed <- liftIO seedNew
-    let ourPK = asBinary $ toVssPublicKey ourKey
-    encSharesM <- queryDisk $ A.GetOurShares ourPK
-    let drg = drgNewSeed randSeed
-        (res, pLog) = fst . withDRG drg . runPureLog . usingLoggerName mempty <$>
-                        flip traverse (HM.toList encSharesM) $ \(pk, lEncSh) -> do
-                          let mEncSh = fromBinaryM lEncSh
-                          case mEncSh of
-                            Just encShare -> lift . lift $ Just . (,) pk <$> decryptShare ourKey encShare
-                            _             -> do
-                                logWarning $
-                                    sformat ("Failed to deserialize share for " % build) pk
-                                return Nothing
-        resHM = HM.fromList . catMaybes $ res
-    loggerName <- getLoggerName
-    liftIO $ usingLoggerName loggerName $ dispatchEvents pLog
-    return resHM
+getOurShares = undefined

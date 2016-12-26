@@ -29,7 +29,6 @@ import           Pos.Slotting                (MonadSlots)
 import           Pos.Ssc.Extra.MonadLD       (MonadSscLD)
 import           Pos.State                   (MonadDB)
 import           Pos.Statistics              (MonadStats)
-import           Pos.Txp.LocalData           (MonadTxLD)
 import           Pos.Util.JsonLog            (MonadJL)
 
 import           Pos.Wallet.Context          (WithWalletContext)
@@ -43,7 +42,7 @@ newtype WalletDB m a = WalletDB
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
                 MonadMask, MonadIO, MonadDB ssc, HasLoggerName, WithNodeContext ssc,
                 MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots, MonadSscLD ssc,
-                WithDefaultMsgHeader, MonadJL, CanLog, MonadTxLD, MonadStats, MonadKeys,
+                WithDefaultMsgHeader, MonadJL, CanLog, MonadStats, MonadKeys,
                 WithWalletContext)
 
 instance Monad m => WrappedM (WalletDB m) where

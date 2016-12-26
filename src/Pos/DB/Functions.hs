@@ -11,7 +11,6 @@ module Pos.DB.Functions
        , rocksPutBytes
        , rocksWriteBatch
        , traverseAllEntries
-       , rocksDecode
        , rocksDecodeMaybe
        , rocksDecodeKeyValMaybe
        ) where
@@ -43,25 +42,31 @@ rocksGetBi
     => ByteString -> DB ssc -> m (Maybe v)
 rocksGetBi key db = do
     bytes <- rocksGetBytes key db
-    traverse rocksDecode bytes
+    traverse (rocksDecode . (ToDecodeValue key)) bytes
 
-rocksDecode :: (Bi v, MonadThrow m) => ByteString -> m v
-rocksDecode key = either onParseError pure . decodeFull . BSL.fromStrict $ key
+data ToDecode
+    = ToDecodeKey !ByteString
+    | ToDecodeValue !ByteString
+                    !ByteString
+
+rocksDecode :: (Bi v, MonadThrow m) => ToDecode -> m v
+rocksDecode (ToDecodeKey key) =
+    either (onParseError key) pure . decodeFull . BSL.fromStrict $ key
+rocksDecode (ToDecodeValue key val) =
+    either (onParseError key) pure . decodeFull . BSL.fromStrict $ val
+
+onParseError :: (MonadThrow m) => ByteString -> [Char] -> m a
+onParseError rawKey errMsg = throwM $ DBMalformed $ sformat fmt rawKey errMsg
   where
-    onParseError msg =
-        throwM $ DBMalformed $
-        sformat
-            ("rocksGetBi: stored value is malformed, key = " %shown %
-              ", err: " %string)
-            key
-            msg
+    fmt = "rocksGetBi: stored value is malformed, key = "%shown%", err: "%string
 
 rocksDecodeMaybe :: (Bi v) => ByteString -> Maybe v
 rocksDecodeMaybe = rightToMaybe . decodeFull . BSL.fromStrict
 
 rocksDecodeKeyVal :: (Bi k, Bi v, MonadThrow m)
                   => (ByteString, ByteString) -> m (k, v)
-rocksDecodeKeyVal (k, v) = (,) <$> rocksDecode k <*> rocksDecode v
+rocksDecodeKeyVal (k, v) =
+    (,) <$> rocksDecode (ToDecodeKey k) <*> rocksDecode (ToDecodeValue k v)
 
 rocksDecodeKeyValMaybe
     :: (Bi k, Bi v)

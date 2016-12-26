@@ -48,7 +48,7 @@ newWallet wMeta = do
   res <- affjax $ defaultRequest
     { url = backendPrefix <> "/api/new_wallet"
     , method = Left POST
-    , content = Just $ encodeJson wMeta
+    , content = Just <<< show $ encodeJson wMeta
     }
   either throwError pure $ decodeResult res
 
@@ -66,7 +66,7 @@ updateWallet addr wMeta = do
   res <- affjax $ defaultRequest
     { url = backendPrefix <> "/api/update_wallet/" <> _address addr
     , method = Left POST
-    , content = Just $ encodeJson wMeta
+    , content = Just <<< show $ encodeJson wMeta
     }
   either throwError pure $ decodeResult res
 

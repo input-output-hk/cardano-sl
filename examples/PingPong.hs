@@ -11,7 +11,6 @@ import           Control.Monad              (forM_)
 import           Control.Monad.IO.Class     (liftIO)
 import           Data.Binary
 import           Data.String                (fromString)
-import           Data.Void                  (Void)
 import           Mockable.Concurrent        (delay)
 import           Mockable.Production
 import           Network.Transport.Abstract (newEndPoint)
@@ -29,6 +28,18 @@ import           System.Random
 -- TBD should we fix this in network-transport? Maybe every chunk is prefixed
 -- by a byte giving its length? Wasteful I guess but maybe not a problem.
 
+-- | Type for messages from the workers to the listeners.
+data Ping = Ping
+deriving instance Show Ping
+instance Binary Ping where
+    put _ = putWord8 (fromIntegral 1)
+    get = do
+        w <- getWord8
+        if w == fromIntegral 1
+        then pure Ping
+        else fail "no parse ping"
+
+-- | Type for messages from the listeners to the workers.
 data Pong = Pong
 deriving instance Show Pong
 instance Binary Pong where
@@ -51,7 +62,7 @@ workers id gen peerIds = [pingWorker gen]
         loop gen = do
             let (i, gen') = randomR (0,1000000) gen
             delay i
-            let pong :: NodeId -> ConversationActions Header Void Pong Production -> Production ()
+            let pong :: NodeId -> ConversationActions Header Ping Pong Production -> Production ()
                 pong peerId cactions = do
                     liftIO . putStrLn $ show id ++ " sent PING to " ++ show peerId
                     received <- recv cactions
@@ -65,7 +76,7 @@ listeners :: NodeId -> [Listener Header Production]
 listeners id = [Listener (fromString "ping") pongWorker]
     where
     pongWorker :: ListenerAction Header Production
-    pongWorker = ListenerActionConversation $ \peerId (cactions :: ConversationActions Header Pong Void Production) -> do
+    pongWorker = ListenerActionConversation $ \peerId (cactions :: ConversationActions Header Pong Ping Production) -> do
         liftIO . putStrLn $ show id ++  " heard PING from " ++ show peerId
         send cactions () Pong
         liftIO . putStrLn $ show id ++ " sent PONG to " ++ show peerId

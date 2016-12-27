@@ -17,6 +17,7 @@ module Pos.DB.Utxo
        , runUtxoIterator
        , mapUtxoIterator
        , getFilteredUtxo
+       , iterateByStake
        ) where
 
 import qualified Data.Map          as M
@@ -76,6 +77,7 @@ prepareUtxoDB
 prepareUtxoDB customUtxo initialTip = do
     putIfEmpty getTipMaybe putGenesisTip
     putIfEmpty getFtsSumMaybe putUtxo
+    putIfEmpty getFtsSumMaybe putFtsStakes
     putIfEmpty getFtsSumMaybe putGenesisSum
   where
     totalCoins = sum $ map snd $ concatMap txOutStake $ toList customUtxo
@@ -87,6 +89,8 @@ prepareUtxoDB customUtxo initialTip = do
     putGenesisSum = putTotalFtsStake totalCoins
     putUtxo = mapM_ putTxOut' $ M.toList customUtxo
     putTxOut' ((txid, id), txout) = putTxOut (TxIn txid id) txout
+    putFtsStakes = mapM_ putFtsStake' $ M.toList customUtxo
+    putFtsStake' (_, toaux) = mapM (uncurry putFtsStake) (txOutStake toaux)
 
 putTip :: MonadDB ssc m => HeaderHash ssc -> m ()
 putTip h = getUtxoDB >>= rocksPutBi tipKey h
@@ -97,6 +101,14 @@ putTotalFtsStake c = getUtxoDB >>= rocksPutBi ftsSumKey c
 ----------------------------------------------------------------------------
 -- Iteration
 ----------------------------------------------------------------------------
+
+iterateByStake
+    :: forall ssc m . (MonadDB ssc m, MonadMask m)
+    => ((AddressHash PublicKey, Coin) -> m ())
+    -> m ()
+iterateByStake callback = do
+    db <- getUtxoDB
+    traverseAllEntries db (pure ()) $ const $ curry callback
 
 iterateByUtxo
     :: forall ssc m . (MonadDB ssc m, MonadMask m)
@@ -174,3 +186,6 @@ getTipMaybe = getUtxoDB >>= rocksGetBi tipKey
 
 getFtsSumMaybe :: (MonadDB ssc m) => m (Maybe Coin)
 getFtsSumMaybe = getUtxoDB >>= rocksGetBi ftsSumKey
+
+putFtsStake :: MonadDB ssc m => AddressHash PublicKey -> Coin -> m ()
+putFtsStake = putBi . ftsStakeKey

@@ -22,14 +22,15 @@ import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
 import           Data.List.NonEmpty     (NonEmpty)
 import qualified Data.List.NonEmpty     as NE
-import           Formatting             (sformat, stext, (%))
-import           System.Wlog            (WithLogger)
+import           Formatting             (build, sformat, stext, (%))
+import           System.Wlog            (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Constants          (maxLocalTxs)
 import           Pos.Crypto             (PublicKey, WithHash (..), hash, withHash)
 import           Pos.DB                 (DB, MonadDB, getUtxoDB)
-import           Pos.DB.Utxo            (BatchOp (..), getTip, writeBatchToUtxo, getFtsStake, getTotalFtsStake)
+import           Pos.DB.Utxo            (BatchOp (..), getFtsStake, getTip,
+                                         getTotalFtsStake, writeBatchToUtxo)
 import           Pos.Ssc.Class.Types    (Ssc)
 import           Pos.Txp.Class          (MonadTxpLD (..), TxpLD, getUtxoView)
 import           Pos.Txp.Error          (TxpError (..))
@@ -43,7 +44,8 @@ import           Pos.Types              (AddressHash, Block, Blund, Coin, MonadU
                                          TxIn (..), TxOutAux, TxWitness, Undo,
                                          VTxGlobalContext (..), VTxLocalContext (..),
                                          applyTxToUtxo', blockSlot, blockTxas, headerHash,
-                                         prevBlockL, slotIdF, topsortTxs, verifyTxPure)
+                                         prevBlockL, slotIdF, topsortTxs, txOutStake,
+                                         verifyTxPure)
 import           Pos.Types.Utxo         (verifyAndApplyTxs, verifyTxUtxo)
 import           Pos.Util               (inAssertMode, _neHead)
 
@@ -108,7 +110,6 @@ txApplyBlock (blk, undo) = do
                          keys
                          (zip txOutputs (getTxDistribution distr))
         in foldr' (:) (foldr' (:) batch putOut) delIn --how we could simplify it?
-    -- Balances/stakes part
 
 -- | Verify whether sequence of blocks can be applied to current Tx
 -- state.  This function doesn't make pure checks for transactions,
@@ -230,19 +231,22 @@ txRollbackBlock (block, undo) = do
             delOut = map DelTxIn $ take (length txOutputs) keys
         return $ foldr' (:) (foldr' (:) batch putIn) delOut --how we could simplify it?
 
-recomputeStakes :: MonadDB ssc m
+recomputeStakes :: (WithLogger m, MonadDB ssc m)
                 => [(AddressHash PublicKey, Coin)]
                 -> [(AddressHash PublicKey, Coin)]
                 -> m ()
 recomputeStakes plusDistr minusDistr = do
-    resolvedStakes <- mapM (fmap (fromMaybe 0) . getFtsStake)
-                           (map fst normalizedStakes)
+    resolvedStakes <- mapM (\(ad, _) ->
+                              maybe (0 <$ logInfo (createInfo ad))
+                                    pure =<< getFtsStake ad)
+                           normalizedStakes
     totalStake <- getTotalFtsStake
     let newStakes = zipWith (\(ad, c1) c2 -> (ad, c1 + c2))
                             normalizedStakes resolvedStakes
     let newTotalStake = totalStake + sum (map snd normalizedStakes)
     writeBatchToUtxo (PutFtsSum newTotalStake : map (uncurry PutFtsStake) newStakes)
   where
+    createInfo = sformat ("Stake for "%build%" will be created in UtxoDB")
     normalizedStakes = HM.toList $ normalizeStakes (plusDistr ++ (map neg minusDistr))
     normalizeStakes :: [(AddressHash PublicKey, Coin)]
                         -> HashMap (AddressHash PublicKey) Coin
@@ -254,11 +258,10 @@ concatStakes :: ([TxAux], Undo) -> ([(AddressHash PublicKey, Coin)]
                                    ,[(AddressHash PublicKey, Coin)])
 concatStakes (txas, undo) = (txasTxOutDistr, undoTxInDistr)
   where
-    txasTxOutDistr
-        = concat $
-            foldr' (\tx res -> (conDis tx : res)) [] txas
-    undoTxInDistr = concatMap snd (concat undo)
-    conDis tx = concat (getTxDistribution (tx ^. _3))
+    txasTxOutDistr = concatMap conDis txas
+    undoTxInDistr = concatMap txOutStake (concat undo)
+    conDis (Tx{..}, _, distr)
+        = concatMap txOutStake (zip txOutputs (getTxDistribution distr))
 
 -- | Remove from mem pool transactions from block
 filterMemPool :: MonadTxpLD ssc m => [(TxId, (Tx, TxDistribution))]  -> m ()

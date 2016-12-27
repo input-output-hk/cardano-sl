@@ -26,7 +26,7 @@ import           Pos.Types.Version   (ProtocolVersion, SoftwareVersion)
 -- Import instance Safecopy HM.HashMap
 import           Pos.Util            ()
 
--- ^ Tag of system for which update data is purposed, e.g. win64, mac32
+-- | Tag of system for which update data is purposed, e.g. win64, mac32
 newtype SystemTag = SystemTag { getSystemTag :: Text }
   deriving (Eq, Ord, Show, Generic, Buildable, Hashable)
 
@@ -41,7 +41,7 @@ mkSystemTag tag | T.length tag > systemTagMaxLength
                 | otherwise
                     = pure $ SystemTag tag
 
--- ^ Proposal for software update
+-- | Proposal for software update
 data UpdateProposal = UpdateProposal
     { upProtocolVersion :: !ProtocolVersion
     , upScriptVersion   :: !ScriptVersion
@@ -62,13 +62,13 @@ data UpdateData = UpdateData
     }
   deriving (Eq, Show, Generic)
 
--- ^ Vote for update proposal
+-- | Vote for update proposal
 data UpdateVote = UpdateVote
-    { -- ^ Public key of stakeholder, who votes
+    { -- | Public key of stakeholder, who votes
       uvKey       :: !PublicKey
-    , -- ^ Approval/rejection bit
+    , -- | Approval/rejection bit
       uvDecision  :: !Bool
-    , -- ^ Signature of (Update proposal, Approval/rejection bit)
+    , -- | Signature of (Update proposal, Approval/rejection bit)
       --   by stakeholder
       uvSignature :: !(Signature (UpdateProposal, Bool))
     }

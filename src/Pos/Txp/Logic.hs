@@ -248,18 +248,19 @@ recomputeStakes plusDistr minusDistr = do
     let newTotalStake = totalStake + positiveDelta - negativeDelta
 
     let newStakes
-          = HM.toList $ normalizeStakes $
-                zip needResolve resolvedStakes ++ plusDistr ++ minusDistr
+          = HM.toList $
+              calcNegStakes minusDistr
+                  (calcPosStakes $ zip needResolve resolvedStakes ++ plusDistr)
     pure $ PutFtsSum newTotalStake : map (uncurry PutFtsStake) newStakes
   where
     createInfo = sformat ("Stake for "%build%" will be created in UtxoDB")
     needResolve = HS.toList $
                       HS.fromList (map fst plusDistr) `HS.union`
                       HS.fromList (map fst minusDistr)
-    normalizeStakes :: [(AddressHash PublicKey, Coin)]
-                        -> HashMap (AddressHash PublicKey) Coin
-    normalizeStakes distr = foldl' (flip incAt) HM.empty distr
-    incAt (key, val) hm = HM.insert key (val + HM.lookupDefault 0 key hm) hm
+    calcPosStakes distr = foldl' plusAt HM.empty distr
+    calcNegStakes distr hm = foldl' minusAt hm distr
+    plusAt hm (key, val) = HM.insert key (val + HM.lookupDefault 0 key hm) hm
+    minusAt hm (key, val) = HM.insert key (HM.lookupDefault 0 key hm - val) hm
 
 concatStakes :: ([TxAux], Undo) -> ([(AddressHash PublicKey, Coin)]
                                    ,[(AddressHash PublicKey, Coin)])

@@ -53,6 +53,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import qualified Network.Transport.Abstract as NT
 import System.Random (StdGen)
+import Message.Message (MessageName)
 import Mockable.Class
 import Mockable.Concurrent
 import Mockable.Channel
@@ -73,14 +74,6 @@ nodeEndPointAddress :: Node m -> NT.EndPointAddress
 nodeEndPointAddress x = let LL.NodeId y = nodeId x in y
 
 type Worker header m = SendActions header m -> m ()
-
-newtype MessageName = MessageName BS.ByteString
-deriving instance Eq MessageName
-deriving instance Ord MessageName
-deriving instance Show MessageName
-deriving instance Generic MessageName
-deriving instance IsString MessageName
-instance Binary MessageName
 
 data Listener header m = Listener MessageName (ListenerAction header m)
 

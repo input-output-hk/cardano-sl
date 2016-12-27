@@ -25,6 +25,9 @@ Library
                         Mockable.Exception
                         Mockable.Production
                         Mockable.SharedAtomic
+
+                        Message.Message
+
                         Node.Internal
 
   build-depends:        base

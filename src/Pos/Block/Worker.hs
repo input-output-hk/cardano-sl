@@ -51,9 +51,9 @@ import           Pos.State                  (createNewBlock, getGlobalMpcData,
                                              getHeadBlock, getLeaders, processNewSlot)
 #endif
 import           Pos.Txp.LocalData          (getLocalTxs)
-import           Pos.Types                  (EpochIndex, MainBlock, MainBlockHeader,
-                                             SlotId (..), Timestamp (Timestamp),
-                                             VerifyBlockParams (..), blockMpc, gbHeader,
+import           Pos.Types                  (EpochIndex, MainBlock, SlotId (..),
+                                             Timestamp (Timestamp),
+                                             VerifyBlockParams (..), gbHeader,
                                              slotIdF, topsortTxs, verifyBlock)
 import           Pos.Types.Address          (addressHash)
 import           Pos.Util                   (inAssertMode, logWarningWaitLinear)

@@ -5,6 +5,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
@@ -45,6 +46,9 @@ import           Pos.Util                (asBinary)
 -- | Data type tag for Nist Beacon implementation of Shared Seed Calculation.
 data SscNistBeacon
     deriving (Generic)
+
+deriving instance Show SscNistBeacon
+deriving instance Eq SscNistBeacon
 
 -- acid-state requires this instance because of a bug
 instance SafeCopy SscNistBeacon

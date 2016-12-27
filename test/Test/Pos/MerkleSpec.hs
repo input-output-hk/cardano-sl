@@ -10,7 +10,7 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (===))
 import           Universum
 
-import           Pos.Binary            (Bi, decode, encode)
+import           Pos.Binary            (Bi)
 import           Pos.Merkle            (mkMerkleTree, mtSize)
 import           Test.Pos.Util         (binaryEncodeDecode, safeCopyEncodeDecode)
 
@@ -23,8 +23,11 @@ spec = describe "Merkle" $ do
         "size . mkMerkleTree === length"
         (sizeProp @Int)
     prop
-        "bi instance, encode === decode⁻¹"
+        "bi instance, encode === decode^-1"
         (biProp @Int)
+    prop
+        "safeCopy instance, get === put^-1"
+        (safeProp @Int)
 
 generateAndFoldProp :: (Eq a, Show a, Bi a) => [a] -> Property
 generateAndFoldProp xs = toList (mkMerkleTree xs) === xs

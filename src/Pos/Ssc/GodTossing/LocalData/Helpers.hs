@@ -15,13 +15,9 @@ module Pos.Ssc.GodTossing.LocalData.Helpers
 import           Control.Lens                            (makeClassy)
 import           Universum
 
-import qualified Pos.Modern.Ssc.GodTossing.Storage.Types as GS
-import           Pos.Ssc.Extra                           (MonadSscLDM (modifyLocalDataM))
-import qualified Pos.Ssc.GodTossing.LocalData.Types      as LD
 import           Pos.Ssc.GodTossing.Types.Base           (CommitmentsMap, OpeningsMap,
                                                           SharesMap, VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Instance       ()
-import           Pos.Ssc.GodTossing.Types.Type           (SscGodTossing)
 import           Pos.Types                               (SlotId)
 
 -- | This wrapper using for pass local and global state to
@@ -79,24 +75,24 @@ gtRunRead rd =
           let res = runReader rd (toGtState g l) in
           (res, l))
 
-toGtState :: GS.GtGlobalState -> LD.GtLocalData -> GtState
+toGtState :: GtGlobalState -> GtLocalData -> GtState
 toGtState g l =
     GtState
     { -- Can I simplify it?
-      _gtGlobalCommitments  = GS._gsCommitments g
-    , _gtGlobalOpenings     = GS._gsOpenings g
-    , _gtGlobalShares       = GS._gsShares g
-    , _gtGlobalCertificates = GS._gsVssCertificates g
-    , _gtLocalCommitments   = LD._ldCommitments l
-    , _gtLocalOpenings      = LD._ldOpenings l
-    , _gtLocalShares        = LD._ldShares l
-    , _gtLocalCertificates  = LD._ldCertificates l
-    , _gtLastProcessedSlot  = LD._ldLastProcessedSlot l
+      _gtGlobalCommitments  = _gsCommitments g
+    , _gtGlobalOpenings     = _gsOpenings g
+    , _gtGlobalShares       = _gsShares g
+    , _gtGlobalCertificates = _gsVssCertificates g
+    , _gtLocalCommitments   = _ldCommitments l
+    , _gtLocalOpenings      = _ldOpenings l
+    , _gtLocalShares        = _ldShares l
+    , _gtLocalCertificates  = _ldCertificates l
+    , _gtLastProcessedSlot  = _ldLastProcessedSlot l
     }
 
-fromGtState :: GtState -> LD.GtLocalData
+fromGtState :: GtState -> GtLocalData
 fromGtState st =
-    LD.GtLocalData
+    GtLocalData
     {
       _ldCommitments       = _gtLocalCommitments st
     , _ldOpenings          = _gtLocalOpenings st

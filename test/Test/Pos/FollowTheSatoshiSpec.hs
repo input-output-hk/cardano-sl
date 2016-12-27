@@ -21,8 +21,7 @@ import           Universum
 import           Pos.Constants         (epochSlots)
 import           Pos.Crypto            (PublicKey, unsafeHash)
 import           Pos.FollowTheSatoshi  (followTheSatoshi)
-import           Pos.Types             (Address, Coin (..), SharedSeed, TxId, TxOut (..),
-                                        Utxo)
+import           Pos.Types             (Coin (..), SharedSeed, TxId, TxOut (..), Utxo)
 import           Pos.Types.Address     (Address (..), AddressHash)
 
 spec :: Spec

@@ -19,7 +19,6 @@ import           Control.Monad.Trans.Maybe                 (runMaybeT)
 import           Control.TimeWarp.Timed                    (Microsecond, Millisecond,
                                                             currentTime, for, wait)
 import           Data.HashMap.Strict                       (insert, lookup, member)
-import qualified Data.List.NonEmpty                        as NE (fromList, toList)
 import           Data.Tagged                               (Tagged (..))
 import           Data.Time.Units                           (convertUnit)
 import           Formatting                                (build, ords, sformat, shown,
@@ -33,8 +32,7 @@ import           Pos.Binary.Class                          (Bi)
 import           Pos.Communication.Methods                 (sendToNeighborsSafe)
 import           Pos.Constants                             (k, mpcSendInterval)
 import           Pos.Context                               (getNodeContext, ncPublicKey,
-                                                            ncSecretKey, ncSscContext,
-                                                            readRichmen)
+                                                            ncSecretKey, ncSscContext)
 import           Pos.Crypto                                (SecretKey, VssKeyPair,
                                                             randomNumber, runSecureRandom,
                                                             toPublic)

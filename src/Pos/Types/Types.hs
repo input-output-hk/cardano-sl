@@ -490,12 +490,13 @@ type ProxySKEpoch = ProxySecretKey (EpochIndex, EpochIndex)
 
 -- | Signature of the block. Can be either regular signature from the
 -- issuer or delegated signature having a constraint on epoch indices
+
 -- (it means the signature is valid only if block's slot id has epoch
 -- inside the constrained interval).
 data BlockSignature ssc
     = BlockSignature (Signature (MainToSign ssc))
     | BlockPSignature (ProxySigEpoch (MainToSign ssc))
-    deriving Show
+    deriving (Show, Eq)
 
 instance Buildable (BlockSignature ssc) where
     build (BlockSignature s)  = bprint ("BlockSignature: "%build) s
@@ -518,7 +519,7 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         _mcdDifficulty :: !ChainDifficulty
         , -- | Signature given by slot leader.
         _mcdSignature  :: !(BlockSignature ssc)
-        } deriving (Generic, Show)
+        } deriving (Generic, Show, Eq)
     type BBlockHeader (MainBlockchain ssc) = BlockHeader ssc
 
     -- | In our cryptocurrency, body consists of a list of transactions
@@ -550,8 +551,14 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         , mpMpcProof = untag @ssc mkSscProof _mbMpc
         }
 
+
+--deriving instance Ssc ssc => Show (SscProof ssc)
+--deriving instance Ssc ssc => Eq (SscProof ssc)
+deriving instance Ssc ssc => Show (BodyProof (MainBlockchain ssc))
 deriving instance Ssc ssc => Eq (BodyProof (MainBlockchain ssc))
 deriving instance Ssc ssc => Show (Body (MainBlockchain ssc))
+deriving instance (Eq (SscPayload ssc), Ssc ssc) => Eq (Body (MainBlockchain ssc))
+
 
 -- | Header of generic main block.
 type MainBlockHeader ssc = GenericBlockHeader (MainBlockchain ssc)
@@ -626,14 +633,14 @@ instance Blockchain (GenesisBlockchain ssc) where
           _gcdEpoch :: !EpochIndex
         , -- | Difficulty of the chain ending in this genesis block.
           _gcdDifficulty :: !ChainDifficulty
-        } deriving (Generic, Show)
+        } deriving (Generic, Show, Eq)
     type BBlockHeader (GenesisBlockchain ssc) = BlockHeader ssc
 
     -- | Body of genesis block consists of slot leaders for epoch
     -- associated with this block.
     data Body (GenesisBlockchain ssc) = GenesisBody
         { _gbLeaders :: !SlotLeaders
-        } deriving (Generic, Show)
+        } deriving (Generic, Show, Eq)
     type BBlock (GenesisBlockchain ssc) = Block ssc
 
     mkBodyProof = GenesisProof . hash . _gbLeaders

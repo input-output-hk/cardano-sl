@@ -38,7 +38,7 @@ import           Pos.Txp.Holder         (TxpLDHolder, runLocalTxpLDHolder)
 import           Pos.Txp.Types          (MemPool (..), UtxoView (..))
 import           Pos.Txp.Types.Types    (ProcessTxRes (..), mkPTRinvalid)
 import qualified Pos.Txp.Types.UtxoView as UV
-import           Pos.Types              (AddressHash, Block, Blund, Coin, MonadUtxo,
+import           Pos.Types              (AddressHash, Block, Blund, Coin (..), MonadUtxo,
                                          MonadUtxoRead (utxoGet), NEBlocks, SlotId,
                                          Tx (..), TxAux, TxDistribution (..), TxId,
                                          TxIn (..), TxOutAux, TxWitness, Undo,
@@ -238,23 +238,28 @@ recomputeStakes :: (WithLogger m, MonadDB ssc m)
                 -> [(AddressHash PublicKey, Coin)]
                 -> m [BatchOp ssc]
 recomputeStakes plusDistr minusDistr = do
-    resolvedStakes <- mapM (\(ad, _) ->
+    resolvedStakes <- mapM (\ad ->
                               maybe (0 <$ logInfo (createInfo ad))
                                     pure =<< getFtsStake ad)
-                           normalizedStakes
+                           needResolve
     totalStake <- getTotalFtsStake
-    let newStakes = zipWith (\(ad, c1) c2 -> (ad, c1 + c2))
-                            normalizedStakes resolvedStakes
-    let newTotalStake = totalStake + sum (map snd normalizedStakes)
+    let positiveDelta = sum (map snd plusDistr)
+    let negativeDelta = sum (map snd minusDistr)
+    let newTotalStake = totalStake + positiveDelta - negativeDelta
+
+    let newStakes
+          = HM.toList $ normalizeStakes $
+                zip needResolve resolvedStakes ++ plusDistr ++ minusDistr
     pure $ PutFtsSum newTotalStake : map (uncurry PutFtsStake) newStakes
   where
     createInfo = sformat ("Stake for "%build%" will be created in UtxoDB")
-    normalizedStakes = HM.toList $ normalizeStakes (plusDistr ++ (map neg minusDistr))
+    needResolve = HS.toList $
+                      HS.fromList (map fst plusDistr) `HS.union`
+                      HS.fromList (map fst minusDistr)
     normalizeStakes :: [(AddressHash PublicKey, Coin)]
                         -> HashMap (AddressHash PublicKey) Coin
     normalizeStakes distr = foldl' (flip incAt) HM.empty distr
     incAt (key, val) hm = HM.insert key (val + HM.lookupDefault 0 key hm) hm
-    neg (ah, coin) = (ah, -coin)
 
 concatStakes :: ([TxAux], Undo) -> ([(AddressHash PublicKey, Coin)]
                                    ,[(AddressHash PublicKey, Coin)])

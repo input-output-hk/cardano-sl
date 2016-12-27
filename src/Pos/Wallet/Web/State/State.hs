@@ -19,7 +19,7 @@ module Pos.Wallet.Web.State.State
        , setWalletMeta
        , setWalletTransactionMeta
        , setWalletHistory
-       , addOnlyNewHistory
+       , addOnlyNewTxMeta
        , removeWallet
        ) where
 
@@ -78,8 +78,8 @@ setWalletTransactionMeta addr ctxId = updateDisk . A.SetWalletTransactionMeta ad
 setWalletHistory :: WebWalletModeDB m => CAddress -> [(CTxId, CTxMeta)] -> m ()
 setWalletHistory addr = updateDisk . A.SetWalletHistory addr
 
-addOnlyNewHistory :: WebWalletModeDB m => CAddress -> [(CTxId, CTxMeta)] -> m ()
-addOnlyNewHistory addr = updateDisk . A.AddOnlyNewHistory addr
+addOnlyNewTxMeta :: WebWalletModeDB m => CAddress -> CTxId -> CTxMeta -> m ()
+addOnlyNewTxMeta addr ctxId = updateDisk . A.AddOnlyNewTxMeta addr ctxId
 
 removeWallet :: WebWalletModeDB m => CAddress -> m ()
 removeWallet = updateDisk . A.RemoveWallet

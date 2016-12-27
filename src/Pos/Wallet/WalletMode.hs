@@ -50,7 +50,7 @@ import           Pos.Types                     (execUtxoStateT)
 import           Pos.Wallet.Tx.Pure            (getRelatedTxs)
 #endif
 import           Pos.Types                     (Address, Coin, Tx, TxAux, TxId, Utxo,
-                                                evalUtxoStateT, txOutValue)
+                                                runUtxoStateT, txOutValue)
 import           Pos.Types.Utxo.Functions      (filterUtxoByAddr)
 import           Pos.WorkMode                  (TxLDImpl (..))
 import           Pos.WorkMode                  (MinWorkMode)
@@ -97,15 +97,18 @@ instance (MonadDB ssc m, MonadMask m) => MonadBalances (Modern.TxpLDHolder ssc m
 
 deriving instance MonadBalances m => MonadBalances (TxLDImpl m)
 #else
+applyLocalTxs :: MonadTxLD m => Utxo -> Address -> m ([(TxId, Tx, Bool)], Utxo)
+applyLocalTxs utxo addr = do
+    localTxs <- _txLocalTxs <$> getTxLocalData
+    let wtxs = map (over _1 withHash) . toList $ localTxs
+    maybe (fail "Inconsistent local txs state!") return $
+        runUtxoStateT (getRelatedTxs addr wtxs) utxo
+
 instance (SscConstraint ssc, St.MonadDB ssc m, MonadIO m) => MonadBalances (TxLDImpl m) where
     getOwnUtxo addr = do
         utxo <- St.getUtxo
-        localTxs <- _txLocalTxs <$> getTxLocalData
         let utxo' = filterUtxoByAddr addr utxo
-            wtxs = map (over _1 withHash) . toList $ localTxs
-        case execUtxoStateT (getRelatedTxs addr wtxs) utxo' of
-            Nothing     -> fail "Inconsistent local txs state!"
-            Just utxo'' -> return utxo''
+        snd <$> applyLocalTxs utxo' addr
 
 deriving instance MonadBalances m => MonadBalances (Modern.TxpLDHolder ssc m)
 #endif
@@ -137,8 +140,8 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     getTxHistory addr = do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
-        return $ fromMaybe (fail "deriveAddrHistory: Nothing") $
-            flip evalUtxoStateT utxo $
+        return $ fst . fromMaybe (fail "deriveAddrHistory: Nothing") $
+            flip runUtxoStateT utxo $
             deriveAddrHistory addr chain
     saveTx _ = pure ()
 
@@ -154,9 +157,13 @@ instance (SscConstraint ssc, St.MonadDB ssc m, MonadIO m) => MonadTxHistory (TxL
     getTxHistory addr = do
         chain <- St.getBestChain
         utxo <- St.getOldestUtxo
-        return $ fromMaybe (fail "deriveAddrHistory: Nothing") $
-            flip evalUtxoStateT utxo $
-            deriveAddrHistory addr $ NE.toList chain
+        let (txs, utxo') = fromMaybe (fail "deriveAddrHistory: Nothing") $
+                flip runUtxoStateT utxo $
+                deriveAddrHistory addr $ NE.toList chain
+        txs' <- fst <$> applyLocalTxs utxo' addr
+        traceShowM txs'
+        return $ txs <> txs'
+
     saveTx txw = () <$ processTx txw
 
 deriving instance MonadTxHistory m => MonadTxHistory (Modern.TxpLDHolder ssc m)

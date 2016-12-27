@@ -10,10 +10,13 @@
 module Pos.Wallet.Web.Server.Methods
        ( walletApplication
        , walletServer
+       , walletServeImpl
        ) where
 
 import           Control.Lens               (view, _2)
+import           Data.Default               (def)
 import           Data.List                  (elemIndex, (!!))
+import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (ords, sformat, stext, (%))
 import           Network.Wai                (Application)
 import           Servant.API                ((:<|>) ((:<|>)),
@@ -24,16 +27,15 @@ import           Servant.Utils.Enter        ((:~>) (..), enter)
 import           System.Wlog                (logInfo)
 import           Universum
 
+import           Pos.Aeson.ClientTypes      ()
 import           Pos.Crypto                 (toPublic)
 import           Pos.DHT.Model              (dhtAddr, getKnownPeers)
 import           Pos.Types                  (Address, Coin (Coin), Tx, TxOut (..),
                                              addressF, coinF, decodeTextAddress,
                                              makePubKeyAddress)
+import           Pos.Web.Server             (serveImpl)
 
-import           Data.Default               (def)
-import           Data.Time.Clock.POSIX      (getPOSIXTime)
-import           Pos.Aeson.ClientTypes      ()
-import           Pos.Wallet.KeyStorage      (MonadKeys (..), newSecretKey)
+import           Pos.Wallet.KeyStorage      (KeyError (..), MonadKeys (..), newSecretKey)
 import           Pos.Wallet.Tx              (submitTx)
 import           Pos.Wallet.WalletMode      (WalletMode, getBalance, getTxHistory)
 import           Pos.Wallet.Web.Api         (Cors, WalletApi, walletApi)
@@ -43,7 +45,7 @@ import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency (ADA), CHash (.
                                              cAddressToAddress, ctId, ctType, ctTypeMeta,
                                              mkCTx, mkCTxId)
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
-                                             addOnlyNewHistory, closeState, createWallet,
+                                             addOnlyNewTxMeta, closeState, createWallet,
                                              getWalletHistory, getWalletMeta, openState,
                                              removeWallet, runWalletWebDB, setWalletMeta,
                                              setWalletTransactionMeta)
@@ -54,15 +56,19 @@ import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
 -- Top level functionality
 ----------------------------------------------------------------------------
 
+walletServeImpl
+    :: (MonadIO m, MonadMask m)
+    => FilePath -> WalletWebDB m Application -> Word16 -> m ()
+walletServeImpl daedalusDbPath app port = bracket openDB closeDB $ \ws ->
+    serveImpl (runWalletWebDB ws app) port
+  where openDB = openState True daedalusDbPath
+        closeDB = closeState
+
 walletApplication
     :: WalletMode ssc m
     => WalletWebDB m (Server WalletApi)
-    -> FilePath
-    -> m Application
-walletApplication server daedalusDbPath = bracket openDB closeDB $ \ws ->
-    runWalletWebDB ws server >>= return . serve walletApi
-  where openDB = openState True daedalusDbPath
-        closeDB = closeState
+    -> WalletWebDB m Application
+walletApplication serv = serv >>= return . serve walletApi
 
 walletServer
     :: WalletMode ssc m
@@ -151,8 +157,10 @@ getHistory cAddr = do
     -- TODO: this should be removed in production
     meta <- CTxMeta ADA mempty mempty <$> liftIO getPOSIXTime
     history <- map (flip mkCTx meta) <$> (getTxHistory =<< decodeCAddressOrFail cAddr)
-    let txMeta = map (\ctx -> (ctId ctx, ctTypeMeta $ ctType ctx)) history
-    history <$ addOnlyNewHistory cAddr txMeta
+    forM_ history $ \ctx ->
+        addOnlyNewTxMeta cAddr (ctId ctx) $ ctTypeMeta $ ctType ctx
+    -- addOnlyNewTxMeta cAddr txMeta
+    return history
 
 newWallet :: WalletWebMode ssc m => CWalletMeta -> m CWallet
 newWallet wMeta = do
@@ -172,12 +180,16 @@ updateTransaction = setWalletTransactionMeta
 
 deleteWallet :: WalletWebMode ssc m => CAddress -> m ()
 deleteWallet cAddr = do
-    removeWallet cAddr
     deleteAddress =<< decodeCAddressOrFail cAddr
+    removeWallet cAddr
   where
     deleteAddress addr = do
         idx <- getAddrIdx addr
-        deleteSecretKey $ fromIntegral idx
+        deleteSecretKey (fromIntegral idx) `catch` deleteErrHandler
+    deleteErrHandler (PrimaryKey err) = throwM err404 {
+        errBody = encodeUtf8 $
+            sformat ("Error while deleting wallet: "%stext) err
+        }
 
 ----------------------------------------------------------------------------
 -- Helpers

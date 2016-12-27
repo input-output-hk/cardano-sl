@@ -77,7 +77,7 @@ mkCTxId = CTxId . CHash
 
 -- | transform TxId into CTxId
 txIdToCTxId :: TxId -> CTxId
-txIdToCTxId = CTxId . CHash . sformat build
+txIdToCTxId = mkCTxId . sformat build
 
 mkCTx :: (TxId, Tx, Bool) -> CTxMeta -> CTx
 mkCTx (txId, tx, isOutgoing) = CTx (txIdToCTxId txId) outputCoins . meta

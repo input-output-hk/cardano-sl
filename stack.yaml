@@ -4,7 +4,7 @@ packages:
   - '.'
   - location:
       git: https://github.com/serokell/kademlia.git
-      commit: 7a0bdfe8bba2503ab96bddd9021ba36e50e5ccc2
+      commit: 062053ed11b92c8e25d4d61ea943506fd0482fa6
     extra-dep: true
   - location:
       git: https://github.com/serokell/log-warper.git

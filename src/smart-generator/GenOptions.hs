@@ -4,11 +4,13 @@ module GenOptions
        , optsInfo
        ) where
 
+import           Data.Version        (showVersion)
 import           Options.Applicative (Parser, ParserInfo, auto, fullDesc, help, helper,
                                       info, long, many, metavar, option, progDesc, short,
                                       value)
 import           Universum
 
+import           Paths_cardano_sl    (version)
 
 import qualified Pos.CLI             as CLI
 
@@ -80,4 +82,5 @@ optionsParser = GenOptions
 
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $
-    fullDesc `mappend` progDesc "Smart transaction generator"
+    fullDesc `mappend`
+    progDesc ("Smart transaction generator version " <> showVersion version)

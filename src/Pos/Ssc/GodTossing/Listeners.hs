@@ -25,7 +25,7 @@ import           Pos.Communication.Methods              (sendToNeighborsSafe)
 import           Pos.Communication.Types                (ResponseMode)
 import           Pos.Context                            (WithNodeContext (getNodeContext),
                                                          ncPropagation)
-import           Pos.Crypto                             (PublicKey)
+import           Pos.Crypto                             (PublicKey, shortHashF)
 import           Pos.DHT.Model                          (ListenerDHT (..), replyToNode)
 import           Pos.Security                           (shouldIgnorePkAddress)
 import           Pos.Slotting                           (getCurrentSlot)
@@ -116,11 +116,11 @@ handleData msg =
 
 loggerAction :: WorkMode SscGodTossing m
              => MsgTag -> Bool -> AddressHash PublicKey -> m ()
-loggerAction msgTag added addr = logAction msg
+loggerAction msgTag added pkHash = logAction msg
   where
       msgAction | added = "added to local storage"
                 | otherwise = "ignored"
-      msg = sformat (build%" from "%build%" have/has been "%stext)
-          msgTag addr msgAction
+      msg = sformat (build%" from "%shortHashF%" has been "%stext)
+          msgTag pkHash msgAction
       logAction | added = logInfo
                 | otherwise = logDebug

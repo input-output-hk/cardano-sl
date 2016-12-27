@@ -20,3 +20,7 @@ cabal.project.local
 
 # vim related
 *~
+
+# log files
+*.log
+*.csv

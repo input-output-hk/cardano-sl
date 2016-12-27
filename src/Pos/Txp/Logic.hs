@@ -73,10 +73,10 @@ txApplyBlocks blunds = do
                Right _ -> pass
                Left errors ->
                    panic $ "txVerifyBlocks failed: " <> errors
-    -- Apply all the blocks' transactions
+    -- Apply all the block's transactions
     -- TODO actually, we can improve it: we can use UtxoView from txVerifyBlocks
     -- Now we recalculate TxIn which must be removed from Utxo DB or added to Utxo DB
-    -- I can improve it, if it is bottlneck
+
     -- We apply all blocks and filter mempool for every block
     mapM_ txApplyBlock blunds
     normalizeTxpLD
@@ -94,13 +94,8 @@ txApplyBlock (blk, undo) = do
     filterMemPool txsAndIds
     writeBatchToUtxo (PutTip (headerHash blk) : batch)
     -- Balances/stakes part
-    resolvedStakes <- mapM (fmap (fromMaybe 0) . getFtsStake)
-                           (map fst normalizedStakes)
-    totalStake <- getTotalFtsStake
-    let newStakes = zipWith (\(ad, c1) c2 -> (ad, c1 + c2))
-                            normalizedStakes resolvedStakes
-    let newTotalStake = totalStake + sum (map snd normalizedStakes)
-    writeBatchToUtxo (PutFtsSum newTotalStake : map (uncurry PutFtsStake) newStakes)
+    let (txOutPlus, txInMinus) = concatStakes (txas, undo)
+    recomputeStakes txOutPlus txInMinus
   where
     txas = either (const []) (toList . view blockTxas) blk
     txsAndIds = map (\tx -> (hash (tx ^. _1), (tx ^. _1, tx ^. _3))) txas
@@ -114,17 +109,6 @@ txApplyBlock (blk, undo) = do
                          (zip txOutputs (getTxDistribution distr))
         in foldr' (:) (foldr' (:) batch putOut) delIn --how we could simplify it?
     -- Balances/stakes part
-    normalizedStakes = HM.toList $ normalizeStakes (unionTxInDistr ++ unionTxOutDistr)
-    unionTxOutDistr
-        = concat $
-            foldr' (\tx res -> (conDis tx : res)) [] txas
-    unionTxInDistr = concatMap (map neg . snd) $ concat undo
-    normalizeStakes :: [(AddressHash PublicKey, Coin)]
-                        -> HashMap (AddressHash PublicKey) Coin
-    normalizeStakes distr = foldl' (flip incAt) HM.empty distr
-    incAt (key, val) hm = HM.insert key (val + HM.lookupDefault 0 key hm) hm
-    neg (ah, coin) = (ah, -coin)
-    conDis tx = concat (getTxDistribution (tx ^. _3))
 
 -- | Verify whether sequence of blocks can be applied to current Tx
 -- state.  This function doesn't make pure checks for transactions,
@@ -222,18 +206,18 @@ txRollbackBlocks = mapM_ txRollbackBlock
 txRollbackBlock :: (WithLogger m, MonadDB ssc m)
                 => (Block ssc, Undo) -> m ()
 txRollbackBlock (block, undo) = do
-    let txs = getTxs block
     --TODO more detailed message must be here
     unless (length undo == length txs)
         $ panic "Number of txs must be equal length of undo"
     let batchOrError = foldl' prependToBatch (Right []) $ zip txs undo
-    case batchOrError of
-        Left msg    -> panic msg
-        Right batch -> writeBatchToUtxo $ PutTip (block ^. prevBlockL) : batch
-        -- If we store block cache in UtxoView we must invalidate it
+    either panic (writeBatchToUtxo . (PutTip (block ^. prevBlockL) :)) batchOrError
+    -- If we store block cache in UtxoView we must invalidate it
+    -- Stakes/balances part
+    let (txOutMinus, txInPlus) = concatStakes (txas, undo)
+    recomputeStakes txInPlus txOutMinus
   where
-    getTxs (Left _)   = []
-    getTxs (Right mb) = map (^. _1) $ mb ^. blockTxas
+    txas = either (const []) (toList . view blockTxas) block
+    txs = either (const []) (toList . map (^. _1) . view blockTxas) block
 
     prependToBatch :: Either Text [BatchOp ssc] -> (Tx, [TxOutAux]) -> Either Text [BatchOp ssc]
     prependToBatch batchOrError (tx@Tx{..}, undoTx) = do
@@ -245,6 +229,36 @@ txRollbackBlock (block, undo) = do
             putIn = map (uncurry AddTxOut) $ zip txInputs undoTx
             delOut = map DelTxIn $ take (length txOutputs) keys
         return $ foldr' (:) (foldr' (:) batch putIn) delOut --how we could simplify it?
+
+recomputeStakes :: MonadDB ssc m
+                => [(AddressHash PublicKey, Coin)]
+                -> [(AddressHash PublicKey, Coin)]
+                -> m ()
+recomputeStakes plusDistr minusDistr = do
+    resolvedStakes <- mapM (fmap (fromMaybe 0) . getFtsStake)
+                           (map fst normalizedStakes)
+    totalStake <- getTotalFtsStake
+    let newStakes = zipWith (\(ad, c1) c2 -> (ad, c1 + c2))
+                            normalizedStakes resolvedStakes
+    let newTotalStake = totalStake + sum (map snd normalizedStakes)
+    writeBatchToUtxo (PutFtsSum newTotalStake : map (uncurry PutFtsStake) newStakes)
+  where
+    normalizedStakes = HM.toList $ normalizeStakes (plusDistr ++ (map neg minusDistr))
+    normalizeStakes :: [(AddressHash PublicKey, Coin)]
+                        -> HashMap (AddressHash PublicKey) Coin
+    normalizeStakes distr = foldl' (flip incAt) HM.empty distr
+    incAt (key, val) hm = HM.insert key (val + HM.lookupDefault 0 key hm) hm
+    neg (ah, coin) = (ah, -coin)
+
+concatStakes :: ([TxAux], Undo) -> ([(AddressHash PublicKey, Coin)]
+                                   ,[(AddressHash PublicKey, Coin)])
+concatStakes (txas, undo) = (txasTxOutDistr, undoTxInDistr)
+  where
+    txasTxOutDistr
+        = concat $
+            foldr' (\tx res -> (conDis tx : res)) [] txas
+    undoTxInDistr = concatMap snd (concat undo)
+    conDis tx = concat (getTxDistribution (tx ^. _3))
 
 -- | Remove from mem pool transactions from block
 filterMemPool :: MonadTxpLD ssc m => [(TxId, (Tx, TxDistribution))]  -> m ()

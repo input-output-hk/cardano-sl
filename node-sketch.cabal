@@ -101,6 +101,7 @@ executable bench-sender
                      , extra >= 1.4
                      , formatting
                      , hslogger
+                     , lens
                      , lifted-base
                      , log-warper >= 0.2.0
                      , MonadRandom >= 0.4.2.3

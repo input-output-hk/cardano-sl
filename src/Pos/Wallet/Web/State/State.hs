@@ -12,6 +12,7 @@ module Pos.Wallet.Web.State.State
        -- * Getters
        , getWalletMetas
        , getWalletMeta
+       , getTxMeta
        , getWalletHistory
 
        -- * Setters
@@ -62,6 +63,9 @@ getWalletMetas = queryDisk A.GetWalletMetas
 
 getWalletMeta :: WebWalletModeDB m => CAddress -> m (Maybe CWalletMeta)
 getWalletMeta = queryDisk . A.GetWalletMeta
+
+getTxMeta :: WebWalletModeDB m => CAddress -> CTxId -> m (Maybe CTxMeta)
+getTxMeta addr = queryDisk . A.GetTxMeta addr
 
 getWalletHistory :: WebWalletModeDB m => CAddress -> m (Maybe [CTxMeta])
 getWalletHistory = queryDisk . A.GetWalletHistory

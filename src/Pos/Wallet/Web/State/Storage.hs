@@ -10,6 +10,7 @@ module Pos.Wallet.Web.State.Storage
        , Update
        , getWalletMetas
        , getWalletMeta
+       , getTxMeta
        , createWallet
        , setWalletMeta
        , setWalletHistory
@@ -52,6 +53,9 @@ getWalletMetas = HM.elems . map fst <$> view wsWalletMetas
 
 getWalletMeta :: CAddress -> Query (Maybe CWalletMeta)
 getWalletMeta cAddr = preview (wsWalletMetas . ix cAddr . _1)
+
+getTxMeta :: CAddress -> CTxId -> Query (Maybe CTxMeta)
+getTxMeta cAddr ctxId = preview $ wsWalletMetas . at cAddr . _Just . _2 . at ctxId . _Just
 
 getWalletHistory :: CAddress -> Query (Maybe [CTxMeta])
 getWalletHistory cAddr = fmap HM.elems <$> preview (wsWalletMetas . ix cAddr . _2)

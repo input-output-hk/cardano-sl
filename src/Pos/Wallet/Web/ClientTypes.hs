@@ -28,6 +28,7 @@ module Pos.Wallet.Web.ClientTypes
       , cAddressToAddress
       , mkCTx
       , mkCTxId
+      , txIdToCTxId
       , ctTypeMeta
       ) where
 

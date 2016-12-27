@@ -43,12 +43,12 @@ import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency (ADA), CHash (.
                                              CTx, CTxId, CTxMeta (..), CWallet (..),
                                              CWalletMeta (..), addressToCAddress,
                                              cAddressToAddress, ctId, ctType, ctTypeMeta,
-                                             mkCTx, mkCTxId)
+                                             mkCTx, mkCTxId, txIdToCTxId)
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
                                              addOnlyNewTxMeta, closeState, createWallet,
-                                             getWalletHistory, getWalletMeta, openState,
-                                             removeWallet, runWalletWebDB, setWalletMeta,
-                                             setWalletTransactionMeta)
+                                             getTxMeta, getWalletHistory, getWalletMeta,
+                                             openState, removeWallet, runWalletWebDB,
+                                             setWalletMeta, setWalletTransactionMeta)
 
 
 
@@ -156,11 +156,12 @@ getHistory :: WalletWebMode ssc m => CAddress -> m [CTx]
 getHistory cAddr = do
     -- TODO: this should be removed in production
     meta <- CTxMeta ADA mempty mempty <$> liftIO getPOSIXTime
-    history <- map (flip mkCTx meta) <$> (getTxHistory =<< decodeCAddressOrFail cAddr)
-    forM_ history $ \ctx ->
-        addOnlyNewTxMeta cAddr (ctId ctx) $ ctTypeMeta $ ctType ctx
-    -- addOnlyNewTxMeta cAddr txMeta
-    return history
+    history <- getTxHistory =<< decodeCAddressOrFail cAddr
+    forM history $ \wtx@(txId, _, _) -> do
+        let cId = txIdToCTxId txId
+        addOnlyNewTxMeta cAddr cId meta
+        meta' <- maybe meta identity <$> getTxMeta cAddr cId
+        return $ mkCTx wtx meta'
 
 newWallet :: WalletWebMode ssc m => CWalletMeta -> m CWallet
 newWallet wMeta = do

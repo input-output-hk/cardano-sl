@@ -27,6 +27,7 @@ Library
                         Mockable.SharedAtomic
 
                         Message.Message
+                        Message.Util
 
                         Node.Internal
 
@@ -34,12 +35,14 @@ Library
                       , containers
                       , binary >= 0.8
                       , bytestring
+                      , conduit >= 1.2.8
                       , random
                       , deepseq
                       , hashable
                       , kademlia
                       , network-transport
                       , network-transport-inmemory
+                      , mtl >= 2.2.1
                       , stm
                       , transformers
   hs-source-dirs:       src

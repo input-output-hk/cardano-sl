@@ -1,29 +1,51 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Message.Message
-    ( MessageName
+    ( Input (..)
+    , Packable (..)
+    , Unpackable (..)
+    , Extractable (..)
+
+    , ContentData (..)
+    , MessageName
+    , WithHeaderData (..)
+    , FullData (..)
+    , RawData (..)
+
+    , BinaryP (..)
     ) where
 
-import qualified Data.Binary                       as Bin
-import qualified Data.Binary.Get as Bin
-import qualified Data.Binary.Put                  as Bin
-import qualified Data.ByteString                   as BS
+import           Control.Monad                 (forM_, unless)
+import           Control.Monad.Trans           (lift)
+import qualified Data.Binary                   as Bin
+import qualified Data.Binary.Get               as Bin
+import qualified Data.Binary.Put               as Bin
+import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Builder.Extra as BS
-import Data.Conduit (Sink)
-import GHC.Generics (Generic)
-import Data.String (IsString)
-import qualified Data.ByteString.Lazy              as LBS
-import Data.Monoid ((<>))
-import Mockable.Channel (Channel, ChannelT, newChannel, writeChannel)
-import Mockable.Class (Mockable)
+import qualified Data.ByteString.Lazy          as LBS
+import           Data.Conduit                  (Conduit, Sink, Source, await,
+                                                awaitForever,
+                                                fuseReturnLeftovers, leftover,
+                                                yield, ($$), (=$=))
+import qualified Data.Conduit.List             as CL
+import           Data.Functor.Identity         (runIdentity)
+import           Data.Maybe                    (fromMaybe)
+import           Data.Monoid                   ((<>))
+import           Data.String                   (IsString)
+import           GHC.Generics                  (Generic)
+import           Mockable.Channel              (Channel, ChannelT, newChannel,
+                                                readChannel, unGetChannel,
+                                                writeChannel)
+import           Mockable.Class                (Mockable)
 
+import           Message.Util                  (fuseChannel)
 
 -- * Message name
 
@@ -53,44 +75,51 @@ data WithHeaderData h r = WithHeaderData h r
 data FullData h = FullData h RawData Extractable
 
 
--- * Dummy channel
-
 -- * Serialization strategy
-
-type ParseError = String
 
 data Input t where
     End :: Input t
     NoParse :: Input t
     Input :: t -> Input t
 
+forInput :: Applicative m => Input t -> (t -> m (Input a)) -> m (Input a)
+forInput End       _ = pure End
+forInput NoParse   _ = pure NoParse
+forInput (Input t) f = f t
+
+receiving :: ( Unpackable p r, Monad m )
+          => p
+          -> (r -> Sink BS.ByteString m (Input a))
+          -> Sink BS.ByteString m (Input a)
+receiving p f = unpackMsg p >>= flip forInput f
+
+type ParseError = String
+
 -- | Defines a way to serialize object @r@ with given packing type @p@.
 class Packable p r where
     -- | Way of packing data to raw bytes.
+    -- TODO: use Data.ByteString.Builder?
     packMsg :: p -> r -> LBS.ByteString
 
 -- | Defines a way to deserealize data with given packing type @p@ and extract object @r@.
 class Unpackable p r where
-    unpackMsg :: ( Mockable Channel m )
-              => p -> ChannelT m (Maybe BS.ByteString) -> m (Input r)
+    unpackMsg :: Monad m => p -> Sink BS.ByteString m (Input r)
+
 
 data Extractable = Extractable
-    { extract :: forall p m r . ( Unpackable p r, Mockable Channel m )
-              => p -> m (Input r)
+    { extract :: forall p r . ( Unpackable p r )
+              => p -> Input r
     }
 
-prepareExtract :: ( Mockable Channel m ) => LBS.ByteString -> m Extractable
-prepareExtract bs = do
-    chan <- newChannel
-    mapM_ (writeChannel chan . Just) $ LBS.toChunks bs
-    writeChannel chan Nothing
-    return $ Extractable $ flip unpackMsg chan
+prepareExtract :: BS.ByteString -> Extractable
+prepareExtract bs = Extractable $
+    \p -> runIdentity (yield bs $$ unpackMsg p)
 
 
 -- * Instances for message parts
 
 instance ( Packable p (ContentData h), Packable p (ContentData r),
-           Packable p LBS.ByteString )
+           Packable p (ContentData LBS.ByteString) )
         => Packable p (WithHeaderData h (ContentData r)) where
     packMsg p (WithHeaderData h r) =
         packMsg p (WithHeaderData h (RawData $ packMsg p r))
@@ -100,66 +129,39 @@ instance ( Packable p (ContentData h) )
     packMsg p (WithHeaderData h (RawData raw)) =
         packMsg p (ContentData h) <> raw
 
-forInput :: Input t -> (t -> m (Input a)) -> m (Input a)
-forInput End       _ = pure End
-forInput NoParse   _ = pure NoParse
-forInput (Input t) f = f t
 
-instance ( Unpackable p (ContentData h), Unpackable p LBS.ByteString )
+instance ( Unpackable p (ContentData h), Unpackable p (ContentData BS.ByteString) )
         => Unpackable p (FullData h) where
-    unpackMsg p chan = do
-        iheader <- unpackMsg p chan
-        forInput iheader $ \(ContentData h) -> do
-            iraw <- unpackMsg p chan
-            forInput iraw $ \raw ->
-                let body = prepareExtract raw
-                in  return $ Input $ FullData h (RawData raw) body
+    unpackMsg p = do
+        receiving p $ \(ContentData h) ->
+            receiving p $ \(ContentData raw) ->
+                let body    = prepareExtract raw
+                    rawData = RawData $ LBS.fromStrict raw
+                in  return . Input $ FullData h rawData body
 
 
 -- * Default instances
 
 data BinaryP = BinaryP
 
-serialise :: Bin.Put -> LBS.ByteString
-serialise = BS.toLazyByteStringWith
-                 (BS.untrimmedStrategy 256 4096)
-                 LBS.empty
-              . Bin.execPut
-
 instance Bin.Binary r => Packable BinaryP (ContentData r) where
-    packMsg p (ContentData r) = serialise $ Bin.put r
+    packMsg p (ContentData r) =
+        BS.toLazyByteStringWith
+            (BS.untrimmedStrategy 256 4096)
+            LBS.empty
+        . Bin.execPut
+        $ Bin.put r
 
 instance Bin.Binary r => Unpackable BinaryP (ContentData r) where
-    unpackMsg p chan = do
-        mx <- readChannel chan
-        case mx of
-            Nothing -> pure End
-            Just bs -> do
-                (part, trailing) <- recvPart chan bs
-                unless (BS.null trailing) $
-                    unGetChannel chan (Just trailing)
-                case part of
-                    Nothing -> pure NoParse
-                    Just t -> pure (Input t)
+    unpackMsg p = sinkGetSafe (ContentData <$> Bin.get)
 
--- FIXME
--- Serializing to "" is a problem. (), for instance, can't be used as data
--- over the wire.
--- It serializes to "". If we demand that the "" appear as a separate piece
--- of the channel then we're fine with the current implementation of recvNext.
--- If not, then even if a Nothing is pulled from the channel, we may still
--- parse a ().
-
-recvPart
-    :: ( Mockable Channel m, Bin.Binary thing )
-    => ChannelT m (Maybe BS.ByteString)    -- source
-    -> BS.ByteString                       -- prefix
-    -> m (Maybe thing, BS.ByteString)      -- trailing
-recvPart chan prefix =
-    go (Bin.pushChunk (Bin.runGetIncremental Bin.get) prefix)
+sinkGetSafe :: Monad m => Bin.Get b -> Sink BS.ByteString m (Input b)
+sinkGetSafe f = sink (Bin.runGetIncremental f)
   where
-    go (Bin.Done trailing _ a) = return (Just a, trailing)
-    go (Bin.Fail trailing _ _) = return (Nothing, trailing)
-    go (Bin.Partial continue) = do
-        mx <- readChannel chan
-        go (continue mx)
+    sink (Bin.Done bs _ v)  = do unless (BS.null bs) $ leftover bs
+                                 return (Input v)
+    sink (Bin.Fail u o e)   = return NoParse
+    sink (Bin.Partial next) = do mx <- await
+                                 case mx of
+                                    Nothing -> return End
+                                    Just x  -> sink (next (Just x))

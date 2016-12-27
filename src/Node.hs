@@ -60,6 +60,8 @@ import Mockable.Channel
 import Mockable.SharedAtomic
 import Mockable.Exception
 import GHC.Generics (Generic)
+import Message.Message
+import Message.Util (fuseChannel)
 
 
 data Node (m :: * -> *) = Node {
@@ -73,35 +75,38 @@ nodeId = LL.NodeId . NT.address . LL.nodeEndPoint . nodeLL
 nodeEndPointAddress :: Node m -> NT.EndPointAddress
 nodeEndPointAddress x = let LL.NodeId y = nodeId x in y
 
-type Worker header m = SendActions header m -> m ()
+type Worker header packing m = SendActions header packing m -> m ()
 
-data Listener header m = Listener MessageName (ListenerAction header m)
+data Listener header packing m = Listener MessageName (ListenerAction header packing m)
 
-data ListenerAction header m where
+data ListenerAction header packing m where
   -- | A listener that handles a single isolated incoming message
   ListenerActionOneMsg
-    :: Binary msg
-    => (LL.NodeId -> SendActions header m -> msg -> m ())
-    -> ListenerAction header m
+    :: ( Packable packing (ContentData msg), Unpackable packing (ContentData msg) )
+    => (LL.NodeId -> SendActions header packing m -> msg -> m ())
+    -> ListenerAction header packing m
 
   -- | A listener that handles an incoming bi-directional conversation.
   ListenerActionConversation
-    :: ( Binary header, Binary body, Binary rcv )
+    :: ( Packable packing (ContentData header), Packable packing (ContentData body),
+         Unpackable packing (ContentData rcv) )
     => (LL.NodeId -> ConversationActions header body rcv m -> m ())
-    -> ListenerAction header m
+    -> ListenerAction header packing m
 
-type PreListener header m = header -> ForwardAction header m -> m Bool
+type PreListener header packing m = header -> ForwardAction header packing m -> m Bool
 
-data ForwardAction header m = ForwardAction {
-        forward :: ( Binary header )
+data ForwardAction header packing m = ForwardAction {
+        forward :: ( Packable packing (ContentData header) )
                 => LL.NodeId
                 -> header
                 -> m ()
     }
 
-data SendActions header m = SendActions {
+data SendActions header packing m = SendActions {
        -- | Send a isolated (sessionless) message to a node
-       sendTo :: forall body. ( Binary header, Binary body )
+       sendTo :: forall body .
+              ( Packable packing (ContentData header),
+                 Packable packing (ContentData body) )
               => LL.NodeId
               -> MessageName
               -> header
@@ -111,7 +116,9 @@ data SendActions header m = SendActions {
        -- | Establish a bi-direction conversation session with a node.
        withConnectionTo
            :: forall body rcv.
-              ( Binary header, Binary body, Binary rcv )
+            ( Packable packing (ContentData header),
+              Packable packing (ContentData body),
+              Unpackable packing (ContentData rcv) )
            => LL.NodeId
            -> MessageName
            -> (ConversationActions header body rcv m -> m ())
@@ -127,9 +134,9 @@ data ConversationActions header body rcv m = ConversationActions {
        recv  :: m (Maybe rcv)
      }
 
-type ListenerIndex header m = Map MessageName (ListenerAction header m)
+type ListenerIndex header packing m = Map MessageName (ListenerAction header packing m)
 
-makeListenerIndex :: [Listener header m] -> (ListenerIndex header m, [MessageName])
+makeListenerIndex :: [Listener header packing m] -> (ListenerIndex header packing m, [MessageName])
 makeListenerIndex = foldr combine (M.empty, [])
     where
     combine (Listener name action) (map, existing) =
@@ -139,19 +146,24 @@ makeListenerIndex = foldr combine (M.empty, [])
 
 -- | Send actions for a given 'LL.Node'.
 nodeSendActions
-    :: forall m header .
+    :: forall m packing header .
        ( Mockable Channel m, Mockable Throw m, Mockable Catch m
        , Mockable Bracket m, Mockable Fork m, Mockable SharedAtomic m
-       , Binary header )
+       , Packable packing (ContentData MessageName)
+       , Packable packing (ContentData header)
+       , Unpackable packing (ContentData header)
+       , Packable packing (ContentData LBS.ByteString)
+       , Unpackable packing (ContentData BS.ByteString) )
     => LL.Node m
-    -> PreListener header m
-    -> SendActions header m
-nodeSendActions node prelistener = SendActions nodeSendTo nodeWithConnectionTo
+    -> packing
+    -> PreListener header packing m
+    -> SendActions header packing m
+nodeSendActions node packing prelistener = SendActions nodeSendTo nodeWithConnectionTo
     where
 
     nodeSendTo
         :: forall body .
-           ( Binary body )
+           ( Packable packing (ContentData body) )
         => LL.NodeId
         -> MessageName
         -> header
@@ -159,11 +171,14 @@ nodeSendActions node prelistener = SendActions nodeSendTo nodeWithConnectionTo
         -> m ()
     nodeSendTo = \nodeId msgName header body ->
         LL.withOutChannel node nodeId $ \channelOut ->
-            LL.writeChannel channelOut (LBS.toChunks (serialiseMsg msgName header body))
+            mapM_ (LL.writeChannel channelOut . LBS.toChunks)
+                [ packMsg packing (ContentData msgName)
+                , packMsg packing (WithHeaderData header (ContentData body))
+                ]
 
     nodeWithConnectionTo
         :: forall body rcv .
-           ( Binary body, Binary rcv )
+           ( Packable packing (ContentData body), Unpackable packing (ContentData rcv) )
         => LL.NodeId
         -> MessageName
         -> (ConversationActions header body rcv m -> m ())
@@ -171,79 +186,102 @@ nodeSendActions node prelistener = SendActions nodeSendTo nodeWithConnectionTo
     nodeWithConnectionTo = \nodeId msgName f ->
         LL.withInOutChannel node nodeId $ \inchan outchan -> do
             let cactions :: ConversationActions header body rcv m
-                cactions = nodeConversationActions node nodeId inchan outchan msgName
-                            prelistener
-            LL.writeChannel outchan (LBS.toChunks (serialiseMsgName msgName))
+                cactions = nodeConversationActions node nodeId packing inchan outchan
+                            msgName prelistener
+            LL.writeChannel outchan . LBS.toChunks $
+                packMsg packing (ContentData msgName)
             f cactions
 
 -- | Conversation actions for a given peer and in/out channels.
 nodeConversationActions
-    :: forall header snd rcv m .
-       ( Mockable Throw m, Mockable Bracket m
-       , Binary header, Binary snd, Binary rcv, Mockable Channel m )
+    :: forall header packing snd rcv m .
+       ( Mockable Throw m, Mockable Bracket m, Mockable Channel m
+       , Packable packing (ContentData header)
+       , Packable packing (ContentData snd)
+       , Packable packing (ContentData LBS.ByteString)
+       , Packable packing (ContentData MessageName)
+       , Unpackable packing (FullData header)
+       , Unpackable packing (ContentData header)
+       , Unpackable packing (ContentData rcv)
+       , Unpackable packing (ContentData BS.ByteString)
+       )
     => LL.Node m
     -> LL.NodeId
+    -> packing
     -> ChannelIn m
     -> ChannelOut m
     -> MessageName
-    -> PreListener header m
+    -> PreListener header packing m
     -> ConversationActions header snd rcv m
-nodeConversationActions node nodeId inchan outchan msgName prelistener =
+nodeConversationActions node nodeId packing inchan outchan msgName prelistener =
     ConversationActions nodeSend nodeRecv
     where
 
     nodeSend = \header body ->
-        LL.writeChannel outchan (LBS.toChunks (serialiseHeaderAndBody header body))
+        LL.writeChannel outchan . LBS.toChunks $
+            packMsg packing (WithHeaderData header (ContentData body))
 
     nodeRecv = do
-        next <- recvHeaderAndBody inchan
+        next <- recvNext inchan packing
         case next of
             End -> pure Nothing
             NoParse -> error "Unexpected end of conversation input"
-            Input (header, rawBody) -> do
-                let factions = nodeForwardAction node msgName rawBody
+            Input (FullData header rawBody bodyExtractor) -> do
+                let factions = nodeForwardAction node packing msgName rawBody
                 toProcess <- prelistener header factions
                 if toProcess
-                    then case runGet (optional get) rawBody of
-                        Nothing      -> error
+                    then case extract bodyExtractor packing of
+                        Input (ContentData msgBody) -> return $ Just msgBody
+                        _                           -> error
                             "nodeConversationActions : failed to extract message body"
-                        Just msgBody -> return $ Just msgBody
                     else nodeRecv
 
 -- | Forward actions for a given 'LL.Node'.
 nodeForwardAction
-    :: forall m header .
+    :: forall m packing header .
        ( Mockable Throw m, Mockable Bracket m
-       , Binary header )
+       , Packable packing (ContentData header)
+       , Packable packing (ContentData MessageName) )
     => LL.Node m
+    -> packing
     -> MessageName
-    -> LBS.ByteString
-    -> ForwardAction header m
-nodeForwardAction node msgName msgRawBody = ForwardAction nodeForward
+    -> RawData
+    -> ForwardAction header packing m
+nodeForwardAction node packing msgName msgRawBody = ForwardAction nodeForward
     where
 
     nodeForward = \nodeId header ->
         LL.withOutChannel node nodeId $ \channelOut ->
-            LL.writeChannel channelOut (LBS.toChunks (
-                serialiseRawMsg msgName header msgRawBody
-            ))
+            mapM_ (LL.writeChannel channelOut . LBS.toChunks)
+                [ packMsg packing (ContentData msgName)
+                , packMsg packing (WithHeaderData header msgRawBody)
+                ]
 
 -- | Spin up a node given a set of workers and listeners, using a given network
 --   transport to drive it.
 startNode
-    :: forall header m .
+    :: forall header packing m .
        ( Mockable Fork m, Mockable Throw m, Mockable Channel m
        , Mockable SharedAtomic m, Mockable Bracket m, Mockable Catch m
-       , MonadFix m, Binary header )
+       , MonadFix m
+       , Packable packing (ContentData header)
+       , Unpackable packing (ContentData header)
+       , Packable packing (ContentData MessageName)
+       , Unpackable packing (ContentData MessageName)
+       , Unpackable packing (ContentData header)
+       , Packable packing (ContentData LBS.ByteString)
+       , Unpackable packing (ContentData BS.ByteString)
+       )
     => NT.EndPoint m
     -> StdGen
-    -> [Worker header m]
-    -> Maybe (PreListener header m)
-    -> [Listener header m]
+    -> packing
+    -> [Worker header packing m]
+    -> Maybe (PreListener header packing m)
+    -> [Listener header packing m]
     -> m (Node m)
-startNode endPoint prng workers prelistener listeners = do
+startNode endPoint prng packing workers prelistener listeners = do
     rec { node <- LL.startNode endPoint prng (handlerIn node sendActions) (handlerInOut node)
-        ; let sendActions = nodeSendActions node actualPrelistener
+        ; let sendActions = nodeSendActions node packing actualPrelistener
         }
     tids <- sequence
               [ fork $ worker sendActions
@@ -256,7 +294,7 @@ startNode endPoint prng workers prelistener listeners = do
     -- Index the listeners by message name, for faster lookup.
     -- TODO: report conflicting names, or statically eliminate them using
     -- DataKinds and TypeFamilies.
-    listenerIndex :: ListenerIndex header m
+    listenerIndex :: ListenerIndex header packing m
     (listenerIndex, conflictingNames) = makeListenerIndex listeners
 
     -- If prelistener is not specified, provide a one which does nothing
@@ -265,29 +303,30 @@ startNode endPoint prng workers prelistener listeners = do
     -- Handle incoming data from unidirectional connections: try to read the
     -- message name, use it to determine a listener, parse the body, then
     -- run the listener.
-    handlerIn :: LL.Node m -> SendActions header m -> LL.NodeId -> ChannelIn m -> m ()
+    handlerIn :: LL.Node m -> SendActions header packing m -> LL.NodeId -> ChannelIn m -> m ()
     handlerIn node sendActions peerId inchan = do
-        (input :: Input MessageName) <- recvNext inchan
+        input <- recvNext inchan packing
         case input of
             End -> error "handerIn : unexpected end of input"
             -- TBD recurse and continue handling even after a no parse?
             NoParse -> error "handlerIn : failed to parse message name"
-            Input msgName -> do
+            Input (ContentData msgName) -> do
                 let listener = M.lookup msgName listenerIndex
                 case listener of
                     Just (ListenerActionOneMsg action) -> do
-                        input' <- recvHeaderAndBody inchan
+                        input' <- recvNext inchan packing
                         case input' of
                             End -> error "handerIn : unexpected end of input"
                             NoParse -> error "handlerIn : failed to parse message body"
-                            Input (header, msgRawBody) -> do
-                                let factions = nodeForwardAction node msgName msgRawBody
+                            Input (FullData header msgRawBody bodyExtractor) -> do
+                                let factions = nodeForwardAction node packing
+                                        msgName msgRawBody
                                 toProcess <- actualPrelistener header factions
-                                when toProcess $
-                                    case runGet (optional get) msgRawBody of
-                                        Nothing      -> error $ "handlerIn : failed to "
-                                                        ++ " extract message body"
-                                        Just msgBody -> action peerId sendActions msgBody
+                                when toProcess $ case extract bodyExtractor packing of
+                                    Input (ContentData msgBody) ->
+                                        action peerId sendActions msgBody
+                                    _                           -> error
+                                        "handlerIn : failed to extract message body"
                     -- If it's a conversation listener, then that's an error, no?
                     Just (ListenerActionConversation _) -> error ("handlerIn : wrong listener type. Expected unidirectional for " ++ show msgName)
                     Nothing -> error ("handlerIn : no listener for " ++ show msgName)
@@ -296,16 +335,16 @@ startNode endPoint prng workers prelistener listeners = do
     -- message name, then choose a listener and fork a thread to run it.
     handlerInOut :: LL.Node m -> LL.NodeId -> ChannelIn m -> ChannelOut m -> m ()
     handlerInOut node peerId inchan outchan = do
-        (input :: Input MessageName) <- recvNext inchan
+        input <- recvNext inchan packing
         case input of
             End -> error "handlerInOut : unexpected end of input"
             NoParse -> error "handlerInOut : failed to parse message name"
-            Input msgName -> do
+            Input (ContentData msgName) -> do
                 let listener = M.lookup msgName listenerIndex
                 case listener of
                     Just (ListenerActionConversation action) ->
-                        let cactions = nodeConversationActions node peerId inchan outchan
-                                        msgName actualPrelistener
+                        let cactions = nodeConversationActions node peerId packing
+                                inchan outchan msgName actualPrelistener
                         in  action peerId cactions
                     Just (ListenerActionOneMsg _) -> error ("handlerInOut : wrong listener type. Expected bidirectional for " ++ show msgName)
                     Nothing -> error ("handlerInOut : no listener for " ++ show msgName)
@@ -318,94 +357,17 @@ stopNode Node {..} = do
     -- alternatively we could try stopping new incoming messages
     -- and wait for all handlers to finish
 
-serialise :: Bin.Put -> LBS.ByteString
-serialise = BS.toLazyByteStringWith
-                 (BS.untrimmedStrategy 256 4096)
-                 LBS.empty
-              . Bin.execPut
-
-serialiseMsgName
-    :: MessageName
-    -> LBS.ByteString
-serialiseMsgName = serialise . put
-
-serialiseHeaderAndBody
-    :: ( Binary header, Binary body )
-    => header
-    -> body
-    -> LBS.ByteString
-serialiseHeaderAndBody header body =
-    serialise $ do
-      Bin.put header
-      Bin.put $ Bin.encode body
-
-serialiseMsg
-    :: ( Binary header, Binary body )
-    => MessageName
-    -> header
-    -> body
-    -> LBS.ByteString
-serialiseMsg name header body =
-    serialise $ do
-      Bin.put name
-      Bin.put header
-      Bin.put $ Bin.encode body
-
-serialiseRawMsg
-    :: ( Binary header )
-    => MessageName
-    -> header
-    -> LBS.ByteString
-    -> LBS.ByteString
-serialiseRawMsg name header rawBody =
-    serialise $ do
-      Bin.put name
-      Bin.put header
-      Bin.put rawBody
-
-
-data Input t where
-    End :: Input t
-    NoParse :: Input t
-    Input :: t -> Input t
-
-recvHeaderAndBody
-    :: forall header m . ( Mockable Channel m, Binary header )
-    => ChannelIn m
-    -> m (Input (header, LBS.ByteString))
-recvHeaderAndBody channelIn = do
-    headerInput <- recvNext channelIn
-    forInput headerInput $ \header -> do
-        rawBodyInput <- recvNext channelIn
-        forInput rawBodyInput $ \rawBody ->
-            return $ Input (header, rawBody)
-  where
-    forInput :: Input t -> (t -> m (Input a)) -> m (Input a)
-    forInput End       _ = pure End
-    forInput NoParse   _ = pure NoParse
-    forInput (Input t) f = f t
-
-
 -- | Receive input from a ChannelIn.
 --   If the channel's first element is 'Nothing' then it's the end of
 --   input and you'll get 'End', otherwise we try to parse the 'thing'.
 --   Unconsumed input is pushed back into the channel so that subsequent
 --   'recvNext's will use it.
 recvNext
-    :: ( Mockable Channel m, Binary thing )
+    :: ( Mockable Channel m, Unpackable packing thing )
     => ChannelIn m
+    -> packing
     -> m (Input thing)
-recvNext (ChannelIn chan) = do
-    mx <- readChannel chan
-    case mx of
-        Nothing -> pure End
-        Just bs -> do
-            (part, trailing) <- recvPart chan bs
-            unless (BS.null trailing) $
-                unGetChannel chan (Just trailing)
-            case part of
-                Nothing -> pure NoParse
-                Just t -> pure (Input t)
+recvNext (ChannelIn chan) packing = fuseChannel chan (unpackMsg packing)
 
 -- FIXME
 -- Serializing to "" is a problem. (), for instance, can't be used as data
@@ -414,17 +376,3 @@ recvNext (ChannelIn chan) = do
 -- of the channel then we're fine with the current implementation of recvNext.
 -- If not, then even if a Nothing is pulled from the channel, we may still
 -- parse a ().
-
-recvPart
-    :: ( Mockable Channel m, Binary thing )
-    => ChannelT m (Maybe BS.ByteString)    -- source
-    -> BS.ByteString                       -- prefix
-    -> m (Maybe thing, BS.ByteString)      -- trailing
-recvPart chan prefix =
-    go (Bin.pushChunk (Bin.runGetIncremental Bin.get) prefix)
-  where
-    go (Bin.Done trailing _ a) = return (Just a, trailing)
-    go (Bin.Fail trailing _ _) = return (Nothing, trailing)
-    go (Bin.Partial continue) = do
-      mx <- readChannel chan
-      go (continue mx)

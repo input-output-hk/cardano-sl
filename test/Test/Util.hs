@@ -48,10 +48,6 @@ import           Mockable.Production         (Production (..))
 import           Network.Transport.Abstract  (closeTransport, newEndPoint)
 import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
-import           Node                        (ConversationActions (..), Listener (..),
-                                              ListenerAction (..), MessageName, NodeId,
-                                              PreListener, SendActions (..), Worker,
-                                              nodeId, startNode, stopNode)
 import           Serokell.Util.Concurrent    (modifyTVarS)
 import           System.Random               (mkStdGen)
 import           Test.QuickCheck             (Property)
@@ -59,6 +55,11 @@ import           Test.QuickCheck.Arbitrary   (Arbitrary (..))
 import           Test.QuickCheck.Modifiers   (getLarge)
 import           Test.QuickCheck.Property    (Testable (..), failed, reason, succeeded)
 
+import           Node                        (ConversationActions (..), Listener (..),
+                                            ListenerAction (..), MessageName, NodeId,
+                                            PreListener, SendActions (..), Worker,
+                                            nodeId, startNode, stopNode)
+import Message.Message (BinaryP (..))
 
 -- * Parcel
 
@@ -151,7 +152,7 @@ instance Show TalkStyle where
 sendAll
     :: ( Binary header, Binary body, Monad m )
     => TalkStyle
-    -> SendActions header m
+    -> SendActions header BinaryP m
     -> NodeId
     -> MessageName
     -> [(header, body)]
@@ -167,11 +168,11 @@ receiveAll
     :: ( Binary header, Binary body, Monad m )
     => TalkStyle
     -> (body -> m ())
-    -> ListenerAction header m
+    -> ListenerAction header BinaryP m
 receiveAll SingleMessageStyle handler =
     ListenerActionOneMsg $ \_ _ -> handler
 receiveAll ConversationStyle  handler =
-    ListenerActionConversation @_ @_ @Void $ \_ cactions ->
+    ListenerActionConversation @_ @_ @_ @Void $ \_ cactions ->
         let loop = do mmsg <- recv cactions
                       for_ mmsg $ \msg -> handler msg >> loop
         in  loop
@@ -181,9 +182,9 @@ receiveAll ConversationStyle  handler =
 
 deliveryTest :: Binary header
              => TVar TestState
-             -> [NodeId -> Worker header Production]
-             -> [Listener header Production]
-             -> Maybe (PreListener header Production)
+             -> [NodeId -> Worker header BinaryP Production]
+             -> [Listener header BinaryP Production]
+             -> Maybe (PreListener header BinaryP Production)
              -> IO Property
 deliveryTest testState workers listeners prelistener = runProduction $ do
     transport_ <- throwLeft $ liftIO $ TCP.createTransport "127.0.0.1" "10342" TCP.defaultTCPParameters
@@ -195,8 +196,10 @@ deliveryTest testState workers listeners prelistener = runProduction $ do
     let prng2 = mkStdGen 1
 
         -- launch nodes
-    rec { cliNode  <- startNode endpoint1 prng1 (sequence workers servNodeId) Nothing []
-        ; servNode <- startNode endpoint2 prng2 [] prelistener listeners
+    rec { cliNode  <- startNode endpoint1 prng1 BinaryP
+            (sequence workers servNodeId) Nothing []
+        ; servNode <- startNode endpoint2 prng2 BinaryP
+            [] prelistener listeners
         ; let servNodeId = nodeId servNode
         }
 

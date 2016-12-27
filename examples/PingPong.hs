@@ -19,6 +19,7 @@ import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.InMemory as InMemory
 import qualified Network.Transport.TCP      as TCP
 import           Node
+import Message.Message (BinaryP (..))
 import           System.Random
 
 -- Sending a message which encodes to "" is problematic!
@@ -40,11 +41,12 @@ instance Binary Pong where
         else fail "no parse pong"
 
 type Header = ()
+type Packing = BinaryP
 
-workers :: NodeId -> StdGen -> [NodeId] -> [Worker Header Production]
+workers :: NodeId -> StdGen -> [NodeId] -> [Worker Header Packing Production]
 workers id gen peerIds = [pingWorker gen]
     where
-    pingWorker :: StdGen -> SendActions Header Production -> Production ()
+    pingWorker :: StdGen -> SendActions Header Packing Production -> Production ()
     pingWorker gen sendActions = loop gen
         where
         loop :: StdGen -> Production ()
@@ -61,10 +63,10 @@ workers id gen peerIds = [pingWorker gen]
             forM_ peerIds $ \peerId -> withConnectionTo sendActions peerId (fromString "ping") (pong peerId)
             loop gen'
 
-listeners :: NodeId -> [Listener Header Production]
+listeners :: NodeId -> [Listener Header Packing Production]
 listeners id = [Listener (fromString "ping") pongWorker]
     where
-    pongWorker :: ListenerAction Header Production
+    pongWorker :: ListenerAction Header Packing Production
     pongWorker = ListenerActionConversation $ \peerId (cactions :: ConversationActions Header Pong Void Production) -> do
         liftIO . putStrLn $ show id ++  " heard PING from " ++ show peerId
         send cactions () Pong
@@ -84,9 +86,9 @@ main = runProduction $ do
     let prng4 = mkStdGen 3
 
     liftIO . putStrLn $ "Starting nodes"
-    rec { node1 <- startNode @() endpoint1 prng1 (workers nodeId1 prng2 [nodeId2])
+    rec { node1 <- startNode @() endpoint1 prng1 BinaryP (workers nodeId1 prng2 [nodeId2])
             Nothing (listeners nodeId1)
-        ; node2 <- startNode @() endpoint2 prng3 (workers nodeId2 prng4 [nodeId1])
+        ; node2 <- startNode @() endpoint2 prng3 BinaryP (workers nodeId2 prng4 [nodeId1])
             Nothing (listeners nodeId2)
         ; let nodeId1 = nodeId node1
         ; let nodeId2 = nodeId node2

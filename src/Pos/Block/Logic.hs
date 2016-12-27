@@ -35,7 +35,7 @@ import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
 import qualified Data.HashMap.Strict       as HM
-import           Data.List.NonEmpty        (NonEmpty ((:|)))
+import           Data.List.NonEmpty        (NonEmpty ((:|)), (<|))
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
 import           Formatting                (build, int, sformat, (%))
@@ -255,7 +255,9 @@ verifyBlocks
 verifyBlocks blocks =
     runExceptT $
     do curSlot <- getCurrentSlot
-       verResToMonadError formatAllErrors $ Types.verifyBlocks (Just curSlot) blocks
+       tipBlk <- DB.getTipBlock
+       verResToMonadError formatAllErrors $
+           Types.verifyBlocks (Just curSlot) (tipBlk <| blocks)
        verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
        ExceptT $ txVerifyBlocks blocks
 

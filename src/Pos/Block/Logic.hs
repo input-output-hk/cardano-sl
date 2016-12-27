@@ -285,7 +285,7 @@ applyBlocks blunds = do
     let blks = fmap fst blunds
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
-    txApplyBlocks blks
+    txApplyBlocks blunds
     sscApplyBlocks blks
     sscApplyGlobalState
   where

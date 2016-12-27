@@ -27,9 +27,9 @@ import           System.Wlog            (WithLogger)
 import           Universum
 
 import           Pos.Constants          (maxLocalTxs)
-import           Pos.Crypto             (WithHash (..), hash, withHash)
+import           Pos.Crypto             (PublicKey, WithHash (..), hash, withHash)
 import           Pos.DB                 (DB, MonadDB, getUtxoDB)
-import           Pos.DB.Utxo            (BatchOp (..), getTip, writeBatchToUtxo)
+import           Pos.DB.Utxo            (BatchOp (..), getTip, writeBatchToUtxo, getFtsStake, getTotalFtsStake)
 import           Pos.Ssc.Class.Types    (Ssc)
 import           Pos.Txp.Class          (MonadTxpLD (..), TxpLD, getUtxoView)
 import           Pos.Txp.Error          (TxpError (..))
@@ -37,13 +37,13 @@ import           Pos.Txp.Holder         (TxpLDHolder, runLocalTxpLDHolder)
 import           Pos.Txp.Types          (MemPool (..), UtxoView (..))
 import           Pos.Txp.Types.Types    (ProcessTxRes (..), mkPTRinvalid)
 import qualified Pos.Txp.Types.UtxoView as UV
-import           Pos.Types              (Block, MonadUtxo, MonadUtxoRead (utxoGet),
-                                         NEBlocks, SlotId, Tx (..), TxAux,
-                                         TxDistribution (..), TxId, TxIn (..), TxOutAux,
-                                         TxWitness, Undo, VTxGlobalContext (..),
-                                         VTxLocalContext (..), applyTxToUtxo', blockSlot,
-                                         blockTxas, headerHash, prevBlockL, slotIdF,
-                                         topsortTxs, verifyTxPure)
+import           Pos.Types              (AddressHash, Block, Blund, Coin, MonadUtxo,
+                                         MonadUtxoRead (utxoGet), NEBlocks, SlotId,
+                                         Tx (..), TxAux, TxDistribution (..), TxId,
+                                         TxIn (..), TxOutAux, TxWitness, Undo,
+                                         VTxGlobalContext (..), VTxLocalContext (..),
+                                         applyTxToUtxo', blockSlot, blockTxas, headerHash,
+                                         prevBlockL, slotIdF, topsortTxs, verifyTxPure)
 import           Pos.Types.Utxo         (verifyAndApplyTxs, verifyTxUtxo)
 import           Pos.Util               (inAssertMode, _neHead)
 
@@ -61,8 +61,9 @@ type MinTxpWorkMode ssc m = ( MonadDB ssc m
 
 -- | Apply chain of /definitely/ valid blocks to state on transactions
 -- processing.
-txApplyBlocks :: TxpWorkMode ssc m => NEBlocks ssc -> m ()
-txApplyBlocks blocks = do
+txApplyBlocks :: TxpWorkMode ssc m => NonEmpty (Blund ssc) -> m ()
+txApplyBlocks blunds = do
+    let blocks = map fst blunds
     tip <- getTip
     when (tip /= blocks ^. _neHead . prevBlockL) $ throwM $
         TxpCantApplyBlocks "oldest block in NEBlocks is not based on tip"
@@ -77,13 +78,13 @@ txApplyBlocks blocks = do
     -- Now we recalculate TxIn which must be removed from Utxo DB or added to Utxo DB
     -- I can improve it, if it is bottlneck
     -- We apply all blocks and filter mempool for every block
-    mapM_ txApplyBlock $ NE.toList blocks
+    mapM_ txApplyBlock blunds
     normalizeTxpLD
 
 txApplyBlock
     :: TxpWorkMode ssc m
-    => Block ssc -> m ()
-txApplyBlock blk = do
+    => Blund ssc -> m ()
+txApplyBlock (blk, undo) = do
     let hashPrevHeader = blk ^. prevBlockL
     tip <- getTip
     when (tip /= hashPrevHeader) $
@@ -92,6 +93,14 @@ txApplyBlock blk = do
     let batch = foldr' prependToBatch [] txsAndIds
     filterMemPool txsAndIds
     writeBatchToUtxo (PutTip (headerHash blk) : batch)
+    -- Balances/stakes part
+    resolvedStakes <- mapM (fmap (fromMaybe 0) . getFtsStake)
+                           (map fst normalizedStakes)
+    totalStake <- getTotalFtsStake
+    let newStakes = zipWith (\(ad, c1) c2 -> (ad, c1 + c2))
+                            normalizedStakes resolvedStakes
+    let newTotalStake = totalStake + sum (map snd normalizedStakes)
+    writeBatchToUtxo (PutFtsSum newTotalStake : map (uncurry PutFtsStake) newStakes)
   where
     txas = either (const []) (toList . view blockTxas) blk
     txsAndIds = map (\tx -> (hash (tx ^. _1), (tx ^. _1, tx ^. _3))) txas
@@ -104,6 +113,18 @@ txApplyBlock blk = do
                          keys
                          (zip txOutputs (getTxDistribution distr))
         in foldr' (:) (foldr' (:) batch putOut) delIn --how we could simplify it?
+    -- Balances/stakes part
+    normalizedStakes = HM.toList $ normalizeStakes (unionTxInDistr ++ unionTxOutDistr)
+    unionTxOutDistr
+        = concat $
+            foldr' (\tx res -> (conDis tx : res)) [] txas
+    unionTxInDistr = concatMap (map neg . snd) $ concat undo
+    normalizeStakes :: [(AddressHash PublicKey, Coin)]
+                        -> HashMap (AddressHash PublicKey) Coin
+    normalizeStakes distr = foldl' (flip incAt) HM.empty distr
+    incAt (key, val) hm = HM.insert key (val + HM.lookupDefault 0 key hm) hm
+    neg (ah, coin) = (ah, -coin)
+    conDis tx = concat (getTxDistribution (tx ^. _3))
 
 -- | Verify whether sequence of blocks can be applied to current Tx
 -- state.  This function doesn't make pure checks for transactions,

@@ -248,6 +248,7 @@ getHeadersOlderExp upto = do
 -- header, transactions, SSC data.
 --
 -- #txVerifyBlocks
+-- #sscVerifyBlocks
 verifyBlocks
     :: WorkMode ssc m
     => NonEmpty (Block ssc) -> m (Either Text (NonEmpty Undo))

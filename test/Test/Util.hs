@@ -205,14 +205,14 @@ deliveryTest testState workers listeners prelistener = runProduction $ do
         check . (== 0) . _activeWorkers =<< readTVar testState
 
     -- wait for receiver to get everything, but not for too long
-    awaitSTM 50000 $ S.null . _expected <$> readTVar testState
+    awaitSTM 1000000 $ S.null . _expected <$> readTVar testState
 
     -- stop nodes
     mapM_ stopNode [cliNode, servNode]
     closeTransport transport
 
     -- wait till port gets free
-    delay 1000
+    delay 10000
 
     -- form test results
     liftIO . atomically $

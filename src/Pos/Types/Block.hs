@@ -417,7 +417,7 @@ verifyBlock VerifyBlockParams {..} blk =
 -- Verifies a sequence of blocks.
 -- #verifyBlock
 
--- | Verify sequence of blocks. It is assumed that the leftmost block
+-- | Verify sequence of blocks. It is assumed that the leftmost (head) block
 -- is the oldest one.
 -- foldl' is used here which eliminates laziness of triple.
 -- It doesn't affect laziness of 'VerificationRes' which is good

@@ -53,16 +53,16 @@ getTotalFtsStake :: (MonadThrow m, MonadDB ssc m) => m Coin
 getTotalFtsStake = maybe (throwM $ DBMalformed "no 'ftssum' in Utxo DB") pure =<< getFtsSumMaybe
 
 putTxOut :: MonadDB ssc m => TxIn -> TxOutAux -> m ()
-putTxOut = putBi . tinKey
+putTxOut = putBi . txInKey
 
 deleteTxOut :: MonadDB ssc m => TxIn -> m ()
-deleteTxOut = delete . tinKey
+deleteTxOut = delete . txInKey
 
 getTxOut :: MonadDB ssc m => TxIn -> m (Maybe TxOutAux)
-getTxOut = getBi . tinKey
+getTxOut = getBi . txInKey
 
 getTxOutFromDB :: (MonadIO m, MonadThrow m) => TxIn -> DB ssc -> m (Maybe TxOutAux)
-getTxOutFromDB txIn = rocksGetBi (tinKey txIn)
+getTxOutFromDB txIn = rocksGetBi (txInKey txIn)
 
 getFtsStake :: MonadDB ssc m => AddressHash PublicKey -> m (Maybe Coin)
 getFtsStake pkHash = rocksGetBi (ftsStakeKey pkHash) =<< getUtxoDB
@@ -159,8 +159,8 @@ delete :: (MonadDB ssc m) => ByteString -> m ()
 delete k = rocksDelete k =<< getUtxoDB
 
 toRocksOp :: BatchOp ssc -> Rocks.BatchOp
-toRocksOp (AddTxOut txIn txOut) = Rocks.Put (tinKey txIn) (encodeStrict txOut)
-toRocksOp (DelTxIn txIn)        = Rocks.Del $ tinKey txIn
+toRocksOp (AddTxOut txIn txOut) = Rocks.Put (txInKey txIn) (encodeStrict txOut)
+toRocksOp (DelTxIn txIn)        = Rocks.Del $ txInKey txIn
 toRocksOp (PutTip h)            = Rocks.Put tipKey (encodeStrict h)
 toRocksOp (PutFtsSum c)         = Rocks.Put ftsSumKey (encodeStrict c)
 toRocksOp (PutFtsStake ad c)    = Rocks.Put (ftsStakeKey ad) (encodeStrict c)
@@ -168,10 +168,10 @@ toRocksOp (PutFtsStake ad c)    = Rocks.Put (ftsStakeKey ad) (encodeStrict c)
 tipKey :: ByteString
 tipKey = "btip"
 
-tinKey :: TxIn -> ByteString
+txInKey :: TxIn -> ByteString
 -- [CSL-379] Restore prefix after we have proper iterator
--- tinKey = (<> "t") . encodeStrict
-tinKey = encodeStrict
+-- txInKey = (<> "t") . encodeStrict
+txInKey = encodeStrict
 
 ftsStakeKey :: AddressHash PublicKey -> ByteString
 -- [CSL-379] Restore prefix after we have proper iterator

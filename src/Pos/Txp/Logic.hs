@@ -94,10 +94,9 @@ txApplyBlock (blk, undo) = do
             "disaster, tip mismatch in txApplyBlock, probably semaphore doesn't work"
     let batch = foldr' prependToBatch [] txsAndIds
     filterMemPool txsAndIds
-    writeBatchToUtxo (PutTip (headerHash blk) : batch)
-    -- Balances/stakes part
     let (txOutPlus, txInMinus) = concatStakes (txas, undo)
-    recomputeStakes txOutPlus txInMinus
+    stakesBatch <- recomputeStakes txOutPlus txInMinus
+    writeBatchToUtxo $ stakesBatch ++ (PutTip (headerHash blk) : batch)
   where
     txas = either (const []) (toList . view blockTxas) blk
     txsAndIds = map (\tx -> (hash (tx ^. _1), (tx ^. _1, tx ^. _3))) txas
@@ -211,11 +210,14 @@ txRollbackBlock (block, undo) = do
     unless (length undo == length txs)
         $ panic "Number of txs must be equal length of undo"
     let batchOrError = foldl' prependToBatch (Right []) $ zip txs undo
-    either panic (writeBatchToUtxo . (PutTip (block ^. prevBlockL) :)) batchOrError
     -- If we store block cache in UtxoView we must invalidate it
     -- Stakes/balances part
     let (txOutMinus, txInPlus) = concatStakes (txas, undo)
-    recomputeStakes txInPlus txOutMinus
+    stakesBatch <- recomputeStakes txInPlus txOutMinus
+    either panic (writeBatchToUtxo .
+                  (stakesBatch ++) .
+                  (PutTip (block ^. prevBlockL) :))
+           batchOrError
   where
     txas = either (const []) (toList . view blockTxas) block
     txs = either (const []) (toList . map (^. _1) . view blockTxas) block
@@ -234,7 +236,7 @@ txRollbackBlock (block, undo) = do
 recomputeStakes :: (WithLogger m, MonadDB ssc m)
                 => [(AddressHash PublicKey, Coin)]
                 -> [(AddressHash PublicKey, Coin)]
-                -> m ()
+                -> m [BatchOp ssc]
 recomputeStakes plusDistr minusDistr = do
     resolvedStakes <- mapM (\(ad, _) ->
                               maybe (0 <$ logInfo (createInfo ad))
@@ -244,7 +246,7 @@ recomputeStakes plusDistr minusDistr = do
     let newStakes = zipWith (\(ad, c1) c2 -> (ad, c1 + c2))
                             normalizedStakes resolvedStakes
     let newTotalStake = totalStake + sum (map snd normalizedStakes)
-    writeBatchToUtxo (PutFtsSum newTotalStake : map (uncurry PutFtsStake) newStakes)
+    pure $ PutFtsSum newTotalStake : map (uncurry PutFtsStake) newStakes
   where
     createInfo = sformat ("Stake for "%build%" will be created in UtxoDB")
     normalizedStakes = HM.toList $ normalizeStakes (plusDistr ++ (map neg minusDistr))
@@ -258,9 +260,9 @@ concatStakes :: ([TxAux], Undo) -> ([(AddressHash PublicKey, Coin)]
                                    ,[(AddressHash PublicKey, Coin)])
 concatStakes (txas, undo) = (txasTxOutDistr, undoTxInDistr)
   where
-    txasTxOutDistr = concatMap conDis txas
+    txasTxOutDistr = concatMap concatDistr txas
     undoTxInDistr = concatMap txOutStake (concat undo)
-    conDis (Tx{..}, _, distr)
+    concatDistr (Tx{..}, _, distr)
         = concatMap txOutStake (zip txOutputs (getTxDistribution distr))
 
 -- | Remove from mem pool transactions from block

@@ -17,6 +17,7 @@ import qualified Control.Concurrent as Conc
 import qualified Control.Concurrent.MVar as Conc
 import qualified Control.Concurrent.STM as Conc
 import qualified Control.Concurrent.STM.TChan as Conc
+import Data.Time.Clock.POSIX (getPOSIXTime)
 
 newtype Production t = Production {
     runProduction :: IO t
@@ -36,7 +37,11 @@ instance Mockable Fork Production where
     liftMockable (KillThread tid) = Production $ Conc.killThread tid
 
 instance Mockable Delay Production where
-    liftMockable (Delay us) = Production $ Conc.threadDelay us
+    liftMockable (Delay relativeToNow) = Production $ do
+        cur <- curTime
+        Conc.threadDelay $ fromIntegral $ relativeToNow cur - cur
+      where
+        curTime = round . ( * 1000000) <$> getPOSIXTime
 
 instance Mockable RunInUnboundThread Production where
     liftMockable (RunInUnboundThread m) = Production $

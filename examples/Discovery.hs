@@ -14,8 +14,14 @@ import qualified Data.ByteString.Char8                as B8
 import qualified Data.Set                             as S
 import           Data.String                          (fromString)
 import           Data.Void                            (Void)
+<<<<<<< a44701cf6ab26ce4d5fab2776c5d079a00076529
 import           Message.Message                      (BinaryP (..))
 import           Mockable.Concurrent                  (delay)
+=======
+import           Mockable.Concurrent                  (wait)
+import           Control.TimeWarp.Timed               (for)
+import           Data.Time.Units                      (fromMicroseconds, Microsecond)
+>>>>>>> [CSL-447] wait instead of delay
 import           Mockable.Production
 import           Network.Discovery.Abstract
 import qualified Network.Discovery.Transport.Kademlia as K
@@ -47,7 +53,8 @@ workers id gen discovery = [pingWorker gen]
         where
         loop gen = do
             let (i, gen') = randomR (1000,2000000) gen
-            delay i
+                us = fromMicroseconds i :: Microsecond
+            wait $ for us
             peerSet_ <- knownPeers discovery
             discoverPeers discovery
             peerSet <- knownPeers discovery

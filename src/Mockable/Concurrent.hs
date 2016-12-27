@@ -12,7 +12,7 @@ module Mockable.Concurrent (
   , killThread
 
   , Delay(..)
-  , delay
+  , wait
 
   , RunInUnboundThread(..)
   , runInUnboundThread
@@ -20,6 +20,8 @@ module Mockable.Concurrent (
   ) where
 
 import Mockable.Class
+
+import Data.Time.Units  (Microsecond)
 
 type family ThreadId (m :: * -> *) :: *
 
@@ -37,12 +39,14 @@ myThreadId = liftMockable MyThreadId
 killThread :: ( Mockable Fork m ) => ThreadId m -> m ()
 killThread tid = liftMockable $ KillThread tid
 
-data Delay (m :: * -> *) (t :: *) where
-    -- | Delay in microseconds
-    Delay :: Int -> Delay m ()
+-- | Defines some time point basing on current virtual time.
+type RelativeToNow = Microsecond -> Microsecond
 
-delay :: ( Mockable Delay m ) => Int -> m ()
-delay us = liftMockable $ Delay us
+data Delay (m :: * -> *) (t :: *) where
+    Delay :: RelativeToNow -> Delay m ()
+
+wait :: ( Mockable Delay m ) => RelativeToNow -> m ()
+wait relativeToNow = liftMockable $ Delay relativeToNow
 
 data RunInUnboundThread m t where
     RunInUnboundThread :: m t -> RunInUnboundThread m t

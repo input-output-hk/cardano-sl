@@ -11,8 +11,14 @@ import           Control.Monad              (forM_)
 import           Control.Monad.IO.Class     (liftIO)
 import           Data.Binary
 import           Data.String                (fromString)
+<<<<<<< a44701cf6ab26ce4d5fab2776c5d079a00076529
 import           Message.Message            (BinaryP (..))
 import           Mockable.Concurrent        (delay)
+=======
+import           Mockable.Concurrent        (wait)
+import           Control.TimeWarp.Timed     (for)
+import           Data.Time.Units            (fromMicroseconds, Microsecond)
+>>>>>>> [CSL-447] wait instead of delay
 import           Mockable.Production
 import           Network.Transport.Abstract (newEndPoint)
 import           Network.Transport.Concrete (concrete)
@@ -62,8 +68,14 @@ workers id gen peerIds = [pingWorker gen]
         loop :: StdGen -> Production ()
         loop gen = do
             let (i, gen') = randomR (0,1000000) gen
+<<<<<<< a44701cf6ab26ce4d5fab2776c5d079a00076529
             delay i
             let pong :: NodeId -> ConversationActions Ping Pong Production -> Production ()
+=======
+                us = fromMicroseconds i :: Microsecond
+            wait $ for us
+            let pong :: NodeId -> ConversationActions Header Ping Pong Production -> Production ()
+>>>>>>> [CSL-447] wait instead of delay
                 pong peerId cactions = do
                     liftIO . putStrLn $ show id ++ " sent PING to " ++ show peerId
                     received <- recv cactions

@@ -58,7 +58,10 @@ Library
                       , random
                       , serokell-util
                       , stm
+<<<<<<< a44701cf6ab26ce4d5fab2776c5d079a00076529
                       , text
+=======
+>>>>>>> [CSL-447] wait instead of delay
                       , time
                       , time-units
                       , transformers
@@ -80,6 +83,8 @@ executable discovery
                       , network-transport-tcp
                       , node-sketch
                       , random
+                      , time-units
+                      , time-warp
 
   hs-source-dirs:       examples
   default-language:     Haskell2010
@@ -99,6 +104,8 @@ executable ping-pong
                      , node-sketch
                      , random
                      , stm
+                     , time-units
+                     , time-warp
 
   hs-source-dirs:      examples
   default-language:    Haskell2010

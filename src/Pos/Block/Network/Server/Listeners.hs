@@ -183,7 +183,6 @@ handleBlock msg@(MsgBlock blk) = do
         -- [CSL-335] Process intermediate blocks ASAP.
         PBMintermediate -> do
             logDebug $ sformat intermediateFormat (headerHash blk)
-            logDebug "handleBlock: it was an intermediate one"
         PBMfinal blocks -> do
             logDebug "handleBlock: it was final block, launching handleBlocks"
             handleBlocks blocks

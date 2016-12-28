@@ -25,5 +25,3 @@ spec = describe "GodTossing" $ do
         prop "GtPayload"           (safeCopyEncodeDecode @GT.GtPayload)
         prop "GtProof"             (safeCopyEncodeDecode @GT.GtProof)
         prop "GtGlobalState"       (safeCopyEncodeDecode @GT.GtGlobalState)
-        prop "GtStorageVersion"    (safeCopyEncodeDecode @GT.GtStorageVersion)
-        prop "GtStorage"           (safeCopyEncodeDecode @GT.GtStorage)

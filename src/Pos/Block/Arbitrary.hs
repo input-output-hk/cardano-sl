@@ -11,7 +11,7 @@ import           Universum
 import           Pos.Binary                (Bi)
 import           Pos.Block.Network         as T
 import           Pos.Crypto                (Hash)
-import           Pos.Data.Attributes       (Attributes (..))
+import           Pos.Data.Attributes       (Attributes (..), mkAttributes)
 import           Pos.Merkle                (MerkleRoot (..), MerkleTree, mkMerkleTree)
 import           Pos.Ssc.Class.Types       (Ssc (..))
 import qualified Pos.Types                 as T
@@ -110,9 +110,8 @@ txOutDistGen :: Gen [(T.Tx, T.TxDistribution, T.TxWitness)]
 txOutDistGen = listOf $ do
     txInW <- arbitrary
     txIns <- arbitrary
-    txAts <- arbitrary
     (txOuts, txDist) <- second T.TxDistribution . unzip <$> arbitrary
-    return $ (T.Tx txIns txOuts txAts, txDist, txInW)
+    return $ (T.Tx txIns txOuts $ mkAttributes (), txDist, txInW)
 
 instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc)) where
     arbitrary = makeSmall $ do

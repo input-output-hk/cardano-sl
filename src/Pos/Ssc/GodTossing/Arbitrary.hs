@@ -15,7 +15,6 @@ import           Pos.Binary.Class                 (Bi)
 import           Pos.Crypto                       (deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening)
 import           Pos.Ssc.GodTossing.Secret.Types  (GtSecretStorage (..))
-import           Pos.Ssc.GodTossing.Storage.Types (GtStorage (..), GtStorageVersion (..))
 import           Pos.Ssc.GodTossing.Types.Base    (Commitment, Opening,
                                                    VssCertificate (..), mkVssCertificate)
 import           Pos.Ssc.GodTossing.Types.Message (DataMsg (..), InvMsg (..), MsgTag (..),
@@ -87,16 +86,6 @@ instance Bi Commitment => Arbitrary GtGlobalState where
 
 instance Bi Commitment => Arbitrary GtSecretStorage where
     arbitrary = GtSecretStorage <$> arbitrary <*> arbitrary
-
-instance Bi Commitment => Arbitrary GtStorageVersion where
-    arbitrary = makeSmall $ GtStorageVersion
-        <$> arbitrary
-        <*> arbitrary
-        <*> arbitrary
-        <*> arbitrary
-
-instance Bi Commitment => Arbitrary GtStorage where
-    arbitrary = makeSmall $ GtStorage <$> arbitrary
 
 ------------------------------------------------------------------------------------------
 -- Message types

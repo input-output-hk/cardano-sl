@@ -13,8 +13,10 @@ import Data.HTTP.Method (Method(POST, DELETE))
 import Data.Maybe (Maybe (Just))
 import Data.Tuple (Tuple)
 import Network.HTTP.Affjax (affjax, defaultRequest, AJAX, get)
+import Network.HTTP.RequestHeader (RequestHeader (ContentType))
 import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, _ctxIdValue, CTxId, CTxMeta)
 import Daedalus.Constants (backendPrefix)
+import Data.MediaType.Common (applicationJSON)
 
 -- TODO: remove traces, they are adding to increase verbosity in development
 makeRequest :: forall eff a. (Generic a) => String -> Aff (ajax :: AJAX | eff) a
@@ -49,6 +51,7 @@ newWallet wMeta = do
     { url = backendPrefix <> "/api/new_wallet"
     , method = Left POST
     , content = Just <<< show $ encodeJson wMeta
+    , headers = [ContentType applicationJSON]
     }
   either throwError pure $ decodeResult res
 
@@ -67,6 +70,7 @@ updateWallet addr wMeta = do
     { url = backendPrefix <> "/api/update_wallet/" <> _address addr
     , method = Left POST
     , content = Just <<< show $ encodeJson wMeta
+    , headers = [ContentType applicationJSON]
     }
   either throwError pure $ decodeResult res
 

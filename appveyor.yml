@@ -4,8 +4,8 @@ image: Visual Studio 2015
 build: off
 
 cache:
-  - "c:\\sr"
-  - '.stack-work'
+  #- "c:\\sr"
+  #- '.stack-work'
   - 'rocksdb'
 
 environment:

@@ -23,7 +23,7 @@ data Args = Args
     , recipients   :: ![(String, Word16)]
     , threadNum    :: !Int
     , msgNum       :: !Int
-    , msgRate      :: !(Maybe Int)
+    , msgRate      :: !Word
     , duration     :: !Int
     , payloadBound :: !Int64
     }
@@ -66,14 +66,13 @@ argsParser =
           <> showDefault <>
          help "Number of messages to send")
     <*>
-    optional
-        (option
-            auto
-            (short 'r'
-              <> long "msg-rate"
-              <> metavar "INTEGER" <>
-             help "Number of messages to send per second")
-        )
+    option
+        auto
+        (   short 'r'
+         <> long "msg-rate"
+         <> metavar "INTEGER"
+         <> value (-1)
+         <> help "Number of messages to send per second (default: ∞)")
     <*>
     option
         auto

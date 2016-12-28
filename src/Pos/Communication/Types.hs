@@ -24,6 +24,7 @@ import           Pos.DHT.Model                      (MonadResponseDHT)
 import           Pos.WorkMode                       (WorkMode)
 
 import           Pos.Communication.Types.Delegation as Export
+import           Pos.Communication.Types.Protocol   as Export
 import           Pos.Communication.Types.State      as Export
 import           Pos.Communication.Types.SysStart   as Export
 import           Pos.Txp.Types.Communication        as Export

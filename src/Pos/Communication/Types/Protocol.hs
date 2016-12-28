@@ -1,6 +1,9 @@
 -- | Protocol/versioning related communication types.
 
-module Pos.Communication.Types.Protocol where
+module Pos.Communication.Types.Protocol
+       ( VersionReq (..)
+       , VersionResp (..)
+       ) where
 
 import           Control.TimeWarp.Rpc (Message (..), messageName')
 import           Universum
@@ -8,7 +11,7 @@ import           Universum
 import           Pos.Types            (ProtocolVersion)
 
 -- | Version request message. 'VersionResp' is expected as response.
-data VersionReq = VerlionReq
+data VersionReq = VersionReq
     deriving (Generic)
 
 instance Message VersionReq where

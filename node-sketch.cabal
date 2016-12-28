@@ -42,6 +42,7 @@ Library
                       , hashable
                       , kademlia
                       , lens
+                      , log-warper
                       , mtl
                       , network
                       , network-transport

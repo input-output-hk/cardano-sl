@@ -32,6 +32,7 @@ import           Network.Socket              (AddrInfo (..), AddrInfoFlag (AI_AD
                                               setSocketOption, socket)
 import           Network.Socket.ByteString   (recvFrom, sendManyTo)
 import           Prelude                     hiding (log)
+import           System.Wlog                 (WithLogger)
 
 import NTP.Packet (NtpPacket (..), mkCliNtpPacket)
 import NTP.Util   (datagramPacketSize, resolveNtpHost)
@@ -40,7 +41,7 @@ type StopWorker m = m ()
 
 data NtpClientSettings = NtpClientSettings
     { ntpServers :: [String]
-    , ntpHandler :: forall m . ( MonadIO m )
+    , ntpHandler :: forall m . ( MonadIO m, WithLogger m )
                  => Microsecond -> m ()
     , ntpLogName :: String
     }
@@ -51,8 +52,8 @@ data NtpClient = NtpClient
     , ncSettings :: NtpClientSettings
     }
 
-mkNtpClient :: NtpClientSettings -> Socket -> IO NtpClient
-mkNtpClient ncSettings sock = do
+mkNtpClient :: MonadIO m => NtpClientSettings -> Socket -> m NtpClient
+mkNtpClient ncSettings sock = liftIO $ do
     ncSocket <- newTVarIO sock
     ncClosed <- newTVarIO False
     return NtpClient{..}
@@ -74,48 +75,51 @@ newtype FailedToResolveHost = FailedToResolveHost String
 instance Exception FailedToResolveHost
 
 
-log :: NtpClient -> String -> IO ()
+log :: WithLogger m => NtpClient -> String -> m ()
 log cli msg = do
-    closed <- readTVarIO (ncClosed cli)
+    closed <- liftIO $ readTVarIO (ncClosed cli)
     unless closed $ do
         let logName = ntpLogName (ncSettings cli)
         putStrLn $ logName ++ ": " ++ msg
 
-sendRequest :: SockAddr -> NtpClient -> IO ()
-sendRequest addr cli = do
-    sock <- readTVarIO (ncSocket cli)
+doSend :: ( MonadIO m, WithLogger m )
+            => SockAddr -> NtpClient -> m ()
+doSend addr cli = do
+    sock <- liftIO $ readTVarIO (ncSocket cli)
     let packet = encode mkCliNtpPacket
-    sendManyTo sock (LBS.toChunks packet) addr `catchAll` handleE
+    liftIO $ sendManyTo sock (LBS.toChunks packet) addr `catchAll` handleE
   where
     -- just log; socket closure is handled by receiver
     handleE e = do
         log cli $ "Failed to send to " ++ show addr
 
-startSend :: [SockAddr] -> NtpClient -> IO ()
+startSend :: ( MonadIO m, WithLogger m )
+          => [SockAddr] -> NtpClient -> m ()
 startSend addrs cli = forever $ do
-    closed <- readTVarIO (ncClosed cli)
+    closed <- liftIO $ readTVarIO (ncClosed cli)
     unless closed $ do
         forM_ addrs $ \addr -> forkIO $ sendRequest addr cli
-        threadDelay 1000000
+        liftIO $ threadDelay 1000000
 
-mkSocket :: IO Socket
-mkSocket = do
+mkSocket :: MonadIO m => m Socket
+mkSocket = liftIO $ do
     sock <- socket AF_INET Datagram defaultProtocol
     setSocketOption sock ReuseAddr 1
     return sock
 
-receiveReplies :: NtpClient -> IO ()
-receiveReplies cli = do
+doReceive :: ( MonadIO m, WithLogger m ) => NtpClient -> m ()
+doReceive cli = do
     sock <- readTVarIO $ ncSocket cli
     let handler = ntpHandler (ncSettings cli)
     forever $ do
-        (received, _) <- recvFrom sock datagramPacketSize
+        (received, _) <- liftIO $ recvFrom sock datagramPacketSize
         let eNtpPacket = decodeOrFail $ LBS.fromStrict received
         case eNtpPacket of
             Left  (_, _, err)    -> log cli $ "Error while receiving time: " ++ show err
             Right (_, _, packet) -> handler $ ntpTime packet
 
-startReceive :: NtpClient -> IO ()
+startReceive :: ( MonadIO m, WithLogger m)
+             => NtpClient -> m ()
 startReceive cli = do
     receiveReplies cli `catchAll` handleE
   where
@@ -135,14 +139,15 @@ startReceive cli = do
 
 stopNtpClient :: MonadIO m => NtpClient -> m ()
 stopNtpClient cli = liftIO $ do
-    sock <- atomically $ do
+    sock <- liftIO . atomically $ do
         writeTVar (ncClosed cli) True
         readTVar  (ncSocket cli)
 
     -- unblock receiving from socket in case no one replies
-    close sock `catchAll` \_ -> return ()
+    liftIO $ close sock `catchAll` \_ -> return ()
 
-startNtpClient :: NtpClientSettings -> IO NtpStopButton
+startNtpClient :: ( MonadIO m, WithLogger m )
+               => NtpClientSettings -> m NtpStopButton
 startNtpClient settings = do
     sock <- mkSocket
     cli <- mkNtpClient settings sock
@@ -155,7 +160,7 @@ startNtpClient settings = do
     return $ NtpStopButton { press = stopNtpClient cli }
   where
     resolveHost host = do
-        maddr <- resolveNtpHost host
+        maddr <- liftIO $ resolveNtpHost host
         case maddr of
             Nothing   -> throwM $ FailedToResolveHost host
             Just addr -> return addr

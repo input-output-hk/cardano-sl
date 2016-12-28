@@ -36,7 +36,7 @@ getWallet addr = makeRequest $ "/api/get_wallet/" <> _address addr
 getHistory :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) (Array CTx)
 getHistory addr = makeRequest $ "/api/history/" <> _address addr
 
-send :: forall eff. CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) Unit
+send :: forall eff. CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) CTx
 send addrFrom addrTo amount = do
   res <- affjax $ defaultRequest
     -- TODO: use url constructor

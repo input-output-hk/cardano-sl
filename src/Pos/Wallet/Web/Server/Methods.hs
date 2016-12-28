@@ -30,11 +30,12 @@ import           Universum
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Crypto                 (toPublic)
 import           Pos.DHT.Model              (dhtAddr, getKnownPeers)
-import           Pos.Types                  (Address, Coin (Coin), Tx, TxOut (..),
+import           Pos.Types                  (Address, Coin (Coin), Tx, TxId, TxOut (..),
                                              addressF, coinF, decodeTextAddress,
                                              makePubKeyAddress)
 import           Pos.Web.Server             (serveImpl)
 
+import           Pos.Crypto                 (hash)
 import           Pos.Wallet.KeyStorage      (KeyError (..), MonadKeys (..), newSecretKey)
 import           Pos.Wallet.Tx              (submitTx)
 import           Pos.Wallet.WalletMode      (WalletMode, getBalance, getTxHistory)
@@ -136,7 +137,7 @@ decodeCAddressOrFail = either wrongAddress pure . cAddressToAddress
 getWallets :: WalletWebMode ssc m => m [CWallet]
 getWallets = join $ mapM getWallet <$> myCAddresses
 
-send :: WalletWebMode ssc m => CAddress -> CAddress -> Coin -> m ()
+send :: WalletWebMode ssc m => CAddress -> CAddress -> Coin -> m CTx
 send srcCAddr dstCAddr c = do
     srcAddr <- decodeCAddressOrFail srcCAddr
     dstAddr <- decodeCAddressOrFail dstCAddr
@@ -144,24 +145,28 @@ send srcCAddr dstCAddr c = do
     sks <- getSecretKeys
     let sk = sks !! idx
     na <- fmap dhtAddr <$> getKnownPeers
-    () <$ submitTx sk na [(TxOut dstAddr c, [])]
-    -- TODO: this should be removed in production
-    () <$ getHistory srcCAddr
-    () <$ getHistory dstCAddr
+    (tx,_,_) <- submitTx sk na [(TxOut dstAddr c, [])]
     logInfo $
         sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
         c idx dstAddr
+    -- TODO: this should be removed in production
+    let tx' = (hash tx, tx, True)
+    () <$ addHistoryTx dstCAddr tx'
+    addHistoryTx srcCAddr tx'
 
 getHistory :: WalletWebMode ssc m => CAddress -> m [CTx]
 getHistory cAddr = do
+    history <- getTxHistory =<< decodeCAddressOrFail cAddr
+    mapM (addHistoryTx cAddr) history
+
+addHistoryTx :: WalletWebMode ssc m => CAddress -> (TxId, Tx, Bool) -> m CTx
+addHistoryTx cAddr wtx@(txId, _, _) = do
     -- TODO: this should be removed in production
     meta <- CTxMeta ADA mempty mempty <$> liftIO getPOSIXTime
-    history <- getTxHistory =<< decodeCAddressOrFail cAddr
-    forM history $ \wtx@(txId, _, _) -> do
-        let cId = txIdToCTxId txId
-        addOnlyNewTxMeta cAddr cId meta
-        meta' <- maybe meta identity <$> getTxMeta cAddr cId
-        return $ mkCTx wtx meta'
+    let cId = txIdToCTxId txId
+    addOnlyNewTxMeta cAddr cId meta
+    meta' <- maybe meta identity <$> getTxMeta cAddr cId
+    return $ mkCTx wtx meta'
 
 newWallet :: WalletWebMode ssc m => CWalletMeta -> m CWallet
 newWallet wMeta = do

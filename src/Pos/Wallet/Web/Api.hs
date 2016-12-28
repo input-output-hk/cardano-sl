@@ -26,7 +26,7 @@ type WalletApi =
      "api" :> "get_wallets" :> Get '[JSON] (Cors [CWallet])
     :<|>
     -- TODO: for now we only support one2one sending. We should extend this to support many2many
-     "api" :> "send" :> Capture "from" CAddress :> Capture "to" CAddress :> Capture "amount" Coin :> Post '[JSON] (Cors ())
+     "api" :> "send" :> Capture "from" CAddress :> Capture "to" CAddress :> Capture "amount" Coin :> Post '[JSON] (Cors CTx)
     :<|>
      "api" :> "history" :> Capture "address" CAddress :> Get '[JSON] (Cors [CTx])
     :<|>

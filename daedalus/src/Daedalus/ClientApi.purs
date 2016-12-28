@@ -18,8 +18,8 @@ getWallet = fromAff <<< map (show <<< encodeJson) <<< B.getWallet <<< mkCAddress
 getHistory :: forall eff. String -> Eff(ajax :: AJAX | eff) (Promise String)
 getHistory = fromAff <<< map (show <<< encodeJson) <<< B.getHistory <<< mkCAddress
 
-send :: forall eff. String -> String -> Int -> Eff(ajax :: AJAX | eff) (Promise Unit)
-send addrFrom addrTo amount = fromAff $
+send :: forall eff. String -> String -> Int -> Eff(ajax :: AJAX | eff) (Promise String)
+send addrFrom addrTo amount = fromAff <<< map (show <<< encodeJson) $
     B.send
         (mkCAddress addrFrom)
         (mkCAddress addrTo)

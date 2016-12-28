@@ -23,6 +23,7 @@ Library
                         Mockable.Class
                         Mockable.Concurrent
                         Mockable.Exception
+                        Mockable.Monad
                         Mockable.Production
                         Mockable.SharedAtomic
 

@@ -150,9 +150,9 @@ send srcCAddr dstCAddr c = do
         sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
         c idx dstAddr
     -- TODO: this should be removed in production
-    let tx' = (hash tx, tx, True)
-    () <$ addHistoryTx dstCAddr tx'
-    addHistoryTx srcCAddr tx'
+    let txHash = hash tx
+    () <$ addHistoryTx dstCAddr (txHash, tx, False)
+    addHistoryTx srcCAddr (txHash, tx, True)
 
 getHistory :: WalletWebMode ssc m => CAddress -> m [CTx]
 getHistory cAddr = do

@@ -30,7 +30,8 @@ import           Universum           hiding (putByteString)
 mkAttributes :: h -> Attributes h
 mkAttributes dat = Attributes dat BS.empty
 
--- | Convenient datatype wrapper plus unparsed content.
+-- | Convenient wrapper for the datatype to represent it (in binary
+-- format) as k-v map.
 data Attributes h = Attributes
     { -- | Data, containing known keys (deserialized)
       attrData   :: h

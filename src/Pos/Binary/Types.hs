@@ -93,7 +93,10 @@ instance ( Bi (T.BodyProof b)
         put _gbhBodyProof
         put _gbhConsensus
         put _gbhExtra
-    get = label "GenericBlockHeader" $ T.GenericBlockHeader <$> get <*> get <*> get <*> get
+        put _gbhMagic
+    get =
+        label "GenericBlockHeader" $
+        T.GenericBlockHeader <$> get <*> get <*> get <*> get <*> get
 
 instance ( Bi (T.BodyProof b)
          , Bi (T.ConsensusData b)

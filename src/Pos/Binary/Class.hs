@@ -182,6 +182,8 @@ instance Bi Word where              -- 8 bytes, big endian
 
 instance Bi Integer where           -- TODO: write how Integer is serialized
 
+instance Bi Int16 where             -- 2 bytes, big endian
+instance Bi Int32 where             -- 4 bytes, big endian
 instance Bi Int64 where             -- 8 bytes, big endian
 
 instance Bi Word8 where             -- single byte

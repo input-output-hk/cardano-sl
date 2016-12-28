@@ -28,6 +28,7 @@ module Pos.Constants
        , defaultPeers
        , sysTimeBroadcastSlots
        , mpcSendInterval
+       , magic
 
          -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -39,6 +40,7 @@ module Pos.Constants
        ) where
 
 import           Control.TimeWarp.Timed (Microsecond, sec)
+import           Data.Int               (Int32)
 import qualified Text.Parsec            as P
 import           Universum
 
@@ -150,6 +152,11 @@ defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
     parsePeer =
         either (panic . show) identity .
         P.parse dhtNodeParser "Compile time config"
+
+-- | Magic constant. Is put to block to distinguish testnet and
+-- realnet (for example, possible usages are wider).
+magic :: Int32
+magic = fromIntegral . ccMagic $ compileConfig
 
 ----------------------------------------------------------------------------
 -- Malicious activity

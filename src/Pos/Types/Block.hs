@@ -37,7 +37,7 @@ import           Universum
 
 import           Pos.Binary.Class      (Bi (..))
 import           Pos.Binary.Types      ()
-import           Pos.Constants         (epochSlots)
+import           Pos.Constants         (epochSlots, magic)
 import           Pos.Crypto            (Hash, SecretKey, checkSig, hash, proxySign,
                                         proxyVerify, pskIssuerPk, sign, toPublic,
                                         unsafeHash)
@@ -79,6 +79,7 @@ mkGenericHeader prevHeader body consensus extra =
     , _gbhBodyProof = proof
     , _gbhConsensus = consensus h proof
     , _gbhExtra = extra
+    , _gbhMagic = magic
     }
   where
     h :: Hash (BBlockHeader b)
@@ -366,6 +367,7 @@ data VerifyBlockParams ssc = VerifyBlockParams
     , vbpVerifyGeneric :: !Bool
     , vbpVerifyTxs     :: !Bool
     , vbpVerifySsc     :: !Bool
+    , vbpVerifyMagic   :: !Bool
     }
 
 -- | By default nothing is checked.
@@ -376,6 +378,7 @@ instance Default (VerifyBlockParams ssc) where
         , vbpVerifyGeneric = False
         , vbpVerifyTxs = False
         , vbpVerifySsc = False
+        , vbpVerifyMagic = True
         }
 
 -- CHECK: @verifyBlock
@@ -391,6 +394,7 @@ verifyBlock VerifyBlockParams {..} blk =
         , maybeEmpty (flip verifyHeader (getBlockHeader blk)) vbpVerifyHeader
         , verifyTxs
         , verifySsc
+        , verifyMagic
         ]
   where
     verifyG
@@ -411,6 +415,16 @@ verifyBlock VerifyBlockParams {..} blk =
                         sscVerifyPayload
                         (mainBlk ^. gbHeader)
                         (mainBlk ^. blockMpc)
+        | otherwise = mempty
+    verifyMagic
+        | vbpVerifyMagic =
+            let bMagic = either (view $ gbHeader . gbhMagic)
+                                (view $ gbHeader . gbhMagic)
+                                blk
+            in verifyGeneric
+               [(bMagic == magic,
+                sformat ("Block's magic ("%int%") is not equal to ours ("%int%")")
+                bMagic magic)]
         | otherwise = mempty
 
 -- CHECK: @verifyBlocks
@@ -452,5 +466,6 @@ verifyBlocks curSlotId = (view _3) . foldl' step start
                 , vbpVerifyGeneric = True
                 , vbpVerifyTxs = True
                 , vbpVerifySsc = True
+                , vbpVerifyMagic = True
                 }
         in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)

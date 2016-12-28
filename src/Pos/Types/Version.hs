@@ -1,7 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Pos.Types.Version
-       ( ProtocolVersion (..)
+       (
+         ProtocolVersion (..)
        , SoftwareVersion (..)
        , ApplicationName (getApplicationName)
        , mkApplicationName
@@ -18,41 +19,36 @@ import           Formatting          (bprint, build, shown, stext, (%))
 import           Prelude             (show)
 import           Universum           hiding (show)
 
+-- | Communication protocol version.
 data ProtocolVersion = ProtocolVersion
     { pvMajor :: Word16
     , pvMinor :: Word16
     , pvAlt   :: Word8
-    }
-  deriving (Eq, Generic, Ord)
+    } deriving (Eq, Generic, Ord)
 
 instance Show ProtocolVersion where
-    show ProtocolVersion {..} = mconcat
-        [ show pvMajor
-        , "."
-        , show pvMinor
-        , "."
-        , show pvAlt
-        ]
+    show ProtocolVersion {..} =
+        intercalate "." [show pvMajor, show pvMinor, show pvAlt]
 
 instance Buildable ProtocolVersion where
     build = bprint shown
 
 newtype ApplicationName = ApplicationName
     { getApplicationName :: Text
-    }
-  deriving (Eq, Ord, Show, Generic)
+    } deriving (Eq, Ord, Show, Generic)
 
 applicationNameMaxLength :: Integral i => i
 applicationNameMaxLength = 7
 
 mkApplicationName :: MonadFail m => Text -> m ApplicationName
-mkApplicationName appName | T.length appName > applicationNameMaxLength
-                              = fail "ApplicationName: too long string passed"
-                          | T.any (not . isAscii) appName
-                              = fail "ApplicationName: not ascii string passed"
-                          | otherwise
-                              = pure $ ApplicationName appName
+mkApplicationName appName
+    | T.length appName > applicationNameMaxLength =
+        fail "ApplicationName: too long string passed"
+    | T.any (not . isAscii) appName =
+        fail "ApplicationName: not ascii string passed"
+    | otherwise = pure $ ApplicationName appName
 
+-- | Software version.
 data SoftwareVersion = SoftwareVersion
     { svAppName :: ApplicationName
     , svMajor   :: Word8

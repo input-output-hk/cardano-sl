@@ -26,7 +26,8 @@ import qualified Pos.Types.Types     as T
 -- verbosity and clarity
 
 instance Bi (A.Attributes ()) where
-    get = label "Attributes" $ A.getAttributes (\_ () -> Nothing) (128 * 1024 * 1024) ()
+    get = label "Attributes" $
+        A.getAttributes (\_ () -> Nothing) (128 * 1024 * 1024) ()
     put = A.putAttributes (\() -> [])
 
 instance Bi T.Timestamp where
@@ -202,4 +203,3 @@ instance Bi T.MainExtraBodyData where
                                 *> put _mebUpdate
                                 *> put _mebUpdateVotes
    get = label "MainExtraBodyData" $ T.MainExtraBodyData <$> get <*> get <*> get
-

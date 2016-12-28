@@ -46,9 +46,7 @@ import           Pos.DHT.Model               (DHTResponseT, MonadDHT,
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..),
-                                              MonadSscLDM (..))
-import           Pos.State                   (MonadDB)
+import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
 import           Pos.Statistics.StatEntry    (StatLabel (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types                   (MonadUtxo, MonadUtxoRead)
@@ -84,10 +82,10 @@ type instance ThreadId (StatsT m) = ThreadId m
 newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a  -- ^ action inside wrapper without collecting statistics
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog s p,
+               MonadMask, MonadIO, HasLoggerName, MonadDialog s p,
                MonadDHT, MonadMessageDHT s, MonadSlots, WithDefaultMsgHeader,
                MonadJL, CanLog, MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc,
-               MonadTxpLD ssc, MonadSscGS ssc, MonadSscLDM ssc,
+               MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
                WithNodeContext ssc)
 
 instance Monad m => WrappedM (NoStatsT m) where
@@ -114,10 +112,6 @@ instance MonadResponse s m => MonadResponse s (NoStatsT m) where
     closeR = lift closeR
     peerAddr = lift peerAddr
 
-instance MonadSscLD ssc m => MonadSscLD ssc (NoStatsT m) where
-    getLocalData = lift getLocalData
-    setLocalData = lift . setLocalData
-
 instance MonadTrans NoStatsT where
     lift = NoStatsT
 
@@ -133,10 +127,10 @@ type StatsMap = SM.Map Text LByteString
 newtype StatsT m a = StatsT
     { getStatsT :: ReaderT StatsMap m a  -- ^ action inside wrapper with collected statistics
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, MonadDB ssc, HasLoggerName, MonadDialog s p,
+               MonadMask, MonadIO, HasLoggerName, MonadDialog s p,
                MonadDHT, MonadMessageDHT s, MonadSlots, WithDefaultMsgHeader, MonadTrans,
                MonadJL, CanLog, MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc, MonadTxpLD ssc,
-               MonadSscGS ssc, MonadSscLDM ssc, WithNodeContext ssc)
+               MonadSscGS ssc, MonadSscLD ssc, WithNodeContext ssc)
 
 instance Monad m => WrappedM (StatsT m) where
     type UnwrappedM (StatsT m) = ReaderT StatsMap m
@@ -161,10 +155,6 @@ instance MonadResponse s m => MonadResponse s (StatsT m) where
     replyRaw dat = StatsT $ replyRaw (hoist getStatsT dat)
     closeR = lift closeR
     peerAddr = lift peerAddr
-
-instance MonadSscLD ssc m => MonadSscLD ssc (StatsT m) where
-    getLocalData = lift getLocalData
-    setLocalData = lift . setLocalData
 
 runStatsT :: MonadIO m => StatsT m a -> m a
 runStatsT action = liftIO SM.newIO >>= flip runStatsT' action

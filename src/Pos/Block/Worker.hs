@@ -15,46 +15,31 @@ module Pos.Block.Worker
        ) where
 
 import           Control.Lens               (ix, (^.), (^?))
-import           Control.TimeWarp.Timed     (Microsecond, for, repeatForever, wait)
+import           Control.TimeWarp.Timed     (for, wait)
 import           Data.Default               (def)
-import qualified Data.HashMap.Strict        as HM
 import           Formatting                 (build, sformat, shown, (%))
 import           Serokell.Util              (VerificationRes (..), listJson)
 import           Serokell.Util.Exceptions   ()
-import           System.Wlog                (WithLogger, dispatchEvents, logDebug,
-                                             logError, logInfo, logWarning)
+import           System.Wlog                (WithLogger, logDebug, logError, logInfo,
+                                             logWarning)
 import           Universum
 
 import           Pos.Binary.Communication   ()
-#ifdef MODERN
+import           Pos.Block.Logic            (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce (announceBlock)
-import           Pos.Block.Network.Types    (MsgHeaders (..))
-#endif
-#ifndef MODERN
-import           Pos.Communication.Methods  (announceBlock)
-#endif
-import           Pos.Constants              (networkDiameter, slotDuration)
-import           Pos.Context                (getNodeContext, ncPropagation, ncPublicKey,
-                                             ncSecretKey)
-import           Pos.Crypto                 (ProxySecretKey, WithHash (WithHash),
-                                             pskIssuerPk, pskOmega, shortHashF)
+import           Pos.Constants              (networkDiameter)
+import           Pos.Context                (getNodeContext, ncPublicKey)
+import           Pos.Context.Class          (tryReadLeaders)
+import           Pos.Crypto                 (ProxySecretKey, pskIssuerPk, pskOmega,
+                                             shortHashF)
 import           Pos.DB.Misc                (getProxySecretKeys)
 import           Pos.Slotting               (MonadSlots (getCurrentTime), getSlotStart,
                                              onNewSlot)
 import           Pos.Ssc.Class              (SscHelpersClass)
-import           Pos.Ssc.Extra.MonadLD      (sscApplyGlobalState, sscGetLocalPayload)
-#ifdef MODERN
-import           Pos.Block.Logic            (createGenesisBlock, createMainBlock)
-import           Pos.Context.Class          (tryReadLeaders)
-#else
-import           Pos.State                  (createNewBlock, getGlobalMpcData,
-                                             getHeadBlock, getLeaders, processNewSlot)
-#endif
-import           Pos.Txp.LocalData          (getLocalTxs)
 import           Pos.Types                  (EpochIndex, MainBlock, SlotId (..),
                                              Timestamp (Timestamp),
-                                             VerifyBlockParams (..), gbHeader,
-                                             slotIdF, topsortTxs, verifyBlock)
+                                             VerifyBlockParams (..), gbHeader, slotIdF,
+                                             verifyBlock)
 import           Pos.Types.Address          (addressHash)
 import           Pos.Util                   (inAssertMode, logWarningWaitLinear)
 import           Pos.Util.JsonLog           (jlCreatedBlock, jlLog)
@@ -62,11 +47,7 @@ import           Pos.WorkMode               (WorkMode)
 
 -- | All workers specific to block processing.
 blkWorkers :: WorkMode ssc m => [m ()]
-#ifdef MODERN
 blkWorkers = [blkOnNewSlotWorker]
-#else
-blkWorkers = [blocksTransmitter, blkOnNewSlotWorker]
-#endif
 
 blkOnNewSlotWorker :: WorkMode ssc m => m ()
 blkOnNewSlotWorker = onNewSlot True blkOnNewSlot
@@ -75,26 +56,17 @@ blkOnNewSlotWorker = onNewSlot True blkOnNewSlot
 blkOnNewSlot :: WorkMode ssc m => SlotId -> m ()
 blkOnNewSlot slotId@SlotId {..} = do
     -- First of all we create genesis block if necessary.
-#ifdef MODERN
     mGenBlock <- createGenesisBlock slotId
-#else
-    (mGenBlock, pnsLog) <- processNewSlot slotId
-    dispatchEvents pnsLog
-#endif
     forM_ mGenBlock $ \createdBlk -> do
         logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
         jlLog $ jlCreatedBlock (Left createdBlk)
 
     -- Then we get leaders for current epoch.
-#ifdef MODERN
     -- Note: we are using non-blocking version here.  If we known
     -- genesis block for current epoch, then we either have calculated
     -- it before and it implies presense of leaders in MVar or we have
     -- read leaders from DB during initialization.
     leadersMaybe <- tryReadLeaders
-#else
-    leadersMaybe <- getLeaders siEpoch
-#endif
     case leadersMaybe of
         -- If we don't know leaders, we can't do anything.
         Nothing -> logWarning "Leaders are not known for new slot"
@@ -102,10 +74,9 @@ blkOnNewSlot slotId@SlotId {..} = do
         -- create a new block if we are. We also create block if we
         -- have suitable PSK.
         Just leaders -> do
+            ourPk <- ncPublicKey <$> getNodeContext
+            let ourPkHash = addressHash ourPk
             let logLeadersF = if siSlot == 0 then logInfo else logDebug
-            logLeadersF (sformat ("Slot leaders: "%listJson) $
-                         map (sformat shortHashF) leaders)
-            ourPkHash <- addressHash . ncPublicKey <$> getNodeContext
             let leader = leaders ^? ix (fromIntegral siSlot)
             proxyCerts <- getProxySecretKeys
             let validCerts =
@@ -114,6 +85,11 @@ blkOnNewSlot slotId@SlotId {..} = do
                 validCert =
                     find (\pSk -> Just (addressHash $ pskIssuerPk pSk) == leader)
                          validCerts
+            logLeadersF (sformat ("Our pk: "%build%", our pkHash: "%build)
+                         ourPk ourPkHash)
+            logLeadersF (sformat ("Slot leaders: "%listJson) $
+                         map (sformat shortHashF) leaders)
+            logDebug $ sformat ("Available proxy certificates: "%listJson) validCerts
             if | leader == Just ourPkHash -> onNewSlotWhenLeader slotId Nothing
                | isJust validCert -> onNewSlotWhenLeader slotId validCert
                | otherwise -> pure ()
@@ -149,26 +125,9 @@ onNewSlotWhenLeader slotId pSk = do
                         sformat ("Created a new block:\n" %build) createdBlk
                     jlLog $ jlCreatedBlock (Right createdBlk)
                     verifyCreatedBlock createdBlk
-#ifndef MODERN
-                    globalData <- logWarningWaitLinear 6 "getGlobalMpcData"
-                        getGlobalMpcData
-                    logWarningWaitLinear 7 "sscApplyGlobalState" $
-                        sscApplyGlobalState globalData
-#endif
                     announceBlock $ createdBlk ^. gbHeader
             let whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
-#ifdef MODERN
             createdBlock <- createMainBlock slotId pSk
-#else
-            sscData <- sscGetLocalPayload slotId
-            localTxs <- HM.toList <$> getLocalTxs
-            let panicTopsort = panic "Topology of local transactions is broken!"
-            let convertTx (txId, (tx, _)) = WithHash tx txId
-            let sortedTxs = fromMaybe panicTopsort $
-                            topsortTxs convertTx localTxs
-            sk <- ncSecretKey <$> getNodeContext
-            createdBlock <- createNewBlock sortedTxs sk pSk slotId sscData
-#endif
             either whenNotCreated whenCreated createdBlock
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
@@ -186,25 +145,3 @@ verifyCreatedBlock blk =
         , vbpVerifyTxs = True
         , vbpVerifySsc = True
         }
-
-----------------------------------------------------------------------------
--- Obsolete transmitter
-----------------------------------------------------------------------------
-
-#ifndef MODERN
-blocksTransmitterInterval :: Microsecond
-blocksTransmitterInterval = slotDuration `div` 2
-
-blocksTransmitter :: WorkMode ssc m => m ()
-blocksTransmitter = whenM (ncPropagation <$> getNodeContext) impl
-  where
-    impl = repeatForever blocksTransmitterInterval onError $
-        do headBlock <- getHeadBlock
-           case headBlock of
-               Left _          -> logDebug "Head block is genesis block ⇒ no announcement"
-               Right mainBlock -> do
-                   announceBlock (mainBlock ^. gbHeader)
-    onError e =
-        blocksTransmitterInterval <$
-        logWarning (sformat ("Error occured in blocksTransmitter: " %build) e)
-#endif

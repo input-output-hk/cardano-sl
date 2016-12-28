@@ -5,12 +5,13 @@
 
 module Pos.Block.Arbitrary () where
 
-import           Test.QuickCheck           (Arbitrary (..), Gen, oneof)
+import           Test.QuickCheck           (Arbitrary (..), Gen, listOf, oneof)
 import           Universum
 
 import           Pos.Binary                (Bi)
 import           Pos.Block.Network         as T
 import           Pos.Crypto                (Hash)
+import           Pos.Data.Attributes       (Attributes (..))
 import           Pos.Merkle                (MerkleRoot (..), MerkleTree, mkMerkleTree)
 import           Pos.Ssc.Class.Types       (Ssc (..))
 import qualified Pos.Types                 as T
@@ -72,6 +73,23 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
         <*> arbitrary
         <*> arbitrary
 
+instance Arbitrary h => Arbitrary (Attributes h) where
+    arbitrary = Attributes
+        <$> arbitrary
+        <*> arbitrary
+
+instance Arbitrary T.MainExtraHeaderData where
+    arbitrary = T.MainExtraHeaderData
+        <$> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+
+instance Arbitrary T.MainExtraBodyData where
+    arbitrary = T.MainExtraBodyData
+        <$> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+
 instance (Arbitrary (SscProof ssc), Bi Raw) =>
     Arbitrary (T.BodyProof (T.MainBlockchain ssc)) where
     arbitrary = T.MainProof
@@ -88,11 +106,19 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
         <*> arbitrary
         <*> arbitrary
 
+txOutDistGen :: Gen [(T.Tx, T.TxDistribution, T.TxWitness)]
+txOutDistGen = listOf $ do
+    txInW <- arbitrary
+    txIns <- arbitrary
+    txAts <- arbitrary
+    (txOuts, txDist) <- second T.TxDistribution . unzip <$> arbitrary
+    return $ (T.Tx txIns txOuts txAts, txDist, txInW)
+
 instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc)) where
     arbitrary = makeSmall $ do
-        (txs,txIns) <- unzip <$> (arbitrary :: Gen [(T.Tx, T.TxWitness)])
-        sscPayload <- arbitrary
-        return $ T.MainBody (mkMerkleTree txs) txIns sscPayload
+        (txList, txDists, txInW) <- unzip3 <$> txOutDistGen
+        mpcData <- arbitrary
+        return $ T.MainBody (mkMerkleTree txList) txDists txInW mpcData
 
 instance (Arbitrary (SscProof ssc), Arbitrary (SscPayload ssc), Ssc ssc) =>
     Arbitrary (T.GenericBlock (T.MainBlockchain ssc)) where

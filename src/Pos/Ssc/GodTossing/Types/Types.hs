@@ -54,7 +54,7 @@ import           Pos.Ssc.GodTossing.Types.Base (Commitment, CommitmentsMap, Open
 -- SscGlobalState
 ----------------------------------------------------------------------------
 
--- | MPC-related content of main body.
+-- | Global state of GodTossing, contains relevant SSC data from blocks.
 data GtGlobalState = GtGlobalState
     { -- | Commitments are added during the first phase of epoch.
       _gsCommitments     :: !CommitmentsMap
@@ -102,6 +102,16 @@ instance Buildable GtGlobalState where
             formatIfNotNull
                 ("  certificates from: "%listJson%"\n")
                 (HM.keys _gsVssCertificates)
+
+instance Default GtGlobalState where
+    def =
+        GtGlobalState
+        {
+          _gsCommitments = mempty
+        , _gsOpenings = mempty
+        , _gsShares = mempty
+        , _gsVssCertificates = mempty
+        }
 
 ----------------------------------------------------------------------------
 -- SscPayload

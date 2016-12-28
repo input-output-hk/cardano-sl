@@ -32,8 +32,7 @@ data BaseParams = BaseParams
 
 -- | Contains algorithm specific & storage parameters for Node.
 data NodeParams = NodeParams
-    { npDbPath        :: !(Maybe FilePath)  -- ^ Path to node's data-base. 'Nothing' means memory-mode.
-    , npDbPathM       :: !FilePath          -- ^ Modern path to node's data-base.
+    { npDbPathM       :: !FilePath          -- ^ Modern path to node's data-base.
     , npRebuildDb     :: !Bool              -- ^ @True@ if data-base should be rebuilt
     , npSystemStart   :: !Timestamp         -- ^ System start
     , npSecretKey     :: !(Maybe SecretKey) -- ^ Secret key of this node (if specified explicitly, if not - see next option)

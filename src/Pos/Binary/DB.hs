@@ -1,6 +1,6 @@
 -- | Serialization of types defined in DB modules.
 
-module Pos.Binary.Modern.DB
+module Pos.Binary.DB
        (
        ) where
 

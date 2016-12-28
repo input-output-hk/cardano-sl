@@ -17,5 +17,6 @@ instance Bi TxReqMsg where
     get = TxReqMsg <$> get
 
 instance Bi TxDataMsg where
-    put (TxDataMsg dmTx dmWitness) = put dmTx >> put dmWitness
-    get = TxDataMsg <$> get <*> get
+    put (TxDataMsg dmTx dmWitness dmDistr) =
+        put dmTx >> put dmWitness >> put dmDistr
+    get = TxDataMsg <$> get <*> get <*> get

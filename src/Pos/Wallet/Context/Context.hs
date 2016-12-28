@@ -8,7 +8,6 @@ module Pos.Wallet.Context.Context
 
 import           Pos.Context               (NodeContext (..))
 import           Pos.Types                 (Timestamp)
-import           Universum
 
 import           Pos.Wallet.Launcher.Param (WalletParams (..))
 

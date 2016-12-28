@@ -42,14 +42,11 @@ import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots)
-import           Pos.Ssc.Extra               (SscHolder (..), SscLDImpl (..))
-import qualified Pos.State                   as St
+import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Holder              (TxpLDHolder (..))
-import           Pos.Txp.LocalData           (MonadTxLD)
 import           Pos.Util                    ()
 import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,
                                               writeUserSecret)
-import           Pos.WorkMode                (TxLDImpl (..))
 
 import           Pos.Wallet.Context          (WithWalletContext)
 import           Pos.Wallet.State.State      (MonadWalletDB)
@@ -111,8 +108,8 @@ newtype KeyStorage m a = KeyStorage
                 MonadThrow, MonadSlots, MonadCatch, MonadIO,
                 HasLoggerName, MonadDialog s p, CanLog, MonadMask, MonadDHT,
                 MonadMessageDHT s, MonadReader KeyData, WithDefaultMsgHeader,
-                MonadWalletDB, WithWalletContext, MonadTxLD, WithNodeContext ssc,
-                St.MonadDB ssc, Modern.MonadDB ssc)
+                MonadWalletDB, WithWalletContext, WithNodeContext ssc,
+                Modern.MonadDB ssc)
 
 type instance ThreadId (KeyStorage m) = ThreadId m
 
@@ -183,7 +180,5 @@ instance (MonadIO m, MonadThrow m) => MonadKeys (ContextHolder ssc m) where
         | otherwise = usKeys %= deleteAt i
 
 -- | Derived instances for ancestors in monad stack
-deriving instance MonadKeys m => MonadKeys (SscLDImpl ssc m)
-deriving instance MonadKeys m => MonadKeys (TxLDImpl m)
 deriving instance MonadKeys m => MonadKeys (SscHolder ssc m)
 deriving instance MonadKeys m => MonadKeys (TxpLDHolder ssc m)

@@ -9,7 +9,7 @@ module Pos.Wallet.State.Storage.Block
 
        , Block'
        , HeaderHash'
-       , AltChain
+       , NEBlocks
 
        , getBlock
        , getBestChain
@@ -32,7 +32,7 @@ import           Pos.Types                 (Block, HeaderHash, prevBlockL)
 
 type Block' = Block SscGodTossing
 type HeaderHash' = HeaderHash SscGodTossing
-type AltChain = NonEmpty Block'
+type NEBlocks = NonEmpty Block'
 
 data BlockStorage = BlockStorage
     { -- | All blocks known to the node. Blocks have pointers to other
@@ -44,7 +44,7 @@ data BlockStorage = BlockStorage
       -- chain is shorter than `k + 1`, the first block in the chain)
       _blkBottom    :: !HeaderHash'
     , -- | Alternative chains which can be merged into main chain.
-      _blkAltChains :: ![AltChain]
+      _blkNEBlockss :: ![NEBlocks]
     }
 
 makeClassy ''BlockStorage

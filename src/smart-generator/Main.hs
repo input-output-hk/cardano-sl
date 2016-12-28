@@ -7,6 +7,7 @@ module Main where
 
 import           Control.Concurrent.Async.Lifted (forConcurrently)
 import           Control.Concurrent.STM.TVar     (modifyTVar', newTVarIO, readTVarIO)
+import           Control.Lens                    (view, _1)
 import           Control.TimeWarp.Rpc            (NetworkAddress)
 import           Control.TimeWarp.Timed          (Microsecond, for, fork_, ms, sec, wait)
 import           Data.List                       ((!!))
@@ -35,9 +36,8 @@ import           Pos.Ssc.Class                   (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing              (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon              (SscNistBeacon)
 import           Pos.Ssc.SscAlgo                 (SscAlgo (..))
-import           Pos.State                       (isTxVerified)
 import           Pos.Statistics                  (NoStatsT (..))
-import           Pos.Types                       (Tx (..), TxWitness)
+import           Pos.Types                       (TxAux)
 import           Pos.Util.JsonLog                ()
 import           Pos.Wallet                      (submitTxRaw)
 import           Pos.WorkMode                    (ProductionMode)
@@ -47,13 +47,13 @@ import           TxAnalysis                      (checkWorker, createTxTimestamp
                                                   registerSentTx)
 import           TxGeneration                    (BambooPool, createBambooPool,
                                                   curBambooTx, initTransaction,
-                                                  nextValidTx, resetBamboo)
+                                                  isTxVerified, nextValidTx, resetBamboo)
 import           Util
 
 
 -- | Resend initTx with `slotDuration` period until it's verified
 seedInitTx :: forall ssc . SscConstraint ssc
-           => Double -> BambooPool -> (Tx, TxWitness) -> ProductionMode ssc ()
+           => Double -> BambooPool -> TxAux -> ProductionMode ssc ()
 seedInitTx recipShare bp initTx = do
     na <- getPeers recipShare
     logInfo "Issuing seed transaction"
@@ -62,7 +62,7 @@ seedInitTx recipShare bp initTx = do
     wait $ for slotDuration
     -- If next tx is present in utxo, then everything is all right
     tx <- liftIO $ curBambooTx bp 1
-    isVer <- isTxVerified tx
+    isVer <- isTxVerified $ view _1 tx
     if isVer
         then pure ()
         else seedInitTx recipShare bp initTx
@@ -161,10 +161,10 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
                               logInfo "Resend the transaction parent again"
                               submitTxRaw na parent
 
-                          Right (transaction, witness) -> do
+                          Right (transaction, witness, distr) -> do
                               let curTxId = hash transaction
                               logInfo $ sformat ("Sending transaction #"%int) idx
-                              submitTxRaw na (transaction, witness)
+                              submitTxRaw na (transaction, witness, distr)
                               when (startT >= startMeasurementsT) $ liftIO $ do
                                   liftIO $ atomically $ modifyTVar' realTxNum (+1)
                                   -- put timestamp to current txmap
@@ -240,9 +240,8 @@ main = do
 
         let params =
                 NodeParams
-                { npDbPath        = Nothing
-                , npDbPathM       = "zhogovo"
-                , npRebuildDb     = False
+                { npDbPathM       = "rocks-smartwallet"
+                , npRebuildDb     = True
                 , npSystemStart   = systemStart
                 , npSecretKey     = Just sk
                 , npKeyfilePath   = "smartgen-secret.sk"

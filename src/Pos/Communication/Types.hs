@@ -23,7 +23,6 @@ import qualified Pos.Communication.Types.SysStart   as SysStart
 import           Pos.DHT.Model                      (MonadResponseDHT)
 import           Pos.WorkMode                       (WorkMode)
 
-import           Pos.Communication.Types.Block      as Export
 import           Pos.Communication.Types.Delegation as Export
 import           Pos.Communication.Types.State      as Export
 import           Pos.Communication.Types.SysStart   as Export

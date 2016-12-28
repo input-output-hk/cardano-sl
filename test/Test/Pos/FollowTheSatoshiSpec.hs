@@ -21,7 +21,8 @@ import           Universum
 import           Pos.Constants         (epochSlots)
 import           Pos.Crypto            (PublicKey, unsafeHash)
 import           Pos.FollowTheSatoshi  (followTheSatoshi)
-import           Pos.Types             (Coin (..), SharedSeed, TxId, TxOut (..), Utxo)
+import           Pos.Types             (Coin (..), SharedSeed, TxId, TxOut (..), Utxo,
+                                        txOutStake)
 import           Pos.Types.Address     (Address (..), AddressHash)
 
 spec :: Spec
@@ -81,7 +82,7 @@ instance Arbitrary StakeAndHolder where
             values = scanl1 (+) $ replicate nAdr coins
             utxoList =
                 (replicate nAdr txId `zip` [0 .. fromIntegral nAdr]) `zip`
-                (zipWith (\ah v -> TxOut (PubKeyAddress ah) v) (toList setUtxo) values)
+                (zipWith (\ah v -> (TxOut (PubKeyAddress ah) v, [])) (toList setUtxo) values)
         return (myAddrHash, M.fromList utxoList)
 
 ftsListLength :: SharedSeed -> StakeAndHolder -> Bool
@@ -107,7 +108,7 @@ ftsAllStake
     -> Coin
     -> Bool
 ftsAllStake fts key ah v =
-    let utxo = M.singleton key (TxOut (PubKeyAddress ah) v)
+    let utxo = M.singleton key (TxOut (PubKeyAddress ah) v, [])
     in all (== ah) $ followTheSatoshi fts utxo
 
 -- | Constant specifying the number of times 'ftsReasonableStake' will be
@@ -163,9 +164,14 @@ ftsReasonableStake
     go _ p []  _ = p
     go _ p  _ [] = p
     go total !present (fts : nextSeed) ((getNoStake -> (adrH, utxo)) : nextUtxo) =
-        let totalStake = fromIntegral $ sum $ map (getCoin . txOutValue) $ M.elems utxo
+        let totalStake =
+                fromIntegral         $
+                sum                  $
+                map (getCoin . snd)  $
+                concatMap txOutStake $
+                M.elems utxo
             newStake   = round $ (stakeProbability * totalStake) / (1 - stakeProbability)
-            newUtxo    = M.insert key (TxOut (PubKeyAddress adrH) newStake) utxo
+            newUtxo    = M.insert key (TxOut (PubKeyAddress adrH) newStake, []) utxo
             newPresent = if elem adrH (followTheSatoshi fts newUtxo)
                          then present + 1
                          else present

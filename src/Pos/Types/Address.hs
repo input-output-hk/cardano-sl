@@ -30,7 +30,7 @@ import           Data.Hashable          (Hashable (..))
 import           Data.List              (span)
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
-import           Formatting             (Format, bprint, build, later, shown, (%))
+import           Formatting             (Format, bprint, build, later, (%))
 import           Prelude                (String, readsPrec, show)
 import           Universum              hiding (show)
 
@@ -39,16 +39,14 @@ import qualified Pos.Binary.Class       as Bi
 import           Pos.Binary.Coin        ()
 import           Pos.Binary.Crypto      ()
 import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey)
-import           Pos.Script             (Script)
-import           Pos.Types.Coin         (Coin)
+import           Pos.Script.Type        (Script)
 
 -- | Address is where you can send coins.
 data Address
     = PubKeyAddress
           { addrKeyHash :: !(AddressHash PublicKey) }
     | ScriptAddress
-          { addrScriptHash   :: !(AddressHash Script)
-          , addrDistribution :: ![(AddressHash PublicKey, Coin)] }
+          { addrScriptHash   :: !(AddressHash Script) }
     deriving (Eq, Ord, Generic)
 
 instance Bi Address => Hashable Address where
@@ -97,7 +95,7 @@ makePubKeyAddress key = PubKeyAddress (addressHash key)
 
 -- | A function for making an address from a validation script
 makeScriptAddress :: Bi Script => Script -> Address
-makeScriptAddress scr = ScriptAddress (addressHash scr) []
+makeScriptAddress scr = ScriptAddress (addressHash scr)
 
 -- CHECK: @checkPubKeyAddress
 -- | Check if given 'Address' is created from given 'PublicKey'
@@ -107,8 +105,8 @@ checkPubKeyAddress _ _                   = False
 
 -- | Check if given 'Address' is created from given validation script
 checkScriptAddress :: Bi Script => Script -> Address -> Bool
-checkScriptAddress scr (ScriptAddress h _) = addressHash scr == h
-checkScriptAddress _ _                     = False
+checkScriptAddress scr (ScriptAddress h) = addressHash scr == h
+checkScriptAddress _ _                   = False
 
 -- | Specialized formatter for 'Address'.
 addressF :: Bi Address => Format r (Address -> r)
@@ -119,8 +117,8 @@ addressDetailedF :: Format r (Address -> r)
 addressDetailedF = later $ \case
     PubKeyAddress x ->
         bprint ("PubKeyAddress "%build) x
-    ScriptAddress x d ->
-        bprint ("ScriptAddress "%build%" (distr = "%shown%")") x d
+    ScriptAddress x ->
+        bprint ("ScriptAddress "%build) x
 
 ----------------------------------------------------------------------------
 -- Hashing

@@ -3,11 +3,12 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE TupleSections          #-}
+{-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE UndecidableInstances   #-}
 
 module Pos.Txp.Class
-       (
-         MonadTxpLD (..)
+       ( TxpLDWrap (..)
+       , MonadTxpLD (..)
        , TxpLD
        , getLocalTxs
        , getLocalUndo
@@ -16,14 +17,15 @@ module Pos.Txp.Class
        , getMemPool
        ) where
 
-import           Control.Monad.Trans (MonadTrans)
-import qualified Data.HashMap.Strict as HM
+import qualified Control.Concurrent.STM as STM
+import           Control.Monad.Trans    (MonadTrans)
+import qualified Data.HashMap.Strict    as HM
 import           Universum
 
-import           Pos.DHT.Model.Class (DHTResponseT)
-import           Pos.DHT.Real        (KademliaDHT)
-import           Pos.Txp.Types       (MemPool (localTxs), UtxoView)
-import           Pos.Types           (HeaderHash, IdTxWitness, TxId, TxOut)
+import           Pos.DHT.Model.Class    (DHTResponseT)
+import           Pos.DHT.Real           (KademliaDHT)
+import           Pos.Txp.Types          (MemPool (localTxs), UtxoView)
+import           Pos.Types              (HeaderHash, TxAux, TxId, TxOutAux)
 
 -- | LocalData of transactions processing.
 -- There are two invariants which must hold for local data
@@ -35,9 +37,23 @@ import           Pos.Types           (HeaderHash, IdTxWitness, TxId, TxOut)
 -- 2. If one applies all transactions from 'memPool' to 'utxo1',
 -- resulting Utxo will be equivalent to 'uv' with respect to
 -- MonadUtxo.
-type TxpLD ssc = (UtxoView ssc, MemPool, HashMap TxId [TxOut], HeaderHash ssc)
+type TxpLD ssc = (UtxoView ssc, MemPool, HashMap TxId [TxOutAux], HeaderHash ssc)
 
+-- | Real data inside TxpLDHolder
+data TxpLDWrap ssc = TxpLDWrap
+    { utxoView :: !(STM.TVar (UtxoView ssc))
+    , memPool  :: !(STM.TVar MemPool)
+    , undos    :: !(STM.TVar (HashMap TxId [TxOutAux]))
+    , ldTip    :: !(STM.TVar (HeaderHash ssc))
+    }
+
+-- TODO: this monad class is stupid and should be removed. Method
+-- `getTxpLDWrap` returns inside implementation and it's needed in
+-- Pos.Web.Server. So practically all other methods of these class can
+-- be implemented using 'getTxpLDWrap', so this class is just
+-- MonadReader instantiated to 'TxpLDWrap'.
 class Monad m => MonadTxpLD ssc m | m -> ssc where
+    getTxpLDWrap :: m (TxpLDWrap ssc)
     setUtxoView  :: UtxoView ssc -> m ()
     setMemPool   :: MemPool -> m ()
     modifyTxpLD  :: (TxpLD ssc -> (a, TxpLD ssc)) -> m a
@@ -47,8 +63,8 @@ class Monad m => MonadTxpLD ssc m | m -> ssc where
     setTxpLD     :: TxpLD ssc -> m ()
     setTxpLD txpLD = modifyTxpLD_ $ const txpLD
 
-    -- default getUtxoView :: MonadTrans t => t m (UtxoView ssc)
-    -- getUtxoView = lift  getUtxoView
+    default getTxpLDWrap :: MonadTrans t => t m (TxpLDWrap ssc)
+    getTxpLDWrap = lift getTxpLDWrap
 
     default setUtxoView :: MonadTrans t => UtxoView ssc -> t m ()
     setUtxoView = lift . setUtxoView
@@ -68,13 +84,13 @@ instance MonadTxpLD ssc m => MonadTxpLD ssc (DHTResponseT s m)
 
 instance MonadTxpLD ssc m => MonadTxpLD ssc (KademliaDHT m)
 
-getLocalTxs :: MonadTxpLD ssc m => m [IdTxWitness]
+getLocalTxs :: MonadTxpLD ssc m => m [(TxId, TxAux)]
 getLocalTxs = HM.toList . localTxs <$> getMemPool
 
-getLocalUndo :: MonadTxpLD ssc m => m (HashMap TxId [TxOut])
+getLocalUndo :: MonadTxpLD ssc m => m (HashMap TxId [TxOutAux])
 getLocalUndo = (\(_, _, undos, _) -> undos) <$> getTxpLD
 
-getLocalTxsNUndo :: MonadTxpLD ssc m => m ([IdTxWitness], HashMap TxId [TxOut])
+getLocalTxsNUndo :: MonadTxpLD ssc m => m ([(TxId, TxAux)], HashMap TxId [TxOutAux])
 getLocalTxsNUndo = (\(_, mp, undos, _) -> (HM.toList . localTxs $ mp, undos))
                 <$> getTxpLD
 

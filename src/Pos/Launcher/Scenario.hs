@@ -21,8 +21,7 @@ import           Pos.DB.Utxo             (getTip)
 import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Slotting            (getCurrentSlot)
 import           Pos.Ssc.Class           (SscConstraint)
-import           Pos.State               (initFirstSlot)
-import           Pos.Types               (SlotId (..), Timestamp (Timestamp))
+import           Pos.Types               (SlotId (..), Timestamp (Timestamp), addressHash)
 import           Pos.Util                (inAssertMode)
 import           Pos.Worker              (runWorkers)
 import           Pos.WorkMode            (WorkMode)
@@ -33,14 +32,16 @@ runNode plugins = do
     inAssertMode $ logInfo "Assert mode on"
     pk <- ncPublicKey <$> getNodeContext
     addr <- ncPubKeyAddress <$> getNodeContext
-    logInfo $ sformat ("My public key is: "%build%", address: "%build) pk addr
+    let pkHash = addressHash pk
+    logInfo $ sformat ("My public key is: "%build%
+                       ", address: "%build%
+                       ", pk hash: "%build) pk addr pkHash
     peers <- discoverPeers DHTFull
     logInfo $ sformat ("Known peers: " % build) peers
 
     initSemaphore
     initLrc
 --    initSsc
-    initFirstSlot
     waitSystemStart
     runWorkers
     mapM_ fork plugins

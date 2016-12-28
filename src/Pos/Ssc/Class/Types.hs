@@ -7,7 +7,8 @@
 module Pos.Ssc.Class.Types
        ( Ssc(..)
        ) where
-import           Data.SafeCopy       (SafeCopy)
+
+import           Data.Default        (Default)
 import           Data.Tagged         (Tagged)
 import           Data.Text.Buildable (Buildable)
 import           Universum
@@ -18,8 +19,6 @@ import           Pos.Binary.Class    (Bi)
 -- parameters for general implementation of SSC.
 class (Typeable ssc
       ,Typeable (SscPayload ssc)
-      ,Typeable (SscGlobalState ssc)
-      ,Typeable (SscStorage ssc)
       ,Typeable (SscProof ssc)
       ,Typeable (SscSeedError ssc)
       ,Eq (SscProof ssc)
@@ -29,19 +28,15 @@ class (Typeable ssc
       ,Buildable (SscSeedError ssc)
       ,Bi (SscProof ssc)
       ,Bi (SscPayload ssc)
-      ,SafeCopy (SscProof ssc)
-      ,SafeCopy (SscGlobalState ssc)
-      ,SafeCopy (SscPayload ssc)
-      ,SafeCopy (SscStorage ssc)) =>
+      ,Default (SscLocalData ssc)
+      ) =>
       Ssc ssc where
 
-    -- | Internal SSC state stored on disk
-    type SscStorage ssc
     -- | Internal SSC state stored in memory
     type SscLocalData ssc
     -- | Payload which will be stored in main blocks
     type SscPayload ssc
-    -- | Global state, which formed from all known blocks
+    -- | Global state, which is formed from all known blocks
     type SscGlobalState ssc
     -- | Proof that SSC payload is correct (it'll be included into block
     -- header)
@@ -56,10 +51,5 @@ class (Typeable ssc
     -- | Create proof (for inclusion into block header) from payload
     mkSscProof :: Tagged ssc (SscPayload ssc -> SscProof ssc)
 
-    -- | Remove from all data, which can make global state inconsistent
-    sscFilterPayload :: SscPayload ssc -> SscGlobalState ssc -> SscPayload ssc
-
     -- | Create SscNodeContext
     sscCreateNodeContext :: MonadIO m => SscParams ssc -> m (SscNodeContext ssc)
-
-    type SscGlobalStateM ssc

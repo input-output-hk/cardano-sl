@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE MultiWayIf            #-}
@@ -12,8 +11,7 @@
 module Pos.Worker.Lrc
        ( lrcOnNewSlot
        ) where
-import           Control.Monad.State      (get)
-import qualified Data.HashMap.Strict      as HM
+
 import qualified Data.List.NonEmpty       as NE
 import           Formatting               (build, sformat, (%))
 import           Serokell.Util.Exceptions ()
@@ -23,16 +21,15 @@ import           Universum
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkSemaphore_)
 import           Pos.Constants            (k)
-import           Pos.Context              (getNodeContext, readLeaders, readRichmen)
-import           Pos.Context.Context      (ncSscLeaders, ncSscRichmen)
-import           Pos.DB                   (loadBlocksFromTipWhile, putLrc)
-import           Pos.DB.DBIterator        ()
-import           Pos.DB.Utxo              (getTotalCoins, iterateByUtxo, mapUtxoIterator)
+import           Pos.Context              (getNodeContext, ncSscLeaders, ncSscRichmen,
+                                           readLeaders, readRichmen)
+import           Pos.DB                   (getTotalFtsStake, loadBlocksFromTipWhile,
+                                           mapUtxoIterator, putLrc)
+import           Pos.Eligibility          (findRichmen)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
-import           Pos.Types                (Address, Coin, EpochOrSlot (..), HeaderHash,
-                                           Participants, SlotId (..), TxIn, TxOut (..),
-                                           getEpochOrSlot)
+import           Pos.Types                (EpochOrSlot (..), HeaderHash, SlotId (..),
+                                           TxIn, TxOutAux, getEpochOrSlot)
 import           Pos.WorkMode             (WorkMode)
 
 lrcOnNewSlot :: WorkMode ssc m => SlotId -> m ()
@@ -64,36 +61,23 @@ lrcOnNewSlotDo SlotId {siEpoch = epochId} tip = tip <$ do
         leadersMVar = ncSscLeaders nc
     whenM (liftIO $ isEmptyMVar richmenMVar) $ do
         -- [CSL-93] Use eligibility threshold here
-        richmen <- getRichmen 0
+        richmen <- mapUtxoIterator @(TxIn, TxOutAux) @TxOutAux (findRichmen 0) snd
         liftIO $ putMVar richmenMVar richmen
     whenM (liftIO $ isEmptyMVar leadersMVar) $ do
         mbSeed <- sscCalculateSeed epochId
-        totalCoins <- getTotalCoins
+        totalStake <- getTotalFtsStake
         leaders <-
             case mbSeed of
                 Left e     -> panic $ sformat ("SSC couldn't compute seed: "%build) e
-                Right seed -> mapUtxoIterator @(TxIn, TxOut) @TxOut
-                            (followTheSatoshiM seed totalCoins) snd
+                Right seed -> mapUtxoIterator @(TxIn, TxOutAux) @TxOutAux
+                              (followTheSatoshiM seed totalStake) snd
         liftIO $ putMVar leadersMVar leaders
     leaders <- readLeaders
     richmen <- readRichmen
     putLrc epochId leaders richmen
     applyBlocks blockUndos
   where
-    whileMoreOrEq5k b = getEpochOrSlot b >= crucialSlot
+    whileMoreOrEq5k b _ = getEpochOrSlot b >= crucialSlot
     crucialSlot = EpochOrSlot $ Right $
                   if epochId == 0 then SlotId {siEpoch = 0, siSlot = 0}
                   else SlotId {siEpoch = epochId - 1, siSlot = 5 * k - 1}
-
--- Second argument is eligiblity threshold.
-getRichmen :: forall ssc m . WorkMode ssc m => Coin -> m Participants
-getRichmen moneyT =
-    fromMaybe onNoRichmen . NE.nonEmpty . HM.keys . HM.filter (>= moneyT) <$>
-    execStateT (iterateByUtxo @ssc countMoneys) mempty
-  where
-    onNoRichmen = panic "There are no richmen!"
-    countMoneys :: (TxIn, TxOut) -> StateT (HM.HashMap Address Coin) m ()
-    countMoneys (_, TxOut {..}) = do
-        money <- get
-        let val = HM.lookupDefault 0 txOutAddress money
-        modify (HM.insert txOutAddress (val + txOutValue))

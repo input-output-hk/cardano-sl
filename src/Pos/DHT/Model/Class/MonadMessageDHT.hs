@@ -109,7 +109,7 @@ instance MonadMessageDHT s m => MonadMessageDHT s (ResponseT s m) where
 instance (Monad m, WithDefaultMsgHeader m) => WithDefaultMsgHeader (ResponseT s m) where
     defaultMsgHeader = lift . defaultMsgHeader
 
-  -- | Packing type used by DHT to send messages.
+-- | Packing type used by DHT to send messages.
 type DHTPacking = BiP DHTMsgHeader
 
 -- | Shortcut for `MonadDialog` with packing used by DHT.

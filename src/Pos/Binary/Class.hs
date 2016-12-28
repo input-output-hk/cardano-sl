@@ -242,7 +242,7 @@ instance (Bi a, Bi b) => Bi (Either a b) where
             _ -> liftM Right get
 
 instance Bi a => Bi (NE.NonEmpty a) where
-    get = fmap NE.fromList get
+    get = maybe (fail "Empty list") pure . NE.nonEmpty =<< get
     put = put . NE.toList
 
 instance (Bi a) => Bi (Maybe a) where

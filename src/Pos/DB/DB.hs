@@ -7,12 +7,10 @@ module Pos.DB.DB
        , loadBlocksFromTipWhile
        ) where
 
-import           Control.Monad.State          (get)
 import           Control.Monad.Trans.Resource (MonadResource)
-import qualified Data.HashMap.Strict          as HM
-import           Data.List.NonEmpty           (nonEmpty)
-import qualified Data.Map.Strict              as M
-import           System.Directory             (createDirectoryIfMissing)
+import           System.Directory             (createDirectoryIfMissing,
+                                               doesDirectoryExist,
+                                               removeDirectoryRecursive)
 import           System.FilePath              ((</>))
 import           Universum
 
@@ -25,31 +23,20 @@ import           Pos.DB.Holder                (runDBHolder)
 import           Pos.DB.Misc                  (prepareMiscDB)
 import           Pos.DB.Types                 (NodeDBs (..))
 import           Pos.DB.Utxo                  (getTip, prepareUtxoDB)
+import           Pos.Eligibility              (findRichmenPure)
 import           Pos.Genesis                  (genesisLeaders)
 import           Pos.Ssc.Class.Types          (Ssc)
-import           Pos.Types                    (Address, Block, BlockHeader, Coin,
-                                               Participants, TxOut (..), Undo, Utxo,
+import           Pos.Types                    (Block, BlockHeader, Undo, Utxo,
                                                getBlockHeader, headerHash, mkGenesisBlock)
 
--- TODO: copy-pasted from Worker.Lrc :(
-getRichmen :: Utxo -> Participants
-getRichmen =
-    fromMaybe onNoRichmen .
-    nonEmpty .
-    HM.keys .
-    HM.filter (>= threshold) . flip execState mempty . mapM countMoneys . M.toList
-  where
-    threshold = 0 -- TODO
-    onNoRichmen = panic "There are no richmen!"
-    countMoneys :: (a, TxOut) -> State (HM.HashMap Address Coin) ()
-    countMoneys (_, TxOut {..}) = do
-        money <- get
-        let val = HM.lookupDefault 0 txOutAddress money
-        modify (HM.insert txOutAddress (val + txOutValue))
-
 -- | Open all DBs stored on disk.
-openNodeDBs :: (Ssc ssc, MonadResource m) => FilePath -> Utxo -> m (NodeDBs ssc)
-openNodeDBs fp customUtxo = do
+openNodeDBs
+    :: (Ssc ssc, MonadResource m)
+    => Bool -> FilePath -> Utxo -> m (NodeDBs ssc)
+openNodeDBs recreate fp customUtxo = do
+    liftIO $
+        whenM ((recreate &&) <$> doesDirectoryExist fp) $
+            removeDirectoryRecursive fp
     let blockPath = fp </> "blocks"
     let utxoPath = fp </> "utxo"
     let miscPath = fp </> "misc"
@@ -62,7 +49,8 @@ openNodeDBs fp customUtxo = do
     res <$ runDBHolder res prepare
   where
     leaders0 = genesisLeaders customUtxo
-    richmen0 = getRichmen customUtxo
+    -- [CSL-93] Use eligibility threshold here
+    richmen0 = findRichmenPure customUtxo 0
     ensureDirectoryExists
         :: MonadIO m
         => FilePath -> m ()
@@ -86,5 +74,7 @@ getTipBlockHeader = getBlockHeader <$> getTipBlock
 
 -- | Load blocks from BlockDB starting from tip and while @condition@ is true.
 -- The head of returned list is the youngest block.
-loadBlocksFromTipWhile :: (Ssc ssc, MonadDB ssc m) => (Block ssc -> Bool) -> m [(Block ssc, Undo)]
+loadBlocksFromTipWhile
+    :: (Ssc ssc, MonadDB ssc m)
+    => (Block ssc -> Int -> Bool) -> m [(Block ssc, Undo)]
 loadBlocksFromTipWhile condition = getTip >>= flip loadBlocksWithUndoWhile condition

@@ -7,7 +7,7 @@ import qualified PlutusCore.Term    as PLCore
 import           Universum
 
 import           Pos.Binary.Class   (Bi (..))
-import           Pos.Script         (Script (..))
+import           Pos.Script.Type    (Script (..))
 
 instance Bi PLCore.Term
 instance Bi PLCore.Program

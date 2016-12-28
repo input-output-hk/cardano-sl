@@ -147,9 +147,7 @@ action args@Args {..} inst = do
 nodeParams :: Args -> Timestamp -> NodeParams
 nodeParams args@Args {..} systemStart =
     NodeParams
-    { npDbPath = if memoryMode then Nothing
-                 else Just dbPath
-    , npDbPathM = dbPath
+    { npDbPathM = dbPath
     , npRebuildDb = rebuildDB
     , npSecretKey = (genesisSecretKeys !!) <$> spendingGenesisI
     , npKeyfilePath = maybe keyfilePath (\i -> "node-" ++ show i ++ "." ++ keyfilePath) spendingGenesisI

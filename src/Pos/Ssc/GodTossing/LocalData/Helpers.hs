@@ -1,24 +1,25 @@
-{-# LANGUAGE CPP              #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell  #-}
 
 module Pos.Ssc.GodTossing.LocalData.Helpers
        (
-#ifdef MODERN
          HasGtState (..)
        , GtState
        , gtRunModify
        , gtRunRead
-#endif
        ) where
 
-import           Control.Lens                            (makeClassy)
+import           Control.Lens                       (makeClassy)
 import           Universum
 
-import           Pos.Ssc.GodTossing.Types.Base           (CommitmentsMap, OpeningsMap,
-                                                          SharesMap, VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Types.Instance       ()
-import           Pos.Types                               (SlotId)
+import           Pos.Ssc.Extra                      (MonadSscLD (modifyLocalData))
+import qualified Pos.Ssc.GodTossing.LocalData.Types as LD
+import           Pos.Ssc.GodTossing.Types           (CommitmentsMap, GtGlobalState,
+                                                     OpeningsMap, SharesMap,
+                                                     SscGodTossing, VssCertificatesMap,
+                                                     _gsCommitments, _gsOpenings,
+                                                     _gsShares, _gsVssCertificates)
+import           Pos.Types                          (SlotId)
 
 -- | This wrapper using for pass local and global state to
 -- | functions which works with state using lens.
@@ -54,12 +55,11 @@ data GtState = GtState
 
 makeClassy ''GtState
 
-#ifdef MODERN
 gtRunModify
-    :: MonadSscLDM SscGodTossing m
+    :: MonadSscLD SscGodTossing m
     => State GtState a -> m a
 gtRunModify upd =
-    modifyLocalDataM (
+    modifyLocalData (
         \(g, l) ->
           let (res, newState) = runState upd (toGtState g l) in
           (res, fromGtState newState))
@@ -67,15 +67,15 @@ gtRunModify upd =
  -- TODO maybe should we add readLocalData :: ((SscGlobalState, SscLolalData) ->
  --                                           (a, SscLolalData)) -> m a
 gtRunRead
-    :: MonadSscLDM SscGodTossing m
+    :: MonadSscLD SscGodTossing m
     => Reader GtState a -> m a
 gtRunRead rd =
-    modifyLocalDataM (
+    modifyLocalData (
         \(g, l) ->
           let res = runReader rd (toGtState g l) in
           (res, l))
 
-toGtState :: GtGlobalState -> GtLocalData -> GtState
+toGtState :: GtGlobalState -> LD.GtLocalData -> GtState
 toGtState g l =
     GtState
     { -- Can I simplify it?
@@ -83,16 +83,16 @@ toGtState g l =
     , _gtGlobalOpenings     = _gsOpenings g
     , _gtGlobalShares       = _gsShares g
     , _gtGlobalCertificates = _gsVssCertificates g
-    , _gtLocalCommitments   = _ldCommitments l
-    , _gtLocalOpenings      = _ldOpenings l
-    , _gtLocalShares        = _ldShares l
-    , _gtLocalCertificates  = _ldCertificates l
-    , _gtLastProcessedSlot  = _ldLastProcessedSlot l
+    , _gtLocalCommitments   = LD._ldCommitments l
+    , _gtLocalOpenings      = LD._ldOpenings l
+    , _gtLocalShares        = LD._ldShares l
+    , _gtLocalCertificates  = LD._ldCertificates l
+    , _gtLastProcessedSlot  = LD._ldLastProcessedSlot l
     }
 
-fromGtState :: GtState -> GtLocalData
+fromGtState :: GtState -> LD.GtLocalData
 fromGtState st =
-    GtLocalData
+    LD.GtLocalData
     {
       _ldCommitments       = _gtLocalCommitments st
     , _ldOpenings          = _gtLocalOpenings st
@@ -100,4 +100,3 @@ fromGtState st =
     , _ldCertificates      = _gtLocalCertificates st
     , _ldLastProcessedSlot = _gtLastProcessedSlot st
     }
-#endif

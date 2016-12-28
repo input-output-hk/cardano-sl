@@ -24,7 +24,7 @@ import           Universum
 import           Pos.Crypto             (PublicKey, SecretKey, toPublic)
 import           Pos.Security.Types     (AttackTarget, AttackType)
 import           Pos.Ssc.Class.Types    (Ssc (SscNodeContext))
-import           Pos.Types              (Address, HeaderHash, Participants, ProxySKEpoch,
+import           Pos.Types              (Address, HeaderHash, ProxySKEpoch, Richmen,
                                          SlotLeaders, Timestamp (..), makePubKeyAddress)
 import           Pos.Util.UserSecret    (UserSecret)
 
@@ -72,7 +72,7 @@ data NodeContext ssc = NodeContext
     , ncSecretKey     :: !SecretKey -- ^ Secret key used for blocks creation.
     , ncTimeLord      :: !Bool      -- ^ Is time lord
     , ncJLFile        :: !(Maybe (MVar FilePath))
-    , ncDbPath        :: !(Maybe FilePath) -- ^ Path to the database
+    , ncDbPath        :: !FilePath -- ^ Path to the database
     , ncSscContext    :: !(SscNodeContext ssc)
     , ncProxyCaches   :: !(MVar ProxyCaches) -- ^ Holds proxy caches
     , ncAttackTypes   :: ![AttackType] -- ^ Attack types used by malicious emulation
@@ -82,7 +82,7 @@ data NodeContext ssc = NodeContext
       -- Stored hash is a hash of last applied block.
     , ncBlkSemaphore  :: !(MVar (HeaderHash ssc))
     , ncSscLeaders    :: !(MVar SlotLeaders)
-    , ncSscRichmen    :: !(MVar Participants)
+    , ncSscRichmen    :: !(MVar Richmen)
     , ncUserSecret    :: !(STM.TVar UserSecret) -- ^ Secret keys (and path to file) which are used to send transactions
     }
 

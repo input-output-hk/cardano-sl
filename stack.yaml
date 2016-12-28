@@ -10,10 +10,6 @@ packages:
     commit: d347ccf3605d0851dd0f7046fe63f364510ef1a0
   extra-dep: true
 - location:
-    git: https://github.com/serokell/time-warp.git
-    commit: ac8ff481d00f85cdce163b8f3cdf14bce59e1aab
-  extra-dep: true
-- location:
     git: https://github.com/serokell/log-warper.git
     commit: 409055f388e321aa3a9c97cd66215aad2c414adb
   extra-dep: true
@@ -27,7 +23,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
-    commit: 712bfc9830626a72850d7272a66709e08c7bb8a0
+    commit: 5841570f9e443ea3fef0341522d0997b2b19cb08
   extra-dep: true
 - location:
     git: https://github.com/serokell/rocksdb-haskell.git
@@ -54,6 +50,7 @@ extra-deps:
 - serokell-util-0.1.3.0
 - pvss-0.1
 - base58-bytestring-0.1.0
+- time-warp-1.1.1.0
 
 resolver: lts-7.9
 

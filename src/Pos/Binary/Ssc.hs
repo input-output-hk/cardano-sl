@@ -5,19 +5,19 @@
 
 module Pos.Binary.Ssc () where
 
-import           Control.Monad.Fail                     (fail)
-import           Data.Binary.Get                        (getWord8)
-import           Data.Binary.Put                        (putWord8)
+import           Control.Monad.Fail               (fail)
+import           Data.Binary.Get                  (getWord8)
+import           Data.Binary.Put                  (putWord8)
 import           Universum
 
-import           Pos.Binary.Class                       (Bi (..))
-import           Pos.Binary.Crypto                      ()
-import           Pos.Ssc.GodTossing.Secret.Types        (GtSecretStorage (..))
-import           Pos.Ssc.GodTossing.Types.Base          (Commitment (..), Opening (..),
-                                                         VssCertificate (..))
-import           Pos.Ssc.GodTossing.Types.Message       (DataMsg (..), InvMsg (..),
-                                                         MsgTag (..), ReqMsg (..))
-import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), GtProof (..))
+import           Pos.Binary.Class                 (Bi (..))
+import           Pos.Binary.Crypto                ()
+import           Pos.Ssc.GodTossing.Secret.Types  (GtSecretStorage (..))
+import           Pos.Ssc.GodTossing.Types.Base    (Commitment (..), Opening (..),
+                                                   VssCertificate (..))
+import           Pos.Ssc.GodTossing.Types.Message (DataMsg (..), InvMsg (..), MsgTag (..),
+                                                   ReqMsg (..))
+import           Pos.Ssc.GodTossing.Types.Types   (GtPayload (..), GtProof (..))
 
 ----------------------------------------------------------------------------
 -- Types.Base

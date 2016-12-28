@@ -28,6 +28,7 @@ Library
                         Node.Internal
 
                         NTP.Client
+                        NTP.Example
 
   other-modules:        NTP.Packet
                         NTP.Util
@@ -39,6 +40,7 @@ Library
                       , deepseq
                       , data-default
                       , exceptions
+                      , formatting
                       , hashable
                       , kademlia
                       , lens
@@ -49,6 +51,7 @@ Library
                       , network-transport-inmemory
                       , random
                       , stm
+                      , text
                       , time-units
                       , transformers
   hs-source-dirs:       src

@@ -36,7 +36,6 @@ resolveHost host = do
             , addrFlags = [AI_ADDRCONFIG]  -- since we use AF_INET family
             }
     addrInfos <- getAddrInfo (Just hints) (Just host) Nothing
-    print addrInfos
 
     -- one address is enough
     return $ addrInfos ^? _head . to addrAddress

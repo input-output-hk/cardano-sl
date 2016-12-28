@@ -19,10 +19,10 @@ getHistory :: forall eff. String -> Eff(ajax :: AJAX | eff) (Promise String)
 getHistory = fromAff <<< map (show <<< encodeJson) <<< B.getHistory <<< mkCAddress
 
 send :: forall eff. String -> String -> Int -> Eff(ajax :: AJAX | eff) (Promise Unit)
-send addrTo addrFrom amount = fromAff $
+send addrFrom addrTo amount = fromAff $
     B.send
-        (mkCAddress addrTo)
         (mkCAddress addrFrom)
+        (mkCAddress addrTo)
         (mkCoin amount)
 
 newWallet :: forall eff. String -> String -> String -> Eff(ajax :: AJAX | eff) (Promise String)

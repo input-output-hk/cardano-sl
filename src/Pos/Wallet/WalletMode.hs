@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies         #-}
 
 -- | 'WalletMode' constraint. Like `WorkMode`, but for wallet.
 
@@ -56,7 +57,7 @@ class Monad m => MonadBalances m where
     -- TODO: add a function to get amount of stake (it's different from
     -- balance because of distributions)
 
-    default getOwnUtxo :: MonadTrans t => Address -> t m Utxo
+    default getOwnUtxo :: (MonadTrans t, MonadBalances m', t m' ~ m) => Address -> t m' Utxo
     getOwnUtxo = lift . getOwnUtxo
 
 instance MonadBalances m => MonadBalances (ReaderT r m)
@@ -87,10 +88,10 @@ class Monad m => MonadTxHistory m where
     getTxHistory :: Address -> m [(TxId, Tx, Bool)]
     saveTx :: (TxId, TxAux) -> m ()
 
-    default getTxHistory :: MonadTrans t => Address -> t m [(TxId, Tx, Bool)]
+    default getTxHistory :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => Address -> t m' [(TxId, Tx, Bool)]
     getTxHistory = lift . getTxHistory
 
-    default saveTx :: MonadTrans t => (TxId, TxAux) -> t m ()
+    default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> t m' ()
     saveTx = lift . saveTx
 
 instance MonadTxHistory m => MonadTxHistory (ReaderT r m)

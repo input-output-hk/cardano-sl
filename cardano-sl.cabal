@@ -134,6 +134,7 @@ library
                         Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Delegation
+                        Pos.Communication.Types.Protocol
                         Pos.Communication.Types.State
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Server

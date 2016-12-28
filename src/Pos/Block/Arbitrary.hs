@@ -106,6 +106,17 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
         <*> arbitrary
         <*> arbitrary
 
+-- | In the main blockchain's body, the number of transactions must be the same as the
+-- number of transaction witnesses.
+--
+-- Furthermore, for every transaction in index i of the list, the length of its output
+-- list must be the same as the length of the i-th item in the TxDistribution list.
+--
+-- Because of this, the Arbitrary instance for Ssc ssc => Body (MainBlockchain ssc)
+-- ensures that for every transaction generated, a transaction witness is generated as
+-- well, and the lengths of its list of outputs must also be the same as the length of its
+-- corresponding TxDistribution item.
+
 txOutDistGen :: Gen [(T.Tx, T.TxDistribution, T.TxWitness)]
 txOutDistGen = listOf $ do
     txInW <- arbitrary

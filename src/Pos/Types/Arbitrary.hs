@@ -32,8 +32,7 @@ import           Universum
 
 import           Pos.Binary.Types           ()
 import           Pos.Binary.Update          ()
-import           Pos.Constants              (curProtocolVersion, curSoftwareVersion,
-                                             epochSlots, sharedSeedLength)
+import           Pos.Constants              (epochSlots, sharedSeedLength)
 import           Pos.Crypto                 (PublicKey, SecretKey, Share, hash, sign,
                                              toPublic)
 import           Pos.Crypto.Arbitrary       ()
@@ -101,12 +100,7 @@ instance Arbitrary TxInWitness where
         ScriptWitness <$> arbitrary <*> arbitrary ]
 
 derive makeArbitrary ''TxDistribution
-
-instance Arbitrary TxIn where
-    arbitrary = do
-        txId <- arbitrary
-        txIdx <- arbitrary
-        return (TxIn txId txIdx)
+derive makeArbitrary ''TxIn
 
 -- | Arbitrary transactions generated from this instance will only be valid
 -- with regards to 'verifyTxAlone'
@@ -265,11 +259,6 @@ instance Arbitrary SystemTag where
       where
         onFail = panic "instance Arbitrary SystemTag: disaster"
 
-instance Arbitrary UpdateVote where
-    arbitrary = UpdateVote <$> arbitrary <*> arbitrary <*> arbitrary
-
-instance Arbitrary UpdateData where
-    arbitrary = UpdateData <$> arbitrary <*> arbitrary <*> arbitrary
-
-instance Arbitrary UpdateProposal where
-    arbitrary = pure $ UpdateProposal curProtocolVersion 0 curSoftwareVersion mempty
+derive makeArbitrary ''UpdateVote
+derive makeArbitrary ''UpdateData
+derive makeArbitrary ''UpdateProposal

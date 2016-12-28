@@ -67,6 +67,8 @@ spec = describe "Block types" $ do
                         (binaryEncodeDecode
                              @(BT.Body (BT.GenesisBlockchain SscGodTossing)))
             describe "MainBlockchain" $ do
+                prop "MainExtraHeaderData" (binaryEncodeDecode @BT.MainExtraHeaderData)
+                prop "MainExtraBodyData" (binaryEncodeDecode @BT.MainExtraBodyData)
                 describe "BodyProof" $ do
                     prop "NistBeacon"
                         (binaryEncodeDecode

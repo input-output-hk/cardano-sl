@@ -50,6 +50,8 @@ spec = describe "Block types" $ do
                 prop "GodTossing"
                     (safeCopyEncodeDecode @(BT.Body (BT.GenesisBlockchain SscGodTossing)))
         describe "MainBlockchain" $ do
+            prop "MainExtraHeaderData" (safeCopyEncodeDecode @BT.MainExtraHeaderData)
+            prop "MainExtraBodyData" (safeCopyEncodeDecode @BT.MainExtraBodyData)
             describe "BodyProof" $ do
                 prop "NistBeacon"
                     (safeCopyEncodeDecode

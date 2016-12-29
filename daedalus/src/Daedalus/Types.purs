@@ -6,6 +6,8 @@ module Daedalus.Types
        , mkCoin
        , mkCAddress
        , mkCWalletMeta
+       , mkCTxMeta
+       , mkCTxId
        , _ctxIdValue
        ) where
 
@@ -21,10 +23,16 @@ import Data.Either (either)
 import Data.Argonaut.Generic.Aeson (decodeJson)
 import Data.Argonaut.Core (fromString)
 
+import Data.Types (mkTime, NominalDiffTime)
+
 -- TODO: it would be useful to extend purescript-bridge
 -- and generate lenses
+
+_hash :: CHash -> String
+_hash (CHash h) = h
+
 _address :: CAddress -> String
-_address (CAddress (CHash s)) = s
+_address (CAddress a) = _hash a
 
 mkCAddress :: String -> CAddress
 mkCAddress = CAddress <<< CHash
@@ -45,9 +53,20 @@ mkCCurrency = either (const CT.ADA) id <<< decodeJson <<< fromString
 mkCWalletMeta :: String -> String -> String -> CT.CWalletMeta
 mkCWalletMeta wType wCurrency wName =
     CT.CWalletMeta { cwType: mkCWalletType wType
-                , cwCurrency: mkCCurrency wCurrency
-                , cwName: wName
-                }
+                   , cwCurrency: mkCCurrency wCurrency
+                   , cwName: wName
+                   }
 
 _ctxIdValue :: CT.CTxId -> String
-_ctxIdValue (CT.CTxId (CT.CHash h)) = h
+_ctxIdValue (CT.CTxId tx) = _hash tx
+
+mkCTxId :: String -> CT.CTxId
+mkCTxId = CT.CTxId <<< CHash
+
+mkCTxMeta :: String -> String -> String -> Number -> CT.CTxMeta
+mkCTxMeta currency title description date =
+    CT.CTxMeta { ctmCurrency: mkCCurrency currency
+               , ctmTitle: title
+               , ctmDescription: description
+               , ctmDate: mkTime date
+               }

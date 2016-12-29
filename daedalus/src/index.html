@@ -33,6 +33,11 @@
             .then(function(result) {console.log(result)})
             .catch(function(reason) {console.log(reason)})
       };
+      var updateTransaction = function(address, transactionId, transactionCurrency, transactionTitle, transactionDescription, transactionDate) {
+        Daedalus.ClientApi.updateTransaction(address, transactionId, transactionCurrency, transactionTitle, transactionDescription, transactionDate)()
+            .then(function() {console.log()})
+            .catch(function(reason) {console.log(reason)})
+      };
       var deleteWallet = function(wallet) {
         Daedalus.ClientApi.deleteWallet(wallet)()
             .then(function() {})
@@ -50,7 +55,8 @@
       <li><button onclick="send('wallet_address1', 'wallet_address2', 1);"/>send from a to b 1 coin</li>
       <li><button onclick="getHistory('wallet_address')"/>get wallet history</li>
       <li><button onclick="newWallet('CWTPersonal', 'ADA', 'I am rich guy');"/>newWallet</li>
-      <li><button onclick="updateWallet('wallet_address', 'personal', 'ADA', 'wallet_name');"/>updateWallet</li>
+      <li><button onclick="updateWallet('wallet_address', 'CWTPersonal', 'ADA', 'wallet_name');"/>updateWallet</li>
+      <li><button onclick="updateTransaction('wallet_address', 'transaction_hash', 'ADA', 'new_transaction_title', 'new_transaction_description', 1000);"/>updateTransaction</li>
       <li><button onclick="deleteWallet('wallet_address');"/>deleteWallet</li>
     </ul>
 	</body>

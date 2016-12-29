@@ -5,31 +5,32 @@ import Control.Monad.Eff (Eff)
 import Control.Promise (Promise, fromAff)
 import Daedalus.BackendApi as B
 import Data.Tuple (Tuple)
+import Data.Argonaut (Json)
 import Network.HTTP.Affjax (AJAX)
 import Daedalus.Types (mkCAddress, mkCoin, CAddress, Coin, CWallet, CTx, mkCWalletMeta)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 
-getWallets :: forall eff. Eff(ajax :: AJAX | eff) (Promise String)
-getWallets = fromAff $ map (show <<< encodeJson) B.getWallets
+getWallets :: forall eff. Eff(ajax :: AJAX | eff) (Promise Json)
+getWallets = fromAff $ map encodeJson B.getWallets
 
-getWallet :: forall eff. String -> Eff(ajax :: AJAX | eff) (Promise String)
-getWallet = fromAff <<< map (show <<< encodeJson) <<< B.getWallet <<< mkCAddress
+getWallet :: forall eff. String -> Eff(ajax :: AJAX | eff) (Promise Json)
+getWallet = fromAff <<< map encodeJson <<< B.getWallet <<< mkCAddress
 
-getHistory :: forall eff. String -> Eff(ajax :: AJAX | eff) (Promise String)
-getHistory = fromAff <<< map (show <<< encodeJson) <<< B.getHistory <<< mkCAddress
+getHistory :: forall eff. String -> Eff(ajax :: AJAX | eff) (Promise Json)
+getHistory = fromAff <<< map encodeJson <<< B.getHistory <<< mkCAddress
 
-send :: forall eff. String -> String -> Int -> Eff(ajax :: AJAX | eff) (Promise String)
-send addrFrom addrTo amount = fromAff <<< map (show <<< encodeJson) $
+send :: forall eff. String -> String -> Int -> Eff(ajax :: AJAX | eff) (Promise Json)
+send addrFrom addrTo amount = fromAff <<< map encodeJson $
     B.send
         (mkCAddress addrFrom)
         (mkCAddress addrTo)
         (mkCoin amount)
 
-newWallet :: forall eff. String -> String -> String -> Eff(ajax :: AJAX | eff) (Promise String)
-newWallet wType wCurrency wName = fromAff <<< map (show <<< encodeJson) <<< B.newWallet $ mkCWalletMeta wType wCurrency wName
+newWallet :: forall eff. String -> String -> String -> Eff(ajax :: AJAX | eff) (Promise Json)
+newWallet wType wCurrency wName = fromAff <<< map encodeJson <<< B.newWallet $ mkCWalletMeta wType wCurrency wName
 
-updateWallet :: forall eff. String -> String -> String -> String -> Eff(ajax :: AJAX | eff) (Promise String)
-updateWallet addr wType wCurrency wName = fromAff <<< map (show <<< encodeJson) <<<
+updateWallet :: forall eff. String -> String -> String -> String -> Eff(ajax :: AJAX | eff) (Promise Json)
+updateWallet addr wType wCurrency wName = fromAff <<< map encodeJson <<<
     B.updateWallet
         (mkCAddress addr)
         $ mkCWalletMeta wType wCurrency wName

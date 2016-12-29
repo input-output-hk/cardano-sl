@@ -30,7 +30,8 @@ import           Pos.Communication.Types.SysStart   as Export
 import           Pos.Txp.Types.Communication        as Export
 
 -- | Constraint alias for 'WorkMode' with 'MonadResponseDHT'.
-type ResponseMode ssc m = (WorkMode ssc m, MonadResponseDHT (MutSocketState ssc) m)
+type ResponseMode ssc m =
+    (WorkMode ssc m, MonadResponseDHT (MutSocketState ssc) m)
 
 -- | 'MessageName'`s that shouldn't be cached.
 noCacheMessageNames :: [MessageName]

@@ -12,7 +12,7 @@ import           Pos.Types            (ProtocolVersion)
 
 -- | Version request message. 'VersionResp' is expected as response.
 data VersionReq = VersionReq
-    deriving (Generic)
+    deriving (Show,Generic)
 
 instance Message VersionReq where
     messageName _ = "VersionReq"
@@ -22,7 +22,7 @@ instance Message VersionReq where
 data VersionResp = VersionResp
     { vRespMagic           :: Int32
     , vRespProtocolVersion :: ProtocolVersion
-    } deriving (Generic)
+    } deriving (Show,Generic)
 
 instance Message VersionResp where
     messageName _ = "VersionResp"

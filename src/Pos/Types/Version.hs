@@ -4,7 +4,7 @@ module Pos.Types.Version
        (
          ProtocolVersion (..)
        , SoftwareVersion (..)
-       , ApplicationName (getApplicationName)
+       , ApplicationName (..)
        , mkApplicationName
        , applicationNameMaxLength
        ) where

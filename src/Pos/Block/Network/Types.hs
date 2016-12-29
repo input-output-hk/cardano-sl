@@ -1,3 +1,7 @@
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE StandaloneDeriving   #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 -- | Types describing protocol messages related to Blocks.
 
 module Pos.Block.Network.Types
@@ -11,13 +15,14 @@ import           Data.List.NonEmpty   (NonEmpty)
 import           Universum
 
 import           Control.TimeWarp.Rpc (Message (..), messageName')
+import           Pos.Ssc.Class.Types  (Ssc (SscPayload))
 import           Pos.Types            (Block, BlockHeader, HeaderHash)
 
 -- | 'GetHeaders' message (see protocol specification).
 data MsgGetHeaders ssc = MsgGetHeaders
     { mghFrom :: ![HeaderHash ssc]
     , mghTo   :: !(Maybe (HeaderHash ssc))
-    } deriving (Generic)
+    } deriving (Generic, Show, Eq)
 
 instance Typeable ssc => Message (MsgGetHeaders ssc) where
     messageName _ = "GetHeaders"
@@ -27,7 +32,7 @@ instance Typeable ssc => Message (MsgGetHeaders ssc) where
 data MsgGetBlocks ssc = MsgGetBlocks
     { mgbFrom :: !(HeaderHash ssc)
     , mgbTo   :: !(HeaderHash ssc)
-    } deriving (Generic)
+    } deriving (Generic, Show, Eq)
 
 instance Typeable ssc => Message (MsgGetBlocks ssc) where
     messageName _ = "GetBlocks"
@@ -36,7 +41,7 @@ instance Typeable ssc => Message (MsgGetBlocks ssc) where
 -- | 'Headers' message (see protocol specification).
 newtype MsgHeaders ssc =
     MsgHeaders (NonEmpty (BlockHeader ssc))
-    deriving (Generic)
+    deriving (Generic, Show, Eq)
 
 instance Typeable ssc => Message (MsgHeaders ssc) where
     messageName _ = "BlockHeaders"
@@ -45,7 +50,9 @@ instance Typeable ssc => Message (MsgHeaders ssc) where
 -- | 'Block' message (see protocol specification).
 newtype MsgBlock ssc =
     MsgBlock (Block ssc)
-    deriving (Generic)
+    deriving (Generic, Show)
+
+deriving instance (Ssc ssc, Eq (SscPayload ssc)) => Eq (MsgBlock ssc)
 
 instance Typeable ssc => Message (MsgBlock ssc) where
     messageName _ = "Block"

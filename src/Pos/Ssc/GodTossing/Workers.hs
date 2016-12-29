@@ -54,9 +54,9 @@ import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCo
                                                    SscGodTossing, VssCertificate (..),
                                                    gtcParticipateSsc, gtcVssKeyPair)
 import           Pos.Ssc.GodTossing.Types.Message (DataMsg (..), InvMsg (..), MsgTag (..))
-import           Pos.Types                        (EpochIndex, LocalSlotIndex,
-                                                   SlotId (..), Timestamp (..))
-import           Pos.Types.Address                (AddressHash, addressHash)
+import           Pos.Types                        (AddressHash, addressHash, EpochIndex,
+                                                   LocalSlotIndex, SlotId (..),
+                                                   Timestamp (..))
 import           Pos.Util                         (asBinary)
 import           Pos.WorkMode                     (WorkMode)
 

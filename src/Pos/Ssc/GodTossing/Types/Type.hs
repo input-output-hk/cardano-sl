@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 -- | Type which is instance of all SSC classes.
 
@@ -12,3 +13,6 @@ import           Universum
 -- in -XTypeApplication hacks with type families.
 data SscGodTossing
     deriving (Generic)
+
+deriving instance Show SscGodTossing
+deriving instance Eq SscGodTossing

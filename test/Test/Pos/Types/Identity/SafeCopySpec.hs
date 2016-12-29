@@ -1,4 +1,3 @@
-
 -- | This module tests SafeCopy instances.
 
 module Test.Pos.Types.Identity.SafeCopySpec
@@ -21,8 +20,14 @@ spec = describe "Types" $ do
         prop "SlotId" (safeCopyEncodeDecode @T.SlotId)
         prop "Coin" (safeCopyEncodeDecode @T.Coin)
         prop "Address" (safeCopyEncodeDecode @T.Address)
+        prop "TxInWitness" (safeCopyEncodeDecode @T.TxInWitness)
+        prop "TxDistribution" (safeCopyEncodeDecode @T.TxDistribution)
         prop "TxIn" (safeCopyEncodeDecode @T.TxIn)
         prop "TxOut" (safeCopyEncodeDecode @T.TxOut)
         prop "Tx" (safeCopyEncodeDecode @T.Tx)
         prop "SharedSeed" (safeCopyEncodeDecode @T.SharedSeed)
         prop "Chaindifficulty" (safeCopyEncodeDecode @T.ChainDifficulty)
+        prop "UpdateProposal" (safeCopyEncodeDecode @T.UpdateProposal)
+        prop "UpdateVote" (safeCopyEncodeDecode @T.UpdateVote)
+        prop "UpdateData" (safeCopyEncodeDecode @T.UpdateData)
+        prop "SystemTag" (safeCopyEncodeDecode @T.SystemTag)

@@ -164,7 +164,12 @@ ftsReasonableStake
     go _ p []  _ = p
     go _ p  _ [] = p
     go total !present (fts : nextSeed) ((getNoStake -> (adrH, utxo)) : nextUtxo) =
-        let totalStake = fromIntegral $ sum $ map (getCoin . snd) $ concatMap txOutStake $ M.elems utxo
+        let totalStake =
+                fromIntegral         $
+                sum                  $
+                map (getCoin . snd)  $
+                concatMap txOutStake $
+                M.elems utxo
             newStake   = round $ (stakeProbability * totalStake) / (1 - stakeProbability)
             newUtxo    = M.insert key (TxOut (PubKeyAddress adrH) newStake, []) utxo
             newPresent = if elem adrH (followTheSatoshi fts newUtxo)

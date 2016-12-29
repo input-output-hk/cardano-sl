@@ -21,6 +21,7 @@ module Pos.Util
        , inAssertMode
        , diffDoubleMap
        , getKeys
+       , maybeThrow
 
        -- * SafeCopy
        , getCopyBinary
@@ -165,6 +166,9 @@ diffDoubleMap a b = HM.foldlWithKey' go mempty a
                 in if null diff
                        then res
                        else HM.insert extKey diff res
+
+maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
+maybeThrow e = maybe (throwM e) pure
 
 ----------------------------------------------------------------------------
 -- Lens utils

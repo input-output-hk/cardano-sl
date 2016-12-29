@@ -5,6 +5,8 @@
 module Pos.DB.Utxo
        ( BatchOp (..)
        , getTip
+       , getBot
+       , getGenUtxo
        , getTotalFtsStake
        , putTxOut
        , deleteTxOut
@@ -33,6 +35,7 @@ import           Pos.DB.Functions  (rocksDelete, rocksGetBi, rocksPutBi, rocksWr
 import           Pos.DB.Types      (DB)
 import           Pos.Types         (Address, Coin, HeaderHash, NodeId, TxIn (..),
                                     TxOutAux, Utxo, belongsTo, txOutStake)
+import           Pos.Util          (maybeThrow)
 
 data BatchOp ssc
     = DelTxIn TxIn
@@ -44,7 +47,15 @@ data BatchOp ssc
 
 -- | Get current TIP from Utxo DB.
 getTip :: (MonadThrow m, MonadDB ssc m) => m (HeaderHash ssc)
-getTip = maybe (throwM $ DBMalformed "no tip in Utxo DB") pure =<< getTipMaybe
+getTip = maybeThrow (DBMalformed "no tip in Utxo DB") =<< getTipMaybe
+
+-- | Get the hash of the first genesis block from Utxo DB
+getBot :: (MonadThrow m, MonadDB ssc m) => m (HeaderHash ssc)
+getBot = maybeThrow (DBMalformed "no bot in Utxo DB") =<< getBotMaybe
+
+-- | Get genesis utxo
+getGenUtxo :: (MonadThrow m, MonadDB ssc m) => m Utxo
+getGenUtxo = maybeThrow (DBMalformed "no genesis utxo in Utxo DB") =<< getGenUtxoMaybe
 
 -- | Get total amount of stake to be used for follow-the-satoshi. It's
 -- different from total amount of coins in the system.
@@ -75,6 +86,8 @@ prepareUtxoDB
     => Utxo -> HeaderHash ssc -> m ()
 prepareUtxoDB customUtxo initialTip = do
     putIfEmpty getTipMaybe putGenesisTip
+    putIfEmpty getBotMaybe putGenesisBot
+    putIfEmpty getGenUtxoMaybe putGenesisUtxo
     putIfEmpty getFtsSumMaybe putUtxo
     putIfEmpty getFtsSumMaybe putFtsStakes
     putIfEmpty getFtsSumMaybe putGenesisSum
@@ -85,7 +98,9 @@ prepareUtxoDB customUtxo initialTip = do
            (m (Maybe a)) -> m () -> m ()
     putIfEmpty getter putter = maybe putter (const pass) =<< getter
     putGenesisTip = putTip initialTip
+    putGenesisBot = putBot initialTip
     putGenesisSum = putTotalFtsStake totalCoins
+    putGenesisUtxo = putGenUtxo customUtxo
     putUtxo = mapM_ putTxOut' $ M.toList customUtxo
     putTxOut' ((txid, id), txout) = putTxOut (TxIn txid id) txout
     putFtsStakes = mapM_ putFtsStake' $ M.toList customUtxo
@@ -93,6 +108,12 @@ prepareUtxoDB customUtxo initialTip = do
 
 putTip :: MonadDB ssc m => HeaderHash ssc -> m ()
 putTip h = getUtxoDB >>= rocksPutBi tipKey h
+
+putBot :: MonadDB ssc m => HeaderHash ssc -> m ()
+putBot h = getUtxoDB >>= rocksPutBi botKey h
+
+putGenUtxo :: MonadDB ssc m => Utxo -> m ()
+putGenUtxo utxo = getUtxoDB >>= rocksPutBi genUtxoKey (M.toList utxo)
 
 putTotalFtsStake :: MonadDB ssc m => Coin -> m ()
 putTotalFtsStake c = getUtxoDB >>= rocksPutBi ftsSumKey c
@@ -167,6 +188,12 @@ toRocksOp (PutFtsStake ad c)    = Rocks.Put (ftsStakeKey ad) (encodeStrict c)
 tipKey :: ByteString
 tipKey = "btip"
 
+botKey :: ByteString
+botKey = "bbot"
+
+genUtxoKey :: ByteString
+genUtxoKey = "gutxo"
+
 txInKey :: TxIn -> ByteString
 -- [CSL-379] Restore prefix after we have proper iterator
 -- txInKey = (<> "t") . encodeStrict
@@ -182,6 +209,12 @@ ftsSumKey = "ftssum"
 
 getTipMaybe :: (MonadDB ssc m) => m (Maybe (HeaderHash ssc))
 getTipMaybe = getUtxoDB >>= rocksGetBi tipKey
+
+getBotMaybe :: MonadDB ssc m => m (Maybe (HeaderHash ssc))
+getBotMaybe = getUtxoDB >>= rocksGetBi botKey
+
+getGenUtxoMaybe :: MonadDB ssc m => m (Maybe Utxo)
+getGenUtxoMaybe = getUtxoDB >>= rocksGetBi genUtxoKey >>= traverse (return . M.fromList)
 
 getFtsSumMaybe :: (MonadDB ssc m) => m (Maybe Coin)
 getFtsSumMaybe = getUtxoDB >>= rocksGetBi ftsSumKey

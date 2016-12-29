@@ -52,6 +52,7 @@ Library
                       , random
                       , stm
                       , text
+                      , time
                       , time-units
                       , transformers
   hs-source-dirs:       src

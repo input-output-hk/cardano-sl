@@ -26,7 +26,9 @@ import qualified Data.ByteString.Lazy        as LBS
 import           Data.Default                (Default (..))
 import           Data.Monoid                 ((<>))
 import           Data.Text                   (Text)
+import           Data.Time.Clock.POSIX       (getPOSIXTime)
 import           Data.Time.Units             (Microsecond)
+import           Data.Time.Units             (fromMicroseconds)
 import           Data.Typeable               (Typeable)
 import           Data.Word                   (Word16)
 import           Formatting                  (sformat, shown, (%))
@@ -126,21 +128,30 @@ mkSocket = liftIO $ do
     setSocketOption sock ReuseAddr 1
     return sock
 
+handleNtpPacket :: NtpMonad m => NtpClient -> NtpPacket -> m ()
+handleNtpPacket cli packet = do
+    log cli Debug $ sformat ("Got packet "%shown) packet
+
+    localTime <- liftIO $ fromMicroseconds . round . ( * 1000000) <$> getPOSIXTime
+    let serverTime = ntpTime packet
+        deltaTime = serverTime - localTime
+        handler = ntpHandler (ncSettings cli)
+
+    log cli Debug $ sformat ("Received time delta "%shown) deltaTime
+
+    handler deltaTime
+
 doReceive :: NtpMonad m => NtpClient -> m ()
 doReceive cli = do
     sock <- liftIO . readTVarIO $ ncSocket cli
-    let handler = ntpHandler (ncSettings cli)
     forever $ do
         (received, _) <- liftIO $ recvFrom sock datagramPacketSize
         let eNtpPacket = decodeOrFail $ LBS.fromStrict received
         case eNtpPacket of
             Left  (_, _, err)    ->
                 log cli Warning $ sformat ("Error while receiving time: "%shown) err
-            Right (_, _, packet) -> do
-                log cli Debug $ sformat ("Got packet "%shown) packet
-                let time = ntpTime packet
-                log cli Debug $ sformat ("Received time "%shown) time
-                handler time
+            Right (_, _, packet) ->
+                handleNtpPacket cli packet
 
 startReceive :: NtpMonad m => NtpClient -> m ()
 startReceive cli = do

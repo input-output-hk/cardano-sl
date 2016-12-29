@@ -44,11 +44,12 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletSta
 
 walletServeWebFull
     :: SscConstraint ssc
-    => FilePath           -- to Daedalus acid-state
-    -> Bool               -- whether to include genesis keys
+    => Bool               -- whether to include genesis keys
+    -> FilePath           -- to Daedalus acid-state
+    -> Bool               -- Rebuild flag
     -> Word16
     -> RawRealMode ssc ()
-walletServeWebFull daedalusDbPath debug = walletServeImpl daedalusDbPath $ do
+walletServeWebFull debug = walletServeImpl $ do
     logInfo "DAEDALUS is STARTED!"
     when debug $ mapM_ addSecretKey genesisSecretKeys
     walletApplication $ walletServer nat

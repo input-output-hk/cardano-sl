@@ -40,9 +40,8 @@ type SubKademlia = KeyStorage
 
 type MainWalletState = WS.WalletState
 
-walletServeWebLite :: FilePath -> Word16 -> WalletRealMode ()
-walletServeWebLite daedalusDbPath = walletServeImpl daedalusDbPath $
-    walletApplication $ walletServer nat
+walletServeWebLite :: FilePath -> Bool -> Word16 -> WalletRealMode ()
+walletServeWebLite = walletServeImpl $ walletApplication $ walletServer nat
 
 convertHandler
     :: KademliaDHTContext SubKademlia

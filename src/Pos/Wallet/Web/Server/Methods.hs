@@ -59,10 +59,14 @@ import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
 
 walletServeImpl
     :: (MonadIO m, MonadMask m)
-    => FilePath -> WalletWebDB m Application -> Word16 -> m ()
-walletServeImpl daedalusDbPath app port = bracket openDB closeDB $ \ws ->
+    => WalletWebDB m Application       -- ^ Application getter
+    -> FilePath                        -- ^ Path to wallet acid-state
+    -> Bool                            -- ^ Rebuild flag for acid-state
+    -> Word16                          -- ^ Port to listen
+    -> m ()
+walletServeImpl app daedalusDbPath dbRebuild port = bracket openDB closeDB $ \ws ->
     serveImpl (runWalletWebDB ws app) port
-  where openDB = openState True daedalusDbPath
+  where openDB = openState dbRebuild daedalusDbPath
         closeDB = closeState
 
 walletApplication

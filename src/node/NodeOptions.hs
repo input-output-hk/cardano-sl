@@ -44,6 +44,7 @@ data Args = Args
     , enableWallet              :: !Bool
     , walletPort                :: !Word16
     , walletDbPath              :: !FilePath
+    , walletRebuildDb           :: !Bool
     , walletDebug               :: !Bool
 #endif
 #endif
@@ -115,6 +116,10 @@ argsParser =
         (long "wallet-db-path" <>
          help "Path to the wallet acid-state" <>
          value "wallet-db") <*>
+    switch
+        (long "wallet-rebuild-db" <>
+         help "If the wallet DB already exist, discard it's contents and create \
+              \new one from scratch") <*>
     switch
         (long "wallet-debug" <>
          help "Run wallet with debug params (e. g. include all the genesis keys in the set of secret keys)")

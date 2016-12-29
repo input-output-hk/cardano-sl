@@ -9,7 +9,7 @@ import Data.Binary     (Binary (..))
 import Data.Binary.Get (getInt8, getWord32be, getWord32host, getWord32le, getWord8)
 import Data.Binary.Put (putWord32host, putWord8)
 import Data.Time.Units (Microsecond, fromMicroseconds)
-import Data.Word       (Word8)
+import Data.Word       (Word32, Word8)
 
 data NtpPacket = NtpPacket
     { ntpParams :: Word8
@@ -22,6 +22,11 @@ data NtpPacket = NtpPacket
 ntpTimestampDelta :: Integer
 ntpTimestampDelta = 2208988800
 
+ntpToRealMcs :: Word32 -> Word32 -> Microsecond
+ntpToRealMcs integerSec fracSec = fromMicroseconds $
+       (fromIntegral integerSec - ntpTimestampDelta) * 1000000
+      + fromIntegral fracSec `mod` 1000000
+
 instance Binary NtpPacket where
     put NtpPacket{..} = do
         putWord8 ntpParams
@@ -31,17 +36,21 @@ instance Binary NtpPacket where
         replicateM_ 11 $ putWord32host 0
 
     get = do
-        ntpParams    <- getWord8
-        _            <- getWord8
-        ntpPoll      <- fromIntegral <$> getInt8
-        _            <- getWord8
-        replicateM_ 9 $ getWord32host
+        ntpParams <- getWord8
+        _         <- getWord8
+        ntpPoll   <- fromIntegral <$> getInt8
+        _         <- getWord8
+        replicateM_ 3 $ getWord32host
         -- TODO: why getWord32host doesn't work here???
-        _seconds     <- getWord32be
-        _secondsFrac <- getWord32be
-        let ntpTime = fromMicroseconds $
-               (fromIntegral _seconds - ntpTimestampDelta) * 1000000
-              + fromIntegral _secondsFrac `mod` 1000000
+        _refTmS   <- getWord32be
+        _refTmF   <- getWord32be
+        _origTmS  <- getWord32be
+        _origTmF  <- getWord32be
+        _rxTmS    <- getWord32be
+        _rxTmF    <- getWord32be
+        _txTmS    <- getWord32be
+        _txTmF    <- getWord32be
+        let ntpTime = ntpToRealMcs _txTmS _txTmF
         return NtpPacket{..}
 
 mkCliNtpPacket :: NtpPacket

@@ -9,8 +9,8 @@
 module NTP.Example
     ( NtpClientSettings (..)
     , runNtpClientIO
-    , pressIO
     , def
+    -- there is no stop button, since `runNtpClientIO` does `initLogging`
     ) where
 
 import Data.Default        (def)
@@ -22,10 +22,10 @@ import System.Wlog         (CanLog (..), HasLoggerName (..), Severity (..), init
 import Mockable.Production (Production (..))
 
 runNtpClientIO :: NtpClientSettings -> IO NtpStopButton
-runNtpClientIO settings = runProduction $ startNtpClient settings
+runNtpClientIO settings = do
+    initLogging Debug
+    runProduction $ startNtpClient settings
 
-pressIO :: NtpStopButton -> IO ()
-pressIO = runProduction . press
 
 -- * Temporal instances, till we get proper instances of `Mockable` for existing monads
 
@@ -35,5 +35,4 @@ instance HasLoggerName Production where
 
 instance CanLog Production where
     dispatchMessage name severity msg = do
-        initLogging Debug
         Production $ dispatchMessage name severity msg

@@ -18,8 +18,9 @@ import           Control.Concurrent.STM      (atomically)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, readTVarIO,
                                               writeTVar)
 import           Control.Lens                (to, (^?), _head)
-import           Control.Monad               (forM_, forever, unless, void)
+import           Control.Monad               (forM_, forever, unless, void, when)
 import           Control.Monad.Catch         (Exception, SomeException (..))
+import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.Trans         (MonadIO (..))
 import           Data.Binary                 (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy        as LBS
@@ -98,12 +99,15 @@ type NtpMonad m =
     , Mockable Catch m
     )
 
+log' :: NtpMonad m => NtpClientSettings -> Severity -> Text -> m ()
+log' settings severity msg =
+    let logName = ntpLogName settings
+    in  modifyLoggerName (<> logName) $ logMessage severity msg
+
 log :: NtpMonad m => NtpClient -> Severity -> Text -> m ()
 log cli severity msg = do
     closed <- liftIO $ readTVarIO (ncClosed cli)
-    unless closed $ do
-        let logName = ntpLogName (ncSettings cli)
-        modifyLoggerName (<> logName) $ logMessage severity msg
+    unless closed $ log' (ncSettings cli) severity msg
 
 doSend :: NtpMonad m => SockAddr -> NtpClient -> m ()
 doSend addr cli = do
@@ -122,11 +126,19 @@ startSend addrs cli = forever $ do
         forM_ addrs $ \addr -> fork $ doSend addr cli
         liftIO $ threadDelay 1000000
 
-mkSocket :: NtpMonad m => MonadIO m => m Socket
-mkSocket = liftIO $ do
-    sock <- socket AF_INET Datagram defaultProtocol
-    setSocketOption sock ReuseAddr 1
-    return sock
+mkSocket :: NtpMonad m => NtpClientSettings -> m Socket
+mkSocket settings = doMkSocket `catchAll` handlerE settings
+  where
+    doMkSocket = liftIO $ do
+        sock <- socket AF_INET Datagram defaultProtocol
+        setSocketOption sock ReuseAddr 1
+        return sock
+    handlerE cli e = do
+        log' settings Warning $
+            sformat ("Failed to create socket, retrying in 5 sec... (reason: "%shown%")")
+            e
+        liftIO $ threadDelay 5000000
+        mkSocket settings
 
 handleNtpPacket :: NtpMonad m => NtpClient -> NtpPacket -> m ()
 handleNtpPacket cli packet = do
@@ -161,8 +173,8 @@ startReceive cli = do
     handleE e = do
         closed <- liftIO . readTVarIO $ ncClosed cli
         unless closed $ do
-            log cli Debug $ sformat ("Socket closed, recreating ("%shown%")") e
-            sock <- mkSocket
+            log cli Debug $ sformat ("Socket closed, recreating (reason: "%shown%")") e
+            sock <- mkSocket $ ncSettings cli
             closed' <- liftIO . atomically $ do
                 writeTVar (ncSocket cli) sock
                 readTVar  (ncClosed cli)
@@ -181,9 +193,9 @@ stopNtpClient cli = do
     -- unblock receiving from socket in case no one replies
     liftIO (close sock) `catchAll` \_ -> return ()
 
-startNtpClient :: NtpMonad m => NtpClientSettings -> m NtpStopButton
+startNtpClient :: ( NtpMonad m, MonadFix m ) => NtpClientSettings -> m NtpStopButton
 startNtpClient settings = do
-    sock <- mkSocket
+    sock <- mkSocket settings
     cli <- mkNtpClient settings sock
 
     fork $ startReceive cli

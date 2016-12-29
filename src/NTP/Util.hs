@@ -10,6 +10,7 @@ import           Control.Applicative       (optional)
 import           Control.Concurrent        (forkIO, threadDelay)
 import           Control.Lens              (to, (^?), _head)
 import           Control.Monad             (forever)
+import           Control.Monad.Catch       (catchAll)
 import           Data.Binary               (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy      as LBS
 import           Data.Word                 (Word16)
@@ -36,6 +37,7 @@ resolveHost host = do
             , addrFlags = [AI_ADDRCONFIG]  -- since we use AF_INET family
             }
     addrInfos <- getAddrInfo (Just hints) (Just host) Nothing
+                    `catchAll` \_ -> return []
 
     -- one address is enough
     return $ addrInfos ^? _head . to addrAddress

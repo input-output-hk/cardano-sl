@@ -14,14 +14,13 @@ import qualified Data.HashMap.Strict           as HM (fromList, lookup, mapMaybe
 import qualified Data.HashSet                  as HS (difference)
 import           Universum
 
-import           Pos.Crypto                    (PublicKey, Secret, Share, Threshold,
+import           Pos.Crypto                    (Secret, Share, Threshold,
                                                 unsafeRecoverSecret)
 import           Pos.Ssc.GodTossing.Error      (SeedError (..))
 import           Pos.Ssc.GodTossing.Functions  (secretToSharedSeed, verifyOpening)
 import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
                                                 getOpening)
-import           Pos.Types                     (SharedSeed)
-import           Pos.Types.Address             (AddressHash)
+import           Pos.Types                     (NodeId, SharedSeed)
 import           Pos.Util                      (fromBinaryM, getKeys)
 
 
@@ -39,7 +38,7 @@ calculateSeed (fromIntegral -> t) commitments openings lShares = do
     let participants = getKeys commitments
 
     -- First let's do some sanity checks.
-    let extraOpenings, extraShares :: HashSet (AddressHash PublicKey)
+    let extraOpenings, extraShares :: HashSet NodeId
         extraOpenings = HS.difference (getKeys openings) participants
         --We check that nodes which sent its encrypted shares to restore its opening
         --as well send their commitment. (e.g HM.member pkFrom participants)
@@ -65,14 +64,14 @@ calculateSeed (fromIntegral -> t) commitments openings lShares = do
     -- secrets (if corresponding openings weren't posted)
 
     -- Participants for whom we have to recover the secret
-    let mustBeRecovered :: HashSet (AddressHash PublicKey)
+    let mustBeRecovered :: HashSet NodeId
         mustBeRecovered = HS.difference participants (getKeys openings)
 
     shares <- mapHelper BrokenShare (traverse fromBinaryM) lShares
 
     -- Secrets recovered from actual share lists (but only those we need –
     -- i.e. ones which are in mustBeRecovered)
-    let recovered :: HashMap (AddressHash PublicKey) (Maybe Secret)
+    let recovered :: HashMap NodeId (Maybe Secret)
         recovered = HM.fromList $ do
             -- We are now trying to recover a secret for key 'k'
             k <- toList mustBeRecovered
@@ -92,7 +91,7 @@ calculateSeed (fromIntegral -> t) commitments openings lShares = do
     secrets0 <- mapHelper BrokenSecret fromBinaryM $ getOpening <$> openings
 
     -- All secrets, both recovered and from openings
-    let secrets :: HashMap (AddressHash PublicKey) Secret
+    let secrets :: HashMap NodeId Secret
         secrets = secrets0 <>
                   HM.mapMaybe identity recovered
 
@@ -115,8 +114,8 @@ calculateSeed (fromIntegral -> t) commitments openings lShares = do
                          mconcat $ map secretToSharedSeed (toList secrets)
 
 mapHelper
-    :: (AddressHash PublicKey -> c)
+    :: (NodeId -> c)
     -> (b -> Maybe a)
-    -> HashMap (AddressHash PublicKey) b
-    -> Either c (HashMap (AddressHash PublicKey) a)
+    -> HashMap NodeId b
+    -> Either c (HashMap NodeId a)
 mapHelper errMapper mapper = HM.traverseWithKey (\pk v -> maybe (Left $ errMapper pk) Right $ mapper v)

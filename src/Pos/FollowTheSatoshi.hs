@@ -15,9 +15,8 @@ import           Data.List.NonEmpty (NonEmpty, fromList)
 import           Universum
 
 import           Pos.Constants      (epochSlots)
-import           Pos.Crypto         (PublicKey, deterministic, randomNumber)
-import           Pos.Types.Address  (AddressHash)
-import           Pos.Types.Types    (Coin (..), SharedSeed (..), TxOutAux, Utxo,
+import           Pos.Crypto         (deterministic, randomNumber)
+import           Pos.Types.Types    (Coin (..), NodeId, SharedSeed (..), TxOutAux, Utxo,
                                      txOutStake)
 import           Pos.Util.Iterator  (ListHolder, MonadIterator (..), runListHolder)
 
@@ -25,7 +24,7 @@ import           Pos.Util.Iterator  (ListHolder, MonadIterator (..), runListHold
 -- instead of 'Utxo'.
 followTheSatoshiM
     :: forall m. MonadIterator m TxOutAux
-    => SharedSeed -> Coin -> m (NonEmpty (AddressHash PublicKey))
+    => SharedSeed -> Coin -> m (NonEmpty NodeId)
 followTheSatoshiM (SharedSeed seed) totalCoins = do
     res <- findLeaders (sortOn fst $ zip coinIndices [1..]) 0 []
     pure . fromList . map fst . sortOn snd $ res
@@ -38,12 +37,12 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
     findLeaders
         :: [(Coin, Int)]
         -> Coin
-        -> [(AddressHash PublicKey, Coin)] -- buffer of stake; we need it
-                                           -- because each TxOut can expand
-                                           -- into several pieces of stake
-                                           -- and we need some buffer to
-                                           -- iterate over them
-        -> m [(AddressHash PublicKey, Int)]
+        -> [(NodeId, Coin)] -- buffer of stake; we need it
+                            -- because each TxOut can expand
+                            -- into several pieces of stake
+                            -- and we need some buffer to
+                            -- iterate over them
+        -> m [(NodeId, Int)]
     -- We found all coins we wanted to find
     findLeaders [] _ _ = pure []
     -- We ran out of items in the buffer so we take a new output
@@ -70,7 +69,7 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
 -- more than once.
 --
 -- How the algorithm works: we sort all unspent outputs in a deterministic
--- way (lexicographically) and have an ordered sequence of pairs @(Address,
+-- way (lexicographically) and have an ordered sequence of pairs @(NodeId,
 -- Coin)@. Then we choose several random 'i's between 1 and amount of satoshi
 -- in the system; to find owner of 'i'th coin we find the lowest x such that
 -- sum of all coins in this list up to 'i'th is not less than 'i' (and then
@@ -80,7 +79,7 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
 -- to them. Therefore, P2SH addresses can contain 'addrDestination' which
 -- specifies which addresses should count as “owning” funds for the purposes
 -- of follow-the-satoshi.
-followTheSatoshi :: SharedSeed -> Utxo -> NonEmpty (AddressHash PublicKey)
+followTheSatoshi :: SharedSeed -> Utxo -> NonEmpty NodeId
 followTheSatoshi seed utxo
     | null outputs = panic "followTheSatoshi: utxo is empty"
     | otherwise    = runListHolder (followTheSatoshiM @(ListHolder TxOutAux) seed totalCoins) outputs

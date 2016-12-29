@@ -50,7 +50,7 @@ import           Universum
 import           Pos.Binary.Class               (Bi)
 import           Pos.Binary.Crypto              ()
 import           Pos.Constants                  (k)
-import           Pos.Crypto                     (EncShare, PublicKey, Secret, SecretKey,
+import           Pos.Crypto                     (EncShare, Secret, SecretKey,
                                                  SecureRandom (..), Share, Threshold,
                                                  VssPublicKey, checkSig, encShareId,
                                                  genSharedSecret, getDhSecret,
@@ -63,9 +63,9 @@ import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap
                                                  SignedCommitment, VssCertificate (..),
                                                  VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..))
-import           Pos.Types.Address              (AddressHash, addressHash)
+import           Pos.Types.Address              (addressHash)
 import           Pos.Types.Types                (EpochIndex, LocalSlotIndex,
-                                                 MainBlockHeader, SharedSeed (..),
+                                                 MainBlockHeader, NodeId, SharedSeed (..),
                                                  SlotId (..), headerSlot)
 import           Pos.Util                       (AsBinary, asBinary, diffDoubleMap,
                                                  fromBinaryM)
@@ -123,16 +123,16 @@ isSharesId = isSharesIdx . siSlot
 inLastKSlotsId :: SlotId -> Bool
 inLastKSlotsId SlotId{..} = siSlot >= 5 * k
 
-hasCommitment :: AddressHash PublicKey -> GtGlobalState -> Bool
+hasCommitment :: NodeId -> GtGlobalState -> Bool
 hasCommitment addr = HM.member addr . _gsCommitments
 
-hasOpening :: AddressHash PublicKey -> GtGlobalState -> Bool
+hasOpening :: NodeId -> GtGlobalState -> Bool
 hasOpening addr = HM.member addr . _gsOpenings
 
-hasShares :: AddressHash PublicKey -> GtGlobalState -> Bool
+hasShares :: NodeId -> GtGlobalState -> Bool
 hasShares addr = HM.member addr . _gsShares
 
-hasVssCertificate :: AddressHash PublicKey -> GtGlobalState -> Bool
+hasVssCertificate :: NodeId -> GtGlobalState -> Bool
 hasVssCertificate addr = HM.member addr . _gsVssCertificates
 
 ----------------------------------------------------------------------------
@@ -162,7 +162,7 @@ verifyCommitment Commitment {..} = fromMaybe False $ do
 -- | Verify public key contained in SignedCommitment against given address
 --
 -- #checkPubKeyAddress
-verifyCommitmentPK :: AddressHash PublicKey -> SignedCommitment -> Bool
+verifyCommitmentPK :: NodeId -> SignedCommitment -> Bool
 verifyCommitmentPK addr (pk, _, _) = addressHash pk == addr
 
 -- CHECK: @verifyCommitmentSignature
@@ -181,7 +181,7 @@ verifyCommitmentSignature epoch (pk, comm, commSig) =
 -- #verifyCommitment
 verifySignedCommitment
     :: Bi Commitment
-    => AddressHash PublicKey
+    => NodeId
     -> EpochIndex
     -> SignedCommitment
     -> VerificationRes
@@ -210,7 +210,7 @@ verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
 -- | Check that the VSS certificate is signed properly
 -- #checkPubKeyAddress
 -- #checkSig
-checkCert :: (AddressHash PublicKey, VssCertificate) -> Bool
+checkCert :: (NodeId, VssCertificate) -> Bool
 checkCert (addr, VssCertificate {..}) =
     addressHash vcSigningKey == addr &&
     checkSig vcSigningKey vcVssKey vcSignature
@@ -220,11 +220,11 @@ checkCert (addr, VssCertificate {..}) =
 -- commitment
 --
 -- #verifyShare
-checkShare :: (SetContainer set, ContainerKey set ~ AddressHash PublicKey)
+checkShare :: (SetContainer set, ContainerKey set ~ NodeId)
            => CommitmentsMap
            -> set --set of opening's addresses
            -> VssCertificatesMap
-           -> (AddressHash PublicKey, AddressHash PublicKey, AsBinary Share)
+           -> (NodeId, NodeId, AsBinary Share)
            -> Bool
 checkShare globalCommitments globalOpeningsPK globalCertificates (addrTo, addrFrom, share) =
     fromMaybe False $ case tuple of
@@ -253,15 +253,15 @@ checkShare globalCommitments globalOpeningsPK globalCertificates (addrTo, addrFr
 -- Apply checkShare to all shares in map.
 --
 -- #checkShare
-checkShares :: (SetContainer set, ContainerKey set ~ AddressHash PublicKey)
+checkShares :: (SetContainer set, ContainerKey set ~ NodeId)
             => CommitmentsMap
             -> set --set of opening's PK. TODO Should we add phantom type for more typesafety?
             -> VssCertificatesMap
-            -> AddressHash PublicKey
+            -> NodeId
             -> InnerSharesMap
             -> Bool
 checkShares globalCommitments globalOpeningsPK globalCertificates addrTo shares =
-    let listShares :: [(AddressHash PublicKey, AddressHash PublicKey, AsBinary Share)]
+    let listShares :: [(NodeId, NodeId, AsBinary Share)]
         listShares = map convert $ HM.toList shares
         convert (addrFrom, share) = (addrTo, addrFrom, share)
     in all
@@ -272,7 +272,7 @@ checkShares globalCommitments globalOpeningsPK globalCertificates addrTo shares 
 -- | Check that the secret revealed in the opening matches the secret proof
 -- in the commitment
 checkOpeningMatchesCommitment
-    :: CommitmentsMap -> (AddressHash PublicKey, Opening) -> Bool
+    :: CommitmentsMap -> (NodeId, Opening) -> Bool
 checkOpeningMatchesCommitment globalCommitments (addr, opening) =
       case HM.lookup addr globalCommitments of
         Nothing           -> False

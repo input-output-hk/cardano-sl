@@ -54,9 +54,9 @@ import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCo
                                                    SscGodTossing, VssCertificate (..),
                                                    gtcParticipateSsc, gtcVssKeyPair)
 import           Pos.Ssc.GodTossing.Types.Message (DataMsg (..), InvMsg (..), MsgTag (..))
-import           Pos.Types                        (AddressHash, addressHash, EpochIndex,
-                                                   LocalSlotIndex, SlotId (..),
-                                                   Timestamp (..))
+import           Pos.Types                        (EpochIndex, LocalSlotIndex, NodeId,
+                                                   SlotId (..), Timestamp (..),
+                                                   addressHash)
 import           Pos.Util                         (asBinary)
 import           Pos.WorkMode                     (WorkMode)
 
@@ -72,14 +72,14 @@ onStart = checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
 checkNSendOurCert :: forall m . (WorkMode SscGodTossing m, Bi DataMsg) => m ()
 checkNSendOurCert = do
-    (_, ourAddr) <- getOurPkAndAddr
-    isCertInBlockhain <- member ourAddr <$> getGlobalCertificates
+    (_, ourId) <- getOurPkAndId
+    isCertInBlockhain <- member ourId <$> getGlobalCertificates
     if isCertInBlockhain then
        logDebug "Our VssCertificate has been already announced."
     else do
         logDebug "Our VssCertificate hasn't been announced yet, we will announce it now."
         ourVssCertificate <- getOurVssCertificate
-        let msg = DMVssCertificate ourAddr ourVssCertificate
+        let msg = DMVssCertificate ourId ourVssCertificate
         -- [CSL-245]: do not catch all, catch something more concrete.
         (sendToNeighborsSafe msg >> logDebug "Announced our VssCertificate.")
             `catchAll` \e ->
@@ -87,9 +87,9 @@ checkNSendOurCert = do
   where
     getOurVssCertificate :: m VssCertificate
     getOurVssCertificate = do
-        (ourPk, ourAddr) <- getOurPkAndAddr
-        localCerts       <- sscRunLocalQuery $ view ldCertificates
-        case lookup ourAddr localCerts of
+        (ourPk, ourId) <- getOurPkAndId
+        localCerts     <- sscRunLocalQuery $ view ldCertificates
+        case lookup ourId localCerts of
           Just c  -> return c
           Nothing -> do
             ourSk         <- ncSecretKey <$> getNodeContext
@@ -99,13 +99,13 @@ checkNSendOurCert = do
                                          , vcSignature  = sign ourSk vssKey
                                          , vcSigningKey = ourPk
                                          }
-            sscRunLocalUpdate $ ldCertificates %= insert ourAddr ourCert
+            sscRunLocalUpdate $ ldCertificates %= insert ourId ourCert
             return ourCert
 
-getOurPkAndAddr
+getOurPkAndId
     :: WorkMode SscGodTossing m
-    => m (PublicKey, AddressHash PublicKey)
-getOurPkAndAddr = do
+    => m (PublicKey, NodeId)
+getOurPkAndId = do
     ourPk <- ncPublicKey <$> getNodeContext
     return (ourPk, addressHash ourPk)
 
@@ -133,7 +133,7 @@ onNewSlotCommitment
     :: (WorkMode SscGodTossing m)
     => SlotId -> m ()
 onNewSlotCommitment SlotId {..} = do
-    ourAddr <- addressHash . ncPublicKey <$> getNodeContext
+    ourId <- addressHash . ncPublicKey <$> getNodeContext
     ourSk <- ncSecretKey <$> getNodeContext
     shouldCreateCommitment <- do
         secret <- getSecret
@@ -146,13 +146,13 @@ onNewSlotCommitment SlotId {..} = do
             Just _ -> logDebug $
                 sformat ("Generated secret for "%ords%" epoch") siEpoch
     shouldSendCommitment <- do
-        commitmentInBlockchain <- hasCommitment ourAddr <$> gtGetGlobalState
+        commitmentInBlockchain <- hasCommitment ourId <$> gtGetGlobalState
         return $ isCommitmentIdx siSlot && not commitmentInBlockchain
     when shouldSendCommitment $ do
         mbComm <- fmap (view _2) <$> getSecret
         whenJust mbComm $ \comm -> do
-            _ <- sscProcessMessage $ DMCommitment ourAddr comm
-            sendOurData CommitmentMsg siEpoch 0 ourAddr
+            _ <- sscProcessMessage $ DMCommitment ourId comm
+            sendOurData CommitmentMsg siEpoch 0 ourId
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
@@ -163,50 +163,50 @@ onNewSlotOpening
        ,Bi Commitment)
     => SlotId -> m ()
 onNewSlotOpening SlotId {..} = do
-    ourAddr <- addressHash . ncPublicKey <$> getNodeContext
+    ourId <- addressHash . ncPublicKey <$> getNodeContext
     shouldSendOpening <- do
         globalData <- gtGetGlobalState
-        let openingInBlockchain = hasOpening ourAddr globalData
-        let commitmentInBlockchain = hasCommitment ourAddr globalData
+        let openingInBlockchain = hasOpening ourId globalData
+        let commitmentInBlockchain = hasCommitment ourId globalData
         return $ and [ isOpeningIdx siSlot
                      , not openingInBlockchain
                      , commitmentInBlockchain]
     when shouldSendOpening $ do
         mbOpen <- fmap (view _3) <$> getSecret
         whenJust mbOpen $ \open -> do
-            _ <- sscProcessMessage $ DMOpening ourAddr open
-            sendOurData OpeningMsg siEpoch 2 ourAddr
+            _ <- sscProcessMessage $ DMOpening ourId open
+            sendOurData OpeningMsg siEpoch 2 ourId
 
 -- Shares-related part of new slot processing
 onNewSlotShares
     :: (WorkMode SscGodTossing m)
     => SlotId -> m ()
 onNewSlotShares SlotId {..} = do
-    ourAddr <- addressHash . ncPublicKey <$> getNodeContext
+    ourId <- addressHash . ncPublicKey <$> getNodeContext
     -- Send decrypted shares that others have sent us
     shouldSendShares <- do
         -- [CSL-203]: here we assume that all shares are always sent
         -- as a whole package.
-        sharesInBlockchain <- hasShares ourAddr <$> gtGetGlobalState
+        sharesInBlockchain <- hasShares ourId <$> gtGetGlobalState
         return $ isSharesIdx siSlot && not sharesInBlockchain
     when shouldSendShares $ do
         ourVss <- gtcVssKeyPair . ncSscContext <$> getNodeContext
         shares <- getOurShares ourVss
         let lShares = fmap asBinary shares
         unless (null shares) $ do
-            _ <- sscProcessMessage $ DMShares ourAddr lShares
-            sendOurData SharesMsg siEpoch 4 ourAddr
+            _ <- sscProcessMessage $ DMShares ourId lShares
+            sendOurData SharesMsg siEpoch 4 ourId
 
 sendOurData
     :: (WorkMode SscGodTossing m, Bi InvMsg)
-    => MsgTag -> EpochIndex -> LocalSlotIndex -> AddressHash PublicKey -> m ()
-sendOurData msgTag epoch kMultiplier ourAddr = do
+    => MsgTag -> EpochIndex -> LocalSlotIndex -> NodeId -> m ()
+sendOurData msgTag epoch kMultiplier ourId = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one
     -- type of message.
     waitUntilSend msgTag epoch kMultiplier
     logDebug $ sformat ("Announcing our "%build) msgTag
-    let msg = InvMsg {imType = msgTag, imKeys = pure ourAddr}
+    let msg = InvMsg {imType = msgTag, imNodes = pure ourId}
     sendToNeighborsSafe msg
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 

@@ -17,7 +17,7 @@ module Pos.Ssc.GodTossing.Types.Base
        , VssCertificate (..)
        , mkVssCertificate
        , VssCertificatesMap
-       , PKSet
+       , NodeSet
        ) where
 
 
@@ -28,15 +28,14 @@ import           Universum
 import           Pos.Crypto          (EncShare, PublicKey, Secret, SecretKey, SecretProof,
                                       SecretSharingExtra, Share, Signature, VssPublicKey,
                                       sign, toPublic)
-import           Pos.Types.Address   (AddressHash)
-import           Pos.Types.Types     (EpochIndex)
+import           Pos.Types.Types     (EpochIndex, NodeId)
 import           Pos.Util            (AsBinary (..))
 
 ----------------------------------------------------------------------------
 -- Types, instances
 ----------------------------------------------------------------------------
 
-type PKSet = HashSet (AddressHash PublicKey)
+type NodeSet = HashSet NodeId
 
 -- | Commitment is a message generated during the first stage of
 -- MPC. It contains encrypted shares and proof of secret.
@@ -52,14 +51,14 @@ type CommitmentSignature = Signature (EpochIndex, Commitment)
 
 type SignedCommitment = (PublicKey, Commitment, CommitmentSignature)
 
-type CommitmentsMap = HashMap (AddressHash PublicKey) SignedCommitment
+type CommitmentsMap = HashMap NodeId SignedCommitment
 
 -- | Opening reveals secret.
 newtype Opening = Opening
     { getOpening :: (AsBinary Secret)
     } deriving (Show, Eq, Generic, Buildable)
 
-type OpeningsMap = HashMap (AddressHash PublicKey) Opening
+type OpeningsMap = HashMap NodeId Opening
 
 -- | Each node generates a 'SharedSeed', breaks it into 'Share's, and sends
 -- those encrypted shares to other nodes. In a 'SharesMap', for each node we
@@ -68,9 +67,9 @@ type OpeningsMap = HashMap (AddressHash PublicKey) Opening
 -- Specifically, if node identified by 'Address' X has received a share
 -- from node identified by key Y, this share will be at @sharesMap ! X ! Y@.
 
-type InnerSharesMap = HashMap (AddressHash PublicKey) (AsBinary Share)
+type InnerSharesMap = HashMap NodeId (AsBinary Share)
 
-type SharesMap = HashMap (AddressHash PublicKey) InnerSharesMap
+type SharesMap = HashMap NodeId InnerSharesMap
 
 -- | VssCertificate allows VssPublicKey to participate in MPC.
 -- Each stakeholder should create a Vss keypair, sign public key with signing
@@ -93,7 +92,7 @@ mkVssCertificate sk vk = VssCertificate vk (sign sk vk) $ toPublic sk
 
 -- | VssCertificatesMap contains all valid certificates collected
 -- during some period of time.
-type VssCertificatesMap = HashMap (AddressHash PublicKey) VssCertificate
+type VssCertificatesMap = HashMap NodeId VssCertificate
 
 deriveSafeCopySimple 0 'base ''VssCertificate
 deriveSafeCopySimple 0 'base ''Opening

@@ -89,11 +89,11 @@ instance Bi MsgTag where
         tag -> fail ("get@MsgTag: invalid tag: " ++ show tag)
 
 instance Bi InvMsg where
-    put (InvMsg imType imKeys) = put imType >> put imKeys
+    put (InvMsg imType imNodes) = put imType >> put imNodes
     get = liftM2 InvMsg get get
 
 instance Bi ReqMsg where
-    put (ReqMsg rmType rmKey) = put rmType >> put rmKey
+    put (ReqMsg rmType rmNode) = put rmType >> put rmNode
     get = liftM2 ReqMsg get get
 
 instance Bi DataMsg where

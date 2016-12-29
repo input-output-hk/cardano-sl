@@ -88,8 +88,8 @@ checkCommitmentsInBlock
     :: forall m. WorkMode SscGodTossing m
     => SlotId -> MainBlock SscGodTossing -> ReaderT (TVar EpochIndex) m ()
 checkCommitmentsInBlock slotId block = do
-    ourAddr <- addressHash . ncPublicKey <$> getNodeContext
-    let commitmentInBlockchain = isCommitmentInPayload ourAddr (block ^. blockMpc)
+    ourId <- addressHash . ncPublicKey <$> getNodeContext
+    let commitmentInBlockchain = isCommitmentInPayload ourId (block ^. blockMpc)
     when commitmentInBlockchain $ do
         tvar <- ask
         lift $ atomically $ writeTVar tvar $ siEpoch slotId

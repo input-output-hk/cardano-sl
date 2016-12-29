@@ -111,10 +111,10 @@ instance ToCapture (Capture "index" Word) where
         , _capDesc = "Index of address to delete"
         }
 
-instance ToCapture (Capture "tx" CTxId) where
+instance ToCapture (Capture "transaction" CTxId) where
     toCapture Proxy =
         DocCapture
-        { _capSymbol = "tx"
+        { _capSymbol = "transaction"
         , _capDesc = "Transaction id"
         }
 

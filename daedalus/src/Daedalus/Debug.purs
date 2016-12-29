@@ -6,12 +6,14 @@ import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (log, error)
-import Daedalus.BackendApi (getAddresses, getBalances, newAddress)
+import Daedalus.BackendApi (getWallets, getWallet)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.Argonaut.Printer (printJson)
 import Data.Either (Either(..))
 import Data.Generic (class Generic)
 import Network.HTTP.Affjax (AJAX)
+
+-- by @akegalj: I think this module is not necessary any longer
 
 -- All following functions are just for debugging only
 
@@ -26,23 +28,7 @@ logSuccess msg result = log <<< (<>) msg <<< printJson $ encodeJson result
 -- | debug '/api/address'
 logAddresses :: forall e. Aff (ajax :: AJAX, console :: CONSOLE| e) Unit
 logAddresses = do
-  result <- attempt getAddresses
+  result <- attempt getWallets
   case result of
-    Right addr -> liftEff $ logSuccess "[RESULT of '/api/address'] " addr
-    Left err -> liftEff $ logFail "[Error of '/api/address']" $ show err
-
--- | debug '/api/balances'
-logBalances :: forall e. Aff (ajax :: AJAX, console :: CONSOLE| e) Unit
-logBalances = do
-  result <- attempt getBalances
-  case result of
-    Right addr -> liftEff $ logSuccess "[RESULT of '/api/balances'] " addr
-    Left err -> liftEff $ logFail "[Error of '/api/balances']" $ show err
-
--- | debug '/api/new_address'
-logNewAddress :: forall e. Aff (ajax :: AJAX, console :: CONSOLE| e) Unit
-logNewAddress = do
-  result <- attempt newAddress
-  case result of
-    Right addr -> liftEff $ logSuccess "[RESULT of '/api/new_address'] " addr
-    Left err -> liftEff $ logFail "[Error of '/api/apinew_address']" $ show err
+    Right addr -> liftEff $ logSuccess "[RESULT of '/api/get_wallets'] " addr
+    Left err -> liftEff $ logFail "[Error of '/api/get_wallets']" $ show err

@@ -32,23 +32,23 @@ import qualified Pos.Txp.Holder                as Modern
 import qualified Pos.Txp.Types.UtxoView        as UV
 import           Pos.WorkMode                  (RawRealMode)
 
-import           Pos.Web.Server                (serveImpl)
-
 import           Pos.Wallet.KeyStorage         (addSecretKey)
-import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServer)
+import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,
+                                                walletServer)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
                                                 WalletWebDB, runWalletWebDB)
 
 walletServeWebFull
     :: SscConstraint ssc
-    => FilePath           -- to Daedalus acid-state
-    -> Bool               -- whether to include genesis keys
+    => Bool               -- whether to include genesis keys
+    -> FilePath           -- to Daedalus acid-state
+    -> Bool               -- Rebuild flag
     -> Word16
     -> RawRealMode ssc ()
-walletServeWebFull daedalusDbPath debug = serveImpl $ do
+walletServeWebFull debug = walletServeImpl $ do
     logInfo "DAEDALUS is STARTED!"
     when debug $ mapM_ addSecretKey genesisSecretKeys
-    walletApplication (walletServer nat) daedalusDbPath
+    walletApplication $ walletServer nat
 
 type WebHandler ssc = WalletWebDB (RawRealMode ssc)
 type SubKademlia ssc = (Modern.TxpLDHolder ssc

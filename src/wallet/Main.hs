@@ -139,7 +139,7 @@ main = do
             plugins = case woAction of
                 Repl          -> [runWalletRepl opts]
 #ifdef WITH_WEB
-                Serve webPort webDaedalusDbPath -> [walletServeWebLite webDaedalusDbPath webPort]
+                Serve webPort webDaedalusDbPath -> [walletServeWebLite webDaedalusDbPath False webPort]
 #endif
 
         case CLI.sscAlgo woCommonArgs of

@@ -19,19 +19,19 @@ main =
     writePSTypes
       "daedalus/src/Generated"
       (buildBridge customBridge)
-      [ mkSumType (Proxy :: Proxy CT.CCurrency)
-      , mkSumType (Proxy :: Proxy CT.CWalletMeta)
-      , mkSumType (Proxy :: Proxy CT.CWalletType)
-      , mkSumType (Proxy :: Proxy CT.CWallet)
-      , mkSumType (Proxy :: Proxy CT.CProfile)
-      , mkSumType (Proxy :: Proxy CT.CTType)
-      , mkSumType (Proxy :: Proxy CT.CTxMeta)
-      , mkSumType (Proxy :: Proxy CT.CTExMeta)
-      , mkSumType (Proxy :: Proxy CT.CAddress)
-      , mkSumType (Proxy :: Proxy CT.CHash)
-      , mkSumType (Proxy :: Proxy CT.CTxId)
-      , mkSumType (Proxy :: Proxy CT.CTx)
-      , mkSumType (Proxy :: Proxy PT.Coin)
+      [ mkSumType (Proxy @CT.CCurrency)
+      , mkSumType (Proxy @CT.CWalletMeta)
+      , mkSumType (Proxy @CT.CWalletType)
+      , mkSumType (Proxy @CT.CWallet)
+      , mkSumType (Proxy @CT.CProfile)
+      , mkSumType (Proxy @CT.CTType)
+      , mkSumType (Proxy @CT.CTxMeta)
+      , mkSumType (Proxy @CT.CTExMeta)
+      , mkSumType (Proxy @CT.CAddress)
+      , mkSumType (Proxy @CT.CHash)
+      , mkSumType (Proxy @CT.CTxId)
+      , mkSumType (Proxy @CT.CTx)
+      , mkSumType (Proxy @PT.Coin)
       ]
   where
       customBridge =

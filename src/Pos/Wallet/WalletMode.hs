@@ -37,7 +37,7 @@ import qualified Pos.Txp.Holder                as Modern
 import           Pos.Txp.Logic                 (processTx)
 import           Pos.Txp.Types                 (MemPool (..), UtxoView (..))
 import           Pos.Types                     (Address, Coin, Tx, TxAux, TxId, Utxo,
-                                                evalUtxoStateT, toPair, txOutValue)
+                                                runUtxoStateT, toPair, txOutValue)
 import           Pos.Types.Utxo.Functions      (filterUtxoByAddr)
 import           Pos.Types.Utxo.Functions      (belongsTo, filterUtxoByAddr)
 import           Pos.WorkMode                  (MinWorkMode)
@@ -108,8 +108,8 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     getTxHistory addr = do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
-        return $ fromMaybe (fail "deriveAddrHistory: Nothing") $
-            flip evalUtxoStateT utxo $
+        return $ fst . fromMaybe (fail "deriveAddrHistory: Nothing") $
+            flip runUtxoStateT utxo $
             deriveAddrHistory addr chain
     saveTx _ = pure ()
 

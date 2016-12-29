@@ -20,7 +20,6 @@ import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, readTVa
 import           Control.Lens                (to, (^?), _head)
 import           Control.Monad               (forM_, forever, unless, void, when)
 import           Control.Monad.Catch         (Exception, SomeException (..))
-import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.Trans         (MonadIO (..))
 import           Data.Binary                 (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy        as LBS
@@ -145,7 +144,7 @@ handleNtpPacket cli packet = do
     log cli Debug $ sformat ("Got packet "%shown) packet
 
     localTime <- liftIO $ fromMicroseconds . round . ( * 1000000) <$> getPOSIXTime
-    let serverTime = ntpTime packet
+    let serverTime = ntpTransmitTime packet
         deltaTime = serverTime - localTime
         handler = ntpHandler (ncSettings cli)
 
@@ -193,7 +192,7 @@ stopNtpClient cli = do
     -- unblock receiving from socket in case no one replies
     liftIO (close sock) `catchAll` \_ -> return ()
 
-startNtpClient :: ( NtpMonad m, MonadFix m ) => NtpClientSettings -> m NtpStopButton
+startNtpClient :: NtpMonad m => NtpClientSettings -> m NtpStopButton
 startNtpClient settings = do
     sock <- mkSocket settings
     cli <- mkNtpClient settings sock
@@ -205,7 +204,7 @@ startNtpClient settings = do
 
     log cli Info "Launched"
 
-    return $ NtpStopButton { press = stopNtpClient cli }
+    return NtpStopButton { press = stopNtpClient cli }
   where
     resolveHost host = do
         maddr <- liftIO $ resolveNtpHost host

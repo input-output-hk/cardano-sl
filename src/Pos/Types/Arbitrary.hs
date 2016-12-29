@@ -226,9 +226,7 @@ instance Arbitrary ApplicationName where
         take applicationNameMaxLength <$> arbitrary
 
 derive makeArbitrary ''ProtocolVersion
-
-instance Arbitrary SoftwareVersion where
-    arbitrary = SoftwareVersion <$> arbitrary <*> arbitrary <*> arbitrary
+derive makeArbitrary ''SoftwareVersion
 
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types

@@ -125,7 +125,6 @@ module Pos.Types.Types
        , gbhExtra
        , gbhPrevBlock
        , gbhBodyProof
-       , gbhMagic
        , getBlockHeader
        , headerLeaderKey
        , headerSignature
@@ -169,7 +168,7 @@ import           Universum
 import           Pos.Binary.Address     ()
 import           Pos.Binary.Class       (Bi)
 import           Pos.Binary.Script      ()
-import           Pos.Constants          (magic, sharedSeedLength)
+import           Pos.Constants          (sharedSeedLength)
 import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
                                          Signature, hash, hashHexF, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
@@ -471,8 +470,6 @@ data GenericBlockHeader b = GenericBlockHeader
       _gbhConsensus :: !(ConsensusData b)
     , -- | Any extra data.
       _gbhExtra     :: !(ExtraHeaderData b)
-    , -- | Parameter-independent magic constant
-      _gbhMagic     :: !Int32
     } deriving (Generic)
 
 deriving instance
@@ -1085,7 +1082,6 @@ instance ( SafeCopy (BodyProof b)
            _gbhBodyProof <- safeGet
            _gbhConsensus <- safeGet
            _gbhExtra <- safeGet
-           let _gbhMagic = magic
            return $! GenericBlockHeader {..}
     putCopy GenericBlockHeader {..} =
         contain $

@@ -5,18 +5,17 @@
 
 module Pos.Block.Arbitrary () where
 
-import           Test.QuickCheck           (Arbitrary (..), Gen, listOf, oneof)
+import           Test.QuickCheck     (Arbitrary (..), Gen, listOf, oneof)
 import           Universum
 
-import           Pos.Binary                (Bi)
-import           Pos.Block.Network         as T
-import           Pos.Constants             (magic)
-import           Pos.Crypto                (Hash)
-import           Pos.Data.Attributes       (Attributes (..), mkAttributes)
-import           Pos.Merkle                (MerkleRoot (..), MerkleTree, mkMerkleTree)
-import           Pos.Ssc.Class.Types       (Ssc (..))
-import qualified Pos.Types                 as T
-import           Pos.Util                  (Raw, makeSmall)
+import           Pos.Binary          (Bi)
+import           Pos.Block.Network   as T
+import           Pos.Crypto          (Hash)
+import           Pos.Data.Attributes (Attributes (..), mkAttributes)
+import           Pos.Merkle          (MerkleRoot (..), MerkleTree, mkMerkleTree)
+import           Pos.Ssc.Class.Types (Ssc (..))
+import qualified Pos.Types           as T
+import           Pos.Util            (Raw, makeSmall)
 
 ------------------------------------------------------------------------------------------
 -- Arbitrary instances for Blockchain related types
@@ -38,7 +37,6 @@ instance Ssc ssc => Arbitrary (T.GenesisBlockHeader ssc) where
         <*> arbitrary
         <*> arbitrary
         <*> arbitrary
-        <*> pure magic
 
 instance Arbitrary (T.BodyProof (T.GenesisBlockchain ssc)) where
     arbitrary = T.GenesisProof <$> arbitrary
@@ -74,7 +72,6 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
         <*> arbitrary
         <*> arbitrary
         <*> arbitrary
-        <*> pure magic
 
 instance Arbitrary h => Arbitrary (Attributes h) where
     arbitrary = Attributes

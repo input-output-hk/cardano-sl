@@ -302,6 +302,7 @@ library
                       , monad-loops
                       , mono-traversable
                       , mtl
+                      , neat-interpolation
                       , optparse-applicative
                       , optparse-simple
                       , parsec

@@ -36,6 +36,6 @@ data CompileConfig = CompileConfig
       -- ^ Threshold of slots for malicious activity detection
     , ccMdNoCommitmentsEpochThreshold :: !Int
       -- ^ Threshold of epochs for malicious activity detection
-    , ccMagic                         :: !Int
-      -- ^ Magic constant for real/testnet
+    , ccProtocolMagic                 :: !Int
+      -- ^ Magic constant for separating real/testnet
     } deriving (Show, Lift)

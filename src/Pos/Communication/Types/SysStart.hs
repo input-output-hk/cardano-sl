@@ -13,11 +13,11 @@ import           Pos.Types            (SlotId, Timestamp)
 
 -- | Communication request for system start.
 data SysStartRequest = SysStartRequest
-    deriving (Generic)
+    deriving (Show, Eq, Generic)
 
 -- | Response to 'SysStartRequest'.
 data SysStartResponse = SysStartResponse !Timestamp !(Maybe SlotId)
-    deriving (Generic)
+    deriving (Show, Eq, Generic)
 
 instance Message SysStartRequest where
     messageName _ = "SysStartRequest"

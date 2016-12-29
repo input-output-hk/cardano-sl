@@ -23,12 +23,12 @@ binaryEncodeDecode a = decode (encode a) === a
 safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
 safeCopyEncodeDecode a =
     either (panic . toText) identity
-     (runGet safeGet $ runPut $ safePut a) === a
+        (runGet safeGet $ runPut $ safePut a) === a
 
 showRead :: (Show a, Eq a, Read a) => a -> Property
 showRead a = read (show a) === a
 
 serDeserId :: forall t . (Show t, Eq t, AsBinaryClass t) => t -> Property
 serDeserId a =
-    let serDeser = either (panic . toText) identity . fromBinary . asBinary @t
-    in a === serDeser a
+    either (panic . toText) identity
+        (fromBinary $ asBinary @t a) ===  a

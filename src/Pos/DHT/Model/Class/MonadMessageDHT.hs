@@ -92,7 +92,7 @@ instance MonadMessageDHT s m => MonadMessageDHT s (ReaderT r m) where
 -- | Header of messages in DHT algorithm.
 data DHTMsgHeader = BroadcastHeader
                   | SimpleHeader { dmhNoCache :: Bool }
-  deriving (Generic, Show)
+  deriving (Generic, Show, Eq)
 
 -- | Class for something that has default 'DHTMsgHeader'.
 class WithDefaultMsgHeader m where

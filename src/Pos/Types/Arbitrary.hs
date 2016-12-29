@@ -19,19 +19,20 @@ module Pos.Types.Arbitrary
 
 import           Control.Lens               (set, view, _3, _4)
 import qualified Data.ByteString            as BS (pack)
+import           Data.Char                  (chr)
 import           Data.DeriveTH              (derive, makeArbitrary, makeNFData)
+import           Data.Text                  (pack)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
-                                             NonZero (..), choose, elements, oneof, scale,
+                                             NonZero (..), choose, elements, oneof,
                                              vector)
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
 import           Pos.Binary.Types           ()
 import           Pos.Binary.Update          ()
-import           Pos.Constants              (curProtocolVersion, curSoftwareVersion,
-                                             epochSlots, sharedSeedLength)
+import           Pos.Constants              (epochSlots, sharedSeedLength)
 import           Pos.Crypto                 (PublicKey, SecretKey, Share, hash, sign,
                                              toPublic)
 import           Pos.Crypto.Arbitrary       ()
@@ -51,20 +52,11 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
 import           Pos.Types.Update           (SystemTag, UpdateData (..),
                                              UpdateProposal (..), UpdateVote (..),
                                              mkSystemTag)
-import           Pos.Util                   (AsBinary)
-
-makeSmall :: Gen a -> Gen a
-makeSmall = scale f
-  where
-    f 0 = 0
-    f 1 = 1
-    f 2 = 2
-    f 3 = 3
-    f 4 = 3
-    f n
-      | n < 0 = n
-      | otherwise =
-          (round . (sqrt :: Double -> Double) . realToFrac . (`div` 3)) n
+import           Pos.Types.Version          (ApplicationName (..),
+                                             ProtocolVersion (..),
+                                             SoftwareVersion (..),
+                                             applicationNameMaxLength)
+import           Pos.Util                   (AsBinary, makeSmall)
 
 ----------------------------------------------------------------------------
 -- Arbitrary core types
@@ -107,11 +99,8 @@ instance Arbitrary TxInWitness where
         -- needed and vice-versa, but it doesn't matter
         ScriptWitness <$> arbitrary <*> arbitrary ]
 
-instance Arbitrary TxIn where
-    arbitrary = do
-        txId <- arbitrary
-        txIdx <- arbitrary
-        return (TxIn txId txIdx)
+derive makeArbitrary ''TxDistribution
+derive makeArbitrary ''TxIn
 
 -- | Arbitrary transactions generated from this instance will only be valid
 -- with regards to 'verifyTxAlone'
@@ -227,6 +216,21 @@ instance Arbitrary SharedSeed where
         return $ SharedSeed $ BS.pack bs
 
 ----------------------------------------------------------------------------
+-- Arbitrary types from MainExtra[header/body]data
+----------------------------------------------------------------------------
+
+instance Arbitrary ApplicationName where
+    arbitrary = ApplicationName  .
+        pack                     .
+        map (chr . flip mod 128) .
+        take applicationNameMaxLength <$> arbitrary
+
+derive makeArbitrary ''ProtocolVersion
+
+instance Arbitrary SoftwareVersion where
+    arbitrary = SoftwareVersion <$> arbitrary <*> arbitrary <*> arbitrary
+
+----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types
 ----------------------------------------------------------------------------
 
@@ -255,11 +259,6 @@ instance Arbitrary SystemTag where
       where
         onFail = panic "instance Arbitrary SystemTag: disaster"
 
-instance Arbitrary UpdateVote where
-    arbitrary = UpdateVote <$> arbitrary <*> arbitrary <*> arbitrary
-
-instance Arbitrary UpdateData where
-    arbitrary = UpdateData <$> arbitrary <*> arbitrary <*> arbitrary
-
-instance Arbitrary UpdateProposal where
-    arbitrary = pure $ UpdateProposal curProtocolVersion 0 curSoftwareVersion mempty
+derive makeArbitrary ''UpdateVote
+derive makeArbitrary ''UpdateData
+derive makeArbitrary ''UpdateProposal

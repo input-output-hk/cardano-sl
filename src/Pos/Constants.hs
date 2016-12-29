@@ -28,7 +28,7 @@ module Pos.Constants
        , defaultPeers
        , sysTimeBroadcastSlots
        , mpcSendInterval
-       , magic
+       , protocolMagic
 
          -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -153,10 +153,11 @@ defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
         either (panic . show) identity .
         P.parse dhtNodeParser "Compile time config"
 
--- | Magic constant. Is put to block to distinguish testnet and
--- realnet (for example, possible usages are wider).
-magic :: Int32
-magic = fromIntegral . ccMagic $ compileConfig
+-- | Protocol magic constant. Is put to block serialized version to
+-- distinguish testnet and realnet (for example, possible usages are
+-- wider).
+protocolMagic :: Int32
+protocolMagic = fromIntegral . ccProtocolMagic $ compileConfig
 
 ----------------------------------------------------------------------------
 -- Malicious activity

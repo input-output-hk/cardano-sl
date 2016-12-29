@@ -23,7 +23,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
-    commit: 5841570f9e443ea3fef0341522d0997b2b19cb08
+    commit: 987b6517a4454eb3931d37131e0b4f72636520a7
   extra-dep: true
 - location:
     git: https://github.com/serokell/rocksdb-haskell.git

@@ -71,6 +71,7 @@ spec = describe "Crypto" $ do
     describe "Signing" $ do
         describe "Identity testing" $ do
             describe "Bi instances" $ do
+                prop "Hash"                     (binaryEncodeDecode @(Hash Int))
                 prop "SecretKey"                (binaryEncodeDecode @SecretKey)
                 prop "PublicKey"                (binaryEncodeDecode @PublicKey)
                 prop "Signature"                (binaryEncodeDecode @(Signature ()))
@@ -93,10 +94,16 @@ spec = describe "Crypto" $ do
                 prop "AsBinary SecretSharingExtra"
                     (binaryEncodeDecode @(AsBinary SecretSharingExtra))
             describe "SafeCopy instances" $ do
-                prop "SecretKey" (safeCopyEncodeDecode @SecretKey)
-                prop "PublicKey" (safeCopyEncodeDecode @PublicKey)
-                prop "Signature" (safeCopyEncodeDecode @(Signature ()))
-                prop "Signed"    (safeCopyEncodeDecode @(Signed Bool))
+                prop "Hash"           (safeCopyEncodeDecode @(Hash Int))
+                prop "SecretKey"      (safeCopyEncodeDecode @SecretKey)
+                prop "PublicKey"      (safeCopyEncodeDecode @PublicKey)
+                prop "Signature"      (safeCopyEncodeDecode @(Signature ()))
+                prop "Signed"         (safeCopyEncodeDecode @(Signed ()))
+                prop "ProxyCert"      (safeCopyEncodeDecode @(ProxyCert Int))
+                prop "ProxySecretKey" (safeCopyEncodeDecode @(ProxySecretKey Int))
+                prop "ProxySignature"
+                    (safeCopyEncodeDecode @(ProxySignature Int Int))
+                prop "Signed"         (safeCopyEncodeDecode @(Signed Bool))
                 prop "AsBinary VssPublicKey"
                     (safeCopyEncodeDecode @(AsBinary VssPublicKey))
                 prop "AsBinary Secret"

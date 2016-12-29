@@ -8,8 +8,8 @@
 module Pos.Binary.Types () where
 
 import           Control.Monad.Fail  (fail)
-import           Data.Binary.Get     (getWord8, label)
-import           Data.Binary.Put     (putWord8)
+import           Data.Binary.Get     (getInt32be, getWord8, label)
+import           Data.Binary.Put     (putInt32be, putWord8)
 import           Formatting          (int, sformat, (%))
 import           Universum
 
@@ -17,6 +17,7 @@ import           Pos.Binary.Class    (Bi (..))
 import           Pos.Binary.Merkle   ()
 import           Pos.Binary.Update   ()
 import           Pos.Binary.Version  ()
+import           Pos.Constants       (protocolMagic)
 import qualified Pos.Data.Attributes as A
 import           Pos.Ssc.Class.Types (Ssc (..))
 import qualified Pos.Types.Timestamp as T
@@ -89,14 +90,17 @@ instance ( Bi (T.BodyProof b)
          ) =>
          Bi (T.GenericBlockHeader b) where
     put T.GenericBlockHeader{..} = do
+        putInt32be protocolMagic
         put _gbhPrevBlock
         put _gbhBodyProof
         put _gbhConsensus
         put _gbhExtra
-        put _gbhMagic
     get =
-        label "GenericBlockHeader" $
-        T.GenericBlockHeader <$> get <*> get <*> get <*> get <*> get
+        label "GenericBlockHeader" $ do
+        blockMagic <- getInt32be
+        when (blockMagic /= protocolMagic) $
+            fail $ "GenericBlockHeader failed with wrong magic: " <> show blockMagic
+        T.GenericBlockHeader <$> get <*> get <*> get <*> get
 
 instance ( Bi (T.BodyProof b)
          , Bi (T.ConsensusData b)

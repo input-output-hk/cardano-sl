@@ -36,6 +36,8 @@ Flag with-wallet
 
 library
   exposed-modules:      Pos.Binary
+                        Pos.Block.Arbitrary
+                        Pos.Block.Network
                         Pos.CLI
                         Pos.Context
                         Pos.Communication
@@ -44,6 +46,7 @@ library
                         Pos.Crypto
                         Pos.DB
                         Pos.Data.Attributes
+                        Pos.DHT
                         Pos.DHT.Model
                         Pos.DHT.Model.Types
                         Pos.DHT.Model.Util
@@ -131,6 +134,7 @@ library
                         Pos.Block.Network.Server.Listeners
                         Pos.Block.Network.Server.Strategy
                         Pos.Block.Worker
+                        Pos.Communication.Arbitrary
                         Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Delegation
@@ -169,6 +173,7 @@ library
                         Pos.DB.Types
                         Pos.DB.Utxo
                         Pos.DB.DBIterator
+                        Pos.DHT.Arbitrary
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.MonadGS
                         Pos.Ssc.Extra.MonadLD
@@ -645,9 +650,14 @@ executable cardano-checks
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec
+                       Test.Pos.Block.Identity.BinarySpec
+                       Test.Pos.Block.Identity.SafeCopySpec
+                       Test.Pos.Communication.Identity.BinarySpec
                        Test.Pos.CryptoSpec
+                       Test.Pos.DHT.Identity.BinarySpec
                        Test.Pos.FollowTheSatoshiSpec
                        Test.Pos.MerkleSpec
+                       Test.Pos.Script.Identity.BinarySpec
                        Test.Pos.SlottingSpec
                        Test.Pos.Ssc.GodTossing.Identity.BinarySpec
                        Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec

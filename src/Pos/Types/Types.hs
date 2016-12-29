@@ -125,7 +125,6 @@ module Pos.Types.Types
        , gbhExtra
        , gbhPrevBlock
        , gbhBodyProof
-       , gbhMagic
        , getBlockHeader
        , headerLeaderKey
        , headerSignature
@@ -169,7 +168,7 @@ import           Universum
 import           Pos.Binary.Address     ()
 import           Pos.Binary.Class       (Bi)
 import           Pos.Binary.Script      ()
-import           Pos.Constants          (magic, sharedSeedLength)
+import           Pos.Constants          (sharedSeedLength)
 import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
                                          Signature, hash, hashHexF, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
@@ -471,8 +470,6 @@ data GenericBlockHeader b = GenericBlockHeader
       _gbhConsensus :: !(ConsensusData b)
     , -- | Any extra data.
       _gbhExtra     :: !(ExtraHeaderData b)
-    , -- | Parameter-independent magic constant
-      _gbhMagic     :: !Int32
     } deriving (Generic)
 
 deriving instance
@@ -529,12 +526,13 @@ type ProxySKEpoch = ProxySecretKey (EpochIndex, EpochIndex)
 
 -- | Signature of the block. Can be either regular signature from the
 -- issuer or delegated signature having a constraint on epoch indices
+
 -- (it means the signature is valid only if block's slot id has epoch
 -- inside the constrained interval).
 data BlockSignature ssc
     = BlockSignature (Signature (MainToSign ssc))
     | BlockPSignature (ProxySigEpoch (MainToSign ssc))
-    deriving Show
+    deriving (Show, Eq)
 
 instance Buildable (BlockSignature ssc) where
     build (BlockSignature s)  = bprint ("BlockSignature: "%build) s
@@ -600,7 +598,7 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         _mcdDifficulty :: !ChainDifficulty
         , -- | Signature given by slot leader.
         _mcdSignature  :: !(BlockSignature ssc)
-        } deriving (Generic, Show)
+        } deriving (Generic, Show, Eq)
     type BBlockHeader (MainBlockchain ssc) = BlockHeader ssc
     type ExtraHeaderData (MainBlockchain ssc) = MainExtraHeaderData
 
@@ -645,8 +643,14 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         , mpMpcProof = untag @ssc mkSscProof _mbMpc
         }
 
+
+--deriving instance Ssc ssc => Show (SscProof ssc)
+--deriving instance Ssc ssc => Eq (SscProof ssc)
+deriving instance Ssc ssc => Show (BodyProof (MainBlockchain ssc))
 deriving instance Ssc ssc => Eq (BodyProof (MainBlockchain ssc))
 deriving instance Ssc ssc => Show (Body (MainBlockchain ssc))
+deriving instance (Eq (SscPayload ssc), Ssc ssc) => Eq (Body (MainBlockchain ssc))
+
 
 -- | Header of generic main block.
 type MainBlockHeader ssc = GenericBlockHeader (MainBlockchain ssc)
@@ -726,14 +730,14 @@ instance Blockchain (GenesisBlockchain ssc) where
           _gcdEpoch :: !EpochIndex
         , -- | Difficulty of the chain ending in this genesis block.
           _gcdDifficulty :: !ChainDifficulty
-        } deriving (Generic, Show)
+        } deriving (Generic, Show, Eq)
     type BBlockHeader (GenesisBlockchain ssc) = BlockHeader ssc
 
     -- | Body of genesis block consists of slot leaders for epoch
     -- associated with this block.
     data Body (GenesisBlockchain ssc) = GenesisBody
         { _gbLeaders :: !SlotLeaders
-        } deriving (Generic, Show)
+        } deriving (Generic, Show, Eq)
     type BBlock (GenesisBlockchain ssc) = Block ssc
 
     mkBodyProof = GenesisProof . hash . _gbLeaders
@@ -1078,7 +1082,6 @@ instance ( SafeCopy (BodyProof b)
            _gbhBodyProof <- safeGet
            _gbhConsensus <- safeGet
            _gbhExtra <- safeGet
-           let _gbhMagic = magic
            return $! GenericBlockHeader {..}
     putCopy GenericBlockHeader {..} =
         contain $

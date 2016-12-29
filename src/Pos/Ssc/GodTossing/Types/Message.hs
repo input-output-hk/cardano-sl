@@ -31,7 +31,7 @@ data MsgTag
     | OpeningMsg
     | SharesMsg
     | VssCertificateMsg
-    deriving (Show, Generic)
+    deriving (Show, Eq, Generic)
 
 instance Buildable MsgTag where
     build CommitmentMsg     = "commitment message"
@@ -60,7 +60,7 @@ isGoodSlotIdForTag VssCertificateMsg = const True
 data InvMsg = InvMsg
     { imType :: !MsgTag
     , imKeys :: !(NonEmpty (AddressHash PublicKey))
-    } deriving (Generic)
+    } deriving (Show, Eq, Generic)
 
 instance Message InvMsg where
     messageName _ = "GT Inventory"
@@ -71,7 +71,7 @@ instance Message InvMsg where
 data ReqMsg = ReqMsg
     { rmType :: !MsgTag
     , rmKey  :: !(AddressHash PublicKey)
-    } deriving (Generic)
+    } deriving (Show, Eq, Generic)
 
 instance Message ReqMsg where
     messageName _ = "GT Request"
@@ -87,7 +87,7 @@ data DataMsg
                InnerSharesMap
     | DMVssCertificate !(AddressHash PublicKey)
                        !VssCertificate
-    deriving (Generic)
+    deriving (Show, Eq, Generic)
 
 instance Message DataMsg where
     messageName _ = "GT Data"

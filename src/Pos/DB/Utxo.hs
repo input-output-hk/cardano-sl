@@ -31,7 +31,7 @@ import           Pos.DB.Error      (DBError (..))
 import           Pos.DB.Functions  (rocksDelete, rocksGetBi, rocksPutBi, rocksWriteBatch,
                                     traverseAllEntries)
 import           Pos.DB.Types      (DB)
-import           Pos.Types         (Address, Coin, HeaderHash, NodeId, TxIn (..),
+import           Pos.Types         (Address, Coin, HeaderHash, StakeholderId, TxIn (..),
                                     TxOutAux, Utxo, belongsTo, txOutStake)
 
 data BatchOp ssc
@@ -40,7 +40,7 @@ data BatchOp ssc
                TxOutAux
     | PutTip (HeaderHash ssc)
     | PutFtsSum Coin
-    | PutFtsStake NodeId Coin
+    | PutFtsStake StakeholderId Coin
 
 -- | Get current TIP from Utxo DB.
 getTip :: (MonadThrow m, MonadDB ssc m) => m (HeaderHash ssc)
@@ -63,7 +63,7 @@ getTxOut = getBi . txInKey
 getTxOutFromDB :: (MonadIO m, MonadThrow m) => TxIn -> DB ssc -> m (Maybe TxOutAux)
 getTxOutFromDB txIn = rocksGetBi (txInKey txIn)
 
-getFtsStake :: MonadDB ssc m => NodeId -> m (Maybe Coin)
+getFtsStake :: MonadDB ssc m => StakeholderId -> m (Maybe Coin)
 getFtsStake pkHash = rocksGetBi (ftsStakeKey pkHash) =<< getUtxoDB
 
 writeBatchToUtxo :: MonadDB ssc m => [BatchOp ssc] -> m ()
@@ -103,7 +103,7 @@ putTotalFtsStake c = getUtxoDB >>= rocksPutBi ftsSumKey c
 
 iterateByStake
     :: forall ssc m . (MonadDB ssc m, MonadMask m)
-    => ((NodeId, Coin) -> m ())
+    => ((StakeholderId, Coin) -> m ())
     -> m ()
 iterateByStake callback = do
     db <- getUtxoDB
@@ -172,7 +172,7 @@ txInKey :: TxIn -> ByteString
 -- txInKey = (<> "t") . encodeStrict
 txInKey = encodeStrict
 
-ftsStakeKey :: NodeId -> ByteString
+ftsStakeKey :: StakeholderId -> ByteString
 -- [CSL-379] Restore prefix after we have proper iterator
 -- ftsStakeKey = (<> "s") . encodeStrict
 ftsStakeKey = encodeStrict
@@ -186,5 +186,5 @@ getTipMaybe = getUtxoDB >>= rocksGetBi tipKey
 getFtsSumMaybe :: (MonadDB ssc m) => m (Maybe Coin)
 getFtsSumMaybe = getUtxoDB >>= rocksGetBi ftsSumKey
 
-putFtsStake :: MonadDB ssc m => NodeId -> Coin -> m ()
+putFtsStake :: MonadDB ssc m => StakeholderId -> Coin -> m ()
 putFtsStake = putBi . ftsStakeKey

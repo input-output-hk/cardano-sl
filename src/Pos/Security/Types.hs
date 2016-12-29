@@ -6,12 +6,12 @@ module Pos.Security.Types
 import           Universum
 
 import           Control.TimeWarp.Rpc (NetworkAddress)
-import           Pos.Types.Address    (NodeId)
+import           Pos.Types.Address    (StakeholderId)
 
 data AttackType = AttackNoBlocks
                 | AttackNoCommitments
                 deriving (Eq, Show)
 
 data AttackTarget = NetworkAddressTarget { attNetworkAddr :: NetworkAddress }
-                  | PubKeyAddressTarget { attPkAddr :: NodeId }
+                  | PubKeyAddressTarget { attPkAddr :: StakeholderId }
                   deriving (Eq, Show)

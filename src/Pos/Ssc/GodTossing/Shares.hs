@@ -24,7 +24,7 @@ import           Pos.Ssc.Class.Storage    (SscGlobalQuery)
 import           Pos.Ssc.Extra.MonadGS    (MonadSscGS, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Types (Commitment (..), SscGodTossing, gsCommitments,
                                            gsOpenings)
-import           Pos.Types                (NodeId)
+import           Pos.Types                (StakeholderId)
 import           Pos.Util                 (AsBinary, asBinary, fromBinaryM)
 
 type GSQuery a = SscGlobalQuery SscGodTossing a
@@ -33,7 +33,7 @@ type GSQuery a = SscGlobalQuery SscGodTossing a
 -- decrypt.
 getOurShares :: ( MonadSscGS SscGodTossing m
                 , MonadIO m, HasLoggerName m)
-             => VssKeyPair -> m (HashMap NodeId Share)
+             => VssKeyPair -> m (HashMap StakeholderId Share)
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
     let ourPK = asBinary $ toVssPublicKey ourKey
@@ -57,7 +57,7 @@ getOurShares ourKey = do
 -- | Decrypt shares (in commitments) that we can decrypt.
 decryptOurShares
     :: AsBinary VssPublicKey                           -- ^ Our VSS key
-    -> GSQuery (HashMap NodeId (AsBinary EncShare))
+    -> GSQuery (HashMap StakeholderId (AsBinary EncShare))
 decryptOurShares ourPK = do
     comms <- view gsCommitments
     opens <- view gsOpenings

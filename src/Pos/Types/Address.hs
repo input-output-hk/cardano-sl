@@ -12,7 +12,7 @@ module Pos.Types.Address
        , makeScriptAddress
        , decodeTextAddress
 
-       , NodeId
+       , StakeholderId
 
          -- * Internals
        , AddressHash
@@ -51,8 +51,8 @@ data Address
           { addrScriptHash :: !(AddressHash Script) }
     deriving (Eq, Ord, Generic)
 
--- | Node identifier (nodes are identified by their public keys)
-type NodeId = AddressHash PublicKey
+-- | Stakeholder identifier (stakeholders are identified by their public keys)
+type StakeholderId = AddressHash PublicKey
 
 instance Bi Address => Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.encode

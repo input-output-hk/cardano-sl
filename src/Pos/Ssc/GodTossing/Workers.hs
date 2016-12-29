@@ -54,9 +54,9 @@ import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCo
                                                    SscGodTossing, VssCertificate (..),
                                                    gtcParticipateSsc, gtcVssKeyPair)
 import           Pos.Ssc.GodTossing.Types.Message (DataMsg (..), InvMsg (..), MsgTag (..))
-import           Pos.Types                        (EpochIndex, LocalSlotIndex, NodeId,
-                                                   SlotId (..), Timestamp (..),
-                                                   addressHash)
+import           Pos.Types                        (EpochIndex, LocalSlotIndex,
+                                                   SlotId (..), StakeholderId,
+                                                   Timestamp (..), addressHash)
 import           Pos.Util                         (asBinary)
 import           Pos.WorkMode                     (WorkMode)
 
@@ -104,7 +104,7 @@ checkNSendOurCert = do
 
 getOurPkAndId
     :: WorkMode SscGodTossing m
-    => m (PublicKey, NodeId)
+    => m (PublicKey, StakeholderId)
 getOurPkAndId = do
     ourPk <- ncPublicKey <$> getNodeContext
     return (ourPk, addressHash ourPk)
@@ -199,7 +199,7 @@ onNewSlotShares SlotId {..} = do
 
 sendOurData
     :: (WorkMode SscGodTossing m, Bi InvMsg)
-    => MsgTag -> EpochIndex -> LocalSlotIndex -> NodeId -> m ()
+    => MsgTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
 sendOurData msgTag epoch kMultiplier ourId = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one

@@ -10,14 +10,14 @@ import           Universum
 
 import           Pos.Context          (NodeContext, ncAttackTargets, ncAttackTypes)
 import           Pos.Security.Types   (AttackTarget (..), AttackType (..))
-import           Pos.Types.Types      (NodeId)
+import           Pos.Types.Types      (StakeholderId)
 
 shouldIgnoreAddress :: NodeContext ssc -> NetworkAddress -> Bool
 shouldIgnoreAddress cont addr = and [
     elem AttackNoBlocks $ ncAttackTypes cont,
     elem (NetworkAddressTarget addr) $ ncAttackTargets cont ]
 
-shouldIgnorePkAddress :: NodeContext ssc -> NodeId -> Bool
+shouldIgnorePkAddress :: NodeContext ssc -> StakeholderId -> Bool
 shouldIgnorePkAddress cont addr = and [
     elem AttackNoCommitments $ ncAttackTypes cont,
     elem (PubKeyAddressTarget addr) $ ncAttackTargets cont ]

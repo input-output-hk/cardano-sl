@@ -38,7 +38,7 @@ module Pos.Types.Types
        , addressF
        , decodeTextAddress
 
-       , NodeId
+       , StakeholderId
 
        , TxAttributes
        , TxInWitness (..)
@@ -177,7 +177,7 @@ import           Pos.Data.Attributes    (Attributes)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Script.Type        (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
-import           Pos.Types.Address      (Address (..), NodeId, addressF,
+import           Pos.Types.Address      (Address (..), StakeholderId, addressF,
                                          checkPubKeyAddress, checkScriptAddress,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
@@ -291,7 +291,7 @@ type TxWitness = Vector TxInWitness
 -- | Distribution of “fake” stake that follow-the-satoshi would use for a
 -- particular transaction.
 newtype TxDistribution = TxDistribution {
-    getTxDistribution :: [[(NodeId, Coin)]] }
+    getTxDistribution :: [[(StakeholderId, Coin)]] }
     deriving (Eq, Show, Generic)
 
 instance Buildable TxDistribution where
@@ -327,11 +327,11 @@ instance Buildable TxOut where
     build TxOut {..} =
         bprint ("TxOut "%coinF%" -> "%build) txOutValue txOutAddress
 
-type TxOutAux = (TxOut, [(NodeId, Coin)])
+type TxOutAux = (TxOut, [(StakeholderId, Coin)])
 
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).
-txOutStake :: TxOutAux -> [(NodeId, Coin)]
+txOutStake :: TxOutAux -> [(StakeholderId, Coin)]
 txOutStake (TxOut{..}, mb) = case txOutAddress of
     PubKeyAddress x -> [(x, txOutValue)]
     ScriptAddress _ -> mb
@@ -425,10 +425,10 @@ instance Monoid SharedSeed where
     mconcat = foldl' mappend mempty
 
 -- | 'NonEmpty' list of slot leaders.
-type SlotLeaders = NonEmpty NodeId
+type SlotLeaders = NonEmpty StakeholderId
 
 -- | Addresses which have enough stake for participation in SSC.
-type Richmen = NonEmpty NodeId
+type Richmen = NonEmpty StakeholderId
 
 ----------------------------------------------------------------------------
 -- GenericBlock

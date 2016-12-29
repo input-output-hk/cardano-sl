@@ -28,14 +28,14 @@ import           Universum
 import           Pos.Crypto          (EncShare, PublicKey, Secret, SecretKey, SecretProof,
                                       SecretSharingExtra, Share, Signature, VssPublicKey,
                                       sign, toPublic)
-import           Pos.Types.Types     (EpochIndex, NodeId)
+import           Pos.Types.Types     (EpochIndex, StakeholderId)
 import           Pos.Util            (AsBinary (..))
 
 ----------------------------------------------------------------------------
 -- Types, instances
 ----------------------------------------------------------------------------
 
-type NodeSet = HashSet NodeId
+type NodeSet = HashSet StakeholderId
 
 -- | Commitment is a message generated during the first stage of
 -- MPC. It contains encrypted shares and proof of secret.
@@ -51,14 +51,14 @@ type CommitmentSignature = Signature (EpochIndex, Commitment)
 
 type SignedCommitment = (PublicKey, Commitment, CommitmentSignature)
 
-type CommitmentsMap = HashMap NodeId SignedCommitment
+type CommitmentsMap = HashMap StakeholderId SignedCommitment
 
 -- | Opening reveals secret.
 newtype Opening = Opening
     { getOpening :: (AsBinary Secret)
     } deriving (Show, Eq, Generic, Buildable)
 
-type OpeningsMap = HashMap NodeId Opening
+type OpeningsMap = HashMap StakeholderId Opening
 
 -- | Each node generates a 'SharedSeed', breaks it into 'Share's, and sends
 -- those encrypted shares to other nodes. In a 'SharesMap', for each node we
@@ -67,9 +67,9 @@ type OpeningsMap = HashMap NodeId Opening
 -- Specifically, if node identified by 'Address' X has received a share
 -- from node identified by key Y, this share will be at @sharesMap ! X ! Y@.
 
-type InnerSharesMap = HashMap NodeId (AsBinary Share)
+type InnerSharesMap = HashMap StakeholderId (AsBinary Share)
 
-type SharesMap = HashMap NodeId InnerSharesMap
+type SharesMap = HashMap StakeholderId InnerSharesMap
 
 -- | VssCertificate allows VssPublicKey to participate in MPC.
 -- Each stakeholder should create a Vss keypair, sign public key with signing
@@ -92,7 +92,7 @@ mkVssCertificate sk vk = VssCertificate vk (sign sk vk) $ toPublic sk
 
 -- | VssCertificatesMap contains all valid certificates collected
 -- during some period of time.
-type VssCertificatesMap = HashMap NodeId VssCertificate
+type VssCertificatesMap = HashMap StakeholderId VssCertificate
 
 deriveSafeCopySimple 0 'base ''VssCertificate
 deriveSafeCopySimple 0 'base ''Opening

@@ -65,6 +65,7 @@ deriving instance (Eq a, Eq (PLCore.ClauseF a)) => Eq (PLCore.TermF a)
 
 deriving instance Eq PLTypes.TyConSig
 deriving instance Eq PLTypes.ConSig
+deriving instance Eq PLTypes.PolymorphicType
 deriving instance Eq PLCore.Program
 
 deriveEq1 ''PLCore.PatternF
@@ -81,6 +82,7 @@ instance Binary Vars.MetaVar
 instance Binary Vars.BoundVar
 instance Binary PLTypes.TyConSig
 instance Binary PLTypes.ConSig
+instance Binary PLTypes.PolymorphicType
 instance Binary a => Binary (Names.Sourced a)
 instance Binary ABT.Variable
 instance Binary (f (ABT.Scope f)) => Binary (ABT.ABT f)
@@ -97,6 +99,7 @@ instance NFData Vars.MetaVar
 instance NFData Vars.BoundVar
 instance NFData PLTypes.TyConSig
 instance NFData PLTypes.ConSig
+instance NFData PLTypes.PolymorphicType
 instance NFData a => NFData (Names.Sourced a)
 instance NFData ABT.Variable
 instance NFData (f (ABT.Scope f)) => NFData (ABT.ABT f)
@@ -113,6 +116,7 @@ deriving instance Lift Vars.MetaVar
 deriving instance Lift Vars.BoundVar
 deriving instance Lift PLTypes.TyConSig
 deriving instance Lift PLTypes.ConSig
+deriving instance Lift PLTypes.PolymorphicType
 deriving instance Lift a => Lift (Names.Sourced a)
 deriving instance Lift ABT.Variable
 deriving instance Lift (f (ABT.Scope f)) => Lift (ABT.ABT f)

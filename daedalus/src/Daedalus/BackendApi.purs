@@ -2,43 +2,57 @@ module Daedalus.BackendApi where
 
 import Prelude
 import Control.Monad.Aff (Aff)
-import Control.Monad.Error.Class (throwError)
 import Control.Monad.Eff.Exception (error, Error)
+import Control.Monad.Error.Class (throwError)
+import Daedalus.Constants (backendPrefix)
+import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
+import Data.Array.Partial (last)
 import Data.Bifunctor (bimap)
 import Data.Either (either, Either(Left))
 import Data.Generic (class Generic, gShow)
 import Data.HTTP.Method (Method(POST))
-import Data.Maybe (Maybe (Just))
-import Data.String (split, joinWith)
-import Data.Array.Partial (last)
-import Network.HTTP.Affjax (affjax, defaultRequest, AJAX, get, URL, AffjaxRequest)
-import Network.HTTP.Affjax.Request (class Requestable)
-import Network.HTTP.RequestHeader (RequestHeader (ContentType))
-import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency)
-import Daedalus.Constants (backendPrefix)
+import Data.Maybe (Maybe(Just))
 import Data.MediaType.Common (applicationJSON)
+import Data.String (split, joinWith)
+import Network.HTTP.Affjax (AffjaxResponse, affjax, defaultRequest, AJAX, URL, AffjaxRequest)
+import Network.HTTP.Affjax.Request (class Requestable)
+import Network.HTTP.RequestHeader (RequestHeader(ContentType))
+import Network.HTTP.StatusCode (StatusCode(..))
 import Partial.Unsafe (unsafePartial)
 
 -- HELPERS
 
 type URLPath = Array String
 
-urlPath :: forall a. URLPath -> URL
-urlPath = joinWith "/"
+mkUrl :: URLPath -> URL
+mkUrl = joinWith "/"
 
-backendApi :: forall a. URLPath -> URL
-backendApi path = urlPath $ [backendPrefix, "api"] <> path
+backendApi :: URLPath -> URL
+backendApi path = mkUrl $ [backendPrefix, "api"] <> path
+
+data ApiError
+    = HTTPStatusError (AffjaxResponse Json)
+    | JSONDecodingError String
+
+instance showApiError :: Show ApiError where
+    show (HTTPStatusError res) =
+        "HTTPStatusError: " <> show res.status
+    show (JSONDecodingError e) =
+        "JSONDecodingError: " <> show e
 
 -- REQUESTS HELPERS
+
 decodeResult :: forall a eff. Generic a => {response :: Json | eff} -> Either Error a
-decodeResult res = bimap error id $ decodeJson res.response
+decodeResult res = bimap (error <<< show <<< JSONDecodingError) id $ decodeJson res.response
 
 makeRequest :: forall eff a r. (Generic a, Requestable r) => AffjaxRequest r -> URLPath -> Aff (ajax :: AJAX | eff) a
 makeRequest request urlPath = do
-  res <- affjax $ request { url = backendApi urlPath }
-  either throwError pure $ decodeResult res
+    res <- affjax $ request { url = backendApi urlPath }
+    when (res.status /= StatusCode 200) $
+      throwError <<< error <<< show $ HTTPStatusError res
+    either throwError pure $ decodeResult res
 
 getR :: forall eff a. Generic a => URLPath -> Aff (ajax :: AJAX | eff) a
 getR = makeRequest defaultRequest

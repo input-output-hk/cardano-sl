@@ -6,7 +6,6 @@
 module Pos.Wallet.Web.Api
        ( WalletApi
        , walletApi
-       , Cors
        ) where
 
 import           Data.Proxy                 (Proxy (Proxy))
@@ -17,29 +16,27 @@ import           Servant.API                ((:<|>), (:>), Capture, Get, Header,
                                              JSON, Post, ReqBody)
 import           Universum                  (Bool, Text)
 
-type Cors a = Headers '[Header "Access-Control-Allow-Origin" Text] a
-
 -- | Servant API which provides access to wallet.
 type WalletApi =
-     "api" :> "get_wallet" :> Capture "address" CAddress :> Get '[JSON] (Cors CWallet)
+     "api" :> "get_wallet" :> Capture "address" CAddress :> Get '[JSON] CWallet
     :<|>
-     "api" :> "get_wallets" :> Get '[JSON] (Cors [CWallet])
+     "api" :> "get_wallets" :> Get '[JSON] [CWallet]
     :<|>
     -- TODO: for now we only support one2one sending. We should extend this to support many2many
-     "api" :> "send" :> Capture "from" CAddress :> Capture "to" CAddress :> Capture "amount" Coin :> Post '[JSON] (Cors CTx)
+     "api" :> "send" :> Capture "from" CAddress :> Capture "to" CAddress :> Capture "amount" Coin :> Post '[JSON] CTx
     :<|>
-     "api" :> "history" :> Capture "address" CAddress :> Get '[JSON] (Cors [CTx])
+     "api" :> "history" :> Capture "address" CAddress :> Get '[JSON] [CTx]
     :<|>
-     "api" :> "update_transaction" :> Capture "address" CAddress :> Capture "transaction" CTxId :> ReqBody '[JSON] CTxMeta :> Post '[JSON] (Cors ())
+     "api" :> "update_transaction" :> Capture "address" CAddress :> Capture "transaction" CTxId :> ReqBody '[JSON] CTxMeta :> Post '[JSON] ()
     :<|>
-     "api" :> "new_wallet" :> ReqBody '[JSON] CWalletMeta :> Post '[JSON] (Cors CWallet)
+     "api" :> "new_wallet" :> ReqBody '[JSON] CWalletMeta :> Post '[JSON] CWallet
     :<|>
-     "api" :> "update_wallet" :> Capture "address" CAddress :> ReqBody '[JSON] CWalletMeta :> Post '[JSON] (Cors CWallet)
+     "api" :> "update_wallet" :> Capture "address" CAddress :> ReqBody '[JSON] CWalletMeta :> Post '[JSON] CWallet
     :<|>
     -- FIXME: this should be DELETE method
-     "api" :> "delete_wallet" :> Capture "address" CAddress :> Post '[JSON] (Cors ())
+     "api" :> "delete_wallet" :> Capture "address" CAddress :> Post '[JSON] ()
     :<|>
-     "api" :> "valid_address" :> Capture "currency" CCurrency :> Capture "address" Text :> Get '[JSON] (Cors Bool)
+     "api" :> "valid_address" :> Capture "currency" CCurrency :> Capture "address" Text :> Get '[JSON] Bool
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

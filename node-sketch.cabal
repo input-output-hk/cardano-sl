@@ -265,6 +265,7 @@ test-suite node-sketch-test
                      , random
                      , serokell-util >= 0.1.2.3
                      , stm
+                     , time-warp
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded

@@ -24,7 +24,7 @@ import Data.Either (either)
 import Data.Argonaut.Generic.Aeson (decodeJson)
 import Data.Argonaut.Core (fromString)
 
-import Data.Types (mkTime, NominalDiffTime)
+import Data.Types (mkTime)
 
 -- TODO: it would be useful to extend purescript-bridge
 -- and generate lenses

@@ -4,7 +4,7 @@ import Prelude
 import Daedalus.BackendApi as B
 import Control.Monad.Eff (Eff)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, CWallet, mkCTxId, mkCTxMeta, mkCCurrency)
+import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.Function.Uncurried (Fn2, mkFn2, Fn4, mkFn4, Fn3, mkFn3, Fn6, mkFn6)
@@ -50,4 +50,3 @@ deleteWallet = fromAff <<< B.deleteWallet <<< mkCAddress
 
 isValidAddress :: forall eff. Fn2 String String (Eff(ajax :: AJAX | eff) (Promise Boolean))
 isValidAddress = mkFn2 \currency -> fromAff <<< B.isValidAddress (mkCCurrency currency)
-

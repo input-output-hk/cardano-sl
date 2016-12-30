@@ -5,7 +5,6 @@ output/
 .psci_modules/
 .pulp-cache/
 .psc-ide-port
-daedalus/
 npm-debug.log
 
 # generated types by purescript-bridge

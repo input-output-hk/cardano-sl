@@ -61,6 +61,9 @@ import           Pos.DHT.Real.Types              (DHTHandle, KademliaDHT (..),
 import           Pos.Util                        (runWithRandomIntervals,
                                                   waitAnyUnexceptional)
 
+kademliaConfig :: K.KademliaConfig
+kademliaConfig = K.defaultConfig { K.k = 16 }
+
 -- | Run 'KademliaDHT' with provided 'KademliaDHTContext'
 runKademliaDHTRaw :: KademliaDHTContext m -> KademliaDHT m a -> m a
 runKademliaDHTRaw ctx action = runReaderT (unKademliaDHT action) ctx
@@ -137,6 +140,7 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
         K.createL
             (fromInteger . toInteger $ kdcPort)
             kdiKey
+            kademliaConfig
             (log' logDebug)
             (log' logError))
           `catchAll`
@@ -348,8 +352,11 @@ joinNetwork' inst node = do
     let node' = K.Node (toKPeer $ dhtAddr node) (dhtNodeId node)
     res <- liftIO $ K.joinNetwork inst node'
     case res of
-        K.JoinSucces -> pure ()
+        K.JoinSuccess -> pure ()
         K.NodeDown -> throwM NodeDown
+        K.NodeBanned ->
+            logInfo $
+            sformat ("joinNetwork: node " % build % " is banned") node
         K.IDClash ->
             logInfo $
             sformat ("joinNetwork: node " % build % " already contains us") node

@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Types describing protocol messages related to Blocks.

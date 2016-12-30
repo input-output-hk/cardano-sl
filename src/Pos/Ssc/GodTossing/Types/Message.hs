@@ -7,7 +7,7 @@ module Pos.Ssc.GodTossing.Types.Message
        , InvMsg (..)
        , ReqMsg (..)
        , DataMsg (..)
-       , dataMsgPublicKey
+       , dataMsgNodeId
        , dataMsgTag
        ) where
 
@@ -16,14 +16,12 @@ import           Data.List.NonEmpty            (NonEmpty)
 import qualified Data.Text.Buildable
 import           Universum
 
-import           Pos.Crypto                    (PublicKey)
 import           Pos.Ssc.GodTossing.Functions  (isCommitmentId, isCommitmentIdx,
                                                 isOpeningId, isOpeningIdx, isSharesId,
                                                 isSharesIdx)
 import           Pos.Ssc.GodTossing.Types.Base (InnerSharesMap, Opening, SignedCommitment,
                                                 VssCertificate)
-import           Pos.Types                     (LocalSlotIndex, SlotId)
-import           Pos.Types.Address             (AddressHash)
+import           Pos.Types                     (LocalSlotIndex, SlotId, StakeholderId)
 
 -- | Tag associated with message.
 data MsgTag
@@ -58,8 +56,8 @@ isGoodSlotIdForTag VssCertificateMsg = const True
 -- | Inventory message. Can be used to announce the fact that you have
 -- some data.
 data InvMsg = InvMsg
-    { imType :: !MsgTag
-    , imKeys :: !(NonEmpty (AddressHash PublicKey))
+    { imType  :: !MsgTag
+    , imNodes :: !(NonEmpty StakeholderId)
     } deriving (Show, Eq, Generic)
 
 instance Message InvMsg where
@@ -70,7 +68,7 @@ instance Message InvMsg where
 -- was previously announced by inventory message).
 data ReqMsg = ReqMsg
     { rmType :: !MsgTag
-    , rmKey  :: !(AddressHash PublicKey)
+    , rmNode :: !StakeholderId
     } deriving (Show, Eq, Generic)
 
 instance Message ReqMsg where
@@ -79,13 +77,13 @@ instance Message ReqMsg where
 
 -- | Data message. Can be used to send actual data.
 data DataMsg
-    = DMCommitment !(AddressHash PublicKey)
+    = DMCommitment !StakeholderId
                    !SignedCommitment
-    | DMOpening !(AddressHash PublicKey)
+    | DMOpening !StakeholderId
                 !Opening
-    | DMShares !(AddressHash PublicKey)
+    | DMShares !StakeholderId
                InnerSharesMap
-    | DMVssCertificate !(AddressHash PublicKey)
+    | DMVssCertificate !StakeholderId
                        !VssCertificate
     deriving (Show, Eq, Generic)
 
@@ -100,9 +98,9 @@ dataMsgTag (DMOpening _ _)        = OpeningMsg
 dataMsgTag (DMShares _ _)         = SharesMsg
 dataMsgTag (DMVssCertificate _ _) = VssCertificateMsg
 
--- | Address stored in DataMsg.
-dataMsgPublicKey :: DataMsg -> AddressHash PublicKey
-dataMsgPublicKey (DMCommitment addr _)     = addr
-dataMsgPublicKey (DMOpening addr _)        = addr
-dataMsgPublicKey (DMShares addr _)         = addr
-dataMsgPublicKey (DMVssCertificate addr _) = addr
+-- | Node ID stored in DataMsg.
+dataMsgNodeId :: DataMsg -> StakeholderId
+dataMsgNodeId (DMCommitment nid _)     = nid
+dataMsgNodeId (DMOpening nid _)        = nid
+dataMsgNodeId (DMShares nid _)         = nid
+dataMsgNodeId (DMVssCertificate nid _) = nid

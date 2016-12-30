@@ -18,13 +18,13 @@ import           System.Wlog              (HasLoggerName, dispatchEvents, getLog
                                            logWarning, runPureLog, usingLoggerName)
 import           Universum
 
-import           Pos.Crypto               (EncShare, PublicKey, Share, VssKeyPair,
-                                           VssPublicKey, decryptShare, toVssPublicKey)
+import           Pos.Crypto               (EncShare, Share, VssKeyPair, VssPublicKey,
+                                           decryptShare, toVssPublicKey)
 import           Pos.Ssc.Class.Storage    (SscGlobalQuery)
 import           Pos.Ssc.Extra.MonadGS    (MonadSscGS, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Types (Commitment (..), SscGodTossing, gsCommitments,
                                            gsOpenings)
-import           Pos.Types                (AddressHash)
+import           Pos.Types                (StakeholderId)
 import           Pos.Util                 (AsBinary, asBinary, fromBinaryM)
 
 type GSQuery a = SscGlobalQuery SscGodTossing a
@@ -33,7 +33,7 @@ type GSQuery a = SscGlobalQuery SscGodTossing a
 -- decrypt.
 getOurShares :: ( MonadSscGS SscGodTossing m
                 , MonadIO m, HasLoggerName m)
-             => VssKeyPair -> m (HashMap (AddressHash PublicKey) Share)
+             => VssKeyPair -> m (HashMap StakeholderId Share)
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
     let ourPK = asBinary $ toVssPublicKey ourKey
@@ -57,7 +57,7 @@ getOurShares ourKey = do
 -- | Decrypt shares (in commitments) that we can decrypt.
 decryptOurShares
     :: AsBinary VssPublicKey                           -- ^ Our VSS key
-    -> GSQuery (HashMap (AddressHash PublicKey) (AsBinary EncShare))
+    -> GSQuery (HashMap StakeholderId (AsBinary EncShare))
 decryptOurShares ourPK = do
     comms <- view gsCommitments
     opens <- view gsOpenings

@@ -2,7 +2,6 @@
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ViewPatterns          #-}
 
 -- | Server which handles transactions.
 

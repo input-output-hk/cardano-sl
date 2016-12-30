@@ -1,5 +1,4 @@
 {-# LANGUAGE ConstraintKinds  #-}
-{-# LANGUAGE DeriveGeneric    #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeFamilies     #-}

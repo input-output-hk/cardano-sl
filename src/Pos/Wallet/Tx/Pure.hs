@@ -64,8 +64,8 @@ createTx :: Utxo -> SecretKey -> TxOutputs -> Either TxError TxAux
 createTx utxo sk outputs = uncurry (makePubKeyTx sk) <$> inpOuts
   where
     totalMoney = sum $ map (txOutValue . fst) outputs
-    ourAddr = makePubKeyAddress $ toPublic sk
-    allUnspent = M.toList $ filterUtxoByAddr ourAddr utxo
+    ourId = makePubKeyAddress $ toPublic sk
+    allUnspent = M.toList $ filterUtxoByAddr ourId utxo
     sortedUnspent = sortBy (comparing $ Down . txOutValue . fst . snd) allUnspent
     inpOuts = do
         futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
@@ -73,7 +73,7 @@ createTx utxo sk outputs = uncurry (makePubKeyTx sk) <$> inpOuts
             inputSum = sum $ map (txOutValue . fst . snd) futxo
             newOuts
                 | inputSum > totalMoney =
-                    (TxOut ourAddr (inputSum - totalMoney), []) : outputs
+                    (TxOut ourId (inputSum - totalMoney), []) : outputs
                 | otherwise = outputs
         pure (inputs, newOuts)
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo

@@ -1,7 +1,5 @@
-{-# LANGUAGE DeriveGeneric        #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -52,8 +50,7 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
 import           Pos.Types.Update           (SystemTag, UpdateData (..),
                                              UpdateProposal (..), UpdateVote (..),
                                              mkSystemTag)
-import           Pos.Types.Version          (ApplicationName (..),
-                                             ProtocolVersion (..),
+import           Pos.Types.Version          (ApplicationName (..), ProtocolVersion (..),
                                              SoftwareVersion (..),
                                              applicationNameMaxLength)
 import           Pos.Util                   (AsBinary, makeSmall)

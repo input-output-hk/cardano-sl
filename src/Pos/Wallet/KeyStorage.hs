@@ -2,10 +2,8 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
-{-# LANGUAGE ViewPatterns          #-}
 
 module Pos.Wallet.KeyStorage
        ( MonadKeys (..)
@@ -62,13 +60,13 @@ class Monad m => MonadKeys m where
     addSecretKey :: SecretKey -> m ()
     deleteSecretKey :: Word -> m ()
 
-    default getSecretKeys :: MonadTrans t => t m [SecretKey]
+    default getSecretKeys :: (MonadTrans t, MonadKeys m', t m' ~ m) => t m' [SecretKey]
     getSecretKeys = lift getSecretKeys
 
-    default addSecretKey :: MonadTrans t => SecretKey -> t m ()
+    default addSecretKey :: (MonadTrans t, MonadKeys m', t m' ~ m) => SecretKey -> t m' ()
     addSecretKey = lift . addSecretKey
 
-    default deleteSecretKey :: MonadTrans t => Word -> t m ()
+    default deleteSecretKey :: (MonadTrans t, MonadKeys m', t m' ~ m) => Word -> t m' ()
     deleteSecretKey = lift . deleteSecretKey
 
 -- | Instances for common transformers

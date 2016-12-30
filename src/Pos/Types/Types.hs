@@ -1,14 +1,11 @@
 {-# LANGUAGE CPP                    #-}
 {-# LANGUAGE ConstraintKinds        #-}
 {-# LANGUAGE DefaultSignatures      #-}
-{-# LANGUAGE DeriveGeneric          #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE LambdaCase             #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE StandaloneDeriving     #-}
 {-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE TypeSynonymInstances   #-}
@@ -37,6 +34,8 @@ module Pos.Types.Types
        , checkScriptAddress
        , addressF
        , decodeTextAddress
+
+       , StakeholderId
 
        , TxAttributes
        , TxInWitness (..)
@@ -175,7 +174,7 @@ import           Pos.Data.Attributes    (Attributes)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
 import           Pos.Script.Type        (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
-import           Pos.Types.Address      (Address (..), AddressHash, addressF,
+import           Pos.Types.Address      (Address (..), StakeholderId, addressF,
                                          checkPubKeyAddress, checkScriptAddress,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
@@ -289,7 +288,7 @@ type TxWitness = Vector TxInWitness
 -- | Distribution of “fake” stake that follow-the-satoshi would use for a
 -- particular transaction.
 newtype TxDistribution = TxDistribution {
-    getTxDistribution :: [[(AddressHash PublicKey, Coin)]] }
+    getTxDistribution :: [[(StakeholderId, Coin)]] }
     deriving (Eq, Show, Generic)
 
 instance Buildable TxDistribution where
@@ -325,11 +324,11 @@ instance Buildable TxOut where
     build TxOut {..} =
         bprint ("TxOut "%coinF%" -> "%build) txOutValue txOutAddress
 
-type TxOutAux = (TxOut, [(AddressHash PublicKey, Coin)])
+type TxOutAux = (TxOut, [(StakeholderId, Coin)])
 
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).
-txOutStake :: TxOutAux -> [(AddressHash PublicKey, Coin)]
+txOutStake :: TxOutAux -> [(StakeholderId, Coin)]
 txOutStake (TxOut{..}, mb) = case txOutAddress of
     PubKeyAddress x -> [(x, txOutValue)]
     ScriptAddress _ -> mb
@@ -392,6 +391,7 @@ utxoF = later formatUtxo
 ----------------------------------------------------------------------------
 -- UNDO
 ----------------------------------------------------------------------------
+
 -- | Structure for undo block during rollback
 type Undo = [[TxOutAux]]
 
@@ -422,10 +422,10 @@ instance Monoid SharedSeed where
     mconcat = foldl' mappend mempty
 
 -- | 'NonEmpty' list of slot leaders.
-type SlotLeaders = NonEmpty (AddressHash PublicKey)
+type SlotLeaders = NonEmpty StakeholderId
 
 -- | Addresses which have enough stake for participation in SSC.
-type Richmen = NonEmpty (AddressHash PublicKey)
+type Richmen = NonEmpty StakeholderId
 
 ----------------------------------------------------------------------------
 -- GenericBlock
@@ -1204,6 +1204,7 @@ instance SafeCopy (Body (GenesisBlockchain ssc)) where
 ----------------------------------------------------------------------------
 -- Other derived instances
 ----------------------------------------------------------------------------
+
 derive makeNFData ''TxIn
 derive makeNFData ''TxInWitness
 derive makeNFData ''TxOut

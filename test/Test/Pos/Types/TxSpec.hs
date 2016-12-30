@@ -1,7 +1,4 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase       #-}
-{-# LANGUAGE TupleSections    #-}
-{-# LANGUAGE ViewPatterns     #-}
 
 -- | Specification for transaction-related functions
 -- (Pos.Types.Tx)
@@ -30,23 +27,25 @@ import qualified Text.Regex.TDFA.Text   as TDFA
 import           Universum              hiding ((.&.))
 import           Unsafe                 (unsafeHead)
 
-import           Pos.Crypto             (checkSig, hash, unsafeHash, whData, withHash)
+import           Pos.Crypto             (KeyPair (..), checkSig, hash, unsafeHash, whData,
+                                         withHash)
 import           Pos.Data.Attributes    (mkAttributes)
 import           Pos.Script             (Script)
 import           Pos.Script.Examples    (alwaysSuccessValidator, badIntRedeemer,
                                          goodIntRedeemer, goodIntRedeemerWithBlah,
                                          goodStdlibRedeemer, idValidator, intValidator,
-                                         intValidatorWithBlah, stdlibValidator)
+                                         intValidatorWithBlah, multisigRedeemer,
+                                         multisigValidator, stdlibValidator)
 import           Pos.Types              (BadSigsTx (..), GoodTx (..), OverflowTx (..),
                                          SmallBadSigsTx (..), SmallGoodTx (..),
                                          SmallOverflowTx (..), Tx (..), TxAux,
                                          TxDistribution (..), TxIn (..), TxInWitness (..),
-                                         TxOut (..), TxOutAux, TxWitness, Utxo,
+                                         TxOut (..), TxOutAux, TxSigData, TxWitness, Utxo,
                                          VTxGlobalContext (..), VTxLocalContext (..),
                                          checkPubKeyAddress, makePubKeyAddress,
                                          makeScriptAddress, topsortTxs, verifyTxAlone,
                                          verifyTxPure, verifyTxUtxoPure)
-import           Pos.Util               (sublistN)
+import           Pos.Util               (nonrepeating, sublistN)
 
 
 spec :: Spec
@@ -88,20 +87,20 @@ scriptTxSpec = describe "script transactions" $ do
         it "goodIntRedeemer + intValidator" $ do
             let res = checkScriptTx
                     intValidator
-                    (ScriptWitness intValidator goodIntRedeemer)
+                    (\_ -> ScriptWitness intValidator goodIntRedeemer)
             res `shouldSatisfy` isVerSuccess
 
         it "goodStdlibRedeemer + stdlibValidator" $ do
             let res = checkScriptTx
                     stdlibValidator
-                    (ScriptWitness stdlibValidator goodStdlibRedeemer)
+                    (\_ -> ScriptWitness stdlibValidator goodStdlibRedeemer)
             res `shouldSatisfy` isVerSuccess
 
     describe "bad cases" $ do
         it "a P2PK tx spending a P2SH tx" $ do
             let res = checkScriptTx
                     alwaysSuccessValidator
-                    randomPkWitness
+                    (\_ -> randomPkWitness)
             res `errorsShouldMatch` [
                 "input #0's witness doesn't match address.*\
                     \address details: ScriptAddress.*\
@@ -113,7 +112,7 @@ scriptTxSpec = describe "script transactions" $ do
            \the validator for which the address was created" $ do
             let res = checkScriptTx
                     alwaysSuccessValidator
-                    (ScriptWitness intValidator goodIntRedeemer)
+                    (\_ -> ScriptWitness intValidator goodIntRedeemer)
             res `errorsShouldMatch` [
                 "input #0's witness doesn't match address.*\
                      \address details: ScriptAddress.*\
@@ -123,7 +122,7 @@ scriptTxSpec = describe "script transactions" $ do
            \redeemer script isn't a proper redeemer" $ do
             let res = checkScriptTx
                     goodIntRedeemer
-                    (ScriptWitness goodIntRedeemer intValidator)
+                    (\_ -> ScriptWitness goodIntRedeemer intValidator)
             res `errorsShouldMatch` [
                 "input #0 isn't validated by its witness.*\
                     \reason: The validator script is missing `validator`.*\
@@ -132,7 +131,7 @@ scriptTxSpec = describe "script transactions" $ do
         it "redeemer >>= validator doesn't typecheck" $ do
             let res = checkScriptTx
                     idValidator
-                    (ScriptWitness idValidator goodIntRedeemer)
+                    (\_ -> ScriptWitness idValidator goodIntRedeemer)
             res `errorsShouldMatch` [
                 "input #0 isn't validated by its witness.*\
                     \reason: The validation result isn't of type Comp.*"]
@@ -140,8 +139,9 @@ scriptTxSpec = describe "script transactions" $ do
         it "redeemer and validator define same names" $ do
             let res = checkScriptTx
                     intValidatorWithBlah
-                    (ScriptWitness intValidatorWithBlah
-                                   goodIntRedeemerWithBlah)
+                    (\_ -> ScriptWitness
+                               intValidatorWithBlah
+                               goodIntRedeemerWithBlah)
             res `errorsShouldMatch` [
                 "input #0 isn't validated by its witness.*\
                     \reason: There are overlapping declared names \
@@ -150,10 +150,73 @@ scriptTxSpec = describe "script transactions" $ do
         it "redeemer >>= validator outputs 'failure'" $ do
             let res = checkScriptTx
                     intValidator
-                    (ScriptWitness intValidator badIntRedeemer)
+                    (\_ -> ScriptWitness intValidator badIntRedeemer)
             res `errorsShouldMatch` [
                 "input #0 isn't validated by its witness.*\
                     \reason: result of evaluation is 'failure'.*"]
+
+    describe "multisig" $ do
+        let [KeyPair pk1 sk1, KeyPair pk2 sk2,
+             KeyPair pk3 sk3, KeyPair pk4 sk4] = runGen $ nonrepeating 4
+        let shouldBeFailure res = res `errorsShouldMatch` [
+                "input #0 isn't validated by its witness.*\
+                    \reason: result of evaluation is 'failure'.*"]
+
+        describe "1-of-1" $ do
+            let val = multisigValidator 1 [pk1]
+            it "good (1 provided)" $ do
+                let res = checkScriptTx val
+                        (\sd -> ScriptWitness val
+                            (multisigRedeemer sd [Just sk1]))
+                res `shouldSatisfy` isVerSuccess
+            it "bad (0 provided)" $ do
+                let res = checkScriptTx val
+                        (\sd -> ScriptWitness val
+                            (multisigRedeemer sd [Nothing]))
+                shouldBeFailure res
+            it "bad (1 provided, wrong sig)" $ do
+                let res = checkScriptTx val
+                        (\sd -> ScriptWitness val
+                            (multisigRedeemer sd [Just sk2]))
+                shouldBeFailure res
+        describe "2-of-3" $ do
+            let val = multisigValidator 2 [pk1, pk2, pk3]
+            it "good (2 provided)" $ do
+                let res = checkScriptTx val
+                        (\sd -> ScriptWitness val
+                            (multisigRedeemer sd
+                             [Just sk1, Nothing, Just sk3]))
+                res `shouldSatisfy` isVerSuccess
+            it "good (3 provided)" $ do
+                let res = checkScriptTx val
+                        (\sd -> ScriptWitness val
+                            (multisigRedeemer sd
+                             [Just sk1, Just sk2, Just sk3]))
+                res `shouldSatisfy` isVerSuccess
+            it "good (3 provided, 1 wrong)" $ do
+                let res = checkScriptTx val
+                        (\sd -> ScriptWitness val
+                            (multisigRedeemer sd
+                             [Just sk1, Just sk4, Just sk3]))
+                res `shouldSatisfy` isVerSuccess
+            it "bad (1 provided)" $ do
+                let res = checkScriptTx val
+                        (\sd -> ScriptWitness val
+                            (multisigRedeemer sd
+                             [Just sk1, Nothing, Nothing]))
+                shouldBeFailure res
+            it "bad (2 provided, length doesn't match)" $ do
+                let res = checkScriptTx val
+                        (\sd -> ScriptWitness val
+                            (multisigRedeemer sd
+                             [Just sk1, Just sk2]))
+                shouldBeFailure res
+            it "bad (3 provided, 2 wrong)" $ do
+                let res = checkScriptTx val
+                        (\sd -> ScriptWitness val
+                            (multisigRedeemer sd
+                             [Just sk1, Just sk3, Just sk2]))
+                shouldBeFailure res
 
   where
     -- Some random stuff we're going to use when building transactions
@@ -176,12 +239,14 @@ scriptTxSpec = describe "script transactions" $ do
     -- Test tx1 against tx0. Tx0 will be a script transaction with given
     -- validator. Tx1 will be a P2PK transaction spending tx0 (with given
     -- input witness).
-    checkScriptTx :: Script -> TxInWitness -> VerificationRes
-    checkScriptTx val wit =
+    checkScriptTx :: Script -> (TxSigData -> TxInWitness) -> VerificationRes
+    checkScriptTx val mkWit =
         let (inp, _, utxo) = mkUtxo $
                 TxOut (makeScriptAddress val) 1
             tx = Tx [inp] [randomPkOutput] (mkAttributes ())
-        in tryApplyTx utxo (tx, V.singleton wit, TxDistribution [[]])
+            txDistr = TxDistribution [[]]
+            txSigData = (hash tx, 0, hash [randomPkOutput], hash txDistr)
+        in tryApplyTx utxo (tx, V.singleton (mkWit txSigData), txDistr)
 
 -- | Test that errors in a 'VerFailure' match given regexes.
 errorsShouldMatch :: VerificationRes -> [Text] -> Expectation

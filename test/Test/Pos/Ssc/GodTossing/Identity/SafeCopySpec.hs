@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 -- | This module tests SafeCopy instances.
 
 module Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec

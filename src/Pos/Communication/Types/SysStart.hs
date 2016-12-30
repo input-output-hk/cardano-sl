@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 -- | Types used for communication about system start.
 
 module Pos.Communication.Types.SysStart

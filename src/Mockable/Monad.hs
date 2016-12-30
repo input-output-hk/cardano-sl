@@ -8,15 +8,18 @@ module Mockable.Monad (
     ) where
 
 import Mockable.Class
-import Mockable.Concurrent  (Delay(..))
+import Mockable.Channel         (Channel)
+import Mockable.Concurrent      (Delay, Fork)
+import Mockable.Exception       (Bracket, Throw, Catch)
+import Mockable.SharedAtomic    (SharedAtomic)
 
 -- | Bunch of Mockable-constraints.
 type MonadMockable m
     = ( Mockable Delay m
-      --, Mockable SharedAtomic m
-      --, Mockable Fork m
-      --, Mockable Bracket m
-      --, Mockable Channel.Channel m
-      --, Mockable Throw m
-      --, Mockable Catch m
+      , Mockable SharedAtomic m
+      , Mockable Fork m
+      , Mockable Bracket m
+      , Mockable Channel m
+      , Mockable Throw m
+      , Mockable Catch m
       )

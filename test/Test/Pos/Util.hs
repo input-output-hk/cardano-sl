@@ -1,8 +1,11 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Test.Pos.Util
        ( binaryEncodeDecode
@@ -41,6 +44,17 @@ serDeserId :: forall t . (Show t, Eq t, AsBinaryClass t) => t -> Property
 serDeserId a =
     either (panic . toText) identity
         (fromBinary $ asBinary @t a) ===  a
+
+class (Eq a, Show a, Arbitrary a, Typeable a) =>  InvertibleTestable f a where
+    identityProp :: f a => a -> Property
+    identityTest :: f a => (a -> Property) -> Spec
+    default identityTest :: f a => (a -> Property) -> Spec
+    identityTest identityProp = prop (typeName @a) identityProp
+
+type IdTestingRequiredClasses f a = (Eq a, Show a, Arbitrary a, Typeable a, f a)
+
+instance IdTestingRequiredClasses Bi a => InvertibleTestable Bi a where
+    identityProp = binaryEncodeDecode @a
 
 class BinaryTestable a where
     binaryTest :: Spec

@@ -15,6 +15,8 @@ module Mockable.Exception (
     , Catch(..)
     , catch
     , catchAll
+    , handle
+    , handleAll
 
     ) where
 
@@ -44,3 +46,9 @@ catch action handler = liftMockable $ Catch action handler
 
 catchAll :: ( Mockable Catch m ) => m t -> (SomeException -> m t) -> m t
 catchAll = catch
+
+handle :: ( Mockable Catch m, Exception e ) => (e -> m t) -> m t -> m t
+handle = flip catch
+
+handleAll :: ( Mockable Catch m ) => (SomeException -> m t) -> m t -> m t
+handleAll = handle

@@ -45,11 +45,13 @@ Library
                       , kademlia
                       , lens
                       , log-warper
+                      , monad-control
                       , mtl
                       , network
                       , network-transport
                       , network-transport-inmemory
                       , random
+                      , serokell-util
                       , stm
                       , text
                       , time

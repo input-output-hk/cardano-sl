@@ -23,7 +23,7 @@ import Mockable.Production (Production (..))
 
 runNtpClientIO :: NtpClientSettings -> IO NtpStopButton
 runNtpClientIO settings = do
-    initLogging Debug
+    initLogging Info
     runProduction $ startNtpClient settings
 
 

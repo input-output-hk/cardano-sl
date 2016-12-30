@@ -43,6 +43,11 @@
             .then(function() {})
             .catch(function(reason) {console.log(reason)})
       };
+      var isValidAddress = function(currency, address) {
+        Daedalus.ClientApi.isValidAddress(currency, address)()
+            .then(function(isValid) {console.log(isValid)})
+            .catch(function(reason) {console.log(reason)})
+      };
     </script>
 		<title></title>
 	</head>
@@ -58,6 +63,7 @@
       <li><button onclick="updateWallet('wallet_address', 'CWTPersonal', 'ADA', 'wallet_name');"/>updateWallet</li>
       <li><button onclick="updateTransaction('wallet_address', 'transaction_hash', 'ADA', 'new_transaction_title', 'new_transaction_description', 1000);"/>updateTransaction</li>
       <li><button onclick="deleteWallet('wallet_address');"/>deleteWallet</li>
+      <li><button onclick="isValidAddress('ADA', 'wallet_address');"/>isValidAddress</li>
     </ul>
 	</body>
 </html>

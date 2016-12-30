@@ -35,6 +35,7 @@ import           Pos.Types                  (Address, Coin (Coin), Tx, TxId, TxO
                                              makePubKeyAddress)
 import           Pos.Web.Server             (serveImpl)
 
+import           Data.Aeson                 (eitherDecode)
 import           Pos.Crypto                 (hash)
 import           Pos.Wallet.KeyStorage      (KeyError (..), MonadKeys (..), newSecretKey)
 import           Pos.Wallet.Tx              (submitTx)
@@ -112,6 +113,8 @@ servantHandlers =
      (\a -> addCors . updateWallet a)
     :<|>
      addCors . deleteWallet
+    :<|>
+     (\a -> addCors . isValidAddress a)
 
 getAddresses :: WalletWebMode ssc m => m [CAddress]
 getAddresses = map addressToCAddress <$> myAddresses
@@ -201,6 +204,11 @@ deleteWallet cAddr = do
             sformat ("Error while deleting wallet: "%stext) err
         }
 
+-- NOTE: later we will have `isValidAddress :: CCurrency -> CAddress -> m Bool` which should work for arbitrary crypto
+isValidAddress :: WalletWebMode ssc m => CCurrency -> Text -> m Bool
+isValidAddress ADA sAddr = pure . either (const False) (const True) $ decodeTextAddress sAddr
+isValidAddress _ _       = pure False
+
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
@@ -237,3 +245,6 @@ instance FromHttpApiData CAddress where
 -- we are not checking is receaved Text really vald CTxId
 instance FromHttpApiData CTxId where
     parseUrlPiece = pure . mkCTxId
+
+instance FromHttpApiData CCurrency where
+    parseUrlPiece = first fromString . eitherDecode . encodeUtf8

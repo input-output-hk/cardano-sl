@@ -30,8 +30,9 @@ import           Pos.Aeson.ClientTypes      ()
 import           Pos.Genesis                (genesisAddresses, genesisUtxo)
 import           Pos.Types                  (Coin)
 import           Pos.Wallet.Web.Api         (walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CHash, CTx, CTxId, CTxMeta,
-                                             CWallet, CWalletMeta, addressToCAddress)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CTx, CTxId,
+                                             CTxMeta, CWallet, CWalletMeta,
+                                             addressToCAddress)
 import           Prelude                    (fail)
 
 walletDocs :: API
@@ -115,6 +116,20 @@ instance ToCapture (Capture "transaction" CTxId) where
         DocCapture
         { _capSymbol = "transaction"
         , _capDesc = "Transaction id"
+        }
+
+instance ToCapture (Capture "address" Text) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "address"
+        , _capDesc = "Address"
+        }
+
+instance ToCapture (Capture "currency" CCurrency) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "currency"
+        , _capDesc = "Currency"
         }
 
 instance ToSample Coin where

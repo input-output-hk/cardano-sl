@@ -11,11 +11,11 @@ module Pos.Wallet.Web.Api
 
 import           Data.Proxy                 (Proxy (Proxy))
 import           Pos.Types                  (Coin, Tx)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CTx, CTxId, CTxMeta, CWallet,
-                                             CWalletMeta)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CTx, CTxId, CTxMeta,
+                                             CWallet, CWalletMeta)
 import           Servant.API                ((:<|>), (:>), Capture, Get, Header, Headers,
                                              JSON, Post, ReqBody)
-import           Universum                  (Text)
+import           Universum                  (Bool, Text)
 
 type Cors a = Headers '[Header "Access-Control-Allow-Origin" Text] a
 
@@ -38,6 +38,8 @@ type WalletApi =
     :<|>
     -- FIXME: this should be DELETE method
      "api" :> "delete_wallet" :> Capture "address" CAddress :> Post '[JSON] (Cors ())
+    :<|>
+     "api" :> "valid_address" :> Capture "currency" CCurrency :> Capture "address" Text :> Get '[JSON] (Cors Bool)
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

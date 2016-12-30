@@ -8,6 +8,7 @@ module Daedalus.Types
        , mkCWalletMeta
        , mkCTxMeta
        , mkCTxId
+       , mkCCurrency
        , _ctxIdValue
        ) where
 

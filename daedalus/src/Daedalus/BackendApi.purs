@@ -11,9 +11,11 @@ import Data.Either (either, Either(Left))
 import Data.Generic (class Generic)
 import Data.HTTP.Method (Method(POST))
 import Data.Maybe (Maybe (Just))
+import Data.String (toCharArray, fromCharArray)
+import Data.Array (filter)
 import Network.HTTP.Affjax (affjax, defaultRequest, AJAX, get)
 import Network.HTTP.RequestHeader (RequestHeader (ContentType))
-import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue)
+import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency)
 import Daedalus.Constants (backendPrefix)
 import Data.MediaType.Common (applicationJSON)
 
@@ -79,3 +81,9 @@ deleteWallet addr = do
   -- FIXME: use DELETE method
   res <- affjax $ defaultRequest { url = backendPrefix <> "/api/delete_wallet/" <> _address addr, method = Left POST }
   either throwError pure $ decodeResult res
+
+isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
+isValidAddress cCurrency addr = makeRequest $ "/api/valid_address/" <> stripQuotes (show $ encodeJson cCurrency) <> "/" <> addr
+  where
+    -- TODO: this is kind of stupid. Consider using gShow from Generic
+    stripQuotes = fromCharArray <<< filter (\c -> c /= '"') <<< toCharArray

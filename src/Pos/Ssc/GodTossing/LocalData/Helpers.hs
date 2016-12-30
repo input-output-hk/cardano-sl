@@ -19,6 +19,7 @@ import           Pos.Ssc.GodTossing.Types           (CommitmentsMap, GtGlobalSta
                                                      SscGodTossing, VssCertificatesMap,
                                                      _gsCommitments, _gsOpenings,
                                                      _gsShares, _gsVssCertificates)
+import qualified Pos.Ssc.GodTossing.VssMap          as VM
 import           Pos.Types                          (SlotId)
 
 -- | This wrapper using for pass local and global state to
@@ -82,7 +83,7 @@ toGtState g l =
       _gtGlobalCommitments  = _gsCommitments g
     , _gtGlobalOpenings     = _gsOpenings g
     , _gtGlobalShares       = _gsShares g
-    , _gtGlobalCertificates = _gsVssCertificates g
+    , _gtGlobalCertificates = VM.certs $ _gsVssCertificates g
     , _gtLocalCommitments   = LD._ldCommitments l
     , _gtLocalOpenings      = LD._ldOpenings l
     , _gtLocalShares        = LD._ldShares l

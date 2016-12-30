@@ -28,6 +28,7 @@ module Pos.Constants
        , defaultPeers
        , sysTimeBroadcastSlots
        , mpcSendInterval
+       , vssTTL
 
          -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -151,6 +152,8 @@ defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
         either (panic . show) identity .
         P.parse dhtNodeParser "Compile time config"
 
+vssTTL :: Integral i => i
+vssTTL = fromIntegral . ccVssTTL $ compileConfig
 ----------------------------------------------------------------------------
 -- Malicious activity
 ----------------------------------------------------------------------------

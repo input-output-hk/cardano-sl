@@ -30,7 +30,6 @@ module Pos.Ssc.GodTossing.Functions
        , checkOpeningMatchesCommitment
        -- * GtPayload
        , verifyGtPayload
-       , filterLocalPayload
 
        -- * Modern
        , getThreshold
@@ -63,13 +62,12 @@ import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap
                                                  SignedCommitment, VssCertificate (..),
                                                  VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..))
+import qualified Pos.Ssc.GodTossing.VssMap      as VM
 import           Pos.Types.Address              (AddressHash, addressHash)
 import           Pos.Types.Types                (EpochIndex, LocalSlotIndex,
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), headerSlot)
-import           Pos.Util                       (AsBinary, asBinary, diffDoubleMap,
-                                                 fromBinaryM)
-
+import           Pos.Util                       (AsBinary, asBinary, fromBinaryM)
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
@@ -133,7 +131,7 @@ hasShares :: AddressHash PublicKey -> GtGlobalState -> Bool
 hasShares addr = HM.member addr . _gsShares
 
 hasVssCertificate :: AddressHash PublicKey -> GtGlobalState -> Bool
-hasVssCertificate addr = HM.member addr . _gsVssCertificates
+hasVssCertificate addr = VM.member addr . _gsVssCertificates
 
 ----------------------------------------------------------------------------
 -- Verifications for GodTossing.Types.Base
@@ -351,56 +349,6 @@ verifyGtPayload header payload =
     otherChecks =
         [ (inRange (0, 6 * k - 1) (siSlot slotId),
             "slot id is outside of [0, 6k)")]
-
-----------------------------------------------------------------------------
--- Filter Local Payload
-----------------------------------------------------------------------------
-filterLocalPayload :: GtPayload -> GtGlobalState -> GtPayload
-filterLocalPayload localPay GtGlobalState {..} =
-    case localPay of
-        CommitmentsPayload comms certs ->
-            CommitmentsPayload
-                ((comms `HM.difference` _gsCommitments) `HM.intersection`
-                 _gsVssCertificates)
-                (filterCerts certs)
-        OpeningsPayload opens certs ->
-            let filteredOpenings =
-                    foldl' (flip ($)) opens $
-                    [
-                    -- Select only new openings
-                      (`HM.difference` _gsOpenings)
-                    -- Select commitments which sent opening
-                    , (`HM.intersection` _gsCommitments)
-                    -- Select opening which corresponds its commitment
-                    , HM.filterWithKey
-                          (curry $ checkOpeningMatchesCommitment _gsCommitments)
-                    ]
-            in
-                OpeningsPayload filteredOpenings (filterCerts certs)
-        SharesPayload shares certs ->
-            let filteredShares =
-                    foldl' (flip ($)) shares $
-                    [
-                    -- Select only new shares
-                      (`diffDoubleMap` _gsShares)
-                    -- Select shares from nodes which sent certificates
-                    , (`HM.intersection` _gsVssCertificates)
-                    -- Select shares to nodes which sent commitments
-                    , map (`HM.intersection` _gsCommitments)
-                    -- Ensure that share sent from pkFrom to pkTo is valid
-                    , HM.mapWithKey filterShares
-                    ]
-            in
-                SharesPayload filteredShares (filterCerts certs)
-        CertificatesPayload certs -> CertificatesPayload $ filterCerts certs
-  where
-    filterCerts = flip HM.difference _gsVssCertificates
-    filterShares pkTo shares = HM.filterWithKey
-        (\pkFrom share -> checkShare
-                              _gsCommitments
-                              _gsOpenings
-                              _gsVssCertificates
-                              (pkTo, pkFrom, share)) shares
 
 ----------------------------------------------------------------------------
 -- Modern

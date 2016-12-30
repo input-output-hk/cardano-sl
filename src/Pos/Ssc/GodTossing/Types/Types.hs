@@ -44,11 +44,14 @@ import           Serokell.Util                 (listJson)
 import           Universum
 
 import           Pos.Binary.Class              (Bi)
+import           Pos.Constants                 (k, vssTTL)
 import           Pos.Crypto                    (Hash, VssKeyPair, hash)
 import           Pos.Ssc.GodTossing.Genesis    (genesisCertificates)
 import           Pos.Ssc.GodTossing.Types.Base (Commitment, CommitmentsMap, Opening,
                                                 OpeningsMap, SharesMap, VssCertificate,
                                                 VssCertificatesMap)
+import           Pos.Ssc.GodTossing.VssMap     (VssMap)
+import qualified Pos.Ssc.GodTossing.VssMap     as VM
 
 ----------------------------------------------------------------------------
 -- SscGlobalState
@@ -64,11 +67,20 @@ data GtGlobalState = GtGlobalState
     , _gsShares          :: !SharesMap
       -- | Vss certificates are added at any time if they are valid and
       -- received from stakeholders.
-    , _gsVssCertificates :: !VssCertificatesMap
+    , _gsVssCertificates :: !VssMap
     } deriving (Show, Generic)
 
-deriveSafeCopySimple 0 'base ''GtGlobalState
 makeLenses ''GtGlobalState
+
+instance Default GtGlobalState where
+    def =
+        GtGlobalState
+        {
+          _gsCommitments = mempty
+        , _gsOpenings = mempty
+        , _gsShares = mempty
+        , _gsVssCertificates = VM.createFromTTL (vssTTL * 6 * k)
+        }
 
 instance Buildable GtGlobalState where
     build GtGlobalState {..} =
@@ -101,17 +113,7 @@ instance Buildable GtGlobalState where
         formatCertificates =
             formatIfNotNull
                 ("  certificates from: "%listJson%"\n")
-                (HM.keys _gsVssCertificates)
-
-instance Default GtGlobalState where
-    def =
-        GtGlobalState
-        {
-          _gsCommitments = mempty
-        , _gsOpenings = mempty
-        , _gsShares = mempty
-        , _gsVssCertificates = mempty
-        }
+                (VM.keys _gsVssCertificates)
 
 ----------------------------------------------------------------------------
 -- SscPayload

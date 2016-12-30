@@ -64,7 +64,7 @@ getHistory :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) (Array CTx)
 getHistory addr = getR ["history", _address addr]
 
 send :: forall eff. CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) CTx
-send addrFrom addrTo amount = postR ["send", _address addrFrom, _address addrTo, show (_coin amount)]
+send addrFrom addrTo amount = postR ["send", _address addrFrom, _address addrTo, show $ _coin amount]
 
 newWallet :: forall eff. CWalletMeta -> Aff (ajax :: AJAX | eff) CWallet
 newWallet = postRBody ["new_wallet"]
@@ -80,7 +80,7 @@ deleteWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) Unit
 deleteWallet addr = postR ["delete_wallet", _address addr]
 
 isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
-isValidAddress cCurrency addr = getR ["valid_address", dropModuleName (gShow cCurrency), addr]
+isValidAddress cCurrency addr = getR ["valid_address", dropModuleName $ gShow cCurrency, addr]
   where
     -- TODO: this is again stupid. We should derive Show for this type instead of doing this
     dropModuleName = unsafePartial last <<< split "."

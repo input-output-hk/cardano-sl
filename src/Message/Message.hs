@@ -31,9 +31,8 @@ import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Builder.Extra as BS
 import qualified Data.ByteString.Lazy          as LBS
 import           Data.Conduit                  (Conduit, Sink, Source, await,
-                                                awaitForever,
-                                                fuseReturnLeftovers, leftover,
-                                                yield, ($$), (=$=))
+                                                awaitForever, fuseReturnLeftovers,
+                                                leftover, yield, ($$), (=$=))
 import qualified Data.Conduit.List             as CL
 import           Data.Functor.Identity         (runIdentity)
 import           Data.Maybe                    (fromMaybe)
@@ -41,11 +40,11 @@ import           Data.Monoid                   ((<>))
 import           Data.String                   (IsString)
 import           GHC.Generics                  (Generic)
 import           Mockable.Channel              (Channel, ChannelT, newChannel,
-                                                readChannel, unGetChannel,
-                                                writeChannel)
+                                                readChannel, unGetChannel, writeChannel)
 import           Mockable.Class                (Mockable)
 
-import           Message.Util                  (fuseChannel)
+import Message.Util (fuseChannel)
+
 
 -- * Message name
 
@@ -127,7 +126,7 @@ instance ( Packable p (ContentData h), Packable p (ContentData r),
 instance ( Packable p (ContentData h) )
         => Packable p (WithHeaderData h RawData) where
     packMsg p (WithHeaderData h (RawData raw)) =
-        packMsg p (ContentData h) <> raw
+        packMsg p (ContentData h) <> Bin.encode raw
 
 
 instance ( Unpackable p (ContentData h), Unpackable p (ContentData BS.ByteString) )

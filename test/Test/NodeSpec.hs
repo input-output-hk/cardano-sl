@@ -19,10 +19,11 @@ import           Node                        (Listener (..))
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
 import           Test.QuickCheck             (Property, ioProperty)
-import           Test.Util                   (Parcel (..), TalkStyle (..), TestState,
-                                              activeWorkers, addFail, deliveryTest,
-                                              expected, mkTestState, modifyTestState,
-                                              newWork, receiveAll, sendAll)
+import           Test.Util                   (HeavyParcel (..), Parcel (..),
+                                              TalkStyle (..), TestState, activeWorkers,
+                                              addFail, deliveryTest, expected,
+                                              mkTestState, modifyTestState, newWork,
+                                              receiveAll, sendAll)
 
 spec :: Spec
 spec = describe "Node" $
@@ -33,10 +34,11 @@ spec = describe "Node" $
                     plainDeliveryTest talkStyle
                 prop "header-filtering" $
                     headersFilteringDeliveryTest talkStyle
+                prop "heavy messages sent nicely" $
+                    withHeavyParcels $ plainDeliveryTest talkStyle
 
-        describe "prelistener" $
-            prop "prelistener is called even if no appropriate listener defined" $
-                prelistenerTest
+        prop "prelistener is called even if no appropriate listener defined" $
+            prelistenerTest
 
 prepareDeliveryTestState :: [Parcel] -> IO (TVar TestState)
 prepareDeliveryTestState expectedParcels = do
@@ -100,3 +102,6 @@ prelistenerTest parcels = ioProperty $ do
             return True
 
     deliveryTest testState [worker] [] (Just prelistener)
+
+withHeavyParcels :: ([Parcel] -> Property) -> [HeavyParcel] -> Property
+withHeavyParcels testCase megaParcels = testCase (getHeavyParcel <$> megaParcels)

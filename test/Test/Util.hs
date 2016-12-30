@@ -12,6 +12,8 @@
 
 module Test.Util
        ( Parcel (..)
+       , Payload (..)
+       , HeavyParcel (..)
 
        , TestState (..)
        , mkTestState
@@ -36,7 +38,8 @@ import           Control.Lens                (makeLenses, (%=), (-=))
 import           Control.Monad               (forM_, void)
 import           Control.Monad.IO.Class      (MonadIO (..))
 import           Control.Monad.State         (StateT)
-import           Data.Binary                 (Binary)
+import           Data.Binary                 (Binary (..))
+import qualified Data.ByteString             as LBS
 import           Data.Foldable               (for_)
 import qualified Data.List                   as L
 import qualified Data.Set                    as S
@@ -52,6 +55,7 @@ import           Serokell.Util.Concurrent    (modifyTVarS)
 import           System.Random               (mkStdGen)
 import           Test.QuickCheck             (Property)
 import           Test.QuickCheck.Arbitrary   (Arbitrary (..))
+import           Test.QuickCheck.Gen         (choose)
 import           Test.QuickCheck.Modifiers   (getLarge)
 import           Test.QuickCheck.Property    (Testable (..), failed, reason, succeeded)
 
@@ -63,15 +67,35 @@ import          Message.Message (BinaryP (..))
 
 -- * Parcel
 
+data Payload = Payload Int
+    deriving (Eq, Ord, Show)
+
+instance Binary Payload where
+    put (Payload size) = put $ LBS.replicate size 7
+    get = Payload . LBS.length <$> get
+
 data Parcel = Parcel
     { parcelNo  :: Int
     , toProcess :: Bool
+    , payload   :: Payload
     } deriving (Eq, Ord, Show, Generic)
 
 instance Binary Parcel
 
 instance Arbitrary Parcel where
-    arbitrary = Parcel <$> (getLarge <$> arbitrary) <*> arbitrary
+    arbitrary = Parcel
+            <$> (getLarge <$> arbitrary)
+            <*> arbitrary
+            <*> pure (Payload 0)
+
+newtype HeavyParcel = HeavyParcel
+    { getHeavyParcel :: Parcel
+    } deriving (Eq, Ord, Show, Binary)
+
+instance Arbitrary HeavyParcel where
+    arbitrary = mkHeavy <$> arbitrary <*> choose (0, 100000)
+      where
+        mkHeavy parcel size = HeavyParcel parcel { payload = Payload size }
 
 
 -- * TestState

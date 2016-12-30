@@ -20,6 +20,8 @@ module Message.Message
     , RawData (..)
 
     , BinaryP (..)
+
+    , sinkGetSafe
     ) where
 
 import           Control.Monad                 (forM_, unless)
@@ -58,10 +60,11 @@ instance Bin.Binary MessageName
 
 
 -- * Parts of message.
--- This code describes different parts of message. which are enought for serializing
--- message / could be extracted on deserializing.
+-- This code describes different parts of message, which serialization /
+-- deserialization plays with.
 
--- | Serializes / deserialized directly
+-- | Some content. Serializes to `ByteString` directly, you would probably define
+-- `Packable` / `Unpackable` instances with custom packing for this type.
 newtype ContentData r = ContentData r
 
 -- | Designates data given from incoming message, but not deserialized to any specified
@@ -71,6 +74,8 @@ newtype RawData = RawData LBS.ByteString
 -- | Message's header & something else
 data WithHeaderData h r = WithHeaderData h r
 
+-- | All available data from message, i.e. header, content in raw form, way to extract
+-- content when its type gets known.
 data FullData h = FullData h RawData Extractable
 
 
@@ -86,13 +91,13 @@ forInput End       _ = pure End
 forInput NoParse   _ = pure NoParse
 forInput (Input t) f = f t
 
-receiving :: ( Unpackable p r, Monad m )
+-- | Extracts message of type @t@ from bytestream and passes it to handler.
+receiving :: ( Unpackable p t, Monad m )
           => p
-          -> (r -> Sink BS.ByteString m (Input a))
+          -> (t -> Sink BS.ByteString m (Input a))
           -> Sink BS.ByteString m (Input a)
 receiving p f = unpackMsg p >>= flip forInput f
 
-type ParseError = String
 
 -- | Defines a way to serialize object @r@ with given packing type @p@.
 class Packable p r where
@@ -101,15 +106,17 @@ class Packable p r where
     packMsg :: p -> r -> LBS.ByteString
 
 -- | Defines a way to deserealize data with given packing type @p@ and extract object @r@.
-class Unpackable p r where
-    unpackMsg :: Monad m => p -> Sink BS.ByteString m (Input r)
+class Unpackable p t where
+    -- | Way to extract object @r@ from
+    unpackMsg :: Monad m => p -> Sink BS.ByteString m (Input t)
 
-
+-- | Allows to deserialize some bytestring when type of required result gets known
 data Extractable = Extractable
-    { extract :: forall p r . ( Unpackable p r )
-              => p -> Input r
+    { extract :: forall p t . ( Unpackable p t )
+              => p -> Input t
     }
 
+-- | Contructs `Extractuble`
 prepareExtract :: BS.ByteString -> Extractable
 prepareExtract bs = Extractable $
     \p -> runIdentity (yield bs $$ unpackMsg p)
@@ -143,7 +150,7 @@ instance ( Unpackable p (ContentData h), Unpackable p (ContentData BS.ByteString
 
 data BinaryP = BinaryP
 
-instance Bin.Binary r => Packable BinaryP (ContentData r) where
+instance Bin.Binary t => Packable BinaryP (ContentData t) where
     packMsg p (ContentData r) =
         BS.toLazyByteStringWith
             (BS.untrimmedStrategy 256 4096)
@@ -151,10 +158,10 @@ instance Bin.Binary r => Packable BinaryP (ContentData r) where
         . Bin.execPut
         $ Bin.put r
 
-instance Bin.Binary r => Unpackable BinaryP (ContentData r) where
+instance Bin.Binary t => Unpackable BinaryP (ContentData t) where
     unpackMsg p = sinkGetSafe (ContentData <$> Bin.get)
 
-sinkGetSafe :: Monad m => Bin.Get b -> Sink BS.ByteString m (Input b)
+sinkGetSafe :: Monad m => Bin.Get t -> Sink BS.ByteString m (Input t)
 sinkGetSafe f = sink (Bin.runGetIncremental f)
   where
     sink (Bin.Done bs _ v)  = do unless (BS.null bs) $ leftover bs

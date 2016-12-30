@@ -44,6 +44,7 @@ import           Universum                       hiding (async, fromStrict,
 
 import           Pos.Binary.Class                (Bi (..))
 import           Pos.Binary.DHTModel             ()
+import           Pos.Constants                   (enchancedMessageBroadcast)
 import           Pos.DHT.Model.Class             (DHTException (..), DHTMsgHeader (..),
                                                   DHTPacking, DHTResponseT (..),
                                                   ListenerDHT (..), MonadDHT (..),
@@ -336,7 +337,9 @@ instance (MonadIO m, MonadCatch m, WithLogger m, Bi DHTData, Bi DHTKey) =>
             flip (foldr $ \n -> HM.insert (dhtNodeId n) n) initial .
             HM.fromList . map (\(toDHTNode -> n) -> (dhtNodeId n, n)) .
             selectSufficientNodes inst myId
-        selectSufficientNodes inst myId l = concat $ map take2 $ splitToBuckets inst myId l
+        selectSufficientNodes inst myId l = if enchancedMessageBroadcast
+                                            then concat $ map take2 $ splitToBuckets inst myId l
+                                            else l
         splitToBuckets inst origin peers = flip K.usingKademliaInstance inst $ do
             let bucketId x = length . takeWhile (not . id) <$> K.distance origin (K.nodeId x)
                 insertId i hm = do

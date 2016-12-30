@@ -10,3 +10,4 @@ mpcSendInterval: 12 # must be less than (k * slotDuration - networkDiameter)
 mdNoBlocksSlotThreshold: 10
 mdNoCommitmentsEpochThreshold: 3
 protocolMagic: 0
+enchancedMessageBroadcast: true

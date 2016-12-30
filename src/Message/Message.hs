@@ -65,6 +65,8 @@ instance Bin.Binary MessageName
 
 -- | Some content. Serializes to `ByteString` directly, you would probably define
 -- `Packable` / `Unpackable` instances with custom packing for this type.
+-- Motivation: @instance Packable MyPacking a@ would overlap any other instance
+-- for same packing.
 newtype ContentData r = ContentData r
 
 -- | Designates data given from incoming message, but not deserialized to any specified
@@ -119,7 +121,10 @@ data Extractable = Extractable
 -- | Contructs `Extractuble`
 prepareExtract :: BS.ByteString -> Extractable
 prepareExtract bs = Extractable $
-    \p -> runIdentity (yield bs $$ unpackMsg p)
+    \p -> runIdentity (yield bs $$ unpack p)
+  where
+    -- deserialize; error if unconsumed input remained
+    unpack p = flip maybe (const NoParse) <$> unpackMsg p <*> await
 
 
 -- * Instances for message parts

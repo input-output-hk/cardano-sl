@@ -216,6 +216,7 @@ library
                         Pos.Types.Utxo.Pure
                         Pos.Worker.Lrc
                         Pos.Worker.Stats
+                        Pos.Update
                         Pos.Util.Arbitrary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented
@@ -258,8 +259,8 @@ library
                         Pos.Wallet.Web.State.Holder
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
-  build-depends:        IfElse
-                      , HsOpenSSL
+  build-depends:        HsOpenSSL
+                      , IfElse
                       , QuickCheck
                       , UtilityTM
                       , acid-state
@@ -291,6 +292,9 @@ library
                       , focus
                       , formatting
                       , hashable
+                      , http-client
+                      , http-client-tls
+                      , http-conduit
                       , kademlia
                       , lens
                       , lifted-async

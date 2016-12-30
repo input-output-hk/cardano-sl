@@ -37,10 +37,11 @@ module Pos.Constants
          -- * Update system constants
        , curProtocolVersion
        , curSoftwareVersion
+       , updateServers
        ) where
 
 import           Control.TimeWarp.Timed (Microsecond, sec)
-import           Data.Int               (Int32)
+import           Data.String            (String)
 import qualified Text.Parsec            as P
 import           Universum
 
@@ -188,3 +189,7 @@ curProtocolVersion = ProtocolVersion 0 0 0
 -- | Version of application (code running)
 curSoftwareVersion :: SoftwareVersion
 curSoftwareVersion = SoftwareVersion cardanoSlAppName 1 0
+
+-- | Update servers
+updateServers :: [String]
+updateServers = ccUpdateServers compileConfig

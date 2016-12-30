@@ -1,4 +1,3 @@
-
 -- | Functions for updating the application.
 
 module Pos.Update
@@ -20,9 +19,6 @@ import           Universum
 
 import           Pos.Constants           (updateServers)
 import           Pos.Crypto              (Hash)
-
--- | Download an update.
-
 
 -- | Download a file by its hash.
 --

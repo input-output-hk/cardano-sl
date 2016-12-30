@@ -11,7 +11,7 @@ import Data.Either (either, Either(Left))
 import Data.Generic (class Generic, gShow)
 import Data.HTTP.Method (Method(POST))
 import Data.Maybe (Maybe (Just))
-import Data.String (split)
+import Data.String (split, joinWith)
 import Data.Array.Partial (last)
 import Network.HTTP.Affjax (affjax, defaultRequest, AJAX, get)
 import Network.HTTP.RequestHeader (RequestHeader (ContentType))
@@ -20,29 +20,36 @@ import Daedalus.Constants (backendPrefix)
 import Data.MediaType.Common (applicationJSON)
 import Partial.Unsafe (unsafePartial)
 
+-- HELPERS
+urlPath :: forall a. Array String -> String
+urlPath = joinWith "/"
+
+backendApi :: forall a. Array String -> String
+backendApi path = urlPath $ [backendPrefix, "api"] <> path
+
 -- TODO: remove traces, they are adding to increase verbosity in development
 makeRequest :: forall eff a. (Generic a) => String -> Aff (ajax :: AJAX | eff) a
 makeRequest url = do
-  res <- get $ backendPrefix <> url
+  res <- get url
   either throwError pure $ decodeResult res
 
 decodeResult :: forall a eff. (Generic a) => {response :: Json | eff} -> Either Error a
 decodeResult res = bimap error id $ decodeJson res.response
 
 getWallets :: forall eff. Aff (ajax :: AJAX | eff) (Array CWallet)
-getWallets = makeRequest $ "/api/get_wallets"
+getWallets = makeRequest $ backendApi ["get_wallets"]
 
 getWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) CWallet
-getWallet addr = makeRequest $ "/api/get_wallet/" <> _address addr
+getWallet addr = makeRequest $ backendApi ["get_wallet", _address addr]
 
 getHistory :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) (Array CTx)
-getHistory addr = makeRequest $ "/api/history/" <> _address addr
+getHistory addr = makeRequest $ backendApi ["history", _address addr]
 
 send :: forall eff. CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) CTx
 send addrFrom addrTo amount = do
   res <- affjax $ defaultRequest
     -- TODO: use url constructor
-    { url = backendPrefix <> "/api/send/" <> _address addrFrom <> "/" <> _address addrTo <> "/" <> show (_coin amount)
+    { url = backendApi ["send", _address addrFrom, _address addrTo, show (_coin amount)]
     , method = Left POST
     }
   either throwError pure $ decodeResult res
@@ -50,7 +57,7 @@ send addrFrom addrTo amount = do
 newWallet :: forall eff. CWalletMeta -> Aff (ajax :: AJAX | eff) CWallet
 newWallet wMeta = do
   res <- affjax $ defaultRequest
-    { url = backendPrefix <> "/api/new_wallet"
+    { url = backendApi ["new_wallet"]
     , method = Left POST
     , content = Just <<< show $ encodeJson wMeta
     , headers = [ContentType applicationJSON]
@@ -60,7 +67,7 @@ newWallet wMeta = do
 updateTransaction :: forall eff. CAddress -> CTxId -> CTxMeta -> Aff (ajax :: AJAX | eff) Unit
 updateTransaction addr ctxId ctxMeta = do
   res <- affjax $ defaultRequest
-    { url = backendPrefix <> "/api/update_transaction/" <> _address addr <> "/" <> _ctxIdValue ctxId
+    { url = backendApi ["update_transaction", _address addr, _ctxIdValue ctxId]
     , method = Left POST
     , content = Just $ encodeJson ctxMeta
     , headers = [ContentType applicationJSON]
@@ -70,7 +77,7 @@ updateTransaction addr ctxId ctxMeta = do
 updateWallet :: forall eff. CAddress -> CWalletMeta -> Aff (ajax :: AJAX | eff) CWallet
 updateWallet addr wMeta = do
   res <- affjax $ defaultRequest
-    { url = backendPrefix <> "/api/update_wallet/" <> _address addr
+    { url = backendApi ["update_wallet", _address addr]
     , method = Left POST
     , content = Just <<< show $ encodeJson wMeta
     , headers = [ContentType applicationJSON]
@@ -80,11 +87,11 @@ updateWallet addr wMeta = do
 deleteWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) Unit
 deleteWallet addr = do
   -- FIXME: use DELETE method
-  res <- affjax $ defaultRequest { url = backendPrefix <> "/api/delete_wallet/" <> _address addr, method = Left POST }
+  res <- affjax $ defaultRequest { url = backendApi ["delete_wallet", _address addr], method = Left POST }
   either throwError pure $ decodeResult res
 
 isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
-isValidAddress cCurrency addr = makeRequest $ "/api/valid_address/" <> dropModuleName (gShow cCurrency) <> "/" <> addr
+isValidAddress cCurrency addr = makeRequest $ backendApi ["valid_address", dropModuleName (gShow cCurrency), addr]
   where
     -- TODO: this is again stupid. We should derive Show for this type instead of doing this
     dropModuleName = unsafePartial last <<< split "."

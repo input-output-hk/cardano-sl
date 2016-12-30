@@ -37,21 +37,28 @@ module Pos.Constants
          -- * Update system constants
        , curProtocolVersion
        , curSoftwareVersion
+       , appSystemTag
        , updateServers
        ) where
 
-import           Control.TimeWarp.Timed (Microsecond, sec)
-import           Data.String            (String)
-import qualified Text.Parsec            as P
-import           Universum
+#if !defined(DEV_MODE)
+import           Control.Monad              (fail)
+#endif
+import           Control.TimeWarp.Timed     (Microsecond, sec)
+import           Data.String                (String)
+import           Language.Haskell.TH.Syntax (lift, runIO)
+import           System.Environment         (lookupEnv)
+import qualified Text.Parsec                as P
+import           Universum                  hiding (lift)
 
-import           Pos.CLI                (dhtNodeParser)
-import           Pos.CompileConfig      (CompileConfig (..), compileConfig)
-import           Pos.DHT.Model.Types    (DHTNode)
-import           Pos.Types.Timestamp    (Timestamp)
-import           Pos.Types.Version      (ApplicationName, ProtocolVersion (..),
-                                         SoftwareVersion (..), mkApplicationName)
-import           Pos.Util               ()
+import           Pos.CLI                    (dhtNodeParser)
+import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
+import           Pos.DHT.Model.Types        (DHTNode)
+import           Pos.Types.Timestamp        (Timestamp)
+import           Pos.Types.Update           (SystemTag, mkSystemTag)
+import           Pos.Types.Version          (ApplicationName, ProtocolVersion (..),
+                                             SoftwareVersion (..), mkApplicationName)
+import           Pos.Util                   ()
 
 ----------------------------------------------------------------------------
 -- Main constants mentioned in paper
@@ -181,6 +188,21 @@ mdNoCommitmentsEpochThreshold = fromIntegral . ccMdNoCommitmentsEpochThreshold $
 cardanoSlAppName :: ApplicationName
 cardanoSlAppName = either (panic . (<>) "Failed to init cardanoSlAppName: ")
                       identity $ mkApplicationName "cardano"
+
+appSystemTag :: SystemTag
+appSystemTag = $(do
+    mbTag <- runIO (lookupEnv "CSL_SYSTEM_TAG")
+    case mbTag of
+        Nothing ->
+#ifdef DEV_MODE
+            [|panic "'appSystemTag' can't be used if \
+                    \env var \"CSL_SYSTEM_TAG\" wasn't set \
+                    \during compilation" |]
+#else
+            fail "Failed to init appSystemTag: \
+                 \couldn't find env var \"CSL_SYSTEM_TAG\""
+#endif
+        Just tag -> lift =<< mkSystemTag (toText tag))
 
 -- | Protocol version application uses
 curProtocolVersion :: ProtocolVersion

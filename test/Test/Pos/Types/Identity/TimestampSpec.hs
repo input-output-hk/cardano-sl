@@ -8,7 +8,6 @@ module Test.Pos.Types.Identity.TimestampSpec
 
 import           Pos.Types             (Timestamp)
 import           Test.Hspec            (Spec, describe)
-import           Test.Hspec.QuickCheck (prop)
 import           Universum
 
 import           Test.Pos.Util         (binaryTest, showReadTest)

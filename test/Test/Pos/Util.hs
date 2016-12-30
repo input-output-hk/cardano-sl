@@ -18,12 +18,15 @@ module Test.Pos.Util
        , showReadTest
        ) where
 
+import           Data.Proxy            (Proxy)
 import           Data.SafeCopy         (SafeCopy, safeGet, safePut)
 import           Data.Serialize        (runGet, runPut)
-import           Data.Typeable         (typeOf)
+import           Data.Typeable         (typeRep)
+import           Prelude               (read)
+
 import           Pos.Binary            (Bi, decode, encode)
 import           Pos.Util              (AsBinaryClass (..))
-import           Prelude               (read)
+
 import           Test.Hspec            (Spec)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Arbitrary, Property, (===))
@@ -45,41 +48,22 @@ serDeserId a =
     either (panic . toText) identity
         (fromBinary $ asBinary @t a) ===  a
 
-class (Eq a, Show a, Arbitrary a, Typeable a) =>  InvertibleTestable f a where
-    identityProp :: f a => a -> Property
-    identityTest :: f a => (a -> Property) -> Spec
-    default identityTest :: f a => (a -> Property) -> Spec
-    identityTest identityProp = prop (typeName @a) identityProp
+typeName :: forall a. Typeable a => [Char]
+typeName = show $ typeRep (Proxy @a)
 
 type IdTestingRequiredClasses f a = (Eq a, Show a, Arbitrary a, Typeable a, f a)
 
-instance IdTestingRequiredClasses Bi a => InvertibleTestable Bi a where
-    identityProp = binaryEncodeDecode @a
+identityTest :: forall f a. (IdTestingRequiredClasses f a) => (a -> Property) -> Spec
+identityTest fun = prop (typeName @a) fun
 
-class BinaryTestable a where
-    binaryTest :: Spec
+binaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
+binaryTest = identityTest @Bi @a binaryEncodeDecode
 
-class SafeCopyTestable a where
-    safeCopyTest :: Spec
+safeCopyTest :: forall a. IdTestingRequiredClasses SafeCopy a => Spec
+safeCopyTest = identityTest @SafeCopy @a safeCopyEncodeDecode
 
-class SerDeserTestable a where
-    serDeserTest :: Spec
+serDeserTest :: forall a. IdTestingRequiredClasses AsBinaryClass a => Spec
+serDeserTest = identityTest @AsBinaryClass @a serDeserId
 
-class ReadShowTestable a where
-    showReadTest :: Spec
-
-typeName :: forall a. Typeable a => [Char]
-typeName = show $ typeOf @a undefined
-
-instance (Bi a, Arbitrary a, Show a, Eq a, Typeable a) => BinaryTestable a where
-    binaryTest = prop (typeName @a) (binaryEncodeDecode @a)
-
-instance (SafeCopy a, Arbitrary a, Show a, Eq a, Typeable a) => SafeCopyTestable a where
-    safeCopyTest = prop (typeName @a) (safeCopyEncodeDecode @a)
-
-instance (AsBinaryClass a, Arbitrary a, Show a, Eq a, Typeable a) =>
-    SerDeserTestable a where
-    serDeserTest = prop (typeName @a) (serDeserId @a)
-
-instance (Read a, Arbitrary a, Show a, Eq a, Typeable a) => ReadShowTestable a where
-    showReadTest = prop (typeName @a) (showRead @a)
+showReadTest :: forall a. IdTestingRequiredClasses Read a => Spec
+showReadTest = identityTest @Read @a showRead

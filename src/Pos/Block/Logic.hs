@@ -253,13 +253,13 @@ getHeadersFromToIncl older newer = runMaybeT $ do
     start <- MaybeT $ DB.getBlockHeader newer
     end <- MaybeT $ DB.getBlockHeader older
     guard $ flattenEpochOrSlot start >= flattenEpochOrSlot end
-    let lowerBound = getEpochOrSlot end
+    let lowerBound = flattenEpochOrSlot end
     if newer == older
     then pure $ newer :| []
     else loadHeadersDo lowerBound (newer :| []) $ start ^. prevBlockL
   where
     loadHeadersDo
-        :: EpochOrSlot
+        :: Word64
         -> NonEmpty (HeaderHash ssc)
         -> HeaderHash ssc
         -> MaybeT m (NonEmpty (HeaderHash ssc))
@@ -268,7 +268,7 @@ getHeadersFromToIncl older newer = runMaybeT $ do
         | nextHash == older = pure $ nextHash <| hashes
         | otherwise = do
             nextHeader <- MaybeT $ DB.getBlockHeader nextHash
-            guard $ getEpochOrSlot nextHeader > lowerBound
+            guard $ flattenEpochOrSlot nextHeader > lowerBound
             loadHeadersDo lowerBound (nextHash <| hashes) (nextHeader ^. prevBlockL)
 
 -- CHECK: @verifyBlocksLogic

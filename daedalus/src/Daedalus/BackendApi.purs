@@ -11,12 +11,14 @@ import Data.Either (either, Either(Left))
 import Data.Generic (class Generic, gShow)
 import Data.HTTP.Method (Method(POST))
 import Data.Maybe (Maybe (Just))
-import Data.String (drop, dropWhile)
+import Data.String (split)
+import Data.Array.Partial (last)
 import Network.HTTP.Affjax (affjax, defaultRequest, AJAX, get)
 import Network.HTTP.RequestHeader (RequestHeader (ContentType))
 import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency)
 import Daedalus.Constants (backendPrefix)
 import Data.MediaType.Common (applicationJSON)
+import Partial.Unsafe (unsafePartial)
 
 -- TODO: remove traces, they are adding to increase verbosity in development
 makeRequest :: forall eff a. (Generic a) => String -> Aff (ajax :: AJAX | eff) a
@@ -85,4 +87,4 @@ isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Bo
 isValidAddress cCurrency addr = makeRequest $ "/api/valid_address/" <> dropModuleName (gShow cCurrency) <> "/" <> addr
   where
     -- TODO: this is again stupid. We should derive Show for this type instead of doing this
-    dropModuleName = drop 1 <<< dropWhile (\c -> c /= '.')
+    dropModuleName = unsafePartial last <<< split "."

@@ -325,14 +325,19 @@ instance (MonadIO m, MonadCatch m, WithLogger m, Bi DHTData, Bi DHTKey) =>
             (if explicitInitial
                  then initialPeers
                  else []) <$>
-            liftIO (K.dumpPeers inst)
+            liftIO (K.viewBuckets inst)
       where
         extendPeers myId initial =
             map snd .
             HM.toList .
             HM.delete myId .
             flip (foldr $ \n -> HM.insert (dhtNodeId n) n) initial .
-            HM.fromList . map (\(toDHTNode -> n) -> (dhtNodeId n, n))
+            HM.fromList . map (\(toDHTNode -> n) -> (dhtNodeId n, n)) .
+            selectSufficientNodes
+        take2 (x:y:_) = [x, y]
+        take2 x          = x
+        selectSufficientNodes = concat . map take2
+
     currentNodeKey = KademliaDHT $ asks (kdiKey . kdcDHTInstance_)
     dhtLoggerName _ = "kademlia"
 

@@ -37,7 +37,7 @@ module Node (
     ) where
 
 import Control.Applicative (optional)
-import Control.Monad (when, unless)
+import Control.Monad (when, unless, void)
 import Control.Monad.Fix (MonadFix)
 import qualified Node.Internal as LL
 import Node.Internal (ChannelIn(..), ChannelOut(..))
@@ -298,7 +298,9 @@ startNode endPoint prng packing workers prelistener listeners = do
     (listenerIndex, conflictingNames) = makeListenerIndex listeners
 
     -- If prelistener is not specified, provide a one which does nothing
-    actualPrelistener = fromMaybe (const $ const $ return True) prelistener
+    -- Note: prelistener is ever supported only by one-message communication style,
+    -- behaviour for conversation style is undefined for now.
+    actualPrelistener = fromMaybe (\_ _ -> return True) prelistener
 
     -- Handle incoming data from unidirectional connections: try to read the
     -- message name, use it to determine a listener, parse the body, then
@@ -312,24 +314,26 @@ startNode endPoint prng packing workers prelistener listeners = do
             NoParse -> error "handlerIn : failed to parse message name"
             Input (ContentData msgName) -> do
                 let listener = M.lookup msgName listenerIndex
-                case listener of
-                    Just (ListenerActionOneMsg action) -> do
-                        input' <- recvNext inchan packing
-                        case input' of
-                            End -> error "handerIn : unexpected end of input"
-                            NoParse -> error "handlerIn : failed to parse message body"
-                            Input (FullData header msgRawBody bodyExtractor) -> do
-                                let factions = nodeForwardAction node packing
-                                        msgName msgRawBody
+                input' <- recvNext inchan packing
+                case input' of
+                    End -> error "handerIn : unexpected end of input"
+                    NoParse -> error "handlerIn : failed to parse message body"
+                    Input (FullData header msgRawBody bodyExtractor) -> do
+                        let factions = nodeForwardAction node packing msgName msgRawBody
+                        case listener of
+                            Just (ListenerActionOneMsg action) -> do
                                 toProcess <- actualPrelistener header factions
                                 when toProcess $ case extract bodyExtractor packing of
                                     Input (ContentData msgBody) ->
                                         action peerId sendActions msgBody
                                     _                           -> error
                                         "handlerIn : failed to extract message body"
-                    -- If it's a conversation listener, then that's an error, no?
-                    Just (ListenerActionConversation _) -> error ("handlerIn : wrong listener type. Expected unidirectional for " ++ show msgName)
-                    Nothing -> error ("handlerIn : no listener for " ++ show msgName)
+                            -- If it's a conversation listener, then that's an error, no?
+                            Just (ListenerActionConversation _) ->
+                                error ("handlerIn : wrong listener type. Expected unidirectional for " ++ show msgName)
+                            Nothing ->
+                                -- TODO: log that no listener matched
+                                void $ actualPrelistener header factions
 
     -- Handle incoming data from a bidirectional connection: try to read the
     -- message name, then choose a listener and fork a thread to run it.

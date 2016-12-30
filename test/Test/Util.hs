@@ -55,11 +55,11 @@ import           Test.QuickCheck.Arbitrary   (Arbitrary (..))
 import           Test.QuickCheck.Modifiers   (getLarge)
 import           Test.QuickCheck.Property    (Testable (..), failed, reason, succeeded)
 
-import           Node                        (ConversationActions (..), Listener (..),
+import          Node                        (ConversationActions (..), Listener (..),
                                             ListenerAction (..), MessageName, NodeId,
                                             PreListener, SendActions (..), Worker,
                                             nodeId, startNode, stopNode)
-import Message.Message (BinaryP (..))
+import          Message.Message (BinaryP (..))
 
 -- * Parcel
 
@@ -143,7 +143,9 @@ awaitSTM time predicate = do
 -- | Way to send pack of messages
 data TalkStyle
     = SingleMessageStyle
+    -- ^ corresponds to `sendTo` and `ListenerActionOneMsg` usage
     | ConversationStyle
+    -- ^ corresponds to `withConnectionTo` and `ListenerActionConversation` usage
 
 instance Show TalkStyle where
     show SingleMessageStyle = "single-message style"

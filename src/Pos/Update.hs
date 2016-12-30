@@ -1,8 +1,7 @@
-
 -- | Functions for updating the application.
 
 module Pos.Update
-       ( downloadUpdate
+       ( downloadHash
        ) where
 
 import qualified Data.ByteArray          as BA
@@ -21,11 +20,11 @@ import           Universum
 import           Pos.Constants           (updateServers)
 import           Pos.Crypto              (Hash)
 
--- | Download an update.
+-- | Download a file by its hash.
 --
 -- Tries all servers in turn, fails if none of them work.
-downloadUpdate :: Hash LByteString -> IO (Either String LByteString)
-downloadUpdate h = do
+downloadHash :: Hash LByteString -> IO (Either String LByteString)
+downloadHash h = do
     manager <- newManager tlsManagerSettings
 
     let -- try all servers in turn until there's a Right

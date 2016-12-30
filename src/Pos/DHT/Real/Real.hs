@@ -35,6 +35,7 @@ import qualified Data.HashMap.Strict             as HM
 
 import           Formatting                      (build, int, sformat, shown, (%))
 import qualified Network.Kademlia                as K
+import           Prelude                         (id)
 import           System.Wlog                     (WithLogger, getLoggerName, logDebug,
                                                   logError, logInfo, logWarning,
                                                   usingLoggerName)
@@ -321,22 +322,31 @@ instance (MonadIO m, MonadCatch m, WithLogger m, Bi DHTData, Bi DHTKey) =>
             asks (kdiInitialPeers . kdcDHTInstance_) <*>
             asks (kdiExplicitInitial . kdcDHTInstance_)
         extendPeers
+            inst
             myId
             (if explicitInitial
                  then initialPeers
                  else []) <$>
-            liftIO (K.viewBuckets inst)
+            liftIO (K.dumpPeers inst)
       where
-        extendPeers myId initial =
+        extendPeers inst myId initial =
             map snd .
             HM.toList .
             HM.delete myId .
             flip (foldr $ \n -> HM.insert (dhtNodeId n) n) initial .
             HM.fromList . map (\(toDHTNode -> n) -> (dhtNodeId n, n)) .
-            selectSufficientNodes
+            selectSufficientNodes inst myId
+        selectSufficientNodes inst myId l = concat $ map take2 $ splitToBuckets inst myId l
+        splitToBuckets inst origin peers = flip K.usingKademliaInstance inst $ do
+            let bucketId x = length . takeWhile (not . id) <$> K.distance origin (K.nodeId x)
+                insertId i hm = do
+                    bucket <- bucketId i
+                    return $ HM.insertWith (++) bucket [i] hm
+            list <- HM.toList <$> foldrM insertId HM.empty peers
+            return $ map snd list
+
         take2 (x:y:_) = [x, y]
-        take2 x          = x
-        selectSufficientNodes = concat . map take2
+        take2 x       = x
 
     currentNodeKey = KademliaDHT $ asks (kdiKey . kdcDHTInstance_)
     dhtLoggerName _ = "kademlia"

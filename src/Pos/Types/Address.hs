@@ -47,7 +47,7 @@ data Address
           { addrKeyHash :: !(AddressHash PublicKey) }
     | ScriptAddress
           { addrScriptHash   :: !(AddressHash Script) }
-    deriving (Eq, Ord, Generic)
+    deriving (Eq, Ord, Generic, Typeable)
 
 instance Bi Address => Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.encode

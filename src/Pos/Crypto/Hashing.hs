@@ -58,7 +58,7 @@ import           Pos.Util            (Raw, getCopyBinary, putCopyBinary)
 data WithHash a = WithHash
     { whData :: a
     , whHash :: Hash a
-    } deriving (Show)
+    } deriving (Show, Typeable)
 
 instance Hashable (WithHash a) where
     hashWithSalt s = hashWithSalt s . whHash

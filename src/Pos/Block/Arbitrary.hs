@@ -141,22 +141,6 @@ instance (Arbitrary (SscProof ssc), Arbitrary (SscPayload ssc), Ssc ssc) =>
         <*> arbitrary
 
 ------------------------------------------------------------------------------------------
--- GenesisBlock ∪ MainBlock
-------------------------------------------------------------------------------------------
-
-instance (Arbitrary (SscPayload ssc), Arbitrary (SscProof ssc), Ssc ssc) =>
-    Arbitrary (T.BlockHeader ssc) where
-    arbitrary = oneof [ Left <$> arbitrary
-                      , Right <$> arbitrary
-                      ]
-
-instance (Arbitrary (SscPayload ssc), Arbitrary (SscProof ssc), Ssc ssc) =>
-    Arbitrary (T.Block ssc) where
-    arbitrary = oneof [ Left <$> arbitrary
-                      , Right <$> arbitrary
-                      ]
-
-------------------------------------------------------------------------------------------
 -- Block network types
 ------------------------------------------------------------------------------------------
 

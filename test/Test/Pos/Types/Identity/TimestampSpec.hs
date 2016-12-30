@@ -11,10 +11,12 @@ import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Universum
 
-import           Test.Pos.Util         (binaryEncodeDecode, showRead)
+import           Test.Pos.Util         (binaryTest, showReadTest)
 
 spec :: Spec
 spec = describe "Timestamp" $ do
     describe "Identity testing" $ do
-        prop "Bi" (binaryEncodeDecode @Timestamp)
-        prop "Show/Read" (showRead @Timestamp)
+        describe "Bi instance" $ do
+            binaryTest @Timestamp
+        describe "Show/Read instances" $ do
+            showReadTest @Timestamp

@@ -28,7 +28,7 @@ import           Pos.Util            ()
 
 -- | Tag of system for which update data is purposed, e.g. win64, mac32
 newtype SystemTag = SystemTag { getSystemTag :: Text }
-  deriving (Eq, Ord, Show, Generic, Buildable, Hashable)
+  deriving (Eq, Ord, Show, Generic, Buildable, Hashable, Typeable)
 
 systemTagMaxLength :: Integral i => i
 systemTagMaxLength = 10
@@ -48,7 +48,7 @@ data UpdateProposal = UpdateProposal
     , upSoftwareVersion :: !SoftwareVersion
     , upData            :: !(HM.HashMap SystemTag UpdateData)
     }
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Show, Generic, Typeable)
 
 instance Buildable UpdateProposal where
     build UpdateProposal {..} =
@@ -60,7 +60,7 @@ data UpdateData = UpdateData
     , udPkgHash     :: !(Hash LByteString)
     , udUpdaterHash :: !(Hash LByteString)
     }
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Show, Generic, Typeable)
 
 -- | Vote for update proposal
 data UpdateVote = UpdateVote
@@ -72,7 +72,7 @@ data UpdateVote = UpdateVote
       --   by stakeholder
       uvSignature :: !(Signature (UpdateProposal, Bool))
     }
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Show, Generic, Typeable)
 
 deriveSafeCopySimple 0 'base ''SystemTag
 deriveSafeCopySimple 0 'base ''UpdateData

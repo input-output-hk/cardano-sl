@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 -- | Specification of Pos.Types.Block.
 
 module Test.Pos.Types.BlockSpec
@@ -15,6 +17,6 @@ spec :: Spec
 spec = pure ()
 
 validateGoodHeader
-    :: (SscHelpersClass ssc, BiSsc ssc)
+    :: (SscHelpersClass ssc, T.BiSsc ssc)
     => T.VerifyBlockParams ssc -> T.BlockHeader ssc -> Bool
 validateGoodHeader = undefined

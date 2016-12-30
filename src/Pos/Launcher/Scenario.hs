@@ -4,6 +4,8 @@
 
 module Pos.Launcher.Scenario
        ( runNode
+       , initSemaphore
+       , initLrc
        ) where
 
 import           Control.Concurrent.MVar (putMVar)

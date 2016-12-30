@@ -49,7 +49,7 @@ sendToNeighborsSafe :: forall r m ssc . (Bi r, Message r, MinWorkMode ssc m) => 
 sendToNeighborsSafe msg = do
     let action :: forall r0 . (Bi r0, Message r0) => r0 -> m ()
         action = void . sendToNeighbors
-    sendToNeighborsSafeImpl action VersionReq
+    --sendToNeighborsSafeImpl action VersionReq
     sendToNeighborsSafeImpl action msg
 
 sendToNeighborsSafeWithMaliciousEmulation
@@ -63,7 +63,7 @@ sendToNeighborsSafeWithMaliciousEmulation msg = do
         sender = if AttackNoBlocks `elem` ncAttackTypes cont
                  then defaultSendToNeighbors sequence (sendToNode' cont)
                  else sendToNeighbors
-    sendToNeighborsSafeImpl (void . sender) VersionReq
+    --sendToNeighborsSafeImpl (void . sender) VersionReq
     sendToNeighborsSafeImpl (void . sender) msg
   where
     sendToNode' cont addr message =
@@ -73,7 +73,7 @@ sendToNeighborsSafeWithMaliciousEmulation msg = do
 -- | Send Tx to given address.
 sendTx :: (MonadMessageDHT s m) => NetworkAddress -> TxAux -> m ()
 sendTx addr (tx,w,d) = do
-    sendToNode addr VersionReq
+    --sendToNode addr VersionReq
     sendToNode addr $ TxDataMsg tx w d
 
 -- | Sends proxy secret key to neighbours

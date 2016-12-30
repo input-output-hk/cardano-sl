@@ -29,6 +29,7 @@ import qualified Network.Transport.TCP      as TCP
 import           Node                       (Listener (..), ListenerAction (..), sendTo,
                                              startNode, stopNode)
 import           Node.Internal              (NodeId (..))
+import           Message.Message            (BinaryP (..))
 import           SenderOptions              (Args (..), argsParser)
 
 instance Mockable Catch (LoggerNameBox IO) where
@@ -67,7 +68,7 @@ main = do
     usingLoggerName "sender" $ do
         Right endPoint <- NT.newEndPoint transport
         drones <- forM nodeIds (startDrone endPoint)
-        senderNode <- startNode @Header endPoint prngNode
+        senderNode <- startNode @Header endPoint prngNode BinaryP
             -- TODO: is it good idea to start (recipients number * thread number) threads?
             (liftM2 (pingSender prngWork payloadBound delay)
                 tasksIds

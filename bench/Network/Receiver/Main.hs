@@ -1,6 +1,7 @@
-{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications      #-}
 
 module Main where
 
@@ -25,6 +26,7 @@ import           Network.Transport.Abstract (newEndPoint)
 import           Network.Transport.Concrete (concrete)
 import           Node                       (Listener (..), ListenerAction (..), sendTo,
                                              startNode, stopNode)
+import           Message.Message            (BinaryP (..))
 import           ReceiverOptions            (Args (..), argsParser)
 
 instance Mockable Catch (LoggerNameBox IO) where
@@ -53,7 +55,7 @@ main = do
 
     usingLoggerName "receiver" $ do
         Right endPoint <- newEndPoint transport
-        receiverNode <- startNode @Header endPoint prng [] Nothing
+        receiverNode <- startNode @Header endPoint prng BinaryP [] Nothing
             [Listener "ping" $ pingListener noPong]
 
         threadDelay (fromIntegral duration :: Second)

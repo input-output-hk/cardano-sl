@@ -243,4 +243,4 @@ instance FromHttpApiData CTxId where
     parseUrlPiece = pure . mkCTxId
 
 instance FromHttpApiData CCurrency where
-    parseUrlPiece = first fromString . readEither . T.unpack
+    parseUrlPiece = first fromString . readEither . toString

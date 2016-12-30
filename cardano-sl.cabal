@@ -143,6 +143,7 @@ library
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Server
                         Pos.Communication.Server.Delegation
+                        Pos.Communication.Server.Protocol
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Util
                         Pos.CompileConfig.Parser

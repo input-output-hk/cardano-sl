@@ -30,6 +30,7 @@ protocolListeners =
     [ ListenerDHT handleVersionReq
     , ListenerDHT handleVersionResp ]
 
+-- | Handles a response to get current version
 handleVersionReq
     :: (ResponseMode ssc m)
     => VersionReq -> m ()

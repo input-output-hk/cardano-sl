@@ -13,7 +13,8 @@ import Data.HTTP.Method (Method(POST))
 import Data.Maybe (Maybe (Just))
 import Data.String (split, joinWith)
 import Data.Array.Partial (last)
-import Network.HTTP.Affjax (affjax, defaultRequest, AJAX, get)
+import Network.HTTP.Affjax (affjax, defaultRequest, AJAX, get, URL, AffjaxRequest)
+import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.RequestHeader (RequestHeader (ContentType))
 import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency)
 import Daedalus.Constants (backendPrefix)
@@ -21,77 +22,65 @@ import Data.MediaType.Common (applicationJSON)
 import Partial.Unsafe (unsafePartial)
 
 -- HELPERS
-urlPath :: forall a. Array String -> String
+
+type URLPath = Array String
+
+urlPath :: forall a. URLPath -> URL
 urlPath = joinWith "/"
 
-backendApi :: forall a. Array String -> String
+backendApi :: forall a. URLPath -> URL
 backendApi path = urlPath $ [backendPrefix, "api"] <> path
 
--- TODO: remove traces, they are adding to increase verbosity in development
-makeRequest :: forall eff a. (Generic a) => String -> Aff (ajax :: AJAX | eff) a
-makeRequest url = do
-  res <- get url
-  either throwError pure $ decodeResult res
-
-decodeResult :: forall a eff. (Generic a) => {response :: Json | eff} -> Either Error a
+-- REQUESTS HELPERS
+decodeResult :: forall a eff. Generic a => {response :: Json | eff} -> Either Error a
 decodeResult res = bimap error id $ decodeJson res.response
 
+makeRequest :: forall eff a r. (Generic a, Requestable r) => AffjaxRequest r -> URLPath -> Aff (ajax :: AJAX | eff) a
+makeRequest request urlPath = do
+  res <- affjax $ request { url = backendApi urlPath }
+  either throwError pure $ decodeResult res
+
+getR :: forall eff a. Generic a => URLPath -> Aff (ajax :: AJAX | eff) a
+getR = makeRequest defaultRequest
+
+postR :: forall eff a. Generic a => URLPath -> Aff (ajax :: AJAX | eff) a
+postR = makeRequest $ defaultRequest { method = Left POST }
+
+postRBody :: forall eff a b. (Generic a, Generic b) => URLPath -> b -> Aff (ajax :: AJAX | eff) a
+postRBody urlPath content = flip makeRequest urlPath $
+    defaultRequest { method = Left POST
+                   , content = Just <<< show $ encodeJson content
+                   , headers = [ContentType applicationJSON]
+                   }
+
+-- REQUESTS
 getWallets :: forall eff. Aff (ajax :: AJAX | eff) (Array CWallet)
-getWallets = makeRequest $ backendApi ["get_wallets"]
+getWallets = getR ["get_wallets"]
 
 getWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) CWallet
-getWallet addr = makeRequest $ backendApi ["get_wallet", _address addr]
+getWallet addr = getR ["get_wallet", _address addr]
 
 getHistory :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) (Array CTx)
-getHistory addr = makeRequest $ backendApi ["history", _address addr]
+getHistory addr = getR ["history", _address addr]
 
 send :: forall eff. CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) CTx
-send addrFrom addrTo amount = do
-  res <- affjax $ defaultRequest
-    -- TODO: use url constructor
-    { url = backendApi ["send", _address addrFrom, _address addrTo, show (_coin amount)]
-    , method = Left POST
-    }
-  either throwError pure $ decodeResult res
+send addrFrom addrTo amount = postR ["send", _address addrFrom, _address addrTo, show (_coin amount)]
 
 newWallet :: forall eff. CWalletMeta -> Aff (ajax :: AJAX | eff) CWallet
-newWallet wMeta = do
-  res <- affjax $ defaultRequest
-    { url = backendApi ["new_wallet"]
-    , method = Left POST
-    , content = Just <<< show $ encodeJson wMeta
-    , headers = [ContentType applicationJSON]
-    }
-  either throwError pure $ decodeResult res
+newWallet = postRBody ["new_wallet"]
 
 updateTransaction :: forall eff. CAddress -> CTxId -> CTxMeta -> Aff (ajax :: AJAX | eff) Unit
-updateTransaction addr ctxId ctxMeta = do
-  res <- affjax $ defaultRequest
-    { url = backendApi ["update_transaction", _address addr, _ctxIdValue ctxId]
-    , method = Left POST
-    , content = Just $ encodeJson ctxMeta
-    , headers = [ContentType applicationJSON]
-    }
-  either throwError pure $ decodeResult res
+updateTransaction addr ctxId = postRBody ["update_transaction", _address addr, _ctxIdValue ctxId]
 
 updateWallet :: forall eff. CAddress -> CWalletMeta -> Aff (ajax :: AJAX | eff) CWallet
-updateWallet addr wMeta = do
-  res <- affjax $ defaultRequest
-    { url = backendApi ["update_wallet", _address addr]
-    , method = Left POST
-    , content = Just <<< show $ encodeJson wMeta
-    , headers = [ContentType applicationJSON]
-    }
-  either throwError pure $ decodeResult res
+updateWallet addr = postRBody ["update_wallet", _address addr]
 
+-- FIXME: use DELETE method
 deleteWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) Unit
-deleteWallet addr = do
-  -- FIXME: use DELETE method
-  res <- affjax $ defaultRequest { url = backendApi ["delete_wallet", _address addr], method = Left POST }
-  either throwError pure $ decodeResult res
+deleteWallet addr = postR ["delete_wallet", _address addr]
 
 isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
-isValidAddress cCurrency addr = makeRequest $ backendApi ["valid_address", dropModuleName (gShow cCurrency), addr]
+isValidAddress cCurrency addr = getR ["valid_address", dropModuleName (gShow cCurrency), addr]
   where
     -- TODO: this is again stupid. We should derive Show for this type instead of doing this
     dropModuleName = unsafePartial last <<< split "."

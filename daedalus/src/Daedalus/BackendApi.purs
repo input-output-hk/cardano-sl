@@ -8,11 +8,10 @@ import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (bimap)
 import Data.Either (either, Either(Left))
-import Data.Generic (class Generic)
+import Data.Generic (class Generic, gShow)
 import Data.HTTP.Method (Method(POST))
 import Data.Maybe (Maybe (Just))
-import Data.String (toCharArray, fromCharArray)
-import Data.Array (filter)
+import Data.String (drop, dropWhile)
 import Network.HTTP.Affjax (affjax, defaultRequest, AJAX, get)
 import Network.HTTP.RequestHeader (RequestHeader (ContentType))
 import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency)
@@ -83,7 +82,7 @@ deleteWallet addr = do
   either throwError pure $ decodeResult res
 
 isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
-isValidAddress cCurrency addr = makeRequest $ "/api/valid_address/" <> stripQuotes (show $ encodeJson cCurrency) <> "/" <> addr
+isValidAddress cCurrency addr = makeRequest $ "/api/valid_address/" <> dropModuleName (gShow cCurrency) <> "/" <> addr
   where
-    -- TODO: this is kind of stupid. Consider using gShow from Generic
-    stripQuotes = fromCharArray <<< filter (\c -> c /= '"') <<< toCharArray
+    -- TODO: this is again stupid. We should derive Show for this type instead of doing this
+    dropModuleName = drop 1 <<< dropWhile (\c -> c /= '.')

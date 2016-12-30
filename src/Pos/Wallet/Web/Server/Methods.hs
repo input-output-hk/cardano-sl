@@ -35,7 +35,7 @@ import           Pos.Types                  (Address, Coin (Coin), Tx, TxId, TxO
                                              makePubKeyAddress)
 import           Pos.Web.Server             (serveImpl)
 
-import           Data.Aeson                 (eitherDecode)
+import qualified Data.Text                  as T (unpack)
 import           Pos.Crypto                 (hash)
 import           Pos.Wallet.KeyStorage      (KeyError (..), MonadKeys (..), newSecretKey)
 import           Pos.Wallet.Tx              (submitTx)
@@ -51,7 +51,6 @@ import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
                                              getTxMeta, getWalletHistory, getWalletMeta,
                                              openState, removeWallet, runWalletWebDB,
                                              setWalletMeta, setWalletTransactionMeta)
-
 
 
 ----------------------------------------------------------------------------
@@ -247,4 +246,4 @@ instance FromHttpApiData CTxId where
     parseUrlPiece = pure . mkCTxId
 
 instance FromHttpApiData CCurrency where
-    parseUrlPiece = first fromString . eitherDecode . encodeUtf8
+    parseUrlPiece = first fromString . readEither . T.unpack

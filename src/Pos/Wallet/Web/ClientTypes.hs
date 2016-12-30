@@ -51,7 +51,7 @@ data CCurrency
     = ADA
     | BTC
     | ETH
-    deriving (Show, Generic)
+    deriving (Show, Read, Generic)
 
 -- | Client hash
 newtype CHash = CHash Text deriving (Show, Eq, Generic)

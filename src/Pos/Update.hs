@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 
 -- | Functions for updating the application.
 

@@ -1,8 +1,6 @@
 {-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE MultiWayIf          #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections       #-}
 
 -- | Certificate (proxy secret key) propagation listeners and
 -- handlers. Small by design. Maybe it makes sense to rename it into

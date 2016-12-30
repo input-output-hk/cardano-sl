@@ -1,5 +1,4 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE TypeFamilies  #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Helpers for benchmarking transactions
 

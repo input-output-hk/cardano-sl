@@ -2,7 +2,6 @@
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE StandaloneDeriving     #-}
 {-# LANGUAGE UndecidableInstances   #-}
 
 -- | Class which provides access to database.

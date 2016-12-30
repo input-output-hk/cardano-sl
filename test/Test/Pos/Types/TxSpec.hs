@@ -1,7 +1,4 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase       #-}
-{-# LANGUAGE TupleSections    #-}
-{-# LANGUAGE ViewPatterns     #-}
 
 -- | Specification for transaction-related functions
 -- (Pos.Types.Tx)

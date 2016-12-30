@@ -351,10 +351,15 @@ library
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -395,10 +400,15 @@ executable cardano-node
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -435,10 +445,15 @@ executable cardano-analyzer
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -476,10 +491,15 @@ executable cardano-wallet
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -510,10 +530,15 @@ executable cardano-wallet-hs2purs
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -566,10 +591,15 @@ executable cardano-smart-generator
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -594,10 +624,15 @@ executable cardano-web-docs
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -624,10 +659,15 @@ executable cardano-wallet-web-docs
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -713,10 +753,15 @@ test-suite cardano-test
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -752,10 +797,15 @@ benchmark cardano-bench-criterion
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

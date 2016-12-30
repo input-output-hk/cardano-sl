@@ -1,9 +1,6 @@
 {-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE MultiWayIf          #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections       #-}
-{-# LANGUAGE ViewPatterns        #-}
 
 -- | Logic of blocks processing.
 

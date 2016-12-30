@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections       #-}
 
 -- | Functions operating on UTXO.
 

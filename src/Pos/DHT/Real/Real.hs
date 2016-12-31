@@ -32,6 +32,7 @@ import           Control.TimeWarp.Timed          (MonadTimed, fork, killThread, 
 import qualified Data.Cache.LRU                  as LRU
 import           Data.Hashable                   (hash)
 import qualified Data.HashMap.Strict             as HM
+import           Data.List                       (intersect, (\\))
 
 import           Formatting                      (build, int, sformat, shown, (%))
 import qualified Network.Kademlia                as K
@@ -152,6 +153,7 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
               throwM e)
     let kdiInitialPeers = kdcInitialPeers
     let kdiExplicitInitial = kdcExplicitInitial
+    kdiKnownPeersCache <- atomically $ newTVar []
     pure $ KademliaDHTInstance {..}
   where
     log' logF =  usingLoggerName ("kademlia" <> "messager") . logF . toText
@@ -319,37 +321,48 @@ instance (MonadIO m, MonadCatch m, WithLogger m, Bi DHTData, Bi DHTKey) =>
         myId <- currentNodeKey
         (inst, initialPeers, explicitInitial) <-
             KademliaDHT $
-            (,,) <$> asks (kdiHandle . kdcDHTInstance_) <*>
+            (,,) <$> asks kdcDHTInstance_ <*>
             asks (kdiInitialPeers . kdcDHTInstance_) <*>
             asks (kdiExplicitInitial . kdcDHTInstance_)
         extendPeers
-            inst
-            myId
-            (if explicitInitial
-                 then initialPeers
-                 else []) <$>
-            liftIO (K.dumpPeers inst)
+          inst
+          myId
+          (if explicitInitial
+            then initialPeers
+            else []) =<<
+          liftIO (K.dumpPeers $ kdiHandle inst)
       where
-        extendPeers inst myId initial =
+        extendPeers inst myId initial peers =
             map snd .
             HM.toList .
             HM.delete myId .
             flip (foldr $ \n -> HM.insert (dhtNodeId n) n) initial .
-            HM.fromList . map (\(toDHTNode -> n) -> (dhtNodeId n, n)) .
-            selectSufficientNodes inst myId
-        selectSufficientNodes inst myId l = if enchancedMessageBroadcast
-                                            then concat $ map take2 $ splitToBuckets inst myId l
-                                            else l
-        splitToBuckets inst origin peers = flip K.usingKademliaInstance inst $ do
+            HM.fromList . map (\(toDHTNode -> n) -> (dhtNodeId n, n)) <$>
+            (updateCache inst =<<
+            selectSufficientNodes inst myId peers)
+
+        selectSufficientNodes inst myId l =
+            if enchancedMessageBroadcast
+            then concat <$> mapM (getPeersFromBucket 2 inst) (splitToBuckets (kdiHandle inst) myId l)
+            else return l
+
+        splitToBuckets kInst origin peers = flip K.usingKademliaInstance kInst $ do
             let bucketId x = length . takeWhile (not . id) <$> K.distance origin (K.nodeId x)
                 insertId i hm = do
                     bucket <- bucketId i
                     return $ HM.insertWith (++) bucket [i] hm
-            list <- HM.toList <$> foldrM insertId HM.empty peers
-            return $ map snd list
+            map snd . HM.toList <$> foldrM insertId HM.empty peers
 
-        take2 (x:y:_) = [x, y]
-        take2 x       = x
+        getPeersFromBucket p inst bucket = do
+            cache <- atomically $ readTVar $ kdiKnownPeersCache inst
+            let fromCache = tryTake p $ intersect cache bucket
+            return $ fromCache ++ tryTake (p - length fromCache) (bucket \\ cache)
+
+        tryTake x l = if length l < x then l else take x l
+
+        updateCache inst peers = do
+            atomically $ writeTVar (kdiKnownPeersCache inst) peers
+            return peers
 
     currentNodeKey = KademliaDHT $ asks (kdiKey . kdcDHTInstance_)
     dhtLoggerName _ = "kademlia"

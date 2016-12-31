@@ -29,6 +29,7 @@ module Pos.Constants
        , sysTimeBroadcastSlots
        , mpcSendInterval
        , protocolMagic
+       , enchancedMessageBroadcast
 
          -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -166,6 +167,10 @@ defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
 -- wider).
 protocolMagic :: Int32
 protocolMagic = fromIntegral . ccProtocolMagic $ compileConfig
+
+-- | Setting this to true enables enchanced message broadcast
+enchancedMessageBroadcast :: Integral a => a
+enchancedMessageBroadcast = fromIntegral $ ccEnchancedMessageBroadcast compileConfig
 
 ----------------------------------------------------------------------------
 -- Malicious activity

@@ -30,9 +30,11 @@ import           Control.TimeWarp.Timed          (MonadTimed, fork, killThread, 
 import qualified Data.Cache.LRU                  as LRU
 import           Data.Hashable                   (hash)
 import qualified Data.HashMap.Strict             as HM
+import           Data.List                       (intersect, (\\))
 
 import           Formatting                      (build, int, sformat, shown, (%))
 import qualified Network.Kademlia                as K
+import           Prelude                         (id)
 import           System.Wlog                     (WithLogger, getLoggerName, logDebug,
                                                   logError, logInfo, logWarning,
                                                   usingLoggerName)
@@ -41,6 +43,7 @@ import           Universum                       hiding (async, fromStrict,
 
 import           Pos.Binary.Class                (Bi (..))
 import           Pos.Binary.DHTModel             ()
+import           Pos.Constants                   (enchancedMessageBroadcast)
 import           Pos.DHT.Model.Class             (DHTException (..), DHTMsgHeader (..),
                                                   DHTPacking, DHTResponseT (..),
                                                   ListenerDHT (..), MonadDHT (..),
@@ -58,6 +61,9 @@ import           Pos.DHT.Real.Types              (DHTHandle, KademliaDHT (..),
                                                   KademliaDHTInstanceConfig (..))
 import           Pos.Util                        (runWithRandomIntervals,
                                                   waitAnyUnexceptional)
+
+kademliaConfig :: K.KademliaConfig
+kademliaConfig = K.defaultConfig { K.k = 16 }
 
 -- | Run 'KademliaDHT' with provided 'KademliaDHTContext'
 runKademliaDHTRaw :: KademliaDHTContext m -> KademliaDHT m a -> m a
@@ -135,6 +141,7 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
         K.createL
             (fromInteger . toInteger $ kdcPort)
             kdiKey
+            kademliaConfig
             (log' logDebug)
             (log' logError))
           `catchAll`
@@ -144,6 +151,7 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
               throwM e)
     let kdiInitialPeers = kdcInitialPeers
     let kdiExplicitInitial = kdcExplicitInitial
+    kdiKnownPeersCache <- atomically $ newTVar []
     pure $ KademliaDHTInstance {..}
   where
     log' logF =  usingLoggerName ("kademlia" <> "messager") . logF . toText
@@ -311,22 +319,52 @@ instance (MonadIO m, MonadCatch m, WithLogger m, Bi DHTData, Bi DHTKey) =>
         myId <- currentNodeKey
         (inst, initialPeers, explicitInitial) <-
             KademliaDHT $
-            (,,) <$> asks (kdiHandle . kdcDHTInstance_) <*>
+            (,,) <$> asks kdcDHTInstance_ <*>
             asks (kdiInitialPeers . kdcDHTInstance_) <*>
             asks (kdiExplicitInitial . kdcDHTInstance_)
         extendPeers
-            myId
-            (if explicitInitial
-                 then initialPeers
-                 else []) <$>
-            liftIO (K.dumpPeers inst)
+          inst
+          myId
+          (if explicitInitial
+            then initialPeers
+            else []) =<<
+          liftIO (K.dumpPeers $ kdiHandle inst)
       where
-        extendPeers myId initial =
+        extendPeers inst myId initial peers =
             map snd .
             HM.toList .
             HM.delete myId .
             flip (foldr $ \n -> HM.insert (dhtNodeId n) n) initial .
-            HM.fromList . map (\(toDHTNode -> n) -> (dhtNodeId n, n))
+            HM.fromList . map (\(toDHTNode -> n) -> (dhtNodeId n, n)) <$>
+            (updateCache inst =<<
+            selectSufficientNodes inst myId peers)
+
+        selectSufficientNodes inst myId l =
+            if enchancedMessageBroadcast /= (0 :: Int)
+            then concat <$> mapM (getPeersFromBucket enchancedMessageBroadcast inst)
+                                 (splitToBuckets (kdiHandle inst) myId l)
+            else return l
+
+        bucketIndex origin x = length . takeWhile (not . id) <$> K.distance origin (K.nodeId x)
+
+        insertId origin i hm = do
+            bucket <- bucketIndex origin i
+            return $ HM.insertWith (++) bucket [i] hm
+
+        splitToBuckets kInst origin peers = flip K.usingKademliaInstance kInst $
+            HM.elems <$> foldrM (insertId origin) HM.empty peers
+
+        getPeersFromBucket p inst bucket = do
+            cache <- atomically $ readTVar $ kdiKnownPeersCache inst
+            let fromCache = tryTake p $ intersect cache bucket
+            return $ fromCache ++ tryTake (p - length fromCache) (bucket \\ cache)
+
+        tryTake x l = if length l < x then l else take x l
+
+        updateCache inst peers = do
+            atomically $ writeTVar (kdiKnownPeersCache inst) peers
+            return peers
+
     currentNodeKey = KademliaDHT $ asks (kdiKey . kdcDHTInstance_)
     dhtLoggerName _ = "kademlia"
 
@@ -346,8 +384,11 @@ joinNetwork' inst node = do
     let node' = K.Node (toKPeer $ dhtAddr node) (dhtNodeId node)
     res <- liftIO $ K.joinNetwork inst node'
     case res of
-        K.JoinSucces -> pure ()
+        K.JoinSuccess -> pure ()
         K.NodeDown -> throwM NodeDown
+        K.NodeBanned ->
+            logInfo $
+            sformat ("joinNetwork: node " % build % " is banned") node
         K.IDClash ->
             logInfo $
             sformat ("joinNetwork: node " % build % " already contains us") node

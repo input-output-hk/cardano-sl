@@ -39,6 +39,8 @@ data CompileConfig = CompileConfig
       -- ^ Threshold of epochs for malicious activity detection
     , ccProtocolMagic                 :: !Int
       -- ^ Magic constant for separating real/testnet
+    , ccEnchancedMessageBroadcast     :: !Word
+      -- ^ True if we should enable enchanced bessage broadcast
     , ccUpdateServers                 :: ![String]
       -- ^ Servers for downloading application updates
     } deriving (Show, Lift)

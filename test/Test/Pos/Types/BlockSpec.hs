@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 -- | Specification of Pos.Types.Block.
 
 module Test.Pos.Types.BlockSpec

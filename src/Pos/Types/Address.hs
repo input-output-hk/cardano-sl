@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Types.Address

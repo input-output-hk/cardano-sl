@@ -1,8 +1,4 @@
-{-# LANGUAGE DefaultSignatures     #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Common things used in `Pos.Crypto.Arbitrary` and `Pos.Util.Arbitrary`
 
@@ -21,7 +17,7 @@ module Pos.Util.Arbitrary
 import           Data.ByteString      (pack)
 import qualified Data.ByteString.Lazy as BL (ByteString, pack)
 import           System.IO.Unsafe     (unsafePerformIO)
-import           Test.QuickCheck      (Arbitrary (..), Gen, listOf, shuffle, scale,
+import           Test.QuickCheck      (Arbitrary (..), Gen, listOf, scale, shuffle,
                                        vector)
 import           Universum
 

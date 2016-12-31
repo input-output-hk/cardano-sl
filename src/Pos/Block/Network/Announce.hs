@@ -1,6 +1,3 @@
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-
 -- | Announcements related to blocks.
 
 module Pos.Block.Network.Announce

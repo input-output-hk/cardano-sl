@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 module TxGeneration
        ( BambooPool
        , initTransaction

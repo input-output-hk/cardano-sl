@@ -1,5 +1,4 @@
-{-# LANGUAGE ConstraintKinds  #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 -- | Re-exports of Pos.Ssc.Class.* modules.
 

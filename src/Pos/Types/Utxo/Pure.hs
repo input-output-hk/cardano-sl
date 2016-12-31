@@ -1,5 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-
 -- | Pure version of UTXO.
 
 module Pos.Types.Utxo.Pure

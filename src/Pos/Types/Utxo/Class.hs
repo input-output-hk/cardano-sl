@@ -1,5 +1,4 @@
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Type class abstracting UTXO (set of unspent outputs).
 

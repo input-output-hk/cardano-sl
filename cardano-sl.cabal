@@ -354,6 +354,11 @@ library
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
                         StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
@@ -403,6 +408,11 @@ executable cardano-node
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
                         StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
@@ -448,6 +458,11 @@ executable cardano-analyzer
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
                         StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
@@ -494,6 +509,11 @@ executable cardano-wallet
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
                         StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
@@ -533,6 +553,11 @@ executable cardano-wallet-hs2purs
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
                         StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
@@ -594,6 +619,11 @@ executable cardano-smart-generator
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
                         StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
@@ -627,6 +657,11 @@ executable cardano-web-docs
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
                         StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
@@ -662,6 +697,11 @@ executable cardano-wallet-web-docs
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
                         StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
@@ -756,6 +796,11 @@ test-suite cardano-test
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
                         StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
@@ -800,6 +845,11 @@ benchmark cardano-bench-criterion
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
                         StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards

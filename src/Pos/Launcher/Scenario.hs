@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 -- | High-level scenarios which can be launched.
 
 module Pos.Launcher.Scenario

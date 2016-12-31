@@ -1,6 +1,3 @@
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-
 -- | Listeners for network events in SSC algorithm implementation.
 
 module Pos.Ssc.Class.Listeners

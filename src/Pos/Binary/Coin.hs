@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Binary serialization of Pos.Types.Coin

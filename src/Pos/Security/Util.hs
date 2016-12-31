@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 module Pos.Security.Util
        ( shouldIgnoreAddress
        , shouldIgnorePkAddress

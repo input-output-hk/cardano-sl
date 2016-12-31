@@ -1,6 +1,3 @@
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-
 module PSTypes
     ( psPosixTime
     , psHash

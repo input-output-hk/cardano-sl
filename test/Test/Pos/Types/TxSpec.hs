@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 -- | Specification for transaction-related functions
 -- (Pos.Types.Tx)
 module Test.Pos.Types.TxSpec

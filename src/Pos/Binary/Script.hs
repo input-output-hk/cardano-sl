@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-
 module Pos.Binary.Script () where
 
 import qualified PlutusCore.Program as PLCore

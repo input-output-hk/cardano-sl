@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveLift      #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Pos.Types.Update
@@ -9,26 +10,27 @@ module Pos.Types.Update
        , systemTagMaxLength
        ) where
 
-import           Control.Monad.Fail  (MonadFail (fail))
-import           Data.Char           (isAscii)
-import qualified Data.HashMap.Strict as HM
-import           Data.SafeCopy       (base, deriveSafeCopySimple)
-import qualified Data.Text           as T
-import           Data.Text.Buildable (Buildable)
-import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, build, (%))
-import           Serokell.Util.Text  (listJson)
-import           Universum           hiding (show)
+import           Control.Monad.Fail         (MonadFail (fail))
+import           Data.Char                  (isAscii)
+import qualified Data.HashMap.Strict        as HM
+import           Data.SafeCopy              (base, deriveSafeCopySimple)
+import qualified Data.Text                  as T
+import           Data.Text.Buildable        (Buildable)
+import qualified Data.Text.Buildable        as Buildable
+import           Formatting                 (bprint, build, (%))
+import           Language.Haskell.TH.Syntax (Lift)
+import           Serokell.Util.Text         (listJson)
+import           Universum                  hiding (show)
 
-import           Pos.Crypto          (Hash, PublicKey, Signature)
-import           Pos.Script.Type     (ScriptVersion)
-import           Pos.Types.Version   (ProtocolVersion, SoftwareVersion)
+import           Pos.Crypto                 (Hash, PublicKey, Signature)
+import           Pos.Script.Type            (ScriptVersion)
+import           Pos.Types.Version          (ProtocolVersion, SoftwareVersion)
 -- Import instance Safecopy HM.HashMap
-import           Pos.Util            ()
+import           Pos.Util                   ()
 
 -- | Tag of system for which update data is purposed, e.g. win64, mac32
 newtype SystemTag = SystemTag { getSystemTag :: Text }
-  deriving (Eq, Ord, Show, Generic, Buildable, Hashable)
+  deriving (Eq, Ord, Show, Generic, Buildable, Hashable, Lift)
 
 systemTagMaxLength :: Integral i => i
 systemTagMaxLength = 10

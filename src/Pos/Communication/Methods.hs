@@ -1,5 +1,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 -- | Wrappers on top of communication methods.
 
@@ -23,7 +25,8 @@ import           Pos.Binary.Class            (Bi)
 import           Pos.Binary.Communication    ()
 import           Pos.Binary.Txp              ()
 import           Pos.Binary.Types            ()
-import           Pos.Communication.Types     (ConfirmProxySK (..), SendProxySK (..))
+import           Pos.Communication.Types     (ConfirmProxySK (..), SendProxySK (..),
+                                              VersionReq (..))
 import           Pos.Context                 (getNodeContext, ncAttackTypes)
 import           Pos.Crypto                  (ProxySecretKey)
 import           Pos.DHT.Model               (MonadMessageDHT, defaultSendToNeighbors,
@@ -42,16 +45,25 @@ sendToNeighborsSafeImpl sender msg = do
     fork_ $
         logWarningWaitLinear 10 ("Sending " <> msgName <> " to neighbors") action
 
-sendToNeighborsSafe :: (Bi r, Message r, MinWorkMode ssc m) => r -> m ()
-sendToNeighborsSafe = sendToNeighborsSafeImpl $ void . sendToNeighbors
+sendToNeighborsSafe :: forall r m ssc . (Bi r, Message r, MinWorkMode ssc m) => r -> m ()
+sendToNeighborsSafe msg = do
+    let action :: forall r0 . (Bi r0, Message r0) => r0 -> m ()
+        action = void . sendToNeighbors
+    --sendToNeighborsSafeImpl action VersionReq
+    sendToNeighborsSafeImpl action msg
 
-sendToNeighborsSafeWithMaliciousEmulation :: (Bi r, Message r, WorkMode ssc m) => r -> m ()
+sendToNeighborsSafeWithMaliciousEmulation
+    :: forall r m ssc.
+       (Bi r, Message r, WorkMode ssc m)
+    => r -> m ()
 sendToNeighborsSafeWithMaliciousEmulation msg = do
     cont <- getNodeContext
     -- [CSL-336] Make this parallel
-    let sender = if AttackNoBlocks `elem` ncAttackTypes cont
+    let sender :: forall r0 . (Bi r0, Message r0) => r0 -> m Int
+        sender = if AttackNoBlocks `elem` ncAttackTypes cont
                  then defaultSendToNeighbors sequence (sendToNode' cont)
                  else sendToNeighbors
+    --sendToNeighborsSafeImpl (void . sender) VersionReq
     sendToNeighborsSafeImpl (void . sender) msg
   where
     sendToNode' cont addr message =
@@ -60,7 +72,9 @@ sendToNeighborsSafeWithMaliciousEmulation msg = do
 
 -- | Send Tx to given address.
 sendTx :: (MonadMessageDHT s m) => NetworkAddress -> TxAux -> m ()
-sendTx addr (tx,w,d) = sendToNode addr $ TxDataMsg tx w d
+sendTx addr (tx,w,d) = do
+    --sendToNode addr VersionReq
+    sendToNode addr $ TxDataMsg tx w d
 
 -- | Sends proxy secret key to neighbours
 sendProxySecretKey

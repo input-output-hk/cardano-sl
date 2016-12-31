@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE UndecidableInstances #-}
 

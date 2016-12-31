@@ -9,6 +9,7 @@ module Pos.CompileConfig.Type
     ( CompileConfig (..)
     ) where
 
+import           Data.String                (String)
 import           Language.Haskell.TH.Syntax (Lift)
 import           Universum
 
@@ -40,4 +41,6 @@ data CompileConfig = CompileConfig
       -- ^ Magic constant for separating real/testnet
     , ccEnchancedMessageBroadcast     :: !Word
       -- ^ True if we should enable enchanced bessage broadcast
+    , ccUpdateServers                 :: ![String]
+      -- ^ Servers for downloading application updates
     } deriving (Show, Lift)

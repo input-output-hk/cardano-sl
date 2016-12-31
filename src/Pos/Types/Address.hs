@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Types.Address

@@ -1,5 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
-
 -- | Merkle tree-related serialization
 
 module Pos.Binary.Merkle () where

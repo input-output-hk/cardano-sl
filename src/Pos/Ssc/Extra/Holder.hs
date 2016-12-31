@@ -7,7 +7,9 @@
 
 module Pos.Ssc.Extra.Holder
        ( SscHolder (..)
+       , SscState
        , runSscHolder
+       , runSscHolderRaw
        ) where
 
 import qualified Control.Concurrent.STM      as STM
@@ -95,3 +97,7 @@ runSscHolder holder glob = SscState
                        <$> liftIO (STM.newTVarIO glob)
                        <*> liftIO (STM.newTVarIO def)
                        >>= runReaderT (getSscHolder holder)
+
+runSscHolderRaw :: SscLocalDataClass ssc =>
+                   SscState ssc -> SscHolder ssc m a -> m a
+runSscHolderRaw st holder = runReaderT (getSscHolder holder) st

@@ -25,22 +25,20 @@ import           Universum
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Crypto                 (toPublic)
 import           Pos.DHT.Model              (dhtAddr, getKnownPeers)
-import           Pos.Types                  (Address, Coin (Coin), Tx, TxOut (..),
-                                             addressF, coinF, decodeTextAddress,
-                                             makePubKeyAddress)
+import           Pos.Types                  (Address, Coin (..), TxOut (..), addressF,
+                                             coinF, decodeTextAddress, makePubKeyAddress)
 import           Pos.Wallet.KeyStorage      (MonadKeys (..), newSecretKey)
 import           Pos.Wallet.Tx              (submitTx)
 import           Pos.Wallet.WalletMode      (WalletMode, getBalance, getTxHistory)
 import           Pos.Wallet.Web.Api         (Cors, WalletApi, walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency (ADA), CHash (..), CTx,
-                                             CTx, CTxId, CTxMeta (..), CWallet (..),
-                                             CWalletMeta (..), addressToCAddress,
-                                             cAddressToAddress, ctId, ctType, ctTypeMeta,
-                                             mkCTx, mkCTxId)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency (ADA), CTx, CTx, CTxId,
+                                             CTxMeta (..), CWallet (..), CWalletMeta (..),
+                                             addressToCAddress, cAddressToAddress, ctId,
+                                             ctType, ctTypeMeta, mkCTx, mkCTxId)
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
                                              addOnlyNewHistory, closeState, createWallet,
-                                             getWalletHistory, getWalletMeta, openState,
-                                             removeWallet, runWalletWebDB, setWalletMeta)
+                                             getWalletMeta, openState, removeWallet,
+                                             runWalletWebDB, setWalletMeta)
 
 ----------------------------------------------------------------------------
 -- Top level functionality

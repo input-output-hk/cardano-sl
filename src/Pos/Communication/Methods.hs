@@ -23,8 +23,7 @@ import           Pos.Binary.Class            (Bi)
 import           Pos.Binary.Communication    ()
 import           Pos.Binary.Txp              ()
 import           Pos.Binary.Types            ()
-import           Pos.Communication.Types     (ConfirmProxySK (..), SendProxySK (..),
-                                              VersionReq (..))
+import           Pos.Communication.Types     (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.Context                 (getNodeContext, ncAttackTypes)
 import           Pos.Crypto                  (ProxySecretKey)
 import           Pos.DHT.Model               (MonadMessageDHT, defaultSendToNeighbors,

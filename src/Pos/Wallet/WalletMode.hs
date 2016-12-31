@@ -29,13 +29,12 @@ import           Pos.DHT.Model                 (DHTPacking)
 import           Pos.DHT.Real                  (KademliaDHT)
 import           Pos.Ssc.Extra                 (SscHolder (..))
 import           Pos.Ssc.GodTossing            (SscGodTossing)
-import           Pos.Txp.Class                 (MonadTxpLD (..), getUtxoView)
+import           Pos.Txp.Class                 (getUtxoView)
 import qualified Pos.Txp.Holder                as Modern
 import           Pos.Txp.Logic                 (processTx)
-import           Pos.Txp.Types                 (MemPool (..), UtxoView (..))
+import           Pos.Txp.Types                 (UtxoView (..))
 import           Pos.Types                     (Address, Coin, Tx, TxAux, TxId, Utxo,
                                                 evalUtxoStateT, toPair, txOutValue)
-import           Pos.Types.Utxo.Functions      (filterUtxoByAddr)
 import           Pos.Types.Utxo.Functions      (belongsTo, filterUtxoByAddr)
 import           Pos.WorkMode                  (MinWorkMode)
 

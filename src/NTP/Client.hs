@@ -16,8 +16,8 @@ import           Control.Applicative         (optional)
 import           Control.Concurrent.STM      (atomically)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, readTVarIO,
                                               writeTVar)
-import           Control.Lens                (hasn't, to, use, uses, (%=), (.=), (^?),
-                                              _Just, _head)
+import           Control.Lens                (to, (%=), (.=), (^?), _Just,
+                                              _head)
 import           Control.Monad               (forM_, forever, unless, void, when)
 import           Control.Monad.Catch         (Exception, SomeException (..))
 import           Control.Monad.Trans         (MonadIO (..))
@@ -26,12 +26,14 @@ import qualified Data.ByteString.Lazy        as LBS
 import           Data.Default                (Default (..))
 import           Data.List                   (sort)
 import qualified Data.Map                    as M
+import           Data.Maybe                  (isNothing)
 import           Data.Monoid                 ((<>))
 import           Data.Text                   (Text)
 import           Data.Time.Units             (Microsecond, Second)
 import           Data.Time.Units             (fromMicroseconds)
 import           Data.Typeable               (Typeable)
 import           Data.Word                   (Word16)
+import Control.Monad.State (gets)
 import           Formatting                  (sformat, shown, (%))
 import           Network.Socket              (AddrInfo (..), AddrInfoFlag (AI_ADDRCONFIG),
                                               Family (AF_INET), PortNumber, SockAddr (..),
@@ -71,7 +73,7 @@ data NtpClientSettings = NtpClientSettings
     , ntpMeanSelection   :: [Microsecond] -> Microsecond
       -- ^ way to sumarize results received from different servers.
       -- this may accept list of lesser size than @length ntpServers@ in case some servers
-      -- failed to respond in time
+      -- failed to respond in time, but never an empty list
     }
 
 data NtpClient = NtpClient
@@ -132,7 +134,7 @@ log cli severity msg = do
 
 handleCollectedResponses :: NtpMonad m => NtpClient -> m ()
 handleCollectedResponses cli = do
-    mres <- liftIO . atomically . modifyTVarS (ncState cli) $ use id
+    mres <- liftIO $ readTVarIO (ncState cli)
     let selection = ntpMeanSelection (ncSettings cli)
         handler   = ntpHandler (ncSettings cli)
     case mres of
@@ -196,7 +198,7 @@ handleNtpPacket cli packet = do
 
     late <- liftIO . atomically . modifyTVarS (ncState cli) $ do
         _Just %= (clockOffset :)
-        uses id $ hasn't _Just
+        gets isNothing
     when late $
         log cli Warning "Response was too late"
 

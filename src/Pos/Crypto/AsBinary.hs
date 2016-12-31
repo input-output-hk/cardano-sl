@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP                   #-}
-{-# LANGUAGE FlexibleInstances     #-}
 
 -- | AsBinary wrappers for Pos.Crypto.SecretSharing types.
 

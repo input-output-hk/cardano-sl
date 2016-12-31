@@ -1,5 +1,3 @@
-{-# LANGUAGE StandaloneDeriving #-}
-
 -- | 'Arbitrary' unsafe instances for 'SlotId' and 'TxOut'.
 
 module Pos.Types.Arbitrary.Unsafe () where

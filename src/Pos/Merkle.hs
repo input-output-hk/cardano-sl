@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveFoldable  #-}
-{-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE NamedFieldPuns  #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
@@ -35,7 +34,7 @@ import           Pos.Util             (Raw)
 -- | Data type for root of merkle tree.
 newtype MerkleRoot a = MerkleRoot
     { getMerkleRoot :: Hash Raw  -- ^ returns root 'Hash' of Merkle Tree
-    } deriving (Show, Eq, Ord, Generic, ByteArrayAccess)
+    } deriving (Show, Eq, Ord, Generic, ByteArrayAccess, Typeable)
 
 -- This gives a “redundant constraint” warning due to
 -- https://github.com/acid-state/safecopy/issues/46.

@@ -1,11 +1,6 @@
 {-# LANGUAGE CPP                   #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE StandaloneDeriving    #-}
-{-# LANGUAGE TypeApplications      #-}
 
 -- | Serializable instances for Pos.Crypto.*
 
@@ -36,7 +31,7 @@ import           Pos.Crypto.Signing       (ProxyCert (..), ProxySecretKey (..),
 import           Pos.Util                 (AsBinary (..), getCopyBinary, putCopyBinary)
 
 instance Bi a => Bi (WithHash a) where
-    put = put. whData
+    put = put . whData
     get = withHash <$> get
 
 instance Bi a => SafeCopy (WithHash a) where

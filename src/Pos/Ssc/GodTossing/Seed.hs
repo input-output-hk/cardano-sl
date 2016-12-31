@@ -1,6 +1,3 @@
-{-# LANGUAGE MultiWayIf   #-}
-{-# LANGUAGE ViewPatterns #-}
-
 -- | Actual shared seed calculation.
 
 module Pos.Ssc.GodTossing.Seed

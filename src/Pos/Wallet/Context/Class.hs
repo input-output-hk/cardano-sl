@@ -1,6 +1,4 @@
-{-# LANGUAGE DefaultSignatures    #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE StandaloneDeriving   #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Class which provides access to WalletContext.
@@ -21,9 +19,9 @@ import qualified Pos.Txp.Holder             as Modern
 import           Pos.Wallet.Context.Context (WalletContext, fromNodeCtx)
 
 -- | Class for something that has 'NodeContext' inside.
-class WithWalletContext m where
+class Monad m => WithWalletContext m where
     getWalletContext :: m WalletContext
-    default getWalletContext :: (MonadTrans t, Monad m) => t m WalletContext
+    default getWalletContext :: (MonadTrans t, WithWalletContext m', t m' ~ m) => t m' WalletContext
     getWalletContext = lift getWalletContext
 
 instance (Monad m, WithWalletContext m) => WithWalletContext (KademliaDHT m)

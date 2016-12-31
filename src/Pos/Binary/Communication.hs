@@ -2,13 +2,16 @@
 
 module Pos.Binary.Communication () where
 
+import           Data.Binary.Get         (getInt32be, label)
+import           Data.Binary.Put         (putInt32be)
 import           Universum
 
 import           Pos.Binary.Class        (Bi (..))
 import           Pos.Communication.Types (CheckProxySKConfirmed (..),
                                           CheckProxySKConfirmedRes (..),
                                           ConfirmProxySK (..), SendProxySK (..),
-                                          SysStartRequest (..), SysStartResponse (..))
+                                          SysStartRequest (..), SysStartResponse (..),
+                                          VersionReq (..), VersionResp (..))
 import           Pos.Types               ()
 
 instance Bi SysStartRequest where
@@ -34,3 +37,12 @@ instance Bi CheckProxySKConfirmed where
 instance Bi CheckProxySKConfirmedRes where
     put (CheckProxySKConfirmedRes res) = put res
     get = CheckProxySKConfirmedRes <$> get
+
+instance Bi VersionReq where
+    put VersionReq = pass
+    get = pure VersionReq
+
+instance Bi VersionResp where
+    put VersionResp{..} =  putInt32be vRespMagic
+                        *> put vRespProtocolVersion
+    get = label "GenericBlockHeader" $ VersionResp <$> getInt32be <*> get

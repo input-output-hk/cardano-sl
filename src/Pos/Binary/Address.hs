@@ -1,5 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
-
 -- | Binary serialization of Pos.Types.Address
 module Pos.Binary.Address () where
 

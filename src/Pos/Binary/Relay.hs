@@ -12,13 +12,13 @@ import           Pos.Binary.Crypto  ()
 import           Pos.Util.Relay     (DataMsg (..), InvMsg (..), ReqMsg (..))
 
 instance Bi tag => Bi (InvMsg tag) where
-  put InvMsg {..} = put imTag >> put imStakeholders
-  get = liftM2 InvMsg get get
+    put InvMsg {..} = put imTag >> put imStakeholders
+    get = liftM2 InvMsg get get
 
 instance Bi tag => Bi (ReqMsg tag) where
-  put ReqMsg {..} = put rmTag >> put rmStakeholders
-  get = liftM2 ReqMsg get get
+    put ReqMsg {..} = put rmTag >> put rmStakeholders
+    get = liftM2 ReqMsg get get
 
 instance Bi contents => Bi (DataMsg contents) where
-  put DataMsg {..} = put dmContents >> put dmStakeholder
-  get = liftM2 DataMsg get get
+    put DataMsg {..} = put dmContents >> put dmStakeholder
+    get = liftM2 DataMsg get get

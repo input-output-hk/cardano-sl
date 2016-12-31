@@ -1,8 +1,3 @@
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE LambdaCase             #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE TupleSections          #-}
 -- | Framework for Inv/Req/Dat message handling
 
 module Pos.Util.Relay

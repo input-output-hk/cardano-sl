@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 -- | Functions for operating with transactions
 
 module Pos.Wallet.Tx

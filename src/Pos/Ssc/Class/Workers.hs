@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
 -- | General purpose workers for @SSC@ storage.
 
 module Pos.Ssc.Class.Workers

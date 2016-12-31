@@ -139,10 +139,12 @@ library
                         Pos.Communication.Methods
                         Pos.Communication.Types
                         Pos.Communication.Types.Delegation
+                        Pos.Communication.Types.Protocol
                         Pos.Communication.Types.State
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Server
                         Pos.Communication.Server.Delegation
+                        Pos.Communication.Server.Protocol
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Util
                         Pos.CompileConfig.Parser
@@ -217,6 +219,7 @@ library
                         Pos.Types.Utxo.Pure
                         Pos.Worker.Lrc
                         Pos.Worker.Stats
+                        Pos.Update
                         Pos.Util.Arbitrary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented
@@ -260,8 +263,8 @@ library
                         Pos.Wallet.Web.State.Holder
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
-  build-depends:        IfElse
-                      , HsOpenSSL
+  build-depends:        HsOpenSSL
+                      , IfElse
                       , QuickCheck
                       , UtilityTM
                       , acid-state
@@ -293,6 +296,9 @@ library
                       , focus
                       , formatting
                       , hashable
+                      , http-client
+                      , http-client-tls
+                      , http-conduit
                       , kademlia
                       , lens
                       , lifted-async
@@ -304,6 +310,7 @@ library
                       , monad-loops
                       , mono-traversable
                       , mtl
+                      , neat-interpolation
                       , optparse-applicative
                       , optparse-simple
                       , parsec
@@ -348,10 +355,20 @@ library
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -392,10 +409,20 @@ executable cardano-node
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -432,10 +459,20 @@ executable cardano-analyzer
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -473,10 +510,20 @@ executable cardano-wallet
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -507,10 +554,20 @@ executable cardano-wallet-hs2purs
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -563,10 +620,20 @@ executable cardano-smart-generator
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -591,10 +658,20 @@ executable cardano-web-docs
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -621,10 +698,20 @@ executable cardano-wallet-web-docs
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -710,10 +797,20 @@ test-suite cardano-test
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -749,10 +846,20 @@ benchmark cardano-bench-criterion
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

@@ -1,13 +1,8 @@
-{-# LANGUAGE AllowAmbiguousTypes    #-}
-{-# LANGUAGE DefaultSignatures      #-}
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE RankNTypes             #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE TypeFamilies           #-}
-{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Type class to work with SscLocalData.
 
@@ -34,14 +29,14 @@ class Monad m => MonadSscLD ssc m | m -> ssc where
     modifyLocalData :: ((SscGlobalState ssc, SscLocalData ssc)
                      -> (a, SscLocalData ssc)) -> m a
 
-    default getLocalData :: MonadTrans t => t m (SscLocalData ssc)
+    default getLocalData :: (MonadTrans t, MonadSscLD ssc m', t m' ~ m) => t m' (SscLocalData ssc)
     getLocalData = lift getLocalData
 
-    default setLocalData :: MonadTrans t => SscLocalData ssc -> t m ()
+    default setLocalData :: (MonadTrans t, MonadSscLD ssc m', t m' ~ m) => SscLocalData ssc -> t m' ()
     setLocalData = lift . setLocalData
 
-    default modifyLocalData :: MonadTrans t => ((SscGlobalState ssc, SscLocalData ssc)
-                     -> (a, SscLocalData ssc)) -> t m a
+    default modifyLocalData :: (MonadTrans t, MonadSscLD ssc m', t m' ~ m) => ((SscGlobalState ssc, SscLocalData ssc)
+                     -> (a, SscLocalData ssc)) -> t m' a
     modifyLocalData = lift . modifyLocalData
 
 instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (ReaderT x m)

@@ -1,6 +1,3 @@
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-
 -- | Pos.Slotting specification
 
 module Test.Pos.SlottingSpec

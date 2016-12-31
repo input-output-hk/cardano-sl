@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-
 -- | DHT types.
 
 module Pos.DHT.Model.Types

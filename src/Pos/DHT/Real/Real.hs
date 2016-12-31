@@ -354,7 +354,7 @@ instance (MonadIO m, MonadCatch m, WithLogger m, Bi DHTData, Bi DHTKey) =>
             return $ HM.insertWith (++) bucket [i] hm
 
         splitToBuckets kInst origin peers = flip K.usingKademliaInstance kInst $
-            map snd . HM.toList <$> foldrM (insertId origin) HM.empty peers
+            HM.elems <$> foldrM (insertId origin) HM.empty peers
 
         getPeersFromBucket p inst bucket = do
             cache <- atomically $ readTVar $ kdiKnownPeersCache inst

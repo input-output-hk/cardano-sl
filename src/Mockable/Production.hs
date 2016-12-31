@@ -44,8 +44,6 @@ instance Mockable Delay Production where
     liftMockable (Delay relativeToNow) = Production $ do
         cur <- runProduction $ curTime
         Conc.threadDelay $ fromIntegral $ relativeToNow cur - cur
-
-instance Mockable SleepForever Production where
     liftMockable SleepForever = forever . wait $ for 24 hour
 
 instance Mockable RepeatForever Production where

@@ -347,12 +347,14 @@ instance (MonadIO m, MonadCatch m, WithLogger m, Bi DHTData, Bi DHTKey) =>
                                  (splitToBuckets (kdiHandle inst) myId l)
             else return l
 
-        splitToBuckets kInst origin peers = flip K.usingKademliaInstance kInst $ do
-            let bucketId x = length . takeWhile (not . id) <$> K.distance origin (K.nodeId x)
-                insertId i hm = do
-                    bucket <- bucketId i
-                    return $ HM.insertWith (++) bucket [i] hm
-            map snd . HM.toList <$> foldrM insertId HM.empty peers
+        bucketIndex origin x = length . takeWhile (not . id) <$> K.distance origin (K.nodeId x)
+
+        insertId origin i hm = do
+            bucket <- bucketIndex origin i
+            return $ HM.insertWith (++) bucket [i] hm
+
+        splitToBuckets kInst origin peers = flip K.usingKademliaInstance kInst $
+            map snd . HM.toList <$> foldrM (insertId origin) HM.empty peers
 
         getPeersFromBucket p inst bucket = do
             cache <- atomically $ readTVar $ kdiKnownPeersCache inst

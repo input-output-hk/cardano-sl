@@ -16,10 +16,10 @@ import           Control.Applicative         (optional)
 import           Control.Concurrent.STM      (atomically)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, readTVarIO,
                                               writeTVar)
-import           Control.Lens                (to, (%=), (.=), (^?), _Just,
-                                              _head)
+import           Control.Lens                (to, (%=), (.=), (^?), _Just, _head)
 import           Control.Monad               (forM_, forever, unless, void, when)
 import           Control.Monad.Catch         (Exception, SomeException (..))
+import           Control.Monad.State         (gets)
 import           Control.Monad.Trans         (MonadIO (..))
 import           Data.Binary                 (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy        as LBS
@@ -33,7 +33,6 @@ import           Data.Time.Units             (Microsecond, Second)
 import           Data.Time.Units             (fromMicroseconds)
 import           Data.Typeable               (Typeable)
 import           Data.Word                   (Word16)
-import Control.Monad.State (gets)
 import           Formatting                  (sformat, shown, (%))
 import           Network.Socket              (AddrInfo (..), AddrInfoFlag (AI_ADDRCONFIG),
                                               Family (AF_INET), PortNumber, SockAddr (..),

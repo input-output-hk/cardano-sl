@@ -11,14 +11,10 @@ import           Control.Monad              (forM_)
 import           Control.Monad.IO.Class     (liftIO)
 import           Data.Binary
 import           Data.String                (fromString)
-<<<<<<< a44701cf6ab26ce4d5fab2776c5d079a00076529
 import           Message.Message            (BinaryP (..))
-import           Mockable.Concurrent        (delay)
-=======
 import           Mockable.Concurrent        (wait)
 import           Control.TimeWarp.Timed     (for)
 import           Data.Time.Units            (fromMicroseconds, Microsecond)
->>>>>>> [CSL-447] wait instead of delay
 import           Mockable.Production
 import           Network.Transport.Abstract (newEndPoint)
 import           Network.Transport.Concrete (concrete)
@@ -35,18 +31,6 @@ import           System.Random
 -- TBD should we fix this in network-transport? Maybe every chunk is prefixed
 -- by a byte giving its length? Wasteful I guess but maybe not a problem.
 
--- | Type for messages from the workers to the listeners.
-data Ping = Ping
-deriving instance Show Ping
-instance Binary Ping where
-    put _ = putWord8 (fromIntegral 1)
-    get = do
-        w <- getWord8
-        if w == fromIntegral 1
-        then pure Ping
-        else fail "no parse ping"
-
--- | Type for messages from the listeners to the workers.
 data Pong = Pong
 deriving instance Show Pong
 instance Binary Pong where
@@ -68,14 +52,9 @@ workers id gen peerIds = [pingWorker gen]
         loop :: StdGen -> Production ()
         loop gen = do
             let (i, gen') = randomR (0,1000000) gen
-<<<<<<< a44701cf6ab26ce4d5fab2776c5d079a00076529
-            delay i
-            let pong :: NodeId -> ConversationActions Ping Pong Production -> Production ()
-=======
                 us = fromMicroseconds i :: Microsecond
             wait $ for us
             let pong :: NodeId -> ConversationActions Header Ping Pong Production -> Production ()
->>>>>>> [CSL-447] wait instead of delay
                 pong peerId cactions = do
                     liftIO . putStrLn $ show id ++ " sent PING to " ++ show peerId
                     received <- recv cactions

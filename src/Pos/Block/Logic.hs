@@ -214,12 +214,10 @@ getHeadersOlderExp
     => Maybe (HeaderHash ssc) -> m [HeaderHash ssc]
 getHeadersOlderExp upto = do
     tip <- DB.getTip
-    traceM $ sformat ("Current tip is: "%build) tip
     let upToReal = fromMaybe tip upto
         whileCond _ depth = depth <= k
     allHeaders <- loadHeadersWhile upToReal whileCond
-    let selected = selectIndices (takeHashes allHeaders) twoPowers
-    pure selected
+    pure $ selectIndices (takeHashes allHeaders) twoPowers
   where
     -- Given list of headers newest first, maps it to their hashes
     takeHashes [] = []

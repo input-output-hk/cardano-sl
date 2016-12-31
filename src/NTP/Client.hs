@@ -96,8 +96,8 @@ instance Default NtpClientSettings where
                                ]
         , ntpHandler         = \_ -> return ()
         , ntpLogName         = "ntp-cli"
-        , ntpResponseTimeout = 100000
-        , ntpPollDelay       = 1000000
+        , ntpResponseTimeout = 1000000
+        , ntpPollDelay       = 3000000
         , ntpMeanSelection   = \l -> let len = length l in sort l !! ((len - 1) `div` 2)
         }
 
@@ -140,7 +140,7 @@ handleCollectedResponses cli = do
         Just []        -> log cli Warning "No servers responded"
         Just responses -> handleE `handleAll` do
             let time = selection responses
-            log cli Info $ sformat ("Evaluated time: "%shown) time
+            log cli Notice $ sformat ("Evaluated clock offset: "%shown) time
             handler time
   where
     handleE = log cli Error . sformat ("ntpMeanSelection: "%shown)
@@ -161,11 +161,13 @@ startSend addrs cli = forever $ do
     let poll    = ntpPollDelay (ncSettings cli)
     closed <- liftIO $ readTVarIO (ncClosed cli)
     unless closed $ do
+        log cli Info "Sending requests"
         liftIO . atomically . modifyTVarS (ncState cli) $ id .= Just []
         forM_ addrs $
             \addr -> fork $ doSend addr cli
         liftIO $ threadDelay timeout
 
+        log cli Info "Collecting responses"
         handleCollectedResponses cli
         liftIO . atomically . modifyTVarS (ncState cli) $ id .= Nothing
         liftIO $ threadDelay (poll - timeout)
@@ -196,7 +198,7 @@ handleNtpPacket cli packet = do
         _Just %= (clockOffset :)
         uses id $ hasn't _Just
     when late $
-        log cli Warning "Note, previous response was too late"
+        log cli Warning "Response was too late"
 
 doReceive :: NtpMonad m => NtpClient -> m ()
 doReceive cli = do
@@ -230,7 +232,7 @@ startReceive cli = do
 
 stopNtpClient :: NtpMonad m => NtpClient -> m ()
 stopNtpClient cli = do
-    log cli Info "Stopped"
+    log cli Notice "Stopped"
     sock <- liftIO . atomically $ do
         writeTVar (ncClosed cli) True
         readTVar  (ncSocket cli)
@@ -248,7 +250,7 @@ startNtpClient settings = do
     addrs <- mapM resolveHost $ ntpServers settings
     void . fork $ startSend addrs cli
 
-    log cli Info "Launched"
+    log cli Notice "Launched"
 
     return NtpStopButton { press = stopNtpClient cli }
   where

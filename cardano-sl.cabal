@@ -118,6 +118,7 @@ library
                         Pos.Binary.DHTModel
                         Pos.Binary.Merkle
                         Pos.Binary.DB
+                        Pos.Binary.Relay
                         Pos.Binary.Script
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
@@ -219,6 +220,7 @@ library
                         Pos.Util.Arbitrary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented
+                        Pos.Util.Relay
   if flag(with-web)
     other-modules:      Pos.Aeson.Crypto
                         Pos.Aeson.Types

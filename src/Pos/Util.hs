@@ -60,8 +60,7 @@ module Pos.Util
 
        , eitherToVerRes
 
-       -- * Instances
-       -- ** SafeCopy (NonEmpty a)
+       , NamedMessagePart (..)
        ) where
 
 import           Control.Lens                  (Lens', LensLike', Magnified, Zoomed,
@@ -101,6 +100,10 @@ import qualified Pos.Binary.Class              as Bi
 import           Pos.Crypto.Random             (randomNumber)
 import           Pos.Util.Arbitrary
 import           Pos.Util.NotImplemented       ()
+
+-- | Helper class used for Pos.Util.Relay
+class NamedMessagePart a where
+    nMessageName :: Proxy a -> Text
 
 -- | A wrapper over 'ByteString' for adding type safety to
 -- 'Pos.Crypto.Pki.encryptRaw' and friends.

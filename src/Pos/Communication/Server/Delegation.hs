@@ -1,8 +1,5 @@
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE MultiWayIf          #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections       #-}
 
 -- | Certificate (proxy secret key) propagation listeners and
 -- handlers. Small by design. Maybe it makes sense to rename it into
@@ -40,7 +37,7 @@ import           Pos.DHT.Model             (ListenerDHT (..), MonadDHTDialog, re
 import           Pos.Types                 (EpochIndex, ProxySKEpoch, ProxySigEpoch)
 import           Pos.WorkMode              (WorkMode)
 
--- | Listeners for requests related to blocks processing.
+-- | Listeners for requests related to delegation processing.
 delegationListeners
     :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
     => [ListenerDHT (MutSocketState ssc) m]

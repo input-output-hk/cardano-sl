@@ -1,8 +1,5 @@
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
@@ -62,6 +59,7 @@ data KademliaDHTInstance = KademliaDHTInstance
     , kdiKey             :: !DHTKey
     , kdiInitialPeers    :: ![DHTNode]
     , kdiExplicitInitial :: !Bool
+    , kdiKnownPeersCache :: !(TVar [K.Node DHTKey])
     }
 
 -- | Node context for 'KademliaDHTInstance'.

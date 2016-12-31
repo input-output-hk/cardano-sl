@@ -1,11 +1,7 @@
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE Rank2Types            #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Transaction processing logic.
 
@@ -39,13 +35,13 @@ import           Pos.Txp.Types          (MemPool (..), UtxoView (..))
 import           Pos.Txp.Types.Types    (ProcessTxRes (..), mkPTRinvalid)
 import qualified Pos.Txp.Types.UtxoView as UV
 import           Pos.Types              (Block, Blund, Coin (..), MonadUtxo,
-                                         MonadUtxoRead (utxoGet), NEBlocks, NodeId,
-                                         SlotId, Tx (..), TxAux, TxDistribution (..),
-                                         TxId, TxIn (..), TxOutAux, TxWitness, Undo,
-                                         VTxGlobalContext (..), VTxLocalContext (..),
-                                         applyTxToUtxo', blockSlot, blockTxas, headerHash,
-                                         prevBlockL, slotIdF, topsortTxs, txOutStake,
-                                         verifyTxPure)
+                                         MonadUtxoRead (utxoGet), NEBlocks, SlotId,
+                                         StakeholderId, Tx (..), TxAux,
+                                         TxDistribution (..), TxId, TxIn (..), TxOutAux,
+                                         TxWitness, Undo, VTxGlobalContext (..),
+                                         VTxLocalContext (..), applyTxToUtxo', blockSlot,
+                                         blockTxas, headerHash, prevBlockL, slotIdF,
+                                         topsortTxs, txOutStake, verifyTxPure)
 import           Pos.Types.Utxo         (verifyAndApplyTxs, verifyTxUtxo)
 import           Pos.Util               (inAssertMode, _neHead)
 
@@ -234,8 +230,8 @@ txRollbackBlock (block, undo) = do
         return $ foldr' (:) (foldr' (:) batch putIn) delOut --how we could simplify it?
 
 recomputeStakes :: (WithLogger m, MonadDB ssc m)
-                => [(NodeId, Coin)]
-                -> [(NodeId, Coin)]
+                => [(StakeholderId, Coin)]
+                -> [(StakeholderId, Coin)]
                 -> m [BatchOp ssc]
 recomputeStakes plusDistr minusDistr = do
     resolvedStakes <- mapM (\ad ->
@@ -262,8 +258,8 @@ recomputeStakes plusDistr minusDistr = do
     plusAt hm (key, val) = HM.insert key (val + HM.lookupDefault 0 key hm) hm
     minusAt hm (key, val) = HM.insert key (HM.lookupDefault 0 key hm - val) hm
 
-concatStakes :: ([TxAux], Undo) -> ([(NodeId, Coin)]
-                                   ,[(NodeId, Coin)])
+concatStakes :: ([TxAux], Undo) -> ([(StakeholderId, Coin)]
+                                   ,[(StakeholderId, Coin)])
 concatStakes (txas, undo) = (txasTxOutDistr, undoTxInDistr)
   where
     txasTxOutDistr = concatMap concatDistr txas

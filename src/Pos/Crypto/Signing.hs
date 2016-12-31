@@ -1,7 +1,3 @@
-{-# LANGUAGE DeriveGeneric        #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -16,12 +12,14 @@ module Pos.Crypto.Signing
        , toPublic
        , formatFullPublicKey
        , fullPublicKeyF
+       , fullPublicKeyHexF
        , parseFullPublicKey
 
        -- * Signing and verification
        , Signature (..)
        , sign
        , checkSig
+       , fullSignatureHexF
 
        , Signed (..)
        , mkSigned
@@ -52,6 +50,7 @@ import           Data.SafeCopy          (SafeCopy (..), base, contain,
 import qualified Data.Text.Buildable    as B
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting             (Format, bprint, build, later, (%))
+import qualified Serokell.Util.Base16   as B16
 import qualified Serokell.Util.Base64   as Base64 (decode, encode)
 import           Universum
 
@@ -83,7 +82,7 @@ deriveSafeCopySimple 0 'base ''Ed25519.Signature
 
 -- | Wrapper around 'Ed25519.PublicKey'.
 newtype PublicKey = PublicKey Ed25519.PublicKey
-    deriving (Eq, Ord, Show, Generic, NFData, Hashable)
+    deriving (Eq, Ord, Show, Generic, NFData, Hashable, Typeable)
 
 -- | Wrapper around 'Ed25519.SecretKey'.
 newtype SecretKey = SecretKey Ed25519.SecretKey
@@ -110,9 +109,14 @@ formatFullPublicKey :: PublicKey -> Builder
 formatFullPublicKey (PublicKey pk) =
     B.build . Base64.encode . Ed25519.openPublicKey $ pk
 
--- | Specialized formatter for 'PublicKey' to show it in base64.
+-- | Formatter for 'PublicKey' to show it in base64.
 fullPublicKeyF :: Format r (PublicKey -> r)
 fullPublicKeyF = later formatFullPublicKey
+
+-- | Formatter for 'PublicKey' to show it in hex.
+fullPublicKeyHexF :: Format r (PublicKey -> r)
+fullPublicKeyHexF = later $ \(PublicKey x) ->
+    B16.formatBase16 . Ed25519.openPublicKey $ x
 
 -- | Parse 'PublicKey' from base64 encoded string.
 parseFullPublicKey :: (Bi PublicKey) => Text -> Maybe PublicKey
@@ -145,7 +149,7 @@ deterministicKeyGen seed =
 
 -- | Wrapper around 'Ed25519.Signature'.
 newtype Signature a = Signature Ed25519.Signature
-    deriving (Eq, Ord, Show, Generic, NFData, Hashable)
+    deriving (Eq, Ord, Show, Generic, NFData, Hashable, Typeable)
 
 instance SafeCopy (Signature a) where
     putCopy (Signature sig) = contain $ safePut sig
@@ -153,6 +157,11 @@ instance SafeCopy (Signature a) where
 
 instance B.Buildable (Signature a) where
     build _ = "<signature>"
+
+-- | Formatter for 'Signature' to show it in hex.
+fullSignatureHexF :: Format r (Signature a -> r)
+fullSignatureHexF = later $ \(Signature x) ->
+    B16.formatBase16 . Ed25519.unSignature $ x
 
 -- | Encode something with 'Binary' and sign it.
 sign :: Bi a => SecretKey -> a -> Signature a

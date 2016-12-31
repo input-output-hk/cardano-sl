@@ -1,9 +1,6 @@
 {-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE DefaultSignatures    #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE StandaloneDeriving   #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | 'WalletMode' constraint. Like `WorkMode`, but for wallet.
@@ -35,13 +32,12 @@ import           Pos.DHT.Real                  (KademliaDHT)
 import           Pos.Ssc.Class.Types           (Ssc)
 import           Pos.Ssc.Extra                 (SscHolder (..))
 import           Pos.Ssc.GodTossing            (SscGodTossing)
-import           Pos.Txp.Class                 (MonadTxpLD (..), getUtxoView)
+import           Pos.Txp.Class                 (getUtxoView)
 import qualified Pos.Txp.Holder                as Modern
 import           Pos.Txp.Logic                 (processTx)
-import           Pos.Txp.Types                 (MemPool (..), UtxoView (..))
+import           Pos.Txp.Types                 (UtxoView (..))
 import           Pos.Types                     (Address, Coin, Tx, TxAux, TxId, Utxo,
                                                 runUtxoStateT, toPair, txOutValue)
-import           Pos.Types.Utxo.Functions      (filterUtxoByAddr)
 import           Pos.Types.Utxo.Functions      (belongsTo, filterUtxoByAddr)
 import           Pos.WorkMode                  (MinWorkMode)
 
@@ -59,7 +55,7 @@ class Monad m => MonadBalances m where
     -- TODO: add a function to get amount of stake (it's different from
     -- balance because of distributions)
 
-    default getOwnUtxo :: MonadTrans t => Address -> t m Utxo
+    default getOwnUtxo :: (MonadTrans t, MonadBalances m', t m' ~ m) => Address -> t m' Utxo
     getOwnUtxo = lift . getOwnUtxo
 
 instance MonadBalances m => MonadBalances (ReaderT r m)
@@ -90,10 +86,10 @@ class Monad m => MonadTxHistory m where
     getTxHistory :: Address -> m [(TxId, Tx, Bool)]
     saveTx :: (TxId, TxAux) -> m ()
 
-    default getTxHistory :: MonadTrans t => Address -> t m [(TxId, Tx, Bool)]
+    default getTxHistory :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => Address -> t m' [(TxId, Tx, Bool)]
     getTxHistory = lift . getTxHistory
 
-    default saveTx :: MonadTrans t => (TxId, TxAux) -> t m ()
+    default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> t m' ()
     saveTx = lift . saveTx
 
 instance MonadTxHistory m => MonadTxHistory (ReaderT r m)

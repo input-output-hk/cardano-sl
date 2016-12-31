@@ -1,8 +1,6 @@
-{-# LANGUAGE ConstraintKinds  #-}
-{-# LANGUAGE DeriveGeneric    #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE TypeFamilies     #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 -- | Types used for communication.
 
@@ -24,12 +22,14 @@ import           Pos.DHT.Model                      (MonadResponseDHT)
 import           Pos.WorkMode                       (WorkMode)
 
 import           Pos.Communication.Types.Delegation as Export
+import           Pos.Communication.Types.Protocol   as Export
 import           Pos.Communication.Types.State      as Export
 import           Pos.Communication.Types.SysStart   as Export
 import           Pos.Txp.Types.Communication        as Export
 
 -- | Constraint alias for 'WorkMode' with 'MonadResponseDHT'.
-type ResponseMode ssc m = (WorkMode ssc m, MonadResponseDHT (MutSocketState ssc) m)
+type ResponseMode ssc m =
+    (WorkMode ssc m, MonadResponseDHT (MutSocketState ssc) m)
 
 -- | 'MessageName'`s that shouldn't be cached.
 noCacheMessageNames :: [MessageName]

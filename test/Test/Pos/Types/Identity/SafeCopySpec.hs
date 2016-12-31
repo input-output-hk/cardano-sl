@@ -4,30 +4,29 @@ module Test.Pos.Types.Identity.SafeCopySpec
        ( spec
        ) where
 
-import           Test.Hspec            (Spec, describe)
-import           Test.Hspec.QuickCheck (prop)
+import           Test.Hspec    (Spec, describe)
 import           Universum
 
-import qualified Pos.Types             as T
+import qualified Pos.Types     as T
 
-import           Test.Pos.Util         (safeCopyEncodeDecode)
+import           Test.Pos.Util (safeCopyTest)
 
 spec :: Spec
 spec = describe "Types" $ do
     describe "SafeCopy instances" $ do
-        prop "Epochindex" (safeCopyEncodeDecode @T.EpochIndex)
-        prop "LocalSlotindex" (safeCopyEncodeDecode @T.LocalSlotIndex)
-        prop "SlotId" (safeCopyEncodeDecode @T.SlotId)
-        prop "Coin" (safeCopyEncodeDecode @T.Coin)
-        prop "Address" (safeCopyEncodeDecode @T.Address)
-        prop "TxInWitness" (safeCopyEncodeDecode @T.TxInWitness)
-        prop "TxDistribution" (safeCopyEncodeDecode @T.TxDistribution)
-        prop "TxIn" (safeCopyEncodeDecode @T.TxIn)
-        prop "TxOut" (safeCopyEncodeDecode @T.TxOut)
-        prop "Tx" (safeCopyEncodeDecode @T.Tx)
-        prop "SharedSeed" (safeCopyEncodeDecode @T.SharedSeed)
-        prop "Chaindifficulty" (safeCopyEncodeDecode @T.ChainDifficulty)
-        prop "UpdateProposal" (safeCopyEncodeDecode @T.UpdateProposal)
-        prop "UpdateVote" (safeCopyEncodeDecode @T.UpdateVote)
-        prop "UpdateData" (safeCopyEncodeDecode @T.UpdateData)
-        prop "SystemTag" (safeCopyEncodeDecode @T.SystemTag)
+        safeCopyTest @T.EpochIndex
+        safeCopyTest @T.LocalSlotIndex
+        safeCopyTest @T.SlotId
+        safeCopyTest @T.Coin
+        safeCopyTest @T.Address
+        safeCopyTest @T.TxInWitness
+        safeCopyTest @T.TxDistribution
+        safeCopyTest @T.TxIn
+        safeCopyTest @T.TxOut
+        safeCopyTest @T.Tx
+        safeCopyTest @T.SharedSeed
+        safeCopyTest @T.ChainDifficulty
+        safeCopyTest @T.UpdateProposal
+        safeCopyTest @T.UpdateVote
+        safeCopyTest @T.UpdateData
+        safeCopyTest @T.SystemTag

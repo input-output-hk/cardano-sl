@@ -10,7 +10,7 @@ module Pos.Wallet.Web.Api
        ) where
 
 import           Data.Proxy                 (Proxy (Proxy))
-import           Pos.Types                  (Coin, Tx)
+import           Pos.Types                  (Coin)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CTx, CTxId, CTxMeta, CWallet,
                                              CWalletMeta)
 import           Servant.API                ((:<|>), (:>), Capture, Get, Header, Headers,

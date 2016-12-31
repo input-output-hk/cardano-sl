@@ -4,17 +4,16 @@ module Test.Pos.DHT.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec            (Spec, describe)
-import           Test.Hspec.QuickCheck (prop)
+import           Test.Hspec    (Spec, describe)
 import           Universum
 
-import qualified Pos.DHT               as DHT
+import qualified Pos.DHT       as DHT
 
-import           Test.Pos.Util         (binaryEncodeDecode)
+import           Test.Pos.Util (binaryTest)
 
 spec :: Spec
 spec = describe "DHT.Model" $ do
     describe "Bi instances" $ do
-        prop "DHTMsgHeader" (binaryEncodeDecode @DHT.DHTMsgHeader)
-        prop "DHTKey"       (binaryEncodeDecode @DHT.DHTKey)
-        prop "DHTData"      (binaryEncodeDecode @DHT.DHTData)
+        binaryTest @DHT.DHTMsgHeader
+        binaryTest @DHT.DHTKey
+        binaryTest @DHT.DHTData

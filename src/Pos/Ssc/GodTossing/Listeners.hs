@@ -1,9 +1,7 @@
-{-# LANGUAGE AllowAmbiguousTypes   #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Instance of SscListenersClass
 
@@ -44,7 +42,7 @@ import           Pos.Ssc.GodTossing.Types.Message       (DataMsg (..), InvMsg (.
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), GtProof,
                                                          _gpCertificates)
-import           Pos.Types.Address                      (NodeId)
+import           Pos.Types.Address                      (StakeholderId)
 import           Pos.WorkMode                           (WorkMode)
 
 instance (Bi VssCertificate
@@ -70,7 +68,7 @@ handleInv (InvMsg tag keys) =
         (logDebug $
          sformat ("Ignoring "%build%", because slot is not appropriate") tag)
 
-handleInvDo :: (Bi ReqMsg) => ResponseMode SscGodTossing m => MsgTag -> NonEmpty NodeId -> m ()
+handleInvDo :: (Bi ReqMsg) => ResponseMode SscGodTossing m => MsgTag -> NonEmpty StakeholderId -> m ()
 handleInvDo tag keys = mapM_ handleSingle keys
   where
     handleSingle addr =
@@ -85,7 +83,7 @@ handleReq (ReqMsg tag addr) = do
     localPayload <- sscGetLocalPayload =<< getCurrentSlot
     whenJust (toDataMsg tag addr localPayload) (replyToNode @_ @_ @DataMsg)
 
-toDataMsg :: MsgTag -> NodeId -> GtPayload -> Maybe DataMsg
+toDataMsg :: MsgTag -> StakeholderId -> GtPayload -> Maybe DataMsg
 toDataMsg CommitmentMsg addr (CommitmentsPayload comm _) =
     DMCommitment addr <$> lookup addr comm
 toDataMsg OpeningMsg addr (OpeningsPayload opens _) =
@@ -117,7 +115,7 @@ handleData msg = do
             sendToNeighborsSafe $ InvMsg tag $ pure nid
 
 loggerAction :: WorkMode SscGodTossing m
-             => MsgTag -> Bool -> NodeId -> m ()
+             => MsgTag -> Bool -> StakeholderId -> m ()
 loggerAction msgTag added pkHash = logAction msg
   where
       msgAction | added = "added to local storage"

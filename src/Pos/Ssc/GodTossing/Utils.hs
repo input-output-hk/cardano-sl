@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 module Pos.Ssc.GodTossing.Utils
        ( -- verifiedVssCertificates
        ) where

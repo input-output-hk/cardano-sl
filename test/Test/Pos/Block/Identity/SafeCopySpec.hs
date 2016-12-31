@@ -4,75 +4,48 @@ module Test.Pos.Block.Identity.SafeCopySpec
        ( spec
        ) where
 
-import           Test.Hspec              (Spec, describe)
-import           Test.Hspec.QuickCheck   (prop)
+import           Test.Hspec          (Spec, describe)
 import           Universum
 
-import           Pos.Block.Arbitrary     ()
-import           Pos.Ssc.GodTossing      (SscGodTossing)
-import           Pos.Ssc.NistBeacon      (SscNistBeacon)
-import qualified Pos.Types               as BT
+import           Pos.Block.Arbitrary ()
+import           Pos.Ssc.GodTossing  (SscGodTossing)
+import           Pos.Ssc.NistBeacon  (SscNistBeacon)
+import qualified Pos.Types           as BT
 
-import           Test.Pos.Util           (safeCopyEncodeDecode)
+import           Test.Pos.Util       (safeCopyTest)
 
 spec :: Spec
 spec = describe "Block types" $ do
     describe "SafeCopy instances" $ do
         describe "GenericBlockHeader" $ do
             describe "GenesisBlockHeader" $ do
-                prop "NistBeacon"
-                    (safeCopyEncodeDecode @(BT.GenesisBlockHeader SscNistBeacon))
-                prop "GodTossing"
-                    (safeCopyEncodeDecode @(BT.GenesisBlockHeader SscGodTossing))
+                safeCopyTest @(BT.GenesisBlockHeader SscNistBeacon)
+                safeCopyTest @(BT.GenesisBlockHeader SscGodTossing)
             describe "MainBlockHeader" $ do
-                prop "NistBeacon"
-                    (safeCopyEncodeDecode @(BT.MainBlockHeader SscNistBeacon))
-                prop "GodTossing"
-                    (safeCopyEncodeDecode @(BT.MainBlockHeader SscGodTossing))
+                safeCopyTest @(BT.MainBlockHeader SscNistBeacon)
+                safeCopyTest @(BT.MainBlockHeader SscGodTossing)
         describe "GenesisBlockchain" $ do
             describe "BodyProof" $ do
-                prop "NistBeacon"
-                    (safeCopyEncodeDecode
-                         @(BT.BodyProof (BT.GenesisBlockchain SscNistBeacon)))
-                prop "GodTossing"
-                    (safeCopyEncodeDecode
-                         @(BT.BodyProof (BT.GenesisBlockchain SscGodTossing)))
+                safeCopyTest @(BT.BodyProof (BT.GenesisBlockchain SscNistBeacon))
+                safeCopyTest @(BT.BodyProof (BT.GenesisBlockchain SscGodTossing))
             describe "ConsensusData" $ do
-                prop "NistBeacon"
-                    (safeCopyEncodeDecode
-                         @(BT.ConsensusData (BT.GenesisBlockchain SscNistBeacon)))
-                prop "GodTossing"
-                    (safeCopyEncodeDecode
-                         @(BT.ConsensusData (BT.GenesisBlockchain SscGodTossing)))
+                safeCopyTest @(BT.ConsensusData (BT.GenesisBlockchain SscNistBeacon))
+                safeCopyTest @(BT.ConsensusData (BT.GenesisBlockchain SscGodTossing))
             describe "Body" $ do
-                prop "NistBeacon"
-                    (safeCopyEncodeDecode @(BT.Body (BT.GenesisBlockchain SscNistBeacon)))
-                prop "GodTossing"
-                    (safeCopyEncodeDecode @(BT.Body (BT.GenesisBlockchain SscGodTossing)))
+                safeCopyTest @(BT.Body (BT.GenesisBlockchain SscNistBeacon))
+                safeCopyTest @(BT.Body (BT.GenesisBlockchain SscGodTossing))
         describe "MainBlockchain" $ do
-            prop "MainExtraHeaderData" (safeCopyEncodeDecode @BT.MainExtraHeaderData)
-            prop "MainExtraBodyData" (safeCopyEncodeDecode @BT.MainExtraBodyData)
+            safeCopyTest @BT.MainExtraHeaderData
+            safeCopyTest @BT.MainExtraBodyData
             describe "BodyProof" $ do
-                prop "NistBeacon"
-                    (safeCopyEncodeDecode
-                         @(BT.BodyProof (BT.MainBlockchain SscNistBeacon)))
-                prop "GodTossing"
-                    (safeCopyEncodeDecode
-                         @(BT.BodyProof (BT.MainBlockchain SscGodTossing)))
+                safeCopyTest @(BT.BodyProof (BT.MainBlockchain SscNistBeacon))
+                safeCopyTest @(BT.BodyProof (BT.MainBlockchain SscGodTossing))
             describe "BlockSignature" $ do
-                prop "NistBeacon"
-                    (safeCopyEncodeDecode @(BT.BlockSignature SscNistBeacon))
-                prop "GodTossing"
-                    (safeCopyEncodeDecode @(BT.BlockSignature SscGodTossing))
+                safeCopyTest @(BT.BlockSignature SscNistBeacon)
+                safeCopyTest @(BT.BlockSignature SscGodTossing)
             describe "ConsensusData" $ do
-                prop "NistBeacon"
-                    (safeCopyEncodeDecode
-                         @(BT.ConsensusData (BT.MainBlockchain SscNistBeacon)))
-                prop "GodTossing"
-                    (safeCopyEncodeDecode
-                         @(BT.ConsensusData (BT.MainBlockchain SscGodTossing)))
+                safeCopyTest @(BT.ConsensusData (BT.MainBlockchain SscNistBeacon))
+                safeCopyTest @(BT.ConsensusData (BT.MainBlockchain SscGodTossing))
             describe "Body" $ do
-                prop "NistBeacon"
-                    (safeCopyEncodeDecode @(BT.Body (BT.MainBlockchain SscNistBeacon)))
-                prop "GodTossing"
-                    (safeCopyEncodeDecode @(BT.Body (BT.MainBlockchain SscGodTossing)))
+                safeCopyTest @(BT.Body (BT.MainBlockchain SscNistBeacon))
+                safeCopyTest @(BT.Body (BT.MainBlockchain SscGodTossing))

@@ -1,7 +1,5 @@
-{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections       #-}
 
 -- | Functions operating on UTXO.
 
@@ -82,12 +80,6 @@ verifyAndApplyTxs verifyAlone txs = fmap reverse <$> foldM applyDo (Right []) tx
         ((:) <$> verRes <*> txouts) <$ applyTxToUtxo (txa ^. _1) (txa ^. _3)
 
 -- TODO change types of normalizeTxs and related
-
-convertTo' :: [(TxId, TxAux)] -> [(WithHash Tx, TxWitness, TxDistribution)]
-convertTo' = map (\(i, (t, w, d)) -> (WithHash t i, w, d))
-
-convertFrom' :: [(WithHash Tx, TxWitness, TxDistribution)] -> [(TxId, TxAux)]
-convertFrom' = map (\(WithHash t h, w, d) -> (h, (t, w, d)))
 
 -- | A predicate for `TxOut` which selects outputs for given address
 belongsTo :: TxOutAux -> Address -> Bool

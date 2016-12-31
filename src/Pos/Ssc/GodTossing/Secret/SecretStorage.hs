@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 module Pos.Ssc.GodTossing.Secret.SecretStorage
        (
          getSecret

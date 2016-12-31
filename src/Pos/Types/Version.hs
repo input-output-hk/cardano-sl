@@ -24,7 +24,7 @@ data ProtocolVersion = ProtocolVersion
     { pvMajor :: Word16
     , pvMinor :: Word16
     , pvAlt   :: Word8
-    } deriving (Eq, Generic, Ord)
+    } deriving (Eq, Generic, Ord, Typeable)
 
 instance Show ProtocolVersion where
     show ProtocolVersion {..} =
@@ -35,7 +35,7 @@ instance Buildable ProtocolVersion where
 
 newtype ApplicationName = ApplicationName
     { getApplicationName :: Text
-    } deriving (Eq, Ord, Show, Generic)
+    } deriving (Eq, Ord, Show, Generic, Typeable)
 
 applicationNameMaxLength :: Integral i => i
 applicationNameMaxLength = 10
@@ -54,7 +54,7 @@ data SoftwareVersion = SoftwareVersion
     , svMajor   :: Word8
     , svMinor   :: Word16
     }
-  deriving (Eq, Generic, Ord)
+  deriving (Eq, Generic, Ord, Typeable)
 
 instance Buildable SoftwareVersion where
     build SoftwareVersion {..} =

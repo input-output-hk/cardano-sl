@@ -38,7 +38,7 @@ data Attributes h = Attributes
       -- | Unparsed ByteString
     , attrRemain :: ByteString
     }
-  deriving (Eq, Ord, Generic)
+  deriving (Eq, Ord, Generic, Typeable)
 
 instance Base.Show h => Base.Show (Attributes h) where
     show Attributes {..} =

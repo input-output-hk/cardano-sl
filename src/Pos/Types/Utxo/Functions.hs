@@ -81,12 +81,6 @@ verifyAndApplyTxs verifyAlone txs = fmap reverse <$> foldM applyDo (Right []) tx
 
 -- TODO change types of normalizeTxs and related
 
-convertTo' :: [(TxId, TxAux)] -> [(WithHash Tx, TxWitness, TxDistribution)]
-convertTo' = map (\(i, (t, w, d)) -> (WithHash t i, w, d))
-
-convertFrom' :: [(WithHash Tx, TxWitness, TxDistribution)] -> [(TxId, TxAux)]
-convertFrom' = map (\(WithHash t h, w, d) -> (h, (t, w, d)))
-
 -- | A predicate for `TxOut` which selects outputs for given address
 belongsTo :: TxOutAux -> Address -> Bool
 (out, _) `belongsTo` addr = addr == txOutAddress out

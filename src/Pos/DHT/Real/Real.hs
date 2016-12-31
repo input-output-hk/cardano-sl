@@ -342,8 +342,9 @@ instance (MonadIO m, MonadCatch m, WithLogger m, Bi DHTData, Bi DHTKey) =>
             selectSufficientNodes inst myId peers)
 
         selectSufficientNodes inst myId l =
-            if enchancedMessageBroadcast
-            then concat <$> mapM (getPeersFromBucket 2 inst) (splitToBuckets (kdiHandle inst) myId l)
+            if enchancedMessageBroadcast /= (0 :: Int)
+            then concat <$> mapM (getPeersFromBucket enchancedMessageBroadcast inst)
+                                 (splitToBuckets (kdiHandle inst) myId l)
             else return l
 
         splitToBuckets kInst origin peers = flip K.usingKademliaInstance kInst $ do

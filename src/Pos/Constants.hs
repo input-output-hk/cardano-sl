@@ -161,8 +161,8 @@ protocolMagic :: Int32
 protocolMagic = fromIntegral . ccProtocolMagic $ compileConfig
 
 -- | Setting this to true enables enchanced message broadcast
-enchancedMessageBroadcast :: Bool
-enchancedMessageBroadcast = ccEnchancedMessageBroadcast compileConfig
+enchancedMessageBroadcast :: Integral a => a
+enchancedMessageBroadcast = fromIntegral $ ccEnchancedMessageBroadcast compileConfig
 
 ----------------------------------------------------------------------------
 -- Malicious activity

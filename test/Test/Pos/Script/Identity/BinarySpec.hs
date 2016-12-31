@@ -4,15 +4,14 @@ module Test.Pos.Script.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec            (Spec, describe)
-import           Test.Hspec.QuickCheck (prop)
+import           Test.Hspec    (Spec, describe)
 import           Universum
 
-import qualified Pos.Script             as S
+import qualified Pos.Script    as S
 
-import           Test.Pos.Util         (binaryEncodeDecode)
+import           Test.Pos.Util (binaryTest)
 
 spec :: Spec
 spec = describe "Script" $ do
     describe "Bi instances" $ do
-        prop "Script" (binaryEncodeDecode @S.Script)
+        binaryTest @S.Script

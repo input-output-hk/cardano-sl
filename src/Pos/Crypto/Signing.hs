@@ -84,7 +84,7 @@ deriveSafeCopySimple 0 'base ''Ed25519.Signature
 
 -- | Wrapper around 'Ed25519.PublicKey'.
 newtype PublicKey = PublicKey Ed25519.PublicKey
-    deriving (Eq, Ord, Show, Generic, NFData, Hashable)
+    deriving (Eq, Ord, Show, Generic, NFData, Hashable, Typeable)
 
 -- | Wrapper around 'Ed25519.SecretKey'.
 newtype SecretKey = SecretKey Ed25519.SecretKey
@@ -151,7 +151,7 @@ deterministicKeyGen seed =
 
 -- | Wrapper around 'Ed25519.Signature'.
 newtype Signature a = Signature Ed25519.Signature
-    deriving (Eq, Ord, Show, Generic, NFData, Hashable)
+    deriving (Eq, Ord, Show, Generic, NFData, Hashable, Typeable)
 
 instance SafeCopy (Signature a) where
     putCopy (Signature sig) = contain $ safePut sig

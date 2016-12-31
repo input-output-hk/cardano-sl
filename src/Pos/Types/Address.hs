@@ -48,7 +48,7 @@ data Address
           { addrKeyHash :: !(AddressHash PublicKey) }
     | ScriptAddress
           { addrScriptHash :: !(AddressHash Script) }
-    deriving (Eq, Ord, Generic)
+    deriving (Eq, Ord, Generic, Typeable)
 
 -- | Stakeholder identifier (stakeholders are identified by their public keys)
 type StakeholderId = AddressHash PublicKey

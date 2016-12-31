@@ -105,7 +105,7 @@ import           Pos.Util.NotImplemented       ()
 -- | A wrapper over 'ByteString' for adding type safety to
 -- 'Pos.Crypto.Pki.encryptRaw' and friends.
 newtype Raw = Raw ByteString
-    deriving (Bi, Eq, Ord, Show)
+    deriving (Bi, Eq, Ord, Show, Typeable)
 
 -- | A helper for "Data.SafeCopy" that creates 'putCopy' given a 'Binary'
 -- instance.

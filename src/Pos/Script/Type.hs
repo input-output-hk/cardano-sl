@@ -40,7 +40,7 @@ type ScriptVersion = Word16
 data Script = Script {
     scrVersion :: ScriptVersion,           -- ^ Version
     scrScript  :: LByteString}      -- ^ Serialized script
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Show, Generic, Typeable)
 
 instance NFData Script
 instance Hashable Script

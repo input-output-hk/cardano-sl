@@ -3,15 +3,20 @@
 module NTP.Packet
     ( NtpPacket (..)
     , mkCliNtpPacket
+    , evalClockOffset
     ) where
 
 
-import Control.Monad   (replicateM_)
-import Data.Binary     (Binary (..))
-import Data.Binary.Get (getInt8, getWord32be, getWord8)
-import Data.Binary.Put (putWord32be, putWord8)
-import Data.Time.Units (Microsecond, fromMicroseconds, toMicroseconds)
-import Data.Word       (Word32, Word8)
+import Control.Lens        (each, (^..))
+import Control.Monad       (liftM4, replicateM_)
+import Control.Monad.Trans (MonadIO (..))
+import Data.Binary         (Binary (..))
+import Data.Binary.Get     (getInt8, getWord32be, getWord8)
+import Data.Binary.Put     (putWord32be, putWord8)
+import Data.Time.Units     (Microsecond, fromMicroseconds, toMicroseconds)
+import Data.Word           (Word32, Word8)
+
+import NTP.Util (getCurrentTime)
 
 import Debug.Trace
 
@@ -36,14 +41,13 @@ ntpToRealMcs integerSec fracSec = fromMicroseconds $
        (fromIntegral integerSec - ntpTimestampDelta) * 1000000
       + ((fromIntegral fracSec * 1000000) `div` power2of32)
 
-{-
 realMcsToNtp :: Microsecond -> (Word32, Word32)
 realMcsToNtp (toMicroseconds -> mcs) =
-    let integerSec = mcs `div` 1000000
+    let integerSec = (mcs `div` 1000000) + ntpTimestampDelta
         -- not correct:
-        fracSec    = ((mcs * power2of32) `div` 1000000) `mod` power2of32
-    in  traceShow mcs (fromIntegral integerSec, fromIntegral fracSec)
--}
+        fracSec    = ((mcs * power2of32) `div` 1000000)
+    in  (fromIntegral integerSec, fromIntegral fracSec)
+
 
 instance Binary NtpPacket where
     put NtpPacket{..} = do
@@ -51,7 +55,8 @@ instance Binary NtpPacket where
 
         -- since it's sent only by client, initialize only `originTime`
         replicateM_ 3 $ putWord8 0
-        replicateM_ 11 $ putWord32be 0
+        replicateM_ 9 $ putWord32be 0
+        mapM_ putWord32be $ realMcsToNtp ntpTransmitTime ^.. each
 
     get = do
         ntpParams <- getWord8
@@ -70,12 +75,19 @@ instance Binary NtpPacket where
         let ntpTransmitTime = ntpToRealMcs _txTmS _txTmF
         return NtpPacket{..}
 
-mkCliNtpPacket :: NtpPacket
-mkCliNtpPacket =
-    NtpPacket
-    { ntpParams       = 0x1b
-    , ntpPoll         = 0
-    , ntpOriginTime   = 0
-    , ntpReceivedTime = 0
-    , ntpTransmitTime = 0
-    }
+mkCliNtpPacket :: MonadIO m => m NtpPacket
+mkCliNtpPacket = do
+    let ntpParams       = 0x1b
+        ntpPoll         = 0
+        ntpOriginTime   = 0
+        ntpReceivedTime = 0
+    ntpTransmitTime    <- getCurrentTime
+    return NtpPacket {..}
+
+evalClockOffset :: MonadIO m => NtpPacket -> m Microsecond
+evalClockOffset packet = do
+    localTime <- getCurrentTime
+    return $ liftM4 (\t1 t2 t3 t4 -> (t2 - t1 + t3 - t4) `div` 2)
+                                -- ^ formula of clock offset
+             ntpOriginTime ntpReceivedTime ntpTransmitTime (pure localTime)
+           $ packet

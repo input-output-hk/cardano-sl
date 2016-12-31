@@ -28,7 +28,6 @@ import           Data.List                   (sort)
 import qualified Data.Map                    as M
 import           Data.Monoid                 ((<>))
 import           Data.Text                   (Text)
-import           Data.Time.Clock.POSIX       (getPOSIXTime)
 import           Data.Time.Units             (Microsecond, Second)
 import           Data.Time.Units             (fromMicroseconds)
 import           Data.Typeable               (Typeable)
@@ -51,8 +50,8 @@ import Mockable.Class      (Mockable)
 import Mockable.Concurrent (Fork, fork)
 import Mockable.Exception  (Catch, Throw, catch, catchAll, handleAll, throw)
 import Mockable.Production (runProduction)
-import NTP.Packet          (NtpPacket (..), mkCliNtpPacket)
-import NTP.Util            (datagramPacketSize, resolveNtpHost)
+import NTP.Packet          (NtpPacket (..), evalClockOffset, mkCliNtpPacket)
+import NTP.Util            (datagramPacketSize, getCurrentTime, resolveNtpHost)
 
 type StopWorker m = m ()
 
@@ -148,8 +147,8 @@ handleCollectedResponses cli = do
 
 doSend :: NtpMonad m => SockAddr -> NtpClient -> m ()
 doSend addr cli = do
-    sock <- liftIO $ readTVarIO (ncSocket cli)
-    let packet = encode mkCliNtpPacket
+    sock   <- liftIO $ readTVarIO (ncSocket cli)
+    packet <- encode <$> mkCliNtpPacket
     liftIO (sendManyTo sock (LBS.toChunks packet) addr) `catchAll` handleE
   where
     -- just log; socket closure is handled by receiver
@@ -189,14 +188,12 @@ handleNtpPacket :: NtpMonad m => NtpClient -> NtpPacket -> m ()
 handleNtpPacket cli packet = do
     log cli Debug $ sformat ("Got packet "%shown) packet
 
-    localTime <- liftIO $ fromMicroseconds . round . ( * 1000000) <$> getPOSIXTime
-    let serverTime = ntpTransmitTime packet
-        deltaTime  = serverTime - localTime
+    clockOffset <- evalClockOffset packet
 
-    log cli Info $ sformat ("Received time delta "%shown) deltaTime
+    log cli Info $ sformat ("Received time delta "%shown) clockOffset
 
     late <- liftIO . atomically . modifyTVarS (ncState cli) $ do
-        _Just %= (deltaTime :)
+        _Just %= (clockOffset :)
         uses id $ hasn't _Just
     when late $
         log cli Warning "Note, previous response was too late"

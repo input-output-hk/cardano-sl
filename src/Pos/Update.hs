@@ -18,7 +18,7 @@ import           System.FilePath         ((</>))
 import           Universum
 
 import           Pos.Constants           (updateServers)
-import           Pos.Crypto              (Hash)
+import           Pos.Crypto              (Hash, hash)
 
 -- | Download a file by its hash.
 --
@@ -30,7 +30,7 @@ downloadHash h = do
     let -- try all servers in turn until there's a Right
         go errs (serv:rest) = do
             let uri = serv </> toString (B16.encode (BA.convert h))
-            downloadUri manager uri >>= \case
+            downloadUri manager uri h >>= \case
                 Left e -> go (e:errs) rest
                 Right r -> return (Right r)
 
@@ -44,15 +44,19 @@ downloadHash h = do
 
     go [] updateServers
 
--- | Download a file.
-downloadUri :: Manager -> String -> IO (Either String LByteString)
-downloadUri manager uri = do
+-- | Download a file and check its hash.
+downloadUri :: Manager
+            -> String
+            -> Hash LByteString
+            -> IO (Either String LByteString)
+downloadUri manager uri h = do
     request <- setRequestManager manager <$> parseRequest uri
     resp <- httpLBS request
     let (st, stc) = (getResponseStatus resp, getResponseStatusCode resp)
-    return $ case stc of
-        200 -> Right (getResponseBody resp)
-        _   -> Left ("error, " ++ show st)
+        h' = hash (getResponseBody resp)
+    return $ if | stc /= 200 -> Left ("error, " ++ show st)
+                | h /= h'    -> Left "hash mismatch"
+                | otherwise  -> Right (getResponseBody resp)
 
 {- TODO
 =======

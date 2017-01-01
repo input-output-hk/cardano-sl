@@ -14,9 +14,11 @@ module Pos.Wallet.Web.Server.Methods
 import           Control.Lens               (view, _2)
 import           Data.Default               (def)
 import           Data.List                  (elemIndex, (!!))
+import qualified Data.Text                  as T (unpack)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (ords, sformat, stext, (%))
 import           Network.Wai                (Application)
+import           Pos.Crypto                 (hash)
 import           Servant.API                ((:<|>) ((:<|>)),
                                              FromHttpApiData (parseUrlPiece), addHeader)
 import           Servant.Server             (Handler, ServantErr (errBody), Server,
@@ -37,7 +39,7 @@ import           Pos.Web.Server             (serveImpl)
 import           Pos.Wallet.KeyStorage      (KeyError (..), MonadKeys (..), newSecretKey)
 import           Pos.Wallet.Tx              (submitTx)
 import           Pos.Wallet.WalletMode      (WalletMode, getBalance, getTxHistory)
-import           Pos.Wallet.Web.Api         (Cors, WalletApi, walletApi)
+import           Pos.Wallet.Web.Api         (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency (ADA), CHash (..), CTx,
                                              CTx, CTxId, CTxMeta (..), CWallet (..),
                                              CWalletMeta (..), addressToCAddress,
@@ -93,21 +95,23 @@ type WalletWebMode ssc m
 
 servantHandlers :: WalletWebMode ssc m => ServerT WalletApi m
 servantHandlers =
-     addCors . getWallet
+     getWallet
     :<|>
-     addCors getWallets
+     getWallets
     :<|>
-     (\a b -> addCors . send a b)
+     send
     :<|>
-     addCors . getHistory
+     getHistory
     :<|>
-     (\a b -> addCors . updateTransaction a b)
+     updateTransaction
     :<|>
-     addCors . newWallet
+     newWallet
     :<|>
-     (\a -> addCors . updateWallet a)
+     updateWallet
     :<|>
-     addCors . deleteWallet
+     deleteWallet
+    :<|>
+     isValidAddress
 
 getAddresses :: WalletWebMode ssc m => m [CAddress]
 getAddresses = map addressToCAddress <$> myAddresses
@@ -197,6 +201,11 @@ deleteWallet cAddr = do
             sformat ("Error while deleting wallet: "%stext) err
         }
 
+-- NOTE: later we will have `isValidAddress :: CCurrency -> CAddress -> m Bool` which should work for arbitrary crypto
+isValidAddress :: WalletWebMode ssc m => CCurrency -> Text -> m Bool
+isValidAddress ADA sAddr = pure . either (const False) (const True) $ decodeTextAddress sAddr
+isValidAddress _ _       = pure False
+
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
@@ -214,9 +223,6 @@ getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound pure
                 sformat ("Address "%addressF%" is not found in wallet") $ addr
             }
 
-addCors :: Monad m => m a -> m (Cors a)
-addCors = fmap (addHeader "*")
-
 ----------------------------------------------------------------------------
 -- Orphan instances
 ----------------------------------------------------------------------------
@@ -233,3 +239,6 @@ instance FromHttpApiData CAddress where
 -- we are not checking is receaved Text really vald CTxId
 instance FromHttpApiData CTxId where
     parseUrlPiece = pure . mkCTxId
+
+instance FromHttpApiData CCurrency where
+    parseUrlPiece = first fromString . readEither . toString

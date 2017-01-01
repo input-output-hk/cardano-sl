@@ -49,9 +49,9 @@ instance ( Bi VssCertificate
          , Bi Commitment
          , Bi GtPayload
          , Bi GtProof
-         , Bi (InvMsg GtMsgTag)
-         , Bi (ReqMsg GtMsgTag)
-         , Bi (DataMsg GtMsgContents)
+         , Bi (InvMsg StakeholderId GtMsgTag)
+         , Bi (ReqMsg StakeholderId GtMsgTag)
+         , Bi (DataMsg StakeholderId GtMsgContents)
          ) =>
          SscListenersClass SscGodTossing where
     sscListeners =
@@ -61,17 +61,17 @@ instance ( Bi VssCertificate
             , ListenerDHT handleDataGt
             ]
 
-handleInvGt :: (Bi (ReqMsg GtMsgTag), ResponseMode SscGodTossing m) => InvMsg GtMsgTag -> m ()
+handleInvGt :: (Bi (ReqMsg StakeholderId GtMsgTag), ResponseMode SscGodTossing m) => InvMsg StakeholderId GtMsgTag -> m ()
 handleInvGt = handleInvL
 
-handleReqGt :: (Bi (DataMsg GtMsgContents), ResponseMode SscGodTossing m) => ReqMsg GtMsgTag -> m ()
+handleReqGt :: (Bi (DataMsg StakeholderId GtMsgContents), ResponseMode SscGodTossing m) => ReqMsg StakeholderId GtMsgTag -> m ()
 handleReqGt = handleReqL
 
-handleDataGt :: (Bi (InvMsg GtMsgTag), ResponseMode SscGodTossing m) => DataMsg GtMsgContents -> m ()
+handleDataGt :: (Bi (InvMsg StakeholderId GtMsgTag), ResponseMode SscGodTossing m) => DataMsg StakeholderId GtMsgContents -> m ()
 handleDataGt = handleDataL
 
 instance ( WorkMode SscGodTossing m
-         ) => Relay m GtMsgTag GtMsgContents where
+         ) => Relay m GtMsgTag StakeholderId GtMsgContents where
     contentsToTag = pure . msgContentsTag
 
     verifyInvTag tag =

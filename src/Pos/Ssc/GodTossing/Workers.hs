@@ -204,7 +204,7 @@ sendOurData msgTag epoch kMultiplier ourId = do
     -- type of message.
     waitUntilSend msgTag epoch kMultiplier
     logDebug $ sformat ("Announcing our "%build) msgTag
-    let msg = InvMsg {imTag = msgTag, imStakeholders = pure ourId}
+    let msg = InvMsg {imTag = msgTag, imKeys = pure ourId}
     sendToNeighborsSafe msg
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 

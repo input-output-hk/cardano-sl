@@ -1,5 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE CPP                  #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Server which handles transactions.
 
@@ -11,10 +12,11 @@ module Pos.Txp.Listeners
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.List.NonEmpty          as NE
 import           Formatting                  (build, sformat, stext, (%))
+import           Serokell.Util.Verify        (VerificationRes (..))
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 import           Universum
 
-import           Pos.Binary.Txp              ()
+import           Pos.Binary.Relay            ()
 import           Pos.Communication.Methods   (sendToNeighborsSafe)
 import           Pos.Communication.Types     (MutSocketState, ResponseMode)
 import           Pos.Context                 (WithNodeContext (getNodeContext),
@@ -25,10 +27,11 @@ import           Pos.DHT.Model               (ListenerDHT (..), MonadDHTDialog,
 import           Pos.Statistics              (StatProcessTx (..), statlogCountEvent)
 import           Pos.Txp.Class               (MonadTxpLD, getMemPool)
 import           Pos.Txp.Logic               (processTx)
-import           Pos.Txp.Types.Communication (TxDataMsg (..), TxInvMsg (..),
-                                              TxReqMsg (..))
+import           Pos.Txp.Types.Communication (TxMsgContents (..), TxMsgTag (..))
 import           Pos.Txp.Types.Types         (MemPool (..), ProcessTxRes (..), TxMap)
 import           Pos.Types                   (TxAux, TxId)
+import           Pos.Util.Relay              (DataMsg, InvMsg, Relay (..), ReqMsg,
+                                              handleDataL, handleInvL, handleReqL)
 import           Pos.WorkMode                (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
@@ -37,53 +40,41 @@ txListeners
     => [ListenerDHT (MutSocketState ssc) m]
 txListeners =
     [
-      ListenerDHT handleTxInv
-    , ListenerDHT handleTxReq
-    , ListenerDHT handleTxData
+      ListenerDHT handleInvTx
+    , ListenerDHT handleReqTx
+    , ListenerDHT handleDataTx
     ]
 
-isTxUseful :: ResponseMode ssc m => TxId -> m Bool
-isTxUseful txId = not . HM.member txId <$> getLocalTxsMap
+handleInvTx :: ResponseMode ssc m => InvMsg TxId TxMsgTag -> m ()
+handleInvTx = handleInvL
 
-handleTxInv :: (ResponseMode ssc m) => TxInvMsg -> m ()
-handleTxInv (TxInvMsg (NE.toList -> txHashes)) = do
-    added <- mapM handleSingle txHashes
-    let addedItems = map snd . filter fst . zip added $ txHashes
-    safeReply addedItems
-  where
-    safeReply = maybe pass (replyToNode . TxReqMsg) . NE.nonEmpty
-    handleSingle txHash =
-        ifM (isTxUseful txHash)
-            (True <$ requestingLogMsg txHash)
-            (False <$ ingoringLogMsg txHash)
-    requestingLogMsg txHash = logDebug $
-        sformat ("Requesting tx with hash "%build) txHash
-    ingoringLogMsg txHash = logDebug $
-        sformat ("Ignoring tx with hash ("%build%"), because it's useless") txHash
+handleReqTx :: ResponseMode ssc m => ReqMsg TxId TxMsgTag -> m ()
+handleReqTx = handleReqL
 
-handleTxReq :: (ResponseMode ssc m)
-            => TxReqMsg -> m ()
-handleTxReq (TxReqMsg txIds_) = do
-    localTxs <- getLocalTxsMap
-    let txIds = NE.toList txIds_
-        found = map (flip HM.lookup localTxs) txIds
-        addedItems = catMaybes found
-    mapM_ (\(tx,tw,td) -> replyToNode (TxDataMsg tx tw td)) addedItems
+handleDataTx :: ResponseMode ssc m => DataMsg TxId TxMsgContents -> m ()
+handleDataTx = handleDataL
 
--- CHECK: #handleTxDo
-handleTxData :: (ResponseMode ssc m)
-             => TxDataMsg -> m ()
-handleTxData (TxDataMsg tx tw td) = do
-    let txId = hash tx
-    added <- handleTxDo (txId, (tx, tw, td))
-    needPropagate <- ncPropagation <$> getNodeContext
-    when (added && needPropagate) $ sendToNeighborsSafe $ TxInvMsg $ pure txId
+instance ( WorkMode ssc m
+         ) => Relay m TxMsgTag TxId TxMsgContents where
+    contentsToTag _ = pure TxMsgTag
+
+    verifyInvTag _ = pure VerSuccess
+    verifyReqTag _ = pure VerSuccess
+    verifyDataContents _ = pure VerSuccess
+
+    handleInv _ txId = not . HM.member txId  . localTxs <$> getMemPool
+
+    handleReq _ txId = fmap toContents . HM.lookup txId . localTxs <$> getMemPool
+      where
+        toContents (tx, tw, td) = TxMsgContents tx tw td
+
+    handleData (TxMsgContents tx tw td) _ = handleTxDo (hash tx, (tx, tw, td))
 
 -- Real tx processing
 -- CHECK: @handleTxDo
 -- #processTx
 handleTxDo
-    :: ResponseMode ssc m
+    :: WorkMode ssc m
     => (TxId, TxAux) -> m Bool
 handleTxDo tx = do
     res <- processTx tx
@@ -101,6 +92,3 @@ handleTxDo tx = do
         PTRoverwhelmed ->
             logInfo $ sformat ("Node is overwhelmed, can't add tx: "%build) txId
     return (res == PTRadded)
-
-getLocalTxsMap :: MonadTxpLD ssc m => m TxMap
-getLocalTxsMap = localTxs <$> getMemPool

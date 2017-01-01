@@ -121,7 +121,6 @@ library
                         Pos.Binary.Relay
                         Pos.Binary.Script
                         Pos.Binary.Ssc
-                        Pos.Binary.Txp
                         Pos.Binary.Types
                         Pos.Binary.Update
                         Pos.Binary.Util
@@ -137,6 +136,7 @@ library
                         Pos.Block.Worker
                         Pos.Communication.Arbitrary
                         Pos.Communication.Methods
+                        Pos.Communication.RelayMethods
                         Pos.Communication.Types
                         Pos.Communication.Types.Delegation
                         Pos.Communication.Types.Protocol

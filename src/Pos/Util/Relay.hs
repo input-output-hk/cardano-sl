@@ -26,18 +26,19 @@ import           Pos.Communication.Types   (MutSocketState, ResponseMode)
 import           Pos.Context               (WithNodeContext (getNodeContext),
                                             ncPropagation)
 import           Pos.DHT.Model             (ListenerDHT (..), MonadDHTDialog, replyToNode)
-import           Pos.Types                 (StakeholderId)
 import           Pos.Util                  (NamedMessagePart (..))
 import           Pos.WorkMode              (WorkMode)
 import           System.Wlog               (WithLogger)
 
 class ( Buildable tag
       , Buildable contents
+      , Buildable key
       , Typeable tag
       , Typeable contents
+      , Typeable key
       , NamedMessagePart tag
       , NamedMessagePart contents
-      ) => Relay m tag contents | tag -> contents, contents -> tag where
+      ) => Relay m tag key contents | tag -> contents, contents -> tag, contents -> key, tag -> key where
     -- | Converts data to tag. Tag returned in monad `m`
     -- for only type matching reason (multiparam type classes are tricky)
     contentsToTag :: contents -> m tag
@@ -49,54 +50,54 @@ class ( Buildable tag
     verifyDataContents :: contents -> m VerificationRes
 
     -- | Handle inv msg and return whether it's useful or not
-    handleInv :: tag -> StakeholderId -> m Bool
+    handleInv :: tag -> key -> m Bool
 
     -- | Handle req msg and return (Just data) in case requested data can be provided
-    handleReq :: tag -> StakeholderId -> m (Maybe contents)
+    handleReq :: tag -> key -> m (Maybe contents)
 
     -- | Handle data msg and return True if message is to be propagated
-    handleData :: contents -> StakeholderId -> m Bool
+    handleData :: contents -> key -> m Bool
 
 -- | Inventory message. Can be used to announce the fact that you have
 -- some data.
-data InvMsg tag = InvMsg
-    { imTag          :: !tag
-    , imStakeholders :: !(NonEmpty StakeholderId)
+data InvMsg key tag = InvMsg
+    { imTag  :: !tag
+    , imKeys :: !(NonEmpty key)
     }
 
-instance (Typeable tag, NamedMessagePart tag) => Message (InvMsg tag) where
+instance (Typeable key, Typeable tag, NamedMessagePart tag) => Message (InvMsg key tag) where
     messageName p = "Inventory " <> nMessageName (tagM p)
       where
-        tagM :: Proxy (InvMsg tag) -> Proxy tag
+        tagM :: Proxy (InvMsg key tag) -> Proxy tag
         tagM _ = Proxy
 
     formatMessage = messageName'
 
 -- | Request message. Can be used to request data (ideally data which
 -- was previously announced by inventory message).
-data ReqMsg tag = ReqMsg
-    { rmTag          :: !tag
-    , rmStakeholders :: !(NonEmpty StakeholderId)
+data ReqMsg key tag = ReqMsg
+    { rmTag  :: !tag
+    , rmKeys :: !(NonEmpty key)
     }
 
-instance (Typeable tag, NamedMessagePart tag) => Message (ReqMsg tag) where
+instance (Typeable key, Typeable tag, NamedMessagePart tag) => Message (ReqMsg key tag) where
     messageName p = "Request " <> nMessageName (tagM p)
       where
-        tagM :: Proxy (ReqMsg tag) -> Proxy tag
+        tagM :: Proxy (ReqMsg key tag) -> Proxy tag
         tagM _ = Proxy
 
     formatMessage = messageName'
 
 -- | Data message. Can be used to send actual data.
-data DataMsg contents = DataMsg
-    { dmContents    :: !contents
-    , dmStakeholder :: !StakeholderId
+data DataMsg key contents = DataMsg
+    { dmContents :: !contents
+    , dmKey      :: !key
     }
 
-instance (Typeable contents, NamedMessagePart contents) => Message (DataMsg contents) where
+instance (Typeable key, Typeable contents, NamedMessagePart contents) => Message (DataMsg key contents) where
     messageName p = "Data " <> nMessageName (contentsM p)
       where
-        contentsM :: Proxy (DataMsg contents) -> Proxy contents
+        contentsM :: Proxy (DataMsg key contents) -> Proxy contents
         contentsM _ = Proxy
 
     formatMessage = messageName'
@@ -115,9 +116,9 @@ processMessage name param verifier action = do
             ("Wrong "%stext%": invalid "%build%": "%listJson)
             name param reasons
 
-handleInvL :: (Bi (ReqMsg tag), Relay m tag contents, ResponseMode ssc m) => InvMsg tag -> m ()
+handleInvL :: (Bi (ReqMsg key tag), Relay m tag key contents, ResponseMode ssc m) => InvMsg key tag -> m ()
 handleInvL InvMsg {..} = processMessage "Inventory" imTag verifyInvTag $ do
-    res <- zip (toList imStakeholders) <$> mapM (handleInv imTag) (toList imStakeholders)
+    res <- zip (toList imKeys) <$> mapM (handleInv imTag) (toList imKeys)
     let useful = filter' identity res
         useless = filter' not res
     when (not $ null useless) $
@@ -130,9 +131,9 @@ handleInvL InvMsg {..} = processMessage "Inventory" imTag verifyInvTag $ do
 
 filter' pred = map fst . filter (pred . snd)
 
-handleReqL :: (Bi (DataMsg contents), Relay m tag contents, ResponseMode ssc m) => ReqMsg tag -> m ()
+handleReqL :: (Bi (DataMsg key contents), Relay m tag key contents, ResponseMode ssc m) => ReqMsg key tag -> m ()
 handleReqL ReqMsg {..} = processMessage "Request" rmTag verifyReqTag $ do
-    res <- zip (toList rmStakeholders) <$> mapM (handleReq rmTag) (toList rmStakeholders)
+    res <- zip (toList rmKeys) <$> mapM (handleReq rmTag) (toList rmKeys)
     let noDataAddrs = filter' isNothing res
         datas = catMaybes $ map (\(addr, m) -> (,addr) <$> m) res
     when (not $ null noDataAddrs) $
@@ -141,23 +142,23 @@ handleReqL ReqMsg {..} = processMessage "Request" rmTag verifyReqTag $ do
           rmTag noDataAddrs
     mapM_ (replyToNode . uncurry DataMsg) datas
 
-handleDataL :: (Bi (InvMsg tag), Relay m tag contents, WorkMode ssc m) => DataMsg contents -> m ()
+handleDataL :: (Bi (InvMsg key tag), Relay m tag key contents, WorkMode ssc m) => DataMsg key contents -> m ()
 handleDataL DataMsg {..} = processMessage "Data" dmContents verifyDataContents $ do
-    ifM (handleData dmContents dmStakeholder)
+    ifM (handleData dmContents dmKey)
       handleDataLDo $
       logDebug $ sformat
           ("Ignoring data "%build%" for address "%build)
-          dmContents dmStakeholder
+          dmContents dmKey
   where
     handleDataLDo =
         ifM (ncPropagation <$> getNodeContext)
             propagate $
             logInfo $ sformat
                 ("Adopted data "%build%" for address "%build%", no propagation")
-                dmContents dmStakeholder
+                dmContents dmKey
     propagate = do
         logInfo $ sformat
             ("Adopted data "%build%" for address "%build%", propagating...")
-            dmContents dmStakeholder
+            dmContents dmKey
         tag <- contentsToTag dmContents
-        sendToNeighborsSafe $ InvMsg tag (dmStakeholder :| [])
+        sendToNeighborsSafe $ InvMsg tag (dmKey :| [])

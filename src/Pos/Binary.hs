@@ -16,7 +16,6 @@ import           Pos.Binary.DHTModel      ()
 import           Pos.Binary.Merkle        ()
 import           Pos.Binary.Relay         ()
 import           Pos.Binary.Ssc           ()
-import           Pos.Binary.Txp           ()
 import           Pos.Binary.Types         ()
 import           Pos.Binary.Update        ()
 import           Pos.Binary.Util

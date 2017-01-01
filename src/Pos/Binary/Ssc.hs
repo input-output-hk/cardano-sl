@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 -- | GodTossing serialization instances
 
 module Pos.Binary.Ssc () where

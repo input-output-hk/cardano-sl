@@ -168,11 +168,12 @@ getHistory cAddr = do
 addHistoryTx :: WalletWebMode ssc m => CAddress -> (TxId, Tx, Bool) -> m CTx
 addHistoryTx cAddr wtx@(txId, _, _) = do
     -- TODO: this should be removed in production
+    addr <- decodeCAddressOrFail cAddr
     meta <- CTxMeta ADA mempty mempty <$> liftIO getPOSIXTime
     let cId = txIdToCTxId txId
     addOnlyNewTxMeta cAddr cId meta
     meta' <- maybe meta identity <$> getTxMeta cAddr cId
-    return $ mkCTx wtx meta'
+    return $ mkCTx addr wtx meta'
 
 newWallet :: WalletWebMode ssc m => CWalletMeta -> m CWallet
 newWallet wMeta = do

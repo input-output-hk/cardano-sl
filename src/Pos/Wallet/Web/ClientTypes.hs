@@ -42,7 +42,7 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting            (build, sformat)
 import           Pos.Aeson.Types       ()
 import           Pos.Types             (Address (..), Coin, Tx, TxId, decodeTextAddress,
-                                        txOutValue, txOutputs)
+                                        txOutAddress, txOutValue, txOutputs)
 
 
 -- | currencies handled by client
@@ -80,10 +80,11 @@ mkCTxId = CTxId . CHash
 txIdToCTxId :: TxId -> CTxId
 txIdToCTxId = mkCTxId . sformat build
 
-mkCTx :: (TxId, Tx, Bool) -> CTxMeta -> CTx
-mkCTx (txId, tx, isOutgoing) = CTx (txIdToCTxId txId) outputCoins . meta
+mkCTx :: Address -> (TxId, Tx, Bool) -> CTxMeta -> CTx
+mkCTx addr (txId, tx, isOutgoing) = CTx (txIdToCTxId txId) outputCoins . meta
   where
-    outputCoins = sum . map txOutValue $ txOutputs tx
+    outputCoins = sum . map txOutValue $
+        filter ((/= addr) . txOutAddress) $ txOutputs tx
     meta = if isOutgoing then CTOut else CTIn
 
 ----------------------------------------------------------------------------

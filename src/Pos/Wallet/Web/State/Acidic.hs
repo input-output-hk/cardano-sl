@@ -14,11 +14,13 @@ module Pos.Wallet.Web.State.Acidic
 
        , GetWalletMetas (..)
        , GetWalletMeta (..)
+       , GetTxMeta (..)
        , CreateWallet (..)
        , SetWalletMeta (..)
+       , SetWalletTransactionMeta (..)
        , SetWalletHistory (..)
        , GetWalletHistory (..)
-       , AddOnlyNewHistory (..)
+       , AddOnlyNewTxMeta (..)
        , RemoveWallet (..)
        ) where
 
@@ -62,10 +64,12 @@ makeAcidic ''WalletStorage
     [
       'WS.getWalletMetas
     , 'WS.getWalletMeta
+    , 'WS.getTxMeta
     , 'WS.createWallet
     , 'WS.setWalletMeta
+    , 'WS.setWalletTransactionMeta
     , 'WS.setWalletHistory
     , 'WS.getWalletHistory
-    , 'WS.addOnlyNewHistory
+    , 'WS.addOnlyNewTxMeta
     , 'WS.removeWallet
     ]

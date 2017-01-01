@@ -15,7 +15,9 @@ module Pos.Wallet.WalletMode
        ) where
 
 import           Control.Monad                 (fail)
+import           Control.Monad.Loops           (unfoldrM)
 import           Control.Monad.Trans           (MonadTrans)
+import           Control.Monad.Trans.Maybe     (MaybeT (..))
 import           Control.TimeWarp.Rpc          (Dialog, Transfer)
 import qualified Data.HashMap.Strict           as HM
 import qualified Data.Map                      as M
@@ -27,6 +29,7 @@ import           Pos.DB                        (MonadDB)
 import qualified Pos.DB                        as DB
 import           Pos.DHT.Model                 (DHTPacking)
 import           Pos.DHT.Real                  (KademliaDHT)
+import           Pos.Ssc.Class.Types           (Ssc)
 import           Pos.Ssc.Extra                 (SscHolder (..))
 import           Pos.Ssc.GodTossing            (SscGodTossing)
 import           Pos.Txp.Class                 (getUtxoView)
@@ -34,7 +37,7 @@ import qualified Pos.Txp.Holder                as Modern
 import           Pos.Txp.Logic                 (processTx)
 import           Pos.Txp.Types                 (UtxoView (..))
 import           Pos.Types                     (Address, Coin, Tx, TxAux, TxId, Utxo,
-                                                evalUtxoStateT, toPair, txOutValue)
+                                                runUtxoStateT, toPair, txOutValue)
 import           Pos.Types.Utxo.Functions      (belongsTo, filterUtxoByAddr)
 import           Pos.WorkMode                  (MinWorkMode)
 
@@ -104,14 +107,27 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     getTxHistory addr = do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
-        return $ fromMaybe (fail "deriveAddrHistory: Nothing") $
-            flip evalUtxoStateT utxo $
+        return $ fst . fromMaybe (fail "deriveAddrHistory: Nothing") $
+            flip runUtxoStateT utxo $
             deriveAddrHistory addr chain
     saveTx _ = pure ()
 
 -- TODO: make a working instance
-instance (MonadDB ssc m, MonadThrow m) => MonadTxHistory (Modern.TxpLDHolder ssc m) where
-    getTxHistory _ = pure []
+instance (Ssc ssc, MonadDB ssc m, MonadThrow m) => MonadTxHistory (Modern.TxpLDHolder ssc m) where
+    getTxHistory addr = do
+        bot <- DB.getBot
+        genUtxo <- filterUtxoByAddr addr <$> DB.getGenUtxo
+
+        -- It's genesis hash at the very bottom already, so we don't look for txs there
+        txss <- flip unfoldrM (bot, genUtxo) $ \(h, utxo) -> runMaybeT $ do
+            next <- MaybeT $ DB.getNextHash h
+            blk <- MaybeT $ DB.getBlock next
+            MaybeT $ return $ do
+                (txs, utxo') <- flip runUtxoStateT utxo $
+                    deriveAddrHistory addr [blk]
+                return (txs, (next, utxo'))
+        return $ foldr (++) [] txss
+
     saveTx txw = () <$ processTx txw
 
 --deriving instance MonadTxHistory m => MonadTxHistory (Modern.TxpLDHolder m)

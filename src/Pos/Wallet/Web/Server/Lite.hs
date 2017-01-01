@@ -19,7 +19,6 @@ import           Pos.DHT.Model                 (DHTPacking)
 import           Pos.DHT.Real                  (KademliaDHTContext, getKademliaDHTCtx,
                                                 runKademliaDHTRaw)
 import           Pos.Launcher                  (runOurDialog)
-import           Pos.Web.Server                (serveImpl)
 
 import           Pos.Wallet.Context            (ContextHolder, WalletContext,
                                                 getWalletContext, runContextHolder)
@@ -27,7 +26,8 @@ import           Pos.Wallet.KeyStorage         (KeyData, KeyStorage, runKeyStora
 import           Pos.Wallet.State              (WalletDB, getWalletState, runWalletDB)
 import qualified Pos.Wallet.State              as WS
 import           Pos.Wallet.WalletMode         (SState, WalletRealMode)
-import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServer)
+import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,
+                                                walletServer)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
                                                 WalletWebDB, getWalletWebState,
                                                 runWalletWebDB)
@@ -40,9 +40,8 @@ type SubKademlia = KeyStorage
 
 type MainWalletState = WS.WalletState
 
-walletServeWebLite :: FilePath -> Word16 -> WalletRealMode ()
-walletServeWebLite daedalusDbPath = serveImpl $
-    walletApplication (walletServer nat) daedalusDbPath
+walletServeWebLite :: FilePath -> Bool -> Word16 -> WalletRealMode ()
+walletServeWebLite = walletServeImpl $ walletApplication $ walletServer nat
 
 convertHandler
     :: KademliaDHTContext SubKademlia

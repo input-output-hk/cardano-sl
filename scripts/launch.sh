@@ -63,7 +63,7 @@ while [[ $i -lt $n ]]; do
   wallet_args=''
   if [[ $WALLET_TEST != "" ]]; then
       if (( $i == $n - 1 )); then
-          wallet_args=' --wallet'
+          wallet_args=' --wallet' # --wallet-rebuild-db'
       fi
   fi
 

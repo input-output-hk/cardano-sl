@@ -23,10 +23,10 @@ class Monad m => MonadIterator m a where
     -- or Nothing if it doesn't exist.
     curItem  :: m (Maybe a)
 
-    default nextItem :: (MonadTrans t, MonadIterator n a, t n ~ m) => t n (Maybe a)
+    default nextItem :: (MonadTrans t, MonadIterator n a, t n ~ m) => m (Maybe a)
     nextItem = lift nextItem
 
-    default curItem :: (MonadTrans t, MonadIterator n a, t n ~ m) => t n (Maybe a)
+    default curItem :: (MonadTrans t, MonadIterator n a, t n ~ m) => m (Maybe a)
     curItem = lift curItem
 
 instance MonadIterator m a => MonadIterator (StateT s m) a

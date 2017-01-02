@@ -3,7 +3,6 @@
 
 module Main where
 
-import           Control.Monad        (fail)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.List            ((!!))
 import           System.Directory     (createDirectoryIfMissing)
@@ -188,7 +187,7 @@ pluginsGT Args {..}
 walletServe :: SscConstraint ssc => Args -> [RawRealMode ssc ()]
 walletServe Args {..} =
     if enableWallet
-    then [walletServeWebFull walletDbPath walletDebug walletPort]
+    then [walletServeWebFull walletDebug walletDbPath walletRebuildDb walletPort]
     else []
 
 walletProd :: SscConstraint ssc => Args -> [ProductionMode ssc ()]

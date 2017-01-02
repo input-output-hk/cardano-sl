@@ -1,15 +1,14 @@
 -- | Binary serialization of Pos.Types.Address
 module Pos.Binary.Address () where
 
-import           Control.Monad.Fail (fail)
-import           Data.Binary.Get    (Get, getWord32be, getWord8)
-import           Data.Binary.Put    (Put, putWord32be, putWord8, runPut)
-import           Data.Digest.CRC32  (CRC32 (..), crc32)
+import           Data.Binary.Get   (Get, getWord32be, getWord8)
+import           Data.Binary.Put   (Put, putWord32be, putWord8, runPut)
+import           Data.Digest.CRC32 (CRC32 (..), crc32)
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..))
-import           Pos.Binary.Coin    ()
-import           Pos.Types.Address  (Address (..))
+import           Pos.Binary.Class  (Bi (..))
+import           Pos.Binary.Coin   ()
+import           Pos.Types.Address (Address (..))
 
 -- | Encode everything in an address except for CRC32
 putAddressIncomplete :: Address -> Put

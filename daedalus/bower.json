@@ -32,6 +32,10 @@
     "purescript-argonaut": "^1.0.0",
     "purescript-argonaut-generic-codecs": "^3.0.1",
     "purescript-aff": "^1.1.0",
-    "purescript-aff-promise": "0.2.1"
+    "purescript-now": "^1.0.0",
+    "purescript-datetime": "^1.0.0",
+    "purescript-aff-promise": "0.2.1",
+    "purescript-media-types": "1.0.0",
+    "purescript-functions": "1.0.0"
   }
 }

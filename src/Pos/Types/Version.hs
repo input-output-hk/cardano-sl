@@ -9,7 +9,6 @@ module Pos.Types.Version
        , applicationNameMaxLength
        ) where
 
-import           Control.Monad.Fail  (MonadFail (fail))
 import           Data.Char           (isAscii)
 import           Data.SafeCopy       (base, deriveSafeCopySimple)
 import qualified Data.Text           as T
@@ -38,7 +37,7 @@ newtype ApplicationName = ApplicationName
     } deriving (Eq, Ord, Show, Generic, Typeable)
 
 applicationNameMaxLength :: Integral i => i
-applicationNameMaxLength = 7
+applicationNameMaxLength = 10
 
 mkApplicationName :: MonadFail m => Text -> m ApplicationName
 mkApplicationName appName

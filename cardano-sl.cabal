@@ -190,7 +190,7 @@ library
                         Pos.Ssc.GodTossing.LocalData.Types
                         Pos.Ssc.GodTossing.Secret.SecretStorage
                         Pos.Ssc.GodTossing.Secret.Types
-                        Pos.Ssc.GodTossing.SecretStorage
+                        Pos.Ssc.GodTossing.SecretStorage 
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Shares
                         Pos.Ssc.GodTossing.Storage

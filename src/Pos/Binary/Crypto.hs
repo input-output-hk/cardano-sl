@@ -6,7 +6,6 @@
 
 module Pos.Binary.Crypto () where
 
-import           Control.Monad.Fail       (fail)
 import           Crypto.Hash              (digestFromByteString, hashDigestSize)
 import qualified Crypto.PVSS              as Pvss
 import qualified Crypto.Sign.Ed25519      as Ed25519

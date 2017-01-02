@@ -8,6 +8,7 @@ module Pos.DB.Block
        , getBlockHeader
        , getStoredBlock
        , getUndo
+       , getNextHash
        , setBlockInMainChain
        , isBlockInMainChain
 
@@ -58,6 +59,12 @@ getBlockHeader
     => HeaderHash ssc -> m (Maybe (BlockHeader ssc))
 getBlockHeader h = fmap T.getBlockHeader <$> getBlock h
 
+-- | Gets hash of the next block in the blockchain
+getNextHash
+    :: (Ssc ssc, MonadDB ssc m)
+    => HeaderHash ssc -> m (Maybe (HeaderHash ssc))
+getNextHash = getBi . ptrKey
+
 -- | Sets block's inMainChain flag to supplied value. Does nothing if
 -- block wasn't found.
 setBlockInMainChain
@@ -85,6 +92,7 @@ putBlock
     => Undo -> Bool -> Block ssc -> m ()
 putBlock undo inMainChain blk = do
     let h = headerHash blk
+        ph = blk ^. prevBlockL
     putBi
         (blockKey h)
         StoredBlock
@@ -92,6 +100,8 @@ putBlock undo inMainChain blk = do
         , sbInMain = inMainChain
         }
     putBi (undoKey h) undo
+    -- Save forward link to enable forward traversal
+    putBi (ptrKey ph) h
 
 deleteBlock :: (MonadDB ssc m) => HeaderHash ssc -> m ()
 deleteBlock = delete . blockKey
@@ -187,3 +197,6 @@ blockKey h = "b" <> convert h
 
 undoKey :: HeaderHash ssc -> ByteString
 undoKey h = "u" <> convert h
+
+ptrKey :: HeaderHash ssc -> ByteString
+ptrKey h = "p" <> convert h

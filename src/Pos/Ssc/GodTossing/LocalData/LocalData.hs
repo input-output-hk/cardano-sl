@@ -16,7 +16,6 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
        ) where
 
 import           Control.Lens                         (Getter, at, use, view, (%=), (.=))
-import           Control.Monad.Loops                  (andM)
 import           Data.Containers                      (ContainerKey,
                                                        SetContainer (notMember))
 import qualified Data.HashMap.Strict                  as HM

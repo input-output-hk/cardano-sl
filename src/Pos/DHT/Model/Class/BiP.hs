@@ -10,7 +10,6 @@ module Pos.DHT.Model.Class.BiP
        ) where
 
 import           Control.Monad.Catch               (MonadThrow (..))
-import           Control.Monad.Fail                (fail)
 import           Control.TimeWarp.Rpc.Message      (ContentData (..), Message (..),
                                                     MessageName, NameData (..),
                                                     Packable (..), PackingType (..),

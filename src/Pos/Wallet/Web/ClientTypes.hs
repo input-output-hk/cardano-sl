@@ -26,6 +26,7 @@ module Pos.Wallet.Web.ClientTypes
       , cAddressToAddress
       , mkCTx
       , mkCTxId
+      , txIdToCTxId
       , ctTypeMeta
       ) where
 
@@ -33,6 +34,7 @@ import           Data.Text             (Text)
 import           GHC.Generics          (Generic)
 import           Universum
 
+import           Data.Default          (Default, def)
 import           Data.Hashable         (Hashable (..))
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting            (build, sformat)
@@ -47,7 +49,7 @@ data CCurrency
     = ADA
     | BTC
     | ETH
-    deriving (Show, Generic)
+    deriving (Show, Read, Generic)
 
 -- | Client hash
 newtype CHash = CHash Text deriving (Show, Eq, Generic)
@@ -74,13 +76,13 @@ mkCTxId = CTxId . CHash
 
 -- | transform TxId into CTxId
 txIdToCTxId :: TxId -> CTxId
-txIdToCTxId = CTxId . CHash . sformat build
+txIdToCTxId = mkCTxId . sformat build
 
 mkCTx :: (TxId, Tx, Bool) -> CTxMeta -> CTx
-mkCTx (txId, tx, isInput) = CTx (txIdToCTxId txId) outputCoins . meta
+mkCTx (txId, tx, isOutgoing) = CTx (txIdToCTxId txId) outputCoins . meta
   where
     outputCoins = sum . map txOutValue $ txOutputs tx
-    meta = if isInput then CTIn else CTOut
+    meta = if isOutgoing then CTOut else CTIn
 
 ----------------------------------------------------------------------------
 -- wallet
@@ -99,6 +101,9 @@ data CWalletMeta = CWalletMeta
     , cwCurrency :: CCurrency
     , cwName     :: Text
     } deriving (Show, Generic)
+
+instance Default CWalletMeta where
+    def = CWalletMeta CWTPersonal ADA ""
 
 -- | Client Wallet (CW)
 -- (Flow type: walletType)

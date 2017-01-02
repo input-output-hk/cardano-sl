@@ -4,7 +4,6 @@
 
 module Pos.Binary.Types () where
 
-import           Control.Monad.Fail  (fail)
 import           Data.Binary.Get     (getInt32be, getWord8, label)
 import           Data.Binary.Put     (putInt32be, putWord8)
 import           Formatting          (int, sformat, (%))

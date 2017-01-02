@@ -36,11 +36,12 @@ import           Pos.WorkMode                ()
 -- | Holder for web wallet data
 newtype WalletDB m a = WalletDB
     { getWalletDB :: ReaderT WalletState m a
-    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-                MonadMask, MonadIO, HasLoggerName, WithNodeContext ssc,
-                MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots, MonadSscLD ssc,
-                WithDefaultMsgHeader, MonadJL, CanLog, MonadStats, MonadKeys,
-                WithWalletContext)
+    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow,
+                MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
+                WithNodeContext ssc, MonadDialog s p, MonadDHT,
+                MonadMessageDHT s, MonadSlots, MonadSscLD ssc,
+                WithDefaultMsgHeader, MonadJL, CanLog, MonadStats,
+                MonadKeys, WithWalletContext)
 
 instance Monad m => WrappedM (WalletDB m) where
     type UnwrappedM (WalletDB m) = ReaderT WalletState m

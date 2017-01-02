@@ -21,7 +21,7 @@ import           Pos.Wallet.Context.Context (WalletContext, fromNodeCtx)
 -- | Class for something that has 'NodeContext' inside.
 class Monad m => WithWalletContext m where
     getWalletContext :: m WalletContext
-    default getWalletContext :: (MonadTrans t, WithWalletContext m', t m' ~ m) => t m' WalletContext
+    default getWalletContext :: (MonadTrans t, WithWalletContext m', t m' ~ m) => m WalletContext
     getWalletContext = lift getWalletContext
 
 instance (Monad m, WithWalletContext m) => WithWalletContext (KademliaDHT m)

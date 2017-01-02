@@ -8,24 +8,44 @@
             .then(function(result) {console.log(result)})
             .catch(function(reason) {console.log(reason)})
       };
-      var getBalances = function() {
-        Daedalus.ClientApi.getBalances()
+      var getWallet = function(address) {
+        Daedalus.ClientApi.getWallet(address)()
             .then(function(result) {console.log(result)})
             .catch(function(reason) {console.log(reason)})
       };
       var send = function(from, to, amount) {
-        Daedalus.ClientApi.send(from)(to)(amount)()
+        Daedalus.ClientApi.send(from, to, amount)()
+            .then(function() {})
+            .catch(function(reason) {console.log(reason)})
+      };
+      var getHistory = function(address) {
+        Daedalus.ClientApi.getHistory(address)()
             .then(function(result) {console.log(result)})
             .catch(function(reason) {console.log(reason)})
       };
-      var newWallet = function() {
-        Daedalus.ClientApi.newWallet()
+      var newWallet = function(type, currency, name) {
+        Daedalus.ClientApi.newWallet(type, currency, name)()
             .then(function(result) {console.log(result)})
+            .catch(function(reason) {console.log(reason)})
+      };
+      var updateWallet = function(address, type, currency, name) {
+        Daedalus.ClientApi.updateWallet(address, type, currency, name)()
+            .then(function(result) {console.log(result)})
+            .catch(function(reason) {console.log(reason)})
+      };
+      var updateTransaction = function(address, transactionId, transactionCurrency, transactionTitle, transactionDescription, transactionDate) {
+        Daedalus.ClientApi.updateTransaction(address, transactionId, transactionCurrency, transactionTitle, transactionDescription, transactionDate)()
+            .then(function() {console.log()})
             .catch(function(reason) {console.log(reason)})
       };
       var deleteWallet = function(wallet) {
         Daedalus.ClientApi.deleteWallet(wallet)()
-            .then(function(result) {console.log(result)})
+            .then(function() {})
+            .catch(function(reason) {console.log(reason)})
+      };
+      var isValidAddress = function(currency, address) {
+        Daedalus.ClientApi.isValidAddress(currency, address)()
+            .then(function(isValid) {console.log(isValid)})
             .catch(function(reason) {console.log(reason)})
       };
     </script>
@@ -36,10 +56,14 @@
     <p>Check console to get some feedback.</p>
     <ul>
       <li><button onclick="getWallets();"/>getWallets</li>
-      <li><button onclick="getBalances();"/>getBalances</li>
-      <li><button onclick="send('a', 'b', 1);"/>send from a to b 1 coin</li>
-      <li><button onclick="newWallet();"/>newWallet</li>
-      <li><button onclick="deleteWallet('a');"/>deleteWallet</li>
+      <li><button onclick="getWallet('wallet_address');"/>getWallet</li>
+      <li><button onclick="send('wallet_address1', 'wallet_address2', 1);"/>send from a to b 1 coin</li>
+      <li><button onclick="getHistory('wallet_address')"/>get wallet history</li>
+      <li><button onclick="newWallet('CWTPersonal', 'ADA', 'I am rich guy');"/>newWallet</li>
+      <li><button onclick="updateWallet('wallet_address', 'CWTPersonal', 'ADA', 'wallet_name');"/>updateWallet</li>
+      <li><button onclick="updateTransaction('wallet_address', 'transaction_hash', 'ADA', 'new_transaction_title', 'new_transaction_description', 1000);"/>updateTransaction</li>
+      <li><button onclick="deleteWallet('wallet_address');"/>deleteWallet</li>
+      <li><button onclick="isValidAddress('ADA', 'wallet_address');"/>isValidAddress</li>
     </ul>
 	</body>
 </html>

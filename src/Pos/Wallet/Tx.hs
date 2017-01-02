@@ -8,7 +8,6 @@ module Pos.Wallet.Tx
        ) where
 
 import           Control.Lens          ((^.), _1)
-import           Control.Monad         (fail)
 import           Control.TimeWarp.Rpc  (NetworkAddress)
 import           Formatting            (build, sformat, (%))
 import           System.Wlog           (logError, logInfo)

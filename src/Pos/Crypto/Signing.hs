@@ -39,7 +39,6 @@ module Pos.Crypto.Signing
        , checkProxySecretKey
        ) where
 
-import           Control.Monad.Fail     (fail)
 import qualified Crypto.Sign.Ed25519    as Ed25519
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BSL

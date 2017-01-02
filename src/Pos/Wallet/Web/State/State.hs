@@ -12,13 +12,15 @@ module Pos.Wallet.Web.State.State
        -- * Getters
        , getWalletMetas
        , getWalletMeta
+       , getTxMeta
        , getWalletHistory
 
        -- * Setters
        , createWallet
        , setWalletMeta
+       , setWalletTransactionMeta
        , setWalletHistory
-       , addOnlyNewHistory
+       , addOnlyNewTxMeta
        , removeWallet
        ) where
 
@@ -62,6 +64,9 @@ getWalletMetas = queryDisk A.GetWalletMetas
 getWalletMeta :: WebWalletModeDB m => CAddress -> m (Maybe CWalletMeta)
 getWalletMeta = queryDisk . A.GetWalletMeta
 
+getTxMeta :: WebWalletModeDB m => CAddress -> CTxId -> m (Maybe CTxMeta)
+getTxMeta addr = queryDisk . A.GetTxMeta addr
+
 getWalletHistory :: WebWalletModeDB m => CAddress -> m (Maybe [CTxMeta])
 getWalletHistory = queryDisk . A.GetWalletHistory
 
@@ -71,11 +76,14 @@ createWallet addr = updateDisk . A.CreateWallet addr
 setWalletMeta :: WebWalletModeDB m => CAddress -> CWalletMeta -> m ()
 setWalletMeta addr = updateDisk . A.SetWalletMeta addr
 
+setWalletTransactionMeta :: WebWalletModeDB m => CAddress -> CTxId -> CTxMeta -> m ()
+setWalletTransactionMeta addr ctxId = updateDisk . A.SetWalletTransactionMeta addr ctxId
+
 setWalletHistory :: WebWalletModeDB m => CAddress -> [(CTxId, CTxMeta)] -> m ()
 setWalletHistory addr = updateDisk . A.SetWalletHistory addr
 
-addOnlyNewHistory :: WebWalletModeDB m => CAddress -> [(CTxId, CTxMeta)] -> m ()
-addOnlyNewHistory addr = updateDisk . A.AddOnlyNewHistory addr
+addOnlyNewTxMeta :: WebWalletModeDB m => CAddress -> CTxId -> CTxMeta -> m ()
+addOnlyNewTxMeta addr ctxId = updateDisk . A.AddOnlyNewTxMeta addr ctxId
 
 removeWallet :: WebWalletModeDB m => CAddress -> m ()
 removeWallet = updateDisk . A.RemoveWallet

@@ -133,7 +133,6 @@ module Pos.Types.Types
 
 import           Control.Lens           (Getter, Lens', choosing, makeLenses,
                                          makeLensesFor, to, view, (^.))
-import           Control.Monad.Fail     (fail)
 import qualified Data.ByteString        as BS (pack, zipWith)
 import qualified Data.ByteString.Char8  as BSC (pack)
 import           Data.DeriveTH          (derive, makeNFData)

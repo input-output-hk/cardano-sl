@@ -10,7 +10,6 @@ module Pos.Binary.Class
        , decodeFull
        ) where
 
-import           Control.Monad.Fail          (fail)
 import           Data.Binary                 (Get, Put)
 import qualified Data.Binary                 as Binary
 import           Data.Binary.Get             (ByteOffset, getWord8, runGet, runGetOrFail)

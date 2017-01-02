@@ -30,7 +30,6 @@ import           Control.Concurrent.MVar      (newEmptyMVar, newMVar, takeMVar,
                                                tryReadMVar)
 import           Control.Concurrent.STM.TVar  (newTVar)
 import           Control.Lens                 (each, to, (%~), (^..), (^?), _head, _tail)
-import           Control.Monad                (fail)
 import           Control.Monad.Catch          (bracket)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Control.Monad.Trans.Resource (runResourceT)
@@ -234,7 +233,7 @@ runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
       , kdcDHTInstance = dhtInstance
       }
 
-runCH :: Modern.MonadDB ssc m
+runCH :: (Modern.MonadDB ssc m, MonadFail m)
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH NodeParams {..} sscNodeContext act = do
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)

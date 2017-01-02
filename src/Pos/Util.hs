@@ -62,15 +62,24 @@ module Pos.Util
 
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
+       -- ** MonadFail (Either s), assuming IsString s
+       -- ** MonadFail ParsecT
+       -- ** MonadFail Dialog
+       -- ** MonadFail Transfer
+       -- ** MonadFail TimedIO
+       -- ** MonadFail ResponseT
+       -- ** MonadFail LoggerNameBox
        ) where
 
 import           Control.Lens                  (Lens', LensLike', Magnified, Zoomed,
                                                 lensRules, magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
-import           Control.Monad.Fail            (MonadFail, fail)
-import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
+import qualified Control.Monad                 as Monad (fail)
+import           Control.TimeWarp.Rpc          (Dialog (..), Message (messageName),
+                                                MessageName, ResponseT (..),
+                                                Transfer (..))
 import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
-                                                Second, for, killThread)
+                                                Second, TimedIO, for, killThread)
 import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
@@ -89,7 +98,9 @@ import           Serokell.Util                 (VerificationRes (..))
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
                                                 SGR (Reset, SetColor), setSGRCode)
-import           System.Wlog                   (WithLogger, logWarning)
+import           System.Wlog                   (LoggerNameBox (..), WithLogger,
+                                                logWarning)
+import           Text.Parsec                   (ParsecT)
 import           Universum
 import           Unsafe                        (unsafeInit, unsafeLast)
 
@@ -407,3 +418,17 @@ eitherToVerRes (Right _ )    = VerSuccess
 
 instance IsString s => MonadFail (Either s) where
     fail = Left . fromString
+
+instance MonadFail (ParsecT s u m) where
+    fail = Monad.fail
+
+deriving instance MonadFail m => MonadFail (Dialog p m)
+
+deriving instance MonadFail m => MonadFail (ResponseT s m)
+
+deriving instance MonadFail (Transfer s)
+
+deriving instance MonadFail m => MonadFail (LoggerNameBox m)
+
+instance MonadFail TimedIO where
+    fail = Monad.fail

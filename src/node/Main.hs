@@ -3,7 +3,6 @@
 
 module Main where
 
-import           Control.Monad        (fail)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.List            ((!!))
 import           System.Directory     (createDirectoryIfMissing)

@@ -32,7 +32,6 @@ import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CTx, CTxId,
                                              CTxMeta, CWallet, CWalletMeta,
                                              addressToCAddress)
-import           Prelude                    (fail)
 
 walletDocs :: API
 walletDocs = docsWith defaultDocOptions intros extras (SD.pretty walletApi)

@@ -10,7 +10,6 @@ module Pos.Ssc.GodTossing.Listeners
          -- ** instance SscListenersClass SscGodTossing
        ) where
 
-import           Control.Monad.Loops                    (andM)
 import           Data.HashMap.Strict                    (lookup)
 import           Data.List.NonEmpty                     (NonEmpty)
 import           Data.Tagged                            (Tagged (..))

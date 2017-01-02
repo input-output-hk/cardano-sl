@@ -117,10 +117,10 @@ type DHTDialog = Dialog DHTPacking
 newtype DHTResponseT s m a = DHTResponseT
     { getDHTResponseT :: ResponseT s m a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans,
-                MonadThrow, MonadCatch, MonadMask,
+                MonadThrow, MonadCatch, MonadMask, MonadFail,
                 MonadState ss, WithDefaultMsgHeader, CanLog,
-                HasLoggerName, MonadTimed, MonadDialog s p, MonadDHT, MonadMessageDHT s
-                )
+                HasLoggerName, MonadTimed, MonadDialog s p, MonadDHT,
+                MonadMessageDHT s)
 
 instance MonadTransfer s m => MonadTransfer s (DHTResponseT s m) where
     sendRaw addr p = DHTResponseT $ sendRaw addr (hoist getDHTResponseT p)
@@ -200,7 +200,7 @@ defaultSendToNeighbors parallelize sender msg = do
         if succeed < neighborsSendThreshold
             then (+) succeed <$>
                  do nodes' <- discoverPeers DHTFull
-                    let newNodes = filter (flip notElem nodes) nodes'
+                    let newNodes = filter (\n -> not (n `elem` nodes)) nodes'
                     sendToNodes newNodes
             else return succeed
     when (succeed' < neighborsSendThreshold) $

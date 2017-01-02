@@ -14,7 +14,6 @@ module Pos.Wallet.WalletMode
        , SState
        ) where
 
-import           Control.Monad                 (fail)
 import           Control.Monad.Loops           (unfoldrM)
 import           Control.Monad.Trans           (MonadTrans)
 import           Control.Monad.Trans.Maybe     (MaybeT (..))
@@ -107,7 +106,7 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     getTxHistory addr = do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
-        return $ fst . fromMaybe (fail "deriveAddrHistory: Nothing") $
+        return $ fst . fromMaybe (panic "deriveAddrHistory: Nothing") $
             flip runUtxoStateT utxo $
             deriveAddrHistory addr chain
     saveTx _ = pure ()

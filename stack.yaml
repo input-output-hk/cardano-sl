@@ -7,7 +7,7 @@ packages:
 
 - location:
     git: https://github.com/serokell/universum
-    commit: d347ccf3605d0851dd0f7046fe63f364510ef1a0
+    commit: 32316939cd9239fc283d4d562508e67767020fcf
   extra-dep: true
 - location:
     git: https://github.com/serokell/log-warper.git

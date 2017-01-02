@@ -21,6 +21,7 @@ module Pos.Merkle
 import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Lazy as BL (toStrict)
 import           Data.Coerce          (coerce)
+import qualified Data.Foldable        as Foldable
 import           Data.SafeCopy        (base, deriveSafeCopySimple)
 import           Prelude              (Show (..))
 import           Universum            hiding (show)

@@ -48,9 +48,10 @@ data SscState ssc =
 newtype SscHolder ssc m a =
     SscHolder
     { getSscHolder :: ReaderT (SscState ssc) m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
-                MonadCatch, MonadIO, HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
-                CanLog, MonadMask, Modern.MonadDB ssc)
+    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed,
+                MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
+                HasLoggerName, MonadDialog s p, WithNodeContext ssc,
+                MonadJL, CanLog, MonadMask, Modern.MonadDB ssc)
 
 instance MonadTransfer s m => MonadTransfer s (SscHolder ssc m)
 type instance ThreadId (SscHolder ssc m) = ThreadId m

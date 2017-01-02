@@ -36,7 +36,6 @@ module Pos.Ssc.GodTossing.Functions
        ) where
 
 import           Control.Lens                   ((^.))
-import           Control.Monad.Fail             (MonadFail)
 import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS (fromList, size)
@@ -145,9 +144,9 @@ hasVssCertificate addr = HM.member addr . _gsVssCertificates
 verifyCommitment :: Commitment -> Bool
 verifyCommitment Commitment {..} = fromMaybe False $ do
     extra <- fromBinaryM commExtra
-    commMap <- traverse tupleFromBinaryM (HM.toList commShares)
-    let encShares = map encShareId . toList <$> commMap
-    return $ all (verifyCommitmentDo extra) commMap &&
+    comms <- traverse tupleFromBinaryM (HM.toList commShares)
+    let encShares = map (encShareId . snd) comms
+    return $ all (verifyCommitmentDo extra) comms &&
         (length encShares) == (HS.size $ HS.fromList encShares)
   where
     verifyCommitmentDo extra = uncurry (verifyEncShare extra)

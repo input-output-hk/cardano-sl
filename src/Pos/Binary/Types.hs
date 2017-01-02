@@ -9,7 +9,7 @@ import           Data.Binary.Put     (putInt32be, putWord8)
 import           Formatting          (int, sformat, (%))
 import           Universum
 
-import           Pos.Binary.Class    (Bi (..))
+import           Pos.Binary.Class    (Bi (..), UnsignedVarInt (..))
 import           Pos.Binary.Merkle   ()
 import           Pos.Binary.Update   ()
 import           Pos.Binary.Version  ()
@@ -32,20 +32,20 @@ instance Bi T.Timestamp where
     put = put . toInteger
 
 instance Bi T.EpochIndex where
-    get = T.EpochIndex <$> get
-    put (T.EpochIndex c) = put c
+    get = T.EpochIndex . getUnsignedVarInt <$> get
+    put (T.EpochIndex c) = put (UnsignedVarInt c)
 
 instance Bi T.LocalSlotIndex where
-    get = T.LocalSlotIndex <$> get
-    put (T.LocalSlotIndex c) = put c
+    get = T.LocalSlotIndex . getUnsignedVarInt <$> get
+    put (T.LocalSlotIndex c) = put (UnsignedVarInt c)
 
 instance Bi T.SlotId where
     put (T.SlotId e s) = put e >> put s
     get = T.SlotId <$> get <*> get
 
 instance Bi T.TxIn where
-    put (T.TxIn hash index) = put hash >> put index
-    get = label "TxIn" $ T.TxIn <$> get <*> get
+    put (T.TxIn hash index) = put hash >> put (UnsignedVarInt index)
+    get = label "TxIn" $ T.TxIn <$> get <*> (getUnsignedVarInt <$> get)
 
 instance Bi T.TxOut where
     put (T.TxOut addr coin) = put addr >> put coin
@@ -56,20 +56,24 @@ instance Bi T.Tx where
     get = label "Tx" $ T.Tx <$> get <*> get <*> get
 
 instance Bi T.TxInWitness where
-    put (T.PkWitness key sig)     = put (0 :: Word8) >> put key >> put sig
-    put (T.ScriptWitness val red) = put (1 :: Word8) >> put val >> put red
+    put (T.PkWitness key sig)     = putWord8 0 >> put key >> put sig
+    put (T.ScriptWitness val red) = putWord8 1 >> put val >> put red
     get = label "TxInWitness" $ do
-        tag <- get
-        case (tag :: Word8) of
+        tag <- getWord8
+        case tag of
             0 -> T.PkWitness <$> get <*> get
             1 -> T.ScriptWitness <$> get <*> get
             t -> fail $ "get@TxInWitness: unknown tag " <> show t
 
 instance Bi T.TxDistribution where
     put (T.TxDistribution ds) =
-        put $ if all null ds then Left (length ds) else Right ds
+        put $ if all null ds
+                  then Left (UnsignedVarInt (length ds))
+                  else Right ds
     get = label "TxDistribution" $
-        T.TxDistribution . either (`replicate` []) identity <$> get
+        T.TxDistribution .
+        either (\(UnsignedVarInt n) -> replicate n []) identity
+            <$> get
 
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
@@ -118,16 +122,21 @@ instance ( Bi (T.BodyProof b)
 ----------------------------------------------------------------------------
 
 instance Bi T.ChainDifficulty where
-    get = T.ChainDifficulty <$> get
-    put (T.ChainDifficulty c) = put c
+    get = T.ChainDifficulty . getUnsignedVarInt <$> get
+    put (T.ChainDifficulty c) = put (UnsignedVarInt c)
 
 instance Ssc ssc => Bi (T.BodyProof (T.MainBlockchain ssc)) where
     put T.MainProof{..} = do
-        put mpNumber
+        put (UnsignedVarInt mpNumber)
         put mpRoot
         put mpWitnessesHash
         put mpMpcProof
-    get = label "MainProof" $ T.MainProof <$> get <*> get <*> get <*> get
+    get = label "MainProof" $
+        T.MainProof
+            <$> (getUnsignedVarInt <$> get)
+            <*> get
+            <*> get
+            <*> get
 
 instance Bi (T.BlockSignature ssc) where
     put (T.BlockSignature sig)       = putWord8 0 >> put sig

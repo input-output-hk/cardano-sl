@@ -51,7 +51,7 @@ makeClassy ''BlockStorage
 deriveSafeCopySimple 0 'base ''BlockStorage
 
 instance Default BlockStorage where
-    def = BlockStorage HM.empty (unsafeHash (0 :: Int)) (unsafeHash (1 :: Int)) []
+    def = BlockStorage HM.empty (unsafeHash (0 :: Word8)) (unsafeHash (1 :: Word8)) []
 
 type Query a = forall m x. (HasBlockStorage x, MonadReader x m) => m a
 type Update a = forall m x. (HasBlockStorage x, MonadState x m) => m a

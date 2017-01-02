@@ -18,16 +18,16 @@ spec :: Spec
 spec = describe "Merkle" $ do
     prop
         "toList . mkMerkleTree === id"
-        (generateAndFoldProp @Int)
+        (generateAndFoldProp @Int32)
     prop
         "size . mkMerkleTree === length"
-        (sizeProp @Int)
+        (sizeProp @Int32)
     prop
         "bi instance, encode === decode^-1"
-        (biProp @Int)
+        (biProp @Int32)
     prop
         "safeCopy instance, get === put^-1"
-        (safeProp @Int)
+        (safeProp @Int32)
 
 generateAndFoldProp :: (Eq a, Show a, Bi a) => [a] -> Property
 generateAndFoldProp xs = toList (mkMerkleTree xs) === xs

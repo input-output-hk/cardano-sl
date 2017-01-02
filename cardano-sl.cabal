@@ -736,6 +736,7 @@ executable cardano-checks
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec
+                       Test.Pos.BinarySpec
                        Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
                        Test.Pos.Communication.Identity.BinarySpec

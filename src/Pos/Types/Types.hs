@@ -203,7 +203,6 @@ data SlotId = SlotId
     , siSlot  :: !LocalSlotIndex
     } deriving (Show, Eq, Ord, Generic, Typeable)
 
-
 instance Buildable SlotId where
     build SlotId {..} =
         bprint (ords%" slot of "%ords%" epoch") siSlot siEpoch

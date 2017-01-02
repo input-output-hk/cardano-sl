@@ -26,6 +26,8 @@ import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
+import           Pos.Binary.Class           (FixedSizeInt (..), SignedVarInt (..),
+                                             UnsignedVarInt (..))
 import           Pos.Binary.Types           ()
 import           Pos.Binary.Update          ()
 import           Pos.Constants              (epochSlots, sharedSeedLength)
@@ -240,6 +242,10 @@ instance Arbitrary SmallHashMap where
     arbitrary = SmallHashMap <$> makeSmall arbitrary
 
 derive makeNFData ''GoodTx
+
+derive makeArbitrary ''UnsignedVarInt
+derive makeArbitrary ''SignedVarInt
+derive makeArbitrary ''FixedSizeInt
 
 ----------------------------------------------------------------------------
 -- Update

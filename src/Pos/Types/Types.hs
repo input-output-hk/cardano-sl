@@ -164,7 +164,7 @@ import           Pos.Constants          (sharedSeedLength)
 import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
                                          Signature, hash, hashHexF, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
-import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
+import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot)
 import           Pos.Script.Type        (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
 import           Pos.Types.Address      (Address (..), StakeholderId, addressF,
@@ -630,7 +630,7 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
 
     mkBodyProof MainBody {..} =
         MainProof
-        { mpNumber = mtSize _mbTxs
+        { mpNumber = fromIntegral (length _mbTxs)
         , mpRoot = mtRoot _mbTxs
         , mpWitnessesHash = hash _mbWitnesses
         , mpMpcProof = untag @ssc mkSscProof _mbMpc

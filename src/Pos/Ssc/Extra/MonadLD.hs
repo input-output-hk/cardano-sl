@@ -29,14 +29,14 @@ class Monad m => MonadSscLD ssc m | m -> ssc where
     modifyLocalData :: ((SscGlobalState ssc, SscLocalData ssc)
                      -> (a, SscLocalData ssc)) -> m a
 
-    default getLocalData :: (MonadTrans t, MonadSscLD ssc m', t m' ~ m) => t m' (SscLocalData ssc)
+    default getLocalData :: (MonadTrans t, MonadSscLD ssc m', t m' ~ m) => m (SscLocalData ssc)
     getLocalData = lift getLocalData
 
-    default setLocalData :: (MonadTrans t, MonadSscLD ssc m', t m' ~ m) => SscLocalData ssc -> t m' ()
+    default setLocalData :: (MonadTrans t, MonadSscLD ssc m', t m' ~ m) => SscLocalData ssc -> m ()
     setLocalData = lift . setLocalData
 
     default modifyLocalData :: (MonadTrans t, MonadSscLD ssc m', t m' ~ m) => ((SscGlobalState ssc, SscLocalData ssc)
-                     -> (a, SscLocalData ssc)) -> t m' a
+                     -> (a, SscLocalData ssc)) -> m a
     modifyLocalData = lift . modifyLocalData
 
 instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (ReaderT x m)

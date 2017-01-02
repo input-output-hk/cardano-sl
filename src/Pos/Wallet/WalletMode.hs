@@ -14,7 +14,6 @@ module Pos.Wallet.WalletMode
        , SState
        ) where
 
-import           Control.Monad                 (fail)
 import           Control.Monad.Trans           (MonadTrans)
 import           Control.Monad.Trans.Maybe     (MaybeT (..))
 import           Control.TimeWarp.Rpc          (Dialog, Transfer)
@@ -55,7 +54,7 @@ class Monad m => MonadBalances m where
     -- TODO: add a function to get amount of stake (it's different from
     -- balance because of distributions)
 
-    default getOwnUtxo :: (MonadTrans t, MonadBalances m', t m' ~ m) => Address -> t m' Utxo
+    default getOwnUtxo :: (MonadTrans t, MonadBalances m', t m' ~ m) => Address -> m Utxo
     getOwnUtxo = lift . getOwnUtxo
 
 instance MonadBalances m => MonadBalances (ReaderT r m)
@@ -86,10 +85,10 @@ class Monad m => MonadTxHistory m where
     getTxHistory :: Address -> m [(TxId, Tx, Bool)]
     saveTx :: (TxId, TxAux) -> m ()
 
-    default getTxHistory :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => Address -> t m' [(TxId, Tx, Bool)]
+    default getTxHistory :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => Address -> m [(TxId, Tx, Bool)]
     getTxHistory = lift . getTxHistory
 
-    default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> t m' ()
+    default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
     saveTx = lift . saveTx
 
 instance MonadTxHistory m => MonadTxHistory (ReaderT r m)
@@ -107,7 +106,7 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     getTxHistory addr = do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
-        fmap (fst . fromMaybe (fail "deriveAddrHistory: Nothing")) $
+        fmap (fst . fromMaybe (panic "deriveAddrHistory: Nothing")) $
             runMaybeT $ flip runUtxoStateT utxo $
             deriveAddrHistory addr chain
     saveTx _ = pure ()
@@ -138,7 +137,7 @@ instance (Ssc ssc, MonadDB ssc m, MonadThrow m) => MonadTxHistory (Modern.TxpLDH
 
         result <- runMaybeT $
                   evalUtxoStateT (blockFetcher bot >>= localFetcher) genUtxo
-        maybe (fail "deriveAddrHistory: Nothing") return result
+        maybe (panic "deriveAddrHistory: Nothing") return result
 
     saveTx txw = () <$ processTx txw
 

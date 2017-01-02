@@ -4,7 +4,6 @@
 
 module Pos.CompileConfig.Parser where
 
-import           Control.Monad.Fail         (fail)
 import           Data.FileEmbed             (embedFile, makeRelativeToProject)
 import           Data.Yaml                  (decodeEither)
 import           Language.Haskell.TH.Syntax (lift)

@@ -36,14 +36,14 @@ class Monad m => MonadSscGS ssc m | m -> ssc where
     setGlobalState    :: SscGlobalState ssc -> m ()
     modifyGlobalState :: (SscGlobalState ssc -> (a, SscGlobalState ssc)) -> m a
 
-    default getGlobalState :: (MonadTrans t, MonadSscGS ssc m', t m' ~ m) => t m' (SscGlobalState ssc)
+    default getGlobalState :: (MonadTrans t, MonadSscGS ssc m', t m' ~ m) => m (SscGlobalState ssc)
     getGlobalState = lift getGlobalState
 
-    default setGlobalState :: (MonadTrans t, MonadSscGS ssc m', t m' ~ m) => SscGlobalState ssc -> t m' ()
+    default setGlobalState :: (MonadTrans t, MonadSscGS ssc m', t m' ~ m) => SscGlobalState ssc -> m ()
     setGlobalState = lift . setGlobalState
 
     default modifyGlobalState :: (MonadTrans t, MonadSscGS ssc m', t m' ~ m) =>
-                                 (SscGlobalState ssc -> (a, SscGlobalState ssc)) -> t m' a
+                                 (SscGlobalState ssc -> (a, SscGlobalState ssc)) -> m a
     modifyGlobalState = lift . modifyGlobalState
 
 instance MonadSscGS ssc m => MonadSscGS ssc (ReaderT a m) where

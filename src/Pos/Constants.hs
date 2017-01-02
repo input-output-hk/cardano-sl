@@ -42,9 +42,6 @@ module Pos.Constants
        , updateServers
        ) where
 
-#if !defined(DEV_MODE)
-import           Control.Monad              (fail)
-#endif
 import           Control.TimeWarp.Timed     (Microsecond, sec)
 import           Data.String                (String)
 import           Language.Haskell.TH.Syntax (lift, runIO)

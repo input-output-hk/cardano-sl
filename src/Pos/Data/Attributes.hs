@@ -14,7 +14,6 @@ module Pos.Data.Attributes
        ) where
 
 import qualified Base                as Base
-import           Control.Monad.Fail  (MonadFail (fail))
 import           Data.Binary.Get     (Get, getByteString, getWord32be, getWord8)
 import qualified Data.Binary.Get     as G
 import           Data.Binary.Put     (Put, putByteString, putWord32be, putWord8)

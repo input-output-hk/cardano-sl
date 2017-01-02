@@ -422,8 +422,12 @@ verifyBlock VerifyBlockParams {..} blk =
 -- It doesn't affect laziness of 'VerificationRes' which is good
 -- because laziness for this data type is crucial.
 verifyBlocks
-    :: forall ssc t. (SscHelpersClass ssc, BiSsc ssc, Foldable t)
-    => Maybe SlotId -> t (Block ssc) -> VerificationRes
+    :: forall ssc t.
+       (SscHelpersClass ssc
+       ,BiSsc ssc
+       ,NontrivialContainer t
+       ,Element t ~ Block ssc)
+    => Maybe SlotId -> t -> VerificationRes
 verifyBlocks curSlotId = (view _3) . foldl' step start
   where
     start :: (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)

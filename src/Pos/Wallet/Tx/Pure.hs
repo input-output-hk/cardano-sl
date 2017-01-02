@@ -10,8 +10,6 @@ module Pos.Wallet.Tx.Pure
 
 import           Control.Lens              (over, use, uses, view, (%=), (%=), (-=), (.~),
                                             (^.), _1, _2)
-import           Control.Monad             (fail)
-import           Control.Monad.Loops       (anyM)
 import           Control.Monad.State       (StateT (..), evalStateT)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Data.DList                as DL

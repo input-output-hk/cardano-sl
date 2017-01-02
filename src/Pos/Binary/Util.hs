@@ -7,12 +7,11 @@ module Pos.Binary.Util
   , putAsciiString1b
   ) where
 
-import           Control.Monad.Fail (fail)
-import           Data.Binary.Get    (Get, getByteString, getWord8)
-import           Data.Binary.Put    (Put, putByteString, putWord8)
-import qualified Data.ByteString    as BS
-import           Data.Char          (chr, isAscii, ord)
-import           Universum          hiding (putByteString)
+import           Data.Binary.Get (Get, getByteString, getWord8)
+import           Data.Binary.Put (Put, putByteString, putWord8)
+import qualified Data.ByteString as BS
+import           Data.Char       (chr, isAscii, ord)
+import           Universum       hiding (putByteString)
 
 getAsciiString1b :: [Char] -> Word8 -> Get [Char]
 getAsciiString1b typeName limit = getWord8 >>= \sz -> do

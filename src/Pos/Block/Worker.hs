@@ -53,7 +53,7 @@ blkOnNewSlot :: WorkMode ssc m => SlotId -> m ()
 blkOnNewSlot slotId@SlotId {..} = do
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlock slotId
-    forM_ mGenBlock $ \createdBlk -> do
+    whenJust mGenBlock $ \createdBlk -> do
         logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
         jlLog $ jlCreatedBlock (Left createdBlk)
 

@@ -35,8 +35,9 @@ import           Pos.Wallet.Context.Context  (WalletContext (..))
 -- | Wrapper for monadic action which brings 'WalletContext'.
 newtype ContextHolder m a = ContextHolder
     { getContextHolder :: ReaderT WalletContext m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
-                MonadCatch, MonadMask, MonadIO, HasLoggerName, CanLog, MonadDialog s p)
+    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed,
+                MonadThrow, MonadCatch, MonadMask, MonadIO, MonadFail,
+                HasLoggerName, CanLog, MonadDialog s p)
 
 -- | Run 'ContextHolder' action.
 runContextHolder :: WalletContext -> ContextHolder m a -> m a

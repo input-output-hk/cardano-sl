@@ -5,7 +5,6 @@
 
 module Pos.Binary.DHTModel () where
 
-import           Control.Monad.Fail  (fail)
 import           Data.Binary.Get     (getWord8)
 import           Data.Binary.Put     (putWord8)
 import           Universum

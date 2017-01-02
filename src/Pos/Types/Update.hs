@@ -10,7 +10,6 @@ module Pos.Types.Update
        , systemTagMaxLength
        ) where
 
-import           Control.Monad.Fail         (MonadFail (fail))
 import           Data.Char                  (isAscii)
 import qualified Data.HashMap.Strict        as HM
 import           Data.SafeCopy              (base, deriveSafeCopySimple)

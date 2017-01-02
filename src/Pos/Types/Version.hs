@@ -9,7 +9,6 @@ module Pos.Types.Version
        , applicationNameMaxLength
        ) where
 
-import           Control.Monad.Fail  (MonadFail (fail))
 import           Data.Char           (isAscii)
 import           Data.SafeCopy       (base, deriveSafeCopySimple)
 import qualified Data.Text           as T

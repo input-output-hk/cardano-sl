@@ -86,7 +86,7 @@ _deleteWallet_
 
 ```javascript
 // XXX - any wallet id
-Daedalus.ClientApi.getWallet('XXX')()
+Daedalus.ClientApi.deleteWallet('XXX')()
   .then(function(value) {
     console.log('SUCCESS', value);
   }, function(reason) {

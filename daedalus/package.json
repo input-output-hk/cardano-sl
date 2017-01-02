@@ -8,8 +8,9 @@
     "postinstall": "bower cache clean && bower install && npm run build",
     "clean": "rimraf dist && rimraf output",
     "build:prod": "npm run clean && mkdir dist && NODE_ENV=prod ./node_modules/.bin/webpack --config webpack.config.js --progress",
-    "build:dev": "npm run clean && NODE_ENV=dev ./node_modules/.bin/webpack-dev-server --hot --config webpack.config.js --progress",
-    "test": "npm run build:prod && mocha --compilers js:babel-core/register ./src/**/*.test.js -R spec"
+    "build:dev": "rimraf output && NODE_ENV=dev ./node_modules/.bin/webpack-dev-server --hot --config webpack.config.js --progress",
+    "test": "npm run build:prod && npm run test_mocha",
+    "test:mocha": "mocha --compilers js:babel-core/register ./src/**/*.test.js -R spec"
   },
   "keywords": [
     "daedalus",
@@ -31,18 +32,14 @@
     "extract-text-webpack-plugin": "^1.0.1",
     "html-webpack-plugin": "^2.24.1",
     "mocha": "^3.2.0",
+    "nock": "^9.0.2",
     "pulp": "^10.0.0",
     "purescript": "^0.9.3",
     "purescript-psa": "^0.4.0",
     "purs-loader": "^2.1.1",
     "rimraf": "^2.5.4",
+    "sinon": "^1.17.7",
     "webpack": "^1.14.0",
     "webpack-dev-server": "^1.16.2"
-  },
-  "babel": {
-    "presets": [
-      "es2015",
-      "stage-2"
-    ]
   }
 }

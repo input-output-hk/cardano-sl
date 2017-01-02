@@ -33,7 +33,9 @@ export default {
   output: {
     path: path.join(__dirname, '/dist/'),
     filename: `${libName}.js` ,
-    library: libName
+    library: libName,
+    libraryTarget: "umd",
+    umdNamedDefine: true
   },
   resolveLoader: {
     root: [path.join(__dirname, 'node_modules')]

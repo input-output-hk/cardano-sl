@@ -6,6 +6,7 @@ module Pos.Wallet.Tx.Pure
        , getRelatedTxs
        , deriveAddrHistory
        , deriveAddrHistoryPartial
+       , TxError
        ) where
 
 import           Control.Lens              (over, use, uses, view, (%=), (%=), (-=), (.~),

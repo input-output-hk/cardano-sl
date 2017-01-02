@@ -16,13 +16,13 @@ import           Data.Default               (def)
 import           Data.List                  (elemIndex, (!!))
 import qualified Data.Text                  as T (unpack)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
-import           Formatting                 (ords, sformat, stext, (%))
+import           Formatting                 (build, ords, sformat, stext, (%))
 import           Network.Wai                (Application)
 import           Pos.Crypto                 (hash)
 import           Servant.API                ((:<|>) ((:<|>)),
                                              FromHttpApiData (parseUrlPiece), addHeader)
 import           Servant.Server             (Handler, ServantErr (errBody), Server,
-                                             ServerT, err404, serve)
+                                             ServerT, err400, err404, serve)
 import           Servant.Utils.Enter        ((:~>) (..), enter)
 import           System.Wlog                (logInfo)
 import           Universum
@@ -126,17 +126,14 @@ getWallet cAddr = do
     meta <- getWalletMeta cAddr >>= maybe noWallet pure
     pure $ CWallet cAddr balance meta
   where
-    -- TODO: improve error handling
-    noWallet = throwM err404
+    noWallet = throwErr err404 $
+        sformat ("No wallet with address "%build%" is found") cAddr
 
 -- TODO: probably poor naming
 decodeCAddressOrFail :: WalletWebMode ssc m => CAddress -> m Address
 decodeCAddressOrFail = either wrongAddress pure . cAddressToAddress
-  where
-    wrongAddress err = throwM err404 {
-        errBody = encodeUtf8 $
+  where wrongAddress err = throwErr err400 $
             sformat ("Error while decoding CAddress: "%stext) err
-        }
 
 getWallets :: WalletWebMode ssc m => m [CWallet]
 getWallets = join $ mapM getWallet <$> myCAddresses
@@ -149,14 +146,17 @@ send srcCAddr dstCAddr c = do
     sks <- getSecretKeys
     let sk = sks !! idx
     na <- fmap dhtAddr <$> getKnownPeers
-    (tx,_,_) <- submitTx sk na [(TxOut dstAddr c, [])]
-    logInfo $
-        sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
-        c idx dstAddr
-    -- TODO: this should be removed in production
-    let txHash = hash tx
-    () <$ addHistoryTx dstCAddr (txHash, tx, False)
-    addHistoryTx srcCAddr (txHash, tx, True)
+    etx <- submitTx sk na [(TxOut dstAddr c, [])]
+    case etx of
+        Left err -> throwErr err400 $ sformat ("Cannot send transaction: "%stext) err
+        Right (tx, _, _) -> do
+            logInfo $
+                sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
+                c idx dstAddr
+            -- TODO: this should be removed in production
+            let txHash = hash tx
+            () <$ addHistoryTx dstCAddr (txHash, tx, False)
+            addHistoryTx srcCAddr (txHash, tx, True)
 
 getHistory :: WalletWebMode ssc m => CAddress -> m [CTx]
 getHistory cAddr = do
@@ -197,10 +197,8 @@ deleteWallet cAddr = do
     deleteAddress addr = do
         idx <- getAddrIdx addr
         deleteSecretKey (fromIntegral idx) `catch` deleteErrHandler
-    deleteErrHandler (PrimaryKey err) = throwM err404 {
-        errBody = encodeUtf8 $
-            sformat ("Error while deleting wallet: "%stext) err
-        }
+    deleteErrHandler (PrimaryKey err) = throwErr err404 $
+        sformat ("Error while deleting wallet: "%stext) err
 
 -- NOTE: later we will have `isValidAddress :: CCurrency -> CAddress -> m Bool` which should work for arbitrary crypto
 isValidAddress :: WalletWebMode ssc m => CCurrency -> Text -> m Bool
@@ -219,10 +217,13 @@ myCAddresses = map addressToCAddress <$> myAddresses
 
 getAddrIdx :: WalletWebMode ssc m => Address -> m Int
 getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound pure
-  where notFound = throwM err404 {
-            errBody = encodeUtf8 $
-                sformat ("Address "%addressF%" is not found in wallet") $ addr
-            }
+  where notFound = throwErr err404 $
+            sformat ("Address "%addressF%" is not found in wallet") $ addr
+
+throwErr :: MonadThrow m => ServantErr -> Text -> m a
+throwErr err text = throwM err
+    { errBody = encodeUtf8 text
+    }
 
 ----------------------------------------------------------------------------
 -- Orphan instances

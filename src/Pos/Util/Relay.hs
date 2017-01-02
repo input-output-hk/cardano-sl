@@ -13,7 +13,6 @@ module Pos.Util.Relay
 import           Control.TimeWarp.Rpc      (Message (..), messageName')
 import           Data.List.NonEmpty        (NonEmpty (..))
 import           Data.Proxy                (Proxy (..))
-import qualified Data.Text.Buildable
 import           Formatting                (build, sformat, stext, (%))
 import           Serokell.Util.Text        (listJson)
 import           Serokell.Util.Verify      (VerificationRes (..))
@@ -22,14 +21,17 @@ import           Universum
 
 import           Pos.Binary.Class          (Bi)
 import           Pos.Communication.Methods (sendToNeighborsSafe)
-import           Pos.Communication.Types   (MutSocketState, ResponseMode)
+import           Pos.Communication.Types   (ResponseMode)
 import           Pos.Context               (WithNodeContext (getNodeContext),
                                             ncPropagation)
-import           Pos.DHT.Model             (ListenerDHT (..), MonadDHTDialog, replyToNode)
+import           Pos.DHT.Model             (replyToNode)
 import           Pos.Util                  (NamedMessagePart (..))
 import           Pos.WorkMode              (WorkMode)
 import           System.Wlog               (WithLogger)
 
+-- | Typeclass for general Inv/Req/Dat framework. It describes monads,
+-- that store data described by tag, where "key" stands for node
+-- identifier.
 class ( Buildable tag
       , Buildable contents
       , Buildable key
@@ -38,15 +40,14 @@ class ( Buildable tag
       , Typeable key
       , NamedMessagePart tag
       , NamedMessagePart contents
-      ) => Relay m tag key contents | tag -> contents, contents -> tag, contents -> key, tag -> key where
+      ) => Relay m tag key contents
+      | tag -> contents, contents -> tag, contents -> key, tag -> key where
     -- | Converts data to tag. Tag returned in monad `m`
     -- for only type matching reason (multiparam type classes are tricky)
     contentsToTag :: contents -> m tag
 
     verifyInvTag :: tag -> m VerificationRes
-
     verifyReqTag :: tag -> m VerificationRes
-
     verifyDataContents :: contents -> m VerificationRes
 
     -- | Handle inv msg and return whether it's useful or not
@@ -65,12 +66,12 @@ data InvMsg key tag = InvMsg
     , imKeys :: !(NonEmpty key)
     }
 
-instance (Typeable key, Typeable tag, NamedMessagePart tag) => Message (InvMsg key tag) where
+instance (Typeable key, Typeable tag, NamedMessagePart tag) =>
+         Message (InvMsg key tag) where
     messageName p = "Inventory " <> nMessageName (tagM p)
       where
         tagM :: Proxy (InvMsg key tag) -> Proxy tag
         tagM _ = Proxy
-
     formatMessage = messageName'
 
 -- | Request message. Can be used to request data (ideally data which
@@ -80,12 +81,12 @@ data ReqMsg key tag = ReqMsg
     , rmKeys :: !(NonEmpty key)
     }
 
-instance (Typeable key, Typeable tag, NamedMessagePart tag) => Message (ReqMsg key tag) where
+instance (Typeable key, Typeable tag, NamedMessagePart tag) =>
+         Message (ReqMsg key tag) where
     messageName p = "Request " <> nMessageName (tagM p)
       where
         tagM :: Proxy (ReqMsg key tag) -> Proxy tag
         tagM _ = Proxy
-
     formatMessage = messageName'
 
 -- | Data message. Can be used to send actual data.
@@ -94,15 +95,17 @@ data DataMsg key contents = DataMsg
     , dmKey      :: !key
     }
 
-instance (Typeable key, Typeable contents, NamedMessagePart contents) => Message (DataMsg key contents) where
+instance (Typeable key, Typeable contents, NamedMessagePart contents) =>
+         Message (DataMsg key contents) where
     messageName p = "Data " <> nMessageName (contentsM p)
       where
         contentsM :: Proxy (DataMsg key contents) -> Proxy contents
         contentsM _ = Proxy
-
     formatMessage = messageName'
 
-newtype ListenersHolder ssc m tag = ListenersHolder [ListenerDHT (MutSocketState ssc) m]
+-- wtf is that? not used/not exported?
+--newtype ListenersHolder ssc m tag =
+--    ListenersHolder [ListenerDHT (MutSocketState ssc) m]
 
 processMessage
   :: (Buildable param, WithLogger m)
@@ -116,11 +119,19 @@ processMessage name param verifier action = do
             ("Wrong "%stext%": invalid "%build%": "%listJson)
             name param reasons
 
-handleInvL :: (Bi (ReqMsg key tag), Relay m tag key contents, ResponseMode ssc m) => InvMsg key tag -> m ()
+filterSecond :: (b -> Bool) -> [(a,b)] -> [a]
+filterSecond predicate = map fst . filter (predicate . snd)
+
+-- | Handler for inventory messages. Checks if message is valid (using
+-- 'verifyInvTag'), then filters useful addresses and replies with
+-- 'ReqMsg' to them.
+handleInvL
+    :: (Bi (ReqMsg key tag), Relay m tag key contents, ResponseMode ssc m)
+    => InvMsg key tag -> m ()
 handleInvL InvMsg {..} = processMessage "Inventory" imTag verifyInvTag $ do
     res <- zip (toList imKeys) <$> mapM (handleInv imTag) (toList imKeys)
-    let useful = filter' identity res
-        useless = filter' not res
+    let useful = filterSecond identity res
+        useless = filterSecond not res
     when (not $ null useless) $
         logDebug $ sformat
           ("Ignoring inv "%build%" for addresses "%listJson%", because they're useless")
@@ -129,26 +140,33 @@ handleInvL InvMsg {..} = processMessage "Inventory" imTag verifyInvTag $ do
       []     -> pure ()
       (a:as) -> replyToNode $ ReqMsg imTag (a :| as)
 
-filter' pred = map fst . filter (pred . snd)
-
-handleReqL :: (Bi (DataMsg key contents), Relay m tag key contents, ResponseMode ssc m) => ReqMsg key tag -> m ()
+-- | Handler for request messages. Verifies tag ('verifyReqTag'),
+-- requests needed data.
+handleReqL
+    :: (Bi (DataMsg key contents), Relay m tag key contents, ResponseMode ssc m)
+    => ReqMsg key tag -> m ()
 handleReqL ReqMsg {..} = processMessage "Request" rmTag verifyReqTag $ do
     res <- zip (toList rmKeys) <$> mapM (handleReq rmTag) (toList rmKeys)
-    let noDataAddrs = filter' isNothing res
+    let noDataAddrs = filterSecond isNothing res
         datas = catMaybes $ map (\(addr, m) -> (,addr) <$> m) res
     when (not $ null noDataAddrs) $
         logDebug $ sformat
-          ("No data "%build%" for addresses "%listJson)
-          rmTag noDataAddrs
+            ("No data "%build%" for addresses "%listJson)
+            rmTag noDataAddrs
     mapM_ (replyToNode . uncurry DataMsg) datas
 
-handleDataL :: (Bi (InvMsg key tag), Relay m tag key contents, WorkMode ssc m) => DataMsg key contents -> m ()
-handleDataL DataMsg {..} = processMessage "Data" dmContents verifyDataContents $ do
+-- | Handler for data messages. `handleData` is applied, and
+-- propagated if return value is 'True'.
+handleDataL
+    :: (Bi (InvMsg key tag), Relay m tag key contents, WorkMode ssc m)
+    => DataMsg key contents -> m ()
+handleDataL DataMsg {..} =
+    processMessage "Data" dmContents verifyDataContents $
     ifM (handleData dmContents dmKey)
-      handleDataLDo $
-      logDebug $ sformat
-          ("Ignoring data "%build%" for address "%build)
-          dmContents dmKey
+        handleDataLDo $
+        logDebug $ sformat
+            ("Ignoring data "%build%" for address "%build)
+            dmContents dmKey
   where
     handleDataLDo =
         ifM (ncPropagation <$> getNodeContext)

@@ -146,14 +146,17 @@ send srcCAddr dstCAddr c = do
     sks <- getSecretKeys
     let sk = sks !! idx
     na <- fmap dhtAddr <$> getKnownPeers
-    (tx,_,_) <- submitTx sk na [(TxOut dstAddr c, [])]
-    logInfo $
-        sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
-        c idx dstAddr
-    -- TODO: this should be removed in production
-    let txHash = hash tx
-    () <$ addHistoryTx dstCAddr (txHash, tx, False)
-    addHistoryTx srcCAddr (txHash, tx, True)
+    etx <- submitTx sk na [(TxOut dstAddr c, [])]
+    case etx of
+        Left err -> throwErr err400 $ sformat ("Cannot send transaction: "%stext) err
+        Right (tx, _, _) -> do
+            logInfo $
+                sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
+                c idx dstAddr
+            -- TODO: this should be removed in production
+            let txHash = hash tx
+            () <$ addHistoryTx dstCAddr (txHash, tx, False)
+            addHistoryTx srcCAddr (txHash, tx, True)
 
 getHistory :: WalletWebMode ssc m => CAddress -> m [CTx]
 getHistory cAddr = do

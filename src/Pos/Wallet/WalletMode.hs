@@ -107,8 +107,8 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     getTxHistory addr = do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
-        return $ fst . fromMaybe (fail "deriveAddrHistory: Nothing") $
-            flip runUtxoStateT utxo $
+        fmap (fst . fromMaybe (fail "deriveAddrHistory: Nothing")) $
+            runMaybeT $ flip runUtxoStateT utxo $
             deriveAddrHistory addr chain
     saveTx _ = pure ()
 
@@ -119,14 +119,20 @@ instance (Ssc ssc, MonadDB ssc m, MonadThrow m) => MonadTxHistory (Modern.TxpLDH
         genUtxo <- filterUtxoByAddr addr <$> DB.getGenUtxo
 
         -- It's genesis hash at the very bottom already, so we don't look for txs there
-        txss <- flip unfoldrM (bot, genUtxo) $ \(h, utxo) -> runMaybeT $ do
-            next <- MaybeT $ DB.getNextHash h
-            blk <- MaybeT $ DB.getBlock next
-            MaybeT $ return $ do
-                (txs, utxo') <- flip runUtxoStateT utxo $
-                    deriveAddrHistory addr [blk]
-                return (txs, (next, utxo'))
-        return $ foldr (++) [] txss
+        let getNextBlock h = runMaybeT $ do
+                next <- MaybeT $ DB.getNextHash h
+                blk <- MaybeT $ DB.getBlock next
+                return (next, blk)
+            blockFetcher h = do
+                nblk <- lift . lift $ getNextBlock h
+                case nblk of
+                    Nothing -> return []
+                    Just (next, blk) -> do
+                        txs <- deriveAddrHistory addr [blk]
+                        (++ txs) <$> blockFetcher next
+
+        result <- runMaybeT $ runUtxoStateT (blockFetcher bot) genUtxo
+        return $ maybe [] fst result
 
     saveTx txw = () <$ processTx txw
 

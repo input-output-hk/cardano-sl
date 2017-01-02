@@ -8,27 +8,28 @@ module Pos.Wallet.Tx.Pure
        , deriveAddrHistoryPartial
        ) where
 
-import           Control.Lens        (over, use, uses, view, (%=), (%=), (-=), (.~), (^.),
-                                      _1, _2)
-import           Control.Monad       (fail)
-import           Control.Monad.Loops (anyM)
-import           Control.Monad.State (StateT (..), evalStateT)
-import qualified Data.DList          as DL
-import           Data.List           (tail)
-import qualified Data.Map            as M
-import qualified Data.Vector         as V
+import           Control.Lens              (over, use, uses, view, (%=), (%=), (-=), (.~),
+                                            (^.), _1, _2)
+import           Control.Monad             (fail)
+import           Control.Monad.Loops       (anyM)
+import           Control.Monad.State       (StateT (..), evalStateT)
+import           Control.Monad.Trans.Maybe (MaybeT (..))
+import qualified Data.DList                as DL
+import           Data.List                 (tail)
+import qualified Data.Map                  as M
+import qualified Data.Vector               as V
 import           Universum
 
-import           Pos.Binary          ()
-import           Pos.Crypto          (SecretKey, WithHash (..), hash, sign, toPublic,
-                                      withHash)
-import           Pos.Data.Attributes (mkAttributes)
-import           Pos.Types           (Address, Block, Coin, MonadUtxoRead (..), Tx (..),
-                                      TxAux, TxDistribution (..), TxId, TxIn (..),
-                                      TxInWitness (..), TxOut (..), TxOutAux, TxWitness,
-                                      Utxo, UtxoStateT (..), applyTxToUtxo, blockTxas,
-                                      filterUtxoByAddr, makePubKeyAddress, topsortTxs,
-                                      _txOutputs)
+import           Pos.Binary                ()
+import           Pos.Crypto                (SecretKey, WithHash (..), hash, sign,
+                                            toPublic, withHash)
+import           Pos.Data.Attributes       (mkAttributes)
+import           Pos.Types                 (Address, Block, Coin, MonadUtxoRead (..),
+                                            Tx (..), TxAux, TxDistribution (..), TxId,
+                                            TxIn (..), TxInWitness (..), TxOut (..),
+                                            TxOutAux, TxWitness, Utxo, UtxoStateT (..),
+                                            applyTxToUtxo, blockTxas, filterUtxoByAddr,
+                                            makePubKeyAddress, topsortTxs, _txOutputs)
 
 type TxOutIdx = (TxId, Word32)
 type TxInputs = [TxOutIdx]
@@ -106,15 +107,16 @@ hasSender Tx {..} addr = anyM hasCorrespondingOutput txInputs
         toBool Nothing  = False
         toBool (Just b) = b
 
-type TxSelector = UtxoStateT Maybe
+type TxSelectorT m = UtxoStateT (MaybeT m)
 
 -- | Select transactions related to given address. `Bool` indicates
 -- whether the transaction is outgoing (i. e. is sent from given address)
 getRelatedTxs
-    :: Address
+    :: Monad m
+    => Address
     -> [(WithHash Tx, TxWitness, TxDistribution)]
-    -> TxSelector [(TxId, Tx, Bool)]
-getRelatedTxs addr txs = lift (topsortTxs (view _1) txs) >>=
+    -> TxSelectorT m [(TxId, Tx, Bool)]
+getRelatedTxs addr txs = lift (MaybeT $ return $ topsortTxs (view _1) txs) >>=
                          foldlM step DL.empty >>= return . DL.toList
   where
     step ls (WithHash tx txId, _wit, dist) = do
@@ -137,15 +139,16 @@ getRelatedTxs addr txs = lift (topsortTxs (view _1) txs) >>=
 -- TODO: Such functionality will still be useful for merging
 -- blockchains when wallet state is ready, but some metadata for
 -- Tx will be required.
-deriveAddrHistory :: Address -> [Block ssc] -> TxSelector [(TxId, Tx, Bool)]
+deriveAddrHistory :: Monad m => Address -> [Block ssc] -> TxSelectorT m [(TxId, Tx, Bool)]
 deriveAddrHistory addr chain = identity %= filterUtxoByAddr addr >>
                                deriveAddrHistoryPartial [] addr chain
 
 deriveAddrHistoryPartial
-    :: [(TxId, Tx, Bool)]
+    :: Monad m
+    => [(TxId, Tx, Bool)]
     -> Address
     -> [Block ssc]
-    -> TxSelector [(TxId, Tx, Bool)]
+    -> TxSelectorT m [(TxId, Tx, Bool)]
 deriveAddrHistoryPartial hist addr chain =
     DL.toList <$> foldrM updateAll (DL.fromList hist) chain
   where

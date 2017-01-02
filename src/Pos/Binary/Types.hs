@@ -66,8 +66,10 @@ instance Bi T.TxInWitness where
             t -> fail $ "get@TxInWitness: unknown tag " <> show t
 
 instance Bi T.TxDistribution where
-    put (T.TxDistribution x) = put x
-    get = label "TxDistribution" $ T.TxDistribution <$> get
+    put (T.TxDistribution ds) =
+        put $ if all null ds then Left (length ds) else Right ds
+    get = label "TxDistribution" $
+        T.TxDistribution . either (`replicate` []) identity <$> get
 
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where

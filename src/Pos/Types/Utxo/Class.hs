@@ -18,15 +18,15 @@ import           Pos.Types.Types      (TxIn, TxOutAux)
 
 class Monad m => MonadUtxoRead m where
     utxoGet :: TxIn -> m (Maybe TxOutAux)
-    default utxoGet :: (MonadTrans t, MonadUtxoRead m', t m' ~ m) => TxIn -> t m' (Maybe TxOutAux)
+    default utxoGet :: (MonadTrans t, MonadUtxoRead m', t m' ~ m) => TxIn -> m (Maybe TxOutAux)
     utxoGet = lift . utxoGet
 
 class MonadUtxoRead m => MonadUtxo m where
     utxoPut :: TxIn -> TxOutAux -> m ()
-    default utxoPut :: (MonadTrans t, MonadUtxo m', t m' ~ m) => TxIn -> TxOutAux -> t m' ()
+    default utxoPut :: (MonadTrans t, MonadUtxo m', t m' ~ m) => TxIn -> TxOutAux -> m ()
     utxoPut a = lift . utxoPut a
     utxoDel :: TxIn -> m ()
-    default utxoDel :: (MonadTrans t, MonadUtxo m', t m' ~ m) => TxIn -> t m' ()
+    default utxoDel :: (MonadTrans t, MonadUtxo m', t m' ~ m) => TxIn -> m ()
     utxoDel = lift . utxoDel
 
 instance MonadUtxoRead m => MonadUtxoRead (ReaderT a m) where

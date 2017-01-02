@@ -56,13 +56,13 @@ class Monad m => MonadKeys m where
     addSecretKey :: SecretKey -> m ()
     deleteSecretKey :: Word -> m ()
 
-    default getSecretKeys :: (MonadTrans t, MonadKeys m', t m' ~ m) => t m' [SecretKey]
+    default getSecretKeys :: (MonadTrans t, MonadKeys m', t m' ~ m) => m [SecretKey]
     getSecretKeys = lift getSecretKeys
 
-    default addSecretKey :: (MonadTrans t, MonadKeys m', t m' ~ m) => SecretKey -> t m' ()
+    default addSecretKey :: (MonadTrans t, MonadKeys m', t m' ~ m) => SecretKey -> m ()
     addSecretKey = lift . addSecretKey
 
-    default deleteSecretKey :: (MonadTrans t, MonadKeys m', t m' ~ m) => Word -> t m' ()
+    default deleteSecretKey :: (MonadTrans t, MonadKeys m', t m' ~ m) => Word -> m ()
     deleteSecretKey = lift . deleteSecretKey
 
 -- | Instances for common transformers

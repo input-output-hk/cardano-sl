@@ -54,10 +54,10 @@ class Monad m => MonadStats m where
     statLog   :: StatLabel l => l -> EntryType l -> m ()
     resetStat :: StatLabel l => l -> m ()
 
-    default statLog :: (MonadTrans t, MonadStats m', t m' ~ m, StatLabel l) => l -> EntryType l -> t m' ()
+    default statLog :: (MonadTrans t, MonadStats m', t m' ~ m, StatLabel l) => l -> EntryType l -> m ()
     statLog label = lift . statLog label
 
-    default resetStat :: (MonadTrans t, MonadStats m', t m' ~ m, StatLabel l) => l -> t m' ()
+    default resetStat :: (MonadTrans t, MonadStats m', t m' ~ m, StatLabel l) => l -> m ()
     resetStat = lift . resetStat
 
     -- | Default convenience method, which we can override

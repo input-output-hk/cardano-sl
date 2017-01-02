@@ -3,16 +3,15 @@ const path = require('path');
 const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
-const DEBUG = process.env.NODE_ENV !== 'production';
+const isDev = process.env.NODE_ENV === 'dev';
 
 const libName = 'Daedalus';
 
 export default {
   path: path.join(__dirname, '/dist/'),
   publicPath: '/',
-  ...(DEBUG ? {
-      pathinfo: true,
-      filename: '[name].js',
+  ...(isDev ? {
+      filename: '[name].js'
     } : {
       filename: '[name]-[hash].min.js',
     }
@@ -32,7 +31,7 @@ export default {
     path.join(__dirname, 'src/index.js')
   ],
   output: {
-    path: __dirname + '/dist/',
+    path: path.join(__dirname, '/dist/'),
     filename: `${libName}.js` ,
     library: libName
   },
@@ -66,16 +65,26 @@ export default {
       }
     ]
   },
-  ...(DEBUG ? {
+  ...(isDev ? {
+      pathinfo: true,
       debug: true,
+      profile: true,
+      watch: true,
       devtool: 'cheap-module-eval-source-map',
       devServer: {
+        contentBase: './src',
+        inline: true,
         port: 3080,
         host: 'localhost',
         historyApiFallback: true,
         watchOptions: {
           aggregateTimeout: 300,
           poll: 1000
+        },
+        stats: {
+          colors: true,
+          errorDetails: true,
+          cached: true
         },
         proxy: {
           '/api': {

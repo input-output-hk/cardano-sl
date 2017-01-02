@@ -4,16 +4,11 @@
   "description": "Daedalus wallet client library",
   "main": "output/Daedalus.ClientApi/index.js",
   "scripts": {
+    "start": "npm run build:dev",
     "postinstall": "bower cache clean && bower install && npm run build",
     "clean": "rimraf dist && rimraf output",
-    "build": "npm run clean && mkdir dist && pulp build --skip-entry-point --optimise",
-    "docs": "pulp docs --with-tests",
-    "repl": "pulp psci",
-    "start": "npm run server:dev",
-    "server:dev": "rimraf output && ./node_modules/.bin/webpack-dev-server --hot --config webpack.config.js --inline --progress --profile --colors --watch --display-error-details --display-cached --content-base src/",
-    "test": "pulp test",
-    "watch": "pulp --watch build",
-    "watch-test": "pulp --watch test"
+    "build:prod": "npm run clean && mkdir dist && NODE_ENV=prod ./node_modules/.bin/webpack --config webpack.config.js --progress",
+    "build:dev": "npm run clean && NODE_ENV=dev ./node_modules/.bin/webpack-dev-server --hot --config webpack.config.js --progress"
   },
   "keywords": [
     "daedalus",

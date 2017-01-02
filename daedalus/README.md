@@ -41,53 +41,55 @@ npm run build:prod
 Note: `daedalus-bridge` is not optimized / compressed. This is will be a job for Daedalus.
 
 
-## Usage
+## Usage (ES5)
 
 API of `daedalus-bridge` does provide following Promise based functions:
 
 _getWallets_
 
-```
-Daedalus.ClientApi.getWallets().then(function(value) {
-  console.log('SUCCESS', value);
-}, function(reason) {
-  console.log('ERROR', reason);
-})
+```javascript
+Daedalus.ClientApi.getWallets()
+  .then(function(value) {
+    console.log('SUCCESS', value);
+  }, function(reason) {
+    console.log('ERROR', reason);
+  })
 ```
 
 
 _getWallet_
 
-```
+```javascript
 // XXX - any wallet id
-
-Daedalus.ClientApi.getWallet('XXX')().then(function(value) {
-  console.log('SUCCESS', value);
-}, function(reason) {
-  console.log('ERROR', reason);
-})
+Daedalus.ClientApi.getWallet('XXX')()
+  .then(function(value) {
+    console.log('SUCCESS', value);
+  }, function(reason) {
+    console.log('ERROR', reason);
+  })
 ```
 
 
 _newWallet_
 
-```
-Daedalus.ClientApi.newWallet('CWTPersonal', 'ADA', '')().then(function(value) {
-  console.log('SUCCESS', value);
-}, function(reason) {
-  console.log('ERROR', reason);
-})
+```javascript
+Daedalus.ClientApi.newWallet('CWTPersonal', 'ADA', '')()
+  .then(function(value) {
+    console.log('SUCCESS', value);
+  }, function(reason) {
+    console.log('ERROR', reason);
+  })
 ```
 
 
 _deleteWallet_
 
-```
+```javascript
 // XXX - any wallet id
-
-Daedalus.ClientApi.getWallet('XXX')().then(function(value) {
-  console.log('SUCCESS', value);
-}, function(reason) {
-  console.log(reason);
-})
+Daedalus.ClientApi.getWallet('XXX')()
+  .then(function(value) {
+    console.log('SUCCESS', value);
+  }, function(reason) {
+    console.log(reason);
+  })
 ```

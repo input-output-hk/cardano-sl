@@ -52,13 +52,13 @@ data CCurrency
     deriving (Show, Read, Generic)
 
 -- | Client hash
-newtype CHash = CHash Text deriving (Show, Eq, Generic)
+newtype CHash = CHash Text deriving (Show, Eq, Generic, Buildable)
 
 instance Hashable CHash where
     hashWithSalt s (CHash h) = hashWithSalt s h
 
 -- | Client address
-newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable)
+newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable, Buildable)
 
 -- | transform Address into CAddress
 -- TODO: this is not complitely safe. If someone changes implementation of Buildable Address. It should be probably more safe to introduce `class PSSimplified` that would have the same implementation has it is with Buildable Address but then person will know it will probably change something for purescript.

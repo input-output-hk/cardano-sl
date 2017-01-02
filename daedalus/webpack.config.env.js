@@ -55,12 +55,20 @@ export default {
       {
         test: /\.purs$/,
         loader: 'purs-loader',
-        exclude: /node_modules/,
-
+        exclude: [
+          'node_modules',
+          'src/**/*.test.js'
+        ],
         query: {
           psc: 'psa',
-          src: ['bower_components/purescript-*/src/**/*.purs', 'src/**/*.purs'],
-          ffi: ['bower_components/purescript-*/src/**/*.js', 'src/**/*.js'],
+          src: [
+            'bower_components/purescript-*/src/**/*.purs',
+            'src/**/*.purs'
+          ],
+          ffi: [
+            'bower_components/purescript-*/src/**/*.js',
+            'src/**/*.js'
+          ],
         }
       }
     ]

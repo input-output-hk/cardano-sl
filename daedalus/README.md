@@ -93,3 +93,16 @@ Daedalus.ClientApi.deleteWallet('XXX')()
     console.log(reason);
   })
 ```
+
+
+## Run tests
+
+First, make sure that you have all dependencies installed. Run (only once):
+```bash
+npm i
+```
+
+Run tests:
+```bash
+npm test
+```

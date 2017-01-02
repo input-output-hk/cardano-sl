@@ -8,7 +8,8 @@
     "postinstall": "bower cache clean && bower install && npm run build",
     "clean": "rimraf dist && rimraf output",
     "build:prod": "npm run clean && mkdir dist && NODE_ENV=prod ./node_modules/.bin/webpack --config webpack.config.js --progress",
-    "build:dev": "npm run clean && NODE_ENV=dev ./node_modules/.bin/webpack-dev-server --hot --config webpack.config.js --progress"
+    "build:dev": "npm run clean && NODE_ENV=dev ./node_modules/.bin/webpack-dev-server --hot --config webpack.config.js --progress",
+    "test": "npm run build:prod && mocha --compilers js:babel-core/register ./src/**/*.test.js -R spec"
   },
   "keywords": [
     "daedalus",
@@ -26,8 +27,10 @@
     "babel-preset-es2015": "^6.18.0",
     "babel-preset-stage-2": "^6.18.0",
     "bower": "^1.8.0",
+    "chai": "^3.5.0",
     "extract-text-webpack-plugin": "^1.0.1",
     "html-webpack-plugin": "^2.24.1",
+    "mocha": "^3.2.0",
     "pulp": "^10.0.0",
     "purescript": "^0.9.3",
     "purescript-psa": "^0.4.0",

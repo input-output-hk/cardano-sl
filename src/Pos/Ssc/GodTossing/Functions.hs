@@ -212,15 +212,15 @@ verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
 checkCertSign :: (AddressHash PublicKey, VssCertificate) -> Bool
 checkCertSign (addr, VssCertificate {..}) =
     addressHash vcSigningKey == addr &&
-    checkSig vcSigningKey (vcVssKey, expiryEpoch) vcSignature
+    checkSig vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
 
 -- CHECK: @checkCertTTL
 -- | Check that the VSS certificate has valid TTL:
 -- more than 0 and less than vssMaxTTL
 checkCertTTL :: EpochIndex -> VssCertificate -> Bool
 checkCertTTL curEpochIndex VssCertificate{..} =
-    expiryEpoch >= curEpochIndex &&
-    getEpochIndex expiryEpoch < vssMaxTTL + getEpochIndex curEpochIndex
+    vcExpiryEpoch >= curEpochIndex &&
+    getEpochIndex vcExpiryEpoch < vssMaxTTL + getEpochIndex curEpochIndex
 
 -- CHECK: @checkShare
 -- | Check that the decrypted share matches the encrypted share in the

@@ -56,7 +56,7 @@ lookup ahpk VssCertData{..} = HM.lookup ahpk certs
 
 -- | Lookup expiry epoch of certificate corresponding to the specified address hash.
 lookupExpiryEpoch :: AhPk -> VssCertData -> Maybe EpochIndex
-lookupExpiryEpoch ahpk mp = expiryEpoch <$> lookup ahpk mp
+lookupExpiryEpoch ahpk mp = vcExpiryEpoch <$> lookup ahpk mp
 
 -- | Delete certificate corresponding to the specified address hash.
 delete :: AhPk -> VssCertData -> VssCertData
@@ -111,4 +111,4 @@ setSmallerLKS lks VssCertData{..} = VssCertData lks certs bySlot
 
 -- | Convert expiry epoch of certificate to FlatSlotId
 expirySlot :: VssCertificate -> FlatSlotId
-expirySlot cert = (1 + getEpochIndex (expiryEpoch cert)) * 6 * k
+expirySlot cert = (1 + getEpochIndex (vcExpiryEpoch cert)) * 6 * k

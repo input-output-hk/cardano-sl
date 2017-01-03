@@ -164,7 +164,7 @@ mpcVerifyBlock verifyPure (Right b) = do
     let certChecks certs =
             [
               (all (maybe True
-                          ((==) curEpoch . expiryEpoch)
+                          ((==) curEpoch . vcExpiryEpoch)
                           . flip HM.lookup globalCertificates
                    ) (HM.keys certs),
                "some VSS certificates have been resubmitted earlier than expiry epoch")

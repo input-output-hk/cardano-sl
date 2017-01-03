@@ -86,7 +86,7 @@ type SharesMap = HashMap (AddressHash PublicKey) InnerSharesMap
 -- has some stake.
 data VssCertificate = VssCertificate
     { vcVssKey     :: !(AsBinary VssPublicKey)
-    , expiryEpoch  :: !EpochIndex
+    , vcExpiryEpoch  :: !EpochIndex
     , vcSignature  :: !(Signature (AsBinary VssPublicKey, EpochIndex))
     , vcSigningKey :: !PublicKey
     } deriving (Show, Eq, Generic)

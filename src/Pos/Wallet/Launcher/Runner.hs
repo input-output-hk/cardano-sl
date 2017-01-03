@@ -33,13 +33,15 @@ import           Pos.Wallet.WalletMode        (SState, WalletMode, WalletRealMod
 -- TODO: Move to some `Pos.Wallet.Communication` and provide
 -- meaningful listeners
 allListeners
-    :: (MonadDHTDialog SState m, WalletMode SscGodTossing m)
-    => [ListenerDHT SState m]
+    -- :: (MonadDHTDialog SState m, WalletMode SscGodTossing m)
+    -- => [ListenerDHT SState m]
+    :: [a]
 allListeners = []
 
 -- TODO: Move to some `Pos.Wallet.Worker` and provide
 -- meaningful ones
-allWorkers :: WalletMode ssc m => [m ()]
+-- allWorkers :: WalletMode ssc m => [m ()]
+allWorkers :: [a]
 allWorkers = []
 
 -- | WalletMode runner.

@@ -61,7 +61,7 @@ getBlockHeader h = fmap T.getBlockHeader <$> getBlock h
 
 -- | Gets hash of the next block in the blockchain
 getNextHash
-    :: (Ssc ssc, MonadDB ssc m)
+    :: (MonadDB ssc m)
     => HeaderHash ssc -> m (Maybe (HeaderHash ssc))
 getNextHash = getBi . ptrKey
 

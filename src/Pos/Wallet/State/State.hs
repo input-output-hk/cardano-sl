@@ -52,10 +52,10 @@ queryDisk
     => event -> m (EventResult event)
 queryDisk e = getWalletState >>= flip A.query e
 
-updateDisk
-    :: (EventState event ~ Storage, UpdateEvent event, WalletModeDB m)
-    => event -> m (EventResult event)
-updateDisk e = getWalletState >>= flip A.update e
+-- updateDisk
+--     :: (EventState event ~ Storage, UpdateEvent event, WalletModeDB m)
+--     => event -> m (EventResult event)
+-- updateDisk e = getWalletState >>= flip A.update e
 
 getBlock :: WalletModeDB m => HeaderHash' -> m (Maybe Block')
 getBlock = queryDisk . A.GetBlock

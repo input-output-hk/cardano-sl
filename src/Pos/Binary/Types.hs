@@ -149,11 +149,13 @@ instance Ssc ssc => Bi (T.Body (T.MainBlockchain ssc)) where
         put _mbWitnesses
         put _mbTxAddrDistributions
         put _mbMpc
+        put _mbProxySKs
     get = label "MainBody" $ do
         _mbTxs <- get
         _mbWitnesses <- get
         _mbTxAddrDistributions <- get
         _mbMpc <- get
+        _mbProxySKs <- get
         let lenTxs    = length _mbTxs
             lenWit    = length _mbWitnesses
             lenDistrs = length _mbTxAddrDistributions

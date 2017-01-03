@@ -460,4 +460,4 @@ createMainBlockPure prevHeader txs pSk sId sscData sk =
     -- TODO [CSL-351] inlclude proposal, votes into block
     extraB = MainExtraBodyData (mkAttributes ()) Nothing []
     extraH = MainExtraHeaderData curProtocolVersion curSoftwareVersion (mkAttributes ())
-    body = mkMainBody (fmap snd txs) sscData
+    body = mkMainBody (fmap snd txs) sscData []

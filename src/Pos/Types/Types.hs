@@ -62,6 +62,11 @@ module Pos.Types.Types
        , SlotLeaders
        , Richmen
 
+       , ProxySigEpoch
+       , ProxySKEpoch
+       , ProxySigSimple
+       , ProxySKSimple
+
        , Blockchain (..)
        , BodyProof (..)
        , ConsensusData (..)
@@ -76,8 +81,6 @@ module Pos.Types.Types
        , BlockHeaderAttributes
        , BlockBodyAttributes
        , BiSsc
-       , ProxySigEpoch
-       , ProxySKEpoch
        , BlockSignature (..)
        , ChainDifficulty (..)
        , MainToSign
@@ -108,6 +111,7 @@ module Pos.Types.Types
        , blockSlot
        , blockTxs
        , blockTxas
+       , blockProxySKs
        , gbBody
        , gbBodyProof
        , gbExtra
@@ -125,6 +129,7 @@ module Pos.Types.Types
        , mbMpc
        , mbTxs
        , mbWitnesses
+       , mbProxySKs
        , mcdSlot
        , mcdLeaderKey
        , mcdDifficulty
@@ -421,6 +426,23 @@ type SlotLeaders = NonEmpty StakeholderId
 type Richmen = NonEmpty StakeholderId
 
 ----------------------------------------------------------------------------
+-- Proxy signatures and delegation
+----------------------------------------------------------------------------
+
+-- | Proxy signature used in csl -- holds a pair of epoch
+-- indices. Block is valid if it's epoch index is inside this range.
+type ProxySigEpoch a = ProxySignature (EpochIndex, EpochIndex) a
+
+-- | Same alias for the proxy secret key (see 'ProxySigEpoch').
+type ProxySKEpoch = ProxySecretKey (EpochIndex, EpochIndex)
+
+-- | Simple proxy signature without ttl/epoch index constraints.
+type ProxySigSimple a = ProxySignature () a
+
+-- | Correspondent SK for no-ttl proxy signature scheme.
+type ProxySKSimple = ProxySecretKey ()
+
+----------------------------------------------------------------------------
 -- GenericBlock
 ----------------------------------------------------------------------------
 
@@ -510,16 +532,8 @@ newtype ChainDifficulty = ChainDifficulty
 -- | Constraint for data to be signed in main block.
 type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
 
--- | Proxy signature used in csl -- holds a pair of epoch
--- indices. Block is valid if it's epoch index is inside this range.
-type ProxySigEpoch a = ProxySignature (EpochIndex, EpochIndex) a
-
--- | Same alias for the proxy secret key (see 'ProxySigEpoch').
-type ProxySKEpoch = ProxySecretKey (EpochIndex, EpochIndex)
-
 -- | Signature of the block. Can be either regular signature from the
 -- issuer or delegated signature having a constraint on epoch indices
-
 -- (it means the signature is valid only if block's slot id has epoch
 -- inside the constrained interval).
 data BlockSignature ssc
@@ -623,6 +637,8 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
           _mbWitnesses :: ![TxWitness]
         , -- | Data necessary for MPC.
           _mbMpc :: !(SscPayload ssc)
+        , -- | No-ttl heavyweight delegation certificates
+          _mbProxySKs :: ![ProxySKSimple]
         } deriving (Generic, Typeable)
 
     type ExtraBodyData (MainBlockchain ssc) = MainExtraBodyData
@@ -853,6 +869,10 @@ MAKE_LENS(mbTxAddrDistributions, _mbTxAddrDistributions)
 mbMpc :: Lens' (Body (MainBlockchain ssc)) (SscPayload ssc)
 MAKE_LENS(mbMpc, _mbMpc)
 
+-- | Lens for ProxySKs in main block body.
+mbProxySKs :: Lens' (Body (MainBlockchain ssc)) [ProxySKSimple]
+MAKE_LENS(mbProxySKs, _mbProxySKs)
+
 -- makeLensesData ''Body ''(GenesisBlockchain ssc)
 
 -- | Lens for 'SlotLeaders' in 'Body' of 'GenesisBlockchain'.
@@ -997,6 +1017,10 @@ blockTxas =
     to (\b -> zip3 (toList (b ^. mbTxs))
                    (b ^. mbWitnesses)
                    (b ^. mbTxAddrDistributions))
+
+-- | Lens from 'MainBlock' to 'ProxySKSimple' list.
+blockProxySKs :: Lens' (MainBlock ssc) [ProxySKSimple]
+blockProxySKs = gbBody . mbProxySKs
 
 -- | Lens from 'GenesisBlock' to 'SlotLeaders'.
 blockLeaders :: Lens' (GenesisBlock ssc) SlotLeaders
@@ -1173,6 +1197,7 @@ instance (Ssc ssc, SafeCopy (SscPayload ssc)) =>
            _mbWitnesses <- safeGet
            _mbTxAddrDistributions <- safeGet
            _mbMpc <- safeGet
+           _mbProxySKs <- safeGet
            return $!
                MainBody
                { ..
@@ -1183,6 +1208,7 @@ instance (Ssc ssc, SafeCopy (SscPayload ssc)) =>
            safePut _mbWitnesses
            safePut _mbTxAddrDistributions
            safePut _mbMpc
+           safePut _mbProxySKs
 
 instance SafeCopy (Body (GenesisBlockchain ssc)) where
     getCopy =

@@ -12,3 +12,4 @@ mdNoCommitmentsEpochThreshold: 3
 protocolMagic: 0
 enchancedMessageBroadcast: 2
 updateServers: []
+maxBlockProxySKs: 10000

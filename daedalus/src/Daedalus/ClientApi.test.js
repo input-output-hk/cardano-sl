@@ -55,7 +55,7 @@ describe('ClientApi', () => {
       );
     });
 
-    it('rejects with JSONDecodingError', (done) => {
+    it('rejects with a JSONDecodingError if server sends invalid json data', (done) => {
       const data = [{ anyOther: "XXX"}];
 
       Daedalus.ClientApi.getWallets()
@@ -103,7 +103,7 @@ describe('ClientApi', () => {
       );
     })
 
-    it('rejects with JSONDecodingError', (done) => {
+    it('rejects with a JSONDecodingError if server sends invalid json data', (done) => {
       const data = {};
 
       Daedalus.ClientApi.getWallet('123')()
@@ -119,6 +119,54 @@ describe('ClientApi', () => {
         JSON.stringify(data)
       );
     })
+  })
+
+  describe('newWallet', () => {
+
+    it('returns a new wallet', (done) => {
+      const data = {
+        cwAddress: '123',
+          cwAmount: {
+            getCoin: 33333
+          },
+          cwMeta: {
+            cwType: "CWTPersonal",
+            cwCurrency: "ADA",
+            "cwName":""
+          }
+        };
+
+      Daedalus.ClientApi.newWallet('CWTPersonal', 'ADA', '')()
+        .then( (result) => {
+          assert.deepEqual(result, data, 'wallet data object');
+          done();
+        }, (error) => done(error))
+        .catch(done);
+
+      requests[0]
+        .respond(200,
+          { "Content-Type": "application/json" },
+          JSON.stringify(data)
+      );
+    })
+
+    it('rejects with a JSONDecodingError if server sends invalid json data', (done) => {
+      const data = {};
+
+      Daedalus.ClientApi.newWallet('', '', '')()
+        .then( (result) => done(),
+          (error) => {
+            assert.include(error.message, 'JSONDecodingError', 'includes JSONDecodingError error message');
+            done();
+        })
+        .catch(done);
+
+      requests[0].respond(200,
+        {"Content-Type": "application/json"},
+        JSON.stringify(data)
+      );
+    })
+
   })
 
 })

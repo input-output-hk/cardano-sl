@@ -139,7 +139,7 @@ sscIsDataUsefulQ VssCertificateMsg = sscIsCertUsefulImpl
         glob <- view gtGlobalCertificates
         lpe <- siEpoch <$> view gtLastProcessedSlot
         if addr `HM.member` loc then pure False
-        else pure $ maybe False (== lpe) (VCD.lookupExpiryEpoch addr glob)
+        else pure $ maybe True (== lpe) (VCD.lookupExpiryEpoch addr glob)
 
 type MapGetter a = Getter GtState (HashMap (AddressHash PublicKey) a)
 type SetGetter set = Getter GtState set

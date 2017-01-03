@@ -78,7 +78,8 @@ checkNSendOurCert = do
     if isCertInBlockhain then
        logDebug "Our VssCertificate has been already announced."
     else do
-        logDebug "Our VssCertificate hasn't been announced yet, we will announce it now."
+        logDebug "Our VssCertificate hasn't been announced yet or TTL has expired\
+                 \, we will announce it now."
         ourVssCertificate <- getOurVssCertificate
         let msg = DMVssCertificate ourAddr ourVssCertificate
         -- [CSL-245]: do not catch all, catch something more concrete.

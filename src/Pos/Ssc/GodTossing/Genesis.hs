@@ -40,6 +40,6 @@ genesisCertificates :: VssCertificatesMap
 genesisCertificates =
     HM.fromList $
     zipWith
-        (\(pk, sk) vssPk -> (addressHash pk, mkVssCertificate sk (asBinary vssPk) $ EpochIndex vssMaxTTL))
+        (\(pk, sk) vssPk -> (addressHash pk, mkVssCertificate sk (asBinary vssPk) $ EpochIndex (vssMaxTTL - 1)))
         genesisKeyPairs
         genesisVssPublicKeys

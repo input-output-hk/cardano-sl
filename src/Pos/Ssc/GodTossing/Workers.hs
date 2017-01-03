@@ -13,7 +13,7 @@ module Pos.Ssc.GodTossing.Workers
        ) where
 
 import           Control.Concurrent.STM           (readTVar)
-import           Control.Lens                     (view, (%=), _2, _3)
+import           Control.Lens                     (use, view, (%=), _2, _3)
 import           Control.Monad.Trans.Maybe        (runMaybeT)
 import           Control.TimeWarp.Timed           (Microsecond, Millisecond, currentTime,
                                                    for, wait)
@@ -29,13 +29,13 @@ import           Universum
 import           Pos.Binary.Class                 (Bi)
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Methods        (sendToNeighborsSafe)
-import           Pos.Constants                    (k, mpcSendInterval)
+import           Pos.Constants                    (k, mpcSendInterval, vssMaxTTL)
 import           Pos.Context                      (getNodeContext, ncPublicKey,
                                                    ncSecretKey, ncSscContext, readRichmen)
 import           Pos.Crypto                       (SecretKey, VssKeyPair, randomNumber,
                                                    runSecureRandom, toPublic)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
-import           Pos.Crypto.Signing               (PublicKey, sign)
+import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.Slotting                     (getSlotStart, onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery, sscRunLocalUpdate)
@@ -43,8 +43,8 @@ import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, getT
                                                    hasCommitment, hasOpening, hasShares,
                                                    isCommitmentIdx, isOpeningIdx,
                                                    isSharesIdx, mkSignedCommitment)
-import           Pos.Ssc.GodTossing.LocalData     (ldCertificates, localOnNewSlot,
-                                                   sscProcessMessage)
+import           Pos.Ssc.GodTossing.LocalData     (ldCertificates, ldLastProcessedSlot,
+                                                   localOnNewSlot, sscProcessMessage)
 import           Pos.Ssc.GodTossing.SecretStorage (getSecret, prepareSecretToNewSlot,
                                                    setSecret)
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
@@ -52,7 +52,8 @@ import           Pos.Ssc.GodTossing.Storage       (getGlobalCertificates,
                                                    gtGetGlobalState)
 import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCommitment,
                                                    SscGodTossing, VssCertificate (..),
-                                                   gtcParticipateSsc, gtcVssKeyPair)
+                                                   gtcParticipateSsc, gtcVssKeyPair,
+                                                   mkVssCertificate)
 import           Pos.Ssc.GodTossing.Types.Message (DataMsg (..), InvMsg (..), MsgTag (..))
 import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), Timestamp (..))
@@ -87,20 +88,21 @@ checkNSendOurCert = do
   where
     getOurVssCertificate :: m VssCertificate
     getOurVssCertificate = do
-        (ourPk, ourAddr) <- getOurPkAndAddr
-        localCerts       <- sscRunLocalQuery $ view ldCertificates
+        (_, ourAddr) <- getOurPkAndAddr
+        localCerts   <- sscRunLocalQuery $ view ldCertificates
         case lookup ourAddr localCerts of
           Just c  -> return c
           Nothing -> do
             ourSk         <- ncSecretKey <$> getNodeContext
             ourVssKeyPair <- getOurVssKeyPair
             let vssKey  = asBinary $ toVssPublicKey ourVssKeyPair
-                ourCert = VssCertificate { vcVssKey     = vssKey
-                                         , vcSignature  = sign ourSk vssKey
-                                         , vcSigningKey = ourPk
-                                         }
-            sscRunLocalUpdate $ ldCertificates %= insert ourAddr ourCert
-            return ourCert
+                createOurCert = mkVssCertificate ourSk vssKey .
+                                    (+) (vssMaxTTL - 1) . siEpoch
+            sscRunLocalUpdate $ do
+                lps <- use ldLastProcessedSlot
+                let ourCert = createOurCert lps
+                ldCertificates %= insert ourAddr ourCert
+                return ourCert
 
 getOurPkAndAddr
     :: WorkMode SscGodTossing m

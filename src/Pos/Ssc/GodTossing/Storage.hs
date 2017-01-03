@@ -196,12 +196,14 @@ mpcProcessBlock blk = do
         -- “arrive”, we clear global commitments and other globals. Not
         -- certificates, though, because we don't want to make nodes resend
         -- them in each epoch.
-        Left gb  -> do
+        Left gb -> do
             let slot = SlotId (gb ^. epochIndexL) 0
             resetGS
             gsVssCertificates %= (VM.setLastKnownSlot slot)
         -- Main blocks contain commitments, openings, shares, VSS certificates
-        Right b -> modify (unionPayload (b ^. blockSlot) (b ^. blockMpc))
+        Right b -> do
+            gsVssCertificates %= VM.setLastKnownSlot (b ^. blockSlot)
+            modify (unionPayload (b ^. blockMpc))
 
 -- | Head - youngest
 mpcRollback :: NEBlocks SscGodTossing -> GSUpdate ()
@@ -238,7 +240,9 @@ mpcRollback blocks = do
 mpcLoadGlobalState :: MonadDB SscGodTossing m => HeaderHash SscGodTossing -> m GtGlobalState
 mpcLoadGlobalState tip = do
     global <- fst <$> execStateT unionBlocks (def, tip)
-    pure $ over gsVssCertificates (VM.unionUsingSlot (SlotId 0 0) genesisCertificates) global
+    pure $ over gsVssCertificates
+                (flip (foldl' (flip $ uncurry VM.insert)) (HM.toList genesisCertificates))
+                global
 
 -- | Calculate leaders for the next epoch.
 calculateSeedQ :: EpochIndex -> GSImpureQuery (Either SeedError SharedSeed)
@@ -260,8 +264,8 @@ resetGS = do
     gsOpenings    .= mempty
     gsShares      .= mempty
 
-unionPayload :: SlotId -> GtPayload -> GtGlobalState -> GtGlobalState
-unionPayload slotId payload =
+unionPayload :: GtPayload -> GtGlobalState -> GtGlobalState
+unionPayload payload =
     execState (do
     let blockCertificates = _gpCertificates payload
     case payload of
@@ -272,7 +276,7 @@ unionPayload slotId payload =
         SharesPayload     shares _ ->
             gsShares %= HM.unionWith HM.union shares
         CertificatesPayload      _ -> pure ()
-    gsVssCertificates %= VM.unionUsingSlot slotId blockCertificates)
+    gsVssCertificates %= flip (foldl' (flip $ uncurry VM.insert)) (HM.toList blockCertificates))
 
 -- | Union payloads of blocks until meet genesis block
 -- Invalid restore of VSS certificates
@@ -285,7 +289,7 @@ unionBlocks = whileM
         case b of
             Left _   -> pure False
             Right mb -> do
-                _1 %= unionPayload (blkSlot b) (mb ^. blockMpc)
+                _1 %= unionPayload (mb ^. blockMpc)
                 True <$ (_2 .= b ^. prevBlockL)
     ) (pure ())
 

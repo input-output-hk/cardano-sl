@@ -25,5 +25,5 @@ data CompileConfig = CompileConfig
     , ccMpcSendInterval               :: !Word      -- ^ Length of interval for sending MPC message
     , ccMdNoBlocksSlotThreshold       :: !Int       -- ^ Threshold of slots for malicious activity detection
     , ccMdNoCommitmentsEpochThreshold :: !Int       -- ^ Threshold of epochs for malicious activity detection
-    , ccVssTTL                        :: !Int       -- ^ VSS certificates timeout to live
+    , ccVssMaxTTL                     :: !Word64    -- ^ VSS certificates max timeout to live (number of epochs)
     } deriving (Show, Lift)

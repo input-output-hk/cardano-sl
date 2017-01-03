@@ -25,6 +25,7 @@ import           Data.SafeCopy       (base, deriveSafeCopySimple)
 import           Data.Text.Buildable (Buildable (..))
 import           Universum
 
+import           Pos.Binary.Types    ()
 import           Pos.Crypto          (EncShare, PublicKey, Secret, SecretKey, SecretProof,
                                       SecretSharingExtra, Share, Signature, VssPublicKey,
                                       sign, toPublic)
@@ -78,18 +79,20 @@ type SharesMap = HashMap (AddressHash PublicKey) InnerSharesMap
 --
 -- A public key of node is included in certificate in order to
 -- enable validation of it using only node's P2PKH address.
+-- Expiry epoch is last epoch when certificate is valid, expiry epoch is included
+-- in certificate and signature.
 --
 -- Other nodes accept this certificate if it is valid and if node really
 -- has some stake.
 data VssCertificate = VssCertificate
     { vcVssKey     :: !(AsBinary VssPublicKey)
-    , vcSignature  :: !(Signature (AsBinary VssPublicKey))
+    , expiryEpoch  :: !EpochIndex
+    , vcSignature  :: !(Signature (AsBinary VssPublicKey, EpochIndex))
     , vcSigningKey :: !PublicKey
     } deriving (Show, Eq, Generic)
 
-
-mkVssCertificate :: SecretKey -> (AsBinary VssPublicKey) -> VssCertificate
-mkVssCertificate sk vk = VssCertificate vk (sign sk vk) $ toPublic sk
+mkVssCertificate :: SecretKey -> AsBinary VssPublicKey -> EpochIndex -> VssCertificate
+mkVssCertificate sk vk expiry = VssCertificate vk expiry (sign sk (vk, expiry)) $ toPublic sk
 
 -- | VssCertificatesMap contains all valid certificates collected
 -- during some period of time.

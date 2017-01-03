@@ -53,7 +53,7 @@ instance Arbitrary Opening where
     arbitrary = coOpening <$> arbitrary
 
 instance Arbitrary VssCertificate where
-    arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary
+    arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance (Bi Commitment, Bi Opening, Bi VssCertificate) => Arbitrary GtProof where
     arbitrary = oneof [

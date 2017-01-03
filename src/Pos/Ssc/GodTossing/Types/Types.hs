@@ -44,7 +44,6 @@ import           Serokell.Util                 (listJson)
 import           Universum
 
 import           Pos.Binary.Class              (Bi)
-import           Pos.Constants                 (k, vssTTL)
 import           Pos.Crypto                    (Hash, VssKeyPair, hash)
 import           Pos.Ssc.GodTossing.Genesis    (genesisCertificates)
 import           Pos.Ssc.GodTossing.Types.Base (Commitment, CommitmentsMap, Opening,
@@ -79,7 +78,7 @@ instance Default GtGlobalState where
           _gsCommitments = mempty
         , _gsOpenings = mempty
         , _gsShares = mempty
-        , _gsVssCertificates = VM.createFromTTL (vssTTL * 6 * k)
+        , _gsVssCertificates = VM.empty
         }
 
 instance Buildable GtGlobalState where

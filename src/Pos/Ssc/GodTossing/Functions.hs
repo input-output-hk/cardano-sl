@@ -211,7 +211,7 @@ verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
 checkCert :: (AddressHash PublicKey, VssCertificate) -> Bool
 checkCert (addr, VssCertificate {..}) =
     addressHash vcSigningKey == addr &&
-    checkSig vcSigningKey vcVssKey vcSignature
+    checkSig vcSigningKey (vcVssKey, expiryEpoch) vcSignature
 
 -- CHECK: @checkShare
 -- | Check that the decrypted share matches the encrypted share in the

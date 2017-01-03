@@ -62,7 +62,7 @@ import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap
                                                  SignedCommitment, VssCertificate (..),
                                                  VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..))
-import qualified Pos.Ssc.GodTossing.VssMap      as VM
+import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types.Address              (AddressHash, addressHash)
 import           Pos.Types.Types                (EpochIndex, LocalSlotIndex,
                                                  MainBlockHeader, SharedSeed (..),
@@ -131,7 +131,7 @@ hasShares :: AddressHash PublicKey -> GtGlobalState -> Bool
 hasShares addr = HM.member addr . _gsShares
 
 hasVssCertificate :: AddressHash PublicKey -> GtGlobalState -> Bool
-hasVssCertificate addr = VM.member addr . _gsVssCertificates
+hasVssCertificate addr = VCD.member addr . _gsVssCertificates
 
 ----------------------------------------------------------------------------
 -- Verifications for GodTossing.Types.Base

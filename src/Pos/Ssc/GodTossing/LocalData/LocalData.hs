@@ -50,7 +50,7 @@ import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
                                                        SignedCommitment, VssCertificate,
                                                        VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Message     (DataMsg (..), MsgTag (..))
-import qualified Pos.Ssc.GodTossing.VssMap            as VM
+import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
 import           Pos.Types                            (AddressHash, SlotId (..))
 import           Pos.Util                             (AsBinary, diffDoubleMap, getKeys,
                                                        readerToState)
@@ -74,7 +74,7 @@ applyGlobal globalData = do
     ldCommitments  %= (`HM.difference` globalCommitments)
     ldOpenings  %= (`HM.difference` globalOpenings)
     ldShares  %= (`diffDoubleMap` globalShares)
-    ldCertificates  %= (`HM.difference` (VM.certs globalCert))
+    ldCertificates  %= (`HM.difference` (VCD.certs globalCert))
 
 ----------------------------------------------------------------------------
 -- Get Local Payload

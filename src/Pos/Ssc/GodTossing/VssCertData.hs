@@ -1,7 +1,7 @@
 {-# LANGUAGE ViewPatterns #-}
 
-module Pos.Ssc.GodTossing.VssMap
-       ( VssMap (..)
+module Pos.Ssc.GodTossing.VssCertData
+       ( VssCertData (..)
        , empty
        , insert
        , delete
@@ -29,7 +29,7 @@ type AhPk = (AddressHash PublicKey)
 -- Wrapper supports simple map operations.
 -- Wrapper holds VssCertificatesMap
 -- and set of certificates sorted by expiry epoch.
-data VssMap = VssMap
+data VssCertData = VssCertData
     {
       lastKnownSlot :: !FlatSlotId                 -- ^ Last known slot, every element of bySlot > lastKnownSlot
     , certs         :: !VssCertificatesMap         -- ^ Not expired certificates
@@ -39,75 +39,75 @@ data VssMap = VssMap
                                                    --   (in increase order, so the oldest certificate is first element)
     } deriving (Show)
 
--- | Create empty VssMap
-empty :: VssMap
-empty = VssMap 0 mempty mempty
+-- | Create empty VssCertData
+empty :: VssCertData
+empty = VssCertData 0 mempty mempty
 
 -- | Remove old certificate corresponding to the specified address hash
 -- and insert new certificate.
-insert :: AhPk -> VssCertificate -> VssMap -> VssMap
-insert ahpk cert mp@VssMap{..}
+insert :: AhPk -> VssCertificate -> VssCertData -> VssCertData
+insert ahpk cert mp@VssCertData{..}
     | expirySlot cert <= lastKnownSlot = mp
     | otherwise                        = addInt ahpk cert mp
 
 -- | Lookup certificate corresponding to the specified address hash.
-lookup :: AhPk -> VssMap -> Maybe VssCertificate
-lookup ahpk VssMap{..} = HM.lookup ahpk certs
+lookup :: AhPk -> VssCertData -> Maybe VssCertificate
+lookup ahpk VssCertData{..} = HM.lookup ahpk certs
 
 -- | Lookup expiry epoch of certificate corresponding to the specified address hash.
-lookupEpoch :: AhPk -> VssMap -> Maybe EpochIndex
+lookupEpoch :: AhPk -> VssCertData -> Maybe EpochIndex
 lookupEpoch ahpk mp = expiryEpoch <$> lookup ahpk mp
 
 -- | Delete certificate corresponding to the specified address hash.
-delete :: AhPk -> VssMap -> VssMap
-delete ahpk mp@VssMap{..} =
+delete :: AhPk -> VssCertData -> VssCertData
+delete ahpk mp@VssCertData{..} =
     case lookup ahpk mp of
         Nothing                   -> mp
         Just (expirySlot -> slot) ->
-            VssMap lastKnownSlot
+            VssCertData lastKnownSlot
                    (HM.delete ahpk certs)
                    (S.delete (slot, ahpk) bySlot)
 
 -- | Set last known slot (lks). If new lks bigger than lastKnownSlot
 -- then some expired certificates will be removed.
-setLastKnownSlot :: SlotId -> VssMap -> VssMap
-setLastKnownSlot (flattenSlotId -> nlks) mp@VssMap{..}
+setLastKnownSlot :: SlotId -> VssCertData -> VssCertData
+setLastKnownSlot (flattenSlotId -> nlks) mp@VssCertData{..}
     | nlks > lastKnownSlot = setBiggerLKS nlks mp
     | otherwise            = setSmallerLKS nlks mp
 
 -- | Address hashes of certificates.
-keys :: VssMap -> [AhPk]
-keys VssMap{..} = HM.keys certs
+keys :: VssCertData -> [AhPk]
+keys VssCertData{..} = HM.keys certs
 
 -- | Return True if the specified address hash is present in the map, False otherwise.
-member :: AhPk -> VssMap -> Bool
-member ahpk VssMap{..} = HM.member ahpk certs
+member :: AhPk -> VssCertData -> Bool
+member ahpk VssCertData{..} = HM.member ahpk certs
 
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 -- | Helper for insert.
 -- Expiry epoch will be converted to expiry slot.
-addInt :: AhPk -> VssCertificate -> VssMap -> VssMap
-addInt ahpk cert (delete ahpk -> VssMap{..}) =
-    VssMap lastKnownSlot
+addInt :: AhPk -> VssCertificate -> VssCertData -> VssCertData
+addInt ahpk cert (delete ahpk -> VssCertData{..}) =
+    VssCertData lastKnownSlot
            (HM.insert ahpk cert certs)
            (S.insert (expirySlot cert, ahpk) bySlot)
 
 -- | Remove elements from beginning of the set @bySlot@
 -- until first element more than lks, update lastKnownSlot also.
-setBiggerLKS :: FlatSlotId -> VssMap -> VssMap
-setBiggerLKS lks VssMap{..}
+setBiggerLKS :: FlatSlotId -> VssCertData -> VssCertData
+setBiggerLKS lks VssCertData{..}
     | Just ((sl, h), rest) <- S.minView bySlot
     , sl <= lks = setBiggerLKS lks $
-          VssMap lastKnownSlot
+          VssCertData lastKnownSlot
                  (HM.delete h certs)
                  rest
-    | otherwise = VssMap lks certs bySlot
+    | otherwise = VssCertData lks certs bySlot
 
 -- | Update lastKnownSlot
-setSmallerLKS :: FlatSlotId -> VssMap -> VssMap
-setSmallerLKS lks VssMap{..} = VssMap lks certs bySlot
+setSmallerLKS :: FlatSlotId -> VssCertData -> VssCertData
+setSmallerLKS lks VssCertData{..} = VssCertData lks certs bySlot
 
 -- | Convert expiry epoch of certificate to FlatSlotId
 expirySlot :: VssCertificate -> FlatSlotId

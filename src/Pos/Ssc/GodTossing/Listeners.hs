@@ -61,13 +61,19 @@ instance ( Bi VssCertificate
             , ListenerDHT handleDataGt
             ]
 
-handleInvGt :: (Bi (ReqMsg StakeholderId GtMsgTag), ResponseMode SscGodTossing m) => InvMsg StakeholderId GtMsgTag -> m ()
+handleInvGt
+    :: (Bi (ReqMsg StakeholderId GtMsgTag), ResponseMode SscGodTossing m)
+    => InvMsg StakeholderId GtMsgTag -> m ()
 handleInvGt = handleInvL
 
-handleReqGt :: (Bi (DataMsg StakeholderId GtMsgContents), ResponseMode SscGodTossing m) => ReqMsg StakeholderId GtMsgTag -> m ()
+handleReqGt
+    :: (Bi (DataMsg StakeholderId GtMsgContents), ResponseMode SscGodTossing m)
+    => ReqMsg StakeholderId GtMsgTag -> m ()
 handleReqGt = handleReqL
 
-handleDataGt :: (Bi (InvMsg StakeholderId GtMsgTag), ResponseMode SscGodTossing m) => DataMsg StakeholderId GtMsgContents -> m ()
+handleDataGt
+    :: (Bi (InvMsg StakeholderId GtMsgTag), ResponseMode SscGodTossing m)
+    => DataMsg StakeholderId GtMsgContents -> m ()
 handleDataGt = handleDataL
 
 instance ( WorkMode SscGodTossing m

@@ -17,6 +17,7 @@ import           Formatting                (build, sformat, stext, (%))
 import           Serokell.Util.Text        (listJson)
 import           Serokell.Util.Verify      (VerificationRes (..))
 import           System.Wlog               (logDebug, logInfo, logWarning)
+import           Test.QuickCheck           (Arbitrary (..))
 import           Universum
 
 import           Pos.Binary.Class          (Bi)
@@ -66,6 +67,11 @@ data InvMsg key tag = InvMsg
     , imKeys :: !(NonEmpty key)
     }
 
+deriving instance (Show key, Show tag) => Show (InvMsg key tag)
+deriving instance (Eq key, Eq tag) => Eq (InvMsg key tag)
+instance (Arbitrary key, Arbitrary tag) => Arbitrary (InvMsg key tag) where
+    arbitrary = InvMsg <$> arbitrary <*> arbitrary
+
 instance (Typeable key, Typeable tag, NamedMessagePart tag) =>
          Message (InvMsg key tag) where
     messageName p = "Inventory " <> nMessageName (tagM p)
@@ -81,6 +87,11 @@ data ReqMsg key tag = ReqMsg
     , rmKeys :: !(NonEmpty key)
     }
 
+deriving instance (Show key, Show tag) => Show (ReqMsg key tag)
+deriving instance (Eq key, Eq tag) => Eq (ReqMsg key tag)
+instance (Arbitrary key, Arbitrary tag) => Arbitrary (ReqMsg key tag) where
+    arbitrary = ReqMsg <$> arbitrary <*> arbitrary
+
 instance (Typeable key, Typeable tag, NamedMessagePart tag) =>
          Message (ReqMsg key tag) where
     messageName p = "Request " <> nMessageName (tagM p)
@@ -94,6 +105,11 @@ data DataMsg key contents = DataMsg
     { dmContents :: !contents
     , dmKey      :: !key
     }
+
+deriving instance (Show key, Show contents) => Show (DataMsg key contents)
+deriving instance (Eq key, Eq contents) => Eq (DataMsg key contents)
+instance (Arbitrary key, Arbitrary contents) => Arbitrary (DataMsg key contents) where
+    arbitrary = DataMsg <$> arbitrary <*> arbitrary
 
 instance (Typeable key, Typeable contents, NamedMessagePart contents) =>
          Message (DataMsg key contents) where

@@ -98,6 +98,7 @@ library
                         Pos.Types.Version
                         Pos.Util
                         Pos.Util.JsonLog
+                        Pos.Util.Relay
                         Pos.Util.UserSecret
                         Pos.Worker
                         Pos.WorkMode
@@ -190,7 +191,7 @@ library
                         Pos.Ssc.GodTossing.LocalData.Types
                         Pos.Ssc.GodTossing.Secret.SecretStorage
                         Pos.Ssc.GodTossing.Secret.Types
-                        Pos.Ssc.GodTossing.SecretStorage 
+                        Pos.Ssc.GodTossing.SecretStorage
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Shares
                         Pos.Ssc.GodTossing.Storage
@@ -223,7 +224,6 @@ library
                         Pos.Util.Arbitrary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented
-                        Pos.Util.Relay
   if flag(with-web)
     other-modules:      Pos.Aeson.Crypto
                         Pos.Aeson.Types

@@ -1,6 +1,7 @@
 module Daedalus.Types
        ( module CT
        , module T
+       , module E
        , _address
        , _coin
        , mkCoin
@@ -19,6 +20,7 @@ import Pos.Types.Types (Coin (..))
 
 import Pos.Wallet.Web.ClientTypes as CT
 import Pos.Types.Types as T
+import Pos.Wallet.Web.Error as E
 
 import Data.Either (either)
 import Data.Argonaut.Generic.Aeson (decodeJson)

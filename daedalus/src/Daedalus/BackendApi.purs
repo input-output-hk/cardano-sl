@@ -3,9 +3,9 @@ module Daedalus.BackendApi where
 import Prelude
 import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (error, Error)
-import Control.Monad.Error.Class (throwError)
+import Control.Monad.Error.Class (throwError, catchError)
 import Daedalus.Constants (backendPrefix)
-import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency)
+import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Array.Partial (last)
@@ -33,26 +33,32 @@ backendApi :: URLPath -> URL
 backendApi path = mkUrl $ [backendPrefix, "api"] <> path
 
 data ApiError
-    = HTTPStatusError (AffjaxResponse Json)
+    = HTTPStatusError Error
     | JSONDecodingError String
+    | ServerError WalletError
 
 instance showApiError :: Show ApiError where
-    show (HTTPStatusError res) =
-        "HTTPStatusError: " <> show res.status
+    show (HTTPStatusError e) =
+        "HTTPStatusError: " <> show e
     show (JSONDecodingError e) =
         "JSONDecodingError: " <> show e
+    show (ServerError e) =
+        "ServerError: " <> gShow e
 
 -- REQUESTS HELPERS
 
 decodeResult :: forall a eff. Generic a => {response :: Json | eff} -> Either Error a
-decodeResult res = bimap (error <<< show <<< JSONDecodingError) id $ decodeJson res.response
+decodeResult = either (Left <<< mkJSONError) (bimap mkServerError id) <<< (decodeJson :: Json -> Either String (Either WalletError a)) <<< _.response
+  where
+    mkJSONError = error <<< show <<< JSONDecodingError
+    mkServerError = error <<< show <<< ServerError
 
 makeRequest :: forall eff a r. (Generic a, Requestable r) => AffjaxRequest r -> URLPath -> Aff (ajax :: AJAX | eff) a
 makeRequest request urlPath = do
-    res <- affjax $ request { url = backendApi urlPath }
-    when (res.status /= StatusCode 200) $
-      throwError <<< error <<< show $ HTTPStatusError res
+    res <- flip catchError mkHTTPStatusError $ affjax $ request { url = backendApi urlPath }
     either throwError pure $ decodeResult res
+  where
+    mkHTTPStatusError = throwError <<< error <<< show <<< HTTPStatusError
 
 getR :: forall eff a. Generic a => URLPath -> Aff (ajax :: AJAX | eff) a
 getR = makeRequest defaultRequest

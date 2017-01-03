@@ -21,8 +21,7 @@ import           Network.Wai                (Application)
 import           Pos.Crypto                 (hash)
 import           Servant.API                ((:<|>) ((:<|>)),
                                              FromHttpApiData (parseUrlPiece), addHeader)
-import           Servant.Server             (Handler, ServantErr (errBody), Server,
-                                             ServerT, err400, err404, serve)
+import           Servant.Server             (Handler, Server, ServerT, serve)
 import           Servant.Utils.Enter        ((:~>) (..), enter)
 import           System.Wlog                (logInfo)
 import           Universum

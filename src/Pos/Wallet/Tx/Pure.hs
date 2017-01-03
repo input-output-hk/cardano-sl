@@ -9,8 +9,8 @@ module Pos.Wallet.Tx.Pure
        , TxError
        ) where
 
-import           Control.Lens              (over, use, uses, view, (%=), (%=), (-=), (.~),
-                                            (^.), _1, _2)
+import           Control.Lens              (over, use, uses, view, (%=), (%=), (.~), (^.),
+                                            _1, _2)
 import           Control.Monad.State       (StateT (..), evalStateT)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Data.DList                as DL
@@ -28,7 +28,9 @@ import           Pos.Types                 (Address, Block, Coin, MonadUtxoRead 
                                             TxIn (..), TxInWitness (..), TxOut (..),
                                             TxOutAux, TxWitness, Utxo, UtxoStateT (..),
                                             applyTxToUtxo, blockTxas, filterUtxoByAddr,
-                                            makePubKeyAddress, topsortTxs, _txOutputs)
+                                            makePubKeyAddress, mkCoin, sumCoins,
+                                            topsortTxs, _txOutputs)
+import           Pos.Types.Coin            (unsafeIntegerToCoin, unsafeSubCoin)
 
 type TxOutIdx = (TxId, Word32)
 type TxInputs = [TxOutIdx]
@@ -63,30 +65,35 @@ type InputPicker = StateT (Coin, FlatUtxo) (Either TxError)
 createTx :: Utxo -> SecretKey -> TxOutputs -> Either TxError TxAux
 createTx utxo sk outputs = uncurry (makePubKeyTx sk) <$> inpOuts
   where
-    totalMoney = sum $ map (txOutValue . fst) outputs
-    ourId = makePubKeyAddress $ toPublic sk
-    allUnspent = M.toList $ filterUtxoByAddr ourId utxo
+    -- The total amount of money in the system is less than 2^64 so summing
+    -- coins should be safe here
+    totalMoney = unsafeIntegerToCoin $
+                 sumCoins $ map (txOutValue . fst) outputs
+    ourAddr = makePubKeyAddress $ toPublic sk
+    allUnspent = M.toList $ filterUtxoByAddr ourAddr utxo
     sortedUnspent = sortBy (comparing $ Down . txOutValue . fst . snd) allUnspent
     inpOuts = do
         futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
         let inputs = map fst futxo
-            inputSum = sum $ map (txOutValue . fst . snd) futxo
+            inputSum = unsafeIntegerToCoin $
+                       sumCoins $ map (txOutValue . fst . snd) futxo
             newOuts
                 | inputSum > totalMoney =
-                    (TxOut ourId (inputSum - totalMoney), []) : outputs
+                    (TxOut ourAddr (inputSum `unsafeSubCoin` totalMoney), [])
+                    : outputs
                 | otherwise = outputs
         pure (inputs, newOuts)
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo
     pickInputs inps = do
         moneyLeft <- use _1
-        if moneyLeft == 0
+        if moneyLeft == mkCoin 0
             then return inps
             else do
                 mNextOut <- uses _2 head
                 case mNextOut of
                     Nothing -> fail "Not enough money to send!"
                     Just inp@(_, (TxOut{..}, _)) -> do
-                        _1 -= min txOutValue moneyLeft
+                        _1 %= unsafeSubCoin (min txOutValue moneyLeft)
                         _2 %= tail
                         pickInputs (inp : inps)
 

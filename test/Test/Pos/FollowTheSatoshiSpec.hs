@@ -8,18 +8,21 @@ module Test.Pos.FollowTheSatoshiSpec
        ) where
 
 import           Data.List             (scanl1)
-import qualified Data.Map              as M (elems, fromList, insert, singleton)
+import qualified Data.Map              as M (fromList, insert, singleton)
 import qualified Data.Set              as S (deleteFindMin, fromList, size)
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck       (Arbitrary (..), Gen, infiniteListOf, suchThat)
+import           Test.QuickCheck       (Arbitrary (..), Gen, choose, infiniteListOf,
+                                        suchThat)
 import           Universum
 
 import           Pos.Constants         (epochSlots)
 import           Pos.Crypto            (unsafeHash)
 import           Pos.FollowTheSatoshi  (followTheSatoshi)
-import           Pos.Types             (Address (..), Coin (..), SharedSeed,
-                                        StakeholderId, TxId, TxOut (..), Utxo, txOutStake)
+import           Pos.Types             (Address (..), Coin, SharedSeed, StakeholderId,
+                                        TxId, TxOut (..), Utxo, mkCoin, sumCoins,
+                                        txOutStake)
+import           Pos.Types.Coin        (unsafeAddCoin, unsafeIntegerToCoin)
 
 spec :: Spec
 spec = do
@@ -75,7 +78,7 @@ instance Arbitrary StakeAndHolder where
         let setAdr = S.fromList $ addrHash1 : addrHash2 : listAdr
             (myAddrHash, setUtxo) = S.deleteFindMin setAdr
             nAdr = S.size setUtxo
-            values = scanl1 (+) $ replicate nAdr coins
+            values = scanl1 unsafeAddCoin $ replicate nAdr coins
             utxoList =
                 (replicate nAdr txId `zip` [0 .. fromIntegral nAdr]) `zip`
                 (zipWith (\ah v -> (TxOut (PubKeyAddress ah) v, [])) (toList setUtxo) values)
@@ -159,16 +162,17 @@ ftsReasonableStake
     go 0 p  _  _ = p
     go _ p []  _ = p
     go _ p  _ [] = p
-    go total !present (fts : nextSeed) ((getNoStake -> (adrH, utxo)) : nextUtxo) =
-        let totalStake =
-                fromIntegral         $
-                sum                  $
-                map (getCoin . snd)  $
-                concatMap txOutStake $
-                M.elems utxo
-            newStake   = round $ (stakeProbability * totalStake) / (1 - stakeProbability)
-            newUtxo    = M.insert key (TxOut (PubKeyAddress adrH) newStake, []) utxo
-            newPresent = if elem adrH (followTheSatoshi fts newUtxo)
-                         then present + 1
-                         else present
-        in go (total - 1) newPresent nextSeed nextUtxo
+    go total !present (fts : nextSeed) (u : nextUtxo) =
+        go (total - 1) newPresent nextSeed nextUtxo
+      where
+        (adrH, utxo) = getNoStake u
+        totalStake   = fromIntegral . sumCoins . map snd $
+                       concatMap txOutStake (toList utxo)
+        newStake     = unsafeIntegerToCoin . round $
+                           (stakeProbability * totalStake) /
+                           (1 - stakeProbability)
+        txOut        = TxOut (PubKeyAddress adrH) newStake
+        newUtxo      = M.insert key (txOut, []) utxo
+        newPresent   = if elem adrH (followTheSatoshi fts newUtxo)
+                           then present + 1
+                           else present

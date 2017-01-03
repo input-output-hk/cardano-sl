@@ -15,6 +15,7 @@ import           Universum
 
 import           Pos.Types           (Coin, Richmen, StakeholderId, TxOutAux, Utxo,
                                       txOutStake)
+import           Pos.Types.Coin      (unsafeAddCoin)
 import           Pos.Util.Iterator   (MonadIterator (nextItem), runListHolder)
 
 -- | Find nodes which have at least 'eligibility threshold' coins.
@@ -33,7 +34,10 @@ findRichmen moneyT =
     innerStep
         :: (StakeholderId, Coin)
         -> StateT (HashMap StakeholderId Coin) m ()
-    innerStep (a, c) = at a %= (Just . maybe c (+ c))
+    -- Adding coins here should be safe because in utxo we're not supposed to
+    -- ever have more coins than the total possible number of coins, and the
+    -- total possible number of coins is less than Word64
+    innerStep (a, c) = at a %= (Just . maybe c (unsafeAddCoin c))
 
 -- | Pure version of findRichmen which uses in-memory Utxo.
 findRichmenPure :: Utxo -> Coin -> Richmen

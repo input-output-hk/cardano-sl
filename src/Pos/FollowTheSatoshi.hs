@@ -13,8 +13,9 @@ import           Universum
 
 import           Pos.Constants      (epochSlots)
 import           Pos.Crypto         (deterministic, randomNumber)
-import           Pos.Types.Types    (Coin (..), SharedSeed (..), StakeholderId, TxOutAux,
-                                     Utxo, txOutStake)
+import           Pos.Types.Coin     (coinToInteger, unsafeAddCoin)
+import           Pos.Types.Types    (Coin, SharedSeed (..), StakeholderId, TxOutAux, Utxo,
+                                     mkCoin, sumCoins, txOutStake)
 import           Pos.Util.Iterator  (ListHolder, MonadIterator (..), runListHolder)
 
 -- | A version of 'followTheSatoshi' that uses an iterator over 'TxOut's
@@ -22,14 +23,17 @@ import           Pos.Util.Iterator  (ListHolder, MonadIterator (..), runListHold
 followTheSatoshiM
     :: forall m. MonadIterator m TxOutAux
     => SharedSeed -> Coin -> m (NonEmpty StakeholderId)
+followTheSatoshiM _ totalCoins
+    | totalCoins == mkCoin 0 = panic "followTheSatoshiM: nobody has any stake"
 followTheSatoshiM (SharedSeed seed) totalCoins = do
-    res <- findLeaders (sortOn fst $ zip coinIndices [1..]) 0 []
+    res <- findLeaders (sortOn fst $ zip coinIndices [1..]) (mkCoin 0) []
     pure . fromList . map fst . sortOn snd $ res
   where
     coinIndices :: [Coin]
-    coinIndices = map (fromInteger . (+1)) $
+    -- There won't be overflow because totalCoins fits in 64 bits
+    coinIndices = map (mkCoin . fromInteger . (+1)) $
               deterministic seed $
-              replicateM epochSlots (randomNumber (toInteger totalCoins))
+              replicateM epochSlots (randomNumber (coinToInteger totalCoins))
 
     findLeaders
         :: [(Coin, Int)]
@@ -53,10 +57,12 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
         findLeaders cs sm stake
     -- We check whether `c` is covered by current item in the buffer
     findLeaders (c:cs) sm buf@((adr, val):bufRest)
-        | sm + val >= fst c =
+        | sm' >= fst c =
             ((adr, snd c):) <$> findLeaders cs sm buf
         | otherwise =
-            findLeaders (c:cs) (sm + val) bufRest
+            findLeaders (c:cs) sm' bufRest
+      where
+        sm' = unsafeAddCoin sm val
 
 -- | Choose several random stakeholders (specifically, their amount is
 -- currently hardcoded in 'Pos.Constants.epochSlots').
@@ -78,8 +84,15 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
 -- of follow-the-satoshi.
 followTheSatoshi :: SharedSeed -> Utxo -> NonEmpty StakeholderId
 followTheSatoshi seed utxo
-    | null outputs = panic "followTheSatoshi: utxo is empty"
-    | otherwise    = runListHolder (followTheSatoshiM @(ListHolder TxOutAux) seed totalCoins) outputs
+    | null outputs =
+          panic "followTheSatoshi: utxo is empty"
+    | totalCoins > coinToInteger (maxBound @Coin) =
+          panic "followTheSatoshi: totalCoins exceeds Word64"
+    | otherwise =
+          runListHolder
+              (followTheSatoshiM @(ListHolder TxOutAux) seed
+                   (mkCoin (fromInteger totalCoins)))
+              outputs
   where
     outputs = toList utxo
-    totalCoins = sum (map snd (concatMap txOutStake outputs))
+    totalCoins = sumCoins (map snd (concatMap txOutStake outputs))

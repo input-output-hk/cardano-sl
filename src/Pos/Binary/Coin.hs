@@ -9,8 +9,8 @@ import           Data.Binary.Put  (putWord64be)
 import           Universum
 
 import           Pos.Binary.Class (Bi (..))
-import           Pos.Types.Coin   (Coin (..))
+import           Pos.Types.Coin   (Coin, mkCoin, unsafeGetCoin)
 
 instance Bi Coin where
-    put = putWord64be . getCoin
-    get = Coin <$> getWord64be
+    put = putWord64be . unsafeGetCoin
+    get = mkCoin <$> getWord64be

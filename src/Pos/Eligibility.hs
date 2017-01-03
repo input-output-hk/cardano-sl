@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -14,27 +13,26 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty  as NE
 import           Universum
 
-import           Pos.Crypto          (PublicKey)
-import           Pos.Types           (AddressHash, Coin, Richmen, TxOutAux, Utxo,
+import           Pos.Types           (Coin, Richmen, StakeholderId, TxOutAux, Utxo,
                                       txOutStake)
 import           Pos.Util.Iterator   (MonadIterator (nextItem), runListHolder)
 
 -- | Find nodes which have at least 'eligibility threshold' coins.
 findRichmen
     :: forall m.
-       MonadIterator m (TxOutAux)
-    => Coin -- ^ Eligibility threshold
+       MonadIterator m TxOutAux
+    => Coin                       -- ^ Eligibility threshold
     -> m Richmen
 findRichmen moneyT =
     fromMaybe onNoRichmen . NE.nonEmpty . HM.keys . HM.filter (>= moneyT) <$>
     execStateT step mempty
   where
     onNoRichmen = panic "There are no richmen!"
-    step :: StateT (HashMap (AddressHash PublicKey) Coin) m ()
+    step :: StateT (HashMap StakeholderId Coin) m ()
     step = whenJustM nextItem $ \txo -> for_ (txOutStake txo) innerStep
     innerStep
-        :: (AddressHash PublicKey, Coin)
-        -> StateT (HashMap (AddressHash PublicKey) Coin) m ()
+        :: (StakeholderId, Coin)
+        -> StateT (HashMap StakeholderId Coin) m ()
     innerStep (a, c) = at a %= (Just . maybe c (+ c))
 
 -- | Pure version of findRichmen which uses in-memory Utxo.

@@ -1,18 +1,9 @@
-{-# LANGUAGE CPP                    #-}
-{-# LANGUAGE ConstraintKinds        #-}
-{-# LANGUAGE DefaultSignatures      #-}
-{-# LANGUAGE DeriveGeneric          #-}
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE LambdaCase             #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE StandaloneDeriving     #-}
-{-# LANGUAGE TemplateHaskell        #-}
-{-# LANGUAGE TypeFamilies           #-}
-{-# LANGUAGE TypeSynonymInstances   #-}
-{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE CPP                  #-}
+{-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 -- | Definitions of the most fundamental types.
@@ -37,6 +28,8 @@ module Pos.Types.Types
        , checkScriptAddress
        , addressF
        , decodeTextAddress
+
+       , StakeholderId
 
        , TxAttributes
        , TxInWitness (..)
@@ -140,7 +133,6 @@ module Pos.Types.Types
 
 import           Control.Lens           (Getter, Lens', choosing, makeLenses,
                                          makeLensesFor, to, view, (^.))
-import           Control.Monad.Fail     (fail)
 import qualified Data.ByteString        as BS (pack, zipWith)
 import qualified Data.ByteString.Char8  as BSC (pack)
 import           Data.DeriveTH          (derive, makeNFData)
@@ -172,10 +164,10 @@ import           Pos.Constants          (sharedSeedLength)
 import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
                                          Signature, hash, hashHexF, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
-import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
+import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot)
 import           Pos.Script.Type        (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
-import           Pos.Types.Address      (Address (..), AddressHash, addressF,
+import           Pos.Types.Address      (Address (..), StakeholderId, addressF,
                                          checkPubKeyAddress, checkScriptAddress,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
@@ -191,7 +183,7 @@ import           Pos.Util               (Color (Magenta), colorize)
 -- | Index of epoch.
 newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable, Bounded)
+    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable, Bounded, Typeable)
 
 instance Buildable EpochIndex where
     build = bprint ("epoch #"%int)
@@ -202,15 +194,14 @@ instance Buildable (EpochIndex,EpochIndex) where
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex
     { getSlotIndex :: Word16
-    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Buildable)
+    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Buildable, Typeable)
 
 -- | Slot is identified by index of epoch and local index of slot in
 -- this epoch. This is a global index
 data SlotId = SlotId
     { siEpoch :: !EpochIndex
     , siSlot  :: !LocalSlotIndex
-    } deriving (Show, Eq, Ord, Generic)
-
+    } deriving (Show, Eq, Ord, Generic, Typeable)
 
 instance Buildable SlotId where
     build SlotId {..} =
@@ -269,7 +260,7 @@ data TxInWitness
                 , twSig :: TxSig}
     | ScriptWitness { twValidator :: Script
                     , twRedeemer  :: Script}
-    deriving (Eq, Show, Generic)
+    deriving (Eq, Show, Generic, Typeable)
 
 instance Hashable TxInWitness
 
@@ -289,8 +280,8 @@ type TxWitness = Vector TxInWitness
 -- | Distribution of “fake” stake that follow-the-satoshi would use for a
 -- particular transaction.
 newtype TxDistribution = TxDistribution {
-    getTxDistribution :: [[(AddressHash PublicKey, Coin)]] }
-    deriving (Eq, Show, Generic)
+    getTxDistribution :: [[(StakeholderId, Coin)]] }
+    deriving (Eq, Show, Generic, Typeable)
 
 instance Buildable TxDistribution where
     build (TxDistribution x) =
@@ -302,7 +293,7 @@ data TxIn = TxIn
       txInHash  :: !TxId
       -- | Index of the output in transaction's outputs
     , txInIndex :: !Word32
-    } deriving (Eq, Ord, Show, Generic)
+    } deriving (Eq, Ord, Show, Generic, Typeable)
 
 instance Hashable TxIn
 
@@ -317,7 +308,7 @@ toPair (TxIn h i) = (h, i)
 data TxOut = TxOut
     { txOutAddress :: !Address
     , txOutValue   :: !Coin
-    } deriving (Eq, Ord, Generic, Show)
+    } deriving (Eq, Ord, Generic, Show, Typeable)
 
 instance Hashable TxOut
 
@@ -325,11 +316,11 @@ instance Buildable TxOut where
     build TxOut {..} =
         bprint ("TxOut "%coinF%" -> "%build) txOutValue txOutAddress
 
-type TxOutAux = (TxOut, [(AddressHash PublicKey, Coin)])
+type TxOutAux = (TxOut, [(StakeholderId, Coin)])
 
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).
-txOutStake :: TxOutAux -> [(AddressHash PublicKey, Coin)]
+txOutStake :: TxOutAux -> [(StakeholderId, Coin)]
 txOutStake (TxOut{..}, mb) = case txOutAddress of
     PubKeyAddress x -> [(x, txOutValue)]
     ScriptAddress _ -> mb
@@ -341,7 +332,7 @@ data Tx = Tx
     { txInputs     :: ![TxIn]   -- ^ Inputs of transaction.
     , txOutputs    :: ![TxOut]  -- ^ Outputs of transaction.
     , txAttributes :: !TxAttributes -- ^ Attributes of transaction
-    } deriving (Eq, Ord, Generic, Show)
+    } deriving (Eq, Ord, Generic, Show, Typeable)
 
 makeLensesFor [("txInputs", "_txInputs"), ("txOutputs", "_txOutputs")
               , ("txAttributes", "_txAttributes")] ''Tx
@@ -392,6 +383,7 @@ utxoF = later formatUtxo
 ----------------------------------------------------------------------------
 -- UNDO
 ----------------------------------------------------------------------------
+
 -- | Structure for undo block during rollback
 type Undo = [[TxOutAux]]
 
@@ -407,7 +399,7 @@ type Blund ssc = (Block ssc, Undo)
 -- same value.
 newtype SharedSeed = SharedSeed
     { getSharedSeed :: ByteString
-    } deriving (Show, Eq, Ord, Generic, NFData)
+    } deriving (Show, Eq, Ord, Generic, NFData, Typeable)
 
 instance Buildable SharedSeed where
     build = B16.formatBase16 . getSharedSeed
@@ -422,10 +414,10 @@ instance Monoid SharedSeed where
     mconcat = foldl' mappend mempty
 
 -- | 'NonEmpty' list of slot leaders.
-type SlotLeaders = NonEmpty (AddressHash PublicKey)
+type SlotLeaders = NonEmpty StakeholderId
 
 -- | Addresses which have enough stake for participation in SSC.
-type Richmen = NonEmpty (AddressHash PublicKey)
+type Richmen = NonEmpty StakeholderId
 
 ----------------------------------------------------------------------------
 -- GenericBlock
@@ -512,7 +504,7 @@ data MainBlockchain ssc
 -- chain. In the simplest case it can be number of blocks in chain.
 newtype ChainDifficulty = ChainDifficulty
     { getChainDifficulty :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Buildable)
+    } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Buildable, Typeable)
 
 -- | Constraint for data to be signed in main block.
 type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
@@ -526,12 +518,13 @@ type ProxySKEpoch = ProxySecretKey (EpochIndex, EpochIndex)
 
 -- | Signature of the block. Can be either regular signature from the
 -- issuer or delegated signature having a constraint on epoch indices
+
 -- (it means the signature is valid only if block's slot id has epoch
 -- inside the constrained interval).
 data BlockSignature ssc
     = BlockSignature (Signature (MainToSign ssc))
     | BlockPSignature (ProxySigEpoch (MainToSign ssc))
-    deriving Show
+    deriving (Show, Eq)
 
 instance Buildable (BlockSignature ssc) where
     build (BlockSignature s)  = bprint ("BlockSignature: "%build) s
@@ -597,7 +590,7 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         _mcdDifficulty :: !ChainDifficulty
         , -- | Signature given by slot leader.
         _mcdSignature  :: !(BlockSignature ssc)
-        } deriving (Generic, Show)
+        } deriving (Generic, Show, Eq)
     type BBlockHeader (MainBlockchain ssc) = BlockHeader ssc
     type ExtraHeaderData (MainBlockchain ssc) = MainExtraHeaderData
 
@@ -629,21 +622,26 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
           _mbWitnesses :: ![TxWitness]
         , -- | Data necessary for MPC.
           _mbMpc :: !(SscPayload ssc)
-        } deriving (Generic)
+        } deriving (Generic, Typeable)
 
     type ExtraBodyData (MainBlockchain ssc) = MainExtraBodyData
     type BBlock (MainBlockchain ssc) = Block ssc
 
     mkBodyProof MainBody {..} =
         MainProof
-        { mpNumber = mtSize _mbTxs
+        { mpNumber = fromIntegral (length _mbTxs)
         , mpRoot = mtRoot _mbTxs
         , mpWitnessesHash = hash _mbWitnesses
         , mpMpcProof = untag @ssc mkSscProof _mbMpc
         }
 
+
+--deriving instance Ssc ssc => Show (SscProof ssc)
+--deriving instance Ssc ssc => Eq (SscProof ssc)
+deriving instance Ssc ssc => Show (BodyProof (MainBlockchain ssc))
 deriving instance Ssc ssc => Eq (BodyProof (MainBlockchain ssc))
 deriving instance Ssc ssc => Show (Body (MainBlockchain ssc))
+deriving instance (Eq (SscPayload ssc), Ssc ssc) => Eq (Body (MainBlockchain ssc))
 
 -- | Header of generic main block.
 type MainBlockHeader ssc = GenericBlockHeader (MainBlockchain ssc)
@@ -723,14 +721,14 @@ instance Blockchain (GenesisBlockchain ssc) where
           _gcdEpoch :: !EpochIndex
         , -- | Difficulty of the chain ending in this genesis block.
           _gcdDifficulty :: !ChainDifficulty
-        } deriving (Generic, Show)
+        } deriving (Generic, Show, Eq)
     type BBlockHeader (GenesisBlockchain ssc) = BlockHeader ssc
 
     -- | Body of genesis block consists of slot leaders for epoch
     -- associated with this block.
     data Body (GenesisBlockchain ssc) = GenesisBody
         { _gbLeaders :: !SlotLeaders
-        } deriving (Generic, Show)
+        } deriving (Generic, Show, Eq)
     type BBlock (GenesisBlockchain ssc) = Block ssc
 
     mkBodyProof = GenesisProof . hash . _gbLeaders
@@ -1197,6 +1195,7 @@ instance SafeCopy (Body (GenesisBlockchain ssc)) where
 ----------------------------------------------------------------------------
 -- Other derived instances
 ----------------------------------------------------------------------------
+
 derive makeNFData ''TxIn
 derive makeNFData ''TxInWitness
 derive makeNFData ''TxOut

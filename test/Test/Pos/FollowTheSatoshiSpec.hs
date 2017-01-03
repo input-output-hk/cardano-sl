@@ -1,8 +1,5 @@
 {-# LANGUAGE BangPatterns        #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE MultiWayIf          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ViewPatterns        #-}
 
 -- | Specification of Pos.FollowTheSatoshi
 
@@ -19,11 +16,10 @@ import           Test.QuickCheck       (Arbitrary (..), Gen, infiniteListOf, suc
 import           Universum
 
 import           Pos.Constants         (epochSlots)
-import           Pos.Crypto            (PublicKey, unsafeHash)
+import           Pos.Crypto            (unsafeHash)
 import           Pos.FollowTheSatoshi  (followTheSatoshi)
-import           Pos.Types             (Coin (..), SharedSeed, TxId, TxOut (..), Utxo,
-                                        txOutStake)
-import           Pos.Types.Address     (Address (..), AddressHash)
+import           Pos.Types             (Address (..), Coin (..), SharedSeed,
+                                        StakeholderId, TxId, TxOut (..), Utxo, txOutStake)
 
 spec :: Spec
 spec = do
@@ -66,14 +62,14 @@ spec = do
 -- converted to a set and then to a map, where each addrhash is given as key
 -- a random pair (TxId, Coin).
 newtype StakeAndHolder = StakeAndHolder
-    { getNoStake :: (AddressHash PublicKey, Utxo)
+    { getNoStake :: (StakeholderId, Utxo)
     } deriving Show
 
 instance Arbitrary StakeAndHolder where
     arbitrary = StakeAndHolder <$> do
         addrHash1 <- arbitrary
         addrHash2 <- arbitrary `suchThat` ((/=) addrHash1)
-        listAdr <- arbitrary :: Gen [AddressHash PublicKey]
+        listAdr <- arbitrary :: Gen [StakeholderId]
         txId <- arbitrary
         coins <- arbitrary :: Gen Coin
         let setAdr = S.fromList $ addrHash1 : addrHash2 : listAdr
@@ -95,7 +91,7 @@ ftsNoStake
     -> Bool
 ftsNoStake fts (getNoStake -> (addrHash, utxo)) =
     let nonEmpty = followTheSatoshi fts utxo
-    in notElem addrHash nonEmpty
+    in not (addrHash `elem` nonEmpty)
 
 -- | This test looks useless, but since transactions with zero coins are not
 -- allowed, the Utxo map will never have any addresses with 0 coins to them,
@@ -104,7 +100,7 @@ ftsNoStake fts (getNoStake -> (addrHash, utxo)) =
 ftsAllStake
     :: SharedSeed
     -> (TxId, Word32)
-    -> AddressHash PublicKey
+    -> StakeholderId
     -> Coin
     -> Bool
 ftsAllStake fts key ah v =
@@ -164,7 +160,12 @@ ftsReasonableStake
     go _ p []  _ = p
     go _ p  _ [] = p
     go total !present (fts : nextSeed) ((getNoStake -> (adrH, utxo)) : nextUtxo) =
-        let totalStake = fromIntegral $ sum $ map (getCoin . snd) $ concatMap txOutStake $ M.elems utxo
+        let totalStake =
+                fromIntegral         $
+                sum                  $
+                map (getCoin . snd)  $
+                concatMap txOutStake $
+                M.elems utxo
             newStake   = round $ (stakeProbability * totalStake) / (1 - stakeProbability)
             newUtxo    = M.insert key (TxOut (PubKeyAddress adrH) newStake, []) utxo
             newPresent = if elem adrH (followTheSatoshi fts newUtxo)

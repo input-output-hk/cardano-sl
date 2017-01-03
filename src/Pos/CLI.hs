@@ -25,7 +25,6 @@ module Pos.CLI
 
 import           Universum
 
-import           Control.Monad                        (fail)
 import           Control.TimeWarp.Rpc                 (NetworkAddress)
 import           Data.Default                         (def)
 import           Data.Either                          (either)

@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveLift      #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Pos.Types.Update
@@ -9,26 +10,26 @@ module Pos.Types.Update
        , systemTagMaxLength
        ) where
 
-import           Control.Monad.Fail  (MonadFail (fail))
-import           Data.Char           (isAscii)
-import qualified Data.HashMap.Strict as HM
-import           Data.SafeCopy       (base, deriveSafeCopySimple)
-import qualified Data.Text           as T
-import           Data.Text.Buildable (Buildable)
-import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, build, (%))
-import           Serokell.Util.Text  (listJson)
-import           Universum           hiding (show)
+import           Data.Char                  (isAscii)
+import qualified Data.HashMap.Strict        as HM
+import           Data.SafeCopy              (base, deriveSafeCopySimple)
+import qualified Data.Text                  as T
+import           Data.Text.Buildable        (Buildable)
+import qualified Data.Text.Buildable        as Buildable
+import           Formatting                 (bprint, build, (%))
+import           Language.Haskell.TH.Syntax (Lift)
+import           Serokell.Util.Text         (listJson)
+import           Universum                  hiding (show)
 
-import           Pos.Crypto          (Hash, PublicKey, Signature)
-import           Pos.Script.Type     (ScriptVersion)
-import           Pos.Types.Version   (ProtocolVersion, SoftwareVersion)
+import           Pos.Crypto                 (Hash, PublicKey, Signature)
+import           Pos.Script.Type            (ScriptVersion)
+import           Pos.Types.Version          (ProtocolVersion, SoftwareVersion)
 -- Import instance Safecopy HM.HashMap
-import           Pos.Util            ()
+import           Pos.Util                   ()
 
 -- | Tag of system for which update data is purposed, e.g. win64, mac32
 newtype SystemTag = SystemTag { getSystemTag :: Text }
-  deriving (Eq, Ord, Show, Generic, Buildable, Hashable)
+  deriving (Eq, Ord, Show, Generic, Buildable, Hashable, Lift, Typeable)
 
 systemTagMaxLength :: Integral i => i
 systemTagMaxLength = 10
@@ -48,7 +49,7 @@ data UpdateProposal = UpdateProposal
     , upSoftwareVersion :: !SoftwareVersion
     , upData            :: !(HM.HashMap SystemTag UpdateData)
     }
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Show, Generic, Typeable)
 
 instance Buildable UpdateProposal where
     build UpdateProposal {..} =
@@ -60,7 +61,7 @@ data UpdateData = UpdateData
     , udPkgHash     :: !(Hash LByteString)
     , udUpdaterHash :: !(Hash LByteString)
     }
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Show, Generic, Typeable)
 
 -- | Vote for update proposal
 data UpdateVote = UpdateVote
@@ -72,7 +73,7 @@ data UpdateVote = UpdateVote
       --   by stakeholder
       uvSignature :: !(Signature (UpdateProposal, Bool))
     }
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Show, Generic, Typeable)
 
 deriveSafeCopySimple 0 'base ''SystemTag
 deriveSafeCopySimple 0 'base ''UpdateData

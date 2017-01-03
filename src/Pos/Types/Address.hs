@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Types.Address
@@ -11,6 +9,8 @@ module Pos.Types.Address
        , makePubKeyAddress
        , makeScriptAddress
        , decodeTextAddress
+
+       , StakeholderId
 
          -- * Internals
        , AddressHash
@@ -46,8 +46,11 @@ data Address
     = PubKeyAddress
           { addrKeyHash :: !(AddressHash PublicKey) }
     | ScriptAddress
-          { addrScriptHash   :: !(AddressHash Script) }
-    deriving (Eq, Ord, Generic)
+          { addrScriptHash :: !(AddressHash Script) }
+    deriving (Eq, Ord, Generic, Typeable)
+
+-- | Stakeholder identifier (stakeholders are identified by their public keys)
+type StakeholderId = AddressHash PublicKey
 
 instance Bi Address => Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.encode

@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric        #-}
-{-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeOperators        #-}
@@ -28,6 +26,7 @@ module Pos.Wallet.Web.ClientTypes
       , cAddressToAddress
       , mkCTx
       , mkCTxId
+      , txIdToCTxId
       , ctTypeMeta
       ) where
 
@@ -35,12 +34,13 @@ import           Data.Text             (Text)
 import           GHC.Generics          (Generic)
 import           Universum
 
+import           Data.Default          (Default, def)
 import           Data.Hashable         (Hashable (..))
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting            (build, sformat)
 import           Pos.Aeson.Types       ()
 import           Pos.Types             (Address (..), Coin, Tx, TxId, decodeTextAddress,
-                                        txOutValue, txOutputs)
+                                        txOutAddress, txOutValue, txOutputs)
 
 
 -- | currencies handled by client
@@ -49,16 +49,16 @@ data CCurrency
     = ADA
     | BTC
     | ETH
-    deriving (Show, Generic)
+    deriving (Show, Read, Generic)
 
 -- | Client hash
-newtype CHash = CHash Text deriving (Show, Eq, Generic)
+newtype CHash = CHash Text deriving (Show, Eq, Generic, Buildable)
 
 instance Hashable CHash where
     hashWithSalt s (CHash h) = hashWithSalt s h
 
 -- | Client address
-newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable)
+newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable, Buildable)
 
 -- | transform Address into CAddress
 -- TODO: this is not complitely safe. If someone changes implementation of Buildable Address. It should be probably more safe to introduce `class PSSimplified` that would have the same implementation has it is with Buildable Address but then person will know it will probably change something for purescript.
@@ -76,13 +76,14 @@ mkCTxId = CTxId . CHash
 
 -- | transform TxId into CTxId
 txIdToCTxId :: TxId -> CTxId
-txIdToCTxId = CTxId . CHash . sformat build
+txIdToCTxId = mkCTxId . sformat build
 
-mkCTx :: (TxId, Tx, Bool) -> CTxMeta -> CTx
-mkCTx (txId, tx, isInput) = CTx (txIdToCTxId txId) outputCoins . meta
+mkCTx :: Address -> (TxId, Tx, Bool) -> CTxMeta -> CTx
+mkCTx addr (txId, tx, isOutgoing) = CTx (txIdToCTxId txId) outputCoins . meta
   where
-    outputCoins = sum . map txOutValue $ txOutputs tx
-    meta = if isInput then CTIn else CTOut
+    outputCoins = sum . map txOutValue $
+        filter ((/= addr) . txOutAddress) $ txOutputs tx
+    meta = if isOutgoing then CTOut else CTIn
 
 ----------------------------------------------------------------------------
 -- wallet
@@ -101,6 +102,9 @@ data CWalletMeta = CWalletMeta
     , cwCurrency :: CCurrency
     , cwName     :: Text
     } deriving (Show, Generic)
+
+instance Default CWalletMeta where
+    def = CWalletMeta CWTPersonal ADA ""
 
 -- | Client Wallet (CW)
 -- (Flow type: walletType)

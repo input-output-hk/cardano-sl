@@ -1,11 +1,6 @@
 {-# LANGUAGE CPP                       #-}
 {-# LANGUAGE ConstraintKinds           #-}
-{-# LANGUAGE DefaultSignatures         #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FlexibleContexts          #-}
-{-# LANGUAGE FlexibleInstances         #-}
-{-# LANGUAGE FunctionalDependencies    #-}
-{-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE UndecidableInstances      #-}
@@ -92,7 +87,7 @@ instance MonadMessageDHT s m => MonadMessageDHT s (ReaderT r m) where
 -- | Header of messages in DHT algorithm.
 data DHTMsgHeader = BroadcastHeader
                   | SimpleHeader { dmhNoCache :: Bool }
-  deriving (Generic, Show)
+  deriving (Generic, Show, Eq)
 
 -- | Class for something that has default 'DHTMsgHeader'.
 class WithDefaultMsgHeader m where
@@ -122,10 +117,10 @@ type DHTDialog = Dialog DHTPacking
 newtype DHTResponseT s m a = DHTResponseT
     { getDHTResponseT :: ResponseT s m a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans,
-                MonadThrow, MonadCatch, MonadMask,
+                MonadThrow, MonadCatch, MonadMask, MonadFail,
                 MonadState ss, WithDefaultMsgHeader, CanLog,
-                HasLoggerName, MonadTimed, MonadDialog s p, MonadDHT, MonadMessageDHT s
-                )
+                HasLoggerName, MonadTimed, MonadDialog s p, MonadDHT,
+                MonadMessageDHT s)
 
 instance MonadTransfer s m => MonadTransfer s (DHTResponseT s m) where
     sendRaw addr p = DHTResponseT $ sendRaw addr (hoist getDHTResponseT p)
@@ -205,7 +200,7 @@ defaultSendToNeighbors parallelize sender msg = do
         if succeed < neighborsSendThreshold
             then (+) succeed <$>
                  do nodes' <- discoverPeers DHTFull
-                    let newNodes = filter (flip notElem nodes) nodes'
+                    let newNodes = filter (\n -> not (n `elem` nodes)) nodes'
                     sendToNodes newNodes
             else return succeed
     when (succeed' < neighborsSendThreshold) $

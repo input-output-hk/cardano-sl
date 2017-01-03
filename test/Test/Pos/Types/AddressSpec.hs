@@ -16,7 +16,7 @@ spec = describe "Address" $ do
     prop "PK and SH addresses with same hashes are shown differently"
          pkAndShAreShownDifferently
 
-pkAndShAreShownDifferently :: Int -> Bool
+pkAndShAreShownDifferently :: Word8 -> Bool
 pkAndShAreShownDifferently x =
     (show (PubKeyAddress h)) /=
     (show (ScriptAddress h) :: Text)

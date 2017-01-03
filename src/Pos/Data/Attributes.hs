@@ -14,7 +14,6 @@ module Pos.Data.Attributes
        ) where
 
 import qualified Base                as Base
-import           Control.Monad.Fail  (MonadFail (fail))
 import           Data.Binary.Get     (Get, getByteString, getWord32be, getWord8)
 import qualified Data.Binary.Get     as G
 import           Data.Binary.Put     (Put, putByteString, putWord32be, putWord8)
@@ -30,14 +29,15 @@ import           Universum           hiding (putByteString)
 mkAttributes :: h -> Attributes h
 mkAttributes dat = Attributes dat BS.empty
 
--- | Convenient datatype wrapper plus unparsed content.
+-- | Convenient wrapper for the datatype to represent it (in binary
+-- format) as k-v map.
 data Attributes h = Attributes
     { -- | Data, containing known keys (deserialized)
       attrData   :: h
       -- | Unparsed ByteString
     , attrRemain :: ByteString
     }
-  deriving (Eq, Ord, Generic)
+  deriving (Eq, Ord, Generic, Typeable)
 
 instance Base.Show h => Base.Show (Attributes h) where
     show Attributes {..} =

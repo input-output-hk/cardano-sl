@@ -1,10 +1,5 @@
-{-# LANGUAGE DefaultSignatures      #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE TupleSections          #-}
-{-# LANGUAGE TypeFamilies           #-}
-{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Txp.Class
        ( TxpLDWrap (..)
@@ -63,19 +58,19 @@ class Monad m => MonadTxpLD ssc m | m -> ssc where
     setTxpLD     :: TxpLD ssc -> m ()
     setTxpLD txpLD = modifyTxpLD_ $ const txpLD
 
-    default getTxpLDWrap :: MonadTrans t => t m (TxpLDWrap ssc)
+    default getTxpLDWrap :: (MonadTrans t, MonadTxpLD ssc m', t m' ~ m) => m (TxpLDWrap ssc)
     getTxpLDWrap = lift getTxpLDWrap
 
-    default setUtxoView :: MonadTrans t => UtxoView ssc -> t m ()
+    default setUtxoView :: (MonadTrans t, MonadTxpLD ssc m', t m' ~ m) => UtxoView ssc -> m ()
     setUtxoView = lift . setUtxoView
 
-    default setMemPool :: MonadTrans t => MemPool -> t m ()
+    default setMemPool :: (MonadTrans t, MonadTxpLD ssc m', t m' ~ m) => MemPool -> m ()
     setMemPool  = lift . setMemPool
 
-    default modifyTxpLD :: MonadTrans t => (TxpLD ssc -> (a, TxpLD ssc)) -> t m a
+    default modifyTxpLD :: (MonadTrans t, MonadTxpLD ssc m', t m' ~ m) => (TxpLD ssc -> (a, TxpLD ssc)) -> m a
     modifyTxpLD = lift . modifyTxpLD
 
-    default getTxpLD :: MonadTrans t => t m (TxpLD ssc)
+    default getTxpLD :: (MonadTrans t, MonadTxpLD ssc m', t m' ~ m) => m (TxpLD ssc)
     getTxpLD = lift getTxpLD
 
 instance MonadTxpLD ssc m => MonadTxpLD ssc (ReaderT r m)

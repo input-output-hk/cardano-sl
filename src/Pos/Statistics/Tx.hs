@@ -1,5 +1,4 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE TypeFamilies  #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Helpers for benchmarking transactions
 
@@ -9,7 +8,6 @@ module Pos.Statistics.Tx
        -- , statlogSentTx
        ) where
 
-import           Control.Monad            (fail)
 import           Data.Binary              (Binary)
 import qualified Data.Binary              as Binary
 import qualified Data.Binary.Get          as Binary (getWord32be)

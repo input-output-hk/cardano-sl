@@ -1,9 +1,5 @@
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE MultiWayIf          #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections       #-}
-{-# LANGUAGE ViewPatterns        #-}
 
 -- | Logic of blocks processing.
 
@@ -14,15 +10,15 @@ module Pos.Block.Logic
        , classifyNewHeader
        , ClassifyHeadersRes (..)
        , classifyHeaders
-       , retrieveHeadersFromTo
+       , getHeadersFromManyTo
        , getHeadersOlderExp
+       , getHeadersFromToIncl
        , lcaWithMainChain
 
          -- * Blocks
        , applyBlocks
        , rollbackBlocks
        , verifyBlocks
-       , getBlocksByHeaders
        , withBlkSemaphore
        , withBlkSemaphore_
        , createGenesisBlock
@@ -68,11 +64,11 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             MainExtraHeaderData (..), SlotId (..), TxAux,
                                             TxId, Undo, VerifyHeaderParams (..),
                                             blockHeader, difficultyL, epochOrSlot,
-                                            flattenEpochOrSlot, getEpochOrSlot,
-                                            headerHash, headerSlot, mkGenesisBlock,
-                                            mkMainBlock, mkMainBody, prevBlockL,
-                                            topsortTxs, verifyHeader, verifyHeaders,
-                                            vhpVerifyConsensus)
+                                            flattenEpochOrSlot, genesisHash,
+                                            getEpochOrSlot, headerHash, headerSlot,
+                                            mkGenesisBlock, mkMainBlock, mkMainBody,
+                                            prevBlockL, topsortTxs, verifyHeader,
+                                            verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
 import           Pos.Util                  (inAssertMode)
 import           Pos.WorkMode              (WorkMode)
@@ -191,10 +187,10 @@ classifyHeaders headers@(h:|hs) = do
 -- block (or tip if latter is @Nothing@) and fetch the blocks until we
 -- reach genesis block or one of checkpoints. Returned headers are
 -- newest-first.
-retrieveHeadersFromTo
+getHeadersFromManyTo
     :: (MonadDB ssc m, Ssc ssc)
     => [HeaderHash ssc] -> Maybe (HeaderHash ssc) -> m [BlockHeader ssc]
-retrieveHeadersFromTo checkpoints startM = do
+getHeadersFromManyTo checkpoints startM = do
     validCheckpoints <- catMaybes <$> mapM DB.getBlockHeader checkpoints
     tip <- DB.getTip
     let startFrom = fromMaybe tip startM
@@ -220,8 +216,7 @@ getHeadersOlderExp upto = do
     let upToReal = fromMaybe tip upto
         whileCond _ depth = depth <= k
     allHeaders <- loadHeadersWhile upToReal whileCond
-    let selected = selectIndices (takeHashes allHeaders) twoPowers
-    pure selected
+    pure $ selectIndices (takeHashes allHeaders) twoPowers
   where
     -- Given list of headers newest first, maps it to their hashes
     takeHashes [] = []
@@ -240,6 +235,38 @@ getHeadersOlderExp upto = do
                 | skipped == i = e : selGo ee is skipped
                 | otherwise    = selGo es ii $ succ skipped
         in selGo elems ixs 0
+
+-- CSL-396 don't load all the blocks into memory at once
+-- | Given @from@ and @to@ headers where @from@ is older (not strict)
+-- than @to@, and valid chain in between can be found, headers in
+-- range @[from..to]@ will be found. Header hashes are returned
+-- oldest-first.
+getHeadersFromToIncl
+    :: forall ssc m .
+       (MonadDB ssc m, Ssc ssc)
+    => HeaderHash ssc -> HeaderHash ssc -> m (Maybe (NonEmpty (HeaderHash ssc)))
+getHeadersFromToIncl older newer = runMaybeT $ do
+    -- oldest and newest blocks do exist
+    start <- MaybeT $ DB.getBlockHeader newer
+    end <- MaybeT $ DB.getBlockHeader older
+    guard $ flattenEpochOrSlot start >= flattenEpochOrSlot end
+    let lowerBound = flattenEpochOrSlot end
+    if newer == older
+    then pure $ newer :| []
+    else loadHeadersDo lowerBound (newer :| []) $ start ^. prevBlockL
+  where
+    loadHeadersDo
+        :: Word64
+        -> NonEmpty (HeaderHash ssc)
+        -> HeaderHash ssc
+        -> MaybeT m (NonEmpty (HeaderHash ssc))
+    loadHeadersDo lowerBound hashes nextHash
+        | nextHash == genesisHash = mzero
+        | nextHash == older = pure $ nextHash <| hashes
+        | otherwise = do
+            nextHeader <- MaybeT $ DB.getBlockHeader nextHash
+            guard $ flattenEpochOrSlot nextHeader > lowerBound
+            loadHeadersDo lowerBound (nextHash <| hashes) (nextHeader ^. prevBlockL)
 
 -- CHECK: @verifyBlocksLogic
 -- | Verify blocks received from network. Head is expected to be the
@@ -304,38 +331,6 @@ rollbackBlocks toRollback = do
     forM_ (NE.toList toRollback) $
         \(blk,_) -> DB.setBlockInMainChain (hash $ blk ^. blockHeader) False
     sscRollback $ fmap fst toRollback
-
--- CSL-396 don't load all the blocks into memory at once
--- | Given @from@ and @to@ headers where @from@ is older (not strict)
--- than @to@, and valid chain in between can be found, all blocks in
--- range @[from..to]@ will be found. Blocks are returned oldest-first.
---
--- Returns nothing otherwise.
-getBlocksByHeaders
-    :: forall ssc m .
-       (MonadDB ssc m, Ssc ssc)
-    => HeaderHash ssc -> HeaderHash ssc -> m (Maybe (NonEmpty (Block ssc)))
-getBlocksByHeaders older newer = runMaybeT $ do
-    -- oldest and newest blocks do exist
-    start <- MaybeT $ DB.getBlock newer
-    end <- MaybeT $ DB.getBlock older
-    guard $ flattenEpochOrSlot start >= flattenEpochOrSlot end
-    let lowerBound = getEpochOrSlot end
-    other <- bool
-        (loadBlocksDo lowerBound (start ^. prevBlockL))
-        (pure [])
-        (newer == older)
-    pure $ NE.reverse $ start :| other
-  where
-    loadBlocksDo :: EpochOrSlot -> HeaderHash ssc -> MaybeT m [Block ssc]
-    loadBlocksDo _ curH | curH == older = do
-        last <- MaybeT $ DB.getBlock older
-        pure [last]
-    loadBlocksDo lowerBound curH = do
-        curBlock <- MaybeT $ DB.getBlock curH
-        guard $ getEpochOrSlot curBlock > lowerBound
-        others <- loadBlocksDo lowerBound (curBlock ^. prevBlockL)
-        pure $ curBlock : others
 
 ----------------------------------------------------------------------------
 -- GenesisBlock creation

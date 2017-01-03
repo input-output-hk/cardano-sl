@@ -29,6 +29,8 @@ module Pos.Constants
        , sysTimeBroadcastSlots
        , mpcSendInterval
        , vssMaxTTL
+       , protocolMagic
+       , enchancedMessageBroadcast
 
          -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -37,19 +39,25 @@ module Pos.Constants
          -- * Update system constants
        , curProtocolVersion
        , curSoftwareVersion
+       , appSystemTag
+       , updateServers
        ) where
 
-import           Control.TimeWarp.Timed (Microsecond, sec)
-import qualified Text.Parsec            as P
-import           Universum
+import           Control.TimeWarp.Timed     (Microsecond, sec)
+import           Data.String                (String)
+import           Language.Haskell.TH.Syntax (lift, runIO)
+import           System.Environment         (lookupEnv)
+import qualified Text.Parsec                as P
+import           Universum                  hiding (lift)
 
-import           Pos.CLI                (dhtNodeParser)
-import           Pos.CompileConfig      (CompileConfig (..), compileConfig)
-import           Pos.DHT.Model.Types    (DHTNode)
-import           Pos.Types.Timestamp    (Timestamp)
-import           Pos.Types.Version      (ApplicationName, ProtocolVersion (..),
-                                         SoftwareVersion (..), mkApplicationName)
-import           Pos.Util               ()
+import           Pos.CLI                    (dhtNodeParser)
+import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
+import           Pos.DHT.Model.Types        (DHTNode)
+import           Pos.Types.Timestamp        (Timestamp)
+import           Pos.Types.Update           (SystemTag, mkSystemTag)
+import           Pos.Types.Version          (ApplicationName, ProtocolVersion (..),
+                                             SoftwareVersion (..), mkApplicationName)
+import           Pos.Util                   ()
 
 ----------------------------------------------------------------------------
 -- Main constants mentioned in paper
@@ -152,8 +160,20 @@ defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
         either (panic . show) identity .
         P.parse dhtNodeParser "Compile time config"
 
+-- | Max VSS certificate TTL (Ssc.GodTossing part)
 vssMaxTTL :: Integral i => i
 vssMaxTTL = fromIntegral . ccVssMaxTTL $ compileConfig
+
+-- | Protocol magic constant. Is put to block serialized version to
+-- distinguish testnet and realnet (for example, possible usages are
+-- wider).
+protocolMagic :: Int32
+protocolMagic = fromIntegral . ccProtocolMagic $ compileConfig
+
+-- | Setting this to true enables enchanced message broadcast
+enchancedMessageBroadcast :: Integral a => a
+enchancedMessageBroadcast = fromIntegral $ ccEnchancedMessageBroadcast compileConfig
+
 ----------------------------------------------------------------------------
 -- Malicious activity
 ----------------------------------------------------------------------------
@@ -176,6 +196,21 @@ cardanoSlAppName :: ApplicationName
 cardanoSlAppName = either (panic . (<>) "Failed to init cardanoSlAppName: ")
                       identity $ mkApplicationName "cardano"
 
+appSystemTag :: SystemTag
+appSystemTag = $(do
+    mbTag <- runIO (lookupEnv "CSL_SYSTEM_TAG")
+    case mbTag of
+        Nothing ->
+#ifdef DEV_MODE
+            [|panic "'appSystemTag' can't be used if \
+                    \env var \"CSL_SYSTEM_TAG\" wasn't set \
+                    \during compilation" |]
+#else
+            fail "Failed to init appSystemTag: \
+                 \couldn't find env var \"CSL_SYSTEM_TAG\""
+#endif
+        Just tag -> lift =<< mkSystemTag (toText tag))
+
 -- | Protocol version application uses
 curProtocolVersion :: ProtocolVersion
 curProtocolVersion = ProtocolVersion 0 0 0
@@ -183,3 +218,7 @@ curProtocolVersion = ProtocolVersion 0 0 0
 -- | Version of application (code running)
 curSoftwareVersion :: SoftwareVersion
 curSoftwareVersion = SoftwareVersion cardanoSlAppName 1 0
+
+-- | Update servers
+updateServers :: [String]
+updateServers = ccUpdateServers compileConfig

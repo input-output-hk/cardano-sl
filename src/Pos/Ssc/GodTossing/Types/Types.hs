@@ -1,7 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
@@ -67,8 +65,9 @@ data GtGlobalState = GtGlobalState
       -- | Vss certificates are added at any time if they are valid and
       -- received from stakeholders.
     , _gsVssCertificates :: !VssCertData
-    } deriving (Show, Generic)
+    } deriving (Eq, Show, Generic)
 
+deriveSafeCopySimple 0 'base ''GtGlobalState
 makeLenses ''GtGlobalState
 
 instance Default GtGlobalState where
@@ -124,7 +123,7 @@ data GtPayload
     | OpeningsPayload     !OpeningsMap    !VssCertificatesMap
     | SharesPayload       !SharesMap      !VssCertificatesMap
     | CertificatesPayload !VssCertificatesMap
-    deriving (Show, Generic)
+    deriving (Eq, Show, Generic)
 
 emptyPayload :: GtPayload
 emptyPayload = CertificatesPayload mempty

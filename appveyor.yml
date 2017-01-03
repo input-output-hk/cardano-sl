@@ -4,8 +4,9 @@ image: Visual Studio 2015
 build: off
 
 cache:
-  - "c:\\sr"
-  - '.stack-work'
+  # TODO: https://github.com/commercialhaskell/stack/issues/1176#issuecomment-269520803
+  #- "c:\\sr"
+  #- '.stack-work'
   - 'rocksdb'
 
 environment:

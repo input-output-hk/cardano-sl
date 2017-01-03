@@ -1,6 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TupleSections         #-}
-
 -- | Pure version of UTXO.
 
 module Pos.Types.Utxo.Pure

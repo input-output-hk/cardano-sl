@@ -1,6 +1,4 @@
-{-# LANGUAGE DefaultSignatures     #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Pos.Util.Iterator
        (
@@ -25,10 +23,10 @@ class Monad m => MonadIterator m a where
     -- or Nothing if it doesn't exist.
     curItem  :: m (Maybe a)
 
-    default nextItem :: MonadTrans t => t m (Maybe a)
+    default nextItem :: (MonadTrans t, MonadIterator n a, t n ~ m) => m (Maybe a)
     nextItem = lift nextItem
 
-    default curItem :: MonadTrans t => t m (Maybe a)
+    default curItem :: (MonadTrans t, MonadIterator n a, t n ~ m) => m (Maybe a)
     curItem = lift curItem
 
 instance MonadIterator m a => MonadIterator (StateT s m) a

@@ -1,13 +1,8 @@
-{-# LANGUAGE ConstraintKinds        #-}
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE RankNTypes             #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE StandaloneDeriving     #-}
-{-# LANGUAGE TypeFamilies           #-}
-{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 {-| 'WorkMode' constraint. It is widely used in almost every our code.
     Simple alias for bunch of useful constraints. This module also
@@ -57,6 +52,7 @@ type MSockSt ssc = MutSocketState ssc
 type WorkMode ssc m
     = ( WithLogger m
       , MonadIO m
+      , MonadFail m
       , MonadTimed m
       , MonadMask m
       , MonadSlots m
@@ -81,6 +77,7 @@ type MinWorkMode ss m
       , MonadTimed m
       , MonadMask m
       , MonadIO m
+      , MonadFail m
       , MonadMessageDHT ss m
       , WithDefaultMsgHeader m
       )

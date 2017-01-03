@@ -1,8 +1,4 @@
-{-# LANGUAGE DefaultSignatures     #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Common things used in `Pos.Crypto.Arbitrary` and `Pos.Util.Arbitrary`
 
@@ -10,6 +6,7 @@ module Pos.Util.Arbitrary
        (
          Nonrepeating (..)
        , ArbitraryUnsafe (..)
+       , makeSmall
        , sublistN
        , unsafeMakeList
        , unsafeMakePool
@@ -20,8 +17,23 @@ module Pos.Util.Arbitrary
 import           Data.ByteString      (pack)
 import qualified Data.ByteString.Lazy as BL (ByteString, pack)
 import           System.IO.Unsafe     (unsafePerformIO)
-import           Test.QuickCheck      (Arbitrary (..), Gen, listOf, shuffle, vector)
+import           Test.QuickCheck      (Arbitrary (..), Gen, listOf, scale, shuffle,
+                                       vector)
 import           Universum
+
+makeSmall :: Gen a -> Gen a
+makeSmall = scale f
+  where
+    f 0 = 0
+    f 1 = 1
+    f 2 = 2
+    f 3 = 3
+    f 4 = 3
+    f n
+      | n < 0 = n
+      | otherwise =
+          (round . (sqrt :: Double -> Double) . realToFrac . (`div` 3)) n
+
 
 -- | Choose a random (shuffled) subset of length n. Throws an error if
 -- there's not enough elements.

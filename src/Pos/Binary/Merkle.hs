@@ -1,17 +1,14 @@
-{-# LANGUAGE LambdaCase #-}
-
 -- | Merkle tree-related serialization
 
 module Pos.Binary.Merkle () where
 
-import           Control.Monad.Fail (fail)
-import           Data.Binary.Get    (getWord32be, getWord8)
-import           Data.Binary.Put    (putWord32be, putWord8)
+import           Data.Binary.Get  (getWord32be, getWord8)
+import           Data.Binary.Put  (putWord32be, putWord8)
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..))
-import           Pos.Merkle         (MerkleNode (..), MerkleRoot (..), MerkleTree (..),
-                                     mkBranch, mkLeaf)
+import           Pos.Binary.Class (Bi (..))
+import           Pos.Merkle       (MerkleNode (..), MerkleRoot (..), MerkleTree (..),
+                                   mkBranch, mkLeaf)
 
 -- This instance is both faster and more space-efficient (as confirmed by a
 -- benchmark). Hashing turns out to be faster than decoding extra data.

@@ -1,9 +1,7 @@
-{-# LANGUAGE AllowAmbiguousTypes   #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Instance of SscListenersClass
 
@@ -25,7 +23,7 @@ import           Pos.Communication.Methods              (sendToNeighborsSafe)
 import           Pos.Communication.Types                (ResponseMode)
 import           Pos.Context                            (WithNodeContext (getNodeContext),
                                                          ncPropagation)
-import           Pos.Crypto                             (PublicKey, shortHashF)
+import           Pos.Crypto                             (shortHashF)
 import           Pos.DHT.Model                          (ListenerDHT (..), replyToNode)
 import           Pos.Security                           (shouldIgnorePkAddress)
 import           Pos.Slotting                           (getCurrentSlot)
@@ -38,12 +36,12 @@ import           Pos.Ssc.GodTossing.Types.Base          (Commitment, Opening,
 import           Pos.Ssc.GodTossing.Types.Instance      ()
 import           Pos.Ssc.GodTossing.Types.Message       (DataMsg (..), InvMsg (..),
                                                          MsgTag (..), ReqMsg (..),
-                                                         dataMsgPublicKey, dataMsgTag,
+                                                         dataMsgNodeId, dataMsgTag,
                                                          isGoodSlotIdForTag)
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), GtProof,
                                                          _gpCertificates)
-import           Pos.Types.Address                      (AddressHash)
+import           Pos.Types.Address                      (StakeholderId)
 import           Pos.WorkMode                           (WorkMode)
 
 instance (Bi VssCertificate
@@ -69,7 +67,7 @@ handleInv (InvMsg tag keys) =
         (logDebug $
          sformat ("Ignoring "%build%", because slot is not appropriate") tag)
 
-handleInvDo :: (Bi ReqMsg) => ResponseMode SscGodTossing m => MsgTag -> NonEmpty (AddressHash PublicKey) -> m ()
+handleInvDo :: (Bi ReqMsg) => ResponseMode SscGodTossing m => MsgTag -> NonEmpty StakeholderId -> m ()
 handleInvDo tag keys = mapM_ handleSingle keys
   where
     handleSingle addr =
@@ -84,7 +82,7 @@ handleReq (ReqMsg tag addr) = do
     localPayload <- sscGetLocalPayload =<< getCurrentSlot
     whenJust (toDataMsg tag addr localPayload) (replyToNode @_ @_ @DataMsg)
 
-toDataMsg :: MsgTag -> AddressHash PublicKey -> GtPayload -> Maybe DataMsg
+toDataMsg :: MsgTag -> StakeholderId -> GtPayload -> Maybe DataMsg
 toDataMsg CommitmentMsg addr (CommitmentsPayload comm _) =
     DMCommitment addr <$> lookup addr comm
 toDataMsg OpeningMsg addr (OpeningsPayload opens _) =
@@ -102,20 +100,21 @@ handleData
        ,Bi InvMsg
        ,WorkMode SscGodTossing m)
     => DataMsg -> m ()
-handleData msg =
+handleData msg = do
     let tag = dataMsgTag msg
-        addr = dataMsgPublicKey msg in
+        nid = dataMsgNodeId msg
     -- TODO: Add here malicious emulation for network addresses
     -- when TW will support getting peer address properly
-    whenM (and <$> sequence [ isGoodSlotIdForTag tag <$> getCurrentSlot
-                            , not <$> flip shouldIgnorePkAddress addr <$> getNodeContext ]) $
-    do added <- sscProcessMessage msg
-       loggerAction tag added addr
-       needPropagate <- ncPropagation <$> getNodeContext
-       when (added && needPropagate) $ sendToNeighborsSafe $ InvMsg tag $ pure addr
+    whenM (andM [ isGoodSlotIdForTag tag <$> getCurrentSlot
+                , not <$> flip shouldIgnorePkAddress nid <$> getNodeContext ]) $ do
+        added <- sscProcessMessage msg
+        loggerAction tag added nid
+        needPropagate <- ncPropagation <$> getNodeContext
+        when (added && needPropagate) $
+            sendToNeighborsSafe $ InvMsg tag $ pure nid
 
 loggerAction :: WorkMode SscGodTossing m
-             => MsgTag -> Bool -> AddressHash PublicKey -> m ()
+             => MsgTag -> Bool -> StakeholderId -> m ()
 loggerAction msgTag added pkHash = logAction msg
   where
       msgAction | added = "added to local storage"

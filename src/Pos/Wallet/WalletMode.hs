@@ -1,9 +1,6 @@
 {-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE DefaultSignatures    #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE StandaloneDeriving   #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | 'WalletMode' constraint. Like `WorkMode`, but for wallet.
@@ -17,28 +14,29 @@ module Pos.Wallet.WalletMode
        , SState
        ) where
 
-import           Control.Monad                 (fail)
 import           Control.Monad.Trans           (MonadTrans)
+import           Control.Monad.Trans.Maybe     (MaybeT (..))
 import           Control.TimeWarp.Rpc          (Dialog, Transfer)
 import qualified Data.HashMap.Strict           as HM
 import qualified Data.Map                      as M
 import           Universum
 
+import Pos.Crypto (WithHash (..))
 import           Pos.Communication.Types.State (MutSocketState)
 import qualified Pos.Context                   as PC
 import           Pos.DB                        (MonadDB)
 import qualified Pos.DB                        as DB
 import           Pos.DHT.Model                 (DHTPacking)
 import           Pos.DHT.Real                  (KademliaDHT)
+import           Pos.Ssc.Class.Types           (Ssc)
 import           Pos.Ssc.Extra                 (SscHolder (..))
 import           Pos.Ssc.GodTossing            (SscGodTossing)
-import           Pos.Txp.Class                 (MonadTxpLD (..), getUtxoView)
+import           Pos.Txp.Class                 (getUtxoView, getMemPool)
 import qualified Pos.Txp.Holder                as Modern
 import           Pos.Txp.Logic                 (processTx)
-import           Pos.Txp.Types                 (MemPool (..), UtxoView (..))
+import           Pos.Txp.Types                 (UtxoView (..), localTxs)
 import           Pos.Types                     (Address, Coin, Tx, TxAux, TxId, Utxo,
-                                                evalUtxoStateT, toPair, txOutValue)
-import           Pos.Types.Utxo.Functions      (filterUtxoByAddr)
+                                                runUtxoStateT, toPair, txOutValue, evalUtxoStateT)
 import           Pos.Types.Utxo.Functions      (belongsTo, filterUtxoByAddr)
 import           Pos.WorkMode                  (MinWorkMode)
 
@@ -46,7 +44,7 @@ import           Pos.Wallet.Context            (ContextHolder, WithWalletContext
 import           Pos.Wallet.KeyStorage         (KeyStorage, MonadKeys)
 import           Pos.Wallet.State              (WalletDB)
 import qualified Pos.Wallet.State              as WS
-import           Pos.Wallet.Tx.Pure            (deriveAddrHistory)
+import           Pos.Wallet.Tx.Pure            (deriveAddrHistory, deriveAddrHistoryPartial, getRelatedTxs)
 
 -- | A class which have the methods to get state of address' balance
 class Monad m => MonadBalances m where
@@ -56,7 +54,7 @@ class Monad m => MonadBalances m where
     -- TODO: add a function to get amount of stake (it's different from
     -- balance because of distributions)
 
-    default getOwnUtxo :: MonadTrans t => Address -> t m Utxo
+    default getOwnUtxo :: (MonadTrans t, MonadBalances m', t m' ~ m) => Address -> m Utxo
     getOwnUtxo = lift . getOwnUtxo
 
 instance MonadBalances m => MonadBalances (ReaderT r m)
@@ -87,10 +85,10 @@ class Monad m => MonadTxHistory m where
     getTxHistory :: Address -> m [(TxId, Tx, Bool)]
     saveTx :: (TxId, TxAux) -> m ()
 
-    default getTxHistory :: MonadTrans t => Address -> t m [(TxId, Tx, Bool)]
+    default getTxHistory :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => Address -> m [(TxId, Tx, Bool)]
     getTxHistory = lift . getTxHistory
 
-    default saveTx :: MonadTrans t => (TxId, TxAux) -> t m ()
+    default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
     saveTx = lift . saveTx
 
 instance MonadTxHistory m => MonadTxHistory (ReaderT r m)
@@ -108,14 +106,39 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     getTxHistory addr = do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
-        return $ fromMaybe (fail "deriveAddrHistory: Nothing") $
-            flip evalUtxoStateT utxo $
+        fmap (fst . fromMaybe (panic "deriveAddrHistory: Nothing")) $
+            runMaybeT $ flip runUtxoStateT utxo $
             deriveAddrHistory addr chain
     saveTx _ = pure ()
 
 -- TODO: make a working instance
-instance (MonadDB ssc m, MonadThrow m) => MonadTxHistory (Modern.TxpLDHolder ssc m) where
-    getTxHistory _ = pure []
+instance (Ssc ssc, MonadDB ssc m, MonadThrow m) => MonadTxHistory (Modern.TxpLDHolder ssc m) where
+    getTxHistory addr = do
+        bot <- DB.getBot
+        genUtxo <- filterUtxoByAddr addr <$> DB.getGenUtxo
+
+        -- It's genesis hash at the very bottom already, so we don't look for txs there
+        let getNextBlock h = runMaybeT $ do
+                next <- MaybeT $ DB.getNextHash h
+                blk <- MaybeT $ DB.getBlock next
+                return (next, blk)
+            blockFetcher h = do
+                nblk <- lift . lift $ getNextBlock h
+                case nblk of
+                    Nothing -> return []
+                    Just (next, blk) -> do
+                        txs <- deriveAddrHistoryPartial [] addr [blk]
+                        (++ txs) <$> blockFetcher next
+            localFetcher blkTxs = do
+                let mp (txid, (tx, txw, txd)) = (WithHash tx txid, txw, txd)
+                ltxs <- HM.toList . localTxs <$> lift (lift getMemPool)
+                txs <- getRelatedTxs addr $ map mp ltxs
+                return $ txs ++ blkTxs
+
+        result <- runMaybeT $
+                  evalUtxoStateT (blockFetcher bot >>= localFetcher) genUtxo
+        maybe (panic "deriveAddrHistory: Nothing") return result
+
     saveTx txw = () <$ processTx txw
 
 --deriving instance MonadTxHistory m => MonadTxHistory (Modern.TxpLDHolder m)

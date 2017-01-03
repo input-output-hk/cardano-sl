@@ -13,7 +13,6 @@ module Pos.Util.UserSecret
        ) where
 
 import           Control.Lens         (makeLenses, to, (.~), (^.))
-import           Control.Monad        (fail)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default         (Default (..))
 import           System.FileLock      (FileLock, SharedExclusive (..), lockFile,
@@ -66,7 +65,7 @@ takeUserSecret path = liftIO $ do
                    & usLock .~ Just l
 
 -- | Writes user secret .
-writeUserSecret :: (MonadIO m) => UserSecret -> m ()
+writeUserSecret :: (MonadFail m, MonadIO m) => UserSecret -> m ()
 writeUserSecret u
     | canWrite u = fail "writeUserSecret: UserSecret is already locked"
     | otherwise = liftIO $ withFileLock (u ^. usPath) Exclusive $ const $
@@ -74,7 +73,7 @@ writeUserSecret u
 
 -- | Writes user secret and releases the lock. UserSecret can't be
 -- used after this function call anymore.
-writeUserSecretRelease :: (MonadIO m) => UserSecret -> m ()
+writeUserSecretRelease :: (MonadFail m, MonadIO m) => UserSecret -> m ()
 writeUserSecretRelease u
     | not (canWrite u) = fail "writeUserSecretRelease: UserSecret is not writable"
     | otherwise = do

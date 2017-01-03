@@ -15,7 +15,7 @@ import           Pos.Types            (ProxySKEpoch, ProxySigEpoch)
 -- | Message with delegated proxy secret key.
 data SendProxySK =
     SendProxySK !ProxySKEpoch
-    deriving (Generic)
+    deriving (Show, Eq, Generic)
 
 instance Message SendProxySK where
     messageName _ = "SendProxySK"
@@ -29,7 +29,7 @@ instance Message SendProxySK where
 -- before lower cert's @EpochIndex@.
 data ConfirmProxySK =
     ConfirmProxySK !ProxySKEpoch !(ProxySigEpoch ProxySKEpoch)
-    deriving (Generic)
+    deriving (Show, Eq, Generic)
 
 instance Message ConfirmProxySK where
     messageName _ = "ConfirmProxySK"
@@ -38,7 +38,7 @@ instance Message ConfirmProxySK where
 -- | Request to check if a node has any info about PSK delivery.
 data CheckProxySKConfirmed =
     CheckProxySKConfirmed !ProxySKEpoch
-    deriving (Generic)
+    deriving (Show, Eq, Generic)
 
 instance Message CheckProxySKConfirmed where
     messageName _ = "CheckProxySKConfirmed"
@@ -47,7 +47,7 @@ instance Message CheckProxySKConfirmed where
 -- | Response to the @CheckProxySKConfirmed@ call.
 data CheckProxySKConfirmedRes =
     CheckProxySKConfirmedRes !Bool
-    deriving (Generic)
+    deriving (Show, Eq, Generic)
 
 instance Message CheckProxySKConfirmedRes where
     messageName _ = "CheckProxySKConfirmedRes"

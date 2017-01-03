@@ -1,17 +1,15 @@
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE RankNTypes             #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE TypeFamilies           #-}
-{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Monad transformer which stores SSC data.
 
 module Pos.Ssc.Extra.Holder
        ( SscHolder (..)
+       , SscState
        , runSscHolder
+       , runSscHolderRaw
        ) where
 
 import qualified Control.Concurrent.STM      as STM
@@ -50,9 +48,10 @@ data SscState ssc =
 newtype SscHolder ssc m a =
     SscHolder
     { getSscHolder :: ReaderT (SscState ssc) m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow, MonadSlots,
-                MonadCatch, MonadIO, HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
-                CanLog, MonadMask, Modern.MonadDB ssc)
+    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed,
+                MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
+                HasLoggerName, MonadDialog s p, WithNodeContext ssc,
+                MonadJL, CanLog, MonadMask, Modern.MonadDB ssc)
 
 instance MonadTransfer s m => MonadTransfer s (SscHolder ssc m)
 type instance ThreadId (SscHolder ssc m) = ThreadId m
@@ -99,3 +98,7 @@ runSscHolder holder glob = SscState
                        <$> liftIO (STM.newTVarIO glob)
                        <*> liftIO (STM.newTVarIO def)
                        >>= runReaderT (getSscHolder holder)
+
+runSscHolderRaw :: SscLocalDataClass ssc =>
+                   SscState ssc -> SscHolder ssc m a -> m a
+runSscHolderRaw st holder = runReaderT (getSscHolder holder) st

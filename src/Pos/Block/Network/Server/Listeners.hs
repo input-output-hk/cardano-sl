@@ -1,8 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes   #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE Rank2Types            #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Server which deals with blocks processing.
 
@@ -22,9 +20,10 @@ import           Pos.Binary.Communication       ()
 import           Pos.Block.Logic                (ClassifyHeaderRes (..),
                                                  ClassifyHeadersRes (..), applyBlocks,
                                                  classifyHeaders, classifyNewHeader,
-                                                 getBlocksByHeaders, lcaWithMainChain,
-                                                 retrieveHeadersFromTo, rollbackBlocks,
-                                                 verifyBlocks, withBlkSemaphore_)
+                                                 getHeadersFromManyTo,
+                                                 getHeadersFromToIncl, lcaWithMainChain,
+                                                 rollbackBlocks, verifyBlocks,
+                                                 withBlkSemaphore_)
 import           Pos.Block.Network.Announce     (announceBlock)
 import           Pos.Block.Network.Request      (replyWithBlocksRequest,
                                                  replyWithHeadersRequest)
@@ -34,7 +33,8 @@ import           Pos.Block.Network.Types        (MsgBlock (..), MsgGetBlocks (..
                                                  MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types        (MutSocketState, ResponseMode)
 import           Pos.Crypto                     (hash, shortHashF)
-import           Pos.DB                         (loadBlocksFromTipWhile)
+import qualified Pos.DB                         as DB
+import           Pos.DB.Error                   (DBError (DBMalformed))
 import           Pos.DHT.Model                  (ListenerDHT (..), MonadDHTDialog,
                                                  getUserState, replyToNode)
 import           Pos.Types                      (Block, BlockHeader, Blund,
@@ -63,7 +63,7 @@ handleGetHeaders
     => MsgGetHeaders ssc -> m ()
 handleGetHeaders MsgGetHeaders {..} = do
     logDebug "Got request on handleGetHeaders"
-    rhResult <- retrieveHeadersFromTo mghFrom mghTo
+    rhResult <- getHeadersFromManyTo mghFrom mghTo
     case nonEmpty rhResult of
         Nothing ->
             logWarning $
@@ -77,15 +77,20 @@ handleGetBlocks
     => MsgGetBlocks ssc -> m ()
 handleGetBlocks MsgGetBlocks {..} = do
     logDebug "Got request on handleGetBlocks"
-    blocks <- getBlocksByHeaders mgbFrom mgbTo
-    maybe warn sendMsg blocks
+    hashes <- getHeadersFromToIncl mgbFrom mgbTo
+    maybe warn sendBlocks hashes
   where
     warn = logWarning $ "getBLocksByHeaders@retrieveHeaders returned Nothing"
-    sendMsg blocksToSend = do
+    failMalformed =
+        throwM $ DBMalformed $
+        "hadleGetBlocks: getHeadersFromToIncl returned header that doesn't " <>
+        "have corresponding block in storage."
+    sendBlocks hashes = do
         logDebug $ sformat
-            ("handleGetBlocks: started sending blocks one-by-one: "%listJson)
-            (map headerHash blocksToSend)
-        forM_ blocksToSend $ replyToNode . MsgBlock
+            ("handleGetBlocks: started sending blocks one-by-one: "%listJson) hashes
+        forM_ hashes $ \hHash -> do
+            block <- maybe failMalformed pure =<< DB.getBlock hHash
+            replyToNode $ MsgBlock block
         logDebug "handleGetBlocks: blocks sending done"
 
 -- | Handles MsgHeaders request. There are two usecases:
@@ -217,7 +222,7 @@ handleBlocksWithLca :: forall ssc m.
 handleBlocksWithLca blocks lcaHash = do
     logDebug $ sformat lcaFmt lcaHash
     -- Head block in result is the newest one.
-    toRollback <- loadBlocksFromTipWhile $ \blk _ -> headerHash blk /= lcaHash
+    toRollback <- DB.loadBlocksFromTipWhile $ \blk _ -> headerHash blk /= lcaHash
     maybe (applyWithoutRollback blocks)
           (applyWithRollback blocks lcaHash)
           (nonEmpty toRollback)

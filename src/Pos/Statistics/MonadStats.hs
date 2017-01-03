@@ -1,13 +1,9 @@
-{-# LANGUAGE AllowAmbiguousTypes   #-}
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE DefaultSignatures     #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE Rank2Types            #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE Rank2Types           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Monadic layer for collecting stats
 
@@ -58,10 +54,10 @@ class Monad m => MonadStats m where
     statLog   :: StatLabel l => l -> EntryType l -> m ()
     resetStat :: StatLabel l => l -> m ()
 
-    default statLog :: (MonadTrans t, StatLabel l) => l -> EntryType l -> t m ()
+    default statLog :: (MonadTrans t, MonadStats m', t m' ~ m, StatLabel l) => l -> EntryType l -> m ()
     statLog label = lift . statLog label
 
-    default resetStat :: (MonadTrans t, StatLabel l) => l -> t m ()
+    default resetStat :: (MonadTrans t, MonadStats m', t m' ~ m, StatLabel l) => l -> m ()
     resetStat = lift . resetStat
 
     -- | Default convenience method, which we can override
@@ -81,12 +77,13 @@ type instance ThreadId (StatsT m) = ThreadId m
 -- | Stats wrapper for collecting statistics without collecting it.
 newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a  -- ^ action inside wrapper without collecting statistics
-    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, HasLoggerName, MonadDialog s p,
-               MonadDHT, MonadMessageDHT s, MonadSlots, WithDefaultMsgHeader,
-               MonadJL, CanLog, MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc,
-               MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
-               WithNodeContext ssc)
+    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow,
+                MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
+                MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots,
+                WithDefaultMsgHeader, MonadJL, CanLog,
+                MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc,
+                MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
+                WithNodeContext ssc)
 
 instance Monad m => WrappedM (NoStatsT m) where
     type UnwrappedM (NoStatsT m) = m
@@ -126,11 +123,12 @@ type StatsMap = SM.Map Text LByteString
 -- during execution of this action. Used in benchmarks.
 newtype StatsT m a = StatsT
     { getStatsT :: ReaderT StatsMap m a  -- ^ action inside wrapper with collected statistics
-    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-               MonadMask, MonadIO, HasLoggerName, MonadDialog s p,
-               MonadDHT, MonadMessageDHT s, MonadSlots, WithDefaultMsgHeader, MonadTrans,
-               MonadJL, CanLog, MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc, MonadTxpLD ssc,
-               MonadSscGS ssc, MonadSscLD ssc, WithNodeContext ssc)
+    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow,
+                MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
+                MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots,
+                WithDefaultMsgHeader, MonadTrans, MonadJL, CanLog,
+                MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc, MonadTxpLD ssc,
+                MonadSscGS ssc, MonadSscLD ssc, WithNodeContext ssc)
 
 instance Monad m => WrappedM (StatsT m) where
     type UnwrappedM (StatsT m) = ReaderT StatsMap m

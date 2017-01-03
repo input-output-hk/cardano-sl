@@ -1,4 +1,5 @@
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ViewPatterns    #-}
 
 module Pos.Ssc.GodTossing.VssCertData
        ( VssCertData (..)
@@ -13,16 +14,14 @@ module Pos.Ssc.GodTossing.VssCertData
        ) where
 
 import qualified Data.HashMap.Strict           as HM
+import           Data.SafeCopy                 (base, deriveSafeCopySimple)
 import qualified Data.Set                      as S
 import           Universum                     hiding (empty)
 
 import           Pos.Constants                 (k)
-import           Pos.Crypto                    (PublicKey)
 import           Pos.Ssc.GodTossing.Types.Base (VssCertificate (..), VssCertificatesMap)
-import           Pos.Types                     (AddressHash, EpochIndex (..), FlatSlotId,
-                                                SlotId, flattenSlotId)
-
-type AhPk = (AddressHash PublicKey)
+import           Pos.Types                     (EpochIndex (..), FlatSlotId, SlotId,
+                                                StakeholderId, flattenSlotId)
 
 -- | Wrapper around VSS certificates with ttl.
 -- Every VSS certificate has own ttl.
@@ -33,11 +32,13 @@ data VssCertData = VssCertData
     {
       lastKnownSlot :: !FlatSlotId                 -- ^ Last known slot, every element of bySlot > lastKnownSlot
     , certs         :: !VssCertificatesMap         -- ^ Not expired certificates
-    , bySlot        :: !(S.Set (FlatSlotId, AhPk)) -- ^ Set of pairs (expiry slot, address hash).
+    , bySlot        :: !(S.Set (FlatSlotId, StakeholderId)) -- ^ Set of pairs (expiry slot, address hash).
                                                    --   Expiry slot is first slot when certificate expires.
                                                    --   Pairs are sorted by expiry slot
                                                    --   (in increase order, so the oldest certificate is first element)
-    } deriving (Show)
+    } deriving (Show, Eq)
+
+deriveSafeCopySimple 0 'base ''VssCertData
 
 -- | Create empty VssCertData
 empty :: VssCertData
@@ -45,21 +46,21 @@ empty = VssCertData 0 mempty mempty
 
 -- | Remove old certificate corresponding to the specified address hash
 -- and insert new certificate.
-insert :: AhPk -> VssCertificate -> VssCertData -> VssCertData
+insert :: StakeholderId -> VssCertificate -> VssCertData -> VssCertData
 insert ahpk cert mp@VssCertData{..}
     | expirySlot cert <= lastKnownSlot = mp
     | otherwise                        = addInt ahpk cert mp
 
 -- | Lookup certificate corresponding to the specified address hash.
-lookup :: AhPk -> VssCertData -> Maybe VssCertificate
+lookup :: StakeholderId -> VssCertData -> Maybe VssCertificate
 lookup ahpk VssCertData{..} = HM.lookup ahpk certs
 
 -- | Lookup expiry epoch of certificate corresponding to the specified address hash.
-lookupExpiryEpoch :: AhPk -> VssCertData -> Maybe EpochIndex
+lookupExpiryEpoch :: StakeholderId -> VssCertData -> Maybe EpochIndex
 lookupExpiryEpoch ahpk mp = vcExpiryEpoch <$> lookup ahpk mp
 
 -- | Delete certificate corresponding to the specified address hash.
-delete :: AhPk -> VssCertData -> VssCertData
+delete :: StakeholderId -> VssCertData -> VssCertData
 delete ahpk mp@VssCertData{..} =
     case lookup ahpk mp of
         Nothing                   -> mp
@@ -76,11 +77,11 @@ setLastKnownSlot (flattenSlotId -> nlks) mp@VssCertData{..}
     | otherwise            = setSmallerLKS nlks mp
 
 -- | Address hashes of certificates.
-keys :: VssCertData -> [AhPk]
+keys :: VssCertData -> [StakeholderId]
 keys VssCertData{..} = HM.keys certs
 
 -- | Return True if the specified address hash is present in the map, False otherwise.
-member :: AhPk -> VssCertData -> Bool
+member :: StakeholderId -> VssCertData -> Bool
 member ahpk VssCertData{..} = HM.member ahpk certs
 
 ----------------------------------------------------------------------------
@@ -88,7 +89,7 @@ member ahpk VssCertData{..} = HM.member ahpk certs
 ----------------------------------------------------------------------------
 -- | Helper for insert.
 -- Expiry epoch will be converted to expiry slot.
-addInt :: AhPk -> VssCertificate -> VssCertData -> VssCertData
+addInt :: StakeholderId -> VssCertificate -> VssCertData -> VssCertData
 addInt ahpk cert (delete ahpk -> VssCertData{..}) =
     VssCertData lastKnownSlot
            (HM.insert ahpk cert certs)

@@ -10,6 +10,7 @@ module Pos.Types
        , module Pos.Types.Types
        , module Pos.Types.Utxo
        , module Pos.Types.Update
+       , module Pos.Types.Version
        ) where
 
 import           Pos.Binary.Address  ()
@@ -23,3 +24,4 @@ import           Pos.Types.Tx
 import           Pos.Types.Types
 import           Pos.Types.Update
 import           Pos.Types.Utxo
+import           Pos.Types.Version

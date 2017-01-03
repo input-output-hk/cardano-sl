@@ -18,7 +18,7 @@ data GtSecretStorage = GtSecretStorage
       _dsCurrentSecret     :: !(Maybe GtSecret)
     , -- | Last slot we are aware of.
       _dsLastProcessedSlot :: !SlotId
-    }
+    } deriving (Show, Eq)
 
 instance Default GtSecretStorage where
     def =

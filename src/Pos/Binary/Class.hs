@@ -1,7 +1,12 @@
-{-# LANGUAGE DefaultSignatures     #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE CPP                  #-}
+{-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE TypeOperators        #-}
+{-# LANGUAGE UndecidableInstances #-}
+
+#include "MachDeps.h"
+
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+
 -- | Serialization-related types
 
 module Pos.Binary.Class
@@ -11,24 +16,33 @@ module Pos.Binary.Class
        , decode
        , decodeOrFail
        , decodeFull
+
+       -- * Different sizes for ints
+       , UnsignedVarInt(..)
+       , SignedVarInt(..)
+       , FixedSizeInt(..)
        ) where
 
-import           Control.Monad.Fail          (fail)
 import           Data.Binary                 (Get, Put)
 import qualified Data.Binary                 as Binary
-import           Data.Binary.Get             (ByteOffset, getWord8, runGet, runGetOrFail)
-import           Data.Binary.Put             (putCharUtf8, putWord8, runPut)
+import           Data.Binary.Get             (ByteOffset, getByteString,
+                                              getLazyByteString, getWord8, runGet,
+                                              runGetOrFail)
+import           Data.Binary.Put             (putByteString, putCharUtf8,
+                                              putLazyByteString, putWord8, runPut)
 import qualified Data.ByteString             as BS
 import qualified Data.ByteString.Lazy        as BSL
 import           Data.Hashable               (Hashable (..))
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.List.NonEmpty          as NE
+import qualified Data.Text.Encoding          as T
 import qualified Data.Vector                 as V
 import qualified Data.Vector.Generic         as G
 import qualified Data.Vector.Generic.Mutable as GM
 import           Data.Word                   (Word32)
+import           GHC.TypeLits                (ErrorMessage (..), TypeError)
 import           System.IO.Unsafe            (unsafePerformIO)
-import           Universum
+import           Universum                   hiding (putByteString)
 
 ----------------------------------------------------------------------------
 -- Bi typeclass
@@ -55,7 +69,7 @@ class Bi t where
 --    put = put
 
 -- | Encode a value to a lazy bytestring
-encode :: Bi a => a -> BSL.ByteString
+encode :: Bi a => a -> LByteString
 encode = runPut . put
 {-# INLINE encode #-}
 
@@ -67,23 +81,199 @@ encodeStrict = BSL.toStrict . encode
 
 -- | Decode a value from a lazy ByteString, reconstructing the
 -- original structure.
-decode :: Bi a => BSL.ByteString -> a
+decode :: Bi a => LByteString -> a
 decode = runGet get
 
 decodeOrFail
     :: Bi a
-    => BSL.ByteString
-    -> Either (BSL.ByteString, ByteOffset, [Char])
-              (BSL.ByteString, ByteOffset, a)
+    => LByteString
+    -> Either (LByteString, ByteOffset, [Char])
+              (LByteString, ByteOffset, a)
 decodeOrFail = runGetOrFail get
 
 -- | Like 'decode', but ensures that the whole input has been consumed.
-decodeFull :: Bi a => BSL.ByteString -> Either [Char] a
+decodeFull :: Bi a => LByteString -> Either [Char] a
 decodeFull bs = case (runGetOrFail get) bs of
     Left (_, _, err) -> Left ("decodeFull: " ++ err)
     Right (unconsumed, _, a)
         | BSL.null unconsumed -> Right a
         | otherwise -> Left "decodeFull: unconsumed input"
+
+----------------------------------------------------------------------------
+-- Variable-sized numbers
+----------------------------------------------------------------------------
+
+-- Copied from Edward Kmett's 'bytes' library (licensed under BSD3)
+putUnsignedVarInt :: (Integral a, Bits a) => a -> Put
+putUnsignedVarInt n
+    | n < 0x80 = putWord8 $ fromIntegral n
+    | otherwise = do
+          putWord8 $ setBit (fromIntegral n) 7
+          putUnsignedVarInt $ shiftR n 7
+{-# INLINE putUnsignedVarInt #-}
+
+getUnsignedVarInt' :: (Num a, Bits a) => Get a
+getUnsignedVarInt' = getWord8 >>= go
+  where
+    go n | testBit n 7 = do
+             m <- getWord8 >>= go
+             return $ shiftL m 7 .|. clearBit (fromIntegral n) 7
+         | otherwise = return $ fromIntegral n
+{-# INLINE getUnsignedVarInt' #-}
+
+putSignedVarInt :: (ZZEncode a b, Integral b, Bits b) => a -> Put
+putSignedVarInt x = putUnsignedVarInt (zzEncode x)
+{-# INLINE putSignedVarInt #-}
+
+getSignedVarInt' :: (ZZEncode a b, Num b, Bits b) => Get a
+getSignedVarInt' = zzDecode <$> getUnsignedVarInt'
+{-# INLINE getSignedVarInt' #-}
+
+-- | Turn a signed number into an unsigned one.
+--
+-- >>> (zzEncode (-3), zzEncode 3)
+-- (5, 6)
+class ZZEncode a b | a -> b, b -> a where
+    zzEncode :: a -> b
+    zzDecode :: b -> a
+
+-- Copied from the 'protobuf' library (licensed under BSD3)
+instance ZZEncode Int32 Word32 where
+    zzEncode x = fromIntegral ((x `shiftL` 1) `xor` x `shiftR` 31)
+    {-# INLINE zzEncode #-}
+    zzDecode x = fromIntegral (x `shiftR` 1) `xor`
+                     negate (fromIntegral (x .&. 1))
+    {-# INLINE zzDecode #-}
+
+instance ZZEncode Int64 Word64 where
+    zzEncode x = fromIntegral ((x `shiftL` 1) `xor` x `shiftR` 63)
+    {-# INLINE zzEncode #-}
+    zzDecode x = fromIntegral (x `shiftR` 1) `xor`
+                     negate (fromIntegral (x .&. 1))
+    {-# INLINE zzDecode #-}
+
+instance ZZEncode Int Word where
+#if (WORD_SIZE_IN_BITS == 32)
+    zzEncode x = fromIntegral ((x `shiftL` 1) `xor` x `shiftR` 31)
+#elif (WORD_SIZE_IN_BITS == 64)
+    zzEncode x = fromIntegral ((x `shiftL` 1) `xor` x `shiftR` 63)
+    {-# INLINE zzEncode #-}
+#else
+# error Unsupported platform
+#endif
+    zzDecode x = fromIntegral (x `shiftR` 1) `xor`
+                     negate (fromIntegral (x .&. 1))
+    {-# INLINE zzDecode #-}
+
+----------------------------------------------------------------------------
+-- Int/Word encoding
+----------------------------------------------------------------------------
+
+newtype UnsignedVarInt a = UnsignedVarInt {getUnsignedVarInt :: a}
+    deriving (Eq, Ord, Show, Generic, NFData)
+newtype SignedVarInt a = SignedVarInt {getSignedVarInt :: a}
+    deriving (Eq, Ord, Show, Generic, NFData)
+newtype FixedSizeInt a = FixedSizeInt {getFixedSizeInt :: a}
+    deriving (Eq, Ord, Show, Generic, NFData)
+
+instance TypeError
+    ('Text "Do not encode 'Int' directly. Instead, use one of newtype wrappers:" ':$$:
+     'Text "  'FixedSizeInt': always uses 8 bytes" ':$$:
+     'Text "  'SignedVarInt': uses 1–10 bytes (1 byte for −64..63)" ':$$:
+     'Text "  'UnsignedVarInt': uses 1–10 bytes (1 byte for 0..127);" ':$$:
+     'Text "                    more efficient for non-negative numbers," ':$$:
+     'Text "                    but takes 10 bytes for negative numbers")
+  => Bi Int
+  where
+    get = panic "get@Int"
+    put = panic "put@Int"
+
+instance TypeError
+    ('Text "Do not encode 'Word' directly. Instead, use one of newtype wrappers:" ':$$:
+     'Text "  'FixedSizeInt': always uses 8 bytes" ':$$:
+     'Text "  'UnsignedVarInt': uses 1–10 bytes (1 byte for 0..127)")
+  => Bi Word
+  where
+    get = panic "get@Word"
+    put = panic "put@Word"
+
+-- Int
+
+instance Bi (UnsignedVarInt Int) where
+    put (UnsignedVarInt a) = putUnsignedVarInt (fromIntegral a :: Word)
+    {-# INLINE put #-}
+    get = UnsignedVarInt . (fromIntegral :: Word -> Int) <$> getUnsignedVarInt'
+    {-# INLINE get #-}
+
+instance Bi (SignedVarInt Int) where
+    put (SignedVarInt a) = putSignedVarInt a
+    {-# INLINE put #-}
+    get = SignedVarInt <$> getSignedVarInt'
+    {-# INLINE get #-}
+
+instance Bi (FixedSizeInt Int) where
+    put (FixedSizeInt a) = Binary.put a
+    {-# INLINE put #-}
+    get = FixedSizeInt <$> Binary.get
+    {-# INLINE get #-}
+
+-- Int64
+
+instance Bi (UnsignedVarInt Int64) where
+    put (UnsignedVarInt a) = putUnsignedVarInt (fromIntegral a :: Word64)
+    {-# INLINE put #-}
+    get = UnsignedVarInt . (fromIntegral :: Word64 -> Int64) <$> getUnsignedVarInt'
+    {-# INLINE get #-}
+
+instance Bi (SignedVarInt Int64) where
+    put (SignedVarInt a) = putSignedVarInt a
+    {-# INLINE put #-}
+    get = SignedVarInt <$> getSignedVarInt'
+    {-# INLINE get #-}
+
+instance Bi (FixedSizeInt Int64) where
+    put (FixedSizeInt a) = Binary.put a
+    {-# INLINE put #-}
+    get = FixedSizeInt <$> Binary.get
+    {-# INLINE get #-}
+
+-- Word
+
+instance Bi (UnsignedVarInt Word) where
+    put (UnsignedVarInt a) = putUnsignedVarInt a
+    {-# INLINE put #-}
+    get = UnsignedVarInt <$> getUnsignedVarInt'
+    {-# INLINE get #-}
+
+instance Bi (FixedSizeInt Word) where
+    put (FixedSizeInt a) = Binary.put a
+    {-# INLINE put #-}
+    get = FixedSizeInt <$> Binary.get
+    {-# INLINE get #-}
+
+-- Word16
+
+instance Bi (UnsignedVarInt Word16) where
+    put (UnsignedVarInt a) = putUnsignedVarInt a
+    {-# INLINE put #-}
+    get = UnsignedVarInt <$> getUnsignedVarInt'
+    {-# INLINE get #-}
+
+-- Word32
+
+instance Bi (UnsignedVarInt Word32) where
+    put (UnsignedVarInt a) = putUnsignedVarInt a
+    {-# INLINE put #-}
+    get = UnsignedVarInt <$> getUnsignedVarInt'
+    {-# INLINE get #-}
+
+-- Word64
+
+instance Bi (UnsignedVarInt Word64) where
+    put (UnsignedVarInt a) = putUnsignedVarInt a
+    {-# INLINE put #-}
+    get = UnsignedVarInt <$> getUnsignedVarInt'
+    {-# INLINE get #-}
 
 ----------------------------------------------------------------------------
 -- Popular basic instances
@@ -177,17 +367,16 @@ instance Bi Char where
 
 -- These instances just copy 'Binary'
 
-instance Bi Int where               -- 8 bytes, big endian
-instance Bi Word where              -- 8 bytes, big endian
+instance Bi Integer            -- TODO: write how Integer is serialized
 
-instance Bi Integer where           -- TODO: write how Integer is serialized
+instance Bi Int16              -- 2 bytes, big endian
+instance Bi Int32              -- 4 bytes, big endian
+instance Bi Int64              -- 8 bytes, big endian
 
-instance Bi Int64 where             -- 8 bytes, big endian
-
-instance Bi Word8 where             -- single byte
-instance Bi Word16 where            -- 2 bytes, big endian
-instance Bi Word32 where            -- 4 bytes, big endian
-instance Bi Word64 where            -- 8 bytes, big endian
+instance Bi Word8              -- single byte
+instance Bi Word16             -- 2 bytes, big endian
+instance Bi Word32             -- 4 bytes, big endian
+instance Bi Word64             -- 8 bytes, big endian
 
 ----------------------------------------------------------------------------
 -- Containers
@@ -211,15 +400,30 @@ instance (Bi a, Bi b, Bi c, Bi d) => Bi (a, b, c, d) where
     {-# INLINE get #-}
     get = liftM4 (,,,) get get get get
 
-instance Bi BS.ByteString where    -- [length, 8 bytes BE][bytestring]
-instance Bi BSL.ByteString where   -- [length, 8 bytes BE][bytestring]
-instance Bi Text where             -- [length of UTF8 encoding][bytestring]
+instance Bi ByteString where
+    put bs = put (UnsignedVarInt (BS.length bs)) <> putByteString bs
+    get = do
+        UnsignedVarInt n <- get
+        getByteString n
 
--- TODO Optimize by using varint instead of int
+instance Bi LByteString where
+    put bs = put (UnsignedVarInt (BSL.length bs)) <> putLazyByteString bs
+    get = do
+        UnsignedVarInt n <- get
+        getLazyByteString n
+
+instance Bi Text where
+    put t = put (T.encodeUtf8 t)
+    get = do
+        bs <- get
+        case T.decodeUtf8' bs of
+            Left e  -> fail (show e)
+            Right a -> return a
+
 instance Bi a => Bi [a] where
-    put xs = put (length xs) <> mapM_ put xs
-    get = do n <- get :: Get Int
-             getMany n
+    put xs = put (UnsignedVarInt (length xs)) <> mapM_ put xs
+    get = do UnsignedVarInt n <- get
+             getMany (n :: Int)
 
 -- | 'getMany n' get 'n' elements in order, without blowing the stack.
 getMany :: Bi a => Int -> Get [a]
@@ -263,7 +467,7 @@ instance (Hashable k, Eq k, Bi k, Bi v) => Bi (HM.HashMap k v) where
 
 instance Bi a => Bi (V.Vector a) where
     get = do
-        n <- get
+        UnsignedVarInt n <- get
         v <- pure $ unsafePerformIO $ GM.unsafeNew n
         let go 0 = return ()
             go i = do
@@ -273,5 +477,5 @@ instance Bi a => Bi (V.Vector a) where
         () <- go n
         pure $ unsafePerformIO $ G.unsafeFreeze v
     put v = do
-        put (G.length v)
+        put (UnsignedVarInt (G.length v))
         G.mapM_ put v

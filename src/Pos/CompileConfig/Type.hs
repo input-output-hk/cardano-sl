@@ -9,21 +9,40 @@ module Pos.CompileConfig.Type
     ( CompileConfig (..)
     ) where
 
+import           Data.String                (String)
 import           Language.Haskell.TH.Syntax (Lift)
 import           Universum
 
 -- | Compile time configuration. See example in /constants.yaml/ file.
 data CompileConfig = CompileConfig
-    { ccK                             :: !Int       -- ^ Security parameter from paper
-    , ccSlotDurationSec               :: !Int       -- ^ Length of slot in seconds
-    , ccNetworkDiameter               :: !Int       -- ^ Estimated time for broadcasting messages
-    , ccNeighboursSendThreshold       :: !Int       -- ^ Broadcasting threshold
-    , ccGenesisN                      :: !Int       -- ^ Number of pre-generated keys
-    , ccMaxLocalTxs                   :: !Word      -- ^ Max number of transactions in Storage
-    , ccDefaultPeers                  :: ![[Char]]  -- ^ List of default peers
-    , ccSysTimeBroadcastSlots         :: !Int       -- ^ Number of slots to broadcast system time
-    , ccMpcSendInterval               :: !Word      -- ^ Length of interval for sending MPC message
-    , ccMdNoBlocksSlotThreshold       :: !Int       -- ^ Threshold of slots for malicious activity detection
-    , ccMdNoCommitmentsEpochThreshold :: !Int       -- ^ Threshold of epochs for malicious activity detection
-    , ccVssMaxTTL                     :: !Word64    -- ^ VSS certificates max timeout to live (number of epochs)
+    { ccK                             :: !Int
+      -- ^ Security parameter from paper
+    , ccSlotDurationSec               :: !Int
+      -- ^ Length of slot in seconds
+    , ccNetworkDiameter               :: !Int
+      -- ^ Estimated time for broadcasting messages
+    , ccNeighboursSendThreshold       :: !Int
+      -- ^ Broadcasting threshold
+    , ccGenesisN                      :: !Int
+      -- ^ Number of pre-generated keys
+    , ccMaxLocalTxs                   :: !Word
+      -- ^ Max number of transactions in Storage
+    , ccDefaultPeers                  :: ![[Char]]
+      -- ^ List of default peers
+    , ccSysTimeBroadcastSlots         :: !Int
+      -- ^ Number of slots to broadcast system time
+    , ccMpcSendInterval               :: !Word
+      -- ^ Length of interval for sending MPC message
+    , ccMdNoBlocksSlotThreshold       :: !Int
+      -- ^ Threshold of slots for malicious activity detection
+    , ccMdNoCommitmentsEpochThreshold :: !Int
+      -- ^ Threshold of epochs for malicious activity detection
+    , ccVssMaxTTL                     :: !Word64
+      -- ^ VSS certificates max timeout to live (number of epochs)
+    , ccProtocolMagic                 :: !Int
+      -- ^ Magic constant for separating real/testnet
+    , ccEnchancedMessageBroadcast     :: !Word
+      -- ^ True if we should enable enchanced bessage broadcast
+    , ccUpdateServers                 :: ![String]
+      -- ^ Servers for downloading application updates
     } deriving (Show, Lift)

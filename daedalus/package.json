@@ -10,7 +10,7 @@
     "build:prod": "npm run clean && mkdir dist && NODE_ENV=prod ./node_modules/.bin/webpack --config webpack.config.js --progress",
     "build:dev": "rimraf output && NODE_ENV=dev ./node_modules/.bin/webpack-dev-server --hot --config webpack.config.js --progress",
     "test": "npm run build:prod && npm run test:mocha",
-    "test:mocha": "mocha --compilers js:babel-core/register ./src/**/*.test.js -R spec"
+    "test:mocha": "mocha --opts ./mocha.opts ./src/**/*.test.js"
   },
   "keywords": [
     "daedalus",

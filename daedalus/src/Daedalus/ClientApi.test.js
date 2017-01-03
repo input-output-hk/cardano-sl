@@ -4,10 +4,6 @@ import sinon from 'sinon';
 // import ... does not work here, so just use require
 const Daedalus = require ('../../dist/Daedalus');
 
-// shim XMLHttpRequest for node - needed by mocha and wallaby
-// TODO(jk): move it into global test config file or similar
-global.XMLHttpRequest = sinon.useFakeXMLHttpRequest();
-
 describe('ClientApi', () => {
 
   describe('getWallets', () => {

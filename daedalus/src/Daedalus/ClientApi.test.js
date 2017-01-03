@@ -259,4 +259,55 @@ describe('ClientApi', () => {
       );
     })
   })
+
+  describe('getHistory()', () => {
+
+    it('returns a list of transaction objects', (done) => {
+      const history = [{
+        ctId: "123",
+        ctAmount:{
+          getCoin:1000
+        },
+        ctType:{
+          tag:"CTOut",
+          contents: {
+            ctmCurrency:"ADA",
+            ctmTitle:"",
+            ctmDescription:"",
+            ctmDate:1.483461872037636e9
+          }
+        }
+      }];
+
+      Daedalus.ClientApi.getHistory('XXX')()
+        .then( (result) => {
+          assert.deepEqual(result, history, 'list of transaction objects');
+          done();
+        }, (error) => done(error))
+        .catch(done);
+
+      requests[0]
+        .respond(200,
+          { "Content-Type": "application/json" },
+          JSON.stringify(history)
+      );
+    })
+
+    it('rejects with a JSONDecodingError if server sends invalid json data', (done) => {
+      const data = {};
+
+      Daedalus.ClientApi.getHistory('123')()
+        .then( (result) => done(),
+          (error) => {
+            assert.include(error.message, 'JSONDecodingError', 'includes JSONDecodingError error message');
+            done();
+        })
+        .catch(done);
+
+      requests[0].respond(200,
+        {"Content-Type": "application/json"},
+        JSON.stringify(data)
+      );
+    })
+  })
 })

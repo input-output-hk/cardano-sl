@@ -6,7 +6,9 @@
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE DeriveGeneric         #-}
 
+import           GHC.Generics                         (Generic)
 import           Control.Monad                        (forM, forM_, when)
 import           Control.Monad.IO.Class               (liftIO)
 import           Data.Binary
@@ -27,14 +29,9 @@ import           System.Environment                   (getArgs)
 import           System.Random
 
 data Pong = Pong
+deriving instance Generic Pong
 deriving instance Show Pong
-instance Binary Pong where
-    put _ = putWord8 (fromIntegral 1)
-    get = do
-        w <- getWord8
-        if w == fromIntegral 1
-        then pure Pong
-        else fail "no parse pong"
+instance Binary Pong
 
 type Header = ()
 

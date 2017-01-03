@@ -6,7 +6,9 @@
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE DeriveGeneric         #-}
 
+import           GHC.Generics               (Generic)
 import           Control.Monad              (forM_)
 import           Control.Monad.IO.Class     (liftIO)
 import           Data.Binary
@@ -30,25 +32,15 @@ import           System.Random
 
 -- | Type for messages from the workers to the listeners.
 data Ping = Ping
+deriving instance Generic Ping
 deriving instance Show Ping
-instance Binary Ping where
-    put _ = putWord8 (fromIntegral 1)
-    get = do
-        w <- getWord8
-        if w == fromIntegral 1
-        then pure Ping
-        else fail "no parse ping"
+instance Binary Ping
 
 -- | Type for messages from the listeners to the workers.
 data Pong = Pong
+deriving instance Generic Pong
 deriving instance Show Pong
-instance Binary Pong where
-    put _ = putWord8 (fromIntegral 1)
-    get = do
-        w <- getWord8
-        if w == fromIntegral 1
-        then pure Pong
-        else fail "no parse pong"
+instance Binary Pong
 
 type Header = ()
 

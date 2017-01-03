@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "purescript-console": "^1.0.0",
-    "purescript-affjax": "^2.0.1",
+    "purescript-affjax": "https://github.com/serokell/purescript-affjax.git#fix-empty-response-2.0.1",
     "purescript-eff-functions": "^1.0.0",
     "purescript-eff": "^1.0.0",
     "purescript-argonaut": "^1.0.0",

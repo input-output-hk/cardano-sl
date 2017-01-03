@@ -37,13 +37,11 @@ type SscImpureQuery ssc a = forall m. ( MonadReader (SscGlobalState ssc) m
                                        m a
 
 class Ssc ssc => SscStorageClass ssc where
-    sscLoadGlobalState :: (MonadDB ssc m) => HeaderHash ssc -> m (SscGlobalState ssc)
+    sscLoadGlobalState :: MonadDB ssc m => HeaderHash ssc -> m (SscGlobalState ssc)
 
     sscApplyBlocksM :: NEBlocks ssc -> SscGlobalUpdate ssc ()
 
-    -- | Rollback application of last 'n' blocks.  blocks. If there
-    -- are less blocks than 'n' is, just leaves an empty ('def')
-    -- version.
+    -- | Rollback application of blocks.
     sscRollbackM :: NEBlocks ssc -> SscGlobalUpdate ssc ()
 
     -- | Verify Ssc-related predicates of block sequence which is

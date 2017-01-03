@@ -203,7 +203,10 @@ matchOpening :: AddressHash PublicKey -> Opening -> LDQuery Bool
 matchOpening addr opening =
     flip checkOpeningMatchesCommitment (addr, opening) <$> view gtGlobalCommitments
 
-processShares :: VssCertificatesMap -> AddressHash PublicKey -> HashMap (AddressHash PublicKey) (AsBinary Share) -> LDUpdate Bool
+processShares :: VssCertificatesMap
+              -> AddressHash PublicKey
+              -> HashMap (AddressHash PublicKey) (AsBinary Share)
+              -> LDUpdate Bool
 processShares certs addr s
     | null s = pure False
     | otherwise = do

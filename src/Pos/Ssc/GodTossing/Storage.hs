@@ -20,8 +20,8 @@ module Pos.Ssc.GodTossing.Storage
        , gtGetGlobalState
        ) where
 
-import           Control.Lens                   (over, use, view, (%=), (.=), (^.), _1,
-                                                 _2)
+import           Control.Lens                   (over, use, view, views, (%=), (.=), (^.),
+                                                 _1, _2)
 import           Control.Monad.IfElse           (whileM)
 import           Control.Monad.Reader           (ask)
 import           Data.Default                   (def)
@@ -51,6 +51,7 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (
                                                  gsCommitments, gsOpenings, gsShares,
                                                  gsVssCertificates, vcVssKey,
                                                  _gpCertificates)
+import           Pos.Ssc.GodTossing.Types.Base  (VssCertificate (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex, HeaderHash, NEBlocks,
                                                  SharedSeed, SlotId (..), blockMpc,
@@ -90,12 +91,14 @@ mpcVerifyBlock _ (Left _) = return VerSuccess
 -- data to make more checks using this data.
 mpcVerifyBlock verifyPure (Right b) = do
     let SlotId{siSlot = slotId} = b ^. blockSlot
-    let payload      = b ^. blockMpc
+        payload      = b ^. blockMpc
+        curEpoch = siEpoch $ b ^. blockSlot
+        blockCerts = _gpCertificates payload
 
     globalCommitments  <- view gsCommitments
     globalOpenings     <- view gsOpenings
     globalShares       <- view gsShares
-    globalCertificates <- view gsVssCertificates
+    globalCertificates <- views gsVssCertificates VCD.certs
 
     let isComm       = (isCommitmentIdx slotId, "slotId doesn't belong commitment phase")
         isOpen       = (isOpeningIdx slotId, "slotId doesn't belong openings phase")
@@ -106,7 +109,7 @@ mpcVerifyBlock verifyPure (Right b) = do
     --   * check that a VSS certificate is present for the committing node
     let commChecks comms certs =
             [ isComm
-            , (all (`HM.member` (certs <> VCD.certs globalCertificates))
+            , (all (`HM.member` (certs <> globalCertificates))
                    (HM.keys comms),
                    "some committing nodes haven't sent a VSS certificate")
             , (all (not . (`HM.member` globalCommitments))
@@ -139,10 +142,10 @@ mpcVerifyBlock verifyPure (Right b) = do
     -- We don't check whether shares match the openings.
     let shareChecks shares =
             [ isShare
-            --We intentionally don't check, that nodes which decrypted shares
-            --sent its commitments.
-            --If node decrypted shares correctly, such node is useful for us, despite of
-            --it didn't send its commitment.
+            -- We intentionally don't check, that nodes which decrypted shares
+            -- sent its commitments.
+            -- If node decrypted shares correctly, such node is useful for us, despite of
+            -- it didn't send its commitment.
             , (all (`HM.member` globalCommitments)
                    (concatMap HM.keys (toList shares)),
                    "some shares don't have corresponding commitments")
@@ -152,14 +155,22 @@ mpcVerifyBlock verifyPure (Right b) = do
             -- allow spliting shares into multiple messages.
             , (null (shares `HM.intersection` globalShares),
                    "some shares have already been sent")
-            , (all (uncurry (checkShares globalCommitments globalOpenings $
-                             VCD.certs globalCertificates)) $
+            , (all (uncurry (checkShares globalCommitments globalOpenings
+                             globalCertificates)) $
                      HM.toList shares,
                    "some decrypted shares don't match encrypted shares \
                    \in the corresponding commitment")
             ]
+    let certChecks certs =
+            [
+              (all (maybe True
+                          ((==) curEpoch . expiryEpoch)
+                          . flip HM.lookup globalCertificates
+                   ) (HM.keys certs),
+               "some VSS certificates have been resubmitted earlier than expiry epoch")
+            ]
 
-    let ourRes = verifyGeneric $
+    let ourRes = verifyGeneric $ certChecks blockCerts ++
             case payload of
                 CommitmentsPayload comms certs -> commChecks comms certs
                 OpeningsPayload        opens _ -> openChecks opens

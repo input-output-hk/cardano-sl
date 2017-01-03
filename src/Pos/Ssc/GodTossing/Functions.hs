@@ -20,7 +20,8 @@ module Pos.Ssc.GodTossing.Functions
        , secretToSharedSeed
 
        -- * Verification and Checks
-       , checkCert
+       , checkCertSign
+       , checkCertTTL
        , verifyCommitment
        , verifyCommitmentSignature
        , verifySignedCommitment
@@ -48,7 +49,7 @@ import           Universum
 
 import           Pos.Binary.Class               (Bi)
 import           Pos.Binary.Crypto              ()
-import           Pos.Constants                  (k)
+import           Pos.Constants                  (k, vssMaxTTL)
 import           Pos.Crypto                     (EncShare, PublicKey, Secret, SecretKey,
                                                  SecureRandom (..), Share, Threshold,
                                                  VssPublicKey, checkSig, encShareId,
@@ -64,7 +65,7 @@ import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap
 import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types.Address              (AddressHash, addressHash)
-import           Pos.Types.Types                (EpochIndex, LocalSlotIndex,
+import           Pos.Types.Types                (EpochIndex (..), LocalSlotIndex,
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), headerSlot)
 import           Pos.Util                       (AsBinary, asBinary, fromBinaryM)
@@ -204,14 +205,22 @@ verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
       <*> fromBinaryM secret
       <*> fromBinaryM commProof
 
--- CHECK: @checkCert
+-- CHECK: @checkCertSign
 -- | Check that the VSS certificate is signed properly
 -- #checkPubKeyAddress
 -- #checkSig
-checkCert :: (AddressHash PublicKey, VssCertificate) -> Bool
-checkCert (addr, VssCertificate {..}) =
+checkCertSign :: (AddressHash PublicKey, VssCertificate) -> Bool
+checkCertSign (addr, VssCertificate {..}) =
     addressHash vcSigningKey == addr &&
     checkSig vcSigningKey (vcVssKey, expiryEpoch) vcSignature
+
+-- CHECK: @checkCertTTL
+-- | Check that the VSS certificate has valid TTL:
+-- more than 0 and less than vssMaxTTL
+checkCertTTL :: EpochIndex -> VssCertificate -> Bool
+checkCertTTL curEpochIndex VssCertificate{..} =
+    expiryEpoch >= curEpochIndex &&
+    getEpochIndex expiryEpoch < vssMaxTTL + getEpochIndex curEpochIndex
 
 -- CHECK: @checkShare
 -- | Check that the decrypted share matches the encrypted share in the
@@ -298,14 +307,15 @@ verifyGtPayload
 verifyGtPayload header payload =
     verifyGeneric $ otherChecks ++
         case payload of
-            CommitmentsPayload comms certs -> [ certsChecks certs
-                                              , isComm
-                                              , commChecks comms]
-            OpeningsPayload        _ certs -> [certsChecks certs, isOpen]
-            SharesPayload          _ certs -> [certsChecks certs, isShare]
-            CertificatesPayload      certs -> [certsChecks certs, isOther]
+            CommitmentsPayload comms certs ->   isComm
+                                              : commChecks comms
+                                              : certsChecks certs
+            OpeningsPayload        _ certs -> isOpen : certsChecks certs
+            SharesPayload          _ certs -> isShare : certsChecks certs
+            CertificatesPayload      certs -> isOther : certsChecks certs
   where
     slotId  = header ^. headerSlot
+    epochIndex = siEpoch slotId
     epochId = siEpoch slotId
     isComm  = (isCommitmentId slotId, "slotId doesn't belong commitment phase")
     isOpen  = (isOpeningId slotId, "slotId doesn't belong openings phase")
@@ -339,9 +349,12 @@ verifyGtPayload header payload =
     --   * VSS certificates are signed properly
     --
     -- #checkCert
-    certsChecks certs =
-        (all checkCert (HM.toList certs),
+    certsChecks certs = [
+        (all checkCertSign (HM.toList certs),
             "some VSS certificates aren't signed properly")
+      , (all (checkCertTTL epochIndex) (toList certs),
+            "some VSS certificates have invalid TTL")
+      ]
 
     -- CHECK: For all blocks (no matter the type), we check that
     --

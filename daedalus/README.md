@@ -95,6 +95,20 @@ Daedalus.ClientApi.deleteWallet('XXX')()
 ```
 
 
+_send_
+
+```javascript
+// IdFrom - wallet id to send amount from
+// IdTo - wallet id to send amount to
+Daedalus.ClientApi.send('IdFrom', 'IdTo', 80)()
+  .then(function(value) {
+    console.log('SUCCESS', value);
+  }, function(reason) {
+    console.log(reason);
+  })
+```
+
+
 ## Run tests
 
 First, make sure that you have all dependencies installed. Run (only once):

@@ -40,8 +40,9 @@ openNodeDBs recreate fp customUtxo = do
     let blockPath = fp </> "blocks"
     let utxoPath = fp </> "utxo"
     let miscPath = fp </> "misc"
+    let updatePath = fp </> "update"
     mapM_ ensureDirectoryExists [blockPath, utxoPath, miscPath]
-    res <- NodeDBs <$> openDB blockPath <*> openDB utxoPath <*> openDB miscPath
+    res <- NodeDBs <$> openDB blockPath <*> openDB utxoPath <*> openDB miscPath <*> openDB updatePath
     let prepare = do
           prepareBlockDB genesisBlock0
           prepareUtxoDB customUtxo initialTip

@@ -24,20 +24,23 @@ module Pos.Launcher.Runner
        , bracketDHTInstance
        , runKDHT
        , runOurDialog
+       , runOurDialogRaw
        ) where
 
 import           Control.Concurrent.MVar      (newEmptyMVar, newMVar, takeMVar,
                                                tryReadMVar)
-import           Control.Concurrent.STM.TVar  (newTVar)
+import           Control.Concurrent.STM.TVar  (TVar, newTVar)
 import           Control.Lens                 (each, to, (%~), (^..), (^?), _head, _tail)
 import           Control.Monad.Catch          (bracket)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Control.Monad.Trans.Resource (runResourceT)
-import           Control.TimeWarp.Rpc         (Dialog, Transfer, commLoggerName,
-                                               runDialog, runTransfer, setForkStrategy)
+import           Control.TimeWarp.Rpc         (ConnectionPool, Dialog, Transfer,
+                                               commLoggerName, runDialog, runTransfer,
+                                               runTransferRaw, setForkStrategy)
 import           Control.TimeWarp.Timed       (MonadTimed, currentTime, fork, killThread,
                                                repeatForever, runTimedIO, runTimedIO, sec)
 
+import           Data.Default                 (def)
 import           Data.List                    (nub)
 import qualified Data.Time                    as Time
 import           Formatting                   (build, sformat, shown, (%))
@@ -277,6 +280,16 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncUserSecret = userSecretVar
             }
     runContextHolder ctx act
+
+runOurDialogRaw
+    :: TVar (ConnectionPool socketState)
+    -> IO socketState
+    -> LoggerName
+    -> Dialog DHTPacking (Transfer socketState) a
+    -> IO a
+runOurDialogRaw cPool ssInitializer loggerName =
+    runTimedIO .
+    usingLoggerName loggerName . runTransferRaw def cPool ssInitializer . runDialog BiP
 
 runOurDialog
     :: IO socketState

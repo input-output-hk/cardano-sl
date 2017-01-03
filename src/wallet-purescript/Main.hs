@@ -10,7 +10,7 @@ import           Language.PureScript.Bridge.PSTypes (psInt)
 import           Universum
 
 import qualified Pos.Types.Types                    as PT
-import qualified Pos.Wallet.Web.ClientTypes         as CT
+import qualified Pos.Wallet.Web                     as CT
 
 import           PSTypes                            (psHash, psPosixTime)
 
@@ -19,7 +19,8 @@ main =
     writePSTypes
       "daedalus/src/Generated"
       (buildBridge customBridge)
-      [ mkSumType (Proxy @CT.CCurrency)
+      [ mkSumType (Proxy @CT.WalletError)
+      , mkSumType (Proxy @CT.CCurrency)
       , mkSumType (Proxy @CT.CWalletMeta)
       , mkSumType (Proxy @CT.CWalletType)
       , mkSumType (Proxy @CT.CWallet)

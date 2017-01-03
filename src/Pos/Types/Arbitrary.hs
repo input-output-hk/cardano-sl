@@ -21,8 +21,8 @@ import           Data.Text                  (pack)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
-                                             NonZero (..), choose, elements, oneof,
-                                             vector)
+                                             NonZero (..), choose, choose, elements,
+                                             oneof, vector)
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
@@ -212,7 +212,7 @@ instance Arbitrary SmallBadSigsTx where
 
 instance Arbitrary SharedSeed where
     arbitrary = do
-        bs <- vector sharedSeedLength
+        bs <- replicateM sharedSeedLength (choose (0, 255))
         return $ SharedSeed $ BS.pack bs
 
 ----------------------------------------------------------------------------

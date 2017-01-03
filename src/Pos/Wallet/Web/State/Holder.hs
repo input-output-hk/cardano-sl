@@ -1,7 +1,5 @@
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Wallet.Web.State.Holder
        ( WalletWebDB
@@ -22,9 +20,7 @@ import qualified Pos.DB                     as Modern
 import           Pos.DHT.Model              (MonadDHT, MonadMessageDHT,
                                              WithDefaultMsgHeader)
 import           Pos.Slotting               (MonadSlots)
-import qualified Pos.State                  as St
-import           Pos.Txp.LocalData          (MonadTxLD)
-import           Pos.WorkMode               ()
+import           Pos.Txp.Class              (MonadTxpLD)
 
 import           Pos.Wallet.Context         (WithWalletContext)
 import           Pos.Wallet.KeyStorage      (MonadKeys)
@@ -36,11 +32,13 @@ import           Pos.Wallet.Web.State.State (MonadWalletWebDB (..), WalletState)
 -- | Holder for web wallet data
 newtype WalletWebDB m a = WalletWebDB
     { getWalletWebDB :: ReaderT WalletState m a
-    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-                MonadMask, MonadIO, HasLoggerName, MonadWalletDB, WithWalletContext,
-                MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots,
-                WithDefaultMsgHeader, CanLog, MonadKeys, MonadBalances, MonadTxHistory,
-                MonadTxLD, WithNodeContext ssc, St.MonadDB ssc, Modern.MonadDB ssc)
+    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow,
+                MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
+                MonadWalletDB, WithWalletContext, MonadDialog s p,
+                MonadDHT, MonadMessageDHT s, MonadSlots,
+                WithDefaultMsgHeader, CanLog, MonadKeys, MonadBalances,
+                MonadTxHistory, WithNodeContext ssc,
+                Modern.MonadDB ssc, MonadTxpLD ssc)
 
 instance Monad m => WrappedM (WalletWebDB m) where
     type UnwrappedM (WalletWebDB m) = ReaderT WalletState m

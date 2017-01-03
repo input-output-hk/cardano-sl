@@ -7,38 +7,60 @@
 -}
 
 module Pos.Constants
-       ( k
+       (
+         -- * Constants mentioned in paper
+         k
        , slotDuration
        , epochSlots
        , epochDuration
+       , networkDiameter
+
+         -- * SSC constants
        , sharedSeedLength
+
+         -- * Other constants
        , genesisN
        , maxLocalTxs
        , neighborsSendThreshold
-       , networkDiameter
        , RunningMode (..)
        , runningMode
        , isDevelopment
        , defaultPeers
        , sysTimeBroadcastSlots
        , mpcSendInterval
+       , protocolMagic
+       , enchancedMessageBroadcast
+
+         -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
        , mdNoCommitmentsEpochThreshold
+
+         -- * Update system constants
        , curProtocolVersion
        , curSoftwareVersion
+       , appSystemTag
+       , updateServers
        ) where
 
-import           Control.TimeWarp.Timed (Microsecond, sec)
-import qualified Text.Parsec            as P
-import           Universum
+import           Control.TimeWarp.Timed     (Microsecond, sec)
+import           Data.String                (String)
+import           Language.Haskell.TH.Syntax (lift, runIO)
+import           System.Environment         (lookupEnv)
+import qualified Text.Parsec                as P
+import           Universum                  hiding (lift)
 
-import           Pos.CLI                (dhtNodeParser)
-import           Pos.CompileConfig      (CompileConfig (..), compileConfig)
-import           Pos.DHT.Model.Types    (DHTNode)
-import           Pos.Types.Timestamp    (Timestamp)
-import           Pos.Types.Version      (ApplicationName, ProtocolVersion (..),
-                                         SoftwareVersion (..), mkApplicationName)
-import           Pos.Util               ()
+import           Pos.CLI                    (dhtNodeParser)
+import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
+import           Pos.DHT.Model.Types        (DHTNode)
+import           Pos.Types.Timestamp        (Timestamp)
+import           Pos.Types.Update           (SystemTag, mkSystemTag)
+import           Pos.Types.Version          (ApplicationName, ProtocolVersion (..),
+                                             SoftwareVersion (..), mkApplicationName)
+import           Pos.Util                   ()
+
+----------------------------------------------------------------------------
+-- Main constants mentioned in paper
+----------------------------------------------------------------------------
 
 -- | Consensus guarantee (i.e. after what amount of blocks can we consider
 -- blocks stable?).
@@ -57,9 +79,28 @@ epochSlots = 6 * k
 epochDuration :: Microsecond
 epochDuration = epochSlots * slotDuration
 
+-- | Estimated time needed to broadcast message from one node to all
+-- other nodes. Also see 'Pos.CompileConfig.ccNetworkDiameter'.
+networkDiameter :: Microsecond
+networkDiameter = sec . ccNetworkDiameter $ compileConfig
+
+----------------------------------------------------------------------------
+-- SSC
+----------------------------------------------------------------------------
+
 -- | Length of shared seed.
 sharedSeedLength :: Integral a => a
 sharedSeedLength = 32
+
+-- | Length of interval during which node should send her MPC
+-- message. Relevant only for one SSC implementation.
+-- Also see 'Pos.CompileConfig.ccMpcSendInterval'.
+mpcSendInterval :: Microsecond
+mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ compileConfig
+
+----------------------------------------------------------------------------
+-- Other constants
+----------------------------------------------------------------------------
 
 -- | See 'Pos.CompileConfig.ccGenesisN'.
 genesisN :: Integral i => i
@@ -84,11 +125,6 @@ maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
 -- during first 'Pos.CompileConfig.ccSysTimeBroadcastSlots' slots.
 sysTimeBroadcastSlots :: Integral i => i
 sysTimeBroadcastSlots = fromIntegral . ccSysTimeBroadcastSlots $ compileConfig
-
--- | Estimated time needed to broadcast message from one node to all
--- other nodes. Also see 'Pos.CompileConfig.ccNetworkDiameter'.
-networkDiameter :: Microsecond
-networkDiameter = sec . ccNetworkDiameter $ compileConfig
 
 -- | See 'Pos.CompileConfig.ccNeighboursSendThreshold'.
 neighborsSendThreshold :: Integral a => a
@@ -123,11 +159,19 @@ defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
         either (panic . show) identity .
         P.parse dhtNodeParser "Compile time config"
 
--- | Length of interval during which node should send her MPC
--- message. Relevant only for one SSC implementation.
--- Also see 'Pos.CompileConfig.ccMpcSendInterval'.
-mpcSendInterval :: Microsecond
-mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ compileConfig
+-- | Protocol magic constant. Is put to block serialized version to
+-- distinguish testnet and realnet (for example, possible usages are
+-- wider).
+protocolMagic :: Int32
+protocolMagic = fromIntegral . ccProtocolMagic $ compileConfig
+
+-- | Setting this to true enables enchanced message broadcast
+enchancedMessageBroadcast :: Integral a => a
+enchancedMessageBroadcast = fromIntegral $ ccEnchancedMessageBroadcast compileConfig
+
+----------------------------------------------------------------------------
+-- Malicious activity
+----------------------------------------------------------------------------
 
 -- | Number of slots used by malicious actions detection to check if
 -- we are not receiving generated blocks.
@@ -139,14 +183,37 @@ mdNoBlocksSlotThreshold = fromIntegral . ccMdNoBlocksSlotThreshold $ compileConf
 mdNoCommitmentsEpochThreshold :: Integral i => i
 mdNoCommitmentsEpochThreshold = fromIntegral . ccMdNoCommitmentsEpochThreshold $ compileConfig
 
+----------------------------------------------------------------------------
+-- Update system
+----------------------------------------------------------------------------
+
 cardanoSlAppName :: ApplicationName
 cardanoSlAppName = either (panic . (<>) "Failed to init cardanoSlAppName: ")
-                      identity $ mkApplicationName "cardano-sl"
+                      identity $ mkApplicationName "cardano"
 
--- ^ Protocol version application uses
+appSystemTag :: SystemTag
+appSystemTag = $(do
+    mbTag <- runIO (lookupEnv "CSL_SYSTEM_TAG")
+    case mbTag of
+        Nothing ->
+#ifdef DEV_MODE
+            [|panic "'appSystemTag' can't be used if \
+                    \env var \"CSL_SYSTEM_TAG\" wasn't set \
+                    \during compilation" |]
+#else
+            fail "Failed to init appSystemTag: \
+                 \couldn't find env var \"CSL_SYSTEM_TAG\""
+#endif
+        Just tag -> lift =<< mkSystemTag (toText tag))
+
+-- | Protocol version application uses
 curProtocolVersion :: ProtocolVersion
 curProtocolVersion = ProtocolVersion 0 0 0
 
--- ^ Version of application (code running)
+-- | Version of application (code running)
 curSoftwareVersion :: SoftwareVersion
 curSoftwareVersion = SoftwareVersion cardanoSlAppName 1 0
+
+-- | Update servers
+updateServers :: [String]
+updateServers = ccUpdateServers compileConfig

@@ -1,12 +1,7 @@
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE RankNTypes             #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE StandaloneDeriving     #-}
-{-# LANGUAGE TypeFamilies           #-}
-{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Default implementation of WithNodeContext.
 
@@ -39,23 +34,23 @@ import           Universum
 
 import           Pos.Context.Class           (WithNodeContext (..))
 import           Pos.Context.Context         (NodeContext (..))
-import qualified Pos.DB                      as Modern
+import           Pos.DB                      (MonadDB)
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.State                   (MonadDB (..))
+import           Pos.Txp.Class               (MonadTxpLD)
 import           Pos.Types                   (Timestamp (..))
 import           Pos.Util.JsonLog            (MonadJL (..), appendJL)
 
 -- | Wrapper for monadic action which brings 'NodeContext'.
 newtype ContextHolder ssc m a = ContextHolder
     { getContextHolder :: ReaderT (NodeContext ssc) m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
-               MonadCatch, MonadMask, MonadIO, HasLoggerName, CanLog, MonadDB ssc, MonadDialog s p)
+    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed,
+                MonadThrow, MonadCatch, MonadMask, MonadIO, MonadFail,
+                HasLoggerName, CanLog, MonadDB ssc,
+                MonadTxpLD ssc, MonadDialog s p)
 
 -- | Run 'ContextHolder' action.
 runContextHolder :: NodeContext ssc -> ContextHolder ssc m a -> m a
 runContextHolder ctx = flip runReaderT ctx . getContextHolder
-
-deriving instance Modern.MonadDB ssc m => Modern.MonadDB ssc (ContextHolder ssc m)
 
 instance Monad m => WrappedM (ContextHolder ssc m) where
     type UnwrappedM (ContextHolder ssc m) = ReaderT (NodeContext ssc) m

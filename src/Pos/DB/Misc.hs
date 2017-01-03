@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -27,7 +26,7 @@ import           Data.Default                    (def)
 import           Universum
 
 import           Pos.Binary.Class                (Bi)
-import           Pos.Binary.Modern.DB            ()
+import           Pos.Binary.DB                   ()
 import           Pos.Binary.Ssc                  ()
 import           Pos.Crypto                      (Hash, SecretKey, pskOmega)
 import           Pos.DB.Class                    (MonadDB, getMiscDB)

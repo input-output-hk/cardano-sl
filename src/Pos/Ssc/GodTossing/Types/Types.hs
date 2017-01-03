@@ -1,7 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
@@ -54,7 +52,7 @@ import           Pos.Ssc.GodTossing.Types.Base (Commitment, CommitmentsMap, Open
 -- SscGlobalState
 ----------------------------------------------------------------------------
 
--- | MPC-related content of main body.
+-- | Global state of GodTossing, contains relevant SSC data from blocks.
 data GtGlobalState = GtGlobalState
     { -- | Commitments are added during the first phase of epoch.
       _gsCommitments     :: !CommitmentsMap
@@ -65,7 +63,7 @@ data GtGlobalState = GtGlobalState
       -- | Vss certificates are added at any time if they are valid and
       -- received from stakeholders.
     , _gsVssCertificates :: !VssCertificatesMap
-    } deriving (Show, Generic)
+    } deriving (Eq, Show, Generic)
 
 deriveSafeCopySimple 0 'base ''GtGlobalState
 makeLenses ''GtGlobalState
@@ -103,6 +101,16 @@ instance Buildable GtGlobalState where
                 ("  certificates from: "%listJson%"\n")
                 (HM.keys _gsVssCertificates)
 
+instance Default GtGlobalState where
+    def =
+        GtGlobalState
+        {
+          _gsCommitments = mempty
+        , _gsOpenings = mempty
+        , _gsShares = mempty
+        , _gsVssCertificates = mempty
+        }
+
 ----------------------------------------------------------------------------
 -- SscPayload
 ----------------------------------------------------------------------------
@@ -113,7 +121,7 @@ data GtPayload
     | OpeningsPayload     !OpeningsMap    !VssCertificatesMap
     | SharesPayload       !SharesMap      !VssCertificatesMap
     | CertificatesPayload !VssCertificatesMap
-    deriving (Show, Generic)
+    deriving (Eq, Show, Generic)
 
 emptyPayload :: GtPayload
 emptyPayload = CertificatesPayload mempty

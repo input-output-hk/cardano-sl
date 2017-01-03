@@ -1,5 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes       #-}
+{-# LANGUAGE RankNTypes #-}
 
 module TxAnalysis
        ( createTxTimestamps
@@ -12,7 +11,7 @@ import           Control.TimeWarp.Timed (repeatForever)
 import qualified Data.HashMap.Strict    as M
 import           Data.IORef             (IORef, modifyIORef', newIORef, readIORef,
                                          writeIORef)
-import           Data.List              (intersect)
+import           Data.List              (intersect, last)
 import           Data.Maybe             (fromJust, maybeToList)
 import           Formatting             (build, sformat, (%))
 import           System.FilePath.Posix  ((</>))
@@ -21,9 +20,9 @@ import           Universum
 
 import           Pos.Constants          (k, slotDuration)
 import           Pos.Crypto             (hash)
+import           Pos.DB                 (loadBlocksFromTipWhile)
 import           Pos.Slotting           (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.Class          (SscConstraint)
-import           Pos.State              (getBlockByDepth)
 import           Pos.Types              (SlotId (..), TxId, blockSlot, blockTxs)
 import           Pos.WorkMode           (ProductionMode)
 
@@ -59,7 +58,9 @@ appendVerified ts roundNum df logsPrefix = do
 checkTxsInLastBlock :: forall ssc . SscConstraint ssc
                     => TxTimestamps -> FilePath -> ProductionMode ssc ()
 checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
-    mBlock <- getBlockByDepth k
+    let lastSafe [] = Nothing
+        lastSafe xs = Just $ last xs
+    mBlock <- fmap fst . lastSafe <$> loadBlocksFromTipWhile (\_ depth -> depth < k)
     case mBlock of
         Nothing -> pure ()
         Just (Left _) -> pure ()

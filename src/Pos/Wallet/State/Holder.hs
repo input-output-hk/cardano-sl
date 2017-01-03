@@ -1,8 +1,6 @@
-{-# LANGUAGE CPP                   #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE CPP                  #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Wallet.State.Holder
        ( WalletDB
@@ -27,9 +25,7 @@ import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
                                               WithDefaultMsgHeader)
 import           Pos.Slotting                (MonadSlots)
 import           Pos.Ssc.Extra.MonadLD       (MonadSscLD)
-import           Pos.State                   (MonadDB)
 import           Pos.Statistics              (MonadStats)
-import           Pos.Txp.LocalData           (MonadTxLD)
 import           Pos.Util.JsonLog            (MonadJL)
 
 import           Pos.Wallet.Context          (WithWalletContext)
@@ -40,11 +36,12 @@ import           Pos.WorkMode                ()
 -- | Holder for web wallet data
 newtype WalletDB m a = WalletDB
     { getWalletDB :: ReaderT WalletState m a
-    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow, MonadCatch,
-                MonadMask, MonadIO, MonadDB ssc, HasLoggerName, WithNodeContext ssc,
-                MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots, MonadSscLD ssc,
-                WithDefaultMsgHeader, MonadJL, CanLog, MonadTxLD, MonadStats, MonadKeys,
-                WithWalletContext)
+    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow,
+                MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
+                WithNodeContext ssc, MonadDialog s p, MonadDHT,
+                MonadMessageDHT s, MonadSlots, MonadSscLD ssc,
+                WithDefaultMsgHeader, MonadJL, CanLog, MonadStats,
+                MonadKeys, WithWalletContext)
 
 instance Monad m => WrappedM (WalletDB m) where
     type UnwrappedM (WalletDB m) = ReaderT WalletState m

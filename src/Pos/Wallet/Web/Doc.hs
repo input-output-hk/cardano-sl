@@ -1,7 +1,5 @@
-{-# LANGUAGE DataKinds            #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE TypeOperators        #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE DataKinds     #-}
+{-# LANGUAGE TypeOperators #-}
 
 -- | Documentation of wallet web API.
 
@@ -27,13 +25,13 @@ import qualified Servant.Docs               as SD
 import           Universum
 
 import           Pos.Aeson.ClientTypes      ()
+import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Genesis                (genesisAddresses, genesisUtxo)
 import           Pos.Types                  (Coin)
 import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CTx, CTxId,
                                              CTxMeta, CWallet, CWalletMeta,
                                              addressToCAddress)
-import           Prelude                    (fail)
 
 walletDocs :: API
 walletDocs = docsWith defaultDocOptions intros extras (SD.pretty walletApi)

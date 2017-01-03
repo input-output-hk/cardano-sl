@@ -4,24 +4,29 @@ module Test.Pos.Types.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec            (Spec, describe)
-import           Test.Hspec.QuickCheck (prop)
+import           Test.Hspec    (Spec, describe)
 import           Universum
 
-import qualified Pos.Types             as T
+import qualified Pos.Types     as T
 
-import           Test.Pos.Util         (binaryEncodeDecode)
+import           Test.Pos.Util (binaryTest)
 
 spec :: Spec
 spec = describe "Types" $ do
     describe "Bi instances" $ do
-        prop "Epochindex" (binaryEncodeDecode @T.EpochIndex)
-        prop "Localslotindex" (binaryEncodeDecode @T.LocalSlotIndex)
-        prop "SlotId" (binaryEncodeDecode @T.SlotId)
-        prop "Coin" (binaryEncodeDecode @T.Coin)
-        prop "Address" (binaryEncodeDecode @T.Address)
-        prop "TxIn" (binaryEncodeDecode @T.TxIn)
-        prop "TxOut" (binaryEncodeDecode @T.TxOut)
-        prop "Tx" (binaryEncodeDecode @T.Tx)
-        prop "SharedSeed" (binaryEncodeDecode @T.SharedSeed)
-        prop "Chaindifficulty" (binaryEncodeDecode @T.ChainDifficulty)
+        binaryTest @T.EpochIndex
+        binaryTest @T.LocalSlotIndex
+        binaryTest @T.SlotId
+        binaryTest @T.Coin
+        binaryTest @T.Address
+        binaryTest @T.TxInWitness
+        binaryTest @T.TxDistribution
+        binaryTest @T.TxIn
+        binaryTest @T.TxOut
+        binaryTest @T.Tx
+        binaryTest @T.SharedSeed
+        binaryTest @T.ChainDifficulty
+        binaryTest @T.UpdateProposal
+        binaryTest @T.UpdateVote
+        binaryTest @T.UpdateData
+        binaryTest @T.SystemTag

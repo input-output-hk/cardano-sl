@@ -1,9 +1,4 @@
-{-# LANGUAGE DefaultSignatures      #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE StandaloneDeriving     #-}
-{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Class which provides access to database.
 
@@ -15,6 +10,7 @@ module Pos.DB.Class
        ) where
 
 import           Control.Lens         (ASetter', view)
+import           Control.Monad.Except (ExceptT (..), mapExceptT)
 import           Control.Monad.State  (StateT (..), get)
 import           Control.TimeWarp.Rpc (ResponseT (..))
 import qualified Database.RocksDB     as Rocks
@@ -46,6 +42,11 @@ instance (MonadDB ssc m) => MonadDB ssc (ReaderT a m) where
         ask >>= lift . usingReadOptions how l . runReaderT m
     usingWriteOptions how l m =
         ask >>= lift . usingWriteOptions how l . runReaderT m
+
+instance (MonadDB ssc m) => MonadDB ssc (ExceptT e m) where
+    getNodeDBs = lift getNodeDBs
+    usingReadOptions how l = mapExceptT (usingReadOptions how l)
+    usingWriteOptions how l = mapExceptT (usingWriteOptions how l)
 
 instance (MonadDB ssc m) => MonadDB ssc (StateT a m) where
     getNodeDBs = lift getNodeDBs

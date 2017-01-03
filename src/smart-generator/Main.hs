@@ -1,12 +1,11 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ViewPatterns        #-}
 
 module Main where
 
 import           Control.Concurrent.Async.Lifted (forConcurrently)
 import           Control.Concurrent.STM.TVar     (modifyTVar', newTVarIO, readTVarIO)
+import           Control.Lens                    (view, _1)
 import           Control.TimeWarp.Rpc            (NetworkAddress)
 import           Control.TimeWarp.Timed          (Microsecond, for, fork_, ms, sec, wait)
 import           Data.List                       ((!!))
@@ -29,15 +28,15 @@ import           Pos.DHT.Real                    (KademliaDHT (..), KademliaDHTI
 import           Pos.Genesis                     (genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..), bracketDHTInstance,
-                                                  runNode, runProductionMode,
-                                                  runTimeSlaveReal, stakesDistr)
+                                                  initLrc, initSemaphore, runNode,
+                                                  runProductionMode, runTimeSlaveReal,
+                                                  stakesDistr)
 import           Pos.Ssc.Class                   (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing              (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon              (SscNistBeacon)
 import           Pos.Ssc.SscAlgo                 (SscAlgo (..))
-import           Pos.State                       (isTxVerified)
 import           Pos.Statistics                  (NoStatsT (..))
-import           Pos.Types                       (Tx (..), TxAux, TxWitness)
+import           Pos.Types                       (TxAux)
 import           Pos.Util.JsonLog                ()
 import           Pos.Wallet                      (submitTxRaw)
 import           Pos.WorkMode                    (ProductionMode)
@@ -47,7 +46,7 @@ import           TxAnalysis                      (checkWorker, createTxTimestamp
                                                   registerSentTx)
 import           TxGeneration                    (BambooPool, createBambooPool,
                                                   curBambooTx, initTransaction,
-                                                  nextValidTx, resetBamboo)
+                                                  isTxVerified, nextValidTx, resetBamboo)
 import           Util
 
 
@@ -62,7 +61,7 @@ seedInitTx recipShare bp initTx = do
     wait $ for slotDuration
     -- If next tx is present in utxo, then everything is all right
     tx <- liftIO $ curBambooTx bp 1
-    isVer <- isTxVerified tx
+    isVer <- isTxVerified $ view _1 tx
     if isVer
         then pure ()
         else seedInitTx recipShare bp initTx
@@ -85,6 +84,8 @@ runSmartGen :: forall ssc . SscConstraint ssc
             => KademliaDHTInstance -> NodeParams -> SscParams ssc -> GenOptions -> IO ()
 runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
     runProductionMode inst np sscnp $ do
+    initSemaphore
+    initLrc
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         initTx = initTransaction opts
 
@@ -240,9 +241,8 @@ main = do
 
         let params =
                 NodeParams
-                { npDbPath        = Nothing
-                , npDbPathM       = "zhogovo"
-                , npRebuildDb     = False
+                { npDbPathM       = "rocks-smartwallet"
+                , npRebuildDb     = True
                 , npSystemStart   = systemStart
                 , npSecretKey     = Just sk
                 , npKeyfilePath   = "smartgen-secret.sk"
@@ -259,7 +259,7 @@ main = do
                 }
             gtParams =
                 GtParams
-                { gtpRebuildDb  = False
+                { gtpRebuildDb  = True
                 , gtpSscEnabled = False
                 , gtpVssKeyPair = vssKeyPair
                 }

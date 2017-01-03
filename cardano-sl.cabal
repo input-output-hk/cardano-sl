@@ -23,32 +23,30 @@ flag dev-mode
   description: Switch between Development and Production mode
 
 Flag with-web
-  default:     False
+  default:     True
   manual:      True
 
   description: Build with web part.
 
 Flag with-wallet
-  default:     False
+  default:     True
   manual:      True
 
   description: Build with wallet.
 
-Flag modern
-  default:     False
-  manual:      True
-
-  description: Switch between modern DB endpoits and old onex
-
 library
   exposed-modules:      Pos.Binary
+                        Pos.Block.Arbitrary
+                        Pos.Block.Network
                         Pos.CLI
                         Pos.Context
                         Pos.Communication
                         Pos.CompileConfig
                         Pos.Constants
                         Pos.Crypto
+                        Pos.DB
                         Pos.Data.Attributes
+                        Pos.DHT
                         Pos.DHT.Model
                         Pos.DHT.Model.Types
                         Pos.DHT.Model.Util
@@ -59,6 +57,8 @@ library
                         Pos.DHT.Real
                         Pos.DHT.Real.Real
                         Pos.DHT.Real.Types
+                        Pos.Eligibility
+                        Pos.Genesis
                         Pos.FollowTheSatoshi
                         Pos.Script
                         Pos.Script.Examples
@@ -67,7 +67,6 @@ library
                         Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon
                         Pos.Ssc.SscAlgo
-                        Pos.Genesis
                         Pos.Launcher
                         Pos.Merkle
                         Pos.Security
@@ -82,14 +81,8 @@ library
                         Pos.Ssc.Class.Listeners
                         Pos.Ssc.Class.LocalData
                         Pos.Ssc.Extra
-                        Pos.State
-                        Pos.State.Acidic
-                        Pos.State.Holder
-                        Pos.State.State
-                        Pos.State.Storage
                         Pos.Statistics
                         Pos.Txp.Listeners
-                        Pos.Txp.Storage
                         Pos.Types
                         Pos.Types.Address
                         Pos.Types.Arbitrary
@@ -124,7 +117,7 @@ library
                         Pos.Binary.Communication
                         Pos.Binary.DHTModel
                         Pos.Binary.Merkle
-                        Pos.Binary.Modern.DB
+                        Pos.Binary.DB
                         Pos.Binary.Script
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
@@ -139,16 +132,18 @@ library
                         Pos.Block.Network.Server
                         Pos.Block.Network.Server.State
                         Pos.Block.Network.Server.Listeners
+                        Pos.Block.Network.Server.Strategy
                         Pos.Block.Worker
+                        Pos.Communication.Arbitrary
                         Pos.Communication.Methods
                         Pos.Communication.Types
-                        Pos.Communication.Types.Block
                         Pos.Communication.Types.Delegation
+                        Pos.Communication.Types.Protocol
                         Pos.Communication.Types.State
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Server
-                        Pos.Communication.Server.Block
                         Pos.Communication.Server.Delegation
+                        Pos.Communication.Server.Protocol
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Util
                         Pos.CompileConfig.Parser
@@ -169,7 +164,6 @@ library
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
-                        Pos.DB
                         Pos.DB.Block
                         Pos.DB.Class
                         Pos.DB.DB
@@ -180,29 +174,25 @@ library
                         Pos.DB.Types
                         Pos.DB.Utxo
                         Pos.DB.DBIterator
-                        Pos.Modern.Ssc.GodTossing.Storage.Storage
-                        Pos.Modern.Ssc.GodTossing.Helpers
-                        Pos.Modern.Ssc.GodTossing.Storage.Types
-                        Pos.Modern.Ssc.GodTossing.Functions
+                        Pos.DHT.Arbitrary
                         Pos.Ssc.Extra.Holder
-                        Pos.Ssc.Extra.LocalData
                         Pos.Ssc.Extra.MonadGS
                         Pos.Ssc.Extra.MonadLD
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
                         Pos.Ssc.GodTossing.Genesis
-                        Pos.Ssc.GodTossing.Listener.Listeners
+                        Pos.Ssc.GodTossing.Listeners
+                        Pos.Ssc.GodTossing.LocalData
                         Pos.Ssc.GodTossing.LocalData.Helpers
                         Pos.Ssc.GodTossing.LocalData.LocalData
                         Pos.Ssc.GodTossing.LocalData.Types
-                        Pos.Ssc.GodTossing.Storage.Types
                         Pos.Ssc.GodTossing.Secret.SecretStorage
                         Pos.Ssc.GodTossing.Secret.Types
                         Pos.Ssc.GodTossing.SecretStorage 
                         Pos.Ssc.GodTossing.Seed
-                        Pos.Ssc.GodTossing.Storage.Storage
-                        Pos.Ssc.GodTossing.Storage.Types
+                        Pos.Ssc.GodTossing.Shares
+                        Pos.Ssc.GodTossing.Storage
                         Pos.Ssc.GodTossing.Types
                         Pos.Ssc.GodTossing.Types.Base
                         Pos.Ssc.GodTossing.Types.Instance
@@ -211,8 +201,6 @@ library
                         Pos.Ssc.GodTossing.Types.Types
                         Pos.Ssc.GodTossing.Utils
                         Pos.Ssc.GodTossing.Workers
-                        Pos.State.Storage.Block
-                        Pos.State.Storage.Types
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
@@ -220,7 +208,6 @@ library
                         Pos.Txp.Class
                         Pos.Txp.Error
                         Pos.Txp.Holder
-                        Pos.Txp.LocalData
                         Pos.Txp.Logic
                         Pos.Txp.Types
                         Pos.Txp.Types.Communication
@@ -231,6 +218,7 @@ library
                         Pos.Types.Utxo.Pure
                         Pos.Worker.Lrc
                         Pos.Worker.Stats
+                        Pos.Update
                         Pos.Util.Arbitrary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented
@@ -273,8 +261,8 @@ library
                         Pos.Wallet.Web.State.Holder
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
-  build-depends:        IfElse
-                      , HsOpenSSL
+  build-depends:        HsOpenSSL
+                      , IfElse
                       , QuickCheck
                       , UtilityTM
                       , acid-state
@@ -306,6 +294,9 @@ library
                       , focus
                       , formatting
                       , hashable
+                      , http-client
+                      , http-client-tls
+                      , http-conduit
                       , kademlia
                       , lens
                       , lifted-async
@@ -317,6 +308,7 @@ library
                       , monad-loops
                       , mono-traversable
                       , mtl
+                      , neat-interpolation
                       , optparse-applicative
                       , optparse-simple
                       , parsec
@@ -361,10 +353,20 @@ library
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -377,8 +379,6 @@ library
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
-  if flag(modern)
-    cpp-options: -DMODERN
 
 executable cardano-node
   hs-source-dirs:      src/node
@@ -407,10 +407,20 @@ executable cardano-node
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -447,10 +457,20 @@ executable cardano-analyzer
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -488,10 +508,20 @@ executable cardano-wallet
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -522,10 +552,20 @@ executable cardano-wallet-hs2purs
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -578,10 +618,20 @@ executable cardano-smart-generator
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -606,10 +656,20 @@ executable cardano-web-docs
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -636,10 +696,20 @@ executable cardano-wallet-web-docs
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -666,9 +736,15 @@ executable cardano-checks
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec
+                       Test.Pos.BinarySpec
+                       Test.Pos.Block.Identity.BinarySpec
+                       Test.Pos.Block.Identity.SafeCopySpec
+                       Test.Pos.Communication.Identity.BinarySpec
                        Test.Pos.CryptoSpec
+                       Test.Pos.DHT.Identity.BinarySpec
                        Test.Pos.FollowTheSatoshiSpec
                        Test.Pos.MerkleSpec
+                       Test.Pos.Script.Identity.BinarySpec
                        Test.Pos.SlottingSpec
                        Test.Pos.Ssc.GodTossing.Identity.BinarySpec
                        Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
@@ -720,10 +796,20 @@ test-suite cardano-test
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -733,7 +819,6 @@ benchmark cardano-bench-criterion
   main-is:             Local/Criterion.hs
   other-modules:       Bench.Pos.Criterion.FollowTheSatoshiBench
                        Bench.Pos.Criterion.TxSigningBench
-                       Bench.Pos.Criterion.TxVerifyingBench
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
                      , base
@@ -760,12 +845,20 @@ benchmark cardano-bench-criterion
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-
-  buildable: False

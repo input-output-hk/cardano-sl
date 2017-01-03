@@ -1,11 +1,10 @@
-{-# LANGUAGE CPP                   #-}
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Miscellaneous unclassified utility functions.
 
@@ -21,6 +20,7 @@ module Pos.Util
        , inAssertMode
        , diffDoubleMap
        , getKeys
+       , maybeThrow
 
        -- * SafeCopy
        , getCopyBinary
@@ -32,7 +32,6 @@ module Pos.Util
        , _neHead
        , _neTail
        , _neLast
-       , neFromList
        , zoom'
 
        -- * Prettification
@@ -59,20 +58,28 @@ module Pos.Util
        , AsBinaryClass (..)
        , fromBinaryM
 
-       , verResToEither
        , eitherToVerRes
 
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
+       -- ** MonadFail (Either s), assuming IsString s
+       -- ** MonadFail ParsecT
+       -- ** MonadFail Dialog
+       -- ** MonadFail Transfer
+       -- ** MonadFail TimedIO
+       -- ** MonadFail ResponseT
+       -- ** MonadFail LoggerNameBox
        ) where
 
 import           Control.Lens                  (Lens', LensLike', Magnified, Zoomed,
                                                 lensRules, magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
-import           Control.Monad.Fail            (MonadFail, fail)
-import           Control.TimeWarp.Rpc          (Message (messageName), MessageName)
+import qualified Control.Monad                 as Monad (fail)
+import           Control.TimeWarp.Rpc          (Dialog (..), Message (messageName),
+                                                MessageName, ResponseT (..),
+                                                Transfer (..))
 import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
-                                                Second, for, killThread)
+                                                Second, TimedIO, for, killThread)
 import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
@@ -91,7 +98,9 @@ import           Serokell.Util                 (VerificationRes (..))
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
                                                 SGR (Reset, SetColor), setSGRCode)
-import           System.Wlog                   (WithLogger, logWarning)
+import           System.Wlog                   (LoggerNameBox (..), WithLogger,
+                                                logWarning)
+import           Text.Parsec                   (ParsecT)
 import           Universum
 import           Unsafe                        (unsafeInit, unsafeLast)
 
@@ -107,7 +116,7 @@ import           Pos.Util.NotImplemented       ()
 -- | A wrapper over 'ByteString' for adding type safety to
 -- 'Pos.Crypto.Pki.encryptRaw' and friends.
 newtype Raw = Raw ByteString
-    deriving (Eq, Ord, Show)
+    deriving (Bi, Eq, Ord, Show, Typeable)
 
 -- | A helper for "Data.SafeCopy" that creates 'putCopy' given a 'Binary'
 -- instance.
@@ -168,6 +177,9 @@ diffDoubleMap a b = HM.foldlWithKey' go mempty a
                        then res
                        else HM.insert extKey diff res
 
+maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
+maybeThrow e = maybe (throwM e) pure
+
 ----------------------------------------------------------------------------
 -- Lens utils
 ----------------------------------------------------------------------------
@@ -214,10 +226,6 @@ _neTail f (x :| xs) = (x :|) <$> f xs
 _neLast :: Lens' (NonEmpty a) a
 _neLast f (x :| []) = (:| []) <$> f x
 _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
-
-neFromList :: [a] -> NonEmpty a
-neFromList [] = panic "Empty list can't be passed to NonEmpty.fromList"
-neFromList xs = NE.fromList xs
 
 -- [SRK-51]: we should try to get this one into safecopy itself though it's
 -- unlikely that they will choose a different implementation (if they do
@@ -403,12 +411,6 @@ class AsBinaryClass a where
 fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
 fromBinaryM = either fail return . fromBinary
 
-verResToEither :: VerificationRes -> a -> Either Text a
-verResToEither res val =
-    case res of
-        VerFailure errors -> Left $ T.intercalate "; " errors
-        VerSuccess        -> Right val
-
 eitherToVerRes :: Either Text a -> VerificationRes
 eitherToVerRes (Left errors) = if T.null errors then VerFailure []
                                else VerFailure $ T.split (==';') errors
@@ -416,3 +418,17 @@ eitherToVerRes (Right _ )    = VerSuccess
 
 instance IsString s => MonadFail (Either s) where
     fail = Left . fromString
+
+instance MonadFail (ParsecT s u m) where
+    fail = Monad.fail
+
+deriving instance MonadFail m => MonadFail (Dialog p m)
+
+deriving instance MonadFail m => MonadFail (ResponseT s m)
+
+deriving instance MonadFail (Transfer s)
+
+deriving instance MonadFail m => MonadFail (LoggerNameBox m)
+
+instance MonadFail TimedIO where
+    fail = Monad.fail

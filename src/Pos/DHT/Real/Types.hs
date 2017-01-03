@@ -1,8 +1,5 @@
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
@@ -62,6 +59,7 @@ data KademliaDHTInstance = KademliaDHTInstance
     , kdiKey             :: !DHTKey
     , kdiInitialPeers    :: ![DHTNode]
     , kdiExplicitInitial :: !Bool
+    , kdiKnownPeersCache :: !(TVar [K.Node DHTKey])
     }
 
 -- | Node context for 'KademliaDHTInstance'.
@@ -94,8 +92,9 @@ data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
 -- | Node of /Kademlia DHT/ algorithm with access to 'KademliaDHTContext'.
 newtype KademliaDHT m a = KademliaDHT
     { unKademliaDHT :: ReaderT (KademliaDHTContext m) m a
-    } deriving (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadIO,
-                MonadMask, MonadTimed, MonadDialog s p, CanLog, HasLoggerName)
+    } deriving (Functor, Applicative, Monad, MonadFail, MonadThrow,
+                MonadCatch, MonadIO, MonadMask, MonadTimed,
+                MonadDialog s p, CanLog, HasLoggerName)
 
 instance MonadResponse s m => MonadResponse s (KademliaDHT m) where
     replyRaw dat = KademliaDHT $ replyRaw (hoist unKademliaDHT dat)

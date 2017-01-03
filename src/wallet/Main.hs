@@ -1,10 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections       #-}
-{-# LANGUAGE TypeApplications    #-}
 
 module Main where
 
@@ -12,7 +9,7 @@ import           Control.Monad.Reader   (MonadReader (..), ReaderT, asks, runRea
 import           Control.TimeWarp.Rpc   (NetworkAddress)
 import           Control.TimeWarp.Timed (for, wait)
 import           Data.List              ((!!))
-import           Formatting             (build, int, sformat, (%))
+import           Formatting             (build, int, sformat, (%), stext)
 import           Options.Applicative    (execParser)
 import           System.IO              (hFlush, stdout)
 import           Universum
@@ -44,8 +41,10 @@ evalCmd (Balance addr) = lift (getBalance addr) >>=
                          evalCommands
 evalCmd (Send idx outputs) = do
     (skeys, na) <- ask
-    tx <- lift $ submitTx (skeys !! idx) na (map (,[]) outputs)
-    putText $ sformat ("Submitted transaction: "%txaF) tx
+    etx <- lift $ submitTx (skeys !! idx) na (map (,[]) outputs)
+    case etx of
+        Left err -> putText $ sformat ("Error: "%stext) err
+        Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
     evalCommands
 evalCmd Help = do
     putText $

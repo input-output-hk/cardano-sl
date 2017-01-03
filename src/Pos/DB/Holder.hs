@@ -1,16 +1,11 @@
-{-# LANGUAGE ConstraintKinds        #-}
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE StandaloneDeriving     #-}
-{-# LANGUAGE TypeFamilies           #-}
-{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Default implementation of MonadDB.
 
 module Pos.DB.Holder
-       ( DBHolder
+       ( DBHolder (..)
        , runDBHolder
        ) where
 
@@ -30,14 +25,12 @@ import           Universum
 
 import           Pos.DB.Class                 (MonadDB (..))
 import           Pos.DB.Types                 (DB (..), NodeDBs (..))
-import qualified Pos.State.State              as Legacy
-
 
 newtype DBHolder ssc m a = DBHolder
     { getDBHolder :: ReaderT (NodeDBs ssc) m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed, MonadThrow,
-                MonadCatch, MonadMask, MonadIO, HasLoggerName, CanLog, MonadDialog s p,
-                Legacy.MonadDB ssc)
+    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed,
+                MonadThrow, MonadCatch, MonadMask, MonadIO, MonadFail,
+                HasLoggerName, CanLog, MonadDialog s p)
 
 instance Monad m => WrappedM (DBHolder ssc m) where
     type UnwrappedM (DBHolder ssc m) = ReaderT (NodeDBs ssc) m

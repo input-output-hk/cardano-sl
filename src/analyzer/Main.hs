@@ -3,7 +3,6 @@
 module Main where
 
 import           Control.Applicative        (empty)
-import           Control.Monad              (fail)
 import           Control.TimeWarp.Timed     (Millisecond)
 import           Data.Aeson                 (decode, fromJSON, json')
 import qualified Data.Aeson                 as A

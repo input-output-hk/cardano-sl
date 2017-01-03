@@ -1,8 +1,5 @@
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Socket state of block processing server.
 
@@ -22,7 +19,6 @@ module Pos.Block.Network.Server.State
 import           Control.Concurrent.STM  (TVar, modifyTVar, readTVar)
 import           Control.Lens            (makeClassy, over, set, view, (.~), (^.))
 import           Data.Default            (Default (def))
-import           Data.List               (last)
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty      as NE
 import           Serokell.Util.Verify    (isVerSuccess)
@@ -81,7 +77,7 @@ recordHeadersRequest msg var =
 matchRequestedHeaders
     :: (Ssc ssc, MonadIO m, HasBlockSocketState s ssc)
     => NonEmpty (BlockHeader ssc) -> TVar s -> m Bool
-matchRequestedHeaders (newTip :| hs) var =
+matchRequestedHeaders headers@(newTip :| hs) var =
     atomically $
     do blockSS <- readTVar var
        let res = maybe False
@@ -92,7 +88,7 @@ matchRequestedHeaders (newTip :| hs) var =
   where
     formChain = isVerSuccess (verifyHeaders True $ newTip:hs)
     matchRequestedHeadersDo mgh =
-        let startHeader = bool (last hs) newTip $ null hs
+        let startHeader = NE.last headers
             startMatches = hash startHeader `elem` mghFrom mgh
             mghToMatches = Just (hash newTip) == mghTo mgh
         in and [ startMatches

@@ -1,7 +1,4 @@
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -24,8 +21,6 @@ import           Control.Exception          (ArithException (..), ArrayException
                                              ErrorCall (..), Handler (..),
                                              PatternMatchFail (..), SomeException (..),
                                              catches, displayException, throwIO)
-import           Control.Monad.Fail         (fail)
-import           Data.FileEmbed             (embedStringFile, makeRelativeToProject)
 import           Data.String                (String)
 import qualified Interface.Integration      as PL
 import qualified Interface.Prelude          as PL
@@ -37,6 +32,7 @@ import           Universum                  hiding (lift)
 import           Pos.Binary.Class           (Bi)
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Script.Type            (Script (..), Script_v0)
+import           Pos.Types.Types            (TxSigData)
 
 {- NOTE
 
@@ -103,10 +99,11 @@ type TxScriptError = String
 -- | Validate a transaction, given a validator and a redeemer.
 txScriptCheck
     :: Bi Script_v0
-    => Script                     -- ^ Validator
+    => TxSigData
+    -> Script                     -- ^ Validator
     -> Script                     -- ^ Redeemer
     -> Either TxScriptError ()
-txScriptCheck validator redeemer = case spoon result of
+txScriptCheck sigData validator redeemer = case spoon result of
     Left x              -> Left ("exception when evaluating a script: " ++ x)
     Right (Left x)      -> Left x
     Right (Right False) -> Left "result of evaluation is 'failure'"
@@ -123,7 +120,7 @@ txScriptCheck validator redeemer = case spoon result of
             0 -> Bi.decodeFull (scrScript redeemer)
             v -> Left ("unknown script version of redeemer: " ++ show v)
         (script, env) <- PL.buildValidationScript stdlib valScr redScr
-        PL.checkValidationResult (script, env)
+        PL.checkValidationResult (Bi.encode sigData) (script, env)
 
 stdlib :: PLCore.Program
 stdlib = $(do

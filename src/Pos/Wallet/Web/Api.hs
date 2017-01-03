@@ -9,6 +9,7 @@ module Pos.Wallet.Web.Api
        ) where
 
 import           Data.Proxy                 (Proxy (Proxy))
+
 import           Pos.Types                  (Coin, Tx)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CTx, CTxId, CTxMeta,
                                              CWallet, CWalletMeta)

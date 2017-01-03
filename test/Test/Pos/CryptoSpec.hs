@@ -25,8 +25,8 @@ import           Pos.Crypto            (EncShare, Hash, KeyPair (..), ProxyCert,
 import           Pos.Ssc.GodTossing    ()
 import           Pos.Util              (AsBinary)
 
-import           Test.Pos.Util         (binaryEncodeDecode, safeCopyEncodeDecode,
-                                        serDeserId)
+import           Test.Pos.Util         (binaryEncodeDecode, binaryTest,
+                                        safeCopyEncodeDecode, safeCopyTest, serDeserId)
 
 spec :: Spec
 spec = describe "Crypto" $ do
@@ -47,10 +47,10 @@ spec = describe "Crypto" $ do
         describe "Hash instances" $ do
             prop
                 "Bi"
-                (binaryEncodeDecode @(Hash Int))
+                (binaryEncodeDecode @(Hash Word64))
             prop
                 "SafeCopy"
-                (safeCopyEncodeDecode @(Hash Int))
+                (safeCopyEncodeDecode @(Hash Word64))
         describe "hashes of different values are different" $ do
             prop
                 "Bool"
@@ -63,52 +63,43 @@ spec = describe "Crypto" $ do
                 (hashInequality @[[Maybe Integer]])
         -- Let's protect ourselves against *accidental* hash changes
         describe "check hash sample" $ do
-            specify "1 :: Int" $
-                checkHash (1 :: Int)
+            specify "1 :: Word64" $
+                checkHash (1 :: Word64)
                     -- "009d179ba955ae9b0690b8f6a96a866972b1606d97b0c9d8094073a374de77b7612d4ae35ac3e38f4092aced0f1680295a0bc95722ad039253ee6aa275569848" -- Blake2b_512
                     "c43b29d95a3585cb5264b3223d70e853f899a82e01cb3e62b0bdd871" -- Blake2s_224
 
     describe "Signing" $ do
         describe "Identity testing" $ do
             describe "Bi instances" $ do
-                prop "SecretKey"                (binaryEncodeDecode @SecretKey)
-                prop "PublicKey"                (binaryEncodeDecode @PublicKey)
-                prop "Signature"                (binaryEncodeDecode @(Signature ()))
-                prop "ProxyCert"                (binaryEncodeDecode @(ProxyCert Int))
-                prop "ProxySecretKey"           (binaryEncodeDecode @(ProxySecretKey Int))
-                prop "ProxySignature"
-                    (binaryEncodeDecode @(ProxySignature Int Int))
-                prop "Signed"                   (binaryEncodeDecode @(Signed Bool))
-                prop "VssPublicKey"             (binaryEncodeDecode @VssPublicKey)
-                prop "AsBinary VssPublicKey"
-                    (binaryEncodeDecode @(AsBinary VssPublicKey))
-                prop "AsBinary Secret"
-                    (binaryEncodeDecode @(AsBinary Secret))
-                prop "AsBinary Share"
-                    (binaryEncodeDecode @(AsBinary Share))
-                prop "AsBinary EncShare"
-                    (binaryEncodeDecode @(AsBinary EncShare))
-                prop "AsBinary SecretProof"
-                    (binaryEncodeDecode @(AsBinary SecretProof))
-                prop "AsBinary SecretSharingExtra"
-                    (binaryEncodeDecode @(AsBinary SecretSharingExtra))
+                binaryTest @SecretKey
+                binaryTest @PublicKey
+                binaryTest @(Signature ())
+                binaryTest @(ProxyCert Int32)
+                binaryTest @(ProxySecretKey Int32)
+                binaryTest @(ProxySignature Int32 Int32)
+                binaryTest @(Signed Bool)
+                binaryTest @VssPublicKey
+                binaryTest @(AsBinary VssPublicKey)
+                binaryTest @(AsBinary Secret)
+                binaryTest @(AsBinary Share)
+                binaryTest @(AsBinary EncShare)
+                binaryTest @(AsBinary SecretProof)
+                binaryTest @(AsBinary SecretSharingExtra)
             describe "SafeCopy instances" $ do
-                prop "SecretKey" (safeCopyEncodeDecode @SecretKey)
-                prop "PublicKey" (safeCopyEncodeDecode @PublicKey)
-                prop "Signature" (safeCopyEncodeDecode @(Signature ()))
-                prop "Signed"    (safeCopyEncodeDecode @(Signed Bool))
-                prop "AsBinary VssPublicKey"
-                    (safeCopyEncodeDecode @(AsBinary VssPublicKey))
-                prop "AsBinary Secret"
-                    (safeCopyEncodeDecode @(AsBinary Secret))
-                prop "AsBinary Share"
-                    (safeCopyEncodeDecode @(AsBinary Share))
-                prop "AsBinary EncShare"
-                    (safeCopyEncodeDecode @(AsBinary EncShare))
-                prop "AsBinary SecretProof"
-                    (safeCopyEncodeDecode @(AsBinary SecretProof))
-                prop "AsBinary SecretSharingExtra"
-                    (safeCopyEncodeDecode @(AsBinary SecretSharingExtra))
+                safeCopyTest @SecretKey
+                safeCopyTest @PublicKey
+                safeCopyTest @(Signature ())
+                safeCopyTest @(Signed ())
+                safeCopyTest @(ProxyCert Int32)
+                safeCopyTest @(ProxySecretKey Int32)
+                safeCopyTest @(ProxySignature Int32 Int32)
+                safeCopyTest @(Signed Bool)
+                safeCopyTest @(AsBinary VssPublicKey)
+                safeCopyTest @(AsBinary Secret)
+                safeCopyTest @(AsBinary Share)
+                safeCopyTest @(AsBinary EncShare)
+                safeCopyTest @(AsBinary SecretProof)
+                safeCopyTest @(AsBinary SecretSharingExtra)
         describe "AsBinaryClass" $ do
             prop "VssPublicKey <-> AsBinary VssPublicKey"
                 (serDeserId @VssPublicKey)
@@ -132,29 +123,29 @@ spec = describe "Crypto" $ do
         describe "signing" $ do
             prop
                 "signed data can be verified successfully"
-                (signThenVerify @[Int])
+                (signThenVerify @[Int32])
             prop
                 "signed data can't be verified by a different key"
-                (signThenVerifyDifferentKey @[Int])
+                (signThenVerifyDifferentKey @[Int32])
             prop
                 "modified data signature can't be verified"
-                (signThenVerifyDifferentData @[Int])
+                (signThenVerifyDifferentData @[Int32])
         describe "proxy delegate signing" $ do
             prop
                 "signature can be verified successfully"
-                (proxySignVerify @[Int] @(Int,Int))
+                (proxySignVerify @[Int32] @(Int32,Int32))
             prop
                 "signature can't be verified with a different key"
-                (proxySignVerifyDifferentKey @[Int] @(Int,Int))
+                (proxySignVerifyDifferentKey @[Int32] @(Int32,Int32))
             prop
                 "modified data signature can't be verified "
-                (proxySignVerifyDifferentData @[Int] @(Int,Int))
+                (proxySignVerifyDifferentData @[Int32] @(Int32,Int32))
             prop
                 "correct proxy signature schemes pass correctness check"
-                (proxySecretKeyCheckCorrect @(Int,Int))
+                (proxySecretKeyCheckCorrect @(Int32,Int32))
             prop
                 "incorrect proxy signature schemes fails correctness check"
-                (proxySecretKeyCheckIncorrect @(Int,Int))
+                (proxySecretKeyCheckIncorrect @(Int32,Int32))
 
 
 

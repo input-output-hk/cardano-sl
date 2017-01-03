@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
@@ -27,14 +26,11 @@ import           Pos.DHT.Real                  (KademliaDHTContext, getKademliaD
 import           Pos.Genesis                   (genesisSecretKeys)
 import           Pos.Launcher                  (runOurDialog)
 import           Pos.Ssc.Class                 (SscConstraint, sscLoadGlobalState)
-import           Pos.Ssc.Extra                 (SscHolder, SscLDImpl, runSscHolder,
-                                                runSscLDImpl)
-import qualified Pos.State                     as St
+import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolderRaw)
+import           Pos.Txp.Class                 (getTxpLDWrap)
 import qualified Pos.Txp.Holder                as Modern
-import           Pos.Txp.LocalData             (TxLocalData, getTxLocalData,
-                                                setTxLocalData)
 import qualified Pos.Txp.Types.UtxoView        as UV
-import           Pos.WorkMode                  (RawRealMode, TxLDImpl, runTxLDImpl)
+import           Pos.WorkMode                  (RawRealMode)
 
 import           Pos.Wallet.KeyStorage         (addSecretKey)
 import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,
@@ -57,37 +53,29 @@ walletServeWebFull debug = walletServeImpl $ do
 type WebHandler ssc = WalletWebDB (RawRealMode ssc)
 type SubKademlia ssc = (Modern.TxpLDHolder ssc
                         (SscHolder ssc
-                         (TxLDImpl
-                          (SscLDImpl ssc
                            (ContextHolder ssc
                             (Modern.DBHolder ssc
-                             (St.DBHolder ssc
-                              (Dialog DHTPacking (Transfer (MutSocketState ssc))))))))))
+                              (Dialog DHTPacking (Transfer (MutSocketState ssc)))))))
 
 convertHandler
     :: forall ssc a . SscConstraint ssc
     => KademliaDHTContext (SubKademlia ssc)
-    -> TxLocalData
     -> NodeContext ssc
-    -> St.NodeState ssc
     -> Modern.NodeDBs ssc
+    -> Modern.TxpLDWrap ssc
+    -> SscState ssc
     -> WalletState
     -> WebHandler ssc a
     -> Handler a
-convertHandler kctx tld nc ns modernDBs ws handler = do
-    tip <- Modern.runDBHolder modernDBs Modern.getTip
-    initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc tip)
+convertHandler kctx nc modernDBs tlw ssc ws handler = do
     liftIO (runOurDialog newMutSocketState "wallet-api" .
-            St.runDBHolder ns .
             Modern.runDBHolder modernDBs .
             runContextHolder nc .
-            runSscLDImpl .
-            runTxLDImpl .
-            flip runSscHolder initGS .
-            Modern.runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) tip .
+            runSscHolderRaw ssc .
+            Modern.runTxpLDHolderReader tlw .
             runKademliaDHTRaw kctx .
             runWalletWebDB ws $
-            setTxLocalData tld >> handler)
+            handler)
     `Catch.catches`
     excHandlers
   where
@@ -98,8 +86,8 @@ nat :: SscConstraint ssc => WebHandler ssc (WebHandler ssc :~> Handler)
 nat = do
     ws <- getWalletWebState
     kctx <- lift getKademliaDHTCtx
-    tld <- getTxLocalData
+    tlw <- getTxpLDWrap
+    ssc <- lift . lift . lift $ SscHolder ask
     nc <- getNodeContext
-    ns <- St.getNodeState
     modernDB <- Modern.getNodeDBs
-    return $ Nat (convertHandler kctx tld nc ns modernDB ws)
+    return $ Nat (convertHandler kctx nc modernDB tlw ssc ws)

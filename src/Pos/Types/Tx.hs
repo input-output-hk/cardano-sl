@@ -1,7 +1,5 @@
-{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TupleSections       #-}
 
 -- | Transaction related functions.
 
@@ -14,24 +12,24 @@ module Pos.Types.Tx
        , topsortTxs
        ) where
 
-import           Control.Lens        (makeLenses, use, uses, (%=), (.=), (^.))
-import           Data.Bifunctor      (first)
-import qualified Data.HashMap.Strict as HM
-import qualified Data.HashSet        as HS
-import           Data.List           (tail, zipWith3)
-import           Formatting          (build, int, sformat, (%))
-import           Serokell.Util       (VerificationRes, verifyGeneric)
+import           Control.Lens         (makeLenses, use, uses, (%=), (.=), (^.))
+import           Control.Monad.Except (runExceptT)
+import           Data.Bifunctor       (first)
+import qualified Data.HashMap.Strict  as HM
+import qualified Data.HashSet         as HS
+import           Data.List            (tail, zipWith3)
+import           Formatting           (build, int, sformat, (%))
+import           Serokell.Util        (VerificationRes, formatAllErrors,
+                                       verResToMonadError, verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Types    ()
-import           Pos.Crypto          (Hash, WithHash (..), checkSig, hash)
-import           Pos.Script          (Script (..), isKnownScriptVersion, txScriptCheck)
-import           Pos.Types.Address   (addressDetailedF)
-import           Pos.Types.Types     (Address(..), TxDistribution(..), TxOutAux, TxAux, Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
-                                      checkPubKeyAddress, checkScriptAddress,
-                                      coinF)
-import           Pos.Util            (verResToEither)
-
+import           Pos.Binary.Types     ()
+import           Pos.Crypto           (Hash, WithHash (..), checkSig, hash)
+import           Pos.Script           (Script (..), isKnownScriptVersion, txScriptCheck)
+import           Pos.Types.Address    (addressDetailedF)
+import           Pos.Types.Types      (Address (..), Tx (..), TxAux, TxDistribution (..),
+                                       TxIn (..), TxInWitness (..), TxOut (..), TxOutAux,
+                                       checkPubKeyAddress, checkScriptAddress, coinF)
 
 ----------------------------------------------------------------------------
 -- Verification
@@ -98,9 +96,10 @@ verifyTx
     -> m (Either Text [TxOutAux])
 verifyTx verifyAlone gContext inputResolver txs@(Tx {..}, _, _) = do
     extendedInputs <- mapM extendInput txInputs
-    pure $ verResToEither
-        (verifyTxDo verifyAlone gContext extendedInputs txs)
-        (map (vtlTxOut . snd) . catMaybes $ extendedInputs)
+    runExceptT $ do
+        verResToMonadError formatAllErrors $
+            verifyTxDo verifyAlone gContext extendedInputs txs
+        return $ map (vtlTxOut . snd) . catMaybes $ extendedInputs
   where
     extendInput txIn = fmap (txIn, ) <$> inputResolver txIn
 
@@ -170,7 +169,7 @@ verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
             zipWith3 inputPredicates [0..] extendedInputs (toList witnesses)
 
     inputPredicates
-        :: Word                          -- ^ Input index
+        :: Word32                        -- ^ Input index
         -> Maybe (TxIn, VTxLocalContext) -- ^ Input and corresponding output data
         -> TxInWitness
         -> [(Bool, Text)]
@@ -187,7 +186,7 @@ verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
                      "  witness: "%build)
                 i txIn txOut txOutAddress witness
           )
-        , case validateTxIn txIn lContext witness of
+        , case validateTxIn i txIn lContext witness of
               Right _ -> (True, panic "can't happen")
               Left err -> (False, sformat
                   ("input #"%int%" isn't validated by its witness:\n"%
@@ -201,18 +200,20 @@ verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
     checkAddrHash addr PkWitness{..}     = checkPubKeyAddress twKey addr
     checkAddrHash addr ScriptWitness{..} = checkScriptAddress twValidator addr
 
-    validateTxIn TxIn{..} _ PkWitness{..} =
+    validateTxIn _ TxIn{..} _ PkWitness{..} =
         if checkSig twKey (txInHash, txInIndex, txOutHash, distrsHash) twSig
             then Right ()
             else Left "signature check failed"
     -- second argument here is local context, can be used for scripts
-    validateTxIn TxIn{..} lContext ScriptWitness{..}
+    validateTxIn i TxIn{..} lContext ScriptWitness{..}
         | scrVersion twValidator /= scrVersion twRedeemer =
             Left "validator and redeemer have different versions"
         | not (isKnownScriptVersion (scrVersion twValidator)) =
             Right ()
         | False = let hole = hole in hole gContext lContext
-        | otherwise = txScriptCheck twValidator twRedeemer
+        | otherwise =
+              let txSigData = (hash tx, i, hash txOutputs, hash distrs)
+              in txScriptCheck txSigData twValidator twRedeemer
 
 verifyTxPure :: Bool
              -> VTxGlobalContext

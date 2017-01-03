@@ -1,6 +1,4 @@
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | BiP datatype and related instance for time-warp abstracted
 -- serialization.
@@ -12,7 +10,6 @@ module Pos.DHT.Model.Class.BiP
        ) where
 
 import           Control.Monad.Catch               (MonadThrow (..))
-import           Control.Monad.Fail                (fail)
 import           Control.TimeWarp.Rpc.Message      (ContentData (..), Message (..),
                                                     MessageName, NameData (..),
                                                     Packable (..), PackingType (..),

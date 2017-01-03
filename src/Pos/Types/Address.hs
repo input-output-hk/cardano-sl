@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Types.Address
@@ -11,6 +9,8 @@ module Pos.Types.Address
        , makePubKeyAddress
        , makeScriptAddress
        , decodeTextAddress
+
+       , StakeholderId
 
          -- * Internals
        , AddressHash
@@ -39,15 +39,18 @@ import qualified Pos.Binary.Class       as Bi
 import           Pos.Binary.Coin        ()
 import           Pos.Binary.Crypto      ()
 import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey)
-import           Pos.Script             (Script)
+import           Pos.Script.Type        (Script)
 
 -- | Address is where you can send coins.
 data Address
     = PubKeyAddress
           { addrKeyHash :: !(AddressHash PublicKey) }
     | ScriptAddress
-          { addrScriptHash   :: !(AddressHash Script) }
-    deriving (Eq, Ord, Generic)
+          { addrScriptHash :: !(AddressHash Script) }
+    deriving (Eq, Ord, Generic, Typeable)
+
+-- | Stakeholder identifier (stakeholders are identified by their public keys)
+type StakeholderId = AddressHash PublicKey
 
 instance Bi Address => Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.encode

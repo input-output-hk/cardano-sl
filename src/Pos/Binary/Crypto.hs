@@ -1,17 +1,11 @@
 {-# LANGUAGE CPP                   #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE StandaloneDeriving    #-}
-{-# LANGUAGE TypeApplications      #-}
 
 -- | Serializable instances for Pos.Crypto.*
 
 module Pos.Binary.Crypto () where
 
-import           Control.Monad.Fail       (fail)
 import           Crypto.Hash              (digestFromByteString, hashDigestSize)
 import qualified Crypto.PVSS              as Pvss
 import qualified Crypto.Sign.Ed25519      as Ed25519
@@ -36,7 +30,7 @@ import           Pos.Crypto.Signing       (ProxyCert (..), ProxySecretKey (..),
 import           Pos.Util                 (AsBinary (..), getCopyBinary, putCopyBinary)
 
 instance Bi a => Bi (WithHash a) where
-    put = put. whData
+    put = put . whData
     get = withHash <$> get
 
 instance Bi a => SafeCopy (WithHash a) where

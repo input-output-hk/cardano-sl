@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveFoldable  #-}
-{-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE NamedFieldPuns  #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
@@ -11,7 +10,6 @@ module Pos.Merkle
        ( MerkleRoot(..)
        , MerkleTree (..)
        , mtRoot
-       , mtSize
        , mkMerkleTree
 
        , MerkleNode (..)
@@ -22,6 +20,7 @@ module Pos.Merkle
 import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Lazy as BL (toStrict)
 import           Data.Coerce          (coerce)
+import qualified Data.Foldable        as Foldable
 import           Data.SafeCopy        (base, deriveSafeCopySimple)
 import           Prelude              (Show (..))
 import           Universum            hiding (show)
@@ -35,7 +34,7 @@ import           Pos.Util             (Raw)
 -- | Data type for root of merkle tree.
 newtype MerkleRoot a = MerkleRoot
     { getMerkleRoot :: Hash Raw  -- ^ returns root 'Hash' of Merkle Tree
-    } deriving (Show, Eq, Ord, Generic, ByteArrayAccess)
+    } deriving (Show, Eq, Ord, Generic, ByteArrayAccess, Typeable)
 
 -- This gives a “redundant constraint” warning due to
 -- https://github.com/acid-state/safecopy/issues/46.
@@ -113,12 +112,6 @@ mtRoot (MerkleTree _ x) = mRoot x
 
 emptyHash :: MerkleRoot a
 emptyHash = MerkleRoot (hashRaw mempty)
-
--- | Returns size of given merkle tree. You can also use 'length',
--- it's O(1) too.
-mtSize :: MerkleTree a -> Word32
-mtSize MerkleEmpty      = 0
-mtSize (MerkleTree s _) = s
 
 -- | Return the largest power of two such that it's smaller than X.
 --

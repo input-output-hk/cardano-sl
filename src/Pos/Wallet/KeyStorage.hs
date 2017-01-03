@@ -1,11 +1,5 @@
-{-# LANGUAGE DefaultSignatures     #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE StandaloneDeriving    #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE UndecidableInstances  #-}
-{-# LANGUAGE ViewPatterns          #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Wallet.KeyStorage
        ( MonadKeys (..)
@@ -42,14 +36,11 @@ import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots)
-import           Pos.Ssc.Extra               (SscHolder (..), SscLDImpl (..))
-import qualified Pos.State                   as St
+import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Holder              (TxpLDHolder (..))
-import           Pos.Txp.LocalData           (MonadTxLD)
 import           Pos.Util                    ()
 import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,
                                               writeUserSecret)
-import           Pos.WorkMode                (TxLDImpl (..))
 
 import           Pos.Wallet.Context          (WithWalletContext)
 import           Pos.Wallet.State.State      (MonadWalletDB)
@@ -65,13 +56,13 @@ class Monad m => MonadKeys m where
     addSecretKey :: SecretKey -> m ()
     deleteSecretKey :: Word -> m ()
 
-    default getSecretKeys :: MonadTrans t => t m [SecretKey]
+    default getSecretKeys :: (MonadTrans t, MonadKeys m', t m' ~ m) => m [SecretKey]
     getSecretKeys = lift getSecretKeys
 
-    default addSecretKey :: MonadTrans t => SecretKey -> t m ()
+    default addSecretKey :: (MonadTrans t, MonadKeys m', t m' ~ m) => SecretKey -> m ()
     addSecretKey = lift . addSecretKey
 
-    default deleteSecretKey :: MonadTrans t => Word -> t m ()
+    default deleteSecretKey :: (MonadTrans t, MonadKeys m', t m' ~ m) => Word -> m ()
     deleteSecretKey = lift . deleteSecretKey
 
 -- | Instances for common transformers
@@ -92,10 +83,14 @@ newSecretKey = do
 -- Common functions
 ------------------------------------------------------------------------
 
-getSecret :: (MonadIO m, MonadReader KeyData m) => m UserSecret
+getSecret
+    :: (MonadIO m, MonadReader KeyData m)
+    => m UserSecret
 getSecret = ask >>= atomically . STM.readTVar
 
-putSecret :: (MonadIO m, MonadReader KeyData m) => UserSecret -> m ()
+putSecret
+    :: (MonadIO m, MonadFail m, MonadReader KeyData m)
+    => UserSecret -> m ()
 putSecret s = ask >>= atomically . flip STM.writeTVar s >> writeUserSecret s
 
 deleteAt :: Int -> [a] -> [a]
@@ -108,11 +103,11 @@ deleteAt j ls = let (l, r) = splitAt j ls in l ++ drop 1 r
 newtype KeyStorage m a = KeyStorage
     { getKeyStorage :: ReaderT KeyData m a
     } deriving (Functor, Applicative, Monad, MonadTimed,
-                MonadThrow, MonadSlots, MonadCatch, MonadIO,
+                MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, MonadDialog s p, CanLog, MonadMask, MonadDHT,
                 MonadMessageDHT s, MonadReader KeyData, WithDefaultMsgHeader,
-                MonadWalletDB, WithWalletContext, MonadTxLD, WithNodeContext ssc,
-                St.MonadDB ssc, Modern.MonadDB ssc)
+                MonadWalletDB, WithWalletContext, WithNodeContext ssc,
+                Modern.MonadDB ssc)
 
 type instance ThreadId (KeyStorage m) = ThreadId m
 
@@ -125,7 +120,7 @@ instance MonadTransfer s m => MonadTransfer s (KeyStorage m)
 instance MonadTrans KeyStorage where
     lift = KeyStorage . lift
 
-instance MonadIO m => MonadState UserSecret (KeyStorage m) where
+instance (MonadIO m, MonadFail m) => MonadState UserSecret (KeyStorage m) where
     get = KeyStorage getSecret
     put = KeyStorage . putSecret
 
@@ -149,7 +144,7 @@ runKeyStorage fp ks =
 runKeyStorageRaw :: KeyStorage m a -> KeyData -> m a
 runKeyStorageRaw = runReaderT . getKeyStorage
 
-instance MonadIO m => MonadKeys (KeyStorage m) where
+instance (MonadIO m, MonadFail m) => MonadKeys (KeyStorage m) where
     getSecretKeys = use usKeys
     addSecretKey sk = usKeys <>= [sk]
     deleteSecretKey (fromIntegral -> i) = usKeys %= deleteAt i
@@ -171,11 +166,13 @@ instance Monad m => MonadReader KeyData (ContextHolder ssc m) where
     ask = ncUserSecret <$> getNodeContext
     local f = ContextHolder . local (usLens %~ f) . getContextHolder
 
-instance MonadIO m => MonadState UserSecret (ContextHolder ssc m) where
+instance (MonadIO m, MonadFail m) =>
+         MonadState UserSecret (ContextHolder ssc m) where
     get = getSecret
     put = putSecret
 
-instance (MonadIO m, MonadThrow m) => MonadKeys (ContextHolder ssc m) where
+instance (MonadIO m, MonadFail m, MonadThrow m) =>
+         MonadKeys (ContextHolder ssc m) where
     getSecretKeys = use usKeys
     addSecretKey sk = usKeys <>= [sk]
     deleteSecretKey (fromIntegral -> i)
@@ -183,7 +180,5 @@ instance (MonadIO m, MonadThrow m) => MonadKeys (ContextHolder ssc m) where
         | otherwise = usKeys %= deleteAt i
 
 -- | Derived instances for ancestors in monad stack
-deriving instance MonadKeys m => MonadKeys (SscLDImpl ssc m)
-deriving instance MonadKeys m => MonadKeys (TxLDImpl m)
 deriving instance MonadKeys m => MonadKeys (SscHolder ssc m)
 deriving instance MonadKeys m => MonadKeys (TxpLDHolder ssc m)

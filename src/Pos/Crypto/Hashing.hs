@@ -1,12 +1,7 @@
-{-# LANGUAGE BangPatterns          #-}
-{-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE BangPatterns         #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Hashing capabilities.
 
@@ -58,7 +53,7 @@ import           Pos.Util            (Raw, getCopyBinary, putCopyBinary)
 data WithHash a = WithHash
     { whData :: a
     , whHash :: Hash a
-    } deriving (Show)
+    } deriving (Show, Typeable)
 
 instance Hashable (WithHash a) where
     hashWithSalt s = hashWithSalt s . whHash

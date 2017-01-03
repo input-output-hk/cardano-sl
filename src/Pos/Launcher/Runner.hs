@@ -1,10 +1,7 @@
-{-# LANGUAGE AllowAmbiguousTypes   #-}
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Runners in various modes.
 
@@ -33,21 +30,17 @@ import           Control.Concurrent.MVar      (newEmptyMVar, newMVar, takeMVar,
                                                tryReadMVar)
 import           Control.Concurrent.STM.TVar  (newTVar)
 import           Control.Lens                 (each, to, (%~), (^..), (^?), _head, _tail)
-import           Control.Monad                (fail)
 import           Control.Monad.Catch          (bracket)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
-import           Control.Monad.Trans.Resource (allocate, runResourceT)
+import           Control.Monad.Trans.Resource (runResourceT)
 import           Control.TimeWarp.Rpc         (Dialog, Transfer, commLoggerName,
-                                               runDialog, runTransfer)
+                                               runDialog, runTransfer, setForkStrategy)
 import           Control.TimeWarp.Timed       (MonadTimed, currentTime, fork, killThread,
                                                repeatForever, runTimedIO, runTimedIO, sec)
 
 import           Data.List                    (nub)
 import qualified Data.Time                    as Time
 import           Formatting                   (build, sformat, shown, (%))
-import           System.Directory             (doesDirectoryExist,
-                                               removeDirectoryRecursive)
-import           System.FilePath              ((</>))
 import           System.Wlog                  (LoggerName (..), WithLogger, logDebug,
                                                logInfo, logWarning, releaseAllHandlers,
                                                traverseLoggerConfig, usingLoggerName)
@@ -56,8 +49,9 @@ import           Universum
 import           Pos.Binary                   ()
 import           Pos.CLI                      (readLoggerConfig)
 import           Pos.Communication            (MutSocketState, SysStartRequest (..),
-                                               allListeners, newMutSocketState,
-                                               noCacheMessageNames, sysStartReqListener,
+                                               allListeners, forkStrategy,
+                                               newMutSocketState, noCacheMessageNames,
+                                               sysStartReqListener,
                                                sysStartReqListenerSlave,
                                                sysStartRespListener)
 import           Pos.Constants                (RunningMode (..), defaultPeers,
@@ -79,10 +73,7 @@ import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (.
                                                NodeParams (..))
 import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
                                                sscCreateNodeContext, sscLoadGlobalState)
-import           Pos.Ssc.Extra                (runSscHolder, runSscLDImpl)
-import           Pos.State                    (NodeState, closeState, openMemState,
-                                               openState, runDBHolder)
-import           Pos.State.Storage            (storageFromUtxo)
+import           Pos.Ssc.Extra                (runSscHolder)
 import           Pos.Statistics               (getNoStatsT, runStatsT)
 import           Pos.Txp.Holder               (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView       as UV
@@ -91,8 +82,7 @@ import           Pos.Util                     (runWithRandomIntervals)
 import           Pos.Util.UserSecret          (peekUserSecret, usKeys, writeUserSecret)
 import           Pos.Worker                   (statsWorkers)
 import           Pos.WorkMode                 (MinWorkMode, ProductionMode, RawRealMode,
-                                               ServiceMode, StatsMode, TimedMode,
-                                               runTxLDImpl)
+                                               ServiceMode, StatsMode, TimedMode)
 
 ----------------------------------------------------------------------------
 -- Service node runners
@@ -154,44 +144,27 @@ runRawRealMode
     -> [ListenerDHT (MutSocketState ssc) (RawRealMode ssc)]
     -> RawRealMode ssc c
     -> IO c
-runRawRealMode inst np@NodeParams {..} sscnp listeners action = runResourceT $ do
-    putText $ "Running listeners number: " <> show (length listeners)
-    lift $ setupLoggers lp
-    legacyDB <- snd <$> allocate openDb closeDb
-    modernDBs <- Modern.openNodeDBs (npDbPathM </> "zhogovo") npCustomUtxo
-    initTip <- Modern.runDBHolder modernDBs Modern.getTip
-    initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
-    initNC <- sscCreateNodeContext @ssc sscnp
-    let run db =
-            runOurDialog newMutSocketState lpRunnerTag .
-            runDBHolder db .
-            Modern.runDBHolder modernDBs .
-            runCH np initNC .
-            runSscLDImpl .
-            runTxLDImpl .
-            flip runSscHolder initGS .
-            runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip .
-            runKDHT inst npBaseParams listeners $
-            nodeStartMsg npBaseParams >> action
-    lift $ run legacyDB
+runRawRealMode inst np@NodeParams {..} sscnp listeners action =
+    runResourceT $
+    do putText $ "Running listeners number: " <> show (length listeners)
+       lift $ setupLoggers lp
+       modernDBs <- Modern.openNodeDBs npRebuildDb npDbPathM npCustomUtxo
+       initTip <- Modern.runDBHolder modernDBs Modern.getTip
+       initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
+       initNC <- sscCreateNodeContext @ssc sscnp
+       let actionWithMsg = nodeStartMsg npBaseParams >> action
+       let kademliazedAction = runKDHT inst npBaseParams listeners actionWithMsg
+       let finalAction = setForkStrategy (forkStrategy @ssc) kademliazedAction
+       let run =
+               runOurDialog newMutSocketState lpRunnerTag .
+               Modern.runDBHolder modernDBs .
+               runCH np initNC .
+               flip runSscHolder initGS .
+               runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip $
+               finalAction
+       lift run
   where
     lp@LoggingParams {..} = bpLoggingParams npBaseParams
-    mStorage = Just $ storageFromUtxo npCustomUtxo
-    openDb :: IO (NodeState ssc)
-    openDb = do
-        -- we rebuild DB manually, because we need to remove
-        -- everything in npDbPath
-        let rebuild fp =
-                whenM ((npRebuildDb &&) <$> doesDirectoryExist fp) $
-                removeDirectoryRecursive fp
-        whenJust npDbPath rebuild
-        runOurDialog newMutSocketState lpRunnerTag $
-            maybe
-                (openMemState mStorage)
-                (openState mStorage False)
-                ((</> "main") <$> npDbPath)
-    closeDb :: NodeState ssc -> IO ()
-    closeDb = closeState
 
 -- | ProductionMode runner.
 runProductionMode
@@ -260,7 +233,7 @@ runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
       , kdcDHTInstance = dhtInstance
       }
 
-runCH :: Modern.MonadDB ssc m
+runCH :: (Modern.MonadDB ssc m, MonadFail m)
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH NodeParams {..} sscNodeContext act = do
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
@@ -292,7 +265,7 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncSecretKey = primarySecretKey
             , ncTimeLord = npTimeLord
             , ncJLFile = jlFile
-            , ncDbPath = npDbPath
+            , ncDbPath = npDbPathM
             , ncProxyCaches = proxyCaches
             , ncSscContext = sscNodeContext
             , ncAttackTypes = npAttackTypes

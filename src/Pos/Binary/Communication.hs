@@ -2,17 +2,16 @@
 
 module Pos.Binary.Communication () where
 
+import           Data.Binary.Get         (getInt32be, label)
+import           Data.Binary.Put         (putInt32be)
 import           Universum
 
 import           Pos.Binary.Class        (Bi (..))
 import           Pos.Communication.Types (CheckProxySKConfirmed (..),
                                           CheckProxySKConfirmedRes (..),
-                                          ConfirmProxySK (..), RequestBlock (..),
-                                          RequestBlockchainPart (..),
-                                          SendBlockHeader (..), SendBlockchainPart (..),
-                                          SendProxySK (..), SysStartRequest (..),
-                                          SysStartResponse (..))
-import           Pos.Ssc.Class.Types     (Ssc (..))
+                                          ConfirmProxySK (..), SendProxySK (..),
+                                          SysStartRequest (..), SysStartResponse (..),
+                                          VersionReq (..), VersionResp (..))
 import           Pos.Types               ()
 
 instance Bi SysStartRequest where
@@ -22,25 +21,6 @@ instance Bi SysStartRequest where
 instance Bi SysStartResponse where
     put (SysStartResponse t msid) = put t >> put msid
     get = SysStartResponse <$> get <*> get
-
-instance Ssc ssc => Bi (SendBlockHeader ssc) where
-    put (SendBlockHeader b) = put b
-    get = SendBlockHeader <$> get
-
-instance Ssc ssc => Bi (SendBlockchainPart ssc) where
-    put (SendBlockchainPart b) = put b
-    get = SendBlockchainPart <$> get
-
-instance Bi (RequestBlock ssc) where
-    put (RequestBlock b) = put b
-    get = RequestBlock <$> get
-
-instance Bi (RequestBlockchainPart ssc) where
-    put RequestBlockchainPart{..} = do
-        put rbFromBlock
-        put rbUntilBlock
-        put rbCount
-    get = RequestBlockchainPart <$> get <*> get <*> get
 
 instance Bi SendProxySK where
     put (SendProxySK pSk) = put pSk
@@ -57,3 +37,12 @@ instance Bi CheckProxySKConfirmed where
 instance Bi CheckProxySKConfirmedRes where
     put (CheckProxySKConfirmedRes res) = put res
     get = CheckProxySKConfirmedRes <$> get
+
+instance Bi VersionReq where
+    put VersionReq = pass
+    get = pure VersionReq
+
+instance Bi VersionResp where
+    put VersionResp{..} =  putInt32be vRespMagic
+                        *> put vRespProtocolVersion
+    get = label "GenericBlockHeader" $ VersionResp <$> getInt32be <*> get

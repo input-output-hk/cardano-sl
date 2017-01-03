@@ -8,14 +8,13 @@ module NodeOptions
        , getNodeOptions
        ) where
 
-#ifdef WITH_WALLET
-import           Options.Applicative.Simple (showDefault)
-#endif
+import           Data.Version               (showVersion)
 import           Options.Applicative.Simple (Parser, auto, help, long, metavar, option,
                                              simpleOptions, strOption, switch, value)
 import           Serokell.Util.OptParse     (fromParsec)
 import           Universum
 
+import           Paths_cardano_sl           (version)
 import qualified Pos.CLI                    as CLI
 import           Pos.DHT.Model              (DHTKey)
 import           Pos.Security.Types         (AttackTarget, AttackType)
@@ -34,7 +33,6 @@ data Args = Args
     , timeLord                  :: !Bool
     , enableStats               :: !Bool
     , jlPath                    :: !(Maybe FilePath)
-    , memoryMode                :: !Bool
     , maliciousEmulationAttacks :: ![AttackType]
     , maliciousEmulationTargets :: ![AttackTarget]
 #ifdef WITH_WEB
@@ -90,9 +88,6 @@ argsParser =
     CLI.timeLordOption <*>
     switch (long "stats" <> help "Enable stats logging") <*>
     CLI.optionalJSONPath <*>
-    switch
-        (long "memory-mode" <>
-         help "Run DB in memory mode") <*>
     many
         (option (fromParsec CLI.attackTypeParser) $
          long "attack" <> metavar "NoBlocks|NoCommitments"
@@ -134,5 +129,10 @@ argsParser =
 getNodeOptions :: IO Args
 getNodeOptions = do
     (res, ()) <-
-        simpleOptions "cardano-node" "PoS prototype node" "Use it!" argsParser empty
+        simpleOptions
+            ("cardano-node-" <> showVersion version)
+            "CardanoSL node"
+            "CardanoSL main server node."
+            argsParser
+            empty
     return res

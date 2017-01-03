@@ -1,7 +1,3 @@
-{-# LANGUAGE DeriveGeneric        #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -19,16 +15,21 @@ module Pos.Types.Arbitrary
 
 import           Control.Lens               (set, view, _3, _4)
 import qualified Data.ByteString            as BS (pack)
+import           Data.Char                  (chr)
 import           Data.DeriveTH              (derive, makeArbitrary, makeNFData)
+import           Data.Text                  (pack)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
-                                             NonZero (..), choose, elements, oneof, scale,
+                                             NonZero (..), choose, elements, oneof,
                                              vector)
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
-import           Pos.Binary.Class           (Bi)
+import           Pos.Binary.Class           (FixedSizeInt (..), SignedVarInt (..),
+                                             UnsignedVarInt (..))
+import           Pos.Binary.Types           ()
+import           Pos.Binary.Update          ()
 import           Pos.Constants              (epochSlots, sharedSeedLength)
 import           Pos.Crypto                 (PublicKey, SecretKey, Share, hash, sign,
                                              toPublic)
@@ -44,21 +45,15 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              LocalSlotIndex (..), SharedSeed (..),
                                              SlotId (..), Tx (..), TxDistribution (..),
                                              TxIn (..), TxInWitness (..), TxOut (..),
-                                             makePubKeyAddress, makeScriptAddress)
-import           Pos.Util                   (AsBinary)
-
-makeSmall :: Gen a -> Gen a
-makeSmall = scale f
-  where
-    f 0 = 0
-    f 1 = 1
-    f 2 = 2
-    f 3 = 3
-    f 4 = 3
-    f n
-      | n < 0 = n
-      | otherwise =
-          (round . (sqrt :: Double -> Double) . realToFrac . (`div` 3)) n
+                                             TxOutAux, makePubKeyAddress,
+                                             makeScriptAddress)
+import           Pos.Types.Update           (SystemTag, UpdateData (..),
+                                             UpdateProposal (..), UpdateVote (..),
+                                             mkSystemTag)
+import           Pos.Types.Version          (ApplicationName (..), ProtocolVersion (..),
+                                             SoftwareVersion (..),
+                                             applicationNameMaxLength)
+import           Pos.Util                   (AsBinary, makeSmall)
 
 ----------------------------------------------------------------------------
 -- Arbitrary core types
@@ -94,23 +89,20 @@ deriving instance Random LocalSlotIndex
 instance Arbitrary LocalSlotIndex where
     arbitrary = choose (0, epochSlots - 1)
 
-instance (Bi TxOut, Bi Tx, Bi TxDistribution) => Arbitrary TxInWitness where
+instance Arbitrary TxInWitness where
     arbitrary = oneof [
         PkWitness <$> arbitrary <*> arbitrary,
         -- this can generate a redeemer script where a validator script is
         -- needed and vice-versa, but it doesn't matter
         ScriptWitness <$> arbitrary <*> arbitrary ]
 
-instance Bi Tx => Arbitrary TxIn where
-    arbitrary = do
-        txId <- arbitrary
-        txIdx <- arbitrary
-        return (TxIn txId txIdx)
+derive makeArbitrary ''TxDistribution
+derive makeArbitrary ''TxIn
 
 -- | Arbitrary transactions generated from this instance will only be valid
 -- with regards to 'verifyTxAlone'
 
-instance Bi Tx => Arbitrary Tx where
+instance Arbitrary Tx where
     arbitrary = do
         txIns <- getNonEmpty <$> arbitrary
         txOuts <- getNonEmpty <$> arbitrary
@@ -133,11 +125,10 @@ instance Bi Tx => Arbitrary Tx where
 -- signatures in the transaction's inputs have been replaced with a bogus one.
 
 buildProperTx
-    :: (Bi Tx, Bi TxOut, Bi TxDistribution)
-    => [(Tx, SecretKey, SecretKey, Coin)]
+    :: [(Tx, SecretKey, SecretKey, Coin)]
     -> (Coin -> Coin, Coin -> Coin)
-    -> Gen [(Tx, TxIn, TxOut, TxInWitness)]
-buildProperTx triplesList (inCoin, outCoin)= do
+    -> Gen [((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)]
+buildProperTx triplesList (inCoin, outCoin) = do
         let fun (Tx txIn txOut _, fromSk, toSk, c) =
                 let inC = inCoin c
                     outC = outCoin c
@@ -147,76 +138,92 @@ buildProperTx triplesList (inCoin, outCoin)= do
             txList = fmap fun triplesList
             txOutsHash = hash $ fmap (view _3) txList
             distrHash = hash (TxDistribution (replicate (length txList) []))
+            makeNullDistribution tx =
+                TxDistribution (replicate (length (txOutputs tx)) [])
             newTx (tx, fromSk, txOutput) =
                 let txHash = hash tx
                     txIn = TxIn txHash 0
                     witness = PkWitness {
                         twKey = toPublic fromSk,
                         twSig = sign fromSk (txHash, 0, txOutsHash, distrHash) }
-                in (tx, txIn, txOutput, witness)
+                in ((tx, makeNullDistribution tx),
+                    txIn, (txOutput, []), witness)
             makeTxOutput s c = TxOut (makePubKeyAddress $ toPublic s) c
             goodTx = fmap newTx txList
         return goodTx
 
 -- | Well-formed transaction 'Tx'.
 newtype GoodTx = GoodTx
-    { getGoodTx :: [(Tx, TxIn, TxOut, TxInWitness)]
+    { getGoodTx :: [((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)]
     } deriving (Show)
 
 newtype SmallGoodTx =
     SmallGoodTx GoodTx
     deriving Show
 
-instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary GoodTx where
+instance Arbitrary GoodTx where
     arbitrary = GoodTx <$> do
         txsList <- getNonEmpty <$>
             (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
         buildProperTx txsList (identity, identity)
 
-instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary SmallGoodTx where
+instance Arbitrary SmallGoodTx where
     arbitrary = SmallGoodTx <$> makeSmall arbitrary
 
 -- | Ill-formed 'Tx' with overflow.
 newtype OverflowTx = OverflowTx
-    { getOverflowTx :: [(Tx, TxIn, TxOut, TxInWitness)]
+    { getOverflowTx :: [((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)]
     } deriving (Show)
 
 newtype SmallOverflowTx =
     SmallOverflowTx OverflowTx
     deriving Show
 
-instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary OverflowTx where
+instance Arbitrary OverflowTx where
     arbitrary = OverflowTx <$> do
         txsList <- getNonEmpty <$>
             (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
         let halfBound = maxBound `div` 2
         buildProperTx txsList ((halfBound +), (halfBound -))
 
-instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary SmallOverflowTx where
+instance Arbitrary SmallOverflowTx where
     arbitrary = SmallOverflowTx <$> makeSmall arbitrary
 
 -- | Ill-formed 'Tx' with bad signatures.
 newtype BadSigsTx = BadSigsTx
-    { getBadSigsTx :: [(Tx, TxIn, TxOut, TxInWitness)]
+    { getBadSigsTx :: [((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)]
     } deriving (Show)
 
 newtype SmallBadSigsTx =
     SmallBadSigsTx BadSigsTx
     deriving Show
 
-instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary BadSigsTx where
+instance Arbitrary BadSigsTx where
     arbitrary = BadSigsTx <$> do
         goodTxList <- getGoodTx <$> arbitrary
         badSig <- arbitrary
         return $ map (set _4 badSig) goodTxList
 
-instance (Bi Tx, Bi TxOut, Bi TxDistribution) => Arbitrary SmallBadSigsTx where
+instance Arbitrary SmallBadSigsTx where
     arbitrary = SmallBadSigsTx <$> makeSmall arbitrary
 
 instance Arbitrary SharedSeed where
     arbitrary = do
         bs <- vector sharedSeedLength
         return $ SharedSeed $ BS.pack bs
+
+----------------------------------------------------------------------------
+-- Arbitrary types from MainExtra[header/body]data
+----------------------------------------------------------------------------
+
+instance Arbitrary ApplicationName where
+    arbitrary = ApplicationName  .
+        pack                     .
+        map (chr . flip mod 128) .
+        take applicationNameMaxLength <$> arbitrary
+
+derive makeArbitrary ''ProtocolVersion
+derive makeArbitrary ''SoftwareVersion
 
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types
@@ -235,3 +242,22 @@ instance Arbitrary SmallHashMap where
     arbitrary = SmallHashMap <$> makeSmall arbitrary
 
 derive makeNFData ''GoodTx
+
+derive makeArbitrary ''UnsignedVarInt
+derive makeArbitrary ''SignedVarInt
+derive makeArbitrary ''FixedSizeInt
+
+----------------------------------------------------------------------------
+-- Update
+----------------------------------------------------------------------------
+
+instance Arbitrary SystemTag where
+    arbitrary =
+        oneof $
+        map (pure . fromMaybe onFail) [mkSystemTag "win64", mkSystemTag "mac32"]
+      where
+        onFail = panic "instance Arbitrary SystemTag: disaster"
+
+derive makeArbitrary ''UpdateVote
+derive makeArbitrary ''UpdateData
+derive makeArbitrary ''UpdateProposal

@@ -14,7 +14,6 @@ module Pos.DB.Block
 
        , deleteBlock
        , putBlock
-       , loadLastNBlocksWithUndo
        , loadBlocksWithUndoWhile
        , loadHeadersWhile
 
@@ -23,8 +22,6 @@ module Pos.DB.Block
 
 import           Control.Lens        ((^.))
 import           Data.ByteArray      (convert)
-import           Data.List.NonEmpty  (NonEmpty (..), (<|))
-import qualified Data.List.NonEmpty  as NE
 import           Formatting          (sformat, (%))
 import           Universum
 
@@ -106,19 +103,6 @@ putBlock undo inMainChain blk = do
 deleteBlock :: (MonadDB ssc m) => HeaderHash ssc -> m ()
 deleteBlock = delete . blockKey
 
--- | Load last @count@ blocks and corresponding undos.
--- Start from block with header hash equals @hash@.
--- The head of returned list is the youngest block.
-loadLastNBlocksWithUndo :: (Ssc ssc, MonadDB ssc m)
-                        => HeaderHash ssc -> Word -> m (NonEmpty (Block ssc, Undo))
-loadLastNBlocksWithUndo _    0 = panic "Number of blocks must be nonzero"
-loadLastNBlocksWithUndo hash count = NE.reverse <$> doIt hash count
-  where
-    doIt h 1 = (:| []) <$> getBlockWithUndo h
-    doIt h n = do
-        bu@(b, _) <- getBlockWithUndo h
-        (bu<|) <$> doIt (b ^. prevBlockL) (n - 1)
-
 getBlockWithUndo :: (Ssc ssc, MonadDB ssc m)
                  => HeaderHash ssc -> m (Block ssc, Undo)
 getBlockWithUndo hash =
@@ -132,7 +116,7 @@ getBlockWithUndo hash =
 -- The head of returned list is the youngest block.
 loadBlocksWithUndoWhile :: (Ssc ssc, MonadDB ssc m)
                         => HeaderHash ssc -> (Block ssc -> Int -> Bool) -> m [(Block ssc, Undo)]
-loadBlocksWithUndoWhile hash predicate = reverse <$> doIt 0 hash
+loadBlocksWithUndoWhile hash predicate = doIt 0 hash
   where
     doIt depth h = do
         bu@(b, _) <- getBlockWithUndo h
@@ -150,7 +134,7 @@ loadHeadersWhile
     => HeaderHash ssc
     -> (BlockHeader ssc -> Int -> Bool)
     -> m [BlockHeader ssc]
-loadHeadersWhile startHHash cond = reverse <$> loadHeadersWhileDo startHHash 0
+loadHeadersWhile startHHash cond = loadHeadersWhileDo startHHash 0
   where
     errFmt =
         ("loadHeadersWhile: no header parent with such HeaderHash: " %shortHashF)

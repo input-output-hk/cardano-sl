@@ -196,7 +196,7 @@ getHeadersFromManyTo checkpoints startM = do
     let startFrom = fromMaybe tip startM
         neq = (/=) `on` getEpochOrSlot
         whileCond bh _ = all (neq bh) validCheckpoints
-    headers <- loadHeadersWhile startFrom whileCond
+    headers <- reverse <$> loadHeadersWhile startFrom whileCond
     -- In case we didn't reach the very-first block we take one more
     -- because "until" predicate will stop us before we get
     -- checkpoint block and we do want to return it as well
@@ -215,7 +215,7 @@ getHeadersOlderExp upto = do
     tip <- DB.getTip
     let upToReal = fromMaybe tip upto
         whileCond _ depth = depth <= k
-    allHeaders <- loadHeadersWhile upToReal whileCond
+    allHeaders <- reverse <$> loadHeadersWhile upToReal whileCond
     pure $ selectIndices (takeHashes allHeaders) twoPowers
   where
     -- Given list of headers newest first, maps it to their hashes

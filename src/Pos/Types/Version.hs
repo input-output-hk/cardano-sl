@@ -12,7 +12,6 @@ module Pos.Types.Version
 import           Data.Char           (isAscii)
 import           Data.SafeCopy       (base, deriveSafeCopySimple)
 import qualified Data.Text           as T
-import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, shown, stext, (%))
 import           Prelude             (show)

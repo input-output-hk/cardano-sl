@@ -109,6 +109,19 @@ Daedalus.ClientApi.send('IdFrom', 'IdTo', 80)()
 ```
 
 
+_history_
+
+```javascript
+// XXX - wallet id
+Daedalus.ClientApi.getHistory('XXX')()
+  .then(function(value) {
+    console.log('SUCCESS', value);
+  }, function(reason) {
+    console.log(reason);
+  })
+```
+
+
 ## Run tests
 
 First, make sure that you have all dependencies installed. Run (only once):

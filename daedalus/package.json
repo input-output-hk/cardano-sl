@@ -5,7 +5,7 @@
   "main": "output/Daedalus.ClientApi/index.js",
   "scripts": {
     "start": "npm run build:dev",
-    "postinstall": "bower cache clean && bower install && npm run build",
+    "postinstall": "bower cache clean && bower install",
     "clean": "rimraf dist && rimraf output",
     "build:prod": "npm run clean && mkdir dist && NODE_ENV=prod ./node_modules/.bin/webpack --config webpack.config.js --progress",
     "build:dev": "rimraf output && NODE_ENV=dev ./node_modules/.bin/webpack-dev-server --hot --config webpack.config.js --progress",

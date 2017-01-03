@@ -34,7 +34,7 @@ instance Buildable ProtocolVersion where
 
 newtype ApplicationName = ApplicationName
     { getApplicationName :: Text
-    } deriving (Eq, Ord, Show, Generic, Typeable)
+    } deriving (Eq, Ord, Show, Generic, Typeable, ToString)
 
 applicationNameMaxLength :: Integral i => i
 applicationNameMaxLength = 10
@@ -62,7 +62,7 @@ instance Buildable SoftwareVersion where
 
 instance Show SoftwareVersion where
     show SoftwareVersion {..} = mconcat
-        [ T.unpack $ getApplicationName svAppName
+        [ toString svAppName
         , ":"
         , show svMajor
         , "."

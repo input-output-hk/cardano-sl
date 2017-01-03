@@ -34,10 +34,6 @@ packages:
     git: https://github.com/domenkozar/hs-ed25519.git
     commit: 96e5db162d88482bc0e120dc61cadd45c168c275
   extra-dep: true
-- location:
-    git: https://github.com/serokell/time-warp.git
-    commit: aa6e7eb3dec909a0c416e5f19039c0d026f31d69
-  extra-dep: true
 
 nix:
   shell-file: shell.nix
@@ -55,7 +51,7 @@ extra-deps:
 - serokell-util-0.1.3.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-# - time-warp-1.1.1.0
+- time-warp-1.1.1.1
 
 resolver: lts-7.9
 

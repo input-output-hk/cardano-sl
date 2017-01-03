@@ -6,7 +6,7 @@ module Pos.Ssc.GodTossing.VssCertData
        , insert
        , delete
        , lookup
-       , lookupEpoch
+       , lookupExpiryEpoch
        , setLastKnownSlot
        , keys
        , member
@@ -55,8 +55,8 @@ lookup :: AhPk -> VssCertData -> Maybe VssCertificate
 lookup ahpk VssCertData{..} = HM.lookup ahpk certs
 
 -- | Lookup expiry epoch of certificate corresponding to the specified address hash.
-lookupEpoch :: AhPk -> VssCertData -> Maybe EpochIndex
-lookupEpoch ahpk mp = expiryEpoch <$> lookup ahpk mp
+lookupExpiryEpoch :: AhPk -> VssCertData -> Maybe EpochIndex
+lookupExpiryEpoch ahpk mp = expiryEpoch <$> lookup ahpk mp
 
 -- | Delete certificate corresponding to the specified address hash.
 delete :: AhPk -> VssCertData -> VssCertData

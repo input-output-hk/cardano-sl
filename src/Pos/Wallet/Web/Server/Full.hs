@@ -8,9 +8,11 @@ module Pos.Wallet.Web.Server.Full
        ( walletServeWebFull
        ) where
 
+import           Control.Concurrent.STM        (TVar)
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
-import           Control.TimeWarp.Rpc          (Dialog, Transfer)
+import           Control.TimeWarp.Rpc          (ConnectionPool, Dialog, Transfer,
+                                                getConnPool)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import           System.Wlog                   (logInfo)
@@ -24,7 +26,7 @@ import           Pos.DHT.Model                 (DHTPacking)
 import           Pos.DHT.Real                  (KademliaDHTContext, getKademliaDHTCtx,
                                                 runKademliaDHTRaw)
 import           Pos.Genesis                   (genesisSecretKeys)
-import           Pos.Launcher                  (runOurDialog)
+import           Pos.Launcher                  (runOurDialogRaw)
 import           Pos.Ssc.Class                 (SscConstraint, sscLoadGlobalState)
 import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolderRaw)
 import           Pos.Txp.Class                 (getTxpLDWrap)
@@ -57,9 +59,12 @@ type SubKademlia ssc = (Modern.TxpLDHolder ssc
                             (Modern.DBHolder ssc
                               (Dialog DHTPacking (Transfer (MutSocketState ssc)))))))
 
+type CPool ssc = TVar (ConnectionPool (MutSocketState ssc))
+
 convertHandler
     :: forall ssc a . SscConstraint ssc
     => KademliaDHTContext (SubKademlia ssc)
+    -> CPool ssc
     -> NodeContext ssc
     -> Modern.NodeDBs ssc
     -> Modern.TxpLDWrap ssc
@@ -67,8 +72,8 @@ convertHandler
     -> WalletState
     -> WebHandler ssc a
     -> Handler a
-convertHandler kctx nc modernDBs tlw ssc ws handler = do
-    liftIO (runOurDialog newMutSocketState "wallet-api" .
+convertHandler kctx cp nc modernDBs tlw ssc ws handler = do
+    liftIO (runOurDialogRaw cp newMutSocketState "wallet-api" .
             Modern.runDBHolder modernDBs .
             runContextHolder nc .
             runSscHolderRaw ssc .
@@ -90,4 +95,5 @@ nat = do
     ssc <- lift . lift . lift $ SscHolder ask
     nc <- getNodeContext
     modernDB <- Modern.getNodeDBs
-    return $ Nat (convertHandler kctx nc modernDB tlw ssc ws)
+    cp <- lift . lift . lift . lift . lift . lift . lift $ getConnPool
+    return $ Nat (convertHandler kctx cp nc modernDB tlw ssc ws)

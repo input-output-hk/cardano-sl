@@ -6,21 +6,20 @@ const Daedalus = require ('../../dist/Daedalus');
 
 describe('ClientApi', () => {
 
+  let xhr;
+  let requests;
+
+  beforeEach(() => {
+    requests = [];
+    xhr = sinon.useFakeXMLHttpRequest();
+    xhr.onCreate = (req) => requests.push(req);
+  })
+
+  afterEach(() => xhr.restore())
+
   describe('getWallets', () => {
-    let xhr;
-    let requests;
 
-    beforeEach(() => {
-      requests = [];
-      xhr = sinon.useFakeXMLHttpRequest();
-      xhr.onCreate = (req) => requests.push(req);
-    })
-
-    afterEach(() => {
-      xhr.restore();
-    })
-
-    it('resolves with list of wallets', (done) => {
+    it('returns a list of wallets', (done) => {
       const data = [
         { cwAddress: "XXX",
           cwAmount: {
@@ -45,13 +44,10 @@ describe('ClientApi', () => {
 
       Daedalus.ClientApi.getWallets()
         .then( (result) => {
-          assert.equal(result.length, 2, 'includes wallets');
-          assert.equal(result[0].cwAddress, 'XXX', 'has cwAddress field');
+          assert.deepEqual(result, data, 'list of wallet data objects');
           done();
-        }, (error) => {
-          done(error);
-        })
-        .catch((err) => { console.log('catch: ', err.message); });
+        }, (error) => done(error))
+        .catch(done);
 
       requests[0].respond(200,
         { "Content-Type": "application/json" },
@@ -63,13 +59,12 @@ describe('ClientApi', () => {
       const data = [{ anyOther: "XXX"}];
 
       Daedalus.ClientApi.getWallets()
-        .then( (result) => {
-          done();
-        }, (error) => {
-          assert.include(error.message, 'JSONDecodingError', 'includes JSONDecodingError error message');
-          done();
+        .then( (result) => done(),
+          (error) => {
+            assert.include(error.message, 'JSONDecodingError', 'includes JSONDecodingError error message');
+            done();
         })
-        .catch((err) => { console.log('catch: ', err.message); });
+        .catch(done);
 
       requests[0].respond(200,
         {"Content-Type": "application/json"},
@@ -77,4 +72,53 @@ describe('ClientApi', () => {
       );
     })
   })
+
+  describe('getWallet', () => {
+
+    it('returns a wallet', (done) => {
+      const walletId = 'XXX';
+      const data = {
+        cwAddress: walletId,
+          cwAmount: {
+            getCoin: 33333
+          },
+          cwMeta: {
+            cwType: "CWTPersonal",
+            cwCurrency: "ADA",
+            "cwName":""
+          }
+        };
+
+      Daedalus.ClientApi.getWallet(walletId)()
+        .then( (result) => {
+          assert.deepEqual(result, data, 'wallet data object');
+          done();
+        }, (error) => done(error))
+        .catch(done);
+
+      requests[0]
+        .respond(200,
+          { "Content-Type": "application/json" },
+          JSON.stringify(data)
+      );
+    })
+
+    it('rejects with JSONDecodingError', (done) => {
+      const data = {};
+
+      Daedalus.ClientApi.getWallet('123')()
+        .then( (result) => done(),
+          (error) => {
+            assert.include(error.message, 'JSONDecodingError', 'includes JSONDecodingError error message');
+            done();
+        })
+        .catch(done);
+
+      requests[0].respond(200,
+        {"Content-Type": "application/json"},
+        JSON.stringify(data)
+      );
+    })
+  })
+
 })

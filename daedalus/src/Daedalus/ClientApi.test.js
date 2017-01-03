@@ -17,7 +17,7 @@ describe('ClientApi', () => {
 
   afterEach(() => xhr.restore())
 
-  describe('getWallets', () => {
+  describe('getWallets()', () => {
 
     it('returns a list of wallets', (done) => {
       const data = [
@@ -73,7 +73,7 @@ describe('ClientApi', () => {
     })
   })
 
-  describe('getWallet', () => {
+  describe('getWallet()', () => {
 
     it('returns a wallet', (done) => {
       const walletId = 'XXX';
@@ -121,7 +121,7 @@ describe('ClientApi', () => {
     })
   })
 
-  describe('newWallet', () => {
+  describe('newWallet()', () => {
 
     it('returns a new wallet', (done) => {
       const data = {
@@ -169,4 +169,43 @@ describe('ClientApi', () => {
 
   })
 
+  describe('deleteWallet()', () => {
+
+    it('returns empty object', (done) => {
+      const response = [];
+
+      Daedalus.ClientApi.deleteWallet('123')()
+        .then( (result) => {
+          assert.deepEqual(result, {}, '"unit" as a return value');
+          done();
+        }, (error) => done(error))
+        .catch(done);
+
+      requests[0]
+        .respond(200,
+          { "Content-Type": "application/json" },
+          JSON.stringify(response)
+      );
+    })
+
+    it('returns a HTTPStatusError if server returns "400"', (done) => {
+      const response = [];
+
+      Daedalus.ClientApi.deleteWallet('not-exist')()
+        .then( (result) => done(),
+          (error) => {
+            assert.include(error.message, 'HTTPStatusError',
+            'includes HTTPStatusError error message');
+            done();
+        })
+        .catch(done);
+
+      requests[0]
+        .respond(400,
+          { "Content-Type": "application/json" },
+          JSON.stringify(response)
+      );
+    })
+
+  })
 })

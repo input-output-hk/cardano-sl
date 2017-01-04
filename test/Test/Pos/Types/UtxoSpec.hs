@@ -34,7 +34,7 @@ spec = describe "Types.Utxo" $ do
         prop description_applyTxToUtxoGood applyTxToUtxoGood
   where
     myTx = (TxIn myHash 0)
-    myHash = unsafeHash (0 :: Int)
+    myHash = unsafeHash (0 :: Int64)
     description_findTxInUtxo =
         "correctly finds the TxOut corresponding to (txHash, txIndex) when the key is in\
         \ the Utxo map, and doesn't find it otherwise"

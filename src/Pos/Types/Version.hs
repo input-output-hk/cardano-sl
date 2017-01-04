@@ -12,7 +12,6 @@ module Pos.Types.Version
 import           Data.Char           (isAscii)
 import           Data.SafeCopy       (base, deriveSafeCopySimple)
 import qualified Data.Text           as T
-import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, shown, stext, (%))
 import           Prelude             (show)
@@ -34,7 +33,7 @@ instance Buildable ProtocolVersion where
 
 newtype ApplicationName = ApplicationName
     { getApplicationName :: Text
-    } deriving (Eq, Ord, Show, Generic, Typeable)
+    } deriving (Eq, Ord, Show, Generic, Typeable, ToString)
 
 applicationNameMaxLength :: Integral i => i
 applicationNameMaxLength = 10
@@ -62,7 +61,7 @@ instance Buildable SoftwareVersion where
 
 instance Show SoftwareVersion where
     show SoftwareVersion {..} = mconcat
-        [ T.unpack $ getApplicationName svAppName
+        [ toString svAppName
         , ":"
         , show svMajor
         , "."

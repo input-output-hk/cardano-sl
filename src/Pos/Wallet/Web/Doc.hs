@@ -8,10 +8,8 @@ module Pos.Wallet.Web.Doc
        ) where
 
 import           Control.Lens               ((.~), (<>~))
-import           Data.Default               (def)
 import qualified Data.HashMap.Strict        as HM
 import           Data.List                  ((!!))
-import qualified Data.Map                   as M
 import           Data.Proxy                 (Proxy (..))
 import           Network.HTTP.Types.Method  (methodPost)
 import           Servant.API                (Capture)
@@ -25,9 +23,8 @@ import qualified Servant.Docs               as SD
 import           Universum
 
 import           Pos.Aeson.ClientTypes      ()
-import           Pos.Data.Attributes        (mkAttributes)
-import           Pos.Genesis                (genesisAddresses, genesisUtxo)
-import           Pos.Types                  (Coin)
+import           Pos.Genesis                (genesisAddresses)
+import           Pos.Types                  (Coin, mkCoin)
 import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CTx, CTxId,
                                              CTxMeta, CWallet, CWalletMeta,
@@ -131,7 +128,7 @@ instance ToCapture (Capture "currency" CCurrency) where
         }
 
 instance ToSample Coin where
-    toSamples Proxy = singleSample 100500
+    toSamples Proxy = singleSample (mkCoin 100500)
 
 -- instance ToSample Address where
 --     toSamples Proxy = singleSample $ genesisAddresses !! 0

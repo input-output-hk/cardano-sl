@@ -99,6 +99,5 @@ runSscHolder holder glob = SscState
                        <*> liftIO (STM.newTVarIO def)
                        >>= runReaderT (getSscHolder holder)
 
-runSscHolderRaw :: SscLocalDataClass ssc =>
-                   SscState ssc -> SscHolder ssc m a -> m a
+runSscHolderRaw :: SscState ssc -> SscHolder ssc m a -> m a
 runSscHolderRaw st holder = runReaderT (getSscHolder holder) st

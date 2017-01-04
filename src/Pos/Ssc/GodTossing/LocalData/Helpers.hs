@@ -18,6 +18,7 @@ import           Pos.Ssc.GodTossing.Types           (CommitmentsMap, GtGlobalSta
                                                      SscGodTossing, VssCertificatesMap,
                                                      _gsCommitments, _gsOpenings,
                                                      _gsShares, _gsVssCertificates)
+import qualified Pos.Ssc.GodTossing.VssCertData     as VCD
 import           Pos.Types                          (SlotId)
 
 -- | This wrapper using for pass local and global state to
@@ -36,7 +37,7 @@ data GtState = GtState
       _gtGlobalShares       :: !SharesMap
     , -- | VSS certificates stored in blocks (for all time, not just for
       -- current epoch)
-      _gtGlobalCertificates :: !VssCertificatesMap
+      _gtGlobalCertificates :: !VCD.VssCertData
       -- | Local set of 'Commitment's. These are valid commitments which are
       -- known to the node and not stored in blockchain. It is useful only
       -- for the first 'k' slots, after that it should be discarded.

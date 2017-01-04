@@ -257,6 +257,7 @@ applyWithoutRollback blocks = do
             logInfo $ blocksAppliedMsg @ssc blunds
             relayBlock $ fst $ NE.last blunds
 
+-- | Head of @toRollback@ - the youngest block.
 applyWithRollback
     :: forall ssc m.
        (ResponseMode ssc m)
@@ -269,7 +270,7 @@ applyWithRollback toApply lca toRollback = do
     withBlkSemaphore_ applyWithRollbackDo
     logDebug "Finished applying blocks w/ rollback"
   where
-    newestToRollback = toRollback ^. _neHead . _1 . prevBlockL
+    newestToRollback = toRollback ^. _neHead . _1 . headerHashG
     newTip = toApply ^. _neLast . headerHashG
     panicBrokenLca = panic "applyWithRollback: nothing after LCA :/"
     toApplyAfterLca =

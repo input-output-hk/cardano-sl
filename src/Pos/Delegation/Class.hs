@@ -12,6 +12,7 @@ module Pos.Delegation.Class
        , MonadDelegation (..)
        , DelegationT (..)
        , runDelegationT
+       , runDelegationTFromTVar
        ) where
 
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
@@ -120,6 +121,11 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DelegationT m) where
     liftBaseWith     = defaultLiftBaseWith
     restoreM         = defaultRestoreM
 
+-- | Executes delegationT transformer creating tvar from given wrap.
 runDelegationT :: MonadIO m => DelegationWrap -> DelegationT m a -> m a
 runDelegationT wrap action =
     liftIO (newTVarIO wrap) >>= runReaderT (getDelegationT action)
+
+-- | Executes delegation wrap using existing delegation wrap tvar.
+runDelegationTFromTVar :: Monad m => (TVar DelegationWrap) -> DelegationT m a -> m a
+runDelegationTFromTVar var action = runReaderT (getDelegationT action) var

@@ -57,7 +57,7 @@ import           Pos.Communication            (MutSocketState, SysStartRequest (
 import           Pos.Constants                (RunningMode (..), defaultPeers,
                                                isDevelopment, runningMode)
 import           Pos.Context                  (ContextHolder (..), NodeContext (..),
-                                               defaultProxyCaches, runContextHolder)
+                                               runContextHolder)
 import           Pos.Crypto                   (createProxySecretKey, toPublic)
 import qualified Pos.DB                       as Modern
 import           Pos.DB.Misc                  (addProxySecretKey)
@@ -160,7 +160,8 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action =
                Modern.runDBHolder modernDBs .
                runCH np initNC .
                flip runSscHolder initGS .
-               runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip $
+               runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip .
+               runDelegationT def $
                finalAction
        lift run
   where
@@ -240,7 +241,6 @@ runCH NodeParams {..} sscNodeContext act = do
     semaphore <- liftIO newEmptyMVar
     sscRichmen <- liftIO newEmptyMVar
     sscLeaders <- liftIO newEmptyMVar
-    proxyCaches <- liftIO $ newMVar defaultProxyCaches
     userSecret <- peekUserSecret npKeyfilePath
 
     -- Get primary secret key
@@ -266,7 +266,6 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncTimeLord = npTimeLord
             , ncJLFile = jlFile
             , ncDbPath = npDbPathM
-            , ncProxyCaches = proxyCaches
             , ncSscContext = sscNodeContext
             , ncAttackTypes = npAttackTypes
             , ncAttackTargets = npAttackTargets

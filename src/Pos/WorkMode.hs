@@ -32,6 +32,7 @@ import           Pos.Communication.Types.State (MutSocketState)
 import           Pos.Context                   (ContextHolder, WithNodeContext)
 import qualified Pos.DB.Class                  as Modern
 import qualified Pos.DB.Holder                 as Modern
+import           Pos.Delegation.Class          (DelegationT (..), MonadDelegation)
 import           Pos.DHT.Model                 (DHTPacking, MonadMessageDHT (..),
                                                 WithDefaultMsgHeader)
 import           Pos.DHT.Real                  (KademliaDHT (..))
@@ -58,6 +59,7 @@ type WorkMode ssc m
       , MonadSlots m
       , Modern.MonadDB ssc m
       , MonadTxpLD ssc m
+      , MonadDelegation m
       , MonadUtxo m
       , MonadSscGS ssc m
       , SscStorageClass ssc
@@ -96,13 +98,14 @@ instance MonadJL m => MonadJL (KademliaDHT m) where
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
 type RawRealMode ssc =
     KademliaDHT (
+    DelegationT (
     TxpLDHolder ssc (
     SscHolder ssc (
     ContextHolder ssc (
     Modern.DBHolder ssc (
     Dialog DHTPacking (
     Transfer (
-    MSockSt ssc)))))))
+    MSockSt ssc))))))))
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.

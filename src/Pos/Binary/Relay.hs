@@ -24,13 +24,14 @@ instance (Bi tag, Bi key) => Bi (ReqMsg key tag) where
     put ReqMsg {..} = put rmTag >> put rmKeys
     get = liftM2 ReqMsg get get
 
+-- Sometimes we want another instances to exist
+--instance (Bi tag, Bi contents) => Bi (DataMsg key contents) where
+--    put DataMsg {..} = put dmContents >> put dmKey
+--    get = liftM2 DataMsg get get
+
 instance Bi (DataMsg StakeholderId GtMsgContents) where
     put DataMsg {..} = put dmContents >> put dmKey
     get = liftM2 DataMsg get get
-
-instance Bi TxMsgTag where
-    put TxMsgTag = pure ()
-    get = pure TxMsgTag
 
 instance Bi (DataMsg TxId TxMsgContents) where
     put (DataMsg (TxMsgContents dmTx dmWitness dmDistr) _) =

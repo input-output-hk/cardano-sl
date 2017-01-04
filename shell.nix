@@ -1,7 +1,7 @@
-with import (fetchTarball https://github.com/NixOS/nixpkgs/archive/e18dac705ad36482880e23d0a89c60c3514cb446.tar.gz) { };
+with import (fetchTarball https://github.com/NixOS/nixpkgs/archive/8b451398ef7d0a5f4ecd1f5e2593fa1348e80727.tar.gz) { };
 
 let
-  hsPkgs = haskell.packages.ghc801;
+  hsPkgs = haskell.packages.ghc802;
 in
   haskell.lib.buildStackProject {
      name = "cardano-sl";
